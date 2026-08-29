@@ -21,8 +21,10 @@ still hold if an attacker bypasses it and compromises the complete userspace.
 
 WebAssembly, the browser engine, the page and worker JavaScript, and the
 implementations of every imported function are trusted. Browser-engine bugs,
-XSS, compromised application JavaScript, and bugs in a browser-facing terminal
-renderer are outside this model.
+XSS, and compromised application JavaScript are outside this model. Ghostty,
+the font rasterizer, and terminal state now run inside the assumed-compromised
+userspace; trusted presentation code is only the bounded RGBA blitter and
+browser event capture.
 
 ## Capability closure
 
@@ -32,7 +34,7 @@ authority of the imports supplied when `dist/dolly.wasm` is instantiated.
 
 The build records the complete generated import allowlist in
 `config/browser-imports.json` and rejects name drift. Most current imports are
-Emscripten loader, clock, entropy, bootstrap, memory-growth, and output-device
+Emscripten loader, clock, entropy, bootstrap, memory-growth, and progress-output
 mechanics. Their trusted implementations must remain incapable of opening a
 host filesystem, starting a native process, evaluating agent-controlled
 JavaScript, or performing an agent-selected network request.
@@ -69,17 +71,21 @@ literally the only information crossing the Wasm boundary:
 
 | Channel | Direction | Security meaning |
 | --- | --- | --- |
-| Terminal input mailbox | browser to Wasm | Explicit user input |
-| Terminal output callbacks | Wasm to browser | Explicit, user-visible output; the terminal renderer is trusted |
+| Display input mailbox | browser to Wasm | Explicit raw key/text/resize/focus input; interpretation occurs in Wasm |
+| Shared RGBA framebuffer | Wasm to browser | Explicit, user-visible pixels; the browser validates bounds and only blits |
+| Bootstrap text callback | Wasm to browser | Source-build progress before the resident renderer exists; ignored for normal terminal output after activation |
 | HTTP dispatch and mailbox | both | Autonomous external communication and the principal confidentiality/integrity boundary |
 | Clocks, timezone, entropy, startup environment | browser to Wasm | Inputs, not network egress |
 | Preloaded immutable assets | browser to Wasm | Startup input selected by the application, not by the agent |
 | Dynamic Wasm loader | WasmFS to browser loader | Code instantiation; it must not turn an agent-controlled path into a network fetch |
 | Exit, abort, memory growth, CPU use | Wasm to browser runtime | Availability effects, not data egress |
 
-Terminal output can reveal data to the local user and can attack a buggy
-terminal parser. Under the trusted-renderer assumption it is an intentional,
-visible UI channel rather than autonomous remote exfiltration.
+Display pixels and bootstrap progress can reveal data to the local user. They
+are intentional, visible UI channels rather than autonomous remote
+exfiltration. VT parsing and glyph rasterization are not privileged: corruption
+there can draw arbitrary pixels or corrupt the disposable sandbox, but the
+browser presenter does not interpret cells, escape sequences, links, image
+URLs, clipboard requests, or DOM commands.
 
 The worker creates the shared `WebAssembly.Memory`, and trusted page JavaScript
 can inspect it. Dolly protects the browser host from agent code; it does not try
@@ -137,14 +143,17 @@ properties:
    provider enters the runtime import closure.
 3. Loader and preload helpers cannot resolve an agent-controlled path through
    the network or host filesystem.
-4. JavaScript-backed WasmFS hooks remain limited to explicit output devices;
-   the root remains the in-Wasm memory backend.
+4. The root remains the in-Wasm memory backend. The bootstrap text sink cannot
+   perform network, filesystem, DOM-selection, or code-evaluation actions, and
+   normal terminal output switches to the in-Wasm renderer after activation.
 5. Native process and raw-socket operations fail without reaching a host
    fallback; `system`, `popen`, `fork`, `exec`, and `socket` are representative
    checks.
 6. The browser owns and enforces HTTP policy even after total Wasm compromise.
 7. New browser imports are reviewed as capabilities, not accepted merely to
    make a port compile.
+8. Frame index, dimensions, stride, and byte ranges are checked before every
+   blit; input records remain fixed-size and bounded.
 
 Under those assumptions, arbitrary corruption inside Dolly changes ephemeral
 sandbox state but cannot acquire new authority. The browser capability boundary,

@@ -201,12 +201,14 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
     "_main",
   ]);
   const contract = await readWasmInterface(contractPath);
+  const displayContract = await readWasmInterface(artifact("dolly-display-0.wasm"));
 
   for (const entry of contract.imports) {
     if (!moduleInfrastructure.has(entry.name) && !loaderBackedFunctions.has(entry.name)) {
       expected.add(`_${entry.name}`);
     }
   }
+  for (const entry of displayContract.exports) expected.add(`_${entry.name}`);
 
   assert.deepEqual(actual, [...expected].sort());
 });
@@ -220,7 +222,7 @@ test("the runtime exposes the typed slop shell boundary", async () => {
   const bootstrap = runtime.exports.find((entry) => entry.name === "dolly_bootstrap");
   const run = runtime.exports.find((entry) => entry.name === "dolly_shell_run");
   const mailbox = runtime.exports.find(
-    (entry) => entry.name === "dolly_terminal_mailbox_address",
+    (entry) => entry.name === "dolly_display_mailbox_address",
   );
 
   assert.equal(formatWasmType(bootstrap.type), "func()->(i32)");
@@ -230,8 +232,8 @@ test("the runtime exposes the typed slop shell boundary", async () => {
   assert.equal(runtime.exports.some((entry) => entry.name === "dolly_shell_submit"), false);
 });
 
-test("the runtime implements the canonical terminal mailbox contract", async () => {
-  const contract = await readWasmInterface(artifact("dolly-terminal-0.wasm"));
+test("the runtime implements the canonical framebuffer and input contract", async () => {
+  const contract = await readWasmInterface(artifact("dolly-display-0.wasm"));
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
 
   for (const required of contract.imports) {
@@ -291,21 +293,23 @@ test("the loader is browser-only and has no native filesystem path", async () =>
   }
 });
 
-test("the frontend connects ghostty-web to a worker and an in-Wasm terminal mailbox", async () => {
+test("the frontend only blits sandbox RGBA and forwards bounded input events", async () => {
   const frontend = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
   const page = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
-  const ghostty = await readFile(artifact("ghostty-web.js"));
 
-  assert.match(frontend, /from "\.\.\/dist\/ghostty-web\.js"/);
-  assert.match(frontend, /terminal\.onData\(handleTerminalData\)/);
+  assert.doesNotMatch(frontend, /ghostty-web|terminal\.write|onData/);
   assert.match(frontend, /new Worker\(new URL\("\.\/runtime-worker\.mjs"/);
   assert.match(frontend, /Atomics\.waitAsync/);
   assert.match(
     frontend,
     /for \(;;\) \{\s*const current = Atomics\.load\(this\.words, index\);\s*if \(current === 1\) return;\s*const waiting = Atomics\.waitAsync/s,
   );
-  assert.match(frontend, /transport\?\.push\(data\)/);
+  assert.match(frontend, /class FramebufferPresenter/);
+  assert.match(frontend, /putImageData\(new ImageData/);
+  assert.match(frontend, /pushKey\(event\)/);
+  assert.match(frontend, /pushRecord/);
+  assert.match(frontend, /eventSize !== 128/);
   assert.doesNotMatch(frontend, /dolly_shell_submit|ccall\(/);
   assert.match(worker, /shared: true/);
   assert.match(worker, /_dolly_bootstrap\(\)/);
@@ -313,19 +317,20 @@ test("the frontend connects ghostty-web to a worker and an in-Wasm terminal mail
   assert.match(worker, /installOutputDevice\(dolly, "\/dev\/dolly-stdout", 1\)/);
   assert.match(worker, /installOutputDevice\(dolly, "\/dev\/dolly-stderr", 2\)/);
   assert.match(worker, /FS\.registerDevice/);
-  assert.match(frontend, /event\.key !== "F11"/);
+  assert.match(worker, /_dolly_terminal_write_bytes\(BigInt\(address\), BigInt\(length\)\)/);
+  assert.match(worker, /_dolly_display_framebuffer_address\(0\)/);
   assert.match(frontend, /requestFullscreen\(\{ navigationUI: "hide" \}\)/);
   assert.match(frontend, /fullscreenchange/);
-  assert.match(frontend, /window\.addEventListener\("keydown", zoomTerminal/);
-  assert.match(frontend, /terminal\.options\.fontSize = fontSize/);
-  assert.match(frontend, /Dolly IosevkaTerm SemiBold/);
-  assert.match(frontend, /convertEol: true/);
-  assert.match(frontend, /const accent = "#f2d45c"/);
+  assert.match(frontend, /window\.addEventListener\("keydown", handleKeyboardEvent/);
+  assert.doesNotMatch(frontend, /fontSize\s*[+\-]=|terminal\.options/);
+  assert.doesNotMatch(frontend, /CanvasRenderingContext2D.*fillText|\.fillText\(/);
   assert.doesNotMatch(frontend, /\x1b\[31m|\x1b\[33m\$\{text\}/);
   assert.match(page, /IosevkaTerm-SemiBold\.woff2/);
+  assert.match(page, /<canvas id="display"/);
+  assert.match(page, /<textarea id="keyboard"/);
+  assert.match(page, /id="bootstrap-log"/);
   assert.match(page, /caret-color: transparent/);
   assert.doesNotMatch(page, /<header|<footer|id="status"/);
-  assert.ok(ghostty.length > 500_000, "ghostty-web browser bundle was not packaged");
 });
 
 test("boot commands are source inputs, not prebuilt command assets", async () => {
@@ -565,6 +570,8 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(pins, /DOLLY_WAMR_COMMIT=[0-9a-f]{40}/);
   assert.match(pins, /DOLLY_GHOSTTY_COMMIT=[0-9a-f]{40}/);
   assert.match(pins, /DOLLY_UUCODE_SHA256=[0-9a-f]{64}/);
+  assert.match(pins, /DOLLY_IOSEVKA_TTF_SHA256=[0-9a-f]{64}/);
+  assert.match(pins, /DOLLY_STB_TRUETYPE_SHA256=[0-9a-f]{64}/);
 
   assert.match(startup, /make -f \/usr\/src\/dolly\/startup\.mk zig/);
   assert.match(startup, /\/usr\/libexec\/dolly\/zig-check/);
@@ -575,6 +582,7 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(makefile, /\/tmp\/ghostty\/ghostty-vt\.c:[\s\S]*?zig \$\(GHOSTTY_ZIG_FLAGS\)/);
   assert.match(makefile, /\/usr\/lib\/libghostty-vt\.a:[\s\S]*?\$\(AR\) rcs/);
   assert.match(makefile, /\/usr\/bin\/ghostty-vt:[\s\S]*?\$\(CC\).*?-lghostty-vt/);
+  assert.match(makefile, /\/usr\/libexec\/dolly\/display\.wasm:[\s\S]*?\$\(CC\).*?-lghostty-vt/);
   assert.match(runner, /#include "wasi\.c"/);
   assert.match(runner, /wasm_runtime_register_natives_raw/);
   assert.match(runner, /DOLLY_ZIG1_WASM_PATH "\/usr\/src\/zig\/stage1\/zig1\.wasm"/);

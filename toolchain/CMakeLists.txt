@@ -46,6 +46,12 @@ endif()
 if(NOT DOLLY_UUCODE_DIR OR NOT EXISTS "${DOLLY_UUCODE_DIR}/src/root.zig")
   message(FATAL_ERROR "DOLLY_UUCODE_DIR must name the pinned uucode source tree")
 endif()
+if(NOT DOLLY_STB_HEADER OR NOT EXISTS "${DOLLY_STB_HEADER}")
+  message(FATAL_ERROR "DOLLY_STB_HEADER must name pinned stb_truetype.h")
+endif()
+if(NOT DOLLY_IOSEVKA_TTF OR NOT EXISTS "${DOLLY_IOSEVKA_TTF}")
+  message(FATAL_ERROR "DOLLY_IOSEVKA_TTF must name pinned IosevkaTerm SemiBold TTF")
+endif()
 if(NOT DOLLY_LUA_WASM OR NOT EXISTS "${DOLLY_LUA_WASM}")
   message(FATAL_ERROR "DOLLY_LUA_WASM must name the compiled Lua bootstrap module")
 endif()
@@ -109,6 +115,7 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file /src/.cache/llvm-wasm/lib/clang/24/include@/usr/lib/clang/24/include"
   "SHELL:--preload-file /src/include/dolly/abi.h@/usr/include/dolly/abi.h"
   "SHELL:--preload-file /src/include/dolly/http.h@/usr/include/dolly/http.h"
+  "SHELL:--preload-file /src/include/dolly/display.h@/usr/include/dolly/display.h"
   "SHELL:--preload-file /src/include/dolly/runtime.h@/usr/include/dolly/runtime.h"
   "SHELL:--preload-file /src/include/dolly/toolchain.h@/usr/include/dolly/toolchain.h"
   "SHELL:--preload-file /src/src/slop.c@/usr/src/dolly/slop.c"
@@ -241,6 +248,9 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file ${DOLLY_UUCODE_DIR}/LICENSE.md@/usr/share/licenses/uucode/LICENSE.md"
   "SHELL:--preload-file /src/src/ghostty/generated@/usr/src/ghostty/generated"
   "SHELL:--preload-file /src/src/ghostty/check.c@/usr/src/dolly/ghostty/check.c"
+  "SHELL:--preload-file /src/src/ghostty/display.c@/usr/src/dolly/ghostty/display.c"
+  "SHELL:--preload-file ${DOLLY_STB_HEADER}@/usr/include/stb_truetype.h"
+  "SHELL:--preload-file ${DOLLY_IOSEVKA_TTF}@/usr/share/fonts/IosevkaTerm-SemiBold.ttf"
   "SHELL:--preload-file /src/src/program-cpp.cpp@/usr/src/dolly/cpp-check.cpp"
   "SHELL:--preload-file /src/src/program-demo.c@/usr/src/dolly/demo.c"
   "SHELL:--preload-file ${DOLLY_LUA_WASM}@/usr/bin/lua"
@@ -248,6 +258,18 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file /src/build/program-reader.wasm@/usr/libexec/dolly/reader"
   "SHELL:--preload-file /src/build/program-inspector.wasm@/usr/libexec/dolly/inspector"
 )
+
+# Development-only acceleration. A generated-C checkpoint still goes through
+# Dolly's in-sandbox C compiler and linker; normal builds omit it and exercise
+# Zig-from-source. It is never exposed as a browser filesystem capability.
+if(DOLLY_GHOSTTY_C_CHECKPOINT)
+  if(NOT EXISTS "${DOLLY_GHOSTTY_C_CHECKPOINT}")
+    message(FATAL_ERROR "DOLLY_GHOSTTY_C_CHECKPOINT does not exist")
+  endif()
+  target_link_options(dolly PRIVATE
+    "SHELL:--preload-file ${DOLLY_GHOSTTY_C_CHECKPOINT}@/tmp/ghostty/ghostty-vt.c"
+  )
+endif()
 
 set_target_properties(dolly PROPERTIES
   OUTPUT_NAME dolly

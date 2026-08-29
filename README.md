@@ -12,10 +12,13 @@ confidentiality and external-integrity boundary. See
 [`docs/security.md`](docs/security.md) for the threat model, trusted computing
 base, current limitations, and required invariants.
 
-The browser now opens directly into an extremely small `slop` shell rendered by
-`ghostty-web`. Ghostty owns VT rendering and keyboard events. Raw terminal bytes
-enter a versioned atomic mailbox in Dolly's shared Wasm memory; the shell does
-canonical line editing inside Wasm. Parsing, cwd, environment, descriptors,
+The browser now opens directly into an extremely small `slop` shell rendered
+inside Dolly. After the source build, a filesystem-resident display module
+links Ghostty's VT engine with a software IosevkaTerm SemiBold rasterizer and
+publishes double-buffered RGBA frames in shared Wasm memory. The browser only
+performs a bounded canvas blit and forwards raw key, text/IME, focus, and resize
+records. Ghostty mode-aware key encoding, VT parsing, terminal state, glyph
+rasterization, canonical line editing, cwd, environment, descriptors,
 filesystem operations, process bookkeeping, and command execution all live in
 the runtime. Slop is itself compiled from source to `/bin/slop`; the main
 runtime does not contain a second hidden command interpreter.
@@ -124,9 +127,13 @@ first compiles pinned WAMR interpreter sources into a private executable, then
 uses it to run Zig's source-provided `zig1.wasm` with filesystem calls bound to
 the outer WasmFS. `/usr/bin/zig` translates the pinned Ghostty/uucode source
 graph to C; Dolly's normal compiler and archive writer produce
-`/usr/lib/libghostty-vt.a` and `/usr/bin/ghostty-vt`. The cold-browser proof
-feeds VT bytes into the public Ghostty C API and inspects the resulting cells.
-No host Zig or precompiled Ghostty artifact is used. See
+`/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and the resident
+`/usr/libexec/dolly/display.wasm`. The display module loads a pinned Iosevka TTF
+through WasmFS, accepts bounded browser event records, encodes keys with
+Ghostty, and rasterizes Ghostty cells into two bounded RGBA framebuffers. The
+cold-browser proof checks pixels, raw keyboard correction, sandbox-side zoom,
+fullscreen resizing, and an interactive Lua REPL. No host Zig or precompiled
+Ghostty artifact is used. See
 [`docs/zig-ghostty.md`](docs/zig-ghostty.md).
 
 Filesystem-loaded commands share one entry ABI:
@@ -155,8 +162,8 @@ then derives Emscripten's required `build/runtime-exports.json` build input from
 it. JSON is not an ABI source. See [`abi/README.md`](abi/README.md) for the
 contract rules.
 
-The terminal boundary is encoded in
-[`abi/dolly-terminal-0.wat`](abi/dolly-terminal-0.wat). The complete generated
+The display/input boundary is encoded in
+[`abi/dolly-display-0.wat`](abi/dolly-display-0.wat). The complete generated
 Emscripten browser boundary is separately categorized in
 `config/browser-imports.json` and enforced by tests.
 
@@ -203,6 +210,16 @@ npm test
 npm run abi
 npm run serve
 ```
+
+For repeated renderer work, a development build may reuse a previously
+generated Ghostty C file while still compiling and linking it inside Dolly:
+
+```sh
+DOLLY_GHOSTTY_C_CHECKPOINT=build/ghostty-vt-wasm3.c npm run build
+```
+
+This is only a packaging checkpoint. Normal builds omit it and prove the full
+Zig-from-source path; the checkpoint grants no browser or host capability.
 
 Then open <http://127.0.0.1:8080/> in a browser with Memory64 and WebAssembly
 threads support. The Dolly server supplies the cross-origin-isolation headers
@@ -260,9 +277,11 @@ exposes the same validated object/archive link path and rejects source inputs.
   return `ENOSYS`; they never fall through to the browser or host.
 - Browser code may fetch immutable startup assets and instantiate a compiled
   module because core WebAssembly cannot do either operation itself.
-- JavaScript-backed WasmFS hooks are retained only for output character devices;
-  they are not mounted as Dolly's root filesystem. Stdin, foreground routing,
-  canonical input, pipes, and EOF behavior are implemented in Wasm.
+- Before the display module exists, one JavaScript callback appends source-build
+  progress to a plain-text bootstrap view. After activation, terminal output
+  stays inside Wasm and the browser only reads published RGBA frames. Neither
+  path mounts a JavaScript filesystem. Stdin, foreground routing, canonical
+  input, pipes, and EOF behavior are implemented in Wasm.
 - Native host files, native processes, and a JavaScript VFS are out of scope.
 
 See [docs/architecture.md](docs/architecture.md) for the proposed ABI direction

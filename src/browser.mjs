@@ -1,90 +1,250 @@
-import { FitAddon, Terminal, init as initGhostty } from "../dist/ghostty-web.js";
-
 const mount = document.querySelector("#terminal");
-const transcript = document.querySelector("#transcript");
+const canvas = document.querySelector("#display");
+const keyboard = document.querySelector("#keyboard");
+const bootstrapLog = document.querySelector("#bootstrap-log");
 
-const fontFamily = '"Dolly IosevkaTerm SemiBold", monospace';
-const background = "#262626";
-const foreground = "#e8e3d7";
-const accent = "#f2d45c";
-const defaultFontSize = 15;
-const minimumFontSize = 8;
-const maximumFontSize = 32;
+const defaultFontSizeMilli = 15000;
 
 const encoder = new TextEncoder();
-const byteDecoder = new TextDecoder();
+const textDecoder = new TextDecoder();
+const bootstrapDecoder = new TextDecoder();
 const commandResults = [];
 
-let terminal;
 let runtimeWorker;
 let transport;
 let networkTransport;
-let fitAddon;
-let cursorRevealed = false;
-let fontSize = defaultFontSize;
+let presenter;
+let resizeObserver;
 
-class TerminalTransport {
-  static headerSize = 64;
-  static readCursor = 0;
-  static writeCursor = 1;
-  static inputWake = 2;
-  static resultSequence = 3;
-  static resultStatus = 4;
-  static foregroundPid = 5;
+class DisplayTransport {
+  static headerSize = 128;
+  static eventRead = 0;
+  static eventWrite = 1;
+  static eventWake = 2;
+  static eventDropped = 3;
+  static resultSequence = 4;
+  static resultStatus = 5;
+  static foregroundPid = 6;
+  static frameSequence = 8;
+  static frameIndex = 9;
+  static frameWidth = 10;
+  static frameHeight = 11;
+  static frameStride = 12;
+  static terminalCols = 13;
+  static terminalRows = 14;
+  static fontSizeMilli = 15;
 
-  constructor(buffer, address, capacity) {
+  static keyEvent = 1;
+  static textEvent = 2;
+  static resizeEvent = 3;
+  static focusEvent = 4;
+
+  constructor(buffer, address, eventSize, eventCapacity) {
     if (!(buffer instanceof SharedArrayBuffer)) {
-      throw new Error("Dolly terminal transport requires shared Wasm memory");
+      throw new Error("Dolly display transport requires shared Wasm memory");
     }
-    if (address % 4 !== 0 || (capacity & (capacity - 1)) !== 0) {
-      throw new Error("Dolly supplied an invalid terminal mailbox");
+    if (address % 4 !== 0 || eventSize !== 128 ||
+        (eventCapacity & (eventCapacity - 1)) !== 0) {
+      throw new Error("Dolly supplied an invalid display mailbox");
     }
     this.bytes = new Uint8Array(buffer);
     this.words = new Int32Array(buffer);
     this.address = address;
     this.word = address / 4;
-    this.capacity = capacity;
+    this.eventSize = eventSize;
+    this.eventCapacity = eventCapacity;
   }
 
-  push(input) {
-    const bytes = typeof input === "string" ? encoder.encode(input) : input;
-    const read = Atomics.load(this.words, this.word + TerminalTransport.readCursor) >>> 0;
-    const write = Atomics.load(this.words, this.word + TerminalTransport.writeCursor) >>> 0;
-    const used = (write - read) >>> 0;
-    if (bytes.length > this.capacity - used) return false;
+  pushRecord({
+    type,
+    action = 0,
+    modifiers = 0,
+    flags = 0,
+    width = 0,
+    height = 0,
+    scaleMilli = 0,
+    fontSizeMilli = 0,
+    key = "",
+    code = "",
+    text = "",
+  }) {
+    const keyBytes = encoder.encode(key);
+    const codeBytes = encoder.encode(code);
+    const textBytes = encoder.encode(text);
+    if (keyBytes.length + codeBytes.length + textBytes.length > 88) return false;
+    const read = Atomics.load(this.words, this.word + DisplayTransport.eventRead) >>> 0;
+    const write = Atomics.load(this.words, this.word + DisplayTransport.eventWrite) >>> 0;
+    if (((write - read) >>> 0) >= this.eventCapacity) {
+      Atomics.add(this.words, this.word + DisplayTransport.eventDropped, 1);
+      return false;
+    }
 
-    const mask = this.capacity - 1;
-    const data = this.address + TerminalTransport.headerSize;
-    const offset = write & mask;
-    const first = Math.min(bytes.length, this.capacity - offset);
-    this.bytes.set(bytes.subarray(0, first), data + offset);
-    if (first !== bytes.length) this.bytes.set(bytes.subarray(first), data);
+    const offset = this.address + DisplayTransport.headerSize +
+      (write & (this.eventCapacity - 1)) * this.eventSize;
+    const view = new DataView(this.bytes.buffer, offset, this.eventSize);
+    view.setUint32(0, type, true);
+    view.setUint32(4, action, true);
+    view.setUint32(8, modifiers, true);
+    view.setUint32(12, flags, true);
+    view.setUint32(16, width, true);
+    view.setUint32(20, height, true);
+    view.setUint32(24, scaleMilli, true);
+    view.setUint32(28, fontSizeMilli, true);
+    view.setUint16(32, keyBytes.length, true);
+    view.setUint16(34, codeBytes.length, true);
+    view.setUint16(36, textBytes.length, true);
+    view.setUint16(38, 0, true);
+    this.bytes.fill(0, offset + 40, offset + this.eventSize);
+    this.bytes.set(keyBytes, offset + 40);
+    this.bytes.set(codeBytes, offset + 40 + keyBytes.length);
+    this.bytes.set(textBytes, offset + 40 + keyBytes.length + codeBytes.length);
 
-    Atomics.store(
-      this.words,
-      this.word + TerminalTransport.writeCursor,
-      (write + bytes.length) | 0,
-    );
-    Atomics.add(this.words, this.word + TerminalTransport.inputWake, 1);
-    Atomics.notify(this.words, this.word + TerminalTransport.inputWake);
+    Atomics.store(this.words, this.word + DisplayTransport.eventWrite, (write + 1) | 0);
+    Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
+    Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
     return true;
   }
 
+  pushKey(event) {
+    let modifiers = 0;
+    if (event.shiftKey) modifiers |= 1;
+    if (event.ctrlKey) modifiers |= 2;
+    if (event.altKey) modifiers |= 4;
+    if (event.metaKey) modifiers |= 8;
+    if (event.getModifierState?.("CapsLock")) modifiers |= 16;
+    if (event.getModifierState?.("NumLock")) modifiers |= 32;
+    return this.pushRecord({
+      type: DisplayTransport.keyEvent,
+      action: event.type === "keyup" ? 0 : event.repeat ? 2 : 1,
+      modifiers,
+      flags: event.isComposing ? 1 : 0,
+      key: event.key,
+      code: event.code,
+    });
+  }
+
+  pushSyntheticKey(key, code, modifiers = 0, action = 1) {
+    return this.pushRecord({
+      type: DisplayTransport.keyEvent,
+      action,
+      modifiers,
+      key,
+      code,
+    });
+  }
+
+  pushText(text) {
+    const bytes = encoder.encode(text);
+    let offset = 0;
+    while (offset < bytes.length) {
+      let end = Math.min(offset + 88, bytes.length);
+      while (end > offset && end < bytes.length && (bytes[end] & 0xc0) === 0x80) end--;
+      if (end === offset) return false;
+      const chunk = textDecoder.decode(bytes.subarray(offset, end));
+      if (!this.pushRecord({ type: DisplayTransport.textEvent, text: chunk })) return false;
+      offset = end;
+    }
+    return true;
+  }
+
+  pushResize(width, height, devicePixelRatio) {
+    const currentFont = Atomics.load(
+      this.words,
+      this.word + DisplayTransport.fontSizeMilli,
+    ) >>> 0;
+    return this.pushRecord({
+      type: DisplayTransport.resizeEvent,
+      width: Math.max(1, Math.round(width)),
+      height: Math.max(1, Math.round(height)),
+      scaleMilli: Math.max(500, Math.min(4000, Math.round(devicePixelRatio * 1000))),
+      fontSizeMilli: currentFont || defaultFontSizeMilli,
+    });
+  }
+
   currentResultSequence() {
-    return Atomics.load(this.words, this.word + TerminalTransport.resultSequence);
+    return Atomics.load(this.words, this.word + DisplayTransport.resultSequence);
   }
 
   async waitForResult(sequence) {
-    const index = this.word + TerminalTransport.resultSequence;
+    const index = this.word + DisplayTransport.resultSequence;
     while (Atomics.load(this.words, index) === sequence) {
       const waiting = Atomics.waitAsync(this.words, index, sequence);
       if (waiting.async) await waiting.value;
     }
-    return Atomics.load(this.words, this.word + TerminalTransport.resultStatus);
+    return Atomics.load(this.words, this.word + DisplayTransport.resultStatus);
   }
 
   foregroundPid() {
-    return Atomics.load(this.words, this.word + TerminalTransport.foregroundPid);
+    return Atomics.load(this.words, this.word + DisplayTransport.foregroundPid);
+  }
+
+  fontSize() {
+    return Atomics.load(this.words, this.word + DisplayTransport.fontSizeMilli) / 1000;
+  }
+
+  dimensions() {
+    return {
+      cols: Atomics.load(this.words, this.word + DisplayTransport.terminalCols),
+      rows: Atomics.load(this.words, this.word + DisplayTransport.terminalRows),
+    };
+  }
+}
+
+class FramebufferPresenter {
+  constructor(canvasElement, buffer, frameAddresses, capacity, displayTransport) {
+    this.canvas = canvasElement;
+    this.context = canvasElement.getContext("2d", { alpha: false });
+    if (!this.context) throw new Error("Dolly requires a 2D canvas context");
+    this.buffer = buffer;
+    this.frameAddresses = frameAddresses;
+    this.capacity = capacity;
+    this.transport = displayTransport;
+    this.sequence = -1;
+    this.running = true;
+  }
+
+  start() {
+    const paint = () => {
+      if (!this.running) return;
+      this.paint();
+      requestAnimationFrame(paint);
+    };
+    requestAnimationFrame(paint);
+  }
+
+  paint() {
+    const { words, word } = this.transport;
+    const sequence = Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0;
+    if (sequence === this.sequence) return;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const before = Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0;
+      const index = Atomics.load(words, word + DisplayTransport.frameIndex) >>> 0;
+      const width = Atomics.load(words, word + DisplayTransport.frameWidth) >>> 0;
+      const height = Atomics.load(words, word + DisplayTransport.frameHeight) >>> 0;
+      const stride = Atomics.load(words, word + DisplayTransport.frameStride) >>> 0;
+      const length = stride * height;
+      const address = this.frameAddresses[index];
+      if (index > 1 || width === 0 || height === 0 || stride !== width * 4 ||
+          length > this.capacity || address + length > this.buffer.byteLength) {
+        throw new Error("Dolly published an invalid framebuffer");
+      }
+      const pixels = new Uint8ClampedArray(
+        new Uint8ClampedArray(this.buffer, address, length),
+      );
+      const after = Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0;
+      if (before !== after) continue;
+      if (this.canvas.width !== width || this.canvas.height !== height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+      }
+      this.context.putImageData(new ImageData(pixels, width, height), 0, 0);
+      this.sequence = after;
+      document.documentElement.dataset.frameSequence = String(after);
+      const dimensions = this.transport.dimensions();
+      document.documentElement.dataset.terminalCols = String(dimensions.cols);
+      document.documentElement.dataset.terminalRows = String(dimensions.rows);
+      return;
+    }
   }
 }
 
@@ -212,18 +372,10 @@ class NetworkTransport {
   }
 }
 
-function appendTranscript(text) {
-  transcript.textContent += text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
-}
-
-function writeTerminal(text) {
+function appendBootstrap(text) {
   if (text === "") return;
-  terminal.write(text);
-  if (!cursorRevealed) {
-    terminal.write("\x1b[?25h");
-    cursorRevealed = true;
-  }
-  appendTranscript(text);
+  bootstrapLog.textContent += text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+  bootstrapLog.scrollTop = bootstrapLog.scrollHeight;
 }
 
 async function toggleFullscreen(event) {
@@ -241,44 +393,35 @@ async function toggleFullscreen(event) {
   }
 }
 
-function zoomTerminal(event) {
-  if (!event.ctrlKey || event.altKey || event.metaKey) return;
-  const increase = event.key === "+" || event.key === "=" || event.code === "NumpadAdd";
-  const decrease = event.key === "-" || event.code === "NumpadSubtract";
-  if (!increase && !decrease) return;
+function sendResize() {
+  if (!transport) return;
+  if (!transport.pushResize(mount.clientWidth, mount.clientHeight, devicePixelRatio)) {
+    requestAnimationFrame(sendResize);
+  }
+}
 
+function handleKeyboardEvent(event) {
+  if (!transport) return;
+  if (event.type === "keydown" && event.key === "F11") void toggleFullscreen(event);
+  if (!transport.pushKey(event)) {
+    document.documentElement.dataset.inputOverflow = "true";
+  }
   event.preventDefault();
   event.stopImmediatePropagation();
-  fontSize = Math.max(
-    minimumFontSize,
-    Math.min(maximumFontSize, fontSize + (increase ? 1 : -1)),
-  );
-  if (!terminal) return;
-  terminal.options.fontSize = fontSize;
-  requestAnimationFrame(() => {
-    fitAddon?.fit();
-    terminal.focus();
-  });
 }
 
-window.addEventListener("keydown", toggleFullscreen, { capture: true });
-window.addEventListener("keydown", zoomTerminal, { capture: true });
+window.addEventListener("keydown", handleKeyboardEvent, { capture: true });
+window.addEventListener("keyup", handleKeyboardEvent, { capture: true });
 document.addEventListener("fullscreenchange", () => {
   document.documentElement.dataset.fullscreen = document.fullscreenElement ? "on" : "off";
-  requestAnimationFrame(() => {
-    fitAddon?.fit();
-    terminal?.focus();
-  });
+  requestAnimationFrame(sendResize);
+  keyboard.focus({ preventScroll: true });
 });
-
-function handleTerminalData(data) {
-  if (!transport?.push(data)) terminal.write("\a");
-}
 
 async function submitInput(command, input = `${command}\r`) {
   const sequence = transport.currentResultSequence();
   document.documentElement.dataset.dollyCommand = command;
-  terminal.input(input, true);
+  if (!transport.pushText(input)) throw new Error("Dolly input mailbox is full");
   let timeout;
   const commandStatus = await Promise.race([
     transport.waitForResult(sequence),
@@ -473,14 +616,13 @@ async function runBrowserProof() {
 
   const luaResult = submitInput("lua");
   await waitFor(() => transport.foregroundPid() !== 0, "Lua foreground pid");
-  terminal.input("print('RESULT-' .. (7 * 6))\r", true);
-  await waitFor(
-    () => transcript.textContent.includes("RESULT-42"),
-    "interactive Lua output",
-  );
-  terminal.input("\x03", true);
-  await waitFor(() => transcript.textContent.includes("^C"), "Lua Ctrl+C line interrupt");
-  terminal.input("\x04", true);
+  transport.pushText("print('RESULT-' .. (7 * 6))\r");
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  transport.pushSyntheticKey("c", "KeyC", 2);
+  transport.pushSyntheticKey("c", "KeyC", 2, 0);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  transport.pushSyntheticKey("d", "KeyD", 2);
+  transport.pushSyntheticKey("d", "KeyD", 2, 0);
   await luaResult;
   document.documentElement.dataset.luaInteractive = "passed";
 
@@ -505,54 +647,21 @@ async function boot() {
   if (!crossOriginIsolated) {
     throw new Error("Dolly requires cross-origin isolation for shared Wasm memory");
   }
-  const loadedFonts = await document.fonts.load(`15px ${fontFamily}`);
-  if (loadedFonts.length === 0) throw new Error("IosevkaTerm SemiBold did not load");
-  await initGhostty();
-
-  terminal = new Terminal({
-    cols: 100,
-    rows: 30,
-    cursorBlink: true,
-    // WasmFS stdout carries Unix LF bytes. A real terminal's ONLCR output
-    // discipline would move the cursor to column zero as well; Ghostty's
-    // renderer performs that presentation-only conversion here.
-    convertEol: true,
-    fontFamily,
-    fontSize: defaultFontSize,
-    theme: {
-      background,
-      foreground,
-      cursor: accent,
-      cursorAccent: background,
-      selectionBackground: "#4a4a4a",
-      selectionForeground: foreground,
-      black: background,
-      red: foreground,
-      green: foreground,
-      yellow: accent,
-      blue: foreground,
-      magenta: foreground,
-      cyan: foreground,
-      white: foreground,
-      brightBlack: "#77736c",
-      brightRed: foreground,
-      brightGreen: foreground,
-      brightYellow: accent,
-      brightBlue: foreground,
-      brightMagenta: foreground,
-      brightCyan: foreground,
-      brightWhite: foreground,
-    },
+  appendBootstrap("DOLLY / SOURCE BOOTSTRAP\n\n");
+  mount.addEventListener("pointerdown", () => keyboard.focus({ preventScroll: true }));
+  keyboard.addEventListener("compositionend", (event) => {
+    if (!transport?.pushText(event.data)) {
+      document.documentElement.dataset.inputOverflow = "true";
+    }
+    keyboard.value = "";
   });
-  terminal.open(mount);
-  terminal.write("\x1b[?25l");
-  fitAddon = new FitAddon();
-  terminal.loadAddon(fitAddon);
-  fitAddon.fit();
-  fitAddon.observeResize();
-  terminal.onData(handleTerminalData);
-  mount.addEventListener("click", () => terminal.focus());
-  document.documentElement.dataset.terminal = "ghostty-web";
+  keyboard.addEventListener("paste", (event) => {
+    event.preventDefault();
+    const text = event.clipboardData?.getData("text/plain") ?? "";
+    if (text && !transport?.pushText(text)) {
+      document.documentElement.dataset.inputOverflow = "true";
+    }
+  });
 
   runtimeWorker = new Worker(new URL("./runtime-worker.mjs", import.meta.url), {
     type: "module",
@@ -560,18 +669,20 @@ async function boot() {
   });
   runtimeWorker.addEventListener("message", (event) => {
     const message = event.data;
-    if (message.type === "output") {
-      writeTerminal(message.text);
-    } else if (message.type === "output-bytes") {
-      writeTerminal(byteDecoder.decode(message.bytes, { stream: true }));
+    if (message.type === "bootstrap") {
+      appendBootstrap(message.text);
+    } else if (message.type === "bootstrap-bytes") {
+      appendBootstrap(bootstrapDecoder.decode(message.bytes, { stream: true }));
     } else if (message.type === "exited") {
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "http-request") {
       void networkTransport?.request(message).catch((error) => {
-        writeTerminal(`curl broker: ${error.message}\r\n`);
+        document.documentElement.dataset.networkError = error.message;
       });
     } else if (message.type === "error") {
-      writeTerminal(`${message.message}\r\n`);
+      canvas.hidden = true;
+      bootstrapLog.hidden = false;
+      appendBootstrap(`\nFATAL\n${message.message}\n`);
       document.documentElement.dataset.dollyStatus = "failed";
     }
   });
@@ -588,21 +699,44 @@ async function boot() {
     });
     runtimeWorker.addEventListener("error", reject, { once: true });
   });
-  if (ready.version !== 1) throw new Error(`unsupported terminal mailbox ${ready.version}`);
+  if (ready.version !== 1) throw new Error(`unsupported display mailbox ${ready.version}`);
   if (ready.httpVersion !== 2) throw new Error(`unsupported HTTP mailbox ${ready.httpVersion}`);
-  transport = new TerminalTransport(ready.memory, ready.address, ready.capacity);
+  if (ready.frameAddresses.length !== 2 || ready.frameAddresses.some((address) => !address)) {
+    throw new Error("Dolly did not publish both framebuffer addresses");
+  }
+  transport = new DisplayTransport(
+    ready.memory,
+    ready.address,
+    ready.eventSize,
+    ready.eventCapacity,
+  );
   networkTransport = new NetworkTransport(
     ready.memory,
     ready.httpAddress,
     ready.httpCapacity,
   );
+  presenter = new FramebufferPresenter(
+    canvas,
+    ready.memory,
+    ready.frameAddresses,
+    ready.frameCapacity,
+    transport,
+  );
+  presenter.start();
+  bootstrapLog.hidden = true;
+  canvas.hidden = false;
+  document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
+  resizeObserver = new ResizeObserver(sendResize);
+  resizeObserver.observe(mount);
+  sendResize();
 
-  terminal.focus();
+  keyboard.focus({ preventScroll: true });
   document.documentElement.dataset.dollyStatus = "ready";
 
   window.__dolly = {
     worker: runtimeWorker,
-    terminal,
+    display: presenter,
+    transport,
     commandResults,
     get foregroundPid() {
       return transport.foregroundPid();
@@ -611,7 +745,13 @@ async function boot() {
       return submitInput(command);
     },
     input(data) {
-      terminal.input(data, true);
+      return transport.pushText(data);
+    },
+    key(key, code, modifiers = 0) {
+      return transport.pushSyntheticKey(key, code, modifiers);
+    },
+    get fontSize() {
+      return transport.fontSize();
     },
   };
 
@@ -622,8 +762,8 @@ async function boot() {
 
 boot().catch((error) => {
   const message = error instanceof Error ? error.stack ?? error.message : String(error);
-  if (terminal) writeTerminal(`${message}\r\n`);
-  else mount.textContent = message;
-  appendTranscript(`${message}\n`);
+  canvas.hidden = true;
+  bootstrapLog.hidden = false;
+  appendBootstrap(`\nFATAL\n${message}\n`);
   document.documentElement.dataset.dollyStatus = "failed";
 });

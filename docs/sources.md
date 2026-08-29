@@ -51,13 +51,13 @@ code is produced by Clang/LLD inside the browser and written to WasmFS.
 | GNU Make | Checksum-pinned official 4.4.1 release is configured for wasm64; `config/make-dolly.patch` and one Dolly job adapter replace process launch | Exact source manifest, generated configuration, headers, and license | `/usr/bin/make`; all recipes and `$(shell ...)` execute synchronously through `/bin/slop` |
 | Zig | Checksum-pinned 0.16.0 source archive supplies `stage1/zig1.wasm`, its WASI adapter, standard library, C header, and license | Source/bootstrap inputs only; no native compiler | Source-built `/usr/bin/zig` translates Zig to C against WasmFS |
 | WAMR | Exact pinned checkout; no host-built interpreter artifact | Selected interpreter, allocator, and utility C sources plus license | Dolly compiles `/usr/libexec/dolly/zig1`; it interprets Zig's bootstrap seed with WASI bound to Dolly libc |
-| Ghostty + uucode | Exact Ghostty checkout and checksum-pinned uucode archive are prepared with reviewed build options | VT and Unicode Zig source, generated configuration/tables, public headers, and licenses | Zig emits C; Dolly builds `/usr/lib/libghostty-vt.a` and `/usr/bin/ghostty-vt` |
+| Ghostty + uucode | Exact Ghostty checkout and checksum-pinned uucode archive are prepared with reviewed build options | VT and Unicode Zig source, generated configuration/tables, public headers, and licenses | Zig emits C; Dolly builds `/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and the resident display module |
 | QuickJS-ng | Pinned engine checkout is packaged without `quickjs-libc.c` | Unchanged engine sources plus Dolly's narrow runtime adapter, compiled once into `/usr/lib/libdolly-js.a` | `/usr/bin/qjs` is a separately compiled generic CLI |
 | Pi agent | Exact npm versions and integrity hashes are locked; pinned esbuild produces the current Dolly-targeted lean ESM bundle | Pi agent-core/AI JavaScript, real OpenAI-compatible adapter, Dolly entry source, generated ESM, package metadata, and README | `/usr/bin/pi` is separately compiled against `libdolly-js`; self-tests exercise Pi's real agent loop, Slop, WasmFS, and a streamed two-request browser HTTP tool turn |
 | Lua | Verified official release archive is compiled by the external seed compiler | One ABI-validated bootstrap side module | `/usr/bin/lua`; this is the current exception to browser-time command compilation |
 | Bison | Verified host tool used only to generate the Awk parser | Generated Awk C/header files, not Bison itself | No Dolly executable |
-| ghostty-web | Version-pinned npm package | Browser renderer bundle | Terminal rendering and keyboard events outside Wasm |
-| IosevkaTerm SemiBold | Commit- and checksum-pinned WOFF2 asset | Browser font | Terminal typography only |
+| stb_truetype | Exact commit- and checksum-pinned single-header source | Rasterizer source header | Compiled into `/usr/libexec/dolly/display.wasm` inside Dolly |
+| IosevkaTerm SemiBold | Commit- and checksum-pinned WOFF2 and TTF assets | WOFF2 bootstrap font and TTF runtime font | Bootstrap progress typography; in-Wasm terminal glyph rasterization |
 
 All source licenses are packaged alongside the corresponding source material
 under `/usr/share/licenses` where applicable.
@@ -68,13 +68,14 @@ under `/usr/share/licenses` where applicable.
 | --- | --- | --- |
 | Machine contract | `abi/dolly-0.wat` | Exact command imports, exports, memory64/table64 shape, and entry ABI |
 | Browser HTTP contract | `abi/dolly-http-0.wat` | The single dispatch import and response mailbox |
-| Terminal contract | `abi/dolly-terminal-0.wat` | Raw terminal input/result mailbox |
+| Display contract | `abi/dolly-display-0.wat` | Raw browser input records, result words, framebuffer publication, and temporary bootstrap sink |
 | Browser import allowlist | `config/browser-imports.json` | Generated-main-module capability audit; JSON is not an ABI source |
 | Source pins | `config/source-pins.sh` | External revisions, URLs, image digest, and archive hashes |
 | Packaging | `toolchain/CMakeLists.txt` | Maps immutable source/sysroot assets into the initial WasmFS image |
 | Build orchestration | `scripts/build.sh` | Fetches/prepares sources, assembles contracts, builds and validates the runtime |
 | Target compiler/linker | `src/compiler.cpp` | C/C++ compilation, object/archive linking, ABI validation, and publication |
-| Runtime bootstrap | `src/dolly.c` | Establishes terminal/environment state, compiles Slop and seed commands, then executes the startup script |
+| Runtime bootstrap | `src/dolly.c` | Establishes terminal/environment state, compiles Slop and seed commands, executes startup, then loads the resident display module |
+| Display driver | `src/ghostty/display.c` | Ghostty VT state/key encoding plus Iosevka software rasterization into double-buffered RGBA memory |
 | Userspace startup | `src/startup.slop` | Traced top-level initialization and build phases; fails on the first unsuccessful command |
 | Target build graph | `src/startup.mk` | GNU Make rules for source-built libraries, upstream tools, runtimes, and probes |
 | Compatibility shell | `src/slop.c` | Finite shell grammar, PATH lookup, scoped environment, redirection, and serial spooled pipelines; compiled to `/bin/slop` |

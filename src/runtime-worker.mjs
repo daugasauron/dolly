@@ -2,8 +2,8 @@ function locateArtifact(path) {
   return new URL(`../dist/${path.split("/").at(-1)}`, import.meta.url).href;
 }
 
-function output(text, error = false) {
-  self.postMessage({ type: "output", text, error });
+function bootstrapOutput(text, error = false) {
+  self.postMessage({ type: "bootstrap", text, error });
 }
 
 function installOutputDevice(dolly, path, deviceNumber) {
@@ -13,9 +13,8 @@ function installOutputDevice(dolly, path, deviceNumber) {
       return 0;
     },
     write(_stream, buffer, offset, length) {
-      const bytes = new Uint8Array(length);
-      bytes.set(buffer.subarray(offset, offset + length));
-      self.postMessage({ type: "output-bytes", bytes });
+      const address = buffer.byteOffset + offset;
+      dolly._dolly_terminal_write_bytes(BigInt(address), BigInt(length));
       return length;
     },
   });
@@ -40,11 +39,10 @@ try {
     noInitialRun: true,
     wasmMemory: memory,
     locateFile: locateArtifact,
-    terminalWrite: (text) => output(text),
-    terminalWriteBytes: (bytes) => self.postMessage({ type: "output-bytes", bytes }),
+    bootstrapWriteBytes: (bytes) => self.postMessage({ type: "bootstrap-bytes", bytes }),
     httpDispatch: (request) => self.postMessage({ type: "http-request", ...request }),
-    print: (text) => output(`${text}\r\n`),
-    printErr: (text) => output(`${text}\r\n`, true),
+    print: (text) => bootstrapOutput(`${text}\n`),
+    printErr: (text) => bootstrapOutput(`${text}\n`, true),
   });
   globalThis.TextDecoder = nativeTextDecoder;
 
@@ -60,9 +58,15 @@ try {
   self.postMessage({
     type: "ready",
     memory: memory.buffer,
-    address: Number(dolly._dolly_terminal_mailbox_address()),
-    capacity: dolly._dolly_terminal_input_capacity(),
-    version: dolly._dolly_terminal_mailbox_version(),
+    address: Number(dolly._dolly_display_mailbox_address()),
+    eventSize: dolly._dolly_display_event_size(),
+    eventCapacity: dolly._dolly_display_event_capacity(),
+    version: dolly._dolly_display_mailbox_version(),
+    frameAddresses: [
+      Number(dolly._dolly_display_framebuffer_address(0)),
+      Number(dolly._dolly_display_framebuffer_address(1)),
+    ],
+    frameCapacity: Number(dolly._dolly_display_framebuffer_capacity()),
     httpAddress: Number(dolly._dolly_http_mailbox_address()),
     httpCapacity: dolly._dolly_http_chunk_capacity(),
     httpVersion: dolly._dolly_http_mailbox_version(),

@@ -10,9 +10,7 @@
         font-family: "Dolly IosevkaTerm SemiBold";
         src: url("./dist/IosevkaTerm-SemiBold.woff2") format("woff2");
         font-style: normal;
-        /* Ghostty's canvas requests its base face as normal; this file's
-           outlines are the actual IosevkaTerm SemiBold cut. */
-        font-weight: 400;
+        font-weight: 600;
         font-display: block;
       }
 
@@ -27,22 +25,53 @@
         position: relative;
         width: 100%;
         height: 100%;
-        padding: 1rem 1.15rem;
         outline: none;
         overflow: hidden;
         caret-color: transparent;
       }
-      #terminal canvas { display: block; }
-      #terminal textarea { caret-color: transparent !important; }
-      #transcript { display: none; }
+      #display {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #display[hidden] { display: none; }
+      #keyboard {
+        position: fixed;
+        left: -10000px;
+        top: 0;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        caret-color: transparent;
+      }
+      #bootstrap-log {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        margin: 0;
+        padding: 1rem 1.15rem;
+        overflow: auto;
+        white-space: pre-wrap;
+        color: #e8e3d7;
+        background: #262626;
+        font: 600 15px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
+        scrollbar-width: thin;
+        scrollbar-color: #f2d45c #262626;
+      }
+      #bootstrap-log::first-line { color: #f2d45c; }
+      #bootstrap-log[hidden] { display: none; }
       @media (max-width: 640px) {
-        #terminal { padding: 0.65rem 0.75rem; }
+        #bootstrap-log { padding: 0.65rem 0.75rem; }
       }
     </style>
   </head>
   <body>
-    <main id="terminal" aria-label="Dolly shell terminal"></main>
-    <pre id="transcript" aria-hidden="true"></pre>
+    <main id="terminal" aria-label="Dolly shell terminal">
+      <canvas id="display" hidden aria-label="Dolly sandbox framebuffer"></canvas>
+      <textarea id="keyboard" aria-label="Dolly keyboard input"
+        autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+      <pre id="bootstrap-log" aria-live="polite"></pre>
+    </main>
     <script type="module" src="./src/browser.mjs"></script>
   </body>
 </html>

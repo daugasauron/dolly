@@ -52,8 +52,7 @@
     "wasi_snapshot_preview1.random_get"
   ],
   "devices": [
-    "env.dolly_terminal_write",
-    "env.dolly_terminal_write_bytes",
+    "env.dolly_bootstrap_write_bytes",
     "env._wasmfs_jsimpl_alloc_file",
     "env._wasmfs_jsimpl_free_file",
     "env._wasmfs_jsimpl_get_size",

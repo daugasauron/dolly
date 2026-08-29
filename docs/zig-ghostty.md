@@ -7,15 +7,19 @@ Last updated: 2026-08-29
 
 Dolly bootstraps the compiler shipped in the pinned Zig 0.16.0 source archive,
 uses it to translate pinned Ghostty source to C, compiles that C with Dolly's
-wasm64 Clang, archives it as `/usr/lib/libghostty-vt.a`, and links the separate
-`/usr/bin/ghostty-vt` command. Every compilation step happens after browser
-startup against the in-memory WasmFS. No native Zig executable, generated
-Ghostty object, or host build service enters the sandbox.
+wasm64 Clang, archives it as `/usr/lib/libghostty-vt.a`, and links both the
+`/usr/bin/ghostty-vt` probe and `/usr/libexec/dolly/display.wasm`. Every
+compilation step happens after browser startup against the in-memory WasmFS. No
+native Zig executable, generated Ghostty object, or host build service enters
+the sandbox.
 
 The target is Ghostty's upstream `libghostty-vt`, not its GTK or macOS desktop
-application. This is the terminal parser, state machine, screen model, and C
-API Dolly needs. Window creation, keyboard/IME events, fonts, Canvas drawing,
-fullscreen, and accessibility remain browser responsibilities.
+application. This supplies the parser, state machine, screen model, and key
+encoder Dolly needs. A small Dolly-owned software renderer loads pinned
+IosevkaTerm SemiBold through WasmFS and rasterizes the Ghostty grid into shared
+RGBA buffers. DOM event capture, IME composition, fullscreen requests, and the
+final checked canvas blit remain browser responsibilities; their interpretation
+and all terminal modes remain inside Dolly.
 
 ## Exact compilation chain
 
@@ -37,10 +41,10 @@ pinned Ghostty + uucode Zig source --> /tmp/ghostty/ghostty-vt.c
                                       | Dolly ar
                                       v
                           /usr/lib/libghostty-vt.a
-                                      |
-                                      | Dolly cc -lghostty-vt
-                                      v
-                              /usr/bin/ghostty-vt
+                              /                 \
+             Dolly cc -lghostty-vt             Dolly cc + stb/Iosevka
+                            v                     v
+                 /usr/bin/ghostty-vt   /usr/libexec/dolly/display.wasm
 ```
 
 `/usr/bin/zig` is a small Dolly executable that invokes the private
@@ -99,6 +103,10 @@ A cold browser run proves all of the following in one sandbox lifetime:
    10-by-3 grid through the public C API, and prints all three rows and styles.
 7. The browser proof invokes `zig version`, verifies the archive path, and
    invokes `ghostty-vt` again through ordinary PATH lookup.
+8. Dolly loads the filesystem-resident display module, publishes a stable RGBA
+   frame, accepts raw Chrome key events (including Backspace and Enter), handles
+   Ctrl+/Ctrl- font sizing inside the sandbox, resizes on fullscreen, and keeps
+   the interactive Lua REPL working.
 
 The interpreted Ghostty translation is intentionally simple and currently
 takes several minutes. Performance and parallel compilation are not part of
@@ -117,6 +125,13 @@ JavaScript import.
 These are generated-C compatibility choices. Ghostty itself is not patched to
 call the browser, use another filesystem, or own a standalone Wasm memory.
 
+For local iteration, `DOLLY_GHOSTTY_C_CHECKPOINT` may point at a generated C
+file within the repository. The build preloads that file at Ghostty's normal
+target path, then still compiles, archives, and links it with Dolly's in-sandbox
+toolchain. This avoids repeating the slow interpreted Zig translation while
+debugging presentation. Release/cold proofs omit the variable and regenerate C
+from the pinned Zig and Ghostty sources.
+
 ## Security boundary
 
 - Zig, WAMR, and Ghostty introduce no browser imports.
@@ -131,11 +146,17 @@ call the browser, use another filesystem, or own a standalone Wasm memory.
   instance, but cannot acquire authority beyond the outer runtime's explicit
   browser import allowlist.
 
-## Remaining terminal integration
+## Display boundary
 
-Compiling Ghostty inside Dolly does not yet make it the visible renderer. The
-current page still uses `ghostty-web` for presentation. The next terminal step
-is to define a small bounded cell/diff ABI, feed Dolly stdout/stderr into the
-in-Wasm `libghostty-vt`, and let the browser draw checked cells. Only after
-rendering/input parity is proven should the external parser/state module be
-removed.
+`abi/dolly-display-0.wat` defines a versioned fixed-record input ring and two
+bounded framebuffer addresses. The display module owns Ghostty parsing,
+mode-aware key encoding, the Iosevka TTF, glyph rasterization, terminal sizing,
+and frame publication. JavaScript validates the published index, dimensions,
+stride, capacity, and memory range, copies one stable complete frame, and calls
+`putImageData`. It contains no VT parser, cell model, font renderer, or command
+logic.
+
+Before the source build finishes, the display module cannot exist. A single
+bootstrap text callback therefore updates a plain Iosevka browser view with the
+traced startup output. The view is hidden when the resident module activates;
+subsequent terminal output is consumed entirely inside the sandbox.

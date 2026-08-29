@@ -21,11 +21,6 @@ mkdir -p \
   "${project_dir}/dist" \
   "${project_dir}/.cache/emscripten"
 
-if [[ ! -f "${project_dir}/node_modules/ghostty-web/dist/ghostty-web.js" ]]; then
-  echo "dolly: run npm install before building" >&2
-  exit 1
-fi
-
 if [[ ! -f "${project_dir}/.cache/llvm-wasm/lib/libclangFrontend.a" ||
       ! -f "${project_dir}/.cache/llvm-wasm/lib/liblldWasm.a" ]]; then
   echo "dolly: run ./scripts/build-toolchain.sh before building" >&2
@@ -57,6 +52,29 @@ ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_che
 ghostty_container_dir="/src/${ghostty_dir#"${project_dir}/"}"
 uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
 uucode_container_dir="/src/${uucode_dir#"${project_dir}/"}"
+stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
+stb_container_header="/src/${stb_header#"${project_dir}/"}"
+mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
+web_font="${font_paths[0]}"
+runtime_font="${font_paths[1]}"
+runtime_font_container="/src/${runtime_font#"${project_dir}/"}"
+checkpoint_cmake=()
+if [[ -n "${DOLLY_GHOSTTY_C_CHECKPOINT:-}" ]]; then
+  checkpoint_path="${DOLLY_GHOSTTY_C_CHECKPOINT}"
+  if [[ "${checkpoint_path}" != /* ]]; then
+    checkpoint_path="${project_dir}/${checkpoint_path}"
+  fi
+  case "${checkpoint_path}" in
+    "${project_dir}"/*) ;;
+    *) echo "dolly: Ghostty checkpoint must be inside ${project_dir}" >&2; exit 64 ;;
+  esac
+  if [[ ! -f "${checkpoint_path}" ]]; then
+    echo "dolly: Ghostty checkpoint does not exist: ${checkpoint_path}" >&2
+    exit 66
+  fi
+  checkpoint_container="/src/${checkpoint_path#"${project_dir}/"}"
+  checkpoint_cmake=("-DDOLLY_GHOSTTY_C_CHECKPOINT=${checkpoint_container}")
+fi
 
 DOLLY_PI_VERSION="${DOLLY_PI_VERSION}" \
 DOLLY_ESBUILD_VERSION="${DOLLY_ESBUILD_VERSION}" \
@@ -80,8 +98,7 @@ rm -f \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-0.wasm" \
   "${project_dir}/dist/dolly-http-0.wasm" \
-  "${project_dir}/dist/dolly-terminal-0.wasm" \
-  "${project_dir}/dist/ghostty-web.js" \
+  "${project_dir}/dist/dolly-display-0.wasm" \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/${lua_artifact}" \
   "${project_dir}/dist/program-cpp.wasm" \
@@ -97,12 +114,12 @@ rm -f \
   --disable-compact-imports \
   -o build/dolly-0.wasm
 
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-terminal-0.wat \
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-display-0.wat \
   --enable-memory64 \
   --enable-reference-types \
   --enable-threads \
   --disable-compact-imports \
-  -o build/dolly-terminal-0.wasm
+  -o build/dolly-display-0.wasm
 
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-http-0.wat \
   --enable-memory64 \
@@ -118,6 +135,7 @@ rm -f \
 
 node scripts/dolly-abi.mjs emit-emscripten-exports \
   build/dolly-0.wasm \
+  build/dolly-display-0.wasm \
   build/runtime-exports.json
 node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-0.wasm \
@@ -142,7 +160,10 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DDOLLY_WAMR_DIR="${wamr_container_dir}" \
   -DDOLLY_GHOSTTY_DIR="${ghostty_container_dir}" \
   -DDOLLY_UUCODE_DIR="${uucode_container_dir}" \
-  -DDOLLY_LUA_WASM="/src/build/${lua_artifact}"
+  -DDOLLY_STB_HEADER="${stb_container_header}" \
+  -DDOLLY_IOSEVKA_TTF="${runtime_font_container}" \
+  -DDOLLY_LUA_WASM="/src/build/${lua_artifact}" \
+  "${checkpoint_cmake[@]}"
 "${container[@]}" cmake --build build/runtime --parallel
 
 node scripts/dolly-abi.mjs stamp \
@@ -153,12 +174,10 @@ node scripts/dolly-abi.mjs validate-runtime \
   dist/dolly.wasm
 
 cp build/dolly-0.wasm dist/dolly-0.wasm
-cp build/dolly-terminal-0.wasm dist/dolly-terminal-0.wasm
+cp build/dolly-display-0.wasm dist/dolly-display-0.wasm
 cp build/dolly-http-0.wasm dist/dolly-http-0.wasm
 cp build/program-writer.wasm dist/program-writer.wasm
 cp build/program-reader.wasm dist/program-reader.wasm
 cp build/program-inspector.wasm dist/program-inspector.wasm
 cp "build/${lua_artifact}" "dist/${lua_artifact}"
-cp node_modules/ghostty-web/dist/ghostty-web.js dist/ghostty-web.js
-font_path="$(bash scripts/fetch-iosevka.sh)"
-cp "${font_path}" dist/IosevkaTerm-SemiBold.woff2
+cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2

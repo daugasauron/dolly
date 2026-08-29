@@ -239,7 +239,11 @@ export async function stampModules(contractPath, modulePaths) {
   }
 }
 
-export async function emitEmscriptenExports(contractPath, outputPath) {
+export async function emitEmscriptenExports(
+  contractPath,
+  outputPath,
+  runtimeContractPaths = [],
+) {
   const contract = await readWasmInterface(contractPath);
   const exports = new Set([
     "_dolly_bootstrap",
@@ -253,6 +257,11 @@ export async function emitEmscriptenExports(contractPath, outputPath) {
     if (entry.module === "env" || entry.module === "GOT.mem") {
       exports.add(`_${entry.name}`);
     }
+  }
+
+  for (const runtimeContractPath of runtimeContractPaths) {
+    const runtimeContract = await readWasmInterface(runtimeContractPath);
+    for (const entry of runtimeContract.exports) exports.add(`_${entry.name}`);
   }
 
   await writeFile(outputPath, `${JSON.stringify([...exports].sort(), null, 2)}\n`);
@@ -283,7 +292,7 @@ function usage() {
   dolly-abi.mjs validate-command CONTRACT.wasm COMMAND.wasm...
   dolly-abi.mjs validate-runtime CONTRACT.wasm RUNTIME.wasm
   dolly-abi.mjs emit-digest-header CONTRACT.wasm OUTPUT.h
-  dolly-abi.mjs emit-emscripten-exports CONTRACT.wasm OUTPUT.json`);
+  dolly-abi.mjs emit-emscripten-exports CONTRACT.wasm [RUNTIME-CONTRACT.wasm...] OUTPUT.json`);
   process.exitCode = 64;
 }
 
@@ -299,8 +308,12 @@ async function main() {
       await validateCommand(args[0], args.slice(1));
     } else if (command === "validate-runtime" && args.length === 2) {
       await validateRuntime(args[0], args[1]);
-    } else if (command === "emit-emscripten-exports" && args.length === 2) {
-      await emitEmscriptenExports(args[0], args[1]);
+    } else if (command === "emit-emscripten-exports" && args.length >= 2) {
+      await emitEmscriptenExports(
+        args[0],
+        args.at(-1),
+        args.slice(1, -1),
+      );
     } else if (command === "emit-digest-header" && args.length === 2) {
       await emitDigestHeader(args[0], args[1]);
     } else {

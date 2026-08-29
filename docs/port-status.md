@@ -108,7 +108,7 @@ tracked in [`pi-agent-plan.md`](pi-agent-plan.md).
    express the required build graph cleanly.
 4. Add raw terminal control, JavaScript stdin events, and window-size reporting
    for the Pi TUI and editor probes.
-5. Define a bounded terminal cell/diff ABI now that in-Dolly `libghostty-vt`
-   can parse and expose a grid.
+5. Preserve the implemented bounded RGBA/input ABI and extend the in-Dolly
+   Ghostty renderer only for gaps exposed by useful agent TUIs.
 6. Consider concurrency, performance work, or async APIs only after a concrete
    compatibility requirement cannot be met with the simpler model.

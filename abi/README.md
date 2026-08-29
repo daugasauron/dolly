@@ -9,10 +9,12 @@ schema:
 - function signatures, globals, mutability, memory64, and table64 are encoded
 using their actual WebAssembly types.
 
-`dolly-terminal-0.wat` separately defines the browser-facing terminal device:
-its shared memory and output imports, its blocking shell entry point, and its
-versioned in-memory mailbox layout. Keeping this separate prevents worker/UI
-transport mechanics from becoming command capabilities.
+`dolly-display-0.wat` separately defines the browser-facing display/input
+device: shared memory, the temporary bootstrap text sink, bounded input-event
+records, double-buffered RGBA addresses, command-result words, and the blocking
+shell entry point. Keeping it separate prevents worker/UI transport mechanics
+from becoming command capabilities. Once the resident display driver is live,
+ordinary terminal output never calls the browser text sink.
 
 The contract module is a schema and is never instantiated. `scripts/dolly-abi.mjs`
 assembles and consumes it as follows:
@@ -46,7 +48,7 @@ for tasks such as zeroing relocated BSS before constructors run. The start code
 still executes inside the shared WebAssembly address space and gains no imports
 beyond those checked by this contract.
 
-The build creates `build/dolly-0.wasm` and `build/dolly-terminal-0.wasm` from
+The build creates `build/dolly-0.wasm` and `build/dolly-display-0.wasm` from
 the WAT schemas and validates every command and the runtime. It also creates
 `build/runtime-exports.json` because Emscripten's `EXPORTED_FUNCTIONS` setting
 requires that syntax. That JSON file is derived build glue, not an ABI source.
@@ -80,6 +82,12 @@ edge. Its JavaScript provider, not code inside the shared-everything userspace,
 owns origin, credential, redirect, quota, and approval policy. The threat model
 deliberately assumes total userspace compromise; see
 [`docs/security.md`](../docs/security.md).
+
+The display contract is deliberately device-shaped rather than a terminal
+emulator API. The browser writes fixed-size key/text/resize/focus records and
+reads only a published frame index, dimensions, stride, and bounded RGBA byte
+range. Ghostty parsing, mode-aware key encoding, font loading, rasterization,
+and terminal state are implementation details inside the shared userspace.
 
 The compiler engine in `src/compiler.cpp` applies the corresponding frontend and
 LLD settings from inside the main Wasm module. The `/bin/cc` and `/bin/c++`

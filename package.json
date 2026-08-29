@@ -13,7 +13,6 @@
     "@earendil-works/pi-agent-core": "0.84.4",
     "@earendil-works/pi-ai": "0.84.4",
     "@earendil-works/pi-coding-agent": "0.84.4",
-    "esbuild": "0.25.9",
-    "ghostty-web": "0.4.0"
+    "esbuild": "0.25.9"
   }
 }

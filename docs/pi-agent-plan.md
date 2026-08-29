@@ -55,33 +55,17 @@ discover the smallest JavaScript-agent userspace interface that Dolly needs.
    JavaScript that Dolly cannot yet load.
 5. Promise-shaped APIs may be backed by blocking Dolly operations. Version 0
    remains single-threaded and deterministic.
-6. `libghostty-vt` now builds and links inside Dolly through the source-only Zig
-   bootstrap. The remaining work is the bounded cell/diff display contract;
-   the browser remains a narrow display and input device.
+6. `libghostty-vt` and the RGBA display driver now build and link inside Dolly
+   through the source-only Zig bootstrap. The browser is a narrow framebuffer
+   presenter and raw event source; Pi TUI work still needs the tty-control APIs.
 7. Canonical contracts remain WAT, C headers, C/JavaScript source, and prose.
    No new JSON contract or package manifest is introduced merely for this work.
 
 ## Ghostty and the display boundary
 
-### Current arrangement
+### Implemented arrangement
 
-The current `ghostty-web` package already consists of two important halves:
-
-- Ghostty's VT parser, screen state, scrollback, and key encoder run in a
-  separate WebAssembly module;
-- TypeScript reads the resulting cells, renders them to a browser canvas, and
-  handles browser input, selection, sizing, and clipboard integration.
-
-This is documented by the
-[`ghostty-web` architecture](https://github.com/coder/ghostty-web/blob/main/AGENTS.md).
-It is already substantially better than parsing arbitrary terminal escape
-sequences directly in Dolly's application JavaScript. However, that Ghostty
-Wasm instance has its own wasm32 memory and is an external browser component;
-it is not a Dolly filesystem module and is not built by Dolly.
-
-### Desired arrangement
-
-The clean target is a framebuffer-console-shaped architecture:
+Dolly now uses a framebuffer-console-shaped architecture:
 
 ```text
 keyboard / resize events
@@ -96,48 +80,40 @@ Dolly tty discipline -> foreground program
 stdout/stderr VT bytes -> libghostty-vt inside Dolly
           |
           v
-bounded screen/cell state in Dolly memory
+Iosevka glyph rasterization into RGBA in Dolly memory
           |
           v
-browser-owned canvas presenter
+checked browser canvas blit
 ```
 
-The browser presenter receives only bounded display state for Dolly's own
-canvas. It must not receive a filesystem path, URL, command name, arbitrary DOM
-selector, JavaScript source, or graphics-resource URL. Input remains the
-existing byte mailbox, extended with versioned size and focus records when
-needed.
+The browser presenter receives a buffer index, dimensions, stride, generation,
+and pixels for Dolly's dedicated canvas. It does not receive a filesystem path,
+URL, command name, arbitrary DOM selector, JavaScript source, or graphics-
+resource URL. Input is a fixed-size versioned record ring for raw key,
+text/IME, resize, and focus events.
 
 Under Dolly's threat model, compromising the in-Wasm VT engine can corrupt the
 screen and emit arbitrary pixels. That is acceptable: terminal output is
 already an explicit local-user-visible channel. It must not grant network,
 host-filesystem, native-process, clipboard-write, or general DOM authority.
 
-### What should move inside
-
-The first target is `libghostty-vt`, not the complete Ghostty desktop
-application. The useful in-Wasm responsibilities are:
+The target remains `libghostty-vt`, not the complete Ghostty desktop
+application. The in-Wasm responsibilities are now:
 
 - VT/ANSI parsing;
 - terminal modes and cursor state;
 - cell grid and scrollback;
 - grapheme and cell-width state;
 - alternate-screen state;
-- keyboard protocol encoding where it does not require DOM events.
+- terminal-mode-aware keyboard protocol encoding;
+- Iosevka TTF loading and glyph rasterization;
+- bounded double-buffered RGBA publication.
 
-The full desktop renderer uses platform graphics and font facilities. Canvas,
-IME, browser keyboard events, fullscreen, device-pixel ratio, and accessibility
-are necessarily browser-facing. There are two viable presentation designs:
-
-1. **Cell presenter, first choice.** Dolly exposes a bounded row/cell view plus
-   dirty generations. A small browser renderer paints it with Canvas. This
-   keeps fonts and browser integration simple, but the renderer remains trusted
-   application code.
-2. **RGBA framebuffer, later experiment.** Dolly rasterizes a bounded framebuffer
-   and the browser performs one checked blit to its dedicated canvas. This gives
-   the narrowest host display API, but requires font loading, shaping,
-   rasterization, selection, high-DPI handling, and potentially large memory
-   copies inside Dolly.
+DOM event capture, IME composition, fullscreen requests, device-pixel ratio,
+accessibility, and the final canvas blit remain necessarily browser-facing. The
+chosen RGBA design gives a smaller privileged surface than a browser cell/font
+renderer at the cost of full-frame copies. Selection and richer shaping are not
+implemented yet.
 
 Importing a large Canvas or WebGL method surface into Dolly is rejected. It
 would replace a small terminal contract with a broad browser graphics ABI and
@@ -166,9 +142,9 @@ links a command that proves a fixed VT byte stream produces an inspectable cell
 grid. The detailed architecture and cold-browser evidence are in
 [`zig-ghostty.md`](zig-ghostty.md).
 
-Ghostty integration does not block the headless Pi milestones. The current
-renderer remains in place until the in-Wasm cell/diff display path reaches
-presentation and input parity.
+Ghostty integration does not block the headless Pi milestones. The in-Wasm RGBA
+path has replaced the external renderer after Chrome presentation and input
+tests passed.
 
 ## Target JavaScript architecture
 
@@ -370,11 +346,11 @@ process provider.
 Pi's headless modes do not require this phase. Its interactive UI does.
 
 Ghostty placement is not an API compatibility requirement for Pi. Pi's TUI
-writes VT bytes and reads tty bytes; it does not know whether those bytes are
-parsed by `ghostty-web` in another Wasm instance or by `libghostty-vt` inside
-Dolly. The immediate blocker is Dolly's JavaScript/tty behavior: stdin events,
-raw mode, resize, interrupts, and timer-driven redraws. Headless `pi -p` is the
-deliberate initial solution while that substrate is absent.
+writes VT bytes and reads tty bytes; those bytes are now parsed by
+`libghostty-vt` inside Dolly. The immediate blocker is the remaining tty
+behavior: raw mode, `ioctl` window size, restoration, interrupts, and timer-
+driven redraws. Headless `pi -p` remains the deliberate solution while that
+substrate is incomplete.
 
 Inside Dolly:
 
@@ -386,15 +362,9 @@ Inside Dolly:
 - expose standard-stream events to the JavaScript compatibility layer;
 - cap paste size and output rate.
 
-For Ghostty:
-
-- preserve the cold-browser Zig/Ghostty source-build and cell-grid proof;
-- define a typed cell-grid or framebuffer display contract in WAT;
-- feed stdout/stderr bytes to the in-Wasm VT engine without a JS text parser;
-- prove presentation and input parity against the current renderer;
-- keep F11, zoom, canvas ownership, and browser keyboard/IME capture in the
-  minimal frontend;
-- remove `ghostty-web` only after parity tests pass.
+The Ghostty portion of this phase is complete: preserve the cold-browser source
+build, typed RGBA/input WAT contract, browser proof, and minimal F11/DOM-event/
+canvas frontend while tty control evolves.
 
 The presenter must cap dimensions and buffer lengths and must treat every cell,
 glyph, URL, title, and OSC payload as attacker-controlled. Clipboard writes,
@@ -505,10 +475,8 @@ Every work package must preserve these tests:
 3. Bundle the pinned upstream Pi TUI entry and keep the current headless path as
    a regression test. Extend Node-shaped modules only when the probe names a
    missing symbol.
-4. Define the bounded cell/diff display ABI over the now-working in-Dolly
-   `libghostty-vt` proof and connect command output to it.
-5. Replace `ghostty-web`'s parser/state role only after display and input parity
-   pass in a real browser.
+4. Extend the existing in-Wasm Ghostty RGBA path only where the Pi TUI exposes a
+   concrete gap (for example selection, richer shaping, or accessibility).
 
 TypeScript source builds and extension loading follow the TUI compatibility
 probe; neither is needed to preserve the working headless agent loop.

@@ -184,14 +184,15 @@ GHOSTTY_CFLAGS := -std=c17 -Os -D__STDC_NO_ATOMICS__=1 -fno-strict-aliasing \
 	-Wno-incompatible-pointer-types -I /usr/src/dolly/zig/include \
 	-I /usr/lib/zig
 
-ghostty: /usr/lib/libghostty-vt.a /usr/bin/ghostty-vt
-	rm -rf /tmp/ghostty
+ghostty: /usr/lib/libghostty-vt.a /usr/bin/ghostty-vt /usr/libexec/dolly/display.wasm
 
 /tmp/ghostty:
 	mkdir -p $@
 
+ifeq ($(wildcard /tmp/ghostty/ghostty-vt.c),)
 /tmp/ghostty/ghostty-vt.c: /usr/bin/zig /usr/src/ghostty/src/lib_vt.zig /usr/src/ghostty/generated/uucode-tables.zig | /tmp/ghostty
 	zig $(GHOSTTY_ZIG_FLAGS) -femit-bin=$@
+endif
 
 /tmp/ghostty/ghostty-vt.o: /tmp/ghostty/ghostty-vt.c
 	$(CC) $(GHOSTTY_CFLAGS) -c $< -o $@
@@ -200,6 +201,9 @@ ghostty: /usr/lib/libghostty-vt.a /usr/bin/ghostty-vt
 	$(AR) rcs $@ $^
 
 /usr/bin/ghostty-vt: /usr/src/dolly/ghostty/check.c /usr/lib/libghostty-vt.a
+	$(CC) -std=c17 -I /usr/include $< -lghostty-vt -o $@
+
+/usr/libexec/dolly/display.wasm: /usr/src/dolly/ghostty/display.c /usr/lib/libghostty-vt.a /usr/include/stb_truetype.h /usr/include/dolly/display.h /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 	$(CC) -std=c17 -I /usr/include $< -lghostty-vt -o $@
 
 extras: /usr/libexec/dolly/cpp-check /usr/bin/demo

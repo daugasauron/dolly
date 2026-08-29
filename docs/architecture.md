@@ -147,28 +147,34 @@ Allowed browser operations are deliberately narrow:
 
 1. fetch immutable Wasm/code assets;
 2. compile and instantiate side modules against Dolly's imports;
-3. deliver terminal or UI input;
-4. display terminal, canvas, audio, or downloaded output;
+3. write bounded key, text/IME, focus, and resize records;
+4. blit a bounded RGBA framebuffer to Dolly's canvas;
 5. supply clocks, entropy, and immutable startup configuration;
 6. perform explicitly brokered HTTP requests.
 
 Filesystem paths, descriptors, contents, working directories, environment,
-pipes, and process bookkeeping remain in Wasm memory. The root is explicitly a
-WasmFS memory backend. WasmFS's JavaScript backend hooks exist only for output
-terminal character devices, which are necessarily browser-facing.
+pipes, terminal state, fonts, and process bookkeeping remain in Wasm memory.
+The root is explicitly a WasmFS memory backend. During the source build only,
+one output callback feeds a plain-text progress view because the resident
+renderer does not exist yet; it is not a filesystem backend.
 
 The runtime lives in a Web Worker and blocks there on WebAssembly atomic wait.
-The UI writes raw Ghostty bytes into a single-producer/single-consumer mailbox
-inside the shared Wasm memory, then notifies its atomic wake word. The mailbox
-layout and exact typed runtime exports are defined by
-`abi/dolly-terminal-0.wat`. JavaScript neither parses shell lines nor maintains
-descriptor or process state.
+The UI writes fixed-size raw browser event records into a
+single-producer/single-consumer mailbox in shared Wasm memory and notifies its
+atomic wake word. The resident display module maps those records to Ghostty key
+events, applies terminal-mode-aware encoding, and yields only encoded bytes to
+Dolly's tty discipline. Emscripten's browser stdin fallback is absent. The
+shell consumes the resulting queue through its line editor; foreground commands
+consume it through ordinary libc stdin.
 
-Two explicit output-device callbacks, `env.dolly_terminal_write` and
-`env.dolly_terminal_write_bytes`, display terminal bytes. Emscripten's browser
-stdin fallback is absent from the artifact. WasmFS fd 0 instead calls Dolly's
-native canonical terminal device. The shell consumes the same raw queue for its
-own line editor; foreground commands consume it through ordinary libc stdin.
+Terminal output is passed to the same resident module, whose source-built
+Ghostty VT engine owns the grid and whose pinned stb_truetype/Iosevka path
+rasterizes into the inactive of two bounded RGBA buffers. Atomic frame metadata
+publishes a complete buffer. Browser JavaScript validates the index,
+dimensions, stride, capacity, and shared-memory range, copies a stable frame,
+and calls `putImageData`; it contains no terminal parser or glyph renderer. The
+mailbox layout and exact typed exports are defined by
+`abi/dolly-display-0.wat`.
 
 Version 0 lifecycle is deliberately bounded and synchronous. `dolly_spawn`
 allocates a process-table slot, routes descriptors 0/1/2 with WasmFS `dup2`,

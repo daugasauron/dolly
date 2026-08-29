@@ -22,6 +22,7 @@
 #include <emscripten/emscripten.h>
 #include <emscripten/wasmfs.h>
 
+#include <dolly/display.h>
 #include <dolly/http.h>
 
 #include "dolly-runtime.h"
@@ -112,24 +113,16 @@ typedef struct {
 static dolly_exit_frame exit_frames[DOLLY_MAX_EXIT_DEPTH];
 static size_t exit_depth;
 
-typedef struct {
-  _Atomic uint32_t input_read;
-  _Atomic uint32_t input_write;
-  _Atomic uint32_t input_wake;
-  _Atomic uint32_t result_sequence;
-  _Atomic uint32_t result_status;
-  _Atomic uint32_t foreground_pid;
-  _Atomic uint32_t flags;
-  unsigned char reserved[DOLLY_TERMINAL_MAILBOX_HEADER_SIZE - 7 * sizeof(uint32_t)];
-  unsigned char input[DOLLY_TERMINAL_INPUT_CAPACITY];
-} dolly_terminal_mailbox;
+_Static_assert((DOLLY_DISPLAY_EVENT_CAPACITY &
+                (DOLLY_DISPLAY_EVENT_CAPACITY - 1)) == 0,
+               "display event capacity must be a power of two");
 
-_Static_assert(offsetof(dolly_terminal_mailbox, input) == DOLLY_TERMINAL_MAILBOX_HEADER_SIZE,
-               "terminal mailbox layout changed");
-_Static_assert((DOLLY_TERMINAL_INPUT_CAPACITY & (DOLLY_TERMINAL_INPUT_CAPACITY - 1)) == 0,
-               "terminal input capacity must be a power of two");
-
-_Alignas(64) static dolly_terminal_mailbox terminal_mailbox;
+_Alignas(64) static dolly_display_mailbox display_mailbox;
+static const dolly_display_driver_v1 *display_driver;
+static void *display_module;
+static unsigned char *display_frames[DOLLY_DISPLAY_FRAME_COUNT];
+static const size_t display_frame_capacity =
+    (size_t)DOLLY_DISPLAY_MAX_WIDTH * DOLLY_DISPLAY_MAX_HEIGHT * 4;
 
 typedef struct {
   _Atomic uint32_t state;
@@ -148,19 +141,18 @@ _Static_assert(offsetof(dolly_http_mailbox, data) == DOLLY_HTTP_MAILBOX_HEADER_S
 
 _Alignas(64) static dolly_http_mailbox http_mailbox;
 
+static unsigned char encoded_input[256];
+static size_t encoded_input_length;
+static size_t encoded_input_cursor;
 static unsigned char cooked_line[4096];
 static size_t cooked_length;
 static size_t cooked_cursor;
 static int cooked_boundary;
 
-EM_JS(void, dolly_terminal_write, (const char *text), {
-  Module["terminalWrite"]?.(UTF8ToString(Number(text)));
-});
-
-EM_JS(void, dolly_terminal_write_bytes,
+EM_JS(void, dolly_bootstrap_write_bytes,
       (const unsigned char *bytes, uintptr_t length), {
   const start = Number(bytes);
-  Module["terminalWriteBytes"]?.(HEAPU8.slice(start, start + Number(length)));
+  Module["bootstrapWriteBytes"]?.(HEAPU8.slice(start, start + Number(length)));
 });
 
 EM_JS(void, dolly_http_dispatch,
@@ -179,18 +171,34 @@ EM_JS(void, dolly_http_dispatch,
 });
 
 EMSCRIPTEN_KEEPALIVE
-uintptr_t dolly_terminal_mailbox_address(void) {
-  return (uintptr_t)&terminal_mailbox;
+uintptr_t dolly_display_mailbox_address(void) {
+  return (uintptr_t)&display_mailbox;
 }
 
 EMSCRIPTEN_KEEPALIVE
-uint32_t dolly_terminal_mailbox_version(void) {
-  return DOLLY_TERMINAL_MAILBOX_VERSION;
+uint32_t dolly_display_mailbox_version(void) {
+  return DOLLY_DISPLAY_MAILBOX_VERSION;
 }
 
 EMSCRIPTEN_KEEPALIVE
-uint32_t dolly_terminal_input_capacity(void) {
-  return DOLLY_TERMINAL_INPUT_CAPACITY;
+uint32_t dolly_display_event_size(void) {
+  return DOLLY_DISPLAY_EVENT_SIZE;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t dolly_display_event_capacity(void) {
+  return DOLLY_DISPLAY_EVENT_CAPACITY;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t dolly_display_framebuffer_address(uint32_t index) {
+  return index < DOLLY_DISPLAY_FRAME_COUNT
+      ? (uintptr_t)display_frames[index] : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t dolly_display_framebuffer_capacity(void) {
+  return display_frame_capacity;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -315,17 +323,41 @@ int dolly_http_perform(const dolly_http_request *request,
 
 int dolly_terminal_read_raw(void) {
   for (;;) {
-    uint32_t read = atomic_load_explicit(&terminal_mailbox.input_read, memory_order_relaxed);
-    uint32_t write = atomic_load_explicit(&terminal_mailbox.input_write, memory_order_acquire);
+    if (encoded_input_cursor < encoded_input_length) {
+      return encoded_input[encoded_input_cursor++];
+    }
+    encoded_input_cursor = 0;
+    encoded_input_length = 0;
+
+    if (display_driver != NULL &&
+        display_driver->handle_event(NULL, encoded_input,
+                                     sizeof(encoded_input),
+                                     &encoded_input_length) == 0 &&
+        encoded_input_length != 0) continue;
+
+    uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
+                                         memory_order_relaxed);
+    uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
+                                          memory_order_acquire);
     if (read != write) {
-      int byte = terminal_mailbox.input[read & (DOLLY_TERMINAL_INPUT_CAPACITY - 1)];
-      atomic_store_explicit(&terminal_mailbox.input_read, read + 1, memory_order_release);
-      return byte;
+      dolly_input_event event =
+          display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+      atomic_store_explicit(&display_mailbox.event_read, read + 1,
+                            memory_order_release);
+      if (display_driver != NULL &&
+          display_driver->handle_event(&event, encoded_input,
+                                       sizeof(encoded_input),
+                                       &encoded_input_length) == 0 &&
+          encoded_input_length != 0) continue;
+      encoded_input_length = 0;
+      continue;
     }
 
-    uint32_t wake = atomic_load_explicit(&terminal_mailbox.input_wake, memory_order_acquire);
-    if (atomic_load_explicit(&terminal_mailbox.input_write, memory_order_acquire) == read) {
-      emscripten_atomic_wait_u32((void *)&terminal_mailbox.input_wake, wake,
+    uint32_t wake = atomic_load_explicit(&display_mailbox.event_wake,
+                                         memory_order_acquire);
+    if (atomic_load_explicit(&display_mailbox.event_write,
+                             memory_order_acquire) == read) {
+      emscripten_atomic_wait_u32((void *)&display_mailbox.event_wake, wake,
                                  ATOMICS_WAIT_DURATION_INFINITE);
     }
   }
@@ -339,10 +371,28 @@ void dolly_terminal_reset_cooked(void) {
 }
 
 void dolly_terminal_publish_result(int status) {
-  atomic_store_explicit(&terminal_mailbox.result_status, (uint32_t)status, memory_order_release);
-  atomic_fetch_add_explicit(&terminal_mailbox.result_sequence, 1, memory_order_acq_rel);
-  emscripten_atomic_notify((void *)&terminal_mailbox.result_sequence,
+  atomic_store_explicit(&display_mailbox.result_status, (uint32_t)status,
+                        memory_order_release);
+  atomic_fetch_add_explicit(&display_mailbox.result_sequence, 1,
+                            memory_order_acq_rel);
+  emscripten_atomic_notify((void *)&display_mailbox.result_sequence,
                            EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+}
+
+void dolly_terminal_write(const char *text) {
+  if (text != NULL) {
+    dolly_terminal_write_bytes((const unsigned char *)text, strlen(text));
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
+  if (bytes == NULL || length == 0) return;
+  if (display_driver != NULL) {
+    display_driver->write(bytes, (size_t)length);
+  } else {
+    dolly_bootstrap_write_bytes(bytes, length);
+  }
 }
 
 static void echo_byte(unsigned char byte) {
@@ -839,6 +889,56 @@ static int compile_source(const char *source, const char *output,
   return compile_sources(&source, 1, NULL, 0, output, default_language);
 }
 
+static int install_display_driver(void) {
+  static const char driver_path[] = "/usr/libexec/dolly/display.wasm";
+  static const char font_path[] =
+      "/usr/share/fonts/IosevkaTerm-SemiBold.ttf";
+
+  puts("dolly: loading sandbox display driver");
+  fflush(stdout);
+  for (size_t index = 0; index < DOLLY_DISPLAY_FRAME_COUNT; ++index) {
+    display_frames[index] = malloc(display_frame_capacity);
+    if (display_frames[index] == NULL) {
+      fputs("dolly: could not allocate sandbox framebuffer\n", stderr);
+      return 1;
+    }
+  }
+
+  display_module = dlopen(driver_path, RTLD_NOW | RTLD_LOCAL);
+  if (display_module == NULL) {
+    fprintf(stderr, "dolly: dlopen %s failed: %s\n", driver_path, dlerror());
+    return 1;
+  }
+  dlerror();
+  dolly_display_driver_getter_v1 getter =
+      (dolly_display_driver_getter_v1)dlsym(
+          display_module, "dolly_display_driver_get_v1");
+  const char *error = dlerror();
+  if (error != NULL || getter == NULL) {
+    fprintf(stderr, "dolly: display driver export failed: %s\n",
+            error != NULL ? error : "missing getter");
+    return 1;
+  }
+  const dolly_display_driver_v1 *candidate = getter();
+  if (candidate == NULL || candidate->abi_version != 1 ||
+      candidate->struct_size < sizeof(*candidate) ||
+      candidate->initialize == NULL || candidate->write == NULL ||
+      candidate->handle_event == NULL) {
+    fputs("dolly: incompatible sandbox display driver\n", stderr);
+    return 1;
+  }
+  if (candidate->initialize(&display_mailbox, display_frames[0],
+                            display_frames[1], display_frame_capacity,
+                            font_path) != 0) {
+    fputs("dolly: sandbox display initialization failed\n", stderr);
+    return 1;
+  }
+  puts("dolly: sandbox display ready");
+  fflush(stdout);
+  display_driver = candidate;
+  return 0;
+}
+
 int dolly_spawn(const char *path, int argc, char **argv,
                 int stdin_fd, int stdout_fd, int stderr_fd) {
   if (path == NULL || argc < 0 || argv == NULL) return -EINVAL;
@@ -858,7 +958,7 @@ int dolly_spawn(const char *path, int argc, char **argv,
   int saved[3] = {dup(STDIN_FILENO), dup(STDOUT_FILENO), dup(STDERR_FILENO)};
   int requested[3] = {stdin_fd, stdout_fd, stderr_fd};
   int status = 126;
-  int previous_pid = (int)atomic_load_explicit(&terminal_mailbox.foreground_pid,
+  int previous_pid = (int)atomic_load_explicit(&display_mailbox.foreground_pid,
                                                 memory_order_acquire);
 
   fflush(NULL);
@@ -873,7 +973,7 @@ int dolly_spawn(const char *path, int argc, char **argv,
     clearerr(stdout);
     clearerr(stderr);
     dolly_terminal_reset_cooked();
-    atomic_store_explicit(&terminal_mailbox.foreground_pid, (uint32_t)process->pid,
+    atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)process->pid,
                           memory_order_release);
     status = dolly_run_filesystem_module(path, argc, argv);
   }
@@ -894,7 +994,7 @@ int dolly_spawn(const char *path, int argc, char **argv,
   clearerr(stdout);
   clearerr(stderr);
   dolly_terminal_reset_cooked();
-  atomic_store_explicit(&terminal_mailbox.foreground_pid, (uint32_t)previous_pid,
+  atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)previous_pid,
                         memory_order_release);
 
   int context_status = 0;
@@ -1023,7 +1123,8 @@ int dolly_bootstrap(void) {
             strerror(-wait_status));
     return 126;
   }
-  return startup_status;
+  if (startup_status != 0) return startup_status;
+  return install_display_driver();
 }
 
 EMSCRIPTEN_KEEPALIVE
