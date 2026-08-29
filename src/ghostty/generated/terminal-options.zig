@@ -1,0 +1,25 @@
+pub const @"src.terminal.build_options.Options.Artifact" = enum (u1) {
+    ghostty = 0,
+    lib = 1,
+};
+pub const artifact: @"src.terminal.build_options.Options.Artifact" = .lib;
+pub const c_abi: bool = true;
+pub const oniguruma: bool = false;
+pub const simd: bool = false;
+pub const slow_runtime_safety: bool = false;
+pub const tmux_control_mode: bool = false;
+pub const snapshot: bool = true;
+pub const formatter: bool = true;
+pub const selection: bool = true;
+pub const render_state: bool = true;
+pub const input_encode: bool = true;
+pub const color: bool = true;
+pub const grid_introspection: bool = true;
+pub const glyph_protocol: bool = true;
+pub const kitty_graphics: bool = false;
+pub const version_string: []const u8 = "0.1.0-dev";
+pub const version_major: usize = 0;
+pub const version_minor: usize = 1;
+pub const version_patch: usize = 0;
+pub const version_pre: ?[]const u8 = "dev";
+pub const version_build: ?[]const u8 = null;

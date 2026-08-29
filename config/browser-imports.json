@@ -1,0 +1,66 @@
+{
+  "machine": [
+    "env.memory"
+  ],
+  "loader": [
+    "env.__cxa_throw",
+    "env._abort_js",
+    "env._dlopen_js",
+    "env._dlsym_js",
+    "env._emscripten_runtime_keepalive_clear",
+    "env._emscripten_throw_longjmp",
+    "env.emscripten_get_heap_max",
+    "env.emscripten_resize_heap",
+    "env.exit",
+    "env.invoke_iij",
+    "env.invoke_ij",
+    "env.invoke_ijj",
+    "env.invoke_ijjj",
+    "env.invoke_j",
+    "env.invoke_jj",
+    "env.invoke_jji",
+    "env.invoke_jjj",
+    "env.invoke_v",
+    "env.invoke_vj",
+    "wasi_snapshot_preview1.proc_exit"
+  ],
+  "network": [
+    "env.dolly_http_dispatch"
+  ],
+  "clock": [
+    "env.__call_sighandler",
+    "env._gmtime_js",
+    "env._localtime_js",
+    "env._mktime_js",
+    "env._setitimer_js",
+    "env._tzset_js",
+    "env.emscripten_get_now",
+    "wasi_snapshot_preview1.clock_time_get"
+  ],
+  "bootstrap": [
+    "env._wasmfs_copy_preloaded_file_data",
+    "env._wasmfs_get_num_preloaded_dirs",
+    "env._wasmfs_get_num_preloaded_files",
+    "env._wasmfs_get_preloaded_child_path",
+    "env._wasmfs_get_preloaded_file_mode",
+    "env._wasmfs_get_preloaded_file_size",
+    "env._wasmfs_get_preloaded_parent_path",
+    "env._wasmfs_get_preloaded_path_name",
+    "env.emscripten_date_now",
+    "wasi_snapshot_preview1.environ_get",
+    "wasi_snapshot_preview1.environ_sizes_get",
+    "wasi_snapshot_preview1.random_get"
+  ],
+  "devices": [
+    "env.dolly_terminal_write",
+    "env.dolly_terminal_write_bytes",
+    "env._wasmfs_jsimpl_alloc_file",
+    "env._wasmfs_jsimpl_free_file",
+    "env._wasmfs_jsimpl_get_size",
+    "env._wasmfs_jsimpl_read",
+    "env._wasmfs_jsimpl_set_size",
+    "env._wasmfs_jsimpl_write",
+    "env.emscripten_err",
+    "env.emscripten_out"
+  ]
+}

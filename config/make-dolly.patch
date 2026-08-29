@@ -1,0 +1,141 @@
+diff --git a/src/job.c b/src/job.c
+index acb5317..a3896cf 100644
+--- a/src/job.c
++++ b/src/job.c
+@@ -76,7 +76,11 @@ char * vms_strsignal (int status);
+ 
+ #else
+ 
++#ifdef DOLLY
++const char *default_shell = "/bin/slop";
++#else
+ const char *default_shell = "/bin/sh";
++#endif
+ int batch_mode_shell = 0;
+ 
+ #endif
+@@ -2057,6 +2061,8 @@ load_too_high (void)
+ {
+-#if defined(__MSDOS__) || defined(VMS) || defined(_AMIGA) || defined(__riscos__)
++#ifdef DOLLY
++  return 0;
++#elif defined(__MSDOS__) || defined(VMS) || defined(_AMIGA) || defined(__riscos__)
+   return 1;
+ #else
+   static double last_sec;
+   static time_t last_now;
+@@ -2311,6 +2317,13 @@ child_execute_job (struct childbase *child, int good_stdin, char **argv)
+ pid_t
+ child_execute_job (struct childbase *child, int good_stdin, char **argv)
+ {
++#ifdef DOLLY
++  (void) child;
++  (void) good_stdin;
++  (void) argv;
++  errno = ENOSYS;
++  return -1;
++#else
+   const int fdin = good_stdin ? FD_STDIN : get_bad_stdin ();
+   int fdout = FD_STDOUT;
+   int fderr = FD_STDERR;
+@@ -2501,6 +2514,7 @@ child_execute_job (struct childbase *child, int good_stdin, char **argv)
+     OSS (error, NILF, "%s: %s", argv[0], strerror (r));
+ 
+   return pid;
++#endif
+ }
+ #endif /* !AMIGA && !__MSDOS__ && !VMS */
+ #endif /* !WINDOWS32 */
+diff --git a/src/function.c b/src/function.c
+index 64792a3..259a3d3 100644
+--- a/src/function.c
++++ b/src/function.c
+@@ -25,6 +25,12 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
+ #include "commands.h"
+ #include "debug.h"
+ 
++#ifdef DOLLY
++int dolly_make_shell_capture (const char *command, char **envp, int stderr_fd,
++                              int *status_out, char **buffer_out,
++                              size_t *length_out);
++#endif
++
+ #ifdef _AMIGA
+ #include "amiga.h"
+ #endif
+@@ -1850,6 +1856,35 @@ func_shell_base (char *o, char **argv, int trim_newlines)
+   int pipedes[2];
+   pid_t pid;
+ 
++#ifdef DOLLY
++  {
++    char *buffer = NULL;
++    size_t length = 0;
++    int status = 127;
++
++    output_start ();
++    errfd = (output_context && output_context->err >= 0
++             ? output_context->err : FD_STDERR);
++    child.environment = target_environment (NULL, 0);
++    if (dolly_make_shell_capture (argv[0], child.environment, errfd,
++                                  &status, &buffer, &length) != 0)
++      {
++        shell_completed (127, 0);
++        OS (error, reading_file, "$(shell): %s", strerror (errno));
++        buffer = xstrdup ("");
++        length = 0;
++      }
++    else
++      shell_completed (status, 0);
++
++    fold_newlines (buffer, &length, trim_newlines);
++    o = variable_buffer_output (o, buffer, length);
++    free (buffer);
++    free_childbase (&child);
++    return o;
++  }
++#endif
++
+ #ifndef __MSDOS__
+ #ifdef WINDOWS32
+   /* Reset just_print_flag.  This is needed on Windows when batch files
+diff --git a/src/main.c b/src/main.c
+index 3aa975b..ad83f12 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -1164,14 +1164,17 @@ temp_stdin_unlink ()
+ extern char **environ;
+ #endif
+ 
+-#if defined(_AMIGA) || defined(MK_OS_ZOS)
++#if defined(_AMIGA) || defined(MK_OS_ZOS) || defined(DOLLY)
+ int
+ main (int argc, char **argv)
+ #else
+ int
+ main (int argc, char **argv, char **envp)
+ #endif
+ {
++#ifdef DOLLY
++  char **envp = environ;
++#endif
+   int makefile_status = MAKE_SUCCESS;
+   struct goaldep *read_files;
+   PATH_VAR (current_directory);
+@@ -1627,7 +1630,16 @@ main (int argc, char **argv, char **envp)
+     if (arg_job_slots == INVALID_JOB_SLOTS)
+       arg_job_slots = env_slots;
+   }
+ 
++#ifdef DOLLY
++  /* Dolly has a synchronous process model.  Accept -j for build-system
++     compatibility, but expose one effective slot and no jobserver.  */
++  if (jobserver_auth != NULL)
++    reset_jobserver ();
++  arg_job_slots = 1;
++  argv_slots = 1;
++#endif
++
+   if (print_usage_flag)
+     print_usage (0);
+ 

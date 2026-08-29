@@ -1,0 +1,48 @@
+diff --git a/src/lib_vt.zig b/src/lib_vt.zig
+--- a/src/lib_vt.zig
++++ b/src/lib_vt.zig
+@@ -410,7 +410,7 @@ comptime {
+         @export(&c.alloc_free, .{ .name = "ghostty_free" });
+ 
+         // On Wasm we need to export our allocator convenience functions.
+-        if (builtin.target.cpu.arch.isWasm()) {
++        if (builtin.target.cpu.arch.isWasm() and !builtin.link_libc) {
+             const alloc = @import("lib/allocator/wasm.zig");
+             @export(&alloc.allocBytes, .{ .name = "ghostty_wasm_alloc" });
+             @export(&alloc.freeBytes, .{ .name = "ghostty_wasm_free" });
+diff --git a/src/os/wasm.zig b/src/os/wasm.zig
+--- a/src/os/wasm.zig
++++ b/src/os/wasm.zig
+@@ -21,5 +21,7 @@ pub const shared_mem = options.wasm_shared;
+ /// expected to call the normal alloc.free/destroy functions.
+ pub const alloc = if (builtin.is_test)
+     std.testing.allocator
++else if (builtin.link_libc)
++    std.heap.c_allocator
+ else
+     std.heap.wasm_allocator;
+diff --git a/src/terminal/PageList.zig b/src/terminal/PageList.zig
+--- a/src/terminal/PageList.zig
++++ b/src/terminal/PageList.zig
+@@ -313,7 +313,9 @@ const std_size = Page.layout(std_capacity).total_size;
+ ///
+ /// Test builds use the std pool even on wasm so that pool memory goes
+ /// through the testing allocator and participates in leak detection.
+-const wasm_page_pool = builtin.target.cpu.arch.isWasm() and !builtin.is_test;
++const wasm_page_pool = builtin.target.cpu.arch.isWasm() and
++    !builtin.link_libc and
++    !builtin.is_test;
+ 
+ /// The memory pool we use for page memory buffers. We use a separate pool
+ /// so we can allocate these with a page allocator. We have to use a page
+@@ -544,6 +546,10 @@ inline fn pageAllocator() Allocator {
+     // In tests we use our testing allocator so we can detect leaks.
+     if (builtin.is_test) return std.testing.allocator;
+ 
++    // Dolly links libc into its shared wasm64 userspace. Its allocator must
++    // own all memory growth instead of Zig's standalone wasm page allocator.
++    if (builtin.link_libc) return std.heap.c_allocator;
++
+     // On non-macOS we use our standard Zig page allocator.
+     if (!builtin.target.os.tag.isDarwin()) return std.heap.page_allocator;
+ 

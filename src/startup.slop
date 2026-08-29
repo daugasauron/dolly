@@ -1,0 +1,52 @@
+set -ex
+
+echo '=== preparing Dolly userspace ==='
+mkdir -p /home/dolly
+echo '[maintenance]' > /etc/gitconfig
+echo '    auto = false' >> /etc/gitconfig
+echo '[user]' > /home/dolly/.gitconfig
+echo '    name = Dolly' >> /home/dolly/.gitconfig
+echo '    email = dolly@example.invalid' >> /home/dolly/.gitconfig
+
+echo '=== building GNU make ==='
+cc -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' /usr/src/make/src/ar.c /usr/src/make/src/arscan.c /usr/src/make/src/commands.c /usr/src/make/src/default.c /usr/src/make/src/dir.c /usr/src/make/src/expand.c /usr/src/make/src/file.c /usr/src/make/src/function.c /usr/src/make/src/getopt.c /usr/src/make/src/getopt1.c /usr/src/make/src/guile.c /usr/src/make/src/hash.c /usr/src/make/src/implicit.c /usr/src/make/src/job.c /usr/src/make/src/load.c /usr/src/make/src/loadapi.c /usr/src/make/src/main.c /usr/src/make/src/misc.c /usr/src/make/src/output.c /usr/src/make/src/read.c /usr/src/make/src/remake.c /usr/src/make/src/rule.c /usr/src/make/src/shuffle.c /usr/src/make/src/signame.c /usr/src/make/src/strcache.c /usr/src/make/src/variable.c /usr/src/make/src/version.c /usr/src/make/src/vpath.c /usr/src/make/src/posixos.c /usr/src/make/src/remote-stub.c /usr/src/make/lib/concat-filename.c /usr/src/make/lib/findprog-in.c /usr/src/make/lib/fnmatch.c /usr/src/make/lib/glob.c -o /usr/bin/make
+
+echo '=== bootstrapping Zig 0.16.0 ==='
+make -f /usr/src/dolly/startup.mk zig
+
+echo '=== checking Zig-generated code ==='
+/usr/libexec/dolly/zig-check
+
+echo '=== building Ghostty VT ==='
+make -f /usr/src/dolly/startup.mk ghostty
+
+echo '=== inspecting Ghostty terminal cells ==='
+/usr/bin/ghostty-vt
+
+echo '=== building One True Awk ==='
+cc -std=gnu99 -I /usr/src/awk -DNDEBUG /usr/src/awk/maketab.c -o /usr/libexec/dolly/awk-maketab
+/usr/libexec/dolly/awk-maketab /usr/src/awk/awkgram.tab.h > /usr/src/awk/proctab.c
+cc -std=gnu99 -I /usr/src/awk -D_DEFAULT_SOURCE -DNDEBUG /usr/src/awk/awkgram.tab.c /usr/src/awk/b.c /usr/src/awk/main.c /usr/src/awk/parse.c /usr/src/awk/proctab.c /usr/src/awk/tran.c /usr/src/awk/lib.c /usr/src/awk/run.c /usr/src/awk/lex.c -o /bin/awk
+
+echo '=== building sbase commands ==='
+make -f /usr/src/dolly/startup.mk sbase
+
+echo '=== building Fetch-backed libcurl and curl ==='
+make -f /usr/src/dolly/startup.mk curl
+
+echo '=== building zlib ==='
+make -f /usr/src/dolly/startup.mk zlib
+
+echo '=== building Git ==='
+make -f /usr/src/dolly/startup.mk git
+
+echo '=== building QuickJS-ng ==='
+make -f /usr/src/dolly/startup.mk quickjs
+
+echo '=== installing Pi agent ==='
+make -f /usr/src/dolly/startup.mk pi
+
+echo '=== building Dolly compiler probes ==='
+make -f /usr/src/dolly/startup.mk extras
+
+echo '=== Dolly userspace ready ==='

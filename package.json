@@ -1,0 +1,19 @@
+{
+  "name": "dolly",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "abi": "node scripts/dolly-abi.mjs inspect build/dolly-0.wasm",
+    "build": "./scripts/build.sh",
+    "test": "npm run build && node --test && ./scripts/test-browser.sh",
+    "serve": "node scripts/serve.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "0.84.4",
+    "@earendil-works/pi-ai": "0.84.4",
+    "@earendil-works/pi-coding-agent": "0.84.4",
+    "esbuild": "0.25.9",
+    "ghostty-web": "0.4.0"
+  }
+}

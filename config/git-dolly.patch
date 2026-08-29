@@ -1,0 +1,56 @@
+diff --git a/git-compat-util.h b/git-compat-util.h
+index 4bcdb89..bce7be1 100644
+--- a/git-compat-util.h
++++ b/git-compat-util.h
+@@ -1071,7 +1071,12 @@ int cmd_main(int, const char **);
+  * optionally emit a message before calling the real exit().
+  */
+ int common_exit(const char *file, int line, int code);
++#ifdef DOLLY
++#undef exit
++#define exit(code) dolly_exit(common_exit(__FILE__, __LINE__, (code)))
++#else
+ #define exit(code) exit(common_exit(__FILE__, __LINE__, (code)))
++#endif
+ 
+ /*
+  * This include must come after system headers, since it introduces macros that
+diff --git a/run-command.c b/run-command.c
+index 5326b1a..39374ba 100644
+--- a/run-command.c
++++ b/run-command.c
+@@ -1126,7 +1126,11 @@ int git_atexit(void (*handler)(void))
+ 	ALLOC_GROW(git_atexit_hdlrs.handlers, git_atexit_hdlrs.nr + 1, git_atexit_hdlrs.alloc);
+ 	git_atexit_hdlrs.handlers[git_atexit_hdlrs.nr++] = handler;
+ 	if (!git_atexit_installed) {
++#ifdef DOLLY
++		if (dolly_atexit(&git_atexit_dispatch))
++#else
+ 		if (atexit(&git_atexit_dispatch))
++#endif
+ 			return -1;
+ 		git_atexit_installed = 1;
+ 	}
+diff --git a/common-exit.c b/common-exit.c
+index e3e851f..9fe1f43 100644
+--- a/common-exit.c
++++ b/common-exit.c
+@@ -1,4 +1,7 @@
++#define USE_THE_REPOSITORY_VARIABLE
++
+ #include "git-compat-util.h"
++#include "repository.h"
+ #include "trace2.h"
+ 
+ static void check_bug_if_BUG(void)
+@@ -28,5 +29,10 @@ int common_exit(const char *file, int line, int code)
+ 	check_bug_if_BUG();
+ 	trace2_cmd_exit_fl(file, line, code);
+ 
++#ifdef DOLLY
++	repo_clear(the_repository);
++	memset(the_repository, 0, sizeof(*the_repository));
++#endif
++
+ 	return code;
+ }

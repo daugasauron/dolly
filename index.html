@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Dolly slop shell</title>
+    <style>
+      @font-face {
+        font-family: "Dolly IosevkaTerm SemiBold";
+        src: url("./dist/IosevkaTerm-SemiBold.woff2") format("woff2");
+        font-style: normal;
+        /* Ghostty's canvas requests its base face as normal; this file's
+           outlines are the actual IosevkaTerm SemiBold cut. */
+        font-weight: 400;
+        font-display: block;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+      body {
+        background: #262626;
+        color: #e8e3d7;
+        font-family: "Dolly IosevkaTerm SemiBold", monospace;
+      }
+      #terminal {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 1rem 1.15rem;
+        outline: none;
+        overflow: hidden;
+        caret-color: transparent;
+      }
+      #terminal canvas { display: block; }
+      #terminal textarea { caret-color: transparent !important; }
+      #transcript { display: none; }
+      @media (max-width: 640px) {
+        #terminal { padding: 0.65rem 0.75rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="terminal" aria-label="Dolly shell terminal"></main>
+    <pre id="transcript" aria-hidden="true"></pre>
+    <script type="module" src="./src/browser.mjs"></script>
+  </body>
+</html>
