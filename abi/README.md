@@ -84,7 +84,7 @@ deliberately assumes total userspace compromise; see
 [`docs/security.md`](../docs/security.md).
 
 The display contract is deliberately device-shaped rather than a terminal
-emulator API. The browser writes fixed-size key/text/resize/focus records and
+emulator API. The browser writes fixed-size key/text/resize records and
 reads only a published frame index, dimensions, stride, and bounded RGBA byte
 range. Ghostty parsing, mode-aware key encoding, font loading, rasterization,
 and terminal state are implementation details inside the shared userspace.

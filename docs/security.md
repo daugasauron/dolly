@@ -71,7 +71,7 @@ literally the only information crossing the Wasm boundary:
 
 | Channel | Direction | Security meaning |
 | --- | --- | --- |
-| Display input mailbox | browser to Wasm | Explicit raw key/text/resize/focus input; interpretation occurs in Wasm |
+| Display input mailbox | browser to Wasm | Explicit raw key/text/resize input; interpretation occurs in Wasm |
 | Shared RGBA framebuffer | Wasm to browser | Explicit, user-visible pixels; the browser validates bounds and only blits |
 | Bootstrap text callback | Wasm to browser | Source-build progress before the resident renderer exists; ignored for normal terminal output after activation |
 | HTTP dispatch and mailbox | both | Autonomous external communication and the principal confidentiality/integrity boundary |

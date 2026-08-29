@@ -90,7 +90,7 @@ The browser presenter receives a buffer index, dimensions, stride, generation,
 and pixels for Dolly's dedicated canvas. It does not receive a filesystem path,
 URL, command name, arbitrary DOM selector, JavaScript source, or graphics-
 resource URL. Input is a fixed-size versioned record ring for raw key,
-text/IME, resize, and focus events.
+text/IME and resize events.
 
 Under Dolly's threat model, compromising the in-Wasm VT engine can corrupt the
 screen and emit arbitrary pixels. That is acceptable: terminal output is

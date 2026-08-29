@@ -58,7 +58,7 @@ mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
 web_font="${font_paths[0]}"
 runtime_font="${font_paths[1]}"
 runtime_font_container="/src/${runtime_font#"${project_dir}/"}"
-checkpoint_cmake=()
+checkpoint_cmake=("-DDOLLY_GHOSTTY_C_CHECKPOINT=")
 if [[ -n "${DOLLY_GHOSTTY_C_CHECKPOINT:-}" ]]; then
   checkpoint_path="${DOLLY_GHOSTTY_C_CHECKPOINT}"
   if [[ "${checkpoint_path}" != /* ]]; then

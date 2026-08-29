@@ -77,6 +77,24 @@ static void zig_wasm_start_noop(void) {}
 static uint32_t zig_exit_code;
 static bool zig_did_exit;
 
+static void
+zig_memory_grow_failed(uint32_t pages, uint64_t current_bytes,
+                       uint32_t memory_index,
+                       enlarge_memory_error_reason_t reason,
+                       wasm_module_inst_t instance,
+                       wasm_exec_env_t exec_env,
+                       void *user_data)
+{
+  (void)instance;
+  (void)exec_env;
+  (void)user_data;
+  fprintf(stderr,
+          "zig: memory.grow failed: memory %u, current %llu bytes, "
+          "requested %u pages, reason %u\n",
+          memory_index, (unsigned long long)current_bytes, pages,
+          (unsigned)reason);
+}
+
 #define ARG32(index) ((uint32_t)args[(index)])
 #define ARG64(index) ((uint64_t)args[(index)])
 #define RETURN_WASI(expression) do { args[0] = (uint32_t)(expression); return; } while (0)
@@ -262,6 +280,7 @@ dolly_main(int argc, char **argv)
     fprintf(stderr, "zig: cannot initialize WAMR\n");
     goto done;
   }
+  wasm_runtime_set_enlarge_mem_error_callback(zig_memory_grow_failed, NULL);
   if (!wasm_runtime_register_natives_raw(
           "wasi_snapshot_preview1", zig_wasi_symbols,
           (uint32_t)(sizeof(zig_wasi_symbols) / sizeof(zig_wasi_symbols[0])))) {
@@ -296,8 +315,15 @@ dolly_main(int argc, char **argv)
   } else if (zig_did_exit) {
     status = (int)zig_exit_code;
   } else {
+    wasm_memory_inst_t memory = wasm_runtime_get_default_memory(instance);
     fprintf(stderr, "zig: bootstrap compiler trapped: %s\n",
             wasm_runtime_get_exception(instance));
+    if (memory != NULL) {
+      fprintf(stderr, "zig: bootstrap memory: %llu/%llu pages of %llu bytes\n",
+              (unsigned long long)wasm_memory_get_cur_page_count(memory),
+              (unsigned long long)wasm_memory_get_max_page_count(memory),
+              (unsigned long long)wasm_memory_get_bytes_per_page(memory));
+    }
   }
 
   wasm_runtime_destroy_exec_env(exec_env);

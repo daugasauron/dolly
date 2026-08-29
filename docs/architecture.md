@@ -147,7 +147,7 @@ Allowed browser operations are deliberately narrow:
 
 1. fetch immutable Wasm/code assets;
 2. compile and instantiate side modules against Dolly's imports;
-3. write bounded key, text/IME, focus, and resize records;
+3. write bounded key, text/IME, and resize records;
 4. blit a bounded RGBA framebuffer to Dolly's canvas;
 5. supply clocks, entropy, and immutable startup configuration;
 6. perform explicitly brokered HTTP requests.

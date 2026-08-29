@@ -563,6 +563,7 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   const command = await readFile(new URL("../src/commands/zig.c", import.meta.url), "utf8");
   const compatibility = await readFile(new URL("../src/zig/include/zig.h", import.meta.url), "utf8");
   const ghosttyFetch = await readFile(new URL("../scripts/fetch-ghostty.sh", import.meta.url), "utf8");
+  const build = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
   const packaging = await readFile(new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
 
   assert.match(pins, /DOLLY_ZIG_VERSION=0\.16\.0/);
@@ -579,6 +580,11 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(startup, /\/usr\/bin\/ghostty-vt/);
 
   assert.match(makefile, /\/usr\/libexec\/dolly\/zig1:.*zig1-wamr\.c[\s\S]*?\$\(CC\)/);
+  assert.match(makefile, /WAMR_INTERP := wasm_interp_fast/);
+  assert.match(makefile, /WASM_ENABLE_FAST_INTERP=1/);
+  assert.match(makefile, /WASM_ENABLE_LABELS_AS_VALUES=0/);
+  assert.match(makefile, /WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS=0/);
+  assert.doesNotMatch(makefile, /WAMR_INTERP := wasm_interp_classic/);
   assert.match(makefile, /\/tmp\/ghostty\/ghostty-vt\.c:[\s\S]*?zig \$\(GHOSTTY_ZIG_FLAGS\)/);
   assert.match(makefile, /\/usr\/lib\/libghostty-vt\.a:[\s\S]*?\$\(AR\) rcs/);
   assert.match(makefile, /\/usr\/bin\/ghostty-vt:[\s\S]*?\$\(CC\).*?-lghostty-vt/);
@@ -592,6 +598,9 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(compatibility, /#undef __has_include/);
   assert.match(compatibility, /#undef zig_return_address/);
   assert.match(ghosttyFetch, /status --porcelain/);
+  assert.match(build, /checkpoint_cmake=\("-DDOLLY_GHOSTTY_C_CHECKPOINT="\)/);
+  assert.match(build, /DOLLY_GHOSTTY_C_CHECKPOINT:-/);
+  assert.match(build, /Ghostty checkpoint must be inside/);
 
   for (const packaged of [
     "DOLLY_ZIG_DIR",

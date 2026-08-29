@@ -119,6 +119,9 @@ WAMR_ROOT := /usr/src/wamr/core
 WAMR_EMS := ems_alloc ems_gc ems_hmu ems_kfc
 WAMR_UTILS := bh_assert bh_bitmap bh_common bh_hashmap bh_leb128 bh_list bh_log bh_queue bh_vector runtime_timer
 WAMR_COMMON := wasm_application wasm_blocking_op wasm_c_api wasm_exec_env wasm_loader_common wasm_memory wasm_native wasm_runtime_common wasm_shared_memory
+# WAMR is itself a wasm64 program here. Keep fast bytecode preparation, but
+# disable native-host shortcuts that encode computed-goto pointers or assume
+# the host can perform naturally unaligned C loads.
 WAMR_INTERP := wasm_interp_fast wasm_loader wasm_runtime
 WAMR_SOURCES := \
 	$(addprefix $(WAMR_ROOT)/shared/mem-alloc/ems/,$(addsuffix .c,$(WAMR_EMS))) \
@@ -132,6 +135,8 @@ WAMR_CPPFLAGS := \
 	-DBH_MALLOC=wasm_runtime_malloc -DBH_FREE=wasm_runtime_free \
 	-DWA_MALLOC=wasm_runtime_malloc -DWA_FREE=wasm_runtime_free \
 	-DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_FAST_INTERP=1 \
+	-DWASM_ENABLE_LABELS_AS_VALUES=0 \
+	-DWASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS=0 \
 	-DWASM_ENABLE_BULK_MEMORY=1 -DWASM_ENABLE_BULK_MEMORY_OPT=1 \
 	-DWASM_ENABLE_SHRUNK_MEMORY=1 -DWASM_DISABLE_HW_BOUND_CHECK=1 \
 	-DWASM_DISABLE_STACK_HW_BOUND_CHECK=1 -DWASM_DISABLE_WRITE_GS_BASE=1 \

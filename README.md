@@ -16,7 +16,7 @@ The browser now opens directly into an extremely small `slop` shell rendered
 inside Dolly. After the source build, a filesystem-resident display module
 links Ghostty's VT engine with a software IosevkaTerm SemiBold rasterizer and
 publishes double-buffered RGBA frames in shared Wasm memory. The browser only
-performs a bounded canvas blit and forwards raw key, text/IME, focus, and resize
+performs a bounded canvas blit and forwards raw key, text/IME, and resize
 records. Ghostty mode-aware key encoding, VT parsing, terminal state, glyph
 rasterization, canonical line editing, cwd, environment, descriptors,
 filesystem operations, process bookkeeping, and command execution all live in

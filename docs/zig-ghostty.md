@@ -52,7 +52,15 @@ pinned Ghostty + uucode Zig source --> /tmp/ghostty/ghostty-vt.c
 lifecycle API. The latter is a source-built WAMR interpreter plus Zig's
 upstream stage1 WASI adapter. WAMR was chosen after Wasm3's recursive bytecode
 preparation exhausted Chrome's native stack on Zig's deeply nested module.
-WAMR's fast interpreter prepares that module without adding host authority.
+WAMR's non-recursive fast interpreter prepares that module without adding host
+authority. Its native-machine shortcuts are explicitly disabled:
+`WASM_ENABLE_LABELS_AS_VALUES=0` avoids computed-goto code pointers, and
+`WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS=0` makes the prepared stream use
+portable aligned loads. Those shortcuts are valid for WAMR's normal native
+hosts, but not for WAMR itself compiled as wasm64. Keeping the fast bytecode
+preparation while disabling the shortcuts gives Dolly the correct full
+Ghostty build in minutes; the classic interpreter is correct but takes hours
+on the same input.
 
 The wrapper reports `zig version`/`zig --version` directly from the exact
 0.16.0 source pin. Zig's source-provided stage1 seed is a bootstrap compiler;

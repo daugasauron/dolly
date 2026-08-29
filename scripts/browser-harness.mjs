@@ -503,6 +503,12 @@ try {
   }
   assert.match(evidence.bootstrap, /dolly: loading sandbox display driver/);
   assert.match(evidence.bootstrap, /dolly: sandbox display ready/);
+  if (process.env.DOLLY_EXPECT_GHOSTTY_SOURCE_BUILD === "1") {
+    assert.match(
+      evidence.bootstrap,
+      /zig build-obj[\s\S]*-femit-bin=\/tmp\/ghostty\/ghostty-vt\.c/,
+    );
+  }
 
   const screenshot = await debuggerClient.send("Page.captureScreenshot", {
     format: "png",
