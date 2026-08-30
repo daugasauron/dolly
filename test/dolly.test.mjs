@@ -408,10 +408,8 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(page, /id="bootstrap-log"/);
   assert.match(page, /crossOriginIsolated/);
   assert.match(page, /serviceWorker\.register\("\.\/coi-serviceworker\.js"\)/);
-  assert.match(page, /location\.hostname\.endsWith\("\.github\.io"\)/);
-  assert.match(page, /path: "\/api\/v1\/models"/);
-  assert.match(page, /path: "\/api\/v1\/chat\/completions"/);
-  assert.match(page, /credentialHeaders: \["authorization"\]/);
+  assert.doesNotMatch(page, /DOLLY_HTTP_POLICY/);
+  assert.doesNotMatch(page, /api\/v1\/chat\/completions/);
   assert.match(isolation, /target\.origin !== self\.location\.origin/);
   assert.match(isolation, /Cross-Origin-Opener-Policy/);
   assert.match(isolation, /Cross-Origin-Embedder-Policy/);
@@ -1043,7 +1041,7 @@ test("the browser HTTP policy owns destination authority while credentials stay 
   assert.equal(isDollyCredentialHeader("content-type"), false);
 });
 
-test("the development HTTP policy preserves sandbox credentials", () => {
+test("the no-configuration HTTP policy permits generic destinations and credentials", () => {
   const policy = new DollyHttpPolicy();
   const headers = new Headers({
     authorization: "Bearer sandbox-key",
@@ -1052,6 +1050,12 @@ test("the development HTTP policy preserves sandbox credentials", () => {
   policy.authorize(new URL("https://models.example/v1/models"), "GET", headers, 0);
   assert.equal(headers.get("authorization"), "Bearer sandbox-key");
   assert.equal(headers.get("x-api-key"), "sandbox-api-key");
+  assert.doesNotThrow(() => policy.authorize(
+    new URL("http://source.example/archive.tar.gz"),
+    "POST",
+    new Headers(),
+    0,
+  ));
 });
 
 test("the browser consumes credential policy without exposing it as page state", () => {

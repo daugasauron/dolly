@@ -101,14 +101,15 @@ only to same-origin static responses. It ignores cross-origin requests and has
 no Wasm-selected routing or persistence API. Deployments that already serve
 the headers never register it.
 
-The public Pages embedding is not development mode. Before it imports the
-browser runtime it installs an exact policy for OpenRouter's `/api/v1/models`
-GET and `/api/v1/chat/completions` POST endpoints, with only the
-`Authorization` credential-header name permitted. A completely compromised
-Wasm userspace can spend the finite request quota and send readable sandbox
-data to that provider, because model prompting inherently grants that
-authority; it cannot select another origin or path. General-purpose network
-tools are intentionally denied in that deployment.
+The public Pages embedding intentionally runs the no-configuration broker
+mode. A completely compromised Wasm userspace can send readable sandbox data
+and sandbox-supplied credential headers to any HTTP(S) destination that accepts
+the browser's CORS request. Browser ambient credentials and referrers remain
+omitted, redirects remain rejected, and finite size, time, and request-count
+limits still apply. This is useful for general-purpose agent tools but is not
+an exfiltration-safe deployment policy. A stricter embedding can set
+`DOLLY_HTTP_POLICY` before loading `browser.mjs` without changing the Wasm
+runtime or adding another network edge.
 
 The optional voice control is deliberately not a Wasm import or a request
 mailbox. It can be entered only through the trusted page's phone-menu click or

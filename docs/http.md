@@ -19,13 +19,13 @@ while synchronous C clients wait for browser JavaScript to publish bounded
 chunks. JavaScript runtimes instead poll the same mailbox cooperatively, so
 their Promise jobs and timers continue to advance between chunks.
 
-The page-side provider accepts a `globalThis.DOLLY_HTTP_POLICY` object before
-`browser.mjs` loads. A hardened policy contains exact-origin rules, an exact
-path or path prefix, allowed methods, byte/time limits, and the names of
-credential headers that may reach that destination. The module consumes and
-deletes that global during boot. It always uses `credentials: "omit"`, a
-no-referrer policy, and rejects redirects rather than allowing a request body
-to reach an unvalidated redirect destination.
+The page-side provider optionally accepts a `globalThis.DOLLY_HTTP_POLICY`
+object before `browser.mjs` loads. A hardened policy contains exact-origin
+rules, an exact path or path prefix, allowed methods, byte/time limits, and the
+names of credential headers that may reach that destination. The module
+consumes and deletes that global during boot. It always uses
+`credentials: "omit"`, a no-referrer policy, and rejects redirects rather than
+allowing a request body to reach an unvalidated redirect destination.
 
 ```js
 globalThis.DOLLY_HTTP_POLICY = {
@@ -45,13 +45,14 @@ globalThis.DOLLY_HTTP_POLICY = {
 Credential values are ordinary Dolly state. Pi may store them in its in-memory
 home directory or environment and sends its own authorization header, just as
 it does on a conventional machine. The broker never owns, injects, or rewrites
-the value. With no policy object the development demo preserves those headers
-and permits generic HTTP(S), while still enforcing finite request, response,
-timeout, and request-count limits. It is therefore useful but not safe against
-exfiltration. Production embeddings should supply an explicit destination rule
-set and list only the credential-header names each destination needs. This
-policy remains effective after total compromise of the shared Dolly userspace
-because Wasm cannot replace its imports.
+the value. With no policy object, including in the public Pages demo, it
+preserves those headers and permits generic HTTP(S), while still enforcing
+finite request, response, timeout, and request-count limits. It is therefore
+useful but not safe against exfiltration. Embeddings that need containment
+should supply an explicit destination rule set and list only the
+credential-header names each destination needs. This policy remains effective
+after total compromise of the shared Dolly userspace because Wasm cannot
+replace its imports.
 
 ## In-Wasm request API
 

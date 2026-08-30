@@ -71,10 +71,11 @@ bundle is hundreds of megabytes and does not belong in Git history. After a
 local audited build, `scripts/package-pages.sh` creates the static release
 asset consumed by the manual `Deploy Dolly demo` workflow. A tiny same-origin
 service worker supplies the COOP/COEP headers that GitHub Pages cannot set.
-The public Pages embedding installs a hardened HTTP policy that permits only
-OpenRouter's exact model-list and chat-completion paths; arbitrary `curl`/Git
-network access remains available only in the explicitly unsafe development
-configuration.
+The public Pages embedding permits generic HTTP(S) through Dolly's one browser
+broker, including sandbox-supplied credential headers. This is useful for
+agents and deliberately not safe against exfiltration from a compromised
+userspace. A stricter embedding can install exact destination rules without
+changing the Wasm runtime.
 
 Useful narrower commands:
 

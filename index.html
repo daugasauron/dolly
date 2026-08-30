@@ -129,28 +129,6 @@
     <script type="module">
       if (crossOriginIsolated) {
         sessionStorage.removeItem("dolly-isolation-retry");
-        if (location.hostname.endsWith(".github.io")) {
-          // The public demo grants one deliberately narrow autonomous network
-          // capability. Credentials still originate and remain in WasmFS;
-          // only this header name may leave for these exact OpenRouter paths.
-          globalThis.DOLLY_HTTP_POLICY = {
-            maxRequests: 256,
-            rules: [
-              {
-                origin: "https://openrouter.ai",
-                path: "/api/v1/models",
-                methods: ["GET"],
-                credentialHeaders: ["authorization"],
-              },
-              {
-                origin: "https://openrouter.ai",
-                path: "/api/v1/chat/completions",
-                methods: ["POST"],
-                credentialHeaders: ["authorization"],
-              },
-            ],
-          };
-        }
         await import("./src/browser.mjs");
       } else if ("serviceWorker" in navigator) {
         await navigator.serviceWorker.register("./coi-serviceworker.js");

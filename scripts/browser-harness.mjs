@@ -729,7 +729,9 @@ try {
   });
   await debuggerClient.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `(() => {
-      globalThis.DOLLY_HTTP_POLICY = ${JSON.stringify(fixturePolicy)};
+      ${pagesLiveMode
+        ? ""
+        : `globalThis.DOLLY_HTTP_POLICY = ${JSON.stringify(fixturePolicy)};`}
       const nativeFetch = globalThis.fetch.bind(globalThis);
       globalThis.__dollyCodexTokenRequests = [];
       globalThis.fetch = async (input, init) => {
@@ -874,10 +876,32 @@ try {
           await evaluate(debuggerClient.send, '"DOLLY_HTTP_POLICY" in globalThis'),
           false,
         );
+        assert.equal(
+          await evaluate(
+            debuggerClient.send,
+            `window.__dolly.submit(${JSON.stringify(
+              "curl -fsS https://api.github.com/repos/daugasauron/dolly " +
+              "> /tmp/pages-generic-network.json",
+            )})`,
+          ),
+          0,
+          "the public Pages broker did not permit a generic HTTPS origin",
+        );
+        assert.equal(
+          await evaluate(
+            debuggerClient.send,
+            `window.__dolly.submit(${JSON.stringify(
+              "grep -q '\"full_name\": \"daugasauron/dolly\"' " +
+              "/tmp/pages-generic-network.json",
+            )})`,
+          ),
+          0,
+          "the generic Pages request did not return the expected GitHub API body",
+        );
         console.log(
           `browser: live Pages booted isolated Ghostty and default Pi in ${
             Date.now() - pagesBootStarted
-          }ms`,
+          }ms; generic HTTPS reached the GitHub API through Dolly's broker`,
         );
       } else {
         console.log("browser: Pages service worker established cross-origin isolation");
