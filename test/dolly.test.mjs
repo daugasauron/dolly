@@ -415,6 +415,8 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(isolation, /target\.origin !== self\.location\.origin/);
   assert.match(isolation, /Cross-Origin-Opener-Policy/);
   assert.match(isolation, /Cross-Origin-Embedder-Policy/);
+  assert.match(isolation, /headers\.delete\("Content-Encoding"\)/);
+  assert.match(isolation, /headers\.delete\("Content-Length"\)/);
   assert.doesNotMatch(isolation, /caches\.|indexedDB|postMessage/);
   assert.match(page, /caret-color: transparent/);
   assert.doesNotMatch(page, /<header|<footer|id="status"/);

@@ -20,6 +20,7 @@ const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const missingSnapshotMode = process.env.DOLLY_BROWSER_MODE === "snapshot-missing";
 const snapshotExportMode = process.env.DOLLY_BROWSER_MODE === "snapshot-export";
 const pagesIsolationMode = process.env.DOLLY_BROWSER_MODE === "pages-isolation";
+const pagesLiveMode = process.env.DOLLY_BROWSER_MODE === "pages-live";
 const snapshotSizeLimit = 512 * 1024 * 1024;
 const codexFixtureAuthorizationCode = "dolly-browser-authorization-code";
 const codexFixtureAccountId = "acct_dolly_browser_fixture";
@@ -631,9 +632,15 @@ async function typeCorrectedHelp(send) {
 
 const server = await startServer();
 const address = server.address();
+const externalPage = process.env.DOLLY_BROWSER_PAGE;
+if (pagesLiveMode &&
+    (externalPage === undefined ||
+     !/^https:\/\/[a-z0-9-]+\.github\.io\/[a-z0-9._/-]*$/i.test(externalPage))) {
+  throw new Error("pages-live mode requires an HTTPS github.io DOLLY_BROWSER_PAGE");
+}
 const rebuildPage = `http://${browserHostname}:${address.port}/rebuild`;
 const snapshotPage = `http://${browserHostname}:${address.port}/?autorun=shell`;
-const interactivePage = `http://${browserHostname}:${address.port}/`;
+const interactivePage = externalPage ?? `http://${browserHostname}:${address.port}/`;
 let openRouterSecret = piOpenRouterMode ? await readSecretLine() : "";
 if (piOpenRouterMode && !/^sk-or-v1-[A-Za-z0-9_-]+$/.test(openRouterSecret)) {
   throw new Error("Pi OpenRouter mode requires one API key line on standard input");
@@ -764,7 +771,7 @@ try {
     url: snapshotExportMode
       ? rebuildPage
       : piDevelopmentMode || piOpenRouterMode || missingSnapshotMode
-        || pagesIsolationMode
+        || pagesIsolationMode || pagesLiveMode
         ? interactivePage
         : snapshotPage,
   });
@@ -838,7 +845,7 @@ try {
       console.log("browser: missing snapshot shows one actionable build diagnostic");
       break browserProof;
     }
-    if (pagesIsolationMode) {
+    if (pagesIsolationMode || pagesLiveMode) {
       const state = await waitForValue(
         debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -852,7 +859,24 @@ try {
         await evaluate(debuggerClient.send, "Boolean(navigator.serviceWorker.controller)"),
         true,
       );
-      console.log("browser: Pages service worker established cross-origin isolation");
+      if (pagesLiveMode) {
+        assert.equal(
+          await evaluate(debuggerClient.send, "document.documentElement.dataset.bootMode"),
+          "snapshot",
+        );
+        assert.equal(
+          await evaluate(debuggerClient.send, "document.documentElement.dataset.terminal"),
+          "ghostty-rgba-wasm",
+        );
+        assert.ok(await evaluate(debuggerClient.send, "window.__dolly.foregroundPid") > 0);
+        assert.equal(
+          await evaluate(debuggerClient.send, '"DOLLY_HTTP_POLICY" in globalThis'),
+          false,
+        );
+        console.log("browser: live Pages booted isolated Ghostty and default Pi");
+      } else {
+        console.log("browser: Pages service worker established cross-origin isolation");
+      }
       break browserProof;
     }
     if (piDevelopmentMode || piOpenRouterMode) {

@@ -11,6 +11,11 @@ self.addEventListener("fetch", (event) => {
     const response = await fetch(event.request);
     if (response.type === "opaque" || response.type === "opaqueredirect") return response;
     const headers = new Headers(response.headers);
+    // Fetch exposes a decoded body while origin transport headers can still
+    // describe its compressed representation. A reconstructed Response must
+    // let the browser derive framing for the decoded stream.
+    headers.delete("Content-Encoding");
+    headers.delete("Content-Length");
     headers.set("Cross-Origin-Opener-Policy", "same-origin");
     headers.set("Cross-Origin-Embedder-Policy", "require-corp");
     headers.set("Cross-Origin-Resource-Policy", "same-origin");
