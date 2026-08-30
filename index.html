@@ -33,6 +33,8 @@
         display: block;
         width: 100%;
         height: 100%;
+        cursor: text;
+        touch-action: none;
       }
       #display[hidden] { display: none; }
       #keyboard {
@@ -60,6 +62,50 @@
       }
       #bootstrap-log::first-line { color: #f2d45c; }
       #bootstrap-log[hidden] { display: none; }
+      #phone-menu-button,
+      #phone-menu {
+        display: none;
+      }
+      html[data-phone="on"] #phone-menu-button {
+        position: fixed;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        z-index: 4;
+        display: grid;
+        place-items: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        border: 1px solid #f2d45c;
+        border-radius: 0.25rem;
+        color: #262626;
+        background: #f2d45c;
+        font: inherit;
+        font-size: 1.25rem;
+      }
+      html[data-phone="on"] #phone-menu[data-open="true"] {
+        position: fixed;
+        right: 0.75rem;
+        bottom: 4rem;
+        z-index: 4;
+        display: grid;
+        width: min(17rem, calc(100vw - 1.5rem));
+        gap: 1px;
+        padding: 1px;
+        border: 1px solid #77736c;
+        border-radius: 0.25rem;
+        background: #77736c;
+      }
+      #phone-menu button {
+        min-height: 2.8rem;
+        border: 0;
+        padding: 0 0.9rem;
+        color: #e8e3d7;
+        background: #262626;
+        font: inherit;
+        text-align: left;
+      }
+      #phone-menu button:active { color: #f2d45c; }
+      #phone-menu button:disabled { color: #77736c; }
       @media (max-width: 640px) {
         #bootstrap-log { padding: 0.65rem 0.75rem; }
       }
@@ -72,6 +118,58 @@
         autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
       <pre id="bootstrap-log" aria-live="polite"></pre>
     </main>
-    <script type="module" src="./src/browser.mjs"></script>
+    <button id="phone-menu-button" type="button" aria-label="Open Dolly menu"
+      aria-expanded="false">/</button>
+    <nav id="phone-menu" aria-label="Dolly phone commands" data-open="false">
+      <button type="button" data-dolly-input="/login openrouter\r">OpenRouter login</button>
+      <button type="button" data-dolly-input="/model\r">Choose model</button>
+      <button type="button" data-dolly-input="/demo\r">Framebuffer demo</button>
+      <button type="button" data-dolly-voice>Voice prompt</button>
+    </nav>
+    <script type="module">
+      if (crossOriginIsolated) {
+        sessionStorage.removeItem("dolly-isolation-retry");
+        if (location.hostname.endsWith(".github.io")) {
+          // The public demo grants one deliberately narrow autonomous network
+          // capability. Credentials still originate and remain in WasmFS;
+          // only this header name may leave for these exact OpenRouter paths.
+          globalThis.DOLLY_HTTP_POLICY = {
+            maxRequests: 256,
+            rules: [
+              {
+                origin: "https://openrouter.ai",
+                path: "/api/v1/models",
+                methods: ["GET"],
+                credentialHeaders: ["authorization"],
+              },
+              {
+                origin: "https://openrouter.ai",
+                path: "/api/v1/chat/completions",
+                methods: ["POST"],
+                credentialHeaders: ["authorization"],
+              },
+            ],
+          };
+        }
+        await import("./src/browser.mjs");
+      } else if ("serviceWorker" in navigator) {
+        await navigator.serviceWorker.register("./coi-serviceworker.js");
+        if (!navigator.serviceWorker.controller) {
+          await navigator.serviceWorker.ready;
+          location.reload();
+        } else if (sessionStorage.getItem("dolly-isolation-retry") !== "1") {
+          sessionStorage.setItem("dolly-isolation-retry", "1");
+          location.reload();
+        } else {
+          document.querySelector("#bootstrap-log").textContent =
+            "FATAL\nDolly could not establish cross-origin isolation.\n";
+          document.documentElement.dataset.dollyStatus = "failed";
+        }
+      } else {
+        document.querySelector("#bootstrap-log").textContent =
+          "FATAL\nDolly requires cross-origin isolation and service workers are unavailable.\n";
+        document.documentElement.dataset.dollyStatus = "failed";
+      }
+    </script>
   </body>
 </html>

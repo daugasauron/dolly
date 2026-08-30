@@ -23,10 +23,25 @@ make -f /usr/src/dolly/startup.mk ghostty
 echo '=== inspecting Ghostty terminal cells ==='
 /usr/bin/ghostty-vt
 
+echo '=== building Janis and QuickJS-ng ==='
+make -f /usr/src/dolly/startup.mk quickjs
+
+echo '=== installing upstream Pi agent ==='
+make -f /usr/src/dolly/startup.mk pi
+mkdir -p /home/dolly/.pi/agent/extensions /home/dolly/.pi/agent/themes
+cat /usr/share/dolly/pi/dolly-tools.js > /home/dolly/.pi/agent/extensions/dolly-tools.js
+cat /usr/share/dolly/pi/SYSTEM.md > /home/dolly/.pi/agent/SYSTEM.md
+cat /usr/share/dolly/pi/settings.json > /home/dolly/.pi/agent/settings.json
+cat /usr/share/dolly/pi/dolly-theme.json > /home/dolly/.pi/agent/themes/dolly.json
+
+echo '=== checking Janis ==='
+janis --version
+
+echo '=== checking upstream Pi ==='
+pi --version
+
 echo '=== building One True Awk ==='
-cc -std=gnu99 -I /usr/src/awk -DNDEBUG /usr/src/awk/maketab.c -o /usr/libexec/dolly/awk-maketab
-/usr/libexec/dolly/awk-maketab /usr/src/awk/awkgram.tab.h > /usr/src/awk/proctab.c
-cc -std=gnu99 -I /usr/src/awk -D_DEFAULT_SOURCE -DNDEBUG /usr/src/awk/awkgram.tab.c /usr/src/awk/b.c /usr/src/awk/main.c /usr/src/awk/parse.c /usr/src/awk/proctab.c /usr/src/awk/tran.c /usr/src/awk/lib.c /usr/src/awk/run.c /usr/src/awk/lex.c -o /bin/awk
+make -f /usr/src/dolly/startup.mk awk
 
 echo '=== building sbase commands ==='
 make -f /usr/src/dolly/startup.mk sbase
@@ -39,12 +54,6 @@ make -f /usr/src/dolly/startup.mk zlib
 
 echo '=== building Git ==='
 make -f /usr/src/dolly/startup.mk git
-
-echo '=== building QuickJS-ng ==='
-make -f /usr/src/dolly/startup.mk quickjs
-
-echo '=== installing Pi agent ==='
-make -f /usr/src/dolly/startup.mk pi
 
 echo '=== building Dolly compiler probes ==='
 make -f /usr/src/dolly/startup.mk extras

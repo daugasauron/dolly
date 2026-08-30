@@ -49,6 +49,7 @@ if [[ ! -f "${project_dir}/build/dolly-0.wasm" || \
 fi
 
 compile_only=false
+edge_interrupt_safepoints=true
 output=
 mapped_args=()
 arguments=("$@")
@@ -66,6 +67,11 @@ while ((index < ${#arguments[@]})); do
   case "${argument}" in
     -c|-E|-M|-MM|-S)
       compile_only=true
+      ;;
+    -fdolly-runtime-interrupt-handler)
+      edge_interrupt_safepoints=false
+      index=$((index + 1))
+      continue
       ;;
     -o)
       if ((index + 1 >= ${#arguments[@]})); then
@@ -112,6 +118,7 @@ target_flags=(
   -Dumask=dolly_umask
   -Dgetpass=dolly_getpass
   -Dgetrandom=dolly_getrandom
+  -Disatty=dolly_isatty
   -Dfork=dolly_fork
   -Dexecve=dolly_execve
   -Dexecvp=dolly_execvp
@@ -136,6 +143,9 @@ target_flags=(
   -Dgethostbyname=dolly_gethostbyname
   -Dgetservbyname=dolly_getservbyname
 )
+if [[ "${edge_interrupt_safepoints}" == true ]]; then
+  target_flags+=(-fsanitize-coverage=edge,trace-pc,no-prune)
+fi
 if [[ "${compiler}" == em++ ]]; then
   # Renaming C++'s special `main` identifier removes its implicit C linkage.
   target_flags+=(-include dolly/abi.h)

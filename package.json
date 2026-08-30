@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "abi": "node scripts/dolly-abi.mjs inspect build/dolly-0.wasm",
-    "build": "./scripts/build.sh",
-    "test": "npm run build && node --test && ./scripts/test-browser.sh",
+    "build:runtime": "./scripts/build.sh",
+    "snapshot": "node scripts/build-system-snapshot.mjs",
+    "build": "npm run build:runtime && npm run snapshot",
+    "test": "npm run build && node --test test/*.test.mjs && ./scripts/test-browser.sh",
     "serve": "node scripts/serve.mjs"
   },
   "dependencies": {

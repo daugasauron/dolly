@@ -13,7 +13,8 @@ fi
 printf '%s  %s\n' "${DOLLY_ZIG_SHA256}" "${archive}" |
   sha256sum --check --status
 
-if [[ ! -f "${source_dir}/stage1/zig1.wasm" ]]; then
+if [[ ! -f "${source_dir}/src/main.zig" ||
+      ! -f "${source_dir}/lib/std/std.zig" ]]; then
   if [[ -e "${source_dir}" ]]; then
     echo "dolly: ${source_dir} exists but is not the pinned Zig source tree" >&2
     exit 1

@@ -29,6 +29,22 @@ slop [-e] script [arg ...]
 The no-argument form is interactive. GNU Make uses `/bin/slop -c`. Script mode
 reads a file from WasmFS. All modes use the same parser and executor.
 
+The interactive form has a deliberately small line editor inside Slop. Left
+and Right move the cursor, Up and Down browse command history, and Tab completes
+commands from `PATH` or files from the shared filesystem. Home/End, Delete,
+Ctrl-A/E, Ctrl-U/K, Ctrl-L, and a simple repeated Ctrl-R substring search are
+also supported. Completion is intentionally limited to ordinary unquoted words;
+it does not attempt to reproduce a programmable Bash completion framework.
+
+History is userspace state, not browser state. Slop loads and appends the plain
+newline-delimited file named by `HISTFILE`, which defaults to
+`/home/dolly/.slop_history`. It retains the latest 1,000 entries for interactive
+navigation while leaving the file directly inspectable by ordinary tools, for
+example `grep zig "$HISTFILE"`. Consecutive duplicate and blank commands are
+not appended. Like conventional shell history, commands containing credentials
+will be recorded; applications reading credentials from their own stdin are
+outside the shell editor and are not.
+
 The shell initializes `PATH=/bin:/usr/bin`. A command containing `/` is opened
 directly; every other utility is resolved by searching `PATH` for a regular
 file. Dolly has no user or permission model, so discovery has no execute-bit or
@@ -84,6 +100,12 @@ compiler recipes and agent utilities behave predictably without inventing
 threads, host processes, async JavaScript callbacks, or a scheduler. `-jN` is
 similarly accepted by Dolly's GNU Make port but clamped to one effective job.
 
+A trailing consumer such as `head -20` therefore cannot terminate an unbounded
+producer through `SIGPIPE`: the producer must finish before `head` starts.
+Plain `Ctrl+C` instead targets the currently running foreground command through
+Dolly's cooperative `SIGINT` path and returns status 130, leaving Slop and the
+shared in-memory filesystem alive.
+
 ## GNU Make
 
 GNU Make 4.4.1 is fetched from its checksum-pinned official release, prepared
@@ -106,12 +128,13 @@ and an up-to-date rebuild using a real Makefile.
 
 ## Browser boundary
 
-Slop, Make, commands, descriptors, cwd, environment, and mutable files are all
-inside the Wasm runtime. The browser supplies terminal rendering/input delivery
-and the separately documented HTTP broker; it does not parse commands or
-provide a filesystem or process implementation. The worker remains blocked in
-the typed `int dolly_shell_run(void)` runtime export while the interactive
-Slop executable reads the in-Wasm terminal device.
+Slop, Make, commands, descriptors, cwd, environment, terminal parsing, glyph
+rasterization, and mutable files are all inside the Wasm runtime. The browser
+forwards bounded input records, blits a checked RGBA frame to Canvas, and owns
+the separately documented HTTP broker; it does not parse commands or provide a
+filesystem or process implementation. The worker remains blocked in the typed
+`int dolly_shell_run(void)` runtime export while the interactive Slop
+executable reads the in-Wasm terminal device.
 
 The acceptance proof injects real Ghostty terminal input and verifies the same
 path used by a person. Emscripten's `window.prompt` stdin fallback is absent.

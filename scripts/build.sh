@@ -43,10 +43,8 @@ git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 git_container_dir="/src/${git_dir#"${project_dir}/"}"
 make_dir="$("${project_dir}/scripts/prepare-make.sh")"
 make_container_dir="/src/${make_dir#"${project_dir}/"}"
-zig_dir="$("${project_dir}/scripts/fetch-zig.sh")"
+zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
 zig_container_dir="/src/${zig_dir#"${project_dir}/"}"
-wamr_dir="$("${project_dir}/scripts/fetch-wamr.sh")"
-wamr_container_dir="/src/${wamr_dir#"${project_dir}/"}"
 ghostty_checkout="$("${project_dir}/scripts/fetch-ghostty.sh")"
 ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
 ghostty_container_dir="/src/${ghostty_dir#"${project_dir}/"}"
@@ -58,23 +56,6 @@ mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
 web_font="${font_paths[0]}"
 runtime_font="${font_paths[1]}"
 runtime_font_container="/src/${runtime_font#"${project_dir}/"}"
-checkpoint_cmake=("-DDOLLY_GHOSTTY_C_CHECKPOINT=")
-if [[ -n "${DOLLY_GHOSTTY_C_CHECKPOINT:-}" ]]; then
-  checkpoint_path="${DOLLY_GHOSTTY_C_CHECKPOINT}"
-  if [[ "${checkpoint_path}" != /* ]]; then
-    checkpoint_path="${project_dir}/${checkpoint_path}"
-  fi
-  case "${checkpoint_path}" in
-    "${project_dir}"/*) ;;
-    *) echo "dolly: Ghostty checkpoint must be inside ${project_dir}" >&2; exit 64 ;;
-  esac
-  if [[ ! -f "${checkpoint_path}" ]]; then
-    echo "dolly: Ghostty checkpoint does not exist: ${checkpoint_path}" >&2
-    exit 66
-  fi
-  checkpoint_container="/src/${checkpoint_path#"${project_dir}/"}"
-  checkpoint_cmake=("-DDOLLY_GHOSTTY_C_CHECKPOINT=${checkpoint_container}")
-fi
 
 DOLLY_PI_VERSION="${DOLLY_PI_VERSION}" \
 DOLLY_ESBUILD_VERSION="${DOLLY_ESBUILD_VERSION}" \
@@ -99,11 +80,15 @@ rm -f \
   "${project_dir}/dist/dolly-0.wasm" \
   "${project_dir}/dist/dolly-http-0.wasm" \
   "${project_dir}/dist/dolly-display-0.wasm" \
+  "${project_dir}/dist/dolly-terminal-0.wasm" \
+  "${project_dir}/dist/dolly-snapshot-0.wasm" \
+  "${project_dir}/dist/dolly-build-id.mjs" \
+  "${project_dir}/dist/dolly-system.snapshot" \
+  "${project_dir}/dist/dolly-system-snapshot.mjs" \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
+  "${project_dir}/dist/ghostty-web.js" \
   "${project_dir}/dist/${lua_artifact}" \
-  "${project_dir}/dist/program-cpp.wasm" \
   "${project_dir}/dist/program-inspector.wasm" \
-  "${project_dir}/dist/program-ls.wasm" \
   "${project_dir}/dist/program-reader.wasm" \
   "${project_dir}/dist/program-writer.wasm"
 
@@ -128,6 +113,16 @@ rm -f \
   --disable-compact-imports \
   -o build/dolly-http-0.wasm
 
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-snapshot-0.wat \
+  --enable-memory64 \
+  --enable-reference-types \
+  --enable-threads \
+  --disable-compact-imports \
+  -o build/dolly-snapshot-0.wasm
+
+native_zig="$("${project_dir}/scripts/build-native-zig.sh")"
+native_zig_container="/src/${native_zig#"${project_dir}/"}"
+
 ./bin/dolly-cc src/program-writer.c -o build/program-writer.wasm
 ./bin/dolly-cc src/program-reader.c -o build/program-reader.wasm
 ./bin/dolly-cc src/program-inspector.c -o build/program-inspector.wasm
@@ -136,6 +131,7 @@ rm -f \
 node scripts/dolly-abi.mjs emit-emscripten-exports \
   build/dolly-0.wasm \
   build/dolly-display-0.wasm \
+  build/dolly-snapshot-0.wasm \
   build/runtime-exports.json
 node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-0.wasm \
@@ -157,13 +153,12 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DDOLLY_GIT_DIR="${git_container_dir}" \
   -DDOLLY_MAKE_DIR="${make_container_dir}" \
   -DDOLLY_ZIG_DIR="${zig_container_dir}" \
-  -DDOLLY_WAMR_DIR="${wamr_container_dir}" \
+  -DDOLLY_NATIVE_ZIG="${native_zig_container}" \
   -DDOLLY_GHOSTTY_DIR="${ghostty_container_dir}" \
   -DDOLLY_UUCODE_DIR="${uucode_container_dir}" \
   -DDOLLY_STB_HEADER="${stb_container_header}" \
   -DDOLLY_IOSEVKA_TTF="${runtime_font_container}" \
-  -DDOLLY_LUA_WASM="/src/build/${lua_artifact}" \
-  "${checkpoint_cmake[@]}"
+  -DDOLLY_LUA_WASM="/src/build/${lua_artifact}"
 "${container[@]}" cmake --build build/runtime --parallel
 
 node scripts/dolly-abi.mjs stamp \
@@ -176,8 +171,10 @@ node scripts/dolly-abi.mjs validate-runtime \
 cp build/dolly-0.wasm dist/dolly-0.wasm
 cp build/dolly-display-0.wasm dist/dolly-display-0.wasm
 cp build/dolly-http-0.wasm dist/dolly-http-0.wasm
+cp build/dolly-snapshot-0.wasm dist/dolly-snapshot-0.wasm
 cp build/program-writer.wasm dist/program-writer.wasm
 cp build/program-reader.wasm dist/program-reader.wasm
 cp build/program-inspector.wasm dist/program-inspector.wasm
 cp "build/${lua_artifact}" "dist/${lua_artifact}"
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2
+node scripts/write-build-id.mjs dist/dolly.wasm dist/dolly.data dist/dolly-build-id.mjs

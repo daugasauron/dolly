@@ -13,6 +13,7 @@ int main(int argc, char **argv) {
   int fail_status = 0;
   int silent = 0;
   int show_error = 0;
+  int follow = 0;
   const char *output_path = NULL;
   const char *url = NULL;
 
@@ -50,13 +51,17 @@ int main(int argc, char **argv) {
       show_error = 1;
       continue;
     }
-    if (strcmp(argument, "--location") == 0) continue;
+    if (strcmp(argument, "--location") == 0) {
+      follow = 1;
+      continue;
+    }
     if (argument[0] == '-' && argument[1] != '\0') {
       for (const char *flag = argument + 1; *flag != '\0'; flag++) {
         if (*flag == 'f') fail_status = 1;
         else if (*flag == 's') silent = 1;
         else if (*flag == 'S') show_error = 1;
-        else if (*flag != 'L') {
+        else if (*flag == 'L') follow = 1;
+        else {
           fprintf(stderr, "curl: unsupported option: -%c\n", *flag);
           return 2;
         }
@@ -92,7 +97,7 @@ int main(int argc, char **argv) {
   }
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, output);
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, follow ? 1L : 0L);
   curl_easy_setopt(curl, CURLOPT_FAILONERROR, fail_status ? 1L : 0L);
   CURLcode result = curl_easy_perform(curl);
   curl_easy_cleanup(curl);

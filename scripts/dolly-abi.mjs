@@ -22,6 +22,7 @@ const infrastructure = new Set([
   ...relocationGlobals,
 ]);
 const loaderBackedFunctions = new Set([
+  "invoke_v",
   "invoke_ijj",
   "invoke_ijji",
   "invoke_jj",

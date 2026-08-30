@@ -1,9 +1,13 @@
 #include <errno.h>
+#include <dirent.h>
+#include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <dolly/http.h>
@@ -16,6 +20,7 @@ enum {
   DOLLY_JS_USAGE = 64,
   DOLLY_JS_MAX_HTTP_BYTES = 16 * 1024 * 1024,
   DOLLY_JS_MAX_RANDOM_BYTES = 1024 * 1024,
+  DOLLY_JS_MAX_STACK_BYTES = 8 * 1024 * 1024,
 };
 
 typedef struct {
@@ -23,7 +28,19 @@ typedef struct {
   size_t length;
 } byte_buffer;
 
+static int janis_exit_requested;
+static int janis_exit_status;
+static int janis_interrupted;
+
 static void print_exception(JSContext *context);
+
+static int quickjs_interrupt_handler(JSRuntime *runtime, void *opaque) {
+  (void)runtime;
+  (void)opaque;
+  if (dolly_interrupt_poll() != SIGINT) return 0;
+  janis_interrupted = 1;
+  return 1;
+}
 
 static void print_usage(FILE *stream) {
   fputs("usage: qjs [-m] [-e CODE | FILE [ARG...]]\n"
@@ -401,6 +418,278 @@ static JSValue js_dolly_write_file(JSContext *context,
   return JS_UNDEFINED;
 }
 
+static JSValue js_dolly_read_file_bytes(JSContext *context,
+                                        JSValueConst this_value,
+                                        int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 1) return JS_ThrowTypeError(context, "readFileBytes requires a path");
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  size_t length = 0;
+  char *contents = read_file(path, &length);
+  const int saved_errno = errno;
+  JS_FreeCString(context, path);
+  if (contents == NULL) {
+    return JS_ThrowInternalError(context, "readFileBytes failed: %s",
+                                 strerror(saved_errno));
+  }
+  JSValue result = JS_NewUint8ArrayCopy(
+      context, (const uint8_t *)contents, length);
+  free(contents);
+  return result;
+}
+
+static JSValue js_dolly_write_file_bytes(JSContext *context,
+                                         JSValueConst this_value,
+                                         int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 2) {
+    return JS_ThrowTypeError(context, "writeFileBytes requires path and bytes");
+  }
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  size_t length = 0;
+  uint8_t *bytes = JS_GetUint8Array(context, &length, argv[1]);
+  if (bytes == NULL) {
+    JS_FreeCString(context, path);
+    return JS_ThrowTypeError(context, "writeFileBytes requires Uint8Array");
+  }
+  const int status = dolly_write_file(path, bytes, length);
+  JS_FreeCString(context, path);
+  if (status != 0) {
+    return JS_ThrowInternalError(context, "writeFileBytes failed: %s",
+                                 strerror(-status));
+  }
+  return JS_UNDEFINED;
+}
+
+static JSValue js_dolly_append_file(JSContext *context,
+                                    JSValueConst this_value,
+                                    int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 2) return JS_ThrowTypeError(context, "appendFile requires path and data");
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  size_t length = 0;
+  const unsigned char *bytes = NULL;
+  const char *text = NULL;
+  if (JS_IsString(argv[1])) {
+    text = JS_ToCStringLen(context, &length, argv[1]);
+    if (text == NULL) {
+      JS_FreeCString(context, path);
+      return JS_EXCEPTION;
+    }
+    bytes = (const unsigned char *)text;
+  } else {
+    bytes = JS_GetUint8Array(context, &length, argv[1]);
+    if (bytes == NULL) {
+      JS_FreeCString(context, path);
+      return JS_ThrowTypeError(context, "appendFile requires string or Uint8Array");
+    }
+  }
+  int descriptor = open(path, O_WRONLY | O_CREAT | O_APPEND, 0666);
+  int status = 0;
+  if (descriptor < 0) status = errno;
+  size_t offset = 0;
+  while (status == 0 && offset < length) {
+    ssize_t count = write(descriptor, bytes + offset, length - offset);
+    if (count < 0 && errno == EINTR) continue;
+    if (count <= 0) status = errno == 0 ? EIO : errno;
+    else offset += (size_t)count;
+  }
+  if (descriptor >= 0 && close(descriptor) != 0 && status == 0) status = errno;
+  if (text != NULL) JS_FreeCString(context, text);
+  JS_FreeCString(context, path);
+  if (status != 0) {
+    return JS_ThrowInternalError(context, "appendFile failed: %s", strerror(status));
+  }
+  return JS_UNDEFINED;
+}
+
+static JSValue js_dolly_fs_stat(JSContext *context, JSValueConst this_value,
+                                int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 1) return JS_ThrowTypeError(context, "fsStat requires a path");
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  struct stat metadata;
+  const int status = lstat(path, &metadata);
+  const int saved_errno = errno;
+  JS_FreeCString(context, path);
+  if (status != 0) {
+    return JS_ThrowInternalError(context, "fsStat failed: %s", strerror(saved_errno));
+  }
+  JSValue result = JS_NewObject(context);
+  JS_SetPropertyStr(context, result, "size",
+                    JS_NewInt64(context, (int64_t)metadata.st_size));
+  JS_SetPropertyStr(context, result, "mode",
+                    JS_NewUint32(context, (uint32_t)metadata.st_mode));
+  JS_SetPropertyStr(context, result, "mtimeMs",
+                    JS_NewInt64(context, (int64_t)metadata.st_mtime * 1000));
+  JS_SetPropertyStr(context, result, "kind",
+                    JS_NewString(context, S_ISDIR(metadata.st_mode) ? "directory" :
+                                          S_ISREG(metadata.st_mode) ? "file" :
+                                          S_ISLNK(metadata.st_mode) ? "symlink" : "other"));
+  return result;
+}
+
+static JSValue js_dolly_fs_readdir(JSContext *context,
+                                   JSValueConst this_value,
+                                   int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 1) return JS_ThrowTypeError(context, "fsReaddir requires a path");
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  DIR *directory = opendir(path);
+  const int saved_errno = errno;
+  JS_FreeCString(context, path);
+  if (directory == NULL) {
+    return JS_ThrowInternalError(context, "fsReaddir failed: %s",
+                                 strerror(saved_errno));
+  }
+  JSValue result = JS_NewArray(context);
+  uint32_t index = 0;
+  struct dirent *entry;
+  while ((entry = readdir(directory)) != NULL) {
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+    JS_SetPropertyUint32(context, result, index++,
+                         JS_NewString(context, entry->d_name));
+  }
+  closedir(directory);
+  return result;
+}
+
+static JSValue js_dolly_fs_operation(JSContext *context,
+                                     JSValueConst this_value,
+                                     int argc, JSValueConst *argv, int magic) {
+  (void)this_value;
+  if (argc < 1) return JS_ThrowTypeError(context, "filesystem operation requires a path");
+  const char *first = JS_ToCString(context, argv[0]);
+  if (first == NULL) return JS_EXCEPTION;
+  const char *second = NULL;
+  int status = 0;
+  if (magic == 0) status = access(first, F_OK);
+  else if (magic == 1) status = mkdir(first, 0755);
+  else if (magic == 2) status = unlink(first);
+  else if (magic == 3) status = rmdir(first);
+  else if (magic == 4 || magic == 5) {
+    if (argc < 2 || (second = JS_ToCString(context, argv[1])) == NULL) {
+      JS_FreeCString(context, first);
+      return JS_ThrowTypeError(context, "filesystem operation requires two paths");
+    }
+    if (magic == 4) status = rename(first, second);
+    else {
+      size_t length = 0;
+      char *contents = read_file(first, &length);
+      status = contents == NULL ? -1 : dolly_write_file(second, contents, length);
+      free(contents);
+      if (status < 0) errno = -status;
+    }
+  }
+  const int saved_errno = errno;
+  if (second != NULL) JS_FreeCString(context, second);
+  JS_FreeCString(context, first);
+  if (status != 0) {
+    return JS_ThrowInternalError(context, "filesystem operation failed: %s",
+                                 strerror(saved_errno));
+  }
+  return JS_UNDEFINED;
+}
+
+static JSValue js_dolly_realpath(JSContext *context, JSValueConst this_value,
+                                 int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 1) return JS_ThrowTypeError(context, "realpath requires a path");
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  char resolved[PATH_MAX];
+  char *status = realpath(path, resolved);
+  const int saved_errno = errno;
+  JS_FreeCString(context, path);
+  if (status == NULL) {
+    return JS_ThrowInternalError(context, "realpath failed: %s", strerror(saved_errno));
+  }
+  return JS_NewString(context, resolved);
+}
+
+static JSValue js_dolly_read_raw(JSContext *context, JSValueConst this_value,
+                                 int argc, JSValueConst *argv) {
+  (void)this_value;
+  int32_t timeout = 1000;
+  if (argc >= 1 && JS_ToInt32(context, &timeout, argv[0]) < 0) return JS_EXCEPTION;
+  if (timeout < 0) timeout = -1;
+  unsigned char bytes[256];
+  size_t length = 0;
+  int byte = dolly_terminal_read_raw_timeout(timeout);
+  if (byte >= 0) {
+    bytes[length++] = (unsigned char)byte;
+    while (length < sizeof(bytes) &&
+           (byte = dolly_terminal_read_raw_timeout(0)) >= 0) {
+      bytes[length++] = (unsigned char)byte;
+    }
+  }
+  return JS_NewUint8ArrayCopy(context, bytes, length);
+}
+
+static JSValue js_dolly_isatty(JSContext *context, JSValueConst this_value,
+                               int argc, JSValueConst *argv) {
+  (void)this_value;
+  int32_t descriptor = -1;
+  if (argc < 1 || JS_ToInt32(context, &descriptor, argv[0]) < 0) {
+    return JS_ThrowTypeError(context, "isatty requires a descriptor");
+  }
+  return JS_NewBool(context, dolly_isatty(descriptor));
+}
+
+static JSValue js_dolly_read_stdin(JSContext *context,
+                                   JSValueConst this_value,
+                                   int argc, JSValueConst *argv) {
+  (void)this_value;
+  int32_t capacity = 4096;
+  if (argc >= 1 && JS_ToInt32(context, &capacity, argv[0]) < 0) {
+    return JS_EXCEPTION;
+  }
+  if (capacity <= 0 || capacity > 65536) {
+    return JS_ThrowRangeError(context, "stdin read size is out of range");
+  }
+  unsigned char *bytes = malloc((size_t)capacity);
+  if (bytes == NULL) return JS_ThrowOutOfMemory(context);
+  const ssize_t count = read(STDIN_FILENO, bytes, (size_t)capacity);
+  if (count < 0) {
+    const int saved_errno = errno;
+    free(bytes);
+    return JS_ThrowInternalError(context, "stdin read failed: %s",
+                                 strerror(saved_errno));
+  }
+  JSValue result = JS_NewUint8ArrayCopy(context, bytes, (size_t)count);
+  free(bytes);
+  return result;
+}
+
+static JSValue js_dolly_terminal_size(JSContext *context,
+                                      JSValueConst this_value,
+                                      int argc, JSValueConst *argv) {
+  (void)this_value;
+  (void)argc;
+  (void)argv;
+  JSValue result = JS_NewObject(context);
+  JS_SetPropertyStr(context, result, "columns",
+                    JS_NewUint32(context, dolly_terminal_columns()));
+  JS_SetPropertyStr(context, result, "rows",
+                    JS_NewUint32(context, dolly_terminal_rows()));
+  return result;
+}
+
+static JSValue js_dolly_exit(JSContext *context, JSValueConst this_value,
+                             int argc, JSValueConst *argv) {
+  (void)this_value;
+  int32_t status = 0;
+  if (argc >= 1 && JS_ToInt32(context, &status, argv[0]) < 0) return JS_EXCEPTION;
+  janis_exit_requested = 1;
+  janis_exit_status = status & 255;
+  return JS_ThrowInternalError(context, "Janis process exited");
+}
+
 static int byte_buffer_append(byte_buffer *buffer, const void *bytes,
                               size_t length) {
   if (length > DOLLY_JS_MAX_HTTP_BYTES - buffer->length) return -1;
@@ -484,6 +773,83 @@ static JSValue js_dolly_http(JSContext *context, JSValueConst this_value,
   dolly_http_response_dispose(&response);
   free(response_headers.data);
   free(response_body.data);
+  return result;
+}
+
+static JSValue js_dolly_http_start(JSContext *context,
+                                    JSValueConst this_value,
+                                    int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 2) {
+    return JS_ThrowTypeError(context, "httpStart requires method and URL");
+  }
+  const char *method = JS_ToCString(context, argv[0]);
+  const char *url = JS_ToCString(context, argv[1]);
+  const char *headers = argc >= 3 ? JS_ToCString(context, argv[2]) : NULL;
+  size_t body_length = 0;
+  const char *body = NULL;
+  if (argc >= 4 && !JS_IsNull(argv[3]) && !JS_IsUndefined(argv[3])) {
+    body = JS_ToCStringLen(context, &body_length, argv[3]);
+  }
+  if (method == NULL || url == NULL || (argc >= 3 && headers == NULL) ||
+      (argc >= 4 && !JS_IsNull(argv[3]) && !JS_IsUndefined(argv[3]) &&
+       body == NULL)) {
+    if (method != NULL) JS_FreeCString(context, method);
+    if (url != NULL) JS_FreeCString(context, url);
+    if (headers != NULL) JS_FreeCString(context, headers);
+    if (body != NULL) JS_FreeCString(context, body);
+    return JS_EXCEPTION;
+  }
+
+  unsigned int sequence = 0;
+  const int status = dolly_http_start(
+      method, url, headers == NULL ? "" : headers, body, body_length,
+      DOLLY_HTTP_FOLLOW_REDIRECTS, &sequence);
+  JS_FreeCString(context, method);
+  JS_FreeCString(context, url);
+  if (headers != NULL) JS_FreeCString(context, headers);
+  if (body != NULL) JS_FreeCString(context, body);
+  if (status != 0) {
+    return JS_ThrowInternalError(context, "HTTP request start failed: %d",
+                                 status);
+  }
+  return JS_NewUint32(context, sequence);
+}
+
+static JSValue js_dolly_http_poll(JSContext *context,
+                                   JSValueConst this_value,
+                                   int argc, JSValueConst *argv) {
+  (void)this_value;
+  uint32_t sequence = 0;
+  if (argc < 1 || JS_ToUint32(context, &sequence, argv[0]) < 0) {
+    return JS_ThrowTypeError(context, "httpPoll requires a sequence");
+  }
+  unsigned char *data = malloc(DOLLY_HTTP_CHUNK_CAPACITY);
+  if (data == NULL) return JS_ThrowOutOfMemory(context);
+  dolly_http_chunk chunk = {0};
+  const int status = dolly_http_poll(
+      sequence, &chunk, data, DOLLY_HTTP_CHUNK_CAPACITY);
+  if (status == 0) {
+    free(data);
+    return JS_NULL;
+  }
+  if (status < 0) {
+    free(data);
+    return JS_ThrowInternalError(context, "HTTP request poll failed: %d",
+                                 status);
+  }
+
+  JSValue result = JS_NewObject(context);
+  JS_SetPropertyStr(context, result, "status",
+                    JS_NewUint32(context, chunk.status));
+  JS_SetPropertyStr(context, result, "kind",
+                    JS_NewUint32(context, chunk.kind));
+  JS_SetPropertyStr(context, result, "error",
+                    JS_NewUint32(context, chunk.error));
+  JS_SetPropertyStr(context, result, "eof", JS_NewBool(context, chunk.eof));
+  JS_SetPropertyStr(context, result, "data",
+                    JS_NewUint8ArrayCopy(context, data, chunk.length));
+  free(data);
   return result;
 }
 
@@ -622,12 +988,37 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("chdir", js_dolly_chdir, 1);
   DOLLY_JS_FUNCTION("readFile", js_dolly_read_file, 1);
   DOLLY_JS_FUNCTION("writeFile", js_dolly_write_file, 2);
+  DOLLY_JS_FUNCTION("readFileBytes", js_dolly_read_file_bytes, 1);
+  DOLLY_JS_FUNCTION("writeFileBytes", js_dolly_write_file_bytes, 2);
+  DOLLY_JS_FUNCTION("appendFile", js_dolly_append_file, 2);
+  DOLLY_JS_FUNCTION("fsStat", js_dolly_fs_stat, 1);
+  DOLLY_JS_FUNCTION("fsReaddir", js_dolly_fs_readdir, 1);
+  DOLLY_JS_FUNCTION("realpath", js_dolly_realpath, 1);
+  DOLLY_JS_FUNCTION("readRaw", js_dolly_read_raw, 1);
+  DOLLY_JS_FUNCTION("readStdin", js_dolly_read_stdin, 1);
+  DOLLY_JS_FUNCTION("isatty", js_dolly_isatty, 1);
+  DOLLY_JS_FUNCTION("terminalSize", js_dolly_terminal_size, 0);
+  DOLLY_JS_FUNCTION("exit", js_dolly_exit, 1);
   DOLLY_JS_FUNCTION("http", js_dolly_http, 4);
+  DOLLY_JS_FUNCTION("httpStart", js_dolly_http_start, 4);
+  DOLLY_JS_FUNCTION("httpPoll", js_dolly_http_poll, 1);
   DOLLY_JS_FUNCTION("random", js_dolly_random, 1);
   DOLLY_JS_FUNCTION("encode", js_dolly_encode, 1);
   DOLLY_JS_FUNCTION("decode", js_dolly_decode, 1);
   DOLLY_JS_FUNCTION("shell", js_dolly_shell, 1);
 #undef DOLLY_JS_FUNCTION
+#define DOLLY_FS_FUNCTION(name, magic)                                         \
+  JS_SetPropertyStr(context, dolly, name,                                      \
+                    JS_NewCFunctionMagic(context, js_dolly_fs_operation, name, \
+                                         magic == 4 || magic == 5 ? 2 : 1,     \
+                                         JS_CFUNC_generic_magic, magic))
+  DOLLY_FS_FUNCTION("fsAccess", 0);
+  DOLLY_FS_FUNCTION("fsMkdir", 1);
+  DOLLY_FS_FUNCTION("fsUnlink", 2);
+  DOLLY_FS_FUNCTION("fsRmdir", 3);
+  DOLLY_FS_FUNCTION("fsRename", 4);
+  DOLLY_FS_FUNCTION("fsCopy", 5);
+#undef DOLLY_FS_FUNCTION
   JS_SetPropertyStr(context, dolly, "stdout",
                     JS_NewCFunctionMagic(context, js_dolly_write, "stdout", 1,
                                          JS_CFUNC_generic_magic, 0));
@@ -710,25 +1101,99 @@ static int install_globals(JSContext *context, int argc, char **argv) {
 }
 
 static int load_dolly_prelude(JSContext *context) {
-  static const char path[] = "/usr/lib/dolly/node.js";
-  size_t length = 0;
-  char *source = read_file(path, &length);
-  if (source == NULL) {
-    fprintf(stderr, "qjs: %s: %s\n", path, strerror(errno));
+  static const char *const paths[] = {
+      "/usr/lib/dolly/node.js",
+      "/usr/lib/janis/runtime.js",
+  };
+  for (size_t index = 0; index < sizeof(paths) / sizeof(paths[0]); ++index) {
+    size_t length = 0;
+    char *source = read_file(paths[index], &length);
+    if (source == NULL) {
+      fprintf(stderr, "janis: %s: %s\n", paths[index], strerror(errno));
+      return -1;
+    }
+    JSValue result = JS_Eval(context, source, length, paths[index],
+                             JS_EVAL_TYPE_GLOBAL);
+    free(source);
+    if (JS_IsException(result)) {
+      print_exception(context);
+      return -1;
+    }
+    JS_FreeValue(context, result);
+  }
+  return 0;
+}
+
+static void discard_exception(JSContext *context) {
+  JSValue exception = JS_GetException(context);
+  JS_FreeValue(context, exception);
+}
+
+static int execute_pending_jobs(JSContext *context) {
+  JSContext *job_context = NULL;
+  int status;
+  while ((status = JS_ExecutePendingJob(JS_GetRuntime(context),
+                                        &job_context)) > 0) {
+  }
+  if (status < 0) {
+    if (janis_exit_requested) {
+      discard_exception(job_context == NULL ? context : job_context);
+      return 1;
+    }
+    print_exception(job_context == NULL ? context : job_context);
     return -1;
   }
-  JSValue result = JS_Eval(context, source, length, path, JS_EVAL_TYPE_GLOBAL);
-  free(source);
+  return 0;
+}
+
+static int pump_janis(JSContext *context) {
+  JSValue global = JS_GetGlobalObject(context);
+  JSValue function = JS_GetPropertyStr(context, global, "__janisPump");
+  JS_FreeValue(context, global);
+  if (JS_IsException(function)) return -1;
+  if (!JS_IsFunction(context, function)) {
+    JS_FreeValue(context, function);
+    return 0;
+  }
+  JSValue result = JS_Call(context, function, JS_UNDEFINED, 0, NULL);
+  JS_FreeValue(context, function);
   if (JS_IsException(result)) {
+    if (janis_exit_requested) {
+      discard_exception(context);
+      return 0;
+    }
     print_exception(context);
     return -1;
   }
+  const int active = JS_ToBool(context, result);
   JS_FreeValue(context, result);
-  return 0;
+  return active;
+}
+
+static int process_exit_code(JSContext *context) {
+  JSValue global = JS_GetGlobalObject(context);
+  JSValue process = JS_GetPropertyStr(context, global, "process");
+  JS_FreeValue(context, global);
+  if (JS_IsException(process)) return 1;
+  JSValue exit_code = JS_GetPropertyStr(context, process, "exitCode");
+  JS_FreeValue(context, process);
+  if (JS_IsException(exit_code) || JS_IsUndefined(exit_code) ||
+      JS_IsNull(exit_code)) {
+    JS_FreeValue(context, exit_code);
+    return 0;
+  }
+  int32_t status = 0;
+  if (JS_ToInt32(context, &status, exit_code) < 0) status = 1;
+  JS_FreeValue(context, exit_code);
+  return status & 255;
 }
 
 static void print_exception(JSContext *context) {
   JSValue exception = JS_GetException(context);
+  if (janis_interrupted) {
+    JS_FreeValue(context, exception);
+    return;
+  }
   const char *message = JS_ToCString(context, exception);
   if (message != NULL) {
     fprintf(stderr, "%s\n", message);
@@ -782,6 +1247,19 @@ static int await_value(JSContext *context, JSValue *value) {
       return -1;
     }
     if (status == 0) {
+      const int active = pump_janis(context);
+      if (janis_exit_requested) {
+        JS_FreeValue(context, *value);
+        *value = JS_UNDEFINED;
+        return 0;
+      }
+      if (active < 0) {
+        JS_FreeValue(context, *value);
+        *value = JS_EXCEPTION;
+        JS_ThrowInternalError(context, "Janis event pump failed");
+        return -1;
+      }
+      if (active > 0) continue;
       JS_FreeValue(context, *value);
       *value = JS_EXCEPTION;
       JS_ThrowInternalError(
@@ -816,25 +1294,33 @@ static int evaluate(JSContext *context, const char *source, size_t length,
     result = JS_Eval(context, source, length, name, JS_EVAL_TYPE_GLOBAL);
   }
   if (JS_IsException(result)) {
+    if (janis_exit_requested) {
+      discard_exception(context);
+      return janis_exit_status;
+    }
     print_exception(context);
     return 1;
   }
   if (await_value(context, &result) < 0) {
+    if (janis_exit_requested) {
+      discard_exception(context);
+      return janis_exit_status;
+    }
     print_exception(context);
     return 1;
   }
   JS_FreeValue(context, result);
 
-  JSContext *job_context;
-  int status;
-  while ((status = JS_ExecutePendingJob(JS_GetRuntime(context),
-                                        &job_context)) > 0) {
+  for (;;) {
+    const int jobs = execute_pending_jobs(context);
+    if (janis_exit_requested) return janis_exit_status;
+    if (jobs < 0) return 1;
+    const int active = pump_janis(context);
+    if (janis_exit_requested) return janis_exit_status;
+    if (active < 0) return 1;
+    if (active == 0) break;
   }
-  if (status < 0) {
-    print_exception(job_context);
-    return 1;
-  }
-  return 0;
+  return process_exit_code(context);
 }
 
 int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
@@ -844,6 +1330,9 @@ int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
   size_t length = 0;
   int argument_index = 1;
   int module_mode = 0;
+  janis_exit_requested = 0;
+  janis_exit_status = 0;
+  janis_interrupted = 0;
 
   if (default_module != NULL) {
     name = default_module;
@@ -908,6 +1397,11 @@ int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
     free(owned_source);
     return 1;
   }
+  JS_SetInterruptHandler(runtime, quickjs_interrupt_handler, NULL);
+  // Jiti uses Babel to translate ordinary JavaScript/TypeScript extensions.
+  // Its recursive AST traversal legitimately exceeds QuickJS-ng's conservative
+  // 1 MiB default, while remaining below Dolly's fixed 16 MiB Wasm stack.
+  JS_SetMaxStackSize(runtime, DOLLY_JS_MAX_STACK_BYTES);
   JS_SetModuleLoaderFunc(runtime, module_normalize, module_loader, NULL);
   JSContext *context = JS_NewContext(runtime);
   if (context == NULL ||
@@ -926,7 +1420,8 @@ int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
     const size_t name_length = strlen(name);
     module_mode = name_length >= 4 && strcmp(name + name_length - 4, ".mjs") == 0;
   }
-  const int status = evaluate(context, source, length, name, module_mode);
+  int status = evaluate(context, source, length, name, module_mode);
+  if (janis_interrupted) status = 128 + SIGINT;
   JS_FreeContext(context);
   JS_FreeRuntime(runtime);
   free(owned_source);

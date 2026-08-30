@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
   fputs("stateful builtins: : exit cd export unset set\n", stdout);
   printf("PATH=%s\n", path == NULL ? "" : path);
   fputs("/bin: slop help pwd cd cat echo mkdir touch rm clear ls grep sed head wc awk cc c++ ld ar\n", stdout);
-  fputs("/usr/bin: curl git make zig ghostty-vt qjs pi lua demo\n", stdout);
+  fputs("/usr/bin: curl git make zig ghostty-vt qjs janis pi lua demo graphics-demo\n", stdout);
   fputs("operators: ; newline && || ! | < > >> 2> 2>> 2>&1\n", stdout);
   fputs("expansion: $VAR ${VAR} $? $$ $# $0..9 $@ $* $(command) and globs\n", stdout);
   fputs("make recipes run serially through /bin/slop -c\n", stdout);

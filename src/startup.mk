@@ -63,9 +63,9 @@ zlib: /usr/lib/libz.a
 
 GIT_SOURCES := $(shell cat /usr/src/git/dolly-sources.txt)
 GIT_OBJECTS := $(addprefix /tmp/git/,$(GIT_SOURCES:.c=.o))
-GIT_CPPFLAGS := -std=gnu99 -D_DEFAULT_SOURCE -DDOLLY -Uatexit -DNO_GETTEXT -DNO_ICONV -DNO_EXPAT -DNO_PTHREADS -DNO_UNIX_SOCKETS -DNO_OPENSSL -DNO_PERL -DNO_PYTHON -DNO_IPV6 -DNO_MMAP -DNO_POLL -DNO_REGEX -DGAWK -DNO_MBSUPPORT -DNO_MEMMEM -DNO_PREAD -DNO_SETENV -DNO_STRCASESTR -DNO_STRLCPY -DNO_STRTOUMAX -DSHA1_BLK -DSHA256_BLK -DHAVE_ALLOCA_H -DHAVE_STRINGS_H -DHAVE_CLOCK_GETTIME -DHAVE_GETRANDOM '-DGIT_VERSION_H="version-def.h"' '-DBINDIR="/usr/bin"' '-DGIT_EXEC_PATH="/usr/libexec/git-core"' '-DDEFAULT_GIT_TEMPLATE_DIR="/usr/share/git-core/templates"' '-DFALLBACK_RUNTIME_PREFIX="/usr"' '-DGIT_HOST_CPU="wasm64"' '-DGIT_LOCALE_PATH="/usr/share/locale"' '-DSHELL_PATH="/bin/sh"' '-DPAGER_ENV="LESS=FRX LV=-c"' '-DETC_GITCONFIG="/etc/gitconfig"' '-DETC_GITATTRIBUTES="/etc/gitattributes"' '-DGIT_HTML_PATH="/usr/share/doc/git/html"' '-DGIT_MAN_PATH="/usr/share/man"' '-DGIT_INFO_PATH="/usr/share/info"' -include dolly/runtime.h -I /usr/src/git/compat/regex -I /usr/src/git/compat/poll -I /usr/src/git -I /usr/src/zlib
+GIT_CPPFLAGS := -std=gnu99 -D_DEFAULT_SOURCE -DDOLLY -Uatexit -DNO_GETTEXT -DNO_ICONV -DNO_EXPAT -DNO_PTHREADS -DNO_UNIX_SOCKETS -DNO_OPENSSL -DNO_PERL -DNO_PYTHON -DNO_IPV6 -DNO_MMAP -DNO_POLL -DNO_REGEX -DGAWK -DNO_MBSUPPORT -DNO_MEMMEM -DNO_PREAD -DNO_SETENV -DNO_STRCASESTR -DNO_STRLCPY -DNO_STRTOUMAX -DSHA1_BLK -DSHA256_BLK -DHAVE_ALLOCA_H -DHAVE_STRINGS_H -DHAVE_CLOCK_GETTIME -DHAVE_GETRANDOM '-DGIT_VERSION_H="version-def.h"' '-DBINDIR="/usr/bin"' '-DGIT_EXEC_PATH="/usr/libexec/dolly"' '-DDEFAULT_GIT_TEMPLATE_DIR="/usr/share/git-core/templates"' '-DFALLBACK_RUNTIME_PREFIX="/usr"' '-DGIT_HOST_CPU="wasm64"' '-DGIT_LOCALE_PATH="/usr/share/locale"' '-DSHELL_PATH="/bin/slop"' '-DPAGER_ENV="LESS=FRX LV=-c"' '-DETC_GITCONFIG="/etc/gitconfig"' '-DETC_GITATTRIBUTES="/etc/gitattributes"' '-DGIT_HTML_PATH="/usr/share/doc/git/html"' '-DGIT_MAN_PATH="/usr/share/man"' '-DGIT_INFO_PATH="/usr/share/info"' -include dolly/runtime.h -I /usr/src/git/compat/regex -I /usr/src/git/compat/poll -I /usr/src/git -I /usr/src/zlib
 
-git: /usr/bin/git /usr/libexec/git-core/git-remote-http /usr/libexec/git-core/git-remote-https
+git: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https
 	rm -rf /tmp/git
 
 /tmp/git/%.o: /usr/src/git/%.c
@@ -78,17 +78,17 @@ git: /usr/bin/git /usr/libexec/git-core/git-remote-http /usr/libexec/git-core/gi
 /usr/bin/git: /usr/src/git/common-main.c /usr/src/git/git.c /usr/lib/libgit.a
 	$(CC) $(GIT_CPPFLAGS) /usr/src/git/common-main.c /usr/src/git/git.c -lgit -lz -o $@
 
-/usr/libexec/git-core/git-remote-http: /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c /usr/lib/libgit.a
+/usr/libexec/dolly/git-remote-http: /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c /usr/lib/libgit.a
 	$(CC) $(GIT_CPPFLAGS) /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c -lgit -lcurl -lz -o $@
 
-/usr/libexec/git-core/git-remote-https: /usr/libexec/git-core/git-remote-http
+/usr/libexec/dolly/git-remote-https: /usr/libexec/dolly/git-remote-http
 	$(CC) $(GIT_CPPFLAGS) /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c -lgit -lcurl -lz -o $@
 
 QUICKJS_NAMES := dtoa libregexp libunicode quickjs
 QUICKJS_OBJECTS := /tmp/quickjs/quickjs-main.o $(addprefix /tmp/quickjs/,$(addsuffix .o,$(QUICKJS_NAMES)))
-QUICKJS_CPPFLAGS := -std=gnu11 -I /usr/src/quickjs -I /usr/src/dolly/runtimes -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char
+QUICKJS_CPPFLAGS := -std=gnu11 -I /usr/src/quickjs -I /usr/src/dolly/runtimes -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler
 
-quickjs: /usr/bin/qjs
+quickjs: /usr/bin/qjs /usr/bin/janis
 
 /tmp/quickjs:
 	mkdir -p $@
@@ -105,6 +105,9 @@ quickjs: /usr/bin/qjs
 /usr/bin/qjs: /usr/src/dolly/commands/qjs.c /usr/lib/libdolly-js.a
 	$(CC) $(QUICKJS_CPPFLAGS) $< -ldolly-js -o $@
 
+/usr/bin/janis: /usr/src/dolly/commands/janis.c /usr/lib/libdolly-js.a
+	$(CC) $(QUICKJS_CPPFLAGS) $< -ldolly-js -o $@
+
 pi: /usr/bin/pi
 
 /usr/bin/pi: /usr/src/dolly/commands/pi.c /usr/lib/pi/pi.js /usr/lib/libdolly-js.a
@@ -115,58 +118,22 @@ zig: /usr/bin/zig /usr/libexec/dolly/zig-check
 /tmp/zig:
 	mkdir -p $@
 
-WAMR_ROOT := /usr/src/wamr/core
-WAMR_EMS := ems_alloc ems_gc ems_hmu ems_kfc
-WAMR_UTILS := bh_assert bh_bitmap bh_common bh_hashmap bh_leb128 bh_list bh_log bh_queue bh_vector runtime_timer
-WAMR_COMMON := wasm_application wasm_blocking_op wasm_c_api wasm_exec_env wasm_loader_common wasm_memory wasm_native wasm_runtime_common wasm_shared_memory
-# WAMR is itself a wasm64 program here. Keep fast bytecode preparation, but
-# disable native-host shortcuts that encode computed-goto pointers or assume
-# the host can perform naturally unaligned C loads.
-WAMR_INTERP := wasm_interp_fast wasm_loader wasm_runtime
-WAMR_SOURCES := \
-	$(addprefix $(WAMR_ROOT)/shared/mem-alloc/ems/,$(addsuffix .c,$(WAMR_EMS))) \
-	$(WAMR_ROOT)/shared/mem-alloc/mem_alloc.c \
-	$(addprefix $(WAMR_ROOT)/shared/utils/,$(addsuffix .c,$(WAMR_UTILS))) \
-	$(addprefix $(WAMR_ROOT)/iwasm/common/,$(addsuffix .c,$(WAMR_COMMON))) \
-	$(WAMR_ROOT)/iwasm/common/arch/invokeNative_general.c \
-	$(addprefix $(WAMR_ROOT)/iwasm/interpreter/,$(addsuffix .c,$(WAMR_INTERP)))
-WAMR_CPPFLAGS := \
-	-D_PLATFORM_WASI_TYPES_H -DBH_PLATFORM_DOLLY -DBUILD_TARGET_X86_64 \
-	-DBH_MALLOC=wasm_runtime_malloc -DBH_FREE=wasm_runtime_free \
-	-DWA_MALLOC=wasm_runtime_malloc -DWA_FREE=wasm_runtime_free \
-	-DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_FAST_INTERP=1 \
-	-DWASM_ENABLE_LABELS_AS_VALUES=0 \
-	-DWASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS=0 \
-	-DWASM_ENABLE_BULK_MEMORY=1 -DWASM_ENABLE_BULK_MEMORY_OPT=1 \
-	-DWASM_ENABLE_SHRUNK_MEMORY=1 -DWASM_DISABLE_HW_BOUND_CHECK=1 \
-	-DWASM_DISABLE_STACK_HW_BOUND_CHECK=1 -DWASM_DISABLE_WRITE_GS_BASE=1 \
-	-DWASM_DISABLE_WAKEUP_BLOCKING_OP=1 -DWASM_ENABLE_SHARED_MEMORY=0 \
-	-DWASM_ENABLE_MULTI_MODULE=0 -DWASM_ENABLE_MINI_LOADER=0 \
-	-DWASM_ENABLE_REF_TYPES=0 -DWASM_ENABLE_SIMD=0 \
-	-DWASM_ENABLE_EXTENDED_CONST_EXPR=0 -DWASM_ENABLE_MEMORY64=0 \
-	-I /usr/src/dolly/runtimes/wamr-platform \
-	-I $(WAMR_ROOT)/shared/platform/include \
-	-I $(WAMR_ROOT)/shared/utils -I $(WAMR_ROOT)/shared/mem-alloc \
-	-I $(WAMR_ROOT)/iwasm/include -I $(WAMR_ROOT)/iwasm/common \
-	-I $(WAMR_ROOT)/iwasm/interpreter -I /usr/src/zig/stage1
+/usr/libexec/dolly/zig-object-check: /usr/src/dolly/zig/object-check.c
+	$(CC) -std=c99 $< -o $@
 
-/usr/libexec/dolly/zig1: /usr/src/dolly/runtimes/zig1-wamr.c /usr/src/dolly/runtimes/wamr-platform/platform.c $(WAMR_SOURCES) /usr/src/zig/stage1/wasi.c /usr/src/zig/stage1/zig1.wasm
-	$(CC) -std=gnu99 -Oz -fno-strict-aliasing -Wno-return-type \
-		-Wno-unused-parameter -Wno-unused-function -Wno-macro-redefined \
-		$(WAMR_CPPFLAGS) /usr/src/dolly/runtimes/zig1-wamr.c \
-		/usr/src/dolly/runtimes/wamr-platform/platform.c $(WAMR_SOURCES) -o $@
+/tmp/zig/answer.o: /usr/bin/zig /usr/src/dolly/zig/answer.zig /usr/libexec/dolly/zig-object-check | /tmp/zig
+	zig build-obj -OReleaseSmall -target wasm64-emscripten \
+		-mcpu=generic+atomics -fPIC -fsingle-threaded -fcompiler-rt -lc \
+		--name dolly-zig-answer -femit-bin=$@ \
+		-Mroot=/usr/src/dolly/zig/answer.zig
+	/usr/libexec/dolly/zig-object-check $@
 
-/usr/bin/zig: /usr/src/dolly/commands/zig.c /usr/libexec/dolly/zig1
-	$(CC) $< -o $@
+/usr/libexec/dolly/zig-check: /tmp/zig/answer.o /usr/src/dolly/zig/check.c
+	$(CC) -std=c99 /usr/src/dolly/zig/check.c /tmp/zig/answer.o -o $@
 
-/tmp/zig/answer.c: /usr/bin/zig /usr/src/dolly/zig/answer.zig | /tmp/zig
-	zig build-obj -ofmt=c -OReleaseSmall --name dolly-zig-answer -femit-bin=$@ -target wasm64-freestanding -Mroot=/usr/src/dolly/zig/answer.zig
-
-/usr/libexec/dolly/zig-check: /tmp/zig/answer.c /usr/src/dolly/zig/check.c
-	$(CC) -std=c99 -I /usr/lib/zig $^ -o $@
-
-GHOSTTY_ZIG_FLAGS := build-obj -ofmt=c -OReleaseSmall \
-	-target wasm64-freestanding -mcpu generic -lc --name ghostty-vt \
+GHOSTTY_ZIG_FLAGS := build-obj -OReleaseSmall \
+	-target wasm64-emscripten -mcpu=generic+atomics -fPIC \
+	-fsingle-threaded -fcompiler-rt -lc --name ghostty-vt \
 	--dep build_options --dep terminal_options --dep unicode_tables \
 	--dep symbols_tables --dep uucode \
 	-Mroot=/usr/src/ghostty/src/lib_vt.zig \
@@ -185,22 +152,15 @@ GHOSTTY_ZIG_FLAGS := build-obj -ofmt=c -OReleaseSmall \
 	--dep config.zig --dep storage.zig \
 	-Mbuild_config=/usr/src/ghostty/src/build/uucode_config.zig
 
-GHOSTTY_CFLAGS := -std=c17 -Os -D__STDC_NO_ATOMICS__=1 -fno-strict-aliasing \
-	-Wno-incompatible-pointer-types -I /usr/src/dolly/zig/include \
-	-I /usr/lib/zig
-
 ghostty: /usr/lib/libghostty-vt.a /usr/bin/ghostty-vt /usr/libexec/dolly/display.wasm
 
 /tmp/ghostty:
 	mkdir -p $@
 
-ifeq ($(wildcard /tmp/ghostty/ghostty-vt.c),)
-/tmp/ghostty/ghostty-vt.c: /usr/bin/zig /usr/src/ghostty/src/lib_vt.zig /usr/src/ghostty/generated/uucode-tables.zig | /tmp/ghostty
+ifeq ($(wildcard /tmp/ghostty/ghostty-vt.o),)
+/tmp/ghostty/ghostty-vt.o: /usr/bin/zig /usr/src/ghostty/src/lib_vt.zig /usr/src/ghostty/generated/uucode-tables.zig | /tmp/ghostty
 	zig $(GHOSTTY_ZIG_FLAGS) -femit-bin=$@
 endif
-
-/tmp/ghostty/ghostty-vt.o: /tmp/ghostty/ghostty-vt.c
-	$(CC) $(GHOSTTY_CFLAGS) -c $< -o $@
 
 /usr/lib/libghostty-vt.a: /tmp/ghostty/ghostty-vt.o
 	$(AR) rcs $@ $^
@@ -211,10 +171,13 @@ endif
 /usr/libexec/dolly/display.wasm: /usr/src/dolly/ghostty/display.c /usr/lib/libghostty-vt.a /usr/include/stb_truetype.h /usr/include/dolly/display.h /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 	$(CC) -std=c17 -I /usr/include $< -lghostty-vt -o $@
 
-extras: /usr/libexec/dolly/cpp-check /usr/bin/demo
+extras: /usr/libexec/dolly/cpp-check /usr/bin/demo /usr/bin/graphics-demo
 
 /usr/libexec/dolly/cpp-check: /usr/src/dolly/cpp-check.cpp
 	$(CXX) $< -o $@
 
 /usr/bin/demo: /usr/src/dolly/demo.c
 	$(CC) $< -o $@
+
+/usr/bin/graphics-demo: /usr/src/dolly/commands/graphics-demo.c /usr/include/dolly/display.h
+	$(CC) -std=c17 $< -o $@

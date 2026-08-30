@@ -1,0 +1,5 @@
+{
+  "npmCommand": ["/bin/echo"],
+  "enableInstallTelemetry": false,
+  "theme": "dolly"
+}

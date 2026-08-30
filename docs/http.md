@@ -15,27 +15,78 @@ length, flags, and request sequence. They are data supplied to one browser
 broker, not seven capabilities. The response returns through the version-2
 atomic mailbox defined by `abi/dolly-http-0.wat`: effective URL, header lines,
 body chunks, HTTP status, EOF, and an error code. Wasm blocks in its worker
-while browser JavaScript publishes bounded chunks.
+while synchronous C clients wait for browser JavaScript to publish bounded
+chunks. JavaScript runtimes instead poll the same mailbox cooperatively, so
+their Promise jobs and timers continue to advance between chunks.
 
-The current demo provider accepts only HTTP(S), sets `credentials: "omit"`,
-and makes redirect behavior explicit per request. A production embedding can
-replace it with a provider that validates origins, ports, redirects, sizes,
-quotas, and approvals. That policy remains effective after total compromise of
-the shared Dolly userspace because Wasm cannot replace its imports.
+The page-side provider accepts a `globalThis.DOLLY_HTTP_POLICY` object before
+`browser.mjs` loads. A hardened policy contains exact-origin rules, an exact
+path or path prefix, allowed methods, byte/time limits, and the names of
+credential headers that may reach that destination. The module consumes and
+deletes that global during boot. It always uses `credentials: "omit"`, a
+no-referrer policy, and rejects redirects rather than allowing a request body
+to reach an unvalidated redirect destination.
+
+```js
+globalThis.DOLLY_HTTP_POLICY = {
+  maxRequests: 64,
+  rules: [{
+    origin: "https://openrouter.ai",
+    path: "/api/v1/chat/completions",
+    methods: ["POST"],
+    credentialHeaders: ["authorization"],
+    maxRequestBytes: 2 * 1024 * 1024,
+    maxResponseBytes: 16 * 1024 * 1024,
+    timeoutMilliseconds: 120_000,
+  }],
+};
+```
+
+Credential values are ordinary Dolly state. Pi may store them in its in-memory
+home directory or environment and sends its own authorization header, just as
+it does on a conventional machine. The broker never owns, injects, or rewrites
+the value. With no policy object the development demo preserves those headers
+and permits generic HTTP(S), while still enforcing finite request, response,
+timeout, and request-count limits. It is therefore useful but not safe against
+exfiltration. Production embeddings should supply an explicit destination rule
+set and list only the credential-header names each destination needs. This
+policy remains effective after total compromise of the shared Dolly userspace
+because Wasm cannot replace its imports.
 
 ## In-Wasm request API
 
-`include/dolly/http.h` exposes `dolly_http_perform`. A request contains:
+`include/dolly/http.h` exposes two views of the same one-request transport:
+
+- `dolly_http_start` dispatches a copied request and returns its sequence;
+- `dolly_http_poll` nonblockingly acknowledges at most one URL, header, body,
+  EOF, or error record;
+- `dolly_http_perform` is the synchronous C/libcurl convenience layer that
+  waits and drains those same primitives.
+
+A request contains:
 
 - method and URL;
 - RFC-style request-header lines;
 - a fixed request body;
-- follow-redirect and fail-on-status flags;
+- redirect-intent and fail-on-status flags;
 - body and response-header callbacks.
 
 The browser receives none of the caller's filesystem paths, descriptors,
 allocator state, or process state. Callback execution and all writes to files
 remain inside Wasm.
+
+QuickJS exposes only `httpStart`/`httpPoll` to the Dolly JavaScript prelude.
+Its `fetch()` returns a `Response` as soon as response headers arrive and
+enqueues each body record into an in-Wasm `ReadableStream`. Janis calls the HTTP
+pump alongside Promise jobs and timers, using at most a 10 ms terminal wait
+while a request is active. This is cooperative re-entry in the existing worker,
+not a second process, a socket API, or ambient browser `fetch`. Version 0 still
+allows only one in-flight broker request.
+
+Version 0 records follow-redirect intent for curl source compatibility but the
+browser provider rejects redirects unconditionally. A future implementation
+may follow manually only if every hop is separately authorized by policy; the
+native Fetch redirect algorithm must never bypass destination validation.
 
 ## Fetch-backed libcurl
 

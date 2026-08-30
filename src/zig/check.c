@@ -8,6 +8,6 @@ int main(void) {
     fprintf(stderr, "zig-check: expected 42, got %u\n", answer);
     return 1;
   }
-  puts("zig-check: Zig stage1 generated Dolly-compatible C inside WasmFS");
+  puts("zig-check: native Zig generated a Dolly-compatible wasm64 object inside WasmFS");
   return 0;
 }

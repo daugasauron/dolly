@@ -1,0 +1,171 @@
+diff --git a/lib/std/os/emscripten.zig b/lib/std/os/emscripten.zig
+index d452ae475..3917d30ee 100644
+--- a/lib/std/os/emscripten.zig
++++ b/lib/std/os/emscripten.zig
+@@ -211,7 +211,7 @@ pub const W = struct {
+     pub fn TERMSIG(s: u32) SIG {
+         return @enumFromInt(s & 0x7f);
+     }
+-    pub fn STOPSIG(s: u32) u32 {
++    pub fn STOPSIG(s: u32) SIG {
+         return @enumFromInt(EXITSTATUS(s));
+     }
+     pub fn IFEXITED(s: u32) bool {
+@@ -711,8 +711,10 @@ pub const sa_family_t = c.sa_family_t;
+ pub const socklen_t = c.socklen_t;
+ pub const sockaddr = c.sockaddr;
+
+ pub const blksize_t = i32;
+-pub const nlink_t = u32;
++// Emscripten defines nlink_t as unsigned _Reg, which follows pointer width.
++// Keeping this u32 shifts every struct stat field after st_nlink on wasm64.
++pub const nlink_t = usize;
+ // https://github.com/emscripten-core/emscripten/blob/946ab574ae39401b51e75cd5257d894ae732ab54/system/lib/libc/musl/arch/emscripten/bits/alltypes.h#L140
+ pub const time_t = c_longlong;
+ pub const mode_t = u32;
+@@ -737,6 +739,8 @@ pub const msghdr = std.c.msghdr;
+ pub const msghdr_const = std.c.msghdr;
+
+-pub const nfds_t = usize;
++// Emscripten defines nfds_t as unsigned int under MEMORY64. Using usize here
++// produces a wasm64 function type that does not match libc's poll().
++pub const nfds_t = u32;
+ pub const pollfd = extern struct {
+     fd: fd_t,
+     events: i16,
+diff --git a/lib/std/Io/Threaded.zig b/lib/std/Io/Threaded.zig
+index 36d640da6..9bd5d2771 100644
+--- a/lib/std/Io/Threaded.zig
++++ b/lib/std/Io/Threaded.zig
+@@ -5264,7 +5264,9 @@ fn dirOpenDirPosix(
+         },
+     };
+
+-    if (@hasField(posix.O, "PATH") and !options.iterate)
++    // Emscripten declares O_PATH for source compatibility, but WasmFS does
++    // not implement it and rejects directory opens with EINVAL.
++    if (native_os != .emscripten and @hasField(posix.O, "PATH") and !options.iterate)
+         flags.PATH = true;
+
+     const mode: posix.mode_t = 0;
+diff --git a/src/dev.zig b/src/dev.zig
+index a63927be7..a6ee04e6a 100644
+--- a/src/dev.zig
++++ b/src/dev.zig
+@@ -73,6 +73,7 @@ pub const Env = enum {
+                 .run_command,
+                 .ar_command,
+                 .build_command,
++                .version_command,
+                 .clang_command,
+                 .stdio_listen,
+                 .build_import_lib,
+@@ -112,7 +113,6 @@ pub const Env = enum {
+                 .fetch_command,
+                 .init_command,
+                 .targets_command,
+-                .version_command,
+                 .env_command,
+                 .zen_command,
+                 .help_command,
+diff --git a/src/codegen/llvm.zig b/src/codegen/llvm.zig
+index 876fc6d7e..a183c7380 100644
+--- a/src/codegen/llvm.zig
++++ b/src/codegen/llvm.zig
+@@ -4721,6 +4721,17 @@ const struct_layout_version = 2;
+ pub const optional_layout_version = 3;
+
+ pub fn initializeLLVMTarget(arch: std.Target.Cpu.Arch) void {
++    if (build_options.skip_non_native) return switch (arch) {
++        .wasm32, .wasm64 => {
++            bindings.LLVMInitializeWebAssemblyTarget();
++            bindings.LLVMInitializeWebAssemblyTargetInfo();
++            bindings.LLVMInitializeWebAssemblyTargetMC();
++            bindings.LLVMInitializeWebAssemblyAsmPrinter();
++            bindings.LLVMInitializeWebAssemblyAsmParser();
++        },
++        else => @panic("Dolly's native Zig compiler only includes the WebAssembly LLVM target"),
++    };
++
+     switch (arch) {
+         .aarch64, .aarch64_be => {
+             bindings.LLVMInitializeAArch64Target();
+diff --git a/src/main.zig b/src/main.zig
+index ab27b616e..1996f48f3 100644
+--- a/src/main.zig
++++ b/src/main.zig
+@@ -3177,6 +3177,7 @@ fn buildOutputType(
+
+     const self_exe_path = switch (native_os) {
+         .wasi => {},
++        .emscripten => "/usr/bin/zig",
+         else => process.executablePathAlloc(io, arena) catch |err| fatal("unable to find zig self exe path: {t}", .{err}),
+     };
+
+diff --git a/src/zig_llvm.cpp b/src/zig_llvm.cpp
+index 995539bec..633865a96 100644
+--- a/src/zig_llvm.cpp
++++ b/src/zig_llvm.cpp
+@@ -130,17 +130,10 @@ LLVMTargetMachineRef ZigLLVMCreateTargetMachine(LLVMTargetRef T, const char *Tri
+     opt.UseInitArray = true;
+     opt.FunctionSections = function_sections;
+     opt.DataSections = data_sections;
+-    switch (float_abi) {
+-        case ZigLLVMFloatABI_Default:
+-            opt.FloatABIType = FloatABI::Default;
+-            break;
+-        case ZigLLVMFloatABI_Soft:
+-            opt.FloatABIType = FloatABI::Soft;
+-            break;
+-        case ZigLLVMFloatABI_Hard:
+-            opt.FloatABIType = FloatABI::Hard;
+-            break;
+-    }
++    // LLVM 24 derives the floating-point ABI from the module/triple instead
++    // of TargetOptions. Dolly's native compiler currently emits WebAssembly,
++    // where all three legacy settings are equivalent.
++    (void)float_abi;
+
+     if (abi_name != nullptr) {
+         opt.MCOptions.ABIName = abi_name;
+@@ -373,7 +366,7 @@ bool ZigLLVMTargetMachineEmitToFile(LLVMTargetMachineRef targ_machine_ref, LLVMM
+     if (options->is_debug)
+       opt_level = OptimizationLevel::O0;
+     else if (options->is_small)
+-      opt_level = OptimizationLevel::Oz;
++      opt_level = OptimizationLevel::O2;
+     else
+       opt_level = OptimizationLevel::O3;
+
+@@ -439,7 +432,12 @@ bool ZigLLVMTargetMachineEmitToFile(LLVMTargetMachineRef targ_machine_ref, LLVMM
+
+ void ZigLLVMSetOptBisectLimit(LLVMContextRef context_ref, int limit) {
+     static OptBisect opt_bisect;
+-    opt_bisect.setLimit(limit);
++    if (limit < 0)
++        opt_bisect.setIntervals({{1, std::numeric_limits<int>::max()}});
++    else if (limit == 0)
++        opt_bisect.setIntervals({{0, 0}});
++    else
++        opt_bisect.setIntervals({{1, limit}});
+     unwrap(context_ref)->setOptPassGate(opt_bisect);
+ }
+
+@@ -508,13 +506,13 @@ void ZigLLVMParseCommandLineOptions(size_t argc, const char *const *argv) {
+ }
+
+ bool ZigLLDLinkCOFF(int argc, const char **argv, bool can_exit_early, bool disable_output) {
+-    std::vector<const char *> args(argv, argv + argc);
+-    return lld::coff::link(args, llvm::outs(), llvm::errs(), can_exit_early, disable_output);
++    (void)argc; (void)argv; (void)can_exit_early; (void)disable_output;
++    return false;
+ }
+
+ bool ZigLLDLinkELF(int argc, const char **argv, bool can_exit_early, bool disable_output) {
+-    std::vector<const char *> args(argv, argv + argc);
+-    return lld::elf::link(args, llvm::outs(), llvm::errs(), can_exit_early, disable_output);
++    (void)argc; (void)argv; (void)can_exit_early; (void)disable_output;
++    return false;
+ }
+
+ bool ZigLLDLinkWasm(int argc, const char **argv, bool can_exit_early, bool disable_output) {

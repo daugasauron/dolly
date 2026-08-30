@@ -2,17 +2,28 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static int remove_path(const char *path, int recursive, int force) {
-  DIR *directory = opendir(path);
-  if (directory == NULL) {
-    if (remove(path) == 0 || (force && errno == ENOENT)) return 0;
+  struct stat metadata;
+  if (lstat(path, &metadata) != 0) {
+    if (force && errno == ENOENT) return 0;
+    fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
+    return 1;
+  }
+  if (!S_ISDIR(metadata.st_mode)) {
+    if (remove(path) == 0) return 0;
     fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
     return 1;
   }
   if (!recursive) {
-    closedir(directory);
     fprintf(stderr, "rm: %s: is a directory\n", path);
+    return 1;
+  }
+
+  DIR *directory = opendir(path);
+  if (directory == NULL) {
+    fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
     return 1;
   }
 
@@ -37,6 +48,24 @@ static int remove_path(const char *path, int recursive, int force) {
     status = 1;
   }
   return status;
+}
+
+static int protected_path(const char *path) {
+  size_t length = strlen(path);
+  while (length > 1 && path[length - 1] == '/') length--;
+  if (length != 0) {
+    size_t base = length;
+    while (base != 0 && path[base - 1] != '/') base--;
+    const size_t base_length = length - base;
+    if ((base_length == 1 && path[base] == '.') ||
+        (base_length == 2 && path[base] == '.' && path[base + 1] == '.')) {
+      return 1;
+    }
+  }
+  for (size_t index = 0; index < length; index++) {
+    if (path[index] != '/') return 0;
+  }
+  return length != 0;
 }
 
 int main(int argc, char **argv) {
@@ -71,12 +100,8 @@ int main(int argc, char **argv) {
 
   int status = 0;
   for (int index = first_path; index < argc; index++) {
-    const char *last = argv[index];
-    for (const char *cursor = argv[index]; *cursor != '\0'; cursor++) {
-      if (*cursor == '/') last = cursor + 1;
-    }
-    if (strcmp(last, ".") == 0 || strcmp(last, "..") == 0) {
-      fprintf(stderr, "rm: refusing to remove %s recursively\n", argv[index]);
+    if (protected_path(argv[index])) {
+      fprintf(stderr, "rm: refusing to remove protected path %s\n", argv[index]);
       status = 1;
       continue;
     }

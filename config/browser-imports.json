@@ -3,7 +3,6 @@
     "env.memory"
   ],
   "loader": [
-    "env.__cxa_throw",
     "env._abort_js",
     "env._dlopen_js",
     "env._dlsym_js",
@@ -35,6 +34,7 @@
     "env._setitimer_js",
     "env._tzset_js",
     "env.emscripten_get_now",
+    "wasi_snapshot_preview1.clock_res_get",
     "wasi_snapshot_preview1.clock_time_get"
   ],
   "bootstrap": [

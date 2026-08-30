@@ -1,291 +1,136 @@
 # Dolly
 
-Dolly is a greenfield experiment in putting a small coding userspace inside a
-browser WebAssembly sandbox. Its mutable machine state belongs to WebAssembly,
-not to a JavaScript filesystem adapter.
+Dolly is an experiment in defining the smallest useful coding-agent userspace
+for the browser. Programs run as wasm64 modules in one WebAssembly machine,
+share an in-memory filesystem, and communicate with the outside world only
+through explicit browser imports.
 
-The security model assumes total compromise of that userspace: an agent may
-read every in-memory file and corrupt the whole runtime without gaining a
-capability the browser did not explicitly import. HTTP dispatch is the single
-intentional autonomous network edge, so its browser-owned policy is the main
-confidentiality and external-integrity boundary. See
-[`docs/security.md`](docs/security.md) for the threat model, trusted computing
-base, current limitations, and required invariants.
+The project is deliberately not “Linux in a tab.” It asks a narrower question:
+which files, commands, lifecycle operations, clocks, entropy, and network
+facilities do real coding agents actually need?
 
-The browser now opens directly into an extremely small `slop` shell rendered
-inside Dolly. After the source build, a filesystem-resident display module
-links Ghostty's VT engine with a software IosevkaTerm SemiBold rasterizer and
-publishes double-buffered RGBA frames in shared Wasm memory. The browser only
-performs a bounded canvas blit and forwards raw key, text/IME, and resize
-records. Ghostty mode-aware key encoding, VT parsing, terminal state, glyph
-rasterization, canonical line editing, cwd, environment, descriptors,
-filesystem operations, process bookkeeping, and command execution all live in
-the runtime. Slop is itself compiled from source to `/bin/slop`; the main
-runtime does not contain a second hidden command interpreter.
+## Current state
 
-The runtime executes in a Web Worker, so an ordinary blocking `read(0, ...)`
-does not freeze rendering. Dolly's WasmFS stdin device waits on the mailbox with
-WebAssembly atomics. It never calls Emscripten's browser `window.prompt`
-fallback. An unchanged Lua interpreter can therefore run its interactive REPL,
-including canonical Ctrl+C line interruption and Ctrl+D EOF.
+Dolly currently boots a source-built userspace containing:
 
-The proof uses a wasm64 Emscripten main module with WasmFS. Current Clang 24 and
-LLD are linked into that trusted runtime as the seed compiler. The image carries
-source and a C/C++ sysroot, not prebuilt shell tools: during browser boot, Clang
-reads their sources from WasmFS, emits objects into `/tmp`, and in-process LLD
-links and ABI-stamps staged commands there. Every core command has its own source
-file and compiler/linker invocation before its completed executable is published
-under `/bin`. Pinned, unchanged sbase sources provide `grep`, `sed`, `head`, and
-`wc`; they too are compiled and linked inside the browser rather than packaged
-as Wasm binaries. The same path compiles the C++23 `span`/`string_view`
-probe from source. The outputs are then opened by their
-filesystem paths with `dlopen` and run against the same memory, libc, table, and
-filesystem as the compiler.
+- the finite Slop shell and separately compiled core commands in `/bin`;
+- Clang 24, LLD, C and C++23 compilation, archives, and dynamic loading;
+- GNU Make, One True Awk, sbase utilities, zlib, Git, and Fetch-backed libcurl;
+- QuickJS-ng with the Janis Node-shaped compatibility layer;
+- upstream Pi's full TUI, JavaScript extensions, timer animation, and
+  incrementally streamed model responses, launched by default with Slop as a
+  recovery shell;
+- `Ctrl+Shift+V`/`Ctrl+Shift+C` paste and copy through bounded in-Wasm
+  clipboard buffers, plus browser-tested OpenRouter/Codex login flows;
+- native wasm64 Zig and Ghostty's VT engine with in-Wasm text rasterization;
+- an exclusive in-Wasm RGBA framebuffer lease for games and visual tools, with
+  automatic terminal restoration on return or Ctrl-C;
+- Ghostty-owned selection and scrollback inside Wasm, phone touch scrolling, a
+  minimal phone `/` menu, and an explicitly user-initiated speech-to-prompt
+  control;
+- upstream Lua as a prebuilt compatibility probe.
 
-The remaining small probes and the upstream Lua interpreter are immutable
-bootstrap assets for now. A writer creates a file; runtime-compiled C++23 and
-upstream Lua verify it through ordinary `stdio` calls. JavaScript performs the
-browser's required WebAssembly instantiation and explicit device brokering but
-does not own mutable filesystem state. The browser test runs the complete
-sequence twice, including unloading and reloading the filesystem-resident
-modules.
+The normal page restores a digest-checked static system snapshot. `/rebuild`
+performs the long source build inside Dolly and is used to produce that
+deployment artifact. Mutable runtime state never becomes browser or host
+filesystem state.
 
-Lua is fetched from its official release archive, checksum-pinned, and compiled
-from unchanged upstream sources (all interpreter sources except the separate
-`luac.c` executable). Its `os.execute` path is exercised too: the web-only
-runtime returns `ENOSYS`, and no subprocess or host file is created. See
-[`docs/lua-5.5.1.md`](docs/lua-5.5.1.md) for what this added to the ABI.
-
-`/usr/lib/libcurl.a` is a Dolly implementation of the public libcurl surface
-needed by Git. It is compiled inside Wasm against the official, pinned curl
-8.21.0 headers. Its easy and synchronous multi handles translate methods,
-headers, request bodies, callbacks, status, and effective URLs to Dolly's typed
-HTTP service. Browser `fetch` streams response metadata and body chunks through
-a versioned 64 KiB mailbox in shared Wasm memory. `/usr/bin/curl` is an ordinary
-C client linked against that archive.
-
-This is source/link compatibility, not curl's socket engine compiled for the
-browser. TLS and HTTP protocol implementation belong to browser Fetch. Raw
-sockets, FTP, custom TLS backends, certificate pinning, and socket callbacks do
-not exist; unsupported operations fail explicitly. The library does not add a
-browser capability: every request still crosses only
-`env.dolly_http_dispatch`. See [`docs/http.md`](docs/http.md).
-
-Pinned zlib 1.3.2 and Git 2.55.0 sources are also compiled into archives inside
-Dolly. `/usr/bin/git` supports real local repositories: the browser test runs
-`init`, config, add, commit, and log. Upstream `git-remote-http` and
-`git-remote-https` are separately linked against the Fetch-backed libcurl, and
-the test performs a Git protocol-v2 discovery request through the browser
-broker. A normal `git clone` is not complete yet: Git starts the remote helper
-as a concurrent subprocess, while Dolly version 0 deliberately provides only
-synchronous filesystem-module calls.
-
-The traced `/etc/dolly/startup.slop` creates a writable `/home/dolly`; the
-runtime sets it as `HOME`, and the script initializes its global Git config
-with the disposable identity
-`Dolly <dolly@example.invalid>`. Commands can replace it normally with
-`git config --global user.name ...` and `git config --global user.email ...`.
-
-`/usr/bin/qjs` is built during browser boot from pinned, unchanged QuickJS-ng
-0.15.0 engine sources. Dolly's adapter supplies filesystem-backed ESM loading,
-top-level Promise draining, source/stdin execution, arguments, and a finite
-native `Dolly` surface over WasmFS, lifecycle calls, clocks, entropy, and the
-existing typed HTTP service. A JavaScript prelude builds only the Node-shaped
-globals needed by measured agent code. The upstream `quickjs-libc.c` is
-deliberately not linked because it would add `fork`, `exec`, `popen`, `dlopen`,
-signals, and terminal control before Dolly has defined those facilities.
-
-`/usr/bin/pi` is an ordinary filesystem executable linked against that same
-source-built QuickJS library. Its current lean ESM bundle contains pinned
-upstream Pi agent-core and Pi's real OpenAI-compatible streaming adapter. In
-headless `pi -p` mode, `read` and `write` share WasmFS and `bash` executes
-serially through `/bin/slop -c`; model traffic crosses only
-`env.dolly_http_dispatch`. The browser test completes a two-request streamed
-tool turn and verifies the resulting file. Pi's interactive TUI and the final
-TypeScript-from-source build are intentionally still pending. See
-[`docs/pi-agent-plan.md`](docs/pi-agent-plan.md).
-
-`/bin/awk` is built from pinned One True Awk sources. A checksum-pinned Bison
-3.8.2 generates the parser reproducibly at build time. During browser boot,
-Dolly first compiles upstream `maketab.c` into a private non-PATH wasm64
-executable under `/usr/libexec/dolly`, runs it against the shared WasmFS to
-generate `proctab.c`, and then compiles the final Awk command. This exercises a
-real target-side source generator without allowing the browser runtime to
-invoke a host process.
-
-`/usr/bin/make` is real GNU Make 4.4.1, built directly by the traced Dolly
-startup script from a checksum-pinned official release and an exact source
-manifest. The script then uses Make for the remaining source build graph,
-including the Awk source-generator bootstrap. Its default shell is `/bin/slop`. Make's job
-hook executes every recipe synchronously through
-`/bin/slop -c`, and its `$(shell ...)` path captures output in an unlinked
-WasmFS file. `-jN` is accepted for compatibility but clamped to one effective
-job: multiprocessing and throughput are not version-0 goals.
-
-Zig 0.16.0 and Ghostty's terminal core are also built inside the browser. Dolly
-first compiles pinned WAMR interpreter sources into a private executable, then
-uses it to run Zig's source-provided `zig1.wasm` with filesystem calls bound to
-the outer WasmFS. `/usr/bin/zig` translates the pinned Ghostty/uucode source
-graph to C; Dolly's normal compiler and archive writer produce
-`/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and the resident
-`/usr/libexec/dolly/display.wasm`. The display module loads a pinned Iosevka TTF
-through WasmFS, accepts bounded browser event records, encodes keys with
-Ghostty, and rasterizes Ghostty cells into two bounded RGBA framebuffers. The
-cold-browser proof checks pixels, raw keyboard correction, sandbox-side zoom,
-fullscreen resizing, and an interactive Lua REPL. No host Zig or precompiled
-Ghostty artifact is used. See
-[`docs/zig-ghostty.md`](docs/zig-ghostty.md).
-
-Filesystem-loaded commands share one entry ABI:
-
-```c
-int dolly_main(int argc, char **argv);
-```
-
-Each command is a wasm64 dynamic module: the `dylink.0` section describes its
-relocation needs, a `dolly.abi` custom section selects the contract, and the
-`dolly_main` export is its process entry. This is Dolly's current ELF-equivalent.
-All C and C++23 examples use it, including real argument vectors. Sources
-retain an ordinary `main`; the compiler renames the source symbol and the
-linker adds a small adapter for the conventional zero-, two-, or three-argument
-forms. The source-facing C convention can therefore vary while every
-filesystem executable has one exact machine entry type. Command internals use
-hidden Wasm visibility; only the declared entry surface is exported. This keeps
-independent executables from interposing same-named C functions or data through
-Emscripten's process-global dynamic-loader symbol table.
-
-The canonical machine contract is [`abi/dolly-0.wat`](abi/dolly-0.wat). Its
-imports are the facilities commands may use and its exports are the entry
-points commands must provide. The build assembles it into a small Wasm contract
-module, validates every command and the runtime against exact Wasm types, and
-then derives Emscripten's required `build/runtime-exports.json` build input from
-it. JSON is not an ABI source. See [`abi/README.md`](abi/README.md) for the
-contract rules.
-
-The display/input boundary is encoded in
-[`abi/dolly-display-0.wat`](abi/dolly-display-0.wat). The complete generated
-Emscripten browser boundary is separately categorized in
-`config/browser-imports.json` and enforced by tests.
-
-## Slop shell
-
-Slop deliberately implements a finite compatibility language for building and
-running tools useful to agents. It does not claim to be POSIX `sh` or a Linux
-environment:
+## Architecture
 
 ```text
-: exit cd export unset set
-/bin:      slop  help  pwd  cd  cat  echo  mkdir  touch  rm  clear  ls  grep  sed  head  wc  awk  cc  c++  ld  ar
-/usr/bin:  curl  git  make  zig  ghostty-vt  qjs  pi  lua  demo
+trusted browser page
+  ├─ fixed startup assets
+  ├─ raw input + bounded RGBA canvas blit
+  └─ env.dolly_http_dispatch  ← sole agent-selected network edge
+              │
+              ▼
+shared wasm64 runtime
+  ├─ WasmFS, descriptors, cwd, environment, terminal, lifecycle
+  ├─ compiler + loader + versioned executable contract
+  └─ /bin and /usr/bin filesystem modules sharing the same memory
 ```
 
-It supports quoting, environment and positional expansion, command
-substitution, deterministic globbing, assignments, newline/`;`, `&&`, `||`,
-`!`, serial pipelines, and common input/output/error redirections. Only
-operations that must mutate the interpreter—`:`, `exit`, `cd`, `export`,
-`unset`, and `set`—are built in. Utilities resolve through
-`PATH=/bin:/usr/bin`, entirely inside WasmFS. Optional user-facing programs live
-in `/usr/bin`; Lua is currently the only prebuilt command bootstrap.
+Assume that every byte inside the Wasm machine is compromised. Containment
+comes from the outer import boundary, not from permissions between commands.
+The browser does not provide a host filesystem, native subprocesses, sockets,
+DOM access, or ambient `fetch`. See [the security model](docs/security.md).
 
-Modules execute through a bounded in-Wasm `spawn`/`wait` table with explicit
-descriptor routing. Version 0 is synchronous: pipelines and command
-substitution spool through unlinked WasmFS files, and Make jobs complete one at
-a time. Slop intentionally omits shell functions, loops, conditionals,
-here-documents, background jobs, and job control. See
-[`docs/slop.md`](docs/slop.md) for the boundary and next steps.
+## Build and run
 
-## Run
-
-The build uses the pinned Emscripten 6.0.8 container with Podman or Docker. Build
-the exact matching LLVM revision once; both the source and wasm64 static
-toolchain are cached under `.cache/`. The first application build also needs
-`curl` to download checksum-pinned Lua, Bison, Zig, and uucode source archives
-and `git` to fetch the pinned curl, zlib, Git, GNU Make, sbase, One True Awk,
-QuickJS-ng, WAMR, and Ghostty source revisions.
+Requirements: Node.js, npm, Google Chrome, and Docker or Podman.
 
 ```sh
-npm install
-./scripts/build-toolchain.sh
-npm test
-npm run abi
-npm run serve
+npm ci
+./scripts/build-toolchain.sh   # expensive one-time wasm64 Clang/LLD seed
+npm test                      # build, snapshot, static tests, browser proof
+npm run serve                 # http://127.0.0.1:8080/
 ```
 
-For repeated renderer work, a development build may reuse a previously
-generated Ghostty C file while still compiling and linking it inside Dolly:
+The Pages deployment is intentionally artifact-based: the current browser
+bundle is hundreds of megabytes and does not belong in Git history. After a
+local audited build, `scripts/package-pages.sh` creates the static release
+asset consumed by the manual `Deploy Dolly demo` workflow. A tiny same-origin
+service worker supplies the COOP/COEP headers that GitHub Pages cannot set.
+The public Pages embedding installs a hardened HTTP policy that permits only
+OpenRouter's exact model-list and chat-completion paths; arbitrary `curl`/Git
+network access remains available only in the explicitly unsafe development
+configuration.
+
+Useful narrower commands:
 
 ```sh
-DOLLY_GHOSTTY_C_CHECKPOINT=build/ghostty-vt-wasm3.c npm run build
+npm run build:runtime         # build the runtime without exporting a snapshot
+npm run snapshot              # rebuild and package the static system image
+node --test test/dolly.test.mjs
+./scripts/test-browser.sh
 ```
 
-This is only a packaging checkpoint. Normal builds omit it and prove the full
-Zig-from-source path; the checkpoint grants no browser or host capability.
+The development HTTP broker is intentionally permissive and is not a safe
+deployment policy. A real embedding must install exact destination rules and
+explicitly allow only the sandbox credential-header names those destinations
+need. Credential values remain inside Dolly; the browser does not inject them.
 
-Then open <http://127.0.0.1:8080/> in a browser with Memory64 and WebAssembly
-threads support. The Dolly server supplies the cross-origin-isolation headers
-required for shared Wasm memory; a generic static server is insufficient.
+## Contracts and documentation
 
-The external SDK wrapper remains useful for bootstrap probes. Linking
-automatically validates those results against `dolly-0`:
+- [Architecture](docs/architecture.md) — runtime, compiler, filesystem,
+  lifecycle, snapshot, and display design.
+- [ABI](abi/README.md) — canonical WAT contracts, executable format, validation,
+  and generated build glue.
+- [Security](docs/security.md) — threat model, trusted computing base, single
+  egress edge, and required invariants.
+- [HTTP](docs/http.md) — typed request surface, libcurl compatibility, and
+  browser-side policy.
+- [Slop and Make](docs/slop.md) — the deliberately finite shell language and
+  synchronous build semantics.
+- [Display ownership](docs/display.md) — fullscreen framebuffer leases, input,
+  double buffering, and terminal restoration.
+- [Sources](docs/sources.md) — source pins, patches, generated artifacts, and
+  reproducibility policy.
+- [Port status](docs/port-status.md) — evidence for current and deferred ports.
+- [Pi plan](docs/pi-agent-plan.md) — current Pi/Janis compatibility status.
+- [Zig and Ghostty](docs/zig-ghostty.md), the
+  [native Zig bootstrap](docs/native-zig-bootstrap.md), and
+  [Lua](docs/lua-5.5.1.md) — focused runtime experiments.
+- [Project audit](docs/audit-2026-08-30.md) — reviewed scope, fixes, risks, and
+  remaining debt.
+- [Roadmap](docs/roadmap.md) — prioritized next milestones and acceptance gates.
+- [Dollyfile proposal](docs/dollyfile.md) — a Dockerfile-like source-to-snapshot
+  recipe format designed around Dolly's security model.
 
-```sh
-./bin/dolly-cc program.c -o build/program.wasm
-./bin/dolly-c++ -std=c++23 program.cpp -o build/program.wasm
-```
+## Design rules
 
-The browser boot path uses the same target shape without a host compiler or
-subprocess: the frontend and linker are native code in Dolly's Wasm module and
-all compiler I/O is ordinary WasmFS I/O. Separately compiled `/bin/cc` and
-`/bin/c++` executables expose that engine through `PATH`:
+- WAT/Wasm and C headers are the contracts; JSON is generated only for tools
+  that require it.
+- Programs are ordinary files found through `PATH`, not browser registrations
+  or `argv[0]` multicalls.
+- Unsupported behavior fails explicitly. Compatibility must not silently turn
+  into a host capability or a plausible-but-wrong result.
+- Serial, synchronous implementations are preferred until a real agent
+  workload proves that concurrency is necessary.
+- New imports are capabilities and require contract, policy, and browser-test
+  review.
 
-```sh
-cc -Wall -O2 -c first.c -o first.o
-cc second.c first.o -o program
-c++ -std=c++23 program.cpp -o cpp-program
-ld first.o second.o -o object-only-program
-ar rcs libfirst.a first.o
-cc second.c -L. -lfirst -o archive-linked-program
-awk '{count[$1]++} END {for (word in count) print word, count[word]}' input.txt
-qjs -e "console.log(6 * 7)"
-pi --help
-make -j8
-zig version
-ghostty-vt
-```
-
-The driver accepts source, Wasm object, and GNU archive inputs; resolves `-L`
-and `-l` with `/usr/lib` as the default library directory; stages intermediate
-files under `/tmp`; validates the linked module against the typed `dolly-0`
-contract; then ABI-stamps and publishes it. `/bin/ar` creates deterministic GNU
-archives with LLVM. The driver deliberately rejects unsupported options;
-exceptions and a general build-graph executor are not implemented. `/bin/ld`
-exposes the same validated object/archive link path and rejects source inputs.
-
-## Experiment boundary
-
-- One shared wasm64 linear memory and table form the userspace address space.
-  The worker loader creates the `WebAssembly.Memory`; all filesystem,
-  descriptor, terminal, and lifecycle state stored in it belongs to Dolly.
-- Dolly explicitly installs WasmFS's memory backend at `/`; filesystem metadata
-  and file contents live in the Wasm address space.
-- Side modules are shared-everything dynamic objects, not isolated WASI
-  processes.
-- Process-shaped execution is a synchronous compatibility abstraction. Dolly
-  prefers serial calls and in-memory spooling; multiprocessing, async
-  execution, and performance optimization are not version-0 goals.
-- Native process and raw-socket APIs are mapped to typed in-Wasm stubs that
-  return `ENOSYS`; they never fall through to the browser or host.
-- Browser code may fetch immutable startup assets and instantiate a compiled
-  module because core WebAssembly cannot do either operation itself.
-- Before the display module exists, one JavaScript callback appends source-build
-  progress to a plain-text bootstrap view. After activation, terminal output
-  stays inside Wasm and the browser only reads published RGBA frames. Neither
-  path mounts a JavaScript filesystem. Stdin, foreground routing, canonical
-  input, pipes, and EOF behavior are implemented in Wasm.
-- Native host files, native processes, and a JavaScript VFS are out of scope.
-
-See [docs/architecture.md](docs/architecture.md) for the proposed ABI direction
-and compatibility milestones, and [docs/security.md](docs/security.md) for the
-containment and egress model. [docs/sources.md](docs/sources.md) is the inventory
-of every external source, host-preparation step, packaged input, and resulting
-in-Wasm library or executable.
+Dolly is still a research prototype. In particular, the current command ABI is
+libc-shaped and Emscripten-specific, command cleanup is incomplete, Janis is a
+measured subset rather than Node, and transparent Git clone/fetch plus an
+in-Dolly TypeScript source build remain open work.

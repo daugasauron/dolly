@@ -3,6 +3,16 @@
 #include <string.h>
 #include <sys/stat.h>
 
+static int ensure_directory(const char *path) {
+  if (mkdir(path, 0777) == 0) return 0;
+  if (errno != EEXIST) return -1;
+  struct stat metadata;
+  if (stat(path, &metadata) != 0) return -1;
+  if (S_ISDIR(metadata.st_mode)) return 0;
+  errno = ENOTDIR;
+  return -1;
+}
+
 static int create_parents(const char *path) {
   char buffer[1024];
   const size_t length = strlen(path);
@@ -14,10 +24,10 @@ static int create_parents(const char *path) {
   for (char *cursor = buffer + 1; *cursor != '\0'; cursor++) {
     if (*cursor != '/') continue;
     *cursor = '\0';
-    if (mkdir(buffer, 0777) != 0 && errno != EEXIST) return -1;
+    if (ensure_directory(buffer) != 0) return -1;
     *cursor = '/';
   }
-  return mkdir(buffer, 0777) == 0 || errno == EEXIST ? 0 : -1;
+  return ensure_directory(buffer);
 }
 
 int main(int argc, char **argv) {

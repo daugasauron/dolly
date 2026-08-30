@@ -15,6 +15,7 @@
 
 #define SLOP_MAX_LINE 65536
 #define SLOP_MAX_ARGS 512
+#define SLOP_MAX_HISTORY 1000
 
 typedef enum {
   TOKEN_WORD,
@@ -36,6 +37,12 @@ typedef struct { TokenKind kind; char *text; int quoted; } Token;
 typedef struct { Token *items; size_t count; size_t capacity; } TokenList;
 typedef struct { char *data; size_t length; size_t capacity; } Buffer;
 typedef struct { char **items; size_t count; size_t capacity; } Arguments;
+typedef struct { char **items; size_t count; size_t capacity; } History;
+typedef struct {
+  char *text;
+  int directory;
+} Completion;
+typedef struct { Completion *items; size_t count; size_t capacity; } Completions;
 
 typedef struct {
   int interactive;
@@ -51,6 +58,7 @@ typedef struct {
 typedef struct { char *name; char *old_value; int existed; } EnvironmentChange;
 
 static int execute_text(Shell *shell, const char *text);
+static void print_prompt(void);
 
 static int grow(void **allocation, size_t *capacity, size_t count,
                 size_t element_size) {
@@ -398,8 +406,11 @@ static int expand_glob(Arguments *arguments, const Token *token) {
   if (token->quoted || strpbrk(token->text, "*?[") == NULL) return argument_push(arguments, token->text);
   const char *slash = strrchr(token->text, '/');
   size_t directory_length = slash == NULL ? 0 : (size_t)(slash - token->text);
+  int root_directory = slash == token->text;
   const char *pattern = slash == NULL ? token->text : slash + 1;
-  char *directory = directory_length == 0 ? strdup(".") : strndup(token->text, directory_length);
+  char *directory = slash == NULL ? strdup(".")
+                    : root_directory ? strdup("/")
+                                     : strndup(token->text, directory_length);
   if (directory == NULL || strpbrk(directory, "*?[") != NULL) {
     free(directory); return argument_push(arguments, token->text);
   }
@@ -410,11 +421,13 @@ static int expand_glob(Arguments *arguments, const Token *token) {
   while ((entry = readdir(stream)) != NULL) {
     if (entry->d_name[0] == '.' && pattern[0] != '.') continue;
     if (!wildcard_match(pattern, entry->d_name)) continue;
-    size_t length = directory_length == 0 ? strlen(entry->d_name)
-                                          : directory_length + 1 + strlen(entry->d_name);
+    size_t length = slash == NULL ? strlen(entry->d_name)
+                    : root_directory ? 1 + strlen(entry->d_name)
+                                     : directory_length + 1 + strlen(entry->d_name);
     char *path = malloc(length + 1);
     if (path == NULL) goto glob_error;
-    if (directory_length == 0) strcpy(path, entry->d_name);
+    if (slash == NULL) strcpy(path, entry->d_name);
+    else if (root_directory) snprintf(path, length + 1, "/%s", entry->d_name);
     else snprintf(path, length + 1, "%.*s/%s", (int)directory_length, token->text, entry->d_name);
     if (!argument_push_owned(&matches, path)) goto glob_error;
   }
@@ -486,9 +499,18 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
   if (strcmp(argv[0], ":") == 0) return 0;
   if (strcmp(argv[0], "exit") == 0) {
     if (argc > 2) { fputs("slop: exit: expected at most one status\n", stderr); return 2; }
-    int status = argc == 2 ? (int)strtol(argv[1], NULL, 10) : shell->last_status;
+    long parsed = shell->last_status;
+    if (argc == 2) {
+      char *end = NULL;
+      errno = 0;
+      parsed = strtol(argv[1], &end, 10);
+      if (errno == ERANGE || end == argv[1] || *end != '\0') {
+        fprintf(stderr, "slop: exit: %s: numeric argument required\n", argv[1]);
+        parsed = 2;
+      }
+    }
     shell->active = 0;
-    shell->exit_status = status & 255;
+    shell->exit_status = (int)(parsed & 255);
     return shell->exit_status;
   }
   if (strcmp(argv[0], "cd") == 0) {
@@ -821,7 +843,8 @@ static int execute_tokens(Shell *shell, TokenList *list) {
       status = run_pipeline(shell, list->items, start, index);
       shell->last_status = status;
       if (!shell->active) return shell->exit_status;
-      if (shell->errexit && status != 0 && kind != TOKEN_OR) return status;
+      if (shell->errexit && status != 0 && kind != TOKEN_AND && kind != TOKEN_OR)
+        return status;
     }
     previous = kind;
     start = index + 1;
@@ -838,6 +861,524 @@ static int execute_text(Shell *shell, const char *text) {
   return status;
 }
 
+static void history_dispose(History *history) {
+  for (size_t index = 0; index < history->count; index++) {
+    free(history->items[index]);
+  }
+  free(history->items);
+  memset(history, 0, sizeof(*history));
+}
+
+static int history_push_owned(History *history, char *line) {
+  if (history->count != 0 &&
+      strcmp(history->items[history->count - 1], line) == 0) {
+    free(line);
+    return 1;
+  }
+  if (history->count == SLOP_MAX_HISTORY) {
+    free(history->items[0]);
+    memmove(history->items, history->items + 1,
+            (history->count - 1) * sizeof(*history->items));
+    history->count--;
+  }
+  if (!grow((void **)&history->items, &history->capacity,
+            history->count + 1, sizeof(*history->items))) {
+    free(line);
+    return 0;
+  }
+  history->items[history->count++] = line;
+  return 1;
+}
+
+static int line_is_blank(const char *line) {
+  for (; *line != '\0'; line++) {
+    if (!isspace((unsigned char)*line)) return 0;
+  }
+  return 1;
+}
+
+static const char *history_path(void) {
+  const char *path = getenv("HISTFILE");
+  return path == NULL ? "/home/dolly/.slop_history" : path;
+}
+
+static void history_load(History *history) {
+  const char *path = history_path();
+  if (path[0] == '\0') return;
+  FILE *file = fopen(path, "rb");
+  if (file == NULL) return;
+  char *line = malloc(SLOP_MAX_LINE + 2);
+  if (line == NULL) { fclose(file); return; }
+  while (fgets(line, SLOP_MAX_LINE + 2, file) != NULL) {
+    size_t length = strlen(line);
+    if (length == SLOP_MAX_LINE + 1 && line[length - 1] != '\n') {
+      int byte;
+      do byte = fgetc(file); while (byte != '\n' && byte != EOF);
+      continue;
+    }
+    while (length != 0 &&
+           (line[length - 1] == '\n' || line[length - 1] == '\r')) {
+      line[--length] = '\0';
+    }
+    if (length == 0) continue;
+    char *copy = strdup(line);
+    if (copy == NULL || !history_push_owned(history, copy)) break;
+  }
+  free(line);
+  fclose(file);
+}
+
+static void history_add(History *history, const char *line) {
+  if (line[0] == '\0' || line_is_blank(line)) return;
+  int duplicate = history->count != 0 &&
+                  strcmp(history->items[history->count - 1], line) == 0;
+  if (!duplicate) {
+    const char *path = history_path();
+    if (path[0] != '\0') {
+      FILE *file = fopen(path, "ab");
+      if (file != NULL) {
+        fwrite(line, 1, strlen(line), file);
+        fputc('\n', file);
+        fclose(file);
+      }
+    }
+  }
+  char *copy = strdup(line);
+  if (copy != NULL) history_push_owned(history, copy);
+}
+
+static void completions_dispose(Completions *completions) {
+  for (size_t index = 0; index < completions->count; index++) {
+    free(completions->items[index].text);
+  }
+  free(completions->items);
+  memset(completions, 0, sizeof(*completions));
+}
+
+static int completion_push(Completions *completions, const char *text,
+                           int directory) {
+  for (size_t index = 0; index < completions->count; index++) {
+    if (strcmp(completions->items[index].text, text) == 0) return 1;
+  }
+  char *copy = strdup(text);
+  if (copy == NULL ||
+      !grow((void **)&completions->items, &completions->capacity,
+            completions->count + 1, sizeof(*completions->items))) {
+    free(copy);
+    return 0;
+  }
+  completions->items[completions->count++] =
+      (Completion){.text = copy, .directory = directory};
+  return 1;
+}
+
+static int compare_completions(const void *left, const void *right) {
+  const Completion *first = left;
+  const Completion *second = right;
+  return strcmp(first->text, second->text);
+}
+
+static int completion_command_position(const char *line, size_t word_start) {
+  while (word_start != 0 &&
+         isspace((unsigned char)line[word_start - 1])) word_start--;
+  if (word_start == 0) return 1;
+  char previous = line[word_start - 1];
+  return previous == ';' || previous == '|' || previous == '&';
+}
+
+static int completion_word_byte(unsigned char byte) {
+  return !isspace(byte) && strchr(";|&<>", byte) == NULL;
+}
+
+static int complete_directory(const char *directory, const char *base,
+                              const char *replacement_directory,
+                              int regular_only, Completions *completions) {
+  DIR *stream = opendir(directory);
+  if (stream == NULL) return 1;
+  const size_t base_length = strlen(base);
+  struct dirent *entry;
+  while ((entry = readdir(stream)) != NULL) {
+    if (entry->d_name[0] == '.' && base[0] != '.') continue;
+    if (strncmp(entry->d_name, base, base_length) != 0) continue;
+
+    size_t path_length = strlen(directory) + strlen(entry->d_name) + 2;
+    char *path = malloc(path_length);
+    if (path == NULL) { closedir(stream); return 0; }
+    snprintf(path, path_length, "%s%s%s", directory,
+             strcmp(directory, "/") == 0 ? "" : "/", entry->d_name);
+    struct stat metadata;
+    int exists = stat(path, &metadata) == 0;
+    free(path);
+    if (!exists || (regular_only && !S_ISREG(metadata.st_mode))) continue;
+
+    size_t replacement_length = strlen(replacement_directory) +
+                                strlen(entry->d_name) + 1;
+    char *replacement = malloc(replacement_length);
+    if (replacement == NULL) { closedir(stream); return 0; }
+    snprintf(replacement, replacement_length, "%s%s",
+             replacement_directory, entry->d_name);
+    int ok = completion_push(completions, replacement,
+                             S_ISDIR(metadata.st_mode));
+    free(replacement);
+    if (!ok) { closedir(stream); return 0; }
+  }
+  closedir(stream);
+  return 1;
+}
+
+static int collect_completions(const char *word, int command_position,
+                               Completions *completions) {
+  const char *slash = strrchr(word, '/');
+  if (slash != NULL || !command_position) {
+    size_t directory_length = slash == NULL ? 0 : (size_t)(slash - word);
+    const char *base = slash == NULL ? word : slash + 1;
+    char *directory = slash == NULL ? strdup(".")
+                      : directory_length == 0 ? strdup("/")
+                                              : strndup(word, directory_length);
+    char *replacement = slash == NULL ? strdup("")
+                        : strndup(word, (size_t)(slash - word) + 1);
+    if (directory == NULL || replacement == NULL) {
+      free(directory); free(replacement); return 0;
+    }
+    int ok = complete_directory(directory, base, replacement, 0, completions);
+    free(directory);
+    free(replacement);
+    return ok;
+  }
+
+  const char *path = getenv("PATH");
+  if (path == NULL) path = "";
+  do {
+    const char *separator = strchr(path, ':');
+    size_t length = separator == NULL ? strlen(path) : (size_t)(separator - path);
+    char *directory = length == 0 ? strdup(".") : strndup(path, length);
+    if (directory == NULL ||
+        !complete_directory(directory, word, "", 1, completions)) {
+      free(directory);
+      return 0;
+    }
+    free(directory);
+    if (separator == NULL) break;
+    path = separator + 1;
+  } while (1);
+  return 1;
+}
+
+static void editor_write(const char *text) {
+  fputs(text, stdout);
+  fflush(stdout);
+}
+
+static void editor_write_bytes(const unsigned char *bytes, size_t length) {
+  fwrite(bytes, 1, length, stdout);
+  fflush(stdout);
+}
+
+static void redraw_line(const char *line, size_t length, size_t cursor) {
+  editor_write("\r\033[2K");
+  print_prompt();
+  editor_write_bytes((const unsigned char *)line, length);
+  if (cursor < length) {
+    char movement[64];
+    snprintf(movement, sizeof(movement), "\033[%zuD", length - cursor);
+    editor_write(movement);
+  }
+}
+
+static void editor_replace(char *line, size_t *length, size_t *cursor,
+                           const char *replacement) {
+  size_t replacement_length = strlen(replacement);
+  if (replacement_length > SLOP_MAX_LINE) replacement_length = SLOP_MAX_LINE;
+  memcpy(line, replacement, replacement_length);
+  line[replacement_length] = '\0';
+  *length = replacement_length;
+  *cursor = replacement_length;
+  redraw_line(line, *length, *cursor);
+}
+
+static size_t common_completion_length(const Completions *completions) {
+  size_t length = strlen(completions->items[0].text);
+  for (size_t index = 1; index < completions->count; index++) {
+    size_t cursor = 0;
+    while (cursor < length &&
+           completions->items[0].text[cursor] ==
+               completions->items[index].text[cursor]) cursor++;
+    length = cursor;
+  }
+  return length;
+}
+
+static void show_completions(const Completions *completions,
+                             const char *line, size_t length, size_t cursor) {
+  editor_write("\r\n");
+  uint32_t columns = dolly_terminal_columns();
+  if (columns < 20) columns = 80;
+  size_t used = 0;
+  for (size_t index = 0; index < completions->count; index++) {
+    size_t item_length = strlen(completions->items[index].text) +
+                         (completions->items[index].directory ? 1 : 0);
+    if (used != 0 && used + 2 + item_length >= columns) {
+      editor_write("\r\n");
+      used = 0;
+    } else if (used != 0) {
+      editor_write("  ");
+      used += 2;
+    }
+    editor_write(completions->items[index].text);
+    if (completions->items[index].directory) editor_write("/");
+    used += item_length;
+  }
+  editor_write("\r\n");
+  print_prompt();
+  editor_write_bytes((const unsigned char *)line, length);
+  if (cursor < length) {
+    char movement[64];
+    snprintf(movement, sizeof(movement), "\033[%zuD", length - cursor);
+    editor_write(movement);
+  }
+}
+
+static void complete_line(char *line, size_t *length, size_t *cursor) {
+  size_t start = *cursor;
+  while (start != 0 && completion_word_byte((unsigned char)line[start - 1])) {
+    start--;
+  }
+  char *word = strndup(line + start, *cursor - start);
+  if (word == NULL) return;
+  Completions completions = {0};
+  int command_position = completion_command_position(line, start);
+  if (!collect_completions(word, command_position, &completions)) {
+    free(word);
+    completions_dispose(&completions);
+    return;
+  }
+  free(word);
+  if (completions.count == 0) {
+    editor_write("\a");
+    completions_dispose(&completions);
+    return;
+  }
+  qsort(completions.items, completions.count, sizeof(*completions.items),
+        compare_completions);
+  size_t replacement_length = completions.count == 1
+                                  ? strlen(completions.items[0].text)
+                                  : common_completion_length(&completions);
+  size_t old_word_length = *cursor - start;
+  size_t suffix = *length - *cursor;
+  size_t addition = completions.count == 1 ? 1 : 0;
+  if (completions.count == 1 && completions.items[0].directory) {
+    addition = replacement_length != 0 &&
+               completions.items[0].text[replacement_length - 1] == '/'
+                   ? 0 : 1;
+  }
+  if (*length - old_word_length + replacement_length + addition <=
+      SLOP_MAX_LINE) {
+    memmove(line + start + replacement_length + addition,
+            line + *cursor, suffix + 1);
+    memcpy(line + start, completions.items[0].text, replacement_length);
+    if (addition != 0) {
+      line[start + replacement_length] =
+          completions.count == 1 && completions.items[0].directory ? '/' : ' ';
+    }
+    *length = *length - old_word_length + replacement_length + addition;
+    *cursor = start + replacement_length + addition;
+    redraw_line(line, *length, *cursor);
+  }
+  if (completions.count > 1 && replacement_length == old_word_length) {
+    show_completions(&completions, line, *length, *cursor);
+  }
+  completions_dispose(&completions);
+}
+
+enum editor_result { EDITOR_LINE, EDITOR_EOF, EDITOR_INTERRUPTED };
+
+static int read_escape_sequence(void) {
+  int byte = dolly_terminal_read_raw_timeout(25);
+  if (byte != '[' && byte != 'O') return 0;
+  int final = dolly_terminal_read_raw_timeout(25);
+  if (final < 0) return 0;
+  if (final >= '0' && final <= '9') {
+    int number = 0;
+    do {
+      number = number * 10 + final - '0';
+      final = dolly_terminal_read_raw_timeout(25);
+    } while (final >= '0' && final <= '9');
+    while (final >= 0 && final != '~' && !(final >= '@' && final <= '~')) {
+      final = dolly_terminal_read_raw_timeout(25);
+    }
+    if (final != '~') return 0;
+    if (number == 3) return 5;
+    if (number == 1 || number == 7) return 6;
+    if (number == 4 || number == 8) return 7;
+    return 0;
+  }
+  switch (final) {
+    case 'A': return 1;
+    case 'B': return 2;
+    case 'C': return 3;
+    case 'D': return 4;
+    case 'H': return 6;
+    case 'F': return 7;
+    default: return 0;
+  }
+}
+
+static enum editor_result read_interactive_line(char *line, History *history) {
+  size_t length = 0;
+  size_t cursor = 0;
+  size_t history_cursor = history->count;
+  char *draft = NULL;
+  char *search = NULL;
+  size_t search_cursor = history->count;
+  line[0] = '\0';
+
+  for (;;) {
+    int byte = dolly_terminal_read_raw_timeout(-1);
+    int key = byte == 0x1b ? read_escape_sequence() : 0;
+    if (key != 0) byte = 0;
+    if (key == 1 || key == 2) {
+      if (key == 1 && history_cursor != 0) {
+        if (history_cursor == history->count) {
+          free(draft);
+          draft = strdup(line);
+        }
+        editor_replace(line, &length, &cursor,
+                       history->items[--history_cursor]);
+      } else if (key == 2 && history_cursor < history->count) {
+        history_cursor++;
+        editor_replace(line, &length, &cursor,
+                       history_cursor == history->count
+                           ? (draft == NULL ? "" : draft)
+                           : history->items[history_cursor]);
+      }
+      free(search); search = NULL;
+      search_cursor = history->count;
+      continue;
+    }
+    if (key == 3 || byte == 0x06) {
+      if (cursor < length) {
+        cursor++;
+        editor_write("\033[C");
+      }
+      continue;
+    }
+    if (key == 4 || byte == 0x02) {
+      if (cursor != 0) {
+        cursor--;
+        editor_write("\033[D");
+      }
+      continue;
+    }
+    if (key == 5 || byte == 0x04) {
+      if (length == 0 && byte == 0x04) {
+        free(draft); free(search);
+        return EDITOR_EOF;
+      }
+      if (cursor < length) {
+        memmove(line + cursor, line + cursor + 1, length - cursor);
+        length--;
+        redraw_line(line, length, cursor);
+      }
+      continue;
+    }
+    if (key == 6 || byte == 0x01) {
+      cursor = 0;
+      redraw_line(line, length, cursor);
+      continue;
+    }
+    if (key == 7 || byte == 0x05) {
+      cursor = length;
+      redraw_line(line, length, cursor);
+      continue;
+    }
+    if (byte == '\r' || byte == '\n') {
+      editor_write("\r\n");
+      free(draft); free(search);
+      return EDITOR_LINE;
+    }
+    if (byte == 0x03) {
+      editor_write("^C\r\n");
+      free(draft); free(search);
+      line[0] = '\0';
+      return EDITOR_INTERRUPTED;
+    }
+    if (byte == '\t') {
+      complete_line(line, &length, &cursor);
+      free(search); search = NULL;
+      search_cursor = history->count;
+      continue;
+    }
+    if (byte == 0x0c) {
+      editor_write("\033[2J\033[H");
+      print_prompt();
+      editor_write_bytes((const unsigned char *)line, length);
+      continue;
+    }
+    if (byte == 0x12) {
+      if (search == NULL) {
+        search = strdup(line);
+        search_cursor = history->count;
+      }
+      if (search != NULL) {
+        while (search_cursor != 0) {
+          const char *candidate = history->items[--search_cursor];
+          if (strstr(candidate, search) != NULL) {
+            editor_replace(line, &length, &cursor, candidate);
+            break;
+          }
+        }
+      }
+      continue;
+    }
+    if (byte == 0x15) {
+      if (cursor != 0) {
+        memmove(line, line + cursor, length - cursor + 1);
+        length -= cursor;
+        cursor = 0;
+        redraw_line(line, length, cursor);
+      }
+      continue;
+    }
+    if (byte == 0x0b) {
+      if (cursor < length) {
+        line[cursor] = '\0';
+        length = cursor;
+        redraw_line(line, length, cursor);
+      }
+      continue;
+    }
+    if (byte == 0x7f || byte == '\b') {
+      if (cursor != 0) {
+        memmove(line + cursor - 1, line + cursor, length - cursor + 1);
+        cursor--;
+        length--;
+        redraw_line(line, length, cursor);
+      }
+      free(search); search = NULL;
+      search_cursor = history->count;
+      continue;
+    }
+    if (byte < ' ') continue;
+    if (length == SLOP_MAX_LINE) {
+      editor_write("\a");
+      continue;
+    }
+    memmove(line + cursor + 1, line + cursor, length - cursor + 1);
+    line[cursor++] = (char)byte;
+    length++;
+    if (cursor == length) {
+      unsigned char character = (unsigned char)byte;
+      editor_write_bytes(&character, 1);
+    } else {
+      redraw_line(line, length, cursor);
+    }
+    history_cursor = history->count;
+    free(draft); draft = NULL;
+    free(search); search = NULL;
+    search_cursor = history->count;
+  }
+}
+
 static void print_prompt(void) {
   char cwd[1024];
   if (getcwd(cwd, sizeof(cwd)) == NULL) strcpy(cwd, "?");
@@ -850,27 +1391,36 @@ static int interactive(Shell *shell) {
     fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1;
   }
   if (chdir("/workspace") != 0) { fprintf(stderr, "slop: /workspace: %s\n", strerror(errno)); return 1; }
+  if (getenv("HISTFILE") == NULL &&
+      setenv("HISTFILE", "/home/dolly/.slop_history", 0) != 0) {
+    fprintf(stderr, "slop: HISTFILE: %s\n", strerror(errno));
+    return 1;
+  }
   shell->interactive = 1;
   shell->active = 1;
   puts("Dolly slop 0.1 — type 'help' for commands");
-  print_prompt();
   char *line = malloc(SLOP_MAX_LINE + 1);
   if (line == NULL) return 1;
+  History history = {0};
+  history_load(&history);
   while (shell->active) {
-    if (fgets(line, SLOP_MAX_LINE + 1, stdin) == NULL) {
-      if (feof(stdin)) { shell->active = 0; puts("logout"); }
-      else { fprintf(stderr, "slop: stdin: %s\n", strerror(errno)); shell->last_status = 1; }
+    print_prompt();
+    enum editor_result result = read_interactive_line(line, &history);
+    if (result == EDITOR_EOF) {
+      shell->active = 0;
+      puts("logout");
       break;
     }
-    size_t length = strlen(line);
-    if (length == SLOP_MAX_LINE && line[length - 1] != '\n') {
-      fputs("slop: command is too long\n", stderr); shell->last_status = 2;
-    } else shell->last_status = execute_text(shell, line);
+    if (result == EDITOR_INTERRUPTED) shell->last_status = 130;
+    else {
+      history_add(&history, line);
+      shell->last_status = execute_text(shell, line);
+    }
     if (shell->last_status != 0 && shell->last_status != 127 && shell->active)
       fprintf(stderr, "slop: status %d\n", shell->last_status);
     dolly_terminal_publish_result(shell->last_status);
-    if (shell->active) print_prompt();
   }
+  history_dispose(&history);
   free(line);
   return shell->active ? shell->last_status : shell->exit_status;
 }

@@ -31,13 +31,12 @@ endif()
 if(NOT DOLLY_MAKE_DIR OR NOT EXISTS "${DOLLY_MAKE_DIR}/dolly-sources.txt")
   message(FATAL_ERROR "DOLLY_MAKE_DIR must name the prepared GNU Make source tree")
 endif()
-if(NOT DOLLY_ZIG_DIR OR NOT EXISTS "${DOLLY_ZIG_DIR}/stage1/zig1.wasm" OR
+if(NOT DOLLY_ZIG_DIR OR NOT EXISTS "${DOLLY_ZIG_DIR}/src/zig_llvm.cpp" OR
    NOT EXISTS "${DOLLY_ZIG_DIR}/lib/std/std.zig")
-  message(FATAL_ERROR "DOLLY_ZIG_DIR must name the pinned Zig source tree")
+  message(FATAL_ERROR "DOLLY_ZIG_DIR must name the prepared native Zig source tree")
 endif()
-if(NOT DOLLY_WAMR_DIR OR
-   NOT EXISTS "${DOLLY_WAMR_DIR}/core/iwasm/include/wasm_export.h")
-  message(FATAL_ERROR "DOLLY_WAMR_DIR must name the pinned WAMR source tree")
+if(NOT DOLLY_NATIVE_ZIG OR NOT EXISTS "${DOLLY_NATIVE_ZIG}")
+  message(FATAL_ERROR "DOLLY_NATIVE_ZIG must name the ABI-stamped native Zig command")
 endif()
 if(NOT DOLLY_GHOSTTY_DIR OR NOT EXISTS "${DOLLY_GHOSTTY_DIR}/.dolly-source" OR
    NOT EXISTS "${DOLLY_GHOSTTY_DIR}/src/lib_vt.zig")
@@ -58,7 +57,9 @@ endif()
 
 add_executable(dolly
   ../src/dolly.c
+  ../src/system-snapshot.c
   ../src/compiler.cpp
+  "${DOLLY_ZIG_DIR}/src/zig_llvm.cpp"
 )
 
 target_include_directories(dolly PRIVATE
@@ -67,10 +68,13 @@ target_include_directories(dolly PRIVATE
   ${LLVM_INCLUDE_DIRS}
   ${CLANG_INCLUDE_DIRS}
   ${LLD_INCLUDE_DIRS}
+  "${DOLLY_ZIG_DIR}/src"
 )
 target_compile_options(dolly PRIVATE
   -m64
   -O2
+  -fno-exceptions
+  -fno-rtti
   -fPIC
   -fvisibility=default
   -matomics
@@ -85,6 +89,11 @@ target_link_libraries(dolly PRIVATE
   lldWasm
   lldCommon
   LLVMWebAssemblyCodeGen
+  LLVMWebAssemblyAsmParser
+  LLVMBitReader
+  LLVMBitWriter
+  LLVMIRReader
+  LLVMPasses
   LLVMObject
 )
 
@@ -108,7 +117,7 @@ target_link_options(dolly PRIVATE
   -sEXPORT_NAME=createDolly
   -sENVIRONMENT=worker
   -sINVOKE_RUN=0
-  "SHELL:-sEXPORTED_RUNTIME_METHODS=ccall,FS"
+  "SHELL:-sEXPORTED_RUNTIME_METHODS=FS"
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
   "SHELL:--js-library /src/src/browser-broker.js"
   "SHELL:--preload-file /src/.cache/emscripten/sysroot/include@/usr/include"
@@ -137,6 +146,7 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file /src/src/commands/ld.c@/usr/src/dolly/commands/ld.c"
   "SHELL:--preload-file /src/src/commands/ar.c@/usr/src/dolly/commands/ar.c"
   "SHELL:--preload-file /src/src/commands/curl.c@/usr/src/dolly/commands/curl.c"
+  "SHELL:--preload-file /src/src/commands/graphics-demo.c@/usr/src/dolly/commands/graphics-demo.c"
   "SHELL:--preload-file /src/src/libcurl-fetch.c@/usr/src/dolly/libcurl-fetch.c"
   "SHELL:--preload-file ${DOLLY_CURL_DIR}/include/curl@/usr/include/curl"
   "SHELL:--preload-file ${DOLLY_CURL_DIR}/COPYING@/usr/share/licenses/curl/COPYING"
@@ -149,9 +159,6 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file ${DOLLY_GIT_DIR}/COPYING@/usr/share/licenses/git/COPYING"
   "SHELL:--preload-file ${DOLLY_MAKE_DIR}@/usr/src/make"
   "SHELL:--preload-file ${DOLLY_MAKE_DIR}/COPYING@/usr/share/licenses/make/COPYING"
-  # The preloaded-file backend must materialize this output directory before
-  # startup. The hidden marker is outside PATH and is never an executable.
-  "SHELL:--preload-file ${DOLLY_GIT_DIR}/COPYING@/usr/libexec/git-core/.bootstrap"
   "SHELL:--preload-file ${DOLLY_SBASE_DIR}/grep.c@/usr/src/sbase/grep.c"
   "SHELL:--preload-file ${DOLLY_SBASE_DIR}/head.c@/usr/src/sbase/head.c"
   "SHELL:--preload-file ${DOLLY_SBASE_DIR}/sed.c@/usr/src/sbase/sed.c"
@@ -213,33 +220,21 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file /src/src/runtimes/quickjs-main.c@/usr/src/dolly/runtimes/quickjs-main.c"
   "SHELL:--preload-file /src/src/runtimes/quickjs-runner.h@/usr/src/dolly/runtimes/quickjs-runner.h"
   "SHELL:--preload-file /src/src/runtimes/dolly-node.js@/usr/lib/dolly/node.js"
+  "SHELL:--preload-file /src/src/runtimes/janis.js@/usr/lib/janis/runtime.js"
   "SHELL:--preload-file /src/src/commands/qjs.c@/usr/src/dolly/commands/qjs.c"
+  "SHELL:--preload-file /src/src/commands/janis.c@/usr/src/dolly/commands/janis.c"
   "SHELL:--preload-file /src/src/commands/pi.c@/usr/src/dolly/commands/pi.c"
-  "SHELL:--preload-file /src/src/runtimes/pi-dolly.js@/usr/src/dolly/runtimes/pi-dolly.js"
-  "SHELL:--preload-file /src/build/generated/pi.js@/usr/lib/pi/pi.js"
-  "SHELL:--preload-file /src/build/generated/pi-metadata/package.json@/usr/share/pi/package.json"
-  "SHELL:--preload-file /src/build/generated/pi-metadata/README.md@/usr/share/pi/README.md"
-  "SHELL:--preload-file ${DOLLY_ZIG_DIR}/stage1@/usr/src/zig/stage1"
-  "SHELL:--preload-file ${DOLLY_ZIG_DIR}/lib/std@/usr/lib/zig/std"
-  "SHELL:--preload-file ${DOLLY_ZIG_DIR}/lib/zig.h@/usr/lib/zig/zig.h"
+  "SHELL:--preload-file /src/build/generated/pi-package@/usr/lib/pi"
+  "SHELL:--preload-file /src/src/pi/dolly-tools.js@/usr/share/dolly/pi/dolly-tools.js"
+  "SHELL:--preload-file /src/src/pi/SYSTEM.md@/usr/share/dolly/pi/SYSTEM.md"
+  "SHELL:--preload-file /src/src/pi/settings.json@/usr/share/dolly/pi/settings.json"
+  "SHELL:--preload-file /src/src/pi/dolly-theme.json@/usr/share/dolly/pi/dolly-theme.json"
+  "SHELL:--preload-file ${DOLLY_ZIG_DIR}/lib@/usr/lib/zig"
   "SHELL:--preload-file ${DOLLY_ZIG_DIR}/LICENSE@/usr/share/licenses/zig/LICENSE"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/iwasm/common@/usr/src/wamr/core/iwasm/common"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/iwasm/aot@/usr/src/wamr/core/iwasm/aot"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/iwasm/compilation@/usr/src/wamr/core/iwasm/compilation"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/iwasm/include@/usr/src/wamr/core/iwasm/include"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/iwasm/interpreter@/usr/src/wamr/core/iwasm/interpreter"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/shared/mem-alloc@/usr/src/wamr/core/shared/mem-alloc"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/shared/platform/include@/usr/src/wamr/core/shared/platform/include"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/shared/utils@/usr/src/wamr/core/shared/utils"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/config.h@/usr/src/wamr/core/config.h"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/core/version.h@/usr/src/wamr/core/version.h"
-  "SHELL:--preload-file ${DOLLY_WAMR_DIR}/LICENSE@/usr/share/licenses/wamr/LICENSE"
-  "SHELL:--preload-file /src/src/commands/zig.c@/usr/src/dolly/commands/zig.c"
-  "SHELL:--preload-file /src/src/runtimes/zig1-wamr.c@/usr/src/dolly/runtimes/zig1-wamr.c"
-  "SHELL:--preload-file /src/src/runtimes/wamr-platform@/usr/src/dolly/runtimes/wamr-platform"
+  "SHELL:--preload-file ${DOLLY_NATIVE_ZIG}@/usr/bin/zig"
   "SHELL:--preload-file /src/src/zig/answer.zig@/usr/src/dolly/zig/answer.zig"
   "SHELL:--preload-file /src/src/zig/check.c@/usr/src/dolly/zig/check.c"
-  "SHELL:--preload-file /src/src/zig/include/zig.h@/usr/src/dolly/zig/include/zig.h"
+  "SHELL:--preload-file /src/src/zig/object-check.c@/usr/src/dolly/zig/object-check.c"
   "SHELL:--preload-file ${DOLLY_GHOSTTY_DIR}/src@/usr/src/ghostty/src"
   "SHELL:--preload-file ${DOLLY_GHOSTTY_DIR}/include/ghostty@/usr/include/ghostty"
   "SHELL:--preload-file ${DOLLY_GHOSTTY_DIR}/include/ghostty.h@/usr/include/ghostty.h"
@@ -258,18 +253,6 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file /src/build/program-reader.wasm@/usr/libexec/dolly/reader"
   "SHELL:--preload-file /src/build/program-inspector.wasm@/usr/libexec/dolly/inspector"
 )
-
-# Development-only acceleration. A generated-C checkpoint still goes through
-# Dolly's in-sandbox C compiler and linker; normal builds omit it and exercise
-# Zig-from-source. It is never exposed as a browser filesystem capability.
-if(DOLLY_GHOSTTY_C_CHECKPOINT)
-  if(NOT EXISTS "${DOLLY_GHOSTTY_C_CHECKPOINT}")
-    message(FATAL_ERROR "DOLLY_GHOSTTY_C_CHECKPOINT does not exist")
-  endif()
-  target_link_options(dolly PRIVATE
-    "SHELL:--preload-file ${DOLLY_GHOSTTY_C_CHECKPOINT}@/tmp/ghostty/ghostty-vt.c"
-  )
-endif()
 
 set_target_properties(dolly PROPERTIES
   OUTPUT_NAME dolly

@@ -15,12 +15,12 @@
 #include <dolly/display.h>
 
 enum {
-  DRIVER_ABI_VERSION = 1,
+  DRIVER_ABI_VERSION = 3,
   MIN_FONT_MILLI = 8000,
   MAX_FONT_MILLI = 32000,
   DEFAULT_FONT_MILLI = 15000,
   DEFAULT_SCALE_MILLI = 1000,
-  PTY_RESPONSE_CAPACITY = 4096,
+  PTY_RESPONSE_CAPACITY = 512 * 1024,
   MAX_GRAPHEME_CODEPOINTS = 16,
 };
 
@@ -127,6 +127,9 @@ static GhosttyKeyEvent key_event;
 static dolly_display_mailbox *mailbox;
 static unsigned char *frames[DOLLY_DISPLAY_FRAME_COUNT];
 static size_t frame_capacity;
+static unsigned char *paste_buffer;
+static unsigned char *copy_buffer;
+static size_t clipboard_capacity;
 static unsigned char *font_bytes;
 static size_t font_bytes_length;
 static stbtt_fontinfo font;
@@ -149,11 +152,18 @@ static unsigned char pty_response[PTY_RESPONSE_CAPACITY];
 static size_t pty_response_read;
 static size_t pty_response_write;
 static int previous_output_was_cr;
+static GhosttySelectionGesture selection_gesture;
+static GhosttySelectionGestureEvent selection_press;
+static GhosttySelectionGestureEvent selection_drag;
+static GhosttySelectionGestureEvent selection_release;
+static int32_t scroll_remainder_milli;
+static bool suspended;
 
 static const GhosttyColorRgb background = {0x26, 0x26, 0x26};
 static const GhosttyColorRgb foreground = {0xe8, 0xe3, 0xd7};
 static const GhosttyColorRgb accent = {0xf2, 0xd4, 0x5c};
 static const GhosttyColorRgb dim = {0x77, 0x73, 0x6c};
+static GhosttyColorRgb terminal_palette[256];
 
 static uint32_t clamp_u32(uint32_t value, uint32_t low, uint32_t high) {
   if (value < low) return low;
@@ -188,19 +198,21 @@ static int load_font(const char *path) {
 }
 
 static void configure_theme(void) {
-  GhosttyColorRgb palette[256];
-  ghostty_color_palette_default(palette);
-  for (size_t index = 0; index < 16; ++index) palette[index] = foreground;
-  palette[0] = background;
-  palette[3] = accent;
-  palette[8] = dim;
-  palette[11] = accent;
+  ghostty_color_palette_default(terminal_palette);
+  for (size_t index = 0; index < 16; ++index) {
+    terminal_palette[index] = foreground;
+  }
+  terminal_palette[0] = background;
+  terminal_palette[3] = accent;
+  terminal_palette[8] = dim;
+  terminal_palette[11] = accent;
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND,
                        &foreground);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND,
                        &background);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &accent);
-  ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_PALETTE, palette);
+  ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_PALETTE,
+                       terminal_palette);
   size_t scrollback_bytes = 16u * 1024u * 1024u;
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_BYTES,
                        &scrollback_bytes);
@@ -220,11 +232,45 @@ static void terminal_write_pty(GhosttyTerminal ignored,
 
 static GhosttyColorRgb theme_color(const GhosttyStyleColor *value,
                                    bool is_background) {
-  if (value->tag == GHOSTTY_STYLE_COLOR_PALETTE &&
-      (value->value.palette == 3 || value->value.palette == 11)) {
-    return accent;
+  if (value->tag == GHOSTTY_STYLE_COLOR_RGB) return value->value.rgb;
+  if (value->tag == GHOSTTY_STYLE_COLOR_PALETTE) {
+    return terminal_palette[value->value.palette];
   }
   return is_background ? background : foreground;
+}
+
+static void publish_selection(void) {
+  uint32_t flags = 0;
+  uint32_t length = 0;
+  if (terminal != NULL && copy_buffer != NULL && clipboard_capacity != 0) {
+    GhosttyTerminalSelectionFormatOptions options =
+        GHOSTTY_INIT_SIZED(GhosttyTerminalSelectionFormatOptions);
+    options.emit = GHOSTTY_FORMATTER_FORMAT_PLAIN;
+    options.unwrap = true;
+    options.trim = true;
+    options.selection = NULL;
+    size_t required = 0;
+    GhosttyResult result = ghostty_terminal_selection_format_buf(
+        terminal, options, NULL, 0, &required);
+    if (result == GHOSTTY_SUCCESS || result == GHOSTTY_OUT_OF_SPACE) {
+      flags = DOLLY_DISPLAY_COPY_AVAILABLE;
+      if (required > clipboard_capacity) {
+        flags |= DOLLY_DISPLAY_COPY_TRUNCATED;
+      } else if (required != 0) {
+        size_t written = 0;
+        if (ghostty_terminal_selection_format_buf(
+                terminal, options, copy_buffer, clipboard_capacity,
+                &written) == GHOSTTY_SUCCESS) {
+          length = (uint32_t)written;
+        } else {
+          flags = 0;
+        }
+      }
+    }
+  }
+  __c11_atomic_store(&mailbox->copy_length, length, __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->copy_flags, flags, __ATOMIC_RELAXED);
+  __c11_atomic_fetch_add(&mailbox->copy_sequence, 1, __ATOMIC_RELEASE);
 }
 
 static void fill_rect(unsigned char *frame, int x, int y, int width, int height,
@@ -310,6 +356,15 @@ static int set_layout(uint32_t width_css, uint32_t height_css,
   framebuffer_height = (uint32_t)height;
   framebuffer_stride = framebuffer_width * 4;
   if ((uint64_t)framebuffer_stride * framebuffer_height > frame_capacity) return -1;
+  // Geometry belongs to the shared display surface, even while terminal frame
+  // publication is suspended by a graphics lease. The sequence is advanced
+  // only after a renderer has filled and presented a complete buffer.
+  __c11_atomic_store(&mailbox->frame_width, framebuffer_width,
+                     __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->frame_height, framebuffer_height,
+                     __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->frame_stride, framebuffer_stride,
+                     __ATOMIC_RELAXED);
 
   const float font_pixels = ((float)font_size_milli * device_scale_milli) /
                             1000000.0f;
@@ -337,22 +392,38 @@ static int set_layout(uint32_t width_css, uint32_t height_css,
                               cell_width, cell_height) != GHOSTTY_SUCCESS) return -1;
   __c11_atomic_store(&mailbox->font_size_milli, font_size_milli,
                      __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->cell_width, cell_width, __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->cell_height, cell_height, __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->padding_x, padding_x, __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->padding_y, padding_y, __ATOMIC_RELAXED);
   return 0;
 }
 
 static void render_frame(void) {
-  if (terminal == NULL || frames[0] == NULL || frames[1] == NULL) return;
+  if (suspended || terminal == NULL || frames[0] == NULL ||
+      frames[1] == NULL) return;
   uint16_t cols = 0;
   uint16_t rows = 0;
   uint16_t cursor_x = 0;
   uint16_t cursor_y = 0;
   bool cursor_visible = false;
+  GhosttyTerminalScrollbar scrollbar = {0};
   if (ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLS, &cols) != GHOSTTY_SUCCESS ||
       ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_ROWS, &rows) != GHOSTTY_SUCCESS ||
       ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_CURSOR_X, &cursor_x) != GHOSTTY_SUCCESS ||
       ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_CURSOR_Y, &cursor_y) != GHOSTTY_SUCCESS ||
       ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_CURSOR_VISIBLE,
-                           &cursor_visible) != GHOSTTY_SUCCESS) return;
+                           &cursor_visible) != GHOSTTY_SUCCESS ||
+      ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_SCROLLBAR,
+                           &scrollbar) != GHOSTTY_SUCCESS) return;
+  const bool viewport_at_bottom = scrollbar.offset >= scrollbar.total ||
+      scrollbar.len >= scrollbar.total - scrollbar.offset;
+  cursor_visible = cursor_visible && viewport_at_bottom;
+
+  GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+  const bool has_selection = ghostty_terminal_get(
+      terminal, GHOSTTY_TERMINAL_DATA_SELECTION, &selection) == GHOSTTY_SUCCESS;
+  publish_selection();
 
   const uint32_t active = __c11_atomic_load(&mailbox->frame_index,
                                              __ATOMIC_ACQUIRE) & 1u;
@@ -365,7 +436,7 @@ static void render_frame(void) {
     for (uint16_t column = 0; column < cols; ++column) {
       GhosttyGridRef ref = GHOSTTY_INIT_SIZED(GhosttyGridRef);
       const GhosttyPoint point = {
-          .tag = GHOSTTY_POINT_TAG_ACTIVE,
+          .tag = GHOSTTY_POINT_TAG_VIEWPORT,
           .value = {.coordinate = {.x = column, .y = row}},
       };
       if (ghostty_terminal_grid_ref(terminal, point, &ref) != GHOSTTY_SUCCESS) continue;
@@ -388,6 +459,18 @@ static void render_frame(void) {
       const int x = (int)padding_x + (int)column * (int)cell_width;
       const int y = (int)padding_y + (int)row * (int)cell_height;
       if (style.bg_color.tag != GHOSTTY_STYLE_COLOR_NONE || style.inverse) {
+        fill_rect(frame, x, y, (int)cell_width, (int)cell_height, bg);
+      }
+      bool selected = false;
+      if (has_selection) {
+        (void)ghostty_terminal_selection_contains(
+            terminal, &selection, point, &selected);
+      }
+      const bool cursor_here = cursor_visible && cursor_x == column &&
+                               cursor_y == row;
+      if (selected || cursor_here) {
+        bg = accent;
+        fg = background;
         fill_rect(frame, x, y, (int)cell_width, (int)cell_height, bg);
       }
       if (style.faint) {
@@ -424,19 +507,15 @@ static void render_frame(void) {
     }
   }
 
-  if (cursor_visible && cursor_x < cols && cursor_y < rows) {
-    const int x = (int)padding_x + (int)cursor_x * (int)cell_width;
-    const int y = (int)padding_y + (int)cursor_y * (int)cell_height;
-    int cursor_width = (int)(2u * device_scale_milli / 1000u);
-    if (cursor_width < 2) cursor_width = 2;
-    fill_rect(frame, x, y, cursor_width, (int)cell_height, accent);
-  }
-
   __c11_atomic_store(&mailbox->frame_width, framebuffer_width, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->frame_height, framebuffer_height, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->frame_stride, framebuffer_stride, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->terminal_cols, cols, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->terminal_rows, rows, __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->cursor_col,
+                     cursor_visible ? cursor_x : UINT32_MAX, __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->cursor_row,
+                     cursor_visible ? cursor_y : UINT32_MAX, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->frame_index, next, __ATOMIC_RELEASE);
   __c11_atomic_fetch_add(&mailbox->frame_sequence, 1, __ATOMIC_ACQ_REL);
 }
@@ -445,17 +524,38 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
                       unsigned char *frame_a,
                       unsigned char *frame_b,
                       size_t capacity,
+                      unsigned char *shared_paste_buffer,
+                      unsigned char *shared_copy_buffer,
+                      size_t shared_clipboard_capacity,
                       const char *font_path) {
   if (shared_mailbox == NULL || frame_a == NULL || frame_b == NULL ||
-      capacity < (size_t)160 * 100 * 4 || font_path == NULL) return -1;
+      capacity < (size_t)160 * 100 * 4 || shared_paste_buffer == NULL ||
+      shared_copy_buffer == NULL || shared_clipboard_capacity == 0 ||
+      font_path == NULL) return -1;
   mailbox = shared_mailbox;
   frames[0] = frame_a;
   frames[1] = frame_b;
   frame_capacity = capacity;
+  paste_buffer = shared_paste_buffer;
+  copy_buffer = shared_copy_buffer;
+  clipboard_capacity = shared_clipboard_capacity;
   if (load_font(font_path) != 0 ||
       ghostty_terminal_new(NULL, &terminal, 100, 30) != GHOSTTY_SUCCESS ||
       ghostty_key_encoder_new(NULL, &key_encoder) != GHOSTTY_SUCCESS ||
-      ghostty_key_event_new(NULL, &key_event) != GHOSTTY_SUCCESS) return -1;
+      ghostty_key_event_new(NULL, &key_event) != GHOSTTY_SUCCESS ||
+      ghostty_selection_gesture_new(NULL, &selection_gesture) !=
+          GHOSTTY_SUCCESS ||
+      ghostty_selection_gesture_event_new(
+          NULL, &selection_press,
+          GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_PRESS) != GHOSTTY_SUCCESS ||
+      ghostty_selection_gesture_event_new(
+          NULL, &selection_drag,
+          GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_DRAG) != GHOSTTY_SUCCESS ||
+      ghostty_selection_gesture_event_new(
+          NULL, &selection_release,
+          GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_RELEASE) != GHOSTTY_SUCCESS) {
+    return -1;
+  }
   configure_theme();
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_USERDATA, NULL);
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_WRITE_PTY,
@@ -484,6 +584,12 @@ static void write_terminal(const unsigned char *bytes, size_t length) {
   if (start < length) ghostty_terminal_vt_write(terminal, bytes + start,
                                                 length - start);
   render_frame();
+}
+
+static void set_suspended(int value) {
+  const bool was_suspended = suspended;
+  suspended = value != 0;
+  if (was_suspended && !suspended) render_frame();
 }
 
 static GhosttyKey map_key(const char *code) {
@@ -530,6 +636,156 @@ static bool printable_key(const char *key, size_t length) {
   return true;
 }
 
+typedef struct {
+  const unsigned char *bytes;
+  size_t length;
+} paste_source;
+
+static int drain_pty_response(unsigned char *output, size_t capacity,
+                              size_t *output_length);
+
+static bool read_paste(void *userdata, GhosttyString mime,
+                       GhosttyWriter writer) {
+  (void)mime;
+  const paste_source *source = userdata;
+  return source->length == 0 ||
+         writer.write(writer.userdata, source->bytes, source->length);
+}
+
+static int handle_paste(unsigned char *output, size_t output_capacity,
+                        size_t *output_length) {
+  const uint32_t sequence = __c11_atomic_load(
+      &mailbox->paste_sequence, __ATOMIC_ACQUIRE);
+  const uint32_t consumed = __c11_atomic_load(
+      &mailbox->paste_consumed_sequence, __ATOMIC_RELAXED);
+  if (sequence == consumed) return 0;
+  const uint32_t length = __c11_atomic_load(
+      &mailbox->paste_length, __ATOMIC_RELAXED);
+  GhosttyResult result = GHOSTTY_INVALID_VALUE;
+  if ((size_t)length <= clipboard_capacity) {
+    static const uint8_t mime_bytes[] = "text/plain";
+    const GhosttyString mime = {
+        .ptr = mime_bytes,
+        .len = sizeof(mime_bytes) - 1,
+    };
+    const paste_source source = {
+        .bytes = paste_buffer,
+        .length = length,
+    };
+    const GhosttyPaste paste = {
+        .size = sizeof(GhosttyPaste),
+        .location = GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
+        .source = GHOSTTY_PASTE_SOURCE_CLIPBOARD,
+        .mimes = &mime,
+        .mimes_len = 1,
+        .reader = {.read = read_paste, .userdata = (void *)&source},
+        // The browser only creates this event from an explicit user paste.
+        .allow_unsafe = true,
+    };
+    result = ghostty_terminal_paste(terminal, &paste, NULL);
+  }
+  __c11_atomic_store(&mailbox->paste_consumed_sequence, sequence,
+                     __ATOMIC_RELEASE);
+  if (result != GHOSTTY_SUCCESS) return -1;
+  return drain_pty_response(output, output_capacity, output_length);
+}
+
+static int handle_pointer(const dolly_input_event *event) {
+  uint16_t cols = 0;
+  uint16_t rows = 0;
+  if (ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLS, &cols) !=
+          GHOSTTY_SUCCESS ||
+      ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_ROWS, &rows) !=
+          GHOSTTY_SUCCESS ||
+      cols == 0 || rows == 0) return -1;
+
+  uint32_t column = event->width_css_px > padding_x
+      ? (event->width_css_px - padding_x) / cell_width : 0;
+  uint32_t row = event->height_css_px > padding_y
+      ? (event->height_css_px - padding_y) / cell_height : 0;
+  if (column >= cols) column = cols - 1;
+  if (row >= rows) row = rows - 1;
+  const GhosttyPoint point = {
+      .tag = GHOSTTY_POINT_TAG_VIEWPORT,
+      .value = {.coordinate = {.x = (uint16_t)column, .y = row}},
+  };
+  GhosttyGridRef ref = GHOSTTY_INIT_SIZED(GhosttyGridRef);
+  if (ghostty_terminal_grid_ref(terminal, point, &ref) != GHOSTTY_SUCCESS) {
+    return -1;
+  }
+  GhosttySurfacePosition position = {
+      .x = event->width_css_px,
+      .y = event->height_css_px,
+  };
+  GhosttySelectionGestureEvent gesture_event = NULL;
+  if (event->action == DOLLY_POINTER_ACTION_PRESS) {
+    (void)ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION, NULL);
+    gesture_event = selection_press;
+  } else if (event->action == DOLLY_POINTER_ACTION_DRAG) {
+    gesture_event = selection_drag;
+  } else if (event->action == DOLLY_POINTER_ACTION_RELEASE) {
+    gesture_event = selection_release;
+  } else {
+    return -1;
+  }
+  if (ghostty_selection_gesture_event_set(
+          gesture_event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REF, &ref) !=
+      GHOSTTY_SUCCESS) return -1;
+  if (event->action != DOLLY_POINTER_ACTION_RELEASE &&
+      ghostty_selection_gesture_event_set(
+          gesture_event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_POSITION,
+          &position) != GHOSTTY_SUCCESS) return -1;
+
+  bool rectangle = (event->modifiers & DOLLY_INPUT_MOD_ALT) != 0;
+  GhosttySelectionGestureGeometry geometry = {
+      .columns = cols,
+      .cell_width = cell_width,
+      .padding_left = padding_x,
+      .screen_height = framebuffer_height,
+  };
+  if (event->action == DOLLY_POINTER_ACTION_DRAG &&
+      (ghostty_selection_gesture_event_set(
+           gesture_event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_RECTANGLE,
+           &rectangle) != GHOSTTY_SUCCESS ||
+       ghostty_selection_gesture_event_set(
+           gesture_event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_GEOMETRY,
+           &geometry) != GHOSTTY_SUCCESS)) return -1;
+
+  GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+  GhosttyResult result = ghostty_selection_gesture_event(
+      selection_gesture, terminal, gesture_event,
+      event->action == DOLLY_POINTER_ACTION_DRAG ? &selection : NULL);
+  if (event->action == DOLLY_POINTER_ACTION_DRAG) {
+    if (result != GHOSTTY_SUCCESS ||
+        ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION,
+                            &selection) != GHOSTTY_SUCCESS) return -1;
+  } else if (result != GHOSTTY_NO_VALUE) {
+    return -1;
+  }
+  render_frame();
+  return 0;
+}
+
+static int handle_scroll(const dolly_input_event *event) {
+  const int32_t delta_milli = (int32_t)event->action;
+  if ((delta_milli > 0 && scroll_remainder_milli > INT32_MAX - delta_milli) ||
+      (delta_milli < 0 && scroll_remainder_milli < INT32_MIN - delta_milli)) {
+    scroll_remainder_milli = 0;
+    return -1;
+  }
+  scroll_remainder_milli += delta_milli;
+  const intptr_t rows = scroll_remainder_milli / 1000;
+  scroll_remainder_milli %= 1000;
+  if (rows == 0) return 0;
+  const GhosttyTerminalScrollViewport viewport = {
+      .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA,
+      .value = {.delta = rows},
+  };
+  ghostty_terminal_scroll_viewport(terminal, viewport);
+  render_frame();
+  return 0;
+}
+
 static int drain_pty_response(unsigned char *output, size_t capacity,
                               size_t *output_length) {
   size_t length = pty_response_write - pty_response_read;
@@ -569,6 +825,15 @@ static int handle_event(const dolly_input_event *event,
     memcpy(output, event->data, event->text_length);
     *output_length = event->text_length;
     return 0;
+  }
+  if (event->type == DOLLY_INPUT_EVENT_PASTE) {
+    return handle_paste(output, output_capacity, output_length);
+  }
+  if (event->type == DOLLY_INPUT_EVENT_POINTER) {
+    return handle_pointer(event);
+  }
+  if (event->type == DOLLY_INPUT_EVENT_SCROLL) {
+    return handle_scroll(event);
   }
   if (event->type != DOLLY_INPUT_EVENT_KEY) return 0;
 
@@ -622,16 +887,17 @@ static int handle_event(const dolly_input_event *event,
   return 0;
 }
 
-static const dolly_display_driver_v1 driver = {
+static const dolly_display_driver_v3 driver = {
     .abi_version = DRIVER_ABI_VERSION,
-    .struct_size = sizeof(dolly_display_driver_v1),
+    .struct_size = sizeof(dolly_display_driver_v3),
     .initialize = initialize,
     .write = write_terminal,
     .handle_event = handle_event,
+    .set_suspended = set_suspended,
 };
 
-__attribute__((export_name("dolly_display_driver_get_v1")))
-const dolly_display_driver_v1 *dolly_display_driver_export(void) {
+__attribute__((export_name("dolly_display_driver_get_v3")))
+const dolly_display_driver_v3 *dolly_display_driver_export(void) {
   return &driver;
 }
 

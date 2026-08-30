@@ -25,7 +25,7 @@ const env = new Proxy(envTarget, {
 });
 
 const stdout = {
-  isTTY: true,
+  get isTTY() { return Boolean(Dolly.isatty(1)); },
   columns: 100,
   rows: 30,
   writableLength: 0,
@@ -41,13 +41,14 @@ const stdout = {
 
 const stderr = {
   ...stdout,
+  get isTTY() { return Boolean(Dolly.isatty(2)); },
   write(value) {
     return Boolean(Dolly.stderr(String(value)));
   },
 };
 
 const stdin = {
-  isTTY: true,
+  get isTTY() { return Boolean(Dolly.isatty(0)); },
   readable: true,
   setEncoding() { return this; },
   setRawMode() { return this; },
@@ -203,13 +204,26 @@ globalThis.btoa = (value) => {
 };
 
 globalThis.atob = (value) => {
-  const input = String(value).replace(/\s/g, "");
+  let input = String(value).replace(/\s/g, "");
+  if (input.length % 4 === 1 || /[^A-Za-z0-9+/=]/.test(input) ||
+      /=/.test(input.slice(0, -2))) {
+    const error = new Error("The string to be decoded is not correctly encoded.");
+    error.name = "InvalidCharacterError";
+    throw error;
+  }
+  input += "=".repeat((4 - input.length % 4) % 4);
   let output = "";
   for (let index = 0; index < input.length; index += 4) {
     const a = base64Alphabet.indexOf(input[index]);
     const b = base64Alphabet.indexOf(input[index + 1]);
     const c = input[index + 2] === "=" ? 0 : base64Alphabet.indexOf(input[index + 2]);
     const d = input[index + 3] === "=" ? 0 : base64Alphabet.indexOf(input[index + 3]);
+    if (a < 0 || b < 0 || c < 0 || d < 0 ||
+        input[index + 2] === "=" && input[index + 3] !== "=") {
+      const error = new Error("The string to be decoded is not correctly encoded.");
+      error.name = "InvalidCharacterError";
+      throw error;
+    }
     output += String.fromCharCode((a << 2) | (b >> 4));
     if (input[index + 2] !== "=") output += String.fromCharCode(((b & 15) << 4) | (c >> 2));
     if (input[index + 3] !== "=") output += String.fromCharCode(((c & 3) << 6) | d);
@@ -542,23 +556,6 @@ function parseResponseHeaders(block) {
   return headers;
 }
 
-class DollyBody {
-  #bytes;
-  #consumed = false;
-  constructor(bytes) { this.#bytes = bytes; }
-  getReader() {
-    return {
-      read: async () => {
-        if (this.#consumed) return { value: undefined, done: true };
-        this.#consumed = true;
-        return { value: this.#bytes, done: false };
-      },
-      releaseLock() {},
-      cancel: async () => {},
-    };
-  }
-}
-
 class DollyResponse {
   constructor(native) {
     this.status = native.status;
@@ -568,26 +565,110 @@ class DollyResponse {
     this.redirected = false;
     this.type = "basic";
     this.headers = parseResponseHeaders(native.headers);
-    this.body = new DollyBody(native.body);
-    this.#bytes = native.body;
+    this.body = native.body;
+    this.bodyUsed = false;
   }
-  #bytes;
-  async text() { return Dolly.decode(this.#bytes); }
+  async #consume() {
+    if (this.bodyUsed) throw new TypeError("response body was already consumed");
+    this.bodyUsed = true;
+    const chunks = [];
+    let length = 0;
+    const reader = this.body.getReader();
+    for (;;) {
+      const item = await reader.read();
+      if (item.done) break;
+      const bytes = item.value instanceof Uint8Array
+        ? item.value : new Uint8Array(item.value);
+      chunks.push(bytes);
+      length += bytes.length;
+    }
+    const result = new Uint8Array(length);
+    let offset = 0;
+    for (const bytes of chunks) {
+      result.set(bytes, offset);
+      offset += bytes.length;
+    }
+    return result;
+  }
+  async text() { return Dolly.decode(await this.#consume()); }
   async json() { return JSON.parse(await this.text()); }
-  async arrayBuffer() { return this.#bytes.buffer.slice(0); }
-  clone() {
-    return new DollyResponse({
-      status: this.status,
-      url: this.url,
-      headers: [...this.headers].map(([name, value]) => `${name}: ${value}\r\n`).join(""),
-      body: new Uint8Array(this.#bytes),
-    });
+  async arrayBuffer() {
+    const bytes = await this.#consume();
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
   }
+  clone() { throw new TypeError("Janis cannot clone a streaming response"); }
 }
 
 globalThis.Headers = DollyHeaders;
 globalThis.Response = DollyResponse;
-globalThis.fetch = async (input, init = {}) => {
+const pendingHttp = new Map();
+
+function httpError(code) {
+  const messages = {
+    1: "browser HTTP provider failed",
+    2: "browser HTTP policy denied the request",
+    3: "browser HTTP provider rejected the protocol",
+  };
+  return new Error(messages[code] ?? `browser HTTP error ${code}`);
+}
+
+function resolveHttpHeaders(request) {
+  if (request.resolved) return;
+  request.resolved = true;
+  request.resolve(new DollyResponse({
+    status: request.status,
+    url: request.effectiveUrl || request.requestUrl,
+    headers: request.headers,
+    body: request.body,
+  }));
+}
+
+// Polling never crosses the browser boundary itself: it only consumes the
+// next record already published in shared Wasm memory by dolly_http_dispatch.
+// Janis calls this hook between QuickJS microtask batches, which lets timers,
+// input, and streamed response chunks make progress in one synchronous worker.
+globalThis.__dollyHttpPump = () => {
+  for (const [sequence, request] of pendingHttp) {
+    let chunk;
+    try {
+      chunk = Dolly.httpPoll(sequence);
+    } catch (error) {
+      if (request.resolved) request.controller.error(error);
+      else request.reject(error);
+      pendingHttp.delete(sequence);
+      continue;
+    }
+    if (chunk === null) continue;
+    request.status = chunk.status;
+    if (chunk.error) {
+      const error = httpError(chunk.error);
+      if (request.resolved) request.controller.error(error);
+      else request.reject(error);
+      pendingHttp.delete(sequence);
+      continue;
+    }
+    if (chunk.kind === 1) {
+      request.effectiveUrl += Dolly.decode(chunk.data);
+    } else if (chunk.kind === 2) {
+      const line = Dolly.decode(chunk.data);
+      request.headers += line;
+      if (line === "\r\n" || line === "\n" || line === "") {
+        resolveHttpHeaders(request);
+      }
+    } else if (chunk.kind === 3 && chunk.data.length !== 0) {
+      resolveHttpHeaders(request);
+      request.controller.enqueue(chunk.data);
+    }
+    if (chunk.eof) {
+      resolveHttpHeaders(request);
+      request.controller.close();
+      pendingHttp.delete(sequence);
+    }
+  }
+  return pendingHttp.size !== 0;
+};
+
+globalThis.fetch = (input, init = {}) => {
   const url = typeof input === "string" ? input : String(input.url ?? input);
   const method = String(init.method ?? input.method ?? "GET").toUpperCase();
   const headers = new DollyHeaders(input.headers);
@@ -598,7 +679,32 @@ globalThis.fetch = async (input, init = {}) => {
   if (body instanceof Uint8Array) body = Dolly.decode(body);
   if (body !== null && typeof body !== "string") body = String(body);
   const headerBlock = [...headers].map(([name, value]) => `${name}: ${value}\r\n`).join("");
-  return new DollyResponse(Dolly.http(method, url, headerBlock, body));
+  return new Promise((resolve, reject) => {
+    if (init.signal?.aborted) {
+      reject(init.signal.reason ?? new Error("request was aborted"));
+      return;
+    }
+    let controller;
+    const stream = new ReadableStream({
+      start(value) { controller = value; },
+    });
+    try {
+      const sequence = Dolly.httpStart(method, url, headerBlock, body);
+      pendingHttp.set(sequence, {
+        resolve,
+        reject,
+        controller,
+        body: stream,
+        requestUrl: url,
+        effectiveUrl: "",
+        status: 0,
+        headers: "",
+        resolved: false,
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
 };
 
 globalThis.performance = { now: () => Date.now(), timeOrigin: Date.now() };

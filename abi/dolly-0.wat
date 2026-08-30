@@ -60,11 +60,20 @@
   ;; Descriptor and path operations remain entirely inside runtime-owned
   ;; WasmFS. Dolly has no host filesystem adapter.
   (import "env" "fstat" (func $fstat (param i32 i64) (result i32)))
+  (import "env" "fstatat" (func $fstatat (param i32 i64 i64 i32) (result i32)))
   (import "env" "lstat" (func $lstat (param i64 i64) (result i32)))
   (import "env" "open" (func $open (param i64 i32 i64) (result i32)))
+  (import "env" "openat" (func $openat (param i32 i64 i32 i64) (result i32)))
   (import "env" "close" (func $close (param i32) (result i32)))
+  (import "env" "fchdir" (func $fchdir (param i32) (result i32)))
   (import "env" "read" (func $read (param i32 i64 i64) (result i64)))
   (import "env" "write" (func $write (param i32 i64 i64) (result i64)))
+  (import "env" "pread" (func $pread (param i32 i64 i64 i64) (result i64)))
+  (import "env" "pwrite" (func $pwrite (param i32 i64 i64 i64) (result i64)))
+  (import "env" "readv" (func $readv (param i32 i64 i32) (result i64)))
+  (import "env" "writev" (func $writev (param i32 i64 i32) (result i64)))
+  (import "env" "preadv" (func $preadv (param i32 i64 i32 i64) (result i64)))
+  (import "env" "pwritev" (func $pwritev (param i32 i64 i32 i64) (result i64)))
   (import "env" "lseek" (func $lseek (param i32 i64 i32) (result i64)))
   (import "env" "unlink" (func $unlink (param i64) (result i32)))
   (import "env" "rmdir" (func $rmdir (param i64) (result i32)))
@@ -74,7 +83,23 @@
   (import "env" "readlink" (func $readlink (param i64 i64 i64) (result i64)))
   (import "env" "realpath" (func $realpath (param i64 i64) (result i64)))
   (import "env" "ftruncate" (func $ftruncate (param i32 i64) (result i32)))
+  (import "env" "fchmod" (func $fchmod (param i32 i32) (result i32)))
+  (import "env" "fchown" (func $fchown (param i32 i32 i32) (result i32)))
+  (import "env" "flock" (func $flock (param i32 i32) (result i32)))
+  (import "env" "futimens" (func $futimens (param i32 i64) (result i32)))
   (import "env" "fsync" (func $fsync (param i32) (result i32)))
+  (import "env" "faccessat" (func $faccessat (param i32 i64 i32 i32) (result i32)))
+  (import "env" "fchmodat" (func $fchmodat (param i32 i64 i32 i32) (result i32)))
+  (import "env" "linkat" (func $linkat (param i32 i64 i32 i64 i32) (result i32)))
+  (import "env" "mkdirat" (func $mkdirat (param i32 i64 i32) (result i32)))
+  (import "env" "readlinkat" (func $readlinkat (param i32 i64 i64 i64) (result i64)))
+  (import "env" "renameat" (func $renameat (param i32 i64 i32 i64) (result i32)))
+  (import "env" "symlinkat" (func $symlinkat (param i64 i32 i64) (result i32)))
+  (import "env" "unlinkat" (func $unlinkat (param i32 i64 i32) (result i32)))
+  (import "env" "utimensat" (func $utimensat (param i32 i64 i64 i32) (result i32)))
+  (import "env" "mmap" (func $mmap (param i64 i64 i32 i32 i32 i64) (result i64)))
+  (import "env" "munmap" (func $munmap (param i64 i64) (result i32)))
+  (import "env" "poll" (func $poll (param i64 i32 i32) (result i32)))
   (import "env" "utime" (func $utime (param i64 i64) (result i32)))
   (import "env" "statvfs" (func $statvfs (param i64 i64) (result i32)))
   (import "env" "dup" (func $dup (param i32) (result i32)))
@@ -198,6 +223,8 @@
   ;; Time, locale, and immutable environment access.
   (import "env" "clock" (func $clock (result i32)))
   (import "env" "clock_gettime" (func $clock_gettime (param i32 i64) (result i32)))
+  (import "env" "clock_getres" (func $clock_getres (param i32 i64) (result i32)))
+  (import "env" "clock_nanosleep" (func $clock_nanosleep (param i32 i32 i64 i64) (result i32)))
   (import "env" "ctime" (func $ctime (param i64) (result i64)))
   (import "env" "difftime" (func $difftime (param i64 i64) (result f64)))
   (import "env" "gettimeofday" (func $gettimeofday (param i64 i64) (result i32)))
@@ -255,6 +282,7 @@
   (import "env" "sigprocmask" (func $sigprocmask (param i32 i64 i64) (result i32)))
   (import "env" "emscripten_longjmp" (func $emscripten_longjmp (param i64 i32)))
   (import "env" "getTempRet0" (func $getTempRet0 (result i32)))
+  (import "env" "invoke_v" (func $invoke_v (param i64)))
   (import "env" "invoke_ijj" (func $invoke_ijj (param i64 i64 i64) (result i32)))
   (import "env" "invoke_ijji" (func $invoke_ijji (param i64 i64 i64 i32) (result i32)))
   (import "env" "invoke_jj" (func $invoke_jj (param i64 i64) (result i64)))
@@ -303,7 +331,40 @@
     (func $dolly_write_file (param i64 i64 i64) (result i32)))
   (import "env" "dolly_terminal_publish_result"
     (func $dolly_terminal_publish_result (param i32)))
+  ;; Language runtimes may own an interactive event loop without receiving a
+  ;; browser input capability. Bytes and dimensions come from the resident
+  ;; in-Wasm terminal driver and its bounded mailbox.
+  (import "env" "dolly_terminal_read_raw_timeout"
+    (func $dolly_terminal_read_raw_timeout (param f64) (result i32)))
+  (import "env" "dolly_terminal_columns"
+    (func $dolly_terminal_columns (result i32)))
+  (import "env" "dolly_terminal_rows"
+    (func $dolly_terminal_rows (result i32)))
+  ;; Exclusive in-Wasm framebuffer lease. Commands receive only the inactive
+  ;; RGBA8 buffer and semantic Dolly input records; the browser mailbox and DOM
+  ;; are not command capabilities. The runtime forcibly releases ownership at
+  ;; every command boundary.
+  (import "env" "dolly_display_acquire"
+    (func $dolly_display_acquire (param i64) (result i32)))
+  (import "env" "dolly_display_begin_frame"
+    (func $dolly_display_begin_frame (param i64 i64) (result i32)))
+  (import "env" "dolly_display_present"
+    (func $dolly_display_present (param i64 i32) (result i32)))
+  (import "env" "dolly_display_next_event"
+    (func $dolly_display_next_event (param i64 i64 f64) (result i32)))
+  (import "env" "dolly_display_release"
+    (func $dolly_display_release (param i64) (result i32)))
   (import "env" "dolly_exit" (func $dolly_exit (param i32)))
+  (import "env" "dolly_interrupt_poll"
+    (func $dolly_interrupt_poll (result i32)))
+  (import "env" "dolly_interrupt_checkpoint"
+    (func $dolly_interrupt_checkpoint))
+  (import "env" "dolly_isatty"
+    (func $dolly_isatty (param i32) (result i32)))
+  ;; Dolly's C/C++ target inserts this edge callback as its cancellation
+  ;; safepoint. It is lifecycle machinery, not a browser capability.
+  (import "env" "__sanitizer_cov_trace_pc"
+    (func $__sanitizer_cov_trace_pc))
   (import "env" "dolly_fclose"
     (func $dolly_fclose (param i64) (result i32)))
   (import "env" "dolly_system"
@@ -376,10 +437,66 @@
   ;; dependencies part of every command's ABI.
   (import "env" "dolly_toolchain_main"
     (func $dolly_toolchain_main (param i32 i64 i32) (result i32)))
+  ;; The native Zig command is ordinary wasm64 code. Its LLVM WebAssembly
+  ;; backend reuses the LLVM already linked into Dolly through this typed
+  ;; bridge, avoiding a second C++ runtime and thousands of internal imports.
+  (import "env" "ZigLLDLinkWasm"
+    (func $ZigLLDLinkWasm (param i32 i64 i32 i32) (result i32)))
+  (import "env" "ZigLLVMParseCommandLineOptions"
+    (func $ZigLLVMParseCommandLineOptions (param i64 i64)))
+  (import "env" "ZigLLVMWriteArchive"
+    (func $ZigLLVMWriteArchive (param i64 i64 i64 i32) (result i32)))
+  (import "env" "LLVMInitializeWebAssemblyTarget"
+    (func $LLVMInitializeWebAssemblyTarget))
+  (import "env" "LLVMInitializeWebAssemblyTargetInfo"
+    (func $LLVMInitializeWebAssemblyTargetInfo))
+  (import "env" "LLVMInitializeWebAssemblyTargetMC"
+    (func $LLVMInitializeWebAssemblyTargetMC))
+  (import "env" "LLVMInitializeWebAssemblyAsmPrinter"
+    (func $LLVMInitializeWebAssemblyAsmPrinter))
+  (import "env" "LLVMInitializeWebAssemblyAsmParser"
+    (func $LLVMInitializeWebAssemblyAsmParser))
+  (import "env" "LLVMContextCreate"
+    (func $LLVMContextCreate (result i64)))
+  (import "env" "LLVMCreateMemoryBufferWithMemoryRange"
+    (func $LLVMCreateMemoryBufferWithMemoryRange (param i64 i64 i64 i32) (result i64)))
+  (import "env" "ZigLLVMEnableBrokenDebugInfoCheck"
+    (func $ZigLLVMEnableBrokenDebugInfoCheck (param i64)))
+  (import "env" "LLVMParseBitcodeInContext2"
+    (func $LLVMParseBitcodeInContext2 (param i64 i64 i64) (result i32)))
+  (import "env" "ZigLLVMGetBrokenDebugInfo"
+    (func $ZigLLVMGetBrokenDebugInfo (param i64) (result i32)))
+  (import "env" "LLVMDisposeMemoryBuffer"
+    (func $LLVMDisposeMemoryBuffer (param i64)))
+  (import "env" "LLVMGetTargetFromTriple"
+    (func $LLVMGetTargetFromTriple (param i64 i64 i64) (result i32)))
+  (import "env" "ZigLLVMCreateTargetMachine"
+    (func $ZigLLVMCreateTargetMachine
+      (param i64 i64 i64 i64 i32 i32 i32 i32 i32 i32 i64 i32)
+      (result i64)))
+  (import "env" "ZigLLVMSetOptBisectLimit"
+    (func $ZigLLVMSetOptBisectLimit (param i64 i32)))
+  (import "env" "ZigLLVMTargetMachineEmitToFile"
+    (func $ZigLLVMTargetMachineEmitToFile (param i64 i64 i64 i64) (result i32)))
+  (import "env" "LLVMDisposeMessage"
+    (func $LLVMDisposeMessage (param i64)))
+  (import "env" "LLVMDisposeTargetMachine"
+    (func $LLVMDisposeTargetMachine (param i64)))
+  (import "env" "LLVMContextDispose"
+    (func $LLVMContextDispose (param i64)))
   (import "env" "dolly_http_perform"
     (func $dolly_http_perform (param i64 i64) (result i32)))
   (import "env" "dolly_http_response_dispose"
     (func $dolly_http_response_dispose (param i64)))
+  ;; Language runtimes use the same single broker mailbox without blocking
+  ;; their event loop. `start` copies and dispatches one request; `poll`
+  ;; acknowledges at most one URL/header/body record. Synchronous libc clients
+  ;; implement `perform` by waiting around these two primitives.
+  (import "env" "dolly_http_start"
+    (func $dolly_http_start
+      (param i64 i64 i64 i64 i64 i32 i64) (result i32)))
+  (import "env" "dolly_http_poll"
+    (func $dolly_http_poll (param i32 i64 i64 i64) (result i32)))
 
   ;; Runtime-owned data addresses used by libc and setjmp. Function-address
   ;; GOT slots are derived from matching env functions by the loader convention

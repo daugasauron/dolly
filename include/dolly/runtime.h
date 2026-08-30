@@ -1,6 +1,7 @@
 #ifndef DOLLY_RUNTIME_API_H
 #define DOLLY_RUNTIME_API_H
 
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
 
@@ -31,6 +32,29 @@ int dolly_write_file(const char *path, const void *bytes, size_t length);
 // Publishes one completed interactive shell command to the terminal mailbox.
 // Non-interactive shells and ordinary commands do not call this operation.
 void dolly_terminal_publish_result(int status);
+
+// Runtime event-loop support. A negative timeout waits indefinitely, zero is
+// nonblocking, and a positive timeout is measured in milliseconds. These read
+// Ghostty-encoded bytes and dimensions from the in-Wasm display mailbox.
+int dolly_terminal_read_raw_timeout(double milliseconds);
+uint32_t dolly_terminal_columns(void);
+uint32_t dolly_terminal_rows(void);
+
+// Returns SIGINT once when the browser has targeted the currently executing
+// foreground command, or zero when no interrupt is pending. Ordinary programs
+// normally rely on compiler-inserted checkpoints rather than calling this.
+int dolly_interrupt_poll(void);
+
+// Compiler-inserted cancellation safepoint. A pending SIGINT terminates only
+// the current Dolly command with the conventional shell status 130.
+void dolly_interrupt_checkpoint(void);
+
+// Dolly terminals are WasmFS character devices whose browser-free line and
+// raw disciplines live in the runtime. Emscripten's generic isatty probes a
+// native-style ioctl that those devices intentionally do not expose, so the
+// target uses this descriptor-kind check instead. Regular redirected files
+// and serial pipeline spools return false.
+int dolly_isatty(int descriptor);
 
 // Terminates only the currently executing Dolly command. The compiler maps
 // ordinary C exit() calls to this lifecycle operation.

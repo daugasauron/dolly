@@ -1,170 +1,167 @@
-# Zig and Ghostty inside Dolly
+# Native Zig and Ghostty inside Dolly
 
-Status: cold-browser source build passes  
-Last updated: 2026-08-29
+Status: direct native compilation passes in Chrome
+Last updated: 2026-08-30
 
 ## Result
 
-Dolly bootstraps the compiler shipped in the pinned Zig 0.16.0 source archive,
-uses it to translate pinned Ghostty source to C, compiles that C with Dolly's
-wasm64 Clang, archives it as `/usr/lib/libghostty-vt.a`, and links both the
-`/usr/bin/ghostty-vt` probe and `/usr/libexec/dolly/display.wasm`. Every
-compilation step happens after browser startup against the in-memory WasmFS. No
-native Zig executable, generated Ghostty object, or host build service enters
-the sandbox.
+Dolly contains a real Zig 0.16.0 compiler as a wasm64 dynamic command. It runs
+upstream Zig semantic analysis and the LLVM WebAssembly backend in the same
+shared address space as the rest of Dolly. It reads the upstream standard
+library from `/usr/lib/zig`, reads project sources from WasmFS, and writes
+relocatable WebAssembly objects back to WasmFS.
+
+At browser startup, `/usr/bin/zig` compiles the pinned Ghostty/uucode source
+graph directly to `/tmp/ghostty/ghostty-vt.o`. Dolly's `ar` and `cc` then build
+`/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and
+`/usr/libexec/dolly/display.wasm`. There is no Zig-to-C translation, nested
+wasm32 interpreter, host compilation service, or precompiled Ghostty object.
 
 The target is Ghostty's upstream `libghostty-vt`, not its GTK or macOS desktop
-application. This supplies the parser, state machine, screen model, and key
-encoder Dolly needs. A small Dolly-owned software renderer loads pinned
-IosevkaTerm SemiBold through WasmFS and rasterizes the Ghostty grid into shared
-RGBA buffers. DOM event capture, IME composition, fullscreen requests, and the
-final checked canvas blit remain browser responsibilities; their interpretation
-and all terminal modes remain inside Dolly.
+application. It supplies the parser, screen model, terminal modes, and key
+encoder. A Dolly-owned renderer loads pinned IosevkaTerm SemiBold through
+WasmFS and converts the Ghostty grid into bounded shared RGBA framebuffers.
 
-## Exact compilation chain
+## Bootstrap chain
 
 ```text
-pinned WAMR C source --Dolly cc--> /usr/libexec/dolly/zig1
-                                      |
-                                      | interprets
-                                      v
-pinned Zig stage1/zig1.wasm + stage1/wasi.c
-                                      |
-                                      | /usr/bin/zig build-obj -ofmt=c
-                                      v
-pinned Ghostty + uucode Zig source --> /tmp/ghostty/ghostty-vt.c
-                                      |
-                                      | Dolly cc -c
-                                      v
-                          /tmp/ghostty/ghostty-vt.o
-                                      |
-                                      | Dolly ar
-                                      v
-                          /usr/lib/libghostty-vt.a
-                              /                 \
-             Dolly cc -lghostty-vt             Dolly cc + stb/Iosevka
-                            v                     v
-                 /usr/bin/ghostty-vt   /usr/libexec/dolly/display.wasm
+checksum-pinned official Zig 0.16.0 host archive
+                         |
+                         | build-obj -target wasm64-emscripten
+                         v
+patched upstream Zig compiler object
+                         |
+                         | dolly-cc link + ABI stamp/validation
+                         v
+              build/native-zig/zig-native.wasm
+                         |
+                         | preload as /usr/bin/zig
+                         v
+pinned Ghostty/uucode Zig source in WasmFS
+                         |
+                         | native Zig LLVM backend in Chrome
+                         v
+             /tmp/ghostty/ghostty-vt.o
+                         |
+                         | Dolly ar / Dolly cc
+                         v
+     libghostty-vt.a, ghostty-vt, display.wasm
 ```
 
-`/usr/bin/zig` is a small Dolly executable that invokes the private
-`/usr/libexec/dolly/zig1` filesystem command through Dolly's synchronous
-lifecycle API. The latter is a source-built WAMR interpreter plus Zig's
-upstream stage1 WASI adapter. WAMR was chosen after Wasm3's recursive bytecode
-preparation exhausted Chrome's native stack on Zig's deeply nested module.
-WAMR's non-recursive fast interpreter prepares that module without adding host
-authority. Its native-machine shortcuts are explicitly disabled:
-`WASM_ENABLE_LABELS_AS_VALUES=0` avoids computed-goto code pointers, and
-`WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS=0` makes the prepared stream use
-portable aligned loads. Those shortcuts are valid for WAMR's normal native
-hosts, but not for WAMR itself compiled as wasm64. Keeping the fast bytecode
-preparation while disabling the shortcuts gives Dolly the correct full
-Ghostty build in minutes; the classic interpreter is correct but takes hours
-on the same input.
+The official host compiler is a stage-zero build input only. It never enters
+the browser filesystem and is not callable by sandbox programs. The wasm64
+compiler it produces is a normal Dolly command with `dolly_main`, shared
+memory64/table64, a `dylink.0` section, and the exact `dolly.abi` stamp.
 
-The wrapper reports `zig version`/`zig --version` directly from the exact
-0.16.0 source pin. Zig's source-provided stage1 seed is a bootstrap compiler;
-its metadata-only version branch traps under the interpreter, while its
-generated-C compilation path is the part Dolly intentionally exposes. All
-compilation subcommands still execute `zig1.wasm`.
+## LLVM sharing
 
-The nested `zig1.wasm` is a compiler implementation detail, not a Dolly
-program format. It is wasm32, but its WASI file calls are native bindings to
-Zig's `stage1/wasi.c`, which calls the outer Dolly libc and therefore reads and
-writes the same WasmFS. Zig emits C; Dolly's normal compiler then produces the
-actual wasm64 filesystem executable or archive that shares Dolly's memory and
-table when loaded.
+Statically linking a second LLVM into the command produced a much larger
+module and duplicated facilities already present in Dolly's trusted main
+runtime. The shipped command is instead a roughly 15 MB side module. Zig's
+upstream `src/zig_llvm.cpp` is compiled once into the main runtime, and the
+command imports 21 exact LLVM bridge functions declared by `abi/dolly-0.wat`.
+Those imports cover target-machine creation, module emission, and the other
+operations used by the enabled WebAssembly code-generation path.
 
-## Pinned inputs
+The compiler initializes only the WebAssembly LLVM target. COFF and ELF LLD
+entry points return failure, while Zig's WebAssembly linker remains available.
+`zig cc` and `zig ar` direct users to Dolly's separately audited `/bin/cc` and
+`/bin/ar`; the native command does not embed duplicate Clang or archive-driver
+frontends.
 
-The canonical values are in `config/source-pins.sh`:
+## Source adaptations
 
-| Input | Pin |
-| --- | --- |
-| Zig | 0.16.0 source archive plus SHA-256 |
-| WAMR | exact Git commit |
-| Ghostty | exact Git commit `4540d499ae463ad7b90f28f6f852f64f844c160f` |
-| uucode | exact source archive commit plus SHA-256 |
+`patches/zig-0.16.0-dolly-native.patch` contains the reviewed target changes:
 
-The build packages only source, headers, licenses, Zig's source-provided
-`zig1.wasm` bootstrap seed, and generated configuration inputs. The final
-Ghostty C, object, archive, and command are created in WasmFS during
-`/etc/dolly/startup.slop`.
+- initialize only the WebAssembly LLVM target and adapt Zig's LLVM 21-facing
+  bridge code to Dolly's pinned LLVM 24 build;
+- use `/usr/bin/zig` as the executable path on Emscripten and allow the normal
+  `version` command in the reduced `.core` build;
+- correct Emscripten memory64 libc types (`nfds_t` and `nlink_t`) and signal
+  typing;
+- avoid adding `O_PATH`, which WasmFS declares but does not implement;
+- keep the compiler WebAssembly-only and omit unavailable target backends.
 
-Ghostty's optional Kitty graphics transport is disabled. That feature assumes
-host files and shared-memory image transport that are outside Dolly's text
-terminal contract. The VT parser, Unicode tables, grid, styles, cursor state,
-and C inspection API remain enabled.
+`src/zig/native-main.zig` supplies the Dolly command entry and explicit
+in-userspace failures for unsupported sockets, subprocesses, dynamic plugins,
+and related POSIX facilities. Entropy, clocks, files, arguments, environment,
+and command-local exit terminate at Dolly's typed substrate.
+
+Ghostty has one relevant target adaptation. Its libc-backed wasm page pool can
+recycle dirty allocator memory, so both allocation and recycling paths must
+zero page buffers. `config/ghostty-dolly.patch` makes that invariant explicit
+for wasm plus libc. This was confirmed independently: a Ghostty object emitted
+by the official host Zig exhibited the same failure before the zeroing fix, so
+the issue was not native compiler code generation.
+
+## Reproducibility and caching
+
+The canonical pins are in `config/source-pins.sh`. Both supported host archives
+(x86_64 Linux and AArch64 Linux) have SHA-256 checksums. The preparation script
+copies the checksum-pinned Zig source and applies the patch to a digest-named
+cache directory. The native command's cache key includes its target flags,
+source pin, patch, root modules, build script, and Dolly linker wrapper.
+
+A cold native compiler build took approximately 2 minutes 36 seconds to 3
+minutes 10 seconds on the development machine. Its output was a roughly 21 MB
+relocatable object and 15 MB linked side module. An unchanged cached invocation
+still performs ABI validation and returned in about 0.17 seconds.
+
+The complete Zig library preload makes the current data package large (about
+274 MB). Pruning that tree and reducing compiler cold-start/build latency are
+useful follow-ups, but they do not change the machine architecture.
 
 ## Browser acceptance proof
 
-A cold browser run proves all of the following in one sandbox lifetime:
+A real Chrome run proves, in one sandbox lifetime, that:
 
-1. GNU Make is compiled and executes the Zig/Ghostty graph through Slop.
-2. WAMR is compiled from its packaged source to `/usr/libexec/dolly/zig1`.
-3. `/usr/bin/zig` translates a small Zig fixture; Dolly compiles and executes
-   the generated C and observes the expected value 42.
-4. The same compiler translates Ghostty's complete VT source graph.
-5. Dolly compiles and archives the generated Ghostty C and links
-   `/usr/bin/ghostty-vt` against it.
-6. The command feeds text and an SGR bold sequence into Ghostty, reads the
-   10-by-3 grid through the public C API, and prints all three rows and styles.
-7. The browser proof invokes `zig version`, verifies the archive path, and
-   invokes `ghostty-vt` again through ordinary PATH lookup.
-8. Dolly loads the filesystem-resident display module, publishes a stable RGBA
-   frame, accepts raw Chrome key events (including Backspace and Enter), handles
-   Ctrl+/Ctrl- font sizing inside the sandbox, resizes on fullscreen, and keeps
-   the interactive Lua REPL working.
+1. `/usr/bin/zig version` executes the native upstream command.
+2. Zig compiles `answer.zig` directly to a wasm64 relocatable object; a target
+   guard checks the WebAssembly magic before Dolly links and runs it.
+3. The same compiler compiles the full pinned Ghostty VT/uucode graph directly
+   to `ghostty-vt.o`.
+4. Dolly archives that object and links the VT probe and resident display
+   module through ordinary WasmFS paths.
+5. The VT probe parses text and SGR state and exposes the expected cell grid.
+6. Chrome presents a checked 800-by-600 Ghostty framebuffer, with 129-by-29
+   cells, and passes raw keys, zoom, fullscreen resize, Lua, Pi, filesystem,
+   lifecycle, and brokered-network checks.
 
-The interpreted Ghostty translation is intentionally simple and currently
-takes several minutes. Performance and parallel compilation are not part of
-this proof; the finite compiler/filesystem/lifecycle contract is.
+The final command was:
 
-## Generated-C compatibility
+```sh
+./scripts/test-browser.sh
+```
 
-Zig 0.16's `zig.h` selects its C11 atomics path when `stdatomic.h` merely
-exists, even when `__STDC_NO_ATOMICS__` is set. Dolly's compatibility wrapper
-hides that header-existence probe so upstream `zig.h` selects its own
-`__atomic_*` implementation. The wrapper also replaces
-`__builtin_return_address` with zero because Zig uses it only as opaque
-allocator/debug metadata here and Emscripten would otherwise add an unwanted
-JavaScript import.
+and completed with:
 
-These are generated-C compatibility choices. Ghostty itself is not patched to
-call the browser, use another filesystem, or own a standalone Wasm memory.
-
-For local iteration, `DOLLY_GHOSTTY_C_CHECKPOINT` may point at a generated C
-file within the repository. The build preloads that file at Ghostty's normal
-target path, then still compiles, archives, and links it with Dolly's in-sandbox
-toolchain. This avoids repeating the slow interpreted Zig translation while
-debugging presentation. Release/cold proofs omit the variable and regenerate C
-from the pinned Zig and Ghostty sources.
+```text
+browser: sandbox Ghostty rendered 800x600 (129x29 cells), raw keys/zoom/fullscreen passed
+```
 
 ## Security boundary
 
-- Zig, WAMR, and Ghostty introduce no browser imports.
-- Their source and generated files live only in Dolly's in-memory WasmFS.
-- WAMR's inner WASI surface terminates at Dolly libc; it is not implemented by
-  JavaScript and cannot reach a host filesystem or host process.
-- Process, socket, sleep, and concurrency assumptions use Dolly's finite
-  synchronous behavior or fail with `ENOSYS`.
-- `env.dolly_http_dispatch` remains the only agent-selected network edge of
-  the outer runtime.
-- A corrupted compiler or terminal parser can corrupt the disposable Dolly
-  instance, but cannot acquire authority beyond the outer runtime's explicit
-  browser import allowlist.
+- The native compiler has no WASI, browser, raw-socket, or host-filesystem
+  imports. Its imports are the versioned Dolly command surface plus the typed
+  LLVM bridge.
+- Source, cache, object, archive, and executable files used at runtime live in
+  Dolly's mutable WebAssembly memory.
+- Subprocess, raw socket, and plugin loading paths fail inside the command;
+  they cannot escape to JavaScript or a native host.
+- `env.dolly_http_dispatch` remains the sole intentional agent-selected
+  network edge of the outer runtime.
+- A compromised compiler can corrupt the shared Dolly userspace, as permitted
+  by the shared-everything model, but gains no authority beyond the outer
+  runtime's audited browser import allowlist.
 
 ## Display boundary
 
-`abi/dolly-display-0.wat` defines a versioned fixed-record input ring and two
-bounded framebuffer addresses. The display module owns Ghostty parsing,
-mode-aware key encoding, the Iosevka TTF, glyph rasterization, terminal sizing,
-and frame publication. JavaScript validates the published index, dimensions,
-stride, capacity, and memory range, copies one stable complete frame, and calls
-`putImageData`. It contains no VT parser, cell model, font renderer, or command
-logic.
+`abi/dolly-display-0.wat` defines fixed input records and two bounded
+framebuffer addresses. The resident module owns Ghostty parsing, mode-aware key
+encoding, terminal sizing, font rasterization, and frame publication.
+JavaScript validates dimensions, stride, capacity, and memory ranges before a
+stable frame copy. It contains no VT parser, grid model, or command logic.
 
-Before the source build finishes, the display module cannot exist. A single
-bootstrap text callback therefore updates a plain Iosevka browser view with the
-traced startup output. The view is hidden when the resident module activates;
-subsequent terminal output is consumed entirely inside the sandbox.
+Before the source build finishes, a narrow bootstrap text callback displays
+the traced startup log. The callback is hidden when the resident display module
+activates; subsequent terminal output is rendered from inside Dolly.

@@ -25,9 +25,10 @@ DOLLY_ESBUILD_VERSION=0.25.9
 DOLLY_ZIG_VERSION=0.16.0
 DOLLY_ZIG_URL='https://ziglang.org/download/0.16.0/zig-0.16.0.tar.xz'
 DOLLY_ZIG_SHA256=43186959edc87d5c7a1be7b7d2a25efffd22ce5807c7af99067f86f99641bfdf
-
-DOLLY_WAMR_COMMIT=68b8ed3892b857218cb2d0fb7369431fae6fc801
-DOLLY_WAMR_URL='https://github.com/bytecodealliance/wasm-micro-runtime.git'
+DOLLY_ZIG_HOST_X86_64_LINUX_URL='https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz'
+DOLLY_ZIG_HOST_X86_64_LINUX_SHA256=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00
+DOLLY_ZIG_HOST_AARCH64_LINUX_URL='https://ziglang.org/download/0.16.0/zig-aarch64-linux-0.16.0.tar.xz'
+DOLLY_ZIG_HOST_AARCH64_LINUX_SHA256=ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17
 
 DOLLY_GHOSTTY_COMMIT=4540d499ae463ad7b90f28f6f852f64f844c160f
 DOLLY_GHOSTTY_URL='https://github.com/ghostty-org/ghostty.git'

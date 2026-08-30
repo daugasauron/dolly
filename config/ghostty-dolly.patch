@@ -46,3 +46,17 @@ diff --git a/src/terminal/PageList.zig b/src/terminal/PageList.zig
      // On non-macOS we use our standard Zig page allocator.
      if (!builtin.target.os.tag.isDarwin()) return std.heap.page_allocator;
  
+@@ -731,4 +737,5 @@ fn initPages(
+         // only fresh memory.grow pages are guaranteed zero by the WASM spec.
+         // On native, the OS page allocator (mmap) returns zeroed pages.
+-        if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding)
++        if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding or
++            (builtin.target.cpu.arch.isWasm() and builtin.link_libc))
+             @memset(page_buf, 0);
+@@ -4584,4 +4591,5 @@ fn createPage(
+     // always overwrites those since the page rows start at offset 0
+     // (comptime-asserted in Page).
+-    if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding)
++    if (comptime std.debug.runtime_safety or builtin.os.tag == .freestanding or
++        (builtin.target.cpu.arch.isWasm() and builtin.link_libc))
+         @memset(page_buf, 0);

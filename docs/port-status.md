@@ -16,7 +16,7 @@ facilities become substrate work, not JavaScript or host-process escape hatches.
 | `git` | [Pinned Git and zlib](../config/source-pins.sh); GNU Make compiles 427 upstream library/builtin sources in Dolly with three Dolly lifecycle cleanup adaptations | Real init/config/add/commit/log in shared WasmFS; deterministic archives and `-l` linking; upstream HTTP/HTTPS helpers linked with `-lcurl`; protocol-v2 discovery through the single browser broker |
 | `make` | Checksum-pinned upstream GNU Make 4.4.1; configured and patched as an exact source manifest, then compiled in Dolly at boot | Real dependency evaluation, automatic variables, `$(shell ...)`, separate compilation and linking, up-to-date checks, and accepted-but-serial `-jN`; every recipe enters `/bin/slop -c` |
 | `qjs` | [Pinned QuickJS-ng](../config/source-pins.sh); unchanged engine sources plus `src/runtimes/quickjs-main.c`, all compiled in Dolly at boot | A large current C runtime, exact ECMAScript math, allocator and clock surface, source files, stdin, arguments, exception status, and repeated invocation |
-| `pi` | Pinned upstream Pi agent-core/AI packages are bundled into a Dolly-specific ESM entry; `/usr/bin/pi` is compiled in Dolly against source-built QuickJS | Real headless Pi agent loop, streaming OpenAI-compatible adapter through the sole HTTP broker, WasmFS read/write tools, and serial `/bin/slop -c` shell execution; interactive TUI and in-Dolly TypeScript source build remain deferred |
+| `pi` | Pinned upstream Pi packages are bundled with asserted QuickJS compatibility lowerings and Pi's upstream standalone OAuth loader table; `/usr/bin/pi` is compiled in Dolly against source-built QuickJS and Janis | Full upstream TUI through in-Wasm Ghostty, pasted OpenRouter credentials persisted in WasmFS with model discovery, completed Codex PKCE/manual-code exchange with sandbox credential persistence and model discovery, real/fixture streaming providers through the sole HTTP broker, a normal extension overriding Slop/WasmFS tools, and dependency-free extension installation/reload; in-Dolly TypeScript source build remains deferred |
 | `lua` | Checksum-pinned upstream Lua 5.5.1, currently compiled externally as a bootstrap side module | Unchanged language CLI and REPL, libc breadth, setjmp, command-local `exit`, terminal EOF/interrupts, and explicit subprocess denial |
 | `cc`, `c++`, `ld`, `ar` | Current pinned Clang/LLD linked into the trusted runtime; separate source-compiled command frontends | Source/object/archive compilation, C17/C++23, multi-object and `-L`/`-l` links, deterministic GNU archives, exact import validation, ABI stamping, and direct WasmFS publication |
 
@@ -25,6 +25,13 @@ QuickJS-ng's `quickjs-libc.c` is intentionally excluded. It exposes native
 The engine itself needs none of those. Dolly's adapter exposes only execution,
 arguments, and output, so later filesystem modules or Node-shaped APIs can be
 added one capability at a time.
+
+Foreground cancellation is nevertheless part of Dolly's own lifecycle layer.
+`Ctrl+C` targets the active in-Wasm PID, C/C++ commands poll at compiler-inserted
+control-flow edges, blocking terminal/HTTP/sleep operations poll explicitly,
+and QuickJS uses its interpreter interrupt hook. The current result is the
+default `SIGINT` action and shell status 130, not general POSIX signal-handler or
+process-group emulation.
 
 ## Deferred ports
 
@@ -44,17 +51,16 @@ browser HTTP broker. A general scheduler is not a prerequisite and should not
 be introduced merely to imitate Unix. No host process or socket fallback is
 acceptable.
 
-### Vim: raw terminal device
+### Vim: source-build probe
 
 Vim's official [terminal documentation](https://github.com/vim/vim/blob/master/runtime/doc/term.txt)
 requires raw character input, terminal capability strings, and window size.
-Dolly deliberately provides a canonical line discipline today. Compiling an
-`ex`-only or screen-disabled binary would avoid the requirement but would not
-provide the requested useful editor.
+Dolly now provides the raw/canonical tty substrate used by Pi and Lua. Vim has
+not yet been attempted against it; the next step is an unchanged small Unix
+build rather than an `ex`-only or screen-disabled substitute.
 
-Acceptance gate: a typed terminal-control substrate with raw/canonical modes,
-`isatty`, window size, restoration on command exit, and command-local interrupt
-delivery. Then evaluate the unchanged small Unix build from Vim's
+Acceptance gate: evaluate the unchanged small Unix build with Dolly's existing
+`isatty`, window size, raw/canonical restoration, and interrupt delivery from Vim's
 [source instructions](https://github.com/vim/vim/blob/master/src/INSTALL).
 
 ### CPython: wasm64 and build bootstrap
@@ -72,13 +78,14 @@ and QuickJS already provide smaller runtime probes while that work matures.
 
 ### Zig and `libghostty-vt`: compiler bootstrap
 
-Implemented. Dolly compiles pinned WAMR source into a private interpreter,
-executes Zig 0.16.0's source-provided `zig1.wasm` with its WASI calls terminating
-at Dolly libc/WasmFS, and exposes that path as `/usr/bin/zig`. Zig translates
-the pinned Ghostty VT and uucode source graph to C. Dolly's ordinary wasm64
-compiler and archive writer then produce `/usr/lib/libghostty-vt.a` and the
-separate `/usr/bin/ghostty-vt` command. A cold-browser proof feeds VT bytes to
-the public C API and inspects the resulting 10-by-3 cell grid.
+Implemented. A checksum-pinned official Zig stage zero compiles the pinned
+upstream Zig 0.16.0 frontend as an ABI-validated wasm64 command. Native
+`/usr/bin/zig` runs inside Dolly and emits relocatable WebAssembly objects
+directly through a typed bridge to the runtime's LLVM WebAssembly backend.
+It compiles the pinned Ghostty VT and uucode graph into
+`/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and the resident display
+module. A cold-browser proof compiles the graph, feeds VT bytes to the public C
+API, and inspects the resulting cell grid.
 
 This is intentionally the `libghostty-vt` terminal core, not the GTK/macOS
 desktop application. Exact architecture and evidence are in
@@ -100,14 +107,17 @@ tracked in [`pi-agent-plan.md`](pi-agent-plan.md).
 
 ## Next substrate order
 
+The project-wide sequencing and acceptance gates now live in
+[`roadmap.md`](roadmap.md); the list below is the port-specific rule of thumb.
+
 1. Use upstream source builds as probes and extend Slop only for syntax that a
    useful agent tool actually requires.
 2. Add small synchronous lifecycle adapters where tools assume `fork`/`exec`;
    prefer serial execution and WasmFS spooling over a scheduler.
 3. Generalize reproducible target-side source generators only when Make cannot
    express the required build graph cleanly.
-4. Add raw terminal control, JavaScript stdin events, and window-size reporting
-   for the Pi TUI and editor probes.
+4. Run TypeScript and the next source/package probes through Janis; add only
+   compatibility demonstrated by those workloads.
 5. Preserve the implemented bounded RGBA/input ABI and extend the in-Dolly
    Ghostty renderer only for gaps exposed by useful agent TUIs.
 6. Consider concurrency, performance work, or async APIs only after a concrete

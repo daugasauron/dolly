@@ -6,13 +6,14 @@
   (import "env" "dolly_bootstrap_write_bytes"
     (func $dolly_bootstrap_write_bytes (param i64 i64)))
 
-  ;; Mailbox version 1 starts with sixteen atomic u32 fields. Input events are
-  ;; fixed 128-byte records beginning at byte 128. The browser copies DOM event
-  ;; data without terminal encoding; the in-Wasm Ghostty driver owns encoding.
+  ;; Mailbox version 3 starts with 30 atomic u32 fields. The final two fields
+  ;; form the PID-targeted SIGINT sequence. Input events remain fixed 128-byte
+  ;; records beginning at byte 128. The browser copies ordinary DOM event data
+  ;; without terminal encoding; the in-Wasm Ghostty driver owns encoding.
   (func (export "dolly_display_mailbox_address") (result i64)
     i64.const 0)
   (func (export "dolly_display_mailbox_version") (result i32)
-    i32.const 1)
+    i32.const 3)
   (func (export "dolly_display_event_size") (result i32)
     i32.const 128)
   (func (export "dolly_display_event_capacity") (result i32)
@@ -25,6 +26,17 @@
     i64.const 0)
   (func (export "dolly_display_framebuffer_capacity") (result i64)
     i64.const 0)
+
+  ;; Clipboard data is capability-directional. The browser can publish one
+  ;; explicit user paste into the paste buffer; Dolly continuously publishes
+  ;; the active terminal selection into the copy buffer. Atomic mailbox
+  ;; sequence fields make both byte snapshots race-free.
+  (func (export "dolly_display_paste_buffer_address") (result i64)
+    i64.const 0)
+  (func (export "dolly_display_copy_buffer_address") (result i64)
+    i64.const 0)
+  (func (export "dolly_display_clipboard_capacity") (result i32)
+    i32.const 262144)
 
   ;; WasmFS's JavaScript device passes bytes straight back into this runtime
   ;; export. Before driver installation it reaches the bootstrap sink; after

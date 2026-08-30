@@ -31,6 +31,15 @@ minimal C bootstrap compiles Slop and seed commands in WasmFS
         +--> /bin/*
         +--> /usr/bin/*
         +--> /usr/libexec/*
+        |
+        v
+headless /rebuild captures versioned system snapshot
+        |
+        v
+dist/dolly-system.snapshot + verified metadata
+        |
+        v
+/ restores the same image for every browser in seconds
 ```
 
 Packaging a source file is not the same as packaging an executable. Except for
@@ -49,11 +58,10 @@ code is produced by Clang/LLD inside the browser and written to WasmFS.
 | zlib | A selected pinned source tree is copied to `build/generated/zlib-source` | Upstream C sources and headers | `/usr/lib/libz.a` |
 | Git | Tracked C/headers are copied, generated headers/templates are produced, and `config/git-dolly.patch` applies the small lifecycle adaptations | 427 source files, headers, templates, and license | `/usr/lib/libgit.a`, `/usr/bin/git`, and HTTP/HTTPS helpers |
 | GNU Make | Checksum-pinned official 4.4.1 release is configured for wasm64; `config/make-dolly.patch` and one Dolly job adapter replace process launch | Exact source manifest, generated configuration, headers, and license | `/usr/bin/make`; all recipes and `$(shell ...)` execute synchronously through `/bin/slop` |
-| Zig | Checksum-pinned 0.16.0 source archive supplies `stage1/zig1.wasm`, its WASI adapter, standard library, C header, and license | Source/bootstrap inputs only; no native compiler | Source-built `/usr/bin/zig` translates Zig to C against WasmFS |
-| WAMR | Exact pinned checkout; no host-built interpreter artifact | Selected interpreter, allocator, and utility C sources plus license | Dolly compiles `/usr/libexec/dolly/zig1`; it interprets Zig's bootstrap seed with WASI bound to Dolly libc |
-| Ghostty + uucode | Exact Ghostty checkout and checksum-pinned uucode archive are prepared with reviewed build options | VT and Unicode Zig source, generated configuration/tables, public headers, and licenses | Zig emits C; Dolly builds `/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and the resident display module |
+| Zig | Checksum-pinned 0.16.0 source and official Linux stage-zero archives; the external compiler builds only the upstream frontend side module | Patched upstream source library plus ABI-validated `/usr/bin/zig`; its LLVM bridge reuses the runtime's WebAssembly backend | Native Zig runs inside Dolly and emits relocatable wasm64 objects directly into WasmFS |
+| Ghostty + uucode | Exact Ghostty checkout and checksum-pinned uucode archive are prepared with reviewed build options | VT and Unicode Zig source, generated configuration/tables, public headers, and licenses | Native Zig emits a wasm64 object; Dolly builds `/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and the resident display module |
 | QuickJS-ng | Pinned engine checkout is packaged without `quickjs-libc.c` | Unchanged engine sources plus Dolly's narrow runtime adapter, compiled once into `/usr/lib/libdolly-js.a` | `/usr/bin/qjs` is a separately compiled generic CLI |
-| Pi agent | Exact npm versions and integrity hashes are locked; pinned esbuild produces the current Dolly-targeted lean ESM bundle | Pi agent-core/AI JavaScript, real OpenAI-compatible adapter, Dolly entry source, generated ESM, package metadata, and README | `/usr/bin/pi` is separately compiled against `libdolly-js`; self-tests exercise Pi's real agent loop, Slop, WasmFS, and a streamed two-request browser HTTP tool turn |
+| Pi agent | Exact npm versions and integrity hashes are locked; pinned esbuild packages the complete upstream CLI and upstream standalone OAuth loaders with asserted QuickJS compatibility lowerings | Upstream Pi JavaScript/resources, generated ESM, Janis runtime, Dolly tool extension, system prompt, settings, package metadata, and docs | `/usr/bin/pi` is separately compiled against `libdolly-js`; the real TUI, pasted sandbox-owned OpenRouter credentials and model discovery, completed Codex PKCE/manual-code exchange and credential persistence, Slop/WasmFS tools, and dependency-free extension install/reload are browser-tested |
 | Lua | Verified official release archive is compiled by the external seed compiler | One ABI-validated bootstrap side module | `/usr/bin/lua`; this is the current exception to browser-time command compilation |
 | Bison | Verified host tool used only to generate the Awk parser | Generated Awk C/header files, not Bison itself | No Dolly executable |
 | stb_truetype | Exact commit- and checksum-pinned single-header source | Rasterizer source header | Compiled into `/usr/libexec/dolly/display.wasm` inside Dolly |
@@ -68,11 +76,14 @@ under `/usr/share/licenses` where applicable.
 | --- | --- | --- |
 | Machine contract | `abi/dolly-0.wat` | Exact command imports, exports, memory64/table64 shape, and entry ABI |
 | Browser HTTP contract | `abi/dolly-http-0.wat` | The single dispatch import and response mailbox |
-| Display contract | `abi/dolly-display-0.wat` | Raw browser input records, result words, framebuffer publication, and temporary bootstrap sink |
+| Display contract | `abi/dolly-display-0.wat` | Raw browser input records, bounded user-gesture clipboard buffers, result words, framebuffer publication, and temporary bootstrap sink |
+| Snapshot contract | `abi/dolly-snapshot-0.wat` | Opaque capture/restore calls for the packaged precompiled system image |
+| HTTP policy | `src/http-policy.mjs` | Trusted exact destination and credential-header allowlists plus redirect, size, time, and quota enforcement |
 | Browser import allowlist | `config/browser-imports.json` | Generated-main-module capability audit; JSON is not an ABI source |
 | Source pins | `config/source-pins.sh` | External revisions, URLs, image digest, and archive hashes |
 | Packaging | `toolchain/CMakeLists.txt` | Maps immutable source/sysroot assets into the initial WasmFS image |
 | Build orchestration | `scripts/build.sh` | Fetches/prepares sources, assembles contracts, builds and validates the runtime |
+| Snapshot packaging | `scripts/build-system-snapshot.mjs` | Runs headless `/rebuild`, validates the opaque image, and publishes it with build-ID/size/SHA-256 metadata |
 | Target compiler/linker | `src/compiler.cpp` | C/C++ compilation, object/archive linking, ABI validation, and publication |
 | Runtime bootstrap | `src/dolly.c` | Establishes terminal/environment state, compiles Slop and seed commands, executes startup, then loads the resident display module |
 | Display driver | `src/ghostty/display.c` | Ghostty VT state/key encoding plus Iosevka software rasterization into double-buffered RGBA memory |
@@ -91,7 +102,7 @@ under `/usr/share/licenses` where applicable.
 /usr/lib/        source-built static libraries
 /bin/            core source-built executable modules
 /usr/bin/        optional source-built tools, Zig/Ghostty, and Lua bootstrap
-/usr/libexec/    Git helpers, Zig's private source-built interpreter, and probes
+/usr/libexec/    Git helpers, display module, object guards, and probes
 /etc/            system configuration
 /home/dolly/     writable HOME and global Git configuration
 /workspace/      interactive working directory
@@ -101,6 +112,10 @@ under `/usr/share/licenses` where applicable.
 Mutable entries in this tree use WasmFS's memory backend. They are not host
 directories and disappear with the browser sandbox.
 
-The complete Zig/Ghostty bootstrap, shared-filesystem path, generated-C
-compatibility choices, and browser acceptance proof are documented in
+The complete native Zig/Ghostty bootstrap, typed LLVM bridge,
+shared-filesystem object path, and browser acceptance proof are documented in
 [`zig-ghostty.md`](zig-ghostty.md).
+
+The proposed consolidation of source acquisition, target build steps, checks,
+and snapshot retention into one reviewable recipe is described in
+[`dollyfile.md`](dollyfile.md).

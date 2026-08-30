@@ -45,9 +45,10 @@ The shell only resolves the path. `dolly_spawn` routes descriptors, and
 call `dolly_main`. Thus the executable is the module itself—not a wrapper or a
 filename convention. It is currently closer to ELF `ET_DYN` than a static
 `ET_EXEC`, because commands intentionally import libc and machine state from the
-runtime. Version 0's build validator enforces the full structure and ABI stamp;
-the in-browser loader additionally requires a loadable module and the typed
-entry export.
+runtime. Version 0's build validator enforces the full structure and ABI stamp.
+Immediately before every `dlopen`, the in-Wasm runtime repeats that structural
+validation and requires exactly one matching `dolly.abi` stamp; filesystem
+mutation therefore cannot bypass the contract merely by avoiding `/bin/cc`.
 
 `abi/dolly-0.wat` is the authoritative machine contract. Its imports define the
 allowed command-to-runtime surface using actual Wasm types; its exports define
@@ -105,7 +106,8 @@ links `/bin/awk`, and then builds GNU Make 4.4.1 directly. It uses Make rules
 from `/usr/src/dolly/startup.mk` for the remaining graph. Those rules compile
 pinned upstream sbase `grep`, `sed`, `head`, and `wc`, Fetch-backed
 `/usr/lib/libcurl.a`, zlib, Git, `/usr/bin/curl`,
-`/usr/bin/git`, `/usr/bin/qjs`, and `/usr/bin/demo`, plus a
+`/usr/bin/git`, `/usr/bin/qjs`, `/usr/bin/demo`, and
+`/usr/bin/graphics-demo`, plus a
 C++23 probe at `/usr/libexec/dolly/cpp-check`. QuickJS-ng's engine sources are
 unchanged; a Dolly CLI adapter intentionally excludes its ambient POSIX helper
 library. Awk's parser is generated reproducibly with a pinned build-time Bison;
@@ -147,10 +149,12 @@ Allowed browser operations are deliberately narrow:
 
 1. fetch immutable Wasm/code assets;
 2. compile and instantiate side modules against Dolly's imports;
-3. write bounded key, text/IME, and resize records;
+3. write bounded key, text/IME, resize, pointer, and explicit-paste records;
 4. blit a bounded RGBA framebuffer to Dolly's canvas;
-5. supply clocks, entropy, and immutable startup configuration;
-6. perform explicitly brokered HTTP requests.
+5. copy a bounded active selection to the system clipboard only during an
+   explicit local-user copy gesture;
+6. supply clocks, entropy, and immutable startup configuration;
+7. perform explicitly brokered HTTP requests.
 
 Filesystem paths, descriptors, contents, working directories, environment,
 pipes, terminal state, fonts, and process bookkeeping remain in Wasm memory.
@@ -176,6 +180,45 @@ and calls `putImageData`; it contains no terminal parser or glyph renderer. The
 mailbox layout and exact typed exports are defined by
 `abi/dolly-display-0.wat`.
 
+A foreground command may exclusively lease those same frame buffers through
+the typed operations in `abi/dolly-0.wat`. It receives the inactive RGBA8
+buffer and semantic input records, never the browser mailbox or a DOM/canvas
+handle. Ghostty continues to parse output while frame publication is suspended;
+normal exit, command-local exit, and Ctrl-C all restore it at the command
+boundary. See [`display.md`](display.md) for the ownership and lifecycle rules.
+
+Mailbox version 3 includes two fixed in-Wasm clipboard buffers. `Ctrl+Shift+V`
+publishes the browser's pasted UTF-8 bytes with an atomic
+sequence/acknowledgement pair;
+Ghostty performs bracketed-paste encoding inside Dolly. Pointer records install
+a Ghostty selection, whose bounded plain-text form is published in the copy
+buffer. `Ctrl+Shift+C` is the only path that asks the browser to write that
+text to the system clipboard. Terminal escape sequences receive no clipboard
+or DOM capability.
+
+The final mailbox words are a PID-targeted interrupt sequence. While a nested
+command owns the foreground slot, plain `Ctrl+C` publishes that command's PID
+and advances the sequence instead of becoming a stdin byte. The worker observes
+it at target-inserted control-flow checkpoints and in every blocking Dolly
+operation, then unwinds only the nested command with status 130. QuickJS also
+polls from its bytecode interrupt hook, so a JavaScript loop remains
+cancellable and can release the interpreter heap before returning. Its build
+uses the explicit `-fdolly-runtime-interrupt-handler` target mode so a generic
+edge checkpoint cannot bypass that cleanup. At the idle Slop prompt Ctrl+C is
+still ordinary terminal input
+and clears the edited line. The browser can abort an in-flight Fetch while
+waking the same command; this does not add another network or guest capability.
+
+TTY identity follows descriptors rather than command names. Synchronous spawn
+derives a three-bit child stdio TTY mask from the parent's descriptor identities
+and the requested redirections, then restores the parent mask at the command
+boundary. Non-standard character descriptors retain a `fstat` fallback.
+Ordinary files and the temporary files used for serial pipelines are false.
+Emscripten's generic native-style terminal ioctl is not used because Dolly's
+tty discipline is the in-Wasm display/input device itself. This keeps
+Node-shaped runtimes interactive at the canvas while making redirected output
+truthfully non-TTY.
+
 Version 0 lifecycle is deliberately bounded and synchronous. `dolly_spawn`
 allocates a process-table slot, routes descriptors 0/1/2 with WasmFS `dup2`,
 runs the filesystem module, and records its status. `dolly_wait` collects the
@@ -192,15 +235,28 @@ with simpler synchronous semantics.
 Libc-owned state outside a side module, including installed signal handlers, is
 also shared in version 0 and is not yet restored at command boundaries.
 
+Version 0 implements the default foreground `SIGINT` action needed for reliable
+interactive cancellation; it does not yet emulate the full POSIX signal API.
+In particular, delivery is cooperative rather than kernel-preemptive, only the
+foreground PID and `SIGINT` are supported, and user-installed handlers are not
+dispatched. Code compiled by Dolly's C/C++ target receives edge safepoints as
+part of that target. A foreign Wasm module that neither uses that target nor
+polls the lifecycle API can still wedge the worker, so an outer deadline and
+worker-replacement protocol remains necessary before the stronger claim that
+every arbitrary Wasm binary is recoverable.
+
 HTTP uses a second versioned shared-memory mailbox. A command supplies a method,
-URL, headers, fixed request body, flags, and callbacks to `dolly_http_perform`;
-the worker asks the browser provider to perform the request and the browser
-publishes status, effective URL, headers, and bounded response chunks while the
-worker blocks. The command consumes those chunks inside Wasm, so the browser
-never receives a WasmFS path or descriptor. A source-compatible libcurl layer
-implements the easy and synchronous multi surface exercised by Git above this
-API. It does not add an import: all agent-selected network traffic still crosses
-only `env.dolly_http_dispatch`.
+URL, headers, fixed request body, and flags to `dolly_http_start`; the browser
+publishes status, effective URL, headers, and bounded response chunks, and
+`dolly_http_poll` acknowledges one available record without blocking. Janis
+interleaves that poll with Promise jobs and timers, so QuickJS `ReadableStream`
+consumers see model bytes incrementally and Pi's thinking animation continues
+while the one request is active. Synchronous C callers use
+`dolly_http_perform`, which waits around the same start/poll primitives and
+invokes callbacks. No variant exposes a WasmFS path or descriptor to the
+browser. Fetch-backed libcurl implements the easy and synchronous multi surface
+exercised by Git above this API. All agent-selected network traffic still
+crosses only `env.dolly_http_dispatch`.
 
 ## Compatibility milestones
 
@@ -215,9 +271,10 @@ only `env.dolly_http_dispatch`.
 5. A small shell and build graph executor. Source-built `/bin/slop` provides the
    finite recipe language, and upstream GNU Make now supplies dependency-graph
    execution. Pipelines, `$(shell ...)`, and `-jN` use serial semantics.
-6. A practical JavaScript runtime. Pinned QuickJS-ng now compiles from source
-   inside Dolly and provides ECMAScript execution; module loading and selected
-   Node-shaped APIs remain separate, explicit work.
+6. A practical JavaScript runtime. Pinned QuickJS-ng compiles from source
+   inside Dolly; Janis provides the measured filesystem, module, process,
+   stream, event, timer, Fetch, and terminal compatibility needed by upstream
+   Pi's full TUI and dependency-free extensions.
 7. CPython after upstream wasm64 support and a reproducible source-generation
    build graph exist.
 8. Git local operations and direct upstream HTTP-helper execution. These now
@@ -225,6 +282,12 @@ only `env.dolly_http_dispatch`.
    performs smart-HTTP discovery through Fetch-backed libcurl. Transparent
    `git clone` still needs a helper-protocol integration; a narrow synchronous
    adapter should be attempted before a general scheduler.
+9. A precompiled system image. During `npm run build`, a headless `/rebuild`
+   performs the complete target-side source build and exports an opaque,
+   versioned snapshot as a static `dist` artifact. `/` verifies its build ID,
+   size, format, and SHA-256 before restoring it. The explicit image manifest
+   excludes workspace, temporary, credential, and session state, and initial
+   boot does not depend on browser-origin or profile storage.
 
 Literal upstream Node is not an initial target because V8 does not have a
 WebAssembly target architecture. It is a different research project from
@@ -234,15 +297,16 @@ The evidence and acceptance gates for Git, Vim, CPython, and Node are tracked
 in [`port-status.md`](port-status.md). A deferred port names a missing
 platform facility; it is not replaced with a host call or opaque binary.
 
-## Questions the POC must answer
+## Remaining questions
 
-- Does wasm64 dynamic linking work reliably in target browsers?
-- Can WasmFS remain the sole filesystem authority under dynamic loading?
+- How portable is the demonstrated wasm64/table64 dynamic-linking path beyond
+  the tested Chrome version?
 - Can repeated program invocations cleanly reset globals, TLS, stack, and
   `atexit` state?
 - Which Slop/POSIX gaps are demonstrated by CPython and Git clone/fetch builds?
 - How many process-shaped APIs can use simple synchronous semantics before a
   real agent workload proves that concurrency is necessary?
-- How much JavaScript remains after replacing Emscripten's loader policy?
-- Can a compiler output be instantiated without copying it through a second
-  host-owned representation?
+- How small can Janis remain as TypeScript and more useful agent extensions are
+  used as compatibility probes?
+- Which measured operations belong in an ABI below libc, and can multiple
+  unchanged runtimes share it without expanding the browser import closure?

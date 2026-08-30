@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <netdb.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -26,6 +27,7 @@
 #include <dolly/http.h>
 
 #include "dolly-runtime.h"
+#include "system-snapshot.h"
 
 extern char **environ;
 
@@ -112,17 +114,38 @@ typedef struct {
 
 static dolly_exit_frame exit_frames[DOLLY_MAX_EXIT_DEPTH];
 static size_t exit_depth;
+static int active_process_pid;
+static int interactive_shell_pid;
+static int launching_interactive_shell;
+static uint32_t consumed_interrupt_sequence;
+// The boot streams are Dolly's terminal. Synchronous spawn derives a child
+// view from its requested descriptors and restores the parent view afterward.
+// WasmFS does not consistently expose terminal identity through native-style
+// ioctl/fstat metadata for all three standard descriptors.
+static uint32_t active_terminal_mask = 0x7u;
 
 _Static_assert((DOLLY_DISPLAY_EVENT_CAPACITY &
                 (DOLLY_DISPLAY_EVENT_CAPACITY - 1)) == 0,
                "display event capacity must be a power of two");
 
 _Alignas(64) static dolly_display_mailbox display_mailbox;
-static const dolly_display_driver_v1 *display_driver;
+static const dolly_display_driver_v3 *display_driver;
 static void *display_module;
 static unsigned char *display_frames[DOLLY_DISPLAY_FRAME_COUNT];
+_Alignas(64) static unsigned char
+    display_paste_buffer[DOLLY_DISPLAY_CLIPBOARD_CAPACITY];
+_Alignas(64) static unsigned char
+    display_copy_buffer[DOLLY_DISPLAY_CLIPBOARD_CAPACITY];
 static const size_t display_frame_capacity =
     (size_t)DOLLY_DISPLAY_MAX_WIDTH * DOLLY_DISPLAY_MAX_HEIGHT * 4;
+
+typedef struct {
+  uint64_t generation;
+  int owner_pid;
+} dolly_display_lease;
+
+static dolly_display_lease display_lease;
+static uint64_t next_display_generation = 1;
 
 typedef struct {
   _Atomic uint32_t state;
@@ -148,6 +171,64 @@ static unsigned char cooked_line[4096];
 static size_t cooked_length;
 static size_t cooked_cursor;
 static int cooked_boundary;
+
+static int update_suspended_terminal_layout(const dolly_input_event *event);
+
+static uint32_t display_flags_for_pid(int pid) {
+  uint32_t flags = 0;
+  if (pid > 0 && pid != interactive_shell_pid) {
+    flags |= DOLLY_DISPLAY_FOREGROUND_INTERRUPTIBLE;
+  }
+  if (display_lease.generation != 0) flags |= DOLLY_DISPLAY_GRAPHICS_ACTIVE;
+  return flags;
+}
+
+static int validate_display_lease(uint64_t generation) {
+  if (generation == 0 || display_lease.generation != generation) {
+    return -ESTALE;
+  }
+  if (active_process_pid <= 0 ||
+      active_process_pid != display_lease.owner_pid) {
+    return -EPERM;
+  }
+  return 0;
+}
+
+static void release_display_lease_for_pid(int owner_pid) {
+  if (display_lease.generation == 0 || display_lease.owner_pid != owner_pid) {
+    return;
+  }
+  display_lease.generation = 0;
+  display_lease.owner_pid = 0;
+  // Events already published while the graphics owner was active belong to
+  // that ownership epoch and must not leak into the restored shell. Preserve
+  // only layout changes so Ghostty returns at the current canvas size.
+  uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
+                                       memory_order_relaxed);
+  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
+                                               memory_order_acquire);
+  while (read != write) {
+    const dolly_input_event event =
+        display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+    ++read;
+    atomic_store_explicit(&display_mailbox.event_read, read,
+                          memory_order_release);
+    if (event.type == DOLLY_INPUT_EVENT_RESIZE) {
+      (void)update_suspended_terminal_layout(&event);
+    }
+  }
+  const uint32_t paste_sequence = atomic_load_explicit(
+      &display_mailbox.paste_sequence, memory_order_acquire);
+  atomic_store_explicit(&display_mailbox.paste_consumed_sequence,
+                        paste_sequence, memory_order_release);
+  encoded_input_cursor = 0;
+  encoded_input_length = 0;
+  dolly_terminal_reset_cooked();
+  if (display_driver != NULL) display_driver->set_suspended(0);
+  atomic_fetch_and_explicit(&display_mailbox.flags,
+                            ~((uint32_t)DOLLY_DISPLAY_GRAPHICS_ACTIVE),
+                            memory_order_release);
+}
 
 EM_JS(void, dolly_bootstrap_write_bytes,
       (const unsigned char *bytes, uintptr_t length), {
@@ -202,6 +283,21 @@ uintptr_t dolly_display_framebuffer_capacity(void) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+uintptr_t dolly_display_paste_buffer_address(void) {
+  return (uintptr_t)display_paste_buffer;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t dolly_display_copy_buffer_address(void) {
+  return (uintptr_t)display_copy_buffer;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t dolly_display_clipboard_capacity(void) {
+  return DOLLY_DISPLAY_CLIPBOARD_CAPACITY;
+}
+
+EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_http_mailbox_address(void) {
   return (uintptr_t)&http_mailbox;
 }
@@ -235,18 +331,14 @@ void dolly_http_response_dispose(dolly_http_response *response) {
   response->status = 0;
 }
 
-int dolly_http_perform(const dolly_http_request *request,
-                       dolly_http_response *response) {
+int dolly_http_start(const char *method, const char *url, const char *headers,
+                     const void *body, size_t body_size, unsigned int flags,
+                     unsigned int *sequence_out) {
   const unsigned int valid_flags =
       DOLLY_HTTP_FAIL_STATUS | DOLLY_HTTP_FOLLOW_REDIRECTS;
-  if (request == NULL || response == NULL || request->method == NULL ||
-      request->url == NULL || request->method[0] == '\0' ||
-      request->url[0] == '\0' || (request->flags & ~valid_flags) != 0 ||
-      (request->body_size != 0 && request->body == NULL)) return -EINVAL;
-
-  response->status = 0;
-  response->effective_url = NULL;
-  size_t effective_url_length = 0;
+  if (method == NULL || url == NULL || sequence_out == NULL ||
+      method[0] == '\0' || url[0] == '\0' || (flags & ~valid_flags) != 0 ||
+      (body_size != 0 && body == NULL)) return -EINVAL;
 
   uint32_t expected = 0;
   if (!atomic_compare_exchange_strong_explicit(
@@ -261,68 +353,115 @@ int dolly_http_perform(const dolly_http_request *request,
   atomic_store_explicit(&http_mailbox.error, 0, memory_order_relaxed);
   atomic_store_explicit(&http_mailbox.kind, 0, memory_order_relaxed);
   atomic_store_explicit(&http_mailbox.state, 1, memory_order_release);
-  dolly_http_dispatch(request->method, request->url, request->headers,
-                      request->body, request->body_size, request->flags,
-                      sequence);
+  dolly_http_dispatch(method, url, headers == NULL ? "" : headers,
+                      body, body_size, flags, sequence);
+  *sequence_out = sequence;
+  return 0;
+}
 
-  int result = 0;
+int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
+                    void *data, size_t capacity) {
+  dolly_interrupt_checkpoint();
+  if (chunk == NULL || (capacity != 0 && data == NULL)) return -EINVAL;
+  if (atomic_load_explicit(&http_mailbox.sequence, memory_order_acquire) !=
+      sequence) return -ESTALE;
+  if (atomic_load_explicit(&http_mailbox.state, memory_order_acquire) != 2) {
+    return 0;
+  }
+
+  const uint32_t length = atomic_load_explicit(
+      &http_mailbox.length, memory_order_relaxed);
+  chunk->status = atomic_load_explicit(&http_mailbox.status,
+                                       memory_order_relaxed);
+  chunk->kind = atomic_load_explicit(&http_mailbox.kind,
+                                     memory_order_relaxed);
+  chunk->error = atomic_load_explicit(&http_mailbox.error,
+                                      memory_order_relaxed);
+  chunk->eof = atomic_load_explicit(&http_mailbox.eof,
+                                    memory_order_relaxed);
+  chunk->length = length;
+
+  int result = 1;
+  if (length > DOLLY_HTTP_CHUNK_CAPACITY || length > capacity) {
+    result = -EOVERFLOW;
+  } else if (length != 0) {
+    memcpy(data, http_mailbox.data, length);
+  }
+  atomic_store_explicit(&http_mailbox.state, chunk->eof ? 0 : 1,
+                        memory_order_release);
+  emscripten_atomic_notify((void *)&http_mailbox.state,
+                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+  return result;
+}
+
+int dolly_http_perform(const dolly_http_request *request,
+                       dolly_http_response *response) {
+  if (request == NULL || response == NULL) return -EINVAL;
+  response->status = 0;
+  response->effective_url = NULL;
+  size_t effective_url_length = 0;
+  unsigned char *data = malloc(DOLLY_HTTP_CHUNK_CAPACITY);
+  if (data == NULL) return -ENOMEM;
+  unsigned int sequence = 0;
+  int result = dolly_http_start(
+      request->method, request->url, request->headers, request->body,
+      request->body_size, request->flags, &sequence);
+  if (result != 0) {
+    free(data);
+    return result;
+  }
+
   for (;;) {
-    uint32_t state;
-    while ((state = atomic_load_explicit(
-                &http_mailbox.state, memory_order_acquire)) != 2) {
-      emscripten_atomic_wait_u32((void *)&http_mailbox.state, state,
-                                 ATOMICS_WAIT_DURATION_INFINITE);
+    dolly_http_chunk chunk = {0};
+    int polled;
+    while ((polled = dolly_http_poll(sequence, &chunk, data,
+                                     DOLLY_HTTP_CHUNK_CAPACITY)) == 0) {
+      const uint32_t state = atomic_load_explicit(
+          &http_mailbox.state, memory_order_acquire);
+      if (state != 2) {
+        emscripten_atomic_wait_u32((void *)&http_mailbox.state, state,
+                                   ATOMICS_WAIT_DURATION_INFINITE);
+        dolly_interrupt_checkpoint();
+      }
     }
-
-    uint32_t status = atomic_load_explicit(&http_mailbox.status,
-                                           memory_order_relaxed);
-    uint32_t length = atomic_load_explicit(&http_mailbox.length,
-                                           memory_order_relaxed);
-    uint32_t eof = atomic_load_explicit(&http_mailbox.eof,
-                                        memory_order_relaxed);
-    uint32_t error = atomic_load_explicit(&http_mailbox.error,
-                                          memory_order_relaxed);
-    uint32_t kind = atomic_load_explicit(&http_mailbox.kind,
-                                         memory_order_relaxed);
-    response->status = status;
-    if (error != 0 && result == 0) {
-      result = error == 2 ? -EACCES :
-               error == 3 ? -EPROTONOSUPPORT : -EIO;
+    if (polled < 0 && result == 0) result = polled;
+    response->status = chunk.status;
+    if (chunk.error != 0 && result == 0) {
+      result = chunk.error == 2 ? -EACCES :
+               chunk.error == 3 ? -EPROTONOSUPPORT : -EIO;
     }
     if ((request->flags & DOLLY_HTTP_FAIL_STATUS) != 0 &&
-        status >= 400 && result == 0) {
-      result = (int)status;
-    }
-    if (length > DOLLY_HTTP_CHUNK_CAPACITY && result == 0) result = -EOVERFLOW;
+        chunk.status >= 400 && result == 0) result = (int)chunk.status;
 
-    if (result == 0 && kind == 1) {
+    if (result == 0 && chunk.kind == 1) {
       result = append_http_text(&response->effective_url,
                                 &effective_url_length,
-                                http_mailbox.data, length);
-    } else if (result == 0 && kind == 2 && request->header != NULL) {
-      if (request->header(http_mailbox.data, length,
-                          request->header_context) != length) {
+                                data, chunk.length);
+    } else if (result == 0 && chunk.kind == 2 && request->header != NULL) {
+      if (request->header(data, chunk.length,
+                          request->header_context) != chunk.length) {
         result = -ECANCELED;
       }
-    } else if (result == 0 && kind == 3 && request->write != NULL) {
-      if (request->write(http_mailbox.data, length,
-                         request->write_context) != length) {
+    } else if (result == 0 && chunk.kind == 3 && request->write != NULL) {
+      if (request->write(data, chunk.length,
+                         request->write_context) != chunk.length) {
         result = -ECANCELED;
       }
     }
-
-    atomic_store_explicit(&http_mailbox.state, eof ? 0 : 1,
-                          memory_order_release);
-    emscripten_atomic_notify((void *)&http_mailbox.state,
-                             EMSCRIPTEN_NOTIFY_ALL_WAITERS);
-    if (eof) break;
+    if (chunk.eof) break;
   }
+  free(data);
   if (result != 0) dolly_http_response_dispose(response);
   return result;
 }
 
-int dolly_terminal_read_raw(void) {
+int dolly_terminal_read_raw_timeout(double milliseconds) {
   for (;;) {
+    dolly_interrupt_checkpoint();
+    // A graphics owner consumes semantic records through
+    // dolly_display_next_event. No terminal reader may race it for the shared
+    // single-consumer event ring.
+    if (display_lease.generation != 0) return -1;
     if (encoded_input_cursor < encoded_input_length) {
       return encoded_input[encoded_input_cursor++];
     }
@@ -357,10 +496,216 @@ int dolly_terminal_read_raw(void) {
                                          memory_order_acquire);
     if (atomic_load_explicit(&display_mailbox.event_write,
                              memory_order_acquire) == read) {
+      if (milliseconds == 0) return -1;
       emscripten_atomic_wait_u32((void *)&display_mailbox.event_wake, wake,
-                                 ATOMICS_WAIT_DURATION_INFINITE);
+                                 milliseconds < 0
+                                     ? ATOMICS_WAIT_DURATION_INFINITE
+                                     : milliseconds);
+      if (milliseconds >= 0 &&
+          atomic_load_explicit(&display_mailbox.event_write,
+                               memory_order_acquire) == read) {
+        return -1;
+      }
     }
   }
+}
+
+int dolly_terminal_read_raw(void) {
+  return dolly_terminal_read_raw_timeout(-1);
+}
+
+int dolly_display_acquire(dolly_display_surface *surface) {
+  if (surface == NULL) return -EINVAL;
+  memset(surface, 0, sizeof(*surface));
+  if (display_driver == NULL || display_frames[0] == NULL ||
+      display_frames[1] == NULL) {
+    return -ENODEV;
+  }
+  if (active_process_pid <= 0 || active_process_pid == interactive_shell_pid ||
+      atomic_load_explicit(&display_mailbox.foreground_pid,
+                           memory_order_acquire) !=
+          (uint32_t)active_process_pid) {
+    return -EPERM;
+  }
+  if (display_lease.generation != 0) return -EBUSY;
+
+  const uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
+                                               memory_order_acquire);
+  const uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
+                                                memory_order_relaxed);
+  const uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
+                                                memory_order_relaxed);
+  if (width == 0 || height == 0 || stride != width * 4u ||
+      (uint64_t)stride * height > display_frame_capacity) {
+    return -EIO;
+  }
+
+  uint64_t generation = next_display_generation++;
+  if (generation == 0) generation = next_display_generation++;
+  display_driver->set_suspended(1);
+  display_lease.generation = generation;
+  display_lease.owner_pid = active_process_pid;
+  encoded_input_cursor = 0;
+  encoded_input_length = 0;
+  dolly_terminal_reset_cooked();
+  atomic_store_explicit(&display_mailbox.copy_length, 0, memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.copy_flags, 0, memory_order_relaxed);
+  atomic_fetch_add_explicit(&display_mailbox.copy_sequence, 1,
+                            memory_order_release);
+  atomic_store_explicit(&display_mailbox.cursor_col, UINT32_MAX,
+                        memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.cursor_row, UINT32_MAX,
+                        memory_order_relaxed);
+  atomic_fetch_or_explicit(&display_mailbox.flags,
+                           DOLLY_DISPLAY_GRAPHICS_ACTIVE,
+                           memory_order_release);
+
+  surface->generation = generation;
+  surface->width = width;
+  surface->height = height;
+  surface->stride = stride;
+  surface->pixel_format = DOLLY_DISPLAY_PIXEL_RGBA8;
+  return 0;
+}
+
+int dolly_display_begin_frame(uint64_t generation, dolly_display_frame *frame) {
+  if (frame == NULL) return -EINVAL;
+  memset(frame, 0, sizeof(*frame));
+  int status = validate_display_lease(generation);
+  if (status != 0) return status;
+
+  const uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
+                                               memory_order_acquire);
+  const uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
+                                                memory_order_relaxed);
+  const uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
+                                                memory_order_relaxed);
+  const uint64_t length = (uint64_t)stride * height;
+  if (width == 0 || height == 0 || stride != width * 4u ||
+      length > display_frame_capacity) {
+    return -EIO;
+  }
+  const uint32_t active = atomic_load_explicit(&display_mailbox.frame_index,
+                                                memory_order_acquire) & 1u;
+  const uint32_t next = active ^ 1u;
+  frame->pixels = display_frames[next];
+  frame->capacity = (size_t)length;
+  frame->buffer_index = next;
+  frame->width = width;
+  frame->height = height;
+  frame->stride = stride;
+  frame->pixel_format = DOLLY_DISPLAY_PIXEL_RGBA8;
+  return 0;
+}
+
+int dolly_display_present(uint64_t generation, uint32_t buffer_index) {
+  int status = validate_display_lease(generation);
+  if (status != 0) return status;
+  const uint32_t active = atomic_load_explicit(&display_mailbox.frame_index,
+                                                memory_order_acquire) & 1u;
+  if (buffer_index >= DOLLY_DISPLAY_FRAME_COUNT ||
+      buffer_index != (active ^ 1u)) {
+    return -EINVAL;
+  }
+  const uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
+                                               memory_order_relaxed);
+  const uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
+                                                memory_order_relaxed);
+  const uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
+                                                memory_order_relaxed);
+  if (width == 0 || height == 0 || stride != width * 4u ||
+      (uint64_t)stride * height > display_frame_capacity) {
+    return -EIO;
+  }
+  atomic_store_explicit(&display_mailbox.frame_index, buffer_index,
+                        memory_order_release);
+  atomic_fetch_add_explicit(&display_mailbox.frame_sequence, 1,
+                            memory_order_acq_rel);
+  return 0;
+}
+
+static int update_suspended_terminal_layout(const dolly_input_event *event) {
+  if (display_driver == NULL || event->type != DOLLY_INPUT_EVENT_RESIZE) {
+    return 0;
+  }
+  unsigned char ignored[256];
+  size_t ignored_length = 0;
+  do {
+    if (display_driver->handle_event(NULL, ignored, sizeof(ignored),
+                                     &ignored_length) != 0) {
+      return -EIO;
+    }
+  } while (ignored_length != 0);
+  if (display_driver->handle_event(event, ignored, sizeof(ignored),
+                                   &ignored_length) != 0) {
+    return -EIO;
+  }
+  return 0;
+}
+
+int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
+                             double timeout_milliseconds) {
+  if (event == NULL || timeout_milliseconds != timeout_milliseconds) {
+    return -EINVAL;
+  }
+  for (;;) {
+    int status = validate_display_lease(generation);
+    if (status != 0) return status;
+    dolly_interrupt_checkpoint();
+
+    const uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
+                                                memory_order_relaxed);
+    const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
+                                                 memory_order_acquire);
+    if (read != write) {
+      const dolly_input_event candidate =
+          display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+      atomic_store_explicit(&display_mailbox.event_read, read + 1,
+                            memory_order_release);
+      const size_t data_length = (size_t)candidate.key_length +
+                                 candidate.code_length + candidate.text_length;
+      if (data_length > sizeof(candidate.data)) return -EPROTO;
+      status = update_suspended_terminal_layout(&candidate);
+      if (status != 0) return status;
+      *event = candidate;
+      return 1;
+    }
+
+    const uint32_t wake = atomic_load_explicit(&display_mailbox.event_wake,
+                                                memory_order_acquire);
+    if (atomic_load_explicit(&display_mailbox.event_write,
+                             memory_order_acquire) != read) {
+      continue;
+    }
+    if (timeout_milliseconds == 0) return 0;
+    emscripten_atomic_wait_u32(
+        (void *)&display_mailbox.event_wake, wake,
+        timeout_milliseconds < 0 ? ATOMICS_WAIT_DURATION_INFINITE
+                                 : timeout_milliseconds);
+    dolly_interrupt_checkpoint();
+    if (timeout_milliseconds >= 0 &&
+        atomic_load_explicit(&display_mailbox.event_write,
+                             memory_order_acquire) == read) {
+      return 0;
+    }
+  }
+}
+
+int dolly_display_release(uint64_t generation) {
+  int status = validate_display_lease(generation);
+  if (status != 0) return status;
+  release_display_lease_for_pid(active_process_pid);
+  return 0;
+}
+
+uint32_t dolly_terminal_columns(void) {
+  return atomic_load_explicit(&display_mailbox.terminal_cols,
+                              memory_order_acquire);
+}
+
+uint32_t dolly_terminal_rows(void) {
+  return atomic_load_explicit(&display_mailbox.terminal_rows,
+                              memory_order_acquire);
 }
 
 void dolly_terminal_reset_cooked(void) {
@@ -377,6 +722,51 @@ void dolly_terminal_publish_result(int status) {
                             memory_order_acq_rel);
   emscripten_atomic_notify((void *)&display_mailbox.result_sequence,
                            EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+}
+
+int dolly_interrupt_poll(void) {
+  const uint32_t sequence = atomic_load_explicit(
+      &display_mailbox.interrupt_sequence, memory_order_acquire);
+  if (sequence == consumed_interrupt_sequence) return 0;
+
+  const uint32_t target = atomic_load_explicit(
+      &display_mailbox.interrupt_target_pid, memory_order_relaxed);
+  consumed_interrupt_sequence = sequence;
+  if (exit_depth == 0 || active_process_pid <= 0 ||
+      target != (uint32_t)active_process_pid ||
+      active_process_pid == interactive_shell_pid) {
+    return 0;
+  }
+  return SIGINT;
+}
+
+void dolly_interrupt_checkpoint(void) {
+  if (dolly_interrupt_poll() != SIGINT) return;
+  // Signal termination must not enter arbitrary atexit teardown that may itself
+  // be hung. Unwind only the current filesystem command boundary.
+  dolly_exit_frame *frame = &exit_frames[exit_depth - 1];
+  frame->callback_count = 0;
+  frame->status = 128 + SIGINT;
+  longjmp(frame->environment, 1);
+}
+
+// Dolly's C/C++ target inserts this callback on control-flow edges. It is an
+// in-runtime cancellation safepoint and introduces no browser capability.
+void __sanitizer_cov_trace_pc(void) {
+  dolly_interrupt_checkpoint();
+}
+
+int dolly_isatty(int descriptor) {
+  if (descriptor >= STDIN_FILENO && descriptor <= STDERR_FILENO) {
+    if ((active_terminal_mask & (1u << descriptor)) != 0) return 1;
+    errno = ENOTTY;
+    return 0;
+  }
+  struct stat metadata;
+  if (fstat(descriptor, &metadata) != 0) return 0;
+  if (S_ISCHR(metadata.st_mode)) return 1;
+  errno = ENOTTY;
+  return 0;
 }
 
 void dolly_terminal_write(const char *text) {
@@ -457,6 +847,11 @@ backend_t wasmfs_create_root_dir(void) {
 }
 
 int dolly_run_filesystem_module(const char *path, int argc, char **argv) {
+  if (!dolly_toolchain_validate_executable(path)) {
+    fprintf(stderr, "dolly: refusing invalid executable module: %s\n",
+            path == NULL ? "(null)" : path);
+    return 126;
+  }
   if (exit_depth == DOLLY_MAX_EXIT_DEPTH) return 125;
   dolly_exit_frame *frame = &exit_frames[exit_depth++];
   void *volatile module = NULL;
@@ -576,7 +971,22 @@ char *dolly_getpass(const char *prompt) {
 
 ssize_t dolly_getrandom(void *buffer, size_t length, unsigned flags) {
   (void)flags;
-  if (getentropy(buffer, length) != 0) return -1;
+  if (length > (size_t)SSIZE_MAX) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (buffer == NULL && length != 0) {
+    errno = EFAULT;
+    return -1;
+  }
+  unsigned char *cursor = buffer;
+  size_t remaining = length;
+  while (remaining != 0) {
+    const size_t chunk = remaining > 256 ? 256 : remaining;
+    if (getentropy(cursor, chunk) != 0) return -1;
+    cursor += chunk;
+    remaining -= chunk;
+  }
   return (ssize_t)length;
 }
 
@@ -625,9 +1035,24 @@ pid_t dolly_wait_any(int *status) {
 }
 
 int dolly_kill(pid_t pid, int signal_number) {
-  (void)pid;
-  (void)signal_number;
-  return unavailable();
+  if (signal_number != SIGINT) return unavailable();
+  const int foreground = (int)atomic_load_explicit(
+      &display_mailbox.foreground_pid, memory_order_acquire);
+  const int target = pid <= 0 ? foreground : (int)pid;
+  if (foreground <= 0 || target != foreground) {
+    errno = ESRCH;
+    return -1;
+  }
+  atomic_store_explicit(&display_mailbox.interrupt_target_pid,
+                        (uint32_t)target, memory_order_relaxed);
+  atomic_fetch_add_explicit(&display_mailbox.interrupt_sequence, 1,
+                            memory_order_release);
+  emscripten_atomic_notify((void *)&display_mailbox.event_wake,
+                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+  emscripten_atomic_notify((void *)&http_mailbox.state,
+                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+  dolly_interrupt_checkpoint();
+  return 0;
 }
 
 pid_t dolly_setsid(void) { return (pid_t)unavailable(); }
@@ -649,7 +1074,17 @@ unsigned dolly_alarm(unsigned seconds) {
 }
 
 unsigned dolly_sleep(unsigned seconds) {
-  (void)seconds;
+  static _Atomic uint32_t wait_word;
+  double remaining = (double)seconds * 1000.0;
+  while (remaining > 0) {
+    dolly_interrupt_checkpoint();
+    const uint32_t observed = atomic_load_explicit(&wait_word,
+                                                   memory_order_relaxed);
+    const double interval = remaining > 50.0 ? 50.0 : remaining;
+    emscripten_atomic_wait_u32((void *)&wait_word, observed,
+                               interval);
+    remaining -= interval;
+  }
   return 0;
 }
 
@@ -896,6 +1331,10 @@ static int install_display_driver(void) {
 
   puts("dolly: loading sandbox display driver");
   fflush(stdout);
+  if (!dolly_toolchain_validate_executable(driver_path)) {
+    fprintf(stderr, "dolly: refusing invalid display module: %s\n", driver_path);
+    return 1;
+  }
   for (size_t index = 0; index < DOLLY_DISPLAY_FRAME_COUNT; ++index) {
     display_frames[index] = malloc(display_frame_capacity);
     if (display_frames[index] == NULL) {
@@ -910,25 +1349,27 @@ static int install_display_driver(void) {
     return 1;
   }
   dlerror();
-  dolly_display_driver_getter_v1 getter =
-      (dolly_display_driver_getter_v1)dlsym(
-          display_module, "dolly_display_driver_get_v1");
+  dolly_display_driver_getter_v3 getter =
+      (dolly_display_driver_getter_v3)dlsym(
+          display_module, "dolly_display_driver_get_v3");
   const char *error = dlerror();
   if (error != NULL || getter == NULL) {
     fprintf(stderr, "dolly: display driver export failed: %s\n",
             error != NULL ? error : "missing getter");
     return 1;
   }
-  const dolly_display_driver_v1 *candidate = getter();
-  if (candidate == NULL || candidate->abi_version != 1 ||
+  const dolly_display_driver_v3 *candidate = getter();
+  if (candidate == NULL || candidate->abi_version != 3 ||
       candidate->struct_size < sizeof(*candidate) ||
       candidate->initialize == NULL || candidate->write == NULL ||
-      candidate->handle_event == NULL) {
+      candidate->handle_event == NULL || candidate->set_suspended == NULL) {
     fputs("dolly: incompatible sandbox display driver\n", stderr);
     return 1;
   }
   if (candidate->initialize(&display_mailbox, display_frames[0],
                             display_frames[1], display_frame_capacity,
+                            display_paste_buffer, display_copy_buffer,
+                            DOLLY_DISPLAY_CLIPBOARD_CAPACITY,
                             font_path) != 0) {
     fputs("dolly: sandbox display initialization failed\n", stderr);
     return 1;
@@ -957,9 +1398,26 @@ int dolly_spawn(const char *path, int argc, char **argv,
 
   int saved[3] = {dup(STDIN_FILENO), dup(STDOUT_FILENO), dup(STDERR_FILENO)};
   int requested[3] = {stdin_fd, stdout_fd, stderr_fd};
+  const uint32_t previous_terminal_mask = active_terminal_mask;
+  uint32_t child_terminal_mask = 0;
+  for (int descriptor = 0; descriptor < 3; descriptor++) {
+    const int source = requested[descriptor];
+    int terminal = 0;
+    if (source >= STDIN_FILENO && source <= STDERR_FILENO) {
+      terminal = (previous_terminal_mask & (1u << source)) != 0;
+    } else {
+      struct stat metadata;
+      terminal = fstat(source, &metadata) == 0 && S_ISCHR(metadata.st_mode);
+    }
+    if (terminal) child_terminal_mask |= 1u << descriptor;
+  }
   int status = 126;
   int previous_pid = (int)atomic_load_explicit(&display_mailbox.foreground_pid,
                                                 memory_order_acquire);
+  int previous_active_pid = active_process_pid;
+  const int is_interactive_shell = launching_interactive_shell;
+  launching_interactive_shell = 0;
+  if (is_interactive_shell) interactive_shell_pid = process->pid;
 
   fflush(NULL);
   if (saved[0] < 0 || saved[1] < 0 || saved[2] < 0) {
@@ -973,11 +1431,19 @@ int dolly_spawn(const char *path, int argc, char **argv,
     clearerr(stdout);
     clearerr(stderr);
     dolly_terminal_reset_cooked();
+    active_terminal_mask = child_terminal_mask;
+    active_process_pid = process->pid;
     atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)process->pid,
+                          memory_order_release);
+    atomic_store_explicit(&display_mailbox.flags,
+                          display_flags_for_pid(process->pid),
                           memory_order_release);
     status = dolly_run_filesystem_module(path, argc, argv);
   }
 
+  // A command can never strand the framebuffer. This covers normal return,
+  // dolly_exit(), assertion termination, and the SIGINT longjmp boundary.
+  release_display_lease_for_pid(process->pid);
   fflush(NULL);
   // WasmFS's terminal devices have a second byte buffer below libc. Flush it
   // at the command boundary so output without a trailing newline is visible
@@ -994,7 +1460,12 @@ int dolly_spawn(const char *path, int argc, char **argv,
   clearerr(stdout);
   clearerr(stderr);
   dolly_terminal_reset_cooked();
+  active_terminal_mask = previous_terminal_mask;
+  active_process_pid = previous_active_pid;
   atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)previous_pid,
+                        memory_order_release);
+  atomic_store_explicit(&display_mailbox.flags,
+                        display_flags_for_pid(previous_pid),
                         memory_order_release);
 
   int context_status = 0;
@@ -1044,8 +1515,7 @@ int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],
   return result >= 0 && restore_status != 0 ? restore_status : result;
 }
 
-EMSCRIPTEN_KEEPALIVE
-int dolly_bootstrap(void) {
+static int initialize_boot_environment(void) {
   int output = open("/dev/dolly-stdout", O_WRONLY);
   int error = open("/dev/dolly-stderr", O_WRONLY);
   if (output < 0 || error < 0 || dup2(output, STDOUT_FILENO) < 0 ||
@@ -1073,6 +1543,42 @@ int dolly_bootstrap(void) {
     fprintf(stderr, "dolly: PATH initialization failed: %s\n", strerror(errno));
     return 1;
   }
+  if (setenv("ZIG_LIB_DIR", "/usr/lib/zig", 1) != 0) {
+    fprintf(stderr, "dolly: ZIG_LIB_DIR initialization failed: %s\n",
+            strerror(errno));
+    return 1;
+  }
+  if (setenv("TERM", "xterm-256color", 1) != 0 ||
+      setenv("COLORTERM", "truecolor", 1) != 0) {
+    fprintf(stderr, "dolly: terminal environment initialization failed: %s\n",
+            strerror(errno));
+    return 1;
+  }
+  if (setenv("PI_PACKAGE_DIR", "/usr/lib/pi", 1) != 0) {
+    fprintf(stderr, "dolly: Pi package initialization failed: %s\n",
+            strerror(errno));
+    return 1;
+  }
+  return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_bootstrap_snapshot(uintptr_t size) {
+  if (initialize_boot_environment() != 0) return 1;
+  puts("dolly: restoring precompiled system snapshot");
+  fflush(stdout);
+  if (dolly_snapshot_restore_staged(size) != 0) {
+    fprintf(stderr, "dolly: invalid system snapshot: %s\n", strerror(errno));
+    return 1;
+  }
+  puts("dolly: precompiled system restored");
+  fflush(stdout);
+  return install_display_driver();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_bootstrap(void) {
+  if (initialize_boot_environment() != 0) return 1;
   static const struct {
     const char *source;
     const char *output;
@@ -1129,9 +1635,31 @@ int dolly_bootstrap(void) {
 
 EMSCRIPTEN_KEEPALIVE
 int dolly_shell_run(void) {
-  char *argv[] = {"slop", NULL};
-  int pid = dolly_spawn("/bin/slop", 1, argv,
+  // Pi is Dolly's primary agent-facing interface. It is the first resident
+  // terminal program, and a plain Slop shell remains available as a recovery
+  // environment after Pi exits. Both are ordinary filesystem executables.
+  char *pi_argv[] = {"pi", "--no-session", NULL};
+  launching_interactive_shell = 1;
+  int pid = dolly_spawn("/usr/bin/pi", 2, pi_argv,
                         STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+  launching_interactive_shell = 0;
+  if (pid < 0) {
+    fprintf(stderr, "dolly: could not launch /usr/bin/pi: %s\n", strerror(-pid));
+  } else {
+    int status = 126;
+    int wait_status = dolly_wait(pid, &status);
+    if (wait_status != 0) {
+      fprintf(stderr, "dolly: could not wait for /usr/bin/pi: %s\n",
+              strerror(-wait_status));
+    }
+  }
+
+  fputs("\r\nDolly: Pi exited; entering the recovery Slop shell.\r\n", stdout);
+  char *slop_argv[] = {"slop", NULL};
+  launching_interactive_shell = 1;
+  pid = dolly_spawn("/bin/slop", 1, slop_argv,
+                    STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+  launching_interactive_shell = 0;
   if (pid < 0) {
     fprintf(stderr, "dolly: could not launch /bin/slop: %s\n", strerror(-pid));
     return 126;

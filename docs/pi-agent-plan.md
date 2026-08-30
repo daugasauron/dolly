@@ -1,27 +1,44 @@
 # Pi agent compatibility plan
 
-Status: headless Pi implemented; interactive TUI and source build planned  
-Last updated: 2026-08-29
+Status: upstream Pi TUI and JavaScript extensions implemented; TypeScript source build planned
+Last updated: 2026-08-30
 
 ## Implemented baseline
 
 The first useful Pi slice now works in the production browser path:
 
 - `/usr/bin/pi` is a normal Dolly filesystem executable found through `PATH`;
-- it runs a pinned, Dolly-specific ESM bundle containing upstream Pi agent-core
-  and Pi's OpenAI-compatible provider adapter on source-built QuickJS-ng;
+- it runs pinned upstream Pi 0.84.4's complete CLI bundle on source-built
+  QuickJS-ng through the finite Janis Node-compatibility layer;
 - the JavaScript compatibility layer exposes only selected Node-shaped behavior
   over WasmFS, Dolly lifecycle calls, and `dolly_http_perform`;
-- Pi's `read`, `write`, and `bash` tools operate on shared WasmFS, with `bash`
-  entering `/bin/slop -c`;
-- `pi --version`, `pi --help`, `pi --self-test`, and headless `pi -p` work;
+- a normal Pi extension replaces `bash`, `read`, `edit`, and `write` with shared
+  WasmFS and Slop operations;
+- `pi --version`, the upstream interactive TUI, raw input, resize, Ctrl-D exit,
+  system prompt, settings, and extension discovery work;
+- `/login openrouter` accepts a pasted key, commits it to the in-Wasm
+  `auth.json`, releases Pi's lock directory, and makes the built-in model
+  catalog available to a fresh Pi invocation;
+- `/login openai-codex` loads Pi's upstream OAuth flow, generates PKCE inside
+  Dolly, handles the unavailable callback listener as `ENOSYS`, and presents
+  the authorization URL plus manual-code input in Ghostty; the browser test
+  completes the code exchange through an exact trusted-broker fixture, verifies
+  the PKCE form, finds the returned account credential in the in-Wasm
+  `auth.json`, and lists Codex models from a fresh Pi invocation;
 - the browser integration test drives an actual streaming Pi provider adapter,
   a tool call, a WasmFS write, a Slop command, a second model request containing
-  the tool result, and the final response through `env.dolly_http_dispatch`.
+  the tool result, and the final response through `env.dolly_http_dispatch`;
+- a real OpenRouter turn reads its key from ephemeral in-Wasm Pi
+  configuration, installs a dependency-free JavaScript extension through Dolly
+  curl, and a restarted Pi loads and invokes that extension through upstream
+  Jiti.
 
-This is intentionally a lean compatibility entry, not yet Pi's complete
-upstream CLI or terminal UI. Its purpose is to prove the real agent loop and
-measure the next APIs. The exact current implementation is summarized in
+Pi itself is not forked. Packaging performs a small asserted compatibility
+lowering for QuickJS's missing Unicode-set regex syntax, retains the upstream
+async main promise, routes bundled Node builtins to Janis, and uses Pi's own
+standalone-runtime registration table to statically include its upstream OAuth
+flows. Building Pi's TypeScript sources inside Dolly remains future work. The exact current
+implementation is summarized in
 [`port-status.md`](port-status.md), and the Zig/Ghostty investigation is in
 [`zig-ghostty.md`](zig-ghostty.md).
 
@@ -53,11 +70,12 @@ discover the smallest JavaScript-agent userspace interface that Dolly needs.
 4. A TypeScript compiler comes after JavaScript module loading and the measured
    Node-compatible surface. Compiling TypeScript first would only produce
    JavaScript that Dolly cannot yet load.
-5. Promise-shaped APIs may be backed by blocking Dolly operations. Version 0
-   remains single-threaded and deterministic.
-6. `libghostty-vt` and the RGBA display driver now build and link inside Dolly
-   through the source-only Zig bootstrap. The browser is a narrow framebuffer
-   presenter and raw event source; Pi TUI work still needs the tty-control APIs.
+5. Promise-shaped filesystem and process APIs may be backed by synchronous
+   Dolly operations. Streaming HTTP cooperatively polls the one mailbox so
+   timers, Promise jobs, and response consumers advance without threads.
+6. `libghostty-vt`, the RGBA display driver, tty-control APIs, and JavaScript
+   stdin/event pump build and run inside Dolly. The browser remains a narrow
+   framebuffer presenter and raw event source.
 7. Canonical contracts remain WAT, C headers, C/JavaScript source, and prose.
    No new JSON contract or package manifest is introduced merely for this work.
 
@@ -90,7 +108,8 @@ The browser presenter receives a buffer index, dimensions, stride, generation,
 and pixels for Dolly's dedicated canvas. It does not receive a filesystem path,
 URL, command name, arbitrary DOM selector, JavaScript source, or graphics-
 resource URL. Input is a fixed-size versioned record ring for raw key,
-text/IME and resize events.
+text/IME, resize, paste-notification, and pointer-selection events; the bounded
+paste and copy bytes themselves live in shared Wasm memory.
 
 Under Dolly's threat model, compromising the in-Wasm VT engine can corrupt the
 screen and emit arbitrary pixels. That is acceptable: terminal output is
@@ -112,8 +131,8 @@ application. The in-Wasm responsibilities are now:
 DOM event capture, IME composition, fullscreen requests, device-pixel ratio,
 accessibility, and the final canvas blit remain necessarily browser-facing. The
 chosen RGBA design gives a smaller privileged surface than a browser cell/font
-renderer at the cost of full-frame copies. Selection and richer shaping are not
-implemented yet.
+renderer at the cost of full-frame copies. Character-cell selection and bounded
+user-gesture clipboard exchange are implemented; richer shaping is not.
 
 Importing a large Canvas or WebGL method surface into Dolly is rejected. It
 would replace a small terminal contract with a broad browser graphics ABI and
@@ -136,10 +155,11 @@ shared-memory image transports, which are unnecessary for Dolly's first text
 terminal. This establishes that Ghostty itself is not fundamentally wasm32-only.
 
 That feasibility path is now implemented without packaging the standalone
-module. Dolly source-builds a WAMR-backed Zig bootstrap, translates Ghostty to
-C inside WasmFS, compiles it as a wasm64 archive in the shared userspace, and
-links a command that proves a fixed VT byte stream produces an inspectable cell
-grid. The detailed architecture and cold-browser evidence are in
+module. A checksum-pinned external Zig stage zero builds the upstream compiler
+as an ABI-validated wasm64 command. Native `/usr/bin/zig` emits Ghostty's object
+directly inside WasmFS; Dolly archives and links it in the shared userspace and
+proves a fixed VT byte stream produces an inspectable cell grid. The detailed
+architecture and cold-browser evidence are in
 [`zig-ghostty.md`](zig-ghostty.md).
 
 Ghostty integration does not block the headless Pi milestones. The in-Wasm RGBA
@@ -186,13 +206,13 @@ the next is added.
 | --- | --- | --- |
 | P0 | The pinned published Pi bundle loads far enough to produce an exact missing-API inventory. | Done |
 | P1 | `pi --version` and `pi --help` execute from WasmFS. | Done |
-| P2 | A headless prompt completes through one browser-approved model provider. | Done with the real Pi streaming adapter and a browser fixture; live-provider policy remains embedding configuration |
-| P3 | Pi reads and writes files in `/workspace`. | Done; edit remains future surface |
+| P2 | A headless prompt completes through one browser-approved model provider. | Done with both a deterministic fixture and a real OpenRouter request using sandbox-owned credentials |
+| P3 | Pi reads and writes files in `/workspace`. | Done; the Dolly extension provides read, write, and exact-occurrence edit |
 | P4 | Pi runs a shell tool through `/bin/slop -c` and receives output/status. | Done |
-| P5 | Pi's noninteractive CLI mode works through `/usr/bin/pi` without a browser-side launcher. | Done for Dolly's lean CLI entry |
-| P6 | Pi's interactive terminal UI works with raw input and resize handling. | Planned |
+| P5 | Pi's noninteractive CLI mode works through `/usr/bin/pi` without a browser-side launcher. | Done through the upstream CLI entry |
+| P6 | Pi's interactive terminal UI works with raw input and resize handling. | Done through Janis and the in-Wasm Ghostty display |
 | P7 | The TypeScript compiler runs inside Dolly and builds pinned Pi sources. | Planned |
-| P8 | A documented subset of Pi packages/extensions can be loaded from WasmFS. | Planned |
+| P8 | A documented subset of Pi packages/extensions can be loaded from WasmFS. | Done for dependency-free JavaScript extensions; arbitrary npm packages remain out of scope |
 
 The first useful goal is P4. P6, P7, and P8 must not delay proving the agent
 loop and tool boundary.
@@ -217,9 +237,9 @@ Acceptance gate: the pinned input and its complete initial compatibility
 surface are reproducible, and unsupported optional areas are named rather than
 implicitly stubbed.
 
-Known likely deferrals include native image processing, runtime installation of
-arbitrary npm packages, Pi extensions loaded through `jiti`, proxy/socket
-agents, and background subprocesses. The inventory decides the exact list.
+Known deferrals include native image processing, runtime installation of
+arbitrary npm packages, proxy/socket agents, and background subprocesses. The
+inventory decides the exact list.
 
 ### 1. Make QuickJS an ESM filesystem runtime
 
@@ -237,7 +257,7 @@ Acceptance gate: a multi-file ESM fixture imports relative modules and one
 synthetic builtin from WasmFS, twice, without state leaking between command
 invocations.
 
-### 2. Implement the synchronous Node foundation
+### 2. Implement the serial Node foundation
 
 Start with only the surface demonstrated by the Pi probe. Expected modules and
 translations are:
@@ -281,30 +301,33 @@ and running the same fixture twice leaves no queued callbacks behind.
 
 - Implement `fetch`, `Headers`, `Request`, `Response`, `AbortController`, and
   the measured web-stream/async-iterator subset inside QuickJS.
-- Call `dolly_http_perform`; never call browser `fetch` directly from the JS
-  runtime.
-- For version 0, let the native call block the runtime worker while the page
-  remains responsive. Spool the bounded response in WasmFS or Wasm memory, then
-  expose already-available chunks through Promise/async-iterator interfaces.
-- Add incremental re-entry only if Pi proves that buffered serial delivery is
-  observably insufficient.
+- Call `dolly_http_start`/`dolly_http_poll`; never call browser `fetch` directly
+  from the JS runtime. Synchronous libcurl continues to use
+  `dolly_http_perform` above the same primitives.
+- Return the JavaScript response after its headers and enqueue each arriving
+  mailbox body record into an in-Wasm `ReadableStream`.
+- Pump HTTP beside timers and Promise jobs with a bounded 10 ms terminal wait
+  while active. This preserves the one-worker model while fixing Pi's measured
+  spinner and token-stream behavior.
 - Do not implement `node:net`, `node:tls`, or socket-oriented Undici internals.
   Adapt or omit proxy behavior and use the Dolly Fetch surface.
 - Enforce response limits, timeout, cancellation outcome, and deterministic
   cleanup.
 
-The current generic headless command accepts `DOLLY_PI_API_KEY` in its Wasm
-environment, so a real key supplied that way does enter sandbox memory. The
-integration test uses only the non-secret value `dolly-no-secret`. The intended
-production policy is stricter: Pi receives a placeholder, and a browser-owned
-HTTP broker removes agent-provided credential headers and injects a real secret
-only for an exact allowlisted provider origin and path. Redirect destinations
-must be revalidated. That browser policy has not yet been implemented and must
-not be inferred from the runtime adapter alone.
+Provider credentials intentionally live in Dolly's ephemeral WasmFS or
+environment so ordinary applications can manage them. Pi authors its own
+authorization header. A hardened browser policy permits that header name only
+for an exact allowlisted provider origin, path, and method; it never injects or
+rewrites the secret. Redirects are rejected, and request count, time, request
+bytes, and response bytes are bounded. The real-provider proof copies its key
+into the sandbox's in-memory Pi configuration and destroys that state with the
+worker.
 
-Acceptance gate: a JavaScript streaming-response fixture and one real Pi model
-request both cross only `env.dolly_http_dispatch`. Browser import auditing must
-show no new autonomous network edge.
+Acceptance gate: done. A deliberately delayed SSE fixture proves Pi frames
+advance before the first token, the first answer prefix is visible before the
+server sends its suffix, and the completed model/tool turn still crosses only
+`env.dolly_http_dispatch`. Browser import auditing shows no new autonomous
+network edge.
 
 ### 5. Run the headless Pi kernel
 
@@ -343,14 +366,12 @@ process provider.
 
 ### 7. Complete the tty substrate and move Ghostty core
 
-Pi's headless modes do not require this phase. Its interactive UI does.
+This phase is implemented and remains a regression gate.
 
 Ghostty placement is not an API compatibility requirement for Pi. Pi's TUI
-writes VT bytes and reads tty bytes; those bytes are now parsed by
-`libghostty-vt` inside Dolly. The immediate blocker is the remaining tty
-behavior: raw mode, `ioctl` window size, restoration, interrupts, and timer-
-driven redraws. Headless `pi -p` remains the deliberate solution while that
-substrate is incomplete.
+writes VT bytes and reads tty bytes; those bytes are parsed by `libghostty-vt`
+inside Dolly. Raw mode, `ioctl` window size, restoration, interrupts, EOF, and
+timer-driven redraws now support the upstream interactive CLI.
 
 Inside Dolly:
 
@@ -440,10 +461,9 @@ Every work package must preserve these tests:
    host files.
 4. JavaScript subprocess APIs cannot reach browser or host processes.
 5. Agent-controlled module paths cannot cause the loader to fetch a URL.
-6. In production credential-injection mode, provider credentials never appear
-   in Wasm memory, terminal output, error messages, request URLs, or
-   agent-visible response headers. Until that browser policy exists, keys
-   passed through `DOLLY_PI_API_KEY` are explicitly sandbox-visible.
+6. Provider credentials remain inside ephemeral Wasm state and may leave only
+   in explicitly permitted request headers to an exact matched destination;
+   they do not enter snapshots or browser persistence.
 7. Redirect, origin, request-size, response-size, timeout, and quota policy is
    enforced after total in-Wasm compromise.
 8. Repeated Pi and QuickJS invocations reset timers, module globals, descriptors,
@@ -468,15 +488,17 @@ Every work package must preserve these tests:
 
 ## Next implementation order
 
-1. Add a typed tty-control revision: `isatty`, raw/canonical mode, window size,
-   resize generation, foreground interrupt, and restoration on command exit.
-2. Add the smallest QuickJS stdin event pump and `process.stdout` size updates
-   needed by a measured Pi TUI probe.
-3. Bundle the pinned upstream Pi TUI entry and keep the current headless path as
-   a regression test. Extend Node-shaped modules only when the probe names a
-   missing symbol.
-4. Extend the existing in-Wasm Ghostty RGBA path only where the Pi TUI exposes a
-   concrete gap (for example selection, richer shaping, or accessibility).
+These Pi-specific steps are incorporated into the broader
+[`roadmap.md`](roadmap.md).
 
-TypeScript source builds and extension loading follow the TUI compatibility
-probe; neither is needed to preserve the working headless agent loop.
+1. Run a pinned TypeScript compiler under Janis and compile single- and
+   multi-file ESM fixtures into WasmFS.
+2. Build pinned Pi TypeScript sources inside Dolly and retire the host-generated
+   Pi implementation bundle while retaining exact upstream-version assertions.
+3. Complete Git's remote-helper protocol or another narrowly reviewed source
+   transport so Pi can install allowlisted Git extensions without npm.
+4. Extend package loading only for concrete, dependency-free agent extensions;
+   keep native addons and lifecycle scripts rejected.
+5. Extend Janis or Ghostty only when a measured Pi/extension workload exposes a
+   missing API, and keep the headless, TUI, credential, and restart proofs as
+   regression gates.

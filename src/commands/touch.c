@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <utime.h>
 
 int main(int argc, char **argv) {
   int no_create = 0;
@@ -31,13 +32,16 @@ int main(int argc, char **argv) {
 
   int status = 0;
   for (int index = first_file; index < argc; index++) {
-    FILE *file = fopen(argv[index], "rb");
-    if (file != NULL) {
-      fclose(file);
+    if (utime(argv[index], NULL) == 0) {
       continue;
     }
-    if (no_create && errno == ENOENT) continue;
-    file = fopen(argv[index], "wb");
+    if (errno != ENOENT) {
+      fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
+      status = 1;
+      continue;
+    }
+    if (no_create) continue;
+    FILE *file = fopen(argv[index], "ab");
     if (file == NULL) {
       fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
       status = 1;

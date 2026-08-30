@@ -42,6 +42,7 @@ unsigned long long next_job = 1;
 struct DriverOptions {
   bool compile_only = false;
   bool end_options = false;
+  bool edge_interrupt_safepoints = true;
   bool optimization_selected = false;
   bool standard_selected = false;
   std::string output;
@@ -132,6 +133,8 @@ void print_help(const char *program, int driver_mode) {
       "  -I DIR, -D NAME, -U NAME, -include FILE\n"
       "                     pass a preprocessing option\n"
       "  -funsigned-char    use unsigned plain char\n"
+      "  -fdolly-runtime-interrupt-handler\n"
+      "                     use a runtime-owned interrupt poller instead of edge safepoints\n"
       "  -Wall, -Wextra, -Werror, -Wno-NAME\n"
       "                     configure diagnostics\n"
       "  --help             display this help\n"
@@ -187,10 +190,16 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
     } else if (argument == "-funsigned-char") {
       // Clang's public driver spelling maps to this cc1/frontend spelling.
       options.frontend_options.push_back("-fno-signed-char");
+    } else if (argument == "-fdolly-runtime-interrupt-handler") {
+      // Language runtimes with a native bytecode interrupt hook can unwind and
+      // release their own heap safely. Their hook must call
+      // dolly_interrupt_poll(); the target-level edge callback is omitted so
+      // it cannot longjmp past runtime cleanup first.
+      options.edge_interrupt_safepoints = false;
     } else if (argument == "-fno-strict-aliasing") {
-      // This public Clang driver spelling maps to the cc1 option below. Zig's
-      // Zig-generated C requires relaxed type-based alias analysis because it
-      // accesses modeled values through representation-compatible typed views.
+      // This public Clang driver spelling maps to the cc1 option below. Some
+      // upstream sources use representation-compatible typed views and need
+      // Clang's relaxed type-based alias analysis.
       options.frontend_options.push_back("-relaxed-aliasing");
     } else if (argument == "-g" || argument == "-Wall" ||
                argument == "-Wextra" || argument == "-Werror" ||
@@ -273,6 +282,7 @@ bool compile_object(const std::string &source, const std::string &language,
       "-D", "umask=dolly_umask",
       "-D", "getpass=dolly_getpass",
       "-D", "getrandom=dolly_getrandom",
+      "-D", "isatty=dolly_isatty",
       "-D", "fork=dolly_fork",
       "-D", "execve=dolly_execve",
       "-D", "execvp=dolly_execvp",
@@ -310,6 +320,16 @@ bool compile_object(const std::string &source, const std::string &language,
       "-mllvm", "-enable-emscripten-sjlj",
       "-mllvm", "-disable-lsr",
   };
+  if (options.edge_interrupt_safepoints) {
+    // Browser Wasm cannot preempt a running function the way a kernel can.
+    // Edge callbacks are Dolly's target-level SIGINT safepoints, including
+    // loop backedges; the callback itself lives in the main runtime.
+    arguments.insert(arguments.end(), {
+        "-fsanitize-coverage-type=3",
+        "-fsanitize-coverage-trace-pc",
+        "-fsanitize-coverage-no-prune",
+    });
+  }
   if (!options.optimization_selected) arguments.push_back("-O2");
   if (!options.standard_selected) {
     arguments.push_back(language == "c++" ? "-std=c++23" : "-std=c17");
@@ -753,6 +773,35 @@ bool validate_command(const std::string &path) {
   return true;
 }
 
+bool has_contract_stamp(const std::string &path) {
+  LoadedWasm command;
+  if (!load_wasm(path, command)) return false;
+
+  size_t matches = 0;
+  for (const llvm::object::SectionRef &section : command.object->sections()) {
+    const llvm::object::WasmSection &wasm =
+        command.object->getWasmSection(section);
+    if (wasm.Type != llvm::wasm::WASM_SEC_CUSTOM || wasm.Name != "dolly.abi") {
+      continue;
+    }
+    matches++;
+    if (wasm.Content.size() != sizeof(DOLLY_ABI_DIGEST) ||
+        std::memcmp(wasm.Content.data(), DOLLY_ABI_DIGEST,
+                    sizeof(DOLLY_ABI_DIGEST)) != 0) {
+      std::fprintf(stderr, "dolly-cc: %s has the wrong dolly.abi stamp\n",
+                   path.c_str());
+      return false;
+    }
+  }
+  if (matches != 1) {
+    std::fprintf(stderr,
+                 "dolly-cc: %s must contain exactly one dolly.abi stamp\n",
+                 path.c_str());
+    return false;
+  }
+  return true;
+}
+
 bool stamp_command(const std::string &output) {
   static_assert(sizeof(DOLLY_ABI_DIGEST) == 32);
   // A custom section is: id 0, payload length, name length/name, then data.
@@ -773,6 +822,11 @@ bool stamp_command(const std::string &output) {
 }
 
 bool publish_file(const std::string &source, const std::string &output) {
+  if (std::rename(source.c_str(), output.c_str()) == 0) return true;
+
+  // WasmFS cannot rename across every backend boundary (notably /tmp into a
+  // preloaded /usr directory). Dolly executes compiler jobs synchronously, so
+  // no command can observe this bounded cross-backend publication fallback.
   FILE *input = std::fopen(source.c_str(), "rb");
   if (input == nullptr) {
     std::fprintf(stderr, "dolly-cc: could not open staged output: %s\n",
@@ -1014,4 +1068,9 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
                                     ? DOLLY_TOOLCHAIN_C
                                     : default_language,
                                 job);
+}
+
+extern "C" int dolly_toolchain_validate_executable(const char *path) {
+  if (path == nullptr || path[0] == '\0') return 0;
+  return validate_command(path) && has_contract_stamp(path);
 }
