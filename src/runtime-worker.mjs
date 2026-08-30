@@ -81,6 +81,10 @@ function bootstrapOutput(text, error = false) {
   self.postMessage({ type: "bootstrap", text, error });
 }
 
+function bootstrapStage(text) {
+  bootstrapOutput(`${text}\n`);
+}
+
 function installOutputDevice(dolly, path, deviceNumber) {
   const device = dolly.FS.makedev(80, deviceNumber);
   dolly.FS.registerDevice(device, {
@@ -107,6 +111,7 @@ function installOutputDevice(dolly, path, deviceNumber) {
 }
 
 try {
+  bootstrapStage("loading Dolly runtime...");
   // The generated loader was deliberately linked without Emscripten's shared-
   // memory runtime. Its optional TextDecoder fast path rejects SharedArrayBuffer
   // views, while its built-in UTF-8 decoder is safe. Keep that fast path off in
@@ -114,6 +119,7 @@ try {
   const nativeTextDecoder = globalThis.TextDecoder;
   globalThis.TextDecoder = undefined;
   const { default: createDolly } = await import("../dist/dolly.mjs");
+  bootstrapStage("creating shared wasm64 userspace...");
   const memory = new WebAssembly.Memory({
     initial: 1024n,
     maximum: 131072n,
@@ -129,6 +135,7 @@ try {
     print: (text) => bootstrapOutput(`${text}\n`),
     printErr: (text) => bootstrapOutput(`${text}\n`, true),
   });
+  bootstrapStage("Dolly runtime loaded");
   globalThis.TextDecoder = nativeTextDecoder;
 
   dolly.FS.mkdirTree("/dev");
@@ -138,6 +145,7 @@ try {
   let bootstrapStatus;
   let snapshotBytes;
   if (bootMode === "rebuild") {
+    bootstrapStage("building userspace from source...");
     bootstrapStatus = dolly._dolly_bootstrap();
     if (bootstrapStatus === 0) {
       const captureStatus = dolly._dolly_snapshot_capture();
@@ -159,7 +167,9 @@ try {
       );
     }
   } else {
+    bootstrapStage("loading precompiled userspace snapshot...");
     const snapshot = await loadPackagedSystemSnapshot();
+    bootstrapStage("restoring precompiled userspace snapshot...");
     const restoreAddress = dolly._dolly_snapshot_restore_address(
       BigInt(snapshot.byteLength),
     );
@@ -172,6 +182,8 @@ try {
   if (bootstrapStatus !== 0) {
     throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
   }
+
+  bootstrapStage("starting Pi...");
 
   self.postMessage({
     type: "ready",

@@ -846,12 +846,13 @@ try {
       break browserProof;
     }
     if (pagesIsolationMode || pagesLiveMode) {
+      const pagesBootStarted = Date.now();
       const state = await waitForValue(
         debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         (value) => value === "ready" || value === "failed",
         "service-worker isolated Pages boot",
-        1200,
+        pagesLiveMode ? 3600 : 1200,
       );
       assert.equal(state, "ready");
       assert.equal(await evaluate(debuggerClient.send, "crossOriginIsolated"), true);
@@ -873,7 +874,11 @@ try {
           await evaluate(debuggerClient.send, '"DOLLY_HTTP_POLICY" in globalThis'),
           false,
         );
-        console.log("browser: live Pages booted isolated Ghostty and default Pi");
+        console.log(
+          `browser: live Pages booted isolated Ghostty and default Pi in ${
+            Date.now() - pagesBootStarted
+          }ms`,
+        );
       } else {
         console.log("browser: Pages service worker established cross-origin isolation");
       }
