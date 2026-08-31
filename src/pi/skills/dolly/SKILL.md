@@ -41,11 +41,11 @@ Dollyfiles, toolchain, commands, Pi integration, terminal, or tests.
 - `src/pi/`: Pi extension, prompt, settings, theme, and skills.
 - `Dollyfile*`: sequential, auditable image recipes.
 - `scripts/build.sh`: host build and pinned upstream source staging.
-- `scripts/build-snapshot.mjs`: executes a Dollyfile inside Wasm and emits an
-  immutable boot image.
+- `scripts/build-system-snapshot.mjs`: executes each Dollyfile inside Wasm and
+  emits an immutable boot image.
 - `scripts/browser-harness.mjs`: real-browser security and behavior proofs.
 - `test/`: fast contract and source-level regression tests.
-- `docs/abi.md`, `docs/architecture.md`, `docs/security.md`, and
+- `abi/README.md`, `docs/architecture.md`, `docs/security.md`, and
   `docs/dollyfile.md`: focused design references.
 
 ## Working method

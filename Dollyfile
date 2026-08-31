@@ -155,7 +155,7 @@ SOURCE HOST TXT /static/default/pi/dolly-tools.js /home/dolly/.pi/agent/extensio
 SOURCE HOST TXT /static/default/pi/SYSTEM.md /home/dolly/.pi/agent/SYSTEM.md SHA256 23a34eab211ffb91542b58fb140b70334717d07670906b5b1322b12e0d735d14
 SOURCE HOST TXT /static/default/pi/settings.json /home/dolly/.pi/agent/settings.json SHA256 8eec7cba932e37fa88091b195f372e6be0c80f6209683761fb59fd4524469c05
 SOURCE HOST TXT /static/default/pi/dolly-theme.json /home/dolly/.pi/agent/themes/dolly.json SHA256 ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297
-SOURCE HOST TXT /static/default/pi/dolly-skill.md /home/dolly/.pi/agent/skills/dolly/SKILL.md SHA256 1c4555dbfbe1a7b0a0f1c2ddad1210772cf72029cd2e8893c45a05b9ed34b5c4
+SOURCE HOST TXT /static/default/pi/dolly-skill.md /home/dolly/.pi/agent/skills/dolly/SKILL.md SHA256 0599fb95cbf1b9420a52852b0fcbe31d8617235187053873f17f4a07bde95fc3
 RUN make -f /usr/src/dolly/startup.mk pi
 CHECK pi --version
 KEEP /usr/bin/qjs
