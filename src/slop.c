@@ -16,6 +16,7 @@
 #define SLOP_MAX_LINE 65536
 #define SLOP_MAX_ARGS 512
 #define SLOP_MAX_HISTORY 1000
+#define SLOP_DEFERRED_STATUS "\x1f" "DOLLY_STATUS" "\x1f"
 
 typedef enum {
   TOKEN_WORD,
@@ -268,7 +269,10 @@ static int expand_dollar(Shell *shell, const char **cursor, Buffer *word) {
     return 1;
   }
 
-  if (length == 1 && (name[0] == '@' || name[0] == '*')) {
+  if (length == 1 && name[0] == '?') {
+    if (!buffer_append(word, SLOP_DEFERRED_STATUS,
+                       sizeof(SLOP_DEFERRED_STATUS) - 1)) return -1;
+  } else if (length == 1 && (name[0] == '@' || name[0] == '*')) {
     for (int index = 1; index < shell->argc; index++) {
       if (index != 1 && !buffer_character(word, ' ')) return -1;
       if (!buffer_append(word, shell->argv[index], strlen(shell->argv[index]))) return -1;
@@ -300,11 +304,15 @@ static TokenKind operator_kind(const char *source, size_t *length,
   switch (*source) {
     case ';': case '\n': return TOKEN_SEMI;
     case '|': return TOKEN_PIPE;
-    case '!': return TOKEN_NOT;
+    case '!':
+      if (token_boundary) return TOKEN_NOT;
+      break;
     case '<': return TOKEN_INPUT;
     case '>': return TOKEN_OUTPUT;
     default: *length = 0; return TOKEN_WORD;
   }
+  *length = 0;
+  return TOKEN_WORD;
 }
 
 static int lex(Shell *shell, const char *source, TokenList *tokens) {
@@ -317,6 +325,13 @@ static int lex(Shell *shell, const char *source, TokenList *tokens) {
     if (*source == '\0') break;
     size_t operator_length = 0;
     TokenKind kind = operator_kind(source, &operator_length, 1);
+    if (kind == TOKEN_NOT && tokens->count != 0 &&
+        tokens->items[tokens->count - 1].kind != TOKEN_SEMI &&
+        tokens->items[tokens->count - 1].kind != TOKEN_AND &&
+        tokens->items[tokens->count - 1].kind != TOKEN_OR) {
+      operator_length = 0;
+      kind = TOKEN_WORD;
+    }
     if (operator_length != 0) {
       if (!token_push(tokens, kind, NULL, 0)) return 0;
       source += operator_length;
@@ -693,11 +708,42 @@ static void trace_simple(Shell *shell, Arguments *arguments,
   fsync(STDERR_FILENO);
 }
 
+static int expand_deferred_status(Shell *shell, Token *tokens,
+                                  size_t start, size_t end) {
+  char status[32];
+  snprintf(status, sizeof(status), "%d", shell->last_status);
+  const size_t marker_length = sizeof(SLOP_DEFERRED_STATUS) - 1;
+  for (size_t index = start; index < end; index++) {
+    if (tokens[index].text == NULL ||
+        strstr(tokens[index].text, SLOP_DEFERRED_STATUS) == NULL) continue;
+    Buffer expanded = {0};
+    const char *cursor = tokens[index].text;
+    const char *marker;
+    while ((marker = strstr(cursor, SLOP_DEFERRED_STATUS)) != NULL) {
+      if (!buffer_append(&expanded, cursor, (size_t)(marker - cursor)) ||
+          !buffer_append(&expanded, status, strlen(status))) {
+        free(expanded.data);
+        return 0;
+      }
+      cursor = marker + marker_length;
+    }
+    if (!buffer_append(&expanded, cursor, strlen(cursor))) {
+      free(expanded.data);
+      return 0;
+    }
+    free(tokens[index].text);
+    tokens[index].text = buffer_release(&expanded);
+    if (tokens[index].text == NULL) return 0;
+  }
+  return 1;
+}
+
 static int run_simple(Shell *shell, Token *tokens, size_t start, size_t end,
                       int pipeline_input, int pipeline_output) {
   Arguments arguments = {0};
   int input = pipeline_input, output = pipeline_output, error = STDERR_FILENO;
   int owned_input = -1, owned_output = -1, owned_error = -1, error_to_output = 0;
+  if (!expand_deferred_status(shell, tokens, start, end)) goto memory_error;
   for (size_t index = start; index < end; index++) {
     Token *token = &tokens[index];
     if (token->kind == TOKEN_WORD) {

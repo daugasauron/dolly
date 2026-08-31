@@ -26,14 +26,26 @@ Dolly currently boots a source-built userspace containing:
 - an exclusive in-Wasm RGBA framebuffer lease for games and visual tools, with
   automatic terminal restoration on return or Ctrl-C;
 - Ghostty-owned selection and scrollback inside Wasm, phone touch scrolling, a
-  minimal phone `/` menu, and an explicitly user-initiated speech-to-prompt
-  control;
-- upstream Lua as a prebuilt compatibility probe.
+  minimal phone `/` command menu.
 
-The normal page restores a digest-checked static system snapshot. `/rebuild`
-performs the long source build inside Dolly and is used to produce that
-deployment artifact. Mutable runtime state never becomes browser or host
-filesystem state.
+The root page is an image and documentation menu generated from source-visible
+Dollyfiles. `/default/` and `/gamedev/` restore snapshots cryptographically
+bound to their exact recipe chains, entry records, and retained manifests. Each
+image's `/rebuild/` route compiles `/bin/dollyfile` inside Wasm, then that C
+program fetches and verifies every independent `SOURCE` and executes the recipe
+strictly row by row. Prebuilt boot does not download image source inputs.
+Mutable runtime state never becomes browser or host filesystem state.
+
+The menu also accepts a bounded text Dollyfile that directly
+`EXTENDS default`. A small browser-side check only selects the route; the C
+engine remains authoritative. The text stays in the current tab's
+`sessionStorage` and executes only at `/custom/rebuild/` in a fresh Wasm
+sandbox. Selecting a file does not upload the recipe to the server.
+
+The browser must support shared WebAssembly memory64 and table64. Chrome does;
+Safari/WebKit support is version-dependent. On iPhone and iPad every browser
+uses the installed WebKit engine. Dolly does not silently fall back to wasm32
+because pointer width is part of its machine ABI.
 
 ## Architecture
 
@@ -41,7 +53,8 @@ filesystem state.
 trusted browser page
   ├─ fixed startup assets
   ├─ raw input + bounded RGBA canvas blit
-  └─ env.dolly_http_dispatch  ← sole agent-selected network edge
+  ├─ explicit bounded file download → local user
+  └─ env.dolly_http_dispatch       ← sole agent-selected network edge
               │
               ▼
 shared wasm64 runtime
@@ -101,6 +114,8 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   egress edge, and required invariants.
 - [HTTP](docs/http.md) — typed request surface, libcurl compatibility, and
   browser-side policy.
+- [Download](docs/download.md) — the explicit bounded WasmFS-to-local-user
+  file export contract.
 - [Slop and Make](docs/slop.md) — the deliberately finite shell language and
   synchronous build semantics.
 - [Display ownership](docs/display.md) — fullscreen framebuffer leases, input,
@@ -109,14 +124,16 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   reproducibility policy.
 - [Port status](docs/port-status.md) — evidence for current and deferred ports.
 - [Pi plan](docs/pi-agent-plan.md) — current Pi/Janis compatibility status.
-- [Zig and Ghostty](docs/zig-ghostty.md), the
-  [native Zig bootstrap](docs/native-zig-bootstrap.md), and
-  [Lua](docs/lua-5.5.1.md) — focused runtime experiments.
+- [Zig and Ghostty](docs/zig-ghostty.md) and the
+  [native Zig bootstrap](docs/native-zig-bootstrap.md) — focused runtime
+  experiments.
 - [Project audit](docs/audit-2026-08-30.md) — reviewed scope, fixes, risks, and
   remaining debt.
+- [Agent workload audit](docs/agent-audit-2026-08-31.md) — observed Pi tool
+  behavior, compatibility fixes, and measured remaining gaps.
 - [Roadmap](docs/roadmap.md) — prioritized next milestones and acceptance gates.
-- [Dollyfile proposal](docs/dollyfile.md) — a Dockerfile-like source-to-snapshot
-  recipe format designed around Dolly's security model.
+- [Dollyfile version 1](docs/dollyfile.md) — the C-executed sequential
+  source-to-snapshot recipe and image identity model.
 
 ## Design rules
 

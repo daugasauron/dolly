@@ -201,9 +201,8 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       // upstream sources use representation-compatible typed views and need
       // Clang's relaxed type-based alias analysis.
       options.frontend_options.push_back("-relaxed-aliasing");
-    } else if (argument == "-g" || argument == "-Wall" ||
-               argument == "-Wextra" || argument == "-Werror" ||
-               starts_with(argument, "-Wno-")) {
+    } else if (argument == "-g" || argument == "-pedantic" ||
+               argument == "-pedantic-errors" || starts_with(argument, "-W")) {
       options.frontend_options.push_back(argument);
     } else if (argument == "-I" || argument == "-D" ||
                argument == "-U" || argument == "-include") {
@@ -686,11 +685,9 @@ bool is_loader_relocation(
          allowed->second->Kind == llvm::wasm::WASM_EXTERNAL_FUNCTION;
 }
 
-bool validate_command(const std::string &path) {
-  LoadedWasm contract;
-  LoadedWasm command;
-  if (!load_wasm(kContractPath, contract) || !load_wasm(path, command)) return false;
-
+bool validate_command_loaded(const std::string &path,
+                             const LoadedWasm &contract,
+                             const LoadedWasm &command) {
   auto first_section = command.object->section_begin();
   if (first_section == command.object->section_end()) {
     std::fprintf(stderr, "dolly-cc: %s has no sections\n", path.c_str());
@@ -773,10 +770,15 @@ bool validate_command(const std::string &path) {
   return true;
 }
 
-bool has_contract_stamp(const std::string &path) {
+bool validate_command(const std::string &path) {
+  LoadedWasm contract;
   LoadedWasm command;
-  if (!load_wasm(path, command)) return false;
+  return load_wasm(kContractPath, contract) && load_wasm(path, command) &&
+         validate_command_loaded(path, contract, command);
+}
 
+bool has_contract_stamp_loaded(const std::string &path,
+                               const LoadedWasm &command) {
   size_t matches = 0;
   for (const llvm::object::SectionRef &section : command.object->sections()) {
     const llvm::object::WasmSection &wasm =
@@ -800,6 +802,19 @@ bool has_contract_stamp(const std::string &path) {
     return false;
   }
   return true;
+}
+
+bool has_contract_stamp(const std::string &path) {
+  LoadedWasm command;
+  return load_wasm(path, command) && has_contract_stamp_loaded(path, command);
+}
+
+bool validate_executable(const std::string &path) {
+  LoadedWasm contract;
+  LoadedWasm command;
+  return load_wasm(kContractPath, contract) && load_wasm(path, command) &&
+         validate_command_loaded(path, contract, command) &&
+         has_contract_stamp_loaded(path, command);
 }
 
 bool stamp_command(const std::string &output) {
@@ -1072,5 +1087,5 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
 
 extern "C" int dolly_toolchain_validate_executable(const char *path) {
   if (path == nullptr || path[0] == '\0') return 0;
-  return validate_command(path) && has_contract_stamp(path);
+  return validate_executable(path);
 }

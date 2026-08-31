@@ -1,10 +1,6 @@
-# Source and build inventory
+# Sources and reproducibility
 
-This is the structural map of Dolly's external inputs and where each build
-actually happens. The canonical non-npm revisions, URLs, container digest, and
-archive checksums live in `config/source-pins.sh`. Fetch and build scripts source
-that file directly; this document explains the roles rather than duplicating
-the hashes.
+Dolly separates the common machine seed from image inputs.
 
 ## Build flow
 
@@ -12,110 +8,127 @@ the hashes.
 config/source-pins.sh
         |
         v
-fetch scripts --> .cache/ checkouts and verified archives
+fetch/prepare scripts --> verified .cache checkouts and build/generated trees
         |
-        +--> host source generation --> build/generated/
+        +--> external wasm64 Clang/LLD and native Zig command
         |
-        +--> external seed compilation --> build/*.wasm
-        |
-        v
-toolchain/CMakeLists.txt packages sources/sysroot --> dist/dolly.data
+        +--> deterministic independent dist/static inputs and ustar archives
         |
         v
-minimal C bootstrap compiles Slop and seed commands in WasmFS
+toolchain/CMakeLists.txt --> /seed in dist/dolly.data + dist/dolly.wasm
         |
         v
-/etc/dolly/startup.slop --> GNU Make --> /usr/src/dolly/startup.mk
-        |
-        +--> /usr/lib/*.a
-        +--> /bin/*
-        +--> /usr/bin/*
-        +--> /usr/libexec/*
+Dollyfile rows --> browser broker --> exact SHA-256-checked files in WasmFS
         |
         v
-headless /rebuild captures versioned system snapshot
+/bin/dollyfile executes RUN/CHECK synchronously and seals KEEP paths
         |
         v
-dist/dolly-system.snapshot + verified metadata
+/<image>/rebuild captures a recipe-bound opaque snapshot
         |
         v
-/ restores the same image for every browser in seconds
+/<image>/ validates metadata and restores without fetching image sources
 ```
 
-Packaging a source file is not the same as packaging an executable. Except for
-the explicitly identified bootstrap modules below, command and library machine
-code is produced by Clang/LLD inside the browser and written to WasmFS.
+The Emscripten data file contains only the compiler/shell seed: sysroot and
+Clang headers, Dolly headers and ABI schema, Slop/Dollyfile/core-wrapper source,
+and the runtime-owned compiler/linker implementation. Emscripten marks packaged
+directory nodes read-only, so it is mounted at `/seed`; `src/dolly.c` copies it
+into freshly created mutable `/usr` directories before compilation. No
+permission or executable-bit policy is added to Dolly.
 
-## External components
+Every other input appears as an independent `SOURCE HOST ... SHA256 ...` row in
+`Dollyfile` or `Dollyfile-gamedev`. `scripts/verify-static-sources.mjs` checks
+the actual served byte sequence for every row. There is no aggregate `.assets`
+filesystem image and no JavaScript recipe compiler.
 
-| Component | Host/build-time role | What enters Dolly | Browser-time result |
-| --- | --- | --- | --- |
-| Emscripten SDK | Digest-pinned container builds the main wasm64 runtime and bootstrap modules | Emscripten sysroot, libc/libc++, WasmFS, and loader output | Main `dolly.wasm` and the shared runtime ABI |
-| LLVM/Clang/LLD | Host TableGen tools generate LLVM tables; a wasm64 LLVM build is linked into the main runtime | Clang frontend, Wasm LLD, archive writer, headers, and libraries | In-Wasm `cc`, `c++`, `ld`, and `ar` services |
-| sbase | Pinned checkout is packaged as selected unchanged sources and helpers | `grep`, `sed`, `head`, and `wc` sources | Separate executables under `/bin` |
-| One True Awk | Pinned Bison generates parser C/header files on the host; the upstream `maketab` generator remains target-side | Upstream sources plus generated parser | `maketab` runs inside Wasm; final `/bin/awk` compiles afterward |
-| curl | Official pinned public headers and license are packaged; curl's native socket engine is not | Headers plus Dolly's `src/libcurl-fetch.c` | `/usr/lib/libcurl.a` and `/usr/bin/curl` over the one Fetch broker |
-| zlib | A selected pinned source tree is copied to `build/generated/zlib-source` | Upstream C sources and headers | `/usr/lib/libz.a` |
-| Git | Tracked C/headers are copied, generated headers/templates are produced, and `config/git-dolly.patch` applies the small lifecycle adaptations | 427 source files, headers, templates, and license | `/usr/lib/libgit.a`, `/usr/bin/git`, and HTTP/HTTPS helpers |
-| GNU Make | Checksum-pinned official 4.4.1 release is configured for wasm64; `config/make-dolly.patch` and one Dolly job adapter replace process launch | Exact source manifest, generated configuration, headers, and license | `/usr/bin/make`; all recipes and `$(shell ...)` execute synchronously through `/bin/slop` |
-| Zig | Checksum-pinned 0.16.0 source and official Linux stage-zero archives; the external compiler builds only the upstream frontend side module | Patched upstream source library plus ABI-validated `/usr/bin/zig`; its LLVM bridge reuses the runtime's WebAssembly backend | Native Zig runs inside Dolly and emits relocatable wasm64 objects directly into WasmFS |
-| Ghostty + uucode | Exact Ghostty checkout and checksum-pinned uucode archive are prepared with reviewed build options | VT and Unicode Zig source, generated configuration/tables, public headers, and licenses | Native Zig emits a wasm64 object; Dolly builds `/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and the resident display module |
-| QuickJS-ng | Pinned engine checkout is packaged without `quickjs-libc.c` | Unchanged engine sources plus Dolly's narrow runtime adapter, compiled once into `/usr/lib/libdolly-js.a` | `/usr/bin/qjs` is a separately compiled generic CLI |
-| Pi agent | Exact npm versions and integrity hashes are locked; pinned esbuild packages the complete upstream CLI and upstream standalone OAuth loaders with asserted QuickJS compatibility lowerings | Upstream Pi JavaScript/resources, generated ESM, Janis runtime, Dolly tool extension, system prompt, settings, package metadata, and docs | `/usr/bin/pi` is separately compiled against `libdolly-js`; the real TUI, pasted sandbox-owned OpenRouter credentials and model discovery, completed Codex PKCE/manual-code exchange and credential persistence, Slop/WasmFS tools, and dependency-free extension install/reload are browser-tested |
-| Lua | Verified official release archive is compiled by the external seed compiler | One ABI-validated bootstrap side module | `/usr/bin/lua`; this is the current exception to browser-time command compilation |
-| Bison | Verified host tool used only to generate the Awk parser | Generated Awk C/header files, not Bison itself | No Dolly executable |
-| stb_truetype | Exact commit- and checksum-pinned single-header source | Rasterizer source header | Compiled into `/usr/libexec/dolly/display.wasm` inside Dolly |
-| IosevkaTerm SemiBold | Commit- and checksum-pinned WOFF2 and TTF assets | WOFF2 bootstrap font and TTF runtime font | Bootstrap progress typography; in-Wasm terminal glyph rasterization |
+## Pin authority
 
-All source licenses are packaged alongside the corresponding source material
-under `/usr/share/licenses` where applicable.
+External versions, revisions, URLs, archive digests, npm integrity values, and
+the Emscripten container digest live in `config/source-pins.sh` or the npm lock
+file. Fetch and prepare scripts consume those pins directly. Dollyfiles pin the
+final browser-served form, because preparation and archive layout can change
+bytes without changing an upstream commit.
 
-## Dolly-owned layers
+The deterministic ustar writer in `scripts/build-source-tar.mjs`:
 
-| Layer | Canonical location | Responsibility |
+- accepts explicit input-to-absolute-Dolly-path mappings;
+- rejects symlinks and unsafe paths;
+- sorts records using a fixed locale;
+- emits regular files only with fixed owner, mode, and timestamp fields;
+- writes no host paths or ambient metadata;
+- reports the resulting archive SHA-256.
+
+The small `/bin/tar` extractor is itself fetched as text and compiled inside
+Dolly before any archive row executes. It accepts only regular files and
+directories, rejects absolute/traversal names, and writes solely to WasmFS.
+
+## Component roles
+
+| Component | Outside-browser preparation | Inside-Dolly result |
 | --- | --- | --- |
-| Machine contract | `abi/dolly-0.wat` | Exact command imports, exports, memory64/table64 shape, and entry ABI |
-| Browser HTTP contract | `abi/dolly-http-0.wat` | The single dispatch import and response mailbox |
-| Display contract | `abi/dolly-display-0.wat` | Raw browser input records, bounded user-gesture clipboard buffers, result words, framebuffer publication, and temporary bootstrap sink |
-| Snapshot contract | `abi/dolly-snapshot-0.wat` | Opaque capture/restore calls for the packaged precompiled system image |
-| HTTP policy | `src/http-policy.mjs` | Trusted exact destination and credential-header allowlists plus redirect, size, time, and quota enforcement |
-| Browser import allowlist | `config/browser-imports.json` | Generated-main-module capability audit; JSON is not an ABI source |
-| Source pins | `config/source-pins.sh` | External revisions, URLs, image digest, and archive hashes |
-| Packaging | `toolchain/CMakeLists.txt` | Maps immutable source/sysroot assets into the initial WasmFS image |
-| Build orchestration | `scripts/build.sh` | Fetches/prepares sources, assembles contracts, builds and validates the runtime |
-| Snapshot packaging | `scripts/build-system-snapshot.mjs` | Runs headless `/rebuild`, validates the opaque image, and publishes it with build-ID/size/SHA-256 metadata |
-| Target compiler/linker | `src/compiler.cpp` | C/C++ compilation, object/archive linking, ABI validation, and publication |
-| Runtime bootstrap | `src/dolly.c` | Establishes terminal/environment state, compiles Slop and seed commands, executes startup, then loads the resident display module |
-| Display driver | `src/ghostty/display.c` | Ghostty VT state/key encoding plus Iosevka software rasterization into double-buffered RGBA memory |
-| Userspace startup | `src/startup.slop` | Traced top-level initialization and build phases; fails on the first unsuccessful command |
-| Target build graph | `src/startup.mk` | GNU Make rules for source-built libraries, upstream tools, runtimes, and probes |
-| Compatibility shell | `src/slop.c` | Finite shell grammar, PATH lookup, scoped environment, redirection, and serial spooled pipelines; compiled to `/bin/slop` |
-| Make job adapter | `src/runtimes/make-dolly.c` | Maps upstream Make's remote-job and `$(shell)` seams to synchronous `/bin/slop -c` calls |
-| Port adaptations | `config/*.patch` and `src/runtimes/` | Explicit, reviewable target differences and narrow runtime frontends |
-| Port decisions | `docs/port-status.md` | Why a program is included, partial, deferred, or rejected |
+| Emscripten 6.0.8 | Digest-pinned container links the wasm64 main module and packaged seed | libc/libc++, WasmFS, loader, and shared runtime |
+| LLVM/Clang/LLD 24 | Wasm64 libraries are built once and linked into the main module | `/bin/cc`, `/bin/c++`, `/bin/ld`, `/bin/ar` compile/link files in WasmFS |
+| GNU Make 4.4.1 | Pinned release is configured and a reviewed serial Dolly adapter is applied | `/usr/bin/make`; recipes run synchronously through `/bin/slop` |
+| sbase | Exact source/helper subset is archived | separate `grep`, `sed`, `head`, `wc`, and `printf` executables |
+| One True Awk | Pinned Bison generates parser C/header; sources are archived | target `maketab` runs, then `/bin/awk` is compiled |
+| curl | Official headers/license plus Dolly Fetch implementation are served | `/usr/lib/libcurl.a` and `/usr/bin/curl` over the broker |
+| zlib | Selected pinned upstream C tree is archived | `/usr/lib/libz.a` and public headers |
+| Git | Generated config/version files, tracked C sources, templates, and reviewed target patch are archived | `/usr/bin/git`, `libgit.a`, and HTTP helpers |
+| Zig 0.16 | Official host Zig builds an ABI-validated wasm64 Zig command; library source is archived | `/usr/bin/zig` emits wasm64 objects through the runtime LLVM bridge |
+| Ghostty + uucode | Pinned source and generated configuration/tables are archived | Zig builds Ghostty VT, its static library, and resident display module |
+| QuickJS-ng | Exact engine source is archived; ambient `quickjs-libc.c` is excluded | `/usr/lib/libdolly-js.a`, `qjs`, Janis, and Pi frontend |
+| Pi | Locked npm packages are bundled to a checked QuickJS-compatible ESM input | `/usr/bin/pi` runs upstream TUI and Dolly extension files |
+| stb_truetype + Iosevka | Commit/digest-pinned header and fonts are served independently | display rasterizer and runtime terminal font |
 
-## Runtime filesystem layout
+Host-side preparation is allowed to make pinned upstream trees buildable, but
+it must be deterministic and reviewable. It must not compile the ordinary final
+commands that a Dolly rebuild claims to build. The explicit exceptions are the
+machine/compiler seed and ABI-validated bootstrap modules such as native Zig.
+
+## Runtime layout
 
 ```text
-/usr/src/        immutable packaged source inputs
-/usr/include/    compiler sysroot and public library headers
-/usr/lib/        source-built static libraries
-/bin/            core source-built executable modules
-/usr/bin/        optional source-built tools, Zig/Ghostty, and Lua bootstrap
-/usr/libexec/    Git helpers, display module, object guards, and probes
-/etc/            system configuration
-/home/dolly/     writable HOME and global Git configuration
-/workspace/      interactive working directory
-/tmp/            compiler objects and staged links
+/seed/          immutable packaged compiler input, copied during boot
+/usr/src/       fetched and extracted target source
+/usr/include/   mutable compiler and library headers
+/usr/lib/       source-built libraries and retained runtimes
+/bin/           core commands and Slop
+/usr/bin/       optional tools, runtimes, Pi, Zig, and Ghostty probes
+/usr/libexec/   helpers, display module, and validation programs
+/etc/           image identity and system configuration
+/home/dolly/    writable HOME and global Git configuration
+/workspace/     disposable interactive working tree
+/tmp/           disposable downloads, objects, and staged links
 ```
 
-Mutable entries in this tree use WasmFS's memory backend. They are not host
-directories and disappear with the browser sandbox.
+Except for the immutable `/seed` package, this is WasmFS memory state. None of
+these paths maps to a browser or native-host filesystem.
 
-The complete native Zig/Ghostty bootstrap, typed LLVM bridge,
-shared-filesystem object path, and browser acceptance proof are documented in
-[`zig-ghostty.md`](zig-ghostty.md).
+## Generated files
 
-The proposed consolidation of source acquisition, target build steps, checks,
-and snapshot retention into one reviewable recipe is described in
-[`dollyfile.md`](dollyfile.md).
+Generated outputs are divided by authority:
+
+- `build/generated/` contains deterministic host preparation such as Awk parser
+  output, selected Git/Make trees, Ghostty tables, and the Pi ESM bundle.
+- `dist/static/` contains exactly the bytes named by `SOURCE HOST` rows.
+- `dist/dolly-images.mjs` is disposable JavaScript route/policy metadata derived
+  from visible recipes; it is not an ABI or recipe source.
+- `dist/dolly-<image>-system.snapshot` and matching metadata are products of an
+  actual browser rebuild.
+
+`node scripts/verify-static-sources.mjs` is the cheap integrity check.
+`npm run snapshot` is the expensive proof that both recipes execute in a real
+browser and that the resulting retained files can be serialized.
+
+## Remaining reproducibility limits
+
+- Snapshot bytes include compiler/runtime behavior and are not yet promised to
+  be bit-reproducible across host kernels and tool versions; logical identity
+  and all input bytes are sealed and verified.
+- Pi is still host-bundled with pinned esbuild rather than compiled from
+  TypeScript inside Dolly.
+- Prepared Git/Ghostty/Zig trees contain reviewed target adaptations; reducing
+  patches in favor of upstream target configuration remains preferred.
+- The common seed is still large because it includes current Clang/LLVM and
+  complete compiler headers.

@@ -35,7 +35,7 @@ patched upstream Zig compiler object
                          v
               build/native-zig/zig-native.wasm
                          |
-                         | preload as /usr/bin/zig
+                         | SOURCE as /usr/bin/zig
                          v
 pinned Ghostty/uucode Zig source in WasmFS
                          |
@@ -107,9 +107,9 @@ minutes 10 seconds on the development machine. Its output was a roughly 21 MB
 relocatable object and 15 MB linked side module. An unchanged cached invocation
 still performs ABI validation and returned in about 0.17 seconds.
 
-The complete Zig library preload makes the current data package large (about
-274 MB). Pruning that tree and reducing compiler cold-start/build latency are
-useful follow-ups, but they do not change the machine architecture.
+The complete retained Zig library makes the current system snapshot large
+(about 254 MB). Pruning that tree and reducing compiler cold-start/build
+latency are useful follow-ups, but they do not change the machine architecture.
 
 ## Browser acceptance proof
 
@@ -124,7 +124,7 @@ A real Chrome run proves, in one sandbox lifetime, that:
    module through ordinary WasmFS paths.
 5. The VT probe parses text and SGR state and exposes the expected cell grid.
 6. Chrome presents a checked 800-by-600 Ghostty framebuffer, with 129-by-29
-   cells, and passes raw keys, zoom, fullscreen resize, Lua, Pi, filesystem,
+   cells, and passes raw keys, zoom, fullscreen resize, Pi, filesystem,
    lifecycle, and brokered-network checks.
 
 The final command was:

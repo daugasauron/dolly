@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -117,6 +118,7 @@ static size_t exit_depth;
 static int active_process_pid;
 static int interactive_shell_pid;
 static int launching_interactive_shell;
+static double active_process_deadline = -1;
 static uint32_t consumed_interrupt_sequence;
 // The boot streams are Dolly's terminal. Synchronous spawn derives a child
 // view from its requested descriptors and restores the parent view afterward.
@@ -249,6 +251,41 @@ EM_JS(void, dolly_http_dispatch,
     flags,
     sequence,
   });
+});
+
+EM_JS(int, dolly_download_dispatch,
+      (const unsigned char *name, uintptr_t name_length,
+       const unsigned char *bytes, uintptr_t length), {
+  const nameStart = Number(name);
+  const nameSize = Number(name_length);
+  const dataStart = Number(bytes);
+  const dataSize = Number(length);
+  const maximum = 64 * 1024 * 1024;
+  if (!Number.isSafeInteger(nameStart) || !Number.isSafeInteger(nameSize) ||
+      !Number.isSafeInteger(dataStart) || !Number.isSafeInteger(dataSize) ||
+      nameStart < 0 || nameSize < 1 || nameSize > 255 ||
+      dataStart < 0 || dataSize < 0 || dataSize > maximum ||
+      nameStart + nameSize > HEAPU8.length ||
+      dataStart + dataSize > HEAPU8.length) return -22;
+  let decoded;
+  try {
+    decoded = new TextDecoder("utf-8", { fatal: true }).decode(
+      HEAPU8.slice(nameStart, nameStart + nameSize),
+    );
+  } catch (_) {
+    return -22;
+  }
+  if (decoded === "." || decoded === "..") return -22;
+  for (let index = 0; index < decoded.length; index += 1) {
+    const code = decoded.charCodeAt(index);
+    if (code === 47 || code === 92 || code < 32 || code === 127) return -22;
+  }
+  const dispatch = Module["downloadDispatch"];
+  if (typeof dispatch !== "function") return -38;
+  return dispatch({
+    name: decoded,
+    bytes: HEAPU8.slice(dataStart, dataStart + dataSize),
+  }) | 0;
 });
 
 EMSCRIPTEN_KEEPALIVE
@@ -741,12 +778,20 @@ int dolly_interrupt_poll(void) {
 }
 
 void dolly_interrupt_checkpoint(void) {
-  if (dolly_interrupt_poll() != SIGINT) return;
-  // Signal termination must not enter arbitrary atexit teardown that may itself
-  // be hung. Unwind only the current filesystem command boundary.
+  int status = 0;
+  if (active_process_deadline >= 0 &&
+      emscripten_get_now() >= active_process_deadline) {
+    status = 124;
+  } else if (dolly_interrupt_poll() == SIGINT) {
+    status = 128 + SIGINT;
+  } else {
+    return;
+  }
+  // Cancellation must not enter arbitrary atexit teardown that may itself be
+  // hung. Unwind only the current filesystem command boundary.
   dolly_exit_frame *frame = &exit_frames[exit_depth - 1];
   frame->callback_count = 0;
-  frame->status = 128 + SIGINT;
+  frame->status = status;
   longjmp(frame->environment, 1);
 }
 
@@ -1293,6 +1338,50 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
   return status;
 }
 
+int dolly_download_file(const char *path) {
+  enum { DOLLY_DOWNLOAD_MAX_BYTES = 64 * 1024 * 1024 };
+  if (path == NULL || path[0] == '\0') return -EINVAL;
+  struct stat metadata;
+  if (stat(path, &metadata) != 0) return -errno;
+  if (!S_ISREG(metadata.st_mode)) return -EINVAL;
+  if (metadata.st_size < 0 || metadata.st_size > DOLLY_DOWNLOAD_MAX_BYTES) {
+    return -EFBIG;
+  }
+  const char *name = strrchr(path, '/');
+  name = name == NULL ? path : name + 1;
+  const size_t name_length = strlen(name);
+  if (name_length == 0 || name_length > 255 || strcmp(name, ".") == 0 ||
+      strcmp(name, "..") == 0) return -EINVAL;
+
+  const size_t length = (size_t)metadata.st_size;
+  unsigned char *contents = malloc(length == 0 ? 1 : length);
+  if (contents == NULL) return -ENOMEM;
+  int descriptor = open(path, O_RDONLY);
+  if (descriptor < 0) {
+    const int status = -errno;
+    free(contents);
+    return status;
+  }
+  size_t offset = 0;
+  int status = 0;
+  while (offset < length) {
+    const ssize_t count = read(descriptor, contents + offset, length - offset);
+    if (count < 0 && errno == EINTR) continue;
+    if (count <= 0) {
+      status = count == 0 ? -EIO : -errno;
+      break;
+    }
+    offset += (size_t)count;
+  }
+  if (close(descriptor) != 0 && status == 0) status = -errno;
+  if (status == 0) {
+    status = dolly_download_dispatch((const unsigned char *)name, name_length,
+                                     contents, length);
+  }
+  free(contents);
+  return status;
+}
+
 static int compile_sources(const char *const *sources, size_t source_count,
                            const char *const *options, size_t option_count,
                            const char *output,
@@ -1380,8 +1469,9 @@ static int install_display_driver(void) {
   return 0;
 }
 
-int dolly_spawn(const char *path, int argc, char **argv,
-                int stdin_fd, int stdout_fd, int stderr_fd) {
+static int spawn_with_deadline(const char *path, int argc, char **argv,
+                               int stdin_fd, int stdout_fd, int stderr_fd,
+                               double timeout_milliseconds) {
   if (path == NULL || argc < 0 || argv == NULL) return -EINVAL;
 
   dolly_process *process = allocate_process();
@@ -1415,6 +1505,14 @@ int dolly_spawn(const char *path, int argc, char **argv,
   int previous_pid = (int)atomic_load_explicit(&display_mailbox.foreground_pid,
                                                 memory_order_acquire);
   int previous_active_pid = active_process_pid;
+  const double previous_deadline = active_process_deadline;
+  double child_deadline = previous_deadline;
+  if (timeout_milliseconds >= 0) {
+    const double requested_deadline = emscripten_get_now() + timeout_milliseconds;
+    if (child_deadline < 0 || requested_deadline < child_deadline) {
+      child_deadline = requested_deadline;
+    }
+  }
   const int is_interactive_shell = launching_interactive_shell;
   launching_interactive_shell = 0;
   if (is_interactive_shell) interactive_shell_pid = process->pid;
@@ -1433,6 +1531,7 @@ int dolly_spawn(const char *path, int argc, char **argv,
     dolly_terminal_reset_cooked();
     active_terminal_mask = child_terminal_mask;
     active_process_pid = process->pid;
+    active_process_deadline = child_deadline;
     atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)process->pid,
                           memory_order_release);
     atomic_store_explicit(&display_mailbox.flags,
@@ -1462,6 +1561,7 @@ int dolly_spawn(const char *path, int argc, char **argv,
   dolly_terminal_reset_cooked();
   active_terminal_mask = previous_terminal_mask;
   active_process_pid = previous_active_pid;
+  active_process_deadline = previous_deadline;
   atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)previous_pid,
                         memory_order_release);
   atomic_store_explicit(&display_mailbox.flags,
@@ -1482,6 +1582,20 @@ int dolly_spawn(const char *path, int argc, char **argv,
   process->status = status;
   process->state = DOLLY_PROCESS_EXITED;
   return process->pid;
+}
+
+int dolly_spawn(const char *path, int argc, char **argv,
+                int stdin_fd, int stdout_fd, int stderr_fd) {
+  return spawn_with_deadline(path, argc, argv, stdin_fd, stdout_fd, stderr_fd, -1);
+}
+
+int dolly_spawn_timeout(const char *path, int argc, char **argv,
+                        int stdin_fd, int stdout_fd, int stderr_fd,
+                        double timeout_milliseconds) {
+  if (timeout_milliseconds != timeout_milliseconds || timeout_milliseconds < 0 ||
+      timeout_milliseconds > 86400000) return -EINVAL;
+  return spawn_with_deadline(path, argc, argv, stdin_fd, stdout_fd, stderr_fd,
+                             timeout_milliseconds);
 }
 
 int dolly_wait(int pid, int *status) {
@@ -1515,6 +1629,144 @@ int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],
   return result >= 0 && restore_status != 0 ? restore_status : result;
 }
 
+static char *read_boot_text(const char *path) {
+  int descriptor = open(path, O_RDONLY);
+  if (descriptor < 0) return NULL;
+  struct stat metadata;
+  if (fstat(descriptor, &metadata) != 0 || metadata.st_size <= 0 ||
+      metadata.st_size > 8192) {
+    close(descriptor);
+    errno = EINVAL;
+    return NULL;
+  }
+  char *text = malloc((size_t)metadata.st_size + 1);
+  if (text == NULL) {
+    close(descriptor);
+    return NULL;
+  }
+  size_t offset = 0;
+  while (offset < (size_t)metadata.st_size) {
+    const ssize_t count = read(descriptor, text + offset,
+                               (size_t)metadata.st_size - offset);
+    if (count <= 0) {
+      free(text);
+      close(descriptor);
+      return NULL;
+    }
+    offset += (size_t)count;
+  }
+  if (close(descriptor) != 0) {
+    free(text);
+    return NULL;
+  }
+  text[offset] = '\0';
+  while (offset != 0 && (text[offset - 1] == '\n' || text[offset - 1] == '\r')) {
+    text[--offset] = '\0';
+  }
+  if (offset == 0) {
+    free(text);
+    errno = EINVAL;
+    return NULL;
+  }
+  return text;
+}
+
+static int copy_seed_file(const char *source, const char *destination) {
+  int input = open(source, O_RDONLY);
+  if (input < 0) return -1;
+  int output = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+  if (output < 0) {
+    close(input);
+    return -1;
+  }
+  unsigned char bytes[64 * 1024];
+  int status = 0;
+  for (;;) {
+    const ssize_t count = read(input, bytes, sizeof(bytes));
+    if (count < 0) {
+      status = -1;
+      break;
+    }
+    if (count == 0) break;
+    size_t offset = 0;
+    while (offset < (size_t)count) {
+      const ssize_t written = write(output, bytes + offset,
+                                    (size_t)count - offset);
+      if (written <= 0) {
+        status = -1;
+        break;
+      }
+      offset += (size_t)written;
+    }
+    if (status != 0) break;
+  }
+  int saved_error = status == 0 ? 0 : errno;
+  if (close(output) != 0 && status == 0) {
+    status = -1;
+    saved_error = errno;
+  }
+  if (close(input) != 0 && status == 0) {
+    status = -1;
+    saved_error = errno;
+  }
+  if (status != 0) errno = saved_error == 0 ? EIO : saved_error;
+  return status;
+}
+
+static int install_seed_tree(const char *source, const char *destination) {
+  struct stat metadata;
+  if (stat(source, &metadata) != 0) return -1;
+  if (S_ISREG(metadata.st_mode)) return copy_seed_file(source, destination);
+  if (!S_ISDIR(metadata.st_mode)) {
+    errno = ENOTSUP;
+    return -1;
+  }
+
+  struct stat destination_metadata;
+  if (stat(destination, &destination_metadata) != 0) {
+    if (mkdir(destination, 0755) != 0) return -1;
+  } else if (!S_ISDIR(destination_metadata.st_mode)) {
+    errno = ENOTDIR;
+    return -1;
+  }
+
+  DIR *directory = opendir(source);
+  if (directory == NULL) return -1;
+  int status = 0;
+  for (;;) {
+    errno = 0;
+    struct dirent *entry = readdir(directory);
+    if (entry == NULL) {
+      if (errno != 0) status = -1;
+      break;
+    }
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      continue;
+    }
+    char child_source[PATH_MAX];
+    char child_destination[PATH_MAX];
+    if (snprintf(child_source, sizeof(child_source), "%s/%s", source,
+                 entry->d_name) >= (int)sizeof(child_source) ||
+        snprintf(child_destination, sizeof(child_destination), "%s/%s",
+                 destination, entry->d_name) >= (int)sizeof(child_destination)) {
+      errno = ENAMETOOLONG;
+      status = -1;
+      break;
+    }
+    if (install_seed_tree(child_source, child_destination) != 0) {
+      status = -1;
+      break;
+    }
+  }
+  int saved_error = status == 0 ? 0 : errno;
+  if (closedir(directory) != 0 && status == 0) {
+    status = -1;
+    saved_error = errno;
+  }
+  if (status != 0) errno = saved_error == 0 ? EIO : saved_error;
+  return status;
+}
+
 static int initialize_boot_environment(void) {
   int output = open("/dev/dolly-stdout", O_WRONLY);
   int error = open("/dev/dolly-stderr", O_WRONLY);
@@ -1526,6 +1778,12 @@ static int initialize_boot_environment(void) {
   }
   close(output);
   close(error);
+
+  if (install_seed_tree("/seed/usr", "/usr") != 0) {
+    fprintf(stderr, "dolly: could not install compiler seed: %s\n",
+            strerror(errno));
+    return 1;
+  }
 
   if (mkdir("/bin", 0755) != 0 && errno != EEXIST) {
     fprintf(stderr, "dolly: mkdir /bin failed: %s\n", strerror(errno));
@@ -1541,6 +1799,10 @@ static int initialize_boot_environment(void) {
   }
   if (setenv("PATH", "/bin:/usr/bin", 1) != 0) {
     fprintf(stderr, "dolly: PATH initialization failed: %s\n", strerror(errno));
+    return 1;
+  }
+  if (setenv("SHELL", "/bin/slop", 1) != 0) {
+    fprintf(stderr, "dolly: SHELL initialization failed: %s\n", strerror(errno));
     return 1;
   }
   if (setenv("ZIG_LIB_DIR", "/usr/lib/zig", 1) != 0) {
@@ -1584,20 +1846,13 @@ int dolly_bootstrap(void) {
     const char *output;
   } core_commands[] = {
       {"/usr/src/dolly/slop.c", "/bin/slop"},
-      {"/usr/src/dolly/commands/help.c", "/bin/help"},
-      {"/usr/src/dolly/commands/pwd.c", "/bin/pwd"},
-      {"/usr/src/dolly/commands/cd.c", "/bin/cd"},
-      {"/usr/src/dolly/commands/cat.c", "/bin/cat"},
-      {"/usr/src/dolly/commands/echo.c", "/bin/echo"},
       {"/usr/src/dolly/commands/mkdir.c", "/bin/mkdir"},
-      {"/usr/src/dolly/commands/touch.c", "/bin/touch"},
       {"/usr/src/dolly/commands/rm.c", "/bin/rm"},
-      {"/usr/src/dolly/commands/clear.c", "/bin/clear"},
-      {"/usr/src/dolly/commands/ls.c", "/bin/ls"},
       {"/usr/src/dolly/commands/cc.c", "/bin/cc"},
       {"/usr/src/dolly/commands/c++.c", "/bin/c++"},
       {"/usr/src/dolly/commands/ld.c", "/bin/ld"},
       {"/usr/src/dolly/commands/ar.c", "/bin/ar"},
+      {"/usr/src/dolly/dollyfile.c", "/bin/dollyfile"},
   };
   for (size_t index = 0;
        index < sizeof(core_commands) / sizeof(core_commands[0]); index++) {
@@ -1612,25 +1867,137 @@ int dolly_bootstrap(void) {
       return status;
     }
   }
-  puts("dolly: installed separately compiled core commands in /bin");
+  puts("dolly: installed minimal compiler, Slop, and Dollyfile engine in /bin");
 
-  char *startup_argv[] = {"slop", "/etc/dolly/startup.slop", NULL};
-  int startup_pid = dolly_spawn("/bin/slop", 2, startup_argv,
+  char *recipe_locator = read_boot_text("/etc/dolly/recipe.locator");
+  char *host_base = read_boot_text("/etc/dolly/host.base");
+  if (recipe_locator == NULL || host_base == NULL) {
+    fprintf(stderr, "dolly: invalid Dollyfile boot configuration: %s\n",
+            strerror(errno));
+    free(recipe_locator);
+    free(host_base);
+    return 1;
+  }
+  char *startup_argv[] = {"dollyfile", recipe_locator, host_base, NULL};
+  int startup_pid = dolly_spawn("/bin/dollyfile", 3, startup_argv,
                                 STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
   if (startup_pid < 0) {
-    fprintf(stderr, "dolly: could not launch startup.slop: %s\n",
+    fprintf(stderr, "dolly: could not launch /bin/dollyfile: %s\n",
             strerror(-startup_pid));
+    free(recipe_locator);
+    free(host_base);
     return 126;
   }
   int startup_status = 126;
   int wait_status = dolly_wait(startup_pid, &startup_status);
+  free(recipe_locator);
+  free(host_base);
   if (wait_status != 0) {
-    fprintf(stderr, "dolly: could not wait for startup.slop: %s\n",
+    fprintf(stderr, "dolly: could not wait for /bin/dollyfile: %s\n",
             strerror(-wait_status));
     return 126;
   }
   if (startup_status != 0) return startup_status;
+  return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_bootstrap_finish(void) {
   return install_display_driver();
+}
+
+static uint32_t take_entry_u32(const unsigned char **cursor,
+                               const unsigned char *end, int *valid) {
+  if (!*valid || (size_t)(end - *cursor) < 4) {
+    *valid = 0;
+    return 0;
+  }
+  const uint32_t value = (uint32_t)(*cursor)[0] |
+                         ((uint32_t)(*cursor)[1] << 8) |
+                         ((uint32_t)(*cursor)[2] << 16) |
+                         ((uint32_t)(*cursor)[3] << 24);
+  *cursor += 4;
+  return value;
+}
+
+static char **load_image_entry(int *argc_out) {
+  *argc_out = 0;
+  int descriptor = open("/etc/dolly/entry", O_RDONLY);
+  if (descriptor < 0) return NULL;
+  struct stat metadata;
+  if (fstat(descriptor, &metadata) != 0 || metadata.st_size < 16 ||
+      metadata.st_size > 64 * 1024) {
+    close(descriptor);
+    errno = EINVAL;
+    return NULL;
+  }
+  unsigned char *bytes = malloc((size_t)metadata.st_size);
+  if (bytes == NULL) {
+    close(descriptor);
+    return NULL;
+  }
+  size_t offset = 0;
+  while (offset < (size_t)metadata.st_size) {
+    const ssize_t count = read(descriptor, bytes + offset,
+                               (size_t)metadata.st_size - offset);
+    if (count <= 0) {
+      free(bytes);
+      close(descriptor);
+      return NULL;
+    }
+    offset += (size_t)count;
+  }
+  if (close(descriptor) != 0 || memcmp(bytes, "DOLLYENT", 8) != 0) {
+    free(bytes);
+    errno = EINVAL;
+    return NULL;
+  }
+  const unsigned char *cursor = bytes + 8;
+  const unsigned char *end = bytes + metadata.st_size;
+  int valid = 1;
+  const uint32_t version = take_entry_u32(&cursor, end, &valid);
+  const uint32_t count = take_entry_u32(&cursor, end, &valid);
+  if (!valid || version != 1 || count == 0 || count > 256) {
+    free(bytes);
+    errno = EINVAL;
+    return NULL;
+  }
+  char **arguments = calloc((size_t)count + 1, sizeof(*arguments));
+  if (arguments == NULL) {
+    free(bytes);
+    return NULL;
+  }
+  for (uint32_t index = 0; index < count; ++index) {
+    const uint32_t length = take_entry_u32(&cursor, end, &valid);
+    if (!valid || length == 0 || length > 4096 ||
+        (size_t)(end - cursor) < length || memchr(cursor, '\0', length) != NULL) {
+      valid = 0;
+      break;
+    }
+    arguments[index] = malloc((size_t)length + 1);
+    if (arguments[index] == NULL) {
+      valid = 0;
+      break;
+    }
+    memcpy(arguments[index], cursor, length);
+    arguments[index][length] = '\0';
+    cursor += length;
+  }
+  free(bytes);
+  if (!valid || cursor != end || arguments[0] == NULL || arguments[0][0] != '/') {
+    for (uint32_t index = 0; index < count; ++index) free(arguments[index]);
+    free(arguments);
+    errno = EINVAL;
+    return NULL;
+  }
+  *argc_out = (int)count;
+  return arguments;
+}
+
+static void dispose_image_entry(char **arguments, int count) {
+  if (arguments == NULL) return;
+  for (int index = 0; index < count; ++index) free(arguments[index]);
+  free(arguments);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -1638,21 +2005,29 @@ int dolly_shell_run(void) {
   // Pi is Dolly's primary agent-facing interface. It is the first resident
   // terminal program, and a plain Slop shell remains available as a recovery
   // environment after Pi exits. Both are ordinary filesystem executables.
-  char *pi_argv[] = {"pi", "--no-session", NULL};
+  int entry_argc = 0;
+  char **entry_argv = load_image_entry(&entry_argc);
+  if (entry_argv == NULL) {
+    fprintf(stderr, "dolly: invalid image ENTRY: %s\n", strerror(errno));
+    return 126;
+  }
   launching_interactive_shell = 1;
-  int pid = dolly_spawn("/usr/bin/pi", 2, pi_argv,
+  int pid = dolly_spawn(entry_argv[0], entry_argc, entry_argv,
                         STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
   launching_interactive_shell = 0;
   if (pid < 0) {
-    fprintf(stderr, "dolly: could not launch /usr/bin/pi: %s\n", strerror(-pid));
+    fprintf(stderr, "dolly: could not launch %s: %s\n",
+            entry_argv[0], strerror(-pid));
   } else {
     int status = 126;
     int wait_status = dolly_wait(pid, &status);
     if (wait_status != 0) {
-      fprintf(stderr, "dolly: could not wait for /usr/bin/pi: %s\n",
+      fprintf(stderr, "dolly: could not wait for %s: %s\n",
+              entry_argv[0],
               strerror(-wait_status));
     }
   }
+  dispose_image_entry(entry_argv, entry_argc);
 
   fputs("\r\nDolly: Pi exited; entering the recovery Slop shell.\r\n", stdout);
   char *slop_argv[] = {"slop", NULL};

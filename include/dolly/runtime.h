@@ -15,6 +15,13 @@ extern "C" {
 int dolly_spawn(const char *path, int argc, char **argv,
                 int stdin_fd, int stdout_fd, int stderr_fd);
 
+// Synchronous spawn with a runtime-owned deadline. Nested Dolly commands
+// inherit the earliest active deadline. A deadline expiry returns shell status
+// 124 without requiring a JavaScript timer or host process.
+int dolly_spawn_timeout(const char *path, int argc, char **argv,
+                        int stdin_fd, int stdout_fd, int stderr_fd,
+                        double timeout_milliseconds);
+
 // Synchronous version-0 spawn with an explicit child environment. The input
 // array is copied into the command context and never retained or modified.
 int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],

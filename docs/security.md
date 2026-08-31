@@ -74,12 +74,12 @@ literally the only information crossing the Wasm boundary:
 | Display input mailbox | browser to Wasm | Explicit raw key/text/resize/pointer input; interpretation occurs in Wasm |
 | Clipboard paste buffer | browser to Wasm | Bounded text from an explicit local-user paste gesture; Ghostty applies terminal paste rules |
 | Clipboard copy buffer | Wasm to browser | Bounded plain text for Ghostty's active selection; only an explicit local-user copy gesture writes the system clipboard |
-| Voice prompt control | browser to Wasm | A direct local-user click or keyboard gesture starts browser speech recognition; only a bounded transcript is injected as terminal input, and Wasm cannot start capture |
 | Shared RGBA framebuffer | Wasm to browser | Explicit, user-visible pixels; the browser validates bounds and only blits |
 | Bootstrap text callback | Wasm to browser | Source-build progress before the resident renderer exists; ignored for normal terminal output after activation |
 | HTTP dispatch and mailbox | both | Autonomous external communication and the principal confidentiality/integrity boundary |
+| Explicit file download | Wasm to local user | Bounded, user-visible export of one regular WasmFS file; no host path or filesystem handle enters Wasm |
 | Clocks, timezone, entropy, startup environment | browser to Wasm | Inputs, not network egress |
-| Preloaded immutable assets and system snapshot | browser to Wasm | Fixed startup input selected by the application, not by the agent |
+| Seed, exact recipe/source responses, and system snapshot | browser to Wasm | Fixed application inputs or policy-authorized broker responses, not ambient guest authority |
 | Dynamic Wasm loader | WasmFS to browser loader | Code instantiation; it must not turn an agent-controlled path into a network fetch |
 | Exit, abort, memory growth, CPU use | Wasm to browser runtime | Availability effects, not data egress |
 
@@ -89,6 +89,18 @@ exfiltration. VT parsing and glyph rasterization are not privileged: corruption
 there can draw arbitrary pixels or corrupt the disposable sandbox, but the
 browser presenter does not interpret cells, escape sequences, links, image
 URLs, autonomous clipboard requests, or DOM commands.
+
+File download is similarly explicit rather than ambient filesystem access.
+`dolly_download_file` reads one regular file from WasmFS, derives only its base
+name, applies a 64 MiB limit, and calls `env.dolly_download_dispatch` with a
+copied byte range. The worker and page independently check the name, size, and
+buffer type before the page starts an ordinary browser download. The guest
+cannot choose a host path, enumerate host storage, obtain a file handle, or
+read a result back. A compromised userspace can request downloads, so an
+embedding that needs approval, quotas, or disabled export must enforce that in
+this browser provider. This is a local-user output capability, not a network
+capability and not a substitute for HTTP policy. The exact contract is in
+[`download.md`](download.md).
 
 The worker creates the shared `WebAssembly.Memory`, and trusted page JavaScript
 can inspect it. Dolly protects the browser host from agent code; it does not try
@@ -101,7 +113,7 @@ only to same-origin static responses. It ignores cross-origin requests and has
 no Wasm-selected routing or persistence API. Deployments that already serve
 the headers never register it.
 
-The public Pages embedding intentionally runs the no-configuration broker
+The public Pages environment pages intentionally run the no-configuration broker
 mode. A completely compromised Wasm userspace can send readable sandbox data
 and sandbox-supplied credential headers to any HTTP(S) destination that accepts
 the browser's CORS request. Browser ambient credentials and referrers remain
@@ -111,29 +123,21 @@ an exfiltration-safe deployment policy. A stricter embedding can set
 `DOLLY_HTTP_POLICY` before loading `browser.mjs` without changing the Wasm
 runtime or adding another network edge.
 
-The optional voice control is deliberately not a Wasm import or a request
-mailbox. It can be entered only through the trusted page's phone-menu click or
-`Ctrl+Shift+M` handler, which calls the browser speech-recognition API while the
-user gesture is live. Dolly output cannot trigger that handler. The browser
-normalizes and bounds the recognized text, then injects an ordinary
-`/voice-prompt` terminal command; the Pi extension turns it into a user
-message. Raw audio, microphone objects, and permission handles never enter
-Wasm. A browser may implement speech recognition using a remote service, so an
-embedding that requires strictly local speech processing should disable this
-control or supply a trusted on-device recognizer. This remains a user-selected
-host UI action, never agent-selected network authority; autonomous agent
-networking still has exactly one edge, `env.dolly_http_dispatch`.
-
 ## Static system snapshot
 
 The precompiled system image is a deployment artifact, not mutable browser
-state. A headless browser runs `/rebuild` during `npm run build`; only that
+state. A headless browser runs each image's `/rebuild/` route during `npm run build`; only that
 build harness has an HTTP endpoint that can copy the captured bytes back to the
 host `dist` directory. The production server has no corresponding write route.
-Normal `/` boot performs fixed same-origin reads of
-`dist/dolly-system-snapshot.mjs` and `dist/dolly-system.snapshot`, checks the
-build ID, format, byte length, and SHA-256, and only then copies the opaque bytes
-into the checked Wasm restore region.
+Normal `/default/` or `/gamedev/` boot performs fixed same-origin reads of the
+selected image's metadata and snapshot under `dist/`, checks the
+build ID, format, byte length, SHA-256, exact raw recipe-chain identity, entry
+record, and retained-path manifest, and only then copies the opaque bytes into
+the checked Wasm restore region. It does not fetch Dollyfile `SOURCE` inputs. A
+rebuild route gives the broker an exact credential-free GET rule for every
+repository `HOST` input. `/bin/dollyfile` requests each one sequentially,
+verifies its declared SHA-256, publishes it to WasmFS, and only then parses the
+next row.
 
 Those fixed startup fetches are trusted application asset loading, not an
 agent-selected communication capability and not a Wasm import. Compromised
@@ -142,11 +146,12 @@ them to send data. The snapshot has the same trust status as `dolly.wasm` and
 `dolly.data`: compromising the build artifact or trusted page JavaScript is a
 supply-chain/application compromise outside the in-Wasm threat model.
 
-The captured manifest contains the built system directories and base
-configuration but excludes mutable `/workspace`, `/tmp`, model credentials,
-conversation state, and installed session extensions. After restore, all
-mutable filesystem state still lives only in Wasm memory and dies with the
-worker.
+The captured manifest is an exact sorted file list derived from `KEEP` plus
+bounded `KEEP-TREE` expansion over completed filesystem state. It includes runtime data
+needed by Pi, Zig, Git, and the display, but excludes mutable `/workspace`,
+`/tmp`, model credentials, conversation state, and installed session
+extensions. After restore, all mutable filesystem state still lives only in
+Wasm memory and dies with the worker.
 
 ## Ephemeral compromise
 
@@ -216,13 +221,17 @@ properties:
    fallback; `system`, `popen`, `fork`, `exec`, and `socket` are representative
    checks.
 6. The browser owns and enforces HTTP policy even after total Wasm compromise.
-7. New browser imports are reviewed as capabilities, not accepted merely to
+7. The download provider accepts only a bounded copied buffer and sanitized
+   base name; it never accepts a host path or filesystem handle. Its local
+   export policy remains enforceable after total Wasm compromise.
+8. New browser imports are reviewed as capabilities, not accepted merely to
    make a port compile.
-8. Frame index, dimensions, stride, and byte ranges are checked before every
+9. Frame index, dimensions, stride, and byte ranges are checked before every
    blit; input records remain fixed-size and bounded.
-9. The system snapshot remains a fixed, digest-verified build artifact; normal
+10. The system snapshot remains a fixed, digest-verified build artifact; normal
    serving has no endpoint that can persist Wasm-selected bytes to the host.
 
 Under those assumptions, arbitrary corruption inside Dolly changes ephemeral
 sandbox state but cannot acquire new authority. The browser capability boundary,
-especially its single HTTP egress edge, remains the security perimeter.
+especially its single HTTP network-egress edge and explicit local-output
+providers, remains the security perimeter.

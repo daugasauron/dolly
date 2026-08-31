@@ -78,12 +78,15 @@ POSIX parameter operators such as `${x:-default}`. Those are added only when a
 useful source build demonstrates a need and the semantics can remain explicit.
 Slop is therefore not advertised as POSIX `sh` or Bash.
 
-Expansion currently occurs while a complete submitted line or script is
-tokenized. Consequently, a variable or `$?` changed by an earlier command in
-the same parsed text is not re-expanded for a later command. Make invokes one
-recipe command at a time, so the accepted build path does not depend on that
-ordering. It remains an explicit compatibility gap rather than hidden POSIX
-behavior.
+Ordinary variable expansion currently occurs while a complete submitted line
+or script is tokenized. Consequently, a variable changed by an earlier command
+in the same parsed text is not re-expanded for a later command. `$?` is the
+deliberate exception: Slop marks it during tokenization and expands it when
+each simple command begins, so `false; test $? -eq 1` observes the preceding
+status. `!` is parsed as pipeline status inversion only at a command boundary;
+inside `/bin/[ ! -d path ]` it remains an argument to the separately compiled
+test command. Broader deferred expansion remains an explicit compatibility gap
+rather than hidden POSIX behavior.
 
 ## Synchronous semantics
 
@@ -106,14 +109,22 @@ Plain `Ctrl+C` instead targets the currently running foreground command through
 Dolly's cooperative `SIGINT` path and returns status 130, leaving Slop and the
 shared in-memory filesystem alive.
 
+Language runtimes can also use `dolly_spawn_timeout` to place an inherited
+deadline around a synchronous Slop invocation. Pi's shell tool always supplies
+an empty finite stdin spool and a 60-second deadline: commands that read stdin
+see EOF instead of taking over Pi's terminal, and instrumented C/C++ or
+QuickJS loops return status 124. Interactive `!` commands deliberately retain
+the terminal. These checks are cooperative; a foreign module without Dolly
+safepoints still requires whole-worker replacement for a hard stop.
+
 ## GNU Make
 
 GNU Make 4.4.1 is fetched from its checksum-pinned official release, prepared
-as an auditable source manifest, packaged into `/usr/src/make`, and compiled by
-`/etc/dolly/startup.slop` into `/usr/bin/make` during browser bootstrap. The
-startup script uses `set -ex`, so every top-level initialization/build command
-is visible and any failure stops bootstrap. It then invokes the packaged
-`/usr/src/dolly/startup.mk` graph for zlib and the other non-seed tools. The port uses Make's
+as an auditable source manifest, fetched by a Dollyfile `SOURCE` row, extracted
+by the source-built `/bin/tar`, and compiled into `/usr/bin/make` inside the
+browser. The C Dollyfile engine prints each `RUN`/`CHECK` row and stops at the
+first failure. Later rows invoke `/usr/src/dolly/startup.mk` for zlib and the
+other non-seed tools. The port uses Make's
 remote-job adapter as a narrow synchronous execution seam:
 
 - Make's default `SHELL` is `/bin/slop`;

@@ -23,6 +23,7 @@ build_digest="$({
     "${project_dir}/config/source-pins.sh" \
     "${project_dir}/patches/zig-0.16.0-dolly-native.patch" \
     "${project_dir}/scripts/build-native-zig.sh" \
+    "${project_dir}/abi/dolly-0.wat" \
     "${project_dir}/src/zig/native-main.zig" \
     "${project_dir}/src/zig/native-build-options.zig" \
     "${project_dir}/bin/dolly-cc"
@@ -36,7 +37,7 @@ if [[ -f "${object}" && -f "${module}" && -f "${stamp}" &&
   exit 0
 fi
 
-rm -f -- "${stamp}"
+rm -f -- "${stamp}" "${module}"
 "${host_dir}/zig" build-obj \
   --zig-lib-dir "${zig_dir}/lib" \
   -target wasm64-emscripten \

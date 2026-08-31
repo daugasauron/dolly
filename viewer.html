@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Dollyfile · Dolly</title>
+    <style>
+      @font-face {
+        font-family: "Dolly IosevkaTerm SemiBold";
+        src: url("{{DOLLY_BASE}}dist/IosevkaTerm-SemiBold.woff2") format("woff2");
+        font-weight: 600;
+        font-display: swap;
+      }
+      :root { color: #e8e3d7; background: #262626; font: 600 15px/1.5 "Dolly IosevkaTerm SemiBold", monospace; }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      main { width: min(92rem, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 5rem; }
+      header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+      h1 { margin: 0; color: #f2d45c; font-size: clamp(1.5rem, 5vw, 2.5rem); letter-spacing: -.04em; }
+      a { color: #f2d45c; text-decoration: underline; text-underline-offset: .2em; }
+      pre { margin: 0; overflow-x: auto; padding: 1rem 0; border: 1px solid #55514b; background: #202020; }
+      code { display: block; min-width: max-content; }
+      .line { display: block; min-height: 1.5em; padding: 0 1rem 0 .5rem; }
+      .line::before { content: attr(data-line); display: inline-block; width: 3.5rem; margin-right: 1rem; color: #77736c; text-align: right; user-select: none; }
+      .directive { color: #f2d45c; }
+      .comment { color: #8d887f; }
+      #error { color: #f2d45c; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><h1 id="title">Dollyfile</h1><a href="{{DOLLY_BASE}}">← images</a></header>
+      <p id="error" hidden></p>
+      <pre aria-label="Dollyfile source"><code id="source"></code></pre>
+    </main>
+    <script>globalThis.DOLLY_VIEW = Object.freeze({ image: "{{DOLLY_IMAGE}}", base: "{{DOLLY_BASE}}" });</script>
+    <script type="module" src="{{DOLLY_BASE}}src/dollyfile-viewer.mjs"></script>
+  </body>
+</html>

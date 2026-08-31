@@ -14,53 +14,36 @@ const string = (description) => ({ type: "string", description });
 
 export default function dollyTools(pi) {
   pi.on("session_start", async (_event, context) => {
+    if (context.mode === "tui") {
+      context.ui.setHeader((_tui, theme) => ({
+        render() {
+          return [
+            theme.bold(theme.fg("accent", "pi / DOLLY")),
+            theme.fg("muted", "Ctrl+C interrupt · / commands · ! Slop"),
+            theme.fg("muted", "Ctrl+Shift+C/V copy/paste · Ctrl+/- zoom · F11 fullscreen"),
+          ];
+        },
+        invalidate() {},
+      }));
+    }
     context.ui.notify(
-      "Dolly runs entirely in a browser Wasm sandbox. /demo opens the framebuffer; " +
-      "/voice explains speech input; Ctrl+Shift+C/V copy/paste; Ctrl+/- zoom; F11 fullscreen; Ctrl+C cancels.",
+      "Dolly runs entirely in a browser Wasm sandbox. ! and Pi's shell tool execute Slop; " +
+      "Bash is not installed. Ctrl+C cancels.",
       "info",
     );
   });
 
-  pi.registerCommand("demo", {
-    description: "Run Dolly's source-built framebuffer demo",
-    handler: async (_args, context) => {
-      const result = Dolly.shell("graphics-demo");
-      if (result.status !== 0 && result.status !== 130) {
-        context.ui.notify(`graphics-demo exited with status ${result.status}`, "warning");
-      }
-    },
-  });
-
-  pi.registerCommand("voice", {
-    description: "Explain Dolly's explicit browser microphone bridge",
-    handler: async (_args, context) => {
-      context.ui.notify(
-        "Use the phone / menu and tap Voice, or press Ctrl+Shift+M. The browser asks for microphone permission, then sends only the recognized transcript to Pi.",
-        "info",
-      );
-    },
-  });
-
-  // The trusted browser voice control injects this command after a direct user
-  // gesture. Speech recognition never becomes a capability callable by Wasm;
-  // the extension only turns the bounded transcript back into an ordinary Pi
-  // user message.
-  pi.registerCommand("voice-prompt", {
-    description: "Submit a transcript from Dolly's browser voice control",
-    handler: async (args, context) => {
-      const prompt = args.trim();
-      if (!prompt) {
-        context.ui.notify("No speech was recognized.", "warning");
-        return;
-      }
-      if (!context.isIdle()) {
-        pi.sendUserMessage(prompt, { deliverAs: "followUp" });
-        context.ui.notify("Voice prompt queued.", "info");
-        return;
-      }
-      pi.sendUserMessage(prompt);
-    },
-  });
+  if (fs.existsSync("/usr/bin/graphics-demo")) {
+    pi.registerCommand("demo", {
+      description: "Run Dolly's source-built framebuffer demo",
+      handler: async (_args, context) => {
+        const result = Dolly.shell("graphics-demo");
+        if (result.status !== 0 && result.status !== 130) {
+          context.ui.notify(`graphics-demo exited with status ${result.status}`, "warning");
+        }
+      },
+    });
+  }
 
   pi.registerTool({
     name: "bash",
@@ -71,7 +54,9 @@ export default function dollyTools(pi) {
       const previous = Dolly.cwd();
       try {
         Dolly.chdir(context.cwd);
-        const result = Dolly.shell(parameters.command);
+        // Agent tool calls are noninteractive. Supplying a finite empty stdin
+        // prevents accidental readers such as `cat` from taking over Pi's TTY.
+        const result = Dolly.shell(parameters.command, "", 60_000);
         const output = `${result.stdout}${result.stderr}` || `(status ${result.status})`;
         return { ...text(output), details: { status: result.status } };
       } finally {
@@ -134,6 +119,22 @@ export default function dollyTools(pi) {
       Dolly.writeFile(target,
         `${contents.slice(0, first)}${parameters.new_text}${contents.slice(first + parameters.old_text.length)}`);
       return text(`Edited ${target}`);
+    },
+  });
+
+  pi.registerTool({
+    name: "download",
+    label: "download",
+    description:
+      "Download one file from Dolly's in-memory filesystem through the browser. " +
+      "Use only when the user asks to save or download a file to their device.",
+    parameters: object({
+      path: string("File path, relative to the current workspace or absolute"),
+    }, ["path"]),
+    async execute(_id, parameters, _signal, _update, context) {
+      const target = absolute(parameters.path, context.cwd);
+      Dolly.download(target);
+      return text(`Started browser download: ${path.basename(target)}`);
     },
   });
 }

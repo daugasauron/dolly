@@ -26,6 +26,9 @@
   "network": [
     "env.dolly_http_dispatch"
   ],
+  "download": [
+    "env.dolly_download_dispatch"
+  ],
   "clock": [
     "env.__call_sighandler",
     "env._gmtime_js",

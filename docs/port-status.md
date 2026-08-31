@@ -10,14 +10,15 @@ facilities become substrate work, not JavaScript or host-process escape hatches.
 
 | Program | Source and installation | Boundary exercised |
 | --- | --- | --- |
-| `grep`, `sed`, `head`, `wc` | [Pinned sbase](../config/source-pins.sh); compiled in Dolly at boot | Multiple unchanged upstream C files, regex, UTF-8 helpers, files, stdin, flags, pipelines, and repeatable static state |
+| `ls`, `stat`, `file`, `test`, `[`, `mv`, `cp`, `download` | Small Dolly C sources; each compiled separately inside Dolly and found through `/bin` on `PATH` | Agent-observed file inspection/mutation and explicit local export; `cp` handles files, symlinks, multiple operands, and recursive trees without introducing permission semantics |
+| `grep`, `sed`, `head`, `wc`, `printf` | [Pinned sbase](../config/source-pins.sh); compiled in Dolly at boot | Multiple unchanged upstream C files, regex, UTF-8 helpers, files, stdin, flags, pipelines, and repeatable static state |
 | `awk` | [Pinned One True Awk and Bison](../config/source-pins.sh); parser generated reproducibly, then compiled in Dolly at boot | A generated-source build: upstream `maketab` is compiled as a private non-PATH command and executed to create `proctab.c` in WasmFS before the final command is linked; field separators, programs, files, pipes, CSV, and explicit subprocess denial are tested |
 | `curl` / `libcurl.a` | [Pinned official curl headers](../config/source-pins.sh); Dolly's compatibility implementation and curl client are compiled in Dolly at boot | Normal `#include <curl/curl.h>` and `-lcurl`; methods, headers, bodies, callbacks, response metadata, and a synchronous multi API over one typed Fetch broker |
 | `git` | [Pinned Git and zlib](../config/source-pins.sh); GNU Make compiles 427 upstream library/builtin sources in Dolly with three Dolly lifecycle cleanup adaptations | Real init/config/add/commit/log in shared WasmFS; deterministic archives and `-l` linking; upstream HTTP/HTTPS helpers linked with `-lcurl`; protocol-v2 discovery through the single browser broker |
 | `make` | Checksum-pinned upstream GNU Make 4.4.1; configured and patched as an exact source manifest, then compiled in Dolly at boot | Real dependency evaluation, automatic variables, `$(shell ...)`, separate compilation and linking, up-to-date checks, and accepted-but-serial `-jN`; every recipe enters `/bin/slop -c` |
 | `qjs` | [Pinned QuickJS-ng](../config/source-pins.sh); unchanged engine sources plus `src/runtimes/quickjs-main.c`, all compiled in Dolly at boot | A large current C runtime, exact ECMAScript math, allocator and clock surface, source files, stdin, arguments, exception status, and repeated invocation |
 | `pi` | Pinned upstream Pi packages are bundled with asserted QuickJS compatibility lowerings and Pi's upstream standalone OAuth loader table; `/usr/bin/pi` is compiled in Dolly against source-built QuickJS and Janis | Full upstream TUI through in-Wasm Ghostty, pasted OpenRouter credentials persisted in WasmFS with model discovery, completed Codex PKCE/manual-code exchange with sandbox credential persistence and model discovery, real/fixture streaming providers through the sole HTTP broker, a normal extension overriding Slop/WasmFS tools, and dependency-free extension installation/reload; in-Dolly TypeScript source build remains deferred |
-| `lua` | Checksum-pinned upstream Lua 5.5.1, currently compiled externally as a bootstrap side module | Unchanged language CLI and REPL, libc breadth, setjmp, command-local `exit`, terminal EOF/interrupts, and explicit subprocess denial |
+| `graphics-demo` | Small Dolly C source retained with its Makefile in the gamedev image and compiled inside Dolly | Direct exclusive framebuffer lease, double-buffered RGBA rendering, semantic input, finite automated frame count, and terminal restoration after return or Ctrl-C; retained source is a target-side starter for agent-created games |
 | `cc`, `c++`, `ld`, `ar` | Current pinned Clang/LLD linked into the trusted runtime; separate source-compiled command frontends | Source/object/archive compilation, C17/C++23, multi-object and `-L`/`-l` links, deterministic GNU archives, exact import validation, ABI stamping, and direct WasmFS publication |
 
 QuickJS-ng's `quickjs-libc.c` is intentionally excluded. It exposes native
@@ -55,7 +56,7 @@ acceptable.
 
 Vim's official [terminal documentation](https://github.com/vim/vim/blob/master/runtime/doc/term.txt)
 requires raw character input, terminal capability strings, and window size.
-Dolly now provides the raw/canonical tty substrate used by Pi and Lua. Vim has
+Dolly now provides the raw/canonical tty substrate used by Pi. Vim has
 not yet been attempted against it; the next step is an unchanged small Unix
 build rather than an `ex`-only or screen-disabled substitute.
 
@@ -73,8 +74,8 @@ separate nested machine would break the shared pointer and filesystem model.
 
 Acceptance gate: upstream or maintainable toolchain support for CPython on
 `wasm64-unknown-emscripten`, followed by a reproducible two-machine build graph
-using Dolly's working Make/Slop path and standard-library filesystem tests. Lua
-and QuickJS already provide smaller runtime probes while that work matures.
+using Dolly's working Make/Slop path and standard-library filesystem tests.
+QuickJS already provides a smaller runtime probe while that work matures.
 
 ### Zig and `libghostty-vt`: compiler bootstrap
 

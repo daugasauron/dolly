@@ -7,7 +7,11 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, resolve, sep } from "node:path";
 
+import { discoverImageDefinitions, inspectStaticSources } from "./image-definitions.mjs";
+
 const projectDir = resolve(import.meta.dirname, "..");
+const imageDefinitions = await discoverImageDefinitions(projectDir);
+const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 const distDirectory = resolve(projectDir, "dist");
 const chromeBinary = process.argv[2];
 if (!chromeBinary) throw new Error("usage: browser-harness.mjs CHROME_BINARY");
@@ -15,12 +19,46 @@ const browserHostname = process.env.DOLLY_BROWSER_HOSTNAME ?? "127.0.0.1";
 if (browserHostname !== "127.0.0.1" && browserHostname !== "localhost") {
   throw new Error("DOLLY_BROWSER_HOSTNAME must be 127.0.0.1 or localhost");
 }
+const browserBase = process.env.DOLLY_BROWSER_BASE ?? "/";
+if (!browserBase.startsWith("/") || !browserBase.endsWith("/") ||
+    browserBase.includes("//") || browserBase.split("/").some((part) => part === "." || part === "..")) {
+  throw new Error("DOLLY_BROWSER_BASE must be an absolute path ending in /");
+}
+const browserBasePrefix = browserBase === "/" ? "" : browserBase.slice(0, -1);
 const piDevelopmentMode = process.env.DOLLY_BROWSER_MODE === "pi";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
+const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
+const realOpenRouterMode = piOpenRouterMode || piAuditMode;
 const missingSnapshotMode = process.env.DOLLY_BROWSER_MODE === "snapshot-missing";
 const snapshotExportMode = process.env.DOLLY_BROWSER_MODE === "snapshot-export";
 const pagesIsolationMode = process.env.DOLLY_BROWSER_MODE === "pages-isolation";
 const pagesLiveMode = process.env.DOLLY_BROWSER_MODE === "pages-live";
+const menuMode = process.env.DOLLY_BROWSER_MODE === "menu";
+const routeSmokeMode = process.env.DOLLY_BROWSER_MODE === "route-smoke";
+const piAuditSpec = piAuditMode
+  ? JSON.parse(await readFile(resolve(
+      projectDir,
+      process.env.DOLLY_PI_AUDIT_FILE ?? "scripts/pi-agent-audit-prompts.json",
+    ), "utf8"))
+  : null;
+if (piAuditMode &&
+    (!Array.isArray(piAuditSpec?.prompts) || piAuditSpec.prompts.length === 0 ||
+     piAuditSpec.prompts.some((prompt) => typeof prompt !== "string" || prompt.length === 0) ||
+     !Array.isArray(piAuditSpec?.probes) ||
+     piAuditSpec.probes.some((probe) =>
+       typeof probe === "string"
+         ? probe.length === 0
+         : probe === null || typeof probe !== "object" ||
+           typeof probe.command !== "string" || probe.command.length === 0 ||
+           (probe.status !== undefined && !Number.isInteger(probe.status))))) {
+  throw new Error(
+    "Pi audit input must contain prompts and string or { command, status } probes",
+  );
+}
+const selectedImage = process.env.DOLLY_IMAGE ?? "default";
+if (!new Set(imageDefinitions.map((definition) => definition.image)).has(selectedImage)) {
+  throw new Error("DOLLY_IMAGE must name a source-visible Dollyfile image");
+}
 const snapshotSizeLimit = 512 * 1024 * 1024;
 const codexFixtureAuthorizationCode = "dolly-browser-authorization-code";
 const codexFixtureAccountId = "acct_dolly_browser_fixture";
@@ -36,6 +74,7 @@ const codexFixtureAccessToken = [
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
+  [".md", "text/markdown; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"],
   [".wasm", "application/wasm"],
@@ -46,13 +85,30 @@ const mimeTypes = new Map([
 const publicSources = new Set([
   "coi-serviceworker.js",
   "index.html",
+  ...imageDefinitions.map((definition) => definition.filename),
   "src/browser.mjs",
+  "src/dollyfile-view.mjs",
+  "src/dollyfile-viewer.mjs",
   "src/http-policy.mjs",
   "src/runtime-worker.mjs",
+]);
+const sourceArtifacts = new Map(staticSources.map((source) => [
+  source.path.slice(1),
+  { relative: `dist/${source.path.slice(1)}`, source },
+]));
+const routeDocuments = new Map([
+  ...imageDefinitions.flatMap(({ image }) => [
+    [`/${image}`, `build/routes/${image}/index.html`],
+    [`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`],
+    [`/view/${image}`, `build/routes/view/${image}/index.html`],
+  ]),
+  ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
+  ["/rebuild", "build/routes/rebuild/index.html"],
 ]);
 let gitDiscoveryRequest = null;
 let libcurlPostRequest = null;
 let snapshotUpload = null;
+const staticRequestPaths = new Set();
 const piModelRequests = [];
 const piFixtureStream = { request: 0, phase: "idle" };
 
@@ -283,29 +339,51 @@ function startServer() {
         response.writeHead(204, isolatedHeaders).end();
         return;
       }
+      const staticPath = browserBasePrefix === ""
+        ? requestUrl.pathname
+        : requestUrl.pathname === browserBasePrefix
+          ? "/"
+          : requestUrl.pathname.startsWith(`${browserBasePrefix}/`)
+            ? requestUrl.pathname.slice(browserBasePrefix.length)
+            : null;
       if (missingSnapshotMode &&
-          (requestUrl.pathname === "/dist/dolly-system.snapshot" ||
-           requestUrl.pathname === "/dist/dolly-system-snapshot.mjs")) {
+          (staticPath === "/dist/dolly-default-system.snapshot" ||
+           staticPath === "/dist/dolly-default-system-snapshot.mjs")) {
+        response.writeHead(404, isolatedHeaders).end("not found");
+        return;
+      }
+      if (staticPath === null) {
         response.writeHead(404, isolatedHeaders).end("not found");
         return;
       }
 
-      const route = decodeURIComponent(requestUrl.pathname).replace(/\/+$/, "") || "/";
-      const relative = route === "/" || route === "/rebuild"
+      const route = decodeURIComponent(staticPath).replace(/\/+$/, "") || "/";
+      const requested = route.slice(1);
+      const relative = route === "/"
         ? "index.html"
-        : route.slice(1);
+        : routeDocuments.get(route) ?? sourceArtifacts.get(requested)?.relative ?? requested;
       const path = resolve(projectDir, relative);
       const distAsset = relative.startsWith("dist/") &&
         path.startsWith(`${distDirectory}${sep}`);
       if ((request.method !== "GET" && request.method !== "HEAD") ||
-          (!publicSources.has(relative) && !distAsset)) {
+          (!publicSources.has(relative) && !routeDocuments.has(route) &&
+           !sourceArtifacts.has(requested) &&
+           !relative.startsWith("docs/") && !distAsset)) {
         response.writeHead(404, isolatedHeaders).end("not found");
         return;
       }
       const body = await readFile(path);
+      staticRequestPaths.add(requestUrl.pathname);
+      const source = sourceArtifacts.get(requested)?.source;
       response.writeHead(200, {
         ...isolatedHeaders,
-        "content-type": mimeTypes.get(extname(path)) ?? "application/octet-stream",
+        "content-type": source?.media === "txt" || imageDefinitions.some(
+          (definition) => definition.filename === relative,
+        ) ? "text/plain; charset=utf-8" :
+          mimeTypes.get(extname(path)) ?? "application/octet-stream",
+        ...(source?.media === "bin"
+          ? { "content-disposition": `attachment; filename="${source.path.split("/").at(-1)}"` }
+          : {}),
       });
       response.end(request.method === "HEAD" ? undefined : body);
     } catch {
@@ -404,6 +482,37 @@ async function waitForHttpQuiet(send, minimumRequests, description, attempts = 1
     })`);
     if (!state.active && state.requests >= minimumRequests &&
         state.completed === state.requests && state.completed === previousCompleted) {
+      quietPolls += 1;
+      if (quietPolls >= 20) return state;
+    } else {
+      quietPolls = 0;
+    }
+    previousCompleted = state.completed;
+    await delay(100);
+  }
+  throw new Error(`timed out waiting for ${description}: ${JSON.stringify(state)}`);
+}
+
+async function waitForPiTurnQuiet(
+  send,
+  minimumRequests,
+  piPid,
+  description,
+  attempts = 3600,
+) {
+  let previousCompleted = -1;
+  let quietPolls = 0;
+  let state;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    state = await evaluate(send, `({
+      active: window.__dolly?.httpActive ?? false,
+      requests: window.__dolly?.httpRequestCount ?? 0,
+      completed: window.__dolly?.httpCompletedRequestCount ?? 0,
+      foreground: window.__dolly?.foregroundPid ?? 0,
+    })`);
+    if (!state.active && state.requests >= minimumRequests &&
+        state.completed === state.requests && state.completed === previousCompleted &&
+        state.foreground === piPid) {
       quietPolls += 1;
       if (quietPolls >= 20) return state;
     } else {
@@ -514,8 +623,16 @@ async function enterRecoveryShell(send) {
   });
   return waitForValue(
     send,
-    "window.__dolly?.foregroundPid ?? 0",
-    (value) => value > 0 && value !== piPid,
+    `(() => {
+      const transport = window.__dolly?.transport;
+      if (!transport) return 0;
+      const pid = transport.foregroundPid();
+      return pid > 0 && pid !== ${piPid} &&
+        !transport.foregroundInterruptible() && transport.inputIdle()
+        ? pid
+        : 0;
+    })()`,
+    (value) => value > 0,
     "recovery Slop foreground process",
     600,
   );
@@ -555,6 +672,33 @@ async function clearTerminalSelection(send) {
     transport.pushPointer(x, y, 0, {});
   })()`);
   await delay(50);
+}
+
+async function measureShellBatch(send, label, count = 8) {
+  const frameBefore = await evaluate(
+    send,
+    "Number(document.documentElement.dataset.frameSequence ?? 0)",
+  );
+  const started = Date.now();
+  for (let index = 0; index < count; index++) {
+    const status = await evaluate(
+      send,
+      `window.__dolly.submit(${JSON.stringify(
+        `pwd > /tmp/dolly-${label}-${index}.txt`,
+      )})`,
+    );
+    assert.equal(status, 0);
+  }
+  await delay(100);
+  const frameAfter = await evaluate(
+    send,
+    "Number(document.documentElement.dataset.frameSequence ?? 0)",
+  );
+  return {
+    milliseconds: Date.now() - started,
+    frames: (frameAfter - frameBefore) >>> 0,
+    commands: count,
+  };
 }
 
 async function terminalPaletteEvidence(send) {
@@ -638,11 +782,15 @@ if (pagesLiveMode &&
      !/^https:\/\/[a-z0-9-]+\.github\.io\/[a-z0-9._/-]*$/i.test(externalPage))) {
   throw new Error("pages-live mode requires an HTTPS github.io DOLLY_BROWSER_PAGE");
 }
-const rebuildPage = `http://${browserHostname}:${address.port}/rebuild`;
-const snapshotPage = `http://${browserHostname}:${address.port}/?autorun=shell`;
-const interactivePage = externalPage ?? `http://${browserHostname}:${address.port}/`;
-let openRouterSecret = piOpenRouterMode ? await readSecretLine() : "";
-if (piOpenRouterMode && !/^sk-or-v1-[A-Za-z0-9_-]+$/.test(openRouterSecret)) {
+const localOrigin = `http://${browserHostname}:${address.port}`;
+const rebuildPage = `${localOrigin}${browserBase}${selectedImage}/rebuild/`;
+const snapshotPage = `${localOrigin}${browserBase}${selectedImage}/?autorun=shell`;
+const menuPage = `${localOrigin}${browserBase}`;
+const interactivePage = externalPage
+  ? new URL(`${selectedImage}/`, externalPage.endsWith("/") ? externalPage : `${externalPage}/`).href
+  : `${localOrigin}${browserBase}${selectedImage}/`;
+let openRouterSecret = realOpenRouterMode ? await readSecretLine() : "";
+if (realOpenRouterMode && !/^sk-or-v1-[A-Za-z0-9_-]+$/.test(openRouterSecret)) {
   throw new Error("Pi OpenRouter mode requires one API key line on standard input");
 }
 const fixtureCredential = "Bearer sandbox-placeholder";
@@ -667,7 +815,7 @@ const fixturePolicy = {
     },
   ],
 };
-if (piOpenRouterMode) {
+if (realOpenRouterMode) {
   fixturePolicy.rules.unshift({
     origin: "https://openrouter.ai",
     path: "/api/v1/chat/completions",
@@ -682,7 +830,8 @@ const requestedProfile = process.env.DOLLY_BROWSER_PROFILE;
 let ephemeralProfileRoot = null;
 let persistentProfile = requestedProfile;
 let userDataDir;
-if (piOpenRouterMode) {
+const browserDownloadDirectory = await mkdtemp(`${tmpdir()}/dolly-browser-downloads-`);
+if (realOpenRouterMode) {
   // The real credential is intentionally copied into Dolly's ephemeral
   // in-memory filesystem. A fresh browser profile avoids unrelated persistence
   // outside that sandbox while exercising the same setup applications use.
@@ -723,6 +872,11 @@ try {
   });
   await debuggerClient.send("Runtime.enable");
   await debuggerClient.send("Page.enable");
+  await debuggerClient.send("Browser.setDownloadBehavior", {
+    behavior: "allow",
+    downloadPath: browserDownloadDirectory,
+    eventsEnabled: true,
+  });
   await debuggerClient.send("Browser.grantPermissions", {
     origin: new URL(interactivePage).origin,
     permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
@@ -732,6 +886,14 @@ try {
       ${pagesLiveMode
         ? ""
         : `globalThis.DOLLY_HTTP_POLICY = ${JSON.stringify(fixturePolicy)};`}
+      globalThis.__dollyIncompleteBootstrapPaints = 0;
+      new MutationObserver(() => {
+        const log = document.querySelector("#bootstrap-log");
+        if (log && !log.hidden && log.textContent !== "" &&
+            !log.textContent.endsWith("\\n")) {
+          globalThis.__dollyIncompleteBootstrapPaints += 1;
+        }
+      }).observe(document, { childList: true, characterData: true, subtree: true });
       const nativeFetch = globalThis.fetch.bind(globalThis);
       globalThis.__dollyCodexTokenRequests = [];
       globalThis.fetch = async (input, init) => {
@@ -757,28 +919,187 @@ try {
         }
         return nativeFetch(input, init);
       };
-      class DollyTestSpeechRecognition {
-        start() {
-          this.onstart?.();
-          queueMicrotask(() => {
-            this.onresult?.({ results: [{ 0: { transcript: "DOLLY VOICE BRIDGE" } }] });
-            this.onend?.();
-          });
-        }
-      }
-      globalThis.SpeechRecognition = DollyTestSpeechRecognition;
     })();`,
   });
   await debuggerClient.send("Page.navigate", {
-    url: snapshotExportMode
+    url: menuMode
+      ? menuPage
+      : snapshotExportMode
       ? rebuildPage
-      : piDevelopmentMode || piOpenRouterMode || missingSnapshotMode
-        || pagesIsolationMode || pagesLiveMode
+      : piDevelopmentMode || realOpenRouterMode || missingSnapshotMode
+        || pagesIsolationMode || pagesLiveMode || routeSmokeMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (routeSmokeMode) {
+      const routeState = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "prefixed prebuilt route",
+        1200,
+      );
+      assert.equal(routeState, "ready");
+      for (const required of [
+        `${browserBasePrefix}/${selectedImage}/`,
+        `${browserBasePrefix}/Dollyfile${selectedImage === "default" ? "" : `-${selectedImage}`}`,
+        `${browserBasePrefix}/dist/dolly-images.mjs`,
+        `${browserBasePrefix}/dist/dolly-${selectedImage}-system.snapshot`,
+      ]) {
+        assert.ok(staticRequestPaths.has(required), `prefixed route did not request ${required}`);
+      }
+      assert.equal([...staticRequestPaths].some((path) => path.includes("/static/")), false,
+        "prebuilt route fetched rebuild-only source inputs");
+      await debuggerClient.send("Page.navigate", {
+        url: `${localOrigin}${browserBase}view/${selectedImage}/`,
+      });
+      await waitForValue(
+        debuggerClient.send,
+        "document.querySelectorAll('#source .line').length",
+        (value) => value > 2,
+        "Dollyfile source viewer",
+        200,
+      );
+      const viewer = await evaluate(debuggerClient.send, `(() => ({
+        title: document.querySelector('#title')?.textContent,
+        source: document.querySelector('#source')?.textContent,
+        links: Array.from(document.querySelectorAll('#source a'), (anchor) => ({
+          href: new URL(anchor.href).pathname,
+          download: anchor.hasAttribute('download'),
+        })),
+        linkColor: getComputedStyle(document.querySelector('#source a')).color,
+      }))()`);
+      assert.equal(viewer.title, `${selectedImage === "default" ? "Dollyfile" : `Dollyfile-${selectedImage}`} · ${selectedImage}`);
+      assert.match(viewer.source, /DOLLY 1/);
+      assert.match(viewer.source, new RegExp(`IMAGE ${selectedImage}`));
+      assert.ok(viewer.links.some((link) =>
+        link.href.startsWith(`${browserBasePrefix}/static/`) ||
+        link.href.startsWith(`${browserBasePrefix}/view/`)));
+      assert.equal(viewer.linkColor, "rgb(242, 212, 92)");
+      console.log(
+        `browser: ${browserBase}${selectedImage}/ restored prebuilt image without SOURCE downloads; viewer passed`,
+      );
+      break browserProof;
+    }
+    if (menuMode) {
+      await waitForValue(
+        debuggerClient.send,
+        "document.readyState",
+        (value) => value === "complete",
+        "Dolly image menu",
+        200,
+      );
+      const menuEvidence = await evaluate(debuggerClient.send, `(() => ({
+        title: document.querySelector('h1')?.textContent,
+        background: getComputedStyle(document.documentElement).backgroundColor,
+        font: getComputedStyle(document.documentElement).fontFamily,
+        links: Array.from(document.querySelectorAll('.routes a'), (link) =>
+          new URL(link.href).pathname),
+        docs: Array.from(document.querySelectorAll('.docs a'), (link) =>
+          new URL(link.href).pathname),
+        text: document.body.textContent,
+      }))()`);
+      assert.equal(menuEvidence.title, "DOLLY");
+      assert.equal(menuEvidence.background, "rgb(38, 38, 38)");
+      assert.match(menuEvidence.font, /Dolly IosevkaTerm SemiBold/);
+      assert.deepEqual(menuEvidence.links, [
+        `${browserBasePrefix}/default/`,
+        `${browserBasePrefix}/default/rebuild/`,
+        `${browserBasePrefix}/view/default/`,
+        `${browserBasePrefix}/gamedev/`,
+        `${browserBasePrefix}/gamedev/rebuild/`,
+        `${browserBasePrefix}/view/gamedev/`,
+      ]);
+      assert.ok(menuEvidence.docs.includes(`${browserBasePrefix}/Dollyfile`));
+      assert.ok(menuEvidence.docs.includes(`${browserBasePrefix}/Dollyfile-gamedev`));
+      assert.doesNotMatch(menuEvidence.text, /voice input/i);
+
+      const customRecipe = `DOLLY 1
+IMAGE browser-custom
+EXTENDS default
+
+RUN echo 'int main(void) { return 0; }' > /tmp/menu-tool.c
+RUN cc /tmp/menu-tool.c -o /usr/bin/menu-tool
+CHECK menu-tool
+KEEP /usr/bin/menu-tool
+ENTRY /usr/bin/pi --no-session
+`;
+      await evaluate(debuggerClient.send, `(() => {
+        const input = document.querySelector('#dollyfile-upload');
+        const transfer = new DataTransfer();
+        transfer.items.add(new File(
+          [${JSON.stringify(customRecipe)}],
+          'Dollyfile-browser-custom',
+          { type: 'text/plain' },
+        ));
+        input.files = transfer.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      })()`);
+      await waitForValue(
+        debuggerClient.send,
+        "document.querySelector('#dollyfile-run').disabled",
+        (value) => value === false,
+        "custom Dollyfile validation",
+        200,
+      );
+      assert.match(
+        await evaluate(
+          debuggerClient.send,
+          "document.querySelector('#upload-status').textContent",
+        ),
+        /^browser-custom: ready for in-sandbox validation/,
+      );
+      await evaluate(
+        debuggerClient.send,
+        "document.querySelector('#dollyfile-run').click()",
+      );
+      await waitForValue(
+        debuggerClient.send,
+        "location.pathname",
+        (value) => value === `${browserBasePrefix}/custom/rebuild/`,
+        "custom rebuild navigation",
+        200,
+      );
+      const customState = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "uploaded Dollyfile rebuild",
+      );
+      assert.equal(customState, "ready");
+      assert.equal(
+        await evaluate(debuggerClient.send, "document.documentElement.dataset.image"),
+        "browser-custom",
+      );
+      assert.equal(
+        await evaluate(debuggerClient.send, "document.documentElement.dataset.bootMode"),
+        "rebuild",
+      );
+      assert.ok(Number(await evaluate(
+        debuggerClient.send,
+        "document.documentElement.dataset.snapshotBytes",
+      )) > 0);
+      await enterRecoveryShell(debuggerClient.send);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        'window.__dolly.submit("menu-tool")',
+      ), 0);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit("grep -q 'IMAGE browser-custom' /etc/dolly/Dollyfile")`,
+      ), 0);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit("grep -q 'IMAGE default' /etc/dolly/recipes/default.Dollyfile")`,
+      ), 0);
+      console.log(
+        "browser: root menu, default/gamedev/rebuild links, local Dollyfile " +
+        "upload validation, custom source rebuild, and custom executable passed",
+      );
+      break browserProof;
+    }
     if (snapshotExportMode) {
       const output = resolve(process.env.DOLLY_SNAPSHOT_OUTPUT ?? "");
       const distDirectory = resolve(projectDir, "dist");
@@ -802,15 +1123,20 @@ try {
           exportedBytes: snapshot instanceof ArrayBuffer ? snapshot.byteLength : 0,
           bootstrap,
           lines: bootstrap.split('\\n').length,
+          incompletePaints: globalThis.__dollyIncompleteBootstrapPaints,
         };
       })()`);
       assert.equal(evidence.mode, "rebuild");
       assert.ok(evidence.snapshotBytes > 0);
       assert.equal(evidence.exportedBytes, evidence.snapshotBytes);
-      assert.ok(evidence.lines <= 40);
+      assert.ok(evidence.lines <= 41);
       assert.ok(evidence.bootstrap.length <= 8192);
-      assert.match(evidence.bootstrap, /=== Dolly userspace ready ===/);
-      assert.match(evidence.bootstrap, /captured \d+ byte precompiled system snapshot/);
+      assert.equal(evidence.incompletePaints, 0);
+      assert.match(
+        evidence.bootstrap,
+        new RegExp(`dollyfile: image ${selectedImage} complete; retained \\d+ files`),
+      );
+      assert.match(evidence.bootstrap, /starting sandbox display/);
       const uploadStatus = await evaluate(debuggerClient.send, `fetch(
         "/__dolly_build_snapshot",
         {
@@ -822,7 +1148,10 @@ try {
       assert.equal(uploadStatus, 204);
       assert.equal(snapshotUpload?.length, evidence.snapshotBytes);
       await writeFile(output, snapshotUpload, { flag: "wx" });
-      console.log(`browser: exported ${snapshotUpload.length} byte system snapshot from /rebuild`);
+      console.log(
+        `browser: exported ${snapshotUpload.length} byte ${selectedImage} snapshot ` +
+        `from /${selectedImage}/rebuild`,
+      );
       break browserProof;
     }
     if (missingSnapshotMode) {
@@ -876,12 +1205,14 @@ try {
           await evaluate(debuggerClient.send, '"DOLLY_HTTP_POLICY" in globalThis'),
           false,
         );
+        await enterRecoveryShell(debuggerClient.send);
+        await delay(1000);
         assert.equal(
           await evaluate(
             debuggerClient.send,
             `window.__dolly.submit(${JSON.stringify(
-              "curl -fsS https://api.github.com/repos/daugasauron/dolly " +
-              "> /tmp/pages-generic-network.json",
+              "curl -fsS https://raw.githubusercontent.com/daugasauron/dolly/main/README.md " +
+              "> /tmp/pages-generic-network.txt",
             )})`,
           ),
           0,
@@ -891,24 +1222,24 @@ try {
           await evaluate(
             debuggerClient.send,
             `window.__dolly.submit(${JSON.stringify(
-              "grep -q '\"full_name\": \"daugasauron/dolly\"' " +
-              "/tmp/pages-generic-network.json",
+              "grep -q 'minimal but useful POSIX-like agent userspace' " +
+              "/tmp/pages-generic-network.txt",
             )})`,
           ),
           0,
-          "the generic Pages request did not return the expected GitHub API body",
+          "the generic Pages request did not return the expected source body",
         );
         console.log(
           `browser: live Pages booted isolated Ghostty and default Pi in ${
             Date.now() - pagesBootStarted
-          }ms; generic HTTPS reached the GitHub API through Dolly's broker`,
+          }ms; generic HTTPS reached raw.githubusercontent.com through Dolly's broker`,
         );
       } else {
         console.log("browser: Pages service worker established cross-origin isolation");
       }
       break browserProof;
     }
-    if (piDevelopmentMode || piOpenRouterMode) {
+    if (piDevelopmentMode || realOpenRouterMode) {
       const state = await waitForValue(
         debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -919,7 +1250,7 @@ try {
       assert.equal(state, "ready");
       await enterRecoveryShell(debuggerClient.send);
 
-      const modelConfig = JSON.stringify(piOpenRouterMode ? {
+      const modelConfig = JSON.stringify(realOpenRouterMode ? {
         providers: {
           "dolly-openrouter": {
             baseUrl: "https://openrouter.ai/api/v1",
@@ -966,6 +1297,13 @@ try {
         `window.__dolly.submit(${JSON.stringify(writeModelConfig)})`,
       );
       assert.equal(configStatus, 0);
+      assert.equal(
+        await evaluate(
+          debuggerClient.send,
+          'window.__dolly.submit("touch /workspace/dolly-slop-bang-marker")',
+        ),
+        0,
+      );
       if (process.env.DOLLY_PI_SETUP_COMMAND) {
         const setupStatus = await evaluate(
           debuggerClient.send,
@@ -985,15 +1323,25 @@ try {
         assert.equal(setupStatus, 0);
       }
 
-      const piCommand = process.env.DOLLY_PI_COMMAND ?? (piOpenRouterMode
+      const piCommand = process.env.DOLLY_PI_COMMAND ?? (realOpenRouterMode
         ? "pi --provider dolly-openrouter --model deepseek/deepseek-v4-flash-0731"
         : "pi --provider dolly-test --model dolly-test-model --api-key sandbox-placeholder");
-      await evaluate(debuggerClient.send, `(() => {
-        window.__piResult = null;
-        window.__piPromise = window.__dolly.submit(
-          ${JSON.stringify(piCommand)},
-        ).then((status) => { window.__piResult = status; return status; });
-      })()`);
+      if (piAuditMode) {
+        await evaluate(debuggerClient.send, `(() => {
+          window.__piResult = null;
+          window.__piSequence = window.__dolly.transport.currentResultSequence();
+          if (!window.__dolly.input(${JSON.stringify(`${piCommand}\r`)})) {
+            throw new Error("Pi audit command did not fit in the input mailbox");
+          }
+        })()`);
+      } else {
+        await evaluate(debuggerClient.send, `(() => {
+          window.__piResult = null;
+          window.__piPromise = window.__dolly.submit(
+            ${JSON.stringify(piCommand)},
+          ).then((status) => { window.__piResult = status; return status; });
+        })()`);
+      }
       await waitForValue(
         debuggerClient.send,
         "({ foreground: window.__dolly.foregroundPid, result: window.__piResult })",
@@ -1042,18 +1390,175 @@ try {
         piPalette.accentOutsideCursor > 20,
         `Pi theme did not render yellow outside the cursor: ${JSON.stringify(piPalette)}`,
       );
+      const piHeaderText = await visibleTerminalText(debuggerClient.send);
+      assert.match(piHeaderText, /! Slop/);
+      assert.doesNotMatch(piHeaderText, /!\s+(?:to run )?bash/i);
+      await clearTerminalSelection(debuggerClient.send);
+      await typeText(debuggerClient.send, "! ls");
+      await dispatchKey(debuggerClient.send, {
+        key: "Enter",
+        code: "Enter",
+        windowsVirtualKeyCode: 13,
+      });
+      await waitForTerminalText(
+        debuggerClient.send,
+        /dolly-slop-bang-marker/,
+        "Pi's ! command executing ls through /bin/slop",
+      );
+      await clearTerminalSelection(debuggerClient.send);
 
       const screenshot = await debuggerClient.send("Page.captureScreenshot", {
         format: "png",
         fromSurface: true,
       });
       await writeFile(
-        resolve(projectDir, piOpenRouterMode
-          ? "build/pi-openrouter-start-chrome.png"
+        resolve(projectDir, realOpenRouterMode
+          ? piAuditMode
+            ? "build/pi-agent-audit-start-chrome.png"
+            : "build/pi-openrouter-start-chrome.png"
           : "build/pi-start-chrome.png"),
         screenshot.data,
         "base64",
       );
+
+      if (piAuditMode) {
+        const audit = {
+          model: "deepseek/deepseek-v4-flash-0731",
+          piPid: settledStartup.foreground,
+          turns: [],
+          probes: [],
+        };
+        for (let index = 0; index < piAuditSpec.prompts.length; index++) {
+          await clearTerminalSelection(debuggerClient.send);
+          const prompt = piAuditSpec.prompts[index];
+          const requestCountBefore = await evaluate(
+            debuggerClient.send,
+            "window.__dolly.httpRequestCount",
+          );
+          const started = Date.now();
+          await inputText(debuggerClient.send, prompt);
+          await dispatchKey(debuggerClient.send, {
+            key: "Enter",
+            code: "Enter",
+            windowsVirtualKeyCode: 13,
+          });
+          let quiet;
+          try {
+            quiet = await waitForPiTurnQuiet(
+              debuggerClient.send,
+              requestCountBefore + 1,
+              settledStartup.foreground,
+              `Pi audit turn ${index + 1}`,
+            );
+          } catch (error) {
+            const visibleText = await visibleTerminalText(debuggerClient.send);
+            await clearTerminalSelection(debuggerClient.send);
+            const screenshot = await debuggerClient.send("Page.captureScreenshot", {
+              format: "png",
+              fromSurface: true,
+            });
+            await writeFile(
+              resolve(projectDir, "build/pi-agent-audit-failed.png"),
+              screenshot.data,
+              "base64",
+            );
+            audit.failure = {
+              turn: index + 1,
+              message: error instanceof Error ? error.message : String(error),
+              visibleText,
+            };
+            await writeFile(
+              resolve(projectDir, "build/pi-agent-audit.json"),
+              `${JSON.stringify(audit, null, 2)}\n`,
+            );
+            throw error;
+          }
+          await delay(500);
+          const visibleText = await visibleTerminalText(debuggerClient.send);
+          await clearTerminalSelection(debuggerClient.send);
+          const screenshot = await debuggerClient.send("Page.captureScreenshot", {
+            format: "png",
+            fromSurface: true,
+          });
+          await writeFile(
+            resolve(projectDir, `build/pi-agent-audit-turn-${index + 1}.png`),
+            screenshot.data,
+            "base64",
+          );
+          audit.turns.push({
+            prompt,
+            elapsedMilliseconds: Date.now() - started,
+            requests: quiet.requests - requestCountBefore,
+            visibleText,
+          });
+          await writeFile(
+            resolve(projectDir, "build/pi-agent-audit.json"),
+            `${JSON.stringify(audit, null, 2)}\n`,
+          );
+          process.stdout.write(
+            `browser: Pi audit turn ${index + 1}/${piAuditSpec.prompts.length} ` +
+            `completed in ${audit.turns.at(-1).elapsedMilliseconds}ms ` +
+            `(${audit.turns.at(-1).requests} model requests)\n`,
+          );
+        }
+
+        await clearTerminalSelection(debuggerClient.send);
+        await inputText(debuggerClient.send, "/quit");
+        await dispatchKey(debuggerClient.send, {
+          key: "Enter",
+          code: "Enter",
+          windowsVirtualKeyCode: 13,
+        });
+        const piSequence = await evaluate(
+          debuggerClient.send,
+          "window.__piSequence",
+        );
+        const exitStatus = await waitForCommandResult(
+          debuggerClient.send,
+          piSequence,
+          "Pi audit exit",
+        );
+        await evaluate(
+          debuggerClient.send,
+          `window.__piResult = ${JSON.stringify(exitStatus)}`,
+        );
+        assert.equal(exitStatus, 0);
+        for (const probe of piAuditSpec.probes) {
+          const command = typeof probe === "string" ? probe : probe.command;
+          const expectedStatus = typeof probe === "string" ? undefined : probe.status;
+          await clearTerminalSelection(debuggerClient.send);
+          const started = Date.now();
+          const status = await evaluate(
+            debuggerClient.send,
+            `window.__dolly.submit(${JSON.stringify(command)})`,
+          );
+          await delay(100);
+          const visibleText = await visibleTerminalText(debuggerClient.send);
+          await clearTerminalSelection(debuggerClient.send);
+          audit.probes.push({
+            command,
+            status,
+            ...(expectedStatus === undefined ? {} : { expectedStatus }),
+            elapsedMilliseconds: Date.now() - started,
+            visibleText,
+          });
+          if (expectedStatus !== undefined) {
+            assert.equal(
+              status,
+              expectedStatus,
+              `Pi audit probe failed: ${command}`,
+            );
+          }
+        }
+        await writeFile(
+          resolve(projectDir, "build/pi-agent-audit.json"),
+          `${JSON.stringify(audit, null, 2)}\n`,
+        );
+        console.log(
+          "browser: real OpenRouter Pi audit completed; report build/pi-agent-audit.json",
+        );
+        break browserProof;
+      }
 
       if (piOpenRouterMode) {
         const requestCountBefore = await evaluate(
@@ -1067,7 +1572,7 @@ try {
           "-o /home/dolly/.pi/agent/extensions/installed-proof.js . " +
           "Then use the read tool to verify that file contains DOLLY-INSTALLED-EXTENSION-OK. " +
           "Do the work; do not merely describe it.";
-        await inputText(debuggerClient.send, `/voice-prompt ${installPrompt}`);
+        await inputText(debuggerClient.send, installPrompt);
         await dispatchKey(debuggerClient.send, {
           key: "Enter",
           code: "Enter",
@@ -1213,7 +1718,7 @@ try {
         debuggerClient.send,
         "window.__dolly.httpRequestCount",
       );
-      await inputText(debuggerClient.send, `/voice-prompt ${prompt}`);
+      await inputText(debuggerClient.send, prompt);
       await dispatchKey(debuggerClient.send, {
         key: "Enter",
         code: "Enter",
@@ -1333,11 +1838,12 @@ try {
         "base64",
       );
 
+      await clearTerminalSelection(debuggerClient.send);
+      await inputText(debuggerClient.send, "/quit");
       await dispatchKey(debuggerClient.send, {
-        key: "d",
-        code: "KeyD",
-        modifiers: 2,
-        windowsVirtualKeyCode: 68,
+        key: "Enter",
+        code: "Enter",
+        windowsVirtualKeyCode: 13,
       });
       let exitStatus;
       try {
@@ -1378,9 +1884,7 @@ try {
   const snapshotStarted = Date.now();
   const snapshotReadyState = await waitForValue(
     debuggerClient.send,
-    `location.pathname === '/'
-      ? (document.documentElement?.dataset.dollyStatus ?? '')
-      : ''`,
+    "document.documentElement?.dataset.dollyStatus ?? ''",
     (value) => value === "ready" || value === "passed" || value === "failed",
     "precompiled snapshot boot",
     1200,
@@ -1394,7 +1898,114 @@ try {
     (value) => value === "passed" || value === "failed",
     "Dolly browser proof",
   );
+  if (state === "failed") {
+    const failedScreenshot = await debuggerClient.send("Page.captureScreenshot", {
+      format: "png",
+      fromSurface: true,
+    });
+    await writeFile(
+      resolve(projectDir, "build/browser-proof-failed.png"),
+      failedScreenshot.data,
+      "base64",
+    );
+  }
   assert.equal(state, "passed");
+
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        `qjs -e "const r = Dolly.shell('cat', ''); if (r.status !== 0) throw new Error(String(r.status))"`,
+      )})`,
+    ),
+    0,
+    "a noninteractive Dolly.shell call did not give a stdin reader immediate EOF",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "echo 'int main(void) { for (;;) {} }' > /tmp/dolly-timeout.c && " +
+        "cc -O0 /tmp/dolly-timeout.c -o /tmp/dolly-timeout",
+      )})`,
+    ),
+    0,
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        `qjs -e "const r = Dolly.shell('/tmp/dolly-timeout', '', 50); ` +
+        `if (r.status !== 124) throw new Error('status ' + r.status)"`,
+      )})`,
+    ),
+    0,
+    "the in-Wasm spawn deadline did not terminate a CPU-bound command",
+  );
+
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "mkdir -p /tmp/copy-source/nested && " +
+        "echo COPY-FILE > /tmp/copy-source/file && " +
+        "echo COPY-NESTED > /tmp/copy-source/nested/file && " +
+        "cp -R /tmp/copy-source /tmp/copy-target && " +
+        "grep -q COPY-FILE /tmp/copy-target/file && " +
+        "grep -q COPY-NESTED /tmp/copy-target/nested/file",
+      )})`,
+    ),
+    0,
+    "the standalone in-Wasm cp command did not preserve a recursive file tree",
+  );
+
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "echo DOLLY-BROWSER-DOWNLOAD > /workspace/browser-download.txt",
+      )})`,
+    ),
+    0,
+  );
+  const downloadCountBefore = await evaluate(
+    debuggerClient.send,
+    "Number(document.documentElement.dataset.downloadCount ?? 0)",
+  );
+  const downloadStatus = await evaluate(
+    debuggerClient.send,
+    'window.__dolly.submit("download /workspace/browser-download.txt")',
+  );
+  if (downloadStatus !== 0) {
+    console.error(await visibleTerminalText(debuggerClient.send));
+    const failedDownloadScreenshot = await debuggerClient.send("Page.captureScreenshot", {
+      format: "png",
+      fromSurface: true,
+    });
+    await writeFile(
+      resolve(projectDir, "build/browser-download-failed.png"),
+      failedDownloadScreenshot.data,
+      "base64",
+    );
+  }
+  assert.equal(downloadStatus, 0);
+  await waitForValue(
+    debuggerClient.send,
+    "Number(document.documentElement.dataset.downloadCount ?? 0)",
+    (value) => value === downloadCountBefore + 1,
+    "browser download dispatch",
+    200,
+  );
+  let downloadedBytes = null;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    downloadedBytes = await readFile(
+      resolve(browserDownloadDirectory, "browser-download.txt"),
+      "utf8",
+    ).catch(() => null);
+    if (downloadedBytes !== null) break;
+    await delay(25);
+  }
+  assert.equal(downloadedBytes, "DOLLY-BROWSER-DOWNLOAD\n");
 
   const resultSequence = await evaluate(
     debuggerClient.send,
@@ -1549,6 +2160,22 @@ try {
     "the shell or shared filesystem did not survive foreground SIGINT",
   );
 
+  if (selectedImage === "gamedev") {
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "test -s /usr/src/dolly/gamedev/graphics-demo.c && " +
+        "test -s /usr/src/dolly/gamedev/gamedev.mk",
+      )})`,
+    ),
+    0,
+    "the gamedev image did not retain its source-visible starter",
+  );
+  const performanceBeforeGraphics = await measureShellBatch(
+    debuggerClient.send,
+    "before-graphics",
+  );
   await evaluate(
     debuggerClient.send,
     `window.__graphicsResult = null;
@@ -1648,6 +2275,30 @@ try {
     0,
     "terminal or filesystem did not survive forced graphics restoration",
   );
+  const performanceAfterGraphics = await measureShellBatch(
+    debuggerClient.send,
+    "after-graphics",
+  );
+  assert.ok(
+    performanceAfterGraphics.milliseconds <=
+      Math.max(2000, performanceBeforeGraphics.milliseconds * 4),
+    `commands slowed down after framebuffer restoration: ${JSON.stringify({
+      before: performanceBeforeGraphics,
+      after: performanceAfterGraphics,
+    })}`,
+  );
+  assert.ok(
+    performanceAfterGraphics.frames <= performanceAfterGraphics.commands * 6,
+    `terminal produced too many post-graphics frames: ${JSON.stringify(
+      performanceAfterGraphics,
+    )}`,
+  );
+  console.log(
+    `browser: post-framebuffer command batch ${performanceAfterGraphics.milliseconds}ms/` +
+    `${performanceAfterGraphics.frames} frames; before ` +
+    `${performanceBeforeGraphics.milliseconds}ms/${performanceBeforeGraphics.frames} frames`,
+  );
+  }
 
   const initialFontSize = await evaluate(debuggerClient.send, "window.__dolly.fontSize");
   await dispatchKey(debuggerClient.send, {
@@ -2098,7 +2749,6 @@ try {
       defaultPi: document.documentElement.dataset.defaultPi,
       bootMode: document.documentElement.dataset.bootMode,
       snapshotBytes: Number(document.documentElement.dataset.snapshotBytes),
-      interactive: document.documentElement.dataset.luaInteractive,
       terminal: document.documentElement.dataset.terminal,
       canvasHidden: canvas.hidden,
       canvasWidth: canvas.width,
@@ -2133,7 +2783,6 @@ try {
   assert.equal(evidence.defaultPi, "passed");
   assert.equal(evidence.bootMode, "snapshot");
   assert.ok(evidence.snapshotBytes > 0);
-  assert.equal(evidence.interactive, "passed");
   assert.equal(evidence.terminal, "ghostty-rgba-wasm");
   assert.equal(evidence.canvasHidden, false);
   assert.ok(evidence.canvasWidth >= 800 && evidence.canvasHeight >= 550);
@@ -2164,7 +2813,10 @@ try {
   assert.equal(piModelRequests.length, 0);
   assert.ok(evidence.bootstrap.split("\n").length <= 40);
   assert.ok(evidence.bootstrap.length <= 8192);
-  assert.match(evidence.bootstrap, /DOLLY \/ PRECOMPILED SYSTEM/);
+  assert.match(
+    evidence.bootstrap,
+    new RegExp(`DOLLY / ${selectedImage.toUpperCase()} / PRECOMPILED SYSTEM`),
+  );
   assert.match(evidence.bootstrap, /dolly: restoring precompiled system snapshot/);
   assert.match(evidence.bootstrap, /dolly: precompiled system restored/);
   assert.doesNotMatch(evidence.bootstrap, /building GNU make|bootstrapping Zig/);
@@ -2222,52 +2874,36 @@ try {
     await evaluate(debuggerClient.send, "document.querySelector('#phone-menu').dataset.open"),
     "true",
   );
-  const voiceSequence = await evaluate(
-    debuggerClient.send,
-    "window.__dolly.transport.currentResultSequence()",
-  );
-  const voiceButton = await evaluate(debuggerClient.send, `(() => {
-    const bounds = document.querySelector('[data-dolly-voice]').getBoundingClientRect();
-    return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-  })()`);
-  await debuggerClient.send("Input.dispatchMouseEvent", {
-    type: "mousePressed", ...voiceButton, button: "left", buttons: 1, clickCount: 1,
-  });
-  await debuggerClient.send("Input.dispatchMouseEvent", {
-    type: "mouseReleased", ...voiceButton, button: "left", buttons: 0, clickCount: 1,
-  });
-  assert.equal(
-    await waitForCommandResult(
-      debuggerClient.send,
-      voiceSequence,
-      "browser speech transcript crossing into Slop",
-    ),
-    127,
-  );
-  assert.equal(
-    await evaluate(
-      debuggerClient.send,
-      `window.__dolly.submit(${JSON.stringify(
-        `grep -q '/voice-prompt DOLLY VOICE BRIDGE' "$HISTFILE"`,
-      )})`,
-    ),
-    0,
-  );
-  assert.equal(
-    await evaluate(debuggerClient.send, "document.documentElement.dataset.voice"),
-    "submitted",
-  );
-
   console.log(
     `browser: sandbox Ghostty rendered ${evidence.canvasWidth}x${evidence.canvasHeight} ` +
     `(${evidence.cols}x${evidence.rows} cells), static snapshot boot ` +
     `${snapshotBootMilliseconds}ms, raw keys/Ctrl+Shift+V/C/block-cursor/zoom/fullscreen, ` +
-    "Ghostty selection/scroll, phone menu/voice bridge, default Pi, " +
+    "Ghostty selection/scroll, phone menu, default Pi, " +
     "Pi OpenRouter credential storage/model discovery, and complete Codex OAuth exchange passed",
   );
   }
 } catch (error) {
   if (debuggerClient) {
+    if (piAuditMode) {
+      const failedAuditScreenshot = await debuggerClient.send(
+        "Page.captureScreenshot",
+        { format: "png", fromSurface: true },
+      ).catch(() => null);
+      if (failedAuditScreenshot) {
+        await writeFile(
+          resolve(projectDir, "build/pi-agent-audit-failed.png"),
+          failedAuditScreenshot.data,
+          "base64",
+        );
+      }
+      const failedAuditText = await visibleTerminalText(
+        debuggerClient.send,
+      ).catch(() => "terminal text unavailable");
+      await writeFile(
+        resolve(projectDir, "build/pi-agent-audit-failed.txt"),
+        `${failedAuditText}\n`,
+      );
+    }
     const diagnostics = await evaluate(debuggerClient.send, `JSON.stringify({
       dataset: { ...document.documentElement.dataset },
       bootstrap: (document.querySelector('#bootstrap-log')?.textContent ?? '').slice(-5000),
@@ -2290,4 +2926,5 @@ try {
       retryDelay: 50,
     });
   }
+  await rm(browserDownloadDirectory, { recursive: true, force: true });
 }

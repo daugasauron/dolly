@@ -25,29 +25,30 @@ Every milestone should improve at least one of these measurements:
 Raw package count, POSIX checklist coverage, and native performance are not
 north-star metrics.
 
-## Phase 1 — make builds declarative
+## Phase 1 — make builds declarative (complete)
 
-Implement the first [Dollyfile](dollyfile.md) compiler.
+The authoritative [Dollyfile](dollyfile.md) executor is now `/bin/dollyfile`, a
+C program compiled inside the sandbox. It executes parent recipes and every
+`SOURCE`, `RUN`, `CHECK`, and retention row strictly in order. Every non-seed
+browser input is an independent exact file with a SHA-256 row; aggregate source
+filesystem packs and the JavaScript recipe executor are gone. Default and
+gamedev rebuild/prebuilt routes, recipe viewers, local custom rebuilds,
+human-readable recipe locks, exact retained manifests, and recipe-bound
+snapshots are generated and browser-tested.
 
-- Parse a small line-oriented recipe with `SOURCE`, `COPY`, `ENV`, `WORKDIR`,
-  `RUN`, `KEEP`, `CHECK`, and `ENTRY`.
-- Produce the preload/source plan, `/etc/dolly/startup.slop`, the retained-file
-  snapshot manifest, and build checks from one source of truth.
-- Keep v0 build steps offline. Remote inputs are acquired by the trusted build
-  tool only when URL, version, and SHA-256 are present; compilation still runs
-  inside Dolly.
-- Emit a human-readable lock file containing resolved source digests, recipe
-  digest, Dolly ABI digest, and expected output paths. It need not be JSON.
-- Convert the current handwritten startup graph without changing the resulting
-  system image.
+Useful follow-up work remains, but it is refinement rather than split
+authority:
 
-Acceptance gate: the generated recipe and the current handwritten graph produce
-the same retained paths, both boot through the browser proof, and removing a
-required `KEEP` entry causes a clear `CHECK` failure.
+- replace large deterministic source archives with a content-addressed cache
+  without weakening row-by-row completion;
+- record output digests for important build products in the image lock;
+- split `startup.mk` into small per-port build descriptions when that improves
+  reviewability;
+- make snapshot logical reproducibility measurable across clean hosts.
 
-Why first: it removes the current three-way duplication between CMake preload
-flags, `startup.slop`/`startup.mk`, and `system_files[]`. It also gives every new
-port a clean, reviewable home.
+Acceptance gate achieved: one C-parsed recipe controls source acquisition,
+builds, checks, retained paths, and entry; both images rebuild and restore in a
+real browser; recipe/source/retention changes invalidate identity or fail.
 
 ## Phase 2 — measure the platform instead of guessing it
 
@@ -62,7 +63,7 @@ Add a compile-time/runtime “platform census” mode.
 - Keep the census entirely inside the sandbox or export it only as an explicit
   test artifact; it must not become a new runtime communication channel.
 
-Acceptance gate: Lua, Git, Make, QuickJS/Pi, Zig, and Ghostty have repeatable
+Acceptance gate: Git, Make, QuickJS/Pi, Zig, and Ghostty have repeatable
 operation profiles, and every proposed ABI-v1 operation is justified by at
 least two consumers or one essential agent workflow.
 
@@ -116,9 +117,12 @@ Strengthen correctness within the shared-everything runtime.
   userspace-global.
 - Add adversarial fixtures that leak descriptors/heap, change signals, call
   `exit`, crash, and then rerun a clean command.
-- Add a trusted supervisor protocol for CPU deadline, memory ceiling, output
-  quota, cancellation, and worker replacement. The protocol should control the
-  worker from outside without exposing a new guest capability.
+- Keep the existing inherited `dolly_spawn_timeout` cooperative deadline and
+  status-124 behavior covered by adversarial tests.
+- Add a trusted outer supervisor protocol for hard CPU deadline, memory
+  ceiling, output quota, cancellation, and worker replacement. The protocol
+  must recover even a foreign module with no Dolly safepoints, while exposing
+  no new guest capability.
 
 Acceptance gate: repeated hostile fixtures do not change a following clean
 fixture's observable state outside intended filesystem/environment changes, and
@@ -138,7 +142,7 @@ Likely families—not yet final signatures—are:
 - memory/table/dynamic-module mechanics, or a replacement component model if
   browser wasm64 tooling makes it practical.
 
-Build musl/newlib-style libc, C++, Lua, QuickJS, and at least one non-C runtime
+Build musl/newlib-style libc, C++, QuickJS, and at least one non-C runtime
 above it. Do not delete `dolly-0` until side-by-side differential tests prove
 the new target supports the useful workloads.
 

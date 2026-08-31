@@ -392,8 +392,8 @@ glyph, URL, title, and OSC payload as attacker-controlled. Clipboard writes,
 automatic link opening, image fetching, and title-driven DOM mutation are off
 by default.
 
-Acceptance gate: Pi's interactive UI, a terminal torture fixture, and the
-existing Lua REPL work through raw/canonical transitions and resize. The exact
+Acceptance gate: Pi's interactive UI and a terminal torture fixture work
+through raw/canonical transitions and resize. The exact
 browser import allowlist remains reviewed.
 
 ### 8. Run the unmodified noninteractive Pi CLI

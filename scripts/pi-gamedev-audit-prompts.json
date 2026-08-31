@@ -1,0 +1,13 @@
+{
+  "prompts": [
+    "Act as a coding agent inside Dolly's gamedev image and use no more than 10 tool calls. Read /usr/include/dolly/display.h and /usr/src/dolly/gamedev/graphics-demo.c. With one compact shell call, mkdir /workspace/agent-game and use cp to copy that retained starter to /workspace/agent-game/game.c; verify the copy. Use Pi's write tool to create a short /workspace/agent-game/Makefile whose all target runs cc -std=c17 game.c -o game and whose clean target removes game. Use Pi's edit tool to make one visible source change while preserving the direct Dolly display lease, animated player/target, --frames N finite-run option, and release on completion. Slop has no heredocs, and each shell call starts in /workspace, so use absolute paths or make -C and never rely on cd persisting. Build and run --frames 3. Initialize Git there and commit only game.c and Makefile. Every shell tool has finite noninteractive stdin; do not launch an unlimited game. Always create /workspace/game-agent-failures.md, saying 'none' if no reproduced failure. Write /workspace/dolly-gamedev-audit.md in at most 16 short lines explaining which additional APIs or tools would most improve game-building agents, based only on this task and separating essential from nice-to-have. Finish the task and summarize observed results rather than proposing future tool calls."
+  ],
+  "probes": [
+    { "command": "ls -la /workspace/agent-game", "status": 0 },
+    { "command": "make -C /workspace/agent-game clean && test -z \"$(git -C /workspace/agent-game status --short)\"", "status": 0 },
+    { "command": "make -C /workspace/agent-game clean all", "status": 0 },
+    { "command": "/workspace/agent-game/game --frames 3", "status": 0 },
+    { "command": "head -25 /workspace/game-agent-failures.md", "status": 0 },
+    { "command": "head -25 /workspace/dolly-gamedev-audit.md", "status": 0 }
+  ]
+}

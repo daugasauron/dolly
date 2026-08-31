@@ -1,0 +1,223 @@
+DOLLY 1
+IMAGE default
+
+# Bootstrap one ordinary archive extractor before requesting any archives.
+SOURCE HOST TXT /static/bootstrap/tar.c /tmp/bootstrap/tar.c SHA256 4efa4543dd3517f26618dd4fa80f4a52892cbac9f0c88aae3caa18820c74d5ff
+RUN cc -std=c17 -D_DEFAULT_SOURCE /tmp/bootstrap/tar.c -o /bin/tar
+CHECK tar --help
+KEEP /bin/tar
+KEEP /bin/dollyfile
+
+# Small conventional commands above the compiler/Slop seed.
+SOURCE HOST TXT /static/default/commands/help.c /usr/src/dolly/commands/help.c SHA256 354fe117ba5b74e4d37355882b113875068bb44e75ebfd851ad607cba489de2d
+RUN cc /usr/src/dolly/commands/help.c -o /bin/help
+SOURCE HOST TXT /static/default/commands/pwd.c /usr/src/dolly/commands/pwd.c SHA256 87886a74d8626d0bdbc2b364fe6ed8882522512d9f595709152dda298ef5c03f
+RUN cc /usr/src/dolly/commands/pwd.c -o /bin/pwd
+SOURCE HOST TXT /static/default/commands/cd.c /usr/src/dolly/commands/cd.c SHA256 f5b5875cf4c058ed4251492218fe5db56ccdc91648368ad3ba0aec11304ff88a
+RUN cc /usr/src/dolly/commands/cd.c -o /bin/cd
+SOURCE HOST TXT /static/default/commands/cat.c /usr/src/dolly/commands/cat.c SHA256 82bffbefba15dcbd3aacb04135f3236be176a19704678aacb168ef02b91e04d4
+RUN cc /usr/src/dolly/commands/cat.c -o /bin/cat
+SOURCE HOST TXT /static/default/commands/echo.c /usr/src/dolly/commands/echo.c SHA256 b80530ceb1a02c7fcf468bed28c7324b287be0ab8b4f578b786f3427560dfe9e
+RUN cc /usr/src/dolly/commands/echo.c -o /bin/echo
+SOURCE HOST TXT /static/default/commands/touch.c /usr/src/dolly/commands/touch.c SHA256 3d6270a7f4e56321695141aa2c268107ca5294629ea521f80f35a60c0a625413
+RUN cc /usr/src/dolly/commands/touch.c -o /bin/touch
+SOURCE HOST TXT /static/default/commands/clear.c /usr/src/dolly/commands/clear.c SHA256 f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d
+RUN cc /usr/src/dolly/commands/clear.c -o /bin/clear
+SOURCE HOST TXT /static/default/commands/ls.c /usr/src/dolly/commands/ls.c SHA256 7f566a80655a5a43e3ab2b3350c9f029c4f8f6f54bebaa5bb6822bc7486204ee
+RUN cc /usr/src/dolly/commands/ls.c -o /bin/ls
+SOURCE HOST TXT /static/default/commands/stat.c /usr/src/dolly/commands/stat.c SHA256 ebae79dafb89dcaa64c96f334d8c395b42f0a4c0cadca153a2116ddbb6327dac
+RUN cc /usr/src/dolly/commands/stat.c -o /bin/stat
+SOURCE HOST TXT /static/default/commands/file.c /usr/src/dolly/commands/file.c SHA256 9fd25306039aa58e2197aafb26a63f65bcf39a2e512c614fd0a9494d106ab8e0
+RUN cc /usr/src/dolly/commands/file.c -o /bin/file
+SOURCE HOST TXT /static/default/commands/test.c /usr/src/dolly/commands/test.c SHA256 e14644c2ddd09a863913e5daa6febebaec1daee51ddae67f1d6c60543f69abec
+RUN cc /usr/src/dolly/commands/test.c -o /bin/test
+SOURCE HOST TXT /static/default/commands/bracket.c /usr/src/dolly/commands/bracket.c SHA256 5dadee574cc128d583fe337e68b271cebbb3220dcd7e307fac08d4b5e9d73e4c
+RUN cc -I /usr/src/dolly/commands /usr/src/dolly/commands/bracket.c -o /bin/[
+SOURCE HOST TXT /static/default/commands/mv.c /usr/src/dolly/commands/mv.c SHA256 61087e88715ada81b70f42a4aa861cd1b8f0a130a01dbab05f53f186e3c7be61
+RUN cc /usr/src/dolly/commands/mv.c -o /bin/mv
+SOURCE HOST TXT /static/default/commands/cp.c /usr/src/dolly/commands/cp.c SHA256 51b4a57c631a44375c2e95ab0da21b12058d1acac31254360e550187b207830d
+RUN cc /usr/src/dolly/commands/cp.c -o /bin/cp
+SOURCE HOST TXT /static/default/commands/download.c /usr/src/dolly/commands/download.c SHA256 672fefdbe72e125599db9a83d6a9c231ed0fe2e4edfddbf4a87bfa875191aad4
+RUN cc /usr/src/dolly/commands/download.c -o /bin/download
+CHECK ls -la /bin
+CHECK stat -c '%F %s' /bin/ls
+CHECK file /bin/ls
+CHECK '[' -f /bin/ls ']'
+RUN echo move-check > /tmp/move-check
+RUN mv /tmp/move-check /tmp/move-passed
+CHECK '[' -f /tmp/move-passed ']'
+RUN cp /tmp/move-passed /tmp/copy-passed
+CHECK '[' -f /tmp/copy-passed ']'
+
+KEEP /bin/slop
+KEEP /bin/help
+KEEP /bin/pwd
+KEEP /bin/cd
+KEEP /bin/cat
+KEEP /bin/echo
+KEEP /bin/mkdir
+KEEP /bin/touch
+KEEP /bin/rm
+KEEP /bin/clear
+KEEP /bin/ls
+KEEP /bin/stat
+KEEP /bin/file
+KEEP /bin/test
+KEEP /bin/[
+KEEP /bin/mv
+KEEP /bin/cp
+KEEP /bin/download
+KEEP /bin/cc
+KEEP /bin/c++
+KEEP /bin/ld
+KEEP /bin/ar
+
+# GNU Make is the first non-seed build tool. Every later Make invocation uses Slop.
+RUN mkdir -p /usr/bin /usr/libexec/dolly
+SOURCE HOST BIN /static/default/make-4.4.1.tar /tmp/make-4.4.1.tar SHA256 5cfb15bf5a4666bd6d5803cb8285b11d8fe8bad0de8a1066c5d69d4eac9f8181
+RUN tar -xf /tmp/make-4.4.1.tar -C /
+SOURCE HOST TXT /static/default/startup.mk /usr/src/dolly/startup.mk SHA256 202a68e0b775948c82edec2f48be5ec9c713fb217094a08abbfa3ad4f3b5b9e8
+
+ENV CC=cc
+ENV CXX=c++
+ENV AR=ar
+ENV SHELL=/bin/slop
+WORKDIR /
+
+RUN cc -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' /usr/src/make/src/ar.c /usr/src/make/src/arscan.c /usr/src/make/src/commands.c /usr/src/make/src/default.c /usr/src/make/src/dir.c /usr/src/make/src/expand.c /usr/src/make/src/file.c /usr/src/make/src/function.c /usr/src/make/src/getopt.c /usr/src/make/src/getopt1.c /usr/src/make/src/guile.c /usr/src/make/src/hash.c /usr/src/make/src/implicit.c /usr/src/make/src/job.c /usr/src/make/src/load.c /usr/src/make/src/loadapi.c /usr/src/make/src/main.c /usr/src/make/src/misc.c /usr/src/make/src/output.c /usr/src/make/src/read.c /usr/src/make/src/remake.c /usr/src/make/src/rule.c /usr/src/make/src/shuffle.c /usr/src/make/src/signame.c /usr/src/make/src/strcache.c /usr/src/make/src/variable.c /usr/src/make/src/version.c /usr/src/make/src/vpath.c /usr/src/make/src/posixos.c /usr/src/make/src/remote-stub.c /usr/src/make/lib/concat-filename.c /usr/src/make/lib/findprog-in.c /usr/src/make/lib/fnmatch.c /usr/src/make/lib/glob.c -o /usr/bin/make
+CHECK make --version
+KEEP /usr/bin/make
+
+# Zig and Ghostty VT.
+SOURCE HOST BIN /static/default/zig.wasm /usr/bin/zig SHA256 ae705ada4d3965d8035b4d6d4d1817faee8567205ed087aae80bbeac405e6c06
+SOURCE HOST BIN /static/default/zig-lib.tar /tmp/zig-lib.tar SHA256 82e33abf1bead6f2e1dc92ed2e4d80a4dafc4fe8ca33440f29f69c5db436c445
+RUN tar -xf /tmp/zig-lib.tar -C /
+SOURCE HOST TXT /static/default/zig/answer.zig /usr/src/dolly/zig/answer.zig SHA256 f7b80afc25495d76900c4ca95d6c28fef30094807b01d5c1a404fd2d146d8309
+SOURCE HOST TXT /static/default/zig/check.c /usr/src/dolly/zig/check.c SHA256 e7c8a07330cfe5d86853cc2498c6d3339313f112e341753de656a5eca452ff8d
+SOURCE HOST TXT /static/default/zig/object-check.c /usr/src/dolly/zig/object-check.c SHA256 57f371a2f0d3cb4a8b94491c75fa63559ff5180c51c36988d79bb1cf9a5b4f08
+RUN make -f /usr/src/dolly/startup.mk zig
+CHECK /usr/libexec/dolly/zig-check
+KEEP /usr/bin/zig
+KEEP-TREE /usr/lib/zig
+KEEP /usr/libexec/dolly/zig-object-check
+KEEP /usr/libexec/dolly/zig-check
+
+SOURCE HOST BIN /static/default/ghostty.tar /tmp/ghostty.tar SHA256 62927872d21cfe1bb2c76a5f90499a4139e0da16168db1afdb2d4b429d995eb3
+RUN tar -xf /tmp/ghostty.tar -C /
+SOURCE HOST BIN /static/default/uucode.tar /tmp/uucode.tar SHA256 27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e
+RUN tar -xf /tmp/uucode.tar -C /
+SOURCE HOST TXT /static/default/ghostty/check.c /usr/src/dolly/ghostty/check.c SHA256 48d87cbd963f4c21b8cd67a4a58d45f4bb3737565b95dfbd27715ad054f07b87
+SOURCE HOST TXT /static/default/ghostty/display.c /usr/src/dolly/ghostty/display.c SHA256 4a5c0e86abea45e0efa751f4346c39f4e331245b7ff5db9b056b14e11d7fe3f2
+SOURCE HOST TXT /static/default/stb_truetype.h /usr/include/stb_truetype.h SHA256 ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
+SOURCE HOST BIN /static/default/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf SHA256 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654
+RUN make -f /usr/src/dolly/startup.mk ghostty
+CHECK /usr/bin/ghostty-vt
+KEEP /usr/bin/ghostty-vt
+KEEP /usr/lib/libghostty-vt.a
+KEEP /usr/libexec/dolly/display.wasm
+KEEP /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+
+# QuickJS-ng, Janis, and Pi.
+SOURCE HOST BIN /static/default/quickjs.tar /tmp/quickjs.tar SHA256 d23b73610440a642dfb49de7910cbf34550d31b3a9ca375291f9c74444749d8a
+RUN tar -xf /tmp/quickjs.tar -C /
+SOURCE HOST TXT /static/default/runtimes/quickjs-main.c /usr/src/dolly/runtimes/quickjs-main.c SHA256 d6f7c4e84647e3674636b2375c7516ce93626a5a59b5dfcd26bab6f7eaa29628
+SOURCE HOST TXT /static/default/runtimes/quickjs-runner.h /usr/src/dolly/runtimes/quickjs-runner.h SHA256 94853e68315a36d48167d4b8c1a09f4c33acf12f93e27f713110f0578ad5c597
+SOURCE HOST TXT /static/default/runtimes/dolly-node.js /usr/lib/dolly/node.js SHA256 dd40eb0fde2f830c41b808d9553cc2191e8c4725bdc480acb8f4f867040700f4
+SOURCE HOST TXT /static/default/runtimes/janis.js /usr/lib/janis/runtime.js SHA256 e8e1ed74c6374327a440d41bd54e960fe083a5aafe46068bb1493fe15c61a6df
+SOURCE HOST TXT /static/default/commands/qjs.c /usr/src/dolly/commands/qjs.c SHA256 08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b
+SOURCE HOST TXT /static/default/commands/janis.c /usr/src/dolly/commands/janis.c SHA256 08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b
+SOURCE HOST TXT /static/default/commands/pi.c /usr/src/dolly/commands/pi.c SHA256 1195d25b135a5ab1805a7b5143f02a4253006b2a0facbc9dea205f0df265a604
+RUN make -f /usr/src/dolly/startup.mk quickjs
+CHECK qjs --version
+CHECK janis --version
+
+SOURCE HOST BIN /static/default/pi-package.tar /tmp/pi-package.tar SHA256 c692b78fe802b701fd70bdfa5669f61d23b7145447183e941c51515c15a2ff1c
+RUN tar -xf /tmp/pi-package.tar -C /
+SOURCE HOST TXT /static/default/pi/dolly-tools.js /home/dolly/.pi/agent/extensions/dolly-tools.js SHA256 02e61fcc3c7ad3f2ff5847acff5cd37320db2695e274aeb68414e00e247caf4d
+SOURCE HOST TXT /static/default/pi/SYSTEM.md /home/dolly/.pi/agent/SYSTEM.md SHA256 da10c265e95a6b92a6a67ce755d56dd09528cb0482b031a41d89b3e8b4afe0bc
+SOURCE HOST TXT /static/default/pi/settings.json /home/dolly/.pi/agent/settings.json SHA256 8eec7cba932e37fa88091b195f372e6be0c80f6209683761fb59fd4524469c05
+SOURCE HOST TXT /static/default/pi/dolly-theme.json /home/dolly/.pi/agent/themes/dolly.json SHA256 ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297
+RUN make -f /usr/src/dolly/startup.mk pi
+CHECK pi --version
+KEEP /usr/bin/qjs
+KEEP /usr/bin/janis
+KEEP /usr/bin/pi
+KEEP /usr/lib/libdolly-js.a
+KEEP /usr/lib/dolly/node.js
+KEEP /usr/lib/janis/runtime.js
+KEEP-TREE /usr/lib/pi
+KEEP /home/dolly/.pi/agent/extensions/dolly-tools.js
+KEEP /home/dolly/.pi/agent/SYSTEM.md
+KEEP /home/dolly/.pi/agent/settings.json
+KEEP /home/dolly/.pi/agent/themes/dolly.json
+
+# Standard text tools.
+SOURCE HOST BIN /static/default/awk.tar /tmp/awk.tar SHA256 b5cd29bce72137d138cabf80058250eb64046707cab93b76c25e18efd1faa859
+RUN tar -xf /tmp/awk.tar -C /
+RUN make -f /usr/src/dolly/startup.mk awk
+CHECK awk --version
+KEEP /bin/awk
+KEEP /usr/libexec/dolly/awk-maketab
+KEEP /usr/src/awk/proctab.c
+
+SOURCE HOST BIN /static/default/sbase.tar /tmp/sbase.tar SHA256 5368e7a9685fda25b2f30ff3beaaa4b216fb74d2252af315ba5ae2d076be1500
+RUN tar -xf /tmp/sbase.tar -C /
+RUN make -f /usr/src/dolly/startup.mk sbase
+KEEP /bin/grep
+KEEP /bin/sed
+KEEP /bin/head
+KEEP /bin/wc
+CHECK printf 'PRINTF-%s\n' OK
+KEEP /bin/printf
+
+# Browser-brokered libcurl, zlib, and Git.
+SOURCE HOST BIN /static/default/curl-headers.tar /tmp/curl-headers.tar SHA256 346a0298fcbdafbad7d0c0259a2d7b8539ca46c39222797c01dcac213564bf30
+RUN tar -xf /tmp/curl-headers.tar -C /
+SOURCE HOST TXT /static/default/libcurl-fetch.c /usr/src/dolly/libcurl-fetch.c SHA256 698e13f965596a9c23f818900cec7bfeca361c10a1a30e6cbf3e1d620153e104
+SOURCE HOST TXT /static/default/commands/curl.c /usr/src/dolly/commands/curl.c SHA256 c8f722b9e56f929a0b3858825a2082510d50af9d456fad0be5fccbef80069ad2
+RUN make -f /usr/src/dolly/startup.mk curl
+CHECK curl --version
+KEEP /usr/bin/curl
+KEEP /usr/lib/libcurl.a
+KEEP-TREE /usr/include/curl
+
+SOURCE HOST BIN /static/default/zlib.tar /tmp/zlib.tar SHA256 40b7d2e43d4020d6d58ff480ccfab6fed01797276111f77281c45dec886c6dff
+RUN tar -xf /tmp/zlib.tar -C /
+RUN make -f /usr/src/dolly/startup.mk zlib
+KEEP /usr/lib/libz.a
+KEEP /usr/include/zlib.h
+KEEP /usr/include/zconf.h
+
+SOURCE HOST BIN /static/default/git.tar /tmp/git.tar SHA256 43f3c587e17a6365c23c86ec5cc67911428fc7aeea87f8770e18bbad4fb01999
+RUN tar -xf /tmp/git.tar -C /
+RUN mkdir -p /home/dolly
+RUN echo '[maintenance]' > /etc/gitconfig
+RUN echo '    auto = false' >> /etc/gitconfig
+RUN echo '[user]' > /home/dolly/.gitconfig
+RUN echo '    name = Dolly' >> /home/dolly/.gitconfig
+RUN echo '    email = dolly@example.invalid' >> /home/dolly/.gitconfig
+RUN make -f /usr/src/dolly/startup.mk git
+CHECK git --version
+KEEP /usr/bin/git
+KEEP /usr/lib/libgit.a
+KEEP /usr/libexec/dolly/git-remote-http
+KEEP /usr/libexec/dolly/git-remote-https
+KEEP-TREE /usr/share/git-core/templates
+KEEP /etc/gitconfig
+KEEP /home/dolly/.gitconfig
+
+# Compiler and loader demonstrations.
+SOURCE HOST TXT /static/default/cpp-check.cpp /usr/src/dolly/cpp-check.cpp SHA256 7cf3034c5b063864676f8280d1f1b0a92d8f3c8d480b2b1a2cb65aa66a8c35e2
+SOURCE HOST TXT /static/default/demo.c /usr/src/dolly/demo.c SHA256 663ee9ea6a5d93ebf805906b5e3629b712aab0dda5153d50d07c02009147e7b3
+SOURCE HOST BIN /static/default/writer.wasm /usr/libexec/dolly/writer SHA256 d8d6b4d364faa782f9aa2906e35eaa111de20074cee363898ca47ed32b79db87
+SOURCE HOST BIN /static/default/reader.wasm /usr/libexec/dolly/reader SHA256 5586ccd345e4e2f2c5f222e6192cacccb7ce0689aa03ec0e0f56c021afc1d557
+SOURCE HOST BIN /static/default/inspector.wasm /usr/libexec/dolly/inspector SHA256 7d06b811d29d49c2995dcce5b94e90304c66722ba3c1e20e0bf44e84ae62c13b
+RUN make -f /usr/src/dolly/startup.mk extras
+CHECK demo
+KEEP /usr/libexec/dolly/cpp-check
+KEEP /usr/bin/demo
+KEEP /usr/libexec/dolly/writer
+KEEP /usr/libexec/dolly/reader
+KEEP /usr/libexec/dolly/inspector
+
+ENTRY /usr/bin/pi --no-session

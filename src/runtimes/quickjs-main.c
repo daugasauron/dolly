@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <dolly/download.h>
 #include <dolly/http.h>
 #include <dolly/runtime.h>
 
@@ -459,6 +460,20 @@ static JSValue js_dolly_write_file_bytes(JSContext *context,
   if (status != 0) {
     return JS_ThrowInternalError(context, "writeFileBytes failed: %s",
                                  strerror(-status));
+  }
+  return JS_UNDEFINED;
+}
+
+static JSValue js_dolly_download(JSContext *context, JSValueConst this_value,
+                                 int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 1) return JS_ThrowTypeError(context, "download requires a path");
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  const int status = dolly_download_file(path);
+  JS_FreeCString(context, path);
+  if (status != 0) {
+    return JS_ThrowInternalError(context, "download failed: %s", strerror(-status));
   }
   return JS_UNDEFINED;
 }
@@ -917,29 +932,98 @@ static JSValue js_dolly_shell(JSContext *context, JSValueConst this_value,
   if (command == NULL) return JS_EXCEPTION;
   char stdout_path[] = "/tmp/dolly-js-stdout-XXXXXX";
   char stderr_path[] = "/tmp/dolly-js-stderr-XXXXXX";
+  char stdin_path[] = "/tmp/dolly-js-stdin-XXXXXX";
+  FILE *stdin_file = NULL;
   FILE *stdout_file = create_command_spool(stdout_path);
   FILE *stderr_file = create_command_spool(stderr_path);
-  if (stdout_file == NULL || stderr_file == NULL) {
+  const char *stdin_text = NULL;
+  size_t stdin_length = 0;
+  const int input_requested = argc >= 2 && !JS_IsUndefined(argv[1]);
+  if (input_requested) {
+    stdin_text = JS_ToCStringLen(context, &stdin_length, argv[1]);
+    if (stdin_text != NULL) stdin_file = create_command_spool(stdin_path);
+  }
+  if (input_requested && stdin_text == NULL) {
     if (stdout_file != NULL) fclose(stdout_file);
     if (stderr_file != NULL) fclose(stderr_file);
     unlink(stdout_path);
     unlink(stderr_path);
     JS_FreeCString(context, command);
+    return JS_EXCEPTION;
+  }
+  if (stdout_file == NULL || stderr_file == NULL ||
+      (input_requested && stdin_file == NULL)) {
+    if (stdin_file != NULL) fclose(stdin_file);
+    if (stdout_file != NULL) fclose(stdout_file);
+    if (stderr_file != NULL) fclose(stderr_file);
+    unlink(stdin_path);
+    unlink(stdout_path);
+    unlink(stderr_path);
+    if (stdin_text != NULL) JS_FreeCString(context, stdin_text);
+    JS_FreeCString(context, command);
     return JS_ThrowInternalError(context, "could not create command spools");
   }
+  if (stdin_file != NULL) {
+    if (stdin_length != 0 &&
+        fwrite(stdin_text, 1, stdin_length, stdin_file) != stdin_length) {
+      fclose(stdin_file);
+      fclose(stdout_file);
+      fclose(stderr_file);
+      unlink(stdin_path);
+      unlink(stdout_path);
+      unlink(stderr_path);
+      JS_FreeCString(context, stdin_text);
+      JS_FreeCString(context, command);
+      return JS_ThrowInternalError(context, "could not write command input");
+    }
+    rewind(stdin_file);
+    JS_FreeCString(context, stdin_text);
+  }
+  double timeout_milliseconds = -1;
+  if (argc >= 3 && !JS_IsUndefined(argv[2])) {
+    if (JS_ToFloat64(context, &timeout_milliseconds, argv[2]) < 0) {
+      if (stdin_file != NULL) fclose(stdin_file);
+      fclose(stdout_file);
+      fclose(stderr_file);
+      unlink(stdin_path);
+      unlink(stdout_path);
+      unlink(stderr_path);
+      JS_FreeCString(context, command);
+      return JS_EXCEPTION;
+    }
+    if (timeout_milliseconds < 0 || timeout_milliseconds > 86400000) {
+      if (stdin_file != NULL) fclose(stdin_file);
+      fclose(stdout_file);
+      fclose(stderr_file);
+      unlink(stdin_path);
+      unlink(stdout_path);
+      unlink(stderr_path);
+      JS_FreeCString(context, command);
+      return JS_ThrowRangeError(context, "shell timeout is out of range");
+    }
+  }
   char *child_argv[] = {"/bin/slop", "-c", (char *)command, NULL};
-  int pid = dolly_spawn("/bin/slop", 3, child_argv, 0, fileno(stdout_file),
-                        fileno(stderr_file));
+  const int input_descriptor = stdin_file == NULL ? 0 : fileno(stdin_file);
+  int pid = timeout_milliseconds < 0
+      ? dolly_spawn("/bin/slop", 3, child_argv, input_descriptor,
+                    fileno(stdout_file), fileno(stderr_file))
+      : dolly_spawn_timeout("/bin/slop", 3, child_argv, input_descriptor,
+                            fileno(stdout_file), fileno(stderr_file),
+                            timeout_milliseconds);
   int status = 1;
   if (pid < 0 || dolly_wait(pid, &status) != 0) {
+    if (stdin_file != NULL) fclose(stdin_file);
     fclose(stdout_file);
     fclose(stderr_file);
+    unlink(stdin_path);
     unlink(stdout_path);
     unlink(stderr_path);
     JS_FreeCString(context, command);
     return JS_ThrowInternalError(context, "could not execute Slop: %d", pid);
   }
   JS_FreeCString(context, command);
+  if (stdin_file != NULL) fclose(stdin_file);
+  unlink(stdin_path);
   rewind(stdout_file);
   rewind(stderr_file);
   size_t stdout_length = 0;
@@ -990,6 +1074,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("writeFile", js_dolly_write_file, 2);
   DOLLY_JS_FUNCTION("readFileBytes", js_dolly_read_file_bytes, 1);
   DOLLY_JS_FUNCTION("writeFileBytes", js_dolly_write_file_bytes, 2);
+  DOLLY_JS_FUNCTION("download", js_dolly_download, 1);
   DOLLY_JS_FUNCTION("appendFile", js_dolly_append_file, 2);
   DOLLY_JS_FUNCTION("fsStat", js_dolly_fs_stat, 1);
   DOLLY_JS_FUNCTION("fsReaddir", js_dolly_fs_readdir, 1);
@@ -1005,7 +1090,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("random", js_dolly_random, 1);
   DOLLY_JS_FUNCTION("encode", js_dolly_encode, 1);
   DOLLY_JS_FUNCTION("decode", js_dolly_decode, 1);
-  DOLLY_JS_FUNCTION("shell", js_dolly_shell, 1);
+  DOLLY_JS_FUNCTION("shell", js_dolly_shell, 3);
 #undef DOLLY_JS_FUNCTION
 #define DOLLY_FS_FUNCTION(name, magic)                                         \
   JS_SetPropertyStr(context, dolly, name,                                      \

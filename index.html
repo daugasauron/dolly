@@ -4,150 +4,148 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
-    <title>Dolly slop shell</title>
+    <title>Dolly</title>
     <style>
       @font-face {
         font-family: "Dolly IosevkaTerm SemiBold";
         src: url("./dist/IosevkaTerm-SemiBold.woff2") format("woff2");
         font-style: normal;
         font-weight: 600;
-        font-display: block;
+        font-display: swap;
       }
-
+      :root {
+        color: #e8e3d7;
+        background: #262626;
+        font: 600 16px/1.5 "Dolly IosevkaTerm SemiBold", monospace;
+      }
       * { box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-      body {
-        background: #262626;
-        color: #e8e3d7;
-        font-family: "Dolly IosevkaTerm SemiBold", monospace;
-      }
-      #terminal {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        outline: none;
-        overflow: hidden;
-        caret-color: transparent;
-      }
-      #display {
-        display: block;
-        width: 100%;
-        height: 100%;
-        cursor: text;
-        touch-action: none;
-      }
-      #display[hidden] { display: none; }
-      #keyboard {
-        position: fixed;
-        left: -10000px;
-        top: 0;
-        width: 1px;
-        height: 1px;
-        opacity: 0;
-        caret-color: transparent;
-      }
-      #bootstrap-log {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        margin: 0;
-        padding: 1rem 1.15rem;
-        overflow: auto;
-        white-space: pre-wrap;
-        color: #e8e3d7;
-        background: #262626;
-        font: 600 15px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
-        scrollbar-width: thin;
-        scrollbar-color: #f2d45c #262626;
-      }
-      #bootstrap-log::first-line { color: #f2d45c; }
-      #bootstrap-log[hidden] { display: none; }
-      #phone-menu-button,
-      #phone-menu {
-        display: none;
-      }
-      html[data-phone="on"] #phone-menu-button {
-        position: fixed;
-        right: 0.75rem;
-        bottom: 0.75rem;
-        z-index: 4;
-        display: grid;
-        place-items: center;
-        width: 2.75rem;
-        height: 2.75rem;
-        border: 1px solid #f2d45c;
-        border-radius: 0.25rem;
-        color: #262626;
-        background: #f2d45c;
-        font: inherit;
-        font-size: 1.25rem;
-      }
-      html[data-phone="on"] #phone-menu[data-open="true"] {
-        position: fixed;
-        right: 0.75rem;
-        bottom: 4rem;
-        z-index: 4;
-        display: grid;
-        width: min(17rem, calc(100vw - 1.5rem));
-        gap: 1px;
-        padding: 1px;
-        border: 1px solid #77736c;
-        border-radius: 0.25rem;
-        background: #77736c;
-      }
-      #phone-menu button {
-        min-height: 2.8rem;
-        border: 0;
-        padding: 0 0.9rem;
-        color: #e8e3d7;
-        background: #262626;
-        font: inherit;
-        text-align: left;
-      }
-      #phone-menu button:active { color: #f2d45c; }
-      #phone-menu button:disabled { color: #77736c; }
-      @media (max-width: 640px) {
-        #bootstrap-log { padding: 0.65rem 0.75rem; }
-      }
+      body { margin: 0; min-height: 100vh; }
+      main { width: min(58rem, calc(100% - 2rem)); margin: 0 auto; padding: 8vh 0 5rem; }
+      h1, h2, p, ul, pre { margin: 0 0 1rem; }
+      h1 { color: #f2d45c; font-size: clamp(2rem, 8vw, 5rem); line-height: 1; letter-spacing: -0.06em; }
+      h2 { margin-top: 2.5rem; color: #f2d45c; font-size: 1rem; text-transform: uppercase; }
+      a { color: inherit; text-decoration-color: #f2d45c; text-underline-offset: 0.22em; }
+      a:hover, a:focus-visible { color: #f2d45c; }
+      .lead { max-width: 47rem; font-size: 1.1rem; }
+      .routes { display: grid; grid-template-columns: 1fr; gap: 1px; padding: 1px; background: #77736c; }
+      .image { min-height: 8rem; padding: 1rem; background: #262626; }
+      .image h3 { margin: 0 0 0.65rem; color: #f2d45c; font-size: 1.15rem; }
+      .image p { color: #b7b1a6; }
+      .image-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+      .upload { padding: 1rem; border: 1px solid #77736c; }
+      input[type="file"] { display: block; width: 100%; margin: 0.75rem 0; color: inherit; font: inherit; }
+      button { border: 1px solid #f2d45c; padding: 0.65rem 0.85rem; color: #262626; background: #f2d45c; font: inherit; }
+      button:disabled { border-color: #77736c; color: #aaa49a; background: #3a3937; }
+      #upload-status { min-height: 1.5em; margin: 0.75rem 0 0; color: #b7b1a6; }
+      #upload-status[data-error="true"] { color: #f2d45c; }
+      pre { overflow-x: auto; padding: 1rem; border-left: 2px solid #f2d45c; background: #202020; }
+      .docs { columns: 2 16rem; padding-left: 1.2rem; }
+      footer { margin-top: 3rem; color: #77736c; }
     </style>
   </head>
   <body>
-    <main id="terminal" aria-label="Dolly shell terminal">
-      <canvas id="display" hidden aria-label="Dolly sandbox framebuffer"></canvas>
-      <textarea id="keyboard" aria-label="Dolly keyboard input"
-        autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
-      <pre id="bootstrap-log" aria-live="polite"></pre>
+    <main>
+      <h1>DOLLY</h1>
+      <p class="lead">A small POSIX-like coding-agent userspace contained in one browser WebAssembly machine. Pick an image, rebuild it visibly from source, or supply your own Dollyfile.</p>
+
+      <h2>Images</h2>
+      <nav class="routes" aria-label="Dolly images"></nav>
+
+      <h2>Custom Dollyfile</h2>
+      <section class="upload">
+        <p>Upload one text recipe that directly <code>EXTENDS default</code>. The in-sandbox <code>/bin/dollyfile</code> engine will validate and execute it. Uploaded bytes stay in this browser tab.</p>
+        <input id="dollyfile-upload" type="file" accept="text/plain,.dollyfile" aria-describedby="upload-status">
+        <button id="dollyfile-run" type="button" disabled>Build custom image →</button>
+        <p id="upload-status" aria-live="polite">Waiting for a Dollyfile.</p>
+      </section>
+
+      <h2>Minimal custom recipe</h2>
+      <pre>DOLLY 1
+IMAGE my-tools
+EXTENDS default
+
+RUN echo 'int main(void) { return 0; }' > /tmp/tool.c
+RUN cc /tmp/tool.c -o /usr/bin/tool
+CHECK tool
+KEEP /usr/bin/tool
+ENTRY /usr/bin/pi --no-session</pre>
+
+      <h2>Read</h2>
+      <ul class="docs">
+        <li><a href="./Dollyfile">default Dollyfile</a></li>
+        <li><a href="./Dollyfile-gamedev">gamedev Dollyfile</a></li>
+        <li><a href="./docs/dollyfile.md">Dollyfile format</a></li>
+        <li><a href="./docs/architecture.md">architecture</a></li>
+        <li><a href="./docs/security.md">security boundary</a></li>
+        <li><a href="./docs/port-status.md">port status</a></li>
+      </ul>
+      <footer>wasm64 · one memory · one filesystem · one explicit HTTP edge</footer>
     </main>
-    <button id="phone-menu-button" type="button" aria-label="Open Dolly menu"
-      aria-expanded="false">/</button>
-    <nav id="phone-menu" aria-label="Dolly phone commands" data-open="false">
-      <button type="button" data-dolly-input="/login openrouter\r">OpenRouter login</button>
-      <button type="button" data-dolly-input="/model\r">Choose model</button>
-      <button type="button" data-dolly-input="/demo\r">Framebuffer demo</button>
-      <button type="button" data-dolly-voice>Voice prompt</button>
-    </nav>
     <script type="module">
-      if (crossOriginIsolated) {
-        sessionStorage.removeItem("dolly-isolation-retry");
-        await import("./src/browser.mjs");
-      } else if ("serviceWorker" in navigator) {
-        await navigator.serviceWorker.register("./coi-serviceworker.js");
-        if (!navigator.serviceWorker.controller) {
-          await navigator.serviceWorker.ready;
-          location.reload();
-        } else if (sessionStorage.getItem("dolly-isolation-retry") !== "1") {
-          sessionStorage.setItem("dolly-isolation-retry", "1");
-          location.reload();
-        } else {
-          document.querySelector("#bootstrap-log").textContent =
-            "FATAL\nDolly could not establish cross-origin isolation.\n";
-          document.documentElement.dataset.dollyStatus = "failed";
+      import { MAX_DOLLYFILE_BYTES } from "./src/dollyfile-view.mjs";
+      import { DOLLY_IMAGES } from "./dist/dolly-images.mjs";
+
+      const routes = document.querySelector(".routes");
+      for (const definition of DOLLY_IMAGES) {
+        const section = document.createElement("section");
+        section.className = "image";
+        const heading = document.createElement("h3");
+        heading.textContent = definition.image;
+        const description = document.createElement("p");
+        description.textContent = definition.extends
+          ? `Extends ${definition.extends}; available sealed or rebuilt from both recipes.`
+          : "The core agent image; available sealed or rebuilt visibly from source.";
+        const links = document.createElement("div");
+        links.className = "image-links";
+        for (const [label, href] of [
+          ["open →", `./${definition.image}/`],
+          ["rebuild", `./${definition.image}/rebuild/`],
+          ["Dollyfile", `./view/${definition.image}/`],
+        ]) {
+          const anchor = document.createElement("a");
+          anchor.href = href;
+          anchor.textContent = label;
+          links.append(anchor);
         }
-      } else {
-        document.querySelector("#bootstrap-log").textContent =
-          "FATAL\nDolly requires cross-origin isolation and service workers are unavailable.\n";
-        document.documentElement.dataset.dollyStatus = "failed";
+        section.append(heading, description, links);
+        routes.append(section);
       }
+
+      const input = document.querySelector("#dollyfile-upload");
+      const run = document.querySelector("#dollyfile-run");
+      const status = document.querySelector("#upload-status");
+      let selected = null;
+      input.addEventListener("change", async () => {
+        selected = null;
+        run.disabled = true;
+        status.dataset.error = "false";
+        try {
+          const file = input.files?.[0];
+          if (!file) throw new Error("Choose a Dollyfile.");
+          if (file.size > MAX_DOLLYFILE_BYTES) throw new Error("Dollyfile is too large.");
+          const source = await file.text();
+          if (source.includes("\0") || !/^DOLLY 1(?:\r?\n|$)/.test(source)) {
+            throw new Error("The first line must be DOLLY 1.");
+          }
+          const image = /^IMAGE\s+([a-z][a-z0-9-]{0,31})\s*$/m.exec(source)?.[1];
+          if (!image) throw new Error("The recipe needs a lowercase IMAGE name.");
+          if (!/^EXTENDS\s+default\s*$/m.test(source)) {
+            throw new Error("A custom recipe must EXTENDS default.");
+          }
+          selected = { source, image };
+          status.textContent = `${image}: ready for in-sandbox validation and sequential rebuild.`;
+          run.disabled = false;
+        } catch (error) {
+          status.dataset.error = "true";
+          status.textContent = error instanceof Error ? error.message : String(error);
+        }
+      });
+      run.addEventListener("click", () => {
+        if (!selected) return;
+        sessionStorage.setItem("dolly-custom-source", selected.source);
+        sessionStorage.setItem("dolly-custom-image", selected.image);
+        location.href = "./custom/rebuild/";
+      });
     </script>
   </body>
 </html>

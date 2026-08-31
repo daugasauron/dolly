@@ -2,6 +2,7 @@ import {
   consumeDollyHttpPolicy,
   isDollyCredentialHeader,
 } from "./http-policy.mjs";
+import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
 
 const mount = document.querySelector("#terminal");
 const canvas = document.querySelector("#display");
@@ -9,10 +10,14 @@ const keyboard = document.querySelector("#keyboard");
 const bootstrapLog = document.querySelector("#bootstrap-log");
 const phoneMenuButton = document.querySelector("#phone-menu-button");
 const phoneMenu = document.querySelector("#phone-menu");
+bootstrapLog.replaceChildren();
 
 const defaultFontSizeMilli = 15000;
 const bootstrapMaximumLines = 40;
 const bootstrapMaximumCharacters = 8192;
+const bootstrapLines = [];
+let bootstrapCharacters = 0;
+let bootstrapFragment = "";
 
 const encoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -26,6 +31,34 @@ let presenter;
 let resizeObserver;
 let runtimeReady = false;
 let builtSystemSnapshot = null;
+let networkRequestChain = Promise.resolve();
+const maximumDownloadBytes = 64 * 1024 * 1024;
+let downloadCount = 0;
+
+function startBrowserDownload(message) {
+  if (typeof message.name !== "string" || message.name.length === 0 ||
+      message.name.length > 255 || /[\/\\\u0000-\u001f\u007f]/u.test(message.name) ||
+      message.name === "." || message.name === ".." ||
+      !(message.bytes instanceof ArrayBuffer) ||
+      message.bytes.byteLength > maximumDownloadBytes) {
+    throw new Error("Dolly supplied an invalid download request");
+  }
+  const url = URL.createObjectURL(new Blob(
+    [message.bytes],
+    { type: "application/octet-stream" },
+  ));
+  const link = document.createElement("a");
+  link.hidden = true;
+  link.href = url;
+  link.download = message.name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  downloadCount++;
+  document.documentElement.dataset.downloadCount = String(downloadCount);
+  document.documentElement.dataset.downloadName = message.name;
+}
 
 function updatePhoneMode() {
   const narrow = matchMedia("(max-width: 960px)").matches;
@@ -57,67 +90,6 @@ for (const button of phoneMenu.querySelectorAll("[data-dolly-input]")) {
     keyboard.focus({ preventScroll: true });
   });
 }
-
-class VoiceBridge {
-  constructor() {
-    this.recognition = null;
-  }
-
-  get Recognition() {
-    return globalThis.SpeechRecognition ?? globalThis.webkitSpeechRecognition ?? null;
-  }
-
-  startFromUserGesture() {
-    if (this.recognition || !transport) return false;
-    const Recognition = this.Recognition;
-    if (!Recognition) {
-      document.documentElement.dataset.voice = "unsupported";
-      return false;
-    }
-    const recognition = new Recognition();
-    this.recognition = recognition;
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onstart = () => {
-      document.documentElement.dataset.voice = "listening";
-    };
-    recognition.onerror = () => {
-      document.documentElement.dataset.voice = "failed";
-    };
-    recognition.onend = () => {
-      this.recognition = null;
-      if (document.documentElement.dataset.voice === "listening") {
-        document.documentElement.dataset.voice = "empty";
-      }
-    };
-    recognition.onresult = (event) => {
-      const transcript = [...event.results]
-        .map((result) => result[0]?.transcript ?? "")
-        .join(" ")
-        .replace(/[\r\n\t]+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 4096);
-      if (transcript && transport.pushText(`/voice-prompt ${transcript}\r`)) {
-        document.documentElement.dataset.voice = "submitted";
-      } else {
-        document.documentElement.dataset.voice = transcript ? "overflow" : "empty";
-      }
-    };
-    // start() occurs synchronously in the click/keyboard event. Dolly output
-    // cannot invoke this method, so compromised Wasm never acquires ambient
-    // microphone authority.
-    recognition.start();
-    return true;
-  }
-}
-
-const voiceBridge = new VoiceBridge();
-phoneMenu.querySelector("[data-dolly-voice]").addEventListener("click", () => {
-  voiceBridge.startFromUserGesture();
-  closePhoneMenu();
-});
 
 function displayFatal(message) {
   canvas.hidden = true;
@@ -406,6 +378,11 @@ class DisplayTransport {
     return (Atomics.load(this.words, this.word + DisplayTransport.flags) & 1) !== 0;
   }
 
+  inputIdle() {
+    return Atomics.load(this.words, this.word + DisplayTransport.eventRead) ===
+      Atomics.load(this.words, this.word + DisplayTransport.eventWrite);
+  }
+
   graphicsActive() {
     return (Atomics.load(this.words, this.word + DisplayTransport.flags) & 2) !== 0;
   }
@@ -675,18 +652,43 @@ class NetworkTransport {
   }
 }
 
-function appendBootstrap(text) {
-  if (text === "") return;
-  const normalized = text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
-  let bounded = `${bootstrapLog.textContent}${normalized}`;
-  const lines = bounded.split("\n");
-  if (lines.length > bootstrapMaximumLines) {
-    bounded = lines.slice(-bootstrapMaximumLines).join("\n");
+function appendBootstrap(text, flush = false) {
+  const normalized = `${bootstrapFragment}${text}`
+    .replaceAll("\r\n", "\n")
+    .replaceAll("\r", "\n");
+  const lastNewline = normalized.lastIndexOf("\n");
+  let complete = "";
+  if (flush) {
+    complete = normalized;
+    bootstrapFragment = "";
+  } else if (lastNewline === -1) {
+    bootstrapFragment = normalized.slice(-bootstrapMaximumCharacters);
+  } else {
+    complete = normalized.slice(0, lastNewline + 1);
+    bootstrapFragment = normalized
+      .slice(lastNewline + 1)
+      .slice(-bootstrapMaximumCharacters);
   }
-  if (bounded.length > bootstrapMaximumCharacters) {
-    bounded = bounded.slice(-bootstrapMaximumCharacters);
+  if (complete === "") return;
+
+  let offset = 0;
+  while (offset < complete.length) {
+    const newline = complete.indexOf("\n", offset);
+    const end = newline === -1 ? complete.length : newline + 1;
+    const record = complete.slice(offset, end).slice(-bootstrapMaximumCharacters);
+    const node = document.createTextNode(record);
+    bootstrapLines.push(node);
+    bootstrapCharacters += record.length;
+    bootstrapLog.append(node);
+    offset = end;
   }
-  bootstrapLog.textContent = bounded;
+
+  while (bootstrapLines.length > bootstrapMaximumLines ||
+         bootstrapCharacters > bootstrapMaximumCharacters) {
+    const expired = bootstrapLines.shift();
+    bootstrapCharacters -= expired.data.length;
+    expired.remove();
+  }
   bootstrapLog.scrollTop = bootstrapLog.scrollHeight;
 }
 
@@ -714,13 +716,6 @@ function sendResize() {
 
 function handleKeyboardEvent(event) {
   if (!transport) return;
-  if (event.type === "keydown" && event.ctrlKey && event.shiftKey &&
-      !event.altKey && !event.metaKey && event.code === "KeyM") {
-    voiceBridge.startFromUserGesture();
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    return;
-  }
   const clipboardChord = event.ctrlKey && event.shiftKey &&
     !event.altKey && !event.metaKey;
   if (clipboardChord && event.code === "KeyV") {
@@ -910,7 +905,10 @@ async function runBrowserProof() {
   transport.pushSyntheticKey("d", "KeyD", 2);
   transport.pushSyntheticKey("d", "KeyD", 2, 0);
   await waitFor(
-    () => transport.foregroundPid() > 0 && transport.foregroundPid() !== defaultPiPid,
+    () => transport.foregroundPid() > 0 &&
+      transport.foregroundPid() !== defaultPiPid &&
+      !transport.foregroundInterruptible() &&
+      transport.inputIdle(),
     "recovery Slop foreground pid",
   );
   document.documentElement.dataset.defaultPi = "passed";
@@ -1014,7 +1012,15 @@ async function runBrowserProof() {
     ["rm -f flags/missing"],
     ["rm -rf flags"],
     ["ls flags", undefined, 1],
-    ["ls -l", undefined, 2],
+    ["ls -la"],
+    ["stat -c '%F %s' shell.txt"],
+    ["file shell.txt"],
+    ["[ -f shell.txt ]"],
+    ["[ ! -d shell.txt ]"],
+    ["test -d shell.txt", undefined, 1],
+    ["test -d shell.txt; test $? -eq 1"],
+    ["echo MOVED > move-source && mv move-source move-target && grep -q MOVED move-target"],
+    ["printf 'PRINTF-%s\\n' OK | grep -q PRINTF-OK"],
     ["touch -c absent"],
     ["ls absent", undefined, 1],
     ["echo -n tight > tight.txt"],
@@ -1033,11 +1039,13 @@ async function runBrowserProof() {
     ["./browser-zig-check"],
     ["ls /usr/lib/libghostty-vt.a"],
     ["ghostty-vt"],
-    ["graphics-demo --frames 2"],
+    ["graphics-demo --frames 2", undefined,
+      document.documentElement.dataset.image === "gamedev" ? 0 : 127],
     ["cc --version"],
     ["c++ --version"],
     ["echo \"int answer(void) { return 42; }\" > answer.c"],
     ["cc -Wall -Wextra -O2 -c answer.c -o answer.o"],
+    ["cc -pedantic -c answer.c -o answer-pedantic.o"],
     ["echo \"int answer(void); int main(int argc, char **argv) { (void)argc; (void)argv; return answer() == 42 ? 0 : 1; }\" > use.c"],
     ["cc -std=c17 use.c answer.o -o c-multi"],
     ["./c-multi"],
@@ -1106,11 +1114,8 @@ async function runBrowserProof() {
     ["pi --list-models openai-codex > /tmp/pi-codex-models.txt"],
     ["grep -q 'openai-codex' /tmp/pi-codex-models.txt"],
     ["rm -f /home/dolly/.pi/agent/auth.json"],
-    ["lua -e \"print('lua from slop')\""],
   ];
   const afterInteractive = [
-    ["lua -e \"error('expected status')\"", undefined, 1],
-    ["echo \"print('PIPE-' .. (6 * 7))\" | lua"],
     ["demo"],
     ["demo"],
   ];
@@ -1119,27 +1124,14 @@ async function runBrowserProof() {
     await submitInput(command, input ?? `${command}\r`);
   }
 
-  const luaResult = submitInput("lua");
-  await waitFor(() => transport.foregroundPid() !== 0, "Lua foreground pid");
-  transport.pushText("print('RESULT-' .. (7 * 6))\r");
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  transport.pushSyntheticKey("c", "KeyC", 2);
-  transport.pushSyntheticKey("c", "KeyC", 2, 0);
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  transport.pushSyntheticKey("d", "KeyD", 2);
-  transport.pushSyntheticKey("d", "KeyD", 2, 0);
-  await luaResult;
-  document.documentElement.dataset.luaInteractive = "passed";
-
   for (const [command, input] of afterInteractive) {
     await submitInput(command, input ?? `${command}\r`);
   }
 
-  const count = beforeInteractive.length + 1 + afterInteractive.length;
+  const count = beforeInteractive.length + afterInteractive.length;
   const proofResults = commandResults.slice(-count);
   const expectedStatuses = [
     ...beforeInteractive.map((entry) => entry[2] ?? 0),
-    0,
     ...afterInteractive.map((entry) => entry[2] ?? 0),
   ];
   const passed = proofResults.length === count
@@ -1167,12 +1159,37 @@ async function boot() {
   if (!crossOriginIsolated) {
     throw new Error("Dolly requires cross-origin isolation for shared Wasm memory");
   }
-  const bootMode = location.pathname.replace(/\/+$/, "") === "/rebuild"
-    ? "rebuild"
-    : "snapshot";
-  appendBootstrap(bootMode === "rebuild"
-    ? "DOLLY / REBUILD FROM SOURCE\n\n"
-    : "DOLLY / PRECOMPILED SYSTEM\n\n");
+  const configured = globalThis.DOLLY_BOOT;
+  if (configured === null || typeof configured !== "object" ||
+      !["default", "gamedev", "custom"].includes(configured.image) ||
+      !["snapshot", "rebuild"].includes(configured.mode) ||
+      (configured.image === "custom" && configured.mode !== "rebuild")) {
+    throw new Error("invalid Dolly route configuration");
+  }
+  const bootMode = configured.mode;
+  const image = configured.image;
+  const applicationBase = new URL("../", import.meta.url);
+  const trustedBootstrapSources = [
+    ...DOLLY_IMAGES.map((definition) => ({
+      path: `/${definition.dollyfile}`,
+      byteLength: definition.byteLength,
+    })),
+    ...DOLLY_STATIC_SOURCES,
+  ];
+  const httpPolicy = consumeDollyHttpPolicy(
+    window,
+    trustedBootstrapSources,
+    applicationBase,
+  );
+  const customSource = image === "custom"
+    ? sessionStorage.getItem("dolly-custom-source")
+    : undefined;
+  if (image === "custom" && !customSource) {
+    throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
+  }
+  appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${bootMode === "rebuild"
+    ? "REBUILD FROM SOURCE"
+    : "PRECOMPILED SYSTEM"}\n\n`);
   mount.addEventListener("pointerdown", () => keyboard.focus({ preventScroll: true }));
   keyboard.addEventListener("compositionend", (event) => {
     if (!transport?.pushText(event.data)) {
@@ -1189,7 +1206,6 @@ async function boot() {
   });
 
   const workerUrl = new URL("./runtime-worker.mjs", import.meta.url);
-  workerUrl.searchParams.set("boot", bootMode);
   runtimeWorker = new Worker(workerUrl, {
     type: "module",
     name: "dolly-runtime",
@@ -1202,15 +1218,45 @@ async function boot() {
       appendBootstrap(bootstrapDecoder.decode(message.bytes, { stream: true }));
     } else if (message.type === "system-snapshot") {
       builtSystemSnapshot = message.bytes;
+    } else if (message.type === "broker-ready") {
+      try {
+        if (networkTransport !== undefined || message.httpVersion !== 2) {
+          throw new Error("Dolly supplied an invalid HTTP broker handshake");
+        }
+        networkTransport = new NetworkTransport(
+          message.memory,
+          message.httpAddress,
+          message.httpCapacity,
+          httpPolicy,
+        );
+        runtimeWorker.postMessage({ type: "broker-ready-ack" });
+      } catch (error) {
+        displayFatal(error instanceof Error ? error.message : String(error));
+      }
     } else if (message.type === "exited") {
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "http-request") {
-      void networkTransport?.request(message).catch((error) => {
+      networkRequestChain = networkRequestChain.then(() => {
+        if (!networkTransport) throw new Error("HTTP request arrived before broker setup");
+        return networkTransport.request(message);
+      }).catch((error) => {
         document.documentElement.dataset.networkError = error.message;
       });
+    } else if (message.type === "download") {
+      try {
+        startBrowserDownload(message);
+      } catch (error) {
+        displayFatal(error instanceof Error ? error.message : String(error));
+      }
     } else if (message.type === "error" && runtimeReady) {
       displayFatal(message.message);
     }
+  });
+  runtimeWorker.postMessage({
+    type: "configure",
+    image,
+    mode: bootMode,
+    ...(customSource === undefined ? {} : { customSource }),
   });
 
   const ready = await new Promise((resolve, reject) => {
@@ -1225,6 +1271,7 @@ async function boot() {
     });
     runtimeWorker.addEventListener("error", reject, { once: true });
   });
+  appendBootstrap(bootstrapDecoder.decode(), true);
   runtimeReady = true;
   if (ready.version !== 3) throw new Error(`unsupported display mailbox ${ready.version}`);
   if (ready.httpVersion !== 2) throw new Error(`unsupported HTTP mailbox ${ready.httpVersion}`);
@@ -1232,6 +1279,14 @@ async function boot() {
     throw new Error("Dolly did not publish both framebuffer addresses");
   }
   if (ready.bootMode !== bootMode) throw new Error("runtime boot mode mismatch");
+  if (ready.routeImage !== image || (image !== "custom" && ready.image !== image)) {
+    throw new Error("runtime image mismatch");
+  }
+  if (!networkTransport || ready.httpAddress !== networkTransport.address ||
+      ready.httpCapacity !== networkTransport.capacity) {
+    throw new Error("runtime HTTP mailbox changed after broker setup");
+  }
+  document.documentElement.dataset.image = ready.image;
   document.documentElement.dataset.bootMode = ready.bootMode;
   document.documentElement.dataset.snapshotBytes = String(ready.snapshotBytes);
   transport = new DisplayTransport(
@@ -1242,12 +1297,6 @@ async function boot() {
     ready.pasteAddress,
     ready.copyAddress,
     ready.clipboardCapacity,
-  );
-  networkTransport = new NetworkTransport(
-    ready.memory,
-    ready.httpAddress,
-    ready.httpCapacity,
-    consumeDollyHttpPolicy(window),
   );
   presenter = new FramebufferPresenter(
     canvas,

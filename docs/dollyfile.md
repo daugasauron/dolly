@@ -1,220 +1,167 @@
-# Dollyfile proposal
+# Dollyfile version 1
 
-A Dollyfile is a small, reviewable recipe for turning pinned source inputs into
-a verified Dolly system capsule. It is inspired by Dockerfile's useful part—a
-linear build description—but deliberately rejects assumptions that do not fit
-Dolly: Linux base images, a privileged daemon, host bind mounts, users and
-permissions, arbitrary host shell steps, ambient build networking, and secrets
-inside image layers.
+A Dollyfile is the source-visible, sequential recipe for one Dolly userspace
+image. It says which exact bytes enter the sandbox, which commands build them,
+which checks must pass, which files survive snapshotting, and which executable
+starts when the image boots.
 
-The format should solve a concrete problem already visible in the POC. Today a
-new package may require edits in CMake preload flags, preparation scripts,
-`startup.slop`, `startup.mk`, the snapshot C manifest, documentation, and tests.
-One recipe should instead define source materialization, target-side build
-steps, retained outputs, checks, and entry behavior.
+The authoritative parser and executor is the C program in
+[`src/dollyfile.c`](../src/dollyfile.c). It is compiled by Clang inside Dolly,
+installed as `/bin/dollyfile`, and run as an ordinary Dolly executable. The
+browser does not parse or execute build rows. JavaScript only discovers image
+names for routes and renders source text for the viewer.
 
-## Design principles
+## Execution model
 
-1. **Compilation happens inside Dolly.** The trusted build tool may download,
-   verify, unpack, copy, and patch source inputs. It does not compile the target
-   executable.
-2. **Inputs are immutable and pinned.** A remote archive requires SHA-256; a Git
-   source requires an exact commit. Floating tags and branches are rejected.
-3. **No ambient build network.** Version 0 `RUN` steps cannot call HTTP. Every
-   source needed by the build is materialized before the Wasm build begins.
-4. **The recipe cannot grant runtime authority.** It may declare a named network
-   need, but only the embedding page's HTTP policy can grant destinations and
-   credentials.
-5. **One recipe, one snapshot manifest.** Retained paths are generated from
-   `KEEP` directives rather than duplicated in C source.
-6. **Unknown means error.** Unknown directives, missing pins, absent retained
-   files, and unsupported shell behavior fail the build.
-7. **Text is canonical.** The source file and lock file are line-oriented text.
-   JSON is not needed for the contract; generated JavaScript is acceptable only
-   where the browser build already requires it.
+Rows execute strictly from top to bottom.
 
-## Proposed version-0 syntax
+- A `SOURCE` request must finish, satisfy its byte limit and SHA-256, and be
+  written to its destination before the next row is parsed.
+- `RUN` and `CHECK` launch `/bin/slop -e -c ...` and wait for its status before
+  execution continues.
+- `EXTENDS` fetches and executes the parent at that exact row. The child then
+  resumes at the following row.
+- The first failed fetch, parse, build, or check aborts the image.
+
+There is no parallel prefetch phase, hidden dependency solver, automatic
+archive extraction, permission layer, or package manager. If a recipe uses an
+archive, an earlier row must have built an extractor. The default image starts
+by fetching the small C source for `tar`, compiling it inside Dolly, and only
+then requesting source archives.
+
+## Grammar
+
+Blank lines and comments beginning with `#` are ignored. A trailing `\`
+continues a logical row. Version 1 supports:
 
 ```text
-# comments occupy a line or begin after whitespace
-DOLLY 0
-
-SOURCE ARCHIVE <url> SHA256 <64-hex> INTO <absolute-path> [STRIP <count>]
-SOURCE GIT <url> COMMIT <40-hex> INTO <absolute-path>
-COPY <project-path> <absolute-path>
-PATCH <project-path> IN <absolute-source-directory> [STRIP <count>]
-
+DOLLY 1
+IMAGE <name>
+EXTENDS <image>
+SOURCE HOST|URL BIN|TXT <location> <absolute-destination> SHA256 <64-hex>
 ENV <name>=<value>
-WORKDIR <absolute-path>
-RUN <slop command>
-CHECK <slop command>
-
+WORKDIR <absolute-directory>
+RUN <slop-command>
+CHECK <slop-command>
 KEEP <absolute-file>
 KEEP-TREE <absolute-directory>
-ENTRY <absolute-executable>
-DECLARE HTTP <policy-label>
+ENTRY <absolute-executable> [argument ...]
 ```
 
-Rules:
+`DOLLY 1` must be the first declaration. It selects this grammar and has no
+runtime behavior by itself.
 
-- `DOLLY 0` must be the first non-comment line and selects a recipe grammar plus
-  compatible seed runtime. It is not a mutable Linux `FROM` image.
-- Materialization directives (`SOURCE`, `COPY`, and `PATCH`) must precede the
-  first `RUN`. This gives the build an explicit offline transition.
-- Project paths are relative to the Dollyfile directory, cannot traverse above
-  it, and become immutable build inputs.
-- Guest paths are absolute. Dolly has no permission or ownership directives.
-- `ENV` and `WORKDIR` affect subsequent `RUN` and `CHECK` commands in source
-  order.
-- The remainder of a `RUN` or `CHECK` line is Slop source, with Slop's quoting
-  and expansion rules. The Dollyfile parser performs no second variable
-  language.
-- Every `RUN` executes as `/bin/slop -e -c ...` in the one Wasm build machine.
-  The generated startup script begins with `set -ex` and prints a distinct
-  section heading before each step.
-- `CHECK` runs after all `RUN` steps and before sealing. It must not mutate a
-  retained artifact; a later version could enforce this by comparing manifests.
-- `KEEP` names one file. `KEEP-TREE` recursively retains one directory. Missing
-  paths fail sealing. `/workspace`, `/tmp`, and known credential/session paths
-  are rejected even if named.
-- There is exactly one `ENTRY`. Version 0 normally uses `/bin/slop`.
-- `DECLARE HTTP label` is metadata only. It never contains a secret and never
-  changes `DOLLY_HTTP_POLICY`. A browser embedding may choose to satisfy the
-  label with separately reviewed policy or refuse to launch the capsule.
+`IMAGE` gives the selected image its stable route and identity name. Names use
+lowercase ASCII letters, digits, and hyphens. The repository file is
+`Dollyfile` for `default`, or `Dollyfile-<name>` for another image.
 
-Version 0 intentionally has no `FROM`, `USER`, `CHMOD`, `EXPOSE`, `VOLUME`,
-`MOUNT`, `ADD`, `RUN-HOST`, `SECRET`, shell selection, background job, or
-arbitrary plugin directive.
+`EXTENDS` is optional and must appear after `IMAGE` and before action rows. The
+browser supplies only the initial recipe locator. The C engine resolves
+`default` to `/Dollyfile` and another parent to `/Dollyfile-<name>`, then fetches
+it through the same HTTP broker used for every other network request.
 
-## Example
+`SOURCE` acquires one independent pinned input:
 
-```Dockerfile
-DOLLY 0
+- `HOST` resolves a root-relative location against the deployment base. A
+  deployment under `/dolly/` therefore resolves `/static/x` beneath that base,
+  not at the origin root.
+- `URL` is an absolute HTTP(S) URL.
+- `BIN` and `TXT` describe presentation only. Both write the exact response
+  bytes. The source viewer offers `BIN` as a download and displays or links
+  `TXT` as text.
+- The destination is an absolute Dolly path. The C engine creates parent
+  directories, streams into a temporary file, verifies SHA-256, and publishes
+  only verified bytes.
+- No media type causes decompression, parsing, execution, or code generation.
 
-SOURCE ARCHIVE https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz \
-  SHA256 dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3 \
-  INTO /usr/src/make STRIP 1
-COPY config/make-dolly.patch /usr/src/dolly-inputs/make.patch
-PATCH config/make-dolly.patch IN /usr/src/make STRIP 1
-COPY src/startup.mk /usr/src/dolly/startup.mk
+All `HOST` and `URL` traffic crosses `env.dolly_http_dispatch`, Dolly's sole
+intentional agent-selected network import. Repository `HOST` inputs are added
+to the browser policy as exact credential-free GET capabilities with exact
+response-size ceilings. General URL authority remains embedding policy; a
+Dollyfile declaration never grants itself network access.
 
-ENV CC=cc
-ENV SHELL=/bin/slop
-WORKDIR /usr/src/make
-RUN make -f /usr/src/dolly/startup.mk make
+`ENV` updates the persistent userspace environment. `WORKDIR` changes the
+shared current directory, including `/`.
 
-CHECK /usr/bin/make --version
-CHECK /usr/bin/make -f /usr/share/dolly/checks/make.mk
+`RUN` and `CHECK` currently have the same fail-fast execution semantics. The
+separate names communicate intent: `RUN` produces the image, while `CHECK`
+demonstrates a required result and is suitable for audit/test reporting.
 
-KEEP /usr/bin/make
-KEEP /usr/share/licenses/make/COPYING
-ENTRY /bin/slop
-```
+`KEEP` names one regular file. `KEEP-TREE` recursively expands a directory to
+regular files after all rows finish. A missing path, directory passed to
+`KEEP`, non-directory passed to `KEEP-TREE`, special file, or forbidden mutable
+session path fails sealing. `/tmp`, `/workspace`, Pi credentials, and Pi
+sessions cannot be retained. Dolly automatically retains its canonical recipe
+chain and image control files.
 
-The backslashes above are Dollyfile line continuations, not shell
-continuations. A real current-system recipe would have one section per package
-and retain the complete `/bin`, `/usr/bin`, libraries, Git helpers, display
-module, and base configuration.
-
-## Build pipeline
+`ENTRY` is an absolute executable plus fixed arguments. It is serialized to a
+small versioned binary record at `/etc/dolly/entry`; no shell reparses it at
+boot. The default image uses:
 
 ```text
-Dollyfile + project files
-          │
-          ▼
-trusted recipe compiler
-  parse → validate → fetch pinned inputs → verify → unpack/copy/patch
-          │
-          ├─ dolly.lock                 human-readable provenance
-          ├─ initial WasmFS data        sources, headers, startup recipe
-          ├─ /etc/dolly/startup.slop    generated target-side build
-          └─ /etc/dolly/image.manifest  generated retained paths
-                         │
-                         ▼
-                headless browser /rebuild
-                  RUN + CHECK inside Wasm
-                         │
-                         ▼
-                snapshot exactly KEEP paths
-                         │
-                         ▼
-              digest-checked static capsule
+ENTRY /usr/bin/pi --no-session
 ```
 
-The current `system_files[]` array should become a parser for the generated
-`/etc/dolly/image.manifest`. Snapshot capture still uses an allowlist and never
-walks the whole filesystem. The manifest itself belongs to the trusted build
-input and should be included in the snapshot metadata.
+There is deliberately no `DECLARE HTTP` directive. Network requirements may
+become descriptive metadata later, but recipes cannot alter the browser's
+authority or credential policy.
 
-The special snapshot export endpoint remains build-harness-only. A normal
-served Dolly page has no host-write route.
+## Outputs and identity
 
-## Lock file
-
-A generated `dolly.lock` can remain simple text:
+Successful execution writes:
 
 ```text
-dolly-lock 0
-recipe-sha256 9a…
-seed-build 31…
-abi dolly-0 77…
-source archive make 4.4.1 dd16… https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz
-source git git e901… https://github.com/git/git.git
-keep file /usr/bin/make
-entry /bin/slop
-declare-http model-provider
+/etc/dolly/Dollyfile                    canonical selected recipe
+/etc/dolly/recipes/<image>.Dollyfile    every recipe in the inheritance chain
+/etc/dolly/recipes.lock                 locator and SHA-256 for each recipe
+/etc/dolly/image                        selected image name
+/etc/dolly/entry                        binary entry record
+/etc/dolly/image.manifest               sorted retained-file paths
 ```
 
-Canonical spacing, sorted resolved source records, and exact digests make the
-lock file diffable. It is build metadata, not a runtime ABI and not an authority
-grant.
+The outer snapshot builder captures exactly the files in
+`/etc/dolly/image.manifest`. Its metadata binds the opaque snapshot to:
 
-## Relationship to layers and caching
+- the runtime build ID;
+- snapshot format version;
+- image name;
+- exact raw recipe bytes, lengths, and SHA-256 values for the visible chain;
+- serialized entry arguments;
+- retained-path manifest;
+- snapshot byte length and SHA-256.
 
-The first implementation should produce one capsule and no Docker-like layer
-filesystem. Layers introduce ordering, whiteouts, cache invalidation, and
-cross-ABI reuse before Dolly has defined its stable substrate.
+Prebuilt boot validates that metadata against the source-visible repository
+recipes before restoring. Rebuild boot fetches the recipes and sources through
+the broker and produces a new snapshot inside the sandbox.
 
-Later, a recipe prefix can be cached by a key containing:
+## Images and routes
 
-- seed runtime build ID;
-- command ABI digest;
-- normalized recipe prefix digest;
-- all materialized input digests;
-- build-tool version.
+[`scripts/image-definitions.mjs`](../scripts/image-definitions.mjs) discovers
+repository Dollyfiles and independently verifies every `HOST` input on disk.
+It generates image/source metadata and these routes:
 
-An intermediate cache remains an opaque Dolly snapshot, never a host directory
-tree. A cache hit must still run final checks and cannot widen browser policy.
+```text
+/default/             restore the default snapshot
+/default/rebuild/     execute Dollyfile and export a default snapshot
+/gamedev/             restore the gamedev snapshot
+/gamedev/rebuild/     execute Dollyfile-gamedev, including EXTENDS default
+/view/default/        styled source viewer
+/view/gamedev/        styled source viewer
+/custom/rebuild/      execute a bounded user-selected text recipe
+```
 
-## Security consequences
+The root menu is generated from the same definitions. A custom recipe remains
+in the current tab and must directly extend `default`; the C engine remains the
+authoritative parser once the fresh sandbox starts.
 
-A Dollyfile improves security review because it separates four kinds of action:
+## Current boundary
 
-1. trusted, pinned source acquisition;
-2. deterministic source materialization;
-3. untrusted build execution inside the Wasm sandbox;
-4. separately configured runtime network authority.
+Version 1 intentionally optimizes for inspectability rather than convenience.
+It has no variables, conditionals, implicit caches, mounts, secrets, build
+contexts, layers, shell selection, or permission directives. Host build scripts
+still prepare deterministic upstream subsets and archives, but every browser
+build input is visible as an independent `SOURCE` row and verified before use.
 
-Dockerfiles often blur these through `RUN curl ...`, build secrets, mounts, and
-a daemon with host access. Dolly should make those transitions impossible or
-visibly explicit. A malicious compiler may corrupt every output and the entire
-build sandbox, but it still cannot read a host directory, run a host process, or
-send data unless the build embedding granted an HTTP policy. The sealed result
-is accepted only if its recipe, sources, ABI, retained paths, and checks match
-the trusted build plan.
-
-## Minimal implementation sequence
-
-1. Write a strict parser and normalizer in JavaScript build tooling; keep the
-   grammar dependency-free.
-2. Generate the current `startup.slop` and a text image manifest without yet
-   deleting the handwritten versions; compare them in tests.
-3. Teach `system-snapshot.c` to consume the generated manifest with exact path,
-   count, size, duplicate, and forbidden-prefix validation.
-4. Convert one small package, then zlib/Make, then the full current userspace.
-5. Add source-lock and capsule-digest checks.
-6. Remove the duplicated CMake/startup/snapshot lists only after the browser
-   proof is identical.
-
-That sequence gives Dolly a useful build API quickly while preserving the
-current working proof as an oracle.
+The next useful evolution is a content-addressed cache or capsule format that
+preserves this exact row-by-row semantics. It should not reintroduce a hidden
+JavaScript executor or broaden the browser capability boundary.

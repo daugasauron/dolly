@@ -1,0 +1,13 @@
+{
+  "prompts": [
+    "Act as a coding agent inside Dolly and use no more than 10 tool calls. Inspect /workspace and create a tiny C smoke project with a Makefile and Git commit; build and run it. In compact combined commands, verify ls -la, grep, sed, head, wc, stat, file, test/[ including negation and $?, mv, printf, cc, make, git, qjs, and curl --version. Every shell tool has finite noninteractive stdin: never wait for terminal input. Record only real failures with exact commands/errors in /workspace/agent-failures.md. Then write /workspace/dolly-agent-audit.md in at most 20 short lines, prioritizing useful extensions for coding agents based strictly on what you observed; distinguish essential compatibility from nice-to-have. Finish the work and summarize the top recommendations rather than narrating future actions."
+  ],
+  "probes": [
+    { "command": "ls -la /workspace", "status": 0 },
+    { "command": "git -C /workspace/smoke status --short", "status": 0 },
+    { "command": "make -C /workspace/smoke clean all", "status": 0 },
+    { "command": "/workspace/smoke/smoke", "status": 0 },
+    { "command": "head -25 /workspace/agent-failures.md", "status": 0 },
+    { "command": "head -25 /workspace/dolly-agent-audit.md", "status": 0 }
+  ]
+}

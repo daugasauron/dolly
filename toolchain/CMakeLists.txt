@@ -5,54 +5,9 @@ find_package(LLVM REQUIRED CONFIG)
 find_package(LLD REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)
 
-if(NOT DOLLY_SBASE_DIR OR NOT EXISTS "${DOLLY_SBASE_DIR}/grep.c")
-  message(FATAL_ERROR "DOLLY_SBASE_DIR must name the pinned sbase checkout")
-endif()
-if(NOT DOLLY_AWK_DIR OR NOT EXISTS "${DOLLY_AWK_DIR}/awkgram.y")
-  message(FATAL_ERROR "DOLLY_AWK_DIR must name the pinned AWK checkout")
-endif()
-if(NOT DOLLY_AWK_GENERATED_DIR OR
-   NOT EXISTS "${DOLLY_AWK_GENERATED_DIR}/awkgram.tab.c" OR
-   NOT EXISTS "${DOLLY_AWK_GENERATED_DIR}/awkgram.tab.h")
-  message(FATAL_ERROR "DOLLY_AWK_GENERATED_DIR must contain the pinned Bison output")
-endif()
-if(NOT DOLLY_QUICKJS_DIR OR NOT EXISTS "${DOLLY_QUICKJS_DIR}/quickjs.c")
-  message(FATAL_ERROR "DOLLY_QUICKJS_DIR must name the pinned QuickJS-ng checkout")
-endif()
-if(NOT DOLLY_CURL_DIR OR NOT EXISTS "${DOLLY_CURL_DIR}/include/curl/curl.h")
-  message(FATAL_ERROR "DOLLY_CURL_DIR must name the pinned curl checkout")
-endif()
-if(NOT DOLLY_ZLIB_DIR OR NOT EXISTS "${DOLLY_ZLIB_DIR}/zlib.h")
-  message(FATAL_ERROR "DOLLY_ZLIB_DIR must name the prepared zlib source tree")
-endif()
-if(NOT DOLLY_GIT_DIR OR NOT EXISTS "${DOLLY_GIT_DIR}/dolly-sources.txt")
-  message(FATAL_ERROR "DOLLY_GIT_DIR must name the prepared Git source tree")
-endif()
-if(NOT DOLLY_MAKE_DIR OR NOT EXISTS "${DOLLY_MAKE_DIR}/dolly-sources.txt")
-  message(FATAL_ERROR "DOLLY_MAKE_DIR must name the prepared GNU Make source tree")
-endif()
 if(NOT DOLLY_ZIG_DIR OR NOT EXISTS "${DOLLY_ZIG_DIR}/src/zig_llvm.cpp" OR
    NOT EXISTS "${DOLLY_ZIG_DIR}/lib/std/std.zig")
-  message(FATAL_ERROR "DOLLY_ZIG_DIR must name the prepared native Zig source tree")
-endif()
-if(NOT DOLLY_NATIVE_ZIG OR NOT EXISTS "${DOLLY_NATIVE_ZIG}")
-  message(FATAL_ERROR "DOLLY_NATIVE_ZIG must name the ABI-stamped native Zig command")
-endif()
-if(NOT DOLLY_GHOSTTY_DIR OR NOT EXISTS "${DOLLY_GHOSTTY_DIR}/.dolly-source" OR
-   NOT EXISTS "${DOLLY_GHOSTTY_DIR}/src/lib_vt.zig")
-  message(FATAL_ERROR "DOLLY_GHOSTTY_DIR must name the prepared Ghostty source tree")
-endif()
-if(NOT DOLLY_UUCODE_DIR OR NOT EXISTS "${DOLLY_UUCODE_DIR}/src/root.zig")
-  message(FATAL_ERROR "DOLLY_UUCODE_DIR must name the pinned uucode source tree")
-endif()
-if(NOT DOLLY_STB_HEADER OR NOT EXISTS "${DOLLY_STB_HEADER}")
-  message(FATAL_ERROR "DOLLY_STB_HEADER must name pinned stb_truetype.h")
-endif()
-if(NOT DOLLY_IOSEVKA_TTF OR NOT EXISTS "${DOLLY_IOSEVKA_TTF}")
-  message(FATAL_ERROR "DOLLY_IOSEVKA_TTF must name pinned IosevkaTerm SemiBold TTF")
-endif()
-if(NOT DOLLY_LUA_WASM OR NOT EXISTS "${DOLLY_LUA_WASM}")
-  message(FATAL_ERROR "DOLLY_LUA_WASM must name the compiled Lua bootstrap module")
+  message(FATAL_ERROR "DOLLY_ZIG_DIR must name the prepared Zig source tree")
 endif()
 
 add_executable(dolly
@@ -97,6 +52,10 @@ target_link_libraries(dolly PRIVATE
   LLVMObject
 )
 
+# Emscripten makes --preload-file directory nodes read-only. Keep its packaged
+# input under /seed; Dolly installs that tree into its mutable in-Wasm /usr
+# filesystem before invoking the compiler. No image-specific source belongs in
+# this common seed.
 target_link_options(dolly PRIVATE
   -m64
   -O2
@@ -117,141 +76,26 @@ target_link_options(dolly PRIVATE
   -sEXPORT_NAME=createDolly
   -sENVIRONMENT=worker
   -sINVOKE_RUN=0
-  "SHELL:-sEXPORTED_RUNTIME_METHODS=FS"
+  "SHELL:-sEXPORTED_RUNTIME_METHODS=FS,FS_createPath,FS_createDataFile"
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
   "SHELL:--js-library /src/src/browser-broker.js"
-  "SHELL:--preload-file /src/.cache/emscripten/sysroot/include@/usr/include"
-  "SHELL:--preload-file /src/.cache/llvm-wasm/lib/clang/24/include@/usr/lib/clang/24/include"
-  "SHELL:--preload-file /src/include/dolly/abi.h@/usr/include/dolly/abi.h"
-  "SHELL:--preload-file /src/include/dolly/http.h@/usr/include/dolly/http.h"
-  "SHELL:--preload-file /src/include/dolly/display.h@/usr/include/dolly/display.h"
-  "SHELL:--preload-file /src/include/dolly/runtime.h@/usr/include/dolly/runtime.h"
-  "SHELL:--preload-file /src/include/dolly/toolchain.h@/usr/include/dolly/toolchain.h"
-  "SHELL:--preload-file /src/src/slop.c@/usr/src/dolly/slop.c"
-  "SHELL:--preload-file /src/src/startup.slop@/etc/dolly/startup.slop"
-  "SHELL:--preload-file /src/src/startup.mk@/usr/src/dolly/startup.mk"
-  "SHELL:--preload-file /src/build/dolly-0.wasm@/usr/lib/dolly/dolly-0.wasm"
-  "SHELL:--preload-file /src/src/commands/help.c@/usr/src/dolly/commands/help.c"
-  "SHELL:--preload-file /src/src/commands/pwd.c@/usr/src/dolly/commands/pwd.c"
-  "SHELL:--preload-file /src/src/commands/cd.c@/usr/src/dolly/commands/cd.c"
-  "SHELL:--preload-file /src/src/commands/cat.c@/usr/src/dolly/commands/cat.c"
-  "SHELL:--preload-file /src/src/commands/echo.c@/usr/src/dolly/commands/echo.c"
-  "SHELL:--preload-file /src/src/commands/mkdir.c@/usr/src/dolly/commands/mkdir.c"
-  "SHELL:--preload-file /src/src/commands/touch.c@/usr/src/dolly/commands/touch.c"
-  "SHELL:--preload-file /src/src/commands/rm.c@/usr/src/dolly/commands/rm.c"
-  "SHELL:--preload-file /src/src/commands/clear.c@/usr/src/dolly/commands/clear.c"
-  "SHELL:--preload-file /src/src/commands/ls.c@/usr/src/dolly/commands/ls.c"
-  "SHELL:--preload-file /src/src/commands/cc.c@/usr/src/dolly/commands/cc.c"
-  "SHELL:--preload-file /src/src/commands/c++.c@/usr/src/dolly/commands/c++.c"
-  "SHELL:--preload-file /src/src/commands/ld.c@/usr/src/dolly/commands/ld.c"
-  "SHELL:--preload-file /src/src/commands/ar.c@/usr/src/dolly/commands/ar.c"
-  "SHELL:--preload-file /src/src/commands/curl.c@/usr/src/dolly/commands/curl.c"
-  "SHELL:--preload-file /src/src/commands/graphics-demo.c@/usr/src/dolly/commands/graphics-demo.c"
-  "SHELL:--preload-file /src/src/libcurl-fetch.c@/usr/src/dolly/libcurl-fetch.c"
-  "SHELL:--preload-file ${DOLLY_CURL_DIR}/include/curl@/usr/include/curl"
-  "SHELL:--preload-file ${DOLLY_CURL_DIR}/COPYING@/usr/share/licenses/curl/COPYING"
-  "SHELL:--preload-file ${DOLLY_ZLIB_DIR}@/usr/src/zlib"
-  "SHELL:--preload-file ${DOLLY_ZLIB_DIR}/zlib.h@/usr/include/zlib.h"
-  "SHELL:--preload-file ${DOLLY_ZLIB_DIR}/zconf.h@/usr/include/zconf.h"
-  "SHELL:--preload-file ${DOLLY_ZLIB_DIR}/LICENSE@/usr/share/licenses/zlib/LICENSE"
-  "SHELL:--preload-file ${DOLLY_GIT_DIR}@/usr/src/git"
-  "SHELL:--preload-file ${DOLLY_GIT_DIR}/templates@/usr/share/git-core/templates"
-  "SHELL:--preload-file ${DOLLY_GIT_DIR}/COPYING@/usr/share/licenses/git/COPYING"
-  "SHELL:--preload-file ${DOLLY_MAKE_DIR}@/usr/src/make"
-  "SHELL:--preload-file ${DOLLY_MAKE_DIR}/COPYING@/usr/share/licenses/make/COPYING"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/grep.c@/usr/src/sbase/grep.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/head.c@/usr/src/sbase/head.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/sed.c@/usr/src/sbase/sed.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/wc.c@/usr/src/sbase/wc.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/queue.h@/usr/src/sbase/queue.h"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/util.h@/usr/src/sbase/util.h"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/utf.h@/usr/src/sbase/utf.h"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/arg.h@/usr/src/sbase/arg.h"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/compat.h@/usr/src/sbase/compat.h"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutil/ealloc.c@/usr/src/sbase/libutil/ealloc.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutil/eprintf.c@/usr/src/sbase/libutil/eprintf.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutil/eregcomp.c@/usr/src/sbase/libutil/eregcomp.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutil/fshut.c@/usr/src/sbase/libutil/fshut.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutil/reallocarray.c@/usr/src/sbase/libutil/reallocarray.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutil/strlcat.c@/usr/src/sbase/libutil/strlcat.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutil/strcasestr.c@/usr/src/sbase/libutil/strcasestr.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutil/strtonum.c@/usr/src/sbase/libutil/strtonum.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutf/fgetrune.c@/usr/src/sbase/libutf/fgetrune.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutf/isdigitrune.c@/usr/src/sbase/libutf/isdigitrune.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutf/isspacerune.c@/usr/src/sbase/libutf/isspacerune.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutf/rune.c@/usr/src/sbase/libutf/rune.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutf/runetype.c@/usr/src/sbase/libutf/runetype.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutf/runetype.h@/usr/src/sbase/libutf/runetype.h"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/libutf/utf.c@/usr/src/sbase/libutf/utf.c"
-  "SHELL:--preload-file ${DOLLY_SBASE_DIR}/LICENSE@/usr/share/licenses/sbase/LICENSE"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/awk.h@/usr/src/awk/awk.h"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/awkgram.y@/usr/src/awk/awkgram.y"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/b.c@/usr/src/awk/b.c"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/lex.c@/usr/src/awk/lex.c"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/lib.c@/usr/src/awk/lib.c"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/main.c@/usr/src/awk/main.c"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/maketab.c@/usr/src/awk/maketab.c"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/parse.c@/usr/src/awk/parse.c"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/proto.h@/usr/src/awk/proto.h"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/run.c@/usr/src/awk/run.c"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/tran.c@/usr/src/awk/tran.c"
-  "SHELL:--preload-file ${DOLLY_AWK_GENERATED_DIR}/awkgram.tab.c@/usr/src/awk/awkgram.tab.c"
-  "SHELL:--preload-file ${DOLLY_AWK_GENERATED_DIR}/awkgram.tab.h@/usr/src/awk/awkgram.tab.h"
-  "SHELL:--preload-file ${DOLLY_AWK_DIR}/LICENSE@/usr/share/licenses/awk/LICENSE"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/builtin-array-fromasync.h@/usr/src/quickjs/builtin-array-fromasync.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/builtin-iterator-zip-keyed.h@/usr/src/quickjs/builtin-iterator-zip-keyed.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/builtin-iterator-zip.h@/usr/src/quickjs/builtin-iterator-zip.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/cutils.h@/usr/src/quickjs/cutils.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/dtoa.c@/usr/src/quickjs/dtoa.c"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/dtoa.h@/usr/src/quickjs/dtoa.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/libregexp-opcode.h@/usr/src/quickjs/libregexp-opcode.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/libregexp.c@/usr/src/quickjs/libregexp.c"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/libregexp.h@/usr/src/quickjs/libregexp.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/libunicode-table.h@/usr/src/quickjs/libunicode-table.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/libunicode.c@/usr/src/quickjs/libunicode.c"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/libunicode.h@/usr/src/quickjs/libunicode.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/list.h@/usr/src/quickjs/list.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/quickjs-atom.h@/usr/src/quickjs/quickjs-atom.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/quickjs-c-atomics.h@/usr/src/quickjs/quickjs-c-atomics.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/quickjs-opcode.h@/usr/src/quickjs/quickjs-opcode.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/quickjs.c@/usr/src/quickjs/quickjs.c"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/quickjs.h@/usr/src/quickjs/quickjs.h"
-  "SHELL:--preload-file ${DOLLY_QUICKJS_DIR}/LICENSE@/usr/share/licenses/quickjs-ng/LICENSE"
-  "SHELL:--preload-file /src/src/runtimes/quickjs-main.c@/usr/src/dolly/runtimes/quickjs-main.c"
-  "SHELL:--preload-file /src/src/runtimes/quickjs-runner.h@/usr/src/dolly/runtimes/quickjs-runner.h"
-  "SHELL:--preload-file /src/src/runtimes/dolly-node.js@/usr/lib/dolly/node.js"
-  "SHELL:--preload-file /src/src/runtimes/janis.js@/usr/lib/janis/runtime.js"
-  "SHELL:--preload-file /src/src/commands/qjs.c@/usr/src/dolly/commands/qjs.c"
-  "SHELL:--preload-file /src/src/commands/janis.c@/usr/src/dolly/commands/janis.c"
-  "SHELL:--preload-file /src/src/commands/pi.c@/usr/src/dolly/commands/pi.c"
-  "SHELL:--preload-file /src/build/generated/pi-package@/usr/lib/pi"
-  "SHELL:--preload-file /src/src/pi/dolly-tools.js@/usr/share/dolly/pi/dolly-tools.js"
-  "SHELL:--preload-file /src/src/pi/SYSTEM.md@/usr/share/dolly/pi/SYSTEM.md"
-  "SHELL:--preload-file /src/src/pi/settings.json@/usr/share/dolly/pi/settings.json"
-  "SHELL:--preload-file /src/src/pi/dolly-theme.json@/usr/share/dolly/pi/dolly-theme.json"
-  "SHELL:--preload-file ${DOLLY_ZIG_DIR}/lib@/usr/lib/zig"
-  "SHELL:--preload-file ${DOLLY_ZIG_DIR}/LICENSE@/usr/share/licenses/zig/LICENSE"
-  "SHELL:--preload-file ${DOLLY_NATIVE_ZIG}@/usr/bin/zig"
-  "SHELL:--preload-file /src/src/zig/answer.zig@/usr/src/dolly/zig/answer.zig"
-  "SHELL:--preload-file /src/src/zig/check.c@/usr/src/dolly/zig/check.c"
-  "SHELL:--preload-file /src/src/zig/object-check.c@/usr/src/dolly/zig/object-check.c"
-  "SHELL:--preload-file ${DOLLY_GHOSTTY_DIR}/src@/usr/src/ghostty/src"
-  "SHELL:--preload-file ${DOLLY_GHOSTTY_DIR}/include/ghostty@/usr/include/ghostty"
-  "SHELL:--preload-file ${DOLLY_GHOSTTY_DIR}/include/ghostty.h@/usr/include/ghostty.h"
-  "SHELL:--preload-file ${DOLLY_GHOSTTY_DIR}/LICENSE@/usr/share/licenses/ghostty/LICENSE"
-  "SHELL:--preload-file ${DOLLY_UUCODE_DIR}/src@/usr/src/uucode/src"
-  "SHELL:--preload-file ${DOLLY_UUCODE_DIR}/LICENSE.md@/usr/share/licenses/uucode/LICENSE.md"
-  "SHELL:--preload-file /src/src/ghostty/generated@/usr/src/ghostty/generated"
-  "SHELL:--preload-file /src/src/ghostty/check.c@/usr/src/dolly/ghostty/check.c"
-  "SHELL:--preload-file /src/src/ghostty/display.c@/usr/src/dolly/ghostty/display.c"
-  "SHELL:--preload-file ${DOLLY_STB_HEADER}@/usr/include/stb_truetype.h"
-  "SHELL:--preload-file ${DOLLY_IOSEVKA_TTF}@/usr/share/fonts/IosevkaTerm-SemiBold.ttf"
-  "SHELL:--preload-file /src/src/program-cpp.cpp@/usr/src/dolly/cpp-check.cpp"
-  "SHELL:--preload-file /src/src/program-demo.c@/usr/src/dolly/demo.c"
-  "SHELL:--preload-file ${DOLLY_LUA_WASM}@/usr/bin/lua"
-  "SHELL:--preload-file /src/build/program-writer.wasm@/usr/libexec/dolly/writer"
-  "SHELL:--preload-file /src/build/program-reader.wasm@/usr/libexec/dolly/reader"
-  "SHELL:--preload-file /src/build/program-inspector.wasm@/usr/libexec/dolly/inspector"
+  "SHELL:--preload-file /src/.cache/emscripten/sysroot/include@/seed/usr/include"
+  "SHELL:--preload-file /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include"
+  "SHELL:--preload-file /src/include/dolly/abi.h@/seed/usr/include/dolly/abi.h"
+  "SHELL:--preload-file /src/include/dolly/http.h@/seed/usr/include/dolly/http.h"
+  "SHELL:--preload-file /src/include/dolly/display.h@/seed/usr/include/dolly/display.h"
+  "SHELL:--preload-file /src/include/dolly/download.h@/seed/usr/include/dolly/download.h"
+  "SHELL:--preload-file /src/include/dolly/runtime.h@/seed/usr/include/dolly/runtime.h"
+  "SHELL:--preload-file /src/include/dolly/toolchain.h@/seed/usr/include/dolly/toolchain.h"
+  "SHELL:--preload-file /src/src/slop.c@/seed/usr/src/dolly/slop.c"
+  "SHELL:--preload-file /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c"
+  "SHELL:--preload-file /src/src/commands/mkdir.c@/seed/usr/src/dolly/commands/mkdir.c"
+  "SHELL:--preload-file /src/src/commands/rm.c@/seed/usr/src/dolly/commands/rm.c"
+  "SHELL:--preload-file /src/src/commands/cc.c@/seed/usr/src/dolly/commands/cc.c"
+  "SHELL:--preload-file /src/src/commands/c++.c@/seed/usr/src/dolly/commands/c++.c"
+  "SHELL:--preload-file /src/src/commands/ld.c@/seed/usr/src/dolly/commands/ld.c"
+  "SHELL:--preload-file /src/src/commands/ar.c@/seed/usr/src/dolly/commands/ar.c"
+  "SHELL:--preload-file /src/build/dolly-0.wasm@/seed/usr/lib/dolly/dolly-0.wasm"
 )
 
 set_target_properties(dolly PROPERTIES

@@ -19,6 +19,10 @@ int main(int argc, char **argv) {
 
   for (int index = 1; index < argc; index++) {
     const char *argument = argv[index];
+    if (strcmp(argument, "--version") == 0) {
+      printf("curl %s (Dolly browser broker)\n", LIBCURL_VERSION);
+      return 0;
+    }
     if (strcmp(argument, "--help") == 0) {
       usage(stdout);
       return 0;

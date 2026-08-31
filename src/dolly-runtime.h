@@ -47,6 +47,9 @@ int dolly_toolchain_validate_executable(const char *path);
 int dolly_run_filesystem_module(const char *path, int argc, char **argv);
 int dolly_spawn(const char *path, int argc, char **argv,
                 int stdin_fd, int stdout_fd, int stderr_fd);
+int dolly_spawn_timeout(const char *path, int argc, char **argv,
+                        int stdin_fd, int stdout_fd, int stderr_fd,
+                        double timeout_milliseconds);
 int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],
                     int stdin_fd, int stdout_fd, int stderr_fd);
 int dolly_wait(int pid, int *status);

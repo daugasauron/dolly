@@ -87,8 +87,27 @@ function normalizeRule(rule) {
   });
 }
 
+function normalizeTrustedSource(source, applicationBase) {
+  if (source === null || typeof source !== "object" ||
+      typeof source.path !== "string" || !source.path.startsWith("/") ||
+      !Number.isSafeInteger(source.byteLength) || source.byteLength <= 0) {
+    throw new TypeError("invalid trusted Dolly bootstrap source");
+  }
+  const target = new URL(source.path.slice(1), applicationBase);
+  if (!/^https?:$/.test(target.protocol) || target.search || target.hash) {
+    throw new TypeError("invalid trusted Dolly bootstrap source URL");
+  }
+  return Object.freeze({
+    href: target.href,
+    maxRequestBytes: 1,
+    maxResponseBytes: source.byteLength,
+    timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
+    credentialHeaders: new Set(),
+  });
+}
+
 export class DollyHttpPolicy {
-  constructor(configuration) {
+  constructor(configuration, trustedSources = [], applicationBase = globalThis.location?.href) {
     this.hardened = configuration !== undefined;
     this.rules = this.hardened
       ? Object.freeze((configuration.rules ?? []).map(normalizeRule))
@@ -98,6 +117,10 @@ export class DollyHttpPolicy {
       defaultLimits.maxRequests,
       "maxRequests",
     );
+    this.trustedSources = new Map(trustedSources.map((source) => {
+      const rule = normalizeTrustedSource(source, applicationBase);
+      return [rule.href, rule];
+    }));
     this.requests = 0;
   }
 
@@ -106,8 +129,17 @@ export class DollyHttpPolicy {
       throw new Error("Dolly HTTP request quota exceeded");
     }
     const upperMethod = method.toUpperCase();
-    let rule;
-    if (this.hardened) {
+    let rule = upperMethod === "GET" && requestBytes === 0 &&
+      target.username === "" && target.password === "" &&
+      target.search === "" && target.hash === ""
+      ? this.trustedSources.get(target.href)
+      : undefined;
+    if (rule) {
+      // Recipe and source URLs are build inputs selected by the embedding page,
+      // not capabilities granted by an untrusted Dollyfile. They are exact,
+      // read-only, credential-free URLs with byte-for-byte response limits.
+      for (const name of credentialHeaderNames) headers.delete(name);
+    } else if (this.hardened) {
       rule = this.rules.find((candidate) =>
         candidate.origin === target.origin &&
         (candidate.path === null
@@ -142,8 +174,12 @@ export class DollyHttpPolicy {
   }
 }
 
-export function consumeDollyHttpPolicy(globalObject = globalThis) {
+export function consumeDollyHttpPolicy(
+  globalObject = globalThis,
+  trustedSources = [],
+  applicationBase = globalObject.location?.href,
+) {
   const configuration = globalObject.DOLLY_HTTP_POLICY;
   Reflect.deleteProperty(globalObject, "DOLLY_HTTP_POLICY");
-  return new DollyHttpPolicy(configuration);
+  return new DollyHttpPolicy(configuration, trustedSources, applicationBase);
 }

@@ -135,6 +135,16 @@ static size_t font_bytes_length;
 static stbtt_fontinfo font;
 static unsigned char *glyph_bitmap;
 static size_t glyph_bitmap_capacity;
+typedef struct {
+  unsigned char *bitmap;
+  int width;
+  int height;
+  int x0;
+  int y0;
+  int advance;
+  bool ready;
+} cached_glyph;
+static cached_glyph ascii_glyphs[128];
 static uint32_t viewport_width_css = 1000;
 static uint32_t viewport_height_css = 650;
 static uint32_t device_scale_milli = DEFAULT_SCALE_MILLI;
@@ -158,6 +168,7 @@ static GhosttySelectionGestureEvent selection_drag;
 static GhosttySelectionGestureEvent selection_release;
 static int32_t scroll_remainder_milli;
 static bool suspended;
+static bool frame_dirty;
 
 static const GhosttyColorRgb background = {0x26, 0x26, 0x26};
 static const GhosttyColorRgb foreground = {0xe8, 0xe3, 0xd7};
@@ -302,21 +313,54 @@ static int ensure_glyph_bitmap(size_t size) {
   return 0;
 }
 
+static void clear_glyph_cache(void) {
+  for (size_t index = 0; index < sizeof(ascii_glyphs) / sizeof(ascii_glyphs[0]); index++) {
+    free(ascii_glyphs[index].bitmap);
+    memset(&ascii_glyphs[index], 0, sizeof(ascii_glyphs[index]));
+  }
+}
+
 static void draw_codepoint(unsigned char *frame, uint32_t codepoint,
                            int cell_x, int cell_y, GhosttyColorRgb color) {
-  int x0, y0, x1, y1;
-  stbtt_GetCodepointBitmapBox(&font, (int)codepoint, font_scale, font_scale,
-                             &x0, &y0, &x1, &y1);
-  const int width = x1 - x0;
-  const int height = y1 - y0;
-  if (width <= 0 || height <= 0 ||
-      ensure_glyph_bitmap((size_t)width * (size_t)height) != 0) return;
-  stbtt_MakeCodepointBitmap(&font, glyph_bitmap, width, height, width,
-                           font_scale, font_scale, (int)codepoint);
-  int advance = 0;
-  int left_bearing = 0;
-  stbtt_GetCodepointHMetrics(&font, (int)codepoint, &advance, &left_bearing);
-  (void)left_bearing;
+  int x0, y0, width, height, advance;
+  const unsigned char *bitmap;
+  cached_glyph *cached = codepoint < 128 ? &ascii_glyphs[codepoint] : NULL;
+  if (cached != NULL && cached->ready) {
+    x0 = cached->x0;
+    y0 = cached->y0;
+    width = cached->width;
+    height = cached->height;
+    advance = cached->advance;
+    bitmap = cached->bitmap;
+  } else {
+    int x1, y1, left_bearing = 0;
+    stbtt_GetCodepointBitmapBox(&font, (int)codepoint, font_scale, font_scale,
+                                &x0, &y0, &x1, &y1);
+    width = x1 - x0;
+    height = y1 - y0;
+    stbtt_GetCodepointHMetrics(&font, (int)codepoint, &advance, &left_bearing);
+    (void)left_bearing;
+    if (width <= 0 || height <= 0) return;
+    const size_t bitmap_size = (size_t)width * (size_t)height;
+    if (cached != NULL) {
+      cached->bitmap = malloc(bitmap_size);
+      if (cached->bitmap == NULL) return;
+      stbtt_MakeCodepointBitmap(&font, cached->bitmap, width, height, width,
+                                font_scale, font_scale, (int)codepoint);
+      cached->width = width;
+      cached->height = height;
+      cached->x0 = x0;
+      cached->y0 = y0;
+      cached->advance = advance;
+      cached->ready = true;
+      bitmap = cached->bitmap;
+    } else {
+      if (ensure_glyph_bitmap(bitmap_size) != 0) return;
+      stbtt_MakeCodepointBitmap(&font, glyph_bitmap, width, height, width,
+                                font_scale, font_scale, (int)codepoint);
+      bitmap = glyph_bitmap;
+    }
+  }
   const int drawn_advance = (int)(advance * font_scale + 0.5f);
   const int origin_x = cell_x + ((int)cell_width - drawn_advance) / 2 + x0;
   const int baseline = cell_y + ((int)cell_height +
@@ -328,7 +372,7 @@ static void draw_codepoint(unsigned char *frame, uint32_t codepoint,
     for (int column = 0; column < width; ++column) {
       const int destination_x = origin_x + column;
       if (destination_x < 0 || destination_x >= (int)framebuffer_width) continue;
-      const unsigned alpha = glyph_bitmap[(size_t)row * width + column];
+      const unsigned alpha = bitmap[(size_t)row * width + column];
       if (alpha == 0) continue;
       unsigned char *pixel = frame + (size_t)destination_y * framebuffer_stride +
                              (size_t)destination_x * 4;
@@ -368,6 +412,7 @@ static int set_layout(uint32_t width_css, uint32_t height_css,
 
   const float font_pixels = ((float)font_size_milli * device_scale_milli) /
                             1000000.0f;
+  clear_glyph_cache();
   font_scale = stbtt_ScaleForPixelHeight(&font, font_pixels);
   int descent = 0;
   int line_gap = 0;
@@ -518,6 +563,7 @@ static void render_frame(void) {
                      cursor_visible ? cursor_y : UINT32_MAX, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->frame_index, next, __ATOMIC_RELEASE);
   __c11_atomic_fetch_add(&mailbox->frame_sequence, 1, __ATOMIC_ACQ_REL);
+  frame_dirty = false;
 }
 
 static int initialize(dolly_display_mailbox *shared_mailbox,
@@ -583,7 +629,7 @@ static void write_terminal(const unsigned char *bytes, size_t length) {
   }
   if (start < length) ghostty_terminal_vt_write(terminal, bytes + start,
                                                 length - start);
-  render_frame();
+  frame_dirty = true;
 }
 
 static void set_suspended(int value) {
@@ -807,6 +853,7 @@ static int handle_event(const dolly_input_event *event,
                         size_t *output_length) {
   if (output == NULL || output_length == NULL) return -1;
   *output_length = 0;
+  if (event == NULL && frame_dirty) render_frame();
   if (pty_response_read != pty_response_write) {
     return drain_pty_response(output, output_capacity, output_length);
   }

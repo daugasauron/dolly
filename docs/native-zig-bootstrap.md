@@ -86,8 +86,9 @@ inside the browser.
   wrappers, archive writer, option parser, and Wasm LLD entry.
 - `toolchain/CMakeLists.txt` compiles the prepared upstream `src/zig_llvm.cpp`
   into the trusted main runtime and links the required LLVM WebAssembly and LLD
-  libraries. It preloads the native side module as `/usr/bin/zig` and Zig's
-  library tree as `/usr/lib/zig`.
+  libraries. `Dollyfile` fetches the ABI-validated native side module as
+  `/usr/bin/zig` and the pinned Zig library archive, then `/bin/tar` writes the
+  library tree to `/usr/lib/zig` before Zig is run.
 - `src/dolly.c` sets `ZIG_LIB_DIR=/usr/lib/zig` before userspace startup.
 
 The module inspection after the final build showed only shared memory64,
@@ -147,7 +148,7 @@ sizeof(struct stat)   = 104
 
 After the compiler successfully emitted and linked Ghostty, the VT runtime
 trapped while freeing a bitmap/grapheme. An A/B test compiled the identical
-Ghostty graph with official host Zig and preloaded that object into the same
+Ghostty graph with official host Zig and loaded that object into the same
 runtime; it failed identically. This ruled out the LLVM bridge and native
 compiler output.
 
@@ -195,7 +196,7 @@ browser: sandbox Ghostty rendered 800x600 (129x29 cells), raw keys/zoom/fullscre
 
 It compiled the small answer object and the complete Ghostty object natively
 inside Chrome before exercising the command suite, filesystem, lifecycle,
-network broker, Pi tool turn, Lua interaction, raw keys, zoom, fullscreen, and
+network broker, Pi tool turn, raw keys, zoom, fullscreen, and
 framebuffer checks.
 
 ## Measured characteristics
@@ -209,8 +210,8 @@ guarantees:
 | ABI-stamped native compiler module | about 15 MB |
 | Cold outer native-compiler build | about 2m36s to 3m10s |
 | Cached `build-native-zig.sh` with ABI validation | about 0.17s |
-| Complete preloaded data package | about 288 MB in the current integrated build |
-| Captured static system snapshot | about 38 MB in the current integrated build |
+| Common compiler-seed data package | about 27 MB in the current integrated build |
+| Captured retained system snapshot | about 254 MB in the current integrated build |
 
 The cache key avoids rebuilding the compiler when all relevant inputs are
 unchanged. The `/rebuild` snapshot-export path compiles Ghostty in a fresh
@@ -226,9 +227,9 @@ the resulting digest-checked static system snapshot.
   `/bin/ar`.
 - The compiler is single-threaded because Dolly version 0 has synchronous
   process-shaped behavior. Parallel code generation is future substrate work.
-- The full `/usr/lib/zig` preload is the largest packaging cost. Build a traced
-  manifest from successful answer and Ghostty builds before pruning it; do not
-  guess away compiler or standard-library files.
+- The full retained `/usr/lib/zig` tree is the largest snapshot cost. Build a
+  traced manifest from successful answer and Ghostty builds before pruning it;
+  do not guess away compiler or standard-library files.
 - The LLVM 24 small-code path currently selects O2 in the compatibility bridge.
   Restoring a size-specific modern pass pipeline is a contained optimization
   follow-up after preserving output parity.

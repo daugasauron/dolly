@@ -67,7 +67,7 @@ Command import reports remain useful for discovering what real programs need.
 New imports must be evaluated and deliberately added to a future or compatible
 contract rather than automatically becoming ABI.
 
-Lua 5.5.1, QuickJS-ng 0.15.0, and Git 2.55.0 provide import reports from real
+QuickJS-ng 0.15.0 and Git 2.55.0 provide import reports from real
 upstream runtimes and tools. Together with lifecycle, compiler, and HTTP
 operations, the probe contract currently contains a broad typed libc/POSIX
 surface: stdio, file descriptors, directory access, strings, regular
@@ -97,23 +97,21 @@ process-global GOT. This is required for process-shaped behavior: unrelated
 programs commonly reuse names such as `program`, `execute`, or `array`, and
 must not interpose one another merely because Dolly shares one Wasm table.
 
-The C bootstrap only establishes terminal descriptors and persistent process
-environment, then compiles `/bin/slop` and every Dolly-authored seed command
-independently from source. It launches `/etc/dolly/startup.slop` as an ordinary
-filesystem executable. That script enables `set -ex`, creates userspace
-configuration, compiles and runs One True Awk's target-side `maketab` generator,
-links `/bin/awk`, and then builds GNU Make 4.4.1 directly. It uses Make rules
-from `/usr/src/dolly/startup.mk` for the remaining graph. Those rules compile
-pinned upstream sbase `grep`, `sed`, `head`, and `wc`, Fetch-backed
-`/usr/lib/libcurl.a`, zlib, Git, `/usr/bin/curl`,
-`/usr/bin/git`, `/usr/bin/qjs`, `/usr/bin/demo`, and
-`/usr/bin/graphics-demo`, plus a
-C++23 probe at `/usr/libexec/dolly/cpp-check`. QuickJS-ng's engine sources are
-unchanged; a Dolly CLI adapter intentionally excludes its ambient POSIX helper
-library. Awk's parser is generated reproducibly with a pinned build-time Bison;
-its upstream `maketab` generator is compiled and executed inside Dolly so the
-resulting `proctab.c` is born in WasmFS. `/usr/bin/lua` is the optional upstream
-bootstrap runtime. Slop keeps only unavoidable stateful operations (`:`,
+The C bootstrap installs the immutable packaged compiler seed into mutable
+WasmFS paths, establishes terminal descriptors and environment, then compiles
+`/bin/slop`, `/bin/dollyfile`, and the essential compiler/archiver wrappers
+independently from source. It invokes `/bin/dollyfile` with only a recipe
+locator and deployment base. That C executable fetches, verifies, writes,
+builds, checks, and retains each row strictly in order. The default recipe first
+compiles its own small archive extractor, then builds GNU Make 4.4.1 and uses
+Make rules from `/usr/src/dolly/startup.mk` for the remaining graph. Those
+rules compile pinned upstream sbase utilities, One True Awk, Fetch-backed
+libcurl, zlib, Git, QuickJS-ng/Pi, Zig/Ghostty, and compiler/loader probes.
+QuickJS-ng's engine sources are unchanged; a Dolly CLI adapter intentionally
+excludes its ambient POSIX helper library. Awk's parser is generated
+reproducibly with pinned build-time Bison; its upstream `maketab` generator is
+compiled and executed inside Dolly so `proctab.c` is born in WasmFS. Slop keeps
+only unavoidable stateful operations (`:`,
 `exit`, `cd`, `export`, `unset`, and `set`) as builtins; utilities resolve to
 filesystem modules. The image contains the current
 Emscripten, Clang, and selected pinned upstream sources needed for those builds.
@@ -154,7 +152,9 @@ Allowed browser operations are deliberately narrow:
 5. copy a bounded active selection to the system clipboard only during an
    explicit local-user copy gesture;
 6. supply clocks, entropy, and immutable startup configuration;
-7. perform explicitly brokered HTTP requests.
+7. perform explicitly brokered HTTP requests;
+8. start a bounded, user-visible download of an explicitly requested WasmFS
+   file.
 
 Filesystem paths, descriptors, contents, working directories, environment,
 pipes, terminal state, fonts, and process bookkeeping remain in Wasm memory.
@@ -240,10 +240,15 @@ interactive cancellation; it does not yet emulate the full POSIX signal API.
 In particular, delivery is cooperative rather than kernel-preemptive, only the
 foreground PID and `SIGINT` are supported, and user-installed handlers are not
 dispatched. Code compiled by Dolly's C/C++ target receives edge safepoints as
-part of that target. A foreign Wasm module that neither uses that target nor
-polls the lifecycle API can still wedge the worker, so an outer deadline and
-worker-replacement protocol remains necessary before the stronger claim that
-every arbitrary Wasm binary is recoverable.
+part of that target. `dolly_spawn_timeout` adds a monotonic in-Wasm deadline,
+inherits the earliest deadline through nested Slop invocations, and unwinds the
+active command with status 124 at the same safepoints. Pi's noninteractive
+shell tool supplies finite empty stdin and a 60-second deadline, preventing an
+accidental reader from consuming the TUI and bounding instrumented CPU loops.
+A foreign Wasm module that neither uses that target nor polls the lifecycle API
+can still wedge the worker, so an outer deadline and worker-replacement
+protocol remains necessary before the stronger claim that every arbitrary Wasm
+binary is recoverable.
 
 HTTP uses a second versioned shared-memory mailbox. A command supplies a method,
 URL, headers, fixed request body, and flags to `dolly_http_start`; the browser
@@ -257,6 +262,14 @@ invokes callbacks. No variant exposes a WasmFS path or descriptor to the
 browser. Fetch-backed libcurl implements the easy and synchronous multi surface
 exercised by Git above this API. All agent-selected network traffic still
 crosses only `env.dolly_http_dispatch`.
+
+File export uses a separate, non-network contract. A command calls
+`dolly_download_file` with a WasmFS path; the runtime verifies and copies one
+regular file, then `env.dolly_download_dispatch` conveys only its sanitized
+base name and at most 64 MiB of bytes. The worker transfers an unshared copy and
+the page initiates an ordinary browser download. No command receives a DOM
+object, browser filesystem API, host path, or read-back channel. See
+[`download.md`](download.md).
 
 ## Compatibility milestones
 
@@ -282,12 +295,15 @@ crosses only `env.dolly_http_dispatch`.
    performs smart-HTTP discovery through Fetch-backed libcurl. Transparent
    `git clone` still needs a helper-protocol integration; a narrow synchronous
    adapter should be attempted before a general scheduler.
-9. A precompiled system image. During `npm run build`, a headless `/rebuild`
+9. Precompiled, recipe-bound system images. During `npm run build`, each
+   headless image `/rebuild/`
    performs the complete target-side source build and exports an opaque,
-   versioned snapshot as a static `dist` artifact. `/` verifies its build ID,
-   size, format, and SHA-256 before restoring it. The explicit image manifest
-   excludes workspace, temporary, credential, and session state, and initial
-   boot does not depend on browser-origin or profile storage.
+   versioned snapshot as a static `dist` artifact. The prebuilt route verifies
+   its build ID, size, format, SHA-256, exact raw recipe chain, entry record,
+   and retained-path manifest before restoring it. Prebuilt boot does not fetch
+   Dollyfile `SOURCE` inputs. The explicit image manifest excludes workspace,
+   temporary, credential, and session state, and initial boot does not depend
+   on browser-origin or profile storage.
 
 Literal upstream Node is not an initial target because V8 does not have a
 WebAssembly target architecture. It is a different research project from

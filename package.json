@@ -6,10 +6,11 @@
   "scripts": {
     "abi": "node scripts/dolly-abi.mjs inspect build/dolly-0.wasm",
     "build:runtime": "./scripts/build.sh",
+    "routes": "node scripts/generate-routes.mjs",
     "snapshot": "node scripts/build-system-snapshot.mjs",
     "build": "npm run build:runtime && npm run snapshot",
     "test": "npm run build && node --test test/*.test.mjs && ./scripts/test-browser.sh",
-    "serve": "node scripts/serve.mjs"
+    "serve": "npm run routes && node scripts/serve.mjs"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.4",

@@ -16,8 +16,10 @@ cleanup() {
 }
 trap cleanup EXIT
 (
-  cd "${source_dir}"
-  "${bison}" -d -o "${temporary_dir}/awkgram.tab.c" awkgram.y
+  cd "${temporary_dir}"
+  # Relative output names plus --no-lines keep mktemp paths and checkout paths
+  # out of the generated parser, making its HOST archive content-addressable.
+  "${bison}" --no-lines -d -o awkgram.tab.c "${source_dir}/awkgram.y"
 )
 mv "${temporary_dir}/awkgram.tab.c" "${parser}"
 mv "${temporary_dir}/awkgram.tab.h" "${header}"

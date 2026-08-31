@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Dolly</title>
+    <style>
+      @font-face {
+        font-family: "Dolly IosevkaTerm SemiBold";
+        src: url("{{DOLLY_BASE}}dist/IosevkaTerm-SemiBold.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 600;
+        font-display: block;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+      body {
+        background: #262626;
+        color: #e8e3d7;
+        font-family: "Dolly IosevkaTerm SemiBold", monospace;
+      }
+      #terminal {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        outline: none;
+        overflow: hidden;
+        caret-color: transparent;
+      }
+      #display {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: text;
+        touch-action: none;
+      }
+      #display[hidden] { display: none; }
+      #keyboard {
+        position: fixed;
+        left: -10000px;
+        top: 0;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        caret-color: transparent;
+      }
+      #bootstrap-log {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        margin: 0;
+        padding: 1rem 1.15rem;
+        overflow: auto;
+        white-space: pre-wrap;
+        color: #e8e3d7;
+        background: #262626;
+        font: 600 15px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
+        scrollbar-width: thin;
+        scrollbar-color: #f2d45c #262626;
+      }
+      #bootstrap-log[hidden] { display: none; }
+      #phone-menu-button,
+      #phone-menu {
+        display: none;
+      }
+      html[data-phone="on"] #phone-menu-button {
+        position: fixed;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        z-index: 4;
+        display: grid;
+        place-items: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        border: 1px solid #f2d45c;
+        border-radius: 0.25rem;
+        color: #262626;
+        background: #f2d45c;
+        font: inherit;
+        font-size: 1.25rem;
+      }
+      html[data-phone="on"] #phone-menu[data-open="true"] {
+        position: fixed;
+        right: 0.75rem;
+        bottom: 4rem;
+        z-index: 4;
+        display: grid;
+        width: min(17rem, calc(100vw - 1.5rem));
+        gap: 1px;
+        padding: 1px;
+        border: 1px solid #77736c;
+        border-radius: 0.25rem;
+        background: #77736c;
+      }
+      #phone-menu button {
+        min-height: 2.8rem;
+        border: 0;
+        padding: 0 0.9rem;
+        color: #e8e3d7;
+        background: #262626;
+        font: inherit;
+        text-align: left;
+      }
+      #phone-menu button:active { color: #f2d45c; }
+      #phone-menu button:disabled { color: #77736c; }
+      @media (max-width: 640px) {
+        #bootstrap-log { padding: 0.65rem 0.75rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="terminal" aria-label="Dolly shell terminal">
+      <canvas id="display" hidden aria-label="Dolly sandbox framebuffer"></canvas>
+      <textarea id="keyboard" aria-label="Dolly keyboard input"
+        autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+      <pre id="bootstrap-log" aria-live="polite"></pre>
+    </main>
+    <button id="phone-menu-button" type="button" aria-label="Open Dolly menu"
+      aria-expanded="false">/</button>
+    <nav id="phone-menu" aria-label="Dolly phone commands" data-open="false">
+      <button type="button" data-dolly-input="/login openrouter\r">OpenRouter login</button>
+      <button type="button" data-dolly-input="/model\r">Choose model</button>
+      {{DOLLY_PHONE_EXTRA}}
+    </nav>
+    <script>globalThis.DOLLY_BOOT = Object.freeze({ image: "{{DOLLY_IMAGE}}", mode: "{{DOLLY_MODE}}" });</script>
+    <script type="module">
+      if (crossOriginIsolated) {
+        sessionStorage.removeItem("dolly-isolation-retry");
+        await import("{{DOLLY_BASE}}src/browser.mjs");
+      } else if ("serviceWorker" in navigator) {
+        await navigator.serviceWorker.register("{{DOLLY_BASE}}coi-serviceworker.js", { scope: "{{DOLLY_BASE}}" });
+        if (!navigator.serviceWorker.controller) {
+          await navigator.serviceWorker.ready;
+          location.reload();
+        } else if (sessionStorage.getItem("dolly-isolation-retry") !== "1") {
+          sessionStorage.setItem("dolly-isolation-retry", "1");
+          location.reload();
+        } else {
+          document.querySelector("#bootstrap-log").textContent =
+            "FATAL\nDolly could not establish cross-origin isolation.\n";
+          document.documentElement.dataset.dollyStatus = "failed";
+        }
+      } else {
+        document.querySelector("#bootstrap-log").textContent =
+          "FATAL\nDolly requires cross-origin isolation and service workers are unavailable.\n";
+        document.documentElement.dataset.dollyStatus = "failed";
+      }
+    </script>
+  </body>
+</html>

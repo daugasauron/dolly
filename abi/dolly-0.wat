@@ -321,6 +321,12 @@
   ;; stdout, and stderr entirely within WasmFS.
   (import "env" "dolly_spawn"
     (func $dolly_spawn (param i64 i32 i64 i32 i32 i32) (result i32)))
+  ;; Synchronous bounded spawn. The deadline is enforced by the in-Wasm
+  ;; lifecycle runtime and inherited by nested commands; it grants no browser
+  ;; timer or process capability to the command.
+  (import "env" "dolly_spawn_timeout"
+    (func $dolly_spawn_timeout
+      (param i64 i32 i64 i32 i32 i32 f64) (result i32)))
   (import "env" "dolly_spawn_env"
     (func $dolly_spawn_env (param i64 i32 i64 i64 i32 i32 i32) (result i32)))
   (import "env" "dolly_wait"
@@ -329,6 +335,10 @@
   ;; This is an in-Wasm command/runtime edge, never a browser import.
   (import "env" "dolly_write_file"
     (func $dolly_write_file (param i64 i64 i64) (result i32)))
+  ;; A file export remains explicit and browser-mediated. It never exposes a
+  ;; host path or filesystem handle to a command.
+  (import "env" "dolly_download_file"
+    (func $dolly_download_file (param i64) (result i32)))
   (import "env" "dolly_terminal_publish_result"
     (func $dolly_terminal_publish_result (param i32)))
   ;; Language runtimes may own an interactive event loop without receiving a

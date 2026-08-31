@@ -2,6 +2,11 @@ name: Deploy Dolly demo
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release containing the audited dolly-pages.tar.gz artifact
+        required: true
+        default: pages-latest
 
 permissions:
   contents: read
@@ -22,7 +27,8 @@ jobs:
       - name: Download audited browser build
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download pages-094e63af-r4 --repo "${GITHUB_REPOSITORY}" --pattern dolly-pages.tar.gz
+          DOLLY_PAGES_RELEASE: ${{ inputs.release_tag }}
+        run: gh release download "${DOLLY_PAGES_RELEASE}" --repo "${GITHUB_REPOSITORY}" --pattern dolly-pages.tar.gz
       - name: Extract browser build
         run: mkdir _site && tar -C _site -xzf dolly-pages.tar.gz
       - uses: actions/configure-pages@v5

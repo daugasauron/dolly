@@ -6,7 +6,7 @@ AR := ar
 
 SBASE_CPPFLAGS := -I /usr/src/sbase -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700
 
-sbase: /bin/grep /bin/sed /bin/head /bin/wc
+sbase: /bin/grep /bin/sed /bin/head /bin/wc /bin/printf
 
 /bin/grep: /usr/src/sbase/grep.c /usr/src/sbase/libutil/ealloc.c /usr/src/sbase/libutil/eprintf.c /usr/src/sbase/libutil/eregcomp.c /usr/src/sbase/libutil/fshut.c /usr/src/sbase/libutil/strcasestr.c
 	$(CC) $(SBASE_CPPFLAGS) $^ -o $@
@@ -18,6 +18,9 @@ sbase: /bin/grep /bin/sed /bin/head /bin/wc
 	$(CC) $(SBASE_CPPFLAGS) $^ -o $@
 
 /bin/wc: /usr/src/sbase/wc.c /usr/src/sbase/libutil/eprintf.c /usr/src/sbase/libutil/fshut.c /usr/src/sbase/libutf/fgetrune.c /usr/src/sbase/libutf/rune.c /usr/src/sbase/libutf/runetype.c /usr/src/sbase/libutf/isspacerune.c
+	$(CC) $(SBASE_CPPFLAGS) $^ -o $@
+
+/bin/printf: /usr/src/sbase/printf.c /usr/src/sbase/libutil/ealloc.c /usr/src/sbase/libutil/eprintf.c /usr/src/sbase/libutil/reallocarray.c /usr/src/sbase/libutil/strtonum.c /usr/src/sbase/libutil/estrtod.c /usr/src/sbase/libutil/unescape.c /usr/src/sbase/libutil/fshut.c /usr/src/sbase/libutf/rune.c /usr/src/sbase/libutf/utf.c /usr/src/sbase/libutf/utftorunestr.c /usr/src/sbase/libutf/fputrune.c
 	$(CC) $(SBASE_CPPFLAGS) $^ -o $@
 
 AWK_CPPFLAGS := -std=gnu99 -I /usr/src/awk -D_DEFAULT_SOURCE -DNDEBUG
@@ -61,8 +64,8 @@ zlib: /usr/lib/libz.a
 /usr/lib/libz.a: $(ZLIB_OBJECTS)
 	$(AR) rcs $@ $^
 
-GIT_SOURCES := $(shell cat /usr/src/git/dolly-sources.txt)
-GIT_OBJECTS := $(addprefix /tmp/git/,$(GIT_SOURCES:.c=.o))
+GIT_SOURCES = $(file </usr/src/git/dolly-sources.txt)
+GIT_OBJECTS = $(addprefix /tmp/git/,$(GIT_SOURCES:.c=.o))
 GIT_CPPFLAGS := -std=gnu99 -D_DEFAULT_SOURCE -DDOLLY -Uatexit -DNO_GETTEXT -DNO_ICONV -DNO_EXPAT -DNO_PTHREADS -DNO_UNIX_SOCKETS -DNO_OPENSSL -DNO_PERL -DNO_PYTHON -DNO_IPV6 -DNO_MMAP -DNO_POLL -DNO_REGEX -DGAWK -DNO_MBSUPPORT -DNO_MEMMEM -DNO_PREAD -DNO_SETENV -DNO_STRCASESTR -DNO_STRLCPY -DNO_STRTOUMAX -DSHA1_BLK -DSHA256_BLK -DHAVE_ALLOCA_H -DHAVE_STRINGS_H -DHAVE_CLOCK_GETTIME -DHAVE_GETRANDOM '-DGIT_VERSION_H="version-def.h"' '-DBINDIR="/usr/bin"' '-DGIT_EXEC_PATH="/usr/libexec/dolly"' '-DDEFAULT_GIT_TEMPLATE_DIR="/usr/share/git-core/templates"' '-DFALLBACK_RUNTIME_PREFIX="/usr"' '-DGIT_HOST_CPU="wasm64"' '-DGIT_LOCALE_PATH="/usr/share/locale"' '-DSHELL_PATH="/bin/slop"' '-DPAGER_ENV="LESS=FRX LV=-c"' '-DETC_GITCONFIG="/etc/gitconfig"' '-DETC_GITATTRIBUTES="/etc/gitattributes"' '-DGIT_HTML_PATH="/usr/share/doc/git/html"' '-DGIT_MAN_PATH="/usr/share/man"' '-DGIT_INFO_PATH="/usr/share/info"' -include dolly/runtime.h -I /usr/src/git/compat/regex -I /usr/src/git/compat/poll -I /usr/src/git -I /usr/src/zlib
 
 git: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https
@@ -171,13 +174,10 @@ endif
 /usr/libexec/dolly/display.wasm: /usr/src/dolly/ghostty/display.c /usr/lib/libghostty-vt.a /usr/include/stb_truetype.h /usr/include/dolly/display.h /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 	$(CC) -std=c17 -I /usr/include $< -lghostty-vt -o $@
 
-extras: /usr/libexec/dolly/cpp-check /usr/bin/demo /usr/bin/graphics-demo
+extras: /usr/libexec/dolly/cpp-check /usr/bin/demo
 
 /usr/libexec/dolly/cpp-check: /usr/src/dolly/cpp-check.cpp
 	$(CXX) $< -o $@
 
 /usr/bin/demo: /usr/src/dolly/demo.c
 	$(CC) $< -o $@
-
-/usr/bin/graphics-demo: /usr/src/dolly/commands/graphics-demo.c /usr/include/dolly/display.h
-	$(CC) -std=c17 $< -o $@
