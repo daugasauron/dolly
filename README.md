@@ -133,7 +133,8 @@ need. Credential values remain inside Dolly; the browser does not inject them.
 - [Sources](docs/sources.md) — source pins, patches, generated artifacts, and
   reproducibility policy.
 - [Port status](docs/port-status.md) — evidence for current and deferred ports.
-- [Pi plan](docs/pi-agent-plan.md) — current Pi/Janis compatibility status.
+- [Pi compatibility](docs/pi-agent-plan.md) — current Pi/Janis boundary,
+  evidence, and next work.
 - [JavaScript runtime choice](docs/javascript-runtime.md) — why QuickJS-ng is
   retained and what would justify replacing it.
 - [Zig and Ghostty](docs/zig-ghostty.md) and the

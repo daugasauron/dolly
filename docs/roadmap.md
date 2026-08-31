@@ -47,8 +47,9 @@ authority:
 - make snapshot logical reproducibility measurable across clean hosts.
 
 Acceptance gate achieved: one C-parsed recipe controls source acquisition,
-builds, checks, retained paths, and entry; both images rebuild and restore in a
-real browser; recipe/source/retention changes invalidate identity or fail.
+builds, checks, retained paths, and entry; every registered image rebuilds and
+restores in a real browser; recipe/source/retention changes invalidate identity
+or fail.
 
 ## Phase 2 — measure the platform instead of guessing it
 
@@ -106,9 +107,13 @@ workflow without introducing sockets or host subprocesses.
 Acceptance gate: unmodified `git clone URL`, `git fetch`, and checkout work
 through `env.dolly_http_dispatch`; no new browser import appears.
 
-## Phase 5 — command epochs and disposable sessions
+## Phase 5 — command epochs and hard supervision
 
 Strengthen correctness within the shared-everything runtime.
+
+Named compressed WasmFS sessions and build/recipe-bound restore are implemented.
+This phase concerns command-local cleanup and recovery when cooperative code is
+not enough; it must not turn browser persistence into a mounted filesystem.
 
 - Attribute allocations, open descriptors, `atexit` registrations, timers,
   signal handlers, and module state to a command epoch.
