@@ -10,7 +10,13 @@ import { discoverImageDefinitions } from "./image-definitions.mjs";
 const projectDir = resolve(import.meta.dirname, "..");
 const definitions = await discoverImageDefinitions(projectDir);
 const definitionByImage = new Map(definitions.map((definition) => [definition.image, definition]));
-const images = definitions.map((definition) => definition.image);
+const requestedImage = process.env.DOLLY_SNAPSHOT_IMAGE;
+if (requestedImage !== undefined && !definitionByImage.has(requestedImage)) {
+  throw new Error("DOLLY_SNAPSHOT_IMAGE must name a source-visible image");
+}
+const images = requestedImage === undefined
+  ? definitions.map((definition) => definition.image)
+  : [requestedImage];
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
 function digest(bytes) {

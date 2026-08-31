@@ -220,4 +220,4 @@ KEEP /usr/libexec/dolly/writer
 KEEP /usr/libexec/dolly/reader
 KEEP /usr/libexec/dolly/inspector
 
-ENTRY /usr/bin/pi --no-session
+ENTRY /usr/bin/pi

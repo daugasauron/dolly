@@ -122,9 +122,10 @@
     <nav id="phone-menu" aria-label="Dolly phone commands" data-open="false">
       <button type="button" data-dolly-input="/login openrouter\r">OpenRouter login</button>
       <button type="button" data-dolly-input="/model\r">Choose model</button>
+      <button id="session-save-button" type="button">Save session</button>
       {{DOLLY_PHONE_EXTRA}}
     </nav>
-    <script>globalThis.DOLLY_BOOT = Object.freeze({ image: "{{DOLLY_IMAGE}}", mode: "{{DOLLY_MODE}}" });</script>
+    <script>globalThis.DOLLY_BOOT = Object.freeze({ image: "{{DOLLY_IMAGE}}", mode: "{{DOLLY_MODE}}", loadSession: {{DOLLY_LOAD_SESSION}} });</script>
     <script type="module">
       if (crossOriginIsolated) {
         sessionStorage.removeItem("dolly-isolation-retry");

@@ -36,6 +36,7 @@ const publicSources = new Set([
   "src/dollyfile-view.mjs",
   "src/dollyfile-viewer.mjs",
   "src/http-policy.mjs",
+  "src/session-store.mjs",
   "src/runtime-worker.mjs",
 ]);
 const sourceArtifacts = new Map(staticSources.map((source) => [
@@ -50,6 +51,7 @@ const routeDocuments = new Map([
   ]),
   ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
   ["/rebuild", "build/routes/rebuild/index.html"],
+  ["/load", "build/routes/load/index.html"],
 ]);
 
 const server = createServer(async (request, response) => {

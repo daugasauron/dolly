@@ -33,6 +33,13 @@ if (bootConfig.customSource !== undefined &&
      bootConfig.customSource.includes("\0"))) {
   throw new Error("invalid uploaded Dollyfile");
 }
+if (bootConfig.sessionSnapshot !== undefined &&
+    (!(bootConfig.sessionSnapshot instanceof ArrayBuffer) ||
+     bootConfig.sessionSnapshot.byteLength < 16 ||
+     bootConfig.sessionSnapshot.byteLength > snapshotSizeLimit ||
+     bootMode !== "snapshot")) {
+  throw new Error("invalid Dolly session snapshot");
+}
 
 const applicationBase = new URL("../", import.meta.url);
 const snapshotArtifactUrl = new URL(
@@ -335,6 +342,21 @@ try {
     new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
     bootstrapStatus = dolly._dolly_bootstrap_snapshot(BigInt(range.size));
     snapshotBytes = range.size;
+    if (bootstrapStatus === 0 && bootConfig.sessionSnapshot !== undefined) {
+      bootstrapStage("restoring named session filesystem...");
+      const sessionAddress = dolly._dolly_session_restore_address(
+        BigInt(bootConfig.sessionSnapshot.byteLength),
+      );
+      const sessionRange = checkedMemoryRange(
+        memory, sessionAddress, bootConfig.sessionSnapshot.byteLength,
+      );
+      new Uint8Array(memory.buffer, sessionRange.address, sessionRange.size)
+        .set(new Uint8Array(bootConfig.sessionSnapshot));
+      if (dolly._dolly_session_restore(BigInt(sessionRange.size)) !== 0) {
+        throw new Error("Dolly session filesystem restore failed");
+      }
+      bootstrapStage("named session filesystem restored");
+    }
   }
   if (bootstrapStatus !== 0) throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
 
@@ -363,6 +385,12 @@ try {
     pasteAddress: Number(dolly._dolly_display_paste_buffer_address()),
     copyAddress: Number(dolly._dolly_display_copy_buffer_address()),
     clipboardCapacity: dolly._dolly_display_clipboard_capacity(),
+    sessionAddress: Number(dolly._dolly_session_mailbox_address()),
+    sessionVersion: dolly._dolly_session_mailbox_version(),
+    sessionNameAddress: Number(dolly._dolly_session_name_address()),
+    sessionNameCapacity: dolly._dolly_session_name_capacity(),
+    sessionTransferAddress: Number(dolly._dolly_session_transfer_address()),
+    sessionTransferCapacity: dolly._dolly_session_transfer_capacity(),
     httpAddress: Number(dolly._dolly_http_mailbox_address()),
     httpCapacity: dolly._dolly_http_chunk_capacity(),
     httpVersion: dolly._dolly_http_mailbox_version(),

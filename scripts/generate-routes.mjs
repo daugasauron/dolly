@@ -18,11 +18,12 @@ const staticSources = await inspectStaticSources(projectDir, definitions);
 await writeImageRegistry(projectDir, definitions, staticSources);
 const routes = [
   ...definitions.flatMap(({ image }) => [
-    { path: `${image}/index.html`, base: "../", image, mode: "snapshot" },
-    { path: `${image}/rebuild/index.html`, base: "../../", image, mode: "rebuild" },
+    { path: `${image}/index.html`, base: "../", image, mode: "snapshot", load: false },
+    { path: `${image}/rebuild/index.html`, base: "../../", image, mode: "rebuild", load: false },
   ]),
-  { path: "custom/rebuild/index.html", base: "../../", image: "custom", mode: "rebuild" },
-  { path: "rebuild/index.html", base: "../", image: "default", mode: "rebuild" },
+  { path: "custom/rebuild/index.html", base: "../../", image: "custom", mode: "rebuild", load: false },
+  { path: "rebuild/index.html", base: "../", image: "default", mode: "rebuild", load: false },
+  { path: "load/index.html", base: "../", image: "default", mode: "snapshot", load: true },
 ];
 
 for (const route of routes) {
@@ -32,6 +33,7 @@ for (const route of routes) {
     .replaceAll("{{DOLLY_BASE}}", route.base)
     .replaceAll("{{DOLLY_IMAGE}}", route.image)
     .replaceAll("{{DOLLY_MODE}}", route.mode)
+    .replaceAll("{{DOLLY_LOAD_SESSION}}", String(route.load))
     .replaceAll(
       "{{DOLLY_PHONE_EXTRA}}",
       route.image === "gamedev"

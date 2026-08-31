@@ -35,6 +35,7 @@ const pagesIsolationMode = process.env.DOLLY_BROWSER_MODE === "pages-isolation";
 const pagesLiveMode = process.env.DOLLY_BROWSER_MODE === "pages-live";
 const menuMode = process.env.DOLLY_BROWSER_MODE === "menu";
 const routeSmokeMode = process.env.DOLLY_BROWSER_MODE === "route-smoke";
+const sessionMode = process.env.DOLLY_BROWSER_MODE === "session";
 const piAuditSpec = piAuditMode
   ? JSON.parse(await readFile(resolve(
       projectDir,
@@ -90,6 +91,7 @@ const publicSources = new Set([
   "src/dollyfile-view.mjs",
   "src/dollyfile-viewer.mjs",
   "src/http-policy.mjs",
+  "src/session-store.mjs",
   "src/runtime-worker.mjs",
 ]);
 const sourceArtifacts = new Map(staticSources.map((source) => [
@@ -104,6 +106,7 @@ const routeDocuments = new Map([
   ]),
   ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
   ["/rebuild", "build/routes/rebuild/index.html"],
+  ["/load", "build/routes/load/index.html"],
 ]);
 let gitDiscoveryRequest = null;
 let libcurlPostRequest = null;
@@ -927,12 +930,107 @@ try {
       : snapshotExportMode
       ? rebuildPage
       : piDevelopmentMode || realOpenRouterMode || missingSnapshotMode
-        || pagesIsolationMode || pagesLiveMode || routeSmokeMode
+        || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (sessionMode) {
+      const initialState = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "Dolly session source boot",
+        1200,
+      );
+      assert.equal(initialState, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        'window.__dolly.submit("echo SESSION-WORKSPACE > /workspace/session-proof.txt")',
+      ), 0);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        'window.__dolly.submit("echo SESSION-HOME > /home/dolly/session-proof.txt")',
+      ), 0);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        'window.__dolly.submit("echo SESSION-CREDENTIAL > /home/dolly/.pi/agent/auth.json")',
+      ), 0);
+      await evaluate(
+        debuggerClient.send,
+        'window.__sessionSave = window.__dolly.saveSession("browser-proof")',
+      );
+      const saveState = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.sessionStatus ?? ''",
+        (value) => value === "saved" || value === "failed",
+        "compressed IndexedDB session save",
+        3600,
+      );
+      assert.equal(saveState, "saved");
+      assert.equal(
+        await evaluate(debuggerClient.send, "window.__dolly.sessionName"),
+        "browser-proof",
+      );
+      assert.ok(Number(await evaluate(
+        debuggerClient.send, "document.documentElement.dataset.sessionBytes",
+      )) > 0);
+
+      await debuggerClient.send("Page.navigate", {
+        url: `${localOrigin}${browserBase}load/?session=browser-proof`,
+      });
+      const restoredState = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "named Dolly session restore",
+        3600,
+      );
+      assert.equal(restoredState, "ready");
+      assert.equal(
+        await evaluate(debuggerClient.send, "document.documentElement.dataset.session"),
+        "browser-proof",
+      );
+      assert.equal(
+        await evaluate(debuggerClient.send, "document.documentElement.dataset.sessionStatus"),
+        "restored",
+      );
+      await enterRecoveryShell(debuggerClient.send);
+      for (const command of [
+        "grep -q SESSION-WORKSPACE /workspace/session-proof.txt",
+        "grep -q SESSION-HOME /home/dolly/session-proof.txt",
+        "grep -q SESSION-CREDENTIAL /home/dolly/.pi/agent/auth.json",
+        "grep -q SESSION-WORKSPACE /home/dolly/.slop_history",
+        "grep -q 'DOLLY-SESSION 1' /home/dolly/.dolly-session-name",
+        "grep -q 'name browser-proof' /home/dolly/.dolly-session-name",
+      ]) {
+        assert.equal(await evaluate(
+          debuggerClient.send,
+          `window.__dolly.submit(${JSON.stringify(command)})`,
+        ), 0, command);
+      }
+      await dispatchKey(debuggerClient.send, {
+        key: "S",
+        code: "KeyS",
+        modifiers: 10,
+        windowsVirtualKeyCode: 83,
+      });
+      assert.equal(await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.sessionStatus ?? ''",
+        (value) => value === "saved" || value === "failed",
+        "Ctrl+Shift+S session resave",
+        3600,
+      ), "saved");
+      console.log(
+        "browser: named session captured in Wasm, compressed into IndexedDB, " +
+        "loaded from /load/?session=browser-proof, restored credentials/history/workspace, " +
+        "and resaved with Ctrl+Shift+S",
+      );
+      break browserProof;
+    }
     if (routeSmokeMode) {
       const routeState = await waitForValue(
         debuggerClient.send,

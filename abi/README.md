@@ -16,6 +16,12 @@ shell entry point. Keeping it separate prevents worker/UI transport mechanics
 from becoming command capabilities. Once the resident display driver is live,
 ordinary terminal output never calls the browser text sink.
 
+`dolly-snapshot-0.wat` defines two opaque snapshot boundaries. Static system
+images use direct staging exports during boot. Named user sessions use a
+fixed shared-memory chunk mailbox: Wasm walks and restores WasmFS, while the
+page only compresses and persists uninterpreted bytes. Neither path adds a
+browser import.
+
 The contract module is a schema and is never instantiated. `scripts/dolly-abi.mjs`
 assembles and consumes it as follows:
 
@@ -48,7 +54,8 @@ for tasks such as zeroing relocated BSS before constructors run. The start code
 still executes inside the shared WebAssembly address space and gains no imports
 beyond those checked by this contract.
 
-The build creates `build/dolly-0.wasm` and `build/dolly-display-0.wasm` from
+The build creates `build/dolly-0.wasm`, `build/dolly-display-0.wasm`, and
+`build/dolly-snapshot-0.wasm` from
 the WAT schemas and validates every command and the runtime. It also creates
 `build/runtime-exports.json` because Emscripten's `EXPORTED_FUNCTIONS` setting
 requires that syntax. That JSON file is derived build glue, not an ABI source.

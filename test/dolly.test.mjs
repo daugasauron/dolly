@@ -19,6 +19,12 @@ import {
 } from "../src/http-policy.mjs";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import {
+  decodeSessionSnapshot,
+  encodeSessionSnapshot,
+  sessionImageIdentity,
+  validSessionName,
+} from "../src/session-store.mjs";
+import {
   discoverImageDefinitions,
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
@@ -354,6 +360,58 @@ test("the runtime implements the opaque system snapshot contract", async () => {
   assert.doesNotMatch(source, /static const char \*const system_files/);
 });
 
+test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
+  const contract = await readWasmInterface(artifact("dolly-snapshot-0.wasm"));
+  const runtime = await readWasmInterface(artifact("dolly.wasm"));
+  const source = await readFile(new URL("../src/session-snapshot.c", import.meta.url), "utf8");
+  const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
+  const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
+  const store = await readFile(new URL("../src/session-store.mjs", import.meta.url), "utf8");
+  const loadRoute = await readFile(
+    new URL("../build/routes/load/index.html", import.meta.url), "utf8",
+  );
+
+  for (const name of [
+    "dolly_session_mailbox_address",
+    "dolly_session_mailbox_version",
+    "dolly_session_name_address",
+    "dolly_session_name_capacity",
+    "dolly_session_restore_address",
+    "dolly_session_restore",
+  ]) {
+    const required = contract.exports.find((entry) => entry.name === name);
+    const actual = runtime.exports.find((entry) => entry.name === name);
+    assert.ok(required && actual, `runtime is missing ${name}`);
+    assert.equal(sameWasmType(actual.type, required.type), true);
+  }
+  assert.match(source, /capture_filesystem\(\)/);
+  assert.match(source, /clear_mutable_filesystem\(\)/);
+  assert.match(source, /"\/home\/dolly\/\.dolly-session-name"/);
+  assert.match(source, /strcmp\(path, "\/dev"\)/);
+  assert.match(source, /strcmp\(path, "\/seed"\)/);
+  assert.match(browser, /event\.code === "KeyS"/);
+  assert.match(browser, /saveStoredSession/);
+  assert.match(store, /indexedDB\.open/);
+  assert.match(store, /CompressionStream\("gzip"\)/);
+  assert.match(worker, /_dolly_session_restore\(BigInt\(sessionRange\.size\)\)/);
+  assert.doesNotMatch(browser, /FS\.(?:readdir|readFile|writeFile)/);
+  assert.match(loadRoute, /loadSession: true/);
+
+  assert.equal(validSessionName("my-session_1.2"), true);
+  for (const invalid of ["", ".", "..", "with space", "slash/name", "x".repeat(65)]) {
+    assert.equal(validSessionName(invalid), false);
+  }
+  const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
+  assert.match(sessionImageIdentity(DOLLY_IMAGES, "python"),
+    /^default:[0-9a-f]{64}\npython:[0-9a-f]{64}$/);
+  const input = new TextEncoder().encode("DOLLYSES" + " session data ".repeat(128)).buffer;
+  const encoded = await encodeSessionSnapshot(input);
+  assert.deepEqual(
+    new Uint8Array(await decodeSessionSnapshot(encoded)),
+    new Uint8Array(input),
+  );
+});
+
 test("the main artifact is a WebAssembly binary", async () => {
   const bytes = await readFile(artifact("dolly.wasm"));
   assert.deepEqual([...bytes.subarray(0, 8)], [0, 97, 115, 109, 1, 0, 0, 0]);
@@ -514,7 +572,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.manifest.some((path) => path.startsWith("/workspace")), false);
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
-    assert.deepEqual(metadata.entry, ["/usr/bin/pi", "--no-session"]);
+    assert.deepEqual(metadata.entry, ["/usr/bin/pi"]);
   }
 });
 

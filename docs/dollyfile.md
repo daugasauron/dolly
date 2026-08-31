@@ -147,6 +147,7 @@ It generates image/source metadata and these routes:
 /gamedev/rebuild/     execute Dollyfile-gamedev, including EXTENDS default
 /python/              restore the CPython snapshot
 /python/rebuild/      execute Dollyfile-python, including EXTENDS default
+/load/?session=NAME   restore a named browser-local WasmFS session
 /view/default/        styled source viewer
 /view/gamedev/        styled source viewer
 /view/python/         styled source viewer

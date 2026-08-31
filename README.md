@@ -116,6 +116,8 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   browser-side policy.
 - [Download](docs/download.md) — the explicit bounded WasmFS-to-local-user
   file export contract.
+- [Sessions](docs/sessions.md) — opaque WasmFS save/restore through gzip and
+  same-origin IndexedDB.
 - [Slop and Make](docs/slop.md) — the deliberately finite shell language and
   synchronous build semantics.
 - [Display ownership](docs/display.md) — fullscreen framebuffer leases, input,

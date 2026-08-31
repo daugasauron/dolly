@@ -12,6 +12,7 @@ endif()
 
 add_executable(dolly
   ../src/dolly.c
+  ../src/session-snapshot.c
   ../src/system-snapshot.c
   ../src/compiler.cpp
   "${DOLLY_ZIG_DIR}/src/zig_llvm.cpp"

@@ -29,6 +29,7 @@
 #include <dolly/http.h>
 
 #include "dolly-runtime.h"
+#include "session-snapshot.h"
 #include "system-snapshot.h"
 
 extern char **environ;
@@ -545,6 +546,7 @@ static void abandon_command_http(void) {
 
 int dolly_terminal_read_raw_timeout(double milliseconds) {
   for (;;) {
+    dolly_session_service();
     dolly_interrupt_checkpoint();
     // A graphics owner consumes semantic records through
     // dolly_display_next_event. No terminal reader may race it for the shared
@@ -582,13 +584,20 @@ int dolly_terminal_read_raw_timeout(double milliseconds) {
 
     uint32_t wake = atomic_load_explicit(&display_mailbox.event_wake,
                                          memory_order_acquire);
+    // A session request shares this wake word but is not an input-ring event.
+    // Check it after snapshotting the word, then refuse to sleep if the
+    // browser changed the word in the check-to-wait window.
+    dolly_session_service();
     if (atomic_load_explicit(&display_mailbox.event_write,
-                             memory_order_acquire) == read) {
+                             memory_order_acquire) == read &&
+        atomic_load_explicit(&display_mailbox.event_wake,
+                             memory_order_acquire) == wake) {
       if (milliseconds == 0) return -1;
       emscripten_atomic_wait_u32((void *)&display_mailbox.event_wake, wake,
                                  milliseconds < 0
                                      ? ATOMICS_WAIT_DURATION_INFINITE
                                      : milliseconds);
+      dolly_session_service();
       if (milliseconds >= 0 &&
           atomic_load_explicit(&display_mailbox.event_write,
                                memory_order_acquire) == read) {
@@ -739,6 +748,7 @@ int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
   for (;;) {
     int status = validate_display_lease(generation);
     if (status != 0) return status;
+    dolly_session_service();
     dolly_interrupt_checkpoint();
 
     const uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
@@ -761,8 +771,11 @@ int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
 
     const uint32_t wake = atomic_load_explicit(&display_mailbox.event_wake,
                                                 memory_order_acquire);
+    dolly_session_service();
     if (atomic_load_explicit(&display_mailbox.event_write,
-                             memory_order_acquire) != read) {
+                             memory_order_acquire) != read ||
+        atomic_load_explicit(&display_mailbox.event_wake,
+                             memory_order_acquire) != wake) {
       continue;
     }
     if (timeout_milliseconds == 0) return 0;
@@ -770,6 +783,7 @@ int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
         (void *)&display_mailbox.event_wake, wake,
         timeout_milliseconds < 0 ? ATOMICS_WAIT_DURATION_INFINITE
                                  : timeout_milliseconds);
+    dolly_session_service();
     dolly_interrupt_checkpoint();
     if (timeout_milliseconds >= 0 &&
         atomic_load_explicit(&display_mailbox.event_write,

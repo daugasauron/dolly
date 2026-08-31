@@ -78,6 +78,7 @@ literally the only information crossing the Wasm boundary:
 | Bootstrap text callback | Wasm to browser | Source-build progress before the resident renderer exists; ignored for normal terminal output after activation |
 | HTTP dispatch and mailbox | both | Autonomous external communication and the principal confidentiality/integrity boundary |
 | Explicit file download | Wasm to local user | Bounded, user-visible export of one regular WasmFS file; no host path or filesystem handle enters Wasm |
+| Named session mailbox | Wasm to/from browser storage | Explicit opaque filesystem snapshot; browser stores bytes but receives no path-level operation or mount |
 | Clocks, timezone, entropy, startup environment | browser to Wasm | Inputs, not network egress |
 | Seed, exact recipe/source responses, and system snapshot | browser to Wasm | Fixed application inputs or policy-authorized broker responses, not ambient guest authority |
 | Dynamic Wasm loader | WasmFS to browser loader | Code instantiation; it must not turn an agent-controlled path into a network fetch |
@@ -153,13 +154,18 @@ needed by Pi, Zig, Git, and the display, but excludes mutable `/workspace`,
 extensions. After restore, all mutable filesystem state still lives only in
 Wasm memory and dies with the worker.
 
-## Ephemeral compromise
+## Ephemeral and saved compromise
 
-WasmFS currently has only a memory backend. There is no host-directory mount,
-browser persistence backend, or native subprocess facility. Terminating the
-worker or closing the page destroys mutable Dolly state.
+WasmFS has only a memory backend. There is no host-directory mount or native
+subprocess facility. Closing the page destroys unsaved state. An explicit
+`Ctrl+Shift+S` can serialize the in-Wasm tree into an opaque, bounded stream
+that trusted page code compresses into same-origin IndexedDB. Browser storage
+is not mounted and the guest cannot name IndexedDB operations; details are in
+[`sessions.md`](sessions.md).
 
-Consequently, corruption within Dolly is not itself a sandbox escape. The main
+Consequently, corruption or persistence within Dolly is not itself a sandbox
+escape. A saved compromise can survive a reload inside that named session, so
+users must delete or abandon it when trust is lost. The main
 confidentiality risk is exporting data before termination through an allowed
 channel. The main integrity risk is using an allowed network request to trigger
 an external side effect. The main availability risks are CPU loops, memory

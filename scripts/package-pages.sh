@@ -26,6 +26,7 @@ for required in \
   src/dollyfile-view.mjs \
   src/dollyfile-viewer.mjs \
   src/http-policy.mjs \
+  src/session-store.mjs \
   src/runtime-worker.mjs \
   dist/dolly-images.mjs \
   dist/dolly.mjs \
@@ -65,15 +66,18 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/dollyfile-view.mjs" \
   "${project_dir}/src/dollyfile-viewer.mjs" \
   "${project_dir}/src/http-policy.mjs" \
+  "${project_dir}/src/session-store.mjs" \
   "${project_dir}/src/runtime-worker.mjs" \
   "${staging}/site/src/"
 cp "${project_dir}/docs/dollyfile.md" "${project_dir}/docs/architecture.md" \
   "${project_dir}/docs/security.md" "${project_dir}/docs/port-status.md" \
+  "${project_dir}/docs/sessions.md" \
   "${staging}/site/docs/"
 for image_name in "${image_names[@]}"; do
   cp -R "${project_dir}/build/routes/${image_name}" "${staging}/site/"
 done
 cp -R "${project_dir}/build/routes/custom" "${project_dir}/build/routes/rebuild" \
+  "${project_dir}/build/routes/load" \
   "${staging}/site/"
 cp -R "${project_dir}/build/routes/view" "${staging}/site/"
 cp -R "${project_dir}/dist/static" "${staging}/site/"

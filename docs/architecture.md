@@ -154,13 +154,20 @@ Allowed browser operations are deliberately narrow:
 6. supply clocks, entropy, and immutable startup configuration;
 7. perform explicitly brokered HTTP requests;
 8. start a bounded, user-visible download of an explicitly requested WasmFS
-   file.
+   file;
+9. compress and persist an opaque filesystem snapshot after an explicit save.
 
 Filesystem paths, descriptors, contents, working directories, environment,
 pipes, terminal state, fonts, and process bookkeeping remain in Wasm memory.
 The root is explicitly a WasmFS memory backend. During the source build only,
 one output callback feeds a plain-text progress view because the resident
 renderer does not exist yet; it is not a filesystem backend.
+
+Named sessions do not mount browser storage. Wasm serializes its own tree and
+streams opaque chunks through a fixed 1 MiB atomic mailbox; the page gzips them
+into same-origin IndexedDB. `/load/?session=NAME` verifies the runtime and full
+inherited Dollyfile identity before returning the bytes to Wasm for validation
+and restore. See [`sessions.md`](sessions.md).
 
 The runtime lives in a Web Worker and blocks there on WebAssembly atomic wait.
 The UI writes fixed-size raw browser event records into a
