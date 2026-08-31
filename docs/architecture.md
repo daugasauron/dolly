@@ -300,8 +300,9 @@ object, browser filesystem API, host path, or read-back channel. See
    inside Dolly; Janis provides the measured filesystem, module, process,
    stream, event, timer, Fetch, and terminal compatibility needed by upstream
    Pi's full TUI and dependency-free extensions.
-7. CPython after upstream wasm64 support and a reproducible source-generation
-   build graph exist.
+7. A second large language runtime. The Python image builds pinned CPython 3.14
+   inside Dolly, then installs portable wheels through the libcurl-backed
+   Bonnie client without adding a network edge.
 8. Git local operations and direct upstream HTTP-helper execution. These now
    work: Git, zlib, and the helpers compile from pinned sources, and the helper
    performs smart-HTTP discovery through Fetch-backed libcurl. Transparent
@@ -331,7 +332,7 @@ platform facility; it is not replaced with a host call or opaque binary.
   the tested Chrome version?
 - Can repeated program invocations cleanly reset globals, TLS, stack, and
   `atexit` state?
-- Which Slop/POSIX gaps are demonstrated by CPython and Git clone/fetch builds?
+- Which Slop/POSIX gaps are demonstrated by TypeScript and Git clone/fetch?
 - How many process-shaped APIs can use simple synchronous semantics before a
   real agent workload proves that concurrency is necessary?
 - How small can Janis remain as TypeScript and more useful agent extensions are

@@ -1,5 +1,8 @@
 # Pi agent workload audit, 2026-08-31
 
+This is a point-in-time workload record. The concise current Pi boundary and
+next steps live in [`pi-agent-plan.md`](pi-agent-plan.md).
+
 This audit used upstream Pi inside a fresh Dolly browser session with
 `deepseek/deepseek-v4-flash-0731` through the normal OpenRouter HTTP broker.
 The temporary credential was supplied only to the ephemeral in-Wasm session;

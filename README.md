@@ -140,10 +140,9 @@ need. Credential values remain inside Dolly; the browser does not inject them.
 - [Zig and Ghostty](docs/zig-ghostty.md) and the
   [native Zig bootstrap](docs/native-zig-bootstrap.md) — focused runtime
   experiments.
-- [Project audit](docs/audit-2026-08-30.md) — reviewed scope, fixes, risks, and
-  remaining debt.
-- [Agent workload audit](docs/agent-audit-2026-08-31.md) — observed Pi tool
-  behavior, compatibility fixes, and measured remaining gaps.
+- [Project audit](docs/audit-2026-08-30.md) and
+  [agent workload audit](docs/agent-audit-2026-08-31.md) — dated verification
+  records; current priorities live in the roadmap.
 - [Roadmap](docs/roadmap.md) — prioritized next milestones and acceptance gates.
 - [Dollyfile version 1](docs/dollyfile.md) — the C-executed sequential
   source-to-snapshot recipe and image identity model.
