@@ -84,6 +84,13 @@ while a request is active. This is cooperative re-entry in the existing worker,
 not a second process, a socket API, or ambient browser `fetch`. Version 0 still
 allows only one in-flight broker request.
 
+HTTP ownership ends at the nested command boundary. If an asynchronous runtime
+returns with a request pending or with an unread final mailbox record, Dolly
+advances the request sequence, clears the mailbox, and cancels that request in
+the page-side provider through the existing `dolly_http_dispatch` import. A
+finished or interrupted command therefore cannot leave the next command with a
+permanent busy mailbox or let it consume stale response bytes.
+
 Version 0 records follow-redirect intent for curl source compatibility but the
 browser provider rejects redirects unconditionally. A future implementation
 may follow manually only if every hop is separately authorized by policy; the

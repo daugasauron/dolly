@@ -242,6 +242,10 @@ EM_JS(void, dolly_http_dispatch,
       (const char *method, const char *url, const char *headers,
        const void *body, uintptr_t body_size, uint32_t flags,
        uint32_t sequence), {
+  if (!method) {
+    Module["httpCancel"]?.(sequence);
+    return;
+  }
   const start = Number(body);
   Module["httpDispatch"]?.({
     method: UTF8ToString(Number(method)),
@@ -490,6 +494,23 @@ int dolly_http_perform(const dolly_http_request *request,
   free(data);
   if (result != 0) dolly_http_response_dispose(response);
   return result;
+}
+
+static void abandon_command_http(void) {
+  if (atomic_load_explicit(&http_mailbox.state, memory_order_acquire) == 0) {
+    return;
+  }
+  const uint32_t sequence = atomic_fetch_add_explicit(
+      &http_mailbox.sequence, 1, memory_order_acq_rel) + 1;
+  atomic_store_explicit(&http_mailbox.status, 0, memory_order_relaxed);
+  atomic_store_explicit(&http_mailbox.length, 0, memory_order_relaxed);
+  atomic_store_explicit(&http_mailbox.eof, 1, memory_order_relaxed);
+  atomic_store_explicit(&http_mailbox.error, 0, memory_order_relaxed);
+  atomic_store_explicit(&http_mailbox.kind, 0, memory_order_relaxed);
+  atomic_store_explicit(&http_mailbox.state, 0, memory_order_release);
+  emscripten_atomic_notify((void *)&http_mailbox.state,
+                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+  dolly_http_dispatch(NULL, NULL, NULL, NULL, 0, 0, sequence);
 }
 
 int dolly_terminal_read_raw_timeout(double milliseconds) {
@@ -1539,6 +1560,12 @@ static int spawn_with_deadline(const char *path, int argc, char **argv,
                           memory_order_release);
     status = dolly_run_filesystem_module(path, argc, argv);
   }
+
+  // An async runtime may return while one browser request is still pending or
+  // while its final mailbox record is unread. HTTP is process-shaped Dolly
+  // state: discard that command's request before the next command can inherit
+  // a busy mailbox or consume stale bytes.
+  abandon_command_http();
 
   // A command can never strand the framebuffer. This covers normal return,
   // dolly_exit(), assertion termination, and the SIGINT longjmp boundary.

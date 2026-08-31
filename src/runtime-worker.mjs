@@ -237,6 +237,7 @@ try {
     locateFile: locateArtifact,
     bootstrapWriteBytes: (bytes) => self.postMessage({ type: "bootstrap-bytes", bytes }),
     httpDispatch: (request) => self.postMessage({ type: "http-request", ...request }),
+    httpCancel: (sequence) => self.postMessage({ type: "http-cancel", sequence }),
     downloadDispatch: ({ name, bytes }) => {
       if (typeof name !== "string" || name.length === 0 || name.length > 255 ||
           /[\/\\\u0000-\u001f\u007f]/u.test(name) ||

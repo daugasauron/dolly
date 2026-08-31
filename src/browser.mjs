@@ -508,16 +508,20 @@ class NetworkTransport {
     this.policy = policy;
     this.active = false;
     this.activeToken = 0;
+    this.activeSequence = 0;
     this.nextToken = 0;
     this.controller = null;
     this.requestCount = 0;
     this.completedRequestCount = 0;
   }
 
-  async waitForWritable(token) {
+  async waitForWritable(token, sequence) {
     const index = this.word + NetworkTransport.state;
     for (;;) {
-      if (this.activeToken !== token) throw new DOMException("HTTP request interrupted", "AbortError");
+      if (this.activeToken !== token ||
+          (Atomics.load(this.words, this.word + NetworkTransport.sequence) >>> 0) !== sequence) {
+        throw new DOMException("HTTP request interrupted", "AbortError");
+      }
       const current = Atomics.load(this.words, index);
       if (current === 1) return;
       const waiting = Atomics.waitAsync(this.words, index, current);
@@ -525,8 +529,8 @@ class NetworkTransport {
     }
   }
 
-  async publish(token, bytes, status, eof, error, kind) {
-    await this.waitForWritable(token);
+  async publish(token, sequence, bytes, status, eof, error, kind) {
+    await this.waitForWritable(token, sequence);
     if (bytes.length > this.capacity) throw new Error("HTTP chunk exceeds mailbox capacity");
     this.bytes.set(bytes, this.address + NetworkTransport.headerSize);
     Atomics.store(this.words, this.word + NetworkTransport.status, status);
@@ -542,6 +546,7 @@ class NetworkTransport {
     if (this.activeToken !== 0) throw new Error("concurrent HTTP requests are not supported");
     const token = ++this.nextToken;
     this.activeToken = token;
+    this.activeSequence = sequence;
     this.active = true;
     this.requestCount += 1;
     let status = 0;
@@ -559,7 +564,7 @@ class NetworkTransport {
       const target = new URL(url, location.href);
       if ((target.protocol !== "http:" && target.protocol !== "https:") ||
           target.username !== "" || target.password !== "") {
-        await this.publish(token, new Uint8Array(), status, true, 3, 0);
+        await this.publish(token, sequence, new Uint8Array(), status, true, 3, 0);
         return;
       }
       if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(method)) {
@@ -590,9 +595,9 @@ class NetworkTransport {
         signal: controller.signal,
       });
       status = response.status;
-      await this.publish(token, encoder.encode(response.url), status, false, 0, 1);
+      await this.publish(token, sequence, encoder.encode(response.url), status, false, 0, 1);
       await this.publish(
-        token,
+        token, sequence,
         encoder.encode(`HTTP/1.1 ${status} ${response.statusText}\r\n`),
         status,
         false,
@@ -601,9 +606,12 @@ class NetworkTransport {
       );
       for (const [name, value] of response.headers) {
         if (isDollyCredentialHeader(name)) continue;
-        await this.publish(token, encoder.encode(`${name}: ${value}\r\n`), status, false, 0, 2);
+        await this.publish(
+          token, sequence, encoder.encode(`${name}: ${value}\r\n`),
+          status, false, 0, 2,
+        );
       }
-      await this.publish(token, encoder.encode("\r\n"), status, false, 0, 2);
+      await this.publish(token, sequence, encoder.encode("\r\n"), status, false, 0, 2);
       let responseBytes = 0;
       const publishBody = async (bytes) => {
         responseBytes += bytes.length;
@@ -611,7 +619,10 @@ class NetworkTransport {
           throw new Error("Dolly HTTP response exceeds its size limit");
         }
         for (let offset = 0; offset < bytes.length; offset += this.capacity) {
-            await this.publish(token, bytes.subarray(offset, offset + this.capacity), status, false, 0, 3);
+            await this.publish(
+              token, sequence, bytes.subarray(offset, offset + this.capacity),
+              status, false, 0, 3,
+            );
         }
       };
       if (response.body === null) {
@@ -625,16 +636,18 @@ class NetworkTransport {
           await publishBody(value);
         }
       }
-      await this.publish(token, new Uint8Array(), status, true, 0, 3);
+      await this.publish(token, sequence, new Uint8Array(), status, true, 0, 3);
     } catch {
-      if (this.activeToken === token) {
-        await this.publish(token, new Uint8Array(), status, true, 1, 0);
+      if (this.activeToken === token &&
+          (Atomics.load(this.words, this.word + NetworkTransport.sequence) >>> 0) === sequence) {
+        await this.publish(token, sequence, new Uint8Array(), status, true, 1, 0);
       }
     } finally {
       clearTimeout(timeout);
       this.completedRequestCount += 1;
       if (this.activeToken === token) {
         this.activeToken = 0;
+        this.activeSequence = 0;
         this.controller = null;
         this.active = false;
       }
@@ -644,10 +657,24 @@ class NetworkTransport {
   interrupt() {
     if (this.activeToken === 0) return;
     this.activeToken = 0;
+    this.activeSequence = 0;
     this.active = false;
     this.controller?.abort();
     this.controller = null;
     Atomics.store(this.words, this.word + NetworkTransport.state, 0);
+    Atomics.notify(this.words, this.word + NetworkTransport.state);
+  }
+
+  cancelBefore(sequence) {
+    if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence > 0xffff_ffff) {
+      throw new Error("invalid HTTP cancellation sequence");
+    }
+    if (this.activeToken === 0 || this.activeSequence === sequence) return;
+    this.activeToken = 0;
+    this.activeSequence = 0;
+    this.active = false;
+    this.controller?.abort();
+    this.controller = null;
     Atomics.notify(this.words, this.word + NetworkTransport.state);
   }
 }
@@ -972,6 +999,7 @@ async function runBrowserProof() {
     ["awk 'BEGIN {print system(\"echo HOST-ESCAPE\")}'"],
     ["awk 'BEGIN {status = (\"denied\" | getline value); print status; exit status == -1 ? 0 : 1}'"],
     ["awk -f", undefined, 2],
+    [`qjs -e 'Dolly.httpStart("GET", "${location.origin}/fixture/http.txt", "", null)'`],
     ["curl -fsSL /fixture/http.txt -o fetched.txt"],
     ["cat fetched.txt"],
     ["curl -f /fixture/missing", undefined, 22],
@@ -1242,6 +1270,13 @@ async function boot() {
       }).catch((error) => {
         document.documentElement.dataset.networkError = error.message;
       });
+    } else if (message.type === "http-cancel") {
+      try {
+        if (!networkTransport) throw new Error("HTTP cancellation arrived before broker setup");
+        networkTransport.cancelBefore(message.sequence);
+      } catch (error) {
+        document.documentElement.dataset.networkError = error.message;
+      }
     } else if (message.type === "download") {
       try {
         startBrowserDownload(message);

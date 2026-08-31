@@ -7,6 +7,10 @@
     (func $dolly_http_dispatch
       (param i64 i64 i64 i64 i64 i32 i32)))
 
+  ;; A null method pointer is the command-boundary cancellation record. Its
+  ;; final i32 is the new sequence fence; it carries no URL or request bytes
+  ;; and therefore does not introduce a second browser capability.
+
   ;; Version 2 uses seven atomic little-endian u32 fields at the start of a
   ;; 64-byte header: state, sequence, HTTP status, byte length, EOF, error, and
   ;; chunk kind. Kinds 1, 2, and 3 are the effective URL, one complete response

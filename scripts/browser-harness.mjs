@@ -1222,7 +1222,7 @@ ENTRY /usr/bin/pi --no-session
           await evaluate(
             debuggerClient.send,
             `window.__dolly.submit(${JSON.stringify(
-              "grep -q 'minimal but useful POSIX-like agent userspace' " +
+              "grep -q '^Dolly is an experiment' " +
               "/tmp/pages-generic-network.txt",
             )})`,
           ),

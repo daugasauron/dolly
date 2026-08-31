@@ -396,7 +396,7 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(frontend, /Atomics\.waitAsync/);
   assert.match(
     frontend,
-    /for \(;;\) \{\s*if \(this\.activeToken !== token\).*?const current = Atomics\.load\(this\.words, index\);\s*if \(current === 1\) return;\s*const waiting = Atomics\.waitAsync/s,
+    /for \(;;\) \{\s*if \(this\.activeToken !== token \|\|.*?NetworkTransport\.sequence\).*?!== sequence\).*?const current = Atomics\.load\(this\.words, index\);\s*if \(current === 1\) return;\s*const waiting = Atomics\.waitAsync/s,
   );
   assert.match(frontend, /interruptForeground\(\)/);
   assert.match(frontend, /event\.code === "KeyC"/);
