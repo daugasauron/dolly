@@ -228,7 +228,12 @@ uses the same rule for recipes and `$(shell ...)`; accepted `-jN` values have
 one effective job. Command-local `exit` returns through a nested
 setjmp boundary. Because Emscripten retains `dlopen` instances, Dolly snapshots
 each module's relocated static region after initialization and restores it on
-entry, providing fresh data/BSS across repeated commands. Complete
+entry, providing fresh data/BSS across repeated commands. A runtime that must
+outlive one command can instead export the presence-only
+`dolly_preserve_module_state` marker. Dolly then retains that module handle and
+does not restore its static image; CPython uses this to initialize once while
+all invocations remain serialized in the same in-Wasm userspace. The marker
+does not add a browser import or a new isolation boundary. Complete
 command-local heap/descriptor reclamation remains future work. Concurrent
 scheduling is intentionally deferred unless a concrete tool cannot be adapted
 with simpler synchronous semantics.

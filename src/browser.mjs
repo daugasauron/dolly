@@ -1188,8 +1188,9 @@ async function boot() {
     throw new Error("Dolly requires cross-origin isolation for shared Wasm memory");
   }
   const configured = globalThis.DOLLY_BOOT;
+  const packagedImages = new Set(DOLLY_IMAGES.map(({ image }) => image));
   if (configured === null || typeof configured !== "object" ||
-      !["default", "gamedev", "custom"].includes(configured.image) ||
+      !(packagedImages.has(configured.image) || configured.image === "custom") ||
       !["snapshot", "rebuild"].includes(configured.mode) ||
       (configured.image === "custom" && configured.mode !== "rebuild")) {
     throw new Error("invalid Dolly route configuration");
@@ -1284,7 +1285,7 @@ async function boot() {
         displayFatal(error instanceof Error ? error.message : String(error));
       }
     } else if (message.type === "error" && runtimeReady) {
-      displayFatal(message.message);
+      displayFatal(message.stack ? `${message.message}\n${message.stack}` : message.message);
     }
   });
   runtimeWorker.postMessage({
@@ -1301,7 +1302,9 @@ async function boot() {
         resolve(event.data);
       } else if (event.data.type === "error") {
         runtimeWorker.removeEventListener("message", onMessage);
-        reject(new Error(event.data.message));
+        const error = new Error(event.data.message);
+        if (event.data.stack) error.stack = event.data.stack;
+        reject(error);
       }
     });
     runtimeWorker.addEventListener("error", reject, { once: true });
@@ -1400,5 +1403,5 @@ async function boot() {
 }
 
 boot().catch((error) => {
-  displayFatal(error instanceof Error ? error.message : String(error));
+  displayFatal(error instanceof Error ? error.stack ?? error.message : String(error));
 });

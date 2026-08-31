@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <netdb.h>
+#include <sched.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -65,6 +66,8 @@ _Static_assert(offsetof(dolly_dso_handle, name) == 64,
 
 typedef struct {
   char *path;
+  void *module;
+  int persistent;
   void *address;
   size_t size;
   unsigned char *initial;
@@ -72,7 +75,34 @@ typedef struct {
 
 static dolly_module_image module_images[DOLLY_MAX_MODULE_IMAGES];
 
+static void *find_persistent_module(const char *path) {
+  for (size_t index = 0; index < DOLLY_MAX_MODULE_IMAGES; index++) {
+    dolly_module_image *image = &module_images[index];
+    if (image->persistent && strcmp(image->path, path) == 0) {
+      return image->module;
+    }
+  }
+  return NULL;
+}
+
 static int prepare_module_image(const char *path, void *module) {
+  dlerror();
+  void *preserve_state = dlsym(module, "dolly_preserve_module_state");
+  const char *policy_error = dlerror();
+  if (policy_error == NULL && preserve_state != NULL) {
+    for (size_t index = 0; index < DOLLY_MAX_MODULE_IMAGES; index++) {
+      dolly_module_image *image = &module_images[index];
+      if (image->path == NULL) {
+        image->path = strdup(path);
+        if (image->path == NULL) return -1;
+        image->module = module;
+        image->persistent = 1;
+        return 1;
+      }
+    }
+    return -1;
+  }
+
   dolly_dso_handle *handle = module;
   if (!handle->memory_allocated || handle->memory_size == 0) return 0;
 
@@ -921,27 +951,34 @@ int dolly_run_filesystem_module(const char *path, int argc, char **argv) {
   if (exit_depth == DOLLY_MAX_EXIT_DEPTH) return 125;
   dolly_exit_frame *frame = &exit_frames[exit_depth++];
   void *volatile module = NULL;
+  int persistent = 0;
   int status = 0;
   frame->callback_count = 0;
 
   if (setjmp(frame->environment) == 0) {
-    module = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+    module = find_persistent_module(path);
+    persistent = module != NULL;
+    if (module == NULL) module = dlopen(path, RTLD_NOW | RTLD_LOCAL);
     if (module == NULL) {
       fprintf(stderr, "dolly: dlopen %s failed: %s\n", path, dlerror());
       status = 1;
-    } else if (prepare_module_image(path, (void *)module) != 0) {
-      fprintf(stderr, "dolly: could not initialize command image %s\n", path);
-      status = 1;
     } else {
-      dlerror();
-      dolly_program_entry entry =
-          (dolly_program_entry)dlsym((void *)module, "dolly_main");
-      const char *error = dlerror();
-      if (error != NULL) {
-        fprintf(stderr, "dolly: dlsym dolly_main failed: %s\n", error);
-        status = 2;
+      int prepared = persistent ? 1 : prepare_module_image(path, (void *)module);
+      if (prepared < 0) {
+        fprintf(stderr, "dolly: could not initialize command image %s\n", path);
+        status = 1;
       } else {
-        status = entry(argc, argv);
+        persistent = prepared > 0;
+        dlerror();
+        dolly_program_entry entry =
+            (dolly_program_entry)dlsym((void *)module, "dolly_main");
+        const char *error = dlerror();
+        if (error != NULL) {
+          fprintf(stderr, "dolly: dlsym dolly_main failed: %s\n", error);
+          status = 2;
+        } else {
+          status = entry(argc, argv);
+        }
       }
     }
   } else {
@@ -953,7 +990,7 @@ int dolly_run_filesystem_module(const char *path, int argc, char **argv) {
     callback();
   }
   exit_depth--;
-  if (module != NULL && dlclose((void *)module) != 0) {
+  if (module != NULL && !persistent && dlclose((void *)module) != 0) {
     fprintf(stderr, "dolly: dlclose %s failed: %s\n", path, dlerror());
     if (status == 0) status = 3;
   }
@@ -1023,6 +1060,9 @@ mode_t dolly_umask(mode_t mask) {
   (void)mask;
   return 0;
 }
+
+__attribute__((export_name("sched_yield")))
+int dolly_sched_yield(void) { return 0; }
 
 char *dolly_getpass(const char *prompt) {
   static char password[256];

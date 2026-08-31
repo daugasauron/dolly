@@ -29,7 +29,7 @@ Dolly currently boots a source-built userspace containing:
   minimal phone `/` command menu.
 
 The root page is an image and documentation menu generated from source-visible
-Dollyfiles. `/default/` and `/gamedev/` restore snapshots cryptographically
+Dollyfiles. `/default/`, `/gamedev/`, and `/python/` restore snapshots cryptographically
 bound to their exact recipe chains, entry records, and retained manifests. Each
 image's `/rebuild/` route compiles `/bin/dollyfile` inside Wasm, then that C
 program fetches and verifies every independent `SOURCE` and executes the recipe

@@ -145,8 +145,11 @@ It generates image/source metadata and these routes:
 /default/rebuild/     execute Dollyfile and export a default snapshot
 /gamedev/             restore the gamedev snapshot
 /gamedev/rebuild/     execute Dollyfile-gamedev, including EXTENDS default
+/python/              restore the CPython snapshot
+/python/rebuild/      execute Dollyfile-python, including EXTENDS default
 /view/default/        styled source viewer
 /view/gamedev/        styled source viewer
+/view/python/         styled source viewer
 /custom/rebuild/      execute a bounded user-selected text recipe
 ```
 

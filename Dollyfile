@@ -89,7 +89,7 @@ CHECK make --version
 KEEP /usr/bin/make
 
 # Zig and Ghostty VT.
-SOURCE HOST BIN /static/default/zig.wasm /usr/bin/zig SHA256 ae705ada4d3965d8035b4d6d4d1817faee8567205ed087aae80bbeac405e6c06
+SOURCE HOST BIN /static/default/zig.wasm /usr/bin/zig SHA256 9551ffa6f332b3c7566b7f951de144a08c9ee03bdbe6ddd08d9adf50d6f66ef7
 SOURCE HOST BIN /static/default/zig-lib.tar /tmp/zig-lib.tar SHA256 82e33abf1bead6f2e1dc92ed2e4d80a4dafc4fe8ca33440f29f69c5db436c445
 RUN tar -xf /tmp/zig-lib.tar -C /
 SOURCE HOST TXT /static/default/zig/answer.zig /usr/src/dolly/zig/answer.zig SHA256 f7b80afc25495d76900c4ca95d6c28fef30094807b01d5c1a404fd2d146d8309
@@ -209,9 +209,9 @@ KEEP /home/dolly/.gitconfig
 # Compiler and loader demonstrations.
 SOURCE HOST TXT /static/default/cpp-check.cpp /usr/src/dolly/cpp-check.cpp SHA256 7cf3034c5b063864676f8280d1f1b0a92d8f3c8d480b2b1a2cb65aa66a8c35e2
 SOURCE HOST TXT /static/default/demo.c /usr/src/dolly/demo.c SHA256 663ee9ea6a5d93ebf805906b5e3629b712aab0dda5153d50d07c02009147e7b3
-SOURCE HOST BIN /static/default/writer.wasm /usr/libexec/dolly/writer SHA256 d8d6b4d364faa782f9aa2906e35eaa111de20074cee363898ca47ed32b79db87
-SOURCE HOST BIN /static/default/reader.wasm /usr/libexec/dolly/reader SHA256 5586ccd345e4e2f2c5f222e6192cacccb7ce0689aa03ec0e0f56c021afc1d557
-SOURCE HOST BIN /static/default/inspector.wasm /usr/libexec/dolly/inspector SHA256 7d06b811d29d49c2995dcce5b94e90304c66722ba3c1e20e0bf44e84ae62c13b
+SOURCE HOST BIN /static/default/writer.wasm /usr/libexec/dolly/writer SHA256 19338d347bc173da9132de448a5f0a291164ec0d8729f045133a64800fb22d35
+SOURCE HOST BIN /static/default/reader.wasm /usr/libexec/dolly/reader SHA256 d662b9cb02cd19a3c918dad76b6f8c217d3c86af4dce7be94e4b85c991c8a920
+SOURCE HOST BIN /static/default/inspector.wasm /usr/libexec/dolly/inspector SHA256 84597455a4aeb0e887106a568f0bee2cb7fd1b577b50b5a79c0277b5893eb025
 RUN make -f /usr/src/dolly/startup.mk extras
 CHECK demo
 KEEP /usr/libexec/dolly/cpp-check

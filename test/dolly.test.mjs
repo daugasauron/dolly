@@ -486,12 +486,17 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const { DOLLY_BUILD_ID } = await import(artifact("dolly-build-id.mjs"));
   const definitions = await discoverImageDefinitions(new URL("..", import.meta.url).pathname);
   const byImage = new Map(definitions.map((item) => [item.image, item]));
-  for (const image of ["default", "gamedev"]) {
+  for (const image of definitions.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
     const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
       artifact(`dolly-${image}-system-snapshot.mjs`)
     );
-    const chain = image === "default" ? ["default"] : ["default", "gamedev"];
+    const chain = [];
+    for (let current = byImage.get(image); current; current = current.extends
+      ? byImage.get(current.extends)
+      : null) {
+      chain.unshift(current.image);
+    }
     assert.equal(metadata.image, image);
     assert.equal(metadata.buildId, DOLLY_BUILD_ID);
     assert.equal(metadata.identityVersion, 2);
@@ -516,20 +521,25 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
 test("Dollyfiles are additive and execute through the sequential C engine", async () => {
   const base = await readFile(new URL("../Dollyfile", import.meta.url), "utf8");
   const game = await readFile(new URL("../Dollyfile-gamedev", import.meta.url), "utf8");
+  const python = await readFile(new URL("../Dollyfile-python", import.meta.url), "utf8");
   const baseView = inspectDollyfile(base, "Dollyfile");
   const gameView = inspectDollyfile(game, "Dollyfile-gamedev");
+  const pythonView = inspectDollyfile(python, "Dollyfile-python");
   const engine = await readFile(new URL("../src/dollyfile.c", import.meta.url), "utf8");
   const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
   assert.equal(baseView.image, "default");
   assert.equal(gameView.extends, "default");
+  assert.equal(pythonView.extends, "default");
   assert.ok(baseView.sources.length > 40);
   assert.equal(gameView.sources.length, 2);
-  assert.equal(baseView.sources.some((item) => /gamedev|graphics-demo/.test(item.location)), false);
+  assert.equal(pythonView.sources.length, 3);
+  assert.equal(baseView.sources.some((item) =>
+    /gamedev|graphics-demo|cpython/.test(item.location)), false);
   assert.match(base, /SOURCE HOST TXT \/static\/bootstrap\/tar\.c/);
   assert.match(base, /RUN cc .*\/bin\/tar/);
   assert.match(base, /SOURCE HOST BIN .*\.tar .* SHA256 [0-9a-f]{64}/);
   assert.match(base, /RUN tar -xf/);
-  assert.doesNotMatch(`${base}\n${game}`, /DECLARE HTTP|SAMEHOST|\.assets|\bBASE\b/);
+  assert.doesNotMatch(`${base}\n${game}\n${python}`, /DECLARE HTTP|SAMEHOST|\.assets|\bBASE\b/);
   assert.match(engine, /result = fetch_source\(engine.*?result = run_slop/s);
   assert.doesNotMatch(worker, /compileDollyfiles|parseDollyfile|sameHostAssets|\.assets/);
 });
@@ -538,7 +548,7 @@ test("HOST inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const sources = await inspectStaticSources(projectDir, definitions);
-  assert.equal(sources.length, 56);
+  assert.equal(sources.length, 59);
   assert.ok(sources.every((item) =>
     item.path.startsWith("/static/") && ["txt", "bin"].includes(item.media) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
@@ -554,6 +564,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   })), [
     { image: "default", dollyfile: "Dollyfile" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev", extends: "default" },
+    { image: "python", dollyfile: "Dollyfile-python", extends: "default" },
   ]);
   assert.ok(DOLLY_STATIC_SOURCES.length >= 54);
   for (const image of DOLLY_IMAGES) {

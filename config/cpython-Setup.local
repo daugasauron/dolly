@@ -1,0 +1,8 @@
+# Dolly has zlib in the default image, but not SQLite or bzip2 yet.
+*disabled*
+_bz2
+_sqlite3
+_socket
+termios
+mmap
+faulthandler

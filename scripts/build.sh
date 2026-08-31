@@ -34,6 +34,7 @@ curl_dir="$("${project_dir}/scripts/fetch-curl.sh")"
 zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
 git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 make_dir="$("${project_dir}/scripts/prepare-make.sh")"
+cpython_dir="$("${project_dir}/scripts/prepare-cpython.sh")"
 zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
 zig_container_dir="/src/${zig_dir#"${project_dir}/"}"
 ghostty_checkout="$("${project_dir}/scripts/fetch-ghostty.sh")"
@@ -130,7 +131,8 @@ native_zig="$("${project_dir}/scripts/build-native-zig.sh")"
 
 static_dir="${project_dir}/dist/static"
 rm -rf -- "${static_dir}"
-mkdir -p "${static_dir}/bootstrap" "${static_dir}/default" "${static_dir}/gamedev"
+mkdir -p "${static_dir}/bootstrap" "${static_dir}/default" \
+  "${static_dir}/gamedev" "${static_dir}/python"
 
 copy_static() {
   local source="$1"
@@ -168,6 +170,8 @@ copy_static "${project_dir}/build/program-reader.wasm" default/reader.wasm
 copy_static "${project_dir}/build/program-inspector.wasm" default/inspector.wasm
 copy_static "${project_dir}/src/gamedev.mk" gamedev/gamedev.mk
 copy_static "${project_dir}/src/commands/graphics-demo.c" gamedev/graphics-demo.c
+copy_static "${project_dir}/src/runtimes/cpython-platform.c" python/cpython-platform.c
+copy_static "${project_dir}/src/runtimes/cpython-main.c" python/cpython-main.c
 
 node scripts/build-source-tar.mjs dist/static/default/make-4.4.1.tar \
   "${make_dir}" /usr/src/make
@@ -231,6 +235,22 @@ node scripts/build-source-tar.mjs dist/static/default/quickjs.tar \
   "${quickjs_dir}/quickjs.c" /usr/src/quickjs/quickjs.c \
   "${quickjs_dir}/quickjs.h" /usr/src/quickjs/quickjs.h \
   "${quickjs_dir}/LICENSE" /usr/share/licenses/quickjs-ng/LICENSE
+node scripts/build-source-tar.mjs dist/static/python/cpython.tar \
+  "${cpython_dir}/Include" /usr/src/python/Include \
+  "${cpython_dir}/Parser" /usr/src/python/Parser \
+  "${cpython_dir}/Objects" /usr/src/python/Objects \
+  "${cpython_dir}/Python" /usr/src/python/Python \
+  "${cpython_dir}/Modules" /usr/src/python/Modules \
+  "${cpython_dir}/Programs" /usr/src/python/Programs \
+  "${cpython_dir}/Tools/freeze" /usr/src/python/Tools/freeze \
+  "${cpython_dir}/Lib" /usr/src/python/Lib \
+  "${cpython_dir}/Makefile" /usr/src/python/Makefile \
+  "${cpython_dir}/Makefile.pre" /usr/src/python/Makefile.pre \
+  "${cpython_dir}/Makefile.pre.in" /usr/src/python/Makefile.pre.in \
+  "${cpython_dir}/pyconfig.h" /usr/src/python/pyconfig.h \
+  "${cpython_dir}/config.status" /usr/src/python/config.status \
+  "${cpython_dir}/configure" /usr/src/python/configure \
+  "${cpython_dir}/LICENSE" /usr/share/licenses/cpython/LICENSE
 node scripts/build-source-tar.mjs dist/static/default/pi-package.tar \
   "${project_dir}/build/generated/pi-package" /usr/lib/pi
 node scripts/build-source-tar.mjs dist/static/default/zig-lib.tar \

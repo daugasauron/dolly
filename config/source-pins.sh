@@ -22,6 +22,10 @@ DOLLY_PI_URL='https://registry.npmjs.org/@earendil-works/pi-coding-agent/-/pi-co
 DOLLY_PI_SHA256=5bce766d19c3ceba18f3fbaad91c449c9f9d73981f9e3400ecef932006f06968
 DOLLY_ESBUILD_VERSION=0.25.9
 
+DOLLY_CPYTHON_VERSION=3.14.7
+DOLLY_CPYTHON_COMMIT=823f0323ee6ec1402088b73bce1a38473cac36dc
+DOLLY_CPYTHON_URL='https://github.com/python/cpython.git'
+
 DOLLY_ZIG_VERSION=0.16.0
 DOLLY_ZIG_URL='https://ziglang.org/download/0.16.0/zig-0.16.0.tar.xz'
 DOLLY_ZIG_SHA256=43186959edc87d5c7a1be7b7d2a25efffd22ce5807c7af99067f86f99641bfdf

@@ -38,7 +38,8 @@ into freshly created mutable `/usr` directories before compilation. No
 permission or executable-bit policy is added to Dolly.
 
 Every other input appears as an independent `SOURCE HOST ... SHA256 ...` row in
-`Dollyfile` or `Dollyfile-gamedev`. `scripts/verify-static-sources.mjs` checks
+`Dollyfile`, `Dollyfile-gamedev`, or `Dollyfile-python`.
+`scripts/verify-static-sources.mjs` checks
 the actual served byte sequence for every row. There is no aggregate `.assets`
 filesystem image and no JavaScript recipe compiler.
 
@@ -75,6 +76,7 @@ directories, rejects absolute/traversal names, and writes solely to WasmFS.
 | curl | Official headers/license plus Dolly Fetch implementation are served | `/usr/lib/libcurl.a` and `/usr/bin/curl` over the broker |
 | zlib | Selected pinned upstream C tree is archived | `/usr/lib/libz.a` and public headers |
 | Git | Generated config/version files, tracked C sources, templates, and reviewed target patch are archived | `/usr/bin/git`, `libgit.a`, and HTTP helpers |
+| CPython 3.14 | A pinned upstream tree is configured for Dolly's wasm64 target; matching frozen headers and generated build files are archived | Every target object and `/usr/bin/python` are compiled inside Dolly; entropy uses Dolly's in-Wasm source and thread creation fails through CPython's single-thread stubs |
 | Zig 0.16 | Official host Zig builds an ABI-validated wasm64 Zig command; library source is archived | `/usr/bin/zig` emits wasm64 objects through the runtime LLVM bridge |
 | Ghostty + uucode | Pinned source and generated configuration/tables are archived | Zig builds Ghostty VT, its static library, and resident display module |
 | QuickJS-ng | Exact engine source is archived; ambient `quickjs-libc.c` is excluded | `/usr/lib/libdolly-js.a`, `qjs`, Janis, and Pi frontend |
