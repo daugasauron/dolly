@@ -110,6 +110,7 @@ const routeDocuments = new Map([
 ]);
 let gitDiscoveryRequest = null;
 let libcurlPostRequest = null;
+let curlCliRequest = null;
 let snapshotUpload = null;
 const staticRequestPaths = new Set();
 const piModelRequests = [];
@@ -152,6 +153,22 @@ function startServer() {
           "content-type": "text/plain; charset=utf-8",
         });
         response.end("POSTED-THROUGH-LIBCURL\n");
+        return;
+      }
+      if (requestUrl.pathname === "/fixture/curl-options" &&
+          request.method === "POST") {
+        const chunks = [];
+        for await (const chunk of request) chunks.push(chunk);
+        curlCliRequest = {
+          header: request.headers["x-dolly-cli"] ?? "",
+          body: Buffer.concat(chunks).toString("utf8"),
+        };
+        response.writeHead(201, {
+          ...isolatedHeaders,
+          "content-type": "text/plain; charset=utf-8",
+          "x-dolly-response": "yes",
+        });
+        response.end("CURL-CLI-OK\n");
         return;
       }
       if (requestUrl.pathname === "/fixture/pi/v1/chat/completions" &&
@@ -2914,6 +2931,7 @@ ENTRY /usr/bin/pi --no-session
   assert.equal(increasedFontSize, 16);
   assert.equal(restoredFontSize, 15);
   assert.deepEqual(libcurlPostRequest, { header: "yes", body: "payload" });
+  assert.deepEqual(curlCliRequest, { header: "yes", body: "one=1&two=2" });
   assert.deepEqual(gitDiscoveryRequest, { method: "GET", protocol: "version=2" });
   assert.equal(piModelRequests.length, 0);
   assert.ok(evidence.bootstrap.split("\n").length <= 40);

@@ -1221,6 +1221,12 @@ async function runBrowserProof() {
     [`qjs -e 'Dolly.httpStart("GET", "${location.origin}/fixture/http.txt", "", null)'`],
     ["curl -fsSL /fixture/http.txt -o fetched.txt"],
     ["cat fetched.txt"],
+    ["curl -sS -X POST -H 'X-Dolly-Cli: yes' -d one=1 -d two=2 " +
+      "-D curl-headers.txt -o curl-body.txt " +
+      "-w '%{http_code} %{content_type}\\n' /fixture/curl-options > curl-meta.txt"],
+    ["grep -q '^CURL-CLI-OK$' curl-body.txt"],
+    ["grep -qi '^x-dolly-response: yes' curl-headers.txt"],
+    ["grep -q '^201 text/plain; charset=utf-8$' curl-meta.txt"],
     ["curl -f /fixture/missing", undefined, 22],
     [libcurlSourceCommand],
     ["cc libcurl-check.c -lcurl -o libcurl-check"],
