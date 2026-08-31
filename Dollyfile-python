@@ -9,6 +9,7 @@ EXTENDS default
 SOURCE HOST BIN /static/python/cpython.tar /tmp/cpython.tar SHA256 222fc2ee20a525032118413ef46d2b213f10edeef544bc5b891df59616db2a28
 SOURCE HOST TXT /static/python/cpython-platform.c /usr/src/python/Python/dolly_platform.c SHA256 284231f883e693d192e068782f909decfc8f64a99f5374373f5f65c3dbb1eaa1
 SOURCE HOST TXT /static/python/cpython-main.c /usr/src/python/Programs/dolly_main.c SHA256 2d6b186c38912292dcc54bc9a6a8c8d62d1673d1856f36ee7223ffdf3cd46199
+SOURCE HOST TXT /static/python/bonnie.c /usr/src/dolly/bonnie.c SHA256 45c2a5f1ae2d3091aab3f1ec437fe1dd987bd153b8d02674d1bcab41140bc9e8
 RUN tar -xf /tmp/cpython.tar -C /
 
 WORKDIR /usr/src/python
@@ -45,11 +46,15 @@ RUN make -o configure -o config.status -o Makefile.pre -o Makefile \
 RUN mv /usr/src/python/Lib /usr/lib/python3.14
 RUN mv /usr/src/python/python /usr/bin/python
 RUN cp /usr/bin/python /usr/bin/python3
+RUN cc -O2 -std=c17 /usr/src/dolly/bonnie.c -o /usr/bin/bonnie -lcurl
 CHECK python --version
+CHECK bonnie --version
 CHECK python -c 'import pathlib; p = pathlib.Path("/tmp/python-check.txt"); p.write_text("PYTHON-WASM64"); assert p.read_text() == "PYTHON-WASM64"'
 CHECK python -c 'import pathlib; assert pathlib.Path("/tmp/python-check.txt").read_text() == "PYTHON-WASM64"'
 
 KEEP /usr/bin/python
 KEEP /usr/bin/python3
+KEEP /usr/bin/bonnie
 KEEP-TREE /usr/lib/python3.14
+KEEP /usr/src/dolly/bonnie.c
 KEEP /usr/share/licenses/cpython/LICENSE

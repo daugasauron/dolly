@@ -77,6 +77,7 @@ directories, rejects absolute/traversal names, and writes solely to WasmFS.
 | zlib | Selected pinned upstream C tree is archived | `/usr/lib/libz.a` and public headers |
 | Git | Generated config/version files, tracked C sources, templates, and reviewed target patch are archived | `/usr/bin/git`, `libgit.a`, and HTTP helpers |
 | CPython 3.14 | A pinned upstream tree is configured for Dolly's wasm64 target; matching frozen headers and generated build files are archived | Every target object and `/usr/bin/python` are compiled inside Dolly; entropy uses Dolly's in-Wasm source and thread creation fails through CPython's single-thread stubs |
+| Bonnie | Dolly C source is served independently | `/usr/bin/bonnie` uses the default image's libcurl broker backend and CPython's `zipfile` module to install portable wheels |
 | Zig 0.16 | Official host Zig builds an ABI-validated wasm64 Zig command; library source is archived | `/usr/bin/zig` emits wasm64 objects through the runtime LLVM bridge |
 | Ghostty + uucode | Pinned source and generated configuration/tables are archived | Zig builds Ghostty VT, its static library, and resident display module |
 | QuickJS-ng | Exact engine source is archived; ambient `quickjs-libc.c` is excluded | `/usr/lib/libdolly-js.a`, `qjs`, Janis, and Pi frontend |

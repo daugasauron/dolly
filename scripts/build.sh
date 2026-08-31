@@ -172,6 +172,7 @@ copy_static "${project_dir}/src/gamedev.mk" gamedev/gamedev.mk
 copy_static "${project_dir}/src/commands/graphics-demo.c" gamedev/graphics-demo.c
 copy_static "${project_dir}/src/runtimes/cpython-platform.c" python/cpython-platform.c
 copy_static "${project_dir}/src/runtimes/cpython-main.c" python/cpython-main.c
+copy_static "${project_dir}/src/commands/bonnie.c" python/bonnie.c
 
 node scripts/build-source-tar.mjs dist/static/default/make-4.4.1.tar \
   "${make_dir}" /usr/src/make

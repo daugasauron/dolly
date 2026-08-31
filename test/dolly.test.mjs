@@ -532,7 +532,7 @@ test("Dollyfiles are additive and execute through the sequential C engine", asyn
   assert.equal(pythonView.extends, "default");
   assert.ok(baseView.sources.length > 40);
   assert.equal(gameView.sources.length, 2);
-  assert.equal(pythonView.sources.length, 3);
+  assert.equal(pythonView.sources.length, 4);
   assert.equal(baseView.sources.some((item) =>
     /gamedev|graphics-demo|cpython/.test(item.location)), false);
   assert.match(base, /SOURCE HOST TXT \/static\/bootstrap\/tar\.c/);
@@ -548,7 +548,7 @@ test("HOST inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const sources = await inspectStaticSources(projectDir, definitions);
-  assert.equal(sources.length, 59);
+  assert.equal(sources.length, 60);
   assert.ok(sources.every((item) =>
     item.path.startsWith("/static/") && ["txt", "bin"].includes(item.media) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
