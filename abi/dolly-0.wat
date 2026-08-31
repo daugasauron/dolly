@@ -132,6 +132,7 @@
   ;; Allocation and errno.
   (import "env" "__errno_location" (func $__errno_location (result i64)))
   (import "env" "calloc" (func $calloc (param i64 i64) (result i64)))
+  (import "env" "aligned_alloc" (func $aligned_alloc (param i64 i64) (result i64)))
   (import "env" "free" (func $free (param i64)))
   (import "env" "malloc" (func $malloc (param i64) (result i64)))
   (import "env" "realloc" (func $realloc (param i64 i64) (result i64)))
@@ -216,6 +217,7 @@
 
   ;; Numeric library.
   (import "env" "acos" (func $acos (param f64) (result f64)))
+  (import "env" "acosf" (func $acosf (param f32) (result f32)))
   (import "env" "acosh" (func $acosh (param f64) (result f64)))
   (import "env" "asin" (func $asin (param f64) (result f64)))
   (import "env" "asinh" (func $asinh (param f64) (result f64)))
@@ -224,6 +226,7 @@
   (import "env" "atanh" (func $atanh (param f64) (result f64)))
   (import "env" "cbrt" (func $cbrt (param f64) (result f64)))
   (import "env" "cos" (func $cos (param f64) (result f64)))
+  (import "env" "cosf" (func $cosf (param f32) (result f32)))
   (import "env" "cosh" (func $cosh (param f64) (result f64)))
   (import "env" "exp" (func $exp (param f64) (result f64)))
   (import "env" "expm1" (func $expm1 (param f64) (result f64)))
@@ -233,6 +236,7 @@
   (import "env" "fabs" (func $fabs (param f64) (result f64)))
   (import "env" "fma" (func $fma (param f64 f64 f64) (result f64)))
   (import "env" "fmod" (func $fmod (param f64 f64) (result f64)))
+  (import "env" "fminf" (func $fminf (param f32 f32) (result f32)))
   (import "env" "frexp" (func $frexp (param f64 i64) (result f64)))
   (import "env" "hypot" (func $hypot (param f64 f64) (result f64)))
   (import "env" "ldexp" (func $ldexp (param f64 i32) (result f64)))
@@ -245,9 +249,11 @@
   (import "env" "nextafter" (func $nextafter (param f64 f64) (result f64)))
   (import "env" "pow" (func $pow (param f64 f64) (result f64)))
   (import "env" "round" (func $round (param f64) (result f64)))
+  (import "env" "remainderf" (func $remainderf (param f32 f32) (result f32)))
   (import "env" "copysign" (func $copysign (param f64 f64) (result f64)))
   (import "env" "scalbn" (func $scalbn (param f64 i32) (result f64)))
   (import "env" "sin" (func $sin (param f64) (result f64)))
+  (import "env" "sinf" (func $sinf (param f32) (result f32)))
   (import "env" "sinh" (func $sinh (param f64) (result f64)))
   (import "env" "sqrt" (func $sqrt (param f64) (result f64)))
   (import "env" "tan" (func $tan (param f64) (result f64)))

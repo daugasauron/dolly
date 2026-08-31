@@ -1,14 +1,17 @@
 DOLLY 1
 IMAGE default
 
-# Bootstrap one ordinary archive extractor before requesting any archives.
+# Dolly-owned bootstrap extractor from src/commands/tar.c; not an upstream
+# artifact. It is deliberately limited to the ustar records emitted by Dolly.
 SOURCE HOST TXT /static/bootstrap/tar.c /tmp/bootstrap/tar.c SHA256 4efa4543dd3517f26618dd4fa80f4a52892cbac9f0c88aae3caa18820c74d5ff
 RUN cc -std=c17 -D_DEFAULT_SOURCE /tmp/bootstrap/tar.c -o /bin/tar
 CHECK tar --help
 KEEP /bin/tar
 KEEP /bin/dollyfile
 
-# Small conventional commands above the compiler/Slop seed.
+# Dolly-owned command sources from src/commands/ in
+# https://github.com/daugasauron/dolly. These are intentionally small target
+# implementations, not modified copies of external utilities.
 SOURCE HOST TXT /static/default/commands/help.c /usr/src/dolly/commands/help.c SHA256 354fe117ba5b74e4d37355882b113875068bb44e75ebfd851ad607cba489de2d
 RUN cc /usr/src/dolly/commands/help.c -o /bin/help
 SOURCE HOST TXT /static/default/commands/pwd.c /usr/src/dolly/commands/pwd.c SHA256 87886a74d8626d0bdbc2b364fe6ed8882522512d9f595709152dda298ef5c03f
@@ -72,7 +75,9 @@ KEEP /bin/c++
 KEEP /bin/ld
 KEEP /bin/ar
 
-# GNU Make is the first non-seed build tool. Every later Make invocation uses Slop.
+# GNU Make 4.4.1 from https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz
+# (upstream archive SHA-256 dd16fb1d...). configure produces the staged tree;
+# Dolly changes only target configuration and compiles it with Slop as SHELL.
 RUN mkdir -p /usr/bin /usr/libexec/dolly
 SOURCE HOST BIN /static/default/make-4.4.1.tar /tmp/make-4.4.1.tar SHA256 5cfb15bf5a4666bd6d5803cb8285b11d8fe8bad0de8a1066c5d69d4eac9f8181
 RUN tar -xf /tmp/make-4.4.1.tar -C /
@@ -82,14 +87,17 @@ ENV CC=cc
 ENV CXX=c++
 ENV AR=ar
 ENV SHELL=/bin/slop
+ENV PI_SKIP_VERSION_CHECK=1
 WORKDIR /
 
 RUN cc -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' /usr/src/make/src/ar.c /usr/src/make/src/arscan.c /usr/src/make/src/commands.c /usr/src/make/src/default.c /usr/src/make/src/dir.c /usr/src/make/src/expand.c /usr/src/make/src/file.c /usr/src/make/src/function.c /usr/src/make/src/getopt.c /usr/src/make/src/getopt1.c /usr/src/make/src/guile.c /usr/src/make/src/hash.c /usr/src/make/src/implicit.c /usr/src/make/src/job.c /usr/src/make/src/load.c /usr/src/make/src/loadapi.c /usr/src/make/src/main.c /usr/src/make/src/misc.c /usr/src/make/src/output.c /usr/src/make/src/read.c /usr/src/make/src/remake.c /usr/src/make/src/rule.c /usr/src/make/src/shuffle.c /usr/src/make/src/signame.c /usr/src/make/src/strcache.c /usr/src/make/src/variable.c /usr/src/make/src/version.c /usr/src/make/src/vpath.c /usr/src/make/src/posixos.c /usr/src/make/src/remote-stub.c /usr/src/make/lib/concat-filename.c /usr/src/make/lib/findprog-in.c /usr/src/make/lib/fnmatch.c /usr/src/make/lib/glob.c -o /usr/bin/make
 CHECK make --version
 KEEP /usr/bin/make
 
-# Zig and Ghostty VT.
-SOURCE HOST BIN /static/default/zig.wasm /usr/bin/zig SHA256 9551ffa6f332b3c7566b7f951de144a08c9ee03bdbe6ddd08d9adf50d6f66ef7
+# Zig 0.16.0 from https://ziglang.org/download/0.16.0/ plus the compiler tree
+# at upstream Zig commit 3300c73260bf. zig.wasm is Dolly's source-built wasm64
+# frontend; answer/check/object-check are Dolly-owned acceptance fixtures.
+SOURCE HOST BIN /static/default/zig.wasm /usr/bin/zig SHA256 763ccb4a892cc1fd6cedf5612f1831016a3f28579d55f7ff538261516a34ecbd
 SOURCE HOST BIN /static/default/zig-lib.tar /tmp/zig-lib.tar SHA256 82e33abf1bead6f2e1dc92ed2e4d80a4dafc4fe8ca33440f29f69c5db436c445
 RUN tar -xf /tmp/zig-lib.tar -C /
 SOURCE HOST TXT /static/default/zig/answer.zig /usr/src/dolly/zig/answer.zig SHA256 f7b80afc25495d76900c4ca95d6c28fef30094807b01d5c1a404fd2d146d8309
@@ -102,6 +110,10 @@ KEEP-TREE /usr/lib/zig
 KEEP /usr/libexec/dolly/zig-object-check
 KEEP /usr/libexec/dolly/zig-check
 
+# Ghostty from https://github.com/ghostty-org/ghostty at 4540d499ae46,
+# prepared only to materialize generated source. uucode is upstream commit
+# 2826a37a4562 from deps.files.ghostty.org. Dolly's display/check C files are
+# target adapters; stb_truetype and Iosevka are exact pinned upstream assets.
 SOURCE HOST BIN /static/default/ghostty.tar /tmp/ghostty.tar SHA256 62927872d21cfe1bb2c76a5f90499a4139e0da16168db1afdb2d4b429d995eb3
 RUN tar -xf /tmp/ghostty.tar -C /
 SOURCE HOST BIN /static/default/uucode.tar /tmp/uucode.tar SHA256 27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e
@@ -117,7 +129,9 @@ KEEP /usr/lib/libghostty-vt.a
 KEEP /usr/libexec/dolly/display.wasm
 KEEP /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 
-# QuickJS-ng, Janis, and Pi.
+# QuickJS-ng 0.15.0 from https://github.com/quickjs-ng/quickjs at
+# 433941b99fb3. The runner, Node compatibility, Janis runtime, and command
+# frontends are Dolly-owned integration sources, not upstream QuickJS libc.
 SOURCE HOST BIN /static/default/quickjs.tar /tmp/quickjs.tar SHA256 d23b73610440a642dfb49de7910cbf34550d31b3a9ca375291f9c74444749d8a
 RUN tar -xf /tmp/quickjs.tar -C /
 SOURCE HOST TXT /static/default/runtimes/quickjs-main.c /usr/src/dolly/runtimes/quickjs-main.c SHA256 d6f7c4e84647e3674636b2375c7516ce93626a5a59b5dfcd26bab6f7eaa29628
@@ -131,12 +145,17 @@ RUN make -f /usr/src/dolly/startup.mk quickjs
 CHECK qjs --version
 CHECK janis --version
 
+# Pi 0.84.4 from the exact npm tarball recorded in config/source-pins.sh;
+# pi-package.tar contains the upstream CLI bundled with asserted QuickJS syntax
+# lowerings. The following prompt, extension, settings, theme, and skill are
+# Dolly-owned normal Pi resources and do not patch Pi's source.
 SOURCE HOST BIN /static/default/pi-package.tar /tmp/pi-package.tar SHA256 c692b78fe802b701fd70bdfa5669f61d23b7145447183e941c51515c15a2ff1c
 RUN tar -xf /tmp/pi-package.tar -C /
 SOURCE HOST TXT /static/default/pi/dolly-tools.js /home/dolly/.pi/agent/extensions/dolly-tools.js SHA256 02e61fcc3c7ad3f2ff5847acff5cd37320db2695e274aeb68414e00e247caf4d
-SOURCE HOST TXT /static/default/pi/SYSTEM.md /home/dolly/.pi/agent/SYSTEM.md SHA256 da10c265e95a6b92a6a67ce755d56dd09528cb0482b031a41d89b3e8b4afe0bc
+SOURCE HOST TXT /static/default/pi/SYSTEM.md /home/dolly/.pi/agent/SYSTEM.md SHA256 23a34eab211ffb91542b58fb140b70334717d07670906b5b1322b12e0d735d14
 SOURCE HOST TXT /static/default/pi/settings.json /home/dolly/.pi/agent/settings.json SHA256 8eec7cba932e37fa88091b195f372e6be0c80f6209683761fb59fd4524469c05
 SOURCE HOST TXT /static/default/pi/dolly-theme.json /home/dolly/.pi/agent/themes/dolly.json SHA256 ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297
+SOURCE HOST TXT /static/default/pi/dolly-skill.md /home/dolly/.pi/agent/skills/dolly/SKILL.md SHA256 1c4555dbfbe1a7b0a0f1c2ddad1210772cf72029cd2e8893c45a05b9ed34b5c4
 RUN make -f /usr/src/dolly/startup.mk pi
 CHECK pi --version
 KEEP /usr/bin/qjs
@@ -150,8 +169,10 @@ KEEP /home/dolly/.pi/agent/extensions/dolly-tools.js
 KEEP /home/dolly/.pi/agent/SYSTEM.md
 KEEP /home/dolly/.pi/agent/settings.json
 KEEP /home/dolly/.pi/agent/themes/dolly.json
+KEEP /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
-# Standard text tools.
+# One True Awk from https://github.com/onetrueawk/awk at 5739fd79bcfc;
+# its generated parser/proctab inputs are reproducibly staged, not hand-edited.
 SOURCE HOST BIN /static/default/awk.tar /tmp/awk.tar SHA256 b5cd29bce72137d138cabf80058250eb64046707cab93b76c25e18efd1faa859
 RUN tar -xf /tmp/awk.tar -C /
 RUN make -f /usr/src/dolly/startup.mk awk
@@ -160,6 +181,8 @@ KEEP /bin/awk
 KEEP /usr/libexec/dolly/awk-maketab
 KEEP /usr/src/awk/proctab.c
 
+# sbase from https://git.suckless.org/sbase at c546c3a5724c; selected command
+# sources are unchanged and configured against Dolly libc.
 SOURCE HOST BIN /static/default/sbase.tar /tmp/sbase.tar SHA256 5368e7a9685fda25b2f30ff3beaaa4b216fb74d2252af315ba5ae2d076be1500
 RUN tar -xf /tmp/sbase.tar -C /
 RUN make -f /usr/src/dolly/startup.mk sbase
@@ -170,17 +193,21 @@ KEEP /bin/wc
 CHECK printf 'PRINTF-%s\n' OK
 KEEP /bin/printf
 
-# Browser-brokered libcurl, zlib, and Git.
+# curl 8.21.0 headers from https://github.com/curl/curl at 68720b483728.
+# libcurl-fetch.c and curl.c are Dolly-owned HTTP-only implementations over the
+# sole browser broker; they contain no upstream socket or TLS transport code.
 SOURCE HOST BIN /static/default/curl-headers.tar /tmp/curl-headers.tar SHA256 346a0298fcbdafbad7d0c0259a2d7b8539ca46c39222797c01dcac213564bf30
 RUN tar -xf /tmp/curl-headers.tar -C /
 SOURCE HOST TXT /static/default/libcurl-fetch.c /usr/src/dolly/libcurl-fetch.c SHA256 698e13f965596a9c23f818900cec7bfeca361c10a1a30e6cbf3e1d620153e104
-SOURCE HOST TXT /static/default/commands/curl.c /usr/src/dolly/commands/curl.c SHA256 c8f722b9e56f929a0b3858825a2082510d50af9d456fad0be5fccbef80069ad2
+SOURCE HOST TXT /static/default/commands/curl.c /usr/src/dolly/commands/curl.c SHA256 081df82e76c329b0ef35b7b36cbc03a60511354e2e1849b50d0034813055ae44
 RUN make -f /usr/src/dolly/startup.mk curl
 CHECK curl --version
 KEEP /usr/bin/curl
 KEEP /usr/lib/libcurl.a
 KEEP-TREE /usr/include/curl
 
+# zlib 1.3.2 from https://github.com/madler/zlib at da607da739fa;
+# unchanged sources are built with the target Makefile.
 SOURCE HOST BIN /static/default/zlib.tar /tmp/zlib.tar SHA256 40b7d2e43d4020d6d58ff480ccfab6fed01797276111f77281c45dec886c6dff
 RUN tar -xf /tmp/zlib.tar -C /
 RUN make -f /usr/src/dolly/startup.mk zlib
@@ -188,6 +215,9 @@ KEEP /usr/lib/libz.a
 KEEP /usr/include/zlib.h
 KEEP /usr/include/zconf.h
 
+# Git 2.55.0 from https://github.com/git/git at e9019fcafe00. Sources are
+# unchanged except for the small target lifecycle adaptations documented in
+# docs/sources.md; HTTP helpers link Dolly's compatible libcurl.
 SOURCE HOST BIN /static/default/git.tar /tmp/git.tar SHA256 43f3c587e17a6365c23c86ec5cc67911428fc7aeea87f8770e18bbad4fb01999
 RUN tar -xf /tmp/git.tar -C /
 RUN mkdir -p /home/dolly
@@ -206,12 +236,13 @@ KEEP-TREE /usr/share/git-core/templates
 KEEP /etc/gitconfig
 KEEP /home/dolly/.gitconfig
 
-# Compiler and loader demonstrations.
+# Dolly-owned C/C++ compiler and loader fixtures. They are retained as readable
+# examples and separately ABI-stamped filesystem executables.
 SOURCE HOST TXT /static/default/cpp-check.cpp /usr/src/dolly/cpp-check.cpp SHA256 7cf3034c5b063864676f8280d1f1b0a92d8f3c8d480b2b1a2cb65aa66a8c35e2
 SOURCE HOST TXT /static/default/demo.c /usr/src/dolly/demo.c SHA256 663ee9ea6a5d93ebf805906b5e3629b712aab0dda5153d50d07c02009147e7b3
-SOURCE HOST BIN /static/default/writer.wasm /usr/libexec/dolly/writer SHA256 19338d347bc173da9132de448a5f0a291164ec0d8729f045133a64800fb22d35
-SOURCE HOST BIN /static/default/reader.wasm /usr/libexec/dolly/reader SHA256 d662b9cb02cd19a3c918dad76b6f8c217d3c86af4dce7be94e4b85c991c8a920
-SOURCE HOST BIN /static/default/inspector.wasm /usr/libexec/dolly/inspector SHA256 84597455a4aeb0e887106a568f0bee2cb7fd1b577b50b5a79c0277b5893eb025
+SOURCE HOST BIN /static/default/writer.wasm /usr/libexec/dolly/writer SHA256 ea0c5c5d716632907ca95cf4ecdab8838a2369fa61d677ddc594e11ea4f01dcc
+SOURCE HOST BIN /static/default/reader.wasm /usr/libexec/dolly/reader SHA256 6c8d37389a761d6e98bd22efe333ef0fc21ba1ef7f9d50ca09e98c16042d8796
+SOURCE HOST BIN /static/default/inspector.wasm /usr/libexec/dolly/inspector SHA256 d28b86df87ffe110473ebd7fa1d02e4466bad680406a7977a959b15eabdd6198
 RUN make -f /usr/src/dolly/startup.mk extras
 CHECK demo
 KEEP /usr/libexec/dolly/cpp-check

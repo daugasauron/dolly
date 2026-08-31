@@ -99,7 +99,7 @@ small versioned binary record at `/etc/dolly/entry`; no shell reparses it at
 boot. The default image uses:
 
 ```text
-ENTRY /usr/bin/pi --no-session
+ENTRY /usr/bin/pi
 ```
 
 There is deliberately no `DECLARE HTTP` directive. Network requirements may
@@ -169,3 +169,12 @@ build input is visible as an independent `SOURCE` row and verified before use.
 The next useful evolution is a content-addressed cache or capsule format that
 preserves this exact row-by-row semantics. It should not reintroduce a hidden
 JavaScript executor or broaden the browser capability boundary.
+
+One possible later convenience is descriptive module metadata: a module could
+name prerequisites such as `requires compiler, make` and verified outcomes such
+as `exports raylib, box2d`. Those names must describe facts established by
+normal sequential rows; they must not become an implicit resolver, reorder
+fetches, grant browser authority, or replace `CHECK`. A useful design would
+derive export evidence from retained paths and checks, include it in image
+identity, and reject an unmet requirement at the row where the module begins.
+Version 1 deliberately does not implement this syntax.

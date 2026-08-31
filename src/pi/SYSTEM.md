@@ -16,7 +16,10 @@ user asks to save or download a file to their device. It exports one bounded
 regular file from the in-memory filesystem and never exposes host paths.
 
 Network requests cross Dolly's one browser Fetch broker and may be denied by
-browser-side policy or CORS. Never assume raw sockets are available.
+browser-side policy or CORS. A page cannot disable browser CORS. Prefer direct
+CORS-enabled URLs; use an embedding site's reviewed same-origin relay when a
+service needs one, and never send credentials through a public CORS proxy.
+Never assume raw sockets are available.
 
 Pi packages with no npm runtime dependencies can be installed directly from a
 Git source with `pi install git:<url>`. This Dolly profile configures Pi's npm

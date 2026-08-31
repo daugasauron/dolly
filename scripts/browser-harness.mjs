@@ -470,7 +470,11 @@ async function waitForValue(send, expression, predicate, description, attempts =
     if (predicate(value)) return value;
     await delay(100);
   }
-  throw new Error(`timed out waiting for ${description}: ${String(value)}`);
+  throw new Error(
+    `timed out waiting for ${description}: ${
+      typeof value === "object" ? JSON.stringify(value) : String(value)
+    }`,
+  );
 }
 
 async function waitForHttpQuiet(send, minimumRequests, description, attempts = 1800) {
@@ -2298,10 +2302,13 @@ ENTRY /usr/bin/pi --no-session
       let background = 0;
       let accent = 0;
       for (let index = 0; index < pixels.length; index += 4) {
-        if (pixels[index] === 22 && pixels[index + 1] === 26 &&
-            pixels[index + 2] === 29 && pixels[index + 3] === 255) background++;
-        if (pixels[index] === 242 && pixels[index + 1] === 212 &&
-            pixels[index + 2] === 92 && pixels[index + 3] === 255) accent++;
+        const red = pixels[index];
+        const green = pixels[index + 1];
+        const blue = pixels[index + 2];
+        if (red >= 25 && red <= 70 && Math.abs(red - green) <= 8 &&
+            Math.abs(red - blue) <= 8 && pixels[index + 3] === 255) background++;
+        if (Math.max(red, green, blue) - Math.min(red, green, blue) > 35 &&
+            red + green + blue > 200 && pixels[index + 3] === 255) accent++;
       }
       return { background, accent };
     })()`,

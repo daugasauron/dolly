@@ -20,7 +20,7 @@ facilities become substrate work, not JavaScript or host-process escape hatches.
 | `pi` | Pinned upstream Pi packages are bundled with asserted QuickJS compatibility lowerings and Pi's upstream standalone OAuth loader table; `/usr/bin/pi` is compiled in Dolly against source-built QuickJS and Janis | Full upstream TUI through in-Wasm Ghostty, pasted OpenRouter credentials persisted in WasmFS with model discovery, completed Codex PKCE/manual-code exchange with sandbox credential persistence and model discovery, real/fixture streaming providers through the sole HTTP broker, a normal extension overriding Slop/WasmFS tools, and dependency-free extension installation/reload; in-Dolly TypeScript source build remains deferred |
 | `python`, `python3` | Pinned upstream CPython 3.14 is configured for the wasm64 target outside the browser, then all target objects and the executable are compiled by GNU Make inside Dolly | A large C runtime sharing WasmFS, Dolly entropy, clocks, locale, zlib, and explicit single-thread compatibility; `pathlib` mutation is checked during every image rebuild |
 | `bonnie` | Dolly C source compiled in the Python image and linked to the source-built Fetch-backed libcurl | Installs one portable Python wheel from PyPI or an explicit HTTPS URL; dependency resolution and native wheels are deliberately explicit gaps |
-| `graphics-demo` | Small Dolly C source retained with its Makefile in the gamedev image and compiled inside Dolly | Direct exclusive framebuffer lease, double-buffered RGBA rendering, semantic input, finite automated frame count, and terminal restoration after return or Ctrl-C; retained source is a target-side starter for agent-created games |
+| `raylib`, `Box2D`, `graphics-demo` | Pinned upstream raylib 6.0 and Box2D 3.1.1 plus a Dolly presentation adapter and game source; all objects and archives compile inside the gamedev image | Upstream no-OS software rendering, real C17 physics, exclusive RGBA display lease, semantic input, finite frame checks, and terminal restoration without DOM, WebGL, sockets, or a new browser import |
 | `cc`, `c++`, `ld`, `ar` | Current pinned Clang/LLD linked into the trusted runtime; separate source-compiled command frontends | Source/object/archive compilation, C17/C++23, multi-object and `-L`/`-l` links, deterministic GNU archives, exact import validation, ABI stamping, and direct WasmFS publication |
 
 QuickJS-ng's `quickjs-libc.c` is intentionally excluded. It exposes native
@@ -66,18 +66,12 @@ Acceptance gate: evaluate the unchanged small Unix build with Dolly's existing
 `isatty`, window size, raw/canonical restoration, and interrupt delivery from Vim's
 [source instructions](https://github.com/vim/vim/blob/master/src/INSTALL).
 
-### CPython: wasm64 and build bootstrap
+### CPython follow-up
 
-Python 3.14 officially supports
-[`wasm32-unknown-emscripten`](https://docs.python.org/3.14/whatsnew/3.14.html),
-not Dolly's hard-required wasm64 target. Its build also uses configure/make and
-build-Python generators for frozen modules. Treating a wasm32 interpreter as a
-separate nested machine would break the shared pointer and filesystem model.
-
-Acceptance gate: upstream or maintainable toolchain support for CPython on
-`wasm64-unknown-emscripten`, followed by a reproducible two-machine build graph
-using Dolly's working Make/Slop path and standard-library filesystem tests.
-QuickJS already provides a smaller runtime probe while that work matures.
+Implemented in the Python image: pinned CPython 3.14 target objects and the
+interpreter compile inside Dolly as wasm64 and use the shared WasmFS. Remaining
+work is broader extension-module coverage, native-wheel policy, and expanding
+Bonnie beyond portable wheels without pretending unsupported packages work.
 
 ### Zig and `libghostty-vt`: compiler bootstrap
 

@@ -41,6 +41,8 @@ ghostty_checkout="$("${project_dir}/scripts/fetch-ghostty.sh")"
 ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
 uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
 stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
+raylib_dir="$("${project_dir}/scripts/fetch-raylib.sh")"
+box2d_dir="$("${project_dir}/scripts/fetch-box2d.sh")"
 mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
 web_font="${font_paths[0]}"
 runtime_font="${font_paths[1]}"
@@ -155,6 +157,7 @@ copy_static "${project_dir}/src/pi/dolly-tools.js" default/pi/dolly-tools.js
 copy_static "${project_dir}/src/pi/SYSTEM.md" default/pi/SYSTEM.md
 copy_static "${project_dir}/src/pi/settings.json" default/pi/settings.json
 copy_static "${project_dir}/src/pi/dolly-theme.json" default/pi/dolly-theme.json
+copy_static "${project_dir}/src/pi/skills/dolly/SKILL.md" default/pi/dolly-skill.md
 copy_static "${project_dir}/src/zig/answer.zig" default/zig/answer.zig
 copy_static "${project_dir}/src/zig/check.c" default/zig/check.c
 copy_static "${project_dir}/src/zig/object-check.c" default/zig/object-check.c
@@ -170,6 +173,9 @@ copy_static "${project_dir}/build/program-reader.wasm" default/reader.wasm
 copy_static "${project_dir}/build/program-inspector.wasm" default/inspector.wasm
 copy_static "${project_dir}/src/gamedev.mk" gamedev/gamedev.mk
 copy_static "${project_dir}/src/commands/graphics-demo.c" gamedev/graphics-demo.c
+copy_static "${project_dir}/src/gamedev/dolly-raylib.c" gamedev/dolly-raylib.c
+copy_static "${project_dir}/src/gamedev/dolly-raylib.h" gamedev/dolly-raylib.h
+copy_static "${project_dir}/src/gamedev/SKILL.md" gamedev/SKILL.md
 copy_static "${project_dir}/src/runtimes/cpython-platform.c" python/cpython-platform.c
 copy_static "${project_dir}/src/runtimes/cpython-main.c" python/cpython-main.c
 copy_static "${project_dir}/src/commands/bonnie.c" python/bonnie.c
@@ -236,6 +242,15 @@ node scripts/build-source-tar.mjs dist/static/default/quickjs.tar \
   "${quickjs_dir}/quickjs.c" /usr/src/quickjs/quickjs.c \
   "${quickjs_dir}/quickjs.h" /usr/src/quickjs/quickjs.h \
   "${quickjs_dir}/LICENSE" /usr/share/licenses/quickjs-ng/LICENSE
+node scripts/build-source-tar.mjs dist/static/gamedev/raylib.tar \
+  "${raylib_dir}/src" /usr/src/raylib/src \
+  "${raylib_dir}/LICENSE" /usr/share/licenses/raylib/LICENSE \
+  "${raylib_dir}/README.md" /usr/src/raylib/README.md
+node scripts/build-source-tar.mjs dist/static/gamedev/box2d.tar \
+  "${box2d_dir}/src" /usr/src/box2d/src \
+  "${box2d_dir}/include" /usr/src/box2d/include \
+  "${box2d_dir}/LICENSE" /usr/share/licenses/box2d/LICENSE \
+  "${box2d_dir}/README.md" /usr/src/box2d/README.md
 node scripts/build-source-tar.mjs dist/static/python/cpython.tar \
   "${cpython_dir}/Include" /usr/src/python/Include \
   "${cpython_dir}/Parser" /usr/src/python/Parser \

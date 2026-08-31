@@ -16,6 +16,8 @@ Dolly currently boots a source-built userspace containing:
 - the finite Slop shell and separately compiled core commands in `/bin`;
 - Clang 24, LLD, C and C++23 compilation, archives, and dynamic loading;
 - GNU Make, One True Awk, sbase utilities, zlib, Git, and Fetch-backed libcurl;
+- an optional Python image with source-built CPython 3.14 and Bonnie for
+  portable-wheel installation through that same libcurl;
 - QuickJS-ng with the Janis Node-shaped compatibility layer;
 - upstream Pi's full TUI, JavaScript extensions, timer animation, and
   incrementally streamed model responses, launched by default with Slop as a
@@ -24,7 +26,8 @@ Dolly currently boots a source-built userspace containing:
   clipboard buffers, plus browser-tested OpenRouter/Codex login flows;
 - native wasm64 Zig and Ghostty's VT engine with in-Wasm text rasterization;
 - an exclusive in-Wasm RGBA framebuffer lease for games and visual tools, with
-  automatic terminal restoration on return or Ctrl-C;
+  automatic terminal restoration on return or Ctrl-C; the gamedev image adds
+  source-built raylib 6.0, Box2D 3.1.1, a Pi skill, and an interactive game;
 - Ghostty-owned selection and scrollback inside Wasm, phone touch scrolling, a
   minimal phone `/` command menu.
 
@@ -35,6 +38,10 @@ image's `/rebuild/` route compiles `/bin/dollyfile` inside Wasm, then that C
 program fetches and verifies every independent `SOURCE` and executes the recipe
 strictly row by row. Prebuilt boot does not download image source inputs.
 Mutable runtime state never becomes browser or host filesystem state.
+Named sessions are the explicit exception in storage direction: Ctrl+Shift+S
+serializes the in-Wasm filesystem, compresses it, and stores the opaque bytes
+in same-origin IndexedDB. `/load/?session=NAME` restores only a session whose
+runtime build and Dollyfile identity still match.
 
 The menu also accepts a bounded text Dollyfile that directly
 `EXTENDS default`. A small browser-side check only selects the route; the C
@@ -114,6 +121,7 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   egress edge, and required invariants.
 - [HTTP](docs/http.md) — typed request surface, libcurl compatibility, and
   browser-side policy.
+- [CORS](docs/cors.md) — the browser constraint and safe relay options.
 - [Download](docs/download.md) — the explicit bounded WasmFS-to-local-user
   file export contract.
 - [Sessions](docs/sessions.md) — opaque WasmFS save/restore through gzip and
@@ -126,6 +134,8 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   reproducibility policy.
 - [Port status](docs/port-status.md) — evidence for current and deferred ports.
 - [Pi plan](docs/pi-agent-plan.md) — current Pi/Janis compatibility status.
+- [JavaScript runtime choice](docs/javascript-runtime.md) — why QuickJS-ng is
+  retained and what would justify replacing it.
 - [Zig and Ghostty](docs/zig-ghostty.md) and the
   [native Zig bootstrap](docs/native-zig-bootstrap.md) — focused runtime
   experiments.

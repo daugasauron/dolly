@@ -2092,21 +2092,34 @@ int dolly_shell_run(void) {
     fprintf(stderr, "dolly: invalid image ENTRY: %s\n", strerror(errno));
     return 126;
   }
-  launching_interactive_shell = 1;
-  int pid = dolly_spawn(entry_argv[0], entry_argc, entry_argv,
-                        STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
-  launching_interactive_shell = 0;
-  if (pid < 0) {
-    fprintf(stderr, "dolly: could not launch %s: %s\n",
-            entry_argv[0], strerror(-pid));
-  } else {
+  int pid = -1;
+  const int entry_is_pi = strcmp(entry_argv[0], "/usr/bin/pi") == 0;
+  for (int attempt = 0; attempt < 3; ++attempt) {
+    launching_interactive_shell = 1;
+    pid = dolly_spawn(entry_argv[0], entry_argc, entry_argv,
+                      STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+    launching_interactive_shell = 0;
+    if (pid < 0) {
+      fprintf(stderr, "dolly: could not launch %s: %s\n",
+              entry_argv[0], strerror(-pid));
+      break;
+    }
     int status = 126;
     int wait_status = dolly_wait(pid, &status);
     if (wait_status != 0) {
       fprintf(stderr, "dolly: could not wait for %s: %s\n",
-              entry_argv[0],
-              strerror(-wait_status));
+              entry_argv[0], strerror(-wait_status));
+      break;
     }
+    // A normal Pi exit (including /quit) enters the recovery shell. A fatal
+    // JavaScript/provider failure returns nonzero; retry it in the same WasmFS
+    // so a transient crash does not discard the user's live agent session.
+    // Ctrl-C status 130 remains an explicit request to leave the program.
+    if (!entry_is_pi || status == 0 || status == 130 || attempt == 2) break;
+    fprintf(stderr,
+            "\r\nDolly: restarting Pi after unexpected status %d "
+            "(%d/2).\r\n",
+            status, attempt + 1);
   }
   dispose_image_entry(entry_argv, entry_argc);
 

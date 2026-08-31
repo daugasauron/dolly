@@ -589,7 +589,7 @@ test("Dollyfiles are additive and execute through the sequential C engine", asyn
   assert.equal(gameView.extends, "default");
   assert.equal(pythonView.extends, "default");
   assert.ok(baseView.sources.length > 40);
-  assert.equal(gameView.sources.length, 2);
+  assert.equal(gameView.sources.length, 7);
   assert.equal(pythonView.sources.length, 4);
   assert.equal(baseView.sources.some((item) =>
     /gamedev|graphics-demo|cpython/.test(item.location)), false);
@@ -606,7 +606,7 @@ test("HOST inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const sources = await inspectStaticSources(projectDir, definitions);
-  assert.equal(sources.length, 60);
+  assert.equal(sources.length, 66);
   assert.ok(sources.every((item) =>
     item.path.startsWith("/static/") && ["txt", "bin"].includes(item.media) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
@@ -827,6 +827,10 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const driver = await readFile(new URL("../src/ghostty/display.c", import.meta.url), "utf8");
   const demo = await readFile(new URL("../src/commands/graphics-demo.c", import.meta.url), "utf8");
+  const raylibAdapter = await readFile(
+    new URL("../src/gamedev/dolly-raylib.c", import.meta.url),
+    "utf8",
+  );
   const makefile = await readFile(new URL("../src/gamedev.mk", import.meta.url), "utf8");
   const packaging = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
   const gamedev = await readFile(new URL("../Dollyfile-gamedev", import.meta.url), "utf8");
@@ -859,14 +863,21 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   assert.match(browser, /pushScroll\(deltaRows\)/);
   assert.match(browser, /addEventListener\("wheel"/);
   assert.match(browser, /event\.pointerType === "touch"/);
-  assert.match(demo, /dolly_display_acquire\(&surface\)/);
-  assert.match(demo, /dolly_display_present\(surface\.generation/);
+  assert.match(raylibAdapter, /dolly_display_acquire\(&context->surface\)/);
+  assert.match(raylibAdapter, /dolly_display_present\(context->surface\.generation/);
   assert.match(makefile, /\/usr\/bin\/graphics-demo: \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
   assert.match(packaging, /copy_static .*graphics-demo\.c.*gamedev\/graphics-demo\.c/);
   assert.match(gamedev, /SOURCE HOST TXT \/static\/gamedev\/graphics-demo\.c/);
   assert.match(gamedev, /KEEP \/usr\/bin\/graphics-demo/);
   assert.match(gamedev, /KEEP \/usr\/src\/dolly\/gamedev\/gamedev\.mk/);
   assert.match(gamedev, /KEEP \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
+  assert.match(gamedev, /raylib\.tar/);
+  assert.match(gamedev, /box2d\.tar/);
+  assert.match(gamedev, /skills\/dolly-gamedev\/SKILL\.md/);
+  assert.match(makefile, /-DPLATFORM_MEMORY/);
+  assert.match(makefile, /libbox2d\.a/);
+  assert.match(demo, /#include <box2d\/box2d\.h>/);
+  assert.match(demo, /#include <dolly\/raylib\.h>/);
   assert.match(browser, /graphicsActive\(\)/);
   assert.doesNotMatch(demo, /EM_JS|fetch\s*\(|window\.|document\.|canvas/i);
 });
@@ -1032,6 +1043,7 @@ test("native process and socket APIs terminate at typed in-Wasm ENOSYS wrappers"
   const wrapper = await readFile(new URL("../bin/dolly-cc", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const libcurl = await readFile(new URL("../src/libcurl-fetch.c", import.meta.url), "utf8");
+  const curlCommand = await readFile(new URL("../src/commands/curl.c", import.meta.url), "utf8");
 
   for (const [name, replacement] of [
     ["fork", "dolly_fork"],
@@ -1048,6 +1060,14 @@ test("native process and socket APIs terminate at typed in-Wasm ENOSYS wrappers"
   assert.match(runtime, /static int unavailable\(void\) \{\s*errno = ENOSYS;/);
   assert.doesNotMatch(libcurl, /\bsocket\s*\(|\bconnect\s*\(|\bgetaddrinfo\s*\(/);
   assert.match(libcurl, /dolly_http_perform\(&request, &response\)/);
+  for (const option of [
+    "--request", "--header", "--data", "--json", "--head", "--include",
+    "--user", "--range", "--remote-name", "--dump-header", "--write-out",
+    "--fail-with-body",
+  ]) assert.match(curlCommand, new RegExp(option));
+  assert.match(curlCommand, /CURLOPT_CUSTOMREQUEST/);
+  assert.match(curlCommand, /CURLOPT_HTTPHEADER/);
+  assert.match(curlCommand, /CURLOPT_POSTFIELDS/);
 });
 
 test("the main module uses one shared wasm64/table64 address space and owns WasmFS operations", async () => {
@@ -1290,6 +1310,10 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   const extension = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
   const quickjs = await readFile(new URL("../src/runtimes/quickjs-main.c", import.meta.url), "utf8");
   const systemPrompt = await readFile(new URL("../src/pi/SYSTEM.md", import.meta.url), "utf8");
+  const dollySkill = await readFile(
+    new URL("../src/pi/skills/dolly/SKILL.md", import.meta.url),
+    "utf8",
+  );
   const settings = JSON.parse(
     await readFile(new URL("../src/pi/settings.json", import.meta.url), "utf8"),
   );
@@ -1313,10 +1337,17 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   assert.match(extension, /Dolly\.(?:readFile|writeFile)/);
   assert.match(extension, /Dolly\.download\(target\)/);
   assert.match(extension, /registerCommand\("demo"/);
+  assert.match(startup, /ENV PI_SKIP_VERSION_CHECK=1/);
+  assert.match(startup, /skills\/dolly\/SKILL\.md/);
+  assert.match(dollySkill, /https:\/\/github\.com\/daugasauron\/dolly/);
+  assert.match(dollySkill, /env\.dolly_http_dispatch/);
+  assert.match(systemPrompt, /cannot disable browser CORS/);
   assert.match(extension, /pi\.on\("session_start"/);
   assert.match(runtime, /dolly_spawn\(entry_argv\[0\], entry_argc, entry_argv/);
   assert.match(runtime, /load_image_entry/);
   assert.match(runtime, /Pi exited; entering the recovery Slop shell/);
+  assert.match(runtime, /restarting Pi after unexpected status/);
+  assert.match(runtime, /status == 130/);
   assert.match(page, /id="phone-menu-button"/);
   assert.match(page, /data-dolly-input="\/login openrouter\\r"/);
   assert.doesNotMatch(page, /data-dolly-voice/);
