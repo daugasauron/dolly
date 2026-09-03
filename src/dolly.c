@@ -1348,7 +1348,6 @@ static int run_shebang_script(const char *path, int argc, char **argv,
   free(arguments);
   return status;
 }
-
 int dolly_run_filesystem_module(const char *path, int argc, char **argv) {
   int script = 0;
   const int script_status = run_shebang_script(path, argc, argv, &script);

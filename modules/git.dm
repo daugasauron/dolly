@@ -14,7 +14,7 @@ REQUIRES HEADER runtime
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 
-SOURCE HOST /static/default/git.tar /tmp/git.tar 43f3c587e17a6365c23c86ec5cc67911428fc7aeea87f8770e18bbad4fb01999
+SOURCE HOST /static/default/git.tar /tmp/git.tar de16aff0eb6fa490618b66f0f6e5b16206e8cc212498070a5e605a1bb749d8ca
 SLOP tar \
   -xf /tmp/git.tar \
   -C /

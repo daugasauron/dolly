@@ -17,22 +17,20 @@ SOURCE HOST /static/gamedev/box3d.tar  /tmp/box3d.tar  5a502138e8f7b47c5994bdd27
 FILE /usr/src/dolly/gamedev/gamedev.mk
     CC := cc
     AR := ar
-    BUILD_ROOT := /tmp/gamedev
     RAYLIB_SOURCE := /usr/src/raylib/src
     RAYLIB_MODULES := rcore rshapes rtextures rtext rmodels
-    RAYLIB_OBJECTS := $(patsubst %,$(BUILD_ROOT)/raylib/%.o,$(RAYLIB_MODULES))
+    RAYLIB_OBJECTS := $(patsubst %,/usr/src/raylib/build/%.o,$(RAYLIB_MODULES))
     BOX3D_SOURCE := /usr/src/box3d/src
-    BOX3D_SOURCES := $(wildcard $(BOX3D_SOURCE)/*.c)
-    BOX3D_OBJECTS := $(patsubst $(BOX3D_SOURCE)/%.c,$(BUILD_ROOT)/box3d/%.o,$(BOX3D_SOURCES))
-    BOX3D_DOLLY_OBJECT := $(BUILD_ROOT)/box3d-dolly.o
+    BOX3D_SOURCES := $(filter-out $(BOX3D_SOURCE)/timer.c,$(wildcard $(BOX3D_SOURCE)/*.c))
+    BOX3D_OBJECTS := $(patsubst $(BOX3D_SOURCE)/%.c,/usr/src/box3d/build/%.o,$(BOX3D_SOURCES))
     
     .PHONY: all
     
     all: /usr/lib/libraylib.a /usr/lib/libbox3d.a /usr/lib/libdolly-raylib.a /usr/bin/graphics-demo
     
-    $(BUILD_ROOT)/raylib/%.o: $(RAYLIB_SOURCE)/%.c
-    	mkdir -p $(BUILD_ROOT)/raylib
-    	$(CC) -std=gnu99 -O2 -D_GNU_SOURCE -DPLATFORM_MEMORY -DGRAPHICS_API_OPENGL_SOFTWARE -fno-strict-aliasing -I $(RAYLIB_SOURCE) -c $< -o $@
+    /usr/src/raylib/build/%.o: $(RAYLIB_SOURCE)/%.c
+    	mkdir -p /usr/src/raylib/build
+    	$(CC) -std=gnu99 -O2 -D_GNU_SOURCE -DPLATFORM_MEMORY -DGRAPHICS_API_OPENGL_SOFTWARE -DSUPPORT_CUSTOM_FRAME_CONTROL=1 -DSW_FRAMEBUFFER_OUTPUT_BGRA=0 -fno-strict-aliasing -I $(RAYLIB_SOURCE) -c $< -o $@
     
     /usr/lib/libraylib.a: $(RAYLIB_OBJECTS)
     	$(AR) rcs $@ $(RAYLIB_OBJECTS)
@@ -40,104 +38,142 @@ FILE /usr/src/dolly/gamedev/gamedev.mk
     	cp $(RAYLIB_SOURCE)/raymath.h /usr/include/raymath.h
     	cp $(RAYLIB_SOURCE)/rlgl.h /usr/include/rlgl.h
     
-    $(BUILD_ROOT)/box3d/%.o: $(BOX3D_SOURCE)/%.c
-    	mkdir -p $(BUILD_ROOT)/box3d
+    /usr/src/box3d/build/%.o: $(BOX3D_SOURCE)/%.c
+    	mkdir -p /usr/src/box3d/build
     	$(CC) -std=gnu17 -O2 -DBOX3D_DISABLE_SIMD -I /usr/src/box3d/include -I $(BOX3D_SOURCE) -c $< -o $@
     
-    $(BOX3D_DOLLY_OBJECT): /usr/src/dolly/gamedev/box3d-dolly.c
-    	mkdir -p $(BUILD_ROOT)
-    	$(CC) -std=c17 -O2 -c $< -o $@
+    /usr/src/box3d/build/platform.o: /usr/src/dolly/gamedev/box3d-platform.c
+    	mkdir -p /usr/src/box3d/build
+    	$(CC) -std=gnu17 -O2 -DBOX3D_DISABLE_SIMD -I /usr/src/box3d/include -I $(BOX3D_SOURCE) -c $< -o $@
     
-    /usr/lib/libbox3d.a: $(BOX3D_OBJECTS) $(BOX3D_DOLLY_OBJECT)
-    	$(AR) rcs $@ $(BOX3D_OBJECTS) $(BOX3D_DOLLY_OBJECT)
+    /usr/lib/libbox3d.a: $(BOX3D_OBJECTS) /usr/src/box3d/build/platform.o
+    	$(AR) rcs $@ $^
     	mkdir -p /usr/include/box3d
-    	cp /usr/src/box3d/include/box3d/base.h /usr/include/box3d/base.h
-    	cp /usr/src/box3d/include/box3d/box3d.h /usr/include/box3d/box3d.h
-    	cp /usr/src/box3d/include/box3d/collision.h /usr/include/box3d/collision.h
-    	cp /usr/src/box3d/include/box3d/config.h /usr/include/box3d/config.h
-    	cp /usr/src/box3d/include/box3d/constants.h /usr/include/box3d/constants.h
-    	cp /usr/src/box3d/include/box3d/id.h /usr/include/box3d/id.h
-    	cp /usr/src/box3d/include/box3d/math_functions.h /usr/include/box3d/math_functions.h
-    	cp /usr/src/box3d/include/box3d/types.h /usr/include/box3d/types.h
+    	cp /usr/src/box3d/include/box3d/*.h /usr/include/box3d
     
     /usr/lib/libdolly-raylib.a: /usr/src/dolly/gamedev/dolly-raylib.c /usr/src/dolly/gamedev/dolly-raylib.h /usr/lib/libraylib.a
-    	mkdir -p /usr/include/dolly $(BUILD_ROOT)
+    	mkdir -p /usr/include/dolly /usr/src/dolly/gamedev/build
     	cp /usr/src/dolly/gamedev/dolly-raylib.h /usr/include/dolly/raylib.h
-    	$(CC) -std=c17 -O2 -I /usr/src/dolly/gamedev -c /usr/src/dolly/gamedev/dolly-raylib.c -o $(BUILD_ROOT)/dolly-raylib.o
-    	$(AR) rcs $@ $(BUILD_ROOT)/dolly-raylib.o
+    	$(CC) -std=c17 -O2 -I /usr/src/dolly/gamedev -c /usr/src/dolly/gamedev/dolly-raylib.c -o /usr/src/dolly/gamedev/build/dolly-raylib.o
+    	$(AR) rcs $@ /usr/src/dolly/gamedev/build/dolly-raylib.o
     
     /usr/bin/graphics-demo: /usr/src/dolly/gamedev/graphics-demo.c /usr/lib/libdolly-raylib.a /usr/lib/libraylib.a /usr/lib/libbox3d.a
     	$(CC) -std=c17 -O2 $< -o $@ -ldolly-raylib -lraylib -lbox3d
-FILE /usr/src/dolly/gamedev/box3d-dolly.c
-    #include <errno.h>
-    #include <pthread.h>
-    #include <semaphore.h>
+FILE /usr/src/dolly/gamedev/box3d-platform.c
+    #define _POSIX_C_SOURCE 200809L
+    
+    // Dolly's Box3D target adapter replaces upstream timer.c. Box3D's built-in
+    // scheduler links pthread primitives even when the normal one-worker world
+    // never creates a thread. Dolly deliberately executes tasks serially inside
+    // one Wasm userspace, so synchronization objects carry no host capability and
+    // worker handles are inert. The scheduler's calling thread still drains every
+    // queued task in b3SchedulerFinishTask.
+    
+    #include "core.h"
+    
+    #include <stdint.h>
     #include <string.h>
+    #include <time.h>
     
-    // Box3D's Emscripten platform object refers to these primitives even when
-    // a world has one worker. Dolly is intentionally single-threaded above its
-    // shared-memory machine ABI, so the locks are local no-ops and attempts to
-    // create a worker fail explicitly. Keep every Dolly Box3D world at one worker.
-    int pthread_mutex_init(pthread_mutex_t *mutex,
-                           const pthread_mutexattr_t *attributes) {
-      (void)attributes;
-      memset(mutex, 0, sizeof(*mutex));
-      return 0;
+    uint64_t b3GetTicks(void) {
+      struct timespec now = {0};
+      if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return 0;
+      return (uint64_t)now.tv_sec * UINT64_C(1000000000) +
+             (uint64_t)now.tv_nsec;
     }
     
-    int pthread_mutex_destroy(pthread_mutex_t *mutex) {
-      (void)mutex;
-      return 0;
+    float b3GetMilliseconds(uint64_t ticks) {
+      return (float)((double)(b3GetTicks() - ticks) / 1000000.0);
     }
     
-    int pthread_mutex_lock(pthread_mutex_t *mutex) {
-      (void)mutex;
-      return 0;
+    float b3GetMillisecondsAndReset(uint64_t *ticks) {
+      const uint64_t now = b3GetTicks();
+      const float elapsed = (float)((double)(now - *ticks) / 1000000.0);
+      *ticks = now;
+      return elapsed;
     }
     
-    int pthread_mutex_unlock(pthread_mutex_t *mutex) {
-      (void)mutex;
-      return 0;
+    void b3Yield(void) {}
+    void b3Sleep(int milliseconds) { (void)milliseconds; }
+    
+    struct b3Mutex { unsigned unused; };
+    struct b3Semaphore { int count; };
+    struct b3Thread { unsigned unused; };
+    
+    b3Mutex *b3CreateMutex(void) {
+      return b3AllocZeroed(sizeof(b3Mutex));
     }
     
-    int sem_init(sem_t *semaphore, int shared, unsigned value) {
-      (void)shared;
-      (void)value;
-      memset(semaphore, 0, sizeof(*semaphore));
-      return 0;
+    void b3DestroyMutex(b3Mutex *mutex) {
+      b3Free(mutex, sizeof(b3Mutex));
     }
     
-    int sem_destroy(sem_t *semaphore) {
-      (void)semaphore;
-      return 0;
+    void b3LockMutex(b3Mutex *mutex) { (void)mutex; }
+    void b3UnlockMutex(b3Mutex *mutex) { (void)mutex; }
+    
+    b3Semaphore *b3CreateSemaphore(int initial_count) {
+      b3Semaphore *semaphore = b3Alloc(sizeof(b3Semaphore));
+      semaphore->count = initial_count;
+      return semaphore;
     }
     
-    int sem_wait(sem_t *semaphore) {
-      (void)semaphore;
-      return 0;
+    void b3DestroySemaphore(b3Semaphore *semaphore) {
+      b3Free(semaphore, sizeof(b3Semaphore));
     }
     
-    int sem_post(sem_t *semaphore) {
-      (void)semaphore;
-      return 0;
+    void b3WaitSemaphore(b3Semaphore *semaphore) {
+      if (semaphore->count > 0) semaphore->count--;
     }
     
-    int pthread_create(pthread_t *thread, const pthread_attr_t *attributes,
-                       void *(*entry)(void *), void *context) {
-      (void)thread;
-      (void)attributes;
-      (void)entry;
+    void b3SignalSemaphore(b3Semaphore *semaphore) {
+      semaphore->count++;
+    }
+    
+    b3Thread *b3CreateThread(b3ThreadFunction *function, void *context,
+                             const char *name) {
+      (void)function;
       (void)context;
-      return ENOTSUP;
+      (void)name;
+      return b3AllocZeroed(sizeof(b3Thread));
     }
     
-    int pthread_join(pthread_t thread, void **result) {
-      (void)thread;
-      (void)result;
-      return ENOTSUP;
+    void b3JoinThread(b3Thread *thread) {
+      b3Free(thread, sizeof(b3Thread));
+    }
+    
+    // This deterministic djb2 variant is part of upstream timer.c rather than the
+    // OS-independent core. Keep the exact algorithm when replacing that complete
+    // translation unit so hull and mesh hashes stay compatible with upstream.
+    uint32_t b3Hash(uint32_t hash, const uint8_t *data, int count) {
+      uint32_t result = hash;
+      int index = 0;
+      while (index + 8 <= count) {
+        uint64_t word;
+        memcpy(&word, data + index, sizeof(word));
+    #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        word = ((word & UINT64_C(0x00000000000000ff)) << 56) |
+               ((word & UINT64_C(0x000000000000ff00)) << 40) |
+               ((word & UINT64_C(0x0000000000ff0000)) << 24) |
+               ((word & UINT64_C(0x00000000ff000000)) << 8) |
+               ((word & UINT64_C(0x000000ff00000000)) >> 8) |
+               ((word & UINT64_C(0x0000ff0000000000)) >> 24) |
+               ((word & UINT64_C(0x00ff000000000000)) >> 40) |
+               ((word & UINT64_C(0xff00000000000000)) >> 56);
+    #endif
+        result = (result << 5) + result + (uint32_t)word;
+        result = (result << 5) + result + (uint32_t)(word >> 32);
+        index += 8;
+      }
+      while (index < count) {
+        result = (result << 5) + result + data[index];
+        index++;
+      }
+      return result;
     }
 FILE /usr/src/dolly/gamedev/dolly-raylib.c
     #include "dolly-raylib.h"
+    
+    #include <rlgl.h>
     
     #include <errno.h>
     #include <stddef.h>
@@ -173,11 +209,33 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
       return 0;
     }
     
-    int dolly_raylib_open(dolly_raylib *context, const char *title) {
-      if (context == NULL) return -EINVAL;
+    int dolly_raylib_open_sized(dolly_raylib *context, const char *title,
+                                uint32_t max_width, uint32_t max_height) {
+      if (context == NULL || max_width == 0 || max_height == 0) return -EINVAL;
       memset(context, 0, sizeof(*context));
       int status = dolly_display_acquire(&context->surface);
       if (status != 0) return status;
+    
+      uint32_t width = context->surface.width;
+      uint32_t height = context->surface.height;
+      if (width > max_width || height > max_height) {
+        if ((uint64_t)width * max_height > (uint64_t)height * max_width) {
+          height = (uint32_t)((uint64_t)height * max_width / width);
+          width = max_width;
+        } else {
+          width = (uint32_t)((uint64_t)width * max_height / height);
+          height = max_height;
+        }
+        if (width == 0) width = 1;
+        if (height == 0) height = 1;
+        status = dolly_display_set_size(context->surface.generation, width, height,
+                                        &context->surface);
+        if (status != 0) {
+          dolly_display_release(context->surface.generation);
+          memset(context, 0, sizeof(*context));
+          return status;
+        }
+      }
     
       InitWindow((int)context->surface.width, (int)context->surface.height, title);
       if (!IsWindowReady()) {
@@ -190,32 +248,44 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
       return 0;
     }
     
+    int dolly_raylib_open(dolly_raylib *context, const char *title) {
+      return dolly_raylib_open_sized(context, title, 800, 450);
+    }
+    
     int dolly_raylib_end_frame(dolly_raylib *context) {
       if (context == NULL || !context->open) return -EINVAL;
+      // SUPPORT_CUSTOM_FRAME_CONTROL makes EndDrawing flush raylib's render batch
+      // without copying into PLATFORM_MEMORY's private presentation buffer or
+      // sleeping. Dolly supplies both presentation and pacing below.
       EndDrawing();
-    
-      Image image = LoadImageFromScreen();
-      if (!IsImageValid(image) || image.format != PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 ||
-          image.width != (int)context->surface.width ||
-          image.height != (int)context->surface.height) {
-        if (IsImageValid(image)) UnloadImage(image);
-        return -EIO;
-      }
     
       dolly_display_frame frame;
       int status = dolly_display_begin_frame(context->surface.generation, &frame);
-      size_t length = (size_t)image.width * (size_t)image.height * 4;
       if (status == 0 && frame.pixel_format == DOLLY_DISPLAY_PIXEL_RGBA8 &&
           frame.width == context->surface.width &&
-          frame.height == context->surface.height && length <= frame.capacity) {
-        memcpy(frame.pixels, image.data, length);
+          frame.height == context->surface.height &&
+          (size_t)frame.stride * frame.height <= frame.capacity) {
+        rlCopyFramebuffer(0, 0, (int)frame.width, (int)frame.height,
+                          PIXELFORMAT_UNCOMPRESSED_R8G8B8A8, frame.pixels);
         status = dolly_display_present(context->surface.generation,
                                        frame.buffer_index);
       } else if (status == 0) {
         status = -EIO;
       }
-      UnloadImage(image);
       return status;
+    }
+    
+    int dolly_raylib_wait_frame(dolly_raylib *context,
+                                double timeout_milliseconds) {
+      if (context == NULL || !context->open) return -EINVAL;
+      return dolly_display_wait_frame(context->surface.generation,
+                                      &context->animation_frame_sequence,
+                                      timeout_milliseconds);
+    }
+    
+    int dolly_raylib_set_cursor(dolly_raylib *context, uint32_t cursor) {
+      if (context == NULL || !context->open) return -EINVAL;
+      return dolly_display_set_cursor(context->surface.generation, cursor);
     }
     
     int dolly_raylib_next_event(dolly_raylib *context, dolly_input_event *event,
@@ -249,13 +319,20 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.h
     
     typedef struct {
       dolly_display_surface surface;
+      uint32_t animation_frame_sequence;
       int open;
     } dolly_raylib;
     
-    // PLATFORM_MEMORY renders wholly inside Wasm. This adapter leases Dolly's
-    // visible framebuffer and copies each completed raylib frame into it.
+    // PLATFORM_MEMORY renders wholly inside Wasm. The adapter copies its completed
+    // software frame directly into Dolly's inactive buffer without an intermediate
+    // raylib Image. The default open caps software rendering at 800x450; callers
+    // can choose another upper bound while retaining the browser viewport ratio.
     int dolly_raylib_open(dolly_raylib *context, const char *title);
+    int dolly_raylib_open_sized(dolly_raylib *context, const char *title,
+                                uint32_t max_width, uint32_t max_height);
     int dolly_raylib_end_frame(dolly_raylib *context);
+    int dolly_raylib_wait_frame(dolly_raylib *context, double timeout_milliseconds);
+    int dolly_raylib_set_cursor(dolly_raylib *context, uint32_t cursor);
     int dolly_raylib_next_event(dolly_raylib *context, dolly_input_event *event,
                                 double timeout_milliseconds);
     int dolly_raylib_close(dolly_raylib *context);
@@ -263,6 +340,8 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.h
     
     #endif
 FILE /usr/src/dolly/gamedev/graphics-demo.c
+    #define _POSIX_C_SOURCE 200809L
+    
     #include <box3d/box3d.h>
     #include <dolly/raylib.h>
     #include <rlgl.h>
@@ -272,143 +351,284 @@ FILE /usr/src/dolly/gamedev/graphics-demo.c
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
+    #include <time.h>
     
-    enum { MAX_BOXES = 64, GEM_COUNT = 5 };
+    enum { MAX_BODIES = 80, TARGET_COUNT = 3 };
+    
+    typedef enum {
+      BODY_BOX,
+      BODY_SPHERE,
+    } body_shape;
     
     typedef struct {
       b3BodyId body;
-      Vector3 half_size;
+      body_shape shape;
+      Vector3 size;
       Color color;
-    } game_box;
+      int target;
+    } game_body;
     
     typedef struct {
       b3WorldId world;
       b3BodyId player;
-      game_box boxes[MAX_BOXES];
-      int box_count;
-      int left;
-      int right;
+      b3BodyId anchor;
+      b3BodyId pendulum;
+      game_body bodies[MAX_BODIES];
+      int body_count;
+      b3BodyId targets[TARGET_COUNT];
+      b3Pos target_origins[TARGET_COUNT];
+      int collected[TARGET_COUNT];
+      int score;
       int forward;
       int backward;
-      int score;
-      int collected[GEM_COUNT];
-      int width;
-      int height;
-      Camera3D camera;
+      int left;
+      int right;
+      int jump_requested;
+      int explosion_requested;
+      int reset_requested;
+      float explosion_flash;
     } game;
     
-    static const Color COLOR_INK = { 236, 232, 220, 255 };
-    static const Color COLOR_MUTED = { 126, 126, 118, 255 };
-    static const Color COLOR_YELLOW = { 242, 212, 92, 255 };
-    static const Color COLOR_ORANGE = { 226, 132, 68, 255 };
-    static const Color COLOR_BLUE = { 94, 160, 180, 255 };
-    static const Color COLOR_BACKGROUND = { 25, 29, 39, 255 };
-    static const Color COLOR_PANEL = { 42, 47, 58, 255 };
-    static const b3Vec3 GEMS[GEM_COUNT] = {
-        {-6.0f, 1.1f, -5.0f}, {-3.5f, 1.1f, 4.5f}, {0.0f, 1.1f, 0.0f},
-        {3.8f, 1.1f, -4.0f}, {6.0f, 1.1f, 4.8f}};
+    static const Color COLOR_INK = {236, 232, 220, 255};
+    static const Color COLOR_MUTED = {126, 126, 118, 255};
+    static const Color COLOR_YELLOW = {242, 212, 92, 255};
+    static const Color COLOR_ORANGE = {206, 126, 67, 255};
+    static const Color COLOR_BLUE = {82, 132, 147, 255};
+    static const Color COLOR_BACKGROUND = {31, 32, 30, 255};
+    static const Color COLOR_PANEL = {45, 46, 43, 255};
     
     static int usage(const char *program, int status) {
       fprintf(status == 0 ? stdout : stderr,
               "usage: %s [--frames COUNT]\n"
-              "WASD or arrows move, Space jumps, click drops a cube, "
+              "WASD/arrows move, Space jumps, E/click explodes, R resets, "
               "Q/Escape exits\n",
               program);
       return status;
     }
     
-    static b3BodyId add_box(game *state, b3Vec3 position, Vector3 half_size,
-                            b3BodyType type, Color color) {
+    static double monotonic_seconds(void) {
+      struct timespec now = {0};
+      if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return 0;
+      return (double)now.tv_sec + (double)now.tv_nsec / 1000000000.0;
+    }
+    
+    static Vector3 ray_vector(b3Pos value) {
+      return (Vector3){(float)value.x, (float)value.y, (float)value.z};
+    }
+    
+    static int remember_body(game *state, b3BodyId body, body_shape shape,
+                             Vector3 size, Color color, int target) {
+      if (state->body_count >= MAX_BODIES) return -1;
+      state->bodies[state->body_count++] =
+          (game_body){body, shape, size, color, target};
+      return 0;
+    }
+    
+    static b3BodyId add_box(game *state, b3Pos position, Vector3 half_size,
+                            b3BodyType type, b3Quat rotation, Color color) {
+      b3BodyDef body_definition = b3DefaultBodyDef();
+      body_definition.type = type;
+      body_definition.position = position;
+      body_definition.rotation = rotation;
+      b3BodyId body = b3CreateBody(state->world, &body_definition);
+    
+      b3BoxHull box = b3MakeBoxHull(half_size.x, half_size.y, half_size.z);
+      b3ShapeDef shape = b3DefaultShapeDef();
+      shape.density = 1.0f;
+      shape.baseMaterial.friction = 0.72f;
+      shape.baseMaterial.restitution = 0.05f;
+      b3CreateHullShape(body, &shape, &box.base);
+      remember_body(state, body, BODY_BOX, half_size, color, -1);
+      return body;
+    }
+    
+    static b3BodyId add_sphere(game *state, b3Pos position, float radius,
+                               b3BodyType type, Color color, int target) {
       b3BodyDef body_definition = b3DefaultBodyDef();
       body_definition.type = type;
       body_definition.position = position;
       b3BodyId body = b3CreateBody(state->world, &body_definition);
-      b3BoxHull hull = b3MakeBoxHull(half_size.x, half_size.y, half_size.z);
+    
+      b3Sphere sphere = {{0.0f, 0.0f, 0.0f}, radius};
       b3ShapeDef shape = b3DefaultShapeDef();
-      shape.density = 1.0f;
+      shape.density = target >= 0 ? 0.7f : 1.3f;
       shape.baseMaterial.friction = 0.65f;
-      shape.baseMaterial.restitution = 0.08f;
-      b3CreateHullShape(body, &shape, &hull.base);
-      if (state->box_count < MAX_BOXES) {
-        state->boxes[state->box_count++] =
-            (game_box){body, half_size, color};
-      }
+      shape.baseMaterial.restitution = target >= 0 ? 0.42f : 0.18f;
+      b3CreateSphereShape(body, &shape, &sphere);
+      remember_body(state, body, BODY_SPHERE,
+                    (Vector3){radius, radius, radius}, color, target);
       return body;
     }
     
-    static void draw_box(const game_box *box) {
-      b3Pos position = b3Body_GetPosition(box->body);
-      b3Quat rotation = b3Body_GetRotation(box->body);
+    static void add_tower(game *state, int target, float x, float z,
+                          Color first, Color second) {
+      const Vector3 block = {1.05f, 0.32f, 0.32f};
+      for (int level = 0; level < 6; ++level) {
+        int turn = level & 1;
+        for (int column = -1; column <= 1; ++column) {
+          b3Pos position = {x + (turn ? column * 0.72f : 0.0f),
+                            0.34f + level * 0.66f,
+                            z + (turn ? 0.0f : column * 0.72f)};
+          Vector3 half_size = turn ? (Vector3){0.32f, block.y, block.x}
+                                   : block;
+          add_box(state, position, half_size, b3_dynamicBody, b3Quat_identity,
+                  ((level + column) & 1) ? first : second);
+        }
+      }
+    
+      b3Pos core_position = {x, 4.45f, z};
+      b3BodyId core = add_sphere(state, core_position, 0.48f, b3_dynamicBody,
+                                 COLOR_YELLOW, target);
+      state->targets[target] = core;
+      state->target_origins[target] = core_position;
+    }
+    
+    static int reset_world(game *state) {
+      if (state->world.index1 != 0) b3DestroyWorld(state->world);
+      memset(state, 0, sizeof(*state));
+    
+      b3WorldDef world_definition = b3DefaultWorldDef();
+      world_definition.gravity = (b3Vec3){0.0f, -13.0f, 0.0f};
+      world_definition.workerCount = 1;
+      state->world = b3CreateWorld(&world_definition);
+      if (state->world.index1 == 0) return -1;
+    
+      add_box(state, (b3Pos){0.0f, -0.55f, 0.0f},
+              (Vector3){11.0f, 0.55f, 8.0f}, b3_staticBody, b3Quat_identity,
+              COLOR_PANEL);
+      add_box(state, (b3Pos){-11.1f, 2.0f, 0.0f},
+              (Vector3){0.2f, 2.5f, 8.0f}, b3_staticBody, b3Quat_identity,
+              COLOR_MUTED);
+      add_box(state, (b3Pos){11.1f, 2.0f, 0.0f},
+              (Vector3){0.2f, 2.5f, 8.0f}, b3_staticBody, b3Quat_identity,
+              COLOR_MUTED);
+      add_box(state, (b3Pos){0.0f, 2.0f, -8.1f},
+              (Vector3){11.0f, 2.5f, 0.2f}, b3_staticBody, b3Quat_identity,
+              COLOR_MUTED);
+      add_box(state, (b3Pos){-7.1f, 0.7f, 2.2f},
+              (Vector3){2.3f, 0.22f, 1.35f}, b3_staticBody,
+              b3MakeQuatFromAxisAngle(b3Vec3_axisZ, -0.20f), COLOR_MUTED);
+      add_box(state, (b3Pos){7.1f, 0.7f, 2.2f},
+              (Vector3){2.3f, 0.22f, 1.35f}, b3_staticBody,
+              b3MakeQuatFromAxisAngle(b3Vec3_axisZ, 0.20f), COLOR_MUTED);
+    
+      add_tower(state, 0, -5.1f, -1.8f, COLOR_BLUE, COLOR_ORANGE);
+      add_tower(state, 1, 0.0f, -3.2f, COLOR_ORANGE, COLOR_BLUE);
+      add_tower(state, 2, 5.1f, -1.8f, COLOR_BLUE, COLOR_ORANGE);
+    
+      state->player = add_sphere(state, (b3Pos){0.0f, 1.0f, 5.0f}, 0.62f,
+                                 b3_dynamicBody, COLOR_YELLOW, -1);
+    
+      state->anchor = add_sphere(state, (b3Pos){0.0f, 7.5f, 1.8f}, 0.16f,
+                                 b3_staticBody, COLOR_YELLOW, -1);
+      state->pendulum = add_sphere(state, (b3Pos){3.5f, 5.0f, 1.8f}, 0.72f,
+                                   b3_dynamicBody, COLOR_ORANGE, -1);
+      b3DistanceJointDef rope = b3DefaultDistanceJointDef();
+      rope.base.bodyIdA = state->anchor;
+      rope.base.bodyIdB = state->pendulum;
+      rope.length = 4.3f;
+      rope.enableSpring = true;
+      rope.hertz = 1.8f;
+      rope.dampingRatio = 0.08f;
+      rope.lowerSpringForce = -5000.0f;
+      rope.upperSpringForce = 5000.0f;
+      b3CreateDistanceJoint(state->world, &rope);
+      b3Body_ApplyLinearImpulseToCenter(state->pendulum,
+                                        (b3Vec3){0.0f, 0.0f, -18.0f}, true);
+      return 0;
+    }
+    
+    static void draw_body(const game_body *body) {
+      b3Pos position = b3Body_GetPosition(body->body);
+      if (body->shape == BODY_SPHERE) {
+        DrawSphereEx(ray_vector(position), body->size.x, 8, 12, body->color);
+        DrawSphereWires(ray_vector(position), body->size.x, 6, 8,
+                        Fade(COLOR_INK, 0.34f));
+        return;
+      }
+    
+      b3Quat rotation = b3Body_GetRotation(body->body);
       float radians = 0.0f;
       b3Vec3 axis = b3GetAxisAngle(&radians, rotation);
-      Vector3 size = {box->half_size.x * 2.0f, box->half_size.y * 2.0f,
-                      box->half_size.z * 2.0f};
+      float axis_length_squared =
+          axis.x * axis.x + axis.y * axis.y + axis.z * axis.z;
+      Vector3 rotation_axis = axis_length_squared < 0.000001f
+                                  ? (Vector3){0.0f, 1.0f, 0.0f}
+                                  : (Vector3){axis.x, axis.y, axis.z};
+      Vector3 size = {body->size.x * 2.0f, body->size.y * 2.0f,
+                      body->size.z * 2.0f};
       rlPushMatrix();
       rlTranslatef((float)position.x, (float)position.y, (float)position.z);
-      if (fabsf(radians) > 0.0001f)
-        rlRotatef(radians * RAD2DEG, axis.x, axis.y, axis.z);
-      DrawCubeV((Vector3){0.0f, 0.0f, 0.0f}, size, box->color);
+      rlRotatef(radians * RAD2DEG, rotation_axis.x, rotation_axis.y,
+                rotation_axis.z);
+      DrawCubeV((Vector3){0.0f, 0.0f, 0.0f}, size, body->color);
       DrawCubeWiresV((Vector3){0.0f, 0.0f, 0.0f}, size,
-                     Fade(COLOR_INK, 0.48f));
+                     Fade(COLOR_INK, 0.26f));
       rlPopMatrix();
     }
     
-    static void draw_scene(game *state, int width, int height, unsigned long tick) {
+    static void draw_text(Font font, const char *text, float x, float y,
+                          float size, Color color) {
+      DrawTextEx(font, text, (Vector2){x, y}, size, 1.0f, color);
+    }
+    
+    static float measure_text(Font font, const char *text, float size) {
+      return MeasureTextEx(font, text, size, 1.0f).x;
+    }
+    
+    static void draw_scene(game *state, Font font, int width, int height,
+                           unsigned long frame) {
+      b3Pos player_position = b3Body_GetPosition(state->player);
+      float camera_sway = sinf((float)frame * 0.006f) * 0.7f;
+      Camera3D camera = {0};
+      camera.position = (Vector3){(float)player_position.x * 0.10f + camera_sway,
+                                  11.5f, 18.5f};
+      camera.target = (Vector3){0.0f, 2.2f, -0.8f};
+      camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+      camera.fovy = 45.0f;
+      camera.projection = CAMERA_PERSPECTIVE;
+    
       BeginDrawing();
       ClearBackground(COLOR_BACKGROUND);
+      DrawRectangleGradientV(0, 0, width, height,
+                             (Color){47, 49, 46, 255}, COLOR_BACKGROUND);
     
-      for (int band = 0; band < 10; ++band) {
-        Color shade = (Color){(unsigned char)(22 + band * 2),
-                              (unsigned char)(27 + band * 2),
-                              (unsigned char)(39 + band * 3), 255};
-        DrawRectangle(0, band * height / 10, width, height / 10 + 1, shade);
-      }
+      BeginMode3D(camera);
+      DrawGrid(22, 1.0f);
+      for (int index = 0; index < state->body_count; ++index)
+        draw_body(&state->bodies[index]);
     
-      b3Pos player = b3Body_GetPosition(state->player);
-      state->camera.target = (Vector3){(float)player.x, 1.4f, (float)player.z};
-      state->camera.position = (Vector3){(float)player.x + 13.0f, 11.0f,
-                                         (float)player.z + 13.0f};
-      BeginMode3D(state->camera);
-      DrawPlane((Vector3){0.0f, 0.01f, 0.0f}, (Vector2){20.0f, 20.0f},
-                COLOR_PANEL);
-      DrawGrid(20, 1.0f);
-      for (int index = 0; index < state->box_count; ++index)
-        draw_box(&state->boxes[index]);
-      for (int index = 0; index < GEM_COUNT; ++index) {
-        if (!state->collected[index] &&
-            fabsf((float)player.x - GEMS[index].x) < 0.85f &&
-            fabsf((float)player.z - GEMS[index].z) < 0.85f) {
-          state->collected[index] = 1;
-          ++state->score;
-        }
-        if (!state->collected[index]) {
-          float pulse = 0.24f + 0.06f * sinf((float)tick * 0.08f + index);
-          DrawSphere((Vector3){GEMS[index].x, GEMS[index].y + pulse,
-                               GEMS[index].z},
-                     0.34f, COLOR_YELLOW);
-          DrawSphereWires((Vector3){GEMS[index].x, GEMS[index].y + pulse,
-                                    GEMS[index].z},
-                          0.42f, 8, 8, Fade(COLOR_YELLOW, 0.35f));
-        }
+      b3Pos anchor = b3Body_GetPosition(state->anchor);
+      b3Pos pendulum = b3Body_GetPosition(state->pendulum);
+      DrawLine3D(ray_vector(anchor), ray_vector(pendulum), COLOR_YELLOW);
+    
+      if (state->explosion_flash > 0.0f) {
+        DrawSphereWires(ray_vector(player_position),
+                        4.2f * (1.0f - state->explosion_flash) + 0.7f, 8, 12,
+                        Fade(COLOR_YELLOW, state->explosion_flash));
       }
       EndMode3D();
     
-      DrawRectangleRounded((Rectangle){18, 18, 310, 72}, 0.18f, 6,
-                           Fade(COLOR_PANEL, 0.94f));
-      DrawText("DOLLY BOXYARD / BOX3D", 34, 29, 24, COLOR_YELLOW);
-      DrawText("WASD move  SPACE jump  click: drop cube", 34, 61, 16, COLOR_INK);
+      DrawRectangleRounded((Rectangle){16, 14, 342, 68}, 0.18f, 6,
+                           Fade(COLOR_PANEL, 0.95f));
+      draw_text(font, "DOLLY BOXFALL 3D", 29, 21, 23, COLOR_YELLOW);
+      draw_text(font, "WASD move  SPACE jump  E blast  R reset  Q exit",
+                29, 52, 14, COLOR_INK);
+    
       char score[32];
-      snprintf(score, sizeof(score), "%d / %d", state->score, GEM_COUNT);
-      int score_width = MeasureText(score, 24);
-      DrawText(score, width - score_width - 28, 29, 24,
-               state->score == GEM_COUNT ? COLOR_YELLOW : COLOR_INK);
-      if (state->score == GEM_COUNT) {
-        const char *message = "3D SANDBOX CLEARED";
-        int message_width = MeasureText(message, 34);
-        DrawRectangle(width / 2 - message_width / 2 - 18, height / 2 - 33,
-                      message_width + 36, 62, Fade(COLOR_PANEL, 0.92f));
-        DrawText(message, width / 2 - message_width / 2, height / 2 - 18,
-                 34, COLOR_YELLOW);
+      snprintf(score, sizeof(score), "%d / %d CORES", state->score,
+               TARGET_COUNT);
+      float score_width = measure_text(font, score, 22);
+      draw_text(font, score, (float)width - score_width - 23, 22, 22,
+                state->score == TARGET_COUNT ? COLOR_YELLOW : COLOR_INK);
+      if (state->score == TARGET_COUNT) {
+        const char *message = "ALL TOWERS DOWN";
+        float message_width = measure_text(font, message, 32);
+        DrawRectangle((int)((float)width / 2 - message_width / 2 - 17),
+                      height / 2 - 31, (int)message_width + 34, 56,
+                      Fade(COLOR_PANEL, 0.92f));
+        draw_text(font, message, (float)width / 2 - message_width / 2,
+                  (float)height / 2 - 17, 32, COLOR_YELLOW);
       }
     }
     
@@ -422,34 +642,73 @@ FILE /usr/src/dolly/gamedev/graphics-demo.c
     static void handle_event(game *state, const dolly_input_event *event) {
       if (event->type == DOLLY_INPUT_EVENT_KEY) {
         int down = event->action != DOLLY_KEY_ACTION_RELEASE;
-        if (dolly_raylib_code_is(event, "KeyA") ||
-            dolly_raylib_code_is(event, "ArrowLeft"))
-          state->left = down;
-        if (dolly_raylib_code_is(event, "KeyD") ||
-            dolly_raylib_code_is(event, "ArrowRight"))
-          state->right = down;
         if (dolly_raylib_code_is(event, "KeyW") ||
             dolly_raylib_code_is(event, "ArrowUp"))
           state->forward = down;
         if (dolly_raylib_code_is(event, "KeyS") ||
             dolly_raylib_code_is(event, "ArrowDown"))
           state->backward = down;
-        if (down && (dolly_raylib_code_is(event, "Space") ||
-                     dolly_raylib_code_is(event, "KeyJ"))) {
-          b3Pos position = b3Body_GetPosition(state->player);
-          if (position.y < 1.25f)
-            b3Body_ApplyLinearImpulseToCenter(
-                state->player, (b3Vec3){0.0f, 5.8f, 0.0f}, true);
-        }
+        if (dolly_raylib_code_is(event, "KeyA") ||
+            dolly_raylib_code_is(event, "ArrowLeft"))
+          state->left = down;
+        if (dolly_raylib_code_is(event, "KeyD") ||
+            dolly_raylib_code_is(event, "ArrowRight"))
+          state->right = down;
+        if (down && dolly_raylib_code_is(event, "Space"))
+          state->jump_requested = 1;
+        if (down && dolly_raylib_code_is(event, "KeyE"))
+          state->explosion_requested = 1;
+        if (down && dolly_raylib_code_is(event, "KeyR"))
+          state->reset_requested = 1;
       } else if (event->type == DOLLY_INPUT_EVENT_POINTER &&
-                 event->action == DOLLY_POINTER_ACTION_PRESS &&
-                 state->box_count < MAX_BOXES) {
-        float x = 16.0f * (float)event->width_css_px / (float)state->width - 8.0f;
-        float z = 16.0f * (float)event->height_css_px / (float)state->height - 8.0f;
-        add_box(state,
-                (b3Vec3){x, 8.0f, z},
-                (Vector3){0.48f, 0.48f, 0.48f}, b3_dynamicBody,
-                state->box_count & 1 ? COLOR_ORANGE : COLOR_BLUE);
+                 event->action == DOLLY_POINTER_ACTION_PRESS) {
+        state->explosion_requested = 1;
+      }
+    }
+    
+    static void update_game(game *state) {
+      b3Vec3 velocity = b3Body_GetLinearVelocity(state->player);
+      velocity.x = (float)(state->right - state->left) * 6.5f;
+      velocity.z = (float)(state->backward - state->forward) * 6.5f;
+      b3Body_SetLinearVelocity(state->player, velocity);
+    
+      if (state->jump_requested) {
+        if (fabsf(velocity.y) < 2.0f)
+          b3Body_ApplyLinearImpulseToCenter(state->player,
+                                            (b3Vec3){0.0f, 7.0f, 0.0f}, true);
+        state->jump_requested = 0;
+      }
+      if (state->explosion_requested) {
+        b3ExplosionDef explosion = b3DefaultExplosionDef();
+        explosion.position = b3Body_GetPosition(state->player);
+        explosion.radius = 0.7f;
+        explosion.falloff = 4.5f;
+        explosion.impulsePerArea = 34.0f;
+        b3World_Explode(state->world, &explosion);
+        state->explosion_flash = 1.0f;
+        state->explosion_requested = 0;
+      }
+    
+      b3World_Step(state->world, 1.0f / 60.0f, 4);
+      if (state->explosion_flash > 0.0f)
+        state->explosion_flash = fmaxf(0.0f, state->explosion_flash - 0.055f);
+    
+      for (int index = 0; index < TARGET_COUNT; ++index) {
+        if (state->collected[index]) continue;
+        b3Pos position = b3Body_GetPosition(state->targets[index]);
+        double dx = position.x - state->target_origins[index].x;
+        double dz = position.z - state->target_origins[index].z;
+        if (position.y < 2.0 || dx * dx + dz * dz > 5.0) {
+          state->collected[index] = 1;
+          state->score++;
+        }
+      }
+    
+      b3Pos position = b3Body_GetPosition(state->player);
+      if (position.y < -5.0) {
+        b3Body_SetTransform(state->player, (b3Pos){0.0f, 2.0f, 5.0f},
+                            b3Quat_identity);
+        b3Body_SetLinearVelocity(state->player, b3Vec3_zero);
       }
     }
     
@@ -467,55 +726,51 @@ FILE /usr/src/dolly/gamedev/graphics-demo.c
       }
     
       dolly_raylib graphics;
-      int status = dolly_raylib_open(&graphics, "Dolly Boxyard / Box3D");
+      int status =
+          dolly_raylib_open_sized(&graphics, "Dolly Boxfall 3D", 640, 360);
       if (status != 0) {
         fprintf(stderr, "graphics-demo: display initialization failed: %s\n",
                 strerror(-status));
         return 1;
       }
-    
-      game state = {0};
-      state.width = (int)graphics.surface.width;
-      state.height = (int)graphics.surface.height;
-      state.camera = (Camera3D){(Vector3){13.0f, 11.0f, 13.0f},
-                                (Vector3){0.0f, 1.4f, 0.0f},
-                                (Vector3){0.0f, 1.0f, 0.0f}, 45.0f,
-                                CAMERA_PERSPECTIVE};
-      b3WorldDef world_definition = b3DefaultWorldDef();
-      world_definition.gravity = (b3Vec3){0.0f, -12.0f, 0.0f};
-      world_definition.workerCount = 1;
-      state.world = b3CreateWorld(&world_definition);
-    
-      add_box(&state, (b3Vec3){0.0f, -0.5f, 0.0f},
-              (Vector3){10.0f, 0.5f, 10.0f}, b3_staticBody, COLOR_PANEL);
-      add_box(&state, (b3Vec3){-6.2f, 0.7f, 1.5f},
-              (Vector3){2.2f, 0.25f, 1.3f}, b3_staticBody, COLOR_MUTED);
-      add_box(&state, (b3Vec3){5.4f, 1.25f, -2.8f},
-              (Vector3){2.0f, 0.25f, 1.5f}, b3_staticBody, COLOR_MUTED);
-      for (int level = 0; level < 4; ++level) {
-        for (int column = 0; column < 4 - level; ++column) {
-          add_box(&state,
-                  (b3Vec3){2.8f + (column - (3 - level) * 0.5f) * 1.05f,
-                           0.52f + level * 1.04f, 3.2f},
-                  (Vector3){0.5f, 0.5f, 0.5f}, b3_dynamicBody,
-                  (level + column) & 1 ? COLOR_ORANGE : COLOR_BLUE);
-        }
+      if (dolly_raylib_set_cursor(&graphics, DOLLY_DISPLAY_CURSOR_CROSSHAIR) != 0) {
+        dolly_raylib_close(&graphics);
+        fputs("graphics-demo: could not select the game cursor\n", stderr);
+        return 1;
       }
-      state.player = add_box(&state, (b3Vec3){-5.8f, 1.0f, -5.8f},
-                             (Vector3){0.52f, 0.75f, 0.52f},
-                             b3_dynamicBody, COLOR_YELLOW);
-      b3MotionLocks player_locks = {0};
-      player_locks.angularX = true;
-      player_locks.angularZ = true;
-      b3Body_SetMotionLocks(state.player, player_locks);
+    
+      Font font = LoadFontEx("/usr/share/fonts/IosevkaTerm-SemiBold.ttf", 32,
+                             NULL, 0);
+      if (!IsFontValid(font)) {
+        dolly_raylib_close(&graphics);
+        fputs("graphics-demo: could not load the sandbox font\n", stderr);
+        return 1;
+      }
+      game state = {0};
+      if (reset_world(&state) != 0) {
+        UnloadFont(font);
+        dolly_raylib_close(&graphics);
+        fputs("graphics-demo: could not create the Box3D world\n", stderr);
+        return 1;
+      }
     
       int result = 0;
-      unsigned long frame = 0;
       int quit = 0;
+      unsigned long frame = 0;
+      double previous_time = monotonic_seconds();
+      double physics_accumulator = 0.0;
       while (!quit && (frame_limit == 0 || frame < frame_limit)) {
+        if (frame != 0) {
+          status = dolly_raylib_wait_frame(&graphics, 1000.0);
+          if (status < 0) {
+            result = 1;
+            break;
+          }
+        }
+    
         dolly_input_event event;
         do {
-          status = dolly_raylib_next_event(&graphics, &event, frame == 0 ? 0 : 16);
+          status = dolly_raylib_next_event(&graphics, &event, 0);
           if (status < 0) {
             result = 1;
             quit = 1;
@@ -528,19 +783,25 @@ FILE /usr/src/dolly/gamedev/graphics-demo.c
         } while (status == 1 && !quit);
         if (quit) break;
     
-        b3Vec3 velocity = b3Body_GetLinearVelocity(state.player);
-        velocity.x = (float)(state.right - state.left) * 5.2f;
-        velocity.z = (float)(state.backward - state.forward) * 5.2f;
-        b3Body_SetLinearVelocity(state.player, velocity);
-        b3World_Step(state.world, 1.0f / 60.0f, 4);
-    
-        b3Pos player_position = b3Body_GetPosition(state.player);
-        if (player_position.y < -4.0f) {
-          b3Body_SetTransform(state.player, (b3Vec3){-5.8f, 3.0f, -5.8f},
-                              b3Quat_identity);
-          b3Body_SetLinearVelocity(state.player, b3Vec3_zero);
+        if (state.reset_requested) {
+          if (reset_world(&state) != 0) {
+            result = 1;
+            break;
+          }
         }
-        draw_scene(&state, (int)graphics.surface.width,
+    
+        double now = monotonic_seconds();
+        double elapsed = previous_time > 0.0 && now >= previous_time
+                             ? now - previous_time
+                             : 1.0 / 60.0;
+        previous_time = now;
+        if (elapsed > 0.1) elapsed = 0.1;
+        physics_accumulator += elapsed;
+        for (int steps = 0; physics_accumulator >= 1.0 / 60.0 && steps < 6;
+             ++steps, physics_accumulator -= 1.0 / 60.0)
+          update_game(&state);
+    
+        draw_scene(&state, font, (int)graphics.surface.width,
                    (int)graphics.surface.height, frame);
         if (dolly_raylib_end_frame(&graphics) != 0) {
           result = 1;
@@ -550,6 +811,7 @@ FILE /usr/src/dolly/gamedev/graphics-demo.c
       }
     
       b3DestroyWorld(state.world);
+      UnloadFont(font);
       if (dolly_raylib_close(&graphics) != 0) result = 1;
       if (result == 0) puts("graphics-demo: terminal restored");
       return result;
@@ -557,24 +819,25 @@ FILE /usr/src/dolly/gamedev/graphics-demo.c
 FILE /home/dolly/.pi/agent/skills/dolly-gamedev/SKILL.md
     ---
     name: dolly-gamedev
-    description: Build interactive C games in Dolly with raylib 6, Box3D, and the exclusive in-Wasm framebuffer.
+    description: Build interactive C games in Dolly with raylib 6, Box3D 0.1, and the exclusive in-Wasm framebuffer.
     ---
     
     # Dolly gamedev
     
-    Use raylib for software rendering and Box3D for physics. Both are real pinned
-    upstream libraries compiled from source while `Dollyfile-gamedev` executes.
+    Use raylib for software-rendered 2D or 3D graphics and Box3D for three-dimensional
+    rigid-body physics. Both are pinned upstream libraries compiled from source,
+    sequentially, while `Dollyfile-gamedev` executes.
     
     ## Installed surface
     
     - raylib 6.0: `/usr/include/raylib.h`, `/usr/include/raymath.h`,
-      `/usr/lib/libraylib.a`
-    - Box3D 0.1.0: `/usr/include/box3d/`, `/usr/lib/libbox3d.a`
-    - Dolly adapter: `/usr/include/dolly/raylib.h`,
+      `/usr/include/rlgl.h`, and `/usr/lib/libraylib.a`
+    - Box3D 0.1.0: `/usr/include/box3d/` and `/usr/lib/libbox3d.a`
+    - Dolly presentation adapter: `/usr/include/dolly/raylib.h` and
       `/usr/lib/libdolly-raylib.a`
-    - Complete retained sources: `/usr/src/raylib`, `/usr/src/box3d`, and
+    - Retained source: `/usr/src/raylib`, `/usr/src/box3d`, and
       `/usr/src/dolly/gamedev`
-    - Example game: `/usr/src/dolly/gamedev/graphics-demo.c`
+    - Example 3D physics game: `/usr/src/dolly/gamedev/graphics-demo.c`
     
     Build a game with:
     
@@ -587,20 +850,37 @@ FILE /home/dolly/.pi/agent/skills/dolly-gamedev/SKILL.md
     
     Call `dolly_raylib_open()` once. For each frame, call raylib `BeginDrawing()`,
     draw normally, then call `dolly_raylib_end_frame()` instead of `EndDrawing()`.
-    Read semantic browser events with `dolly_raylib_next_event()`. Close with
-    `dolly_raylib_close()` on every exit path. The runtime also releases a stranded
-    lease when a foreground command exits or is interrupted.
+    Call `dolly_raylib_wait_frame()` once per loop for browser animation-frame
+    pacing. Read semantic browser events with `dolly_raylib_next_event()` and use
+    `dolly_raylib_set_cursor()` with a `DOLLY_DISPLAY_CURSOR_*` value when the game
+    needs a pointer style. Close with `dolly_raylib_close()` on every exit path.
+    The runtime also releases a stranded lease when a foreground command exits or
+    is interrupted.
     
-    The raylib build uses upstream `PLATFORM_MEMORY`, so rendering stays in Wasm;
-    the adapter only copies its completed RGBA image into Dolly's shared display.
-    There is no DOM, canvas, WebGL, browser callback, host filesystem, or socket API
-    inside a game. Keep automated checks finite with a `--frames N` option.
+    The raylib build uses upstream `PLATFORM_MEMORY`, so rendering stays in Wasm.
+    The adapter asks raylib's software rasterizer to copy directly into Dolly's
+    inactive RGBA buffer, with no intermediate `Image` allocation. The browser
+    only presents that buffer. `dolly_raylib_open()` caps rendering at 800x450;
+    for a software-rendered 3D scene, prefer
+    `dolly_raylib_open_sized(..., 640, 360)`. The viewport aspect ratio is
+    preserved and the browser scales the completed frame to its canvas.
     
-    Box3D uses opaque IDs and C17. Initialize definitions with helpers such as
-    `b3DefaultWorldDef()`, set `workerCount` to 1, use a fixed step (normally
-    1/60 with four substeps), and compile with the libraries after the
-    object/source that references them.
-
+    There is no DOM, canvas, WebGL, browser callback, host filesystem, or socket
+    API inside a game. Keep automated checks finite with a `--frames N` option.
+    
+    ## Box3D
+    
+    Box3D uses opaque IDs, `b3Vec3`/`b3Pos`, quaternions, and C17. Initialize every
+    definition with its default helper, such as `b3DefaultWorldDef()` or
+    `b3DefaultBodyDef()`. Make boxes with `b3MakeBoxHull()` and
+    `b3CreateHullShape()`. Use `b3CreateSphereShape()` for spheres and step with a
+    fixed timestep, normally `b3World_Step(world, 1.0f / 60.0f, 4)`.
+    
+    Dolly intentionally runs Box3D with one worker. Its small target adapter
+    replaces upstream's pthread-based timer/scheduler translation unit with clocks
+    and serial task semantics inside the same Wasm userspace. This changes no
+    physics API, gives the library no new browser import, and matches Dolly's
+    compatibility-over-parallelism runtime model.
 SLOP tar \
   -xf /tmp/raylib.tar \
   -C /
@@ -634,3 +914,4 @@ SLOP rm \
   /tmp/box3d.tar \
   /tmp/gamedev \
   /tmp/raylib.tar
+

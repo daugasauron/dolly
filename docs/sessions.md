@@ -10,6 +10,22 @@ name; later saves reuse it. Open the result at:
 The name and format version also live inside the sandbox at
 `~/.dolly-session-name`.
 
+Named saves currently require a source-visible packaged image (`default`,
+`gamedev`, or `python`). An uploaded custom Dollyfile is tab-local, so Dolly
+cannot authenticate and reconstruct its recipe at a later `/load/` URL;
+custom images therefore run normally but reject named-session save. Supporting
+that safely requires persisting the exact custom recipe and including its
+digest and inherited default recipe in the stored image identity.
+
+A named save is also Dolly's recovery point for non-cooperative foreign Wasm.
+Ctrl+C first requests the ordinary in-Wasm interrupt. If the same PID has not
+returned after two seconds, or the user presses Ctrl+C again, the trusted page
+terminates the runtime worker and reloads `/load/?session=NAME`. The fresh
+worker restores the last completed save. An unnamed route instead restarts
+from its sealed base image. Dolly does not claim that unsaved changes survive:
+once code has monopolized the worker, WasmFS cannot cooperatively produce a
+new opaque snapshot.
+
 ## Data flow
 
 ```text

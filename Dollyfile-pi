@@ -1,8 +1,9 @@
 DOLLY 2
 IMAGE pi
 
-USE HOST /modules/default.dm ab0daa9f3a4a3a8a7100119ff95c91974a2a087635459563b42c0aac418f3e29
-USE HOST /modules/quickjs.dm 884f4a86dfa7cc44a04ec13b01f2531015917864ad614e5140b603f482524e10
-USE HOST /modules/pi.dm      e6fece167fa723758bad692ab0dec2916316bac5d2e6f60f9f2a3459f6d29a7f
+USE HOST /modules/default.dm    51ba5ce36aab9fae9fdd6687bd7ed25960b6a4862348990223446841c1ab7901
+USE HOST /modules/quickjs.dm    884f4a86dfa7cc44a04ec13b01f2531015917864ad614e5140b603f482524e10
+USE HOST /modules/typescript.dm f10a3b924e5e80d3f0cfe8c07311d538812f1eaef4af60c0a9a6189c3672b6cb
+USE HOST /modules/pi.dm         9b1996a0997741fc88831e68c7df6d4b041ffef8f7a7502705c981f9e48526ea
 
 ENTRY /usr/bin/pi

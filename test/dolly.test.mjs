@@ -406,8 +406,8 @@ test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
     assert.equal(validSessionName(invalid), false);
   }
   const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
-  assert.match(sessionImageIdentity(DOLLY_IMAGES, "python-pi"),
-    /^python-pi:[0-9a-f]{64}$/);
+  assert.match(sessionImageIdentity(DOLLY_IMAGES, DOLLY_IMAGES[0].image),
+    new RegExp(`^${escapeRegex(DOLLY_IMAGES[0].image)}:[0-9a-f]{64}$`));
   const input = new TextEncoder().encode("DOLLYSES" + " session data ".repeat(128)).buffer;
   const encoded = await encodeSessionSnapshot(input);
   assert.deepEqual(
@@ -553,6 +553,7 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
 
 test("system snapshots are sealed to their visible recipe chain", async () => {
   const { DOLLY_BUILD_ID } = await import(artifact("dolly-build-id.mjs"));
+  const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const expectedEntries = new Map([
@@ -562,7 +563,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["python-pi", "/usr/bin/pi"],
     ["gamedev", "/usr/bin/graphics-demo"],
   ]);
-  for (const image of definitions.map(({ image }) => image)) {
+  for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
     const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
       artifact(`dolly-${image}-system-snapshot.mjs`)
@@ -604,13 +605,13 @@ test("Dollyfiles compose pinned modules through the sequential C engine", async 
   const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
   assert.deepEqual(byImage.get("default").root.children.map(({ name }) => name), ["default"]);
   assert.deepEqual(byImage.get("pi").root.children.map(({ name }) => name),
-    ["default", "quickjs", "pi"]);
+    ["default", "quickjs", "typescript", "pi"]);
   assert.deepEqual(byImage.get("python").root.children.map(({ name }) => name),
     ["default", "python"]);
   assert.deepEqual(byImage.get("python-pi").root.children.map(({ name }) => name),
-    ["default", "python", "quickjs", "pi"]);
+    ["default", "python", "quickjs", "typescript", "pi"]);
   assert.deepEqual(byImage.get("gamedev").root.children.map(({ name }) => name),
-    ["default", "quickjs", "pi", "gamedev"]);
+    ["default", "quickjs", "typescript", "pi", "gamedev"]);
   assert.equal(byImage.get("default").modules.some(({ name }) =>
     ["quickjs", "pi", "python", "gamedev"].includes(name)), false);
   const source = graphs.flatMap(({ records }) => records.map((record) => record.source)).join("\n");
@@ -635,7 +636,10 @@ test("Dollyfiles compose pinned modules through the sequential C engine", async 
 
 test("HOST inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
-  const definitions = await discoverImageDefinitions(projectDir);
+  const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
+  const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
+  const definitions = (await discoverImageDefinitions(projectDir))
+    .filter(({ image }) => selected.has(image));
   const sources = await inspectStaticSources(projectDir, definitions);
   assert.ok(sources.length >= 50);
   assert.ok(sources.every((item) =>
@@ -650,13 +654,19 @@ test("HOST inputs are independent exact pinned files", async () => {
 
 test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(artifact("dolly-images.mjs"));
-  assert.deepEqual(DOLLY_IMAGES.map(({ image, dollyfile }) => ({ image, dollyfile })), [
+  const knownImages = [
     { image: "default", dollyfile: "Dollyfile" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
     { image: "pi", dollyfile: "Dollyfile-pi" },
     { image: "python", dollyfile: "Dollyfile-python" },
     { image: "python-pi", dollyfile: "Dollyfile-python-pi" },
-  ]);
+  ];
+  const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
+  assert.ok(DOLLY_IMAGES.length > 0);
+  assert.deepEqual(
+    DOLLY_IMAGES.map(({ image, dollyfile }) => ({ image, dollyfile })),
+    knownImages.filter(({ image }) => selected.has(image)),
+  );
   assert.ok(DOLLY_STATIC_SOURCES.length >= 50);
   for (const image of DOLLY_IMAGES) {
     await readFile(new URL(`../build/routes/${image.image}/index.html`, import.meta.url));
@@ -1013,6 +1023,9 @@ test("the C++ SDK uses the pinned no-exception libc++ target profile", async () 
   const packaging = await readFile(
     new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8",
   );
+  const compilerRtPreparation = await readFile(
+    new URL("../scripts/prepare-compiler-rt.sh", import.meta.url), "utf8",
+  );
   assert.match(compiler, /argument == "-fno-exceptions"/);
   assert.match(compiler, /argument == "-fno-rtti"/);
   assert.match(compiler, /"--no-check-features"/);
@@ -1027,10 +1040,18 @@ test("the C++ SDK uses the pinned no-exception libc++ target profile", async () 
   for (const library of ["libc++.a", "libc++abi.a", "libclang_rt.builtins.a"]) {
     assert.match(compiler, new RegExp(escapeRegex(`/usr/lib/${library}`)));
   }
+  assert.ok(
+    compiler.indexOf('link_inputs.push_back("/usr/lib/libclang_rt.builtins.a")') >
+      compiler.indexOf("if (needs_cxx_runtime)"),
+    "compiler-rt must be linked for C commands as well as C++ commands",
+  );
   assert.match(cpp, /SLOP ar \\\n+  rcs \\\n+  \/usr\/lib\/libc\+\+abi\.a/);
   assert.match(cpp, /SOURCE HOST \/static\/default\/libcxx-headers\.tar/);
   assert.match(cpp, /SLOP tar \\\n+  -xf \/tmp\/cpp\/libcxx-headers\.tar/);
   assert.match(packaging, /--exclude-file \*\/c\+\+\/v1\/\*/);
+  assert.match(packaging, /build\/generated\/libclang_rt\.dolly\.a/);
+  assert.match(compilerRtPreparation, /ar d "\$\{staging\}" emscripten_setjmp\.o/);
+  assert.match(compilerRtPreparation, /mv -T -- "\$\{staging\}" "\$\{output_archive\}"/);
   assert.match(cpp, /EXPORTS LIB\s+c\+\+abi\s+\/usr\/lib\/libc\+\+abi\.a/);
   assert.match(cpp, /SLOP rm \\\n+  -rf \\\n+  \/tmp\/cpp/);
 });
@@ -1092,7 +1113,6 @@ test("Zig bootstraps the retained Ghostty VT and display libraries inside Dolly"
     /mv -- "\$\{temporary_module_stamp\}" "\$\{module_stamp\}"/);
   assert.match(nativePrepare, /zig-0\.16\.0-dolly-native\.patch/);
   assert.match(nativePrepare, /patch --batch --forward/);
-
   assert.match(nativeMain, /const compiler = @import\("compiler"\)/);
   assert.match(nativeMain, /compiler\.main\(/);
   assert.match(nativeMain, /export fn ZigClang_main/);
@@ -1406,8 +1426,12 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   assert.match(browserProof, /__dollyIncompleteBootstrapPaints/);
 });
 
-test("upstream Pi is packaged for Janis and customized only through normal files", async () => {
-  const packaging = await readFile(new URL("../scripts/build-pi.mjs", import.meta.url), "utf8");
+test("upstream Pi is compiled in Dolly and customized only through normal files", async () => {
+  const fetchSource = await readFile(new URL("../scripts/fetch-pi-source.sh", import.meta.url), "utf8");
+  const packageRuntime = await readFile(
+    new URL("../scripts/build-pi-runtime-packages.mjs", import.meta.url), "utf8",
+  );
+  const piRecipe = await readFile(new URL("../modules/pi.dm", import.meta.url), "utf8");
   const { startup } = await readImagePlan("pi");
   const toolchain = await readFile(new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
   const extension = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
@@ -1424,11 +1448,14 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
   const page = await readFile(new URL("../terminal.html", import.meta.url), "utf8");
 
-  assert.match(packaging, /globalThis\.PI_BUNDLED_NODE = true/);
-  assert.match(packaging, /registerBunOAuthFlows/);
-  assert.match(packaging, /@earendil-works\/pi-ai\/bun-oauth/);
-  assert.match(packaging, /await main\(process\.argv\.slice\(2\)\)/);
-  assert.match(packaging, /unmodified upstream CLI packaged for Janis/);
+  assert.match(fetchSource, /git clone --quiet --filter=blob:none --no-checkout/);
+  assert.match(fetchSource, /checkout --quiet "\$\{DOLLY_PI_SOURCE_COMMIT\}"/);
+  assert.match(packageRuntime, /package-lock\.json/);
+  assert.match(packageRuntime, /typeof locked\.integrity !== "string"/);
+  assert.match(piRecipe, /SOURCE HOST \/static\/default\/pi-source\.tar/);
+  assert.match(piRecipe, /SLOP CWD \/usr\/src\/pi-source\/packages\/coding-agent tsc/);
+  assert.match(piRecipe, /SLOP janis -m \/usr\/lib\/pi\/apply-pi-quickjs-compat\.mjs/);
+  assert.match(piRecipe, /SLOP make \\\n  -f \/tmp\/pi\/Makefile/);
   for (const name of ["bash", "read", "edit", "write", "download"]) {
     assert.match(extension, new RegExp(`name: "${name}"`));
   }
@@ -1464,5 +1491,6 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   assert.match(startup, /extensions\/dolly-tools\.js/);
   assert.match(startup, /\.pi\/agent\/SYSTEM\.md/);
   assert.match(startup, /SOURCE HOST \/static\/default\/runtimes\/janis\.js\s+\/usr\/lib\/janis\/runtime\.js/);
-  assert.match(startup, /SOURCE HOST \/static\/default\/pi-package\.tar/);
+  assert.match(startup, /SOURCE HOST \/static\/default\/pi-source\.tar/);
+  assert.match(startup, /SOURCE HOST \/static\/default\/pi-runtime-packages\.tar/);
 });

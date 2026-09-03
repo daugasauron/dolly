@@ -1,0 +1,37 @@
+# External published packages reached by Dolly's pinned Pi runtime profile.
+#
+# This is an explicit packaging allowlist, not a package-manager input. The
+# build verifies each entry against package-lock.json and archives it from the
+# exact npm ci tree. Workspace packages are compiled from pinned Git source
+# inside Dolly and therefore must not appear here.
+@anthropic-ai/sdk
+@google/genai
+balanced-match
+brace-expansion
+chalk
+cross-spawn
+diff
+get-east-asian-width
+graceful-fs
+grok-mermaid
+highlight.js
+hosted-git-info
+ignore
+isexe
+jiti
+lru-cache
+marked
+minimatch
+openai
+p-retry
+partial-json
+path-key
+proper-lockfile
+retry
+semver
+shebang-command
+shebang-regex
+signal-exit
+typebox
+which
+yaml

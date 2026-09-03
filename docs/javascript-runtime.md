@@ -19,6 +19,41 @@ Engine replacement would not remove the Janis work. Node compatibility is
 mostly runtime APIs, module resolution, streams, terminal behavior, and
 lifecycle semantics—not ECMAScript evaluation.
 
+This split is now the production Pi path rather than a parallel experiment.
+The unchanged TypeScript 5.9.3 CommonJS compiler runs through Janis as
+`/usr/bin/tsc`, reads and writes WasmFS, and emits all 495 modules in the seven
+pinned Pi runtime workspace packages. `/usr/bin/pi` loads those unbundled ESM
+files plus a reviewed 31-package external profile directly from WasmFS. The
+same command passes deterministic streaming/tool tests and a real OpenRouter
+extension-install turn. Host esbuild is no longer a build dependency.
+Pi's ordinary runtime resources live beside that emitted `dist` tree in its
+installed package root; the image build initializes and stops the real TUI as a
+regression gate rather than checking only CLI metadata.
+The browser suite also writes a TypeScript Pi extension into WasmFS, compiles it
+with the target `tsc`, restarts Pi, and invokes the emitted tool. This closes the
+first extension source loop without a host compiler or runtime package fetch.
+
+Pi's Dolly settings set `images.autoResize` to false. Standard PNG, JPEG, GIF,
+and WebP inputs therefore pass through unchanged instead of entering Pi's
+Photon resize path. Photon is a wasm32 module instantiated through JavaScript's
+`WebAssembly.Module`; QuickJS-ng does not provide a nested WebAssembly engine,
+and a real Janis probe reaches exactly `ReferenceError: WebAssembly is not
+defined`. Shipping that package would add 2.27 MB of dead input while causing
+Pi to omit images whenever auto-resize was requested, so the explicit runtime
+profile excludes it. This is a runtime compatibility boundary, not a reason to
+add a browser import.
+
+Janis reached that point through measured additions: mode-aware import/require
+conditions, ESM and CommonJS package scopes, JSON modules,
+`import.meta.resolve`, relative `.cjs`, package imports/exports, and
+deterministic `fs.globSync`. These are runtime compatibility rules over the
+shared filesystem, not browser capabilities.
+
+The resolver is intentionally not an npm client. It normalizes and confines
+export targets to their package root, searches only WasmFS, and fails when a
+package, export, file, or builtin adapter is absent. No resolution path calls
+HTTP, the DOM, or a host module loader.
+
 ## Alternatives considered
 
 | Engine/runtime | Attractive part | Why it is not the next move |
@@ -41,4 +76,3 @@ wasm64 command format, use the same WasmFS and HTTP edge, support interruption,
 survive repeated invocation, and run the existing Pi test corpus. Until one
 passes that gate with materially less compatibility code, switching engines is
 cost without evidence.
-

@@ -17,7 +17,8 @@ const projectDir = resolve(import.meta.dirname, "..");
 const imageSpecs = [
   { image: "default", filename: "Dollyfile", uses: ["default"], entry: "/bin/slop" },
   {
-    image: "pi", filename: "Dollyfile-pi", uses: ["default", "quickjs", "pi"],
+    image: "pi", filename: "Dollyfile-pi",
+    uses: ["default", "quickjs", "typescript", "pi"],
     entry: "/usr/bin/pi",
   },
   {
@@ -27,18 +28,22 @@ const imageSpecs = [
   },
   {
     image: "python-pi", filename: "Dollyfile-python-pi",
-    uses: ["default", "python", "quickjs", "pi"],
+    uses: ["default", "python", "quickjs", "typescript", "pi"],
     entry: "/usr/bin/pi",
   },
   {
     image: "gamedev", filename: "Dollyfile-gamedev",
-    uses: ["default", "quickjs", "pi", "gamedev"],
+    uses: ["default", "quickjs", "typescript", "pi", "gamedev"],
     entry: "/usr/bin/graphics-demo",
   },
 ];
 const defaultChildren = [
   "bootstrap", "core-tools", "download", "tar", "make", "zig", "ghostty", "cpp",
   "ninja", "zlib", "curl", "git", "awk", "sbase",
+  "sbase-tools-1", "sbase-tools-2", "sbase-tools-3", "sbase-tools-4",
+  "sbase-tools-5", "sbase-tools-6", "sbase-tools-7", "sbase-tools-8",
+  "sbase-tools-9", "sbase-tools-10", "sbase-tools-11", "sbase-tools-12",
+  "agent-tools",
 ];
 
 async function loadImages() {
@@ -564,6 +569,38 @@ test("small Dolly-owned command sources are inline", async () => {
   assert.match(tar.files.find(({ path }) => path.endsWith("/tar.c")).body, /BLOCK_SIZE = 512/);
 });
 
+test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", async () => {
+  const graph = await loadDollyfileGraph(projectDir, "Dollyfile-pi");
+  const typescript = graph.modules.find(({ name }) => name === "typescript");
+  const pi = graph.modules.find(({ name }) => name === "pi");
+  assert.ok(typescript);
+  assert.ok(pi);
+  assert.ok(typescript.sources.some(({ location }) =>
+    location === "/static/default/typescript-5.9.3.tgz"));
+  assert.ok(typescript.exports.some(({ type, name }) =>
+    type === "TOOL" && name === "tsc"));
+  assert.ok(pi.sources.some(({ location }) =>
+    location === "/static/default/pi-source.tar"));
+  assert.equal(pi.sources.some(({ location }) => location.includes("pi-package.tar")), false);
+  assert.deepEqual(
+    pi.slops.filter(({ command }) => command[0] === "tsc")
+      .map(({ cwd }) => cwd),
+    [
+      "/usr/src/pi-source/packages/telemetry",
+      "/usr/src/pi-source/packages/ai",
+      "/usr/src/pi-source/packages/agent",
+      "/usr/src/pi-source/packages/protocol",
+      "/usr/src/pi-source/packages/client",
+      "/usr/src/pi-source/packages/tui",
+      "/usr/src/pi-source/packages/coding-agent",
+    ],
+  );
+  assert.ok(pi.folders.some(({ path }) => path === "/usr/src/pi-source"));
+  assert.ok(pi.exports.some(({ type, name, details }) =>
+    type === "ENV" && name === "PI_PACKAGE_DIR" &&
+    details[0] === "/usr/lib/node_modules/@earendil-works/pi-coding-agent"));
+});
+
 test("each module removes the build scratch paths it declares", async () => {
   const modules = uniqueModules(await loadImages());
   for (const module of modules.values()) {
@@ -733,6 +770,19 @@ test("module cache keys bind each leaf to the complete earlier recipe prefix", a
     "/modules/git.dm",
     "/modules/awk.dm",
     "/modules/sbase.dm",
+    "/modules/sbase-tools-1.dm",
+    "/modules/sbase-tools-2.dm",
+    "/modules/sbase-tools-3.dm",
+    "/modules/sbase-tools-4.dm",
+    "/modules/sbase-tools-5.dm",
+    "/modules/sbase-tools-6.dm",
+    "/modules/sbase-tools-7.dm",
+    "/modules/sbase-tools-8.dm",
+    "/modules/sbase-tools-9.dm",
+    "/modules/sbase-tools-10.dm",
+    "/modules/sbase-tools-11.dm",
+    "/modules/sbase-tools-12.dm",
+    "/modules/agent-tools.dm",
   ]);
   assert.ok(caches.every(({ cacheKey }) => /^[0-9a-f]{64}$/.test(cacheKey)));
   assert.equal(new Set(caches.map(({ cacheKey }) => cacheKey)).size, caches.length);
@@ -890,7 +940,7 @@ test("host preparation scripts publish atomically and own their temporary paths"
   const scriptNames = await readdir(resolve(projectDir, "scripts"));
   for (const name of scriptNames) {
     const source = await readFile(resolve(projectDir, "scripts", name), "utf8");
-    if (/\bmktemp\b/.test(source)) {
+    if (/(?:^|[($=;|& \t])mktemp[ \t]/m.test(source)) {
       assert.match(source, /trap .*EXIT|trap cleanup EXIT/, `${name} must trap cleanup`);
     }
     if (/\bmkdtemp\(/.test(source)) {
@@ -908,7 +958,12 @@ test("host preparation scripts publish atomically and own their temporary paths"
   const browserHarness = await readFile(
     resolve(projectDir, "scripts/browser-harness.mjs"), "utf8",
   );
-  const pi = await readFile(resolve(projectDir, "scripts/build-pi.mjs"), "utf8");
+  const piSource = await readFile(
+    resolve(projectDir, "scripts/fetch-pi-source.sh"), "utf8",
+  );
+  const piPackages = await readFile(
+    resolve(projectDir, "scripts/build-pi-runtime-packages.mjs"), "utf8",
+  );
   const bison = await readFile(resolve(projectDir, "scripts/build-bison.sh"), "utf8");
   const nativeZig = await readFile(
     resolve(projectDir, "scripts/build-native-zig.sh"), "utf8",
@@ -934,8 +989,10 @@ test("host preparation scripts publish atomically and own their temporary paths"
     /const server = await startServer\(\);[\s\S]*?try \{[\s\S]*?browserDownloadDirectory = await mkdtemp/,
   );
   assert.match(browserHarness, /if \(chrome !== null\)/);
-  assert.match(pi, /await rename\(generatedPackageDirectory, generatedPackageOutput\)/);
-  assert.match(pi, /finally[\s\S]*?rm\(temporaryPackagePath/);
+  assert.match(piSource, /trap .*EXIT/);
+  assert.match(piSource, /DOLLY_PI_SOURCE_COMMIT/);
+  assert.match(piPackages, /package-lock\.json/);
+  assert.match(piPackages, /pi-runtime-packages\.tar/);
   assert.doesNotMatch(bison, /bison-\$\{version\}-build/);
   assert.match(bison, /make DESTDIR="\$\{temporary_install\}" install/);
   assert.match(nativeZig, /temporary_object=/);
@@ -991,9 +1048,11 @@ test("build modules declare tools used by their own recipes", async () => {
     ["ghostty", ["ar", "cc", "zig"]],
     ["git", ["ar", "cc", "mkdir", "rm"]],
     ["ninja", ["make"]],
+    ["agent-tools", ["cc"]],
     ["pi", ["cc"]],
     ["quickjs", ["ar", "cc"]],
     ["sbase", ["cc"]],
+    ["typescript", ["cc"]],
     ["zlib", ["ar", "cc"]],
   ]);
   for (const [name, tools] of recipeTools) {

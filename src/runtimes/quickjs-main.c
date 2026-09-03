@@ -143,19 +143,105 @@ static char *normalize_absolute_path(JSContext *context, const char *path) {
   return normalized;
 }
 
-static char *module_normalize(JSContext *context, const char *base_name,
-                              const char *module_name, void *opaque) {
-  (void)opaque;
-  if (module_name[0] == '/') {
-    return normalize_absolute_path(context, module_name);
-  }
-  if (module_name[0] != '.' ||
-      (module_name[1] != '/' &&
-       !(module_name[1] == '.' && module_name[2] == '/'))) {
+static char *resolve_bare_module(JSContext *context, const char *base_name,
+                                 const char *module_name) {
+  JSValue global = JS_GetGlobalObject(context);
+  JSValue resolver = JS_GetPropertyStr(context, global, "__janisResolveModule");
+  JS_FreeValue(context, global);
+  if (!JS_IsFunction(context, resolver)) {
+    JS_FreeValue(context, resolver);
     JS_ThrowReferenceError(context,
                            "unsupported bare module specifier: %s",
                            module_name);
     return NULL;
+  }
+
+  JSValue arguments[] = {
+      JS_NewString(context, module_name),
+      JS_NewString(context, base_name),
+  };
+  if (JS_IsException(arguments[0]) || JS_IsException(arguments[1])) {
+    JS_FreeValue(context, arguments[0]);
+    JS_FreeValue(context, arguments[1]);
+    JS_FreeValue(context, resolver);
+    return NULL;
+  }
+  JSValue result = JS_Call(context, resolver, JS_UNDEFINED, 2, arguments);
+  JS_FreeValue(context, arguments[0]);
+  JS_FreeValue(context, arguments[1]);
+  JS_FreeValue(context, resolver);
+  if (JS_IsException(result)) return NULL;
+
+  const char *resolved = JS_ToCString(context, result);
+  JS_FreeValue(context, result);
+  if (resolved == NULL) return NULL;
+  if (resolved[0] != '/') {
+    JS_ThrowReferenceError(context,
+                           "bare module resolver returned a non-absolute path");
+    JS_FreeCString(context, resolved);
+    return NULL;
+  }
+  char *normalized = normalize_absolute_path(context, resolved);
+  JS_FreeCString(context, resolved);
+  return normalized;
+}
+
+// Janis classifies every normalized filesystem module as ESM or CommonJS.
+// Plain qjs does not install this hook and therefore retains QuickJS's direct
+// file-module behavior.
+static char *classify_file_module(JSContext *context, char *normalized) {
+  if (normalized == NULL) return NULL;
+  JSValue global = JS_GetGlobalObject(context);
+  JSValue classifier = JS_GetPropertyStr(context, global, "__janisResolveFile");
+  JS_FreeValue(context, global);
+  if (!JS_IsFunction(context, classifier)) {
+    JS_FreeValue(context, classifier);
+    return normalized;
+  }
+
+  JSValue argument = JS_NewString(context, normalized);
+  if (JS_IsException(argument)) {
+    JS_FreeValue(context, classifier);
+    free(normalized);
+    return NULL;
+  }
+  JSValue result = JS_Call(context, classifier, JS_UNDEFINED, 1, &argument);
+  JS_FreeValue(context, argument);
+  JS_FreeValue(context, classifier);
+  if (JS_IsException(result)) {
+    free(normalized);
+    return NULL;
+  }
+  const char *classified = JS_ToCString(context, result);
+  JS_FreeValue(context, result);
+  if (classified == NULL) {
+    free(normalized);
+    return NULL;
+  }
+  if (classified[0] != '/') {
+    JS_ThrowReferenceError(context,
+                           "module classifier returned a non-absolute path");
+    JS_FreeCString(context, classified);
+    free(normalized);
+    return NULL;
+  }
+  char *result_path = normalize_absolute_path(context, classified);
+  JS_FreeCString(context, classified);
+  free(normalized);
+  return result_path;
+}
+
+static char *module_normalize(JSContext *context, const char *base_name,
+                              const char *module_name, void *opaque) {
+  (void)opaque;
+  if (module_name[0] == '/') {
+    return classify_file_module(
+        context, normalize_absolute_path(context, module_name));
+  }
+  if (module_name[0] != '.' ||
+      (module_name[1] != '/' &&
+       !(module_name[1] == '.' && module_name[2] == '/'))) {
+    return resolve_bare_module(context, base_name, module_name);
   }
 
   const char *slash = strrchr(base_name, '/');
@@ -180,7 +266,37 @@ static char *module_normalize(JSContext *context, const char *base_name,
   }
   char *normalized = normalize_absolute_path(context, joined);
   free(joined);
-  return normalized;
+  return classify_file_module(context, normalized);
+}
+
+static JSValue js_import_meta_resolve(JSContext *context,
+                                      JSValueConst this_value, int argc,
+                                      JSValueConst *argv, int magic,
+                                      JSValueConst *function_data) {
+  (void)this_value;
+  (void)magic;
+  if (argc < 1) {
+    return JS_ThrowTypeError(context,
+                             "import.meta.resolve requires a specifier");
+  }
+  JSValue global = JS_GetGlobalObject(context);
+  JSValue resolver =
+      JS_GetPropertyStr(context, global, "__janisImportMetaResolve");
+  JS_FreeValue(context, global);
+  if (!JS_IsFunction(context, resolver)) {
+    JS_FreeValue(context, resolver);
+    return JS_ThrowTypeError(context,
+                             "import.meta.resolve is unavailable in qjs");
+  }
+  JSValue arguments[] = {
+      JS_DupValue(context, argv[0]),
+      JS_DupValue(context, function_data[0]),
+  };
+  JSValue result = JS_Call(context, resolver, JS_UNDEFINED, 2, arguments);
+  JS_FreeValue(context, arguments[0]);
+  JS_FreeValue(context, arguments[1]);
+  JS_FreeValue(context, resolver);
+  return result;
 }
 
 static int set_import_meta(JSContext *context, JSValueConst module,
@@ -200,20 +316,31 @@ static int set_import_meta(JSContext *context, JSValueConst module,
   }
   memcpy(url, "file://", sizeof("file://") - 1);
   memcpy(url + sizeof("file://") - 1, name, length + 1);
+  JSValue base_name = JS_NewString(context, name);
   JS_FreeCString(context, name);
-
-  JSValue meta = JS_GetImportMeta(context, definition);
-  if (JS_IsException(meta)) {
+  if (JS_IsException(base_name)) {
     free(url);
     return -1;
   }
+
+  JSValue meta = JS_GetImportMeta(context, definition);
+  if (JS_IsException(meta)) {
+    JS_FreeValue(context, base_name);
+    free(url);
+    return -1;
+  }
+  JSValue resolve = JS_NewCFunctionData2(
+      context, js_import_meta_resolve, "resolve", 1, 0, 1, &base_name);
+  JS_FreeValue(context, base_name);
   const int url_status = JS_DefinePropertyValueStr(
       context, meta, "url", JS_NewString(context, url), JS_PROP_C_W_E);
   const int main_status = JS_DefinePropertyValueStr(
       context, meta, "main", JS_NewBool(context, is_main), JS_PROP_C_W_E);
+  const int resolve_status = JS_DefinePropertyValueStr(
+      context, meta, "resolve", resolve, JS_PROP_C_W_E);
   JS_FreeValue(context, meta);
   free(url);
-  return url_status < 0 || main_status < 0 ? -1 : 0;
+  return url_status < 0 || main_status < 0 || resolve_status < 0 ? -1 : 0;
 }
 
 static JSModuleDef *module_loader(JSContext *context, const char *module_name,
@@ -225,6 +352,38 @@ static JSModuleDef *module_loader(JSContext *context, const char *module_name,
     JS_ThrowReferenceError(context, "could not load module '%s': %s",
                            module_name, strerror(errno));
     return NULL;
+  }
+
+  // QuickJS's module callback receives the resolved WasmFS path after import
+  // attributes have been parsed, but it does not compile JSON modules itself.
+  // JSON is already a valid JavaScript expression, so expose its value through
+  // a tiny synthetic ESM wrapper. This stays entirely inside Dolly's memory and
+  // adds no host or browser capability.
+  const size_t module_name_length = strlen(module_name);
+  if (module_name_length >= sizeof(".json") - 1 &&
+      strcmp(module_name + module_name_length - (sizeof(".json") - 1),
+             ".json") == 0) {
+    static const char prefix[] = "export default (";
+    static const char suffix[] = ");\n";
+    if (length > SIZE_MAX - (sizeof(prefix) - 1) - sizeof(suffix)) {
+      free(source);
+      JS_ThrowOutOfMemory(context);
+      return NULL;
+    }
+    const size_t wrapped_length =
+        (sizeof(prefix) - 1) + length + (sizeof(suffix) - 1);
+    char *wrapped = malloc(wrapped_length + 1);
+    if (wrapped == NULL) {
+      free(source);
+      JS_ThrowOutOfMemory(context);
+      return NULL;
+    }
+    memcpy(wrapped, prefix, sizeof(prefix) - 1);
+    memcpy(wrapped + sizeof(prefix) - 1, source, length);
+    memcpy(wrapped + sizeof(prefix) - 1 + length, suffix, sizeof(suffix));
+    free(source);
+    source = wrapped;
+    length = wrapped_length;
   }
   JSValue module = JS_Eval(context, source, length, module_name,
                            JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
@@ -1118,7 +1277,8 @@ static int install_dolly_backend(JSContext *context) {
   return 0;
 }
 
-static int install_globals(JSContext *context, int argc, char **argv) {
+static int install_globals(JSContext *context, const char *executable,
+                           const char *script_path, int argc, char **argv) {
   JSValue global = JS_GetGlobalObject(context);
   JSValue print = JS_NewCFunction(context, js_print, "print", 1);
   if (JS_IsException(print)) {
@@ -1178,6 +1338,17 @@ static int install_globals(JSContext *context, int argc, char **argv) {
     }
   }
   if (JS_SetPropertyStr(context, global, "scriptArgs", script_args) < 0) {
+    JS_FreeValue(context, global);
+    return -1;
+  }
+  if (JS_SetPropertyStr(context, global, "scriptExecutable",
+                        JS_NewString(context, executable)) < 0) {
+    JS_FreeValue(context, global);
+    return -1;
+  }
+  if (script_path != NULL &&
+      JS_SetPropertyStr(context, global, "scriptPath",
+                        JS_NewString(context, script_path)) < 0) {
     JS_FreeValue(context, global);
     return -1;
   }
@@ -1490,8 +1661,8 @@ int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
   JS_SetModuleLoaderFunc(runtime, module_normalize, module_loader, NULL);
   JSContext *context = JS_NewContext(runtime);
   if (context == NULL ||
-      install_globals(context, argc - argument_index,
-                      argv + argument_index) != 0 ||
+      install_globals(context, argv[0], strcmp(name, "<eval>") == 0 ? NULL : name,
+                      argc - argument_index, argv + argument_index) != 0 ||
       install_dolly_backend(context) != 0 ||
       load_dolly_prelude(context) != 0) {
     fputs("qjs: could not create context\n", stderr);

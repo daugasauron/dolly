@@ -103,6 +103,17 @@ redirected files and serial pipeline spools are false. This provides the TTY
 distinction applications need without adding native ioctl or browser terminal
 imports.
 
+Terminal mode is a separate, libc-independent part of that in-Wasm substrate.
+`dolly_terminal_mode_get` and `dolly_terminal_mode_set` exchange only a closed
+mask for canonical input and echo. Dolly's stdin device owns
+the corresponding line discipline and spawn restores the caller's mode when a
+command finishes or is interrupted. Foreground Ctrl+C is intentionally outside
+this mask: it remains unconditional command supervision, including in raw mode,
+so compromised or broken code cannot disable the user's recovery path. A libc
+or runtime that exposes `termios` must translate its own structure above these
+bits; no libc layout is frozen into the machine contract and no mode operation
+reaches the browser.
+
 `dolly-http-0.wat` defines the separate browser-facing streaming network
 mailbox. Synchronous C clients use typed `dolly_http_perform` request/response
 structs, while language event loops use `dolly_http_start` and nonblocking

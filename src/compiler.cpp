@@ -1620,8 +1620,11 @@ int compile_and_link(const DriverOptions &options, int default_language,
     // C++ implementation through the stable dolly-0 substrate.
     link_inputs.push_back("/usr/lib/libc++.a");
     link_inputs.push_back("/usr/lib/libc++abi.a");
-    link_inputs.push_back("/usr/lib/libclang_rt.builtins.a");
   }
+  // Compiler-generated helpers are part of the target runtime, not Dolly's
+  // platform substrate. Link them into every C/C++ command so operations such
+  // as 128-bit multiplication do not become accidental dolly-0 imports.
+  link_inputs.push_back("/usr/lib/libclang_rt.builtins.a");
 
   const std::string linked =
       temporary_path(job, options.inputs.size() + 1, ".wasm");

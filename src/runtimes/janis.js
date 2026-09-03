@@ -588,6 +588,115 @@ function fsRemove(path, options = {}) {
 function fsRealpath(path) {
   return fsNative(path, "realpath", () => Dolly.realpath(String(path)));
 }
+
+function janisGlobSegment(pattern, value) {
+  if (value.startsWith(".") && !pattern.startsWith(".")) return false;
+  let source = "^";
+  for (let index = 0; index < pattern.length; index++) {
+    const character = pattern[index];
+    if (character === "*") source += ".*";
+    else if (character === "?") source += ".";
+    else if (character === "[") {
+      const close = pattern.indexOf("]", index + 1);
+      if (close < 0) source += "\\[";
+      else {
+        let body = pattern.slice(index + 1, close);
+        if (body.startsWith("!")) body = `^${body.slice(1)}`;
+        else if (body.startsWith("^")) body = `\\${body}`;
+        source += `[${body.replaceAll("\\", "\\\\")}]`;
+        index = close;
+      }
+    }
+    else source += character.replace(/[\\^$.*+?(){}|]/g, "\\$&");
+  }
+  return new RegExp(`${source}$`, "u").test(value);
+}
+
+function janisGlobMatches(pattern, path) {
+  const patternParts = pattern.split("/").filter((part) => part !== "");
+  const pathParts = path.split("/").filter((part) => part !== "");
+  const memo = new Map();
+  const visit = (patternIndex, pathIndex) => {
+    const key = `${patternIndex}:${pathIndex}`;
+    if (memo.has(key)) return memo.get(key);
+    let matched;
+    if (patternIndex === patternParts.length) matched = pathIndex === pathParts.length;
+    else if (patternParts[patternIndex] === "**") {
+      while (patternParts[patternIndex + 1] === "**") patternIndex++;
+      matched = visit(patternIndex + 1, pathIndex) ||
+        (pathIndex < pathParts.length && !pathParts[pathIndex].startsWith(".") &&
+          visit(patternIndex, pathIndex + 1));
+    }
+    else matched = pathIndex < pathParts.length &&
+      janisGlobSegment(patternParts[patternIndex], pathParts[pathIndex]) &&
+      visit(patternIndex + 1, pathIndex + 1);
+    memo.set(key, matched);
+    return matched;
+  };
+  return visit(0, 0);
+}
+
+function janisGlobWalk(root) {
+  const entries = [];
+  const walk = (directory, relativeDirectory) => {
+    for (const name of fsReaddir(directory).sort()) {
+      const relativePath = relativeDirectory ? `${relativeDirectory}/${name}` : name;
+      const absolutePath = janisPath.join(directory, name);
+      const metadata = fsStat(absolutePath);
+      entries.push({ relativePath, absolutePath, metadata });
+      // Dolly's lstat-shaped metadata makes the default no-symlink traversal
+      // explicit and cycle-free.
+      if (metadata.isDirectory()) walk(absolutePath, relativePath);
+    }
+  };
+  walk(root, "");
+  return entries;
+}
+
+function fsGlobSync(pattern, options = {}) {
+  if (options.followSymlinks) {
+    throw Object.assign(new Error("Janis glob does not follow symbolic links"), {
+      code: "ERR_METHOD_NOT_IMPLEMENTED",
+    });
+  }
+  const cwdValue = options.cwd instanceof URL
+    ? decodeURIComponent(options.cwd.pathname)
+    : options.cwd ?? Dolly.cwd();
+  const cwd = resolvePath(String(cwdValue));
+  const patterns = (Array.isArray(pattern) ? pattern : [pattern]).map(String);
+  const found = new Map();
+  for (let candidatePattern of patterns) {
+    const absolute = candidatePattern.startsWith("/");
+    while (candidatePattern.startsWith("./")) candidatePattern = candidatePattern.slice(2);
+    const root = absolute ? "/" : cwd;
+    const matchPattern = absolute ? candidatePattern.slice(1) : candidatePattern;
+    for (const entry of janisGlobWalk(root)) {
+      if (!janisGlobMatches(matchPattern, entry.relativePath)) continue;
+      const value = absolute ? entry.absolutePath : entry.relativePath;
+      found.set(value, entry);
+    }
+  }
+
+  const excluded = options.exclude;
+  const excludePatterns = Array.isArray(excluded) ? excluded.map(String) : [];
+  return [...found.entries()].sort(([left], [right]) => left.localeCompare(right))
+    .filter(([value, entry]) => {
+      const visible = options.withFileTypes
+        ? Object.assign(new JanisDirent(basename(value), entry.metadata), {
+            parentPath: dirname(entry.absolutePath), path: dirname(entry.absolutePath),
+          })
+        : value;
+      if (typeof excluded === "function" && excluded(visible)) return false;
+      return !excludePatterns.some((excludedPattern) =>
+        janisGlobMatches(excludedPattern, value));
+    })
+    .map(([value, entry]) => options.withFileTypes
+      ? Object.assign(new JanisDirent(basename(value), entry.metadata), {
+          parentPath: dirname(entry.absolutePath), path: dirname(entry.absolutePath),
+        })
+      : value);
+}
+
 function callbackResult(operation, callback) {
   queueMicrotask(() => {
     try { callback(null, operation()); } catch (error) { callback(error); }
@@ -705,6 +814,11 @@ const janisFs = {
   appendFileSync: fsAppend,
   mkdirSync: fsMkdir,
   readdirSync: fsReaddir,
+  globSync: fsGlobSync,
+  glob(pattern, options, callback) {
+    if (typeof options === "function") { callback = options; options = {}; }
+    callbackResult(() => fsGlobSync(pattern, options), callback);
+  },
   unlinkSync: (path) => fsNative(path, "unlink", () => Dolly.fsUnlink(String(path))),
   rmdirSync: (path) => fsNative(path, "rmdir", () => Dolly.fsRmdir(String(path))),
   rmSync: fsRemove,
@@ -1389,6 +1503,279 @@ const janisBuiltinModuleNames = [
   "timers/promises", "tls", "tty", "url", "util", "util/types", "v8", "vm",
   "worker_threads", "zlib", "undici",
 ];
+
+function janisModuleFile(candidate) {
+  for (const path of [
+    candidate,
+    `${candidate}.js`,
+    `${candidate}.mjs`,
+    `${candidate}.cjs`,
+    janisPath.join(candidate, "index.js"),
+    janisPath.join(candidate, "index.mjs"),
+  ]) {
+    try {
+      if (fsStat(path).isFile()) return path;
+    }
+    catch {}
+  }
+  return undefined;
+}
+
+function janisExportTarget(value, conditions) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    for (const candidate of value) {
+      const target = janisExportTarget(candidate, conditions);
+      if (target !== undefined) return target;
+    }
+    return undefined;
+  }
+  if (value && typeof value === "object") {
+    for (const condition of conditions)
+      if (Object.hasOwn(value, condition)) {
+        const target = janisExportTarget(value[condition], conditions);
+        if (target !== undefined) return target;
+      }
+  }
+  return undefined;
+}
+
+function janisMappedTarget(map, key, conditions) {
+  if (Object.hasOwn(map, key)) return janisExportTarget(map[key], conditions);
+  let best;
+  for (const pattern of Object.keys(map)) {
+    const star = pattern.indexOf("*");
+    if (star < 0 || pattern.indexOf("*", star + 1) >= 0) continue;
+    const prefix = pattern.slice(0, star);
+    const suffix = pattern.slice(star + 1);
+    if (!key.startsWith(prefix) || !key.endsWith(suffix) ||
+        key.length < prefix.length + suffix.length) continue;
+    const target = janisExportTarget(map[pattern], conditions);
+    if (target === undefined || (best && prefix.length <= best.prefix.length)) continue;
+    best = {
+      prefix,
+      match: key.slice(prefix.length, key.length - suffix.length),
+      target,
+    };
+  }
+  return best?.target?.replaceAll("*", best.match);
+}
+
+function janisPackageExport(exportsValue, subpath, conditions) {
+  const key = subpath ? `./${subpath}` : ".";
+  if (typeof exportsValue === "string" || Array.isArray(exportsValue))
+    return subpath ? undefined : janisExportTarget(exportsValue, conditions);
+  if (!exportsValue || typeof exportsValue !== "object") return undefined;
+  if (!Object.keys(exportsValue).some((entry) => entry.startsWith(".")))
+    return subpath ? undefined : janisExportTarget(exportsValue, conditions);
+  return janisMappedTarget(exportsValue, key, conditions);
+}
+
+function janisPackageImport(specifier, baseName, forRequire = false, raw = false) {
+  if (specifier === "#" || specifier.startsWith("#/")) {
+    throw Object.assign(new Error(`Invalid package import specifier '${specifier}'`), {
+      code: "ERR_INVALID_MODULE_SPECIFIER",
+    });
+  }
+  let directory = String(baseName).startsWith("/") ? dirname(baseName) : Dolly.cwd();
+  for (;;) {
+    const manifestPath = janisPath.join(directory, "package.json");
+    if (fsExists(manifestPath)) {
+      let manifest;
+      try { manifest = JSON.parse(fsRead(manifestPath, "utf8")); }
+      catch (error) {
+        throw Object.assign(new Error(`Invalid package manifest '${manifestPath}': ${error.message}`), {
+          code: "ERR_INVALID_PACKAGE_CONFIG",
+        });
+      }
+      const conditions = forRequire
+        ? ["require", "default", "node"]
+        : ["import", "default", "node"];
+      const target = manifest.imports && typeof manifest.imports === "object"
+        ? janisMappedTarget(manifest.imports, specifier, conditions)
+        : undefined;
+      if (target === undefined) {
+        throw Object.assign(new Error(`Package import '${specifier}' is not defined by '${manifestPath}'`), {
+          code: "ERR_PACKAGE_IMPORT_NOT_DEFINED",
+        });
+      }
+      if (!target.startsWith("./"))
+        return janisResolveModule(target, manifestPath, forRequire, raw);
+      const candidate = normalizePath(directory, target);
+      if (candidate !== directory && !candidate.startsWith(`${directory}/`)) {
+        throw Object.assign(new Error(`Package import '${specifier}' escapes its package root`), {
+          code: "ERR_INVALID_PACKAGE_TARGET",
+        });
+      }
+      const resolved = janisModuleFile(candidate);
+      if (resolved !== undefined)
+        return forRequire || raw ? resolved : janisModuleForImport(resolved);
+      throw Object.assign(new Error(`Cannot find package import '${specifier}'`), {
+        code: "ERR_MODULE_NOT_FOUND",
+      });
+    }
+    const parent = dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  throw Object.assign(new Error(`Package import '${specifier}' has no package scope`), {
+    code: "ERR_PACKAGE_IMPORT_NOT_DEFINED",
+  });
+}
+
+function janisEsmBuiltin(specifier) {
+  const name = String(specifier).replace(/^node:/, "");
+  const builtin = globalThis.__janisBuiltin(name);
+  const directory = "/tmp/janis-esm-builtins";
+  const path = `${directory}/${name.replaceAll("/", "__")}.mjs`;
+  const exports = Object.keys(builtin)
+    .filter((key) => key !== "default" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key))
+    .sort();
+  const source = [
+    `const builtin = globalThis.__janisBuiltin(${JSON.stringify(name)});`,
+    "export default builtin;",
+    ...exports.map((key) => `export const ${key} = builtin[${JSON.stringify(key)}];`),
+    "",
+  ].join("\n");
+  fsMkdir(directory, { recursive: true });
+  if (!fsExists(path) || fsRead(path, "utf8") !== source) fsWrite(path, source);
+  return path;
+}
+
+function janisModuleIsEsm(path, fallback = false) {
+  if (path.endsWith(".mjs")) return true;
+  if (path.endsWith(".cjs")) return false;
+  let directory = dirname(path);
+  for (;;) {
+    const manifestPath = janisPath.join(directory, "package.json");
+    if (fsExists(manifestPath)) {
+      try { return JSON.parse(fsRead(manifestPath, "utf8")).type === "module"; }
+      catch (error) {
+        throw Object.assign(new Error(`Invalid package manifest '${manifestPath}': ${error.message}`), {
+          code: "ERR_INVALID_PACKAGE_CONFIG",
+        });
+      }
+    }
+    const parent = dirname(directory);
+    if (parent === directory) return fallback;
+    directory = parent;
+  }
+}
+
+function janisEsmCommonJs(modulePath) {
+  const value = globalThis.__janisRequireCjs(modulePath);
+  const directory = "/tmp/janis-esm-commonjs";
+  const digest = createHash("sha256").update(modulePath).digest("hex");
+  const path = `${directory}/${digest}.mjs`;
+  const exports = value !== null && (typeof value === "object" || typeof value === "function")
+    ? Object.keys(value)
+      .filter((key) => key !== "default" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key))
+      .sort()
+    : [];
+  const source = [
+    `const value = globalThis.__janisRequireCjs(${JSON.stringify(modulePath)});`,
+    "export default value;",
+    ...exports.map((key) => `export const ${key} = value[${JSON.stringify(key)}];`),
+    "",
+  ].join("\n");
+  fsMkdir(directory, { recursive: true });
+  if (!fsExists(path) || fsRead(path, "utf8") !== source) fsWrite(path, source);
+  return path;
+}
+
+function janisModuleForImport(path) {
+  return janisModuleIsEsm(path, true) ? path : janisEsmCommonJs(path);
+}
+
+function janisResolveModule(specifier, baseName, forRequire = false, raw = false) {
+  specifier = String(specifier);
+  if (specifier.startsWith("#"))
+    return janisPackageImport(specifier, baseName, forRequire, raw);
+  if (specifier.startsWith("node:") ||
+      janisBuiltinModuleNames.includes(specifier)) {
+    return janisEsmBuiltin(specifier);
+  }
+  const parts = specifier.split("/");
+  const packageParts = specifier.startsWith("@") ? 2 : 1;
+  if (parts.length < packageParts || parts.slice(0, packageParts).some((part) =>
+    !part || part === "." || part === ".." || part.includes("\\"))) {
+    throw Object.assign(new Error(`Invalid bare module specifier '${specifier}'`), {
+      code: "ERR_INVALID_MODULE_SPECIFIER",
+    });
+  }
+  const packageName = parts.slice(0, packageParts).join("/");
+  const subpath = parts.slice(packageParts).join("/");
+  if (subpath.split("/").some((part) => part === "." || part === ".." || part.includes("\\"))) {
+    throw Object.assign(new Error(`Invalid bare module specifier '${specifier}'`), {
+      code: "ERR_INVALID_MODULE_SPECIFIER",
+    });
+  }
+
+  let directory = String(baseName).startsWith("/")
+    ? dirname(baseName)
+    : Dolly.cwd();
+  const roots = [];
+  for (;;) {
+    roots.push(janisPath.join(directory, "node_modules"));
+    const parent = dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  roots.push("/usr/lib/node_modules");
+
+  for (const root of roots) {
+    const packageRoot = janisPath.join(root, packageName);
+    const manifestPath = janisPath.join(packageRoot, "package.json");
+    if (!fsExists(manifestPath)) continue;
+    let manifest;
+    try { manifest = JSON.parse(fsRead(manifestPath, "utf8")); }
+    catch (error) {
+      throw Object.assign(new Error(`Invalid package manifest '${manifestPath}': ${error.message}`), {
+        code: "ERR_INVALID_PACKAGE_CONFIG",
+      });
+    }
+
+    let target;
+    if (manifest.exports !== undefined) {
+      const conditions = forRequire
+        ? ["require", "default", "node"]
+        : ["import", "default", "node"];
+      target = janisPackageExport(manifest.exports, subpath, conditions);
+      if (target === undefined) {
+        throw Object.assign(new Error(`Package '${packageName}' does not export './${subpath}'`), {
+          code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
+        });
+      }
+    } else if (subpath) target = `./${subpath}`;
+    else {
+      target = manifest.module ?? manifest.main ?? "./index.js";
+      if (typeof target === "string" && !target.startsWith(".") && !target.startsWith("/"))
+        target = `./${target}`;
+    }
+    if (typeof target !== "string" || !target.startsWith("./")) {
+      throw Object.assign(new Error(`Package '${packageName}' has an unsupported export target`), {
+        code: "ERR_INVALID_PACKAGE_TARGET",
+      });
+    }
+    const candidate = normalizePath(packageRoot, target);
+    if (candidate !== packageRoot && !candidate.startsWith(`${packageRoot}/`)) {
+      throw Object.assign(new Error(`Package '${packageName}' export escapes its package root`), {
+        code: "ERR_INVALID_PACKAGE_TARGET",
+      });
+    }
+    const resolved = janisModuleFile(candidate);
+    if (resolved !== undefined)
+      return forRequire || raw ? resolved : janisModuleForImport(resolved);
+    throw Object.assign(new Error(`Cannot find exported module '${specifier}'`), {
+      code: "ERR_MODULE_NOT_FOUND",
+    });
+  }
+  throw Object.assign(new Error(`Cannot find package '${packageName}' from '${baseName}'`), {
+    code: "ERR_MODULE_NOT_FOUND",
+  });
+}
+globalThis.__janisResolveModule = janisResolveModule;
+
 const janisRequireCache = Object.create(null);
 function createJanisRequire(filename = "/usr/lib/janis/index.js") {
   const base = dirname(filename);
@@ -1397,16 +1784,39 @@ function createJanisRequire(filename = "/usr/lib/janis/index.js") {
     if (janisBuiltinModuleNames.includes(name)) return globalThis.__janisBuiltin(name);
     const resolved = require.resolve(String(specifier));
     if (resolved.endsWith(".json")) return JSON.parse(fsRead(resolved, "utf8"));
-    throw Object.assign(new Error(`Janis cannot require '${specifier}' without Jiti`), {
-      code: "MODULE_NOT_FOUND",
-    });
+    if (janisModuleIsEsm(resolved)) {
+      throw Object.assign(new Error(`Cannot require ES module '${resolved}'`), {
+        code: "ERR_REQUIRE_ESM",
+      });
+    }
+    const cached = janisRequireCache[resolved];
+    if (cached) return cached.exports;
+    const child = new JanisModule(resolved);
+    janisRequireCache[resolved] = child;
+    try {
+      let source = fsRead(resolved, "utf8");
+      if (source.startsWith("#!")) source = source.replace(/^#![^\n]*(?:\n|$)/, "");
+      const wrapper = Function(
+        "exports", "require", "module", "__filename", "__dirname",
+        `${source}\n//# sourceURL=${resolved}`,
+      );
+      wrapper(child.exports, child.require, child, resolved, dirname(resolved));
+      child.loaded = true;
+      return child.exports;
+    }
+    catch (error) {
+      delete janisRequireCache[resolved];
+      throw error;
+    }
   };
   require.resolve = (specifier) => {
     const value = String(specifier);
     const name = value.replace(/^node:/, "");
     if (janisBuiltinModuleNames.includes(name)) return value.startsWith("node:") ? value : name;
+    if (!value.startsWith("/") && !value.startsWith("./") && !value.startsWith("../"))
+      return janisResolveModule(value, filename, true);
     const candidate = value.startsWith("/") ? normalizePath(value) : resolvePath(base, value);
-    for (const path of [candidate, `${candidate}.js`, `${candidate}.json`, janisPath.join(candidate, "index.js")]) {
+    for (const path of [candidate, `${candidate}.js`, `${candidate}.cjs`, `${candidate}.json`, janisPath.join(candidate, "index.js")]) {
       if (fsExists(path)) return path;
     }
     throw Object.assign(new Error(`Cannot find module '${specifier}'`), {
@@ -1422,6 +1832,19 @@ function createJanisRequire(filename = "/usr/lib/janis/index.js") {
   require.main = undefined;
   return require;
 }
+globalThis.__janisRequireCjs = (path) => createJanisRequire(String(path))(String(path));
+globalThis.__janisResolveFile = (path) => janisModuleForImport(String(path));
+globalThis.__janisImportMetaResolve = (specifier, baseName) => {
+  specifier = String(specifier);
+  if (specifier.startsWith("node:")) return specifier;
+  if (janisBuiltinModuleNames.includes(specifier)) return `node:${specifier}`;
+  if (specifier.startsWith("file:")) return new URL(specifier).href;
+  if (specifier.startsWith("/")) return `file://${normalizePath(specifier)}`;
+  if (specifier.startsWith("./") || specifier.startsWith("../")) {
+    return `file://${normalizePath(dirname(String(baseName)), specifier)}`;
+  }
+  return `file://${janisResolveModule(specifier, baseName, false, true)}`;
+};
 
 const janisTls = {
   connect: () => { throw new Error("Janis has no TLS sockets; use fetch"); },

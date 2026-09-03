@@ -3,7 +3,6 @@
 
 DOLLY_EMSDK_VERSION=6.0.8
 DOLLY_EMSDK_IMAGE='docker.io/emscripten/emsdk:6.0.8@sha256:8714ed3a9fb585e662c931259a996bac36a57a8dd34b81e8277436fd77364475'
-
 DOLLY_EMSCRIPTEN_COMMIT=aeb67926e7de656da38bc807d83050af93578758
 DOLLY_EMSCRIPTEN_URL='https://github.com/emscripten-core/emscripten.git'
 
@@ -23,7 +22,12 @@ DOLLY_QUICKJS_URL='https://github.com/quickjs-ng/quickjs.git'
 DOLLY_PI_VERSION=0.84.4
 DOLLY_PI_URL='https://registry.npmjs.org/@earendil-works/pi-coding-agent/-/pi-coding-agent-0.84.4.tgz'
 DOLLY_PI_SHA256=5bce766d19c3ceba18f3fbaad91c449c9f9d73981f9e3400ecef932006f06968
-DOLLY_ESBUILD_VERSION=0.25.9
+DOLLY_PI_SOURCE_COMMIT=b79e4cc834970cca69daebffab7df1da7d1e52c4
+DOLLY_PI_SOURCE_URL='https://github.com/earendil-works/pi.git'
+
+DOLLY_TYPESCRIPT_VERSION=5.9.3
+DOLLY_TYPESCRIPT_URL='https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz'
+DOLLY_TYPESCRIPT_SHA256=10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3
 
 DOLLY_CPYTHON_VERSION=3.14.7
 DOLLY_CPYTHON_COMMIT=823f0323ee6ec1402088b73bce1a38473cac36dc

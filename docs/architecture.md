@@ -191,6 +191,14 @@ Dolly's tty discipline. Emscripten's browser stdin fallback is absent. The
 shell consumes the resulting queue through its line editor; foreground commands
 consume it through ordinary libc stdin.
 
+Input records belong to the foreground-command epoch in which the browser
+published them. When the resident Pi entry returns, Dolly consumes any records
+that were already queued for that PID before publishing the recovery Slop PID;
+resize records still update the retained terminal geometry, while key, text,
+paste, pointer, and scroll records are discarded. This prevents the release
+half of a Ctrl+D chord—or delayed paste data—from becoming the successor
+shell's input. Encoded and canonical tty buffers are reset at the same boundary.
+
 Terminal output is passed to the same resident module, whose source-built
 Ghostty VT engine owns the grid and whose pinned stb_truetype/Iosevka path
 rasterizes into the inactive of two bounded RGBA buffers. Atomic frame metadata
@@ -205,9 +213,14 @@ the typed operations in `abi/dolly-0.wat`. It receives the inactive RGBA8
 buffer and semantic input records, never the browser mailbox or a DOM/canvas
 handle. Ghostty continues to parse output while frame publication is suspended;
 normal exit, command-local exit, and Ctrl-C all restore it at the command
-boundary. See [`display.md`](display.md) for the ownership and lifecycle rules.
+boundary. A lease may select bounded logical dimensions, wait on an atomic
+browser-animation-frame sequence, and choose a cursor from a closed semantic
+enum. The page only scales complete checked frames and maps the enum through a
+fixed table; these operations add no browser import. See
+[`display.md`](display.md) for the ownership and lifecycle rules.
 
-Mailbox version 3 includes two fixed in-Wasm clipboard buffers. `Ctrl+Shift+V`
+Mailbox version 4 includes two fixed in-Wasm clipboard buffers, the graphics
+animation sequence, and the semantic cursor word. `Ctrl+Shift+V`
 publishes the browser's pasted UTF-8 bytes with an atomic
 sequence/acknowledgement pair;
 Ghostty performs bracketed-paste encoding inside Dolly. Pointer records install
@@ -234,9 +247,20 @@ derives a three-bit child stdio TTY mask from the parent's descriptor identities
 and the requested redirections, then restores the parent mask at the command
 boundary. Non-standard character descriptors retain a `fstat` fallback.
 Ordinary files and the temporary files used for serial pipelines are false.
-Emscripten's generic native-style terminal ioctl is not used because Dolly's
-tty discipline is the in-Wasm display/input device itself. This keeps
-Node-shaped runtimes interactive at the canvas while making redirected output
+The libc-independent terminal-mode substrate is only a closed two-bit mask:
+canonical input and echo. `dolly_terminal_mode_get(fd)` and
+`dolly_terminal_mode_set(fd, flags)` expose that mask to filesystem modules;
+the runtime implements the line discipline in Wasm and restores the prior mask
+at every command boundary, including command-local exit and Ctrl-C. Language
+adapters translate native structures above this contract. CPython's adapter,
+for example, maps `struct termios` plus `TIOCGWINSZ` to these operations and
+Dolly's in-Wasm terminal dimensions. Foreground Ctrl+C is deliberately not a
+mutable terminal bit: Dolly's lifecycle supervisor keeps it available in raw
+mode so a program cannot disable the user's recovery path. CPython consequently
+reports `ISIG` as enabled while applying the canonical/echo subset requested by
+`tty.setraw()`. The browser receives no terminal-mode import and Emscripten's
+generic native-style terminal ioctl remains unused.
+This keeps runtimes interactive at the canvas while redirected output remains
 truthfully non-TTY.
 
 Version 0 lifecycle is deliberately bounded and synchronous. `dolly_spawn`
@@ -253,8 +277,16 @@ outlive one command can instead export the presence-only
 `dolly_preserve_module_state` marker. Dolly then retains that module handle and
 does not restore its static image; CPython uses this to initialize once while
 all invocations remain serialized in the same in-Wasm userspace. The marker
-does not add a browser import or a new isolation boundary. Complete
-command-local heap/descriptor reclamation remains future work. Concurrent
+does not add a browser import or a new isolation boundary. Descriptors opened
+below Dolly's explicit 4096-descriptor epoch ceiling are
+now reclaimed at every nested command boundary after the parent's routed
+standard streams are restored. Modules with the explicit
+`dolly_preserve_module_state` marker retain the descriptors they own across
+outer ephemeral callers as part of the same declared runtime lifetime; CPython
+requires this for repeated interpreter entry. This prevents ordinary `open`
+leaks from poisoning later commands without breaking a persistent runtime;
+reclaiming leaked libc `FILE` objects, allocations, and deliberately duplicated
+high descriptors remains future work. Concurrent
 scheduling is intentionally deferred unless a concrete tool cannot be adapted
 with simpler synchronous semantics.
 Libc-owned state outside a side module, including installed signal handlers, is
@@ -271,9 +303,13 @@ active command with status 124 at the same safepoints. Pi's noninteractive
 shell tool supplies finite empty stdin and a 60-second deadline, preventing an
 accidental reader from consuming the TUI and bounding instrumented CPU loops.
 A foreign Wasm module that neither uses that target nor polls the lifecycle API
-can still wedge the worker, so an outer deadline and worker-replacement
-protocol remains necessary before the stronger claim that every arbitrary Wasm
-binary is recoverable.
+cannot be unwound safely inside the shared address space. The trusted page
+therefore escalates an unacknowledged Ctrl+C after two seconds—or a repeated
+Ctrl+C immediately—by terminating the entire runtime worker and reloading the
+route. If the route names a saved session, the new worker restores that opaque
+WasmFS checkpoint; otherwise it restores the sealed base image. This is real
+preemption without a guest capability, but it cannot preserve filesystem
+changes made after the last cooperative checkpoint.
 
 HTTP uses a second versioned shared-memory mailbox. A command supplies a method,
 URL, headers, fixed request body, and flags to `dolly_http_start`; the browser
@@ -312,7 +348,10 @@ object, browser filesystem API, host path, or read-back channel. See
 6. A practical JavaScript runtime. Pinned QuickJS-ng compiles from source
    inside Dolly; Janis provides the measured filesystem, module, process,
    stream, event, timer, Fetch, and terminal compatibility needed by upstream
-   Pi's full TUI and dependency-free extensions.
+   Pi's full TUI and dependency-free extensions. Its ESM loader resolves a
+   finite, browser-tested `package.json` `exports` subset through ancestor
+   `node_modules` directories and `/usr/lib/node_modules`, entirely in WasmFS;
+   resolution never downloads a package or asks the browser for a module.
 7. A second large language runtime. The Python image builds pinned CPython 3.14
    inside Dolly, then installs portable wheels through the libcurl-backed
    Bonnie client without adding a network edge.

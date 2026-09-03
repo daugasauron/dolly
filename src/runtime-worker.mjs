@@ -467,17 +467,28 @@ try {
       bootstrapStatus = dolly._dolly_bootstrap_resume(
         BigInt(range.size), moduleCache.uses,
       );
-      } else {
-        bootstrapStatus = dolly._dolly_bootstrap();
+    } else {
+      bootstrapStatus = dolly._dolly_bootstrap();
+    }
+    removeStagedModuleCache(dolly);
+
+    // A compiler-heavy cold build can exhaust its disposable Wasm instance
+    // after several modules. Publish every fully completed, content-addressed
+    // layer even when a later module fails so a reload can resume in fresh
+    // memory. The C engine validates the layer format and exact cache key on
+    // restoration; incomplete modules never create an output layer.
+    const savedModuleLayers = await publishModuleCache(dolly);
+    if (savedModuleLayers !== 0) {
+      bootstrapStage(`saved ${savedModuleLayers} local module cache layers`);
+    }
+
+    if (bootstrapStatus === 0) {
+      if (moduleCache) {
+        bootstrapStage(
+          `module cache reused ${moduleCache.uses} modules from ${moduleCache.image}`,
+        );
       }
-      removeStagedModuleCache(dolly);
-      if (bootstrapStatus === 0) {
-        if (moduleCache) {
-          bootstrapStage(
-            `module cache reused ${moduleCache.uses} modules from ${moduleCache.image}`,
-          );
-        }
-        if (dolly._dolly_snapshot_capture() !== 0) {
+      if (dolly._dolly_snapshot_capture() !== 0) {
         throw new Error("Dolly system snapshot capture failed");
       }
       const range = checkedMemoryRange(
@@ -487,18 +498,9 @@ try {
       copy.set(new Uint8Array(memory.buffer, range.address, range.size));
       snapshotBytes = range.size;
       self.postMessage({ type: "system-snapshot", bytes: copy.buffer }, [copy.buffer]);
-        bootstrapStage("starting sandbox display...");
-        bootstrapStatus = dolly._dolly_bootstrap_finish();
-        if (bootstrapStatus === 0) {
-          const savedModuleLayers = await publishModuleCache(dolly);
-          if (savedModuleLayers !== 0) {
-            bootstrapStage(`saved ${savedModuleLayers} local module cache layers`);
-          }
-        }
-      }
-      if (bootstrapStatus !== 0) {
-        removeCacheTree(dolly, "/etc/dolly/module-cache-output");
-      }
+      bootstrapStage("starting sandbox display...");
+      bootstrapStatus = dolly._dolly_bootstrap_finish();
+    }
   } else {
     bootstrapStage("loading precompiled userspace snapshot...");
     const snapshot = await loadPackagedSystemSnapshot(configuredImage, snapshotMetadata);

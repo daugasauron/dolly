@@ -64,6 +64,36 @@ I was thinking if it makes sense to add some concept of modules with requires/ex
 
 Add some skill file to pi for self improvement, link to github repo and more detailed knowledge of the code.
 
+## Pi crashes
+
+It seems still common that pi just crashes and goes back to the shell, example:
+
+```
+
+ $ cat /seed/usr/include/dolly/abi.h
+
+ ... (15 earlier lines, ctrl+o to expand)
+ #ifdef __cplusplus
+ }
+ #endif
+
+ #endif
+
+ Took 0.8s
+
+
+ ⠴ Working...
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+dolly:/$
+dolly:/$ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+dolly:/$
+```
+
+## Is QuickJS the best way to do things?
+
+Research alternatives and more robust solutions.
+
 ## Audit/docs
 
 Go through all the docs and update them. The current ones are too wordy keep them to the point. Use figures and images to describe architecture.
@@ -71,3 +101,15 @@ Go through all the docs and update them. The current ones are too wordy keep the
 I like that the documentation is separated into different docs.
 
 I want the repo to be as clean as possible. Go through it and remove everything that does not add value. Each line of code in the repo should have a reason to be there.
+
+Do not keep code that's not in use.
+
+## Pi latest version
+
+PI is checking for updates and getting blocked by CORS?
+
+Add to the default dolly pi extension to skip this to keep error log clean.
+
+```
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://pi.dev/api/latest-version. (Reason: CORS request did not succeed). Status code: (null).
+```

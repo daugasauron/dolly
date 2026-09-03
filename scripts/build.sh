@@ -44,6 +44,8 @@ if has_module awk; then
   awk_generated_dir="$("${project_dir}/scripts/generate-awk.sh")"
 fi
 has_module quickjs && quickjs_dir="$("${project_dir}/scripts/fetch-quickjs.sh")"
+has_module pi && pi_source_dir="$("${project_dir}/scripts/fetch-pi-source.sh")"
+has_module typescript && typescript_archive="$("${project_dir}/scripts/fetch-typescript.sh")"
 has_module curl && curl_dir="$("${project_dir}/scripts/fetch-curl.sh")"
 has_module zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
 has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
@@ -67,11 +69,6 @@ mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
 web_font="${font_paths[0]}"
 runtime_font="${font_paths[1]}"
 
-if has_module pi; then
-  DOLLY_PI_VERSION="${DOLLY_PI_VERSION}" \
-  DOLLY_ESBUILD_VERSION="${DOLLY_ESBUILD_VERSION}" \
-    node "${project_dir}/scripts/build-pi.mjs"
-fi
 if [[ "${container[0]}" == "podman" ]]; then
   container=(podman run --rm --userns=keep-id \
     -v "${project_dir}:/src" \
@@ -200,11 +197,26 @@ if has_module ninja; then
 fi
 if has_module pi; then
   copy_static "${project_dir}/src/commands/pi.c" default/commands/pi.c
+  copy_static "${project_dir}/config/pi-tsconfig.dolly.json" default/pi-tsconfig.dolly.json
+  copy_static "${project_dir}/config/pi-quickjs-compat.mjs" default/pi-quickjs-compat.mjs
+  copy_static "${project_dir}/src/runtimes/apply-pi-quickjs-compat.mjs" default/runtimes/apply-pi-quickjs-compat.mjs
   copy_static "${project_dir}/src/pi/dolly-tools.js" default/pi/dolly-tools.js
   copy_static "${project_dir}/src/pi/SYSTEM.md" default/pi/SYSTEM.md
   copy_static "${project_dir}/src/pi/settings.json" default/pi/settings.json
   copy_static "${project_dir}/src/pi/dolly-theme.json" default/pi/dolly-theme.json
   copy_static "${project_dir}/src/pi/skills/dolly/SKILL.md" default/pi/dolly-skill.md
+fi
+if has_module typescript; then
+  copy_static "${project_dir}/src/commands/tsc.c" default/commands/tsc.c
+  copy_static "${project_dir}/src/runtimes/tsc-dolly.mjs" default/runtimes/tsc-dolly.mjs
+  copy_static "${typescript_archive}" default/typescript-5.9.3.tgz
+fi
+if has_module agent-tools; then
+  for command in install which command xargs find tail tee env printenv rev \
+      timeout time uname hostname realpath diff patch du dd tty gzip; do
+    copy_static "${project_dir}/src/commands/${command}.c" \
+      "default/commands/${command}.c"
+  done
 fi
 if has_module ghostty; then
   copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c
@@ -247,14 +259,50 @@ if has_module sbase; then
 node scripts/build-source-tar.mjs dist/static/default/sbase.tar \
   "${sbase_dir}/grep.c" /usr/src/sbase/grep.c \
   "${sbase_dir}/head.c" /usr/src/sbase/head.c \
+  "${sbase_dir}/od.c" /usr/src/sbase/od.c \
+  "${sbase_dir}/cut.c" /usr/src/sbase/cut.c \
+  "${sbase_dir}/basename.c" /usr/src/sbase/basename.c \
+  "${sbase_dir}/cksum.c" /usr/src/sbase/cksum.c \
+  "${sbase_dir}/cmp.c" /usr/src/sbase/cmp.c \
+  "${sbase_dir}/comm.c" /usr/src/sbase/comm.c \
+  "${sbase_dir}/date.c" /usr/src/sbase/date.c \
+  "${sbase_dir}/dirname.c" /usr/src/sbase/dirname.c \
+  "${sbase_dir}/expand.c" /usr/src/sbase/expand.c \
+  "${sbase_dir}/expr.c" /usr/src/sbase/expr.c \
+  "${sbase_dir}/false.c" /usr/src/sbase/false.c \
+  "${sbase_dir}/fold.c" /usr/src/sbase/fold.c \
+  "${sbase_dir}/join.c" /usr/src/sbase/join.c \
+  "${sbase_dir}/ln.c" /usr/src/sbase/ln.c \
+  "${sbase_dir}/nl.c" /usr/src/sbase/nl.c \
   "${sbase_dir}/printf.c" /usr/src/sbase/printf.c \
+  "${sbase_dir}/paste.c" /usr/src/sbase/paste.c \
+  "${sbase_dir}/pathchk.c" /usr/src/sbase/pathchk.c \
+  "${sbase_dir}/readlink.c" /usr/src/sbase/readlink.c \
+  "${sbase_dir}/rmdir.c" /usr/src/sbase/rmdir.c \
+  "${sbase_dir}/mktemp.c" /usr/src/sbase/mktemp.c \
+  "${sbase_dir}/md5sum.c" /usr/src/sbase/md5sum.c \
   "${sbase_dir}/sed.c" /usr/src/sbase/sed.c \
+  "${sbase_dir}/seq.c" /usr/src/sbase/seq.c \
+  "${sbase_dir}/sort.c" /usr/src/sbase/sort.c \
+  "${sbase_dir}/sha256sum.c" /usr/src/sbase/sha256sum.c \
+  "${sbase_dir}/sleep.c" /usr/src/sbase/sleep.c \
+  "${sbase_dir}/split.c" /usr/src/sbase/split.c \
+  "${sbase_dir}/strings.c" /usr/src/sbase/strings.c \
+  "${sbase_dir}/tr.c" /usr/src/sbase/tr.c \
+  "${sbase_dir}/true.c" /usr/src/sbase/true.c \
+  "${sbase_dir}/tsort.c" /usr/src/sbase/tsort.c \
+  "${sbase_dir}/unexpand.c" /usr/src/sbase/unexpand.c \
+  "${sbase_dir}/uniq.c" /usr/src/sbase/uniq.c \
   "${sbase_dir}/wc.c" /usr/src/sbase/wc.c \
   "${sbase_dir}/queue.h" /usr/src/sbase/queue.h \
+  "${sbase_dir}/text.h" /usr/src/sbase/text.h \
   "${sbase_dir}/util.h" /usr/src/sbase/util.h \
   "${sbase_dir}/utf.h" /usr/src/sbase/utf.h \
   "${sbase_dir}/arg.h" /usr/src/sbase/arg.h \
   "${sbase_dir}/compat.h" /usr/src/sbase/compat.h \
+  "${sbase_dir}/crypt.h" /usr/src/sbase/crypt.h \
+  "${sbase_dir}/md5.h" /usr/src/sbase/md5.h \
+  "${sbase_dir}/sha256.h" /usr/src/sbase/sha256.h \
   "${sbase_dir}/libutil" /usr/src/sbase/libutil \
   "${sbase_dir}/libutf" /usr/src/sbase/libutf \
   "${sbase_dir}/LICENSE" /usr/share/licenses/sbase/LICENSE
@@ -327,8 +375,40 @@ node scripts/build-source-tar.mjs dist/static/python/cpython.tar \
   "${cpython_dir}/LICENSE" /usr/share/licenses/cpython/LICENSE
 fi
 if has_module pi; then
-  node scripts/build-source-tar.mjs dist/static/default/pi-package.tar \
-    "${project_dir}/build/generated/pi-package" /usr/lib/pi
+  node scripts/build-source-tar.mjs dist/static/default/pi-source.tar \
+    "${pi_source_dir}/tsconfig.base.json" /usr/src/pi-source/tsconfig.base.json \
+    "${pi_source_dir}/LICENSE" /usr/share/licenses/pi-source/LICENSE \
+    "${pi_source_dir}/packages/telemetry/package.json" /usr/src/pi-source/packages/telemetry/package.json \
+    "${pi_source_dir}/packages/telemetry/tsconfig.build.json" /usr/src/pi-source/packages/telemetry/tsconfig.build.json \
+    "${pi_source_dir}/packages/telemetry/src" /usr/src/pi-source/packages/telemetry/src \
+    "${pi_source_dir}/packages/ai/package.json" /usr/src/pi-source/packages/ai/package.json \
+    "${pi_source_dir}/packages/ai/tsconfig.build.json" /usr/src/pi-source/packages/ai/tsconfig.build.json \
+    "${pi_source_dir}/packages/ai/src" /usr/src/pi-source/packages/ai/src \
+    "${pi_source_dir}/packages/agent/package.json" /usr/src/pi-source/packages/agent/package.json \
+    "${pi_source_dir}/packages/agent/tsconfig.build.json" /usr/src/pi-source/packages/agent/tsconfig.build.json \
+    "${pi_source_dir}/packages/agent/src" /usr/src/pi-source/packages/agent/src \
+    "${pi_source_dir}/packages/protocol/package.json" /usr/src/pi-source/packages/protocol/package.json \
+    "${pi_source_dir}/packages/protocol/tsconfig.build.json" /usr/src/pi-source/packages/protocol/tsconfig.build.json \
+    "${pi_source_dir}/packages/protocol/src" /usr/src/pi-source/packages/protocol/src \
+    "${pi_source_dir}/packages/client/package.json" /usr/src/pi-source/packages/client/package.json \
+    "${pi_source_dir}/packages/client/tsconfig.build.json" /usr/src/pi-source/packages/client/tsconfig.build.json \
+    "${pi_source_dir}/packages/client/src" /usr/src/pi-source/packages/client/src \
+    "${pi_source_dir}/packages/tui/package.json" /usr/src/pi-source/packages/tui/package.json \
+    "${pi_source_dir}/packages/tui/tsconfig.build.json" /usr/src/pi-source/packages/tui/tsconfig.build.json \
+    "${pi_source_dir}/packages/tui/src" /usr/src/pi-source/packages/tui/src \
+    "${pi_source_dir}/packages/coding-agent/package.json" /usr/src/pi-source/packages/coding-agent/package.json \
+    "${pi_source_dir}/packages/coding-agent/tsconfig.build.json" /usr/src/pi-source/packages/coding-agent/tsconfig.build.json \
+    "${pi_source_dir}/packages/coding-agent/src" /usr/src/pi-source/packages/coding-agent/src \
+    "${pi_source_dir}/packages/coding-agent/README.md" /usr/src/pi-source/packages/coding-agent/README.md \
+    "${pi_source_dir}/packages/coding-agent/CHANGELOG.md" /usr/src/pi-source/packages/coding-agent/CHANGELOG.md \
+    "${pi_source_dir}/packages/coding-agent/docs" /usr/src/pi-source/packages/coding-agent/docs \
+    "${pi_source_dir}/packages/coding-agent/examples" /usr/src/pi-source/packages/coding-agent/examples
+  # The pinned Git source omits generated model data. Restore only that exact
+  # published artifact before compiling the seven Pi workspaces in Dolly.
+  node scripts/build-source-tar.mjs dist/static/default/pi-generated-model-data.tar \
+    "${project_dir}/node_modules/@earendil-works/pi-ai/dist/providers/data" \
+    /usr/src/pi-source/packages/ai/src/providers/data
+  node scripts/build-pi-runtime-packages.mjs
 fi
 if has_module zig; then
 node scripts/build-source-tar.mjs dist/static/default/zig-lib.tar \
@@ -358,6 +438,7 @@ node scripts/dolly-abi.mjs emit-emscripten-exports \
 node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-0.wasm \
   build/generated/dolly-abi-digest.h
+./scripts/prepare-compiler-rt.sh
 
 "${container[@]}" /emsdk/upstream/emscripten/emcmake cmake \
   -S toolchain \
@@ -368,6 +449,10 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DLLD_DIR=/src/.cache/llvm-wasm/lib/cmake/lld \
   -DDOLLY_ZIG_DIR="${zig_container_dir}"
 "${container[@]}" cmake --build build/runtime --parallel
+
+# Keep the pinned Emscripten wasm64 loader fail-closed when WasmFS returns a
+# view whose backing-buffer bounds differ from the view itself.
+node scripts/patch-emscripten-loader.mjs dist/dolly.mjs
 
 node scripts/dolly-abi.mjs stamp \
   build/dolly-0.wasm \
@@ -386,3 +471,4 @@ cp build/program-reader.wasm dist/program-reader.wasm
 cp build/program-inspector.wasm dist/program-inspector.wasm
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2
 node scripts/write-build-id.mjs dist/dolly.wasm dist/dolly.data dist/dolly-build-id.mjs
+node scripts/prune-stale-snapshots.mjs

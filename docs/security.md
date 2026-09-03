@@ -108,6 +108,14 @@ The worker creates the shared `WebAssembly.Memory`, and trusted page JavaScript
 can inspect it. Dolly protects the browser host from agent code; it does not try
 to hide Dolly state from the application embedding it.
 
+Worker termination is the outer availability boundary. An ordinary Ctrl+C is
+a PID-targeted in-Wasm request, but a command can omit every cooperative
+safepoint. After a two-second grace period, or on a repeated Ctrl+C, the trusted
+page terminates the worker and reloads either the route's last named opaque
+session checkpoint or the sealed base image. This adds no Wasm import and
+grants the guest no authority. It guarantees termination, not preservation of
+changes made after the last completed checkpoint.
+
 GitHub Pages cannot configure the COOP and COEP response headers required for
 shared WebAssembly memory. `coi-serviceworker.js` is therefore part of the
 trusted Pages embedding: it adds COOP, COEP, and same-origin resource policy

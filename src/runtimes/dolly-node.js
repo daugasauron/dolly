@@ -59,7 +59,11 @@ const stdin = {
 };
 
 globalThis.process = {
-  argv: ["qjs", ...(globalThis.scriptArgs ?? [])],
+  argv: [
+    globalThis.scriptExecutable ?? "qjs",
+    ...(globalThis.scriptPath ? [globalThis.scriptPath] : []),
+    ...(globalThis.scriptArgs ?? []),
+  ],
   env,
   platform: "wasm",
   arch: "wasm64",

@@ -1,0 +1,3 @@
+# Four-space FILE bodies encode target files verbatim. Indented blank lines and
+# a four-space prefix before Make recipe tabs are meaningful Dollyfile syntax.
+*.dm whitespace=-blank-at-eol,-space-before-tab,-blank-at-eof

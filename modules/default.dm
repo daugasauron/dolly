@@ -3,20 +3,33 @@ MODULE default
 
 # Direct children form this module's private sequential scope. Each child's
 # requirements resolve only against exports from earlier children in this list.
-USE HOST /modules/bootstrap.dm  be6ba4f8a513c5c617697692d4f50e22000740cb3d0ce21bc5212a105c651db4
-USE HOST /modules/core-tools.dm 60b30f8d7bf1afaa7be4660235ffaef2c193490a032d0482f170aaf845f39be0
-USE HOST /modules/download.dm   b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
-USE HOST /modules/tar.dm        360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
-USE HOST /modules/make.dm       cd76b282f98810858ec6026602996277b699540f6b55fb8fbb5c4992c1f8762e
-USE HOST /modules/zig.dm        31986fc8328d84cdd4fb78e89ae5b8f100a5314825db85cb41c7c8ab04a21e62
-USE HOST /modules/ghostty.dm    62344f9b489dd8dbf028ebdc2f2a1b95ed98cda0476980b903bf8d731863bc4b
-USE HOST /modules/cpp.dm        2f6dbbcaca09550036d6529d22634fe41dfc0cbd524c46521fa5cc47c3df8296
-USE HOST /modules/ninja.dm      77dae6ac93e748551c515115f4e500dc22de5345239d3204756b2ee66f3cdf5a
-USE HOST /modules/zlib.dm       091743c99ef011e20bfbe8ed0417f5c01eef5d04b90151f8cdaf561434b3e815
-USE HOST /modules/curl.dm       8af181a0e4c84ca3178f607634b5df9ca96027f0f085af4c37d20d1c9e0af140
-USE HOST /modules/git.dm        fb3a7901fb1ae3725e0900100f11aadcadef3c30c334ac2146ab4e68a80c0fb5
-USE HOST /modules/awk.dm        7b5674be32b3968c82b9af65f31c6d90a0207dee7bc6cb4eaaba30b963c5c09f
-USE HOST /modules/sbase.dm      d9f65e1c8f4977061ae6d28e650bdbf40cb09a39daed339c351c6101939dc189
+USE HOST /modules/bootstrap.dm      de38728d9d39daccdd692035a07bbe3ccbc582e7cc592a4a855f882d97057fe7
+USE HOST /modules/core-tools.dm     3f0c0750cc10d6e771753460919fc4020072449ccd88e263d0bf28289fe737be
+USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
+USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
+USE HOST /modules/make.dm           cd76b282f98810858ec6026602996277b699540f6b55fb8fbb5c4992c1f8762e
+USE HOST /modules/zig.dm            31986fc8328d84cdd4fb78e89ae5b8f100a5314825db85cb41c7c8ab04a21e62
+USE HOST /modules/ghostty.dm        62344f9b489dd8dbf028ebdc2f2a1b95ed98cda0476980b903bf8d731863bc4b
+USE HOST /modules/cpp.dm            2f6dbbcaca09550036d6529d22634fe41dfc0cbd524c46521fa5cc47c3df8296
+USE HOST /modules/ninja.dm          77dae6ac93e748551c515115f4e500dc22de5345239d3204756b2ee66f3cdf5a
+USE HOST /modules/zlib.dm           091743c99ef011e20bfbe8ed0417f5c01eef5d04b90151f8cdaf561434b3e815
+USE HOST /modules/curl.dm           8af181a0e4c84ca3178f607634b5df9ca96027f0f085af4c37d20d1c9e0af140
+USE HOST /modules/git.dm            8f15edbb818df9f23ea461053c45cc1fee713864eaf00e44159bd824afff8801
+USE HOST /modules/awk.dm            7b5674be32b3968c82b9af65f31c6d90a0207dee7bc6cb4eaaba30b963c5c09f
+USE HOST /modules/sbase.dm          a58af6850932e682ceec4654b45f7160a77dff665b2a1c64d1c35b541e291686
+USE HOST /modules/sbase-tools-1.dm  f6f9636eb27fd6eaaab909b744131a58c8dc55708cb4e5b8d60ba51aae12358f
+USE HOST /modules/sbase-tools-2.dm  4986431918e20e4442cb8c125952535fca413abef0a535cdc79b7f1b9f4d9d9f
+USE HOST /modules/sbase-tools-3.dm  453659b12ce77666e8f7aa7ca04a4ed956f3306b7d9d26d0046dd598fed85003
+USE HOST /modules/sbase-tools-4.dm  4c09247c5f89c330b4e2128f2c1d62494f4c8e77b69240be9d2d886c88fd583c
+USE HOST /modules/sbase-tools-5.dm  a62c2d0b72f096e43a0c59ef23ee6a7e0024025313eafb8402c79202450e9bfd
+USE HOST /modules/sbase-tools-6.dm  bba700a953c58ff06639820bf76af24160c0547a3b245563ccb8d271ca7de9da
+USE HOST /modules/sbase-tools-7.dm  020650d813f26459ef6c723fda49b259a0a7c51270c5c4dea90029d49d6eab07
+USE HOST /modules/sbase-tools-8.dm  e114a6d3072706e77e6b9e979d17c1cbfb24529e16a7b0405ca9c8bf850ef893
+USE HOST /modules/sbase-tools-9.dm  d9c56116e0d92412e85d1aeb236d5137828cad5592128883a879a9af0f6e1bbd
+USE HOST /modules/sbase-tools-10.dm 9450d6370ed290e63d001efb9b49e41bcaf7b77b4ab2725eb868eb7257f4c9af
+USE HOST /modules/sbase-tools-11.dm ebde90a5af5363d63d3f6189075a9ec864e44d47354bc1566f295b6fe72978b8
+USE HOST /modules/sbase-tools-12.dm 8cfe3edb9d5de7759a147e52734725662ffe43a1c5f6c7cfdf9a74aadf0228c5
+USE HOST /modules/agent-tools.dm    a6304bd7eae93aa6603bcb5cc50bf20bd228f5d2b7680052b8e52ea486e7f575
 
 # This is both a runtime and an SDK. Re-exports inherit the exact child object;
 # an object not listed here is build-private and is absent from the image.
@@ -78,9 +91,62 @@ EXPORTS TOOL grep
 EXPORTS TOOL sed
 EXPORTS TOOL head
 EXPORTS TOOL wc
+EXPORTS TOOL cut
+EXPORTS TOOL od
+EXPORTS TOOL true
+EXPORTS TOOL false
+EXPORTS TOOL sort
+EXPORTS TOOL uniq
+EXPORTS TOOL basename
+EXPORTS TOOL dirname
+EXPORTS TOOL tr
+EXPORTS TOOL cmp
+EXPORTS TOOL date
+EXPORTS TOOL mktemp
+EXPORTS TOOL sha256sum
+EXPORTS TOOL md5sum
+EXPORTS TOOL sleep
+EXPORTS TOOL ln
+EXPORTS TOOL readlink
+EXPORTS TOOL rmdir
+EXPORTS TOOL seq
+EXPORTS TOOL paste
+EXPORTS TOOL comm
+EXPORTS TOOL expr
+EXPORTS TOOL nl
+EXPORTS TOOL join
+EXPORTS TOOL split
+EXPORTS TOOL strings
+EXPORTS TOOL cksum
+EXPORTS TOOL fold
+EXPORTS TOOL expand
+EXPORTS TOOL unexpand
+EXPORTS TOOL tsort
+EXPORTS TOOL pathchk
 EXPORTS TOOL cc
 EXPORTS TOOL c++
 EXPORTS TOOL ld
 EXPORTS TOOL ar
+EXPORTS TOOL install
+EXPORTS TOOL which
+EXPORTS TOOL command
+EXPORTS TOOL xargs
+EXPORTS TOOL find
+EXPORTS TOOL tail
+EXPORTS TOOL tee
+EXPORTS TOOL env
+EXPORTS TOOL printenv
+EXPORTS TOOL rev
+EXPORTS TOOL timeout
+EXPORTS TOOL time
+EXPORTS TOOL uname
+EXPORTS TOOL hostname
+EXPORTS TOOL realpath
+EXPORTS TOOL diff
+EXPORTS TOOL patch
+EXPORTS TOOL du
+EXPORTS TOOL dd
+EXPORTS TOOL tty
+EXPORTS TOOL gzip
 
 EXPORTS FOLDER zig-lib

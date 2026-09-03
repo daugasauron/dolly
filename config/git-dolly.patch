@@ -19,6 +19,13 @@ diff --git a/run-command.c b/run-command.c
 index 5326b1a..39374ba 100644
 --- a/run-command.c
 +++ b/run-command.c
+@@ -138,0 +139,6 @@ int is_executable(const char *name)
++#ifdef DOLLY
++	/* Dolly has no permission model. Filesystem command validation happens at
++	 * the module loader boundary, so Unix execute bits cannot gate PATH lookup. */
++	return 1;
++#endif
++
 @@ -1126,7 +1126,11 @@ int git_atexit(void (*handler)(void))
  	ALLOC_GROW(git_atexit_hdlrs.handlers, git_atexit_hdlrs.nr + 1, git_atexit_hdlrs.alloc);
  	git_atexit_hdlrs.handlers[git_atexit_hdlrs.nr++] = handler;

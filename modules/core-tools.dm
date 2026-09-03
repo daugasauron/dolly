@@ -20,16 +20,25 @@ FILE /tmp/core-tools/help.c
       }
       const char *path = getenv("PATH");
       fputs("Dolly Slop: minimal agent-tool compatibility inside Wasm\n", stdout);
-      fputs("stateful builtins: : exit cd export unset set\n", stdout);
+      fputs("stateful builtins: : . source eval exec exit return cd export unset set shift read getopts local break continue type\n", stdout);
       printf("PATH=%s\n", path == NULL ? "" : path);
-      fputs("/bin: slop help pwd cd cat echo mkdir touch rm clear ls stat file test [ mv cp grep sed head wc printf awk cc c++ ld ar download\n", stdout);
-      fputs("/usr/bin: curl git make zig ghostty-vt", stdout);
-      if (access("/usr/bin/qjs", F_OK) == 0) fputs(" qjs janis pi", stdout);
+      fputs("/bin: slop dollyfile help pwd cd cat echo mkdir touch rm rmdir ln readlink realpath pathchk clear ls stat file test [ mv cp install which command xargs find du dd tail tee tty env printenv basename dirname tr cmp diff patch comm paste join seq expr nl split strings cksum rev fold expand unexpand tsort date time uname hostname mktemp sha256sum md5sum sleep timeout true false grep sed head wc cut od printf sort uniq awk cc c++ ld ar tar gzip download\n", stdout);
+      fputs("/usr/bin: curl git make zig ghostty-vt qjs janis tsc pi demo", stdout);
       if (access("/usr/bin/graphics-demo", F_OK) == 0) fputs(" graphics-demo", stdout);
+      if (access("/usr/bin/python", F_OK) == 0) fputs(" python python3 bonnie", stdout);
       fputc('\n', stdout);
-      fputs("operators: ; newline && || ! | < > >> 2> 2>> 2>&1\n", stdout);
-      fputs("expansion: $VAR ${VAR} $? $$ $# $0..9 $@ $* $(command) and globs\n", stdout);
+      fputs("operators: ; newline backslash-newline && || ! | < > >> 2> 2>> 2>&1\n", stdout);
+      fputs("conditionals: if COMMANDS; then COMMANDS; [elif ...; then ...;] [else ...;] fi\n", stdout);
+      fputs("loops: for NAME [in WORD ...]; do COMMANDS; done; while|until COMMANDS; do COMMANDS; done; break|continue [N]\n", stdout);
+      fputs("selection: case WORD in PATTERN[|PATTERN]...) COMMANDS ;; ... esac\n", stdout);
+      fputs("functions/groups: NAME () { COMMANDS; }; return [STATUS]; { COMMANDS; }; (COMMANDS)\n", stdout);
+      fputs("expansion: $VAR ${VAR} ${VAR:-WORD} ${VAR:=WORD} ${VAR:+WORD} ${VAR:?WORD} ${#VAR} ${VAR#PATTERN} ${VAR##PATTERN} ${VAR%PATTERN} ${VAR%%PATTERN} $? $$ $# $0..9 $@ $* $(command) `command` $((integer expression)) and globs; set [--] ARG...; shift [N]\n", stdout);
+      fputs("options: set -e/+e -x/+x -o/+o pipefail; set -o lists finite options\n", stdout);
       fputs("make recipes run serially through /bin/slop -c\n", stdout);
+      fputs("TypeScript: tsc FILE.ts --target ES2023 --module ES2022\n", stdout);
+      if (access("/usr/bin/bonnie", F_OK) == 0) {
+        fputs("Python packages: bonnie install PACKAGE; bonnie list|freeze|show|check\n", stdout);
+      }
       return 0;
     }
 FILE /tmp/core-tools/pwd.c
@@ -377,7 +386,9 @@ FILE /tmp/core-tools/ls.c
         if (add_name(&names, entry->d_name) != 0) { fputs("ls: out of memory\n", stderr); status = 1; break; }
       }
       if (closedir(directory) != 0) status = 1;
-      qsort(names.items, names.length, sizeof(*names.items), compare_names);
+      if (names.length > 1) {
+        qsort(names.items, names.length, sizeof(*names.items), compare_names);
+      }
       if (print_heading) printf("%s:\n", path);
       for (size_t offset = 0; offset < names.length; offset++) {
         const size_t index = option->reverse ? names.length - offset - 1 : offset;
@@ -587,12 +598,16 @@ FILE /tmp/core-tools/test.c
       *known = 1;
       if (strcmp(operation, "-n") == 0) return value[0] != '\0';
       if (strcmp(operation, "-z") == 0) return value[0] == '\0';
-      if (strcmp(operation, "-e") == 0) return lstat(value, &metadata) == 0;
-      if (strcmp(operation, "-f") == 0) return lstat(value, &metadata) == 0 && S_ISREG(metadata.st_mode);
-      if (strcmp(operation, "-d") == 0) return lstat(value, &metadata) == 0 && S_ISDIR(metadata.st_mode);
-      if (strcmp(operation, "-s") == 0) return lstat(value, &metadata) == 0 && metadata.st_size > 0;
       if (strcmp(operation, "-L") == 0 || strcmp(operation, "-h") == 0)
         return lstat(value, &metadata) == 0 && S_ISLNK(metadata.st_mode);
+      if (strcmp(operation, "-e") == 0 || strcmp(operation, "-r") == 0 ||
+          strcmp(operation, "-w") == 0) return stat(value, &metadata) == 0;
+      if (strcmp(operation, "-f") == 0) return stat(value, &metadata) == 0 && S_ISREG(metadata.st_mode);
+      // Dolly has no execute permission bits. PATH resolution likewise accepts a
+      // regular file and leaves Wasm-format/ABI validation to the loader.
+      if (strcmp(operation, "-x") == 0) return stat(value, &metadata) == 0 && S_ISREG(metadata.st_mode);
+      if (strcmp(operation, "-d") == 0) return stat(value, &metadata) == 0 && S_ISDIR(metadata.st_mode);
+      if (strcmp(operation, "-s") == 0) return stat(value, &metadata) == 0 && metadata.st_size > 0;
       *known = 0;
       return 0;
     }
@@ -601,7 +616,8 @@ FILE /tmp/core-tools/test.c
       char *left_end, *right_end;
       errno = 0;
       const long long a = strtoll(left, &left_end, 10), b = strtoll(right, &right_end, 10);
-      if (errno != 0 || *left_end != '\0' || *right_end != '\0') return -1;
+      if (errno != 0 || left_end == left || right_end == right ||
+          *left_end != '\0' || *right_end != '\0') return -1;
       *known = 1;
       if (strcmp(operation, "-eq") == 0) return a == b;
       if (strcmp(operation, "-ne") == 0) return a != b;
@@ -613,13 +629,97 @@ FILE /tmp/core-tools/test.c
       return 0;
     }
     
-    static int evaluate(int argc, char **argv, int *error) {
+    enum { EXPRESSION_DEPTH_LIMIT = 64 };
+    
+    static int top_level_operator(int argc, char **argv, const char *operation,
+                                  int *error) {
+      int parentheses = 0;
+      for (int index = 0; index < argc; ++index) {
+        if (strcmp(argv[index], "(") == 0) {
+          parentheses++;
+        } else if (strcmp(argv[index], ")") == 0) {
+          if (parentheses == 0) {
+            *error = 1;
+            return -1;
+          }
+          parentheses--;
+        } else if (parentheses == 0 && strcmp(argv[index], operation) == 0) {
+          return index;
+        }
+      }
+      if (parentheses != 0) *error = 1;
+      return -1;
+    }
+    
+    static int outer_parentheses(int argc, char **argv, int *error) {
+      if (argc < 2 || strcmp(argv[0], "(") != 0) return 0;
+      int depth = 0;
+      for (int index = 0; index < argc; ++index) {
+        if (strcmp(argv[index], "(") == 0) depth++;
+        else if (strcmp(argv[index], ")") == 0) {
+          if (--depth < 0) {
+            *error = 1;
+            return 0;
+          }
+          if (depth == 0) return index == argc - 1;
+        }
+      }
+      *error = 1;
+      return 0;
+    }
+    
+    static int evaluate(int argc, char **argv, int *error, unsigned depth) {
       *error = 0;
       if (argc == 0) return 0;
-      if (argc >= 2 && strcmp(argv[0], "!") == 0) {
-        return !evaluate(argc - 1, argv + 1, error);
-      }
       if (argc == 1) return argv[0][0] != '\0';
+      if (depth == EXPRESSION_DEPTH_LIMIT) {
+        *error = 1;
+        return 0;
+      }
+      if (outer_parentheses(argc, argv, error)) {
+        if (argc == 2) {
+          *error = 1;
+          return 0;
+        }
+        return evaluate(argc - 2, argv + 1, error, depth + 1);
+      }
+      if (*error) return 0;
+    
+      int operation = top_level_operator(argc, argv, "-o", error);
+      if (*error) return 0;
+      if (operation >= 0) {
+        if (operation == 0 || operation + 1 == argc) {
+          *error = 1;
+          return 0;
+        }
+        int left_error = 0;
+        int right_error = 0;
+        const int left = evaluate(operation, argv, &left_error, depth + 1);
+        const int right = evaluate(argc - operation - 1, argv + operation + 1,
+                                   &right_error, depth + 1);
+        *error = left_error || right_error;
+        return left || right;
+      }
+    
+      operation = top_level_operator(argc, argv, "-a", error);
+      if (*error) return 0;
+      if (operation >= 0) {
+        if (operation == 0 || operation + 1 == argc) {
+          *error = 1;
+          return 0;
+        }
+        int left_error = 0;
+        int right_error = 0;
+        const int left = evaluate(operation, argv, &left_error, depth + 1);
+        const int right = evaluate(argc - operation - 1, argv + operation + 1,
+                                   &right_error, depth + 1);
+        *error = left_error || right_error;
+        return left && right;
+      }
+    
+      if (strcmp(argv[0], "!") == 0) {
+        return !evaluate(argc - 1, argv + 1, error, depth + 1);
+      }
       if (argc == 2) {
         int known;
         const int result = unary(argv[0], argv[1], &known);
@@ -644,7 +744,7 @@ FILE /tmp/core-tools/test.c
         argc--;
       }
       int error = 0;
-      const int result = evaluate(argc, argv, &error);
+      const int result = evaluate(argc, argv, &error, 0);
       if (error) { fputs(DOLLY_BRACKET ? "[: unsupported expression\n" : "test: unsupported expression\n", stderr); return 2; }
       return result ? 0 : 1;
     }
@@ -655,33 +755,48 @@ FILE /tmp/core-tools/mv.c
     #define _POSIX_C_SOURCE 200809L
     
     #include <errno.h>
+    #include <stdint.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
     #include <sys/stat.h>
     
-    static const char *base_name(const char *path) {
-      const char *slash = strrchr(path, '/');
-      return slash == NULL ? path : slash + 1;
+    static char *base_name_copy(const char *path) {
+      size_t length = strlen(path);
+      while (length > 1 && path[length - 1] == '/') length--;
+      size_t start = length;
+      while (start > 0 && path[start - 1] != '/') start--;
+      return strndup(path + start, length - start);
     }
     
     static int move_one(const char *source, const char *destination,
                         int destination_is_directory) {
       char *target = NULL;
       if (destination_is_directory) {
-        const char *name = base_name(source);
+        char *name = base_name_copy(source);
+        if (name == NULL) {
+          fputs("mv: out of memory\n", stderr);
+          return 1;
+        }
         const size_t destination_length = strlen(destination);
         const size_t name_length = strlen(name);
         const int slash = destination_length != 0 &&
                           destination[destination_length - 1] != '/';
+        if (destination_length > SIZE_MAX - name_length - (size_t)slash - 1) {
+          fprintf(stderr, "mv: %s/%s: path is too long\n", destination, name);
+          free(name);
+          return 1;
+        }
         target = malloc(destination_length + (size_t)slash + name_length + 1);
         if (target == NULL) {
           fputs("mv: out of memory\n", stderr);
+          free(name);
           return 1;
         }
         memcpy(target, destination, destination_length);
         if (slash) target[destination_length] = '/';
         memcpy(target + destination_length + (size_t)slash, name, name_length + 1);
+        free(name);
       }
       const char *resolved = target == NULL ? destination : target;
       if (rename(source, resolved) != 0) {
@@ -699,6 +814,10 @@ FILE /tmp/core-tools/mv.c
         if (strcmp(argv[first], "--") == 0) {
           first++;
           break;
+        }
+        if (strcmp(argv[first], "--help") == 0) {
+          fputs("usage: mv [-f] [--] SOURCE... DESTINATION\n", stdout);
+          return 0;
         }
         if (strcmp(argv[first], "-f") != 0) {
           fprintf(stderr, "mv: unsupported option %s\n", argv[first]);
@@ -734,6 +853,7 @@ FILE /tmp/core-tools/cp.c
     #include <errno.h>
     #include <fcntl.h>
     #include <limits.h>
+    #include <stdint.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
@@ -743,18 +863,22 @@ FILE /tmp/core-tools/cp.c
     static int recursive;
     static int verbose;
     
-    static const char *base_name(const char *path) {
+    static char *base_name_copy(const char *path) {
       size_t length = strlen(path);
       while (length > 1 && path[length - 1] == '/') length--;
-      const char *base = path + length;
-      while (base > path && base[-1] != '/') base--;
-      return base;
+      size_t start = length;
+      while (start > 0 && path[start - 1] != '/') start--;
+      return strndup(path + start, length - start);
     }
     
     static char *join_path(const char *directory, const char *name) {
       const size_t directory_length = strlen(directory);
       const size_t name_length = strlen(name);
       const int slash = directory_length != 0 && directory[directory_length - 1] != '/';
+      if (directory_length > SIZE_MAX - name_length - (size_t)slash - 1) {
+        errno = ENAMETOOLONG;
+        return NULL;
+      }
       char *joined = malloc(directory_length + (size_t)slash + name_length + 1);
       if (joined == NULL) return NULL;
       memcpy(joined, directory, directory_length);
@@ -769,6 +893,20 @@ FILE /tmp/core-tools/cp.c
       int input = open(source, O_RDONLY);
       if (input < 0) {
         fprintf(stderr, "cp: %s: %s\n", source, strerror(errno));
+        return 1;
+      }
+      struct stat source_metadata;
+      struct stat destination_metadata;
+      if (fstat(input, &source_metadata) != 0) {
+        fprintf(stderr, "cp: %s: %s\n", source, strerror(errno));
+        close(input);
+        return 1;
+      }
+      if (stat(destination, &destination_metadata) == 0 &&
+          source_metadata.st_dev == destination_metadata.st_dev &&
+          source_metadata.st_ino == destination_metadata.st_ino) {
+        fprintf(stderr, "cp: %s and %s are the same file\n", source, destination);
+        close(input);
         return 1;
       }
       int output = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -813,7 +951,9 @@ FILE /tmp/core-tools/cp.c
     
     static int copy_link(const char *source, const char *destination,
                          off_t source_size) {
-      size_t capacity = source_size > 0 ? (size_t)source_size + 1 : 256;
+      size_t capacity = source_size > 0 && (uintmax_t)source_size < SIZE_MAX - 1
+                            ? (size_t)source_size + 2
+                            : 256;
       char *target = malloc(capacity);
       if (target == NULL) {
         fputs("cp: out of memory\n", stderr);
@@ -925,7 +1065,9 @@ FILE /tmp/core-tools/cp.c
                             int destination_is_directory) {
       char *target = NULL;
       if (destination_is_directory) {
-        target = join_path(destination, base_name(source));
+        char *base = base_name_copy(source);
+        target = base == NULL ? NULL : join_path(destination, base);
+        free(base);
         if (target == NULL) {
           fputs("cp: out of memory\n", stderr);
           return 1;
@@ -1040,3 +1182,4 @@ EXPORTS TOOL cp
 SLOP rm \
   -rf \
   /tmp/core-tools
+

@@ -1024,11 +1024,12 @@ chrome = spawn(chromeBinary, [
           "c++ -c /tmp/dolly-bad-probe.cpp -o /tmp/dolly-bad-probe.o",
         )})`,
       ), 1, "a rejected compiler probe did not return an ordinary failure");
-      for (const command of [
+      const toolchainCommands = [
         "rm -f /tmp/dolly-bad-probe.cpp /tmp/dolly-bad-probe.o " +
           "/tmp/dolly-bad-link.cpp /tmp/dolly-bad-link " +
           "/tmp/dolly-meson-sanity.cpp /tmp/dolly-meson-sanity " +
-          "/tmp/dolly-cxx-macros.txt",
+          "/tmp/dolly-cxx-macros.txt /tmp/dolly-zig-probe.zig " +
+          "/tmp/dolly-zig-probe.o",
         "echo 'int main(int argc, char **argv) { return argc == 0; }' > /tmp/dolly-meson-sanity.cpp",
         "c++ --version",
         "c++ -x c++ -E -dM - < /dev/null > /tmp/dolly-cxx-macros.txt",
@@ -1036,8 +1037,21 @@ chrome = spawn(chromeBinary, [
         "c++ -Wl,-v",
         "c++ -D_FILE_OFFSET_BITS=64 -o /tmp/dolly-meson-sanity /tmp/dolly-meson-sanity.cpp -D_FILE_OFFSET_BITS=64",
         "/tmp/dolly-meson-sanity",
-        "rm -f /tmp/dolly-meson-sanity.cpp /tmp/dolly-meson-sanity /tmp/dolly-cxx-macros.txt",
-      ]) {
+        ...(selectedModuleNames.has("zig") ? [
+          "echo 'export fn dolly_zig_probe() callconv(.c) u32 { return 42; }' > /tmp/dolly-zig-probe.zig",
+          "zig build-obj -OReleaseSmall -target wasm64-emscripten " +
+            "-mcpu=generic+atomics -fPIC -fsingle-threaded -fcompiler-rt -lc " +
+            "--name dolly-zig-probe -femit-bin=/tmp/dolly-zig-probe.o " +
+            "-Mroot=/tmp/dolly-zig-probe.zig",
+          "echo 'int main(void) { return 0; }' > /tmp/dolly-after-zig.c",
+          "cc -O2 /tmp/dolly-after-zig.c -o /tmp/dolly-after-zig",
+          "/tmp/dolly-after-zig",
+        ] : []),
+        "rm -f /tmp/dolly-meson-sanity.cpp /tmp/dolly-meson-sanity " +
+          "/tmp/dolly-cxx-macros.txt /tmp/dolly-zig-probe.zig " +
+          "/tmp/dolly-zig-probe.o /tmp/dolly-after-zig.c /tmp/dolly-after-zig",
+      ];
+      for (const command of toolchainCommands) {
         assert.equal(await evaluate(
           debuggerClient.send,
           `window.__dolly.submit(${JSON.stringify(command)})`,
@@ -1045,7 +1059,8 @@ chrome = spawn(chromeBinary, [
       }
       console.log(
         "browser: rejected compile probe recovered; repeated Meson-style " +
-          "C++ detection, compile, link, and run passed",
+          "C++ detection, compile, link, and run passed" +
+          (selectedModuleNames.has("zig") ? "; Clang also survived Zig codegen" : ""),
       );
       break browserProof;
     }

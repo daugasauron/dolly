@@ -18,17 +18,28 @@ Dolly currently boots a source-built userspace containing:
 - GNU Make, Ninja-compatible Samurai, One True Awk, sbase utilities, zlib,
   Git, and Fetch-backed libcurl;
 - an optional Python image with source-built CPython 3.14 and Bonnie for
-  portable-wheel installation through that same libcurl;
+  recursive, hash-verified pure-Python wheel installation through that same
+  libcurl; CPython reports the distinct `dolly` platform, raw sockets fail
+  explicitly, upstream `termios` controls Dolly's in-Wasm line discipline,
+  requirements files are accepted sequentially, and wheel console entry points
+  become separately compiled wasm64 PATH commands; offline environment
+  inspection includes dependency-consistency checks;
 - QuickJS-ng with the Janis Node-shaped compatibility layer;
-- upstream Pi's full TUI, JavaScript extensions, timer animation, and
-  incrementally streamed model responses, launched by default with Slop as a
-  recovery shell;
+- TypeScript 5.9.3 running under Janis as `/usr/bin/tsc`, with single- and
+  multi-file ESM compilation into WasmFS and target-side emit of the exact
+  seven-package, 495-module upstream Pi runtime workspace;
+- `/usr/bin/pi` loading that source-built, unbundled workspace plus an explicit
+  lockfile-verified external package profile through Janis's WasmFS-only ESM,
+  CommonJS, and JSON resolver; the full TUI, JavaScript extensions, timer
+  animation, fixture streaming, and a real OpenRouter tool/install turn pass
+  without a host-generated application bundle;
 - `Ctrl+Shift+V`/`Ctrl+Shift+C` paste and copy through bounded in-Wasm
   clipboard buffers, plus browser-tested OpenRouter/Codex login flows;
 - native wasm64 Zig and Ghostty's VT engine with in-Wasm text rasterization;
 - an exclusive in-Wasm RGBA framebuffer lease for games and visual tools, with
   automatic terminal restoration on return or Ctrl-C; the gamedev image adds
-  source-built raylib 6.0, Box3D 0.1.0, a Pi skill, and an interactive game;
+  source-built raylib 6.0, Box3D 0.1.0, a Pi skill, and an interactive 3D
+  physics game;
 - Ghostty-owned selection and scrollback inside Wasm, phone touch scrolling, a
   minimal phone `/` command menu.
 
@@ -49,6 +60,8 @@ A small browser-side check only selects the route; the C
 engine remains authoritative. The text stays in the current tab's
 `sessionStorage` and executes only at `/custom/rebuild/` in a fresh Wasm
 sandbox. Selecting a file does not upload the recipe to the server.
+Because that source is tab-local rather than a packaged image identity,
+uploaded custom images do not yet support named-session save/restore.
 
 The browser must support shared WebAssembly memory64 and table64. Chrome does;
 Safari/WebKit support is version-dependent. On iPhone and iPad every browser
@@ -102,7 +115,11 @@ Useful narrower commands:
 
 ```sh
 npm run build:runtime         # build the runtime without exporting a snapshot
-npm run snapshot              # rebuild and package the static system image
+npm run snapshot              # refresh routes, rebuild, and package every image
+DOLLY_SNAPSHOT_IMAGE=python npm run snapshot
+DOLLY_SNAPSHOT_IMAGE=python npm run snapshot:reproducible
+npm run census -- default
+npm run fingerprint -- default
 node --test test/dolly.test.mjs
 ./scripts/test-browser.sh
 ```
@@ -133,6 +150,10 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   double buffering, and terminal restoration.
 - [Sources](docs/sources.md) — source pins, patches, generated artifacts, and
   reproducibility policy.
+- [Platform census](docs/platform-census.md) — exact typed imports by sealed
+  image and the path toward workload-derived ABI evidence.
+- [Capability fingerprints](docs/capability-fingerprint.md) — compact separate
+  identities for browser authority and complete sealed-image contents.
 - [Port status](docs/port-status.md) — evidence for current and deferred ports.
 - [Pi compatibility](docs/pi-agent-plan.md) — current Pi/Janis boundary,
   evidence, and next work.
@@ -141,9 +162,10 @@ need. Credential values remain inside Dolly; the browser does not inject them.
 - [Zig and Ghostty](docs/zig-ghostty.md) and the
   [native Zig bootstrap](docs/native-zig-bootstrap.md) — focused runtime
   experiments.
-- [Project audit](docs/audit-2026-08-30.md) and
-  [agent workload audit](docs/agent-audit-2026-08-31.md) — dated verification
-  records; current priorities live in the roadmap.
+- [Project audit](docs/audit-2026-08-30.md) and agent workload audits from
+  [2026-08-31](docs/agent-audit-2026-08-31.md) and
+  [2026-09-01](docs/agent-audit-2026-09-01.md) — dated verification records;
+  current priorities live in the roadmap.
 - [Roadmap](docs/roadmap.md) — prioritized next milestones and acceptance gates.
 - [Dollyfile version 2](docs/dollyfile.md) — the C-executed sequential
   source-to-snapshot recipe and image identity model.
@@ -162,6 +184,7 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   review.
 
 Dolly is still a research prototype. In particular, the current command ABI is
-libc-shaped and Emscripten-specific, command cleanup is incomplete, Janis is a
-measured subset rather than Node, and transparent Git clone/fetch plus an
-in-Dolly TypeScript source build remain open work.
+libc-shaped and Emscripten-specific, command cleanup covers descriptors rather
+than all shared process state, Janis is a measured subset rather than Node, the
+Pi external package profile is not a general package manager, and transparent
+Git clone/fetch remains open work.
