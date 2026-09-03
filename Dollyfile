@@ -3,8 +3,8 @@ IMAGE default
 
 # Dolly-owned bootstrap extractor from src/commands/tar.c; not an upstream
 # artifact. It is deliberately limited to the ustar records emitted by Dolly.
-SOURCE HOST TXT /static/bootstrap/tar.c /tmp/bootstrap/tar.c SHA256 4efa4543dd3517f26618dd4fa80f4a52892cbac9f0c88aae3caa18820c74d5ff
-RUN cc -std=c17 -D_DEFAULT_SOURCE /tmp/bootstrap/tar.c -o /bin/tar
+SOURCE HOST TXT /static/bootstrap/tar.c /tmp/bootstrap/tar.c SHA256 64b529e7b99e404717bca755af6cf39dc950dd5822f04964f4e2397f1336ff62
+RUN cc -std=c17 /tmp/bootstrap/tar.c -o /bin/tar
 CHECK tar --help
 KEEP /bin/tar
 KEEP /bin/dollyfile
@@ -12,7 +12,7 @@ KEEP /bin/dollyfile
 # Dolly-owned command sources from src/commands/ in
 # https://github.com/daugasauron/dolly. These are intentionally small target
 # implementations, not modified copies of external utilities.
-SOURCE HOST TXT /static/default/commands/help.c /usr/src/dolly/commands/help.c SHA256 354fe117ba5b74e4d37355882b113875068bb44e75ebfd851ad607cba489de2d
+SOURCE HOST TXT /static/default/commands/help.c /usr/src/dolly/commands/help.c SHA256 96ac9e3163d5429981b90387e965113286326e305c5b8b00f13876fef6c33975
 RUN cc /usr/src/dolly/commands/help.c -o /bin/help
 SOURCE HOST TXT /static/default/commands/pwd.c /usr/src/dolly/commands/pwd.c SHA256 87886a74d8626d0bdbc2b364fe6ed8882522512d9f595709152dda298ef5c03f
 RUN cc /usr/src/dolly/commands/pwd.c -o /bin/pwd
@@ -26,29 +26,94 @@ SOURCE HOST TXT /static/default/commands/touch.c /usr/src/dolly/commands/touch.c
 RUN cc /usr/src/dolly/commands/touch.c -o /bin/touch
 SOURCE HOST TXT /static/default/commands/clear.c /usr/src/dolly/commands/clear.c SHA256 f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d
 RUN cc /usr/src/dolly/commands/clear.c -o /bin/clear
-SOURCE HOST TXT /static/default/commands/ls.c /usr/src/dolly/commands/ls.c SHA256 7f566a80655a5a43e3ab2b3350c9f029c4f8f6f54bebaa5bb6822bc7486204ee
+SOURCE HOST TXT /static/default/commands/ls.c /usr/src/dolly/commands/ls.c SHA256 4ae4a122eb7cb476104605c7ee428f15eba736a264eb234ad3cd27bbc7dc7cda
 RUN cc /usr/src/dolly/commands/ls.c -o /bin/ls
 SOURCE HOST TXT /static/default/commands/stat.c /usr/src/dolly/commands/stat.c SHA256 ebae79dafb89dcaa64c96f334d8c395b42f0a4c0cadca153a2116ddbb6327dac
 RUN cc /usr/src/dolly/commands/stat.c -o /bin/stat
 SOURCE HOST TXT /static/default/commands/file.c /usr/src/dolly/commands/file.c SHA256 9fd25306039aa58e2197aafb26a63f65bcf39a2e512c614fd0a9494d106ab8e0
 RUN cc /usr/src/dolly/commands/file.c -o /bin/file
-SOURCE HOST TXT /static/default/commands/test.c /usr/src/dolly/commands/test.c SHA256 e14644c2ddd09a863913e5daa6febebaec1daee51ddae67f1d6c60543f69abec
+SOURCE HOST TXT /static/default/commands/test.c /usr/src/dolly/commands/test.c SHA256 4e8888c358b647681ac9a742dc28a2af01ecba8502f7c5a1b98454c6b7f4525d
 RUN cc /usr/src/dolly/commands/test.c -o /bin/test
 SOURCE HOST TXT /static/default/commands/bracket.c /usr/src/dolly/commands/bracket.c SHA256 5dadee574cc128d583fe337e68b271cebbb3220dcd7e307fac08d4b5e9d73e4c
 RUN cc -I /usr/src/dolly/commands /usr/src/dolly/commands/bracket.c -o /bin/[
-SOURCE HOST TXT /static/default/commands/mv.c /usr/src/dolly/commands/mv.c SHA256 61087e88715ada81b70f42a4aa861cd1b8f0a130a01dbab05f53f186e3c7be61
+SOURCE HOST TXT /static/default/commands/mv.c /usr/src/dolly/commands/mv.c SHA256 326b21d8de8cd70652ec1ae1d42356095ee792c2608dfe362bba7ec05eacc9c3
 RUN cc /usr/src/dolly/commands/mv.c -o /bin/mv
-SOURCE HOST TXT /static/default/commands/cp.c /usr/src/dolly/commands/cp.c SHA256 51b4a57c631a44375c2e95ab0da21b12058d1acac31254360e550187b207830d
+SOURCE HOST TXT /static/default/commands/cp.c /usr/src/dolly/commands/cp.c SHA256 69ba86c9338bd97df04f06ccf84b9acd4e163f26d820efa066b6883152784ff1
 RUN cc /usr/src/dolly/commands/cp.c -o /bin/cp
+SOURCE HOST TXT /static/default/commands/install.c /usr/src/dolly/commands/install.c SHA256 605b04b67970f478771ee89a37c178748579fe6440ad0568e90fadcfa00922c4
+RUN cc /usr/src/dolly/commands/install.c -o /bin/install
+SOURCE HOST TXT /static/default/commands/which.c /usr/src/dolly/commands/which.c SHA256 1093935c88761920edb89d19004e00b503fe7fd34ef38dc93f53d31d9e80a3bf
+RUN cc /usr/src/dolly/commands/which.c -o /bin/which
+SOURCE HOST TXT /static/default/commands/command.c /usr/src/dolly/commands/command.c SHA256 2aa5d461f14fe96a5a22006c31d04f4c67deda9ff547f5be14a9cb9294734b9b
+RUN cc /usr/src/dolly/commands/command.c -o /bin/command
+SOURCE HOST TXT /static/default/commands/xargs.c /usr/src/dolly/commands/xargs.c SHA256 e848e4f4971200fa8120fc7de29151b1df63c17566cf30b5e5551f28d3e0c1e8
+RUN cc /usr/src/dolly/commands/xargs.c -o /bin/xargs
+SOURCE HOST TXT /static/default/commands/find.c /usr/src/dolly/commands/find.c SHA256 41a0698f3d57fbb942bc6e703afb0eba6563b2fbd62949da9943147dd663f3a0
+RUN cc /usr/src/dolly/commands/find.c -o /bin/find
+SOURCE HOST TXT /static/default/commands/tail.c /usr/src/dolly/commands/tail.c SHA256 f0a892066f2e6fe42667bf1765496f8347c8bfe53094ce22e0922e4ffc87c36b
+RUN cc /usr/src/dolly/commands/tail.c -o /bin/tail
+SOURCE HOST TXT /static/default/commands/tee.c /usr/src/dolly/commands/tee.c SHA256 b4cf397425473e1ec7f116491c18a20f2b61d38fb2cf8a51d91ec0a1b72ef7ef
+RUN cc /usr/src/dolly/commands/tee.c -o /bin/tee
+SOURCE HOST TXT /static/default/commands/env.c /usr/src/dolly/commands/env.c SHA256 9e1db5bb8a9b311edc68c9fabdb8c9ed33dcce2cbf1eca3876b7eedb6e94e442
+RUN cc /usr/src/dolly/commands/env.c -o /bin/env
+SOURCE HOST TXT /static/default/commands/printenv.c /usr/src/dolly/commands/printenv.c SHA256 a279dd856a17f5a05bb3800157e0ea44e4c4269ff6cb3a834303741dda88e2bb
+RUN cc /usr/src/dolly/commands/printenv.c -o /bin/printenv
+SOURCE HOST TXT /static/default/commands/rev.c /usr/src/dolly/commands/rev.c SHA256 3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05
+RUN cc -std=c17 /usr/src/dolly/commands/rev.c -o /bin/rev
+SOURCE HOST TXT /static/default/commands/timeout.c /usr/src/dolly/commands/timeout.c SHA256 45adee08052bf2b8764187227e94836bded25e2a6e1fdf22f2cf3af61bd55a3c
+RUN cc /usr/src/dolly/commands/timeout.c -o /bin/timeout
+SOURCE HOST TXT /static/default/commands/time.c /usr/src/dolly/commands/time.c SHA256 9c37bf7f9fb565366583b67381f3399580676eaba70b2ebc484c09cbd113ce74
+RUN cc /usr/src/dolly/commands/time.c -o /bin/time
+SOURCE HOST TXT /static/default/commands/uname.c /usr/src/dolly/commands/uname.c SHA256 bd803639de8eaf28351dc815eebe0c342456ebb7db209bddaf1e0cc9112b649a
+RUN cc /usr/src/dolly/commands/uname.c -o /bin/uname
+SOURCE HOST TXT /static/default/commands/hostname.c /usr/src/dolly/commands/hostname.c SHA256 14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f
+RUN cc -std=c17 /usr/src/dolly/commands/hostname.c -o /bin/hostname
+SOURCE HOST TXT /static/default/commands/realpath.c /usr/src/dolly/commands/realpath.c SHA256 6ec82439ecf3ab1d21a40293ab7e585972c523d8c8e4573a60a7cef86af08250
+RUN cc /usr/src/dolly/commands/realpath.c -o /bin/realpath
+SOURCE HOST TXT /static/default/commands/diff.c /usr/src/dolly/commands/diff.c SHA256 6781afb83f0ee7097a938f0a7a83ea5d012ec1ed5e3ca2207ce682882e10117b
+RUN cc /usr/src/dolly/commands/diff.c -o /bin/diff
+SOURCE HOST TXT /static/default/commands/patch.c /usr/src/dolly/commands/patch.c SHA256 840d935e7e8a7bddabedd445b710ad25d4fe2df2a5fc5c0126c1a55660456b93
+RUN cc /usr/src/dolly/commands/patch.c -o /bin/patch
+SOURCE HOST TXT /static/default/commands/du.c /usr/src/dolly/commands/du.c SHA256 55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63
+RUN cc /usr/src/dolly/commands/du.c -o /bin/du
+SOURCE HOST TXT /static/default/commands/dd.c /usr/src/dolly/commands/dd.c SHA256 0f9f981c3b8f6b0c4c5ffd4f36cdb540e9fd2a04337443a136e87a46bbded30d
+RUN cc -std=c17 /usr/src/dolly/commands/dd.c -o /bin/dd
+SOURCE HOST TXT /static/default/commands/tty.c /usr/src/dolly/commands/tty.c SHA256 c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e
+RUN cc /usr/src/dolly/commands/tty.c -o /bin/tty
 SOURCE HOST TXT /static/default/commands/download.c /usr/src/dolly/commands/download.c SHA256 672fefdbe72e125599db9a83d6a9c231ed0fe2e4edfddbf4a87bfa875191aad4
 RUN cc /usr/src/dolly/commands/download.c -o /bin/download
 CHECK ls -la /bin
 CHECK stat -c '%F %s' /bin/ls
 CHECK file /bin/ls
 CHECK '[' -f /bin/ls ']'
+CHECK '[' '!' -e /tmp/dolly-definitely-missing ']'
+CHECK '[' -x /bin/ls ']'
+CHECK test -r /bin/ls; test -w /bin/ls
+CHECK which cc
+CHECK which --help
+CHECK echo deferred > /tmp/slop-deferred && test "$(cat /tmp/slop-deferred)" = deferred
+CHECK DOLLY_DEFERRED=value && test "$DOLLY_DEFERRED" = value && unset DOLLY_DEFERRED
+CHECK unset DOLLY_PARAMETER DOLLY_FALLBACK; test "${DOLLY_PARAMETER:-fallback}" = fallback; test "${DOLLY_PARAMETER:=${DOLLY_FALLBACK:-assigned}}" = assigned; test "$DOLLY_PARAMETER" = assigned; test "${DOLLY_PARAMETER:+alternate}" = alternate; test "${DOLLY_MISSING+alternate}" = ''
+CHECK ! slop -c 'echo "${DOLLY_MISSING:?required parameter}"' 2> /tmp/slop-parameter-error
+CHECK test "$(cat /tmp/slop-parameter-error)" = 'slop: DOLLY_MISSING: required parameter'
+CHECK DOLLY_PATTERN=/usr/local/bin/tool; test "${#DOLLY_PATTERN}" -eq 19; test "${DOLLY_PATTERN#*/}" = usr/local/bin/tool; test "${DOLLY_PATTERN##*/}" = tool; test "${DOLLY_PATTERN%/*}" = /usr/local/bin; test "${DOLLY_PATTERN%%/*}" = ''
+CHECK DOLLY_PLATFORM='PLATFORM_TRIPLET=wasm64-dolly'; test "${DOLLY_PLATFORM#PLATFORM_TRIPLET=}" = wasm64-dolly
+RUN mkdir -p /tmp/find-check/src /tmp/find-check/vendor/nested
+RUN mkdir -p /tmp/find-check/-leading
+RUN touch /tmp/find-check/src/alpha.c /tmp/find-check/src/empty /tmp/find-check/vendor/nested/ignored.c
+CHECK test "$(find /tmp/find-check -maxdepth 1 -type d -name src)" = /tmp/find-check/src
+CHECK cd /tmp/find-check; test "$(find -- -leading -maxdepth 0)" = -leading; cd /
+CHECK test "$(find /tmp/find-check -path /tmp/find-check/vendor -prune -o -name '*.c' -print)" = /tmp/find-check/src/alpha.c
+CHECK find /tmp/find-check -type f -print0 | xargs -0 -n 1 test -f
+CHECK find /tmp/find-check/src -type f -exec test -f {} ';'
+CHECK test "$(find /tmp/find-check/src -type f -exec echo {} +)" = '/tmp/find-check/src/alpha.c /tmp/find-check/src/empty'
+CHECK ! find /tmp/find-check -perm 644
 RUN echo move-check > /tmp/move-check
 RUN mv /tmp/move-check /tmp/move-passed
 CHECK '[' -f /tmp/move-passed ']'
+RUN mkdir -p /tmp/move-source/nested /tmp/move-destination
+RUN mv /tmp/move-source/ /tmp/move-destination
+CHECK test -d /tmp/move-destination/move-source/nested
 RUN cp /tmp/move-passed /tmp/copy-passed
 CHECK '[' -f /tmp/copy-passed ']'
 
@@ -69,6 +134,26 @@ KEEP /bin/test
 KEEP /bin/[
 KEEP /bin/mv
 KEEP /bin/cp
+KEEP /bin/install
+KEEP /bin/which
+KEEP /bin/command
+KEEP /bin/xargs
+KEEP /bin/find
+KEEP /bin/tail
+KEEP /bin/tee
+KEEP /bin/env
+KEEP /bin/printenv
+KEEP /bin/rev
+KEEP /bin/timeout
+KEEP /bin/time
+KEEP /bin/uname
+KEEP /bin/hostname
+KEEP /bin/realpath
+KEEP /bin/diff
+KEEP /bin/patch
+KEEP /bin/du
+KEEP /bin/dd
+KEEP /bin/tty
 KEEP /bin/download
 KEEP /bin/cc
 KEEP /bin/c++
@@ -78,10 +163,13 @@ KEEP /bin/ar
 # GNU Make 4.4.1 from https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz
 # (upstream archive SHA-256 dd16fb1d...). configure produces the staged tree;
 # Dolly changes only target configuration and compiles it with Slop as SHELL.
+# Deterministic header guards let seven source-visible partitions cover the
+# exact 34-file manifest without paying for 34 browser frontend passes.
 RUN mkdir -p /usr/bin /usr/libexec/dolly
-SOURCE HOST BIN /static/default/make-4.4.1.tar /tmp/make-4.4.1.tar SHA256 5cfb15bf5a4666bd6d5803cb8285b11d8fe8bad0de8a1066c5d69d4eac9f8181
+SOURCE HOST BIN /static/default/make-4.4.1.tar /tmp/make-4.4.1.tar SHA256 bb97475174ee65b34565b557b5ea869d650a5295bd8821c290750cbaa76daa0c
 RUN tar -xf /tmp/make-4.4.1.tar -C /
-SOURCE HOST TXT /static/default/startup.mk /usr/src/dolly/startup.mk SHA256 202a68e0b775948c82edec2f48be5ec9c713fb217094a08abbfa3ad4f3b5b9e8
+SOURCE HOST TXT /static/default/startup.mk /usr/src/dolly/startup.mk SHA256 796ddec0196ebc1fbde93d75b67e68e9265c477a37c3faaccb4b7c4b5f55eb6f
+SOURCE HOST TXT /static/default/runtimes/make-amalgamation-dolly.c /usr/src/dolly/runtimes/make-amalgamation-dolly.c SHA256 c37c85dd20c843b9bface7e12bd190f8d943b18c0b2b5e0341cfdc2cba11b4fd
 
 ENV CC=cc
 ENV CXX=c++
@@ -90,14 +178,64 @@ ENV SHELL=/bin/slop
 ENV PI_SKIP_VERSION_CHECK=1
 WORKDIR /
 
-RUN cc -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' /usr/src/make/src/ar.c /usr/src/make/src/arscan.c /usr/src/make/src/commands.c /usr/src/make/src/default.c /usr/src/make/src/dir.c /usr/src/make/src/expand.c /usr/src/make/src/file.c /usr/src/make/src/function.c /usr/src/make/src/getopt.c /usr/src/make/src/getopt1.c /usr/src/make/src/guile.c /usr/src/make/src/hash.c /usr/src/make/src/implicit.c /usr/src/make/src/job.c /usr/src/make/src/load.c /usr/src/make/src/loadapi.c /usr/src/make/src/main.c /usr/src/make/src/misc.c /usr/src/make/src/output.c /usr/src/make/src/read.c /usr/src/make/src/remake.c /usr/src/make/src/rule.c /usr/src/make/src/shuffle.c /usr/src/make/src/signame.c /usr/src/make/src/strcache.c /usr/src/make/src/variable.c /usr/src/make/src/version.c /usr/src/make/src/vpath.c /usr/src/make/src/posixos.c /usr/src/make/src/remote-stub.c /usr/src/make/lib/concat-filename.c /usr/src/make/lib/findprog-in.c /usr/src/make/lib/fnmatch.c /usr/src/make/lib/glob.c -o /usr/bin/make
+RUN mkdir -p /tmp/make
+RUN cc -c -O1 -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' -DDOLLY_MAKE_PART=1 /usr/src/dolly/runtimes/make-amalgamation-dolly.c -o /tmp/make/part-1.o
+RUN cc -c -O1 -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' -DDOLLY_MAKE_PART=2 /usr/src/dolly/runtimes/make-amalgamation-dolly.c -o /tmp/make/part-2.o
+RUN cc -c -O1 -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' -DDOLLY_MAKE_PART=3 /usr/src/dolly/runtimes/make-amalgamation-dolly.c -o /tmp/make/part-3.o
+RUN cc -c -O1 -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' -DDOLLY_MAKE_PART=4 /usr/src/dolly/runtimes/make-amalgamation-dolly.c -o /tmp/make/part-4.o
+RUN cc -c -O1 -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' -DDOLLY_MAKE_PART=5 /usr/src/dolly/runtimes/make-amalgamation-dolly.c -o /tmp/make/part-5.o
+RUN cc -c -O1 -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' -DDOLLY_MAKE_PART=6 /usr/src/dolly/runtimes/make-amalgamation-dolly.c -o /tmp/make/part-6.o
+RUN cc -c -O1 -std=gnu11 -DDOLLY -DHAVE_CONFIG_H -I /usr/src/make -I /usr/src/make/src -I /usr/src/make/lib '-DLIBDIR="/usr/lib"' '-DLOCALEDIR="/usr/share/locale"' -DDOLLY_MAKE_PART=7 /usr/src/dolly/runtimes/make-amalgamation-dolly.c -o /tmp/make/part-7.o
+RUN cc /tmp/make/part-1.o /tmp/make/part-2.o /tmp/make/part-3.o /tmp/make/part-4.o /tmp/make/part-5.o /tmp/make/part-6.o /tmp/make/part-7.o -o /usr/bin/make
 CHECK make --version
 KEEP /usr/bin/make
+
+# libc++ headers and sources come from pinned Emscripten 6.0.8. Most string and
+# container operations are inline in those ordinary headers. Dolly's bootstrap
+# archive supplies the allocation/hash boundary plus the out-of-line
+# basic_string<char> paths used by no-exception build tools. Keeping
+# this small is important: compiling upstream string.cpp would instantiate
+# hundreds of unrelated conversion and wide-string functions in the browser.
+# The C ABI shim is explicitly tied to libc++ ABI v2/wasm64. The compiler
+# fixture near the end of this file is its source-built execution check. Full
+# C++ exception transport is not part of Dolly version 0, so libc++abi is an
+# ordinary empty deterministic archive.
+SOURCE HOST BIN /static/default/libcxx.tar /tmp/libcxx.tar SHA256 aaa51730f38a1884dc6f80072193755b4fc0bcded9297ded6eb314b3062e14e3
+RUN tar -xf /tmp/libcxx.tar -C /
+SOURCE HOST TXT /static/default/runtimes/libcxx-string-dolly.c /usr/src/dolly/runtimes/libcxx-string-dolly.c SHA256 26b13ba0deb49fdfb90d0b56bdb51e89d2a33095c665a5418d9477ce06d39d42
+SOURCE HOST TXT /static/default/runtimes/libcxx-hash-dolly.c /usr/src/dolly/runtimes/libcxx-hash-dolly.c SHA256 767c644069ea4b85afb842b1b2c9530e7a189ae4047c933bdb6c6ca74dea1188
+SOURCE HOST TXT /static/default/runtimes/libcxx-new-dolly.c /usr/src/dolly/runtimes/libcxx-new-dolly.c SHA256 a94cd68e96d7cee68d6d15e3841c6a7b1c064678b75f20f4d37ab1950d962bc1
+SOURCE HOST TXT /static/default/runtimes/libcxx-misc-dolly.c /usr/src/dolly/runtimes/libcxx-misc-dolly.c SHA256 fbd4e83c88e7b0bc0b561e4d7ceb8139028eea6f875d192150762dd30c16c447
+RUN make -f /usr/src/dolly/startup.mk libcxx
+CHECK test -s /usr/lib/libc++.a; test -s /usr/lib/libc++abi.a
+KEEP /usr/lib/libc++.a
+KEEP /usr/lib/libc++abi.a
+
+# Samurai 1.3 from https://github.com/michaelforney/samurai at
+# 4288e7181249 provides the Ninja build language and command-line interface in
+# compact C99. Its parser, graph, depfile handling, and build log are upstream.
+# The reviewed Dolly patch replaces only its POSIX process scheduler with
+# synchronous /bin/slop edges and adds include guards. A source-visible
+# selector source compiles the upstream graph as its ordinary 13 independent
+# translation units; this avoids cross-file optimizer cliffs while -j remains
+# a compatibility option.
+SOURCE HOST BIN /static/default/samurai.tar /tmp/samurai.tar SHA256 f98c08efa703f78809eeb6aa12fe2388d004d6991dc3407131546a2f81bc498a
+RUN tar -xf /tmp/samurai.tar -C /
+SOURCE HOST TXT /static/default/runtimes/samurai-unit-dolly.c /usr/src/dolly/runtimes/samurai-unit-dolly.c SHA256 554fee7534c7a54d7408395b9ed6f31f7eccc6c1693c03aad8400ee510955065
+RUN make -f /usr/src/dolly/startup.mk ninja
+CHECK ninja --version
+RUN mkdir -p /tmp/ninja-check
+RUN echo 'int main(void) { return 0; }' > /tmp/ninja-check/check.c
+RUN echo 'rule cc' > /tmp/ninja-check/build.ninja
+RUN echo '  command = cc $in -o $out' >> /tmp/ninja-check/build.ninja
+RUN echo 'build check: cc check.c' >> /tmp/ninja-check/build.ninja
+CHECK cd /tmp/ninja-check; ninja -j 4; ./check
+KEEP /usr/bin/ninja
 
 # Zig 0.16.0 from https://ziglang.org/download/0.16.0/ plus the compiler tree
 # at upstream Zig commit 3300c73260bf. zig.wasm is Dolly's source-built wasm64
 # frontend; answer/check/object-check are Dolly-owned acceptance fixtures.
-SOURCE HOST BIN /static/default/zig.wasm /usr/bin/zig SHA256 763ccb4a892cc1fd6cedf5612f1831016a3f28579d55f7ff538261516a34ecbd
+SOURCE HOST BIN /static/default/zig.wasm /usr/bin/zig SHA256 a8d8b1da94291962f2f2218f24dadbf4336c70400dec6f10e7f926245a33bec6
 SOURCE HOST BIN /static/default/zig-lib.tar /tmp/zig-lib.tar SHA256 82e33abf1bead6f2e1dc92ed2e4d80a4dafc4fe8ca33440f29f69c5db436c445
 RUN tar -xf /tmp/zig-lib.tar -C /
 SOURCE HOST TXT /static/default/zig/answer.zig /usr/src/dolly/zig/answer.zig SHA256 f7b80afc25495d76900c4ca95d6c28fef30094807b01d5c1a404fd2d146d8309
@@ -134,38 +272,62 @@ KEEP /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 # frontends are Dolly-owned integration sources, not upstream QuickJS libc.
 SOURCE HOST BIN /static/default/quickjs.tar /tmp/quickjs.tar SHA256 d23b73610440a642dfb49de7910cbf34550d31b3a9ca375291f9c74444749d8a
 RUN tar -xf /tmp/quickjs.tar -C /
-SOURCE HOST TXT /static/default/runtimes/quickjs-main.c /usr/src/dolly/runtimes/quickjs-main.c SHA256 d6f7c4e84647e3674636b2375c7516ce93626a5a59b5dfcd26bab6f7eaa29628
+SOURCE HOST TXT /static/default/runtimes/quickjs-main.c /usr/src/dolly/runtimes/quickjs-main.c SHA256 9f4314481f74e832acd80344cf9b5e64b43dc1f3d4915f1ac546336d4c824a6c
 SOURCE HOST TXT /static/default/runtimes/quickjs-runner.h /usr/src/dolly/runtimes/quickjs-runner.h SHA256 94853e68315a36d48167d4b8c1a09f4c33acf12f93e27f713110f0578ad5c597
-SOURCE HOST TXT /static/default/runtimes/dolly-node.js /usr/lib/dolly/node.js SHA256 dd40eb0fde2f830c41b808d9553cc2191e8c4725bdc480acb8f4f867040700f4
-SOURCE HOST TXT /static/default/runtimes/janis.js /usr/lib/janis/runtime.js SHA256 e8e1ed74c6374327a440d41bd54e960fe083a5aafe46068bb1493fe15c61a6df
+SOURCE HOST TXT /static/default/runtimes/dolly-node.js /usr/lib/dolly/node.js SHA256 e4976bd16a671ae1dfcc13e4a8b9a9dca11373ec896fb6afa93624af41e3f905
+SOURCE HOST TXT /static/default/runtimes/janis.js /usr/lib/janis/runtime.js SHA256 9935546bafba11c7fefadac1b7316d77bc37a1d6e069be4e26aad01a830239f9
 SOURCE HOST TXT /static/default/commands/qjs.c /usr/src/dolly/commands/qjs.c SHA256 08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b
 SOURCE HOST TXT /static/default/commands/janis.c /usr/src/dolly/commands/janis.c SHA256 08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b
-SOURCE HOST TXT /static/default/commands/pi.c /usr/src/dolly/commands/pi.c SHA256 1195d25b135a5ab1805a7b5143f02a4253006b2a0facbc9dea205f0df265a604
+SOURCE HOST TXT /static/default/commands/pi.c /usr/src/dolly/commands/pi.c SHA256 2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e
 RUN make -f /usr/src/dolly/startup.mk quickjs
 CHECK qjs --version
 CHECK janis --version
+# Janis resolves bare ESM packages only through package.json and WasmFS. The
+# finite resolver supports exact/conditional/wildcard exports and conventional
+# node_modules ancestry, but never performs an ambient package download.
+RUN mkdir -p /tmp/janis-esm/node_modules/@dolly/example/src
+RUN echo '{"name":"@dolly/example","type":"module","exports":{".":"./src/index.js","./sub/*":"./src/*.js"}}' > /tmp/janis-esm/node_modules/@dolly/example/package.json
+RUN echo 'export const answer = 40;' > /tmp/janis-esm/node_modules/@dolly/example/src/index.js
+RUN echo 'export const plus = 2;' > /tmp/janis-esm/node_modules/@dolly/example/src/plus.js
+RUN echo 'import { answer } from "@dolly/example"; import { plus } from "@dolly/example/sub/plus"; if (answer + plus !== 42) throw new Error("bad package resolution");' > /tmp/janis-esm/main.mjs
+CHECK janis -m /tmp/janis-esm/main.mjs
+RUN echo 'const resolved = import.meta.resolve("@dolly/example"); if (resolved !== "file:///tmp/janis-esm/node_modules/@dolly/example/src/index.js") throw new Error(`bad import.meta.resolve: ${resolved}`);' > /tmp/janis-esm/resolve.mjs
+CHECK janis -m /tmp/janis-esm/resolve.mjs
+RUN echo 'if (!process.argv[0].endsWith("janis") || process.argv[1] !== "/tmp/janis-esm/argv.mjs" || process.argv[2] !== "ARG") throw new Error(`bad argv: ${process.argv}`);' > /tmp/janis-esm/argv.mjs
+CHECK janis -m /tmp/janis-esm/argv.mjs ARG
+RUN echo '{"answer":42}' > /tmp/janis-esm/data.json
+RUN echo 'import data from "./data.json" with { type: "json" }; if (data.answer !== 42) throw new Error("bad JSON module");' > /tmp/janis-esm/json.mjs
+CHECK janis -m /tmp/janis-esm/json.mjs
+RUN mkdir -p /tmp/janis-glob/src/nested /tmp/janis-glob/.hidden
+RUN echo one > /tmp/janis-glob/root.js && echo two > /tmp/janis-glob/src/nested/main.js && echo no > /tmp/janis-glob/.hidden/no.js
+RUN echo 'import { globSync } from "node:fs"; const files = globSync("**/*.js", { cwd: "/tmp/janis-glob" }); if (JSON.stringify(files) !== JSON.stringify(["root.js","src/nested/main.js"])) throw new Error(`bad glob: ${files}`);' > /tmp/janis-esm/glob.mjs
+CHECK janis -m /tmp/janis-esm/glob.mjs
+RUN echo 'import path, { join } from "node:path"; import * as crypto from "node:crypto"; if (path !== process.getBuiltinModule("path") || join("a", "b") !== "a/b" || typeof crypto.createHash !== "function") throw new Error("bad ESM builtin adapter");' > /tmp/janis-esm/builtin.mjs
+CHECK janis -m /tmp/janis-esm/builtin.mjs
+RUN mkdir -p /tmp/janis-esm/node_modules/dolly-dual/esm /tmp/janis-esm/node_modules/dolly-dual/commonjs /tmp/janis-esm/node_modules/dolly-cjs
+RUN echo '{"name":"dolly-dual","type":"module","exports":{".":{"import":"./esm/index.js","require":"./commonjs/index.cjs"}}}' > /tmp/janis-esm/node_modules/dolly-dual/package.json
+RUN echo 'import value from "../commonjs/index.cjs"; export default value + 58;' > /tmp/janis-esm/node_modules/dolly-dual/esm/index.js
+RUN echo 'module.exports = 41;' > /tmp/janis-esm/node_modules/dolly-dual/commonjs/index.cjs
+RUN echo '{"name":"dolly-cjs","main":"index.js"}' > /tmp/janis-esm/node_modules/dolly-cjs/package.json
+RUN echo 'module.exports = function (value) { return value + 1; }; module.exports.named = require("dolly-dual");' > /tmp/janis-esm/node_modules/dolly-cjs/index.js
+RUN echo 'import dual from "dolly-dual"; import increment, { named } from "dolly-cjs"; if (dual !== 99 || increment(named) !== 42) throw new Error("bad CommonJS interop");' > /tmp/janis-esm/commonjs.mjs
+CHECK janis -m /tmp/janis-esm/commonjs.mjs
 
-# Pi 0.84.4 from the exact npm tarball recorded in config/source-pins.sh;
-# pi-package.tar contains the upstream CLI bundled with asserted QuickJS syntax
-# lowerings. The following prompt, extension, settings, theme, and skill are
-# Dolly-owned normal Pi resources and do not patch Pi's source.
-SOURCE HOST BIN /static/default/pi-package.tar /tmp/pi-package.tar SHA256 c692b78fe802b701fd70bdfa5669f61d23b7145447183e941c51515c15a2ff1c
-RUN tar -xf /tmp/pi-package.tar -C /
+# These prompt, extension, settings, theme, and skill files are ordinary Pi
+# resources. They customize the pinned source-built CLI without patching it.
 SOURCE HOST TXT /static/default/pi/dolly-tools.js /home/dolly/.pi/agent/extensions/dolly-tools.js SHA256 02e61fcc3c7ad3f2ff5847acff5cd37320db2695e274aeb68414e00e247caf4d
-SOURCE HOST TXT /static/default/pi/SYSTEM.md /home/dolly/.pi/agent/SYSTEM.md SHA256 23a34eab211ffb91542b58fb140b70334717d07670906b5b1322b12e0d735d14
-SOURCE HOST TXT /static/default/pi/settings.json /home/dolly/.pi/agent/settings.json SHA256 8eec7cba932e37fa88091b195f372e6be0c80f6209683761fb59fd4524469c05
+RUN echo '{"type":"module"}' > /home/dolly/.pi/agent/extensions/package.json
+SOURCE HOST TXT /static/default/pi/SYSTEM.md /home/dolly/.pi/agent/SYSTEM.md SHA256 9831e43c2edb91864c1c2d99b8c78a0b7f7d94682556f76bde638d8088647861
+SOURCE HOST TXT /static/default/pi/settings.json /home/dolly/.pi/agent/settings.json SHA256 965a08d704e4231103679addb1dc60d54f8173961c9b96371c72f563bb8ace82
 SOURCE HOST TXT /static/default/pi/dolly-theme.json /home/dolly/.pi/agent/themes/dolly.json SHA256 ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297
 SOURCE HOST TXT /static/default/pi/dolly-skill.md /home/dolly/.pi/agent/skills/dolly/SKILL.md SHA256 0599fb95cbf1b9420a52852b0fcbe31d8617235187053873f17f4a07bde95fc3
-RUN make -f /usr/src/dolly/startup.mk pi
-CHECK pi --version
 KEEP /usr/bin/qjs
 KEEP /usr/bin/janis
-KEEP /usr/bin/pi
 KEEP /usr/lib/libdolly-js.a
 KEEP /usr/lib/dolly/node.js
 KEEP /usr/lib/janis/runtime.js
-KEEP-TREE /usr/lib/pi
 KEEP /home/dolly/.pi/agent/extensions/dolly-tools.js
+KEEP /home/dolly/.pi/agent/extensions/package.json
 KEEP /home/dolly/.pi/agent/SYSTEM.md
 KEEP /home/dolly/.pi/agent/settings.json
 KEEP /home/dolly/.pi/agent/themes/dolly.json
@@ -183,15 +345,270 @@ KEEP /usr/src/awk/proctab.c
 
 # sbase from https://git.suckless.org/sbase at c546c3a5724c; selected command
 # sources are unchanged and configured against Dolly libc.
-SOURCE HOST BIN /static/default/sbase.tar /tmp/sbase.tar SHA256 5368e7a9685fda25b2f30ff3beaaa4b216fb74d2252af315ba5ae2d076be1500
+SOURCE HOST BIN /static/default/sbase.tar /tmp/sbase.tar SHA256 a282c5fde4a339c91de04b7d70a860be49e631177acbf3244fe5e1bff7ce3338
 RUN tar -xf /tmp/sbase.tar -C /
 RUN make -f /usr/src/dolly/startup.mk sbase
 KEEP /bin/grep
 KEEP /bin/sed
 KEEP /bin/head
 KEEP /bin/wc
+KEEP /bin/cut
+RUN printf 'A\tB\n' > /tmp/od-check
+CHECK od -t c /tmp/od-check
+KEEP /bin/od
+CHECK true
+KEEP /bin/true
+KEEP /bin/false
+CHECK ! false
+CHECK test "$(test '' -eq 0 2>/tmp/dolly-test-integer-error; echo $?)" = 2; grep -q 'unsupported expression' /tmp/dolly-test-integer-error
+CHECK test value = value -a '(' other != missing -o false ')' && ! test value = missing -o other = absent
+CHECK test "$(false; echo substitution-continued)" = substitution-continued
+CHECK cd /; export DOLLY_SUBSTITUTION_STATE=outer; test "$(cd /tmp; export DOLLY_SUBSTITUTION_STATE=inner; pwd)" = /tmp; test "$DOLLY_SUBSTITUTION_STATE" = outer; test "$(pwd)" = /
+CHECK DOLLY_LEGACY=before; DOLLY_LEGACY=after; test "`printf '%s' "$DOLLY_LEGACY"`" = after
+CHECK test "`false; echo legacy-continued`" = legacy-continued
+CHECK ! slop -c 'echo `unterminated'
+CHECK DOLLY_ARITHMETIC=5; test "$(( DOLLY_ARITHMETIC * 2 + 3 ))" -eq 13
+CHECK test "$(( (1 << 4) | 3 ))" -eq 19
+CHECK test "$(( 3 > 2 && 2 != 1 ))" -eq 1
+CHECK test "$(( 0 && 1 / 0 ))" -eq 0; test "$(( 1 || 1 / 0 ))" -eq 1
+CHECK slop -c 'test "$(( $* ))" -eq 6' arithmetic-test 1 + 2 + 3
+CHECK ! slop -c 'echo "$(( 1 / 0 ))"'
+RUN echo 'DOLLY_SOURCED=$1' > /tmp/dolly-source.slop
+CHECK . /tmp/dolly-source.slop sourced-value; test "$DOLLY_SOURCED" = sourced-value
+CHECK PATH=/tmp:$PATH . dolly-source.slop path-value; test "$DOLLY_SOURCED" = path-value
+CHECK source /tmp/dolly-source.slop source-value; test "$DOLLY_SOURCED" = source-value
+CHECK cd /; test "$PWD" = /; cd /tmp; test "$PWD" = /tmp; test "$OLDPWD" = /; cd - > /tmp/dolly-cd-dash; test "$(cat /tmp/dolly-cd-dash)" = /; test "$PWD" = /; test "$OLDPWD" = /tmp
+CHECK DOLLY_EVAL_NAME=DOLLY_EVAL_RESULT; eval "$DOLLY_EVAL_NAME=eval-value"; test "$DOLLY_EVAL_RESULT" = eval-value
+CHECK eval 'if true; then true; else false; fi'
+CHECK DOLLY_FUNCTION_OUTER=outer; dolly_function () { test "$1" = inner; DOLLY_FUNCTION_RESULT=$2; }; dolly_function inner result; test "$DOLLY_FUNCTION_RESULT" = result; test "$DOLLY_FUNCTION_OUTER" = outer
+CHECK dolly_return() { if true; then return 7; fi; false; }; ! dolly_return
+CHECK DOLLY_LOCAL=outer; unset DOLLY_LOCAL_NEW; dolly_local () { local DOLLY_LOCAL=inner DOLLY_LOCAL_NEW; test "$DOLLY_LOCAL" = inner && DOLLY_LOCAL_NEW=value; }; dolly_local && test "$DOLLY_LOCAL" = outer && test "${DOLLY_LOCAL_NEW+set}" = ''
+CHECK dolly_capture () { echo "$1"; }; test "$(dolly_capture captured)" = captured
+CHECK test "$(dolly_private () { echo private; }; dolly_private)" = private; ! dolly_private
+CHECK { DOLLY_GROUP=grouped; true; }; test "$DOLLY_GROUP" = grouped
+CHECK { type type; } > /tmp/dolly-group-output; grep -q 'shell builtin' /tmp/dolly-group-output
+CHECK cd /; DOLLY_SUBSHELL=outer; (cd /tmp; DOLLY_SUBSHELL=inner; touch /tmp/dolly-subshell-shared; test "$DOLLY_SUBSHELL" = inner); test "$DOLLY_SUBSHELL" = outer; test "$(pwd)" = /; test -f /tmp/dolly-subshell-shared
+CHECK (exit 7) || test "$?" -eq 7
+CHECK ( (true) )
+CHECK (type type) > /tmp/dolly-subshell-output; grep -q 'shell builtin' /tmp/dolly-subshell-output
+CHECK ! (type dolly-subshell-missing) 2> /tmp/dolly-subshell-error; grep -q 'not found' /tmp/dolly-subshell-error
+CHECK (type type) | grep -q 'shell builtin'
+CHECK test "$( (hostname || uname -n) 2>/dev/null | sed 1q)" = dolly
+CHECK set -o pipefail; DOLLY_COMPOUND_STATUS=0; (exit 7) | true || DOLLY_COMPOUND_STATUS=$?; set +o pipefail; test "$DOLLY_COMPOUND_STATUS" -eq 7
+CHECK ! slop -c '(true'
+CHECK slop -c 'dolly_positional () { test "$1" = inner; }; dolly_positional inner; test "$1" = outer' function-test outer
+CHECK ! slop -c 'return'
+CHECK slop -c 'test "$#" -eq 3; shift; test "$1" = two; shift 2; test "$#" -eq 0; ! shift' shift-test one two three
+CHECK slop -c 'set alpha beta; test "$#" -eq 2; test "$1" = alpha; shift; test "$1" = beta; set -- reset values; test "$#" -eq 2; test "$2" = values' set-test ignored
+CHECK slop -c 'DOLLY_FIELDS="alpha beta"; set -- $DOLLY_FIELDS; test "$#" -eq 2; test "$1" = alpha; test "$2" = beta; set -- "$DOLLY_FIELDS"; test "$#" -eq 1; test "$1" = "alpha beta"; DOLLY_EMPTY=; set -- before $DOLLY_EMPTY after; test "$#" -eq 2; IFS=:; DOLLY_FIELDS=alpha:beta; set -- $DOLLY_FIELDS; test "$#" -eq 2; set -- alpha:beta; test "$#" -eq 1' field-test
+CHECK slop -c 'DOLLY_SEEN=; for value in $*; do DOLLY_SEEN="${DOLLY_SEEN}${value},"; done; test "$DOLLY_SEEN" = alpha,beta,' loop-fields alpha beta
+CHECK exec 5> /tmp/dolly-fd-output; exec 6>&5; type type >&6; exec 6>&-; exec 5>&-; grep -q 'shell builtin' /tmp/dolly-fd-output
+RUN printf 'descriptor input\n' > /tmp/dolly-fd-input
+CHECK exec 7< /tmp/dolly-fd-input; read DOLLY_FD_INPUT <&7; exec 7<&-; test "$DOLLY_FD_INPUT" = 'descriptor input'
+CHECK exec 8> /tmp/dolly-fd-dynamic; DOLLY_DYNAMIC_FD=8; echo dynamic-descriptor >&$DOLLY_DYNAMIC_FD; exec 8>&-; grep -q '^dynamic-descriptor$' /tmp/dolly-fd-dynamic
+CHECK ! slop -c 'echo nope 10>/tmp/dolly-fd-ten'; ! test -e /tmp/dolly-fd-ten; ! slop -c 'echo nope 2>&10'; ! slop -c 'echo nope 2>&x'; ! slop -c 'echo nope 2>&1junk'
+CHECK slop -c 'set -ex; case $- in *e*x*) set +ex ;; *) false ;; esac'
+RUN printf '%s\n' 'DOLLY_HEREDOC=expanded' 'cat <<EOF > /tmp/dolly-heredoc-output' '$DOLLY_HEREDOC' '$(echo command)' 'EOF' "cat <<'EOF' > /tmp/dolly-heredoc-literal" '$DOLLY_HEREDOC' 'EOF' > /tmp/dolly-heredoc.slop
+CHECK slop /tmp/dolly-heredoc.slop; test "$(sed -n 1p /tmp/dolly-heredoc-output)" = expanded; test "$(sed -n 2p /tmp/dolly-heredoc-output)" = command; test "$(cat /tmp/dolly-heredoc-literal)" = '$DOLLY_HEREDOC'
+CHECK slop -n /tmp/dolly-heredoc.slop; slop -n -c 'touch /tmp/dolly-noexec'; ! test -e /tmp/dolly-noexec; ! slop -n -c 'if true'
+CHECK slop -c 'forward () { test "$#" -eq 3; test "$1" = "one word"; test -z "$2"; test "$3" = third; }; forward "$@"; set -- "$@"; test "$#" -eq 3; DOLLY_AT=; for value in "$@"; do DOLLY_AT="${DOLLY_AT}[${value}]"; done; test "$DOLLY_AT" = "[one word][][third]"' at-test 'one word' '' third
+CHECK slop -c 'set -- "$@"; test "$#" -eq 0' at-empty
+CHECK test "$(cd ~; pwd)" = /home/dolly; DOLLY_TILDE=~/workspace; test "$DOLLY_TILDE" = /home/dolly/workspace
+CHECK DOLLY_ASSIGNMENT_WORD='one two'; dolly_assignment_word () { local DOLLY_LOCAL_WORD=$DOLLY_ASSIGNMENT_WORD; test "$DOLLY_LOCAL_WORD" = 'one two'; }; dolly_assignment_word; export DOLLY_EXPORT_WORD=$DOLLY_ASSIGNMENT_WORD; test "$DOLLY_EXPORT_WORD" = 'one two'
+CHECK DOLLY_SET_LIST=visible; set | grep -q "^DOLLY_SET_LIST='visible'$"
+CHECK set -o | grep -q '^posix on$'
+CHECK set -o pipefail && ! false | true && set +o pipefail && false | true
+CHECK dolly_typed () { true; }; type dolly_typed | grep -q 'shell function'; type type | grep -q 'shell builtin'; test "$(type -p cc)" = /bin/cc; ! type dolly-definitely-missing
+CHECK slop -c 'outer () { inner () { shift; test "$1" = second; }; inner first second; test "$1" = outer; }; outer outer' nested-shift-test
+RUN printf 'alpha beta gamma\n' > /tmp/slop-read
+CHECK read DOLLY_READ_FIRST DOLLY_READ_REST < /tmp/slop-read; test "$DOLLY_READ_FIRST" = alpha; test "$DOLLY_READ_REST" = 'beta gamma'
+CHECK IFS= read -r DOLLY_READ_ALL < /tmp/slop-read; test "$DOLLY_READ_ALL" = 'alpha beta gamma'
+CHECK read < /tmp/slop-read; test "$REPLY" = 'alpha beta gamma'
+CHECK slop -c 'OPTIND=1; DOLLY_OPTIONS=; while getopts ":ab:" option; do case "$option" in a) DOLLY_OPTIONS="${DOLLY_OPTIONS}a" ;; b) DOLLY_OPTIONS="${DOLLY_OPTIONS}b=$OPTARG" ;; *) exit 2 ;; esac; done; shift "$((OPTIND - 1))"; test "$DOLLY_OPTIONS" = "ab=value"; test "$1" = rest' getopts-test -abvalue rest
+CHECK slop -c 'OPTIND=1; getopts ":a:" option -a; test "$option" = :; test "$OPTARG" = a; OPTIND=1; getopts ":a" option -z; test "$option" = "?"; test "$OPTARG" = z'
+CHECK unset DOLLY_IF; if true; then DOLLY_IF=yes; else DOLLY_IF=no; fi; test "$DOLLY_IF" = yes
+CHECK if false; then false; elif true; then true; else false; fi
+CHECK if true && false; then false; else true; fi
+CHECK if true; then if false; then false; else true; fi; else false; fi
+CHECK slop -e -c 'if false; then false; else true; fi; true'
+RUN rm -f /tmp/slop-for-values /tmp/slop-for-nested
+CHECK for value in alpha beta gamma; do echo "$value" >> /tmp/slop-for-values; done
+CHECK test "$(cat /tmp/slop-for-values)" = "$(printf 'alpha\nbeta\ngamma\n')"
+CHECK for outer in a b; do for inner in 1 2; do echo "$outer$inner" >> /tmp/slop-for-nested; done; done
+CHECK test "$(cat /tmp/slop-for-nested)" = "$(printf 'a1\na2\nb1\nb2\n')"
+CHECK test "$(slop -c 'for value; do echo "$value"; done' loop first second)" = "$(printf 'first\nsecond\n')"
+CHECK for value in; do false; done
+CHECK test "$(for value in 1 2 3 4; do if test "$value" = 2; then continue; fi; echo "$value"; if test "$value" = 3; then break; fi; done)" = "$(printf '1\n3\n')"
+CHECK test "$(for outer in a b; do for inner in 1 2; do if test "$inner" = 2; then continue 2; fi; echo "$outer$inner"; done; echo unreachable; done)" = "$(printf 'a1\nb1\n')"
+CHECK test "$(for outer in a b; do for inner in 1 2; do echo "$outer$inner"; break 2; done; done)" = a1
+CHECK ! slop -c 'break'
+RUN rm -f /tmp/slop-while-values /tmp/slop-until-values
+CHECK DOLLY_COUNT=0; while test "$DOLLY_COUNT" != 3; do echo "$DOLLY_COUNT" >> /tmp/slop-while-values; DOLLY_COUNT=$(expr "$DOLLY_COUNT" + 1); done; test "$(cat /tmp/slop-while-values)" = "$(printf '0\n1\n2\n')"
+CHECK DOLLY_COUNT=0; until test "$DOLLY_COUNT" = 2; do echo "$DOLLY_COUNT" >> /tmp/slop-until-values; DOLLY_COUNT=$(expr "$DOLLY_COUNT" + 1); done; test "$(cat /tmp/slop-until-values)" = "$(printf '0\n1\n')"
+CHECK while false; do false; done
+CHECK slop -e -c 'while false; do false; done; true'
+CHECK DOLLY_CONTROL=0; while true; do DOLLY_CONTROL=$(expr "$DOLLY_CONTROL" + 1); if test "$DOLLY_CONTROL" = 2; then continue; fi; if test "$DOLLY_CONTROL" = 4; then break; fi; done; test "$DOLLY_CONTROL" = 4
+CHECK unset DOLLY_CASE_RESULT; DOLLY_CASE=beta; case "$DOLLY_CASE" in alpha) false ;; beta|gamma) DOLLY_CASE_RESULT=matched ;; *) false ;; esac; test "$DOLLY_CASE_RESULT" = matched
+CHECK case source.c in *.h) false ;; *.c|*.cc) true ;; *) false ;; esac
+CHECK case '*' in "*") true ;; *) false ;; esac
+CHECK case outer in outer) case inner.c in *.c) true ;; *) false ;; esac ;; *) false ;; esac
+CHECK case unmatched in nope) false ;; esac
+RUN printf '%s\n' 'case blank in blank) true' '' ';; *) false ;; esac' 'echo operator-continuation |' '  grep -q operator-continuation' 'true &&' '  true' 'false ||' '  true' > /tmp/slop-operator-layout.slop
+CHECK slop /tmp/slop-operator-layout.slop
+CHECK test "$(command -v true)" = /bin/true
+CHECK command printf '%s\n' command-ok | grep -q '^command-ok$'
+CHECK ! command false
+RUN mkdir -p /tmp/du-check/nested
+RUN printf abc > /tmp/du-check/first
+RUN printf de > /tmp/du-check/nested/second
+CHECK du -sb /tmp/du-check | grep -q '^5[[:space:]]'
+CHECK du -ab /tmp/du-check | grep -q '^2[[:space:]].*/nested/second$'
+RUN printf abcdef > /tmp/dd-input
+CHECK dd if=/tmp/dd-input of=/tmp/dd-output bs=2 skip=1 count=2 status=none
+CHECK test "$(cat /tmp/dd-output)" = cdef
+RUN printf 000000 > /tmp/dd-output
+RUN printf XY > /tmp/dd-replacement
+CHECK dd if=/tmp/dd-replacement of=/tmp/dd-output bs=2 seek=1 count=1 conv=notrunc status=none
+CHECK test "$(cat /tmp/dd-output)" = 00XY00
+CHECK test "$(printf xyz | dd bs=1 count=2 status=none)" = xy
+CHECK test "$(hostname)" = dolly
+CHECK test "$(hostname -f)" = dolly
+CHECK tty | grep -q '^/dev/tty$'
+RUN printf payload > /tmp/install-source
+RUN install -D -m 755 /tmp/install-source /tmp/install-check/tree/tool
+CHECK grep -q '^payload$' /tmp/install-check/tree/tool
+RUN install -d -m 700 /tmp/install-check/empty/deep
+CHECK test -d /tmp/install-check/empty/deep
 CHECK printf 'PRINTF-%s\n' OK
 KEEP /bin/printf
+RUN printf 'b\na\nb\n' > /tmp/sort-check
+CHECK sort /tmp/sort-check | uniq
+KEEP /bin/sort
+KEEP /bin/uniq
+CHECK basename /workspace/example.c .c | grep -q '^example$'
+KEEP /bin/basename
+CHECK dirname /workspace/example.c | grep -q '^/workspace$'
+KEEP /bin/dirname
+CHECK test "$(printf abc | tr a-z A-Z)" = ABC
+KEEP /bin/tr
+RUN printf same > /tmp/cmp-one
+RUN printf same > /tmp/cmp-two
+CHECK cmp /tmp/cmp-one /tmp/cmp-two
+RUN printf different > /tmp/cmp-two
+CHECK ! cmp -s /tmp/cmp-one /tmp/cmp-two
+KEEP /bin/cmp
+CHECK date -u -d 0 '+%Y-%m-%d' | grep -q '^1970-01-01$'
+KEEP /bin/date
+RUN mktemp -d /tmp/dolly.XXXXXX > /tmp/mktemp-check
+CHECK test -d "$(cat /tmp/mktemp-check)"
+KEEP /bin/mktemp
+RUN printf abc > /tmp/sha256-check
+CHECK sha256sum /tmp/sha256-check | grep -q '^ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  /tmp/sha256-check$'
+RUN sha256sum /tmp/sha256-check > /tmp/sha256-list
+CHECK sha256sum -c /tmp/sha256-list
+KEEP /bin/sha256sum
+CHECK md5sum /tmp/sha256-check | grep -q '^900150983cd24fb0d6963f7d28e17f72  /tmp/sha256-check$'
+RUN md5sum /tmp/sha256-check > /tmp/md5-list
+CHECK md5sum -c /tmp/md5-list
+KEEP /bin/md5sum
+CHECK sleep 0
+KEEP /bin/sleep
+CHECK timeout 1 true
+CHECK timeout 0.01 sleep 1 && false || test "$?" = 124
+CHECK timeout 0.01 timeout 1 sleep 1 && false || test "$?" = 124
+CHECK uname -sm | grep -q '^Dolly wasm64$'
+RUN time true 2> /tmp/time-check
+CHECK grep -q '^real [0-9]' /tmp/time-check
+CHECK ! time false 2> /tmp/time-false-check
+RUN printf 'link-data\n' > /tmp/link-target
+RUN ln -s /tmp/link-target /tmp/link-symbolic
+CHECK test "$(readlink /tmp/link-symbolic)" = /tmp/link-target
+CHECK ! cp /tmp/link-target /tmp/link-symbolic && grep -q '^link-data$' /tmp/link-target
+RUN ln -s /tmp/dolly-missing-link-target /tmp/link-broken
+CHECK test -L /tmp/link-broken; ! test -e /tmp/link-broken
+RUN mkdir -p /tmp/rm-link-target; touch /tmp/rm-link-target/keep
+RUN ln -s /tmp/rm-link-target /tmp/rm-link-directory
+CHECK ! rm -r /tmp/rm-link-directory/; test -f /tmp/rm-link-target/keep; test -L /tmp/rm-link-directory
+RUN cp /tmp/link-symbolic /tmp/link-symbolic-copy
+CHECK test "$(readlink /tmp/link-symbolic-copy)" = /tmp/link-target
+CHECK test "$(realpath /tmp/link-symbolic)" = /tmp/link-target
+CHECK grep -q '^link-data$' /tmp/link-symbolic
+KEEP /bin/ln
+KEEP /bin/readlink
+RUN mkdir -p /tmp/rmdir-check/child
+RUN rmdir /tmp/rmdir-check/child
+CHECK test ! -e /tmp/rmdir-check/child
+KEEP /bin/rmdir
+RUN seq 2 2 6 > /tmp/seq-check
+CHECK grep -q '^2$' /tmp/seq-check
+CHECK grep -q '^4$' /tmp/seq-check
+CHECK grep -q '^6$' /tmp/seq-check
+KEEP /bin/seq
+RUN printf 'a\nb\n' > /tmp/paste-left
+RUN printf '1\n2\n' > /tmp/paste-right
+CHECK paste /tmp/paste-left /tmp/paste-right | tr '\t' ':' | grep -q '^a:1$'
+CHECK paste /tmp/paste-left /tmp/paste-right | tr '\t' ':' | grep -q '^b:2$'
+KEEP /bin/paste
+RUN printf 'a\nb\n' > /tmp/comm-left
+RUN printf 'b\nc\n' > /tmp/comm-right
+CHECK comm -12 /tmp/comm-left /tmp/comm-right | grep -q '^b$'
+KEEP /bin/comm
+CHECK test "$(expr 6 + 7)" = 13
+KEEP /bin/expr
+RUN printf 'alpha\nbeta\n' > /tmp/nl-check
+CHECK nl -ba /tmp/nl-check | grep -q '1.*alpha'
+CHECK nl -ba /tmp/nl-check | grep -q '2.*beta'
+KEEP /bin/nl
+RUN printf '1 left\n2 two\n' > /tmp/join-left
+RUN printf '1 right\n3 three\n' > /tmp/join-right
+CHECK join /tmp/join-left /tmp/join-right | grep -q '^1 left right$'
+KEEP /bin/join
+RUN mkdir -p /tmp/split-decimal /tmp/split-alpha
+RUN printf 'one\ntwo\nthree\n' > /tmp/split-check
+RUN split -d -l 2 /tmp/split-check /tmp/split-decimal/part-
+CHECK test -f /tmp/split-decimal/part-00
+RUN split -l 2 /tmp/split-check /tmp/split-alpha/part-
+CHECK test -f /tmp/split-alpha/part-aa
+CHECK grep -q '^three$' /tmp/split-alpha/part-ab
+KEEP /bin/split
+CHECK printf '\0DOLLY-STRING\0no\0' | strings | grep -q '^DOLLY-STRING$'
+KEEP /bin/strings
+RUN printf abc > /tmp/cksum-check
+CHECK ! cksum /tmp/cksum-missing
+CHECK cksum /tmp/cksum-check | grep -q '^1219131554 3 /tmp/cksum-check$'
+KEEP /bin/cksum
+CHECK test "$(printf 'abc\n' | rev)" = cba
+CHECK test "$(printf 'abcdef\n' | fold -w 3)" = "$(printf 'abc\ndef\n')"
+KEEP /bin/fold
+CHECK test "$(printf 'a\tb\n' | expand -t 4)" = 'a   b'
+KEEP /bin/expand
+CHECK test "$(printf 'a   b\n' | unexpand -a -t 4 | tr '\t' ':')" = 'a:b'
+KEEP /bin/unexpand
+RUN printf 'a b\nb c\n' > /tmp/tsort-check
+CHECK test "$(tsort /tmp/tsort-check)" = "$(printf 'a\nb\nc\n')"
+KEEP /bin/tsort
+CHECK pathchk -p portable/path
+CHECK ! pathchk -p 'bad:char'
+KEEP /bin/pathchk
+CHECK test "$(env DOLLY_ENV_CHECK=inside printenv DOLLY_ENV_CHECK)" = inside
+CHECK ! printenv DOLLY_ENV_CHECK
+CHECK test "$(env -i PATH=/bin printenv PATH)" = /bin
+CHECK ! env -u HOME printenv HOME
+CHECK ! env false
+RUN printf 'one\ntwo\nthree\n' > /tmp/tail-check
+CHECK test "$(tail -n 2 /tmp/tail-check)" = "$(printf 'two\nthree\n')"
+CHECK test "$(tail -n +2 /tmp/tail-check)" = "$(printf 'two\nthree\n')"
+CHECK test "$(tail -c 6 /tmp/tail-check)" = "$(printf 'three\n')"
+CHECK ! tail -f /tmp/tail-check
+RUN printf 'tee-data\n' | tee /tmp/tee-check > /tmp/tee-output
+CHECK grep -q '^tee-data$' /tmp/tee-check
+CHECK grep -q '^tee-data$' /tmp/tee-output
+RUN printf 'appended\n' | tee -a /tmp/tee-check > /tmp/tee-append-output
+CHECK tail -n 1 /tmp/tee-check | grep -q '^appended$'
+CHECK ! tee -i < /tmp/tail-check
+CHECK printf 'one two' | xargs -n 1 test -n
+CHECK printf 'one\0two\0' | xargs -0 -n 1 test -n
+CHECK printf '' | xargs -r false
 
 # curl 8.21.0 headers from https://github.com/curl/curl at 68720b483728.
 # libcurl-fetch.c and curl.c are Dolly-owned HTTP-only implementations over the
@@ -215,10 +632,126 @@ KEEP /usr/lib/libz.a
 KEEP /usr/include/zlib.h
 KEEP /usr/include/zconf.h
 
+# A decompression-only gzip command makes ordinary upstream .tar.gz/.tgz
+# archives usable without a browser or host extraction fallback. TypeScript
+# 5.9.3 is the compiler used by pinned Pi 0.84.4; the unchanged official npm
+# archive is decompressed, extracted, and executed under Janis inside Dolly.
+SOURCE HOST TXT /static/default/commands/gzip.c /usr/src/dolly/commands/gzip.c SHA256 dc8fddc876932984ede5bf89a12d4e071de2d8e361354df29fa31e9df5b36f7f
+RUN make -f /usr/src/dolly/startup.mk /bin/gzip
+CHECK gzip --help
+KEEP /bin/gzip
+SOURCE HOST BIN /static/default/typescript-5.9.3.tgz /tmp/typescript-5.9.3.tgz SHA256 10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3
+RUN gzip -dc /tmp/typescript-5.9.3.tgz > /tmp/typescript-5.9.3.tar
+RUN mkdir -p /usr/lib/typescript
+RUN tar -xf /tmp/typescript-5.9.3.tar -C /usr/lib/typescript
+SOURCE HOST TXT /static/default/runtimes/tsc-dolly.mjs /usr/lib/typescript/tsc-dolly.mjs SHA256 c81fe4905c8a1aeb83fd8dca09f7ad05242d2975efa91c1c7f004acc23eac80d
+SOURCE HOST TXT /static/default/commands/tsc.c /usr/src/dolly/commands/tsc.c SHA256 eed8eb879762896740cec873c5ff227bc819e82b422bb2a35d32d420c0aee5eb
+RUN make -f /usr/src/dolly/startup.mk typescript
+CHECK tsc --version | grep -q '^Version 5.9.3$'
+RUN mkdir -p /tmp/tsc-single /tmp/tsc-multi
+RUN echo 'const answer: number = 6 * 7;' > /tmp/tsc-single/main.ts
+RUN tsc --target ES2023 --module ES2022 --outDir /tmp/tsc-single/out /tmp/tsc-single/main.ts
+CHECK grep -q 'const answer = 6 \* 7;' /tmp/tsc-single/out/main.js
+RUN echo 'export const answer: number = 42;' > /tmp/tsc-multi/value.ts
+RUN echo 'import { answer } from "./value.js"; console.log(`TS-MULTI-${answer}`);' > /tmp/tsc-multi/main.ts
+RUN tsc --target ES2023 --module ES2022 --moduleResolution bundler --outDir /tmp/tsc-multi/out /tmp/tsc-multi/main.ts /tmp/tsc-multi/value.ts
+CHECK qjs -m /tmp/tsc-multi/out/main.js | grep -q '^TS-MULTI-42$'
+# Compile the exact Pi tag's complete runtime workspace TypeScript graph in
+# Dolly: telemetry, AI, agent, protocol, client, TUI, and coding-agent. This
+# source-loop slice intentionally emits unbundled ESM with type checking
+# disabled. Its finite external package graph and syntax boundary follow below.
+SOURCE HOST BIN /static/default/pi-source.tar /tmp/pi-source.tar SHA256 c7e82ac2efc5714a7ea229a2ca42f05d584364af9769c0ac33d8a64ee603912f
+RUN tar -xf /tmp/pi-source.tar -C /
+# Provider model values are generated upstream and deliberately absent from
+# Pi's Git tree. This is the exact data directory from pinned Pi AI 0.84.4's
+# published package, restored under the source tree for its offline build.
+SOURCE HOST BIN /static/default/pi-generated-model-data.tar /tmp/pi-generated-model-data.tar SHA256 46d06b81f8ca1396981dc30c709aff2c702d83ca0d89ac0db5ebc95767ed22a6
+RUN tar -xf /tmp/pi-generated-model-data.tar -C /
+SOURCE HOST TXT /static/default/pi-tsconfig.dolly.json /tmp/pi-tsconfig.dolly.json SHA256 5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825
+SOURCE HOST TXT /static/default/pi-quickjs-compat.mjs /usr/lib/pi/quickjs-compat.mjs SHA256 4bb0c0fc355abfd0a501378d6f5ad1342164c9014d807dd59b60c95861598f6a
+SOURCE HOST TXT /static/default/runtimes/apply-pi-quickjs-compat.mjs /usr/lib/pi/apply-pi-quickjs-compat.mjs SHA256 a79386401c64c0bcc5650d5e2c4c4fd28fd00759b52a277f173f86961a5285f9
+RUN cp /tmp/pi-tsconfig.dolly.json /usr/src/pi-source/packages/telemetry/tsconfig.dolly.json
+RUN cp /tmp/pi-tsconfig.dolly.json /usr/src/pi-source/packages/ai/tsconfig.dolly.json
+RUN cp /tmp/pi-tsconfig.dolly.json /usr/src/pi-source/packages/agent/tsconfig.dolly.json
+RUN cp /tmp/pi-tsconfig.dolly.json /usr/src/pi-source/packages/protocol/tsconfig.dolly.json
+RUN cp /tmp/pi-tsconfig.dolly.json /usr/src/pi-source/packages/client/tsconfig.dolly.json
+RUN cp /tmp/pi-tsconfig.dolly.json /usr/src/pi-source/packages/tui/tsconfig.dolly.json
+RUN cp /tmp/pi-tsconfig.dolly.json /usr/src/pi-source/packages/coding-agent/tsconfig.dolly.json
+RUN cd /usr/src/pi-source/packages/telemetry && tsc -p tsconfig.dolly.json --pretty false
+RUN cd /usr/src/pi-source/packages/ai && tsc -p tsconfig.dolly.json --pretty false
+RUN cd /usr/src/pi-source/packages/agent && tsc -p tsconfig.dolly.json --pretty false
+RUN cd /usr/src/pi-source/packages/protocol && tsc -p tsconfig.dolly.json --pretty false
+RUN cd /usr/src/pi-source/packages/client && tsc -p tsconfig.dolly.json --pretty false
+RUN cd /usr/src/pi-source/packages/tui && tsc -p tsconfig.dolly.json --pretty false
+RUN janis -m /usr/lib/pi/apply-pi-quickjs-compat.mjs /usr/src/pi-source/packages/tui/dist-dolly/utils.js
+RUN cd /usr/src/pi-source/packages/coding-agent && tsc -p tsconfig.dolly.json --pretty false
+# Mirror the two upstream packages' normal offline asset-copy steps. These
+# inputs are ordinary files in the retained source tree, not browser assets.
+RUN cp -r /usr/src/pi-source/packages/ai/src/providers/data /usr/src/pi-source/packages/ai/dist-dolly/providers
+RUN mkdir -p /usr/src/pi-source/packages/coding-agent/dist-dolly/core/export-html/vendor /usr/src/pi-source/packages/coding-agent/dist-dolly/modes/interactive/theme /usr/src/pi-source/packages/coding-agent/dist-dolly/modes/interactive/assets
+RUN cp /usr/src/pi-source/packages/coding-agent/src/core/export-html/template.html /usr/src/pi-source/packages/coding-agent/src/core/export-html/template.css /usr/src/pi-source/packages/coding-agent/src/core/export-html/template.js /usr/src/pi-source/packages/coding-agent/dist-dolly/core/export-html
+RUN cp /usr/src/pi-source/packages/coding-agent/src/core/export-html/vendor/marked.min.js /usr/src/pi-source/packages/coding-agent/src/core/export-html/vendor/highlight.min.js /usr/src/pi-source/packages/coding-agent/dist-dolly/core/export-html/vendor
+RUN cp /usr/src/pi-source/packages/coding-agent/src/modes/interactive/theme/dark.json /usr/src/pi-source/packages/coding-agent/src/modes/interactive/theme/light.json /usr/src/pi-source/packages/coding-agent/src/modes/interactive/theme/theme-schema.json /usr/src/pi-source/packages/coding-agent/dist-dolly/modes/interactive/theme
+RUN cp /usr/src/pi-source/packages/coding-agent/src/modes/interactive/assets/clankolas.png /usr/src/pi-source/packages/coding-agent/dist-dolly/modes/interactive/assets/clankolas.png
+CHECK '[' -f /usr/src/pi-source/packages/telemetry/dist-dolly/index.js ']'
+CHECK '[' -f /usr/src/pi-source/packages/ai/dist-dolly/index.js ']'
+CHECK '[' -f /usr/src/pi-source/packages/agent/dist-dolly/index.js ']'
+CHECK '[' -f /usr/src/pi-source/packages/protocol/dist-dolly/index.js ']'
+CHECK '[' -f /usr/src/pi-source/packages/client/dist-dolly/index.js ']'
+CHECK '[' -f /usr/src/pi-source/packages/tui/dist-dolly/index.js ']'
+CHECK '[' -f /usr/src/pi-source/packages/coding-agent/dist-dolly/cli.js ']'
+CHECK '[' -f /usr/src/pi-source/packages/coding-agent/dist-dolly/core/tools/bash.js ']'
+CHECK grep -q '^const zeroWidthRegex = .*u;$' /usr/src/pi-source/packages/tui/dist-dolly/utils.js
+CHECK '[' -f /usr/src/pi-source/packages/ai/dist-dolly/providers/data/openrouter.json ']'
+CHECK '[' -f /usr/src/pi-source/packages/coding-agent/dist-dolly/core/export-html/template.html ']'
+# Publish target-emitted workspace packages with their unchanged manifests in
+# the conventional Janis node_modules root.
+RUN mkdir -p /usr/lib/node_modules/@earendil-works/pi-telemetry && cp /usr/src/pi-source/packages/telemetry/package.json /usr/lib/node_modules/@earendil-works/pi-telemetry/package.json && cp -r /usr/src/pi-source/packages/telemetry/dist-dolly /usr/lib/node_modules/@earendil-works/pi-telemetry/dist
+RUN mkdir -p /usr/lib/node_modules/@earendil-works/pi-ai && cp /usr/src/pi-source/packages/ai/package.json /usr/lib/node_modules/@earendil-works/pi-ai/package.json && cp -r /usr/src/pi-source/packages/ai/dist-dolly /usr/lib/node_modules/@earendil-works/pi-ai/dist
+RUN mkdir -p /usr/lib/node_modules/@earendil-works/pi-agent-core && cp /usr/src/pi-source/packages/agent/package.json /usr/lib/node_modules/@earendil-works/pi-agent-core/package.json && cp -r /usr/src/pi-source/packages/agent/dist-dolly /usr/lib/node_modules/@earendil-works/pi-agent-core/dist
+RUN mkdir -p /usr/lib/node_modules/@earendil-works/pi-protocol && cp /usr/src/pi-source/packages/protocol/package.json /usr/lib/node_modules/@earendil-works/pi-protocol/package.json && cp -r /usr/src/pi-source/packages/protocol/dist-dolly /usr/lib/node_modules/@earendil-works/pi-protocol/dist
+RUN mkdir -p /usr/lib/node_modules/@earendil-works/pi-client && cp /usr/src/pi-source/packages/client/package.json /usr/lib/node_modules/@earendil-works/pi-client/package.json && cp -r /usr/src/pi-source/packages/client/dist-dolly /usr/lib/node_modules/@earendil-works/pi-client/dist
+RUN mkdir -p /usr/lib/node_modules/@earendil-works/pi-tui && cp /usr/src/pi-source/packages/tui/package.json /usr/lib/node_modules/@earendil-works/pi-tui/package.json && cp -r /usr/src/pi-source/packages/tui/dist-dolly /usr/lib/node_modules/@earendil-works/pi-tui/dist
+RUN mkdir -p /usr/lib/node_modules/@earendil-works/pi-coding-agent && cp /usr/src/pi-source/packages/coding-agent/package.json /usr/lib/node_modules/@earendil-works/pi-coding-agent/package.json && cp -r /usr/src/pi-source/packages/coding-agent/dist-dolly /usr/lib/node_modules/@earendil-works/pi-coding-agent/dist
+# PI_PACKAGE_DIR names this conventional installed-package root. Keep upstream
+# documentation and examples beside its target-emitted dist tree so runtime
+# resource lookup has the same shape as an ordinary Node package installation.
+RUN cp /usr/src/pi-source/packages/coding-agent/README.md /usr/src/pi-source/packages/coding-agent/CHANGELOG.md /usr/lib/node_modules/@earendil-works/pi-coding-agent
+RUN cp -r /usr/src/pi-source/packages/coding-agent/docs /usr/src/pi-source/packages/coding-agent/examples /usr/lib/node_modules/@earendil-works/pi-coding-agent
+# The source-visible external package profile is verified against npm's exact
+# lockfile before packaging. Janis reads it only from WasmFS and never downloads
+# a missing dependency during module resolution.
+SOURCE HOST BIN /static/default/pi-runtime-packages.tar /tmp/pi-runtime-packages.tar SHA256 e395b7d88cbcc3afa020437507b309cc37a6f0b0645e038842a304a6aa6d2998
+RUN tar -xf /tmp/pi-runtime-packages.tar -C /
+RUN echo 'import chalk from "chalk"; import { Type } from "typebox"; import { parse } from "yaml"; if (typeof chalk !== "function" || Type.String().type !== "string" || parse("answer: 42").answer !== 42) throw new Error("bad external package graph");' > /tmp/pi-external-check.mjs
+CHECK janis -m /tmp/pi-external-check.mjs
+# QuickJS-ng has no nested WebAssembly engine, so Dolly intentionally omits
+# Photon and disables auto-resize. Prove that ordinary supported images take
+# Pi's unchanged pass-through path instead of being silently omitted.
+RUN echo 'import { processImage } from "/usr/src/pi-source/packages/coding-agent/dist-dolly/utils/image-process.js"; const result = await processImage(new Uint8Array([1, 2, 3]), "image/png", { autoResizeImages: false }); if (!result.ok || result.mimeType !== "image/png" || result.data !== "AQID") throw new Error("bad Pi image pass-through"); console.log("PI-IMAGE-PASSTHROUGH");' > /tmp/pi-image-check.mjs
+CHECK janis -m /tmp/pi-image-check.mjs | grep -q '^PI-IMAGE-PASSTHROUGH$'
+RUN echo 'import { defineTelemetrySchema } from "@earendil-works/pi-telemetry"; if (defineTelemetrySchema("TARGET-PI") !== "TARGET-PI") throw new Error("bad workspace package");' > /tmp/pi-workspace-check.mjs
+CHECK janis -m /tmp/pi-workspace-check.mjs
+RUN echo 'import { stripBom } from "/usr/src/pi-source/packages/coding-agent/dist-dolly/utils/text.js"; if (stripBom("PI") !== "PI") throw new Error("bad emit"); console.log("PI-SOURCE-EMIT");' > /tmp/pi-source-check.mjs
+CHECK qjs -m /tmp/pi-source-check.mjs | grep -q '^PI-SOURCE-EMIT$'
+RUN make -f /usr/src/dolly/startup.mk pi
+CHECK pi --version
+CHECK PI_STARTUP_BENCHMARK=1 pi --offline --no-session
+KEEP /usr/bin/tsc
+KEEP /usr/bin/pi
+KEEP /usr/lib/typescript/tsc-dolly.mjs
+KEEP /usr/lib/typescript/package/LICENSE.txt
+KEEP /usr/lib/typescript/package/package.json
+KEEP-TREE /usr/lib/typescript/package/lib
+KEEP-TREE /usr/lib/node_modules
+KEEP-TREE /usr/lib/pi
+KEEP-TREE /usr/src/pi-source
+KEEP /usr/share/licenses/pi-source/LICENSE
+
 # Git 2.55.0 from https://github.com/git/git at e9019fcafe00. Sources are
 # unchanged except for the small target lifecycle adaptations documented in
 # docs/sources.md; HTTP helpers link Dolly's compatible libcurl.
-SOURCE HOST BIN /static/default/git.tar /tmp/git.tar SHA256 43f3c587e17a6365c23c86ec5cc67911428fc7aeea87f8770e18bbad4fb01999
+SOURCE HOST BIN /static/default/git.tar /tmp/git.tar SHA256 e1e3d2eb07db18fde32c9f274ed8ad339a7efe1049559511a8e9ab11b49828d8
 RUN tar -xf /tmp/git.tar -C /
 RUN mkdir -p /home/dolly
 RUN echo '[maintenance]' > /etc/gitconfig
@@ -228,6 +761,20 @@ RUN echo '    name = Dolly' >> /home/dolly/.gitconfig
 RUN echo '    email = dolly@example.invalid' >> /home/dolly/.gitconfig
 RUN make -f /usr/src/dolly/startup.mk git
 CHECK git --version
+RUN printf 'same\n' > /tmp/diff-left
+RUN printf 'same\n' > /tmp/diff-right
+CHECK diff /tmp/diff-left /tmp/diff-right
+RUN printf 'changed\n' > /tmp/diff-right
+CHECK test "$(diff -u /tmp/diff-left /tmp/diff-right > /tmp/diff-output; echo $?)" = 1
+CHECK grep -q '^--- ' /tmp/diff-output
+CHECK grep -q '^+++ ' /tmp/diff-output
+CHECK grep -q '^-same$' /tmp/diff-output
+CHECK grep -q '^+changed$' /tmp/diff-output
+RUN printf 'before\n' > /tmp/patch-target
+RUN printf '%s\n' '--- a/patch-target' '+++ b/patch-target' '@@ -1 +1 @@' '-before' '+after' > /tmp/patch-input
+CHECK patch --dry-run -p1 -d /tmp -i /tmp/patch-input
+CHECK patch -p1 -d /tmp -i /tmp/patch-input
+CHECK grep -q '^after$' /tmp/patch-target
 KEEP /usr/bin/git
 KEEP /usr/lib/libgit.a
 KEEP /usr/libexec/dolly/git-remote-http
@@ -240,9 +787,9 @@ KEEP /home/dolly/.gitconfig
 # examples and separately ABI-stamped filesystem executables.
 SOURCE HOST TXT /static/default/cpp-check.cpp /usr/src/dolly/cpp-check.cpp SHA256 7cf3034c5b063864676f8280d1f1b0a92d8f3c8d480b2b1a2cb65aa66a8c35e2
 SOURCE HOST TXT /static/default/demo.c /usr/src/dolly/demo.c SHA256 663ee9ea6a5d93ebf805906b5e3629b712aab0dda5153d50d07c02009147e7b3
-SOURCE HOST BIN /static/default/writer.wasm /usr/libexec/dolly/writer SHA256 ea0c5c5d716632907ca95cf4ecdab8838a2369fa61d677ddc594e11ea4f01dcc
-SOURCE HOST BIN /static/default/reader.wasm /usr/libexec/dolly/reader SHA256 6c8d37389a761d6e98bd22efe333ef0fc21ba1ef7f9d50ca09e98c16042d8796
-SOURCE HOST BIN /static/default/inspector.wasm /usr/libexec/dolly/inspector SHA256 d28b86df87ffe110473ebd7fa1d02e4466bad680406a7977a959b15eabdd6198
+SOURCE HOST BIN /static/default/writer.wasm /usr/libexec/dolly/writer SHA256 63a280be10546be374c006e9e717058d51beaeee072f8a3bfe48528b275ebf69
+SOURCE HOST BIN /static/default/reader.wasm /usr/libexec/dolly/reader SHA256 3b6b7cca0c5852d2920ed9b2c358a1d8f161ae8922e423a10305e61f87522970
+SOURCE HOST BIN /static/default/inspector.wasm /usr/libexec/dolly/inspector SHA256 8e619b307ecedc72b4d54b204fe3e8389154e54783c410940f03786b4e0680c8
 RUN make -f /usr/src/dolly/startup.mk extras
 CHECK demo
 KEEP /usr/libexec/dolly/cpp-check

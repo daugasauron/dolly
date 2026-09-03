@@ -14,7 +14,8 @@ while IFS= read -r path; do
   cp -- "${source_dir}/${path}" "${output_dir}/${path}"
 done < <(git -C "${source_dir}" ls-files '*.c' '*.h')
 
-patch --silent -d "${output_dir}" -p1 < "${project_dir}/config/git-dolly.patch"
+patch --silent --no-backup-if-mismatch -d "${output_dir}" -p1 \
+  < "${project_dir}/config/git-dolly.patch"
 
 cp -- "${source_dir}/COPYING" "${output_dir}/COPYING"
 cp -R -- "${source_dir}/templates" "${output_dir}/templates"

@@ -72,8 +72,6 @@ ENTRY /usr/bin/pi --no-session</pre>
 
       <h2>Read</h2>
       <ul class="docs">
-        <li><a href="./Dollyfile">default Dollyfile</a></li>
-        <li><a href="./Dollyfile-gamedev">gamedev Dollyfile</a></li>
         <li><a href="./docs/dollyfile.md">Dollyfile format</a></li>
         <li><a href="./docs/architecture.md">architecture</a></li>
         <li><a href="./docs/security.md">security boundary</a></li>
@@ -86,6 +84,8 @@ ENTRY /usr/bin/pi --no-session</pre>
       import { DOLLY_IMAGES } from "./dist/dolly-images.mjs";
 
       const routes = document.querySelector(".routes");
+      const docs = document.querySelector(".docs");
+      const firstGuide = docs.firstElementChild;
       for (const definition of DOLLY_IMAGES) {
         const section = document.createElement("section");
         section.className = "image";
@@ -109,6 +109,13 @@ ENTRY /usr/bin/pi --no-session</pre>
         }
         section.append(heading, description, links);
         routes.append(section);
+
+        const recipeItem = document.createElement("li");
+        const recipeLink = document.createElement("a");
+        recipeLink.href = `./${definition.dollyfile}`;
+        recipeLink.textContent = `${definition.image} Dollyfile`;
+        recipeItem.append(recipeLink);
+        docs.insertBefore(recipeItem, firstGuide);
       }
 
       const input = document.querySelector("#dollyfile-upload");

@@ -53,6 +53,9 @@
   (import "env" "tmpfile" (func $tmpfile (result i64)))
   (import "env" "tmpnam" (func $tmpnam (param i64) (result i64)))
   (import "env" "ungetc" (func $ungetc (param i32 i64) (result i32)))
+  (import "env" "ungetwc" (func $ungetwc (param i32 i64) (result i32)))
+  (import "env" "getwc" (func $getwc (param i64) (result i32)))
+  (import "env" "fputwc" (func $fputwc (param i32 i64) (result i32)))
   (import "env" "vfprintf" (func $vfprintf (param i64 i64 i64) (result i32)))
   (import "env" "__small_printf" (func $__small_printf (param i64 i64) (result i32)))
   (import "env" "__small_fprintf" (func $__small_fprintf (param i64 i64 i64) (result i32)))
@@ -83,6 +86,7 @@
   (import "env" "readlink" (func $readlink (param i64 i64 i64) (result i64)))
   (import "env" "realpath" (func $realpath (param i64 i64) (result i64)))
   (import "env" "ftruncate" (func $ftruncate (param i32 i64) (result i32)))
+  (import "env" "truncate" (func $truncate (param i64 i64) (result i32)))
   (import "env" "fchmod" (func $fchmod (param i32 i32) (result i32)))
   (import "env" "fchown" (func $fchown (param i32 i32 i32) (result i32)))
   (import "env" "flock" (func $flock (param i32 i32) (result i32)))
@@ -140,6 +144,7 @@
 
   ;; Byte strings and character classification.
   (import "env" "isalnum" (func $isalnum (param i32) (result i32)))
+  (import "env" "isblank" (func $isblank (param i32) (result i32)))
   (import "env" "isalpha" (func $isalpha (param i32) (result i32)))
   (import "env" "iscntrl" (func $iscntrl (param i32) (result i32)))
   (import "env" "isdigit" (func $isdigit (param i32) (result i32)))
@@ -191,6 +196,11 @@
   (import "env" "towupper" (func $towupper (param i32) (result i32)))
   (import "env" "vsnprintf" (func $vsnprintf (param i64 i64 i64 i64) (result i32)))
   (import "env" "wctomb" (func $wctomb (param i64 i32) (result i32)))
+  (import "env" "wcrtomb" (func $wcrtomb (param i64 i32 i64) (result i64)))
+  (import "env" "mbrlen" (func $mbrlen (param i64 i64 i64) (result i64)))
+  (import "env" "mbsrtowcs" (func $mbsrtowcs (param i64 i64 i64 i64) (result i64)))
+  (import "env" "mbsnrtowcs"
+    (func $mbsnrtowcs (param i64 i64 i64 i64 i64) (result i64)))
   (import "env" "wcschr" (func $wcschr (param i64 i32) (result i64)))
   (import "env" "wcscmp" (func $wcscmp (param i64 i64) (result i32)))
   (import "env" "wcscpy" (func $wcscpy (param i64 i64) (result i64)))
@@ -201,6 +211,8 @@
   (import "env" "wcstok" (func $wcstok (param i64 i64 i64) (result i64)))
   (import "env" "wcstol" (func $wcstol (param i64 i64 i32) (result i64)))
   (import "env" "wcstombs" (func $wcstombs (param i64 i64 i64) (result i64)))
+  (import "env" "wcsnrtombs"
+    (func $wcsnrtombs (param i64 i64 i64 i64 i64) (result i64)))
   (import "env" "wmemchr" (func $wmemchr (param i64 i32 i64) (result i64)))
   (import "env" "wmemcmp" (func $wmemcmp (param i64 i64 i64) (result i32)))
   (import "env" "memrchr" (func $memrchr (param i64 i32 i64) (result i64)))
@@ -231,17 +243,20 @@
   (import "env" "exp" (func $exp (param f64) (result f64)))
   (import "env" "expm1" (func $expm1 (param f64) (result f64)))
   (import "env" "exp2" (func $exp2 (param f64) (result f64)))
+  (import "env" "exp2f" (func $exp2f (param f32) (result f32)))
   (import "env" "erf" (func $erf (param f64) (result f64)))
   (import "env" "erfc" (func $erfc (param f64) (result f64)))
   (import "env" "fabs" (func $fabs (param f64) (result f64)))
   (import "env" "fma" (func $fma (param f64 f64 f64) (result f64)))
   (import "env" "fmod" (func $fmod (param f64 f64) (result f64)))
+  (import "env" "fmaxf" (func $fmaxf (param f32 f32) (result f32)))
   (import "env" "fminf" (func $fminf (param f32 f32) (result f32)))
   (import "env" "frexp" (func $frexp (param f64 i64) (result f64)))
   (import "env" "hypot" (func $hypot (param f64 f64) (result f64)))
   (import "env" "ldexp" (func $ldexp (param f64 i32) (result f64)))
   (import "env" "lrint" (func $lrint (param f64) (result i64)))
   (import "env" "log" (func $log (param f64) (result f64)))
+  (import "env" "logf" (func $logf (param f32) (result f32)))
   (import "env" "log1p" (func $log1p (param f64) (result f64)))
   (import "env" "log2" (func $log2 (param f64) (result f64)))
   (import "env" "log10" (func $log10 (param f64) (result f64)))
@@ -281,6 +296,15 @@
   (import "env" "mktime" (func $mktime (param i64) (result i64)))
   (import "env" "setlocale" (func $setlocale (param i32 i64) (result i64)))
   (import "env" "strftime" (func $strftime (param i64 i64 i64 i64) (result i64)))
+  (import "env" "strftime_l"
+    (func $strftime_l (param i64 i64 i64 i64 i64) (result i64)))
+  (import "env" "newlocale" (func $newlocale (param i32 i64 i64) (result i64)))
+  (import "env" "freelocale" (func $freelocale (param i64)))
+  (import "env" "uselocale" (func $uselocale (param i64) (result i64)))
+  (import "env" "strtof_l" (func $strtof_l (param i64 i64 i64) (result f32)))
+  (import "env" "strtod_l" (func $strtod_l (param i64 i64 i64) (result f64)))
+  ;; wasm64 Emscripten lowers long double through an explicit result pointer.
+  (import "env" "strtold_l" (func $strtold_l (param i64 i64 i64 i64)))
   (import "env" "wcsftime" (func $wcsftime (param i64 i64 i64 i64) (result i64)))
   (import "env" "wcscoll" (func $wcscoll (param i64 i64) (result i32)))
   (import "env" "wcsxfrm" (func $wcsxfrm (param i64 i64 i64) (result i64)))
@@ -299,6 +323,10 @@
   (import "env" "rand" (func $rand (result i32)))
   (import "env" "getloadavg" (func $getloadavg (param i64 i32) (result i32)))
   (import "env" "confstr" (func $confstr (param i32 i64 i64) (result i64)))
+  (import "env" "sched_getaffinity"
+    (func $sched_getaffinity (param i32 i64 i64) (result i32)))
+  (import "env" "__sched_cpucount"
+    (func $__sched_cpucount (param i64 i64) (result i32)))
 
   ;; Synthetic userspace identity and platform queries. They expose no host
   ;; account, process, or filesystem state.
@@ -346,6 +374,17 @@
   (import "env" "pthread_getcpuclockid"
     (func $pthread_getcpuclockid (param i64 i64) (result i32)))
   (import "env" "pthread_kill" (func $pthread_kill (param i64 i32) (result i32)))
+  ;; libc++ uses these internally even in Dolly's single-threaded execution
+  ;; model. They are serialized in-Wasm libc operations, not browser threads
+  ;; or host synchronization capabilities.
+  (import "env" "pthread_mutex_lock"
+    (func $pthread_mutex_lock (param i64) (result i32)))
+  (import "env" "pthread_mutex_unlock"
+    (func $pthread_mutex_unlock (param i64) (result i32)))
+  (import "env" "pthread_cond_wait"
+    (func $pthread_cond_wait (param i64 i64) (result i32)))
+  (import "env" "pthread_cond_broadcast"
+    (func $pthread_cond_broadcast (param i64) (result i32)))
   (import "env" "sched_yield" (func $sched_yield (result i32)))
   (import "env" "emscripten_longjmp" (func $emscripten_longjmp (param i64 i32)))
   (import "env" "getTempRet0" (func $getTempRet0 (result i32)))
@@ -398,6 +437,17 @@
       (param i64 i32 i64 i32 i32 i32 f64) (result i32)))
   (import "env" "dolly_spawn_env"
     (func $dolly_spawn_env (param i64 i32 i64 i64 i32 i32 i32) (result i32)))
+  ;; Checked dynamic loading remains inside the Wasm userspace. The wrapper
+  ;; validates a side module's ABI stamp and exact imports before allowing the
+  ;; Emscripten loader to instantiate it; raw dlopen is not in the contract.
+  (import "env" "dolly_dlopen"
+    (func $dolly_dlopen (param i64 i32) (result i64)))
+  (import "env" "dolly_dlsym"
+    (func $dolly_dlsym (param i64 i64) (result i64)))
+  (import "env" "dolly_dlerror"
+    (func $dolly_dlerror (result i64)))
+  (import "env" "dolly_dlclose"
+    (func $dolly_dlclose (param i64) (result i32)))
   (import "env" "dolly_wait"
     (func $dolly_wait (param i32 i64) (result i32)))
   ;; Runtime-owned filesystem mutation used by dynamic language adapters.
@@ -419,16 +469,28 @@
     (func $dolly_terminal_columns (result i32)))
   (import "env" "dolly_terminal_rows"
     (func $dolly_terminal_rows (result i32)))
+  ;; A closed, libc-independent line-discipline mask. libc and language
+  ;; runtimes translate their own termios structure layouts above this edge.
+  (import "env" "dolly_terminal_mode_get"
+    (func $dolly_terminal_mode_get (param i32) (result i32)))
+  (import "env" "dolly_terminal_mode_set"
+    (func $dolly_terminal_mode_set (param i32 i32) (result i32)))
   ;; Exclusive in-Wasm framebuffer lease. Commands receive only the inactive
   ;; RGBA8 buffer and semantic Dolly input records; the browser mailbox and DOM
   ;; are not command capabilities. The runtime forcibly releases ownership at
   ;; every command boundary.
   (import "env" "dolly_display_acquire"
     (func $dolly_display_acquire (param i64) (result i32)))
+  (import "env" "dolly_display_set_size"
+    (func $dolly_display_set_size (param i64 i32 i32 i64) (result i32)))
   (import "env" "dolly_display_begin_frame"
     (func $dolly_display_begin_frame (param i64 i64) (result i32)))
   (import "env" "dolly_display_present"
     (func $dolly_display_present (param i64 i32) (result i32)))
+  (import "env" "dolly_display_wait_frame"
+    (func $dolly_display_wait_frame (param i64 i64 f64) (result i32)))
+  (import "env" "dolly_display_set_cursor"
+    (func $dolly_display_set_cursor (param i64 i32) (result i32)))
   (import "env" "dolly_display_next_event"
     (func $dolly_display_next_event (param i64 i64 f64) (result i32)))
   (import "env" "dolly_display_release"
@@ -456,6 +518,10 @@
     (func $dolly_assert_fail (param i64 i64 i32 i64)))
   (import "env" "dolly_atexit"
     (func $dolly_atexit (param i64) (result i32)))
+  ;; C++ global destructors are registered against the current command's
+  ;; in-Wasm lifecycle frame and drained before that module can be closed.
+  (import "env" "__cxa_atexit"
+    (func $__cxa_atexit (param i64 i64 i64) (result i32)))
   (import "env" "dolly_chmod"
     (func $dolly_chmod (param i64 i32) (result i32)))
   (import "env" "dolly_umask"

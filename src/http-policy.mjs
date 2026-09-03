@@ -7,8 +7,27 @@ const credentialHeaderNames = new Set([
   "x-goog-api-key",
 ]);
 
+// Fetch owns these transport headers. Forwarding native libcurl values is not
+// merely ineffective: engines disagree about whether to discard them or turn
+// the request into a CORS preflight. In particular Firefox preflights a
+// caller-supplied User-Agent, which makes otherwise CORS-enabled PyPI GETs
+// fail. Normalize that browser variance at Dolly's broker boundary.
+const browserOwnedTransportHeaderNames = new Set([
+  "accept-encoding",
+  "connection",
+  "content-length",
+  "host",
+  "transfer-encoding",
+  "user-agent",
+]);
+
 export function isDollyCredentialHeader(name) {
   return credentialHeaderNames.has(String(name).toLowerCase());
+}
+
+export function stripDollyBrowserOwnedHeaders(headers) {
+  for (const name of browserOwnedTransportHeaderNames) headers.delete(name);
+  return headers;
 }
 
 const defaultLimits = Object.freeze({

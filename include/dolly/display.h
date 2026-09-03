@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 enum {
-  DOLLY_DISPLAY_MAILBOX_VERSION = 3,
+  DOLLY_DISPLAY_MAILBOX_VERSION = 4,
   DOLLY_DISPLAY_MAILBOX_HEADER_SIZE = 128,
   DOLLY_DISPLAY_EVENT_SIZE = 128,
   DOLLY_DISPLAY_EVENT_CAPACITY = 256,
@@ -26,6 +26,14 @@ typedef enum {
   // for an opaque pixel. Rows are top-to-bottom and pixels are left-to-right.
   DOLLY_DISPLAY_PIXEL_RGBA8 = 1,
 } dolly_display_pixel_format;
+
+typedef enum {
+  DOLLY_DISPLAY_CURSOR_TEXT = 0,
+  DOLLY_DISPLAY_CURSOR_DEFAULT = 1,
+  DOLLY_DISPLAY_CURSOR_CROSSHAIR = 2,
+  DOLLY_DISPLAY_CURSOR_POINTER = 3,
+  DOLLY_DISPLAY_CURSOR_HIDDEN = 4,
+} dolly_display_cursor;
 
 typedef enum {
   DOLLY_INPUT_EVENT_KEY = 1,
@@ -152,7 +160,12 @@ typedef struct {
   // pid is still the active foreground command.
   _Atomic uint32_t interrupt_sequence;
   _Atomic uint32_t interrupt_target_pid;
-  unsigned char reserved[DOLLY_DISPLAY_MAILBOX_HEADER_SIZE - 30 * sizeof(uint32_t)];
+  // The browser increments this once per animation frame while a graphics
+  // lease is active. Dolly owns waiting and interruption semantics.
+  _Atomic uint32_t animation_frame_sequence;
+  // A closed semantic enum written by Dolly and mapped to CSS by the trusted
+  // presenter. Commands never supply a browser string or DOM handle.
+  _Atomic uint32_t cursor_style;
   dolly_input_event events[DOLLY_DISPLAY_EVENT_CAPACITY];
 } dolly_display_mailbox;
 
@@ -197,8 +210,18 @@ typedef struct {
 // zero on success except next_event, which returns one event, zero on timeout,
 // or a negative errno value. A negative timeout waits indefinitely.
 int dolly_display_acquire(dolly_display_surface *surface);
+// Select logical framebuffer dimensions for this lease. The browser scales
+// the complete RGBA frame to the canvas; no browser object or capability is
+// exposed. The terminal's current dimensions are restored on release.
+int dolly_display_set_size(uint64_t generation, uint32_t width,
+                           uint32_t height, dolly_display_surface *surface);
 int dolly_display_begin_frame(uint64_t generation, dolly_display_frame *frame);
 int dolly_display_present(uint64_t generation, uint32_t buffer_index);
+// sequence is both the last observed animation frame and the newly observed
+// value. Returns one for a new frame, zero on timeout, or a negative errno.
+int dolly_display_wait_frame(uint64_t generation, uint32_t *sequence,
+                             double timeout_milliseconds);
+int dolly_display_set_cursor(uint64_t generation, uint32_t cursor);
 int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
                              double timeout_milliseconds);
 int dolly_display_release(uint64_t generation);

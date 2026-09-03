@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,6 +17,7 @@ import {
   consumeDollyHttpPolicy,
   DollyHttpPolicy,
   isDollyCredentialHeader,
+  stripDollyBrowserOwnedHeaders,
 } from "../src/http-policy.mjs";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import {
@@ -28,6 +30,10 @@ import {
   discoverImageDefinitions,
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
+import {
+  decodeSnapshotEntry,
+  decodeSystemSnapshot,
+} from "../scripts/system-snapshot-format.mjs";
 
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
 const contractPath = new URL("../dist/dolly-0.wasm", import.meta.url);
@@ -150,11 +156,37 @@ test("dolly-0 is a wasm64 contract with a typed command entry", async () => {
     formatWasmType(spawnTimeout.type),
     "func(i64,i32,i64,i32,i32,i32,f64)->(i32)",
   );
+  for (const [name, type] of [
+    ["dolly_terminal_mode_get", "func(i32)->(i32)"],
+    ["dolly_terminal_mode_set", "func(i32,i32)->(i32)"],
+  ]) {
+    const operation = contract.imports.find(
+      (item) => item.module === "env" && item.name === name,
+    );
+    assert.equal(formatWasmType(operation.type), type);
+  }
   assert.equal(contract.imports.some((item) => item.name === "exit"), false);
+  const isblank = contract.imports.find(
+    (item) => item.module === "env" && item.name === "isblank",
+  );
+  assert.equal(formatWasmType(isblank.type), "func(i32)->(i32)");
+  for (const name of ["exp2f", "logf"]) {
+    const operation = contract.imports.find(
+      (item) => item.module === "env" && item.name === name,
+    );
+    assert.equal(formatWasmType(operation.type), "func(f32)->(f32)");
+  }
+  const fmaxf = contract.imports.find(
+    (item) => item.module === "env" && item.name === "fmaxf",
+  );
+  assert.equal(formatWasmType(fmaxf.type), "func(f32,f32)->(f32)");
   for (const [name, type] of [
     ["dolly_display_acquire", "func(i64)->(i32)"],
+    ["dolly_display_set_size", "func(i64,i32,i32,i64)->(i32)"],
     ["dolly_display_begin_frame", "func(i64,i64)->(i32)"],
     ["dolly_display_present", "func(i64,i32)->(i32)"],
+    ["dolly_display_wait_frame", "func(i64,i64,f64)->(i32)"],
+    ["dolly_display_set_cursor", "func(i64,i32)->(i32)"],
     ["dolly_display_next_event", "func(i64,i64,f64)->(i32)"],
     ["dolly_display_release", "func(i64)->(i32)"],
   ]) {
@@ -500,6 +532,10 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(frontend, /fullscreenchange/);
   assert.match(frontend, /window\.addEventListener\("keydown", handleKeyboardEvent/);
   assert.match(frontend, /const bootstrapMaximumLines = 40/);
+  assert.match(
+    frontend,
+    /displayFatal\(error instanceof Error \? error\.message : String\(error\)\)/,
+  );
   assert.match(frontend, /const bootstrapLines = \[\]/);
   assert.match(frontend, /let bootstrapCharacters = 0/);
   assert.match(frontend, /let bootstrapFragment = ""/);
@@ -520,6 +556,8 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(page, /<textarea id="keyboard"/);
   assert.match(page, /id="bootstrap-log"/);
   assert.match(page, /crossOriginIsolated/);
+  assert.match(page, /Dolly failed to load/);
+  assert.match(page, /dataset\.dollyStatus = "failed"/);
   assert.match(page, /serviceWorker\.register\("\{\{DOLLY_BASE\}\}coi-serviceworker\.js"/);
   assert.doesNotMatch(page, /DOLLY_HTTP_POLICY/);
   assert.doesNotMatch(page, /api\/v1\/chat\/completions/);
@@ -535,6 +573,7 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(menu, /`\.\/\$\{definition\.image\}\/`/);
   assert.match(menu, /`\.\/\$\{definition\.image\}\/rebuild\/`/);
   assert.match(menu, /`\.\/view\/\$\{definition\.image\}\/`/);
+  assert.match(menu, /`\.\/\$\{definition\.dollyfile\}`/);
   assert.match(menu, /id="dollyfile-upload"/);
   assert.match(menu, /sessionStorage\.setItem\("dolly-custom-source"/);
   assert.doesNotMatch(menu, /voice input/i);
@@ -573,7 +612,32 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.deepEqual(metadata.entry, ["/usr/bin/pi"]);
+    const decoded = decodeSystemSnapshot(snapshot);
+    assert.deepEqual(decoded.manifest, metadata.manifest);
+    assert.deepEqual(
+      decodeSnapshotEntry(decoded.files.get("/etc/dolly/entry")),
+      metadata.entry,
+    );
   }
+});
+
+test("the platform census derives exact typed imports from sealed executables", async () => {
+  const packageDefinition = JSON.parse(await readFile(
+    new URL("../package.json", import.meta.url),
+    "utf8",
+  ));
+  const census = await readFile(
+    new URL("../scripts/platform-census.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.equal(packageDefinition.scripts.census, "node scripts/platform-census.mjs");
+  assert.match(census, /metadata\.sha256 !== sha256/);
+  assert.match(census, /customSections\.includes\("dolly\.abi"\)/);
+  assert.match(census, /item\.name === "dolly_main"/);
+  assert.match(census, /formatWasmType\(imported\.type\)/);
+  assert.match(census, /imported\.module\.startsWith\("GOT\."\)/);
+  assert.match(census, /Operation to consumers/);
+  assert.match(census, /link-time requirement census, not evidence/);
 });
 
 test("Dollyfiles are additive and execute through the sequential C engine", async () => {
@@ -589,8 +653,8 @@ test("Dollyfiles are additive and execute through the sequential C engine", asyn
   assert.equal(gameView.extends, "default");
   assert.equal(pythonView.extends, "default");
   assert.ok(baseView.sources.length > 40);
-  assert.equal(gameView.sources.length, 7);
-  assert.equal(pythonView.sources.length, 4);
+  assert.equal(gameView.sources.length, 8);
+  assert.equal(pythonView.sources.length, 11);
   assert.equal(baseView.sources.some((item) =>
     /gamedev|graphics-demo|cpython/.test(item.location)), false);
   assert.match(base, /SOURCE HOST TXT \/static\/bootstrap\/tar\.c/);
@@ -606,13 +670,40 @@ test("HOST inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const sources = await inspectStaticSources(projectDir, definitions);
-  assert.equal(sources.length, 66);
+  assert.equal(sources.length, 111);
   assert.ok(sources.every((item) =>
     item.path.startsWith("/static/") && ["txt", "bin"].includes(item.media) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
   assert.equal(sources.some((item) => item.path.endsWith(".assets")), false);
   assert.equal(sources.find((item) => item.path === "/static/bootstrap/tar.c").media, "txt");
   assert.ok(sources.find((item) => item.path.endsWith("/zig-lib.tar")).byteLength > 200e6);
+});
+
+test("snapshot commands refresh derived policy and provide an exact rebuild check", async () => {
+  const packageDefinition = JSON.parse(await readFile(
+    new URL("../package.json", import.meta.url),
+    "utf8",
+  ));
+  const checker = await readFile(
+    new URL("../scripts/verify-snapshot-reproducibility.mjs", import.meta.url),
+    "utf8",
+  );
+  const build = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
+  const pruner = await readFile(
+    new URL("../scripts/prune-stale-snapshots.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(packageDefinition.scripts.snapshot, /^npm run routes && /);
+  assert.match(packageDefinition.scripts["snapshot:reproducible"], /^npm run routes && /);
+  assert.match(checker, /DOLLY_SNAPSHOT_IMAGE/);
+  assert.match(checker, /first differing byte/);
+  assert.match(checker, /two \$\{image\} rebuilds are byte-identical/);
+  assert.doesNotMatch(build, /image_outputs/);
+  assert.match(build, /node scripts\/prune-stale-snapshots\.mjs/);
+  assert.match(pruner, /snapshotMetadata\.buildId !== DOLLY_BUILD_ID/);
+  assert.match(pruner, /snapshotMetadata\.byteLength !== snapshotStat\.size/);
+  assert.match(pruner, /snapshotMetadata\.recipes/);
+  assert.match(pruner, /snapshotMetadata\.sha256 !== await fileDigest/);
 });
 
 test("registry, routes, and source viewer derive from Dollyfiles", async () => {
@@ -657,6 +748,7 @@ test("external source pins have one shell-native manifest consumed by build scri
   const inventory = await readFile(new URL("../docs/sources.md", import.meta.url), "utf8");
   for (const name of [
     "DOLLY_EMSDK_IMAGE",
+    "DOLLY_EMSCRIPTEN_COMMIT",
     "DOLLY_LLVM_COMMIT",
     "DOLLY_SBASE_COMMIT",
     "DOLLY_AWK_COMMIT",
@@ -666,6 +758,7 @@ test("external source pins have one shell-native manifest consumed by build scri
     "DOLLY_ZLIB_COMMIT",
     "DOLLY_GIT_COMMIT",
     "DOLLY_MAKE_SHA256",
+    "DOLLY_SAMURAI_COMMIT",
     "DOLLY_ZIG_SHA256",
     "DOLLY_ZIG_HOST_X86_64_LINUX_SHA256",
     "DOLLY_ZIG_HOST_AARCH64_LINUX_SHA256",
@@ -686,6 +779,8 @@ test("external source pins have one shell-native manifest consumed by build scri
     "../scripts/fetch-git.sh",
     "../scripts/fetch-iosevka.sh",
     "../scripts/fetch-make.sh",
+    "../scripts/fetch-samurai.sh",
+    "../scripts/fetch-emscripten-system-libs.sh",
     "../scripts/fetch-zig.sh",
     "../scripts/fetch-zig-host.sh",
     "../scripts/fetch-ghostty.sh",
@@ -695,6 +790,7 @@ test("external source pins have one shell-native manifest consumed by build scri
     "../scripts/fetch-zlib.sh",
     "../scripts/prepare-git.sh",
     "../scripts/prepare-make.sh",
+    "../scripts/prepare-samurai.sh",
     "../scripts/prepare-zig-native.sh",
     "../scripts/prepare-ghostty-source.sh",
   ]) {
@@ -710,24 +806,75 @@ test("external source pins have one shell-native manifest consumed by build scri
 
 test("bootstrap creates a writable HOME with a default global Git identity", async () => {
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
+  const gitPatch = await readFile(new URL("../config/git-dolly.patch", import.meta.url), "utf8");
   const { startup } = await readImagePlan("default");
   assert.match(runtime, /setenv\("HOME", "\/home\/dolly", 1\)/);
   assert.match(startup, /mkdir -p \/home\/dolly/);
   assert.match(startup, /echo '\[user\]' > \/home\/dolly\/\.gitconfig/);
   assert.match(startup, /name = Dolly/);
   assert.match(startup, /email = dolly@example\.invalid/);
+  assert.match(gitPatch, /Dolly has no permission model/);
+  assert.match(gitPatch, /Unix execute bits cannot gate PATH lookup/);
+  assert.match(
+    await readFile(new URL("../scripts/prepare-git.sh", import.meta.url), "utf8"),
+    /--no-backup-if-mismatch/,
+  );
+});
+
+test("help reflects optional Python tools without registering hidden commands", async () => {
+  const help = await readFile(new URL("../src/commands/help.c", import.meta.url), "utf8");
+  assert.match(help, /access\("\/usr\/bin\/python", F_OK\)/);
+  assert.match(help, /python python3 bonnie/);
+  assert.match(help, /bonnie install PACKAGE; bonnie list\|freeze\|show\|check/);
+  assert.doesNotMatch(help, /dolly_spawn|system\(|exec[a-z]*\(/);
+
+  const { manifest } = decodeSystemSnapshot(
+    await readFile(artifact("dolly-default-system.snapshot")),
+  );
+  for (const directory of ["/bin", "/usr/bin"]) {
+    const line = new RegExp(`fputs\\(\"${directory}: ([^\"]+)`).exec(help);
+    assert.ok(line, `help does not contain its ${directory} inventory`);
+    const documented = line[1].replace(/\\n$/, "").trim().split(/ +/)
+      .map((name) => `${directory}/${name}`).sort();
+    const actual = manifest.filter((path) =>
+      path.startsWith(`${directory}/`) &&
+      !path.slice(directory.length + 1).includes("/"));
+    assert.deepEqual(documented, actual, `${directory} help inventory drifted`);
+  }
 });
 
 test("slop reserves only stateful shell operations and resolves utilities through PATH", async () => {
   const shell = await readFile(new URL("../src/slop.c", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const copy = await readFile(new URL("../src/commands/cp.c", import.meta.url), "utf8");
+  const which = await readFile(new URL("../src/commands/which.c", import.meta.url), "utf8");
+  const xargs = await readFile(new URL("../src/commands/xargs.c", import.meta.url), "utf8");
+  const find = await readFile(new URL("../src/commands/find.c", import.meta.url), "utf8");
+  const tail = await readFile(new URL("../src/commands/tail.c", import.meta.url), "utf8");
+  const tee = await readFile(new URL("../src/commands/tee.c", import.meta.url), "utf8");
+  const env = await readFile(new URL("../src/commands/env.c", import.meta.url), "utf8");
+  const printenv = await readFile(new URL("../src/commands/printenv.c", import.meta.url), "utf8");
+  const reverse = await readFile(new URL("../src/commands/rev.c", import.meta.url), "utf8");
+  const timeout = await readFile(new URL("../src/commands/timeout.c", import.meta.url), "utf8");
+  const time = await readFile(new URL("../src/commands/time.c", import.meta.url), "utf8");
+  const uname = await readFile(new URL("../src/commands/uname.c", import.meta.url), "utf8");
+  const hostname = await readFile(new URL("../src/commands/hostname.c", import.meta.url), "utf8");
+  const realpath = await readFile(new URL("../src/commands/realpath.c", import.meta.url), "utf8");
+  const diff = await readFile(new URL("../src/commands/diff.c", import.meta.url), "utf8");
+  const command = await readFile(new URL("../src/commands/command.c", import.meta.url), "utf8");
+  const patch = await readFile(new URL("../src/commands/patch.c", import.meta.url), "utf8");
+  const du = await readFile(new URL("../src/commands/du.c", import.meta.url), "utf8");
+  const dd = await readFile(new URL("../src/commands/dd.c", import.meta.url), "utf8");
+  const tty = await readFile(new URL("../src/commands/tty.c", import.meta.url), "utf8");
+  const install = await readFile(new URL("../src/commands/install.c", import.meta.url), "utf8");
+  const testCommand = await readFile(new URL("../src/commands/test.c", import.meta.url), "utf8");
+  const makefile = await readFile(new URL("../src/startup.mk", import.meta.url), "utf8");
   const { startup } = await readImagePlan("default");
-  for (const builtin of [":", "exit", "cd", "export", "unset", "set"]) {
+  for (const builtin of [":", ".", "source", "eval", "exec", "return", "exit", "cd", "export", "unset", "set", "shift", "read", "getopts", "local", "type", "break", "continue"]) {
     assert.match(shell, new RegExp(`strcmp\\(argv\\[0\\], "${escapeRegex(builtin)}"\\)`));
   }
-  for (const command of ["help", "pwd", "cat", "echo", "mkdir", "touch", "rm", "clear", "ls", "mv", "cp", "cc", "c++", "ld", "ar", "make", "demo"] ) {
-    assert.doesNotMatch(shell, new RegExp(`strcmp\\(argv\\[0\\], "${escapeRegex(command)}"\\)`));
+  for (const executable of ["help", "pwd", "cat", "echo", "mkdir", "touch", "rm", "rmdir", "ln", "readlink", "realpath", "pathchk", "clear", "ls", "mv", "cp", "install", "which", "command", "xargs", "find", "du", "dd", "tail", "tee", "tty", "env", "printenv", "basename", "dirname", "tr", "cmp", "diff", "patch", "comm", "paste", "join", "seq", "expr", "nl", "split", "strings", "cksum", "rev", "fold", "expand", "unexpand", "tsort", "date", "time", "uname", "hostname", "mktemp", "sha256sum", "md5sum", "sleep", "timeout", "cc", "c++", "ld", "ar", "make", "demo"] ) {
+    assert.doesNotMatch(shell, new RegExp(`strcmp\\(argv\\[0\\], "${escapeRegex(executable)}"\\)`));
   }
   assert.match(shell, /resolve_command\(argv\[0\]/);
   assert.match(runtime, /setenv\("PATH", "\/bin:\/usr\/bin", 1\)/);
@@ -740,22 +887,172 @@ test("slop reserves only stateful shell operations and resolves utilities throug
   assert.match(shell, /dolly_terminal_read_raw_timeout\(-1\)/);
   assert.match(shell, /case 'A': return 1;/);
   assert.match(shell, /case 'B': return 2;/);
+  assert.match(
+    shell,
+    /if \(byte == 0x0c\) \{[^}]*redraw_line\(line, length, cursor\);[^}]*\}/,
+  );
   assert.match(shell, /SLOP_DEFERRED_STATUS/);
+  assert.match(shell, /defer_dollar/);
+  assert.match(shell, /expand_deferred_dollars\(shell, tokens, start, end\)/);
+  assert.match(shell, /TOKEN_DUP_INPUT/);
+  assert.match(shell, /TOKEN_DUP_OUTPUT/);
+  assert.match(shell, /TOKEN_HEREDOC/);
+  assert.match(shell, /SLOP_MAX_HEREDOCS 32/);
+  assert.match(shell, /expand_heredoc/);
+  assert.match(shell, /deferred_quoted_positional_fields/);
+  assert.match(shell, /expand_tilde_words/);
+  assert.match(shell, /descriptor_state_save_all/);
+  assert.match(shell, /descriptor_state_commit/);
+  assert.match(shell, /Shell nested = \*shell/);
+  assert.match(shell, /nested\.errexit = 0/);
+  assert.match(shell, /parameter_closing_brace/);
+  assert.match(shell, /expand_arithmetic/);
+  assert.match(shell, /arithmetic_multiply/);
+  assert.match(shell, /strchr\("-=\+\?", \*body_cursor\)/);
+  assert.match(shell, /setenv\(variable, assigned_value, 1\)/);
+  assert.match(shell, /append_pattern_removal/);
+  assert.match(shell, /unsupported parameter length expansion/);
+  assert.match(shell, /STOP_THEN/);
+  assert.match(shell, /STOP_ELIF/);
+  assert.match(shell, /parse_if_branch/);
+  assert.match(shell, /execute_list\(shell, parser, execute, 1,/);
+  assert.match(shell, /STOP_DO/);
+  assert.match(shell, /STOP_DONE/);
+  assert.match(shell, /parse_for/);
+  assert.match(shell, /parse_while/);
+  assert.match(shell, /until \? condition_status != 0/);
+  assert.match(shell, /STOP_ESAC/);
+  assert.match(shell, /STOP_CASE_CLAUSE/);
+  assert.match(shell, /TOKEN_CASE_END/);
+  assert.match(shell, /parse_case/);
+  assert.match(shell, /wildcard_match\(pattern, value\)/);
+  assert.match(shell, /parse_function_definition/);
+  assert.match(shell, /functions_clone\(shell->functions, &nested_functions\)/);
+  assert.match(shell, /shell_set_positional/);
+  assert.match(shell, /shell_shift/);
+  assert.match(shell, /builtin_read/);
+  assert.match(shell, /run_simple_mutable/);
+  assert.match(shell, /copy\[index\]\.text = strdup/);
+  assert.match(startup, /if false; then false; elif true; then true; else false; fi/);
+  assert.match(startup, /if true; then if false; then false; else true; fi; else false; fi/);
+  assert.match(startup, /for outer in a b; do for inner in 1 2;/);
+  assert.match(startup, /slop -c 'for value; do echo "\$value"; done' loop first second/);
+  assert.match(startup, /while test "\$DOLLY_COUNT" != 3/);
+  assert.match(startup, /until test "\$DOLLY_COUNT" = 2/);
+  assert.match(startup, /case "\$DOLLY_CASE" in alpha\) false ;; beta\|gamma\)/);
+  assert.match(startup, /case outer in outer\) case inner\.c in \*\.c\)/);
+  assert.match(startup, /DOLLY_PARAMETER:-fallback/);
+  assert.match(startup, /DOLLY_PARAMETER:=\$\{DOLLY_FALLBACK:-assigned\}/);
+  assert.match(startup, /DOLLY_MISSING:\?required parameter/);
+  assert.match(startup, /CHECK test "\$\(false; echo substitution-continued\)" = substitution-continued/);
+  assert.doesNotMatch(shell, /expand_dollar\(shell, &source, &word\)/);
   assert.match(shell, /expand_deferred_status\(shell, tokens, start, end\)/);
   assert.match(shell, /kind == TOKEN_NOT && tokens->count != 0/);
+  assert.match(shell, /tab-stripping <<- here-documents are unsupported/);
   assert.doesNotMatch(shell, /readline|linenoise|editline/);
   assert.match(startup, /RUN cc .*\/bin\/tar/);
   assert.match(startup, /CHECK git --version/);
   assert.doesNotMatch(shell, /chmod|X_OK|S_IXUSR|S_IXGRP|S_IXOTH/);
   assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/cp\.c -o \/bin\/cp/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/which\.c -o \/bin\/which/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/xargs\.c -o \/bin\/xargs/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/find\.c -o \/bin\/find/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/tail\.c -o \/bin\/tail/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/tee\.c -o \/bin\/tee/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/env\.c -o \/bin\/env/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/printenv\.c -o \/bin\/printenv/);
+  assert.match(startup, /CHECK which cc/);
+  assert.match(startup, /CHECK printf 'one\\0two\\0' \| xargs -0 -n 1 test -n/);
+  assert.match(xargs, /dolly_spawn\(path, count, arguments, 0, 1, 2\)/);
+  assert.match(xargs, /Dolly executes serially; only -P 1 is supported/);
+  assert.doesNotMatch(xargs, /\bfork\s*\(|\bexec(?:ve|vp|v|le|lp|l)\s*\(/);
+  assert.doesNotMatch(xargs, /chmod|X_OK|S_IXUSR|S_IXGRP|S_IXOTH/);
+  assert.match(find, /qsort\(names\.items, names\.count/);
+  assert.match(find, /NODE_NAME/);
+  assert.match(find, /NODE_PATH/);
+  assert.match(find, /NODE_PRUNE/);
+  assert.match(find, /NODE_EXEC/);
+  assert.match(find, /static int wildcard_match/);
+  assert.match(find, /dolly_spawn\(path, \(int\)count, arguments, 0, 1, 2\)/);
+  assert.match(find, /Dolly has no user, group, or permission model/);
+  assert.doesNotMatch(find, /\bfnmatch\s*\(|getgr(?:gid|nam)|getpw(?:uid|nam)|chmod|X_OK|S_IXUSR|S_IXGRP|S_IXOTH/);
+  assert.match(dd, /DOLLY_DD_MAX_BLOCK/);
+  assert.match(dd, /conv=notrunc,sync/);
+  assert.doesNotMatch(dd, /chmod|fork|pthread|socket\s*\(/);
+  assert.match(hostname, /Dolly's deterministic hostname is read-only/);
+  assert.match(tail, /follow mode is unsupported in Dolly's serial process model/);
+  assert.doesNotMatch(tail, /chmod|fork|pthread|signal\s*\(/);
+  assert.match(tee, /Dolly Ctrl\+C always cancels the foreground command/);
+  assert.doesNotMatch(tee, /chmod|fork|pthread|signal\s*\(/);
+  assert.match(env, /dolly_spawn_env/);
+  assert.match(env, /values\.items == NULL \? empty_environment/);
+  assert.doesNotMatch(env, /\bexec(?:ve|vp|v|le|lp|l)\s*\(|chmod|X_OK|S_IXUSR|S_IXGRP|S_IXOTH/);
+  assert.match(printenv, /environ\[index\]/);
+  assert.doesNotMatch(printenv, /for \(; \*environ; environ\+\+\)/);
+  assert.match(startup, /CHECK ! false/);
+  for (const command of [
+    "cut", "od", "printf", "sort", "uniq", "true", "false",
+    "basename", "dirname", "tr",
+    "cmp", "date", "mktemp", "sha256sum", "md5sum", "sleep",
+    "ln", "readlink", "rmdir", "seq", "paste", "comm",
+    "expr", "nl", "join", "split", "strings", "cksum", "fold",
+    "expand", "unexpand", "tsort", "pathchk",
+  ]) {
+    assert.match(makefile, new RegExp(`\\/bin\\/${command}`));
+    assert.match(startup, new RegExp(`KEEP \\/bin\\/${command}`));
+  }
+  assert.match(startup, /RUN cc -std=c17 \/usr\/src\/dolly\/commands\/rev\.c -o \/bin\/rev/);
+  assert.match(startup, /KEEP \/bin\/rev/);
+  assert.match(reverse, /is_continuation/);
+  assert.doesNotMatch(reverse, /chmod|fork|pthread|signal\s*\(/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/timeout\.c -o \/bin\/timeout/);
+  assert.match(startup, /KEEP \/bin\/timeout/);
+  assert.match(timeout, /dolly_spawn_timeout/);
+  assert.doesNotMatch(timeout, /chmod|X_OK|fork|pthread|signal\s*\(/);
+  for (const command of ["time", "uname", "realpath"]) {
+    assert.match(startup, new RegExp(`RUN cc \/usr\/src\/dolly\/commands\/${command}\\.c -o \/bin\/${command}`));
+    assert.match(startup, new RegExp(`KEEP \/bin\/${command}`));
+  }
+  assert.match(time, /CLOCK_MONOTONIC/);
+  assert.match(time, /dolly_spawn\(/);
+  assert.match(uname, /"wasm64"/);
+  assert.match(realpath, /realpath\(argv\[argument\], resolved\)/);
+  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/diff\.c -o \/bin\/diff/);
+  assert.match(startup, /KEEP \/bin\/diff/);
+  assert.match(startup, /CHECK test "\$\(diff -u \/tmp\/diff-left \/tmp\/diff-right/);
+  assert.match(diff, /dolly_spawn\("\/usr\/bin\/git"/);
+  assert.match(diff, /"--no-pager"/);
+  assert.match(diff, /"--no-index"/);
+  for (const executable of ["command", "patch", "du", "tty", "install"]) {
+    assert.match(startup, new RegExp(`RUN cc \/usr\/src\/dolly\/commands\/${executable}\\.c -o \/bin\/${executable}`));
+    assert.match(startup, new RegExp(`KEEP \/bin\/${executable}`));
+  }
+  assert.match(command, /dolly_spawn\(path/);
+  assert.match(patch, /dolly_spawn\("\/usr\/bin\/git"/);
+  assert.match(patch, /"--no-pager"/);
+  assert.match(patch, /"apply"/);
+  assert.match(du, /logical in-memory file bytes/);
+  assert.doesNotMatch(du, /st_blocks|chmod|chown|tsearch/);
+  assert.match(tty, /isatty\(STDIN_FILENO\)/);
+  assert.match(install, /Dolly has no permission or identity model/);
+  assert.doesNotMatch(install, /chmod|chown|getpw|getgr/);
+  assert.doesNotMatch(`${time}\n${uname}\n${realpath}\n${diff}\n${command}\n${patch}\n${du}\n${tty}\n${install}`, /chmod|X_OK|fork|pthread|signal\s*\(/);
+  assert.match(which, /getenv\("PATH"\)/);
+  assert.match(which, /S_ISREG\(metadata\.st_mode\)/);
+  assert.doesNotMatch(which, /chmod|X_OK|S_IXUSR|S_IXGRP|S_IXOTH/);
+  assert.match(testCommand, /strcmp\(operation, "-x"\)[\s\S]*?S_ISREG/);
+  assert.doesNotMatch(testCommand, /X_OK|S_IXUSR|S_IXGRP|S_IXOTH/);
   assert.match(copy, /copy_directory/);
   assert.doesNotMatch(copy, /chmod|chown|st_mode\s*&/);
 });
 
 test("GNU Make is source-pinned and executes every job synchronously through Slop", async () => {
+  const recipe = await readFile(new URL("../Dollyfile", import.meta.url), "utf8");
   const manifest = await readFile(new URL("../config/make-sources.txt", import.meta.url), "utf8");
   const patch = await readFile(new URL("../config/make-dolly.patch", import.meta.url), "utf8");
   const adapter = await readFile(new URL("../src/runtimes/make-dolly.c", import.meta.url), "utf8");
+  const amalgamation = await readFile(
+    new URL("../src/runtimes/make-amalgamation-dolly.c", import.meta.url), "utf8");
   const prepare = await readFile(new URL("../scripts/prepare-make.sh", import.meta.url), "utf8");
   const fetch = await readFile(new URL("../scripts/fetch-make.sh", import.meta.url), "utf8");
 
@@ -772,6 +1069,52 @@ test("GNU Make is source-pinned and executes every job synchronously through Slo
   assert.match(adapter, /mkstemp \(path\)/);
   assert.match(adapter, /unlink \(path\)/);
   assert.doesNotMatch(adapter, /\bfork\s*\(|\bexec[a-z]*\s*\(/);
+  assert.equal((amalgamation.match(/^#include /gm) ?? []).length, 34);
+  assert.match(amalgamation, /DOLLY_MAKE_PART == 1/);
+  assert.match(amalgamation, /DOLLY_MAKE_PART == 7/);
+  assert.match(recipe, /-DDOLLY_MAKE_PART=1/);
+  assert.match(recipe, /-DDOLLY_MAKE_PART=7/);
+});
+
+test("Samurai provides a source-pinned serial Ninja interface inside Dolly", async () => {
+  const recipe = await readFile(new URL("../Dollyfile", import.meta.url), "utf8");
+  const fetch = await readFile(
+    new URL("../scripts/fetch-samurai.sh", import.meta.url), "utf8");
+  const prepare = await readFile(
+    new URL("../scripts/prepare-samurai.sh", import.meta.url), "utf8");
+  const patch = await readFile(
+    new URL("../config/samurai-dolly.patch", import.meta.url), "utf8");
+  const startup = await readFile(
+    new URL("../src/startup.mk", import.meta.url), "utf8");
+  const unit = await readFile(
+    new URL("../src/runtimes/samurai-unit-dolly.c", import.meta.url), "utf8");
+
+  assert.match(fetch, /DOLLY_SAMURAI_COMMIT/);
+  assert.match(prepare, /samurai-dolly\.patch/);
+  assert.match(recipe, /Samurai 1\.3/);
+  assert.match(recipe, /make -f \/usr\/src\/dolly\/startup\.mk ninja/);
+  assert.match(startup, /SAMURAI_NAMES := build deps env graph/);
+  assert.match(startup, /-DDOLLY/);
+  assert.match(startup, /SAMURAI_CFLAGS := -O1/);
+  assert.match(startup, /SAMURAI_UNIT := .*samurai-unit-dolly\.c/);
+  assert.match(startup, /SAMURAI_OBJECTS := .*part-/);
+  assert.match(startup, /-DDOLLY_SAMURAI_PART=\$\*/);
+  assert.match(startup, /-O0 -fdolly-runtime-interrupt-handler -DDOLLY_SAMURAI_PART=12/);
+  assert.match(startup, /\/usr\/bin\/ninja: \$\(SAMURAI_OBJECTS\)/);
+  assert.match(startup, /\$\(CC\) \$\(SAMURAI_OBJECTS\) -o \$@/);
+  assert.match(unit, /#include "build\.c"/);
+  assert.match(unit, /#include "os-posix\.c"/);
+  assert.equal((unit.match(/^#include "[^"]+\.c"/gm) ?? []).length, 13);
+  assert.match(unit, /DOLLY_SAMURAI_PART == 1/);
+  assert.match(unit, /DOLLY_SAMURAI_PART == 13/);
+  assert.match(unit, /dolly_samurai_fprintf/);
+  assert.match(patch, /dolly_spawn\("\/bin\/slop"/);
+  assert.match(patch, /dolly_interrupt_checkpoint\(\)/);
+  assert.match(patch, /diff --git a\/util\.c b\/util\.c/);
+  assert.match(patch, /dolly_exit\(130\)/);
+  assert.match(patch, /#ifdef DOLLY/);
+  assert.match(patch, /while \(work && numfail < buildopts\.maxfail\)/);
+  assert.doesNotMatch(patch, /^\+.*\b(?:fork|exec[a-z]*|posix_spawn|waitpid)\s*\(/m);
 });
 
 test("the in-Wasm linker validates a staged output before publishing it", async () => {
@@ -783,12 +1126,12 @@ test("the in-Wasm linker validates a staged output before publishing it", async 
   assert.match(compiler, /export_name\(\\"dolly_main\\"\)/);
   assert.match(compiler, /_Z10dolly_main/);
   assert.match(compiler, /__asm__\(\\"%s\\"\)/);
-  assert.match(compiler, /link_command\(linked, link_inputs\)/);
+  assert.match(compiler, /link_side_module\(linked, link_inputs, options\.linker_options/);
   assert.match(compiler, /validate_command\(linked\).*stamp_command\(linked\).*publish_file\(linked, output\)/s);
   assert.match(compiler, /std::rename\(source\.c_str\(\), output\.c_str\(\)\)/);
   assert.match(compiler, /WasmFS cannot rename across every backend boundary/);
   assert.match(compiler, /std::fopen\(output\.c_str\(\), "wb"\)/);
-  assert.doesNotMatch(compiler, /link_command\(output\)/);
+  assert.doesNotMatch(compiler, /link_side_module\(output/);
 });
 
 test("foreground SIGINT is a PID-targeted in-Wasm lifecycle operation", async () => {
@@ -820,6 +1163,87 @@ test("foreground SIGINT is a PID-targeted in-Wasm lifecycle operation", async ()
   assert.match(runtime, /dolly_http_poll[\s\S]*?dolly_interrupt_checkpoint\(\)/);
   assert.match(runtime, /dolly_terminal_read_raw_timeout[\s\S]*?dolly_interrupt_checkpoint\(\)/);
   assert.match(runtime, /dolly_sleep[\s\S]*?dolly_interrupt_checkpoint\(\)/);
+  assert.match(runtime, /dolly_sleep[\s\S]*?deadline - emscripten_get_now\(\)/);
+  assert.doesNotMatch(runtime, /remaining -= interval/);
+  const shell = await readFile(new URL("../src/slop.c", import.meta.url), "utf8");
+  assert.match(shell, /report_status = !line_is_blank\(line\)/);
+  assert.match(shell, /if \(report_status && shell->last_status != 0/);
+});
+
+test("the browser can replace a worker wedged outside Dolly safepoints", async () => {
+  const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
+  const browserProof = await readFile(
+    new URL("../scripts/browser-harness.mjs", import.meta.url), "utf8",
+  );
+  assert.match(browser, /hardInterruptGraceMilliseconds = 2000/);
+  assert.match(browser, /pendingForegroundInterrupt\?\.pid === pid/);
+  assert.match(browser, /runtimeWorker\?\.terminate\(\)/);
+  assert.match(browser, /location\.reload\(\)/);
+  assert.match(browser, /hardInterruptRecoveryKey/);
+  assert.match(browser, /restoredCheckpoint \? "session" : "base"/);
+  assert.match(browserProof, /-fdolly-runtime-interrupt-handler/);
+  assert.match(browserProof, /a foreign no-safepoint loop was hard-stopped/);
+});
+
+test("command epochs reclaim bounded descriptor leaks and restore shell context", async () => {
+  const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
+  const browserProof = await readFile(
+    new URL("../scripts/browser-harness.mjs", import.meta.url), "utf8",
+  );
+  assert.match(runtime, /DOLLY_COMMAND_FD_LIMIT = 4096/);
+  assert.match(runtime, /capture_descriptors\(&saved_descriptors\)/);
+  assert.match(runtime, /close_new_descriptors\(&saved_descriptors\)/);
+  assert.match(runtime, /persistent_command = find_persistent_module\(path\) != NULL/);
+  assert.match(runtime, /retain_persistent_descriptors\(&saved_descriptors\)/);
+  assert.match(runtime, /descriptor_snapshot_contains\(&persistent_descriptors, descriptor\)/);
+  assert.match(runtime,
+    /dup2\(saved\[fd\], fd\)[\s\S]*?close_new_descriptors\(&saved_descriptors\)/);
+  assert.match(browserProof, /for \(int index = 0; index < 96; \+\+index\)/);
+  assert.match(browserProof, /xargs -n 1 \/tmp\/dolly-fd-leak/);
+  assert.match(browserProof, /descriptor-epoch-ok/);
+  assert.match(browserProof, /test -z \\"\$DOLLY_LEAKED\\"/);
+});
+
+test("terminal modes are a small in-Wasm contract restored at command boundaries", async () => {
+  const publicRuntime = await readFile(
+    new URL("../include/dolly/runtime.h", import.meta.url),
+    "utf8",
+  );
+  const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
+  const adapter = await readFile(
+    new URL("../src/runtimes/cpython-termios.c", import.meta.url),
+    "utf8",
+  );
+  const launcher = await readFile(
+    new URL("../src/runtimes/cpython-main.c", import.meta.url),
+    "utf8",
+  );
+  const recipe = await readFile(new URL("../Dollyfile-python", import.meta.url), "utf8");
+
+  for (const bit of ["CANONICAL", "ECHO"]) {
+    assert.match(publicRuntime, new RegExp(`DOLLY_TERMINAL_${bit}`));
+  }
+  assert.doesNotMatch(publicRuntime, /DOLLY_TERMINAL_SIGNALS/);
+  assert.match(runtime, /terminal_mode_flags[\s\S]*?DOLLY_TERMINAL_CANONICAL/);
+  assert.match(runtime, /dolly_terminal_mode_set[\s\S]*?flags & ~valid/);
+  assert.match(runtime, /previous_terminal_mode = terminal_mode_flags/);
+  assert.match(runtime, /terminal_mode_flags = previous_terminal_mode/);
+  assert.match(runtime, /dolly_terminal_discard_pending_input/);
+  assert.match(runtime, /dolly_wait\(pid, &status\)[\s\S]*?dolly_terminal_discard_pending_input\(\)/);
+  assert.match(runtime, /matching key-up record is already queued/);
+  assert.match(runtime, /_wasmfs_stdin_get_char[\s\S]*?DOLLY_TERMINAL_CANONICAL/);
+  assert.match(adapter, /dolly_py_tcgetattr/);
+  assert.match(adapter, /dolly_py_tcsetattr/);
+  assert.match(adapter, /TIOCGWINSZ/);
+  assert.match(adapter, /dolly_terminal_rows\(\)/);
+  assert.match(adapter, /dolly_terminal_columns\(\)/);
+  assert.match(adapter, /attributes->c_lflag \|= ISIG/);
+  assert.doesNotMatch(adapter, /DOLLY_TERMINAL_SIGNALS/);
+  assert.doesNotMatch(adapter, /dolly_http|fetch|EM_JS|emscripten/);
+  assert.match(recipe, /MODULE_TERMIOS_CFLAGS=/);
+  assert.match(recipe, /Modules\/dolly_termios\.o/);
+  assert.match(recipe, /import os, termios, tty/);
+  assert.match(launcher, /PyConfig_SetBytesString\(&config, &config\.home, "\/usr"\)/);
 });
 
 test("foreground commands can exclusively lease and safely restore the in-Wasm framebuffer", async () => {
@@ -831,6 +1255,10 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
     new URL("../src/gamedev/dolly-raylib.c", import.meta.url),
     "utf8",
   );
+  const box3dAdapter = await readFile(
+    new URL("../src/gamedev/box3d-platform.c", import.meta.url),
+    "utf8",
+  );
   const makefile = await readFile(new URL("../src/gamedev.mk", import.meta.url), "utf8");
   const packaging = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
   const gamedev = await readFile(new URL("../Dollyfile-gamedev", import.meta.url), "utf8");
@@ -838,7 +1266,10 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
 
   assert.match(display, /DOLLY_DISPLAY_PIXEL_RGBA8/);
   assert.match(display, /dolly_display_acquire\(dolly_display_surface \*surface\)/);
+  assert.match(display, /dolly_display_set_size\(uint64_t generation/);
   assert.match(display, /dolly_display_begin_frame\(uint64_t generation/);
+  assert.match(display, /dolly_display_wait_frame\(uint64_t generation/);
+  assert.match(display, /dolly_display_set_cursor\(uint64_t generation/);
   assert.match(display, /dolly_display_next_event\(uint64_t generation/);
   assert.match(display, /void \(\*set_suspended\)\(int suspended\)/);
   assert.match(runtime, /buffer_index != \(active \^ 1u\)/);
@@ -850,6 +1281,8 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
     /release_display_lease_for_pid\(process->pid\);[\s\S]*?fflush\(NULL\)/,
   );
   assert.match(runtime, /dolly_display_next_event[\s\S]*?dolly_interrupt_checkpoint\(\)/);
+  assert.match(runtime, /dolly_display_wait_frame[\s\S]*?animation_frame_sequence/);
+  assert.match(runtime, /dolly_display_set_size[\s\S]*?display_lease\.width = width/);
   assert.match(driver, /DRIVER_ABI_VERSION = 3/);
   assert.match(driver, /if \(suspended \|\| terminal == NULL/);
   assert.match(driver, /if \(was_suspended && !suspended\) render_frame\(\)/);
@@ -863,8 +1296,18 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   assert.match(browser, /pushScroll\(deltaRows\)/);
   assert.match(browser, /addEventListener\("wheel"/);
   assert.match(browser, /event\.pointerType === "touch"/);
+  assert.match(browser, /publishAnimationFrame\(\)/);
+  assert.match(browser, /currentAnimationFrameSequence\(\)/);
+  assert.match(browser, /\["text", "default", "crosshair", "pointer", "none"\]/);
   assert.match(raylibAdapter, /dolly_display_acquire\(&context->surface\)/);
+  assert.match(raylibAdapter, /dolly_display_set_size\(context->surface\.generation/);
   assert.match(raylibAdapter, /dolly_display_present\(context->surface\.generation/);
+  assert.match(raylibAdapter, /rlCopyFramebuffer\(/);
+  assert.doesNotMatch(raylibAdapter, /LoadImageFromScreen|memcpy\(frame\.pixels/);
+  assert.match(box3dAdapter, /b3GetTicks/);
+  assert.match(box3dAdapter, /b3CreateMutex/);
+  assert.match(box3dAdapter, /tasks serially inside/);
+  assert.doesNotMatch(box3dAdapter, /pthread_|dolly_http|fetch|EM_JS/);
   assert.match(makefile, /\/usr\/bin\/graphics-demo: \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
   assert.match(packaging, /copy_static .*graphics-demo\.c.*gamedev\/graphics-demo\.c/);
   assert.match(gamedev, /SOURCE HOST TXT \/static\/gamedev\/graphics-demo\.c/);
@@ -872,11 +1315,20 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   assert.match(gamedev, /KEEP \/usr\/src\/dolly\/gamedev\/gamedev\.mk/);
   assert.match(gamedev, /KEEP \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
   assert.match(gamedev, /raylib\.tar/);
-  assert.match(gamedev, /box2d\.tar/);
+  assert.match(gamedev, /box3d\.tar/);
+  assert.match(gamedev, /box3d-platform\.c/);
   assert.match(gamedev, /skills\/dolly-gamedev\/SKILL\.md/);
   assert.match(makefile, /-DPLATFORM_MEMORY/);
-  assert.match(makefile, /libbox2d\.a/);
-  assert.match(demo, /#include <box2d\/box2d\.h>/);
+  assert.match(makefile, /-DSUPPORT_CUSTOM_FRAME_CONTROL=1/);
+  assert.match(makefile, /-DSW_FRAMEBUFFER_OUTPUT_BGRA=0/);
+  assert.match(makefile, /libbox3d\.a/);
+  assert.match(makefile, /filter-out \$\(BOX3D_SOURCE\)\/timer\.c/);
+  assert.match(demo, /#include <box3d\/box3d\.h>/);
+  assert.match(demo, /b3World_Explode/);
+  assert.match(demo, /b3CreateDistanceJoint/);
+  assert.match(demo, /rlPushMatrix\(\)/);
+  assert.match(demo, /DrawCubeV/);
+  assert.doesNotMatch(demo, /LoadModelFromMesh|IsModelValid/);
   assert.match(demo, /#include <dolly\/raylib\.h>/);
   assert.match(browser, /graphicsActive\(\)/);
   assert.doesNotMatch(demo, /EM_JS|fetch\s*\(|window\.|document\.|canvas/i);
@@ -932,6 +1384,68 @@ test("Janis implements measured hashes exactly and fails loudly for absent zlib"
   assert.match(source, /crypto\.subtle \?\?=/);
   assert.match(source, /Janis Web Crypto does not implement digest/);
   assert.match(source, /createServer: \(listener\) =>/);
+});
+
+test("Janis resolves finite ESM package exports solely through WasmFS", async () => {
+  const runtime = await readFile(
+    new URL("../src/runtimes/quickjs-main.c", import.meta.url),
+    "utf8",
+  );
+  const janis = await readFile(new URL("../src/runtimes/janis.js", import.meta.url), "utf8");
+  const { startup } = await readImagePlan("default");
+
+  assert.match(runtime, /resolve_bare_module\(JSContext \*context/);
+  assert.match(runtime, /__janisResolveModule/);
+  assert.match(runtime, /bare module resolver returned a non-absolute path/);
+  assert.match(runtime, /classify_file_module\(JSContext \*context, char \*normalized\)/);
+  assert.match(runtime, /__janisResolveFile/);
+  assert.match(runtime, /js_import_meta_resolve\(JSContext \*context/);
+  assert.match(runtime, /__janisImportMetaResolve/);
+  assert.match(runtime, /install_globals\(context, argv\[0\], strcmp\(name, "<eval>"\)/);
+  assert.match(runtime, /strcmp\(module_name .*"\.json"\) == 0/s);
+  assert.match(runtime, /static const char prefix\[\] = "export default \("/);
+  assert.match(janis, /function janisResolveModule\(specifier, baseName, forRequire = false, raw = false\)/);
+  assert.match(janis, /function janisEsmBuiltin\(specifier\)/);
+  assert.match(janis, /function fsGlobSync\(pattern, options = \{\}\)/);
+  assert.match(janis, /patternParts\[patternIndex\] === "\*\*"/);
+  assert.match(janis, /globSync: fsGlobSync/);
+  assert.match(
+    await readFile(new URL("../src/runtimes/dolly-node.js", import.meta.url), "utf8"),
+    /globalThis\.scriptExecutable.*globalThis\.scriptPath/s,
+  );
+  assert.match(janis, /export const \$\{key\} = builtin/);
+  assert.match(janis, /\/tmp\/janis-esm-builtins/);
+  assert.match(janis, /function janisEsmCommonJs\(modulePath\)/);
+  assert.match(janis, /function janisModuleIsEsm\(path, fallback = false\)/);
+  assert.match(janis, /janisModuleIsEsm\(path, true\) \? path/);
+  assert.match(janis, /globalThis\.__janisRequireCjs/);
+  assert.match(janis, /globalThis\.__janisResolveFile = \(path\) => janisModuleForImport/);
+  assert.match(janis, /code: "ERR_REQUIRE_ESM"/);
+  assert.match(janis, /janisRequireCache\[resolved\] = child/);
+  assert.match(janis, /janisPackageExport\(manifest\.exports, subpath, conditions\)/);
+  assert.match(janis, /\["require", "default", "node"\]/);
+  assert.match(janis, /\["import", "default", "node"\]/);
+  assert.match(janis, /function janisPackageImport\(specifier, baseName, forRequire = false, raw = false\)/);
+  assert.match(janis, /ERR_PACKAGE_IMPORT_NOT_DEFINED/);
+  assert.match(janis, /roots\.push\("\/usr\/lib\/node_modules"\)/);
+  assert.match(janis, /ERR_PACKAGE_PATH_NOT_EXPORTED/);
+  assert.match(janis, /ERR_INVALID_PACKAGE_TARGET/);
+  assert.match(janis, /candidate !== packageRoot && !candidate\.startsWith/);
+  assert.doesNotMatch(
+    janis.slice(janis.indexOf("function janisResolveModule"),
+      janis.indexOf("const janisRequireCache")),
+    /\bfetch\s*\(/,
+  );
+  assert.match(startup, /node_modules\/@dolly\/example\/package\.json/);
+  assert.match(startup, /"\.\/sub\/\*":"\.\/src\/\*\.js"/);
+  assert.match(startup, /CHECK janis -m \/tmp\/janis-esm\/main\.mjs/);
+  assert.match(startup, /CHECK janis -m \/tmp\/janis-esm\/resolve\.mjs/);
+  assert.match(startup, /CHECK janis -m \/tmp\/janis-esm\/argv\.mjs ARG/);
+  assert.match(startup, /CHECK janis -m \/tmp\/janis-esm\/json\.mjs/);
+  assert.match(startup, /CHECK janis -m \/tmp\/janis-esm\/glob\.mjs/);
+  assert.match(startup, /CHECK janis -m \/tmp\/janis-esm\/builtin\.mjs/);
+  assert.match(startup, /CHECK janis -m \/tmp\/janis-esm\/commonjs\.mjs/);
+  assert.match(startup, /"require":"\.\/commonjs\/index\.cjs"/);
 });
 
 test("the in-Wasm C driver accepts relaxed aliasing mode", async () => {
@@ -1044,6 +1558,15 @@ test("native process and socket APIs terminate at typed in-Wasm ENOSYS wrappers"
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const libcurl = await readFile(new URL("../src/libcurl-fetch.c", import.meta.url), "utf8");
   const curlCommand = await readFile(new URL("../src/commands/curl.c", import.meta.url), "utf8");
+  const pythonRecipe = await readFile(new URL("../Dollyfile-python", import.meta.url), "utf8");
+  const pythonSocketStubs = await readFile(
+    new URL("../src/runtimes/cpython-socket-stubs.c", import.meta.url),
+    "utf8",
+  );
+  const pythonPatch = await readFile(
+    new URL("../config/cpython-dolly.patch", import.meta.url),
+    "utf8",
+  );
 
   for (const [name, replacement] of [
     ["fork", "dolly_fork"],
@@ -1058,6 +1581,19 @@ test("native process and socket APIs terminate at typed in-Wasm ENOSYS wrappers"
     assert.match(runtime, new RegExp(`${replacement}\\([^)]*\\)[\\s\\S]*?unavailable\\(\\)`));
   }
   assert.match(runtime, /static int unavailable\(void\) \{\s*errno = ENOSYS;/);
+  assert.match(pythonRecipe, /MODULE__SOCKET_CFLAGS=/);
+  assert.match(pythonRecipe, /Modules\/dolly_socket_stubs\.o/);
+  assert.match(pythonRecipe, /-DPLATFORM="dolly"/);
+  assert.match(pythonRecipe, /assert sys\.platform == "dolly"/);
+  assert.match(pythonPatch, /_can_fork_exec = sys\.platform not in \{"dolly"/);
+  assert.match(pythonPatch, /sys\.platform in \{"dolly", "emscripten"\}/);
+  assert.match(pythonPatch, /HAVE_SYS_RESOURCE_H\) && !defined\(DOLLY\)/);
+  assert.match(pythonRecipe, /import faulthandler, socket, pdb/);
+  assert.match(pythonRecipe, /faulthandler\.dump_traceback/);
+  for (const operation of ["accept", "bind", "getaddrinfo", "listen", "poll", "sendto"]) {
+    assert.match(pythonSocketStubs, new RegExp(`dolly_py_${operation}\\(`));
+  }
+  assert.doesNotMatch(pythonSocketStubs, /dolly_http|fetch|EM_JS|emscripten/);
   assert.doesNotMatch(libcurl, /\bsocket\s*\(|\bconnect\s*\(|\bgetaddrinfo\s*\(/);
   assert.match(libcurl, /dolly_http_perform\(&request, &response\)/);
   for (const option of [
@@ -1119,6 +1655,34 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
     actual.some((name) => /nodefs|opfs|fetch|socket|spawn|process|pthread|thread_/.test(name)),
     false,
   );
+});
+
+test("capability fingerprints separate browser authority from capsule contents", async () => {
+  const script = await readFile(
+    new URL("../scripts/capability-fingerprint.mjs", import.meta.url), "utf8",
+  );
+  const documentation = await readFile(
+    new URL("../docs/capability-fingerprint.md", import.meta.url), "utf8",
+  );
+  const packageDefinition = JSON.parse(await readFile(
+    new URL("../package.json", import.meta.url), "utf8",
+  ));
+  assert.equal(packageDefinition.scripts.fingerprint,
+    "node scripts/capability-fingerprint.mjs");
+  assert.match(script, /formatWasmType\(entry\.type\)/);
+  assert.match(script, /browser import is unclassified/);
+  assert.match(script, /appears in multiple policy groups/);
+  assert.match(script, /network\.length !== 1/);
+  assert.match(script, /env\.dolly_http_dispatch/);
+  assert.match(script, /abiContracts/);
+  assert.match(script, /interfaceSha256/);
+  assert.match(script, /runtimeBuildId: buildId/);
+  assert.match(script, /retainedManifestSha256/);
+  assert.match(script, /authoritySha256/);
+  assert.match(script, /fingerprintSha256/);
+  assert.doesNotMatch(script, /credential.*value|auth\.json|OPENROUTER_API_KEY/i);
+  assert.match(documentation, /audit identities, not signatures or grants/);
+  assert.match(documentation, /Secrets and\s+HTTP response data are never included/);
 });
 
 test("the browser HTTP policy owns destination authority while credentials stay in Wasm", () => {
@@ -1186,6 +1750,20 @@ test("the no-configuration HTTP policy permits generic destinations and credenti
     new Headers(),
     0,
   ));
+});
+
+test("the HTTP broker removes browser-owned transport headers without removing credentials", () => {
+  const headers = new Headers({
+    accept: "application/json",
+    "accept-encoding": "gzip",
+    authorization: "Bearer sandbox-key",
+    "user-agent": "bonnie/0.6 (Dolly wasm64)",
+  });
+  stripDollyBrowserOwnedHeaders(headers);
+  assert.equal(headers.get("accept"), "application/json");
+  assert.equal(headers.get("authorization"), "Bearer sandbox-key");
+  assert.equal(headers.has("accept-encoding"), false);
+  assert.equal(headers.has("user-agent"), false);
 });
 
 test("the browser consumes credential policy without exposing it as page state", () => {
@@ -1293,6 +1871,7 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   assert.match(renderer, /return terminal_palette\[value->value\.palette\]/);
   assert.equal(settings.theme, "dolly");
   assert.equal(settings.shellPath, "/bin/slop");
+  assert.equal(settings.images.autoResize, false);
   assert.equal(theme.vars.yellow, "#f2d45c");
   assert.match(browserProof, /response\.write\(`data:/);
   assert.match(browserProof, /piFixtureStream\.phase = "prefix"/);
@@ -1300,14 +1879,16 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   assert.match(browserProof, /assert\.doesNotMatch\(streamedPrefixText, \/DOLLY-PI-HTTP-EDIT-OK\//);
   assert.match(browserProof, /piPalette\.accentOutsideCursor > 20/);
   assert.match(browserProof, /Pi's ! command executing ls through \/bin\/slop/);
+  assert.match(browserProof, /tsc --target ES2023 --module ES2022 --moduleResolution bundler/);
+  assert.match(browserProof, /DOLLY-TYPESCRIPT-EXTENSION-OK/);
+  assert.match(browserProof, /Pi restart with target-compiled TypeScript extension/);
   assert.match(browserProof, /__dollyIncompleteBootstrapPaints/);
 });
 
-test("upstream Pi is packaged for Janis and customized only through normal files", async () => {
-  const packaging = await readFile(new URL("../scripts/build-pi.mjs", import.meta.url), "utf8");
+test("upstream Pi is source-built for Janis and customized only through normal files", async () => {
   const { startup } = await readImagePlan("default");
-  const toolchain = await readFile(new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
   const extension = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
+  const command = await readFile(new URL("../src/commands/pi.c", import.meta.url), "utf8");
   const quickjs = await readFile(new URL("../src/runtimes/quickjs-main.c", import.meta.url), "utf8");
   const systemPrompt = await readFile(new URL("../src/pi/SYSTEM.md", import.meta.url), "utf8");
   const dollySkill = await readFile(
@@ -1321,11 +1902,7 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
   const page = await readFile(new URL("../terminal.html", import.meta.url), "utf8");
 
-  assert.match(packaging, /globalThis\.PI_BUNDLED_NODE = true/);
-  assert.match(packaging, /registerBunOAuthFlows/);
-  assert.match(packaging, /@earendil-works\/pi-ai\/bun-oauth/);
-  assert.match(packaging, /await main\(process\.argv\.slice\(2\)\)/);
-  assert.match(packaging, /unmodified upstream CLI packaged for Janis/);
+  assert.match(command, /@earendil-works\/pi-coding-agent\/dist\/cli\.js/);
   for (const name of ["bash", "read", "edit", "write", "download"]) {
     assert.match(extension, new RegExp(`name: "${name}"`));
   }
@@ -1348,6 +1925,10 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   assert.match(runtime, /Pi exited; entering the recovery Slop shell/);
   assert.match(runtime, /restarting Pi after unexpected status/);
   assert.match(runtime, /status == 130/);
+  assert.match(
+    runtime,
+    /PI_PACKAGE_DIR[\s\S]*?\/usr\/lib\/node_modules\/@earendil-works\/pi-coding-agent/,
+  );
   assert.match(page, /id="phone-menu-button"/);
   assert.match(page, /data-dolly-input="\/login openrouter\\r"/);
   assert.doesNotMatch(page, /data-dolly-voice/);
@@ -1358,8 +1939,345 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   assert.match(systemPrompt, /browser WebAssembly sandbox/);
   assert.deepEqual(settings.npmCommand, ["/bin/echo"]);
   assert.equal(settings.shellPath, "/bin/slop");
+  assert.equal(settings.images.autoResize, false);
   assert.match(startup, /extensions\/dolly-tools\.js/);
+  assert.match(startup, /echo '\{"type":"module"\}' > \/home\/dolly\/\.pi\/agent\/extensions\/package\.json/);
   assert.match(startup, /\.pi\/agent\/SYSTEM\.md/);
   assert.match(startup, /SOURCE HOST TXT .*janis\.js \/usr\/lib\/janis\/runtime\.js/);
-  assert.match(startup, /SOURCE HOST BIN .*pi-package\.tar/);
+  assert.doesNotMatch(startup, /pi-package\.tar|pi-target/);
+  assert.match(startup, /RUN make -f \/usr\/src\/dolly\/startup\.mk pi/);
+  assert.match(startup, /CHECK pi --version/);
+  assert.match(startup, /CHECK PI_STARTUP_BENCHMARK=1 pi --offline --no-session/);
+  assert.match(startup, /KEEP \/usr\/bin\/pi/);
+  assert.match(
+    startup,
+    /coding-agent\/docs .*coding-agent\/examples .*\/usr\/lib\/node_modules\/@earendil-works\/pi-coding-agent/,
+  );
+});
+
+test("TypeScript and the exact Pi source tree compile inside Dolly", async () => {
+  const pins = await readFile(new URL("../config/source-pins.sh", import.meta.url), "utf8");
+  const targetConfig = await readFile(
+    new URL("../config/pi-tsconfig.dolly.json", import.meta.url),
+    "utf8",
+  );
+  const fetchTypeScript = await readFile(
+    new URL("../scripts/fetch-typescript.sh", import.meta.url),
+    "utf8",
+  );
+  const fetchPi = await readFile(
+    new URL("../scripts/fetch-pi-source.sh", import.meta.url),
+    "utf8",
+  );
+  const build = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
+  const makefile = await readFile(new URL("../src/startup.mk", import.meta.url), "utf8");
+  const gzip = await readFile(new URL("../src/commands/gzip.c", import.meta.url), "utf8");
+  const tsc = await readFile(new URL("../src/commands/tsc.c", import.meta.url), "utf8");
+  const wrapper = await readFile(
+    new URL("../src/runtimes/tsc-dolly.mjs", import.meta.url),
+    "utf8",
+  );
+  const compatibility = await readFile(
+    new URL("../config/pi-quickjs-compat.mjs", import.meta.url),
+    "utf8",
+  );
+  const targetCompatibility = await readFile(
+    new URL("../src/runtimes/apply-pi-quickjs-compat.mjs", import.meta.url),
+    "utf8",
+  );
+  const { startup } = await readImagePlan("default");
+
+  assert.match(pins, /DOLLY_TYPESCRIPT_VERSION=5\.9\.3/);
+  assert.match(pins, /typescript-5\.9\.3\.tgz/);
+  assert.match(pins, /DOLLY_TYPESCRIPT_SHA256=10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3/);
+  assert.match(pins, /DOLLY_PI_SOURCE_COMMIT=b79e4cc834970cca69daebffab7df1da7d1e52c4/);
+  assert.match(fetchTypeScript, /sha256sum --check --status/);
+  assert.match(fetchPi, /checkout --quiet "\$\{DOLLY_PI_SOURCE_COMMIT\}"/);
+  assert.match(fetchPi, /rev-parse HEAD/);
+  assert.match(build, /default\/typescript-5\.9\.3\.tgz/);
+  assert.match(build, /default\/pi-source\.tar/);
+  for (const packageName of [
+    "telemetry", "ai", "agent", "protocol", "client", "tui", "coding-agent",
+  ]) {
+    assert.match(build, new RegExp(`packages/${packageName}/src`));
+    assert.match(
+      startup,
+      new RegExp(`RUN cd /usr/src/pi-source/packages/${packageName} && tsc -p tsconfig\\.dolly\\.json`),
+    );
+    assert.match(
+      startup,
+      new RegExp(`CHECK '\\[' -f /usr/src/pi-source/packages/${packageName}/dist-dolly/`),
+    );
+  }
+
+  assert.match(makefile, /\/bin\/gzip: .*\/usr\/lib\/libz\.a/);
+  assert.match(makefile, /\$\(CC\).* -lz -o \$@/);
+  assert.match(makefile, /typescript: \/usr\/bin\/tsc/);
+  assert.match(makefile, /\/usr\/bin\/tsc: .*_tsc\.js .*libdolly-js\.a/);
+  assert.match(gzip, /gzopen\(argv\[2\], "rb"\)/);
+  assert.match(gzip, /implements decompression to stdout only/);
+  assert.match(tsc, /tsc-dolly\.mjs/);
+  assert.match(wrapper, /Dolly\.readFile\(compiler\)/);
+  assert.match(wrapper, /createRequire\(compiler\)/);
+  assert.doesNotMatch(wrapper, /\bfetch\s*\(/);
+  assert.doesNotMatch(wrapper, /\bimport\s+.*from/);
+
+  const parsedTarget = JSON.parse(targetConfig);
+  assert.equal(parsedTarget.compilerOptions.noCheck, true);
+  assert.deepEqual(parsedTarget.compilerOptions.types, []);
+  assert.equal(parsedTarget.compilerOptions.outDir, "./dist-dolly");
+  assert.match(startup, /RUN gzip -dc .*typescript-5\.9\.3\.tgz/);
+  assert.match(startup, /CHECK tsc --version .*Version 5\.9\.3/);
+  assert.match(startup, /RUN tsc --target ES2023 --module ES2022/);
+  assert.match(startup, /CHECK '\[' -f .*dist-dolly\/cli\.js '\]'/);
+  assert.match(startup, /PI-SOURCE-EMIT/);
+  assert.match(startup, /RUN make -f \/usr\/src\/dolly\/startup\.mk pi/);
+  assert.match(startup, /CHECK pi --version/);
+  assert.match(startup, /CHECK PI_STARTUP_BENCHMARK=1 pi --offline --no-session/);
+  assert.match(startup, /KEEP \/usr\/bin\/pi/);
+  assert.match(startup, /RUN janis -m \/usr\/lib\/pi\/apply-pi-quickjs-compat\.mjs .*tui\/dist-dolly\/utils\.js/);
+  assert.match(startup, /CHECK grep -q '\^const zeroWidthRegex = \.\*u;\$'/);
+  assert.match(startup, /pi-runtime-packages\.tar/);
+  assert.match(startup, /CHECK janis -m \/tmp\/pi-image-check\.mjs \| grep -q '\^PI-IMAGE-PASSTHROUGH\$'/);
+  assert.match(startup, /pi-generated-model-data\.tar/);
+  assert.match(startup, /packages\/ai\/src\/providers\/data .*packages\/ai\/dist-dolly\/providers/);
+  assert.match(startup, /coding-agent\/src\/core\/export-html\/template\.html/);
+  assert.match(startup, /import chalk from "chalk"; import \{ Type \} from "typebox"/);
+  assert.match(startup, /KEEP-TREE \/usr\/lib\/node_modules/);
+  assert.match(startup, /import \{ defineTelemetrySchema \} from "@earendil-works\/pi-telemetry"/);
+  assert.match(startup, /KEEP-TREE \/usr\/src\/pi-source/);
+  assert.match(
+    await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8"),
+    /defineTelemetrySchema.*bad target workspace package/,
+  );
+  assert.equal((compatibility.match(/\["[A-Za-z]+Regex",/g) ?? []).length, 6);
+  assert.match(compatibility, /export function lowerPiQuickJs/);
+  assert.match(targetCompatibility, /import \{ lowerPiQuickJs \} from "\/usr\/lib\/pi\/quickjs-compat\.mjs"/);
+  assert.match(targetCompatibility, /Dolly\.writeFile\(path, lowerPiQuickJs\(Dolly\.readFile\(path\), "source"\)\)/);
+  assert.doesNotMatch(targetCompatibility, /\bfetch\s*\(/);
+});
+
+test("the source-built Pi runtime profile is explicit and lockfile-verified", async () => {
+  const census = await readFile(
+    new URL("../scripts/pi-runtime-census.mjs", import.meta.url),
+    "utf8",
+  );
+  const archive = await readFile(
+    new URL("../scripts/build-pi-runtime-packages.mjs", import.meta.url),
+    "utf8",
+  );
+  const profile = await readFile(
+    new URL("../config/pi-runtime-packages.txt", import.meta.url),
+    "utf8",
+  );
+  const packageDefinition = JSON.parse(
+    await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  );
+
+  assert.equal(packageDefinition.dependencies.esbuild, undefined);
+  assert.equal(packageDefinition.scripts["pi:census"], "node scripts/pi-runtime-census.mjs");
+  assert.match(census, /explicit external package profile/);
+  assert.match(census, /package-lock\.json/);
+  assert.match(census, /licenseExpression/);
+  assert.match(census, /lifecycleScripts/);
+  assert.match(census, /nativeAddons/);
+  assert.match(census, /embeddedWasm/);
+  assert.match(census, /conservative trim candidates/);
+  assert.doesNotMatch(census, /env\.dolly_http_dispatch|\bfetch\s*\(/);
+  assert.match(archive, /config\/pi-runtime-packages\.txt/);
+  assert.match(archive, /package-lock\.json/);
+  assert.match(archive, /locked\.integrity/);
+  assert.match(archive, /build-source-tar\.mjs/);
+  assert.match(archive, /--exclude-suffix=\.map/);
+  assert.match(archive, /\/usr\/lib\/node_modules\/\$\{name\}/);
+  assert.doesNotMatch(archive, /\bfetch\s*\(/);
+  assert.match(profile, /^openai$/m);
+  assert.match(profile, /^typebox$/m);
+  assert.doesNotMatch(profile, /@earendil-works\/pi-/);
+  assert.doesNotMatch(profile, /@silvia-odwyer\/photon-node/);
+});
+
+test("Bonnie resolves wheels and source builds without adding a network edge", async () => {
+  const recipe = await readFile(new URL("../Dollyfile-python", import.meta.url), "utf8");
+  const frontend = await readFile(new URL("../src/commands/bonnie.c", import.meta.url), "utf8");
+  const helper = await readFile(new URL("../src/runtimes/bonnie.py", import.meta.url), "utf8");
+  const shell = await readFile(new URL("../src/slop.c", import.meta.url), "utf8");
+  const browserProof = await readFile(
+    new URL("../scripts/browser-harness.mjs", import.meta.url),
+    "utf8",
+  );
+  const helperTemporary = await mkdtemp(join(tmpdir(), "dolly-bonnie-helper-"));
+  try {
+    const combinedPath = join(helperTemporary, "combined.txt");
+    execFileSync("python3", [
+      new URL("../src/runtimes/bonnie.py", import.meta.url).pathname,
+      "combine",
+      "Requests[socks]>=2",
+      "requests<3,!=2.5",
+      combinedPath,
+    ]);
+    const combined = (await readFile(combinedPath, "utf8")).trim();
+    assert.match(combined, /^requests\[socks\]/);
+    assert.match(combined, />=2/);
+    assert.match(combined, /<3/);
+    assert.match(combined, /!=2\.5/);
+    const metadataPath = join(helperTemporary, "metadata.json");
+    const selectionPath = join(helperTemporary, "selection.txt");
+    await writeFile(metadataPath, JSON.stringify({ releases: {
+      "1.9": [{
+        filename: "requests-1.9.tar.gz",
+        packagetype: "sdist",
+        requires_python: ">=3",
+        yanked: false,
+      }],
+      "3.1": [{
+        filename: "requests-3.1.tar.gz",
+        packagetype: "sdist",
+        requires_python: ">=3",
+        yanked: false,
+      }],
+    } }));
+    execFileSync("python3", [
+      new URL("../src/runtimes/bonnie.py", import.meta.url).pathname,
+      "select",
+      "requests>=1,<3",
+      metadataPath,
+      selectionPath,
+    ]);
+    assert.match(await readFile(selectionPath, "utf8"), /^version 1\.9$/m);
+  } finally {
+    await rm(helperTemporary, { recursive: true, force: true });
+  }
+
+  assert.match(recipe, /SOURCE HOST TXT .*bonnie\.c/);
+  assert.match(recipe, /SOURCE HOST TXT .*bonnie\.py/);
+  assert.match(recipe, /RUN cc .*bonnie\.c .* -lcurl/);
+  assert.match(recipe, /KEEP \/usr\/lib\/bonnie\/bonnie\.py/);
+  assert.match(recipe, /ENV PYTHONDONTWRITEBYTECODE=1/);
+  assert.match(recipe, /-DDATE="Jan 01 1970"/);
+  assert.match(recipe, /-DTIME="00:00:00"/);
+  assert.match(recipe, /CHECK test ! -d \/usr\/lib\/python3\.14\/__pycache__/);
+  assert.match(frontend, /https:\/\/pypi\.org\/pypi\/%s\/json/);
+  assert.match(frontend, /BONNIE_FETCH_ATTEMPTS = 3/);
+  assert.match(frontend, /helper_satisfies/);
+  assert.match(frontend, /combine_requirements/);
+  assert.match(frontend, /root_indices/);
+  assert.match(frontend, /dependency constraints are unsatisfiable/);
+  assert.match(frontend, /resolved and verified %zu package/);
+  assert.match(frontend, /https:\/\/files\.pythonhosted\.org\/packages\//);
+  assert.match(frontend, /compile_entry_points/);
+  assert.match(frontend, /build_source/);
+  assert.match(frontend, /build-requirement/);
+  assert.match(frontend, /preparing dependency graph/);
+  assert.match(frontend, /prepare_resolved_plan/);
+  assert.match(frontend, /stage-reset/);
+  assert.match(frontend, /prepared %zu package/);
+  assert.match(frontend, /queue_requirements_file/);
+  assert.match(frontend, /requirements-file options are unsupported/);
+  assert.match(frontend, /run_introspection/);
+  assert.match(frontend, /bonnie list/);
+  assert.match(frontend, /bonnie freeze/);
+  assert.match(frontend, /bonnie show PACKAGE/);
+  assert.match(frontend, /bonnie check/);
+  assert.match(frontend, /dolly_spawn\("\/bin\/cc"/);
+  assert.match(helper, /default_environment/);
+  assert.match(helper, /def combine\(left: str, right: str, output_path: str\)/);
+  assert.match(helper, /def _sync_pythonpath\(\)/);
+  assert.match(helper, /_dolly_bonnie_pythonpath/);
+  assert.match(helper, /parse_wheel_filename/);
+  assert.match(helper, /requires_dist/);
+  assert.match(helper, /hashlib\.sha256/);
+  assert.match(helper, /wheel path escapes its installation directory/);
+  assert.match(helper, /wheel contains duplicate destination/);
+  assert.match(helper, /def _console_scripts\(wheel: zipfile\.ZipFile/);
+  assert.match(helper, /def verify\(specification: str, artifact_path: str/);
+  assert.match(helper, /def _sdist_metadata\(/);
+  assert.match(helper, /pyproject\.toml/);
+  assert.match(helper, /--no-build-isolation/);
+  assert.match(helper, /--no-index/);
+  assert.match(helper, /def build\(sdist_path: str, wheel_path: str\)/);
+  assert.match(helper, /def satisfies\(specification: str, version: str\)/);
+  assert.match(helper, /def list_installed\(freeze: bool = False\)/);
+  assert.match(helper, /def show_installed\(names: list\[str\]\)/);
+  assert.match(helper, /def check_installed\(\) -> int/);
+  assert.doesNotMatch(helper, /requests\.|urllib\.request|socket\./);
+  assert.match(shell, /Python packages: bonnie install PACKAGE/);
+  assert.match(browserProof, /requests>=2,<3/);
+  assert.match(browserProof, /requests\[socks\]>=2,<3/);
+  assert.match(browserProof, /bonnie freeze \| grep/);
+  assert.match(browserProof, /bonnie show requests \| grep/);
+  assert.match(browserProof, /bonnie check \| grep/);
+  assert.match(browserProof, /--requirement \/tmp\/requirements\.txt/);
+  assert.match(browserProof, /python -m pytest --version/);
+  assert.match(browserProof, /file \/usr\/bin\/pytest \| grep -q WebAssembly/);
+  assert.match(browserProof, /pytest -q \/tmp\/test_sample\.py/);
+  assert.match(browserProof, /bonnie install black/);
+  assert.doesNotMatch(browserProof, /bonnie install numpy/);
+  assert.match(browserProof, /bonnie install pandas/);
+  assert.match(browserProof, /find_spec\(\\"numpy\\"\) is None/);
+  assert.match(browserProof, /DataFrame/);
+  assert.match(browserProof, /black --quiet \/tmp\/black_sample\.py/);
+  assert.match(browserProof, /import pdb, requests, socket/);
+  assert.match(browserProof, /socket\.socket\(\)/);
+  assert.match(browserProof, /contradictory version constraints/);
+  assert.match(browserProof, /mutated its target before resolving the complete graph/);
+});
+
+test("CPython subprocesses use Dolly's serial in-Wasm lifecycle", async () => {
+  const recipe = await readFile(new URL("../Dollyfile-python", import.meta.url), "utf8");
+  const adapter = await readFile(
+    new URL("../src/runtimes/cpython-process.c", import.meta.url),
+    "utf8",
+  );
+  const compatibility = await readFile(
+    new URL("../src/runtimes/cpython-subprocess.py", import.meta.url),
+    "utf8",
+  );
+  const patch = await readFile(
+    new URL("../config/cpython-dolly.patch", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(adapter, /dolly_spawn_env/);
+  assert.match(adapter, /dolly_spawn_timeout/);
+  assert.match(adapter, /dolly_wait/);
+  assert.doesNotMatch(adapter, /fetch\s*\(|socket\s*\(/);
+  assert.match(compatibility, /tempfile\.TemporaryFile/);
+  assert.match(compatibility, /return "\/bin\/slop", \["\/bin\/slop", "-c", command\]/);
+  assert.match(compatibility, /def _which\(program, path\)/);
+  assert.match(compatibility, /os\.path\.isfile\(candidate\)/);
+  assert.doesNotMatch(compatibility, /os\.X_OK|shutil\.which/);
+  assert.match(compatibility, /for stream in \(sys\.stdout, sys\.stderr\)/);
+  assert.match(patch, /from _dolly_subprocess import Popen/);
+  assert.match(recipe, /subprocess\.check_output\(\["python"/);
+  assert.match(recipe, /subprocess\.run\(\["cat"\], input="pipe-ok"/);
+});
+
+test("the compiler accepts fixed wasm64 CPython extension flags deliberately", async () => {
+  const compiler = await readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8");
+  const toolchain = await readFile(
+    new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
+  assert.match(compiler, /argument == "-m64" \|\| argument == "-sMEMORY64=1"/);
+  assert.match(compiler, /argument == "-fno-strict-overflow" \|\| argument == "-fwrapv"/);
+  assert.match(compiler, /frontend_options\.push_back\("-fwrapv"\)/);
+  assert.match(compiler, /DebugInfoKind::Full/);
+  assert.match(compiler, /-debug-info-kind=standalone/);
+  assert.match(compiler, /"--no-check-features"/);
+  assert.ok(
+    compiler.indexOf('"/usr/include/compat"') <
+      compiler.indexOf('"/usr/include/c++/v1"') &&
+    compiler.indexOf('"/usr/include/c++/v1"') <
+      compiler.indexOf('"/usr/lib/clang/24/include"'),
+    "embedded C++ include order must match the Emscripten driver",
+  );
+  for (const library of ["libc++.a", "libc++abi.a", "libclang_rt.builtins.a"]) {
+    assert.match(compiler, new RegExp(escapeRegex(`/usr/lib/${library}`)));
+  }
+  assert.match(toolchain, /\/seed\/usr\/lib\/libclang_rt\.builtins\.a/);
+  assert.doesNotMatch(toolchain, /libc\+\+(?:abi)?-noexcept\.a/);
+  const startup = await readFile(new URL("../src/startup.mk", import.meta.url), "utf8");
+  assert.match(startup, /\/usr\/lib\/libc\+\+\.a/);
+  assert.match(startup, /\/usr\/lib\/libc\+\+abi\.a/);
+  assert.match(startup, /libcxx-string-dolly\.c/);
+  assert.doesNotMatch(startup, /LIBCXX_SOURCE_NAMES/);
 });

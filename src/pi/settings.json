@@ -1,6 +1,9 @@
 {
   "npmCommand": ["/bin/echo"],
   "enableInstallTelemetry": false,
+  "images": {
+    "autoResize": false
+  },
   "shellPath": "/bin/slop",
   "theme": "dolly"
 }

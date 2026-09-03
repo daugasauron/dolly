@@ -1,6 +1,9 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -68,6 +71,20 @@ static int protected_path(const char *path) {
   return length != 0;
 }
 
+static int trailing_slash_symlink(const char *path) {
+  size_t length = strlen(path);
+  size_t trimmed = length;
+  while (trimmed > 1 && path[trimmed - 1] == '/') trimmed--;
+  if (trimmed == length) return 0;
+  char *without_slashes = strndup(path, trimmed);
+  if (without_slashes == NULL) return -1;
+  struct stat metadata;
+  const int result = lstat(without_slashes, &metadata) == 0 &&
+                     S_ISLNK(metadata.st_mode);
+  free(without_slashes);
+  return result;
+}
+
 int main(int argc, char **argv) {
   int recursive = 0;
   int force = 0;
@@ -102,6 +119,18 @@ int main(int argc, char **argv) {
   for (int index = first_path; index < argc; index++) {
     if (protected_path(argv[index])) {
       fprintf(stderr, "rm: refusing to remove protected path %s\n", argv[index]);
+      status = 1;
+      continue;
+    }
+    const int trailing_link = trailing_slash_symlink(argv[index]);
+    if (trailing_link != 0) {
+      if (trailing_link > 0) {
+        fprintf(stderr,
+                "rm: refusing to follow directory symlink with trailing slash: %s\n",
+                argv[index]);
+      } else {
+        fprintf(stderr, "rm: %s: out of memory\n", argv[index]);
+      }
       status = 1;
       continue;
     }

@@ -7,7 +7,11 @@
     "abi": "node scripts/dolly-abi.mjs inspect build/dolly-0.wasm",
     "build:runtime": "./scripts/build.sh",
     "routes": "node scripts/generate-routes.mjs",
-    "snapshot": "node scripts/build-system-snapshot.mjs",
+    "snapshot": "npm run routes && node scripts/build-system-snapshot.mjs",
+    "snapshot:reproducible": "npm run routes && node scripts/verify-snapshot-reproducibility.mjs",
+    "census": "node scripts/platform-census.mjs",
+    "fingerprint": "node scripts/capability-fingerprint.mjs",
+    "pi:census": "node scripts/pi-runtime-census.mjs",
     "build": "npm run build:runtime && npm run snapshot",
     "test": "npm run build && node --test test/*.test.mjs && ./scripts/test-browser.sh",
     "serve": "npm run routes && node scripts/serve.mjs"
@@ -15,7 +19,6 @@
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.4",
     "@earendil-works/pi-ai": "0.84.4",
-    "@earendil-works/pi-coding-agent": "0.84.4",
-    "esbuild": "0.25.9"
+    "@earendil-works/pi-coding-agent": "0.84.4"
   }
 }

@@ -121,7 +121,10 @@ This is deliberately not a claim that browser Fetch can reproduce every
 libcurl behavior. The official headers make the interface source-compatible,
 while the implementation provides the subset established by real ports. Fetch
 owns DNS, connection pooling, HTTP versions, TLS, decompression, forbidden
-headers, and redirect mechanics. Git options for those browser-owned choices
+headers, and redirect mechanics. The broker removes browser-owned transport
+headers such as `User-Agent` and `Accept-Encoding` before calling Fetch; this
+also avoids engine-specific CORS preflights while leaving application headers,
+including `Authorization`, intact. Git options for those browser-owned choices
 are accepted where required for source compatibility but cannot override the
 browser. Certificate public-key pinning returns `CURLE_NOT_BUILT_IN`; unknown
 options return `CURLE_UNKNOWN_OPTION`; non-HTTP(S) URLs return
@@ -148,3 +151,11 @@ experiment is the smallest in-Wasm helper-protocol adapter or serial/spooled
 integration that preserves clone semantics. A general scheduler is warranted
 only if that concrete path cannot work; adding a host subprocess escape would
 violate the sandbox contract.
+
+A browser probe also verifies the packaging distinction: `git --exec-path`
+is `/usr/libexec/dolly` and `git-remote-http` exists there. Dolly has no Unix
+permission model, so the Git target patch treats any regular file as eligible
+during its pre-spawn PATH lookup; execute bits are not introduced as policy.
+With that false gate removed, normal clone reaches the real remaining issue:
+upstream `start_command()` asks for a concurrently connected helper, while
+Dolly version 0 has only synchronous in-Wasm spawn/wait.

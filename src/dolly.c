@@ -34,13 +34,102 @@
 
 extern char **environ;
 
+// musl exposes CPU_COUNT_S through this out-of-line helper, but Emscripten's
+// non-pthread main-module link does not retain a definition for it. Keep the
+// result deterministic and wholly in-Wasm: Dolly currently advertises one
+// serialized execution context through sched_getaffinity().
+int __sched_cpucount(size_t size, const void *set) {
+  if (set == NULL) return 0;
+  const unsigned char *bytes = (const unsigned char *)set;
+  int count = 0;
+  for (size_t index = 0; index < size; ++index) {
+    unsigned char value = bytes[index];
+    while (value != 0) {
+      count += value & 1u;
+      value >>= 1;
+    }
+  }
+  return count;
+}
+
+int sched_getaffinity(pid_t pid, size_t size, void *set) {
+  if (set == NULL || size == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (pid != 0 && pid != getpid()) {
+    errno = ESRCH;
+    return -1;
+  }
+  memset(set, 0, size);
+  ((unsigned char *)set)[0] = 1;
+  return 0;
+}
+
 typedef int (*dolly_program_entry)(int argc, char **argv);
 
 enum {
+  DOLLY_COMMAND_FD_LIMIT = 4096,
   DOLLY_MAX_EXIT_DEPTH = 32,
   DOLLY_MAX_EXIT_CALLBACKS = 64,
   DOLLY_MAX_MODULE_IMAGES = 128,
 };
+
+typedef struct {
+  uint8_t open[DOLLY_COMMAND_FD_LIMIT / 8];
+} dolly_descriptor_snapshot;
+
+static dolly_descriptor_snapshot persistent_descriptors;
+
+static int descriptor_snapshot_contains(const dolly_descriptor_snapshot *snapshot,
+                                        int descriptor) {
+  return (snapshot->open[(unsigned)descriptor / 8] &
+          (uint8_t)(1u << ((unsigned)descriptor % 8))) != 0;
+}
+
+static void capture_descriptors(dolly_descriptor_snapshot *snapshot) {
+  memset(snapshot, 0, sizeof(*snapshot));
+  const int saved_errno = errno;
+  for (int descriptor = STDERR_FILENO + 1;
+       descriptor < DOLLY_COMMAND_FD_LIMIT; ++descriptor) {
+    errno = 0;
+    if (fcntl(descriptor, F_GETFD) >= 0 || errno != EBADF) {
+      snapshot->open[(unsigned)descriptor / 8] |=
+          (uint8_t)(1u << ((unsigned)descriptor % 8));
+    }
+  }
+  errno = saved_errno;
+}
+
+static void close_new_descriptors(const dolly_descriptor_snapshot *snapshot) {
+  const int saved_errno = errno;
+  for (int descriptor = STDERR_FILENO + 1;
+       descriptor < DOLLY_COMMAND_FD_LIMIT; ++descriptor) {
+    if (descriptor_snapshot_contains(snapshot, descriptor) ||
+        descriptor_snapshot_contains(&persistent_descriptors, descriptor)) continue;
+    errno = 0;
+    if (fcntl(descriptor, F_GETFD) >= 0 || errno != EBADF) close(descriptor);
+  }
+  errno = saved_errno;
+}
+
+static void retain_persistent_descriptors(
+    const dolly_descriptor_snapshot *snapshot) {
+  const int saved_errno = errno;
+  for (int descriptor = STDERR_FILENO + 1;
+       descriptor < DOLLY_COMMAND_FD_LIMIT; ++descriptor) {
+    errno = 0;
+    const int open = fcntl(descriptor, F_GETFD) >= 0 || errno != EBADF;
+    uint8_t *byte = &persistent_descriptors.open[(unsigned)descriptor / 8];
+    const uint8_t bit = (uint8_t)(1u << ((unsigned)descriptor % 8));
+    if (!open) {
+      *byte &= (uint8_t)~bit;
+    } else if (!descriptor_snapshot_contains(snapshot, descriptor)) {
+      *byte |= bit;
+    }
+  }
+  errno = saved_errno;
+}
 
 // Emscripten's wasm64 dlopen handle records the relocated static-memory range.
 // Its loader intentionally keeps module instances resident after dlclose, so
@@ -138,9 +227,18 @@ static int prepare_module_image(const char *path, void *module) {
 }
 
 typedef struct {
+  int takes_argument;
+  union {
+    void (*plain)(void);
+    void (*with_argument)(void *);
+  } function;
+  void *argument;
+} dolly_exit_callback;
+
+typedef struct {
   jmp_buf environment;
   int status;
-  void (*callbacks[DOLLY_MAX_EXIT_CALLBACKS])(void);
+  dolly_exit_callback callbacks[DOLLY_MAX_EXIT_CALLBACKS];
   size_t callback_count;
 } dolly_exit_frame;
 
@@ -156,6 +254,8 @@ static uint32_t consumed_interrupt_sequence;
 // WasmFS does not consistently expose terminal identity through native-style
 // ioctl/fstat metadata for all three standard descriptors.
 static uint32_t active_terminal_mask = 0x7u;
+static uint32_t terminal_mode_flags =
+    DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO;
 
 _Static_assert((DOLLY_DISPLAY_EVENT_CAPACITY &
                 (DOLLY_DISPLAY_EVENT_CAPACITY - 1)) == 0,
@@ -175,6 +275,9 @@ static const size_t display_frame_capacity =
 typedef struct {
   uint64_t generation;
   int owner_pid;
+  uint32_t width;
+  uint32_t height;
+  uint32_t stride;
 } dolly_display_lease;
 
 static dolly_display_lease display_lease;
@@ -233,6 +336,9 @@ static void release_display_lease_for_pid(int owner_pid) {
   }
   display_lease.generation = 0;
   display_lease.owner_pid = 0;
+  display_lease.width = 0;
+  display_lease.height = 0;
+  display_lease.stride = 0;
   // Events already published while the graphics owner was active belong to
   // that ownership epoch and must not leak into the restored shell. Preserve
   // only layout changes so Ghostty returns at the current canvas size.
@@ -258,6 +364,8 @@ static void release_display_lease_for_pid(int owner_pid) {
   encoded_input_length = 0;
   dolly_terminal_reset_cooked();
   if (display_driver != NULL) display_driver->set_suspended(0);
+  atomic_store_explicit(&display_mailbox.cursor_style,
+                        DOLLY_DISPLAY_CURSOR_TEXT, memory_order_release);
   atomic_fetch_and_explicit(&display_mailbox.flags,
                             ~((uint32_t)DOLLY_DISPLAY_GRAPHICS_ACTIVE),
                             memory_order_release);
@@ -642,6 +750,9 @@ int dolly_display_acquire(dolly_display_surface *surface) {
   display_driver->set_suspended(1);
   display_lease.generation = generation;
   display_lease.owner_pid = active_process_pid;
+  display_lease.width = width;
+  display_lease.height = height;
+  display_lease.stride = stride;
   encoded_input_cursor = 0;
   encoded_input_length = 0;
   dolly_terminal_reset_cooked();
@@ -653,6 +764,8 @@ int dolly_display_acquire(dolly_display_surface *surface) {
                         memory_order_relaxed);
   atomic_store_explicit(&display_mailbox.cursor_row, UINT32_MAX,
                         memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.cursor_style,
+                        DOLLY_DISPLAY_CURSOR_DEFAULT, memory_order_release);
   atomic_fetch_or_explicit(&display_mailbox.flags,
                            DOLLY_DISPLAY_GRAPHICS_ACTIVE,
                            memory_order_release);
@@ -665,18 +778,35 @@ int dolly_display_acquire(dolly_display_surface *surface) {
   return 0;
 }
 
+int dolly_display_set_size(uint64_t generation, uint32_t width,
+                           uint32_t height, dolly_display_surface *surface) {
+  if (surface == NULL || width == 0 || height == 0 ||
+      width > DOLLY_DISPLAY_MAX_WIDTH || height > DOLLY_DISPLAY_MAX_HEIGHT ||
+      (uint64_t)width * height * 4u > display_frame_capacity) {
+    return -EINVAL;
+  }
+  int status = validate_display_lease(generation);
+  if (status != 0) return status;
+  display_lease.width = width;
+  display_lease.height = height;
+  display_lease.stride = width * 4u;
+  surface->generation = generation;
+  surface->width = width;
+  surface->height = height;
+  surface->stride = display_lease.stride;
+  surface->pixel_format = DOLLY_DISPLAY_PIXEL_RGBA8;
+  return 0;
+}
+
 int dolly_display_begin_frame(uint64_t generation, dolly_display_frame *frame) {
   if (frame == NULL) return -EINVAL;
   memset(frame, 0, sizeof(*frame));
   int status = validate_display_lease(generation);
   if (status != 0) return status;
 
-  const uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
-                                               memory_order_acquire);
-  const uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
-                                                memory_order_relaxed);
-  const uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
-                                                memory_order_relaxed);
+  const uint32_t width = display_lease.width;
+  const uint32_t height = display_lease.height;
+  const uint32_t stride = display_lease.stride;
   const uint64_t length = (uint64_t)stride * height;
   if (width == 0 || height == 0 || stride != width * 4u ||
       length > display_frame_capacity) {
@@ -704,20 +834,71 @@ int dolly_display_present(uint64_t generation, uint32_t buffer_index) {
       buffer_index != (active ^ 1u)) {
     return -EINVAL;
   }
-  const uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
-                                               memory_order_relaxed);
-  const uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
-                                                memory_order_relaxed);
-  const uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
-                                                memory_order_relaxed);
+  const uint32_t width = display_lease.width;
+  const uint32_t height = display_lease.height;
+  const uint32_t stride = display_lease.stride;
   if (width == 0 || height == 0 || stride != width * 4u ||
       (uint64_t)stride * height > display_frame_capacity) {
     return -EIO;
   }
+  atomic_store_explicit(&display_mailbox.frame_width, width,
+                        memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.frame_height, height,
+                        memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.frame_stride, stride,
+                        memory_order_relaxed);
   atomic_store_explicit(&display_mailbox.frame_index, buffer_index,
                         memory_order_release);
   atomic_fetch_add_explicit(&display_mailbox.frame_sequence, 1,
                             memory_order_acq_rel);
+  return 0;
+}
+
+int dolly_display_wait_frame(uint64_t generation, uint32_t *sequence,
+                             double timeout_milliseconds) {
+  if (sequence == NULL || timeout_milliseconds != timeout_milliseconds) {
+    return -EINVAL;
+  }
+  const double deadline = timeout_milliseconds < 0
+                              ? -1
+                              : emscripten_get_now() + timeout_milliseconds;
+  for (;;) {
+    int status = validate_display_lease(generation);
+    if (status != 0) return status;
+    dolly_session_service();
+    dolly_interrupt_checkpoint();
+
+    const uint32_t current = atomic_load_explicit(
+        &display_mailbox.animation_frame_sequence, memory_order_acquire);
+    if (current != *sequence) {
+      *sequence = current;
+      return 1;
+    }
+    if (timeout_milliseconds == 0) return 0;
+    double remaining = -1;
+    if (deadline >= 0) {
+      remaining = deadline - emscripten_get_now();
+      if (remaining <= 0) return 0;
+    }
+
+    const uint32_t wake = atomic_load_explicit(&display_mailbox.event_wake,
+                                                memory_order_acquire);
+    if (atomic_load_explicit(&display_mailbox.animation_frame_sequence,
+                             memory_order_acquire) != *sequence) {
+      continue;
+    }
+    emscripten_atomic_wait_u32(
+        (void *)&display_mailbox.event_wake, wake,
+        remaining < 0 ? ATOMICS_WAIT_DURATION_INFINITE : remaining);
+  }
+}
+
+int dolly_display_set_cursor(uint64_t generation, uint32_t cursor) {
+  int status = validate_display_lease(generation);
+  if (status != 0) return status;
+  if (cursor > DOLLY_DISPLAY_CURSOR_HIDDEN) return -EINVAL;
+  atomic_store_explicit(&display_mailbox.cursor_style, cursor,
+                        memory_order_release);
   return 0;
 }
 
@@ -817,6 +998,34 @@ void dolly_terminal_reset_cooked(void) {
   clearerr(stdin);
 }
 
+static void dolly_terminal_discard_pending_input(void) {
+  // An application may return immediately on a key-down event while the
+  // matching key-up record is already queued. That record belongs to the old
+  // foreground command and must not become input to its successor. Preserve
+  // resize records so Ghostty still adopts the latest browser geometry.
+  uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
+                                       memory_order_relaxed);
+  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
+                                               memory_order_acquire);
+  while (read != write) {
+    const dolly_input_event event =
+        display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+    ++read;
+    atomic_store_explicit(&display_mailbox.event_read, read,
+                          memory_order_release);
+    if (event.type == DOLLY_INPUT_EVENT_RESIZE) {
+      (void)update_suspended_terminal_layout(&event);
+    }
+  }
+  const uint32_t paste_sequence = atomic_load_explicit(
+      &display_mailbox.paste_sequence, memory_order_acquire);
+  atomic_store_explicit(&display_mailbox.paste_consumed_sequence,
+                        paste_sequence, memory_order_release);
+  encoded_input_cursor = 0;
+  encoded_input_length = 0;
+  dolly_terminal_reset_cooked();
+}
+
 void dolly_terminal_publish_result(int status) {
   atomic_store_explicit(&display_mailbox.result_status, (uint32_t)status,
                         memory_order_release);
@@ -879,6 +1088,20 @@ int dolly_isatty(int descriptor) {
   return 0;
 }
 
+int dolly_terminal_mode_get(int descriptor) {
+  if (!dolly_isatty(descriptor)) return -errno;
+  return (int)terminal_mode_flags;
+}
+
+int dolly_terminal_mode_set(int descriptor, uint32_t flags) {
+  const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO;
+  if ((flags & ~valid) != 0) return -EINVAL;
+  if (!dolly_isatty(descriptor)) return -errno;
+  terminal_mode_flags = flags;
+  dolly_terminal_reset_cooked();
+  return 0;
+}
+
 void dolly_terminal_write(const char *text) {
   if (text != NULL) {
     dolly_terminal_write_bytes((const unsigned char *)text, strlen(text));
@@ -902,6 +1125,14 @@ static void echo_byte(unsigned char byte) {
 // This is Dolly's WasmFS stdin device. It implements a small canonical line
 // discipline above the in-Wasm mailbox and never delegates to Emscripten JS.
 int _wasmfs_stdin_get_char(void) {
+  if ((terminal_mode_flags & DOLLY_TERMINAL_CANONICAL) == 0) {
+    const int byte = dolly_terminal_read_raw();
+    if (byte < 0) return -1;
+    if ((terminal_mode_flags & DOLLY_TERMINAL_ECHO) != 0) {
+      echo_byte((unsigned char)byte);
+    }
+    return byte;
+  }
   if (cooked_cursor < cooked_length) return cooked_line[cooked_cursor++];
   if (cooked_boundary) {
     cooked_boundary = 0;
@@ -956,12 +1187,47 @@ backend_t wasmfs_create_root_dir(void) {
   return wasmfs_create_memory_backend();
 }
 
+static const char *dolly_dynamic_error;
+
+void *dolly_dlopen(const char *path, int flags) {
+  dolly_dynamic_error = NULL;
+  if (!dolly_toolchain_validate_shared_object(path)) {
+    dolly_dynamic_error = "module does not satisfy the current Dolly ABI";
+    return NULL;
+  }
+  if (!dolly_toolchain_preload_dependencies(path)) {
+    dolly_dynamic_error = "module dependency validation or loading failed";
+    return NULL;
+  }
+  return dlopen(path, flags);
+}
+
+void *dolly_dlsym(void *handle, const char *name) {
+  dolly_dynamic_error = NULL;
+  return dlsym(handle, name);
+}
+
+const char *dolly_dlerror(void) {
+  if (dolly_dynamic_error != NULL) {
+    const char *error = dolly_dynamic_error;
+    dolly_dynamic_error = NULL;
+    return error;
+  }
+  return dlerror();
+}
+
+int dolly_dlclose(void *handle) {
+  dolly_dynamic_error = NULL;
+  return dlclose(handle);
+}
+
 int dolly_run_filesystem_module(const char *path, int argc, char **argv) {
   if (!dolly_toolchain_validate_executable(path)) {
     fprintf(stderr, "dolly: refusing invalid executable module: %s\n",
             path == NULL ? "(null)" : path);
     return 126;
   }
+  if (!dolly_toolchain_preload_dependencies(path)) return 126;
   if (exit_depth == DOLLY_MAX_EXIT_DEPTH) return 125;
   dolly_exit_frame *frame = &exit_frames[exit_depth++];
   void *volatile module = NULL;
@@ -977,21 +1243,23 @@ int dolly_run_filesystem_module(const char *path, int argc, char **argv) {
       fprintf(stderr, "dolly: dlopen %s failed: %s\n", path, dlerror());
       status = 1;
     } else {
-      int prepared = persistent ? 1 : prepare_module_image(path, (void *)module);
-      if (prepared < 0) {
-        fprintf(stderr, "dolly: could not initialize command image %s\n", path);
-        status = 1;
-      } else {
-        persistent = prepared > 0;
-        dlerror();
-        dolly_program_entry entry =
-            (dolly_program_entry)dlsym((void *)module, "dolly_main");
-        const char *error = dlerror();
-        if (error != NULL) {
-          fprintf(stderr, "dolly: dlsym dolly_main failed: %s\n", error);
-          status = 2;
+      if (status == 0) {
+        int prepared = persistent ? 1 : prepare_module_image(path, (void *)module);
+        if (prepared < 0) {
+          fprintf(stderr, "dolly: could not initialize command image %s\n", path);
+          status = 1;
         } else {
-          status = entry(argc, argv);
+          persistent = prepared > 0;
+          dlerror();
+          dolly_program_entry entry =
+              (dolly_program_entry)dlsym((void *)module, "dolly_main");
+          const char *error = dlerror();
+          if (error != NULL) {
+            fprintf(stderr, "dolly: dlsym dolly_main failed: %s\n", error);
+            status = 2;
+          } else {
+            status = entry(argc, argv);
+          }
         }
       }
     }
@@ -1000,8 +1268,13 @@ int dolly_run_filesystem_module(const char *path, int argc, char **argv) {
   }
 
   while (frame->callback_count != 0) {
-    void (*callback)(void) = frame->callbacks[--frame->callback_count];
-    callback();
+    dolly_exit_callback *callback =
+        &frame->callbacks[--frame->callback_count];
+    if (callback->takes_argument) {
+      callback->function.with_argument(callback->argument);
+    } else {
+      callback->function.plain();
+    }
   }
   exit_depth--;
   if (module != NULL && !persistent && dlclose((void *)module) != 0) {
@@ -1061,7 +1334,32 @@ int dolly_atexit(void (*callback)(void)) {
     errno = ENOMEM;
     return -1;
   }
-  frame->callbacks[frame->callback_count++] = callback;
+  dolly_exit_callback *entry = &frame->callbacks[frame->callback_count++];
+  entry->takes_argument = 0;
+  entry->function.plain = callback;
+  entry->argument = NULL;
+  return 0;
+}
+
+// C++ global destructors use the Itanium ABI registration entry point rather
+// than C atexit(). Keep the registration scoped to the active Dolly command;
+// the DSO handle is unnecessary because every command boundary drains only its
+// own LIFO callback frame before a non-persistent module is closed.
+int __cxa_atexit(void (*callback)(void *), void *argument, void *dso_handle) {
+  (void)dso_handle;
+  if (exit_depth == 0 || callback == NULL) {
+    errno = EINVAL;
+    return -1;
+  }
+  dolly_exit_frame *frame = &exit_frames[exit_depth - 1];
+  if (frame->callback_count == DOLLY_MAX_EXIT_CALLBACKS) {
+    errno = ENOMEM;
+    return -1;
+  }
+  dolly_exit_callback *entry = &frame->callbacks[frame->callback_count++];
+  entry->takes_argument = 1;
+  entry->function.with_argument = callback;
+  entry->argument = argument;
   return 0;
 }
 
@@ -1195,15 +1493,16 @@ unsigned dolly_alarm(unsigned seconds) {
 
 unsigned dolly_sleep(unsigned seconds) {
   static _Atomic uint32_t wait_word;
-  double remaining = (double)seconds * 1000.0;
-  while (remaining > 0) {
+  const double deadline = emscripten_get_now() + (double)seconds * 1000.0;
+  for (;;) {
     dolly_interrupt_checkpoint();
+    const double remaining = deadline - emscripten_get_now();
+    if (remaining <= 0) break;
     const uint32_t observed = atomic_load_explicit(&wait_word,
                                                    memory_order_relaxed);
     const double interval = remaining > 50.0 ? 50.0 : remaining;
     emscripten_atomic_wait_u32((void *)&wait_word, observed,
                                interval);
-    remaining -= interval;
   }
   return 0;
 }
@@ -1538,6 +1837,8 @@ static int install_display_driver(void) {
     fputs("dolly: sandbox display initialization failed\n", stderr);
     return 1;
   }
+  atomic_store_explicit(&display_mailbox.cursor_style,
+                        DOLLY_DISPLAY_CURSOR_TEXT, memory_order_release);
   puts("dolly: sandbox display ready");
   fflush(stdout);
   display_driver = candidate;
@@ -1552,6 +1853,8 @@ static int spawn_with_deadline(const char *path, int argc, char **argv,
   dolly_process *process = allocate_process();
   if (process == NULL) return -EAGAIN;
 
+  dolly_descriptor_snapshot saved_descriptors;
+  capture_descriptors(&saved_descriptors);
   char saved_cwd[4096];
   dolly_environment_snapshot saved_environment = {0};
   if (getcwd(saved_cwd, sizeof(saved_cwd)) == NULL ||
@@ -1564,6 +1867,7 @@ static int spawn_with_deadline(const char *path, int argc, char **argv,
   int saved[3] = {dup(STDIN_FILENO), dup(STDOUT_FILENO), dup(STDERR_FILENO)};
   int requested[3] = {stdin_fd, stdout_fd, stderr_fd};
   const uint32_t previous_terminal_mask = active_terminal_mask;
+  const uint32_t previous_terminal_mode = terminal_mode_flags;
   uint32_t child_terminal_mask = 0;
   for (int descriptor = 0; descriptor < 3; descriptor++) {
     const int source = requested[descriptor];
@@ -1577,6 +1881,7 @@ static int spawn_with_deadline(const char *path, int argc, char **argv,
     if (terminal) child_terminal_mask |= 1u << descriptor;
   }
   int status = 126;
+  int persistent_command = 0;
   int previous_pid = (int)atomic_load_explicit(&display_mailbox.foreground_pid,
                                                 memory_order_acquire);
   int previous_active_pid = active_process_pid;
@@ -1613,6 +1918,7 @@ static int spawn_with_deadline(const char *path, int argc, char **argv,
                           display_flags_for_pid(process->pid),
                           memory_order_release);
     status = dolly_run_filesystem_module(path, argc, argv);
+    persistent_command = find_persistent_module(path) != NULL;
   }
 
   // An async runtime may return while one browser request is still pending or
@@ -1636,11 +1942,20 @@ static int spawn_with_deadline(const char *path, int argc, char **argv,
       close(saved[fd]);
     }
   }
+  // Files opened by an ordinary command are process-shaped state even though
+  // version 0 runs modules in one address space. A module that explicitly
+  // preserves its runtime state also preserves descriptors it retains, even
+  // through an ephemeral caller's outer boundary. The finite scan is
+  // deliberate; stdio FILE object reclamation and adversarial high-fd dup2
+  // remain later command-epoch work.
+  if (persistent_command) retain_persistent_descriptors(&saved_descriptors);
+  else close_new_descriptors(&saved_descriptors);
   clearerr(stdin);
   clearerr(stdout);
   clearerr(stderr);
   dolly_terminal_reset_cooked();
   active_terminal_mask = previous_terminal_mask;
+  terminal_mode_flags = previous_terminal_mode;
   active_process_pid = previous_active_pid;
   active_process_deadline = previous_deadline;
   atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)previous_pid,
@@ -1897,7 +2212,8 @@ static int initialize_boot_environment(void) {
             strerror(errno));
     return 1;
   }
-  if (setenv("PI_PACKAGE_DIR", "/usr/lib/pi", 1) != 0) {
+  if (setenv("PI_PACKAGE_DIR",
+             "/usr/lib/node_modules/@earendil-works/pi-coding-agent", 1) != 0) {
     fprintf(stderr, "dolly: Pi package initialization failed: %s\n",
             strerror(errno));
     return 1;
@@ -2111,6 +2427,7 @@ int dolly_shell_run(void) {
               entry_argv[0], strerror(-wait_status));
       break;
     }
+    dolly_terminal_discard_pending_input();
     // A normal Pi exit (including /quit) enters the recovery shell. A fatal
     // JavaScript/provider failure returns nonzero; retry it in the same WasmFS
     // so a transient crash does not discard the user's live agent session.

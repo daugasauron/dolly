@@ -172,7 +172,7 @@ JavaScript executor or broaden the browser capability boundary.
 
 One possible later convenience is descriptive module metadata: a module could
 name prerequisites such as `requires compiler, make` and verified outcomes such
-as `exports raylib, box2d`. Those names must describe facts established by
+as `exports raylib, box3d`. Those names must describe facts established by
 normal sequential rows; they must not become an implicit resolver, reorder
 fetches, grant browser authority, or replace `CHECK`. A useful design would
 derive export evidence from retained paths and checks, include it in image

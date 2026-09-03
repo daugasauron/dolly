@@ -12,7 +12,6 @@
 #include <dolly/runtime.h>
 
 #include "Python.h"
-#include "pycore_initconfig.h"
 
 int Py_EMSCRIPTEN_SIGNAL_HANDLING = 0;
 int _Py_emscripten_signal_clock = 50;
@@ -36,13 +35,3 @@ int pause(void) {
     errno = EINTR;
     return -1;
 }
-
-PyStatus _PyFaulthandler_Init(int enable) {
-    (void)enable;
-    return _PyStatus_OK();
-}
-
-void _PyFaulthandler_Fini(void) {}
-
-__attribute__((export_name("dolly_preserve_module_state")))
-void dolly_preserve_module_state(void) {}

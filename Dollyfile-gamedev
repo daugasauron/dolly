@@ -7,30 +7,32 @@ EXTENDS default
 SOURCE HOST BIN /static/gamedev/raylib.tar /tmp/raylib.tar SHA256 b16dd083b9205e14f8b79a1d91c934b579c9a92bcb4e3af0e374f3e71dcf82d3
 RUN tar -xf /tmp/raylib.tar -C /
 
-# Box2D 3.1.1, upstream tag v3.1.1 at 8c661469; unchanged portable C17 source.
-SOURCE HOST BIN /static/gamedev/box2d.tar /tmp/box2d.tar SHA256 801fc5e7dec43dff8ca42de94e73e715291720bcc8fed229c11b007b3286e75e
-RUN tar -xf /tmp/box2d.tar -C /
+# Box3D 0.1.0, upstream tag v0.1.0 at 8441b4a0; unchanged portable C17 source.
+SOURCE HOST BIN /static/gamedev/box3d.tar /tmp/box3d.tar SHA256 5a502138e8f7b47c5994bdd279e9dcddeae0b8e147e3b92ab79b723bd07e4377
+RUN tar -xf /tmp/box3d.tar -C /
 
 # Dolly-owned build, presentation adapter, interactive example, and Pi skill.
-SOURCE HOST TXT /static/gamedev/gamedev.mk /usr/src/dolly/gamedev/gamedev.mk SHA256 9ff9e3e096623fbcf331d7a94358d88daeb0c50eddc8a4e99b87f526d89c1bab
-SOURCE HOST TXT /static/gamedev/dolly-raylib.c /usr/src/dolly/gamedev/dolly-raylib.c SHA256 13362864563c8f831e407962b0db6fec2cdf368c456c6cc960df3d2b2772f85a
-SOURCE HOST TXT /static/gamedev/dolly-raylib.h /usr/src/dolly/gamedev/dolly-raylib.h SHA256 31a6dd7d5b7daf909b5f129ad9acf614233278df6b4c53c51dc937b977445dd0
-SOURCE HOST TXT /static/gamedev/graphics-demo.c /usr/src/dolly/gamedev/graphics-demo.c SHA256 c0bb0d45ec86780f68636567145537b5e970216cf21acd65883f91236034edc7
-SOURCE HOST TXT /static/gamedev/SKILL.md /home/dolly/.pi/agent/skills/dolly-gamedev/SKILL.md SHA256 e925b8ead6c81ae380920035292aabeeb38a9e2eaa119c788790871d74a2775d
+SOURCE HOST TXT /static/gamedev/gamedev.mk /usr/src/dolly/gamedev/gamedev.mk SHA256 93e27158d96c1fb4a6e84a325fb349fd16c2c93efd9072934bbb81744c4f9378
+SOURCE HOST TXT /static/gamedev/box3d-platform.c /usr/src/dolly/gamedev/box3d-platform.c SHA256 e61c865b94239c678f5cc64c1522c0686a0bf18aacd96d3750261fcc1e8c2b87
+SOURCE HOST TXT /static/gamedev/dolly-raylib.c /usr/src/dolly/gamedev/dolly-raylib.c SHA256 f5186c469f766cbe3b7094fbd8984f8e612b7ffb19e970591ec6c2a769fd9081
+SOURCE HOST TXT /static/gamedev/dolly-raylib.h /usr/src/dolly/gamedev/dolly-raylib.h SHA256 55855bc45d69c232b9f405b5c3850d00c8e28f1dd54abab8de10a785ceaf35a4
+SOURCE HOST TXT /static/gamedev/graphics-demo.c /usr/src/dolly/gamedev/graphics-demo.c SHA256 fe0ee08b4a602bafd74a41b7b97ed62d5b227c3d06ff4a23154a99135c18242a
+SOURCE HOST TXT /static/gamedev/SKILL.md /home/dolly/.pi/agent/skills/dolly-gamedev/SKILL.md SHA256 cd8744520d7a35ae02b04c297876320a2e771c24d43ce1fa2e26530c26033bb4
 RUN make -f /usr/src/dolly/gamedev/gamedev.mk
 CHECK graphics-demo --help
 KEEP /usr/bin/graphics-demo
 KEEP /usr/lib/libraylib.a
-KEEP /usr/lib/libbox2d.a
+KEEP /usr/lib/libbox3d.a
 KEEP /usr/lib/libdolly-raylib.a
 KEEP /usr/include/raylib.h
 KEEP /usr/include/raymath.h
 KEEP /usr/include/rlgl.h
-KEEP-TREE /usr/include/box2d
+KEEP-TREE /usr/include/box3d
 KEEP /usr/include/dolly/raylib.h
 KEEP-TREE /usr/src/raylib
-KEEP-TREE /usr/src/box2d
+KEEP-TREE /usr/src/box3d
 KEEP /usr/src/dolly/gamedev/gamedev.mk
+KEEP /usr/src/dolly/gamedev/box3d-platform.c
 KEEP /usr/src/dolly/gamedev/dolly-raylib.c
 KEEP /usr/src/dolly/gamedev/dolly-raylib.h
 KEEP /usr/src/dolly/gamedev/graphics-demo.c

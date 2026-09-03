@@ -110,7 +110,9 @@ static int list_path(const char *path, const options *option, int print_heading)
     if (add_name(&names, entry->d_name) != 0) { fputs("ls: out of memory\n", stderr); status = 1; break; }
   }
   if (closedir(directory) != 0) status = 1;
-  qsort(names.items, names.length, sizeof(*names.items), compare_names);
+  if (names.length > 1) {
+    qsort(names.items, names.length, sizeof(*names.items), compare_names);
+  }
   if (print_heading) printf("%s:\n", path);
   for (size_t offset = 0; offset < names.length; offset++) {
     const size_t index = option->reverse ? names.length - offset - 1 : offset;

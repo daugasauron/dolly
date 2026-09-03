@@ -129,7 +129,16 @@
     <script type="module">
       if (crossOriginIsolated) {
         sessionStorage.removeItem("dolly-isolation-retry");
-        await import("{{DOLLY_BASE}}src/browser.mjs");
+        try {
+          await import("{{DOLLY_BASE}}src/browser.mjs");
+        } catch (error) {
+          const detail = error instanceof Error
+            ? error.stack ?? error.message
+            : String(error);
+          document.querySelector("#bootstrap-log").textContent =
+            `FATAL\nDolly failed to load.\n${detail}\n`;
+          document.documentElement.dataset.dollyStatus = "failed";
+        }
       } else if ("serviceWorker" in navigator) {
         await navigator.serviceWorker.register("{{DOLLY_BASE}}coi-serviceworker.js", { scope: "{{DOLLY_BASE}}" });
         if (!navigator.serviceWorker.controller) {

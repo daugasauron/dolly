@@ -1,0 +1,116 @@
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -17091,4 +17091,10 @@
+ {
++#ifdef DOLLY
++    PyErr_SetString(PyExc_NotImplementedError,
++                    "Dolly does not expose a browser debugger");
++    return NULL;
++#else
+     emscripten_debugger();
+     Py_RETURN_NONE;
++#endif
+ }
+@@ -17096,3 +17102,5 @@
++#ifndef DOLLY
+ EM_JS(void, emscripten_log_impl_js, (const char* arg), {
+     console.warn(UTF8ToString(arg));
+ });
++#endif
+@@ -17110,4 +17118,9 @@
+ {
++#ifdef DOLLY
++    fprintf(stderr, "%s\n", arg);
++    fflush(stderr);
++#else
+     emscripten_log_impl_js(arg);
++#endif
+     Py_RETURN_NONE;
+ }
+--- a/Lib/subprocess.py
++++ b/Lib/subprocess.py
+@@ -76,6 +76,6 @@
+ 
+ # some platforms do not support subprocesses
+-_can_fork_exec = sys.platform not in {"emscripten", "wasi", "ios", "tvos", "watchos"}
++_can_fork_exec = sys.platform not in {"dolly", "emscripten", "wasi", "ios", "tvos", "watchos"}
+ 
+ if _mswindows:
+     import _winapi
+@@ -2255,3 +2255,10 @@
+             """Kill the process with SIGKILL
+             """
+             self.send_signal(signal.SIGKILL)
++
++# Dolly supplies serial process-shaped compatibility over its typed in-Wasm
++# spawn/wait substrate. Keep the ordinary POSIX implementation dormant above
++# so importing this module never reaches fork, exec, or native posix_spawn.
++if sys.platform == "dolly":
++    from _dolly_subprocess import Popen
++    _can_fork_exec = True
+--- a/Lib/uuid.py
++++ b/Lib/uuid.py
+@@ -66,7 +66,7 @@
+ __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
+ 
+ # The recognized platforms - known behaviors
+-if sys.platform in {'win32', 'darwin', 'emscripten', 'wasi'}:
++if sys.platform in {'win32', 'darwin', 'dolly', 'emscripten', 'wasi'}:
+     _AIX = _LINUX = False
+ elif sys.platform == 'linux':
+     _LINUX = True
+--- a/Lib/ctypes/util.py
++++ b/Lib/ctypes/util.py
+@@ -180,6 +180,6 @@
+         return fname if os.path.isfile(fname) else None
+ 
+-elif sys.platform == "emscripten":
++elif sys.platform in {"dolly", "emscripten"}:
+     def _is_wasm(filename):
+         # Return True if the given file is an WASM module
+         wasm_header = b"\x00asm"
+--- a/Lib/_pyrepl/pager.py
++++ b/Lib/_pyrepl/pager.py
+@@ -22,7 +22,7 @@
+         return plain_pager
+     if not sys.stdin.isatty() or not sys.stdout.isatty():
+         return plain_pager
+-    if sys.platform == "emscripten":
++    if sys.platform in {"dolly", "emscripten"}:
+         return plain_pager
+     use_pager = os.environ.get('MANPAGER') or os.environ.get('PAGER')
+     if use_pager:
+--- a/Lib/platform.py
++++ b/Lib/platform.py
+@@ -172,6 +172,10 @@
+         The file is read and scanned in chunks of chunksize bytes.
+ 
+     """
++    if not executable and sys.platform == "dolly":
++        # Dolly uses Emscripten's libc but intentionally omits its browser
++        # embedding metadata and ambient JavaScript capabilities.
++        return ("emscripten", "")
+     if not executable:
+         if sys.platform == "emscripten":
+             # Emscripten's os.confstr reports that it is glibc, so special case
+--- a/Lib/sysconfig/__init__.py
++++ b/Lib/sysconfig/__init__.py
+@@ -665,2 +665,7 @@
+     For other non-POSIX platforms, currently just returns :data:`sys.platform`."""
++    if sys.platform == "dolly":
++        # This names the versioned machine ABI, not the browser's kernel or
++        # the Emscripten implementation detail used to build libc.
++        return "dolly_0-wasm64"
++
+     if os.name == 'nt':
+--- a/Modules/faulthandler.c
++++ b/Modules/faulthandler.c
+@@ -1057,7 +1057,7 @@
+     SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
+ #endif
+ 
+-#ifdef HAVE_SYS_RESOURCE_H
++#if defined(HAVE_SYS_RESOURCE_H) && !defined(DOLLY)
+     struct rlimit rl;
+ 
+     /* Disable creation of core dump */

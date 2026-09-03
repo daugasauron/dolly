@@ -6,7 +6,7 @@ source "${project_dir}/config/source-pins.sh"
 source_dir="$("${project_dir}/scripts/fetch-cpython.sh")"
 output_dir="${project_dir}/build/generated/cpython-source"
 stamp="${output_dir}/.dolly-cpython-source"
-configuration="${DOLLY_CPYTHON_COMMIT}:wasm64-no-pymalloc-no-mimalloc-v16"
+configuration="${DOLLY_CPYTHON_COMMIT}:dolly-0-wasm64-process-mmap-v31"
 
 if [[ -f "${stamp}" ]] &&
    [[ "$(<"${stamp}")" == "${configuration}" ]] &&
@@ -22,6 +22,10 @@ git -C "${source_dir}" archive --format=tar "${DOLLY_CPYTHON_COMMIT}" |
   tar -xf - -C "${temporary}"
 cp -- "${project_dir}/config/cpython-Setup.local" \
   "${temporary}/Modules/Setup.local"
+cp -- "${project_dir}/src/runtimes/cpython-process.c" \
+  "${temporary}/Modules/dolly_process.c"
+patch --batch --fuzz=0 -d "${temporary}" -p1 \
+  < "${project_dir}/config/cpython-dolly.patch" >/dev/null
 
 build_python="$(command -v python3.14 || true)"
 if [[ -z "${build_python}" ]] ||
@@ -107,6 +111,10 @@ fi
 # shim below the Python runtime supplies the signal bookkeeping; ordinary libc
 # and Dolly lifecycle operations supply the rest.
 sed -i \
+  -e 's|^CC=.*|CC=\t\tcc|' \
+  -e 's|^CXX=.*|CXX=\t\tc++|' \
+  -e 's|^LINKCC=.*|LINKCC=\t\t$(CC)|' \
+  -e 's|^AR=.*|AR=\t\tar|' \
   -e 's/ Python\/emscripten_signal\.o//' \
   -e 's/ Python\/emscripten_trampoline_wasm\.o//' \
   -e 's/ Python\/emscripten_syscalls\.o//' \
@@ -122,8 +130,6 @@ sed -i 's/^#define HAVE_LOGIN_TTY 1$/\/\* #undef HAVE_LOGIN_TTY \*\//' \
 # explicit single-thread implementation instead: pthread_create() returns
 # EAGAIN while locks and thread-local storage remain useful in one runtime.
 sed -i \
-  -e 's/^#define HAVE_DLOPEN 1$/\/\* #undef HAVE_DLOPEN \*\//' \
-  -e 's/^#define HAVE_DYNAMIC_LOADING 1$/\/\* #undef HAVE_DYNAMIC_LOADING \*\//' \
   -e 's/^#define HAVE_PAUSE 1$/\/\* #undef HAVE_PAUSE \*\//' \
   -e 's/^#define HAVE_PTHREAD_H 1$/\/\* #undef HAVE_PTHREAD_H \*\//' \
   -e 's/^\/\* #undef HAVE_PTHREAD_STUBS \*\//#define HAVE_PTHREAD_STUBS 1/' \
@@ -131,6 +137,22 @@ sed -i \
   -e 's/^#define HAVE_PTHREAD_GETCPUCLOCKID 1$/\/\* #undef HAVE_PTHREAD_GETCPUCLOCKID \*\//' \
   -e 's/^#define HAVE_PTHREAD_KILL 1$/\/\* #undef HAVE_PTHREAD_KILL \*\//' \
   "${temporary}/pyconfig.h"
+
+# CPython's stock Emscripten site file still names the wasm32/Pyodide-style
+# extension ABI. Dolly is a distinct wasm64 dynamic-linking target. Keep this
+# name deliberately versioned: changing the machine contract must make old
+# extension wheels visibly incompatible rather than failing during dlopen.
+sed -i \
+  -e 's/^MACHDEP=.*/MACHDEP=\tdolly/' \
+  -e 's/^SOABI=.*/SOABI=\t\tcpython-314-dolly_0_wasm64/' \
+  -e 's/^MULTIARCH=.*/MULTIARCH=\tdolly_0_wasm64/' \
+  -e 's/^MULTIARCH_CPPFLAGS =.*/MULTIARCH_CPPFLAGS = -DMULTIARCH=\\"dolly_0_wasm64\\"/' \
+  -e 's/^EXT_SUFFIX=.*/EXT_SUFFIX=\t.cpython-314-dolly_0_wasm64.so/' \
+  -e 's|^LDSHARED=.*|LDSHARED=\tcc -shared $(PY_LDFLAGS) -L/usr/lib -lpython3.14|' \
+  -e 's|^BLDSHARED=.*|BLDSHARED=\tcc -shared $(PY_CORE_LDFLAGS)|' \
+  -e 's/^_PYTHON_HOST_PLATFORM=.*/_PYTHON_HOST_PLATFORM=dolly_0-wasm64/' \
+  -e 's|^LIBPL=.*|LIBPL=\t\t$(prefix)/lib/python3.14/config-3.14-dolly_0_wasm64|' \
+  "${temporary}/Makefile"
 
 # CPython's stub type declarations already defer to libc on WASI. Emscripten's
 # musl-derived alltypes.h has the same __NEED_* mechanism, so use that path
@@ -156,14 +178,11 @@ sed -i \
   's/^#ifdef __EMSCRIPTEN__$/#if defined(__EMSCRIPTEN__) \&\& !defined(DOLLY)/' \
   "${temporary}/Python/sysmodule.c"
 
-# The os module's Emscripten-only debugger and console logger are likewise
-# JavaScript embedding conveniences, not filesystem/process substrate.
-sed -i \
-  's/^#ifdef __EMSCRIPTEN__$/#if defined(__EMSCRIPTEN__) \&\& !defined(DOLLY)/' \
-  "${temporary}/Modules/posixmodule.c"
-sed -i \
-  's/^#if defined(__EMSCRIPTEN__)$/#if defined(__EMSCRIPTEN__) \&\& !defined(DOLLY)/' \
-  "${temporary}/Modules/clinic/posixmodule.c.h"
+# Keep CPython's Emscripten-only method names for target compatibility. The
+# patch above implements logging on Dolly stderr and makes the browser debugger
+# fail explicitly, without an EM_JS import or DOM/console capability. It also
+# carries the small set of standard-library safety decisions that Dolly needs
+# after reporting its honest `sys.platform == "dolly"` identity.
 
 printf '%s\n' "${configuration}" > "${temporary}/.dolly-cpython-source"
 rm -rf -- "${output_dir}"

@@ -1,8 +1,7 @@
-# Dolly has zlib in the default image, but not SQLite or bzip2 yet.
+# Serial process-shaped command invocation over Dolly's stable spawn/wait ABI.
+_dolly_process Modules/dolly_process.o
+
+# Dolly has zlib and WasmFS-backed mmap, but not SQLite or bzip2 yet.
 *disabled*
 _bz2
 _sqlite3
-_socket
-termios
-mmap
-faulthandler

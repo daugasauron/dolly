@@ -27,6 +27,15 @@ int dolly_spawn_timeout(const char *path, int argc, char **argv,
 int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],
                     int stdin_fd, int stdout_fd, int stderr_fd);
 
+/* Checked in-Wasm dynamic loading. dolly_dlopen() accepts only a side module
+ * carrying the current dolly.abi stamp whose direct imports stay inside the
+ * machine contract. It never delegates loading or filesystem access to the
+ * browser. */
+void *dolly_dlopen(const char *path, int flags);
+void *dolly_dlsym(void *handle, const char *name);
+const char *dolly_dlerror(void);
+int dolly_dlclose(void *handle);
+
 // Collects a completed command and releases its bounded process-table slot.
 // Returns zero on success or a negative errno value.
 int dolly_wait(int pid, int *status);
@@ -47,6 +56,18 @@ int dolly_terminal_read_raw_timeout(double milliseconds);
 uint32_t dolly_terminal_columns(void);
 uint32_t dolly_terminal_rows(void);
 
+// Small terminal discipline contract. Language/libc adapters translate their
+// own termios layouts above these two stable semantic bits. Foreground Ctrl+C
+// is unconditional lifecycle supervision, not mutable terminal state.
+enum {
+  DOLLY_TERMINAL_CANONICAL = 1u << 0,
+  DOLLY_TERMINAL_ECHO = 1u << 1,
+};
+
+// Returns a non-negative DOLLY_TERMINAL_* mask, or a negative errno value.
+int dolly_terminal_mode_get(int descriptor);
+int dolly_terminal_mode_set(int descriptor, uint32_t flags);
+
 // Returns SIGINT once when the browser has targeted the currently executing
 // foreground command, or zero when no interrupt is pending. Ordinary programs
 // normally rely on compiler-inserted checkpoints rather than calling this.
@@ -65,11 +86,7 @@ int dolly_isatty(int descriptor);
 
 // Terminates only the currently executing Dolly command. The compiler maps
 // ordinary C exit() calls to this lifecycle operation.
-#ifdef __cplusplus
-[[noreturn]] void dolly_exit(int status);
-#else
-_Noreturn void dolly_exit(int status);
-#endif
+void dolly_exit(int status) __attribute__((__noreturn__));
 
 // Closes ordinary streams. Standard streams are inherited runtime resources,
 // so closing one at command teardown flushes it without invalidating the

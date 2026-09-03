@@ -4,14 +4,31 @@ import { createHash } from "node:crypto";
 import { mkdir, open, readdir, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
-const [, , outputArgument, ...mappingArguments] = process.argv;
+const [, , outputArgument, ...inputArguments] = process.argv;
+const excludeSuffixes = [];
+const mappingArguments = [];
+for (const argument of inputArguments) {
+  if (argument.startsWith("--exclude-suffix=")) {
+    const suffix = argument.slice("--exclude-suffix=".length);
+    if (!/^\.[A-Za-z0-9._-]+$/.test(suffix)) {
+      throw new Error(`invalid archive exclusion suffix ${JSON.stringify(suffix)}`);
+    }
+    excludeSuffixes.push(suffix);
+  } else {
+    mappingArguments.push(argument);
+  }
+}
 if (!outputArgument || mappingArguments.length === 0 || mappingArguments.length % 2 !== 0) {
-  throw new Error("usage: build-source-tar.mjs OUTPUT INPUT ARCHIVE-PATH [...]");
+  throw new Error(
+    "usage: build-source-tar.mjs OUTPUT [--exclude-suffix=.EXT] INPUT ARCHIVE-PATH [...]",
+  );
 }
 
 const projectDir = resolve(import.meta.dirname, "..");
 const output = resolve(projectDir, outputArgument);
 const records = [];
+let excludedFiles = 0;
+let excludedBytes = 0;
 
 function validArchivePath(value) {
   return value.startsWith("/") && value.length <= 255 &&
@@ -22,6 +39,11 @@ function validArchivePath(value) {
 async function collect(input, destination) {
   const metadata = await stat(input);
   if (metadata.isFile()) {
+    if (excludeSuffixes.some((suffix) => destination.endsWith(suffix))) {
+      excludedFiles++;
+      excludedBytes += metadata.size;
+      return;
+    }
     records.push({ input, path: destination.slice(1), size: metadata.size });
     return;
   }
@@ -138,5 +160,8 @@ try {
 
 console.log(
   `dolly: wrote ${records.length} files, ${total} bytes, ` +
-  `${digest.digest("hex")} to ${relative(projectDir, output).split(sep).join("/")}`,
+  `${digest.digest("hex")} to ${relative(projectDir, output).split(sep).join("/")}` +
+  (excludedFiles === 0
+    ? ""
+    : `; excluded ${excludedFiles} files / ${excludedBytes} bytes by suffix`),
 );

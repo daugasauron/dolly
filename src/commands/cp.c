@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,18 +15,22 @@
 static int recursive;
 static int verbose;
 
-static const char *base_name(const char *path) {
+static char *base_name_copy(const char *path) {
   size_t length = strlen(path);
   while (length > 1 && path[length - 1] == '/') length--;
-  const char *base = path + length;
-  while (base > path && base[-1] != '/') base--;
-  return base;
+  size_t start = length;
+  while (start > 0 && path[start - 1] != '/') start--;
+  return strndup(path + start, length - start);
 }
 
 static char *join_path(const char *directory, const char *name) {
   const size_t directory_length = strlen(directory);
   const size_t name_length = strlen(name);
   const int slash = directory_length != 0 && directory[directory_length - 1] != '/';
+  if (directory_length > SIZE_MAX - name_length - (size_t)slash - 1) {
+    errno = ENAMETOOLONG;
+    return NULL;
+  }
   char *joined = malloc(directory_length + (size_t)slash + name_length + 1);
   if (joined == NULL) return NULL;
   memcpy(joined, directory, directory_length);
@@ -40,6 +45,20 @@ static int copy_regular(const char *source, const char *destination) {
   int input = open(source, O_RDONLY);
   if (input < 0) {
     fprintf(stderr, "cp: %s: %s\n", source, strerror(errno));
+    return 1;
+  }
+  struct stat source_metadata;
+  struct stat destination_metadata;
+  if (fstat(input, &source_metadata) != 0) {
+    fprintf(stderr, "cp: %s: %s\n", source, strerror(errno));
+    close(input);
+    return 1;
+  }
+  if (stat(destination, &destination_metadata) == 0 &&
+      source_metadata.st_dev == destination_metadata.st_dev &&
+      source_metadata.st_ino == destination_metadata.st_ino) {
+    fprintf(stderr, "cp: %s and %s are the same file\n", source, destination);
+    close(input);
     return 1;
   }
   int output = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -84,7 +103,9 @@ static int copy_regular(const char *source, const char *destination) {
 
 static int copy_link(const char *source, const char *destination,
                      off_t source_size) {
-  size_t capacity = source_size > 0 ? (size_t)source_size + 1 : 256;
+  size_t capacity = source_size > 0 && (uintmax_t)source_size < SIZE_MAX - 1
+                        ? (size_t)source_size + 2
+                        : 256;
   char *target = malloc(capacity);
   if (target == NULL) {
     fputs("cp: out of memory\n", stderr);
@@ -196,7 +217,9 @@ static int copy_operand(const char *source, const char *destination,
                         int destination_is_directory) {
   char *target = NULL;
   if (destination_is_directory) {
-    target = join_path(destination, base_name(source));
+    char *base = base_name_copy(source);
+    target = base == NULL ? NULL : join_path(destination, base);
+    free(base);
     if (target == NULL) {
       fputs("cp: out of memory\n", stderr);
       return 1;

@@ -81,6 +81,7 @@ target_link_options(dolly PRIVATE
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
   "SHELL:--js-library /src/src/browser-broker.js"
   "SHELL:--preload-file /src/.cache/emscripten/sysroot/include@/seed/usr/include"
+  "SHELL:--preload-file /src/.cache/emscripten/sysroot/lib/wasm64-emscripten/pic/libclang_rt.builtins.a@/seed/usr/lib/libclang_rt.builtins.a"
   "SHELL:--preload-file /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include"
   "SHELL:--preload-file /src/include/dolly/abi.h@/seed/usr/include/dolly/abi.h"
   "SHELL:--preload-file /src/include/dolly/http.h@/seed/usr/include/dolly/http.h"

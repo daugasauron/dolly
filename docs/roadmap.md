@@ -53,9 +53,13 @@ or fail.
 
 ## Phase 2 — measure the platform instead of guessing it
 
-Add a compile-time/runtime “platform census” mode.
+The first static platform-census slice is implemented. It verifies a sealed
+snapshot, identifies executables by ABI structure, and emits exact typed
+operation-to-program and program-to-operation mappings. See
+[`platform-census.md`](platform-census.md).
 
-- Record imported Dolly/libc symbols for every linked executable.
+- Record imported Dolly/libc symbols for every linked executable. **Static
+  sealed-image census implemented.**
 - Record path, descriptor, clock, entropy, lifecycle, and HTTP operations by
   command epoch during acceptance workloads.
 - Generate a matrix: operation × program × exercised/not exercised.
@@ -71,24 +75,42 @@ least two consumers or one essential agent workflow.
 This is the evidence needed to design a substrate below libc without replacing
 one accidental API with another speculative API.
 
-## Phase 3 — finish the Pi source loop
+## Phase 3 — harden the completed Pi source loop
 
-Make Pi a target-side source build rather than a host-generated compatibility
-bundle.
+Pi is now a target-side source build rather than a host-generated compatibility
+bundle. Keep that path small and broaden its evidence.
 
-1. Run a pinned TypeScript compiler under Janis.
-2. Compile single-file and multi-file ESM fixtures into WasmFS.
-3. Compile pinned Pi TypeScript sources inside Dolly.
+1. Run a pinned TypeScript compiler under Janis. **Implemented with the
+   unchanged official TypeScript 5.9.3 compiler.**
+2. Compile single-file and multi-file ESM fixtures into WasmFS. **Implemented
+   and executed in the browser rebuild.**
+3. Compile pinned Pi TypeScript sources inside Dolly. **Implemented for all 495
+   modules across seven runtime workspace packages with `noCheck`; the
+   unbundled graph is published under the conventional global `node_modules`
+   root and is the module graph loaded by `/usr/bin/pi`.**
+   **Janis resolves its ESM, CommonJS, JSON, package imports/exports,
+   `import.meta.resolve`, and builtin adapters entirely through WasmFS.**
 4. Make Janis's used Node surface executable-test-driven. Bind real zlib from
    `/usr/lib/libz.a` if Pi or useful extensions demonstrate the need.
-5. Remove host esbuild from the Pi implementation path, retaining it only if it
-   remains useful as an independent build-time verifier.
-6. Exercise dependency-free TypeScript extensions installed, compiled, loaded,
-   and restarted inside one Dolly session.
+5. Remove host esbuild from the Pi implementation path. **Implemented. The
+   external profile is source-visible and each package is checked against
+   `package-lock.json` before deterministic archival.**
+6. Exercise TypeScript extensions installed, compiled, loaded, and restarted
+   inside one Dolly session. **Implemented in the deterministic Chrome Pi
+   proof: `/usr/bin/tsc` emits the extension into Pi's WasmFS extension
+   directory, a fresh Pi loads it, and the fixture model invokes its tool.**
 
 Acceptance gate: a clean `/rebuild` starts from pinned TypeScript sources,
-produces `/usr/bin/pi` and its runtime files inside Dolly, and the existing TUI,
-tool-call, credential-egress-policy, extension, and restart tests remain green.
+produces `/usr/bin/pi` and its runtime files inside Dolly, and the TUI,
+tool-call, credential-egress-policy, extension, restart, and real-provider
+tests remain green. **This gate is implemented for the current OpenRouter
+profile.** The Pi census now reports every external package's exact lock
+integrity, declared license and retained root license files, lifecycle/native
+risk flags, and a conservative non-runtime-file inventory. It does not prune
+files from that inventory without reachability evidence. Next, exercise more
+providers and extensions and convert every newly observed incompatibility into
+a finite Janis regression. Full TypeScript type checking remains a separate
+source-graph requirement and is not implied by successful emit.
 
 ## Phase 4 — complete ordinary Git transport
 
@@ -107,6 +129,24 @@ workflow without introducing sockets or host subprocesses.
 Acceptance gate: unmodified `git clone URL`, `git fetch`, and checkout work
 through `env.dolly_http_dispatch`; no new browser import appears.
 
+### Nested guest Wasm experiment
+
+Pi's Photon dependency establishes a concrete use case for wasm32 modules
+loaded by JavaScript inside Dolly's wasm64 userspace. The current profile
+disables auto-resize and excludes Photon because QuickJS-ng has no
+`WebAssembly` global; keeping an unusable binary payload is not compatibility.
+
+- First compare a small in-Wasm interpreter with recompiling the required
+  image operation directly for Dolly; neither may introduce a browser import.
+- Keep module bytes and filesystem access inside WasmFS.
+- Bound memory, execution, and cancellation through Dolly's lifecycle model.
+- Restore Photon only after a real Pi image-read fixture proves pass-through,
+  resize, malformed-input failure, and Ctrl-C recovery.
+
+Acceptance gate: image resizing works without adding a browser import or host
+filesystem edge, and hostile nested code remains inside the same authority
+fingerprint.
+
 ## Phase 5 — command epochs and hard supervision
 
 Strengthen correctness within the shared-everything runtime.
@@ -116,7 +156,9 @@ This phase concerns command-local cleanup and recovery when cooperative code is
 not enough; it must not turn browser persistence into a mounted filesystem.
 
 - Attribute allocations, open descriptors, `atexit` registrations, timers,
-  signal handlers, and module state to a command epoch.
+  signal handlers, and module state to a command epoch. **Bounded ordinary
+  descriptor reclamation is implemented; libc stream objects and allocations
+  remain.**
 - Reclaim or restore them when `wait` collects the command.
 - Define exactly which state is process-like and which state is intentionally
   userspace-global.
@@ -125,9 +167,12 @@ not enough; it must not turn browser persistence into a mounted filesystem.
 - Keep the existing inherited `dolly_spawn_timeout` cooperative deadline and
   status-124 behavior covered by adversarial tests.
 - Add a trusted outer supervisor protocol for hard CPU deadline, memory
-  ceiling, output quota, cancellation, and worker replacement. The protocol
-  must recover even a foreign module with no Dolly safepoints, while exposing
-  no new guest capability.
+  ceiling, output quota, cancellation, and worker replacement. **Interactive
+  hard cancellation and worker replacement are implemented:** an
+  unacknowledged or repeated Ctrl+C terminates even a foreign module with no
+  Dolly safepoints, then reloads the last named checkpoint or sealed base image
+  without exposing a guest capability. Automatic noninteractive deadlines,
+  memory ceilings, and output quotas remain.
 
 Acceptance gate: repeated hostile fixtures do not change a following clean
 fixture's observable state outside intended filesystem/environment changes, and
@@ -168,6 +213,14 @@ A `.dolly` capsule could contain:
 - declared—not granted—network requirements;
 - acceptance-check results and provenance attestations.
 
+The capsule encoding may deduplicate identical file payloads as a transport
+optimization, but restore must materialize independent WasmFS files. This keeps
+ordinary mutation semantics: changing `/usr/bin/python3`, for example, must not
+silently change `/usr/bin/python`. A September 2026 census found 5,967,318 bytes
+of repeated payload among default-image files of at least 64 KiB and 17,710,047
+bytes in the Python image. That is a bounded v2-format opportunity, not a reason
+to introduce hard-link behavior or shared mutable file backing into userspace.
+
 The browser should verify the capsule before restore. Network policy and secrets
 remain embedding configuration and are never embedded in the capsule.
 
@@ -185,6 +238,11 @@ Give every system image a compact fingerprint derived from its main-module
 browser imports, command ABI digest, declared HTTP requirements, and retained
 files. A code review can then answer “did this build gain authority?” without
 reading a megabyte-scale generated loader diff.
+
+Implemented for sealed images: [`capability-fingerprint.md`](capability-fingerprint.md)
+defines separate authority and full-capsule digests. Browser policy grants stay
+outside the reusable image, so the authority digest records the sole network
+edge rather than a deployment's secrets or destination rules.
 
 ### Deterministic HTTP record/replay
 
@@ -206,6 +264,25 @@ Maintain a corpus of small upstream build recipes and agent tasks. Run each on
 Dolly and a Linux reference, then publish the semantic delta. The result would
 be a concrete “agent POSIX” specification derived from use rather than a vague
 claim of Linux compatibility.
+
+### Dolly-native Python wheels
+
+Treat NumPy and Pandas as the acceptance workload for native CPython
+extensions, not as special packages to unpack despite an incompatible tag.
+First replace CPython's dynamic-loader stub with a Dolly loader over the
+existing in-Wasm DSO machinery, retain the matching headers and sysconfig
+metadata, and define a CPython SOABI and wheel platform tag that identify the
+versioned Dolly wasm64 extension ABI rather than merely the CPU architecture.
+Then build a minimal extension fixture, NumPy, and Pandas from pinned source in
+that order. PyEmscripten/Pyodide recipes are useful evidence for upstream
+WebAssembly patches, but their wasm32 binaries and ABI-sensitive Emscripten
+flags are not Dolly binaries.
+
+Acceptance gate: a browser `/rebuild/` compiles and imports a stateful C
+extension, builds NumPy and Pandas into Dolly-native wheels, installs those
+wheels through Bonnie, executes representative array/dataframe operations,
+survives repeated imports and command epochs, and adds no browser import or
+host build fallback.
 
 ### Egress receipts
 

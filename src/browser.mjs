@@ -1,6 +1,7 @@
 import {
   consumeDollyHttpPolicy,
   isDollyCredentialHeader,
+  stripDollyBrowserOwnedHeaders,
 } from "./http-policy.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
@@ -30,6 +31,8 @@ const bootstrapMaximumCharacters = 8192;
 const bootstrapLines = [];
 let bootstrapCharacters = 0;
 let bootstrapFragment = "";
+const hardInterruptGraceMilliseconds = 2000;
+const hardInterruptRecoveryKey = "dolly-hard-interrupt-v1";
 
 const encoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -51,6 +54,25 @@ let activeImage = null;
 let activeImageIdentity = null;
 let currentSessionName = null;
 let sessionSavePromise = null;
+let pendingForegroundInterrupt = null;
+let hardRestarting = false;
+
+let hardInterruptRecovery = null;
+try {
+  const encoded = sessionStorage.getItem(hardInterruptRecoveryKey);
+  sessionStorage.removeItem(hardInterruptRecoveryKey);
+  if (encoded !== null) {
+    const candidate = JSON.parse(encoded);
+    if (candidate?.buildId === DOLLY_BUILD_ID &&
+        typeof candidate.image === "string" &&
+        (candidate.session === null || validSessionName(candidate.session))) {
+      hardInterruptRecovery = candidate;
+    }
+  }
+} catch {
+  // Recovery is only a user-facing hint. The worker restart itself must not
+  // depend on browser storage being available.
+}
 
 function startBrowserDownload(message) {
   if (typeof message.name !== "string" || message.name.length === 0 ||
@@ -147,6 +169,8 @@ class DisplayTransport {
   static paddingY = 27;
   static interruptSequence = 28;
   static interruptTargetPid = 29;
+  static animationFrameSequence = 30;
+  static cursorStyle = 31;
 
   static keyEvent = 1;
   static textEvent = 2;
@@ -404,6 +428,31 @@ class DisplayTransport {
     return (Atomics.load(this.words, this.word + DisplayTransport.flags) & 2) !== 0;
   }
 
+  publishAnimationFrame() {
+    if (!this.graphicsActive()) return;
+    Atomics.add(
+      this.words,
+      this.word + DisplayTransport.animationFrameSequence,
+      1,
+    );
+    Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
+    Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
+  }
+
+  currentAnimationFrameSequence() {
+    return Atomics.load(
+      this.words,
+      this.word + DisplayTransport.animationFrameSequence,
+    ) >>> 0;
+  }
+
+  cursorStyle() {
+    return Atomics.load(
+      this.words,
+      this.word + DisplayTransport.cursorStyle,
+    ) >>> 0;
+  }
+
   interruptForeground() {
     const pid = this.foregroundPid();
     if (pid <= 0 || !this.foregroundInterruptible()) return false;
@@ -597,10 +646,23 @@ class FramebufferPresenter {
   start() {
     const paint = () => {
       if (!this.running) return;
+      this.transport.publishAnimationFrame();
+      this.updateCursor();
       this.paint();
       requestAnimationFrame(paint);
     };
     requestAnimationFrame(paint);
+  }
+
+  stop() {
+    this.running = false;
+  }
+
+  updateCursor() {
+    const styles = ["text", "default", "crosshair", "pointer", "none"];
+    const style = styles[this.transport.cursorStyle()] ?? "default";
+    if (this.canvas.style.cursor !== style) this.canvas.style.cursor = style;
+    document.documentElement.dataset.cursorStyle = style;
   }
 
   paint() {
@@ -734,6 +796,7 @@ class NetworkTransport {
         if (colon <= 0) throw new Error("invalid HTTP request header");
         headers.append(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
       }
+      stripDollyBrowserOwnedHeaders(headers);
       const upperMethod = method.toUpperCase();
       const requestBytes = body?.byteLength ?? 0;
       const rule = this.policy.authorize(target, upperMethod, headers, requestBytes);
@@ -794,9 +857,13 @@ class NetworkTransport {
         }
       }
       await this.publish(token, sequence, new Uint8Array(), status, true, 0, 3);
-    } catch {
-      if (this.activeToken === token &&
-          (Atomics.load(this.words, this.word + NetworkTransport.sequence) >>> 0) === sequence) {
+    } catch (error) {
+      const requestIsCurrent = this.activeToken === token &&
+        (Atomics.load(this.words, this.word + NetworkTransport.sequence) >>> 0) === sequence;
+      // Policy denials, quota failures, fetch errors, and command teardown are
+      // request results delivered through the typed mailbox. Only failures in
+      // the outer request chain populate the browser diagnostic dataset.
+      if (requestIsCurrent) {
         await this.publish(token, sequence, new Uint8Array(), status, true, 1, 0);
       }
     } finally {
@@ -901,8 +968,11 @@ function sendResize() {
 async function saveCurrentSession(requestedName) {
   if (sessionSavePromise) return sessionSavePromise;
   sessionSavePromise = (async () => {
-    if (!runtimeReady || !sessionTransport || !activeImage || !activeImageIdentity) {
+    if (!runtimeReady || !sessionTransport || !activeImage) {
       throw new Error("Dolly is not ready to save a session");
+    }
+    if (!activeImageIdentity) {
+      throw new Error("Uploaded custom images cannot save named sessions yet");
     }
     let name = requestedName ?? currentSessionName;
     if (name === null) {
@@ -952,6 +1022,63 @@ sessionSaveButton.addEventListener("click", () => {
   void saveCurrentSession().catch(() => {});
 });
 
+function clearPendingForegroundInterrupt() {
+  if (pendingForegroundInterrupt !== null) {
+    clearTimeout(pendingForegroundInterrupt.timeout);
+    pendingForegroundInterrupt = null;
+  }
+}
+
+function hardRestartRuntime(pid) {
+  if (hardRestarting) return;
+  hardRestarting = true;
+  clearPendingForegroundInterrupt();
+  document.documentElement.dataset.dollyStatus = "hard-restarting";
+  document.documentElement.dataset.hardInterruptPid = String(pid);
+  networkTransport?.interrupt();
+  presenter?.stop();
+  resizeObserver?.disconnect();
+  runtimeReady = false;
+  try {
+    sessionStorage.setItem(hardInterruptRecoveryKey, JSON.stringify({
+      buildId: DOLLY_BUILD_ID,
+      image: activeImage,
+      session: currentSessionName,
+    }));
+  } catch {
+    // The hard stop remains effective even when sessionStorage is unavailable.
+  }
+  runtimeWorker?.terminate();
+  location.reload();
+}
+
+function requestForegroundInterrupt() {
+  if (!transport) return false;
+  const pid = transport.foregroundPid();
+  if (pid <= 0 || !transport.foregroundInterruptible()) return false;
+  const resultSequence = transport.currentResultSequence();
+  const repeated = pendingForegroundInterrupt?.pid === pid &&
+    pendingForegroundInterrupt.resultSequence === resultSequence;
+  if (!transport.interruptForeground()) return false;
+  networkTransport?.interrupt();
+  if (repeated) {
+    hardRestartRuntime(pid);
+    return true;
+  }
+  clearPendingForegroundInterrupt();
+  const timeout = setTimeout(() => {
+    if (runtimeReady && transport?.foregroundPid() === pid &&
+        transport.currentResultSequence() === resultSequence &&
+        transport.foregroundInterruptible()) {
+      hardRestartRuntime(pid);
+    } else {
+      clearPendingForegroundInterrupt();
+    }
+  }, hardInterruptGraceMilliseconds);
+  pendingForegroundInterrupt = { pid, resultSequence, timeout };
+  return true;
+}
+
 function handleKeyboardEvent(event) {
   if (!transport) return;
   const clipboardChord = event.ctrlKey && event.shiftKey &&
@@ -993,8 +1120,7 @@ function handleKeyboardEvent(event) {
   }
   const interruptChord = event.type === "keydown" && event.ctrlKey &&
     !event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyC";
-  if (interruptChord && transport.interruptForeground()) {
-    networkTransport?.interrupt();
+  if (interruptChord && requestForegroundInterrupt()) {
     event.preventDefault();
     event.stopImmediatePropagation();
     return;
@@ -1148,6 +1274,10 @@ async function runBrowserProof() {
   // command-shaped input.
   await waitFor(() => transport.foregroundPid() > 0, "default Pi foreground pid");
   const defaultPiPid = transport.foregroundPid();
+  // The foreground PID is published at the command boundary, before Janis has
+  // resolved Pi's source package graph and attached the TUI's raw-input
+  // listener. Let startup settle before using Ctrl+D as an application event.
+  await new Promise((resolve) => setTimeout(resolve, 750));
   transport.pushSyntheticKey("d", "KeyD", 2);
   transport.pushSyntheticKey("d", "KeyD", 2, 0);
   await waitFor(
@@ -1176,6 +1306,7 @@ async function runBrowserProof() {
     ["echo Beta > beta.txt"],
     ["cat alpha.txt beta.txt > corpus.txt"],
     ["slop -c 'echo SLOP-C'"],
+    ["slop -c 'cat <<EOF'", undefined, 2],
     ["grep -q Beta corpus.txt && echo SLOP-AND"],
     ["grep missing corpus.txt || echo SLOP-OR"],
     ["! grep missing corpus.txt && echo SLOP-NOT"],
@@ -1360,6 +1491,12 @@ async function runBrowserProof() {
     ["janis --version"],
     ["janis -e \"const c = process.getBuiltinModule('node:crypto'); if (c.createHash('sha256').update('abc').digest('hex') !== 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad') process.exit(1); console.log('JANIS-HASH-OK')\""],
     ["janis -e \"const h = process.getBuiltinModule('node:http'); const s = new h.Server(); s.on('error', e => { if (e.code !== 'ENOSYS') process.exit(1); console.log('JANIS-LISTEN-ENOSYS'); }); s.listen(1455)\""],
+    ["tsc --version"],
+    ["echo 'export const browserAnswer: number = 6 * 7;' > browser-answer.ts"],
+    ["tsc --target ES2023 --module ES2022 --outDir browser-ts browser-answer.ts"],
+    ["qjs -m -e \"import { browserAnswer } from '/workspace/browser-ts/browser-answer.js'; if (browserAnswer !== 42) throw new Error('bad TypeScript emit')\""],
+    ["janis -m -e \"import { defineTelemetrySchema } from '@earendil-works/pi-telemetry'; if (defineTelemetrySchema('BROWSER') !== 'BROWSER') throw new Error('bad target workspace package')\""],
+    ["test -s /usr/src/pi-source/packages/coding-agent/dist-dolly/cli.js"],
     ["pi --version"],
     ["echo '{\"openrouter\":{\"type\":\"api_key\",\"key\":\"sandbox-placeholder\"},\"openai-codex\":{\"type\":\"oauth\",\"access\":\"sandbox-placeholder\",\"refresh\":\"sandbox-placeholder\",\"expires\":4102444800000}}' > /home/dolly/.pi/agent/auth.json"],
     ["pi --list-models openrouter > /tmp/pi-openrouter-models.txt"],
@@ -1467,6 +1604,17 @@ async function boot() {
     : bootMode === "rebuild"
     ? "REBUILD FROM SOURCE"
     : "PRECOMPILED SYSTEM"}\n\n`);
+  if (hardInterruptRecovery !== null) {
+    const restoredCheckpoint = restoredSession !== null &&
+      restoredSession.name === hardInterruptRecovery.session;
+    document.documentElement.dataset.hardInterruptRecovery =
+      restoredCheckpoint ? "session" : "base";
+    appendBootstrap(
+      `HARD INTERRUPT / ${restoredCheckpoint
+        ? `RESTORING CHECKPOINT ${restoredSession.name}`
+        : "RESETTING TO BASE IMAGE"}\n\n`,
+    );
+  }
   mount.addEventListener("pointerdown", () => keyboard.focus({ preventScroll: true }));
   keyboard.addEventListener("compositionend", (event) => {
     if (!transport?.pushText(event.data)) {
@@ -1564,7 +1712,7 @@ async function boot() {
   });
   appendBootstrap(bootstrapDecoder.decode(), true);
   runtimeReady = true;
-  if (ready.version !== 3) throw new Error(`unsupported display mailbox ${ready.version}`);
+  if (ready.version !== 4) throw new Error(`unsupported display mailbox ${ready.version}`);
   if (ready.httpVersion !== 2) throw new Error(`unsupported HTTP mailbox ${ready.httpVersion}`);
   if (ready.sessionVersion !== 1) {
     throw new Error(`unsupported session mailbox ${ready.sessionVersion}`);
@@ -1602,7 +1750,13 @@ async function boot() {
     transport,
   );
   activeImage = ready.image;
-  activeImageIdentity = sessionImageIdentity(DOLLY_IMAGES, ready.image);
+  // Uploaded recipes exist only in this tab and have no source-visible,
+  // restorable image identity. They can run normally, but named-session save
+  // remains unavailable until custom recipes gain an explicit persistence
+  // contract.
+  activeImageIdentity = ready.routeImage === "custom"
+    ? null
+    : sessionImageIdentity(DOLLY_IMAGES, ready.image);
   if (restoredSession) {
     document.documentElement.dataset.session = restoredSession.name;
     document.documentElement.dataset.sessionStatus = "restored";
@@ -1680,5 +1834,6 @@ async function boot() {
 }
 
 boot().catch((error) => {
-  displayFatal(error instanceof Error ? error.stack ?? error.message : String(error));
+  console.error(error);
+  displayFatal(error instanceof Error ? error.message : String(error));
 });

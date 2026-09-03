@@ -14,7 +14,13 @@ const imageDefinitions = await discoverImageDefinitions(projectDir);
 const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 const distDirectory = resolve(projectDir, "dist");
 const chromeBinary = process.argv[2];
-if (!chromeBinary) throw new Error("usage: browser-harness.mjs CHROME_BINARY");
+if (chromeBinary === "--help" || chromeBinary === "-h") {
+  console.log("usage: browser-harness.mjs CHROME_BINARY");
+  process.exit(0);
+}
+if (!chromeBinary || process.argv.length !== 3) {
+  throw new Error("usage: browser-harness.mjs CHROME_BINARY");
+}
 const browserHostname = process.env.DOLLY_BROWSER_HOSTNAME ?? "127.0.0.1";
 if (browserHostname !== "127.0.0.1" && browserHostname !== "localhost") {
   throw new Error("DOLLY_BROWSER_HOSTNAME must be 127.0.0.1 or localhost");
@@ -36,6 +42,9 @@ const pagesLiveMode = process.env.DOLLY_BROWSER_MODE === "pages-live";
 const menuMode = process.env.DOLLY_BROWSER_MODE === "menu";
 const routeSmokeMode = process.env.DOLLY_BROWSER_MODE === "route-smoke";
 const sessionMode = process.env.DOLLY_BROWSER_MODE === "session";
+const hardSupervisorMode = process.env.DOLLY_BROWSER_MODE === "hard-supervisor";
+const pythonPackageMode = process.env.DOLLY_BROWSER_MODE === "python-packages";
+const targetPiMode = process.env.DOLLY_BROWSER_MODE === "target-pi";
 const piAuditSpec = piAuditMode
   ? JSON.parse(await readFile(resolve(
       projectDir,
@@ -186,7 +195,15 @@ function startServer() {
         const wantsInstalledProbe = payload.messages?.some((message) =>
           message.role === "user" &&
           JSON.stringify(message.content).includes("installed extension"));
-        const nextTool = wantsInstalledProbe
+        const wantsTypeScriptProbe = payload.messages?.some((message) =>
+          message.role === "user" &&
+          JSON.stringify(message.content).includes("TypeScript extension"));
+        const nextTool = wantsTypeScriptProbe
+          ? toolResultCount === 0 ? {
+              name: "dolly_typescript_probe",
+              arguments: "{}",
+            } : null
+          : wantsInstalledProbe
           ? toolResultCount === 0 ? {
               name: "dolly_installed_probe",
               arguments: "{}",
@@ -418,7 +435,16 @@ function startServer() {
 
 async function waitForDebugPort(userDataDir, chrome) {
   const path = resolve(userDataDir, "DevToolsActivePort");
+  let launchError = null;
+  chrome.once("error", (error) => {
+    launchError = error;
+  });
   for (let attempt = 0; attempt < 200; attempt++) {
+    if (launchError) {
+      throw new Error(`could not launch Chrome: ${launchError.message}`, {
+        cause: launchError,
+      });
+    }
     if (chrome.exitCode !== null) throw new Error(`Chrome exited with ${chrome.exitCode}`);
     try {
       const [port] = (await readFile(path, "utf8")).trim().split("\n");
@@ -609,6 +635,47 @@ async function inputText(send, value) {
     );
     assert.equal(accepted, true, "Dolly's bounded text-input mailbox overflowed");
     await delay(10);
+  }
+}
+
+const typescriptExtensionSource = [
+  'const marker: string = "DOLLY-TYPESCRIPT-EXTENSION-OK";',
+  'export default function dollyTypeScriptProbe(pi: any) {',
+  '  pi.registerTool({',
+  '    name: "dolly_typescript_probe",',
+  '    label: "TypeScript probe",',
+  '    description: "Return Dolly TypeScript extension proof.",',
+  '    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },',
+  '    async execute() {',
+  '      return { content: [{ type: "text", text: marker }], details: {} };',
+  '    },',
+  '  });',
+  '}',
+].join(" ");
+
+async function installTypeScriptExtension(send) {
+  assert.doesNotMatch(
+    typescriptExtensionSource,
+    /'/,
+    "TypeScript extension fixture must remain safe for Slop single quoting",
+  );
+  const sourcePath = "/workspace/dolly-typescript-extension.ts";
+  const extensionDir = "/home/dolly/.pi/agent/extensions";
+  const commands = [
+    `mkdir -p ${extensionDir}`,
+    `echo '${typescriptExtensionSource}' > ${sourcePath}`,
+    `tsc --target ES2023 --module ES2022 --moduleResolution bundler ` +
+      `--pretty false --outDir ${extensionDir} ${sourcePath}`,
+    `grep -q DOLLY-TYPESCRIPT-EXTENSION-OK ` +
+      `${extensionDir}/dolly-typescript-extension.js`,
+  ];
+  for (const command of commands) {
+    const status = await evaluate(
+      send,
+      `window.__dolly.submit(${JSON.stringify(command)})`,
+    );
+    if (status !== 0) console.error(await visibleTerminalText(send));
+    assert.equal(status, 0, `TypeScript extension step failed: ${command}`);
   }
 }
 
@@ -813,6 +880,8 @@ const menuPage = `${localOrigin}${browserBase}`;
 const interactivePage = externalPage
   ? new URL(`${selectedImage}/`, externalPage.endsWith("/") ? externalPage : `${externalPage}/`).href
   : `${localOrigin}${browserBase}${selectedImage}/`;
+const fixturePiBase = new URL("/fixture/pi/v1", interactivePage).href;
+const fixtureExtensionUrl = new URL("/fixture/pi-extension.js", interactivePage).href;
 let openRouterSecret = realOpenRouterMode ? await readSecretLine() : "";
 if (realOpenRouterMode && !/^sk-or-v1-[A-Za-z0-9_-]+$/.test(openRouterSecret)) {
   throw new Error("Pi OpenRouter mode requires one API key line on standard input");
@@ -839,6 +908,22 @@ const fixturePolicy = {
     },
   ],
 };
+if (pythonPackageMode) {
+  fixturePolicy.rules.unshift(
+    {
+      origin: "https://pypi.org",
+      pathPrefix: "/pypi/",
+      methods: ["GET"],
+      maxResponseBytes: 32 * 1024 * 1024,
+    },
+    {
+      origin: "https://files.pythonhosted.org",
+      pathPrefix: "/packages/",
+      methods: ["GET"],
+      maxResponseBytes: 64 * 1024 * 1024,
+    },
+  );
+}
 if (realOpenRouterMode) {
   fixturePolicy.rules.unshift({
     origin: "https://openrouter.ai",
@@ -952,11 +1037,387 @@ try {
       ? rebuildPage
       : piDevelopmentMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
+        || hardSupervisorMode || pythonPackageMode || targetPiMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (targetPiMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "target-built Pi image boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const status = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "pi --version",
+        )})`,
+      );
+      if (status !== 0) console.error(await visibleTerminalText(debuggerClient.send));
+      assert.equal(status, 0, "target-emitted Pi CLI did not start through Janis");
+      const targetOpenAiProbe = [
+        'import OpenAI from "openai";',
+        `const client = new OpenAI({ apiKey: "sandbox-placeholder", baseURL: ${JSON.stringify(
+          fixturePiBase,
+        )}, maxRetries: 0 });`,
+        'try {',
+        '  const stream = await client.chat.completions.create({',
+        '    model: "dolly-test-model",',
+        '    messages: [{ role: "user", content: "probe" }],',
+        '    stream: true,',
+        '  });',
+        '  for await (const _chunk of stream) break;',
+        '  Dolly.writeFile("/tmp/pi-source-openai-probe.txt", "OPENAI-SDK-STREAM-OK\\n");',
+        '} catch (error) {',
+        '  Dolly.writeFile("/tmp/pi-source-openai-error.txt",',
+        '    String(error?.stack ?? error) + "\\nCAUSE\\n" + String(error?.cause?.stack ?? error?.cause));',
+        '  process.exit(42);',
+        '}',
+      ].join(" ");
+      assert.doesNotMatch(targetOpenAiProbe, /'/,
+        "target OpenAI probe must remain safe for Slop single quoting");
+      assert.equal(
+        await evaluate(
+          debuggerClient.send,
+          `window.__dolly.submit(${JSON.stringify(
+            `echo '${targetOpenAiProbe}' > /tmp/pi-source-openai-probe.mjs`,
+          )})`,
+        ),
+        0,
+        "could not write the target OpenAI SDK probe",
+      );
+      const targetOpenAiStatus = await evaluate(
+        debuggerClient.send,
+        'window.__dolly.submit("janis -m /tmp/pi-source-openai-probe.mjs")',
+      );
+      if (targetOpenAiStatus !== 0) {
+        await evaluate(
+          debuggerClient.send,
+          'window.__dolly.submit("cat /tmp/pi-source-openai-error.txt")',
+        );
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(targetOpenAiStatus, 0,
+        "the unbundled OpenAI SDK could not stream through Dolly HTTP");
+      assert.equal(
+        await evaluate(
+          debuggerClient.send,
+          'window.__dolly.submit("grep -q OPENAI-SDK-STREAM-OK /tmp/pi-source-openai-probe.txt")',
+        ),
+        0,
+      );
+      await evaluate(debuggerClient.send, `(() => {
+        window.__targetPiResult = null;
+        window.__dolly.submit("pi --offline --no-session").then((status) => {
+          window.__targetPiResult = status;
+        });
+      })()`);
+      await waitForValue(
+        debuggerClient.send,
+        "({ foreground: window.__dolly.foregroundPid, result: window.__targetPiResult })",
+        (value) => value.foreground !== 0 || value.result !== null,
+        "target-emitted Pi interactive process",
+        600,
+      );
+      assert.equal(
+        await evaluate(debuggerClient.send, "window.__targetPiResult"),
+        null,
+        "target-emitted Pi exited during interactive startup",
+      );
+      await waitForTerminalText(
+        debuggerClient.send,
+        /pi \/ DOLLY/,
+        "target-emitted Pi Dolly extension header",
+        600,
+      );
+      await inputText(debuggerClient.send, "/quit\r");
+      assert.equal(
+        await waitForValue(
+          debuggerClient.send,
+          "window.__targetPiResult",
+          (value) => value !== null,
+          "target-emitted Pi clean exit",
+          600,
+        ),
+        0,
+        "target-emitted Pi did not exit cleanly",
+      );
+      console.log(
+        "browser: target-emitted Pi CLI resolved, loaded Dolly tools, and exited cleanly",
+      );
+      break browserProof;
+    }
+    if (pythonPackageMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "Python package image boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      assert.match(
+        await visibleTerminalText(debuggerClient.send),
+        /Python packages: bonnie install PACKAGE/,
+        "the Python recovery shell did not advertise Bonnie",
+      );
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import importlib.util; " +
+          "assert importlib.util.find_spec(\"numpy\") is None; " +
+          "assert importlib.util.find_spec(\"pandas\") is None; " +
+          "assert importlib.util.find_spec(\"mesonbuild\") is None'",
+        )})`,
+      ), 0, "the scientific-package proof did not start from a clean image");
+      const pandasStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify("bonnie install pandas")})`,
+      );
+      if (pandasStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(pandasStatus, 0,
+        "Bonnie could not resolve and source-build Pandas's complete dependency graph");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'from importlib.metadata import version; " +
+          "import numpy as np, pandas as pd; " +
+          "assert version(\"numpy\") and version(\"pandas\"); " +
+          "a=np.array([1,2,3]); assert int((a*a).sum()) == 14; " +
+          "frame=pd.DataFrame({\"kind\":[\"a\",\"b\",\"a\"],\"value\":[2,3,5]}); " +
+          "totals=frame.groupby(\"kind\")[\"value\"].sum(); " +
+          "assert totals.to_dict() == {\"a\":7,\"b\":3}'",
+        )})`,
+      ), 0, "the transitive NumPy build or source-built Pandas groupby failed");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "meson --version | grep -q '^1\\.' && " +
+          "python -c 'import mesonbuild.coredata as c; from importlib.metadata import version; " +
+          "assert c.version == version(\"meson\")'",
+        )})`,
+      ), 0, "Pandas's transitive build frontend was not installed as a normal package");
+      const abandonedRawStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import tty; tty.setraw(0)'",
+        )})`,
+      );
+      assert.equal(abandonedRawStatus, 0,
+        "CPython could not enter Dolly's raw terminal mode");
+      const termiosStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import os,termios,tty; " +
+          "before=termios.tcgetattr(0); rows,cols=termios.tcgetwinsize(0); " +
+          "assert before[3]&termios.ICANON; assert rows>0 and cols>0; tty.setraw(0); " +
+          "after=termios.tcgetattr(0); " +
+          "print(\"TERMIOS\",rows,cols,before[3],after[3],os.isatty(0)); " +
+          "assert after[3]&termios.ICANON==0; " +
+          "termios.tcsetattr(0,termios.TCSANOW,before); assert os.isatty(0)'",
+        )})`,
+      );
+      if (termiosStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(termiosStatus, 0,
+        "CPython termios did not control and restore Dolly's live terminal");
+      const bonnieStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "echo '# Dolly package acceptance' > /tmp/requirements.txt && " +
+          "echo 'requests>=2,<3' >> /tmp/requirements.txt && " +
+          "echo 'requests[socks]>=2,<3  # merge the extra' >> /tmp/requirements.txt && " +
+          "bonnie install --requirement /tmp/requirements.txt",
+        )})`,
+      );
+      if (bonnieStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(bonnieStatus, 0,
+        "Bonnie could not resolve and install Requests through PyPI");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'from importlib.metadata import version; " +
+          "assert all(version(name) for name in " +
+          "(\"requests\", \"certifi\", \"charset-normalizer\", \"idna\", " +
+          "\"urllib3\", \"pysocks\"))'",
+        )})`,
+      ), 0, "Bonnie did not install Requests' pure-Python dependency closure");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "bonnie list | grep -q '^requests 2\\.' && " +
+          "bonnie freeze | grep -q '^requests==2\\.' && " +
+          "bonnie show requests | grep -q '^Name: requests$' && " +
+          "bonnie check | grep -q '^No broken requirements found\\.$' && " +
+          "! bonnie freeze | grep -q '^pip=='",
+        )})`,
+      ), 0, "Bonnie could not inspect its installed environment offline");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "bonnie show definitely-not-installed",
+        )})`,
+      ), 1, "Bonnie show silently accepted a missing distribution");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "mkdir -p /usr/lib/python3.14/site-packages/dolly_broken-1.dist-info && " +
+          "printf 'Metadata-Version: 2.1\\nName: dolly-broken\\nVersion: 1\\n" +
+          "Requires-Dist: definitely-missing>=1\\n' > " +
+          "/usr/lib/python3.14/site-packages/dolly_broken-1.dist-info/METADATA && " +
+          "! bonnie check && " +
+          "rm -rf /usr/lib/python3.14/site-packages/dolly_broken-1.dist-info && " +
+          "bonnie check",
+        )})`,
+      ), 0, "Bonnie check did not detect and recover from broken metadata");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "echo '--index-url https://example.invalid/simple' > /tmp/bad-requirements.txt && " +
+          "bonnie install --target /tmp/bonnie-bad-requirements " +
+          "-r /tmp/bad-requirements.txt",
+        )})`,
+      ), 2, "Bonnie silently accepted a requirements-file package-index directive");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "test ! -d /tmp/bonnie-bad-requirements",
+        )})`,
+      ), 0, "a rejected requirements-file directive mutated its target");
+      const pythonImportsStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import pdb, requests, socket; assert socket.socket'",
+        )})`,
+      );
+      if (pythonImportsStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(pythonImportsStatus, 0,
+        "the explicit socket-denial module did not preserve import compatibility");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import socket; socket.socket()'",
+        )})`,
+      ), 1, "CPython unexpectedly acquired a raw socket capability");
+      const nativePackageStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "env CIBUILDWHEEL=1 bonnie install markupsafe",
+        )})`,
+      );
+      if (nativePackageStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(nativePackageStatus, 0,
+        "Bonnie could not build and install a native CPython extension from an sdist");
+      const nativeImportStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import markupsafe, markupsafe._speedups; " +
+          "assert str(markupsafe.escape(\"<dolly>\")) == \"&lt;dolly&gt;\"'",
+        )})`,
+      );
+      if (nativeImportStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(nativeImportStatus, 0,
+        "the source-built MarkupSafe extension could not be imported");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "bonnie install --target /tmp/bonnie-conflict 'idna>=3' 'idna<3'",
+        )})`,
+      ), 1, "Bonnie silently accepted contradictory version constraints");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "test ! -d /tmp/bonnie-conflict",
+        )})`,
+      ), 0, "Bonnie mutated its target before resolving the complete graph");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'from importlib.metadata import version; assert version(\"requests\")'",
+        )})`,
+      ), 0, "a rejected native package damaged the existing Python environment");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify("bonnie install pytest")})`,
+      ), 0, "Bonnie could not install the pure-Python Pytest dependency graph");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify("python -m pytest --version")})`,
+      ), 0, "the installed Pytest package could not execute inside Dolly");
+      const pytestLauncherStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "echo PYTEST-PATH && which pytest | grep -q '^/usr/bin/pytest$' && " +
+          "echo PYTEST-FILE && file /usr/bin/pytest | grep -q WebAssembly && " +
+          "echo PYTEST-RUN && pytest --version",
+        )})`,
+      );
+      if (pytestLauncherStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(pytestLauncherStatus, 0,
+        "Bonnie did not compile Pytest's console script as a PATH Wasm executable");
+      const pytestRunStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "echo 'def test_answer(): assert 6 * 7 == 42' > /tmp/test_sample.py && " +
+          "pytest -q /tmp/test_sample.py",
+        )})`,
+      );
+      if (pytestRunStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(pytestRunStatus, 0,
+        "Pytest could not run a test with its normal built-in plugins");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify("bonnie install black")})`,
+      ), 0, "Bonnie could not install Black's pure-Python dependency graph");
+      const blackStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "echo 'answer=  6*7' > /tmp/black_sample.py && " +
+          "which black | grep -q '^/usr/bin/black$' && " +
+          "file /usr/bin/black | grep -q WebAssembly && " +
+          "black --quiet /tmp/black_sample.py && " +
+          "grep -Fqx 'answer = 6 * 7' /tmp/black_sample.py",
+        )})`,
+      );
+      if (blackStatus !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.equal(blackStatus, 0,
+        "Black's compiled PATH launcher could not format a Python file");
+      assert.ok(await evaluate(
+        debuggerClient.send,
+        "window.__dolly.httpCompletedRequestCount >= 20",
+      ));
+      console.log(
+        "browser: Bonnie installed Requests[socks], Pytest, and Black; compiled " +
+        "their PATH launchers as separate Wasm executables; formatted a file; " +
+        "detected broken installed metadata; and kept rejected graphs from " +
+        "mutating their target",
+      );
+      break browserProof;
+    }
     if (sessionMode) {
       const initialState = await waitForValue(
         debuggerClient.send,
@@ -1052,6 +1513,100 @@ try {
       );
       break browserProof;
     }
+    if (hardSupervisorMode) {
+      const initialState = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "Dolly hard-supervisor source boot",
+        1200,
+      );
+      assert.equal(initialState, "ready");
+      const shellPid = await enterRecoveryShell(debuggerClient.send);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "echo HARD-RECOVERY-WORKSPACE > /workspace/hard-recovery.txt && " +
+          "echo 'int main(void) { for (;;) {} }' > /tmp/dolly-foreign-loop.c && " +
+          "cc -O0 -fdolly-runtime-interrupt-handler /tmp/dolly-foreign-loop.c " +
+          "-o /tmp/dolly-foreign-loop",
+        )})`,
+      ), 0);
+      await evaluate(
+        debuggerClient.send,
+        'window.__hardSave = window.__dolly.saveSession("hard-proof")',
+      );
+      assert.equal(await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.sessionStatus ?? ''",
+        (value) => value === "saved" || value === "failed",
+        "hard-supervisor checkpoint save",
+        3600,
+      ), "saved");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        "location.pathname + location.search",
+      ), `${browserBasePrefix}/load/?session=hard-proof`);
+
+      await evaluate(
+        debuggerClient.send,
+        `window.__hardResult = window.__dolly.submit(${JSON.stringify(
+          "/tmp/dolly-foreign-loop",
+        )}); true`,
+      );
+      await waitForValue(
+        debuggerClient.send,
+        `(() => {
+          const transport = window.__dolly?.transport;
+          if (!transport) return 0;
+          const pid = transport.foregroundPid();
+          return pid !== ${shellPid} && transport.foregroundInterruptible() ? pid : 0;
+        })()`,
+        (value) => value > 0,
+        "foreign non-cooperative foreground command",
+        200,
+      );
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await dispatchKey(debuggerClient.send, {
+          key: "c",
+          code: "KeyC",
+          modifiers: 2,
+          windowsVirtualKeyCode: 67,
+        });
+      }
+      await delay(1000);
+      assert.equal(await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.hardInterruptRecovery ?? ''",
+        (value) => value === "session" || value === "base",
+        "hard worker replacement",
+        1200,
+      ), "session");
+      assert.equal(await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "hard-interrupt checkpoint restore",
+        3600,
+      ), "ready");
+      assert.equal(
+        await evaluate(debuggerClient.send,
+          "document.documentElement.dataset.sessionStatus"),
+        "restored",
+      );
+      await enterRecoveryShell(debuggerClient.send);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "grep -q HARD-RECOVERY-WORKSPACE /workspace/hard-recovery.txt",
+        )})`,
+      ), 0, "the saved workspace did not survive hard worker replacement");
+      console.log(
+        "browser: a foreign no-safepoint loop was hard-stopped by worker " +
+        "replacement and the named in-Wasm filesystem checkpoint was restored",
+      );
+      break browserProof;
+    }
     if (routeSmokeMode) {
       const routeState = await waitForValue(
         debuggerClient.send,
@@ -1123,16 +1678,14 @@ try {
       assert.equal(menuEvidence.title, "DOLLY");
       assert.equal(menuEvidence.background, "rgb(38, 38, 38)");
       assert.match(menuEvidence.font, /Dolly IosevkaTerm SemiBold/);
-      assert.deepEqual(menuEvidence.links, [
-        `${browserBasePrefix}/default/`,
-        `${browserBasePrefix}/default/rebuild/`,
-        `${browserBasePrefix}/view/default/`,
-        `${browserBasePrefix}/gamedev/`,
-        `${browserBasePrefix}/gamedev/rebuild/`,
-        `${browserBasePrefix}/view/gamedev/`,
-      ]);
-      assert.ok(menuEvidence.docs.includes(`${browserBasePrefix}/Dollyfile`));
-      assert.ok(menuEvidence.docs.includes(`${browserBasePrefix}/Dollyfile-gamedev`));
+      assert.deepEqual(menuEvidence.links, imageDefinitions.flatMap(({ image }) => [
+        `${browserBasePrefix}/${image}/`,
+        `${browserBasePrefix}/${image}/rebuild/`,
+        `${browserBasePrefix}/view/${image}/`,
+      ]));
+      for (const { filename } of imageDefinitions) {
+        assert.ok(menuEvidence.docs.includes(`${browserBasePrefix}/${filename}`));
+      }
       assert.doesNotMatch(menuEvidence.text, /voice input/i);
 
       const customRecipe = `DOLLY 1
@@ -1213,6 +1766,13 @@ ENTRY /usr/bin/pi --no-session
         debuggerClient.send,
         `window.__dolly.submit("grep -q 'IMAGE default' /etc/dolly/recipes/default.Dollyfile")`,
       ), 0);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.saveSession("custom-proof").then(
+          () => "unexpected success",
+          (error) => error.message,
+        )`,
+      ), "Uploaded custom images cannot save named sessions yet");
       console.log(
         "browser: root menu, default/gamedev/rebuild links, local Dollyfile " +
         "upload validation, custom source rebuild, and custom executable passed",
@@ -1226,11 +1786,19 @@ ENTRY /usr/bin/pi --no-session
           !output.startsWith(`${distDirectory}${sep}`)) {
         throw new Error("snapshot export requires an output path inside Dolly's dist directory");
       }
+      const rebuildWaitAttempts = Number.parseInt(
+        process.env.DOLLY_REBUILD_WAIT_ATTEMPTS ?? "36000",
+        10,
+      );
+      if (!Number.isSafeInteger(rebuildWaitAttempts) || rebuildWaitAttempts < 1) {
+        throw new Error("DOLLY_REBUILD_WAIT_ATTEMPTS must be a positive integer");
+      }
       const state = await waitForValue(
         debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         (value) => value === "ready" || value === "failed",
         "Dolly source rebuild",
+        rebuildWaitAttempts,
       );
       assert.equal(state, "ready");
       const evidence = await evaluate(debuggerClient.send, `(() => {
@@ -1288,7 +1856,7 @@ ENTRY /usr/bin/pi --no-session
       );
       assert.match(
         bootstrap,
-        /The packaged system snapshot is missing\. Run npm run snapshot before serving Dolly\./,
+        /The packaged system snapshot is missing\. Run npm run snapshot first\./,
       );
       assert.equal((bootstrap.match(/FATAL/g) ?? []).length, 1);
       assert.doesNotMatch(bootstrap, /runtime-worker\.mjs|onMessage@/);
@@ -1394,7 +1962,7 @@ ENTRY /usr/bin/pi --no-session
       } : {
         providers: {
           "dolly-test": {
-            baseUrl: `${interactivePage.replace(/\/$/, "")}/fixture/pi/v1`,
+            baseUrl: fixturePiBase,
             api: "openai-completions",
             apiKey: "sandbox-placeholder",
             models: [{
@@ -1661,6 +2229,10 @@ ENTRY /usr/bin/pi --no-session
             elapsedMilliseconds: Date.now() - started,
             visibleText,
           });
+          await writeFile(
+            resolve(projectDir, "build/pi-agent-audit.json"),
+            `${JSON.stringify(audit, null, 2)}\n`,
+          );
           if (expectedStatus !== undefined) {
             assert.equal(
               status,
@@ -1684,7 +2256,7 @@ ENTRY /usr/bin/pi --no-session
           debuggerClient.send,
           "window.__dolly.httpRequestCount",
         );
-        const extensionUrl = `${interactivePage.replace(/\/$/, "")}/fixture/pi-extension.js`;
+        const extensionUrl = fixtureExtensionUrl;
         const installPrompt =
           "Install a Pi extension in this Dolly sandbox. Use the bash tool to run exactly: " +
           `mkdir -p /home/dolly/.pi/agent/extensions && curl -fsSL ${extensionUrl} ` +
@@ -1738,7 +2310,7 @@ ENTRY /usr/bin/pi --no-session
         const fixtureConfig = JSON.stringify({
           providers: {
             "dolly-test": {
-              baseUrl: `${interactivePage.replace(/\/$/, "")}/fixture/pi/v1`,
+              baseUrl: fixturePiBase,
               api: "openai-completions",
               apiKey: "sandbox-placeholder",
               models: [{
@@ -1844,17 +2416,32 @@ ENTRY /usr/bin/pi --no-session
         windowsVirtualKeyCode: 13,
       });
 
-      const thinkingStart = await waitForValue(
-        debuggerClient.send,
-        `({
-          active: window.__dolly.httpActive,
-          requests: window.__dolly.httpRequestCount,
-          frame: Number(document.documentElement.dataset.frameSequence ?? 0),
-        })`,
-        (value) => value.active && value.requests > httpRequestCountBefore,
-        "Pi's first active streaming request",
-        200,
-      );
+      let thinkingStart;
+      try {
+        thinkingStart = await waitForValue(
+          debuggerClient.send,
+          `({
+            active: window.__dolly.httpActive,
+            requests: window.__dolly.httpRequestCount,
+            frame: Number(document.documentElement.dataset.frameSequence ?? 0),
+          })`,
+          (value) => value.active && value.requests > httpRequestCountBefore,
+          "Pi's first active streaming request",
+          200,
+        );
+      } catch (error) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+        const failedScreenshot = await debuggerClient.send("Page.captureScreenshot", {
+          format: "png",
+          fromSurface: true,
+        });
+        await writeFile(
+          resolve(projectDir, "build/pi-stream-start-failed.png"),
+          failedScreenshot.data,
+          "base64",
+        );
+        throw error;
+      }
       await delay(350);
       const thinkingAfter = await evaluate(
         debuggerClient.send,
@@ -1991,10 +2578,69 @@ ENTRY /usr/bin/pi --no-session
         "window.__dolly.submit(\"grep \\\"pi crossed Dolly's HTTP broker via edit\\\" /workspace/pi-http-test.txt\")",
       );
       assert.equal(fileStatus, 0, "Pi's extension-provided write tool did not create the file");
+
+      // Author and compile an extension with Dolly's target TypeScript compiler
+      // after the first Pi has exited, then prove a fresh Pi resolves and invokes
+      // the emitted module from the same WasmFS session.
+      await installTypeScriptExtension(debuggerClient.send);
+      piModelRequests.length = 0;
+      await evaluate(debuggerClient.send, `(() => {
+        window.__typescriptPiResult = null;
+        window.__dolly.submit(${JSON.stringify(`${piCommand} --no-session`)})
+          .then((status) => { window.__typescriptPiResult = status; });
+      })()`);
+      await waitForValue(
+        debuggerClient.send,
+        "({ foreground: window.__dolly.foregroundPid, result: window.__typescriptPiResult })",
+        (value) => value.foreground !== 0 || value.result !== null,
+        "Pi restart with target-compiled TypeScript extension",
+        600,
+      );
+      await delay(Number(process.env.DOLLY_PI_STARTUP_DELAY_MS ?? 3000));
+      assert.equal(
+        await evaluate(debuggerClient.send, "window.__typescriptPiResult"),
+        null,
+        "Pi exited while loading the target-compiled TypeScript extension",
+      );
+      await typeText(debuggerClient.send, "Use the installed TypeScript extension tool now.");
+      await dispatchKey(debuggerClient.send, {
+        key: "Enter",
+        code: "Enter",
+        windowsVirtualKeyCode: 13,
+      });
+      for (let attempt = 0; attempt < 600 && piModelRequests.length < 2; attempt++) {
+        await delay(100);
+      }
+      assert.equal(piModelRequests.length, 2);
+      const typeScriptToolMessages = piModelRequests[1].payload.messages.filter(
+        (message) => message.role === "tool",
+      );
+      assert.equal(typeScriptToolMessages.length, 1);
+      assert.match(
+        JSON.stringify(typeScriptToolMessages[0].content),
+        /DOLLY-TYPESCRIPT-EXTENSION-OK/,
+      );
+      await dispatchKey(debuggerClient.send, {
+        key: "d",
+        code: "KeyD",
+        modifiers: 2,
+        windowsVirtualKeyCode: 68,
+      });
+      assert.equal(
+        await waitForValue(
+          debuggerClient.send,
+          "window.__typescriptPiResult",
+          (value) => value !== null,
+          "Pi TypeScript-extension restart exit",
+          600,
+        ),
+        0,
+      );
       console.log(
         `browser: upstream Pi TUI started in Ghostty at frame ${startup.frame}, ` +
         "yellow theme, live thinking animation, incremental SSE, and Dolly " +
-        "write/edit extension crossed the HTTP fixture; Ctrl-D exited; " +
+        "write/edit extension crossed the HTTP fixture; a target-compiled " +
+        "TypeScript extension loaded after restart and ran; Ctrl-D exited; " +
         "screenshot build/pi-chrome.png",
       );
       break browserProof;
@@ -2018,6 +2664,7 @@ ENTRY /usr/bin/pi --no-session
     "Dolly browser proof",
   );
   if (state === "failed") {
+    console.error(await visibleTerminalText(debuggerClient.send));
     const failedScreenshot = await debuggerClient.send("Page.captureScreenshot", {
       format: "png",
       fromSurface: true,
@@ -2029,6 +2676,732 @@ ENTRY /usr/bin/pi --no-session
     );
   }
   assert.equal(state, "passed");
+
+  const utilityStatus = await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "which cc | grep -q '^/bin/cc$' && " +
+        "printf 'alpha:beta\\n' | cut -d : -f 2 | grep -q '^beta$' && " +
+        "printf 'A\\tB\\n' > /tmp/dolly-od-check && " +
+        "od -t c /tmp/dolly-od-check | grep -q 'A.*\\\\t.*B' && " +
+        "printf 'alpha\\0beta\\0' | xargs -0 -n 1 echo > /tmp/dolly-xargs-check && " +
+        "grep -q '^alpha$' /tmp/dolly-xargs-check && " +
+        "grep -q '^beta$' /tmp/dolly-xargs-check && " +
+        "printf 'left\\nright\\n' | xargs -I ITEM echo value=ITEM > /tmp/dolly-xargs-insert && " +
+        "grep -q '^value=left$' /tmp/dolly-xargs-insert && " +
+        "grep -q '^value=right$' /tmp/dolly-xargs-insert && " +
+        "printf '' | xargs -I ITEM false && " +
+        "printf '' | xargs -r false && ! xargs -P 2 true && " +
+        "mkdir -p /tmp/find-browser/src /tmp/find-browser/vendor/nested && " +
+        "touch /tmp/find-browser/src/one.c /tmp/find-browser/src/two.txt " +
+        "/tmp/find-browser/vendor/nested/hidden.c && " +
+        "find /tmp/find-browser -path /tmp/find-browser/vendor -prune " +
+        "-o -name '*.c' -print > /tmp/find-browser-pruned && " +
+        "grep -q '^/tmp/find-browser/src/one.c$' /tmp/find-browser-pruned && " +
+        "! grep -q hidden.c /tmp/find-browser-pruned && " +
+        "find /tmp/find-browser -type f -print0 | xargs -0 -n 1 test -f && " +
+        "find /tmp/find-browser/src -type f -exec echo {} + " +
+        "> /tmp/find-browser-exec && " +
+        "grep -q '^/tmp/find-browser/src/one.c /tmp/find-browser/src/two.txt$' " +
+        "/tmp/find-browser-exec && " +
+        "! find /tmp/find-browser -perm 644 2> /tmp/find-permission-error && " +
+        "grep -q 'no user, group, or permission model' /tmp/find-permission-error && " +
+        "printf 'one\\ntwo\\nthree\\n' > /tmp/tail-browser && " +
+        "tail -n 2 /tmp/tail-browser > /tmp/tail-last && " +
+        "grep -q '^two$' /tmp/tail-last && grep -q '^three$' /tmp/tail-last && " +
+        "tail -n +2 /tmp/tail-browser > /tmp/tail-from && " +
+        "grep -q '^two$' /tmp/tail-from && ! grep -q '^one$' /tmp/tail-from && " +
+        "tail -c 6 /tmp/tail-browser | grep -q '^three$' && " +
+        "! tail -f /tmp/tail-browser 2> /tmp/tail-follow-error && " +
+        "grep -q 'serial process model' /tmp/tail-follow-error && " +
+        "printf 'binary\\0data\\n' | tee /tmp/tee-binary > /tmp/tee-stdout && " +
+        "od -t c /tmp/tee-binary | grep -q 'b.*i.*n.*a.*r.*y.*\\\\0.*d.*a.*t.*a' && " +
+        "od -t c /tmp/tee-stdout | grep -q 'b.*i.*n.*a.*r.*y.*\\\\0.*d.*a.*t.*a' && " +
+        "printf 'appended\\n' | tee -a /tmp/tee-binary > /tmp/tee-append && " +
+        "tail -n 1 /tmp/tee-binary | grep -q '^appended$' && " +
+        "! tee -i < /tmp/tail-browser 2> /tmp/tee-interrupt-error && " +
+        "grep -q 'always cancels' /tmp/tee-interrupt-error && " +
+        "printf 'abc xyz' | tr 'a-z' 'A-Z' | grep -q '^ABC XYZ$' && " +
+        "basename /workspace/example.c .c | grep -q '^example$' && " +
+        "dirname /workspace/example.c | grep -q '^/workspace$' && " +
+        "env DOLLY_CHILD_ENV=inside printenv DOLLY_CHILD_ENV | grep -q '^inside$' && " +
+        "! printenv DOLLY_CHILD_ENV && " +
+        "env -i PATH=/bin printenv PATH | grep -q '^/bin$' && " +
+        "! env -u HOME printenv HOME && ! env false && " +
+        "printenv > /tmp/printenv-all && printenv PATH | grep -q '^/bin:/usr/bin$' && " +
+        "printf same > /tmp/cmp-browser-one && " +
+        "printf same > /tmp/cmp-browser-two && " +
+        "cmp /tmp/cmp-browser-one /tmp/cmp-browser-two && " +
+        "printf changed > /tmp/cmp-browser-two && " +
+        "! cmp -s /tmp/cmp-browser-one /tmp/cmp-browser-two && " +
+        "date -u -d 0 '+%Y-%m-%d' | grep -q '^1970-01-01$' && " +
+        "mktemp -d /tmp/browser-temp.XXXXXX > /tmp/mktemp-browser && " +
+        "xargs -n 1 test -d < /tmp/mktemp-browser && " +
+        "printf abc > /tmp/sha256-browser && " +
+        "sha256sum /tmp/sha256-browser | " +
+        "grep -q '^ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  /tmp/sha256-browser$' && " +
+        "sha256sum /tmp/sha256-browser > /tmp/sha256-browser-list && " +
+        "sha256sum -c /tmp/sha256-browser-list && sleep 0 && timeout 1 true && " +
+        "md5sum /tmp/sha256-browser | grep -q '^900150983cd24fb0d6963f7d28e17f72  /tmp/sha256-browser$' && " +
+        "md5sum /tmp/sha256-browser > /tmp/md5-browser-list && md5sum -c /tmp/md5-browser-list && " +
+        "uname -sm | grep -q '^Dolly wasm64$' && " +
+        "time true 2> /tmp/time-browser && grep -q '^real [0-9]' /tmp/time-browser && " +
+        "! time false 2> /tmp/time-browser-false && " +
+        "printf 'link-data\\n' > /tmp/link-browser-target && " +
+        "ln -s /tmp/link-browser-target /tmp/link-browser-symbolic && " +
+        "readlink /tmp/link-browser-symbolic | grep -q '^/tmp/link-browser-target$' && " +
+        "realpath /tmp/link-browser-symbolic | grep -q '^/tmp/link-browser-target$' && " +
+        "grep -q '^link-data$' /tmp/link-browser-symbolic && " +
+        "! ln /tmp/link-browser-target /tmp/link-browser-hard 2> /tmp/link-browser-hard-error && " +
+        "mkdir -p /tmp/rmdir-browser/child && rmdir /tmp/rmdir-browser/child && " +
+        "test ! -e /tmp/rmdir-browser/child && " +
+        "seq 2 2 6 > /tmp/seq-browser && " +
+        "grep -q '^2$' /tmp/seq-browser && grep -q '^4$' /tmp/seq-browser && " +
+        "grep -q '^6$' /tmp/seq-browser && " +
+        "printf 'a\\nb\\n' > /tmp/paste-browser-left && " +
+        "printf '1\\n2\\n' > /tmp/paste-browser-right && " +
+        "paste /tmp/paste-browser-left /tmp/paste-browser-right | " +
+        "tr '\\t' ':' > /tmp/paste-browser && " +
+        "grep -q '^a:1$' /tmp/paste-browser && grep -q '^b:2$' /tmp/paste-browser && " +
+        "printf 'a\\nb\\n' > /tmp/comm-browser-left && " +
+        "printf 'b\\nc\\n' > /tmp/comm-browser-right && " +
+        "comm -12 /tmp/comm-browser-left /tmp/comm-browser-right | grep -q '^b$' && " +
+        "expr 6 + 7 | grep -q '^13$' && " +
+        "printf 'alpha\\nbeta\\n' > /tmp/nl-browser && " +
+        "nl -ba /tmp/nl-browser > /tmp/nl-browser-output && " +
+        "grep -q '1.*alpha' /tmp/nl-browser-output && " +
+        "grep -q '2.*beta' /tmp/nl-browser-output && " +
+        "printf '1 left\\n2 two\\n' > /tmp/join-browser-left && " +
+        "printf '1 right\\n3 three\\n' > /tmp/join-browser-right && " +
+        "join /tmp/join-browser-left /tmp/join-browser-right | grep -q '^1 left right$' && " +
+        "mkdir -p /tmp/split-browser-decimal /tmp/split-browser-alpha && " +
+        "printf 'one\\ntwo\\nthree\\n' > /tmp/split-browser-input && " +
+        "split -d -l 2 /tmp/split-browser-input /tmp/split-browser-decimal/part- && " +
+        "test -f /tmp/split-browser-decimal/part-00 && " +
+        "split -l 2 /tmp/split-browser-input /tmp/split-browser-alpha/part- && " +
+        "test -f /tmp/split-browser-alpha/part-aa && " +
+        "grep -q '^three$' /tmp/split-browser-alpha/part-ab && " +
+        "printf '\\0DOLLY-STRING\\0no\\0' | strings | grep -q '^DOLLY-STRING$' && " +
+        "printf abc > /tmp/cksum-browser && " +
+        "! cksum /tmp/cksum-browser-missing 2> /tmp/cksum-browser-error && " +
+        "cksum /tmp/cksum-browser | grep -q '^1219131554 3 /tmp/cksum-browser$' && " +
+        "printf 'abc\\n' | rev | grep -q '^cba$' && " +
+        "printf 'abcdef\\n' | fold -w 3 > /tmp/fold-browser && " +
+        "grep -q '^abc$' /tmp/fold-browser && grep -q '^def$' /tmp/fold-browser && " +
+        "printf 'a\\tb\\n' | expand -t 4 | grep -q '^a   b$' && " +
+        "printf 'a   b\\n' | unexpand -a -t 4 | tr '\\t' ':' | grep -q '^a:b$' && " +
+        "printf 'a b\\nb c\\n' > /tmp/tsort-browser && " +
+        "tsort /tmp/tsort-browser > /tmp/tsort-browser-output && " +
+        "test \"$(cat /tmp/tsort-browser-output)\" = \"$(printf 'a\\nb\\nc\\n')\" && " +
+        "pathchk -p portable/path && ! pathchk -p 'bad:char' 2> /tmp/pathchk-browser-error && " +
+        "test \"$(command -v true)\" = /bin/true && " +
+        "command printf '%s\\n' command-browser | grep -q '^command-browser$' && " +
+        "mkdir -p /tmp/du-browser/nested /tmp/du-browser-empty && " +
+        "du -sb /tmp/du-browser-empty | grep -q '^0[[:space:]]' && " +
+        "printf abc > /tmp/du-browser/first && " +
+        "printf de > /tmp/du-browser/nested/second && " +
+        "du -sb /tmp/du-browser | grep -q '^5[[:space:]]' && " +
+        "du -ab /tmp/du-browser | grep -q '^2[[:space:]].*/nested/second$' && " +
+        "printf abcdef > /tmp/dd-browser-input && " +
+        "dd if=/tmp/dd-browser-input of=/tmp/dd-browser-output bs=2 skip=1 count=2 status=none && " +
+        "test \"$(cat /tmp/dd-browser-output)\" = cdef && " +
+        "printf 000000 > /tmp/dd-browser-output && printf XY > /tmp/dd-browser-replacement && " +
+        "dd if=/tmp/dd-browser-replacement of=/tmp/dd-browser-output bs=2 seek=1 count=1 conv=notrunc status=none && " +
+        "test \"$(cat /tmp/dd-browser-output)\" = 00XY00 && " +
+        "test \"$(printf xyz | dd bs=1 count=2 status=none)\" = xy && " +
+        "test \"$(hostname)\" = dolly && test \"$(hostname -f)\" = dolly && " +
+        "tty | grep -q '^/dev/tty$' && " +
+        "true && ! false && test -x /bin/ls && test ! -x /tmp && " +
+        "test -r /bin/ls && test -w /workspace && " +
+        "test value = value -a '(' other != missing -o false ')' && " +
+        "! test value = missing -o other = absent && " +
+        "mkdir -p /tmp/find-browser/-leading && cd /tmp/find-browser && " +
+        "test \"$(find -- -leading -maxdepth 0)\" = -leading && cd /workspace && " +
+        "printf cp-link > /tmp/cp-link-target-browser && " +
+        "ln -s /tmp/cp-link-target-browser /tmp/cp-link-browser && " +
+        "! cp /tmp/cp-link-target-browser /tmp/cp-link-browser " +
+        "2> /tmp/cp-same-link-error-browser && " +
+        "test \"$(cat /tmp/cp-link-target-browser)\" = cp-link && " +
+        "grep -q 'are the same file' /tmp/cp-same-link-error-browser && " +
+        "ln -s /tmp/cp-missing-target-browser /tmp/cp-broken-link-browser && " +
+        "test -L /tmp/cp-broken-link-browser && ! test -e /tmp/cp-broken-link-browser && " +
+        "mkdir -p /tmp/rm-link-target-browser && touch /tmp/rm-link-target-browser/keep && " +
+        "ln -s /tmp/rm-link-target-browser /tmp/rm-link-directory-browser && " +
+        "! rm -r /tmp/rm-link-directory-browser/ && " +
+        "test -f /tmp/rm-link-target-browser/keep && test -L /tmp/rm-link-directory-browser && " +
+        "cp /tmp/cp-link-browser /tmp/cp-link-copy-browser && " +
+        "test \"$(readlink /tmp/cp-link-copy-browser)\" = /tmp/cp-link-target-browser && " +
+        "mkdir -p /tmp/mv-source-browser/nested /tmp/mv-destination-browser && " +
+        "mv /tmp/mv-source-browser/ /tmp/mv-destination-browser && " +
+        "test -d /tmp/mv-destination-browser/mv-source-browser/nested",
+      )})`,
+    );
+  if (utilityStatus !== 0) console.error(await visibleTerminalText(debuggerClient.send));
+  assert.equal(
+    utilityStatus,
+    0,
+    "the source-built agent utility set did not preserve its Dolly semantics",
+  );
+
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "printf 'same\\n' > /tmp/diff-browser-left && " +
+        "printf 'same\\n' > /tmp/diff-browser-right && " +
+        "diff /tmp/diff-browser-left /tmp/diff-browser-right",
+      )})`,
+    ),
+    0,
+    "diff did not report identical files",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "printf 'changed\\n' > /tmp/diff-browser-right && " +
+        "diff -u /tmp/diff-browser-left /tmp/diff-browser-right > /tmp/diff-browser-output",
+      )})`,
+    ),
+    1,
+    "diff did not report different files with status 1",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "grep -q '^-same$' /tmp/diff-browser-output && " +
+        "grep -q '^+changed$' /tmp/diff-browser-output",
+      )})`,
+    ),
+    0,
+    "diff did not produce the expected unified hunk",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "printf 'before\\n' > /tmp/patch-browser && " +
+        "printf '%s\\n' '--- a/patch-browser' '+++ b/patch-browser' " +
+        "'@@ -1 +1 @@' '-before' '+after' > /tmp/patch-browser-input && " +
+        "patch --dry-run -p1 -d /tmp -i /tmp/patch-browser-input && " +
+        "patch -p1 -d /tmp -i /tmp/patch-browser-input && " +
+        "grep -q '^after$' /tmp/patch-browser",
+      )})`,
+    ),
+    0,
+    "patch did not check and apply a unified diff outside a Git worktree",
+  );
+
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "echo deferred > /tmp/slop-deferred-browser && " +
+        "test \"$(cat /tmp/slop-deferred-browser)\" = deferred && " +
+        "DOLLY_DEFERRED_BROWSER=value && " +
+        "test \"$DOLLY_DEFERRED_BROWSER\" = value && unset DOLLY_DEFERRED_BROWSER",
+      )})`,
+    ),
+    0,
+    "Slop expanded a later simple command before earlier commands completed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "unset DOLLY_PARAMETER_BROWSER DOLLY_FALLBACK_BROWSER && " +
+        "test \"${DOLLY_PARAMETER_BROWSER:-fallback}\" = fallback && " +
+        "test \"${DOLLY_PARAMETER_BROWSER:=${DOLLY_FALLBACK_BROWSER:-assigned}}\" = assigned && " +
+        "test \"$DOLLY_PARAMETER_BROWSER\" = assigned && " +
+        "test \"${DOLLY_PARAMETER_BROWSER:+alternate}\" = alternate && " +
+        "test \"${DOLLY_MISSING_BROWSER+alternate}\" = '' && " +
+        "DOLLY_EMPTY_PARAMETER_BROWSER= && " +
+        "test \"${DOLLY_EMPTY_PARAMETER_BROWSER-default}\" = '' && " +
+        "test \"${DOLLY_EMPTY_PARAMETER_BROWSER:-default}\" = default && " +
+        "test \"${DOLLY_EMPTY_PARAMETER_BROWSER+alternate}\" = alternate && " +
+        "test \"${DOLLY_EMPTY_PARAMETER_BROWSER:+alternate}\" = '' && " +
+        "! slop -c 'echo \"${DOLLY_MISSING_BROWSER:?required parameter}\"' " +
+        "2> /tmp/slop-parameter-browser-error && " +
+        "grep -q 'DOLLY_MISSING_BROWSER: required parameter' /tmp/slop-parameter-browser-error",
+      )})`,
+    ),
+    0,
+    "Slop parameter default/assignment/alternate/error operators failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "DOLLY_PATTERN_BROWSER=/usr/local/bin/tool; " +
+        "test \"${#DOLLY_PATTERN_BROWSER}\" -eq 19 && " +
+        "test \"${DOLLY_PATTERN_BROWSER#*/}\" = usr/local/bin/tool && " +
+        "test \"${DOLLY_PATTERN_BROWSER##*/}\" = tool && " +
+        "test \"${DOLLY_PATTERN_BROWSER%/*}\" = /usr/local/bin && " +
+        "test \"${DOLLY_PATTERN_BROWSER%%/*}\" = ''",
+      )})`,
+    ),
+    0,
+    "Slop parameter length or pattern removal failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "cd /workspace && export DOLLY_SUBSTITUTION_STATE_BROWSER=outer && " +
+        "test \"$(cd /; export DOLLY_SUBSTITUTION_STATE_BROWSER=inner; pwd)\" = / && " +
+        "test \"$DOLLY_SUBSTITUTION_STATE_BROWSER\" = outer && " +
+        "test \"$(pwd)\" = /workspace",
+      )})`,
+    ),
+    0,
+    "Slop command substitution leaked cwd or environment state",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "DOLLY_LEGACY_BROWSER=before; DOLLY_LEGACY_BROWSER=after; " +
+        "test \"`printf '%s' \"$DOLLY_LEGACY_BROWSER\"`\" = after && " +
+        "test \"`false; echo legacy-continued`\" = legacy-continued && " +
+        "! slop -c 'echo `unterminated'",
+      )})`,
+    ),
+    0,
+    "Slop legacy backtick substitution failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "DOLLY_ARITHMETIC_BROWSER=5; " +
+        "test \"$(( DOLLY_ARITHMETIC_BROWSER * 2 + 3 ))\" -eq 13 && " +
+        "test \"$(( (1 << 4) | 3 ))\" -eq 19 && " +
+        "test \"$(( 3 > 2 && 2 != 1 ))\" -eq 1 && " +
+        "test \"$(( 0 && 1 / 0 ))\" -eq 0 && " +
+        "test \"$(( 1 || 1 / 0 ))\" -eq 1 && " +
+        "slop -c 'test \"$(( $* ))\" -eq 6' arithmetic-test 1 + 2 + 3 && " +
+        "! slop -c 'echo \"$(( 1 / 0 ))\"'",
+      )})`,
+    ),
+    0,
+    "Slop arithmetic expansion failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "echo 'DOLLY_SOURCED_BROWSER=$1' > /tmp/dolly-source-browser.slop && " +
+        ". /tmp/dolly-source-browser.slop sourced-value && " +
+        "test \"$DOLLY_SOURCED_BROWSER\" = sourced-value && " +
+        "source /tmp/dolly-source-browser.slop source-value && " +
+        "test \"$DOLLY_SOURCED_BROWSER\" = source-value && " +
+        "cd /tmp && test \"$PWD\" = /tmp && " +
+        "test \"$OLDPWD\" = /workspace && " +
+        "cd - > /tmp/dolly-cd-browser && " +
+        "test \"$(cat /tmp/dolly-cd-browser)\" = /workspace && " +
+        "test \"$PWD\" = /workspace && test \"$OLDPWD\" = /tmp",
+      )})`,
+    ),
+    0,
+    "Slop source alias or cd directory state failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "DOLLY_EVAL_BROWSER_NAME=DOLLY_EVAL_BROWSER && " +
+        "eval \"$DOLLY_EVAL_BROWSER_NAME=eval-value\" && " +
+        "test \"$DOLLY_EVAL_BROWSER\" = eval-value",
+      )})`,
+    ),
+    0,
+    "Slop eval builtin failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "printf 'test continued %s\\n= continued\\n' '\x5c' " +
+        "> /tmp/slop-continuation-browser.slop && " +
+        "slop /tmp/slop-continuation-browser.slop && " +
+        "slop -c \"$(cat /tmp/slop-continuation-browser.slop)\"",
+      )})`,
+    ),
+    0,
+    "Slop backslash-newline continuation failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "DOLLY_FUNCTION_OUTER_BROWSER=outer; " +
+        "dolly_function_browser () { test \"$1\" = inner; DOLLY_FUNCTION_RESULT_BROWSER=$2; }; " +
+        "dolly_function_browser inner result; " +
+        "test \"$DOLLY_FUNCTION_RESULT_BROWSER\" = result && " +
+        "test \"$DOLLY_FUNCTION_OUTER_BROWSER\" = outer && " +
+        "dolly_return_browser() { if true; then return 7; fi; false; }; " +
+        "! dolly_return_browser && " +
+        "DOLLY_LOCAL_BROWSER=outer; unset DOLLY_LOCAL_NEW_BROWSER; " +
+        "dolly_local_browser () { local DOLLY_LOCAL_BROWSER=inner DOLLY_LOCAL_NEW_BROWSER; " +
+        "test \"$DOLLY_LOCAL_BROWSER\" = inner && DOLLY_LOCAL_NEW_BROWSER=value; }; " +
+        "dolly_local_browser && test \"$DOLLY_LOCAL_BROWSER\" = outer && " +
+        "test \"${DOLLY_LOCAL_NEW_BROWSER+set}\" = '' && " +
+        "dolly_capture_browser () { echo \"$1\"; }; " +
+        "test \"$(dolly_capture_browser captured)\" = captured && " +
+        "test \"$(dolly_private_browser () { echo private; }; dolly_private_browser)\" = private && " +
+        "! dolly_private_browser && " +
+        "{ DOLLY_GROUP_BROWSER=grouped; true; } && " +
+        "test \"$DOLLY_GROUP_BROWSER\" = grouped",
+      )})`,
+    ),
+    0,
+    "Slop functions, local/return, private substitution state, or groups failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "cd /workspace; DOLLY_SUBSHELL_BROWSER=outer; " +
+        "(cd /tmp; DOLLY_SUBSHELL_BROWSER=inner; " +
+        "touch /tmp/dolly-subshell-browser-shared; " +
+        "test \"$DOLLY_SUBSHELL_BROWSER\" = inner) && " +
+        "test \"$DOLLY_SUBSHELL_BROWSER\" = outer && " +
+        "test \"$(pwd)\" = /workspace && " +
+        "test -f /tmp/dolly-subshell-browser-shared && " +
+        "(type type) > /tmp/dolly-subshell-browser-output && " +
+        "grep -q 'shell builtin' /tmp/dolly-subshell-browser-output && " +
+        "{ type type; } > /tmp/dolly-group-browser-output && " +
+        "grep -q 'shell builtin' /tmp/dolly-group-browser-output && " +
+        "(type type) | grep -q 'shell builtin' && " +
+        "test \"$( (hostname || uname -n) 2>/dev/null | sed 1q)\" = dolly && " +
+        "set -o pipefail; DOLLY_COMPOUND_STATUS_BROWSER=0; " +
+        "(exit 7) | true || DOLLY_COMPOUND_STATUS_BROWSER=$?; " +
+        "set +o pipefail; test \"$DOLLY_COMPOUND_STATUS_BROWSER\" -eq 7 && " +
+        "((exit 7) || test \"$?\" -eq 7) && ( (true) ) && " +
+        "! slop -c '(true'",
+      )})`,
+    ),
+    0,
+    "Slop parenthesized state boundary or nesting failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "slop -c 'test \"$#\" -eq 3; shift; test \"$1\" = two; shift 2; test \"$#\" -eq 0; ! shift' shift-test one two three && " +
+        "slop -c 'set alpha beta; test \"$#\" -eq 2; test \"$1\" = alpha; shift; test \"$1\" = beta; set -- reset values; test \"$2\" = values' set-test ignored && " +
+        "slop -c 'outer () { inner () { shift; test \"$1\" = second; }; inner first second; test \"$1\" = outer; }; outer outer' nested-shift-test",
+      )})`,
+    ),
+    0,
+    "Slop set/shift positional ownership failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "slop -c 'DOLLY_FIELDS=\"alpha beta\"; " +
+        "set -- $DOLLY_FIELDS; test \"$#\" -eq 2; " +
+        "test \"$1\" = alpha; test \"$2\" = beta; " +
+        "set -- \"$DOLLY_FIELDS\"; test \"$#\" -eq 1; " +
+        "DOLLY_EMPTY=; set -- before $DOLLY_EMPTY after; test \"$#\" -eq 2; " +
+        "IFS=:; DOLLY_FIELDS=alpha:beta; set -- $DOLLY_FIELDS; " +
+        "test \"$#\" -eq 2; set -- alpha:beta; test \"$#\" -eq 1' field-test",
+      )})`,
+    ),
+    0,
+    "Slop finite unquoted IFS field splitting failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "slop -c 'forward () { test \"$#\" -eq 3; " +
+        "test \"$1\" = \"one word\"; test -z \"$2\"; " +
+        "test \"$3\" = third; }; forward \"$@\"; set -- \"$@\"; " +
+        "test \"$#\" -eq 3; DOLLY_AT=; for value in \"$@\"; do " +
+        "DOLLY_AT=\"${DOLLY_AT}[${value}]\"; done; " +
+        "test \"$DOLLY_AT\" = \"[one word][][third]\"' " +
+        "at-test 'one word' '' third && " +
+        "slop -c 'set -- \"$@\"; test \"$#\" -eq 0' at-empty",
+      )})`,
+    ),
+    0,
+    "Slop quoted positional field preservation failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "test \"$(cd ~; pwd)\" = /home/dolly && " +
+        "DOLLY_TILDE_BROWSER=~/workspace; " +
+        "test \"$DOLLY_TILDE_BROWSER\" = /home/dolly/workspace",
+      )})`,
+    ),
+    0,
+    "Slop HOME tilde expansion failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "DOLLY_ASSIGNMENT_WORD_BROWSER='one two'; " +
+        "dolly_assignment_word_browser () { " +
+        "local DOLLY_LOCAL_WORD_BROWSER=$DOLLY_ASSIGNMENT_WORD_BROWSER; " +
+        "test \"$DOLLY_LOCAL_WORD_BROWSER\" = 'one two'; }; " +
+        "dolly_assignment_word_browser && " +
+        "export DOLLY_EXPORT_WORD_BROWSER=$DOLLY_ASSIGNMENT_WORD_BROWSER; " +
+        "test \"$DOLLY_EXPORT_WORD_BROWSER\" = 'one two'",
+      )})`,
+    ),
+    0,
+    "Slop local/export assignment-word preservation failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "exec 5> /tmp/slop-fd-browser; exec 6>&5; " +
+        "type type >&6; exec 6>&-; exec 5>&-; " +
+        "grep -q 'shell builtin' /tmp/slop-fd-browser && " +
+        "printf 'descriptor input\\n' > /tmp/slop-fd-input-browser && " +
+        "exec 7< /tmp/slop-fd-input-browser; " +
+        "read DOLLY_FD_INPUT_BROWSER <&7; exec 7<&-; " +
+        "test \"$DOLLY_FD_INPUT_BROWSER\" = 'descriptor input' && " +
+        "exec 8> /tmp/slop-fd-dynamic-browser; DOLLY_DYNAMIC_FD_BROWSER=8; " +
+        "echo dynamic-descriptor >&$DOLLY_DYNAMIC_FD_BROWSER; exec 8>&-; " +
+        "grep -q '^dynamic-descriptor$' /tmp/slop-fd-dynamic-browser && " +
+        "! slop -c 'echo nope 10>/tmp/slop-fd-ten-browser' && " +
+        "! test -e /tmp/slop-fd-ten-browser && " +
+        "! slop -c 'echo nope 2>&x' && " +
+        "! slop -c 'echo nope 2>&1junk'",
+      )})`,
+    ),
+    0,
+    "Slop persistent exec or numbered descriptor redirection failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "slop -c 'set -ex; case $- in *e*x*) set +ex ;; *) false ;; esac'",
+      )})`,
+    ),
+    0,
+    "Slop option-flag parameter expansion failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "printf '%s\\n' 'DOLLY_HEREDOC_BROWSER=expanded' " +
+        "'cat <<EOF > /tmp/slop-heredoc-browser-output' " +
+        "'$DOLLY_HEREDOC_BROWSER' '$(echo command)' 'EOF' " +
+        "\"cat <<'EOF' > /tmp/slop-heredoc-browser-literal\" " +
+        "'$DOLLY_HEREDOC_BROWSER' 'EOF' > /tmp/slop-heredoc-browser.slop && " +
+        "slop /tmp/slop-heredoc-browser.slop && " +
+        "test \"$(sed -n 1p /tmp/slop-heredoc-browser-output)\" = expanded && " +
+        "test \"$(sed -n 2p /tmp/slop-heredoc-browser-output)\" = command && " +
+        "test \"$(cat /tmp/slop-heredoc-browser-literal)\" = '$DOLLY_HEREDOC_BROWSER'",
+      )})`,
+    ),
+    0,
+    "Slop bounded here-document parsing or expansion failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "slop -n /tmp/slop-heredoc-browser.slop && " +
+        "slop -n -c 'touch /tmp/slop-noexec-browser' && " +
+        "! test -e /tmp/slop-noexec-browser && " +
+        "slop -n -c 'case ${DOLLY_NOEXEC_MISSING:?must-not-expand} in x) true ;; esac' && " +
+        "! slop -n -c 'if true'",
+      )})`,
+    ),
+    0,
+    "Slop no-execute syntax checking failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "DOLLY_SET_LIST_BROWSER=visible; " +
+        "set | grep -q \"^DOLLY_SET_LIST_BROWSER='visible'$\" && " +
+        "set -o | grep -q '^posix on$' && " +
+        "set -o pipefail && ! false | true && " +
+        "set +o pipefail && false | true",
+      )})`,
+    ),
+    0,
+    "Slop set listing, named options, or pipefail failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "dolly_typed_browser () { true; }; " +
+        "type dolly_typed_browser | grep -q 'shell function' && " +
+        "type type | grep -q 'shell builtin' && " +
+        "test \"$(type -p cc)\" = /bin/cc && " +
+        "! type dolly-definitely-missing",
+      )})`,
+    ),
+    0,
+    "Slop type builtin failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "printf 'alpha beta gamma\\n' > /tmp/slop-read-browser && " +
+        "read DOLLY_READ_FIRST_BROWSER DOLLY_READ_REST_BROWSER < /tmp/slop-read-browser && " +
+        "test \"$DOLLY_READ_FIRST_BROWSER\" = alpha && " +
+        "test \"$DOLLY_READ_REST_BROWSER\" = 'beta gamma' && " +
+        "IFS= read -r DOLLY_READ_ALL_BROWSER < /tmp/slop-read-browser && " +
+        "test \"$DOLLY_READ_ALL_BROWSER\" = 'alpha beta gamma'",
+      )})`,
+    ),
+    0,
+    "Slop read builtin failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "slop -c 'OPTIND=1; DOLLY_OPTIONS=; " +
+        "while getopts \":ab:\" option; do " +
+        "case \"$option\" in " +
+        "a) DOLLY_OPTIONS=\"${DOLLY_OPTIONS}a\" ;; " +
+        "b) DOLLY_OPTIONS=\"${DOLLY_OPTIONS}b=$OPTARG\" ;; " +
+        "*) exit 2 ;; esac; done; " +
+        "shift \"$((OPTIND - 1))\"; " +
+        "test \"$DOLLY_OPTIONS\" = \"ab=value\"; test \"$1\" = rest' " +
+        "getopts-test -abvalue rest",
+      )})`,
+    ),
+    0,
+    "Slop getopts clustered-option parsing failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "unset DOLLY_IF_BROWSER; " +
+        "if true; then DOLLY_IF_BROWSER=yes; else DOLLY_IF_BROWSER=no; fi; " +
+        "test \"$DOLLY_IF_BROWSER\" = yes && " +
+        "if false; then false; elif true; then true; else false; fi && " +
+        "if true; then if false; then false; else true; fi; else false; fi",
+      )})`,
+    ),
+    0,
+    "Slop nested if/elif/else lists failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "rm -f /tmp/slop-for-browser /tmp/slop-for-browser-nested; " +
+        "for value in alpha beta gamma; do echo \"$value\" >> /tmp/slop-for-browser; done; " +
+        "test \"$(cat /tmp/slop-for-browser)\" = \"$(printf 'alpha\\nbeta\\ngamma\\n')\" && " +
+        "for outer in a b; do for inner in 1 2; do echo \"$outer$inner\" >> /tmp/slop-for-browser-nested; done; done; " +
+        "test \"$(cat /tmp/slop-for-browser-nested)\" = \"$(printf 'a1\\na2\\nb1\\nb2\\n')\" && " +
+        "test \"$(slop -c 'for value; do echo \"$value\"; done' loop first second)\" = \"$(printf 'first\\nsecond\\n')\"",
+      )})`,
+    ),
+    0,
+    "Slop explicit, nested, and positional for loops failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "test \"$(for value in 1 2 3 4; do if test \"$value\" = 2; then continue; fi; echo \"$value\"; if test \"$value\" = 3; then break; fi; done)\" = \"$(printf '1\\n3\\n')\" && " +
+        "test \"$(for outer in a b; do for inner in 1 2; do if test \"$inner\" = 2; then continue 2; fi; echo \"$outer$inner\"; done; echo unreachable; done)\" = \"$(printf 'a1\\nb1\\n')\" && " +
+        "test \"$(for outer in a b; do for inner in 1 2; do echo \"$outer$inner\"; break 2; done; done)\" = a1 && " +
+        "! slop -c break",
+      )})`,
+    ),
+    0,
+    "Slop local and multi-level break/continue failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "rm -f /tmp/slop-while-browser /tmp/slop-until-browser && " +
+        "DOLLY_COUNT_BROWSER=0 && " +
+        "while test \"$DOLLY_COUNT_BROWSER\" != 3; do " +
+        "echo \"$DOLLY_COUNT_BROWSER\" >> /tmp/slop-while-browser; " +
+        "DOLLY_COUNT_BROWSER=$(expr \"$DOLLY_COUNT_BROWSER\" + 1); done && " +
+        "test \"$(cat /tmp/slop-while-browser)\" = \"$(printf '0\\n1\\n2\\n')\" && " +
+        "DOLLY_COUNT_BROWSER=0 && " +
+        "until test \"$DOLLY_COUNT_BROWSER\" = 2; do " +
+        "echo \"$DOLLY_COUNT_BROWSER\" >> /tmp/slop-until-browser; " +
+        "DOLLY_COUNT_BROWSER=$(expr \"$DOLLY_COUNT_BROWSER\" + 1); done && " +
+        "test \"$(cat /tmp/slop-until-browser)\" = \"$(printf '0\\n1\\n')\"",
+      )})`,
+    ),
+    0,
+    "Slop while and until loops failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "unset DOLLY_CASE_BROWSER; DOLLY_CASE_VALUE=beta; " +
+        "case \"$DOLLY_CASE_VALUE\" in alpha) false ;; " +
+        "beta|gamma) DOLLY_CASE_BROWSER=matched ;; *) false ;; esac; " +
+        "test \"$DOLLY_CASE_BROWSER\" = matched && " +
+        "case source.c in *.h) false ;; *.c|*.cc) true ;; *) false ;; esac && " +
+        "case outer in outer) case inner.c in *.c) true ;; *) false ;; esac ;; *) false ;; esac",
+      )})`,
+    ),
+    0,
+    "Slop wildcard, alternative, and nested case clauses failed",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "printf 'case blank in blank) true\\n\\n;; *) false ;; esac\\n' " +
+        "> /tmp/slop-blank-case-browser.slop && " +
+        "slop /tmp/slop-blank-case-browser.slop",
+      )})`,
+    ),
+    0,
+    "Slop confused blank lines with case clause terminators",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        "printf 'echo operator-continuation |\\n grep -q operator-continuation\\ntrue &&\\n true\\nfalse ||\\n true\\n' " +
+        "> /tmp/slop-operator-continuation-browser.slop && " +
+        "slop /tmp/slop-operator-continuation-browser.slop",
+      )})`,
+    ),
+    0,
+    "Slop did not continue a pipeline after newline",
+  );
+
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      'window.__dolly.submit("timeout 0.01 sleep 1")',
+    ),
+    124,
+    "timeout did not terminate a checkpointed command with status 124",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      'window.__dolly.submit("timeout 0.01 timeout 1 sleep 1")',
+    ),
+    124,
+    "a nested timeout did not inherit the earliest active deadline",
+  );
 
   assert.equal(
     await evaluate(
@@ -2062,6 +3435,47 @@ ENTRY /usr/bin/pi --no-session
     "the in-Wasm spawn deadline did not terminate a CPU-bound command",
   );
 
+  const descriptorLeakSource = [
+    "#define _POSIX_C_SOURCE 200809L",
+    "#include <fcntl.h>",
+    "#include <stdio.h>",
+    "#include <stdlib.h>",
+    "#include <string.h>",
+    "#include <unistd.h>",
+    "int main(int argc, char **argv) {",
+    "  if (argc > 1 && strcmp(argv[1], \"probe\") == 0) {",
+    "    int descriptor = open(\"/tmp/dolly-fd-probe\", O_WRONLY | O_CREAT | O_TRUNC, 0666);",
+    "    return descriptor < 0 || descriptor >= 64;",
+    "  }",
+    "  if (chdir(\"/tmp\") != 0 || setenv(\"DOLLY_LEAKED\", \"yes\", 1) != 0) return 2;",
+    "  for (int index = 0; index < 96; ++index) {",
+    "    char path[64];",
+    "    snprintf(path, sizeof(path), \"/tmp/dolly-fd-%d\", index);",
+    "    if (open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666) < 0) return 3;",
+    "  }",
+    "  close(STDOUT_FILENO);",
+    "  return 0;",
+    "}",
+    "",
+  ].join("\n");
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        `qjs -e 'Dolly.writeFile("/tmp/dolly-fd-leak.c",` +
+        `${JSON.stringify(descriptorLeakSource)})' && ` +
+        "cc -O0 /tmp/dolly-fd-leak.c -o /tmp/dolly-fd-leak && " +
+        "awk 'BEGIN { for (i = 0; i < 80; ++i) print i }' | " +
+        "xargs -n 1 /tmp/dolly-fd-leak && " +
+        "/tmp/dolly-fd-leak probe && " +
+        "pwd | grep -q '^/workspace$' && test -z \"$DOLLY_LEAKED\" && " +
+        "echo descriptor-epoch-ok && rm -f /tmp/dolly-fd-*",
+      )})`,
+    ),
+    0,
+    "a descriptor/cwd/environment leak poisoned a following command epoch",
+  );
+
   assert.equal(
     await evaluate(
       debuggerClient.send,
@@ -2076,6 +3490,26 @@ ENTRY /usr/bin/pi --no-session
     ),
     0,
     "the standalone in-Wasm cp command did not preserve a recursive file tree",
+  );
+
+  const installMakefile = [
+    "prefix := /usr/local",
+    "install:",
+    "\tinstall -D -m 755 /tmp/install-make-source $(DESTDIR)$(prefix)/bin/installed",
+    "",
+  ].join("\n");
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(
+        `qjs -e 'Dolly.writeFile("/tmp/install.Makefile",${JSON.stringify(installMakefile)})' && ` +
+        "printf make-install > /tmp/install-make-source && " +
+        "make -f /tmp/install.Makefile install DESTDIR=/tmp/install-stage && " +
+        "grep -q '^make-install$' /tmp/install-stage/usr/local/bin/installed",
+      )})`,
+    ),
+    0,
+    "GNU Make could not run a conventional install -D -m recipe through Slop",
   );
 
   assert.equal(
@@ -2263,6 +3697,24 @@ ENTRY /usr/bin/pi --no-session
     );
     assert.deepEqual(interrupted, { status: 130 });
   }
+  const interruptStatusLines = (
+    (await visibleTerminalText(debuggerClient.send)).match(/slop: status 130/g) ?? []
+  ).length;
+  assert.ok(interruptStatusLines > 0,
+    "Slop did not report the command that was actually interrupted");
+  assert.equal(
+    await evaluate(debuggerClient.send, "window.__dolly.submit('')"),
+    130,
+    "an empty line changed the shell's preserved interrupt status",
+  );
+  const statusLinesAfterEmptyInput = (
+    (await visibleTerminalText(debuggerClient.send)).match(/slop: status 130/g) ?? []
+  ).length;
+  assert.equal(
+    statusLinesAfterEmptyInput,
+    interruptStatusLines,
+    "an empty line reported the preceding interrupt a second time",
+  );
   assert.equal(
     await evaluate(
       debuggerClient.send,
@@ -2285,7 +3737,10 @@ ENTRY /usr/bin/pi --no-session
       debuggerClient.send,
       `window.__dolly.submit(${JSON.stringify(
         "test -s /usr/src/dolly/gamedev/graphics-demo.c && " +
-        "test -s /usr/src/dolly/gamedev/gamedev.mk",
+        "test -s /usr/src/dolly/gamedev/gamedev.mk && " +
+        "test -s /usr/src/dolly/gamedev/box3d-platform.c && " +
+        "test -s /usr/src/box3d/include/box3d/box3d.h && " +
+        "test -s /usr/lib/libbox3d.a",
       )})`,
     ),
     0,
@@ -2310,6 +3765,55 @@ ENTRY /usr/bin/pi --no-session
     "graphics framebuffer ownership",
     200,
   );
+  assert.equal(
+    await waitForValue(
+      debuggerClient.send,
+      "document.documentElement.dataset.cursorStyle",
+      (value) => value === "crosshair",
+      "graphics cursor style",
+      200,
+    ),
+    "crosshair",
+  );
+  assert.equal(
+    await evaluate(debuggerClient.send, "window.__dolly.key('e', 'KeyE')"),
+    true,
+    "graphics-demo did not accept its Box3D explosion input",
+  );
+  const graphicsCadence = await evaluate(debuggerClient.send, `(async () => {
+    const animationBefore = window.__dolly.transport.currentAnimationFrameSequence();
+    const presentedBefore = Number(document.documentElement.dataset.frameSequence ?? 0);
+    const started = performance.now();
+    await new Promise(resolve => setTimeout(resolve, 750));
+    const elapsed = performance.now() - started;
+    const animationAfter = window.__dolly.transport.currentAnimationFrameSequence();
+    const presentedAfter = Number(document.documentElement.dataset.frameSequence ?? 0);
+    return {
+      elapsed,
+      animationFrames: (animationAfter - animationBefore) >>> 0,
+      presentedFrames: (presentedAfter - presentedBefore) >>> 0,
+      width: document.querySelector('#display').width,
+      height: document.querySelector('#display').height,
+    };
+  })()`);
+  assert.ok(graphicsCadence.width <= 800 && graphicsCadence.height <= 450,
+    `software framebuffer was not bounded: ${JSON.stringify(graphicsCadence)}`);
+  assert.ok(graphicsCadence.animationFrames >= 3, JSON.stringify(graphicsCadence));
+  assert.ok(graphicsCadence.presentedFrames >= 3, JSON.stringify(graphicsCadence));
+  assert.ok(
+    graphicsCadence.animationFrames <= graphicsCadence.elapsed / 4 + 2,
+    `browser frame clock ran implausibly fast: ${JSON.stringify(graphicsCadence)}`,
+  );
+  assert.ok(
+    graphicsCadence.presentedFrames <= graphicsCadence.animationFrames + 2,
+    `guest outran the browser frame clock: ${JSON.stringify(graphicsCadence)}`,
+  );
+  assert.ok(
+    graphicsCadence.presentedFrames * 2 >= graphicsCadence.animationFrames,
+    `bounded software scene rendered below half the browser cadence: ${JSON.stringify(
+      graphicsCadence,
+    )}`,
+  );
   const graphicsPixels = await waitForValue(
     debuggerClient.send,
     `(() => {
@@ -2318,6 +3822,7 @@ ENTRY /usr/bin/pi --no-session
         .getImageData(0, 0, canvas.width, canvas.height).data;
       let background = 0;
       let accent = 0;
+      let yellow = 0;
       for (let index = 0; index < pixels.length; index += 4) {
         const red = pixels[index];
         const green = pixels[index + 1];
@@ -2326,14 +3831,25 @@ ENTRY /usr/bin/pi --no-session
             Math.abs(red - blue) <= 8 && pixels[index + 3] === 255) background++;
         if (Math.max(red, green, blue) - Math.min(red, green, blue) > 35 &&
             red + green + blue > 200 && pixels[index + 3] === 255) accent++;
+        if (red > 200 && green > 170 && blue < 150 &&
+            pixels[index + 3] === 255) yellow++;
       }
-      return { background, accent };
+      return { background, accent, yellow };
     })()`,
-    (value) => value.background > 1000 && value.accent > 100,
+    (value) => value.background > 1000 && value.accent > 100 && value.yellow > 100,
     "graphics-demo RGBA frame",
     200,
   );
   assert.ok(graphicsPixels.background > graphicsPixels.accent);
+  const graphicsScreenshot = await debuggerClient.send("Page.captureScreenshot", {
+    format: "png",
+    fromSurface: true,
+  });
+  await writeFile(
+    resolve(projectDir, "build/gamedev-frame.png"),
+    graphicsScreenshot.data,
+    "base64",
+  );
   assert.equal(
     await evaluate(debuggerClient.send, "window.__dolly.key('q', 'KeyQ')"),
     true,
@@ -2349,6 +3865,16 @@ ENTRY /usr/bin/pi --no-session
     { status: 0 },
   );
   assert.equal(await evaluate(debuggerClient.send, "window.__dolly.graphicsActive"), false);
+  assert.equal(
+    await waitForValue(
+      debuggerClient.send,
+      "document.documentElement.dataset.cursorStyle",
+      (value) => value === "text",
+      "terminal cursor restoration",
+      200,
+    ),
+    "text",
+  );
   assert.equal(
     await evaluate(
       debuggerClient.send,
@@ -2390,6 +3916,16 @@ ENTRY /usr/bin/pi --no-session
   );
   assert.equal(await evaluate(debuggerClient.send, "window.__dolly.graphicsActive"), false);
   assert.equal(
+    await waitForValue(
+      debuggerClient.send,
+      "document.documentElement.dataset.cursorStyle",
+      (value) => value === "text",
+      "terminal cursor restoration after SIGINT",
+      200,
+    ),
+    "text",
+  );
+  assert.equal(
     await evaluate(
       debuggerClient.send,
       "window.__dolly.submit('grep -q GRAPHICS-RESTORED graphics-restored.txt')",
@@ -2416,7 +3952,10 @@ ENTRY /usr/bin/pi --no-session
     )}`,
   );
   console.log(
-    `browser: post-framebuffer command batch ${performanceAfterGraphics.milliseconds}ms/` +
+    `browser: graphics cadence ${graphicsCadence.animationFrames} rAF/` +
+    `${graphicsCadence.presentedFrames} guest frames in ` +
+    `${Math.round(graphicsCadence.elapsed)}ms; post-framebuffer command batch ` +
+    `${performanceAfterGraphics.milliseconds}ms/` +
     `${performanceAfterGraphics.frames} frames; before ` +
     `${performanceBeforeGraphics.milliseconds}ms/${performanceBeforeGraphics.frames} frames`,
   );
@@ -2572,6 +4111,10 @@ ENTRY /usr/bin/pi --no-session
     200,
   );
   assert.equal(selectedText, "COPY-BRIDGE-TEXT");
+  await evaluate(
+    debuggerClient.send,
+    "delete document.documentElement.dataset.clipboard",
+  );
   await dispatchKey(debuggerClient.send, {
     key: "C",
     code: "KeyC",
@@ -2586,7 +4129,13 @@ ENTRY /usr/bin/pi --no-session
     200,
   );
   assert.equal(
-    await evaluate(debuggerClient.send, "navigator.clipboard.readText()"),
+    await waitForValue(
+      debuggerClient.send,
+      "navigator.clipboard.readText()",
+      (value) => value === "COPY-BRIDGE-TEXT",
+      "Ctrl+Shift+C system clipboard propagation",
+      200,
+    ),
     "COPY-BRIDGE-TEXT",
   );
 

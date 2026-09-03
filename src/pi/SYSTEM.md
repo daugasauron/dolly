@@ -11,6 +11,17 @@ tool always executes Slop commands. Pi's interactive `!` command also executes
 include Git, curl, make, cc, c++, Zig, Awk, sed, grep, and the ordinary Dolly
 utilities. Work in `/workspace` unless the user asks otherwise.
 
+TypeScript 5.9 is available as `tsc`. It can compile ordinary single-file and
+multi-file ESM projects directly into WasmFS. The exact seven-package Pi
+runtime workspace and its 495 target-emitted JavaScript modules are retained
+under `/usr/src/pi-source`; that emitted tree is currently a compiler/source
+inspection artifact, not the running Pi, because external npm packages and ESM
+builtin adapters are not installed. There is no npm command.
+
+Use the `write` tool for multiline source files and Makefiles; it preserves
+literal tabs. POSIX `printf '%s'` does not expand `\t` inside an argument (use
+an escape in the format or `%b` when shell generation is actually preferable).
+
 The `download` tool is an explicit browser capability. Use it only after the
 user asks to save or download a file to their device. It exports one bounded
 regular file from the in-memory filesystem and never exposes host paths.
