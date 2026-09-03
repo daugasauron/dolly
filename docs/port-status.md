@@ -16,7 +16,7 @@ facilities become substrate work, not JavaScript or host-process escape hatches.
 | `curl` / `libcurl.a` | [Pinned official curl headers](../config/source-pins.sh); Dolly's compatibility implementation and curl client are compiled in Dolly at boot | Normal `#include <curl/curl.h>` and `-lcurl`; methods, headers, bodies, callbacks, response metadata, and a synchronous multi API over one typed Fetch broker |
 | `gzip` | Dolly's decompression-only C frontend is compiled in Dolly against its source-built pinned zlib | `gzip -dc` turns ordinary `.tar.gz`/`.tgz` inputs into a tar stream entirely in WasmFS; compression and the broad GNU gzip CLI intentionally fail rather than claim compatibility |
 | `git` | [Pinned Git and zlib](../config/source-pins.sh); GNU Make compiles 427 upstream library/builtin sources in Dolly with three Dolly lifecycle cleanup adaptations | Real init/config/add/commit/log in shared WasmFS; deterministic archives and `-l` linking; upstream HTTP/HTTPS helpers linked with `-lcurl`; protocol-v2 discovery through the single browser broker |
-| `make` | Checksum-pinned upstream GNU Make 4.4.1; configured and patched as an exact source manifest, then compiled in Dolly at boot | Real dependency evaluation, automatic variables, `$(shell ...)`, separate compilation and linking, up-to-date checks, and accepted-but-serial `-jN`; every recipe enters `/bin/slop -c` |
+| `make` | Checksum-pinned upstream GNU Make 4.4.1; configured and patched as an exact source manifest, then compiled in Dolly at boot | Real dependency evaluation, automatic variables, `$(shell ...)`, separate compilation and linking, up-to-date checks, and accepted-but-serial `-jN`; every recipe enters `/bin/slop -c`; image builds pass, while a fresh post-restore build remains an explicit red compiler-lifecycle probe |
 | `ninja` | Commit-pinned upstream Samurai 1.3 C99 sources with one reviewed Dolly scheduler patch; its 13 ordinary translation units are compiled in Dolly at boot | Ninja build-file parsing, dependency graphs, dirty checks, depfiles, response files, and build logs; ready edges execute synchronously through `/bin/slop -c`, while `-jN` is accepted but intentionally serial |
 | `qjs`, `janis` | [Pinned QuickJS-ng](../config/source-pins.sh); unchanged engine sources plus `src/runtimes/quickjs-main.c`, all compiled in Dolly at boot | A large current C runtime, exact ECMAScript math, allocator and clock surface, source files, stdin, arguments, exception status, repeated invocation, and finite WasmFS-only bare ESM resolution with confined `package.json` exports |
 | `tsc` | Digest-pinned official TypeScript 5.9.3 npm archive is decompressed by Dolly and the unchanged compiler runs under Janis | Single-/multi-file ESM emit in WasmFS plus complete `noCheck` emit of 495 modules across Pi's seven pinned runtime workspace packages; no host Node/filesystem/network capability and no claim of full type checking |
@@ -24,7 +24,7 @@ facilities become substrate work, not JavaScript or host-process escape hatches.
 | `python`, `python3` | Pinned upstream CPython 3.14 is configured for the wasm64 target outside the browser, then all target objects and the executable are compiled by GNU Make inside Dolly | A large C runtime sharing WasmFS, Dolly entropy, clocks, locale, zlib, writable user-site paths, and explicit single-thread compatibility; it identifies as `sys.platform == "dolly"` so packages do not assume Pyodide's ambient `js`, `_socket` imports but every raw network operation fails locally with `ENOSYS`, and upstream `termios` controls the small in-Wasm terminal mode contract |
 | `bonnie` | Dolly C frontend plus a retained Python resolver compiled in the Python image and linked to the source-built Fetch-backed libcurl | Resolves complete runtime and PEP 517 build-requirement graphs, verifies and stages wheels/source distributions transactionally, builds native extensions with Dolly's C/C++ toolchain, and publishes only after preparation; `list`, `freeze`, `show`, and `check` inspect installed metadata. Full backtracking and arbitrary native-package compatibility remain explicit gaps |
 | `raylib`, `Box3D`, `graphics-demo` | Pinned upstream raylib 6.0 and Box3D 0.1.0 plus Dolly presentation and serial-task adapters and a 3D game source; all objects and archives compile inside the gamedev image | Upstream no-OS software rendering, real C17 3D rigid-body physics, bounded logical framebuffer sizing, animation-frame pacing, semantic cursor/input, finite frame checks, and terminal restoration without DOM, WebGL, sockets, pthreads, or a new browser import |
-| `cc`, `c++`, `ld`, `ar` | Current pinned Clang/LLD linked into the trusted runtime; separate source-compiled command frontends | Source/object/archive compilation, stdin/file preprocessing and macro dumps, C17/C++23, multi-object and `-L`/`-l` links, deterministic GNU archives, exact import validation, ABI stamping, and direct WasmFS publication; repeated Clang-only probes pass, but switching between this provider and Zig's currently shared LLVM provider can fatally corrupt code generation and is the immediate stability gate |
+| `cc`, `c++`, `ld`, `ar` | Current pinned Clang/LLD linked into the trusted runtime; separate source-compiled command frontends | Source/object/archive compilation, stdin/file preprocessing and macro dumps, C17/C++23, multi-object and `-L`/`-l` links, deterministic GNU archives, exact import validation, ABI stamping, and direct WasmFS publication; individual browser jobs pass, while repeated compiler/linker invocations and switching between Clang and Zig's shared LLVM provider remain explicit stability failures |
 
 QuickJS-ng's `quickjs-libc.c` is intentionally excluded. It exposes native
 `fork`, `exec`, `popen`, `dlopen`, signals, polling, and raw-terminal functions.
@@ -124,12 +124,12 @@ API, and inspects the resulting cell grid.
 
 The source build and single-provider path work, but the current bridge shares
 LLVM process-global implementation state with `/bin/cc`. Browser regression
-tests reproduce both Clang → Zig and Zig → Clang failures in one restored
-session. This does not add a host capability or weaken sandboxing, but it does
-make the combined SDK unreliable. The next implementation must link a private
-LLVM/LLD provider into Zig (or otherwise isolate provider state) while retaining
-the shared WasmFS and without promoting `ZigLLVM*` functions into the stable
-Dolly substrate.
+tests reproduce Clang-only optimized lifecycle failure as well as Clang → Zig
+and Zig → Clang failures in one restored session. This does not add a host
+capability or weaken sandboxing, but it does make the combined optimized SDK
+unreliable. The next implementation must give compiler invocations private
+LLVM/LLD state while retaining the shared WasmFS and without promoting
+`ZigLLVM*` functions into the stable Dolly substrate.
 
 This is intentionally the `libghostty-vt` terminal core, not the GTK/macOS
 desktop application. Exact architecture and evidence are in

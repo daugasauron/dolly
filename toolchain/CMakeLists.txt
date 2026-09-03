@@ -64,7 +64,7 @@ target_link_options(dolly PRIVATE
   -matomics
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
-  "SHELL:-Wl,--export=getTempRet0,--export=setTempRet0,--export=__stack_pointer"
+  "SHELL:-Wl,--export=getTempRet0,--export=setTempRet0,--export=__stack_pointer,--export=__stack_high,--export=__stack_low"
   -sMAIN_MODULE=2
   -sWASMFS
   -sALLOW_MEMORY_GROWTH=1

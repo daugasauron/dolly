@@ -1039,6 +1039,16 @@ test("snapshot creation and pruning share the canonical module recipe graph", as
   assert.doesNotMatch(pruner, /definition\.extends/);
 });
 
+test("packaged-prefix parsing defers private descendant export validation", async () => {
+  const engine = await readFile(resolve(projectDir, "src/dollyfile.c"), "utf8");
+  assert.match(engine, /const int exported_files_available = filesystem_available \|\| depth == 1/);
+  assert.match(
+    engine,
+    /exported_files_available &&\s*exports->items\[exports->count - 1\]\.members == NULL/,
+  );
+  assert.match(engine, /&module_form, recipe_execute, execute\)/);
+});
+
 test("build modules declare tools used by their own recipes", async () => {
   const modules = uniqueModules(await loadImages());
   const module = (name) => modules.get(name);

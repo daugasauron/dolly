@@ -348,8 +348,10 @@ static void update_game(game *state) {
   }
 
   b3World_Step(state->world, 1.0f / 60.0f, 4);
-  if (state->explosion_flash > 0.0f)
-    state->explosion_flash = fmaxf(0.0f, state->explosion_flash - 0.055f);
+  if (state->explosion_flash > 0.0f) {
+    state->explosion_flash -= 0.055f;
+    if (state->explosion_flash < 0.0f) state->explosion_flash = 0.0f;
+  }
 
   for (int index = 0; index < TARGET_COUNT; ++index) {
     if (state->collected[index]) continue;

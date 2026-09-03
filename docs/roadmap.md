@@ -25,33 +25,44 @@ Every milestone should improve at least one of these measurements:
 Raw package count, POSIX checklist coverage, and native performance are not
 north-star metrics.
 
-## Immediate stability gate — give compiler providers private state
+## Immediate stability gate — give compiler invocations private state
 
 The declarative default image and its 35-module cold browser build complete,
-but the restored interactive image has a repeatable compiler-coexistence
-failure. Running Clang code generation and then Zig code generation in one
-runtime traps Zig in LLVM's SelectionDAG; running Zig and then Clang produces
-the corresponding LLVM failure in Clang. Repeated Clang-only probes pass. A
-focused browser acceptance mode now preserves this failure as a regression.
+but the restored interactive image has repeatable compiler and dynamic-module
+lifecycle failures. Individual Clang/C++ and Zig jobs work in fresh runtimes,
+but repeated Clang code generation or linking can trap or wedge, including at
+`-O0`; a post-restore Make build can likewise wedge while invoking nested
+compiler jobs. Running Clang and Zig code generation in one runtime also fails
+in either order. Focused browser modes preserve these known-red lifecycle,
+optimized, nested-build, and mixed-provider cases separately.
 
-The current Zig command imports `ZigLLVM*`, `LLVM*`, and `ZigLLD*` entry points
-from the same LLVM instance embedded for `/bin/cc`. Those are implementation
+The current Clang frontend and Zig command ultimately reuse process-global LLVM
+implementation state; Zig imports `ZigLLVM*`, `LLVM*`, and `ZigLLD*` entry
+points from the provider embedded for `/bin/cc`. Those are implementation
 details, not a useful Dolly platform contract. Attempts to reset LLVM's global
 command-line registry did not restore correctness and also destabilized
 ordinary multi-file C builds, so this must not be papered over with a larger
 public ABI or more process-global reset hooks.
 
-Next, build Zig with a private, locally bound LLVM/LLD provider in its own side
-module while continuing to import Dolly libc/filesystem operations and the
-shared memory/table. This keeps files and command execution in the same WasmFS
-userspace but gives each compiler its own registries, contexts, and allocator-
-owned implementation state. Measure the size/startup cost before considering a
-more elaborate compiler worker or file-delta protocol.
+The ordinary browser suite therefore runs individual C, C++, and Zig jobs in
+separate restored runtimes. `DOLLY_BROWSER_MODE=lifecycle-probe`,
+`DOLLY_BROWSER_MODE=optimized-lifecycle-probe`, `DOLLY_BROWSER_MODE=make`, and
+`DOLLY_BROWSER_MODE=toolchain-probes` are deliberate red regressions until this
+gate is complete; they must not be confused with the supported one-shot paths.
 
-Acceptance gate: in one restored browser session, run Clang → Zig → Clang and
-Zig → Clang → Zig, twice each; compile, link, and execute both C/C++ and Zig
-fixtures; then run Make and Ninja builds. No compiler-private symbol may be
-added to the stable Dolly machine ABI to satisfy this gate.
+Next, prototype a fresh compiler-provider instance per invocation, starting
+with Clang and then Zig, while continuing to import Dolly libc/filesystem
+operations and the shared memory/table. This keeps files and command execution
+in the same WasmFS userspace but gives compiler jobs private registries,
+contexts, and allocator-owned implementation state. Measure the size, retained
+memory, and startup cost before considering a more elaborate compiler worker or
+file-delta protocol.
+
+Acceptance gate: in one restored browser session, repeat optimized Clang jobs,
+run Clang → Zig → Clang and Zig → Clang → Zig twice each, compile/link/execute
+both C/C++ and Zig fixtures, then run Make and Ninja builds. No
+compiler-private symbol may be added to the stable Dolly machine ABI to satisfy
+this gate.
 
 ## Phase 1 — make builds declarative (complete)
 
@@ -72,6 +83,9 @@ authority:
 - replace large deterministic source archives with a content-addressed cache
   without weakening row-by-row completion;
 - record output digests for important build products in the image lock;
+- eliminate byte-level snapshot drift still observed in Python and Python+Pi;
+  their recipes, runtime ID, and byte sizes are stable, but repeated packaging
+  does not yet reproduce the same snapshot digest;
 - keep each port's build and cleanup in its own pinned `.dm` module;
 - make snapshot logical reproducibility measurable across clean hosts.
 

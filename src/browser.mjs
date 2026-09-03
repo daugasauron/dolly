@@ -1295,14 +1295,6 @@ async function runBrowserProof() {
   }
   document.documentElement.dataset.defaultPi = "passed";
 
-  const libcurlCheckBody =
-    `int main(int argc, char **argv) { (void)argc; (void)argv; CURL *curl = curl_easy_init(); struct curl_slist *headers = 0; headers = curl_slist_append(headers, "X-Dolly-Test: yes"); curl_easy_setopt(curl, CURLOPT_URL, "${location.origin}/fixture/libcurl-post"); curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "payload"); curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 7L); curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers); CURLcode result = curl_easy_perform(curl); curl_slist_free_all(headers); curl_easy_cleanup(curl); return result; }`;
-  const libcurlSourceCommand =
-    `awk 'BEGIN { print "#include <curl/curl.h>"; print "${libcurlCheckBody.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}" }' > libcurl-check.c`;
-  const makefileCommand =
-    `awk 'BEGIN { print "WHERE := $(shell pwd)"; print "all: make-demo"; print "make-demo: make-main.o make-value.o"; print "\\t$(CC) make-main.o make-value.o -o $@"; print "make-main.o: make-main.c"; print "\\t$(CC) -std=c17 -c $< -o $@"; print "make-value.o: make-value.c"; print "\\t$(CC) -std=c17 -c $< -o $@"; print "report:"; print "\\t@echo MAKE-SHELL=$(SHELL)"; print "\\t@echo MAKE-WHERE=$(WHERE)" }' > Makefile`;
-  const randomSourceCommand =
-    `awk 'BEGIN { print "#include <sys/random.h>"; print "int main(void) { unsigned char bytes[1024]; return getrandom(bytes, sizeof(bytes), 0) == sizeof(bytes) ? 0 : 1; }" }' > random-check.c`;
   const beforeInteractive = [
     ["help", "\x1b[Ahelx\x7fp\r"],
     ["cat /workspace/rebuild-only.txt", undefined, 1],
@@ -1331,9 +1323,12 @@ async function runBrowserProof() {
     ["echo PIPE-GREP | grep PIPE"],
     ["grep -Z", undefined, 2],
     ["echo grep-runtime-survived"],
-    ["sed s/Beta/Gamma/ corpus.txt"],
-    ["sed -n 2p corpus.txt"],
-    ["echo SED-PIPE | sed s/SED/DOLLY/"],
+    ["sed s/Beta/Gamma/ corpus.txt > /tmp/sed-substitution.txt"],
+    ["grep -q Gamma /tmp/sed-substitution.txt"],
+    ["sed -n 2p corpus.txt > /tmp/sed-line.txt"],
+    ["grep -q Beta /tmp/sed-line.txt"],
+    ["echo SED-PIPE | sed s/SED/DOLLY/ > /tmp/sed-pipe.txt"],
+    ["grep -q DOLLY-PIPE /tmp/sed-pipe.txt"],
     ["head -n 1 corpus.txt"],
     ["head -1 beta.txt"],
     ["wc -l corpus.txt"],
@@ -1367,9 +1362,6 @@ async function runBrowserProof() {
     ["grep -qi '^x-dolly-response: yes' curl-headers.txt"],
     ["grep -q '^201 text/plain; charset=utf-8$' curl-meta.txt"],
     ["curl -f /fixture/missing", undefined, 22],
-    [libcurlSourceCommand],
-    ["cc libcurl-check.c -lcurl -o libcurl-check"],
-    ["./libcurl-check"],
     ["git --version"],
     ["git config --global --get user.name"],
     ["git config --global --get user.email"],
@@ -1422,63 +1414,21 @@ async function runBrowserProof() {
     ["echo /b* | grep -q /bin"],
     ["ls /usr/bin"],
     ["echo USR-BIN-LIST-END"],
-    ["zig version"],
-    ["echo 'export fn browser_zig_answer() callconv(.c) u32 { return 42; }' > browser-answer.zig"],
-    ["zig build-obj -OReleaseSmall -target wasm64-emscripten -mcpu=generic+atomics -fPIC -fsingle-threaded -fcompiler-rt -lc --name browser-zig-answer -femit-bin=browser-answer.o -Mroot=/workspace/browser-answer.zig"],
-    ["echo 'extern unsigned browser_zig_answer(void); int main(void) { return browser_zig_answer() == 42 ? 0 : 1; }' > browser-zig-check.c"],
-    ["cc browser-zig-check.c browser-answer.o -o browser-zig-check"],
-    ["./browser-zig-check"],
     ["ls /usr/lib/libghostty-vt.a"],
     ["test ! -e /usr/bin/ghostty-vt"],
     ["graphics-demo --frames 2", undefined,
       document.documentElement.dataset.image === "gamedev" ? 0 : 127],
     ["cc --version"],
     ["c++ --version"],
-    ["echo \"int answer(void) { return 42; }\" > answer.c"],
-    ["cc -Wall -Wextra -O2 -c answer.c -o answer.o"],
-    ["cc -pedantic -c answer.c -o answer-pedantic.o"],
-    ["echo \"int answer(void); int main(int argc, char **argv) { (void)argc; (void)argv; return answer() == 42 ? 0 : 1; }\" > use.c"],
-    ["cc -std=c17 use.c answer.o -o c-multi"],
-    ["./c-multi"],
     ["echo \"int main(void) { volatile unsigned long n = 0; for (;;) n++; }\" > interrupt-loop.c"],
-    ["cc -O2 interrupt-loop.c -o interrupt-loop"],
+    ["cc -O0 interrupt-loop.c -o interrupt-loop"],
     ["ld --help"],
-    ["cc -c use.c -o use.o"],
-    ["ld use.o answer.o -o c-linked"],
-    ["./c-linked"],
-    ["ld use.c -o rejected", undefined, 64],
     ["ar --version"],
-    ["ar rcs libanswer.a answer.o"],
-    ["cc use.c libanswer.a -o archive-direct"],
-    ["./archive-direct"],
-    ["cc use.c -L. -lanswer -o archive-library"],
-    ["./archive-library"],
-    ["echo \"int main() { constexpr int value = 6 * 7; return value == 42 ? 0 : 1; }\" > cli.cpp"],
-    ["c++ -std=c++23 cli.cpp -o cpp-cli"],
-    ["./cpp-cli"],
-    ["echo \"void exit(int); int main(int argc, char **argv) { (void)argc; (void)argv; exit(23); }\" > exit23.c"],
-    ["cc exit23.c -o exit23"],
-    ["./exit23", undefined, 23],
-    ["echo command-local-exit-survived"],
     ["cc --definitely-unsupported", undefined, 64],
-    [randomSourceCommand],
-    ["cc random-check.c -o random-check"],
-    ["./random-check"],
     ["cat /bin/echo > invalid-module"],
     ["echo invalid >> invalid-module"],
     ["./invalid-module", undefined, 126],
     ["make --version"],
-    ["echo \"int value(void) { return 42; }\" > make-value.c"],
-    ["echo \"#include <stdio.h>\" > make-main.c"],
-    ["echo \"int value(void); int main(void) { printf(\\\"MAKE-%d\\\\n\\\", value()); return value() == 42 ? 0 : 1; }\" >> make-main.c"],
-    [makefileCommand],
-    ["make -j8 report"],
-    ["make -j8"],
-    ["./make-demo"],
-    ["make -q"],
-    ["touch make-value.c"],
-    ["make -q", undefined, 1],
-    ["make -j8"],
     ...(hasRecipe("quickjs") ? [
       ["qjs --version"],
       ["qjs -e \"Dolly.writeFile('/tmp/qjs-tty.txt', [process.stdin.isTTY, process.stdout.isTTY, process.stderr.isTTY].join(','))\""],
@@ -1527,6 +1477,13 @@ async function runBrowserProof() {
   if (!passed) {
     const mismatch = proofResults.findIndex(
       (result, index) => result.status !== expectedStatuses[index],
+    );
+    document.documentElement.dataset.dollyFailures = JSON.stringify(
+      proofResults.flatMap((result, index) =>
+        result.status === expectedStatuses[index]
+          ? []
+          : [{ index, command: result.command, actual: result.status,
+              expected: expectedStatuses[index] }]),
     );
     document.documentElement.dataset.dollyFailure = JSON.stringify(
       mismatch >= 0

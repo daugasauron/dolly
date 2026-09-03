@@ -1419,7 +1419,8 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
                         Scope *permitted_tools, Scope *exports,
                         char **kind, char **name,
                         int *header_seen, size_t *uses, size_t *slops,
-                        int *module_form, int execute) {
+                        int *module_form, int execute,
+                        int filesystem_available) {
   strip_comment(line);
   char *text = trim(line);
   if (*text == '\0') return 0;
@@ -1614,7 +1615,15 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
                    : scope_add(exports, words[0], words[1], detail, sha256);
       if (result == -EEXIST) result = 2;
     }
-    if (result == 0 && *uses == 0) {
+    // A packaged-prefix resume parses every skipped descendant to reconstruct
+    // the module graph, but the snapshot contains only the top-level module's
+    // public exports. Do not require a private descendant export to remain on
+    // disk. At depth 1 the export is public to the image and must be present;
+    // a leaf-layer cache also sets filesystem_available because it restored
+    // the complete leaf output before parsing its declarations.
+    const int exported_files_available = filesystem_available || depth == 1;
+    if (result == 0 && *uses == 0 &&
+        (strcmp(words[0], "ENV") == 0 || exported_files_available)) {
       result = validate_export(words[0], words[1], detail, sha256);
       if (result != 0) {
         fprintf(stderr, "dollyfile: %s:%zu: missing exported %s %s: %s\n",
@@ -1622,7 +1631,9 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
         result = 1;
       }
     }
-    if (result == 0 && *uses == 0 && strcmp(words[0], "ENV") != 0) {
+    if (result == 0 && strcmp(words[0], "ENV") != 0 &&
+        exported_files_available &&
+        exports->items[exports->count - 1].members == NULL) {
       result = capture_export_members(&exports->items[exports->count - 1]);
       if (result != 0) {
         fprintf(stderr, "dollyfile: %s:%zu: could not capture exported %s %s: %s\n",
@@ -1875,7 +1886,7 @@ static int execute_recipe(Engine *engine, const char *locator,
                             body.data, body.length, available, &imports, &children,
                             &permitted_tools, exports_out,
                             &kind, &name, &header_seen, &uses, &slops,
-                            &module_form, recipe_execute);
+                            &module_form, recipe_execute, execute);
     }
     free(body.data);
     free(logical.data);

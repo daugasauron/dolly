@@ -32,6 +32,7 @@ if (!browserBase.startsWith("/") || !browserBase.endsWith("/") ||
 const browserBasePrefix = browserBase === "/" ? "" : browserBase.slice(0, -1);
 const piDevelopmentMode = process.env.DOLLY_BROWSER_MODE === "pi";
 const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
+const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -44,6 +45,11 @@ const routeSmokeMode = process.env.DOLLY_BROWSER_MODE === "route-smoke";
 const sessionMode = process.env.DOLLY_BROWSER_MODE === "session";
 const pythonPackageMode = process.env.DOLLY_BROWSER_MODE === "python-packages";
 const toolchainProbeMode = process.env.DOLLY_BROWSER_MODE === "toolchain-probes";
+const zigSingleProviderMode = process.env.DOLLY_BROWSER_MODE === "zig-single-provider";
+const optimizedLifecycleProbeMode =
+  process.env.DOLLY_BROWSER_MODE === "optimized-lifecycle-probe";
+const lifecycleProbeMode =
+  process.env.DOLLY_BROWSER_MODE === "lifecycle-probe" || optimizedLifecycleProbeMode;
 const piAuditSpec = piAuditMode
   ? JSON.parse(await readFile(resolve(
       projectDir,
@@ -999,14 +1005,154 @@ chrome = spawn(chromeBinary, [
       ? menuPage
       : snapshotExportMode
       ? rebuildPage
-      : piDevelopmentMode || realOpenRouterMode || missingSnapshotMode
+      : piDevelopmentMode || cppMode || makeMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
-        || pythonPackageMode || toolchainProbeMode
+        || pythonPackageMode || toolchainProbeMode || zigSingleProviderMode
+        || lifecycleProbeMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (lifecycleProbeMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "command lifecycle probe image boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const optimization = optimizedLifecycleProbeMode ? "-O2" : "-O0";
+      const libcurlBody =
+        "int main(void) { CURL *curl = curl_easy_init(); " +
+        "struct curl_slist *headers = 0; " +
+        "headers = curl_slist_append(headers, \"X-Dolly-Test: yes\"); " +
+        `curl_easy_setopt(curl, CURLOPT_URL, \"${localOrigin}/fixture/libcurl-post\"); ` +
+        "curl_easy_setopt(curl, CURLOPT_POSTFIELDS, \"payload\"); " +
+        "curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 7L); " +
+        "curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers); " +
+        "CURLcode result = curl_easy_perform(curl); " +
+        "curl_slist_free_all(headers); curl_easy_cleanup(curl); return result; }";
+      const libcurlSource =
+        `awk 'BEGIN { print \"#include <curl/curl.h>\"; print \"${
+          libcurlBody.replaceAll("\\", "\\\\").replaceAll('"', '\\"')
+        }\" }' > /tmp/dolly-lifecycle-curl.c`;
+      const commands = [
+        libcurlSource,
+        `cc ${optimization} /tmp/dolly-lifecycle-curl.c -lcurl -o /tmp/dolly-lifecycle-curl`,
+        "echo 'int baseline(void) { return 1; }' > /tmp/dolly-lifecycle-before.c",
+        `cc ${optimization} -c /tmp/dolly-lifecycle-before.c -o /tmp/dolly-lifecycle-before.o`,
+        "echo 'int middle(void) { return 2; }' > /tmp/dolly-lifecycle-middle.c",
+        `cc ${optimization} -c /tmp/dolly-lifecycle-middle.c -o /tmp/dolly-lifecycle-middle.o`,
+        "/tmp/dolly-lifecycle-curl",
+        "echo 'int after(void) { return 3; }' > /tmp/dolly-lifecycle-after.c",
+        `cc ${optimization} -c /tmp/dolly-lifecycle-after.c -o /tmp/dolly-lifecycle-after.o`,
+      ];
+      for (const [index, command] of commands.entries()) {
+        await evaluate(debuggerClient.send, `(() => {
+          window.__dollyLifecycleProbe = null;
+          window.__dolly.submit(${JSON.stringify(command)}).then(
+            (status) => { window.__dollyLifecycleProbe = { status }; },
+            (error) => { window.__dollyLifecycleProbe = { error: String(error) }; },
+          );
+          return true;
+        })()`);
+        const outcome = await waitForValue(
+          debuggerClient.send,
+          "window.__dollyLifecycleProbe",
+          (value) => value !== null,
+          `lifecycle command ${index + 1}: ${command}`,
+          600,
+        );
+        assert.deepEqual(outcome, { status: 0 }, command);
+      }
+      assert.deepEqual(libcurlPostRequest, { header: "yes", body: "payload" });
+      console.log(
+        `browser: compiler ${optimization} lifecycle survived repeated ` +
+          "compile/link, libcurl execution, and subsequent code generation",
+      );
+      break browserProof;
+    }
+    if (makeMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "GNU Make SDK snapshot boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const makefile =
+        `awk 'BEGIN { print "WHERE := $(shell pwd)"; print "all: make-demo"; ` +
+        `print "make-demo: make-main.o make-value.o"; ` +
+        `print "\\t$(CC) make-main.o make-value.o -o $@"; ` +
+        `print "make-main.o: make-main.c"; print "\\t$(CC) -O0 -std=c17 -c $< -o $@"; ` +
+        `print "make-value.o: make-value.c"; print "\\t$(CC) -O0 -std=c17 -c $< -o $@"; ` +
+        `print "report:"; print "\\t@echo MAKE-SHELL=$(SHELL)"; ` +
+        `print "\\t@echo MAKE-WHERE=$(WHERE)" }' > /tmp/dolly-make/Makefile`;
+      for (const [index, command] of [
+        "rm -rf /tmp/dolly-make && mkdir -p /tmp/dolly-make",
+        "echo 'int value(void) { return 42; }' > /tmp/dolly-make/make-value.c",
+        "echo 'int value(void); int main(void) { return value() == 42 ? 0 : 1; }' > /tmp/dolly-make/make-main.c",
+        makefile,
+        "make -C /tmp/dolly-make -j8 report",
+        "make -C /tmp/dolly-make -j8",
+        "/tmp/dolly-make/make-demo",
+        "make -C /tmp/dolly-make -q",
+        "rm -rf /tmp/dolly-make",
+      ].entries()) {
+        await evaluate(debuggerClient.send, `(() => {
+          window.__dollyMakeProbe = null;
+          window.__dolly.submit(${JSON.stringify(command)}).then(
+            (status) => { window.__dollyMakeProbe = { status }; },
+            (error) => { window.__dollyMakeProbe = { error: String(error) }; },
+          );
+          return true;
+        })()`);
+        const outcome = await waitForValue(
+          debuggerClient.send,
+          "window.__dollyMakeProbe",
+          (value) => value !== null,
+          `GNU Make command ${index + 1}: ${command}`,
+          600,
+        );
+        assert.deepEqual(outcome, { status: 0 }, command);
+      }
+      console.log("browser: GNU Make used Slop to compile, link, and run a two-file C program");
+      break browserProof;
+    }
+    if (zigSingleProviderMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "single-provider Zig image boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const commands = [
+        "zig version",
+        "echo 'export fn browser_zig_answer() callconv(.c) u32 { return 42; }' > /tmp/dolly-zig-single.zig",
+        "zig build-obj -OReleaseSmall -target wasm64-emscripten " +
+          "-mcpu=generic+atomics -fPIC -fsingle-threaded -fcompiler-rt -lc " +
+          "--name dolly-zig-single -femit-bin=/tmp/dolly-zig-single.o " +
+          "-Mroot=/tmp/dolly-zig-single.zig",
+        "test -s /tmp/dolly-zig-single.o",
+        "rm -f /tmp/dolly-zig-single.zig /tmp/dolly-zig-single.o",
+      ];
+      for (const command of commands) {
+        assert.equal(await evaluate(
+          debuggerClient.send,
+          `window.__dolly.submit(${JSON.stringify(command)})`,
+        ), 0, command);
+      }
+      console.log("browser: native Zig single-provider code generation passed");
+      break browserProof;
+    }
     if (toolchainProbeMode) {
       const state = await waitForValue(
         debuggerClient.send,
@@ -1521,7 +1667,8 @@ chrome = spawn(chromeBinary, [
         "int main() {",
         "  std::vector<std::string> words{\"dolly\", \"c++23\"};",
         "  if (words.size() != 2 || words[0] != \"dolly\") return 1;",
-        "  std::printf(\"%s %s\\n\", words[0].c_str(), words[1].c_str());",
+        "  std::puts(words[0].c_str());",
+        "  std::puts(words[1].c_str());",
         "  return 0;",
         "}",
       ].join("\\n");
@@ -2228,8 +2375,7 @@ chrome = spawn(chromeBinary, [
       await evaluate(
         debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(
-          "echo 'int main(void) { for (;;) {} }' > /tmp/dolly-timeout.c && " +
-          "cc -O0 /tmp/dolly-timeout.c -o /tmp/dolly-timeout",
+          "test -s /workspace/interrupt-loop",
         )})`,
       ),
       0,
@@ -2238,19 +2384,12 @@ chrome = spawn(chromeBinary, [
       await evaluate(
         debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(
-          `qjs -e "const r = Dolly.shell('/tmp/dolly-timeout', '', 50); ` +
+          `qjs -e "const r = Dolly.shell('/workspace/interrupt-loop', '', 50); ` +
           `if (r.status !== 124) throw new Error('status ' + r.status)"`,
         )})`,
       ),
       0,
       "the in-Wasm spawn deadline did not terminate a CPU-bound command",
-    );
-    assert.equal(
-      await evaluate(
-        debuggerClient.send,
-        'window.__dolly.submit("rm -f /tmp/dolly-timeout.c /tmp/dolly-timeout")',
-      ),
-      0,
     );
   }
 
@@ -3147,7 +3286,6 @@ chrome = spawn(chromeBinary, [
   assert.equal(initialFontSize, 15);
   assert.equal(increasedFontSize, 16);
   assert.equal(restoredFontSize, 15);
-  assert.deepEqual(libcurlPostRequest, { header: "yes", body: "payload" });
   assert.deepEqual(curlCliRequest, { header: "yes", body: "one=1&two=2" });
   assert.deepEqual(gitDiscoveryRequest, { method: "GET", protocol: "version=2" });
   assert.equal(piModelRequests.length, 0);

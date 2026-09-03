@@ -433,6 +433,54 @@ test("the loader is browser-only and has no native filesystem path", async () =>
   }
 });
 
+test("the pinned Emscripten dynamic loader reports missing symbols safely", async () => {
+  const patcher = await readFile(
+    new URL("../scripts/patch-emscripten-loader.mjs", import.meta.url), "utf8",
+  );
+  assert.match(patcher, /value!=null&&typeof value\.value/);
+  assert.match(patcher, /expected exactly one Emscripten undefined-symbol diagnostic/);
+});
+
+test("the main-module provider exports Emscripten side-module stack bounds", async () => {
+  const packaging = await readFile(
+    new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8",
+  );
+  assert.match(packaging, /--export=__stack_pointer/);
+  assert.match(packaging, /--export=__stack_high/);
+  assert.match(packaging, /--export=__stack_low/);
+});
+
+test("browser acceptance separates one-shot compiler gates from known LLVM regressions", async () => {
+  const [harness, launcher, roadmap, compiler, browser] = await Promise.all([
+    readFile(new URL("../scripts/browser-harness.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/test-browser.sh", import.meta.url), "utf8"),
+    readFile(new URL("../docs/roadmap.md", import.meta.url), "utf8"),
+    readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8"),
+    readFile(new URL("../src/browser.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.match(harness, /DOLLY_BROWSER_MODE === "zig-single-provider"/);
+  assert.match(harness, /DOLLY_BROWSER_MODE === "lifecycle-probe"/);
+  assert.match(harness, /DOLLY_BROWSER_MODE === "optimized-lifecycle-probe"/);
+  assert.match(harness, /DOLLY_BROWSER_MODE === "make"/);
+  assert.match(launcher, /DOLLY_BROWSER_MODE=cpp/);
+  assert.match(launcher, /DOLLY_BROWSER_MODE=zig-single-provider/);
+  assert.match(roadmap, /known-red lifecycle,[\s\S]*mixed-provider cases/);
+  assert.match(compiler, /"-vectorize-loops"/);
+  assert.match(compiler, /"-vectorize-slp"/);
+  assert.match(browser, /cc -O0 interrupt-loop\.c -o interrupt-loop/);
+});
+
+test("Janis owns and cleans its generated module-adapter scratch tree", async () => {
+  const [runtime, runner] = await Promise.all([
+    readFile(new URL("../src/runtimes/janis.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/runtimes/quickjs-main.c", import.meta.url), "utf8"),
+  ]);
+  assert.match(runtime, /const janisTemporaryRoot = `\/tmp\/janis-/);
+  assert.match(runtime, /globalThis\.__janisCleanup = \(\) =>/);
+  assert.match(runtime, /fsRemove\(janisTemporaryRoot, \{ recursive: true, force: true \}\)/);
+  assert.match(runner, /cleanup_janis\(context\)/);
+});
+
 test("development servers expose application assets rather than the host checkout", async () => {
   for (const relative of ["../scripts/serve.mjs", "../scripts/browser-harness.mjs"]) {
     const source = await readFile(new URL(relative, import.meta.url), "utf8");
@@ -1089,7 +1137,9 @@ test("Zig bootstraps the retained Ghostty VT and display libraries inside Dolly"
   const build = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
   const packaging = await readFile(new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
   const abi = await readFile(new URL("../abi/dolly-0.wat", import.meta.url), "utf8");
-  const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
+  const zigBrowserGate = await readFile(
+    new URL("../scripts/browser-harness.mjs", import.meta.url), "utf8",
+  );
 
   assert.match(pins, /DOLLY_ZIG_VERSION=0\.16\.0/);
   assert.match(pins, /DOLLY_ZIG_SHA256=[0-9a-f]{64}/);
@@ -1167,9 +1217,9 @@ test("Zig bootstraps the retained Ghostty VT and display libraries inside Dolly"
   assert.match(abi, /"ZigLLDLinkWasm"/);
   assert.match(abi, /"ZigLLVMTargetMachineEmitToFile"/);
   assert.match(abi, /"LLVMInitializeWebAssemblyTarget"/);
-  assert.match(browser, /zig build-obj -OReleaseSmall -target wasm64-emscripten/);
-  assert.doesNotMatch(browser, /zig-object-check browser-answer\.o/);
-  assert.match(browser, /cc browser-zig-check\.c browser-answer\.o -o browser-zig-check/);
+  assert.match(zigBrowserGate, /zig build-obj -OReleaseSmall -target wasm64-emscripten/);
+  assert.match(zigBrowserGate, /test -s \/tmp\/dolly-zig-single\.o/);
+  assert.doesNotMatch(zigBrowserGate, /zig-object-check browser-answer\.o/);
 
   for (const source of [pins, ghosttyRecipe, nativeMain, nativeBuild, build, packaging]) {
     assert.doesNotMatch(source, /WAMR|wasm2c|-ofmt=c|ghostty-vt\.c/i);

@@ -1426,6 +1426,25 @@ static int pump_janis(JSContext *context) {
   return active;
 }
 
+static int cleanup_janis(JSContext *context) {
+  JSValue global = JS_GetGlobalObject(context);
+  JSValue function = JS_GetPropertyStr(context, global, "__janisCleanup");
+  JS_FreeValue(context, global);
+  if (JS_IsException(function)) return -1;
+  if (!JS_IsFunction(context, function)) {
+    JS_FreeValue(context, function);
+    return 0;
+  }
+  JSValue result = JS_Call(context, function, JS_UNDEFINED, 0, NULL);
+  JS_FreeValue(context, function);
+  if (JS_IsException(result)) {
+    print_exception(context);
+    return -1;
+  }
+  JS_FreeValue(context, result);
+  return 0;
+}
+
 static int process_exit_code(JSContext *context) {
   JSValue global = JS_GetGlobalObject(context);
   JSValue process = JS_GetPropertyStr(context, global, "process");
@@ -1678,6 +1697,7 @@ int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
   }
   int status = evaluate(context, source, length, name, module_mode);
   if (janis_interrupted) status = 128 + SIGINT;
+  if (cleanup_janis(context) != 0 && status == 0) status = 1;
   JS_FreeContext(context);
   JS_FreeRuntime(runtime);
   free(owned_source);

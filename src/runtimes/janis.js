@@ -1623,10 +1623,15 @@ function janisPackageImport(specifier, baseName, forRequire = false, raw = false
   });
 }
 
+// Module adapters must exist as files because QuickJS's module loader consumes
+// filesystem paths. Keep them in one invocation-owned scratch tree; the native
+// runner calls __janisCleanup before destroying this JavaScript context.
+const janisTemporaryRoot = `/tmp/janis-${Math.random().toString(16).slice(2, 14)}`;
+
 function janisEsmBuiltin(specifier) {
   const name = String(specifier).replace(/^node:/, "");
   const builtin = globalThis.__janisBuiltin(name);
-  const directory = "/tmp/janis-esm-builtins";
+  const directory = `${janisTemporaryRoot}/esm-builtins`;
   const path = `${directory}/${name.replaceAll("/", "__")}.mjs`;
   const exports = Object.keys(builtin)
     .filter((key) => key !== "default" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key))
@@ -1664,7 +1669,7 @@ function janisModuleIsEsm(path, fallback = false) {
 
 function janisEsmCommonJs(modulePath) {
   const value = globalThis.__janisRequireCjs(modulePath);
-  const directory = "/tmp/janis-esm-commonjs";
+  const directory = `${janisTemporaryRoot}/esm-commonjs`;
   const digest = createHash("sha256").update(modulePath).digest("hex");
   const path = `${directory}/${digest}.mjs`;
   const exports = value !== null && (typeof value === "object" || typeof value === "function")
@@ -2050,4 +2055,8 @@ globalThis.__janisPump = () => {
   runDueTimers();
   globalThis.__dollyHttpPump?.();
   return true;
+};
+
+globalThis.__janisCleanup = () => {
+  fsRemove(janisTemporaryRoot, { recursive: true, force: true });
 };

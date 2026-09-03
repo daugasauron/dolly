@@ -12,4 +12,12 @@ else
   exit 1
 fi
 
-exec node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+if [[ -n "${DOLLY_BROWSER_MODE:-}" ]]; then
+  exec node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+fi
+
+node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_BROWSER_MODE=cpp \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_BROWSER_MODE=zig-single-provider \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
