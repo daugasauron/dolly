@@ -965,6 +965,7 @@ test("host preparation scripts publish atomically and own their temporary paths"
     resolve(projectDir, "scripts/build-pi-runtime-packages.mjs"), "utf8",
   );
   const bison = await readFile(resolve(projectDir, "scripts/build-bison.sh"), "utf8");
+  const awk = await readFile(resolve(projectDir, "scripts/generate-awk.sh"), "utf8");
   const nativeZig = await readFile(
     resolve(projectDir, "scripts/build-native-zig.sh"), "utf8",
   );
@@ -995,6 +996,9 @@ test("host preparation scripts publish atomically and own their temporary paths"
   assert.match(piPackages, /pi-runtime-packages\.tar/);
   assert.doesNotMatch(bison, /bison-\$\{version\}-build/);
   assert.match(bison, /make DESTDIR="\$\{temporary_install\}" install/);
+  assert.match(awk, /awk-\$\{recipe_hash:0:16\}/);
+  assert.match(awk, /mktemp -d "\$\{project_dir\}\/build\/generated\/\.awk-parser/);
+  assert.match(awk, /mv -T -- "\$\{temporary_dir\}" "\$\{generated_dir\}"/);
   assert.match(nativeZig, /temporary_object=/);
   assert.doesNotMatch(nativeZig, /sha256sum\s*\\\s*\n\s*"\$\{project_dir\}\/config\/source-pins\.sh"/);
   assert.match(nativeZig, /zig-source=\$\{DOLLY_ZIG_SHA256\}/);
@@ -1019,6 +1023,20 @@ test("host preparation scripts publish atomically and own their temporary paths"
   assert.match(preparedCpython, /build-python=\$\{build_python_identity\}/);
   assert.doesNotMatch(preparedCpython, /rm -rf -- "\$\{output_dir\}"/);
   assert.match(preparedCpython, /mv -T -- "\$\{temporary\}" "\$\{output_dir\}"/);
+});
+
+test("snapshot creation and pruning share the canonical module recipe graph", async () => {
+  const builder = await readFile(
+    resolve(projectDir, "scripts/build-system-snapshot.mjs"), "utf8",
+  );
+  const pruner = await readFile(
+    resolve(projectDir, "scripts/prune-stale-snapshots.mjs"), "utf8",
+  );
+  for (const source of [builder, pruner]) {
+    assert.match(source, /loadDollyfileGraph/);
+    assert.match(source, /recipeRecords\(graphs\.get\(image\)\)/);
+  }
+  assert.doesNotMatch(pruner, /definition\.extends/);
 });
 
 test("build modules declare tools used by their own recipes", async () => {

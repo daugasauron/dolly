@@ -8,6 +8,8 @@ image="${DOLLY_EMSDK_IMAGE}"
 source_dir="${project_dir}/.cache/llvm-project"
 host_dir="${project_dir}/.cache/llvm-host"
 wasm_dir="${project_dir}/.cache/llvm-wasm"
+toolchain_key="$("${project_dir}/scripts/toolchain-cache-key.sh")"
+toolchain_stamp="${wasm_dir}/.dolly-toolchain-key"
 
 jobs="${DOLLY_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}"
 if ((jobs > 12)); then jobs=12; fi
@@ -109,5 +111,14 @@ fi
 "${container[@]}" cmake --build .cache/llvm-wasm \
   --target clangFrontendTool clangCodeGen lldWasm LLVMWebAssemblyCodeGen \
   --parallel "${jobs}"
+
+temporary_stamp="$(mktemp "${wasm_dir}/.dolly-toolchain-key.XXXXXX")"
+cleanup_stamp() {
+  rm -f -- "${temporary_stamp}"
+}
+trap cleanup_stamp EXIT
+printf '%s\n' "${toolchain_key}" > "${temporary_stamp}"
+mv -T -- "${temporary_stamp}" "${toolchain_stamp}"
+trap - EXIT
 
 echo "dolly: current wasm64 Clang/LLD seed toolchain is ready"

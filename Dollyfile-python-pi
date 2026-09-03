@@ -3,8 +3,8 @@ IMAGE python-pi
 
 USE HOST /modules/default.dm    51ba5ce36aab9fae9fdd6687bd7ed25960b6a4862348990223446841c1ab7901
 USE HOST /modules/python.dm     f9871d04d6e0751b6f8c5412b17debe8dcc52343df576c9a6a96a9d4ac7ec8f8
-USE HOST /modules/quickjs.dm    884f4a86dfa7cc44a04ec13b01f2531015917864ad614e5140b603f482524e10
+USE HOST /modules/quickjs.dm    1da047a5b60750b6b45b19ed47396ef29887115e9db3df30426f5eb57b4d6000
 USE HOST /modules/typescript.dm f10a3b924e5e80d3f0cfe8c07311d538812f1eaef4af60c0a9a6189c3672b6cb
-USE HOST /modules/pi.dm         9b1996a0997741fc88831e68c7df6d4b041ffef8f7a7502705c981f9e48526ea
+USE HOST /modules/pi.dm         8aaa0375d4d48306c31707fe32b9eadda84f36a9f4500f22e3f32e2a3ee7b8be
 
 ENTRY /usr/bin/pi

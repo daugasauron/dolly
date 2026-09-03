@@ -7,37 +7,18 @@ import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
 import { discoverImageDefinitions } from "./image-definitions.mjs";
+import { loadDollyfileGraph, recipeRecords } from "./dollyfile-graph.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const definitions = await discoverImageDefinitions(projectDir);
-const definitionByImage = new Map(
-  definitions.map((definition) => [definition.image, definition]),
-);
+const graphs = new Map(await Promise.all(definitions.map(async (definition) => [
+  definition.image,
+  await loadDollyfileGraph(projectDir, definition.filename),
+])));
 const { DOLLY_BUILD_ID } = await import("../dist/dolly-build-id.mjs");
 
-function digest(bytes) {
-  return createHash("sha256").update(bytes).digest("hex");
-}
-
 function expectedRecipes(image) {
-  const result = [];
-  const seen = new Set();
-  let definition = definitionByImage.get(image);
-  while (definition) {
-    if (seen.has(definition.image)) {
-      throw new Error(`Dollyfile inheritance cycle at ${image}`);
-    }
-    seen.add(definition.image);
-    result.unshift({
-      image: definition.image,
-      path: `/${definition.filename}`,
-      sha256: digest(definition.source),
-    });
-    if (!definition.extends) break;
-    definition = definitionByImage.get(definition.extends);
-    if (!definition) throw new Error(`Dollyfile parent is missing for ${image}`);
-  }
-  return result;
+  return recipeRecords(graphs.get(image));
 }
 
 async function fileDigest(path) {

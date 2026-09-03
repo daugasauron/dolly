@@ -23,7 +23,7 @@ SOURCE HOST /static/default/pi-generated-model-data.tar          /tmp/pi/pi-gene
 SOURCE HOST /static/default/pi-runtime-packages.tar              /tmp/pi/pi-runtime-packages.tar                 e395b7d88cbcc3afa020437507b309cc37a6f0b0645e038842a304a6aa6d2998
 SOURCE HOST /static/default/pi-tsconfig.dolly.json               /tmp/pi/tsconfig.dolly.json                     5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825
 SOURCE HOST /static/default/pi-quickjs-compat.mjs                /usr/lib/pi/quickjs-compat.mjs                  4bb0c0fc355abfd0a501378d6f5ad1342164c9014d807dd59b60c95861598f6a
-SOURCE HOST /static/default/runtimes/apply-pi-quickjs-compat.mjs /usr/lib/pi/apply-pi-quickjs-compat.mjs         a79386401c64c0bcc5650d5e2c4c4fd28fd00759b52a277f173f86961a5285f9
+SOURCE HOST /static/default/runtimes/apply-pi-quickjs-compat.mjs /usr/lib/pi/apply-pi-quickjs-compat.mjs         52b83033d7f25770bba0a0d6f27a1b265123add7561b0a141910d2a425deb298
 SOURCE HOST /static/default/commands/pi.c                        /tmp/pi/pi.c                                    2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e
 SOURCE HOST /static/default/pi/dolly-tools.js                    /home/dolly/.pi/agent/extensions/dolly-tools.js 02e61fcc3c7ad3f2ff5847acff5cd37320db2695e274aeb68414e00e247caf4d
 SOURCE HOST /static/default/pi/SYSTEM.md                         /home/dolly/.pi/agent/SYSTEM.md                 9831e43c2edb91864c1c2d99b8c78a0b7f7d94682556f76bde638d8088647861

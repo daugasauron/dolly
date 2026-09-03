@@ -22,9 +22,16 @@ mkdir -p \
   "${project_dir}/dist" \
   "${project_dir}/.cache/emscripten"
 
+toolchain_key="$("${project_dir}/scripts/toolchain-cache-key.sh")"
+toolchain_stamp="${project_dir}/.cache/llvm-wasm/.dolly-toolchain-key"
+installed_toolchain_key="$(cat "${toolchain_stamp}" 2>/dev/null || true)"
 if [[ ! -f "${project_dir}/.cache/llvm-wasm/lib/libclangFrontend.a" ||
-      ! -f "${project_dir}/.cache/llvm-wasm/lib/liblldWasm.a" ]]; then
+      ! -f "${project_dir}/.cache/llvm-wasm/lib/liblldWasm.a" ||
+      "${installed_toolchain_key}" != "${toolchain_key}" ]]; then
   echo "dolly: run ./scripts/build-toolchain.sh before building" >&2
+  if [[ -n "${installed_toolchain_key}" ]]; then
+    echo "dolly: cached wasm64 Clang/LLD provider is stale" >&2
+  fi
   exit 1
 fi
 

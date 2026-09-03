@@ -762,6 +762,24 @@ test("external source pins have one shell-native manifest consumed by build scri
   assert.match(inventory, /\/home\/dolly\/.*global Git configuration/);
 });
 
+test("the wasm64 Clang/LLD cache is bound to its pinned inputs", async () => {
+  const build = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
+  const toolchain = await readFile(
+    new URL("../scripts/build-toolchain.sh", import.meta.url), "utf8",
+  );
+  const key = await readFile(
+    new URL("../scripts/toolchain-cache-key.sh", import.meta.url), "utf8",
+  );
+  assert.match(build, /installed_toolchain_key/);
+  assert.match(build, /cached wasm64 Clang\/LLD provider is stale/);
+  assert.match(toolchain, /\.dolly-toolchain-key/);
+  assert.match(toolchain, /mv -T -- "\$\{temporary_stamp\}"/);
+  assert.match(key, /DOLLY_LLVM_COMMIT/);
+  assert.match(key, /DOLLY_EMSDK_IMAGE/);
+  assert.match(key, /config\/lld-dolly\.patch/);
+  assert.match(key, /scripts\/build-toolchain\.sh/);
+});
+
 test("bootstrap creates a writable HOME with a default global Git identity", async () => {
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const { startup } = await readImagePlan("default");
