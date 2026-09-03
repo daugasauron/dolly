@@ -1,4 +1,5 @@
-import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const expectedPiVersion = process.env.DOLLY_PI_VERSION;
@@ -30,9 +31,13 @@ if (esbuildVersion !== expectedEsbuildVersion) {
 }
 
 const generatedDirectory = new URL("../build/generated/", import.meta.url);
-const generatedPackageDirectory = new URL("pi-package/", generatedDirectory);
-await rm(generatedPackageDirectory, { recursive: true, force: true });
-await mkdir(generatedPackageDirectory, { recursive: true });
+const generatedPackageOutput = new URL("pi-package/", generatedDirectory);
+await mkdir(generatedDirectory, { recursive: true });
+const temporaryPackagePath = await mkdtemp(
+  fileURLToPath(new URL(".pi-package.", generatedDirectory)),
+);
+const generatedPackageDirectory = pathToFileURL(`${temporaryPackagePath}/`);
+try {
 const janisBuiltinNames = new Set([
   "assert", "assert/strict", "async_hooks", "buffer", "child_process",
   "console", "constants", "crypto", "diagnostics_channel", "dns", "events",
@@ -200,3 +205,8 @@ await Promise.all([
     { recursive: true },
   ),
 ]);
+  await rm(generatedPackageOutput, { recursive: true, force: true });
+  await rename(generatedPackageDirectory, generatedPackageOutput);
+} finally {
+  await rm(temporaryPackagePath, { recursive: true, force: true });
+}

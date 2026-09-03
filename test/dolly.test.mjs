@@ -28,6 +28,7 @@ import {
   discoverImageDefinitions,
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
+import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
 
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
 const contractPath = new URL("../dist/dolly-0.wasm", import.meta.url);
@@ -40,14 +41,13 @@ const commandNames = [
 
 async function readImagePlan(image) {
   const definitions = await discoverImageDefinitions(new URL("..", import.meta.url).pathname);
-  const byImage = new Map(definitions.map((definition) => [definition.image, definition]));
-  const layers = [];
-  let definition = byImage.get(image);
-  while (definition) {
-    layers.unshift(definition);
-    definition = definition.extends ? byImage.get(definition.extends) : null;
-  }
-  return { startup: layers.map((layer) => layer.source).join("\n") };
+  const definition = definitions.find((item) => item.image === image);
+  if (!definition) throw new Error(`unknown image ${image}`);
+  const graph = await loadDollyfileGraph(
+    new URL("..", import.meta.url).pathname,
+    definition.filename,
+  );
+  return { graph, startup: graph.records.map((record) => record.source).join("\n") };
 }
 
 const moduleInfrastructure = new Set([
@@ -253,12 +253,14 @@ test("the runtime implements dolly-0", async () => {
 test("the runtime exposes the typed slop shell boundary", async () => {
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
   const bootstrap = runtime.exports.find((entry) => entry.name === "dolly_bootstrap");
+  const resume = runtime.exports.find((entry) => entry.name === "dolly_bootstrap_resume");
   const run = runtime.exports.find((entry) => entry.name === "dolly_shell_run");
   const mailbox = runtime.exports.find(
     (entry) => entry.name === "dolly_display_mailbox_address",
   );
 
   assert.equal(formatWasmType(bootstrap.type), "func()->(i32)");
+  assert.equal(formatWasmType(resume.type), "func(i64,i32)->(i32)");
   assert.equal(formatWasmType(run.type), "func()->(i32)");
   assert.equal(formatWasmType(mailbox.type), "func()->(i64)");
   assert.equal(runtime.exports.some((entry) => entry.name === "dolly_shell_start"), false);
@@ -353,6 +355,7 @@ test("the runtime implements the opaque system snapshot contract", async () => {
   assert.match(source, /DOLLY_SNAPSHOT_MAX_SIZE = \(uintptr_t\)512 \* 1024 \* 1024/);
   assert.match(source, /open\("\/etc\/dolly\/image\.manifest", O_RDONLY\)/);
   assert.match(source, /DOLLY_SNAPSHOT_MAX_FILES = 100000/);
+  assert.match(source, /O_WRONLY \| O_CREAT \| O_TRUNC, 0777/);
   assert.match(source, /forbidden_manifest_path/);
   assert.match(source, /"\/tmp", "\/workspace"/);
   assert.match(source, /"\/home\/dolly\/\.pi\/agent\/auth\.json"/);
@@ -389,6 +392,7 @@ test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
   assert.match(source, /"\/home\/dolly\/\.dolly-session-name"/);
   assert.match(source, /strcmp\(path, "\/dev"\)/);
   assert.match(source, /strcmp\(path, "\/seed"\)/);
+  assert.match(source, /O_WRONLY \| O_CREAT \| O_TRUNC, 0777/);
   assert.match(browser, /event\.code === "KeyS"/);
   assert.match(browser, /saveStoredSession/);
   assert.match(store, /indexedDB\.open/);
@@ -402,8 +406,8 @@ test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
     assert.equal(validSessionName(invalid), false);
   }
   const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
-  assert.match(sessionImageIdentity(DOLLY_IMAGES, "python"),
-    /^default:[0-9a-f]{64}\npython:[0-9a-f]{64}$/);
+  assert.match(sessionImageIdentity(DOLLY_IMAGES, "python-pi"),
+    /^python-pi:[0-9a-f]{64}$/);
   const input = new TextEncoder().encode("DOLLYSES" + " session data ".repeat(128)).buffer;
   const encoded = await encodeSessionSnapshot(input);
   assert.deepEqual(
@@ -459,6 +463,8 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(frontend, /interruptForeground\(\)/);
   assert.match(frontend, /event\.code === "KeyC"/);
   assert.match(frontend, /networkTransport\?\.interrupt\(\)/);
+  assert.match(frontend, /const recipes = new Set\(imageDefinition\?\.recipes/);
+  assert.match(frontend, /hasRecipe\("quickjs"\)/);
   assert.match(frontend, /class FramebufferPresenter/);
   assert.match(frontend, /putImageData\(new ImageData/);
   assert.match(frontend, /pushKey\(event\)/);
@@ -467,10 +473,11 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.doesNotMatch(frontend, /dolly_shell_submit|ccall\(/);
   assert.match(worker, /shared: true/);
   assert.match(worker, /_dolly_bootstrap\(\)/);
+  assert.match(worker, /_dolly_bootstrap_resume\(/);
   assert.match(worker, /_dolly_bootstrap_snapshot\(BigInt\(range\.size\)\)/);
   assert.match(worker, /_dolly_snapshot_capture\(\)/);
-  assert.match(worker, /dolly-\$\{configuredImage\}-system\.snapshot/);
-  assert.match(worker, /dolly-\$\{configuredImage\}-system-snapshot\.mjs/);
+  assert.match(worker, /dolly-\$\{image\}-system\.snapshot/);
+  assert.match(worker, /dolly-\$\{image\}-system-snapshot\.mjs/);
   assert.match(worker, /crypto\.subtle\.digest\("SHA-256", bytes\)/);
   assert.match(worker, /metadata\.buildId !== DOLLY_BUILD_ID/);
   assert.match(worker, /type: "system-snapshot"/);
@@ -482,6 +489,7 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(worker, /replaceFile\("\/etc\/dolly\/host\.base"/);
   assert.match(worker, /_dolly_write_file\(/);
   assert.match(worker, /replaceFile\("\/etc\/dolly\/image\.manifest"/);
+  assert.match(worker, /configuredImage !== "custom"[\s\S]*?findModuleCache\(\)/);
   assert.match(worker, /_dolly_shell_run\(\)/);
   assert.match(worker, /function createDollyMemory\(\)/);
   assert.match(worker, /Dolly requires shared WebAssembly memory64/);
@@ -495,6 +503,8 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(worker, /_dolly_terminal_write_bytes\(BigInt\(buffer\.byteOffset \+ offset\), BigInt\(length\)\)/);
   assert.match(worker, /type: "broker-ready"/);
   assert.match(frontend, /type: "broker-ready-ack"/);
+  assert.match(worker, /waitForBrowserAcknowledgement\(\s*"display-ready-ack"/);
+  assert.match(frontend, /type: "display-ready-ack"/);
   assert.match(worker, /_dolly_display_framebuffer_address\(0\)/);
   assert.match(frontend, /requestFullscreen\(\{ navigationUI: "hide" \}\)/);
   assert.match(frontend, /fullscreenchange/);
@@ -531,74 +541,95 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.doesNotMatch(isolation, /caches\.|indexedDB|postMessage/);
   assert.match(page, /caret-color: transparent/);
   assert.doesNotMatch(page, /<header|<footer|id="status"/);
-  assert.match(menu, /import \{ DOLLY_IMAGES \} from "\.\/dist\/dolly-images\.mjs"/);
-  assert.match(menu, /`\.\/\$\{definition\.image\}\/`/);
-  assert.match(menu, /`\.\/\$\{definition\.image\}\/rebuild\/`/);
-  assert.match(menu, /`\.\/view\/\$\{definition\.image\}\/`/);
-  assert.match(menu, /id="dollyfile-upload"/);
-  assert.match(menu, /sessionStorage\.setItem\("dolly-custom-source"/);
+  assert.match(menu, /href="\.\/default\/"/);
+  assert.match(menu, /href="\.\/default\/rebuild\/"/);
+  assert.match(menu, /href="\.\/view\/default\/"/);
+  assert.match(menu, /href="\.\/pi\/"/);
+  assert.match(menu, /href="\.\/pi\/rebuild\/"/);
+  assert.match(menu, /href="\.\/view\/python-pi\/"/);
+  assert.doesNotMatch(menu, /<script|URLSearchParams|sessionStorage|dollyfile-upload/);
   assert.doesNotMatch(menu, /voice input/i);
 });
 
 test("system snapshots are sealed to their visible recipe chain", async () => {
   const { DOLLY_BUILD_ID } = await import(artifact("dolly-build-id.mjs"));
-  const definitions = await discoverImageDefinitions(new URL("..", import.meta.url).pathname);
-  const byImage = new Map(definitions.map((item) => [item.image, item]));
+  const projectDir = new URL("..", import.meta.url).pathname;
+  const definitions = await discoverImageDefinitions(projectDir);
+  const expectedEntries = new Map([
+    ["default", "/bin/slop"],
+    ["pi", "/usr/bin/pi"],
+    ["python", "/bin/slop"],
+    ["python-pi", "/usr/bin/pi"],
+    ["gamedev", "/usr/bin/graphics-demo"],
+  ]);
   for (const image of definitions.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
     const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
       artifact(`dolly-${image}-system-snapshot.mjs`)
     );
-    const chain = [];
-    for (let current = byImage.get(image); current; current = current.extends
-      ? byImage.get(current.extends)
-      : null) {
-      chain.unshift(current.image);
-    }
+    const graph = await loadDollyfileGraph(
+      projectDir,
+      definitions.find((definition) => definition.image === image).filename,
+    );
+    const recipes = recipeRecords(graph);
     assert.equal(metadata.image, image);
     assert.equal(metadata.buildId, DOLLY_BUILD_ID);
     assert.equal(metadata.identityVersion, 2);
-    assert.deepEqual(metadata.recipes, chain.map((name) => {
-      const definition = byImage.get(name);
-      return {
-        image: name,
-        path: `/${definition.filename}`,
-        sha256: createHash("sha256").update(definition.source).digest("hex"),
-      };
-    }));
+    assert.deepEqual(metadata.recipes, recipes);
+    assert.deepEqual(metadata.modules, graph.root.uses.map(
+      ({ location, sha256 }) => ({ location, sha256 }),
+    ));
     assert.deepEqual(metadata.manifest, [...metadata.manifest].sort());
-    assert.ok(metadata.manifest.includes("/usr/bin/pi"));
+    assert.ok(metadata.manifest.includes(expectedEntries.get(image)));
+    assert.equal(
+      metadata.manifest.includes("/usr/bin/pi"),
+      ["pi", "python-pi", "gamedev"].includes(image),
+    );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
+    for (const recipe of recipes) assert.ok(metadata.manifest.includes(recipe.retainedPath));
     assert.equal(metadata.manifest.some((path) => path.startsWith("/workspace")), false);
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
-    assert.deepEqual(metadata.entry, ["/usr/bin/pi"]);
+    assert.deepEqual(metadata.entry, [expectedEntries.get(image)]);
   }
 });
 
-test("Dollyfiles are additive and execute through the sequential C engine", async () => {
-  const base = await readFile(new URL("../Dollyfile", import.meta.url), "utf8");
-  const game = await readFile(new URL("../Dollyfile-gamedev", import.meta.url), "utf8");
-  const python = await readFile(new URL("../Dollyfile-python", import.meta.url), "utf8");
-  const baseView = inspectDollyfile(base, "Dollyfile");
-  const gameView = inspectDollyfile(game, "Dollyfile-gamedev");
-  const pythonView = inspectDollyfile(python, "Dollyfile-python");
+test("Dollyfiles compose pinned modules through the sequential C engine", async () => {
+  const projectDir = new URL("..", import.meta.url).pathname;
+  const definitions = await discoverImageDefinitions(projectDir);
+  const graphs = await Promise.all(definitions.map((definition) =>
+    loadDollyfileGraph(projectDir, definition.filename)));
+  const byImage = new Map(graphs.map((graph) => [graph.root.image, graph]));
   const engine = await readFile(new URL("../src/dollyfile.c", import.meta.url), "utf8");
   const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
-  assert.equal(baseView.image, "default");
-  assert.equal(gameView.extends, "default");
-  assert.equal(pythonView.extends, "default");
-  assert.ok(baseView.sources.length > 40);
-  assert.equal(gameView.sources.length, 7);
-  assert.equal(pythonView.sources.length, 4);
-  assert.equal(baseView.sources.some((item) =>
-    /gamedev|graphics-demo|cpython/.test(item.location)), false);
-  assert.match(base, /SOURCE HOST TXT \/static\/bootstrap\/tar\.c/);
-  assert.match(base, /RUN cc .*\/bin\/tar/);
-  assert.match(base, /SOURCE HOST BIN .*\.tar .* SHA256 [0-9a-f]{64}/);
-  assert.match(base, /RUN tar -xf/);
-  assert.doesNotMatch(`${base}\n${game}\n${python}`, /DECLARE HTTP|SAMEHOST|\.assets|\bBASE\b/);
-  assert.match(engine, /result = fetch_source\(engine.*?result = run_slop/s);
+  assert.deepEqual(byImage.get("default").root.children.map(({ name }) => name), ["default"]);
+  assert.deepEqual(byImage.get("pi").root.children.map(({ name }) => name),
+    ["default", "quickjs", "pi"]);
+  assert.deepEqual(byImage.get("python").root.children.map(({ name }) => name),
+    ["default", "python"]);
+  assert.deepEqual(byImage.get("python-pi").root.children.map(({ name }) => name),
+    ["default", "python", "quickjs", "pi"]);
+  assert.deepEqual(byImage.get("gamedev").root.children.map(({ name }) => name),
+    ["default", "quickjs", "pi", "gamedev"]);
+  assert.equal(byImage.get("default").modules.some(({ name }) =>
+    ["quickjs", "pi", "python", "gamedev"].includes(name)), false);
+  const source = graphs.flatMap(({ records }) => records.map((record) => record.source)).join("\n");
+  assert.match(source, /SOURCE HOST \/static\/default\/git\.tar \/tmp\/git\.tar [0-9a-f]{64}/);
+  assert.match(source, /SLOP CWD \/usr\/src\/git make/);
+  assert.doesNotMatch(source, /DECLARE HTTP|SAMEHOST|\.assets|\bEXTENDS\b|^RUN\b|^CHECK\b/m);
+  assert.match(engine, /result = fetch_recipe\(engine, locator, &recipe, digest\)/);
+  assert.match(engine, /execute_recipe\(engine, words\[1\], words\[2\], depth \+ 1,[\s\S]*?children/);
+  assert.match(engine, /scope_find\(available, words\[0\], words\[1\]\)/);
+  assert.match(engine, /permit_tool\(permitted_tools, provider->name\)/);
+  assert.match(engine, /depth == 0 && \*uses < engine->resume_uses/);
+  assert.match(engine, /if \(!execute\) return 0/);
+  assert.match(worker, /isStrictModulePrefix/);
+  assert.match(worker, /using \$\{moduleCache\.uses\}-module/);
+  assert.doesNotMatch(engine, /DOLLY_SLOP_TOOLS|DOLLY_SLOP_TOOL_RULES/);
+  assert.doesNotMatch(await readFile(new URL("../src/slop.c", import.meta.url), "utf8"),
+    /DOLLY_SLOP_TOOLS|DOLLY_SLOP_TOOL_RULES/);
+  assert.match(engine, /strcmp\(text, "SOURCE"\)[\s\S]*?fetch_source/);
+  assert.match(engine, /strcmp\(text, "SLOP"\)[\s\S]*?execute_slop/);
   assert.doesNotMatch(worker, /compileDollyfiles|parseDollyfile|sameHostAssets|\.assets/);
 });
 
@@ -606,25 +637,27 @@ test("HOST inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const sources = await inspectStaticSources(projectDir, definitions);
-  assert.equal(sources.length, 66);
+  assert.ok(sources.length >= 50);
   assert.ok(sources.every((item) =>
-    item.path.startsWith("/static/") && ["txt", "bin"].includes(item.media) &&
+    ["/static/", "/modules/", "/include/dolly/"].some((prefix) =>
+      item.path.startsWith(prefix)) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
   assert.equal(sources.some((item) => item.path.endsWith(".assets")), false);
-  assert.equal(sources.find((item) => item.path === "/static/bootstrap/tar.c").media, "txt");
+  assert.ok(sources.some((item) => item.path === "/modules/default.dm"));
+  assert.ok(sources.some((item) => item.path === "/include/dolly/runtime.h"));
   assert.ok(sources.find((item) => item.path.endsWith("/zig-lib.tar")).byteLength > 200e6);
 });
 
 test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(artifact("dolly-images.mjs"));
-  assert.deepEqual(DOLLY_IMAGES.map(({ image, dollyfile, extends: parent }) => ({
-    image, dollyfile, ...(parent ? { extends: parent } : {}),
-  })), [
+  assert.deepEqual(DOLLY_IMAGES.map(({ image, dollyfile }) => ({ image, dollyfile })), [
     { image: "default", dollyfile: "Dollyfile" },
-    { image: "gamedev", dollyfile: "Dollyfile-gamedev", extends: "default" },
-    { image: "python", dollyfile: "Dollyfile-python", extends: "default" },
+    { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
+    { image: "pi", dollyfile: "Dollyfile-pi" },
+    { image: "python", dollyfile: "Dollyfile-python" },
+    { image: "python-pi", dollyfile: "Dollyfile-python-pi" },
   ]);
-  assert.ok(DOLLY_STATIC_SOURCES.length >= 54);
+  assert.ok(DOLLY_STATIC_SOURCES.length >= 50);
   for (const image of DOLLY_IMAGES) {
     await readFile(new URL(`../build/routes/${image.image}/index.html`, import.meta.url));
     await readFile(new URL(`../build/routes/${image.image}/rebuild/index.html`, import.meta.url));
@@ -632,9 +665,11 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     assert.ok(image.byteLength > 0);
     assert.match(image.sha256, /^[0-9a-f]{64}$/);
   }
-  const viewer = await readFile(new URL("../src/dollyfile-viewer.mjs", import.meta.url), "utf8");
-  assert.match(viewer, /anchor\.download/);
-  assert.match(viewer, /source\[1\] === "HOST"/);
+  const viewer = await readFile(new URL("../scripts/render-dollyfile-view.mjs", import.meta.url), "utf8");
+  assert.match(viewer, /<a.*href=/);
+  assert.match(viewer, /renderUse/);
+  assert.match(viewer, /renderRequirement/);
+  assert.doesNotMatch(viewer, /URLSearchParams|sessionStorage|location\.search/);
 });
 
 test("the common seed builds Dollyfile and only essential command wrappers", async () => {
@@ -649,7 +684,9 @@ test("the common seed builds Dollyfile and only essential command wrappers", asy
   assert.match(runtime, /"\/etc\/dolly\/recipe\.locator"/);
   assert.match(runtime, /"\/etc\/dolly\/host\.base"/);
   assert.doesNotMatch(runtime, /startup\.slop/);
-  assert.match(recipe, /make -f \/usr\/src\/dolly\/startup\.mk pi/);
+  assert.match(recipe, /^DOLLY 2$/m);
+  assert.match(recipe, /^USE HOST \/modules\/default\.dm [0-9a-f]{64}$/m);
+  assert.doesNotMatch(recipe, /startup\.mk/);
 });
 
 test("external source pins have one shell-native manifest consumed by build scripts", async () => {
@@ -657,6 +694,7 @@ test("external source pins have one shell-native manifest consumed by build scri
   const inventory = await readFile(new URL("../docs/sources.md", import.meta.url), "utf8");
   for (const name of [
     "DOLLY_EMSDK_IMAGE",
+    "DOLLY_EMSCRIPTEN_COMMIT",
     "DOLLY_LLVM_COMMIT",
     "DOLLY_SBASE_COMMIT",
     "DOLLY_AWK_COMMIT",
@@ -682,7 +720,10 @@ test("external source pins have one shell-native manifest consumed by build scri
     "../scripts/build-toolchain.sh",
     "../scripts/build-bison.sh",
     "../scripts/fetch-awk.sh",
+    "../scripts/fetch-box3d.sh",
+    "../scripts/fetch-cpython.sh",
     "../scripts/fetch-curl.sh",
+    "../scripts/fetch-emscripten-system-libs.sh",
     "../scripts/fetch-git.sh",
     "../scripts/fetch-iosevka.sh",
     "../scripts/fetch-make.sh",
@@ -691,10 +732,13 @@ test("external source pins have one shell-native manifest consumed by build scri
     "../scripts/fetch-ghostty.sh",
     "../scripts/fetch-uucode.sh",
     "../scripts/fetch-quickjs.sh",
+    "../scripts/fetch-raylib.sh",
+    "../scripts/fetch-samurai.sh",
     "../scripts/fetch-sbase.sh",
     "../scripts/fetch-zlib.sh",
     "../scripts/prepare-git.sh",
     "../scripts/prepare-make.sh",
+    "../scripts/prepare-samurai.sh",
     "../scripts/prepare-zig-native.sh",
     "../scripts/prepare-ghostty-source.sh",
   ]) {
@@ -712,8 +756,8 @@ test("bootstrap creates a writable HOME with a default global Git identity", asy
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const { startup } = await readImagePlan("default");
   assert.match(runtime, /setenv\("HOME", "\/home\/dolly", 1\)/);
-  assert.match(startup, /mkdir -p \/home\/dolly/);
-  assert.match(startup, /echo '\[user\]' > \/home\/dolly\/\.gitconfig/);
+  assert.match(startup, /FILE \/home\/dolly\/\.gitconfig/);
+  assert.match(startup, /\[user\]/);
   assert.match(startup, /name = Dolly/);
   assert.match(startup, /email = dolly@example\.invalid/);
 });
@@ -721,8 +765,9 @@ test("bootstrap creates a writable HOME with a default global Git identity", asy
 test("slop reserves only stateful shell operations and resolves utilities through PATH", async () => {
   const shell = await readFile(new URL("../src/slop.c", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
-  const copy = await readFile(new URL("../src/commands/cp.c", import.meta.url), "utf8");
-  const { startup } = await readImagePlan("default");
+  const { graph, startup } = await readImagePlan("default");
+  const copy = graph.modules.find(({ name }) => name === "core-tools").files
+    .find(({ path }) => path === "/tmp/core-tools/cp.c").body;
   for (const builtin of [":", "exit", "cd", "export", "unset", "set"]) {
     assert.match(shell, new RegExp(`strcmp\\(argv\\[0\\], "${escapeRegex(builtin)}"\\)`));
   }
@@ -744,10 +789,10 @@ test("slop reserves only stateful shell operations and resolves utilities throug
   assert.match(shell, /expand_deferred_status\(shell, tokens, start, end\)/);
   assert.match(shell, /kind == TOKEN_NOT && tokens->count != 0/);
   assert.doesNotMatch(shell, /readline|linenoise|editline/);
-  assert.match(startup, /RUN cc .*\/bin\/tar/);
-  assert.match(startup, /CHECK git --version/);
+  assert.match(startup, /SLOP cc \\\n[\s\S]*?-o \/bin\/tar/);
+  assert.match(startup, /SLOP git \\\n\s+--version/);
   assert.doesNotMatch(shell, /chmod|X_OK|S_IXUSR|S_IXGRP|S_IXOTH/);
-  assert.match(startup, /RUN cc \/usr\/src\/dolly\/commands\/cp\.c -o \/bin\/cp/);
+  assert.match(startup, /SLOP cc \\\n\s+\/tmp\/core-tools\/cp\.c \\\n\s+-o \/bin\/cp/);
   assert.match(copy, /copy_directory/);
   assert.doesNotMatch(copy, /chmod|chown|st_mode\s*&/);
 });
@@ -783,12 +828,12 @@ test("the in-Wasm linker validates a staged output before publishing it", async 
   assert.match(compiler, /export_name\(\\"dolly_main\\"\)/);
   assert.match(compiler, /_Z10dolly_main/);
   assert.match(compiler, /__asm__\(\\"%s\\"\)/);
-  assert.match(compiler, /link_command\(linked, link_inputs\)/);
+  assert.match(compiler, /link_side_module\(linked, link_inputs, options\.linker_options/);
   assert.match(compiler, /validate_command\(linked\).*stamp_command\(linked\).*publish_file\(linked, output\)/s);
   assert.match(compiler, /std::rename\(source\.c_str\(\), output\.c_str\(\)\)/);
   assert.match(compiler, /WasmFS cannot rename across every backend boundary/);
   assert.match(compiler, /std::fopen\(output\.c_str\(\), "wb"\)/);
-  assert.doesNotMatch(compiler, /link_command\(output\)/);
+  assert.doesNotMatch(compiler, /link_side_module\(output/);
 });
 
 test("foreground SIGINT is a PID-targeted in-Wasm lifecycle operation", async () => {
@@ -815,25 +860,29 @@ test("foreground SIGINT is a PID-targeted in-Wasm lifecycle operation", async ()
   assert.match(runtime, /child_terminal_mask[\s\S]*?active_terminal_mask = child_terminal_mask/);
   assert.match(runtime, /active_terminal_mask = previous_terminal_mask/);
   assert.match(compiler, /"isatty=dolly_isatty"/);
-  const startup = await readFile(new URL("../src/startup.mk", import.meta.url), "utf8");
-  assert.match(startup, /QUICKJS_CPPFLAGS :=.*-fdolly-runtime-interrupt-handler/);
+  const { graph } = await readImagePlan("pi");
+  const quickjsRecipe = graph.modules.find(({ name }) => name === "quickjs").source;
+  assert.match(quickjsRecipe, /CPPFLAGS :=[\s\S]*?-fdolly-runtime-interrupt-handler/);
   assert.match(runtime, /dolly_http_poll[\s\S]*?dolly_interrupt_checkpoint\(\)/);
   assert.match(runtime, /dolly_terminal_read_raw_timeout[\s\S]*?dolly_interrupt_checkpoint\(\)/);
   assert.match(runtime, /dolly_sleep[\s\S]*?dolly_interrupt_checkpoint\(\)/);
+});
+
+test("filesystem commands support bounded in-Wasm shebang dispatch", async () => {
+  const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
+  assert.match(runtime, /run_shebang_script/);
+  assert.match(runtime, /interpreter\[0\] != '\/'/);
+  assert.match(runtime, /shebang accepts at most one argument/);
+  assert.match(runtime, /dolly_spawn\(interpreter,[\s\S]*STDIN_FILENO,[\s\S]*STDOUT_FILENO,[\s\S]*STDERR_FILENO\)/);
+  assert.doesNotMatch(runtime, /system\(.*shebang|execv.*shebang|node.*shebang/i);
 });
 
 test("foreground commands can exclusively lease and safely restore the in-Wasm framebuffer", async () => {
   const display = await readFile(new URL("../include/dolly/display.h", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const driver = await readFile(new URL("../src/ghostty/display.c", import.meta.url), "utf8");
-  const demo = await readFile(new URL("../src/commands/graphics-demo.c", import.meta.url), "utf8");
-  const raylibAdapter = await readFile(
-    new URL("../src/gamedev/dolly-raylib.c", import.meta.url),
-    "utf8",
-  );
-  const makefile = await readFile(new URL("../src/gamedev.mk", import.meta.url), "utf8");
   const packaging = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
-  const gamedev = await readFile(new URL("../Dollyfile-gamedev", import.meta.url), "utf8");
+  const gamedev = await readFile(new URL("../modules/gamedev.dm", import.meta.url), "utf8");
   const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
 
   assert.match(display, /DOLLY_DISPLAY_PIXEL_RGBA8/);
@@ -863,26 +912,25 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   assert.match(browser, /pushScroll\(deltaRows\)/);
   assert.match(browser, /addEventListener\("wheel"/);
   assert.match(browser, /event\.pointerType === "touch"/);
-  assert.match(raylibAdapter, /dolly_display_acquire\(&context->surface\)/);
-  assert.match(raylibAdapter, /dolly_display_present\(context->surface\.generation/);
-  assert.match(makefile, /\/usr\/bin\/graphics-demo: \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
-  assert.match(packaging, /copy_static .*graphics-demo\.c.*gamedev\/graphics-demo\.c/);
-  assert.match(gamedev, /SOURCE HOST TXT \/static\/gamedev\/graphics-demo\.c/);
-  assert.match(gamedev, /KEEP \/usr\/bin\/graphics-demo/);
-  assert.match(gamedev, /KEEP \/usr\/src\/dolly\/gamedev\/gamedev\.mk/);
-  assert.match(gamedev, /KEEP \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
+  assert.match(gamedev, /dolly_display_acquire\(&context->surface\)/);
+  assert.match(gamedev, /dolly_display_present\(context->surface\.generation/);
+  assert.match(gamedev, /\/usr\/bin\/graphics-demo: \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
+  assert.match(packaging, /fetch-box3d\.sh/);
+  assert.match(gamedev, /FILE \/usr\/src\/dolly\/gamedev\/graphics-demo\.c\n    /);
+  assert.match(gamedev, /FILE \/usr\/src\/dolly\/gamedev\/gamedev\.mk\n    /);
+  assert.match(gamedev, /EXPORTS TOOL\s+graphics-demo/);
   assert.match(gamedev, /raylib\.tar/);
-  assert.match(gamedev, /box2d\.tar/);
+  assert.match(gamedev, /box3d\.tar/);
   assert.match(gamedev, /skills\/dolly-gamedev\/SKILL\.md/);
-  assert.match(makefile, /-DPLATFORM_MEMORY/);
-  assert.match(makefile, /libbox2d\.a/);
-  assert.match(demo, /#include <box2d\/box2d\.h>/);
-  assert.match(demo, /#include <dolly\/raylib\.h>/);
+  assert.match(gamedev, /-DPLATFORM_MEMORY/);
+  assert.match(gamedev, /libbox3d\.a/);
+  assert.match(gamedev, /#include <box3d\/box3d\.h>/);
+  assert.match(gamedev, /#include <dolly\/raylib\.h>/);
   assert.match(browser, /graphicsActive\(\)/);
-  assert.doesNotMatch(demo, /EM_JS|fetch\s*\(|window\.|document\.|canvas/i);
+  assert.doesNotMatch(gamedev, /EM_JS|fetch\s*\(|window\.|document\./i);
 });
 
-test("the in-Wasm loader revalidates every filesystem executable", async () => {
+test("the in-Wasm loader revalidates commands and shared libraries", async () => {
   const compiler = await readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const header = await readFile(new URL("../src/dolly-runtime.h", import.meta.url), "utf8");
@@ -890,14 +938,16 @@ test("the in-Wasm loader revalidates every filesystem executable", async () => {
   assert.match(compiler, /bool has_contract_stamp\(const std::string &path\)/);
   assert.match(compiler, /matches != 1/);
   assert.match(compiler, /dolly_toolchain_validate_executable/);
+  assert.match(compiler, /dolly_toolchain_validate_shared_library/);
   assert.match(header, /dolly_toolchain_validate_executable/);
+  assert.match(header, /dolly_toolchain_validate_shared_library/);
   assert.match(
     runtime,
     /dolly_run_filesystem_module[\s\S]*?dolly_toolchain_validate_executable\(path\)[\s\S]*?dlopen\(path/,
   );
   assert.match(
     runtime,
-    /install_display_driver[\s\S]*?dolly_toolchain_validate_executable\(driver_path\)/,
+    /install_display_driver[\s\S]*?getenv\("DISPLAY"\)[\s\S]*?dolly_toolchain_validate_shared_library\(driver_path\)/,
   );
 });
 
@@ -941,13 +991,57 @@ test("the in-Wasm C driver accepts relaxed aliasing mode", async () => {
   assert.match(compiler, /options\.frontend_options\.push_back\(argument\)/);
 });
 
-test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", async () => {
+test("the in-Wasm C driver exposes Clang-compatible preprocessing", async () => {
+  const compiler = await readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8");
+  assert.match(compiler, /argument == "-E"/);
+  assert.match(compiler, /argument == "-dM"/);
+  assert.match(compiler, /argument == "-"/);
+  assert.match(compiler, /arguments\.push_back\("-E"\)/);
+  assert.match(compiler, /arguments\.push_back\("-dM"\)/);
+  assert.match(compiler, /-dM requires -E/);
+  assert.match(compiler, /LLD 24\.0\.0 \(Dolly wasm-ld\)/);
+  assert.match(compiler, /!starts_with\(argument, "-Wl,"\)/);
+  assert.match(compiler, /argument == "-MD" \|\| argument == "-MMD"/);
+  assert.match(compiler, /"-dependency-file", options\.dependency_file/);
+  assert.match(compiler, /"-MT", options\.dependency_target/);
+  assert.match(compiler, /argument == "-fdiagnostics-color=always"/);
+});
+
+test("the C++ SDK uses the pinned no-exception libc++ target profile", async () => {
+  const compiler = await readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8");
+  const cpp = await readFile(new URL("../modules/cpp.dm", import.meta.url), "utf8");
+  const packaging = await readFile(
+    new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8",
+  );
+  assert.match(compiler, /argument == "-fno-exceptions"/);
+  assert.match(compiler, /argument == "-fno-rtti"/);
+  assert.match(compiler, /"--no-check-features"/);
+  assert.match(compiler, /"--threads=1"/);
+  assert.ok(
+    compiler.indexOf('"/usr/include/compat"') <
+      compiler.indexOf('"/usr/include/c++/v1"') &&
+    compiler.indexOf('"/usr/include/c++/v1"') <
+      compiler.indexOf('"/usr/lib/clang/24/include"'),
+    "embedded C++ include order must match the pinned Emscripten driver",
+  );
+  for (const library of ["libc++.a", "libc++abi.a", "libclang_rt.builtins.a"]) {
+    assert.match(compiler, new RegExp(escapeRegex(`/usr/lib/${library}`)));
+  }
+  assert.match(cpp, /SLOP ar \\\n+  rcs \\\n+  \/usr\/lib\/libc\+\+abi\.a/);
+  assert.match(cpp, /SOURCE HOST \/static\/default\/libcxx-headers\.tar/);
+  assert.match(cpp, /SLOP tar \\\n+  -xf \/tmp\/cpp\/libcxx-headers\.tar/);
+  assert.match(packaging, /--exclude-file \*\/c\+\+\/v1\/\*/);
+  assert.match(cpp, /EXPORTS LIB\s+c\+\+abi\s+\/usr\/lib\/libc\+\+abi\.a/);
+  assert.match(cpp, /SLOP rm \\\n+  -rf \\\n+  \/tmp\/cpp/);
+});
+
+test("Zig bootstraps the retained Ghostty VT and display libraries inside Dolly", async () => {
   const pins = await readFile(new URL("../config/source-pins.sh", import.meta.url), "utf8");
-  const { startup } = await readImagePlan("default");
-  const makefile = await readFile(new URL("../src/startup.mk", import.meta.url), "utf8");
+  const { graph } = await readImagePlan("default");
+  const zigRecipe = graph.modules.find(({ name }) => name === "zig").source;
+  const ghosttyRecipe = graph.modules.find(({ name }) => name === "ghostty").source;
   const nativeMain = await readFile(new URL("../src/zig/native-main.zig", import.meta.url), "utf8");
   const nativeOptions = await readFile(new URL("../src/zig/native-build-options.zig", import.meta.url), "utf8");
-  const objectCheck = await readFile(new URL("../src/zig/object-check.c", import.meta.url), "utf8");
   const nativeBuild = await readFile(new URL("../scripts/build-native-zig.sh", import.meta.url), "utf8");
   const nativePrepare = await readFile(new URL("../scripts/prepare-zig-native.sh", import.meta.url), "utf8");
   const zigPatch = await readFile(new URL("../patches/zig-0.16.0-dolly-native.patch", import.meta.url), "utf8");
@@ -967,17 +1061,17 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(pins, /DOLLY_IOSEVKA_TTF_SHA256=[0-9a-f]{64}/);
   assert.match(pins, /DOLLY_STB_TRUETYPE_SHA256=[0-9a-f]{64}/);
 
-  assert.match(startup, /make -f \/usr\/src\/dolly\/startup\.mk zig/);
-  assert.match(startup, /\/usr\/libexec\/dolly\/zig-check/);
-  assert.match(startup, /make -f \/usr\/src\/dolly\/startup\.mk ghostty/);
-  assert.match(startup, /\/usr\/bin\/ghostty-vt/);
+  assert.doesNotMatch(zigRecipe, /zig-check|zig-object-check|answer\.zig|\/tmp\/zig\/Makefile/);
+  assert.match(ghosttyRecipe, /SLOP CWD \/usr\/src\/ghostty make/);
+  assert.doesNotMatch(ghosttyRecipe, /\/usr\/bin\/ghostty-vt/);
+  assert.match(ghosttyRecipe, /EXPORTS LIB\s+ghostty-vt\s+\/usr\/lib\/libghostty-vt\.a/);
+  assert.match(ghosttyRecipe, /EXPORTS LIB\s+display\s+\/usr\/lib/);
+  assert.match(ghosttyRecipe, /EXPORTS ENV\s+DISPLAY\s+\/usr\/lib\/libdisplay\.so/);
+  assert.doesNotMatch(ghosttyRecipe, /display-wasm|display\.wasm/);
 
-  assert.match(makefile, /\/tmp\/zig\/answer\.o:[\s\S]*?zig build-obj[\s\S]*?-femit-bin=\$@/);
-  assert.match(makefile, /zig-object-check \$@/);
-  assert.match(makefile, /\/tmp\/ghostty\/ghostty-vt\.o:[\s\S]*?zig \$\(GHOSTTY_ZIG_FLAGS\) -femit-bin=\$@/);
-  assert.match(makefile, /\/usr\/lib\/libghostty-vt\.a:[\s\S]*?\$\(AR\) rcs/);
-  assert.match(makefile, /\/usr\/bin\/ghostty-vt:[\s\S]*?\$\(CC\).*?-lghostty-vt/);
-  assert.match(makefile, /\/usr\/libexec\/dolly\/display\.wasm:[\s\S]*?\$\(CC\).*?-lghostty-vt/);
+  assert.match(ghosttyRecipe, /\/tmp\/ghostty-vt\.o:[\s\S]*?>zig[\s\S]*?-femit-bin=\$@/);
+  assert.match(ghosttyRecipe, /\/usr\/lib\/libghostty-vt\.a:[\s\S]*?>ar rcs/);
+  assert.match(ghosttyRecipe, /\/usr\/lib\/libdisplay\.so:[\s\S]*?>cc[\s\S]*?-shared[\s\S]*?-lghostty-vt/);
 
   assert.match(nativeBuild, /fetch-zig-host\.sh/);
   assert.match(nativeBuild, /prepare-zig-native\.sh/);
@@ -986,9 +1080,16 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(nativeBuild, /-mcpu=generic\+atomics/);
   assert.match(nativeBuild, /-fPIC/);
   assert.match(nativeBuild, /-Mroot="\$\{project_dir\}\/src\/zig\/native-main\.zig"/);
-  assert.match(nativeBuild, /\.\/bin\/dolly-cc "\$\{object\}" -o "\$\{module\}"/);
+  assert.match(nativeBuild,
+    /\.\/bin\/dolly-cc "\$\{object\}" -o "\$\{temporary_module\}"/);
   assert.match(nativeBuild, /dolly-abi\.mjs" validate-command/);
+  assert.match(nativeBuild, /object-inputs\.sha256/);
   assert.match(nativeBuild, /build-inputs\.sha256/);
+  assert.match(nativeBuild, /trap 'rm -rf -- "\$\{temporary_dir\}"' EXIT/);
+  assert.match(nativeBuild,
+    /mv -- "\$\{temporary_object_stamp\}" "\$\{object_stamp\}"/);
+  assert.match(nativeBuild,
+    /mv -- "\$\{temporary_module_stamp\}" "\$\{module_stamp\}"/);
   assert.match(nativePrepare, /zig-0\.16\.0-dolly-native\.patch/);
   assert.match(nativePrepare, /patch --batch --forward/);
 
@@ -1003,7 +1104,6 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(nativeOptions, /skip_non_native = true/);
   assert.match(nativeOptions, /have_llvm = true/);
   assert.match(nativeOptions, /dev: DevEnv = \.core/);
-  assert.match(objectCheck, /0x00, 0x61, 0x73, 0x6d/);
 
   assert.match(zigPatch, /nlink_t = usize/);
   assert.match(zigPatch, /nfds_t = u32/);
@@ -1019,10 +1119,10 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(build, /build-native-zig\.sh/);
   assert.match(build, /-DDOLLY_ZIG_DIR="\$\{zig_container_dir\}"/);
 
-  assert.match(startup, /SOURCE HOST BIN \/static\/default\/zig\.wasm \/usr\/bin\/zig/);
-  assert.match(startup, /SOURCE HOST BIN \/static\/default\/zig-lib\.tar/);
-  assert.match(startup, /SOURCE HOST BIN \/static\/default\/ghostty\.tar/);
-  assert.match(startup, /SOURCE HOST BIN \/static\/default\/uucode\.tar/);
+  assert.match(zigRecipe, /SOURCE HOST \/static\/default\/zig\.wasm\s+\/usr\/bin\/zig/);
+  assert.match(zigRecipe, /SOURCE HOST \/static\/default\/zig-lib\.tar/);
+  assert.match(ghosttyRecipe, /SOURCE HOST \/static\/default\/ghostty\.tar/);
+  assert.match(ghosttyRecipe, /SOURCE HOST \/static\/default\/uucode\.tar/);
   assert.doesNotMatch(packaging, /--preload-file .*DOLLY_(?:ZIG|GHOSTTY|UUCODE)/);
   assert.match(packaging, /sysroot\/include@\/seed\/usr\/include/);
   assert.match(packaging, /"\$\{DOLLY_ZIG_DIR\}\/src\/zig_llvm\.cpp"/);
@@ -1030,10 +1130,10 @@ test("Zig bootstraps and builds Ghostty VT from pinned source inside Dolly", asy
   assert.match(abi, /"ZigLLVMTargetMachineEmitToFile"/);
   assert.match(abi, /"LLVMInitializeWebAssemblyTarget"/);
   assert.match(browser, /zig build-obj -OReleaseSmall -target wasm64-emscripten/);
-  assert.match(browser, /zig-object-check browser-answer\.o/);
+  assert.doesNotMatch(browser, /zig-object-check browser-answer\.o/);
   assert.match(browser, /cc browser-zig-check\.c browser-answer\.o -o browser-zig-check/);
 
-  for (const source of [pins, makefile, nativeMain, nativeBuild, build, packaging]) {
+  for (const source of [pins, ghosttyRecipe, nativeMain, nativeBuild, build, packaging]) {
     assert.doesNotMatch(source, /WAMR|wasm2c|-ofmt=c|ghostty-vt\.c/i);
   }
 });
@@ -1262,6 +1362,7 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   const nodeRuntime = await readFile(new URL("../src/runtimes/dolly-node.js", import.meta.url), "utf8");
   const janis = await readFile(new URL("../src/runtimes/janis.js", import.meta.url), "utf8");
   const renderer = await readFile(new URL("../src/ghostty/display.c", import.meta.url), "utf8");
+  const ghosttyRecipe = await readFile(new URL("../modules/ghostty.dm", import.meta.url), "utf8");
   const settings = JSON.parse(
     await readFile(new URL("../src/pi/settings.json", import.meta.url), "utf8"),
   );
@@ -1289,6 +1390,8 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   assert.match(runtime, /setenv\("TERM", "xterm-256color", 1\)/);
   assert.match(runtime, /setenv\("COLORTERM", "truecolor", 1\)/);
   assert.match(runtime, /setenv\("SHELL", "\/bin\/slop", 1\)/);
+  assert.doesNotMatch(runtime, /setenv\("(?:DISPLAY|ZIG_LIB_DIR|PI_PACKAGE_DIR)"/);
+  assert.match(ghosttyRecipe, /EXPORTS ENV\s+DISPLAY\s+\/usr\/lib\/libdisplay\.so/);
   assert.match(renderer, /GHOSTTY_STYLE_COLOR_RGB\) return value->value\.rgb/);
   assert.match(renderer, /return terminal_palette\[value->value\.palette\]/);
   assert.equal(settings.theme, "dolly");
@@ -1305,7 +1408,7 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
 
 test("upstream Pi is packaged for Janis and customized only through normal files", async () => {
   const packaging = await readFile(new URL("../scripts/build-pi.mjs", import.meta.url), "utf8");
-  const { startup } = await readImagePlan("default");
+  const { startup } = await readImagePlan("pi");
   const toolchain = await readFile(new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
   const extension = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
   const quickjs = await readFile(new URL("../src/runtimes/quickjs-main.c", import.meta.url), "utf8");
@@ -1337,7 +1440,7 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   assert.match(extension, /Dolly\.(?:readFile|writeFile)/);
   assert.match(extension, /Dolly\.download\(target\)/);
   assert.match(extension, /registerCommand\("demo"/);
-  assert.match(startup, /ENV PI_SKIP_VERSION_CHECK=1/);
+  assert.match(startup, /EXPORTS ENV\s+PI_SKIP_VERSION_CHECK\s+1/);
   assert.match(startup, /skills\/dolly\/SKILL\.md/);
   assert.match(dollySkill, /https:\/\/github\.com\/daugasauron\/dolly/);
   assert.match(dollySkill, /env\.dolly_http_dispatch/);
@@ -1345,7 +1448,7 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   assert.match(extension, /pi\.on\("session_start"/);
   assert.match(runtime, /dolly_spawn\(entry_argv\[0\], entry_argc, entry_argv/);
   assert.match(runtime, /load_image_entry/);
-  assert.match(runtime, /Pi exited; entering the recovery Slop shell/);
+  assert.match(runtime, /image entry exited; entering the recovery Slop shell/);
   assert.match(runtime, /restarting Pi after unexpected status/);
   assert.match(runtime, /status == 130/);
   assert.match(page, /id="phone-menu-button"/);
@@ -1360,6 +1463,6 @@ test("upstream Pi is packaged for Janis and customized only through normal files
   assert.equal(settings.shellPath, "/bin/slop");
   assert.match(startup, /extensions\/dolly-tools\.js/);
   assert.match(startup, /\.pi\/agent\/SYSTEM\.md/);
-  assert.match(startup, /SOURCE HOST TXT .*janis\.js \/usr\/lib\/janis\/runtime\.js/);
-  assert.match(startup, /SOURCE HOST BIN .*pi-package\.tar/);
+  assert.match(startup, /SOURCE HOST \/static\/default\/runtimes\/janis\.js\s+\/usr\/lib\/janis\/runtime\.js/);
+  assert.match(startup, /SOURCE HOST \/static\/default\/pi-package\.tar/);
 });

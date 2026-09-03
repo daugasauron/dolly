@@ -8,7 +8,13 @@ source_dir="${project_dir}/.cache/zig-${DOLLY_ZIG_VERSION}"
 
 mkdir -p "${project_dir}/.cache"
 if [[ ! -f "${archive}" ]]; then
-  curl --fail --location --output "${archive}" "${DOLLY_ZIG_URL}"
+  temporary_archive="$(mktemp "${project_dir}/.cache/zig-download.XXXXXX")"
+  trap 'rm -f -- "${temporary_archive}"' EXIT
+  curl --fail --location --output "${temporary_archive}" "${DOLLY_ZIG_URL}"
+  printf '%s  %s\n' "${DOLLY_ZIG_SHA256}" "${temporary_archive}" |
+    sha256sum --check --status
+  mv -- "${temporary_archive}" "${archive}"
+  trap - EXIT
 fi
 printf '%s  %s\n' "${DOLLY_ZIG_SHA256}" "${archive}" |
   sha256sum --check --status

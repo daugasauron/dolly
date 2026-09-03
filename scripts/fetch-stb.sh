@@ -8,7 +8,13 @@ header="${source_dir}/stb_truetype.h"
 
 mkdir -p "${source_dir}"
 if [[ ! -f "${header}" ]]; then
-  curl --fail --location --output "${header}" "${DOLLY_STB_TRUETYPE_URL}"
+  temporary="$(mktemp "${source_dir}/stb-truetype.XXXXXX")"
+  trap 'rm -f -- "${temporary}"' EXIT
+  curl --fail --location --output "${temporary}" "${DOLLY_STB_TRUETYPE_URL}"
+  printf '%s  %s\n' "${DOLLY_STB_TRUETYPE_SHA256}" "${temporary}" |
+    sha256sum --check --status
+  mv -- "${temporary}" "${header}"
+  trap - EXIT
 fi
 printf '%s  %s\n' "${DOLLY_STB_TRUETYPE_SHA256}" "${header}" |
   sha256sum --check --status

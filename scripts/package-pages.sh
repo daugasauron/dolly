@@ -3,12 +3,21 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 output="${1:-${project_dir}/build/dolly-pages.tar.gz}"
+staging=""
+temporary_output=""
+cleanup() {
+  [[ -z "${staging}" ]] || rm -rf -- "${staging}"
+  [[ -z "${temporary_output}" ]] || rm -f -- "${temporary_output}"
+}
+trap cleanup EXIT
 staging="$(mktemp -d)"
-trap 'rm -rf -- "${staging}"' EXIT
+mkdir -p "$(dirname -- "${output}")"
+temporary_output="$(mktemp "$(dirname -- "${output}")/.dolly-pages.XXXXXX")"
 
 node "${project_dir}/scripts/generate-routes.mjs"
 
 mapfile -t image_rows < <(node "${project_dir}/scripts/list-images.mjs")
+mapfile -t module_names < <(node "${project_dir}/scripts/list-images.mjs" --modules)
 image_names=()
 dollyfiles=()
 for row in "${image_rows[@]}"; do
@@ -20,12 +29,11 @@ done
 for required in \
   index.html \
   terminal.html \
-  viewer.html \
   coi-serviceworker.js \
   src/browser.mjs \
   src/dollyfile-view.mjs \
-  src/dollyfile-viewer.mjs \
   src/http-policy.mjs \
+  src/module-cache.mjs \
   src/session-store.mjs \
   src/runtime-worker.mjs \
   dist/dolly-images.mjs \
@@ -56,19 +64,23 @@ for image_name in "${image_names[@]}"; do
 done
 
 mkdir -p "${staging}/site/src" "${staging}/site/dist" "${staging}/site/docs" \
-  "$(dirname -- "${output}")"
+  "${staging}/site/modules" "${staging}/site/abi" "${staging}/site/include/dolly"
 cp "${project_dir}/index.html" "${project_dir}/terminal.html" \
-  "${project_dir}/viewer.html" \
   "${dollyfiles[@]/#/${project_dir}/}" \
   "${project_dir}/coi-serviceworker.js" \
   "${staging}/site/"
 cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/dollyfile-view.mjs" \
-  "${project_dir}/src/dollyfile-viewer.mjs" \
   "${project_dir}/src/http-policy.mjs" \
+  "${project_dir}/src/module-cache.mjs" \
   "${project_dir}/src/session-store.mjs" \
   "${project_dir}/src/runtime-worker.mjs" \
   "${staging}/site/src/"
+for module_name in "${module_names[@]}"; do
+  cp "${project_dir}/modules/${module_name}.dm" "${staging}/site/modules/"
+done
+cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
+cp "${project_dir}"/include/dolly/*.h "${staging}/site/include/dolly/"
 cp "${project_dir}/docs/dollyfile.md" "${project_dir}/docs/architecture.md" \
   "${project_dir}/docs/security.md" "${project_dir}/docs/port-status.md" \
   "${project_dir}/docs/sessions.md" \
@@ -96,5 +108,6 @@ for image_name in "${image_names[@]}"; do
     "${staging}/site/dist/"
 done
 touch "${staging}/site/.nojekyll"
-tar -C "${staging}/site" -czf "${output}" .
+tar -C "${staging}/site" -czf "${temporary_output}" .
+mv -- "${temporary_output}" "${output}"
 echo "dolly: wrote $(du -h "${output}" | cut -f1) Pages artifact to ${output}"

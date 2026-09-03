@@ -28,13 +28,15 @@ north-star metrics.
 ## Phase 1 — make builds declarative (complete)
 
 The authoritative [Dollyfile](dollyfile.md) executor is now `/bin/dollyfile`, a
-C program compiled inside the sandbox. It executes parent recipes and every
-`SOURCE`, `RUN`, `CHECK`, and retention row strictly in order. Every non-seed
-browser input is an independent exact file with a SHA-256 row; aggregate source
-filesystem packs and the JavaScript recipe executor are gone. Default and
-gamedev rebuild/prebuilt routes, recipe viewers, local custom rebuilds,
-human-readable recipe locks, exact retained manifests, and recipe-bound
-snapshots are generated and browser-tested.
+C program compiled inside the sandbox. It executes image recipes, pinned `.dm`
+modules, and every `SOURCE`, inline `FILE`, `SLOP`, and `EXPORTS` declaration
+strictly in order. Each browser input is named and SHA-256 pinned; deterministic
+source archives remain useful for complete upstream trees, but they are inputs
+to a module rather than implicit filesystem state. JavaScript performs only the
+matching fail-fast lint and plain-text rendering. Default, Pi, Python-Pi, and
+gamedev rebuild/prebuilt routes, recipe viewers, human-readable recipe locks,
+exact retained manifests, and recipe-bound snapshots are generated and
+browser-tested.
 
 Useful follow-up work remains, but it is refinement rather than split
 authority:
@@ -42,14 +44,14 @@ authority:
 - replace large deterministic source archives with a content-addressed cache
   without weakening row-by-row completion;
 - record output digests for important build products in the image lock;
-- split `startup.mk` into small per-port build descriptions when that improves
-  reviewability;
+- keep each port's build and cleanup in its own pinned `.dm` module;
 - make snapshot logical reproducibility measurable across clean hosts.
 
-Acceptance gate achieved: one C-parsed recipe controls source acquisition,
-builds, checks, retained paths, and entry; every registered image rebuilds and
-restores in a real browser; recipe/source/retention changes invalidate identity
-or fail.
+Acceptance gate achieved: one C-parsed graph controls source acquisition,
+builds, checks, retained paths, environment, and entry; every registered image
+rebuilds and restores in a real browser; recipe/source/retention changes
+invalidate identity or fail. Successful modules must leave `/tmp` empty, and
+failed modules have their scratch tree reclaimed before the build is discarded.
 
 ## Phase 2 — measure the platform instead of guessing it
 

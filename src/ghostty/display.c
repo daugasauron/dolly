@@ -947,9 +947,3 @@ __attribute__((export_name("dolly_display_driver_get_v3")))
 const dolly_display_driver_v3 *dolly_display_driver_export(void) {
   return &driver;
 }
-
-int main(int argc, char **argv) {
-  (void)argc;
-  (void)argv;
-  return 0;
-}

@@ -45,6 +45,17 @@ if [[ "${actual_commit}" != "${llvm_commit}" ]]; then
   exit 1
 fi
 
+lld_patch="${project_dir}/config/lld-dolly.patch"
+if patch --batch --forward --fuzz=0 --dry-run -d "${source_dir}" -p1 \
+    < "${lld_patch}" >/dev/null 2>&1; then
+  patch --batch --forward --fuzz=0 -d "${source_dir}" -p1 \
+    < "${lld_patch}" >/dev/null
+elif ! patch --batch --reverse --fuzz=0 --dry-run -d "${source_dir}" -p1 \
+    < "${lld_patch}" >/dev/null 2>&1; then
+  echo "dolly: LLVM source does not match the pinned LLD target patch" >&2
+  exit 1
+fi
+
 if [[ ! -x "${host_dir}/bin/llvm-tblgen" ||
       ! -x "${host_dir}/bin/clang-tblgen" ]]; then
   "${container[@]}" cmake \

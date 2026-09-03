@@ -1,6 +1,10 @@
 #include <cerrno>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <dlfcn.h>
+#include <limits.h>
+#include <unistd.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -24,8 +28,10 @@
 #include <llvm/Object/ArchiveWriter.h>
 #include <llvm/Object/Wasm.h>
 #include <llvm/Support/Error.h>
+#include <llvm/Support/CommandLine.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/VirtualFileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <dolly/toolchain.h>
@@ -37,23 +43,48 @@ LLD_HAS_DRIVER(wasm)
 namespace {
 
 constexpr const char *kContractPath = "/usr/lib/dolly/dolly-0.wasm";
-unsigned long long next_job = 1;
+
+enum class DebugInfoKind {
+  None,
+  LineTables,
+  Full,
+};
 
 struct DriverOptions {
   bool compile_only = false;
+  bool preprocess_only = false;
+  bool dump_macros = false;
+  bool linker_version = false;
+  bool dependency_output = false;
+  bool include_system_dependencies = false;
   bool end_options = false;
   bool edge_interrupt_safepoints = true;
+  bool exceptions_disabled = false;
   bool optimization_selected = false;
+  bool export_dynamic = false;
+  bool shared_library = false;
   bool standard_selected = false;
+  DebugInfoKind debug_info = DebugInfoKind::None;
   std::string output;
   std::string forced_language;
+  std::string dependency_file;
+  std::string dependency_target;
   std::vector<std::string> frontend_options;
   std::vector<std::string> inputs;
+  std::vector<std::string> linker_options;
+};
+
+struct RawSignature {
+  bool callable = false;
+  std::vector<uint8_t> returns;
+  std::vector<uint8_t> params;
 };
 
 struct LoadedWasm {
   std::unique_ptr<llvm::MemoryBuffer> bytes;
   std::unique_ptr<llvm::object::WasmObjectFile> object;
+  bool signatures_parsed = false;
+  std::vector<RawSignature> signatures;
 };
 
 bool starts_with(const std::string &text, const char *prefix) {
@@ -125,6 +156,10 @@ void print_help(const char *program, int driver_mode) {
   std::printf(
       "usage: %s [OPTIONS] INPUT...\n"
       "  -c                 compile one source file without linking\n"
+      "  -E                 preprocess one source file without compiling\n"
+      "  -dM                print macro definitions in -E mode\n"
+      "  -shared            build a loadable Dolly shared object\n"
+      "  -rdynamic          export command symbols for later shared objects\n"
       "  -o FILE            write the object or executable to FILE\n"
       "  -x c|c++           override source language\n"
       "  -std=STANDARD      select a C or C++ language standard\n"
@@ -135,6 +170,10 @@ void print_help(const char *program, int driver_mode) {
       "  -funsigned-char    use unsigned plain char\n"
       "  -fdolly-runtime-interrupt-handler\n"
       "                     use a runtime-owned interrupt poller instead of edge safepoints\n"
+      "  -fno-sanitize-coverage\n"
+      "                     omit Dolly edge safepoints from a support-library object\n"
+      "  -fno-exceptions    compile C++ without exception throwing or catching\n"
+      "  -fno-rtti          compile C++ without runtime type information\n"
       "  -Wall, -Wextra, -Werror, -Wno-NAME\n"
       "                     configure diagnostics\n"
       "  --help             display this help\n"
@@ -168,6 +207,23 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       return 1;
     } else if (argument == "-c") {
       options.compile_only = true;
+    } else if (argument == "-E") {
+      options.preprocess_only = true;
+    } else if (argument == "-dM") {
+      options.dump_macros = true;
+    } else if (argument == "-MD" || argument == "-MMD") {
+      options.dependency_output = true;
+      options.include_system_dependencies = argument == "-MD";
+    } else if (argument == "-MF") {
+      if (!take_option_value(argc, argv, index, "-MF",
+                             options.dependency_file)) return -1;
+    } else if (argument == "-MQ" || argument == "-MT") {
+      if (!take_option_value(argc, argv, index, argument.c_str(),
+                             options.dependency_target)) return -1;
+    } else if (argument == "-shared") {
+      options.shared_library = true;
+    } else if (argument == "-rdynamic") {
+      options.export_dynamic = true;
     } else if (argument == "-o") {
       if (!take_option_value(argc, argv, index, "-o", options.output)) return -1;
     } else if (starts_with(argument, "-o") && argument.size() > 2) {
@@ -196,16 +252,64 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       // dolly_interrupt_poll(); the target-level edge callback is omitted so
       // it cannot longjmp past runtime cleanup first.
       options.edge_interrupt_safepoints = false;
+    } else if (argument == "-fno-sanitize-coverage") {
+      // Runtime support archives are not executable commands and are linked
+      // into instrumented callers. Avoid multiplying compile time and object
+      // size by inserting a callback on every libc++ control-flow edge.
+      options.edge_interrupt_safepoints = false;
+    } else if (argument == "-fno-exceptions") {
+      // Emscripten's ordinary default is -fignore-exceptions. Bootstrap
+      // libraries and build tools can opt into the smaller, explicit
+      // no-exception target profile used by Dolly version 0.
+      options.exceptions_disabled = true;
+    } else if (argument == "-fno-rtti") {
+      options.frontend_options.push_back("-fno-rtti");
+    } else if (argument == "-fno-builtin") {
+      // Some embedded LLVM library-call lowerings omit WebAssembly symbol
+      // signatures. Callers may retain ordinary typed libc calls instead.
+      options.frontend_options.push_back(argument);
     } else if (argument == "-fno-strict-aliasing") {
       // This public Clang driver spelling maps to the cc1 option below. Some
       // upstream sources use representation-compatible typed views and need
       // Clang's relaxed type-based alias analysis.
       options.frontend_options.push_back("-relaxed-aliasing");
-    } else if (argument == "-g" || argument == "-pedantic" ||
-               argument == "-pedantic-errors" || starts_with(argument, "-W")) {
+    } else if (argument == "-fno-strict-overflow" || argument == "-fwrapv") {
+      // CPython's public build flags request two's-complement wrapping. Clang's
+      // cc1 spelling is -fwrapv; the driver-level -fno-strict-overflow alias
+      // is not accepted by CompilerInvocation directly.
+      options.frontend_options.push_back("-fwrapv");
+    } else if (argument == "-m64" || argument == "-sMEMORY64=1") {
+      // Dolly has one fixed wasm64 target. CPython sysconfig retains these
+      // ordinary Emscripten driver assertions; accepting them cannot switch
+      // pointer width or enable a browser capability.
+    } else if (argument == "-fPIC" || argument == "-fpic" ||
+               argument == "-pthread" || argument == "-pipe") {
+      // Dolly objects are always PIC and the version-0 runtime is serialized.
+    } else if (argument == "-fdiagnostics-color=always") {
+      options.frontend_options.push_back("-fcolor-diagnostics");
+    } else if (argument == "-fdiagnostics-color=never") {
+      options.frontend_options.push_back("-fno-color-diagnostics");
+    } else if (argument == "-fdiagnostics-color=auto") {
+      // Diagnostics are emitted through the active in-Wasm descriptor. Clang's
+      // auto decision has no native terminal to query, so retain plain output.
+    } else if (starts_with(argument, "-fvisibility=")) {
+      options.frontend_options.push_back(argument);
+    } else if (argument == "-g" || argument == "-g2" || argument == "-g3") {
+      // The embedded frontend is invoked as cc1, where the public driver
+      // spelling `-g` is represented by explicit debug-info options.
+      options.debug_info = DebugInfoKind::Full;
+    } else if (argument == "-g1" || argument == "-gline-tables-only") {
+      options.debug_info = DebugInfoKind::LineTables;
+    } else if (argument == "-g0") {
+      options.debug_info = DebugInfoKind::None;
+    } else if (argument == "-pedantic" ||
+               argument == "-pedantic-errors" ||
+               (starts_with(argument, "-W") &&
+                !starts_with(argument, "-Wl,"))) {
       options.frontend_options.push_back(argument);
     } else if (argument == "-I" || argument == "-D" ||
-               argument == "-U" || argument == "-include") {
+               argument == "-U" || argument == "-include" ||
+               argument == "-isystem") {
       std::string value;
       if (!take_option_value(argc, argv, index, argument.c_str(), value)) return -1;
       options.frontend_options.push_back(argument);
@@ -219,6 +323,27 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       options.inputs.push_back(argument + value);
     } else if ((starts_with(argument, "-L") || starts_with(argument, "-l")) &&
                argument.size() > 2) {
+      options.inputs.push_back(argument);
+    } else if (starts_with(argument, "-Wl,")) {
+      size_t begin = 4;
+      while (begin <= argument.size()) {
+        const size_t comma = argument.find(',', begin);
+        const std::string option = argument.substr(
+            begin, comma == std::string::npos ? std::string::npos : comma - begin);
+        // ELF sonames and as-needed have no meaning for Emscripten side modules.
+        if (option == "--version" || option == "-v") {
+          options.linker_version = true;
+        } else if (!option.empty() && !starts_with(option, "-h") &&
+            option != "--no-as-needed" && option != "--as-needed" &&
+            option != "--no-undefined") {
+          // Dolly validates the exact typed import set after linking, which is
+          // the target-equivalent of --no-undefined for permitted ABI imports.
+          options.linker_options.push_back(option);
+        }
+        if (comma == std::string::npos) break;
+        begin = comma + 1;
+      }
+    } else if (argument == "-") {
       options.inputs.push_back(argument);
     } else if (!argument.empty() && argument[0] == '-') {
       std::fprintf(stderr, "%s: unsupported option: %s\n",
@@ -241,9 +366,21 @@ std::vector<const char *> argument_pointers(
   return pointers;
 }
 
-bool compile_object(const std::string &source, const std::string &language,
-                    const std::string &output,
-                    const DriverOptions &options) {
+bool run_frontend(const std::string &source, const std::string &language,
+                  const std::string &output,
+                  const DriverOptions &options) {
+  if (const char *trace = std::getenv("DOLLY_CC_TRACE");
+      trace != nullptr && std::strcmp(trace, "1") == 0) {
+    if (FILE *trace_file = std::fopen("/tmp/dolly-cc-trace.log", "w")) {
+      std::fprintf(trace_file, "dolly-cc: compiling %s as %s", source.c_str(),
+                   language.c_str());
+      for (const std::string &option : options.frontend_options) {
+        std::fprintf(trace_file, " %s", option.c_str());
+      }
+      std::fputc('\n', trace_file);
+      std::fclose(trace_file);
+    }
+  }
   static bool targets_initialized = false;
   if (!targets_initialized) {
     llvm::InitializeAllTargets();
@@ -255,15 +392,24 @@ bool compile_object(const std::string &source, const std::string &language,
 
   std::vector<std::string> arguments = {
       "-triple", "wasm64-unknown-emscripten",
-      "-emit-obj",
-      "-clear-ast-before-backend",
-      "-disable-llvm-verifier",
-      "-discard-value-names",
-      "-mrelocation-model", "pic",
-      "-pic-level", "2",
-      "-mframe-pointer=none",
-      "-ffp-contract=on",
-      "-mconstructor-aliases",
+  };
+  if (options.preprocess_only) {
+    arguments.push_back("-E");
+    if (options.dump_macros) arguments.push_back("-dM");
+  } else {
+    arguments.insert(arguments.end(), {
+        "-emit-obj",
+        "-clear-ast-before-backend",
+        "-disable-llvm-verifier",
+        "-discard-value-names",
+        "-mrelocation-model", "pic",
+        "-pic-level", "2",
+        "-mframe-pointer=none",
+        "-ffp-contract=on",
+        "-mconstructor-aliases",
+    });
+  }
+  arguments.insert(arguments.end(), {
       "-target-cpu", "generic",
       "-target-feature", "+mutable-globals",
       "-target-feature", "+atomics",
@@ -305,21 +451,45 @@ bool compile_object(const std::string &source, const std::string &language,
       "-D", "shutdown=dolly_shutdown",
       "-D", "gethostbyname=dolly_gethostbyname",
       "-D", "getservbyname=dolly_getservbyname",
+      "-D", "dlopen=dolly_dlopen",
+      "-D", "dlsym=dolly_dlsym",
+      "-D", "dlerror=dolly_dlerror",
+      "-D", "dlclose=dolly_dlclose",
       "-isysroot", "/",
-      "-internal-isystem", "/usr/lib/clang/24/include",
+      // Match the pinned Emscripten C++ driver's target include order. libc++
+      // deliberately interposes wrappers such as stddef.h before Clang's
+      // resource headers and obtains xlocale.h from Emscripten's compat tree.
+      "-internal-isystem", "/usr/include/fakesdl",
+      "-internal-isystem", "/usr/include/compat",
       "-internal-isystem", "/usr/include/c++/v1",
+      "-internal-isystem", "/usr/lib/clang/24/include",
       "-internal-isystem", "/usr/include/wasm64-emscripten",
       "-internal-isystem", "/usr/include",
       "-fvisibility=hidden",
       "-fgnuc-version=4.2.1",
-      "-fignore-exceptions",
       "-vectorize-loops",
       "-vectorize-slp",
-      "-mllvm", "-combiner-global-alias-analysis=false",
-      "-mllvm", "-enable-emscripten-sjlj",
-      "-mllvm", "-disable-lsr",
-  };
-  if (options.edge_interrupt_safepoints) {
+  });
+  if (!options.preprocess_only) {
+    // Clang's -mllvm parser mutates LLVM process-global state on every
+    // CompilerInvocation. Dolly embeds many sequential compiler jobs, so parse
+    // the fixed target profile exactly once and keep per-job invocations free
+    // of process-global backend options.
+    static bool backend_options_initialized = false;
+    if (!backend_options_initialized) {
+      const char *backend_arguments[] = {
+          "dolly-cc",
+          "-combiner-global-alias-analysis=false",
+          "-enable-emscripten-sjlj",
+          "-disable-lsr",
+      };
+      llvm::cl::ParseCommandLineOptions(
+          sizeof(backend_arguments) / sizeof(backend_arguments[0]),
+          backend_arguments);
+      backend_options_initialized = true;
+    }
+  }
+  if (!options.preprocess_only && options.edge_interrupt_safepoints) {
     // Browser Wasm cannot preempt a running function the way a kernel can.
     // Edge callbacks are Dolly's target-level SIGINT safepoints, including
     // loop backedges; the callback itself lives in the main runtime.
@@ -333,9 +503,43 @@ bool compile_object(const std::string &source, const std::string &language,
   if (!options.standard_selected) {
     arguments.push_back(language == "c++" ? "-std=c++23" : "-std=c17");
   }
+  if (language == "c++") {
+    // Dolly links a command-local libc++ built with hidden, strong target
+    // definitions. Keep libc++'s inline/template definitions hidden too, so
+    // wasm-ld does not turn weak default-visible definitions back into main-
+    // module imports as Emscripten SIDE_MODULE normally expects.
+    arguments.insert(arguments.end(), {
+        "-D", "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+    });
+    if (!options.exceptions_disabled) {
+      // Emscripten's default exception profile accepts throw/catch syntax but
+      // lowers it through the target's ignored-exception mode. Clang cc1 has
+      // no `-fno-exceptions` spelling: disabling means omitting this option.
+      arguments.push_back("-fignore-exceptions");
+    }
+  }
+  if (!options.preprocess_only && options.debug_info != DebugInfoKind::None) {
+    arguments.push_back(options.debug_info == DebugInfoKind::Full
+                            ? "-debug-info-kind=standalone"
+                            : "-debug-info-kind=line-tables-only");
+    arguments.push_back("-dwarf-version=5");
+  }
   arguments.insert(arguments.end(), options.frontend_options.begin(),
                    options.frontend_options.end());
-  arguments.insert(arguments.end(), {"-o", output, "-x", language, source});
+  if (!options.preprocess_only && options.dependency_output &&
+      !options.dependency_file.empty()) {
+    arguments.insert(arguments.end(), {
+        "-dependency-file", options.dependency_file,
+    });
+    if (!options.dependency_target.empty()) {
+      arguments.insert(arguments.end(), {"-MT", options.dependency_target});
+    }
+    if (options.include_system_dependencies) {
+      arguments.push_back("-sys-header-deps");
+    }
+  }
+  if (!output.empty()) arguments.insert(arguments.end(), {"-o", output});
+  arguments.insert(arguments.end(), {"-x", language, source});
   const std::vector<const char *> pointers = argument_pointers(arguments);
 
   auto diagnostic_ids = clang::DiagnosticIDs::create();
@@ -354,7 +558,13 @@ bool compile_object(const std::string &source, const std::string &language,
   pch->registerReader(
       std::make_unique<clang::ObjectFilePCHContainerReader>());
   clang::CompilerInstance compiler(std::move(invocation), std::move(pch));
-  compiler.createVirtualFileSystem(llvm::vfs::getRealFileSystem(),
+  // LLVM's getRealFileSystem() is process-global. Dolly runs many independent
+  // compiler jobs in one long-lived Wasm userspace, including jobs launched by
+  // package build frontends. Give each synchronous job its own physical VFS so
+  // frontend-local filesystem state cannot leak into the next invocation.
+  auto physical_filesystem = llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>(
+      llvm::vfs::createPhysicalFileSystem());
+  compiler.createVirtualFileSystem(std::move(physical_filesystem),
                                    diagnostic_buffer);
   compiler.createDiagnostics();
   diagnostic_buffer->FlushDiagnostics(compiler.getDiagnostics());
@@ -362,27 +572,40 @@ bool compile_object(const std::string &source, const std::string &language,
   return parsed && clang::ExecuteCompilerInvocation(&compiler);
 }
 
-bool link_command(const std::string &output,
-                  const std::vector<std::string> &inputs) {
+bool link_side_module(const std::string &output,
+                      const std::vector<std::string> &inputs,
+                      const std::vector<std::string> &linker_options,
+                      bool export_dynamic, bool bind_defined_locally) {
   std::vector<std::string> arguments = {
       "wasm-ld",
       "-o", output,
       "-Bdynamic",
+      // Parallel section merging can assign equal-priority chunks in
+      // scheduler order. Stable module-cache snapshots require fixed bytes.
+      "--threads=1",
       "--shared-memory",
+      // The pinned non-threaded libc++ archives intentionally lack the
+      // atomics/bulk-memory feature marker. Dolly's final side module uses
+      // shared memory64, while those serialized library objects contain no
+      // pthread behavior. This is the same deliberate mix accepted when
+      // linking the main runtime.
+      "--no-check-features",
       "--export=__wasm_call_ctors",
       "--unresolved-symbols=import-dynamic",
       "-shared",
-      "--no-export-dynamic",
       "--stack-first",
       "--extra-features=extended-const",
   };
+  arguments.push_back(export_dynamic ? "--export-dynamic" : "--no-export-dynamic");
+  // A C++ command carries its pinned libc++ implementation. Without symbolic
+  // binding, wasm-ld keeps references to those default-visible definitions as
+  // preemptible dynamic imports, which would leak libc++ into dolly-0.
+  if (bind_defined_locally) arguments.push_back("-Bsymbolic");
   arguments.push_back("-L/usr/lib");
   arguments.insert(arguments.end(), inputs.begin(), inputs.end());
+  arguments.insert(arguments.end(), linker_options.begin(), linker_options.end());
   arguments.insert(arguments.end(), {
       "-mwasm64",
-      "-mllvm", "-combiner-global-alias-analysis=false",
-      "-mllvm", "-enable-emscripten-sjlj",
-      "-mllvm", "-disable-lsr",
   });
   const std::vector<const char *> pointers = argument_pointers(arguments);
   const lld::DriverDef driver = {lld::Flavor::Wasm, &lld::wasm::link};
@@ -489,14 +712,86 @@ bool write_entry_wrapper(const std::string &path, EntryForm form,
 
   FILE *file = std::fopen(path.c_str(), "wb");
   if (file == nullptr) return false;
-  const bool ok =
-      std::fprintf(
-          file,
-          "%sextern int dolly_source_main(%s) __asm__(\"%s\");\n"
-          "__attribute__((export_name(\"dolly_main\")))\n"
-          "int dolly_entry(int argc, char **argv) { %s }\n",
-          environment, parameters, entry_symbol.c_str(), call) >= 0 &&
-      std::fclose(file) == 0;
+  bool ok = std::fprintf(
+                file,
+                "%sextern int dolly_source_main(%s) __asm__(\"%s\");\n"
+                "__attribute__((export_name(\"dolly_main\")))\n"
+                "int dolly_entry(int argc, char **argv) { %s }\n",
+                environment, parameters, entry_symbol.c_str(), call) >= 0;
+  if (std::fclose(file) != 0) ok = false;
+  if (!ok) std::remove(path.c_str());
+  return ok;
+}
+
+std::string entry_wrapper_key(EntryForm form, const std::string &entry_symbol) {
+  return std::to_string(static_cast<int>(form)) + "\n" + entry_symbol;
+}
+
+std::map<std::string, std::vector<unsigned char>> entry_wrapper_objects;
+
+bool cache_entry_wrapper(EntryForm form, const char *entry_symbol,
+                         size_t index) {
+  const std::string source = temporary_path(0, index, "-entry-cache.c");
+  const std::string object = temporary_path(0, index, "-entry-cache.o");
+  std::remove(source.c_str());
+  std::remove(object.c_str());
+  DriverOptions options;
+  options.edge_interrupt_safepoints = false;
+  const bool compiled =
+      write_entry_wrapper(source, form, entry_symbol) &&
+      run_frontend(source, "c", object, options);
+  std::remove(source.c_str());
+  if (!compiled) {
+    std::remove(object.c_str());
+    return false;
+  }
+  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer =
+      llvm::MemoryBuffer::getFile(object);
+  std::remove(object.c_str());
+  if (!buffer) return false;
+  const llvm::StringRef bytes = buffer.get()->getBuffer();
+  entry_wrapper_objects.emplace(
+      entry_wrapper_key(form, entry_symbol),
+      std::vector<unsigned char>(bytes.bytes_begin(), bytes.bytes_end()));
+  return true;
+}
+
+bool initialize_entry_wrapper_objects() {
+  static bool initialized = false;
+  if (initialized) return true;
+  struct WrapperDefinition {
+    EntryForm form;
+    const char *c_symbol;
+    const char *cxx_symbol;
+  };
+  static constexpr WrapperDefinition definitions[] = {
+      {EntryForm::NoArguments, "dolly_main", "_Z10dolly_mainv"},
+      {EntryForm::Arguments, "dolly_main", "_Z10dolly_mainiPPc"},
+      {EntryForm::ArgumentsAndEnvironment, "dolly_main",
+       "_Z10dolly_mainiPPcS0_"},
+  };
+  size_t index = 0;
+  for (const WrapperDefinition &definition : definitions) {
+    if (!cache_entry_wrapper(definition.form, definition.c_symbol, index++) ||
+        !cache_entry_wrapper(definition.form, definition.cxx_symbol, index++)) {
+      entry_wrapper_objects.clear();
+      return false;
+    }
+  }
+  initialized = true;
+  return true;
+}
+
+bool write_cached_entry_wrapper(const std::string &path, EntryForm form,
+                                const std::string &entry_symbol) {
+  const auto found = entry_wrapper_objects.find(
+      entry_wrapper_key(form, entry_symbol));
+  if (found == entry_wrapper_objects.end()) return false;
+  FILE *file = std::fopen(path.c_str(), "wb");
+  if (file == nullptr) return false;
+  const std::vector<unsigned char> &bytes = found->second;
+  bool ok = std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
+  if (std::fclose(file) != 0) ok = false;
   if (!ok) std::remove(path.c_str());
   return ok;
 }
@@ -507,6 +802,160 @@ std::string error_text(llvm::Error error) {
   llvm::logAllUnhandledErrors(std::move(error), stream);
   stream.flush();
   return text;
+}
+
+class WasmByteReader {
+ public:
+  WasmByteReader(const uint8_t *bytes, size_t size)
+      : bytes_(bytes), size_(size) {}
+
+  bool empty() const { return offset_ == size_; }
+  size_t remaining() const { return size_ - offset_; }
+
+  bool read_u8(uint8_t &value) {
+    if (offset_ == size_) return false;
+    value = bytes_[offset_++];
+    return true;
+  }
+
+  bool read_u32(uint32_t &value) {
+    value = 0;
+    for (unsigned shift = 0; shift < 35; shift += 7) {
+      uint8_t byte = 0;
+      if (!read_u8(byte)) return false;
+      if (shift == 28 && (byte & 0xf0) != 0) return false;
+      value |= static_cast<uint32_t>(byte & 0x7f) << shift;
+      if ((byte & 0x80) == 0) return true;
+    }
+    return false;
+  }
+
+  bool skip(size_t count) {
+    if (count > remaining()) return false;
+    offset_ += count;
+    return true;
+  }
+
+  bool subreader(size_t count, WasmByteReader &reader) {
+    if (count > remaining()) return false;
+    reader = WasmByteReader(bytes_ + offset_, count);
+    offset_ += count;
+    return true;
+  }
+
+ private:
+  const uint8_t *bytes_ = nullptr;
+  size_t size_ = 0;
+  size_t offset_ = 0;
+};
+
+bool is_callable_value_type(uint8_t type) {
+  return type == 0x7f || type == 0x7e || type == 0x7d || type == 0x7c ||
+         type == 0x7b || type == 0x70 || type == 0x6f;
+}
+
+bool read_signature_vector(WasmByteReader &reader,
+                           std::vector<uint8_t> &types) {
+  uint32_t count = 0;
+  if (!reader.read_u32(count) || count > reader.remaining()) return false;
+  types.reserve(count);
+  for (uint32_t index = 0; index < count; index++) {
+    uint8_t type = 0;
+    if (!reader.read_u8(type) || !is_callable_value_type(type)) return false;
+    types.push_back(type);
+  }
+  return true;
+}
+
+bool skip_field_definition(WasmByteReader &reader) {
+  uint8_t storage_type = 0;
+  uint32_t mutable_field = 0;
+  if (!reader.read_u8(storage_type)) return false;
+  if (storage_type == llvm::wasm::WASM_TYPE_NULLABLE ||
+      storage_type == llvm::wasm::WASM_TYPE_NONNULLABLE) {
+    // Heap types are signed LEB33. Reading their bytes as an unsigned LEB is
+    // sufficient while skipping because only termination and bounds matter.
+    uint32_t heap_type = 0;
+    if (!reader.read_u32(heap_type)) return false;
+  }
+  return reader.read_u32(mutable_field);
+}
+
+bool parse_raw_signatures(llvm::MemoryBufferRef buffer,
+                          std::vector<RawSignature> &signatures) {
+  const auto *bytes = reinterpret_cast<const uint8_t *>(buffer.getBufferStart());
+  WasmByteReader reader(bytes, buffer.getBufferSize());
+  static constexpr uint8_t header[] = {
+      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+  };
+  for (uint8_t expected : header) {
+    uint8_t actual = 0;
+    if (!reader.read_u8(actual) || actual != expected) return false;
+  }
+
+  bool saw_type_section = false;
+  while (!reader.empty()) {
+    uint8_t section_id = 0;
+    uint32_t section_size = 0;
+    if (!reader.read_u8(section_id) || !reader.read_u32(section_size)) {
+      return false;
+    }
+    WasmByteReader section(nullptr, 0);
+    if (!reader.subreader(section_size, section)) return false;
+    if (section_id != llvm::wasm::WASM_SEC_TYPE) continue;
+    if (saw_type_section) return false;
+    saw_type_section = true;
+
+    uint32_t count = 0;
+    if (!section.read_u32(count) || count > section.remaining()) return false;
+    signatures.reserve(count);
+    uint64_t remaining_types = count;
+    while (remaining_types-- != 0) {
+      uint8_t form = 0;
+      RawSignature signature;
+      if (!section.read_u8(form)) return false;
+      if (form == llvm::wasm::WASM_TYPE_REC) {
+        uint32_t recursive_types = 0;
+        if (!section.read_u32(recursive_types) || recursive_types == 0 ||
+            remaining_types + recursive_types > UINT32_MAX) {
+          return false;
+        }
+        remaining_types += recursive_types;
+        signatures.push_back(std::move(signature));
+        continue;
+      }
+      if (form == llvm::wasm::WASM_TYPE_SUB ||
+          form == llvm::wasm::WASM_TYPE_SUB_FINAL) {
+        uint32_t super_types = 0;
+        if (!section.read_u32(super_types) || super_types > 1) return false;
+        if (super_types == 1) {
+          uint32_t super_index = 0;
+          if (!section.read_u32(super_index)) return false;
+        }
+        if (!section.read_u8(form)) return false;
+      }
+      if (form == llvm::wasm::WASM_TYPE_FUNC) {
+        signature.callable = true;
+        if (!read_signature_vector(section, signature.params) ||
+            !read_signature_vector(section, signature.returns)) {
+          return false;
+        }
+      } else if (form == llvm::wasm::WASM_TYPE_STRUCT) {
+        uint32_t fields = 0;
+        if (!section.read_u32(fields) || fields > section.remaining()) return false;
+        while (fields-- != 0) {
+          if (!skip_field_definition(section)) return false;
+        }
+      } else if (form == llvm::wasm::WASM_TYPE_ARRAY) {
+        if (!skip_field_definition(section)) return false;
+      } else {
+        return false;
+      }
+      signatures.push_back(std::move(signature));
+    }
+    if (!section.empty()) return false;
+  }
+  return saw_type_section;
 }
 
 bool load_wasm(const std::string &path, LoadedWasm &loaded) {
@@ -525,8 +974,13 @@ bool load_wasm(const std::string &path, LoadedWasm &loaded) {
                  path.c_str(), message.c_str());
     return false;
   }
+  std::vector<RawSignature> signatures;
+  const bool signatures_parsed =
+      parse_raw_signatures(bytes.get()->getMemBufferRef(), signatures);
   loaded.bytes = std::move(bytes.get());
   loaded.object = std::move(object);
+  loaded.signatures_parsed = signatures_parsed;
+  loaded.signatures = std::move(signatures);
   return true;
 }
 
@@ -534,51 +988,61 @@ std::string interface_key(llvm::StringRef module, llvm::StringRef field) {
   return module.str() + "\n" + field.str();
 }
 
-const char *wat_value_type(llvm::wasm::ValType type) {
+const char *wat_value_type(uint8_t type) {
   switch (type) {
-    case llvm::wasm::ValType::I32: return "i32";
-    case llvm::wasm::ValType::I64: return "i64";
-    case llvm::wasm::ValType::F32: return "f32";
-    case llvm::wasm::ValType::F64: return "f64";
-    case llvm::wasm::ValType::FUNCREF: return "funcref";
-    case llvm::wasm::ValType::EXTERNREF: return "externref";
+    case 0x7f: return "i32";
+    case 0x7e: return "i64";
+    case 0x7d: return "f32";
+    case 0x7c: return "f64";
+    case 0x7b: return "v128";
+    case 0x70: return "funcref";
+    case 0x6f: return "externref";
     default: return "unknown";
   }
 }
 
-void print_import_signature(const llvm::object::WasmObjectFile &object,
+void print_import_signature(const LoadedWasm &loaded,
                             const llvm::wasm::WasmImport &entry) {
   if (entry.Kind != llvm::wasm::WASM_EXTERNAL_FUNCTION ||
-      entry.SigIndex >= object.types().size()) {
+      entry.SigIndex >= loaded.signatures.size()) {
     return;
   }
-  const llvm::wasm::WasmSignature &signature = object.types()[entry.SigIndex];
+  const RawSignature &signature = loaded.signatures[entry.SigIndex];
   std::fprintf(stderr, "  (import \"%s\" \"%s\" (func",
                entry.Module.str().c_str(), entry.Field.str().c_str());
-  if (!signature.Params.empty()) {
+  if (!signature.params.empty()) {
     std::fputs(" (param", stderr);
-    for (llvm::wasm::ValType type : signature.Params)
+    for (uint8_t type : signature.params)
       std::fprintf(stderr, " %s", wat_value_type(type));
     std::fputc(')', stderr);
   }
-  if (!signature.Returns.empty()) {
+  if (!signature.returns.empty()) {
     std::fputs(" (result", stderr);
-    for (llvm::wasm::ValType type : signature.Returns)
+    for (uint8_t type : signature.returns)
       std::fprintf(stderr, " %s", wat_value_type(type));
     std::fputc(')', stderr);
   }
   std::fputs("))\n", stderr);
 }
 
-bool same_signature(const llvm::object::WasmObjectFile &left_object,
+bool same_signature(const LoadedWasm &left,
                     uint32_t left_index,
-                    const llvm::object::WasmObjectFile &right_object,
+                    const LoadedWasm &right,
                     uint32_t right_index) {
-  if (left_index >= left_object.types().size() ||
-      right_index >= right_object.types().size()) {
+  if (left_index >= left.signatures.size() ||
+      right_index >= right.signatures.size()) {
     return false;
   }
-  return left_object.types()[left_index] == right_object.types()[right_index];
+  return left.signatures[left_index].callable &&
+         right.signatures[right_index].callable &&
+         left.signatures[left_index].params == right.signatures[right_index].params &&
+         left.signatures[left_index].returns == right.signatures[right_index].returns;
+}
+
+bool same_callable_signature(const RawSignature &left,
+                             const RawSignature &right) {
+  return left.callable && right.callable && left.params == right.params &&
+         left.returns == right.returns;
 }
 
 bool provider_limits_satisfy(const llvm::wasm::WasmLimits &provider,
@@ -600,9 +1064,9 @@ bool provider_limits_satisfy(const llvm::wasm::WasmLimits &provider,
 }
 
 bool provider_import_satisfies(
-    const llvm::object::WasmObjectFile &provider_object,
+    const LoadedWasm &provider_object,
     const llvm::wasm::WasmImport &provider,
-    const llvm::object::WasmObjectFile &required_object,
+    const LoadedWasm &required_object,
     const llvm::wasm::WasmImport &required) {
   if (provider.Kind != required.Kind) return false;
   switch (provider.Kind) {
@@ -623,40 +1087,60 @@ bool provider_import_satisfies(
   }
 }
 
-const llvm::wasm::WasmSignature *function_signature(
-    const llvm::object::WasmObjectFile &object, uint32_t function_index) {
+const RawSignature *function_signature(
+    const LoadedWasm &loaded, uint32_t function_index) {
   uint32_t imported_index = 0;
-  for (const llvm::wasm::WasmImport &entry : object.imports()) {
+  for (const llvm::wasm::WasmImport &entry : loaded.object->imports()) {
     if (entry.Kind != llvm::wasm::WASM_EXTERNAL_FUNCTION) continue;
     if (imported_index == function_index) {
-      return entry.SigIndex < object.types().size()
-                 ? &object.types()[entry.SigIndex]
+      return entry.SigIndex < loaded.signatures.size()
+                 ? &loaded.signatures[entry.SigIndex]
                  : nullptr;
     }
     imported_index++;
   }
-  for (const llvm::wasm::WasmFunction &function : object.functions()) {
+  for (const llvm::wasm::WasmFunction &function : loaded.object->functions()) {
     if (function.Index == function_index) {
-      return function.SigIndex < object.types().size()
-                 ? &object.types()[function.SigIndex]
+      return function.SigIndex < loaded.signatures.size()
+                 ? &loaded.signatures[function.SigIndex]
                  : nullptr;
     }
   }
   return nullptr;
 }
 
-bool same_export_type(const llvm::object::WasmObjectFile &left_object,
+bool same_export_type(const LoadedWasm &left_object,
                       const llvm::wasm::WasmExport &left,
-                      const llvm::object::WasmObjectFile &right_object,
+                      const LoadedWasm &right_object,
                       const llvm::wasm::WasmExport &right) {
   if (left.Kind != right.Kind) return false;
   if (left.Kind != llvm::wasm::WASM_EXTERNAL_FUNCTION) return false;
-  const llvm::wasm::WasmSignature *left_signature =
+  const RawSignature *left_signature =
       function_signature(left_object, left.Index);
-  const llvm::wasm::WasmSignature *right_signature =
+  const RawSignature *right_signature =
       function_signature(right_object, right.Index);
   return left_signature != nullptr && right_signature != nullptr &&
-         *left_signature == *right_signature;
+         same_callable_signature(*left_signature, *right_signature);
+}
+
+bool provider_export_satisfies_import(
+    const LoadedWasm &provider_object,
+    const llvm::wasm::WasmExport &provider,
+    const LoadedWasm &required_object,
+    const llvm::wasm::WasmImport &required) {
+  if (provider.Kind != required.Kind) return false;
+  if (provider.Kind == llvm::wasm::WASM_EXTERNAL_FUNCTION) {
+    const RawSignature *signature =
+        function_signature(provider_object, provider.Index);
+    return signature != nullptr &&
+           required.SigIndex < required_object.signatures.size() &&
+           same_callable_signature(
+               *signature, required_object.signatures[required.SigIndex]);
+  }
+  // Function imports cover CPython's callable API. Data references use the
+  // dynamic linker's typed GOT.mem relocations and never become browser
+  // imports, so no other direct provider-import form is accepted here.
+  return false;
 }
 
 bool is_mutable_i64_global(const llvm::wasm::WasmImport &entry) {
@@ -685,9 +1169,18 @@ bool is_loader_relocation(
          allowed->second->Kind == llvm::wasm::WASM_EXTERNAL_FUNCTION;
 }
 
-bool validate_command_loaded(const std::string &path,
-                             const LoadedWasm &contract,
-                             const LoadedWasm &command) {
+bool validate_side_module_loaded(const std::string &path,
+                                 const LoadedWasm &contract,
+                                 const LoadedWasm &command,
+                                 bool require_command_exports,
+                                 const std::vector<LoadedWasm> *providers = nullptr,
+                                 bool allow_unresolved_provider = false) {
+  if (!contract.signatures_parsed || !command.signatures_parsed) {
+    std::fprintf(stderr,
+                 "dolly-cc: unsupported callable type section in %s\n",
+                 path.c_str());
+    return false;
+  }
   auto first_section = command.object->section_begin();
   if (first_section == command.object->section_end()) {
     std::fprintf(stderr, "dolly-cc: %s has no sections\n", path.c_str());
@@ -734,19 +1227,63 @@ bool validate_command_loaded(const std::string &path,
   for (const llvm::wasm::WasmImport &entry : command.object->imports()) {
     const std::string key = interface_key(entry.Module, entry.Field);
     if (key == interface_key("env", "memory")) has_memory = true;
-    if (is_loader_relocation(entry, command_exports, allowed_imports)) continue;
+    bool provider_relocation = false;
+    if (providers != nullptr && is_mutable_i64_global(entry) &&
+        (entry.Module == "GOT.func" || entry.Module == "GOT.mem")) {
+      const uint8_t expected_kind = entry.Module == "GOT.func"
+                                        ? llvm::wasm::WASM_EXTERNAL_FUNCTION
+                                        : llvm::wasm::WASM_EXTERNAL_GLOBAL;
+      for (const LoadedWasm &provider : *providers) {
+        for (const llvm::wasm::WasmExport &candidate :
+             provider.object->exports()) {
+          if (candidate.Name == entry.Field && candidate.Kind == expected_kind) {
+            provider_relocation = true;
+            break;
+          }
+        }
+        if (provider_relocation) break;
+      }
+    }
+    if (is_loader_relocation(entry, command_exports, allowed_imports) ||
+        provider_relocation ||
+        (!require_command_exports &&
+         (entry.Module == "GOT.func" || entry.Module == "GOT.mem") &&
+         is_mutable_i64_global(entry))) {
+      continue;
+    }
     const auto allowed = allowed_imports.find(key);
     if (allowed == allowed_imports.end()) {
+      bool supplied = false;
+      if (entry.Module == "env" && providers != nullptr) {
+        for (const LoadedWasm &provider : *providers) {
+          for (const llvm::wasm::WasmExport &candidate :
+               provider.object->exports()) {
+            if (candidate.Name == entry.Field &&
+                provider_export_satisfies_import(
+                    provider, candidate, command, entry)) {
+              supplied = true;
+              break;
+            }
+          }
+          if (supplied) break;
+        }
+      }
+      if (supplied) continue;
+      if (allow_unresolved_provider && entry.Module == "env") continue;
       std::fprintf(stderr, "dolly-cc: import is outside dolly-0: %s.%s\n",
                    entry.Module.str().c_str(), entry.Field.str().c_str());
-      print_import_signature(*command.object, entry);
+      print_import_signature(command, entry);
       imports_valid = false;
       continue;
     }
-    if (!provider_import_satisfies(*contract.object, *allowed->second,
-                                   *command.object, entry)) {
+    if (!provider_import_satisfies(contract, *allowed->second,
+                                   command, entry)) {
       std::fprintf(stderr, "dolly-cc: incompatible import: %s.%s\n",
                    entry.Module.str().c_str(), entry.Field.str().c_str());
+      std::fputs("dolly-cc: contract requires\n", stderr);
+      print_import_signature(contract, *allowed->second);
+      std::fputs("dolly-cc: module imports\n", stderr);
+      print_import_signature(command, entry);
       imports_valid = false;
     }
   }
@@ -755,14 +1292,15 @@ bool validate_command_loaded(const std::string &path,
     std::fprintf(stderr, "dolly-cc: %s does not import env.memory\n", path.c_str());
     return false;
   }
+  if (!require_command_exports) return true;
   for (const auto &[name, required] : required_exports) {
     const auto actual = command_exports.find(name);
     if (actual == command_exports.end()) {
       std::fprintf(stderr, "dolly-cc: missing required export: %s\n", name.c_str());
       return false;
     }
-    if (!same_export_type(*contract.object, *required,
-                          *command.object, *actual->second)) {
+    if (!same_export_type(contract, *required,
+                          command, *actual->second)) {
       std::fprintf(stderr, "dolly-cc: incompatible export: %s\n", name.c_str());
       return false;
     }
@@ -770,11 +1308,56 @@ bool validate_command_loaded(const std::string &path,
   return true;
 }
 
+bool has_contract_stamp_loaded(const std::string &path,
+                               const LoadedWasm &command);
+
+bool load_needed_providers(const LoadedWasm &consumer,
+                           const LoadedWasm &contract,
+                           std::vector<LoadedWasm> &providers) {
+  for (llvm::StringRef needed : consumer.object->dylinkInfo().Needed) {
+    if (needed.empty() || needed.contains('/') || needed.contains("..")) {
+      std::fprintf(stderr, "dolly-cc: invalid needed library name: %s\n",
+                   needed.str().c_str());
+      return false;
+    }
+    const std::string path = "/usr/lib/" + needed.str();
+    LoadedWasm provider;
+    if (!load_wasm(path, provider) ||
+        !validate_side_module_loaded(
+            path, contract, provider, false,
+            providers.empty() ? nullptr : &providers, false) ||
+        !has_contract_stamp_loaded(path, provider)) {
+      std::fprintf(stderr, "dolly-cc: invalid needed library: %s\n",
+                   path.c_str());
+      return false;
+    }
+    providers.push_back(std::move(provider));
+  }
+  return true;
+}
+
 bool validate_command(const std::string &path) {
   LoadedWasm contract;
   LoadedWasm command;
+  std::vector<LoadedWasm> providers;
   return load_wasm(kContractPath, contract) && load_wasm(path, command) &&
-         validate_command_loaded(path, contract, command);
+         load_needed_providers(command, contract, providers) &&
+         validate_side_module_loaded(
+             path, contract, command, true,
+             providers.empty() ? nullptr : &providers, false);
+}
+
+bool validate_shared_object(const std::string &path) {
+  LoadedWasm contract;
+  LoadedWasm module;
+  std::vector<LoadedWasm> providers;
+  if (!load_wasm(kContractPath, contract) || !load_wasm(path, module) ||
+      !load_needed_providers(module, contract, providers)) {
+    return false;
+  }
+  return validate_side_module_loaded(
+      path, contract, module, false,
+      providers.empty() ? nullptr : &providers, providers.empty());
 }
 
 bool has_contract_stamp_loaded(const std::string &path,
@@ -812,9 +1395,55 @@ bool has_contract_stamp(const std::string &path) {
 bool validate_executable(const std::string &path) {
   LoadedWasm contract;
   LoadedWasm command;
+  std::vector<LoadedWasm> providers;
   return load_wasm(kContractPath, contract) && load_wasm(path, command) &&
-         validate_command_loaded(path, contract, command) &&
+         load_needed_providers(command, contract, providers) &&
+         validate_side_module_loaded(
+             path, contract, command, true,
+             providers.empty() ? nullptr : &providers, false) &&
          has_contract_stamp_loaded(path, command);
+}
+
+bool validate_stamped_shared_object(const std::string &path) {
+  LoadedWasm contract;
+  LoadedWasm module;
+  std::vector<LoadedWasm> providers;
+  if (!load_wasm(kContractPath, contract)) return false;
+  return load_wasm(path, module) &&
+         load_needed_providers(module, contract, providers) &&
+         validate_side_module_loaded(
+             path, contract, module, false,
+             providers.empty() ? nullptr : &providers, false) &&
+         has_contract_stamp_loaded(path, module);
+}
+
+bool preload_dependencies(const std::string &path) {
+  LoadedWasm contract;
+  LoadedWasm consumer;
+  std::vector<LoadedWasm> providers;
+  if (!load_wasm(kContractPath, contract) || !load_wasm(path, consumer) ||
+      !load_needed_providers(consumer, contract, providers)) {
+    return false;
+  }
+  for (llvm::StringRef needed : consumer.object->dylinkInfo().Needed) {
+    char previous_directory[PATH_MAX];
+    if (getcwd(previous_directory, sizeof(previous_directory)) == nullptr ||
+        chdir("/usr/lib") != 0) {
+      std::fprintf(stderr, "dolly: could not enter /usr/lib for dependency load\n");
+      return false;
+    }
+    void *handle = dlopen(needed.str().c_str(), RTLD_NOW | RTLD_GLOBAL);
+    const char *load_error = handle == nullptr ? dlerror() : nullptr;
+    const bool restored = chdir(previous_directory) == 0;
+    if (handle == nullptr || !restored) {
+      std::fprintf(stderr, "dolly: could not preload %s: %s\n",
+                   needed.str().c_str(),
+                   load_error == nullptr ? "could not restore working directory"
+                                         : load_error);
+      return false;
+    }
+  }
+  return true;
 }
 
 bool stamp_command(const std::string &output) {
@@ -880,6 +1509,23 @@ void cleanup(const std::vector<std::string> &paths) {
   for (const std::string &path : paths) std::remove(path.c_str());
 }
 
+int preprocess(const DriverOptions &options, int default_language) {
+  if (options.compile_only || options.inputs.size() != 1 ||
+      is_object(options.inputs[0]) || is_archive(options.inputs[0]) ||
+      is_linker_option(options.inputs[0])) {
+    std::fputs("dolly-cc: -E requires exactly one source input\n", stderr);
+    return 64;
+  }
+  const std::string language = inferred_language(
+      options.inputs[0], default_language, options.forced_language);
+  if (!run_frontend(options.inputs[0], language, options.output, options)) {
+    std::fprintf(stderr, "dolly-cc: preprocessing failed: %s\n",
+                 options.inputs[0].c_str());
+    return 1;
+  }
+  return 0;
+}
+
 int compile_only(const DriverOptions &options, int default_language,
                  unsigned long long job) {
   if (options.inputs.size() != 1 || is_object(options.inputs[0]) ||
@@ -894,7 +1540,7 @@ int compile_only(const DriverOptions &options, int default_language,
   std::remove(staged.c_str());
   const std::string language = inferred_language(
       options.inputs[0], default_language, options.forced_language);
-  if (!compile_object(options.inputs[0], language, staged, options)) {
+  if (!run_frontend(options.inputs[0], language, staged, options)) {
     std::fprintf(stderr, "dolly-cc: compilation failed: %s\n",
                  options.inputs[0].c_str());
     std::remove(staged.c_str());
@@ -907,9 +1553,14 @@ int compile_only(const DriverOptions &options, int default_language,
 
 int compile_and_link(const DriverOptions &options, int default_language,
                      unsigned long long job) {
+  if (!initialize_entry_wrapper_objects()) {
+    std::fputs("dolly-cc: could not initialize command entry adapters\n", stderr);
+    return 1;
+  }
   const std::string output = options.output.empty() ? "a.out" : options.output;
   std::vector<std::string> temporary_objects;
   std::vector<std::string> link_inputs;
+  bool needs_cxx_runtime = default_language == DOLLY_TOOLCHAIN_CXX;
   for (size_t index = 0; index < options.inputs.size(); index++) {
     const std::string &input = options.inputs[index];
     if (is_object(input) || is_archive(input) || is_linker_option(input)) {
@@ -920,7 +1571,8 @@ int compile_and_link(const DriverOptions &options, int default_language,
     std::remove(object.c_str());
     const std::string language = inferred_language(
         input, default_language, options.forced_language);
-    if (!compile_object(input, language, object, options)) {
+    if (language == "c++") needs_cxx_runtime = true;
+    if (!run_frontend(input, language, object, options)) {
       std::fprintf(stderr, "dolly-cc: compilation failed: %s\n", input.c_str());
       temporary_objects.push_back(object);
       cleanup(temporary_objects);
@@ -930,52 +1582,63 @@ int compile_and_link(const DriverOptions &options, int default_language,
     link_inputs.push_back(object);
   }
 
-  std::string entry_symbol;
-  const EntryForm entry_form = linked_entry_form(link_inputs, entry_symbol);
-  if (entry_form == EntryForm::Missing) {
-    std::fputs("dolly-cc: no main function found in object inputs\n", stderr);
-    cleanup(temporary_objects);
-    return 1;
-  }
-  if (entry_form == EntryForm::Unsupported) {
-    std::fputs(
-        "dolly-cc: main must return int and accept (), (int, char **), "
-        "or (int, char **, char **)\n",
-        stderr);
-    cleanup(temporary_objects);
-    return 1;
+  if (!options.shared_library) {
+    std::string entry_symbol;
+    const EntryForm entry_form = linked_entry_form(link_inputs, entry_symbol);
+    if (entry_form == EntryForm::Missing) {
+      std::fputs("dolly-cc: no main function found in object inputs\n", stderr);
+      cleanup(temporary_objects);
+      return 1;
+    }
+    if (entry_form == EntryForm::Unsupported) {
+      std::fputs(
+          "dolly-cc: main must return int and accept (), (int, char **), "
+          "or (int, char **, char **)\n",
+          stderr);
+      cleanup(temporary_objects);
+      return 1;
+    }
+
+    const std::string wrapper_object =
+        temporary_path(job, options.inputs.size(), "-entry.o");
+    std::remove(wrapper_object.c_str());
+    if (!write_cached_entry_wrapper(
+            wrapper_object, entry_form, entry_symbol)) {
+      std::fputs("dolly-cc: could not create the command entry adapter\n", stderr);
+      cleanup(temporary_objects);
+      std::remove(wrapper_object.c_str());
+      return 1;
+    }
+    temporary_objects.push_back(wrapper_object);
+    link_inputs.push_back(wrapper_object);
   }
 
-  const std::string wrapper_source =
-      temporary_path(job, options.inputs.size(), "-entry.c");
-  const std::string wrapper_object =
-      temporary_path(job, options.inputs.size(), "-entry.o");
-  std::remove(wrapper_source.c_str());
-  std::remove(wrapper_object.c_str());
-  DriverOptions wrapper_options;
-  if (!write_entry_wrapper(wrapper_source, entry_form, entry_symbol) ||
-      !compile_object(wrapper_source, "c", wrapper_object, wrapper_options)) {
-    std::fputs("dolly-cc: could not create the command entry adapter\n", stderr);
-    cleanup(temporary_objects);
-    std::remove(wrapper_source.c_str());
-    std::remove(wrapper_object.c_str());
-    return 1;
+  if (needs_cxx_runtime) {
+    // These libraries are rebuilt from the pinned Emscripten sources inside
+    // Dolly. Their target patch makes the upstream main-module override points
+    // strong, allowing ordinary lazy archive selection without exposing the
+    // C++ implementation through the stable dolly-0 substrate.
+    link_inputs.push_back("/usr/lib/libc++.a");
+    link_inputs.push_back("/usr/lib/libc++abi.a");
+    link_inputs.push_back("/usr/lib/libclang_rt.builtins.a");
   }
-  std::remove(wrapper_source.c_str());
-  temporary_objects.push_back(wrapper_object);
-  link_inputs.push_back(wrapper_object);
 
   const std::string linked =
       temporary_path(job, options.inputs.size() + 1, ".wasm");
   std::remove(linked.c_str());
-  if (!link_command(linked, link_inputs)) {
+  if (!link_side_module(linked, link_inputs, options.linker_options,
+                        options.shared_library || options.export_dynamic,
+                        needs_cxx_runtime)) {
     std::fprintf(stderr, "dolly-cc: link failed: %s\n", output.c_str());
     cleanup(temporary_objects);
     std::remove(linked.c_str());
     return 1;
   }
   cleanup(temporary_objects);
-  const bool published = validate_command(linked) && stamp_command(linked) &&
+  const bool valid = options.shared_library
+                         ? validate_shared_object(linked)
+                         : validate_command(linked);
+  const bool published = valid && stamp_command(linked) &&
                          publish_file(linked, output);
   std::remove(linked.c_str());
   return published ? 0 : 1;
@@ -990,7 +1653,7 @@ int run_archive(int argc, char **argv, unsigned long long job) {
     std::puts("dolly ar: LLVM 24 deterministic GNU archives");
     return 0;
   }
-  if (argc < 4) {
+  if (argc < 3) {
     print_help(argv[0], DOLLY_TOOLCHAIN_AR);
     return 64;
   }
@@ -1044,7 +1707,9 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
        default_language != DOLLY_TOOLCHAIN_AR)) {
     return 64;
   }
-  const unsigned long long job = next_job++;
+  // Commands execute synchronously and remove staged outputs before return.
+  // A stable name also keeps LLD tie-breakers independent of cache hits.
+  constexpr unsigned long long job = 0;
   if (default_language == DOLLY_TOOLCHAIN_AR) {
     return run_archive(argc, argv, job);
   }
@@ -1053,13 +1718,23 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
                                                 default_language);
   if (parse_status > 0) return 0;
   if (parse_status < 0) return 64;
+  if (options.linker_version && options.inputs.empty() &&
+      !options.compile_only && !options.preprocess_only) {
+    std::puts("LLD 24.0.0 (Dolly wasm-ld)");
+    return 0;
+  }
+  if (options.dump_macros && !options.preprocess_only) {
+    std::fprintf(stderr, "%s: -dM requires -E\n", argv[0]);
+    return 64;
+  }
   if (options.inputs.empty()) {
     std::fprintf(stderr, "%s: no input files\n", argv[0]);
     return 64;
   }
   if (default_language == DOLLY_TOOLCHAIN_LD) {
-    if (options.compile_only) {
-      std::fprintf(stderr, "%s: -c is not a linker option\n", argv[0]);
+    if (options.compile_only || options.preprocess_only) {
+      std::fprintf(stderr, "%s: compilation options are not accepted by ld\n",
+                   argv[0]);
       return 64;
     }
     if (!options.forced_language.empty() || !options.frontend_options.empty()) {
@@ -1076,6 +1751,9 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
     }
   }
 
+  if (options.preprocess_only) {
+    return preprocess(options, default_language);
+  }
   return options.compile_only
              ? compile_only(options, default_language, job)
              : compile_and_link(options,
@@ -1088,4 +1766,14 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
 extern "C" int dolly_toolchain_validate_executable(const char *path) {
   if (path == nullptr || path[0] == '\0') return 0;
   return validate_executable(path);
+}
+
+extern "C" int dolly_toolchain_validate_shared_library(const char *path) {
+  if (path == nullptr || path[0] == '\0') return 0;
+  return validate_stamped_shared_object(path);
+}
+
+extern "C" int dolly_toolchain_preload_dependencies(const char *path) {
+  if (path == nullptr || path[0] == '\0') return 0;
+  return preload_dependencies(path);
 }

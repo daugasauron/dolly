@@ -50,6 +50,20 @@ Immediately before every `dlopen`, the in-Wasm runtime repeats that structural
 validation and requires exactly one matching `dolly.abi` stamp; filesystem
 mutation therefore cannot bypass the contract merely by avoiding `/bin/cc`.
 
+A regular file beginning with `#!` is the other version-0 executable form.
+The runtime accepts one absolute in-Wasm interpreter path and at most one
+interpreter argument, constructs the conventional interpreter/script argument
+vector, and recursively uses the same synchronous `spawn`/`wait` boundary.
+It cannot name a browser or host executable. This lets language installers
+publish ordinary console scripts instead of compiling an adapter for every
+entry point.
+
+Dolly does not preserve or enforce Unix ownership and permission modes. The
+snapshot formats contain file contents and paths, not mode bits; restored
+regular files receive execute bits as inert compatibility metadata for tools
+that preflight `PATH` candidates with `stat`. Loader validation of Wasm modules
+and bounded shebang dispatch remain the actual execution checks.
+
 `abi/dolly-0.wat` is the authoritative machine contract. Its imports define the
 allowed command-to-runtime surface using actual Wasm types; its exports define
 the command entry surface. A small binary parser checks function signatures,
@@ -98,15 +112,14 @@ programs commonly reuse names such as `program`, `execute`, or `array`, and
 must not interpose one another merely because Dolly shares one Wasm table.
 
 The C bootstrap installs the immutable packaged compiler seed into mutable
-WasmFS paths, establishes terminal descriptors and environment, then compiles
-`/bin/slop`, `/bin/dollyfile`, and the essential compiler/archiver wrappers
-independently from source. It invokes `/bin/dollyfile` with only a recipe
-locator and deployment base. That C executable fetches, verifies, writes,
-builds, checks, and retains each row strictly in order. The default recipe first
-compiles its own small archive extractor, then builds GNU Make 4.4.1 and uses
-Make rules from `/usr/src/dolly/startup.mk` for the remaining graph. Those
-rules compile pinned upstream sbase utilities, One True Awk, Fetch-backed
-libcurl, zlib, Git, QuickJS-ng/Pi, Zig/Ghostty, and compiler/loader probes.
+WasmFS paths, establishes terminal descriptors, then compiles `/bin/slop`,
+`/bin/dollyfile`, and the essential compiler/archiver wrappers independently
+from source. It invokes `/bin/dollyfile` with only a recipe locator and
+deployment base. That C executable fetches, verifies, writes, builds, checks,
+and retains each row strictly in order. Pinned `.dm` modules own their complete
+build commands and cleanup: the default aggregate composes GNU Make 4.4.1,
+sbase utilities, One True Awk, Fetch-backed libcurl, zlib, Git, Zig, and
+Ghostty, while Pi-bearing images add QuickJS-ng and Pi explicitly.
 QuickJS-ng's engine sources are unchanged; a Dolly CLI adapter intentionally
 excludes its ambient POSIX helper library. Awk's parser is generated
 reproducibly with pinned build-time Bison; its upstream `maketab` generator is

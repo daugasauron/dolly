@@ -3,12 +3,16 @@ import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import {
+  loadDollyfileGraph,
+  moduleCacheRecords,
+  recipeRecords,
+} from "./dollyfile-graph.mjs";
 
 export async function discoverImageDefinitions(projectDir) {
   const entries = await readdir(projectDir, { withFileTypes: true });
   const names = entries
-    .filter((entry) => entry.isFile() &&
-      (entry.name === "Dollyfile" || entry.name.startsWith("Dollyfile-")))
+    .filter((entry) => entry.isFile() && /^Dollyfile(?:-[a-z][a-z0-9-]*)?$/.test(entry.name))
     .map((entry) => entry.name)
     .sort();
   const definitions = [];
@@ -23,7 +27,6 @@ export async function discoverImageDefinitions(projectDir) {
       image: parsed.image,
       filename,
       source,
-      extends: parsed.extends,
       parsed,
     });
   }
@@ -38,37 +41,72 @@ export async function discoverImageDefinitions(projectDir) {
   return definitions;
 }
 
+export function selectImageDefinitions(definitions, selection = process.env.DOLLY_BUILD_IMAGES) {
+  if (selection === undefined || selection.trim() === "" || selection.trim() === "all") {
+    return definitions;
+  }
+  const requested = selection.split(",").map((name) => name.trim());
+  if (requested.some((name) => !/^[a-z][a-z0-9-]{0,31}$/.test(name)) ||
+      new Set(requested).size !== requested.length) {
+    throw new Error("DOLLY_BUILD_IMAGES must be a comma-separated list of unique image names");
+  }
+  const byName = new Map(definitions.map((definition) => [definition.image, definition]));
+  const selected = requested.map((name) => byName.get(name));
+  const missing = requested.filter((_, index) => selected[index] === undefined);
+  if (missing.length !== 0) {
+    throw new Error(`DOLLY_BUILD_IMAGES names unknown images: ${missing.join(", ")}`);
+  }
+  return selected;
+}
+
 export async function inspectStaticSources(projectDir, definitions) {
   const sources = new Map();
   for (const definition of definitions) {
-    for (const source of definition.parsed.sources) {
+    const graph = await loadDollyfileGraph(projectDir, definition.filename);
+    for (const module of graph.modules) {
+      const path = `/${module.relative}`;
+      const previous = sources.get(path);
+      if (previous && previous.sha256 !== module.sha256) {
+        throw new Error(`${definition.filename}: conflicting module ${path}`);
+      }
+      if (!previous) {
+        sources.set(path, Object.freeze({
+          path,
+          sha256: module.sha256,
+          byteLength: Buffer.byteLength(module.source),
+        }));
+      }
+    }
+    for (const record of graph.records) for (const source of record.sources) {
       if (source.transport !== "host") continue;
-      if (!source.location.startsWith("/static/") || source.location.includes("..")) {
+      if (!(source.location.startsWith("/static/") ||
+            source.location.startsWith("/include/dolly/")) ||
+          source.location.includes("..")) {
         throw new Error(
-          `${definition.filename}:${source.line}: HOST source must live below /static/`,
+          `${record.relative}:${source.line}: HOST source is outside trusted build inputs`,
         );
       }
       const previous = sources.get(source.location);
-      if (previous &&
-          (previous.media !== source.media || previous.sha256 !== source.sha256)) {
+      if (previous && previous.sha256 !== source.sha256) {
         throw new Error(
           `${definition.filename}:${source.line}: conflicting metadata for ${source.location}`,
         );
       }
       if (previous) continue;
-      const diskPath = resolve(projectDir, "dist", source.location.slice(1));
+      const diskPath = source.location.startsWith("/static/")
+        ? resolve(projectDir, "dist", source.location.slice(1))
+        : resolve(projectDir, source.location.slice(1));
       const [bytes, metadata] = await Promise.all([readFile(diskPath), stat(diskPath)]);
       if (!metadata.isFile()) throw new Error(`${diskPath}: static source is not a file`);
       const sha256 = createHash("sha256").update(bytes).digest("hex");
       if (sha256 !== source.sha256) {
         throw new Error(
-          `${definition.filename}:${source.line}: ${source.location} has SHA256 ${sha256}, ` +
+          `${record.relative}:${source.line}: ${source.location} has SHA256 ${sha256}, ` +
           `expected ${source.sha256}`,
         );
       }
       sources.set(source.location, Object.freeze({
         path: source.location,
-        media: source.media,
         sha256,
         byteLength: bytes.length,
       }));
@@ -79,12 +117,16 @@ export async function inspectStaticSources(projectDir, definitions) {
 }
 
 export function registrySource(definitions, staticSources = []) {
-  const records = definitions.map(({ image, filename, extends: parent, source }) => ({
+  const records = definitions.map(({ image, filename, source, parsed }) => ({
     image,
     dollyfile: filename,
     byteLength: Buffer.byteLength(source),
     sha256: createHash("sha256").update(source).digest("hex"),
-    ...(parent ? { extends: parent } : {}),
+    modules: parsed.uses.map(
+      ({ location, sha256 }) => ({ location, sha256 }),
+    ),
+    recipes: parsed.recipes ?? [],
+    moduleCaches: parsed.moduleCaches ?? [],
   }));
   return "// Generated from source-visible Dollyfiles. Do not edit.\n" +
     `export const DOLLY_IMAGES = Object.freeze(${JSON.stringify(records, null, 2)});\n` +
@@ -92,8 +134,19 @@ export function registrySource(definitions, staticSources = []) {
 }
 
 export async function writeImageRegistry(projectDir, definitions, staticSources = []) {
+  const enriched = await Promise.all(definitions.map(async (definition) => {
+    const graph = await loadDollyfileGraph(projectDir, definition.filename);
+    return {
+      ...definition,
+      parsed: {
+        ...definition.parsed,
+        recipes: recipeRecords(graph),
+        moduleCaches: moduleCacheRecords(graph),
+      },
+    };
+  }));
   await writeFile(
     resolve(projectDir, "dist/dolly-images.mjs"),
-    registrySource(definitions, staticSources),
+    registrySource(enriched, staticSources),
   );
 }

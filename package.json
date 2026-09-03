@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint:dollyfiles": "node scripts/lint-dollyfiles.mjs",
     "abi": "node scripts/dolly-abi.mjs inspect build/dolly-0.wasm",
     "build:runtime": "./scripts/build.sh",
     "routes": "node scripts/generate-routes.mjs",

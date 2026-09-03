@@ -4,45 +4,52 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
-import { discoverImageDefinitions } from "./image-definitions.mjs";
+import {
+  discoverImageDefinitions,
+  selectImageDefinitions,
+} from "./image-definitions.mjs";
+import { loadDollyfileGraph, recipeRecords } from "./dollyfile-graph.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
-const definitions = await discoverImageDefinitions(projectDir);
+const snapshotBrowserProfile = process.env.DOLLY_BROWSER_PROFILE ??
+  resolve(projectDir, ".cache/snapshot-browser-profile");
+const snapshotBrowserPort = process.env.DOLLY_BROWSER_PORT ?? String(
+  20_000 + (Number.parseInt(
+    createHash("sha256").update(projectDir).digest("hex").slice(0, 8), 16,
+  ) % 20_000),
+);
+const definitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
+const graphs = new Map(await Promise.all(definitions.map(async (definition) => [
+  definition.image,
+  await loadDollyfileGraph(projectDir, definition.filename),
+])));
 const definitionByImage = new Map(definitions.map((definition) => [definition.image, definition]));
 const requestedImage = process.env.DOLLY_SNAPSHOT_IMAGE;
 if (requestedImage !== undefined && !definitionByImage.has(requestedImage)) {
   throw new Error("DOLLY_SNAPSHOT_IMAGE must name a source-visible image");
 }
 const images = requestedImage === undefined
-  ? definitions.map((definition) => definition.image)
+  ? [...definitions]
+      .sort((left, right) => left.parsed.uses.length - right.parsed.uses.length)
+      .map((definition) => definition.image)
   : [requestedImage];
 const decoder = new TextDecoder("utf-8", { fatal: true });
+const { DOLLY_BUILD_ID } = await import("../dist/dolly-build-id.mjs");
 
 function digest(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function imageChain(image) {
-  const result = [];
-  const seen = new Set();
-  let definition = definitionByImage.get(image);
-  while (definition) {
-    if (seen.has(definition.image)) throw new Error(`Dollyfile inheritance cycle at ${image}`);
-    seen.add(definition.image);
-    result.unshift(definition);
-    if (!definition.extends) break;
-    definition = definitionByImage.get(definition.extends);
-    if (!definition) throw new Error(`Dollyfile parent ${result[0].extends} is missing`);
-  }
-  return result;
+function expectedRecipes(image) {
+  return recipeRecords(graphs.get(image));
 }
 
-function expectedRecipes(image) {
-  return imageChain(image).map((definition) => ({
-    image: definition.image,
-    path: `/${definition.filename}`,
-    sha256: digest(definition.source),
+function expectedModules(image) {
+  return graphs.get(image).root.uses.map(({ location, sha256 }) => ({
+    location,
+    sha256,
   }));
 }
 
@@ -53,6 +60,8 @@ function runSnapshotBuild(image, output) {
       env: {
         ...process.env,
         DOLLY_BROWSER_MODE: "snapshot-export",
+        DOLLY_BROWSER_PROFILE: snapshotBrowserProfile,
+        DOLLY_BROWSER_PORT: snapshotBrowserPort,
         DOLLY_IMAGE: image,
         DOLLY_SNAPSHOT_OUTPUT: output,
       },
@@ -129,27 +138,79 @@ function parseEntry(bytes) {
   return entry;
 }
 
+function parseEnvironment(bytes) {
+  if (!bytes || bytes.length < 16 ||
+      bytes.subarray(0, 8).toString("ascii") !== "DOLLYENV" ||
+      bytes.readUInt32LE(8) !== 1) {
+    throw new Error("snapshot has an invalid environment record");
+  }
+  const count = bytes.readUInt32LE(12);
+  if (count > 256) throw new Error("snapshot environment has too many entries");
+  let offset = 16;
+  const environment = new Map();
+  for (let index = 0; index < count; index += 1) {
+    if (offset > bytes.length - 8) throw new Error("snapshot environment is truncated");
+    const nameLength = bytes.readUInt32LE(offset);
+    const valueLength = bytes.readUInt32LE(offset + 4);
+    offset += 8;
+    if (nameLength === 0 || nameLength > 128 || valueLength > 64 * 1024 ||
+        offset > bytes.length - nameLength - valueLength) {
+      throw new Error("snapshot environment has an invalid entry");
+    }
+    const name = decoder.decode(bytes.subarray(offset, offset + nameLength));
+    offset += nameLength;
+    const value = decoder.decode(bytes.subarray(offset, offset + valueLength));
+    offset += valueLength;
+    if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name) ||
+        name.includes("\0") || value.includes("\0") || environment.has(name)) {
+      throw new Error("snapshot environment has an invalid name or value");
+    }
+    environment.set(name, value);
+  }
+  if (offset !== bytes.length) throw new Error("snapshot environment has trailing data");
+  return environment;
+}
+
 function verifySnapshotIdentity(image, parsed, recipes) {
   const selected = decoder.decode(parsed.files.get("/etc/dolly/image") ?? new Uint8Array());
   if (selected !== image) throw new Error(`snapshot selected image ${selected}, expected ${image}`);
   const expectedLock = "DOLLY-RECIPES 1\n" +
-    recipes.map((recipe) => `${recipe.path} ${recipe.sha256}\n`).join("");
+    recipes.map((recipe) => `${recipe.locator} ${recipe.sha256}\n`).join("");
   const actualLock = decoder.decode(
     parsed.files.get("/etc/dolly/recipes.lock") ?? new Uint8Array(),
   );
   if (actualLock !== expectedLock) throw new Error("snapshot recipe lock does not match source");
+  const sourceByPath = new Map(
+    graphs.get(image).records.map((record) => [`/${record.relative}`, record.source]),
+  );
   for (const recipe of recipes) {
-    const definition = definitionByImage.get(recipe.image);
-    const embedded = parsed.files.get(`/etc/dolly/recipes/${recipe.image}.Dollyfile`);
+    const source = sourceByPath.get(recipe.sourcePath);
+    const embedded = parsed.files.get(recipe.retainedPath);
     if (!embedded || digest(embedded) !== recipe.sha256 ||
-        decoder.decode(embedded) !== definition.source) {
-      throw new Error(`snapshot did not retain the exact ${definition.filename}`);
+        decoder.decode(embedded) !== source) {
+      throw new Error(`snapshot did not retain the exact ${recipe.sourcePath}`);
     }
   }
   const selectedRecipe = definitionByImage.get(image);
   const selectedBytes = parsed.files.get("/etc/dolly/Dollyfile");
   if (!selectedBytes || decoder.decode(selectedBytes) !== selectedRecipe.source) {
     throw new Error("snapshot canonical Dollyfile does not match the selected recipe");
+  }
+  const environment = parseEnvironment(parsed.files.get("/etc/dolly/environment"));
+  const expectedEnvironment = [...graphs.get(image).exporters.values()]
+    .map(({ exported }) => exported)
+    .filter(({ type }) => type === "ENV");
+  if (environment.size !== expectedEnvironment.length) {
+    throw new Error("snapshot environment does not match image exports");
+  }
+  for (const exported of expectedEnvironment) {
+    const [operation, appended] = exported.details;
+    if (!environment.has(exported.name) ||
+        (operation !== "APPEND" && environment.get(exported.name) !== operation) ||
+        (operation === "APPEND" &&
+         !environment.get(exported.name).split(":").includes(appended))) {
+      throw new Error(`snapshot environment does not match ENV ${exported.name}`);
+    }
   }
   return parseEntry(parsed.files.get("/etc/dolly/entry"));
 }
@@ -168,12 +229,34 @@ async function buildImage(image) {
     rm(temporaryMetadataPath, { force: true }),
   ]);
   try {
+    if (process.env.DOLLY_FORCE_SNAPSHOT !== "1") {
+      try {
+        const metadataUrl = pathToFileURL(metadataPath);
+        metadataUrl.searchParams.set("check", String(Date.now()));
+        const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(metadataUrl.href);
+        const snapshot = await readFile(snapshotPath);
+        const parsed = parseSnapshot(snapshot);
+        const entry = verifySnapshotIdentity(image, parsed, expectedRecipes(image));
+        if (metadata?.image === image &&
+            metadata.buildId === DOLLY_BUILD_ID &&
+            metadata.formatVersion === 1 && metadata.identityVersion === 2 &&
+            JSON.stringify(metadata.recipes) === JSON.stringify(expectedRecipes(image)) &&
+            JSON.stringify(metadata.modules) === JSON.stringify(expectedModules(image)) &&
+            JSON.stringify(metadata.entry) === JSON.stringify(entry) &&
+            JSON.stringify(metadata.manifest) === JSON.stringify(parsed.manifest) &&
+            metadata.byteLength === snapshot.length && metadata.sha256 === digest(snapshot)) {
+          console.log(`dolly: ${image} snapshot is current (${metadata.sha256.slice(0, 16)}…)`);
+          return;
+        }
+      } catch {
+        // Missing, malformed, or stale output is rebuilt below.
+      }
+    }
     await runSnapshotBuild(image, temporarySnapshotPath);
     const snapshot = await readFile(temporarySnapshotPath);
     const parsed = parseSnapshot(snapshot);
     const recipes = expectedRecipes(image);
     const entry = verifySnapshotIdentity(image, parsed, recipes);
-    const { DOLLY_BUILD_ID } = await import("../dist/dolly-build-id.mjs");
     const sha256 = digest(snapshot);
     const metadata = `// Generated by scripts/build-system-snapshot.mjs.\n` +
       `export const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify({
@@ -182,6 +265,7 @@ async function buildImage(image) {
         formatVersion: 1,
         identityVersion: 2,
         recipes,
+        modules: expectedModules(image),
         entry,
         manifest: parsed.manifest,
         byteLength: snapshot.length,

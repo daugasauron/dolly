@@ -35,6 +35,7 @@ const encoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 const bootstrapDecoder = new TextDecoder();
 const commandResults = [];
+const runtimeFailureRejectors = new Set();
 
 let runtimeWorker;
 let transport;
@@ -147,6 +148,8 @@ class DisplayTransport {
   static paddingY = 27;
   static interruptSequence = 28;
   static interruptTargetPid = 29;
+  static animationFrameSequence = 30;
+  static cursorStyle = 31;
 
   static keyEvent = 1;
   static textEvent = 2;
@@ -404,6 +407,31 @@ class DisplayTransport {
     return (Atomics.load(this.words, this.word + DisplayTransport.flags) & 2) !== 0;
   }
 
+  publishAnimationFrame() {
+    if (!this.graphicsActive()) return;
+    Atomics.add(
+      this.words,
+      this.word + DisplayTransport.animationFrameSequence,
+      1,
+    );
+    Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
+    Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
+  }
+
+  currentAnimationFrameSequence() {
+    return Atomics.load(
+      this.words,
+      this.word + DisplayTransport.animationFrameSequence,
+    ) >>> 0;
+  }
+
+  cursorStyle() {
+    return Atomics.load(
+      this.words,
+      this.word + DisplayTransport.cursorStyle,
+    ) >>> 0;
+  }
+
   interruptForeground() {
     const pid = this.foregroundPid();
     if (pid <= 0 || !this.foregroundInterruptible()) return false;
@@ -597,10 +625,23 @@ class FramebufferPresenter {
   start() {
     const paint = () => {
       if (!this.running) return;
+      this.transport.publishAnimationFrame();
+      this.updateCursor();
       this.paint();
       requestAnimationFrame(paint);
     };
     requestAnimationFrame(paint);
+  }
+
+  stop() {
+    this.running = false;
+  }
+
+  updateCursor() {
+    const styles = ["text", "default", "crosshair", "pointer", "none"];
+    const style = styles[this.transport.cursorStyle()] ?? "default";
+    if (this.canvas.style.cursor !== style) this.canvas.style.cursor = style;
+    document.documentElement.dataset.cursorStyle = style;
   }
 
   paint() {
@@ -1120,16 +1161,15 @@ async function submitInput(command, input = `${command}\r`) {
   const sequence = transport.currentResultSequence();
   document.documentElement.dataset.dollyCommand = command;
   if (!transport.pushText(input)) throw new Error("Dolly input mailbox is full");
-  let timeout;
+  let rejectRuntimeFailure;
+  const runtimeFailure = new Promise((_resolve, reject) => {
+    rejectRuntimeFailure = reject;
+    runtimeFailureRejectors.add(reject);
+  });
   const commandStatus = await Promise.race([
     transport.waitForResult(sequence),
-    new Promise((_resolve, reject) => {
-      timeout = setTimeout(
-        () => reject(new Error(`timed out waiting for command: ${command}`)),
-        60_000,
-      );
-    }),
-  ]).finally(() => clearTimeout(timeout));
+    runtimeFailure,
+  ]).finally(() => runtimeFailureRejectors.delete(rejectRuntimeFailure));
   commandResults.push({ command, status: commandStatus });
   return commandStatus;
 }
@@ -1143,20 +1183,30 @@ async function waitFor(predicate, description) {
 }
 
 async function runBrowserProof() {
-  // Production boots directly into Pi. The shell regression suite exits that
-  // resident TUI and waits for Dolly's recovery Slop process before submitting
-  // command-shaped input.
-  await waitFor(() => transport.foregroundPid() > 0, "default Pi foreground pid");
-  const defaultPiPid = transport.foregroundPid();
-  transport.pushSyntheticKey("d", "KeyD", 2);
-  transport.pushSyntheticKey("d", "KeyD", 2, 0);
-  await waitFor(
-    () => transport.foregroundPid() > 0 &&
-      transport.foregroundPid() !== defaultPiPid &&
-      !transport.foregroundInterruptible() &&
-      transport.inputIdle(),
-    "recovery Slop foreground pid",
-  );
+  const imageDefinition = DOLLY_IMAGES.find(({ image }) => image === activeImage);
+  const recipes = new Set(imageDefinition?.recipes?.map(({ name }) => name));
+  const hasRecipe = (name) => recipes.has(name);
+  // The regression suite reaches the recovery shell without changing normal
+  // image startup. Pi exits on Ctrl-D, while the gamedev entry exits on Q.
+  await waitFor(() => transport.foregroundPid() > 0, "image entry foreground pid");
+  if (activeImage !== "default") {
+    const entryPid = transport.foregroundPid();
+    if (activeImage === "gamedev") {
+      await waitFor(() => transport.graphicsActive(), "gamedev entry display lease");
+      transport.pushSyntheticKey("q", "KeyQ");
+      transport.pushSyntheticKey("q", "KeyQ", 0, 0);
+    } else {
+      transport.pushSyntheticKey("d", "KeyD", 2);
+      transport.pushSyntheticKey("d", "KeyD", 2, 0);
+    }
+    await waitFor(
+      () => transport.foregroundPid() > 0 &&
+        transport.foregroundPid() !== entryPid &&
+        !transport.foregroundInterruptible() &&
+        transport.inputIdle(),
+      "recovery Slop foreground pid",
+    );
+  }
   document.documentElement.dataset.defaultPi = "passed";
 
   const libcurlCheckBody =
@@ -1218,7 +1268,9 @@ async function runBrowserProof() {
     ["awk 'BEGIN {print system(\"echo HOST-ESCAPE\")}'"],
     ["awk 'BEGIN {status = (\"denied\" | getline value); print status; exit status == -1 ? 0 : 1}'"],
     ["awk -f", undefined, 2],
-    [`qjs -e 'Dolly.httpStart("GET", "${location.origin}/fixture/http.txt", "", null)'`],
+    ...(hasRecipe("quickjs")
+      ? [[`qjs -e 'Dolly.httpStart("GET", "${location.origin}/fixture/http.txt", "", null)'`]]
+      : []),
     ["curl -fsSL /fixture/http.txt -o fetched.txt"],
     ["cat fetched.txt"],
     ["curl -sS -X POST -H 'X-Dolly-Cli: yes' -d one=1 -d two=2 " +
@@ -1286,12 +1338,11 @@ async function runBrowserProof() {
     ["zig version"],
     ["echo 'export fn browser_zig_answer() callconv(.c) u32 { return 42; }' > browser-answer.zig"],
     ["zig build-obj -OReleaseSmall -target wasm64-emscripten -mcpu=generic+atomics -fPIC -fsingle-threaded -fcompiler-rt -lc --name browser-zig-answer -femit-bin=browser-answer.o -Mroot=/workspace/browser-answer.zig"],
-    ["/usr/libexec/dolly/zig-object-check browser-answer.o"],
     ["echo 'extern unsigned browser_zig_answer(void); int main(void) { return browser_zig_answer() == 42 ? 0 : 1; }' > browser-zig-check.c"],
     ["cc browser-zig-check.c browser-answer.o -o browser-zig-check"],
     ["./browser-zig-check"],
     ["ls /usr/lib/libghostty-vt.a"],
-    ["ghostty-vt"],
+    ["test ! -e /usr/bin/ghostty-vt"],
     ["graphics-demo --frames 2", undefined,
       document.documentElement.dataset.image === "gamedev" ? 0 : 127],
     ["cc --version"],
@@ -1341,52 +1392,43 @@ async function runBrowserProof() {
     ["touch make-value.c"],
     ["make -q", undefined, 1],
     ["make -j8"],
-    ["qjs --version"],
-    ["qjs -e \"Dolly.writeFile('/tmp/qjs-tty.txt', [process.stdin.isTTY, process.stdout.isTTY, process.stderr.isTTY].join(','))\""],
-    ["grep -q '^true,true,true$' /tmp/qjs-tty.txt"],
-    ["qjs -e \"Dolly.writeFile('/tmp/qjs-redirect.txt', String(process.stdout.isTTY))\" > /tmp/qjs-discard.txt"],
-    ["grep -q '^false$' /tmp/qjs-redirect.txt"],
-    ["qjs -e \"console.log('JS-' + (6 * 7))\""],
-    ["echo \"console.log('ARGS-' + scriptArgs.join(':'))\" > args.js"],
-    ["qjs args.js alpha beta"],
-    ["echo \"export const answer = 42\" > esm-value.mjs"],
-    ["echo \"import { answer } from './esm-value.mjs'; console.log('ESM-' + answer)\" > esm-main.mjs"],
-    ["qjs esm-main.mjs"],
-    ["qjs -e \"Dolly.writeFile('/workspace/qjs-persist.txt', 'QJS-PERSIST')\""],
-    ["cat qjs-persist.txt"],
-    ["echo \"print([1,2,3].map(x => x * 2).join(','))\" | qjs -"],
-    ["qjs -e \"throw new Error('JS-EXPECTED')\"", undefined, 1],
-    ["qjs --unsupported", undefined, 64],
-    ["janis --version"],
-    ["janis -e \"const c = process.getBuiltinModule('node:crypto'); if (c.createHash('sha256').update('abc').digest('hex') !== 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad') process.exit(1); console.log('JANIS-HASH-OK')\""],
-    ["janis -e \"const h = process.getBuiltinModule('node:http'); const s = new h.Server(); s.on('error', e => { if (e.code !== 'ENOSYS') process.exit(1); console.log('JANIS-LISTEN-ENOSYS'); }); s.listen(1455)\""],
-    ["pi --version"],
-    ["echo '{\"openrouter\":{\"type\":\"api_key\",\"key\":\"sandbox-placeholder\"},\"openai-codex\":{\"type\":\"oauth\",\"access\":\"sandbox-placeholder\",\"refresh\":\"sandbox-placeholder\",\"expires\":4102444800000}}' > /home/dolly/.pi/agent/auth.json"],
-    ["pi --list-models openrouter > /tmp/pi-openrouter-models.txt"],
-    ["grep -q 'openrouter' /tmp/pi-openrouter-models.txt"],
-    ["pi --list-models openai-codex > /tmp/pi-codex-models.txt"],
-    ["grep -q 'openai-codex' /tmp/pi-codex-models.txt"],
-    ["rm -f /home/dolly/.pi/agent/auth.json"],
+    ...(hasRecipe("quickjs") ? [
+      ["qjs --version"],
+      ["qjs -e \"Dolly.writeFile('/tmp/qjs-tty.txt', [process.stdin.isTTY, process.stdout.isTTY, process.stderr.isTTY].join(','))\""],
+      ["grep -q '^true,true,true$' /tmp/qjs-tty.txt"],
+      ["qjs -e \"Dolly.writeFile('/tmp/qjs-redirect.txt', String(process.stdout.isTTY))\" > /tmp/qjs-discard.txt"],
+      ["grep -q '^false$' /tmp/qjs-redirect.txt"],
+      ["qjs -e \"console.log('JS-' + (6 * 7))\""],
+      ["echo \"console.log('ARGS-' + scriptArgs.join(':'))\" > args.js"],
+      ["qjs args.js alpha beta"],
+      ["echo \"export const answer = 42\" > esm-value.mjs"],
+      ["echo \"import { answer } from './esm-value.mjs'; console.log('ESM-' + answer)\" > esm-main.mjs"],
+      ["qjs esm-main.mjs"],
+      ["qjs -e \"Dolly.writeFile('/workspace/qjs-persist.txt', 'QJS-PERSIST')\""],
+      ["cat qjs-persist.txt"],
+      ["echo \"print([1,2,3].map(x => x * 2).join(','))\" | qjs -"],
+      ["qjs -e \"throw new Error('JS-EXPECTED')\"", undefined, 1],
+      ["qjs --unsupported", undefined, 64],
+    ] : []),
+    ...(hasRecipe("pi") ? [
+      ["janis --version"],
+      ["janis -e \"const c = process.getBuiltinModule('node:crypto'); if (c.createHash('sha256').update('abc').digest('hex') !== 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad') process.exit(1); console.log('JANIS-HASH-OK')\""],
+      ["janis -e \"const h = process.getBuiltinModule('node:http'); const s = new h.Server(); s.on('error', e => { if (e.code !== 'ENOSYS') process.exit(1); console.log('JANIS-LISTEN-ENOSYS'); }); s.listen(1455)\""],
+      ["pi --version"],
+      ["echo '{\"openrouter\":{\"type\":\"api_key\",\"key\":\"sandbox-placeholder\"},\"openai-codex\":{\"type\":\"oauth\",\"access\":\"sandbox-placeholder\",\"refresh\":\"sandbox-placeholder\",\"expires\":4102444800000}}' > /home/dolly/.pi/agent/auth.json"],
+      ["pi --list-models openrouter > /tmp/pi-openrouter-models.txt"],
+      ["grep -q 'openrouter' /tmp/pi-openrouter-models.txt"],
+      ["pi --list-models openai-codex > /tmp/pi-codex-models.txt"],
+      ["grep -q 'openai-codex' /tmp/pi-codex-models.txt"],
+      ["rm -f /home/dolly/.pi/agent/auth.json"],
+    ] : []),
   ];
-  const afterInteractive = [
-    ["demo"],
-    ["demo"],
-  ];
-
   for (const [command, input] of beforeInteractive) {
     await submitInput(command, input ?? `${command}\r`);
   }
-
-  for (const [command, input] of afterInteractive) {
-    await submitInput(command, input ?? `${command}\r`);
-  }
-
-  const count = beforeInteractive.length + afterInteractive.length;
+  const count = beforeInteractive.length;
   const proofResults = commandResults.slice(-count);
-  const expectedStatuses = [
-    ...beforeInteractive.map((entry) => entry[2] ?? 0),
-    ...afterInteractive.map((entry) => entry[2] ?? 0),
-  ];
+  const expectedStatuses = beforeInteractive.map((entry) => entry[2] ?? 0);
   const passed = proofResults.length === count
     && proofResults.every((result, index) => result.status === expectedStatuses[index]);
   if (!passed) {
@@ -1533,7 +1575,10 @@ async function boot() {
         displayFatal(error instanceof Error ? error.message : String(error));
       }
     } else if (message.type === "error" && runtimeReady) {
-      displayFatal(message.stack ? `${message.message}\n${message.stack}` : message.message);
+      const detail = message.stack ? `${message.message}\n${message.stack}` : message.message;
+      for (const reject of runtimeFailureRejectors) reject(new Error(detail));
+      runtimeFailureRejectors.clear();
+      displayFatal(detail);
     }
   });
   const workerConfiguration = {
@@ -1564,7 +1609,7 @@ async function boot() {
   });
   appendBootstrap(bootstrapDecoder.decode(), true);
   runtimeReady = true;
-  if (ready.version !== 3) throw new Error(`unsupported display mailbox ${ready.version}`);
+  if (ready.version !== 4) throw new Error(`unsupported display mailbox ${ready.version}`);
   if (ready.httpVersion !== 2) throw new Error(`unsupported HTTP mailbox ${ready.httpVersion}`);
   if (ready.sessionVersion !== 1) {
     throw new Error(`unsupported session mailbox ${ready.sessionVersion}`);
@@ -1615,12 +1660,15 @@ async function boot() {
     transport,
   );
   presenter.start();
+  if (!transport.pushResize(mount.clientWidth, mount.clientHeight, devicePixelRatio)) {
+    throw new Error("Dolly display input ring rejected its initial resize");
+  }
+  runtimeWorker.postMessage({ type: "display-ready-ack" });
   bootstrapLog.hidden = true;
   canvas.hidden = false;
   document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
   resizeObserver = new ResizeObserver(sendResize);
   resizeObserver.observe(mount);
-  sendResize();
 
   keyboard.focus({ preventScroll: true });
   document.documentElement.dataset.dollyStatus = "ready";

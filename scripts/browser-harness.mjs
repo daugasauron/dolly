@@ -7,10 +7,15 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, resolve, sep } from "node:path";
 
-import { discoverImageDefinitions, inspectStaticSources } from "./image-definitions.mjs";
+import {
+  discoverImageDefinitions,
+  inspectStaticSources,
+  selectImageDefinitions,
+} from "./image-definitions.mjs";
+import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
-const imageDefinitions = await discoverImageDefinitions(projectDir);
+const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 const distDirectory = resolve(projectDir, "dist");
 const chromeBinary = process.argv[2];
@@ -26,6 +31,7 @@ if (!browserBase.startsWith("/") || !browserBase.endsWith("/") ||
 }
 const browserBasePrefix = browserBase === "/" ? "" : browserBase.slice(0, -1);
 const piDevelopmentMode = process.env.DOLLY_BROWSER_MODE === "pi";
+const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -36,6 +42,8 @@ const pagesLiveMode = process.env.DOLLY_BROWSER_MODE === "pages-live";
 const menuMode = process.env.DOLLY_BROWSER_MODE === "menu";
 const routeSmokeMode = process.env.DOLLY_BROWSER_MODE === "route-smoke";
 const sessionMode = process.env.DOLLY_BROWSER_MODE === "session";
+const pythonPackageMode = process.env.DOLLY_BROWSER_MODE === "python-packages";
+const toolchainProbeMode = process.env.DOLLY_BROWSER_MODE === "toolchain-probes";
 const piAuditSpec = piAuditMode
   ? JSON.parse(await readFile(resolve(
       projectDir,
@@ -56,10 +64,13 @@ if (piAuditMode &&
     "Pi audit input must contain prompts and string or { command, status } probes",
   );
 }
-const selectedImage = process.env.DOLLY_IMAGE ?? "default";
+const selectedImage = process.env.DOLLY_IMAGE ?? (missingSnapshotMode ? "default" : "pi");
 if (!new Set(imageDefinitions.map((definition) => definition.image)).has(selectedImage)) {
   throw new Error("DOLLY_IMAGE must name a source-visible Dollyfile image");
 }
+const selectedDefinition = imageDefinitions.find(({ image }) => image === selectedImage);
+const selectedGraph = await loadDollyfileGraph(projectDir, selectedDefinition.filename);
+const selectedModuleNames = new Set(selectedGraph.modules.map(({ name }) => name));
 const snapshotSizeLimit = 512 * 1024 * 1024;
 const codexFixtureAuthorizationCode = "dolly-browser-authorization-code";
 const codexFixtureAccountId = "acct_dolly_browser_fixture";
@@ -76,6 +87,8 @@ const codexFixtureAccessToken = [
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
+  [".dm", "text/plain; charset=utf-8"],
+  [".h", "text/plain; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"],
   [".wasm", "application/wasm"],
@@ -89,14 +102,19 @@ const publicSources = new Set([
   ...imageDefinitions.map((definition) => definition.filename),
   "src/browser.mjs",
   "src/dollyfile-view.mjs",
-  "src/dollyfile-viewer.mjs",
   "src/http-policy.mjs",
+  "src/module-cache.mjs",
   "src/session-store.mjs",
   "src/runtime-worker.mjs",
 ]);
 const sourceArtifacts = new Map(staticSources.map((source) => [
   source.path.slice(1),
-  { relative: `dist/${source.path.slice(1)}`, source },
+  {
+    relative: source.path.startsWith("/static/")
+      ? `dist/${source.path.slice(1)}`
+      : source.path.slice(1),
+    source,
+  },
 ]));
 const routeDocuments = new Map([
   ...imageDefinitions.flatMap(({ image }) => [
@@ -718,8 +736,20 @@ async function measureShellBatch(send, label, count = 8) {
     send,
     "Number(document.documentElement.dataset.frameSequence ?? 0)",
   );
+  const milliseconds = Date.now() - started;
+  const scratch = Array.from(
+    { length: count },
+    (_, index) => `/tmp/dolly-${label}-${index}.txt`,
+  );
+  assert.equal(
+    await evaluate(
+      send,
+      `window.__dolly.submit(${JSON.stringify(`rm -f ${scratch.join(" ")}`)})`,
+    ),
+    0,
+  );
   return {
-    milliseconds: Date.now() - started,
+    milliseconds,
     frames: (frameAfter - frameBefore) >>> 0,
     commands: count,
   };
@@ -799,6 +829,13 @@ async function typeCorrectedHelp(send) {
 }
 
 const server = await startServer();
+let browserDownloadDirectory = null;
+let chrome = null;
+let debuggerClient;
+let ephemeralProfileRoot = null;
+let persistentProfile = null;
+let userDataDir = null;
+try {
 const address = server.address();
 const externalPage = process.env.DOLLY_BROWSER_PAGE;
 if (pagesLiveMode &&
@@ -839,6 +876,22 @@ const fixturePolicy = {
     },
   ],
 };
+if (pythonPackageMode) {
+  fixturePolicy.rules.unshift(
+    {
+      origin: "https://pypi.org",
+      pathPrefix: "/pypi/",
+      methods: ["GET"],
+      maxResponseBytes: 32 * 1024 * 1024,
+    },
+    {
+      origin: "https://files.pythonhosted.org",
+      pathPrefix: "/packages/",
+      methods: ["GET"],
+      maxResponseBytes: 64 * 1024 * 1024,
+    },
+  );
+}
 if (realOpenRouterMode) {
   fixturePolicy.rules.unshift({
     origin: "https://openrouter.ai",
@@ -851,10 +904,8 @@ if (realOpenRouterMode) {
   });
 }
 const requestedProfile = process.env.DOLLY_BROWSER_PROFILE;
-let ephemeralProfileRoot = null;
-let persistentProfile = requestedProfile;
-let userDataDir;
-const browserDownloadDirectory = await mkdtemp(`${tmpdir()}/dolly-browser-downloads-`);
+persistentProfile = requestedProfile;
+browserDownloadDirectory = await mkdtemp(`${tmpdir()}/dolly-browser-downloads-`);
 if (realOpenRouterMode) {
   // The real credential is intentionally copied into Dolly's ephemeral
   // in-memory filesystem. A fresh browser profile avoids unrelated persistence
@@ -877,7 +928,7 @@ for (const transient of [
 ]) {
   await rm(resolve(userDataDir, transient), { force: true });
 }
-const chrome = spawn(chromeBinary, [
+chrome = spawn(chromeBinary, [
   "--headless=new",
   "--no-sandbox",
   "--disable-gpu",
@@ -887,8 +938,6 @@ const chrome = spawn(chromeBinary, [
   "about:blank",
 ], { stdio: "ignore" });
 
-let debuggerClient;
-try {
   const debugPort = await waitForDebugPort(userDataDir, chrome);
   debuggerClient = await connectDebugger({
     debugPort,
@@ -952,11 +1001,152 @@ try {
       ? rebuildPage
       : piDevelopmentMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
+        || pythonPackageMode || toolchainProbeMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (toolchainProbeMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "toolchain probe image boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "echo '#error deliberate compiler failure' > /tmp/dolly-bad-probe.cpp && " +
+          "c++ -c /tmp/dolly-bad-probe.cpp -o /tmp/dolly-bad-probe.o",
+        )})`,
+      ), 1, "a rejected compiler probe did not return an ordinary failure");
+      for (const command of [
+        "rm -f /tmp/dolly-bad-probe.cpp /tmp/dolly-bad-probe.o " +
+          "/tmp/dolly-bad-link.cpp /tmp/dolly-bad-link " +
+          "/tmp/dolly-meson-sanity.cpp /tmp/dolly-meson-sanity " +
+          "/tmp/dolly-cxx-macros.txt",
+        "echo 'int main(int argc, char **argv) { return argc == 0; }' > /tmp/dolly-meson-sanity.cpp",
+        "c++ --version",
+        "c++ -x c++ -E -dM - < /dev/null > /tmp/dolly-cxx-macros.txt",
+        "c++ -Wl,--version",
+        "c++ -Wl,-v",
+        "c++ -D_FILE_OFFSET_BITS=64 -o /tmp/dolly-meson-sanity /tmp/dolly-meson-sanity.cpp -D_FILE_OFFSET_BITS=64",
+        "/tmp/dolly-meson-sanity",
+        "rm -f /tmp/dolly-meson-sanity.cpp /tmp/dolly-meson-sanity /tmp/dolly-cxx-macros.txt",
+      ]) {
+        assert.equal(await evaluate(
+          debuggerClient.send,
+          `window.__dolly.submit(${JSON.stringify(command)})`,
+        ), 0, command);
+      }
+      console.log(
+        "browser: rejected compile probe recovered; repeated Meson-style " +
+          "C++ detection, compile, link, and run passed",
+      );
+      break browserProof;
+    }
+    if (pythonPackageMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "Python package image boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import importlib.util; " +
+          "assert importlib.util.find_spec(\"numpy\") is None; " +
+          "assert importlib.util.find_spec(\"pandas\") is None; " +
+          "assert importlib.util.find_spec(\"mesonbuild\") is None'",
+        )})`,
+      ), 0, "the scientific-package proof did not start from a clean image");
+      await evaluate(debuggerClient.send, `(() => {
+        window.__dollyPythonPackageOutcome = null;
+        window.__dolly.submit(${JSON.stringify(
+          "MESON_FORCE_SHOW_LOGS=1 DOLLY_CC_TRACE=1 bonnie install pandas",
+        )}).then(
+          (status) => { window.__dollyPythonPackageOutcome = { status }; },
+          (error) => {
+            window.__dollyPythonPackageOutcome = { error: String(error) };
+          },
+        );
+        return true;
+      })()`);
+      let pandasOutcome = null;
+      let previousProgress = "";
+      for (let attempt = 0; attempt < 18_000; ++attempt) {
+        pandasOutcome = await evaluate(
+          debuggerClient.send,
+          "window.__dollyPythonPackageOutcome",
+        );
+        if (pandasOutcome !== null) break;
+        if (attempt % 100 === 0) {
+          const progress = await visibleTerminalText(debuggerClient.send);
+          if (progress !== previousProgress) {
+            console.log(`browser: Python package build progress\n${progress}`);
+            previousProgress = progress;
+          }
+        }
+        await delay(100);
+      }
+      if (pandasOutcome?.status !== 0) {
+        console.error(await visibleTerminalText(debuggerClient.send));
+      }
+      assert.deepEqual(pandasOutcome, { status: 0 },
+        "Bonnie could not resolve and source-build Pandas's complete dependency graph");
+
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'from importlib.metadata import version; " +
+          "import numpy as np, pandas as pd; " +
+          "assert version(\"numpy\") and version(\"pandas\"); " +
+          "a=np.array([1,2,3]); assert int((a*a).sum()) == 14; " +
+          "frame=pd.DataFrame({\"kind\":[\"a\",\"b\",\"a\"],\"value\":[2,3,5]}); " +
+          "totals=frame.groupby(\"kind\")[\"value\"].sum(); " +
+          "assert totals.to_dict() == {\"a\":7,\"b\":3}'",
+        )})`,
+      ), 0, "the transitive NumPy build or source-built Pandas groupby failed");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "meson --version && python -c 'import mesonbuild.coredata as c; " +
+          "from importlib.metadata import version; assert c.version == version(\"meson\")'",
+        )})`,
+      ), 0, "Pandas's build frontend was not installed transitively");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import socket; assert socket.socket'",
+        )})`,
+      ), 0, "the denied socket module did not preserve import compatibility");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import socket; socket.socket()'",
+        )})`,
+      ), 1, "CPython unexpectedly acquired a raw socket capability");
+      assert.equal(await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "python -c 'import glob,os; assert not glob.glob(\"/tmp/bonnie-stage-*\"); " +
+          "assert not os.path.exists(\"/tmp/bonnie-last-build.log\")'",
+        )})`,
+      ), 0, "Bonnie left build staging or diagnostic state behind");
+      console.log(
+        "browser: Bonnie resolved and source-built Pandas, NumPy, and their " +
+        "build dependencies while preserving explicit socket denial",
+      );
+      break browserProof;
+    }
     if (sessionMode) {
       const initialState = await waitForValue(
         debuggerClient.send,
@@ -1076,22 +1266,22 @@ try {
       });
       await waitForValue(
         debuggerClient.send,
-        "document.querySelectorAll('#source .line').length",
+        "document.querySelectorAll('pre .line').length",
         (value) => value > 2,
         "Dollyfile source viewer",
         200,
       );
       const viewer = await evaluate(debuggerClient.send, `(() => ({
-        title: document.querySelector('#title')?.textContent,
-        source: document.querySelector('#source')?.textContent,
-        links: Array.from(document.querySelectorAll('#source a'), (anchor) => ({
+        source: document.querySelector('pre')?.textContent,
+        links: Array.from(document.querySelectorAll('pre a'), (anchor) => ({
           href: new URL(anchor.href).pathname,
           download: anchor.hasAttribute('download'),
         })),
-        linkColor: getComputedStyle(document.querySelector('#source a')).color,
+        linkColor: getComputedStyle(document.querySelector('pre a')).color,
+        chrome: document.querySelectorAll('header, nav, h1, main > p').length,
       }))()`);
-      assert.equal(viewer.title, `${selectedImage === "default" ? "Dollyfile" : `Dollyfile-${selectedImage}`} · ${selectedImage}`);
-      assert.match(viewer.source, /DOLLY 1/);
+      assert.equal(viewer.chrome, 0);
+      assert.match(viewer.source, /DOLLY 2/);
       assert.match(viewer.source, new RegExp(`IMAGE ${selectedImage}`));
       assert.ok(viewer.links.some((link) =>
         link.href.startsWith(`${browserBasePrefix}/static/`) ||
@@ -1114,10 +1304,9 @@ try {
         title: document.querySelector('h1')?.textContent,
         background: getComputedStyle(document.documentElement).backgroundColor,
         font: getComputedStyle(document.documentElement).fontFamily,
-        links: Array.from(document.querySelectorAll('.routes a'), (link) =>
+        links: Array.from(document.querySelectorAll('.image-links a'), (link) =>
           new URL(link.href).pathname),
-        docs: Array.from(document.querySelectorAll('.docs a'), (link) =>
-          new URL(link.href).pathname),
+        interactiveElements: document.querySelectorAll('script, form, input, button').length,
         text: document.body.textContent,
       }))()`);
       assert.equal(menuEvidence.title, "DOLLY");
@@ -1127,95 +1316,23 @@ try {
         `${browserBasePrefix}/default/`,
         `${browserBasePrefix}/default/rebuild/`,
         `${browserBasePrefix}/view/default/`,
+        `${browserBasePrefix}/pi/`,
+        `${browserBasePrefix}/pi/rebuild/`,
+        `${browserBasePrefix}/view/pi/`,
+        `${browserBasePrefix}/python/`,
+        `${browserBasePrefix}/python/rebuild/`,
+        `${browserBasePrefix}/view/python/`,
+        `${browserBasePrefix}/python-pi/`,
+        `${browserBasePrefix}/python-pi/rebuild/`,
+        `${browserBasePrefix}/view/python-pi/`,
         `${browserBasePrefix}/gamedev/`,
         `${browserBasePrefix}/gamedev/rebuild/`,
         `${browserBasePrefix}/view/gamedev/`,
       ]);
-      assert.ok(menuEvidence.docs.includes(`${browserBasePrefix}/Dollyfile`));
-      assert.ok(menuEvidence.docs.includes(`${browserBasePrefix}/Dollyfile-gamedev`));
+      assert.equal(menuEvidence.interactiveElements, 0);
       assert.doesNotMatch(menuEvidence.text, /voice input/i);
-
-      const customRecipe = `DOLLY 1
-IMAGE browser-custom
-EXTENDS default
-
-RUN echo 'int main(void) { return 0; }' > /tmp/menu-tool.c
-RUN cc /tmp/menu-tool.c -o /usr/bin/menu-tool
-CHECK menu-tool
-KEEP /usr/bin/menu-tool
-ENTRY /usr/bin/pi --no-session
-`;
-      await evaluate(debuggerClient.send, `(() => {
-        const input = document.querySelector('#dollyfile-upload');
-        const transfer = new DataTransfer();
-        transfer.items.add(new File(
-          [${JSON.stringify(customRecipe)}],
-          'Dollyfile-browser-custom',
-          { type: 'text/plain' },
-        ));
-        input.files = transfer.files;
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      })()`);
-      await waitForValue(
-        debuggerClient.send,
-        "document.querySelector('#dollyfile-run').disabled",
-        (value) => value === false,
-        "custom Dollyfile validation",
-        200,
-      );
-      assert.match(
-        await evaluate(
-          debuggerClient.send,
-          "document.querySelector('#upload-status').textContent",
-        ),
-        /^browser-custom: ready for in-sandbox validation/,
-      );
-      await evaluate(
-        debuggerClient.send,
-        "document.querySelector('#dollyfile-run').click()",
-      );
-      await waitForValue(
-        debuggerClient.send,
-        "location.pathname",
-        (value) => value === `${browserBasePrefix}/custom/rebuild/`,
-        "custom rebuild navigation",
-        200,
-      );
-      const customState = await waitForValue(
-        debuggerClient.send,
-        "document.documentElement?.dataset.dollyStatus ?? ''",
-        (value) => value === "ready" || value === "failed",
-        "uploaded Dollyfile rebuild",
-      );
-      assert.equal(customState, "ready");
-      assert.equal(
-        await evaluate(debuggerClient.send, "document.documentElement.dataset.image"),
-        "browser-custom",
-      );
-      assert.equal(
-        await evaluate(debuggerClient.send, "document.documentElement.dataset.bootMode"),
-        "rebuild",
-      );
-      assert.ok(Number(await evaluate(
-        debuggerClient.send,
-        "document.documentElement.dataset.snapshotBytes",
-      )) > 0);
-      await enterRecoveryShell(debuggerClient.send);
-      assert.equal(await evaluate(
-        debuggerClient.send,
-        'window.__dolly.submit("menu-tool")',
-      ), 0);
-      assert.equal(await evaluate(
-        debuggerClient.send,
-        `window.__dolly.submit("grep -q 'IMAGE browser-custom' /etc/dolly/Dollyfile")`,
-      ), 0);
-      assert.equal(await evaluate(
-        debuggerClient.send,
-        `window.__dolly.submit("grep -q 'IMAGE default' /etc/dolly/recipes/default.Dollyfile")`,
-      ), 0);
       console.log(
-        "browser: root menu, default/gamedev/rebuild links, local Dollyfile " +
-        "upload validation, custom source rebuild, and custom executable passed",
+        "browser: static root menu exposes open, rebuild, and Dollyfile-view links",
       );
       break browserProof;
     }
@@ -1256,6 +1373,13 @@ ENTRY /usr/bin/pi --no-session
         new RegExp(`dollyfile: image ${selectedImage} complete; retained \\d+ files`),
       );
       assert.match(evidence.bootstrap, /starting sandbox display/);
+      if (process.env.DOLLY_EXPECT_MODULE_CACHE) {
+        assert.ok(
+          evidence.bootstrap.includes(process.env.DOLLY_EXPECT_MODULE_CACHE),
+          `missing expected cache evidence: ${process.env.DOLLY_EXPECT_MODULE_CACHE}`,
+        );
+        console.log(`browser: ${process.env.DOLLY_EXPECT_MODULE_CACHE}`);
+      }
       const uploadStatus = await evaluate(debuggerClient.send, `fetch(
         "/__dolly_build_snapshot",
         {
@@ -1348,6 +1472,13 @@ ENTRY /usr/bin/pi --no-session
           0,
           "the generic Pages request did not return the expected source body",
         );
+        assert.equal(
+          await evaluate(
+            debuggerClient.send,
+            'window.__dolly.submit("rm -f /tmp/pages-generic-network.txt")',
+          ),
+          0,
+        );
         console.log(
           `browser: live Pages booted isolated Ghostty and default Pi in ${
             Date.now() - pagesBootStarted
@@ -1356,6 +1487,43 @@ ENTRY /usr/bin/pi --no-session
       } else {
         console.log("browser: Pages service worker established cross-origin isolation");
       }
+      break browserProof;
+    }
+    if (cppMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "Dolly C++ SDK snapshot boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const source = [
+        "#include <cstdio>",
+        "#include <string>",
+        "#include <vector>",
+        "int main() {",
+        "  std::vector<std::string> words{\"dolly\", \"c++23\"};",
+        "  if (words.size() != 2 || words[0] != \"dolly\") return 1;",
+        "  std::printf(\"%s %s\\n\", words[0].c_str(), words[1].c_str());",
+        "  return 0;",
+        "}",
+      ].join("\\n");
+      for (const command of [
+        "rm -f /tmp/dolly-cpp-check.cpp /tmp/dolly-cpp-check",
+        ...source.split("\\n").map((line) =>
+          `echo '${line}' >> /tmp/dolly-cpp-check.cpp`),
+        "c++ -O1 -fno-exceptions -fno-rtti /tmp/dolly-cpp-check.cpp -o /tmp/dolly-cpp-check",
+        "/tmp/dolly-cpp-check",
+        "rm -f /tmp/dolly-cpp-check.cpp /tmp/dolly-cpp-check",
+      ]) {
+        assert.equal(await evaluate(
+          debuggerClient.send,
+          `window.__dolly.submit(${JSON.stringify(command)})`,
+        ), 0, command);
+      }
+      console.log("browser: standalone C++ SDK compiled, linked, and ran a libc++ C++23 command");
       break browserProof;
     }
     if (piDevelopmentMode || realOpenRouterMode) {
@@ -2030,37 +2198,46 @@ ENTRY /usr/bin/pi --no-session
   }
   assert.equal(state, "passed");
 
-  assert.equal(
-    await evaluate(
-      debuggerClient.send,
-      `window.__dolly.submit(${JSON.stringify(
-        `qjs -e "const r = Dolly.shell('cat', ''); if (r.status !== 0) throw new Error(String(r.status))"`,
-      )})`,
-    ),
-    0,
-    "a noninteractive Dolly.shell call did not give a stdin reader immediate EOF",
-  );
-  assert.equal(
-    await evaluate(
-      debuggerClient.send,
-      `window.__dolly.submit(${JSON.stringify(
-        "echo 'int main(void) { for (;;) {} }' > /tmp/dolly-timeout.c && " +
-        "cc -O0 /tmp/dolly-timeout.c -o /tmp/dolly-timeout",
-      )})`,
-    ),
-    0,
-  );
-  assert.equal(
-    await evaluate(
-      debuggerClient.send,
-      `window.__dolly.submit(${JSON.stringify(
-        `qjs -e "const r = Dolly.shell('/tmp/dolly-timeout', '', 50); ` +
-        `if (r.status !== 124) throw new Error('status ' + r.status)"`,
-      )})`,
-    ),
-    0,
-    "the in-Wasm spawn deadline did not terminate a CPU-bound command",
-  );
+  if (selectedModuleNames.has("quickjs")) {
+    assert.equal(
+      await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          `qjs -e "const r = Dolly.shell('cat', ''); if (r.status !== 0) throw new Error(String(r.status))"`,
+        )})`,
+      ),
+      0,
+      "a noninteractive Dolly.shell call did not give a stdin reader immediate EOF",
+    );
+    assert.equal(
+      await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          "echo 'int main(void) { for (;;) {} }' > /tmp/dolly-timeout.c && " +
+          "cc -O0 /tmp/dolly-timeout.c -o /tmp/dolly-timeout",
+        )})`,
+      ),
+      0,
+    );
+    assert.equal(
+      await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(
+          `qjs -e "const r = Dolly.shell('/tmp/dolly-timeout', '', 50); ` +
+          `if (r.status !== 124) throw new Error('status ' + r.status)"`,
+        )})`,
+      ),
+      0,
+      "the in-Wasm spawn deadline did not terminate a CPU-bound command",
+    );
+    assert.equal(
+      await evaluate(
+        debuggerClient.send,
+        'window.__dolly.submit("rm -f /tmp/dolly-timeout.c /tmp/dolly-timeout")',
+      ),
+      0,
+    );
+  }
 
   assert.equal(
     await evaluate(
@@ -2076,6 +2253,13 @@ ENTRY /usr/bin/pi --no-session
     ),
     0,
     "the standalone in-Wasm cp command did not preserve a recursive file tree",
+  );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      'window.__dolly.submit("rm -rf /tmp/copy-source /tmp/copy-target")',
+    ),
+    0,
   );
 
   assert.equal(
@@ -2172,7 +2356,6 @@ ENTRY /usr/bin/pi --no-session
     ),
     0,
   );
-
   editorSequence = await evaluate(
     debuggerClient.send,
     "window.__dolly.transport.currentResultSequence()",
@@ -2231,7 +2414,9 @@ ENTRY /usr/bin/pi --no-session
 
   for (const [command, description] of [
     ["./interrupt-loop", "compiler-instrumented C loop"],
-    ["qjs -e 'for (;;) {}'", "QuickJS bytecode loop"],
+    ...(selectedModuleNames.has("quickjs")
+      ? [["qjs -e 'for (;;) {}'", "QuickJS bytecode loop"]]
+      : []),
   ]) {
     await evaluate(
       debuggerClient.send,
@@ -2322,8 +2507,9 @@ ENTRY /usr/bin/pi --no-session
         const red = pixels[index];
         const green = pixels[index + 1];
         const blue = pixels[index + 2];
-        if (red >= 25 && red <= 70 && Math.abs(red - green) <= 8 &&
-            Math.abs(red - blue) <= 8 && pixels[index + 3] === 255) background++;
+        if (red >= 30 && red <= 85 && green >= 20 && green <= 65 &&
+            blue >= 15 && blue <= 55 && red >= blue + 8 &&
+            pixels[index + 3] === 255) background++;
         if (Math.max(red, green, blue) - Math.min(red, green, blue) > 35 &&
             red + green + blue > 200 && pixels[index + 3] === 255) accent++;
       }
@@ -2594,7 +2780,7 @@ ENTRY /usr/bin/pi --no-session
     await evaluate(
       debuggerClient.send,
       `window.__dolly.submit(${JSON.stringify(
-        `qjs -e "for (let i = 0; i < 100; i++) console.log('DOLLY-SCROLL-' + String(i).padStart(3, '0'))"`,
+        `awk 'BEGIN { for (i = 0; i < 100; i++) printf "DOLLY-SCROLL-%03d\\n", i }'`,
       )})`,
     ),
     0,
@@ -2637,6 +2823,7 @@ ENTRY /usr/bin/pi --no-session
   await clearTerminalSelection(debuggerClient.send);
   await delay(50);
 
+  if (selectedModuleNames.has("pi")) {
   await evaluate(debuggerClient.send, `(() => {
     window.__piLoginResult = null;
     window.__dolly.submit("pi --offline --no-session").then((status) => {
@@ -2720,6 +2907,13 @@ ENTRY /usr/bin/pi --no-session
     ),
     0,
   );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      'window.__dolly.submit("rm -f /tmp/openrouter-login-models.txt")',
+    ),
+    0,
+  );
 
   await evaluate(debuggerClient.send, `(() => {
     window.__piCodexResult = null;
@@ -2800,6 +2994,13 @@ ENTRY /usr/bin/pi --no-session
     ),
     0,
   );
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      'window.__dolly.submit("rm -f /tmp/codex-login-models.txt")',
+    ),
+    0,
+  );
   const codexTokenRequests = await evaluate(
     debuggerClient.send,
     `globalThis.__dollyCodexTokenRequests.map((request) => ({
@@ -2835,6 +3036,7 @@ ENTRY /usr/bin/pi --no-session
     transport.pushPointer(x, y, 0, {});
   })()`);
   await delay(50);
+  }
 
   const evidence = await evaluate(debuggerClient.send, `(() => {
     const canvas = document.querySelector('#display');
@@ -2943,7 +3145,7 @@ ENTRY /usr/bin/pi --no-session
   assert.match(evidence.bootstrap, /dolly: restoring precompiled system snapshot/);
   assert.match(evidence.bootstrap, /dolly: precompiled system restored/);
   assert.doesNotMatch(evidence.bootstrap, /building GNU make|bootstrapping Zig/);
-  assert.match(evidence.bootstrap, /dolly: loading sandbox display driver/);
+  assert.match(evidence.bootstrap, /dolly: loading sandbox display library \/usr\/lib\/libdisplay\.so/);
   assert.match(evidence.bootstrap, /dolly: sandbox display ready/);
 
   const screenshot = await debuggerClient.send("Page.captureScreenshot", {
@@ -3001,8 +3203,10 @@ ENTRY /usr/bin/pi --no-session
     `browser: sandbox Ghostty rendered ${evidence.canvasWidth}x${evidence.canvasHeight} ` +
     `(${evidence.cols}x${evidence.rows} cells), static snapshot boot ` +
     `${snapshotBootMilliseconds}ms, raw keys/Ctrl+Shift+V/C/block-cursor/zoom/fullscreen, ` +
-    "Ghostty selection/scroll, phone menu, default Pi, " +
-    "Pi OpenRouter credential storage/model discovery, and complete Codex OAuth exchange passed",
+    "Ghostty selection/scroll and phone menu passed" +
+    (selectedModuleNames.has("pi")
+      ? "; Pi credential storage/model discovery and Codex OAuth exchange passed"
+      : ""),
   );
   }
 } catch (error) {
@@ -3027,27 +3231,35 @@ ENTRY /usr/bin/pi --no-session
         `${failedAuditText}\n`,
       );
     }
+    const terminal = await visibleTerminalText(debuggerClient.send)
+      .catch(() => "terminal text unavailable");
     const diagnostics = await evaluate(debuggerClient.send, `JSON.stringify({
       dataset: { ...document.documentElement.dataset },
       bootstrap: (document.querySelector('#bootstrap-log')?.textContent ?? '').slice(-5000),
     }, null, 2)`).catch(() => "browser diagnostics unavailable");
     process.stderr.write(`${diagnostics}\n`);
+    process.stderr.write(`terminal:\n${terminal.slice(-12000)}\n`);
   }
   throw error;
 } finally {
   debuggerClient?.socket.close();
-  chrome.kill("SIGTERM");
-  await new Promise((resolveExit) => {
-    if (chrome.exitCode !== null) resolveExit();
-    else chrome.once("exit", resolveExit);
-  });
+  if (chrome !== null) {
+    chrome.kill("SIGTERM");
+    await new Promise((resolveExit) => {
+      if (chrome.exitCode !== null) resolveExit();
+      else chrome.once("exit", resolveExit);
+    });
+  }
   await new Promise((resolveClose) => server.close(resolveClose));
-  if (!persistentProfile && process.env.DOLLY_KEEP_BROWSER_PROFILE !== "1") {
+  if (userDataDir !== null && !persistentProfile &&
+      process.env.DOLLY_KEEP_BROWSER_PROFILE !== "1") {
     await rm(ephemeralProfileRoot ?? userDataDir, {
       recursive: true,
       maxRetries: 5,
       retryDelay: 50,
     });
   }
-  await rm(browserDownloadDirectory, { recursive: true, force: true });
+  if (browserDownloadDirectory !== null) {
+    await rm(browserDownloadDirectory, { recursive: true, force: true });
+  }
 }

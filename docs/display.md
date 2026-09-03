@@ -45,10 +45,10 @@ commands can corrupt any in-Wasm pixels or terminal state—they already share
 the userspace address space—but they gain no new way out of the Wasm sandbox.
 
 The gamedev image compiles upstream raylib 6.0's no-OS `PLATFORM_MEMORY`
-software renderer and Box2D 3.1.1 from pinned source. A small
+software renderer and Box3D 0.1.0 from pinned source. A small
 `libdolly-raylib.a` adapter copies raylib's completed in-Wasm RGBA image into
 the leased Dolly buffer; it adds no browser import. `/usr/bin/graphics-demo`
-is an interactive physics game built from both libraries. Use A/D or arrows,
+is an interactive 3D physics game built from both libraries. Use WASD or arrows,
 Space, and pointer clicks; Q or Escape restores Slop. For a finite smoke test,
 run `graphics-demo --frames 2`. The retained source and Pi skill document the
 same adapter API for agent-written games.

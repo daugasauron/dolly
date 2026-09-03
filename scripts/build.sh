@@ -5,6 +5,8 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 image="${DOLLY_EMSDK_IMAGE}"
 
+node "${project_dir}/scripts/lint-dollyfiles.mjs"
+
 if command -v podman >/dev/null 2>&1; then
   container=(podman run --rm --userns=keep-id -v "${project_dir}:/src" -w /src "${image}")
 elif command -v docker >/dev/null 2>&1; then
@@ -26,40 +28,50 @@ if [[ ! -f "${project_dir}/.cache/llvm-wasm/lib/libclangFrontend.a" ||
   exit 1
 fi
 
-sbase_dir="$("${project_dir}/scripts/fetch-sbase.sh")"
-awk_dir="$("${project_dir}/scripts/fetch-awk.sh")"
-awk_generated_dir="$("${project_dir}/scripts/generate-awk.sh")"
-quickjs_dir="$("${project_dir}/scripts/fetch-quickjs.sh")"
-curl_dir="$("${project_dir}/scripts/fetch-curl.sh")"
-zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
-git_dir="$("${project_dir}/scripts/prepare-git.sh")"
-make_dir="$("${project_dir}/scripts/prepare-make.sh")"
-cpython_dir="$("${project_dir}/scripts/prepare-cpython.sh")"
+mapfile -t image_rows < <(node "${project_dir}/scripts/list-images.mjs")
+mapfile -t selected_modules < <(node "${project_dir}/scripts/list-images.mjs" --modules)
+declare -A selected_module=()
+for module_name in "${selected_modules[@]}"; do
+  selected_module["${module_name}"]=1
+done
+has_module() {
+  [[ -n "${selected_module[$1]:-}" ]]
+}
+
+has_module sbase && sbase_dir="$("${project_dir}/scripts/fetch-sbase.sh")"
+if has_module awk; then
+  awk_dir="$("${project_dir}/scripts/fetch-awk.sh")"
+  awk_generated_dir="$("${project_dir}/scripts/generate-awk.sh")"
+fi
+has_module quickjs && quickjs_dir="$("${project_dir}/scripts/fetch-quickjs.sh")"
+has_module curl && curl_dir="$("${project_dir}/scripts/fetch-curl.sh")"
+has_module zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
+has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
+has_module make && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
+has_module ninja && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
+has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-emscripten-system-libs.sh")"
+has_module cpython && cpython_dir="$("${project_dir}/scripts/prepare-cpython.sh")"
 zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
 zig_container_dir="/src/${zig_dir#"${project_dir}/"}"
-ghostty_checkout="$("${project_dir}/scripts/fetch-ghostty.sh")"
-ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
-uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
-stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
-raylib_dir="$("${project_dir}/scripts/fetch-raylib.sh")"
-box2d_dir="$("${project_dir}/scripts/fetch-box2d.sh")"
+if has_module ghostty; then
+  ghostty_checkout="$("${project_dir}/scripts/fetch-ghostty.sh")"
+  ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
+  uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
+  stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
+fi
+if has_module gamedev; then
+  raylib_dir="$("${project_dir}/scripts/fetch-raylib.sh")"
+  box3d_dir="$("${project_dir}/scripts/fetch-box3d.sh")"
+fi
 mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
 web_font="${font_paths[0]}"
 runtime_font="${font_paths[1]}"
 
-DOLLY_PI_VERSION="${DOLLY_PI_VERSION}" \
-DOLLY_ESBUILD_VERSION="${DOLLY_ESBUILD_VERSION}" \
-  node "${project_dir}/scripts/build-pi.mjs"
-mapfile -t image_rows < <(node "${project_dir}/scripts/list-images.mjs")
-image_outputs=()
-for row in "${image_rows[@]}"; do
-  IFS=$'\t' read -r image_name _ <<<"${row}"
-  image_outputs+=(
-    "${project_dir}/dist/dolly-${image_name}-system.snapshot"
-    "${project_dir}/dist/dolly-${image_name}-system-snapshot.mjs"
-  )
-done
-
+if has_module pi; then
+  DOLLY_PI_VERSION="${DOLLY_PI_VERSION}" \
+  DOLLY_ESBUILD_VERSION="${DOLLY_ESBUILD_VERSION}" \
+    node "${project_dir}/scripts/build-pi.mjs"
+fi
 if [[ "${container[0]}" == "podman" ]]; then
   container=(podman run --rm --userns=keep-id \
     -v "${project_dir}:/src" \
@@ -83,7 +95,6 @@ rm -f \
   "${project_dir}/dist/dolly-terminal-0.wasm" \
   "${project_dir}/dist/dolly-snapshot-0.wasm" \
   "${project_dir}/dist/dolly-build-id.mjs" \
-  "${image_outputs[@]}" \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/ghostty-web.js" \
   "${project_dir}/dist/program-inspector.wasm" \
@@ -125,7 +136,9 @@ rm -f \
   --disable-compact-imports \
   -o build/dolly-snapshot-0.wasm
 
-native_zig="$("${project_dir}/scripts/build-native-zig.sh")"
+if has_module zig; then
+  native_zig="$("${project_dir}/scripts/build-native-zig.sh")"
+fi
 
 ./bin/dolly-cc src/program-writer.c -o build/program-writer.wasm
 ./bin/dolly-cc src/program-reader.c -o build/program-reader.wasm
@@ -133,8 +146,7 @@ native_zig="$("${project_dir}/scripts/build-native-zig.sh")"
 
 static_dir="${project_dir}/dist/static"
 rm -rf -- "${static_dir}"
-mkdir -p "${static_dir}/bootstrap" "${static_dir}/default" \
-  "${static_dir}/gamedev" "${static_dir}/python"
+mkdir -p "${static_dir}/default" "${static_dir}/gamedev" "${static_dir}/python"
 
 copy_static() {
   local source="$1"
@@ -143,57 +155,95 @@ copy_static() {
   cp -- "${source}" "${static_dir}/${destination}"
 }
 
-copy_static "${project_dir}/src/commands/tar.c" bootstrap/tar.c
-copy_static "${project_dir}/src/startup.mk" default/startup.mk
-for command in help pwd cd cat echo touch clear ls stat file test bracket mv cp download curl qjs janis pi; do
-  copy_static "${project_dir}/src/commands/${command}.c" "default/commands/${command}.c"
-done
-copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
-copy_static "${project_dir}/src/runtimes/quickjs-main.c" default/runtimes/quickjs-main.c
-copy_static "${project_dir}/src/runtimes/quickjs-runner.h" default/runtimes/quickjs-runner.h
-copy_static "${project_dir}/src/runtimes/dolly-node.js" default/runtimes/dolly-node.js
-copy_static "${project_dir}/src/runtimes/janis.js" default/runtimes/janis.js
-copy_static "${project_dir}/src/pi/dolly-tools.js" default/pi/dolly-tools.js
-copy_static "${project_dir}/src/pi/SYSTEM.md" default/pi/SYSTEM.md
-copy_static "${project_dir}/src/pi/settings.json" default/pi/settings.json
-copy_static "${project_dir}/src/pi/dolly-theme.json" default/pi/dolly-theme.json
-copy_static "${project_dir}/src/pi/skills/dolly/SKILL.md" default/pi/dolly-skill.md
-copy_static "${project_dir}/src/zig/answer.zig" default/zig/answer.zig
-copy_static "${project_dir}/src/zig/check.c" default/zig/check.c
-copy_static "${project_dir}/src/zig/object-check.c" default/zig/object-check.c
-copy_static "${project_dir}/src/ghostty/check.c" default/ghostty/check.c
-copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c
-copy_static "${project_dir}/src/program-cpp.cpp" default/cpp-check.cpp
-copy_static "${project_dir}/src/program-demo.c" default/demo.c
-copy_static "${stb_header}" default/stb_truetype.h
-copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
-copy_static "${native_zig}" default/zig.wasm
-copy_static "${project_dir}/build/program-writer.wasm" default/writer.wasm
-copy_static "${project_dir}/build/program-reader.wasm" default/reader.wasm
-copy_static "${project_dir}/build/program-inspector.wasm" default/inspector.wasm
-copy_static "${project_dir}/src/gamedev.mk" gamedev/gamedev.mk
-copy_static "${project_dir}/src/commands/graphics-demo.c" gamedev/graphics-demo.c
-copy_static "${project_dir}/src/gamedev/dolly-raylib.c" gamedev/dolly-raylib.c
-copy_static "${project_dir}/src/gamedev/dolly-raylib.h" gamedev/dolly-raylib.h
-copy_static "${project_dir}/src/gamedev/SKILL.md" gamedev/SKILL.md
-copy_static "${project_dir}/src/runtimes/cpython-platform.c" python/cpython-platform.c
-copy_static "${project_dir}/src/runtimes/cpython-main.c" python/cpython-main.c
-copy_static "${project_dir}/src/commands/bonnie.c" python/bonnie.c
+if has_module curl; then
+  copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c
+  copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
+fi
+if has_module quickjs; then
+  for command in qjs janis; do
+    copy_static "${project_dir}/src/commands/${command}.c" "default/commands/${command}.c"
+  done
+  copy_static "${project_dir}/src/runtimes/quickjs-main.c" default/runtimes/quickjs-main.c
+  copy_static "${project_dir}/src/runtimes/quickjs-runner.h" default/runtimes/quickjs-runner.h
+  copy_static "${project_dir}/src/runtimes/dolly-node.js" default/runtimes/dolly-node.js
+  copy_static "${project_dir}/src/runtimes/janis.js" default/runtimes/janis.js
+fi
+if has_module cpp; then
+  node scripts/build-source-tar.mjs dist/static/default/libcxx-headers.tar \
+    "${project_dir}/.cache/emscripten/sysroot/include/c++/v1" /usr/include/c++/v1
+  copy_static "${project_dir}/src/runtimes/libcxx-hash-dolly.c" default/runtimes/libcxx-hash-dolly.c
+  copy_static "${project_dir}/src/runtimes/libcxx-misc-dolly.c" default/runtimes/libcxx-misc-dolly.c
+  copy_static "${project_dir}/src/runtimes/libcxx-new-dolly.c" default/runtimes/libcxx-new-dolly.c
+  copy_static "${project_dir}/src/runtimes/libcxx-string-dolly.c" default/runtimes/libcxx-string-dolly.c
+  copy_static "${emscripten_system_dir}/system/lib/libcxx/LICENSE.TXT" default/licenses/libcxx
+  copy_static "${emscripten_system_dir}/system/lib/libcxxabi/LICENSE.TXT" default/licenses/libcxxabi
+fi
+if has_module cpython; then
+  for source in \
+    cpython-platform.c cpython-main.c cpython-extension-check.c \
+    cpython-socket-stubs.c cpython-termios.c cpython-mmap.c \
+    cpython-process.c cpython-subprocess.py; do
+    copy_static "${project_dir}/src/runtimes/${source}" "python/runtimes/${source}"
+  done
+fi
+if has_module bonnie; then
+  copy_static "${project_dir}/src/commands/bonnie.c" python/commands/bonnie.c
+  if [[ -f "${project_dir}/src/runtimes/bonnie.py" ]]; then
+    copy_static "${project_dir}/src/runtimes/bonnie.py" python/runtimes/bonnie.py
+  fi
+fi
+if has_module make; then
+  copy_static "${project_dir}/src/runtimes/make-amalgamation-dolly.c" default/runtimes/make-amalgamation-dolly.c
+fi
+if has_module ninja; then
+  copy_static "${project_dir}/src/runtimes/samurai-unit-dolly.c" default/runtimes/samurai-unit-dolly.c
+fi
+if has_module pi; then
+  copy_static "${project_dir}/src/commands/pi.c" default/commands/pi.c
+  copy_static "${project_dir}/src/pi/dolly-tools.js" default/pi/dolly-tools.js
+  copy_static "${project_dir}/src/pi/SYSTEM.md" default/pi/SYSTEM.md
+  copy_static "${project_dir}/src/pi/settings.json" default/pi/settings.json
+  copy_static "${project_dir}/src/pi/dolly-theme.json" default/pi/dolly-theme.json
+  copy_static "${project_dir}/src/pi/skills/dolly/SKILL.md" default/pi/dolly-skill.md
+fi
+if has_module ghostty; then
+  copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c
+  copy_static "${stb_header}" default/stb_truetype.h
+  copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
+fi
+if has_module zig; then
+  copy_static "${native_zig}" default/zig.wasm
+fi
 
-node scripts/build-source-tar.mjs dist/static/default/make-4.4.1.tar \
-  "${make_dir}" /usr/src/make
-node scripts/build-source-tar.mjs dist/static/default/zlib.tar \
-  "${zlib_dir}" /usr/src/zlib \
-  "${zlib_dir}/zlib.h" /usr/include/zlib.h \
-  "${zlib_dir}/zconf.h" /usr/include/zconf.h \
-  "${zlib_dir}/LICENSE" /usr/share/licenses/zlib/LICENSE
-node scripts/build-source-tar.mjs dist/static/default/git.tar \
-  "${git_dir}" /usr/src/git \
-  "${git_dir}/templates" /usr/share/git-core/templates \
-  "${git_dir}/COPYING" /usr/share/licenses/git/COPYING
-node scripts/build-source-tar.mjs dist/static/default/curl-headers.tar \
-  "${curl_dir}/include/curl" /usr/include/curl \
-  "${curl_dir}/COPYING" /usr/share/licenses/curl/COPYING
+if has_module make; then
+  node scripts/build-source-tar.mjs dist/static/default/make-4.4.1.tar \
+    "${make_dir}" /usr/src/make \
+    "${make_dir}/COPYING" /usr/share/licenses/make/COPYING
+fi
+if has_module ninja; then
+  node scripts/build-source-tar.mjs dist/static/default/samurai.tar \
+    "${samurai_dir}" /tmp/ninja/source \
+    "${samurai_dir}/LICENSE" /usr/share/licenses/samurai/LICENSE
+fi
+if has_module zlib; then
+  node scripts/build-source-tar.mjs dist/static/default/zlib.tar \
+    "${zlib_dir}" /usr/src/zlib \
+    "${zlib_dir}/zlib.h" /usr/include/zlib.h \
+    "${zlib_dir}/zconf.h" /usr/include/zconf.h \
+    "${zlib_dir}/LICENSE" /usr/share/licenses/zlib/LICENSE
+fi
+if has_module git; then
+  node scripts/build-source-tar.mjs dist/static/default/git.tar \
+    "${git_dir}" /usr/src/git \
+    "${git_dir}/templates" /usr/share/git-core/templates \
+    "${git_dir}/COPYING" /usr/share/licenses/git/COPYING
+fi
+if has_module curl; then
+  node scripts/build-source-tar.mjs dist/static/default/curl-headers.tar \
+    "${curl_dir}/include/curl" /usr/include/curl \
+    "${curl_dir}/COPYING" /usr/share/licenses/curl/COPYING
+fi
+if has_module sbase; then
 node scripts/build-source-tar.mjs dist/static/default/sbase.tar \
   "${sbase_dir}/grep.c" /usr/src/sbase/grep.c \
   "${sbase_dir}/head.c" /usr/src/sbase/head.c \
@@ -208,6 +258,8 @@ node scripts/build-source-tar.mjs dist/static/default/sbase.tar \
   "${sbase_dir}/libutil" /usr/src/sbase/libutil \
   "${sbase_dir}/libutf" /usr/src/sbase/libutf \
   "${sbase_dir}/LICENSE" /usr/share/licenses/sbase/LICENSE
+fi
+if has_module awk; then
 node scripts/build-source-tar.mjs dist/static/default/awk.tar \
   "${awk_dir}/awk.h" /usr/src/awk/awk.h \
   "${awk_dir}/awkgram.y" /usr/src/awk/awkgram.y \
@@ -222,6 +274,8 @@ node scripts/build-source-tar.mjs dist/static/default/awk.tar \
   "${awk_dir}/tran.c" /usr/src/awk/tran.c \
   "${awk_generated_dir}" /usr/src/awk \
   "${awk_dir}/LICENSE" /usr/share/licenses/awk/LICENSE
+fi
+if has_module quickjs; then
 node scripts/build-source-tar.mjs dist/static/default/quickjs.tar \
   "${quickjs_dir}/builtin-array-fromasync.h" /usr/src/quickjs/builtin-array-fromasync.h \
   "${quickjs_dir}/builtin-iterator-zip-keyed.h" /usr/src/quickjs/builtin-iterator-zip-keyed.h \
@@ -242,15 +296,19 @@ node scripts/build-source-tar.mjs dist/static/default/quickjs.tar \
   "${quickjs_dir}/quickjs.c" /usr/src/quickjs/quickjs.c \
   "${quickjs_dir}/quickjs.h" /usr/src/quickjs/quickjs.h \
   "${quickjs_dir}/LICENSE" /usr/share/licenses/quickjs-ng/LICENSE
+fi
+if has_module gamedev; then
 node scripts/build-source-tar.mjs dist/static/gamedev/raylib.tar \
   "${raylib_dir}/src" /usr/src/raylib/src \
   "${raylib_dir}/LICENSE" /usr/share/licenses/raylib/LICENSE \
   "${raylib_dir}/README.md" /usr/src/raylib/README.md
-node scripts/build-source-tar.mjs dist/static/gamedev/box2d.tar \
-  "${box2d_dir}/src" /usr/src/box2d/src \
-  "${box2d_dir}/include" /usr/src/box2d/include \
-  "${box2d_dir}/LICENSE" /usr/share/licenses/box2d/LICENSE \
-  "${box2d_dir}/README.md" /usr/src/box2d/README.md
+node scripts/build-source-tar.mjs dist/static/gamedev/box3d.tar \
+  "${box3d_dir}/src" /usr/src/box3d/src \
+  "${box3d_dir}/include" /usr/src/box3d/include \
+  "${box3d_dir}/LICENSE" /usr/share/licenses/box3d/LICENSE \
+  "${box3d_dir}/README.md" /usr/src/box3d/README.md
+fi
+if has_module cpython; then
 node scripts/build-source-tar.mjs dist/static/python/cpython.tar \
   "${cpython_dir}/Include" /usr/src/python/Include \
   "${cpython_dir}/Parser" /usr/src/python/Parser \
@@ -267,11 +325,17 @@ node scripts/build-source-tar.mjs dist/static/python/cpython.tar \
   "${cpython_dir}/config.status" /usr/src/python/config.status \
   "${cpython_dir}/configure" /usr/src/python/configure \
   "${cpython_dir}/LICENSE" /usr/share/licenses/cpython/LICENSE
-node scripts/build-source-tar.mjs dist/static/default/pi-package.tar \
-  "${project_dir}/build/generated/pi-package" /usr/lib/pi
+fi
+if has_module pi; then
+  node scripts/build-source-tar.mjs dist/static/default/pi-package.tar \
+    "${project_dir}/build/generated/pi-package" /usr/lib/pi
+fi
+if has_module zig; then
 node scripts/build-source-tar.mjs dist/static/default/zig-lib.tar \
   "${zig_dir}/lib" /usr/lib/zig \
   "${zig_dir}/LICENSE" /usr/share/licenses/zig/LICENSE
+fi
+if has_module ghostty; then
 node scripts/build-source-tar.mjs dist/static/default/ghostty.tar \
   "${ghostty_dir}/src" /usr/src/ghostty/src \
   "${ghostty_dir}/include/ghostty" /usr/include/ghostty \
@@ -281,6 +345,7 @@ node scripts/build-source-tar.mjs dist/static/default/ghostty.tar \
 node scripts/build-source-tar.mjs dist/static/default/uucode.tar \
   "${uucode_dir}/src" /usr/src/uucode/src \
   "${uucode_dir}/LICENSE.md" /usr/share/licenses/uucode/LICENSE.md
+fi
 
 node scripts/verify-static-sources.mjs
 node scripts/generate-routes.mjs

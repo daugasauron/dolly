@@ -4,13 +4,40 @@ set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 archive="${project_dir}/.cache/make-${DOLLY_MAKE_VERSION}.tar.gz"
-output_dir="${project_dir}/build/generated/make-source"
+recipe_hash="$({
+  printf '%s\n' \
+    "make=${DOLLY_MAKE_SHA256}" \
+    "emsdk=${DOLLY_EMSDK_IMAGE}"
+  sha256sum \
+    "${BASH_SOURCE[0]}" \
+    "${project_dir}/config/make-dolly.patch" \
+    "${project_dir}/config/make-sources.txt" \
+    "${project_dir}/src/runtimes/make-dolly.c" | awk '{print $1}'
+} | sha256sum | awk '{print $1}')"
+output_dir="${project_dir}/build/generated/make-source-${DOLLY_MAKE_VERSION}-${recipe_hash:0:16}"
+
+if [[ -d "${output_dir}" ]]; then
+  printf '%s\n' "${output_dir}"
+  exit 0
+fi
+if [[ -e "${output_dir}" ]]; then
+  echo "dolly: prepared GNU Make output is not a directory: ${output_dir}" >&2
+  exit 1
+fi
+
+mkdir -p "${project_dir}/build/generated"
+temporary=""
+staging=""
+cleanup() {
+  [[ -z "${temporary}" ]] || rm -rf -- "${temporary}"
+  [[ -z "${staging}" ]] || rm -rf -- "${staging}"
+}
+trap cleanup EXIT
 temporary="$(mktemp -d "${project_dir}/build/generated/make-config.XXXXXX")"
-trap 'rm -rf -- "${temporary}"' EXIT
+staging="$(mktemp -d "${project_dir}/build/generated/.make-source.XXXXXX")"
 
 "${project_dir}/scripts/fetch-make.sh" >/dev/null
-rm -rf -- "${output_dir}"
-mkdir -p "${output_dir}/src" "${output_dir}/lib"
+mkdir -p "${staging}/src" "${staging}/lib"
 tar -xzf "${archive}" -C "${temporary}" --strip-components=1
 patch --silent -d "${temporary}" -p1 < "${project_dir}/config/make-dolly.patch"
 cp -- "${project_dir}/src/runtimes/make-dolly.c" \
@@ -65,13 +92,18 @@ for header in fnmatch glob; do
 done
 
 while IFS= read -r path; do
-  mkdir -p "${output_dir}/$(dirname -- "${path}")"
-  cp -- "${temporary}/${path}" "${output_dir}/${path}"
+  mkdir -p "${staging}/$(dirname -- "${path}")"
+  cp -- "${temporary}/${path}" "${staging}/${path}"
 done < "${project_dir}/config/make-sources.txt"
-cp -- "${temporary}"/src/*.h "${output_dir}/src/"
-cp -- "${temporary}"/lib/*.h "${output_dir}/lib/"
-cp -- "${temporary}/COPYING" "${output_dir}/COPYING"
+cp -- "${temporary}"/src/*.h "${staging}/src/"
+cp -- "${temporary}"/lib/*.h "${staging}/lib/"
+cp -- "${temporary}/COPYING" "${staging}/COPYING"
 cp -- "${project_dir}/config/make-sources.txt" \
-  "${output_dir}/dolly-sources.txt"
+  "${staging}/dolly-sources.txt"
 
+mv -T -- "${staging}" "${output_dir}"
+staging=""
+rm -rf -- "${temporary}"
+temporary=""
+trap - EXIT
 printf '%s\n' "${output_dir}"

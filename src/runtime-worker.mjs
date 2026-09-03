@@ -1,8 +1,10 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { loadModuleLayers, saveModuleLayers } from "./module-cache.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const snapshotSizeLimit = 512 * 1024 * 1024;
+const moduleCacheBytesLimit = 512 * 1024 * 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -42,13 +44,6 @@ if (bootConfig.sessionSnapshot !== undefined &&
 }
 
 const applicationBase = new URL("../", import.meta.url);
-const snapshotArtifactUrl = new URL(
-  `dist/dolly-${configuredImage}-system.snapshot`, applicationBase,
-);
-const snapshotMetadataUrl = new URL(
-  `dist/dolly-${configuredImage}-system-snapshot.mjs`, applicationBase,
-);
-
 function locateArtifact(path) {
   return new URL(`dist/${path.split("/").at(-1)}`, applicationBase).href;
 }
@@ -63,27 +58,107 @@ async function sha256(bytes) {
   return hex(await crypto.subtle.digest("SHA-256", bytes));
 }
 
-function recipeChain(image) {
-  const chain = [];
-  const seen = new Set();
-  let definition = imageDefinitions.get(image);
-  while (definition) {
-    if (seen.has(definition.image)) throw new Error(`image registry cycle at ${definition.image}`);
-    seen.add(definition.image);
-    chain.unshift(definition);
-    if (!definition.extends) break;
-    definition = imageDefinitions.get(definition.extends);
-    if (!definition) throw new Error("image registry names a missing parent");
+function removeCacheTree(dolly, path) {
+  try {
+    const metadata = dolly.FS.lstat(path);
+    if (!dolly.FS.isDir(metadata.mode)) {
+      dolly.FS.unlink(path);
+      return;
+    }
+    for (const name of dolly.FS.readdir(path)) {
+      if (name !== "." && name !== "..") removeCacheTree(dolly, `${path}/${name}`);
+    }
+    dolly.FS.rmdir(path);
+  } catch {
+    // The cache is optional. Cleanup must never hide the actual build result.
   }
-  return chain;
+}
+
+async function stageModuleCache(dolly, replaceFile) {
+  if (bootMode !== "rebuild" || configuredImage === "custom") return 0;
+  const expected = imageDefinitions.get(configuredImage).moduleCaches;
+  let layers;
+  try {
+    layers = await loadModuleLayers(
+      DOLLY_BUILD_ID,
+      expected.map(({ cacheKey }) => cacheKey),
+    );
+  } catch {
+    return 0;
+  }
+  if (layers.length === 0) return 0;
+  const directory = "/etc/dolly/module-cache-input";
+  try {
+    dolly.FS.mkdirTree(directory);
+  } catch {
+    return 0;
+  }
+  let staged = 0;
+  for (const layer of layers) {
+    const path = `${directory}/${layer.cacheKey}.layer`;
+    try {
+      if (await sha256(layer.bytes) !== layer.sha256) continue;
+      replaceFile(path, new Uint8Array(layer.bytes));
+      staged += 1;
+    } catch {
+      removeCacheTree(dolly, path);
+    }
+  }
+  if (staged === 0) removeCacheTree(dolly, directory);
+  return staged;
+}
+
+async function publishModuleCache(dolly) {
+  if (bootMode !== "rebuild" || configuredImage === "custom") return 0;
+  const expected = new Set(
+    imageDefinitions.get(configuredImage).moduleCaches.map(({ cacheKey }) => cacheKey),
+  );
+  const directory = "/etc/dolly/module-cache-output";
+  let names;
+  try {
+    names = dolly.FS.readdir(directory);
+  } catch {
+    return 0;
+  }
+  const layers = [];
+  let total = 0;
+  for (const name of names) {
+    const match = /^([0-9a-f]{64})\.layer$/.exec(name);
+    if (!match || !expected.has(match[1])) continue;
+    const path = `${directory}/${name}`;
+    try {
+      const size = dolly.FS.stat(path).size;
+      if (!Number.isSafeInteger(size) || size < 16 ||
+          size > moduleCacheBytesLimit - total) continue;
+      const source = dolly.FS.readFile(path);
+      if (source.byteLength !== size) continue;
+      const bytes = new Uint8Array(source.byteLength);
+      bytes.set(source);
+      layers.push({ cacheKey: match[1], sha256: await sha256(bytes), bytes: bytes.buffer });
+      total += bytes.byteLength;
+    } catch {
+      // Ignore a malformed or unreadable optional cache layer.
+    }
+  }
+  removeCacheTree(dolly, directory);
+  if (layers.length === 0) return 0;
+  try {
+    const allowedCacheKeys = DOLLY_IMAGES.flatMap(
+      ({ moduleCaches }) => moduleCaches.map(({ cacheKey }) => cacheKey),
+    );
+    await saveModuleLayers(DOLLY_BUILD_ID, layers, allowedCacheKeys);
+    return layers.length;
+  } catch {
+    return 0;
+  }
+}
+
+function removeStagedModuleCache(dolly) {
+  removeCacheTree(dolly, "/etc/dolly/module-cache-input");
 }
 
 function expectedRecipes(image) {
-  return recipeChain(image).map((definition) => ({
-    image: definition.image,
-    path: `/${definition.dollyfile}`,
-    sha256: definition.sha256,
-  }));
+  return imageDefinitions.get(image).recipes;
 }
 
 function validSnapshotPath(path) {
@@ -97,30 +172,38 @@ function validSnapshotPath(path) {
 
 async function verifyVisibleRecipes(recipes) {
   for (const recipe of recipes) {
-    const definition = imageDefinitions.get(recipe.image);
-    const response = await fetch(new URL(recipe.path.slice(1), applicationBase), {
+    const response = await fetch(new URL(recipe.sourcePath.slice(1), applicationBase), {
       cache: "no-store", credentials: "same-origin", redirect: "error",
     });
-    if (!response.ok) throw new Error(`${recipe.path} returned HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`${recipe.sourcePath} returned HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
-    if (bytes.byteLength !== definition.byteLength || await sha256(bytes) !== recipe.sha256) {
-      throw new Error(`${recipe.path} does not match the packaged snapshot recipe`);
+    if (bytes.byteLength !== recipe.byteLength || await sha256(bytes) !== recipe.sha256) {
+      throw new Error(`${recipe.sourcePath} does not match the packaged snapshot recipe`);
     }
   }
 }
 
-async function loadPackagedSnapshotMetadata() {
+function expectedModules(image) {
+  return imageDefinitions.get(image).modules;
+}
+
+async function loadPackagedSnapshotMetadata(image) {
+  const metadataUrl = new URL(
+    `dist/dolly-${image}-system-snapshot.mjs`, applicationBase,
+  );
   let metadata;
   try {
-    ({ DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(snapshotMetadataUrl.href));
+    ({ DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(metadataUrl.href));
   } catch {
     throw new Error("The packaged system snapshot is missing. Run npm run snapshot first.");
   }
-  const recipes = expectedRecipes(configuredImage);
+  const recipes = expectedRecipes(image);
+  const modules = expectedModules(image);
   if (metadata === null || typeof metadata !== "object" ||
-      metadata.image !== configuredImage || metadata.buildId !== DOLLY_BUILD_ID ||
+      metadata.image !== image || metadata.buildId !== DOLLY_BUILD_ID ||
       metadata.formatVersion !== 1 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
+      JSON.stringify(metadata.modules) !== JSON.stringify(modules) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
       metadata.byteLength > snapshotSizeLimit ||
       !/^[0-9a-f]{64}$/.test(metadata.sha256) ||
@@ -140,14 +223,28 @@ async function loadPackagedSnapshotMetadata() {
   if (manifestBytes > 8 * 1024 * 1024) {
     throw new Error("The packaged system snapshot manifest is too large");
   }
+  for (const required of [
+    "/etc/dolly/Dollyfile",
+    "/etc/dolly/entry",
+    "/etc/dolly/environment",
+    "/etc/dolly/image",
+    "/etc/dolly/recipes.lock",
+  ]) {
+    if (!metadata.manifest.includes(required)) {
+      throw new Error(`The packaged system snapshot is missing ${required}`);
+    }
+  }
   await verifyVisibleRecipes(recipes);
   return metadata;
 }
 
-async function loadPackagedSystemSnapshot(metadata) {
+async function loadPackagedSystemSnapshot(image, metadata) {
+  const artifactUrl = new URL(
+    `dist/dolly-${image}-system.snapshot`, applicationBase,
+  );
   let response;
   try {
-    response = await fetch(snapshotArtifactUrl, {
+    response = await fetch(artifactUrl, {
       cache: "no-store", credentials: "same-origin", redirect: "error",
     });
   } catch {
@@ -163,6 +260,30 @@ async function loadPackagedSystemSnapshot(metadata) {
     throw new Error("The packaged system snapshot failed its integrity check");
   }
   return bytes;
+}
+
+function isStrictModulePrefix(candidate, target) {
+  return candidate.length > 0 && candidate.length < target.length &&
+    candidate.every((module, index) =>
+      module.location === target[index].location &&
+      module.sha256 === target[index].sha256);
+}
+
+async function findModuleCache() {
+  const target = expectedModules(configuredImage);
+  const candidates = [...imageDefinitions.values()]
+    .filter((definition) => isStrictModulePrefix(definition.modules, target))
+    .sort((left, right) => right.modules.length - left.modules.length);
+  for (const candidate of candidates) {
+    try {
+      const metadata = await loadPackagedSnapshotMetadata(candidate.image);
+      return { image: candidate.image, uses: candidate.modules.length, metadata };
+    } catch {
+      // A missing or stale prefix is only a cache miss. The cold rebuild path
+      // remains authoritative and will produce a new verified snapshot.
+    }
+  }
+  return null;
 }
 
 function checkedMemoryRange(memory, addressValue, sizeValue) {
@@ -216,13 +337,11 @@ function installOutputDevice(dolly, path, deviceNumber) {
   dolly.FS.mkdev(path, 0o222, device);
 }
 
-async function waitForBroker() {
+async function waitForBrowserAcknowledgement(type, failure) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error("browser HTTP broker did not acknowledge the runtime")), 10_000,
-    );
+    const timeout = setTimeout(() => reject(new Error(failure)), 10_000);
     self.addEventListener("message", function acknowledge(event) {
-      if (event.data?.type !== "broker-ready-ack") return;
+      if (event.data?.type !== type) return;
       self.removeEventListener("message", acknowledge);
       clearTimeout(timeout);
       resolve();
@@ -230,8 +349,14 @@ async function waitForBroker() {
   });
 }
 
+let dolly = null;
 try {
-  const snapshotMetadata = bootMode === "snapshot" ? await loadPackagedSnapshotMetadata() : null;
+  const snapshotMetadata = bootMode === "snapshot"
+    ? await loadPackagedSnapshotMetadata(configuredImage)
+    : null;
+  const moduleCache = bootMode === "rebuild" && configuredImage !== "custom"
+    ? await findModuleCache()
+    : null;
   bootstrapStage("loading Dolly runtime...");
   const nativeTextDecoder = globalThis.TextDecoder;
   globalThis.TextDecoder = undefined;
@@ -260,7 +385,7 @@ try {
     print: (text) => bootstrapOutput(`${text}\n`),
     printErr: (text) => bootstrapOutput(`${text}\n`, true),
   };
-  const dolly = await createDolly(dollyOptions);
+  dolly = await createDolly(dollyOptions);
   globalThis.TextDecoder = nativeTextDecoder;
   bootstrapStage("Dolly runtime loaded");
 
@@ -299,13 +424,21 @@ try {
   if (configuredImage === "custom") {
     replaceFile("/etc/dolly/upload.Dollyfile", bootConfig.customSource);
   }
-  if (snapshotMetadata) {
-    replaceFile("/etc/dolly/image.manifest", `${snapshotMetadata.manifest.join("\n")}\n`);
+  const stagedModuleLayers = await stageModuleCache(dolly, replaceFile);
+  if (stagedModuleLayers !== 0) {
+    bootstrapStage(`staged ${stagedModuleLayers} local module cache layers...`);
+  }
+  const restoreMetadata = snapshotMetadata ?? moduleCache?.metadata;
+  if (restoreMetadata) {
+    replaceFile("/etc/dolly/image.manifest", `${restoreMetadata.manifest.join("\n")}\n`);
   }
   installOutputDevice(dolly, "/dev/dolly-stdout", 1);
   installOutputDevice(dolly, "/dev/dolly-stderr", 2);
 
-  const brokerReady = waitForBroker();
+  const brokerReady = waitForBrowserAcknowledgement(
+    "broker-ready-ack",
+    "browser HTTP broker did not acknowledge the runtime",
+  );
   self.postMessage({
     type: "broker-ready",
     memory: memory.buffer,
@@ -319,9 +452,32 @@ try {
   let snapshotBytes;
   if (bootMode === "rebuild") {
     bootstrapStage("building userspace from the Dollyfile...");
-    bootstrapStatus = dolly._dolly_bootstrap();
-    if (bootstrapStatus === 0) {
-      if (dolly._dolly_snapshot_capture() !== 0) {
+    if (moduleCache) {
+      bootstrapStage(
+        `using ${moduleCache.uses}-module ${moduleCache.image} prefix cache...`,
+      );
+      const snapshot = await loadPackagedSystemSnapshot(
+        moduleCache.image, moduleCache.metadata,
+      );
+      const restoreAddress = dolly._dolly_snapshot_restore_address(
+        BigInt(snapshot.byteLength),
+      );
+      const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
+      new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
+      bootstrapStatus = dolly._dolly_bootstrap_resume(
+        BigInt(range.size), moduleCache.uses,
+      );
+      } else {
+        bootstrapStatus = dolly._dolly_bootstrap();
+      }
+      removeStagedModuleCache(dolly);
+      if (bootstrapStatus === 0) {
+        if (moduleCache) {
+          bootstrapStage(
+            `module cache reused ${moduleCache.uses} modules from ${moduleCache.image}`,
+          );
+        }
+        if (dolly._dolly_snapshot_capture() !== 0) {
         throw new Error("Dolly system snapshot capture failed");
       }
       const range = checkedMemoryRange(
@@ -331,12 +487,21 @@ try {
       copy.set(new Uint8Array(memory.buffer, range.address, range.size));
       snapshotBytes = range.size;
       self.postMessage({ type: "system-snapshot", bytes: copy.buffer }, [copy.buffer]);
-      bootstrapStage("starting sandbox display...");
-      bootstrapStatus = dolly._dolly_bootstrap_finish();
-    }
+        bootstrapStage("starting sandbox display...");
+        bootstrapStatus = dolly._dolly_bootstrap_finish();
+        if (bootstrapStatus === 0) {
+          const savedModuleLayers = await publishModuleCache(dolly);
+          if (savedModuleLayers !== 0) {
+            bootstrapStage(`saved ${savedModuleLayers} local module cache layers`);
+          }
+        }
+      }
+      if (bootstrapStatus !== 0) {
+        removeCacheTree(dolly, "/etc/dolly/module-cache-output");
+      }
   } else {
     bootstrapStage("loading precompiled userspace snapshot...");
-    const snapshot = await loadPackagedSystemSnapshot(snapshotMetadata);
+    const snapshot = await loadPackagedSystemSnapshot(configuredImage, snapshotMetadata);
     const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
     const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
     new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
@@ -365,6 +530,10 @@ try {
     throw new Error(`Dollyfile selected image ${runtimeImage}, expected ${configuredImage}`);
   }
   bootstrapStage("starting image entry...");
+  const displayReady = waitForBrowserAcknowledgement(
+    "display-ready-ack",
+    "browser display did not acknowledge the runtime",
+  );
   self.postMessage({
     type: "ready",
     image: runtimeImage,
@@ -395,13 +564,23 @@ try {
     httpCapacity: dolly._dolly_http_chunk_capacity(),
     httpVersion: dolly._dolly_http_mailbox_version(),
   });
+  await displayReady;
 
   const status = dolly._dolly_shell_run();
   self.postMessage({ type: "exited", status });
 } catch (error) {
+  let compilerTrace = "";
+  try {
+    compilerTrace = dolly === null
+      ? ""
+      : decoder.decode(dolly.FS.readFile("/tmp/dolly-cc-trace.log")).trim();
+  } catch {
+    // Compiler tracing is opt-in and absent in normal sessions.
+  }
+  const message = error instanceof Error ? error.message : String(error);
   self.postMessage({
     type: "error",
-    message: error instanceof Error ? error.message : String(error),
+    message: compilerTrace === "" ? message : `${message}\n${compilerTrace}`,
     stack: error instanceof Error ? error.stack ?? "" : "",
   });
 }

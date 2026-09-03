@@ -2,7 +2,7 @@
 
 Status: migrated into Dolly and browser-tested
 
-Last updated: 2026-08-30
+Last updated: 2026-09-03
 
 ## What to take
 
@@ -62,7 +62,9 @@ inside the browser.
 - `scripts/build-native-zig.sh` invokes the official host Zig with
   `build-obj -target wasm64-emscripten`, `-fPIC`, atomics, single-threaded libc,
   and compiler-rt. It links the result through `bin/dolly-cc`, validates it
-  against `build/dolly-0.wasm`, and caches it by all material inputs.
+  against `build/dolly-0.wasm`, and caches the expensive frontend object
+  separately from its cheap ABI-specific link. A Dolly ABI change therefore
+  relinks and restamps the object without recompiling Zig.
 
 ### Native command
 
@@ -72,11 +74,11 @@ inside the browser.
   not become ambient imports.
 - `src/zig/native-build-options.zig` configures a small `.core`, LLVM-enabled,
   WebAssembly-only Zig build.
-- `src/zig/object-check.c` is a permanent target-side guard: it checks the
-  compiler result begins with WebAssembly magic and version bytes before Dolly
-  consumes it.
-- `src/zig/check.c` links the direct object from `answer.zig` and verifies its
-  value at browser startup.
+
+The production image does not retain a `zig-check`, object checker, or tiny
+answer fixture. The ordinary browser acceptance suite creates a disposable
+source/object/program in `/workspace`, while Ghostty is the real rebuild-time
+compiler workload.
 
 ### LLVM bridge and machine ABI
 
@@ -89,7 +91,8 @@ inside the browser.
   libraries. `Dollyfile` fetches the ABI-validated native side module as
   `/usr/bin/zig` and the pinned Zig library archive, then `/bin/tar` writes the
   library tree to `/usr/lib/zig` before Zig is run.
-- `src/dolly.c` sets `ZIG_LIB_DIR=/usr/lib/zig` before userspace startup.
+- `modules/zig.dm` exports `ZIG_LIB_DIR=/usr/lib/zig`; image environment comes
+  from selected modules rather than hardcoded runtime knowledge.
 
 The module inspection after the final build showed only shared memory64,
 table64/base relocation state, Dolly libc/lifecycle calls, and the 21 LLVM
@@ -99,14 +102,12 @@ runtime's `env.dolly_http_dispatch` boundary.
 
 ### Target build graph
 
-`src/startup.mk` now does both Zig builds directly:
+`modules/ghostty.dm` carries its focused Makefile inline and builds Ghostty
+directly:
 
 ```make
-zig build-obj ... -femit-bin=/tmp/zig/answer.o
-/usr/libexec/dolly/zig-object-check /tmp/zig/answer.o
-
-zig $(GHOSTTY_ZIG_FLAGS) -femit-bin=/tmp/ghostty/ghostty-vt.o
-ar rcs /usr/lib/libghostty-vt.a /tmp/ghostty/ghostty-vt.o
+zig ... -femit-bin=/tmp/ghostty-vt.o
+ar rcs /usr/lib/libghostty-vt.a /tmp/ghostty-vt.o
 ```
 
 The old WAMR interpreter, Zig wrapper command, generated-C compatibility
@@ -194,10 +195,10 @@ The final unchanged real-browser rerun passed with:
 browser: sandbox Ghostty rendered 800x600 (129x29 cells), raw keys/zoom/fullscreen passed
 ```
 
-It compiled the small answer object and the complete Ghostty object natively
-inside Chrome before exercising the command suite, filesystem, lifecycle,
-network broker, Pi tool turn, raw keys, zoom, fullscreen, and
-framebuffer checks.
+It compiled the complete Ghostty object during the image rebuild and a
+disposable small object during acceptance before exercising the command suite,
+filesystem, lifecycle, network broker, Pi tool turn, raw keys, zoom,
+fullscreen, and framebuffer checks.
 
 ## Measured characteristics
 
@@ -209,7 +210,8 @@ guarantees:
 | Native compiler relocatable object | about 21 MB |
 | ABI-stamped native compiler module | about 15 MB |
 | Cold outer native-compiler build | about 2m36s to 3m10s |
-| Cached `build-native-zig.sh` with ABI validation | about 0.17s |
+| Cached `build-native-zig.sh` with ABI validation | about 0.03s |
+| ABI-only relink from the cached frontend object | about 6.5s |
 | Common compiler-seed data package | about 27 MB in the current integrated build |
 | Captured retained system snapshot | about 254 MB in the current integrated build |
 

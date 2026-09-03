@@ -1,0 +1,271 @@
+diff --git a/build.c b/build.c
+index 3d60f81..4400176 100644
+--- a/build.c
++++ b/build.c
+@@ -12,6 +12,9 @@
+ #include <sys/wait.h>
+ #include <time.h>
+ #include <unistd.h>
++#ifdef DOLLY
++#include <dolly/runtime.h>
++#endif
+ #include "build.h"
+ #include "deps.h"
+ #include "env.h"
+@@ -281,6 +284,7 @@ printstatus(struct edge *e, struct string *cmd)
+ 	puts(description->s);
+ }
+ 
++#ifndef DOLLY
+ static int
+ jobstart(struct job *j, struct edge *e)
+ {
+@@ -368,6 +372,7 @@ err1:
+ err0:
+ 	return -1;
+ }
++#endif
+ 
+ static void
+ nodedone(struct node *n, bool prune)
+@@ -444,6 +449,78 @@ edgedone(struct edge *e)
+ 	}
+ }
+ 
++#ifdef DOLLY
++static bool
++jobrundolly(struct edge *e)
++{
++	struct node *n;
++	struct pool *p;
++	struct edge *new;
++	struct string *rspfile, *content, *cmd;
++	size_t i;
++	int input, child, waited, status;
++	char *argv[] = {"slop", "-c", NULL, NULL};
++
++	++nstarted;
++	for (i = 0; i < e->nout; ++i) {
++		n = e->out[i];
++		if (n->mtime == MTIME_MISSING && osmkdirs(n->path, true) < 0)
++			return false;
++	}
++	rspfile = edgevar(e, "rspfile", false);
++	if (rspfile) {
++		content = edgevar(e, "rspfile_content", true);
++		if (writefile(rspfile->s, content) < 0)
++			return false;
++	}
++	cmd = edgevar(e, "command", true);
++	argv[2] = cmd->s;
++	printstatus(e, cmd);
++	fflush(stdout);
++	fflush(stderr);
++
++	input = open("/dev/null", O_RDONLY);
++	if (input < 0) {
++		warn("open /dev/null:");
++		child = -1;
++		waited = -1;
++		status = 1;
++	} else {
++		dolly_interrupt_checkpoint();
++		child = dolly_spawn("/bin/slop", 3, argv, input,
++		                    STDOUT_FILENO, STDERR_FILENO);
++		waited = child < 0 ? child : dolly_wait(child, &status);
++		close(input);
++		dolly_interrupt_checkpoint();
++	}
++	++nfinished;
++
++	if (e->pool) {
++		p = e->pool;
++		if (p->work) {
++			new = p->work;
++			p->work = p->work->worknext;
++			new->worknext = work;
++			work = new;
++		} else {
++			--p->numjobs;
++		}
++	}
++	if (child < 0 || waited < 0 || status != 0) {
++		if (rspfile && !buildopts.keeprsp)
++			remove(rspfile->s);
++		if (status == 130)
++			dolly_exit(130);
++		if (child < 0 || waited < 0)
++			warn("Dolly could not start build command: %s", cmd->s);
++		else
++			warn("job failed with status %d: %s", status, cmd->s);
++		return false;
++	}
++	edgedone(e);
++	return true;
++}
++#else
+ static void
+ jobdone(struct job *j)
+ {
+@@ -551,10 +628,50 @@ catchsig(int sig)
+ {
+ 	write(sigfd[1], &sig, sizeof(sig));
+ }
++#endif
+ 
+ void
+ build(void)
+ {
++#ifdef DOLLY
++	size_t i;
++	struct edge *e;
++	size_t numfail = 0;
++
++	if (ntotal == 0) {
++		warn("nothing to do");
++		return;
++	}
++	clock_gettime(CLOCK_MONOTONIC, &starttime);
++	formatstatus(NULL, 0);
++	nstarted = 0;
++	nfinished = 0;
++	while (work && numfail < buildopts.maxfail) {
++		e = work;
++		work = work->worknext;
++		if (e->rule != &phonyrule && buildopts.dryrun) {
++			++nstarted;
++			printstatus(e, edgevar(e, "command", true));
++			++nfinished;
++		}
++		if (e->rule == &phonyrule || buildopts.dryrun) {
++			for (i = 0; i < e->nout; ++i)
++				nodedone(e->out[i], false);
++			continue;
++		}
++		if (!jobrundolly(e))
++			++numfail;
++	}
++	if (numfail > 0) {
++		if (numfail < buildopts.maxfail)
++			fatal("cannot make progress due to previous errors");
++		else if (numfail > 1)
++			fatal("subcommands failed");
++		else
++			fatal("subcommand failed");
++	}
++	ntotal = 0;
++#else
+ 	static const int sigs[] = {
+ 		SIGHUP,
+ 		SIGINT,
+@@ -683,4 +800,5 @@ build(void)
+ 			fatal("subcommand failed");
+ 	}
+ 	ntotal = 0;  /* reset in case we just rebuilt the manifest */
++#endif
+ }
+diff --git a/samu.c b/samu.c
+index 1220fdb..8794ef1 100644
+--- a/samu.c
++++ b/samu.c
+@@ -92,7 +92,7 @@ jobsflag(const char *flag)
+ static void
+ parseenvargs(char *env)
+ {
+-	char *arg, *argvbuf[64], **argv = argvbuf;
++	char *arg, *cursor, *argvbuf[64], **argv = argvbuf;
+ 	int argc;
+ 
+ 	if (!env)
+@@ -100,12 +100,20 @@ parseenvargs(char *env)
+ 	env = xmemdup(env, strlen(env) + 1);
+ 	argc = 1;
+ 	argv[0] = NULL;
+-	arg = strtok(env, " ");
+-	while (arg) {
++	cursor = env;
++	while (*cursor) {
++		while (*cursor == ' ')
++			++cursor;
++		if (!*cursor)
++			break;
+ 		if ((size_t)argc >= countof(argvbuf) - 1)
+ 			fatal("too many arguments in SAMUFLAGS");
++		arg = cursor;
++		while (*cursor && *cursor != ' ')
++			++cursor;
++		if (*cursor)
++			*cursor++ = '\0';
+ 		argv[argc++] = arg;
+-		arg = strtok(NULL, " ");
+ 	}
+ 	argv[argc] = NULL;
+ 
+diff --git a/deps.c b/deps.c
+index f6c4e3b..e48ac29 100644
+--- a/deps.c
++++ b/deps.c
+@@ -8,6 +8,10 @@
+ #include "env.h"
+ #include "graph.h"
+ #include "util.h"
++#ifdef DOLLY
++#undef isblank
++#define isblank(character) ((character) == ' ' || (character) == '\t')
++#endif
+ 
+ /*
+ .ninja_deps file format
+diff --git a/util.c b/util.c
+index 8ef7b90..8ac4a52 100644
+--- a/util.c
++++ b/util.c
+@@ -5,6 +5,9 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <string.h>
++#ifdef DOLLY
++#include <dolly/runtime.h>
++#endif
+ #include "os.h"
+ #include "util.h"
+ 
+@@ -11,4 +14,18 @@
+ extern const char *argv0;
++#ifdef DOLLY
++static int
++dolly_samurai_fprintf(FILE *stream, const char *format, ...)
++{
++	va_list arguments;
++	int result;
++
++	va_start(arguments, format);
++	result = vfprintf(stream, format, arguments);
++	va_end(arguments);
++	return result;
++}
++#define fprintf dolly_samurai_fprintf
++#endif
+ 
+ static void
+ vwarn(const char *fmt, va_list ap)
+@@ -139,6 +156,9 @@ delevalstr(void *ptr)
+ 	struct evalstring *str = ptr, *p;
+ 
+ 	while (str) {
++#ifdef DOLLY
++		dolly_interrupt_checkpoint();
++#endif
+ 		p = str;
+ 		str = str->next;
+ 		if (p->var)
+@@ -166,6 +186,9 @@ canonpath(struct string *path)
+ 		++d;
+ 	}
+ 	while (s < end) {
++#ifdef DOLLY
++		dolly_interrupt_checkpoint();
++#endif
+ 		switch (s[0]) {
+ 		case '/':
+ 			++s;

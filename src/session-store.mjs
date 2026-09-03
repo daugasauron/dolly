@@ -10,20 +10,9 @@ export function validSessionName(value) {
 }
 
 export function sessionImageIdentity(definitions, selectedImage) {
-  const byImage = new Map(definitions.map((definition) => [definition.image, definition]));
-  const chain = [];
-  const seen = new Set();
-  let definition = byImage.get(selectedImage);
-  while (definition) {
-    if (seen.has(definition.image)) throw new Error("Dolly image inheritance cycle");
-    seen.add(definition.image);
-    chain.unshift(`${definition.image}:${definition.sha256}`);
-    if (!definition.extends) break;
-    definition = byImage.get(definition.extends);
-    if (!definition) throw new Error("Dolly image parent is missing");
-  }
-  if (chain.length === 0) throw new Error("Dolly session names an unknown image");
-  return chain.join("\n");
+  const definition = definitions.find(({ image }) => image === selectedImage);
+  if (!definition) throw new Error("Dolly session names an unknown image");
+  return `${definition.image}:${definition.sha256}`;
 }
 
 async function collectStream(stream, maximum) {

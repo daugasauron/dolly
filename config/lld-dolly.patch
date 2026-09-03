@@ -1,0 +1,17 @@
+diff --git a/lld/wasm/Driver.cpp b/lld/wasm/Driver.cpp
+index 4c2549b39def..d980bac252d0 100644
+--- a/lld/wasm/Driver.cpp
++++ b/lld/wasm/Driver.cpp
+@@ -1347,8 +1347,10 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
+   v.push_back("wasm-ld (LLVM option parsing)");
+   for (auto *arg : args.filtered(OPT_mllvm))
+     v.push_back(arg->getValue());
+-  cl::ResetAllOptionOccurrences();
+-  cl::ParseCommandLineOptions(v.size(), v.data());
++  if (v.size() != 1) {
++    cl::ResetAllOptionOccurrences();
++    cl::ParseCommandLineOptions(v.size(), v.data());
++  }
+ 
+   readConfigs(args);
+   setConfigs();

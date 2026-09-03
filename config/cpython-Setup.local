@@ -1,8 +1,11 @@
-# Dolly has zlib in the default image, but not SQLite or bzip2 yet.
+# Serial process-shaped command invocation over Dolly's stable spawn/wait ABI.
+_dolly_process Modules/dolly_process.o
+
+# Dolly has zlib and WasmFS-backed mmap, but not SQLite or bzip2 yet. CPython's
+# bundled _decimal accelerator is also omitted: its portable libmpdec path is a
+# pathological cold compile in the embedded compiler, while decimal.py already
+# falls back to the upstream-compatible pure-Python implementation.
 *disabled*
 _bz2
+_decimal
 _sqlite3
-_socket
-termios
-mmap
-faulthandler

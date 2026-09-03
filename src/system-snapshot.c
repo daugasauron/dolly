@@ -321,7 +321,12 @@ int dolly_snapshot_restore_staged(uintptr_t size) {
       free(path_string);
       goto done;
     }
-    int descriptor = open(path_string, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    // Dolly has no permission model and the snapshot format deliberately does
+    // not serialize Unix mode bits. Restore regular files with execute bits as
+    // compatibility metadata so POSIX tools that preflight PATH candidates
+    // do not hide valid in-Wasm executables. The typed loader, not mode bits,
+    // remains the execution authority.
+    int descriptor = open(path_string, O_WRONLY | O_CREAT | O_TRUNC, 0777);
     free(path_string);
     if (descriptor < 0) goto done;
     int write_status = write_exact(descriptor, data, (uintptr_t)data_length_64);

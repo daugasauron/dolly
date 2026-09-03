@@ -48,8 +48,10 @@ outside the shell editor and are not.
 The shell initializes `PATH=/bin:/usr/bin`. A command containing `/` is opened
 directly; every other utility is resolved by searching `PATH` for a regular
 file. Dolly has no user or permission model, so discovery has no execute-bit or
-`chmod` check. Each executable is a distinct wasm64 dynamic module—there is no
-multicall switch on `argv[0]`.
+`chmod` check. Native tools are distinct wasm64 dynamic modules—there is no
+multicall switch on `argv[0]`. A file with a bounded `#!` line instead dispatches
+to its absolute interpreter inside WasmFS, which gives Python and future
+runtimes conventional script entry points without a host process escape.
 
 ## Deliberately small language
 
@@ -122,9 +124,8 @@ safepoints still requires whole-worker replacement for a hard stop.
 GNU Make 4.4.1 is fetched from its checksum-pinned official release, prepared
 as an auditable source manifest, fetched by a Dollyfile `SOURCE` row, extracted
 by the source-built `/bin/tar`, and compiled into `/usr/bin/make` inside the
-browser. The C Dollyfile engine prints each `RUN`/`CHECK` row and stops at the
-first failure. Later rows invoke `/usr/src/dolly/startup.mk` for zlib and the
-other non-seed tools. The port uses Make's
+browser. The C Dollyfile engine prints each `SLOP` row and stops at the first
+failure. Each module supplies its own small Makefile for non-seed tools. The port uses Make's
 remote-job adapter as a narrow synchronous execution seam:
 
 - Make's default `SHELL` is `/bin/slop`;

@@ -15,7 +15,8 @@ Dolly currently boots a source-built userspace containing:
 
 - the finite Slop shell and separately compiled core commands in `/bin`;
 - Clang 24, LLD, C and C++23 compilation, archives, and dynamic loading;
-- GNU Make, One True Awk, sbase utilities, zlib, Git, and Fetch-backed libcurl;
+- GNU Make, Ninja-compatible Samurai, One True Awk, sbase utilities, zlib,
+  Git, and Fetch-backed libcurl;
 - an optional Python image with source-built CPython 3.14 and Bonnie for
   portable-wheel installation through that same libcurl;
 - QuickJS-ng with the Janis Node-shaped compatibility layer;
@@ -27,12 +28,12 @@ Dolly currently boots a source-built userspace containing:
 - native wasm64 Zig and Ghostty's VT engine with in-Wasm text rasterization;
 - an exclusive in-Wasm RGBA framebuffer lease for games and visual tools, with
   automatic terminal restoration on return or Ctrl-C; the gamedev image adds
-  source-built raylib 6.0, Box2D 3.1.1, a Pi skill, and an interactive game;
+  source-built raylib 6.0, Box3D 0.1.0, a Pi skill, and an interactive game;
 - Ghostty-owned selection and scrollback inside Wasm, phone touch scrolling, a
   minimal phone `/` command menu.
 
 The root page is an image and documentation menu generated from source-visible
-Dollyfiles. `/default/`, `/gamedev/`, and `/python/` restore snapshots cryptographically
+Dollyfiles. `/default/`, `/pi/`, `/python/`, `/python-pi/`, and `/gamedev/` restore snapshots cryptographically
 bound to their exact recipe chains, entry records, and retained manifests. Each
 image's `/rebuild/` route compiles `/bin/dollyfile` inside Wasm, then that C
 program fetches and verifies every independent `SOURCE` and executes the recipe
@@ -43,8 +44,8 @@ serializes the in-Wasm filesystem, compresses it, and stores the opaque bytes
 in same-origin IndexedDB. `/load/?session=NAME` restores only a session whose
 runtime build and Dollyfile identity still match.
 
-The menu also accepts a bounded text Dollyfile that directly
-`EXTENDS default`. A small browser-side check only selects the route; the C
+The menu also accepts a bounded text Dollyfile that selects pinned modules.
+A small browser-side check only selects the route; the C
 engine remains authoritative. The text stays in the current tab's
 `sessionStorage` and executes only at `/custom/rebuild/` in a fresh Wasm
 sandbox. Selecting a file does not upload the recipe to the server.
@@ -144,7 +145,7 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   [agent workload audit](docs/agent-audit-2026-08-31.md) — dated verification
   records; current priorities live in the roadmap.
 - [Roadmap](docs/roadmap.md) — prioritized next milestones and acceptance gates.
-- [Dollyfile version 1](docs/dollyfile.md) — the C-executed sequential
+- [Dollyfile version 2](docs/dollyfile.md) — the C-executed sequential
   source-to-snapshot recipe and image identity model.
 
 ## Design rules

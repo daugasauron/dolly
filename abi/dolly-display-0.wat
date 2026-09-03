@@ -6,14 +6,15 @@
   (import "env" "dolly_bootstrap_write_bytes"
     (func $dolly_bootstrap_write_bytes (param i64 i64)))
 
-  ;; Mailbox version 3 starts with 30 atomic u32 fields. The final two fields
-  ;; form the PID-targeted SIGINT sequence. Input events remain fixed 128-byte
-  ;; records beginning at byte 128. The browser copies ordinary DOM event data
-  ;; without terminal encoding; the in-Wasm Ghostty driver owns encoding.
+  ;; Mailbox version 4 starts with 32 atomic u32 fields. The final four fields
+  ;; carry PID-targeted SIGINT, a browser animation-frame sequence, and Dolly's
+  ;; closed cursor-style enum. Input events remain fixed 128-byte records
+  ;; beginning at byte 128. The browser copies ordinary DOM event data without
+  ;; terminal encoding; the in-Wasm Ghostty driver owns encoding.
   (func (export "dolly_display_mailbox_address") (result i64)
     i64.const 0)
   (func (export "dolly_display_mailbox_version") (result i32)
-    i32.const 3)
+    i32.const 4)
   (func (export "dolly_display_event_size") (result i32)
     i32.const 128)
   (func (export "dolly_display_event_capacity") (result i32)

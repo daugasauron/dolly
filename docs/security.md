@@ -79,6 +79,7 @@ literally the only information crossing the Wasm boundary:
 | HTTP dispatch and mailbox | both | Autonomous external communication and the principal confidentiality/integrity boundary |
 | Explicit file download | Wasm to local user | Bounded, user-visible export of one regular WasmFS file; no host path or filesystem handle enters Wasm |
 | Named session mailbox | Wasm to/from browser storage | Explicit opaque filesystem snapshot; browser stores bytes but receives no path-level operation or mount |
+| Build-module cache | WasmFS to/from trusted worker storage | Exact expected content-addressed output layers during rebuild only; no guest-selected storage operation or browser object enters Wasm |
 | Clocks, timezone, entropy, startup environment | browser to Wasm | Inputs, not network egress |
 | Seed, exact recipe/source responses, and system snapshot | browser to Wasm | Fixed application inputs or policy-authorized broker responses, not ambient guest authority |
 | Dynamic Wasm loader | WasmFS to browser loader | Code instantiation; it must not turn an agent-controlled path into a network fetch |
@@ -147,12 +148,22 @@ them to send data. The snapshot has the same trust status as `dolly.wasm` and
 `dolly.data`: compromising the build artifact or trusted page JavaScript is a
 supply-chain/application compromise outside the in-Wasm threat model.
 
-The captured manifest is an exact sorted file list derived from `KEEP` plus
-bounded `KEEP-TREE` expansion over completed filesystem state. It includes runtime data
+The captured manifest is an exact sorted file list derived from image-visible
+module exports, exact `FILE` roots, and bounded `FOLDER` expansion at the point
+each root becomes visible. It includes runtime data
 needed by Pi, Zig, Git, and the display, but excludes mutable `/workspace`,
 `/tmp`, model credentials, conversation state, and installed session
 extensions. After restore, all mutable filesystem state still lives only in
 Wasm memory and dies with the worker.
+
+Rebuild mode may persist module output layers in a separate same-origin
+IndexedDB database. The trusted worker derives the allowed keys from the
+packaged recipe graph, hashes every loaded layer, and exposes only opaque bytes
+for those exact keys to the Dollyfile builder. A compromised userspace cannot
+enumerate the database, inspect cookies or local storage, run JavaScript, or
+select an arbitrary cache key. It can corrupt a layer it is currently
+producing, which can at most poison that same build identity and is within the
+assumed userspace compromise. Runtime build IDs invalidate old layers.
 
 ## Ephemeral and saved compromise
 

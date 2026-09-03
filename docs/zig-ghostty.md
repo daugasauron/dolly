@@ -14,7 +14,7 @@ relocatable WebAssembly objects back to WasmFS.
 At browser startup, `/usr/bin/zig` compiles the pinned Ghostty/uucode source
 graph directly to `/tmp/ghostty/ghostty-vt.o`. Dolly's `ar` and `cc` then build
 `/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and
-`/usr/libexec/dolly/display.wasm`. There is no Zig-to-C translation, nested
+`/usr/lib/libdisplay.so`, selected through `DISPLAY`. There is no Zig-to-C translation, nested
 wasm32 interpreter, host compilation service, or precompiled Ghostty object.
 
 The target is Ghostty's upstream `libghostty-vt`, not its GTK or macOS desktop
@@ -45,7 +45,7 @@ pinned Ghostty/uucode Zig source in WasmFS
                          |
                          | Dolly ar / Dolly cc
                          v
-     libghostty-vt.a, ghostty-vt, display.wasm
+     libghostty-vt.a, ghostty-vt, libdisplay.so
 ```
 
 The official host compiler is a stage-zero build input only. It never enters
@@ -99,13 +99,16 @@ the issue was not native compiler code generation.
 The canonical pins are in `config/source-pins.sh`. Both supported host archives
 (x86_64 Linux and AArch64 Linux) have SHA-256 checksums. The preparation script
 copies the checksum-pinned Zig source and applies the patch to a digest-named
-cache directory. The native command's cache key includes its target flags,
-source pin, patch, root modules, build script, and Dolly linker wrapper.
+cache directory. One cache key covers the expensive frontend object from its
+target flags, source pin, patch, and root modules. A second covers the cheap
+link/stamp step from that object key, the Dolly ABI, Emscripten image, and
+linker wrapper.
 
 A cold native compiler build took approximately 2 minutes 36 seconds to 3
 minutes 10 seconds on the development machine. Its output was a roughly 21 MB
 relocatable object and 15 MB linked side module. An unchanged cached invocation
-still performs ABI validation and returned in about 0.17 seconds.
+still performs ABI validation and returned in about 0.03 seconds. An ABI-only
+change reused the object and relinked the side module in about 6.5 seconds.
 
 The complete retained Zig library makes the current system snapshot large
 (about 254 MB). Pruning that tree and reducing compiler cold-start/build
@@ -116,8 +119,8 @@ latency are useful follow-ups, but they do not change the machine architecture.
 A real Chrome run proves, in one sandbox lifetime, that:
 
 1. `/usr/bin/zig version` executes the native upstream command.
-2. Zig compiles `answer.zig` directly to a wasm64 relocatable object; a target
-   guard checks the WebAssembly magic before Dolly links and runs it.
+2. Zig compiles a disposable acceptance fixture directly to a wasm64
+   relocatable object, which Dolly's normal linker validates and runs.
 3. The same compiler compiles the full pinned Ghostty VT/uucode graph directly
    to `ghostty-vt.o`.
 4. Dolly archives that object and links the VT probe and resident display
@@ -163,5 +166,5 @@ JavaScript validates dimensions, stride, capacity, and memory ranges before a
 stable frame copy. It contains no VT parser, grid model, or command logic.
 
 Before the source build finishes, a narrow bootstrap text callback displays
-the traced startup log. The callback is hidden when the resident display module
+the traced startup log. The callback is hidden when the resident display library
 activates; subsequent terminal output is rendered from inside Dolly.

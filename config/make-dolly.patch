@@ -139,3 +139,83 @@ index 3aa975b..ad83f12 100644
    if (print_usage_flag)
      print_usage (0);
  
+diff --git a/src/commands.h b/src/commands.h
+--- a/src/commands.h
++++ b/src/commands.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/config.h b/src/config.h
+--- a/src/config.h
++++ b/src/config.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/debug.h b/src/debug.h
+--- a/src/debug.h
++++ b/src/debug.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/dep.h b/src/dep.h
+--- a/src/dep.h
++++ b/src/dep.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/filedef.h b/src/filedef.h
+--- a/src/filedef.h
++++ b/src/filedef.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/gmk-default.h b/src/gmk-default.h
+--- a/src/gmk-default.h
++++ b/src/gmk-default.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/hash.h b/src/hash.h
+--- a/src/hash.h
++++ b/src/hash.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/job.h b/src/job.h
+--- a/src/job.h
++++ b/src/job.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/makeint.h b/src/makeint.h
+--- a/src/makeint.h
++++ b/src/makeint.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/os.h b/src/os.h
+--- a/src/os.h
++++ b/src/os.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/output.h b/src/output.h
+--- a/src/output.h
++++ b/src/output.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/rule.h b/src/rule.h
+--- a/src/rule.h
++++ b/src/rule.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/shuffle.h b/src/shuffle.h
+--- a/src/shuffle.h
++++ b/src/shuffle.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/src/variable.h b/src/variable.h
+--- a/src/variable.h
++++ b/src/variable.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/lib/fnmatch.h b/lib/fnmatch.h
+--- a/lib/fnmatch.h
++++ b/lib/fnmatch.h
+@@ -0,0 +1 @@
++#pragma once
+diff --git a/lib/glob.h b/lib/glob.h
+--- a/lib/glob.h
++++ b/lib/glob.h
+@@ -0,0 +1 @@
++#pragma once

@@ -1,0 +1,170 @@
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -17091,4 +17091,10 @@
+ {
++#ifdef DOLLY
++    PyErr_SetString(PyExc_NotImplementedError,
++                    "Dolly does not expose a browser debugger");
++    return NULL;
++#else
+     emscripten_debugger();
+     Py_RETURN_NONE;
++#endif
+ }
+@@ -17096,3 +17102,5 @@
++#ifndef DOLLY
+ EM_JS(void, emscripten_log_impl_js, (const char* arg), {
+     console.warn(UTF8ToString(arg));
+ });
++#endif
+@@ -17110,4 +17118,9 @@
+ {
++#ifdef DOLLY
++    fprintf(stderr, "%s\n", arg);
++    fflush(stderr);
++#else
+     emscripten_log_impl_js(arg);
++#endif
+     Py_RETURN_NONE;
+ }
+--- a/Lib/subprocess.py
++++ b/Lib/subprocess.py
+@@ -76,6 +76,6 @@
+ 
+ # some platforms do not support subprocesses
+-_can_fork_exec = sys.platform not in {"emscripten", "wasi", "ios", "tvos", "watchos"}
++_can_fork_exec = sys.platform not in {"dolly", "emscripten", "wasi", "ios", "tvos", "watchos"}
+ 
+ if _mswindows:
+     import _winapi
+@@ -2255,3 +2255,10 @@
+             """Kill the process with SIGKILL
+             """
+             self.send_signal(signal.SIGKILL)
++
++# Dolly supplies serial process-shaped compatibility over its typed in-Wasm
++# spawn/wait substrate. Keep the ordinary POSIX implementation dormant above
++# so importing this module never reaches fork, exec, or native posix_spawn.
++if sys.platform == "dolly":
++    from _dolly_subprocess import Popen
++    _can_fork_exec = True
+--- a/Lib/threading.py
++++ b/Lib/threading.py
+@@ -988,6 +988,30 @@
+         if self._started.is_set():
+             raise RuntimeError("threads can only be started once")
+ 
++        # Dolly has one synchronous userspace execution thread. Running the
++        # target to completion here preserves the useful Thread lifecycle for
++        # libraries which use workers only to drain already-spooled subprocess
++        # output, without inventing browser workers or host concurrency.
++        if _sys.platform == "dolly":
++            if self._context is None:
++                if _sys.flags.thread_inherit_context:
++                    self._context = _contextvars.copy_context()
++                else:
++                    self._context = _contextvars.Context()
++            self._ident = get_ident()
++            if _HAVE_THREAD_NATIVE_ID:
++                self._native_id = get_native_id()
++            self._started.set()
++            self._dolly_serial_done = False
++            try:
++                try:
++                    self._context.run(self.run)
++                except:
++                    self._invoke_excepthook(self)
++            finally:
++                self._dolly_serial_done = True
++            return
++
+         with _active_limbo_lock:
+             _limbo[self] = self
+ 
+@@ -1125,6 +1149,11 @@
+         if self is current_thread():
+             raise RuntimeError("cannot join current thread")
+ 
++        if _sys.platform == "dolly":
++            if not self._dolly_serial_done:
++                raise RuntimeError("cannot join a running serial thread")
++            return
++
+         # the behavior of a negative timeout isn't documented, but
+         # historically .join(timeout=x) for x<0 has acted as if timeout=0
+         if timeout is not None:
+@@ -1183,6 +1212,8 @@
+ 
+         """
+         assert self._initialized, "Thread.__init__() not called"
++        if _sys.platform == "dolly":
++            return self._started.is_set() and not self._dolly_serial_done
+         return self._started.is_set() and not self._os_thread_handle.is_done()
+ 
+     @property
+--- a/Lib/uuid.py
++++ b/Lib/uuid.py
+@@ -66,7 +66,7 @@
+ __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
+ 
+ # The recognized platforms - known behaviors
+-if sys.platform in {'win32', 'darwin', 'emscripten', 'wasi'}:
++if sys.platform in {'win32', 'darwin', 'dolly', 'emscripten', 'wasi'}:
+     _AIX = _LINUX = False
+ elif sys.platform == 'linux':
+     _LINUX = True
+--- a/Lib/ctypes/util.py
++++ b/Lib/ctypes/util.py
+@@ -180,6 +180,6 @@
+         return fname if os.path.isfile(fname) else None
+ 
+-elif sys.platform == "emscripten":
++elif sys.platform in {"dolly", "emscripten"}:
+     def _is_wasm(filename):
+         # Return True if the given file is an WASM module
+         wasm_header = b"\x00asm"
+--- a/Lib/_pyrepl/pager.py
++++ b/Lib/_pyrepl/pager.py
+@@ -22,7 +22,7 @@
+         return plain_pager
+     if not sys.stdin.isatty() or not sys.stdout.isatty():
+         return plain_pager
+-    if sys.platform == "emscripten":
++    if sys.platform in {"dolly", "emscripten"}:
+         return plain_pager
+     use_pager = os.environ.get('MANPAGER') or os.environ.get('PAGER')
+     if use_pager:
+--- a/Lib/platform.py
++++ b/Lib/platform.py
+@@ -172,6 +172,10 @@
+         The file is read and scanned in chunks of chunksize bytes.
+ 
+     """
++    if not executable and sys.platform == "dolly":
++        # Dolly uses Emscripten's libc but intentionally omits its browser
++        # embedding metadata and ambient JavaScript capabilities.
++        return ("emscripten", "")
+     if not executable:
+         if sys.platform == "emscripten":
+             # Emscripten's os.confstr reports that it is glibc, so special case
+--- a/Lib/sysconfig/__init__.py
++++ b/Lib/sysconfig/__init__.py
+@@ -665,2 +665,7 @@
+     For other non-POSIX platforms, currently just returns :data:`sys.platform`."""
++    if sys.platform == "dolly":
++        # This names the versioned machine ABI, not the browser's kernel or
++        # the Emscripten implementation detail used to build libc.
++        return "dolly_0-wasm64"
++
+     if os.name == 'nt':
+--- a/Modules/faulthandler.c
++++ b/Modules/faulthandler.c
+@@ -1057,7 +1057,7 @@
+     SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
+ #endif
+ 
+-#ifdef HAVE_SYS_RESOURCE_H
++#if defined(HAVE_SYS_RESOURCE_H) && !defined(DOLLY)
+     struct rlimit rl;
+ 
+     /* Disable creation of core dump */

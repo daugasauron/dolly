@@ -11,8 +11,7 @@ header="${generated_dir}/awkgram.tab.h"
 mkdir -p "${generated_dir}"
 temporary_dir="$(mktemp -d "${generated_dir}/.awk-parser.XXXXXX")"
 cleanup() {
-  rm -f "${temporary_dir}/awkgram.tab.c" "${temporary_dir}/awkgram.tab.h"
-  rmdir "${temporary_dir}" 2>/dev/null || true
+  rm -rf -- "${temporary_dir}"
 }
 trap cleanup EXIT
 (

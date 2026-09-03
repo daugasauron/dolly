@@ -14,6 +14,8 @@
     i64.const 0)
   (func (export "dolly_bootstrap_snapshot") (param i64) (result i32)
     i32.const 0)
+  (func (export "dolly_bootstrap_resume") (param i64 i32) (result i32)
+    i32.const 0)
   (func (export "dolly_bootstrap_finish") (result i32)
     i32.const 0)
 

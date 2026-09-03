@@ -31,6 +31,7 @@ if [[ ! -f "${source_dir}/src/main.c" ]]; then
   trap 'rm -rf -- "${temporary}"' EXIT
   tar -xzf "${archive}" -C "${temporary}"
   mv -- "${temporary}/make-${DOLLY_MAKE_VERSION}" "${source_dir}"
+  rm -rf -- "${temporary}"
   trap - EXIT
 fi
 

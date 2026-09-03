@@ -591,7 +591,10 @@ int dolly_session_restore(uintptr_t size) {
     if (kind == DOLLY_SESSION_DIRECTORY) {
       if (mkdir(path_string, 0755) != 0 && errno != EEXIST) return 1;
     } else if (kind == DOLLY_SESSION_FILE) {
-      int descriptor = open(path_string, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+      // Sessions share the system snapshot's mode-free filesystem model. Mode
+      // bits are compatibility metadata only; executable validation still
+      // happens at Dolly's typed loader boundary.
+      int descriptor = open(path_string, O_WRONLY | O_CREAT | O_TRUNC, 0777);
       if (descriptor < 0) return 1;
       const int write_status =
           write_exact(descriptor, data, (uintptr_t)data_length);
