@@ -22,6 +22,24 @@ const env = new Proxy(envTarget, {
     Dolly.setenv(property, undefined);
     return true;
   },
+  ownKeys() { return [...new Set(Dolly.envKeys())]; },
+  has(_target, property) {
+    return typeof property === "string" && Dolly.getenv(property) !== undefined;
+  },
+  getOwnPropertyDescriptor(_target, property) {
+    if (typeof property !== "string") return undefined;
+    const value = Dolly.getenv(property);
+    return value === undefined ? undefined : { value, writable: true, enumerable: true, configurable: true };
+  },
+  defineProperty(_target, property, descriptor) {
+    if (typeof property !== "string" || !descriptor.configurable ||
+        !descriptor.enumerable || !descriptor.writable || !("value" in descriptor)) {
+      throw new TypeError("environment properties must be configurable, enumerable, writable values");
+    }
+    Dolly.setenv(property, String(descriptor.value));
+    return true;
+  },
+  preventExtensions() { return false; },
 });
 
 const stdout = {

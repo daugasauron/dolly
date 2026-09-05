@@ -48,6 +48,7 @@ const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
 const slopMode = ["slop", "slop-source"].includes(process.env.DOLLY_BROWSER_MODE);
 const utf8Mode = process.env.DOLLY_BROWSER_MODE === "utf8";
 const terminalUiMode = process.env.DOLLY_BROWSER_MODE === "terminal-ui";
+const janisFilesMode = process.env.DOLLY_BROWSER_MODE === "janis-files";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -1184,7 +1185,7 @@ chrome = spawn(chromeBinary, [
       ? menuPage
       : snapshotExportMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
-      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || realOpenRouterMode || missingSnapshotMode
+      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
         || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode
@@ -1193,6 +1194,23 @@ chrome = spawn(chromeBinary, [
   });
 
   browserProof: {
+    if (janisFilesMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Janis filesystem boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-janis-files-test";
+      const source = await readFile(resolve(projectDir, "test/fixtures/janis-files.mjs"), "utf8");
+      try {
+        assert.equal(await submit(`mkdir -p ${scratch} && echo target > ${scratch}/target && ln -s target ${scratch}/link && ln -s absent ${scratch}/dangling && ln -s keep-dir ${scratch}/directory-link`), 0);
+        assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.mjs`), 0);
+        assert.equal(await submit(`janis -m ${scratch}/probe.mjs ${scratch}`), 0);
+      } finally { await submit(`rm -rf ${scratch}`); }
+      console.log("browser: Janis environment, Buffer views, real file descriptors/offsets, symlink metadata and explicit watch failure passed");
+      break browserProof;
+    }
     if (terminalUiMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",

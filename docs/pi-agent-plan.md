@@ -115,7 +115,7 @@ or a named extension:
 | --- | --- |
 | `process`, argv, env, cwd | command-local state over Dolly libc/WasmFS |
 | `Buffer`, encoders, URLs, paths | in-process JavaScript/C helpers |
-| `node:fs` and `fs/promises` | synchronous WasmFS operations; settled Promises where required |
+| `node:fs` and `fs/promises` | real Dolly file descriptors, positioned I/O, stat/lstat/fstat and timestamps; settled Promises where required; watching explicitly unsupported |
 | ESM and CommonJS packages | WasmFS-only `node_modules` ancestry, import/require conditions, exact and wildcard exports/imports, package type, JSON modules, and explicit builtin adapters |
 | Node resolution details | `import.meta.resolve`, relative `.cjs`, mode-aware package exports, and deterministic `fs.globSync` over WasmFS |
 | events, timers, Promise jobs | one serial cooperative event pump |
@@ -129,6 +129,12 @@ detached jobs, native addons, N-API, raw sockets, proxy agents, ambient host
 environment, or `process.binding` escape hatch. Promise-shaped operations may
 be synchronous underneath because observable compatibility matters more than
 parallelism in this experiment.
+
+Environment enumeration/spread reads the same in-Wasm environment as individual
+properties. Buffer slices use native typed-array bounds and shared views. Open
+files survive rename/unlink; `FileHandle.close()` invalidates the handle even if
+its descriptor number is later reused. These behaviors are exercised by
+`test/fixtures/janis-files.mjs` in both Pi images; no browser filesystem is used.
 
 QuickJS-ng remains the engine until a concrete engine-level incompatibility
 justifies a replacement. The comparison and replacement gate are in

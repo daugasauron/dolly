@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <math.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdint.h>
@@ -9,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <dolly/download.h>
@@ -485,6 +487,25 @@ static JSValue js_dolly_getenv(JSContext *context, JSValueConst this_value,
   return result;
 }
 
+static JSValue js_dolly_env_keys(JSContext *context, JSValueConst this_value,
+                                 int argc, JSValueConst *argv) {
+  (void)this_value; (void)argc; (void)argv;
+  extern char **environ;
+  JSValue result = JS_NewArray(context);
+  if (JS_IsException(result)) return result;
+  uint32_t index = 0;
+  for (char **entry = environ; entry != NULL && *entry != NULL; ++entry) {
+    const char *separator = strchr(*entry, '=');
+    if (separator == NULL) continue;
+    if (JS_SetPropertyUint32(context, result, index++,
+          JS_NewStringLen(context, *entry, (size_t)(separator - *entry))) < 0) {
+      JS_FreeValue(context, result);
+      return JS_EXCEPTION;
+    }
+  }
+  return result;
+}
+
 static JSValue js_dolly_setenv(JSContext *context, JSValueConst this_value,
                                int argc, JSValueConst *argv) {
   (void)this_value;
@@ -582,51 +603,6 @@ static JSValue js_dolly_write_file(JSContext *context,
   return JS_UNDEFINED;
 }
 
-static JSValue js_dolly_read_file_bytes(JSContext *context,
-                                        JSValueConst this_value,
-                                        int argc, JSValueConst *argv) {
-  (void)this_value;
-  if (argc < 1) return JS_ThrowTypeError(context, "readFileBytes requires a path");
-  const char *path = JS_ToCString(context, argv[0]);
-  if (path == NULL) return JS_EXCEPTION;
-  size_t length = 0;
-  char *contents = read_file(path, &length);
-  const int saved_errno = errno;
-  JS_FreeCString(context, path);
-  if (contents == NULL) {
-    return JS_ThrowInternalError(context, "readFileBytes failed: %s",
-                                 strerror(saved_errno));
-  }
-  JSValue result = JS_NewUint8ArrayCopy(
-      context, (const uint8_t *)contents, length);
-  free(contents);
-  return result;
-}
-
-static JSValue js_dolly_write_file_bytes(JSContext *context,
-                                         JSValueConst this_value,
-                                         int argc, JSValueConst *argv) {
-  (void)this_value;
-  if (argc < 2) {
-    return JS_ThrowTypeError(context, "writeFileBytes requires path and bytes");
-  }
-  const char *path = JS_ToCString(context, argv[0]);
-  if (path == NULL) return JS_EXCEPTION;
-  size_t length = 0;
-  uint8_t *bytes = JS_GetUint8Array(context, &length, argv[1]);
-  if (bytes == NULL) {
-    JS_FreeCString(context, path);
-    return JS_ThrowTypeError(context, "writeFileBytes requires Uint8Array");
-  }
-  const int status = dolly_write_file(path, bytes, length);
-  JS_FreeCString(context, path);
-  if (status != 0) {
-    return JS_ThrowInternalError(context, "writeFileBytes failed: %s",
-                                 strerror(-status));
-  }
-  return JS_UNDEFINED;
-}
-
 static JSValue js_dolly_download(JSContext *context, JSValueConst this_value,
                                  int argc, JSValueConst *argv) {
   (void)this_value;
@@ -641,61 +617,105 @@ static JSValue js_dolly_download(JSContext *context, JSValueConst this_value,
   return JS_UNDEFINED;
 }
 
-static JSValue js_dolly_append_file(JSContext *context,
-                                    JSValueConst this_value,
-                                    int argc, JSValueConst *argv) {
+static JSValue fs_error(JSContext *context, const char *operation, int number) {
+  const char *code = "UNKNOWN";
+  switch (number) {
+#define FS_ERRNO(name) case name: code = #name; break
+    FS_ERRNO(EBADF); FS_ERRNO(ENOENT); FS_ERRNO(EEXIST); FS_ERRNO(EINVAL);
+    FS_ERRNO(ENOTDIR); FS_ERRNO(EISDIR); FS_ERRNO(ENOTEMPTY); FS_ERRNO(EIO);
+    FS_ERRNO(ENOMEM); FS_ERRNO(ENOSPC); FS_ERRNO(EOVERFLOW); FS_ERRNO(ESPIPE);
+    FS_ERRNO(ENOSYS); FS_ERRNO(ENOTSUP); FS_ERRNO(ELOOP); FS_ERRNO(EMFILE);
+    FS_ERRNO(EINTR); FS_ERRNO(EAGAIN); FS_ERRNO(ENAMETOOLONG);
+#undef FS_ERRNO
+  }
+  JSValue error = JS_NewError(context);
+  if (JS_IsException(error)) return error;
+  JS_SetPropertyStr(context, error, "message", JS_NewString(context, strerror(number)));
+  JS_SetPropertyStr(context, error, "code", JS_NewString(context, code));
+  JS_SetPropertyStr(context, error, "errno", JS_NewInt32(context, -number));
+  JS_SetPropertyStr(context, error, "syscall", JS_NewString(context, operation));
+  return JS_Throw(context, error);
+}
+
+static int fs_descriptor(JSContext *context, JSValueConst value, int *descriptor) {
+  int64_t number;
+  if (JS_ToInt64(context, &number, value) < 0) return -1;
+  if (number < 0 || number > INT_MAX) {
+    fs_error(context, "descriptor", EBADF);
+    return -1;
+  }
+  *descriptor = (int)number;
+  return 0;
+}
+
+static JSValue js_dolly_fs_open(JSContext *context, JSValueConst this_value,
+                                 int argc, JSValueConst *argv) {
   (void)this_value;
-  if (argc < 2) return JS_ThrowTypeError(context, "appendFile requires path and data");
+  int32_t flags;
+  if (argc < 2) return JS_ThrowTypeError(context, "fsOpen requires path and flags");
+  if (JS_ToInt32(context, &flags, argv[1]) < 0) return JS_EXCEPTION;
   const char *path = JS_ToCString(context, argv[0]);
   if (path == NULL) return JS_EXCEPTION;
-  size_t length = 0;
-  const unsigned char *bytes = NULL;
-  const char *text = NULL;
-  if (JS_IsString(argv[1])) {
-    text = JS_ToCStringLen(context, &length, argv[1]);
-    if (text == NULL) {
-      JS_FreeCString(context, path);
-      return JS_EXCEPTION;
-    }
-    bytes = (const unsigned char *)text;
-  } else {
-    bytes = JS_GetUint8Array(context, &length, argv[1]);
-    if (bytes == NULL) {
-      JS_FreeCString(context, path);
-      return JS_ThrowTypeError(context, "appendFile requires string or Uint8Array");
-    }
-  }
-  int descriptor = open(path, O_WRONLY | O_CREAT | O_APPEND, 0666);
-  int status = 0;
-  if (descriptor < 0) status = errno;
-  size_t offset = 0;
-  while (status == 0 && offset < length) {
-    ssize_t count = write(descriptor, bytes + offset, length - offset);
-    if (count < 0 && errno == EINTR) continue;
-    if (count <= 0) status = errno == 0 ? EIO : errno;
-    else offset += (size_t)count;
-  }
-  if (descriptor >= 0 && close(descriptor) != 0 && status == 0) status = errno;
-  if (text != NULL) JS_FreeCString(context, text);
+  const int descriptor = open(path, flags, 0666);
+  const int saved_errno = errno;
   JS_FreeCString(context, path);
-  if (status != 0) {
-    return JS_ThrowInternalError(context, "appendFile failed: %s", strerror(status));
-  }
+  return descriptor < 0 ? fs_error(context, "open", saved_errno)
+                         : JS_NewInt32(context, descriptor);
+}
+
+static JSValue js_dolly_fs_close(JSContext *context, JSValueConst this_value,
+                                  int argc, JSValueConst *argv) {
+  (void)this_value;
+  int descriptor;
+  if (argc < 1) return JS_ThrowTypeError(context, "fsClose requires a descriptor");
+  if (fs_descriptor(context, argv[0], &descriptor) < 0) return JS_EXCEPTION;
+  if (close(descriptor) != 0) return fs_error(context, "close", errno);
   return JS_UNDEFINED;
 }
 
-static JSValue js_dolly_fs_stat(JSContext *context, JSValueConst this_value,
-                                int argc, JSValueConst *argv) {
+static JSValue js_dolly_fs_io(JSContext *context, JSValueConst this_value,
+                               int argc, JSValueConst *argv, int writing) {
   (void)this_value;
-  if (argc < 1) return JS_ThrowTypeError(context, "fsStat requires a path");
-  const char *path = JS_ToCString(context, argv[0]);
-  if (path == NULL) return JS_EXCEPTION;
+  int descriptor;
+  uint64_t offset, length, position = 0;
+  if (argc < 4) return JS_ThrowTypeError(context, "file I/O requires descriptor, buffer, offset and length");
+  if (fs_descriptor(context, argv[0], &descriptor) < 0 ||
+      JS_ToIndex(context, &offset, argv[2]) < 0 ||
+      JS_ToIndex(context, &length, argv[3]) < 0) return JS_EXCEPTION;
+  size_t capacity;
+  unsigned char *bytes = JS_GetUint8Array(context, &capacity, argv[1]);
+  if (bytes == NULL) return JS_EXCEPTION;
+  if (offset > capacity || length > capacity - offset) {
+    return JS_ThrowRangeError(context, "file I/O exceeds buffer bounds");
+  }
+  const int positioned = argc > 4 && !JS_IsNull(argv[4]) && !JS_IsUndefined(argv[4]);
+  if (positioned && JS_ToIndex(context, &position, argv[4]) < 0) return JS_EXCEPTION;
+  if (position > INT64_MAX) return JS_ThrowRangeError(context, "file position is out of range");
+  const ssize_t count = writing
+      ? (positioned ? pwrite(descriptor, bytes + offset, (size_t)length, (off_t)position)
+                    : write(descriptor, bytes + offset, (size_t)length))
+      : (positioned ? pread(descriptor, bytes + offset, (size_t)length, (off_t)position)
+                    : read(descriptor, bytes + offset, (size_t)length));
+  return count < 0 ? fs_error(context, writing ? "write" : "read", errno)
+                    : JS_NewInt64(context, count);
+}
+
+static JSValue js_dolly_fs_stat(JSContext *context, JSValueConst this_value,
+                                int argc, JSValueConst *argv, int kind) {
+  (void)this_value;
+  if (argc < 1) return JS_ThrowTypeError(context, "stat requires a path or descriptor");
   struct stat metadata;
-  const int status = lstat(path, &metadata);
-  const int saved_errno = errno;
-  JS_FreeCString(context, path);
-  if (status != 0) {
-    return JS_ThrowInternalError(context, "fsStat failed: %s", strerror(saved_errno));
+  if (kind == 2) {
+    int descriptor;
+    if (fs_descriptor(context, argv[0], &descriptor) < 0) return JS_EXCEPTION;
+    if (fstat(descriptor, &metadata) != 0) return fs_error(context, "fstat", errno);
+  } else {
+    const char *path = JS_ToCString(context, argv[0]);
+    if (path == NULL) return JS_EXCEPTION;
+    const int status = kind == 1 ? lstat(path, &metadata) : stat(path, &metadata);
+    const int saved_errno = errno;
+    JS_FreeCString(context, path);
+    if (status != 0) return fs_error(context, kind == 1 ? "lstat" : "stat", saved_errno);
   }
   JSValue result = JS_NewObject(context);
   JS_SetPropertyStr(context, result, "size",
@@ -703,12 +723,35 @@ static JSValue js_dolly_fs_stat(JSContext *context, JSValueConst this_value,
   JS_SetPropertyStr(context, result, "mode",
                     JS_NewUint32(context, (uint32_t)metadata.st_mode));
   JS_SetPropertyStr(context, result, "mtimeMs",
-                    JS_NewInt64(context, (int64_t)metadata.st_mtime * 1000));
+                    JS_NewFloat64(context, (double)metadata.st_mtim.tv_sec * 1000 +
+                                           (double)metadata.st_mtim.tv_nsec / 1000000));
   JS_SetPropertyStr(context, result, "kind",
                     JS_NewString(context, S_ISDIR(metadata.st_mode) ? "directory" :
                                           S_ISREG(metadata.st_mode) ? "file" :
                                           S_ISLNK(metadata.st_mode) ? "symlink" : "other"));
   return result;
+}
+
+static JSValue js_dolly_fs_utimes(JSContext *context, JSValueConst this_value,
+                                   int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 3) return JS_ThrowTypeError(context, "fsUtimes requires path, atime and mtime");
+  struct timespec times[2];
+  for (int index = 0; index < 2; ++index) {
+    double seconds;
+    if (JS_ToFloat64(context, &seconds, argv[index + 1]) < 0) return JS_EXCEPTION;
+    if (!isfinite(seconds) || seconds < 0 || seconds > 9007199254740991.0) {
+      return JS_ThrowRangeError(context, "invalid file timestamp");
+    }
+    times[index].tv_sec = (time_t)seconds;
+    times[index].tv_nsec = (long)((seconds - (double)times[index].tv_sec) * 1000000000);
+  }
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  const int status = utimensat(AT_FDCWD, path, times, 0);
+  const int saved_errno = errno;
+  JS_FreeCString(context, path);
+  return status < 0 ? fs_error(context, "utimes", saved_errno) : JS_UNDEFINED;
 }
 
 static JSValue js_dolly_fs_readdir(JSContext *context,
@@ -1403,16 +1446,16 @@ static int install_dolly_backend(JSContext *context) {
     }                                                                          \
   } while (0)
   DOLLY_JS_FUNCTION("getenv", js_dolly_getenv, 1);
+  DOLLY_JS_FUNCTION("envKeys", js_dolly_env_keys, 0);
   DOLLY_JS_FUNCTION("setenv", js_dolly_setenv, 2);
   DOLLY_JS_FUNCTION("cwd", js_dolly_cwd, 0);
   DOLLY_JS_FUNCTION("chdir", js_dolly_chdir, 1);
   DOLLY_JS_FUNCTION("readFile", js_dolly_read_file, 1);
   DOLLY_JS_FUNCTION("writeFile", js_dolly_write_file, 2);
-  DOLLY_JS_FUNCTION("readFileBytes", js_dolly_read_file_bytes, 1);
-  DOLLY_JS_FUNCTION("writeFileBytes", js_dolly_write_file_bytes, 2);
   DOLLY_JS_FUNCTION("download", js_dolly_download, 1);
-  DOLLY_JS_FUNCTION("appendFile", js_dolly_append_file, 2);
-  DOLLY_JS_FUNCTION("fsStat", js_dolly_fs_stat, 1);
+  DOLLY_JS_FUNCTION("fsOpen", js_dolly_fs_open, 2);
+  DOLLY_JS_FUNCTION("fsClose", js_dolly_fs_close, 1);
+  DOLLY_JS_FUNCTION("fsUtimes", js_dolly_fs_utimes, 3);
   DOLLY_JS_FUNCTION("fsReaddir", js_dolly_fs_readdir, 1);
   DOLLY_JS_FUNCTION("realpath", js_dolly_realpath, 1);
   DOLLY_JS_FUNCTION("readRaw", js_dolly_read_raw, 1);
@@ -1429,6 +1472,24 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("shell", js_dolly_shell, 3);
   DOLLY_JS_FUNCTION("shellStream", js_dolly_shell_stream, 5);
 #undef DOLLY_JS_FUNCTION
+#define DOLLY_FS_MAGIC(name, function, length, magic)                           \
+  JS_SetPropertyStr(context, dolly, name,                                      \
+                    JS_NewCFunctionMagic(context, function, name, length,      \
+                                         JS_CFUNC_generic_magic, magic))
+  DOLLY_FS_MAGIC("fsRead", js_dolly_fs_io, 5, 0);
+  DOLLY_FS_MAGIC("fsWrite", js_dolly_fs_io, 5, 1);
+  DOLLY_FS_MAGIC("fsStat", js_dolly_fs_stat, 1, 0);
+  DOLLY_FS_MAGIC("fsLstat", js_dolly_fs_stat, 1, 1);
+  DOLLY_FS_MAGIC("fsFstat", js_dolly_fs_stat, 1, 2);
+#undef DOLLY_FS_MAGIC
+  JSValue fs_constants = JS_NewObject(context);
+#define DOLLY_FS_CONSTANT(name) JS_SetPropertyStr(context, fs_constants, #name, JS_NewInt32(context, name))
+  DOLLY_FS_CONSTANT(O_RDONLY); DOLLY_FS_CONSTANT(O_WRONLY); DOLLY_FS_CONSTANT(O_RDWR);
+  DOLLY_FS_CONSTANT(O_CREAT); DOLLY_FS_CONSTANT(O_EXCL); DOLLY_FS_CONSTANT(O_TRUNC);
+  DOLLY_FS_CONSTANT(O_APPEND); DOLLY_FS_CONSTANT(O_NONBLOCK); DOLLY_FS_CONSTANT(O_SYNC);
+  DOLLY_FS_CONSTANT(O_DIRECTORY); DOLLY_FS_CONSTANT(O_NOFOLLOW); DOLLY_FS_CONSTANT(O_CLOEXEC);
+#undef DOLLY_FS_CONSTANT
+  JS_SetPropertyStr(context, dolly, "fsConstants", fs_constants);
 #define DOLLY_FS_FUNCTION(name, magic)                                         \
   JS_SetPropertyStr(context, dolly, name,                                      \
                     JS_NewCFunctionMagic(context, js_dolly_fs_operation, name, \

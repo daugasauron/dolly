@@ -44,16 +44,10 @@ env/input/wait/signal/deadline behavior to real process handles; explicitly reje
 the rest. **Acceptance:** custom env and input reach children, mid-operation
 abort/deadline stops child or HTTP work, and unsupported options fail clearly.
 Outer Ctrl-C passing is not evidence that application abort signals work.
-
-**B4 — P2 — Janis maintains conflicting file/env semantics.** Publicly reproduced:
-`process.env.HOME` works but enumeration/spread is empty, and
-`Buffer.from([1,2,3]).subarray(-1)` throws. Source evidence: `openSync` invents
-descriptors, reads/writes reopen paths, stat/lstat share lstat behavior, and watch
-objects never emit. Inspect `src/runtimes/{janis.js,dolly-node.js,quickjs-main.c}`.
-Use real descriptor/environment operations and normal typed-array behavior;
-reject unsupported watching. **Acceptance:** env keys/spread/has, negative slices,
-open errors/exclusive creation, offsets, open-file rename/unlink, symlink stat,
-and explicit watch failure.
+First extend the shared process contract: WAIT currently accepts only flags=0,
+`dolly_kill` returns ENOSYS, and termination stores only a normalized exit code.
+Nonblocking wait and real signals need typed operations and an explicit signal
+exit reason; do not infer a signal from a normal exit status of 128+signal.
 
 **B5 — P2 — Python has an obsolete lazy subprocess model.** Source evidence in
 `src/runtimes/cpython-subprocess.py`: execution begins at wait/communicate or
@@ -62,6 +56,8 @@ terminate/kill alias a method requiring an argument. Adapt Popen to the same
 spawn/pipe/wait/signal handles as other runtimes. **Acceptance:** observable start,
 nonblocking poll, inherited creation-time cwd/env, streaming, communicate input,
 terminate/kill, and wait status. Serial scheduling does not justify fake processes.
+Inspect whether a small spawn override can reuse upstream Popen's pipe,
+communicate, and wait implementation instead of retaining the custom spool model.
 
 **B7 — P2 — libcurl accepts ineffective options.** Source evidence in
 `src/libcurl-fetch.c`: several redirect/timeout/proxy/certificate/cookie/OAuth
@@ -150,10 +146,10 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 177 Node tests and the full Chrome suite passed; all five
-images rebuilt and their prebuilt routes passed. Logs: `build/b9-final-build.log`,
-`build/b9-final-node-tests.log`, `build/b9-final-browser-suite.log`, and
-`build/b9-*-route.log`.
+Latest local baseline: 178 Node tests and the full Chrome suite passed; all five
+images are current and their prebuilt routes passed. Logs:
+`build/b4-final-snapshots.log`, `build/b4-final-node-tests.log`,
+`build/b4-final-full-browser.log`, and `build/b4-final-*-route.log`.
 The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
@@ -163,6 +159,16 @@ admission share the ENTRY decoder. `build/d3-parser-before.log` reproduces the
 original quoted-command/CWD and LIB-kind disagreement. Production boot runs no probe suite;
 its executable seed contains only the bootstrap runner and compiler.
 Existing release archives predate this checkpoint; none packages these changes.
+
+Janis now uses the kernel's descriptors, environment and timestamp operations.
+The fake descriptor map, Buffer slicing override, inert watches and unused
+duplicate native byte-file helpers were removed. The before browser probe failed
+all nine original groups (`build/b4-before-browser.log`). Both Pi images now pass
+environment reflection, shared/clamped Buffer views, exclusive/numeric opens,
+read/write offsets, rename/unlink survival, closed FileHandle reuse rejection,
+stat/lstat/Dirent distinctions, symlink-safe removal, zero-length/DataView I/O,
+real timestamps and explicit watch rejection (`build/b4-final-*-browser.log`).
+This does not claim a complete Node filesystem implementation or close B3.
 
 The C++ SDK now uses the genuine process archives for implicit and explicit
 links, including `cc -lc++` and `-Wl,` forms. Browser regressions exercise

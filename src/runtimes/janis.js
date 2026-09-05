@@ -404,10 +404,6 @@ Buffer.compare = (left, right) => {
   return left.length - right.length;
 };
 Buffer.prototype.equals = function(other) { return Buffer.compare(this, other) === 0; };
-Buffer.prototype.subarray = function(start, end) {
-  return new Buffer(this.buffer, this.byteOffset + (start ?? 0),
-    Math.max(0, (end ?? this.length) - (start ?? 0)));
-};
 Buffer.prototype.slice = Buffer.prototype.subarray;
 Buffer.prototype.readUInt8 = function(offset = 0) { return this[offset]; };
 Buffer.prototype.readUInt16LE = function(offset = 0) { return this[offset] | this[offset + 1] << 8; };
@@ -549,6 +545,12 @@ function fsNative(path, syscall, operation) {
 function fsStat(path) {
   return new JanisStats(fsNative(path, "stat", () => Dolly.fsStat(String(path))));
 }
+function fsLstat(path) {
+  return new JanisStats(fsNative(path, "lstat", () => Dolly.fsLstat(String(path))));
+}
+function fsFstat(descriptor) {
+  return new JanisStats(Dolly.fsFstat(fsDescriptor(descriptor)));
+}
 function fsExists(path) { try { Dolly.fsAccess(String(path)); return true; } catch { return false; } }
 function fsMkdir(path, options = {}) {
   path = resolvePath(path);
@@ -569,42 +571,57 @@ function fsMkdir(path, options = {}) {
   }
 }
 function fsRead(path, options = undefined) {
-  const bytes = Buffer.from(fsNative(
-    path,
-    "open",
-    () => Dolly.readFileBytes(String(path)),
-  ));
+  const bytes = withFile(path, options?.flag ?? "r", (fd) => {
+    const chunks = [];
+    const block = Buffer.alloc(65536);
+    for (;;) {
+      const count = readSync(fd, block, 0, block.length);
+      if (!count) return Buffer.concat(chunks);
+      chunks.push(Buffer.from(block.subarray(0, count)));
+    }
+  });
   const encoding = typeof options === "string" ? options : options?.encoding;
   return encoding ? bytes.toString(encoding) : bytes;
 }
 function fsWrite(path, data, options = undefined) {
   const encoding = typeof options === "string" ? options : options?.encoding ?? "utf8";
-  const bytes = data instanceof Uint8Array ? data : Buffer.from(String(data), encoding);
-  fsNative(path, "open", () => Dolly.writeFileBytes(String(path), bytes));
+  const bytes = ArrayBuffer.isView(data) ? fsBytes(data) : Buffer.from(String(data), encoding);
+  withFile(path, options?.flag ?? "w", (fd) => {
+    for (let offset = 0; offset < bytes.length;) {
+      const count = writeSync(fd, bytes, offset, bytes.length - offset);
+      if (!count) throw Object.assign(new Error("write made no progress"), { code: "EIO" });
+      offset += count;
+    }
+  });
 }
 function fsAppend(path, data, options = undefined) {
-  const encoding = typeof options === "string" ? options : options?.encoding ?? "utf8";
-  fsNative(path, "open", () => Dolly.appendFile(
-    String(path),
-    data instanceof Uint8Array ? data : Buffer.from(String(data), encoding),
-  ));
+  fsWrite(path, data, typeof options === "string"
+    ? { encoding: options, flag: "a" } : { flag: "a", ...options });
+}
+function withFile(path, flags, operation) {
+  if (typeof path === "number") return operation(fsDescriptor(path));
+  const fd = openSync(path, flags);
+  try { return operation(fd); } finally { closeSync(fd); }
 }
 function fsReaddir(path, options = undefined) {
   const names = fsNative(path, "scandir", () => Dolly.fsReaddir(String(path)));
   if (!options?.withFileTypes) return names;
-  return names.map((name) => new JanisDirent(name, Dolly.fsStat(janisPath.join(path, name))));
+  return names.map((name) => Object.assign(new JanisDirent(name, fsLstat(janisPath.join(path, name))), {
+    parentPath: String(path), path: String(path),
+  }));
 }
 function fsRemove(path, options = {}) {
   path = String(path);
-  if (!fsExists(path)) {
-    if (options?.force) return;
-    Dolly.fsUnlink(path);
+  let metadata;
+  try { metadata = fsLstat(path); }
+  catch (error) {
+    if (options?.force && error.code === "ENOENT") return;
+    throw error;
   }
-  const metadata = fsStat(path);
   if (metadata.isDirectory()) {
     if (options?.recursive) for (const name of fsReaddir(path)) fsRemove(janisPath.join(path, name), options);
-    Dolly.fsRmdir(path);
-  } else Dolly.fsUnlink(path);
+    fsNative(path, "rmdir", () => Dolly.fsRmdir(path));
+  } else fsNative(path, "unlink", () => Dolly.fsUnlink(path));
 }
 function fsRealpath(path) {
   return fsNative(path, "realpath", () => Dolly.realpath(String(path)));
@@ -663,10 +680,9 @@ function janisGlobWalk(root) {
     for (const name of fsReaddir(directory).sort()) {
       const relativePath = relativeDirectory ? `${relativeDirectory}/${name}` : name;
       const absolutePath = janisPath.join(directory, name);
-      const metadata = fsStat(absolutePath);
+      const metadata = fsLstat(absolutePath);
       entries.push({ relativePath, absolutePath, metadata });
-      // Dolly's lstat-shaped metadata makes the default no-symlink traversal
-      // explicit and cycle-free.
+      // Do not traverse symbolic links: glob walks must remain cycle-free.
       if (metadata.isDirectory()) walk(absolutePath, relativePath);
     }
   };
@@ -723,38 +739,65 @@ function callbackResult(operation, callback) {
     try { callback(null, operation()); } catch (error) { callback(error); }
   });
 }
-const janisDescriptors = new Map();
-let janisNextDescriptor = 10;
-function openSync(path, flags = "r") {
-  const descriptor = janisNextDescriptor++;
-  janisDescriptors.set(descriptor, { path: String(path), flags: String(flags), position: 0 });
-  if (String(flags).startsWith("w")) fsWrite(path, new Uint8Array());
+function fsDescriptor(descriptor) {
+  if (!Number.isInteger(descriptor) || descriptor < 0 || descriptor > 0x7fffffff) {
+    throw Object.assign(new Error("invalid file descriptor"), { code: "EBADF" });
+  }
   return descriptor;
 }
-function closeSync(descriptor) { janisDescriptors.delete(descriptor); }
-function writeSync(descriptor, data, offset = undefined, length = undefined) {
-  const record = janisDescriptors.get(descriptor);
-  if (!record) throw new Error("EBADF");
-  let bytes = data instanceof Uint8Array ? data : Buffer.from(String(data));
-  if (offset !== undefined && typeof data !== "string") bytes = bytes.subarray(offset, offset + (length ?? bytes.length));
-  if (record.flags.includes("a")) fsAppend(record.path, bytes);
-  else {
-    const existing = fsExists(record.path) ? fsRead(record.path) : Buffer.alloc(0);
-    const size = Math.max(existing.length, record.position + bytes.length);
-    const output = Buffer.alloc(size); output.set(existing); output.set(bytes, record.position);
-    fsWrite(record.path, output); record.position += bytes.length;
+function fsBytes(buffer) {
+  if (!ArrayBuffer.isView(buffer)) throw new TypeError("file I/O requires an ArrayBuffer view");
+  return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+}
+function fsIndex(value, name, limit = Number.MAX_SAFE_INTEGER) {
+  if (!Number.isSafeInteger(value) || value < 0 || value > limit) {
+    throw new RangeError(`${name} is out of range`);
   }
-  return bytes.length;
+  return value;
+}
+function openSync(path, flags = "r") {
+  if (typeof flags === "string") {
+    const c = Dolly.fsConstants;
+    const modes = {
+      r: c.O_RDONLY, "r+": c.O_RDWR,
+      rs: c.O_RDONLY | c.O_SYNC, "rs+": c.O_RDWR | c.O_SYNC,
+      w: c.O_WRONLY | c.O_CREAT | c.O_TRUNC, "w+": c.O_RDWR | c.O_CREAT | c.O_TRUNC,
+      a: c.O_WRONLY | c.O_CREAT | c.O_APPEND, "a+": c.O_RDWR | c.O_CREAT | c.O_APPEND,
+    };
+    modes.wx = modes.w | c.O_EXCL; modes["wx+"] = modes["w+"] | c.O_EXCL;
+    modes.ax = modes.a | c.O_EXCL; modes["ax+"] = modes["a+"] | c.O_EXCL;
+    if (!Object.hasOwn(modes, flags)) throw new TypeError(`unsupported file flags: ${flags}`);
+    flags = modes[flags];
+  }
+  fsIndex(flags, "flags", 0x7fffffff);
+  const c = Dolly.fsConstants;
+  const supported = c.O_WRONLY | c.O_RDWR | c.O_CREAT | c.O_EXCL | c.O_TRUNC |
+    c.O_APPEND | c.O_DIRECTORY | c.O_NOFOLLOW | c.O_SYNC;
+  if (flags & ~supported) {
+    throw Object.assign(new Error("unsupported file flags"), { code: "ENOTSUP" });
+  }
+  return fsNative(path, "open", () => Dolly.fsOpen(String(path), flags));
+}
+function closeSync(descriptor) { return Dolly.fsClose(fsDescriptor(descriptor)); }
+function fileIo(writing, descriptor, buffer, offset, length, position) {
+  descriptor = fsDescriptor(descriptor);
+  const bytes = fsBytes(buffer);
+  offset = fsIndex(offset ?? 0, "offset", bytes.length);
+  length = fsIndex(length ?? bytes.length - offset, "length", bytes.length - offset);
+  if (position != null) fsIndex(position, "position");
+  return (writing ? Dolly.fsWrite : Dolly.fsRead)(descriptor, bytes, offset, length, position);
+}
+function writeSync(descriptor, data, offset, length, position = null) {
+  if (typeof data === "string") {
+    const bytes = Buffer.from(data, length ?? "utf8");
+    return fileIo(true, descriptor, bytes, 0, bytes.length, offset);
+  }
+  if (offset && typeof offset === "object") ({ offset, length, position } = offset);
+  return fileIo(true, descriptor, data, offset, length, position);
 }
 function readSync(descriptor, buffer, offset, length, position = null) {
-  const record = janisDescriptors.get(descriptor);
-  if (!record) throw new Error("EBADF");
-  const contents = fsRead(record.path);
-  const start = position ?? record.position;
-  const count = Math.min(length, contents.length - start);
-  if (count > 0) buffer.set(contents.subarray(start, start + count), offset);
-  if (position === null) record.position += Math.max(0, count);
-  return Math.max(0, count);
+  if (offset && typeof offset === "object") ({ offset, length, position } = offset);
+  return fileIo(false, descriptor, buffer, offset, length, position);
 }
 
 class JanisReadable extends JanisEventEmitter {
@@ -843,12 +886,13 @@ function createWriteStream(path, options = {}) {
 }
 
 const janisFs = {
-  constants: { F_OK: 0, R_OK: 4, W_OK: 2, X_OK: 1, COPYFILE_EXCL: 1 },
+  constants: { ...Dolly.fsConstants, F_OK: 0, R_OK: 4, W_OK: 2, X_OK: 1, COPYFILE_EXCL: 1 },
   Stats: JanisStats,
   Dirent: JanisDirent,
   existsSync: fsExists,
   statSync: fsStat,
-  lstatSync: fsStat,
+  lstatSync: fsLstat,
+  fstatSync: fsFstat,
   readFileSync: fsRead,
   writeFileSync: fsWrite,
   appendFileSync: fsAppend,
@@ -866,10 +910,10 @@ const janisFs = {
   copyFileSync: (from, to) => Dolly.fsCopy(String(from), String(to)),
   realpathSync: fsRealpath,
   accessSync: (path) => fsNative(path, "access", () => Dolly.fsAccess(String(path))),
-  // Dolly has no permission model and its current filesystem substrate does
-  // not expose timestamp mutation. Single-process lock users only require the
-  // path check and a stable stat.mtime value, so utimes is a synchronous no-op.
-  utimesSync: (path) => Dolly.fsAccess(String(path)),
+  utimesSync: (path, atime, mtime) => fsNative(path, "utimes", () => Dolly.fsUtimes(
+    String(path), atime instanceof Date ? atime.getTime() / 1000 : Number(atime),
+    mtime instanceof Date ? mtime.getTime() / 1000 : Number(mtime))),
+  // Dolly intentionally has no permission model.
   chmodSync() {},
   openSync,
   closeSync,
@@ -878,8 +922,8 @@ const janisFs = {
   createReadStream,
   createWriteStream,
   mkdtempSync: (prefix) => { const path = `${prefix}${Math.random().toString(16).slice(2, 10)}`; fsMkdir(path, { recursive: true }); return path; },
-  watch: () => { const watcher = new JanisEventEmitter(); watcher.close = () => {}; watcher.ref = watcher.unref = () => watcher; return watcher; },
-  watchFile() {},
+  watch() { throw Object.assign(new Error("filesystem watching is not supported"), { code: "ERR_METHOD_NOT_IMPLEMENTED" }); },
+  watchFile() { return janisFs.watch(); },
   unwatchFile() {},
 };
 
@@ -887,6 +931,7 @@ const janisFsPromises = {
   access: async (path) => janisFs.accessSync(path),
   stat: async (path) => janisFs.statSync(path),
   lstat: async (path) => janisFs.lstatSync(path),
+  fstat: async (fd) => janisFs.fstatSync(fd),
   readFile: async (path, options) => janisFs.readFileSync(path, options),
   writeFile: async (path, data, options) => janisFs.writeFileSync(path, data, options),
   appendFile: async (path, data, options) => janisFs.appendFileSync(path, data, options),
@@ -902,18 +947,22 @@ const janisFsPromises = {
   mkdtemp: async (prefix) => janisFs.mkdtempSync(prefix),
   chmod: async () => {},
   open: async (path, flags) => {
-    const fd = openSync(path, flags);
+    let fd = openSync(path, flags);
+    const current = () => fsDescriptor(fd);
     return {
-      fd,
-      read: async (buffer, offset, length, position) => ({ bytesRead: readSync(fd, buffer, offset, length, position), buffer }),
-      write: async (buffer, offset, length) => ({ bytesWritten: writeSync(fd, buffer, offset, length), buffer }),
-      close: async () => closeSync(fd),
-      stat: async () => fsStat(path),
+      get fd() { return fd; },
+      read: async (buffer, offset, length, position) => ({ bytesRead: readSync(current(), buffer, offset, length, position), buffer }),
+      write: async (buffer, offset, length, position) => ({ bytesWritten: writeSync(current(), buffer, offset, length, position), buffer }),
+      readFile: async (options) => fsRead(current(), options),
+      writeFile: async (data, options) => fsWrite(current(), data, options),
+      appendFile: async (data, options) => fsAppend(current(), data, options),
+      close: async () => { if (fd !== -1) { closeSync(fd); fd = -1; } },
+      stat: async () => fsFstat(current()),
     };
   },
 };
 for (const [name, sync] of [
-  ["access", janisFs.accessSync], ["stat", janisFs.statSync], ["lstat", janisFs.lstatSync],
+  ["access", janisFs.accessSync], ["stat", janisFs.statSync], ["lstat", janisFs.lstatSync], ["fstat", janisFs.fstatSync],
   ["readFile", janisFs.readFileSync], ["writeFile", janisFs.writeFileSync],
   ["appendFile", janisFs.appendFileSync], ["mkdir", janisFs.mkdirSync],
   ["readdir", janisFs.readdirSync], ["unlink", janisFs.unlinkSync], ["rmdir", janisFs.rmdirSync],
