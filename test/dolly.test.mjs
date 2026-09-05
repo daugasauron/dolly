@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  validateBrowserImports,
   validateProcess,
   validateRuntime,
 } from "../scripts/dolly-abi.mjs";
@@ -354,12 +355,13 @@ test("the loader is browser-only and process-shaped shell APIs stay in Wasm", as
   assert.match(processRuntime, /int pclose\(FILE \*stream\)[\s\S]*?dolly_wait\(pid, &status\)/);
 });
 
-test("the pinned Emscripten dynamic loader reports missing symbols safely", async () => {
-  const patcher = await readFile(
-    new URL("../scripts/patch-emscripten-loader.mjs", import.meta.url), "utf8",
-  );
-  assert.match(patcher, /value!=null&&typeof value\.value/);
-  assert.match(patcher, /expected exactly one Emscripten undefined-symbol diagnostic/);
+test("the kernel contains no general dynamic loader or dynamic JavaScript execution", async () => {
+  const loader = await readFile(artifact("dolly.mjs"), "utf8");
+  const kernel = await readWasmInterface(artifact("dolly.wasm"));
+  assert.equal(kernel.customSections.includes("dylink.0"), false);
+  assert.doesNotMatch(loader, /\b(?:eval|Function)\s*\(|loadDynamicLibrary|_dlopen_js|_dlsym_js/);
+  const plugin = await readFile(new URL("../src/kernel-plugin.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(plugin, /\bfetch\s*\(|XMLHttpRequest|\b(?:eval|Function)\s*\(/);
 });
 
 test("the main-module provider exports Emscripten side-module stack bounds", async () => {
@@ -427,10 +429,6 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(frontend, /type: "configure"/);
   assert.match(frontend, /new Worker\(workerUrl/);
   assert.match(frontend, /Atomics\.waitAsync/);
-  assert.match(
-    frontend,
-    /for \(;;\) \{\s*if \(this\.activeToken !== token \|\|.*?NetworkTransport\.sequence\).*?!== sequence\).*?const current = Atomics\.load\(this\.words, index\);\s*if \(current === 1\) return;\s*const waiting = Atomics\.waitAsync/s,
-  );
   assert.match(frontend, /interruptForeground\(\)/);
   assert.match(frontend, /event\.code === "KeyC"/);
   assert.match(frontend, /networkTransport\?\.interrupt\(\)/);
@@ -1044,7 +1042,8 @@ test("process executables and DSOs are revalidated at their actual load boundari
   assert.match(worker, /function validateDsoModule\(module\)/);
   assert.match(worker, /customSections\(module, "dolly\.process\.dso"\)/);
   assert.match(worker, /shared-object import is outside the process namespace/);
-  assert.match(runtime, /install_display_driver[\s\S]*?dlopen\(driver_path, RTLD_NOW \| RTLD_LOCAL\)/);
+  assert.match(runtime, /prepare_display_driver[\s\S]*?fopen\(driver_path, "rb"\)/);
+  assert.doesNotMatch(runtime, /\bdlopen\s*\(|\bdlsym\s*\(/);
   assert.doesNotMatch(runtime, /dolly_run_filesystem_module|dolly_toolchain_validate/);
 });
 
@@ -1374,6 +1373,8 @@ test("the kernel module owns its wasm64 WasmFS memory and table", async () => {
 
 test("the main Wasm has an explicit, minimal browser boundary", async () => {
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
+  const contract = await readWasmInterface(artifact("dolly-browser-0.wasm"));
+  validateBrowserImports(contract.imports, runtime.imports);
   const policy = JSON.parse(
     await readFile(new URL("../config/browser-imports.json", import.meta.url), "utf8"),
   );
@@ -1389,6 +1390,18 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
     actual.some((name) => /nodefs|opfs|fetch|socket|spawn|process|pthread|thread_/.test(name)),
     false,
   );
+});
+
+test("the outer import validator rejects name, type, count, and duplicate drift", async () => {
+  const { imports } = await readWasmInterface(artifact("dolly-browser-0.wasm"));
+  const wrongName = structuredClone(imports);
+  wrongName[0].name = "different_memory";
+  assert.throws(() => validateBrowserImports(imports, wrongName), /missing or changed type/);
+  const wrongType = structuredClone(imports);
+  wrongType.find(x => x.name === "dolly_http_dispatch").type.params.push("i32");
+  assert.throws(() => validateBrowserImports(imports, wrongType), /missing or changed type/);
+  assert.throws(() => validateBrowserImports(imports, imports.slice(1)), /count changed/);
+  assert.throws(() => validateBrowserImports(imports, [...imports, imports[0]]), /duplicate/);
 });
 
 test("the browser HTTP policy owns destination authority while credentials stay in Wasm", () => {

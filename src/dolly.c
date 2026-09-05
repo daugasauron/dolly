@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <dirent.h>
-#include <dlfcn.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <sched.h>
@@ -68,7 +67,8 @@ _Static_assert((DOLLY_DISPLAY_EVENT_CAPACITY &
 
 _Alignas(64) static dolly_display_mailbox display_mailbox;
 static const dolly_display_driver_v3 *display_driver;
-static void *display_module;
+static unsigned char *display_module_bytes;
+static size_t display_module_length;
 static unsigned char *display_frames[DOLLY_DISPLAY_FRAME_COUNT];
 _Alignas(64) static unsigned char
     display_paste_buffer[DOLLY_DISPLAY_CLIPBOARD_CAPACITY];
@@ -345,9 +345,13 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
   if (chunk == NULL || (capacity != 0 && data == NULL)) return -EINVAL;
   if (atomic_load_explicit(&http_mailbox.sequence, memory_order_acquire) !=
       sequence) return -ESTALE;
-  if (atomic_load_explicit(&http_mailbox.state, memory_order_acquire) != 2) {
-    return 0;
+  const uint32_t state = atomic_load_explicit(&http_mailbox.state, memory_order_acquire);
+  if (state == 3) {
+    *chunk = (dolly_http_chunk){.error = 1, .eof = 1};
+    atomic_store_explicit(&http_mailbox.state, 0, memory_order_release);
+    return 1;
   }
+  if (state != 2) return 0;
 
   const uint32_t length = atomic_load_explicit(
       &http_mailbox.length, memory_order_relaxed);
@@ -367,8 +371,10 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
   } else if (length != 0) {
     memcpy(data, http_mailbox.data, length);
   }
-  atomic_store_explicit(&http_mailbox.state, chunk->eof ? 0 : 1,
-                        memory_order_release);
+  uint32_t readable = 2;
+  atomic_compare_exchange_strong_explicit(
+      &http_mailbox.state, &readable, chunk->eof ? 0 : 1,
+      memory_order_release, memory_order_relaxed);
   emscripten_atomic_notify((void *)&http_mailbox.state,
                            EMSCRIPTEN_NOTIFY_ALL_WAITERS);
   return result;
@@ -398,7 +404,7 @@ int dolly_http_perform(const dolly_http_request *request,
                                      DOLLY_HTTP_CHUNK_CAPACITY)) == 0) {
       const uint32_t state = atomic_load_explicit(
           &http_mailbox.state, memory_order_acquire);
-      if (state != 2) {
+      if (state == 1) {
         emscripten_atomic_wait_u32((void *)&http_mailbox.state, state,
                                    ATOMICS_WAIT_DURATION_INFINITE);
       }
@@ -1122,22 +1128,66 @@ int dolly_download_file(const char *path) {
   return status;
 }
 
-static int install_display_driver(void) {
-  static const char font_path[] =
-      "/usr/share/fonts/IosevkaTerm-SemiBold.ttf";
-
+static int prepare_display_driver(void) {
   const char *driver_path = getenv("DISPLAY");
   if (driver_path == NULL || driver_path[0] != '/') {
     fputs("dolly: DISPLAY must name an absolute shared-library path\n", stderr);
     return 1;
   }
 
-  printf("dolly: loading sandbox display library %s\n", driver_path);
+  printf("dolly: preparing sandbox display library %s\n", driver_path);
   fflush(stdout);
-  // The process compiler admits this trusted resident plugin only after exact
-  // validation against dolly-kernel-plugin-0. Its bytes are then sealed by the
-  // content-addressed module layer and system snapshot. dlopen performs the
-  // final typed relocation check before the v3 driver table is accepted.
+  FILE *file = fopen(driver_path, "rb");
+  struct stat metadata;
+  if (file == NULL) {
+    fprintf(stderr, "dolly: could not open display library: %s\n", strerror(errno));
+    return 1;
+  }
+  if (fstat(fileno(file), &metadata) != 0 || !S_ISREG(metadata.st_mode) ||
+      metadata.st_size < 8 || metadata.st_size > 64 * 1024 * 1024) {
+    fclose(file);
+    fputs("dolly: invalid display library size or type\n", stderr);
+    return 1;
+  }
+  free(display_module_bytes);
+  display_module_length = (size_t)metadata.st_size;
+  display_module_bytes = malloc(display_module_length);
+  const int loaded = display_module_bytes != NULL &&
+      fread(display_module_bytes, 1, display_module_length, file) == display_module_length;
+  const int closed = fclose(file) == 0;
+  if (!loaded || !closed) {
+    free(display_module_bytes);
+    display_module_bytes = NULL;
+    display_module_length = 0;
+    fputs("dolly: could not read display library\n", stderr);
+    return 1;
+  }
+  return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t dolly_display_module_address(void) {
+  return (uintptr_t)display_module_bytes;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uintptr_t dolly_display_module_size(void) {
+  return display_module_length;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_display_install(const dolly_display_driver_v3 *candidate) {
+  static const char font_path[] = "/usr/share/fonts/IosevkaTerm-SemiBold.ttf";
+  if (display_driver != NULL || candidate == NULL || candidate->abi_version != 3 ||
+      candidate->struct_size < sizeof(*candidate) ||
+      candidate->initialize == NULL || candidate->write == NULL ||
+      candidate->handle_event == NULL || candidate->set_suspended == NULL) {
+    fputs("dolly: incompatible sandbox display driver\n", stderr);
+    return 1;
+  }
+  free(display_module_bytes);
+  display_module_bytes = NULL;
+  display_module_length = 0;
   for (size_t index = 0; index < DOLLY_DISPLAY_FRAME_COUNT; ++index) {
     display_frames[index] = malloc(display_frame_capacity);
     if (display_frames[index] == NULL) {
@@ -1146,29 +1196,6 @@ static int install_display_driver(void) {
     }
   }
 
-  display_module = dlopen(driver_path, RTLD_NOW | RTLD_LOCAL);
-  if (display_module == NULL) {
-    fprintf(stderr, "dolly: dlopen %s failed: %s\n", driver_path, dlerror());
-    return 1;
-  }
-  dlerror();
-  dolly_display_driver_getter_v3 getter =
-      (dolly_display_driver_getter_v3)dlsym(
-          display_module, "dolly_display_driver_get_v3");
-  const char *error = dlerror();
-  if (error != NULL || getter == NULL) {
-    fprintf(stderr, "dolly: display driver export failed: %s\n",
-            error != NULL ? error : "missing getter");
-    return 1;
-  }
-  const dolly_display_driver_v3 *candidate = getter();
-  if (candidate == NULL || candidate->abi_version != 3 ||
-      candidate->struct_size < sizeof(*candidate) ||
-      candidate->initialize == NULL || candidate->write == NULL ||
-      candidate->handle_event == NULL || candidate->set_suspended == NULL) {
-    fputs("dolly: incompatible sandbox display driver\n", stderr);
-    return 1;
-  }
   if (candidate->initialize(&display_mailbox, display_frames[0],
                             display_frames[1], display_frame_capacity,
                             display_paste_buffer, display_copy_buffer,
@@ -1365,7 +1392,7 @@ int dolly_bootstrap_snapshot(uintptr_t size) {
   }
   puts("dolly: precompiled system restored");
   fflush(stdout);
-  return install_display_driver();
+  return prepare_display_driver();
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -1375,7 +1402,7 @@ int dolly_bootstrap_finish(void) {
             strerror(errno));
     return 1;
   }
-  return install_display_driver();
+  return prepare_display_driver();
 }
 
 static uint32_t take_entry_u32(const unsigned char **cursor,

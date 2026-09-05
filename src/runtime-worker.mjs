@@ -2,6 +2,7 @@ import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { loadModuleLayers, saveModuleLayers } from "./module-cache.mjs";
 import { DollyProcessSupervisor } from "./process-supervisor.mjs";
+import { instantiateKernelPlugin } from "./kernel-plugin.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const snapshotSizeLimit = 512 * 1024 * 1024;
@@ -46,7 +47,10 @@ if (bootConfig.sessionSnapshot !== undefined &&
 
 const applicationBase = new URL("../", import.meta.url);
 function locateArtifact(path) {
-  return new URL(`dist/${path.split("/").at(-1)}`, applicationBase).href;
+  if (path !== "dolly.wasm" && path !== "dolly.data") {
+    throw new Error("unknown fixed kernel artifact");
+  }
+  return new URL(`dist/${path}`, applicationBase).href;
 }
 
 function hex(bytes) {
@@ -487,10 +491,19 @@ try {
   const { default: createDolly } = await import("../dist/dolly.mjs");
   bootstrapStage("creating wasm64 userspace kernel...");
   const memory = createDollyMemory();
+  // Fixed deployment input, never a filename or URL supplied by Wasm.
+  const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
+  let kernelExports;
   const dollyOptions = {
     noInitialRun: true,
     wasmMemory: memory,
     locateFile: locateArtifact,
+    instantiateWasm(imports, receive) {
+      const instance = new WebAssembly.Instance(kernelModule, imports);
+      kernelExports = instance.exports;
+      receive(instance, kernelModule);
+      return instance.exports;
+    },
     bootstrapWriteBytes: (bytes) => self.postMessage({ type: "bootstrap-bytes", bytes }),
     httpDispatch: (request) => self.postMessage({ type: "http-request", ...request }),
     httpCancel: (sequence) => self.postMessage({ type: "http-cancel", sequence }),
@@ -884,6 +897,23 @@ try {
     if (bootstrapStatus !== 0) {
       throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
     }
+  }
+
+  // The loader is called once by trusted boot code. There is no corresponding
+  // Wasm import, and its input is a bounded copy of bytes read by the kernel.
+  const displayRange = checkedMemoryRange(
+    memory, dolly._dolly_display_module_address(), dolly._dolly_display_module_size(),
+  );
+  if (displayRange.size > 64 * 1024 * 1024) {
+    throw new Error("resident display plugin exceeds its byte limit");
+  }
+  const display = instantiateKernelPlugin(
+    new Uint8Array(memory.buffer, displayRange.address, displayRange.size).slice(),
+    kernelExports, memory,
+  );
+  const getDriver = display.exports.dolly_display_driver_get_v3;
+  if (typeof getDriver !== "function" || dolly._dolly_display_install(getDriver()) !== 0) {
+    throw new Error("Dolly display installation failed");
   }
 
   const runtimeImage = decoder.decode(dolly.FS.readFile("/etc/dolly/image"));

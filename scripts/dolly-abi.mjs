@@ -152,6 +152,24 @@ export async function inspect(path) {
   }
 }
 
+export function validateBrowserImports(expectedImports, actualImports) {
+  const allowed = interfaceMap(expectedImports, importKey);
+  const actual = interfaceMap(actualImports, importKey);
+  if (allowed.size !== actual.size) throw new Error("browser import count changed");
+  for (const [name, expected] of allowed) {
+    if (!actual.has(name) || !sameWasmType(actual.get(name).type, expected.type)) {
+      throw new Error(`browser import is missing or changed type: ${name}`);
+    }
+  }
+}
+
+export async function validateBrowser(contractPath, runtimePath) {
+  const contract = await readWasmInterface(contractPath);
+  const runtime = await readWasmInterface(runtimePath);
+  validateBrowserImports(contract.imports, runtime.imports);
+  console.log(`dolly-abi: ${runtimePath} has exactly the typed imports in ${contractPath}`);
+}
+
 export async function validateRuntime(contractPath, runtimePath) {
   const contract = await readWasmInterface(contractPath);
   const digest = contractDigest(contract);
@@ -160,8 +178,8 @@ export async function validateRuntime(contractPath, runtimePath) {
   const runtimeImports = interfaceMap(runtime.imports, importKey);
   const contractImports = interfaceMap(contract.imports, importKey);
 
-  if (!runtime.customSections.includes("dylink.0")) {
-    throw new Error(`${runtimePath}: runtime has no dylink.0 section`);
+  if (runtime.customSections.includes("dylink.0")) {
+    throw new Error(`${runtimePath}: the kernel must be statically linked, not a dynamic main module`);
   }
   requireContractStamp(runtime, digest);
   for (const entry of runtime.imports.filter((item) => item.type.kind !== "func")) {
@@ -427,6 +445,7 @@ function usage() {
   dolly-abi.mjs stamp-process CONTRACT.wasm PROCESS.wasm...
   dolly-abi.mjs validate-process CONTRACT.wasm PROCESS.wasm...
   dolly-abi.mjs validate-runtime CONTRACT.wasm RUNTIME.wasm
+  dolly-abi.mjs validate-browser CONTRACT.wasm RUNTIME.wasm
   dolly-abi.mjs emit-digest-header CONTRACT.wasm OUTPUT.h [SYMBOL]
   dolly-abi.mjs emit-digest-module CONTRACT.wasm OUTPUT.mjs EXPORT_NAME
   dolly-abi.mjs emit-emscripten-exports CONTRACT.wasm [RUNTIME-CONTRACT.wasm...] OUTPUT.json`);
@@ -455,6 +474,8 @@ async function main() {
         args.at(-1),
         args.slice(1, -1),
       );
+    } else if (command === "validate-browser" && args.length === 2) {
+      await validateBrowser(args[0], args[1]);
     } else if (command === "emit-digest-header" &&
                (args.length === 2 || args.length === 3)) {
       await emitDigestHeader(args[0], args[1], args[2]);

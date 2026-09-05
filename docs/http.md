@@ -12,12 +12,20 @@ which eventually reaches this one kernel-module import:
 
 The arguments identify method, URL, serialized headers, request bytes and
 length, flags, and request sequence. They are data supplied to one browser
-broker, not seven capabilities. The response returns through the version-2
+broker, not seven capabilities. The response returns through the version-3
 atomic mailbox defined by `abi/dolly-http-0.wat`: effective URL, header lines,
 body chunks, HTTP status, EOF, and an error code. Wasm blocks in its worker
 while synchronous C clients wait for browser JavaScript to publish bounded
 chunks. JavaScript runtimes instead poll the same mailbox cooperatively, so
 their Promise jobs and timers continue to advance between chunks.
+
+The complete browser transport is in `src/http-broker.mjs`, and authorization
+is in `src/http-policy.mjs`. The host deadline includes mailbox backpressure,
+not only the Fetch operation. If the guest stops consuming data, the provider
+aborts the request and publishes terminal failure (atomic state 3), without
+waiting for another acknowledgement or overwriting the current chunk. The
+guest acknowledges chunks with compare-exchange so it cannot accidentally
+erase this failure. See the [boundary review guide](browser-boundary.md).
 
 The page-side provider optionally accepts a `globalThis.DOLLY_HTTP_POLICY`
 object before `browser.mjs` loads. A hardened policy contains exact-origin

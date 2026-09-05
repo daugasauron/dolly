@@ -60,13 +60,20 @@ validates it against the contract, adds one `dolly.abi` digest, validates it
 again, and publishes it atomically. The image build seals the result before the
 kernel loads it. Ordinary programs never compile against this contract.
 
+The kernel itself is statically linked. Trusted boot code copies bounded plugin
+bytes from WasmFS and `src/kernel-plugin.mjs` instantiates them with an explicit
+map of real kernel Wasm exports. There is no general dynamic-loader import,
+URL/path resolution, dependency fetching, or JavaScript evaluation.
+
 ## Kernel and browser contracts
 
+- `dolly-browser-0.wat` is the complete typed outer import allowlist for the
+  final kernel, with each import's authority explained beside its declaration.
 - `dolly-supervisor-0.wat` describes the typed functions trusted Worker code
   uses to schedule private processes, copy executable bytes, deliver signals,
   and collect status.
 - `dolly-display-0.wat` describes the shared RGBA/input mailbox and the one
-  bootstrap text sink.
+  bootstrap text sink, plus boot-only plugin-byte and installation exports.
 - `dolly-http-0.wat` describes the streaming HTTP mailbox. Its
   `env.dolly_http_dispatch` import is Dolly's sole intentional
   agent-selected network edge.
@@ -89,6 +96,8 @@ node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm build/process-bin/ls
 node scripts/dolly-abi.mjs validate-runtime \
   build/dolly-kernel-plugin-0.wasm dist/dolly.wasm
+node scripts/dolly-abi.mjs validate-browser \
+  build/dolly-browser-0.wasm dist/dolly.wasm
 ```
 
 The build sequence is fail-closed:

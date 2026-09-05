@@ -65,7 +65,10 @@ target_link_options(dolly PRIVATE
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
   "SHELL:-Wl,--export=getTempRet0,--export=setTempRet0,--export=__stack_pointer,--export=__stack_high,--export=__stack_low"
-  -sMAIN_MODULE=2
+  # Resident Wasm bytes are instantiated by the small boot loader. The kernel
+  # has no general dlopen/dlsym JavaScript capability or dynamic JS evaluation.
+  "SHELL:-Wl,--export-table,--growable-table"
+  -sDYNAMIC_EXECUTION=0
   -sWASMFS
   -sALLOW_MEMORY_GROWTH=1
   -sIMPORTED_MEMORY=1

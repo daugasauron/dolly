@@ -123,6 +123,10 @@ rm -f \
   --disable-compact-imports \
   -o build/dolly-kernel-plugin-0.wasm
 
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-browser-0.wat \
+  --enable-memory64 --enable-threads --disable-compact-imports \
+  -o build/dolly-browser-0.wasm
+
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-0.wat \
   --enable-memory64 \
   --enable-threads \
@@ -624,6 +628,10 @@ node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-kernel-plugin-0.wasm \
   build/generated/dolly-kernel-plugin-abi-digest.h \
   DOLLY_KERNEL_PLUGIN_ABI_DIGEST
+node scripts/dolly-abi.mjs emit-digest-module \
+  build/dolly-kernel-plugin-0.wasm \
+  dist/dolly-kernel-plugin-abi.mjs \
+  DOLLY_KERNEL_PLUGIN_ABI_DIGEST
 node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-process-0.wasm \
   build/generated/dolly-process-abi-digest.h \
@@ -650,17 +658,15 @@ node scripts/dolly-abi.mjs validate-process \
 cp build/process-tools/compiler.wasm build/process-bin/compiler
 "${container[@]}" cmake --build build/runtime --target dolly --parallel
 
-# Keep the pinned Emscripten wasm64 loader fail-closed when WasmFS returns a
-# view whose backing-buffer bounds differ from the view itself.
-node scripts/patch-emscripten-loader.mjs dist/dolly.mjs
-
 node scripts/dolly-abi.mjs stamp \
   build/dolly-kernel-plugin-0.wasm \
   dist/dolly.wasm
 node scripts/dolly-abi.mjs validate-runtime \
   build/dolly-kernel-plugin-0.wasm \
   dist/dolly.wasm
+node scripts/dolly-abi.mjs validate-browser build/dolly-browser-0.wasm dist/dolly.wasm
 
+cp build/dolly-browser-0.wasm dist/dolly-browser-0.wasm
 cp build/dolly-kernel-plugin-0.wasm dist/dolly-kernel-plugin-0.wasm
 cp build/dolly-process-0.wasm dist/dolly-process-0.wasm
 cp build/dolly-process-gate-0.wasm dist/dolly-process-gate-0.wasm

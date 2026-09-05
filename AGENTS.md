@@ -82,6 +82,8 @@ host. Command-local `exit` is caught at the nested invocation boundary; fatal
   JavaScript or Emscripten tool requires it, but it is not an ABI source.
 - Make browser capabilities explicit and enforce their exact allowlist in
   tests. Never add Node or native-host fallbacks to make a browser test pass.
+- Keep browser authority decisions short and directly reviewable by a human;
+  maintain the review map in `docs/browser-boundary.md` when they change.
 - Verify changes in a real browser. Tests should prove shared in-Wasm state,
   module reload behavior, denied host access, and exact ABI compatibility.
 

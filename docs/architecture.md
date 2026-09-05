@@ -116,7 +116,10 @@ One deliberately different format exists: a sealed resident kernel plugin for
 Ghostty's terminal driver. It is compiled only with
 `--dolly-kernel-plugin -shared` against the narrow
 `dolly-kernel-plugin-0` contract. It is not available as an ordinary command
-format.
+format. Trusted boot code copies its WasmFS bytes and instantiates them through
+`src/kernel-plugin.mjs` using only actual kernel Wasm exports and shared
+memory/table globals. The statically linked kernel has no general browser
+dynamic-loader import; the boot loader accepts no URL or dependency path.
 
 ## Filesystem and image construction
 

@@ -17,6 +17,8 @@ if [[ -n "${DOLLY_BROWSER_MODE:-}" ]]; then
 fi
 
 node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_BROWSER_MODE=boundary \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=cpp \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=zig-single-provider \

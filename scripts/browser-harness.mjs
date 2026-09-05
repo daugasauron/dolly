@@ -34,6 +34,7 @@ if (!browserBase.startsWith("/") || !browserBase.endsWith("/") ||
 const browserBasePrefix = browserBase === "/" ? "" : browserBase.slice(0, -1);
 const piDevelopmentMode = process.env.DOLLY_BROWSER_MODE === "pi";
 const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
+const boundaryMode = process.env.DOLLY_BROWSER_MODE === "boundary";
 const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
@@ -106,12 +107,15 @@ const mimeTypes = new Map([
   [".woff2", "font/woff2"],
 ]);
 const publicSources = new Set([
+  "test/fixtures/browser-boundary.mjs",
   "coi-serviceworker.js",
   "index.html",
   ...imageDefinitions.map((definition) => definition.filename),
   "src/browser.mjs",
   "src/dollyfile-view.mjs",
   "src/http-policy.mjs",
+  "src/http-broker.mjs",
+  "src/kernel-plugin.mjs",
   "src/module-cache.mjs",
   "src/process-ffi.mjs",
   "src/process-supervisor.mjs",
@@ -1056,12 +1060,37 @@ chrome = spawn(chromeBinary, [
       : piDevelopmentMode || cppMode || makeMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode
+        || lifecycleProbeMode || boundaryMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (boundaryMode) {
+      const state = await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "boundary snapshot boot", 1200);
+      assert.equal(state, "ready");
+      const fixture = `${localOrigin}${browserBase}test/fixtures/browser-boundary.mjs`;
+      const result = await evaluate(debuggerClient.send,
+        `import(${JSON.stringify(fixture)}).then(module => module.runBrowserBoundaryChecks())`);
+      assert.equal(result.imports, 28);
+      assert.equal(result.pluginRejections, 3);
+      assert.equal(result.policyDeniedBeforeFetch, true);
+      assert.equal(result.nonConsumingDeadline, true);
+      await enterRecoveryShell(debuggerClient.send);
+      for (const command of [
+        `if curl -fsS ${localOrigin}/not-allowed; then false; else true; fi`,
+        `curl -fsS ${localOrigin}/fixture/http.txt > /tmp/boundary-http.txt`,
+        "grep -q FETCHED-THROUGH-BROWSER /tmp/boundary-http.txt",
+        "rm -f /tmp/boundary-http.txt",
+      ]) {
+        assert.equal(await evaluate(debuggerClient.send,
+          `window.__dolly.submit(${JSON.stringify(command)})`), 0, command);
+      }
+      console.log(`browser: boundary checks passed ${JSON.stringify(result)}; rejected and allowed curl requests completed`);
+      break browserProof;
+    }
     if (pythonInteractiveMode) {
       const state = await waitForValue(
         debuggerClient.send,
@@ -3554,7 +3583,7 @@ chrome = spawn(chromeBinary, [
   assert.match(evidence.bootstrap, /dolly: restoring precompiled system snapshot/);
   assert.match(evidence.bootstrap, /dolly: precompiled system restored/);
   assert.doesNotMatch(evidence.bootstrap, /building GNU make|bootstrapping Zig/);
-  assert.match(evidence.bootstrap, /dolly: loading sandbox display library \/usr\/lib\/libdisplay\.so/);
+  assert.match(evidence.bootstrap, /dolly: preparing sandbox display library \/usr\/lib\/libdisplay\.so/);
   assert.match(evidence.bootstrap, /dolly: sandbox display ready/);
 
   const screenshot = await debuggerClient.send("Page.captureScreenshot", {

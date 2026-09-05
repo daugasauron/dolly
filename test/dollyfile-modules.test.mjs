@@ -473,7 +473,7 @@ test("image environment and directory membership are sealed by the C engine", as
   assert.doesNotMatch(engine, /keep_trees|KEEP-TREE/);
   assert.match(engine, /collect_paths[\s\S]*?forbidden_keep\(path\)/);
   assert.match(engine, /clean_temporary_directory\(locator\)/);
-  assert.match(runtime, /load_image_environment\(\)[\s\S]*?install_display_driver\(\)/);
+  assert.match(runtime, /load_image_environment\(\)[\s\S]*?prepare_display_driver\(\)/);
 });
 
 test("a module cannot be USEd twice in one Dollyfile graph", async () => {

@@ -2,10 +2,8 @@
   "machine": [
     "env.memory"
   ],
-  "loader": [
+  "lifecycle": [
     "env._abort_js",
-    "env._dlopen_js",
-    "env._dlsym_js",
     "env.emscripten_resize_heap"
   ],
   "network": [

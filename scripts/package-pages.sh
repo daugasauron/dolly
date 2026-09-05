@@ -33,6 +33,8 @@ for required in \
   src/browser.mjs \
   src/dollyfile-view.mjs \
   src/http-policy.mjs \
+  src/http-broker.mjs \
+  src/kernel-plugin.mjs \
   src/module-cache.mjs \
   src/process-ffi.mjs \
   src/process-supervisor.mjs \
@@ -44,6 +46,8 @@ for required in \
   dist/dolly.wasm \
   dist/dolly.data \
   dist/dolly-process-abi.mjs \
+  dist/dolly-kernel-plugin-abi.mjs \
+  dist/dolly-browser-0.wasm \
   dist/dolly-process-gate-0.wasm; do
   if [[ ! -f "${project_dir}/${required}" ]]; then
     echo "dolly: Pages artifact is missing ${required}" >&2
@@ -77,6 +81,8 @@ cp "${project_dir}/index.html" "${project_dir}/terminal.html" \
 cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/dollyfile-view.mjs" \
   "${project_dir}/src/http-policy.mjs" \
+  "${project_dir}/src/http-broker.mjs" \
+  "${project_dir}/src/kernel-plugin.mjs" \
   "${project_dir}/src/module-cache.mjs" \
   "${project_dir}/src/process-ffi.mjs" \
   "${project_dir}/src/process-supervisor.mjs" \
@@ -91,6 +97,7 @@ cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
 cp "${project_dir}"/include/dolly/*.h "${staging}/site/include/dolly/"
 cp "${project_dir}/docs/dollyfile.md" "${project_dir}/docs/architecture.md" \
   "${project_dir}/docs/security.md" "${project_dir}/docs/port-status.md" \
+  "${project_dir}/docs/browser-boundary.md" "${project_dir}/docs/http.md" \
   "${project_dir}/docs/sessions.md" \
   "${staging}/site/docs/"
 for image_name in "${image_names[@]}"; do
@@ -109,6 +116,8 @@ cp \
   "${project_dir}/dist/dolly.mjs" \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-process-abi.mjs" \
+  "${project_dir}/dist/dolly-kernel-plugin-abi.mjs" \
+  "${project_dir}/dist/dolly-browser-0.wasm" \
   "${project_dir}/dist/dolly-process-gate-0.wasm" \
   "${staging}/site/dist/"
 for image_name in "${image_names[@]}"; do

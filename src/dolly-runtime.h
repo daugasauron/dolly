@@ -6,7 +6,7 @@
 #include <dolly/runtime.h>
 
 enum {
-  DOLLY_HTTP_MAILBOX_VERSION = 2,
+  DOLLY_HTTP_MAILBOX_VERSION = 3,
   DOLLY_HTTP_MAILBOX_HEADER_SIZE = 64,
 };
 

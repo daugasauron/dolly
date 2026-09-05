@@ -28,16 +28,20 @@ browser event capture.
 
 ## Capability closure
 
+For a short code-reading route, start with the
+[browser-boundary review guide](browser-boundary.md).
+
 Core WebAssembly has no ambient filesystem, process, DOM, or network access.
 The maximum authority of a compromised Dolly instance is the transitive
 authority of the imports supplied when `dist/dolly.wasm` is instantiated.
 
-The build records the complete generated import allowlist in
-`config/browser-imports.json` and rejects name drift. Most current imports are
-Emscripten loader, clock, entropy, bootstrap, memory-growth, and progress-output
-mechanics. Their trusted implementations must remain incapable of opening a
-host filesystem, starting a native process, evaluating agent-controlled
-JavaScript, or performing an agent-selected network request.
+The canonical `abi/dolly-browser-0.wat` records all 28 outer imports and their
+exact types; the build rejects both name and type drift. The JSON file
+`config/browser-imports.json` only classifies names for capability reports.
+Most current imports are clock, entropy, bootstrap, memory-growth, and
+progress-output mechanics. Their trusted implementations must remain incapable
+of opening a host filesystem, starting a native process, evaluating
+agent-controlled JavaScript, or performing an agent-selected network request.
 
 There is one intentional autonomous network edge:
 
@@ -83,7 +87,7 @@ literally the only information crossing the Wasm boundary:
 | Build-module cache | WasmFS to/from trusted worker storage | Exact expected content-addressed output layers during rebuild only; no guest-selected storage operation or browser object enters Wasm |
 | Clocks, timezone, entropy, startup environment | browser to Wasm | Inputs, not network egress |
 | Seed, exact recipe/source responses, and system snapshot | browser to Wasm | Fixed application inputs or policy-authorized broker responses, not ambient guest authority |
-| Dynamic Wasm loader | WasmFS to browser loader | Code instantiation; it must not turn an agent-controlled path into a network fetch |
+| Boot-only resident plugin | WasmFS bytes to trusted boot code | Pure Wasm instantiation with a closed kernel-export map; no loader import, paths, URLs, or dependency fetching |
 | Exit, abort, memory growth, CPU use | Wasm to browser runtime | Availability effects, not data egress |
 
 Display pixels and bootstrap progress can reveal data to the local user. They
@@ -108,6 +112,14 @@ capability and not a substitute for HTTP policy. The exact contract is in
 The worker creates the shared `WebAssembly.Memory`, and trusted page JavaScript
 can inspect it. Dolly protects the browser host from agent code; it does not try
 to hide Dolly state from the application embedding it.
+
+The kernel is statically linked with dynamic JavaScript execution disabled:
+there is no `_dlopen_js` or `_dlsym_js` import. The boot-only loader in
+`src/kernel-plugin.mjs` links Ghostty's source-built bytes directly to real
+kernel Wasm exports and shared memory/table globals. It does not invoke the
+general Emscripten dynamic loader, resolve paths, fetch dependencies, or evaluate
+embedded JavaScript. A compatibility stamp is not authorization: even a plugin
+with a copied stamp receives only the closed import map.
 
 Worker termination is the availability backstop. Ctrl+C becomes a PID-targeted
 kernel `SIGINT`; blocked calls wake with `EINTR` and cooperative runtimes can
@@ -214,7 +226,8 @@ runtime. For example, one could allow only a model provider and a read-only
 source mirror, while another could disable HTTP completely. With no provider
 for `dolly_http_dispatch`, a network-capable Dolly artifact must not instantiate.
 
-`src/http-policy.mjs` supplies the hardened provider mode. Before
+`src/http-broker.mjs` implements the complete HTTP transport;
+`src/http-policy.mjs` supplies its explicit-policy mode. Before
 `browser.mjs` loads, the trusted embedding may set `DOLLY_HTTP_POLICY` to exact
 origin/path/method rules with finite request, response, timeout, and total
 request limits. The policy is consumed and deleted during boot. Credentials

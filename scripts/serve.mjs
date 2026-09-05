@@ -49,6 +49,8 @@ const publicSources = new Set([
   "coi-serviceworker.js",
   "src/browser.mjs",
   "src/http-policy.mjs",
+  "src/http-broker.mjs",
+  "src/kernel-plugin.mjs",
   "src/module-cache.mjs",
   "src/process-ffi.mjs",
   "src/process-supervisor.mjs",

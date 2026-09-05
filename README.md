@@ -99,6 +99,8 @@ Assume that every byte inside the Wasm machine is compromised. Containment
 comes from the outer import boundary, not from permissions between commands.
 The browser does not provide a host filesystem, native subprocesses, sockets,
 DOM access, or ambient `fetch`. See [the security model](docs/security.md).
+Start with the short [browser-boundary review guide](docs/browser-boundary.md)
+to trace the actual imports and the complete HTTP path.
 
 ## Build and run
 
@@ -153,6 +155,8 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   and generated build glue.
 - [Security](docs/security.md) — threat model, trusted computing base, single
   egress edge, and required invariants.
+- [Boundary review](docs/browser-boundary.md) — the small set of files to read
+  to understand and check browser authority.
 - [HTTP](docs/http.md) — typed request surface, libcurl compatibility, and
   browser-side policy.
 - [CORS](docs/cors.md) — the browser constraint and safe relay options.
