@@ -52,6 +52,7 @@ const janisFilesMode = process.env.DOLLY_BROWSER_MODE === "janis-files";
 const janisProcessMode = process.env.DOLLY_BROWSER_MODE === "janis-process";
 const processLifecycleMode = process.env.DOLLY_BROWSER_MODE === "process-lifecycle";
 const pythonProcessMode = process.env.DOLLY_BROWSER_MODE === "python-process";
+const libcurlContractMode = process.env.DOLLY_BROWSER_MODE === "libcurl-contract";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -168,6 +169,8 @@ const routeDocuments = new Map([
 ]);
 let gitDiscoveryRequest = null;
 let libcurlPostRequest = null;
+const libcurlContractRequests = [];
+const libcurlCancelledRequests = [];
 let curlCliRequest = null;
 let snapshotUpload = null;
 const staticRequestPaths = new Set();
@@ -288,6 +291,27 @@ function startServer() {
           "content-type": "text/plain; charset=utf-8",
         });
         response.end("FETCHED-THROUGH-BROWSER\n");
+        return;
+      }
+      if (libcurlContractMode && requestUrl.pathname === "/fixture/pi/libcurl-contract") {
+        const cors = { "access-control-allow-origin": "*",
+          "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization" };
+        if (request.method === "OPTIONS") { response.writeHead(204, cors); response.end(); return; }
+        if (requestUrl.searchParams.has("cancel")) {
+          const record = { phase: requestUrl.searchParams.get("cancel"), finished: false, closed: false };
+          libcurlCancelledRequests.push(record);
+          response.writeHead(200, { ...cors, "content-type": "text/plain" });
+          response.write("prefix");
+          const timer = setTimeout(() => { record.finished = true; response.end("suffix"); }, 2000);
+          response.once("close", () => { record.closed = true; clearTimeout(timer); });
+          return;
+        }
+        const chunks = [];
+        for await (const chunk of request) chunks.push(chunk);
+        libcurlContractRequests.push({ authorization: request.headers.authorization ?? null,
+          body: Buffer.concat(chunks).toString() });
+        response.writeHead(200, { ...cors, "content-type": "text/plain" });
+        response.end("libcurl contract response\n");
         return;
       }
       if (requestUrl.pathname === "/fixture/libcurl-post" &&
@@ -1198,7 +1222,7 @@ chrome = spawn(chromeBinary, [
       ? menuPage
       : snapshotExportMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
-      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || realOpenRouterMode || missingSnapshotMode
+      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || libcurlContractMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
         || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode
@@ -1207,6 +1231,37 @@ chrome = spawn(chromeBinary, [
   });
 
   browserProof: {
+    if (libcurlContractMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "libcurl contract boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-libcurl-contract-test";
+      const source = await readFile(resolve(projectDir, "test/fixtures/libcurl-contract.c"), "utf8");
+      try {
+        assert.equal(await submit(`mkdir -p ${scratch}`), 0);
+        assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.c`), 0);
+        assert.equal(await submit(`cc -O0 ${scratch}/probe.c -lcurl -o ${scratch}/probe && timeout 20 ${scratch}/probe ${localOrigin}/fixture/pi/libcurl-contract`), 0);
+        assert.deepEqual(libcurlContractRequests, [
+          { authorization: null, body: "payload" },
+          { authorization: "Basic dXNlcjpwYXNz", body: "payload" },
+          { authorization: null, body: "abc" },
+          { authorization: null, body: "" },
+          { authorization: null, body: "ab" },
+          { authorization: null, body: "payload" },
+          { authorization: null, body: "" },
+        ], "protocol rejection must prevent HTTP, and authentication selection must change the actual request");
+        await delay(100);
+        assert.deepEqual(libcurlCancelledRequests, [
+          { phase: "body", finished: false, closed: true },
+          { phase: "header", finished: false, closed: true },
+        ], "rejected callbacks must close the actual HTTP connections");
+      } finally { await submit(`rm -rf ${scratch}`); }
+      console.log("browser: libcurl rejects unavailable options, enforces protocol restrictions before HTTP, and preserves explicit authentication/callback state");
+      break browserProof;
+    }
     if (janisProcessMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",

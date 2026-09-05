@@ -13,7 +13,7 @@ USE HOST /modules/ghostty.dm        919a6539d8c461243d427a7dcc4178c896089990188d
 USE HOST /modules/cpp.dm            c7d3ecadefed7decc7bb818d60eb0004405caa7f7ff7439e1b3407bd931711df
 USE HOST /modules/ninja.dm          77dae6ac93e748551c515115f4e500dc22de5345239d3204756b2ee66f3cdf5a
 USE HOST /modules/zlib.dm           091743c99ef011e20bfbe8ed0417f5c01eef5d04b90151f8cdaf561434b3e815
-USE HOST /modules/curl.dm           8af181a0e4c84ca3178f607634b5df9ca96027f0f085af4c37d20d1c9e0af140
+USE HOST /modules/curl.dm           f349000e84930cee2a2be86d89f566a59ea500bd46fa287b4889ee2e98114f14
 USE HOST /modules/git.dm            18aa13e0e28b4f218b5dcf27c03ad8ff123027405740cd0a3f455f022c1701a6
 USE HOST /modules/awk.dm            7b5674be32b3968c82b9af65f31c6d90a0207dee7bc6cb4eaaba30b963c5c09f
 USE HOST /modules/sbase.dm          a58af6850932e682ceec4654b45f7160a77dff665b2a1c64d1c35b541e291686

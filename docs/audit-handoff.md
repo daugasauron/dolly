@@ -33,16 +33,6 @@ identified it without a complete end-to-end reproduction. Those original probes
 were not all rerun for this handoff. Reproduce against the current tree before
 changing behavior. Old measurements below are baselines, not fresh benchmarks.
 
-### Runtime adapters must preserve actual substrate behavior
-
-**B7 — P2 — libcurl accepts ineffective options.** Source evidence in
-`src/libcurl-fetch.c`: several redirect/timeout/proxy/certificate/cookie/OAuth
-settings return success without effect, and stored protocol restrictions are not
-enforced by perform. This is not a demonstrated browser-policy bypass. Implement
-useful semantics or explicitly reject unsupported options; document the finite
-subset. **Acceptance:** each supported option changes behavior as promised, each
-unsupported one fails, and no option weakens browser-owned policy.
-
 ### Builds, publication, and maintenance must be truthful
 
 **D1 — P1 — Clean bootstrap prerequisites are incomplete.** Source evidence:
@@ -105,8 +95,9 @@ dirty-source and documentation findings above remain open.
 1. Cold/prebuilt filesystems now match their declared system inventories. Before
    enabling named saves for rebuilt images, add a cross-route session-baseline
    regression. Preserve typed system/layer/session restoration coverage.
-2. Resolve B7's ineffective options. Preserve the shared process/filesystem
-   regressions and terminal UI service independent of stdin consumption.
+2. Verify clean bootstrap prerequisites (D1), then coherent publication (D4).
+   Preserve the shared process/filesystem regressions and terminal UI service
+   independent of stdin consumption.
 3. Remove D5 duplication as the corresponding owner becomes clear. Keep the
    positive Zig SDK manifest and its real compiler/Ghostty regressions intact.
 
@@ -124,9 +115,10 @@ authority to make tests pass. Preserve existing regressions.
 
 Latest local baseline: 178 Node tests and the full Chrome suite passed; all five
 images are current and their prebuilt routes passed. Logs:
-`build/b3-oauth-build.log`, `build/b3-b5-oauth-node-tests.log`,
-`build/b3-b5-oauth-full-browser.log`, and `build/b3-b5-oauth-*-route.log`.
-The Python C++ extension also passed (`build/b3-b5-python-cpp-browser.log`).
+`build/b7-cancel-build.log`, `build/b7-node-tests.log`,
+`build/b7-full-browser.log`, and `build/b7-*-route.log`.
+The Python C++ extension and Python+Pi child/HTTP cancellation also passed
+(`build/b7-python-pi-{cpp,janis}-browser.log`).
 The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
@@ -136,6 +128,17 @@ admission share the ENTRY decoder. `build/d3-parser-before.log` reproduces the
 original quoted-command/CWD and LIB-kind disagreement. Production boot runs no probe suite;
 its executable seed contains only the bootstrap runner and compiler.
 Existing release archives predate this checkpoint; none packages these changes.
+
+Libcurl now rejects unavailable controls at setopt, enforces protocol restrictions
+before dispatch, and distinguishes NONE from Basic authentication. Browser probes
+also caught and fixed reads beyond declared upload lengths, ignored zero lengths,
+successful short uploads, stale POST bodies, and callback cancellation draining
+the entire response. Body/header rejection now closes the actual fixture HTTP
+connection early; the outer boundary still has exactly 28 imports. Before logs:
+`build/b7-port9000-before-browser.log`, `build/b7-upload-before-browser.log`, and
+`build/b7-callback-reproduced-browser.log`; acceptance is in the full suite and
+`build/b7-cancel-after-browser.log`. The finite subset and browser-owned transport
+limitations are explicit in [HTTP](http.md); this is not complete libcurl support.
 
 Janis now uses the kernel's descriptors, environment and timestamp operations.
 The fake descriptor map, Buffer slicing override, inert watches and unused

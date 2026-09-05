@@ -437,6 +437,10 @@ int dolly_http_perform(const dolly_http_request *request,
       }
     }
     if (chunk.eof) break;
+    if (result != 0) {
+      (void)dolly_http_cancel(sequence);
+      break;
+    }
   }
   free(data);
   if (result != 0) dolly_http_response_dispose(response);

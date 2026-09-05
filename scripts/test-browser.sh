@@ -25,6 +25,8 @@ DOLLY_IMAGE=default DOLLY_BROWSER_MODE=process-smoke \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=process-lifecycle \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=default DOLLY_BROWSER_MODE=libcurl-contract \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=python DOLLY_BROWSER_MODE=python-process \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=image-inventory \

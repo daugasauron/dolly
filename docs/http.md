@@ -118,10 +118,10 @@ The implemented compatibility surface currently includes:
   error strings, and cleanup;
 - header lists;
 - GET, HEAD, POST, PUT, and custom HTTP methods;
-- fixed request bodies and read callbacks;
+- fixed request bodies and read callbacks with exact declared lengths;
 - write, header, read, error-buffer, and debug callback plumbing;
-- status, effective URL, content type, retry-after, range, user-agent,
-  accept-encoding, and basic authorization;
+- status, effective URL, content type, retry-after, range, protocol restrictions,
+  and basic authorization;
 - the multi calls used by Git, implemented synchronously over the one-request
   version-0 broker.
 
@@ -132,12 +132,31 @@ owns DNS, connection pooling, HTTP versions, TLS, decompression, forbidden
 headers, and redirect mechanics. The broker removes browser-owned transport
 headers such as `User-Agent` and `Accept-Encoding` before calling Fetch; this
 also avoids engine-specific CORS preflights while leaving application headers,
-including `Authorization`, intact. Git options for those browser-owned choices
-are accepted where required for source compatibility but cannot override the
-browser. Certificate public-key pinning returns `CURLE_NOT_BUILT_IN`; unknown
-options return `CURLE_UNKNOWN_OPTION`; non-HTTP(S) URLs return
-`CURLE_UNSUPPORTED_PROTOCOL`. There is no raw-socket API, FTP, SSH transport,
-custom TLS backend, proxy socket, socket callback, or asynchronous fd set.
+including `Authorization`, intact. `USERAGENT` and `ACCEPT_ENCODING` supply
+request metadata, not authority over those browser-owned wire headers.
+
+`CURLOPT_PROTOCOLS_STR` accepts case-insensitive HTTP/HTTPS lists, `ALL`, or NULL
+to restore both. Unsupported or empty lists fail without replacing the current
+restriction. The adapter rejects a forbidden scheme before dispatch; a relative
+URL requires both schemes because only the browser knows its base URL. Duplicated
+handles retain the restriction. `HTTPAUTH` supports NONE and BASIC; NONE disables
+automatic credentials. Negotiated authentication (including ANY), OAuth token
+options, cookies, proxies, certificate/key/pinning configuration, protocol/version
+selection, low-speed/connection/transfer timeouts, socket controls, upload seeking,
+and per-transfer redirect limits return `CURLE_NOT_BUILT_IN` at setopt. Unknown
+options return `CURLE_UNKNOWN_OPTION`. Callers must check these results.
+
+TLS verification is mandatory: enabling peer/hostname verification succeeds,
+disabling it fails. `FOLLOWLOCATION` accepts only boolean intent, as described
+above; the browser still rejects every redirect. Redirect protocol and method
+controls are unsupported, not silently remembered for a future implementation.
+Zero-sized uploads do not consume input; short uploads and read-callback aborts
+fail before dispatch. A custom write callback receives its exact context, even NULL.
+Rejecting body or header data cancels the HTTP operation immediately rather than
+draining the rest of the response before reporting failure.
+Transfer deadlines remain available through browser policy or the process
+`timeout` command. None of these options can relax browser-owned policy. There
+is no raw-socket API, FTP, SSH transport, custom TLS backend or asynchronous fd set.
 
 The important property is architectural: `libcurl.a` is an adapter above the
 same typed broker. It does not widen the browser import closure.
@@ -151,19 +170,16 @@ test proves local repository operations and checks that `git-remote-http` sends
 a protocol-v2 discovery GET, including `Git-Protocol: version=2`, through the
 Fetch provider.
 
-Full `git clone https://...` is blocked at the next layer, not at HTTP linking.
-The main Git command normally starts a remote helper and exchanges protocol
-data with it concurrently over pipes. Dolly version 0 invokes modules
-synchronously and intentionally maps native `fork`/`exec` to `ENOSYS`. The next
-experiment is the smallest in-Wasm helper-protocol adapter or serial/spooled
-integration that preserves clone semantics. A general scheduler is warranted
-only if that concrete path cannot work; adding a host subprocess escape would
-violate the sandbox contract.
+Full `git clone https://...` remains unproven at the helper-launch layer, not
+at HTTP linking. Git normally exchanges protocol data with a remote helper over
+bidirectional pipes. Dolly now has immediate spawn, real pipes, nonblocking wait
+and signals; Git's fork-oriented launcher still needs to use those operations.
+The next gate is a real clone/fetch over the existing broker, with no host
+subprocess or socket fallback.
 
 A browser probe also verifies the packaging distinction: `git --exec-path`
 is `/usr/libexec/dolly` and `git-remote-http` exists there. Dolly has no Unix
 permission model, so the Git target patch treats any regular file as eligible
 during its pre-spawn PATH lookup; execute bits are not introduced as policy.
-With that false gate removed, normal clone reaches the real remaining issue:
-upstream `start_command()` asks for a concurrently connected helper, while
-Dolly version 0 has only synchronous in-Wasm spawn/wait.
+With that false gate removed, the remaining work belongs to the helper-launch
+adapter rather than filesystem permissions or a new browser capability.

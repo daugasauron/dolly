@@ -14,6 +14,7 @@
 
 #define DOLLY_EASY_MAGIC 0x4355524cu
 #define DOLLY_MULTI_MAGIC 0x4d554c54u
+enum { PROTOCOL_HTTP = 1, PROTOCOL_HTTPS = 2, PROTOCOL_ALL = 3 };
 
 typedef struct {
   uint32_t magic;
@@ -25,9 +26,8 @@ typedef struct {
   char *username;
   char *password;
   char *userpwd;
-  char *protocols;
-  char *redirect_protocols;
-  char *pinned_public_key;
+  unsigned protocols;
+  long http_auth;
   struct curl_slist *headers;
   const void *post_fields;
   curl_off_t post_size;
@@ -44,8 +44,6 @@ typedef struct {
   void *header_data;
   curl_read_callback read_function;
   void *read_data;
-  curl_seek_callback seek_function;
-  void *seek_data;
   curl_debug_callback debug_function;
   void *debug_data;
   char *error_buffer;
@@ -114,9 +112,6 @@ static void destroy_easy(DollyEasy *easy) {
   free(easy->username);
   free(easy->password);
   free(easy->userpwd);
-  free(easy->protocols);
-  free(easy->redirect_protocols);
-  free(easy->pinned_public_key);
   free(easy->effective_url);
   free(easy->content_type);
   easy->magic = 0;
@@ -140,8 +135,7 @@ static size_t perform_write(const void *bytes, size_t length, void *context) {
   curl_write_callback write = easy->write_function == NULL
                                    ? default_write
                                    : easy->write_function;
-  void *data = easy->write_data == NULL ? stdout : easy->write_data;
-  return write((char *)bytes, 1, length, data);
+  return write((char *)bytes, 1, length, easy->write_data);
 }
 
 static void capture_header(DollyEasy *easy, const char *bytes, size_t length) {
@@ -221,6 +215,7 @@ static int append_header(char **buffer, size_t *length, size_t *capacity,
 }
 
 static char *basic_authorization(const DollyEasy *easy) {
+  if (easy->http_auth != CURLAUTH_BASIC) return NULL;
   const char *username = easy->username;
   const char *password = easy->password;
   const char *combined = easy->userpwd;
@@ -269,7 +264,8 @@ static char *basic_authorization(const DollyEasy *easy) {
 
 static CURLcode collect_upload(DollyEasy *easy, unsigned char **body,
                                size_t *body_size) {
-  if (easy->post_fields != NULL) {
+  if (!easy->post && !easy->upload) return CURLE_OK;
+  if (!easy->upload && easy->post_fields != NULL) {
     size_t length = easy->post_size < 0
                         ? strlen((const char *)easy->post_fields)
                         : (size_t)easy->post_size;
@@ -281,20 +277,21 @@ static CURLcode collect_upload(DollyEasy *easy, unsigned char **body,
     *body_size = length;
     return CURLE_OK;
   }
-  if (!easy->post && !easy->upload) return CURLE_OK;
+  const curl_off_t expected_size = easy->upload ? easy->input_size : easy->post_size;
+  if (expected_size == 0) return CURLE_OK;
 
   curl_read_callback read_callback = easy->read_function;
   void *read_data = easy->read_data;
-  size_t capacity = easy->input_size > 0 &&
-                            (uint64_t)easy->input_size <= SIZE_MAX
-                        ? (size_t)easy->input_size
+  size_t capacity = expected_size > 0 &&
+                            (uint64_t)expected_size <= SIZE_MAX
+                        ? (size_t)expected_size
                         : 65536;
   if (capacity == 0) capacity = 1;
   unsigned char *result = malloc(capacity);
   if (result == NULL) return CURLE_OUT_OF_MEMORY;
   size_t length = 0;
   for (;;) {
-    if (capacity - length < 16384) {
+    if (length == capacity) {
       if (capacity > SIZE_MAX / 2) {
         free(result);
         return CURLE_OUT_OF_MEMORY;
@@ -315,11 +312,18 @@ static CURLcode collect_upload(DollyEasy *easy, unsigned char **body,
     if (count == CURL_READFUNC_ABORT || count == CURL_READFUNC_PAUSE ||
         count > capacity - length) {
       free(result);
-      return CURLE_READ_ERROR;
+      return count == CURL_READFUNC_ABORT ? CURLE_ABORTED_BY_CALLBACK : CURLE_READ_ERROR;
     }
-    if (count == 0) break;
+    if (count == 0) {
+      if ((expected_size >= 0 && (curl_off_t)length != expected_size) ||
+          (read_callback == NULL && ferror(read_data == NULL ? stdin : read_data))) {
+        free(result);
+        return CURLE_READ_ERROR;
+      }
+      break;
+    }
     length += count;
-    if (easy->input_size >= 0 && (curl_off_t)length >= easy->input_size) break;
+    if (expected_size >= 0 && (curl_off_t)length >= expected_size) break;
   }
   *body = result;
   *body_size = length;
@@ -342,8 +346,7 @@ CURLcode curl_global_init(long flags) {
 void curl_global_cleanup(void) {}
 
 CURLcode curl_global_trace(const char *config) {
-  (void)config;
-  return CURLE_OK;
+  return config == NULL || config[0] == '\0' ? CURLE_OK : CURLE_NOT_BUILT_IN;
 }
 
 CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
@@ -360,6 +363,8 @@ CURL *curl_easy_init(void) {
   easy->magic = DOLLY_EASY_MAGIC;
   easy->post_size = -1;
   easy->input_size = -1;
+  easy->protocols = PROTOCOL_ALL;
+  easy->http_auth = CURLAUTH_BASIC;
   return (CURL *)easy;
 }
 
@@ -383,9 +388,6 @@ CURL *curl_easy_duphandle(CURL *handle) {
   copy->username = NULL;
   copy->password = NULL;
   copy->userpwd = NULL;
-  copy->protocols = NULL;
-  copy->redirect_protocols = NULL;
-  copy->pinned_public_key = NULL;
   copy->effective_url = NULL;
   copy->content_type = NULL;
   if (!replace_string(&copy->url, source->url) ||
@@ -395,15 +397,39 @@ CURL *curl_easy_duphandle(CURL *handle) {
       !replace_string(&copy->range, source->range) ||
       !replace_string(&copy->username, source->username) ||
       !replace_string(&copy->password, source->password) ||
-      !replace_string(&copy->userpwd, source->userpwd) ||
-      !replace_string(&copy->protocols, source->protocols) ||
-      !replace_string(&copy->redirect_protocols, source->redirect_protocols) ||
-      !replace_string(&copy->pinned_public_key, source->pinned_public_key)) {
+      !replace_string(&copy->userpwd, source->userpwd)) {
     destroy_easy(copy);
     return NULL;
   }
   reset_result(copy);
   return (CURL *)copy;
+}
+
+static CURLcode set_transfer_size(curl_off_t *target, curl_off_t value) {
+  if (value < -1) return CURLE_BAD_FUNCTION_ARGUMENT;
+  *target = value;
+  return CURLE_OK;
+}
+
+static CURLcode set_protocols(DollyEasy *easy, const char *names) {
+  if (names == NULL || strcasecmp(names, "all") == 0) {
+    easy->protocols = PROTOCOL_ALL;
+    return CURLE_OK;
+  }
+  unsigned protocols = 0;
+  const char *cursor = names;
+  do {
+    const char *comma = strchr(cursor, ',');
+    const size_t length = comma == NULL ? strlen(cursor) : (size_t)(comma - cursor);
+    if (length == 4 && strncasecmp(cursor, "http", length) == 0) protocols |= PROTOCOL_HTTP;
+    else if (length == 5 && strncasecmp(cursor, "https", length) == 0) protocols |= PROTOCOL_HTTPS;
+    else if (length != 0) return CURLE_UNSUPPORTED_PROTOCOL;
+    if (comma == NULL) break;
+    cursor = comma + 1;
+  } while (1);
+  if (protocols == 0) return CURLE_BAD_FUNCTION_ARGUMENT;
+  easy->protocols = protocols;
+  return CURLE_OK;
 }
 
 CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
@@ -424,26 +450,27 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
     case CURLOPT_USERNAME: STRING_OPTION(username); break;
     case CURLOPT_PASSWORD: STRING_OPTION(password); break;
     case CURLOPT_USERPWD: STRING_OPTION(userpwd); break;
-    case CURLOPT_PROTOCOLS_STR: STRING_OPTION(protocols); break;
-    case CURLOPT_REDIR_PROTOCOLS_STR: STRING_OPTION(redirect_protocols); break;
-    case CURLOPT_PINNEDPUBLICKEY: STRING_OPTION(pinned_public_key); break;
+    case CURLOPT_PROTOCOLS_STR: result = set_protocols(easy, va_arg(arguments, const char *)); break;
     case CURLOPT_WRITEDATA: easy->write_data = va_arg(arguments, void *); break;
     case CURLOPT_HEADERDATA: easy->header_data = va_arg(arguments, void *); break;
     case CURLOPT_READDATA: easy->read_data = va_arg(arguments, void *); break;
-    case CURLOPT_SEEKDATA: easy->seek_data = va_arg(arguments, void *); break;
     case CURLOPT_DEBUGDATA: easy->debug_data = va_arg(arguments, void *); break;
     case CURLOPT_ERRORBUFFER: easy->error_buffer = va_arg(arguments, char *); break;
-    case CURLOPT_POSTFIELDS: easy->post_fields = va_arg(arguments, const void *); easy->post = 1; break;
+    case CURLOPT_POSTFIELDS: easy->post_fields = va_arg(arguments, const void *); easy->post = 1; easy->upload = 0; break;
     case CURLOPT_HTTPHEADER: easy->headers = va_arg(arguments, struct curl_slist *); break;
     case CURLOPT_WRITEFUNCTION: easy->write_function = va_arg(arguments, curl_write_callback); break;
     case CURLOPT_HEADERFUNCTION: easy->header_function = va_arg(arguments, curl_write_callback); break;
     case CURLOPT_READFUNCTION: easy->read_function = va_arg(arguments, curl_read_callback); break;
-    case CURLOPT_SEEKFUNCTION: easy->seek_function = va_arg(arguments, curl_seek_callback); break;
     case CURLOPT_DEBUGFUNCTION: easy->debug_function = va_arg(arguments, curl_debug_callback); break;
-    case CURLOPT_POSTFIELDSIZE: easy->post_size = va_arg(arguments, long); break;
-    case CURLOPT_POSTFIELDSIZE_LARGE: easy->post_size = va_arg(arguments, curl_off_t); break;
-    case CURLOPT_INFILESIZE_LARGE: easy->input_size = va_arg(arguments, curl_off_t); break;
-    case CURLOPT_FOLLOWLOCATION: easy->follow = va_arg(arguments, long); break;
+    case CURLOPT_POSTFIELDSIZE: result = set_transfer_size(&easy->post_size, va_arg(arguments, long)); break;
+    case CURLOPT_POSTFIELDSIZE_LARGE: result = set_transfer_size(&easy->post_size, va_arg(arguments, curl_off_t)); break;
+    case CURLOPT_INFILESIZE_LARGE: result = set_transfer_size(&easy->input_size, va_arg(arguments, curl_off_t)); break;
+    case CURLOPT_FOLLOWLOCATION: {
+      const long value = va_arg(arguments, long);
+      if (value == 0 || value == 1) easy->follow = value;
+      else result = CURLE_NOT_BUILT_IN;
+      break;
+    }
     case CURLOPT_FAILONERROR: easy->fail_on_error = va_arg(arguments, long); break;
     case CURLOPT_NOBODY: easy->nobody = va_arg(arguments, long); break;
     case CURLOPT_POST: easy->post = va_arg(arguments, long); if (easy->post) easy->upload = 0; break;
@@ -453,11 +480,35 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
       break;
     case CURLOPT_VERBOSE: easy->verbose = va_arg(arguments, long); break;
 
-    case CURLOPT_SSL_VERIFYPEER:
-    case CURLOPT_SSL_VERIFYHOST:
+    case CURLOPT_SSL_VERIFYPEER: {
+      /* Browser TLS verification is mandatory, never relaxed by userspace. */
+      if (va_arg(arguments, long) != 1) result = CURLE_NOT_BUILT_IN;
+      break;
+    }
+    case CURLOPT_SSL_VERIFYHOST: {
+      const long value = va_arg(arguments, long);
+      if (value != 1 && value != 2) result = CURLE_NOT_BUILT_IN;
+      break;
+    }
+    case CURLOPT_HTTPAUTH: {
+      const long value = va_arg(arguments, long);
+      if (value == CURLAUTH_NONE || value == CURLAUTH_BASIC) easy->http_auth = value;
+      else result = CURLE_NOT_BUILT_IN;
+      break;
+    }
+
+    /* These controls need facilities this adapter does not implement. Do not
+     * acknowledge them merely because upstream headers define the options. */
+    case CURLOPT_REDIR_PROTOCOLS_STR:
+    case CURLOPT_PINNEDPUBLICKEY:
+    case CURLOPT_SEEKFUNCTION:
+    case CURLOPT_SEEKDATA:
+    case CURLOPT_TIMEOUT:
+    case CURLOPT_TIMEOUT_MS:
+    case CURLOPT_CONNECTTIMEOUT:
+    case CURLOPT_CONNECTTIMEOUT_MS:
     case CURLOPT_HTTP_VERSION:
     case CURLOPT_NETRC:
-    case CURLOPT_HTTPAUTH:
     case CURLOPT_PROXYAUTH:
     case CURLOPT_LOW_SPEED_LIMIT:
     case CURLOPT_LOW_SPEED_TIME:
@@ -473,9 +524,6 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
     case CURLOPT_SSLVERSION:
     case CURLOPT_SSL_OPTIONS:
     case CURLOPT_PORT:
-      (void)va_arg(arguments, long);
-      break;
-
     case CURLOPT_PROXY:
     case CURLOPT_NOPROXY:
     case CURLOPT_PROXYUSERNAME:
@@ -496,11 +544,9 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
     case CURLOPT_COOKIEJAR:
     case CURLOPT_LOGIN_OPTIONS:
     case CURLOPT_XOAUTH2_BEARER:
-      (void)va_arg(arguments, const char *);
-      break;
     case CURLOPT_PROXYHEADER:
     case CURLOPT_RESOLVE:
-      (void)va_arg(arguments, struct curl_slist *);
+      result = CURLE_NOT_BUILT_IN;
       break;
     default:
       result = CURLE_UNKNOWN_OPTION;
@@ -515,9 +561,12 @@ CURLcode curl_easy_perform(CURL *handle) {
   DollyEasy *easy = (DollyEasy *)handle;
   if (!valid_easy(easy) || easy->url == NULL) return CURLE_URL_MALFORMAT;
   reset_result(easy);
-  if (easy->pinned_public_key != NULL) return CURLE_NOT_BUILT_IN;
-  if (strncasecmp(easy->url, "http://", 7) != 0 &&
-      strncasecmp(easy->url, "https://", 8) != 0 && easy->url[0] != '/') {
+  const unsigned protocol = strncasecmp(easy->url, "http://", 7) == 0 ? PROTOCOL_HTTP :
+      strncasecmp(easy->url, "https://", 8) == 0 ? PROTOCOL_HTTPS : 0;
+  /* A relative URL's scheme is host-resolved. It cannot satisfy a narrower
+   * caller restriction without guessing the browser's base URL. */
+  if (protocol != 0 ? !(easy->protocols & protocol) :
+      easy->url[0] != '/' || easy->protocols != PROTOCOL_ALL) {
     return CURLE_UNSUPPORTED_PROTOCOL;
   }
 
