@@ -51,6 +51,8 @@ bound to their exact recipe chains, entry records, and retained manifests. Each
 image's `/rebuild/` route compiles `/bin/dollyfile` inside Wasm, then that C
 program fetches and verifies every independent `SOURCE` and executes the recipe
 strictly row by row. Prebuilt boot does not download image source inputs.
+Both boot paths expose the same declared system files, including `/bin/dollyfile`
+and the explicitly retained compiler SDK; startup does not run acceptance tests.
 Each image's final startup module installs `/home/dolly/.dollyrc`; the runtime
 runs that ordinary Slop script before `ENTRY`, keeping greetings and suggested
 commands in source-visible userspace rather than browser UI or new recipe

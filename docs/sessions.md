@@ -50,8 +50,9 @@ or silently applied to a different base. Updating Dolly can make an older save
 unloadable. There is currently no cross-build migration or export UI.
 
 Named saves require a prebuilt, source-visible image. Uploaded custom recipes
-are tab-local; cold rebuilds currently produce a different baseline from prebuilt
-boot. Both are rejected explicitly instead of producing an unreliable restore.
+are tab-local. Rebuild routes are also still rejected: their filesystem is now
+pruned to the same retained image, but named-save admission remains prebuilt-only
+until cross-route session baseline equivalence has a dedicated regression.
 
 Session persistence adds no Wasm import or path-level browser filesystem API.
 The review surface is `src/session-snapshot.c`, the shared path restoration in

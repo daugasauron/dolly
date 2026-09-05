@@ -5,8 +5,9 @@
 #include <string.h>
 #include <unistd.h>
 
-int main(void) {
-  void *handle = dolly_dlopen("/tmp/dolly-process-dso.so", RTLD_NOW | RTLD_LOCAL);
+int main(int argc, char **argv) {
+  if (argc != 2) return 2;
+  void *handle = dolly_dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
   if (handle == NULL) {
     const char *error = dolly_dlerror();
     fprintf(stderr, "process-dso-check: open failed: %s\n",

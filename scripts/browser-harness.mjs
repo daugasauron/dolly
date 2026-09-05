@@ -15,6 +15,7 @@ import {
 import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
+import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -38,7 +39,9 @@ const piDevelopmentMode = process.env.DOLLY_BROWSER_MODE === "pi";
 const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
 const boundaryMode = process.env.DOLLY_BROWSER_MODE === "boundary";
 const processAbiMode = process.env.DOLLY_BROWSER_MODE === "process-abi";
+const processSmokeMode = process.env.DOLLY_BROWSER_MODE === "process-smoke";
 const imageRetentionMode = process.env.DOLLY_BROWSER_MODE === "image-retention";
+const imageInventoryMode = ["image-inventory", "image-inventory-rebuild"].includes(process.env.DOLLY_BROWSER_MODE);
 const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
 const slopMode = ["slop", "slop-source"].includes(process.env.DOLLY_BROWSER_MODE);
 const utf8Mode = process.env.DOLLY_BROWSER_MODE === "utf8";
@@ -179,6 +182,26 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const requestUrl = new URL(request.url, "http://127.0.0.1");
+      if (processSmokeMode && requestUrl.pathname.startsWith("/fixture/")) {
+        const name = requestUrl.pathname.slice("/fixture/".length);
+        if (Object.hasOwn(processSmokeSources, name)) {
+          response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+          response.end(await readFile(resolve(projectDir, processSmokeSources[name])));
+          return;
+        }
+      }
+      if (imageInventoryMode && requestUrl.pathname === "/fixture/image-inventory.c") {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+        response.end(await readFile(resolve(projectDir, "test/fixtures/image-inventory.c")));
+        return;
+      }
+      if (imageInventoryMode && requestUrl.pathname === "/fixture/image.manifest") {
+        const { DOLLY_SYSTEM_SNAPSHOT } = await import(
+          `../dist/dolly-${selectedImage}-system-snapshot.mjs`);
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+        response.end(DOLLY_SYSTEM_SNAPSHOT.manifest.join("\n") + "\n");
+        return;
+      }
       if (imageRetentionMode && requestUrl.pathname.startsWith("/fixture/")) {
         const sources = {
           "fs-record.h": "src/fs-record.h",
@@ -1136,17 +1159,52 @@ chrome = spawn(chromeBinary, [
   await debuggerClient.send("Page.navigate", {
     url: menuMode
       ? menuPage
-      : snapshotExportMode
+      : snapshotExportMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
       : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode || boundaryMode || processAbiMode || imageRetentionMode
+        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || imageRetentionMode || imageInventoryMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (processSmokeMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "process smoke boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      await runProcessSmoke(command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`), localOrigin);
+      console.log("browser: source-built process probes passed fresh invocation, shared files, env, C++23, HTTP, nested Slop, pipes/poll and C/C++ DSOs");
+      break browserProof;
+    }
+    if (imageInventoryMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "image inventory boot"), "ready");
+      if (selectedImage === "default" && process.env.DOLLY_BROWSER_MODE === "image-inventory") {
+        assert.equal(await evaluate(debuggerClient.send, "window.__dolly.httpRequestCount"), 0,
+          "prebuilt startup must not run HTTP acceptance probes");
+      }
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-image-inventory";
+      assert.equal(await submit(`mkdir ${scratch}`), 0);
+      try {
+        assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/image-inventory.c -o ${scratch}/inventory.c`), 0);
+        assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/image.manifest -o ${scratch}/expected.manifest`), 0);
+        assert.equal(await submit(`cc -O1 ${scratch}/inventory.c -o ${scratch}/inventory`), 0);
+        assert.equal(await submit(`${scratch}/inventory ${scratch}/expected.manifest`), 0,
+          "live manifest and system paths must match the packaged image");
+        assert.equal(await submit("command -v dollyfile && dollyfile --help"), 0);
+      } finally {
+        await submit(`rm -rf ${scratch}`);
+      }
+      console.log(`browser: ${selectedImage} ${process.env.DOLLY_BROWSER_MODE}: live system/PATH inventory matches the sealed image`);
+      break browserProof;
+    }
     if (imageRetentionMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",

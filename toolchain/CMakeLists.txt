@@ -104,13 +104,11 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file /src/src/process/cxx.c@/seed/usr/src/dolly/process-tools/cxx.c"
   "SHELL:--preload-file /src/src/process/ld.c@/seed/usr/src/dolly/process-tools/ld.c"
   "SHELL:--preload-file /src/src/process/ar.c@/seed/usr/src/dolly/process-tools/ar.c"
-  "SHELL:--preload-file /src/src/process/dso-library.c@/seed/usr/src/dolly/process/dso-library.c"
-  "SHELL:--preload-file /src/src/process/dso-cpp-library.cpp@/seed/usr/src/dolly/process/dso-cpp-library.cpp"
-  "SHELL:--preload-file /src/src/process/dso-cpp-check.cpp@/seed/usr/src/dolly/process/dso-cpp-check.cpp"
   "SHELL:--preload-file /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm"
   "SHELL:--preload-file /src/build/dolly-process-0.wasm@/seed/usr/lib/dolly/dolly-process-0.wasm"
   "SHELL:--preload-file ${DOLLY_PROCESS_SYSROOT_DIR}@/seed/usr/lib/dolly/process"
-  "SHELL:--preload-file /src/build/process-bin@/seed/usr/libexec/dolly/process-bin"
+  "SHELL:--preload-file /src/build/process-bin/bootstrap@/seed/usr/libexec/dolly/process-bin/bootstrap"
+  "SHELL:--preload-file /src/build/process-bin/compiler@/seed/usr/libexec/dolly/process-bin/compiler"
 )
 
 set_target_properties(dolly PROPERTIES

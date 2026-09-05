@@ -134,10 +134,18 @@ Slop command, check outputs, clean temporary state, then continue. Completed
 module output layers may be cached under exact content-derived keys; partial
 modules are never published.
 
-The first private bootstrap process compiles Slop, the Dollyfile engine, and
-the tiny compiler frontends from retained source. Everything else is built by
-the chosen module graph. The prebuilt route restores the resulting sealed
-system snapshot; it does not replay the build or fetch source archives.
+The seed has two executables: the bootstrap runner and compiler. During rebuild,
+the runner compiles Slop, `/bin/dollyfile`, and the tiny compiler frontends from
+seeded source. Everything else is built by the chosen module graph. The
+`bootstrap` module exports the compiler and its complete process SDK explicitly;
+images retain them through ordinary module re-exports.
+
+Prebuilt boot restores the sealed snapshot without installing seed `/usr`,
+replaying builds, fetching source archives, or running acceptance probes. Both
+boot paths discard unretained build inputs before starting the entry program.
+Only runtime-owned `/dev` and `/seed`, empty working directories, and the exact
+retained image remain. Process acceptance programs are source-built and run by
+the browser test harness, not production startup.
 
 ## Terminal and graphics
 

@@ -537,7 +537,7 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   const tools = bootstrap.exports.filter(({ type }) => type === "TOOL");
   assert.deepEqual(
     tools.map(({ name }) => name),
-    ["cc", "c++", "ld", "ar", "slop", "mkdir", "rm"],
+    ["cc", "c++", "ld", "ar", "slop", "dollyfile", "mkdir", "rm"],
   );
   assert.equal(
     tools.some(({ sha256 }) => sha256),

@@ -109,7 +109,7 @@ test("dolly-process-0 is a minimal private-memory executable contract", async ()
 });
 
 test("a statically linked process executable satisfies dolly-process-0", async () => {
-  const executablePath = artifact("process-check.wasm");
+  const executablePath = new URL("../build/process-probes/process-check", import.meta.url);
   await validateProcess(processContractPath, [executablePath]);
   const executable = await readWasmInterface(executablePath);
   assert.equal(executable.customSections.includes("dylink.0"), false);
@@ -120,6 +120,15 @@ test("a statically linked process executable satisfies dolly-process-0", async (
     executable.imports.map((entry) => `${entry.module}.${entry.name}`),
     ["env.memory", "dolly_process_0.call"],
   );
+});
+
+test("the production seed contains only bootstrap and compiler executables, not acceptance probes", async () => {
+  const cmake = await readFile(new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
+  const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
+  assert.deepEqual([...cmake.matchAll(/--preload-file ([^\s"]+)@\/seed\/usr\/libexec\/dolly\/process-bin\/([^\s"]+)/g)]
+    .map((match) => match[2]).sort(), ["bootstrap", "compiler"]);
+  assert.doesNotMatch(cmake, /process-bin@|dso-(?:cpp-)?(?:check|library)/);
+  assert.doesNotMatch(worker, /PROCESS-PRIVATE-OK|process-check|dso-cpp-check|verifying private process/);
 });
 
 test("the process gate can only copy between one process and kernel memory", async () => {
@@ -447,7 +456,6 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(worker, /_dolly_process_bootstrap_prepare\(\)/);
   assert.match(worker, /_dolly_process_bootstrap_resume_prepare\(/);
   assert.match(worker, /DollyProcessSupervisor\.create\(/);
-  assert.match(worker, /httpCheckImage\.dollyfile/);
   assert.doesNotMatch(worker, /new URL\("Dollyfile", applicationBase\)/);
   assert.match(worker, /_dolly_bootstrap_snapshot\(BigInt\(range\.size\)\)/);
   assert.match(worker, /_dolly_snapshot_capture\(\)/);
@@ -565,6 +573,13 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       ["pi", "python-pi", "gamedev"].includes(image),
     );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
+    for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
+      "/usr/lib/dolly/process/libc-ww.a", "/usr/lib/clang/24/include/stddef.h",
+      "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"]) {
+      assert.ok(metadata.manifest.includes(required), `${image} must explicitly retain ${required}`);
+    }
+    assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:slop\.c|dollyfile\.c|process-tools\/|dso-)/.test(path) ||
+      /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
     for (const recipe of recipes) assert.ok(metadata.manifest.includes(recipe.retainedPath));
     assert.equal(metadata.manifest.some((path) => path.startsWith("/workspace")), false);
     assert.equal(metadata.byteLength, snapshot.byteLength);

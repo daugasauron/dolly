@@ -140,6 +140,57 @@ static uintptr_t capture_size;
 static unsigned char *restore_bytes;
 static uintptr_t restore_capacity;
 
+static int compare_paths(const void *left, const void *right) {
+  return strcmp(*(const char *const *)left, *(const char *const *)right);
+}
+
+// Only boot calls this, after every builder process has exited and before any
+// entry or saved session starts. Runtime devices and immutable seed mounts are
+// not image contents; everything else must be retained or contain a kept path.
+static int prune_path(const dolly_snapshot_manifest *manifest, const char *path) {
+  if (strcmp(path, "/dev") == 0 || strcmp(path, "/seed") == 0) return 1;
+  struct stat metadata;
+  if (lstat(path, &metadata) != 0) return -1;
+  int keep = bsearch(&path, manifest->paths, manifest->count,
+                    sizeof(*manifest->paths), compare_paths) != NULL ||
+             strcmp(path, "/etc/dolly/image.manifest") == 0;
+  if (!S_ISDIR(metadata.st_mode)) return keep ? 1 : (unlink(path) == 0 ? 0 : -1);
+  if (strcmp(path, "/") == 0 || strcmp(path, "/tmp") == 0 ||
+      strcmp(path, "/workspace") == 0 || strcmp(path, "/home/dolly") == 0) keep = 1;
+  struct dirent **entries = NULL;
+  const int count = scandir(path, &entries, NULL, NULL);
+  if (count < 0) return -1;
+  int error = 0;
+  for (int index = 0; index < count; ++index) {
+    struct dirent *entry = entries[index];
+    if (error != 0 || strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      free(entry); continue;
+    }
+    char child[PATH_MAX];
+    if (snprintf(child, sizeof(child), "%s%s%s", path,
+                 strcmp(path, "/") == 0 ? "" : "/", entry->d_name) >= (int)sizeof(child)) {
+      error = ENAMETOOLONG;
+    } else {
+      const int status = prune_path(manifest, child);
+      if (status < 0) error = errno;
+      if (status == 1) keep = 1;
+    }
+    free(entry);
+  }
+  free(entries);
+  if (error != 0) { errno = error; return -1; }
+  return keep ? 1 : (rmdir(path) == 0 ? 0 : -1);
+}
+
+int dolly_snapshot_prune(void) {
+  dolly_snapshot_manifest manifest;
+  if (load_manifest(&manifest) != 0) return 1;
+  const int status = prune_path(&manifest, "/");
+  dispose_manifest(&manifest);
+  if (status < 0) fprintf(stderr, "dolly: could not discard image build inputs: %s\n", strerror(errno));
+  return status < 0 ? 1 : 0;
+}
+
 static int checked_add(uintptr_t *total, uintptr_t amount) {
   if (amount > DOLLY_SNAPSHOT_MAX_SIZE ||
       *total > DOLLY_SNAPSHOT_MAX_SIZE - amount) {

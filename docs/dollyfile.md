@@ -163,6 +163,11 @@ captured by the producing module; they do not rescan or create a copy. An
 aggregate also removes child `ENV` values it did not re-export.
 Unexported compiler objects, extracted sources, and other build results
 disappear unless a non-temporary `FILE` or `FOLDER` explicitly keeps them.
+This applies to the live filesystem after a rebuild as well as prebuilt boot:
+before entry, Wasm removes unretained paths, preserving runtime `/dev` and
+`/seed` and empty `/tmp`, `/workspace`, and `/home/dolly`. Prebuilt boot does not
+copy seed `/usr` into the image. The default module explicitly re-exports the
+compiler SDK and `/bin/dollyfile`, so both remain ordinary installed tools.
 
 `ENTRY` does not implicitly retain an executable: its path and resolved target
 must belong to the image's retained outputs, or sealing fails. Packaging resolves

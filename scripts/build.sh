@@ -267,28 +267,11 @@ build_process_cxx() {
 }
 
 rm -rf -- "${project_dir}/build/process-bin"
-mkdir -p "${project_dir}/build/process-bin"
+mkdir -p "${project_dir}/build/process-bin" "${project_dir}/build/process-probes"
 
-build_process build/process-bin/process-check src/process/check.c
-build_process_cxx build/process-bin/process-cpp-check src/process/cpp-check.cpp
-build_process build/process-bin/process-env-driver src/process/env-driver.c
-build_process build/process-bin/process-dso-check src/process/dso-check.c
-build_process build/process-bin/process-fs-check src/process/fs-check.c
-build_process build/process-bin/process-http-check src/process/http-check.c
-build_process build/process-bin/process-pipe-check src/process/pipe-check.c
-build_process build/process-bin/process-pipe-driver src/process/pipe-driver.c
-build_process build/process-bin/process-poll-check src/process/poll-check.c
+build_process build/process-probes/process-check src/process/check.c
+build_process_cxx build/process-probes/process-cpp-check src/process/cpp-check.cpp
 build_process build/process-bin/bootstrap src/process/bootstrap.c
-build_process build/process-bin/slop src/slop.c
-build_process build/process-bin/cc src/process/cc.c
-build_process build/process-bin/c++ src/process/cxx.c
-build_process build/process-bin/ld src/process/ld.c
-build_process build/process-bin/ar src/process/ar.c
-for command in \
-    command cp dd diff du env find help hostname install ls mkdir mv patch \
-    printenv realpath rev rm tail tar tee test time timeout tty uname which xargs; do
-  build_process "build/process-bin/${command}" "src/commands/${command}.c"
-done
 
 # Building the C++ process probe materializes the exact wasm64/native-EH libc++
 # profile. Publish only that closed runtime set for the compiler running inside
@@ -298,10 +281,10 @@ process_sysroot_container_dir="/src/${process_sysroot_dir#"${project_dir}/"}"
 
 node scripts/dolly-abi.mjs stamp-process \
   build/dolly-process-0.wasm \
-  build/process-bin/*
+  build/process-bin/bootstrap build/process-probes/process-check build/process-probes/process-cpp-check
 node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm \
-  build/process-bin/*
+  build/process-bin/bootstrap build/process-probes/process-check build/process-probes/process-cpp-check
 node scripts/dolly-abi.mjs emit-digest-module \
   build/dolly-process-0.wasm \
   dist/dolly-process-abi.mjs \
@@ -702,10 +685,6 @@ cp build/dolly-display-0.wasm dist/dolly-display-0.wasm
 cp build/dolly-download-0.wasm dist/dolly-download-0.wasm
 cp build/dolly-http-0.wasm dist/dolly-http-0.wasm
 cp build/dolly-snapshot-0.wasm dist/dolly-snapshot-0.wasm
-cp build/process-bin/process-check dist/process-check.wasm
-cp build/process-bin/process-fs-check dist/process-fs-check.wasm
-cp build/process-bin/process-pipe-check dist/process-pipe-check.wasm
-cp build/process-bin/slop dist/slop-process.wasm
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2
 node scripts/write-build-id.mjs dist/dolly.wasm dist/dolly.data dist/dolly-build-id.mjs
 node scripts/prune-stale-snapshots.mjs

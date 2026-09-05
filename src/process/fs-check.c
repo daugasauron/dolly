@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -18,10 +19,10 @@ static void initialize_large_payload(void) {
   }
 }
 
-static int write_file(void) {
+static int write_file(const char *directory) {
   static const char payload[] = "shared-kernel-filesystem";
-  if (mkdir("/tmp/process-check", 0777) != 0 && errno != EEXIST) return 10;
-  if (chdir("/tmp/process-check") != 0) return 11;
+  if (mkdir(directory, 0777) != 0 && errno != EEXIST) return 10;
+  if (chdir(directory) != 0) return 11;
   int descriptor = open("first.txt", O_CREAT | O_TRUNC | O_RDWR, 0666);
   if (descriptor < 0) return 12;
   if (write(descriptor, payload, sizeof(payload)) != (ssize_t)sizeof(payload)) return 13;
@@ -48,11 +49,12 @@ static int write_file(void) {
   return 0;
 }
 
-static int read_file(void) {
+static int read_file(const char *directory) {
+  if (chdir(directory) != 0) return 11;
   static const char payload[] = "shared-kernel-filesystem";
   initialize_large_payload();
   char buffer[sizeof(payload)] = {0};
-  int descriptor = open("/tmp/process-check/second.txt", O_RDONLY);
+  int descriptor = open("second.txt", O_RDONLY);
   if (descriptor < 0) return 20;
   if (ioctl(descriptor, FIOCLEX, NULL) != 0) return 29;
   void *mapping = mmap(NULL, sizeof(payload), PROT_READ,
@@ -63,10 +65,10 @@ static int read_file(void) {
   if (lseek(descriptor, 0, SEEK_SET) != 0) return 21;
   if (read(descriptor, buffer, sizeof(buffer)) != (ssize_t)sizeof(buffer)) return 22;
   if (close(descriptor) != 0 || strcmp(buffer, payload) != 0) return 23;
-  descriptor = open("/tmp/process-check/symbolic.txt", O_RDONLY);
+  descriptor = open("symbolic.txt", O_RDONLY);
   if (descriptor < 0 || read(descriptor, buffer, sizeof(buffer)) != (ssize_t)sizeof(buffer) ||
       close(descriptor) != 0 || strcmp(buffer, payload) != 0) return 28;
-  descriptor = open("/tmp/process-check/large.bin", O_RDONLY);
+  descriptor = open("large.bin", O_RDONLY);
   if (descriptor < 0) return 35;
   size_t total = 0;
   while (total != sizeof(large_buffer)) {
@@ -77,7 +79,7 @@ static int read_file(void) {
   }
   if (close(descriptor) != 0 ||
       memcmp(large_buffer, large_payload, sizeof(large_payload)) != 0) return 36;
-  descriptor = open("/tmp/process-check/second.txt", O_RDWR);
+  descriptor = open("second.txt", O_RDWR);
   if (descriptor < 0) return 31;
   mapping = mmap(NULL, sizeof(payload), PROT_READ | PROT_WRITE,
                  MAP_SHARED, descriptor, 0);
@@ -87,17 +89,15 @@ static int read_file(void) {
       munmap(mapping, sizeof(payload)) != 0 ||
       pread(descriptor, buffer, sizeof(buffer), 0) != (ssize_t)sizeof(buffer) ||
       buffer[0] != 'S' || close(descriptor) != 0) return 33;
-  if (unlink("/tmp/process-check/second.txt") != 0 ||
-      unlink("/tmp/process-check/large.bin") != 0 ||
-      unlink("/tmp/process-check/symbolic.txt") != 0 ||
-      rmdir("/tmp/process-check") != 0) return 24;
+  if (unlink("second.txt") != 0 || unlink("large.bin") != 0 ||
+      unlink("symbolic.txt") != 0 || chdir("/") != 0 || rmdir(directory) != 0) return 24;
   puts("PROCESS-FILESYSTEM-OK");
   return 0;
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) return 2;
-  if (strcmp(argv[1], "write") == 0) return write_file();
-  if (strcmp(argv[1], "read") == 0) return read_file();
+  if (argc != 3) return 2;
+  if (strcmp(argv[1], "write") == 0) return write_file(argv[2]);
+  if (strcmp(argv[1], "read") == 0) return read_file(argv[2]);
   return 2;
 }

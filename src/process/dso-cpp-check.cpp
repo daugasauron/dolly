@@ -3,9 +3,10 @@
 #include <dlfcn.h>
 #include <stdio.h>
 
-int main(void) {
+int main(int argc, char **argv) {
+  if (argc != 2) return 2;
   void *handle = dolly_dlopen(
-      "/tmp/dolly-process-cpp-dso.so", RTLD_NOW | RTLD_LOCAL);
+      argv[1], RTLD_NOW | RTLD_LOCAL);
   if (handle == nullptr) {
     fprintf(stderr, "process-cpp-dso-check: open failed: %s\n",
             dolly_dlerror());

@@ -21,6 +21,13 @@ EXPORTS HEADER download  /usr/include/dolly/download.h
 
 EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
 
+# These are the complete externally seeded compiler dependencies, not ambient
+# additions to every boot. Images retain them by re-exporting these objects.
+EXPORTS FOLDER process-sdk       /usr/lib/dolly/process
+EXPORTS FOLDER clang-headers     /usr/lib/clang/24/include
+EXPORTS FILE   compiler          /usr/libexec/dolly/process-bin/compiler
+EXPORTS FILE   kernel-plugin-abi /usr/lib/dolly/dolly-kernel-plugin-0.wasm
+
 EXPORTS ENV CC    cc
 EXPORTS ENV AR    ar
 EXPORTS ENV SHELL /bin/slop
@@ -34,5 +41,6 @@ EXPORTS TOOL c++
 EXPORTS TOOL ld
 EXPORTS TOOL ar
 EXPORTS TOOL slop
+EXPORTS TOOL dollyfile
 EXPORTS TOOL mkdir
 EXPORTS TOOL rm

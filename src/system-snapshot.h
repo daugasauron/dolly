@@ -13,4 +13,7 @@ uintptr_t dolly_snapshot_address(void);
 uintptr_t dolly_snapshot_size(void);
 uint32_t dolly_snapshot_format_version(void);
 
+// Boot-only: discard build inputs not retained by the image. Not a host export.
+int dolly_snapshot_prune(void);
+
 #endif

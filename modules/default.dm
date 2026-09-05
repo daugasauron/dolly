@@ -3,7 +3,7 @@ MODULE default
 
 # Direct children form this module's private sequential scope. Each child's
 # requirements resolve only against exports from earlier children in this list.
-USE HOST /modules/bootstrap.dm      8c10281d479fb83a6d609971965d400e205e0dcddf14957484d4a879367577a3
+USE HOST /modules/bootstrap.dm      43e94a2109999e6dac8a3233275af8f938b8ad7fd57421dc7027b2bb0bbf31df
 USE HOST /modules/core-tools.dm     3f0c0750cc10d6e771753460919fc4020072449ccd88e263d0bf28289fe737be
 USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
 USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
@@ -63,6 +63,7 @@ EXPORTS ENV ZIG_LIB_DIR
 EXPORTS ENV DISPLAY
 
 EXPORTS TOOL slop
+EXPORTS TOOL dollyfile
 EXPORTS TOOL help
 EXPORTS TOOL pwd
 EXPORTS TOOL cd
@@ -151,3 +152,7 @@ EXPORTS TOOL tty
 EXPORTS TOOL gzip
 
 EXPORTS FOLDER zig-lib
+EXPORTS FOLDER process-sdk
+EXPORTS FOLDER clang-headers
+EXPORTS FILE   compiler
+EXPORTS FILE   kernel-plugin-abi

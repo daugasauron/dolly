@@ -94,17 +94,6 @@ failed during a concurrent cold build; this does not close the longer B9 probe.
 
 ### Images must describe and preserve the delivered filesystem
 
-**C3 — P1/P2 — Cold and prebuilt images differ beyond the recipe.** Source and
-snapshot evidence: boot copies all seed `/usr`, including host-built utilities,
-compiler/sysroot, and probes; `src/runtime-worker.mjs` runs a substantial
-acceptance suite in production. All five audited snapshots omit `/bin/dollyfile`,
-although cold bootstrap leaves it available. See `scripts/build.sh`,
-`toolchain/CMakeLists.txt`, `src/dolly.c`, and `src/process/bootstrap.c`.
-Define the minimal seed explicitly, move test-only programs/checks to the harness,
-and decide whether Dollyfile execution is an installed user tool.
-**Acceptance:** compare cold/prebuilt manifests and PATH inventories for each
-image; production startup needs no undeclared test compiler/network work.
-
 **C4 — P2 — Every image retains an oversized Zig SDK.** Measured baseline:
 `/usr/lib/zig` accounts for about 199 MB and 19,662 files of the default snapshot,
 including about 67.6 MB of Windows headers and a 10.2 MB compiler test.
@@ -169,11 +158,12 @@ caching on failure; correct its documentation instead of removing it by accident
 
 ## Suggested checkpoints and closure rules
 
-1. Normalize cold/prebuilt filesystems (C3) before enabling named saves for rebuilt
-   images. Preserve the typed system/layer/session restoration regressions.
+1. Cold/prebuilt filesystems now match their declared system inventories. Before
+   enabling named saves for rebuilt images, add a cross-route session-baseline
+   regression. Preserve typed system/layer/session restoration coverage.
 2. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
    mixing terminal UI events with child input. Resolve B7/B8 compatibility claims.
-3. Close C3/D3 before making image-size pruning in C4 authoritative. Remove D5
+3. Close D3 before making image-size pruning in C4 authoritative. Remove D5
    duplication as the corresponding owner becomes clear.
 
 Fix D1 before claiming clean external-toolchain verification, and D4 before treating
@@ -188,16 +178,25 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 173 Node tests and the full Chrome suite passed; all five
-images rebuilt with typed path records and validated ENTRY bytes. Logs:
-`build/c5-final-build.log`, `build/c5-node-tests.log`, and
-`build/c5-browser-suite.log`. The browser suite includes in-Wasm image/layer
-round trips, omitted-entry rejection, named sessions, Pi streaming, C++ and Zig.
+Latest local baseline: 174 Node tests and the full Chrome suite passed; all five
+images rebuilt with explicitly retained compiler SDKs and `/bin/dollyfile`.
+Logs: `build/c3-build.log`, `build/c3-node-tests.log`, and
+`build/c3-browser-suite.log`. The browser suite includes source-built process
+acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
+named sessions, Pi streaming, C++ and Zig. Production boot runs no probe suite;
+its executable seed contains only the bootstrap runner and compiler.
 Existing release archives predate this checkpoint; none packages these changes.
+
+All five images' prebuilt and fresh-profile rebuild inventories match the
+packaged manifest exactly, with no extra system/PATH files
+(`build/c3-*-inventory.log`). The before probe found 394 undeclared system paths
+(`build/c3-before.log`). The SDK was previously installed implicitly from seed;
+retaining it adds about 115 MB to each opaque snapshot. C4 remains important:
+Python+Pi is now 529,852,379 bytes, close to the unchanged 512 MiB image limit.
 
 Default userspace reproducibility passed two independent cold browser builds
 and one cached build, with isolated owned profiles/outputs and no packaged-image
-inputs (`build/d2-browser-proof.log`). The old checker demonstrably skipped both
+inputs, including after normalization (`build/c3-reproducibility.log`). The old checker demonstrably skipped both
 builds (`build/d2-before.log`). This is not clean external-toolchain evidence or
 a claim that every extended image has independently passed the same comparison.
 

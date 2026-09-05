@@ -1323,18 +1323,16 @@ static int initialize_boot_environment(void) {
   close(output);
   close(error);
 
-  if (install_seed_tree("/seed/usr", "/usr") != 0) {
-    fprintf(stderr, "dolly: could not install compiler seed: %s\n",
-            strerror(errno));
-    return 1;
-  }
-
   if (mkdir("/bin", 0755) != 0 && errno != EEXIST) {
     fprintf(stderr, "dolly: mkdir /bin failed: %s\n", strerror(errno));
     return 1;
   }
   if (mkdir("/tmp", 0755) != 0 && errno != EEXIST) {
     fprintf(stderr, "dolly: mkdir /tmp failed: %s\n", strerror(errno));
+    return 1;
+  }
+  if (mkdir("/workspace", 0755) != 0 && errno != EEXIST) {
+    fprintf(stderr, "dolly: mkdir /workspace failed: %s\n", strerror(errno));
     return 1;
   }
   if (setenv("HOME", "/home/dolly", 1) != 0) {
@@ -1362,13 +1360,18 @@ static int load_image_environment(void);
 
 EMSCRIPTEN_KEEPALIVE
 int dolly_process_bootstrap_prepare(void) {
-  return initialize_boot_environment();
+  if (initialize_boot_environment() != 0) return 1;
+  if (install_seed_tree("/seed/usr", "/usr") != 0) {
+    fprintf(stderr, "dolly: could not install compiler seed: %s\n", strerror(errno));
+    return 1;
+  }
+  return 0;
 }
 
 EMSCRIPTEN_KEEPALIVE
 int dolly_process_bootstrap_resume_prepare(uintptr_t size,
                                            uint32_t resume_uses) {
-  if (resume_uses == 0 || initialize_boot_environment() != 0) return 1;
+  if (resume_uses == 0 || dolly_process_bootstrap_prepare() != 0) return 1;
   printf("dolly: restoring %u cached module%s\n", resume_uses,
          resume_uses == 1 ? "" : "s");
   fflush(stdout);
@@ -1395,6 +1398,7 @@ int dolly_bootstrap_snapshot(uintptr_t size) {
   }
   puts("dolly: precompiled system restored");
   fflush(stdout);
+  if (dolly_snapshot_prune() != 0) return 1;
   return prepare_display_driver();
 }
 
@@ -1405,6 +1409,7 @@ int dolly_bootstrap_finish(void) {
             strerror(errno));
     return 1;
   }
+  if (dolly_snapshot_prune() != 0) return 1;
   return prepare_display_driver();
 }
 

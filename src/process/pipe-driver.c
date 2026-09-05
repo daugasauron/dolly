@@ -3,10 +3,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
-static const char *const checker =
-    "/usr/libexec/dolly/process-bin/process-pipe-check";
-
-int main(void) {
+int main(int argc, char **argv) {
+  if (argc != 2) return 2;
+  const char *checker = argv[1];
   int descriptors[2];
   if (pipe(descriptors) != 0) return 40;
 
