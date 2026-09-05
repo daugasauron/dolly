@@ -46,7 +46,9 @@ refreshed, and sysroot/runtime/image builds passed (`build/d1-container-*.log`,
 `build/d1-d6-build.log`). All 112 Wasm LLVM archives stayed byte-identical. The
 Wasm object/source caches were not empty. **Acceptance still open:** run the
 complete documented procedure with isolated fresh caches, preserving the working
-cache, without accidentally inherited workstation tools.
+cache, without accidentally inherited workstation tools. An unchanged seed-tool
+rerun took 15.08 s and preserved all checked archives (`build/d1-unchanged-*.log`);
+this is an incremental measurement, not a cold-build estimate.
 
 **D4 — P2 — Build/publication is not a coherent atomic transaction.** Source
 evidence: packaging checks existence/size without fully binding snapshot, recipe,
@@ -85,7 +87,11 @@ The duplicate-source regression fails before removal and the full build plus
 some Git fetchers check HEAD but not dirty content.
 HOST hashes still check served source bytes—no digest bypass was demonstrated.
 Finish reviewing historical versus current runtime/port claims, Ghostty
-generation, and missing packaged documents/tools. **Acceptance:**
+generation, and missing packaged documents/tools. In particular, the module-owned
+`help` advertises absent `ghostty-vt`/`demo` commands in every image and Pi/JS tools
+in default/Python (`build/d6-help-inventory.log`, compared with the browser-verified
+image manifests). Fix that source in `modules/core-tools.dm`, not a standalone copy.
+**Acceptance:**
 source verification handles dirty checkouts, packaged links/help inventories
 work, and docs describe measured behavior. Preserve useful completed-module
 caching on failure; correct its documentation instead of removing it by accident.
@@ -108,8 +114,8 @@ runtime-only build fell from 65.76 s to 23.87 s by skipping the compiler relink;
 archive/compiler/runtime/data hashes stayed unchanged on the second normalized
 build. This is not a cold-toolchain or whole-image benchmark. All 178 Node tests,
 the full Chrome suite (including Python C++), and all five rebuilt image
-inventories passed (`build/d6-archive-*.log`, `build/d6-*-route.log`). The cache-key,
-dirty-source and documentation findings above remain open.
+inventories passed (`build/d6-archive-*.log`, `build/d6-*-route.log`). The dirty-source
+and remaining documentation findings above remain open.
 
 ## Suggested checkpoints and closure rules
 
@@ -134,13 +140,21 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 181 Node tests and the full Chrome suite passed; all five
+Latest local baseline: 182 Node tests and the full Chrome suite passed; all five
 images are current and their prebuilt routes passed. Logs:
-`build/d5-cleanup-build.log`, `build/d1-d4-d5-d6-node-tests.log`,
-`build/d1-d6-full-browser.log`, and `build/d1-d6-*-route.log`.
+`build/d5-cleanup-build.log`, `build/overnight-harness-checked-node-tests.log`,
+`build/overnight-harness-checked-full-browser.log`, and `build/d1-d6-*-route.log`.
 The Python C++ extension also passed (`build/d1-d6-python-cpp-browser.log`),
 as did the additional Python+Pi child/HTTP cancellation check
 (`build/b7-python-pi-janis-browser.log`).
+The actual app on port 9000 also passed all five image inventories, Pi streaming
+and tools, libcurl, Janis children/cancellation, and the Python C++ extension
+(`build/overnight-port9000-*.log`; the final boundary/libcurl logs use `checked`).
+The harness now supplies CORS for its selected external test app and rejects
+unknown modes before launching Chrome. Earlier `overnight-main-*-route`,
+`overnight-main-pi`, and unchecked boundary failures were fixture-origin failures,
+not evidence of a production-policy defect. Use `DOLLY_BROWSER_PAGE` with the app
+root URL; the harness appends the selected image route.
 The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate

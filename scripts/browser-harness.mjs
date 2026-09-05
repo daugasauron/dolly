@@ -24,6 +24,7 @@ const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 const distDirectory = resolve(projectDir, "dist");
 const packagedSite = process.env.DOLLY_BROWSER_SITE
   ? resolve(process.env.DOLLY_BROWSER_SITE) : null;
+const externalPage = process.env.DOLLY_BROWSER_PAGE;
 const chromeBinary = process.argv[2];
 if (!chromeBinary) throw new Error("usage: browser-harness.mjs CHROME_BINARY");
 const browserHostname = process.env.DOLLY_BROWSER_HOSTNAME ?? "127.0.0.1";
@@ -36,42 +37,51 @@ if (!browserBase.startsWith("/") || !browserBase.endsWith("/") ||
   throw new Error("DOLLY_BROWSER_BASE must be an absolute path ending in /");
 }
 const browserBasePrefix = browserBase === "/" ? "" : browserBase.slice(0, -1);
-const piDevelopmentMode = process.env.DOLLY_BROWSER_MODE === "pi";
-const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
-const boundaryMode = process.env.DOLLY_BROWSER_MODE === "boundary";
-const processAbiMode = process.env.DOLLY_BROWSER_MODE === "process-abi";
-const processSmokeMode = process.env.DOLLY_BROWSER_MODE === "process-smoke";
-const dollyfileParserMode = process.env.DOLLY_BROWSER_MODE === "dollyfile-parser";
-const imageRetentionMode = process.env.DOLLY_BROWSER_MODE === "image-retention";
-const imageInventoryMode = ["image-inventory", "image-inventory-rebuild"].includes(process.env.DOLLY_BROWSER_MODE);
-const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
-const slopMode = ["slop", "slop-source"].includes(process.env.DOLLY_BROWSER_MODE);
-const utf8Mode = process.env.DOLLY_BROWSER_MODE === "utf8";
-const terminalUiMode = process.env.DOLLY_BROWSER_MODE === "terminal-ui";
-const janisFilesMode = process.env.DOLLY_BROWSER_MODE === "janis-files";
-const janisProcessMode = process.env.DOLLY_BROWSER_MODE === "janis-process";
-const processLifecycleMode = process.env.DOLLY_BROWSER_MODE === "process-lifecycle";
-const pythonProcessMode = process.env.DOLLY_BROWSER_MODE === "python-process";
-const libcurlContractMode = process.env.DOLLY_BROWSER_MODE === "libcurl-contract";
-const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
-const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
+const requestedMode = process.env.DOLLY_BROWSER_MODE;
+const knownModes = new Set();
+function isMode(...names) {
+  for (const name of names) knownModes.add(name);
+  return names.includes(requestedMode);
+}
+const piDevelopmentMode = isMode("pi");
+const cppMode = isMode("cpp");
+const boundaryMode = isMode("boundary");
+const processAbiMode = isMode("process-abi");
+const processSmokeMode = isMode("process-smoke");
+const dollyfileParserMode = isMode("dollyfile-parser");
+const imageRetentionMode = isMode("image-retention");
+const imageInventoryMode = isMode("image-inventory", "image-inventory-rebuild");
+const makeMode = isMode("make");
+const slopMode = isMode("slop", "slop-source");
+const utf8Mode = isMode("utf8");
+const terminalUiMode = isMode("terminal-ui");
+const janisFilesMode = isMode("janis-files");
+const janisProcessMode = isMode("janis-process");
+const processLifecycleMode = isMode("process-lifecycle");
+const pythonProcessMode = isMode("python-process");
+const libcurlContractMode = isMode("libcurl-contract");
+const piOpenRouterMode = isMode("pi-openrouter");
+const piAuditMode = isMode("pi-audit");
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
-const missingSnapshotMode = process.env.DOLLY_BROWSER_MODE === "snapshot-missing";
-const unpackagedSnapshotMode = process.env.DOLLY_BROWSER_MODE === "snapshot-unpackaged";
-const snapshotExportMode = process.env.DOLLY_BROWSER_MODE === "snapshot-export" || unpackagedSnapshotMode;
-const pagesIsolationMode = ["pages-isolation", "session-pages"].includes(process.env.DOLLY_BROWSER_MODE);
-const pagesLiveMode = process.env.DOLLY_BROWSER_MODE === "pages-live";
-const menuMode = process.env.DOLLY_BROWSER_MODE === "menu";
-const routeSmokeMode = process.env.DOLLY_BROWSER_MODE === "route-smoke";
-const sessionMode = ["session", "session-pages"].includes(process.env.DOLLY_BROWSER_MODE);
-const pythonPackageMode = process.env.DOLLY_BROWSER_MODE === "python-packages";
-const pythonInteractiveMode = process.env.DOLLY_BROWSER_MODE === "python-interactive";
-const toolchainProbeMode = process.env.DOLLY_BROWSER_MODE === "toolchain-probes";
-const zigSingleProviderMode = process.env.DOLLY_BROWSER_MODE === "zig-single-provider";
+const missingSnapshotMode = isMode("snapshot-missing");
+const unpackagedSnapshotMode = isMode("snapshot-unpackaged");
+const snapshotExportMode = isMode("snapshot-export") || unpackagedSnapshotMode;
+const pagesIsolationMode = isMode("pages-isolation", "session-pages");
+const pagesLiveMode = isMode("pages-live");
+const menuMode = isMode("menu");
+const routeSmokeMode = isMode("route-smoke");
+const sessionMode = isMode("session", "session-pages");
+const pythonPackageMode = isMode("python-packages");
+const pythonInteractiveMode = isMode("python-interactive");
+const toolchainProbeMode = isMode("toolchain-probes");
+const zigSingleProviderMode = isMode("zig-single-provider");
 const optimizedLifecycleProbeMode =
-  process.env.DOLLY_BROWSER_MODE === "optimized-lifecycle-probe";
+  isMode("optimized-lifecycle-probe");
 const lifecycleProbeMode =
-  process.env.DOLLY_BROWSER_MODE === "lifecycle-probe" || optimizedLifecycleProbeMode;
+  isMode("lifecycle-probe") || optimizedLifecycleProbeMode;
+if (requestedMode && !knownModes.has(requestedMode)) {
+  throw new Error(`unknown DOLLY_BROWSER_MODE: ${requestedMode}`);
+}
 const piAuditSpec = piAuditMode
   ? JSON.parse(await readFile(resolve(
       projectDir,
@@ -194,6 +204,14 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const requestUrl = new URL(request.url, "http://127.0.0.1");
+      // The selected external app also imports fixture ES-module dependencies
+      // from this test server. Production handlers and HTTP policy are unchanged.
+      if (externalPage) response.setHeader("access-control-allow-origin", new URL(externalPage).origin);
+      if (requestUrl.pathname.startsWith("/fixture/")) {
+        response.setHeader("access-control-allow-methods", "GET, HEAD, POST, PUT, OPTIONS");
+        response.setHeader("access-control-allow-headers", request.headers["access-control-request-headers"] ?? "");
+        if (request.method === "OPTIONS") { response.writeHead(204); response.end(); return; }
+      }
       if (dollyfileParserMode && parserRecipes.has(requestUrl.pathname)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
         response.end(parserRecipes.get(requestUrl.pathname));
@@ -249,7 +267,7 @@ function startServer() {
       if (janisProcessMode && requestUrl.pathname.startsWith("/fixture/abort/")) {
         const record = { path: requestUrl.pathname, finished: false, closed: false };
         janisAbortRequests.push(record);
-        response.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*" });
+        response.writeHead(200, { "content-type": "text/plain" });
         if (!requestUrl.pathname.endsWith("/before")) response.write("prefix");
         const timer = setTimeout(() => { record.finished = true; response.end("suffix"); }, 2000);
         response.once("close", () => { record.closed = true; clearTimeout(timer); });
@@ -294,13 +312,10 @@ function startServer() {
         return;
       }
       if (libcurlContractMode && requestUrl.pathname === "/fixture/pi/libcurl-contract") {
-        const cors = { "access-control-allow-origin": "*",
-          "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization" };
-        if (request.method === "OPTIONS") { response.writeHead(204, cors); response.end(); return; }
         if (requestUrl.searchParams.has("cancel")) {
           const record = { phase: requestUrl.searchParams.get("cancel"), finished: false, closed: false };
           libcurlCancelledRequests.push(record);
-          response.writeHead(200, { ...cors, "content-type": "text/plain" });
+          response.writeHead(200, { "content-type": "text/plain" });
           response.write("prefix");
           const timer = setTimeout(() => { record.finished = true; response.end("suffix"); }, 2000);
           response.once("close", () => { record.closed = true; clearTimeout(timer); });
@@ -310,7 +325,7 @@ function startServer() {
         for await (const chunk of request) chunks.push(chunk);
         libcurlContractRequests.push({ authorization: request.headers.authorization ?? null,
           body: Buffer.concat(chunks).toString() });
-        response.writeHead(200, { ...cors, "content-type": "text/plain" });
+        response.writeHead(200, { "content-type": "text/plain" });
         response.end("libcurl contract response\n");
         return;
       }
@@ -1049,7 +1064,6 @@ let persistentProfile = null;
 let userDataDir = null;
 try {
 const address = server.address();
-const externalPage = process.env.DOLLY_BROWSER_PAGE;
 if (pagesLiveMode &&
     (externalPage === undefined ||
      !/^https:\/\/[a-z0-9-]+\.github\.io\/[a-z0-9._/-]*$/i.test(externalPage))) {

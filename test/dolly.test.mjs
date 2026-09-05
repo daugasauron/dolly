@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
@@ -33,6 +33,16 @@ import {
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
+
+test("unknown browser modes fail before launching Chrome", () => {
+  const result = spawnSync(process.execPath, [
+    new URL("../scripts/browser-harness.mjs", import.meta.url).pathname,
+    "dolly-browser-must-not-launch",
+  ], { encoding: "utf8", env: { ...process.env, DOLLY_BROWSER_MODE: "misspelled-mode" } });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /unknown DOLLY_BROWSER_MODE: misspelled-mode/);
+  assert.doesNotMatch(result.stderr, /spawn.*ENOENT/);
+});
 
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
 const kernelPluginContractPath = new URL(
@@ -395,10 +405,10 @@ test("browser acceptance preserves compiler lifecycle probes on the private proc
     readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8"),
     readFile(new URL("../src/browser.mjs", import.meta.url), "utf8"),
   ]);
-  assert.match(harness, /DOLLY_BROWSER_MODE === "zig-single-provider"/);
-  assert.match(harness, /DOLLY_BROWSER_MODE === "lifecycle-probe"/);
-  assert.match(harness, /DOLLY_BROWSER_MODE === "optimized-lifecycle-probe"/);
-  assert.match(harness, /DOLLY_BROWSER_MODE === "make"/);
+  assert.match(harness, /isMode\("zig-single-provider"\)/);
+  assert.match(harness, /isMode\("lifecycle-probe"\)/);
+  assert.match(harness, /isMode\("optimized-lifecycle-probe"\)/);
+  assert.match(harness, /isMode\("make"\)/);
   assert.match(launcher, /DOLLY_BROWSER_MODE=cpp/);
   assert.match(launcher, /DOLLY_BROWSER_MODE=zig-single-provider/);
   assert.match(roadmap, /every ordinary executable a fresh Worker/);
