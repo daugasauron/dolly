@@ -283,8 +283,7 @@ build_process build/process-bin/bootstrap src/process/bootstrap.c
 # Building the C++ process probe materializes the exact wasm64/native-EH libc++
 # profile. Publish only that closed runtime set for the compiler running inside
 # Dolly; no Emscripten driver or JavaScript library enters the process sysroot.
-process_sysroot_dir="$("${project_dir}/scripts/prepare-process-sysroot.sh")"
-process_sysroot_container_dir="/src/${process_sysroot_dir#"${project_dir}/"}"
+process_sysroot_container_dir="$("${container[@]}" ./scripts/prepare-process-sysroot.sh)"
 
 node scripts/dolly-abi.mjs stamp-process \
   build/dolly-process-0.wasm \

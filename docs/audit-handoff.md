@@ -35,25 +35,34 @@ changing behavior. Old measurements below are baselines, not fresh benchmarks.
 
 ### Builds, publication, and maintenance must be truthful
 
-**D1 — P1 — Clean bootstrap prerequisites are incomplete.** Source evidence:
-`scripts/prepare-process-sysroot.sh` needs host `llvm-nm`, but
-`scripts/build-toolchain.sh` only builds the two tblgen tools;
-`scripts/prepare-cpython.sh` also requires undocumented host Python 3.14.
-Declare/build prerequisites and test from an isolated fresh cache, preserving
-the working cache. **Acceptance:** the documented procedure works without tools
-accidentally inherited from this workstation. A full clean toolchain build was
-not performed in the audit.
+**D1 — P1 — Full clean external bootstrap still needs verification.** The missing
+prerequisites are fixed: the seed builds `llvm-nm` alongside both tblgen tools,
+all three run inside their pinned build container, and README declares Python
+3.14 for CPython preparation. A fresh native-tool build exposed both a relocated
+CMake cache and container/host glibc incompatibility; the separate `llvm-native`
+cache and container-side sysroot preparation remove those dependencies. The
+native tools built from an empty build directory, the existing Wasm provider
+refreshed, and sysroot/runtime/image builds passed (`build/d1-container-*.log`,
+`build/d1-d6-build.log`). All 112 Wasm LLVM archives stayed byte-identical. The
+Wasm object/source caches were not empty. **Acceptance still open:** run the
+complete documented procedure with isolated fresh caches, preserving the working
+cache, without accidentally inherited workstation tools.
 
 **D4 — P2 — Build/publication is not a coherent atomic transaction.** Source
 evidence: packaging checks existence/size without fully binding snapshot, recipe,
-runtime, source commit, and acceptance results; Pages downloads a release asset
-without an expected artifact digest. `scripts/build.sh` deletes the served runtime
+runtime, source commit, and acceptance results. `scripts/build.sh` deletes the served runtime
 before replacement succeeds; overlapping browser and artifact-dependent tests
 have failed during local rebuilds. This is not a finding that the audited public
 site was stale. Stage a verified versioned artifact and publish atomically;
 check the binding in `.github/workflows/pages.yml`. **Acceptance:** interrupted builds keep
 the last good app; mixed/stale/tampered artifacts fail packaging/deployment;
 all five packaged routes pass before promotion.
+
+Partial D4 checkpoint: manual deployment now requires the audited artifact's
+SHA-256 and verifies it before extraction. The packager prints that digest;
+the workflow's actual shell check rejects changed bytes and malformed inputs
+(`build/d4-artifact-digest-tests.log`). This binds a selected archive, not its
+source/test provenance, and does not make the development build atomic.
 
 **D5 — P2/P3 — Duplication and misplaced image policy add complexity.** Source
 evidence: commands are duplicated inline in modules and in `src/commands`;
@@ -66,17 +75,23 @@ or caches only with measured benefit. **Acceptance:** no divergent command copie
 image-specific behavior does not require host edits; cache/lifecycle changes keep
 measured regressions covered; package policy is explicit rather than hidden.
 
-**D6 — P3 — Cache keys, provenance, and documentation drift.** Source evidence:
-Samurai keys omit preparation code; native Zig keys omit preparation code and
-include absolute paths; some Git fetchers check HEAD but not dirty content.
+**D6 — P3 — Source provenance and remaining documentation drift.** Source evidence:
+some Git fetchers check HEAD but not dirty content.
 HOST hashes still check served source bytes—no digest bypass was demonstrated.
-Docs describe obsolete esbuild, failed-build layer disposal, timeout/stdin
-behavior, Ghostty generation, missing packaged documents/tools, and a build ID
-broader than its actual Wasm+data inputs. **Acceptance:** preparation changes
-invalidate caches, relocated identical checkouts retain stable identities,
+Finish reviewing historical versus current runtime/port claims, Ghostty
+generation, and missing packaged documents/tools. **Acceptance:**
 source verification handles dirty checkouts, packaged links/help inventories
 work, and docs describe measured behavior. Preserve useful completed-module
 caching on failure; correct its documentation instead of removing it by accident.
+
+Samurai and native Zig preparation keys now include their scripts; Zig's object
+key also includes its builder/preparer and uses relative input names. A native
+regression executes the key calculations in relocated checkouts and after code
+changes (`build/d6-preparation-key-tests.log`). Actual source preparation and
+native Zig rebuilding pass; the Zig object stayed byte-identical. Dollyfile docs
+now distinguish failed-module scratch from retained successful layers, describe
+the exact Wasm+data build ID, and stop claiming useful packaged-prefix reuse
+among the current five recipes (none is a strict prefix of another).
 
 Partial D6 checkpoint: the process archive is now rebuilt from the declared
 members in deterministic order, staged, and atomically replaced only when its
@@ -113,12 +128,13 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 178 Node tests and the full Chrome suite passed; all five
+Latest local baseline: 180 Node tests and the full Chrome suite passed; all five
 images are current and their prebuilt routes passed. Logs:
-`build/b7-cancel-build.log`, `build/b7-node-tests.log`,
-`build/b7-full-browser.log`, and `build/b7-*-route.log`.
-The Python C++ extension and Python+Pi child/HTTP cancellation also passed
-(`build/b7-python-pi-{cpp,janis}-browser.log`).
+`build/d1-d6-build.log`, `build/d1-d4-d6-node-tests.log`,
+`build/d1-d6-full-browser.log`, and `build/d1-d6-*-route.log`.
+The Python C++ extension also passed (`build/d1-d6-python-cpp-browser.log`),
+as did the additional Python+Pi child/HTTP cancellation check
+(`build/b7-python-pi-janis-browser.log`).
 The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
@@ -127,7 +143,9 @@ The C engine and JS inspector share differential fixtures; packaging and browser
 admission share the ENTRY decoder. `build/d3-parser-before.log` reproduces the
 original quoted-command/CWD and LIB-kind disagreement. Production boot runs no probe suite;
 its executable seed contains only the bootstrap runner and compiler.
-Existing release archives predate this checkpoint; none packages these changes.
+The local `build/dolly-pages-audit-2026-09-06.tar.gz` packages this checkpoint;
+all five routes passed using the extracted compressed artifact
+(`build/d4-packaged-*-route.log`). It has not been uploaded or deployed.
 
 Libcurl now rejects unavailable controls at setopt, enforces protocol restrictions
 before dispatch, and distinguishes NONE from Basic authentication. Browser probes

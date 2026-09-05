@@ -9,6 +9,7 @@ object_stamp="${output_dir}/object-inputs.sha256"
 mkdir -p "${output_dir}"
 
 object_digest="$({
+  cd -- "${project_dir}"
   printf '%s\n' \
     'dolly-native-zig-object=1' \
     "zig-version=${DOLLY_ZIG_VERSION}" \
@@ -23,9 +24,11 @@ object_digest="$({
     'compiler-rt=true' \
     'libc=true'
   sha256sum \
-    "${project_dir}/patches/zig-0.16.0-dolly-native.patch" \
-    "${project_dir}/src/zig/native-main.zig" \
-    "${project_dir}/src/zig/native-build-options.zig"
+    scripts/build-native-zig.sh \
+    scripts/prepare-zig-native.sh \
+    patches/zig-0.16.0-dolly-native.patch \
+    src/zig/native-main.zig \
+    src/zig/native-build-options.zig
 } | sha256sum | cut -d ' ' -f 1)"
 if [[ -f "${object}" && -f "${object_stamp}" &&
       "$(<"${object_stamp}")" == "${object_digest}" ]]; then

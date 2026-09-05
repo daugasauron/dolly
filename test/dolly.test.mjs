@@ -794,6 +794,10 @@ test("the wasm64 Clang/LLD cache is bound to its pinned inputs", async () => {
   assert.match(build, /installed_toolchain_key/);
   assert.match(build, /cached wasm64 Clang\/LLD provider is stale/);
   assert.match(toolchain, /\.dolly-toolchain-key/);
+  assert.match(toolchain, /--target llvm-tblgen clang-tblgen llvm-nm --parallel/);
+  assert.doesNotMatch(toolchain, /if \[\[ ! -x.*llvm-tblgen/);
+  assert.match(toolchain, /cmake --build \.cache\/llvm-native/);
+  assert.match(build, /"\$\{container\[@\]\}" \.\/scripts\/prepare-process-sysroot\.sh/);
   assert.match(toolchain, /mv -T -- "\$\{temporary_stamp\}"/);
   assert.match(key, /DOLLY_LLVM_COMMIT/);
   assert.match(key, /DOLLY_EMSDK_IMAGE/);

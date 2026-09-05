@@ -5,7 +5,7 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 emscripten_lib="${project_dir}/.cache/emscripten/sysroot/lib/wasm64-emscripten"
 process_runtime="${project_dir}/build/libdolly-process.a"
 cache_root="${project_dir}/.cache"
-llvm_nm="${project_dir}/.cache/llvm-host/bin/llvm-nm"
+llvm_nm="${project_dir}/.cache/llvm-native/bin/llvm-nm"
 reserved_libc_symbols="${project_dir}/config/process-libc-provider.symbols"
 
 libraries=(
@@ -31,7 +31,7 @@ if [[ ! -f "${process_runtime}" ]]; then
   exit 1
 fi
 if [[ ! -x "${llvm_nm}" ]]; then
-  echo "dolly: missing host llvm-nm: ${llvm_nm}" >&2
+  echo "dolly: missing seed toolchain llvm-nm: ${llvm_nm}" >&2
   exit 1
 fi
 if [[ ! -f "${reserved_libc_symbols}" ]]; then
@@ -126,7 +126,6 @@ if [[ -e "${published}" ]]; then
   fi
 else
   mv -- "${staging}" "${published}"
-  staging="${cache_root}/.process-sysroot-published"
 fi
 
 printf '%s\n' "${published}"

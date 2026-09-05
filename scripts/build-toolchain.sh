@@ -6,7 +6,6 @@ source "${project_dir}/config/source-pins.sh"
 llvm_commit="${DOLLY_LLVM_COMMIT}"
 image="${DOLLY_EMSDK_IMAGE}"
 source_dir="${project_dir}/.cache/llvm-project"
-host_dir="${project_dir}/.cache/llvm-host"
 wasm_dir="${project_dir}/.cache/llvm-wasm"
 toolchain_key="$("${project_dir}/scripts/toolchain-cache-key.sh")"
 toolchain_stamp="${wasm_dir}/.dolly-toolchain-key"
@@ -58,26 +57,25 @@ elif ! patch --batch --reverse --fuzz=0 --dry-run -d "${source_dir}" -p1 \
   exit 1
 fi
 
-if [[ ! -x "${host_dir}/bin/llvm-tblgen" ||
-      ! -x "${host_dir}/bin/clang-tblgen" ]]; then
-  "${container[@]}" cmake \
-    -S .cache/llvm-project/llvm \
-    -B .cache/llvm-host \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_ENABLE_PROJECTS=clang \
-    -DLLVM_TARGETS_TO_BUILD=WebAssembly \
-    -DLLVM_INCLUDE_TESTS=OFF \
-    -DLLVM_INCLUDE_EXAMPLES=OFF \
-    -DLLVM_INCLUDE_BENCHMARKS=OFF \
-    -DLLVM_INCLUDE_DOCS=OFF \
-    -DLLVM_ENABLE_TERMINFO=OFF \
-    -DLLVM_ENABLE_ZLIB=OFF \
-    -DLLVM_ENABLE_ZSTD=OFF \
-    -DLLVM_ENABLE_LIBXML2=OFF \
-    -DLLVM_ENABLE_BINDINGS=OFF
-  "${container[@]}" cmake --build .cache/llvm-host \
-    --target llvm-tblgen clang-tblgen --parallel "${jobs}"
-fi
+# Build and run these native tools inside the pinned container. Its libc need
+# not match the workstation's. CMake tracks sources and missing outputs.
+"${container[@]}" cmake \
+  -S .cache/llvm-project/llvm \
+  -B .cache/llvm-native \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLLVM_ENABLE_PROJECTS=clang \
+  -DLLVM_TARGETS_TO_BUILD=WebAssembly \
+  -DLLVM_INCLUDE_TESTS=OFF \
+  -DLLVM_INCLUDE_EXAMPLES=OFF \
+  -DLLVM_INCLUDE_BENCHMARKS=OFF \
+  -DLLVM_INCLUDE_DOCS=OFF \
+  -DLLVM_ENABLE_TERMINFO=OFF \
+  -DLLVM_ENABLE_ZLIB=OFF \
+  -DLLVM_ENABLE_ZSTD=OFF \
+  -DLLVM_ENABLE_LIBXML2=OFF \
+  -DLLVM_ENABLE_BINDINGS=OFF
+"${container[@]}" cmake --build .cache/llvm-native \
+  --target llvm-tblgen clang-tblgen llvm-nm --parallel "${jobs}"
 
 "${container[@]}" /emsdk/upstream/emscripten/emcmake cmake \
   -S .cache/llvm-project/llvm \
@@ -90,8 +88,8 @@ fi
   -DLLVM_TARGETS_TO_BUILD=WebAssembly \
   -DLLVM_HOST_TRIPLE=wasm64-unknown-emscripten \
   -DLLVM_DEFAULT_TARGET_TRIPLE=wasm64-unknown-emscripten \
-  -DLLVM_TABLEGEN=/src/.cache/llvm-host/bin/llvm-tblgen \
-  -DCLANG_TABLEGEN=/src/.cache/llvm-host/bin/clang-tblgen \
+  -DLLVM_TABLEGEN=/src/.cache/llvm-native/bin/llvm-tblgen \
+  -DCLANG_TABLEGEN=/src/.cache/llvm-native/bin/clang-tblgen \
   -DLLVM_ENABLE_THREADS=OFF \
   -DLLVM_INCLUDE_TESTS=OFF \
   -DLLVM_INCLUDE_EXAMPLES=OFF \

@@ -216,9 +216,9 @@ Mutable session paths such as `/workspace`, `/tmp`, Pi credentials, and Pi
 sessions cannot be retained. Every executable module must leave `/tmp` empty
 when it returns; this catches temporary objects made indirectly by `make`, the
 compiler, or another required tool. Module-owned scratch cleanup is therefore
-a checked build invariant rather than a convention. If a recipe fails, the
-entire unfinished build state is discarded rather than exposed as an image or
-cache layer.
+a checked build invariant rather than a convention. A failed recipe produces
+neither an image nor a layer for the failed module; its scratch is removed.
+Already completed, validated module layers remain reusable.
 
 ## Module cache
 
@@ -273,8 +273,10 @@ rebuild of the external toolchain itself.
 There is a second coarse packaged cache:
 
 A rebuild may reuse the longest packaged image whose top-level `USE` rows are
-an exact prefix of the requested image. For example, a gamedev rebuild can
-restore the `default + quickjs + pi` snapshot and execute only `gamedev.dm`.
+an exact prefix of the requested image. The five current recipes end with
+different startup modules, so none is a strict prefix of another; sharing
+dependencies alone does not qualify. Benefit from this extra cache is unproven
+for the current catalog.
 The builder still fetches, hashes, parses, and validates every skipped module;
 it replays declarations and environment exports but does not rerun their
 `SOURCE`, inline `FILE`, or `SLOP` effects.
@@ -293,10 +295,14 @@ Cache paths must not alter output bytes. The synchronous compiler therefore
 uses one stable, cleaned scratch namespace instead of embedding an invocation
 counter in temporary object names, and LLD merges sections on one thread.
 CPython's otherwise time-varying build-info translation unit receives a fixed
-date and time. A browser comparison of a complete cold build, the longest
-packaged-prefix build, and restoration of all Python-image leaf layers
-produces the same snapshot byte-for-byte. Runtime implementation changes rotate
-the build ID and therefore the IndexedDB namespace before old layers can load.
+date and time. The current reproducibility gate compares two cold default-image
+builds and one layer-cached build byte-for-byte. It does not verify every extended
+image or the packaged-prefix path.
+
+The runtime build ID hashes the runtime Wasm followed by its data file, not the
+entire source tree or browser implementation. Those bytes changing rotate the
+cache namespace; recipe/module hashes are bound separately. Browser-only edits
+do not automatically invalidate cached userspace.
 
 Because the conservative key includes the complete earlier recipe prefix,
 independent leaves are ordered deliberately: expensive stable foundations such

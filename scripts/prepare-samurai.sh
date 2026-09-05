@@ -4,7 +4,11 @@ set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 source_dir="$("${project_dir}/scripts/fetch-samurai.sh")"
-recipe_hash="$(sha256sum "${project_dir}/config/samurai-dolly.patch" | cut -d' ' -f1)"
+recipe_hash="$(
+  cd -- "${project_dir}"
+  sha256sum scripts/prepare-samurai.sh config/samurai-dolly.patch |
+    sha256sum | cut -d' ' -f1
+)"
 output_dir="${project_dir}/build/generated/samurai-source-${DOLLY_SAMURAI_COMMIT}-${recipe_hash:0:16}"
 temporary=""
 

@@ -155,3 +155,4 @@ echo "dolly: Pages site is ${site_bytes} bytes"
 tar -C "${staging}/site" -czf "${temporary_output}" .
 mv -- "${temporary_output}" "${output}"
 echo "dolly: wrote $(du -h "${output}" | cut -f1) Pages artifact to ${output}"
+sha256sum -- "${output}"

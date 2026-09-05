@@ -106,7 +106,9 @@ to trace the actual imports and the complete HTTP path.
 
 ## Build and run
 
-Requirements: Node.js, npm, Google Chrome, and Docker or Podman.
+Requirements: Node.js, npm, Git, Google Chrome, Docker or Podman, and host
+Python 3.14 for CPython source preparation. The seed build creates its own
+native LLVM tools; the browser runtime never uses host Python or processes.
 
 ```sh
 npm ci
@@ -118,7 +120,10 @@ npm run serve                 # http://127.0.0.1:8080/
 The Pages deployment is intentionally artifact-based: the current browser
 bundle is hundreds of megabytes and does not belong in Git history. After a
 local audited build, `scripts/package-pages.sh` creates the static release
-asset consumed by the manual `Deploy Dolly demo` workflow. A tiny same-origin
+asset consumed by the manual `Deploy Dolly demo` workflow.
+The workflow requires the artifact SHA-256 printed by the packager and checks it
+before extraction; take that digest from the audited local build, not a second
+download from the release being verified. A tiny same-origin
 service worker supplies the COOP/COEP headers that GitHub Pages cannot set.
 Packaged snapshots use gzip delivery to keep all five images below the Pages
 site size limit; the browser bounds decompression and verifies the original

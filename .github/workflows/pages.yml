@@ -7,6 +7,9 @@ on:
         description: Release containing the audited dolly-pages.tar.gz artifact
         required: true
         default: pages-latest
+      artifact_sha256:
+        description: SHA-256 printed by package-pages.sh for the audited artifact
+        required: true
 
 permissions:
   contents: read
@@ -29,6 +32,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DOLLY_PAGES_RELEASE: ${{ inputs.release_tag }}
         run: gh release download "${DOLLY_PAGES_RELEASE}" --repo "${GITHUB_REPOSITORY}" --pattern dolly-pages.tar.gz
+      - name: Verify audited artifact
+        env:
+          EXPECTED_SHA256: ${{ inputs.artifact_sha256 }}
+        run: |
+          [[ "${EXPECTED_SHA256}" =~ ^[0-9a-fA-F]{64}$ ]] || { echo 'Expected a SHA-256 digest' >&2; exit 1; }
+          printf '%s  dolly-pages.tar.gz\n' "${EXPECTED_SHA256}" | sha256sum --check --strict -
       - name: Extract browser build
         run: mkdir _site && tar -C _site -xzf dolly-pages.tar.gz
       - uses: actions/configure-pages@v5
