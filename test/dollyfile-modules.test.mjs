@@ -555,7 +555,7 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
 
   const cpp = graph.modules.find(({ name }) => name === "cpp");
   assert.ok(cpp.requirements.some(({ type, name }) =>
-    type === "LIB" && name === "compiler-rt"));
+    type === "FOLDER" && name === "process-sdk"));
   assert.ok(cpp.exports.some(({ type, name, details }) =>
     type === "HEADER" && name === "cpp" && details[0] === "/usr/include/c++/v1"));
   assert.deepEqual(

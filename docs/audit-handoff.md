@@ -71,17 +71,6 @@ useful semantics or explicitly reject unsupported options; document the finite
 subset. **Acceptance:** each supported option changes behavior as promised, each
 unsupported one fails, and no option weakens browser-owned policy.
 
-**B8 — P2 — Two different libraries claim to be the C++ SDK.** Source evidence:
-`modules/cpp.dm` publishes small hand-written ABI substitutes as `libc++.a` and
-an empty `libc++abi.a`, while ordinary C++ uses full externally prepared archives
-from `scripts/prepare-process-sysroot.sh` through `src/compiler.cpp`. Explicit
-`-lc++` can choose the substitutes; kernel plugins use them intentionally.
-Keep one honest process SDK; remove substitutes or name/scope them strictly as
-plugin dependencies. **Acceptance:** implicit/explicit C++ linking selects the
-same intended process runtime; exceptions, standard containers, Python C++
-extensions, and resident-plugin builds still pass. External bootstrap libraries
-are permitted; their identity must not be disguised.
-
 **B9 — P2 — Selection/copy stalls while the foreground child is not reading.**
 Reproduced in both Pi images during `! printf ...; sleep 8`; it works idle.
 `src/dolly.c` services input events during terminal reads, while presentation and
@@ -143,7 +132,7 @@ caching on failure; correct its documentation instead of removing it by accident
    enabling named saves for rebuilt images, add a cross-route session-baseline
    regression. Preserve typed system/layer/session restoration coverage.
 2. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
-   mixing terminal UI events with child input. Resolve B7/B8 compatibility claims.
+   mixing terminal UI events with child input. Resolve B7's ineffective options.
 3. Remove D5 duplication as the corresponding owner becomes clear. Keep the
    positive Zig SDK manifest and its real compiler/Ghostty regressions intact.
 
@@ -160,9 +149,10 @@ authority to make tests pass. Preserve existing regressions.
 ## Evidence and restart commands
 
 Latest local baseline: 176 Node tests and the full Chrome suite passed; all five
-images rebuilt and their prebuilt routes passed. Logs: `build/c4-build.log`,
-`build/c4-final-node-tests.log`, `build/c4-final-browser-suite.log`, and
-`build/c4-*-route.log`. The browser suite includes source-built process
+images rebuilt and their prebuilt routes passed. Logs: `build/b8-final-build.log`,
+`build/janis-last-job-build.log`, `build/b8-janis-final-node-tests.log`,
+`build/b8-janis-final-browser-suite.log`, and `build/b8-janis-*-route.log`.
+The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
 writer and object-kind rejection, named sessions, Pi streaming, C++ and Zig.
@@ -171,6 +161,18 @@ admission share the ENTRY decoder. `build/d3-parser-before.log` reproduces the
 original quoted-command/CWD and LIB-kind disagreement. Production boot runs no probe suite;
 its executable seed contains only the bootstrap runner and compiler.
 Existing release archives predate this checkpoint; none packages these changes.
+
+The C++ SDK now uses the genuine process archives for implicit and explicit
+links, including `cc -lc++` and `-Wl,` forms. Browser regressions exercise
+containers, exceptions/destructors, RTTI, one shared DSO runtime, a Python C++
+extension, freestanding kernel-plugin compilation, and generic static-library
+link order. The substitutes and obsolete duplicate `src/startup.mk` were removed.
+`build/b8-before-browser.log` reproduces the original duplicate-symbol link;
+`build/b8-link-order-before.log` caught and preserves an intermediate regression.
+The suite also found a last-timer/HTTP-completion event-loop bug: queued promise
+jobs were mistaken for no remaining work. The runner now drains them while still
+rejecting genuinely stranded top-level promises (`build/janis-last-job-{before,after}.log`).
+This does not close B3's child/abort semantics.
 
 The development server's encoded documentation traversal also has a real HTTP
 regression: `/docs/..%2fAGENTS.md` returned 200 before the resolved-root check and
@@ -184,7 +186,7 @@ packaged manifest exactly, with no extra system/PATH files
 (`build/c3-*-inventory.log`). The before probe found 394 undeclared system paths
 (`build/c3-before.log`). The compiler SDK is now explicitly retained. The
 supported-target Zig install manifest then removed 148,156,314 bytes from every
-image; Python+Pi is 381,700,495 bytes, below the unchanged 512 MiB limit.
+image; Python+Pi was 381,700,495 bytes at that checkpoint, below the unchanged 512 MiB limit.
 `build/c4-{before,after}-inventory.log` records all five images' sizes and file
 counts. Default prebuilt kernel memory fell from 971,046,912 to 763,625,472 bytes
 (`build/c4-{before,after}-browser.log`); both passed Zig math/u128/container

@@ -73,7 +73,7 @@ directories, rejects absolute/traversal names, and writes solely to WasmFS.
 | --- | --- | --- |
 | Emscripten 6.0.8 | Digest-pinned container links the small wasm64 kernel, process libc/sysroot, process gate, and packaged seed | Kernel-owned WasmFS plus private process executables; the seed explicitly excludes the C++ header tree |
 | LLVM/Clang/LLD 24 | Wasm64 libraries are built once into a stamped private compiler executable | `/bin/cc`, `/bin/c++`, `/bin/ld`, `/bin/ar` spawn a fresh compiler process that reads and publishes files through the typed kernel gate |
-| Dolly C++ SDK | The exact libc++ header tree is archived separately from the seed; four reviewed C adapters are served independently | `cpp.dm` materializes `/usr/include/c++/v1`, `/usr/lib/libc++.a`, and `/usr/lib/libc++abi.a` as one standalone no-exception SDK module |
+| Dolly C++ SDK | Pinned Emscripten libc++/libc++abi process archives are part of the external compiler SDK; their matching headers are archived separately | `cpp.dm` installs `/usr/include/c++/v1` and exports the genuine archives in `/usr/lib/dolly/process`; no handwritten standard-library substitutes |
 | GNU Make 4.4.1 | Pinned release is configured and a reviewed serial Dolly adapter is applied | `/usr/bin/make`; recipes run synchronously through `/bin/slop` |
 | Samurai 1.3 | A pinned source tree receives a small serial Dolly scheduler patch and is compiled as its ordinary 13 C translation units | `/usr/bin/ninja` executes Ninja manifests through Dolly's in-Wasm command lifecycle |
 | sbase | Exact source/helper subset is archived | separate `grep`, `sed`, `head`, `wc`, and `printf` executables |

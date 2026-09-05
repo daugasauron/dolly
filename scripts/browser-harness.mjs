@@ -1282,6 +1282,8 @@ chrome = spawn(chromeBinary, [
         assert.equal(await submit(`cd ${scratch} && cc utf8-writer.c -o writer`), 0);
         assert.equal(await submit(`janis -m utf8-browser.mjs ${localOrigin}`), 0, "UTF-8 decoder, HTTP, Node, and Pi regressions");
         assert.equal(await submit(`./writer stdin | janis -m utf8-browser.mjs stdin`), 0, "UTF-8 stdin boundary and EOF");
+        assert.equal(await submit("janis -m -e 'await new Promise(() => {})'"), 1,
+          "a genuinely stranded promise fails instead of spinning forever");
       } finally {
         await submit(`cd /workspace; rm -rf ${scratch}`);
       }
@@ -2360,32 +2362,14 @@ int main(int argc, char **argv) {
       );
       assert.equal(state, "ready");
       await enterRecoveryShell(debuggerClient.send);
-      const source = [
-        "#include <cstdio>",
-        "#include <string>",
-        "#include <vector>",
-        "int main() {",
-        "  std::vector<std::string> words{\"dolly\", \"c++23\"};",
-        "  if (words.size() != 2 || words[0] != \"dolly\") return 1;",
-        "  std::puts(words[0].c_str());",
-        "  std::puts(words[1].c_str());",
-        "  return 0;",
-        "}",
-      ].join("\\n");
-      for (const command of [
-        "rm -f /tmp/dolly-cpp-check.cpp /tmp/dolly-cpp-check",
-        ...source.split("\\n").map((line) =>
-          `echo '${line}' >> /tmp/dolly-cpp-check.cpp`),
-        "c++ -O1 -fno-exceptions -fno-rtti /tmp/dolly-cpp-check.cpp -o /tmp/dolly-cpp-check",
-        "/tmp/dolly-cpp-check",
-        "rm -f /tmp/dolly-cpp-check.cpp /tmp/dolly-cpp-check",
-      ]) {
-        assert.equal(await evaluate(
+      const { runCppSdkCases } = await import("../test/fixtures/cpp-sdk.mjs");
+      await runCppSdkCases(command => evaluate(
           debuggerClient.send,
           `window.__dolly.submit(${JSON.stringify(command)})`,
-        ), 0, command);
-      }
-      console.log("browser: standalone C++ SDK compiled, linked, and ran a libc++ C++23 command");
+      ), selectedModuleNames.has("cpython"));
+      console.log("browser: implicit/explicit C++ SDK linking, containers, exceptions/destructors, RTTI, shared DSO runtime" +
+        (selectedModuleNames.has("cpython") ? ", Python extension" : "") +
+        " and kernel-plugin compilation passed");
       break browserProof;
     }
     if (piDevelopmentMode || realOpenRouterMode) {

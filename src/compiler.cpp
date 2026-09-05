@@ -69,6 +69,7 @@ struct DriverOptions {
   bool export_dynamic = false;
   bool kernel_plugin = false;
   bool shared_library = false;
+  bool link_cxx_runtime = false;
   bool standard_selected = false;
   DebugInfoKind debug_info = DebugInfoKind::None;
   std::string output;
@@ -122,6 +123,15 @@ bool is_linker_option(const std::string &argument) {
 bool is_implicit_process_runtime_library(const std::string &name) {
   return name == "c" || name == "m" || name == "dl" || name == "rt" ||
       name == "pthread";
+}
+
+void add_library(DriverOptions &options, const std::string &name,
+                 std::vector<std::string> &arguments) {
+  if (name == "c++" || name == "c++abi") {
+    options.link_cxx_runtime = true;
+  } else if (!is_implicit_process_runtime_library(name)) {
+    arguments.push_back("-l" + name);
+  }
 }
 
 std::string inferred_language(const std::string &path,
@@ -363,23 +373,28 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
     } else if (argument == "-L" || argument == "-l") {
       std::string value;
       if (!take_option_value(argc, argv, index, argument.c_str(), value)) return -1;
-      if (argument == "-L" || !is_implicit_process_runtime_library(value)) {
-        options.inputs.push_back(argument + value);
-      }
+      if (argument == "-L") options.inputs.push_back(argument + value);
+      else add_library(options, value, options.inputs);
     } else if ((starts_with(argument, "-L") || starts_with(argument, "-l")) &&
                argument.size() > 2) {
-      if (!starts_with(argument, "-l") ||
-          !is_implicit_process_runtime_library(argument.substr(2))) {
-        options.inputs.push_back(argument);
-      }
+      if (starts_with(argument, "-l")) add_library(options, argument.substr(2), options.inputs);
+      else options.inputs.push_back(argument);
     } else if (starts_with(argument, "-Wl,")) {
       size_t begin = 4;
       while (begin <= argument.size()) {
-        const size_t comma = argument.find(',', begin);
-        const std::string option = argument.substr(
+        size_t comma = argument.find(',', begin);
+        std::string option = argument.substr(
             begin, comma == std::string::npos ? std::string::npos : comma - begin);
+        if (option == "-l" && comma != std::string::npos) {
+          begin = comma + 1;
+          comma = argument.find(',', begin);
+          option += argument.substr(begin, comma == std::string::npos
+              ? std::string::npos : comma - begin);
+        }
         // ELF sonames and as-needed have no meaning for Emscripten side modules.
-        if (option == "--version" || option == "-v") {
+        if (starts_with(option, "-l") && option.size() > 2) {
+          add_library(options, option.substr(2), options.linker_options);
+        } else if (option == "--version" || option == "-v") {
           options.linker_version = true;
         } else if (option == "--allow-shlib-undefined") {
           // GNU ld applies this policy to unresolved references originating in
@@ -624,11 +639,6 @@ bool link_side_module(const std::string &output,
       // scheduler order. Stable module-cache snapshots require fixed bytes.
       "--threads=1",
       "--shared-memory",
-      // The pinned non-threaded libc++ archives intentionally lack the
-      // atomics/bulk-memory feature marker. Dolly's final side module uses
-      // shared memory64, while those serialized library objects contain no
-      // pthread behavior. This is the same deliberate mix accepted when
-      // linking the main runtime.
       "--no-check-features",
       "--export=__wasm_call_ctors",
       "--unresolved-symbols=import-dynamic",
@@ -638,8 +648,8 @@ bool link_side_module(const std::string &output,
   };
   arguments.push_back(export_dynamic ? "--export-dynamic" : "--no-export-dynamic");
   if (strip_debug) arguments.push_back("--strip-debug");
-  // A resident C++ plugin carries its pinned libc++ implementation. Bind its
-  // own definitions locally so they do not enlarge the kernel contract.
+  // Keep header-defined C++ implementations local to the resident plugin.
+  // It has no separate C++ runtime; all remaining imports must fit the ABI.
   if (bind_defined_locally) arguments.push_back("-Bsymbolic");
   arguments.push_back("-L/usr/lib");
   arguments.insert(arguments.end(), inputs.begin(), inputs.end());
@@ -1805,10 +1815,14 @@ int compile_and_link(const DriverOptions &options, int default_language,
         stderr);
     return 64;
   }
+  if (options.kernel_plugin && options.link_cxx_runtime) {
+    std::fputs("dolly-cc: the C++ runtime belongs to processes, not kernel plugins\n", stderr);
+    return 64;
+  }
   const std::string output = options.output.empty() ? "a.out" : options.output;
   std::vector<std::string> temporary_objects;
   std::vector<std::string> link_inputs;
-  bool needs_cxx_runtime = default_language == DOLLY_TOOLCHAIN_CXX;
+  bool needs_cxx_runtime = options.link_cxx_runtime || default_language == DOLLY_TOOLCHAIN_CXX;
   for (size_t index = 0; index < options.inputs.size(); index++) {
     const std::string &input = options.inputs[index];
     if (is_object(input) || is_archive(input) || is_linker_option(input)) {
@@ -1830,10 +1844,6 @@ int compile_and_link(const DriverOptions &options, int default_language,
     link_inputs.push_back(object);
   }
 
-  if (options.kernel_plugin && needs_cxx_runtime) {
-    link_inputs.push_back("/usr/lib/libc++.a");
-    link_inputs.push_back("/usr/lib/libc++abi.a");
-  }
   // Compiler-generated helpers are part of the target runtime, not Dolly's
   // platform substrate. Link them into every C/C++ command so operations such
   // as 128-bit multiplication do not become kernel-plugin imports.

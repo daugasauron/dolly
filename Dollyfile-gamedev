@@ -1,8 +1,8 @@
 DOLLY 2
 IMAGE gamedev
 
-USE HOST /modules/default.dm         1075d625ab503b9d86b96014a78cb34bbc38efd26990da394ac1d0febd4574a9
-USE HOST /modules/quickjs.dm         2a4131d5d17219dd8655358aeae3031853227c07765fab71159908784d93cbde
+USE HOST /modules/default.dm         136c10ab57f10bc4c406574ec3bdcf00ceb51399ae6cc351bb23854261106029
+USE HOST /modules/quickjs.dm         34dd6cdadc1d65a61baaf91114a3e8ea5d7816902056b59faec9ecbe182cc3c3
 USE HOST /modules/typescript.dm      f10a3b924e5e80d3f0cfe8c07311d538812f1eaef4af60c0a9a6189c3672b6cb
 USE HOST /modules/pi.dm              5c09cb9ef80b3ccb463c9554a12bf07fbb6adf5593a08cf2771a8a9de6278965
 USE HOST /modules/gamedev.dm         77bcf65fee5535fd085237f9688c36b504be54c26fa029df3dfaf5c0c3b70a33

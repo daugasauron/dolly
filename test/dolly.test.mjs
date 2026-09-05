@@ -1138,7 +1138,7 @@ test("the in-Wasm C driver exposes Clang-compatible preprocessing", async () => 
   assert.match(compiler, /argument == "-fdiagnostics-color=always"/);
 });
 
-test("the C++ SDK uses the pinned no-exception libc++ target profile", async () => {
+test("the C++ SDK uses one genuine process runtime for implicit and explicit linking", async () => {
   const compiler = await readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8");
   const cpp = await readFile(new URL("../modules/cpp.dm", import.meta.url), "utf8");
   const packaging = await readFile(
@@ -1162,22 +1162,18 @@ test("the C++ SDK uses the pinned no-exception libc++ target profile", async () 
       compiler.indexOf('"/usr/lib/clang/24/include"'),
     "embedded C++ include order must match the pinned Emscripten driver",
   );
-  for (const library of ["libc++.a", "libc++abi.a", "libclang_rt.builtins.a"]) {
-    assert.match(compiler, new RegExp(escapeRegex(`/usr/lib/${library}`)));
-  }
-  assert.ok(
-    compiler.indexOf('link_inputs.push_back("/usr/lib/libclang_rt.builtins.a")') >
-      compiler.indexOf("if (needs_cxx_runtime)"),
-    "compiler-rt must be linked for C commands as well as C++ commands",
-  );
-  assert.match(cpp, /SLOP ar \\\n+  rcs \\\n+  \/usr\/lib\/libc\+\+abi\.a/);
+  assert.match(compiler, /"-lc\+\+-ww-wasmexcept"/);
+  assert.match(compiler, /"-lc\+\+abi-ww-wasmexcept"/);
+  assert.doesNotMatch(compiler, /\/usr\/lib\/libc\+\+(?:abi)?\.a/);
+  assert.match(compiler, /if \(options\.kernel_plugin\) \{\s*link_inputs.push_back\("\/usr\/lib\/libclang_rt.builtins.a"\)/);
+  assert.doesNotMatch(cpp, /libcxx-.*-dolly|SLOP ar/);
   assert.match(cpp, /SOURCE HOST \/static\/default\/libcxx-headers\.tar/);
   assert.match(cpp, /SLOP tar \\\n+  -xf \/tmp\/cpp\/libcxx-headers\.tar/);
   assert.match(packaging, /--exclude-file \*\/c\+\+\/v1\/\*/);
   assert.match(packaging, /build\/generated\/libclang_rt\.dolly\.a/);
   assert.match(compilerRtPreparation, /ar d "\$\{staging\}" emscripten_setjmp\.o/);
   assert.match(compilerRtPreparation, /mv -T -- "\$\{staging\}" "\$\{output_archive\}"/);
-  assert.match(cpp, /EXPORTS LIB\s+c\+\+abi\s+\/usr\/lib\/libc\+\+abi\.a/);
+  assert.match(cpp, /EXPORTS LIB\s+c\+\+abi\s+\/usr\/lib\/dolly\/process\/libc\+\+abi-ww-wasmexcept\.a/);
   assert.match(cpp, /SLOP rm \\\n+  -rf \\\n+  \/tmp\/cpp/);
 });
 

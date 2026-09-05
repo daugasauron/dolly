@@ -355,10 +355,6 @@ fi
 if has_module cpp; then
   node scripts/build-source-tar.mjs dist/static/default/libcxx-headers.tar \
     "${project_dir}/.cache/emscripten/sysroot/include/c++/v1" /usr/include/c++/v1
-  copy_static "${project_dir}/src/runtimes/libcxx-hash-dolly.c" default/runtimes/libcxx-hash-dolly.c
-  copy_static "${project_dir}/src/runtimes/libcxx-misc-dolly.c" default/runtimes/libcxx-misc-dolly.c
-  copy_static "${project_dir}/src/runtimes/libcxx-new-dolly.c" default/runtimes/libcxx-new-dolly.c
-  copy_static "${project_dir}/src/runtimes/libcxx-string-dolly.c" default/runtimes/libcxx-string-dolly.c
   copy_static "${emscripten_system_dir}/system/lib/libcxx/LICENSE.TXT" default/licenses/libcxx
   copy_static "${emscripten_system_dir}/system/lib/libcxxabi/LICENSE.TXT" default/licenses/libcxxabi
 fi

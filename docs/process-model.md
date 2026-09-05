@@ -109,6 +109,15 @@ sysroot therefore uses the pinned Emscripten musl libc in standalone mode, with
 translates them into `dolly_process_0.call`; the resulting executable does not
 import WASI. This is bootstrap input, not a permanent Emscripten loader ABI.
 
+The same SDK supplies genuine pinned libc++/libc++abi archives. `c++`, explicit
+`-lc++`/`-lc++abi`, and their `-Wl,` forms select that one process runtime, even
+when linking C++ objects with `cc`. A process hosting DSOs exports the runtime;
+its libraries import it instead of creating another allocator or exception
+state. `modules/cpp.dm` installs the matching headers and declares these actual
+archives. Resident kernel plugins have no C++ runtime: freestanding C++ can
+compile, but remaining imports must fit the kernel ABI and requesting process
+C++ libraries explicitly fails.
+
 The target is eventually named `wasm64-dolly`. Conventional programs compile
 against libc and the sysroot, not against browser APIs or the kernel's internal
 filesystem structures. Unchanged upstream configuration should see a serial,

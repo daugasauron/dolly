@@ -17,6 +17,8 @@ if (process.argv.includes("stdin")) {
   });
   process.stdin.resume();
 } else {
+  equal(await new Promise(resolve => setTimeout(() => resolve(42), 0)), 42,
+    "last timer may queue a top-level await continuation");
   const base = process.argv[2];
   const expected = await (await fetch(`${base}/fixture/utf8-reference`)).json();
   equal(decoderCases(TextDecoder), expected, "TextDecoder reference cases");
@@ -70,4 +72,6 @@ if (process.argv.includes("stdin")) {
   equal(result.content[0].text, "あ😀��", "Pi interleaved pipes and both EOF flushes");
   if (!updates.includes("あ") || !updates.includes("あ😀")) throw new Error("UTF8: Pi did not stream completed characters");
   console.log(`UTF8-OK: ${expected.length} decoder cases, HTTP, Node streams, Pi pipes, binary writes`);
+  process.exitCode = 1;
+  setTimeout(() => Promise.resolve().then(() => { process.exitCode = 0; }), 0);
 }

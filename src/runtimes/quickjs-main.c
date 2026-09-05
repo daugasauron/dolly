@@ -1712,7 +1712,9 @@ static int await_value(JSContext *context, JSValue *value) {
         JS_ThrowInternalError(context, "Janis event pump failed");
         return -1;
       }
-      if (active > 0) continue;
+      /* The last timer or HTTP completion can queue jobs without live handles. */
+      if (active > 0 || JS_IsJobPending(JS_GetRuntime(context)) ||
+          JS_PromiseState(context, *value) != JS_PROMISE_PENDING) continue;
       JS_FreeValue(context, *value);
       *value = JS_EXCEPTION;
       JS_ThrowInternalError(
@@ -1771,7 +1773,7 @@ static int evaluate(JSContext *context, const char *source, size_t length,
     const int active = pump_janis(context);
     if (janis_exit_requested) return janis_exit_status;
     if (active < 0) return 1;
-    if (active == 0) break;
+    if (active == 0 && !JS_IsJobPending(JS_GetRuntime(context))) break;
   }
   return process_exit_code(context);
 }
