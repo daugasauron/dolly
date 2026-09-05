@@ -2126,6 +2126,7 @@ int main(int argc, char **argv) {
       break browserProof;
     }
     if (sessionMode) {
+      const sessionOrigin = new URL(interactivePage).origin;
       const initialState = await waitForValue(
         debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -2205,7 +2206,7 @@ int main(int argc, char **argv) {
       }
 
       await debuggerClient.send("Page.navigate", {
-        url: `${localOrigin}${browserBase}session/browser-proof`,
+        url: `${sessionOrigin}${browserBase}session/browser-proof`,
       });
       const restoredState = await waitForValue(
         debuggerClient.send,
@@ -2259,7 +2260,7 @@ int main(int argc, char **argv) {
         "Ctrl+Shift+S session resave",
         3600,
       ), "saved");
-      await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/` });
+      await debuggerClient.send("Page.navigate", { url: `${sessionOrigin}${browserBase}session/` });
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.sessionsStatus ?? ''",
         (value) => value === "ready" || value === "failed", "saved session list", 100), "ready");
@@ -2306,12 +2307,12 @@ int main(int argc, char **argv) {
         await store.saveStoredSession({ ...good, name: "broken-data", encoding: "identity", bytes: new ArrayBuffer(16) });
       })()`);
       for (const name of ["wrong-base", "broken-data", "missing-session"]) {
-        await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/${name}` });
+        await debuggerClient.send("Page.navigate", { url: `${sessionOrigin}${browserBase}session/${name}` });
         assert.equal(await waitForValue(debuggerClient.send,
           "document.documentElement?.dataset.dollyStatus ?? ''",
           (value) => value === "ready" || value === "failed", `rejected session ${name}`, 1200), "failed");
       }
-      await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/` });
+      await debuggerClient.send("Page.navigate", { url: `${sessionOrigin}${browserBase}session/` });
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.sessionsStatus ?? ''",
         (value) => value === "ready" || value === "failed", "retained saved records", 100), "ready");
@@ -2320,7 +2321,7 @@ int main(int argc, char **argv) {
       assert.equal(await evaluate(debuggerClient.send,
         "[...document.querySelectorAll('#sessions a')].some(link => link.textContent === 'wrong-base')"), false);
       // Legacy bookmarks resolve to the canonical path without query params.
-      await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}load/?session=browser-proof` });
+      await debuggerClient.send("Page.navigate", { url: `${sessionOrigin}${browserBase}load/?session=browser-proof` });
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         (value) => value === "ready" || value === "failed", "legacy session redirect", 1200), "ready");

@@ -56,6 +56,7 @@ runtime, source commit, and acceptance results. `scripts/build.sh` deletes the s
 before replacement succeeds; overlapping browser and artifact-dependent tests
 have failed during local rebuilds. This is not a finding that the audited public
 site was stale. Stage a verified versioned artifact and publish atomically;
+the unit must include browser sources, HTML/routes and recipes as well as `dist`.
 check the binding in `.github/workflows/pages.yml`. **Acceptance:** interrupted builds keep
 the last good app; mixed/stale/tampered artifacts fail packaging/deployment;
 all five packaged routes pass before promotion.
@@ -150,11 +151,19 @@ as did the additional Python+Pi child/HTTP cancellation check
 The actual app on port 9000 also passed all five image inventories, Pi streaming
 and tools, libcurl, Janis children/cancellation, and the Python C++ extension
 (`build/overnight-port9000-*.log`; the final boundary/libcurl logs use `checked`).
+Named save/load also passed against port 9000 and the normal fixture origin
+(`build/overnight-port9000-checked-session.log`, `build/overnight-checked-local-session.log`).
+The test previously navigated to the fixture origin after saving on the app
+origin; it now keeps session navigation on the app origin.
 The harness now supplies CORS for its selected external test app and rejects
 unknown modes before launching Chrome. Earlier `overnight-main-*-route`,
-`overnight-main-pi`, and unchecked boundary failures were fixture-origin failures,
+`overnight-main-pi`, and unchecked boundary failures were fixture-harness failures,
 not evidence of a production-policy defect. Use `DOLLY_BROWSER_PAGE` with the app
 root URL; the harness appends the selected image route.
+Use a named mode for external-app tests: the generic full-page path still selects
+the local snapshot URL while granting clipboard access to the external origin.
+The ad-hoc external gamedev full-page run failed at that test permission mismatch
+(`build/overnight-final-port9000-gamedev.log`); local gamedev passed.
 The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
