@@ -1052,13 +1052,13 @@ const fixturePolicy = {
       methods: ["POST"],
     },
     {
-      origin: new URL(interactivePage).origin,
+      origin: localOrigin,
       pathPrefix: "/fixture/pi/",
       methods: ["POST"],
       credentialHeaders: ["authorization"],
     },
     {
-      origin: new URL(interactivePage).origin,
+      origin: localOrigin,
       pathPrefix: "/fixture/",
       methods: ["GET", "POST"],
     },
