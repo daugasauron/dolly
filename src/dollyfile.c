@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 
 #include <ctype.h>
 #include <dirent.h>
@@ -14,6 +15,7 @@
 #include <dolly/http.h>
 #include <dolly/runtime.h>
 #include "sha256.h"
+#include "fs-record.h"
 
 enum {
   MAX_RECIPE_BYTES = 128 * 1024,
@@ -731,11 +733,11 @@ static int collect_paths(char ***paths, size_t *count, size_t *capacity,
   if (forbidden_keep(path)) return -EPERM;
   struct stat metadata;
   if (lstat(path, &metadata) != 0) return -errno;
-  if (S_ISREG(metadata.st_mode)) {
-    if (*count >= MAX_MANIFEST_FILES) return -E2BIG;
-    return append_string(paths, count, capacity, path);
-  }
-  if (!S_ISDIR(metadata.st_mode)) return -EINVAL;
+  if (!S_ISREG(metadata.st_mode) && !S_ISDIR(metadata.st_mode) &&
+      !S_ISLNK(metadata.st_mode)) return -EINVAL;
+  if (*count >= MAX_MANIFEST_FILES) return -E2BIG;
+  const int retained = append_string(paths, count, capacity, path);
+  if (retained != 0 || !S_ISDIR(metadata.st_mode)) return retained;
   DIR *directory = opendir(path);
   if (directory == NULL) return -errno;
   struct dirent *entry;
@@ -914,62 +916,21 @@ static size_t append_u64(Buffer *buffer, uint64_t value) {
   return append_buffer(bytes, sizeof(bytes), buffer);
 }
 
-static int collect_layer_paths(char ***paths, size_t *count, size_t *capacity,
-                               const char *path) {
-  struct stat metadata;
-  if (lstat(path, &metadata) != 0) return -errno;
-  if (S_ISREG(metadata.st_mode)) {
-    return append_string(paths, count, capacity, path);
-  }
-  if (!S_ISDIR(metadata.st_mode)) return -EINVAL;
-  DIR *directory = opendir(path);
-  if (directory == NULL) return -errno;
-  struct dirent *entry;
-  int result = 0;
-  while (result == 0 && (entry = readdir(directory)) != NULL) {
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
-    const size_t length = strlen(path) + strlen(entry->d_name) + 2;
-    char *child = malloc(length);
-    if (child == NULL) {
-      result = -ENOMEM;
-      break;
-    }
-    snprintf(child, length, "%s/%s", path, entry->d_name);
-    result = collect_layer_paths(paths, count, capacity, child);
-    free(child);
-  }
-  if (closedir(directory) != 0 && result == 0) result = -errno;
-  return result;
-}
-
-static int append_layer_file(Buffer *layer, const char *path) {
-  struct stat metadata;
-  if (stat(path, &metadata) != 0) return -errno;
-  if (!S_ISREG(metadata.st_mode) || metadata.st_size < 0 ||
-      (uint64_t)metadata.st_size > MAX_SOURCE_BYTES || strlen(path) > UINT32_MAX) {
+static int append_layer_record(Buffer *layer, const char *path) {
+  dolly_fs_record record = {.path = (char *)path};
+  if (dolly_fs_metadata(path, &record.kind, &record.size) != 0) return -errno;
+  if (record.size > MAX_SOURCE_BYTES || !dolly_fs_valid_path(path)) {
     return -EINVAL;
   }
-  if (append_u32(layer, (uint32_t)strlen(path)) != 4 ||
-      append_u64(layer, (uint64_t)metadata.st_size) != 8 ||
+  if (append_u32(layer, record.kind) != 4 ||
+      append_u32(layer, (uint32_t)strlen(path)) != 4 ||
+      append_u64(layer, record.size) != 8 ||
       append_buffer(path, strlen(path), layer) != strlen(path)) return -EFBIG;
-  int descriptor = open(path, O_RDONLY);
-  if (descriptor < 0) return -errno;
-  unsigned char bytes[64 * 1024];
-  int result = 0;
-  for (;;) {
-    const ssize_t size = read(descriptor, bytes, sizeof(bytes));
-    if (size < 0) {
-      result = -errno;
-      break;
-    }
-    if (size == 0) break;
-    if (append_buffer(bytes, (size_t)size, layer) != (size_t)size) {
-      result = -EFBIG;
-      break;
-    }
-  }
-  if (close(descriptor) != 0 && result == 0) result = -errno;
-  return result;
+  int result = buffer_reserve(layer, record.size);
+  if (result != 0) return result;
+  if (dolly_fs_read_data(&record, layer->data + layer->length) != 0) return -errno;
+  layer->length += record.size;
+  return 0;
 }
 
 static int write_module_layer(Engine *engine, const Scope *exports,
@@ -980,7 +941,7 @@ static int write_module_layer(Engine *engine, const Scope *exports,
   size_t capacity = 0;
   int result = 0;
   for (size_t index = keep_start; result == 0 && index < engine->keep_count; ++index) {
-    result = collect_layer_paths(&paths, &count, &capacity, engine->keep[index]);
+    result = append_string(&paths, &count, &capacity, engine->keep[index]);
   }
   for (size_t index = 0; result == 0 && index < exports->count; ++index) {
     const Object *object = &exports->items[index];
@@ -991,8 +952,8 @@ static int write_module_layer(Engine *engine, const Scope *exports,
     }
     for (size_t member = 0;
          result == 0 && member < object->members->count; ++member) {
-      result = collect_layer_paths(&paths, &count, &capacity,
-                                   object->members->items[member]);
+      result = append_string(&paths, &count, &capacity,
+                              object->members->items[member]);
     }
   }
   if (result == 0 && count > MAX_MANIFEST_FILES) result = -E2BIG;
@@ -1012,11 +973,11 @@ static int write_module_layer(Engine *engine, const Scope *exports,
   static const unsigned char magic[8] = {'D', 'O', 'L', 'L', 'Y', 'L', 'Y', 'R'};
   if (result == 0 &&
       (append_buffer(magic, sizeof(magic), &layer) != sizeof(magic) ||
-       append_u32(&layer, 1) != 4 || append_u32(&layer, (uint32_t)count) != 4)) {
+       append_u32(&layer, 2) != 4 || append_u32(&layer, (uint32_t)count) != 4)) {
     result = -EFBIG;
   }
   for (size_t index = 0; result == 0 && index < count; ++index) {
-    result = append_layer_file(&layer, paths[index]);
+    result = append_layer_record(&layer, paths[index]);
   }
   char *output = NULL;
   if (result == 0) {
@@ -1026,7 +987,7 @@ static int write_module_layer(Engine *engine, const Scope *exports,
   if (result == 0) result = mkdir_parents(output, 0);
   if (result == 0) result = dolly_write_file(output, layer.data, layer.length);
   if (result == 0) {
-    printf("dollyfile: saved module layer %s (%zu files, %zu bytes)\n",
+    printf("dollyfile: saved module layer %s (%zu paths, %zu bytes)\n",
            key, count, layer.length);
   }
   free(output);
@@ -1081,16 +1042,11 @@ static int restore_module_layer(const char key[65]) {
   uint32_t count = 0;
   if (take_layer_bytes(&cursor, end, 8, &actual_magic) != 0 ||
       memcmp(actual_magic, magic, 8) != 0 ||
-      take_layer_u32(&cursor, end, &version) != 0 || version != 1 ||
+      take_layer_u32(&cursor, end, &version) != 0 || version != 2 ||
       take_layer_u32(&cursor, end, &count) != 0 || count > MAX_MANIFEST_FILES) {
     result = -EINVAL;
   }
-  typedef struct {
-    char *path;
-    const unsigned char *data;
-    size_t length;
-  } LayerEntry;
-  LayerEntry *entries = result == 0 && count != 0
+  dolly_fs_record *entries = result == 0 && count != 0
                             ? calloc(count, sizeof(*entries))
                             : NULL;
   if (result == 0 && count != 0 && entries == NULL) result = -ENOMEM;
@@ -1100,7 +1056,9 @@ static int restore_module_layer(const char key[65]) {
     uint64_t data_length = 0;
     const unsigned char *path_bytes;
     const unsigned char *data;
-    if (take_layer_u32(&cursor, end, &path_length) != 0 || path_length == 0 ||
+    if (take_layer_u32(&cursor, end, &entries[index].kind) != 0 ||
+        entries[index].kind < DOLLY_FS_DIRECTORY || entries[index].kind > DOLLY_FS_SYMLINK ||
+        take_layer_u32(&cursor, end, &path_length) != 0 || path_length == 0 ||
         path_length > 4096 || take_layer_u64(&cursor, end, &data_length) != 0 ||
         data_length > MAX_SOURCE_BYTES ||
         take_layer_bytes(&cursor, end, path_length, &path_bytes) != 0 ||
@@ -1116,7 +1074,7 @@ static int restore_module_layer(const char key[65]) {
     memcpy(entries[index].path, path_bytes, path_length);
     entries[index].path[path_length] = '\0';
     entries[index].data = data;
-    entries[index].length = (size_t)data_length;
+    entries[index].size = (uintptr_t)data_length;
     if (strlen(entries[index].path) != path_length ||
         !valid_absolute_path(entries[index].path) ||
         forbidden_keep(entries[index].path) ||
@@ -1126,15 +1084,11 @@ static int restore_module_layer(const char key[65]) {
     previous = entries[index].path;
   }
   if (result == 0 && cursor != end) result = -EINVAL;
-  for (uint32_t index = 0; result == 0 && index < count; ++index) {
-    result = mkdir_parents(entries[index].path, 0);
-    if (result == 0) {
-      result = dolly_write_file(entries[index].path,
-                                entries[index].data, entries[index].length);
-    }
-  }
+  if (result == 0 && dolly_fs_restore(entries, count, 1) != 0) result = -errno;
   if (result == 0) printf("dollyfile: restored module layer %s\n", key);
-  for (uint32_t index = 0; index < count; ++index) free(entries[index].path);
+  if (entries != NULL) {
+    for (uint32_t index = 0; index < count; ++index) free(entries[index].path);
+  }
   free(entries);
   free(layer.data);
   return result;
@@ -1903,17 +1857,6 @@ static int write_environment_file(Engine *engine) {
 }
 
 static int write_control_files(Engine *engine) {
-  if (engine->entry_count == 0 || engine->selected_image == NULL) {
-    fprintf(stderr, "dollyfile: selected image has no ENTRY\n");
-    return 1;
-  }
-  struct stat entry_metadata;
-  if (stat(engine->entry[0], &entry_metadata) != 0 ||
-      !S_ISREG(entry_metadata.st_mode)) {
-    fprintf(stderr, "dollyfile: ENTRY is missing or not a file: %s\n",
-            engine->entry[0]);
-    return 1;
-  }
   int status = mkdir_parents("/etc/dolly/recipes", 1);
   if (status != 0) {
     fprintf(stderr, "dollyfile: could not create recipe directory: %s\n",
@@ -2022,13 +1965,35 @@ static int write_control_files(Engine *engine) {
 }
 
 static int seal_manifest(Engine *engine) {
+  if (engine->entry_count == 0 || engine->selected_image == NULL) {
+    fprintf(stderr, "dollyfile: selected image has no ENTRY\n");
+    return 1;
+  }
+  struct stat entry_metadata;
+  if (stat(engine->entry[0], &entry_metadata) != 0 || !S_ISREG(entry_metadata.st_mode)) {
+    fprintf(stderr, "dollyfile: ENTRY is missing or not a file: %s\n", engine->entry[0]);
+    return 1;
+  }
+  qsort(engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings);
+  const char *entry = engine->entry[0];
+  char *resolved_entry = realpath(entry, NULL);
+  const int retained = resolved_entry != NULL &&
+      bsearch(&entry, engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings) != NULL &&
+      bsearch(&resolved_entry, engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings) != NULL;
+  free(resolved_entry);
+  if (!retained) {
+    fprintf(stderr, "dollyfile: ENTRY and its target must be retained by module exports: %s\n", entry);
+    return 1;
+  }
   if (write_control_files(engine) != 0) return 1;
   qsort(engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings);
   Buffer manifest = {.limit = 8 * 1024 * 1024};
   for (size_t index = 0; index < engine->keep_count; ++index) {
     struct stat metadata;
-    if (stat(engine->keep[index], &metadata) != 0 || !S_ISREG(metadata.st_mode)) {
-      fprintf(stderr, "dollyfile: KEEP input is missing or not a file: %s\n",
+    if (!dolly_fs_valid_path(engine->keep[index]) || strpbrk(engine->keep[index], "\\\r\n") != NULL ||
+        lstat(engine->keep[index], &metadata) != 0 ||
+        (!S_ISREG(metadata.st_mode) && !S_ISDIR(metadata.st_mode) && !S_ISLNK(metadata.st_mode))) {
+      fprintf(stderr, "dollyfile: retained input is missing or has an unsupported path kind: %s\n",
               engine->keep[index]);
       free(manifest.data);
       return 1;
@@ -2045,7 +2010,7 @@ static int seal_manifest(Engine *engine) {
                                       manifest.data, manifest.length);
   free(manifest.data);
   if (status != 0) return 1;
-  printf("dollyfile: image %s complete; retained %zu files\n",
+  printf("dollyfile: image %s complete; retained %zu paths\n",
          engine->selected_image, engine->keep_count);
   return 0;
 }

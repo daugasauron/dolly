@@ -1,4 +1,6 @@
 import { Buffer } from "node:buffer";
+import { parseWasmInterface } from "../src/wasm-interface.mjs";
+import { validateProcessInterface } from "../src/process-abi.mjs";
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const maximumSnapshotBytes = 512 * 1024 * 1024;
@@ -7,7 +9,7 @@ export function decodeSystemSnapshot(input) {
   const bytes = Buffer.isBuffer(input) ? input : Buffer.from(input);
   if (bytes.length < 16 || bytes.length > maximumSnapshotBytes ||
       bytes.subarray(0, 8).toString("ascii") !== "DOLLYSNP" ||
-      bytes.readUInt32LE(8) !== 1) {
+      bytes.readUInt32LE(8) !== 2) {
     throw new Error("invalid Dolly system snapshot header");
   }
   const count = bytes.readUInt32LE(12);
@@ -16,14 +18,20 @@ export function decodeSystemSnapshot(input) {
   }
   let offset = 16;
   const files = new Map();
+  const entries = new Map();
+  const directories = new Set(["/"]);
+  let previousPath;
   for (let index = 0; index < count; index += 1) {
-    if (offset > bytes.length - 12) {
+    if (offset > bytes.length - 16) {
       throw new Error("Dolly system snapshot record header is truncated");
     }
-    const pathLength = bytes.readUInt32LE(offset);
-    const dataLength64 = bytes.readBigUInt64LE(offset + 4);
-    offset += 12;
-    if (pathLength === 0 || pathLength > 4096 ||
+    const kind = bytes.readUInt32LE(offset);
+    const pathLength = bytes.readUInt32LE(offset + 4);
+    const dataLength64 = bytes.readBigUInt64LE(offset + 8);
+    offset += 16;
+    if (kind < 1 || kind > 3 || pathLength < 2 || pathLength >= 4096 ||
+        (kind === 1 && dataLength64 !== 0n) ||
+        (kind === 3 && (dataLength64 === 0n || dataLength64 >= 4096n)) ||
         dataLength64 > BigInt(maximumSnapshotBytes)) {
       throw new Error("Dolly system snapshot record has invalid lengths");
     }
@@ -31,23 +39,73 @@ export function decodeSystemSnapshot(input) {
     if (offset > bytes.length - pathLength - dataLength) {
       throw new Error("Dolly system snapshot record is truncated");
     }
-    const path = decoder.decode(bytes.subarray(offset, offset + pathLength));
+    const pathBytes = bytes.subarray(offset, offset + pathLength);
+    const path = decoder.decode(pathBytes);
     offset += pathLength;
-    if (!path.startsWith("/") || files.has(path)) {
+    if (!path.startsWith("/") || /[\0\\\r\n]/.test(path) ||
+        path.slice(1).split("/").some(part => !part || part === "." || part === "..") ||
+        (previousPath && Buffer.compare(previousPath, pathBytes) >= 0)) {
       throw new Error(`invalid Dolly system snapshot path ${path}`);
     }
-    files.set(path, bytes.subarray(offset, offset + dataLength));
+    previousPath = pathBytes;
+    const data = bytes.subarray(offset, offset + dataLength);
+    if (kind === 3 && data.includes(0)) throw new Error(`invalid symlink target at ${path}`);
+    entries.set(path, { kind, data });
+    if (kind === 2) files.set(path, data);
+    if (kind === 1) directories.add(path);
+    for (let slash = path.indexOf("/", 1); slash !== -1; slash = path.indexOf("/", slash + 1)) {
+      directories.add(path.slice(0, slash));
+    }
     offset += dataLength;
   }
   if (offset !== bytes.length) {
     throw new Error("Dolly system snapshot has trailing bytes");
   }
-  const manifest = [...files.keys()];
-  const sorted = [...manifest].sort();
-  if (JSON.stringify(manifest) !== JSON.stringify(sorted)) {
-    throw new Error("Dolly system snapshot records are not sorted by path");
+  for (const path of directories) {
+    if (entries.has(path) && entries.get(path).kind !== 1) {
+      throw new Error(`snapshot parent is not a directory: ${path}`);
+    }
   }
-  return { files, manifest };
+  return { files, entries, directories, manifest: [...entries.keys()] };
+}
+
+// Resolve against retained records only, never the packaging machine's files.
+export function resolveSnapshotFile(snapshot, path) {
+  if (!path.startsWith("/") || path.includes("\0")) throw new Error("invalid snapshot file path");
+  let pending = path.split("/");
+  const resolved = [];
+  let links = 0;
+  while (pending.length) {
+    const part = pending.shift();
+    if (!part || part === ".") continue;
+    if (part === "..") { resolved.pop(); continue; }
+    const current = "/" + [...resolved, part].join("/");
+    const record = snapshot.entries.get(current);
+    if (record?.kind === 3) {
+      if (++links > 40) throw new Error(`snapshot symlink loop: ${path}`);
+      const target = decoder.decode(record.data);
+      if (target.startsWith("/")) resolved.length = 0;
+      pending = [...target.split("/"), ...pending];
+      continue;
+    }
+    if (pending.length && !snapshot.directories.has(current)) {
+      throw new Error(`snapshot parent is missing or not a directory: ${current}`);
+    }
+    if (!pending.length && record?.kind !== 2) {
+      throw new Error(`snapshot file is not retained: ${current}`);
+    }
+    resolved.push(part);
+  }
+  const record = snapshot.entries.get("/" + resolved.join("/"));
+  if (record?.kind !== 2) throw new Error(`snapshot file is not retained: ${path}`);
+  return record.data;
+}
+
+export function validateSnapshotEntry(snapshot, contract, digest) {
+  const entry = decodeSnapshotEntry(snapshot.files.get("/etc/dolly/entry"));
+  validateProcessInterface(contract,
+    parseWasmInterface(resolveSnapshotFile(snapshot, entry[0]), entry[0]), digest);
+  return entry;
 }
 
 export function decodeSnapshotEntry(bytes) {
@@ -71,7 +129,9 @@ export function decodeSnapshotEntry(bytes) {
     if (length === 0 || length > 4096 || offset > input.length - length) {
       throw new Error("snapshot ENTRY has an invalid argument");
     }
-    entry.push(decoder.decode(input.subarray(offset, offset + length)));
+    const argument = decoder.decode(input.subarray(offset, offset + length));
+    if (argument.includes("\0")) throw new Error("snapshot ENTRY has a NUL argument");
+    entry.push(argument);
     offset += length;
   }
   if (offset !== input.length || !entry[0].startsWith("/")) {

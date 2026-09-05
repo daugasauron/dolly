@@ -1,5 +1,6 @@
 #include "session-snapshot.h"
 #include "sha256.h"
+#include "fs-record.h"
 
 #include <dirent.h>
 #include <emscripten/atomic.h>
@@ -24,10 +25,10 @@ enum {
   DOLLY_SESSION_NAME_CAPACITY = 128,
   DOLLY_SESSION_MAILBOX_HEADER_SIZE = 64,
   DOLLY_SESSION_TRANSFER_CAPACITY = 1024 * 1024,
-  DOLLY_SESSION_DIRECTORY = 1,
-  DOLLY_SESSION_FILE = 2,
-  DOLLY_SESSION_SYMLINK = 3,
-  DOLLY_SESSION_DELETED = 4,
+  DOLLY_SESSION_DIRECTORY = DOLLY_FS_DIRECTORY,
+  DOLLY_SESSION_FILE = DOLLY_FS_FILE,
+  DOLLY_SESSION_SYMLINK = DOLLY_FS_SYMLINK,
+  DOLLY_SESSION_DELETED = DOLLY_FS_DELETED,
 };
 
 static const uintptr_t DOLLY_SESSION_MAX_SIZE =
@@ -160,7 +161,7 @@ static int valid_path_bytes(const unsigned char *path, uint32_t length) {
     return 0;
   }
   for (uint32_t index = 0; index < length; ++index) {
-    if (path[index] == '\0' || path[index] == '\\' || path[index] == '\r' ||
+    if (path[index] == '\0' ||
         (path[index] == '/' && index + 1 < length && path[index + 1] == '/')) {
       return 0;
     }
@@ -439,77 +440,6 @@ static int capture_filesystem(void) {
   return 0;
 }
 
-static int remove_tree(const char *path) {
-  struct stat metadata = {0};
-  if (lstat(path, &metadata) != 0) return errno == ENOENT ? 0 : -1;
-  if (!S_ISDIR(metadata.st_mode)) return unlink(path);
-  DIR *directory = opendir(path);
-  if (directory == NULL) return -1;
-  int result = 0;
-  for (;;) {
-    errno = 0;
-    struct dirent *entry = readdir(directory);
-    if (entry == NULL) {
-      if (errno != 0) result = -1;
-      break;
-    }
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-      continue;
-    }
-    char child[PATH_MAX];
-    if (snprintf(child, sizeof(child), "%s/%s", path, entry->d_name) >=
-        (int)sizeof(child) || remove_tree(child) != 0) {
-      if (errno == 0) errno = ENAMETOOLONG;
-      result = -1;
-      break;
-    }
-  }
-  const int saved_error = errno;
-  if (closedir(directory) != 0 && result == 0) result = -1;
-  if (result == 0) result = rmdir(path);
-  if (result != 0) errno = saved_error == 0 ? EIO : saved_error;
-  return result;
-}
-
-// Never follow an existing symlink ancestor while removing a delta path.
-static int existing_parents_are_directories(const char *path) {
-  char copy[PATH_MAX];
-  strcpy(copy, path);
-  for (char *cursor = copy + 1; *cursor != '\0'; ++cursor) {
-    if (*cursor != '/') continue;
-    *cursor = '\0';
-    struct stat metadata;
-    if (lstat(copy, &metadata) != 0 || !S_ISDIR(metadata.st_mode)) return 0;
-    *cursor = '/';
-  }
-  return 1;
-}
-
-static int make_parent_directories(const char *path) {
-  char copy[PATH_MAX];
-  const size_t length = strlen(path);
-  if (length >= sizeof(copy)) {
-    errno = ENAMETOOLONG;
-    return -1;
-  }
-  memcpy(copy, path, length + 1);
-  for (char *cursor = copy + 1; *cursor != '\0'; ++cursor) {
-    if (*cursor != '/') continue;
-    *cursor = '\0';
-    struct stat metadata = {0};
-    if (lstat(copy, &metadata) == 0) {
-      if (!S_ISDIR(metadata.st_mode)) {
-        errno = ENOTDIR;
-        return -1;
-      }
-    } else if (errno != ENOENT || mkdir(copy, 0755) != 0) {
-      return -1;
-    }
-    *cursor = '/';
-  }
-  return 0;
-}
-
 static int write_session_marker(const char *name) {
   (void)mkdir("/home", 0755);
   (void)mkdir("/home/dolly", 0755);
@@ -588,12 +518,7 @@ uintptr_t dolly_session_restore_address(uintptr_t size) {
   return (uintptr_t)restore_bytes;
 }
 
-typedef struct {
-  char *path;
-  uint32_t kind;
-  uintptr_t size;
-  const unsigned char *data;
-} restore_record;
+typedef dolly_fs_record restore_record;
 
 static int restore_filesystem(uintptr_t size) {
   if (!base_ready || restore_bytes == NULL || size < DOLLY_SESSION_HEADER_SIZE ||
@@ -636,59 +561,7 @@ static int restore_filesystem(uintptr_t size) {
   }
   if (cursor != end) goto done;
 
-  // Validate the final parent graph before touching files. Every parent is
-  // either an explicit directory record or an unchanged base directory.
-  for (uint32_t index = 0; index < count; ++index) {
-    if (records[index].kind == DOLLY_SESSION_DELETED) continue;
-    char path[PATH_MAX];
-    strcpy(path, records[index].path);
-    for (char *slash = path + 1; *slash != '\0'; ++slash) {
-      if (*slash != '/') continue;
-      *slash = '\0';
-      size_t low = 0, high = count;
-      while (low < high) {
-        size_t middle = low + (high - low) / 2;
-        if (strcmp(records[middle].path, path) < 0) low = middle + 1;
-        else high = middle;
-      }
-      if (low < count && strcmp(records[low].path, path) == 0) {
-        if (records[low].kind != DOLLY_SESSION_DIRECTORY) goto done;
-      } else {
-        struct stat metadata;
-        if (lstat(path, &metadata) != 0 || !S_ISDIR(metadata.st_mode)) goto done;
-      }
-      *slash = '/';
-    }
-  }
-
-  // Remove children first, including old file/symlink types being replaced.
-  for (size_t index = count; index != 0; --index) {
-    restore_record *record = &records[index - 1];
-    if (!existing_parents_are_directories(record->path)) continue;
-    struct stat metadata;
-    if (record->kind == DOLLY_SESSION_DIRECTORY &&
-        lstat(record->path, &metadata) == 0 && S_ISDIR(metadata.st_mode)) continue;
-    if (remove_tree(record->path) != 0) goto done;
-  }
-  for (uint32_t index = 0; index < count; ++index) {
-    restore_record *record = &records[index];
-    if (record->kind == DOLLY_SESSION_DELETED) continue;
-    if (make_parent_directories(record->path) != 0) goto done;
-    if (record->kind == DOLLY_SESSION_DIRECTORY) {
-      if (mkdir(record->path, 0755) != 0 && errno != EEXIST) goto done;
-    } else if (record->kind == DOLLY_SESSION_FILE) {
-      int descriptor = open(record->path, O_WRONLY | O_CREAT | O_TRUNC, 0777);
-      if (descriptor < 0) goto done;
-      int write_status = write_exact(descriptor, record->data, record->size);
-      int close_status = close(descriptor);
-      if (write_status != 0 || close_status != 0) goto done;
-    } else {
-      char target[PATH_MAX];
-      memcpy(target, record->data, record->size);
-      target[record->size] = '\0';
-      if (symlink(target, record->path) != 0) goto done;
-    }
-  }
+  if (dolly_fs_restore(records, count, 0) != 0) goto done;
   result = 0;
 done:
   for (uint32_t index = 0; index < count; ++index) free(records[index].path);

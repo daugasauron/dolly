@@ -303,7 +303,7 @@ async function loadPackagedSnapshotMetadata(image) {
   const modules = expectedModules(image);
   if (metadata === null || typeof metadata !== "object" ||
       metadata.image !== image || metadata.buildId !== DOLLY_BUILD_ID ||
-      metadata.formatVersion !== 1 || metadata.identityVersion !== 2 ||
+      metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
       JSON.stringify(metadata.modules) !== JSON.stringify(modules) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
@@ -317,13 +317,12 @@ async function loadPackagedSnapshotMetadata(image) {
       metadata.manifest.length > 100_000) {
     throw new Error("The packaged system snapshot metadata does not match this Dolly build");
   }
-  let previous = "";
   let manifestBytes = 0;
+  // The Wasm reader validates ordering by UTF-8 bytes, not JS UTF-16 strings.
   for (const path of metadata.manifest) {
-    if (!validSnapshotPath(path) || path <= previous) {
+    if (!validSnapshotPath(path)) {
       throw new Error("The packaged system snapshot has an invalid retained-path manifest");
     }
-    previous = path;
     manifestBytes += encoder.encode(path).byteLength + 1;
   }
   if (manifestBytes > 8 * 1024 * 1024) {

@@ -3,33 +3,28 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { copyFile, open, rm, stat } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, stat } from "node:fs/promises";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { discoverImageDefinitions } from "./image-definitions.mjs";
+import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 
-const projectDir = resolve(import.meta.dirname, "..");
-const definitions = await discoverImageDefinitions(projectDir);
-const image = process.env.DOLLY_SNAPSHOT_IMAGE;
-if (image === undefined || !definitions.some((definition) => definition.image === image)) {
-  throw new Error(
-    "set DOLLY_SNAPSHOT_IMAGE to one source-visible image before checking reproducibility",
-  );
-}
-
-const snapshot = resolve(projectDir, `dist/dolly-${image}-system.snapshot`);
-const first = resolve(
-  projectDir,
-  `dist/.dolly-${image}-reproducibility.${process.pid}.snapshot`,
-);
-
-function build() {
+function build({ projectDir, image, output, profile, port, state }) {
   return new Promise((resolveBuild, reject) => {
-    const child = spawn(process.execPath, [
-      resolve(projectDir, "scripts/build-system-snapshot.mjs"),
-    ], {
+    // Always launch a browser build. Its server hides packaged snapshots;
+    // only this owned profile can supply optional module-cache inputs.
+    const child = spawn(resolve(projectDir, "scripts/test-browser.sh"), [], {
       cwd: projectDir,
-      env: { ...process.env, DOLLY_SNAPSHOT_IMAGE: image },
+      env: {
+        ...process.env,
+        DOLLY_IMAGE: image,
+        DOLLY_BROWSER_MODE: "snapshot-unpackaged",
+        DOLLY_SNAPSHOT_OUTPUT: output,
+        DOLLY_BROWSER_PROFILE: profile,
+        DOLLY_BROWSER_PORT: String(port),
+        DOLLY_EXPECT_CACHE_STATE: state,
+      },
       stdio: "inherit",
     });
     child.once("error", reject);
@@ -74,34 +69,43 @@ async function firstDifference(leftPath, rightPath, size) {
   }
 }
 
-await rm(first, { force: true });
-try {
-  await build();
-  await copyFile(snapshot, first);
-  const firstStat = await stat(first);
-  const firstDigest = await sha256(first);
-  console.log(
-    `dolly: first ${image} rebuild is ${firstStat.size} bytes (${firstDigest})`,
-  );
+export async function verifyReproducibility({ projectDir, image, runBuild = build }) {
+  const scratch = await mkdtemp(resolve(projectDir, "dist/.snapshot-repro-"));
+  const port = 20_000 + Number.parseInt(createHash("sha256").update(scratch).digest("hex").slice(0, 8), 16) % 20_000;
+  const first = resolve(scratch, "cold-1.snapshot");
+  try {
+    let baseline;
+    for (const [label, profileName, state] of [
+      ["cold-1", "profile-1", "cold"],
+      ["cold-2", "profile-2", "cold"],
+      ["cached", "profile-1", "warm"],
+    ]) {
+      const output = resolve(scratch, `${label}.snapshot`);
+      console.log(`dolly: running ${image} ${label} browser build`);
+      await runBuild({ projectDir, image, output, profile: resolve(scratch, profileName), port, state });
+      decodeSystemSnapshot(await readFile(output));
+      const current = { size: (await stat(output)).size, digest: await sha256(output) };
+      if (baseline && (baseline.size !== current.size || baseline.digest !== current.digest)) {
+        const offset = await firstDifference(first, output, Math.min(baseline.size, current.size));
+        throw new Error(`${image} ${label} snapshot differs from cold-1: ` +
+          `${baseline.size}/${baseline.digest} versus ${current.size}/${current.digest}; first differing byte ${offset}`);
+      }
+      baseline ??= current;
+      console.log(`dolly: ${label}: ${current.size} bytes (${current.digest})`);
+    }
+    console.log(`dolly: ${image}: two isolated cold builds and one cached build are byte-identical`);
+    return baseline;
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+}
 
-  await build();
-  const secondStat = await stat(snapshot);
-  const secondDigest = await sha256(snapshot);
-  if (firstStat.size !== secondStat.size) {
-    throw new Error(
-      `${image} snapshot is not reproducible: ${firstStat.size} versus ${secondStat.size} bytes`,
-    );
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const projectDir = resolve(import.meta.dirname, "..");
+  const definitions = await discoverImageDefinitions(projectDir);
+  const image = process.env.DOLLY_SNAPSHOT_IMAGE;
+  if (!definitions.some(definition => definition.image === image)) {
+    throw new Error("set DOLLY_SNAPSHOT_IMAGE to one source-visible image before checking reproducibility");
   }
-  if (firstDigest !== secondDigest) {
-    const offset = await firstDifference(first, snapshot, firstStat.size);
-    throw new Error(
-      `${image} snapshot is not reproducible: ${firstDigest} versus ${secondDigest}; ` +
-      `first differing byte ${offset}`,
-    );
-  }
-  console.log(
-    `dolly: two ${image} rebuilds are byte-identical (${firstStat.size} bytes, ${firstDigest})`,
-  );
-} finally {
-  await rm(first, { force: true });
+  await verifyReproducibility({ projectDir, image });
 }

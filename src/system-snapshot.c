@@ -1,4 +1,5 @@
 #include "system-snapshot.h"
+#include "fs-record.h"
 
 #include <emscripten/emscripten.h>
 
@@ -12,7 +13,7 @@
 #include <unistd.h>
 
 enum {
-  DOLLY_SNAPSHOT_VERSION = 1,
+  DOLLY_SNAPSHOT_VERSION = 2,
   DOLLY_SNAPSHOT_HEADER_SIZE = 16,
   DOLLY_SNAPSHOT_MAX_FILES = 100000,
   DOLLY_SNAPSHOT_MAX_MANIFEST_SIZE = 8 * 1024 * 1024,
@@ -52,18 +53,8 @@ static int forbidden_manifest_path(const char *path) {
 }
 
 static int valid_manifest_path(const char *path) {
-  if (path[0] != '/' || path[1] == '\0' || strlen(path) > 4096 ||
-      forbidden_manifest_path(path)) return 0;
-  for (const char *cursor = path; *cursor != '\0'; ++cursor) {
-    if (*cursor == '\\' || *cursor == '\r') return 0;
-    if (cursor[0] == '/' && cursor[1] == '/') return 0;
-    if (cursor[0] == '/' && cursor[1] == '.' &&
-        (cursor[2] == '/' || cursor[2] == '\0' ||
-         (cursor[2] == '.' && (cursor[3] == '/' || cursor[3] == '\0')))) {
-      return 0;
-    }
-  }
-  return 1;
+  return dolly_fs_valid_path(path) && strpbrk(path, "\\\r\n") == NULL &&
+         !forbidden_manifest_path(path);
 }
 
 // The selected Dollyfile compiler writes an exact, sorted list. Snapshot code
@@ -87,9 +78,15 @@ static int load_manifest(dolly_snapshot_manifest *manifest) {
     close(descriptor);
     return -1;
   }
-  if (read_exact(descriptor, (unsigned char *)manifest->storage, size) != 0 ||
-      close(descriptor) != 0) {
+  const int read_status = read_exact(descriptor, (unsigned char *)manifest->storage, size);
+  const int close_status = close(descriptor);
+  if (read_status != 0 || close_status != 0) {
     dispose_manifest(manifest);
+    return -1;
+  }
+  if (memchr(manifest->storage, 0, size) != NULL) {
+    dispose_manifest(manifest);
+    errno = EINVAL;
     return -1;
   }
   manifest->storage[size] = '\0';
@@ -205,45 +202,6 @@ static int read_exact(int descriptor, unsigned char *bytes, uintptr_t size) {
   return 0;
 }
 
-static int write_exact(int descriptor, const unsigned char *bytes,
-                       uintptr_t size) {
-  while (size != 0) {
-    ssize_t count = write(descriptor, bytes, size);
-    if (count < 0 && errno == EINTR) continue;
-    if (count <= 0) return -1;
-    bytes += (uintptr_t)count;
-    size -= (uintptr_t)count;
-  }
-  return 0;
-}
-
-static int make_parent_directories(const char *path) {
-  size_t length = strlen(path);
-  char *copy = malloc(length + 1);
-  if (copy == NULL) return -1;
-  memcpy(copy, path, length + 1);
-  for (char *cursor = copy + 1; *cursor != '\0'; ++cursor) {
-    if (*cursor != '/') continue;
-    *cursor = '\0';
-    struct stat metadata = {0};
-    if (stat(copy, &metadata) == 0) {
-      if (!S_ISDIR(metadata.st_mode)) {
-        free(copy);
-        errno = ENOTDIR;
-        return -1;
-      }
-    } else {
-      if (errno != ENOENT || mkdir(copy, 0755) != 0) {
-        free(copy);
-        return -1;
-      }
-    }
-    *cursor = '/';
-  }
-  free(copy);
-  return 0;
-}
-
 EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_snapshot_format_version(void) {
   return DOLLY_SNAPSHOT_VERSION;
@@ -292,12 +250,16 @@ int dolly_snapshot_restore_staged(uintptr_t size) {
   }
 
   int result = -1;
+  dolly_fs_record *records = calloc(file_count, sizeof(*records));
+  if (records == NULL) { dispose_manifest(&manifest); return -1; }
   for (uint32_t record = 0; record < file_count; ++record) {
     uint32_t path_length;
     uint64_t data_length_64;
     const unsigned char *path;
     const unsigned char *data;
-    if (take_u32(&cursor, end, &path_length) != 0 || path_length == 0 ||
+    if (take_u32(&cursor, end, &records[record].kind) != 0 ||
+        records[record].kind < DOLLY_FS_DIRECTORY || records[record].kind > DOLLY_FS_SYMLINK ||
+        take_u32(&cursor, end, &path_length) != 0 || path_length == 0 ||
         path_length > 4096 ||
         take_u64(&cursor, end, &data_length_64) != 0 ||
         data_length_64 > DOLLY_SNAPSHOT_MAX_SIZE ||
@@ -313,33 +275,18 @@ int dolly_snapshot_restore_staged(uintptr_t size) {
       goto done;
     }
 
-    char *path_string = malloc((size_t)path_length + 1);
-    if (path_string == NULL) goto done;
-    memcpy(path_string, path, path_length);
-    path_string[path_length] = '\0';
-    if (make_parent_directories(path_string) != 0) {
-      free(path_string);
-      goto done;
-    }
-    // Dolly has no permission model and the snapshot format deliberately does
-    // not serialize Unix mode bits. Restore regular files with execute bits as
-    // compatibility metadata so POSIX tools that preflight PATH candidates
-    // do not hide valid in-Wasm executables. The typed loader, not mode bits,
-    // remains the execution authority.
-    int descriptor = open(path_string, O_WRONLY | O_CREAT | O_TRUNC, 0777);
-    free(path_string);
-    if (descriptor < 0) goto done;
-    int write_status = write_exact(descriptor, data, (uintptr_t)data_length_64);
-    int close_status = close(descriptor);
-    if (write_status != 0 || close_status != 0) goto done;
+    records[record].path = manifest.paths[record];
+    records[record].data = data;
+    records[record].size = (uintptr_t)data_length_64;
   }
   if (cursor != end) {
     errno = EINVAL;
     goto done;
   }
-  result = 0;
+  result = dolly_fs_restore(records, file_count, 1);
 
 done:
+  free(records);
   dispose_manifest(&manifest);
   return result;
 }
@@ -353,24 +300,24 @@ int dolly_snapshot_capture(void) {
   }
   const size_t file_count = manifest.count;
   uintptr_t total = DOLLY_SNAPSHOT_HEADER_SIZE;
-  struct stat *metadata = calloc(file_count, sizeof(*metadata));
+  dolly_fs_record *metadata = calloc(file_count, sizeof(*metadata));
   if (metadata == NULL) {
     fprintf(stderr, "dolly: snapshot metadata allocation failed: %s\n", strerror(errno));
     dispose_manifest(&manifest);
     return 1;
   }
   for (size_t index = 0; index < file_count; ++index) {
-    if (stat(manifest.paths[index], &metadata[index]) != 0 ||
-        !S_ISREG(metadata[index].st_mode) || metadata[index].st_size < 0) {
+    metadata[index].path = manifest.paths[index];
+    if (dolly_fs_metadata(metadata[index].path, &metadata[index].kind, &metadata[index].size) != 0) {
       fprintf(stderr, "dolly: snapshot input is missing: %s\n", manifest.paths[index]);
       free(metadata);
       dispose_manifest(&manifest);
       return 1;
     }
     uintptr_t path_size = strlen(manifest.paths[index]);
-    if ((uint64_t)metadata[index].st_size > DOLLY_SNAPSHOT_MAX_SIZE ||
-        checked_add(&total, 12) != 0 || checked_add(&total, path_size) != 0 ||
-        checked_add(&total, (uintptr_t)metadata[index].st_size) != 0) {
+    if (metadata[index].size > DOLLY_SNAPSHOT_MAX_SIZE ||
+        checked_add(&total, 16) != 0 || checked_add(&total, path_size) != 0 ||
+        checked_add(&total, metadata[index].size) != 0) {
       fprintf(stderr, "dolly: system snapshot exceeds its size limit\n");
       free(metadata);
       dispose_manifest(&manifest);
@@ -395,22 +342,14 @@ int dolly_snapshot_capture(void) {
 
   for (size_t index = 0; index < file_count; ++index) {
     uint32_t path_size = (uint32_t)strlen(manifest.paths[index]);
-    uintptr_t data_size = (uintptr_t)metadata[index].st_size;
+    uintptr_t data_size = metadata[index].size;
+    put_u32(&cursor, metadata[index].kind);
     put_u32(&cursor, path_size);
     put_u64(&cursor, data_size);
     memcpy(cursor, manifest.paths[index], path_size);
     cursor += path_size;
-    int descriptor = open(manifest.paths[index], O_RDONLY);
-    if (descriptor < 0 || read_exact(descriptor, cursor, data_size) != 0) {
-      if (descriptor >= 0) close(descriptor);
+    if (dolly_fs_read_data(&metadata[index], cursor) != 0) {
       fprintf(stderr, "dolly: could not capture %s\n", manifest.paths[index]);
-      free(metadata);
-      dispose_manifest(&manifest);
-      return 1;
-    }
-    if (close(descriptor) != 0) {
-      fprintf(stderr, "dolly: could not close snapshot input %s: %s\n",
-              manifest.paths[index], strerror(errno));
       free(metadata);
       dispose_manifest(&manifest);
       return 1;

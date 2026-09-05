@@ -1,6 +1,6 @@
 # Remaining audit work — handoff
 
-Remaining work as of 2026-09-05. Completed findings have been removed; original
+Remaining work as of 2026-09-06. Completed findings have been removed; original
 audit IDs are retained for traceability. Read [AGENTS.md](../AGENTS.md) first.
 The broader direction remains in the [roadmap](roadmap.md).
 
@@ -113,15 +113,6 @@ Derive a supported-target install manifest from real builds; do not blindly
 delete foreign-named files. **Acceptance:** representative Zig, Ghostty, and user
 builds pass, with measured image/file-count/boot-memory reduction.
 
-**C5 — P2 — Sealing can omit ENTRY and loses filesystem kinds.** Source evidence
-in `src/dollyfile.c`, `src/system-snapshot.c`, and
-`scripts/build-system-snapshot.mjs`: ENTRY may exist during the build but not be
-retained; image/layer capture rejects or dereferences symlinks and drops empty
-directories. Session capture already has typed records. Share a small file,
-directory, symlink, and deletion model where appropriate; no permissions layer.
-**Acceptance:** retained ENTRY has valid executable ABI; missing entry fails
-sealing; image/layer/session round trips preserve supported path kinds.
-
 ### Builds, publication, and maintenance must be truthful
 
 **D1 — P1 — Clean bootstrap prerequisites are incomplete.** Source evidence:
@@ -132,14 +123,6 @@ Declare/build prerequisites and test from an isolated fresh cache, preserving
 the working cache. **Acceptance:** the documented procedure works without tools
 accidentally inherited from this workstation. A full clean toolchain build was
 not performed in the audit.
-
-**D2 — P1 — Reproducibility verification can compare one artifact to itself.**
-Reproduced: `scripts/verify-snapshot-reproducibility.mjs` reported two identical
-rebuilds in under a second after the builder returned “snapshot is current” twice.
-Distinguish up-to-date checking, isolated cold/cold reproducibility, and cold/cache
-equivalence. **Acceptance:** prove both claimed builds executed, isolate cache
-inputs, and fail on changed logical output. Do not cite the current command as
-independent reproducibility evidence.
 
 **D3 — P2 — C and JavaScript accept different Dollyfile languages.** Reproduced
 with unchanged C parsing: `SLOP "cc" input.c` and quoted CWD differ from JS.
@@ -186,14 +169,14 @@ caching on failure; correct its documentation instead of removing it by accident
 
 ## Suggested checkpoints and closure rules
 
-1. Resolve C5's system/layer path-kind limitations next. Normalize cold/prebuilt
-   filesystems (C3) before enabling named saves for rebuilt images.
+1. Normalize cold/prebuilt filesystems (C3) before enabling named saves for rebuilt
+   images. Preserve the typed system/layer/session restoration regressions.
 2. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
    mixing terminal UI events with child input. Resolve B7/B8 compatibility claims.
 3. Close C3/D3 before making image-size pruning in C4 authoritative. Remove D5
    duplication as the corresponding owner becomes clear.
 
-Fix D1/D2 before claiming clean/reproducible verification, and D4 before treating
+Fix D1 before claiming clean external-toolchain verification, and D4 before treating
 the next publication as a provenance-checked release. Update D6 alongside each
 affected change, not as an unrelated documentation rewrite.
 
@@ -205,12 +188,18 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 163 Node tests, the full Chrome suite, multilingual Pi
-streaming/tool round trips, and all five image boots passed. Build and test logs:
-`build/utf8-final-build.log`, `build/utf8-node-tests.log`,
-`build/utf8-browser-suite.log`, `build/utf8-pi-browser.log`, and
-`build/utf8-{python,gamedev}-route.log`. Existing release archives predate this
-checkpoint; none is a package of the latest changes.
+Latest local baseline: 173 Node tests and the full Chrome suite passed; all five
+images rebuilt with typed path records and validated ENTRY bytes. Logs:
+`build/c5-final-build.log`, `build/c5-node-tests.log`, and
+`build/c5-browser-suite.log`. The browser suite includes in-Wasm image/layer
+round trips, omitted-entry rejection, named sessions, Pi streaming, C++ and Zig.
+Existing release archives predate this checkpoint; none packages these changes.
+
+Default userspace reproducibility passed two independent cold browser builds
+and one cached build, with isolated owned profiles/outputs and no packaged-image
+inputs (`build/d2-browser-proof.log`). The old checker demonstrably skipped both
+builds (`build/d2-before.log`). This is not clean external-toolchain evidence or
+a claim that every extended image has independently passed the same comparison.
 
 Remaining-finding evidence includes `build/audit-2026-09-05.md`,
 `build/slop-pi-browser-under-load.log` (B9), and

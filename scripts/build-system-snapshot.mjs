@@ -12,10 +12,12 @@ import {
 } from "./image-definitions.mjs";
 import { loadDollyfileGraph, recipeRecords } from "./dollyfile-graph.mjs";
 import {
-  decodeSnapshotEntry,
+  validateSnapshotEntry,
   decodeSnapshotEnvironment,
   decodeSystemSnapshot,
 } from "./system-snapshot-format.mjs";
+import { readWasmInterface } from "./wasm-interface.mjs";
+import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const snapshotBrowserProfile = process.env.DOLLY_BROWSER_PROFILE ??
@@ -42,6 +44,7 @@ const images = requestedImage === undefined
   : [requestedImage];
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const { DOLLY_BUILD_ID } = await import("../dist/dolly-build-id.mjs");
+const processContract = await readWasmInterface(resolve(projectDir, "dist/dolly-process-0.wasm"));
 
 function digest(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -125,7 +128,11 @@ function verifySnapshotIdentity(image, parsed, recipes) {
       throw new Error(`snapshot environment does not match ENV ${exported.name}`);
     }
   }
-  return decodeSnapshotEntry(parsed.files.get("/etc/dolly/entry"));
+  const entry = validateSnapshotEntry(parsed, processContract, DOLLY_PROCESS_ABI_DIGEST);
+  if (JSON.stringify(entry) !== JSON.stringify(selectedRecipe.parsed.entry)) {
+    throw new Error("snapshot ENTRY does not match the selected recipe");
+  }
+  return entry;
 }
 
 async function buildImage(image) {
@@ -152,7 +159,7 @@ async function buildImage(image) {
         const entry = verifySnapshotIdentity(image, parsed, expectedRecipes(image));
         if (metadata?.image === image &&
             metadata.buildId === DOLLY_BUILD_ID &&
-            metadata.formatVersion === 1 && metadata.identityVersion === 2 &&
+            metadata.formatVersion === 2 && metadata.identityVersion === 2 &&
             JSON.stringify(metadata.recipes) === JSON.stringify(expectedRecipes(image)) &&
             JSON.stringify(metadata.modules) === JSON.stringify(expectedModules(image)) &&
             JSON.stringify(metadata.entry) === JSON.stringify(entry) &&
@@ -175,7 +182,7 @@ async function buildImage(image) {
       `export const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify({
         image,
         buildId: DOLLY_BUILD_ID,
-        formatVersion: 1,
+        formatVersion: 2,
         identityVersion: 2,
         recipes,
         modules: expectedModules(image),

@@ -276,7 +276,7 @@ test("the runtime implements the opaque system snapshot contract", async () => {
   assert.match(source, /DOLLY_SNAPSHOT_MAX_SIZE = \(uintptr_t\)512 \* 1024 \* 1024/);
   assert.match(source, /open\("\/etc\/dolly\/image\.manifest", O_RDONLY\)/);
   assert.match(source, /DOLLY_SNAPSHOT_MAX_FILES = 100000/);
-  assert.match(source, /O_WRONLY \| O_CREAT \| O_TRUNC, 0777/);
+  assert.match(source, /dolly_fs_restore\(records, file_count, 1\)/);
   assert.match(source, /forbidden_manifest_path/);
   assert.match(source, /"\/tmp", "\/workspace"/);
   assert.match(source, /"\/home\/dolly\/\.pi\/agent\/auth\.json"/);
@@ -316,7 +316,7 @@ test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
   assert.match(source, /"\/home\/dolly\/\.dolly-session-name"/);
   assert.match(source, /strcmp\(path, "\/dev"\)/);
   assert.match(source, /strcmp\(path, "\/seed"\)/);
-  assert.match(source, /O_WRONLY \| O_CREAT \| O_TRUNC, 0777/);
+  assert.match(source, /dolly_fs_restore\(records, count, 0\)/);
   assert.match(browser, /event\.code === "KeyS"/);
   assert.match(browser, /saveStoredSession/);
   assert.match(store, /indexedDB\.open/);

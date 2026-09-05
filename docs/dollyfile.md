@@ -151,9 +151,9 @@ Retention roots are explicit:
   every aggregate re-export is build-private and does not enter the image.
 - `FILE /path` retains that exact non-temporary file. `FILE /tmp/...` is an
   inline or generated build input and is intentionally discarded.
-- `FOLDER /path` freezes and retains the regular files below that directory at
-  that source position. Files created below it by a later module are not
-  silently absorbed.
+- `FOLDER /path` freezes that directory and its descendants at that source
+  position, including empty directories and symlinks without following them.
+  Paths created below it by a later module are not silently absorbed.
 - Dolly adds the selected recipe, every pinned module recipe, the recipe lock,
   image name, entry record, exported environment record, and the manifest
   itself.
@@ -163,6 +163,19 @@ captured by the producing module; they do not rescan or create a copy. An
 aggregate also removes child `ENV` values it did not re-export.
 Unexported compiler objects, extracted sources, and other build results
 disappear unless a non-temporary `FILE` or `FOLDER` explicitly keeps them.
+
+`ENTRY` does not implicitly retain an executable: its path and resolved target
+must belong to the image's retained outputs, or sealing fails. Packaging resolves
+the entry against the retained snapshot, not the build filesystem, and applies
+the same typed process-ABI validator as browser admission. This also rejects
+broken entry symlink chains and incompatible executables before publication.
+
+System snapshots and module-cache layers use envelope version 2 with records
+`kind:u32, path-length:u32, data-length:u64, path, data` (little-endian). Kinds are
+directory (1, no data), regular file (2), and symlink (3, raw target bytes).
+Session deltas share those kinds and add deletion (4). Restoration validates
+the complete sorted parent graph before writing and never follows an old
+symlink while replacing a path. No mode, timestamp, or permission model is added.
 
 There can therefore be more retained files than public exports, but never from
 implicit discovery. They come from private `FILE`/`FOLDER` declarations, fixed
@@ -209,8 +222,8 @@ quota-limited cache is a normal cold-build fallback. A layer is fully validated
 before any of its files are restored. Reads are bounded across all requested
 layers, and keys no longer referenced by any packaged image are removed. Module
 cache files are removed before the finished image snapshot and live shell start.
-A failed overall build does not publish layers completed earlier in that
-attempt.
+An overall build failure preserves already completed, validated module layers;
+unfinished module scratch is discarded.
 
 Interactive browsers retain this database for their normal origin. The
 headless snapshot builder uses a dedicated worktree-local Chrome profile under
@@ -226,6 +239,16 @@ packaged image against the current runtime ID and complete recipe identity,
 parses its environment/entry/manifest, and verifies its byte length and SHA-256.
 An exact match is already the requested output and is skipped. Set
 `DOLLY_FORCE_SNAPSHOT=1` to rebuild even a current image.
+
+`DOLLY_SNAPSHOT_IMAGE=default npm run snapshot:reproducible` is a different
+operation: it launches two builds with separate empty browser profiles, then
+reuses the first profile for a third, cached build. The test server does not
+serve packaged snapshots. Each run must export a fresh snapshot, the harness
+checks whether module restoration actually occurred, and all three byte streams
+must agree. Outputs and profiles are owned temporary files; the published image
+and normal development cache are neither inputs nor overwritten. This checks
+userspace rebuilding against the current external compiler seed, not a clean
+rebuild of the external toolchain itself.
 
 There is a second coarse packaged cache:
 

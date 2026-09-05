@@ -54,6 +54,7 @@ are tab-local; cold rebuilds currently produce a different baseline from prebuil
 boot. Both are rejected explicitly instead of producing an unreliable restore.
 
 Session persistence adds no Wasm import or path-level browser filesystem API.
-The review surface is `src/session-snapshot.c`, `src/session-transport.mjs`,
+The review surface is `src/session-snapshot.c`, the shared path restoration in
+`src/fs-record.h`, `src/session-transport.mjs`,
 `src/session-store.mjs`, and the boot/save call sites in the page and runtime worker.
 `env.dolly_http_dispatch` remains the sole intentional agent-selected network edge.

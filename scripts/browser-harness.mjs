@@ -38,6 +38,7 @@ const piDevelopmentMode = process.env.DOLLY_BROWSER_MODE === "pi";
 const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
 const boundaryMode = process.env.DOLLY_BROWSER_MODE === "boundary";
 const processAbiMode = process.env.DOLLY_BROWSER_MODE === "process-abi";
+const imageRetentionMode = process.env.DOLLY_BROWSER_MODE === "image-retention";
 const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
 const slopMode = ["slop", "slop-source"].includes(process.env.DOLLY_BROWSER_MODE);
 const utf8Mode = process.env.DOLLY_BROWSER_MODE === "utf8";
@@ -45,7 +46,8 @@ const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
 const missingSnapshotMode = process.env.DOLLY_BROWSER_MODE === "snapshot-missing";
-const snapshotExportMode = process.env.DOLLY_BROWSER_MODE === "snapshot-export";
+const unpackagedSnapshotMode = process.env.DOLLY_BROWSER_MODE === "snapshot-unpackaged";
+const snapshotExportMode = process.env.DOLLY_BROWSER_MODE === "snapshot-export" || unpackagedSnapshotMode;
 const pagesIsolationMode = ["pages-isolation", "session-pages"].includes(process.env.DOLLY_BROWSER_MODE);
 const pagesLiveMode = process.env.DOLLY_BROWSER_MODE === "pages-live";
 const menuMode = process.env.DOLLY_BROWSER_MODE === "menu";
@@ -177,6 +179,23 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const requestUrl = new URL(request.url, "http://127.0.0.1");
+      if (imageRetentionMode && requestUrl.pathname.startsWith("/fixture/")) {
+        const sources = {
+          "fs-record.h": "src/fs-record.h",
+          "fs-record.c": "test/fixtures/fs-record.c",
+          "image-roundtrip.c": "test/fixtures/image-roundtrip.c",
+          "system-snapshot.c": "src/system-snapshot.c",
+          "system-snapshot.h": "src/system-snapshot.h",
+          "dollyfile.c": "src/dollyfile.c",
+          "sha256.h": "src/sha256.h",
+        };
+        const source = sources[requestUrl.pathname.slice("/fixture/".length)];
+        if (source) {
+          response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+          response.end(await readFile(resolve(projectDir, source)));
+          return;
+        }
+      }
       if (utf8Mode && /^\/fixture\/utf8-(?:cases\.mjs|browser\.mjs|writer\.c)$/.test(requestUrl.pathname)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain; charset=utf-8" });
         response.end(await readFile(resolve(projectDir, "test/fixtures", requestUrl.pathname.split("/").at(-1))));
@@ -455,7 +474,8 @@ function startServer() {
           : requestUrl.pathname.startsWith(`${browserBasePrefix}/`)
             ? requestUrl.pathname.slice(browserBasePrefix.length)
             : null;
-      if (missingSnapshotMode &&
+      if ((unpackagedSnapshotMode && /^\/dist\/dolly-.+-system(?:\.snapshot(?:\.gz)?|-snapshot\.mjs)$/.test(staticPath)) ||
+          missingSnapshotMode &&
           (staticPath === "/dist/dolly-default-system.snapshot" ||
            staticPath === "/dist/dolly-default-system-snapshot.mjs")) {
         response.writeHead(404, isolatedHeaders).end("not found");
@@ -1075,8 +1095,12 @@ chrome = spawn(chromeBinary, [
         ? ""
         : `globalThis.DOLLY_HTTP_POLICY = ${JSON.stringify(fixturePolicy)};`}
       globalThis.__dollyIncompleteBootstrapPaints = 0;
+      globalThis.__dollyRestoredLayer = false;
       new MutationObserver(() => {
         const log = document.querySelector("#bootstrap-log");
+        if (log?.textContent.includes("dollyfile: restored module layer ")) {
+          globalThis.__dollyRestoredLayer = true;
+        }
         if (log && !log.hidden && log.textContent !== "" &&
             !log.textContent.endsWith("\\n")) {
           globalThis.__dollyIncompleteBootstrapPaints += 1;
@@ -1117,12 +1141,42 @@ chrome = spawn(chromeBinary, [
       : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode || boundaryMode || processAbiMode
+        || lifecycleProbeMode || boundaryMode || processAbiMode || imageRetentionMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (imageRetentionMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "image retention boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-image-retention";
+      assert.equal(await submit(`mkdir ${scratch}`), 0);
+      try {
+        for (const name of ["fs-record.h", "fs-record.c", "image-roundtrip.c", "system-snapshot.c",
+          "system-snapshot.h", "dollyfile.c", "sha256.h"]) {
+          assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/${name} -o ${scratch}/${name}`), 0);
+        }
+        for (const [name, source] of [["records", "fs-record.c"],
+          ["system", "image-roundtrip.c"], ["layer", "-DTEST_LAYER image-roundtrip.c"]]) {
+          assert.equal(await submit(`cd ${scratch} && cc -O0 -I. ${source} -o ${name}`), 0, `compile ${name}`);
+          assert.equal(await submit(`./${name} ${scratch}`), 0, `${name} preserves path kinds`);
+        }
+        assert.equal(await submit(`cc -O0 dollyfile.c -o dollyfile`), 0);
+        const entryRecipe = "DOLLY 2\nIMAGE entry-missing\nENTRY /bin/slop\n";
+        assert.equal(await submit(`printf %b ${shellQuote(entryRecipe.replaceAll("\n", "\\n"))} > ${scratch}/Dollyfile`), 0);
+        assert.equal(await submit(`./dollyfile FILE:${scratch}/Dollyfile ${localOrigin} 2> ${scratch}/entry-error`), 1);
+        assert.equal(await submit(`grep -q 'must be retained' ${scratch}/entry-error`), 0,
+          "an existing executable omitted from exports must fail sealing");
+      } finally {
+        await submit(`cd /workspace; rm -rf ${scratch}`);
+      }
+      console.log("browser: shared restore, system image and module layer preserve directories/files/symlinks; omitted ENTRY fails sealing");
+      break browserProof;
+    }
     if (utf8Mode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -2076,6 +2130,7 @@ int main(int argc, char **argv) {
           bootstrap,
           lines: bootstrap.split('\\n').length,
           incompletePaints: globalThis.__dollyIncompleteBootstrapPaints,
+          restoredLayer: globalThis.__dollyRestoredLayer,
         };
       })()`);
       assert.equal(evidence.mode, "rebuild");
@@ -2084,9 +2139,13 @@ int main(int argc, char **argv) {
       assert.ok(evidence.lines <= 41);
       assert.ok(evidence.bootstrap.length <= 8192);
       assert.equal(evidence.incompletePaints, 0);
+      if (unpackagedSnapshotMode) {
+        assert.equal(evidence.restoredLayer, process.env.DOLLY_EXPECT_CACHE_STATE === "warm",
+          "reproducibility run did not exercise its requested cold/cached path");
+      }
       assert.match(
         evidence.bootstrap,
-        new RegExp(`dollyfile: image ${selectedImage} complete; retained \\d+ files`),
+        new RegExp(`dollyfile: image ${selectedImage} complete; retained \\d+ paths`),
       );
       assert.match(evidence.bootstrap, /starting sandbox display/);
       if (process.env.DOLLY_EXPECT_MODULE_CACHE) {
