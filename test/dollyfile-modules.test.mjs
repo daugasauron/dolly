@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import test from "node:test";
 
 import {
@@ -14,6 +14,19 @@ import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+
+test("module-owned command sources have no divergent standalone copies", async () => {
+  const commands = new Set(await readdir(resolve(projectDir, "src/commands")));
+  for (const filename of await readdir(resolve(projectDir, "modules"))) {
+    if (!filename.endsWith(".dm")) continue;
+    const module = inspectDollyfile(await readFile(resolve(projectDir, "modules", filename), "utf8"), filename);
+    for (const file of module.files) {
+      if (!file.path.endsWith(".c")) continue;
+      assert.ok(!commands.has(basename(file.path)), `${filename}: ${file.path} duplicates src/commands/${basename(file.path)}`);
+    }
+  }
+});
+
 const imageSpecs = [
   {
     image: "default", filename: "Dollyfile",

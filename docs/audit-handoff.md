@@ -64,16 +64,22 @@ the workflow's actual shell check rejects changed bytes and malformed inputs
 (`build/d4-artifact-digest-tests.log`). This binds a selected archive, not its
 source/test provenance, and does not make the development build atomic.
 
-**D5 — P2/P3 — Duplication and misplaced image policy add complexity.** Source
-evidence: commands are duplicated inline in modules and in `src/commands`;
-`src/runtime-worker.mjs` knows Slop/Pi paths, startup/restart/recovery policy;
+**D5 — P2/P3 — Misplaced image policy adds complexity.** Source
+evidence: `src/runtime-worker.mjs` knows Slop/Pi paths, startup/restart/recovery policy;
 supervisor memory-size/reclamation-delay heuristics are not release guarantees;
 packaged-prefix cache matching had no useful strict-prefix pair among the five
-audited images; Bonnie hardcodes NumPy-specific build choices. Consolidate command
-sources, move image behavior to ordinary init/entry files, and retain heuristics
-or caches only with measured benefit. **Acceptance:** no divergent command copies;
-image-specific behavior does not require host edits; cache/lifecycle changes keep
+audited images; Bonnie hardcodes NumPy-specific build choices. Move image behavior
+to ordinary init/entry files, and retain heuristics
+or caches only with measured benefit. **Acceptance:** image-specific behavior
+does not require host edits; cache/lifecycle changes keep
 measured regressions covered; package policy is explicit rather than hidden.
+
+Seven unused standalone command files were removed, leaving the already-built
+module-owned sources canonical. Six were byte-identical; the old tar copy only
+added an unused feature-test define. No recipe or compiled program changed.
+The duplicate-source regression fails before removal and the full build plus
+181 Node tests pass afterward (`build/d5-duplicates-before.log`,
+`build/d5-cleanup-build.log`, `build/d1-d4-d5-d6-node-tests.log`).
 
 **D6 — P3 — Source provenance and remaining documentation drift.** Source evidence:
 some Git fetchers check HEAD but not dirty content.
@@ -113,7 +119,7 @@ dirty-source and documentation findings above remain open.
 2. Verify clean bootstrap prerequisites (D1), then coherent publication (D4).
    Preserve the shared process/filesystem regressions and terminal UI service
    independent of stdin consumption.
-3. Remove D5 duplication as the corresponding owner becomes clear. Keep the
+3. Remove D5 image-policy coupling as the corresponding owner becomes clear. Keep the
    positive Zig SDK manifest and its real compiler/Ghostty regressions intact.
 
 Fix D1 before claiming clean external-toolchain verification, and D4 before treating
@@ -128,9 +134,9 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 180 Node tests and the full Chrome suite passed; all five
+Latest local baseline: 181 Node tests and the full Chrome suite passed; all five
 images are current and their prebuilt routes passed. Logs:
-`build/d1-d6-build.log`, `build/d1-d4-d6-node-tests.log`,
+`build/d5-cleanup-build.log`, `build/d1-d4-d5-d6-node-tests.log`,
 `build/d1-d6-full-browser.log`, and `build/d1-d6-*-route.log`.
 The Python C++ extension also passed (`build/d1-d6-python-cpp-browser.log`),
 as did the additional Python+Pi child/HTTP cancellation check
