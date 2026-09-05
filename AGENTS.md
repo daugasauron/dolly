@@ -1,8 +1,12 @@
 # Goal
 
 Define a minimal but useful POSIX-like agent userspace interface for WebAssembly.
-The final goal is to run pi agent as natively as possible in a browser with the
-tools that coding agents actually need.
+The final goal is to run agents such as pi agent as natively as possible in a
+browser with the tools that coding agents actually need to be useful.
+
+A secondary but important goal is to define the actual API that and agent
+opeates in to be able to specialize it without considering how the backend (in
+this case the browser) is implemented.
 
 # Thesis
 
@@ -14,6 +18,21 @@ and lifecycle operations.
 The compile target for programs and runtimes inside the WebAssembly sandbox is
 the interface. Its Wasm imports, exports, data layout, pointer width, filesystem
 semantics, and lifecycle rules matter more than a high-level wrapper API.
+
+# Zen
+
+- **Every line of code is a maintenance burden**
+- This includes documentation, tests and comments.
+- Every line in this repo has to earn it's right to be there
+- Documentation rot
+- Removing code is a win
+- Never keep/add code that "might be useful in the future"
+- Simple is better than easy
+- Nothing is a fact until measured
+- Good code documents itself, extract functions and use variable names
+- Write grepable code
+- Avoid feature flags
+- **Development iteration speed is king. Long turnover kills projects.**
 
 # Hard constraints
 

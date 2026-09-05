@@ -2,3 +2,8 @@ build/
 dist/
 .cache/
 node_modules/
+
+# Local agent workflow, sessions, reports, and dated work notebooks.
+/.pi/
+/.pi-subagents/
+/work/
