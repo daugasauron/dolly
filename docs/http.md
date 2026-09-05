@@ -3,7 +3,7 @@
 ## One outer capability
 
 Programs do not import Fetch, sockets, DNS, or TLS. They call an in-Wasm C API,
-which eventually reaches this one main-module import:
+which eventually reaches this one kernel-module import:
 
 ```wat
 (import "env" "dolly_http_dispatch"

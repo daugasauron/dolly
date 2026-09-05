@@ -2241,5 +2241,10 @@ int main(int argc, char **argv) {
   dispose_scope(&exports);
   if (status == 0) status = seal_manifest(&engine);
   dispose_engine(&engine);
+  if (status < 0) {
+    fprintf(stderr, "dollyfile: execution failed: %s (%d)\n",
+            strerror(-status), status);
+    return 1;
+  }
   return status;
 }

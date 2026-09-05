@@ -30,12 +30,13 @@ FILE /tmp/git/Makefile
     .RECIPEPREFIX := >
     SOURCES := $(file </usr/src/git/dolly-sources.txt)
     OBJECTS := $(addprefix /tmp/git/objects/,$(SOURCES:.c=.o))
-    # Embedded Clang 6 can corrupt compiler-rt signatures and introduce libc
-    # imports while optimizing Git's large translation units. Keep this
-    # bootstrap build unoptimized until the in-Dolly compiler is replaced.
+    # Keep the bootstrap build unoptimized: Git has hundreds of translation
+    # units and this layer is optimized for deterministic browser cold-build
+    # latency rather than execution throughput.
     CPPFLAGS := \
       -O0 \
       -std=gnu99 \
+      -Wno-ignored-attributes \
       -D_DEFAULT_SOURCE \
       -DDOLLY \
       -Uatexit \

@@ -2,9 +2,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
-#include <dlfcn.h>
 #include <limits.h>
-#include <unistd.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -36,13 +34,20 @@
 
 #include <dolly/toolchain.h>
 
-#include "dolly-abi-digest.h"
+#include "dolly-kernel-plugin-abi-digest.h"
+#include "dolly-process-abi-digest.h"
 
 LLD_HAS_DRIVER(wasm)
 
 namespace {
 
-constexpr const char *kContractPath = "/usr/lib/dolly/dolly-0.wasm";
+constexpr const char *kKernelContractPath =
+    "/usr/lib/dolly/dolly-kernel-plugin-0.wasm";
+constexpr const char *kProcessSysroot = "/usr/lib/dolly/process";
+constexpr const char *kProcessDynamicProviderSymbols =
+    "/usr/lib/dolly/process/dynamic-provider.symbols";
+constexpr uint64_t kProcessInitialMemoryPages = 256;
+constexpr uint64_t kProcessMaximumMemoryPages = 131072;
 
 enum class DebugInfoKind {
   None,
@@ -55,13 +60,14 @@ struct DriverOptions {
   bool preprocess_only = false;
   bool dump_macros = false;
   bool linker_version = false;
+  bool print_search_dirs = false;
   bool dependency_output = false;
   bool include_system_dependencies = false;
   bool end_options = false;
-  bool edge_interrupt_safepoints = true;
   bool exceptions_disabled = false;
   bool optimization_selected = false;
   bool export_dynamic = false;
+  bool kernel_plugin = false;
   bool shared_library = false;
   bool standard_selected = false;
   DebugInfoKind debug_info = DebugInfoKind::None;
@@ -113,6 +119,11 @@ bool is_linker_option(const std::string &argument) {
   return starts_with(argument, "-L") || starts_with(argument, "-l");
 }
 
+bool is_implicit_process_runtime_library(const std::string &name) {
+  return name == "c" || name == "m" || name == "dl" || name == "rt" ||
+      name == "pthread";
+}
+
 std::string inferred_language(const std::string &path,
                               int default_language,
                               const std::string &forced_language) {
@@ -158,7 +169,10 @@ void print_help(const char *program, int driver_mode) {
       "  -c                 compile one source file without linking\n"
       "  -E                 preprocess one source file without compiling\n"
       "  -dM                print macro definitions in -E mode\n"
-      "  -shared            build a loadable Dolly shared object\n"
+      "  -P                 omit line markers from preprocessor output\n"
+      "  -shared            build a process-local shared object\n"
+      "  --dolly-kernel-plugin\n"
+      "                     build the explicitly privileged display plugin\n"
       "  -rdynamic          export command symbols for later shared objects\n"
       "  -o FILE            write the object or executable to FILE\n"
       "  -x c|c++           override source language\n"
@@ -169,15 +183,17 @@ void print_help(const char *program, int driver_mode) {
       "                     pass a preprocessing option\n"
       "  -funsigned-char    use unsigned plain char\n"
       "  -fdolly-runtime-interrupt-handler\n"
-      "                     use a runtime-owned interrupt poller instead of edge safepoints\n"
+      "                     mark a runtime that owns its interrupt polling\n"
       "  -fno-sanitize-coverage\n"
-      "                     omit Dolly edge safepoints from a support-library object\n"
+      "                     accepted for build-system compatibility\n"
+      "  -fexceptions       enable C++ exception throwing and catching\n"
       "  -fno-exceptions    compile C++ without exception throwing or catching\n"
       "  -fno-rtti          compile C++ without runtime type information\n"
       "  -Wall, -Wextra, -Werror, -Wno-NAME\n"
       "                     configure diagnostics\n"
       "  --help             display this help\n"
-      "  --version          display the embedded toolchain version\n",
+      "  --version          display the embedded toolchain version\n"
+      "  --print-search-dirs display target program and library search paths\n",
       program);
 }
 
@@ -203,14 +219,20 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       print_help(argv[0], driver_mode);
       return 1;
     } else if (argument == "--version") {
-      std::puts("dolly toolchain: Clang/LLD 24, wasm64-unknown-emscripten");
+      std::puts("dolly toolchain: Clang/LLD 24, wasm64-dolly-process");
       return 1;
+    } else if (argument == "--print-search-dirs") {
+      options.print_search_dirs = true;
     } else if (argument == "-c") {
       options.compile_only = true;
     } else if (argument == "-E") {
       options.preprocess_only = true;
     } else if (argument == "-dM") {
       options.dump_macros = true;
+    } else if (argument == "-P" || argument == "-v") {
+      // Both are cc1 spellings as well as public driver options. Meson uses
+      // -P for header probes and -v to discover the target include search.
+      options.frontend_options.push_back(argument);
     } else if (argument == "-MD" || argument == "-MMD") {
       options.dependency_output = true;
       options.include_system_dependencies = argument == "-MD";
@@ -222,6 +244,8 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
                              options.dependency_target)) return -1;
     } else if (argument == "-shared") {
       options.shared_library = true;
+    } else if (argument == "--dolly-kernel-plugin") {
+      options.kernel_plugin = true;
     } else if (argument == "-rdynamic") {
       options.export_dynamic = true;
     } else if (argument == "-o") {
@@ -230,6 +254,13 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       options.output = argument.substr(2);
     } else if (argument == "-x") {
       if (!take_option_value(argc, argv, index, "-x", options.forced_language)) return -1;
+      if (!is_language(options.forced_language)) {
+        std::fprintf(stderr, "%s: unsupported language: %s\n",
+                     argv[0], options.forced_language.c_str());
+        return -1;
+      }
+    } else if (starts_with(argument, "-x") && argument.size() > 2) {
+      options.forced_language = argument.substr(2);
       if (!is_language(options.forced_language)) {
         std::fprintf(stderr, "%s: unsupported language: %s\n",
                      argv[0], options.forced_language.c_str());
@@ -247,16 +278,18 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       // Clang's public driver spelling maps to this cc1/frontend spelling.
       options.frontend_options.push_back("-fno-signed-char");
     } else if (argument == "-fdolly-runtime-interrupt-handler") {
-      // Language runtimes with a native bytecode interrupt hook can unwind and
-      // release their own heap safely. Their hook must call
-      // dolly_interrupt_poll(); the target-level edge callback is omitted so
-      // it cannot longjmp past runtime cleanup first.
-      options.edge_interrupt_safepoints = false;
+      // Language runtimes can still use this explicit marker to document that
+      // they poll dolly_interrupt_poll() at their own safe boundaries. A
+      // private process is always forcibly cancellable by terminating its
+      // Worker, so ordinary code requires no compiler instrumentation.
     } else if (argument == "-fno-sanitize-coverage") {
-      // Runtime support archives are not executable commands and are linked
-      // into instrumented callers. Avoid multiplying compile time and object
-      // size by inserting a callback on every libc++ control-flow edge.
-      options.edge_interrupt_safepoints = false;
+      // Accepted because upstream support-library builds commonly state it.
+    } else if (argument == "-fexceptions" || argument == "-fcxx-exceptions") {
+      // Accept Clang's public positive spellings. Process-target C++ enables
+      // both frontend exception modes below; recording the option here keeps
+      // the usual last-option-wins driver behavior when build systems probe
+      // or state the default explicitly.
+      options.exceptions_disabled = false;
     } else if (argument == "-fno-exceptions") {
       // Emscripten's ordinary default is -fignore-exceptions. Bootstrap
       // libraries and build tools can opt into the smaller, explicit
@@ -264,6 +297,10 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       options.exceptions_disabled = true;
     } else if (argument == "-fno-rtti") {
       options.frontend_options.push_back("-fno-rtti");
+    } else if (argument == "-fpermissive") {
+      // GCC accepts this for downgraded C++ diagnostics; Clang deliberately
+      // accepts and ignores it. Mirror that compatibility at Dolly's driver
+      // boundary rather than forwarding an ignored driver-only flag to cc1.
     } else if (argument == "-fno-builtin") {
       // Some embedded LLVM library-call lowerings omit WebAssembly symbol
       // signatures. Callers may retain ordinary typed libc calls instead.
@@ -294,6 +331,12 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       // auto decision has no native terminal to query, so retain plain output.
     } else if (starts_with(argument, "-fvisibility=")) {
       options.frontend_options.push_back(argument);
+    } else if (argument == "-fvisibility-inlines-hidden") {
+      // C++ DSOs commonly hide inline definitions independently from the
+      // default symbol visibility. This is a real Clang frontend option (and
+      // is emitted by Meson for NumPy), so preserve it rather than treating it
+      // as an unknown driver-only spelling.
+      options.frontend_options.push_back(argument);
     } else if (argument == "-g" || argument == "-g2" || argument == "-g3") {
       // The embedded frontend is invoked as cc1, where the public driver
       // spelling `-g` is represented by explicit debug-info options.
@@ -320,10 +363,15 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
     } else if (argument == "-L" || argument == "-l") {
       std::string value;
       if (!take_option_value(argc, argv, index, argument.c_str(), value)) return -1;
-      options.inputs.push_back(argument + value);
+      if (argument == "-L" || !is_implicit_process_runtime_library(value)) {
+        options.inputs.push_back(argument + value);
+      }
     } else if ((starts_with(argument, "-L") || starts_with(argument, "-l")) &&
                argument.size() > 2) {
-      options.inputs.push_back(argument);
+      if (!starts_with(argument, "-l") ||
+          !is_implicit_process_runtime_library(argument.substr(2))) {
+        options.inputs.push_back(argument);
+      }
     } else if (starts_with(argument, "-Wl,")) {
       size_t begin = 4;
       while (begin <= argument.size()) {
@@ -333,6 +381,19 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
         // ELF sonames and as-needed have no meaning for Emscripten side modules.
         if (option == "--version" || option == "-v") {
           options.linker_version = true;
+        } else if (option == "--allow-shlib-undefined") {
+          // GNU ld applies this policy to unresolved references originating in
+          // shared libraries. WebAssembly side modules represent those
+          // references as dynamic imports; wasm-ld spells the corresponding
+          // policy --allow-undefined. Keep the familiar build-system surface
+          // at the target driver boundary instead of teaching every upstream
+          // Meson project about wasm-ld's spelling.
+          options.linker_options.push_back("--allow-undefined");
+        } else if (option == "--start-group" || option == "--end-group") {
+          // WebAssembly LLD rescans archive symbol tables without GNU ld's
+          // explicit group delimiters. Emscripten-compatible build systems
+          // still emit the markers, so consume them at the public driver
+          // boundary instead of forwarding unsupported no-ops to wasm-ld.
         } else if (!option.empty() && !starts_with(option, "-h") &&
             option != "--no-as-needed" && option != "--as-needed" &&
             option != "--no-undefined") {
@@ -414,47 +475,39 @@ bool run_frontend(const std::string &source, const std::string &language,
       "-target-feature", "+mutable-globals",
       "-target-feature", "+atomics",
       "-target-feature", "+bulk-memory",
+  });
+  if (!options.preprocess_only) {
+    arguments.insert(arguments.end(), {
+        "-target-feature", "+exception-handling",
+        "-target-feature", "+multivalue",
+        "-target-feature", "+reference-types",
+        "-exception-model=wasm",
+        "-mllvm", "-wasm-enable-eh",
+    });
+  }
+  arguments.insert(arguments.end(), {
       "-resource-dir", "/usr/lib/clang/24",
-      "-D", "main=dolly_main",
-      "-D", "exit=dolly_exit",
+  });
+  // A kernel plugin is the sole resident dynamic object. Only the two libc
+  // override points it actually uses are renamed; ordinary output targets the
+  // private process runtime and its process-local dynamic namespace.
+  if (options.kernel_plugin) {
+    arguments.insert(arguments.end(), {
       "-D", "fclose=dolly_fclose",
-      "-D", "system=dolly_system",
-      "-D", "popen=dolly_popen",
-      "-D", "pclose=dolly_pclose",
       "-D", "__assert_fail=dolly_assert_fail",
-      "-D", "atexit=dolly_atexit",
-      "-D", "chmod=dolly_chmod",
-      "-D", "umask=dolly_umask",
-      "-D", "getpass=dolly_getpass",
-      "-D", "getrandom=dolly_getrandom",
-      "-D", "isatty=dolly_isatty",
-      "-D", "fork=dolly_fork",
-      "-D", "execve=dolly_execve",
-      "-D", "execvp=dolly_execvp",
-      "-D", "execl=dolly_execl",
-      "-D", "execlp=dolly_execlp",
-      "-D", "waitpid=dolly_waitpid",
-      "-D", "wait=dolly_wait_any",
-      "-D", "kill=dolly_kill",
-      "-D", "setsid=dolly_setsid",
-      "-D", "getpgid=dolly_getpgid",
-      "-D", "tcgetpgrp=dolly_tcgetpgrp",
-      "-D", "alarm=dolly_alarm",
-      "-D", "sleep=dolly_sleep",
-      "-D", "setitimer=dolly_setitimer",
-      "-D", "select=dolly_select",
-      "-D", "_exit=dolly__exit",
-      "-D", "socket=dolly_socket",
-      "-D", "connect=dolly_connect",
-      "-D", "recv=dolly_recv",
-      "-D", "setsockopt=dolly_setsockopt",
-      "-D", "shutdown=dolly_shutdown",
-      "-D", "gethostbyname=dolly_gethostbyname",
-      "-D", "getservbyname=dolly_getservbyname",
+    });
+  } else {
+    // Emscripten's standalone libc carries non-functional dl* stubs. Keep
+    // upstream source unchanged while selecting Dolly's process-local dynamic
+    // namespace at the target compiler boundary.
+    arguments.insert(arguments.end(), {
       "-D", "dlopen=dolly_dlopen",
       "-D", "dlsym=dolly_dlsym",
       "-D", "dlerror=dolly_dlerror",
       "-D", "dlclose=dolly_dlclose",
+    });
+  }
+  arguments.insert(arguments.end(), {
       "-isysroot", "/",
       // Match the pinned Emscripten C++ driver's target include order. libc++
       // deliberately interposes wrappers such as stddef.h before Clang's
@@ -465,7 +518,7 @@ bool run_frontend(const std::string &source, const std::string &language,
       "-internal-isystem", "/usr/lib/clang/24/include",
       "-internal-isystem", "/usr/include/wasm64-emscripten",
       "-internal-isystem", "/usr/include",
-      "-fvisibility=hidden",
+      options.kernel_plugin ? "-fvisibility=hidden" : "-fvisibility=default",
       "-fgnuc-version=4.2.1",
       "-vectorize-loops",
       "-vectorize-slp",
@@ -477,45 +530,31 @@ bool run_frontend(const std::string &source, const std::string &language,
     // of process-global backend options.
     static bool backend_options_initialized = false;
     if (!backend_options_initialized) {
-      const char *backend_arguments[] = {
+      const std::vector<const char *> backend_arguments = {
           "dolly-cc",
           "-combiner-global-alias-analysis=false",
-          "-enable-emscripten-sjlj",
+          "-wasm-enable-sjlj",
+          "-wasm-use-legacy-eh=0",
+          "-wasm-enable-eh",
           "-disable-lsr",
       };
       llvm::cl::ParseCommandLineOptions(
-          sizeof(backend_arguments) / sizeof(backend_arguments[0]),
-          backend_arguments);
+          backend_arguments.size(), backend_arguments.data());
       backend_options_initialized = true;
     }
-  }
-  if (!options.preprocess_only && options.edge_interrupt_safepoints) {
-    // Browser Wasm cannot preempt a running function the way a kernel can.
-    // Edge callbacks are Dolly's target-level SIGINT safepoints, including
-    // loop backedges; the callback itself lives in the main runtime.
-    arguments.insert(arguments.end(), {
-        "-fsanitize-coverage-type=3",
-        "-fsanitize-coverage-trace-pc",
-        "-fsanitize-coverage-no-prune",
-    });
   }
   if (!options.optimization_selected) arguments.push_back("-O2");
   if (!options.standard_selected) {
     arguments.push_back(language == "c++" ? "-std=c++23" : "-std=c17");
   }
   if (language == "c++") {
-    // Dolly links a command-local libc++ built with hidden, strong target
-    // definitions. Keep libc++'s inline/template definitions hidden too, so
-    // wasm-ld does not turn weak default-visible definitions back into main-
-    // module imports as Emscripten SIDE_MODULE normally expects.
-    arguments.insert(arguments.end(), {
-        "-D", "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
-    });
+    // Process-target C++ deliberately retains libc++'s normal visibility
+    // annotations.  Header-defined implementation details are hidden and
+    // therefore stay in each DSO, while its public, out-of-line ABI remains
+    // unresolved for the single runtime provider owned by the executable.
     if (!options.exceptions_disabled) {
-      // Emscripten's default exception profile accepts throw/catch syntax but
-      // lowers it through the target's ignored-exception mode. Clang cc1 has
-      // no `-fno-exceptions` spelling: disabling means omitting this option.
-      arguments.push_back("-fignore-exceptions");
+      arguments.push_back("-fcxx-exceptions");
+      arguments.push_back("-fexceptions");
     }
   }
   if (!options.preprocess_only && options.debug_info != DebugInfoKind::None) {
@@ -575,7 +614,8 @@ bool run_frontend(const std::string &source, const std::string &language,
 bool link_side_module(const std::string &output,
                       const std::vector<std::string> &inputs,
                       const std::vector<std::string> &linker_options,
-                      bool export_dynamic, bool bind_defined_locally) {
+                      bool export_dynamic, bool bind_defined_locally,
+                      bool strip_debug) {
   std::vector<std::string> arguments = {
       "wasm-ld",
       "-o", output,
@@ -597,9 +637,9 @@ bool link_side_module(const std::string &output,
       "--extra-features=extended-const",
   };
   arguments.push_back(export_dynamic ? "--export-dynamic" : "--no-export-dynamic");
-  // A C++ command carries its pinned libc++ implementation. Without symbolic
-  // binding, wasm-ld keeps references to those default-visible definitions as
-  // preemptible dynamic imports, which would leak libc++ into dolly-0.
+  if (strip_debug) arguments.push_back("--strip-debug");
+  // A resident C++ plugin carries its pinned libc++ implementation. Bind its
+  // own definitions locally so they do not enlarge the kernel contract.
   if (bind_defined_locally) arguments.push_back("-Bsymbolic");
   arguments.push_back("-L/usr/lib");
   arguments.insert(arguments.end(), inputs.begin(), inputs.end());
@@ -614,187 +654,156 @@ bool link_side_module(const std::string &output,
   return result.retCode == 0 && result.canRunAgain;
 }
 
+bool link_process_executable(const std::string &output,
+                             const std::vector<std::string> &inputs,
+                             const std::vector<std::string> &linker_options,
+                             bool needs_cxx_runtime,
+                             bool export_dynamic,
+                             bool strip_debug) {
+  std::vector<std::string> arguments = {
+      "wasm-ld",
+      "-o", output,
+      "-Bstatic",
+      "--threads=1",
+      "--import-memory",
+      "--shared-memory",
+      "--export=__trap",
+      "--export=__stack_pointer",
+      "--export=__dolly_dso_allocate",
+      "--export-table",
+      "--growable-table",
+      // Match the conventional Linux soft stack limit. Real build systems and
+      // language runtimes routinely place buffers larger than WASI's tiny
+      // historical 64 KiB default on the stack.
+      "-z", "stack-size=8388608",
+      "--max-memory=8589934592",
+      "--initial-memory=16777216",
+      "--no-stack-first",
+      "--table-base=1",
+      "--global-base=1024",
+      "--extra-features=extended-const",
+      "-L/usr/lib",
+  };
+  arguments.push_back(export_dynamic ? "--export-dynamic"
+                                     : "--no-export-dynamic");
+  if (strip_debug) arguments.push_back("--strip-debug");
+  if (export_dynamic) {
+    auto symbols = llvm::MemoryBuffer::getFile(
+        kProcessDynamicProviderSymbols, false, false);
+    if (!symbols) {
+      std::fprintf(stderr,
+                   "dolly-cc: cannot read process runtime provider symbols: %s\n",
+                   symbols.getError().message().c_str());
+      return false;
+    }
+    size_t count = 0;
+    llvm::StringRef contents = symbols.get()->getBuffer();
+    while (!contents.empty()) {
+      auto [line, remainder] = contents.split('\n');
+      contents = remainder;
+      line = line.trim();
+      if (line.empty()) continue;
+      arguments.push_back("--export-if-defined=" + line.str());
+      count++;
+    }
+    if (count == 0) {
+      std::fputs("dolly-cc: process runtime provider symbol set is empty\n",
+                 stderr);
+      return false;
+    }
+  }
+  arguments.insert(arguments.end(), inputs.begin(), inputs.end());
+  arguments.insert(arguments.end(), {
+      "--whole-archive",
+      std::string(kProcessSysroot) + "/libdolly-process.a",
+      "--no-whole-archive",
+      std::string(kProcessSysroot) + "/crt1.o",
+      "-L" + std::string(kProcessSysroot),
+  });
+  arguments.insert(arguments.end(), {
+      "-lstandalonewasm-ww-memgrow",
+      "-lstubs",
+      "-lc-ww",
+      "-ldlmalloc-ww",
+      "-lclang_rt.builtins-wasmsjlj-ww",
+  });
+  if (needs_cxx_runtime || export_dynamic) {
+    // A process which hosts DSOs owns one C++ runtime for the complete
+    // address space. The provider symbol manifest above makes every public
+    // archive definition an explicit export root even when the executable
+    // itself is C (CPython is).
+    arguments.insert(arguments.end(), {
+        "-lc++-ww-wasmexcept",
+        "-lc++abi-ww-wasmexcept",
+    });
+  }
+  arguments.push_back("-lunwind-ww-wasmexcept");
+  arguments.insert(arguments.end(), linker_options.begin(), linker_options.end());
+  arguments.insert(arguments.end(), {
+      "-mwasm64",
+      "-mllvm", "-combiner-global-alias-analysis=false",
+      "-mllvm", "-wasm-enable-sjlj",
+      "-mllvm", "-wasm-use-legacy-eh=0",
+      "-mllvm", "-disable-lsr",
+      "-mllvm", "-wasm-enable-eh",
+  });
+  const std::vector<const char *> pointers = argument_pointers(arguments);
+  const lld::DriverDef driver = {lld::Flavor::Wasm, &lld::wasm::link};
+  const lld::Result result =
+      lld::lldMain(pointers, llvm::outs(), llvm::errs(), {driver});
+  return result.retCode == 0 && result.canRunAgain;
+}
+
+bool link_process_shared_object(const std::string &output,
+                                const std::vector<std::string> &inputs,
+                                const std::vector<std::string> &linker_options,
+                                bool strip_debug) {
+  std::vector<std::string> arguments = {
+      "wasm-ld",
+      "-o", output,
+      "-Bdynamic",
+      "--threads=1",
+      "--shared-memory",
+      "--no-check-features",
+      "--export=__wasm_call_ctors",
+      "--export-dynamic",
+      "--unresolved-symbols=import-dynamic",
+      "-shared",
+      // Dolly intentionally has no ELF-style symbol interposition. Bind a
+      // DSO's own definitions locally so template instantiations and other
+      // implementation details do not become imports from the executable.
+      // Truly undefined libc, Python, and C++ ABI symbols remain imports.
+      "-Bsymbolic",
+      "--stack-first",
+      "--max-memory=8589934592",
+      "--extra-features=extended-const",
+      "-L" + std::string(kProcessSysroot),
+      "-L/usr/lib",
+  };
+  if (strip_debug) arguments.push_back("--strip-debug");
+  arguments.insert(arguments.end(), inputs.begin(), inputs.end());
+  // Compiler builtins are implementation details of the DSO. libc, libc++,
+  // libc++abi, the allocator, and Dolly runtime symbols deliberately remain
+  // dynamic imports resolved from the owning -rdynamic process.  There must
+  // be exactly one instance of their mutable runtime state per process.
+  arguments.push_back("-lclang_rt.builtins-wasmsjlj-ww");
+  arguments.insert(arguments.end(), linker_options.begin(), linker_options.end());
+  arguments.insert(arguments.end(), {
+      "-mwasm64",
+      "-mllvm", "-combiner-global-alias-analysis=false",
+      "-mllvm", "-wasm-enable-sjlj",
+      "-mllvm", "-wasm-use-legacy-eh=0",
+      "-mllvm", "-disable-lsr",
+      "-mllvm", "-wasm-enable-eh",
+  });
+  const std::vector<const char *> pointers = argument_pointers(arguments);
+  const lld::DriverDef driver = {lld::Flavor::Wasm, &lld::wasm::link};
+  const lld::Result result =
+      lld::lldMain(pointers, llvm::outs(), llvm::errs(), {driver});
+  return result.retCode == 0 && result.canRunAgain;
+}
+
 bool load_wasm(const std::string &path, LoadedWasm &loaded);
-
-enum class EntryForm {
-  Missing,
-  NoArguments,
-  Arguments,
-  ArgumentsAndEnvironment,
-  Unsupported,
-};
-
-EntryForm object_entry_form(const std::string &path, std::string &entry_symbol) {
-  LoadedWasm loaded;
-  if (!load_wasm(path, loaded)) return EntryForm::Unsupported;
-
-  EntryForm result = EntryForm::Missing;
-  for (const llvm::object::SymbolRef &symbol : loaded.object->symbols()) {
-    llvm::Expected<llvm::StringRef> name = symbol.getName();
-    if (!name) {
-      llvm::consumeError(name.takeError());
-      return EntryForm::Unsupported;
-    }
-    const bool c_entry = *name == "dolly_main";
-    const bool cxx_entry = name->starts_with("_Z10dolly_main");
-    if (!c_entry && !cxx_entry) continue;
-
-    const llvm::object::WasmSymbol &wasm_symbol =
-        loaded.object->getWasmSymbol(symbol);
-    if (!wasm_symbol.isTypeFunction() || wasm_symbol.isUndefined() ||
-        wasm_symbol.Signature == nullptr) {
-      continue;
-    }
-    if (result != EntryForm::Missing) return EntryForm::Unsupported;
-
-    const llvm::wasm::WasmSignature &signature = *wasm_symbol.Signature;
-    if (signature.Returns.size() != 1 ||
-        signature.Returns[0] != llvm::wasm::ValType::I32) {
-      return EntryForm::Unsupported;
-    }
-    if (signature.Params.empty()) {
-      result = EntryForm::NoArguments;
-    } else if (signature.Params.size() == 2 &&
-               signature.Params[0] == llvm::wasm::ValType::I32 &&
-               signature.Params[1] == llvm::wasm::ValType::I64) {
-      result = EntryForm::Arguments;
-    } else if (signature.Params.size() == 3 &&
-               signature.Params[0] == llvm::wasm::ValType::I32 &&
-               signature.Params[1] == llvm::wasm::ValType::I64 &&
-               signature.Params[2] == llvm::wasm::ValType::I64) {
-      result = EntryForm::ArgumentsAndEnvironment;
-    } else {
-      return EntryForm::Unsupported;
-    }
-    entry_symbol = name->str();
-  }
-  return result;
-}
-
-EntryForm linked_entry_form(const std::vector<std::string> &inputs,
-                            std::string &entry_symbol) {
-  EntryForm result = EntryForm::Missing;
-  for (const std::string &input : inputs) {
-    if (!is_object(input)) continue;
-    std::string current_symbol;
-    const EntryForm current = object_entry_form(input, current_symbol);
-    if (current == EntryForm::Unsupported) return current;
-    if (current == EntryForm::Missing) continue;
-    if (result != EntryForm::Missing) return EntryForm::Unsupported;
-    result = current;
-    entry_symbol = std::move(current_symbol);
-  }
-  return result;
-}
-
-bool write_entry_wrapper(const std::string &path, EntryForm form,
-                         const std::string &entry_symbol) {
-  const char *parameters = nullptr;
-  const char *call = nullptr;
-  const char *environment = "";
-  switch (form) {
-    case EntryForm::NoArguments:
-      parameters = "void";
-      call = "(void)argc; (void)argv; return dolly_source_main();";
-      break;
-    case EntryForm::Arguments:
-      parameters = "int, char **";
-      call = "return dolly_source_main(argc, argv);";
-      break;
-    case EntryForm::ArgumentsAndEnvironment:
-      parameters = "int, char **, char **";
-      call = "return dolly_source_main(argc, argv, environ);";
-      environment = "extern char **environ;\n";
-      break;
-    default:
-      return false;
-  }
-
-  FILE *file = std::fopen(path.c_str(), "wb");
-  if (file == nullptr) return false;
-  bool ok = std::fprintf(
-                file,
-                "%sextern int dolly_source_main(%s) __asm__(\"%s\");\n"
-                "__attribute__((export_name(\"dolly_main\")))\n"
-                "int dolly_entry(int argc, char **argv) { %s }\n",
-                environment, parameters, entry_symbol.c_str(), call) >= 0;
-  if (std::fclose(file) != 0) ok = false;
-  if (!ok) std::remove(path.c_str());
-  return ok;
-}
-
-std::string entry_wrapper_key(EntryForm form, const std::string &entry_symbol) {
-  return std::to_string(static_cast<int>(form)) + "\n" + entry_symbol;
-}
-
-std::map<std::string, std::vector<unsigned char>> entry_wrapper_objects;
-
-bool cache_entry_wrapper(EntryForm form, const char *entry_symbol,
-                         size_t index) {
-  const std::string source = temporary_path(0, index, "-entry-cache.c");
-  const std::string object = temporary_path(0, index, "-entry-cache.o");
-  std::remove(source.c_str());
-  std::remove(object.c_str());
-  DriverOptions options;
-  options.edge_interrupt_safepoints = false;
-  const bool compiled =
-      write_entry_wrapper(source, form, entry_symbol) &&
-      run_frontend(source, "c", object, options);
-  std::remove(source.c_str());
-  if (!compiled) {
-    std::remove(object.c_str());
-    return false;
-  }
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer =
-      llvm::MemoryBuffer::getFile(object);
-  std::remove(object.c_str());
-  if (!buffer) return false;
-  const llvm::StringRef bytes = buffer.get()->getBuffer();
-  entry_wrapper_objects.emplace(
-      entry_wrapper_key(form, entry_symbol),
-      std::vector<unsigned char>(bytes.bytes_begin(), bytes.bytes_end()));
-  return true;
-}
-
-bool initialize_entry_wrapper_objects() {
-  static bool initialized = false;
-  if (initialized) return true;
-  struct WrapperDefinition {
-    EntryForm form;
-    const char *c_symbol;
-    const char *cxx_symbol;
-  };
-  static constexpr WrapperDefinition definitions[] = {
-      {EntryForm::NoArguments, "dolly_main", "_Z10dolly_mainv"},
-      {EntryForm::Arguments, "dolly_main", "_Z10dolly_mainiPPc"},
-      {EntryForm::ArgumentsAndEnvironment, "dolly_main",
-       "_Z10dolly_mainiPPcS0_"},
-  };
-  size_t index = 0;
-  for (const WrapperDefinition &definition : definitions) {
-    if (!cache_entry_wrapper(definition.form, definition.c_symbol, index++) ||
-        !cache_entry_wrapper(definition.form, definition.cxx_symbol, index++)) {
-      entry_wrapper_objects.clear();
-      return false;
-    }
-  }
-  initialized = true;
-  return true;
-}
-
-bool write_cached_entry_wrapper(const std::string &path, EntryForm form,
-                                const std::string &entry_symbol) {
-  const auto found = entry_wrapper_objects.find(
-      entry_wrapper_key(form, entry_symbol));
-  if (found == entry_wrapper_objects.end()) return false;
-  FILE *file = std::fopen(path.c_str(), "wb");
-  if (file == nullptr) return false;
-  const std::vector<unsigned char> &bytes = found->second;
-  bool ok = std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
-  if (std::fclose(file) != 0) ok = false;
-  if (!ok) std::remove(path.c_str());
-  return ok;
-}
 
 std::string error_text(llvm::Error error) {
   std::string text;
@@ -851,7 +860,8 @@ class WasmByteReader {
 
 bool is_callable_value_type(uint8_t type) {
   return type == 0x7f || type == 0x7e || type == 0x7d || type == 0x7c ||
-         type == 0x7b || type == 0x70 || type == 0x6f;
+         type == 0x7b || type == 0x70 || type == 0x6f || type == 0x69 ||
+         type == 0x74;
 }
 
 bool read_signature_vector(WasmByteReader &reader,
@@ -997,6 +1007,8 @@ const char *wat_value_type(uint8_t type) {
     case 0x7b: return "v128";
     case 0x70: return "funcref";
     case 0x6f: return "externref";
+    case 0x69: return "exnref";
+    case 0x74: return "nullexnref";
     default: return "unknown";
   }
 }
@@ -1270,7 +1282,8 @@ bool validate_side_module_loaded(const std::string &path,
       }
       if (supplied) continue;
       if (allow_unresolved_provider && entry.Module == "env") continue;
-      std::fprintf(stderr, "dolly-cc: import is outside dolly-0: %s.%s\n",
+      std::fprintf(stderr,
+                   "dolly-cc: import is outside the kernel-plugin contract: %s.%s\n",
                    entry.Module.str().c_str(), entry.Field.str().c_str());
       print_import_signature(command, entry);
       imports_valid = false;
@@ -1308,8 +1321,8 @@ bool validate_side_module_loaded(const std::string &path,
   return true;
 }
 
-bool has_contract_stamp_loaded(const std::string &path,
-                               const LoadedWasm &command);
+bool has_kernel_plugin_stamp_loaded(const std::string &path,
+                                    const LoadedWasm &plugin);
 
 bool load_needed_providers(const LoadedWasm &consumer,
                            const LoadedWasm &contract,
@@ -1326,7 +1339,7 @@ bool load_needed_providers(const LoadedWasm &consumer,
         !validate_side_module_loaded(
             path, contract, provider, false,
             providers.empty() ? nullptr : &providers, false) ||
-        !has_contract_stamp_loaded(path, provider)) {
+        !has_kernel_plugin_stamp_loaded(path, provider)) {
       std::fprintf(stderr, "dolly-cc: invalid needed library: %s\n",
                    path.c_str());
       return false;
@@ -1336,22 +1349,12 @@ bool load_needed_providers(const LoadedWasm &consumer,
   return true;
 }
 
-bool validate_command(const std::string &path) {
-  LoadedWasm contract;
-  LoadedWasm command;
-  std::vector<LoadedWasm> providers;
-  return load_wasm(kContractPath, contract) && load_wasm(path, command) &&
-         load_needed_providers(command, contract, providers) &&
-         validate_side_module_loaded(
-             path, contract, command, true,
-             providers.empty() ? nullptr : &providers, false);
-}
-
-bool validate_shared_object(const std::string &path) {
+bool validate_shared_object(const std::string &path,
+                            const char *contract_path) {
   LoadedWasm contract;
   LoadedWasm module;
   std::vector<LoadedWasm> providers;
-  if (!load_wasm(kContractPath, contract) || !load_wasm(path, module) ||
+  if (!load_wasm(contract_path, contract) || !load_wasm(path, module) ||
       !load_needed_providers(module, contract, providers)) {
     return false;
   }
@@ -1360,19 +1363,19 @@ bool validate_shared_object(const std::string &path) {
       providers.empty() ? nullptr : &providers, providers.empty());
 }
 
-bool has_contract_stamp_loaded(const std::string &path,
-                               const LoadedWasm &command) {
+bool has_kernel_plugin_stamp_loaded(const std::string &path,
+                                    const LoadedWasm &plugin) {
   size_t matches = 0;
-  for (const llvm::object::SectionRef &section : command.object->sections()) {
+  for (const llvm::object::SectionRef &section : plugin.object->sections()) {
     const llvm::object::WasmSection &wasm =
-        command.object->getWasmSection(section);
+        plugin.object->getWasmSection(section);
     if (wasm.Type != llvm::wasm::WASM_SEC_CUSTOM || wasm.Name != "dolly.abi") {
       continue;
     }
     matches++;
-    if (wasm.Content.size() != sizeof(DOLLY_ABI_DIGEST) ||
-        std::memcmp(wasm.Content.data(), DOLLY_ABI_DIGEST,
-                    sizeof(DOLLY_ABI_DIGEST)) != 0) {
+    if (wasm.Content.size() != sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST) ||
+        std::memcmp(wasm.Content.data(), DOLLY_KERNEL_PLUGIN_ABI_DIGEST,
+                    sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST)) != 0) {
       std::fprintf(stderr, "dolly-cc: %s has the wrong dolly.abi stamp\n",
                    path.c_str());
       return false;
@@ -1387,67 +1390,308 @@ bool has_contract_stamp_loaded(const std::string &path,
   return true;
 }
 
-bool has_contract_stamp(const std::string &path) {
-  LoadedWasm command;
-  return load_wasm(path, command) && has_contract_stamp_loaded(path, command);
+bool has_kernel_plugin_stamp(const std::string &path) {
+  LoadedWasm plugin;
+  return load_wasm(path, plugin) &&
+         has_kernel_plugin_stamp_loaded(path, plugin);
 }
 
-bool validate_executable(const std::string &path) {
-  LoadedWasm contract;
-  LoadedWasm command;
-  std::vector<LoadedWasm> providers;
-  return load_wasm(kContractPath, contract) && load_wasm(path, command) &&
-         load_needed_providers(command, contract, providers) &&
-         validate_side_module_loaded(
-             path, contract, command, true,
-             providers.empty() ? nullptr : &providers, false) &&
-         has_contract_stamp_loaded(path, command);
-}
-
-bool validate_stamped_shared_object(const std::string &path) {
-  LoadedWasm contract;
-  LoadedWasm module;
-  std::vector<LoadedWasm> providers;
-  if (!load_wasm(kContractPath, contract)) return false;
-  return load_wasm(path, module) &&
-         load_needed_providers(module, contract, providers) &&
-         validate_side_module_loaded(
-             path, contract, module, false,
-             providers.empty() ? nullptr : &providers, false) &&
-         has_contract_stamp_loaded(path, module);
-}
-
-bool preload_dependencies(const std::string &path) {
-  LoadedWasm contract;
-  LoadedWasm consumer;
-  std::vector<LoadedWasm> providers;
-  if (!load_wasm(kContractPath, contract) || !load_wasm(path, consumer) ||
-      !load_needed_providers(consumer, contract, providers)) {
-    return false;
-  }
-  for (llvm::StringRef needed : consumer.object->dylinkInfo().Needed) {
-    char previous_directory[PATH_MAX];
-    if (getcwd(previous_directory, sizeof(previous_directory)) == nullptr ||
-        chdir("/usr/lib") != 0) {
-      std::fprintf(stderr, "dolly: could not enter /usr/lib for dependency load\n");
-      return false;
-    }
-    void *handle = dlopen(needed.str().c_str(), RTLD_NOW | RTLD_GLOBAL);
-    const char *load_error = handle == nullptr ? dlerror() : nullptr;
-    const bool restored = chdir(previous_directory) == 0;
-    if (handle == nullptr || !restored) {
-      std::fprintf(stderr, "dolly: could not preload %s: %s\n",
-                   needed.str().c_str(),
-                   load_error == nullptr ? "could not restore working directory"
-                                         : load_error);
+bool process_section(const LoadedWasm &executable, llvm::StringRef name,
+                     const unsigned char *expected, size_t expected_size,
+                     size_t &matches) {
+  matches = 0;
+  for (const llvm::object::SectionRef &section : executable.object->sections()) {
+    const llvm::object::WasmSection &wasm =
+        executable.object->getWasmSection(section);
+    if (wasm.Type != llvm::wasm::WASM_SEC_CUSTOM || wasm.Name != name) continue;
+    ++matches;
+    if (wasm.Content.size() != expected_size ||
+        std::memcmp(wasm.Content.data(), expected, expected_size) != 0) {
       return false;
     }
   }
   return true;
 }
 
-bool stamp_command(const std::string &output) {
-  static_assert(sizeof(DOLLY_ABI_DIGEST) == 32);
+void encode_u64_le(uint64_t value, unsigned char output[8]) {
+  for (unsigned byte = 0; byte < 8; ++byte) {
+    output[byte] = static_cast<unsigned char>(value >> (byte * 8));
+  }
+}
+
+bool validate_process_executable(const std::string &path, bool stamped) {
+  LoadedWasm executable;
+  if (!load_wasm(path, executable) || !executable.signatures_parsed) return false;
+
+  for (const llvm::object::SectionRef &section : executable.object->sections()) {
+    const llvm::object::WasmSection &wasm =
+        executable.object->getWasmSection(section);
+    if (wasm.Type == llvm::wasm::WASM_SEC_CUSTOM && wasm.Name == "dylink.0") {
+      std::fprintf(stderr, "dolly-cc: process executable %s is a side module\n",
+                   path.c_str());
+      return false;
+    }
+  }
+
+  size_t import_count = 0;
+  bool found_memory = false;
+  bool found_call = false;
+  for (const llvm::wasm::WasmImport &entry : executable.object->imports()) {
+    ++import_count;
+    if (entry.Module == "env" && entry.Field == "memory" &&
+        entry.Kind == llvm::wasm::WASM_EXTERNAL_MEMORY) {
+      constexpr uint8_t required_flags =
+          llvm::wasm::WASM_LIMITS_FLAG_HAS_MAX |
+          llvm::wasm::WASM_LIMITS_FLAG_IS_SHARED |
+          llvm::wasm::WASM_LIMITS_FLAG_IS_64;
+      if ((entry.Memory.Flags & required_flags) != required_flags ||
+          entry.Memory.Minimum != kProcessInitialMemoryPages ||
+          entry.Memory.Maximum != kProcessMaximumMemoryPages) {
+        std::fprintf(stderr,
+                     "dolly-cc: process executable %s has incompatible memory64 limits\n",
+                     path.c_str());
+        return false;
+      }
+      found_memory = true;
+      continue;
+    }
+    if (entry.Module == "dolly_process_0" && entry.Field == "call" &&
+        entry.Kind == llvm::wasm::WASM_EXTERNAL_FUNCTION &&
+        entry.SigIndex < executable.signatures.size()) {
+      static const std::vector<uint8_t> parameters = {
+          llvm::wasm::WASM_TYPE_I32,
+          llvm::wasm::WASM_TYPE_I64,
+          llvm::wasm::WASM_TYPE_I64,
+          llvm::wasm::WASM_TYPE_I64,
+          llvm::wasm::WASM_TYPE_I64,
+      };
+      static const std::vector<uint8_t> returns = {
+          llvm::wasm::WASM_TYPE_I64,
+      };
+      const RawSignature &signature = executable.signatures[entry.SigIndex];
+      if (!signature.callable || signature.params != parameters ||
+          signature.returns != returns) {
+        std::fprintf(stderr,
+                     "dolly-cc: process executable %s has an incompatible call import\n",
+                     path.c_str());
+        return false;
+      }
+      found_call = true;
+      continue;
+    }
+    std::fprintf(stderr, "dolly-cc: process import is outside dolly-process-0: %s.%s\n",
+                 entry.Module.str().c_str(), entry.Field.str().c_str());
+    print_import_signature(executable, entry);
+    return false;
+  }
+  if (import_count != 2 || !found_memory || !found_call) {
+    std::fprintf(stderr,
+                 "dolly-cc: process executable %s does not import exactly memory and call\n",
+                 path.c_str());
+    return false;
+  }
+
+  const llvm::wasm::WasmExport *start = nullptr;
+  for (const llvm::wasm::WasmExport &entry : executable.object->exports()) {
+    if (entry.Name != "_start") continue;
+    if (start != nullptr || entry.Kind != llvm::wasm::WASM_EXTERNAL_FUNCTION) {
+      std::fprintf(stderr, "dolly-cc: process executable %s has an invalid _start\n",
+                   path.c_str());
+      return false;
+    }
+    start = &entry;
+  }
+  const RawSignature *start_signature = start == nullptr
+      ? nullptr : function_signature(executable, start->Index);
+  if (start_signature == nullptr || !start_signature->callable ||
+      !start_signature->params.empty() || !start_signature->returns.empty()) {
+    std::fprintf(stderr, "dolly-cc: process executable %s lacks _start()\n",
+                 path.c_str());
+    return false;
+  }
+
+  size_t digest_matches = 0;
+  if (!process_section(executable, "dolly.process", DOLLY_PROCESS_ABI_DIGEST,
+                       sizeof(DOLLY_PROCESS_ABI_DIGEST), digest_matches) ||
+      digest_matches != (stamped ? 1u : 0u)) {
+    std::fprintf(stderr, "dolly-cc: process executable %s has an invalid ABI stamp\n",
+                 path.c_str());
+    return false;
+  }
+  unsigned char memory_requirements[16];
+  encode_u64_le(kProcessInitialMemoryPages, memory_requirements);
+  encode_u64_le(kProcessMaximumMemoryPages, memory_requirements + 8);
+  size_t memory_matches = 0;
+  if (!process_section(executable, "dolly.process.memory", memory_requirements,
+                       sizeof(memory_requirements), memory_matches) ||
+      memory_matches != (stamped ? 1u : 0u)) {
+    std::fprintf(stderr,
+                 "dolly-cc: process executable %s has invalid memory metadata\n",
+                 path.c_str());
+    return false;
+  }
+  return true;
+}
+
+bool validate_process_shared_object(const std::string &path, bool stamped) {
+  LoadedWasm module;
+  if (!load_wasm(path, module) || !module.signatures_parsed) return false;
+  auto first_section = module.object->section_begin();
+  if (first_section == module.object->section_end()) return false;
+  llvm::Expected<llvm::StringRef> first_name = first_section->getName();
+  if (!first_name || *first_name != "dylink.0") {
+    if (!first_name) llvm::consumeError(first_name.takeError());
+    std::fprintf(stderr,
+                 "dolly-cc: process shared object %s does not begin with dylink.0\n",
+                 path.c_str());
+    return false;
+  }
+  for (llvm::StringRef needed : module.object->dylinkInfo().Needed) {
+    if (needed.empty() || needed.contains('/') || needed.contains("..")) {
+      std::fprintf(stderr, "dolly-cc: invalid needed library name: %s\n",
+                   needed.str().c_str());
+      return false;
+    }
+  }
+
+  bool found_memory = false;
+  for (const llvm::wasm::WasmImport &entry : module.object->imports()) {
+    if (entry.Module == "env" && entry.Field == "memory" &&
+        entry.Kind == llvm::wasm::WASM_EXTERNAL_MEMORY) {
+      constexpr uint8_t required_flags =
+          llvm::wasm::WASM_LIMITS_FLAG_HAS_MAX |
+          llvm::wasm::WASM_LIMITS_FLAG_IS_SHARED |
+          llvm::wasm::WASM_LIMITS_FLAG_IS_64;
+      if (found_memory || (entry.Memory.Flags & required_flags) != required_flags ||
+          entry.Memory.Minimum > kProcessInitialMemoryPages ||
+          entry.Memory.Maximum < kProcessMaximumMemoryPages) {
+        std::fprintf(stderr,
+                     "dolly-cc: process shared object %s has incompatible memory64\n",
+                     path.c_str());
+        return false;
+      }
+      found_memory = true;
+      continue;
+    }
+    if (entry.Module == "env" &&
+        (entry.Field == "__memory_base" || entry.Field == "__table_base")) {
+      if (entry.Kind != llvm::wasm::WASM_EXTERNAL_GLOBAL ||
+          entry.Global.Type != llvm::wasm::WASM_TYPE_I64 ||
+          entry.Global.Mutable) return false;
+      continue;
+    }
+    if (entry.Module == "env" && entry.Field == "__stack_pointer") {
+      if (!is_mutable_i64_global(entry)) return false;
+      continue;
+    }
+    if (entry.Module == "env" &&
+        entry.Field == "__indirect_function_table") {
+      if (entry.Kind != llvm::wasm::WASM_EXTERNAL_TABLE ||
+          entry.Table.ElemType != llvm::wasm::ValType::FUNCREF ||
+          (entry.Table.Limits.Flags & llvm::wasm::WASM_LIMITS_FLAG_IS_64) == 0) {
+        return false;
+      }
+      continue;
+    }
+    // Ordinary process symbols live in the executable/DSO namespace. They are
+    // not browser imports; the process-local loader resolves them by exact
+    // WebAssembly type before instantiation.
+    if (entry.Module == "env" &&
+        (entry.Kind == llvm::wasm::WASM_EXTERNAL_FUNCTION ||
+         entry.Kind == llvm::wasm::WASM_EXTERNAL_TAG)) {
+      continue;
+    }
+    if ((entry.Module == "GOT.mem" || entry.Module == "GOT.func") &&
+        is_mutable_i64_global(entry)) {
+      continue;
+    }
+    std::fprintf(stderr,
+                 "dolly-cc: process shared-object import is outside its namespace: %s.%s\n",
+                 entry.Module.str().c_str(), entry.Field.str().c_str());
+    return false;
+  }
+  if (!found_memory) {
+    std::fprintf(stderr, "dolly-cc: process shared object %s does not import memory\n",
+                 path.c_str());
+    return false;
+  }
+
+  size_t dso_stamp_matches = 0;
+  if (!process_section(module, "dolly.process.dso", DOLLY_PROCESS_ABI_DIGEST,
+                       sizeof(DOLLY_PROCESS_ABI_DIGEST), dso_stamp_matches) ||
+      dso_stamp_matches != (stamped ? 1u : 0u)) {
+    std::fprintf(stderr,
+                 "dolly-cc: process shared object %s has an invalid ABI stamp\n",
+                 path.c_str());
+    return false;
+  }
+  size_t executable_stamp_matches = 0;
+  if (!process_section(module, "dolly.process", DOLLY_PROCESS_ABI_DIGEST,
+                       sizeof(DOLLY_PROCESS_ABI_DIGEST),
+                       executable_stamp_matches) ||
+      executable_stamp_matches != 0) {
+    std::fprintf(stderr,
+                 "dolly-cc: process shared object %s carries an executable stamp\n",
+                 path.c_str());
+    return false;
+  }
+  return true;
+}
+
+void append_uleb(std::vector<unsigned char> &bytes, uint64_t value) {
+  do {
+    unsigned char byte = static_cast<unsigned char>(value & 0x7f);
+    value >>= 7;
+    if (value != 0) byte |= 0x80;
+    bytes.push_back(byte);
+  } while (value != 0);
+}
+
+bool append_custom_section(const std::string &path, const char *name,
+                           const unsigned char *data, size_t size) {
+  const size_t name_size = std::strlen(name);
+  std::vector<unsigned char> payload;
+  append_uleb(payload, name_size);
+  payload.insert(payload.end(), name, name + name_size);
+  payload.insert(payload.end(), data, data + size);
+  std::vector<unsigned char> section = {llvm::wasm::WASM_SEC_CUSTOM};
+  append_uleb(section, payload.size());
+  section.insert(section.end(), payload.begin(), payload.end());
+
+  FILE *file = std::fopen(path.c_str(), "ab");
+  if (file == nullptr) {
+    std::fprintf(stderr, "dolly-cc: %s: %s\n", path.c_str(),
+                 std::strerror(errno));
+    return false;
+  }
+  bool ok = std::fwrite(section.data(), 1, section.size(), file) == section.size();
+  if (std::fclose(file) != 0) ok = false;
+  if (!ok) std::fprintf(stderr, "dolly-cc: could not stamp %s\n", path.c_str());
+  return ok;
+}
+
+bool stamp_process_executable(const std::string &output) {
+  static_assert(sizeof(DOLLY_PROCESS_ABI_DIGEST) == 32);
+  unsigned char memory_requirements[16];
+  encode_u64_le(kProcessInitialMemoryPages, memory_requirements);
+  encode_u64_le(kProcessMaximumMemoryPages, memory_requirements + 8);
+  return append_custom_section(output, "dolly.process",
+                               DOLLY_PROCESS_ABI_DIGEST,
+                               sizeof(DOLLY_PROCESS_ABI_DIGEST)) &&
+         append_custom_section(output, "dolly.process.memory",
+                               memory_requirements,
+                               sizeof(memory_requirements));
+}
+
+bool stamp_process_shared_object(const std::string &output) {
+  static_assert(sizeof(DOLLY_PROCESS_ABI_DIGEST) == 32);
+  return append_custom_section(output, "dolly.process.dso",
+                               DOLLY_PROCESS_ABI_DIGEST,
+                               sizeof(DOLLY_PROCESS_ABI_DIGEST));
+}
+
+bool stamp_kernel_plugin(const std::string &output) {
+  static_assert(sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST) == 32);
   // A custom section is: id 0, payload length, name length/name, then data.
   static constexpr unsigned char prefix[] = {
       0, 42, 9, 'd', 'o', 'l', 'l', 'y', '.', 'a', 'b', 'i'};
@@ -1458,8 +1702,9 @@ bool stamp_command(const std::string &output) {
     return false;
   }
   bool ok = std::fwrite(prefix, 1, sizeof(prefix), file) == sizeof(prefix) &&
-            std::fwrite(DOLLY_ABI_DIGEST, 1, sizeof(DOLLY_ABI_DIGEST), file) ==
-                sizeof(DOLLY_ABI_DIGEST);
+            std::fwrite(DOLLY_KERNEL_PLUGIN_ABI_DIGEST, 1,
+                        sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST), file) ==
+                sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST);
   if (std::fclose(file) != 0) ok = false;
   if (!ok) std::fprintf(stderr, "dolly-cc: could not stamp %s\n", output.c_str());
   return ok;
@@ -1553,9 +1798,12 @@ int compile_only(const DriverOptions &options, int default_language,
 
 int compile_and_link(const DriverOptions &options, int default_language,
                      unsigned long long job) {
-  if (!initialize_entry_wrapper_objects()) {
-    std::fputs("dolly-cc: could not initialize command entry adapters\n", stderr);
-    return 1;
+  if (options.kernel_plugin &&
+      !options.shared_library) {
+    std::fputs(
+        "dolly-cc: --dolly-kernel-plugin requires the process compiler and -shared\n",
+        stderr);
+    return 64;
   }
   const std::string output = options.output.empty() ? "a.out" : options.output;
   std::vector<std::string> temporary_objects;
@@ -1582,67 +1830,57 @@ int compile_and_link(const DriverOptions &options, int default_language,
     link_inputs.push_back(object);
   }
 
-  if (!options.shared_library) {
-    std::string entry_symbol;
-    const EntryForm entry_form = linked_entry_form(link_inputs, entry_symbol);
-    if (entry_form == EntryForm::Missing) {
-      std::fputs("dolly-cc: no main function found in object inputs\n", stderr);
-      cleanup(temporary_objects);
-      return 1;
-    }
-    if (entry_form == EntryForm::Unsupported) {
-      std::fputs(
-          "dolly-cc: main must return int and accept (), (int, char **), "
-          "or (int, char **, char **)\n",
-          stderr);
-      cleanup(temporary_objects);
-      return 1;
-    }
-
-    const std::string wrapper_object =
-        temporary_path(job, options.inputs.size(), "-entry.o");
-    std::remove(wrapper_object.c_str());
-    if (!write_cached_entry_wrapper(
-            wrapper_object, entry_form, entry_symbol)) {
-      std::fputs("dolly-cc: could not create the command entry adapter\n", stderr);
-      cleanup(temporary_objects);
-      std::remove(wrapper_object.c_str());
-      return 1;
-    }
-    temporary_objects.push_back(wrapper_object);
-    link_inputs.push_back(wrapper_object);
-  }
-
-  if (needs_cxx_runtime) {
-    // These libraries are rebuilt from the pinned Emscripten sources inside
-    // Dolly. Their target patch makes the upstream main-module override points
-    // strong, allowing ordinary lazy archive selection without exposing the
-    // C++ implementation through the stable dolly-0 substrate.
+  if (options.kernel_plugin && needs_cxx_runtime) {
     link_inputs.push_back("/usr/lib/libc++.a");
     link_inputs.push_back("/usr/lib/libc++abi.a");
   }
   // Compiler-generated helpers are part of the target runtime, not Dolly's
   // platform substrate. Link them into every C/C++ command so operations such
-  // as 128-bit multiplication do not become accidental dolly-0 imports.
-  link_inputs.push_back("/usr/lib/libclang_rt.builtins.a");
+  // as 128-bit multiplication do not become kernel-plugin imports.
+  if (options.kernel_plugin) {
+    link_inputs.push_back("/usr/lib/libclang_rt.builtins.a");
+  }
 
   const std::string linked =
       temporary_path(job, options.inputs.size() + 1, ".wasm");
   std::remove(linked.c_str());
-  if (!link_side_module(linked, link_inputs, options.linker_options,
-                        options.shared_library || options.export_dynamic,
-                        needs_cxx_runtime)) {
+  const bool linked_ok = options.kernel_plugin
+      ? link_side_module(linked, link_inputs, options.linker_options,
+                         true, needs_cxx_runtime,
+                         options.debug_info == DebugInfoKind::None)
+      : (options.shared_library
+             ? link_process_shared_object(linked, link_inputs,
+                                          options.linker_options,
+                                          options.debug_info == DebugInfoKind::None)
+             : link_process_executable(linked, link_inputs,
+                                       options.linker_options,
+                                       needs_cxx_runtime,
+                                       options.export_dynamic,
+                                       options.debug_info == DebugInfoKind::None));
+  if (!linked_ok) {
     std::fprintf(stderr, "dolly-cc: link failed: %s\n", output.c_str());
     cleanup(temporary_objects);
     std::remove(linked.c_str());
     return 1;
   }
   cleanup(temporary_objects);
-  const bool valid = options.shared_library
-                         ? validate_shared_object(linked)
-                         : validate_command(linked);
-  const bool published = valid && stamp_command(linked) &&
-                         publish_file(linked, output);
+  const bool valid = options.kernel_plugin
+      ? validate_shared_object(linked, kKernelContractPath)
+      : (options.shared_library
+             ? validate_process_shared_object(linked, false)
+             : validate_process_executable(linked, false));
+  const bool stamped = valid && (options.kernel_plugin
+      ? stamp_kernel_plugin(linked)
+      : (options.shared_library ? stamp_process_shared_object(linked)
+                                : stamp_process_executable(linked)));
+  const bool published = stamped &&
+      (options.kernel_plugin
+           ? (validate_shared_object(linked, kKernelContractPath) &&
+              has_kernel_plugin_stamp(linked))
+           : (options.shared_library
+            ? validate_process_shared_object(linked, true)
+            : validate_process_executable(linked, true))) &&
+      publish_file(linked, output);
   std::remove(linked.c_str());
   return published ? 0 : 1;
 }
@@ -1726,6 +1964,16 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
     std::puts("LLD 24.0.0 (Dolly wasm-ld)");
     return 0;
   }
+  if (options.print_search_dirs && options.inputs.empty() &&
+      !options.compile_only && !options.preprocess_only) {
+    // Match the conventional GCC/Clang query shape used by Meson and other
+    // build frontends. These are target paths inside Dolly's shared kernel
+    // filesystem; no browser or host path is exposed.
+    std::puts("install: /usr/lib/clang/24");
+    std::puts("programs: =/usr/bin");
+    std::puts("libraries: =/usr/lib:/usr/lib/dolly/process");
+    return 0;
+  }
   if (options.dump_macros && !options.preprocess_only) {
     std::fprintf(stderr, "%s: -dM requires -E\n", argv[0]);
     return 64;
@@ -1764,19 +2012,4 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
                                     ? DOLLY_TOOLCHAIN_C
                                     : default_language,
                                 job);
-}
-
-extern "C" int dolly_toolchain_validate_executable(const char *path) {
-  if (path == nullptr || path[0] == '\0') return 0;
-  return validate_executable(path);
-}
-
-extern "C" int dolly_toolchain_validate_shared_library(const char *path) {
-  if (path == nullptr || path[0] == '\0') return 0;
-  return validate_stamped_shared_object(path);
-}
-
-extern "C" int dolly_toolchain_preload_dependencies(const char *path) {
-  if (path == nullptr || path[0] == '\0') return 0;
-  return preload_dependencies(path);
 }

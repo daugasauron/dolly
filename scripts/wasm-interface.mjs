@@ -9,6 +9,8 @@ const valueTypes = new Map([
   [0x7b, "v128"],
   [0x70, "funcref"],
   [0x6f, "externref"],
+  [0x69, "exnref"],
+  [0x74, "nullexnref"],
 ]);
 
 class Reader {

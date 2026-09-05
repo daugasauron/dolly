@@ -125,7 +125,7 @@ static int fetch_metadata(const char *url, Buffer *response) {
       fprintf(stderr,
               "bonnie: PyPI lookup failed (%s); retrying %u/%u\n",
               curl_easy_strerror(result), attempt + 1, BONNIE_FETCH_ATTEMPTS);
-      dolly_sleep(1);
+      sleep(1);
     }
   }
   curl_slist_free_all(headers);
@@ -171,7 +171,7 @@ static int download_wheel(const char *url, const char *path) {
     if (attempt != BONNIE_FETCH_ATTEMPTS) {
       fprintf(stderr, "bonnie: wheel download failed (%s); retrying %u/%u\n",
               curl_easy_strerror(result), attempt + 1, BONNIE_FETCH_ATTEMPTS);
-      dolly_sleep(1);
+      sleep(1);
     }
   }
   fprintf(stderr, "bonnie: wheel download failed: %s\n",
@@ -879,11 +879,10 @@ static int write_entry_script(const char *path, const EntryPoint *entry) {
   const int result = fprintf(
       output,
       "#!/usr/bin/python\n"
-      "import importlib, operator, sys\n"
-      "sys.argv[0] = '%s'\n"
+      "import importlib, operator\n"
       "module = importlib.import_module('%s')\n"
       "raise SystemExit(operator.attrgetter('%s')(module)())\n",
-      entry->name, entry->module, entry->function) < 0 ? -1 : 0;
+      entry->module, entry->function) < 0 ? -1 : 0;
   int closed = fclose(output);
   if (result != 0 || closed != 0) {
     remove(path);

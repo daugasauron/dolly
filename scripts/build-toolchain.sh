@@ -83,8 +83,8 @@ fi
   -S .cache/llvm-project/llvm \
   -B .cache/llvm-wasm \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_C_FLAGS="-m64 -O2 -fPIC -matomics -mbulk-memory" \
-  -DCMAKE_CXX_FLAGS="-m64 -O2 -fPIC -matomics -mbulk-memory" \
+  -DCMAKE_C_FLAGS="-m64 -O2 -fPIC -matomics -mbulk-memory -fwasm-exceptions -sSUPPORT_LONGJMP=wasm -sWASM_LEGACY_EXCEPTIONS=0" \
+  -DCMAKE_CXX_FLAGS="-m64 -O2 -fPIC -matomics -mbulk-memory -fwasm-exceptions -sSUPPORT_LONGJMP=wasm -sWASM_LEGACY_EXCEPTIONS=0" \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DLLVM_ENABLE_PROJECTS="clang;lld" \
   -DLLVM_TARGETS_TO_BUILD=WebAssembly \

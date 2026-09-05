@@ -49,6 +49,15 @@ conditions, ESM and CommonJS package scopes, JSON modules,
 deterministic `fs.globSync`. These are runtime compatibility rules over the
 shared filesystem, not browser capabilities.
 
+Janis `child_process.spawn` is backed by Dolly process pipes rather than a
+completed-output shim. QuickJS schedules the spawn after listeners can attach;
+its native bridge polls the two in-Wasm pipe descriptors and publishes stdout
+and stderr chunks while the child runs. Pi's `!` mode and Dolly Bash tool can
+therefore render a long Bonnie/compiler build before it exits. The bridge has
+no Worker, `fetch`, socket, or host-process handle of its own: spawning,
+descriptors, waiting, timeouts, and Ctrl-C remain operations of the same
+`dolly-process-0` substrate.
+
 The resolver is intentionally not an npm client. It normalizes and confines
 export targets to their package root, searches only WasmFS, and fails when a
 package, export, file, or builtin adapter is absent. No resolution path calls
@@ -62,7 +71,7 @@ HTTP, the DOM, or a host module loader.
 | [Boa](https://boajs.dev/docs/intro) | Active, memory-safe Rust engine; upstream demonstrates a Wasm build | Adds a Rust toolchain and a much larger dependency graph while still requiring the same Node compatibility layer |
 | [MuJS](https://mujs.com/) | Very small portable C and simple embedding API | A scripting engine, not a credible target for modern TypeScript-generated agent packages |
 | [Ladybird LibJS](https://github.com/LadybirdBrowser/ladybird) | Modern independent C++ engine with active standards work | Coupled to a large browser-library graph; no evidence yet that it is a clean wasm64 Dolly port |
-| [V8](https://v8.dev/docs/embed), Node, or Deno | Highest npm compatibility and production engine behavior | Their native build/runtime assumptions and size make them poor substrate probes; no supported build emits the shared-everything wasm64 Dolly executable required here |
+| [V8](https://v8.dev/docs/embed), Node, or Deno | Highest npm compatibility and production engine behavior | Their native build/runtime assumptions and size make them poor substrate probes; no supported build currently emits Dolly's private wasm64 process format or uses its typed process gate |
 
 Nested wasm32 runtimes such as WAMR are also the wrong boundary. They would
 create another memory/filesystem/process model instead of letting JavaScript

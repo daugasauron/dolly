@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1209,6 +1210,179 @@ static JSValue js_dolly_shell(JSContext *context, JSValueConst this_value,
   return result;
 }
 
+static int publish_command_chunk(JSContext *context, JSValueConst callback,
+                                 const unsigned char *bytes, size_t length) {
+  if (!JS_IsFunction(context, callback)) return 0;
+  JSValue argument = JS_NewUint8ArrayCopy(context, bytes, length);
+  if (JS_IsException(argument)) return -1;
+  JSValue result = JS_Call(context, callback, JS_UNDEFINED, 1, &argument);
+  JS_FreeValue(context, argument);
+  if (JS_IsException(result)) return -1;
+  JS_FreeValue(context, result);
+  return 0;
+}
+
+static int pump_command_stream(JSContext *context, JSValueConst callback) {
+  if (!JS_IsFunction(context, callback)) return 0;
+  JSValue result = JS_Call(context, callback, JS_UNDEFINED, 0, NULL);
+  if (JS_IsException(result)) return -1;
+  JS_FreeValue(context, result);
+  return 0;
+}
+
+static int drain_command_jobs(JSContext *context) {
+  JSContext *job_context = NULL;
+  int status;
+  while ((status = JS_ExecutePendingJob(JS_GetRuntime(context),
+                                        &job_context)) > 0) {
+  }
+  if (status >= 0) return 0;
+
+  JSContext *source = job_context == NULL ? context : job_context;
+  JSValue exception = JS_GetException(source);
+  JS_Throw(context, exception);
+  return -1;
+}
+
+/* Run Slop with pipe-backed output and invoke the supplied JavaScript
+   callbacks as bytes become readable. The QuickJS process still has one
+   synchronous event loop, but pipe syscalls yield through Dolly's process
+   broker while child Workers run. This gives child_process users incremental
+   output without adding a browser or native-host process edge. */
+static JSValue js_dolly_shell_stream(JSContext *context,
+                                     JSValueConst this_value,
+                                     int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 1) {
+    return JS_ThrowTypeError(context, "shellStream requires a command");
+  }
+  if (argc >= 2 && !JS_IsUndefined(argv[1]) &&
+      !JS_IsFunction(context, argv[1])) {
+    return JS_ThrowTypeError(context, "stdout callback must be a function");
+  }
+  if (argc >= 3 && !JS_IsUndefined(argv[2]) &&
+      !JS_IsFunction(context, argv[2])) {
+    return JS_ThrowTypeError(context, "stderr callback must be a function");
+  }
+  if (argc >= 5 && !JS_IsUndefined(argv[4]) &&
+      !JS_IsFunction(context, argv[4])) {
+    return JS_ThrowTypeError(context, "stream pump must be a function");
+  }
+  double timeout_milliseconds = -1;
+  if (argc >= 4 && !JS_IsUndefined(argv[3])) {
+    if (JS_ToFloat64(context, &timeout_milliseconds, argv[3]) < 0) {
+      return JS_EXCEPTION;
+    }
+    if (timeout_milliseconds < 0 || timeout_milliseconds > 86400000) {
+      return JS_ThrowRangeError(context, "shell timeout is out of range");
+    }
+  }
+  const char *command = JS_ToCString(context, argv[0]);
+  if (command == NULL) return JS_EXCEPTION;
+
+  int input[2] = {-1, -1};
+  int output[2] = {-1, -1};
+  int error[2] = {-1, -1};
+  if (pipe(input) != 0 || pipe(output) != 0 || pipe(error) != 0) {
+    const int saved_errno = errno;
+    for (size_t index = 0; index < 2; ++index) {
+      if (input[index] >= 0) close(input[index]);
+      if (output[index] >= 0) close(output[index]);
+      if (error[index] >= 0) close(error[index]);
+    }
+    JS_FreeCString(context, command);
+    return JS_ThrowInternalError(context, "could not create command pipes: %s",
+                                 strerror(saved_errno));
+  }
+  close(input[1]);
+  char *child_argv[] = {"/bin/slop", "-c", (char *)command, NULL};
+  const int pid = timeout_milliseconds < 0
+      ? dolly_spawn("/bin/slop", 3, child_argv, input[0],
+                    output[1], error[1])
+      : dolly_spawn_timeout("/bin/slop", 3, child_argv, input[0],
+                            output[1], error[1], timeout_milliseconds);
+  JS_FreeCString(context, command);
+  close(input[0]);
+  close(output[1]);
+  close(error[1]);
+  if (pid < 0) {
+    close(output[0]);
+    close(error[0]);
+    return JS_ThrowInternalError(context, "could not execute Slop: %d", pid);
+  }
+
+  struct pollfd streams[2] = {
+      {.fd = output[0], .events = POLLIN},
+      {.fd = error[0], .events = POLLIN},
+  };
+  JSValueConst callbacks[2] = {
+      argc >= 2 ? argv[1] : JS_UNDEFINED,
+      argc >= 3 ? argv[2] : JS_UNDEFINED,
+  };
+  int open_streams = 2;
+  int io_error = 0;
+  int callback_error = 0;
+  unsigned char bytes[16 * 1024];
+  while (open_streams != 0 && io_error == 0) {
+    // Wake at display cadence even when a quiet child is still running. The
+    // optional pump drains Janis next-ticks/timers, allowing Pi to render an
+    // already received prefix while the child continues in another Worker.
+    const int ready = poll(streams, 2, 16);
+    if (ready < 0) {
+      io_error = errno;
+      break;
+    }
+    for (size_t index = 0; index < 2; ++index) {
+      if (streams[index].fd < 0 ||
+          (streams[index].revents &
+           (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0) {
+        continue;
+      }
+      const ssize_t count = read(streams[index].fd, bytes, sizeof(bytes));
+      if (count > 0) {
+        if (!callback_error &&
+            publish_command_chunk(context, callbacks[index], bytes,
+                                  (size_t)count) != 0) {
+          callback_error = 1;
+        }
+      } else if (count == 0) {
+        close(streams[index].fd);
+        streams[index].fd = -1;
+        --open_streams;
+      } else if (errno != EINTR) {
+        io_error = errno;
+        break;
+      }
+    }
+    if (!callback_error && drain_command_jobs(context) != 0) {
+      callback_error = 1;
+    }
+    if (!callback_error && argc >= 5) {
+      if (pump_command_stream(context, argv[4]) != 0 ||
+          drain_command_jobs(context) != 0) {
+        callback_error = 1;
+      }
+    }
+  }
+  for (size_t index = 0; index < 2; ++index) {
+    if (streams[index].fd >= 0) close(streams[index].fd);
+  }
+  int status = 126;
+  const int wait_status = dolly_wait(pid, &status);
+  if (callback_error) return JS_EXCEPTION;
+  if (io_error != 0) {
+    return JS_ThrowInternalError(context, "could not read command output: %s",
+                                 strerror(io_error));
+  }
+  if (wait_status != 0) {
+    return JS_ThrowInternalError(context, "could not collect Slop: %s",
+                                 strerror(-wait_status));
+  }
+  JSValue result = JS_NewObject(context);
+  JS_SetPropertyStr(context, result, "status", JS_NewInt32(context, status));
+  return result;
+}
+
 static int install_dolly_backend(JSContext *context) {
   JSValue global = JS_GetGlobalObject(context);
   JSValue dolly = JS_NewObject(context);
@@ -1250,6 +1424,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("encode", js_dolly_encode, 1);
   DOLLY_JS_FUNCTION("decode", js_dolly_decode, 1);
   DOLLY_JS_FUNCTION("shell", js_dolly_shell, 3);
+  DOLLY_JS_FUNCTION("shellStream", js_dolly_shell_stream, 5);
 #undef DOLLY_JS_FUNCTION
 #define DOLLY_FS_FUNCTION(name, magic)                                         \
   JS_SetPropertyStr(context, dolly, name,                                      \

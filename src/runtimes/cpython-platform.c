@@ -15,16 +15,9 @@
 
 int Py_EMSCRIPTEN_SIGNAL_HANDLING = 0;
 int _Py_emscripten_signal_clock = 50;
-__attribute__((visibility("hidden"))) unsigned __default_guardsize = 0;
 
 void _Py_CheckEmscriptenSignals(void) {}
 void _Py_CheckEmscriptenSignalsPeriodically(void) {}
-
-int times(void *buffer) {
-    (void)buffer;
-    errno = ENOSYS;
-    return -1;
-}
 
 int getentropy(void *buffer, size_t length) {
     ssize_t count = dolly_getrandom(buffer, length, 0);

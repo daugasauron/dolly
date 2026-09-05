@@ -73,6 +73,7 @@ FILE /tmp/ghostty/Makefile
     /usr/lib/libdisplay.so: /usr/src/dolly/ghostty/display.c /usr/lib/libghostty-vt.a
     >cc \
     >  -shared \
+    >  --dolly-kernel-plugin \
     >  -std=c17 \
     >  -I /tmp/ghostty \
     >  -I /usr/include \

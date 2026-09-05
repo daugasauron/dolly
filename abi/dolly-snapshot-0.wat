@@ -14,9 +14,17 @@
     i64.const 0)
   (func (export "dolly_bootstrap_snapshot") (param i64) (result i32)
     i32.const 0)
-  (func (export "dolly_bootstrap_resume") (param i64 i32) (result i32)
-    i32.const 0)
   (func (export "dolly_bootstrap_finish") (result i32)
+    i32.const 0)
+  (func (export "dolly_process_bootstrap_prepare") (result i32)
+    i32.const 0)
+  (func (export "dolly_process_bootstrap_resume_prepare")
+    (param i64 i32) (result i32)
+    i32.const 0)
+
+  ;; The Worker stages fixed boot-control records in the in-Wasm filesystem.
+  ;; This is a memory-to-WasmFS copy, not a browser filesystem capability.
+  (func (export "dolly_write_file") (param i64 i64 i64) (result i32)
     i32.const 0)
 
   ;; A cold /rebuild asks Wasm to capture the system manifest, then copies the

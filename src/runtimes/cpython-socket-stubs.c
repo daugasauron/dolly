@@ -118,10 +118,7 @@ ssize_t dolly_py_sendto(int descriptor, const void *buffer, size_t length,
 }
 
 int dolly_py_poll(struct pollfd *descriptors, nfds_t count, int timeout) {
-  (void)descriptors;
-  (void)count;
-  (void)timeout;
-  return unavailable();
+  return poll(descriptors, count, timeout);
 }
 
 int dolly_py_getaddrinfo(const char *node, const char *service,

@@ -50,6 +50,9 @@ const publicSources = new Set([
   "src/browser.mjs",
   "src/http-policy.mjs",
   "src/module-cache.mjs",
+  "src/process-ffi.mjs",
+  "src/process-supervisor.mjs",
+  "src/process-worker.mjs",
   "src/session-store.mjs",
   "src/runtime-worker.mjs",
 ]);

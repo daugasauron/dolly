@@ -114,19 +114,14 @@ static PyObject *process_spawn(PyObject *module, PyObject *arguments) {
             PyErr_SetString(PyExc_ValueError, "timeout must be non-negative");
             goto restore;
         }
-        if (environment != NULL) {
-            PyErr_SetString(PyExc_NotImplementedError,
-                            "Dolly version 0 cannot combine an explicit "
-                            "environment with a subprocess timeout");
-            goto restore;
-        }
     }
 
     pid = timeout_milliseconds < 0
         ? dolly_spawn_env(path, argc, argv, environment,
                           stdin_fd, stdout_fd, stderr_fd)
-        : dolly_spawn_timeout(path, argc, argv, stdin_fd, stdout_fd, stderr_fd,
-                              timeout_milliseconds);
+        : dolly_spawn_env_timeout(path, argc, argv, environment,
+                                  stdin_fd, stdout_fd, stderr_fd,
+                                  timeout_milliseconds);
     wait_result = pid < 0 ? pid : dolly_wait(pid, &status);
 
 restore:

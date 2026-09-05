@@ -59,6 +59,7 @@ has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 has_module make && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
 has_module ninja && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
 has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-emscripten-system-libs.sh")"
+has_module libffi && libffi_dir="$("${project_dir}/scripts/prepare-libffi.sh")"
 has_module cpython && cpython_dir="$("${project_dir}/scripts/prepare-cpython.sh")"
 zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
 zig_container_dir="/src/${zig_dir#"${project_dir}/"}"
@@ -92,7 +93,12 @@ rm -f \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.mjs" \
   "${project_dir}/dist/dolly.wasm" \
+  "${project_dir}/dist/dolly-kernel-plugin-0.wasm" \
   "${project_dir}/dist/dolly-0.wasm" \
+  "${project_dir}/dist/dolly-process-0.wasm" \
+  "${project_dir}/dist/dolly-process-gate-0.wasm" \
+  "${project_dir}/dist/dolly-supervisor-0.wasm" \
+  "${project_dir}/dist/dolly-process-abi.mjs" \
   "${project_dir}/dist/dolly-http-0.wasm" \
   "${project_dir}/dist/dolly-display-0.wasm" \
   "${project_dir}/dist/dolly-download-0.wasm" \
@@ -101,16 +107,180 @@ rm -f \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/ghostty-web.js" \
+  "${project_dir}/dist/process-check.wasm" \
+  "${project_dir}/dist/process-fs-check.wasm" \
+  "${project_dir}/dist/process-pipe-check.wasm" \
+  "${project_dir}/dist/slop-process.wasm"
+rm -f \
   "${project_dir}/dist/program-inspector.wasm" \
   "${project_dir}/dist/program-reader.wasm" \
   "${project_dir}/dist/program-writer.wasm"
 
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-0.wat \
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-kernel-plugin-0.wat \
   --enable-memory64 \
   --enable-reference-types \
   --enable-threads \
   --disable-compact-imports \
-  -o build/dolly-0.wasm
+  -o build/dolly-kernel-plugin-0.wasm
+
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-0.wat \
+  --enable-memory64 \
+  --enable-threads \
+  --disable-compact-imports \
+  -o build/dolly-process-0.wasm
+node scripts/dolly-abi.mjs bind-process-layout \
+  build/dolly-process-0.wasm \
+  include/dolly/process.h
+
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-gate-0.wat \
+  --enable-memory64 \
+  --enable-multimemory \
+  --enable-bulk-memory \
+  --enable-bulk-memory-opt \
+  --enable-threads \
+  --disable-compact-imports \
+  -o build/dolly-process-gate-0.wasm
+
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-supervisor-0.wat \
+  --enable-memory64 \
+  --disable-compact-imports \
+  -o build/dolly-supervisor-0.wasm
+
+process_compile_flags=(
+  -m64 -O1 -matomics -mbulk-memory -fwasm-exceptions
+  -sSUPPORT_LONGJMP=wasm -sWASM_LEGACY_EXCEPTIONS=0
+  -I/src/include
+)
+process_libc_internal_flags=(
+  -I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten
+  -I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/generic
+  -I/emsdk/upstream/emscripten/system/lib/libc/musl/src/internal
+  -I/emsdk/upstream/emscripten/system/lib/libc/musl/src/include
+  -I/emsdk/upstream/emscripten/system/lib/libc/musl/include
+  -I/emsdk/upstream/emscripten/system/lib/libc
+  -I/emsdk/upstream/emscripten/system/lib/pthread
+)
+process_link_flags=(
+  -sSTANDALONE_WASM=1
+  -sIMPORTED_MEMORY=1
+  -sSHARED_MEMORY=1
+  -sSUPPORT_LONGJMP=wasm
+  -sWASM_LEGACY_EXCEPTIONS=0
+  -sALLOW_MEMORY_GROWTH=1
+  -sINITIAL_MEMORY=16777216
+  -sMAXIMUM_MEMORY=8589934592
+  -sSTACK_SIZE=8388608
+  -Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table
+)
+
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" -c src/process/libc-adapter.c \
+  -o build/process-libc-adapter.o
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" -c src/process/runtime-adapter.c \
+  -o build/process-runtime-adapter.o
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" -c src/process/mmap.c \
+  -o build/process-mmap.o
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" -c src/process/time.c \
+  -o build/process-time.o
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" -c src/process/poll.c \
+  -o build/process-poll.o
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
+  /emsdk/upstream/emscripten/system/lib/pthread/pthread_self_stub.c \
+  -o build/process-pthread-self.o
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
+  /emsdk/upstream/emscripten/system/lib/libc/musl/src/thread/default_attr.c \
+  -o build/process-default-attr.o
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
+  src/process/pthread-stubs.c \
+  -o build/process-pthread-stub.o
+for source in pthread_mutexattr_init pthread_mutexattr_settype pthread_mutexattr_destroy; do
+  "${container[@]}" /emsdk/upstream/emscripten/emcc \
+    "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
+    "/emsdk/upstream/emscripten/system/lib/libc/musl/src/thread/${source}.c" \
+    -o "build/process-${source}.o"
+done
+"${container[@]}" /emsdk/upstream/emscripten/emar rcs build/libdolly-process.a \
+  build/process-libc-adapter.o \
+  build/process-runtime-adapter.o \
+  build/process-mmap.o \
+  build/process-time.o \
+  build/process-poll.o \
+  build/process-pthread-self.o \
+  build/process-default-attr.o \
+  build/process-pthread-stub.o \
+  build/process-pthread_mutexattr_init.o \
+  build/process-pthread_mutexattr_settype.o \
+  build/process-pthread_mutexattr_destroy.o
+
+build_process() {
+  local output="$1"
+  local staged="${output}.wasm"
+  shift
+  "${container[@]}" /emsdk/upstream/emscripten/emcc \
+    "${process_compile_flags[@]}" "${process_link_flags[@]}" "$@" \
+    -Wl,--whole-archive build/libdolly-process.a -Wl,--no-whole-archive \
+    -o "${staged}"
+  mv -- "${staged}" "${output}"
+}
+
+build_process_cxx() {
+  local output="$1"
+  local staged="${output}.wasm"
+  shift
+  "${container[@]}" /emsdk/upstream/emscripten/em++ \
+    "${process_compile_flags[@]}" "${process_link_flags[@]}" "$@" \
+    -Wl,--whole-archive build/libdolly-process.a -Wl,--no-whole-archive \
+    -o "${staged}"
+  mv -- "${staged}" "${output}"
+}
+
+rm -rf -- "${project_dir}/build/process-bin"
+mkdir -p "${project_dir}/build/process-bin"
+
+build_process build/process-bin/process-check src/process/check.c
+build_process_cxx build/process-bin/process-cpp-check src/process/cpp-check.cpp
+build_process build/process-bin/process-env-driver src/process/env-driver.c
+build_process build/process-bin/process-dso-check src/process/dso-check.c
+build_process build/process-bin/process-fs-check src/process/fs-check.c
+build_process build/process-bin/process-http-check src/process/http-check.c
+build_process build/process-bin/process-pipe-check src/process/pipe-check.c
+build_process build/process-bin/process-pipe-driver src/process/pipe-driver.c
+build_process build/process-bin/process-poll-check src/process/poll-check.c
+build_process build/process-bin/bootstrap src/process/bootstrap.c
+build_process build/process-bin/slop src/slop.c
+build_process build/process-bin/cc src/process/cc.c
+build_process build/process-bin/c++ src/process/cxx.c
+build_process build/process-bin/ld src/process/ld.c
+build_process build/process-bin/ar src/process/ar.c
+for command in \
+    command cp dd diff du env find help hostname install ls mkdir mv patch \
+    printenv realpath rev rm tail tar tee test time timeout tty uname which xargs; do
+  build_process "build/process-bin/${command}" "src/commands/${command}.c"
+done
+
+# Building the C++ process probe materializes the exact wasm64/native-EH libc++
+# profile. Publish only that closed runtime set for the compiler running inside
+# Dolly; no Emscripten driver or JavaScript library enters the process sysroot.
+process_sysroot_dir="$("${project_dir}/scripts/prepare-process-sysroot.sh")"
+process_sysroot_container_dir="/src/${process_sysroot_dir#"${project_dir}/"}"
+
+node scripts/dolly-abi.mjs stamp-process \
+  build/dolly-process-0.wasm \
+  build/process-bin/*
+node scripts/dolly-abi.mjs validate-process \
+  build/dolly-process-0.wasm \
+  build/process-bin/*
+node scripts/dolly-abi.mjs emit-digest-module \
+  build/dolly-process-0.wasm \
+  dist/dolly-process-abi.mjs \
+  DOLLY_PROCESS_ABI_DIGEST
 
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-display-0.wat \
   --enable-memory64 \
@@ -141,12 +311,8 @@ rm -f \
   -o build/dolly-snapshot-0.wasm
 
 if has_module zig; then
-  native_zig="$("${project_dir}/scripts/build-native-zig.sh")"
+  native_zig_object="$("${project_dir}/scripts/build-native-zig.sh")"
 fi
-
-./bin/dolly-cc src/program-writer.c -o build/program-writer.wasm
-./bin/dolly-cc src/program-reader.c -o build/program-reader.wasm
-./bin/dolly-cc src/program-inspector.c -o build/program-inspector.wasm
 
 static_dir="${project_dir}/dist/static"
 rm -rf -- "${static_dir}"
@@ -184,11 +350,14 @@ if has_module cpp; then
 fi
 if has_module cpython; then
   for source in \
-    cpython-platform.c cpython-main.c cpython-extension-check.c \
-    cpython-socket-stubs.c cpython-termios.c cpython-mmap.c \
+    cpython-platform.c cpython-extension-check.c \
+    cpython-socket-stubs.c cpython-termios.c \
     cpython-process.c cpython-subprocess.py; do
     copy_static "${project_dir}/src/runtimes/${source}" "python/runtimes/${source}"
   done
+fi
+if has_module libffi; then
+  copy_static "${project_dir}/src/runtimes/libffi-dolly.c" python/runtimes/libffi-dolly.c
 fi
 if has_module bonnie; then
   copy_static "${project_dir}/src/commands/bonnie.c" python/commands/bonnie.c
@@ -231,7 +400,7 @@ if has_module ghostty; then
   copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
 fi
 if has_module zig; then
-  copy_static "${native_zig}" default/zig.wasm
+  copy_static "${project_dir}/src/process/zig.c" default/commands/zig.c
 fi
 
 if has_module make; then
@@ -381,6 +550,13 @@ node scripts/build-source-tar.mjs dist/static/python/cpython.tar \
   "${cpython_dir}/configure" /usr/src/python/configure \
   "${cpython_dir}/LICENSE" /usr/share/licenses/cpython/LICENSE
 fi
+if has_module libffi; then
+node scripts/build-source-tar.mjs dist/static/python/libffi.tar \
+  "${libffi_dir}" /usr/src/libffi \
+  "${libffi_dir}/include/ffi.h" /usr/include/ffi.h \
+  "${libffi_dir}/include/ffitarget.h" /usr/include/ffitarget.h \
+  "${libffi_dir}/LICENSE" /usr/share/licenses/libffi/LICENSE
+fi
 if has_module pi; then
   node scripts/build-source-tar.mjs dist/static/default/pi-source.tar \
     "${pi_source_dir}/tsconfig.base.json" /usr/src/pi-source/tsconfig.base.json \
@@ -438,13 +614,20 @@ node scripts/verify-static-sources.mjs
 node scripts/generate-routes.mjs
 
 node scripts/dolly-abi.mjs emit-emscripten-exports \
-  build/dolly-0.wasm \
+  build/dolly-kernel-plugin-0.wasm \
   build/dolly-display-0.wasm \
+  build/dolly-http-0.wasm \
   build/dolly-snapshot-0.wasm \
+  build/dolly-supervisor-0.wasm \
   build/runtime-exports.json
 node scripts/dolly-abi.mjs emit-digest-header \
-  build/dolly-0.wasm \
-  build/generated/dolly-abi-digest.h
+  build/dolly-kernel-plugin-0.wasm \
+  build/generated/dolly-kernel-plugin-abi-digest.h \
+  DOLLY_KERNEL_PLUGIN_ABI_DIGEST
+node scripts/dolly-abi.mjs emit-digest-header \
+  build/dolly-process-0.wasm \
+  build/generated/dolly-process-abi-digest.h \
+  DOLLY_PROCESS_ABI_DIGEST
 ./scripts/prepare-compiler-rt.sh
 
 "${container[@]}" /emsdk/upstream/emscripten/emcmake cmake \
@@ -454,28 +637,42 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DLLVM_DIR=/src/.cache/llvm-wasm/lib/cmake/llvm \
   -DClang_DIR=/src/.cache/llvm-wasm/lib/cmake/clang \
   -DLLD_DIR=/src/.cache/llvm-wasm/lib/cmake/lld \
-  -DDOLLY_ZIG_DIR="${zig_container_dir}"
-"${container[@]}" cmake --build build/runtime --parallel
+  -DDOLLY_ZIG_DIR="${zig_container_dir}" \
+  -DDOLLY_ZIG_OBJECT="/src/${native_zig_object#"${project_dir}/"}" \
+  -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}"
+"${container[@]}" cmake --build build/runtime --target dolly-process-compiler --parallel
+node scripts/dolly-abi.mjs stamp-process \
+  build/dolly-process-0.wasm \
+  build/process-tools/compiler.wasm
+node scripts/dolly-abi.mjs validate-process \
+  build/dolly-process-0.wasm \
+  build/process-tools/compiler.wasm
+cp build/process-tools/compiler.wasm build/process-bin/compiler
+"${container[@]}" cmake --build build/runtime --target dolly --parallel
 
 # Keep the pinned Emscripten wasm64 loader fail-closed when WasmFS returns a
 # view whose backing-buffer bounds differ from the view itself.
 node scripts/patch-emscripten-loader.mjs dist/dolly.mjs
 
 node scripts/dolly-abi.mjs stamp \
-  build/dolly-0.wasm \
+  build/dolly-kernel-plugin-0.wasm \
   dist/dolly.wasm
 node scripts/dolly-abi.mjs validate-runtime \
-  build/dolly-0.wasm \
+  build/dolly-kernel-plugin-0.wasm \
   dist/dolly.wasm
 
-cp build/dolly-0.wasm dist/dolly-0.wasm
+cp build/dolly-kernel-plugin-0.wasm dist/dolly-kernel-plugin-0.wasm
+cp build/dolly-process-0.wasm dist/dolly-process-0.wasm
+cp build/dolly-process-gate-0.wasm dist/dolly-process-gate-0.wasm
+cp build/dolly-supervisor-0.wasm dist/dolly-supervisor-0.wasm
 cp build/dolly-display-0.wasm dist/dolly-display-0.wasm
 cp build/dolly-download-0.wasm dist/dolly-download-0.wasm
 cp build/dolly-http-0.wasm dist/dolly-http-0.wasm
 cp build/dolly-snapshot-0.wasm dist/dolly-snapshot-0.wasm
-cp build/program-writer.wasm dist/program-writer.wasm
-cp build/program-reader.wasm dist/program-reader.wasm
-cp build/program-inspector.wasm dist/program-inspector.wasm
+cp build/process-bin/process-check dist/process-check.wasm
+cp build/process-bin/process-fs-check dist/process-fs-check.wasm
+cp build/process-bin/process-pipe-check dist/process-pipe-check.wasm
+cp build/process-bin/slop dist/slop-process.wasm
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2
 node scripts/write-build-id.mjs dist/dolly.wasm dist/dolly.data dist/dolly-build-id.mjs
 node scripts/prune-stale-snapshots.mjs

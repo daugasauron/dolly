@@ -6,25 +6,7 @@
     "env._abort_js",
     "env._dlopen_js",
     "env._dlsym_js",
-    "env._emscripten_runtime_keepalive_clear",
-    "env._emscripten_throw_longjmp",
-    "env.dolly_guarded_program_entry_js",
-    "env.emscripten_get_heap_max",
-    "env.emscripten_resize_heap",
-    "env.exit",
-    "env.invoke_ij",
-    "env.invoke_ijij",
-    "env.invoke_ijijiiid",
-    "env.invoke_ijj",
-    "env.invoke_ijjj",
-    "env.invoke_j",
-    "env.invoke_jj",
-    "env.invoke_jji",
-    "env.invoke_jjij",
-    "env.invoke_jjj",
-    "env.invoke_v",
-    "env.invoke_vj",
-    "wasi_snapshot_preview1.proc_exit"
+    "env.emscripten_resize_heap"
   ],
   "network": [
     "env.dolly_http_dispatch"
@@ -33,13 +15,6 @@
     "env.dolly_download_dispatch"
   ],
   "clock": [
-    "env.__call_sighandler",
-    "env._gmtime_js",
-    "env._localtime_js",
-    "env._mktime_js",
-    "env._setitimer_js",
-    "env._tzset_js",
-    "env.emscripten_get_now",
     "wasi_snapshot_preview1.clock_res_get",
     "wasi_snapshot_preview1.clock_time_get"
   ],

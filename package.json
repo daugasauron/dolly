@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "lint:dollyfiles": "node scripts/lint-dollyfiles.mjs",
-    "abi": "node scripts/dolly-abi.mjs inspect build/dolly-0.wasm",
+    "abi": "node scripts/dolly-abi.mjs inspect build/dolly-process-0.wasm && node scripts/dolly-abi.mjs inspect build/dolly-kernel-plugin-0.wasm",
     "build:runtime": "./scripts/build.sh",
     "routes": "node scripts/generate-routes.mjs",
     "snapshot": "npm run routes && node scripts/build-system-snapshot.mjs",

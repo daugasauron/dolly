@@ -61,6 +61,10 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
 int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
                     void *data, size_t capacity);
 
+// Cancels the matching in-flight request and releases the single broker slot.
+// A stale sequence fails without affecting a newer request.
+int dolly_http_cancel(unsigned int sequence);
+
 // Performs one browser-brokered HTTP request. The browser provider receives
 // no filesystem or process capability: only the explicit request data above.
 // Returns zero or a negative errno value. HTTP status is not itself an error

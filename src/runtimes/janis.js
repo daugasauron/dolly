@@ -889,17 +889,28 @@ for (const [name, sync] of [
 janisFs.promises = janisFsPromises;
 
 function quoteShell(value) { return `'${String(value).replaceAll("'", "'\\''")}'`; }
-function runChild(command, args = [], options = {}) {
-  const text = options.shell && (!args || args.length === 0)
+function childCommand(command, args, options) {
+  return options.shell && (!args || args.length === 0)
     ? String(command)
     : [command, ...(args ?? [])].map(quoteShell).join(" ");
+}
+function inChildCwd(options, operation) {
   const previousCwd = Dolly.cwd();
   try {
     if (options.cwd) Dolly.chdir(String(options.cwd));
-    return Dolly.shell(text);
+    return operation();
   } finally {
     if (options.cwd) Dolly.chdir(previousCwd);
   }
+}
+function runChild(command, args = [], options = {}) {
+  const text = childCommand(command, args, options);
+  return inChildCwd(options, () => Dolly.shell(text));
+}
+function runChildStreaming(command, args, options, stdout, stderr) {
+  const text = childCommand(command, args, options);
+  const timeout = Number.isFinite(options.timeout) ? Number(options.timeout) : undefined;
+  return inChildCwd(options, () => janisShellStream(text, stdout, stderr, timeout));
 }
 function spawnSync(command, args = [], options = {}) {
   if (!Array.isArray(args)) { options = args ?? {}; args = []; }
@@ -917,9 +928,29 @@ function spawnSync(command, args = [], options = {}) {
 }
 function spawn(command, args = [], options = {}) {
   if (!Array.isArray(args)) { options = args ?? {}; args = []; }
-  return completedChild(runChild(command, args, options));
+  const child = pendingChild();
+  queueMicrotask(() => {
+    try {
+      const result = runChildStreaming(
+        command, args, options,
+        (chunk) => child.stdout.push(Buffer.from(chunk)),
+        (chunk) => child.stderr.push(Buffer.from(chunk)),
+      );
+      child.exitCode = result.status;
+      child.stdout.push(null);
+      child.stderr.push(null);
+      child.emit("exit", result.status, null);
+      child.emit("close", result.status, null);
+    } catch (error) {
+      child.stdout.push(null);
+      child.stderr.push(null);
+      child.emit("error", error);
+      child.emit("close", null, null);
+    }
+  });
+  return child;
 }
-function completedChild(result) {
+function pendingChild() {
   const child = new JanisEventEmitter();
   child.pid = 2;
   child.stdin = new JanisWritable();
@@ -934,26 +965,39 @@ function completedChild(result) {
   // fail without aborting their terminal fallback.
   child.ref = () => child;
   child.unref = () => child;
-  child.exitCode = result.status;
-  queueMicrotask(() => {
-    if (result.stdout) child.stdout.push(Buffer.from(result.stdout));
-    if (result.stderr) child.stderr.push(Buffer.from(result.stderr));
-    child.stdout.push(null); child.stderr.push(null);
-    child.emit("exit", result.status, null); child.emit("close", result.status, null);
-  });
+  child.exitCode = null;
   return child;
 }
 function exec(command, options, callback) {
   if (typeof options === "function") { callback = options; options = {}; }
-  const result = runChild(command, [], { ...(options ?? {}), shell: true });
-  queueMicrotask(() => callback?.(result.status ? new Error(`command exited ${result.status}`) : null, result.stdout, result.stderr));
-  return completedChild(result);
+  const child = spawn(command, [], { ...(options ?? {}), shell: true });
+  let stdout = ""; let stderr = ""; let failed = false;
+  child.stdout.on("data", (chunk) => { stdout += String(chunk); });
+  child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+  child.once("error", (error) => { failed = true; callback?.(error, stdout, stderr); });
+  child.once("close", (status) => {
+    if (!failed) callback?.(status ? new Error(`command exited ${status}`) : null, stdout, stderr);
+  });
+  return child;
 }
 function execFile(command, args, options, callback) {
-  if (typeof options === "function") { callback = options; options = {}; }
-  const result = spawnSync(command, args, { ...(options ?? {}), encoding: "utf8" });
-  queueMicrotask(() => callback?.(result.status ? new Error(`command exited ${result.status}`) : null, result.stdout, result.stderr));
-  return completedChild(result);
+  if (typeof args === "function") {
+    callback = args; args = []; options = {};
+  } else if (!Array.isArray(args)) {
+    if (typeof options === "function") callback = options;
+    options = args ?? {}; args = [];
+  } else if (typeof options === "function") {
+    callback = options; options = {};
+  }
+  const child = spawn(command, args, options ?? {});
+  let stdout = ""; let stderr = ""; let failed = false;
+  child.stdout.on("data", (chunk) => { stdout += String(chunk); });
+  child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+  child.once("error", (error) => { failed = true; callback?.(error, stdout, stderr); });
+  child.once("close", (status) => {
+    if (!failed) callback?.(status ? new Error(`command exited ${status}`) : null, stdout, stderr);
+  });
+  return child;
 }
 const janisChildProcess = {
   spawn,
@@ -2025,11 +2069,24 @@ if (typeof globalThis.EventTarget !== "function") {
   };
 }
 
+function janisStreamPump() {
+  runDueTimers();
+}
+globalThis.__janisStreamPump = janisStreamPump;
+function janisShellStream(command, stdout, stderr, timeout) {
+  try {
+    return Dolly.shellStream(command, stdout, stderr, timeout, janisStreamPump);
+  } finally {
+    janisStreamPump();
+  }
+}
+globalThis.__janisShellStream = janisShellStream;
+
 // Called by quickjs-main.c after draining each microtask batch. It blocks only
 // inside the Wasm worker and keeps the runtime alive exactly while referenced
 // timers or resumed stdin listeners exist.
 globalThis.__janisPump = () => {
-  runDueTimers();
+  janisStreamPump();
   const pumpedHttp = Boolean(globalThis.__dollyHttpPump?.());
   const referenced = [...janisTimers.values()].filter((timer) => timer.ref);
   const wantsInput = janisStdin.isActive();
@@ -2052,7 +2109,7 @@ globalThis.__janisPump = () => {
   }
   janisStdin.publish(bytes);
   if (wantsInput && !janisStdin.isTTY && bytes.length === 0) janisStdin.finish();
-  runDueTimers();
+  janisStreamPump();
   globalThis.__dollyHttpPump?.();
   return true;
 };

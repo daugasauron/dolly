@@ -1,6 +1,7 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { loadModuleLayers, saveModuleLayers } from "./module-cache.mjs";
+import { DollyProcessSupervisor } from "./process-supervisor.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const snapshotSizeLimit = 512 * 1024 * 1024;
@@ -146,8 +147,7 @@ async function publishModuleCache(dolly) {
     const allowedCacheKeys = DOLLY_IMAGES.flatMap(
       ({ moduleCaches }) => moduleCaches.map(({ cacheKey }) => cacheKey),
     );
-    await saveModuleLayers(DOLLY_BUILD_ID, layers, allowedCacheKeys);
-    return layers.length;
+    return await saveModuleLayers(DOLLY_BUILD_ID, layers, allowedCacheKeys);
   } catch {
     return 0;
   }
@@ -155,6 +155,103 @@ async function publishModuleCache(dolly) {
 
 function removeStagedModuleCache(dolly) {
   removeCacheTree(dolly, "/etc/dolly/module-cache-input");
+}
+
+function readImageEntry(dolly) {
+  const bytes = dolly.FS.readFile("/etc/dolly/entry");
+  if (!(bytes instanceof Uint8Array) || bytes.byteLength < 16 ||
+      bytes.byteLength > 64 * 1024 ||
+      decoder.decode(bytes.subarray(0, 8)) !== "DOLLYENT") {
+    throw new TypeError("invalid image ENTRY record");
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint32(8, true) !== 1) {
+    throw new TypeError("unsupported image ENTRY version");
+  }
+  const count = view.getUint32(12, true);
+  if (count === 0 || count > 256) throw new TypeError("invalid image ENTRY count");
+  const strictDecoder = new TextDecoder("utf-8", { fatal: true });
+  const arguments_ = [];
+  let offset = 16;
+  for (let index = 0; index < count; ++index) {
+    if (offset > bytes.byteLength - 4) throw new TypeError("truncated image ENTRY");
+    const size = view.getUint32(offset, true);
+    offset += 4;
+    if (size === 0 || size > 4096 || offset > bytes.byteLength - size) {
+      throw new TypeError("invalid image ENTRY argument");
+    }
+    const value = strictDecoder.decode(bytes.subarray(offset, offset + size));
+    if (value.includes("\0")) throw new TypeError("invalid image ENTRY string");
+    arguments_.push(value);
+    offset += size;
+  }
+  if (offset !== bytes.byteLength || !arguments_[0].startsWith("/")) {
+    throw new TypeError("invalid image ENTRY payload");
+  }
+  return arguments_;
+}
+
+function terminalWrite(dolly, memory, text) {
+  const bytes = encoder.encode(text);
+  const address = dolly._malloc(BigInt(Math.max(1, bytes.byteLength)));
+  if (address === 0 || address === 0n) {
+    throw new RangeError("terminal output allocation failed");
+  }
+  try {
+    new Uint8Array(memory.buffer, Number(address), bytes.byteLength).set(bytes);
+    dolly._dolly_terminal_write_bytes(BigInt(address), BigInt(bytes.byteLength));
+  } finally {
+    dolly._free(BigInt(address));
+  }
+}
+
+async function runImageEntry(dolly, memory, supervisor) {
+  const arguments_ = readImageEntry(dolly);
+  const path = arguments_[0];
+  const interactive = path === "/bin/slop" || path === "/usr/bin/pi";
+  const startupPath = "/home/dolly/.dollyrc";
+  if (dolly.FS.analyzePath(startupPath).exists) {
+    const startup = dolly.FS.stat(startupPath);
+    if ((startup.mode & 0xf000) !== 0x8000) {
+      throw new TypeError(`${startupPath} is not a regular file`);
+    }
+    const startupStatus = await supervisor.spawn(
+      "/bin/slop", ["slop", "-e", startupPath], {
+        foreground: true,
+        interactive: true,
+      },
+    );
+    if (startupStatus !== 0 && startupStatus !== 130) {
+      terminalWrite(
+        dolly, memory,
+        `\r\nDolly: ${startupPath} exited with status ${startupStatus}; continuing.\r\n`,
+      );
+    }
+  }
+  let status = 126;
+  for (let attempt = 0; attempt < 3; ++attempt) {
+    const completion = supervisor.spawn(path, arguments_, {
+      foreground: true,
+      interactive,
+    });
+    self.postMessage({ type: "entry-started", pid: supervisor.foregroundRootPid });
+    status = await completion;
+    if (path !== "/usr/bin/pi" || status === 0 || status === 130 || attempt === 2) {
+      break;
+    }
+    terminalWrite(
+      dolly, memory,
+      `\r\nDolly: restarting Pi after unexpected status ${status} (${attempt + 1}/2).\r\n`,
+    );
+  }
+  terminalWrite(
+    dolly, memory,
+    "\r\nDolly: image entry exited; entering the recovery Slop shell.\r\n",
+  );
+  return supervisor.spawn("/bin/slop", ["slop"], {
+    foreground: true,
+    interactive: true,
+  });
 }
 
 function expectedRecipes(image) {
@@ -206,6 +303,10 @@ async function loadPackagedSnapshotMetadata(image) {
       JSON.stringify(metadata.modules) !== JSON.stringify(modules) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
       metadata.byteLength > snapshotSizeLimit ||
+      (metadata.encoding !== undefined && metadata.encoding !== "gzip") ||
+      (metadata.encoding === "gzip" &&
+       (!Number.isSafeInteger(metadata.encodedByteLength) ||
+        metadata.encodedByteLength <= 0 || metadata.encodedByteLength > snapshotSizeLimit)) ||
       !/^[0-9a-f]{64}$/.test(metadata.sha256) ||
       !Array.isArray(metadata.manifest) || metadata.manifest.length === 0 ||
       metadata.manifest.length > 100_000) {
@@ -239,8 +340,9 @@ async function loadPackagedSnapshotMetadata(image) {
 }
 
 async function loadPackagedSystemSnapshot(image, metadata) {
+  const compressed = metadata.encoding === "gzip";
   const artifactUrl = new URL(
-    `dist/dolly-${image}-system.snapshot`, applicationBase,
+    `dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, applicationBase,
   );
   let response;
   try {
@@ -252,14 +354,35 @@ async function loadPackagedSystemSnapshot(image, metadata) {
   }
   if (!response.ok) throw new Error(`The packaged system snapshot returned HTTP ${response.status}`);
   const declared = response.headers.get("content-length");
-  if (declared !== null && Number(declared) !== metadata.byteLength) {
+  const expectedLength = compressed ? metadata.encodedByteLength : metadata.byteLength;
+  if (declared !== null && Number(declared) !== expectedLength) {
     throw new Error("The packaged system snapshot has the wrong HTTP content length");
   }
-  const bytes = await response.arrayBuffer();
-  if (bytes.byteLength !== metadata.byteLength || await sha256(bytes) !== metadata.sha256) {
+  if (!response.body) throw new Error("The packaged system snapshot has no body");
+  const stream = compressed
+    ? response.body.pipeThrough(new DecompressionStream("gzip"))
+    : response.body;
+  const reader = stream.getReader();
+  const bytes = new Uint8Array(metadata.byteLength);
+  let offset = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value.byteLength > bytes.byteLength - offset) {
+        await reader.cancel();
+        throw new Error("The packaged system snapshot exceeds its declared size");
+      }
+      bytes.set(value, offset);
+      offset += value.byteLength;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (offset !== metadata.byteLength || await sha256(bytes) !== metadata.sha256) {
     throw new Error("The packaged system snapshot failed its integrity check");
   }
-  return bytes;
+  return bytes.buffer;
 }
 
 function isStrictModulePrefix(candidate, target) {
@@ -350,6 +473,7 @@ async function waitForBrowserAcknowledgement(type, failure) {
 }
 
 let dolly = null;
+let processSupervisor = null;
 try {
   const snapshotMetadata = bootMode === "snapshot"
     ? await loadPackagedSnapshotMetadata(configuredImage)
@@ -361,7 +485,7 @@ try {
   const nativeTextDecoder = globalThis.TextDecoder;
   globalThis.TextDecoder = undefined;
   const { default: createDolly } = await import("../dist/dolly.mjs");
-  bootstrapStage("creating shared wasm64 userspace...");
+  bootstrapStage("creating wasm64 userspace kernel...");
   const memory = createDollyMemory();
   const dollyOptions = {
     noInitialRun: true,
@@ -450,6 +574,7 @@ try {
 
   let bootstrapStatus;
   let snapshotBytes;
+  let finishRebuiltImage = false;
   if (bootMode === "rebuild") {
     bootstrapStage("building userspace from the Dollyfile...");
     if (moduleCache) {
@@ -464,11 +589,24 @@ try {
       );
       const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
       new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
-      bootstrapStatus = dolly._dolly_bootstrap_resume(
+      bootstrapStatus = dolly._dolly_process_bootstrap_resume_prepare(
         BigInt(range.size), moduleCache.uses,
       );
     } else {
-      bootstrapStatus = dolly._dolly_bootstrap();
+      bootstrapStatus = dolly._dolly_process_bootstrap_prepare();
+    }
+    if (bootstrapStatus === 0) {
+      processSupervisor = await DollyProcessSupervisor.create(
+        dolly, memory, applicationBase,
+      );
+      const bootstrapArguments = [
+        "/usr/libexec/dolly/process-bin/bootstrap",
+        ...(moduleCache ? ["--resume", String(moduleCache.uses)] : []),
+      ];
+      bootstrapStatus = await processSupervisor.spawn(
+        "/usr/libexec/dolly/process-bin/bootstrap",
+        bootstrapArguments,
+      );
     }
     removeStagedModuleCache(dolly);
 
@@ -498,8 +636,7 @@ try {
       copy.set(new Uint8Array(memory.buffer, range.address, range.size));
       snapshotBytes = range.size;
       self.postMessage({ type: "system-snapshot", bytes: copy.buffer }, [copy.buffer]);
-      bootstrapStage("starting sandbox display...");
-      bootstrapStatus = dolly._dolly_bootstrap_finish();
+      finishRebuiltImage = true;
     }
   } else {
     bootstrapStage("loading precompiled userspace snapshot...");
@@ -526,6 +663,228 @@ try {
     }
   }
   if (bootstrapStatus !== 0) throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
+
+  bootstrapStage("verifying private process execution...");
+  processSupervisor ??= await DollyProcessSupervisor.create(
+    dolly, memory, applicationBase,
+  );
+  for (let invocation = 0; invocation < 2; ++invocation) {
+    const status = await processSupervisor.spawn(
+      "/usr/libexec/dolly/process-bin/process-check",
+      ["/bin/process-check", "fresh"],
+      { environment: ["DOLLY_PROCESS_CHECK=private-memory"] },
+    );
+    if (status !== 0) {
+      throw new Error(`private process check ${invocation + 1} exited with status ${status}`);
+    }
+  }
+  for (const action of ["write", "read"]) {
+    const status = await processSupervisor.spawn(
+      "/usr/libexec/dolly/process-bin/process-fs-check",
+      ["/bin/process-fs-check", action],
+    );
+    if (status !== 0) {
+      throw new Error(`shared process filesystem ${action} exited with status ${status}`);
+    }
+  }
+  const environmentDriverStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/process-env-driver",
+    ["/usr/libexec/dolly/process-bin/process-env-driver"],
+  );
+  if (environmentDriverStatus !== 0) {
+    throw new Error(
+      `private process libc environment check exited with status ${environmentDriverStatus}`,
+    );
+  }
+  const cxxStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/process-cpp-check",
+    ["/usr/libexec/dolly/process-bin/process-cpp-check"],
+  );
+  if (cxxStatus !== 0) {
+    throw new Error(`private C++23 process check exited with status ${cxxStatus}`);
+  }
+  const httpCheckImage = imageDefinitions.get(configuredImage) ?? DOLLY_IMAGES[0];
+  if (!httpCheckImage) {
+    throw new Error("private HTTP process check has no packaged recipe target");
+  }
+  const httpCheckStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/process-http-check",
+    ["/usr/libexec/dolly/process-bin/process-http-check"],
+    {
+      environment: [
+        `DOLLY_PROCESS_HTTP_CHECK_URL=${new URL(httpCheckImage.dollyfile, applicationBase).href}`,
+      ],
+    },
+  );
+  if (httpCheckStatus !== 0) {
+    throw new Error(`private HTTP process check exited with status ${httpCheckStatus}`);
+  }
+  const nestedStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/slop",
+    [
+      "/bin/slop",
+      "-c",
+      "/usr/libexec/dolly/process-bin/process-fs-check write && " +
+        "/usr/libexec/dolly/process-bin/process-fs-check read",
+    ],
+  );
+  if (nestedStatus !== 0) {
+    throw new Error(`private Slop spawn/wait check exited with status ${nestedStatus}`);
+  }
+  const prefixedEnvironmentStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/slop",
+    [
+      "/bin/slop",
+      "-c",
+      "DOLLY_PROCESS_CHECK=private-memory " +
+        "/usr/libexec/dolly/process-bin/process-check fresh",
+    ],
+  );
+  if (prefixedEnvironmentStatus !== 0) {
+    throw new Error(
+      `private process prefixed environment check exited with status ` +
+        `${prefixedEnvironmentStatus}`,
+    );
+  }
+  const environmentStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/slop",
+    [
+      "/bin/slop",
+      "-c",
+      "export DOLLY_PROCESS_CHECK=private-memory; " +
+        "case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; " +
+        "/usr/libexec/dolly/process-bin/process-check fresh",
+    ],
+  );
+  if (environmentStatus !== 0) {
+    throw new Error(`private process environment check exited with status ${environmentStatus}`);
+  }
+  const pipeStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/process-pipe-driver",
+    ["/usr/libexec/dolly/process-bin/process-pipe-driver"],
+  );
+  if (pipeStatus !== 0) {
+    throw new Error(`private process pipe check exited with status ${pipeStatus}`);
+  }
+  const pollStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/process-poll-check",
+    ["/usr/libexec/dolly/process-bin/process-poll-check"],
+  );
+  if (pollStatus !== 0) {
+    throw new Error(`private process poll check exited with status ${pollStatus}`);
+  }
+  const compilerStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/cc",
+    ["/usr/bin/cc", "--version"],
+  );
+  if (compilerStatus !== 0) {
+    throw new Error(`private compiler process exited with status ${compilerStatus}`);
+  }
+  const compilerOutput = "/tmp/dolly-process-compiler-check";
+  const compileStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/cc",
+    [
+      "/usr/bin/cc",
+      "-O0",
+      "/usr/src/dolly/commands/mkdir.c",
+      "-o",
+      compilerOutput,
+    ],
+  );
+  if (compileStatus !== 0) {
+    throw new Error(`private compiler output check exited with status ${compileStatus}`);
+  }
+  const compiledStatus = await processSupervisor.spawn(
+    compilerOutput,
+    [compilerOutput, "/tmp/dolly-process-compiler-output"],
+  );
+  const compilerOutputMetadata = compiledStatus === 0
+    ? dolly.FS.stat("/tmp/dolly-process-compiler-output") : null;
+  if (compiledStatus !== 0 ||
+      (compilerOutputMetadata.mode & 0o170000) !== 0o040000) {
+    throw new Error(
+      `private compiler executable exited with status ${compiledStatus}`,
+    );
+  }
+  dolly.FS.rmdir("/tmp/dolly-process-compiler-output");
+  dolly.FS.unlink(compilerOutput);
+  const dsoOutput = "/tmp/dolly-process-dso.so";
+  const dsoCompileStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/cc",
+    [
+      "/usr/bin/cc",
+      "-shared",
+      "-O0",
+      "/usr/src/dolly/process/dso-library.c",
+      "-o",
+      dsoOutput,
+    ],
+  );
+  if (dsoCompileStatus !== 0) {
+    throw new Error(`private shared-object compiler exited with status ${dsoCompileStatus}`);
+  }
+  const dsoStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/process-dso-check",
+    ["/usr/libexec/dolly/process-bin/process-dso-check"],
+  );
+  if (dsoStatus !== 0) {
+    throw new Error(`private dynamic loader exited with status ${dsoStatus}`);
+  }
+  dolly.FS.unlink(dsoOutput);
+  const cppDsoOutput = "/tmp/dolly-process-cpp-dso.so";
+  const cppDsoCompileStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/c++",
+    [
+      "/usr/bin/c++",
+      "-shared",
+      "-O0",
+      "/usr/src/dolly/process/dso-cpp-library.cpp",
+      "-o",
+      cppDsoOutput,
+    ],
+  );
+  if (cppDsoCompileStatus !== 0) {
+    throw new Error(
+      `private C++ shared-object compiler exited with status ${cppDsoCompileStatus}`,
+    );
+  }
+  const cppDsoCheckOutput = "/tmp/dolly-process-cpp-dso-check";
+  const cppDsoCheckCompileStatus = await processSupervisor.spawn(
+    "/usr/libexec/dolly/process-bin/c++",
+    [
+      "/usr/bin/c++",
+      "-O0",
+      "-rdynamic",
+      "/usr/src/dolly/process/dso-cpp-check.cpp",
+      "-o",
+      cppDsoCheckOutput,
+    ],
+  );
+  if (cppDsoCheckCompileStatus !== 0) {
+    throw new Error(
+      `private C++ DSO host compiler exited with status ${cppDsoCheckCompileStatus}`,
+    );
+  }
+  const cppDsoStatus = await processSupervisor.spawn(
+    cppDsoCheckOutput,
+    [cppDsoCheckOutput],
+  );
+  if (cppDsoStatus !== 0) {
+    throw new Error(
+      `private C++ dynamic loader exited with status ${cppDsoStatus}`,
+    );
+  }
+  dolly.FS.unlink(cppDsoCheckOutput);
+  dolly.FS.unlink(cppDsoOutput);
+  bootstrapStage("private process execution verified");
+
+  if (finishRebuiltImage) {
+    bootstrapStage("starting sandbox display...");
+    bootstrapStatus = dolly._dolly_bootstrap_finish();
+    if (bootstrapStatus !== 0) {
+      throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
+    }
+  }
 
   const runtimeImage = decoder.decode(dolly.FS.readFile("/etc/dolly/image"));
   if (configuredImage !== "custom" && runtimeImage !== configuredImage) {
@@ -568,7 +927,7 @@ try {
   });
   await displayReady;
 
-  const status = dolly._dolly_shell_run();
+  const status = await runImageEntry(dolly, memory, processSupervisor);
   self.postMessage({ type: "exited", status });
 } catch (error) {
   let compilerTrace = "";

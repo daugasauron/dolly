@@ -1,6 +1,11 @@
 # Serial process-shaped command invocation over Dolly's stable spawn/wait ABI.
 _dolly_process Modules/dolly_process.o
 
+# Upstream libffi 3.5.2 has a wasm64 ABI. Dolly supplies its typed indirect
+# call backend through process-local dolly-process-0 operations, so _ctypes is
+# an ordinary built-in module without Emscripten JavaScript-library imports.
+_ctypes _ctypes/_ctypes.c _ctypes/callbacks.c _ctypes/callproc.c _ctypes/stgdict.c _ctypes/cfield.c -lffi -DHAVE_FFI_PREP_CIF_VAR -DHAVE_FFI_PREP_CLOSURE_LOC -DHAVE_FFI_CLOSURE_ALLOC
+
 # Dolly has zlib and WasmFS-backed mmap, but not SQLite or bzip2 yet. CPython's
 # bundled _decimal accelerator is also omitted: its portable libmpdec path is a
 # pathological cold compile in the embedded compiler, while decimal.py already

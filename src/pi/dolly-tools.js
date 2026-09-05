@@ -50,14 +50,22 @@ export default function dollyTools(pi) {
     label: "slop",
     description: "Execute a command with the Slop shell inside the Dolly WebAssembly sandbox.",
     parameters: object({ command: string("Slop command to execute") }, ["command"]),
-    async execute(_id, parameters, _signal, _update, context) {
+    async execute(_id, parameters, signal, update, context) {
       const previous = Dolly.cwd();
       try {
         Dolly.chdir(context.cwd);
-        // Agent tool calls are noninteractive. Supplying a finite empty stdin
-        // prevents accidental readers such as `cat` from taking over Pi's TTY.
-        const result = Dolly.shell(parameters.command, "", 60_000);
-        const output = `${result.stdout}${result.stderr}` || `(status ${result.status})`;
+        if (signal?.aborted) throw new Error("command cancelled");
+        const decoder = new TextDecoder();
+        let output = "";
+        const onChunk = (bytes) => {
+          output += decoder.decode(bytes, { stream: true });
+          update?.({ ...text(output), details: { status: null } });
+        };
+        const result = globalThis.__janisShellStream(
+          parameters.command, onChunk, onChunk,
+        );
+        output += decoder.decode();
+        if (!output) output = `(status ${result.status})`;
         return { ...text(output), details: { status: result.status } };
       } finally {
         Dolly.chdir(previous);

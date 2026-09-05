@@ -66,36 +66,56 @@ export async function saveModuleLayers(buildId, layers, allowedCacheKeys) {
   const database = await openDatabase();
   try {
     const allowed = new Set(allowedCacheKeys);
-    const transaction = database.transaction(storeName, "readwrite");
-    const store = transaction.objectStore(storeName);
-    const cursor = store.openCursor();
-    cursor.addEventListener("success", () => {
-      const item = cursor.result;
-      if (item === null) return;
-      if (item.value?.buildId !== buildId || !allowed.has(item.value?.cacheKey)) {
-        item.delete();
-      }
-      item.continue();
-    });
+    // Cleanup is deliberately separate from publication. A large compiler
+    // layer can exceed an embedder's per-record or origin quota; that must not
+    // abort the transaction containing every smaller, earlier prefix layer.
+    // Best-effort cache cleanup also must not make a valid new layer unusable.
+    try {
+      const cleanup = database.transaction(storeName, "readwrite");
+      const done = transactionDone(cleanup);
+      const cursor = cleanup.objectStore(storeName).openCursor();
+      cursor.addEventListener("success", () => {
+        const item = cursor.result;
+        if (item === null) return;
+        if (item.value?.buildId !== buildId || !allowed.has(item.value?.cacheKey)) {
+          item.delete();
+        }
+        item.continue();
+      });
+      await done;
+    } catch {
+      // Stale cache entries are harmless because every lookup is namespaced by
+      // build ID and exact content key.
+    }
+
     let total = 0;
+    let saved = 0;
     for (const layer of layers) {
       if (!allowed.has(layer.cacheKey) ||
           !/^[0-9a-f]{64}$/.test(layer.cacheKey) ||
           !/^[0-9a-f]{64}$/.test(layer.sha256) ||
           !(layer.bytes instanceof ArrayBuffer) || layer.bytes.byteLength < 16 ||
           layer.bytes.byteLength > maximumLayerBytes) continue;
-      if (total > maximumLayerBytes - layer.bytes.byteLength) break;
-      total += layer.bytes.byteLength;
-      store.put({
-        id: recordId(buildId, layer.cacheKey),
-        buildId,
-        cacheKey: layer.cacheKey,
-        sha256: layer.sha256,
-        bytes: layer.bytes,
-        updatedAt: Date.now(),
-      });
+      if (total > maximumLayerBytes - layer.bytes.byteLength) continue;
+      try {
+        const transaction = database.transaction(storeName, "readwrite");
+        const done = transactionDone(transaction);
+        transaction.objectStore(storeName).put({
+          id: recordId(buildId, layer.cacheKey),
+          buildId,
+          cacheKey: layer.cacheKey,
+          sha256: layer.sha256,
+          bytes: layer.bytes,
+          updatedAt: Date.now(),
+        });
+        await done;
+        total += layer.bytes.byteLength;
+        saved += 1;
+      } catch {
+        // Preserve already committed prefix layers and try later small layers.
+      }
     }
-    await transactionDone(transaction);
+    return saved;
   } finally {
     database.close();
   }

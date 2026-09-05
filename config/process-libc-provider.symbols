@@ -1,0 +1,20 @@
+# Public reserved libc ABI spellings which process DSOs may import from their
+# owning executable. Keep this list explicit: libc's remaining underscore
+# names are implementation details and must not become a de facto Dolly ABI.
+__ctype_b_loc
+__ctype_get_mb_cur_max
+__ctype_tolower_loc
+__ctype_toupper_loc
+__cxa_atexit
+__cxa_finalize
+__environ
+__errno_location
+__flt_rounds
+__fpclassify
+__fpclassifyf
+__fpclassifyl
+__signbit
+__signbitf
+__signbitl
+__stack_chk_fail
+__stack_chk_guard

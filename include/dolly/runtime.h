@@ -10,39 +10,43 @@ extern "C" {
 #endif
 
 // Starts a filesystem-resident Dolly command with explicitly routed standard
-// descriptors. Version 0 runs it synchronously and returns a positive pid once
-// its exit status is available. Errors are returned as negative errno values.
+// descriptors. It returns a positive in-Wasm pid once the kernel accepts the
+// child; dolly_wait() collects its eventual status. Errors are negative errno.
 int dolly_spawn(const char *path, int argc, char **argv,
                 int stdin_fd, int stdout_fd, int stderr_fd);
 
-// Synchronous spawn with a runtime-owned deadline. Nested Dolly commands
-// inherit the earliest active deadline. A deadline expiry returns shell status
-// 124 without requiring a JavaScript timer or host process.
+// Spawn with a kernel-owned deadline. A deadline expiry returns shell status
+// 124 without a host process.
 int dolly_spawn_timeout(const char *path, int argc, char **argv,
                         int stdin_fd, int stdout_fd, int stderr_fd,
                         double timeout_milliseconds);
 
-// Synchronous version-0 spawn with an explicit child environment. The input
+// Spawn with an explicit child environment. The input
 // array is copied into the command context and never retained or modified.
 int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],
                     int stdin_fd, int stdout_fd, int stderr_fd);
 
-/* Checked in-Wasm dynamic loading. dolly_dlopen() accepts only a side module
- * carrying the current dolly.abi stamp whose direct imports stay inside the
- * machine contract. It never delegates loading or filesystem access to the
- * browser. */
+// Explicit-environment form with the same runtime-owned deadline semantics.
+// Keeping both controls in one spawn operation avoids mutating a parent's
+// environment merely to configure a child.
+int dolly_spawn_env_timeout(const char *path, int argc, char **argv,
+                            char *const envp[], int stdin_fd, int stdout_fd,
+                            int stderr_fd, double timeout_milliseconds);
+
+/* Process-local dynamic loading. dolly_dlopen() accepts only a side module
+ * carrying the current dolly.process.dso stamp. Its imports resolve from the
+ * executable and already-loaded DSOs in the same private Worker; loading never
+ * delegates filesystem access to the browser. */
 void *dolly_dlopen(const char *path, int flags);
 void *dolly_dlsym(void *handle, const char *name);
-const char *dolly_dlerror(void);
+char *dolly_dlerror(void);
 int dolly_dlclose(void *handle);
 
 // Collects a completed command and releases its bounded process-table slot.
 // Returns zero on success or a negative errno value.
 int dolly_wait(int pid, int *status);
 
-// Mutates the runtime-owned WasmFS directly. Dynamic language runtimes use
-// this narrow call instead of retaining executable-local stdio state around a
-// filesystem operation.
+// Copies a file into kernel-owned WasmFS through the process syscall gate.
 int dolly_write_file(const char *path, const void *bytes, size_t length);
 
 // Publishes one completed interactive shell command to the terminal mailbox.
@@ -58,7 +62,7 @@ uint32_t dolly_terminal_rows(void);
 
 // Small terminal discipline contract. Language/libc adapters translate their
 // own termios layouts above these two stable semantic bits. Foreground Ctrl+C
-// is unconditional lifecycle supervision, not mutable terminal state.
+// remains a lifecycle operation, not mutable terminal state.
 enum {
   DOLLY_TERMINAL_CANONICAL = 1u << 0,
   DOLLY_TERMINAL_ECHO = 1u << 1,
@@ -68,9 +72,9 @@ enum {
 int dolly_terminal_mode_get(int descriptor);
 int dolly_terminal_mode_set(int descriptor, uint32_t flags);
 
-// Returns SIGINT once when the browser has targeted the currently executing
-// foreground command, or zero when no interrupt is pending. Ordinary programs
-// normally rely on compiler-inserted checkpoints rather than calling this.
+// Returns SIGINT once when the kernel has targeted this process, or zero when
+// no interrupt is pending. The supervisor retains a forced Worker-termination
+// fallback for programs that never reach a checkpoint.
 int dolly_interrupt_poll(void);
 
 // Compiler-inserted cancellation safepoint. A pending SIGINT terminates only
@@ -84,17 +88,13 @@ void dolly_interrupt_checkpoint(void);
 // and serial pipeline spools return false.
 int dolly_isatty(int descriptor);
 
-// Terminates only the currently executing Dolly command. The compiler maps
-// ordinary C exit() calls to this lifecycle operation.
+// Terminates only the currently executing Dolly process.
 void dolly_exit(int status) __attribute__((__noreturn__));
 
-// Closes ordinary streams. Standard streams are inherited runtime resources,
-// so closing one at command teardown flushes it without invalidating the
-// shared shell stream. The compiler maps ordinary fclose() calls here.
+// Compatibility spelling used only by the resident kernel display plugin.
 int dolly_fclose(FILE *stream);
 
-// Dolly has no ambient shell or host subprocesses. These preserve the libc
-// call shapes while failing explicitly inside the Wasm userspace.
+// POSIX-shaped shell helpers execute /bin/slop as another private process.
 int dolly_system(const char *command);
 FILE *dolly_popen(const char *command, const char *mode);
 int dolly_pclose(FILE *stream);
@@ -103,29 +103,14 @@ int dolly_pclose(FILE *stream);
 // registration order when its main returns or calls dolly_exit.
 int dolly_atexit(void (*callback)(void));
 
-// Dolly has no file permission checks. These retain source compatibility
-// without creating or consulting execute bits, ownership, or a process umask.
-int dolly_chmod(const char *path, mode_t mode);
-mode_t dolly_umask(mode_t mask);
 char *dolly_getpass(const char *prompt);
 ssize_t dolly_getrandom(void *buffer, size_t length, unsigned flags);
 
-// Version 0 has no concurrent native-style process model. These calls are
-// explicit in-Wasm failures; they never delegate to the browser or host.
-pid_t dolly_fork(void);
+// Minimal exec/wait compatibility above Dolly's serialized process model.
 int dolly_execve(const char *path, char *const argv[], char *const envp[]);
-int dolly_execvp(const char *file, char *const argv[]);
-int dolly_execl(const char *path, const char *arg, ...);
-int dolly_execlp(const char *file, const char *arg, ...);
 pid_t dolly_waitpid(pid_t pid, int *status, int options);
-pid_t dolly_wait_any(int *status);
 int dolly_kill(pid_t pid, int signal_number);
-pid_t dolly_setsid(void);
-pid_t dolly_getpgid(pid_t pid);
-pid_t dolly_tcgetpgrp(int fd);
 unsigned dolly_alarm(unsigned seconds);
-unsigned dolly_sleep(unsigned seconds);
-_Noreturn void dolly__exit(int status);
 
 // Raw sockets are deliberately absent. HTTP-capable libraries must use the
 // typed dolly_http_perform broker, whose sole outer edge is browser Fetch.

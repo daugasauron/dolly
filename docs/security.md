@@ -3,10 +3,10 @@
 ## Core containment thesis
 
 Dolly assumes that the complete in-Wasm userspace may be compromised. An agent
-may run arbitrary code, exploit a command, corrupt libc, inspect every WasmFS
-file, and take control of the shared linear memory and function table. None of
-those events should grant a capability that the browser did not explicitly
-import into the main Dolly WebAssembly instance.
+may run arbitrary code, exploit a command, inspect every shared filesystem
+file, or even find a way to corrupt kernel Wasm state. None of those events
+should grant a capability that the browser did not explicitly import into the
+main Dolly WebAssembly instance.
 
 The security boundary is therefore:
 
@@ -14,10 +14,10 @@ The security boundary is therefore:
 possibly compromised Dolly userspace | trusted browser capability providers
 ```
 
-It is not a boundary between commands. Commands intentionally share memory,
-libc, the allocator, WasmFS, descriptors, and loader state. Command ABI
-validation is valuable for compatibility and maintenance, but containment must
-still hold if an attacker bypasses it and compromises the complete userspace.
+Private process memories are valuable lifecycle and reliability boundaries,
+but they are not the host-containment claim. ABI validation is valuable for
+compatibility and defense in depth; containment must still hold if an attacker
+bypasses it and compromises the complete userspace.
 
 WebAssembly, the browser engine, the page and worker JavaScript, and the
 implementations of every imported function are trusted. Browser-engine bugs,
@@ -56,8 +56,9 @@ receives the command's WasmFS output path or descriptor.
 The seven arguments do not represent seven capabilities. They are the schema
 of one broker call. Adding libcurl, curl, or Git inside Wasm does not widen this
 outer boundary: those layers only prepare data for the same import. Native
-socket, DNS, TLS, `fork`, and `exec` calls are not browser imports; target-side
-compatibility wrappers return `ENOSYS`.
+socket, DNS, TLS, and `fork` calls are not browser imports. Raw sockets fail
+inside the process runtime. Spawn, wait, pipes, `system`, `popen`, and the
+supported exec-shaped behavior stay inside the Wasm kernel.
 
 If the entire userspace is compromised, the attacker may reach this outer edge
 by any internal route. That does not weaken the model: policy belongs at the
@@ -108,13 +109,12 @@ The worker creates the shared `WebAssembly.Memory`, and trusted page JavaScript
 can inspect it. Dolly protects the browser host from agent code; it does not try
 to hide Dolly state from the application embedding it.
 
-Worker termination is the outer availability boundary. An ordinary Ctrl+C is
-a PID-targeted in-Wasm request, but a command can omit every cooperative
-safepoint. After a two-second grace period, or on a repeated Ctrl+C, the trusted
-page terminates the worker and reloads either the route's last named opaque
-session checkpoint or the sealed base image. This adds no Wasm import and
-grants the guest no authority. It guarantees termination, not preservation of
-changes made after the last completed checkpoint.
+Worker termination is the availability backstop. Ctrl+C becomes a PID-targeted
+kernel `SIGINT`; blocked calls wake with `EINTR` and cooperative runtimes can
+poll it. A command can still omit every safepoint, so after a 500 ms grace
+period the trusted supervisor terminates only the affected private process
+Worker and records status 130. Kernel-owned filesystem state and the shell
+survive. This adds no Wasm import and grants the guest no authority.
 
 GitHub Pages cannot configure the COOP and COEP response headers required for
 shared WebAssembly memory. `coi-serviceworker.js` is therefore part of the
@@ -242,9 +242,9 @@ properties:
 4. The root remains the in-Wasm memory backend. The bootstrap text sink cannot
    perform network, filesystem, DOM-selection, or code-evaluation actions, and
    normal terminal output switches to the in-Wasm renderer after activation.
-5. Native process and raw-socket operations fail without reaching a host
-   fallback; `system`, `popen`, `fork`, `exec`, and `socket` are representative
-   checks.
+5. Process-shaped operations terminate in the in-Wasm kernel, and raw sockets
+   fail without a host fallback; `system`, `popen`, `spawn`, `wait`, `fork`, and
+   `socket` are representative checks.
 6. The browser owns and enforces HTTP policy even after total Wasm compromise.
 7. The download provider accepts only a bounded copied buffer and sanitized
    base name; it never accepts a host path or filesystem handle. Its local

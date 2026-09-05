@@ -41,7 +41,7 @@ browser authority and internal compatibility concrete: many commands import
 `dolly_http_perform`, but the main runtime still has only the one intentional
 agent-selected browser network edge, `env.dolly_http_dispatch`.
 
-The next census layer is dynamic command-epoch evidence. It should count
+The next census layer is dynamic process-invocation evidence. It should count
 operations exercised by browser acceptance workloads without adding an ambient
 export channel: retain the report in WasmFS and export it only as an explicit
 test artifact. Static and dynamic rows can then be compared with equivalent

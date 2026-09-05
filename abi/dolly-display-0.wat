@@ -44,8 +44,4 @@
   ;; installation the resident driver consumes it without host interpretation.
   (func (export "dolly_terminal_write_bytes") (param i64 i64))
 
-  ;; This call owns the worker until the shell exits. It may block on the
-  ;; mailbox wake word because it is never invoked on the browser main thread.
-  (func (export "dolly_shell_run") (result i32)
-    i32.const 0)
 )

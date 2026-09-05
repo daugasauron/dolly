@@ -25,44 +25,35 @@ Every milestone should improve at least one of these measurements:
 Raw package count, POSIX checklist coverage, and native performance are not
 north-star metrics.
 
-## Immediate stability gate — give compiler invocations private state
+## Immediate stability gate — private process model validated
 
-The declarative default image and its 35-module cold browser build complete,
-but the restored interactive image has repeatable compiler and dynamic-module
-lifecycle failures. Individual Clang/C++ and Zig jobs work in fresh runtimes,
-but repeated Clang code generation or linking can trap or wedge, including at
-`-O0`; a post-restore Make build can likewise wedge while invoking nested
-compiler jobs. Running Clang and Zig code generation in one runtime also fails
-in either order. Focused browser modes preserve these known-red lifecycle,
-optimized, nested-build, and mixed-provider cases separately.
+The shared-address-space experiment exposed the same failure Linux avoids with
+`execve`: repeated Clang, LLD, Zig, CPython extension, and dynamic-loader jobs
+retained allocator, TLS, registry, and table state that no reliable cleanup hook
+could reconstruct. Dolly now gives every ordinary executable a fresh Worker,
+private wasm64 memory, table, libc, allocator, and runtime. The kernel alone
+owns filesystem bytes, descriptors, cwd/environment, process records, terminal,
+and the HTTP device.
 
-The current Clang frontend and Zig command ultimately reuse process-global LLVM
-implementation state; Zig imports `ZigLLVM*`, `LLVM*`, and `ZigLLD*` entry
-points from the provider embedded for `/bin/cc`. Those are implementation
-details, not a useful Dolly platform contract. Attempts to reset LLVM's global
-command-line registry did not restore correctness and also destabilized
-ordinary multi-file C builds, so this must not be papered over with a larger
-public ABI or more process-global reset hooks.
+`dolly-process-0` is the closed executable contract. It imports one private
+memory and one typed packet-call gate and exports `_start`; it cannot import
+browser or kernel-libc functions. A trusted multi-memory Wasm gate copies
+bounded pointer-free packets between process and kernel memory. Clang, LLD, and
+Zig are one private compiler executable rather than resident kernel code.
+Ghostty's persistent display driver is the sole explicit kernel plugin.
 
-The ordinary browser suite therefore runs individual C, C++, and Zig jobs in
-separate restored runtimes. `DOLLY_BROWSER_MODE=lifecycle-probe`,
-`DOLLY_BROWSER_MODE=optimized-lifecycle-probe`, `DOLLY_BROWSER_MODE=make`, and
-`DOLLY_BROWSER_MODE=toolchain-probes` are deliberate red regressions until this
-gate is complete; they must not be confused with the supported one-shot paths.
+Ctrl-C records SIGINT for the foreground process tree, wakes deferred calls,
+maps an unacknowledged signal to status 130, and forcibly terminates an
+uncooperative Worker after a short grace period. Timed spawns also have a
+trusted supervisor timer, so a pure CPU loop exits 124 without relying on
+compiler safepoints.
 
-Next, prototype a fresh compiler-provider instance per invocation, starting
-with Clang and then Zig, while continuing to import Dolly libc/filesystem
-operations and the shared memory/table. This keeps files and command execution
-in the same WasmFS userspace but gives compiler jobs private registries,
-contexts, and allocator-owned implementation state. Measure the size, retained
-memory, and startup cost before considering a more elaborate compiler worker or
-file-delta protocol.
-
-Acceptance gate: in one restored browser session, repeat optimized Clang jobs,
-run Clang → Zig → Clang and Zig → Clang → Zig twice each, compile/link/execute
-both C/C++ and Zig fixtures, then run Make and Ninja builds. No
-compiler-private symbol may be added to the stable Dolly machine ABI to satisfy
-this gate.
+The acceptance gate now passes in Chromium: fresh images compile and restore;
+clean processes run mixed Zig and Clang sequences and repeated optimized Clang
+jobs; C, C++, Make, Ninja, process-local DSOs, CPU-loop timeout, Ctrl-C, descriptor
+inheritance, pipelines, framebuffer restoration, and post-failure execution
+are permanent browser regressions; and Bonnie source-builds/imports NumPy and
+Pandas. This added no compiler-private browser import or host-build fallback.
 
 ## Phase 1 — make builds declarative (complete)
 
@@ -105,7 +96,7 @@ operation-to-program and program-to-operation mappings. See
 - Record imported Dolly/libc symbols for every linked executable. **Static
   sealed-image census implemented.**
 - Record path, descriptor, clock, entropy, lifecycle, and HTTP operations by
-  command epoch during acceptance workloads.
+  process invocation during acceptance workloads.
 - Generate a matrix: operation × program × exercised/not exercised.
 - Compare the same fixtures on Dolly and a reference POSIX system for exit
   status, stdout/stderr, filesystem changes, and network transcript.
@@ -191,58 +182,45 @@ Acceptance gate: image resizing works without adding a browser import or host
 filesystem edge, and hostile nested code remains inside the same authority
 fingerprint.
 
-## Phase 5 — command epochs and hard supervision
+## Phase 5 — process supervision (implemented; hardening continues)
 
-Strengthen correctness within the shared-everything runtime.
+Private process instances replace command epochs. Exiting or terminated
+processes discard their allocator, libc streams, `atexit` registrations,
+dynamic modules, TLS, tables, and runtime globals as one unit. Kernel-owned
+descriptors and process records are reclaimed explicitly. Named compressed
+WasmFS sessions remain persistence, not a mounted browser filesystem.
 
-Named compressed WasmFS sessions and build/recipe-bound restore are implemented.
-This phase concerns command-local cleanup and recovery when cooperative code is
-not enough; it must not turn browser persistence into a mounted filesystem.
+Implemented supervision includes PID/parent records, spawn/wait, inherited
+descriptors and environment, pipes, pending SIGINT, deferred-call wakeup,
+status 130 forced cancellation, and status 124 hard deadlines. Remaining
+hardening is evidence-driven: add adversarial leak/crash/CPU-loop fixtures,
+bound per-process memory, and add an output quota only when the terminal and
+pipe semantics are clear.
 
-- Attribute allocations, open descriptors, `atexit` registrations, timers,
-  signal handlers, and module state to a command epoch. **Bounded ordinary
-  descriptor reclamation is implemented; libc stream objects and allocations
-  remain.**
-- Reclaim or restore them when `wait` collects the command.
-- Define exactly which state is process-like and which state is intentionally
-  userspace-global.
-- Add adversarial fixtures that leak descriptors/heap, change signals, call
-  `exit`, crash, and then rerun a clean command.
-- Keep the existing inherited `dolly_spawn_timeout` cooperative deadline and
-  status-124 behavior covered by adversarial tests.
-- Add a trusted outer supervisor protocol for hard CPU deadline, memory
-  ceiling, output quota, cancellation, and worker replacement. **Interactive
-  hard cancellation and worker replacement are implemented:** an
-  unacknowledged or repeated Ctrl+C terminates even a foreign module with no
-  Dolly safepoints, then reloads the last named checkpoint or sealed base image
-  without exposing a guest capability. Automatic noninteractive deadlines,
-  memory ceilings, and output quotas remain.
+Acceptance gate: repeated hostile fixtures cannot change a following clean
+process outside intended filesystem/environment changes, and the browser can
+always terminate a wedged process without discarding the kernel filesystem.
 
-Acceptance gate: repeated hostile fixtures do not change a following clean
-fixture's observable state outside intended filesystem/environment changes, and
-the browser can reliably terminate and recreate a wedged session.
+## Phase 6 — stabilize Dolly ABI 1 below libc
 
-## Phase 6 — Dolly ABI 1 below libc
-
-Use the census to introduce a deliberately small platform substrate.
-
-Likely families—not yet final signatures—are:
+ABI 0 now proves a deliberately small platform substrate with these families:
 
 - descriptor read/write/seek/stat/close and directory iteration;
 - path open/create/remove/rename and working-directory operations;
 - monotonic/realtime clocks, sleep, and entropy;
 - arguments, environment, command spawn/wait/exit, and terminal control;
 - the existing typed HTTP request service;
-- memory/table/dynamic-module mechanics, or a replacement component model if
-  browser wasm64 tooling makes it practical.
+- process-local dynamic-module and foreign-call mechanics.
 
-Build musl/newlib-style libc, C++, QuickJS, and at least one non-C runtime
-above it. Do not delete `dolly-0` until side-by-side differential tests prove
-the new target supports the useful workloads.
+The Emscripten-musl-derived process sysroot, libc++, QuickJS, CPython, Zig,
+Clang/LLD, and ordinary C/C++ tools already run above it. Use the census and
+browser regressions to remove accidental operations, freeze exact semantics,
+and version the result as ABI 1. Keep the process ABI distinct from the narrow
+resident display-plugin contract and the outer browser device imports.
 
 Acceptance gate: at least three independent runtimes share files and lifecycle
-through ABI 1; the command-visible import surface is substantially smaller than
-the current libc probe; the outer browser capability set does not grow.
+through ABI 1; every operation has a real workload and conformance fixture; the
+outer browser capability set does not grow.
 
 ## Phase 7 — capsules and distribution
 
@@ -278,7 +256,7 @@ These are high-value experiments, not commitments.
 
 ### Capability fingerprints
 
-Give every system image a compact fingerprint derived from its main-module
+Give every system image a compact fingerprint derived from its kernel-module
 browser imports, command ABI digest, declared HTTP requirements, and retained
 files. A code review can then answer “did this build gain authority?” without
 reading a megabyte-scale generated loader diff.
@@ -309,24 +287,21 @@ Dolly and a Linux reference, then publish the semantic delta. The result would
 be a concrete “agent POSIX” specification derived from use rather than a vague
 claim of Linux compatibility.
 
-### Dolly-native Python wheels
+### Dolly-native Python wheels (implemented; stabilization continues)
 
-Treat NumPy and Pandas as the acceptance workload for native CPython
-extensions, not as special packages to unpack despite an incompatible tag.
-First replace CPython's dynamic-loader stub with a Dolly loader over the
-existing in-Wasm DSO machinery, retain the matching headers and sysconfig
-metadata, and define a CPython SOABI and wheel platform tag that identify the
-versioned Dolly wasm64 extension ABI rather than merely the CPU architecture.
-Then build a minimal extension fixture, NumPy, and Pandas from pinned source in
-that order. PyEmscripten/Pyodide recipes are useful evidence for upstream
-WebAssembly patches, but their wasm32 binaries and ABI-sensitive Emscripten
-flags are not Dolly binaries.
+NumPy and Pandas are the acceptance workload for native CPython extensions,
+not special packages unpacked despite an incompatible tag. CPython now loads
+Dolly process-local DSOs, retains matching headers and sysconfig metadata, and
+uses a Dolly wasm64 extension identity. Upstream libffi is source-built for
+`_ctypes`; minimal C/C++ extension fixtures, NumPy, and Pandas all build from
+source inside the browser. PyEmscripten/Pyodide binaries are not used.
 
-Acceptance gate: a browser `/rebuild/` compiles and imports a stateful C
-extension, builds NumPy and Pandas into Dolly-native wheels, installs those
-wheels through Bonnie, executes representative array/dataframe operations,
-survives repeated imports and command epochs, and adds no browser import or
-host build fallback.
+The packaged Python-image gate starts without NumPy, Pandas, or Meson; Bonnie
+resolves and source-builds the complete graph; fresh Python processes import
+the extensions and execute representative array/dataframe operations; raw
+sockets remain denied; and temporary build state is removed. Next, freeze the
+public SOABI/wheel tag and broaden the compatibility corpus without weakening
+the process or browser boundaries.
 
 ### Egress receipts
 

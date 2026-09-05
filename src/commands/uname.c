@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
     {SHOW_SYSTEM, "Dolly"},
     {SHOW_NODE, "dolly"},
     {SHOW_RELEASE, "0"},
-    {SHOW_VERSION, "dolly-0"},
+    {SHOW_VERSION, "dolly-process-0"},
     {SHOW_MACHINE, "wasm64"},
   };
   int separator = 0;

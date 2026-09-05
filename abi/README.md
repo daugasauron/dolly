@@ -1,151 +1,115 @@
-# Dolly ABI
+# Dolly machine contracts
 
-`dolly-0.wat` is the canonical machine-level contract between Dolly and a
-command module. It is deliberately WebAssembly rather than a parallel metadata
-schema:
+The WAT files in this directory are the inspectable source of Dolly's exact
+WebAssembly boundaries. C headers define packet layouts above those typed Wasm
+edges. Generated JSON is linker input only; it is never an ABI definition.
 
-- its imports are the facilities a command is allowed to import;
-- its exports are the entry points every command must export;
-- function signatures, globals, mutability, memory64, and table64 are encoded
-using their actual WebAssembly types.
+## Ordinary process executables
 
-`dolly-display-0.wat` separately defines the browser-facing display/input
-device: shared memory, the temporary bootstrap text sink, bounded input-event
-records, double-buffered RGBA addresses, command-result words, and the blocking
-shell entry point. Keeping it separate prevents worker/UI transport mechanics
-from becoming command capabilities. Once the resident display driver is live,
-ordinary terminal output never calls the browser text sink.
+`dolly-process-0.wat` is the public compile target for programs. A process
+executable:
 
-`dolly-snapshot-0.wat` defines two opaque snapshot boundaries. Static system
-images use direct staging exports during boot. Named user sessions use a
-fixed shared-memory chunk mailbox: Wasm walks and restores WasmFS, while the
-page only compresses and persists uninterpreted bytes. Neither path adds a
-browser import.
+- imports one private, shared memory64 as `env.memory`;
+- imports exactly one function, `dolly_process_0.call`;
+- exports `_start() -> ()`;
+- carries one `dolly.process` custom section with the contract digest;
+- carries one `dolly.process.memory` section with its initial and maximum page
+  counts; and
+- has no `dylink.0`, WASI, Fetch, DOM, filesystem, or browser import.
 
-The contract module is a schema and is never instantiated. `scripts/dolly-abi.mjs`
-assembles and consumes it as follows:
+The digest includes the typed WAT interface and the SHA-256 bound into the
+contract's `dolly.process.layout` section. That latter digest is calculated
+from the exact bytes of `include/dolly/process.h`, so changing an opcode or
+packet layout necessarily changes executable identity.
 
-```text
-command imports  ⊆ contract imports + loader relocation conventions
-contract imports ⊆ runtime exports or loader relocation facilities
-contract exports ⊆ command exports
+The single call has this type:
+
+```wat
+(import "dolly_process_0" "call"
+  (func (param i32 i64 i64 i64 i64) (result i64)))
+;; operation, request address/size, response address/capacity
 ```
 
-A Dolly executable is therefore a WebAssembly binary, not a shell registration:
-it has `dylink.0` dynamic-linking metadata, imports the shared wasm64 machine and
-the contract facilities it actually uses, exports `dolly_main`, and carries the
-`dolly.abi` digest. Its directory and basename only participate in `PATH`
-lookup. Version 0 deliberately has no execute-bit or permission metadata.
+Requests and responses contain fixed-width little-endian values and relative
+byte ranges, never process pointers for the kernel to retain. Non-negative
+results are response byte counts; negative values are negated POSIX errno
+values. `INT64_MIN` means the call is deferred until its resource becomes
+ready.
 
-`env.memory` is a shared wasm64 memory. The worker loader creates it explicitly
-because the UI must notify terminal input while the runtime blocks; mutable
-filesystem, descriptor, terminal, and process state still resides in that
-WebAssembly memory. `env.__indirect_function_table` completes the shared
-address space. `__memory_base` and `__table_base` are assigned per module by the dynamic
-loader. `GOT.func` and `GOT.mem` are the mutable relocation slots used by
-Emscripten's dynamic-linking convention. A `GOT.func.foo` slot is derived from
-the typed `env.foo` function declaration rather than duplicated in the
-contract. A module may also import a GOT slot for one of its own exported
-functions or address globals; these self-relocations are link mechanics, not
-Dolly capabilities.
+The process supervisor creates a fresh Worker, memory, table, libc, allocator,
+and module instance for every execution. `dolly-process-gate-0.wat` is a
+policy-free multi-memory copier between that process memory and the one kernel
+mailbox. Bounds failures trap. Files, descriptors, environment, cwd, pipes,
+process records, clocks, terminal operations, and HTTP mediation remain kernel
+state in Wasm memory.
 
-A side module may have a WebAssembly start section. Real dynamic objects use it
-for tasks such as zeroing relocated BSS before constructors run. The start code
-still executes inside the shared WebAssembly address space and gains no imports
-beyond those checked by this contract.
+Process-local shared objects use Emscripten's `dylink.0` encoding internally,
+but carry `dolly.process.dso`, share only their owning process's memory/table,
+and are validated by `process-worker.mjs`. They are not kernel plugins and add
+no machine import.
 
-The build creates `build/dolly-0.wasm`, `build/dolly-display-0.wasm`, and
-`build/dolly-snapshot-0.wasm` from
-the WAT schemas and validates every command and the runtime. It also creates
-`build/runtime-exports.json` because Emscripten's `EXPORTED_FUNCTIONS` setting
-requires that syntax. That JSON file is derived build glue, not an ABI source.
-The same tool emits `build/generated/dolly-abi-digest.h` from the normalized WAT
-interface. The in-Wasm linker appends those bytes as the `dolly.abi` section of
-commands it creates; no JSON manifest participates in runtime compilation.
+## Resident kernel plugin
 
-The source-level half of the contract remains the compiler sysroot and
-`include/dolly/abi.h`. The Wasm contract records how that C/C++ interface is
-lowered; it does not replace declarations, layouts, constants, or the C++ ABI.
+`dolly-kernel-plugin-0.wat` is a separate internal contract for the one module
+that must survive process replacement: the Ghostty display driver. It lists
+the exact memory64/table64 relocation infrastructure and libc functions that
+driver imports. It has no command entry point.
 
-`bin/dolly-cc` and `bin/dolly-c++` apply the current wasm64 side-module settings
-and invoke the validator after every command link. Unsupported imports fail at
-that boundary rather than silently expanding the runtime. Five callable symbols
-have generated Emscripten loader providers rather than native-Wasm providers:
-the typed `invoke_v`, `invoke_jj`, `invoke_ijj`, `invoke_ijji`, and `invoke_vjj`
-trampolines, which catch longjmp transfer around indirect calls. Source
-compilation maps ISO C `exit()` to `dolly_exit`; the runtime catches it at the
-nested command boundary and returns its status to `wait` without terminating
-the worker. It similarly maps `fclose()` to a lifecycle-aware wrapper: ordinary
-files close normally, while inherited standard streams flush without destroying
-the shell's shared libc streams.
+Only `cc --dolly-kernel-plugin -shared` can produce this format. The compiler
+validates it against the contract, adds one `dolly.abi` digest, validates it
+again, and publishes it atomically. The image build seals the result before the
+kernel loads it. Ordinary programs never compile against this contract.
 
-The target also inserts SanitizerCoverage edge callbacks as cooperative
-cancellation safepoints. The callback is implemented inside the runtime and
-checks a PID-targeted interrupt sequence in the display mailbox; it is not a
-browser import or ambient capability. A pending foreground `SIGINT` unwinds the
-current nested command and becomes status 130. Blocking terminal, HTTP, and
-sleep operations contain explicit checkpoints, and QuickJS uses its native
-interpreter interrupt hook. This is deliberately the useful default `SIGINT`
-action rather than a complete signal/process-group implementation.
+## Kernel and browser contracts
 
-`-fdolly-runtime-interrupt-handler` is the narrow opt-out for a language
-runtime that supplies such a hook. It removes compiler edge callbacks so the
-runtime can convert the interrupt into its own exception, unwind, and release
-its heap before returning 130. QuickJS uses it; ordinary C/C++ programs retain
-the default edge safepoints. Using the option without polling
-`dolly_interrupt_poll()` makes CPU-bound code non-cancellable and is a target
-contract violation even though it does not expand browser authority.
+- `dolly-supervisor-0.wat` describes the typed functions trusted Worker code
+  uses to schedule private processes, copy executable bytes, deliver signals,
+  and collect status.
+- `dolly-display-0.wat` describes the shared RGBA/input mailbox and the one
+  bootstrap text sink.
+- `dolly-http-0.wat` describes the streaming HTTP mailbox. Its
+  `env.dolly_http_dispatch` import is Dolly's sole intentional
+  agent-selected network edge.
+- `dolly-download-0.wat` describes an explicit, bounded local-user file
+  download.
+- `dolly-snapshot-0.wat` describes opaque system/session snapshot staging and
+  bootstrap operations.
 
-The target similarly maps `isatty()` to `dolly_isatty()`. Dolly tracks standard
-stream identity as process bookkeeping: spawn derives a child TTY mask from the
-parent descriptors and its redirections, then restores the parent mask. Regular
-redirected files and serial pipeline spools are false. This provides the TTY
-distinction applications need without adding native ioctl or browser terminal
-imports.
+These contracts do not imply that each function is guest authority. They make
+the browser/runtime boundary reviewable and let the build derive the main
+module's retained exports exactly.
 
-Terminal mode is a separate, libc-independent part of that in-Wasm substrate.
-`dolly_terminal_mode_get` and `dolly_terminal_mode_set` exchange only a closed
-mask for canonical input and echo. Dolly's stdin device owns
-the corresponding line discipline and spawn restores the caller's mode when a
-command finishes or is interrupted. Foreground Ctrl+C is intentionally outside
-this mask: it remains unconditional command supervision, including in raw mode,
-so compromised or broken code cannot disable the user's recovery path. A libc
-or runtime that exposes `termios` must translate its own structure above these
-bits; no libc layout is frozen into the machine contract and no mode operation
-reaches the browser.
+## Build enforcement
 
-`dolly-http-0.wat` defines the separate browser-facing streaming network
-mailbox. Synchronous C clients use typed `dolly_http_perform` request/response
-structs, while language event loops use `dolly_http_start` and nonblocking
-`dolly_http_poll` over the same one-request mailbox. The browser sees only a
-dispatch notification plus the shared mailbox, not Dolly's filesystem or
-descriptors.
+`scripts/dolly-abi.mjs` performs the mechanical checks:
 
-This single dispatch import is also the intended autonomous network security
-edge. Its JavaScript provider, not code inside the shared-everything userspace,
-owns origin, credential, redirect, quota, and approval policy. The threat model
-deliberately assumes total userspace compromise; see
-[`docs/security.md`](../docs/security.md).
+```sh
+node scripts/dolly-abi.mjs inspect build/dolly-process-0.wasm
+node scripts/dolly-abi.mjs validate-process \
+  build/dolly-process-0.wasm build/process-bin/ls
+node scripts/dolly-abi.mjs validate-runtime \
+  build/dolly-kernel-plugin-0.wasm dist/dolly.wasm
+```
 
-The display contract is deliberately device-shaped rather than a terminal
-emulator API. The browser writes fixed-size key/text/resize/pointer records and
-bounded explicit-paste bytes, and reads only a published frame plus a bounded
-active-selection copy buffer. Ghostty parsing, paste encoding, selection,
-mode-aware key encoding, font loading, rasterization, and terminal state are
-implementation details inside the shared userspace. System clipboard access
-remains gated by local browser paste/copy gestures.
+The build sequence is fail-closed:
 
-The compiler engine in `src/compiler.cpp` applies the corresponding frontend and
-LLD settings from inside the main Wasm module. The `/bin/cc` and `/bin/c++`
-modules call it through the typed `dolly_toolchain_main` entry. Before publishing
-arbitrary linked output, the engine parses both that module and the in-Wasm copy
-of `dolly-0` with LLVM's Wasm object reader and applies the same typed import,
-export, infrastructure, and loader-relocation checks as the external validator.
-The runtime invokes the same validator, plus an exact single-stamp check, again
-for every filesystem executable and the display driver immediately before
-dynamic loading.
+1. assemble the WAT contract;
+2. bind `process.h` into the process contract;
+3. derive digest headers/modules and the Emscripten export list;
+4. link to a temporary output;
+5. validate, stamp, validate again;
+6. publish the complete file; and
+7. verify the final main-module browser import allowlist.
 
-Commands and the runtime carry a `dolly.abi` custom section containing a SHA-256
-digest of the contract's normalized typed interface. Binary layout, comments,
-and import ordering do not affect the digest. A module stamped for another
-contract is rejected before its imports are considered.
+The browser supervisor repeats executable stamp/import/export/memory checks
+before instantiation. The process Worker repeats DSO checks before local
+loading. Compatibility validation is defense in depth; host containment still
+rests on the main runtime's outer browser imports.
+
+## Changing a contract
+
+Treat any typed import/export, opcode, packet field, pointer width, memory
+limit, or lifecycle rule as an ABI change. Update the WAT, C layout header,
+both sides of the implementation, static contract tests, real browser tests,
+and documentation together. A digest change intentionally invalidates old
+executables, module-cache layers, sessions, and snapshots.

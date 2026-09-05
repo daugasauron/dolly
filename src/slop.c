@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 
 #include <ctype.h>
 #include <dirent.h>
@@ -1564,12 +1565,26 @@ static enum command_resolution command_at(const char *path) {
              ? COMMAND_FOUND : COMMAND_NOT_FOUND;
 }
 
+static enum command_resolution resolved_command_at(
+    const char *candidate, char *resolved, size_t capacity) {
+  if (command_at(candidate) != COMMAND_FOUND) return COMMAND_NOT_FOUND;
+  if (candidate[0] == '/') {
+    if (candidate == resolved) return COMMAND_FOUND;
+    int length = snprintf(resolved, capacity, "%s", candidate);
+    return length < 0 || (size_t)length >= capacity
+        ? COMMAND_PATH_TOO_LONG : COMMAND_FOUND;
+  }
+  char absolute[PATH_MAX];
+  if (realpath(candidate, absolute) == NULL) return COMMAND_NOT_FOUND;
+  int length = snprintf(resolved, capacity, "%s", absolute);
+  return length < 0 || (size_t)length >= capacity
+      ? COMMAND_PATH_TOO_LONG : COMMAND_FOUND;
+}
+
 static enum command_resolution resolve_command(const char *command,
                                                 char *resolved, size_t capacity) {
   if (strchr(command, '/') != NULL) {
-    int length = snprintf(resolved, capacity, "%s", command);
-    if (length < 0 || (size_t)length >= capacity) return COMMAND_PATH_TOO_LONG;
-    return command_at(resolved);
+    return resolved_command_at(command, resolved, capacity);
   }
   const char *path = getenv("PATH");
   if (path == NULL) path = "";
@@ -1579,8 +1594,11 @@ static enum command_resolution resolve_command(const char *command,
     const char *directory = length == 0 ? "." : path;
     if (length == 0) length = 1;
     int written = snprintf(resolved, capacity, "%.*s/%s", (int)length, directory, command);
-    if (written >= 0 && (size_t)written < capacity && command_at(resolved) == COMMAND_FOUND)
-      return COMMAND_FOUND;
+    if (written >= 0 && (size_t)written < capacity) {
+      const enum command_resolution found =
+          resolved_command_at(resolved, resolved, capacity);
+      if (found != COMMAND_NOT_FOUND) return found;
+    }
     if (separator == NULL) break;
     path = separator + 1;
   } while (1);
@@ -4563,10 +4581,6 @@ static int interactive(Shell *shell) {
   }
   shell->interactive = 1;
   shell->active = 1;
-  puts("Dolly slop 0.1 — type 'help' for commands");
-  if (access("/usr/bin/bonnie", F_OK) == 0) {
-    puts("Python packages: bonnie install PACKAGE");
-  }
   char *line = malloc(SLOP_MAX_LINE + 1);
   if (line == NULL) return 1;
   History history = {0};

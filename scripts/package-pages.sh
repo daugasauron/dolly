@@ -34,12 +34,17 @@ for required in \
   src/dollyfile-view.mjs \
   src/http-policy.mjs \
   src/module-cache.mjs \
+  src/process-ffi.mjs \
+  src/process-supervisor.mjs \
+  src/process-worker.mjs \
   src/session-store.mjs \
   src/runtime-worker.mjs \
   dist/dolly-images.mjs \
   dist/dolly.mjs \
   dist/dolly.wasm \
-  dist/dolly.data; do
+  dist/dolly.data \
+  dist/dolly-process-abi.mjs \
+  dist/dolly-process-gate-0.wasm; do
   if [[ ! -f "${project_dir}/${required}" ]]; then
     echo "dolly: Pages artifact is missing ${required}" >&2
     exit 1
@@ -73,6 +78,9 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/dollyfile-view.mjs" \
   "${project_dir}/src/http-policy.mjs" \
   "${project_dir}/src/module-cache.mjs" \
+  "${project_dir}/src/process-ffi.mjs" \
+  "${project_dir}/src/process-supervisor.mjs" \
+  "${project_dir}/src/process-worker.mjs" \
   "${project_dir}/src/session-store.mjs" \
   "${project_dir}/src/runtime-worker.mjs" \
   "${staging}/site/src/"
@@ -100,6 +108,8 @@ cp \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.mjs" \
   "${project_dir}/dist/dolly.wasm" \
+  "${project_dir}/dist/dolly-process-abi.mjs" \
+  "${project_dir}/dist/dolly-process-gate-0.wasm" \
   "${staging}/site/dist/"
 for image_name in "${image_names[@]}"; do
   cp \
@@ -107,7 +117,14 @@ for image_name in "${image_names[@]}"; do
     "${project_dir}/dist/dolly-${image_name}-system.snapshot" \
     "${staging}/site/dist/"
 done
+node "${project_dir}/scripts/compress-pages-snapshots.mjs" "${staging}/site/dist"
 touch "${staging}/site/.nojekyll"
+site_bytes="$(du -sb "${staging}/site" | cut -f1)"
+if (( site_bytes > 1000000000 )); then
+  echo "dolly: Pages site exceeds 1 GB (${site_bytes} bytes)" >&2
+  exit 1
+fi
+echo "dolly: Pages site is ${site_bytes} bytes"
 tar -C "${staging}/site" -czf "${temporary_output}" .
 mv -- "${temporary_output}" "${output}"
 echo "dolly: wrote $(du -h "${output}" | cut -f1) Pages artifact to ${output}"

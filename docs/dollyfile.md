@@ -85,6 +85,22 @@ Every declaration takes effect at its source position.
 Whitespace between arguments is insignificant, so columns may be aligned for
 readability without changing the parser.
 
+## Session startup
+
+Startup policy is ordinary userspace, not Dollyfile syntax. An image may retain
+`/home/dolly/.dollyrc` through a normal module `FILE` declaration. After a
+snapshot has been restored or a rebuild has completed, the runtime executes
+that file once as `/bin/slop -e /home/dolly/.dollyrc`, then starts `ENTRY`.
+The five source images select small final startup modules so their greeting and
+useful examples remain visible in the root Dollyfile graph.
+
+The script is a separate process. Its filesystem writes persist in the shared
+in-Wasm filesystem, while shell-local variables and environment changes end
+with that process; persistent environment belongs in explicit module
+`EXPORTS ENV` declarations. A nonzero startup status is reported and `ENTRY`
+still runs, so a convenience greeting cannot make the recovery shell
+unreachable.
+
 ## Types
 
 The current interface object types are:

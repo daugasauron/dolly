@@ -57,6 +57,10 @@ DOLLY_ZLIB_VERSION=1.3.2
 DOLLY_ZLIB_COMMIT=da607da739fa6047df13e66a2af6b8bec7c2a498
 DOLLY_ZLIB_URL='https://github.com/madler/zlib.git'
 
+DOLLY_LIBFFI_VERSION=3.5.2
+DOLLY_LIBFFI_URL='https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz'
+DOLLY_LIBFFI_SHA256=f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc
+
 DOLLY_GIT_VERSION=2.55.0
 DOLLY_GIT_COMMIT=e9019fcafe0040228b8631c30f97ae1adb61bcdc
 DOLLY_GIT_URL='https://github.com/git/git.git'

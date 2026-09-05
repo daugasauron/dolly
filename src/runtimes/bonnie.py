@@ -564,6 +564,24 @@ def _source_build_backend(sdist_path: str) -> str:
     return backend if isinstance(backend, str) else ""
 
 
+def _source_build_setup_arguments(sdist_path: str) -> tuple[str, ...]:
+    """Return target-specific upstream build options, never source patches.
+
+    NumPy deliberately adds ``-O3`` after environment CFLAGS for its generated
+    ufunc translation units.  Those units are unusually expensive in a
+    memory-constrained browser compiler process.  Its supported Meson options
+    provide the correct target configuration: a debug build removes that
+    trailing ``-O3``, while ``disable-optimization`` removes CPU dispatch and
+    per-function optimization attributes that are not useful on Dolly.
+    """
+    metadata_bytes, _ = _sdist_documents(sdist_path)
+    metadata = BytesParser().parsebytes(metadata_bytes)
+    name = metadata.get("Name")
+    if name and PACKAGING["canonicalize_name"](name) == "numpy":
+        return ("-Dbuildtype=debug", "-Ddisable-optimization=true")
+    return ()
+
+
 def build(sdist_path: str, wheel_path: str) -> None:
     bundled = glob.glob("/usr/lib/python*/ensurepip/_bundled/pip-*-py3-none-any.whl")
     if not bundled:
@@ -591,7 +609,11 @@ def build(sdist_path: str, wheel_path: str) -> None:
         pip_arguments.extend([
             "--config-settings",
             f"build-dir={posixpath.join(directory, 'meson-build')}",
+            "--config-settings",
+            "compile-args=-j1",
         ])
+        for argument in _source_build_setup_arguments(sdist_path):
+            pip_arguments.extend(["--config-settings", f"setup-args={argument}"])
     pip_arguments.append(sdist_path)
     previous_tempdir = tempfile.tempdir
     previous_build_flags = {
@@ -605,8 +627,8 @@ def build(sdist_path: str, wheel_path: str) -> None:
     # Dolly source builds optimize for bounded browser build time. Packages
     # that genuinely need optimized native code can explicitly override these
     # command-local environment variables.
-    os.environ.setdefault("CFLAGS", "-O0 -fno-sanitize-coverage")
-    os.environ.setdefault("CXXFLAGS", "-O0 -fno-sanitize-coverage")
+    os.environ.setdefault("CFLAGS", "-O0 -DNDEBUG -fno-sanitize-coverage")
+    os.environ.setdefault("CXXFLAGS", "-O0 -DNDEBUG -fno-sanitize-coverage")
     try:
         try:
             status = pip_main(pip_arguments)

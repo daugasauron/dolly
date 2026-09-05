@@ -11,8 +11,8 @@ REQUIRES TOOL   rm
 
 # Bonnie changes much faster than CPython. Keeping its source and result in a
 # separate leaf lets module-prefix caching reuse the complete interpreter SDK.
-SOURCE HOST /static/python/commands/bonnie.c  /tmp/bonnie/bonnie.c      ecd7d389c6dd7f2b37797d0d4c8e70bae4710ea84a65216b7c5fba68c6c91181
-SOURCE HOST /static/python/runtimes/bonnie.py /usr/lib/bonnie/bonnie.py 079de79f90ec6c594726923ea19aeb6b394594ac8e7aef81e861dd1632b9137d
+SOURCE HOST /static/python/commands/bonnie.c  /tmp/bonnie/bonnie.c      a30a9a65692065136dacb87d59c970908d9d91cd2cfc108273ea0c8217db3b42
+SOURCE HOST /static/python/runtimes/bonnie.py /usr/lib/bonnie/bonnie.py b57faddcb52003631d686c3c8433d5eaa60934df72373ea19fd9f28d918996df
 
 SLOP cc \
   -O0 \

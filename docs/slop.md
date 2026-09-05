@@ -241,22 +241,20 @@ similarly accepted by Dolly's GNU Make port but clamped to one effective job.
 
 A trailing consumer such as `head -20` therefore cannot terminate an unbounded
 producer through `SIGPIPE`: the producer must finish before `head` starts.
-Plain `Ctrl+C` instead targets the currently running foreground command through
-Dolly's cooperative `SIGINT` path and returns status 130, leaving Slop and the
-shared in-memory filesystem alive.
+Plain `Ctrl+C` targets the currently running foreground process tree through
+Dolly's kernel `SIGINT` path and returns status 130, leaving Slop and the
+shared in-memory filesystem alive. Cooperative polling gets a 500 ms grace
+period; a process that ignores it has its private Worker forcibly terminated.
 
 Language runtimes can also use `dolly_spawn_timeout` to place an inherited
 deadline around a synchronous Slop invocation. Pi's shell tool always supplies
 an empty finite stdin spool and a 60-second deadline: commands that read stdin
 see EOF instead of taking over Pi's terminal, and instrumented C/C++ or
 QuickJS loops return status 124. Interactive `!` commands deliberately retain
-the terminal. These checks are cooperative. If the same foreground PID does
-not acknowledge Ctrl+C within two seconds, the trusted page terminates and
-reloads the complete runtime worker; a second Ctrl+C requests that hard stop
-immediately. A named session returns to its last explicit checkpoint, while an
-unnamed session returns to the sealed base image. The browser cannot serialize
-a WasmFS that is already monopolized by foreign code, so changes after the
-last checkpoint are intentionally not claimed to survive hard replacement.
+the terminal. The trusted supervisor also arms a hard timer from the kernel's
+absolute child deadline, so uninstrumented CPU loops are terminated with
+status 124. Only the child process memory is discarded; the kernel filesystem
+and parent runtime survive.
 
 ## GNU Make
 
@@ -283,9 +281,9 @@ Slop, Make, commands, descriptors, cwd, environment, terminal parsing, glyph
 rasterization, and mutable files are all inside the Wasm runtime. The browser
 forwards bounded input records, blits a checked RGBA frame to Canvas, and owns
 the separately documented HTTP broker; it does not parse commands or provide a
-filesystem or process implementation. The worker remains blocked in the typed
-`int dolly_shell_run(void)` runtime export while the interactive Slop
-executable reads the in-Wasm terminal device.
+filesystem or process implementation. Slop is an ordinary private process; its
+terminal reads cross `dolly_process_0.call` into the kernel's in-Wasm terminal
+device.
 
 The acceptance proof injects real Ghostty terminal input and verifies the same
 path used by a person. Emscripten's `window.prompt` stdin fallback is absent.

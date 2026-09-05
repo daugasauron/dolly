@@ -1274,7 +1274,9 @@ async function runBrowserProof() {
   const hasRecipe = (name) => recipes.has(name);
   // The regression suite reaches the recovery shell without changing normal
   // image startup. Pi exits on Ctrl-D, while the gamedev entry exits on Q.
-  await waitFor(() => transport.foregroundPid() > 0, "image entry foreground pid");
+  await waitFor(() => transport.foregroundPid() > 0 &&
+    transport.foregroundPid() === Number(document.documentElement.dataset.entryPid),
+  "image entry foreground pid");
   if (activeImage !== "default") {
     const entryPid = transport.foregroundPid();
     if (activeImage === "gamedev") {
@@ -1348,7 +1350,7 @@ async function runBrowserProof() {
     ["echo 'a,\"b,c\"' > csv.txt"],
     ["awk --csv '{print NF \":\" $2}' csv.txt"],
     ["awk 'BEGIN {print system(\"echo HOST-ESCAPE\")}'"],
-    ["awk 'BEGIN {status = (\"denied\" | getline value); print status; exit status == -1 ? 0 : 1}'"],
+    ["awk 'BEGIN {status = (\"printf AWK-PIPE\" | getline value); print status \":\" value; exit status == 1 && value == \"AWK-PIPE\" ? 0 : 1}'"],
     ["awk -f", undefined, 2],
     ...(hasRecipe("quickjs")
       ? [[`qjs -e 'Dolly.httpStart("GET", "${location.origin}/fixture/http.txt", "", null)'`]]
@@ -1613,6 +1615,8 @@ async function boot() {
       } catch (error) {
         displayFatal(error instanceof Error ? error.message : String(error));
       }
+    } else if (message.type === "entry-started") {
+      document.documentElement.dataset.entryPid = String(message.pid);
     } else if (message.type === "exited") {
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "http-request") {
@@ -1796,5 +1800,10 @@ async function boot() {
 
 boot().catch((error) => {
   console.error(error);
+  runtimeReady = false;
+  networkTransport?.interrupt();
+  presenter?.stop();
+  resizeObserver?.disconnect();
+  runtimeWorker?.terminate();
   displayFatal(error instanceof Error ? error.message : String(error));
 });

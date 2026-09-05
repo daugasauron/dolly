@@ -22,9 +22,9 @@ SOURCE HOST /static/default/commands/tee.c      /tmp/agent-tools/tee.c      b4cf
 SOURCE HOST /static/default/commands/env.c      /tmp/agent-tools/env.c      9e1db5bb8a9b311edc68c9fabdb8c9ed33dcce2cbf1eca3876b7eedb6e94e442
 SOURCE HOST /static/default/commands/printenv.c /tmp/agent-tools/printenv.c a279dd856a17f5a05bb3800157e0ea44e4c4269ff6cb3a834303741dda88e2bb
 SOURCE HOST /static/default/commands/rev.c      /tmp/agent-tools/rev.c      3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05
-SOURCE HOST /static/default/commands/timeout.c  /tmp/agent-tools/timeout.c  45adee08052bf2b8764187227e94836bded25e2a6e1fdf22f2cf3af61bd55a3c
+SOURCE HOST /static/default/commands/timeout.c  /tmp/agent-tools/timeout.c  ba3271b3d5b13a7940eb538928f1d13a37ec1f43a6d8795a037b4165d7371821
 SOURCE HOST /static/default/commands/time.c     /tmp/agent-tools/time.c     9c37bf7f9fb565366583b67381f3399580676eaba70b2ebc484c09cbd113ce74
-SOURCE HOST /static/default/commands/uname.c    /tmp/agent-tools/uname.c    bd803639de8eaf28351dc815eebe0c342456ebb7db209bddaf1e0cc9112b649a
+SOURCE HOST /static/default/commands/uname.c    /tmp/agent-tools/uname.c    5352d95757f0062f5c68960432d0fdefffbbc880a91d90763185a0735c40999a
 SOURCE HOST /static/default/commands/hostname.c /tmp/agent-tools/hostname.c 14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f
 SOURCE HOST /static/default/commands/realpath.c /tmp/agent-tools/realpath.c 6ec82439ecf3ab1d21a40293ab7e585972c523d8c8e4573a60a7cef86af08250
 SOURCE HOST /static/default/commands/diff.c     /tmp/agent-tools/diff.c     6781afb83f0ee7097a938f0a7a83ea5d012ec1ed5e3ca2207ce682882e10117b

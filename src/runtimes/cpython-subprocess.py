@@ -124,8 +124,14 @@ class Popen:
         self.encoding = encoding or ("utf-8" if (text or universal_newlines) else None)
         self.errors = errors or "strict"
         self.text_mode = bool(self.encoding or text or universal_newlines)
-        self._environment = None if env is None else {
-            os.fsdecode(key): os.fsdecode(value) for key, value in env.items()
+        # Dolly starts the child lazily when its result is first observed.
+        # Capture the effective environment now, as real Popen does at exec,
+        # so a surrounding build-backend context cannot disappear before the
+        # private child Worker is launched.
+        source_environment = os.environ if env is None else env
+        self._environment = {
+            os.fsdecode(key): os.fsdecode(value)
+            for key, value in source_environment.items()
         }
         self._path, self._argv = _command_arguments(
             args, executable, shell, self._environment
@@ -212,24 +218,13 @@ class Popen:
                 self.stdin.flush()
             os.lseek(self._stdin_fd, 0, os.SEEK_SET)
         timeout_value = None if timeout is None else float(timeout)
-        saved_environment = None
-        if self._environment is not None:
-            # A nested /usr/bin/python invocation shares the initialized
-            # interpreter, including os.environ's Python mapping. Swap that
-            # mapping as well as libc's environment for the duration of the
-            # synchronous command, then restore the parent exactly.
-            saved_environment = os.environ.copy()
-            os.environ.clear()
-            os.environ.update(self._environment)
-        try:
-            self.pid, self.returncode = _dolly_process.spawn(
-                self._path, self._argv, None, self._cwd,
-                self._stdin_fd, self._stdout_fd, self._stderr_fd, timeout_value
-            )
-        finally:
-            if saved_environment is not None:
-                os.environ.clear()
-                os.environ.update(saved_environment)
+        environment = [
+            f"{key}={value}" for key, value in self._environment.items()
+        ]
+        self.pid, self.returncode = _dolly_process.spawn(
+            self._path, self._argv, environment, self._cwd,
+            self._stdin_fd, self._stdout_fd, self._stderr_fd, timeout_value
+        )
         self._child_created = True
         self._finish_output("stdout")
         self._finish_output("stderr")

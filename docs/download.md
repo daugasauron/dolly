@@ -19,14 +19,16 @@ boundary.
 
 ## Two typed edges
 
-The command-facing machine contract in `abi/dolly-0.wat` contains:
+The process-facing contract uses `DOLLY_PROCESS_DOWNLOAD_FILE` from
+`<dolly/process.h>`. Its request contains a bounded path byte range and crosses
+the executable's only function import:
 
 ```wat
-(import "env" "dolly_download_file"
-  (func $dolly_download_file (param i64) (result i32)))
+(import "dolly_process_0" "call"
+  (func (param i32 i64 i64 i64 i64) (result i64)))
 ```
 
-This remains inside the Wasm userspace. The runtime validates that the path
+This remains inside the Wasm userspace. The kernel validates that the path
 names a regular file, limits it to 64 MiB, reads it from WasmFS, and derives
 only its final path component as the suggested filename.
 
@@ -37,7 +39,7 @@ The browser-facing contract in `abi/dolly-download-0.wat` contains:
   (func $dolly_download_dispatch (param i64 i64 i64 i64) (result i32)))
 ```
 
-The four values are name pointer/length and data pointer/length in shared
+The four values are name pointer/length and data pointer/length in kernel
 memory64. They describe one capability call, not four capabilities. Generated
 loader glue validates safe numeric ranges, strict UTF-8, filename length and
 characters, and the 64 MiB bound before copying the bytes out of shared memory.

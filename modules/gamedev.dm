@@ -228,12 +228,10 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
     #include <stdio.h>
     #include <string.h>
     #include <termios.h>
-    #include <time.h>
     
-    // Upstream PLATFORM_MEMORY polls a Unix tty and optionally sleeps after each
-    // frame. Dolly supplies input through dolly_display_next_event(), which already
-    // provides the frame wait, so satisfy those unreachable backend hooks locally
-    // instead of growing the command ABI with a second input path.
+    // Upstream PLATFORM_MEMORY polls a Unix tty. Dolly supplies input through
+    // dolly_display_next_event(), so satisfy those unreachable backend hooks
+    // locally instead of growing the command ABI with a second input path.
     int tcgetattr(int descriptor, struct termios *attributes) {
       (void)descriptor;
       (void)attributes;
@@ -250,12 +248,6 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
     }
     
     int getchar(void) { return EOF; }
-    
-    int nanosleep(const struct timespec *duration, struct timespec *remaining) {
-      (void)duration;
-      if (remaining != NULL) memset(remaining, 0, sizeof(*remaining));
-      return 0;
-    }
     
     int dolly_raylib_open_sized(dolly_raylib *context, const char *title,
                                 uint32_t max_width, uint32_t max_height) {

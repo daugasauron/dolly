@@ -20,14 +20,15 @@ QuickJS-ng ── Janis Node subset ── Pi Dolly extension
        │                │                    │
        └────────────────┴────────────────────┘
                         │
-                shared WasmFS + Slop
+             kernel WasmFS + Slop process
                         │
        Ghostty RGBA ◀── Dolly runtime ──▶ one HTTP broker
 ```
 
-Everything above the broker lives in the shared wasm64 userspace. No Node
-process, host filesystem, socket, DOM, browser `fetch`, or native subprocess is
-forwarded into Pi.
+Everything above the broker lives in Dolly's wasm64 userspace. Pi, Slop, and
+each child have private process memory while sharing files and descriptors
+through the kernel. No Node process, host filesystem, socket, DOM, browser
+`fetch`, or native subprocess is forwarded into Pi.
 
 ## What works
 
@@ -183,7 +184,7 @@ credentials to a public anonymous proxy. See [`cors.md`](cors.md) and
    rules remain enforceable after total in-Wasm compromise.
 5. Repeated Pi invocations reset timers, modules, descriptors, tty modes,
    command exit state, display ownership, abandoned HTTP work, and input queued
-   for the preceding foreground-command epoch.
+   for the preceding foreground process.
 6. A production-worker browser test performs login/model discovery, a streamed
    model turn, a tool call, a WasmFS edit, a Slop command, terminal input, and
    a target-compiled TypeScript extension load after restart.

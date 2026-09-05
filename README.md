@@ -1,9 +1,10 @@
 # Dolly
 
 Dolly is an experiment in defining the smallest useful coding-agent userspace
-for the browser. Programs run as wasm64 modules in one WebAssembly machine,
-share an in-memory filesystem, and communicate with the outside world only
-through explicit browser imports.
+for the browser. A wasm64 kernel owns the in-memory userspace, while ordinary
+programs run in private wasm64 memories and reach that shared state only through
+the typed Dolly process ABI. The complete userspace communicates with the
+outside world only through explicit browser imports.
 
 The project is deliberately not “Linux in a tab.” It asks a narrower question:
 which files, commands, lifecycle operations, clocks, entropy, and network
@@ -18,12 +19,13 @@ Dolly currently boots a source-built userspace containing:
 - GNU Make, Ninja-compatible Samurai, One True Awk, sbase utilities, zlib,
   Git, and Fetch-backed libcurl;
 - an optional Python image with source-built CPython 3.14 and Bonnie for
-  recursive, hash-verified pure-Python wheel installation through that same
-  libcurl; CPython reports the distinct `dolly` platform, raw sockets fail
-  explicitly, upstream `termios` controls Dolly's in-Wasm line discipline,
-  requirements files are accepted sequentially, and wheel console entry points
-  become separately compiled wasm64 PATH commands; offline environment
-  inspection includes dependency-consistency checks;
+  recursive, hash-verified wheel and source-distribution builds through that
+  same libcurl; a clean browser gate source-builds and imports NumPy and Pandas
+  as Dolly-native wasm64 extensions. CPython reports the distinct `dolly`
+  platform, raw sockets fail explicitly, upstream `termios` controls Dolly's
+  in-Wasm line discipline, requirements files are accepted sequentially, and
+  wheel console entry points become separately compiled wasm64 PATH commands;
+  offline environment inspection includes dependency-consistency checks;
 - QuickJS-ng with the Janis Node-shaped compatibility layer;
 - TypeScript 5.9.3 running under Janis as `/usr/bin/tsc`, with single- and
   multi-file ESM compilation into WasmFS and target-side emit of the exact
@@ -49,6 +51,10 @@ bound to their exact recipe chains, entry records, and retained manifests. Each
 image's `/rebuild/` route compiles `/bin/dollyfile` inside Wasm, then that C
 program fetches and verifies every independent `SOURCE` and executes the recipe
 strictly row by row. Prebuilt boot does not download image source inputs.
+Each image's final startup module installs `/home/dolly/.dollyrc`; the runtime
+runs that ordinary Slop script before `ENTRY`, keeping greetings and suggested
+commands in source-visible userspace rather than browser UI or new recipe
+syntax.
 Mutable runtime state never becomes browser or host filesystem state.
 Named sessions are the explicit exception in storage direction: Ctrl+Shift+S
 serializes the in-Wasm filesystem, compresses it, and stores the opaque bytes
@@ -78,10 +84,15 @@ trusted browser page
   └─ env.dolly_http_dispatch       ← sole agent-selected network edge
               │
               ▼
-shared wasm64 runtime
+wasm64 kernel
   ├─ WasmFS, descriptors, cwd, environment, terminal, lifecycle
-  ├─ compiler + loader + versioned executable contract
-  └─ /bin and /usr/bin filesystem modules sharing the same memory
+  ├─ resident Ghostty display plugin
+  └─ typed, copying process gate
+              │
+              ├─ Slop and each /bin or /usr/bin command
+              ├─ language runtimes and their process-local DSOs
+              └─ private Clang/LLD/Zig compiler executable
+                 (one Worker and private memory per running process)
 ```
 
 Assume that every byte inside the Wasm machine is compromised. Containment
@@ -105,6 +116,9 @@ bundle is hundreds of megabytes and does not belong in Git history. After a
 local audited build, `scripts/package-pages.sh` creates the static release
 asset consumed by the manual `Deploy Dolly demo` workflow. A tiny same-origin
 service worker supplies the COOP/COEP headers that GitHub Pages cannot set.
+Packaged snapshots use gzip delivery to keep all five images below the Pages
+site size limit; the browser bounds decompression and verifies the original
+snapshot size and SHA-256 before loading it into Wasm.
 The public Pages embedding permits generic HTTP(S) through Dolly's one browser
 broker, including sandbox-supplied credential headers. This is useful for
 agents and deliberately not safe against exfiltration from a compromised
@@ -131,8 +145,10 @@ need. Credential values remain inside Dolly; the browser does not inject them.
 
 ## Contracts and documentation
 
-- [Architecture](docs/architecture.md) — runtime, compiler, filesystem,
-  lifecycle, snapshot, and display design.
+- [Architecture](docs/architecture.md) — kernel, private processes, compiler,
+  filesystem, lifecycle, snapshot, and display design.
+- [Process model](docs/process-model.md) — executable format, copying syscall
+  gate, process trees, deadlines, and cancellation.
 - [ABI](abi/README.md) — canonical WAT contracts, executable format, validation,
   and generated build glue.
 - [Security](docs/security.md) — threat model, trusted computing base, single
@@ -183,8 +199,9 @@ need. Credential values remain inside Dolly; the browser does not inject them.
 - New imports are capabilities and require contract, policy, and browser-test
   review.
 
-Dolly is still a research prototype. In particular, the current command ABI is
-libc-shaped and Emscripten-specific, command cleanup covers descriptors rather
-than all shared process state, Janis is a measured subset rather than Node, the
-Pi external package profile is not a general package manager, and transparent
-Git clone/fetch remains open work.
+Dolly is still a research prototype. The private process ABI is experimental,
+and the resident display plugin still uses an Emscripten-specific interface.
+Janis is a measured subset rather than Node, the Pi external package profile
+is not a general package manager, and transparent Git clone/fetch remains open
+work. Process termination reclaims each command's private memory; the shared
+filesystem remains alive in the kernel.

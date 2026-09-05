@@ -1,6 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 
 #include <errno.h>
+#include <limits.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -12,7 +14,7 @@
 
 static void usage(FILE *stream) {
   fputs("usage: timeout DURATION COMMAND [ARG ...]\n"
-        "DURATION accepts s, m, h, or d; Dolly terminates at checkpoints "
+        "DURATION accepts s, m, h, or d; Dolly terminates the process "
         "with status 124.\n", stream);
 }
 
@@ -22,7 +24,11 @@ static int regular_file(const char *path) {
 }
 
 static char *resolve_command(const char *name) {
-  if (strchr(name, '/') != NULL) return regular_file(name) ? strdup(name) : NULL;
+  if (strchr(name, '/') != NULL) {
+    if (!regular_file(name)) return NULL;
+    char absolute[PATH_MAX];
+    return realpath(name, absolute) == NULL ? NULL : strdup(absolute);
+  }
   const char *search = getenv("PATH");
   if (search == NULL) search = "/bin:/usr/bin";
   const size_t name_length = strlen(name);

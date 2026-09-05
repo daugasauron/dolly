@@ -15,25 +15,34 @@ import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const imageSpecs = [
-  { image: "default", filename: "Dollyfile", uses: ["default"], entry: "/bin/slop" },
+  {
+    image: "default", filename: "Dollyfile",
+    uses: ["default", "startup-default"], entry: "/bin/slop",
+  },
   {
     image: "pi", filename: "Dollyfile-pi",
-    uses: ["default", "quickjs", "typescript", "pi"],
+    uses: ["default", "quickjs", "typescript", "pi", "startup-pi"],
     entry: "/usr/bin/pi",
   },
   {
     image: "python", filename: "Dollyfile-python",
-    uses: ["default", "python"],
+    uses: ["default", "python", "startup-python"],
     entry: "/bin/slop",
   },
   {
     image: "python-pi", filename: "Dollyfile-python-pi",
-    uses: ["default", "python", "quickjs", "typescript", "pi"],
+    uses: [
+      "default", "python", "quickjs", "typescript", "pi",
+      "python-pi-integration",
+    ],
     entry: "/usr/bin/pi",
   },
   {
     image: "gamedev", filename: "Dollyfile-gamedev",
-    uses: ["default", "quickjs", "typescript", "pi", "gamedev"],
+    uses: [
+      "default", "quickjs", "typescript", "pi", "gamedev",
+      "startup-gamedev",
+    ],
     entry: "/usr/bin/graphics-demo",
   },
 ];
@@ -523,11 +532,18 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   assert.equal(bootstrap.slops.length, 0);
   assert.deepEqual(
     bootstrap.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name),
-    ["libc", "toolchain", "runtime", "http", "display", "download"],
+    ["libc", "toolchain", "runtime", "process", "http", "display", "download"],
   );
   const tools = bootstrap.exports.filter(({ type }) => type === "TOOL");
-  assert.ok(tools.length > 0);
-  assert.ok(tools.every(({ sha256 }) => sha256));
+  assert.deepEqual(
+    tools.map(({ name }) => name),
+    ["cc", "c++", "ld", "ar", "slop", "mkdir", "rm"],
+  );
+  assert.equal(
+    tools.some(({ sha256 }) => sha256),
+    false,
+    "bootstrap tools are process-image outputs identified by the runtime build, not fetched blobs",
+  );
   assert.deepEqual(
     bootstrap.exports.filter(({ type }) => type === "ENV").map(({ name }) => name),
     ["CC", "AR", "SHELL", "PATH"],
@@ -601,6 +617,36 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
     details[0] === "/usr/lib/node_modules/@earendil-works/pi-coding-agent"));
 });
 
+test("each image owns an ordinary pre-entry .dollyrc and Python plus Pi owns Bonnie guidance", async () => {
+  const images = await loadImages();
+  for (const { spec, graph } of images) {
+    const startup = graph.root.children.at(-1);
+    const startupFile = startup.files.find(({ path }) =>
+      path === "/home/dolly/.dollyrc");
+    assert.ok(startupFile?.body.includes(`DOLLY / ${
+      spec.image === "python-pi" ? "PYTHON + PI" : spec.image.toUpperCase()
+    }`));
+  }
+
+  const pythonPi = images.find(({ spec }) => spec.image === "python-pi").graph;
+  const integration = pythonPi.modules.find(({ name }) =>
+    name === "python-pi-integration");
+  assert.deepEqual(
+    integration.requirements.map(({ type, name }) => `${type}:${name}`),
+    ["TOOL:bonnie", "TOOL:pi", "TOOL:python"],
+  );
+  const skill = integration.files.find(({ path }) =>
+    path === "/home/dolly/.pi/agent/skills/bonnie/SKILL.md");
+  assert.match(skill.body, /Use it instead of invoking `pip`/);
+  assert.match(skill.body, /bonnie install requests/);
+
+  const worker = await readFile(resolve(projectDir, "src/runtime-worker.mjs"), "utf8");
+  assert.match(worker, /const startupPath = "\/home\/dolly\/\.dollyrc"/);
+  assert.match(worker, /"\/bin\/slop", \["slop", "-e", startupPath\]/);
+  const slop = await readFile(resolve(projectDir, "src/slop.c"), "utf8");
+  assert.doesNotMatch(slop, /Dolly slop 0\.1|Python packages: bonnie install/);
+});
+
 test("each module removes the build scratch paths it declares", async () => {
   const modules = uniqueModules(await loadImages());
   for (const module of modules.values()) {
@@ -644,6 +690,7 @@ test("redistributed upstream modules retain their licenses", async () => {
     ["awk", ["/usr/share/licenses/awk/LICENSE"]],
     ["sbase", ["/usr/share/licenses/sbase/LICENSE"]],
     ["quickjs", ["/usr/share/licenses/quickjs-ng/LICENSE"]],
+    ["libffi", ["/usr/share/licenses/libffi/LICENSE"]],
     ["cpython", ["/usr/share/licenses/cpython/LICENSE"]],
     ["gamedev", [
       "/usr/share/licenses/raylib/LICENSE",
@@ -841,12 +888,17 @@ ENTRY /bin/result
 test("Python keeps the stable interpreter ahead of the fast-moving installer", async () => {
   const graph = await loadDollyfileGraph(projectDir, "Dollyfile-python-pi");
   const python = graph.modules.find(({ name }) => name === "python");
-  assert.deepEqual(python.children.map(({ name }) => name), ["cpython", "bonnie"]);
+  assert.deepEqual(
+    python.children.map(({ name }) => name),
+    ["libffi", "cpython", "bonnie"],
+  );
   assert.equal(python.slops.length, 0);
   const cached = moduleCacheRecords(graph).map(({ locator }) => locator);
+  const libffi = cached.indexOf("/modules/libffi.dm");
   const cpython = cached.indexOf("/modules/cpython.dm");
   const bonnie = cached.indexOf("/modules/bonnie.dm");
-  assert.ok(cpython >= 0);
+  assert.ok(libffi >= 0);
+  assert.equal(cpython, libffi + 1);
   assert.equal(bonnie, cpython + 1);
 });
 
@@ -890,11 +942,17 @@ test("Bonnie is a retained two-file command with transactional graph helpers", a
   assert.match(frontend, /prepare_resolved_plan/);
   assert.match(frontend, /#!\/usr\/bin\/python/);
   assert.match(frontend, /prepare_entry_points/);
+  assert.doesNotMatch(frontend, /sys\.argv\[0\]\s*=/);
   assert.doesNotMatch(frontend, /compile_entry_points|bonnie-entry-%u\.c/);
   assert.match(frontend, /stage-reset/);
   assert.match(frontend, /bonnie-stage-/);
   assert.match(helper, /def _sync_pythonpath\(\)/);
   assert.match(helper, /--no-build-isolation/);
+  assert.match(helper, /def _source_build_setup_arguments\(sdist_path: str\)/);
+  assert.match(helper, /"-Dbuildtype=debug", "-Ddisable-optimization=true"/);
+  assert.match(helper, /"compile-args=-j1"/);
+  assert.match(helper, /f"setup-args=\{argument\}"/);
+  assert.match(helper, /"-O0 -DNDEBUG -fno-sanitize-coverage"/);
   assert.match(helper, /wheel path escapes its installation directory/);
   assert.match(helper, /log_path = posixpath\.join\(directory, "pip\.log"\)/);
   assert.match(helper, /finally:[\s\S]*shutil\.rmtree\(directory, ignore_errors=True\)/);
@@ -908,6 +966,11 @@ test("the trusted module cache exposes no guest-selected browser capability", as
     resolve(projectDir, "scripts/build-system-snapshot.mjs"), "utf8",
   );
   assert.match(cache, /indexedDB\.open/);
+  assert.match(
+    cache,
+    /for \(const layer of layers\)[\s\S]*database\.transaction\(storeName, "readwrite"\)/,
+  );
+  assert.match(cache, /Preserve already committed prefix layers/);
   assert.doesNotMatch(cache, /\b(?:fetch|eval|Function|localStorage|sessionStorage|document|cookie)\b/);
   assert.match(worker, /imageDefinitions\.get\(configuredImage\)\.moduleCaches/);
   assert.match(worker, /await sha256\(layer\.bytes\) !== layer\.sha256/);
@@ -973,7 +1036,7 @@ test("host preparation scripts publish atomically and own their temporary paths"
     resolve(projectDir, "scripts/prepare-samurai.sh"), "utf8",
   );
   const preparedSources = await Promise.all(
-    ["git", "make", "zlib"].map((name) => readFile(
+    ["git", "libffi", "make", "zlib"].map((name) => readFile(
       resolve(projectDir, `scripts/prepare-${name}.sh`), "utf8",
     )),
   );
@@ -1003,11 +1066,9 @@ test("host preparation scripts publish atomically and own their temporary paths"
   assert.doesNotMatch(nativeZig, /sha256sum\s*\\\s*\n\s*"\$\{project_dir\}\/config\/source-pins\.sh"/);
   assert.match(nativeZig, /zig-source=\$\{DOLLY_ZIG_SHA256\}/);
   assert.match(nativeZig, /object_digest=[\s\S]*?dolly-native-zig-object=1[\s\S]*?native-build-options\.zig/);
-  assert.match(nativeZig, /module_digest=[\s\S]*?dolly-native-zig-module=1[\s\S]*?abi\/dolly-0\.wat/);
-  assert.match(nativeZig, /validate-command[\s\S]*?temporary_module/);
-  assert.match(nativeZig, /\.\/bin\/dolly-cc "\$\{object\}" -o "\$\{temporary_module\}"/);
+  assert.match(nativeZig, /-femit-bin="\$\{temporary_object\}"/);
   assert.match(nativeZig, /mv -- "\$\{temporary_object_stamp\}" "\$\{object_stamp\}"/);
-  assert.match(nativeZig, /mv -- "\$\{temporary_module_stamp\}" "\$\{module_stamp\}"/);
+  assert.doesNotMatch(nativeZig, /module_digest|temporary_module|validate-command/);
   assert.match(samurai, /trap cleanup EXIT/);
   assert.match(samurai, /patch[\s\S]*?-d "\$\{temporary\}"/);
   assert.match(samurai, /samurai-source-\$\{DOLLY_SAMURAI_COMMIT\}-\$\{recipe_hash:0:16\}/);
@@ -1081,6 +1142,7 @@ test("build modules declare tools used by their own recipes", async () => {
     ["quickjs", ["ar", "cc"]],
     ["sbase", ["cc"]],
     ["typescript", ["cc"]],
+    ["libffi", ["ar", "cc"]],
     ["zlib", ["ar", "cc"]],
   ]);
   for (const [name, tools] of recipeTools) {
@@ -1097,7 +1159,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
   const modules = uniqueModules(await loadImages());
   const requiringLibc = [
     "tar", "core-tools", "download", "make", "cpp", "ninja", "zlib", "curl", "git", "quickjs", "pi",
-    "ghostty", "awk", "sbase", "python", "cpython", "bonnie", "gamedev",
+    "ghostty", "awk", "sbase", "python", "libffi", "cpython", "bonnie", "gamedev",
   ];
   for (const name of requiringLibc) {
     assert.ok(
@@ -1117,7 +1179,8 @@ test("compiled modules declare their direct C header surfaces", async () => {
   assert.deepEqual(headers("quickjs"), ["libc", "runtime", "http", "download"]);
   assert.deepEqual(headers("pi"), ["libc", "quickjs-runner"]);
   assert.deepEqual(headers("python"), ["curl", "libc", "runtime", "zlib"]);
-  assert.deepEqual(headers("cpython"), ["libc", "runtime", "zlib"]);
+  assert.deepEqual(headers("libffi"), ["libc"]);
+  assert.deepEqual(headers("cpython"), ["libc", "ffi", "ffitarget", "runtime", "zlib"]);
   assert.deepEqual(headers("bonnie"), ["curl", "libc", "runtime"]);
   assert.deepEqual(headers("gamedev"), ["libc", "display"]);
 
@@ -1125,6 +1188,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
     .filter(({ type }) => type === "HEADER")
     .map(({ name: header }) => header);
   assert.deepEqual(exportedHeaders("zlib"), ["zlib", "zconf"]);
+  assert.deepEqual(exportedHeaders("libffi"), ["ffi", "ffitarget"]);
   assert.deepEqual(exportedHeaders("curl"), ["curl"]);
   assert.deepEqual(exportedHeaders("quickjs"), ["quickjs-runner"]);
   assert.deepEqual(exportedHeaders("ghostty"), ["ghostty-vt"]);

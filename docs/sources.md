@@ -30,12 +30,13 @@ Dollyfile/module rows --> browser broker --> exact SHA-256-checked files in Wasm
 /<image>/ validates metadata and restores without fetching image sources
 ```
 
-The Emscripten data file contains only the compiler/shell seed: sysroot and
-Clang headers, Dolly headers and ABI schema, Slop/Dollyfile/core-wrapper source,
-and the runtime-owned compiler/linker implementation. Emscripten marks packaged
-directory nodes read-only, so it is mounted at `/seed`; `src/dolly.c` copies it
-into freshly created mutable `/usr` directories before compilation. No
-permission or executable-bit policy is added to Dolly.
+The Emscripten data file contains the bootstrap seed: process sysroot and Clang
+headers, Dolly headers and ABI schemas, Slop/Dollyfile/core-command source, and
+the private compiler executable. Emscripten marks packaged directory nodes
+read-only, so it is mounted at `/seed`; `src/dolly.c` copies selected inputs
+into freshly created mutable `/usr` directories before compilation. The small
+kernel does not link the compiler. No permission or executable-bit policy is
+added to Dolly.
 
 Every other input appears as an independent `SOURCE HOST location destination
 HASH` row in one of the pinned `/modules/*.dm` recipes selected by `Dollyfile`,
@@ -70,8 +71,8 @@ directories, rejects absolute/traversal names, and writes solely to WasmFS.
 
 | Component | Outside-browser preparation | Inside-Dolly result |
 | --- | --- | --- |
-| Emscripten 6.0.8 | Digest-pinned container links the wasm64 main module and packaged seed | libc headers, WasmFS, loader, and shared runtime; the seed explicitly excludes the C++ header tree |
-| LLVM/Clang/LLD 24 | Wasm64 libraries are built once and linked into the main module | `/bin/cc`, `/bin/c++`, `/bin/ld`, `/bin/ar` compile/link files in WasmFS |
+| Emscripten 6.0.8 | Digest-pinned container links the small wasm64 kernel, process libc/sysroot, process gate, and packaged seed | Kernel-owned WasmFS plus private process executables; the seed explicitly excludes the C++ header tree |
+| LLVM/Clang/LLD 24 | Wasm64 libraries are built once into a stamped private compiler executable | `/bin/cc`, `/bin/c++`, `/bin/ld`, `/bin/ar` spawn a fresh compiler process that reads and publishes files through the typed kernel gate |
 | Dolly C++ SDK | The exact libc++ header tree is archived separately from the seed; four reviewed C adapters are served independently | `cpp.dm` materializes `/usr/include/c++/v1`, `/usr/lib/libc++.a`, and `/usr/lib/libc++abi.a` as one standalone no-exception SDK module |
 | GNU Make 4.4.1 | Pinned release is configured and a reviewed serial Dolly adapter is applied | `/usr/bin/make`; recipes run synchronously through `/bin/slop` |
 | Samurai 1.3 | A pinned source tree receives a small serial Dolly scheduler patch and is compiled as its ordinary 13 C translation units | `/usr/bin/ninja` executes Ninja manifests through Dolly's in-Wasm command lifecycle |
@@ -83,8 +84,8 @@ directories, rejects absolute/traversal names, and writes solely to WasmFS.
 | CPython 3.14 | A pinned upstream tree is configured for Dolly's wasm64 target; matching frozen headers and generated build files are archived | The `cpython.dm` leaf compiles every target object and `/usr/bin/python`; entropy uses Dolly's in-Wasm source, while Python `Thread` targets execute serially and never create host or browser threads |
 | Bonnie | Dolly C source is served independently | The later `bonnie.dm` leaf builds `/usr/bin/bonnie` against libcurl and the already sealed CPython layer, so installer changes do not rebuild the interpreter |
 | raylib 6.0 + Box3D 0.1.0 | Exact pinned upstream source trees are archived; no host target objects are kept | GNU Make compiles raylib's `PLATFORM_MEMORY` modules and Box3D's portable C17 objects into static libraries; Dolly's small adapter presents RGBA and semantic input |
-| Zig 0.16 | Official host Zig builds an ABI-validated wasm64 Zig command; library source is archived | `/usr/bin/zig` emits wasm64 objects through the runtime LLVM bridge |
-| Ghostty + uucode | Pinned source and generated configuration/tables are archived | Zig builds Ghostty VT and its static library; Dolly cc builds the resident display shared library |
+| Zig 0.16 | Official host Zig builds the Zig/LLVM object linked into the ABI-validated private compiler executable; library source is archived | `/usr/bin/zig` asks a fresh compiler process to emit wasm64 objects without adding kernel imports |
+| Ghostty + uucode | Pinned source and generated configuration/tables are archived | Zig builds Ghostty VT and its static library; Dolly cc builds the one explicit resident kernel display plugin |
 | QuickJS-ng | Exact engine source is archived; ambient `quickjs-libc.c` is excluded | `/usr/lib/libdolly-js.a`, `qjs`, Janis, and Pi frontend |
 | Pi | Locked npm packages are bundled to a checked QuickJS-compatible ESM input | `/usr/bin/pi` runs upstream TUI and Dolly extension files |
 | stb_truetype + Iosevka | Commit/digest-pinned header and fonts are served independently | display rasterizer and runtime terminal font |
@@ -92,7 +93,8 @@ directories, rejects absolute/traversal names, and writes solely to WasmFS.
 Host-side preparation is allowed to make pinned upstream trees buildable, but
 it must be deterministic and reviewable. It must not compile the ordinary final
 commands that a Dolly rebuild claims to build. The explicit exceptions are the
-machine/compiler seed and ABI-validated bootstrap modules such as native Zig.
+machine/compiler seed and ABI-validated bootstrap compiler inputs such as
+native Zig.
 
 Preparation scripts own their scratch state. Downloads, extracted trees,
 configured build directories, generated packages, and intermediate Wasm files

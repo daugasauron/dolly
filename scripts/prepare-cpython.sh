@@ -23,7 +23,7 @@ recipe_hash="$({
     "${project_dir}/config/cpython-dolly.patch" \
     "${project_dir}/src/runtimes/cpython-process.c" | awk '{print $1}'
 } | sha256sum | awk '{print $1}')"
-configuration="${DOLLY_CPYTHON_COMMIT}:dolly-0-wasm64-process-mmap-v32:${recipe_hash}"
+configuration="${DOLLY_CPYTHON_COMMIT}:dolly-process-0-wasm64-mmap-v33:${recipe_hash}"
 output_dir="${project_dir}/build/generated/cpython-source-${DOLLY_CPYTHON_COMMIT}-${recipe_hash:0:16}"
 stamp="${output_dir}/.dolly-cpython-source"
 
@@ -48,7 +48,7 @@ cp -- "${project_dir}/config/cpython-Setup.local" \
   "${temporary}/Modules/Setup.local"
 cp -- "${project_dir}/src/runtimes/cpython-process.c" \
   "${temporary}/Modules/dolly_process.c"
-patch --batch --fuzz=0 -d "${temporary}" -p1 \
+patch --batch --fuzz=0 --no-backup-if-mismatch -d "${temporary}" -p1 \
   < "${project_dir}/config/cpython-dolly.patch" >/dev/null
 
 build_python_root="$(cd -- "$(dirname -- "${build_python}")/.." && pwd)"
@@ -89,6 +89,7 @@ fi
   ac_cv_func_grantpt=no ac_cv_func_unlockpt=no ac_cv_func_ptsname_r=no \
   ac_cv_func_login_tty=no ac_cv_func_getgid=no ac_cv_func_getegid=no \
   ac_cv_func_setrlimit=no ac_cv_func_pthread_sigmask=no \
+  ac_cv_func_pthread_condattr_setclock=no \
   ac_cv_func_ptsname=no \
   /emsdk/upstream/emscripten/emconfigure ./configure \
     --host=wasm64-unknown-emscripten \
@@ -154,10 +155,15 @@ sed -i 's/^#define HAVE_LOGIN_TTY 1$/\/\* #undef HAVE_LOGIN_TTY \*\//' \
 # own compatibility symbols. Dolly deliberately uses CPython's smaller,
 # explicit single-thread implementation instead: pthread_create() returns
 # EAGAIN while locks and thread-local storage remain useful in one runtime.
+# In particular, do not retain Emscripten's pthread_condattr_setclock result.
+# Its declaration has a different wasm64 signature, and keeping the result
+# makes CPython's private _PyRuntimeState layout depend on whether a translation
+# unit happened to include <time.h> before pycore_pythread.h.
 sed -i \
   -e 's/^#define HAVE_PAUSE 1$/\/\* #undef HAVE_PAUSE \*\//' \
   -e 's/^#define HAVE_PTHREAD_H 1$/\/\* #undef HAVE_PTHREAD_H \*\//' \
   -e 's/^\/\* #undef HAVE_PTHREAD_STUBS \*\//#define HAVE_PTHREAD_STUBS 1/' \
+  -e 's/^#define HAVE_PTHREAD_CONDATTR_SETCLOCK 1$/\/\* #undef HAVE_PTHREAD_CONDATTR_SETCLOCK \*\//' \
   -e 's/^#define HAVE_PTHREAD_GETATTR_NP 1$/\/\* #undef HAVE_PTHREAD_GETATTR_NP \*\//' \
   -e 's/^#define HAVE_PTHREAD_GETCPUCLOCKID 1$/\/\* #undef HAVE_PTHREAD_GETCPUCLOCKID \*\//' \
   -e 's/^#define HAVE_PTHREAD_KILL 1$/\/\* #undef HAVE_PTHREAD_KILL \*\//' \
@@ -173,7 +179,7 @@ sed -i \
   -e 's/^MULTIARCH=.*/MULTIARCH=\tdolly_0_wasm64/' \
   -e 's/^MULTIARCH_CPPFLAGS =.*/MULTIARCH_CPPFLAGS = -DMULTIARCH=\\"dolly_0_wasm64\\"/' \
   -e 's/^EXT_SUFFIX=.*/EXT_SUFFIX=\t.cpython-314-dolly_0_wasm64.so/' \
-  -e 's|^LDSHARED=.*|LDSHARED=\tcc -shared $(PY_LDFLAGS) -L/usr/lib -lpython3.14|' \
+  -e 's|^LDSHARED=.*|LDSHARED=\tcc -shared $(PY_LDFLAGS)|' \
   -e 's|^BLDSHARED=.*|BLDSHARED=\tcc -shared $(PY_CORE_LDFLAGS)|' \
   -e 's/^_PYTHON_HOST_PLATFORM=.*/_PYTHON_HOST_PLATFORM=dolly_0-wasm64/' \
   -e 's|^LIBPL=.*|LIBPL=\t\t$(prefix)/lib/python3.14/config-3.14-dolly_0_wasm64|' \

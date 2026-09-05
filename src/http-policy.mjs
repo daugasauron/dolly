@@ -144,9 +144,6 @@ export class DollyHttpPolicy {
   }
 
   authorize(target, method, headers, requestBytes) {
-    if (++this.requests > this.maxRequests) {
-      throw new Error("Dolly HTTP request quota exceeded");
-    }
     const upperMethod = method.toUpperCase();
     let rule = upperMethod === "GET" && requestBytes === 0 &&
       target.username === "" && target.password === "" &&
@@ -158,24 +155,33 @@ export class DollyHttpPolicy {
       // not capabilities granted by an untrusted Dollyfile. They are exact,
       // read-only, credential-free URLs with byte-for-byte response limits.
       for (const name of credentialHeaderNames) headers.delete(name);
-    } else if (this.hardened) {
-      rule = this.rules.find((candidate) =>
-        candidate.origin === target.origin &&
-        (candidate.path === null
-          ? target.pathname.startsWith(candidate.pathPrefix)
-          : target.pathname === candidate.path) &&
-        candidate.methods.has(upperMethod));
-      if (!rule) throw new Error("Dolly HTTP policy denied the request");
     } else {
-      if (target.protocol !== "http:" && target.protocol !== "https:") {
-        throw new Error("Dolly HTTP policy denied the request");
+      // Exact build inputs are embedding-selected capabilities and have their
+      // own byte bound. They do not spend the quota for agent-selected
+      // requests; otherwise a large source graph can exhaust networking before
+      // the built userspace ever starts.
+      if (++this.requests > this.maxRequests) {
+        throw new Error("Dolly HTTP request quota exceeded");
       }
-      rule = {
-        credentialHeaders: null,
-        maxRequestBytes: defaultLimits.maxRequestBytes,
-        maxResponseBytes: defaultLimits.maxResponseBytes,
-        timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
-      };
+      if (this.hardened) {
+        rule = this.rules.find((candidate) =>
+          candidate.origin === target.origin &&
+          (candidate.path === null
+            ? target.pathname.startsWith(candidate.pathPrefix)
+            : target.pathname === candidate.path) &&
+          candidate.methods.has(upperMethod));
+        if (!rule) throw new Error("Dolly HTTP policy denied the request");
+      } else {
+        if (target.protocol !== "http:" && target.protocol !== "https:") {
+          throw new Error("Dolly HTTP policy denied the request");
+        }
+        rule = {
+          credentialHeaders: null,
+          maxRequestBytes: defaultLimits.maxRequestBytes,
+          maxResponseBytes: defaultLimits.maxResponseBytes,
+          timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
+        };
+      }
     }
     if (requestBytes > rule.maxRequestBytes) {
       throw new Error("Dolly HTTP request exceeds its size limit");

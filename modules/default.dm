@@ -3,18 +3,18 @@ MODULE default
 
 # Direct children form this module's private sequential scope. Each child's
 # requirements resolve only against exports from earlier children in this list.
-USE HOST /modules/bootstrap.dm      de38728d9d39daccdd692035a07bbe3ccbc582e7cc592a4a855f882d97057fe7
+USE HOST /modules/bootstrap.dm      8c10281d479fb83a6d609971965d400e205e0dcddf14957484d4a879367577a3
 USE HOST /modules/core-tools.dm     3f0c0750cc10d6e771753460919fc4020072449ccd88e263d0bf28289fe737be
 USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
 USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
 USE HOST /modules/make.dm           cd76b282f98810858ec6026602996277b699540f6b55fb8fbb5c4992c1f8762e
-USE HOST /modules/zig.dm            31986fc8328d84cdd4fb78e89ae5b8f100a5314825db85cb41c7c8ab04a21e62
-USE HOST /modules/ghostty.dm        62344f9b489dd8dbf028ebdc2f2a1b95ed98cda0476980b903bf8d731863bc4b
+USE HOST /modules/zig.dm            3725f029d824969c18a10ec4c8430227ddc0474dc58fc93e44a0c1998844a52a
+USE HOST /modules/ghostty.dm        8d1fbc3b79458f71220fc20057c5acc856f2b5da4ae68431b2e15ece92073258
 USE HOST /modules/cpp.dm            2f6dbbcaca09550036d6529d22634fe41dfc0cbd524c46521fa5cc47c3df8296
 USE HOST /modules/ninja.dm          77dae6ac93e748551c515115f4e500dc22de5345239d3204756b2ee66f3cdf5a
 USE HOST /modules/zlib.dm           091743c99ef011e20bfbe8ed0417f5c01eef5d04b90151f8cdaf561434b3e815
 USE HOST /modules/curl.dm           8af181a0e4c84ca3178f607634b5df9ca96027f0f085af4c37d20d1c9e0af140
-USE HOST /modules/git.dm            8f15edbb818df9f23ea461053c45cc1fee713864eaf00e44159bd824afff8801
+USE HOST /modules/git.dm            18aa13e0e28b4f218b5dcf27c03ad8ff123027405740cd0a3f455f022c1701a6
 USE HOST /modules/awk.dm            7b5674be32b3968c82b9af65f31c6d90a0207dee7bc6cb4eaaba30b963c5c09f
 USE HOST /modules/sbase.dm          a58af6850932e682ceec4654b45f7160a77dff665b2a1c64d1c35b541e291686
 USE HOST /modules/sbase-tools-1.dm  f6f9636eb27fd6eaaab909b744131a58c8dc55708cb4e5b8d60ba51aae12358f
@@ -29,13 +29,14 @@ USE HOST /modules/sbase-tools-9.dm  d9c56116e0d92412e85d1aeb236d5137828cad559212
 USE HOST /modules/sbase-tools-10.dm 9450d6370ed290e63d001efb9b49e41bcaf7b77b4ab2725eb868eb7257f4c9af
 USE HOST /modules/sbase-tools-11.dm ebde90a5af5363d63d3f6189075a9ec864e44d47354bc1566f295b6fe72978b8
 USE HOST /modules/sbase-tools-12.dm 8cfe3edb9d5de7759a147e52734725662ffe43a1c5f6c7cfdf9a74aadf0228c5
-USE HOST /modules/agent-tools.dm    a6304bd7eae93aa6603bcb5cc50bf20bd228f5d2b7680052b8e52ea486e7f575
+USE HOST /modules/agent-tools.dm    36d59b19adaf7f04d78623a90ce597d8d542fe597ccf9054b527105198d34b43
 
 # This is both a runtime and an SDK. Re-exports inherit the exact child object;
 # an object not listed here is build-private and is absent from the image.
 EXPORTS HEADER libc
 EXPORTS HEADER toolchain
 EXPORTS HEADER runtime
+EXPORTS HEADER process
 EXPORTS HEADER http
 EXPORTS HEADER display
 EXPORTS HEADER download

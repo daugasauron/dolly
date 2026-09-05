@@ -18,6 +18,8 @@ const projectDir = resolve(import.meta.dirname, "..");
 const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 const distDirectory = resolve(projectDir, "dist");
+const packagedSite = process.env.DOLLY_BROWSER_SITE
+  ? resolve(process.env.DOLLY_BROWSER_SITE) : null;
 const chromeBinary = process.argv[2];
 if (!chromeBinary) throw new Error("usage: browser-harness.mjs CHROME_BINARY");
 const browserHostname = process.env.DOLLY_BROWSER_HOSTNAME ?? "127.0.0.1";
@@ -44,6 +46,7 @@ const menuMode = process.env.DOLLY_BROWSER_MODE === "menu";
 const routeSmokeMode = process.env.DOLLY_BROWSER_MODE === "route-smoke";
 const sessionMode = process.env.DOLLY_BROWSER_MODE === "session";
 const pythonPackageMode = process.env.DOLLY_BROWSER_MODE === "python-packages";
+const pythonInteractiveMode = process.env.DOLLY_BROWSER_MODE === "python-interactive";
 const toolchainProbeMode = process.env.DOLLY_BROWSER_MODE === "toolchain-probes";
 const zigSingleProviderMode = process.env.DOLLY_BROWSER_MODE === "zig-single-provider";
 const optimizedLifecycleProbeMode =
@@ -110,6 +113,9 @@ const publicSources = new Set([
   "src/dollyfile-view.mjs",
   "src/http-policy.mjs",
   "src/module-cache.mjs",
+  "src/process-ffi.mjs",
+  "src/process-supervisor.mjs",
+  "src/process-worker.mjs",
   "src/session-store.mjs",
   "src/runtime-worker.mjs",
 ]);
@@ -303,6 +309,7 @@ function startServer() {
           ...isolatedHeaders,
           "content-type": "text/event-stream; charset=utf-8",
         });
+        response.flushHeaders();
         piFixtureStream.request = responseOrdinal;
         piFixtureStream.phase = "waiting";
         // Hold the request open long enough for the TUI's timer-driven
@@ -416,7 +423,14 @@ function startServer() {
         response.writeHead(404, isolatedHeaders).end("not found");
         return;
       }
-      const body = await readFile(path);
+      const packagedRelative = route === "/" ? "index.html"
+        : routeDocuments.has(route) ? `${requested}/index.html` : requested;
+      const servedPath = packagedSite ? resolve(packagedSite, packagedRelative) : path;
+      if (packagedSite && !servedPath.startsWith(`${packagedSite}${sep}`)) {
+        response.writeHead(404, isolatedHeaders).end("not found");
+        return;
+      }
+      const body = await readFile(servedPath);
       staticRequestPaths.add(requestUrl.pathname);
       const source = sourceArtifacts.get(requested)?.source;
       response.writeHead(200, {
@@ -655,27 +669,44 @@ async function waitForCommandResult(send, sequence, description) {
 }
 
 async function enterRecoveryShell(send) {
-  const piPid = await waitForValue(
+  const entryPid = await waitForValue(
     send,
-    "window.__dolly?.foregroundPid ?? 0",
+    `(() => {
+      const pid = window.__dolly?.foregroundPid ?? 0;
+      return pid === Number(document.documentElement.dataset.entryPid) ? pid : 0;
+    })()`,
     (value) => value > 0,
-    "default Pi foreground process",
+    "image entry foreground process",
     600,
   );
   await delay(500);
-  await dispatchKey(send, {
-    key: "d",
-    code: "KeyD",
-    modifiers: 2,
-    windowsVirtualKeyCode: 68,
-  });
+  if (selectedImage === "gamedev") {
+    await waitForValue(
+      send,
+      "window.__dolly?.graphicsActive ?? false",
+      (value) => value === true,
+      "gamedev entry display lease",
+      200,
+    );
+    assert.equal(
+      await evaluate(send, "window.__dolly.key('q', 'KeyQ')"),
+      true,
+    );
+  } else {
+    await dispatchKey(send, {
+      key: "d",
+      code: "KeyD",
+      modifiers: 2,
+      windowsVirtualKeyCode: 68,
+    });
+  }
   return waitForValue(
     send,
     `(() => {
       const transport = window.__dolly?.transport;
       if (!transport) return 0;
       const pid = transport.foregroundPid();
-      return pid > 0 && pid !== ${piPid} &&
+      return pid > 0 && pid !== ${entryPid} &&
         !transport.foregroundInterruptible() && transport.inputIdle()
         ? pid
         : 0;
@@ -793,9 +824,9 @@ async function terminalPaletteEvidence(send) {
   })()`);
 }
 
-async function waitForTerminalText(send, pattern, description) {
+async function waitForTerminalText(send, pattern, description, attempts = 300) {
   let lastText = "";
-  for (let attempt = 0; attempt < 300; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     lastText = await visibleTerminalText(send);
     if (pattern.test(lastText)) return lastText;
     await delay(50);
@@ -803,6 +834,23 @@ async function waitForTerminalText(send, pattern, description) {
   throw new Error(
     `timed out waiting for terminal text: ${description}\n` +
     `last visible terminal text:\n${lastText}`,
+  );
+}
+
+async function currentFrameSequence(send) {
+  return Number(await evaluate(
+    send,
+    "document.documentElement.dataset.frameSequence ?? '0'",
+  )) >>> 0;
+}
+
+async function waitForFrameAfter(send, before, description, attempts = 600) {
+  return waitForValue(
+    send,
+    "Number(document.documentElement.dataset.frameSequence ?? '0') >>> 0",
+    (value) => Number.isInteger(value) && ((value - before) >>> 0) > 0,
+    description,
+    attempts,
   );
 }
 
@@ -1007,13 +1055,140 @@ chrome = spawn(chromeBinary, [
       ? rebuildPage
       : piDevelopmentMode || cppMode || makeMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
-        || pythonPackageMode || toolchainProbeMode || zigSingleProviderMode
+        || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
         || lifecycleProbeMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (pythonInteractiveMode) {
+      const state = await waitForValue(
+        debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed",
+        "interactive Python image boot",
+        1200,
+      );
+      assert.equal(state, "ready");
+      if (selectedGraph.root.entry[0] === "/bin/slop") {
+        await waitForValue(
+          debuggerClient.send,
+          `(() => {
+            const transport = window.__dolly?.transport;
+            return transport && transport.foregroundPid() > 0 &&
+              !transport.foregroundInterruptible() && transport.inputIdle();
+          })()`,
+          (value) => value === true,
+          "Python image Slop prompt",
+          600,
+        );
+      } else {
+        await enterRecoveryShell(debuggerClient.send);
+      }
+
+      await evaluate(debuggerClient.send, `(() => {
+        window.__dollyPythonReplOutcome = null;
+        window.__dolly.submit("python").then(
+          (status) => { window.__dollyPythonReplOutcome = { status }; },
+          (error) => { window.__dollyPythonReplOutcome = { error: String(error) }; },
+        );
+        return true;
+      })()`);
+      await waitForValue(
+        debuggerClient.send,
+        `window.__dolly.transport.foregroundInterruptible() &&
+          window.__dolly.transport.inputIdle()`,
+        (value) => value === true,
+        "interactive Python command consumption",
+        200,
+      );
+      const pythonStartFrame = await currentFrameSequence(debuggerClient.send);
+      await waitForFrameAfter(
+        debuggerClient.send, pythonStartFrame,
+        "Python startup output publication", 2400,
+      );
+      let terminal = await waitForTerminalText(
+        debuggerClient.send, />>>/, "the first Python prompt", 600,
+      );
+      assert.doesNotMatch(terminal, /Function not implemented|Traceback/);
+      assert.doesNotMatch(terminal, /Could not find platform dependent libraries/);
+      if (/dolly: preparing [0-9.]+ MiB WebAssembly executable/.test(terminal)) {
+        assert.match(terminal, /dolly: executable ready in [0-9.]+s/);
+      }
+      await inputText(debuggerClient.send, 'print("PYTHON-REPL-LIVE")\r');
+      terminal = await waitForTerminalText(
+        debuggerClient.send, /PYTHON-REPL-LIVE/, "interactive Python evaluation",
+      );
+      assert.doesNotMatch(terminal, /Function not implemented|Traceback/);
+      assert.equal(
+        await evaluate(debuggerClient.send, "window.__dollyPythonReplOutcome"),
+        null,
+        "Python exited instead of remaining at its next prompt",
+      );
+      await inputText(debuggerClient.send, "\x04");
+      assert.deepEqual(
+        await waitForValue(
+          debuggerClient.send,
+          "window.__dollyPythonReplOutcome",
+          (value) => value !== null,
+          "interactive Python EOF",
+          300,
+        ),
+        { status: 0 },
+      );
+
+      await evaluate(debuggerClient.send, `(() => {
+        window.__dollyPythonStreamOutcome = null;
+        window.__dolly.submit(${JSON.stringify(
+          "python -c 'import sys,time; " +
+          "time.sleep(1); print(\"PYTHON-STREAM-\" + \"ONE\", flush=True); " +
+          "time.sleep(2); print(\"PYTHON-STREAM-\" + \"TWO\", flush=True)'",
+        )}).then(
+          (status) => { window.__dollyPythonStreamOutcome = { status }; },
+          (error) => { window.__dollyPythonStreamOutcome = { error: String(error) }; },
+        );
+        return true;
+      })()`);
+      await waitForValue(
+        debuggerClient.send,
+        `window.__dolly.transport.foregroundInterruptible() &&
+          window.__dolly.transport.inputIdle()`,
+        (value) => value === true,
+        "streaming Python command consumption",
+        200,
+      );
+      // Let the command echo's dirty frame publish during the program's
+      // deliberate initial sleep, then establish a baseline that only program
+      // output can advance.
+      await delay(200);
+      const streamStartFrame = await currentFrameSequence(debuggerClient.send);
+      await waitForFrameAfter(
+        debuggerClient.send, streamStartFrame,
+        "Python's first rendered output before process completion",
+      );
+      assert.equal(
+        await evaluate(debuggerClient.send, "window.__dollyPythonStreamOutcome"),
+        null,
+        "Python output appeared only after process completion",
+      );
+      assert.deepEqual(
+        await waitForValue(
+          debuggerClient.send,
+          "window.__dollyPythonStreamOutcome",
+          (value) => value !== null,
+          "Python streaming process completion",
+          300,
+        ),
+        { status: 0 },
+      );
+      terminal = await waitForTerminalText(
+        debuggerClient.send, /PYTHON-STREAM-TWO/, "Python's complete streamed output",
+      );
+      assert.match(terminal, /PYTHON-STREAM-ONE[\s\S]*PYTHON-STREAM-TWO/);
+      console.log("browser: interactive Python and pre-exit output streaming passed");
+      break browserProof;
+    }
     if (lifecycleProbeMode) {
       const state = await waitForValue(
         debuggerClient.send,
@@ -1174,15 +1349,25 @@ chrome = spawn(chromeBinary, [
         "rm -f /tmp/dolly-bad-probe.cpp /tmp/dolly-bad-probe.o " +
           "/tmp/dolly-bad-link.cpp /tmp/dolly-bad-link " +
           "/tmp/dolly-meson-sanity.cpp /tmp/dolly-meson-sanity " +
+          "/tmp/dolly-meson-extension.c /tmp/dolly-meson-extension.so " +
+          "/tmp/dolly-preprocess.cpp /tmp/dolly-preprocess.txt " +
           "/tmp/dolly-cxx-macros.txt /tmp/dolly-zig-probe.zig " +
           "/tmp/dolly-zig-probe.o",
         "echo 'int main(int argc, char **argv) { return argc == 0; }' > /tmp/dolly-meson-sanity.cpp",
         "c++ --version",
+        "cc --print-search-dirs | grep '^libraries: =/usr/lib:/usr/lib/dolly/process$'",
         "c++ -x c++ -E -dM - < /dev/null > /tmp/dolly-cxx-macros.txt",
+        "echo '#include <stddef.h>' > /tmp/dolly-preprocess.cpp",
+        "c++ -xc++ -E -P -fpermissive /tmp/dolly-preprocess.cpp > /tmp/dolly-preprocess.txt",
+        "test -s /tmp/dolly-preprocess.txt",
+        "c++ -xc++ -E -v - < /dev/null > /dev/null",
         "c++ -Wl,--version",
         "c++ -Wl,-v",
         "c++ -D_FILE_OFFSET_BITS=64 -o /tmp/dolly-meson-sanity /tmp/dolly-meson-sanity.cpp -D_FILE_OFFSET_BITS=64",
         "/tmp/dolly-meson-sanity",
+        "echo 'extern int dolly_extension_host(void); int dolly_extension(void) { return dolly_extension_host(); }' > /tmp/dolly-meson-extension.c",
+        "cc -shared -fPIC -Wl,--allow-shlib-undefined /tmp/dolly-meson-extension.c -o /tmp/dolly-meson-extension.so",
+        "test -s /tmp/dolly-meson-extension.so",
         ...(selectedModuleNames.has("zig") ? [
           "echo 'export fn dolly_zig_probe() callconv(.c) u32 { return 42; }' > /tmp/dolly-zig-probe.zig",
           "zig build-obj -OReleaseSmall -target wasm64-emscripten " +
@@ -1194,7 +1379,9 @@ chrome = spawn(chromeBinary, [
           "/tmp/dolly-after-zig",
         ] : []),
         "rm -f /tmp/dolly-meson-sanity.cpp /tmp/dolly-meson-sanity " +
+          "/tmp/dolly-meson-extension.c /tmp/dolly-meson-extension.so " +
           "/tmp/dolly-cxx-macros.txt /tmp/dolly-zig-probe.zig " +
+          "/tmp/dolly-preprocess.cpp /tmp/dolly-preprocess.txt " +
           "/tmp/dolly-zig-probe.o /tmp/dolly-after-zig.c /tmp/dolly-after-zig",
       ];
       for (const command of toolchainCommands) {
@@ -1241,19 +1428,29 @@ chrome = spawn(chromeBinary, [
         );
         return true;
       })()`);
+      await waitForValue(
+        debuggerClient.send,
+        `window.__dolly.transport.foregroundInterruptible() &&
+          window.__dolly.transport.inputIdle()`,
+        (value) => value === true,
+        "Bonnie command consumption",
+        200,
+      );
+      let previousFrame = await currentFrameSequence(debuggerClient.send);
+      let liveFrameUpdates = 0;
       let pandasOutcome = null;
-      let previousProgress = "";
       for (let attempt = 0; attempt < 18_000; ++attempt) {
         pandasOutcome = await evaluate(
           debuggerClient.send,
           "window.__dollyPythonPackageOutcome",
         );
         if (pandasOutcome !== null) break;
-        if (attempt % 100 === 0) {
-          const progress = await visibleTerminalText(debuggerClient.send);
-          if (progress !== previousProgress) {
-            console.log(`browser: Python package build progress\n${progress}`);
-            previousProgress = progress;
+        const frame = await currentFrameSequence(debuggerClient.send);
+        if (frame !== previousFrame) {
+          liveFrameUpdates++;
+          previousFrame = frame;
+          if (liveFrameUpdates <= 10 || liveFrameUpdates % 100 === 0) {
+            console.log(`browser: Python package build rendered frame ${frame}`);
           }
         }
         await delay(100);
@@ -1263,6 +1460,17 @@ chrome = spawn(chromeBinary, [
       }
       assert.deepEqual(pandasOutcome, { status: 0 },
         "Bonnie could not resolve and source-build Pandas's complete dependency graph");
+      assert.ok(liveFrameUpdates >= 3,
+        `Bonnie rendered only ${liveFrameUpdates} progress frames before completion`);
+      const bonnieTerminal = await visibleTerminalText(debuggerClient.send);
+      // The build emits more than a thousand lines, so early resolver and
+      // source-selection messages are correctly in Ghostty scrollback rather
+      // than the final viewport.  Assert the final source-build and atomic
+      // publication evidence here; the clean-image/import probes below prove
+      // the complete resolved graph.
+      assert.match(bonnieTerminal, /Successfully built pandas/);
+      assert.match(bonnieTerminal, /bonnie: prepared \d+ packages; publishing/);
+      assert.match(bonnieTerminal, /bonnie: installation complete/);
 
       assert.equal(await evaluate(
         debuggerClient.send,
@@ -1416,7 +1624,7 @@ chrome = spawn(chromeBinary, [
         `${browserBasePrefix}/${selectedImage}/`,
         `${browserBasePrefix}/Dollyfile${selectedImage === "default" ? "" : `-${selectedImage}`}`,
         `${browserBasePrefix}/dist/dolly-images.mjs`,
-        `${browserBasePrefix}/dist/dolly-${selectedImage}-system.snapshot`,
+        `${browserBasePrefix}/dist/dolly-${selectedImage}-system.snapshot${packagedSite ? ".gz" : ""}`,
       ]) {
         assert.ok(staticRequestPaths.has(required), `prefixed route did not request ${required}`);
       }
@@ -1724,7 +1932,7 @@ chrome = spawn(chromeBinary, [
       } : {
         providers: {
           "dolly-test": {
-            baseUrl: `${interactivePage.replace(/\/$/, "")}/fixture/pi/v1`,
+            baseUrl: `${localOrigin}/fixture/pi/v1`,
             api: "openai-completions",
             apiKey: "sandbox-placeholder",
             models: [{
@@ -1842,6 +2050,9 @@ chrome = spawn(chromeBinary, [
       const piHeaderText = await visibleTerminalText(debuggerClient.send);
       assert.match(piHeaderText, /! Slop/);
       assert.doesNotMatch(piHeaderText, /!\s+(?:to run )?bash/i);
+      if (selectedImage === "python-pi") {
+        assert.match(piHeaderText, /\[Skills\][\s\S]*\bbonnie\b/);
+      }
       await clearTerminalSelection(debuggerClient.send);
       await typeText(debuggerClient.send, "! ls");
       await dispatchKey(debuggerClient.send, {
@@ -1853,6 +2064,31 @@ chrome = spawn(chromeBinary, [
         debuggerClient.send,
         /dolly-slop-bang-marker/,
         "Pi's ! command executing ls through /bin/slop",
+      );
+      await clearTerminalSelection(debuggerClient.send);
+      await typeText(
+        debuggerClient.send,
+        "! printf 'DOLLY-CHILD-%s\\n' PREFIX; sleep 2; printf 'DOLLY-CHILD-%s\\n' SUFFIX",
+      );
+      await dispatchKey(debuggerClient.send, {
+        key: "Enter",
+        code: "Enter",
+        windowsVirtualKeyCode: 13,
+      });
+      await waitForTerminalText(
+        debuggerClient.send,
+        /DOLLY-CHILD-PREFIX/,
+        "Pi's ! command publishing child output before exit",
+      );
+      assert.doesNotMatch(
+        await visibleTerminalText(debuggerClient.send),
+        /DOLLY-CHILD-SUFFIX/,
+        "Pi buffered child output until the command exited",
+      );
+      await waitForTerminalText(
+        debuggerClient.send,
+        /DOLLY-CHILD-SUFFIX/,
+        "Pi's ! command completing after streamed output",
       );
       await clearTerminalSelection(debuggerClient.send);
 
@@ -2014,7 +2250,7 @@ chrome = spawn(chromeBinary, [
           debuggerClient.send,
           "window.__dolly.httpRequestCount",
         );
-        const extensionUrl = `${interactivePage.replace(/\/$/, "")}/fixture/pi-extension.js`;
+        const extensionUrl = `${localOrigin}/fixture/pi-extension.js`;
         const installPrompt =
           "Install a Pi extension in this Dolly sandbox. Use the bash tool to run exactly: " +
           `mkdir -p /home/dolly/.pi/agent/extensions && curl -fsSL ${extensionUrl} ` +
@@ -2068,7 +2304,7 @@ chrome = spawn(chromeBinary, [
         const fixtureConfig = JSON.stringify({
           providers: {
             "dolly-test": {
-              baseUrl: `${interactivePage.replace(/\/$/, "")}/fixture/pi/v1`,
+              baseUrl: `${localOrigin}/fixture/pi/v1`,
               api: "openai-completions",
               apiKey: "sandbox-placeholder",
               models: [{
@@ -2204,11 +2440,19 @@ chrome = spawn(chromeBinary, [
           `(${thinkingStart.frame} -> ${thinkingAfter.frame})`,
       );
 
-      let streamedPrefixText = "";
+      let prefixBaselineFrame = null;
+      let prefixRenderedFrame = null;
       for (let attempt = 0; attempt < 600; attempt++) {
+        if (piFixtureStream.request === 3 && piFixtureStream.phase === "waiting" &&
+            prefixBaselineFrame === null) {
+          prefixBaselineFrame = await currentFrameSequence(debuggerClient.send);
+        }
         if (piFixtureStream.request === 3 && piFixtureStream.phase === "prefix") {
-          streamedPrefixText = await visibleTerminalText(debuggerClient.send);
-          if (streamedPrefixText.includes("DOLLY-PI-HTTP-")) break;
+          const frame = await currentFrameSequence(debuggerClient.send);
+          if (prefixBaselineFrame !== null && frame !== prefixBaselineFrame) {
+            prefixRenderedFrame = frame;
+            break;
+          }
         }
         await delay(20);
       }
@@ -2222,8 +2466,10 @@ chrome = spawn(chromeBinary, [
         "prefix",
         "Pi buffered the final response until after the fixture sent its suffix",
       );
-      assert.match(streamedPrefixText, /DOLLY-PI-HTTP-/);
-      assert.doesNotMatch(streamedPrefixText, /DOLLY-PI-HTTP-EDIT-OK/);
+      assert.notEqual(prefixBaselineFrame, null,
+        "Pi did not expose the final response's delayed-body interval");
+      assert.notEqual(prefixRenderedFrame, null,
+        "Pi did not publish a terminal frame while the response suffix was withheld");
 
       const streamedTurn = await waitForHttpQuiet(
         debuggerClient.send,
@@ -2359,6 +2605,15 @@ chrome = spawn(chromeBinary, [
     );
   }
   assert.equal(state, "passed");
+
+  assert.equal(
+    await evaluate(
+      debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify("timeout 0.05 ./interrupt-loop")})`,
+    ),
+    124,
+    "the trusted deadline did not terminate an uncooperative CPU loop",
+  );
 
   if (selectedModuleNames.has("quickjs")) {
     assert.equal(
@@ -2567,7 +2822,7 @@ chrome = spawn(chromeBinary, [
   );
 
   for (const [command, description] of [
-    ["./interrupt-loop", "compiler-instrumented C loop"],
+    ["./interrupt-loop", "uncooperative C loop"],
     ...(selectedModuleNames.has("quickjs")
       ? [["qjs -e 'for (;;) {}'", "QuickJS bytecode loop"]]
       : []),
@@ -2661,8 +2916,9 @@ chrome = spawn(chromeBinary, [
         const red = pixels[index];
         const green = pixels[index + 1];
         const blue = pixels[index + 2];
-        if (red >= 30 && red <= 85 && green >= 20 && green <= 65 &&
-            blue >= 15 && blue <= 55 && red >= blue + 8 &&
+        if (red >= 24 && red <= 50 && green >= 24 && green <= 50 &&
+            blue >= 24 && blue <= 50 &&
+            Math.max(red, green, blue) - Math.min(red, green, blue) <= 8 &&
             pixels[index + 3] === 255) background++;
         if (Math.max(red, green, blue) - Math.min(red, green, blue) > 35 &&
             red + green + blue > 200 && pixels[index + 3] === 255) accent++;

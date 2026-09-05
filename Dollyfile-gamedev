@@ -1,10 +1,11 @@
 DOLLY 2
 IMAGE gamedev
 
-USE HOST /modules/default.dm    51ba5ce36aab9fae9fdd6687bd7ed25960b6a4862348990223446841c1ab7901
-USE HOST /modules/quickjs.dm    dc6d558dedcc116954f1a340e76d1f27ed8928495b5bcbe86d82f8c3feee179f
-USE HOST /modules/typescript.dm f10a3b924e5e80d3f0cfe8c07311d538812f1eaef4af60c0a9a6189c3672b6cb
-USE HOST /modules/pi.dm         8aaa0375d4d48306c31707fe32b9eadda84f36a9f4500f22e3f32e2a3ee7b8be
-USE HOST /modules/gamedev.dm    4c26ee9ab1544b39d12c33625f57e1b3d01ce284cea5ce6cf66655430a5d1dfe
+USE HOST /modules/default.dm         7773305cacb330db8bcca59507a1dc0e1cc5035229784963e4d77d841fa5e739
+USE HOST /modules/quickjs.dm         f335db830b4eddd15844d1af5ca203d324a21d360e8265c3d700d35167bf65e2
+USE HOST /modules/typescript.dm      f10a3b924e5e80d3f0cfe8c07311d538812f1eaef4af60c0a9a6189c3672b6cb
+USE HOST /modules/pi.dm              c7201d674983e607bfe28d025ea4f3b3ceb53ca832292b31f1779e5db650eb30
+USE HOST /modules/gamedev.dm         77bcf65fee5535fd085237f9688c36b504be54c26fa029df3dfaf5c0c3b70a33
+USE HOST /modules/startup-gamedev.dm 6735c628dede856b29cdaa6eb0e81b42d7429d9be8e870c6447a6ca6fb4df276
 
 ENTRY /usr/bin/graphics-demo
