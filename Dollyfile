@@ -3,7 +3,7 @@ IMAGE default
 
 # The runtime selects one aggregate. Its implementation and dependencies are
 # private to that module rather than repeated as root-level assertions.
-USE HOST /modules/default.dm         74d09e27504a5e80411beee1c02a40ade0b7e77a3cf5f8769970c6bd39f43243
+USE HOST /modules/default.dm         1075d625ab503b9d86b96014a78cb34bbc38efd26990da394ac1d0febd4574a9
 USE HOST /modules/startup-default.dm 21f2cf3797ad8df79ae341e4477f215fedd55410e2f7aed4bc19065ed047ec89
 
 ENTRY /bin/slop

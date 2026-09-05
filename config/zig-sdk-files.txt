@@ -1,0 +1,12 @@
+# Upstream lib/ paths installed for Dolly's wasm64-emscripten compiler.
+# Keep complete Zig modules: compiler_rt imports its tests even in user builds.
+std
+compiler_rt
+compiler_rt.zig
+compiler
+include
+c
+c.zig
+zig.h
+fuzzer.zig
+ubsan_rt.zig

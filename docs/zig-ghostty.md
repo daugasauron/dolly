@@ -35,6 +35,27 @@ It is checksum-pinned, runs only during the outer repository build, and never
 enters the browser filesystem. All user-requested compilation and the complete
 Ghostty target build run inside Dolly.
 
+## Installed SDK
+
+[`config/zig-sdk-files.txt`](../config/zig-sdk-files.txt) is the positive install
+list for `/usr/lib/zig`. It keeps upstream `std`, compiler runners and headers,
+compiler-rt, and C/sanitizer support intact. Dolly's target is
+`wasm64-emscripten`; libc and C++ come from Dolly's process SDK, not Zig's
+bundled operating-system SDKs. Desktop libc trees, duplicate C++/unwind
+libraries, and compiler web documentation are not installed.
+
+Do not prune individual files by name: ordinary user compilation reads
+`compiler_rt/udivmodti4_test.zig`, despite its name and 10 MB size. The browser
+regression compiles and runs math, 128-bit division, and an allocated container
+through a C driver, and compiles a Zig test object. Image rebuilds exercise the
+full Ghostty source graph.
+
+At the 2026-09-06 browser checkpoint, installed Zig files fell from 19,662 /
+199,004,158 bytes to 1,330 / 52,203,828 bytes. Each of the five snapshots lost
+148,156,314 bytes. Default prebuilt boot's kernel memory extent fell from
+971,046,912 to 763,625,472 bytes in Chrome; this measures Wasm memory, not
+whole-browser RSS. No source module was rewritten to achieve the reduction.
+
 ## Why the compiler is one private process
 
 The earlier shared-side-module experiment placed LLVM bridge functions in the
@@ -92,7 +113,7 @@ and exact target flags, stages output in a trapped temporary directory, and
 publishes it atomically. Contract changes relink the private compiler without
 recompiling the Zig frontend object.
 
-The real browser gate verifies that Zig emits a disposable wasm64 object, that
+The real browser gate verifies Zig object generation and C interoperation, that
 the full Ghostty graph builds during `/rebuild/`, that the resident display
 loads, and that terminal rendering, input, zoom, fullscreen, and framebuffer
 lease restoration work through the same paths a user exercises.

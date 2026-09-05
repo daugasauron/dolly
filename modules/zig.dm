@@ -5,10 +5,10 @@ REQUIRES TOOL cc
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-# The compiler and its library tree are independently pinned inputs. Ghostty is
-# the first real consumer and exercises Zig's complete object/link path.
+# The wasm64-emscripten SDK follows config/zig-sdk-files.txt. Dolly supplies libc
+# and C++ separately; this is not Zig's distribution for every target OS.
 SOURCE HOST /static/default/commands/zig.c /tmp/zig.c       07ebca822aeeee47ef33f81418ca83875659aa0b4449a79553bbcd3411b441e4
-SOURCE HOST /static/default/zig-lib.tar    /tmp/zig-lib.tar 82e33abf1bead6f2e1dc92ed2e4d80a4dafc4fe8ca33440f29f69c5db436c445
+SOURCE HOST /static/default/zig-lib.tar    /tmp/zig-lib.tar 205fcde54b306ab68dcbbbbe45d1c1b314147b6dd9b3dcaf48a56eb8e70497e2
 SLOP cc \
   /tmp/zig.c \
   -o /usr/bin/zig

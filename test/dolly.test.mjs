@@ -643,7 +643,6 @@ test("HOST inputs are independent exact pinned files", async () => {
   assert.equal(sources.some((item) => item.path.endsWith(".assets")), false);
   assert.ok(sources.some((item) => item.path === "/modules/default.dm"));
   assert.ok(sources.some((item) => item.path === "/include/dolly/runtime.h"));
-  assert.ok(sources.find((item) => item.path.endsWith("/zig-lib.tar")).byteLength > 200e6);
 });
 
 test("registry, routes, and source viewer derive from Dollyfiles", async () => {
@@ -1322,8 +1321,7 @@ test("Zig bootstraps the retained Ghostty VT and display libraries inside Dolly"
   assert.match(packaging, /"\$\{DOLLY_ZIG_DIR\}\/src\/zig_llvm\.cpp"/);
   assert.match(packaging, /add_executable\(dolly-process-compiler[\s\S]*?"\$\{DOLLY_ZIG_OBJECT\}"/);
   assert.doesNotMatch(processAbi, /Zig|LLVM|LLD/);
-  assert.match(zigBrowserGate, /zig build-obj -OReleaseSmall -target wasm64-emscripten/);
-  assert.match(zigBrowserGate, /test -s \/tmp\/dolly-zig-single\.o/);
+  assert.match(zigBrowserGate, /await runZigSdkCases\(/);
   assert.doesNotMatch(zigBrowserGate, /zig-object-check browser-answer\.o/);
 
   for (const source of [pins, ghosttyRecipe, nativeMain, nativeBuild, build, packaging]) {

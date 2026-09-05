@@ -8,7 +8,7 @@ USE HOST /modules/core-tools.dm     3f0c0750cc10d6e771753460919fc4020072449ccd88
 USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
 USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
 USE HOST /modules/make.dm           cd76b282f98810858ec6026602996277b699540f6b55fb8fbb5c4992c1f8762e
-USE HOST /modules/zig.dm            3725f029d824969c18a10ec4c8430227ddc0474dc58fc93e44a0c1998844a52a
+USE HOST /modules/zig.dm            fe98ea53ef46985223fbb3a91de50fff77db450ef2de3851a5645aa3920cef6d
 USE HOST /modules/ghostty.dm        8d1fbc3b79458f71220fc20057c5acc856f2b5da4ae68431b2e15ece92073258
 USE HOST /modules/cpp.dm            2f6dbbcaca09550036d6529d22634fe41dfc0cbd524c46521fa5cc47c3df8296
 USE HOST /modules/ninja.dm          77dae6ac93e748551c515115f4e500dc22de5345239d3204756b2ee66f3cdf5a

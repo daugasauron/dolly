@@ -92,16 +92,6 @@ input/paste or violating an exclusive game framebuffer lease.
 The Slop checkpoint's shorter Pi streaming check passed without build load but
 failed during a concurrent cold build; this does not close the longer B9 probe.
 
-### Images must describe and preserve the delivered filesystem
-
-**C4 — P2 — Every image retains an oversized Zig SDK.** Measured baseline:
-`/usr/lib/zig` accounts for about 199 MB and 19,662 files of the default snapshot,
-including about 67.6 MB of Windows headers and a 10.2 MB compiler test.
-`modules/zig.dm` retains the entire archive prepared in `scripts/build.sh`.
-Derive a supported-target install manifest from real builds; do not blindly
-delete foreign-named files. **Acceptance:** representative Zig, Ghostty, and user
-builds pass, with measured image/file-count/boot-memory reduction.
-
 ### Builds, publication, and maintenance must be truthful
 
 **D1 — P1 — Clean bootstrap prerequisites are incomplete.** Source evidence:
@@ -154,8 +144,8 @@ caching on failure; correct its documentation instead of removing it by accident
    regression. Preserve typed system/layer/session restoration coverage.
 2. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
    mixing terminal UI events with child input. Resolve B7/B8 compatibility claims.
-3. Derive C4's supported-target Zig SDK from measured real builds. Remove D5
-   duplication as the corresponding owner becomes clear.
+3. Remove D5 duplication as the corresponding owner becomes clear. Keep the
+   positive Zig SDK manifest and its real compiler/Ghostty regressions intact.
 
 Fix D1 before claiming clean external-toolchain verification, and D4 before treating
 the next publication as a provenance-checked release. Update D6 alongside each
@@ -169,10 +159,10 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 175 Node tests and the full Chrome suite passed; all five
-images rebuilt and their prebuilt routes passed. Logs: `build/d3-final-build.log`,
-`build/d3-final-node-tests.log`, `build/d3-final-browser-suite.log`, and
-`build/d3-*-route.log`. The browser suite includes source-built process
+Latest local baseline: 176 Node tests and the full Chrome suite passed; all five
+images rebuilt and their prebuilt routes passed. Logs: `build/c4-build.log`,
+`build/c4-final-node-tests.log`, `build/c4-final-browser-suite.log`, and
+`build/c4-*-route.log`. The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
 writer and object-kind rejection, named sessions, Pi streaming, C++ and Zig.
@@ -185,9 +175,15 @@ Existing release archives predate this checkpoint; none packages these changes.
 All five images' prebuilt and fresh-profile rebuild inventories match the
 packaged manifest exactly, with no extra system/PATH files
 (`build/c3-*-inventory.log`). The before probe found 394 undeclared system paths
-(`build/c3-before.log`). The SDK was previously installed implicitly from seed;
-retaining it adds about 115 MB to each opaque snapshot. C4 remains important:
-Python+Pi is now 529,856,809 bytes, close to the unchanged 512 MiB image limit.
+(`build/c3-before.log`). The compiler SDK is now explicitly retained. The
+supported-target Zig install manifest then removed 148,156,314 bytes from every
+image; Python+Pi is 381,700,495 bytes, below the unchanged 512 MiB limit.
+`build/c4-{before,after}-inventory.log` records all five images' sizes and file
+counts. Default prebuilt kernel memory fell from 971,046,912 to 763,625,472 bytes
+(`build/c4-{before,after}-browser.log`); both passed Zig math/u128/container
+compile-link-run and test-object compilation. The fresh-profile cold default
+inventory also passed (`build/c4-default-cold-inventory.log`), including Ghostty's
+full source build. The 10 MB compiler-rt test stays: ordinary compilation reads it.
 
 Default userspace reproducibility passed two independent cold browser builds
 and one cached build, with isolated owned profiles/outputs and no packaged-image

@@ -608,9 +608,14 @@ if has_module pi; then
   node scripts/build-pi-runtime-packages.mjs
 fi
 if has_module zig; then
-node scripts/build-source-tar.mjs dist/static/default/zig-lib.tar \
-  "${zig_dir}/lib" /usr/lib/zig \
-  "${zig_dir}/LICENSE" /usr/share/licenses/zig/LICENSE
+  zig_sdk_inputs=()
+  while IFS= read -r entry; do
+    [[ -z "${entry}" || "${entry}" == \#* ]] && continue
+    zig_sdk_inputs+=("${zig_dir}/lib/${entry}" "/usr/lib/zig/${entry}")
+  done < config/zig-sdk-files.txt
+  node scripts/build-source-tar.mjs dist/static/default/zig-lib.tar \
+    "${zig_sdk_inputs[@]}" \
+    "${zig_dir}/LICENSE" /usr/share/licenses/zig/LICENSE
 fi
 if has_module ghostty; then
 node scripts/build-source-tar.mjs dist/static/default/ghostty.tar \

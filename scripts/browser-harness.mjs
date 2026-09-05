@@ -1684,23 +1684,14 @@ int main(int argc, char **argv) {
       );
       assert.equal(state, "ready");
       await enterRecoveryShell(debuggerClient.send);
-      const commands = [
-        "zig version",
-        "echo 'export fn browser_zig_answer() callconv(.c) u32 { return 42; }' > /tmp/dolly-zig-single.zig",
-        "zig build-obj -OReleaseSmall -target wasm64-emscripten " +
-          "-mcpu=generic+atomics -fPIC -fsingle-threaded -fcompiler-rt -lc " +
-          "--name dolly-zig-single -femit-bin=/tmp/dolly-zig-single.o " +
-          "-Mroot=/tmp/dolly-zig-single.zig",
-        "test -s /tmp/dolly-zig-single.o",
-        "rm -f /tmp/dolly-zig-single.zig /tmp/dolly-zig-single.o",
-      ];
-      for (const command of commands) {
-        assert.equal(await evaluate(
+      const bootMemoryBytes = await evaluate(debuggerClient.send,
+        "window.__dolly.display.buffer.byteLength");
+      const { runZigSdkCases } = await import("../test/fixtures/zig-sdk.mjs");
+      await runZigSdkCases(command => evaluate(
           debuggerClient.send,
           `window.__dolly.submit(${JSON.stringify(command)})`,
-        ), 0, command);
-      }
-      console.log("browser: native Zig single-provider code generation passed");
+      ));
+      console.log(`browser: native Zig math/u128/container compile-link-run and test-object build passed; boot kernel memory ${bootMemoryBytes} bytes`);
       break browserProof;
     }
     if (toolchainProbeMode) {
