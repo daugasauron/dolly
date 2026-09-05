@@ -103,6 +103,14 @@ the selected cells into Dolly's bounded copy buffer. `Ctrl+Shift+C` is a direct
 local-user gesture that copies that already-formatted text to the host system
 clipboard; it is not an autonomous capability callable by a command.
 
+The kernel presentation tick services resize, pointer and scroll records even
+when no program reads stdin. It removes those records and compacts pending
+input in order within the existing bounded ring, leaving keys, text, paste and
+terminal-query replies for the stdin reader. Both paths run in the same kernel
+worker; neither services the ring while a game owns the display lease. UI changes
+are rendered together at the end of the tick, without a second input queue or a
+new browser capability.
+
 Wheel movement is encoded as signed thousandths of a terminal row. Touch drag
 is converted to the same semantic record on phones. Fractional deltas,
 scrollback position, terminal history, and rasterization all remain in Wasm;

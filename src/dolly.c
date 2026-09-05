@@ -979,6 +979,36 @@ int dolly_terminal_present_pending(void) {
   if (display_driver == NULL || display_lease.generation != 0) return 0;
   unsigned char preserved;
   size_t output_length = 0;
+  uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
+                                       memory_order_relaxed);
+  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
+                                             memory_order_acquire);
+  if (write - read > DOLLY_DISPLAY_EVENT_CAPACITY) return -EPROTO;
+  // UI intent is independent of stdin. Zero marks a consumed UI slot.
+  for (uint32_t cursor = read; cursor != write; ++cursor) {
+    dolly_input_event *event = &display_mailbox.events[
+        cursor & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+    if (event->type == DOLLY_INPUT_EVENT_RESIZE ||
+        event->type == DOLLY_INPUT_EVENT_POINTER ||
+        event->type == DOLLY_INPUT_EVENT_SCROLL) {
+      (void)display_driver->handle_event(event, &preserved, 0, &output_length);
+      event->type = 0;
+    }
+  }
+  // Compact remaining input toward the published tail, in order, before
+  // releasing slots. The producer cannot overwrite this range until read is
+  // advanced. Thus UI traffic cannot fill the ring behind an unread key/paste.
+  uint32_t retained = write;
+  for (uint32_t cursor = write; cursor != read;) {
+    const dolly_input_event event = display_mailbox.events[
+        --cursor & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+    if (event.type != 0) {
+      --retained;
+      if (retained != cursor) display_mailbox.events[
+          retained & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)] = event;
+    }
+  }
+  atomic_store_explicit(&display_mailbox.event_read, retained, memory_order_release);
   return display_driver->handle_event(
       NULL, &preserved, 0, &output_length);
 }

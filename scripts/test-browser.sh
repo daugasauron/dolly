@@ -33,6 +33,8 @@ DOLLY_IMAGE=default DOLLY_BROWSER_MODE=slop \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=pi DOLLY_BROWSER_MODE=utf8 \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=default DOLLY_BROWSER_MODE=terminal-ui \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=python-pi DOLLY_BROWSER_MODE=session \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=cpp \

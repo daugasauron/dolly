@@ -9,7 +9,7 @@ USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8
 USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
 USE HOST /modules/make.dm           cd76b282f98810858ec6026602996277b699540f6b55fb8fbb5c4992c1f8762e
 USE HOST /modules/zig.dm            fe98ea53ef46985223fbb3a91de50fff77db450ef2de3851a5645aa3920cef6d
-USE HOST /modules/ghostty.dm        8d1fbc3b79458f71220fc20057c5acc856f2b5da4ae68431b2e15ece92073258
+USE HOST /modules/ghostty.dm        919a6539d8c461243d427a7dcc4178c896089990188de9b3fee60d14c7d060b8
 USE HOST /modules/cpp.dm            c7d3ecadefed7decc7bb818d60eb0004405caa7f7ff7439e1b3407bd931711df
 USE HOST /modules/ninja.dm          77dae6ac93e748551c515115f4e500dc22de5345239d3204756b2ee66f3cdf5a
 USE HOST /modules/zlib.dm           091743c99ef011e20bfbe8ed0417f5c01eef5d04b90151f8cdaf561434b3e815

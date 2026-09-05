@@ -808,7 +808,7 @@ static int handle_pointer(const dolly_input_event *event) {
   } else if (result != GHOSTTY_NO_VALUE) {
     return -1;
   }
-  render_frame();
+  frame_dirty = true;
   return 0;
 }
 
@@ -828,7 +828,7 @@ static int handle_scroll(const dolly_input_event *event) {
       .value = {.delta = rows},
   };
   ghostty_terminal_scroll_viewport(terminal, viewport);
-  render_frame();
+  frame_dirty = true;
   return 0;
 }
 
@@ -854,18 +854,21 @@ static int handle_event(const dolly_input_event *event,
   if (output == NULL || output_length == NULL) return -1;
   *output_length = 0;
   if (event == NULL && frame_dirty) render_frame();
-  if (pty_response_read != pty_response_write) {
-    return drain_pty_response(output, output_capacity, output_length);
-  }
-  if (event == NULL) return 0;
+  if (event == NULL) return drain_pty_response(output, output_capacity, output_length);
   const size_t total = (size_t)event->key_length + event->code_length +
                        event->text_length;
   if (total > sizeof(event->data)) return -1;
   if (event->type == DOLLY_INPUT_EVENT_RESIZE) {
     if (set_layout(event->width_css_px, event->height_css_px,
                    event->device_scale_milli, event->font_size_milli) != 0) return -1;
-    render_frame();
+    frame_dirty = true;
     return 0;
+  }
+  if (event->type == DOLLY_INPUT_EVENT_POINTER) return handle_pointer(event);
+  if (event->type == DOLLY_INPUT_EVENT_SCROLL) return handle_scroll(event);
+  // UI events must work even with a terminal-query response waiting for stdin.
+  if (pty_response_read != pty_response_write) {
+    return drain_pty_response(output, output_capacity, output_length);
   }
   if (event->type == DOLLY_INPUT_EVENT_TEXT) {
     if (event->text_length > output_capacity) return -1;
@@ -875,12 +878,6 @@ static int handle_event(const dolly_input_event *event,
   }
   if (event->type == DOLLY_INPUT_EVENT_PASTE) {
     return handle_paste(output, output_capacity, output_length);
-  }
-  if (event->type == DOLLY_INPUT_EVENT_POINTER) {
-    return handle_pointer(event);
-  }
-  if (event->type == DOLLY_INPUT_EVENT_SCROLL) {
-    return handle_scroll(event);
   }
   if (event->type != DOLLY_INPUT_EVENT_KEY) return 0;
 

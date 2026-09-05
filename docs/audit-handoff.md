@@ -71,16 +71,6 @@ useful semantics or explicitly reject unsupported options; document the finite
 subset. **Acceptance:** each supported option changes behavior as promised, each
 unsupported one fails, and no option weakens browser-owned policy.
 
-**B9 — P2 — Selection/copy stalls while the foreground child is not reading.**
-Reproduced in both Pi images during `! printf ...; sleep 8`; it works idle.
-`src/dolly.c` services input events during terminal reads, while presentation and
-the streaming-child path do not service selection. Handle terminal UI events
-independently of stdin consumption. **Acceptance:** mouse selection and
-Ctrl+Shift+C during sleeping/output-producing children, without stealing typed
-input/paste or violating an exclusive game framebuffer lease.
-The Slop checkpoint's shorter Pi streaming check passed without build load but
-failed during a concurrent cold build; this does not close the longer B9 probe.
-
 ### Builds, publication, and maintenance must be truthful
 
 **D1 — P1 — Clean bootstrap prerequisites are incomplete.** Source evidence:
@@ -131,8 +121,8 @@ caching on failure; correct its documentation instead of removing it by accident
 1. Cold/prebuilt filesystems now match their declared system inventories. Before
    enabling named saves for rebuilt images, add a cross-route session-baseline
    regression. Preserve typed system/layer/session restoration coverage.
-2. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
-   mixing terminal UI events with child input. Resolve B7's ineffective options.
+2. Consolidate B3–B5 on actual process/filesystem handles. Keep terminal UI service
+   independent of stdin consumption. Resolve B7's ineffective options.
 3. Remove D5 duplication as the corresponding owner becomes clear. Keep the
    positive Zig SDK manifest and its real compiler/Ghostty regressions intact.
 
@@ -148,10 +138,10 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 176 Node tests and the full Chrome suite passed; all five
-images rebuilt and their prebuilt routes passed. Logs: `build/b8-final-build.log`,
-`build/janis-last-job-build.log`, `build/b8-janis-final-node-tests.log`,
-`build/b8-janis-final-browser-suite.log`, and `build/b8-janis-*-route.log`.
+Latest local baseline: 177 Node tests and the full Chrome suite passed; all five
+images rebuilt and their prebuilt routes passed. Logs: `build/b9-final-build.log`,
+`build/b9-final-node-tests.log`, `build/b9-final-browser-suite.log`, and
+`build/b9-*-route.log`.
 The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
@@ -174,12 +164,23 @@ jobs were mistaken for no remaining work. The runner now drains them while still
 rejecting genuinely stranded top-level promises (`build/janis-last-job-{before,after}.log`).
 This does not close B3's child/abort semantics.
 
+Busy-terminal selection/copy now runs in the kernel presentation tick, with
+ordered compaction in the existing bounded input ring and no new browser import.
+The browser probe preserves queued keys/text, paste, partially encoded input,
+and pending terminal-query replies during eight-second sleeps. It also checks
+sustained UI traffic and exclusive graphics-event ownership; a native test
+exercises all queue sizes, counter wrap and producer publication during service.
+Both Pi images pass the longer child-output/copy check, including Pi while a
+build was running (`build/b9-{pi,python-pi}-browser.log`). The full gamedev suite
+also passes game release/forced cancellation and post-game shell responsiveness.
+Before evidence: `build/b9-before-browser.log`; an intermediate ring-exhaustion
+bug was caught by `build/b9-ring-pressure-reproduced.log` before compaction.
+
 The development server's encoded documentation traversal also has a real HTTP
 regression: `/docs/..%2fAGENTS.md` returned 200 before the resolved-root check and
 now returns 404. Both development servers are fixed; the native HTTP test,
 browser boundary gate, all 176 tests, and all five routes passed
-(`build/server-path-*.log`). The running main-checkout server is unchanged until
-the isolated checkpoint is promoted.
+(`build/server-path-*.log`).
 
 All five images' prebuilt and fresh-profile rebuild inventories match the
 packaged manifest exactly, with no extra system/PATH files
@@ -200,8 +201,7 @@ inputs, including after normalization (`build/c3-reproducibility.log`). The old 
 builds (`build/d2-before.log`). This is not clean external-toolchain evidence or
 a claim that every extended image has independently passed the same comparison.
 
-Remaining-finding evidence includes `build/audit-2026-09-05.md`,
-`build/slop-pi-browser-under-load.log` (B9), and
+Remaining-finding evidence includes `build/audit-2026-09-05.md` and
 `build/utf8-node-tests-during-build.log` (D4). These ignored local artifacts are
 not release attestations; the finding descriptions above must stand on their own.
 

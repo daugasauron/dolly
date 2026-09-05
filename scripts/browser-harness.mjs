@@ -47,6 +47,7 @@ const imageInventoryMode = ["image-inventory", "image-inventory-rebuild"].includ
 const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
 const slopMode = ["slop", "slop-source"].includes(process.env.DOLLY_BROWSER_MODE);
 const utf8Mode = process.env.DOLLY_BROWSER_MODE === "utf8";
+const terminalUiMode = process.env.DOLLY_BROWSER_MODE === "terminal-ui";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -1183,7 +1184,7 @@ chrome = spawn(chromeBinary, [
       ? menuPage
       : snapshotExportMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
-      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || realOpenRouterMode || missingSnapshotMode
+      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
         || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode
@@ -1192,6 +1193,84 @@ chrome = spawn(chromeBinary, [
   });
 
   browserProof: {
+    if (terminalUiMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "terminal UI boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-terminal-ui-test";
+      const source = await readFile(resolve(projectDir, "test/fixtures/terminal-ui.c"), "utf8");
+      assert.equal(await submit(`mkdir -p ${scratch}`), 0);
+      try {
+        assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/main.c && cc ${scratch}/main.c -o ${scratch}/probe`), 0);
+        for (const argument of ["", "query", "partial"]) {
+          assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
+          await clearTerminalSelection(debuggerClient.send);
+          await evaluate(debuggerClient.send, `(() => {
+            window.__terminalUiStatus = null;
+            window.__dolly.submit(${JSON.stringify(`${scratch}/probe ${argument}`)}).then(
+              status => { window.__terminalUiStatus = status; });
+          })()`);
+          await waitForValue(debuggerClient.send,
+            "window.__dolly.transport.foregroundInterruptible()", Boolean, "sleeping UI probe", 100);
+          await delay(300);
+          if (argument === "") await typeText(debuggerClient.send, "typed");
+          else assert.equal(await evaluate(debuggerClient.send, "window.__dolly.input('typed')"), true);
+          assert.equal(await evaluate(debuggerClient.send, "window.__dolly.paste('PASTED')"), true);
+          const started = Date.now();
+          const text = await waitForTerminalText(debuggerClient.send,
+            argument === "partial" ? /DOLLY-UI-PRIMED/ : /DOLLY-UI-PREFIX/,
+            "selection while child is sleeping with queued input", 20);
+          assert.ok(Date.now() - started < 4000, "selection must not await the eight-second child");
+          assert.doesNotMatch(text, /DOLLY-UI-DONE/);
+          assert.equal(await evaluate(debuggerClient.send, "window.__terminalUiStatus"), null);
+          if (argument === "") {
+            // More than one ring's worth of UI events must recycle slots even
+            // while an unread key or paste remains at the front.
+            for (let batch = 0; batch < 24; ++batch) {
+              assert.equal(await evaluate(debuggerClient.send, `(() => {
+                for (let i = 0; i < 32; ++i) {
+                  if (!window.__dolly.transport.pushScroll(i % 2 ? 0.001 : -0.001)) return false;
+                }
+                return true;
+              })()`), true, "UI events must not accumulate behind unread input");
+              await delay(30);
+            }
+          }
+          await dispatchKey(debuggerClient.send, {
+            key: "C", code: "KeyC", modifiers: 10, windowsVirtualKeyCode: 67,
+          });
+          await waitForValue(debuggerClient.send, "navigator.clipboard.readText()",
+            text => text.includes("DOLLY-UI-PREFIX"), "copy while child sleeps", 20);
+          assert.equal(await waitForValue(debuggerClient.send, "window.__terminalUiStatus",
+            status => status !== null, "queued text/paste and terminal reply preserved", 150), 0);
+        }
+        await evaluate(debuggerClient.send, `(() => {
+          window.__terminalUiStatus = null;
+          window.__dolly.submit(${JSON.stringify(`${scratch}/probe lease`)}).then(
+            status => { window.__terminalUiStatus = status; });
+        })()`);
+        await waitForValue(debuggerClient.send, "window.__dolly.graphicsActive",
+          Boolean, "UI probe display lease", 100);
+        assert.equal(await evaluate(debuggerClient.send, `(() => {
+          const transport = window.__dolly.transport;
+          return transport.pushPointer(20, 20, 1, {}) &&
+            transport.pushPointer(40, 20, 2, {}) &&
+            transport.pushPointer(40, 20, 0, {}) && transport.pushScroll(1);
+        })()`), true);
+        assert.equal(await waitForValue(debuggerClient.send, "window.__terminalUiStatus",
+          status => status !== null, "graphics owner receives every UI event", 100), 0);
+        assert.equal(await evaluate(debuggerClient.send, "window.__dolly.graphicsActive"), false);
+      } finally {
+        await waitForValue(debuggerClient.send, "window.__terminalUiStatus",
+          status => status !== null, "UI probe finished before scratch cleanup", 150);
+        await submit(`rm -rf ${scratch}`);
+      }
+      console.log("browser: selection/copy during sleeping children preserves queued text, paste and terminal-query replies; UI traffic recycles the bounded ring and remains exclusive to a graphics owner");
+      break browserProof;
+    }
     if (dollyfileParserMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -2553,7 +2632,7 @@ int main(int argc, char **argv) {
       await clearTerminalSelection(debuggerClient.send);
       await typeText(
         debuggerClient.send,
-        "! printf 'DOLLY-CHILD-%s\\n' PREFIX; sleep 2; printf 'DOLLY-CHILD-%s\\n' SUFFIX",
+        "! printf 'DOLLY-CHILD-%s\\n' PREFIX; sleep 8; printf 'DOLLY-CHILD-%s\\n' SUFFIX",
       );
       await dispatchKey(debuggerClient.send, {
         key: "Enter",
@@ -2564,12 +2643,19 @@ int main(int argc, char **argv) {
         debuggerClient.send,
         /DOLLY-CHILD-PREFIX/,
         "Pi's ! command publishing child output before exit",
+        20,
       );
       assert.doesNotMatch(
         await visibleTerminalText(debuggerClient.send),
         /DOLLY-CHILD-SUFFIX/,
         "Pi buffered child output until the command exited",
       );
+      await dispatchKey(debuggerClient.send, {
+        key: "C", code: "KeyC", modifiers: 10, windowsVirtualKeyCode: 67,
+      });
+      await waitForValue(debuggerClient.send, "navigator.clipboard.readText()",
+        text => text.includes("DOLLY-CHILD-PREFIX") && !text.includes("DOLLY-CHILD-SUFFIX"),
+        "Pi child output copied while the child is sleeping", 20);
       await waitForTerminalText(
         debuggerClient.send,
         /DOLLY-CHILD-SUFFIX/,
