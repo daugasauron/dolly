@@ -6,6 +6,8 @@
  * adding a browser capability or another import to a process executable.
  */
 
+import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
+
 const FFI_OK = 0;
 const FFI_BAD_TYPEDEF = 1;
 const FFI_WASM64_EMSCRIPTEN = 2;
@@ -620,11 +622,11 @@ export function createProcessFfi({
   }
 
   function allocateClosure(request, response) {
-    if (request.size !== 8 || response.size < 8) return -22n;
+    if (request.size !== 8 || response.size < 8) return -BigInt(DOLLY_ERRNO.EINVAL);
     const closure = view(request.address, 8, "FFI closure allocation request")
       .getBigUint64(0, true);
     address(closure, 32, "FFI closure");
-    if (closures.has(closure)) return -22n;
+    if (closures.has(closure)) return -BigInt(DOLLY_ERRNO.EINVAL);
     const index = freeTableIndices.length === 0
       ? growTable(1n) : freeTableIndices.pop();
     closures.set(closure, { index, prepared: false });
@@ -634,11 +636,11 @@ export function createProcessFfi({
   }
 
   function freeClosure(request) {
-    if (request.size !== 8) return -22n;
+    if (request.size !== 8) return -BigInt(DOLLY_ERRNO.EINVAL);
     const closure = view(request.address, 8, "FFI closure free request")
       .getBigUint64(0, true);
     const record = closures.get(closure);
-    if (!record) return -22n;
+    if (!record) return -BigInt(DOLLY_ERRNO.EINVAL);
     setTable(record.index, null);
     freeTableIndices.push(record.index);
     closures.delete(closure);
@@ -646,7 +648,7 @@ export function createProcessFfi({
   }
 
   function configureClosure(request) {
-    if (request.size !== 40) return -22n;
+    if (request.size !== 40) return -BigInt(DOLLY_ERRNO.EINVAL);
     const packet = view(request.address, 40, "FFI closure preparation request");
     const closure = packet.getBigUint64(0, true);
     const cifPointer = packet.getBigUint64(8, true);
@@ -654,7 +656,7 @@ export function createProcessFfi({
     const userData = packet.getBigUint64(24, true);
     const code = packet.getBigUint64(32, true);
     const record = closures.get(closure);
-    if (!record || code !== record.index) return -22n;
+    if (!record || code !== record.index) return -BigInt(DOLLY_ERRNO.EINVAL);
     const cif = cifInfo(cifPointer);
     const wrapper = prepareClosure(closure, cif, callbackIndex, userData);
     setTable(record.index, wrapper);
@@ -671,8 +673,12 @@ export function createProcessFfi({
       return localOperations.has(operation);
     },
     call(operation, request, response) {
+      if (!(getTable() instanceof WebAssembly.Table) ||
+          !(getInstance()?.exports.__stack_pointer instanceof WebAssembly.Global)) {
+        return -BigInt(DOLLY_ERRNO.ENOSYS);
+      }
       if (operation === FFI_CALL) {
-        if (request.size !== 32 || response.size !== 0) return -22n;
+        if (request.size !== 32 || response.size !== 0) return -BigInt(DOLLY_ERRNO.EINVAL);
         performCall(view(request.address, 32, "FFI call request"));
         return 0n;
       }

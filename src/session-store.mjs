@@ -1,4 +1,4 @@
-export const DOLLY_SESSION_FORMAT_VERSION = 1;
+export const DOLLY_SESSION_FORMAT_VERSION = 2;
 export const DOLLY_SESSION_MAX_BYTES = 512 * 1024 * 1024;
 
 const databaseName = "dolly-sessions-v1";
@@ -6,13 +6,43 @@ const storeName = "sessions";
 
 export function validSessionName(value) {
   return typeof value === "string" && value.length >= 1 && value.length <= 64 &&
-    value !== "." && value !== ".." && /^[A-Za-z0-9._-]+$/.test(value);
+    value !== "." && value !== ".." && value !== "index.html" && /^[A-Za-z0-9._-]+$/.test(value);
 }
 
 export function sessionImageIdentity(definitions, selectedImage) {
   const definition = definitions.find(({ image }) => image === selectedImage);
   if (!definition) throw new Error("Dolly session names an unknown image");
   return `${definition.image}:${definition.sha256}`;
+}
+
+export function sessionLoadUrl(name, applicationBase) {
+  if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
+  return new URL(`session/${name}`, applicationBase);
+}
+
+export async function listStoredSessions() {
+  const database = await openDatabase();
+  try {
+    return await new Promise((resolve, reject) => {
+      const active = database.transaction(storeName, "readonly");
+      const request = active.objectStore(storeName).openCursor();
+      const sessions = [];
+      request.addEventListener("success", () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        const { bytes, ...metadata } = cursor.value;
+        sessions.push({ ...metadata, byteLength: bytes?.byteLength ?? 0 });
+        cursor.continue();
+      });
+      request.addEventListener("error", () => reject(request.error));
+      active.addEventListener("abort", () => reject(active.error));
+      active.addEventListener("complete", () => resolve(
+        sessions.sort((left, right) => right.updatedAt - left.updatedAt),
+      ));
+    });
+  } finally {
+    database.close();
+  }
 }
 
 async function collectStream(stream, maximum) {
@@ -111,7 +141,9 @@ export async function saveStoredSession(record) {
       typeof record.buildId !== "string" || typeof record.image !== "string" ||
       typeof record.imageIdentity !== "string" ||
       !Number.isSafeInteger(record.updatedAt) ||
-      !(record.bytes instanceof ArrayBuffer)) {
+      !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||
+      record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES ||
+      !["gzip", "identity"].includes(record.encoding)) {
     throw new TypeError("invalid Dolly session record");
   }
   await transaction("readwrite", (store) => store.put(record));

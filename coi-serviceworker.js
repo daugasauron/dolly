@@ -8,7 +8,15 @@ self.addEventListener("fetch", (event) => {
   const target = new URL(event.request.url);
   if (target.origin !== self.location.origin) return;
   event.respondWith((async () => {
-    const response = await fetch(event.request);
+    const base = new URL(self.registration.scope);
+    const path = target.pathname.startsWith(base.pathname)
+      ? target.pathname.slice(base.pathname.length) : "";
+    // Named sessions share one static launcher; only user navigations use
+    // this mapping. The first visit is handled by the packaged 404 page.
+    const match = /^session\/([A-Za-z0-9._-]{1,64})\/?$/.exec(path);
+    const session = event.request.mode === "navigate" && match &&
+      match[1] !== "." && match[1] !== "..";
+    const response = await fetch(session ? new URL("session/open.html", base) : event.request);
     if (response.type === "opaque" || response.type === "opaqueredirect") return response;
     const headers = new Headers(response.headers);
     // Fetch exposes a decoded body while origin transport headers can still

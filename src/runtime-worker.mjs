@@ -1,4 +1,5 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
+import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { loadModuleLayers, saveModuleLayers } from "./module-cache.mjs";
 import { DollyProcessSupervisor } from "./process-supervisor.mjs";
@@ -454,7 +455,7 @@ function installOutputDevice(dolly, path, deviceNumber) {
     write(_stream, buffer, offset, length) {
       if (buffer.length - offset < length) {
         const error = new Error("invalid WasmFS device write range");
-        error.errno = 14;
+        error.errno = DOLLY_ERRNO.EFAULT;
         throw error;
       }
       dolly._dolly_terminal_write_bytes(BigInt(buffer.byteOffset + offset), BigInt(length));
@@ -511,7 +512,7 @@ try {
       if (typeof name !== "string" || name.length === 0 || name.length > 255 ||
           /[\/\\\u0000-\u001f\u007f]/u.test(name) ||
           !(bytes instanceof Uint8Array) || bytes.byteLength > 64 * 1024 * 1024) {
-        return -22;
+        return -DOLLY_ERRNO.EINVAL;
       }
       self.postMessage(
         { type: "download", name, bytes: bytes.buffer },
@@ -659,21 +660,6 @@ try {
     new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
     bootstrapStatus = dolly._dolly_bootstrap_snapshot(BigInt(range.size));
     snapshotBytes = range.size;
-    if (bootstrapStatus === 0 && bootConfig.sessionSnapshot !== undefined) {
-      bootstrapStage("restoring named session filesystem...");
-      const sessionAddress = dolly._dolly_session_restore_address(
-        BigInt(bootConfig.sessionSnapshot.byteLength),
-      );
-      const sessionRange = checkedMemoryRange(
-        memory, sessionAddress, bootConfig.sessionSnapshot.byteLength,
-      );
-      new Uint8Array(memory.buffer, sessionRange.address, sessionRange.size)
-        .set(new Uint8Array(bootConfig.sessionSnapshot));
-      if (dolly._dolly_session_restore(BigInt(sessionRange.size)) !== 0) {
-        throw new Error("Dolly session filesystem restore failed");
-      }
-      bootstrapStage("named session filesystem restored");
-    }
   }
   if (bootstrapStatus !== 0) throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
 
@@ -897,6 +883,24 @@ try {
     if (bootstrapStatus !== 0) {
       throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
     }
+  }
+
+  bootstrapStage("indexing session baseline...");
+  if (dolly._dolly_session_base_capture() !== 0) {
+    throw new Error("Dolly could not index the base filesystem for sessions");
+  }
+  if (bootConfig.sessionSnapshot !== undefined) {
+    bootstrapStage("restoring named session filesystem...");
+    const size = bootConfig.sessionSnapshot.byteLength;
+    const address = dolly._dolly_session_restore_address(BigInt(size));
+    const range = checkedMemoryRange(memory, address, size);
+    new Uint8Array(memory.buffer, range.address, range.size)
+      .set(new Uint8Array(bootConfig.sessionSnapshot));
+    bootConfig.sessionSnapshot = undefined;
+    if (dolly._dolly_session_restore(BigInt(size)) !== 0) {
+      throw new Error("Dolly session filesystem restore failed; the saved copy is unchanged");
+    }
+    bootstrapStage("named session filesystem restored");
   }
 
   // The loader is called once by trusted boot code. There is no corresponding

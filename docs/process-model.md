@@ -54,8 +54,14 @@ WebAssembly features; Worker creation remains an embedder responsibility.
 - carries exactly one matching `dolly.process` ABI digest;
 - carries a `dolly.process.memory` record matching the executable's imported
   initial and maximum memory64 page counts;
-- defines its own table and statically links its initial libc/runtime;
+- supplies its own table, libc, or runtime only when the program needs them;
 - has no `dylink.0`, browser, WASI, Fetch, or host-filesystem import.
+
+`src/process-abi.mjs` checks actual byte-level types, stamps, and memory records
+at both build-time validation and browser admission. A freestanding `_start`
+does not need libc or a dynamic-link namespace. DSO/FFI operations fail with
+target `ENOSYS` if their optional runtime infrastructure is absent. Browser
+error numbers are generated from the target headers, not copied from Linux.
 
 An executable may contain a WebAssembly start section for private memory/TLS
 initialization. Process execution itself begins only when the supervisor calls
@@ -86,6 +92,14 @@ despite WebAssembly's exact indirect-call types without adding libffi-specific
 imports to executables. For callbacks, the Worker constructs a tiny typed Wasm
 wrapper that imports only the specific JavaScript closure supplied by the
 Worker; it has no memory or browser capability.
+
+The optional dynamic-link profile is `abi/dolly-process-dso-0.wat`. Static
+infrastructure and initialization-hook types are checked by the same validator
+in build tools and the browser. The loader checks resolved function/tag types
+against parsed provider exports before allocation, including self imports that
+need a deferred wrapper. Direct and GOT resolution both prefer local definitions
+(`-Bsymbolic`). GOT entries carry pointer types, not full function signatures;
+`dlsym` and FFI callers remain responsible for their declarations.
 
 ## Libc bootstrap
 

@@ -1,0 +1,20 @@
+(module
+  (import "env" "memory" (memory i64 1 131072 shared))
+  (import "dolly_process_0" "call" (func $call (param i32 i64 i64 i64 i64) (result i64)))
+  (table (export "__indirect_function_table") i64 1 funcref)
+  (global (export "__stack_pointer") (mut i64) (i64.const 65536))
+  (global $heap (mut i64) (i64.const 16384))
+  (tag (export "exception") (param i64))
+  (func (export "__dolly_dso_allocate") (param $size i64) (param $alignment i64) (result i64)
+    (local $base i64)
+    (i32.store (i64.const 64) (i32.add (i32.load (i64.const 64)) (i32.const 1)))
+    (local.set $base (i64.and
+      (i64.add (global.get $heap) (i64.sub (local.get $alignment) (i64.const 1)))
+      (i64.sub (i64.const 0) (local.get $alignment))))
+    (global.set $heap (i64.add (local.get $base) (i64.add (local.get $size) (i64.const 16))))
+    (local.get $base))
+  (func (export "provided") (param i64) (result i64) (i64.add (local.get 0) (i64.const 2)))
+  (func (export "_start")
+    ;; The browser fixture supplies a DSO_OPEN packet at 1024 and its size at 80.
+    (drop (call $call (i32.const 112) (i64.const 1024) (i64.load (i64.const 80))
+      (i64.const 128) (i64.const 256)))))

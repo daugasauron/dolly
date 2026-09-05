@@ -1,0 +1,18 @@
+(module
+  (import "env" "memory" (memory i64 0 131072 shared))
+  (import "env" "__indirect_function_table" (table i64 0 funcref))
+  (import "env" "__stack_pointer" (global (mut i64)))
+  (import "env" "__memory_base" (global i64))
+  (import "env" "__table_base" (global i64))
+  (import "env" "exception" (tag (param i64)))
+  (import "GOT.func" "answer" (global $answer (mut i64)))
+  (import "GOT.mem" "data" (global (mut i64)))
+  (import "env" "answer" (func $answer (param i64) (result i64)))
+  (global (export "data") i64 (i64.const 16384))
+  (func (export "answer") (param i64) (result i64) (i64.add (local.get 0) (i64.const 1)))
+  (func $ctors (export "__wasm_call_ctors")
+    ;; Direct and GOT resolution must select the same provider.
+    (if (i64.ne (call $answer (i64.const 41))
+      (call_indirect (param i64) (result i64) (i64.const 41) (global.get $answer)))
+      (then unreachable))
+    (i64.store (i64.const 68) (call $answer (i64.const 41)))))

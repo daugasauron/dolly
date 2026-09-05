@@ -1,58 +1,59 @@
 # Sessions
 
-`Ctrl+Shift+S` saves the current Dolly filesystem. The first save asks for a
-name; later saves reuse it. Open the result at:
+`Ctrl+Shift+S` saves files in the current prebuilt image. The first save asks for
+a name; later saves update it. A small notification reports progress, success,
+or failure. The phone menu has the same save action and a link to saved sessions.
+Names use 1–64 ASCII letters, digits, dots, underscores, or hyphens;
+`.`, `..`, and the static listing document `index.html` are reserved.
 
-```text
-/load/?session=NAME
-```
+- `/session/` lists this browser's saved sessions, newest first, without booting Wasm.
+- `/session/NAME` loads one. Save also changes the current URL to this address.
+- Old `/load/?session=NAME` bookmarks redirect to the named path.
 
-The name and format version also live inside the sandbox at
-`~/.dolly-session-name`.
+These routes also work below a deployment prefix, such as `/dolly/session/NAME`.
+The local server maps named paths to one launcher; static hosting uses `404.html`
+on first navigation and the isolation service worker thereafter.
 
-Named saves currently require a source-visible packaged image (`default`,
-`gamedev`, or `python`). An uploaded custom Dollyfile is tab-local, so Dolly
-cannot authenticate and reconstruct its recipe at a later `/load/` URL;
-custom images therefore run normally but reject named-session save. Supporting
-that safely requires persisting the exact custom recipe and including its
-digest and inherited default recipe in the stored image identity.
+## What survives
 
-A named save is also Dolly's recovery point for non-cooperative foreign Wasm.
-Ctrl+C first requests the ordinary in-Wasm interrupt. If the same PID has not
-returned after two seconds, or the user presses Ctrl+C again, the trusted page
-terminates the runtime worker and reloads `/load/?session=NAME`. The fresh
-worker restores the last completed save. An unnamed route instead restarts
-from its sealed base image. Dolly does not claim that unsaved changes survive:
-once code has monopolized the worker, WasmFS cannot cooperatively produce a
-new opaque snapshot.
+Saves preserve files, empty directories, symlinks, and deletions, including
+workspace changes, installed tools, shell history, Pi conversations, and
+credentials. Loading boots the same base image, applies the saved changes, then
+starts the image's ordinary entry program. It does **not** resume running
+processes, open descriptors, terminal scrollback, or transient environment/cwd.
+Hard links and file timestamps/mode metadata are not preserved.
 
-## Data flow
+The in-Wasm kernel fingerprints the base filesystem at boot. Mailbox format 2
+transfers only changed/new records and deletion records, not another copy of the
+compiler and runtimes. SHA-256 comparisons and all filesystem encoding/restoring
+stay in Wasm. `/dev` and `/seed` remain runtime-owned. The uncompressed **delta**
+limit is 512 MiB; browser quota and available memory can impose lower limits.
 
-```text
-WasmFS walk and encoding
-        │
-        ▼
-fixed 1 MiB shared-memory mailbox
-        │ opaque chunks; no paths or operations
-        ▼
-browser gzip → IndexedDB (same origin)
-        │
-        ▼
-/load → verify runtime + Dollyfile chain → WasmFS restore
-```
+The browser copies bounded opaque chunks, optionally compresses them with gzip,
+and atomically replaces one IndexedDB record. A failed save leaves the previous
+record intact. Both mailbox participants compare and wait on the same observed
+sequence, with bounded waits and cancellation. The kernel services requests
+independently of foreground stdin, including while a child sleeps. Capture
+temporarily pauses filesystem service; programs can run again while the browser
+compresses and stores the result. Transfer and restore staging buffers are freed.
 
-Dolly serializes directories, regular files, and symlinks. `/dev` stays
-runtime-owned and `/seed` is the immutable compiler seed; everything else is
-captured, including `/workspace`, shell history, Pi sessions, and credentials.
-The uncompressed format is bounded to 512 MiB.
+## Limits and privacy
 
-The browser never mounts or interprets WasmFS. Session persistence adds no Wasm
-import and therefore no new sandbox escape edge: the page only copies framed
-bytes from shared memory. Records are accepted only when their runtime build ID
-and complete inherited Dollyfile digest chain match the current deployment.
+Saves are local to this browser profile and origin (scheme, hostname, and port).
+They are not uploaded, synced, or shared by the session URL. Clearing site data
+deletes them. Credentials are included intentionally; anyone with access to the
+browser profile can recover them. See [Security](security.md).
 
-Sessions are local browser data, scoped by the page origin. They are not synced
-or uploaded. Because credentials are intentionally included, anyone with
-access to that browser profile can recover them. A compromised in-Wasm agent
-can still exfiltrate them through the explicitly configured HTTP broker; see
-[Security](security.md).
+The runtime build ID and complete inherited Dollyfile identity must match before
+loading. Older/incompatible saves remain listed and stored, but are not migrated
+or silently applied to a different base. Updating Dolly can make an older save
+unloadable. There is currently no cross-build migration or export UI.
+
+Named saves require a prebuilt, source-visible image. Uploaded custom recipes
+are tab-local; cold rebuilds currently produce a different baseline from prebuilt
+boot. Both are rejected explicitly instead of producing an unreliable restore.
+
+Session persistence adds no Wasm import or path-level browser filesystem API.
+The review surface is `src/session-snapshot.c`, `src/session-transport.mjs`,
+`src/session-store.mjs`, and the boot/save call sites in the page and runtime worker.
+`env.dolly_http_dispatch` remains the sole intentional agent-selected network edge.

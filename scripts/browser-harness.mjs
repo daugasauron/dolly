@@ -35,17 +35,18 @@ const browserBasePrefix = browserBase === "/" ? "" : browserBase.slice(0, -1);
 const piDevelopmentMode = process.env.DOLLY_BROWSER_MODE === "pi";
 const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
 const boundaryMode = process.env.DOLLY_BROWSER_MODE === "boundary";
+const processAbiMode = process.env.DOLLY_BROWSER_MODE === "process-abi";
 const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
 const missingSnapshotMode = process.env.DOLLY_BROWSER_MODE === "snapshot-missing";
 const snapshotExportMode = process.env.DOLLY_BROWSER_MODE === "snapshot-export";
-const pagesIsolationMode = process.env.DOLLY_BROWSER_MODE === "pages-isolation";
+const pagesIsolationMode = ["pages-isolation", "session-pages"].includes(process.env.DOLLY_BROWSER_MODE);
 const pagesLiveMode = process.env.DOLLY_BROWSER_MODE === "pages-live";
 const menuMode = process.env.DOLLY_BROWSER_MODE === "menu";
 const routeSmokeMode = process.env.DOLLY_BROWSER_MODE === "route-smoke";
-const sessionMode = process.env.DOLLY_BROWSER_MODE === "session";
+const sessionMode = ["session", "session-pages"].includes(process.env.DOLLY_BROWSER_MODE);
 const pythonPackageMode = process.env.DOLLY_BROWSER_MODE === "python-packages";
 const pythonInteractiveMode = process.env.DOLLY_BROWSER_MODE === "python-interactive";
 const toolchainProbeMode = process.env.DOLLY_BROWSER_MODE === "toolchain-probes";
@@ -108,6 +109,7 @@ const mimeTypes = new Map([
 ]);
 const publicSources = new Set([
   "test/fixtures/browser-boundary.mjs",
+  "test/fixtures/browser-process-abi.mjs",
   "coi-serviceworker.js",
   "index.html",
   ...imageDefinitions.map((definition) => definition.filename),
@@ -118,9 +120,13 @@ const publicSources = new Set([
   "src/kernel-plugin.mjs",
   "src/module-cache.mjs",
   "src/process-ffi.mjs",
+  "src/process-abi.mjs",
+  "src/wasm-interface.mjs",
   "src/process-supervisor.mjs",
   "src/process-worker.mjs",
   "src/session-store.mjs",
+  "src/session-transport.mjs",
+  "src/sessions.mjs",
   "src/runtime-worker.mjs",
 ]);
 const sourceArtifacts = new Map(staticSources.map((source) => [
@@ -141,6 +147,7 @@ const routeDocuments = new Map([
   ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
   ["/rebuild", "build/routes/rebuild/index.html"],
   ["/load", "build/routes/load/index.html"],
+  ["/session", "build/routes/session/index.html"],
 ]);
 let gitDiscoveryRequest = null;
 let libcurlPostRequest = null;
@@ -166,6 +173,12 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const requestUrl = new URL(request.url, "http://127.0.0.1");
+      if (processAbiMode && /^\/fixture\/(?:process-(?:minimal|no-dso|wrong-call|wrong-start|wrong-memory|dso-host|dso-bad-host)|dso-(?:types|local|start|small-(?:memory|table)|wrong-(?:self|provider|stack|table|memory|base|tag|got|symbol-kind|data|hook)))\.wasm$/.test(requestUrl.pathname)) {
+        const name = requestUrl.pathname.split("/").at(-1);
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "application/wasm" });
+        response.end(await readFile(resolve(projectDir, "build", name)));
+        return;
+      }
       if (requestUrl.pathname === "/fixture/http.txt") {
         response.writeHead(200, {
           ...isolatedHeaders,
@@ -414,20 +427,23 @@ function startServer() {
 
       const route = decodeURIComponent(staticPath).replace(/\/+$/, "") || "/";
       const requested = route.slice(1);
+      const sessionRoute = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(route);
       const relative = route === "/"
         ? "index.html"
+        : sessionRoute ? "build/routes/session/open.html"
         : routeDocuments.get(route) ?? sourceArtifacts.get(requested)?.relative ?? requested;
       const path = resolve(projectDir, relative);
       const distAsset = relative.startsWith("dist/") &&
         path.startsWith(`${distDirectory}${sep}`);
       if ((request.method !== "GET" && request.method !== "HEAD") ||
-          (!publicSources.has(relative) && !routeDocuments.has(route) &&
+          (!publicSources.has(relative) && !routeDocuments.has(route) && !sessionRoute &&
            !sourceArtifacts.has(requested) &&
            !relative.startsWith("docs/") && !distAsset)) {
         response.writeHead(404, isolatedHeaders).end("not found");
         return;
       }
       const packagedRelative = route === "/" ? "index.html"
+        : sessionRoute ? (requested === "session/open.html" ? "session/open.html" : "404.html")
         : routeDocuments.has(route) ? `${requested}/index.html` : requested;
       const servedPath = packagedSite ? resolve(packagedSite, packagedRelative) : path;
       if (packagedSite && !servedPath.startsWith(`${packagedSite}${sep}`)) {
@@ -437,7 +453,7 @@ function startServer() {
       const body = await readFile(servedPath);
       staticRequestPaths.add(requestUrl.pathname);
       const source = sourceArtifacts.get(requested)?.source;
-      response.writeHead(200, {
+      response.writeHead(packagedSite && sessionRoute && requested !== "session/open.html" ? 404 : 200, {
         ...isolatedHeaders,
         "content-type": source?.media === "txt" || imageDefinitions.some(
           (definition) => definition.filename === relative,
@@ -1060,12 +1076,84 @@ chrome = spawn(chromeBinary, [
       : piDevelopmentMode || cppMode || makeMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode || boundaryMode
+        || lifecycleProbeMode || boundaryMode || processAbiMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (processAbiMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "process ABI boot", 1200), "ready");
+      const result = await evaluate(debuggerClient.send,
+        `import(${JSON.stringify(`${localOrigin}${browserBase}test/fixtures/browser-process-abi.mjs`)})` +
+        ".then(module => module.runProcessAbiChecks())");
+      assert.equal(result.rejected, 5);
+      assert.equal(result.optionalFacilities, "ENOSYS");
+      assert.deepEqual(result.dso, { rejected: 14, loaded: 3 });
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      assert.equal(await submit("mkdir /tmp/process-abi"), 0);
+      try {
+        for (const name of ["minimal", "wrong-call", "wrong-start", "wrong-memory"]) {
+          assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/process-${name}.wasm -o /tmp/process-abi/${name}`), 0);
+          assert.equal(await submit(`/tmp/process-abi/${name} > /tmp/process-abi/output`), name === "minimal" ? 0 : 126);
+          if (name === "minimal") {
+            assert.equal(await submit("grep -q PROCESS-FREESTANDING-OK /tmp/process-abi/output"), 0);
+          }
+        }
+        const constants = Object.entries(result.errno).map(([name, value]) =>
+          `if (${name} != ${value}) return 1;`).join("\n");
+        const source = `#define _POSIX_C_SOURCE 200809L
+#include <errno.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <time.h>
+#include <dolly/process.h>
+#include <dolly/runtime.h>
+int main(int argc, char **argv) {
+  ${constants}
+  dolly_process_dso_close_request close_request = {123456};
+  dolly_process_dso_response response;
+  if (dolly_process_call(DOLLY_PROCESS_DSO_CLOSE, &close_request, sizeof(close_request), &response, sizeof(response)) != sizeof(response) || response.error != EBADF) return 2;
+  if (dolly_process_call(DOLLY_PROCESS_DSO_CLOSE, &close_request, sizeof(close_request), &response, 1) != -ENOBUFS) return 3;
+  if (dolly_process_call(DOLLY_PROCESS_FFI_CALL, NULL, 0, NULL, 0) != -EINVAL) return 4;
+  if (argc == 1) return 0;
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now)) return 5;
+  dolly_process_clock_sleep_request request = {1, 0, (uint64_t)now.tv_sec * 1000000000 + now.tv_nsec + 60000000000};
+  int64_t interrupted = dolly_process_call(DOLLY_PROCESS_CLOCK_SLEEP, &request, sizeof(request), NULL, 0);
+  dolly_interrupt_poll();
+  FILE *file = fopen("/tmp/process-abi/interrupt-result", "w");
+  if (!file) return 6;
+  fprintf(file, "%s\\n", interrupted == -EINTR ? "EINTR-OK" : "WRONG-ERRNO");
+  fclose(file);
+  return interrupted == -EINTR ? 0 : 7;
+}
+`;
+        const sourceFormat = source.replaceAll("\\", "\\\\").replaceAll("\n", "\\n")
+          .replaceAll("%", "%%").replaceAll("'", "'\\''");
+        assert.equal(await submit(`printf '${sourceFormat}' > /tmp/process-abi/errors.c`), 0);
+        assert.equal(await submit("cc -O0 -fno-sanitize-coverage /tmp/process-abi/errors.c -o /tmp/process-abi/errors"), 0);
+        assert.equal(await submit("/tmp/process-abi/errors"), 0);
+        await evaluate(debuggerClient.send, `window.__processErrnoResult = null;
+          window.__dolly.submit('/tmp/process-abi/errors cancel').then(
+            status => { window.__processErrnoResult = { status }; },
+            error => { window.__processErrnoResult = { error: String(error) }; }); true`);
+        await waitForValue(debuggerClient.send, "window.__dolly.transport.foregroundInterruptible()",
+          value => value === true, "errno probe foreground ownership", 200);
+        await delay(200);
+        await dispatchKey(debuggerClient.send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+        const interrupted = await waitForValue(debuggerClient.send, "window.__processErrnoResult",
+          value => value !== null, "errno probe cancellation", 200);
+        assert.equal(interrupted.error, undefined);
+        assert.equal(await submit("grep -q EINTR-OK /tmp/process-abi/interrupt-result"), 0);
+      } finally { await submit("rm -rf /tmp/process-abi"); }
+      console.log("browser: freestanding WAT ran through Slop; wrong executable/DSO types rejected before allocation; local/GOT linking passed; optional DSO/FFI returned ENOSYS; C/JS errno and interrupted syscall round trips passed");
+      break browserProof;
+    }
     if (boundaryMode) {
       const state = await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -1215,7 +1303,14 @@ chrome = spawn(chromeBinary, [
         debuggerClient.send, /PYTHON-STREAM-TWO/, "Python's complete streamed output",
       );
       assert.match(terminal, /PYTHON-STREAM-ONE[\s\S]*PYTHON-STREAM-TWO/);
-      console.log("browser: interactive Python and pre-exit output streaming passed");
+      assert.equal(await evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(
+        "python -c 'import ctypes; libc = ctypes.CDLL(None); " +
+        "libc.strlen.argtypes = [ctypes.c_char_p]; libc.strlen.restype = ctypes.c_size_t; " +
+        "assert libc.strlen(b\"dolly\") == 5; " +
+        "callback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(lambda value: value + 1); " +
+        "assert callback(41) == 42'",
+      )})`), 0, "Python process-local DSO lookup, FFI call, and closure");
+      console.log("browser: interactive Python, pre-exit output streaming, ctypes calls and callbacks passed");
       break browserProof;
     }
     if (lifecycleProbeMode) {
@@ -1565,8 +1660,25 @@ chrome = spawn(chromeBinary, [
       ), 0);
       assert.equal(await evaluate(
         debuggerClient.send,
-        'window.__dolly.submit("echo SESSION-CREDENTIAL > /home/dolly/.pi/agent/auth.json")',
+        `window.__dolly.submit(${JSON.stringify("mkdir -p /home/dolly/.pi/agent; echo '{}' > /home/dolly/.pi/agent/auth.json; echo SESSION-CREDENTIAL > /home/dolly/session-credential")})`,
       ), 0);
+      for (const command of [
+        `awk 'BEGIN { for(i=0;i<1024;i++) printf "%8192s", "x" }' > /workspace/session-large`,
+        "echo '# SESSION-BASE-EDIT' >> /etc/gitconfig",
+        "rm /usr/include/zconf.h",
+        "rm /usr/share/licenses/zlib/LICENSE; mkdir /usr/share/licenses/zlib/LICENSE",
+        "echo SESSION-TYPE > /usr/share/licenses/zlib/LICENSE/child",
+        "mkdir /workspace/session-empty; ln -s session-proof.txt /workspace/session-link",
+      ]) {
+        assert.equal(await evaluate(debuggerClient.send,
+          `window.__dolly.submit(${JSON.stringify(command)})`), 0, command);
+      }
+      // Saving cannot depend on the foreground program reading stdin.
+      await evaluate(debuggerClient.send,
+        'window.__sleepResult = null; void window.__dolly.submit("sleep 20").then(status => { window.__sleepResult = status; })');
+      await waitForValue(debuggerClient.send, "window.__dolly.transport.foregroundInterruptible()",
+        Boolean, "sleeping foreground child", 100);
+      const saveStartedAt = Date.now();
       await evaluate(
         debuggerClient.send,
         'window.__sessionSave = window.__dolly.saveSession("browser-proof")',
@@ -1586,9 +1698,29 @@ chrome = spawn(chromeBinary, [
       assert.ok(Number(await evaluate(
         debuggerClient.send, "document.documentElement.dataset.sessionBytes",
       )) > 0);
+      const deltaBytes = Number(await evaluate(debuggerClient.send,
+        "document.documentElement.dataset.sessionUncompressedBytes"));
+      assert.ok(deltaBytes > 8 * 1024 * 1024 && deltaBytes < 12 * 1024 * 1024,
+        `save should contain workspace changes, not the base image: ${deltaBytes}`);
+      assert.equal(await evaluate(debuggerClient.send, "window.__sleepResult"), null,
+        "save only finished after the foreground child returned");
+      console.log(`browser: saved ${deltaBytes} delta bytes in ${Date.now() - saveStartedAt} ms during sleep`);
+      assert.equal(await evaluate(debuggerClient.send, "location.pathname"),
+        `${browserBase}session/browser-proof`);
+      assert.equal(await evaluate(debuggerClient.send, "location.search"), "");
+
+      if (pagesIsolationMode) {
+        // Exercise the static 404 launch with no existing worker registration,
+        // not just a route handled by an already-installed service worker.
+        await evaluate(debuggerClient.send, `(async () => {
+          for (const registration of await navigator.serviceWorker.getRegistrations()) {
+            await registration.unregister();
+          }
+        })()`);
+      }
 
       await debuggerClient.send("Page.navigate", {
-        url: `${localOrigin}${browserBase}load/?session=browser-proof`,
+        url: `${localOrigin}${browserBase}session/browser-proof`,
       });
       const restoredState = await waitForValue(
         debuggerClient.send,
@@ -1610,7 +1742,14 @@ chrome = spawn(chromeBinary, [
       for (const command of [
         "grep -q SESSION-WORKSPACE /workspace/session-proof.txt",
         "grep -q SESSION-HOME /home/dolly/session-proof.txt",
-        "grep -q SESSION-CREDENTIAL /home/dolly/.pi/agent/auth.json",
+        "grep -q SESSION-CREDENTIAL /home/dolly/session-credential",
+        "grep -q '{}' /home/dolly/.pi/agent/auth.json",
+        "test $(wc -c < /workspace/session-large) -eq 8388608",
+        "grep -q SESSION-BASE-EDIT /etc/gitconfig",
+        "test ! -e /usr/include/zconf.h",
+        "grep -q SESSION-TYPE /usr/share/licenses/zlib/LICENSE/child",
+        "test -d /workspace/session-empty",
+        "test -L /workspace/session-link; grep -q SESSION-WORKSPACE /workspace/session-link",
         "grep -q SESSION-WORKSPACE /home/dolly/.slop_history",
         "grep -q 'DOLLY-SESSION 1' /home/dolly/.dolly-session-name",
         "grep -q 'name browser-proof' /home/dolly/.dolly-session-name",
@@ -1620,6 +1759,8 @@ chrome = spawn(chromeBinary, [
           `window.__dolly.submit(${JSON.stringify(command)})`,
         ), 0, command);
       }
+      assert.equal(await evaluate(debuggerClient.send,
+        'window.__dolly.submit("echo SECOND-SAVE >> /workspace/session-proof.txt; rm /workspace/session-large")'), 0);
       await dispatchKey(debuggerClient.send, {
         key: "S",
         code: "KeyS",
@@ -1633,10 +1774,78 @@ chrome = spawn(chromeBinary, [
         "Ctrl+Shift+S session resave",
         3600,
       ), "saved");
+      await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/` });
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement.dataset.sessionsStatus ?? ''",
+        (value) => value === "ready" || value === "failed", "saved session list", 100), "ready");
+      assert.equal(await evaluate(debuggerClient.send, "document.querySelectorAll('#sessions li').length"), 1);
+      assert.equal(await evaluate(debuggerClient.send, "document.querySelector('#sessions a').pathname"),
+        `${browserBase}session/browser-proof`);
+      assert.equal(await evaluate(debuggerClient.send, "typeof window.__dolly"), "undefined",
+        "listing sessions should not boot a Wasm runtime");
+      await evaluate(debuggerClient.send, "document.querySelector('#sessions a').click()");
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed", "second session restore", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      for (const command of [
+        "grep -q SECOND-SAVE /workspace/session-proof.txt",
+        "test ! -e /workspace/session-large",
+        "test ! -e /usr/include/zconf.h",
+        "grep -q SESSION-TYPE /usr/share/licenses/zlib/LICENSE/child",
+      ]) assert.equal(await evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`), 0, command);
+      // Storage failure must be visible and must not replace the last good
+      // checkpoint. Inject the browser's quota error at the actual IDB put.
+      assert.deepEqual(await evaluate(debuggerClient.send, `(async () => {
+        const store = await import(${JSON.stringify(`${browserBase}src/session-store.mjs`)});
+        const before = await store.loadStoredSession("browser-proof");
+        const original = IDBObjectStore.prototype.put;
+        let error;
+        IDBObjectStore.prototype.put = function() {
+          throw new DOMException("Storage quota test", "QuotaExceededError");
+        };
+        try { await window.__dolly.saveSession("browser-proof"); }
+        catch (caught) { error = caught.name; }
+        finally { IDBObjectStore.prototype.put = original; }
+        const after = await store.loadStoredSession("browser-proof");
+        return { error, same: before.updatedAt === after.updatedAt &&
+          new Uint8Array(before.bytes).every((byte, index) => byte === new Uint8Array(after.bytes)[index]),
+          visible: !document.querySelector("#session-status").hidden &&
+            document.querySelector("#session-status").textContent.includes("Storage quota test") };
+      })()`), { error: "QuotaExceededError", same: true, visible: true });
+      await evaluate(debuggerClient.send, `(async () => {
+        const store = await import(${JSON.stringify(`${browserBase}src/session-store.mjs`)});
+        const good = await store.loadStoredSession("browser-proof");
+        await store.saveStoredSession({ ...good, name: "wrong-base", buildId: "different-runtime" });
+        await store.saveStoredSession({ ...good, name: "broken-data", encoding: "identity", bytes: new ArrayBuffer(16) });
+      })()`);
+      for (const name of ["wrong-base", "broken-data", "missing-session"]) {
+        await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/${name}` });
+        assert.equal(await waitForValue(debuggerClient.send,
+          "document.documentElement.dataset.dollyStatus ?? ''",
+          (value) => value === "ready" || value === "failed", `rejected session ${name}`, 1200), "failed");
+      }
+      await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/` });
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement.dataset.sessionsStatus ?? ''",
+        (value) => value === "ready" || value === "failed", "retained saved records", 100), "ready");
+      assert.equal(await evaluate(debuggerClient.send,
+        "document.querySelectorAll('#sessions li').length"), 3);
+      assert.equal(await evaluate(debuggerClient.send,
+        "[...document.querySelectorAll('#sessions a')].some(link => link.textContent === 'wrong-base')"), false);
+      // Legacy bookmarks resolve to the canonical path without query params.
+      await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}load/?session=browser-proof` });
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement.dataset.dollyStatus ?? ''",
+        (value) => value === "ready" || value === "failed", "legacy session redirect", 1200), "ready");
+      assert.equal(await evaluate(debuggerClient.send, "location.pathname + location.search"),
+        `${browserBase}session/browser-proof`);
       console.log(
         "browser: named session captured in Wasm, compressed into IndexedDB, " +
-        "loaded from /load/?session=browser-proof, restored credentials/history/workspace, " +
-        "and resaved with Ctrl+Shift+S",
+        "loaded from /session/browser-proof, restored credentials/history/workspace, " +
+        "base edits/deletions/types/symlinks; quota, corrupt/wrong-base/missing saves " +
+        "fail without deleting checkpoints; legacy links redirect to /session",
       );
       break browserProof;
     }

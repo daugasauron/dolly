@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Saved sessions · Dolly</title>
+    <script>
+      if (!location.pathname.endsWith("/")) location.replace(location.pathname + "/");
+    </script>
+    <style>
+      @font-face { font-family: Iosevka; src: url("../dist/IosevkaTerm-SemiBold.woff2"); font-weight: 600; }
+      :root { color: #e8e3d7; background: #262626; font: 600 16px/1.5 Iosevka, monospace; }
+      main { max-width: 52rem; margin: 8vh auto; padding: 1rem; }
+      h1 { color: #f2d45c; }
+      a { color: inherit; text-underline-offset: 0.2em; text-decoration-color: #f2d45c; }
+      a:hover { color: #f2d45c; }
+      ul { padding: 0; list-style: none; }
+      li { padding: 1rem 0; border-top: 1px solid #77736c; overflow-wrap: anywhere; }
+      small { display: block; color: #b7b1a6; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="../">Dolly →</a>
+      <h1>Saved sessions</h1>
+      <p>Saves in this browser, on this site. Nothing is uploaded or synced.</p>
+      <p>Ctrl+Shift+S saves files, including credentials and shell history. Loading starts a fresh program; it does not resume running processes.</p>
+      <p id="status" role="status">Reading saved sessions…</p>
+      <ul id="sessions"></ul>
+    </main>
+    <script type="module" src="../src/sessions.mjs"></script>
+  </body>
+</html>

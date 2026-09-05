@@ -197,7 +197,9 @@ EM_JS(void, dolly_http_dispatch,
   });
 });
 
-EM_JS(int, dolly_download_dispatch,
+// EM_JS stringifies its body. Expand target errno macros before that step.
+#define DOLLY_EM_JS(...) EM_JS(__VA_ARGS__)
+DOLLY_EM_JS(int, dolly_download_dispatch,
       (const unsigned char *name, uintptr_t name_length,
        const unsigned char *bytes, uintptr_t length), {
   const nameStart = Number(name);
@@ -210,27 +212,28 @@ EM_JS(int, dolly_download_dispatch,
       nameStart < 0 || nameSize < 1 || nameSize > 255 ||
       dataStart < 0 || dataSize < 0 || dataSize > maximum ||
       nameStart + nameSize > HEAPU8.length ||
-      dataStart + dataSize > HEAPU8.length) return -22;
+      dataStart + dataSize > HEAPU8.length) return -EINVAL;
   let decoded;
   try {
     decoded = new TextDecoder("utf-8", { fatal: true }).decode(
       HEAPU8.slice(nameStart, nameStart + nameSize),
     );
   } catch (_) {
-    return -22;
+    return -EINVAL;
   }
-  if (decoded === "." || decoded === "..") return -22;
+  if (decoded === "." || decoded === "..") return -EINVAL;
   for (let index = 0; index < decoded.length; index += 1) {
     const code = decoded.charCodeAt(index);
-    if (code === 47 || code === 92 || code < 32 || code === 127) return -22;
+    if (code === 47 || code === 92 || code < 32 || code === 127) return -EINVAL;
   }
   const dispatch = Module["downloadDispatch"];
-  if (typeof dispatch !== "function") return -38;
+  if (typeof dispatch !== "function") return -ENOSYS;
   return dispatch({
     name: decoded,
     bytes: HEAPU8.slice(dataStart, dataStart + dataSize),
   }) | 0;
 });
+#undef DOLLY_EM_JS
 
 EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_display_mailbox_address(void) {

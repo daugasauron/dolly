@@ -12,6 +12,7 @@ import {
   readWasmInterface,
   sameWasmType,
 } from "./wasm-interface.mjs";
+import { validateProcessInterface, validateDsoInterface } from "../src/process-abi.mjs";
 
 const relocationGlobals = new Set(["__memory_base", "__table_base"]);
 const infrastructure = new Set([
@@ -91,25 +92,6 @@ function encodeProcessMemoryRequirements(memory) {
   view.setBigUint64(0, memory.type.minimum, true);
   view.setBigUint64(8, memory.type.maximum, true);
   return bytes;
-}
-
-function requireProcessMemoryRequirements(module, memory) {
-  const sections = module.customSectionData.filter(
-    (section) => section.name === "dolly.process.memory",
-  );
-  if (sections.length !== 1 || sections[0].data.length !== 16) {
-    throw new Error(`${module.label}: expected one 16-byte dolly.process.memory section`);
-  }
-  const view = new DataView(
-    sections[0].data.buffer,
-    sections[0].data.byteOffset,
-    sections[0].data.byteLength,
-  );
-  const minimum = view.getBigUint64(0, true);
-  const maximum = view.getBigUint64(8, true);
-  if (minimum !== memory.type.minimum || maximum !== memory.type.maximum) {
-    throw new Error(`${module.label}: dolly.process.memory does not match its memory import`);
-  }
 }
 
 function hex(bytes) {
@@ -224,58 +206,19 @@ export async function validateRuntime(contractPath, runtimePath) {
 
 export async function validateProcess(contractPath, processPaths) {
   const contract = await readWasmInterface(contractPath);
-  const digest = contractDigest(contract);
-  const allowedImports = interfaceMap(contract.imports, importKey);
-  const requiredExports = interfaceMap(contract.exports, (entry) => entry.name);
-
-  if (allowedImports.size !== 2 ||
-      !allowedImports.has("env.memory") ||
-      !allowedImports.has("dolly_process_0.call")) {
-    throw new Error(`${contractPath}: process contract must contain only memory and call`);
-  }
-
+  const digest = hex(contractDigest(contract));
   for (const processPath of processPaths) {
-    const process = await readWasmInterface(processPath);
-    if (process.customSections.includes("dylink.0")) {
-      throw new Error(`${processPath}: a process executable must not be a side module`);
-    }
-    requireNamedContractStamp(process, digest, "dolly.process");
-    const imports = interfaceMap(process.imports, importKey);
-    if (imports.size !== allowedImports.size) {
-      throw new Error(`${processPath}: expected exactly the two dolly-process-0 imports`);
-    }
-    for (const [name, expected] of allowedImports) {
-      const actual = imports.get(name);
-      if (!actual) throw new Error(`${processPath}: missing required import ${name}`);
-      if (name === "env.memory") {
-        if (actual.type.kind !== "memory" || expected.type.kind !== "memory" ||
-            actual.type.address64 !== expected.type.address64 ||
-            actual.type.shared !== expected.type.shared ||
-            actual.type.minimum < expected.type.minimum ||
-            actual.type.maximum === null || expected.type.maximum === null ||
-            actual.type.maximum > expected.type.maximum ||
-            actual.type.minimum > actual.type.maximum) {
-          throw new Error(
-            `${processPath}: process memory is outside ${formatWasmType(expected.type)}: ` +
-            formatWasmType(actual.type),
-          );
-        }
-        requireProcessMemoryRequirements(process, actual);
-      } else if (!sameWasmType(actual.type, expected.type)) {
-        throw new Error(
-          `${processPath}: import ${name} must be ${formatWasmType(expected.type)}, ` +
-          `got ${formatWasmType(actual.type)}`,
-        );
-      }
-    }
-    const exports = interfaceMap(process.exports, (entry) => entry.name);
-    for (const [name, expected] of requiredExports) {
-      const actual = exports.get(name);
-      if (!actual || !sameWasmType(actual.type, expected.type)) {
-        throw new Error(`${processPath}: missing or incompatible process export ${name}`);
-      }
-    }
+    validateProcessInterface(contract, await readWasmInterface(processPath), digest);
     console.log(`dolly-abi: ${processPath} satisfies dolly-process-0`);
+  }
+}
+
+export async function validateProcessDso(processContractPath, dsoContractPath, paths) {
+  const digest = hex(contractDigest(await readWasmInterface(processContractPath)));
+  const contract = await readWasmInterface(dsoContractPath);
+  for (const path of paths) {
+    validateDsoInterface(contract, await readWasmInterface(path), digest);
+    console.log(`dolly-abi: ${path} satisfies dolly-process-dso-0 (provider symbols checked at load)`);
   }
 }
 
@@ -444,6 +387,7 @@ function usage() {
   dolly-abi.mjs stamp CONTRACT.wasm MODULE.wasm...
   dolly-abi.mjs stamp-process CONTRACT.wasm PROCESS.wasm...
   dolly-abi.mjs validate-process CONTRACT.wasm PROCESS.wasm...
+  dolly-abi.mjs validate-process-dso PROCESS-CONTRACT.wasm DSO-CONTRACT.wasm LIBRARY.wasm...
   dolly-abi.mjs validate-runtime CONTRACT.wasm RUNTIME.wasm
   dolly-abi.mjs validate-browser CONTRACT.wasm RUNTIME.wasm
   dolly-abi.mjs emit-digest-header CONTRACT.wasm OUTPUT.h [SYMBOL]
@@ -466,6 +410,8 @@ async function main() {
       await stampProcesses(args[0], args.slice(1));
     } else if (command === "validate-process" && args.length >= 2) {
       await validateProcess(args[0], args.slice(1));
+    } else if (command === "validate-process-dso" && args.length >= 3) {
+      await validateProcessDso(args[0], args[1], args.slice(2));
     } else if (command === "validate-runtime" && args.length === 2) {
       await validateRuntime(args[0], args[1]);
     } else if (command === "emit-emscripten-exports" && args.length >= 2) {

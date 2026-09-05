@@ -1,4 +1,7 @@
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
+import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
+import { parseWasmInterface } from "./wasm-interface.mjs";
+import { validateProcessInterface } from "./process-abi.mjs";
 
 const encoder = new TextEncoder();
 const packetLimit = 1024 * 1024;
@@ -7,7 +10,7 @@ const inheritEnvironment = 1;
 const deferredResult = -(1n << 63n);
 const interruptPoll = 66;
 const sigint = 2;
-const interruptedSystemCall = -4n;
+const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
 const interruptGraceMilliseconds = 500;
 const compiledModuleCacheEntries = 64;
 const compiledModuleCacheBytes = 256 * 1024 * 1024;
@@ -94,40 +97,6 @@ function encodeSpawn(path, arguments_, environment, descriptors) {
   return packet;
 }
 
-function processMemoryRequirements(module) {
-  const sections = WebAssembly.Module.customSections(module, "dolly.process.memory");
-  if (sections.length !== 1 || sections[0].byteLength !== 16) {
-    throw new TypeError("process executable has invalid memory requirements");
-  }
-  const view = new DataView(sections[0]);
-  const initial = view.getBigUint64(0, true);
-  const maximum = view.getBigUint64(8, true);
-  if (initial < 1n || maximum < initial || maximum > 131072n) {
-    throw new TypeError("process executable memory requirements are out of range");
-  }
-  return { initial, maximum };
-}
-
-function validateProcessModule(module) {
-  const imports = WebAssembly.Module.imports(module);
-  if (imports.length !== 2 ||
-      imports[0].module !== "env" || imports[0].name !== "memory" ||
-      imports[0].kind !== "memory" ||
-      imports[1].module !== "dolly_process_0" || imports[1].name !== "call" ||
-      imports[1].kind !== "function") {
-    throw new TypeError("process executable imports do not match dolly-process-0");
-  }
-  const entry = WebAssembly.Module.exports(module).find(
-    (item) => item.name === "_start" && item.kind === "function",
-  );
-  if (!entry) throw new TypeError("process executable does not export _start");
-  const stamps = WebAssembly.Module.customSections(module, "dolly.process");
-  if (stamps.length !== 1 || hex(stamps[0]) !== DOLLY_PROCESS_ABI_DIGEST) {
-    throw new TypeError("process executable has the wrong dolly.process stamp");
-  }
-  return processMemoryRequirements(module);
-}
-
 function createProcessMemory({ initial, maximum }) {
   return new WebAssembly.Memory({
     initial,
@@ -138,7 +107,7 @@ function createProcessMemory({ initial, maximum }) {
 }
 
 export class DollyProcessSupervisor {
-  constructor(dolly, kernelMemory, gateModule, workerUrl) {
+  constructor(dolly, kernelMemory, gateModule, workerUrl, processContract, dsoContract) {
     if (!(kernelMemory instanceof WebAssembly.Memory) ||
         !(gateModule instanceof WebAssembly.Module) || !(workerUrl instanceof URL)) {
       throw new TypeError("invalid Dolly process supervisor configuration");
@@ -147,6 +116,8 @@ export class DollyProcessSupervisor {
     this.kernelMemory = kernelMemory;
     this.gateModule = gateModule;
     this.workerUrl = workerUrl;
+    this.processContract = processContract;
+    this.dsoContract = dsoContract;
     this.processes = new Map();
     this.deferred = new Map();
     this.compiledModules = new Map();
@@ -165,18 +136,23 @@ export class DollyProcessSupervisor {
   }
 
   static async create(dolly, kernelMemory, applicationBase) {
-    const response = await fetch(new URL("dist/dolly-process-gate-0.wasm", applicationBase), {
-      cache: "no-store",
-      credentials: "same-origin",
-      redirect: "error",
-    });
-    if (!response.ok) throw new Error(`Dolly process gate returned HTTP ${response.status}`);
-    const gateModule = await WebAssembly.compile(await response.arrayBuffer());
+    const [gateBytes, contractBytes, dsoBytes] = await Promise.all([
+      "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-process-dso-0.wasm",
+    ].map(async name => {
+      const response = await fetch(new URL(`dist/${name}`, applicationBase), {
+        cache: "no-store", credentials: "same-origin", redirect: "error",
+      });
+      if (!response.ok) throw new Error(`Dolly ${name} returned HTTP ${response.status}`);
+      return response.arrayBuffer();
+    }));
+    const gateModule = await WebAssembly.compile(gateBytes);
     return new DollyProcessSupervisor(
       dolly,
       kernelMemory,
       gateModule,
       new URL("./process-worker.mjs", import.meta.url),
+      parseWasmInterface(contractBytes, "dolly-process-0"),
+      parseWasmInterface(dsoBytes, "dolly-process-dso-0"),
     );
   }
 
@@ -247,6 +223,7 @@ export class DollyProcessSupervisor {
   }
 
   #serviceTick() {
+    this.dolly._dolly_session_service();
     const displayStatus = this.dolly._dolly_terminal_present_pending();
     if (displayStatus !== 0) {
       throw new Error(`Dolly terminal presentation failed with status ${displayStatus}`);
@@ -327,10 +304,13 @@ export class DollyProcessSupervisor {
     }, compilationNoticeMilliseconds);
     let module;
     let memoryRequirements;
+    let processInterface;
     let prepared = false;
     try {
       module = await WebAssembly.compile(bytes);
-      memoryRequirements = validateProcessModule(module);
+      const parsed = parseWasmInterface(bytes);
+      memoryRequirements = validateProcessInterface(this.processContract, parsed, DOLLY_PROCESS_ABI_DIGEST);
+      processInterface = { imports: parsed.imports, exports: parsed.exports };
       prepared = true;
     } finally {
       clearTimeout(notice);
@@ -342,7 +322,7 @@ export class DollyProcessSupervisor {
         );
       }
     }
-    const compiled = { module, memoryRequirements, byteLength: bytes.byteLength };
+    const compiled = { module, memoryRequirements, processInterface, byteLength: bytes.byteLength };
     if (bytes.byteLength <= compiledModuleCacheBytes) {
       this.compiledModules.set(key, compiled);
       this.compiledModuleBytes += bytes.byteLength;
@@ -402,7 +382,7 @@ export class DollyProcessSupervisor {
         throw new Error(`kernel did not release executable ${pid}`);
       }
       try {
-        const { module, memoryRequirements } = await this.#compileProcess(bytes);
+        const { module, memoryRequirements, processInterface } = await this.#compileProcess(bytes);
         const memory = createProcessMemory(memoryRequirements);
         const gate = await WebAssembly.instantiate(this.gateModule, {
           process: { memory },
@@ -427,7 +407,8 @@ export class DollyProcessSupervisor {
         worker.addEventListener("message", process.messageHandler);
         worker.addEventListener("error", process.errorHandler, { once: true });
         worker.addEventListener("messageerror", process.messageErrorHandler, { once: true });
-        worker.postMessage({ type: "configure", pid, module, memory, control });
+        worker.postMessage({ type: "configure", pid, module, memory, control,
+          processInterface, dsoContract: this.dsoContract });
         this.#armDeadline(process);
         this.#updateForeground();
       } catch (error) {

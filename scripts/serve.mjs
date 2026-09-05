@@ -53,9 +53,13 @@ const publicSources = new Set([
   "src/kernel-plugin.mjs",
   "src/module-cache.mjs",
   "src/process-ffi.mjs",
+  "src/process-abi.mjs",
+  "src/wasm-interface.mjs",
   "src/process-supervisor.mjs",
   "src/process-worker.mjs",
   "src/session-store.mjs",
+  "src/session-transport.mjs",
+  "src/sessions.mjs",
   "src/runtime-worker.mjs",
 ]);
 const sourceArtifacts = new Map(staticSources.map((source) => [
@@ -76,6 +80,7 @@ const routeDocuments = new Map([
   ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
   ["/rebuild", "build/routes/rebuild/index.html"],
   ["/load", "build/routes/load/index.html"],
+  ["/session", "build/routes/session/index.html"],
   ...imageGraphs.flatMap(({ definition, graph }) => graph.modules.map((module) => [
     `/view/${definition.image}/modules/${module.name}`,
     `build/routes/view/${definition.image}/modules/${module.name}/index.html`,
@@ -87,8 +92,10 @@ const server = createServer(async (request, response) => {
     const requestUrl = new URL(request.url, "http://127.0.0.1");
     const route = decodeURIComponent(requestUrl.pathname).replace(/\/+$/, "") || "/";
     const requested = route.slice(1);
+    const sessionRoute = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(route);
     const relative = route === "/"
       ? "index.html"
+      : sessionRoute ? "build/routes/session/open.html"
       : routeDocuments.get(route) ?? sourceArtifacts.get(requested)?.relative ??
         (requested.startsWith("static/") ? `dist/${requested}` : requested);
     const path = resolve(projectDir, relative);
@@ -99,7 +106,7 @@ const server = createServer(async (request, response) => {
         path.startsWith(`${resolve(projectDir, directory)}${sep}`),
     );
     if ((request.method !== "GET" && request.method !== "HEAD") ||
-        (!publicSources.has(relative) && !routeDocuments.has(route) &&
+        (!publicSources.has(relative) && !routeDocuments.has(route) && !sessionRoute &&
          !sourceArtifacts.has(requested) &&
          !relative.startsWith("docs/") && !inspectableDefinition && !distAsset)) {
       response.writeHead(404, isolationHeaders).end("not found");

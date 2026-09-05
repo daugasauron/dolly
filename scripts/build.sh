@@ -136,6 +136,20 @@ node scripts/dolly-abi.mjs bind-process-layout \
   build/dolly-process-0.wasm \
   include/dolly/process.h
 
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-dso-0.wat \
+  --enable-memory64 --enable-reference-types --enable-threads --disable-compact-imports \
+  -o dist/dolly-process-dso-0.wasm
+
+for fixture in process-minimal process-no-dso process-wrong-call process-wrong-start process-wrong-memory; do
+  "${container[@]}" /emsdk/upstream/bin/wasm-as "test/fixtures/${fixture}.wat" \
+    --enable-memory64 --enable-threads --disable-compact-imports \
+    -o "build/${fixture}.wasm"
+  node scripts/dolly-abi.mjs stamp-process build/dolly-process-0.wasm "build/${fixture}.wasm"
+  if [[ "${fixture}" != process-wrong-* ]]; then
+    node scripts/dolly-abi.mjs validate-process build/dolly-process-0.wasm "build/${fixture}.wasm"
+  fi
+done
+
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-gate-0.wat \
   --enable-memory64 \
   --enable-multimemory \
@@ -144,6 +158,13 @@ node scripts/dolly-abi.mjs bind-process-layout \
   --enable-threads \
   --disable-compact-imports \
   -o build/dolly-process-gate-0.wasm
+
+(
+  trap 'rm -f build/browser-errno.i' EXIT
+  "${container[@]}" /emsdk/upstream/emscripten/emcc -m64 -E -P \
+    scripts/browser-errno.c > build/browser-errno.i
+  node scripts/generate-browser-errno.mjs build/browser-errno.i dist/dolly-errno.mjs
+)
 
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-supervisor-0.wat \
   --enable-memory64 \
@@ -285,6 +306,12 @@ node scripts/dolly-abi.mjs emit-digest-module \
   build/dolly-process-0.wasm \
   dist/dolly-process-abi.mjs \
   DOLLY_PROCESS_ABI_DIGEST
+
+node test/build-dso-fixtures.mjs "${container[@]}" /emsdk/upstream/bin/wasm-as
+node scripts/dolly-abi.mjs stamp-process build/dolly-process-0.wasm \
+  build/process-dso-host.wasm build/process-dso-bad-host.wasm
+node scripts/dolly-abi.mjs validate-process-dso \
+  build/dolly-process-0.wasm dist/dolly-process-dso-0.wasm build/dso-types.wasm
 
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-display-0.wat \
   --enable-memory64 \

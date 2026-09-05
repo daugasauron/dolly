@@ -59,6 +59,10 @@ paths, native processes, sockets, DOM access, or JavaScript evaluation.
 User input, framebuffer output, file downloads, and explicit opaque session
 storage are additional visible channels; see the [security model](security.md).
 "One network edge" does not mean "no other information crosses the boundary."
+For saves, Wasm owns base fingerprints and filesystem delta encoding; the page
+copies bounded opaque chunks to local IndexedDB. `/session/` lists metadata and
+`/session/NAME` boots the verified base before Wasm applies the delta. No new Wasm
+import or path-level host filesystem API is involved; see [sessions](sessions.md).
 
 Boot reads fixed application assets. `runtime-worker.mjs` accepts only the
 fixed `dolly.wasm` and `dolly.data` artifact names for the generated runtime.
@@ -74,6 +78,13 @@ exports plus memory/table globals. It cannot fetch dependencies or evaluate
 JavaScript. The ABI stamp checks compatibility; the closed import map, not
 trust in the stamp or plugin code, limits authority. Ordinary commands and
 process-local DSOs use the separate process boundary.
+
+That process boundary uses the same byte-level validator in the build tools
+and browser supervisor (`src/process-abi.mjs`). A minimal executable needs
+only its declared memory, the typed syscall import, and `_start`; optional
+DSO/FFI support is not a prerequisite for running a program.
+The optional DSO profile is `abi/dolly-process-dso-0.wat`; library symbols are
+resolved only from typed process-local Wasm exports, never browser globals.
 
 ## Recheck mechanically
 

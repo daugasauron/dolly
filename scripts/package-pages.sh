@@ -37,15 +37,22 @@ for required in \
   src/kernel-plugin.mjs \
   src/module-cache.mjs \
   src/process-ffi.mjs \
+  src/process-abi.mjs \
+  src/wasm-interface.mjs \
   src/process-supervisor.mjs \
   src/process-worker.mjs \
   src/session-store.mjs \
+  src/session-transport.mjs \
+  src/sessions.mjs \
   src/runtime-worker.mjs \
   dist/dolly-images.mjs \
   dist/dolly.mjs \
   dist/dolly.wasm \
   dist/dolly.data \
   dist/dolly-process-abi.mjs \
+  dist/dolly-process-0.wasm \
+  dist/dolly-process-dso-0.wasm \
+  dist/dolly-errno.mjs \
   dist/dolly-kernel-plugin-abi.mjs \
   dist/dolly-browser-0.wasm \
   dist/dolly-process-gate-0.wasm; do
@@ -85,9 +92,13 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/kernel-plugin.mjs" \
   "${project_dir}/src/module-cache.mjs" \
   "${project_dir}/src/process-ffi.mjs" \
+  "${project_dir}/src/process-abi.mjs" \
+  "${project_dir}/src/wasm-interface.mjs" \
   "${project_dir}/src/process-supervisor.mjs" \
   "${project_dir}/src/process-worker.mjs" \
   "${project_dir}/src/session-store.mjs" \
+  "${project_dir}/src/session-transport.mjs" \
+  "${project_dir}/src/sessions.mjs" \
   "${project_dir}/src/runtime-worker.mjs" \
   "${staging}/site/src/"
 for module_name in "${module_names[@]}"; do
@@ -105,7 +116,9 @@ for image_name in "${image_names[@]}"; do
 done
 cp -R "${project_dir}/build/routes/custom" "${project_dir}/build/routes/rebuild" \
   "${project_dir}/build/routes/load" \
+  "${project_dir}/build/routes/session" \
   "${staging}/site/"
+cp "${project_dir}/build/routes/404.html" "${staging}/site/404.html"
 cp -R "${project_dir}/build/routes/view" "${staging}/site/"
 cp -R "${project_dir}/dist/static" "${staging}/site/"
 cp \
@@ -116,6 +129,9 @@ cp \
   "${project_dir}/dist/dolly.mjs" \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-process-abi.mjs" \
+  "${project_dir}/dist/dolly-process-0.wasm" \
+  "${project_dir}/dist/dolly-process-dso-0.wasm" \
+  "${project_dir}/dist/dolly-errno.mjs" \
   "${project_dir}/dist/dolly-kernel-plugin-abi.mjs" \
   "${project_dir}/dist/dolly-browser-0.wasm" \
   "${project_dir}/dist/dolly-process-gate-0.wasm" \

@@ -1,13 +1,14 @@
 import { consumeDollyHttpPolicy } from "./http-policy.mjs";
 import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION } from "./http-broker.mjs";
+import { SessionTransport } from "./session-transport.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
-  DOLLY_SESSION_MAX_BYTES,
   decodeSessionSnapshot,
   encodeSessionSnapshot,
   loadStoredSession,
   saveStoredSession,
   sessionImageIdentity,
+  sessionLoadUrl,
   validSessionName,
 } from "./session-store.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
@@ -52,6 +53,8 @@ let activeImage = null;
 let activeImageIdentity = null;
 let currentSessionName = null;
 let sessionSavePromise = null;
+let sessionSaveController = null;
+let sessionStatusTimer;
 let pendingForegroundInterrupt = null;
 let hardRestarting = false;
 
@@ -129,6 +132,7 @@ for (const button of phoneMenu.querySelectorAll("[data-dolly-input]")) {
 }
 
 function displayFatal(message) {
+  sessionSaveController?.abort(new Error("The runtime stopped; the previous save is unchanged"));
   canvas.hidden = true;
   bootstrapLog.hidden = false;
   appendBootstrap(`\nFATAL\n${message}\n`);
@@ -493,141 +497,6 @@ class DisplayTransport {
   }
 }
 
-class SessionTransport {
-  static requestSequence = 0;
-  static completedSequence = 1;
-  static status = 2;
-  static nameLength = 3;
-  static chunkSequence = 4;
-  static chunkConsumedSequence = 5;
-  static chunkLength = 6;
-  static chunkEof = 7;
-  static totalSizeLow = 8;
-  static totalSizeHigh = 9;
-
-  constructor(buffer, address, nameAddress, nameCapacity,
-              transferAddress, transferCapacity, displayTransport) {
-    if (!(buffer instanceof SharedArrayBuffer) || address <= 0 || address % 4 !== 0 ||
-        nameAddress <= 0 || nameCapacity < 65 ||
-        nameAddress + nameCapacity > buffer.byteLength ||
-        transferAddress <= 0 || transferCapacity !== 1024 * 1024 ||
-        transferAddress + transferCapacity > buffer.byteLength) {
-      throw new Error("Dolly supplied an invalid session mailbox");
-    }
-    this.buffer = buffer;
-    this.bytes = new Uint8Array(buffer);
-    this.words = new Int32Array(buffer);
-    this.address = address;
-    this.word = address / 4;
-    this.nameAddress = nameAddress;
-    this.nameCapacity = nameCapacity;
-    this.transferAddress = transferAddress;
-    this.transferCapacity = transferCapacity;
-    this.displayTransport = displayTransport;
-  }
-
-  readU64(lowIndex, highIndex) {
-    const low = Atomics.load(this.words, this.word + lowIndex) >>> 0;
-    const high = Atomics.load(this.words, this.word + highIndex) >>> 0;
-    const value = (BigInt(high) << 32n) | BigInt(low);
-    if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
-      throw new Error("Dolly session range exceeds JavaScript's safe address range");
-    }
-    return Number(value);
-  }
-
-  async capture(name) {
-    if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
-    const nameBytes = encoder.encode(name);
-    if (nameBytes.byteLength >= this.nameCapacity) {
-      throw new Error("Dolly session name exceeds its mailbox");
-    }
-    const published = Atomics.load(
-      this.words, this.word + SessionTransport.requestSequence,
-    ) >>> 0;
-    const completed = Atomics.load(
-      this.words, this.word + SessionTransport.completedSequence,
-    ) >>> 0;
-    if (published !== completed) throw new Error("A Dolly session save is already active");
-    let chunkSequence = Atomics.load(
-      this.words, this.word + SessionTransport.chunkSequence,
-    ) >>> 0;
-    this.bytes.fill(0, this.nameAddress, this.nameAddress + this.nameCapacity);
-    this.bytes.set(nameBytes, this.nameAddress);
-    Atomics.store(
-      this.words, this.word + SessionTransport.nameLength, nameBytes.byteLength,
-    );
-    const requested = (published + 1) >>> 0;
-    Atomics.store(
-      this.words, this.word + SessionTransport.requestSequence, requested | 0,
-    );
-    this.displayTransport.wake();
-    let snapshot = null;
-    let snapshotOffset = 0;
-    for (;;) {
-      const chunkIndex = this.word + SessionTransport.chunkSequence;
-      while ((Atomics.load(this.words, chunkIndex) >>> 0) === chunkSequence) {
-        const observed = Atomics.load(this.words, chunkIndex);
-        const waiting = Atomics.waitAsync(this.words, chunkIndex, observed);
-        if (waiting.async) await waiting.value;
-      }
-      const publishedChunk = Atomics.load(this.words, chunkIndex) >>> 0;
-      if (publishedChunk !== ((chunkSequence + 1) >>> 0)) {
-        throw new Error("Dolly session chunk sequence skipped");
-      }
-      const length = Atomics.load(
-        this.words, this.word + SessionTransport.chunkLength,
-      ) >>> 0;
-      const eof = Atomics.load(
-        this.words, this.word + SessionTransport.chunkEof,
-      ) !== 0;
-      const total = this.readU64(
-        SessionTransport.totalSizeLow, SessionTransport.totalSizeHigh,
-      );
-      if (length > this.transferCapacity || snapshotOffset > total - length) {
-        throw new Error("Dolly published an invalid session chunk");
-      }
-      if (snapshot === null && total !== 0) {
-        if (total < 16 || total > DOLLY_SESSION_MAX_BYTES) {
-          throw new Error("Dolly published an invalid session snapshot size");
-        }
-        snapshot = new Uint8Array(total);
-      }
-      if (length !== 0) {
-        if (snapshot === null) throw new Error("Dolly published data without a session size");
-        snapshot.set(
-          new Uint8Array(this.buffer, this.transferAddress, length),
-          snapshotOffset,
-        );
-        snapshotOffset += length;
-      }
-      Atomics.store(
-        this.words,
-        this.word + SessionTransport.chunkConsumedSequence,
-        publishedChunk | 0,
-      );
-      Atomics.notify(
-        this.words,
-        this.word + SessionTransport.chunkConsumedSequence,
-      );
-      chunkSequence = publishedChunk;
-      if (eof) break;
-    }
-    const completedIndex = this.word + SessionTransport.completedSequence;
-    while ((Atomics.load(this.words, completedIndex) >>> 0) !== requested) {
-      const observed = Atomics.load(this.words, completedIndex);
-      const waiting = Atomics.waitAsync(this.words, completedIndex, observed);
-      if (waiting.async) await waiting.value;
-    }
-    const status = Atomics.load(this.words, this.word + SessionTransport.status);
-    if (status !== 0) throw new Error(`Dolly session capture failed with status ${status}`);
-    if (snapshot === null || snapshotOffset !== snapshot.byteLength) {
-      throw new Error("Dolly session snapshot was incomplete");
-    }
-    return snapshot.buffer;
-  }
-}
-
 class FramebufferPresenter {
   constructor(canvasElement, buffer, frameAddresses, capacity, displayTransport) {
     this.canvas = canvasElement;
@@ -769,6 +638,14 @@ function sendResize() {
   }
 }
 
+function showSessionStatus(message, persistent = false) {
+  const status = document.querySelector("#session-status");
+  clearTimeout(sessionStatusTimer);
+  status.textContent = message;
+  status.hidden = false;
+  if (!persistent) sessionStatusTimer = setTimeout(() => { status.hidden = true; }, 6000);
+}
+
 async function saveCurrentSession(requestedName) {
   if (sessionSavePromise) return sessionSavePromise;
   sessionSavePromise = (async () => {
@@ -778,6 +655,9 @@ async function saveCurrentSession(requestedName) {
     if (!activeImageIdentity) {
       throw new Error("Uploaded custom images cannot save named sessions yet");
     }
+    if (document.documentElement.dataset.bootMode !== "snapshot") {
+      throw new Error("Open the prebuilt image before saving a named session");
+    }
     let name = requestedName ?? currentSessionName;
     if (name === null) {
       name = window.prompt("Save Dolly session as:", "");
@@ -785,10 +665,16 @@ async function saveCurrentSession(requestedName) {
       name = name.trim();
     }
     if (!validSessionName(name)) {
-      throw new Error("Session names use 1-64 letters, numbers, '.', '_' or '-'");
+      throw new Error("Session names use 1-64 letters, numbers, '.', '_' or '-'; index.html is reserved");
     }
+    if (name !== currentSessionName && await loadStoredSession(name) !== null &&
+        !window.confirm(`Replace the saved session '${name}'?`)) return null;
+    delete document.documentElement.dataset.sessionError;
+    showSessionStatus(`Saving ${name}…`, true);
     document.documentElement.dataset.sessionStatus = "capturing";
-    const snapshot = await sessionTransport.capture(name);
+    sessionSaveController = new AbortController();
+    const snapshot = await sessionTransport.capture(name, { signal: sessionSaveController.signal });
+    document.documentElement.dataset.sessionUncompressedBytes = String(snapshot.byteLength);
     document.documentElement.dataset.sessionStatus = "compressing";
     const encoded = await encodeSessionSnapshot(snapshot);
     document.documentElement.dataset.sessionStatus = "storing";
@@ -806,17 +692,18 @@ async function saveCurrentSession(requestedName) {
     document.documentElement.dataset.session = name;
     document.documentElement.dataset.sessionBytes = String(encoded.bytes.byteLength);
     document.documentElement.dataset.sessionStatus = "saved";
-    const target = new URL("load/", new URL("../", import.meta.url));
-    target.searchParams.set("session", name);
-    history.replaceState(null, "", target);
+    history.replaceState(null, "", sessionLoadUrl(name, new URL("../", import.meta.url)));
+    showSessionStatus(`Saved ${name} locally · /session lists your saves`);
     return name;
   })().catch((error) => {
     document.documentElement.dataset.sessionStatus = "failed";
     document.documentElement.dataset.sessionError =
       error instanceof Error ? error.message : String(error);
+    showSessionStatus(`Save failed: ${document.documentElement.dataset.sessionError}`, true);
     throw error;
   }).finally(() => {
     sessionSavePromise = null;
+    sessionSaveController = null;
   });
   return sessionSavePromise;
 }
@@ -836,6 +723,7 @@ function clearPendingForegroundInterrupt() {
 function hardRestartRuntime(pid) {
   if (hardRestarting) return;
   hardRestarting = true;
+  sessionSaveController?.abort(new Error("Dolly is restarting; the previous save is unchanged"));
   clearPendingForegroundInterrupt();
   document.documentElement.dataset.dollyStatus = "hard-restarting";
   document.documentElement.dataset.hardInterruptPid = String(pid);
@@ -1324,17 +1212,17 @@ async function boot() {
   let restoredSession = null;
   let sessionSnapshot;
   if (configured.loadSession) {
-    const name = new URL(location.href).searchParams.get("session");
+    const name = decodeURIComponent(location.pathname.replace(/\/+$/, "").split("/").at(-1));
     if (!validSessionName(name)) throw new Error("The Dolly session URL has an invalid name");
     restoredSession = await loadStoredSession(name);
-    if (restoredSession === null) throw new Error(`Dolly session '${name}' was not found`);
+    if (restoredSession === null) throw new Error(`Session '${name}' was not found in this browser. Open /session to see saved sessions.`);
     if (restoredSession.name !== name ||
         restoredSession.formatVersion !== DOLLY_SESSION_FORMAT_VERSION ||
         restoredSession.buildId !== DOLLY_BUILD_ID ||
         !packagedImages.has(restoredSession.image) ||
         restoredSession.imageIdentity !==
           sessionImageIdentity(DOLLY_IMAGES, restoredSession.image)) {
-      throw new Error("The stored Dolly session does not match this runtime or image recipe");
+      throw new Error("This save belongs to an older runtime or image recipe. It has not been deleted or overwritten. Open /session to see saved sessions.");
     }
     image = restoredSession.image;
     sessionSnapshot = await decodeSessionSnapshot(restoredSession);
@@ -1479,7 +1367,7 @@ async function boot() {
   runtimeReady = true;
   if (ready.version !== 4) throw new Error(`unsupported display mailbox ${ready.version}`);
   if (ready.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION) throw new Error(`unsupported HTTP mailbox ${ready.httpVersion}`);
-  if (ready.sessionVersion !== 1) {
+  if (ready.sessionVersion !== 2) {
     throw new Error(`unsupported session mailbox ${ready.sessionVersion}`);
   }
   if (ready.frameAddresses.length !== 2 || ready.frameAddresses.some((address) => !address)) {

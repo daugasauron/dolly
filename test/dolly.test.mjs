@@ -292,7 +292,7 @@ test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
   const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
   const store = await readFile(new URL("../src/session-store.mjs", import.meta.url), "utf8");
   const loadRoute = await readFile(
-    new URL("../build/routes/load/index.html", import.meta.url), "utf8",
+    new URL("../build/routes/session/open.html", import.meta.url), "utf8",
   );
 
   for (const name of [
@@ -302,6 +302,8 @@ test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
     "dolly_session_name_capacity",
     "dolly_session_restore_address",
     "dolly_session_restore",
+    "dolly_session_base_capture",
+    "dolly_session_service",
   ]) {
     const required = contract.exports.find((entry) => entry.name === name);
     const actual = runtime.exports.find((entry) => entry.name === name);
@@ -309,7 +311,8 @@ test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
     assert.equal(sameWasmType(actual.type, required.type), true);
   }
   assert.match(source, /capture_filesystem\(\)/);
-  assert.match(source, /clear_mutable_filesystem\(\)/);
+  assert.match(source, /DOLLY_SESSION_DELETED/);
+  assert.doesNotMatch(source, /clear_mutable_filesystem|ATOMICS_WAIT_DURATION_INFINITE/);
   assert.match(source, /"\/home\/dolly\/\.dolly-session-name"/);
   assert.match(source, /strcmp\(path, "\/dev"\)/);
   assert.match(source, /strcmp\(path, "\/seed"\)/);
@@ -318,7 +321,7 @@ test("named sessions persist opaque in-Wasm filesystem snapshots", async () => {
   assert.match(browser, /saveStoredSession/);
   assert.match(store, /indexedDB\.open/);
   assert.match(store, /CompressionStream\("gzip"\)/);
-  assert.match(worker, /_dolly_session_restore\(BigInt\(sessionRange\.size\)\)/);
+  assert.match(worker, /_dolly_session_restore\(BigInt\(size\)\)/);
   assert.doesNotMatch(browser, /FS\.(?:readdir|readFile|writeFile)/);
   assert.match(loadRoute, /loadSession: true/);
 
@@ -1034,14 +1037,12 @@ test("process executables and DSOs are revalidated at their actual load boundari
 
   assert.match(compiler, /bool has_kernel_plugin_stamp\(const std::string &path\)/);
   assert.match(compiler, /matches != 1/);
-  assert.match(supervisor, /function validateProcessModule\(module\)/);
-  assert.match(supervisor, /customSections\(module, "dolly\.process"\)/);
+  assert.match(supervisor, /validateProcessInterface\(/);
+  assert.match(supervisor, /parseWasmInterface\(bytes\)/);
   assert.match(supervisor, /largeInteractiveProcessBytes/);
   assert.match(supervisor, /workerReclamationMilliseconds/);
-  assert.match(supervisor, /imports\.length !== 2/);
-  assert.match(worker, /function validateDsoModule\(module\)/);
-  assert.match(worker, /customSections\(module, "dolly\.process\.dso"\)/);
-  assert.match(worker, /shared-object import is outside the process namespace/);
+  assert.match(worker, /validateDsoInterface\(contract, parseWasmInterface\(bytes\)/);
+  assert.match(worker, /validateDsoHost\(/);
   assert.match(runtime, /prepare_display_driver[\s\S]*?fopen\(driver_path, "rb"\)/);
   assert.doesNotMatch(runtime, /\bdlopen\s*\(|\bdlsym\s*\(/);
   assert.doesNotMatch(runtime, /dolly_run_filesystem_module|dolly_toolchain_validate/);
@@ -1170,7 +1171,7 @@ test("the process DSO loader resolves self imports and weak relocations", async 
   );
   assert.match(loader, /id === 4/);
   assert.match(loader, /weakImports\.add/);
-  assert.match(loader, /dsoInstance && symbolFrom\(dsoInstance\.exports/);
+  assert.match(loader, /dsoSymbols\?\.get\(pending\.name\)/);
   assert.match(loader, /relocation\.weak/);
   assert.match(fixture, /std::unordered_map<int, std::function<int\(int\)>>/);
 });

@@ -96,6 +96,7 @@ target_link_options(dolly PRIVATE
   "SHELL:--preload-file /src/include/dolly/toolchain.h@/seed/usr/include/dolly/toolchain.h"
   "SHELL:--preload-file /src/src/slop.c@/seed/usr/src/dolly/slop.c"
   "SHELL:--preload-file /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c"
+  "SHELL:--preload-file /src/src/sha256.h@/seed/usr/src/dolly/sha256.h"
   "SHELL:--preload-file /src/src/commands/mkdir.c@/seed/usr/src/dolly/commands/mkdir.c"
   "SHELL:--preload-file /src/src/commands/rm.c@/seed/usr/src/dolly/commands/rm.c"
   "SHELL:--preload-file /src/src/process/cc.c@/seed/usr/src/dolly/process-tools/cc.c"

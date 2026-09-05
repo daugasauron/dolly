@@ -57,9 +57,9 @@ commands in source-visible userspace rather than browser UI or new recipe
 syntax.
 Mutable runtime state never becomes browser or host filesystem state.
 Named sessions are the explicit exception in storage direction: Ctrl+Shift+S
-serializes the in-Wasm filesystem, compresses it, and stores the opaque bytes
-in same-origin IndexedDB. `/load/?session=NAME` restores only a session whose
-runtime build and Dollyfile identity still match.
+serializes filesystem changes against the base image, compresses them, and stores
+the opaque bytes in same-origin IndexedDB. `/session/` lists local saves;
+`/session/NAME` restores one whose runtime build and Dollyfile identity still match.
 
 The menu also accepts a bounded text Dollyfile that selects pinned modules.
 A small browser-side check only selects the route; the C
@@ -187,6 +187,8 @@ need. Credential values remain inside Dolly; the browser does not inject them.
   [2026-09-01](docs/agent-audit-2026-09-01.md) — dated verification records;
   current priorities live in the roadmap.
 - [Roadmap](docs/roadmap.md) — prioritized next milestones and acceptance gates.
+- [Audit handoff](docs/audit-handoff.md) — remaining September 5 findings,
+  evidence, acceptance gates, and uncommitted checkpoint state.
 - [Dollyfile version 2](docs/dollyfile.md) — the C-executed sequential
   source-to-snapshot recipe and image identity model.
 

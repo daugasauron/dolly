@@ -1,4 +1,5 @@
 #include "session-snapshot.h"
+#include "sha256.h"
 
 #include <dirent.h>
 #include <emscripten/atomic.h>
@@ -12,10 +13,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 enum {
-  DOLLY_SESSION_VERSION = 1,
+  DOLLY_SESSION_VERSION = 2,
   DOLLY_SESSION_HEADER_SIZE = 16,
   DOLLY_SESSION_RECORD_SIZE = 16,
   DOLLY_SESSION_MAX_RECORDS = 100000,
@@ -25,6 +27,7 @@ enum {
   DOLLY_SESSION_DIRECTORY = 1,
   DOLLY_SESSION_FILE = 2,
   DOLLY_SESSION_SYMLINK = 3,
+  DOLLY_SESSION_DELETED = 4,
 };
 
 static const uintptr_t DOLLY_SESSION_MAX_SIZE =
@@ -44,14 +47,16 @@ typedef struct {
   _Atomic uint32_t chunk_eof;
   _Atomic uint32_t total_size_low;
   _Atomic uint32_t total_size_high;
+  _Atomic uint32_t cancelled_sequence;
   unsigned char reserved[DOLLY_SESSION_MAILBOX_HEADER_SIZE -
-                         10 * sizeof(uint32_t)];
+                         11 * sizeof(uint32_t)];
 } dolly_session_mailbox;
 
 typedef struct {
   char *path;
   uint32_t kind;
   uintptr_t size;
+  unsigned char digest[32];
 } dolly_session_record;
 
 typedef struct {
@@ -69,6 +74,8 @@ static unsigned char *capture_bytes;
 static uintptr_t capture_size;
 static unsigned char *restore_bytes;
 static uintptr_t restore_capacity;
+static dolly_session_records base_records;
+static int base_ready;
 
 static int checked_add(uintptr_t *total, uintptr_t amount) {
   if (amount > DOLLY_SESSION_MAX_SIZE ||
@@ -145,7 +152,7 @@ static int take_u64(const unsigned char **cursor, const unsigned char *end,
 }
 
 static int valid_path_bytes(const unsigned char *path, uint32_t length) {
-  if (length < 2 || length > 4096 || path[0] != '/' ||
+  if (length < 2 || length >= PATH_MAX || path[0] != '/' || path[length - 1] == '/' ||
       (length == 4 && memcmp(path, "/dev", 4) == 0) ||
       (length > 4 && memcmp(path, "/dev/", 5) == 0) ||
       (length == 5 && memcmp(path, "/seed", 5) == 0) ||
@@ -286,16 +293,96 @@ static int compare_records(const void *left_value, const void *right_value) {
   return strcmp(left->path, right->path);
 }
 
+static int fingerprint_record(dolly_session_record *record) {
+  Sha256 sha;
+  sha256_init(&sha);
+  unsigned char bytes[65536];
+  if (record->kind == DOLLY_SESSION_FILE) {
+    int descriptor = open(record->path, O_RDONLY);
+    if (descriptor < 0) return -1;
+    uintptr_t remaining = record->size;
+    while (remaining != 0) {
+      const size_t length = remaining < sizeof(bytes) ? remaining : sizeof(bytes);
+      if (read_exact(descriptor, bytes, length) != 0) {
+        close(descriptor);
+        return -1;
+      }
+      sha256_update(&sha, bytes, length);
+      remaining -= length;
+    }
+    if (close(descriptor) != 0) return -1;
+  } else if (record->kind == DOLLY_SESSION_SYMLINK) {
+    ssize_t length = readlink(record->path, (char *)bytes, sizeof(bytes));
+    if (length < 0 || (uintptr_t)length != record->size) return -1;
+    sha256_update(&sha, bytes, (size_t)length);
+  }
+  sha256_finish(&sha, record->digest);
+  return 0;
+}
+
+static int collect_fingerprints(dolly_session_records *records) {
+  if (collect_tree("/", records) != 0) return -1;
+  qsort(records->records, records->count, sizeof(*records->records), compare_records);
+  for (size_t index = 0; index < records->count; ++index) {
+    if (fingerprint_record(&records->records[index]) != 0) return -1;
+  }
+  return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_session_base_capture(void) {
+  if (base_ready) return 1;
+  if (collect_fingerprints(&base_records) != 0) {
+    dispose_records(&base_records);
+    return 1;
+  }
+  base_ready = 1;
+  return 0;
+}
+
 static int capture_filesystem(void) {
   dolly_session_records records = {0};
-  if (collect_tree("/", &records) != 0) {
+  if (!base_ready) { errno = EINVAL; return -1; }
+  if (collect_fingerprints(&records) != 0) {
     dispose_records(&records);
     return -1;
+  }
+  // Keep only differences from the immutable boot baseline. Fingerprints and
+  // paths stay in Wasm; the browser handles only the resulting opaque delta.
+  size_t current = 0;
+  for (size_t index = 0; index < base_records.count; ++index) {
+    const dolly_session_record *base = &base_records.records[index];
+    while (current < records.count &&
+           strcmp(records.records[current].path, base->path) < 0) ++current;
+    if (current < records.count &&
+        strcmp(records.records[current].path, base->path) == 0) {
+      dolly_session_record *record = &records.records[current++];
+      if (record->kind == base->kind && record->size == base->size &&
+          memcmp(record->digest, base->digest, sizeof(base->digest)) == 0) {
+        record->kind = 0;
+      }
+    }
+  }
+  // A second merge detects deleted base paths before appending tombstones.
+  current = 0;
+  const size_t present_count = records.count;
+  for (size_t index = 0; index < base_records.count; ++index) {
+    const char *path = base_records.records[index].path;
+    while (current < present_count && strcmp(records.records[current].path, path) < 0) ++current;
+    if (current == present_count || strcmp(records.records[current].path, path) != 0) {
+      if (append_record(&records, path, DOLLY_SESSION_DELETED, 0) != 0) {
+        dispose_records(&records);
+        return -1;
+      }
+    }
   }
   qsort(records.records, records.count, sizeof(*records.records),
         compare_records);
   uintptr_t total = DOLLY_SESSION_HEADER_SIZE;
+  uint32_t count = 0;
   for (size_t index = 0; index < records.count; ++index) {
+    if (records.records[index].kind == 0) continue;
+    ++count;
     const uintptr_t path_length = strlen(records.records[index].path);
     if (checked_add(&total, DOLLY_SESSION_RECORD_SIZE) != 0 ||
         checked_add(&total, path_length) != 0 ||
@@ -315,9 +402,10 @@ static int capture_filesystem(void) {
   memcpy(cursor, DOLLY_SESSION_MAGIC, sizeof(DOLLY_SESSION_MAGIC));
   cursor += sizeof(DOLLY_SESSION_MAGIC);
   put_u32(&cursor, DOLLY_SESSION_VERSION);
-  put_u32(&cursor, (uint32_t)records.count);
+  put_u32(&cursor, count);
   for (size_t index = 0; index < records.count; ++index) {
     const dolly_session_record *record = &records.records[index];
+    if (record->kind == 0) continue;
     const uint32_t path_length = (uint32_t)strlen(record->path);
     put_u32(&cursor, record->kind);
     put_u32(&cursor, path_length);
@@ -383,33 +471,18 @@ static int remove_tree(const char *path) {
   return result;
 }
 
-static int clear_mutable_filesystem(void) {
-  DIR *root = opendir("/");
-  if (root == NULL) return -1;
-  int result = 0;
-  for (;;) {
-    errno = 0;
-    struct dirent *entry = readdir(root);
-    if (entry == NULL) {
-      if (errno != 0) result = -1;
-      break;
-    }
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 ||
-        strcmp(entry->d_name, "dev") == 0 || strcmp(entry->d_name, "seed") == 0) {
-      continue;
-    }
-    char path[PATH_MAX];
-    if (snprintf(path, sizeof(path), "/%s", entry->d_name) >=
-        (int)sizeof(path) || remove_tree(path) != 0) {
-      if (errno == 0) errno = ENAMETOOLONG;
-      result = -1;
-      break;
-    }
+// Never follow an existing symlink ancestor while removing a delta path.
+static int existing_parents_are_directories(const char *path) {
+  char copy[PATH_MAX];
+  strcpy(copy, path);
+  for (char *cursor = copy + 1; *cursor != '\0'; ++cursor) {
+    if (*cursor != '/') continue;
+    *cursor = '\0';
+    struct stat metadata;
+    if (lstat(copy, &metadata) != 0 || !S_ISDIR(metadata.st_mode)) return 0;
+    *cursor = '/';
   }
-  const int saved_error = errno;
-  if (closedir(root) != 0 && result == 0) result = -1;
-  if (result != 0) errno = saved_error == 0 ? EIO : saved_error;
-  return result;
+  return 1;
 }
 
 static int make_parent_directories(const char *path) {
@@ -515,118 +588,161 @@ uintptr_t dolly_session_restore_address(uintptr_t size) {
   return (uintptr_t)restore_bytes;
 }
 
-EMSCRIPTEN_KEEPALIVE
-int dolly_session_restore(uintptr_t size) {
-  if (restore_bytes == NULL || size < DOLLY_SESSION_HEADER_SIZE ||
-      size > restore_capacity) {
-    errno = EINVAL;
-    return 1;
-  }
+typedef struct {
+  char *path;
+  uint32_t kind;
+  uintptr_t size;
+  const unsigned char *data;
+} restore_record;
+
+static int restore_filesystem(uintptr_t size) {
+  if (!base_ready || restore_bytes == NULL || size < DOLLY_SESSION_HEADER_SIZE ||
+      size > restore_capacity) return 1;
   const unsigned char *cursor = restore_bytes;
   const unsigned char *end = restore_bytes + size;
   const unsigned char *magic;
-  uint32_t version;
-  uint32_t count;
+  uint32_t version, count;
   if (take_bytes(&cursor, end, sizeof(DOLLY_SESSION_MAGIC), &magic) != 0 ||
       memcmp(magic, DOLLY_SESSION_MAGIC, sizeof(DOLLY_SESSION_MAGIC)) != 0 ||
       take_u32(&cursor, end, &version) != 0 ||
       take_u32(&cursor, end, &count) != 0 ||
-      version != DOLLY_SESSION_VERSION || count > DOLLY_SESSION_MAX_RECORDS) {
-    errno = EINVAL;
-    return 1;
-  }
+      version != DOLLY_SESSION_VERSION || count > DOLLY_SESSION_MAX_RECORDS) return 1;
 
-  const unsigned char *validation = cursor;
-  const unsigned char *previous_path = NULL;
-  uint32_t previous_length = 0;
+  restore_record *records = calloc(count == 0 ? 1 : count, sizeof(*records));
+  if (records == NULL) return 1;
+  int result = 1;
   for (uint32_t index = 0; index < count; ++index) {
-    uint32_t kind;
+    restore_record *record = &records[index];
     uint32_t path_length;
     uint64_t data_length;
     const unsigned char *path;
-    const unsigned char *data;
-    if (take_u32(&validation, end, &kind) != 0 ||
-        take_u32(&validation, end, &path_length) != 0 ||
-        take_u64(&validation, end, &data_length) != 0 ||
-        (kind != DOLLY_SESSION_DIRECTORY && kind != DOLLY_SESSION_FILE &&
-         kind != DOLLY_SESSION_SYMLINK) ||
-        (kind == DOLLY_SESSION_DIRECTORY && data_length != 0) ||
+    if (take_u32(&cursor, end, &record->kind) != 0 ||
+        take_u32(&cursor, end, &path_length) != 0 ||
+        take_u64(&cursor, end, &data_length) != 0 ||
+        record->kind < DOLLY_SESSION_DIRECTORY || record->kind > DOLLY_SESSION_DELETED ||
+        ((record->kind == DOLLY_SESSION_DIRECTORY || record->kind == DOLLY_SESSION_DELETED) &&
+         data_length != 0) ||
         data_length > DOLLY_SESSION_MAX_SIZE ||
-        take_bytes(&validation, end, path_length, &path) != 0 ||
+        take_bytes(&cursor, end, path_length, &path) != 0 ||
         !valid_path_bytes(path, path_length) ||
-        take_bytes(&validation, end, (uintptr_t)data_length, &data) != 0) {
-      errno = EINVAL;
-      return 1;
-    }
-    if (previous_path != NULL) {
-      const uint32_t shared = previous_length < path_length
-                                  ? previous_length
-                                  : path_length;
-      const int order = memcmp(previous_path, path, shared);
-      if (order > 0 || (order == 0 && previous_length >= path_length)) {
-        errno = EINVAL;
-        return 1;
-      }
-    }
-    previous_path = path;
-    previous_length = path_length;
+        take_bytes(&cursor, end, (uintptr_t)data_length, &record->data) != 0) goto done;
+    record->path = strndup((const char *)path, path_length);
+    if (record->path == NULL) goto done;
+    record->size = (uintptr_t)data_length;
+    if (index != 0 && strcmp(records[index - 1].path, record->path) >= 0) goto done;
+    if (record->kind == DOLLY_SESSION_SYMLINK &&
+        (data_length == 0 || data_length >= PATH_MAX ||
+         memchr(record->data, 0, (size_t)data_length) != NULL)) goto done;
   }
-  if (validation != end || clear_mutable_filesystem() != 0) return 1;
+  if (cursor != end) goto done;
 
+  // Validate the final parent graph before touching files. Every parent is
+  // either an explicit directory record or an unchanged base directory.
   for (uint32_t index = 0; index < count; ++index) {
-    uint32_t kind;
-    uint32_t path_length;
-    uint64_t data_length;
-    const unsigned char *path;
-    const unsigned char *data;
-    (void)take_u32(&cursor, end, &kind);
-    (void)take_u32(&cursor, end, &path_length);
-    (void)take_u64(&cursor, end, &data_length);
-    (void)take_bytes(&cursor, end, path_length, &path);
-    (void)take_bytes(&cursor, end, (uintptr_t)data_length, &data);
-    char path_string[4097];
-    memcpy(path_string, path, path_length);
-    path_string[path_length] = '\0';
-    if (make_parent_directories(path_string) != 0) return 1;
-    if (kind == DOLLY_SESSION_DIRECTORY) {
-      if (mkdir(path_string, 0755) != 0 && errno != EEXIST) return 1;
-    } else if (kind == DOLLY_SESSION_FILE) {
-      // Sessions share the system snapshot's mode-free filesystem model. Mode
-      // bits are compatibility metadata only; executable validation still
-      // happens at Dolly's typed loader boundary.
-      int descriptor = open(path_string, O_WRONLY | O_CREAT | O_TRUNC, 0777);
-      if (descriptor < 0) return 1;
-      const int write_status =
-          write_exact(descriptor, data, (uintptr_t)data_length);
-      const int close_status = close(descriptor);
-      if (write_status != 0 || close_status != 0) return 1;
+    if (records[index].kind == DOLLY_SESSION_DELETED) continue;
+    char path[PATH_MAX];
+    strcpy(path, records[index].path);
+    for (char *slash = path + 1; *slash != '\0'; ++slash) {
+      if (*slash != '/') continue;
+      *slash = '\0';
+      size_t low = 0, high = count;
+      while (low < high) {
+        size_t middle = low + (high - low) / 2;
+        if (strcmp(records[middle].path, path) < 0) low = middle + 1;
+        else high = middle;
+      }
+      if (low < count && strcmp(records[low].path, path) == 0) {
+        if (records[low].kind != DOLLY_SESSION_DIRECTORY) goto done;
+      } else {
+        struct stat metadata;
+        if (lstat(path, &metadata) != 0 || !S_ISDIR(metadata.st_mode)) goto done;
+      }
+      *slash = '/';
+    }
+  }
+
+  // Remove children first, including old file/symlink types being replaced.
+  for (size_t index = count; index != 0; --index) {
+    restore_record *record = &records[index - 1];
+    if (!existing_parents_are_directories(record->path)) continue;
+    struct stat metadata;
+    if (record->kind == DOLLY_SESSION_DIRECTORY &&
+        lstat(record->path, &metadata) == 0 && S_ISDIR(metadata.st_mode)) continue;
+    if (remove_tree(record->path) != 0) goto done;
+  }
+  for (uint32_t index = 0; index < count; ++index) {
+    restore_record *record = &records[index];
+    if (record->kind == DOLLY_SESSION_DELETED) continue;
+    if (make_parent_directories(record->path) != 0) goto done;
+    if (record->kind == DOLLY_SESSION_DIRECTORY) {
+      if (mkdir(record->path, 0755) != 0 && errno != EEXIST) goto done;
+    } else if (record->kind == DOLLY_SESSION_FILE) {
+      int descriptor = open(record->path, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+      if (descriptor < 0) goto done;
+      int write_status = write_exact(descriptor, record->data, record->size);
+      int close_status = close(descriptor);
+      if (write_status != 0 || close_status != 0) goto done;
     } else {
       char target[PATH_MAX];
-      if (data_length >= sizeof(target)) {
-        errno = ENAMETOOLONG;
-        return 1;
-      }
-      memcpy(target, data, (size_t)data_length);
-      target[data_length] = '\0';
-      if (symlink(target, path_string) != 0) return 1;
+      memcpy(target, record->data, record->size);
+      target[record->size] = '\0';
+      if (symlink(target, record->path) != 0) goto done;
     }
   }
-  return 0;
+  result = 0;
+done:
+  for (uint32_t index = 0; index < count; ++index) free(records[index].path);
+  free(records);
+  return result;
 }
 
-static int publish_capture(void) {
+EMSCRIPTEN_KEEPALIVE
+int dolly_session_restore(uintptr_t size) {
+  const int result = restore_filesystem(size);
+  free(restore_bytes);
+  restore_bytes = NULL;
+  restore_capacity = 0;
+  return result;
+}
+
+static double monotonic_milliseconds(void) {
+  struct timespec time;
+  if (clock_gettime(CLOCK_MONOTONIC, &time) != 0) return -1;
+  return (double)time.tv_sec * 1000 + (double)time.tv_nsec / 1000000;
+}
+
+static int wait_for_chunk(uint32_t sequence, uint32_t request) {
+  const double start = monotonic_milliseconds();
+  if (start < 0) return -1;
+  const double deadline = start + 30000;
+  for (;;) {
+    // Wait on precisely the value compared, not a second load which could
+    // observe the acknowledgement and then wait forever for its replacement.
+    const uint32_t consumed = atomic_load_explicit(
+        &session_mailbox.chunk_consumed_sequence, memory_order_acquire);
+    if (consumed == sequence) return 0;
+    if (atomic_load_explicit(&session_mailbox.cancelled_sequence,
+                             memory_order_acquire) == request) {
+      errno = ECANCELED;
+      return -1;
+    }
+    const double now = monotonic_milliseconds();
+    if (now < 0) return -1;
+    if (now >= deadline) {
+      errno = ETIMEDOUT;
+      return -1;
+    }
+    emscripten_atomic_wait_u32(
+        (void *)&session_mailbox.chunk_consumed_sequence, consumed, 1000000000);
+  }
+}
+
+static int publish_capture(uint32_t request) {
   uint32_t sequence = atomic_load_explicit(
       &session_mailbox.chunk_sequence, memory_order_relaxed);
   uintptr_t offset = 0;
   for (;;) {
-    while (atomic_load_explicit(&session_mailbox.chunk_consumed_sequence,
-                                memory_order_acquire) != sequence) {
-      const uint32_t consumed = atomic_load_explicit(
-          &session_mailbox.chunk_consumed_sequence, memory_order_relaxed);
-      emscripten_atomic_wait_u32(
-          (void *)&session_mailbox.chunk_consumed_sequence, consumed,
-          ATOMICS_WAIT_DURATION_INFINITE);
-    }
+    if (wait_for_chunk(sequence, request) != 0) return -1;
     const uintptr_t remaining = capture_size - offset;
     const uint32_t length = remaining > DOLLY_SESSION_TRANSFER_CAPACITY
                                 ? DOLLY_SESSION_TRANSFER_CAPACITY
@@ -644,17 +760,10 @@ static int publish_capture(void) {
                              EMSCRIPTEN_NOTIFY_ALL_WAITERS);
     if (offset == capture_size) break;
   }
-  while (atomic_load_explicit(&session_mailbox.chunk_consumed_sequence,
-                              memory_order_acquire) != sequence) {
-    const uint32_t consumed = atomic_load_explicit(
-        &session_mailbox.chunk_consumed_sequence, memory_order_relaxed);
-    emscripten_atomic_wait_u32(
-        (void *)&session_mailbox.chunk_consumed_sequence, consumed,
-        ATOMICS_WAIT_DURATION_INFINITE);
-  }
-  return 0;
+  return wait_for_chunk(sequence, request);
 }
 
+EMSCRIPTEN_KEEPALIVE
 void dolly_session_service(void) {
   const uint32_t request = atomic_load_explicit(
       &session_mailbox.request_sequence, memory_order_acquire);
@@ -683,7 +792,15 @@ void dolly_session_service(void) {
                         (uint32_t)(size >> 32), memory_order_relaxed);
   atomic_store_explicit(&session_mailbox.status, (uint32_t)status,
                         memory_order_relaxed);
-  if (publish_capture() != 0 && status == 0) status = -EIO;
+  if (publish_capture(request) != 0 && status == 0) status = -errno;
+  free(capture_bytes);
+  capture_bytes = NULL;
+  capture_size = 0;
+  // A cancelled transfer must not leave an unacknowledged chunk blocking the
+  // next save. The next consumer starts from this published sequence.
+  atomic_store_explicit(&session_mailbox.chunk_consumed_sequence,
+      atomic_load_explicit(&session_mailbox.chunk_sequence, memory_order_relaxed),
+      memory_order_release);
   atomic_store_explicit(&session_mailbox.status, (uint32_t)status,
                         memory_order_relaxed);
   atomic_store_explicit(&session_mailbox.completed_sequence, request,

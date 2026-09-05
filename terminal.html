@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    {{DOLLY_ROUTE_HEAD}}
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
     <title>Dolly</title>
@@ -105,6 +106,12 @@
       }
       #phone-menu button:active { color: #f2d45c; }
       #phone-menu button:disabled { color: #77736c; }
+      #session-status {
+        position: fixed; right: 1rem; top: 1rem; z-index: 5;
+        max-width: calc(100vw - 2rem); padding: 0.5rem 0.75rem;
+        background: #262626; border: 1px solid #77736c; font-size: 14px;
+      }
+      #phone-menu a { color: inherit; padding: 0.75rem; background: #262626; }
       @media (max-width: 640px) {
         #bootstrap-log { padding: 0.65rem 0.75rem; }
       }
@@ -117,20 +124,24 @@
         autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
       <pre id="bootstrap-log" aria-live="polite"></pre>
     </main>
+    <div id="session-status" role="status" hidden></div>
     <button id="phone-menu-button" type="button" aria-label="Open Dolly menu"
       aria-expanded="false">/</button>
     <nav id="phone-menu" aria-label="Dolly phone commands" data-open="false">
       <button type="button" data-dolly-input="/login openrouter\r">OpenRouter login</button>
       <button type="button" data-dolly-input="/model\r">Choose model</button>
       <button id="session-save-button" type="button">Save session</button>
+      <a href="{{DOLLY_BASE}}session/">Saved sessions</a>
       {{DOLLY_PHONE_EXTRA}}
     </nav>
     <script>globalThis.DOLLY_BOOT = Object.freeze({ image: "{{DOLLY_IMAGE}}", mode: "{{DOLLY_MODE}}", loadSession: {{DOLLY_LOAD_SESSION}} });</script>
     <script type="module">
-      if (crossOriginIsolated) {
+      if (globalThis.DOLLY_NOT_FOUND) {
+        document.body.textContent = "Not found. Return to the Dolly home page.";
+      } else if (crossOriginIsolated) {
         sessionStorage.removeItem("dolly-isolation-retry");
         try {
-          await import("{{DOLLY_BASE}}src/browser.mjs");
+          await import(new URL("{{DOLLY_BASE}}src/browser.mjs", document.baseURI).href);
         } catch (error) {
           const detail = error instanceof Error
             ? error.stack ?? error.message

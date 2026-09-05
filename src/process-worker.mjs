@@ -1,5 +1,8 @@
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
+import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { createProcessFfi } from "./process-ffi.mjs";
+import { parseWasmInterface } from "./wasm-interface.mjs";
+import { requireDsoType, validateDsoHost, validateDsoInterface } from "./process-abi.mjs";
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
 const DSO_OPEN = 112;
@@ -38,6 +41,8 @@ let exited = false;
 let instance;
 let processTable;
 let processFfi;
+let processSymbols;
+let dsoHostValidated = false;
 let nextDsoHandle = 2n;
 const loadedDsos = new Map();
 const globalDsos = [];
@@ -59,12 +64,6 @@ function decodeResult() {
   const low = BigInt(Atomics.load(control, 2) >>> 0);
   const high = BigInt(Atomics.load(control, 3) >>> 0);
   return BigInt.asIntN(64, low | (high << 32n));
-}
-
-function hex(bytes) {
-  return [...new Uint8Array(bytes)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 function readUleb(bytes, cursor, bits = 64) {
@@ -190,22 +189,21 @@ function functionIndex(value) {
   return index;
 }
 
-function symbolFrom(exports_, name) {
-  if (!Object.prototype.hasOwnProperty.call(exports_, name)) return undefined;
-  return exports_[name];
+function typedSymbols(exports, values) {
+  return new Map([...exports].map(entry => [entry.name, { type: entry.type, value: values[entry.name] }]));
 }
 
 function globalSymbol(name) {
-  const main = symbolFrom(instance.exports, name);
+  const main = processSymbols.get(name);
   if (main !== undefined) return main;
   for (const dso of globalDsos) {
-    const value = symbolFrom(dso.instance.exports, name);
+    const value = dso.symbols.get(name);
     if (value !== undefined) return value;
   }
   return undefined;
 }
 
-function symbolAddress(value) {
+function symbolAddress({ value }) {
   if (typeof value === "function") return functionIndex(value);
   if (value instanceof WebAssembly.Global) {
     const raw = value.value;
@@ -219,43 +217,48 @@ function aligned(value, power) {
   return (value + alignment - 1n) & -alignment;
 }
 
-function validateDsoModule(module) {
-  const stamps = WebAssembly.Module.customSections(module, "dolly.process.dso");
-  if (stamps.length !== 1 || hex(stamps[0]) !== DOLLY_PROCESS_ABI_DIGEST) {
-    throw new TypeError("shared object has the wrong dolly.process.dso stamp");
-  }
-  let memoryImports = 0;
-  for (const imported of WebAssembly.Module.imports(module)) {
-    if (imported.module === "env" && imported.name === "memory" &&
-        imported.kind === "memory") {
-      ++memoryImports;
-      continue;
-    }
-    if (imported.module === "env" &&
-        ["__memory_base", "__table_base", "__stack_pointer"].includes(imported.name) &&
-        imported.kind === "global") continue;
-    if (imported.module === "env" && imported.name === "__indirect_function_table" &&
-        imported.kind === "table") continue;
-    if (imported.module === "env" &&
-        (imported.kind === "function" || imported.kind === "tag")) continue;
-    if ((imported.module === "GOT.mem" || imported.module === "GOT.func") &&
-        imported.kind === "global") continue;
-    throw new TypeError(
-      `shared-object import is outside the process namespace: ` +
-      `${imported.module}.${imported.name}`,
-    );
-  }
-  if (memoryImports !== 1) throw new TypeError("shared object needs exactly one memory import");
-}
-
 function instantiateDso(bytes, flags) {
+  // Parse and instantiate the same private copy, not a live shared-memory view.
+  bytes = bytes.slice();
   const module = new WebAssembly.Module(bytes);
-  validateDsoModule(module);
+  const contract = configuration.dsoContract;
+  const parsed = validateDsoInterface(contract, parseWasmInterface(bytes), DOLLY_PROCESS_ABI_DIGEST);
   const requirements = dylinkRequirements(module);
   if (requirements.needed.length !== 0) {
     throw new TypeError(
       `shared object has unloaded dependencies: ${requirements.needed.join(", ")}`,
     );
+  }
+  const currentTable = tableLength();
+  const tableBase = aligned(currentTable, requirements.tableAlignment);
+  const infrastructure = new Map(contract.imports.filter(entry => entry.module === "env")
+    .map(entry => [entry.name, entry.type]));
+  infrastructure.set("memory", {
+    ...configuration.processInterface.imports.find(entry => entry.type.kind === "memory").type,
+    minimum: BigInt(configuration.memory.buffer.byteLength / 65536),
+  });
+  infrastructure.set("__indirect_function_table", {
+    ...processSymbols.get("__indirect_function_table").type,
+    minimum: tableBase + requirements.tableSize,
+  });
+  const bindings = new Map();
+  for (const [key, imported] of parsed.imports) {
+    if (imported.module === "env" && infrastructure.has(imported.name)) {
+      requireDsoType(infrastructure.get(imported.name), imported.type, imported.name);
+      continue;
+    }
+    const symbol = parsed.exports.get(imported.name) ?? globalSymbol(imported.name);
+    const weak = requirements.weakImports.has(key);
+    if (!symbol && !weak) throw new TypeError(`undefined symbol: ${imported.name}`);
+    if (symbol) {
+      if (imported.module === "env") requireDsoType(symbol.type, imported.type, imported.name);
+      else if (imported.module === "GOT.mem") {
+        requireDsoType(symbol.type, infrastructure.get("__memory_base"), `GOT.mem.${imported.name}`);
+      } else if (symbol.type.kind !== "func") {
+        throw new TypeError(`DSO GOT.func.${imported.name}: expected a function symbol`);
+      }
+    }
+    bindings.set(key, symbol);
   }
   const memoryAlignment = 1n << requirements.memoryAlignment;
   const memoryBase = instance.exports.__dolly_dso_allocate(
@@ -264,48 +267,48 @@ function instantiateDso(bytes, flags) {
   if (typeof memoryBase !== "bigint" || memoryBase === 0n) {
     throw new RangeError("process could not reserve shared-object memory");
   }
-  const currentTable = tableLength();
-  const tableBase = aligned(currentTable, requirements.tableAlignment);
   growTable(tableBase - currentTable + requirements.tableSize);
 
   const imports = {
-    env: {
+    env: Object.assign(Object.create(null), {
       memory: configuration.memory,
       __memory_base: new WebAssembly.Global({ value: "i64", mutable: false }, memoryBase),
       __table_base: new WebAssembly.Global({ value: "i64", mutable: false }, tableBase),
       __stack_pointer: instance.exports.__stack_pointer,
       __indirect_function_table: processTable,
-    },
-    "GOT.mem": {},
-    "GOT.func": {},
+    }),
+    "GOT.mem": Object.create(null),
+    "GOT.func": Object.create(null),
   };
   const relocations = [];
   const pendingFunctions = [];
   let dsoInstance;
-  for (const imported of WebAssembly.Module.imports(module)) {
+  let dsoSymbols;
+  function resolveFunction(pending) {
+    const symbol = dsoSymbols?.get(pending.name) ?? globalSymbol(pending.name);
+    requireDsoType(symbol?.type, pending.type, pending.name);
+    return symbol.value;
+  }
+  for (const [key, imported] of parsed.imports) {
     if (imported.module === "env" && !Object.hasOwn(imports.env, imported.name)) {
-      const value = globalSymbol(imported.name);
-      if (value !== undefined) {
-        imports.env[imported.name] = value;
-      } else if (imported.kind === "function") {
+      const symbol = bindings.get(key);
+      if (symbol?.value !== undefined) {
+        imports.env[imported.name] = symbol.value;
+      } else if (imported.type.kind === "func") {
         // wasm-ld may emit a preemptible weak definition as both an export and
         // an import. Like an ELF/Emscripten loader, defer that import until the
-        // instance exists, then prefer its own export after the process-global
-        // namespace. The closure remains the WebAssembly import, so cache the
+        // instance exists. Local definitions win, matching the compiler's
+        // -Bsymbolic policy. The closure remains the import, so cache the
         // resolved function rather than repeating symbol lookup on every call.
         const pending = {
           name: imported.name,
-          weak: requirements.weakImports.has(`env\0${imported.name}`),
+          type: imported.type,
+          weak: requirements.weakImports.has(key),
           value: undefined,
         };
         imports.env[imported.name] = (...arguments_) => {
-          const resolved = pending.value ?? globalSymbol(pending.name) ??
-            (dsoInstance && symbolFrom(dsoInstance.exports, pending.name));
-          if (typeof resolved !== "function") {
-            throw new WebAssembly.RuntimeError(`undefined symbol: ${pending.name}`);
-          }
-          pending.value = resolved;
-          return resolved(...arguments_);
+          pending.value ??= resolveFunction(pending);
+          return pending.value(...arguments_);
         };
         pendingFunctions.push(pending);
       } else {
@@ -318,33 +321,27 @@ function instantiateDso(bytes, flags) {
         module: imported.module,
         name: imported.name,
         global,
-        weak: requirements.weakImports.has(`${imported.module}\0${imported.name}`),
+        weak: requirements.weakImports.has(key),
       });
     }
   }
   for (const relocation of relocations) {
+    if (parsed.exports.has(relocation.name)) continue;
     const existing = globalSymbol(relocation.name);
     if (existing !== undefined) relocation.global.value = symbolAddress(existing);
   }
   dsoInstance = new WebAssembly.Instance(module, imports);
+  dsoSymbols = typedSymbols(parsed.exports.values(), dsoInstance.exports);
   for (const pending of pendingFunctions) {
-    const resolved = globalSymbol(pending.name) ??
-      symbolFrom(dsoInstance.exports, pending.name);
-    if (resolved === undefined) {
-      if (pending.weak) continue;
-      throw new TypeError(`undefined symbol: ${pending.name}`);
-    }
-    if (typeof resolved !== "function") {
-      throw new TypeError(`function import resolved to non-function: ${pending.name}`);
-    }
-    pending.value = resolved;
+    if (pending.weak && !globalSymbol(pending.name) && !dsoSymbols.has(pending.name)) continue;
+    pending.value = resolveFunction(pending);
   }
   for (const relocation of relocations) {
-    const own = symbolFrom(dsoInstance.exports, relocation.name);
-    if (own !== undefined) relocation.global.value = symbolAddress(own);
-    else if (globalSymbol(relocation.name) === undefined && relocation.weak) {
+    const symbol = dsoSymbols.get(relocation.name) ?? globalSymbol(relocation.name);
+    if (symbol !== undefined) relocation.global.value = symbolAddress(symbol);
+    else if (relocation.weak) {
       relocation.global.value = 0n;
-    } else if (globalSymbol(relocation.name) === undefined) {
+    } else {
       throw new TypeError(`undefined ${relocation.module} symbol: ${relocation.name}`);
     }
   }
@@ -357,7 +354,7 @@ function instantiateDso(bytes, flags) {
   const applyDataRelocations = dsoInstance.exports.__wasm_apply_data_relocs;
   if (applyDataRelocations !== undefined) applyDataRelocations();
   const handle = nextDsoHandle++;
-  const record = { handle, module, instance: dsoInstance, flags, references: 1 };
+  const record = { handle, module, instance: dsoInstance, symbols: dsoSymbols, flags, references: 1 };
   loadedDsos.set(handle, record);
   if ((flags & DSO_GLOBAL) !== 0) globalDsos.push(record);
   const constructors = dsoInstance.exports.__wasm_call_ctors;
@@ -366,7 +363,7 @@ function instantiateDso(bytes, flags) {
 }
 
 function writeDsoResponse(response, value = 0n, error = 0, message = "") {
-  if (response.size < DSO_RESPONSE_SIZE) return -105n;
+  if (response.size < DSO_RESPONSE_SIZE) return -BigInt(DOLLY_ERRNO.ENOBUFS);
   const bytes = encoder.encode(message);
   const messageSize = Math.min(bytes.length, DSO_ERROR_CAPACITY);
   const output = new Uint8Array(configuration.memory.buffer, response.address,
@@ -382,7 +379,19 @@ function writeDsoResponse(response, value = 0n, error = 0, message = "") {
 }
 
 function processDsoCall(operation, request, response) {
+  // This is an optional process-local facility, not an executable requirement.
+  // A freestanding _start needs neither a table nor libc's allocator.
+  if (!(processTable instanceof WebAssembly.Table) ||
+      !(instance?.exports.__stack_pointer instanceof WebAssembly.Global) ||
+      typeof instance.exports.__dolly_dso_allocate !== "function") {
+    return writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOSYS,
+      "process does not provide a dynamic-link namespace");
+  }
   try {
+    if (!dsoHostValidated) {
+      validateDsoHost(configuration.dsoContract, processSymbols);
+      dsoHostValidated = true;
+    }
     const view = new DataView(configuration.memory.buffer, request.address, request.size);
     if (operation === DSO_OPEN) {
       if (request.size < 16) throw new TypeError("short DSO_OPEN packet");
@@ -410,14 +419,14 @@ function processDsoCall(operation, request, response) {
       )));
       let value;
       if (handle === 0n) value = globalSymbol(name);
-      else if (handle === 1n) value = symbolFrom(instance.exports, name);
+      else if (handle === 1n) value = processSymbols.get(name);
       else {
         const dso = loadedDsos.get(handle);
-        if (!dso) return writeDsoResponse(response, 0n, 9, "invalid DSO handle");
-        value = symbolFrom(dso.instance.exports, name);
+        if (!dso) return writeDsoResponse(response, 0n, DOLLY_ERRNO.EBADF, "invalid DSO handle");
+        value = dso.symbols.get(name);
       }
       if (value === undefined) {
-        return writeDsoResponse(response, 0n, 2, `undefined symbol: ${name}`);
+        return writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOENT, `undefined symbol: ${name}`);
       }
       return writeDsoResponse(response, symbolAddress(value));
     }
@@ -426,16 +435,16 @@ function processDsoCall(operation, request, response) {
       const handle = view.getBigUint64(0, true);
       if (handle === 1n) return writeDsoResponse(response);
       const dso = loadedDsos.get(handle);
-      if (!dso) return writeDsoResponse(response, 0n, 9, "invalid DSO handle");
+      if (!dso) return writeDsoResponse(response, 0n, DOLLY_ERRNO.EBADF, "invalid DSO handle");
       if (dso.references !== 0) --dso.references;
       // Version 0 intentionally retains code/static storage until process exit.
       // The entire namespace and its private memory are reclaimed together.
       return writeDsoResponse(response);
     }
-    return writeDsoResponse(response, 0n, 38, "unknown process-local operation");
+    return writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOSYS, "unknown process-local operation");
   } catch (error) {
     return writeDsoResponse(
-      response, 0n, error instanceof RangeError ? 12 : 8,
+      response, 0n, error instanceof RangeError ? DOLLY_ERRNO.ENOMEM : DOLLY_ERRNO.ENOEXEC,
       error instanceof Error ? error.message : String(error),
     );
   }
@@ -490,11 +499,7 @@ try {
     throw new TypeError("Dolly process does not export _start");
   }
   processTable = instance.exports.__indirect_function_table;
-  if (!(processTable instanceof WebAssembly.Table) ||
-      !(instance.exports.__stack_pointer instanceof WebAssembly.Global) ||
-      typeof instance.exports.__dolly_dso_allocate !== "function") {
-    throw new TypeError("Dolly process lacks its private dynamic-link namespace");
-  }
+  processSymbols = typedSymbols(configuration.processInterface.exports, instance.exports);
   processFfi = createProcessFfi({
     memory: configuration.memory,
     getInstance: () => instance,
