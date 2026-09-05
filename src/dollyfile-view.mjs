@@ -4,6 +4,9 @@ const objectTypes = new Set([
   "TOOL", "LIB", "ENV", "FILE", "FOLDER", "HEADER",
 ]);
 const sha256Pattern = /^[0-9a-f]{64}$/;
+const whitespace = /[ \t\r\n\v\f]/;
+const trim = value => value.replace(/^[ \t\r\n\v\f]+|[ \t\r\n\v\f]+$/g, "");
+const byteLength = value => new TextEncoder().encode(value).byteLength;
 
 function fail(label, line, message) {
   throw new Error(`${label}:${line}: ${message}`);
@@ -27,7 +30,7 @@ function stripComment(value) {
     else if (quote) {
       if (character === quote) quote = "";
     } else if (character === "'" || character === '"') quote = character;
-    else if (character === "#" && (index === 0 || /\s/.test(value[index - 1]))) {
+    else if (character === "#" && (index === 0 || whitespace.test(value[index - 1]))) {
       return value.slice(0, index);
     }
   }
@@ -55,7 +58,7 @@ function words(value, label, line) {
     } else if (character === "'" || character === '"') {
       quote = character;
       started = true;
-    } else if (/\s/.test(character)) {
+    } else if (whitespace.test(character)) {
       if (started) {
         result.push(word);
         word = "";
@@ -77,16 +80,19 @@ function directives(source, label) {
   for (let index = 0; index < physical.length; index += 1) {
     const raw = physical[index];
     const line = index + 1;
-    let logical = raw.trim();
-    while (/\\\s*$/.test(logical)) {
-      logical = logical.replace(/\\\s*$/, "");
+    let logical = raw.replace(/[ \t]+$/, "");
+    while (logical.endsWith("\\")) {
+      logical = logical.slice(0, -1);
       index += 1;
-      if (index >= physical.length) fail(label, line, "unterminated continuation");
-      logical += ` ${physical[index].trim()}`;
+      if (index >= physical.length || index === physical.length - 1 && physical[index] === "") {
+        fail(label, line, "unterminated continuation");
+      }
+      logical += `${logical.length ? " " : ""}${physical[index].replace(/[ \t]+$/, "")}`;
     }
-    logical = stripComment(logical).trim();
+    if (byteLength(logical) > 64 * 1024) fail(label, line, "logical line is too long");
+    logical = trim(stripComment(logical));
     if (logical === "") continue;
-    const match = /^(\S+)(?:\s+(.*))?$/.exec(logical);
+    const match = /^([^ \t\r\n\v\f]+)(?:[ \t\r\n\v\f]+(.*))?$/s.exec(logical);
     const directive = match[1];
     const args = match[2] ?? "";
     let body = null;
@@ -106,8 +112,8 @@ function directives(source, label) {
 }
 
 function validAbsolutePath(value) {
-  return value.startsWith("/") && value.length > 1 && value.length <= 4096 &&
-    !value.includes("\\") && !value.includes("//") &&
+  return value.startsWith("/") && value.length > 1 && byteLength(value) < 4096 &&
+    !/[\\\r\n]/.test(value) && !value.endsWith("/") && !value.includes("//") &&
     !value.split("/").some((part) => part === "." || part === "..");
 }
 
@@ -229,7 +235,7 @@ function inspectVersion2(source, label, rows) {
           if (details.length !== 1 || !validAbsolutePath(details[0]) ||
               forbiddenKeep(details[0])) fail(label, item.line, "invalid HEADER export");
         } else if (type === "ENV") {
-          if ((details.length !== 1 || details[0] === "APPEND") &&
+          if (details.length !== 1 &&
               !(details.length === 2 && details[0] === "APPEND")) {
             fail(label, item.line, "invalid ENV export");
           }
@@ -261,11 +267,19 @@ function inspectVersion2(source, label, rows) {
           command = tokens.slice(2);
         }
         if (command.length === 0) fail(label, item.line, "empty SLOP");
+        const tool = command[0].split("/").at(-1);
+        if (![...requirements, ...exports].some(item => item.type === "TOOL" && item.name === tool)) {
+          fail(label, item.line, `SLOP command ${command[0]} must be declared by an earlier REQUIRES TOOL or EXPORTS TOOL`);
+        }
         slops.push({ cwd, command, line: item.line });
         break;
       }
       case "ENTRY":
         if (entry || tokens.length === 0 || !validAbsolutePath(tokens[0])) fail(label, item.line, "invalid ENTRY");
+        if (tokens.length > 256 || tokens.some(word => byteLength(word) > 4096) ||
+            tokens.reduce((size, word) => size + 4 + byteLength(word), 16) > 64 * 1024) {
+          fail(label, item.line, "ENTRY exceeds its record limits");
+        }
         entry = tokens;
         break;
       case "DOLLY":

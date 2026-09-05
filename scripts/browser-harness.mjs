@@ -16,6 +16,7 @@ import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
+import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -40,6 +41,7 @@ const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
 const boundaryMode = process.env.DOLLY_BROWSER_MODE === "boundary";
 const processAbiMode = process.env.DOLLY_BROWSER_MODE === "process-abi";
 const processSmokeMode = process.env.DOLLY_BROWSER_MODE === "process-smoke";
+const dollyfileParserMode = process.env.DOLLY_BROWSER_MODE === "dollyfile-parser";
 const imageRetentionMode = process.env.DOLLY_BROWSER_MODE === "image-retention";
 const imageInventoryMode = ["image-inventory", "image-inventory-rebuild"].includes(process.env.DOLLY_BROWSER_MODE);
 const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
@@ -127,6 +129,7 @@ const publicSources = new Set([
   "src/http-policy.mjs",
   "src/http-broker.mjs",
   "src/kernel-plugin.mjs",
+  "src/image-entry.mjs",
   "src/module-cache.mjs",
   "src/process-ffi.mjs",
   "src/process-abi.mjs",
@@ -182,6 +185,16 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const requestUrl = new URL(request.url, "http://127.0.0.1");
+      if (dollyfileParserMode && parserRecipes.has(requestUrl.pathname)) {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+        response.end(parserRecipes.get(requestUrl.pathname));
+        return;
+      }
+      if (dollyfileParserMode && /^\/fixture\/parser-(?:dollyfile\.c|fs-record\.h|sha256\.h)$/.test(requestUrl.pathname)) {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+        response.end(await readFile(resolve(projectDir, "src", requestUrl.pathname.slice("/fixture/parser-".length))));
+        return;
+      }
       if (processSmokeMode && requestUrl.pathname.startsWith("/fixture/")) {
         const name = requestUrl.pathname.slice("/fixture/".length);
         if (Object.hasOwn(processSmokeSources, name)) {
@@ -1034,6 +1047,13 @@ const fixturePolicy = {
     },
   ],
 };
+if (dollyfileParserMode) {
+  for (const path of parserRecipes.keys()) {
+    if (path.startsWith("/modules/")) fixturePolicy.rules.push({
+      origin: new URL(interactivePage).origin, path, methods: ["GET"],
+    });
+  }
+}
 if (pythonPackageMode) {
   fixturePolicy.rules.unshift(
     {
@@ -1164,12 +1184,22 @@ chrome = spawn(chromeBinary, [
       : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || imageRetentionMode || imageInventoryMode
+        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (dollyfileParserMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Dollyfile parser boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      await runDollyfileCases(command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`), localOrigin);
+      console.log("browser: Dollyfile preserves quoted commands/CWD and literal ENV, fetches/executes rows sequentially, and rejects wrong export kinds and duplicate writers before overwriting");
+      break browserProof;
+    }
     if (processSmokeMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",

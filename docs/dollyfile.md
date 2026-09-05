@@ -115,6 +115,11 @@ The current interface object types are:
 - `FOLDER name /path`: a named directory interface.
 - `ENV name value` or `ENV name APPEND value`: a persistent environment value.
 
+Quoting preserves one value: `ENV LABEL "APPEND literal"` sets that exact text;
+only a separate `APPEND value` pair requests path-list appending. Paths are
+canonical absolute UTF-8 paths shorter than 4096 bytes, without dot segments,
+trailing slashes, backslashes, or line breaks. `CWD /` is the root exception.
+
 Names are dependency identities, not a package resolver. The path is evidence
 for and storage behind the identity.
 
@@ -123,6 +128,9 @@ for and storage behind the identity.
 The executable that starts each `SLOP` row must have appeared in an earlier
 `REQUIRES TOOL` or local `EXPORTS TOOL` row. The fast JavaScript lint and the C
 Dollyfile builder perform this same small sequential check.
+Quoted tool names and `CWD` paths use the same word reader as other directives.
+After decoding the optional `CWD`, the original shell command—including its
+quotes—is passed intact to Slop.
 
 The check exists only while a Dollyfile is building. It does not add variables,
 allowlists, or policy to Slop. Normal interactive Slop is completely unchanged.
@@ -140,6 +148,10 @@ documentation rather than a security policy.
 The build filesystem may contain arbitrary intermediates, but the snapshot
 builder never walks it looking for outputs. It serializes only the sorted paths
 in `/etc/dolly/image.manifest`.
+An explicit `SOURCE` destination or inline `FILE` has one module owner. Another
+module claiming that exact path fails before fetching or writing its replacement;
+the same module may update its own path sequentially. JavaScript checks the same
+ownership rule while building the inspection graph.
 
 Retention roots are explicit:
 
@@ -174,6 +186,9 @@ must belong to the image's retained outputs, or sealing fails. Packaging resolve
 the entry against the retained snapshot, not the build filesystem, and applies
 the same typed process-ABI validator as browser admission. This also rejects
 broken entry symlink chains and incompatible executables before publication.
+`ENTRY` permits empty arguments, with at most 256 arguments, 4096 bytes per
+argument, and a 64 KiB record. Packaging and browser boot share one bounded
+record decoder. The C engine checks these limits before sealing.
 
 System snapshots and module-cache layers use envelope version 2 with records
 `kind:u32, path-length:u32, data-length:u64, path, data` (little-endian). Kinds are

@@ -4637,6 +4637,11 @@ int main(int argc, char **argv) {
     functions_dispose(&functions);
     return status;
   }
+  char *cwd = getcwd(NULL, 0);
+  if (cwd == NULL) { perror("slop: getcwd"); return 1; }
+  const int cwd_status = setenv("PWD", cwd, 1);
+  free(cwd);
+  if (cwd_status != 0) { perror("slop: PWD"); return 1; }
   if (strcmp(argv[index], "-c") == 0) {
     if (++index == argc) { usage(stderr); return 2; }
     const char *command = argv[index++];

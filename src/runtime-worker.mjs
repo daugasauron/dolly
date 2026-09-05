@@ -4,6 +4,7 @@ import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { loadModuleLayers, saveModuleLayers } from "./module-cache.mjs";
 import { DollyProcessSupervisor } from "./process-supervisor.mjs";
 import { instantiateKernelPlugin } from "./kernel-plugin.mjs";
+import { decodeImageEntry } from "./image-entry.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const snapshotSizeLimit = 512 * 1024 * 1024;
@@ -163,37 +164,7 @@ function removeStagedModuleCache(dolly) {
 }
 
 function readImageEntry(dolly) {
-  const bytes = dolly.FS.readFile("/etc/dolly/entry");
-  if (!(bytes instanceof Uint8Array) || bytes.byteLength < 16 ||
-      bytes.byteLength > 64 * 1024 ||
-      decoder.decode(bytes.subarray(0, 8)) !== "DOLLYENT") {
-    throw new TypeError("invalid image ENTRY record");
-  }
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (view.getUint32(8, true) !== 1) {
-    throw new TypeError("unsupported image ENTRY version");
-  }
-  const count = view.getUint32(12, true);
-  if (count === 0 || count > 256) throw new TypeError("invalid image ENTRY count");
-  const strictDecoder = new TextDecoder("utf-8", { fatal: true });
-  const arguments_ = [];
-  let offset = 16;
-  for (let index = 0; index < count; ++index) {
-    if (offset > bytes.byteLength - 4) throw new TypeError("truncated image ENTRY");
-    const size = view.getUint32(offset, true);
-    offset += 4;
-    if (size === 0 || size > 4096 || offset > bytes.byteLength - size) {
-      throw new TypeError("invalid image ENTRY argument");
-    }
-    const value = strictDecoder.decode(bytes.subarray(offset, offset + size));
-    if (value.includes("\0")) throw new TypeError("invalid image ENTRY string");
-    arguments_.push(value);
-    offset += size;
-  }
-  if (offset !== bytes.byteLength || !arguments_[0].startsWith("/")) {
-    throw new TypeError("invalid image ENTRY payload");
-  }
-  return arguments_;
+  return decodeImageEntry(dolly.FS.readFile("/etc/dolly/entry"));
 }
 
 function terminalWrite(dolly, memory, text) {

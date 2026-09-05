@@ -27,6 +27,8 @@ DOLLY_IMAGE=default DOLLY_BROWSER_MODE=image-inventory \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=image-retention \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=default DOLLY_BROWSER_MODE=dollyfile-parser \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=slop \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=pi DOLLY_BROWSER_MODE=utf8 \

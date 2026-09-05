@@ -53,6 +53,7 @@ typedef struct {
   char *name;
   char *detail;
   char *sha256;
+  int append_environment;
   ObjectMembers *members;
 } Object;
 
@@ -61,6 +62,12 @@ typedef struct {
   size_t count;
   size_t capacity;
 } Scope;
+
+typedef struct {
+  char *path;
+  char *locator;
+  size_t line;
+} DeclaredWrite;
 
 typedef struct {
   char *host_base;
@@ -85,6 +92,8 @@ typedef struct {
   size_t environment_name_capacity;
   char *selected_image;
   size_t resume_uses;
+  DeclaredWrite *writes;
+  size_t write_count;
 } Engine;
 
 typedef struct {
@@ -298,14 +307,8 @@ static int valid_sha256(const char *value) {
 }
 
 static int valid_absolute_path(const char *path) {
-  if (path == NULL || path[0] != '/' || path[1] == '\0' || strlen(path) > 4096 ||
-      strstr(path, "//") != NULL || strchr(path, '\\') != NULL) return 0;
-  for (const char *cursor = path; *cursor != '\0'; ++cursor) {
-    if (cursor[0] == '/' && cursor[1] == '.' &&
-        (cursor[2] == '/' || cursor[2] == '\0' ||
-         (cursor[2] == '.' && (cursor[3] == '/' || cursor[3] == '\0')))) return 0;
-  }
-  return 1;
+  return path != NULL && dolly_fs_valid_path(path) &&
+         strpbrk(path, "\\\r\n") == NULL;
 }
 
 static int forbidden_keep(const char *path) {
@@ -559,6 +562,29 @@ static void strip_comment(char *line) {
   }
 }
 
+// Decode one recipe word in place. The read cursor also identifies the raw
+// shell tail, which must keep its quoting when SLOP passes it to the shell.
+static int next_word(char **input, char **output, char **word) {
+  while (isspace((unsigned char)**input)) ++*input;
+  *word = **input == '\0' ? NULL : *output;
+  if (*word == NULL) return 0;
+  int quote = 0, escaped = 0;
+  while (**input != '\0') {
+    const unsigned char character = (unsigned char)*(*input)++;
+    if (escaped) { *(*output)++ = (char)character; escaped = 0; }
+    else if (character == '\\' && quote != '\'') escaped = 1;
+    else if (quote != 0) {
+      if (character == quote) quote = 0;
+      else *(*output)++ = (char)character;
+    } else if (character == '\'' || character == '"') quote = character;
+    else if (isspace(character)) break;
+    else *(*output)++ = (char)character;
+  }
+  if (escaped || quote != 0) return -EINVAL;
+  *(*output)++ = '\0';
+  return 0;
+}
+
 static int split_words(char *value, char ***words_out, size_t *count_out) {
   size_t capacity = 8;
   size_t count = 0;
@@ -566,9 +592,11 @@ static int split_words(char *value, char ***words_out, size_t *count_out) {
   if (words == NULL) return -ENOMEM;
   char *read_cursor = value;
   char *write_cursor = value;
-  while (*read_cursor != '\0') {
-    while (isspace((unsigned char)*read_cursor)) ++read_cursor;
-    if (*read_cursor == '\0') break;
+  for (;;) {
+    char *word = NULL;
+    const int result = next_word(&read_cursor, &write_cursor, &word);
+    if (result != 0) { free(words); return result; }
+    if (word == NULL) break;
     if (count == capacity) {
       capacity *= 2;
       char **replacement = realloc(words, capacity * sizeof(*words));
@@ -578,32 +606,7 @@ static int split_words(char *value, char ***words_out, size_t *count_out) {
       }
       words = replacement;
     }
-    words[count++] = write_cursor;
-    int quote = 0;
-    int escaped = 0;
-    while (*read_cursor != '\0') {
-      const unsigned char character = (unsigned char)*read_cursor++;
-      if (escaped) {
-        *write_cursor++ = (char)character;
-        escaped = 0;
-      } else if (character == '\\' && quote != '\'') {
-        escaped = 1;
-      } else if (quote != 0) {
-        if (character == quote) quote = 0;
-        else *write_cursor++ = (char)character;
-      } else if (character == '\'' || character == '"') {
-        quote = character;
-      } else if (isspace(character)) {
-        break;
-      } else {
-        *write_cursor++ = (char)character;
-      }
-    }
-    if (escaped || quote != 0) {
-      free(words);
-      return -EINVAL;
-    }
-    *write_cursor++ = '\0';
+    words[count++] = word;
   }
   *words_out = words;
   *count_out = count;
@@ -665,6 +668,7 @@ static int scope_add_object(Scope *scope, const Object *source) {
                          source->detail, source->sha256);
   if (result != 0) return result;
   Object *destination = &scope->items[scope->count - 1];
+  destination->append_environment = source->append_environment;
   destination->members = source->members;
   if (destination->members != NULL) ++destination->members->references;
   return 0;
@@ -763,12 +767,11 @@ static int collect_tree(Engine *engine, const char *path) {
                        &engine->keep_capacity, path);
 }
 
-static int apply_environment(const char *name, const char *detail) {
-  static const char append_prefix[] = "APPEND ";
-  if (strncmp(detail, append_prefix, sizeof(append_prefix) - 1) != 0) {
+static int apply_environment(const char *name, const char *detail, int append) {
+  if (!append) {
     return setenv(name, detail, 1) == 0 ? 0 : -errno;
   }
-  const char *value = detail + sizeof(append_prefix) - 1;
+  const char *value = detail;
   const char *current = getenv(name);
   if (current == NULL || *current == '\0') return setenv(name, value, 1) == 0 ? 0 : -errno;
   const size_t length = strlen(current) + strlen(value) + 2;
@@ -804,6 +807,9 @@ static int resolve_export_path(const char *type, const char *name,
   if (result == 0) {
     struct stat metadata;
     if (stat(path, &metadata) != 0) result = -errno;
+    else if (strcmp(type, "FOLDER") == 0 && !S_ISDIR(metadata.st_mode)) result = -ENOTDIR;
+    else if ((strcmp(type, "LIB") == 0 || strcmp(type, "FILE") == 0 ||
+              strcmp(type, "TOOL") == 0) && !S_ISREG(metadata.st_mode)) result = -EINVAL;
     else if (!S_ISREG(metadata.st_mode) && !S_ISDIR(metadata.st_mode)) result = -EINVAL;
   }
   if (result == 0) *path_out = path;
@@ -812,8 +818,8 @@ static int resolve_export_path(const char *type, const char *name,
 }
 
 static int validate_export(const char *type, const char *name,
-                           const char *detail, const char *expected) {
-  if (strcmp(type, "ENV") == 0) return apply_environment(name, detail);
+                           const char *detail, const char *expected, int append) {
+  if (strcmp(type, "ENV") == 0) return apply_environment(name, detail, append);
   char *path = NULL;
   const int result = resolve_export_path(type, name, detail, expected, &path);
   free(path);
@@ -881,6 +887,7 @@ static void module_cache_key(const Engine *engine, const Scope *available,
     sha256_update(&sha, object->name, strlen(object->name));
     sha256_update(&sha, "\0", 1);
     if (object->detail != NULL) {
+      if (object->append_environment) sha256_update(&sha, "APPEND ", 7);
       sha256_update(&sha, object->detail, strlen(object->detail));
     }
     sha256_update(&sha, "\0", 1);
@@ -1113,38 +1120,32 @@ static int run_slop(const char *cwd, const char *command) {
 
 static int execute_slop(char *arguments, const Scope *permitted_tools,
                         int execute) {
-  char *cwd = "/";
   char *command = trim(arguments);
-  if (strncmp(command, "CWD", 3) == 0 &&
-      isspace((unsigned char)command[3])) {
-    char *path = trim(command + 3);
-    char *end = path;
-    while (*end != '\0' && !isspace((unsigned char)*end)) ++end;
-    if (*end == '\0') return 2;
-    *end++ = '\0';
-    if (strcmp(path, "/") != 0 && !valid_absolute_path(path)) return 2;
-    cwd = path;
-    command = trim(end);
+  char *copy = strdup(command);
+  if (copy == NULL) return 1;
+  char *input = copy, *output = copy, *word = NULL, *cwd = "/";
+  int result = next_word(&input, &output, &word);
+  if (result == 0 && word != NULL && strcmp(word, "CWD") == 0) {
+    result = next_word(&input, &output, &cwd);
+    if (result == 0 && (cwd == NULL ||
+        (strcmp(cwd, "/") != 0 && !valid_absolute_path(cwd)))) result = 2;
+    command = trim(command + (input - copy));
+    if (result == 0) result = next_word(&input, &output, &word);
   }
-  if (*command == '\0') return 2;
-  char *end = command;
-  while (*end != '\0' && !isspace((unsigned char)*end)) ++end;
-  const char saved = *end;
-  *end = '\0';
-  const char *tool = strrchr(command, '/');
-  tool = tool == NULL ? command : tool + 1;
-  const int permitted = scope_find(permitted_tools, "TOOL", tool) != NULL;
-  if (!permitted) {
-    fprintf(stderr,
-            "dollyfile: SLOP tool %s was not declared by an earlier "
-            "REQUIRES TOOL or EXPORTS TOOL\n",
-            tool);
+  if (result == 0 && (word == NULL || *word == '\0')) result = 2;
+  if (result == 0) {
+    const char *tool = strrchr(word, '/');
+    tool = tool == NULL ? word : tool + 1;
+    if (scope_find(permitted_tools, "TOOL", tool) == NULL) {
+      fprintf(stderr, "dollyfile: SLOP tool %s was not declared by an earlier "
+                      "REQUIRES TOOL or EXPORTS TOOL\n", tool);
+      result = 2;
+    }
   }
-  *end = saved;
-  if (!permitted) return 2;
-  if (!execute) return 0;
-  const int status = run_slop(cwd, command);
-  return status == 0 ? 0 : 1;
+  while (result == 0 && word != NULL) result = next_word(&input, &output, &word);
+  if (result == 0 && execute) result = run_slop(cwd, command) == 0 ? 0 : 1;
+  free(copy);
+  return result;
 }
 
 static int write_inline_file(const char *path, const unsigned char *body,
@@ -1222,6 +1223,13 @@ static int clean_temporary_directory(const char *locator) {
 }
 
 static int set_entry(Engine *engine, char **words, size_t count) {
+  size_t size = 16;
+  if (count == 0 || count > 256) return 2;
+  for (size_t index = 0; index < count; ++index) {
+    const size_t length = strlen(words[index]);
+    if (length > 4096 || size + 4 + length > 64 * 1024) return 2;
+    size += 4 + length;
+  }
   for (size_t index = 0; index < engine->entry_count; ++index) free(engine->entry[index]);
   free(engine->entry);
   engine->entry = calloc(count, sizeof(*engine->entry));
@@ -1233,6 +1241,25 @@ static int set_entry(Engine *engine, char **words, size_t count) {
     ++engine->entry_count;
   }
   return 0;
+}
+
+static int declare_write(Engine *engine, const char *path,
+                          const char *locator, size_t line) {
+  for (size_t index = 0; index < engine->write_count; ++index) {
+    const DeclaredWrite *previous = &engine->writes[index];
+    if (strcmp(previous->path, path) != 0) continue;
+    if (strcmp(previous->locator, locator) == 0) return 0;
+    fprintf(stderr, "dollyfile: %s:%zu: %s is already written by %s:%zu\n",
+            locator, line, path, previous->locator, previous->line);
+    return 2;
+  }
+  DeclaredWrite *writes = realloc(engine->writes,
+      (engine->write_count + 1) * sizeof(*writes));
+  if (writes == NULL) return -ENOMEM;
+  engine->writes = writes;
+  DeclaredWrite *write = &writes[engine->write_count++];
+  *write = (DeclaredWrite){strdup(path), strdup(locator), line};
+  return write->path != NULL && write->locator != NULL ? 0 : -ENOMEM;
 }
 
 static int execute_recipe(Engine *engine, const char *locator,
@@ -1269,25 +1296,30 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     return 0;
   }
   if (*kind == NULL) {
+    char **identity = NULL;
+    size_t count = 0;
+    const int parsed = split_words(arguments, &identity, &count);
+    const char *value = parsed == 0 && count == 1 ? identity[0] : "";
+    free(identity);
     if ((strcmp(text, "IMAGE") != 0 && strcmp(text, "MODULE") != 0) ||
-        (strcmp(text, "IMAGE") == 0 ? !valid_name(arguments)
-                                     : !valid_module_name(arguments))) {
+        (strcmp(text, "IMAGE") == 0 ? !valid_name(value)
+                                     : !valid_module_name(value))) {
       fprintf(stderr, "dollyfile: %s:%zu: expected IMAGE or MODULE\n",
               locator, line_number);
       return 2;
     }
     *kind = strdup(text);
-    *name = strdup(arguments);
+    *name = strdup(value);
     if (*kind == NULL || *name == NULL) return 1;
     if (strcmp(text, "MODULE") == 0) {
       if (contains_string(engine->selected_names, engine->selected_name_count,
-                          arguments)) {
+                          value)) {
         fprintf(stderr, "dollyfile: %s:%zu: module %s was already USEd\n",
-                locator, line_number, arguments);
+                locator, line_number, value);
         return 2;
       }
       if (append_string(&engine->selected_names, &engine->selected_name_count,
-                        &engine->selected_name_capacity, arguments) != 0) return 1;
+                        &engine->selected_name_capacity, value) != 0) return 1;
     }
     return 0;
   }
@@ -1402,7 +1434,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
               : !valid_object_name(words[1])))) result = 2;
     const char *detail = NULL;
     const char *sha256 = NULL;
-    char *environment_detail = NULL;
+    int append_environment = 0;
     const Object *child_export = result == 0 && *uses != 0
                                      ? scope_find(children, words[0], words[1])
                                      : NULL;
@@ -1424,13 +1456,8 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     } else if (result == 0 && strcmp(words[0], "ENV") == 0) {
       if (count == 3) detail = words[2];
       else if (count == 4 && strcmp(words[2], "APPEND") == 0) {
-        const size_t length = strlen(words[3]) + 8;
-        environment_detail = malloc(length);
-        if (environment_detail == NULL) result = 1;
-        else {
-          snprintf(environment_detail, length, "APPEND %s", words[3]);
-          detail = environment_detail;
-        }
+        detail = words[3];
+        append_environment = 1;
       } else result = 2;
     } else if (result == 0) {
       if (count != 3 || !valid_absolute_path(words[2]) ||
@@ -1442,6 +1469,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
                    ? scope_add_object(exports, child_export)
                    : scope_add(exports, words[0], words[1], detail, sha256);
       if (result == -EEXIST) result = 2;
+      if (result == 0 && *uses == 0) exports->items[exports->count - 1].append_environment = append_environment;
     }
     // A packaged-prefix resume parses every skipped descendant to reconstruct
     // the module graph, but the snapshot contains only the top-level module's
@@ -1452,7 +1480,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     const int exported_files_available = filesystem_available || depth == 1;
     if (result == 0 && *uses == 0 &&
         (strcmp(words[0], "ENV") == 0 || exported_files_available)) {
-      result = validate_export(words[0], words[1], detail, sha256);
+      result = validate_export(words[0], words[1], detail, sha256, append_environment);
       if (result != 0) {
         fprintf(stderr, "dollyfile: %s:%zu: missing exported %s %s: %s\n",
                 locator, line_number, words[0], words[1], strerror(-result));
@@ -1472,7 +1500,6 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     if (result == 0 && strcmp(words[0], "TOOL") == 0) {
       result = permit_tool(permitted_tools, words[1]);
     }
-    free(environment_detail);
   } else if (strcmp(text, "SOURCE") == 0) {
     result = split_words(arguments, &words, &count);
     if (result == 0 &&
@@ -1484,6 +1511,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
             strncmp(words[1], "http://", 7) != 0) ||
            strchr(words[1], '#') != NULL)) ||
          !valid_absolute_path(words[2]) || !valid_sha256(words[3]))) result = 2;
+    if (result == 0) result = declare_write(engine, words[2], locator, line_number);
     if (result == 0 && execute &&
         fetch_source(engine, words[0], words[1], words[2], words[3]) != 0) {
       result = 1;
@@ -1494,9 +1522,15 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
   } else if (strcmp(text, "FILE") == 0) {
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 1 || !valid_absolute_path(words[0]))) result = 2;
+    if (result == 0 && forbidden_keep(words[0]) &&
+        strncmp(words[0], "/tmp/", 5) != 0) result = 2;
+    if (result == 0 && body != NULL) result = declare_write(engine, words[0], locator, line_number);
     if (result == 0 && execute && body != NULL) {
       const int status = write_inline_file(words[0], body, body_length);
       if (status != 0) result = 1;
+    }
+    if (result == 0 && (execute || (filesystem_available && !forbidden_keep(words[0])))) {
+      result = validate_export("FILE", "FILE", words[0], NULL, 0);
     }
     if (result == 0 && forbidden_keep(words[0])) {
       if (strncmp(words[0], "/tmp/", 5) != 0) {
@@ -1510,6 +1544,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) ||
                         forbidden_keep(words[0]))) result = 2;
+    if (result == 0) result = validate_export("FOLDER", "FOLDER", words[0], NULL, 0);
     if (result == 0) {
       result = collect_tree(engine, words[0]);
       if (result != 0) {
@@ -1754,7 +1789,8 @@ static int execute_recipe(Engine *engine, const char *locator,
       const int environment_status = inherited == NULL
                                          ? unsetenv(object->name)
                                          : apply_environment(inherited->name,
-                                                             inherited->detail);
+                                                             inherited->detail,
+                                                             inherited->append_environment);
       if (environment_status != 0) {
         fprintf(stderr, "dollyfile: could not hide private ENV %s from %s\n",
                 object->name, locator);
@@ -2016,6 +2052,11 @@ static int seal_manifest(Engine *engine) {
 }
 
 static void dispose_engine(Engine *engine) {
+  for (size_t index = 0; index < engine->write_count; ++index) {
+    free(engine->writes[index].path);
+    free(engine->writes[index].locator);
+  }
+  free(engine->writes);
   free(engine->host_base);
   free(engine->selected_image);
   for (size_t index = 0; index < engine->keep_count; ++index) free(engine->keep[index]);

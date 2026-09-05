@@ -617,7 +617,7 @@ test("Dollyfiles compose pinned modules through the sequential C engine", async 
   assert.match(engine, /scope_find\(available, words\[0\], words\[1\]\)/);
   assert.match(engine, /permit_tool\(permitted_tools, provider->name\)/);
   assert.match(engine, /depth == 0 && \*uses < engine->resume_uses/);
-  assert.match(engine, /if \(!execute\) return 0/);
+  assert.match(engine, /result == 0 && execute\) result = run_slop/);
   assert.match(worker, /isStrictModulePrefix/);
   assert.match(worker, /using \$\{moduleCache\.uses\}-module/);
   assert.doesNotMatch(engine, /DOLLY_SLOP_TOOLS|DOLLY_SLOP_TOOL_RULES/);

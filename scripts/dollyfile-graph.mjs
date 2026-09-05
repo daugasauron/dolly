@@ -12,38 +12,6 @@ function key(type, name) {
   return `${type}:${name}`;
 }
 
-function validateSlopTools(module) {
-  const permitted = new Set();
-  const events = [
-    ...module.requirements
-      .filter(({ type }) => type === "TOOL")
-      .map((item) => ({ kind: "require", line: item.line, item })),
-    ...module.exports
-      .filter(({ type }) => type === "TOOL")
-      .map((item) => ({ kind: "export", line: item.line, item })),
-    ...module.slops.map((item) => ({ kind: "slop", line: item.line, item })),
-  ].sort((left, right) => left.line - right.line);
-
-  for (const event of events) {
-    if (event.kind === "require") {
-      permitted.add(event.item.name);
-      continue;
-    }
-    if (event.kind === "export") {
-      permitted.add(event.item.name);
-      continue;
-    }
-    const command = event.item.command[0];
-    const name = command.split("/").at(-1);
-    if (!permitted.has(name)) {
-      throw new Error(
-        `${module.relative}:${event.line}: SLOP command ${command} must be ` +
-        "declared by an earlier REQUIRES TOOL or EXPORTS TOOL",
-      );
-    }
-  }
-}
-
 function validateScratchCleanup(module) {
   const scratchRoots = (value) => [...String(value).matchAll(/\/tmp\/([A-Za-z0-9._-]+)/g)]
     .map((match) => `/tmp/${match[1]}`);
@@ -214,7 +182,6 @@ export async function loadDollyfileGraph(projectDir, rootFilename = "Dollyfile")
           });
         }
       }
-      validateSlopTools(module);
       validateScratchCleanup(module);
       validateSourceDisposition(module);
       for (const exported of module.exports) {

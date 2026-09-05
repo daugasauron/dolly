@@ -113,15 +113,6 @@ the working cache. **Acceptance:** the documented procedure works without tools
 accidentally inherited from this workstation. A full clean toolchain build was
 not performed in the audit.
 
-**D3 — P2 — C and JavaScript accept different Dollyfile languages.** Reproduced
-with unchanged C parsing: `SLOP "cc" input.c` and quoted CWD differ from JS.
-Source evidence also shows directory-valued LIB exports and missing duplicate
-writer checks in C. Inspect `src/dollyfile.c`, `src/dollyfile-view.mjs`, and
-`scripts/dollyfile-graph.mjs`. Prefer one parser/validator authority with inspection
-output; differential fixtures are the immediate guard. **Acceptance:** quoting,
-paths, object kinds, duplicate writers, retention, and row-by-row execution agree
-between what the viewer promises and what the sandbox executes.
-
 **D4 — P2 — Build/publication is not a coherent atomic transaction.** Source
 evidence: packaging checks existence/size without fully binding snapshot, recipe,
 runtime, source commit, and acceptance results; Pages downloads a release asset
@@ -163,7 +154,7 @@ caching on failure; correct its documentation instead of removing it by accident
    regression. Preserve typed system/layer/session restoration coverage.
 2. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
    mixing terminal UI events with child input. Resolve B7/B8 compatibility claims.
-3. Close D3 before making image-size pruning in C4 authoritative. Remove D5
+3. Derive C4's supported-target Zig SDK from measured real builds. Remove D5
    duplication as the corresponding owner becomes clear.
 
 Fix D1 before claiming clean external-toolchain verification, and D4 before treating
@@ -178,12 +169,16 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 174 Node tests and the full Chrome suite passed; all five
-images rebuilt with explicitly retained compiler SDKs and `/bin/dollyfile`.
-Logs: `build/c3-build.log`, `build/c3-node-tests.log`, and
-`build/c3-browser-suite.log`. The browser suite includes source-built process
+Latest local baseline: 175 Node tests and the full Chrome suite passed; all five
+images rebuilt and their prebuilt routes passed. Logs: `build/d3-final-build.log`,
+`build/d3-final-node-tests.log`, `build/d3-final-browser-suite.log`, and
+`build/d3-*-route.log`. The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
-named sessions, Pi streaming, C++ and Zig. Production boot runs no probe suite;
+quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
+writer and object-kind rejection, named sessions, Pi streaming, C++ and Zig.
+The C engine and JS inspector share differential fixtures; packaging and browser
+admission share the ENTRY decoder. `build/d3-parser-before.log` reproduces the
+original quoted-command/CWD and LIB-kind disagreement. Production boot runs no probe suite;
 its executable seed contains only the bootstrap runner and compiler.
 Existing release archives predate this checkpoint; none packages these changes.
 
@@ -192,7 +187,7 @@ packaged manifest exactly, with no extra system/PATH files
 (`build/c3-*-inventory.log`). The before probe found 394 undeclared system paths
 (`build/c3-before.log`). The SDK was previously installed implicitly from seed;
 retaining it adds about 115 MB to each opaque snapshot. C4 remains important:
-Python+Pi is now 529,852,379 bytes, close to the unchanged 512 MiB image limit.
+Python+Pi is now 529,856,809 bytes, close to the unchanged 512 MiB image limit.
 
 Default userspace reproducibility passed two independent cold browser builds
 and one cached build, with isolated owned profiles/outputs and no packaged-image

@@ -121,9 +121,10 @@ function verifySnapshotIdentity(image, parsed, recipes) {
   }
   for (const exported of expectedEnvironment) {
     const [operation, appended] = exported.details;
+    const append = exported.details.length === 2 && operation === "APPEND";
     if (!environment.has(exported.name) ||
-        (operation !== "APPEND" && environment.get(exported.name) !== operation) ||
-        (operation === "APPEND" &&
+        (!append && environment.get(exported.name) !== operation) ||
+        (append &&
          !environment.get(exported.name).split(":").includes(appended))) {
       throw new Error(`snapshot environment does not match ENV ${exported.name}`);
     }

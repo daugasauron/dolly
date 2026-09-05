@@ -4,6 +4,7 @@ import test from "node:test";
 import { decodeSystemSnapshot, resolveSnapshotFile, validateSnapshotEntry } from "../scripts/system-snapshot-format.mjs";
 import { readWasmInterface } from "../scripts/wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
+import { decodeImageEntry } from "../src/image-entry.mjs";
 
 function snapshot(records) {
   const header = Buffer.alloc(16);
@@ -65,6 +66,11 @@ test("ENTRY admission validates retained bytes against the real process contract
   const validate = records => validateSnapshotEntry(decodeSystemSnapshot(snapshot(records)),
     contract, DOLLY_PROCESS_ABI_DIGEST);
   assert.deepEqual(validate([["/app", 2, executable], ["/etc/dolly/entry", 2, control]]), ["/app"]);
+  const withEmptyArgument = Buffer.concat([control, Buffer.alloc(4)]);
+  withEmptyArgument.writeUInt32LE(2, 12);
+  assert.deepEqual(validate([["/app", 2, executable], ["/etc/dolly/entry", 2, withEmptyArgument]]), ["/app", ""]);
+  assert.deepEqual(decodeImageEntry(withEmptyArgument), ["/app", ""]);
+  assert.throws(() => decodeImageEntry(withEmptyArgument.subarray(0, -1)), /truncated/);
   assert.deepEqual(validate([["/app", 3, "program"], ["/etc/dolly/entry", 2, control],
     ["/program", 2, executable]]), ["/app"]);
   assert.throws(() => validate([["/etc/dolly/entry", 2, control]]), /not retained/);

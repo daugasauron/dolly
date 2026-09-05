@@ -499,6 +499,7 @@ ENTRY /bin/cc
 test("FILE consumes four-space-indented content and stops at the first other line", () => {
   const parsed = inspectDollyfile(`DOLLY 2
 MODULE inline
+REQUIRES TOOL printf
 
 FILE /tmp/example.txt
     alpha

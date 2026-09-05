@@ -51,6 +51,7 @@ const publicSources = new Set([
   "src/http-policy.mjs",
   "src/http-broker.mjs",
   "src/kernel-plugin.mjs",
+  "src/image-entry.mjs",
   "src/module-cache.mjs",
   "src/process-ffi.mjs",
   "src/process-abi.mjs",

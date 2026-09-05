@@ -35,6 +35,7 @@ for required in \
   src/http-policy.mjs \
   src/http-broker.mjs \
   src/kernel-plugin.mjs \
+  src/image-entry.mjs \
   src/module-cache.mjs \
   src/process-ffi.mjs \
   src/process-abi.mjs \
@@ -90,6 +91,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/http-policy.mjs" \
   "${project_dir}/src/http-broker.mjs" \
   "${project_dir}/src/kernel-plugin.mjs" \
+  "${project_dir}/src/image-entry.mjs" \
   "${project_dir}/src/module-cache.mjs" \
   "${project_dir}/src/process-ffi.mjs" \
   "${project_dir}/src/process-abi.mjs" \

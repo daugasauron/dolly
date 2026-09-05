@@ -16,6 +16,12 @@ test("Slop argument ownership and substitution status under sanitizers", async t
     for (const [name, source] of Object.entries(sourceFiles)) {
       await writeFile(resolve(scratch, name), source);
     }
+    const cwdResult = spawnSync(resolve(scratch, "slop"),
+      ["-c", 'case "$PWD" in "$1") :;; *) exit 91;; esac', "fixture-zero", scratch], {
+        cwd: scratch, encoding: "utf8", timeout: 5000,
+        env: { ...process.env, PWD: "/not-the-working-directory", ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1" },
+      });
+    assert.equal(cwdResult.status, 0, cwdResult.stderr);
     for (const [name, source, expected, referenceStatus = expected] of shellCases) await t.test(name, () => {
       const reference = spawnSync("bash", ["--noprofile", "--norc", "-c", source, "fixture-zero"], {
         cwd: scratch, encoding: "utf8", timeout: 5000,
