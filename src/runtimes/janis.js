@@ -275,6 +275,17 @@ function runDueTimers() {
   }
 }
 
+function timerPromise(delay, value, options = {}) {
+  return new Promise((resolve, reject) => {
+    const signal = options.signal;
+    if (signal?.aborted) { reject(abortError(signal.reason)); return; }
+    const abort = () => { clearTimeout(timer); signal.removeEventListener("abort", abort); reject(abortError(signal.reason)); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(value); }, delay);
+    if (options.ref === false) timer.unref();
+    signal?.addEventListener("abort", abort);
+  });
+}
+
 class JanisStringDecoder {
   #decoder;
   constructor(encoding = "utf8") {
@@ -364,8 +375,9 @@ Object.assign(process, {
   execArgv: [],
   argv0: "janis",
   exit(code = process.exitCode ?? 0) { Dolly.exit(Number(code)); },
-  kill(_pid, signal = "SIGTERM") {
-    if (signal === "SIGWINCH") janisStdout.emit("resize");
+  kill(pid, signal = "SIGTERM") {
+    if (pid === process.pid && signal === "SIGWINCH") janisStdout.emit("resize");
+    else Dolly.processKill(pid, childSignal(signal));
     return true;
   },
   hrtime(previous = undefined) {
@@ -978,99 +990,318 @@ for (const [name, sync] of [
 janisFs.promises = janisFsPromises;
 
 function quoteShell(value) { return `'${String(value).replaceAll("'", "'\\''")}'`; }
-function childCommand(command, args, options) {
-  return options.shell && (!args || args.length === 0)
-    ? String(command)
-    : [command, ...(args ?? [])].map(quoteShell).join(" ");
+const janisChildren = new Map();
+const childSignals = { SIGINT: 2, SIGKILL: 9, SIGTERM: 15 };
+function unsupportedChild(message) { return Object.assign(new Error(message), { code: "ENOTSUP" }); }
+function childSignal(signal = "SIGTERM") {
+  const number = typeof signal === "string" ? childSignals[signal] : signal;
+  if (![0, 2, 9, 15].includes(number)) throw unsupportedChild("Dolly supports signal 0, SIGINT, SIGKILL and SIGTERM");
+  return number;
 }
-function inChildCwd(options, operation) {
-  const previousCwd = Dolly.cwd();
-  try {
-    if (options.cwd) Dolly.chdir(String(options.cwd));
-    return operation();
-  } finally {
-    if (options.cwd) Dolly.chdir(previousCwd);
+function abortError(reason) {
+  return Object.assign(new Error("The operation was aborted", { cause: reason }), { name: "AbortError", code: "ABORT_ERR" });
+}
+function childString(value) {
+  const text = String(value);
+  if (text.includes("\0")) throw new TypeError("process strings cannot contain NUL");
+  return text;
+}
+function childOptions(command, args, options) {
+  if (options.detached || options.uid !== undefined || options.gid !== undefined ||
+      options.serialization !== undefined || options.windowsVerbatimArguments)
+    throw unsupportedChild("Dolly does not support detached processes, identities or IPC");
+  if (options.timeout !== undefined && (!Number.isInteger(options.timeout) || options.timeout < 0 || options.timeout > 86400000))
+    throw new RangeError("child timeout is out of range");
+  if (options.maxBuffer !== undefined && (!Number.isSafeInteger(options.maxBuffer) || options.maxBuffer < 0))
+    throw new RangeError("maxBuffer must be a nonnegative integer");
+  const killSignal = childSignal(options.killSignal);
+  if (killSignal === 0) throw unsupportedChild("a child kill signal must terminate");
+  let stdio = options.stdio ?? "pipe";
+  if (typeof stdio === "string") stdio = [stdio, stdio, stdio];
+  if (!Array.isArray(stdio) || stdio.length > 3) throw unsupportedChild("Dolly only inherits stdin, stdout and stderr");
+  stdio = [0, 1, 2].map(index => stdio[index] ?? "pipe");
+  if (stdio.some(value => !["pipe", "ignore", "inherit"].includes(value) &&
+      !(Number.isInteger(value) && value >= 0) && !(Number.isInteger(value?.fd) && value.fd >= 0)))
+    throw unsupportedChild("unsupported child stdio");
+  const cwd = resolvePath(childString(options.cwd ?? Dolly.cwd()));
+  const env = Object.entries(options.env ?? process.env).filter(([, value]) => value !== undefined)
+    .map(([key, value]) => {
+      if (!key || key.includes("=")) throw new TypeError("invalid environment name");
+      return childString(key) + "=" + childString(value);
+    });
+  const environment = Object.fromEntries(env.map(entry => { const index = entry.indexOf("="); return [entry.slice(0, index), entry.slice(index + 1)]; }));
+  let path = childString(command);
+  let argv = [childString(options.argv0 ?? path), ...args.map(childString)];
+  if (options.shell) {
+    const text = [path, ...args.map(childString)].join(" ");
+    path = typeof options.shell === "string" ? childString(options.shell) : "/bin/slop";
+    argv = [path, "-c", text];
   }
+  if (!path.includes("/")) {
+    path = (environment.PATH ?? "/bin:/usr/bin").split(":")
+      .map(directory => janisPath.resolve(cwd, directory, path)).find(candidate => {
+        try { return fsStat(candidate).isFile(); } catch (error) { if (error.code === "ENOENT" || error.code === "ENOTDIR") return false; throw error; }
+      });
+    if (!path) throw Object.assign(new Error(`executable not found: ${command}`), { code: "ENOENT", path: String(command), syscall: "spawn" });
+  } else path = janisPath.resolve(cwd, path);
+  return { path, argv, env, cwd, stdio, killSignal };
 }
-function runChild(command, args = [], options = {}) {
-  const text = childCommand(command, args, options);
-  return inChildCwd(options, () => Dolly.shell(text));
+function closeChildFd(record, index) {
+  if (record.fds[index] !== null) Dolly.fsClose(record.fds[index]);
+  record.fds[index] = null;
 }
-function runChildStreaming(command, args, options, stdout, stderr) {
-  const text = childCommand(command, args, options);
-  const timeout = Number.isFinite(options.timeout) ? Number(options.timeout) : undefined;
-  return inChildCwd(options, () => janisShellStream(text, stdout, stderr, timeout));
-}
-function spawnSync(command, args = [], options = {}) {
-  if (!Array.isArray(args)) { options = args ?? {}; args = []; }
-  const result = runChild(command, args, options);
-  const encoding = options.encoding && options.encoding !== "buffer" ? options.encoding : undefined;
-  return {
-    pid: 2,
-    status: result.status,
-    signal: null,
-    error: undefined,
-    stdout: encoding ? result.stdout : Buffer.from(result.stdout),
-    stderr: encoding ? result.stderr : Buffer.from(result.stderr),
-    output: [null, encoding ? result.stdout : Buffer.from(result.stdout), encoding ? result.stderr : Buffer.from(result.stderr)],
+function childInput(record) {
+  const stream = new JanisWritable();
+  stream.write = (chunk, encoding, callback) => {
+    if (typeof encoding === "function") { callback = encoding; encoding = undefined; }
+    if (record.inputEnded || record.fds[0] === null) {
+      const error = Object.assign(new Error("child stdin is closed"), { code: "EPIPE" });
+      queueMicrotask(() => { callback?.(error); stream.emit("error", error); });
+      return false;
+    }
+    const bytes = Buffer.from(chunk, encoding);
+    if (bytes.length === 0) { queueMicrotask(() => callback?.()); return true; }
+    record.input.push({ bytes, offset: 0, callback });
+    stream.writableLength += bytes.length;
+    return stream.writableLength < 65536;
   };
+  stream.end = (chunk, encoding, callback) => {
+    if (typeof chunk === "function") { callback = chunk; chunk = undefined; }
+    if (typeof encoding === "function") { callback = encoding; encoding = undefined; }
+    if (chunk !== undefined) stream.write(chunk, encoding);
+    if (callback) stream.once("finish", callback);
+    record.inputEnded = true;
+    stream.writable = false;
+    return stream;
+  };
+  stream.destroy = error => {
+    closeChildFd(record, 0);
+    record.input.length = 0;
+    stream.writableLength = 0;
+    stream.writable = false;
+    if (error) stream.emit("error", error);
+    stream.emit("close");
+    return stream;
+  };
+  return stream;
+}
+function childOutput(record, index) {
+  const stream = new JanisReadable();
+  stream.pause = () => { record.paused[index] = true; return stream; };
+  stream.resume = () => { record.paused[index] = false; return stream; };
+  stream.destroy = error => {
+    closeChildFd(record, index);
+    stream.readable = false;
+    if (error) stream.emit("error", error);
+    stream.emit("close");
+    return stream;
+  };
+  return stream;
 }
 function spawn(command, args = [], options = {}) {
   if (!Array.isArray(args)) { options = args ?? {}; args = []; }
-  const child = pendingChild();
-  queueMicrotask(() => {
-    try {
-      const result = runChildStreaming(
-        command, args, options,
-        (chunk) => child.stdout.push(Buffer.from(chunk)),
-        (chunk) => child.stderr.push(Buffer.from(chunk)),
-      );
-      child.exitCode = result.status;
-      child.stdout.push(null);
-      child.stderr.push(null);
-      child.emit("exit", result.status, null);
-      child.emit("close", result.status, null);
-    } catch (error) {
-      child.stdout.push(null);
-      child.stderr.push(null);
-      child.emit("error", error);
-      child.emit("close", null, null);
-    }
-  });
+  // Invalid arguments throw; unavailable process facilities and executables
+  // fail through the ChildProcess error event without starting a child.
+  let config, startError;
+  try { config = childOptions(command, args, options); }
+  catch (error) { if (error.code !== "ENOENT" && error.code !== "ENOTSUP") throw error; startError = error; }
+  const child = new JanisEventEmitter();
+  const record = { child, fds: [null, null, null], paused: [false, false, false], input: [], inputEnded: false, waited: false,
+    closed: false, pumping: false, ref: true, timer: null, abort: null, signal: options.signal };
+  child.pid = undefined;
+  child.exitCode = null;
+  child.signalCode = null;
+  child.killed = false;
+  child.stdin = child.stdout = child.stderr = null;
+  child.kill = (signal = "SIGTERM") => {
+    const number = childSignal(signal);
+    if (!child.pid || record.waited || record.closed) return false;
+    try { Dolly.processKill(child.pid, number); }
+    catch (error) { if (error.code === "ESRCH") return false; throw error; }
+    if (number !== 0) child.killed = true;
+    return true;
+  };
+  child.ref = () => { record.ref = true; return child; };
+  child.unref = () => { record.ref = false; return child; };
+  const owned = [];
+  try {
+    if (startError) throw startError;
+    const descriptors = config.stdio.map((mode, index) => {
+      if (mode === "inherit") return index;
+      if (mode === "pipe") {
+        const pair = Dolly.fsPipe();
+        owned.push(...pair);
+        record.fds[index] = pair[index === 0 ? 1 : 0];
+        return pair[index === 0 ? 0 : 1];
+      }
+      if (mode === "ignore") {
+        const descriptor = Dolly.fsOpen("/dev/null", index === 0 ? Dolly.fsConstants.O_RDONLY : Dolly.fsConstants.O_WRONLY);
+        owned.push(descriptor);
+        return descriptor;
+      }
+      return typeof mode === "number" ? mode : mode.fd;
+    });
+    child.pid = Dolly.processSpawn(config.path, config.argv, config.env, config.cwd, descriptors, -1);
+    child.spawnfile = config.path;
+    child.spawnargs = config.argv;
+    for (const descriptor of owned) if (!record.fds.includes(descriptor)) Dolly.fsClose(descriptor);
+    owned.length = 0;
+    child.stdin = record.fds[0] === null ? null : childInput(record);
+    child.stdout = record.fds[1] === null ? null : childOutput(record, 1);
+    child.stderr = record.fds[2] === null ? null : childOutput(record, 2);
+    janisChildren.set(child, record);
+    if (options.timeout > 0) record.timer = setTimeout(() => { record.timedOut = true; child.kill(config.killSignal); }, options.timeout);
+    record.abort = () => { if (child.kill(config.killSignal)) child.emit("error", abortError(options.signal.reason)); };
+    options.signal?.addEventListener("abort", record.abort);
+    queueMicrotask(() => {
+      child.emit("spawn");
+      if (options.signal?.aborted) record.abort();
+    });
+  } catch (error) {
+    for (const descriptor of owned) Dolly.fsClose(descriptor);
+    record.closed = true;
+    queueMicrotask(() => { child.emit("error", error); child.emit("close", null, null); });
+  }
+  child.stdio = [child.stdin, child.stdout, child.stderr];
   return child;
 }
-function pendingChild() {
-  const child = new JanisEventEmitter();
-  child.pid = 2;
-  child.stdin = new JanisWritable();
-  child.stdout = new JanisReadable();
-  child.stderr = new JanisReadable();
-  child.stdio = [child.stdin, child.stdout, child.stderr];
-  child.kill = () => true;
-  // These only control whether a native Node child keeps its event loop alive.
-  // Dolly executes children synchronously inside one userspace, so there is no
-  // underlying process handle to reference; preserving the chainable API is
-  // sufficient and lets best-effort launchers such as Pi's openBrowser helper
-  // fail without aborting their terminal fallback.
-  child.ref = () => child;
-  child.unref = () => child;
-  child.exitCode = null;
+function pumpChildren() {
+  let completed = false;
+  for (const record of [...janisChildren.values()]) {
+    if (record.pumping || record.closed) continue;
+    record.pumping = true;
+    const { child } = record;
+    try {
+      const queries = record.fds.map((fd, index) => [fd ?? -1, index === 0 ? Dolly.fsConstants.POLLOUT : Dolly.fsConstants.POLLIN]);
+      const ready = Dolly.fsPoll(queries, 0);
+      for (const index of [1, 2]) {
+        if (record.fds[index] === null || !ready[index] || record.paused[index] ||
+            (!record.waited && child.stdio[index].listenerCount("data") === 0)) continue;
+        const bytes = Buffer.alloc(16384);
+        const count = Dolly.fsRead(record.fds[index], bytes, 0, bytes.length);
+        if (count) child.stdio[index].push(bytes.subarray(0, count));
+        else { closeChildFd(record, index); child.stdio[index].push(null); }
+      }
+      if (record.fds[0] !== null) {
+        if (ready[0] & (Dolly.fsConstants.POLLERR | Dolly.fsConstants.POLLHUP)) {
+          const error = record.input.length ? Object.assign(new Error("child closed stdin"), { code: "EPIPE" }) : undefined;
+          child.stdin.destroy(error);
+        } else if (record.input.length && ready[0]) {
+          const entry = record.input[0];
+          const count = Dolly.fsWrite(record.fds[0], entry.bytes, entry.offset, Math.min(16384, entry.bytes.length - entry.offset));
+          entry.offset += count;
+          child.stdin.writableLength -= count;
+          if (entry.offset === entry.bytes.length) { record.input.shift(); entry.callback?.(); }
+          if (!record.input.length) child.stdin.emit("drain");
+        }
+        if (record.fds[0] !== null && record.inputEnded && !record.input.length) {
+          closeChildFd(record, 0);
+          child.stdin.emit("finish");
+          child.stdin.emit("close");
+        }
+      }
+      if (!record.waited) {
+        const result = Dolly.processWait(child.pid);
+        if (result !== null) {
+          record.waited = true;
+          child.exitCode = result.status;
+          child.signalCode = Object.keys(childSignals).find(name => childSignals[name] === result.signal) ?? null;
+          clearTimeout(record.timer);
+          record.signal?.removeEventListener("abort", record.abort);
+          if (record.fds[0] !== null) child.stdin.destroy();
+          child.emit("exit", child.exitCode, child.signalCode);
+        }
+      }
+      if (record.waited && record.fds.every(fd => fd === null)) {
+        completed = true;
+        record.closed = true;
+        janisChildren.delete(child);
+        child.emit("close", child.exitCode, child.signalCode);
+      }
+    } finally { record.pumping = false; }
+  }
+  return completed;
+}
+function collectChild(command, args, options, onStdout, onStderr) {
+  const child = spawn(command, args, options);
+  const record = janisChildren.get(child);
+  let closed = false, error;
+  const chunks = [[], []];
+  const lengths = [0, 0];
+  const maxBuffer = options.maxBuffer ?? 1024 * 1024;
+  child.on("error", value => { error = value; });
+  child.once("close", () => { closed = true; });
+  for (const [index, stream, callback] of [[0, child.stdout, onStdout], [1, child.stderr, onStderr]]) {
+    stream?.on("data", bytes => {
+      if (callback) callback(bytes);
+      else {
+        lengths[index] += bytes.length;
+        if (lengths[index] > maxBuffer) {
+          error = Object.assign(new Error("child output exceeded maxBuffer"), { code: "ENOBUFS" });
+          child.kill("SIGKILL");
+        } else chunks[index].push(Buffer.from(bytes));
+      }
+    });
+  }
+  child.stdin?.end(options.input ?? Buffer.alloc(0));
+  try {
+    while (!closed) {
+      Dolly.pumpJobs();
+      if (!closed) globalThis.__janisPump();
+    }
+  } catch (failure) {
+    child.kill("SIGKILL");
+    child.stdout?.removeAllListeners("data");
+    child.stderr?.removeAllListeners("data");
+    while (!closed) { pumpChildren(); if (!closed) Dolly.fsPoll([], 1); }
+    throw failure;
+  }
+  const output = chunks.map(parts => Buffer.concat(parts));
+  if (record?.timedOut && !error) error = Object.assign(new Error("child timed out"), { code: "ETIMEDOUT" });
+  const decode = bytes => options.encoding && options.encoding !== "buffer" ? bytes.toString(options.encoding) : bytes;
+  return { pid: child.pid, status: child.exitCode, signal: child.signalCode, error,
+    stdout: decode(output[0]), stderr: decode(output[1]), output: [null, ...output.map(decode)] };
+}
+function spawnSync(command, args = [], options = {}) {
+  if (!Array.isArray(args)) { options = args ?? {}; args = []; }
+  return collectChild(command, args, options);
+}
+function runChild(command, args = [], options = {}) {
+  return spawnSync(command, args, { ...options, encoding: "utf8" });
+}
+function execResult(child, options, callback) {
+  const buffers = [[], []], lengths = [0, 0];
+  const maximum = options.maxBuffer ?? 1024 * 1024;
+  let failure;
+  for (const [index, stream] of [[0, child.stdout], [1, child.stderr]]) {
+    stream?.on("data", chunk => {
+      const bytes = Buffer.from(chunk);
+      lengths[index] += bytes.length;
+      if (lengths[index] <= maximum) buffers[index].push(bytes);
+      else if (!failure) {
+        failure = Object.assign(new Error("child output exceeded maxBuffer"), { code: "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" });
+        child.kill(options.killSignal);
+      }
+    });
+  }
+  child.once("error", error => { failure = error; });
+  child.once("close", (status, signal) => {
+    const output = buffers.map(parts => {
+      const bytes = Buffer.concat(parts);
+      return options.encoding === "buffer" ? bytes : bytes.toString(options.encoding ?? "utf8");
+    });
+    if (!failure && (status !== 0 || signal !== null))
+      failure = Object.assign(new Error("command exited " + (signal ?? status)), { code: status, signal, killed: child.killed });
+    if (failure) Object.assign(failure, { stdout: output[0], stderr: output[1] });
+    callback?.(failure ?? null, ...output);
+  });
+  child.stdin?.end();
   return child;
 }
 function exec(command, options, callback) {
   if (typeof options === "function") { callback = options; options = {}; }
-  const encoding = new TextDecoder(options?.encoding ?? "utf8").encoding;
-  const child = spawn(command, [], { ...(options ?? {}), shell: true });
-  child.stdout.setEncoding(encoding);
-  child.stderr.setEncoding(encoding);
-  let stdout = ""; let stderr = ""; let failed = false;
-  child.stdout.on("data", (chunk) => { stdout += String(chunk); });
-  child.stderr.on("data", (chunk) => { stderr += String(chunk); });
-  child.once("error", (error) => { failed = true; callback?.(error, stdout, stderr); });
-  child.once("close", (status) => {
-    if (!failed) callback?.(status ? new Error(`command exited ${status}`) : null, stdout, stderr);
-  });
-  return child;
+  options ??= {};
+  return execResult(spawn(command, [], { ...options, shell: options.shell ?? true }), options, callback);
 }
 function execFile(command, args, options, callback) {
   if (typeof args === "function") {
@@ -1081,18 +1312,8 @@ function execFile(command, args, options, callback) {
   } else if (typeof options === "function") {
     callback = options; options = {};
   }
-  const encoding = new TextDecoder(options?.encoding ?? "utf8").encoding;
-  const child = spawn(command, args, options ?? {});
-  child.stdout.setEncoding(encoding);
-  child.stderr.setEncoding(encoding);
-  let stdout = ""; let stderr = ""; let failed = false;
-  child.stdout.on("data", (chunk) => { stdout += String(chunk); });
-  child.stderr.on("data", (chunk) => { stderr += String(chunk); });
-  child.once("error", (error) => { failed = true; callback?.(error, stdout, stderr); });
-  child.once("close", (status) => {
-    if (!failed) callback?.(status ? new Error(`command exited ${status}`) : null, stdout, stderr);
-  });
-  return child;
+  options ??= {};
+  return execResult(spawn(command, args, options), options, callback);
 }
 const janisChildProcess = {
   spawn,
@@ -1100,13 +1321,15 @@ const janisChildProcess = {
   exec,
   execSync: (command, options = {}) => {
     const result = runChild(command, [], { ...options, shell: true });
-    if (result.status) throw new Error(result.stderr || `command exited ${result.status}`);
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(result.stderr || `command exited ${result.status ?? result.signal}`);
     return options.encoding ? result.stdout : Buffer.from(result.stdout);
   },
   execFile,
   execFileSync: (command, args, options = {}) => {
     const result = spawnSync(command, args, options);
-    if (result.status) throw new Error(String(result.stderr));
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(String(result.stderr) || `command exited ${result.status ?? result.signal}`);
     return result.stdout;
   },
 };
@@ -2036,7 +2259,7 @@ const janisBuiltinModules = {
   "stream/promises": janisStreamPromises,
   "stream/web": janisStreamWeb,
   string_decoder: { StringDecoder: JanisStringDecoder },
-  "timers/promises": { setTimeout: (delay, value, options = {}) => new Promise((resolve, reject) => { if (options.signal?.aborted) reject(options.signal.reason); else globalThis.setTimeout(resolve, delay, value); }), setImmediate: (value) => Promise.resolve(value) },
+  "timers/promises": { setTimeout: timerPromise, setImmediate: (value) => Promise.resolve(value) },
   timers: { setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, clearImmediate },
   tls: janisTls,
   tty: { isatty: (fd) => Boolean(Dolly.isatty(Number(fd))), ReadStream: JanisStdin, WriteStream: JanisOutput },
@@ -2166,14 +2389,13 @@ if (typeof globalThis.EventTarget !== "function") {
 
 function janisStreamPump() {
   runDueTimers();
+  return pumpChildren();
 }
 globalThis.__janisStreamPump = janisStreamPump;
-function janisShellStream(command, stdout, stderr, timeout) {
-  try {
-    return Dolly.shellStream(command, stdout, stderr, timeout, janisStreamPump);
-  } finally {
-    janisStreamPump();
-  }
+function janisShellStream(command, stdout, stderr, timeout, options = {}) {
+  const result = collectChild("/bin/slop", ["-c", command], { ...options, timeout }, stdout, stderr);
+  if (result.error) throw result.error;
+  return { status: result.status ?? 128 + childSignals[result.signal] };
 }
 globalThis.__janisShellStream = janisShellStream;
 
@@ -2181,11 +2403,12 @@ globalThis.__janisShellStream = janisShellStream;
 // inside the Wasm worker and keeps the runtime alive exactly while referenced
 // timers or resumed stdin listeners exist.
 globalThis.__janisPump = () => {
-  janisStreamPump();
+  if (janisStreamPump()) return true;
   const pumpedHttp = Boolean(globalThis.__dollyHttpPump?.());
   const referenced = [...janisTimers.values()].filter((timer) => timer.ref);
   const wantsInput = janisStdin.isActive();
-  if (!wantsInput && referenced.length === 0 && !pumpedHttp) return false;
+  const activeChildren = [...janisChildren.values()].some(record => record.ref);
+  if (!wantsInput && referenced.length === 0 && !pumpedHttp && !activeChildren) return false;
   const nextDue = referenced.length
     ? Math.max(0, Math.min(...referenced.map((timer) => timer.due)) - Date.now())
     : 1000;
@@ -2193,10 +2416,13 @@ globalThis.__janisPump = () => {
   // input wait yields to the browser broker while an HTTP request is active;
   // this preserves timer-driven TUI animation and consumes response chunks as
   // they arrive without adding threads or host async authority.
-  const wait = Math.min(pumpedHttp ? 10 : 1000, nextDue);
-  const bytes = wantsInput && !janisStdin.isTTY
-    ? Dolly.readStdin(4096)
-    : Dolly.readRaw(wait);
+  const wait = Math.min(pumpedHttp || activeChildren ? 10 : 1000, nextDue);
+  let bytes = new Uint8Array(0);
+  if (!wantsInput) Dolly.fsPoll([], wait);
+  else if (!janisStdin.isTTY) {
+    if (Dolly.fsPoll([[0, Dolly.fsConstants.POLLIN]], wait)[0]) bytes = Dolly.readStdin(4096);
+    else { janisStreamPump(); return true; }
+  } else bytes = Dolly.readRaw(wait);
   const size = Dolly.terminalSize();
   if (size.columns !== janisTerminalSize.columns || size.rows !== janisTerminalSize.rows) {
     janisTerminalSize = size;
@@ -2210,5 +2436,13 @@ globalThis.__janisPump = () => {
 };
 
 globalThis.__janisCleanup = () => {
+  for (const record of janisChildren.values()) {
+    record.child.kill("SIGKILL");
+    if (!record.waited) Dolly.processWait(record.child.pid);
+    clearTimeout(record.timer);
+    record.signal?.removeEventListener("abort", record.abort);
+    for (let index = 0; index < 3; ++index) closeChildFd(record, index);
+  }
+  janisChildren.clear();
   fsRemove(janisTemporaryRoot, { recursive: true, force: true });
 };

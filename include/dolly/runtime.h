@@ -33,6 +33,12 @@ int dolly_spawn_env_timeout(const char *path, int argc, char **argv,
                             char *const envp[], int stdin_fd, int stdout_fd,
                             int stderr_fd, double timeout_milliseconds);
 
+// Atomically select the child's absolute cwd without changing the parent's.
+// NULL inherits cwd; a timeout of -1 disables the deadline.
+int dolly_spawn_env_cwd(const char *path, int argc, char **argv,
+                        char *const envp[], const char *cwd, int stdin_fd,
+                        int stdout_fd, int stderr_fd, double timeout_milliseconds);
+
 /* Process-local dynamic loading. dolly_dlopen() accepts only a side module
  * carrying the current dolly.process.dso stamp. Its imports resolve from the
  * executable and already-loaded DSOs in the same private Worker; loading never
@@ -90,6 +96,7 @@ int dolly_isatty(int descriptor);
 
 // Terminates only the currently executing Dolly process.
 void dolly_exit(int status) __attribute__((__noreturn__));
+void dolly_exit_signal(int signal_number) __attribute__((__noreturn__));
 
 // Compatibility spelling used only by the resident kernel display plugin.
 int dolly_fclose(FILE *stream);

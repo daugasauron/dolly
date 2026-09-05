@@ -24,7 +24,7 @@ REQUIRES TOOL   touch
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE HOST /static/python/cpython.tar /tmp/cpython.tar 6a656653b536a6f0fdd01f869045907de6b255fc712c311e9eb59867a0bbe4cc
+SOURCE HOST /static/python/cpython.tar /tmp/cpython.tar 8cfdf76e5483789eff37b07f384042684e973e13cd4f6a0b1b504147f3b44a45
 
 SLOP tar \
   -xf /tmp/cpython.tar \
@@ -34,8 +34,8 @@ SOURCE HOST /static/python/runtimes/cpython-platform.c        /usr/src/python/Py
 SOURCE HOST /static/python/runtimes/cpython-extension-check.c /usr/src/python/Modules/dolly_extension_check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071
 SOURCE HOST /static/python/runtimes/cpython-socket-stubs.c    /usr/src/python/Modules/dolly_socket_stubs.c    d54e0a1d299c128d483e7edc9dc089693e8ca53a7de54509e687a87a6368a4ce
 SOURCE HOST /static/python/runtimes/cpython-termios.c         /usr/src/python/Modules/dolly_termios.c         b1241a673ceb4a34327a6245954acad23a4e77ce97d6817114b303ea32cd6cd0
-SOURCE HOST /static/python/runtimes/cpython-process.c         /usr/src/python/Modules/dolly_process.c         7062b5536d7302c9197dbbddeeb6657aa8f05603c819f1ab4cfa8a43ef3ef618
-SOURCE HOST /static/python/runtimes/cpython-subprocess.py     /usr/src/python/Lib/_dolly_subprocess.py        0a21de4e55971b8dfd393f43a61e011425c733c61d143c7ae4a02f02dcbeeee7
+SOURCE HOST /static/python/runtimes/cpython-process.c         /usr/src/python/Modules/dolly_process.c         18dc44cc5d330d22c3e07be2a25e749e5f7810a4cc64e457416614b11b0f3cef
+SOURCE HOST /static/python/runtimes/cpython-subprocess.py     /usr/src/python/Lib/_dolly_subprocess.py        8b9456271e727ca26bf58fb2cb9badd1b7eaf8a7f2bcbbcdbf093518a181571c
 
 SLOP CWD /usr/src/python touch \
   Python/frozen_modules/*.h

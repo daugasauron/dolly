@@ -49,6 +49,9 @@ const slopMode = ["slop", "slop-source"].includes(process.env.DOLLY_BROWSER_MODE
 const utf8Mode = process.env.DOLLY_BROWSER_MODE === "utf8";
 const terminalUiMode = process.env.DOLLY_BROWSER_MODE === "terminal-ui";
 const janisFilesMode = process.env.DOLLY_BROWSER_MODE === "janis-files";
+const janisProcessMode = process.env.DOLLY_BROWSER_MODE === "janis-process";
+const processLifecycleMode = process.env.DOLLY_BROWSER_MODE === "process-lifecycle";
+const pythonProcessMode = process.env.DOLLY_BROWSER_MODE === "python-process";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -169,6 +172,7 @@ let curlCliRequest = null;
 let snapshotUpload = null;
 const staticRequestPaths = new Set();
 const piModelRequests = [];
+const janisAbortRequests = [];
 const piFixtureStream = { request: 0, phase: "idle" };
 
 function delay(milliseconds) {
@@ -237,6 +241,15 @@ function startServer() {
       if (utf8Mode && /^\/fixture\/utf8-(?:cases\.mjs|browser\.mjs|writer\.c)$/.test(requestUrl.pathname)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain; charset=utf-8" });
         response.end(await readFile(resolve(projectDir, "test/fixtures", requestUrl.pathname.split("/").at(-1))));
+        return;
+      }
+      if (janisProcessMode && requestUrl.pathname.startsWith("/fixture/abort/")) {
+        const record = { path: requestUrl.pathname, finished: false, closed: false };
+        janisAbortRequests.push(record);
+        response.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*" });
+        if (!requestUrl.pathname.endsWith("/before")) response.write("prefix");
+        const timer = setTimeout(() => { record.finished = true; response.end("suffix"); }, 2000);
+        response.once("close", () => { record.closed = true; clearTimeout(timer); });
         return;
       }
       if (utf8Mode && requestUrl.pathname === "/fixture/utf8-reference") {
@@ -1185,7 +1198,7 @@ chrome = spawn(chromeBinary, [
       ? menuPage
       : snapshotExportMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
-      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || realOpenRouterMode || missingSnapshotMode
+      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
         || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode
@@ -1194,6 +1207,61 @@ chrome = spawn(chromeBinary, [
   });
 
   browserProof: {
+    if (janisProcessMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Janis process boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-janis-process-test";
+      const source = await readFile(resolve(projectDir, "test/fixtures/janis-process.mjs"), "utf8");
+      try {
+        assert.equal(await submit(`mkdir -p ${scratch}`), 0);
+        assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.mjs`), 0);
+        assert.equal(await submit(`timeout 30 janis -m ${scratch}/probe.mjs ${scratch} ${localOrigin}`), 0);
+        await delay(100);
+        assert.deepEqual(janisAbortRequests.map(({ path, finished, closed }) => [path.split("/").at(-1), finished, closed]),
+          [["before", false, true], ["body", false, true], ["cancel", false, true]], "abort/cancel must close the actual HTTP connections");
+      } finally { await submit(`rm -rf ${scratch}`); }
+      console.log("browser: Janis real children, input/env/cwd, streaming, kill, child/HTTP abort and deadlines passed");
+      break browserProof;
+    }
+    if (pythonProcessMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Python process boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-python-process-test";
+      const source = await readFile(resolve(projectDir, "test/fixtures/python-process.py"), "utf8");
+      try {
+        assert.equal(await submit(`mkdir -p ${scratch}`), 0);
+        assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.py`), 0);
+        assert.equal(await submit(`python ${scratch}/probe.py ${scratch}`), 0);
+      } finally { await submit(`rm -rf ${scratch}`); }
+      console.log("browser: Python starts real children immediately; PID/cwd/env, streaming pipes/input, nonblocking poll, timeout and cancellation passed");
+      break browserProof;
+    }
+    if (processLifecycleMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "process lifecycle boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-process-lifecycle-test";
+      const source = await readFile(resolve(projectDir, "test/fixtures/process-lifecycle.c"), "utf8");
+      try {
+        assert.equal(await submit(`mkdir -p ${scratch}`), 0);
+        assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.c`), 0);
+        assert.equal(await submit(`cc -O0 -fno-sanitize-coverage ${scratch}/probe.c -o ${scratch}/probe && timeout 15 ${scratch}/probe`), 0);
+        assert.equal(await submit(`git config --file ${scratch}/config user.email before && timeout 5 git config --file ${scratch}/config user.email after`), 0);
+      } finally { await submit(`rm -rf ${scratch}`); }
+      console.log("browser: process PID/parent, nonblocking wait, signal delivery, forced stop and distinct normal/signal exit status passed");
+      break browserProof;
+    }
     if (janisFilesMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",

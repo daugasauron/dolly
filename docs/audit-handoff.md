@@ -35,30 +35,6 @@ changing behavior. Old measurements below are baselines, not fresh benchmarks.
 
 ### Runtime adapters must preserve actual substrate behavior
 
-**B3 — P1/P2 — Child/abort APIs report success without doing the work.** Mixed
-public reproduction and source evidence. `src/runtimes/janis.js` ignores child
-options, supplies a fake PID, discards stdin, and acknowledges ineffective kills;
-`dolly-node.js` timeout signals do not expire and fetch checks abort only at
-start. Pi tool cancellation also only checks before launch. Connect supported
-env/input/wait/signal/deadline behavior to real process handles; explicitly reject
-the rest. **Acceptance:** custom env and input reach children, mid-operation
-abort/deadline stops child or HTTP work, and unsupported options fail clearly.
-Outer Ctrl-C passing is not evidence that application abort signals work.
-First extend the shared process contract: WAIT currently accepts only flags=0,
-`dolly_kill` returns ENOSYS, and termination stores only a normalized exit code.
-Nonblocking wait and real signals need typed operations and an explicit signal
-exit reason; do not infer a signal from a normal exit status of 128+signal.
-
-**B5 — P2 — Python has an obsolete lazy subprocess model.** Source evidence in
-`src/runtimes/cpython-subprocess.py`: execution begins at wait/communicate or
-poll; output is spooled; poll can block; implicit cwd is not captured at creation;
-terminate/kill alias a method requiring an argument. Adapt Popen to the same
-spawn/pipe/wait/signal handles as other runtimes. **Acceptance:** observable start,
-nonblocking poll, inherited creation-time cwd/env, streaming, communicate input,
-terminate/kill, and wait status. Serial scheduling does not justify fake processes.
-Inspect whether a small spawn override can reuse upstream Popen's pipe,
-communicate, and wait implementation instead of retaining the custom spool model.
-
 **B7 — P2 — libcurl accepts ineffective options.** Source evidence in
 `src/libcurl-fetch.c`: several redirect/timeout/proxy/certificate/cookie/OAuth
 settings return success without effect, and stored protocol restrictions are not
@@ -129,8 +105,8 @@ dirty-source and documentation findings above remain open.
 1. Cold/prebuilt filesystems now match their declared system inventories. Before
    enabling named saves for rebuilt images, add a cross-route session-baseline
    regression. Preserve typed system/layer/session restoration coverage.
-2. Consolidate B3–B5 on actual process/filesystem handles. Keep terminal UI service
-   independent of stdin consumption. Resolve B7's ineffective options.
+2. Resolve B7's ineffective options. Preserve the shared process/filesystem
+   regressions and terminal UI service independent of stdin consumption.
 3. Remove D5 duplication as the corresponding owner becomes clear. Keep the
    positive Zig SDK manifest and its real compiler/Ghostty regressions intact.
 
@@ -148,8 +124,9 @@ authority to make tests pass. Preserve existing regressions.
 
 Latest local baseline: 178 Node tests and the full Chrome suite passed; all five
 images are current and their prebuilt routes passed. Logs:
-`build/b4-final-snapshots.log`, `build/b4-final-node-tests.log`,
-`build/b4-final-full-browser.log`, and `build/b4-final-*-route.log`.
+`build/b3-oauth-build.log`, `build/b3-b5-oauth-node-tests.log`,
+`build/b3-b5-oauth-full-browser.log`, and `build/b3-b5-oauth-*-route.log`.
+The Python C++ extension also passed (`build/b3-b5-python-cpp-browser.log`).
 The browser suite includes source-built process
 acceptance probes, in-Wasm image/layer round trips, omitted-entry rejection,
 quoted Dollyfile commands/CWD, literal ENV, sequential fetch/execute, duplicate
@@ -168,7 +145,30 @@ environment reflection, shared/clamped Buffer views, exclusive/numeric opens,
 read/write offsets, rename/unlink survival, closed FileHandle reuse rejection,
 stat/lstat/Dirent distinctions, symlink-safe removal, zero-length/DataView I/O,
 real timestamps and explicit watch rejection (`build/b4-final-*-browser.log`).
-This does not claim a complete Node filesystem implementation or close B3.
+This does not claim a complete Node filesystem implementation.
+
+B3/B5 now use actual process handles: PID/parent identity, atomic spawn cwd,
+nonblocking wait, explicit normal/signal exit records, and positive-PID
+INT/TERM/KILL. Python overrides only upstream Popen's spawn path and retains
+its pipes, communicate, wait and signal methods. Janis feeds stdin while draining
+both output pipes, supports paused output, kills on abort/deadline, and reports
+unsupported facilities through spawn errors without creating a child. Pi's
+extension connects both shell entry points to those handles. HTTP polling is
+nonblocking; aborted requests and cancelled readers close real browser-side
+fixture connections. No outer browser import was added.
+
+Before probes: `build/b3-janis-before-browser.log` and
+`build/b5-before-browser.log`. Browser acceptance is in
+`build/b3-janis-oauth-browser.log`,
+`build/b3-janis-python-pi-oauth-browser.log`, and
+`build/b5-{python,python-pi}-final-browser.log`. The regression suite also caught
+real-PID/libc fallback-TID disagreement deadlocking nested stdio, a Pi shell
+completion/input race, and synchronous rejection breaking Pi's manual OAuth
+fallback. All three have regressions; intermediate failures remain in
+`build/b5-stdio-before-browser.log`, `build/b3-pi-first-browser.log`, and
+`build/b3-b5-final-full-browser.log`. General signal handlers, process groups,
+extra inherited descriptors and complete Node stream/thread compatibility remain
+unsupported. These tests do not prove a new NumPy/Pandas build or Git clone.
 
 The C++ SDK now uses the genuine process archives for implicit and explicit
 links, including `cc -lc++` and `-Wl,` forms. Browser regressions exercise
@@ -180,7 +180,7 @@ link order. The substitutes and obsolete duplicate `src/startup.mk` were removed
 The suite also found a last-timer/HTTP-completion event-loop bug: queued promise
 jobs were mistaken for no remaining work. The runner now drains them while still
 rejecting genuinely stranded top-level promises (`build/janis-last-job-{before,after}.log`).
-This does not close B3's child/abort semantics.
+The subsequent B3 checkpoint above connects child/abort operations to real handles.
 
 Busy-terminal selection/copy now runs in the kernel presentation tick, with
 ordered compaction in the existing bounded input ring and no new browser import.

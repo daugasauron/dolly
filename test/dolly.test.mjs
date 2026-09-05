@@ -921,12 +921,12 @@ test("foreground SIGINT is PID-targeted and always has a forced Worker terminati
   assert.match(supervisor, /process\.memory = null/);
   assert.match(supervisor, /addEventListener\("messageerror"/);
   assert.match(supervisor, /Worker failed \$\{stage\}/);
-  assert.match(supervisor, /interrupt\(pid\)[\s\S]*?#forceExit\(pid, 130\)/);
-  assert.match(supervisor, /_dolly_process_worker_failed\(pid, status\)/);
-  assert.match(supervisor, /#terminateDescendantWorkers\(pid, status\)/);
+  assert.match(supervisor, /interrupt\(pid\)[\s\S]*?#forceExit\(pid, 130, sigint\)/);
+  assert.match(supervisor, /_dolly_process_worker_failed\(pid, status, signalNumber\)/);
+  assert.match(supervisor, /#terminateDescendantWorkers\(pid, status, signalNumber\)/);
   assert.match(supervisor,
-               /#terminateDescendantWorkers\(parentPid, status\)[\s\S]*?_dolly_process_collect\(process\.pid\)/);
-  assert.match(supervisor, /_dolly_process_signal\(process\.pid, sigint\)/);
+               /#terminateDescendantWorkers\(parentPid, status, signalNumber = 0\)[\s\S]*?_dolly_process_collect\(process\.pid\)/);
+  assert.match(supervisor, /_dolly_process_signal\(process\.pid, signalNumber\)/);
   assert.match(supervisor, /interruptGraceMilliseconds = 500/);
   assert.match(supervisor, /#armDeadline\(process\)/);
   assert.match(supervisor, /#forceExit\(process\.pid, 124\)/);
@@ -936,7 +936,7 @@ test("foreground SIGINT is PID-targeted and always has a forced Worker terminati
   assert.match(supervisor, /createProcessMemory\(memoryRequirements\)/);
   assert.match(processKernel, /dolly_process_deadline_remaining\(int pid\)/);
   assert.match(processKernel,
-               /process->pending_signal == SIGINT[\s\S]*?128 \+ SIGINT/);
+               /request\.signal_number : process->pending_signal[\s\S]*?128 \+ signal_number/);
   const timeoutCommand = await readFile(
     new URL("../src/commands/timeout.c", import.meta.url), "utf8",
   );
@@ -1109,7 +1109,7 @@ test("Janis implements measured hashes exactly and fails loudly for absent zlib"
   assert.match(source, /message\.includes\("No such file or directory"\) \? "ENOENT"/);
   assert.match(source, /message\.includes\("File exists"\) \? "EEXIST"/);
   assert.match(source, /\["rmdir", janisFs\.rmdirSync\]/);
-  assert.match(source, /child\.unref = \(\) => child/);
+  assert.match(source, /child\.unref = \(\) => \{ record\.ref = false; return child; \}/);
   assert.match(source, /crypto\.subtle \?\?=/);
   assert.match(source, /Janis Web Crypto does not implement digest/);
   assert.match(source, /createServer: \(listener\) =>/);
@@ -1600,7 +1600,7 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   assert.match(nodeRuntime, /new ReadableStream\(/);
   assert.match(nodeRuntime, /Dolly\.httpStart\(method, url, headerBlock, body\)/);
   assert.match(janis, /const pumpedHttp = Boolean\(globalThis\.__dollyHttpPump\?\.\(\)\)/);
-  assert.match(janis, /Math\.min\(pumpedHttp \? 10 : 1000, nextDue\)/);
+  assert.match(janis, /Math\.min\(pumpedHttp \|\| activeChildren \? 10 : 1000, nextDue\)/);
   assert.match(janis, /function janisShellStream\(/);
   assert.match(runtime, /setenv\("TERM", "xterm-256color", 1\)/);
   assert.match(runtime, /setenv\("COLORTERM", "truecolor", 1\)/);
@@ -1661,9 +1661,9 @@ test("upstream Pi is compiled in Dolly and customized only through normal files"
     assert.match(extension, new RegExp(`name: "${name}"`));
   }
   assert.match(extension, /parameters\.command, bytes => onChunk\(stdout, bytes\), bytes => onChunk\(stderr, bytes\)/);
-  assert.match(quickjs, /pipe-backed output/);
-  assert.match(quickjs, /poll\(streams, 2, 16\)/);
-  assert.match(quickjs, /pump_command_stream/);
+  assert.match(quickjs, /dolly_spawn_env_cwd\(path/);
+  assert.match(quickjs, /waitpid\(pid, &status, WNOHANG\)/);
+  assert.match(quickjs, /poll\(descriptors, count, timeout\)/);
   assert.match(quickjs, /drain_command_jobs/);
   assert.match(quickjs, /stdin_file == NULL \? 0 : fileno\(stdin_file\)/);
   assert.match(extension, /context\.ui\.setHeader/);

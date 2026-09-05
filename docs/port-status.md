@@ -48,9 +48,9 @@ Git is a family of cooperating commands, not one leaf executable. The archive,
 zlib, local-filesystem, general HTTP, libcurl, and direct smart-HTTP helper
 milestones now work. A normal `git clone https://...` still expects
 `/usr/bin/git` and `git-remote-http` to exchange a bidirectional protocol over
-concurrent pipes. Dolly's version-0 `spawn` deliberately completes one
-filesystem module synchronously, and native `fork`/`exec` wrappers return
-`ENOSYS`.
+concurrent pipes. Dolly now has immediate spawn, real bounded pipes, nonblocking
+wait and positive-PID signals. Native `fork` remains unavailable; Git's
+fork-oriented helper launcher still needs to be connected to those operations.
 
 The helper is not missing: `git --exec-path` resolves to `/usr/libexec/dolly`
 and the ABI-validated `git-remote-http` file is present. Git's own PATH probe
@@ -60,11 +60,10 @@ project-wide no-permission model; actual module validity remains enforced by
 the Dolly loader. The next failure is therefore lifecycle, not packaging or
 `chmod`.
 
-Acceptance gate: first try the smallest Git-specific in-Wasm integration or a
-serial/spooled protocol adapter, then prove clone/fetch through the existing
-browser HTTP broker. A general scheduler is not a prerequisite and should not
-be introduced merely to imitate Unix. No host process or socket fallback is
-acceptable.
+Acceptance gate: connect the helper launcher to the existing in-Wasm process
+operations, then prove clone/fetch through the browser HTTP broker. No host
+process or socket fallback is acceptable; the availability of those primitives
+alone is not evidence that Git clone works.
 
 ### Vim: source-build probe
 

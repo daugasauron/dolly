@@ -3,7 +3,7 @@ MODULE default
 
 # Direct children form this module's private sequential scope. Each child's
 # requirements resolve only against exports from earlier children in this list.
-USE HOST /modules/bootstrap.dm      43e94a2109999e6dac8a3233275af8f938b8ad7fd57421dc7027b2bb0bbf31df
+USE HOST /modules/bootstrap.dm      9a1efec9e033b7750cf1eb2c2485da5baac82d2b0f5ace1302df93d7165be6f8
 USE HOST /modules/core-tools.dm     3f0c0750cc10d6e771753460919fc4020072449ccd88e263d0bf28289fe737be
 USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
 USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f

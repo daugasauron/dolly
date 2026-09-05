@@ -49,14 +49,23 @@ conditions, ESM and CommonJS package scopes, JSON modules,
 deterministic `fs.globSync`. These are runtime compatibility rules over the
 shared filesystem, not browser capabilities.
 
-Janis `child_process.spawn` is backed by Dolly process pipes rather than a
-completed-output shim. QuickJS schedules the spawn after listeners can attach;
-its native bridge polls the two in-Wasm pipe descriptors and publishes stdout
-and stderr chunks while the child runs. Pi's `!` mode and Dolly Bash tool can
-therefore render a long Bonnie/compiler build before it exits. The bridge has
-no Worker, `fetch`, socket, or host-process handle of its own: spawning,
-descriptors, waiting, timeouts, and Ctrl-C remain operations of the same
-`dolly-process-0` substrate.
+Janis `child_process.spawn` starts a real process immediately, with its own PID,
+creation-time cwd/environment and pipe-backed stdin/stdout/stderr. The event
+pump drains output while feeding input and checks nonblocking wait. Normal exit
+codes and signal exits are distinct; kill, abort and timeout stop the child.
+Only three stdio descriptors and the substrate's finite signal set are supported;
+detached processes, identities and IPC fail explicitly. Unref stops keeping the
+parent's event loop alive; Dolly still disposes descendants when the parent exits.
+Synchronous helpers collect the same pipes, enforcing their output limit.
+
+Pi's extension connects both `!` and the registered shell tool to these handles,
+including live output and mid-operation cancellation, without modifying Pi source.
+HTTP polling is nonblocking; abort before headers, abort while reading a response,
+and reader cancellation release the existing HTTP operation. Timeout signals and
+timer promises use Janis's in-Wasm event loop. None of these adapters has a Worker,
+`fetch`, socket or host-process handle: all use `dolly-process-0` and the unchanged
+outer browser boundary. This is a finite compatibility surface, not complete Node
+stream, process-group or thread support.
 
 UTF-8 decoding has one stateful implementation in `dolly-node.js`, following
 the [Encoding Standard](https://encoding.spec.whatwg.org/#utf-8-decoder).

@@ -18,7 +18,7 @@ uintptr_t dolly_process_image_address(int pid);
 uintptr_t dolly_process_image_size(int pid);
 int dolly_process_image_consumed(int pid);
 int dolly_process_worker_started(int pid);
-int dolly_process_worker_failed(int pid, int status);
+int dolly_process_worker_failed(int pid, int status, int signal_number);
 int dolly_process_signal(int pid, int signal_number);
 double dolly_process_deadline_remaining(int pid);
 int dolly_process_collect(int pid);

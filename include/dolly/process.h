@@ -72,6 +72,8 @@ enum dolly_process_operation {
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,
   DOLLY_PROCESS_INTERRUPT_POLL = 66,
+  DOLLY_PROCESS_INFO = 67,
+  DOLLY_PROCESS_SIGNAL = 68,
 
   DOLLY_PROCESS_HTTP_START = 80,
   DOLLY_PROCESS_HTTP_POLL = 81,
@@ -100,6 +102,11 @@ enum dolly_process_operation {
 
 enum dolly_process_spawn_flags {
   DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT = 1u << 0,
+};
+
+enum dolly_process_wait_flags {
+  /* Return -EAGAIN without reaping when the child has not exited. */
+  DOLLY_PROCESS_WAIT_NONBLOCK = 1u << 0,
 };
 
 enum dolly_process_fd_dup_flags {
@@ -171,7 +178,9 @@ typedef struct {
 
 typedef struct {
   uint32_t status;
-  uint32_t reserved;
+  /* Zero for normal exit; otherwise SIGINT=2, SIGKILL=9 or SIGTERM=15.
+   * A signalled exit has status=128+signal_number, never inferred from status. */
+  uint32_t signal_number;
 } dolly_process_exit_request;
 
 typedef struct {
@@ -312,13 +321,15 @@ typedef struct {
  * The header is followed by path_size raw path bytes, argument_bytes bytes
  * containing exactly argument_count NUL-terminated strings, then
  * environment_bytes bytes containing environment_count NUL-terminated
- * NAME=value strings. An inherited environment has zero count/bytes.
+ * NAME=value strings, then cwd_size raw bytes for an absolute working directory.
+ * Zero cwd_size inherits the parent's cwd without mutating it. An inherited
+ * environment has zero count/bytes.
  */
 typedef struct {
   uint32_t flags;
   uint32_t argument_count;
   uint32_t environment_count;
-  uint32_t reserved;
+  uint32_t cwd_size;
   uint32_t stdin_descriptor;
   uint32_t stdout_descriptor;
   uint32_t stderr_descriptor;
@@ -341,8 +352,20 @@ typedef struct {
 
 typedef struct {
   uint32_t status;
-  uint32_t reserved;
+  uint32_t signal_number;
 } dolly_process_wait_response;
+
+typedef struct {
+  uint32_t pid;
+  uint32_t parent_pid;
+} dolly_process_info_response;
+
+/* Positive PID only; signal 0 checks existence. Only INT/KILL/TERM are supported.
+ * On success the kernel echoes this packet for supervisor delivery. */
+typedef struct {
+  uint32_t pid;
+  uint32_t signal_number;
+} dolly_process_signal_request;
 
 typedef struct {
   uint32_t operation;
@@ -382,7 +405,8 @@ typedef struct {
   uint32_t reserved;
 } dolly_process_http_poll_request;
 
-/* `length` bytes immediately follow this header when ready is nonzero. */
+/* HTTP_POLL never blocks: ready=0 is pending, with all remaining fields zero.
+ * `length` bytes immediately follow this header when ready=1. */
 typedef struct {
   uint32_t ready;
   uint32_t status;

@@ -88,8 +88,8 @@ globalThis.process = {
   version: "v22.19.0-dolly",
   versions: { dolly: "0" },
   release: { name: "dolly" },
-  pid: 1,
-  ppid: 0,
+  pid: Dolly.pid,
+  ppid: Dolly.ppid,
   title: "qjs",
   stdin,
   stdout,
@@ -145,8 +145,8 @@ class DollyAbortSignal {
   _abort(reason) {
     if (this.aborted) return;
     this.aborted = true;
-    this.reason = reason ?? new Error("This operation was aborted");
-    for (const listener of this.#listeners) listener.call(this, { type: "abort" });
+    this.reason = reason === undefined ? new DOMException("This operation was aborted", "AbortError") : reason;
+    for (const listener of this.#listeners) listener.call(this, { type: "abort", target: this });
     this.#listeners.clear();
   }
 
@@ -156,20 +156,33 @@ class DollyAbortSignal {
     return signal;
   }
 
-  static timeout(_milliseconds) {
-    // Dolly's HTTP broker owns request timeout policy. Version 0 deliberately
-    // does not create an asynchronous host timer for this compatibility shape.
-    return new DollyAbortSignal();
+  static timeout(milliseconds) {
+    if (!Number.isSafeInteger(milliseconds) || milliseconds < 0 || milliseconds > 0x7fffffff)
+      throw new RangeError("abort timeout is out of range");
+    const signal = new DollyAbortSignal();
+    const timer = setTimeout(() => signal._abort(new DOMException("The operation timed out", "TimeoutError")), milliseconds);
+    timer.unref?.();
+    return signal;
   }
 
   static any(signals) {
     const controller = new DollyAbortController();
+    const listeners = new Map();
+    const abort = signal => {
+      for (const [other, listener] of listeners) other.removeEventListener("abort", listener);
+      listeners.clear();
+      controller.abort(signal.reason);
+    };
     for (const signal of signals) {
       if (signal.aborted) {
-        controller.abort(signal.reason);
+        abort(signal);
         break;
       }
-      signal.addEventListener("abort", () => controller.abort(signal.reason));
+      if (!listeners.has(signal)) {
+        const listener = () => abort(signal);
+        listeners.set(signal, listener);
+        signal.addEventListener("abort", listener);
+      }
     }
     return controller.signal;
   }
@@ -690,6 +703,23 @@ globalThis.Headers = DollyHeaders;
 globalThis.Response = DollyResponse;
 const pendingHttp = new Map();
 
+function releaseHttp(sequence, request, cancel = false) {
+  pendingHttp.delete(sequence);
+  request.signal?.removeEventListener("abort", request.abort);
+  if (cancel) {
+    try { Dolly.httpCancel(sequence); }
+    catch (error) { if (error.code !== "ESTALE") throw error; }
+  }
+}
+
+function failHttp(sequence, request, error, cancel = true) {
+  try { releaseHttp(sequence, request, cancel); }
+  finally {
+    if (request.resolved) request.controller.error(error);
+    else request.reject(error);
+  }
+}
+
 function httpError(code) {
   const messages = {
     1: "browser HTTP provider failed",
@@ -720,18 +750,14 @@ globalThis.__dollyHttpPump = () => {
     try {
       chunk = Dolly.httpPoll(sequence);
     } catch (error) {
-      if (request.resolved) request.controller.error(error);
-      else request.reject(error);
-      pendingHttp.delete(sequence);
+      failHttp(sequence, request, error);
       continue;
     }
     if (chunk === null) continue;
     request.status = chunk.status;
     if (chunk.error) {
       const error = httpError(chunk.error);
-      if (request.resolved) request.controller.error(error);
-      else request.reject(error);
-      pendingHttp.delete(sequence);
+      failHttp(sequence, request, error, !chunk.eof);
       continue;
     }
     if (chunk.kind === 1) {
@@ -749,7 +775,7 @@ globalThis.__dollyHttpPump = () => {
     if (chunk.eof) {
       resolveHttpHeaders(request);
       request.controller.close();
-      pendingHttp.delete(sequence);
+      releaseHttp(sequence, request);
     }
   }
   return pendingHttp.size !== 0;
@@ -766,18 +792,20 @@ globalThis.fetch = (input, init = {}) => {
   if (body instanceof Uint8Array) body = Dolly.decode(body);
   if (body !== null && typeof body !== "string") body = String(body);
   const headerBlock = [...headers].map(([name, value]) => `${name}: ${value}\r\n`).join("");
+  const signal = init.signal === undefined ? input.signal : init.signal;
   return new Promise((resolve, reject) => {
-    if (init.signal?.aborted) {
-      reject(init.signal.reason ?? new Error("request was aborted"));
+    if (signal?.aborted) {
+      reject(signal.reason);
       return;
     }
-    let controller;
+    let controller, sequence, request;
     const stream = new ReadableStream({
       start(value) { controller = value; },
+      cancel() { if (pendingHttp.has(sequence)) releaseHttp(sequence, request, true); },
     });
     try {
-      const sequence = Dolly.httpStart(method, url, headerBlock, body);
-      pendingHttp.set(sequence, {
+      sequence = Dolly.httpStart(method, url, headerBlock, body);
+      request = {
         resolve,
         reject,
         controller,
@@ -787,7 +815,11 @@ globalThis.fetch = (input, init = {}) => {
         status: 0,
         headers: "",
         resolved: false,
-      });
+        signal,
+        abort: () => failHttp(sequence, request, signal.reason),
+      };
+      pendingHttp.set(sequence, request);
+      signal?.addEventListener("abort", request.abort);
     } catch (error) {
       reject(error);
     }

@@ -13,6 +13,26 @@ function object(properties, required) {
 const string = (description) => ({ type: "string", description });
 
 export default function dollyTools(pi) {
+  pi.on("user_bash", () => ({ operations: {
+    async exec(command, cwd, options) {
+      const stdout = new TextDecoder("utf-8", { ignoreBOM: true });
+      const stderr = new TextDecoder("utf-8", { ignoreBOM: true });
+      const chunk = (decoder, bytes) => {
+        const value = decoder.decode(bytes, { stream: true });
+        if (value) options.onData(Buffer.from(value));
+      };
+      try {
+        const result = globalThis.__janisShellStream(command,
+          bytes => chunk(stdout, bytes), bytes => chunk(stderr, bytes),
+          options.timeout === undefined ? undefined : options.timeout * 1000,
+          { cwd, env: options.env, signal: options.signal });
+        return { exitCode: result.status };
+      } finally {
+        const tail = stdout.decode() + stderr.decode();
+        if (tail) options.onData(Buffer.from(tail));
+      }
+    },
+  } }));
   pi.on("session_start", async (_event, context) => {
     if (context.mode === "tui") {
       context.ui.setHeader((_tui, theme) => ({
@@ -51,28 +71,23 @@ export default function dollyTools(pi) {
     description: "Execute a command with the Slop shell inside the Dolly WebAssembly sandbox.",
     parameters: object({ command: string("Slop command to execute") }, ["command"]),
     async execute(_id, parameters, signal, update, context) {
-      const previous = Dolly.cwd();
-      try {
-        Dolly.chdir(context.cwd);
-        if (signal?.aborted) throw new Error("command cancelled");
-        const stdout = new TextDecoder("utf-8", { ignoreBOM: true });
-        const stderr = new TextDecoder("utf-8", { ignoreBOM: true });
-        let output = "";
-        const onChunk = (decoder, bytes) => {
-          const chunk = decoder.decode(bytes, { stream: true });
-          if (!chunk) return;
-          output += chunk;
-          update?.({ ...text(output), details: { status: null } });
-        };
-        const result = globalThis.__janisShellStream(
-          parameters.command, bytes => onChunk(stdout, bytes), bytes => onChunk(stderr, bytes),
-        );
-        output += stdout.decode() + stderr.decode();
-        if (!output) output = `(status ${result.status})`;
-        return { ...text(output), details: { status: result.status } };
-      } finally {
-        Dolly.chdir(previous);
-      }
+      if (signal?.aborted) throw new Error("command cancelled");
+      const stdout = new TextDecoder("utf-8", { ignoreBOM: true });
+      const stderr = new TextDecoder("utf-8", { ignoreBOM: true });
+      let output = "";
+      const onChunk = (decoder, bytes) => {
+        const chunk = decoder.decode(bytes, { stream: true });
+        if (!chunk) return;
+        output += chunk;
+        update?.({ ...text(output), details: { status: null } });
+      };
+      const result = globalThis.__janisShellStream(
+        parameters.command, bytes => onChunk(stdout, bytes), bytes => onChunk(stderr, bytes),
+        undefined, { cwd: context.cwd, signal },
+      );
+      output += stdout.decode() + stderr.decode();
+      if (!output) output = `(status ${result.status})`;
+      return { ...text(output), details: { status: result.status } };
     },
   });
 

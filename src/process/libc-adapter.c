@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <termios.h>
@@ -21,6 +22,36 @@
 #include <wasi/api.h>
 
 #define DOLLY_PROCESS_IO_CHUNK 16384u
+
+static pid_t process_id(int parent) {
+  static dolly_process_info_response identity;
+  if (identity.pid == 0) {
+    dolly_process_info_response response;
+    const int64_t result = dolly_process_call(DOLLY_PROCESS_INFO,
+        NULL, 0, &response, sizeof(response));
+    if (result < 0) return (pid_t)result;
+    if (result != sizeof(response) || response.pid == 0 ||
+        response.pid > INT32_MAX || response.parent_pid > INT32_MAX) return -EIO;
+    identity = response;
+  }
+  return (pid_t)(parent ? identity.parent_pid : identity.pid);
+}
+
+pid_t __syscall_getpid(void) { return process_id(0); }
+pid_t __syscall_getppid(void) { return process_id(1); }
+
+/* One thread per private process. libc-ww's fallback TID 42 would disagree
+ * with pthread_self_stub's real PID and deadlock nested stdio locks. */
+pid_t gettid(void) { return getpid(); }
+
+pid_t __syscall_wait4(pid_t pid, int *status, int options, struct rusage *usage) {
+  if (usage != NULL) return -ENOTSUP;
+  const pid_t result = dolly_waitpid(pid, status, options);
+  return result < 0 ? -errno : result;
+}
+
+/* Emscripten's kill is a self-only libc implementation, not a syscall veneer. */
+int kill(pid_t pid, int signal_number) { return dolly_kill(pid, signal_number); }
 
 static __wasi_errno_t call_errno(int64_t result) {
   if (result >= 0) return 0;

@@ -151,7 +151,7 @@ filesystem namespace. Dolly does the same at the WebAssembly abstraction:
 | syscall instruction | `dolly_process_0.call` through the Wasm gate |
 | kernel VFS | kernel-owned WasmFS successor |
 | descriptor table | per-process integer handles to kernel descriptions |
-| `execve`/`waitpid` | fresh instance start and kernel process result |
+| `execve`/`waitpid` | fresh instance start and kernel result; positive-PID `WNOHANG` leaves a running child unreaped |
 | signal delivery | kernel pending signal plus bounded Worker-termination fallback |
 
 Immutable compiled `WebAssembly.Module` objects may be cached by content digest,
@@ -198,6 +198,30 @@ address space without discarding kernel filesystem state.
 
 ## Cancellation
 
+The process packet contract includes actual PID/parent IDs, an optional absolute
+spawn cwd, nonblocking wait, and positive-PID signals. Selecting a child's cwd
+is atomic in the kernel and never changes the parent's cwd. `kill(pid, 0)` checks
+existence; SIGINT, SIGTERM and SIGKILL are supported. Groups, stopped states and
+general signal handlers are not implemented; unsupported signals fail with
+ENOTSUP. TERM/KILL take their default termination action, including a command
+still waiting to enter its Worker. They do not address native host processes.
+
+Exit and wait records carry a separate termination-signal field. A normal
+`exit(130)` is an ordinary exit; it is not inferred to be SIGINT. libc translates
+the records to POSIX wait status, while `dolly_wait` retains normalized shell
+status for existing callers. The supervisor WAT contract also types the explicit
+signal argument for forced termination.
+
+PID/parent identity is immutable within one private process and cached in its
+libc adapter. Its sole thread has the same TID as PID. Both the libc thread record
+and shared-memory stdio locking use that identity; retaining Emscripten's fallback
+TID would deadlock `flockfile` followed by ordinary locked stdio operations.
+
+HTTP_POLL also returns immediately: a zero-ready response means no chunk is
+available yet. Runtimes can therefore service timers and issue HTTP_CANCEL while
+waiting for headers or body bytes. The synchronous C performer waits between
+pending polls; no additional browser import or communication path is involved.
+
 The browser publishes Ctrl-C only for the displayed foreground process tree.
 The trusted supervisor records `SIGINT` in the kernel. A process can consume it
 through `DOLLY_PROCESS_INTERRUPT_POLL`; a deferred syscall is woken with
@@ -210,7 +234,7 @@ backstop that a cooperative signal implementation alone cannot provide.
 Timed spawns carry an absolute monotonic deadline in the spawn packet. The
 kernel remains authoritative for the value and exposes only the remaining
 duration to the trusted supervisor. The supervisor arms a browser timer for the
-corresponding Worker and forcibly terminates it with status 124 at expiry. The
-process also receives the deadline through ordinary blocking calls and
-interrupt polls so cooperative programs can stop cleanly first. A pure CPU loop
-therefore cannot defeat `timeout` merely by omitting safepoints.
+corresponding Worker and forcibly terminates it with status 124 at expiry. A pure
+CPU loop cannot defeat `timeout` merely by omitting safepoints. A Python
+`Popen.wait(timeout=...)` is different: it stops waiting without killing the
+child; callers can then signal it and collect the result.

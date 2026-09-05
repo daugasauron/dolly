@@ -19,6 +19,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <sys/random.h>
 #include <time.h>
 #include <unistd.h>
@@ -117,9 +118,10 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
     return -EIO;
   }
   memcpy(&response, packet, sizeof(response));
-  if (response.ready != 1 || response.reserved != 0 ||
+  if (response.ready > 1 || response.reserved != 0 ||
       response.length > capacity ||
-      (uint64_t)result != sizeof(response) + response.length) {
+      (uint64_t)result != sizeof(response) + response.length ||
+      (response.ready == 0 && (response.status || response.kind || response.error || response.eof || response.length))) {
     free(packet);
     return -EIO;
   }
@@ -132,7 +134,7 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
     memcpy(data, packet + sizeof(response), (size_t)response.length);
   }
   free(packet);
-  return 1;
+  return (int)response.ready;
 }
 
 int dolly_http_cancel(unsigned int sequence) {
@@ -162,6 +164,7 @@ int dolly_http_perform(const dolly_http_request *request,
     dolly_http_chunk chunk = {0};
     const int polled = dolly_http_poll(
         sequence, &chunk, data, DOLLY_HTTP_CHUNK_CAPACITY);
+    if (polled == 0) { usleep(10000); continue; }
     if (polled < 0 && result == 0) result = polled;
     if (polled < 0) {
       (void)dolly_http_cancel(sequence);
@@ -421,10 +424,12 @@ int dolly_display_release(uint64_t generation) {
 
 static int spawn_process(const char *path, int argc, char **argv,
                          char *const envp[], int stdin_fd, int stdout_fd,
-                         int stderr_fd, double timeout_milliseconds) {
+                         int stderr_fd, double timeout_milliseconds, const char *cwd) {
   if (path == NULL || argv == NULL || argc <= 0 ||
       timeout_milliseconds != timeout_milliseconds) return -EINVAL;
   const size_t path_size = strlen(path);
+  const size_t cwd_size = cwd == NULL ? 0 : strlen(cwd);
+  if (cwd != NULL && (cwd_size == 0 || cwd_size > 4096 || cwd[0] != '/')) return -EINVAL;
   if (path_size == 0 || path_size > 4096 || path[0] != '/') return -EINVAL;
   size_t argument_bytes = 0;
   for (int index = 0; index < argc; ++index) {
@@ -445,7 +450,7 @@ static int spawn_process(const char *path, int argc, char **argv,
     }
   }
   const size_t packet_size = sizeof(dolly_process_spawn_request) +
-      path_size + argument_bytes + environment_bytes;
+      path_size + argument_bytes + environment_bytes + cwd_size;
   if (packet_size > DOLLY_PROCESS_PACKET_LIMIT) return -E2BIG;
   unsigned char *packet = malloc(packet_size);
   if (packet == NULL) return -ENOMEM;
@@ -463,7 +468,7 @@ static int spawn_process(const char *path, int argc, char **argv,
       envp == NULL ? DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT : 0,
       (uint32_t)argc,
       environment_count,
-      0,
+      (uint32_t)cwd_size,
       (uint32_t)stdin_fd,
       (uint32_t)stdout_fd,
       (uint32_t)stderr_fd,
@@ -486,6 +491,7 @@ static int spawn_process(const char *path, int argc, char **argv,
     memcpy(packet + offset, envp[index], length);
     offset += length;
   }
+  if (cwd_size != 0) memcpy(packet + offset, cwd, cwd_size);
   dolly_process_spawn_response response = {0};
   const int64_t result = dolly_process_call(
       DOLLY_PROCESS_SPAWN, packet, packet_size, &response, sizeof(response));
@@ -498,7 +504,7 @@ static int spawn_process(const char *path, int argc, char **argv,
 int dolly_spawn(const char *path, int argc, char **argv,
                 int stdin_fd, int stdout_fd, int stderr_fd) {
   return spawn_process(path, argc, argv, environ,
-                       stdin_fd, stdout_fd, stderr_fd, -1);
+                       stdin_fd, stdout_fd, stderr_fd, -1, NULL);
 }
 
 int dolly_spawn_timeout(const char *path, int argc, char **argv,
@@ -508,13 +514,13 @@ int dolly_spawn_timeout(const char *path, int argc, char **argv,
     return -EINVAL;
   }
   return spawn_process(path, argc, argv, environ, stdin_fd, stdout_fd, stderr_fd,
-                       timeout_milliseconds);
+                       timeout_milliseconds, NULL);
 }
 
 int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],
                     int stdin_fd, int stdout_fd, int stderr_fd) {
   return spawn_process(path, argc, argv, envp,
-                       stdin_fd, stdout_fd, stderr_fd, -1);
+                       stdin_fd, stdout_fd, stderr_fd, -1, NULL);
 }
 
 int dolly_spawn_env_timeout(const char *path, int argc, char **argv,
@@ -524,19 +530,36 @@ int dolly_spawn_env_timeout(const char *path, int argc, char **argv,
     return -EINVAL;
   }
   return spawn_process(path, argc, argv, envp, stdin_fd, stdout_fd, stderr_fd,
-                       timeout_milliseconds);
+                       timeout_milliseconds, NULL);
+}
+
+int dolly_spawn_env_cwd(const char *path, int argc, char **argv,
+                        char *const envp[], const char *cwd, int stdin_fd,
+                        int stdout_fd, int stderr_fd, double timeout_milliseconds) {
+  if (timeout_milliseconds < -1 || timeout_milliseconds > 86400000.0) return -EINVAL;
+  return spawn_process(path, argc, argv, envp, stdin_fd, stdout_fd, stderr_fd,
+                       timeout_milliseconds, cwd);
+}
+
+static int wait_process(int pid, uint32_t flags, dolly_process_wait_response *response) {
+  if (pid <= 0) return -ECHILD;
+  const dolly_process_wait_request request = {(uint32_t)pid, flags};
+  const int64_t result = dolly_process_call(
+      DOLLY_PROCESS_WAIT, &request, sizeof(request),
+      response, sizeof(*response));
+  if (result < 0) return (int)result;
+  if ((uint64_t)result != sizeof(*response) || response->status > 255 ||
+      (response->signal_number != 0 && response->signal_number != SIGINT &&
+       response->signal_number != SIGKILL && response->signal_number != SIGTERM) ||
+      (response->signal_number != 0 && response->status != 128 + response->signal_number)) return -EIO;
+  return 0;
 }
 
 int dolly_wait(int pid, int *status) {
-  if (pid <= 0 || status == NULL) return -EINVAL;
-  const dolly_process_wait_request request = {(uint32_t)pid, 0};
-  dolly_process_wait_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_WAIT, &request, sizeof(request),
-      &response, sizeof(response));
-  if (result < 0) return (int)result;
-  if ((uint64_t)result != sizeof(response) || response.reserved != 0 ||
-      response.status > 255) return -EIO;
+  if (status == NULL) return -EINVAL;
+  dolly_process_wait_response response;
+  const int result = wait_process(pid, 0, &response);
+  if (result != 0) return result;
   *status = (int)response.status;
   return 0;
 }
@@ -875,25 +898,36 @@ int dolly_execve(const char *path, char *const argv[], char *const envp[]) {
 }
 
 pid_t dolly_waitpid(pid_t pid, int *status, int options) {
-  if (pid <= 0 || options != 0) {
-    errno = options == 0 ? ECHILD : ENOTSUP;
+  if (pid <= 0 || (options & ~WNOHANG) != 0) {
+    errno = pid <= 0 ? ECHILD : ENOTSUP;
     return -1;
   }
-  int exit_status = 0;
-  const int result = dolly_wait(pid, &exit_status);
+  dolly_process_wait_response response;
+  const int result = wait_process(pid, options & WNOHANG ? DOLLY_PROCESS_WAIT_NONBLOCK : 0, &response);
+  if (result == -EAGAIN && (options & WNOHANG) != 0) return 0;
   if (result != 0) {
     errno = -result;
     return -1;
   }
-  if (status != NULL) *status = exit_status << 8;
+  if (status != NULL) *status = response.signal_number != 0
+      ? (int)response.signal_number : (int)response.status << 8;
   return pid;
 }
 
 int dolly_kill(pid_t pid, int signal_number) {
-  (void)pid;
-  (void)signal_number;
-  errno = ENOSYS;
-  return -1;
+  if (pid <= 0 || (signal_number != 0 && signal_number != SIGINT &&
+                  signal_number != SIGKILL && signal_number != SIGTERM)) {
+    errno = ENOTSUP;
+    return -1;
+  }
+  const dolly_process_signal_request request = {(uint32_t)pid, (uint32_t)signal_number};
+  dolly_process_signal_request response;
+  const int64_t result = dolly_process_call(DOLLY_PROCESS_SIGNAL,
+      &request, sizeof(request), &response, sizeof(response));
+  if (result < 0) { errno = (int)-result; return -1; }
+  if ((uint64_t)result != sizeof(response) || response.pid != request.pid ||
+      response.signal_number != request.signal_number) { errno = EIO; return -1; }
+  return 0;
 }
 
 unsigned dolly_alarm(unsigned seconds) {
@@ -982,7 +1016,16 @@ int dolly_interrupt_poll(void) {
 }
 
 void dolly_interrupt_checkpoint(void) {
-  if (dolly_interrupt_poll() != 0) dolly_exit(130);
+  const int signal_number = dolly_interrupt_poll();
+  if (signal_number != 0) dolly_exit_signal(signal_number);
+}
+
+void dolly_exit_signal(int signal_number) {
+  const dolly_process_exit_request request = {
+      (uint32_t)(128 + signal_number), (uint32_t)signal_number,
+  };
+  (void)dolly_process_call(DOLLY_PROCESS_EXIT, &request, sizeof(request), NULL, 0);
+  __builtin_trap();
 }
 
 void dolly_exit(int status) {

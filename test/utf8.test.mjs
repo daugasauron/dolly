@@ -98,12 +98,13 @@ test("stdin preserves split UTF-8 and flushes at EOF; binary output remains byte
 });
 
 test("Pi shell tool decodes interleaved stdout/stderr independently and flushes both", async () => {
-  const sandbox = context({ shellStream(_command, out, err) {
+  const sandbox = context();
+  sandbox.__janisShellStream = (_command, out, err) => {
     out(Uint8Array.of(0xe3)); err(Uint8Array.of(0xf0, 0x9f));
     out(Uint8Array.of(0x81, 0x82)); err(Uint8Array.of(0x98, 0x80));
     out(Uint8Array.of(0xe3)); err(Uint8Array.of(0xf0));
     return { status: 0 };
-  } });
+  };
   const install = vm.runInContext(`(() => { ${extension.replace("export default ", "")}; return dollyTools; })()`, sandbox);
   const registered = new Map();
   install({ on() {}, registerCommand() {}, registerTool(tool) { registered.set(tool.name, tool); } });

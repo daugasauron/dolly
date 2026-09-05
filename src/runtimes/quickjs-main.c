@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -626,6 +627,7 @@ static JSValue fs_error(JSContext *context, const char *operation, int number) {
     FS_ERRNO(ENOMEM); FS_ERRNO(ENOSPC); FS_ERRNO(EOVERFLOW); FS_ERRNO(ESPIPE);
     FS_ERRNO(ENOSYS); FS_ERRNO(ENOTSUP); FS_ERRNO(ELOOP); FS_ERRNO(EMFILE);
     FS_ERRNO(EINTR); FS_ERRNO(EAGAIN); FS_ERRNO(ENAMETOOLONG);
+    FS_ERRNO(EPIPE); FS_ERRNO(ESRCH); FS_ERRNO(ECHILD); FS_ERRNO(ESTALE);
 #undef FS_ERRNO
   }
   JSValue error = JS_NewError(context);
@@ -1095,6 +1097,145 @@ static JSValue js_dolly_random(JSContext *context, JSValueConst this_value,
   return result;
 }
 
+static JSValue js_dolly_http_cancel(JSContext *context, JSValueConst this_value,
+                                    int argc, JSValueConst *argv) {
+  (void)this_value;
+  uint32_t sequence;
+  if (argc < 1 || JS_ToUint32(context, &sequence, argv[0]) < 0) return JS_EXCEPTION;
+  const int result = dolly_http_cancel(sequence);
+  return result < 0 ? fs_error(context, "httpCancel", -result) : JS_UNDEFINED;
+}
+
+static int array_integer(JSContext *context, JSValueConst array, uint32_t index, int32_t *value) {
+  JSValue item = JS_GetPropertyUint32(context, array, index);
+  const int result = JS_ToInt32(context, value, item);
+  JS_FreeValue(context, item);
+  return result;
+}
+
+static int array_length(JSContext *context, JSValueConst array, uint32_t maximum, uint32_t *length) {
+  if (!JS_IsArray(array)) { JS_ThrowTypeError(context, "expected an array"); return -1; }
+  JSValue value = JS_GetPropertyStr(context, array, "length");
+  const int result = JS_ToUint32(context, length, value);
+  JS_FreeValue(context, value);
+  if (result < 0) return -1;
+  if (*length > maximum) { JS_ThrowRangeError(context, "array is too large"); return -1; }
+  return 0;
+}
+
+static void free_strings(JSContext *context, char **strings) {
+  if (strings == NULL) return;
+  for (size_t index = 0; strings[index] != NULL; ++index) JS_FreeCString(context, strings[index]);
+  free(strings);
+}
+
+static char **array_strings(JSContext *context, JSValueConst array, uint32_t *length) {
+  if (array_length(context, array, 65536, length) < 0) return NULL;
+  char **strings = calloc((size_t)*length + 1, sizeof(*strings));
+  if (strings == NULL) { JS_ThrowOutOfMemory(context); return NULL; }
+  for (uint32_t index = 0; index < *length; ++index) {
+    JSValue item = JS_GetPropertyUint32(context, array, index);
+    size_t size;
+    strings[index] = (char *)JS_ToCStringLen(context, &size, item);
+    JS_FreeValue(context, item);
+    if (strings[index] == NULL) { free_strings(context, strings); return NULL; }
+    if (memchr(strings[index], 0, size) != NULL) {
+      JS_ThrowTypeError(context, "embedded NUL in process argument");
+      free_strings(context, strings);
+      return NULL;
+    }
+  }
+  return strings;
+}
+
+static JSValue js_dolly_process_spawn(JSContext *context, JSValueConst this_value,
+                                      int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 6) return JS_ThrowTypeError(context, "processSpawn requires path, argv, env, cwd, stdio and timeout");
+  const char *path = NULL, *cwd = NULL;
+  char **arguments = NULL, **environment = NULL;
+  uint32_t count, environment_count;
+  int32_t descriptors[3];
+  double timeout;
+  JSValue result = JS_EXCEPTION;
+  if ((path = JS_ToCString(context, argv[0])) == NULL ||
+      (cwd = JS_ToCString(context, argv[3])) == NULL ||
+      (arguments = array_strings(context, argv[1], &count)) == NULL ||
+      (environment = array_strings(context, argv[2], &environment_count)) == NULL ||
+      JS_ToFloat64(context, &timeout, argv[5]) < 0) goto done;
+  for (uint32_t index = 0; index < 3; ++index) {
+    if (array_integer(context, argv[4], index, &descriptors[index]) < 0) goto done;
+  }
+  const int pid = dolly_spawn_env_cwd(path, (int)count, arguments, environment, cwd,
+      descriptors[0], descriptors[1], descriptors[2], timeout);
+  result = pid < 0 ? fs_error(context, "spawn", -pid) : JS_NewInt32(context, pid);
+done:
+  JS_FreeCString(context, path);
+  JS_FreeCString(context, cwd);
+  free_strings(context, arguments);
+  free_strings(context, environment);
+  return result;
+}
+
+static JSValue js_dolly_process_wait(JSContext *context, JSValueConst this_value,
+                                     int argc, JSValueConst *argv) {
+  (void)this_value;
+  int32_t pid;
+  if (argc < 1 || JS_ToInt32(context, &pid, argv[0]) < 0) return JS_EXCEPTION;
+  int status;
+  const int result = waitpid(pid, &status, WNOHANG);
+  if (result < 0) return fs_error(context, "waitpid", errno);
+  if (result == 0) return JS_NULL;
+  JSValue value = JS_NewObject(context);
+  JS_SetPropertyStr(context, value, "status", WIFEXITED(status) ? JS_NewInt32(context, WEXITSTATUS(status)) : JS_NULL);
+  JS_SetPropertyStr(context, value, "signal", JS_NewInt32(context, WIFSIGNALED(status) ? WTERMSIG(status) : 0));
+  return value;
+}
+
+static JSValue js_dolly_process_kill(JSContext *context, JSValueConst this_value,
+                                     int argc, JSValueConst *argv) {
+  (void)this_value;
+  int32_t pid, signal_number;
+  if (argc < 2 || JS_ToInt32(context, &pid, argv[0]) < 0 ||
+      JS_ToInt32(context, &signal_number, argv[1]) < 0) return JS_EXCEPTION;
+  return kill(pid, signal_number) < 0 ? fs_error(context, "kill", errno) : JS_UNDEFINED;
+}
+
+static JSValue js_dolly_fs_pipe(JSContext *context, JSValueConst this_value,
+                                int argc, JSValueConst *argv) {
+  (void)this_value; (void)argc; (void)argv;
+  int descriptors[2];
+  if (pipe(descriptors) < 0) return fs_error(context, "pipe", errno);
+  JSValue result = JS_NewArray(context);
+  for (uint32_t index = 0; index < 2; ++index)
+    JS_SetPropertyUint32(context, result, index, JS_NewInt32(context, descriptors[index]));
+  return result;
+}
+
+static JSValue js_dolly_fs_poll(JSContext *context, JSValueConst this_value,
+                                int argc, JSValueConst *argv) {
+  (void)this_value;
+  uint32_t count;
+  int32_t timeout;
+  if (argc < 2 || array_length(context, argv[0], 256, &count) < 0 ||
+      JS_ToInt32(context, &timeout, argv[1]) < 0) return JS_EXCEPTION;
+  struct pollfd descriptors[256];
+  for (uint32_t index = 0; index < count; ++index) {
+    JSValue entry = JS_GetPropertyUint32(context, argv[0], index);
+    int32_t fd, events;
+    const int failed = array_integer(context, entry, 0, &fd) < 0 ||
+        array_integer(context, entry, 1, &events) < 0;
+    JS_FreeValue(context, entry);
+    if (failed) return JS_EXCEPTION;
+    descriptors[index] = (struct pollfd){.fd = fd, .events = (short)events};
+  }
+  if (poll(descriptors, count, timeout) < 0) return fs_error(context, "poll", errno);
+  JSValue result = JS_NewArray(context);
+  for (uint32_t index = 0; index < count; ++index)
+    JS_SetPropertyUint32(context, result, index, JS_NewInt32(context, descriptors[index].revents));
+  return result;
+}
+
 static JSValue js_dolly_decode(JSContext *context, JSValueConst this_value,
                                int argc, JSValueConst *argv) {
   (void)this_value;
@@ -1256,25 +1397,6 @@ static JSValue js_dolly_shell(JSContext *context, JSValueConst this_value,
   return result;
 }
 
-static int publish_command_chunk(JSContext *context, JSValueConst callback,
-                                 const unsigned char *bytes, size_t length) {
-  if (!JS_IsFunction(context, callback)) return 0;
-  JSValue argument = JS_NewUint8ArrayCopy(context, bytes, length);
-  if (JS_IsException(argument)) return -1;
-  JSValue result = JS_Call(context, callback, JS_UNDEFINED, 1, &argument);
-  JS_FreeValue(context, argument);
-  if (JS_IsException(result)) return -1;
-  JS_FreeValue(context, result);
-  return 0;
-}
-
-static int pump_command_stream(JSContext *context, JSValueConst callback) {
-  if (!JS_IsFunction(context, callback)) return 0;
-  JSValue result = JS_Call(context, callback, JS_UNDEFINED, 0, NULL);
-  if (JS_IsException(result)) return -1;
-  JS_FreeValue(context, result);
-  return 0;
-}
 
 static int drain_command_jobs(JSContext *context) {
   JSContext *job_context = NULL;
@@ -1290,144 +1412,12 @@ static int drain_command_jobs(JSContext *context) {
   return -1;
 }
 
-/* Run Slop with pipe-backed output and invoke the supplied JavaScript
-   callbacks as bytes become readable. The QuickJS process still has one
-   synchronous event loop, but pipe syscalls yield through Dolly's process
-   broker while child Workers run. This gives child_process users incremental
-   output without adding a browser or native-host process edge. */
-static JSValue js_dolly_shell_stream(JSContext *context,
-                                     JSValueConst this_value,
-                                     int argc, JSValueConst *argv) {
-  (void)this_value;
-  if (argc < 1) {
-    return JS_ThrowTypeError(context, "shellStream requires a command");
-  }
-  if (argc >= 2 && !JS_IsUndefined(argv[1]) &&
-      !JS_IsFunction(context, argv[1])) {
-    return JS_ThrowTypeError(context, "stdout callback must be a function");
-  }
-  if (argc >= 3 && !JS_IsUndefined(argv[2]) &&
-      !JS_IsFunction(context, argv[2])) {
-    return JS_ThrowTypeError(context, "stderr callback must be a function");
-  }
-  if (argc >= 5 && !JS_IsUndefined(argv[4]) &&
-      !JS_IsFunction(context, argv[4])) {
-    return JS_ThrowTypeError(context, "stream pump must be a function");
-  }
-  double timeout_milliseconds = -1;
-  if (argc >= 4 && !JS_IsUndefined(argv[3])) {
-    if (JS_ToFloat64(context, &timeout_milliseconds, argv[3]) < 0) {
-      return JS_EXCEPTION;
-    }
-    if (timeout_milliseconds < 0 || timeout_milliseconds > 86400000) {
-      return JS_ThrowRangeError(context, "shell timeout is out of range");
-    }
-  }
-  const char *command = JS_ToCString(context, argv[0]);
-  if (command == NULL) return JS_EXCEPTION;
-
-  int input[2] = {-1, -1};
-  int output[2] = {-1, -1};
-  int error[2] = {-1, -1};
-  if (pipe(input) != 0 || pipe(output) != 0 || pipe(error) != 0) {
-    const int saved_errno = errno;
-    for (size_t index = 0; index < 2; ++index) {
-      if (input[index] >= 0) close(input[index]);
-      if (output[index] >= 0) close(output[index]);
-      if (error[index] >= 0) close(error[index]);
-    }
-    JS_FreeCString(context, command);
-    return JS_ThrowInternalError(context, "could not create command pipes: %s",
-                                 strerror(saved_errno));
-  }
-  close(input[1]);
-  char *child_argv[] = {"/bin/slop", "-c", (char *)command, NULL};
-  const int pid = timeout_milliseconds < 0
-      ? dolly_spawn("/bin/slop", 3, child_argv, input[0],
-                    output[1], error[1])
-      : dolly_spawn_timeout("/bin/slop", 3, child_argv, input[0],
-                            output[1], error[1], timeout_milliseconds);
-  JS_FreeCString(context, command);
-  close(input[0]);
-  close(output[1]);
-  close(error[1]);
-  if (pid < 0) {
-    close(output[0]);
-    close(error[0]);
-    return JS_ThrowInternalError(context, "could not execute Slop: %d", pid);
-  }
-
-  struct pollfd streams[2] = {
-      {.fd = output[0], .events = POLLIN},
-      {.fd = error[0], .events = POLLIN},
-  };
-  JSValueConst callbacks[2] = {
-      argc >= 2 ? argv[1] : JS_UNDEFINED,
-      argc >= 3 ? argv[2] : JS_UNDEFINED,
-  };
-  int open_streams = 2;
-  int io_error = 0;
-  int callback_error = 0;
-  unsigned char bytes[16 * 1024];
-  while (open_streams != 0 && io_error == 0) {
-    // Wake at display cadence even when a quiet child is still running. The
-    // optional pump drains Janis next-ticks/timers, allowing Pi to render an
-    // already received prefix while the child continues in another Worker.
-    const int ready = poll(streams, 2, 16);
-    if (ready < 0) {
-      io_error = errno;
-      break;
-    }
-    for (size_t index = 0; index < 2; ++index) {
-      if (streams[index].fd < 0 ||
-          (streams[index].revents &
-           (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0) {
-        continue;
-      }
-      const ssize_t count = read(streams[index].fd, bytes, sizeof(bytes));
-      if (count > 0) {
-        if (!callback_error &&
-            publish_command_chunk(context, callbacks[index], bytes,
-                                  (size_t)count) != 0) {
-          callback_error = 1;
-        }
-      } else if (count == 0) {
-        close(streams[index].fd);
-        streams[index].fd = -1;
-        --open_streams;
-      } else if (errno != EINTR) {
-        io_error = errno;
-        break;
-      }
-    }
-    if (!callback_error && drain_command_jobs(context) != 0) {
-      callback_error = 1;
-    }
-    if (!callback_error && argc >= 5) {
-      if (pump_command_stream(context, argv[4]) != 0 ||
-          drain_command_jobs(context) != 0) {
-        callback_error = 1;
-      }
-    }
-  }
-  for (size_t index = 0; index < 2; ++index) {
-    if (streams[index].fd >= 0) close(streams[index].fd);
-  }
-  int status = 126;
-  const int wait_status = dolly_wait(pid, &status);
-  if (callback_error) return JS_EXCEPTION;
-  if (io_error != 0) {
-    return JS_ThrowInternalError(context, "could not read command output: %s",
-                                 strerror(io_error));
-  }
-  if (wait_status != 0) {
-    return JS_ThrowInternalError(context, "could not collect Slop: %s",
-                                 strerror(-wait_status));
-  }
-  JSValue result = JS_NewObject(context);
-  JS_SetPropertyStr(context, result, "status", JS_NewInt32(context, status));
-  return result;
+static JSValue js_dolly_pump_jobs(JSContext *context, JSValueConst this_value,
+                                  int argc, JSValueConst *argv) {
+  (void)this_value; (void)argc; (void)argv;
+  return drain_command_jobs(context) < 0 ? JS_EXCEPTION : JS_UNDEFINED;
 }
+
 
 static int install_dolly_backend(JSContext *context) {
   JSValue global = JS_GetGlobalObject(context);
@@ -1466,12 +1456,20 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("http", js_dolly_http, 4);
   DOLLY_JS_FUNCTION("httpStart", js_dolly_http_start, 4);
   DOLLY_JS_FUNCTION("httpPoll", js_dolly_http_poll, 1);
+  DOLLY_JS_FUNCTION("httpCancel", js_dolly_http_cancel, 1);
+  DOLLY_JS_FUNCTION("processSpawn", js_dolly_process_spawn, 6);
+  DOLLY_JS_FUNCTION("processWait", js_dolly_process_wait, 1);
+  DOLLY_JS_FUNCTION("processKill", js_dolly_process_kill, 2);
+  DOLLY_JS_FUNCTION("fsPipe", js_dolly_fs_pipe, 0);
+  DOLLY_JS_FUNCTION("fsPoll", js_dolly_fs_poll, 2);
+  DOLLY_JS_FUNCTION("pumpJobs", js_dolly_pump_jobs, 0);
   DOLLY_JS_FUNCTION("random", js_dolly_random, 1);
   DOLLY_JS_FUNCTION("encode", js_dolly_encode, 1);
   DOLLY_JS_FUNCTION("decode", js_dolly_decode, 1);
   DOLLY_JS_FUNCTION("shell", js_dolly_shell, 3);
-  DOLLY_JS_FUNCTION("shellStream", js_dolly_shell_stream, 5);
 #undef DOLLY_JS_FUNCTION
+  JS_SetPropertyStr(context, dolly, "pid", JS_NewInt32(context, getpid()));
+  JS_SetPropertyStr(context, dolly, "ppid", JS_NewInt32(context, getppid()));
 #define DOLLY_FS_MAGIC(name, function, length, magic)                           \
   JS_SetPropertyStr(context, dolly, name,                                      \
                     JS_NewCFunctionMagic(context, function, name, length,      \
@@ -1488,6 +1486,8 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_FS_CONSTANT(O_CREAT); DOLLY_FS_CONSTANT(O_EXCL); DOLLY_FS_CONSTANT(O_TRUNC);
   DOLLY_FS_CONSTANT(O_APPEND); DOLLY_FS_CONSTANT(O_NONBLOCK); DOLLY_FS_CONSTANT(O_SYNC);
   DOLLY_FS_CONSTANT(O_DIRECTORY); DOLLY_FS_CONSTANT(O_NOFOLLOW); DOLLY_FS_CONSTANT(O_CLOEXEC);
+  DOLLY_FS_CONSTANT(POLLIN); DOLLY_FS_CONSTANT(POLLOUT);
+  DOLLY_FS_CONSTANT(POLLERR); DOLLY_FS_CONSTANT(POLLHUP); DOLLY_FS_CONSTANT(POLLNVAL);
 #undef DOLLY_FS_CONSTANT
   JS_SetPropertyStr(context, dolly, "fsConstants", fs_constants);
 #define DOLLY_FS_FUNCTION(name, magic)                                         \
@@ -1942,5 +1942,6 @@ int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
   JS_FreeContext(context);
   JS_FreeRuntime(runtime);
   free(owned_source);
+  if (janis_interrupted) dolly_exit_signal(SIGINT);
   return status;
 }

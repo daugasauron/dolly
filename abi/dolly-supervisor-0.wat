@@ -12,7 +12,8 @@
   (func $image_size (param i32) (result i64) i64.const 0)
   (func $image_consumed (param i32) (result i32) i32.const 0)
   (func $worker_started (param i32) (result i32) i32.const 0)
-  (func $worker_failed (param i32 i32) (result i32) i32.const 0)
+  ;; PID, normalized exit status, explicit termination signal (zero for normal).
+  (func $worker_failed (param i32 i32 i32) (result i32) i32.const 0)
   (func $signal (param i32 i32) (result i32) i32.const 0)
   (func $deadline_remaining (param i32) (result f64) f64.const -1)
   (func $collect (param i32) (result i32) i32.const 0)

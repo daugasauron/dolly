@@ -47,6 +47,7 @@ typedef struct {
   int parent_pid;
   int state;
   int status;
+  int exit_signal;
   int descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   dolly_kernel_pipe *pipes[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char pipe_directions[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
@@ -184,17 +185,24 @@ static void dispose_process(dolly_kernel_process *process) {
   memset(process, 0, sizeof(*process));
 }
 
-static void mark_process_exited(dolly_kernel_process *process, int status) {
+static int supported_signal(int signal_number) {
+  return signal_number == 0 || signal_number == SIGINT ||
+      signal_number == SIGKILL || signal_number == SIGTERM;
+}
+
+static void mark_process_exited(dolly_kernel_process *process, int status,
+                                int signal_number) {
   const int pid = process->pid;
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *child = &process_table[index];
     if (child->state == DOLLY_KERNEL_PROCESS_FREE || child->parent_pid != pid) continue;
-    mark_process_exited(child, status);
+    mark_process_exited(child, status, signal_number);
     dispose_process(child);
   }
   dolly_kernel_display_release_owner(process->pid);
   release_process_resources(process);
   process->status = status >= 0 && status <= 255 ? status : 126;
+  process->exit_signal = signal_number;
   process->state = DOLLY_KERNEL_PROCESS_EXITED;
 }
 
@@ -431,7 +439,7 @@ static int spawn_packet(int parent_pid, size_t size) {
       size > sizeof(process_mailbox)) return -EINVAL;
   dolly_process_spawn_request request;
   memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0 || request.argument_count == 0 ||
+  if (request.cwd_size > PATH_MAX || request.argument_count == 0 ||
       request.path_size == 0 || request.path_size > PATH_MAX ||
       (request.flags & ~DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT) != 0 ||
       request.argument_bytes > SIZE_MAX || request.environment_bytes > SIZE_MAX) {
@@ -442,7 +450,8 @@ static int spawn_packet(int parent_pid, size_t size) {
   const size_t environment_bytes = (size_t)request.environment_bytes;
   if (path_size > size - sizeof(request) ||
       argument_bytes > size - sizeof(request) - path_size ||
-      environment_bytes != size - sizeof(request) - path_size - argument_bytes) {
+      environment_bytes > size - sizeof(request) - path_size - argument_bytes ||
+      request.cwd_size != size - sizeof(request) - path_size - argument_bytes - environment_bytes) {
     return -EINVAL;
   }
   const unsigned char *cursor = process_mailbox + sizeof(request);
@@ -456,14 +465,26 @@ static int spawn_packet(int parent_pid, size_t size) {
   int result = 0;
   if (parent_pid != 0 && parent == NULL) result = -ESRCH;
   if (result == 0) {
-    if (parent != NULL) {
+    if (request.cwd_size != 0) {
+      const unsigned char *cwd = process_mailbox + size - request.cwd_size;
+      char directory[PATH_MAX + 1], resolved[PATH_MAX];
+      struct stat metadata;
+      if (cwd[0] != '/' || memchr(cwd, 0, request.cwd_size) != NULL) result = -EINVAL;
+      else {
+        memcpy(directory, cwd, request.cwd_size);
+        directory[request.cwd_size] = 0;
+        if (realpath(directory, resolved) == NULL || stat(resolved, &metadata) != 0) result = -errno;
+        else if (!S_ISDIR(metadata.st_mode)) result = -ENOTDIR;
+        else process->current_directory = strdup(resolved);
+      }
+    } else if (parent != NULL) {
       process->current_directory = strdup(parent->current_directory);
     } else {
       char directory[PATH_MAX];
       process->current_directory = getcwd(directory, sizeof(directory)) == NULL
           ? NULL : strdup(directory);
     }
-    if (process->current_directory == NULL) result = -ENOMEM;
+    if (result == 0 && process->current_directory == NULL) result = -ENOMEM;
   }
   process->path = malloc(path_size + 1);
   if (process->path == NULL && result == 0) result = -ENOMEM;
@@ -1391,11 +1412,10 @@ static int64_t http_poll_packet(dolly_kernel_process *process,
       request.sequence, &chunk,
       process_mailbox + sizeof(dolly_process_http_poll_response),
       data_capacity);
-  if (result == 0) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   if (result < 0) return result;
   if (chunk.length > data_capacity) return -EOVERFLOW;
   const dolly_process_http_poll_response response = {
-      1, chunk.status, chunk.kind, chunk.error, chunk.eof, 0, chunk.length,
+      (uint32_t)result, chunk.status, chunk.kind, chunk.error, chunk.eof, 0, chunk.length,
   };
   memcpy(process_mailbox, &response, sizeof(response));
   if (chunk.eof) process->http_sequence = 0;
@@ -1936,16 +1956,39 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
           response_capacity < sizeof(dolly_process_wait_response)) return -EINVAL;
       dolly_process_wait_request request;
       memcpy(&request, process_mailbox, sizeof(request));
-      if (request.flags != 0) return -EINVAL;
+      if ((request.flags & ~DOLLY_PROCESS_WAIT_NONBLOCK) != 0) return -EINVAL;
       dolly_kernel_process *child = find_process((int)request.pid);
       if (child == NULL || child->parent_pid != pid) return -ECHILD;
       if (child->state != DOLLY_KERNEL_PROCESS_EXITED) {
-        return DOLLY_PROCESS_DISPATCH_DEFERRED;
+        return (request.flags & DOLLY_PROCESS_WAIT_NONBLOCK) != 0
+            ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
-      dolly_process_wait_response response = {(uint32_t)child->status, 0};
+      dolly_process_wait_response response = {
+          (uint32_t)child->status, (uint32_t)child->exit_signal,
+      };
       dispose_process(child);
       memcpy(process_mailbox, &response, sizeof(response));
       return sizeof(response);
+    }
+    case DOLLY_PROCESS_INFO: {
+      if (request_size != 0 || response_capacity < sizeof(dolly_process_info_response)) return -EINVAL;
+      const dolly_process_info_response response = {
+          (uint32_t)process->pid, (uint32_t)process->parent_pid,
+      };
+      memcpy(process_mailbox, &response, sizeof(response));
+      return sizeof(response);
+    }
+    case DOLLY_PROCESS_SIGNAL: {
+      if (request_size != sizeof(dolly_process_signal_request) ||
+          response_capacity < sizeof(dolly_process_signal_request)) return -EINVAL;
+      dolly_process_signal_request request;
+      memcpy(&request, process_mailbox, sizeof(request));
+      if (request.pid == 0 || request.pid > INT32_MAX ||
+          !supported_signal((int)request.signal_number)) return -ENOTSUP;
+      const int result = dolly_process_signal((int)request.pid, (int)request.signal_number);
+      if (result != 0) return result;
+      memcpy(process_mailbox, &request, sizeof(request));
+      return sizeof(request);
     }
     case DOLLY_PROCESS_INTERRUPT_POLL: {
       if (request_size != 0 || response_capacity < sizeof(int32_t)) return -EINVAL;
@@ -2056,14 +2099,16 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       if (request_size != sizeof(dolly_process_exit_request)) return -EINVAL;
       dolly_process_exit_request request;
       memcpy(&request, process_mailbox, sizeof(request));
-      if (request.reserved != 0 || request.status > 255) return -EINVAL;
+      if (request.status > 255 || !supported_signal((int)request.signal_number) ||
+          (request.signal_number != 0 && request.status != 128 + request.signal_number)) return -EINVAL;
       /* Waking a blocking operation with EINTR must not let an otherwise
        * signal-unaware program turn Ctrl-C into an arbitrary failure status.
        * A runtime that deliberately handles SIGINT acknowledges it through
        * DOLLY_PROCESS_INTERRUPT_POLL, which clears pending_signal. */
-      const int status = process->pending_signal == SIGINT
-          ? 128 + SIGINT : (int)request.status;
-      mark_process_exited(process, status);
+      const int signal_number = request.signal_number != 0
+          ? (int)request.signal_number : process->pending_signal;
+      const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
+      mark_process_exited(process, status, signal_number);
       return 0;
     }
     default:
@@ -2115,10 +2160,12 @@ int dolly_process_worker_started(int pid) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-int dolly_process_worker_failed(int pid, int status) {
+int dolly_process_worker_failed(int pid, int status, int signal_number) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED) return -EINVAL;
-  mark_process_exited(process, status);
+  if (!supported_signal(signal_number) ||
+      (signal_number != 0 && status != 128 + signal_number)) return -EINVAL;
+  mark_process_exited(process, status, signal_number);
   return 0;
 }
 
@@ -2128,8 +2175,15 @@ int dolly_process_signal(int pid, int signal_number) {
   if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED) {
     return -ESRCH;
   }
-  if (signal_number != SIGINT) return -EINVAL;
-  process->pending_signal = signal_number;
+  if (!supported_signal(signal_number)) return -ENOTSUP;
+  if (signal_number == 0) return 0;
+  if (signal_number == SIGINT && process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
+    process->pending_signal = signal_number;
+  } else {
+    /* No general signal handlers or stopped states: TERM/KILL, and signals
+     * before command entry, have their default termination action. */
+    mark_process_exited(process, 128 + signal_number, signal_number);
+  }
   return 0;
 }
 

@@ -42,9 +42,9 @@
              """
              self.send_signal(signal.SIGKILL)
 +
-+# Dolly supplies serial process-shaped compatibility over its typed in-Wasm
-+# spawn/wait substrate. Keep the ordinary POSIX implementation dormant above
-+# so importing this module never reaches fork, exec, or native posix_spawn.
++# Reuse POSIX pipes/waits with Dolly's typed in-Wasm spawn implementation.
++# The adapter replaces _execute_child; the native _posixsubprocess import is
++# disabled above, and fork/exec/posix_spawn are never used.
 +if sys.platform == "dolly":
 +    from _dolly_subprocess import Popen
 +    _can_fork_exec = True
