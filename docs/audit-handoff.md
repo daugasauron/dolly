@@ -116,6 +116,18 @@ source verification handles dirty checkouts, packaged links/help inventories
 work, and docs describe measured behavior. Preserve useful completed-module
 caching on failure; correct its documentation instead of removing it by accident.
 
+Partial D6 checkpoint: the process archive is now rebuilt from the declared
+members in deterministic order, staged, and atomically replaced only when its
+bytes change. Existing incremental archives had a different member order from
+fresh builds. A native regression covers stale members, unchanged timestamps,
+failed publication, and staging cleanup. On this workstation an unchanged
+runtime-only build fell from 65.76 s to 23.87 s by skipping the compiler relink;
+archive/compiler/runtime/data hashes stayed unchanged on the second normalized
+build. This is not a cold-toolchain or whole-image benchmark. All 178 Node tests,
+the full Chrome suite (including Python C++), and all five rebuilt image
+inventories passed (`build/d6-archive-*.log`, `build/d6-*-route.log`). The cache-key,
+dirty-source and documentation findings above remain open.
+
 ## Suggested checkpoints and closure rules
 
 1. Cold/prebuilt filesystems now match their declared system inventories. Before

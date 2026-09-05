@@ -231,7 +231,10 @@ for source in pthread_mutexattr_init pthread_mutexattr_settype pthread_mutexattr
     "/emsdk/upstream/emscripten/system/lib/libc/musl/src/thread/${source}.c" \
     -o "build/process-${source}.o"
 done
-"${container[@]}" /emsdk/upstream/emscripten/emar rcs build/libdolly-process.a \
+(
+  process_archive_staging="$(mktemp -d build/.process-archive.XXXXXX)"
+  trap 'rm -rf -- "${process_archive_staging}"' EXIT
+  "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "${process_archive_staging}/libdolly-process.a" \
   build/process-libc-adapter.o \
   build/process-runtime-adapter.o \
   build/process-mmap.o \
@@ -243,6 +246,10 @@ done
   build/process-pthread_mutexattr_init.o \
   build/process-pthread_mutexattr_settype.o \
   build/process-pthread_mutexattr_destroy.o
+  if ! cmp -s "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a; then
+    mv -- "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a
+  fi
+)
 
 build_process() {
   local output="$1"
