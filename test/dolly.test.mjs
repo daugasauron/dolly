@@ -1608,11 +1608,11 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   assert.match(runtime, /dolly_http_perform[\s\S]*?dolly_http_poll\(/);
   assert.match(quickjs, /DOLLY_JS_FUNCTION\("httpStart", js_dolly_http_start, 4\)/);
   assert.match(quickjs, /DOLLY_JS_FUNCTION\("httpPoll", js_dolly_http_poll, 1\)/);
-  assert.match(nodeRuntime, /const pendingHttp = new Map\(\)/);
+  assert.match(nodeRuntime, /const pendingHttp = new Set\(\)/);
   assert.match(nodeRuntime, /globalThis\.__dollyHttpPump =/);
-  assert.match(nodeRuntime, /Dolly\.httpPoll\(sequence\)/);
+  assert.match(nodeRuntime, /Dolly\.httpPoll\(request\.sequence\)/);
   assert.match(nodeRuntime, /new ReadableStream\(/);
-  assert.match(nodeRuntime, /Dolly\.httpStart\(method, url, headerBlock, body\)/);
+  assert.match(nodeRuntime, /Dolly\.httpStart\(request\.method, request\.requestUrl/);
   assert.match(janis, /const pumpedHttp = Boolean\(globalThis\.__dollyHttpPump\?\.\(\)\)/);
   assert.match(janis, /Math\.min\(pumpedHttp \|\| activeChildren \? 10 : 1000, nextDue\)/);
   assert.match(janis, /function janisShellStream\(/);

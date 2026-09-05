@@ -90,7 +90,10 @@ enqueues each body record into an in-Wasm `ReadableStream`. Janis calls the HTTP
 pump alongside Promise jobs and timers, using at most a 10 ms terminal wait
 while a request is active. This is cooperative re-entry in the existing worker,
 not a second process, a socket API, or ambient browser `fetch`. Version 0 still
-allows only one in-flight broker request.
+allows only one in-flight broker request. Janis queues overlapping `fetch()`
+calls in Wasm and retries `EBUSY` on later event-loop turns; aborting a queued
+request removes it without dispatching or cancelling someone else's transfer.
+The C start API still reports `-EBUSY`; callers must handle contention.
 
 HTTP ownership ends at the nested command boundary. If an asynchronous runtime
 returns with a request pending or with an unread final mailbox record, Dolly
@@ -160,6 +163,56 @@ is no raw-socket API, FTP, SSH transport, custom TLS backend or asynchronous fd 
 
 The important property is architectural: `libcurl.a` is an adapter above the
 same typed broker. It does not widen the browser import closure.
+
+## HTTP audit checkpoint (2026-09-06)
+
+Keep the architecture: one browser-authorized exchange, byte-oriented request
+and response data, and ordinary runtime adapters above it. One import describes
+authority, not a requirement for one simultaneous request. A serial transport
+is sufficient if its callers queue honestly and cancellation stays responsive.
+The trusted policy and transport total 436 lines; libcurl's larger compatibility
+surface is inside Wasm, not an additional browser authority.
+
+Remaining findings, in priority order:
+
+1. **Bounds must precede host allocation.** `dolly_http_dispatch` currently
+   scans NUL-terminated method/URL/headers and copies the body before browser
+   policy runs. Normal processes have a 1 MiB packet ceiling, but that is not
+   a defense against total kernel compromise. Use bounded spans at the outer
+   import, checked before decoding/copying. Bound pending host messages too.
+   This is an availability gap, not a demonstrated destination-policy escape.
+2. **Errors lose their meaning.** The broker catches policy denial, quota,
+   timeout and Fetch failure and publishes the same state 3. C turns it into
+   generic I/O failure; libcurl mostly reports "could not connect". Preserve
+   a small typed terminal reason plus request ID through every layer. Do not
+   log credentials or pretend the browser distinguishes CORS from DNS/TLS.
+3. **Byte semantics and limits disagree.** Janis decodes `Uint8Array` uploads
+   into text before dispatch; arbitrary binary uploads are not preserved.
+   The process packet ceiling is 1 MiB including metadata, versus the default
+   broker body limit of 8 MiB. `maxRequestBytes` counts only the body, not URL
+   or headers; a direct policy probe accepted 16 KiB of URL/header data under
+   a one-byte setting. Define separate metadata/body caps and expose truthful
+   effective upload limits. Keep binary data binary through QuickJS.
+4. **Some supported-looking behavior is not implemented.** Redirect intent is
+   accepted but every redirect fails; the Fetch facade also buffers incoming
+   chunks regardless of consumer demand. Keep redirect denial explicit and
+   document eager bounded buffering; do not introduce sockets or silently
+   enable Fetch's redirect following. The C header's promise of exclusively
+   negative errors also disagrees with positive fail-on-status results.
+5. **The lifetime budget is easy to mistake for a broken connection.** The
+   default 256 agent requests includes failed/denied attempts; trusted exact
+   bootstrap downloads are exempt. Report exhaustion clearly, and distinguish
+   this Fetch-call budget from a bound on browser-managed preflight traffic
+   or total session CPU/memory.
+
+Evidence: the browser regression reproduced overlapping-request failure;
+broker tests cover policy-before-Fetch, explicit credentials, redirect denial,
+byte limits, non-consuming deadlines and cancellation fencing. A disposable
+Chrome sandbox on local port 9000 also fetched OpenRouter's catalog through
+both curl and Janis, and upstream Pi received a verified reply from
+`deepseek/deepseek-v4-pro`. That does not establish Firefox/Safari parity or
+explain every reported login failure. The broader findings above are source
+review unless a reproducer is explicitly stated; this is not a formal proof.
 
 ## Git result and remaining gap
 

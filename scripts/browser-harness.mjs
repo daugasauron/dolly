@@ -186,6 +186,7 @@ let snapshotUpload = null;
 const staticRequestPaths = new Set();
 const piModelRequests = [];
 const janisAbortRequests = [];
+let cancelledQueuedRequestSeen = false;
 const piFixtureStream = { request: 0, phase: "idle" };
 
 function delay(milliseconds) {
@@ -263,6 +264,9 @@ function startServer() {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain; charset=utf-8" });
         response.end(await readFile(resolve(projectDir, "test/fixtures", requestUrl.pathname.split("/").at(-1))));
         return;
+      }
+      if (janisProcessMode && requestUrl.pathname === "/fixture/never-requested") {
+        cancelledQueuedRequestSeen = true;
       }
       if (janisProcessMode && requestUrl.pathname.startsWith("/fixture/abort/")) {
         const record = { path: requestUrl.pathname, finished: false, closed: false };
@@ -1290,6 +1294,7 @@ chrome = spawn(chromeBinary, [
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.mjs`), 0);
         assert.equal(await submit(`timeout 30 janis -m ${scratch}/probe.mjs ${scratch} ${localOrigin}`), 0);
         await delay(100);
+        assert.equal(cancelledQueuedRequestSeen, false, "a cancelled queued fetch must never reach HTTP");
         assert.deepEqual(janisAbortRequests.map(({ path, finished, closed }) => [path.split("/").at(-1), finished, closed]),
           [["before", false, true], ["body", false, true], ["cancel", false, true]], "abort/cancel must close the actual HTTP connections");
       } finally { await submit(`rm -rf ${scratch}`); }

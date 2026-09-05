@@ -119,6 +119,35 @@ if (fs.existsSync('/home/dolly/.pi/agent/extensions/dolly-tools.js')) await chec
     assert(prefix && error?.name === 'AbortError', `Pi ${userShell ? 'user shell' : 'tool'} did not stream/cancel`);
   }
 });
+await check('overlapping fetches wait for the single HTTP mailbox', async () => {
+  const responses = await Promise.all(Array.from({ length: 3 }, async () => {
+    const response = await fetch(`${origin}/fixture/http.txt`);
+    assert(response.ok, `HTTP status ${response.status}`);
+    return response.text();
+  }));
+  assert(responses.every(body => body === responses[0] && body.length > 0), 'queued fetch lost a response');
+});
+await check('queued HTTP abort never starts or cancels another request', async () => {
+  const first = fetch(`${origin}/fixture/http.txt`).then(response => response.text());
+  const controller = new AbortController();
+  const reason = new Error('cancel queued fetch');
+  const queued = fetch(`${origin}/fixture/never-requested`, { signal: controller.signal })
+    .catch(error => error);
+  controller.abort(reason);
+  assert(await queued === reason, 'queued abort lost its reason');
+  assert((await first).length > 0, 'queued abort cancelled the active request');
+});
+await check('fetch waits when another in-Wasm caller owns HTTP', async () => {
+  const sequence = Dolly.httpStart('GET', `${origin}/fixture/http.txt`, '', null);
+  let finished = false;
+  const queued = fetch(`${origin}/fixture/http.txt`).then(response => response.text())
+    .finally(() => { finished = true; });
+  try {
+    await delay(50);
+    assert(!finished, 'busy HTTP failed instead of waiting');
+  } finally { Dolly.httpCancel(sequence); }
+  assert((await queued).length > 0, 'queued fetch did not resume after release');
+});
 await check('HTTP deadline cancels before headers', async () => {
   const started = Date.now();
   let error;

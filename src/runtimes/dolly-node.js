@@ -701,19 +701,19 @@ class DollyResponse {
 
 globalThis.Headers = DollyHeaders;
 globalThis.Response = DollyResponse;
-const pendingHttp = new Map();
+const pendingHttp = new Set();
 
-function releaseHttp(sequence, request, cancel = false) {
-  pendingHttp.delete(sequence);
+function releaseHttp(request, cancel = false) {
+  pendingHttp.delete(request);
   request.signal?.removeEventListener("abort", request.abort);
-  if (cancel) {
-    try { Dolly.httpCancel(sequence); }
+  if (cancel && request.sequence !== null) {
+    try { Dolly.httpCancel(request.sequence); }
     catch (error) { if (error.code !== "ESTALE") throw error; }
   }
 }
 
-function failHttp(sequence, request, error, cancel = true) {
-  try { releaseHttp(sequence, request, cancel); }
+function failHttp(request, error, cancel = true) {
+  try { releaseHttp(request, cancel); }
   finally {
     if (request.resolved) request.controller.error(error);
     else request.reject(error);
@@ -745,19 +745,32 @@ function resolveHttpHeaders(request) {
 // Janis calls this hook between QuickJS microtask batches, which lets timers,
 // input, and streamed response chunks make progress in one synchronous worker.
 globalThis.__dollyHttpPump = () => {
-  for (const [sequence, request] of pendingHttp) {
+  for (const request of pendingHttp) {
+    if (request.sequence === null) {
+      try {
+        request.sequence = Dolly.httpStart(request.method, request.requestUrl,
+          request.headerBlock, request.requestBody);
+        request.requestBody = null;
+      } catch (error) {
+        // The one in-Wasm mailbox may also be owned by another process.
+        // Retry on a later event-loop turn; queued aborts remain immediate.
+        if (error.code === "EBUSY") break;
+        failHttp(request, error);
+        continue;
+      }
+    }
     let chunk;
     try {
-      chunk = Dolly.httpPoll(sequence);
+      chunk = Dolly.httpPoll(request.sequence);
     } catch (error) {
-      failHttp(sequence, request, error);
+      failHttp(request, error);
       continue;
     }
     if (chunk === null) continue;
     request.status = chunk.status;
     if (chunk.error) {
       const error = httpError(chunk.error);
-      failHttp(sequence, request, error, !chunk.eof);
+      failHttp(request, error, !chunk.eof);
       continue;
     }
     if (chunk.kind === 1) {
@@ -775,7 +788,7 @@ globalThis.__dollyHttpPump = () => {
     if (chunk.eof) {
       resolveHttpHeaders(request);
       request.controller.close();
-      releaseHttp(sequence, request);
+      releaseHttp(request);
     }
   }
   return pendingHttp.size !== 0;
@@ -798,31 +811,30 @@ globalThis.fetch = (input, init = {}) => {
       reject(signal.reason);
       return;
     }
-    let controller, sequence, request;
+    let controller, request;
     const stream = new ReadableStream({
       start(value) { controller = value; },
-      cancel() { if (pendingHttp.has(sequence)) releaseHttp(sequence, request, true); },
+      cancel() { if (pendingHttp.has(request)) releaseHttp(request, true); },
     });
-    try {
-      sequence = Dolly.httpStart(method, url, headerBlock, body);
-      request = {
-        resolve,
-        reject,
-        controller,
-        body: stream,
-        requestUrl: url,
-        effectiveUrl: "",
-        status: 0,
-        headers: "",
-        resolved: false,
-        signal,
-        abort: () => failHttp(sequence, request, signal.reason),
-      };
-      pendingHttp.set(sequence, request);
-      signal?.addEventListener("abort", request.abort);
-    } catch (error) {
-      reject(error);
-    }
+    request = {
+      sequence: null,
+      method,
+      headerBlock,
+      requestBody: body,
+      resolve,
+      reject,
+      controller,
+      body: stream,
+      requestUrl: url,
+      effectiveUrl: "",
+      status: 0,
+      headers: "",
+      resolved: false,
+      signal,
+      abort: () => failHttp(request, signal.reason),
+    };
+    pendingHttp.add(request);
+    signal?.addEventListener("abort", request.abort);
   });
 };
 

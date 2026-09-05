@@ -33,6 +33,14 @@ identified it without a complete end-to-end reproduction. Those original probes
 were not all rerun for this handoff. Reproduce against the current tree before
 changing behavior. Old measurements below are baselines, not fresh benchmarks.
 
+### HTTP contract follow-up
+
+The [HTTP audit checkpoint](http.md#http-audit-checkpoint-2026-09-06) records the
+remaining boundary allocation limits, erased error reasons, binary-upload and
+size-limit mismatches, and compatibility/budget semantics. Prioritize bounded
+outer argument decoding and typed terminal errors before expanding HTTP features.
+Do not replace the one broker with sockets or browser credential injection.
+
 ### Builds, publication, and maintenance must be truthful
 
 **D1 — P1 — Full clean external bootstrap still needs verification.** The missing
@@ -141,8 +149,18 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-Latest local baseline: 182 Node tests and the full Chrome suite passed; all five
-images are current and their prebuilt routes passed. Logs:
+HTTP checkpoint: the queue/busy/queued-abort regression, Pi fixture streaming,
+browser import/policy/deadline checks, all five prebuilt inventories and named
+sessions pass on local port 9000. The runtime ABI/build ID is unchanged; the
+three QuickJS-containing image recipes and snapshots were rebuilt. All 182 Node
+tests pass (`build/checkpoint-http-*.log`). The rebuilt module cache is retained
+at `.cache/checkpoint-http-browser-profile` (use `DOLLY_BROWSER_PORT=35149`
+with that `DOLLY_BROWSER_PROFILE` to reuse its IndexedDB origin). See the HTTP audit for the separate
+real-provider smoke result and its limits; the reported interactive login issue
+has not been reproduced end to end.
+
+Previous full-suite baseline (before the HTTP queue change): 182 Node tests and
+the full Chrome suite passed, including all five prebuilt routes. Logs:
 `build/d5-cleanup-build.log`, `build/overnight-harness-checked-node-tests.log`,
 `build/overnight-harness-checked-full-browser.log`, and `build/d1-d6-*-route.log`.
 The Python C++ extension also passed (`build/d1-d6-python-cpp-browser.log`),

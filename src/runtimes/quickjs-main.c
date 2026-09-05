@@ -628,6 +628,7 @@ static JSValue fs_error(JSContext *context, const char *operation, int number) {
     FS_ERRNO(ENOSYS); FS_ERRNO(ENOTSUP); FS_ERRNO(ELOOP); FS_ERRNO(EMFILE);
     FS_ERRNO(EINTR); FS_ERRNO(EAGAIN); FS_ERRNO(ENAMETOOLONG);
     FS_ERRNO(EPIPE); FS_ERRNO(ESRCH); FS_ERRNO(ECHILD); FS_ERRNO(ESTALE);
+    FS_ERRNO(EBUSY);
 #undef FS_ERRNO
   }
   JSValue error = JS_NewError(context);
@@ -1032,10 +1033,7 @@ static JSValue js_dolly_http_start(JSContext *context,
   JS_FreeCString(context, url);
   if (headers != NULL) JS_FreeCString(context, headers);
   if (body != NULL) JS_FreeCString(context, body);
-  if (status != 0) {
-    return JS_ThrowInternalError(context, "HTTP request start failed: %d",
-                                 status);
-  }
+  if (status != 0) return fs_error(context, "httpStart", -status);
   return JS_NewUint32(context, sequence);
 }
 
