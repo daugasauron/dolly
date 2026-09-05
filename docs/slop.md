@@ -131,7 +131,12 @@ The current language supports:
   lists, and the leading-colon error convention;
 - current-interpreter script loading with `. PATH [ARG ...]` or its `source`
   alias; names without a slash are resolved through `PATH`, and supplied
-  arguments temporarily become the sourced script's positional parameters;
+  arguments temporarily become the sourced script's positional parameters.
+  Without explicit arguments, `set --`/`shift` update the caller's parameters.
+  With explicit arguments, Dolly always restores the caller's frame, including
+  after `set --`, errors, or `return`; this differs from Bash's top-level behavior
+  after `set --`. `return` exits only the innermost sourced
+  script or function, not its caller;
 - `eval [WORD ...]`, which joins its already-expanded arguments with spaces and
   parses the result in the current interpreter;
 - `set -e`/`set +e`, command tracing with `set -x`/`set +x`, and named
@@ -213,6 +218,11 @@ when their simple command is reached. Thus `x=value && test "$x" = value` and
 `echo value > file && test "$(cat file)" = value` observe the earlier command,
 while escaped or single-quoted dollars remain literal. `$?` uses the same
 execution-time rule, so `false; test $? -eq 1` observes the preceding status.
+Substitutions update status as they execute; later `$?` expansions see that
+status. An assignment-only (or redirection-only) command returns the last
+substitution's status, or zero if none ran. Thus `set -e; x=$(exit 7)` stops
+with status 7. An ordinary command still supplies its own status:
+`: $(exit 7)` succeeds. Expansion/redirection errors remain failures.
 Command substitution has independent shell control state: its `exit` cannot
 terminate the outer interpreter, its cwd and environment changes are restored,
 and an outer `set -e` does not stop a finite substitution such as
@@ -226,8 +236,9 @@ test command.
 
 ## Synchronous semantics
 
-Dolly version 0 intentionally has no multiprocessing goal. `spawn` invokes one
-filesystem module synchronously and `wait` retrieves its completed status.
+Slop intentionally executes ordinary commands serially: `spawn` returns a
+kernel-owned child handle, then Slop waits for its status. Each external command
+has a fresh private Wasm instance; see [the process model](process-model.md).
 Slop implements pipelines by running each stage in order and spooling bytes
 through an unlinked temporary WasmFS file. Command substitution uses the same
 pattern. Temporary names disappear immediately; their open descriptors and
@@ -273,7 +284,20 @@ remote-job adapter as a narrow synchronous execution seam:
 
 The browser acceptance test exercises `SHELL`, `$(shell pwd)`, dependency
 ordering, separate C compilation, linking, execution, `-j8` serial clamping,
-and an up-to-date rebuild using a real Makefile.
+and an up-to-date rebuild using a real Makefile. Slop regressions also check
+sourced argument ownership, `$(shell ...)`/`.SHELLSTATUS`, and recipe failure
+under `set -e`:
+
+```sh
+node --test test/slop.test.mjs
+DOLLY_IMAGE=default DOLLY_BROWSER_MODE=slop ./scripts/test-browser.sh
+```
+
+The native test needs Bash and a host `cc` with ASan/UBSan; it denies external
+spawning. Browser tests execute real Wasm commands. For a shell-only edit,
+`DOLLY_BROWSER_MODE=slop-source` compiles
+the current source inside a disposable browser session before running the same
+cases, without rebuilding all images.
 
 ## Browser boundary
 

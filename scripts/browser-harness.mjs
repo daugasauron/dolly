@@ -13,6 +13,7 @@ import {
   selectImageDefinitions,
 } from "./image-definitions.mjs";
 import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
+import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -37,6 +38,7 @@ const cppMode = process.env.DOLLY_BROWSER_MODE === "cpp";
 const boundaryMode = process.env.DOLLY_BROWSER_MODE === "boundary";
 const processAbiMode = process.env.DOLLY_BROWSER_MODE === "process-abi";
 const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
+const slopMode = ["slop", "slop-source"].includes(process.env.DOLLY_BROWSER_MODE);
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -173,6 +175,11 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const requestUrl = new URL(request.url, "http://127.0.0.1");
+      if (slopMode && requestUrl.pathname === "/fixture/slop.c") {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+        response.end(await readFile(resolve(projectDir, "src/slop.c")));
+        return;
+      }
       if (processAbiMode && /^\/fixture\/(?:process-(?:minimal|no-dso|wrong-call|wrong-start|wrong-memory|dso-host|dso-bad-host)|dso-(?:types|local|start|small-(?:memory|table)|wrong-(?:self|provider|stack|table|memory|base|tag|got|symbol-kind|data|hook)))\.wasm$/.test(requestUrl.pathname)) {
         const name = requestUrl.pathname.split("/").at(-1);
         response.writeHead(200, { ...isolatedHeaders, "content-type": "application/wasm" });
@@ -1073,7 +1080,7 @@ chrome = spawn(chromeBinary, [
       ? menuPage
       : snapshotExportMode
       ? rebuildPage
-      : piDevelopmentMode || cppMode || makeMode || realOpenRouterMode || missingSnapshotMode
+      : piDevelopmentMode || cppMode || makeMode || slopMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
         || lifecycleProbeMode || boundaryMode || processAbiMode
@@ -1082,6 +1089,53 @@ chrome = spawn(chromeBinary, [
   });
 
   browserProof: {
+    if (slopMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Slop regression boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-slop-regression";
+      const writeScript = async (name, source) => {
+        const escaped = source.replaceAll("\\", "\\\\").replaceAll("\n", "\\n").replaceAll("\t", "\\t");
+        assert.equal(await submit(`printf %b ${shellQuote(escaped)} > ${scratch}/${name}`), 0);
+      };
+      assert.equal(await submit(`mkdir ${scratch}`), 0);
+      try {
+        const executable = "/bin/slop";
+        if (process.env.DOLLY_BROWSER_MODE === "slop-source") {
+          assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/slop.c -o ${scratch}/slop.c`), 0);
+          assert.equal(await submit(`cc ${scratch}/slop.c -o ${scratch}/slop`), 0);
+          assert.equal(await submit(`cp ${scratch}/slop ${executable}`), 0);
+        }
+        for (const [name, source] of Object.entries(sourceFiles)) {
+          await writeScript(name, source);
+        }
+        const failures = [];
+        for (const [name, source, expected] of shellCases) {
+          await writeScript("fixture-zero", source);
+          const actual = await submit(`cd ${scratch}; ${executable} fixture-zero`);
+          if (actual !== expected) failures.push({ name, expected, actual });
+        }
+        assert.deepEqual(failures, []);
+        const make = `make -C ${scratch} SHELL=${executable} '.SHELLFLAGS=-e -c'`;
+        assert.equal(await submit(`${make} all`), 0, "Make sourcing and .SHELLSTATUS");
+        assert.equal(await submit(`${make} fail`), 2, "Make must fail after assignment substitution exits 7");
+        assert.equal(await submit(`grep -q SLOP-MAKE-OK ${scratch}/make-success && test ! -e ${scratch}/make-failed`), 0);
+        assert.equal(await submit(`${executable} -c 'exit 173'`), 173);
+        assert.equal(await submit(""), 173);
+        assert.equal(await submit("  # no command"), 173);
+        const afterBlank = await visibleTerminalText(debuggerClient.send);
+        assert.equal((afterBlank.match(/slop: status 173/g) ?? []).length, 1,
+          "blank input must not repeat the error");
+        assert.equal(await submit("test $? -eq 173"), 0);
+      } finally {
+        await submit(`cd /workspace; rm -rf ${scratch}`);
+      }
+      console.log(`browser: ${shellCases.length} Slop sourcing/argument/status regressions and GNU Make failure propagation passed`);
+      break browserProof;
+    }
     if (processAbiMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -2303,6 +2357,14 @@ int main(int argc, char **argv) {
         /dolly-slop-bang-marker/,
         "Pi's ! command executing ls through /bin/slop",
       );
+      await clearTerminalSelection(debuggerClient.send);
+      await typeText(debuggerClient.send,
+        "! slop -e -c 'x=$(exit 7); exit 19'; printf 'DOLLY-SLOP-STATUS=%s\\n' \"$?\"");
+      await dispatchKey(debuggerClient.send, {
+        key: "Enter", code: "Enter", windowsVirtualKeyCode: 13,
+      });
+      await waitForTerminalText(debuggerClient.send, /DOLLY-SLOP-STATUS=7/,
+        "Pi shell interaction preserving assignment substitution failure");
       await clearTerminalSelection(debuggerClient.send);
       await typeText(
         debuggerClient.send,

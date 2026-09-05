@@ -1,16 +1,16 @@
 # Remaining audit work — handoff
 
-As of 2026-09-05, after the browser-boundary, minimal-executable, typed-DSO, and session
-checkpoints. This is a dated implementation handoff, not a claim that the whole
-project is correct. Read [AGENTS.md](../AGENTS.md) first. The broader direction
-remains in the [roadmap](roadmap.md).
+As of 2026-09-05, after the browser-boundary, minimal-executable, typed-DSO, session,
+and Slop ownership/status checkpoints. This is a dated implementation handoff,
+not a claim that the whole project is correct. Read [AGENTS.md](../AGENTS.md)
+first. The broader direction remains in the [roadmap](roadmap.md).
 
 ## Starting state and guardrails
 
-- HEAD is `c3f5b1f` (`Make the browser capability boundary explicit and reviewable`).
-  The subsequent executable/errno and DSO work is **uncommitted**, including new
-  WAT, JavaScript, and test files. Inspect `git status`; do not reset the tree or
-  omit untracked implementation files from a future checkpoint.
+- `5b4b21c` checkpoints the executable/errno, typed-DSO, and named-session work
+  on top of the browser-boundary commit `c3f5b1f`. The following Slop checkpoint
+  fixes B1/B6. Inspect `git status`; do not reset unrelated work or omit untracked
+  implementation files from a future checkpoint.
 - `.gitignore` and `AGENTS.md` contain user edits. Preserve them. Ignore `.pi/`;
   do not inspect, stage, or clean it.
 - The local app was left running on port 9000. The later ABI checkpoints were
@@ -28,7 +28,7 @@ remains in the [roadmap](roadmap.md).
 ## Closed findings — do not redo these
 
 Original audit IDs are retained below. A1/A5 landed in `c3f5b1f`; A2–A4 and the
-DSO follow-up are implemented in the working tree.
+DSO follow-up and C1/C2 landed in `5b4b21c`.
 
 - **A1:** Removed the kernel's general dynamic loader and its alternate URL/JS
   execution paths. Boot-only Ghostty loading accepts bytes and explicit Wasm
@@ -53,13 +53,27 @@ DSO follow-up are implemented in the working tree.
   See [sessions](sessions.md) for limits: prebuilt images only, exact build/recipe
   matching, no cross-build migration or running-process resume. Peak memory has
   not been established across all devices and maximum-size saves.
+- **B1:** Plain sourcing keeps the caller's current argument frame instead of
+  restoring freed pointers after `set --`/`shift`. Explicit source arguments use
+  a temporary owned frame, restored on errors and `return` too. Source return
+  stops at the innermost source/function boundary. Native ASan reproduced the
+  original use-after-free; native and real-browser regressions cover nested
+  sourcing, arguments, functions, errors, and return.
+- **B6:** Command substitution carries its exit status. Assignment/redirection-only
+  commands return the last substitution status; ordinary commands retain their
+  own status. `$?` now uses the existing execution-time expansion path rather
+  than a second marker/pass. Browser regressions cover `set -e`, nesting,
+  empty substitutions, redirections/heredocs, Make's `.SHELLSTATUS`, and recipe
+  failure; blank interactive input still preserves status without repeating
+  errors. Explicit source argument behavior intentionally differs from Bash;
+  see [Slop](slop.md).
 
 These close the specific findings, not all possible loader or resource issues.
 Caller-supplied `dlsym`/FFI prototypes are not inferred from pointers; arbitrary
 library initialization is not transactional. Total CPU/memory quotas and formal
 host-containment proof are not established.
 
-Validated at the latest checkpoint: full runtime build, 108 Node tests, full
+Validated at the earlier DSO checkpoint: full runtime build, 108 Node tests, full
 Chrome suite, 14 incompatible-DSO cases rejected without allocation/constructors,
 ordinary C/C++ dynamic loading, Python ctypes calls/callbacks, and all five
 packaged images/viewers under `/dolly/`. Kernel Wasm/data hashes were unchanged,
@@ -71,6 +85,17 @@ Save/load regressions passed in all five prebuilt images, plus prefixed static
 hosting with a first-navigation 404 and no preinstalled isolation service worker.
 Old session records remain stored/listed but cannot load against this new base.
 
+The Slop checkpoint rebuilt all five images through their browser recipes with
+normal module caching. Its runtime build ID is
+`sha256:c6c312851fe333b3b6229139b38f0342dba75f7af9ea0afb8a0d70e2960fe786`.
+All 158 Node tests and the full Chrome suite passed, including 45 shared shell
+cases under ASan/UBSan.
+The same 45 cases passed with the installed Wasm shell and with Slop compiled
+from source inside the browser, plus Make compilation/failure propagation and
+Pi `!` status/streaming checks. No machine ABI or browser authority changed.
+All five prebuilt images booted; Python and gamedev also passed their viewer checks.
+Old saves still require their exact runtime/image base; this is not migration.
+
 ## Open findings
 
 Evidence labels: **reproduced** means the original audit demonstrated the behavior
@@ -78,25 +103,6 @@ in a browser or isolated unchanged-source diagnostic; **source** means inspectio
 identified it without a complete end-to-end reproduction. Those original probes
 were not all rerun for this handoff. Reproduce against the current tree before
 changing behavior. Old measurements below are baselines, not fresh benchmarks.
-
-### First: prevent hangs, data loss, and incorrect shell results
-
-**B1 — P1 — Sourcing can restore freed positional arguments.** Reproduced with
-unchanged Slop C under AddressSanitizer; browser acceptance still needed.
-`src/slop.c` source handling saves argv, `set --`/`shift` can free it, and source
-return restores the stale pointer. A sourced file containing `set -- new`, called
-after `set -- old`, exposes the issue. Plain `. PATH` should use the current
-argument state; `. PATH ARG...` needs a separately owned temporary frame.
-**Acceptance:** nested sourcing, `set --`, `shift`, errors, and source arguments
-preserve the intended values without invalid ownership. Diagnostic native stubs
-must never become a runtime/browser fallback.
-
-**B6 — P2 — Command substitution discards status.** Reproduced in unchanged Slop:
-`slop -e -c 'x=$(exit 7); exit 19'` returns 19 instead of 7. In `src/slop.c`,
-capture ignores `execute_text` status and assignment-only commands return zero.
-Carry the last substitution status with its output. **Acceptance:** assignment-only
-commands and multiple substitutions report the correct status, with and without
-`set -e`; enclosing ordinary commands retain their own status semantics.
 
 ### Runtime adapters must preserve actual substrate behavior
 
@@ -162,6 +168,8 @@ the streaming-child path do not service selection. Handle terminal UI events
 independently of stdin consumption. **Acceptance:** mouse selection and
 Ctrl+Shift+C during sleeping/output-producing children, without stealing typed
 input/paste or violating an exclusive game framebuffer lease.
+The Slop checkpoint's shorter Pi streaming check passed without build load but
+failed during a concurrent cold build; this does not close the longer B9 probe.
 
 ### Images must describe and preserve the delivered filesystem
 
@@ -225,8 +233,9 @@ between what the viewer promises and what the sandbox executes.
 evidence: packaging checks existence/size without fully binding snapshot, recipe,
 runtime, source commit, and acceptance results; Pages downloads a release asset
 without an expected artifact digest. `scripts/build.sh` deletes the served runtime
-before replacement succeeds. This is not a finding that the audited public site
-was stale. Stage a verified versioned artifact and publish atomically; check the
+before replacement succeeds; an overlapping Slop browser check failed during
+Worker startup in this checkpoint's local rebuild. This is not a finding that
+the audited public site was stale. Stage a verified versioned artifact and publish atomically; check the
 binding in `.github/workflows/pages.yml`. **Acceptance:** interrupted builds keep
 the last good app; mixed/stale/tampered artifacts fail packaging/deployment;
 all five packaged routes pass before promotion.
@@ -256,8 +265,8 @@ caching on failure; correct its documentation instead of removing it by accident
 
 ## Suggested checkpoints and closure rules
 
-1. Fix B1 and B6 as narrow correctness changes; add their failing regressions
-   first. Address B2 next for real multilingual agent output.
+1. Address B2 next for real multilingual agent output. B1/B6 are closed; retain
+   their native sanitizer and browser/Make/Pi regressions.
 2. Resolve C5's system/layer path-kind limitations. Normalize cold/prebuilt
    filesystems (C3) before enabling named saves for rebuilt images.
 3. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
@@ -279,7 +288,7 @@ by the latest ABI checkpoint. Do not add new browser authority to make tests pas
 
 The original report is `build/audit-2026-09-05.md` (ignored). Its A1–A5 body
 describes the old baseline; the implementation follow-ups supersede it. The
-current handoff preserves all remaining B1–B9, C3–C5, and D1–D6 findings without
+current handoff preserves all remaining B2–B5/B7–B9, C3–C5, and D1–D6 findings without
 depending on that ignored report surviving a checkout.
 
 Session evidence: `build/session-runtime-build.log`, `build/session-snapshots.log`,
@@ -287,6 +296,16 @@ Session evidence: `build/session-runtime-build.log`, `build/session-snapshots.lo
 `build/session-prefixed-browser.log`, `build/session-static-pages-browser.log`,
 `build/session-{default,python,pi,gamedev}-browser.log`, and `build/session-package.log`.
 The packaged candidate is `build/dolly-pages-sessions.tar.gz`; it is not deployed.
+
+Slop evidence: `build/slop-before-{sanitizer,browser}.log`,
+`build/slop-empty-before-sanitizer.log`, `build/slop-after-sanitizer.log`,
+`build/slop-final-build.log`, `build/slop-static-tests.log`,
+`build/slop-{browser,source-browser,make-browser,pi-browser,browser-suite}.log`,
+and `build/slop-{python,gamedev}-route.log`.
+The final build log supersedes the earlier `slop-runtime-build`/`slop-snapshots`
+logs. `slop-pi-browser-under-load.log` retains the failed short streaming timing
+check; the no-build-load `slop-pi-browser.log` passed. The packaged candidate is
+`build/dolly-pages-slop.tar.gz` (`build/slop-package.log`), not deployed.
 
 Earlier ABI evidence: `build/dso-abi-runtime-build.log`,
 `build/dso-abi-static-final.log`, `build/dso-abi-browser-suite.log`,
@@ -297,6 +316,8 @@ These are local artifacts, not committed or deployed release attestations.
 
 ```sh
 node --test test/*.test.mjs
+DOLLY_IMAGE=default DOLLY_BROWSER_MODE=slop ./scripts/test-browser.sh
+DOLLY_IMAGE=python-pi DOLLY_BROWSER_MODE=pi ./scripts/test-browser.sh
 DOLLY_BROWSER_MODE=process-abi ./scripts/test-browser.sh
 DOLLY_IMAGE=python-pi DOLLY_BROWSER_MODE=python-interactive ./scripts/test-browser.sh
 ./scripts/test-browser.sh

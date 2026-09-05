@@ -19,7 +19,6 @@
 #define SLOP_MAX_ARGS 512
 #define SLOP_MAX_HISTORY 1000
 #define SLOP_MAX_HEREDOCS 32
-#define SLOP_DEFERRED_STATUS "\x1f" "DOLLY_STATUS" "\x1f"
 #define SLOP_DEFERRED_DOLLAR ((char)0x1d)
 #define SLOP_DYNAMIC_DESCRIPTOR (-2)
 
@@ -68,6 +67,7 @@ typedef struct {
   int interactive;
   int active;
   int last_status;
+  int substitution_status;
   int exit_status;
   int errexit;
   int xtrace;
@@ -77,6 +77,7 @@ typedef struct {
   int loop_control;
   unsigned loop_levels;
   int function_depth;
+  int source_depth;
   int returning;
   int return_status;
   Functions *functions;
@@ -559,6 +560,7 @@ static int capture_command(Shell *shell, const char *command, Buffer *output) {
   nested.loop_control = LOOP_CONTROL_NONE;
   nested.loop_levels = 0;
   nested.function_depth = 0;
+  nested.source_depth = 0;
   nested.returning = 0;
   nested.return_status = 0;
   Functions nested_functions = {0};
@@ -572,7 +574,9 @@ static int capture_command(Shell *shell, const char *command, Buffer *output) {
     return 0;
   }
   nested.functions = &nested_functions;
-  execute_text(&nested, command);
+  const int command_status = execute_text(&nested, command);
+  shell->substitution_status = nested.active ? command_status : nested.exit_status;
+  shell->last_status = shell->substitution_status;
   functions_dispose(&nested_functions);
   shell_argv_dispose(&nested);
   fflush(stdout);
@@ -1063,10 +1067,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
     return 1;
   }
 
-  if (length == 1 && name[0] == '?') {
-    if (!buffer_append(word, SLOP_DEFERRED_STATUS,
-                       sizeof(SLOP_DEFERRED_STATUS) - 1)) return -1;
-  } else if (length == 1 && (name[0] == '@' || name[0] == '*')) {
+  if (length == 1 && (name[0] == '@' || name[0] == '*')) {
     for (int index = 1; index < shell->argc; index++) {
       if (index != 1 && !buffer_character(word, ' ')) return -1;
       if (!buffer_append(word, shell->argv[index], strlen(shell->argv[index]))) return -1;
@@ -1979,12 +1980,23 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
         return 1;
       }
     }
-    const int status = execute_text(shell, source);
-    if (argc > 2) shell_argv_dispose(shell);
-    shell->argc = saved_argc;
-    shell->argv = saved_argv;
-    shell->argv_array_owned = saved_array_owned;
-    shell->argv_strings_owned = saved_strings_owned;
+    shell->source_depth++;
+    int status = execute_text(shell, source);
+    shell->source_depth--;
+    if (shell->returning) {
+      status = shell->return_status;
+      shell->returning = 0;
+      shell->return_status = 0;
+    }
+    // With no explicit arguments, sourcing uses (and may replace) the current
+    // argument frame. Only an explicitly supplied frame is popped on return.
+    if (argc > 2) {
+      shell_argv_dispose(shell);
+      shell->argc = saved_argc;
+      shell->argv = saved_argv;
+      shell->argv_array_owned = saved_array_owned;
+      shell->argv_strings_owned = saved_strings_owned;
+    }
     free(source);
     return status;
   }
@@ -2005,8 +2017,8 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
     return status;
   }
   if (strcmp(argv[0], "return") == 0) {
-    if (shell->function_depth == 0) {
-      fputs("slop: return: only valid inside a function\n", stderr);
+    if (shell->function_depth == 0 && shell->source_depth == 0) {
+      fputs("slop: return: only valid inside a function or sourced script\n", stderr);
       return 1;
     }
     if (argc > 2) {
@@ -2714,36 +2726,6 @@ memory_error:
   return 1;
 }
 
-static int expand_deferred_status(Shell *shell, Token *tokens,
-                                  size_t start, size_t end) {
-  char status[32];
-  snprintf(status, sizeof(status), "%d", shell->last_status);
-  const size_t marker_length = sizeof(SLOP_DEFERRED_STATUS) - 1;
-  for (size_t index = start; index < end; index++) {
-    if (tokens[index].text == NULL ||
-        strstr(tokens[index].text, SLOP_DEFERRED_STATUS) == NULL) continue;
-    Buffer expanded = {0};
-    const char *cursor = tokens[index].text;
-    const char *marker;
-    while ((marker = strstr(cursor, SLOP_DEFERRED_STATUS)) != NULL) {
-      if (!buffer_append(&expanded, cursor, (size_t)(marker - cursor)) ||
-          !buffer_append(&expanded, status, strlen(status))) {
-        free(expanded.data);
-        return 0;
-      }
-      cursor = marker + marker_length;
-    }
-    if (!buffer_append(&expanded, cursor, strlen(cursor))) {
-      free(expanded.data);
-      return 0;
-    }
-    free(tokens[index].text);
-    tokens[index].text = buffer_release(&expanded);
-    if (tokens[index].text == NULL) return 0;
-  }
-  return 1;
-}
-
 static int resolve_dynamic_descriptors(Token *tokens, size_t start,
                                        size_t end) {
   for (size_t index = start; index < end; index++) {
@@ -2861,11 +2843,7 @@ static int open_heredoc(Shell *shell, const Token *token) {
       .kind = TOKEN_WORD,
       .text = buffer_release(&contents),
   };
-  if (result.text == NULL ||
-      !expand_deferred_status(shell, &result, 0, 1)) {
-    free(result.text);
-    return -1;
-  }
+  if (result.text == NULL) return -1;
 
   char path[] = "/tmp/slop-heredoc-XXXXXX";
   const int descriptor = mkstemp(path);
@@ -2931,13 +2909,11 @@ static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
                               int pipeline_output) {
   Arguments arguments = {0};
   CommandRedirections redirections = {0};
-  const int expansion_status = shell->last_status;
+  shell->substitution_status = 0;
   const int dollar_status = expand_deferred_dollars(shell, tokens, start, end);
   if (dollar_status == 0) goto memory_error;
   if (dollar_status < 0) goto expansion_error;
-  shell->last_status = expansion_status;
-  if (!expand_deferred_status(shell, tokens, start, end) ||
-      !expand_tilde_words(tokens, start, end, 1)) goto memory_error;
+  if (!expand_tilde_words(tokens, start, end, 1)) goto memory_error;
   if (!resolve_dynamic_descriptors(tokens, start, end)) goto syntax_error;
   int command_seen = 0;
   size_t command_index = SIZE_MAX;
@@ -2985,7 +2961,7 @@ static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
     for (size_t index = 0; index < prefix; index++) if (set_assignment(arguments.items[index]) < 0) goto command_error;
     arguments_dispose(&arguments);
     command_redirections_dispose(&redirections);
-    return 0;
+    return shell->substitution_status;
   }
   if (strcmp(arguments.items[prefix], "exec") == 0 &&
       prefix + 1 == arguments.count) {
@@ -3259,11 +3235,8 @@ static int apply_compound_redirections(Shell *shell, const Token *tokens,
   TokenList copy = {0};
   if (!tokens_clone_range(tokens, start, end, &copy)) return 0;
   const size_t count = end - start;
-  const int expansion_status = shell->last_status;
   const int dollars = expand_deferred_dollars(shell, copy.items, 0, count);
-  shell->last_status = expansion_status;
   if (dollars <= 0 ||
-      !expand_deferred_status(shell, copy.items, 0, count) ||
       !expand_tilde_words(copy.items, 0, count, 0)) {
     tokens_dispose(&copy);
     return 0;
@@ -3367,6 +3340,7 @@ static int parse_subshell(Shell *shell, CommandParser *parser, int execute,
   nested.loop_levels = 0;
   nested.function_depth = 0;
   nested.returning = 0;
+  nested.source_depth = 0;
   nested.return_status = 0;
   nested.local_frame = NULL;
   Functions nested_functions = {0};
@@ -3475,7 +3449,6 @@ static int parse_function_definition(Shell *shell, CommandParser *parser,
 
 static int expand_loop_words(Shell *shell, Token *tokens, size_t start,
                              size_t end, Arguments *values) {
-  const int expansion_status = shell->last_status;
   for (size_t index = start; index < end; index++) {
     if (tokens[index].kind != TOKEN_WORD) {
       fputs("slop: invalid operator in for word list\n", stderr);
@@ -3490,8 +3463,7 @@ static int expand_loop_words(Shell *shell, Token *tokens, size_t start,
     };
     if (copy.text == NULL) return 0;
     const int dollar_status = expand_deferred_dollars(shell, &copy, 0, 1);
-    shell->last_status = expansion_status;
-    if (dollar_status <= 0 || !expand_deferred_status(shell, &copy, 0, 1) ||
+    if (dollar_status <= 0 ||
         !expand_tilde_words(&copy, 0, 1, 0) ||
         !expand_word_arguments(shell, values, &copy)) {
       free(copy.text);
@@ -3692,10 +3664,8 @@ static char *expand_case_text(Shell *shell, const Token *token,
       .quoted = token->quoted,
   };
   if (copy.text == NULL) return NULL;
-  const int expansion_status = shell->last_status;
   const int dollar_status = expand_deferred_dollars(shell, &copy, 0, 1);
-  shell->last_status = expansion_status;
-  if (dollar_status <= 0 || !expand_deferred_status(shell, &copy, 0, 1) ||
+  if (dollar_status <= 0 ||
       !expand_tilde_words(&copy, 0, 1, 0)) {
     free(copy.text);
     return NULL;
@@ -3873,7 +3843,7 @@ static int parse_if(Shell *shell, CommandParser *parser, int execute,
 static int execute_list(Shell *shell, CommandParser *parser, int execute,
                         int suppress_errexit, unsigned stops,
                         unsigned *stopped) {
-  int status = shell->last_status;
+  int status = 0;
   TokenKind previous = TOKEN_SEMI;
   int aborted = 0;
   *stopped = 0;
@@ -4597,11 +4567,13 @@ static int interactive(Shell *shell) {
     if (result == EDITOR_INTERRUPTED) shell->last_status = 130;
     else {
       history_add(&history, line);
-      // An empty interactive line is not a new command. Preserve $? as POSIX
+      // A blank/comment-only line is not a new command. Preserve $? as POSIX
       // shells do, but do not report that inherited failure again. Otherwise
       // every Enter after an interrupted program repeats "slop: status 130".
-      report_status = !line_is_blank(line);
-      shell->last_status = execute_text(shell, line);
+      const char *command = line;
+      while (isspace((unsigned char)*command)) command++;
+      report_status = *command != '\0' && *command != '#';
+      if (report_status) shell->last_status = execute_text(shell, line);
     }
     if (report_status && shell->last_status != 0 &&
         shell->last_status != 127 && shell->active)
