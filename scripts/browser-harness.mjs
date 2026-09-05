@@ -14,6 +14,7 @@ import {
 } from "./image-definitions.mjs";
 import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
+import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -39,6 +40,7 @@ const boundaryMode = process.env.DOLLY_BROWSER_MODE === "boundary";
 const processAbiMode = process.env.DOLLY_BROWSER_MODE === "process-abi";
 const makeMode = process.env.DOLLY_BROWSER_MODE === "make";
 const slopMode = ["slop", "slop-source"].includes(process.env.DOLLY_BROWSER_MODE);
+const utf8Mode = process.env.DOLLY_BROWSER_MODE === "utf8";
 const piOpenRouterMode = process.env.DOLLY_BROWSER_MODE === "pi-openrouter";
 const piAuditMode = process.env.DOLLY_BROWSER_MODE === "pi-audit";
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -175,6 +177,30 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const requestUrl = new URL(request.url, "http://127.0.0.1");
+      if (utf8Mode && /^\/fixture\/utf8-(?:cases\.mjs|browser\.mjs|writer\.c)$/.test(requestUrl.pathname)) {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain; charset=utf-8" });
+        response.end(await readFile(resolve(projectDir, "test/fixtures", requestUrl.pathname.split("/").at(-1))));
+        return;
+      }
+      if (utf8Mode && requestUrl.pathname === "/fixture/utf8-reference") {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "application/json" });
+        response.end(JSON.stringify(decoderCases(TextDecoder)));
+        return;
+      }
+      if (utf8Mode && requestUrl.pathname === "/fixture/utf8-stream") {
+        response.writeHead(200, {
+          ...isolatedHeaders,
+          "content-type": "text/plain; charset=utf-8",
+          "x-content-type-options": "nosniff",
+        });
+        response.flushHeaders();
+        for (const byte of [...Buffer.from("日本語😀"), 0xe3]) {
+          response.write(Buffer.from([byte]));
+          await delay(50);
+        }
+        response.end();
+        return;
+      }
       if (slopMode && requestUrl.pathname === "/fixture/slop.c") {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
         response.end(await readFile(resolve(projectDir, "src/slop.c")));
@@ -249,7 +275,7 @@ function startServer() {
               name: "write",
               arguments: JSON.stringify({
                 path: "/workspace/pi-http-test.txt",
-                content: "pi crossed Dolly's HTTP broker\n",
+                content: "pi crossed Dolly's HTTP broker\n日本語😀\n",
               }),
             } : toolResultCount === 1 ? {
               name: "edit",
@@ -272,7 +298,7 @@ function startServer() {
                   delta: {
                     content: wantsInstalledProbe
                       ? "DOLLY-PI-INSTALLED-"
-                      : "DOLLY-PI-HTTP-",
+                      : "日本語😀 DOLLY-PI-HTTP-",
                   },
                   finish_reason: null,
                 }],
@@ -340,7 +366,15 @@ function startServer() {
         // thinking indicator to advance while no model bytes are available.
         await delay(750);
         for (let index = 0; index < events.length; index++) {
-          response.write(`data: ${JSON.stringify(events[index])}\n\n`);
+          const bytes = Buffer.from(`data: ${JSON.stringify(events[index])}\n\n`);
+          let start = 0;
+          // Split Unicode scalars on the wire, not just between SSE events.
+          for (let offset = 0; offset < bytes.length; offset++) if (bytes[offset] >= 0x80) {
+            response.write(bytes.subarray(start, offset + 1));
+            start = offset + 1;
+            await delay(25);
+          }
+          response.write(bytes.subarray(start));
           if (nextTool === null && index === 0) {
             // The final answer must become visible before its second half has
             // even been sent by the fixture. This catches buffering at every
@@ -1080,7 +1114,7 @@ chrome = spawn(chromeBinary, [
       ? menuPage
       : snapshotExportMode
       ? rebuildPage
-      : piDevelopmentMode || cppMode || makeMode || slopMode || realOpenRouterMode || missingSnapshotMode
+      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
         || lifecycleProbeMode || boundaryMode || processAbiMode
@@ -1089,6 +1123,27 @@ chrome = spawn(chromeBinary, [
   });
 
   browserProof: {
+    if (utf8Mode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "UTF-8 regression boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-utf8-regression";
+      assert.equal(await submit(`mkdir ${scratch}`), 0);
+      try {
+        for (const name of ["cases.mjs", "browser.mjs", "writer.c"]) {
+          assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/utf8-${name} -o ${scratch}/utf8-${name}`), 0);
+        }
+        assert.equal(await submit(`cd ${scratch} && cc utf8-writer.c -o writer`), 0);
+        assert.equal(await submit(`janis -m utf8-browser.mjs ${localOrigin}`), 0, "UTF-8 decoder, HTTP, Node, and Pi regressions");
+        assert.equal(await submit(`./writer stdin | janis -m utf8-browser.mjs stdin`), 0, "UTF-8 stdin boundary and EOF");
+      } finally {
+        await submit(`cd /workspace; rm -rf ${scratch}`);
+      }
+      console.log("browser: UTF-8 split/malformed/BOM/flush cases, HTTP, encoded stdin/children, Pi interleaved pipes and raw binary writes passed");
+      break browserProof;
+    }
     if (slopMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -1830,7 +1885,7 @@ int main(int argc, char **argv) {
       ), "saved");
       await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/` });
       assert.equal(await waitForValue(debuggerClient.send,
-        "document.documentElement.dataset.sessionsStatus ?? ''",
+        "document.documentElement?.dataset.sessionsStatus ?? ''",
         (value) => value === "ready" || value === "failed", "saved session list", 100), "ready");
       assert.equal(await evaluate(debuggerClient.send, "document.querySelectorAll('#sessions li').length"), 1);
       assert.equal(await evaluate(debuggerClient.send, "document.querySelector('#sessions a').pathname"),
@@ -1839,7 +1894,7 @@ int main(int argc, char **argv) {
         "listing sessions should not boot a Wasm runtime");
       await evaluate(debuggerClient.send, "document.querySelector('#sessions a').click()");
       assert.equal(await waitForValue(debuggerClient.send,
-        "document.documentElement.dataset.dollyStatus ?? ''",
+        "document.documentElement?.dataset.dollyStatus ?? ''",
         (value) => value === "ready" || value === "failed", "second session restore", 1200), "ready");
       await enterRecoveryShell(debuggerClient.send);
       for (const command of [
@@ -1877,12 +1932,12 @@ int main(int argc, char **argv) {
       for (const name of ["wrong-base", "broken-data", "missing-session"]) {
         await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/${name}` });
         assert.equal(await waitForValue(debuggerClient.send,
-          "document.documentElement.dataset.dollyStatus ?? ''",
+          "document.documentElement?.dataset.dollyStatus ?? ''",
           (value) => value === "ready" || value === "failed", `rejected session ${name}`, 1200), "failed");
       }
       await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}session/` });
       assert.equal(await waitForValue(debuggerClient.send,
-        "document.documentElement.dataset.sessionsStatus ?? ''",
+        "document.documentElement?.dataset.sessionsStatus ?? ''",
         (value) => value === "ready" || value === "failed", "retained saved records", 100), "ready");
       assert.equal(await evaluate(debuggerClient.send,
         "document.querySelectorAll('#sessions li').length"), 3);
@@ -1891,7 +1946,7 @@ int main(int argc, char **argv) {
       // Legacy bookmarks resolve to the canonical path without query params.
       await debuggerClient.send("Page.navigate", { url: `${localOrigin}${browserBase}load/?session=browser-proof` });
       assert.equal(await waitForValue(debuggerClient.send,
-        "document.documentElement.dataset.dollyStatus ?? ''",
+        "document.documentElement?.dataset.dollyStatus ?? ''",
         (value) => value === "ready" || value === "failed", "legacy session redirect", 1200), "ready");
       assert.equal(await evaluate(debuggerClient.send, "location.pathname + location.search"),
         `${browserBase}session/browser-proof`);
@@ -2339,8 +2394,9 @@ int main(int argc, char **argv) {
         piPalette.accentOutsideCursor > 20,
         `Pi theme did not render yellow outside the cursor: ${JSON.stringify(piPalette)}`,
       );
-      const piHeaderText = await visibleTerminalText(debuggerClient.send);
-      assert.match(piHeaderText, /! Slop/);
+      const piHeaderText = await waitForTerminalText(
+        debuggerClient.send, /! Slop/, "Pi's Slop-aware header",
+      );
       assert.doesNotMatch(piHeaderText, /!\s+(?:to run )?bash/i);
       if (selectedImage === "python-pi") {
         assert.match(piHeaderText, /\[Skills\][\s\S]*\bbonnie\b/);
@@ -2779,7 +2835,7 @@ int main(int argc, char **argv) {
       assert.equal(streamedTurn.requests, httpRequestCountBefore + 3);
       await waitForTerminalText(
         debuggerClient.send,
-        /DOLLY-PI-HTTP-EDIT-OK/,
+        /日本語😀 DOLLY-PI-HTTP-EDIT-OK/,
         "Pi's complete incrementally streamed response",
       );
       await clearTerminalSelection(debuggerClient.send);
@@ -2809,7 +2865,7 @@ int main(int argc, char **argv) {
       assert.equal(toolMessages.length, 1);
       assert.match(
         JSON.stringify(toolMessages[0].content),
-        /Wrote 31 bytes to \/workspace\/pi-http-test\.txt/,
+        /Wrote 45 bytes to \/workspace\/pi-http-test\.txt/,
         "Pi did not use Dolly's extension-provided write tool",
       );
       const editedToolMessages = piModelRequests[2].payload.messages.filter(
@@ -2867,6 +2923,11 @@ int main(int argc, char **argv) {
         "window.__dolly.submit(\"grep \\\"pi crossed Dolly's HTTP broker via edit\\\" /workspace/pi-http-test.txt\")",
       );
       assert.equal(fileStatus, 0, "Pi's extension-provided write tool did not create the file");
+      const unicodeStatus = await evaluate(
+        debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify("grep '日本語😀' /workspace/pi-http-test.txt")})`,
+      );
+      assert.equal(unicodeStatus, 0, "Pi's streamed tool arguments corrupted UTF-8 file contents");
       console.log(
         `browser: upstream Pi TUI started in Ghostty at frame ${startup.frame}, ` +
         "yellow theme, live thinking animation, incremental SSE, and Dolly " +

@@ -275,25 +275,45 @@ function runDueTimers() {
   }
 }
 
+class JanisStringDecoder {
+  #decoder;
+  constructor(encoding = "utf8") {
+    this.#decoder = new TextDecoder(encoding, { ignoreBOM: true });
+    this.encoding = "utf8";
+  }
+  write(bytes) { return typeof bytes === "string" ? bytes : this.#decoder.decode(bytes, { stream: true }); }
+  end(bytes) {
+    return typeof bytes === "string" ? bytes + this.#decoder.decode() : this.#decoder.decode(bytes);
+  }
+}
+
 class JanisStdin extends JanisEventEmitter {
   get isTTY() { return Boolean(Dolly.isatty(0)); }
   isRaw = false;
   readable = true;
   readableEncoding = null;
   #resumed = false;
-  setEncoding(encoding) { this.readableEncoding = encoding; return this; }
+  #decoder;
+  setEncoding(encoding) {
+    this.#decoder = new JanisStringDecoder(encoding);
+    this.readableEncoding = this.#decoder.encoding;
+    return this;
+  }
   setRawMode(value) { this.isRaw = Boolean(value); return this; }
   resume() { this.#resumed = true; return this; }
   pause() { this.#resumed = false; return this; }
   isActive() { return this.#resumed && this.listenerCount("data") > 0; }
   publish(bytes) {
     if (!bytes.length || !this.isActive()) return;
-    this.emit("data", this.readableEncoding ? Dolly.decode(bytes) : Buffer.from(bytes));
+    const chunk = this.#decoder ? this.#decoder.write(bytes) : Buffer.from(bytes);
+    if (chunk.length) this.emit("data", chunk);
   }
   finish() {
     if (!this.readable) return;
     this.readable = false;
     this.#resumed = false;
+    const tail = this.#decoder?.end();
+    if (tail) this.emit("data", tail);
     this.emit("end");
   }
   pipe(destination) {
@@ -312,7 +332,8 @@ class JanisOutput extends JanisEventEmitter {
   get columns() { return Dolly.terminalSize().columns || 80; }
   get rows() { return Dolly.terminalSize().rows || 24; }
   write(value, _encoding, callback) {
-    const status = this.#error ? Dolly.stderr(String(value)) : Dolly.stdout(String(value));
+    const bytes = value instanceof Uint8Array ? value : String(value);
+    const status = this.#error ? Dolly.stderr(bytes) : Dolly.stdout(bytes);
     if (typeof _encoding === "function") _encoding();
     else callback?.();
     return Boolean(status);
@@ -738,8 +759,27 @@ function readSync(descriptor, buffer, offset, length, position = null) {
 
 class JanisReadable extends JanisEventEmitter {
   readable = true;
+  readableEncoding = null;
+  #decoder;
+  setEncoding(encoding) {
+    this.#decoder = new JanisStringDecoder(encoding);
+    this.readableEncoding = this.#decoder.encoding;
+    return this;
+  }
   pipe(destination) { this.on("data", (chunk) => destination.write(chunk)); this.once("end", () => destination.end()); return destination; }
-  push(chunk) { if (chunk === null) this.emit("end"); else this.emit("data", chunk); return true; }
+  push(chunk) {
+    if (!this.readable) return false;
+    if (chunk === null) {
+      this.readable = false;
+      const tail = this.#decoder?.end();
+      if (tail) this.emit("data", tail);
+      this.emit("end");
+    } else {
+      const value = this.#decoder ? this.#decoder.write(chunk) : chunk;
+      if (!this.#decoder || value.length) this.emit("data", value);
+    }
+    return true;
+  }
   resume() { return this; }
   pause() { return this; }
   destroy(error) { if (error) this.emit("error", error); this.emit("close"); return this; }
@@ -970,7 +1010,10 @@ function pendingChild() {
 }
 function exec(command, options, callback) {
   if (typeof options === "function") { callback = options; options = {}; }
+  const encoding = new TextDecoder(options?.encoding ?? "utf8").encoding;
   const child = spawn(command, [], { ...(options ?? {}), shell: true });
+  child.stdout.setEncoding(encoding);
+  child.stderr.setEncoding(encoding);
   let stdout = ""; let stderr = ""; let failed = false;
   child.stdout.on("data", (chunk) => { stdout += String(chunk); });
   child.stderr.on("data", (chunk) => { stderr += String(chunk); });
@@ -989,7 +1032,10 @@ function execFile(command, args, options, callback) {
   } else if (typeof options === "function") {
     callback = options; options = {};
   }
+  const encoding = new TextDecoder(options?.encoding ?? "utf8").encoding;
   const child = spawn(command, args, options ?? {});
+  child.stdout.setEncoding(encoding);
+  child.stderr.setEncoding(encoding);
   let stdout = ""; let stderr = ""; let failed = false;
   child.stdout.on("data", (chunk) => { stdout += String(chunk); });
   child.stderr.on("data", (chunk) => { stderr += String(chunk); });
@@ -1940,7 +1986,7 @@ const janisBuiltinModules = {
   stream: janisStream,
   "stream/promises": janisStreamPromises,
   "stream/web": janisStreamWeb,
-  string_decoder: { StringDecoder: class { write(bytes) { return Buffer.from(bytes).toString(); } end(bytes) { return bytes ? this.write(bytes) : ""; } } },
+  string_decoder: { StringDecoder: JanisStringDecoder },
   "timers/promises": { setTimeout: (delay, value, options = {}) => new Promise((resolve, reject) => { if (options.signal?.aborted) reject(options.signal.reason); else globalThis.setTimeout(resolve, delay, value); }), setImmediate: (value) => Promise.resolve(value) },
   timers: { setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, clearImmediate },
   tls: janisTls,

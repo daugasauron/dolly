@@ -459,10 +459,13 @@ static JSValue js_dolly_write(JSContext *context, JSValueConst this_value,
   FILE *stream = magic == 0 ? stdout : stderr;
   if (argc == 0) return JS_UNDEFINED;
   size_t length = 0;
-  const char *text = JS_ToCStringLen(context, &length, argv[0]);
+  const int binary = JS_GetTypedArrayType(argv[0]) == JS_TYPED_ARRAY_UINT8;
+  const char *text = binary
+      ? (const char *)JS_GetUint8Array(context, &length, argv[0])
+      : JS_ToCStringLen(context, &length, argv[0]);
   if (text == NULL) return JS_EXCEPTION;
   const size_t written = fwrite(text, 1, length, stream);
-  JS_FreeCString(context, text);
+  if (!binary) JS_FreeCString(context, text);
   if (written != length || fflush(stream) != 0) {
     return JS_ThrowInternalError(context, "terminal write failed: %s",
                                  strerror(errno));

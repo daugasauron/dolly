@@ -1583,7 +1583,8 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   assert.equal(settings.theme, "dolly");
   assert.equal(settings.shellPath, "/bin/slop");
   assert.equal(theme.vars.yellow, "#f2d45c");
-  assert.match(browserProof, /response\.write\(`data:/);
+  assert.match(browserProof, /Buffer\.from\(`data:/);
+  assert.match(browserProof, /response\.write\(bytes\.subarray\(start, offset \+ 1\)\)/);
   assert.match(browserProof, /piFixtureStream\.phase = "prefix"/);
   assert.match(browserProof, /thinkingAfter\.frame > thinkingStart\.frame/);
   assert.match(browserProof, /prefixBaselineFrame = await currentFrameSequence/);
@@ -1630,7 +1631,7 @@ test("upstream Pi is compiled in Dolly and customized only through normal files"
   for (const name of ["bash", "read", "edit", "write", "download"]) {
     assert.match(extension, new RegExp(`name: "${name}"`));
   }
-  assert.match(extension, /globalThis\.__janisShellStream\([\s\S]*parameters\.command, onChunk, onChunk/);
+  assert.match(extension, /parameters\.command, bytes => onChunk\(stdout, bytes\), bytes => onChunk\(stderr, bytes\)/);
   assert.match(quickjs, /pipe-backed output/);
   assert.match(quickjs, /poll\(streams, 2, 16\)/);
   assert.match(quickjs, /pump_command_stream/);

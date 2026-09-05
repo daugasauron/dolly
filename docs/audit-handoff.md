@@ -1,20 +1,17 @@
 # Remaining audit work — handoff
 
-As of 2026-09-05, after the browser-boundary, minimal-executable, typed-DSO, session,
-and Slop ownership/status checkpoints. This is a dated implementation handoff,
-not a claim that the whole project is correct. Read [AGENTS.md](../AGENTS.md)
-first. The broader direction remains in the [roadmap](roadmap.md).
+Remaining work as of 2026-09-05. Completed findings have been removed; original
+audit IDs are retained for traceability. Read [AGENTS.md](../AGENTS.md) first.
+The broader direction remains in the [roadmap](roadmap.md).
 
 ## Starting state and guardrails
 
-- `5b4b21c` checkpoints the executable/errno, typed-DSO, and named-session work
-  on top of the browser-boundary commit `c3f5b1f`. The following Slop checkpoint
-  fixes B1/B6. Inspect `git status`; do not reset unrelated work or omit untracked
-  implementation files from a future checkpoint.
-- `.gitignore` and `AGENTS.md` contain user edits. Preserve them. Ignore `.pi/`;
-  do not inspect, stage, or clean it.
-- The local app was left running on port 9000. The later ABI checkpoints were
-  neither pushed nor deployed; passing local tests does not describe production.
+- Inspect `git status` before starting; preserve unrelated work and include
+  implementation/test files when checkpointing.
+- Local agent state is ignored by `.gitignore`. Do not inspect, stage, or clean
+  `.pi/`, `.pi-subagents/`, or `work/`.
+- The local app was left running on port 9000. Latest changes are not pushed or
+  deployed; passing local tests does not describe production.
 - Keep Wasm64, the kernel-owned in-memory filesystem, and the sole intentional
   agent-selected network edge, `env.dolly_http_dispatch`. Browser authority must
   remain short and human-reviewable; see [the boundary review](browser-boundary.md).
@@ -24,77 +21,9 @@ first. The broader direction remains in the [roadmap](roadmap.md).
 - Prefer serial, honest adapters over fake successful APIs. No host subprocesses,
   host filesystem fallback, permission model, speculative scheduler, or broad
   rewrite is needed. Every fix needs a relevant real-browser regression.
-
-## Closed findings — do not redo these
-
-Original audit IDs are retained below. A1/A5 landed in `c3f5b1f`; A2–A4 and the
-DSO follow-up and C1/C2 landed in `5b4b21c`.
-
-- **A1:** Removed the kernel's general dynamic loader and its alternate URL/JS
-  execution paths. Boot-only Ghostty loading accepts bytes and explicit Wasm
-  exports. The outer contract checks exactly 28 typed imports.
-- **A2:** A freestanding executable needs only memory, the typed syscall import,
-  `_start`, and compatibility metadata. DSO infrastructure is optional.
-- **A3:** Build tools and browser share executable/static-DSO validation;
-  library linking checks actual provider function/tag types, infrastructure,
-  limits, and initialization hooks, including deferred function resolution.
-- **A4:** Browser errno constants come from target headers, including EINTR;
-  C/JavaScript error and interruption round trips are tested.
-- **A5:** HTTP resource deadlines cover non-consuming mailboxes. Cancellation
-  and successor requests cannot be overwritten by late acknowledgements.
-- **C2:** Session mailbox v2 uses one observation per check/wait on both sides,
-  bounded cancellation, and kernel-loop servicing independent of child stdin.
-  Deterministic notification races and real-browser repeated saves, failed
-  storage, and corrupt/missing/incompatible loads have regressions.
-- **C1:** Wasm-owned base fingerprints and filesystem deltas replace full-tree
-  copies. Python+Pi saved an 8 MiB workspace addition in 1.7 seconds, including
-  edits/deletions, empty directories, type changes, symlinks, and credentials.
-  Repeated saves restore through `/session/NAME`; `/session/` lists local records.
-  See [sessions](sessions.md) for limits: prebuilt images only, exact build/recipe
-  matching, no cross-build migration or running-process resume. Peak memory has
-  not been established across all devices and maximum-size saves.
-- **B1:** Plain sourcing keeps the caller's current argument frame instead of
-  restoring freed pointers after `set --`/`shift`. Explicit source arguments use
-  a temporary owned frame, restored on errors and `return` too. Source return
-  stops at the innermost source/function boundary. Native ASan reproduced the
-  original use-after-free; native and real-browser regressions cover nested
-  sourcing, arguments, functions, errors, and return.
-- **B6:** Command substitution carries its exit status. Assignment/redirection-only
-  commands return the last substitution status; ordinary commands retain their
-  own status. `$?` now uses the existing execution-time expansion path rather
-  than a second marker/pass. Browser regressions cover `set -e`, nesting,
-  empty substitutions, redirections/heredocs, Make's `.SHELLSTATUS`, and recipe
-  failure; blank interactive input still preserves status without repeating
-  errors. Explicit source argument behavior intentionally differs from Bash;
-  see [Slop](slop.md).
-
-These close the specific findings, not all possible loader or resource issues.
-Caller-supplied `dlsym`/FFI prototypes are not inferred from pointers; arbitrary
-library initialization is not transactional. Total CPU/memory quotas and formal
-host-containment proof are not established.
-
-Validated at the earlier DSO checkpoint: full runtime build, 108 Node tests, full
-Chrome suite, 14 incompatible-DSO cases rejected without allocation/constructors,
-ordinary C/C++ dynamic loading, Python ctypes calls/callbacks, and all five
-packaged images/viewers under `/dolly/`. Kernel Wasm/data hashes were unchanged,
-so existing snapshots remained compatible; this was **not** five fresh cold builds.
-The subsequent session checkpoint changed the runtime: all five snapshots were
-rebuilt normally, 112 Node tests and the full Chrome suite passed. Its runtime
-build ID is `sha256:c369e9c8fd510dfbb65388c5eabdc825b3a86bfe006a0711701724e1f85b13ad`.
-Save/load regressions passed in all five prebuilt images, plus prefixed static
-hosting with a first-navigation 404 and no preinstalled isolation service worker.
-Old session records remain stored/listed but cannot load against this new base.
-
-The Slop checkpoint rebuilt all five images through their browser recipes with
-normal module caching. Its runtime build ID is
-`sha256:c6c312851fe333b3b6229139b38f0342dba75f7af9ea0afb8a0d70e2960fe786`.
-All 158 Node tests and the full Chrome suite passed, including 45 shared shell
-cases under ASan/UBSan.
-The same 45 cases passed with the installed Wasm shell and with Slop compiled
-from source inside the browser, plus Make compilation/failure propagation and
-Pi `!` status/streaming checks. No machine ABI or browser authority changed.
-All five prebuilt images booted; Python and gamedev also passed their viewer checks.
-Old saves still require their exact runtime/image base; this is not migration.
+- Saved sessions require exact runtime/recipe matching. Recent Pi-containing
+  images have new recipe identities; older saves remain listed but are not
+  migrated. See [sessions](sessions.md) before changing image persistence.
 
 ## Open findings
 
@@ -105,14 +34,6 @@ were not all rerun for this handoff. Reproduce against the current tree before
 changing behavior. Old measurements below are baselines, not fresh benchmarks.
 
 ### Runtime adapters must preserve actual substrate behavior
-
-**B2 — P1 — Streaming UTF-8 is corrupted.** Reproduced publicly: decoding `[0xe3]`
-then `[0x81,0x82]` with streaming enabled produces replacement characters instead
-of `あ`. `TextDecoder` in `src/runtimes/dolly-node.js` ignores incremental state;
-`src/pi/dolly-tools.js` also shares one decoder across stdout and stderr. Implement
-one correct common decoder and separate state per byte stream. **Acceptance:**
-every split point of Japanese/emoji, interleaved stdout/stderr, HTTP/SSE, final
-flush, and malformed sequences; ASCII-only streaming is insufficient.
 
 **B3 — P1/P2 — Child/abort APIs report success without doing the work.** Mixed
 public reproduction and source evidence. `src/runtimes/janis.js` ignores child
@@ -233,10 +154,10 @@ between what the viewer promises and what the sandbox executes.
 evidence: packaging checks existence/size without fully binding snapshot, recipe,
 runtime, source commit, and acceptance results; Pages downloads a release asset
 without an expected artifact digest. `scripts/build.sh` deletes the served runtime
-before replacement succeeds; an overlapping Slop browser check failed during
-Worker startup in this checkpoint's local rebuild. This is not a finding that
-the audited public site was stale. Stage a verified versioned artifact and publish atomically; check the
-binding in `.github/workflows/pages.yml`. **Acceptance:** interrupted builds keep
+before replacement succeeds; overlapping browser and artifact-dependent tests
+have failed during local rebuilds. This is not a finding that the audited public
+site was stale. Stage a verified versioned artifact and publish atomically;
+check the binding in `.github/workflows/pages.yml`. **Acceptance:** interrupted builds keep
 the last good app; mixed/stale/tampered artifacts fail packaging/deployment;
 all five packaged routes pass before promotion.
 
@@ -265,13 +186,11 @@ caching on failure; correct its documentation instead of removing it by accident
 
 ## Suggested checkpoints and closure rules
 
-1. Address B2 next for real multilingual agent output. B1/B6 are closed; retain
-   their native sanitizer and browser/Make/Pi regressions.
-2. Resolve C5's system/layer path-kind limitations. Normalize cold/prebuilt
+1. Resolve C5's system/layer path-kind limitations next. Normalize cold/prebuilt
    filesystems (C3) before enabling named saves for rebuilt images.
-3. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
+2. Consolidate B3–B5 on actual process/filesystem handles, and address B9 without
    mixing terminal UI events with child input. Resolve B7/B8 compatibility claims.
-4. Close C3/D3 before making image-size pruning in C4 authoritative. Remove D5
+3. Close C3/D3 before making image-size pruning in C4 authoritative. Remove D5
    duplication as the corresponding owner becomes clear.
 
 Fix D1/D2 before claiming clean/reproducible verification, and D4 before treating
@@ -281,42 +200,27 @@ affected change, not as an unrelated documentation rewrite.
 An item closes only with a reproducer, the smallest in-scope fix, browser evidence,
 and updated affected docs/recipes. Do not claim new NumPy/Pandas source builds,
 all extended cold rebuilds, physical phone/Safari, audio, real-provider sessions,
-or total resource containment from the current suite; those were not established
-by the latest ABI checkpoint. Do not add new browser authority to make tests pass.
+or total resource containment from the current suite. Do not add new browser
+authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-The original report is `build/audit-2026-09-05.md` (ignored). Its A1–A5 body
-describes the old baseline; the implementation follow-ups supersede it. The
-current handoff preserves all remaining B2–B5/B7–B9, C3–C5, and D1–D6 findings without
-depending on that ignored report surviving a checkout.
+Latest local baseline: 163 Node tests, the full Chrome suite, multilingual Pi
+streaming/tool round trips, and all five image boots passed. Build and test logs:
+`build/utf8-final-build.log`, `build/utf8-node-tests.log`,
+`build/utf8-browser-suite.log`, `build/utf8-pi-browser.log`, and
+`build/utf8-{python,gamedev}-route.log`. Existing release archives predate this
+checkpoint; none is a package of the latest changes.
 
-Session evidence: `build/session-runtime-build.log`, `build/session-snapshots.log`,
-`build/session-static-tests.log`, `build/session-browser-suite.log`,
-`build/session-prefixed-browser.log`, `build/session-static-pages-browser.log`,
-`build/session-{default,python,pi,gamedev}-browser.log`, and `build/session-package.log`.
-The packaged candidate is `build/dolly-pages-sessions.tar.gz`; it is not deployed.
-
-Slop evidence: `build/slop-before-{sanitizer,browser}.log`,
-`build/slop-empty-before-sanitizer.log`, `build/slop-after-sanitizer.log`,
-`build/slop-final-build.log`, `build/slop-static-tests.log`,
-`build/slop-{browser,source-browser,make-browser,pi-browser,browser-suite}.log`,
-and `build/slop-{python,gamedev}-route.log`.
-The final build log supersedes the earlier `slop-runtime-build`/`slop-snapshots`
-logs. `slop-pi-browser-under-load.log` retains the failed short streaming timing
-check; the no-build-load `slop-pi-browser.log` passed. The packaged candidate is
-`build/dolly-pages-slop.tar.gz` (`build/slop-package.log`), not deployed.
-
-Earlier ABI evidence: `build/dso-abi-runtime-build.log`,
-`build/dso-abi-static-final.log`, `build/dso-abi-browser-suite.log`,
-`build/dso-abi-python.log`, `build/dso-abi-package.log`, and
-`build/dso-abi-pages-*.log`. The prepared archive is
-`build/dolly-pages-dso-abi.tar.gz`; older checkpoint archives were preserved.
-These are local artifacts, not committed or deployed release attestations.
+Remaining-finding evidence includes `build/audit-2026-09-05.md`,
+`build/slop-pi-browser-under-load.log` (B9), and
+`build/utf8-node-tests-during-build.log` (D4). These ignored local artifacts are
+not release attestations; the finding descriptions above must stand on their own.
 
 ```sh
 node --test test/*.test.mjs
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=slop ./scripts/test-browser.sh
+DOLLY_IMAGE=pi DOLLY_BROWSER_MODE=utf8 ./scripts/test-browser.sh
 DOLLY_IMAGE=python-pi DOLLY_BROWSER_MODE=pi ./scripts/test-browser.sh
 DOLLY_BROWSER_MODE=process-abi ./scripts/test-browser.sh
 DOLLY_IMAGE=python-pi DOLLY_BROWSER_MODE=python-interactive ./scripts/test-browser.sh
@@ -327,16 +231,5 @@ These commands use existing build artifacts. `npm run build:runtime` regenerates
 them but currently replaces the served files in place (D4). New checkouts also
 need the documented toolchain/bootstrap inputs, with D1 still outstanding.
 
-Original diagnostic artifacts still present when this handoff was written:
-
-- `/tmp/dolly-boundary-audit.H9AYu4/`: deterministic session interleaving probe.
-- `/tmp/dolly-userspace-audit.gbNdSM/`: Slop ownership/status diagnostics.
-- `/tmp/dolly-deployed-probes-GsPmjo/report-probes.json`: public runtime probes.
-- `/tmp/dolly-deployed-focus-IjU09V/report-pointer.json`: active-command selection.
-- `/tmp/dolly-deployed-session-fresh-RLroLY/report-session-fresh.json`: 6 MiB save failure.
-- `/tmp/dolly-deployed-session-RW1D3Z/report-session.json`: separate save hang observation.
-- `/tmp/dolly-build-images-audit.md`: build/image detail.
-- `/tmp/dolly-deployed-qa-e4wgc3/REPORT.md`: original public QA.
-
-Treat `/tmp` evidence as ephemeral; retain a relevant regression in the repository
-when fixing its finding. Test code owns and cleans its temporary state.
+Retain a relevant regression in the repository when fixing each finding.
+Test code owns and cleans its temporary state.

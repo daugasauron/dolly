@@ -30,7 +30,7 @@ const stdout = {
   rows: 30,
   writableLength: 0,
   write(value) {
-    return Boolean(Dolly.stdout(String(value)));
+    return Boolean(Dolly.stdout(value instanceof Uint8Array ? value : String(value)));
   },
   on() { return this; },
   once(_event, listener) {
@@ -43,7 +43,7 @@ const stderr = {
   ...stdout,
   get isTTY() { return Boolean(Dolly.isatty(2)); },
   write(value) {
-    return Boolean(Dolly.stderr(String(value)));
+    return Boolean(Dolly.stderr(value instanceof Uint8Array ? value : String(value)));
   },
 };
 
@@ -171,13 +171,78 @@ globalThis.TextEncoder = class TextEncoder {
 };
 
 globalThis.TextDecoder = class TextDecoder {
-  constructor(label = "utf-8") {
-    if (!/^utf-?8$/i.test(label)) throw new RangeError("Dolly supports only UTF-8");
+  #fatal;
+  #ignoreBOM;
+  #stream = false;
+  #bomSeen = false;
+  #remaining = 0;
+  #point = 0;
+  #lower = 0x80;
+  #upper = 0xbf;
+  constructor(label = "utf-8", options = {}) {
+    label = String(label).replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, "").toLowerCase();
+    if (!["utf-8", "utf8", "unicode-1-1-utf-8", "unicode11utf8", "unicode20utf8", "x-unicode20utf8"].includes(label)) {
+      throw new RangeError("Dolly supports only UTF-8");
+    }
+    this.#fatal = Boolean(options?.fatal);
+    this.#ignoreBOM = Boolean(options?.ignoreBOM);
   }
   get encoding() { return "utf-8"; }
-  decode(value = new Uint8Array()) {
-    if (value instanceof ArrayBuffer) value = new Uint8Array(value);
-    return Dolly.decode(value);
+  get fatal() { return this.#fatal; }
+  get ignoreBOM() { return this.#ignoreBOM; }
+  decode(value = new Uint8Array(), options = {}) {
+    if (ArrayBuffer.isView(value)) value = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    else if (value instanceof ArrayBuffer ||
+        typeof SharedArrayBuffer !== "undefined" && value instanceof SharedArrayBuffer) value = new Uint8Array(value);
+    else throw new TypeError("TextDecoder input must be an ArrayBuffer or byte view");
+    if (!this.#stream) {
+      this.#remaining = this.#point = 0;
+      this.#lower = 0x80; this.#upper = 0xbf; this.#bomSeen = false;
+    }
+    this.#stream = Boolean(options?.stream);
+    const chunks = []; const points = [];
+    const emit = point => {
+      const skip = !this.#bomSeen && !this.#ignoreBOM && point === 0xfeff;
+      this.#bomSeen = true;
+      if (skip) return;
+      points.push(point);
+      if (points.length === 4096) { chunks.push(String.fromCodePoint(...points)); points.length = 0; }
+    };
+    const invalid = () => {
+      if (this.#fatal) throw new TypeError("The encoded data was not valid UTF-8");
+      emit(0xfffd);
+    };
+    // WHATWG UTF-8 decoder: incomplete scalars survive chunks; an invalid
+    // continuation is reprocessed, so it cannot swallow an ASCII delimiter.
+    // https://encoding.spec.whatwg.org/#utf-8-decoder
+    for (let index = 0; index < value.length; index++) {
+      const byte = value[index];
+      if (this.#remaining === 0) {
+        if (byte <= 0x7f) emit(byte);
+        else if (byte >= 0xc2 && byte <= 0xdf) { this.#point = byte & 0x1f; this.#remaining = 1; }
+        else if (byte >= 0xe0 && byte <= 0xef) {
+          this.#point = byte & 0x0f; this.#remaining = 2;
+          if (byte === 0xe0) this.#lower = 0xa0;
+          if (byte === 0xed) this.#upper = 0x9f;
+        } else if (byte >= 0xf0 && byte <= 0xf4) {
+          this.#point = byte & 7; this.#remaining = 3;
+          if (byte === 0xf0) this.#lower = 0x90;
+          if (byte === 0xf4) this.#upper = 0x8f;
+        } else invalid();
+      } else if (byte < this.#lower || byte > this.#upper) {
+        this.#remaining = this.#point = 0;
+        this.#lower = 0x80; this.#upper = 0xbf;
+        index--;
+        invalid();
+      } else {
+        this.#lower = 0x80; this.#upper = 0xbf;
+        this.#point = (this.#point << 6) | (byte & 0x3f);
+        if (--this.#remaining === 0) emit(this.#point);
+      }
+    }
+    if (!this.#stream && this.#remaining !== 0) { this.#remaining = 0; invalid(); }
+    if (points.length) chunks.push(String.fromCodePoint(...points));
+    return chunks.join("");
   }
 };
 
@@ -278,7 +343,7 @@ class DollyBuffer extends Uint8Array {
     const bytes = this.subarray(start, end);
     if (encoding === "base64") return btoa(bytesToBinary(bytes));
     if (encoding === "hex") return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-    return Dolly.decode(bytes);
+    return new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes);
   }
 }
 
@@ -594,7 +659,7 @@ class DollyResponse {
     }
     return result;
   }
-  async text() { return Dolly.decode(await this.#consume()); }
+  async text() { return new TextDecoder().decode(await this.#consume()); }
   async json() { return JSON.parse(await this.text()); }
   async arrayBuffer() {
     const bytes = await this.#consume();

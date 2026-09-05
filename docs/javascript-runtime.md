@@ -58,6 +58,27 @@ no Worker, `fetch`, socket, or host-process handle of its own: spawning,
 descriptors, waiting, timeouts, and Ctrl-C remain operations of the same
 `dolly-process-0` substrate.
 
+UTF-8 decoding has one stateful implementation in `dolly-node.js`, following
+the [Encoding Standard](https://encoding.spec.whatwg.org/#utf-8-decoder).
+`TextDecoder` supports split scalars, byte views, final flushing, `fatal`, and
+`ignoreBOM`. Janis's UTF-8 `StringDecoder`, encoded stdin/readables, child-output
+capture, and Pi use separate decoder state per byte stream. Node-style strings
+retain BOMs; `TextDecoder` and `Response.text()` strip the initial BOM by default.
+Malformed input produces replacement characters or throws in fatal mode;
+`StringDecoder` uses the common decoder's error timing, which can be earlier
+than Node's while producing the same final text. Other `StringDecoder` encodings
+are explicitly unsupported. Binary stdout/stderr writes remain bytes all the
+way to the in-Wasm descriptor, without per-chunk string conversion.
+
+```sh
+node --test test/utf8.test.mjs
+DOLLY_IMAGE=pi DOLLY_BROWSER_MODE=utf8 ./scripts/test-browser.sh
+```
+
+The browser check exercises real pipe and HTTP chunk boundaries. The Pi TUI
+fixture additionally splits Japanese/emoji bytes inside SSE events; none of
+these paths use a browser decoder or add a Wasm import.
+
 The resolver is intentionally not an npm client. It normalizes and confines
 export targets to their package root, searches only WasmFS, and fails when a
 package, export, file, or builtin adapter is absent. No resolution path calls

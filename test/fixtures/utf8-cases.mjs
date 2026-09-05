@@ -1,0 +1,34 @@
+// Shared by native differential tests and the real QuickJS/Wasm browser probe.
+export const utf8Vectors = [
+  [], [0, 65, 127], [0xc2, 0xa2], [0xe3, 0x81, 0x82],
+  [0xf0, 0x9f, 0x98, 0x80], [0xe3, 0x81, 0x82, 0xf0, 0x9f, 0x98, 0x80, 65],
+  [0xc2, 0x80], [0xdf, 0xbf], [0xe0, 0xa0, 0x80], [0xed, 0x9f, 0xbf],
+  [0xee, 0x80, 0x80], [0xef, 0xbf, 0xbf], [0xf0, 0x90, 0x80, 0x80], [0xf4, 0x8f, 0xbf, 0xbf],
+  [0xef, 0xbb, 0xbf, 65, 0xef, 0xbb, 0xbf],
+  [0xff, 65], [0x80, 0xbf], [0xc0, 0xaf], [0xe0, 0x80, 0xaf],
+  [0xed, 0xa0, 0x80], [0xf0, 0x80, 0x80, 0x80], [0xf4, 0x90, 0x80, 0x80],
+  [0xf5, 0x80, 0x80, 0x80], [0xe3, 65, 0x81, 0x82], [0xe3, 0x81, 65],
+  [0xc2], [0xe3, 0x81], [0xf0, 0x9f, 0x98],
+];
+
+export function decodeChunks(Decoder, chunks, options = {}) {
+  const decoder = new Decoder("utf-8", options);
+  const call = (bytes, stream) => {
+    try { return decoder.decode(Uint8Array.from(bytes), { stream }); }
+    catch (error) { return { error: error.name }; }
+  };
+  return [...chunks.map(bytes => call(bytes, true)), call([], false), call([65], false)];
+}
+
+export function decoderCases(Decoder) {
+  const results = [];
+  for (const fatal of [false, true]) for (const ignoreBOM of [false, true]) {
+    for (const bytes of utf8Vectors) {
+      for (let split = 0; split <= bytes.length; split++) {
+        results.push(decodeChunks(Decoder, [bytes.slice(0, split), bytes.slice(split)], { fatal, ignoreBOM }));
+      }
+      results.push(decodeChunks(Decoder, bytes.map(byte => [byte]), { fatal, ignoreBOM }));
+    }
+  }
+  return results;
+}

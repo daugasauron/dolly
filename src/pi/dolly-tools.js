@@ -55,16 +55,19 @@ export default function dollyTools(pi) {
       try {
         Dolly.chdir(context.cwd);
         if (signal?.aborted) throw new Error("command cancelled");
-        const decoder = new TextDecoder();
+        const stdout = new TextDecoder("utf-8", { ignoreBOM: true });
+        const stderr = new TextDecoder("utf-8", { ignoreBOM: true });
         let output = "";
-        const onChunk = (bytes) => {
-          output += decoder.decode(bytes, { stream: true });
+        const onChunk = (decoder, bytes) => {
+          const chunk = decoder.decode(bytes, { stream: true });
+          if (!chunk) return;
+          output += chunk;
           update?.({ ...text(output), details: { status: null } });
         };
         const result = globalThis.__janisShellStream(
-          parameters.command, onChunk, onChunk,
+          parameters.command, bytes => onChunk(stdout, bytes), bytes => onChunk(stderr, bytes),
         );
-        output += decoder.decode();
+        output += stdout.decode() + stderr.decode();
         if (!output) output = `(status ${result.status})`;
         return { ...text(output), details: { status: result.status } };
       } finally {
@@ -103,7 +106,7 @@ export default function dollyTools(pi) {
       const target = absolute(parameters.path, context.cwd);
       fs.mkdirSync(path.dirname(target), { recursive: true });
       Dolly.writeFile(target, parameters.content);
-      return text(`Wrote ${parameters.content.length} bytes to ${target}`);
+      return text(`Wrote ${Buffer.byteLength(parameters.content)} bytes to ${target}`);
     },
   });
 
