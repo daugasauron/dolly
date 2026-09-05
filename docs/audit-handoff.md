@@ -172,6 +172,13 @@ original quoted-command/CWD and LIB-kind disagreement. Production boot runs no p
 its executable seed contains only the bootstrap runner and compiler.
 Existing release archives predate this checkpoint; none packages these changes.
 
+The development server's encoded documentation traversal also has a real HTTP
+regression: `/docs/..%2fAGENTS.md` returned 200 before the resolved-root check and
+now returns 404. Both development servers are fixed; the native HTTP test,
+browser boundary gate, all 176 tests, and all five routes passed
+(`build/server-path-*.log`). The running main-checkout server is unchanged until
+the isolated checkpoint is promoted.
+
 All five images' prebuilt and fresh-profile rebuild inventories match the
 packaged manifest exactly, with no extra system/PATH files
 (`build/c3-*-inventory.log`). The before probe found 394 undeclared system paths

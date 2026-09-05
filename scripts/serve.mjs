@@ -102,6 +102,8 @@ const server = createServer(async (request, response) => {
     const path = resolve(projectDir, relative);
     const distAsset = relative.startsWith("dist/") &&
       path.startsWith(`${distDirectory}${sep}`);
+    const documentationAsset = relative.startsWith("docs/") &&
+      path.startsWith(`${resolve(projectDir, "docs")}${sep}`);
     const inspectableDefinition = ["modules", "abi", "include"].some(
       (directory) => relative.startsWith(`${directory}/`) &&
         path.startsWith(`${resolve(projectDir, directory)}${sep}`),
@@ -109,7 +111,7 @@ const server = createServer(async (request, response) => {
     if ((request.method !== "GET" && request.method !== "HEAD") ||
         (!publicSources.has(relative) && !routeDocuments.has(route) && !sessionRoute &&
          !sourceArtifacts.has(requested) &&
-         !relative.startsWith("docs/") && !inspectableDefinition && !distAsset)) {
+         !documentationAsset && !inspectableDefinition && !distAsset)) {
       response.writeHead(404, isolationHeaders).end("not found");
       return;
     }
@@ -130,5 +132,5 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`dolly: http://127.0.0.1:${port}/`);
+  console.log(`dolly: http://127.0.0.1:${server.address().port}/`);
 });

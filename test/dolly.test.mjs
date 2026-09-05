@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -419,12 +421,30 @@ test("Janis owns and cleans its generated module-adapter scratch tree", async ()
 });
 
 test("development servers expose application assets rather than the host checkout", async () => {
-  for (const relative of ["../scripts/serve.mjs", "../scripts/browser-harness.mjs"]) {
-    const source = await readFile(new URL(relative, import.meta.url), "utf8");
-    assert.match(source, /const publicSources = new Set/);
-    assert.match(source, /const distDirectory = resolve\(projectDir, "dist"\)/);
-    assert.match(source, /path\.startsWith\(`\$\{distDirectory\}\$\{sep\}`\)/);
-    assert.match(source, /publicSources\.has\(relative\).*distAsset/s);
+  const child = spawn(process.execPath, [new URL("../scripts/serve.mjs", import.meta.url).pathname], {
+    env: { ...process.env, DOLLY_PORT: "0" }, stdio: ["ignore", "pipe", "inherit"],
+  });
+  const exited = once(child, "exit");
+  try {
+    const [output] = await Promise.race([
+      once(child.stdout, "data", { signal: AbortSignal.timeout(10_000) }),
+      exited.then(([status]) => { throw new Error(`server exited before listening: ${status}`); }),
+    ]);
+    const origin = output.toString().match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
+    assert.ok(origin, output.toString());
+    for (const [path, status] of [
+      ["docs/browser-boundary.md", 200], ["src/browser.mjs", 200],
+      ["AGENTS.md", 404], ["src/compiler.cpp", 404],
+      ["docs/..%2fAGENTS.md", 404], ["docs/..%2fsrc%2fcompiler.cpp", 404],
+      ["dist/..%2fAGENTS.md", 404],
+    ]) {
+      const response = await fetch(new URL(path, origin), { signal: AbortSignal.timeout(10_000) });
+      await response.body.cancel();
+      assert.equal(response.status, status, path);
+    }
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+    await exited;
   }
 });
 

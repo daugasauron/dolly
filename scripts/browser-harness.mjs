@@ -532,10 +532,12 @@ function startServer() {
       const path = resolve(projectDir, relative);
       const distAsset = relative.startsWith("dist/") &&
         path.startsWith(`${distDirectory}${sep}`);
+      const documentationAsset = relative.startsWith("docs/") &&
+        path.startsWith(`${resolve(projectDir, "docs")}${sep}`);
       if ((request.method !== "GET" && request.method !== "HEAD") ||
           (!publicSources.has(relative) && !routeDocuments.has(route) && !sessionRoute &&
            !sourceArtifacts.has(requested) &&
-           !relative.startsWith("docs/") && !distAsset)) {
+           !documentationAsset && !distAsset)) {
         response.writeHead(404, isolatedHeaders).end("not found");
         return;
       }
@@ -1417,6 +1419,11 @@ int main(int argc, char **argv) {
       assert.equal(result.pluginRejections, 3);
       assert.equal(result.policyDeniedBeforeFetch, true);
       assert.equal(result.nonConsumingDeadline, true);
+      for (const path of ["docs/..%2fAGENTS.md", "docs/..%2fsrc%2fcompiler.cpp"]) {
+        assert.equal(await evaluate(debuggerClient.send,
+          `fetch(${JSON.stringify(`${localOrigin}${browserBase}${path}`)}).then(response => response.status)`),
+        404, `development server escaped its public documentation root: ${path}`);
+      }
       await enterRecoveryShell(debuggerClient.send);
       for (const command of [
         `if curl -fsS ${localOrigin}/not-allowed; then false; else true; fi`,

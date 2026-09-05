@@ -69,6 +69,11 @@ fixed `dolly.wasm` and `dolly.data` artifact names for the generated runtime.
 Other startup snapshots and recipe assets have their own fixed identities;
 these reads are not guest-selected URLs.
 
+The development server is also an HTTP destination. `scripts/serve.mjs` and
+the browser harness serve application assets, not the host checkout. Their
+documentation check confines the resolved path to `docs/`; a URL-prefix check
+alone is insufficient. Tests request encoded parent paths and require 404.
+
 The kernel has **no general browser dynamic-loader import**. It is statically
 linked with dynamic JavaScript execution disabled. Ghostty remains source-built
 inside Dolly: boot copies its bounded WasmFS bytes and passes them to
