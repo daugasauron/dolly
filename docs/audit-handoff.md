@@ -120,6 +120,9 @@ older releases; loose and tampered files are rejected. All 12 packaged image
 inventories, 195 source tests and the full Chrome suite passed. The port-9000
 probe reloaded all 72 Pi packs with zero network transfer:
 `build/stable-packs-{source-final,browser-suite,port9000,publication}.log`.
+Across two actual local releases, a retained browser profile reused all 72 Pi
+packs: 72,559,927 encoded body bytes with zero network bytes transferred
+(`build/stable-packs-cross-release.log`).
 
 ## Completed
 
