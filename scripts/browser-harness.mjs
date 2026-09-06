@@ -1943,10 +1943,11 @@ chrome = spawn(chromeBinary, [
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "image retention boot", 1200), "ready");
+      const snapshotContract = await readFile(resolve(distDirectory, "dolly-snapshot-0.wasm"));
       assert.equal(await evaluate(debuggerClient.send, `(async () => {
         const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: 'i64' });
-        const { instance } = await WebAssembly.instantiateStreaming(
-          fetch(${JSON.stringify(`${browserBase}dist/dolly-snapshot-0.wasm`)}), { env: { memory } });
+        const { instance } = await WebAssembly.instantiate(
+          new Uint8Array(${JSON.stringify([...snapshotContract])}), { env: { memory } });
         return instance.exports.dolly_snapshot_format_version();
       })()`), 2, "snapshot contract version");
       await enterRecoveryShell(debuggerClient.send);
