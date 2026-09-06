@@ -15,14 +15,15 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
       resolve(project, "test/fixtures/dollyfile-parser.c"), "-o", program]);
     const run = (...args) => spawnSync(program, args, { encoding: "utf8" });
     const recipe = resolve(scratch, "recipe");
-    const prefix = "DOLLY 2\nMODULE probe\nREQUIRES TOOL cc\n";
+    const prefix = "DOLLY 3\nMODULE probe\nREQUIRES TOOL cc\n";
     for (const row of [
       'SLOP "cc" input.c', "SLOP 'cc' input.c", "SLOP c\\c input.c",
       'SLOP CWD "/workspace/project dir" "cc" "an input.c"',
       'SLOP "CWD" / "cc" ""', 'SLOP cc "unterminated', "SLOP CWD /workspace/ cc",
       "SLOP cc input.c", 'SLOP cc "東京 input.c" # comment',
       'EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"', "EXPORTS ENV DOLLY_TEST_VALUE APPEND",
-      "EXPORTS ENV DOLLY_TEST_VALUE APPEND extra words", "REQUIRES TOOL cc",
+      "EXPORTS ENV DOLLY_TEST_VALUE APPEND extra words", "REQUIRES TOOL cc", "SLOP unknown ; another", "SLOP LABEL=value cc",
+      "SLOP cc; unknown", "EXPORTS FILE future", `EXPORTS TOOL ${"a".repeat(129)}`,
       'FILE "/usr/share/a b"', "FILE /workspace/no", "FILE /usr/share/trailing/",
       "FILE /usr/share/a\u2028b",
       `FILE /${"界".repeat(1500)}`, 'FILE "/usr/share/a\\b"',
@@ -36,12 +37,24 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
       assert.equal(actual.status === 0, accepted, `${row}\n${actual.stderr}`);
       if (row.includes('"APPEND literal"')) assert.match(actual.stdout, /ENV-VALUE:APPEND literal/);
     }
-    await writeFile(recipe, 'DOLLY 2\nMODULE "probe"\n');
+    await writeFile(recipe, 'DOLLY 3\nMODULE "probe"\n');
     assert.equal(run("parse", recipe).status, 0, "quoted module identity");
     for (const raw of ['cc "" "a b" c\\ d', "'cc' 'a\\b' \"東京\"", "cc input name.c"]) {
       const expected = inspectDollyfile(prefix + "SLOP " + raw + "\n").slops[0].command;
       assert.deepEqual(run("words", raw).stdout.split("\0").slice(0, -1), expected);
     }
+    for (const locator of ["/Dollyfile", "/Dollyfile-pi", "/Dollyfile-python-pi", "/Dollyfile-", "/Dollyfile-/bad"]) {
+      let accepted = true;
+      try { inspectDollyfile(`DOLLY 3\nIMAGE check\nFROM HOST ${locator} ${"0".repeat(64)}\nENTRY /bin/slop\n`); }
+      catch { accepted = false; }
+      assert.equal(run("image-locator", locator).status === 0, accepted, locator);
+    }
+    await writeFile(recipe, 'DOLLY 3\nMODULE probe\nEXPORTS ENV DOLLY_TEST_VALUE "a\\nb"\n');
+    assert.match(run("parse", recipe).stdout, /ENV-VALUE:a\\nb/);
+    for (const path of ["/", "/usr", "/usr/bin", "/usr/bin/tool", "/explicit"]) {
+      assert.equal(run("artifact-path", path).status, 0, path);
+    }
+    for (const path of ["/u", "/usr/bin/tools", "/absent"]) assert.equal(run("artifact-path", path).status, 1, path);
     const directory = resolve(scratch, "space dir");
     await mkdir(directory);
     for (const command of ['"cc" "a b.c"', "cc 'a b.c' ; cc second.c"]) {
@@ -57,10 +70,6 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
       assert.equal(run("kind", type, directory).status === 0, ["FOLDER", "HEADER"].includes(type), type);
       assert.equal(run("kind", type, resolve(scratch, "link")).status === 0, type !== "FOLDER", type);
     }
-    assert.equal(run("writer", "/modules/a.dm", "/modules/a.dm").status, 0);
-    const duplicate = run("writer", "/modules/a.dm", "/modules/b.dm");
-    assert.equal(duplicate.status, 1);
-    assert.match(duplicate.stderr, /already written by \/modules\/a.dm:3/);
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }

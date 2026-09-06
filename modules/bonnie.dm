@@ -1,4 +1,4 @@
-DOLLY 2
+DOLLY 3
 MODULE bonnie
 
 REQUIRES HEADER curl

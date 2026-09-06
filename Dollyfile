@@ -1,9 +1,8 @@
-DOLLY 2
+DOLLY 3
 IMAGE default
 
-# The runtime selects one aggregate. Its implementation and dependencies are
-# private to that module rather than repeated as root-level assertions.
-USE HOST /modules/default.dm         3935a0cb27e96b65a6b8214194106b3a9dc4229bd8c5da43213a85496f4d5bb8
-USE HOST /modules/startup-default.dm 21f2cf3797ad8df79ae341e4477f215fedd55410e2f7aed4bc19065ed047ec89
+# Shared interactive userspace. Other images reuse its completed artifact.
+USE HOST /modules/default.dm         0f39bb1557d76db46548b76eb0c101b367430fb6f91301c8b2defe2507dd979e
+USE HOST /modules/startup-default.dm 634b3aa591fa2cc336a1baf7a14d19c54ef641e3f98a953e3ae6b5e091ecb3fd
 
 ENTRY /bin/slop

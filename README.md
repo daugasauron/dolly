@@ -209,7 +209,7 @@ need. Credential values remain inside Dolly; the browser does not inject them.
 - [Roadmap](docs/roadmap.md) — prioritized next milestones and acceptance gates.
 - [Audit handoff](docs/audit-handoff.md) — remaining September 5 findings,
   evidence, acceptance gates, and uncommitted checkpoint state.
-- [Dollyfile version 2](docs/dollyfile.md) — the C-executed sequential
+- [Dollyfile version 3](docs/dollyfile.md) — the C-executed sequential
   source-to-snapshot recipe and image identity model.
 
 ## Design rules

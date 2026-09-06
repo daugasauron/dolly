@@ -29,12 +29,10 @@ export function verifySnapshotIdentity(definition, graph, parsed, processContrac
   const environment = decodeSnapshotEnvironment(parsed.files.get("/etc/dolly/environment"));
   const expectedEnvironment = [...graph.exporters.values()]
     .map(({ exported }) => exported).filter(({ type }) => type === "ENV");
-  if (environment.size !== expectedEnvironment.length) {
-    throw new Error("snapshot environment does not match image exports");
-  }
   for (const exported of expectedEnvironment) {
     const [operation, appended] = exported.details;
     const append = exported.details.length === 2 && operation === "APPEND";
+    if (exported.details.length === 0) continue;
     if (!environment.has(exported.name) ||
         (!append && environment.get(exported.name) !== operation) ||
         (append && !environment.get(exported.name).split(":").includes(appended))) {

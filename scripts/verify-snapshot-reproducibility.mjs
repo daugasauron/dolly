@@ -13,7 +13,7 @@ import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 function build({ projectDir, image, output, profile, port, state }) {
   return new Promise((resolveBuild, reject) => {
     // Always launch a browser build. Its server hides packaged snapshots;
-    // only this owned profile can supply optional module-cache inputs.
+    // only this owned profile can supply completed image artifacts.
     const child = spawn(resolve(projectDir, "scripts/test-browser.sh"), [], {
       cwd: projectDir,
       env: {

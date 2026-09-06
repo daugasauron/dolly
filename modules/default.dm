@@ -1,35 +1,34 @@
-DOLLY 2
+DOLLY 3
 MODULE default
 
-# Direct children form this module's private sequential scope. Each child's
-# requirements resolve only against exports from earlier children in this list.
-USE HOST /modules/bootstrap.dm      d9aa83f9036e9ed6f4f850b808b267a358068bcf0130533c4480ccdb5a427e52
-USE HOST /modules/core-tools.dm     28c8521de34ba1564e2ec9845bc1ca3e459d970a9bb7c87338c1b83143cfbcd9
-USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
-USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
-USE HOST /modules/make.dm           cd76b282f98810858ec6026602996277b699540f6b55fb8fbb5c4992c1f8762e
-USE HOST /modules/zig.dm            fe98ea53ef46985223fbb3a91de50fff77db450ef2de3851a5645aa3920cef6d
-USE HOST /modules/ghostty.dm        919a6539d8c461243d427a7dcc4178c896089990188de9b3fee60d14c7d060b8
-USE HOST /modules/cpp.dm            c7d3ecadefed7decc7bb818d60eb0004405caa7f7ff7439e1b3407bd931711df
-USE HOST /modules/ninja.dm          77dae6ac93e748551c515115f4e500dc22de5345239d3204756b2ee66f3cdf5a
-USE HOST /modules/zlib.dm           091743c99ef011e20bfbe8ed0417f5c01eef5d04b90151f8cdaf561434b3e815
-USE HOST /modules/curl.dm           80be5d8ee154386225eeee5ba0df002f411d0437bf7f01b036f9bb1fb81c86c1
-USE HOST /modules/git.dm            18aa13e0e28b4f218b5dcf27c03ad8ff123027405740cd0a3f455f022c1701a6
-USE HOST /modules/awk.dm            7b5674be32b3968c82b9af65f31c6d90a0207dee7bc6cb4eaaba30b963c5c09f
-USE HOST /modules/sbase.dm          a58af6850932e682ceec4654b45f7160a77dff665b2a1c64d1c35b541e291686
-USE HOST /modules/sbase-tools-1.dm  f6f9636eb27fd6eaaab909b744131a58c8dc55708cb4e5b8d60ba51aae12358f
-USE HOST /modules/sbase-tools-2.dm  4986431918e20e4442cb8c125952535fca413abef0a535cdc79b7f1b9f4d9d9f
-USE HOST /modules/sbase-tools-3.dm  453659b12ce77666e8f7aa7ca04a4ed956f3306b7d9d26d0046dd598fed85003
-USE HOST /modules/sbase-tools-4.dm  4c09247c5f89c330b4e2128f2c1d62494f4c8e77b69240be9d2d886c88fd583c
-USE HOST /modules/sbase-tools-5.dm  a62c2d0b72f096e43a0c59ef23ee6a7e0024025313eafb8402c79202450e9bfd
-USE HOST /modules/sbase-tools-6.dm  bba700a953c58ff06639820bf76af24160c0547a3b245563ccb8d271ca7de9da
-USE HOST /modules/sbase-tools-7.dm  020650d813f26459ef6c723fda49b259a0a7c51270c5c4dea90029d49d6eab07
-USE HOST /modules/sbase-tools-8.dm  e114a6d3072706e77e6b9e979d17c1cbfb24529e16a7b0405ca9c8bf850ef893
-USE HOST /modules/sbase-tools-9.dm  d9c56116e0d92412e85d1aeb236d5137828cad5592128883a879a9af0f6e1bbd
-USE HOST /modules/sbase-tools-10.dm 9450d6370ed290e63d001efb9b49e41bcaf7b77b4ab2725eb868eb7257f4c9af
-USE HOST /modules/sbase-tools-11.dm ebde90a5af5363d63d3f6189075a9ec864e44d47354bc1566f295b6fe72978b8
-USE HOST /modules/sbase-tools-12.dm 8cfe3edb9d5de7759a147e52734725662ffe43a1c5f6c7cfdf9a74aadf0228c5
-USE HOST /modules/agent-tools.dm    36d59b19adaf7f04d78623a90ce597d8d542fe597ccf9054b527105198d34b43
+# Execute these recipes in order; re-export the useful runtime and SDK below.
+USE HOST /modules/bootstrap.dm      02fc492039dd279901485a50208112b2afd7dd5f736a737f007cadacd4a73391
+USE HOST /modules/core-tools.dm     9794904cc8b2c5936198959faf626b4d27f17646e7d7efae0edc5d2411edd81f
+USE HOST /modules/download.dm       74b6c1c6a911150a593758806ee5939f52f42cdb93632f68406adcecb0ca03bf
+USE HOST /modules/tar.dm            0bff7c2d25ab0ce49401bd2e32f341520663f3e3d21d6d4f5bbd73a083a725c5
+USE HOST /modules/make.dm           f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9fd0225dd8f05ea0e02a1
+USE HOST /modules/zig.dm            baba1266d9e196b134d0b513a50ac9d1100a312e11cf5e3109ceb07b64880f28
+USE HOST /modules/ghostty.dm        68cb9783d225f771265951957c1e861a05f904444d819539c3e98440d7fac4fb
+USE HOST /modules/cpp.dm            a7ede03621f9a6de44d4c2c9dbe64dce96c87b286aab6216a3390c64eb3eed52
+USE HOST /modules/ninja.dm          84b060b2ab700c37083cd698a619630d1f25663156320a0acae3fe07053777f7
+USE HOST /modules/zlib.dm           c5671bb656443794bbb15aac5c9eebbd48621aea664b002c9757aaf9742ca1a9
+USE HOST /modules/curl.dm           27f5236e55622e99678231768937a79d41a1ba852ba864180f6b47ffe214e2e1
+USE HOST /modules/git.dm            8ae1eaeeb16fb85add394d5a9461de38066ca337dca4428a63b6b0b0d045b31d
+USE HOST /modules/awk.dm            b9ff535f661dd7e24b0136e3067d08b5880c16fae6abce38bd1677428ac72a65
+USE HOST /modules/sbase.dm          1c803f9d9d210c7d1fc6b1b56b6efc4e3e4c2976bbeed07f0699ecbe8724099f
+USE HOST /modules/sbase-tools-1.dm  d02a8f66c3c7f0b96ad161ac4cba46aa022ff2f52c7979891d074aa7889f8329
+USE HOST /modules/sbase-tools-2.dm  f484a24bd78808fee3c0c88cce66a24bf31134cf022149cdebd0c83b89218c2f
+USE HOST /modules/sbase-tools-3.dm  6a2bfd5547a3931fd1c0af510f6844a9088a361709fbd874ac9ac7011f32769a
+USE HOST /modules/sbase-tools-4.dm  ec9a92a547ff20e1ac919fc5c1534bae4eb90374fd9ba45708fa38aa62207f4a
+USE HOST /modules/sbase-tools-5.dm  91304d7f7074949b49700d622745315f49c9b31ed95aaf2625bf758f4f1370b9
+USE HOST /modules/sbase-tools-6.dm  9ac0983ae4628041abdf24d510de4b8a84b3588e34df7615d22b47f31313e5e5
+USE HOST /modules/sbase-tools-7.dm  e4b3c1010b9cfdbb21deb1f28429aab6a02f69483b182e73f7f88d9360568992
+USE HOST /modules/sbase-tools-8.dm  c216ed15fb014a9d387152a1dfae39b33792b907daeab964a70a3c9839e1c29f
+USE HOST /modules/sbase-tools-9.dm  eff5de6801c4d483b2853fa027f07beaed666239517255b3a9ed8d5dd4d249c8
+USE HOST /modules/sbase-tools-10.dm 5eb35e784f68afbf40e5509a047a386f689d90d69dd3dccaf535f39b4d18c999
+USE HOST /modules/sbase-tools-11.dm e8121cc66576e4641cb99bbfb5fe60c07749b725a0c3a7a3c6e6e677a42ccd9f
+USE HOST /modules/sbase-tools-12.dm 6f1a4fc873a037e749f9456711be8d1424decb454f4379e954239a6134847266
+USE HOST /modules/agent-tools.dm    06047c671c1a3337df7dbac8ccc53326c38ab422273e4b17ae6597d2b5d7b148
 
 # This is both a runtime and an SDK. Re-exports inherit the exact child object;
 # an object not listed here is build-private and is absent from the image.

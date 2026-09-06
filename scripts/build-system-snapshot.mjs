@@ -15,6 +15,7 @@ import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { sha256 as digest, verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
+import { imageInputs, imageInputsMatch } from "../src/image-inputs.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const snapshotBrowserProfile = process.env.DOLLY_BROWSER_PROFILE ??
@@ -24,7 +25,7 @@ const snapshotBrowserPort = process.env.DOLLY_BROWSER_PORT ?? String(
     createHash("sha256").update(projectDir).digest("hex").slice(0, 8), 16,
   ) % 20_000),
 );
-const definitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
+const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const graphs = new Map(await Promise.all(definitions.map(async (definition) => [
   definition.image,
   await loadDollyfileGraph(projectDir, definition.filename),
@@ -34,11 +35,14 @@ const requestedImage = process.env.DOLLY_SNAPSHOT_IMAGE;
 if (requestedImage !== undefined && !definitionByImage.has(requestedImage)) {
   throw new Error("DOLLY_SNAPSHOT_IMAGE must name a source-visible image");
 }
-const images = requestedImage === undefined
-  ? [...definitions]
-      .sort((left, right) => left.parsed.uses.length - right.parsed.uses.length)
-      .map((definition) => definition.image)
-  : [requestedImage];
+const images = [], scheduled = new Set();
+function schedule(image) {
+  if (scheduled.has(image)) return;
+  scheduled.add(image);
+  for (const reference of graphs.get(image).artifacts) schedule(reference.image);
+  images.push(image);
+}
+for (const image of requestedImage === undefined ? definitions.map(definition => definition.image) : [requestedImage]) schedule(image);
 const { DOLLY_BUILD_ID } = await import("../dist/dolly-build-id.mjs");
 const processContract = await readWasmInterface(resolve(projectDir, "dist/dolly-process-0.wasm"));
 
@@ -83,6 +87,12 @@ function verifyImage(image, parsed) {
 }
 
 async function buildImage(image) {
+  const inputs = imageInputs(await Promise.all(graphs.get(image).artifacts.map(async reference => {
+    const url = pathToFileURL(resolve(projectDir, `dist/dolly-${reference.image}-system-snapshot.mjs`));
+    url.searchParams.set("inputs", String(Date.now()));
+    const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(url.href);
+    return { recipeSha256: reference.sha256, sha256: metadata.sha256 };
+  })));
   const snapshotPath = resolve(projectDir, `dist/dolly-${image}-system.snapshot`);
   const metadataPath = resolve(projectDir, `dist/dolly-${image}-system-snapshot.mjs`);
   const temporarySnapshotPath = resolve(
@@ -107,6 +117,7 @@ async function buildImage(image) {
         if (metadata?.image === image &&
             metadata.buildId === DOLLY_BUILD_ID &&
             metadata.formatVersion === 2 && metadata.identityVersion === 2 &&
+            imageInputsMatch(metadata.inputs, inputs) &&
             JSON.stringify(metadata.recipes) === JSON.stringify(expectedRecipes(image)) &&
             JSON.stringify(metadata.modules) === JSON.stringify(expectedModules(image)) &&
             JSON.stringify(metadata.entry) === JSON.stringify(entry) &&
@@ -119,7 +130,10 @@ async function buildImage(image) {
         // Missing, malformed, or stale output is rebuilt below.
       }
     }
+    const started = performance.now();
     await runSnapshotBuild(image, temporarySnapshotPath);
+    const observedInputs = JSON.parse(await readFile(`${temporarySnapshotPath}.inputs.json`, "utf8"));
+    if (!imageInputsMatch(observedInputs, inputs)) throw new Error(`${image}: build used different image inputs`);
     const snapshot = await readFile(temporarySnapshotPath);
     const parsed = decodeSystemSnapshot(snapshot);
     const recipes = expectedRecipes(image);
@@ -131,6 +145,7 @@ async function buildImage(image) {
         buildId: DOLLY_BUILD_ID,
         formatVersion: 2,
         identityVersion: 2,
+        inputs,
         recipes,
         modules: expectedModules(image),
         entry,
@@ -143,10 +158,11 @@ async function buildImage(image) {
     await rename(temporaryMetadataPath, metadataPath);
     console.log(
       `dolly: packaged ${snapshot.length} byte ${image} snapshot ` +
-      `(${sha256.slice(0, 16)}…) for ${DOLLY_BUILD_ID}`,
+      `(${sha256.slice(0, 16)}…) in ${((performance.now() - started) / 1000).toFixed(1)}s for ${DOLLY_BUILD_ID}`,
     );
   } finally {
     await Promise.all([
+      rm(`${temporarySnapshotPath}.inputs.json`, { force: true }),
       rm(temporarySnapshotPath, { force: true }),
       rm(temporaryMetadataPath, { force: true }),
     ]);

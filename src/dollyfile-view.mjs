@@ -45,6 +45,7 @@ function words(value, label, line) {
   let started = false;
   for (const character of value) {
     if (escaped) {
+      if (quote === '"' && !['$', '`', '"', "\\"].includes(character)) word += "\\";
       word += character;
       escaped = false;
       started = true;
@@ -80,14 +81,14 @@ function directives(source, label) {
   for (let index = 0; index < physical.length; index += 1) {
     const raw = physical[index];
     const line = index + 1;
-    let logical = raw.replace(/[ \t]+$/, "");
+    let logical = stripComment(raw).replace(/[ \t]+$/, "");
     while (logical.endsWith("\\")) {
       logical = logical.slice(0, -1);
       index += 1;
       if (index >= physical.length || index === physical.length - 1 && physical[index] === "") {
         fail(label, line, "unterminated continuation");
       }
-      logical += `${logical.length ? " " : ""}${physical[index].replace(/[ \t]+$/, "")}`;
+      logical += `${logical.length ? " " : ""}${stripComment(physical[index]).replace(/[ \t]+$/, "")}`;
     }
     if (byteLength(logical) > 64 * 1024) fail(label, line, "logical line is too long");
     logical = trim(stripComment(logical));
@@ -135,12 +136,12 @@ function assertObject(tokens, label, item, directive) {
   if (tokens[0] === "ENV" && !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(tokens[1])) {
     fail(label, item.line, `invalid ${directive} environment name`);
   }
-  if (tokens[0] !== "ENV" && !/^(?:[a-zA-Z][a-zA-Z0-9._+-]*|\[)$/.test(tokens[1])) {
+  if (tokens[0] !== "ENV" && (tokens[1].length > 128 || !/^(?:[a-zA-Z][a-zA-Z0-9._+-]*|\[)$/.test(tokens[1]))) {
     fail(label, item.line, `invalid ${directive}`);
   }
 }
 
-function inspectVersion2(source, label, rows) {
+function inspectVersion3(source, label, rows) {
   let image = null;
   let moduleName = null;
   let entry = null;
@@ -151,9 +152,8 @@ function inspectVersion2(source, label, rows) {
   const slops = [];
   const files = [];
   const folders = [];
-  const selectedModules = new Set();
-  const requiredObjects = new Set();
-  let moduleForm = null;
+  const artifacts = [];
+  let from = null;
 
   for (const item of rows.slice(1)) {
     const tokens = words(item.args, label, item.line);
@@ -161,27 +161,6 @@ function inspectVersion2(source, label, rows) {
       fail(label, item.line, "expected IMAGE or MODULE");
     }
     if (entry) fail(label, item.line, "ENTRY must be the final declaration");
-    if (image && !["USE", "ENTRY"].includes(item.directive)) {
-      fail(label, item.line, "IMAGE may only declare USE and ENTRY");
-    }
-    if (moduleName && item.directive === "REQUIRES" && moduleForm !== null) {
-      fail(label, item.line, "REQUIRES must precede module composition and build declarations");
-    }
-    if (moduleName && item.directive === "USE") {
-      if (moduleForm === "leaf") {
-        fail(label, item.line, "a leaf MODULE cannot also USE child modules");
-      }
-      moduleForm = "aggregate";
-    }
-    if (moduleName && ["SOURCE", "FILE", "FOLDER", "SLOP"].includes(item.directive)) {
-      if (moduleForm === "aggregate") {
-        fail(label, item.line, "an aggregate MODULE cannot contain build steps");
-      }
-      moduleForm = "leaf";
-    }
-    if (moduleName && item.directive === "EXPORTS" && moduleForm === null) {
-      moduleForm = "leaf";
-    }
     switch (item.directive) {
       case "IMAGE":
         if (image || moduleName || tokens.length !== 1 ||
@@ -197,12 +176,27 @@ function inspectVersion2(source, label, rows) {
         if (tokens.length !== 3 || tokens[0] !== "HOST" ||
             !validModuleLocator(tokens[1]) ||
             !sha256Pattern.test(tokens[2])) fail(label, item.line, "invalid USE");
-        if (selectedModules.has(tokens[1])) {
-          fail(label, item.line, `duplicate USE ${tokens[1]}`);
-        }
-        selectedModules.add(tokens[1]);
         uses.push({ transport: tokens[0].toLowerCase(), location: tokens[1], sha256: tokens[2], line: item.line });
         break;
+      case "FROM":
+      case "COPY": {
+        const copy = item.directive === "COPY";
+        const args = copy ? tokens.slice(1) : tokens;
+        if ((copy && tokens[0] !== "FROM") || args.length !== (copy ? 5 : 3) ||
+            args[0] !== "HOST" || !/^\/Dollyfile(?:-[a-z][a-z0-9-]*)?$/.test(args[1]) ||
+            !sha256Pattern.test(args[2]) || (copy &&
+            args.slice(3).some(path => path !== "/" && !validAbsolutePath(path)))) {
+          fail(label, item.line, `invalid ${item.directive}`);
+        }
+        if (!copy && (!image || from || rows[2] !== item)) {
+          fail(label, item.line, "FROM must be the first IMAGE operation");
+        }
+        const artifact = { location: args[1], sha256: args[2], line: item.line,
+          source: copy ? args[3] : "/", destination: copy ? args[4] : "/", copy };
+        artifacts.push(artifact);
+        if (!copy) from = artifact;
+        break;
+      }
       case "SOURCE":
         if (tokens.length !== 4 || !["HOST", "URL"].includes(tokens[0]) ||
             (tokens[0] === "HOST" && !validAbsolutePath(tokens[1])) ||
@@ -214,18 +208,14 @@ function inspectVersion2(source, label, rows) {
         break;
       case "REQUIRES":
         assertObject(tokens, label, item, "REQUIRES");
-        if (image || tokens.length !== 2) fail(label, item.line, "invalid REQUIRES");
-        if (requiredObjects.has(`${tokens[0]}:${tokens[1]}`)) {
-          fail(label, item.line, `duplicate REQUIRES ${tokens[0]} ${tokens[1]}`);
-        }
-        requiredObjects.add(`${tokens[0]}:${tokens[1]}`);
+        if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES");
         requirements.push({ type: tokens[0], name: tokens[1], line: item.line });
         break;
       case "EXPORTS": {
         assertObject(tokens, label, item, "EXPORTS");
         const [type, name, ...details] = tokens;
-        if (uses.length !== 0) {
-          if (details.length !== 0) fail(label, item.line, "aggregate EXPORTS inherits its object");
+        if (details.length === 0) {
+          // A named export may refer to an object supplied earlier at runtime.
         } else if (type === "TOOL") {
           if (details.length !== 0 && (details.length !== 1 || !sha256Pattern.test(details[0]))) fail(label, item.line, "invalid TOOL export");
         } else if (["LIB", "FILE", "FOLDER"].includes(type)) {
@@ -267,10 +257,6 @@ function inspectVersion2(source, label, rows) {
           command = tokens.slice(2);
         }
         if (command.length === 0) fail(label, item.line, "empty SLOP");
-        const tool = command[0].split("/").at(-1);
-        if (![...requirements, ...exports].some(item => item.type === "TOOL" && item.name === tool)) {
-          fail(label, item.line, `SLOP command ${command[0]} must be declared by an earlier REQUIRES TOOL or EXPORTS TOOL`);
-        }
         slops.push({ cwd, command, line: item.line });
         break;
       }
@@ -286,21 +272,15 @@ function inspectVersion2(source, label, rows) {
         fail(label, item.line, "DOLLY may only appear on the first line");
         break;
       default:
-        fail(label, item.line, `unknown Dollyfile 2 directive ${item.directive}`);
+        fail(label, item.line, `unknown Dollyfile 3 directive ${item.directive}`);
     }
   }
   if (!image && !moduleName) throw new Error(`${label}: missing IMAGE or MODULE`);
   if (moduleName && entry) throw new Error(`${label}: MODULE may not declare ENTRY`);
   if (image && !entry) throw new Error(`${label}: IMAGE is missing ENTRY`);
-  const names = new Set();
-  for (const item of exports) {
-    const key = `${item.type}:${item.name}`;
-    if (names.has(key)) fail(label, item.line, `duplicate export ${item.type} ${item.name}`);
-    names.add(key);
-  }
   return {
-    version: 2, kind: image ? "image" : "module", name: image ?? moduleName,
-    image, module: moduleName, entry, uses, requirements, exports,
+    version: 3, kind: image ? "image" : "module", name: image ?? moduleName,
+    image, module: moduleName, entry, uses, requirements, exports, artifacts, from,
     sources, slops, files, folders, rows, source,
   };
 }
@@ -308,10 +288,10 @@ function inspectVersion2(source, label, rows) {
 export function inspectDollyfile(input, label = "Dollyfile") {
   const source = normalize(input, label);
   const rows = directives(source, label);
-  if (rows.length === 0 || rows[0].directive !== "DOLLY" || rows[0].args !== "2") {
-    throw new Error(`${label}:1: first declaration must be DOLLY 2`);
+  if (rows.length === 0 || rows[0].directive !== "DOLLY" || rows[0].args !== "3") {
+    throw new Error(`${label}:1: first declaration must be DOLLY 3`);
   }
-  return inspectVersion2(source, label, rows);
+  return inspectVersion3(source, label, rows);
 }
 
 export function sourceLink(source, applicationBase) {

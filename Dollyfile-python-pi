@@ -1,11 +1,12 @@
-DOLLY 2
+DOLLY 3
 IMAGE python-pi
 
-USE HOST /modules/default.dm               3935a0cb27e96b65a6b8214194106b3a9dc4229bd8c5da43213a85496f4d5bb8
-USE HOST /modules/python.dm                b9b1fef80aacc0dca801f9b29ad6d7be61ffaa248d06aa5e52e2b2c51ce44166
-USE HOST /modules/quickjs.dm               8961ddc19e5e691703f2d41e9b861e53e89b2461f8b3f72fb81adb320c665073
-USE HOST /modules/typescript.dm            f10a3b924e5e80d3f0cfe8c07311d538812f1eaef4af60c0a9a6189c3672b6cb
-USE HOST /modules/pi.dm                    da3f406e490065aa1550aab691f87f34d658191eacd3334ca5c309fca7766dd1
-USE HOST /modules/python-pi-integration.dm 42fbac3d2b8f2bbdb942842a3ad56c76836145760a0e9a152a040ffcff672781
+FROM HOST /Dollyfile-pi 841fdab00d8d9cea7375330e5d9b42357ef16cf2c92e0bfc7b3f1d2eb0063c25
+COPY FROM HOST /Dollyfile-python 83174450d85784793b6f626b9a0cfc7dd01c6c12ff17c273068d43680bc8bc2f /usr /usr
+COPY FROM HOST /Dollyfile-python 83174450d85784793b6f626b9a0cfc7dd01c6c12ff17c273068d43680bc8bc2f /etc/bonnie /etc/bonnie
+EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
+EXPORTS ENV PYTHONUTF8 1
+
+USE HOST /modules/python-pi-integration.dm 44399f44020ca6a79d3ea01d66811dfc60a157f269058ebaf035fff460a7b84a
 
 ENTRY /usr/bin/pi

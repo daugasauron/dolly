@@ -5,7 +5,6 @@ import { resolve } from "node:path";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import {
   loadDollyfileGraph,
-  moduleCacheRecords,
   recipeRecords,
 } from "./dollyfile-graph.mjs";
 
@@ -24,6 +23,7 @@ export async function discoverImageDefinitions(projectDir) {
       throw new Error(`${filename}: IMAGE ${parsed.image} must use filename ${expected}`);
     }
     definitions.push({
+      projectDir,
       image: parsed.image,
       filename,
       source,
@@ -41,7 +41,7 @@ export async function discoverImageDefinitions(projectDir) {
   return definitions;
 }
 
-export function selectImageDefinitions(definitions, selection = process.env.DOLLY_BUILD_IMAGES) {
+export async function selectImageDefinitions(definitions, selection = process.env.DOLLY_BUILD_IMAGES) {
   if (selection === undefined || selection.trim() === "" || selection.trim() === "all") {
     return definitions;
   }
@@ -56,14 +56,27 @@ export function selectImageDefinitions(definitions, selection = process.env.DOLL
   if (missing.length !== 0) {
     throw new Error(`DOLLY_BUILD_IMAGES names unknown images: ${missing.join(", ")}`);
   }
-  return selected;
+  const closure = new Map();
+  const byFilename = new Map(definitions.map(definition => [definition.filename, definition]));
+  async function include(definition) {
+    if (closure.has(definition.image)) return;
+    closure.set(definition.image, definition);
+    const graph = await loadDollyfileGraph(definition.projectDir, definition.filename);
+    for (const reference of graph.artifacts) {
+      const dependency = byFilename.get(reference.location.slice(1));
+      if (!dependency) throw new Error(`missing artifact recipe ${reference.location}`);
+      await include(dependency);
+    }
+  }
+  for (const definition of selected) await include(definition);
+  return definitions.filter(definition => closure.has(definition.image));
 }
 
 export async function inspectStaticSources(projectDir, definitions, staticDirectory = resolve(projectDir, "dist/static")) {
   const sources = new Map();
   for (const definition of definitions) {
     const graph = await loadDollyfileGraph(projectDir, definition.filename);
-    for (const module of graph.modules) {
+    for (const module of graph.records) {
       const path = `/${module.relative}`;
       const previous = sources.get(path);
       if (previous && previous.sha256 !== module.sha256) {
@@ -126,7 +139,7 @@ export function registrySource(definitions, staticSources = []) {
       ({ location, sha256 }) => ({ location, sha256 }),
     ),
     recipes: parsed.recipes ?? [],
-    moduleCaches: parsed.moduleCaches ?? [],
+    artifacts: parsed.artifacts ?? [],
   }));
   return "// Generated from source-visible Dollyfiles. Do not edit.\n" +
     `export const DOLLY_IMAGES = Object.freeze(${JSON.stringify(records, null, 2)});\n` +
@@ -140,8 +153,8 @@ export async function imageRegistrySource(projectDir, definitions, staticSources
       ...definition,
       parsed: {
         ...definition.parsed,
+        artifacts: graph.artifacts,
         recipes: recipeRecords(graph),
-        moduleCaches: moduleCacheRecords(graph),
       },
     };
   }));

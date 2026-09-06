@@ -19,7 +19,7 @@ import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-s
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
-const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
+const imageDefinitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 const distDirectory = resolve(projectDir, "dist");
 const packagedSite = process.env.DOLLY_BROWSER_SITE
@@ -49,6 +49,7 @@ const boundaryMode = isMode("boundary");
 const processAbiMode = isMode("process-abi");
 const processSmokeMode = isMode("process-smoke");
 const dollyfileParserMode = isMode("dollyfile-parser");
+const iterationMode = isMode("v3-iteration");
 const imageRetentionMode = isMode("image-retention");
 const imageInventoryMode = isMode("image-inventory", "image-inventory-rebuild");
 const makeMode = isMode("make");
@@ -110,6 +111,21 @@ if (!new Set(imageDefinitions.map((definition) => definition.image)).has(selecte
 const selectedDefinition = imageDefinitions.find(({ image }) => image === selectedImage);
 const selectedGraph = await loadDollyfileGraph(projectDir, selectedDefinition.filename);
 const selectedModuleNames = new Set(selectedGraph.modules.map(({ name }) => name));
+const iterationRecipe = iterationMode ? `DOLLY 3
+IMAGE iteration
+FROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}
+FILE /usr/share/iteration-deleted
+    old
+SLOP rm /usr/share/iteration-deleted
+FILE /tmp/iteration.c
+    #include <stdio.h>
+    int main(void) { puts("iteration-one"); return 0; }
+SLOP cc /tmp/iteration.c -o /usr/bin/iteration
+EXPORTS TOOL iteration
+EXPORTS ENV DOLLY_ITERATION first
+EXPORTS ENV DOLLY_ITERATION APPEND second
+ENTRY /bin/slop
+` : null;
 const snapshotSizeLimit = 512 * 1024 * 1024;
 const codexFixtureAuthorizationCode = "dolly-browser-authorization-code";
 const codexFixtureAccountId = "acct_dolly_browser_fixture";
@@ -148,7 +164,10 @@ const publicSources = new Set([
   "src/http-broker.mjs",
   "src/kernel-plugin.mjs",
   "src/image-entry.mjs",
-  "src/module-cache.mjs",
+  "src/image-artifact.mjs",
+  "src/image-build.mjs",
+  "src/image-inputs.mjs",
+  "src/snapshot-records.mjs",
   "src/process-ffi.mjs",
   "src/process-abi.mjs",
   "src/wasm-interface.mjs",
@@ -1081,7 +1100,7 @@ if (pagesLiveMode &&
   throw new Error("pages-live mode requires an HTTPS github.io DOLLY_BROWSER_PAGE");
 }
 const localOrigin = `http://${browserHostname}:${address.port}`;
-const rebuildPage = `${localOrigin}${browserBase}${selectedImage}/rebuild/`;
+const rebuildPage = `${localOrigin}${browserBase}${iterationMode ? "custom" : selectedImage}/rebuild/`;
 const snapshotPage = `${localOrigin}${browserBase}${selectedImage}/?autorun=shell`;
 const menuPage = `${localOrigin}${browserBase}`;
 const interactivePage = externalPage
@@ -1203,12 +1222,13 @@ chrome = spawn(chromeBinary, [
       ${pagesLiveMode
         ? ""
         : `globalThis.DOLLY_HTTP_POLICY = ${JSON.stringify(fixturePolicy)};`}
+      ${iterationMode ? `if (!sessionStorage.getItem("dolly-custom-source")) sessionStorage.setItem("dolly-custom-source", ${JSON.stringify(iterationRecipe)});` : ""}
       globalThis.__dollyIncompleteBootstrapPaints = 0;
-      globalThis.__dollyRestoredLayer = false;
+      globalThis.__dollyReusedArtifact = false;
       new MutationObserver(() => {
         const log = document.querySelector("#bootstrap-log");
-        if (log?.textContent.includes("dollyfile: restored module layer ")) {
-          globalThis.__dollyRestoredLayer = true;
+        if (log?.textContent.includes("reusing local ")) {
+          globalThis.__dollyReusedArtifact = true;
         }
         if (log && !log.hidden && log.textContent !== "" &&
             !log.textContent.endsWith("\\n")) {
@@ -1245,7 +1265,7 @@ chrome = spawn(chromeBinary, [
   await debuggerClient.send("Page.navigate", {
     url: menuMode
       ? menuPage
-      : snapshotExportMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
+      : snapshotExportMode || iterationMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
       : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || libcurlContractMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
@@ -1452,7 +1472,7 @@ chrome = spawn(chromeBinary, [
       await enterRecoveryShell(debuggerClient.send);
       await runDollyfileCases(command => evaluate(debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(command)})`), localOrigin);
-      console.log("browser: Dollyfile preserves quoted commands/CWD and literal ENV, fetches/executes rows sequentially, and rejects wrong export kinds and duplicate writers before overwriting");
+      console.log("browser: Dollyfile preserves quoted commands/CWD and literal ENV, fetches/executes rows sequentially, supports mixed/repeated modules and overwrites, captures completed exports, and rejects wrong export kinds");
       break browserProof;
     }
     if (processSmokeMode) {
@@ -1508,12 +1528,12 @@ chrome = spawn(chromeBinary, [
           assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/${name} -o ${scratch}/${name}`), 0);
         }
         for (const [name, source] of [["records", "fs-record.c"],
-          ["system", "image-roundtrip.c"], ["layer", "-DTEST_LAYER image-roundtrip.c"]]) {
+          ["system", "image-roundtrip.c"]]) {
           assert.equal(await submit(`cd ${scratch} && cc -O0 -I. ${source} -o ${name}`), 0, `compile ${name}`);
           assert.equal(await submit(`./${name} ${scratch}`), 0, `${name} preserves path kinds`);
         }
         assert.equal(await submit(`cc -O0 dollyfile.c -o dollyfile`), 0);
-        const entryRecipe = "DOLLY 2\nIMAGE entry-missing\nENTRY /bin/slop\n";
+        const entryRecipe = "DOLLY 3\nIMAGE entry-missing\nENTRY /bin/slop\n";
         assert.equal(await submit(`printf %b ${shellQuote(entryRecipe.replaceAll("\n", "\\n"))} > ${scratch}/Dollyfile`), 0);
         assert.equal(await submit(`./dollyfile FILE:${scratch}/Dollyfile ${localOrigin} 2> ${scratch}/entry-error`), 1);
         assert.equal(await submit(`grep -q 'must be retained' ${scratch}/entry-error`), 0,
@@ -1521,7 +1541,7 @@ chrome = spawn(chromeBinary, [
       } finally {
         await submit(`cd /workspace; rm -rf ${scratch}`);
       }
-      console.log("browser: shared restore, system image and module layer preserve directories/files/symlinks; omitted ENTRY fails sealing");
+      console.log("browser: shared restore and system image preserve directories/files/symlinks; omitted ENTRY fails sealing");
       break browserProof;
     }
     if (utf8Mode) {
@@ -2395,10 +2415,11 @@ int main(int argc, char **argv) {
         `${browserBasePrefix}/${selectedImage}/`,
         `${browserBasePrefix}/Dollyfile${selectedImage === "default" ? "" : `-${selectedImage}`}`,
         `${browserBasePrefix}/dist/dolly-images.mjs`,
-        `${browserBasePrefix}/dist/dolly-${selectedImage}-system.snapshot${packagedSite ? ".gz" : ""}`,
+        ...(!packagedSite ? [`${browserBasePrefix}/dist/dolly-${selectedImage}-system.snapshot`] : []),
       ]) {
         assert.ok(staticRequestPaths.has(required), `prefixed route did not request ${required}`);
       }
+      if (packagedSite) assert.ok([...staticRequestPaths].some(path => path.includes("/dist/packs/")), "packaged image did not load shared packs");
       assert.equal([...staticRequestPaths].some((path) => path.includes("/static/")), false,
         "prebuilt route fetched rebuild-only source inputs");
       await debuggerClient.send("Page.navigate", {
@@ -2421,7 +2442,7 @@ int main(int argc, char **argv) {
         chrome: document.querySelectorAll('header, nav, h1, main > p').length,
       }))()`);
       assert.equal(viewer.chrome, 0);
-      assert.match(viewer.source, /DOLLY 2/);
+      assert.match(viewer.source, /DOLLY 3/);
       assert.match(viewer.source, new RegExp(`IMAGE ${selectedImage}`));
       assert.ok(viewer.links.some((link) =>
         link.href.startsWith(`${browserBasePrefix}/static/`) ||
@@ -2476,6 +2497,72 @@ int main(int argc, char **argv) {
       );
       break browserProof;
     }
+    if (iterationMode) {
+      let firstDigest;
+      for (const label of ["published-base", "cached-base", "edited-command"]) {
+        const started = performance.now();
+        assert.equal(await waitForValue(debuggerClient.send,
+          "document.documentElement?.dataset.dollyStatus ?? ''", value => value === "ready" || value === "failed", "v3 iteration"), "ready");
+        await enterRecoveryShell(debuggerClient.send);
+        const marker = label === "edited-command" ? "iteration-two" : "iteration-one";
+        assert.equal(await evaluate(debuggerClient.send,
+          `window.__dolly.submit(${JSON.stringify(`test "$(iteration)" = ${marker} && test "$DOLLY_ITERATION" = first:second && test ! -f /usr/share/iteration-deleted`)})`), 0);
+        const evidence = await evaluate(debuggerClient.send, `(async () => ({
+          digest: [...new Uint8Array(await crypto.subtle.digest("SHA-256", window.__dolly.systemSnapshot))].map(b => b.toString(16).padStart(2, "0")).join(""),
+          log: document.querySelector("#bootstrap-log").textContent,
+        }))()`);
+        assert.match(evidence.log, /reusing (?:local|published) /);
+        assert.doesNotMatch(evidence.log, /private compiler, Slop, and Dollyfile engine installed/);
+        assert.equal([...staticRequestPaths].some(path => path.includes("/static/")), false, "iteration fetched build sources for its foundation");
+        if (label === "published-base") firstDigest = evidence.digest;
+        else if (label === "cached-base") assert.equal(evidence.digest, firstDigest, "cached composition changed the artifact");
+        else assert.notEqual(evidence.digest, firstDigest, "editing the command did not change the artifact");
+        console.log(`browser: v3 ${label}: command, environment and deletion verified; ${(performance.now() - started).toFixed(0)}ms; ${evidence.digest}`);
+        if (label === "edited-command") break;
+        if (label === "cached-base") await evaluate(debuggerClient.send,
+          `sessionStorage.setItem("dolly-custom-source", ${JSON.stringify(iterationRecipe.replace("iteration-one", "iteration-two"))})`);
+        staticRequestPaths.clear();
+        await debuggerClient.send("Page.navigate", { url: "about:blank" });
+        await debuggerClient.send("Page.navigate", { url: rebuildPage });
+      }
+      const invalidation = await evaluate(debuggerClient.send, `(async () => {
+        const { DOLLY_IMAGES } = await import(${JSON.stringify(`${browserBase}dist/dolly-images.mjs`)});
+        const { loadImageArtifact, describeImageArtifact, saveImageArtifact } = await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
+        const { decodeSnapshotRecords, encodeSnapshotRecords } = await import(${JSON.stringify(`${browserBase}src/snapshot-records.mjs`)});
+        const { prepareImageArtifacts } = await import(${JSON.stringify(`${browserBase}src/image-build.mjs`)});
+        const base = DOLLY_IMAGES.find(image => image.image === 'default');
+        const pi = DOLLY_IMAGES.find(image => image.image === 'pi');
+        const original = await loadImageArtifact(base.sha256);
+        if (!original) throw new Error('missing cached default');
+        const oldInputs = [{ recipeSha256: base.sha256, sha256: original.sha256 }];
+        if (!await loadImageArtifact(pi.sha256, oldInputs)) throw new Error('missing cached Pi');
+        const records = decodeSnapshotRecords(original.bytes);
+        const init = records.get('/home/dolly/.dollyrc');
+        if (init?.kind !== 2) throw new Error('missing base init script');
+        records.set('/home/dolly/.dollyrc', { kind: 2, data: new TextEncoder().encode(
+          new TextDecoder().decode(init.data) + '\\n# changed base output\\n') });
+        const changed = await describeImageArtifact(encodeSnapshotRecords(records).buffer, base.sha256);
+        try {
+          if (!await saveImageArtifact(changed, '/' + base.dollyfile)) throw new Error('cache write failed');
+          const staleHit = await loadImageArtifact(pi.sha256, [{ recipeSha256: base.sha256, sha256: changed.sha256 }]);
+          let requested, failure;
+          try {
+            await prepareImageArtifacts('gamedev', null, async image => {
+              requested = image;
+              throw new Error('EXPECTED_REBUILD');
+            }, () => {});
+          } catch (error) { failure = error.message; }
+          return { sameRecipe: changed.recipeSha256 === original.recipeSha256,
+            changedBytes: changed.sha256 !== original.sha256, staleHit: Boolean(staleHit), requested, failure };
+        } finally {
+          if (!await saveImageArtifact(original, '/' + base.dollyfile)) throw new Error('cache restoration failed');
+        }
+      })()`);
+      assert.deepEqual(invalidation, { sameRecipe: true, changedBytes: true, staleHit: false,
+        requested: 'pi', failure: 'EXPECTED_REBUILD' });
+      console.log('browser: changing base bytes without changing its recipe rejects cached and published child artifacts');
+      break browserProof;
+    }
     if (snapshotExportMode) {
       const output = resolve(process.env.DOLLY_SNAPSHOT_OUTPUT ?? "");
       const distDirectory = resolve(projectDir, "dist");
@@ -2497,10 +2584,11 @@ int main(int argc, char **argv) {
           mode: document.documentElement.dataset.bootMode,
           snapshotBytes: Number(document.documentElement.dataset.snapshotBytes),
           exportedBytes: snapshot instanceof ArrayBuffer ? snapshot.byteLength : 0,
+          inputs: window.__dolly.systemInputs,
           bootstrap,
           lines: bootstrap.split('\\n').length,
           incompletePaints: globalThis.__dollyIncompleteBootstrapPaints,
-          restoredLayer: globalThis.__dollyRestoredLayer,
+          reusedArtifact: globalThis.__dollyReusedArtifact,
         };
       })()`);
       assert.equal(evidence.mode, "rebuild");
@@ -2510,7 +2598,7 @@ int main(int argc, char **argv) {
       assert.ok(evidence.bootstrap.length <= 8192);
       assert.equal(evidence.incompletePaints, 0);
       if (unpackagedSnapshotMode) {
-        assert.equal(evidence.restoredLayer, process.env.DOLLY_EXPECT_CACHE_STATE === "warm",
+        assert.equal(evidence.reusedArtifact, selectedGraph.artifacts.length !== 0 && process.env.DOLLY_EXPECT_CACHE_STATE === "warm",
           "reproducibility run did not exercise its requested cold/cached path");
       }
       assert.match(
@@ -2536,6 +2624,7 @@ int main(int argc, char **argv) {
       assert.equal(uploadStatus, 204);
       assert.equal(snapshotUpload?.length, evidence.snapshotBytes);
       await writeFile(output, snapshotUpload, { flag: "wx" });
+      await writeFile(`${output}.inputs.json`, JSON.stringify(evidence.inputs), { flag: "wx" });
       console.log(
         `browser: exported ${snapshotUpload.length} byte ${selectedImage} snapshot ` +
         `from /${selectedImage}/rebuild`,

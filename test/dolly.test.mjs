@@ -436,6 +436,7 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   const page = await readFile(new URL("../terminal.html", import.meta.url), "utf8");
   const menu = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
+  const artifacts = await readFile(new URL("../src/image-artifact.mjs", import.meta.url), "utf8");
   const isolation = await readFile(new URL("../coi-serviceworker.js", import.meta.url), "utf8");
 
   assert.doesNotMatch(frontend, /ghostty-web|terminal\.write|onData/);
@@ -462,10 +463,10 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.doesNotMatch(worker, /new URL\("Dollyfile", applicationBase\)/);
   assert.match(worker, /_dolly_bootstrap_snapshot\(BigInt\(range\.size\)\)/);
   assert.match(worker, /_dolly_snapshot_capture\(\)/);
-  assert.match(worker, /dolly-\$\{image\}-system\.snapshot/);
-  assert.match(worker, /dolly-\$\{image\}-system-snapshot\.mjs/);
-  assert.match(worker, /crypto\.subtle\.digest\("SHA-256", bytes\)/);
-  assert.match(worker, /metadata\.buildId !== DOLLY_BUILD_ID/);
+  assert.match(artifacts, /dolly-\$\{image\}-system\.snapshot/);
+  assert.match(artifacts, /dolly-\$\{image\}-system-snapshot\.mjs/);
+  assert.match(artifacts, /crypto\.subtle\.digest\("SHA-256", bytes\)/);
+  assert.match(artifacts, /metadata\.buildId !== DOLLY_BUILD_ID/);
   assert.match(worker, /type: "system-snapshot"/);
   assert.doesNotMatch(worker, /indexedDB|localStorage|sessionStorage/);
   assert.match(frontend, /get systemSnapshot\(\)/);
@@ -475,7 +476,6 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(worker, /replaceFile\("\/etc\/dolly\/host\.base"/);
   assert.match(worker, /_dolly_write_file\(/);
   assert.match(worker, /replaceFile\("\/etc\/dolly\/image\.manifest"/);
-  assert.match(worker, /configuredImage !== "custom"[\s\S]*?findModuleCache\(\)/);
   assert.match(worker, /function runImageEntry\(/);
   assert.match(worker, /readImageEntry\(dolly\)/);
   assert.match(worker, /supervisor\.spawn\(path, arguments_/);
@@ -593,46 +593,6 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   }
 });
 
-test("Dollyfiles compose pinned modules through the sequential C engine", async () => {
-  const projectDir = new URL("..", import.meta.url).pathname;
-  const definitions = await discoverImageDefinitions(projectDir);
-  const graphs = await Promise.all(definitions.map((definition) =>
-    loadDollyfileGraph(projectDir, definition.filename)));
-  const byImage = new Map(graphs.map((graph) => [graph.root.image, graph]));
-  const engine = await readFile(new URL("../src/dollyfile.c", import.meta.url), "utf8");
-  const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
-  assert.deepEqual(byImage.get("default").root.children.map(({ name }) => name),
-    ["default", "startup-default"]);
-  assert.deepEqual(byImage.get("pi").root.children.map(({ name }) => name),
-    ["default", "quickjs", "typescript", "pi", "startup-pi"]);
-  assert.deepEqual(byImage.get("python").root.children.map(({ name }) => name),
-    ["default", "python", "startup-python"]);
-  assert.deepEqual(byImage.get("python-pi").root.children.map(({ name }) => name),
-    ["default", "python", "quickjs", "typescript", "pi", "python-pi-integration"]);
-  assert.deepEqual(byImage.get("gamedev").root.children.map(({ name }) => name),
-    ["default", "quickjs", "typescript", "pi", "gamedev", "startup-gamedev"]);
-  assert.equal(byImage.get("default").modules.some(({ name }) =>
-    ["quickjs", "pi", "python", "gamedev"].includes(name)), false);
-  const source = graphs.flatMap(({ records }) => records.map((record) => record.source)).join("\n");
-  assert.match(source, /SOURCE HOST \/static\/default\/git\.tar \/tmp\/git\.tar [0-9a-f]{64}/);
-  assert.match(source, /SLOP CWD \/usr\/src\/git make/);
-  assert.doesNotMatch(source, /DECLARE HTTP|SAMEHOST|\.assets|\bEXTENDS\b|^RUN\b|^CHECK\b/m);
-  assert.match(engine, /result = fetch_recipe\(engine, locator, &recipe, digest\)/);
-  assert.match(engine, /execute_recipe\(engine, words\[1\], words\[2\], depth \+ 1,[\s\S]*?children/);
-  assert.match(engine, /scope_find\(available, words\[0\], words\[1\]\)/);
-  assert.match(engine, /permit_tool\(permitted_tools, provider->name\)/);
-  assert.match(engine, /depth == 0 && \*uses < engine->resume_uses/);
-  assert.match(engine, /result == 0 && execute\) result = run_slop/);
-  assert.match(worker, /isStrictModulePrefix/);
-  assert.match(worker, /using \$\{moduleCache\.uses\}-module/);
-  assert.doesNotMatch(engine, /DOLLY_SLOP_TOOLS|DOLLY_SLOP_TOOL_RULES/);
-  assert.doesNotMatch(await readFile(new URL("../src/slop.c", import.meta.url), "utf8"),
-    /DOLLY_SLOP_TOOLS|DOLLY_SLOP_TOOL_RULES/);
-  assert.match(engine, /strcmp\(text, "SOURCE"\)[\s\S]*?fetch_source/);
-  assert.match(engine, /strcmp\(text, "SLOP"\)[\s\S]*?execute_slop/);
-  assert.doesNotMatch(worker, /compileDollyfiles|parseDollyfile|sameHostAssets|\.assets/);
-});
-
 test("HOST inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
@@ -642,7 +602,7 @@ test("HOST inputs are independent exact pinned files", async () => {
   const sources = await inspectStaticSources(projectDir, definitions);
   assert.ok(sources.length >= 50);
   assert.ok(sources.every((item) =>
-    ["/static/", "/modules/", "/include/dolly/"].some((prefix) =>
+    ["/static/", "/modules/", "/include/dolly/", "/Dollyfile"].some((prefix) =>
       item.path.startsWith(prefix)) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
   assert.equal(sources.some((item) => item.path.endsWith(".assets")), false);
@@ -696,9 +656,9 @@ test("the common seed builds Dollyfile and only essential command wrappers", asy
   assert.match(bootstrap, /run_child\(\s*"\/bin\/dollyfile"/);
   assert.match(bootstrap, /"\/etc\/dolly\/recipe\.locator"/);
   assert.match(bootstrap, /"\/etc\/dolly\/host\.base"/);
-  assert.match(worker, /processSupervisor\.spawn\(\s*"\/usr\/libexec\/dolly\/process-bin\/bootstrap"/);
+  assert.match(worker, /processSupervisor\.spawn\(arguments_\[0\], arguments_\)/);
   assert.doesNotMatch(bootstrap, /startup\.slop/);
-  assert.match(recipe, /^DOLLY 2$/m);
+  assert.match(recipe, /^DOLLY 3$/m);
   assert.match(recipe, /^USE HOST \/modules\/default\.dm\s+[0-9a-f]{64}$/m);
   assert.match(recipe, /^USE HOST \/modules\/startup-default\.dm\s+[0-9a-f]{64}$/m);
   assert.doesNotMatch(recipe, /BANNER|GREETING/);

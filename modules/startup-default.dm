@@ -1,4 +1,4 @@
-DOLLY 2
+DOLLY 3
 MODULE startup-default
 
 # The runtime executes this ordinary Slop script before the image ENTRY.

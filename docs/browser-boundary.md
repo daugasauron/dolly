@@ -75,6 +75,17 @@ Boot reads fixed application assets. `runtime-worker.mjs` accepts only the
 fixed `dolly.wasm` and `dolly.data` artifact names for the generated runtime.
 Other startup snapshots and recipe assets have their own fixed identities;
 these reads are not guest-selected URLs.
+V3 artifact loading lives in [`src/image-artifact.mjs`](../src/image-artifact.mjs).
+Local cached bytes are bound to the runtime ID, pinned root recipe, snapshot
+hash, and direct input artifact digests. Published artifacts also validate the
+release's complete recipe inventory.
+[`src/image-build.mjs`](../src/image-build.mjs) resolves only image identities
+present in the release and reads module sources from the generated static-source
+allowlist. Missing dependencies run sequentially in disposable Wasm workers;
+`browser.mjs` gives each worker the same HTTP policy and bounded broker handshake.
+Their entry programs never start. Artifacts are opaque build results in IndexedDB;
+restoration and all filesystem mutations happen in Wasm. This adds no kernel import
+or guest-selected browser filesystem operation.
 
 The development server is also an HTTP destination. `scripts/serve.mjs` and
 the browser harness serve application assets, not the host checkout. The local

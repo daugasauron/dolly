@@ -1,4 +1,4 @@
-DOLLY 2
+DOLLY 3
 MODULE make
 
 # The module owns Make's build-time command vocabulary. `cp` is required here,

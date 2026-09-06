@@ -1,4 +1,4 @@
-DOLLY 2
+DOLLY 3
 MODULE startup-gamedev
 
 FILE /home/dolly/.dollyrc

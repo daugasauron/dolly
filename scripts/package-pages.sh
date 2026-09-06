@@ -36,7 +36,10 @@ for required in \
   src/http-broker.mjs \
   src/kernel-plugin.mjs \
   src/image-entry.mjs \
-  src/module-cache.mjs \
+  src/image-artifact.mjs \
+  src/image-build.mjs \
+  src/image-inputs.mjs \
+  src/snapshot-records.mjs \
   src/process-ffi.mjs \
   src/process-abi.mjs \
   src/wasm-interface.mjs \
@@ -83,7 +86,7 @@ done
 mkdir -p "${staging}/site/src" "${staging}/site/dist" "${staging}/site/docs" \
   "${staging}/site/modules" "${staging}/site/abi" "${staging}/site/include/dolly"
 node "${project_dir}/scripts/site-release.mjs" source "${staging}/site" "${project_dir}"
-cp "${project_dir}/index.html" "${project_dir}/terminal.html" \
+cp "${project_dir}/build/routes/index.html" "${project_dir}/terminal.html" \
   "${dollyfiles[@]/#/${project_dir}/}" \
   "${project_dir}/coi-serviceworker.js" \
   "${staging}/site/"
@@ -93,7 +96,10 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/http-broker.mjs" \
   "${project_dir}/src/kernel-plugin.mjs" \
   "${project_dir}/src/image-entry.mjs" \
-  "${project_dir}/src/module-cache.mjs" \
+  "${project_dir}/src/image-artifact.mjs" \
+  "${project_dir}/src/image-build.mjs" \
+  "${project_dir}/src/image-inputs.mjs" \
+  "${project_dir}/src/snapshot-records.mjs" \
   "${project_dir}/src/process-ffi.mjs" \
   "${project_dir}/src/process-abi.mjs" \
   "${project_dir}/src/wasm-interface.mjs" \
@@ -143,7 +149,7 @@ for image_name in "${image_names[@]}"; do
     "${project_dir}/dist/dolly-${image_name}-system.snapshot" \
     "${staging}/site/dist/"
 done
-node "${project_dir}/scripts/compress-pages-snapshots.mjs" "${staging}/site/dist"
+node "${project_dir}/scripts/share-pages-snapshots.mjs" "${staging}/site/dist"
 touch "${staging}/site/.nojekyll"
 site_bytes="$(du -sb "${staging}/site" | cut -f1)"
 if (( site_bytes > 1000000000 )); then

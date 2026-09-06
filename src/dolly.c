@@ -1408,12 +1408,11 @@ int dolly_process_bootstrap_prepare(void) {
 EMSCRIPTEN_KEEPALIVE
 int dolly_process_bootstrap_resume_prepare(uintptr_t size,
                                            uint32_t resume_uses) {
-  if (resume_uses == 0 || dolly_process_bootstrap_prepare() != 0) return 1;
-  printf("dolly: restoring %u cached module%s\n", resume_uses,
-         resume_uses == 1 ? "" : "s");
+  if (resume_uses != 1 || initialize_boot_environment() != 0) return 1;
+  puts("dolly: restoring base image artifact");
   fflush(stdout);
   if (dolly_snapshot_restore_staged(size) != 0) {
-    fprintf(stderr, "dolly: invalid module cache snapshot: %s\n",
+    fprintf(stderr, "dolly: invalid base image artifact: %s\n",
             strerror(errno));
     return 1;
   }

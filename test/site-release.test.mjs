@@ -68,6 +68,8 @@ test("source provenance includes uncommitted inputs but excludes local agent sta
   assert.doesNotMatch(manifest, /private/);
   await writeFile(resolve(source, "app.c"), "changed\n");
   assert.notEqual(await sourceManifest(source), manifest);
+  await rm(resolve(source, "app.c"));
+  assert.doesNotMatch(await sourceManifest(source), /  app\.c\n/);
   assert.equal(await readFile(resolve(source, ".pi/private.txt"), "utf8"), "must not enter provenance");
 });
 

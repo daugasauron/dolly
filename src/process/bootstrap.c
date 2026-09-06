@@ -120,7 +120,7 @@ static int build_core(void) {
   return 0;
 }
 
-static int run_recipe(unsigned resume_uses) {
+static int run_recipe(void) {
   char *recipe = read_boot_text("/etc/dolly/recipe.locator");
   char *host_base = read_boot_text("/etc/dolly/host.base");
   if (recipe == NULL || host_base == NULL) {
@@ -130,35 +130,16 @@ static int run_recipe(unsigned resume_uses) {
     free(host_base);
     return 1;
   }
-  char resume_text[16];
-  snprintf(resume_text, sizeof(resume_text), "%u", resume_uses);
-  char *arguments[] = {
-      "/bin/dollyfile",
-      recipe,
-      host_base,
-      resume_uses == 0 ? NULL : "--resume",
-      resume_uses == 0 ? NULL : resume_text,
-      NULL,
-  };
-  const int status = run_child(
-      "/bin/dollyfile", resume_uses == 0 ? 3 : 5, arguments);
+  char *arguments[] = {"/bin/dollyfile", recipe, host_base, NULL};
+  const int status = run_child("/bin/dollyfile", 3, arguments);
   free(recipe);
   free(host_base);
   return status;
 }
 
 int main(int argc, char **argv) {
-  unsigned resume_uses = 0;
-  if (argc == 3 && strcmp(argv[1], "--resume") == 0) {
-    char *end = NULL;
-    errno = 0;
-    const unsigned long parsed = strtoul(argv[2], &end, 10);
-    if (errno != 0 || end == argv[2] || *end != 0 || parsed == 0 ||
-        parsed > UINT_MAX) return 64;
-    resume_uses = (unsigned)parsed;
-  } else if (argc != 1) {
-    return 64;
-  }
+  (void)argv;
+  if (argc != 1) return 64;
   const int core_status = build_core();
-  return core_status == 0 ? run_recipe(resume_uses) : core_status;
+  return core_status == 0 ? run_recipe() : core_status;
 }
