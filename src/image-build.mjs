@@ -38,7 +38,7 @@ export async function prepareImageArtifacts(image, customSource, build, report) 
     for (const use of recipe.uses) {
       if (stack.includes(use.location)) throw new Error(`recipe cycle at ${use.location}`);
       const admitted = sources.get(use.location);
-      if (admitted?.sha256 !== use.sha256) throw new Error(`${use.location}: module is not in this release; regenerate routes after adding it`);
+      if (admitted?.sha256 !== use.sha256) throw new Error(`${use.location}: module pin is not in this release; update its hash, regenerate routes and republish`);
       const response = await fetch(new URL(use.location.slice(1), applicationBase), { credentials: "same-origin", redirect: "error" });
       if (!response.ok) throw new Error(`${use.location}: HTTP ${response.status}`);
       const bytes = await response.arrayBuffer();

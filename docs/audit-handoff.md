@@ -67,6 +67,13 @@ Current native-agent blockers are in
 The external audit survives at `/home/daug/dolly-audits/v3-3c8e352`; its old
 temporary worktree does not.
 
+Unreferenced regular module files now enter the pinned release-source registry
+without joining an image's build graph. Source staging remains image-selected.
+196 source tests and the full Chrome suite pass; a temporary orphan module
+compiled and ran in fresh/cached custom builds, and a stale pin failed before
+fetch (`build/orphan-modules-custom-browser-3.log`). Earlier probe failures were
+a foreground-helper assumption and a restarting fixture server, not build failures.
+
 ## Airtime local follow-up
 
 The separate `/bhop/` image adds a source-built first-person strafe-jumping

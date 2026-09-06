@@ -84,7 +84,10 @@ load payloads, whose full hashes are checked against those selected descriptors.
 Cache metadata, bytes and old-version cleanup commit in one IndexedDB transaction.
 [`src/image-build.mjs`](../src/image-build.mjs) resolves only image identities
 present in the release and reads module sources from the generated static-source
-allowlist. Missing dependencies run sequentially in disposable Wasm workers;
+allowlist. That allowlist includes the release's nonempty regular `modules/*.dm` files,
+including unused modules; it does not admit arbitrary checkout paths or stage
+their dependencies. Source hashes and byte lengths remain exact.
+Missing dependencies run sequentially in disposable Wasm workers;
 `browser.mjs` gives each worker the same HTTP policy and bounded broker handshake.
 Their entry programs never start. Artifacts are opaque build results in IndexedDB;
 restoration and all filesystem mutations happen in Wasm. This adds no kernel import

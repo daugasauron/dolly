@@ -173,6 +173,13 @@ automatically. Add `--package` to create a verified local preview release for
 `npm run serve`. Rebuild the runtime separately when changing the kernel,
 bootstrap seed, or Dollyfile executor.
 
+Nonempty regular `modules/*.dm` files are published as pinned sources even when
+no catalog image uses them. A custom Dollyfile can `USE` one after routes are
+regenerated and the release republished; it must use the file's current hash.
+This does not run the module or stage its `SOURCE HOST` inputs. Those inputs and
+referenced images must also be in the release; only the selected image graph
+chooses which dependencies to build. Draft modules are parsed when selected.
+
 Published images share compressed packs of identical filesystem records. Each
 image lists the packs it needs; the browser reconstructs and verifies the exact
 snapshot before restoring it. File identity includes path, kind, and contents,

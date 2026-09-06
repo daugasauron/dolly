@@ -74,6 +74,20 @@ export async function selectImageDefinitions(definitions, selection = process.en
 
 export async function inspectStaticSources(projectDir, definitions, staticDirectory = resolve(projectDir, "dist/static")) {
   const sources = new Map();
+  const modules = await readdir(resolve(projectDir, "modules"), { withFileTypes: true }).catch(error => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  });
+  // Publishing module text does not execute it or select its build inputs.
+  for (const entry of modules) {
+    if (!entry.isFile() || !/^[a-z][a-z0-9-]{0,63}\.dm$/.test(entry.name)) continue;
+    const path = `/modules/${entry.name}`;
+    const bytes = await readFile(resolve(projectDir, path.slice(1)));
+    if (bytes.length === 0) continue;
+    sources.set(path, Object.freeze({
+      path, sha256: createHash("sha256").update(bytes).digest("hex"), byteLength: bytes.length,
+    }));
+  }
   for (const definition of definitions) {
     const graph = await loadDollyfileGraph(projectDir, definition.filename);
     for (const module of graph.records) {

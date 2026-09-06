@@ -17,7 +17,6 @@ temporary_output="$(mktemp "$(dirname -- "${output}")/.dolly-pages.XXXXXX")"
 node "${project_dir}/scripts/generate-routes.mjs"
 
 mapfile -t image_rows < <(node "${project_dir}/scripts/list-images.mjs")
-mapfile -t module_names < <(node "${project_dir}/scripts/list-images.mjs" --modules)
 image_names=()
 dollyfiles=()
 for row in "${image_rows[@]}"; do
@@ -110,9 +109,6 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/sessions.mjs" \
   "${project_dir}/src/runtime-worker.mjs" \
   "${staging}/site/src/"
-for module_name in "${module_names[@]}"; do
-  cp "${project_dir}/modules/${module_name}.dm" "${staging}/site/modules/"
-done
 cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
 cp "${project_dir}"/include/dolly/*.h "${staging}/site/include/dolly/"
 node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${staging}/site" \
@@ -129,10 +125,14 @@ cp "${project_dir}/build/routes/404.html" "${staging}/site/404.html"
 cp -R "${project_dir}/build/routes/view" "${staging}/site/"
 source_rows="$(node "${project_dir}/scripts/list-images.mjs" --sources)"
 while IFS=$'\t' read -r source_path source_metadata; do
-  [[ "${source_path}" == /static/* ]] || continue
+  case "${source_path}" in
+    /static/*) source_file="${project_dir}/dist${source_path}" ;;
+    /modules/*) source_file="${project_dir}${source_path}" ;;
+    *) continue ;;
+  esac
   destination="${staging}/site${source_path}"
   mkdir -p "$(dirname -- "${destination}")"
-  cp -- "${project_dir}/dist${source_path}" "${destination}"
+  cp -- "${source_file}" "${destination}"
 done <<< "${source_rows}"
 cp \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \

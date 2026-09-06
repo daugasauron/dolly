@@ -1,16 +1,38 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
-import { discoverImageDefinitions, selectImageDefinitions } from "../scripts/image-definitions.mjs";
+import { discoverImageDefinitions, inspectStaticSources, selectImageDefinitions } from "../scripts/image-definitions.mjs";
 import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 
 const project = resolve(import.meta.dirname, "..");
 const digest = source => createHash("sha256").update(source).digest("hex");
+
+test("unreferenced module sources are admitted without staging their inputs or executing them", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-module-source-"));
+  try {
+    await mkdir(resolve(directory, "modules"));
+    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 3\nIMAGE default\nENTRY /bin/slop\n");
+    const source = `DOLLY 3\nMODULE addon\nREQUIRES TOOL arbitrary\nSOURCE HOST /static/not-staged /tmp/input ${"0".repeat(64)}\n`;
+    await writeFile(resolve(directory, "modules/addon.dm"), source);
+    await writeFile(resolve(directory, "modules/draft.dm"), "unfinished recipe");
+    await writeFile(resolve(directory, "modules/empty.dm"), "");
+    await writeFile(resolve(directory, "modules/notes.txt"), "not a module");
+    await symlink("../Dollyfile", resolve(directory, "modules/link.dm"));
+    await mkdir(resolve(directory, "modules/directory.dm"));
+    const definitions = await discoverImageDefinitions(directory);
+    const sources = await inspectStaticSources(directory, definitions);
+    assert.deepEqual(sources.map(source => source.path), ["/Dollyfile", "/modules/addon.dm", "/modules/draft.dm"]);
+    assert.deepEqual(sources[1], { path: "/modules/addon.dm", sha256: digest(source), byteLength: Buffer.byteLength(source) });
+    assert.deepEqual((await loadDollyfileGraph(directory)).modules, []);
+    await writeFile(resolve(directory, "modules/addon.dm"), source + "# edited\n");
+    assert.notEqual((await inspectStaticSources(directory, definitions))[1].sha256, sources[1].sha256);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
 
 test("images separate reusable runtimes from applications and configuration", async () => {
   const expected = {
