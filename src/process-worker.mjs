@@ -13,7 +13,7 @@ const DSO_RESPONSE_SIZE = 256;
 const DSO_ERROR_CAPACITY = 240;
 const DSO_LIMIT = 512 * 1024 * 1024;
 const encoder = new TextEncoder();
-const decoder = new TextDecoder("utf-8", { fatal: true });
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 const configuration = await new Promise((resolve, reject) => {
   const timeout = setTimeout(

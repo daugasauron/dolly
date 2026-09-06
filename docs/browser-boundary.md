@@ -134,6 +134,8 @@ only its declared memory, the typed syscall import, and `_start`; optional
 DSO/FFI support is not a prerequisite for running a program.
 The optional DSO profile is `abi/dolly-process-dso-0.wat`; library symbols are
 resolved only from typed process-local Wasm exports, never browser globals.
+Binary name readers preserve literal UTF-8, including leading U+FEFF; validation,
+dynamic-link metadata and symbol lookup must agree with the Wasm engine's names.
 
 The supervisor executes the image's ENTRY without selecting programs or recovery
 policy. Foreground roles live in Wasm process records. The internal

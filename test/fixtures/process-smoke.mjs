@@ -32,7 +32,7 @@ export async function runProcessSmoke(submit, origin) {
       "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
       `./fs-check write ${scratch}/data`, `./fs-check read ${scratch}/data`,
       `./env-driver ${scratch}/process-check`, "./cpp-check",
-      `DOLLY_PROCESS_HTTP_CHECK_URL=${origin}/Dollyfile ./http-check`,
+      `DOLLY_PROCESS_HTTP_CHECK_URL=${origin}/fixture/http.txt ./http-check`,
       `/bin/slop -c './fs-check write ${scratch}/data && ./fs-check read ${scratch}/data'`,
       "/bin/slop -c 'export DOLLY_PROCESS_CHECK=private-memory; case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; ./process-check fresh'",
       `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "cc --version",

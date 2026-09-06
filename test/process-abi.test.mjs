@@ -14,6 +14,25 @@ const contractPath = new URL("../dist/dolly-process-0.wasm", import.meta.url);
 const contract = parseWasmInterface(await readFile(contractPath));
 const validate = bytes => validateProcessInterface(contract, parseWasmInterface(bytes), DOLLY_PROCESS_ABI_DIGEST);
 
+test("Wasm import, export and custom-section names match the engine's literal UTF-8", () => {
+  const string = value => {
+    const bytes = [...new TextEncoder().encode(value)];
+    return [bytes.length, ...bytes];
+  };
+  const section = (id, bytes) => [id, bytes.length, ...bytes];
+  const bytes = appendCustomSection(Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0,
+    ...section(1, [1, 0x60, 0, 0]),
+    ...section(2, [1, ...string("\uFEFFenv"), ...string("\uFEFFcall"), 0, 0]),
+    ...section(7, [2, ...string("answer"), 0, 0, ...string("\uFEFFanswer"), 0, 0]),
+  ]), "\uFEFFdolly.process", Uint8Array.of(42));
+  const module = new WebAssembly.Module(bytes), parsed = parseWasmInterface(bytes);
+  assert.deepEqual(parsed.imports.map(({ module, name }) => ({ module, name })),
+    WebAssembly.Module.imports(module).map(({ module, name }) => ({ module, name })));
+  assert.deepEqual(parsed.exports.map(entry => entry.name), WebAssembly.Module.exports(module).map(entry => entry.name));
+  assert.deepEqual(parsed.customSections, ["\uFEFFdolly.process"]);
+  assert.equal(WebAssembly.Module.customSections(module, parsed.customSections[0]).length, 1);
+});
+
 test("a useful freestanding executable needs only the canonical process imports and _start", async () => {
   const bytes = await readFile(fixture("minimal"));
   assert.deepEqual(validate(bytes), { initial: 1n, maximum: 131072n });

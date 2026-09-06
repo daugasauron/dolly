@@ -1,4 +1,4 @@
-const decoder = new TextDecoder("utf-8", { fatal: true });
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const valueTypes = new Map([
   [0x7f, "i32"],
   [0x7e, "i64"],

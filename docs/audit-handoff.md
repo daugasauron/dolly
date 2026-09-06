@@ -137,6 +137,13 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+Wasm interface, dylink and symbol-name readers now preserve literal U+FEFF too.
+The old release rejects two distinct exports as duplicates; correcting only the
+parser still makes `dlsym` return the wrong function. Both regressions pass after
+fixing the readers. 198 source tests and the full Chrome suite pass
+(`build/literal-names-{dso-before-3,dso-parser-only,source,browser}.log`).
+Process smoke now uses the same permitted HTTP fixture on local and served apps.
+
 Snapshot/ENTRY readers now preserve literal U+FEFF in binary string fields;
 tooling shares the browser's record parser instead of duplicating it. The old
 release misresolves a BOM-prefixed symlink target and loses an ENTRY argument;
@@ -208,7 +215,18 @@ Runtime: `sha256:2ebb1caf5f39e39ad85f79acab788545740820e8035526d003fa463881c08d0
   verification and accurate packaged documentation/help.
   [Sessions](sessions.md), [sources](sources.md).
 
-## Final verification
+## V3 cold-bootstrap verification
+
+An isolated checkout of `90b4776` completed `npm ci` →
+`scripts/build-toolchain.sh` → `npm test` on 2026-09-07 JST. It began without
+build outputs, project caches or `node_modules`, and used an empty separate npm
+cache; the existing pinned Emscripten container remained available. All 12 images,
+196 source tests and the full Chrome suite passed. Kernel Wasm/data and all 12
+raw snapshots match published release `719f0f16` byte-for-byte. This proves that
+checkpoint's bootstrap, not later JavaScript-only fixes. Evidence and rerunnable
+launcher: `build/v3-cold.oZiZCr/{bootstrap.log,run.sh,compare.mjs}`.
+
+## Earlier baseline verification
 
 An isolated checkout began without build caches or `node_modules`, used a
 separate empty npm cache and an explicit host-tool PATH, and completed the

@@ -17,3 +17,8 @@ int dolly_process_dso_answer(int value) {
              ? library.transform(value)
              : -1;
 }
+
+__attribute__((export_name("\uFEFFdolly_process_dso_answer")))
+int dolly_process_dso_literal_answer(int value) {
+  return value + 2;
+}

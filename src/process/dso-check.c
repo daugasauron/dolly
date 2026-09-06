@@ -25,6 +25,15 @@ int main(int argc, char **argv) {
   _Static_assert(sizeof(answer) == sizeof(symbol), "function pointer representation");
   memcpy(&answer, &symbol, sizeof(answer));
   if (answer(41) != 42) return 62;
+  symbol = dolly_dlsym(handle, "\uFEFFdolly_process_dso_answer");
+  if (symbol == NULL) return 65;
+  memcpy(&answer, &symbol, sizeof(answer));
+  if (answer(41) != 43) {
+    fputs("process-dso-check: literal symbol name resolved to a different export\n", stderr);
+    return 66;
+  }
+  if (dolly_dlsym(handle, "\uFEFF\uFEFFdolly_process_dso_answer") != NULL ||
+      dolly_dlerror() == NULL) return 67;
   if (dolly_dlclose(handle) != 0) return 63;
   return write(STDOUT_FILENO, "PROCESS-DSO-OK\n", 15) == 15 ? 0 : 64;
 }
