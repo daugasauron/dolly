@@ -2,7 +2,7 @@ import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } fro
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder("utf-8", { fatal: true });
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 export const DOLLY_HTTP_MAILBOX_VERSION = 4;
 export const DOLLY_HTTP_LIMITS = Object.freeze({ method: 32, url: 8192, headers: 65536, body: 8 * 1024 * 1024 });
 
@@ -177,7 +177,7 @@ export class NetworkTransport {
         if (line === "") continue;
         const colon = line.indexOf(":");
         if (colon <= 0) throw new HttpError(errno.EINVAL, "invalid HTTP request header");
-        headers.append(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
+        headers.append(line.slice(0, colon), line.slice(colon + 1));
       }
       stripDollyBrowserOwnedHeaders(headers);
       const upperMethod = method.toUpperCase();

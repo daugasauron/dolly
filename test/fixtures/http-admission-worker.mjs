@@ -1,4 +1,4 @@
-import { createHttpAdmission, DOLLY_HTTP_LIMITS } from "../../src/http-broker.mjs";
+const { createHttpAdmission, DOLLY_HTTP_LIMITS } = await import(new URL(import.meta.url).searchParams.get("broker"));
 
 const admission = createHttpAdmission(request => self.postMessage({ type: "request", request }));
 self.postMessage({ type: "ready", control: admission.control.buffer });

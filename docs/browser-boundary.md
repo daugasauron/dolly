@@ -36,6 +36,8 @@ Read these pieces in order:
 3. `NetworkTransport.dispatch`: checks every span before copying, with fixed
    method/URL/header/body caps of 32 B/8 KiB/64 KiB/8 MiB. Then `request`
    parses the URL and headers, calls `policy.authorize`, and calls Fetch.
+   UTF-8 fields are literal; `Headers` performs header validation and value
+   whitespace normalization without an extra Unicode trimming pass.
    This is the complete request/response transport, separate from the UI.
 4. [`src/http-policy.mjs`](../src/http-policy.mjs), `DollyHttpPolicy.authorize`:
    the trusted embedding's destination, method, credential-header, and quota

@@ -137,6 +137,13 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+HTTP metadata is no longer BOM-stripped or Unicode-trimmed; Fetch's `Headers`
+owns header validation and value normalization. The boundary probe now imports
+the selected app's assets, including its admission worker code, rather than
+silently using checkout code for external-page tests. 200 source tests and the
+full Chrome suite pass. Chrome and page-context Firefox reject the old release
+with the new regression (`build/http-metadata-{source,browser,browser-old-release,firefox-before-4}.log`).
+
 Wasm interface, dylink and symbol-name readers now preserve literal U+FEFF too.
 The old release rejects two distinct exports as duplicates; correcting only the
 parser still makes `dlsym` return the wrong function. Both regressions pass after

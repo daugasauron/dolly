@@ -24,7 +24,9 @@ is in `src/http-policy.mjs`. The import passes only span descriptors and a
 reference to the kernel's shared memory; it performs no unbounded string scan
 or body copy. Before decoding/copying, the browser validates every span against
 that memory and fixed byte caps: method 32, URL 8 KiB, headers 64 KiB, body 8 MiB.
-Metadata must be UTF-8 without NUL. Destination policy can impose smaller body
+Metadata is literal UTF-8 without NUL: leading U+FEFF is not discarded as a BOM.
+Fetch's `Headers` validates names and normalizes value whitespace; the broker
+does not apply Unicode trimming. Destination policy can impose smaller body
 limits, but cannot relax these admission caps.
 
 A private eight-byte browser acknowledgement, never mapped into Wasm, makes

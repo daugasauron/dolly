@@ -152,12 +152,12 @@ test("a queued publication cannot write after interruption", async () => {
   assert.equal(f.broker.bytes[f.broker.address + NetworkTransport.headerSize], 0);
 });
 
-function admission(f) {
+function admission(f, overrides = {}) {
   const memory = new SharedArrayBuffer(1024);
   const bytes = new Uint8Array(memory);
   const message = { memory, flags: 0, sequence: 1 };
   let offset = 8;
-  for (const [name, value] of Object.entries({ method: "GET", url: target, headers: "", body: "" })) {
+  for (const [name, value] of Object.entries({ method: "GET", url: target, headers: "", body: "", ...overrides })) {
     const data = new TextEncoder().encode(value);
     message[name] = BigInt(offset);
     message[`${name}Size`] = BigInt(data.length);
@@ -168,6 +168,33 @@ function admission(f) {
   f.store(NetworkTransport.state, 1);
   return message;
 }
+
+test("HTTP metadata is not repaired by stripping Unicode before validation", async () => {
+  for (const fields of [
+    { method: "\uFEFFGET" }, { url: `\uFEFF${target}` },
+    { headers: "\uFEFFX-Value: value" }, { headers: "X-Value: \uFEFFvalue" },
+    { headers: "X-Value\u00A0: value" }, { headers: " X-Value: value" },
+  ]) {
+    let calls = 0;
+    const f = fixture({}, async () => { calls++; return new Response("ok"); });
+    assert.equal(await f.broker.dispatch(admission(f, fields)), 0);
+    await consume(f, f.broker.pending);
+    assert.equal(calls, 0, JSON.stringify(fields));
+    assert.equal(f.load(NetworkTransport.error), fields.url ? errno.EACCES : errno.EINVAL);
+  }
+});
+
+test("HTTP header values use Fetch whitespace normalization, not Unicode trim", async () => {
+  for (const value of [" \tvalue\t ", "\u00A0value\u00A0", " \t\u00A0value\u00A0\t "]) {
+    let observed;
+    const f = fixture({}, async (_url, options) => {
+      observed = options.headers.get("x-value"); return new Response("ok");
+    });
+    assert.equal(await f.broker.dispatch(admission(f, { headers: `X-Value:${value}\r\n` })), 0);
+    await consume(f, f.broker.pending);
+    assert.equal(observed, new Headers({ "X-Value": value }).get("x-value"));
+  }
+});
 
 test("HTTP validates every span before decoding or copying any guest data", async (t) => {
   const f = fixture({}, async () => { throw Error("invalid admission reached Fetch"); });

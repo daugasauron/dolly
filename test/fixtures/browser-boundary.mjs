@@ -1,9 +1,3 @@
-import { instantiateKernelPlugin } from "../../src/kernel-plugin.mjs";
-import { NetworkTransport } from "../../src/http-broker.mjs";
-import { DollyHttpPolicy } from "../../src/http-policy.mjs";
-import { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } from "../../dist/dolly-kernel-plugin-abi.mjs";
-import { DOLLY_ERRNO as errno } from "../../dist/dolly-errno.mjs";
-
 function check(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -20,16 +14,23 @@ function uleb(value) {
   return bytes;
 }
 
-export async function runBrowserBoundaryChecks() {
-  const kernel = await WebAssembly.compileStreaming(fetch(new URL("../../dist/dolly.wasm", import.meta.url)));
-  const contract = await WebAssembly.compileStreaming(fetch(new URL("../../dist/dolly-browser-0.wasm", import.meta.url)));
+export async function runBrowserBoundaryChecks(assetRoot) {
+  const asset = path => new URL(path, assetRoot).href;
+  const { instantiateKernelPlugin } = await import(asset("src/kernel-plugin.mjs"));
+  const { NetworkTransport } = await import(asset("src/http-broker.mjs"));
+  const { DollyHttpPolicy } = await import(asset("src/http-policy.mjs"));
+  const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
+  const { DOLLY_ERRNO: errno } = await import(asset("dist/dolly-errno.mjs"));
+  const fixtureOrigin = new URL(import.meta.url).origin;
+  const kernel = await WebAssembly.compileStreaming(fetch(asset("dist/dolly.wasm")));
+  const contract = await WebAssembly.compileStreaming(fetch(asset("dist/dolly-browser-0.wasm")));
   const names = module => WebAssembly.Module.imports(module).map(x => `${x.module}.${x.name}`).sort();
   check(JSON.stringify(names(kernel)) === JSON.stringify(names(contract)), "outer import set changed");
   check(!names(kernel).some(x => /dlopen|dlsym/.test(x)), "kernel exposes a general loader");
 
   // A normal Dolly process is not a resident plugin. Adding the expected
   // compatibility tag must not grant its syscall import to a kernel plugin.
-  const processBytes = new Uint8Array(await (await fetch(new URL("../../dist/dolly-process-0.wasm", import.meta.url))).arrayBuffer());
+  const processBytes = new Uint8Array(await (await fetch(asset("dist/dolly-process-0.wasm"))).arrayBuffer());
   const name = new TextEncoder().encode("dolly.abi");
   const digest = DOLLY_KERNEL_PLUGIN_ABI_DIGEST.match(/../g).map(x => parseInt(x, 16));
   const payload = [...uleb(name.length), ...name, ...digest];
@@ -38,7 +39,7 @@ export async function runBrowserBoundaryChecks() {
   rejects(() => instantiateKernelPlugin(processBytes, {}, null), /wrong ABI stamp/);
   rejects(() => instantiateKernelPlugin(Uint8Array.of(0), {}, null), /invalid resident plugin bytes/);
 
-  const policy = new DollyHttpPolicy({ rules: [{ origin: location.origin,
+  const policy = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
     path: "/fixture/http.txt", methods: ["GET"], timeoutMilliseconds: 1000 }] });
   let calls = 0, signal, received = false;
   const broker = new NetworkTransport(new SharedArrayBuffer(65536 + 128), 64, 65536, policy, {
@@ -54,7 +55,7 @@ export async function runBrowserBoundaryChecks() {
   const begin = (sequence, path) => {
     Atomics.store(broker.words, broker.word + NetworkTransport.sequence, sequence);
     Atomics.store(broker.words, broker.word, 1);
-    return broker.request({ method: "GET", url: new URL(path, location.origin).href,
+    return broker.request({ method: "GET", url: new URL(path, fixtureOrigin).href,
       headers: "", body: null, flags: 0, sequence });
   };
   await begin(1, "/not-allowed");
@@ -87,15 +88,49 @@ export async function runBrowserBoundaryChecks() {
   await cancelled;
   check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.ECANCELED,
     "interruption lost its cancellation errno");
-  await checkAdmissionQueue(broker);
-  return { imports: names(kernel).length, pluginRejections: 3, policyDeniedBeforeFetch: true,
-    nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true };
+  await checkAdmissionQueue(broker, errno, asset("src/http-broker.mjs"));
+  const observations = [];
+  broker.policy = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
+    path: "/fixture/http.txt", methods: ["GET"] }] });
+  broker.fetchRequest = async (url, options) => {
+    observations.push(options.headers.get("x-value"));
+    throw new Error("metadata probe stops before real Fetch");
+  };
+  for (const [fields, valid] of [
+    [{ method: "\uFEFFGET" }, false], [{ url: `\uFEFF${fixtureOrigin}/fixture/http.txt` }, false],
+    [{ headers: "\uFEFFX-Value: value" }, false], [{ headers: "X-Value: \uFEFFvalue" }, false],
+    [{ headers: " X-Value: value" }, false], [{ headers: "X-Value\u00A0: value" }, false],
+    [{ headers: "X-Value: \t\u00A0value\u00A0\t " }, true],
+  ]) {
+    const memory = new SharedArrayBuffer(1024), bytes = new Uint8Array(memory);
+    const request = { memory, flags: 0, sequence: 6 };
+    let offset = 8;
+    for (const [name, value] of Object.entries({ method: "GET",
+      url: `${fixtureOrigin}/fixture/http.txt`, headers: "", body: "", ...fields })) {
+      const data = new TextEncoder().encode(value);
+      request[name] = BigInt(offset); request[`${name}Size`] = BigInt(data.length);
+      bytes.set(data, offset); offset += data.length;
+    }
+    Atomics.store(broker.words, broker.word + NetworkTransport.sequence, 6);
+    Atomics.store(broker.words, broker.word, 1);
+    check(await broker.dispatch(request) === 0, "literal metadata admission failed");
+    await broker.pending;
+    check(observations.length === (valid ? 1 : 0), `metadata was rewritten before Fetch: ${JSON.stringify(fields)}`);
+    check(Atomics.load(broker.words, broker.word + NetworkTransport.error) ===
+      (valid ? errno.EIO : fields.url ? errno.EACCES : errno.EINVAL), "literal metadata lost its errno");
+  }
+  check(observations[0] === "\u00A0value\u00A0", "Unicode header whitespace was stripped");
+  return { assetRoot, imports: names(kernel).length, pluginRejections: 3, policyDeniedBeforeFetch: true,
+    nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true, literalMetadata: true };
 }
 
-async function checkAdmissionQueue(broker) {
-  const worker = new Worker(new URL("./http-admission-worker.mjs", import.meta.url), { type: "module" });
-  let control, requests = 0, results = 0, pending = 0, timeout;
+async function checkAdmissionQueue(broker, errno, brokerUrl) {
+  const fixture = new URL("./http-admission-worker.mjs", import.meta.url);
+  fixture.searchParams.set("broker", brokerUrl);
+  const source = URL.createObjectURL(new Blob([`import ${JSON.stringify(fixture.href)};`], { type: "text/javascript" }));
+  let worker, control, requests = 0, results = 0, pending = 0, timeout;
   try {
+    worker = new Worker(source, { type: "module" });
     await new Promise((resolve, reject) => {
       timeout = setTimeout(() => reject(Error("HTTP admission probe stalled")), 10_000);
       worker.onerror = reject;
@@ -118,5 +153,5 @@ async function checkAdmissionQueue(broker) {
         } catch (error) { reject(error); }
       };
     });
-  } finally { clearTimeout(timeout); worker.terminate(); }
+  } finally { clearTimeout(timeout); worker?.terminate(); URL.revokeObjectURL(source); }
 }
