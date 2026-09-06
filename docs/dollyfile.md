@@ -146,8 +146,8 @@ referenced image artifacts. Unpinned network access inside arbitrary commands
 is not made reproducible by the cache; change a recipe pin or rebuild the
 relevant artifact when refreshing such inputs.
 
-The five frontend images remain `default`, `pi`, `python`, `python-pi`, and
-`gamedev`. Five reusable images separate the expensive build boundaries:
+Frontend images include `default`, `pi`, `python`, `python-pi`, `gamedev`,
+`bhop` and `gamedev-phone`. Reusable images separate expensive build boundaries:
 
 | Image | Completed input | Adds |
 | --- | --- | --- |

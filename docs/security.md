@@ -176,14 +176,14 @@ needed by Pi, Zig, Git, and the display, but excludes mutable `/workspace`,
 extensions. After restore, all mutable filesystem state still lives only in
 Wasm memory and dies with the worker.
 
-Rebuild mode may persist module output layers in a separate same-origin
-IndexedDB database. The trusted worker derives the allowed keys from the
-packaged recipe graph, hashes every loaded layer, and exposes only opaque bytes
-for those exact keys to the Dollyfile builder. A compromised userspace cannot
-enumerate the database, inspect cookies or local storage, run JavaScript, or
-select an arbitrary cache key. It can corrupt a layer it is currently
-producing, which can at most poison that same build identity and is within the
-assumed userspace compromise. Runtime build IDs invalidate old layers.
+Rebuild mode may persist completed image artifacts in separate same-origin
+IndexedDB storage. Trusted code derives their identities from the runtime,
+recipe and actual direct-input digests, verifies loaded bytes, and passes only
+the selected inputs to the builder. Descriptors and payloads publish atomically;
+individual modules are not cached. Compromised userspace can corrupt an image
+it is producing, but cannot select arbitrary cache keys or obtain a storage API.
+This does not make a saved or cached compromised userspace trustworthy.
+See [build reuse](dollyfile.md#build-reuse) for cache invalidation rules.
 
 ## Ephemeral and saved compromise
 

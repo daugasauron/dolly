@@ -130,9 +130,9 @@ records; copied descriptors may reference the same in-Wasm open file or pipe.
 Each source-visible Dollyfile selects pinned `.dm` modules. `/rebuild/` runs a
 C Dollyfile engine inside a private process. It handles rows strictly in order:
 fetch one authorized source, verify SHA-256, write it into WasmFS, execute its
-Slop command, check outputs, clean temporary state, then continue. Completed
-module output layers may be cached under exact content-derived keys; partial
-modules are never published.
+Slop command, check outputs, clean temporary state, then continue. V3 caches
+completed images, never individual modules. `FROM` and `COPY` reuse explicit
+image artifacts; cache identity includes the actual direct input digests.
 
 The seed has two executables: the bootstrap runner and compiler. During rebuild,
 the runner compiles Slop, `/bin/dollyfile`, and the tiny compiler frontends from
