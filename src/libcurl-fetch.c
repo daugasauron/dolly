@@ -333,6 +333,10 @@ static CURLcode collect_upload(DollyEasy *easy, unsigned char **body,
 static CURLcode map_http_error(int error) {
   if (error == -ENOMEM || error == -EOVERFLOW) return CURLE_OUT_OF_MEMORY;
   if (error == -EPROTONOSUPPORT) return CURLE_UNSUPPORTED_PROTOCOL;
+  if (error == -EACCES) return CURLE_REMOTE_ACCESS_DENIED;
+  if (error == -EDQUOT) return CURLE_TOO_LARGE;
+  if (error == -E2BIG) return CURLE_FILESIZE_EXCEEDED;
+  if (error == -ETIMEDOUT) return CURLE_OPERATION_TIMEDOUT;
   if (error == -ECANCELED) return CURLE_WRITE_ERROR;
   if (error == -EINVAL) return CURLE_BAD_FUNCTION_ARGUMENT;
   return CURLE_COULDNT_CONNECT;
@@ -674,7 +678,8 @@ CURLcode curl_easy_perform(CURL *handle) {
   }
   dolly_http_response_dispose(&response);
   if (result != CURLE_OK && easy->error_buffer != NULL) {
-    snprintf(easy->error_buffer, CURL_ERROR_SIZE, "%s", curl_easy_strerror(result));
+    snprintf(easy->error_buffer, CURL_ERROR_SIZE, "%s",
+        status < 0 && status != -ECANCELED ? dolly_http_error_message(-status) : curl_easy_strerror(result));
   }
   return result;
 }
@@ -866,6 +871,10 @@ const char *curl_easy_strerror(CURLcode error) {
     case CURLE_URL_MALFORMAT: return "Malformed URL";
     case CURLE_NOT_BUILT_IN: return "Feature not provided by browser Fetch";
     case CURLE_COULDNT_CONNECT: return "Browser HTTP broker could not connect";
+    case CURLE_REMOTE_ACCESS_DENIED: return "Browser HTTP policy denied the request";
+    case CURLE_TOO_LARGE: return "Browser HTTP request quota exceeded";
+    case CURLE_FILESIZE_EXCEEDED: return "Browser HTTP byte limit exceeded";
+    case CURLE_OPERATION_TIMEDOUT: return "Browser HTTP deadline exceeded";
     case CURLE_HTTP_RETURNED_ERROR: return "HTTP response was an error";
     case CURLE_WRITE_ERROR: return "Response callback rejected data";
     case CURLE_READ_ERROR: return "Request callback failed";

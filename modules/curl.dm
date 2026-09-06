@@ -10,7 +10,7 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
 SOURCE HOST /static/default/curl-headers.tar /tmp/curl-headers.tar          346a0298fcbdafbad7d0c0259a2d7b8539ca46c39222797c01dcac213564bf30
-SOURCE HOST /static/default/libcurl-fetch.c  /usr/src/dolly/libcurl-fetch.c e88e05939bd4530a2fd91c5b7283376cdbab78679b2ec3056fd5a6fdd2bc10ca
+SOURCE HOST /static/default/libcurl-fetch.c  /usr/src/dolly/libcurl-fetch.c 885f9aaec4fcc5c076efa14b369062e1a1695efaabdf2cb84a0cec9c1bff5b86
 SOURCE HOST /static/default/commands/curl.c  /usr/src/dolly/commands/curl.c 081df82e76c329b0ef35b7b36cbc03a60511354e2e1849b50d0034813055ae44
 SLOP tar \
   -xf /tmp/curl-headers.tar \

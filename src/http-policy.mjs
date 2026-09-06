@@ -1,3 +1,9 @@
+import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
+
+export class HttpError extends Error {
+  constructor(errno, message) { super(message); this.errno = errno; }
+}
+
 const credentialHeaderNames = new Set([
   "authorization",
   "cookie",
@@ -161,7 +167,7 @@ export class DollyHttpPolicy {
       // requests; otherwise a large source graph can exhaust networking before
       // the built userspace ever starts.
       if (++this.requests > this.maxRequests) {
-        throw new Error("Dolly HTTP request quota exceeded");
+        throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly HTTP request quota exceeded");
       }
       if (this.hardened) {
         rule = this.rules.find((candidate) =>
@@ -170,10 +176,10 @@ export class DollyHttpPolicy {
             ? target.pathname.startsWith(candidate.pathPrefix)
             : target.pathname === candidate.path) &&
           candidate.methods.has(upperMethod));
-        if (!rule) throw new Error("Dolly HTTP policy denied the request");
+        if (!rule) throw new HttpError(DOLLY_ERRNO.EACCES, "Dolly HTTP policy denied the request");
       } else {
         if (target.protocol !== "http:" && target.protocol !== "https:") {
-          throw new Error("Dolly HTTP policy denied the request");
+          throw new HttpError(DOLLY_ERRNO.EPROTONOSUPPORT, "Dolly HTTP requires HTTP(S)");
         }
         rule = {
           credentialHeaders: null,
@@ -184,7 +190,7 @@ export class DollyHttpPolicy {
       }
     }
     if (requestBytes > rule.maxRequestBytes) {
-      throw new Error("Dolly HTTP request exceeds its size limit");
+      throw new HttpError(DOLLY_ERRNO.E2BIG, "Dolly HTTP request exceeds its size limit");
     }
 
     // Credentials are ordinary sandbox state. Development mode preserves

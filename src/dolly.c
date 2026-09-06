@@ -178,22 +178,18 @@ EM_JS(void, dolly_bootstrap_write_bytes,
   Module["bootstrapWriteBytes"]?.(HEAPU8.slice(start, start + Number(length)));
 });
 
-EM_JS(void, dolly_http_dispatch,
-      (const char *method, const char *url, const char *headers,
+EM_JS(int, dolly_http_dispatch,
+      (const char *method, uintptr_t method_size,
+       const char *url, uintptr_t url_size,
+       const char *headers, uintptr_t headers_size,
        const void *body, uintptr_t body_size, uint32_t flags,
        uint32_t sequence), {
-  if (!method) {
-    Module["httpCancel"]?.(sequence);
-    return;
-  }
-  const start = Number(body);
-  Module["httpDispatch"]?.({
-    method: UTF8ToString(Number(method)),
-    url: UTF8ToString(Number(url)),
-    headers: headers ? UTF8ToString(Number(headers)) : "",
-    body: body_size ? HEAPU8.slice(start, start + Number(body_size)) : null,
-    flags,
-    sequence,
+  return Module["httpDispatch"]({
+    memory: HEAPU8.buffer,
+    method, methodSize: method_size,
+    url, urlSize: url_size,
+    headers, headersSize: headers_size,
+    body, bodySize: body_size, flags, sequence,
   });
 });
 
@@ -337,8 +333,14 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
   atomic_store_explicit(&http_mailbox.error, 0, memory_order_relaxed);
   atomic_store_explicit(&http_mailbox.kind, 0, memory_order_relaxed);
   atomic_store_explicit(&http_mailbox.state, 1, memory_order_release);
-  dolly_http_dispatch(method, url, headers == NULL ? "" : headers,
-                      body, body_size, flags, sequence);
+  const int admitted = dolly_http_dispatch(
+      method, strlen(method), url, strlen(url),
+      headers, headers == NULL ? 0 : strlen(headers),
+      body, body_size, flags, sequence);
+  if (admitted != 0) {
+    atomic_store_explicit(&http_mailbox.state, 0, memory_order_release);
+    return admitted;
+  }
   *sequence_out = sequence;
   return 0;
 }
@@ -350,7 +352,10 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
       sequence) return -ESTALE;
   const uint32_t state = atomic_load_explicit(&http_mailbox.state, memory_order_acquire);
   if (state == 3) {
-    *chunk = (dolly_http_chunk){.error = 1, .eof = 1};
+    *chunk = (dolly_http_chunk){
+        .status = atomic_load_explicit(&http_mailbox.status, memory_order_relaxed),
+        .error = atomic_load_explicit(&http_mailbox.error, memory_order_relaxed),
+        .kind = 3, .eof = 1};
     atomic_store_explicit(&http_mailbox.state, 0, memory_order_release);
     return 1;
   }
@@ -415,8 +420,7 @@ int dolly_http_perform(const dolly_http_request *request,
     if (polled < 0 && result == 0) result = polled;
     response->status = chunk.status;
     if (chunk.error != 0 && result == 0) {
-      result = chunk.error == 2 ? -EACCES :
-               chunk.error == 3 ? -EPROTONOSUPPORT : -EIO;
+      result = -(int)chunk.error;
     }
     if ((request->flags & DOLLY_HTTP_FAIL_STATUS) != 0 &&
         chunk.status >= 400 && result == 0) result = (int)chunk.status;
@@ -465,8 +469,7 @@ int dolly_http_cancel(unsigned int active_sequence) {
   atomic_store_explicit(&http_mailbox.state, 0, memory_order_release);
   emscripten_atomic_notify((void *)&http_mailbox.state,
                            EMSCRIPTEN_NOTIFY_ALL_WAITERS);
-  dolly_http_dispatch(NULL, NULL, NULL, NULL, 0, 0, sequence);
-  return 0;
+  return dolly_http_dispatch(NULL, 0, NULL, 0, NULL, 0, NULL, 0, 0, sequence);
 }
 
 static int dolly_terminal_fill_raw_timeout(double milliseconds) {

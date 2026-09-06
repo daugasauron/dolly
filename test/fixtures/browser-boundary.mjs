@@ -2,6 +2,7 @@ import { instantiateKernelPlugin } from "../../src/kernel-plugin.mjs";
 import { NetworkTransport } from "../../src/http-broker.mjs";
 import { DollyHttpPolicy } from "../../src/http-policy.mjs";
 import { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } from "../../dist/dolly-kernel-plugin-abi.mjs";
+import { DOLLY_ERRNO as errno } from "../../dist/dolly-errno.mjs";
 
 function check(condition, message) {
   if (!condition) throw new Error(message);
@@ -58,6 +59,8 @@ export async function runBrowserBoundaryChecks() {
   };
   await begin(1, "/not-allowed");
   check(calls === 0, "denied request reached fetch");
+  check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.EACCES,
+    "policy denial lost its errno");
   const waiting = begin(2, "/fixture/http.txt");
   let timer;
   try {
@@ -69,6 +72,51 @@ export async function runBrowserBoundaryChecks() {
   check(calls === 1 && signal.aborted, "HTTP timeout did not release its request");
   check(!broker.active, "HTTP slot remains active");
   check(Atomics.load(broker.words, broker.word) === 3, "missing terminal failure state");
+  check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.ETIMEDOUT,
+    "deadline lost its errno");
+  broker.policy.maxRequests = 2;
+  await begin(3, "/fixture/http.txt");
+  check(calls === 1 && Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.EDQUOT,
+    "quota exhaustion was not distinguished before Fetch");
+  broker.policy = new DollyHttpPolicy(undefined);
+  await begin(4, "http://127.0.0.1:1/"); // Browsers reject this unsafe port opaquely.
+  check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.EIO,
+    "native Fetch failure lost its transport errno");
+  const cancelled = begin(5, "/fixture/http.txt");
+  broker.interrupt();
+  await cancelled;
+  check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.ECANCELED,
+    "interruption lost its cancellation errno");
+  await checkAdmissionQueue(broker);
   return { imports: names(kernel).length, pluginRejections: 3, policyDeniedBeforeFetch: true,
-    nonConsumingDeadline: true };
+    nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true };
+}
+
+async function checkAdmissionQueue(broker) {
+  const worker = new Worker(new URL("./http-admission-worker.mjs", import.meta.url), { type: "module" });
+  let control, requests = 0, results = 0, pending = 0, timeout;
+  try {
+    await new Promise((resolve, reject) => {
+      timeout = setTimeout(() => reject(Error("HTTP admission probe stalled")), 10_000);
+      worker.onerror = reject;
+      worker.onmessage = async ({ data }) => {
+        try {
+          if (data.type === "ready") control = new Int32Array(data.control);
+          if (data.type === "request") {
+            requests++; pending++;
+            check(pending === 1, "guest flooded pending admission messages");
+            if (requests === 1) await new Promise(done => setTimeout(done, 100));
+            const result = await broker.dispatch(data.request);
+            check(result === -errno.E2BIG, "oversized guest request was not rejected");
+            pending--;
+            Atomics.store(control, 1, result);
+            Atomics.store(control, 0, 0);
+            Atomics.notify(control, 0);
+          }
+          if (data.type === "result") { check(data.result === -errno.E2BIG, "import lost admission errno"); results++; }
+          if (data.type === "done") { check(requests === 100 && results === 100, "missing admission results"); resolve(); }
+        } catch (error) { reject(error); }
+      };
+    });
+  } finally { clearTimeout(timeout); worker.terminate(); }
 }

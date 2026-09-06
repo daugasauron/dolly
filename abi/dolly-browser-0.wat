@@ -5,10 +5,10 @@
   (import "env" "memory" (memory i64 1024 131072 shared))
 
   ;; The only Wasm-selected network edge. Null method means cancellation.
-  ;; Implementation: src/dolly.c marshals bytes; src/http-broker.mjs applies
+  ;; Implementation: src/dolly.c supplies spans; src/http-broker.mjs applies
   ;; src/http-policy.mjs BEFORE making the request. No other import loads URLs.
   (import "env" "dolly_http_dispatch"
-    (func (param i64 i64 i64 i64 i64 i32 i32)))
+    (func (param i64 i64 i64 i64 i64 i64 i64 i64 i32 i32) (result i32)))
 
   ;; Visible local-user output, not network access or host filesystem handles.
   (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64)))

@@ -46,7 +46,7 @@ let presenter;
 let resizeObserver;
 let runtimeReady = false;
 let builtSystemSnapshot = null;
-let networkRequestChain = Promise.resolve();
+let httpAdmission;
 const maximumDownloadBytes = 64 * 1024 * 1024;
 let downloadCount = 0;
 let activeImage = null;
@@ -1296,6 +1296,9 @@ async function boot() {
         if (networkTransport !== undefined || message.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION) {
           throw new Error("Dolly supplied an invalid HTTP broker handshake");
         }
+        if (!(message.httpAdmission instanceof SharedArrayBuffer) || message.httpAdmission.byteLength !== 8)
+          throw new Error("invalid HTTP admission handshake");
+        httpAdmission = new Int32Array(message.httpAdmission);
         networkTransport = new NetworkTransport(
           message.memory,
           message.httpAddress,
@@ -1311,19 +1314,11 @@ async function boot() {
     } else if (message.type === "exited") {
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "http-request") {
-      networkRequestChain = networkRequestChain.then(() => {
-        if (!networkTransport) throw new Error("HTTP request arrived before broker setup");
-        return networkTransport.request(message);
-      }).catch((error) => {
-        document.documentElement.dataset.networkError = error.message;
+      void networkTransport.dispatch(message).then((result) => {
+        Atomics.store(httpAdmission, 1, result);
+        Atomics.store(httpAdmission, 0, 0);
+        Atomics.notify(httpAdmission, 0);
       });
-    } else if (message.type === "http-cancel") {
-      try {
-        if (!networkTransport) throw new Error("HTTP cancellation arrived before broker setup");
-        networkTransport.cancelBefore(message.sequence);
-      } catch (error) {
-        document.documentElement.dataset.networkError = error.message;
-      }
     } else if (message.type === "download") {
       try {
         startBrowserDownload(message);

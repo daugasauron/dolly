@@ -1,7 +1,23 @@
-import { isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "./http-policy.mjs";
+import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "./http-policy.mjs";
+import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const encoder = new TextEncoder();
-export const DOLLY_HTTP_MAILBOX_VERSION = 3;
+const decoder = new TextDecoder("utf-8", { fatal: true });
+export const DOLLY_HTTP_MAILBOX_VERSION = 4;
+export const DOLLY_HTTP_LIMITS = Object.freeze({ method: 32, url: 8192, headers: 65536, body: 8 * 1024 * 1024 });
+
+// This acknowledgement is browser bookkeeping, NOT guest memory. Blocking
+// only admission bounds the message queue while Fetch/body streaming remains
+// asynchronous on the page. The import returns after the request is copied.
+export function createHttpAdmission(postRequest) {
+  const control = new Int32Array(new SharedArrayBuffer(8));
+  return { control, dispatch(request) {
+    Atomics.store(control, 0, 1);
+    postRequest(request);
+    while (Atomics.load(control, 0) !== 0) Atomics.wait(control, 0, 1);
+    return Atomics.load(control, 1);
+  } };
+}
 
 export class NetworkTransport {
   static headerSize = 64;
@@ -38,6 +54,59 @@ export class NetworkTransport {
     this.controller = null;
     this.requestCount = 0;
     this.completedRequestCount = 0;
+    this.pending = null;
+  }
+
+  // Called once per synchronous import admission. No guest bytes are decoded
+  // or copied until ALL spans pass the fixed bounds. The shared memory is the
+  // actual kernel memory supplied by the trusted import, not a guest JS object.
+  async dispatch(message) {
+    try {
+      const sequence = message.sequence >>> 0;
+      if (sequence === 0) throw new HttpError(errno.EINVAL, "invalid HTTP sequence");
+      if (message.method === 0n) {
+        if (message.methodSize !== 0n || message.url !== 0n || message.urlSize !== 0n ||
+            message.headers !== 0n || message.headersSize !== 0n ||
+            message.body !== 0n || message.bodySize !== 0n || message.flags !== 0) {
+          throw new HttpError(errno.EINVAL, "invalid HTTP cancellation");
+        }
+        this.cancelBefore(sequence);
+        await this.pending;
+        return 0;
+      }
+      if (this.pending || this.activeToken) return -errno.EBUSY;
+      if (!(message.memory instanceof SharedArrayBuffer) || (message.flags & ~3) !== 0) {
+        throw new HttpError(errno.EINVAL, "invalid HTTP admission");
+      }
+      const spans = {};
+      for (const [name, maximum] of Object.entries(DOLLY_HTTP_LIMITS)) {
+        const start = Number(message[name]), size = Number(message[`${name}Size`]);
+        if (!Number.isSafeInteger(size) || size < 0 || size > maximum) {
+          throw new HttpError(errno.E2BIG, "HTTP argument exceeds its byte limit");
+        }
+        if (!Number.isSafeInteger(start) || start < 0 || (size !== 0 && start === 0) ||
+            start > message.memory.byteLength - size) {
+          throw new HttpError(errno.EFAULT, "HTTP argument is outside Wasm memory");
+        }
+        spans[name] = [start, start + size];
+      }
+      if (message.methodSize === 0n || message.urlSize === 0n) {
+        throw new HttpError(errno.EINVAL, "HTTP method and URL must not be empty");
+      }
+      const bytes = new Uint8Array(message.memory);
+      const text = name => {
+        const value = decoder.decode(bytes.slice(...spans[name]));
+        if (value.includes("\0")) throw new HttpError(errno.EINVAL, "NUL in HTTP metadata");
+        return value;
+      };
+      const request = { method: text("method"), url: text("url"), headers: text("headers"),
+        body: message.bodySize === 0n ? null : bytes.slice(...spans.body),
+        flags: message.flags, sequence };
+      this.pending = this.request(request).finally(() => { this.pending = null; });
+      return 0;
+    } catch (error) {
+      return -(error instanceof HttpError ? error.errno : errno.EINVAL);
+    }
   }
 
   async waitForWritable(token, sequence) {
@@ -50,7 +119,7 @@ export class NetworkTransport {
       const current = Atomics.load(this.words, index);
       const remaining = this.deadline - performance.now();
       if (this.controller?.signal.aborted || remaining <= 0) {
-        throw new DOMException("HTTP deadline exceeded", "TimeoutError");
+        throw new HttpError(errno.ETIMEDOUT, "HTTP deadline exceeded");
       }
       if (current === 1) return;
       const waiting = Atomics.waitAsync(this.words, index, current, remaining);
@@ -65,7 +134,7 @@ export class NetworkTransport {
         (Atomics.load(this.words, this.word + NetworkTransport.sequence) >>> 0) !== sequence) {
       throw new DOMException("HTTP request interrupted", "AbortError");
     }
-    if (bytes.length > this.capacity) throw new Error("HTTP chunk exceeds mailbox capacity");
+    if (bytes.length > this.capacity) throw new HttpError(errno.E2BIG, "HTTP chunk exceeds mailbox capacity");
     this.bytes.set(bytes, this.address + NetworkTransport.headerSize);
     Atomics.store(this.words, this.word + NetworkTransport.status, status);
     Atomics.store(this.words, this.word + NetworkTransport.length, bytes.length);
@@ -86,29 +155,28 @@ export class NetworkTransport {
     let status = 0;
     let timeout;
     let controller;
+    let failure = errno.EINVAL;
     try {
       const observedSequence = Atomics.load(
         this.words,
         this.word + NetworkTransport.sequence,
       ) >>> 0;
       if (observedSequence !== sequence) {
-        throw new Error(
-          `HTTP mailbox sequence mismatch (runtime ${sequence}, browser ${observedSequence})`,
-        );
+        throw new HttpError(errno.EINVAL, "HTTP mailbox sequence mismatch");
       }
       const target = new URL(url, this.baseURL);
-      if ((target.protocol !== "http:" && target.protocol !== "https:") ||
-          target.username !== "" || target.password !== "") {
-        throw new TypeError("HTTP requires a credential-free HTTP(S) URL");
-      }
+      if (target.protocol !== "http:" && target.protocol !== "https:")
+        throw new HttpError(errno.EPROTONOSUPPORT, "HTTP requires HTTP(S)");
+      if (target.username !== "" || target.password !== "")
+        throw new HttpError(errno.EINVAL, "HTTP requires a credential-free URL");
       if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(method)) {
-        throw new Error("invalid HTTP method");
+        throw new HttpError(errno.EINVAL, "invalid HTTP method");
       }
       const headers = new Headers();
       for (const line of headerBlock.split(/\r?\n/)) {
         if (line === "") continue;
         const colon = line.indexOf(":");
-        if (colon <= 0) throw new Error("invalid HTTP request header");
+        if (colon <= 0) throw new HttpError(errno.EINVAL, "invalid HTTP request header");
         headers.append(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
       }
       stripDollyBrowserOwnedHeaders(headers);
@@ -119,6 +187,7 @@ export class NetworkTransport {
       this.controller = controller;
       this.deadline = performance.now() + rule.timeoutMilliseconds;
       timeout = setTimeout(() => controller.abort(), rule.timeoutMilliseconds);
+      failure = errno.EIO;
       const response = await this.fetchRequest(target, {
         method: upperMethod,
         headers,
@@ -152,7 +221,7 @@ export class NetworkTransport {
       const publishBody = async (bytes) => {
         responseBytes += bytes.length;
         if (responseBytes > rule.maxResponseBytes) {
-          throw new Error("Dolly HTTP response exceeds its size limit");
+          throw new HttpError(errno.E2BIG, "Dolly HTTP response exceeds its size limit");
         }
         for (let offset = 0; offset < bytes.length; offset += this.capacity) {
           await this.publish(
@@ -183,6 +252,9 @@ export class NetworkTransport {
         // State 3 is a terminal failure, independent of guest consumption.
         // Do not overwrite a chunk the guest may currently be copying. Its
         // acknowledgement uses compare-exchange and cannot erase this state.
+        const reason = error instanceof HttpError ? error.errno :
+          controller?.signal.aborted ? errno.ETIMEDOUT : failure;
+        Atomics.store(this.words, this.word + NetworkTransport.error, reason);
         Atomics.store(this.words, this.word + NetworkTransport.state, 3);
         Atomics.notify(this.words, this.word + NetworkTransport.state);
       }
@@ -207,7 +279,8 @@ export class NetworkTransport {
     this.active = false;
     this.controller?.abort();
     this.controller = null;
-    Atomics.store(this.words, this.word + NetworkTransport.state, 0);
+    Atomics.store(this.words, this.word + NetworkTransport.error, errno.ECANCELED);
+    Atomics.store(this.words, this.word + NetworkTransport.state, 3);
     Atomics.notify(this.words, this.word + NetworkTransport.state);
   }
 

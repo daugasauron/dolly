@@ -628,7 +628,8 @@ static JSValue fs_error(JSContext *context, const char *operation, int number) {
     FS_ERRNO(ENOSYS); FS_ERRNO(ENOTSUP); FS_ERRNO(ELOOP); FS_ERRNO(EMFILE);
     FS_ERRNO(EINTR); FS_ERRNO(EAGAIN); FS_ERRNO(ENAMETOOLONG);
     FS_ERRNO(EPIPE); FS_ERRNO(ESRCH); FS_ERRNO(ECHILD); FS_ERRNO(ESTALE);
-    FS_ERRNO(EBUSY);
+    FS_ERRNO(EBUSY); FS_ERRNO(EACCES); FS_ERRNO(EDQUOT); FS_ERRNO(E2BIG);
+    FS_ERRNO(ETIMEDOUT); FS_ERRNO(ECANCELED); FS_ERRNO(EPROTONOSUPPORT); FS_ERRNO(EFAULT);
 #undef FS_ERRNO
   }
   JSValue error = JS_NewError(context);
@@ -637,6 +638,16 @@ static JSValue fs_error(JSContext *context, const char *operation, int number) {
   JS_SetPropertyStr(context, error, "code", JS_NewString(context, code));
   JS_SetPropertyStr(context, error, "errno", JS_NewInt32(context, -number));
   JS_SetPropertyStr(context, error, "syscall", JS_NewString(context, operation));
+  return JS_Throw(context, error);
+}
+
+static JSValue http_error(JSContext *context, const char *operation,
+                          int number, uint32_t sequence) {
+  fs_error(context, operation, number);
+  JSValue error = JS_GetException(context);
+  JS_SetPropertyStr(context, error, "message",
+      JS_NewString(context, dolly_http_error_message(number)));
+  JS_SetPropertyStr(context, error, "requestId", JS_NewUint32(context, sequence));
   return JS_Throw(context, error);
 }
 
@@ -1033,7 +1044,7 @@ static JSValue js_dolly_http_start(JSContext *context,
   JS_FreeCString(context, url);
   if (headers != NULL) JS_FreeCString(context, headers);
   if (body != NULL) JS_FreeCString(context, body);
-  if (status != 0) return fs_error(context, "httpStart", -status);
+  if (status != 0) return http_error(context, "httpStart", -status, sequence);
   return JS_NewUint32(context, sequence);
 }
 
@@ -1056,8 +1067,11 @@ static JSValue js_dolly_http_poll(JSContext *context,
   }
   if (status < 0) {
     free(data);
-    return JS_ThrowInternalError(context, "HTTP request poll failed: %d",
-                                 status);
+    return http_error(context, "httpPoll", -status, sequence);
+  }
+  if (chunk.error != 0) {
+    free(data);
+    return http_error(context, "httpPoll", (int)chunk.error, sequence);
   }
 
   JSValue result = JS_NewObject(context);
@@ -1065,8 +1079,6 @@ static JSValue js_dolly_http_poll(JSContext *context,
                     JS_NewUint32(context, chunk.status));
   JS_SetPropertyStr(context, result, "kind",
                     JS_NewUint32(context, chunk.kind));
-  JS_SetPropertyStr(context, result, "error",
-                    JS_NewUint32(context, chunk.error));
   JS_SetPropertyStr(context, result, "eof", JS_NewBool(context, chunk.eof));
   JS_SetPropertyStr(context, result, "data",
                     JS_NewUint8ArrayCopy(context, data, chunk.length));

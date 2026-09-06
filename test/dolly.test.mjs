@@ -236,7 +236,7 @@ test("the runtime implements the canonical streaming HTTP mailbox contract", asy
 
   assert.equal(
     formatWasmType(dispatch.type),
-    "func(i64,i64,i64,i64,i64,i32,i32)->()",
+    "func(i64,i64,i64,i64,i64,i64,i64,i64,i32,i32)->(i32)",
   );
 
   for (const required of contract.imports) {

@@ -3,7 +3,7 @@ MODULE default
 
 # Direct children form this module's private sequential scope. Each child's
 # requirements resolve only against exports from earlier children in this list.
-USE HOST /modules/bootstrap.dm      9a1efec9e033b7750cf1eb2c2485da5baac82d2b0f5ace1302df93d7165be6f8
+USE HOST /modules/bootstrap.dm      42bf748a119803940257619cf04035e91137a51e361675a1ab30f6eb9675305d
 USE HOST /modules/core-tools.dm     3f0c0750cc10d6e771753460919fc4020072449ccd88e263d0bf28289fe737be
 USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
 USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
@@ -13,7 +13,7 @@ USE HOST /modules/ghostty.dm        919a6539d8c461243d427a7dcc4178c896089990188d
 USE HOST /modules/cpp.dm            c7d3ecadefed7decc7bb818d60eb0004405caa7f7ff7439e1b3407bd931711df
 USE HOST /modules/ninja.dm          77dae6ac93e748551c515115f4e500dc22de5345239d3204756b2ee66f3cdf5a
 USE HOST /modules/zlib.dm           091743c99ef011e20bfbe8ed0417f5c01eef5d04b90151f8cdaf561434b3e815
-USE HOST /modules/curl.dm           f349000e84930cee2a2be86d89f566a59ea500bd46fa287b4889ee2e98114f14
+USE HOST /modules/curl.dm           80be5d8ee154386225eeee5ba0df002f411d0437bf7f01b036f9bb1fb81c86c1
 USE HOST /modules/git.dm            18aa13e0e28b4f218b5dcf27c03ad8ff123027405740cd0a3f455f022c1701a6
 USE HOST /modules/awk.dm            7b5674be32b3968c82b9af65f31c6d90a0207dee7bc6cb4eaaba30b963c5c09f
 USE HOST /modules/sbase.dm          a58af6850932e682ceec4654b45f7160a77dff665b2a1c64d1c35b541e291686

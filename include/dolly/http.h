@@ -2,6 +2,7 @@
 #define DOLLY_HTTP_API_H
 
 #include <stddef.h>
+#include <errno.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,6 +47,23 @@ typedef struct {
   char *effective_url;
 } dolly_http_response;
 
+// Shared by C/libcurl and language adapters. Do not include request data or
+// guess whether a browser transport failure was CORS, DNS, TLS, or a redirect.
+static inline const char *dolly_http_error_message(int error) {
+  switch (error) {
+    case EACCES: return "Browser HTTP policy denied the request";
+    case EDQUOT: return "Browser HTTP request quota exceeded";
+    case E2BIG: return "Browser HTTP byte limit exceeded";
+    case ETIMEDOUT: return "Browser HTTP deadline exceeded";
+    case ECANCELED: return "Browser HTTP request cancelled";
+    case EPROTONOSUPPORT: return "Browser HTTP requires HTTP(S)";
+    case EINVAL: return "Invalid browser HTTP request";
+    case EFAULT: return "HTTP argument is outside Wasm memory";
+    case EBUSY: return "Browser HTTP request slot is busy";
+    default: return "Browser HTTP transport failed";
+  }
+}
+
 // Starts one request without blocking the calling runtime. Version 0 permits
 // one in-flight request because the browser boundary intentionally contains a
 // single fixed mailbox. The browser copies all request bytes before this call
@@ -56,7 +74,8 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
 
 // Copies and acknowledges at most one broker record. Zero means no record is
 // currently ready, one means `chunk` and `data` were populated, and a negative
-// errno value reports a contract error. Kinds 1, 2, and 3 are effective URL,
+// errno value reports a contract error. `chunk.error` is a positive target
+// errno, not an HTTP status. Kinds 1, 2, and 3 are effective URL,
 // response-header line, and body bytes. A terminal record has `eof != 0`.
 int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
                     void *data, size_t capacity);
@@ -67,8 +86,8 @@ int dolly_http_cancel(unsigned int sequence);
 
 // Performs one browser-brokered HTTP request. The browser provider receives
 // no filesystem or process capability: only the explicit request data above.
-// Returns zero or a negative errno value. HTTP status is not itself an error
-// unless DOLLY_HTTP_FAIL_STATUS is selected.
+// Returns zero or a negative errno value. With DOLLY_HTTP_FAIL_STATUS,
+// an HTTP status >= 400 is returned as a positive value instead.
 int dolly_http_perform(const dolly_http_request *request,
                        dolly_http_response *response);
 void dolly_http_response_dispose(dolly_http_response *response);

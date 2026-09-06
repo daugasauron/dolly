@@ -7,12 +7,12 @@ which eventually reaches this one kernel-module import:
 
 ```wat
 (import "env" "dolly_http_dispatch"
-  (func (param i64 i64 i64 i64 i64 i32 i32)))
+  (func (param i64 i64 i64 i64 i64 i64 i64 i64 i32 i32) (result i32)))
 ```
 
-The arguments identify method, URL, serialized headers, request bytes and
-length, flags, and request sequence. They are data supplied to one browser
-broker, not seven capabilities. The response returns through the version-3
+The arguments are pointer/byte-length pairs for method, URL, serialized headers
+and body, followed by flags and request sequence. They are data supplied to one
+browser broker. Admission returns zero or a negative target errno. The response returns through the version-4
 atomic mailbox defined by `abi/dolly-http-0.wat`: effective URL, header lines,
 body chunks, HTTP status, EOF, and an error code. Wasm blocks in its worker
 while synchronous C clients wait for browser JavaScript to publish bounded
@@ -20,12 +20,33 @@ chunks. JavaScript runtimes instead poll the same mailbox cooperatively, so
 their Promise jobs and timers continue to advance between chunks.
 
 The complete browser transport is in `src/http-broker.mjs`, and authorization
-is in `src/http-policy.mjs`. The host deadline includes mailbox backpressure,
+is in `src/http-policy.mjs`. The import passes only span descriptors and a
+reference to the kernel's shared memory; it performs no unbounded string scan
+or body copy. Before decoding/copying, the browser validates every span against
+that memory and fixed byte caps: method 32, URL 8 KiB, headers 64 KiB, body 8 MiB.
+Metadata must be UTF-8 without NUL. Destination policy can impose smaller body
+limits, but cannot relax these admission caps.
+
+A private eight-byte browser acknowledgement, never mapped into Wasm, makes
+admission synchronous. The worker cannot enqueue another descriptor until the
+page has copied or rejected the current one. There is no unbounded host Promise
+queue; overlapping requests fail `EBUSY`, and cancellation waits for the old
+provider to settle before acknowledging. Fetch and response streaming remain
+asynchronous. The host deadline includes mailbox backpressure,
 not only the Fetch operation. If the guest stops consuming data, the provider
 aborts the request and publishes terminal failure (atomic state 3), without
 waiting for another acknowledgement or overwriting the current chunk. The
 guest acknowledges chunks with compare-exchange so it cannot accidentally
 erase this failure. See the [boundary review guide](browser-boundary.md).
+
+The error word is a positive target errno published before terminal state 3:
+`EACCES` policy denial, `EDQUOT` request quota, `E2BIG` byte limit, `ETIMEDOUT`
+deadline, `ECANCELED` cancellation, or `EIO` transport failure. These constants
+come from the pinned target's `<errno.h>`, not the host platform. C preserves
+the negative errno; Janis errors retain `code`, `errno`, and the admitted request's
+`requestId`. Libcurl maps to its standard error codes and supplies a specific
+`CURLOPT_ERRORBUFFER` message. No error includes request credentials or claims
+to distinguish browser-hidden CORS, redirect, DNS, or TLS failures.
 
 The page-side provider optionally accepts a `globalThis.DOLLY_HTTP_POLICY`
 object before `browser.mjs` loads. A hardened policy contains exact-origin
@@ -84,7 +105,7 @@ The browser receives none of the caller's filesystem paths, descriptors,
 allocator state, or process state. Callback execution and all writes to files
 remain inside Wasm.
 
-QuickJS exposes only `httpStart`/`httpPoll` to the Dolly JavaScript prelude.
+Janis uses QuickJS's `httpStart`/`httpPoll` bridge.
 Its `fetch()` returns a `Response` as soon as response headers arrive and
 enqueues each body record into an in-Wasm `ReadableStream`. Janis calls the HTTP
 pump alongside Promise jobs and timers, using at most a 10 ms terminal wait
@@ -170,44 +191,39 @@ Keep the architecture: one browser-authorized exchange, byte-oriented request
 and response data, and ordinary runtime adapters above it. One import describes
 authority, not a requirement for one simultaneous request. A serial transport
 is sufficient if its callers queue honestly and cancellation stays responsive.
-The trusted policy and transport total 436 lines; libcurl's larger compatibility
-surface is inside Wasm, not an additional browser authority.
+The trusted policy and transport remain together in two reviewable modules;
+libcurl's larger compatibility surface is inside Wasm, not additional browser authority.
 
 Remaining findings, in priority order:
 
-1. **Bounds must precede host allocation.** `dolly_http_dispatch` currently
-   scans NUL-terminated method/URL/headers and copies the body before browser
-   policy runs. Normal processes have a 1 MiB packet ceiling, but that is not
-   a defense against total kernel compromise. Use bounded spans at the outer
-   import, checked before decoding/copying. Bound pending host messages too.
-   This is an availability gap, not a demonstrated destination-policy escape.
-2. **Errors lose their meaning.** The broker catches policy denial, quota,
-   timeout and Fetch failure and publishes the same state 3. C turns it into
-   generic I/O failure; libcurl mostly reports "could not connect". Preserve
-   a small typed terminal reason plus request ID through every layer. Do not
-   log credentials or pretend the browser distinguishes CORS from DNS/TLS.
-3. **Byte semantics and limits disagree.** Janis decodes `Uint8Array` uploads
+1. **Byte semantics and limits disagree.** Janis decodes `Uint8Array` uploads
    into text before dispatch; arbitrary binary uploads are not preserved.
    The process packet ceiling is 1 MiB including metadata, versus the default
-   broker body limit of 8 MiB. `maxRequestBytes` counts only the body, not URL
-   or headers; a direct policy probe accepted 16 KiB of URL/header data under
-   a one-byte setting. Define separate metadata/body caps and expose truthful
-   effective upload limits. Keep binary data binary through QuickJS.
-4. **Some supported-looking behavior is not implemented.** Redirect intent is
+   broker body limit of 8 MiB. Browser metadata now has independent fixed caps,
+   while `maxRequestBytes` deliberately counts only the body. Expose truthful
+   effective process upload limits and keep binary data binary through QuickJS.
+2. **Some supported-looking behavior is not implemented.** Redirect intent is
    accepted but every redirect fails; the Fetch facade also buffers incoming
    chunks regardless of consumer demand. Keep redirect denial explicit and
    document eager bounded buffering; do not introduce sockets or silently
-   enable Fetch's redirect following. The C header's promise of exclusively
-   negative errors also disagrees with positive fail-on-status results.
-5. **The lifetime budget is easy to mistake for a broken connection.** The
-   default 256 agent requests includes failed/denied attempts; trusted exact
-   bootstrap downloads are exempt. Report exhaustion clearly, and distinguish
-   this Fetch-call budget from a bound on browser-managed preflight traffic
-   or total session CPU/memory.
+   enable Fetch's redirect following.
+3. **An unused synchronous JS adapter remains.** `Dolly.http()` has no in-tree
+   callers, buffers the entire response, and still reports a numeric generic
+   error. Remove it and its private collector when consolidating the JS byte
+   path; do not maintain a second Fetch implementation. The streaming Janis
+   path carries the typed errors described above.
+
+The default budget remains 256 attempts reaching agent-request authorization,
+including denied attempts; trusted exact bootstrap downloads are exempt.
+Exhaustion now reports `EDQUOT`. This is not a bound on browser-managed preflight
+traffic, total session CPU/memory, or native Fetch's internal allocations.
 
 Evidence: the browser regression reproduced overlapping-request failure;
 broker tests cover policy-before-Fetch, explicit credentials, redirect denial,
-byte limits, non-consuming deadlines and cancellation fencing. A disposable
+byte limits, non-consuming deadlines and cancellation fencing. Version-4 span
+admission, a stalled-admission flood, and typed failures pass in Chrome and
+Firefox 153; C/libcurl and Janis retain denial diagnostics in browser tests.
+A disposable
 Chrome sandbox on local port 9000 fetched OpenRouter's catalog through curl
 and Janis, and upstream Pi received a verified `deepseek/deepseek-v4-pro` reply.
 Firefox 153 reproduced a separate provider bug: calling unbound native Fetch

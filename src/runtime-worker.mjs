@@ -5,6 +5,7 @@ import { loadModuleLayers, saveModuleLayers } from "./module-cache.mjs";
 import { DollyProcessSupervisor } from "./process-supervisor.mjs";
 import { instantiateKernelPlugin } from "./kernel-plugin.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
+import { createHttpAdmission } from "./http-broker.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const snapshotSizeLimit = 512 * 1024 * 1024;
@@ -449,6 +450,7 @@ async function waitForBrowserAcknowledgement(type, failure) {
 
 let dolly = null;
 let processSupervisor = null;
+const httpAdmission = createHttpAdmission(request => self.postMessage({ type: "http-request", ...request }));
 try {
   const snapshotMetadata = bootMode === "snapshot"
     ? await loadPackagedSnapshotMetadata(configuredImage)
@@ -476,8 +478,7 @@ try {
       return instance.exports;
     },
     bootstrapWriteBytes: (bytes) => self.postMessage({ type: "bootstrap-bytes", bytes }),
-    httpDispatch: (request) => self.postMessage({ type: "http-request", ...request }),
-    httpCancel: (sequence) => self.postMessage({ type: "http-cancel", sequence }),
+    httpDispatch: httpAdmission.dispatch,
     downloadDispatch: ({ name, bytes }) => {
       if (typeof name !== "string" || name.length === 0 || name.length > 255 ||
           /[\/\\\u0000-\u001f\u007f]/u.test(name) ||
@@ -549,6 +550,7 @@ try {
   );
   self.postMessage({
     type: "broker-ready",
+    httpAdmission: httpAdmission.control.buffer,
     memory: memory.buffer,
     httpAddress: Number(dolly._dolly_http_mailbox_address()),
     httpCapacity: dolly._dolly_http_chunk_capacity(),

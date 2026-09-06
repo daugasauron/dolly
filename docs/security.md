@@ -47,8 +47,8 @@ There is one intentional autonomous network edge:
 
 ```wat
 (import "env" "dolly_http_dispatch"
-  (func (param i64 i64 i64 i64 i64 i32 i32)))
-;; method, URL, header block, body, body length, flags, request sequence
+  (func (param i64 i64 i64 i64 i64 i64 i64 i64 i32 i32) (result i32)))
+;; four pointer/length pairs: method, URL, headers, body; flags; sequence
 ```
 
 Commands normally reach it through `dolly_http_perform` or the Fetch-backed
@@ -57,7 +57,7 @@ status, effective URL, response headers, and bounded body chunks through the
 versioned shared-memory mailbox in `abi/dolly-http-0.wat`. The browser never
 receives the command's WasmFS output path or descriptor.
 
-The seven arguments do not represent seven capabilities. They are the schema
+The arguments do not represent separate capabilities. They are the schema
 of one broker call. Adding libcurl, curl, or Git inside Wasm does not widen this
 outer boundary: those layers only prepare data for the same import. Native
 socket, DNS, TLS, and `fork` calls are not browser imports. Raw sockets fail

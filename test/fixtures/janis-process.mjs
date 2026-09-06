@@ -119,6 +119,15 @@ if (fs.existsSync('/home/dolly/.pi/agent/extensions/dolly-tools.js')) await chec
     assert(prefix && error?.name === 'AbortError', `Pi ${userShell ? 'user shell' : 'tool'} did not stream/cancel`);
   }
 });
+await check('HTTP policy errors retain code, errno and request identity', async () => {
+  let error;
+  try { await fetch(`${origin}/not-allowed`); } catch (value) { error = value; }
+  assert(error?.code === 'EACCES' && error.errno < 0 && error.requestId > 0,
+    'HTTP policy denial lost its typed details');
+  assert(/policy denied/.test(error.message), 'HTTP policy denial became a connection error');
+  try { await fetch(`${origin}/${'x'.repeat(8192)}`); } catch (value) { error = value; }
+  assert(error?.code === 'E2BIG' && /byte limit/.test(error.message), 'HTTP admission lost its byte-limit error');
+});
 await check('overlapping fetches wait for the single HTTP mailbox', async () => {
   const responses = await Promise.all(Array.from({ length: 3 }, async () => {
     const response = await fetch(`${origin}/fixture/http.txt`);

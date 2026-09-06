@@ -172,8 +172,7 @@ int dolly_http_perform(const dolly_http_request *request,
     }
     response->status = chunk.status;
     if (chunk.error != 0 && result == 0) {
-      result = chunk.error == 2 ? -EACCES :
-               chunk.error == 3 ? -EPROTONOSUPPORT : -EIO;
+      result = -(int)chunk.error;
     }
     if ((request->flags & DOLLY_HTTP_FAIL_STATUS) != 0 &&
         chunk.status >= 400 && result == 0) result = (int)chunk.status;

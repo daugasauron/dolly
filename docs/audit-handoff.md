@@ -36,10 +36,11 @@ changing behavior. Old measurements below are baselines, not fresh benchmarks.
 ### HTTP contract follow-up
 
 The [HTTP audit checkpoint](http.md#http-audit-checkpoint-2026-09-06) records the
-remaining boundary allocation limits, erased error reasons, binary-upload and
-size-limit mismatches, and compatibility/budget semantics. Prioritize bounded
-outer argument decoding and typed terminal errors before expanding HTTP features.
-Do not replace the one broker with sockets or browser credential injection.
+remaining binary-upload/process-size mismatch, eager response buffering,
+redirect semantics, and unused synchronous `Dolly.http()` adapter. The latter
+still has generic errors; Janis uses the typed streaming path. Consolidate the
+JS byte path before expanding HTTP features. Do not replace the one broker
+with sockets or browser credential injection.
 
 ### Builds, publication, and maintenance must be truthful
 
@@ -149,7 +150,19 @@ authority to make tests pass. Preserve existing regressions.
 
 ## Evidence and restart commands
 
-HTTP checkpoint: the queue/busy/queued-abort regression, Pi fixture streaming,
+HTTP admission checkpoint: the version-4 import now uses four bounded spans
+and synchronous browser admission, with one private host acknowledgement rather
+than an unbounded message/Promise queue. Terminal records preserve target errno.
+Chrome and Firefox 153 pass the boundary/queue/typed-error probe; Firefox also
+passes live Slop/libcurl on port 9000. C/libcurl denial diagnostics, callback
+cancellation, Pi streaming, and Janis queue/abort/error-identity regressions pass.
+All five images were rebuilt for runtime
+`sha256:99fcd863519139acfc2ba24283ba9aba65db10a6b464202a48f213ffdad95045`.
+All 186 Node tests, all five prebuilt inventories and named save/load pass;
+logs are `build/http-audit-*.log`. Earlier saved sessions
+are preserved but fail exact-runtime admission; no migration was added.
+
+Earlier HTTP queue checkpoint: the queue/busy/queued-abort regression, Pi fixture streaming,
 browser import/policy/deadline checks, all five prebuilt inventories and named
 sessions pass on local port 9000. The runtime ABI/build ID is unchanged; the
 three QuickJS-containing image recipes and snapshots were rebuilt. All 182 Node
@@ -196,7 +209,8 @@ The C engine and JS inspector share differential fixtures; packaging and browser
 admission share the ENTRY decoder. `build/d3-parser-before.log` reproduces the
 original quoted-command/CWD and LIB-kind disagreement. Production boot runs no probe suite;
 its executable seed contains only the bootstrap runner and compiler.
-The local `build/dolly-pages-audit-2026-09-06.tar.gz` packages this checkpoint;
+The local `build/dolly-pages-audit-2026-09-06.tar.gz` is an earlier baseline,
+not the current HTTP-admission checkpoint;
 all five routes passed using the extracted compressed artifact
 (`build/d4-packaged-*-route.log`). It has not been uploaded or deployed.
 

@@ -52,6 +52,15 @@ int main(int argc, char **argv) {
   if (argc != 2) return 2;
   CURL *curl = curl_easy_init();
   if (curl == NULL) return 2;
+  char denied_url[1024], error_buffer[CURL_ERROR_SIZE];
+  const char *path = strstr(argv[1], "/fixture/");
+  if (path == NULL) return 2;
+  snprintf(denied_url, sizeof(denied_url), "%.*s/not-allowed", (int)(path - argv[1]), argv[1]);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_URL, denied_url), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, error_buffer), CURLE_OK);
+  EXPECT(curl_easy_perform(curl), CURLE_REMOTE_ACCESS_DENIED);
+  if (strstr(error_buffer, "policy denied") == NULL) ++failures;
+  EXPECT(curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, NULL), CURLE_OK);
   UNSUPPORTED(CURLOPT_PROXY, "http://proxy.invalid");
   UNSUPPORTED(CURLOPT_NOPROXY, "example.com");
   UNSUPPORTED(CURLOPT_PROXYAUTH, CURLAUTH_BASIC);

@@ -28,11 +28,14 @@ Wasm request data
 Read these pieces in order:
 
 1. [`src/dolly.c`](../src/dolly.c), `dolly_http_dispatch`: the short import
-   implementation copies method, URL, headers, and body into request data.
-2. [`src/runtime-worker.mjs`](../src/runtime-worker.mjs), `httpDispatch`:
-   forwards that data to the page. No caller-selected JavaScript runs.
-3. [`src/http-broker.mjs`](../src/http-broker.mjs), `NetworkTransport.request`:
-   parses the URL and headers, calls `policy.authorize`, then calls Fetch.
+   supplies four pointer/length pairs, flags, sequence and the actual memory.
+   It scans/copies no guest bytes.
+2. [`src/http-broker.mjs`](../src/http-broker.mjs), `createHttpAdmission`:
+   the runtime worker forwards one descriptor and waits for a private browser
+   acknowledgement. Wasm cannot mutate it or flood an unbounded message queue.
+3. `NetworkTransport.dispatch`: checks every span before copying, with fixed
+   method/URL/header/body caps of 32 B/8 KiB/64 KiB/8 MiB. Then `request`
+   parses the URL and headers, calls `policy.authorize`, and calls Fetch.
    This is the complete request/response transport, separate from the UI.
 4. [`src/http-policy.mjs`](../src/http-policy.mjs), `DollyHttpPolicy.authorize`:
    the trusted embedding's destination, method, credential-header, and quota
@@ -44,6 +47,7 @@ data; the browser never injects secrets. Request and response limits and the
 deadline belong to the browser. A guest that stops consuming mailbox records
 cannot keep the request alive beyond that deadline. Terminal failure uses a
 separate atomic state, so a late guest acknowledgement cannot erase it.
+Failures carry target errno codes, never request contents or credentials.
 
 The demo deliberately permits arbitrary HTTP(S). That is useful for agents,
 but it **does not prevent exfiltration of sandbox data**. An embedding needing
@@ -101,6 +105,7 @@ DOLLY_BROWSER_MODE=boundary ./scripts/test-browser.sh
 
 The browser check boots Ghostty, checks the actual import set, rejects
 incompatible plugins, exercises policy denial and a non-consuming mailbox,
+checks typed quota/deadline errors, floods invalid admissions from a worker,
 and runs both denied and allowed `curl` requests from Slop.
 
 This is a review map, not a formal security proof. The browser engine, trusted

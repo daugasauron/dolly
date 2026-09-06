@@ -720,15 +720,6 @@ function failHttp(request, error, cancel = true) {
   }
 }
 
-function httpError(code) {
-  const messages = {
-    1: "browser HTTP provider failed",
-    2: "browser HTTP policy denied the request",
-    3: "browser HTTP provider rejected the protocol",
-  };
-  return new Error(messages[code] ?? `browser HTTP error ${code}`);
-}
-
 function resolveHttpHeaders(request) {
   if (request.resolved) return;
   request.resolved = true;
@@ -768,11 +759,6 @@ globalThis.__dollyHttpPump = () => {
     }
     if (chunk === null) continue;
     request.status = chunk.status;
-    if (chunk.error) {
-      const error = httpError(chunk.error);
-      failHttp(request, error, !chunk.eof);
-      continue;
-    }
     if (chunk.kind === 1) {
       request.effectiveUrl += Dolly.decode(chunk.data);
     } else if (chunk.kind === 2) {

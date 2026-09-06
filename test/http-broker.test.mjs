@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { NetworkTransport } from "../src/http-broker.mjs";
+import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../src/http-broker.mjs";
 import { DollyHttpPolicy } from "../src/http-policy.mjs";
+import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const target = "https://fixture.example/allowed";
 function fixture(configuration = {}, fetchRequest) {
@@ -64,6 +65,7 @@ test("HTTP authorization happens before any fetch", async () => {
   await bounded(f.request({ url: "https://different.example/allowed" }));
   assert.equal(calls, 0);
   assert.equal(f.load(NetworkTransport.state), 3);
+  assert.equal(f.load(NetworkTransport.error), errno.EACCES);
   assert.equal(f.broker.active, false);
 });
 
@@ -95,9 +97,11 @@ test("HTTP request and response limits are enforced by the provider", async () =
   });
   await bounded(f.request({ method: "POST", body: Uint8Array.of(1, 2) }));
   assert.equal(calls, 0);
+  assert.equal(f.load(NetworkTransport.error), errno.E2BIG);
   await consume(f, f.request({}, 2));
   assert.equal(calls, 1);
   assert.equal(f.load(NetworkTransport.state), 3);
+  assert.equal(f.load(NetworkTransport.error), errno.E2BIG);
   assert.equal(f.broker.active, false);
 });
 
@@ -111,6 +115,7 @@ test("a non-consuming mailbox cannot retain HTTP resources past the host deadlin
   assert.equal(f.broker.active, false);
   assert.equal(f.broker.activeToken, 0);
   assert.equal(f.load(NetworkTransport.state), 3);
+  assert.equal(f.load(NetworkTransport.error), errno.ETIMEDOUT);
   // A late acknowledgement of the old chunk must not erase terminal failure.
   assert.equal(Atomics.compareExchange(f.broker.words, f.broker.word, 2, 1), 3);
   assert.equal(f.load(NetworkTransport.state), 3);
@@ -145,4 +150,74 @@ test("a queued publication cannot write after interruption", async () => {
   assert.equal(f.load(NetworkTransport.state), 1);
   assert.equal(f.load(NetworkTransport.length), 0);
   assert.equal(f.broker.bytes[f.broker.address + NetworkTransport.headerSize], 0);
+});
+
+function admission(f) {
+  const memory = new SharedArrayBuffer(1024);
+  const bytes = new Uint8Array(memory);
+  const message = { memory, flags: 0, sequence: 1 };
+  let offset = 8;
+  for (const [name, value] of Object.entries({ method: "GET", url: target, headers: "", body: "" })) {
+    const data = new TextEncoder().encode(value);
+    message[name] = BigInt(offset);
+    message[`${name}Size`] = BigInt(data.length);
+    bytes.set(data, offset);
+    offset += data.length;
+  }
+  f.store(NetworkTransport.sequence, 1);
+  f.store(NetworkTransport.state, 1);
+  return message;
+}
+
+test("HTTP validates every span before decoding or copying any guest data", async (t) => {
+  const f = fixture({}, async () => { throw Error("invalid admission reached Fetch"); });
+  const message = admission(f);
+  const decode = t.mock.method(TextDecoder.prototype, "decode");
+  const copy = t.mock.method(Uint8Array.prototype, "slice");
+  for (const [name, maximum] of Object.entries(DOLLY_HTTP_LIMITS)) {
+    assert.equal(await f.broker.dispatch({ ...message, [`${name}Size`]: BigInt(maximum) + 1n }), -errno.E2BIG);
+    for (const pointer of [-1n, 1n << 60n, 1025n]) {
+      assert.equal(await f.broker.dispatch({ ...message, [name]: pointer }), -errno.EFAULT);
+    }
+  }
+  assert.equal(decode.mock.callCount(), 0);
+  assert.equal(copy.mock.callCount(), 0);
+  assert.equal(f.broker.pending, null);
+});
+
+test("HTTP admission copies explicit spans, rejects overlap, and cancels before readmission", async () => {
+  let calls = 0;
+  const f = fixture({}, async (_url, options) => {
+    calls++;
+    return new Promise((_, reject) => options.signal.addEventListener("abort", () => reject(options.signal.reason)));
+  });
+  const message = admission(f);
+  assert.equal(await f.broker.dispatch(message), 0);
+  assert.equal(calls, 1);
+  assert.equal(await f.broker.dispatch(message), -errno.EBUSY);
+  const cancel = { ...message, sequence: 2 };
+  for (const name of Object.keys(DOLLY_HTTP_LIMITS)) { cancel[name] = 0n; cancel[`${name}Size`] = 0n; }
+  f.store(NetworkTransport.sequence, 2);
+  assert.equal(await bounded(f.broker.dispatch(cancel)), 0);
+  assert.equal(f.broker.pending, null);
+  assert.equal(calls, 1);
+  assert.equal(await f.broker.dispatch({ ...cancel, urlSize: 1n }), -errno.EINVAL);
+  const bytes = new Uint8Array(message.memory);
+  bytes[Number(message.method)] = 0;
+  assert.equal(await f.broker.dispatch(message), -errno.EINVAL);
+  bytes[Number(message.method)] = 0xff;
+  assert.equal(await f.broker.dispatch(message), -errno.EINVAL);
+});
+
+test("HTTP terminal errors distinguish quota, timeout, cancellation, and opaque transport failures", async () => {
+  const f = fixture({}, async () => { throw new TypeError("opaque browser rejection"); });
+  await bounded(f.request());
+  assert.equal(f.load(NetworkTransport.error), errno.EIO);
+  f.broker.policy.maxRequests = 1;
+  await bounded(f.request({}, 2));
+  assert.equal(f.load(NetworkTransport.error), errno.EDQUOT);
+  f.broker.activeToken = 3;
+  f.broker.interrupt();
+  assert.equal(f.load(NetworkTransport.state), 3);
+  assert.equal(f.load(NetworkTransport.error), errno.ECANCELED);
 });

@@ -136,6 +136,7 @@ const mimeTypes = new Map([
 ]);
 const publicSources = new Set([
   "test/fixtures/browser-boundary.mjs",
+  "test/fixtures/http-admission-worker.mjs",
   "test/fixtures/browser-process-abi.mjs",
   "coi-serviceworker.js",
   "index.html",
