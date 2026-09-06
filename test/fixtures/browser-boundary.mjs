@@ -42,13 +42,14 @@ export async function runBrowserBoundaryChecks() {
   let calls = 0, signal, received = false;
   const broker = new NetworkTransport(new SharedArrayBuffer(65536 + 128), 64, 65536, policy, {
     baseURL: location.href,
-    fetchRequest: async (url, options) => {
-      calls++; signal = options.signal;
-      const response = await fetch(url, options);
-      received = true;
-      return response;
-    },
   });
+  const fetchRequest = broker.fetchRequest.bind(broker);
+  broker.fetchRequest = async (url, options) => {
+    calls++; signal = options.signal;
+    const response = await fetchRequest(url, options);
+    received = true;
+    return response;
+  };
   const begin = (sequence, path) => {
     Atomics.store(broker.words, broker.word + NetworkTransport.sequence, sequence);
     Atomics.store(broker.words, broker.word, 1);

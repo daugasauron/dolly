@@ -178,6 +178,14 @@ use direct CORS-enabled endpoints or an owned, reviewed relay and never expose
 credentials to a public anonymous proxy. See [`cors.md`](cors.md) and
 [`security.md`](security.md).
 
+Pi's optional catalog refresh uses `https://pi.dev/api/models/providers/openrouter`,
+not OpenRouter's own models endpoint. On 2026-09-06 that service lacked CORS
+permission for Dolly's origin: Firefox rejected a direct page Fetch as well.
+The resulting "could not be refreshed; using cached models" warning does not
+mean the API key or chat request failed. `pi --offline` disables Pi's startup
+catalog/update requests and uses bundled models; provider conversations still
+use the normal HTTP broker. This does not bypass CORS or change browser policy.
+
 ## Regression gates
 
 1. The browser import allowlist changes only after capability review;

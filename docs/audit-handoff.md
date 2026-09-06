@@ -155,9 +155,15 @@ sessions pass on local port 9000. The runtime ABI/build ID is unchanged; the
 three QuickJS-containing image recipes and snapshots were rebuilt. All 182 Node
 tests pass (`build/checkpoint-http-*.log`). The rebuilt module cache is retained
 at `.cache/checkpoint-http-browser-profile` (use `DOLLY_BROWSER_PORT=35149`
-with that `DOLLY_BROWSER_PROFILE` to reuse its IndexedDB origin). See the HTTP audit for the separate
-real-provider smoke result and its limits; the reported interactive login issue
-has not been reproduced end to end.
+with that `DOLLY_BROWSER_PROFILE` to reuse its IndexedDB origin).
+
+Firefox follow-up: native Fetch rejected the broker object as its receiver.
+The bound default provider now passes real Firefox 153 OpenRouter login and
+DeepSeek chat on port 9000 without a Wasm rebuild or policy change. All 183 Node
+tests and the Chrome boundary regression pass (`build/firefox-http-*.log`);
+the real-provider probe is `build/firefox-openrouter-live.log`. Pi's separate
+`pi.dev` catalog warning is a reproduced CORS limitation, not an OpenRouter
+authentication failure; see [Pi networking](pi-agent-plan.md#network-and-credentials).
 
 Previous full-suite baseline (before the HTTP queue change): 182 Node tests and
 the full Chrome suite passed, including all five prebuilt routes. Logs:

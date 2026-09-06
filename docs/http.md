@@ -208,11 +208,16 @@ Remaining findings, in priority order:
 Evidence: the browser regression reproduced overlapping-request failure;
 broker tests cover policy-before-Fetch, explicit credentials, redirect denial,
 byte limits, non-consuming deadlines and cancellation fencing. A disposable
-Chrome sandbox on local port 9000 also fetched OpenRouter's catalog through
-both curl and Janis, and upstream Pi received a verified reply from
-`deepseek/deepseek-v4-pro`. That does not establish Firefox/Safari parity or
-explain every reported login failure. The broader findings above are source
-review unless a reproducer is explicitly stated; this is not a formal proof.
+Chrome sandbox on local port 9000 fetched OpenRouter's catalog through curl
+and Janis, and upstream Pi received a verified `deepseek/deepseek-v4-pro` reply.
+Firefox 153 reproduced a separate provider bug: calling unbound native Fetch
+as a broker method throws before networking. Binding it to the browser global
+fixes the real Pi `/login` and chat flow; the regression tests now exercise the
+default provider instead of hiding it behind an injected arrow function.
+Pi's optional `pi.dev` catalog refresh still fails browser CORS independently
+of OpenRouter; see [Pi networking](pi-agent-plan.md#network-and-credentials).
+Safari remains unverified. The broader findings above are source review unless
+a reproducer is explicitly stated; this is not a formal proof.
 
 ## Git result and remaining gap
 

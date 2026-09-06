@@ -4,7 +4,7 @@ import { NetworkTransport } from "../src/http-broker.mjs";
 import { DollyHttpPolicy } from "../src/http-policy.mjs";
 
 const target = "https://fixture.example/allowed";
-function fixture(configuration = {}, fetchRequest = async () => new Response("ok")) {
+function fixture(configuration = {}, fetchRequest) {
   const policy = new DollyHttpPolicy({
     rules: [{ origin: new URL(target).origin, path: "/allowed", methods: ["GET", "POST"],
       timeoutMilliseconds: 1000, ...configuration }],
@@ -46,6 +46,17 @@ async function consume(f, request) {
   try { await bounded(request); drain(); return records; }
   finally { clearInterval(interval); }
 }
+
+test("the default HTTP provider preserves the browser Fetch receiver", async (t) => {
+  const fetch = t.mock.method(globalThis, "fetch", function () {
+    assert.ok(this === globalThis, "native Fetch requires its browser global receiver");
+    return Promise.resolve(new Response("ok"));
+  });
+  const f = fixture();
+  const records = await consume(f, f.request());
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(records.at(-1)?.eof, 1);
+});
 
 test("HTTP authorization happens before any fetch", async () => {
   let calls = 0;

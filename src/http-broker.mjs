@@ -14,7 +14,7 @@ export class NetworkTransport {
   static kind = 6;
 
   constructor(buffer, address, capacity, policy, {
-    fetchRequest = globalThis.fetch,
+    fetchRequest = globalThis.fetch.bind(globalThis),
     baseURL = globalThis.location?.href,
   } = {}) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||
