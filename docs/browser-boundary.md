@@ -79,6 +79,8 @@ Boot reads fixed application assets. `runtime-worker.mjs` accepts only the
 fixed `dolly.wasm` and `dolly.data` artifact names for the generated runtime.
 Other startup snapshots and recipe assets have their own fixed identities;
 these reads are not guest-selected URLs.
+Regression commands live in `test/fixtures`, not in the shipped page; there is
+no URL-triggered shell test runner. The harness drives normal image startup.
 V3 artifact loading lives in [`src/image-artifact.mjs`](../src/image-artifact.mjs).
 Local cached bytes are bound to the runtime ID, pinned root recipe, snapshot
 hash, and direct input artifact digests. Published artifacts also validate the

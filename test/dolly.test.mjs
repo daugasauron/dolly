@@ -33,6 +33,7 @@ import {
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
+import { browserShellCases } from "./fixtures/browser-shell-cases.mjs";
 
 test("unknown browser modes fail before launching Chrome", () => {
   const result = spawnSync(process.execPath, [
@@ -398,12 +399,11 @@ test("the main-module provider exports Emscripten side-module stack bounds", asy
 });
 
 test("browser acceptance preserves compiler lifecycle probes on the private process model", async () => {
-  const [harness, launcher, roadmap, compiler, browser] = await Promise.all([
+  const [harness, launcher, roadmap, compiler] = await Promise.all([
     readFile(new URL("../scripts/browser-harness.mjs", import.meta.url), "utf8"),
     readFile(new URL("../scripts/test-browser.sh", import.meta.url), "utf8"),
     readFile(new URL("../docs/roadmap.md", import.meta.url), "utf8"),
     readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8"),
-    readFile(new URL("../src/browser.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(harness, /isMode\("zig-single-provider"\)/);
   assert.match(harness, /isMode\("lifecycle-probe"\)/);
@@ -416,7 +416,8 @@ test("browser acceptance preserves compiler lifecycle probes on the private proc
   assert.match(roadmap, /pure CPU loop exits 124/);
   assert.match(compiler, /"-vectorize-loops"/);
   assert.match(compiler, /"-vectorize-slp"/);
-  assert.match(browser, /cc -O0 interrupt-loop\.c -o interrupt-loop/);
+  assert.ok(browserShellCases(new Set(), "http://fixture.invalid")
+    .some(([command]) => command === "cc -O0 interrupt-loop.c -o interrupt-loop"));
 });
 
 test("Janis owns and cleans its generated module-adapter scratch tree", async () => {
@@ -448,8 +449,7 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(frontend, /interruptForeground\(\)/);
   assert.match(frontend, /event\.code === "KeyC"/);
   assert.match(frontend, /networkTransport\?\.interrupt\(\)/);
-  assert.match(frontend, /const recipes = new Set\(imageDefinition\?\.recipes/);
-  assert.match(frontend, /hasRecipe\("quickjs"\)/);
+  assert.doesNotMatch(frontend, /autorun|runBrowserProof|commandResults|sandbox-placeholder/);
   assert.match(frontend, /class FramebufferPresenter/);
   assert.match(frontend, /putImageData\(new ImageData/);
   assert.match(frontend, /pushKey\(event\)/);
@@ -1683,7 +1683,6 @@ test("upstream Pi is compiled in Dolly and customized only through normal files"
   assert.doesNotMatch(browser, /phoneMenu|touchScroll|updatePhoneMode|pointerType/);
   assert.doesNotMatch(page, /data-dolly-voice/);
   assert.doesNotMatch(browser, /SpeechRecognition|webkitSpeechRecognition|getUserMedia/);
-  assert.match(browser, /dataset\.defaultPi = "passed"/);
   assert.match(systemPrompt, /Slop/);
   assert.match(systemPrompt, /Dolly does not contain Bash/);
   assert.match(systemPrompt, /browser WebAssembly sandbox/);

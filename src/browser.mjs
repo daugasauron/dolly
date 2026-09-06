@@ -31,7 +31,6 @@ let bootstrapFragment = "";
 const encoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 const bootstrapDecoder = new TextDecoder();
-const commandResults = [];
 const runtimeFailureRejectors = new Set();
 
 let runtimeWorker;
@@ -855,7 +854,6 @@ async function submitInput(command, input = `${command}\r`) {
     transport.waitForResult(sequence),
     runtimeFailure,
   ]).finally(() => runtimeFailureRejectors.delete(rejectRuntimeFailure));
-  commandResults.push({ command, status: commandStatus });
   return commandStatus;
 }
 
@@ -904,243 +902,6 @@ async function waitForInteractiveTerminal(pattern, description, previousPid = 0)
   transport.pushPointer(x, y, 0, {});
   await waitFor(() => transport.inputIdle(), "terminal selection cleanup");
   return pid;
-}
-
-async function runBrowserProof() {
-  const imageDefinition = DOLLY_IMAGES.find(({ image }) => image === activeImage);
-  const recipes = new Set(imageDefinition?.recipes?.map(({ name }) => name));
-  const hasRecipe = (name) => recipes.has(name);
-  // The regression suite reaches the recovery shell without changing normal
-  // image startup. Pi exits on Ctrl-D, while the gamedev entry exits on Q.
-  const shellPrompt = /(?:^|\n)dolly:[^\n]*\$\s*$/;
-  let entryPid;
-  if (hasRecipe("gamedev")) {
-    await waitFor(() => transport.foregroundPid() > 0 && transport.graphicsActive(),
-      "gamedev entry display lease");
-    entryPid = transport.foregroundPid();
-  } else {
-    entryPid = await waitForInteractiveTerminal(
-      activeImage === "pi" || activeImage === "python-pi" ? /! Slop/ : shellPrompt,
-      "image entry terminal",
-    );
-  }
-  if (activeImage !== "default") {
-    if (hasRecipe("gamedev")) {
-      transport.pushSyntheticKey("q", "KeyQ");
-      transport.pushSyntheticKey("q", "KeyQ", 0, 0);
-    } else {
-      transport.pushSyntheticKey("d", "KeyD", 2);
-      transport.pushSyntheticKey("d", "KeyD", 2, 0);
-    }
-    await waitForInteractiveTerminal(
-      /Dolly: image entry exited; entering the recovery Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/,
-      "recovery Slop prompt", entryPid,
-    );
-  }
-  document.documentElement.dataset.defaultPi = "passed";
-
-  const beforeInteractive = [
-    ["help", "\x1b[Ahelx\x7fp\r"],
-    ["cat /workspace/rebuild-only.txt", undefined, 1],
-    ["echo shell-created > shell.txt"],
-    ["cat shell.txt"],
-    ["echo alpha > alpha.txt"],
-    ["echo Beta > beta.txt"],
-    ["cat alpha.txt beta.txt > corpus.txt"],
-    ["slop -c 'echo SLOP-C'"],
-    ["slop -c 'cat <<EOF'", undefined, 2],
-    ["grep -q Beta corpus.txt && echo SLOP-AND"],
-    ["grep missing corpus.txt || echo SLOP-OR"],
-    ["! grep missing corpus.txt && echo SLOP-NOT"],
-    ["VALUE=42 slop -c 'echo SLOP-VAR-$VALUE'"],
-    ["echo SLOP-SUB-$(pwd)"],
-    ["slop -e -c 'grep missing corpus.txt && echo WRONG; echo SLOP-ERREXIT-AND'"],
-    ["slop -c 'exit nope'", undefined, 2],
-    ["echo first > append.txt"],
-    ["echo second >> append.txt"],
-    ["cat append.txt"],
-    ["grep -n -i beta corpus.txt"],
-    ["grep -c a corpus.txt"],
-    ["grep -v alpha corpus.txt"],
-    ["grep -q Beta corpus.txt"],
-    ["grep missing corpus.txt", undefined, 1],
-    ["echo PIPE-GREP | grep PIPE"],
-    ["grep -Z", undefined, 2],
-    ["echo grep-runtime-survived"],
-    ["sed s/Beta/Gamma/ corpus.txt > /tmp/sed-substitution.txt"],
-    ["grep -q Gamma /tmp/sed-substitution.txt"],
-    ["sed -n 2p corpus.txt > /tmp/sed-line.txt"],
-    ["grep -q Beta /tmp/sed-line.txt"],
-    ["echo SED-PIPE | sed s/SED/DOLLY/ > /tmp/sed-pipe.txt"],
-    ["grep -q DOLLY-PIPE /tmp/sed-pipe.txt"],
-    ["head -n 1 corpus.txt"],
-    ["head -1 beta.txt"],
-    ["wc -l corpus.txt"],
-    ["echo one | wc -w"],
-    ["awk --version"],
-    ["echo \"key:value\" > colon.txt"],
-    ["awk -F: '{print $2}' colon.txt"],
-    ["echo \"one 2\" > awk-one.txt"],
-    ["echo \"three 4\" > awk-two.txt"],
-    ["cat awk-one.txt awk-two.txt > awk-data.txt"],
-    ["echo awk-*.txt"],
-    ["awk '{sum += $2} END {print sum}' awk-data.txt"],
-    ["awk -v prefix=V '{print prefix $1}' awk-one.txt"],
-    ["echo '{print toupper($1)}' > upper.awk"],
-    ["awk -f upper.awk awk-two.txt"],
-    ["echo \"pipe 7\" | awk '{print $2 * 6}'"],
-    ["echo 'a,\"b,c\"' > csv.txt"],
-    ["awk --csv '{print NF \":\" $2}' csv.txt"],
-    ["awk 'BEGIN {print system(\"echo HOST-ESCAPE\")}'"],
-    ["awk 'BEGIN {status = (\"printf AWK-PIPE\" | getline value); print status \":\" value; exit status == 1 && value == \"AWK-PIPE\" ? 0 : 1}'"],
-    ["awk -f", undefined, 2],
-    ...(hasRecipe("quickjs")
-      ? [[`qjs -e 'Dolly.httpStart("GET", "${location.origin}/fixture/http.txt", "", null)'`]]
-      : []),
-    ["curl -fsSL /fixture/http.txt -o fetched.txt"],
-    ["cat fetched.txt"],
-    ["curl -sS -X POST -H 'X-Dolly-Cli: yes' -d one=1 -d two=2 " +
-      "-D curl-headers.txt -o curl-body.txt " +
-      "-w '%{http_code} %{content_type}\\n' /fixture/curl-options > curl-meta.txt"],
-    ["grep -q '^CURL-CLI-OK$' curl-body.txt"],
-    ["grep -qi '^x-dolly-response: yes' curl-headers.txt"],
-    ["grep -q '^201 text/plain; charset=utf-8$' curl-meta.txt"],
-    ["curl -f /fixture/missing", undefined, 22],
-    ["git --version"],
-    ["git config --global --get user.name"],
-    ["git config --global --get user.email"],
-    ["git config --global user.email asdf"],
-    ["git config --global --get user.email"],
-    ["mkdir git-repo"],
-    ["cd git-repo"],
-    ["git init"],
-    ["echo tracked > tracked.txt"],
-    ["git add tracked.txt"],
-    ["git commit -m initial"],
-    ["git --no-pager log --oneline"],
-    [`awk 'BEGIN {print "list"; print ""}' | /usr/libexec/dolly/git-remote-http origin ${location.origin}/fixture/git`],
-    ["cd .."],
-    ["pwd"],
-    ["mkdir path-test"],
-    ["cd path-test"],
-    ["pwd"],
-    ["cd .."],
-    ["mkdir -p flags/deep"],
-    ["mkdir -p flags/deep"],
-    ["echo not-a-directory > not-a-directory"],
-    ["mkdir -p not-a-directory", undefined, 1],
-    ["touch flags/.hidden"],
-    ["echo visible > flags/visible"],
-    ["ls flags"],
-    ["echo LS-ALL-BEGIN"],
-    ["ls -a flags"],
-    ["echo LS-ALL-END"],
-    ["cat -n shell.txt"],
-    ["pwd -P"],
-    ["rm -f flags/missing"],
-    ["rm -rf flags"],
-    ["ls flags", undefined, 1],
-    ["ls -la"],
-    ["stat -c '%F %s' shell.txt"],
-    ["file shell.txt"],
-    ["[ -f shell.txt ]"],
-    ["[ ! -d shell.txt ]"],
-    ["test -d shell.txt", undefined, 1],
-    ["test -d shell.txt; test $? -eq 1"],
-    ["echo MOVED > move-source && mv move-source move-target && grep -q MOVED move-target"],
-    ["printf 'PRINTF-%s\\n' OK | grep -q PRINTF-OK"],
-    ["touch -c absent"],
-    ["ls absent", undefined, 1],
-    ["echo -n tight > tight.txt"],
-    ["cat tight.txt"],
-    ["ls /bin"],
-    ["echo BIN-LIST-END"],
-    ["echo /b* | grep -q /bin"],
-    ["ls /usr/bin"],
-    ["echo USR-BIN-LIST-END"],
-    ["ls /usr/lib/libghostty-vt.a"],
-    ["test ! -e /usr/bin/ghostty-vt"],
-    ["graphics-demo --frames 2", undefined,
-      hasRecipe("gamedev") ? 0 : 127],
-    ["cc --version"],
-    ["c++ --version"],
-    ["echo \"int main(void) { volatile unsigned long n = 0; for (;;) n++; }\" > interrupt-loop.c"],
-    ["cc -O0 interrupt-loop.c -o interrupt-loop"],
-    ["ld --help"],
-    ["ar --version"],
-    ["cc --definitely-unsupported", undefined, 64],
-    ["cat /bin/echo > invalid-module"],
-    ["echo invalid >> invalid-module"],
-    ["./invalid-module", undefined, 126],
-    ["make --version"],
-    ...(hasRecipe("quickjs") ? [
-      ["qjs --version"],
-      ["qjs -e \"Dolly.writeFile('/tmp/qjs-tty.txt', [process.stdin.isTTY, process.stdout.isTTY, process.stderr.isTTY].join(','))\""],
-      ["grep -q '^true,true,true$' /tmp/qjs-tty.txt"],
-      ["qjs -e \"Dolly.writeFile('/tmp/qjs-redirect.txt', String(process.stdout.isTTY))\" > /tmp/qjs-discard.txt"],
-      ["grep -q '^false$' /tmp/qjs-redirect.txt"],
-      ["qjs -e \"console.log('JS-' + (6 * 7))\""],
-      ["echo \"console.log('ARGS-' + scriptArgs.join(':'))\" > args.js"],
-      ["qjs args.js alpha beta"],
-      ["echo \"export const answer = 42\" > esm-value.mjs"],
-      ["echo \"import { answer } from './esm-value.mjs'; console.log('ESM-' + answer)\" > esm-main.mjs"],
-      ["qjs esm-main.mjs"],
-      ["qjs -e \"Dolly.writeFile('/workspace/qjs-persist.txt', 'QJS-PERSIST')\""],
-      ["cat qjs-persist.txt"],
-      ["echo \"print([1,2,3].map(x => x * 2).join(','))\" | qjs -"],
-      ["qjs -e \"throw new Error('JS-EXPECTED')\"", undefined, 1],
-      ["qjs --unsupported", undefined, 64],
-    ] : []),
-    ...(hasRecipe("pi") ? [
-      ["janis --version"],
-      ["janis -e \"const c = process.getBuiltinModule('node:crypto'); if (c.createHash('sha256').update('abc').digest('hex') !== 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad') process.exit(1); console.log('JANIS-HASH-OK')\""],
-      ["janis -e \"const h = process.getBuiltinModule('node:http'); const s = new h.Server(); s.on('error', e => { if (e.code !== 'ENOSYS') process.exit(1); console.log('JANIS-LISTEN-ENOSYS'); }); s.listen(1455)\""],
-      ["tsc --version"],
-      ["echo 'export const browserAnswer: number = 6 * 7;' > browser-answer.ts"],
-      ["tsc --target ES2023 --module ES2022 --outDir browser-ts browser-answer.ts"],
-      ["qjs -m -e \"import { browserAnswer } from '/workspace/browser-ts/browser-answer.js'; if (browserAnswer !== 42) throw new Error('bad TypeScript emit')\""],
-      ["janis -m -e \"import { defineTelemetrySchema } from '@earendil-works/pi-telemetry'; if (defineTelemetrySchema('BROWSER') !== 'BROWSER') throw new Error('bad target workspace package')\""],
-      ["test -s /usr/src/pi-source/packages/coding-agent/dist-dolly/cli.js"],
-      ["pi --version"],
-      ["echo '{\"openrouter\":{\"type\":\"api_key\",\"key\":\"sandbox-placeholder\"},\"openai-codex\":{\"type\":\"oauth\",\"access\":\"sandbox-placeholder\",\"refresh\":\"sandbox-placeholder\",\"expires\":4102444800000}}' > /home/dolly/.pi/agent/auth.json"],
-      ["pi --list-models openrouter > /tmp/pi-openrouter-models.txt"],
-      ["grep -q 'openrouter' /tmp/pi-openrouter-models.txt"],
-      ["pi --list-models openai-codex > /tmp/pi-codex-models.txt"],
-      ["grep -q 'openai-codex' /tmp/pi-codex-models.txt"],
-      ["rm -f /home/dolly/.pi/agent/auth.json"],
-    ] : []),
-  ];
-  for (const [command, input] of beforeInteractive) {
-    await submitInput(command, input ?? `${command}\r`);
-  }
-  const count = beforeInteractive.length;
-  const proofResults = commandResults.slice(-count);
-  const expectedStatuses = beforeInteractive.map((entry) => entry[2] ?? 0);
-  const passed = proofResults.length === count
-    && proofResults.every((result, index) => result.status === expectedStatuses[index]);
-  if (!passed) {
-    const mismatch = proofResults.findIndex(
-      (result, index) => result.status !== expectedStatuses[index],
-    );
-    document.documentElement.dataset.dollyFailures = JSON.stringify(
-      proofResults.flatMap((result, index) =>
-        result.status === expectedStatuses[index]
-          ? []
-          : [{ index, command: result.command, actual: result.status,
-              expected: expectedStatuses[index] }]),
-    );
-    document.documentElement.dataset.dollyFailure = JSON.stringify(
-      mismatch >= 0
-        ? {
-            index: mismatch,
-            command: proofResults[mismatch].command,
-            actual: proofResults[mismatch].status,
-            expected: expectedStatuses[mismatch],
-          }
-        : { actualResults: proofResults.length, expectedResults: count },
-    );
-  }
-  document.documentElement.dataset.dollyStatus = passed ? "passed" : "failed";
 }
 
 async function boot() {
@@ -1417,7 +1178,6 @@ async function boot() {
     worker: runtimeWorker,
     display: presenter,
     transport,
-    commandResults,
     get foregroundPid() {
       return transport.foregroundPid();
     },
@@ -1466,10 +1226,6 @@ async function boot() {
       return transport.fontSize();
     },
   };
-
-  if (new URLSearchParams(location.search).get("autorun") === "shell") {
-    await runBrowserProof();
-  }
 }
 
 boot().catch((error) => {

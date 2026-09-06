@@ -137,6 +137,13 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+The browser host no longer ships a URL-triggered regression runner or stores its
+command history. The harness owns all 160 Pi-image command cases, drives normal
+startup/recovery, and honors the selected external app for core/menu routes.
+200 source tests and the full Chrome suite pass. Actual port-9000 Pi/default
+core checks pass; the pinned older release fails the literal-download regression:
+`build/browser-proof-extraction-{source-2,browser,current-2,default,old}.log`.
+
 Download dispatch preserves literal UTF-8 filenames; Chrome's separate local
 filename sanitization is checked alongside the exact downloaded bytes. The
 unused kernel CPU-affinity helpers are removed. All 12 images, 200 source tests

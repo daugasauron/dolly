@@ -14,6 +14,7 @@ import {
 } from "./image-definitions.mjs";
 import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
+import { browserShellCases } from "../test/fixtures/browser-shell-cases.mjs";
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
@@ -401,6 +402,7 @@ function startServer() {
           ...isolatedHeaders,
           "content-type": "text/plain; charset=utf-8",
           "x-dolly-response": "yes",
+          "access-control-expose-headers": "x-dolly-response",
         });
         response.end("CURL-CLI-OK\n");
         return;
@@ -1301,14 +1303,11 @@ if (pagesLiveMode &&
 }
 const localOrigin = `http://${browserHostname}:${address.port}`;
 const rebuildPath = `${iterationMode ? "custom" : selectedImage}/rebuild/`;
-const rebuildPage = externalPage
-  ? new URL(rebuildPath, externalPage.endsWith("/") ? externalPage : `${externalPage}/`).href
-  : `${localOrigin}${browserBase}${rebuildPath}`;
-const snapshotPage = `${localOrigin}${browserBase}${selectedImage}/?autorun=shell`;
-const menuPage = `${localOrigin}${browserBase}`;
-const interactivePage = externalPage
-  ? new URL(`${selectedImage}/`, externalPage.endsWith("/") ? externalPage : `${externalPage}/`).href
-  : `${localOrigin}${browserBase}${selectedImage}/`;
+const menuPage = externalPage
+  ? (externalPage.endsWith("/") ? externalPage : `${externalPage}/`)
+  : `${localOrigin}${browserBase}`;
+const rebuildPage = new URL(rebuildPath, menuPage).href;
+const interactivePage = new URL(`${selectedImage}/`, menuPage).href;
 let openRouterSecret = realOpenRouterMode ? await readSecretLine() : "";
 if (realOpenRouterMode && !/^sk-or-v1-[A-Za-z0-9_-]+$/.test(openRouterSecret)) {
   throw new Error("Pi OpenRouter mode requires one API key line on standard input");
@@ -1480,18 +1479,13 @@ chrome = spawn(chromeBinary, [
       };
     })();`,
   });
-  await debuggerClient.send("Page.navigate", {
-    url: debuggerDisconnectMode ? "about:blank" : menuMode
+  const initialPage = debuggerDisconnectMode ? "about:blank" : menuMode
       ? menuPage
       : snapshotExportMode || iterationMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
-      : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || libcurlContractMode || realOpenRouterMode || missingSnapshotMode
-        || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
-        || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode || gitTransportMode || graphicsMode || bhopMode
-        ? interactivePage
-        : snapshotPage,
-  });
+      : interactivePage;
+  console.log(`browser: ${requestedMode ?? "core"} ${initialPage}`);
+  await debuggerClient.send("Page.navigate", { url: initialPage });
 
   browserProof: {
     if (bhopMode) {
@@ -4026,31 +4020,28 @@ int main(int argc, char **argv) {
   const snapshotReadyState = await waitForValue(
     debuggerClient.send,
     "document.documentElement?.dataset.dollyStatus ?? ''",
-    (value) => value === "ready" || value === "passed" || value === "failed",
+    (value) => value === "ready" || value === "failed",
     "precompiled snapshot boot",
     1200,
   );
   assert.notEqual(snapshotReadyState, "failed");
   const snapshotBootMilliseconds = Date.now() - snapshotStarted;
 
-  const state = await waitForValue(
-    debuggerClient.send,
-    "document.documentElement?.dataset.dollyStatus ?? ''",
-    (value) => value === "passed" || value === "failed",
-    "Dolly browser proof",
-  );
-  if (state === "failed") {
-    const failedScreenshot = await debuggerClient.send("Page.captureScreenshot", {
-      format: "png",
-      fromSurface: true,
-    });
-    await writeFile(
-      resolve(projectDir, "build/browser-proof-failed.png"),
-      failedScreenshot.data,
-      "base64",
-    );
+  assert.equal(await evaluate(debuggerClient.send, "location.href"), interactivePage);
+  await enterRecoveryShell(debuggerClient.send);
+  const commandCases = browserShellCases(selectedModuleNames, localOrigin);
+  for (const [command, input, expected = 0] of commandCases) {
+    const status = await evaluate(debuggerClient.send, input === undefined
+      ? `window.__dolly.submit(${JSON.stringify(command)})`
+      : `(async () => {
+          const transport = window.__dolly.transport;
+          const sequence = transport.currentResultSequence();
+          if (!window.__dolly.input(${JSON.stringify(input)})) throw new Error("input mailbox full");
+          return transport.waitForResult(sequence);
+        })()`);
+    assert.equal(status, expected, command);
   }
-  assert.equal(state, "passed");
+  console.log(`browser: ${commandCases.length} shell/tool cases passed`);
 
   assert.equal(
     await evaluate(
@@ -4766,7 +4757,6 @@ int main(int argc, char **argv) {
     }
     return {
       state: document.documentElement.dataset.dollyStatus,
-      defaultPi: document.documentElement.dataset.defaultPi,
       bootMode: document.documentElement.dataset.bootMode,
       snapshotBytes: Number(document.documentElement.dataset.snapshotBytes),
       terminal: document.documentElement.dataset.terminal,
@@ -4788,7 +4778,6 @@ int main(int argc, char **argv) {
       networkError: document.documentElement.dataset.networkError ?? '',
       fullscreen: document.documentElement.dataset.fullscreen,
       fullscreenElement: Boolean(document.fullscreenElement),
-      resultCount: window.__dolly.commandResults.length,
       totalPixels: pixels.length / 4,
       backgroundPixels: background,
       foregroundPixels: foreground,
@@ -4799,8 +4788,7 @@ int main(int argc, char **argv) {
     };
   })()`);
 
-  assert.equal(evidence.state, "passed");
-  assert.equal(evidence.defaultPi, "passed");
+  assert.equal(evidence.state, "ready");
   assert.equal(evidence.bootMode, "snapshot");
   assert.ok(evidence.snapshotBytes > 0);
   assert.equal(evidence.terminal, "ghostty-rgba-wasm");
@@ -4819,7 +4807,6 @@ int main(int argc, char **argv) {
   assert.equal(evidence.networkError, "");
   assert.equal(evidence.fullscreen, "on");
   assert.equal(evidence.fullscreenElement, true);
-  assert.ok(evidence.resultCount > 100);
   assert.equal(evidence.opaquePixels, evidence.totalPixels);
   assert.ok(evidence.backgroundPixels > evidence.totalPixels * 0.5);
   assert.ok(evidence.foregroundPixels > 100);
