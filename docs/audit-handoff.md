@@ -54,7 +54,7 @@ Evidence: `build/v3-boundaries-snapshots-2.log`,
 The first SDK attempt caught an incorrectly indented FILE declaration in its
 extracted Makefile; the original failure log remains available.
 
-Remaining v3 work: lazy artifact loading and stable small packs. Singularity is
+Remaining v3 work: stable small packs and redundant restore/copy costs. Singularity is
 now the source-built gamedev demo: real orbital forces, projectiles, pulses and
 in-Wasm controls. The separate gamedev-phone image reuses that responsive program;
 phone menus, Pi command injection and touch-scroll translation were removed from
@@ -81,6 +81,24 @@ All 12 snapshots build and 193 source tests pass. Focused real-browser evidence:
 `build/bhop-boundary.log`. Runtime:
 `sha256:7fd76651d919daea0874797fa23426c0e53ea11a2db2480f996408dfa43c8ec5`.
 This is not a fresh cold-bootstrap or Firefox pointer-capture proof.
+
+## Lazy image artifact loading
+
+Dependency resolution now reads descriptors; only direct worker inputs load
+snapshot bytes. A cached Pi addon reads 294.9 MB from one payload and downloads
+no ancestor snapshots. Fresh/cached/edited addon builds took 6.6/5.9/6.0 seconds
+on the development machine. Missing Pi rebuilt its small stage from Pi-runtime
+before the addon, without rebuilding its ancestors.
+
+Metadata, payload and old-version cleanup commit atomically. Browser tests cover
+changed base bytes under an unchanged recipe, stale selected digests, corrupt
+payload recovery to exact published bytes, injected quota failure, simultaneous
+writers, and schema migration preserving the separate named-session record.
+193 source tests and the complete Chrome suite passed:
+`build/lazy-artifacts-source-complete.log`,
+`build/lazy-artifacts-browser-complete.log`. The earlier broad run passed its
+individual checks but its launcher was edited while executing and ended with
+a shell EOF; the unchanged rerun passed. Runtime and snapshot bytes are unchanged.
 
 ## Completed
 

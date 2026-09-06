@@ -79,6 +79,9 @@ V3 artifact loading lives in [`src/image-artifact.mjs`](../src/image-artifact.mj
 Local cached bytes are bound to the runtime ID, pinned root recipe, snapshot
 hash, and direct input artifact digests. Published artifacts also validate the
 release's complete recipe inventory.
+Dependency selection reads small descriptors; only a worker's direct inputs
+load payloads, whose full hashes are checked against those selected descriptors.
+Cache metadata, bytes and old-version cleanup commit in one IndexedDB transaction.
 [`src/image-build.mjs`](../src/image-build.mjs) resolves only image identities
 present in the release and reads module sources from the generated static-source
 allowlist. Missing dependencies run sequentially in disposable Wasm workers;

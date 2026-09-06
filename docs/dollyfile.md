@@ -130,6 +130,11 @@ The browser looks for a verified local artifact, then a matching published
 artifact. A missing dependency is built in a disposable Wasm instance before
 its consumer. Builds run sequentially, and each completed artifact is saved
 before later stages run. Each worker uses the same explicit HTTP policy.
+Ancestor validation reads descriptors, not full snapshots. Only the direct
+inputs needed by a worker load their bytes, which are verified against the
+selected digests. Cache descriptor/payload pairs publish and prune atomically.
+The descriptor-store upgrade discards older rebuildable image caches, never
+the separate named-session database.
 
 Cache identity includes the runtime build ID, the root recipe hash, and the
 actual snapshot digests of its direct image inputs. A dependency rebuilt into

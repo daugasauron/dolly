@@ -50,7 +50,8 @@ const boundaryMode = isMode("boundary");
 const processAbiMode = isMode("process-abi");
 const processSmokeMode = isMode("process-smoke");
 const dollyfileParserMode = isMode("dollyfile-parser");
-const iterationMode = isMode("v3-iteration");
+const missingDependencyMode = isMode("v3-missing-dependency");
+const iterationMode = isMode("v3-iteration") || missingDependencyMode;
 const imageRetentionMode = isMode("image-retention");
 const imageInventoryMode = isMode("image-inventory", "image-inventory-rebuild");
 const makeMode = isMode("make");
@@ -605,6 +606,7 @@ function startServer() {
             ? requestUrl.pathname.slice(browserBasePrefix.length)
             : null;
       if ((unpackagedSnapshotMode && /^\/dist\/dolly-.+-system(?:\.snapshot(?:\.gz)?|-snapshot\.mjs)$/.test(staticPath)) ||
+          (missingDependencyMode && staticPath === "/dist/dolly-pi-system-snapshot.mjs") ||
           missingSnapshotMode &&
           (staticPath === "/dist/dolly-default-system.snapshot" ||
            staticPath === "/dist/dolly-default-system-snapshot.mjs")) {
@@ -1404,7 +1406,20 @@ chrome = spawn(chromeBinary, [
       ${pagesLiveMode
         ? ""
         : `globalThis.DOLLY_HTTP_POLICY = ${JSON.stringify(fixturePolicy)};`}
-      ${iterationMode ? `if (!sessionStorage.getItem("dolly-custom-source")) sessionStorage.setItem("dolly-custom-source", ${JSON.stringify(iterationRecipe)});` : ""}
+      ${iterationMode ? `
+        if (!sessionStorage.getItem("dolly-custom-source")) sessionStorage.setItem("dolly-custom-source", ${JSON.stringify(iterationRecipe)});
+        globalThis.__artifactReads = [];
+        globalThis.__artifactFetches = [];
+        const get = IDBObjectStore.prototype.get;
+        IDBObjectStore.prototype.get = function(key) {
+          const request = get.call(this, key), store = this.name;
+          request.addEventListener('success', () => {
+            const value = request.result;
+            globalThis.__artifactReads.push({ store, key, bytes: (value instanceof ArrayBuffer ? value : value?.bytes)?.byteLength ?? 0 });
+          });
+          return request;
+        };
+      ` : ""}
       globalThis.__dollyIncompleteBootstrapPaints = 0;
       globalThis.__dollyReusedArtifact = false;
       new MutationObserver(() => {
@@ -1424,6 +1439,7 @@ chrome = spawn(chromeBinary, [
           input instanceof Request ? input.url : String(input),
           location.href,
         );
+        ${iterationMode ? `if (/\\.snapshot(?:\\.gz)?$/.test(target.pathname)) globalThis.__artifactFetches.push(target.pathname);` : ""}
         if (target.href === "https://auth.openai.com/oauth/token") {
           const request = new Request(target, init);
           globalThis.__dollyCodexTokenRequests.push({
@@ -2887,7 +2903,7 @@ int main(int argc, char **argv) {
     }
     if (iterationMode) {
       let firstDigest;
-      for (const label of ["published-base", "cached-base", "edited-command"]) {
+      for (const label of missingDependencyMode ? ["missing-base"] : ["published-base", "cached-base", "edited-command"]) {
         const started = performance.now();
         assert.equal(await waitForValue(debuggerClient.send,
           "document.documentElement?.dataset.dollyStatus ?? ''", value => value === "ready" || value === "failed", "v3 iteration"), "ready");
@@ -2899,14 +2915,34 @@ int main(int argc, char **argv) {
         const evidence = await evaluate(debuggerClient.send, `(async () => ({
           digest: [...new Uint8Array(await crypto.subtle.digest("SHA-256", window.__dolly.systemSnapshot))].map(b => b.toString(16).padStart(2, "0")).join(""),
           log: document.querySelector("#bootstrap-log").textContent,
+          reads: window.__artifactReads, downloads: window.__artifactFetches,
         }))()`);
         assert.match(evidence.log, /reusing (?:local|published) /);
         assert.doesNotMatch(evidence.log, /private compiler, Slop, and Dollyfile engine installed/);
         assert.equal([...staticRequestPaths].some(path => path.includes("/static/")), false, "iteration fetched build sources for its foundation");
+        const payloadReads = evidence.reads.filter(read => read.bytes > 0);
+        if (label === "published-base" || missingDependencyMode) {
+          assert.equal(payloadReads.length, 0, "fresh profile unexpectedly read cached payloads");
+          assert.ok(evidence.downloads.length > 0);
+          const baseSnapshot = missingDependencyMode ? "pi-runtime" : "pi";
+          assert.ok(evidence.downloads.every(path => path.includes("/packs/") || path.endsWith(`/dolly-${baseSnapshot}-system.snapshot`)),
+            `downloaded an unused ancestor snapshot: ${evidence.downloads}`);
+        } else {
+          assert.equal(evidence.downloads.length, 0, "cached iteration downloaded a snapshot");
+          assert.equal(payloadReads.length, 1, "cached iteration read unused ancestor payloads");
+          assert.equal(payloadReads[0].store, "payloads");
+          assert.ok(payloadReads[0].key.endsWith(':' + selectedGraph.root.sha256));
+        }
         if (label === "published-base") firstDigest = evidence.digest;
         else if (label === "cached-base") assert.equal(evidence.digest, firstDigest, "cached composition changed the artifact");
         else assert.notEqual(evidence.digest, firstDigest, "editing the command did not change the artifact");
         console.log(`browser: v3 ${label}: command, environment and deletion verified; ${(performance.now() - started).toFixed(0)}ms; ${evidence.digest}`);
+        console.log(`browser: v3 ${label}: ${payloadReads.reduce((sum, read) => sum + read.bytes, 0)} cached payload bytes, ${evidence.downloads.length} snapshot downloads; no unused ancestor payloads`);
+        if (missingDependencyMode) {
+          assert.match(evidence.log, /building missing pi artifact/);
+          assert.match(evidence.log, /reusing published pi-runtime artifact/);
+          break browserProof;
+        }
         if (label === "edited-command") break;
         if (label === "cached-base") await evaluate(debuggerClient.send,
           `sessionStorage.setItem("dolly-custom-source", ${JSON.stringify(iterationRecipe.replace("iteration-one", "iteration-two"))})`);
@@ -2916,15 +2952,24 @@ int main(int argc, char **argv) {
       }
       const invalidation = await evaluate(debuggerClient.send, `(async () => {
         const { DOLLY_IMAGES } = await import(${JSON.stringify(`${browserBase}dist/dolly-images.mjs`)});
-        const { loadImageArtifact, describeImageArtifact, saveImageArtifact } = await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
+        const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact,
+          loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } = await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
         const { decodeSnapshotRecords, encodeSnapshotRecords } = await import(${JSON.stringify(`${browserBase}src/snapshot-records.mjs`)});
         const { prepareImageArtifacts } = await import(${JSON.stringify(`${browserBase}src/image-build.mjs`)});
         const base = DOLLY_IMAGES.find(image => image.image === 'system');
         const child = DOLLY_IMAGES.find(image => image.image === 'javascript');
-        const original = await loadImageArtifact(base.sha256);
+        const prime = async definition => {
+          const metadata = await loadPackagedSnapshotMetadata(definition.image);
+          const artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(definition.image, metadata), definition.sha256, metadata.inputs);
+          if (!await saveImageArtifact(artifact, '/' + definition.dollyfile)) throw new Error('cache priming failed');
+          return artifact;
+        };
+        await prime(base);
+        await prime(child);
+        const original = await loadImageArtifact(await loadImageArtifactDescriptor(base.sha256));
         if (!original) throw new Error('missing cached system');
         const oldInputs = [{ recipeSha256: base.sha256, sha256: original.sha256 }];
-        if (!await loadImageArtifact(child.sha256, oldInputs)) throw new Error('missing cached JavaScript');
+        if (!await loadImageArtifactDescriptor(child.sha256, oldInputs)) throw new Error('missing cached JavaScript');
         const records = decodeSnapshotRecords(original.bytes);
         const init = records.get('/etc/gitconfig');
         if (init?.kind !== 2) throw new Error('missing base Git config');
@@ -2933,7 +2978,7 @@ int main(int argc, char **argv) {
         const changed = await describeImageArtifact(encodeSnapshotRecords(records).buffer, base.sha256);
         try {
           if (!await saveImageArtifact(changed, '/' + base.dollyfile)) throw new Error('cache write failed');
-          const staleHit = await loadImageArtifact(child.sha256, [{ recipeSha256: base.sha256, sha256: changed.sha256 }]);
+          const staleHit = await loadImageArtifactDescriptor(child.sha256, [{ recipeSha256: base.sha256, sha256: changed.sha256 }]);
           let requested, failure;
           try {
             await prepareImageArtifacts('gamedev', null, async image => {
@@ -2950,6 +2995,94 @@ int main(int argc, char **argv) {
       assert.deepEqual(invalidation, { sameRecipe: true, changedBytes: true, staleHit: false,
         requested: 'javascript', failure: 'EXPECTED_REBUILD' });
       console.log('browser: changing base bytes without changing its recipe rejects cached and published child artifacts');
+      const cacheChecks = await evaluate(debuggerClient.send, `(async () => {
+        const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact, sha256 } =
+          await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
+        const { encodeSnapshotRecords } = await import(${JSON.stringify(`${browserBase}src/snapshot-records.mjs`)});
+        const { DOLLY_IMAGES } = await import(${JSON.stringify(`${browserBase}dist/dolly-images.mjs`)});
+        const { prepareImageArtifacts } = await import(${JSON.stringify(`${browserBase}src/image-build.mjs`)});
+        const make = async (name, value) => {
+          const source = new TextEncoder().encode('DOLLY 3\\nIMAGE ' + name + '\\nENTRY /bin/slop\\n');
+          return describeImageArtifact(encodeSnapshotRecords(new Map([
+            ['/etc/dolly/Dollyfile', {kind: 2, data: source}],
+            ['/etc/dolly/artifact', {kind: 2, data: new TextEncoder().encode(value)}],
+          ])).buffer, await sha256(source));
+        };
+        const first = await make('cache-proof', 'first'), second = await make('cache-proof', 'other');
+        const slot = '/cache-proof';
+        if (!await saveImageArtifact(first, slot)) throw new Error('initial cache write failed');
+        const original = await loadImageArtifactDescriptor(first.recipeSha256);
+        const put = IDBObjectStore.prototype.put;
+        let rejected;
+        try {
+          IDBObjectStore.prototype.put = function(value, key) {
+            if (this.name === 'images' && value.slot === slot) throw new DOMException('injected metadata quota failure', 'QuotaExceededError');
+            return put.call(this, value, key);
+          };
+          rejected = !await saveImageArtifact(second, slot);
+        } finally { IDBObjectStore.prototype.put = put; }
+        const afterFailure = await loadImageArtifact(await loadImageArtifactDescriptor(first.recipeSha256));
+        if (!await saveImageArtifact(second, slot)) throw new Error('replacement cache write failed');
+        const staleRejected = await loadImageArtifact(original) === null;
+        const replacement = await loadImageArtifactDescriptor(second.recipeSha256);
+        if (!await saveImageArtifact({...second, bytes: first.bytes}, slot)) throw new Error('corrupt fixture write failed');
+        const corruptionRejected = await loadImageArtifact(replacement) === null;
+        const next = await make('cache-next', 'next');
+        if (!await saveImageArtifact(next, slot)) throw new Error('new recipe write failed');
+        const oldDescriptorGone = await loadImageArtifactDescriptor(first.recipeSha256) === null;
+        // A missing payload has zero bytes in the real IndexedDB read instrumentation.
+        const before = window.__artifactReads.length;
+        await loadImageArtifact(original);
+        const oldPayloadGone = window.__artifactReads.slice(before).some(read => read.store === 'payloads' && read.bytes === 0);
+        const writes = await Promise.all([saveImageArtifact(first, slot), saveImageArtifact(next, slot)]);
+        const survivors = (await Promise.all([loadImageArtifactDescriptor(first.recipeSha256),
+          loadImageArtifactDescriptor(next.recipeSha256)])).filter(Boolean);
+        const concurrent = writes.every(Boolean) && survivors.length === 1 &&
+          (await loadImageArtifact(survivors[0]))?.sha256 === survivors[0].sha256;
+        const pi = DOLLY_IMAGES.find(image => image.image === 'pi');
+        const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(${JSON.stringify(`${browserBase}dist/dolly-pi-system-snapshot.mjs`)});
+        const piArtifact = await loadImageArtifact(await loadImageArtifactDescriptor(pi.sha256, metadata.inputs));
+        if (!piArtifact) throw new Error('missing Pi cache');
+        let recovered;
+        try {
+          if (!await saveImageArtifact({...piArtifact, bytes: new ArrayBuffer(1), byteLength: 1}, '/' + pi.dollyfile)) throw new Error('corrupt Pi fixture write failed');
+          const [artifact] = await prepareImageArtifacts('custom',
+            'DOLLY 3\\nIMAGE cache-consumer\\nFROM HOST /' + pi.dollyfile + ' ' + pi.sha256 + '\\nENTRY /bin/slop\\n',
+            async () => { throw new Error('corruption must recover the exact published bytes, not rebuild a new identity'); }, () => {});
+          recovered = artifact.sha256 === piArtifact.sha256 && artifact.bytes.byteLength === piArtifact.bytes.byteLength;
+        } finally { await saveImageArtifact(piArtifact, '/' + pi.dollyfile); }
+        const { saveStoredSession, loadStoredSession } = await import(${JSON.stringify(`${browserBase}src/session-store.mjs`)});
+        await saveStoredSession({ name: 'cache-migration-proof', formatVersion: 2, buildId: first.buildId,
+          image: 'pi', imageIdentity: 'pi:' + pi.sha256, updatedAt: 0, encoding: 'identity', bytes: first.bytes });
+        // Reset only this disposable test origin's image cache to its old schema.
+        await new Promise((resolve, reject) => {
+          const request = indexedDB.deleteDatabase('dolly-image-artifacts-v3');
+          request.onsuccess = resolve; request.onerror = () => reject(request.error);
+        });
+        await new Promise((resolve, reject) => {
+          const request = indexedDB.open('dolly-image-artifacts-v3', 2);
+          request.onupgradeneeded = () => {
+            const store = request.result.createObjectStore('images', {keyPath: 'id'});
+            store.createIndex('slot', ['buildId', 'slot']);
+            store.put({...first, id: first.buildId + ':' + first.recipeSha256, slot});
+          };
+          request.onsuccess = () => { request.result.close(); resolve(); };
+          request.onerror = () => reject(request.error);
+        });
+        const legacyDiscarded = await loadImageArtifactDescriptor(first.recipeSha256) === null;
+        const upgraded = await saveImageArtifact(first, slot) &&
+          (await loadImageArtifact(await loadImageArtifactDescriptor(first.recipeSha256)))?.sha256 === first.sha256;
+        const savedSession = await loadStoredSession('cache-migration-proof');
+        const sessionPreserved = await sha256(savedSession.bytes) === first.sha256;
+        return { rejected, atomic: afterFailure?.sha256 === first.sha256,
+          staleRejected, corruptionRejected, oldDescriptorGone, oldPayloadGone, concurrent, recovered,
+          legacyDiscarded, upgraded, sessionPreserved };
+      })()`);
+      assert.deepEqual(cacheChecks, { rejected: true, atomic: true, staleRejected: true,
+        corruptionRejected: true, oldDescriptorGone: true, oldPayloadGone: true, concurrent: true, recovered: true,
+        legacyDiscarded: true, upgraded: true, sessionPreserved: true });
+      console.log('browser: real IndexedDB transaction rollback under injected quota failure, selected-digest pinning, atomic concurrent publication/cleanup, and exact published corruption recovery passed');
+      console.log('browser: image-cache schema upgrade discards only rebuildable cache entries and preserves the separate named-session record');
       break browserProof;
     }
     if (snapshotExportMode) {

@@ -188,67 +188,86 @@ export async function describeImageArtifact(bytes, recipeSha256, inputs = []) {
   if (source?.kind !== 2 || await sha256(source.data) !== recipeSha256 ||
       records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
   return { buildId: DOLLY_BUILD_ID, recipeSha256, sha256: await sha256(bytes),
-    inputs: imageInputs(inputs), manifest: [...records.keys()], bytes };
+    inputs: imageInputs(inputs), byteLength: bytes.byteLength, manifest: [...records.keys()], bytes };
 }
 
 async function databaseOperation(mode, operation) {
   const database = await new Promise((resolve, reject) => {
-    const request = indexedDB.open("dolly-image-artifacts-v3", 2);
+    const request = indexedDB.open("dolly-image-artifacts-v3", 3);
     request.onupgradeneeded = () => {
-      const store = request.result.objectStoreNames.contains("images")
-        ? request.transaction.objectStore("images") : request.result.createObjectStore("images", { keyPath: "id" });
-      if (!store.indexNames.contains("slot")) store.createIndex("slot", ["buildId", "slot"]);
+      // This database contains rebuildable images, never named user sessions.
+      if (request.result.objectStoreNames.contains("images")) request.result.deleteObjectStore("images");
+      const store = request.result.createObjectStore("images", { keyPath: "id" });
+      store.createIndex("slot", ["buildId", "slot"]);
+      request.result.createObjectStore("payloads");
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
   try {
     return await new Promise((resolve, reject) => {
-      const transaction = database.transaction("images", mode);
-      const request = operation(transaction.objectStore("images"));
+      const transaction = database.transaction(["images", "payloads"], mode);
+      let request;
       transaction.oncomplete = () => resolve(request.result);
-      transaction.onerror = transaction.onabort = () => reject(transaction.error);
+      transaction.onerror = transaction.onabort = () => reject(transaction.error ?? new Error("image cache transaction aborted"));
+      try { request = operation(transaction.objectStore("images"), transaction.objectStore("payloads")); }
+      catch (error) { transaction.abort(); reject(error); }
     });
   } finally { database.close(); }
 }
 
-export async function loadImageArtifact(recipeSha256, inputs = []) {
+export async function loadImageArtifactDescriptor(recipeSha256, inputs = []) {
   try {
     const id = `${DOLLY_BUILD_ID}:${recipeSha256}`;
     const record = await databaseOperation("readonly", store => store.get(id));
     if (record?.id !== id || record.buildId !== DOLLY_BUILD_ID || record.recipeSha256 !== recipeSha256 ||
-        !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength > snapshotSizeLimit ||
+        !/^[0-9a-f]{64}$/.test(record.sha256) || !Number.isSafeInteger(record.byteLength) ||
+        record.byteLength <= 0 || record.byteLength > snapshotSizeLimit ||
         !imageInputsMatch(record.inputs, inputs)) return null;
-    const artifact = await describeImageArtifact(record.bytes, recipeSha256, record.inputs);
-    return artifact.sha256 === record.sha256 ? artifact : null;
+    return record;
+  } catch { return null; }
+}
+
+export async function loadImageArtifact(descriptor) {
+  try {
+    const id = `${DOLLY_BUILD_ID}:${descriptor.recipeSha256}`;
+    const bytes = await databaseOperation("readonly", (_store, payloads) => payloads.get(id));
+    if (!(bytes instanceof ArrayBuffer) || bytes.byteLength !== descriptor.byteLength ||
+        bytes.byteLength > snapshotSizeLimit) return null;
+    const artifact = await describeImageArtifact(bytes, descriptor.recipeSha256, descriptor.inputs);
+    return artifact.sha256 === descriptor.sha256 ? artifact : null;
   } catch { return null; }
 }
 
 export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) {
   try {
+    if (artifact.buildId !== DOLLY_BUILD_ID || !(artifact.bytes instanceof ArrayBuffer) ||
+        artifact.bytes.byteLength !== artifact.byteLength || artifact.byteLength <= 0 ||
+        artifact.byteLength > snapshotSizeLimit) return false;
     const id = `${DOLLY_BUILD_ID}:${artifact.recipeSha256}`;
-    await databaseOperation("readwrite", store => store.put({ ...artifact, slot, id }));
-    // Publish first. Cleanup cannot destroy the last successful build if a new
-    // artifact exceeds the origin's quota. Cursor keys avoid loading old blobs.
-    try {
-      await databaseOperation("readwrite", store => {
-        const oldVersions = store.index("slot").openKeyCursor(IDBKeyRange.only([DOLLY_BUILD_ID, slot]));
-        oldVersions.onsuccess = () => {
-          const cursor = oldVersions.result;
-          if (!cursor) return;
-          if (cursor.primaryKey !== id) store.delete(cursor.primaryKey);
-          cursor.continue();
-        };
-        const oldRuntimes = store.openKeyCursor();
-        oldRuntimes.onsuccess = () => {
-          const cursor = oldRuntimes.result;
-          if (!cursor) return;
-          if (!String(cursor.key).startsWith(`${DOLLY_BUILD_ID}:`)) store.delete(cursor.key);
-          cursor.continue();
-        };
-        return oldRuntimes;
-      });
-    } catch { /* A failed cache cleanup does not invalidate the new artifact. */ }
+    const { buildId, recipeSha256, sha256, inputs } = artifact;
+    await databaseOperation("readwrite", (store, payloads) => {
+      payloads.put(artifact.bytes, id);
+      const published = store.put({ buildId, recipeSha256, sha256, inputs, byteLength: artifact.bytes.byteLength, slot, id });
+      // Publish and prune atomically: failed writes preserve the previous pair,
+      // and concurrent writers cannot prune each other's newly published data.
+      const remove = key => { store.delete(key); payloads.delete(key); };
+      const oldVersions = store.index("slot").openKeyCursor(IDBKeyRange.only([DOLLY_BUILD_ID, slot]));
+      oldVersions.onsuccess = () => {
+        const cursor = oldVersions.result;
+        if (!cursor) return;
+        if (cursor.primaryKey !== id) remove(cursor.primaryKey);
+        cursor.continue();
+      };
+      const oldRuntimes = store.openKeyCursor();
+      oldRuntimes.onsuccess = () => {
+        const cursor = oldRuntimes.result;
+        if (!cursor) return;
+        if (!String(cursor.key).startsWith(`${DOLLY_BUILD_ID}:`)) remove(cursor.key);
+        cursor.continue();
+      };
+      return published;
+    });
     return true;
   } catch { return false; }
 }
