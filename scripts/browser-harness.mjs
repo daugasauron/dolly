@@ -1342,9 +1342,12 @@ chrome = spawn(chromeBinary, [
         assert.equal(await submit(`mkdir -p ${scratch}`), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.c`), 0);
         assert.equal(await submit(`cc -O0 -fno-sanitize-coverage ${scratch}/probe.c -o ${scratch}/probe && timeout 15 ${scratch}/probe`), 0);
+        const descriptors = await readFile(resolve(projectDir, "test/fixtures/process-descriptors.c"), "utf8");
+        assert.equal(await submit(`printf '%s\\n' ${descriptors.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/descriptors.c`), 0);
+        assert.equal(await submit(`cc -O0 -fno-sanitize-coverage ${scratch}/descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`), 0);
         assert.equal(await submit(`git config --file ${scratch}/config user.email before && timeout 5 git config --file ${scratch}/config user.email after`), 0);
       } finally { await submit(`rm -rf ${scratch}`); }
-      console.log("browser: process PID/parent, nonblocking wait, signal delivery, forced stop and distinct normal/signal exit status passed");
+      console.log("browser: process PID/parent, wait, signals, descriptor flags/inheritance/mappings and pipe cleanup passed");
       break browserProof;
     }
     if (janisFilesMode) {

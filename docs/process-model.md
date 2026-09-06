@@ -109,6 +109,16 @@ sysroot therefore uses the pinned Emscripten musl libc in standalone mode, with
 translates them into `dolly_process_0.call`; the resulting executable does not
 import WASI. This is bootstrap input, not a permanent Emscripten loader ABI.
 
+Each process owns its descriptor flags separately from shared open-file offsets
+and status flags. `FD_CLOEXEC` works for files, pipes and duplicates. Spawn
+selects no inherited descriptors, standard streams, or all open non-CLOEXEC
+descriptors, then applies explicit parent-to-child mappings. Mappings clear
+child CLOEXEC without changing the parent; sources always refer to the parent,
+so swaps are simultaneous. Closed standard streams remain closed unless mapped.
+The existing C stdio convenience calls map only their three explicit streams;
+Python maps `close_fds` and `pass_fds` onto this same kernel operation. The
+packet layout is bound into the process ABI digest; it adds no browser import.
+
 The same SDK supplies genuine pinned libc++/libc++abi archives. `c++`, explicit
 `-lc++`/`-lc++abi`, and their `-Wl,` forms select that one process runtime, even
 when linking C++ objects with `cc`. A process hosting DSOs exports the runtime;

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <dolly/process.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,6 +39,14 @@ int dolly_spawn_env_timeout(const char *path, int argc, char **argv,
 int dolly_spawn_env_cwd(const char *path, int argc, char **argv,
                         char *const envp[], const char *cwd, int stdin_fd,
                         int stdout_fd, int stderr_fd, double timeout_milliseconds);
+
+// Inherit eligible descriptors, then apply explicit parent-to-child mappings.
+// The stdio convenience forms above use NONE and three explicit mappings.
+int dolly_spawn_mapped(const char *path, int argc, char **argv,
+                        char *const envp[], const char *cwd,
+                        uint32_t descriptor_inheritance,
+                        const dolly_process_fd_mapping *mappings,
+                        uint32_t mapping_count, double timeout_milliseconds);
 
 /* Process-local dynamic loading. dolly_dlopen() accepts only a side module
  * carrying the current dolly.process.dso stamp. Its imports resolve from the

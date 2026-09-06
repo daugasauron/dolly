@@ -23,13 +23,22 @@ class Popen(_subprocess.Popen):
                        p2cread, p2cwrite, c2pread, c2pwrite, errread, errwrite,
                        restore_signals, gid, gids, uid, umask,
                        start_new_session, process_group):
-        if preexec_fn is not None or not close_fds or pass_fds or \
+        if preexec_fn is not None or \
                 startupinfo is not None or creationflags or start_new_session or \
                 gid is not None or gids is not None or uid is not None or \
                 umask != -1 or process_group != -1:
             raise NotImplementedError(
-                "Dolly spawn supports stdio, cwd and environment, not identity/session controls or inherited extra FDs"
+                "Dolly spawn does not support preexec functions or identity/session controls"
             )
+        mappings = {}
+        for descriptor in set(pass_fds):
+            if not isinstance(descriptor, int) or not 0 <= descriptor <= 0x7fffffff:
+                raise ValueError("bad value(s) in pass_fds")
+            os.get_inheritable(descriptor)
+            mappings[descriptor] = descriptor
+        for target, source in enumerate((p2cread, c2pwrite, errwrite)):
+            if source != -1:
+                mappings[target] = source
         arguments = ([os.fsdecode(args)] if isinstance(args, (str, bytes, os.PathLike))
                      else [os.fsdecode(value) for value in args])
         if not arguments:
@@ -56,8 +65,7 @@ class Popen(_subprocess.Popen):
             program = os.path.join(directory, program)
         self.pid = _dolly_process.spawn(
             program, arguments, [f"{key}={value}" for key, value in environment.items()],
-            directory, p2cread if p2cread != -1 else 0,
-            c2pwrite if c2pwrite != -1 else 1, errwrite if errwrite != -1 else 2,
+            directory, close_fds, tuple((source, target) for target, source in mappings.items()),
         )
         self._child_created = True
         self._close_pipe_fds(p2cread, p2cwrite, c2pread, c2pwrite, errread, errwrite)

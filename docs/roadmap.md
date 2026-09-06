@@ -52,8 +52,8 @@ The acceptance gate now passes in Chromium: fresh images compile and restore;
 clean processes run mixed Zig and Clang sequences and repeated optimized Clang
 jobs; C, C++, Make, Ninja, process-local DSOs, CPU-loop timeout, Ctrl-C, descriptor
 inheritance, pipelines, framebuffer restoration, and post-failure execution
-are permanent browser regressions. The latest NumPy/Pandas source-build check
-is blocked by subprocess descriptor inheritance; see the Python track below.
+are permanent browser regressions. Fresh NumPy/Pandas source builds and
+array/groupby checks now pass too; see the Python track below.
 This added no compiler-private browser import or host-build fallback.
 
 ## Phase 1 — make builds declarative (complete)
@@ -300,11 +300,11 @@ PyEmscripten/Pyodide binaries are not used.
 
 The packaged Python-image gate starts without NumPy, Pandas, or Meson and
 requires complete source builds, array/dataframe computations, denied raw
-sockets and temporary-state cleanup. Its latest run fails before NumPy compiler
-detection because Meson requests `close_fds=False`. First implement real
-descriptor inheritance and close-on-exec semantics; the current libc flag
-no-ops cannot support that option correctly. Then rerun the complete gate before
-freezing the public SOABI/wheel tag or broadening the compatibility corpus.
+sockets and temporary-state cleanup. This gate now passes with NumPy 2.5.2,
+Pandas 3.0.5 and Meson 1.12.0 after implementing real descriptor inheritance and
+close-on-exec semantics. Separate C/Python fixtures cover `close_fds`, `pass_fds`,
+stdio mappings and failed-launch cleanup. Broader extension-module coverage and
+a frozen public SOABI/wheel policy remain follow-up work.
 
 ### Egress receipts
 

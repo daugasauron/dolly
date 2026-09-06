@@ -67,12 +67,12 @@ function encodeSpawn(path, arguments_, environment, descriptors) {
   const environmentBytes = environment === undefined
     ? new Uint8Array() : encodeStrings(environment, "process environment");
   const size = spawnHeaderSize + pathBytes.length +
-    argumentBytes.length + environmentBytes.length;
+    argumentBytes.length + environmentBytes.length + 3 * 8;
   if (pathBytes.length === 0 || pathBytes.length > 4096 || size > packetLimit) {
     throw new RangeError("process spawn packet is too large");
   }
   if (!Array.isArray(descriptors) || descriptors.length !== 3 ||
-      descriptors.some((value) => !Number.isInteger(value) || value < 0)) {
+      descriptors.some((value) => !Number.isInteger(value) || value < 0 || value > 0x7fffffff)) {
     throw new TypeError("process descriptors must contain stdin, stdout, and stderr");
   }
 
@@ -82,9 +82,9 @@ function encodeSpawn(path, arguments_, environment, descriptors) {
   view.setUint32(4, arguments_.length, true);
   view.setUint32(8, environment?.length ?? 0, true);
   view.setUint32(12, 0, true);
-  view.setUint32(16, descriptors[0], true);
-  view.setUint32(20, descriptors[1], true);
-  view.setUint32(24, descriptors[2], true);
+  view.setUint32(16, descriptors.length, true);
+  view.setUint32(20, 0, true); // Root spawns use explicit descriptor mappings only.
+  view.setUint32(24, 0, true);
   view.setUint32(28, pathBytes.length, true);
   view.setBigUint64(32, BigInt(argumentBytes.length), true);
   view.setBigUint64(40, BigInt(environmentBytes.length), true);
@@ -95,6 +95,12 @@ function encodeSpawn(path, arguments_, environment, descriptors) {
   packet.set(argumentBytes, offset);
   offset += argumentBytes.length;
   packet.set(environmentBytes, offset);
+  offset += environmentBytes.length;
+  for (let target = 0; target < descriptors.length; ++target) {
+    view.setUint32(offset, descriptors[target], true);
+    view.setUint32(offset + 4, target, true);
+    offset += 8;
+  }
   return packet;
 }
 

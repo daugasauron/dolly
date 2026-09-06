@@ -384,6 +384,7 @@ static uint32_t translate_open_flags(int flags) {
   if ((flags & O_EXCL) != 0) result |= DOLLY_PROCESS_OPEN_EXCLUSIVE;
   if ((flags & O_TRUNC) != 0) result |= DOLLY_PROCESS_OPEN_TRUNCATE;
   if ((flags & O_APPEND) != 0) result |= DOLLY_PROCESS_OPEN_APPEND;
+  if ((flags & O_CLOEXEC) != 0) result |= DOLLY_PROCESS_OPEN_CLOEXEC;
 #ifdef O_DIRECTORY
   if ((flags & O_DIRECTORY) != 0) result |= DOLLY_PROCESS_OPEN_DIRECTORY;
 #endif
@@ -979,17 +980,19 @@ int __syscall_dup(int descriptor) {
 }
 
 int __syscall_dup3(int old_descriptor, int new_descriptor, int flags) {
-  if (new_descriptor < 0 || old_descriptor == new_descriptor ||
+  if (new_descriptor < 0) return -EBADF;
+  if (old_descriptor == new_descriptor ||
       (flags & ~O_CLOEXEC) != 0) return -EINVAL;
-  return duplicate_descriptor(old_descriptor, (uint32_t)new_descriptor);
+  return duplicate_descriptor_flags(old_descriptor, (uint32_t)new_descriptor,
+      (flags & O_CLOEXEC) != 0 ? DOLLY_PROCESS_FD_DUP_CLOEXEC : 0);
 }
 
-static int fcntl_get_flags(int descriptor) {
+static int fd_flags_get(uint32_t operation, int descriptor) {
   if (descriptor < 0) return -EBADF;
   const dolly_process_fd_request request = {(uint32_t)descriptor, 0};
   dolly_process_fd_flags response = {0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_FD_GET_FLAGS, &request, sizeof(request),
+      operation, &request, sizeof(request),
       &response, sizeof(response));
   if (result < 0) return (int)result;
   if ((uint64_t)result != sizeof(response) ||
@@ -998,13 +1001,13 @@ static int fcntl_get_flags(int descriptor) {
   return (int)response.flags;
 }
 
-static int fcntl_set_flags(int descriptor, int flags) {
+static int fd_flags_set(uint32_t operation, int descriptor, uint32_t flags) {
   if (descriptor < 0) return -EBADF;
   const dolly_process_fd_flags request = {
-      (uint32_t)descriptor, (uint32_t)flags,
+      (uint32_t)descriptor, flags,
   };
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_FD_SET_FLAGS, &request, sizeof(request), NULL, 0);
+      operation, &request, sizeof(request), NULL, 0);
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
 
@@ -1030,21 +1033,17 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
   const uintptr_t argument = ioctl_argument(arguments);
   switch (request) {
     case FIOCLEX:
-    case FIONCLEX: {
-      /* Dolly spawn receives an explicit descriptor vector and has no ambient
-       * exec inheritance.  Validate the descriptor, then accept these flags as
-       * the same process-local compatibility no-op as F_SETFD. */
-      const int flags = fcntl_get_flags(descriptor);
-      return flags < 0 ? flags : 0;
-    }
+    case FIONCLEX:
+      return fd_flags_set(DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS, descriptor,
+          request == FIOCLEX ? DOLLY_PROCESS_FD_CLOEXEC : 0);
     case FIONBIO: {
       if (argument == 0) return -EFAULT;
       int enabled = 0;
       memcpy(&enabled, (const void *)argument, sizeof(enabled));
-      int flags = fcntl_get_flags(descriptor);
+      int flags = fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
       if (flags < 0) return flags;
       flags = enabled ? flags | O_NONBLOCK : flags & ~O_NONBLOCK;
-      return fcntl_set_flags(descriptor, flags);
+      return fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, descriptor, flags);
     }
     case TCGETS: {
       if (argument == 0) return -EFAULT;
@@ -1105,7 +1104,7 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       return mode < 0 ? mode : -EPERM;
     }
     default: {
-      const int flags = fcntl_get_flags(descriptor);
+      const int flags = fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
       return flags < 0 ? flags : -ENOTTY;
     }
   }
@@ -1113,9 +1112,8 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
 
 /*
  * Emscripten's musl syscall veneer passes a pointer to its packed variadic
- * arguments. Keep fcntl policy process-shaped: descriptors are kernel-owned,
- * close-on-exec has no effect until exec replacement exists, and advisory
- * record locks succeed because Dolly has one cooperating userspace.
+ * arguments. Descriptor and open-file flags are distinct kernel state.
+ * Advisory record locks succeed because Dolly has one cooperating userspace.
  */
 int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
   int integer = 0;
@@ -1125,15 +1123,24 @@ int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
     case F_DUPFD_CLOEXEC:
       if (arguments == 0 || integer < 0) return -EINVAL;
       return duplicate_descriptor_flags(
-          descriptor, (uint32_t)integer, DOLLY_PROCESS_FD_DUP_MINIMUM);
-    case F_GETFD:
-      return 0;
+          descriptor, (uint32_t)integer, DOLLY_PROCESS_FD_DUP_MINIMUM |
+          (command == F_DUPFD_CLOEXEC ? DOLLY_PROCESS_FD_DUP_CLOEXEC : 0));
+    case F_GETFD: {
+      const int flags = fd_flags_get(
+          DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS, descriptor);
+      if (flags < 0) return flags;
+      if ((flags & ~DOLLY_PROCESS_FD_CLOEXEC) != 0) return -EIO;
+      return (flags & DOLLY_PROCESS_FD_CLOEXEC) != 0 ? FD_CLOEXEC : 0;
+    }
     case F_SETFD:
-      return arguments != 0 && (integer & ~FD_CLOEXEC) == 0 ? 0 : -EINVAL;
+      if (arguments == 0 || (integer & ~FD_CLOEXEC) != 0) return -EINVAL;
+      return fd_flags_set(DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS, descriptor,
+          (integer & FD_CLOEXEC) != 0 ? DOLLY_PROCESS_FD_CLOEXEC : 0);
     case F_GETFL:
-      return fcntl_get_flags(descriptor);
+      return fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
     case F_SETFL:
-      return arguments == 0 ? -EINVAL : fcntl_set_flags(descriptor, integer);
+      return arguments == 0 ? -EINVAL :
+          fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, descriptor, integer);
     case F_GETLK: {
       uintptr_t pointer = 0;
       if (arguments != 0) {
@@ -1157,12 +1164,18 @@ int __syscall_pipe2(int descriptors[2], int flags) {
 #ifdef O_NONBLOCK
   known |= O_NONBLOCK;
 #endif
-  if ((flags & ~known) != 0 || (flags & O_NONBLOCK) != 0) return -ENOTSUP;
+  if ((flags & ~known) != 0) return -EINVAL;
+  if ((flags & O_NONBLOCK) != 0) return -ENOTSUP;
+  const dolly_process_pipe_request request = {
+      (flags & O_CLOEXEC) != 0 ? DOLLY_PROCESS_FD_CLOEXEC : 0, 0,
+  };
   dolly_process_pipe_response response = {0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_FD_PIPE, NULL, 0, &response, sizeof(response));
+      DOLLY_PROCESS_FD_PIPE, &request, sizeof(request), &response, sizeof(response));
   if (result < 0) return (int)result;
-  if ((uint64_t)result != sizeof(response)) return -EIO;
+  if ((uint64_t)result != sizeof(response) ||
+      response.read_descriptor > INT_MAX || response.write_descriptor > INT_MAX ||
+      response.read_descriptor == response.write_descriptor) return -EIO;
   descriptors[0] = (int)response.read_descriptor;
   descriptors[1] = (int)response.write_descriptor;
   return 0;

@@ -1,8 +1,10 @@
+import errno
 import os
 import signal
 import subprocess as sp
 import sys
 import time
+import warnings
 
 root = sys.argv[1]
 failures = []
@@ -101,11 +103,123 @@ def bidirectional_pipes():
                       "import sys\nwhile data := sys.stdin.buffer.read(4096):\n"
                       " sys.stdout.buffer.write(data); sys.stdout.buffer.flush()\n"
                       " sys.stderr.buffer.write(data); sys.stderr.buffer.flush()"],
-                     stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+                     stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE, close_fds=False)
     try:
         output, error = child.communicate(payload, timeout=15)
         assert child.returncode == 0
         assert output == payload and error == payload, "pipe bytes were lost"
+    finally:
+        cleanup(child)
+
+
+def descriptor_inheritance():
+    descriptor = os.open(root + "/inherited", os.O_RDWR | os.O_CREAT | os.O_TRUNC)
+    duplicate = os.dup(descriptor)
+    reader, writer = os.pipe()
+    descriptors = (descriptor, duplicate, reader, writer)
+    try:
+        assert all(not os.get_inheritable(fd) for fd in descriptors)
+        os.write(descriptor, b"offset")
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        os.set_inheritable(descriptor, True)
+        assert not os.get_inheritable(duplicate), "descriptor flags were shared by dup"
+        probe = (
+            "import errno, os, sys\n"
+            "for fd in map(int, sys.argv[1:]):\n"
+            " try: print(fd, int(os.get_inheritable(fd)))\n"
+            " except OSError as e:\n"
+            "  assert e.errno == errno.EBADF\n"
+            "  print(fd, 'closed')\n"
+        )
+        for options, inherited in (({"close_fds": False}, {descriptor}),
+                                    ({}, set()), ({"pass_fds": (duplicate, duplicate)}, {duplicate})):
+            result = sp.run([sys.executable, "-c", probe, *map(str, descriptors)],
+                            stdout=sp.PIPE, stderr=sp.PIPE, text=True, check=True, timeout=10,
+                            **options)
+            expected = [f"{fd} {'1' if fd in inherited else 'closed'}" for fd in descriptors]
+            assert result.stdout.splitlines() == expected, (options, result.stdout, result.stderr)
+        result = sp.run([sys.executable, "-c",
+                         "import os,sys; fd=int(sys.argv[1]); "
+                         "assert os.get_inheritable(fd); assert os.read(fd,2)==b'of'", str(duplicate)],
+                        pass_fds=(duplicate,), timeout=10)
+        assert result.returncode == 0
+        assert os.lseek(descriptor, 0, os.SEEK_CUR) == 2, "inherited files did not share their offset"
+        assert os.get_inheritable(descriptor) and not os.get_inheritable(duplicate)
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            result = sp.run([sys.executable, "-c", probe, str(descriptor), str(duplicate)],
+                            close_fds=False, pass_fds=(duplicate,), capture_output=True,
+                            text=True, check=True, timeout=10)
+            assert result.stdout.splitlines() == [f"{descriptor} closed", f"{duplicate} 1"]
+            assert any("pass_fds overriding close_fds" in str(item.message) for item in recorded)
+    finally:
+        for fd in descriptors:
+            os.close(fd)
+
+
+def descriptor_errors():
+    def available_pipe():
+        pair = os.pipe()
+        for fd in pair:
+            os.close(fd)
+        return pair
+
+    before = available_pipe()
+    cases = [({"pass_fds": (fd,)}, exception)
+             for fd, exception in ((-1, ValueError), (1.5, ValueError), ("1", ValueError),
+                                   (1 << 40, ValueError), (255, OSError))]
+    cases.append(({"stdin": -4}, OSError))
+    for options, exception in cases:
+        try:
+            child = sp.Popen([sys.executable, "-c", "pass"],
+                             **({"stdin": sp.PIPE, "stdout": sp.PIPE, "stderr": sp.PIPE} | options))
+        except exception as error:
+            if isinstance(error, OSError):
+                assert error.errno == errno.EBADF, error
+        else:
+            cleanup(child)
+            raise AssertionError("invalid descriptors accepted: " + repr(options))
+        assert available_pipe() == before, "failed spawn leaked pipe descriptors"
+
+
+def descriptor_stdio():
+    probe = (
+        "import errno,os,sys\n"
+        "try: os.fstat(0)\n"
+        "except OSError as e:\n"
+        " assert e.errno==errno.EBADF\n"
+        " assert sys.argv[1]=='closed'\n"
+        "else: assert sys.argv[1]=='open' and os.get_inheritable(0)\n"
+    )
+    driver = (
+        "import errno,os,subprocess as s,sys\n"
+        "probe=sys.argv[1]\n"
+        "os.set_inheritable(0,False)\n"
+        "for options,state in (({},'closed'),({'stdin':0},'open'),({'pass_fds':(0,)},'open')):\n"
+        " s.run([sys.executable,'-c',probe,state],check=True,timeout=10,**options)\n"
+        " assert not os.get_inheritable(0)\n"
+        "r=s.run([sys.executable,'-c','print(42)'],pass_fds=(1,),stdout=s.PIPE,text=True,timeout=10)\n"
+        "assert r.returncode==0 and r.stdout=='42\\n'\n"
+        "os.close(0)\n"
+        "s.run([sys.executable,'-c',probe,'closed'],check=True,timeout=10)\n"
+        "try: s.Popen([sys.executable,'-c','pass'],stdin=0)\n"
+        "except OSError as e: assert e.errno==errno.EBADF\n"
+        "else: raise AssertionError('explicit closed stdin accepted')\n"
+    )
+    result = sp.run([sys.executable, "-c", driver, probe], stdin=sp.DEVNULL,
+                    stdout=sp.PIPE, stderr=sp.PIPE, timeout=45, text=True)
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    result = sp.run([sys.executable, "-c", "import os; os.write(1,b'out'); os.write(2,b'err')"],
+                    stdout=sp.PIPE, stderr=sp.STDOUT, close_fds=False, timeout=10)
+    assert result.returncode == 0 and result.stdout == b"outerr"
+
+
+def meson_compiler_probe():
+    child = sp.Popen(["cc", "--version"], close_fds=False, stdin=sp.PIPE,
+                     stdout=sp.PIPE, stderr=sp.PIPE, universal_newlines=True)
+    try:
+        output, error = child.communicate(timeout=15)
+        assert child.returncode == 0 and output.strip(), (child.returncode, output, error)
     finally:
         cleanup(child)
 
@@ -131,8 +245,8 @@ def status_and_options():
         raise AssertionError("embedded NUL argument accepted")
     except ValueError:
         pass
-    for options in ({"start_new_session": True}, {"pass_fds": (0,)},
-                    {"close_fds": False}, {"pipesize": 4096, "stdin": sp.PIPE}):
+    for options in ({"start_new_session": True}, {"preexec_fn": lambda: None},
+                    {"pipesize": 4096, "stdin": sp.PIPE}):
         try:
             child = sp.Popen(["/bin/slop", "-c", "exit 0"], **options)
         except NotImplementedError:
@@ -146,6 +260,10 @@ for name, operation in (
     ("creation-time cwd/environment and explicit environment", creation_state),
     ("streaming, non-destructive wait timeout and kill", streaming_and_timeout),
     ("communicate drains simultaneous bounded stdin/stdout/stderr", bidirectional_pipes),
+    ("descriptor flags, inheritance, pass_fds and shared offsets", descriptor_inheritance),
+    ("invalid descriptors and failed spawn cleanup", descriptor_errors),
+    ("inherited versus explicit stdio, pass_fds overrides and merged output", descriptor_stdio),
+    ("Meson close_fds=False compiler probe", meson_compiler_probe),
     ("normal status and explicit unsupported options", status_and_options),
 ):
     check(name, operation)

@@ -49,6 +49,7 @@ typedef struct {
   int status;
   int exit_signal;
   int descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
+  unsigned char descriptor_flags[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   dolly_kernel_pipe *pipes[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char pipe_directions[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char terminal_descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
@@ -159,6 +160,7 @@ static void release_descriptor(dolly_kernel_process *process,
     }
   }
   process->terminal_descriptors[descriptor] = 0;
+  process->descriptor_flags[descriptor] = 0;
 }
 
 static void release_process_resources(dolly_kernel_process *process) {
@@ -401,35 +403,66 @@ static int copy_current_environment(dolly_kernel_process *process) {
   return 0;
 }
 
-static int configure_descriptors(dolly_kernel_process *process,
-                                 dolly_kernel_process *parent,
-                                 const dolly_process_spawn_request *request) {
-  const uint32_t requested[3] = {
-      request->stdin_descriptor,
-      request->stdout_descriptor,
-      request->stderr_descriptor,
-  };
-  for (size_t index = 0; index < 3; ++index) {
-    if (requested[index] > INT_MAX) return -EBADF;
-    int source = (int)requested[index];
-    if (parent != NULL) {
-      if (requested[index] >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
-          !descriptor_is_open(parent, requested[index])) return -EBADF;
-      if (parent->pipes[requested[index]] != NULL) {
-        process->pipes[index] = parent->pipes[requested[index]];
-        process->pipe_directions[index] =
-            parent->pipe_directions[requested[index]];
-        retain_pipe(process->pipes[index], process->pipe_directions[index]);
-        continue;
-      }
-      source = parent->descriptors[requested[index]];
-    }
-    int duplicate = dup(source);
+static int copy_descriptor(dolly_kernel_process *process,
+                            const dolly_kernel_process *parent,
+                            uint32_t source, uint32_t target) {
+  if (source > INT_MAX || target >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
+      (parent != NULL && !descriptor_is_open(parent, source))) return -EBADF;
+  if (parent != NULL && parent->pipes[source] != NULL) {
+    dolly_kernel_pipe *pipe = parent->pipes[source];
+    const unsigned direction = parent->pipe_directions[source];
+    retain_pipe(pipe, direction);
+    release_descriptor(process, target);
+    process->pipes[target] = pipe;
+    process->pipe_directions[target] = (unsigned char)direction;
+  } else {
+    const int kernel_fd = parent != NULL ? parent->descriptors[source] : (int)source;
+    const int duplicate = dup(kernel_fd);
     if (duplicate < 0) return -errno;
-    process->descriptors[index] = duplicate;
-    process->terminal_descriptors[index] = parent != NULL
-        ? parent->terminal_descriptors[requested[index]]
-        : (source >= STDIN_FILENO && source <= STDERR_FILENO);
+    release_descriptor(process, target);
+    process->descriptors[target] = duplicate;
+    process->terminal_descriptors[target] = parent != NULL
+        ? parent->terminal_descriptors[source]
+        : (source <= STDERR_FILENO);
+  }
+  return 0;
+}
+
+static int configure_descriptors(dolly_kernel_process *process,
+                                 const dolly_kernel_process *parent,
+                                 const dolly_process_spawn_request *request,
+                                 const unsigned char *mapping_bytes) {
+  unsigned char mapped[DOLLY_KERNEL_DESCRIPTOR_LIMIT] = {0};
+  const uint32_t limit = request->descriptor_inheritance == DOLLY_PROCESS_INHERIT_FDS_ALL
+      ? DOLLY_KERNEL_DESCRIPTOR_LIMIT
+      : request->descriptor_inheritance == DOLLY_PROCESS_INHERIT_FDS_STDIO ? 3 : 0;
+  if (limit != 0 && parent == NULL) return -EINVAL;
+  for (uint32_t index = 0; index < request->mapping_count; ++index) {
+    dolly_process_fd_mapping mapping;
+    memcpy(&mapping, mapping_bytes + index * sizeof(mapping), sizeof(mapping));
+    if (mapping.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
+        mapping.source_descriptor > INT_MAX) return -EBADF;
+    if (mapped[mapping.target_descriptor]) return -EINVAL;
+    mapped[mapping.target_descriptor] = 1;
+    if (parent != NULL) {
+      if (!descriptor_is_open(parent, mapping.source_descriptor)) return -EBADF;
+    } else {
+      struct stat metadata;
+      if (fstat((int)mapping.source_descriptor, &metadata) != 0) return -errno;
+    }
+  }
+  for (uint32_t index = 0; index < request->mapping_count; ++index) {
+    dolly_process_fd_mapping mapping;
+    memcpy(&mapping, mapping_bytes + index * sizeof(mapping), sizeof(mapping));
+    const int result = copy_descriptor(process, parent,
+        mapping.source_descriptor, mapping.target_descriptor);
+    if (result != 0) return result;
+  }
+  for (uint32_t descriptor = 0; descriptor < limit; ++descriptor) {
+    if (mapped[descriptor] || !descriptor_is_open(parent, descriptor) ||
+        (parent->descriptor_flags[descriptor] & DOLLY_PROCESS_FD_CLOEXEC)) continue;
+    const int result = copy_descriptor(process, parent, descriptor, descriptor);
+    if (result != 0) return result;
   }
   return 0;
 }
@@ -441,6 +474,9 @@ static int spawn_packet(int parent_pid, size_t size) {
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.cwd_size > PATH_MAX || request.argument_count == 0 ||
       request.path_size == 0 || request.path_size > PATH_MAX ||
+      request.reserved != 0 ||
+      request.descriptor_inheritance > DOLLY_PROCESS_INHERIT_FDS_ALL ||
+      request.mapping_count > DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
       (request.flags & ~DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT) != 0 ||
       request.argument_bytes > SIZE_MAX || request.environment_bytes > SIZE_MAX) {
     return -EINVAL;
@@ -448,10 +484,12 @@ static int spawn_packet(int parent_pid, size_t size) {
   const size_t path_size = request.path_size;
   const size_t argument_bytes = (size_t)request.argument_bytes;
   const size_t environment_bytes = (size_t)request.environment_bytes;
+  const size_t mapping_bytes = request.mapping_count * sizeof(dolly_process_fd_mapping);
   if (path_size > size - sizeof(request) ||
       argument_bytes > size - sizeof(request) - path_size ||
       environment_bytes > size - sizeof(request) - path_size - argument_bytes ||
-      request.cwd_size != size - sizeof(request) - path_size - argument_bytes - environment_bytes) {
+      request.cwd_size > size - sizeof(request) - path_size - argument_bytes - environment_bytes ||
+      mapping_bytes != size - sizeof(request) - path_size - argument_bytes - environment_bytes - request.cwd_size) {
     return -EINVAL;
   }
   const unsigned char *cursor = process_mailbox + sizeof(request);
@@ -466,7 +504,7 @@ static int spawn_packet(int parent_pid, size_t size) {
   if (parent_pid != 0 && parent == NULL) result = -ESRCH;
   if (result == 0) {
     if (request.cwd_size != 0) {
-      const unsigned char *cwd = process_mailbox + size - request.cwd_size;
+      const unsigned char *cwd = process_mailbox + size - mapping_bytes - request.cwd_size;
       char directory[PATH_MAX + 1], resolved[PATH_MAX];
       struct stat metadata;
       if (cwd[0] != '/' || memchr(cwd, 0, request.cwd_size) != NULL) result = -EINVAL;
@@ -532,7 +570,8 @@ static int spawn_packet(int parent_pid, size_t size) {
                                 &process->environment);
     if (result == 0) process->environment_count = request.environment_count;
   }
-  if (result == 0) result = configure_descriptors(process, parent, &request);
+  if (result == 0) result = configure_descriptors(
+      process, parent, &request, process_mailbox + size - mapping_bytes);
   if (result == 0) result = read_image(process);
   if (result != 0) {
     dispose_process(process);
@@ -573,45 +612,36 @@ static int descriptor_for(dolly_kernel_process *process, uint32_t descriptor) {
   return process->descriptors[descriptor];
 }
 
-static int allocate_descriptor_at_least(dolly_kernel_process *process,
-                                        int kernel_fd, int terminal,
-                                        uint32_t minimum) {
+static int unused_descriptor(const dolly_kernel_process *process, uint32_t minimum) {
   for (uint32_t descriptor = minimum;
        descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
-    if (!descriptor_is_open(process, descriptor)) {
-      process->descriptors[descriptor] = kernel_fd;
-      process->terminal_descriptors[descriptor] = terminal != 0;
-      return (int)descriptor;
-    }
+    if (!descriptor_is_open(process, descriptor)) return (int)descriptor;
   }
   return -EMFILE;
 }
 
 static int allocate_descriptor(dolly_kernel_process *process, int kernel_fd,
                                int terminal) {
-  return allocate_descriptor_at_least(process, kernel_fd, terminal, 3);
-}
-
-static int allocate_pipe_descriptor_at_least(dolly_kernel_process *process,
-                                             dolly_kernel_pipe *pipe,
-                                             unsigned direction,
-                                             uint32_t minimum) {
-  for (uint32_t descriptor = minimum;
-       descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
-    if (!descriptor_is_open(process, descriptor)) {
-      process->pipes[descriptor] = pipe;
-      process->pipe_directions[descriptor] = (unsigned char)direction;
-      retain_pipe(pipe, direction);
-      return (int)descriptor;
-    }
+  const int descriptor = unused_descriptor(process, 0);
+  if (descriptor >= 0) {
+    process->descriptors[descriptor] = kernel_fd;
+    process->terminal_descriptors[descriptor] = terminal != 0;
+    process->descriptor_flags[descriptor] = 0;
   }
-  return -EMFILE;
+  return descriptor;
 }
 
 static int allocate_pipe_descriptor(dolly_kernel_process *process,
                                     dolly_kernel_pipe *pipe,
                                     unsigned direction) {
-  return allocate_pipe_descriptor_at_least(process, pipe, direction, 3);
+  const int descriptor = unused_descriptor(process, 0);
+  if (descriptor >= 0) {
+    process->pipes[descriptor] = pipe;
+    process->pipe_directions[descriptor] = (unsigned char)direction;
+    process->descriptor_flags[descriptor] = 0;
+    retain_pipe(pipe, direction);
+  }
+  return descriptor;
 }
 
 static int path_from_packet(dolly_kernel_process *process,
@@ -748,7 +778,8 @@ static int open_flags(uint32_t flags) {
   const uint32_t known = DOLLY_PROCESS_OPEN_READ | DOLLY_PROCESS_OPEN_WRITE |
       DOLLY_PROCESS_OPEN_CREATE | DOLLY_PROCESS_OPEN_EXCLUSIVE |
       DOLLY_PROCESS_OPEN_TRUNCATE | DOLLY_PROCESS_OPEN_APPEND |
-      DOLLY_PROCESS_OPEN_DIRECTORY | DOLLY_PROCESS_OPEN_NOFOLLOW;
+      DOLLY_PROCESS_OPEN_DIRECTORY | DOLLY_PROCESS_OPEN_NOFOLLOW |
+      DOLLY_PROCESS_OPEN_CLOEXEC;
   if ((flags & ~known) != 0 ||
       (flags & (DOLLY_PROCESS_OPEN_READ | DOLLY_PROCESS_OPEN_WRITE)) == 0) {
     return -EINVAL;
@@ -1567,64 +1598,60 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
           response_capacity < sizeof(dolly_process_fd_dup_response)) return -EINVAL;
       dolly_process_fd_dup_request request;
       memcpy(&request, process_mailbox, sizeof(request));
-      if ((request.flags & ~DOLLY_PROCESS_FD_DUP_MINIMUM) != 0 ||
+      if ((request.flags & ~(DOLLY_PROCESS_FD_DUP_MINIMUM | DOLLY_PROCESS_FD_DUP_CLOEXEC)) != 0 ||
           request.reserved != 0) return -EINVAL;
       if (!descriptor_is_open(process, request.source_descriptor)) return -EBADF;
       const int minimum = (request.flags & DOLLY_PROCESS_FD_DUP_MINIMUM) != 0;
-      if ((!minimum && request.target_descriptor == request.source_descriptor) ||
-          (minimum && request.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT)) {
+      if (minimum && request.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) {
         return -EINVAL;
       }
-      const int terminal =
-          process->terminal_descriptors[request.source_descriptor];
-      dolly_kernel_pipe *pipe = process->pipes[request.source_descriptor];
-      const unsigned pipe_direction =
-          process->pipe_directions[request.source_descriptor];
-      int target;
-      if (pipe != NULL) {
-        if (minimum) {
-          target = allocate_pipe_descriptor_at_least(
-              process, pipe, pipe_direction, request.target_descriptor);
-        } else if (request.target_descriptor == UINT32_MAX) {
-          target = allocate_pipe_descriptor(process, pipe, pipe_direction);
-        } else if (request.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) {
-          return -EBADF;
-        } else {
-          target = (int)request.target_descriptor;
-          release_descriptor(process, (uint32_t)target);
-          process->pipes[target] = pipe;
-          process->pipe_directions[target] = (unsigned char)pipe_direction;
-          retain_pipe(pipe, pipe_direction);
-        }
-        if (target < 0) return target;
+      if (!minimum && request.target_descriptor == request.source_descriptor) {
+        if (request.flags != 0) return -EINVAL;
+        const int target = (int)request.target_descriptor;
         dolly_process_fd_dup_response response = {(uint32_t)target, 0};
         memcpy(process_mailbox, &response, sizeof(response));
         return sizeof(response);
       }
-      int source = descriptor_for(process, request.source_descriptor);
-      if (source < 0) return source;
-      int duplicate = dup(source);
-      if (duplicate < 0) return -errno;
+      int target;
       if (minimum) {
-        target = allocate_descriptor_at_least(
-            process, duplicate, terminal, request.target_descriptor);
-        if (target < 0) close(duplicate);
+        target = unused_descriptor(process, request.target_descriptor);
       } else if (request.target_descriptor == UINT32_MAX) {
-        target = allocate_descriptor(process, duplicate, terminal);
-        if (target < 0) close(duplicate);
+        target = unused_descriptor(process, 0);
       } else if (request.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) {
-        close(duplicate);
         return -EBADF;
       } else {
         target = (int)request.target_descriptor;
-        release_descriptor(process, (uint32_t)target);
-        process->descriptors[target] = duplicate;
-        process->terminal_descriptors[target] = terminal;
       }
       if (target < 0) return target;
+      const int result = copy_descriptor(process, process, request.source_descriptor, (uint32_t)target);
+      if (result != 0) return result;
+      process->descriptor_flags[target] = (request.flags & DOLLY_PROCESS_FD_DUP_CLOEXEC)
+          ? DOLLY_PROCESS_FD_CLOEXEC : 0;
       dolly_process_fd_dup_response response = {(uint32_t)target, 0};
       memcpy(process_mailbox, &response, sizeof(response));
       return sizeof(response);
+    }
+    case DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS: {
+      if (request_size != sizeof(dolly_process_fd_request) ||
+          response_capacity < sizeof(dolly_process_fd_flags)) return -EINVAL;
+      dolly_process_fd_request request;
+      memcpy(&request, process_mailbox, sizeof(request));
+      if (request.reserved != 0) return -EINVAL;
+      if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
+      const dolly_process_fd_flags response = {
+          request.descriptor, process->descriptor_flags[request.descriptor],
+      };
+      memcpy(process_mailbox, &response, sizeof(response));
+      return sizeof(response);
+    }
+    case DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS: {
+      if (request_size != sizeof(dolly_process_fd_flags) || response_capacity != 0) return -EINVAL;
+      dolly_process_fd_flags request;
+      memcpy(&request, process_mailbox, sizeof(request));
+      if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
+      if (request.flags & ~DOLLY_PROCESS_FD_CLOEXEC) return -EINVAL;
+      process->descriptor_flags[request.descriptor] = (unsigned char)request.flags;
+      return 0;
     }
     case DOLLY_PROCESS_FD_GET_FLAGS: {
       if (request_size != sizeof(dolly_process_fd_request) ||
@@ -1664,8 +1691,11 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       return fcntl(descriptor, F_SETFL, (int)request.flags) == 0 ? 0 : -errno;
     }
     case DOLLY_PROCESS_FD_PIPE: {
-      if (request_size != 0 ||
+      if (request_size != sizeof(dolly_process_pipe_request) ||
           response_capacity < sizeof(dolly_process_pipe_response)) return -EINVAL;
+      dolly_process_pipe_request request;
+      memcpy(&request, process_mailbox, sizeof(request));
+      if (request.reserved != 0 || (request.flags & ~DOLLY_PROCESS_FD_CLOEXEC)) return -EINVAL;
       if (live_pipe_count >= DOLLY_KERNEL_PIPE_LIMIT) return -ENFILE;
       dolly_kernel_pipe *pipe = calloc(1, sizeof(*pipe));
       if (pipe == NULL) return -ENOMEM;
@@ -1683,6 +1713,8 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
         release_descriptor(process, (uint32_t)read_descriptor);
         return write_descriptor;
       }
+      process->descriptor_flags[read_descriptor] = (unsigned char)request.flags;
+      process->descriptor_flags[write_descriptor] = (unsigned char)request.flags;
       dolly_process_pipe_response response = {
           (uint32_t)read_descriptor, (uint32_t)write_descriptor,
       };
@@ -1741,6 +1773,8 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       }
       free(path);
       if (result != 0) return result;
+      process->descriptor_flags[guest_fd] = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
+          ? DOLLY_PROCESS_FD_CLOEXEC : 0;
       dolly_process_path_open_response response = {(uint32_t)guest_fd, 0};
       memcpy(process_mailbox, &response, sizeof(response));
       return sizeof(response);

@@ -68,6 +68,8 @@ enum dolly_process_operation {
   DOLLY_PROCESS_CLOCK_RESOLUTION = 52,
   DOLLY_PROCESS_CLOCK_SLEEP = 53,
   DOLLY_PROCESS_FD_POLL = 54,
+  DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55,
+  DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56,
 
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,
@@ -104,6 +106,16 @@ enum dolly_process_spawn_flags {
   DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT = 1u << 0,
 };
 
+enum dolly_process_descriptor_inheritance {
+  DOLLY_PROCESS_INHERIT_FDS_NONE = 0,
+  DOLLY_PROCESS_INHERIT_FDS_STDIO = 1,
+  DOLLY_PROCESS_INHERIT_FDS_ALL = 2,
+};
+
+enum dolly_process_descriptor_flags {
+  DOLLY_PROCESS_FD_CLOEXEC = 1u << 0,
+};
+
 enum dolly_process_wait_flags {
   /* Return -EAGAIN without reaping when the child has not exited. */
   DOLLY_PROCESS_WAIT_NONBLOCK = 1u << 0,
@@ -112,6 +124,7 @@ enum dolly_process_wait_flags {
 enum dolly_process_fd_dup_flags {
   /* target_descriptor is an inclusive lower bound instead of an exact fd. */
   DOLLY_PROCESS_FD_DUP_MINIMUM = 1u << 0,
+  DOLLY_PROCESS_FD_DUP_CLOEXEC = 1u << 1,
 };
 
 enum dolly_process_open_flags {
@@ -123,6 +136,7 @@ enum dolly_process_open_flags {
   DOLLY_PROCESS_OPEN_APPEND = 1u << 5,
   DOLLY_PROCESS_OPEN_DIRECTORY = 1u << 6,
   DOLLY_PROCESS_OPEN_NOFOLLOW = 1u << 7,
+  DOLLY_PROCESS_OPEN_CLOEXEC = 1u << 8,
 };
 
 enum dolly_process_path_flags {
@@ -242,6 +256,11 @@ typedef struct {
 } dolly_process_fd_flags;
 
 typedef struct {
+  uint32_t flags;
+  uint32_t reserved;
+} dolly_process_pipe_request;
+
+typedef struct {
   uint32_t read_descriptor;
   uint32_t write_descriptor;
 } dolly_process_pipe_response;
@@ -321,18 +340,27 @@ typedef struct {
  * The header is followed by path_size raw path bytes, argument_bytes bytes
  * containing exactly argument_count NUL-terminated strings, then
  * environment_bytes bytes containing environment_count NUL-terminated
- * NAME=value strings, then cwd_size raw bytes for an absolute working directory.
+ * NAME=value strings, then cwd_size raw bytes for an absolute working directory,
+ * then mapping_count dolly_process_fd_mapping records (possibly unaligned).
  * Zero cwd_size inherits the parent's cwd without mutating it. An inherited
- * environment has zero count/bytes.
+ * environment has zero count/bytes. Descriptor inheritance copies only open
+ * non-CLOEXEC descriptors. Explicit mappings override inherited targets and
+ * clear child CLOEXEC; all sources refer to the parent, even for swaps.
+ * Mapping targets must be unique. Root spawns use NONE and explicit mappings.
  */
+typedef struct {
+  uint32_t source_descriptor;
+  uint32_t target_descriptor;
+} dolly_process_fd_mapping;
+
 typedef struct {
   uint32_t flags;
   uint32_t argument_count;
   uint32_t environment_count;
   uint32_t cwd_size;
-  uint32_t stdin_descriptor;
-  uint32_t stdout_descriptor;
-  uint32_t stderr_descriptor;
+  uint32_t mapping_count;
+  uint32_t descriptor_inheritance;
+  uint32_t reserved;
   uint32_t path_size;
   uint64_t argument_bytes;
   uint64_t environment_bytes;
@@ -639,6 +667,8 @@ static_assert(sizeof(dolly_process_directory_request) == 24);
 static_assert(sizeof(dolly_process_stat_response) == 88);
 static_assert(sizeof(dolly_process_filesystem_stat_response) == 96);
 static_assert(sizeof(dolly_process_spawn_request) == 56);
+static_assert(sizeof(dolly_process_fd_mapping) == 8);
+static_assert(sizeof(dolly_process_pipe_request) == 8);
 static_assert(sizeof(dolly_process_two_path_request) == 16);
 static_assert(sizeof(dolly_process_path_times_request) == 48);
 static_assert(sizeof(dolly_process_terminal_request) == 24);
@@ -692,6 +722,8 @@ _Static_assert(sizeof(dolly_process_stat_response) == 88, "process ABI layout");
 _Static_assert(sizeof(dolly_process_filesystem_stat_response) == 96,
                "process ABI layout");
 _Static_assert(sizeof(dolly_process_spawn_request) == 56, "process ABI layout");
+_Static_assert(sizeof(dolly_process_fd_mapping) == 8, "process ABI layout");
+_Static_assert(sizeof(dolly_process_pipe_request) == 8, "process ABI layout");
 _Static_assert(sizeof(dolly_process_two_path_request) == 16, "process ABI layout");
 _Static_assert(sizeof(dolly_process_path_times_request) == 48,
                "process ABI layout");

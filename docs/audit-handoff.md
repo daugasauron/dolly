@@ -21,7 +21,7 @@ Read [AGENTS.md](../AGENTS.md) first. Broader direction:
   been pushed or deployed. Saved sessions need exact runtime/recipe matches;
   incompatible saves remain listed, without an invented migration.
 
-## Current checkpoint
+## Earlier published checkpoint (`a4dffeb`)
 
 The app on port **9000** now serves only a published whole-app release.
 `npm run publish` verifies and browser-tests staged output, creates the Pages
@@ -62,7 +62,7 @@ Implemented and verified:
   images pass repeated real-backend builds, injected publication failure,
   preservation of the previous wheel, cleanup and unchanged caller environment.
   Obsolete reused-interpreter `sys.path` repair is removed. The scientific-package
-  gate is separate and currently fails, as detailed below.
+  gate originally failed; the validated descriptor checkpoint below fixes it.
 - Slop recognizes `!` at command boundaries, including after `then`/`else`/`do`
   and inside groups. All 54 shell fixtures pass native sanitizer/reference and
   Chromium checks, including Make failure propagation. Image-owned help only
@@ -76,8 +76,47 @@ All five images use runtime
 `sha256:b2122d327e555930fd0e3f1684d2ef476c34a1711efffb6dc4ae1bb0cb6cbec5`.
 **202 source tests and the complete Chrome suite pass**, including boundary,
 process ABI/DSOs, HTTP, signals, UTF-8, Pi/Janis, sessions, C++ and Zig. All five
-staged publication inventories pass. A final committed-source publication should
-use these tested runtime/images; inspect its log and source provenance.
+staged publication inventories pass. That committed-source release is `a4dffeb`;
+`build/d6-checkpoint-publication.log` and
+`build/d6-committed-source-verification.log` verify its source provenance.
+
+## Validated descriptor checkpoint
+
+Kernel-owned close-on-exec flags and generic spawn mappings are implemented,
+including Python `close_fds`/`pass_fds`. The new runtime is
+`sha256:a4f291b85f5b0c72baa9d7c31fa4fed9e6669e8ff8d050410c4caa2bc6ef0340`;
+the process ABI digest is
+`bb45fca1f6eb10914d201877c47e2109e945dca5d6bd86355dda15b5f0366f12`.
+All five images rebuilt successfully. Python's
+browser fixture passes `close_fds`, `pass_fds`, explicit stdio, shared offsets,
+pipe EOF and Meson-shaped compiler detection, plus Bonnie's real PEP 517
+build/failure cleanup. All 203 source tests and the complete Chrome suite pass.
+The clean scientific-package gate built and installed NumPy 2.5.2 and Pandas
+3.0.5 through unchanged Meson 1.12.0. Fresh-process array/groupby computations,
+transitive frontend installation, staging cleanup and raw-socket denial passed.
+All five image inventory/help checks pass. No browser build is still running
+for this scientific gate; it finished with status 0.
+
+Native descriptor/sanitizer checks, all 54 Slop fixtures, and the real Chrome
+descriptor/lifecycle fixture pass. The latter checks inheritance policies,
+simultaneous mappings, malformed packets, failed-spawn cleanup, shared offsets
+and independent flags, lowest-free allocation and pipe EOF. Evidence:
+`build/fd-inheritance-runtime-build-final.log`,
+`build/fd-inheritance-native-descriptors.log`,
+`build/fd-inheritance-slop-native.log`,
+`build/fd-inheritance-default-snapshot.log`,
+`build/fd-inheritance-browser-descriptors.log`,
+`build/fd-inheritance-python-snapshot.log`,
+`build/fd-inheritance-python-browser.log` and
+`build/fd-inheritance-python-pi-browser.log` (both Python images),
+`build/fd-inheritance-browser-boundary.log` (still exactly 28 imports),
+`build/fd-inheritance-all-snapshots.log`,
+`build/fd-inheritance-source-tests.log`,
+`build/fd-inheritance-full-chrome.log`,
+`build/fd-inheritance-all-inventories.log`,
+`build/fd-inheritance-pandas-browser.log`.
+Local publication is a separate gate; `build/releases/current/release/source.commit`
+identifies the source actually served on port 9000, not the working tree.
 
 Useful evidence:
 
@@ -86,7 +125,8 @@ Useful evidence:
 - `build/d5-bonnie-subprocess-browser.log`,
   `build/d5-bonnie-subprocess-python-pi.log`,
   `build/d6-documentation-publication.log`, `build/d6-publication-negative.log`.
-- `build/d5-bonnie-subprocess-pandas.log`: **failed**, details below.
+- `build/d5-bonnie-subprocess-pandas.log`: old descriptor rejection, superseded
+  by the passing scientific gate above.
 - `build/http-bytes-*.log`, `build/python-reproducibility-fixed.log`,
   `build/session-baseline-*-guarded.log`.
 - `build/d4-checkpoint-node-tests.log`, `build/d4-verified-publication.log`,
@@ -100,53 +140,6 @@ Useful evidence:
 
 ## Remaining work, in order
 
-### Correct descriptor inheritance, then rerun NumPy/Pandas
-
-The fresh package gate reached NumPy 2.5.2/Meson 1.11.1 and failed before
-`cc --version`: Meson passes `close_fds=False`, explicitly rejected by
-`src/runtimes/cpython-subprocess.py`. This is not a compiler hang or network
-failure. Current README/port-status/roadmap claims now reflect that limitation.
-
-The underlying gap is generic: `src/process/libc-adapter.c` fakes
-`F_GETFD`/`F_SETFD`/`FIOCLEX`, ignores close-on-exec on dup/pipe creation, and
-`src/process-kernel.c:configure_descriptors` only maps stdio. Do not simply drop
-Python's rejection or patch Meson. Implement kernel-owned descriptor flags and
-correct inheritance through the typed spawn contract, distinct from shared
-open-file status flags. Cover pipes, dup/dup2/dup3/F_DUPFD_CLOEXEC, invalid
-handles, `close_fds` and `pass_fds` with finite C/Python browser fixtures.
-Explicit stdio redirection must clear CLOEXEC; inheriting stdio is different.
-
-Acceptance: unchanged Meson detects compilers; a clean `bonnie install pandas`
-builds its graph; fresh Python processes run array/groupby checks; raw sockets
-remain denied and completed/failed builds own their temporary state.
-
-### D1 — Finish one uninterrupted fresh-cache bootstrap
-
-Four cache-hidden prerequisites were fixed: LLVM sparse `libc`, Bison stdout
-contamination, wasm64 PIC compiler builtins and Clang resource headers.
-The prior isolated run resumed after those fixes, used only its own generated
-caches, produced the working runtime ID and all five images, and passed the
-full suite (`build/d1-clean-bootstrap-headers.log`).
-
-The final-run harness omitted README's `npm ci` and failed while preparing Pi;
-this was a harness error, not a new bootstrap prerequisite. Its checkout was
-moved to system trash. The replacement complete procedure **finished with status
-1**, exec session **36689**, log
-`build/d1-complete-procedure.log`: `npm ci`, external toolchain, then `npm test`,
-with empty caches and an explicit host tool PATH. Its toolchain, runtime, five
-images and 192 source tests passed; the browser suite then reproduced the Slop
-negation failure after `else`. That frozen source predates the fix, which now
-passes native and browser regressions in the main tree. This is not a complete
-green fresh-cache gate. The 8.6 GiB owned checkout was moved to system trash,
-recoverably. No clean bootstrap is currently running. Keep the log; finish one
-full clean run on final sources, after the remaining source changes.
-
-Acceptance: documented external toolchain → runtime → five images → complete
-tests, with no copied workstation caches. Clean the owned checkout after
-closure. The earlier 8.6 GiB checkout and obsolete diagnostic snapshot were
-moved to system trash, recoverably. Source-cache debris was previously moved
-to `build/d6-source-cache-backup.v3dj1y`; do not silently delete it.
-
 ### D5 — Put image policy inside the image
 
 `src/runtime-worker.mjs:runImageEntry` still knows Slop/Pi paths, startup,
@@ -158,6 +151,22 @@ interruptible or kill the recovery shell on every Ctrl-C. Do not fake `exec`.
 
 Acceptance: customizing an image needs no browser-worker path edits; package
 choices are explicit; cancellation and process/file sharing still pass.
+
+The concrete small design is an image init script plus an ordinary foreground
+launcher backed by typed foreground/interactive spawn flags, not path detection.
+Keep ownership in Wasm. Child WAIT must not complete before the supervisor
+retires its Worker references; otherwise nested Pi recovery bypasses the current
+large-interactive-root reclamation window. Cover normal exit, startup failure and
+forced termination. No Pi-specific sleeps or fake process replacement.
+
+### Remove remaining advisory-lock success stubs
+
+`src/process/libc-adapter.c:__syscall_fcntl64` still reports `F_GETLK` as unlocked
+and accepts `F_SETLK`/`F_SETLKW` without recording any lock, even for invalid
+descriptors. This predates the descriptor fix and is not covered by its proof.
+Fail explicitly when locks are unsupported, or implement kernel-owned locks if
+a real consumer demonstrates the need. Add a finite invalid-handle/conflicting-
+owner check; do not preserve the fiction of one cooperating process.
 
 ### Complete ordinary Git transport
 
@@ -184,6 +193,21 @@ workloads, and export only explicit test artifacts. Include attempted operations
 and failures, not just successful calls. Compare relevant stdout/stderr/status,
 filesystem and network behavior with reference POSIX fixtures.
 Use measured consumers to justify ABI 1; do not freeze a speculative API.
+
+### D1 — Finish one uninterrupted fresh-cache bootstrap
+
+The last empty-cache run (`build/d1-complete-procedure.log`) finished with
+status 1: toolchain, runtime, five images and 192 source tests passed, but its
+frozen source hit the now-fixed Slop negation bug. Earlier runs fixed LLVM sparse
+`libc`, Bison stdout contamination, wasm64 PIC builtins and Clang resource headers.
+No clean bootstrap is currently running. On final sources, run README's
+`npm ci` → external toolchain → `npm test`, with an explicit host tool PATH and
+no copied workstation caches. All five images and the complete suite must pass
+in that one run. Clean its owned checkout after closure.
+
+Earlier owned checkouts and the obsolete diagnostic snapshot were moved to
+system trash, recoverably. Preserve logs and the source-cache backup at
+`build/d6-source-cache-backup.v3dj1y`; do not silently delete it.
 
 ## Closure rules
 

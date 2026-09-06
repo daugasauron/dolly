@@ -121,10 +121,12 @@ dimensions. Ctrl+C remains unconditional lifecycle supervision even in raw
 mode. The adapter adds no browser import; command lifecycle
 restoration prevents a runtime that exits or is interrupted in raw mode from
 stranding the shell. Process-local dynamic loading and source-built libffi now
-support `_ctypes`, C and C++ extension modules, and Dolly-native wheels. The latest
-clean NumPy/Pandas check stops before compiler detection: Meson 1.11.1 requests
-`close_fds=False`, which Dolly's subprocess adapter rejects. Correct descriptor
-inheritance is required; silently ignoring that option would be wrong. Meson
+support `_ctypes`, C and C++ extension modules, and Dolly-native wheels. Real
+kernel-owned close-on-exec flags and descriptor inheritance now support
+`close_fds=False` and `pass_fds`, including Meson-shaped compiler detection in
+the browser. A clean `bonnie install pandas` built NumPy 2.5.2 and Pandas 3.0.5
+through unchanged Meson 1.12.0; fresh Python array/groupby checks passed, staging
+was removed and raw sockets remained denied. Meson
 source builds are deliberately single-job: parallel compiler
 Workers multiply WebAssembly memories without improving the compatibility
 contract. Bonnie also selects NumPy's supported no-CPU-optimization/debug

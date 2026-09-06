@@ -425,11 +425,18 @@ int dolly_display_release(uint64_t generation) {
   return 0;
 }
 
-static int spawn_process(const char *path, int argc, char **argv,
-                         char *const envp[], int stdin_fd, int stdout_fd,
-                         int stderr_fd, double timeout_milliseconds, const char *cwd) {
+int dolly_spawn_mapped(const char *path, int argc, char **argv,
+                        char *const envp[], const char *cwd,
+                        uint32_t descriptor_inheritance,
+                        const dolly_process_fd_mapping *mappings,
+                        uint32_t mapping_count, double timeout_milliseconds) {
   if (path == NULL || argv == NULL || argc <= 0 ||
+      descriptor_inheritance > DOLLY_PROCESS_INHERIT_FDS_ALL ||
+      (mapping_count != 0 && mappings == NULL) ||
+      timeout_milliseconds < -1 || timeout_milliseconds > 86400000.0 ||
       timeout_milliseconds != timeout_milliseconds) return -EINVAL;
+  if (mapping_count > DOLLY_PROCESS_PACKET_LIMIT / sizeof(*mappings)) return -E2BIG;
+  const size_t mapping_bytes = mapping_count * sizeof(*mappings);
   const size_t path_size = strlen(path);
   const size_t cwd_size = cwd == NULL ? 0 : strlen(cwd);
   if (cwd != NULL && (cwd_size == 0 || cwd_size > 4096 || cwd[0] != '/')) return -EINVAL;
@@ -453,7 +460,7 @@ static int spawn_process(const char *path, int argc, char **argv,
     }
   }
   const size_t packet_size = sizeof(dolly_process_spawn_request) +
-      path_size + argument_bytes + environment_bytes + cwd_size;
+      path_size + argument_bytes + environment_bytes + cwd_size + mapping_bytes;
   if (packet_size > DOLLY_PROCESS_PACKET_LIMIT) return -E2BIG;
   unsigned char *packet = malloc(packet_size);
   if (packet == NULL) return -ENOMEM;
@@ -472,9 +479,9 @@ static int spawn_process(const char *path, int argc, char **argv,
       (uint32_t)argc,
       environment_count,
       (uint32_t)cwd_size,
-      (uint32_t)stdin_fd,
-      (uint32_t)stdout_fd,
-      (uint32_t)stderr_fd,
+      mapping_count,
+      descriptor_inheritance,
+      0,
       (uint32_t)path_size,
       argument_bytes,
       environment_bytes,
@@ -495,6 +502,8 @@ static int spawn_process(const char *path, int argc, char **argv,
     offset += length;
   }
   if (cwd_size != 0) memcpy(packet + offset, cwd, cwd_size);
+  offset += cwd_size;
+  if (mapping_bytes != 0) memcpy(packet + offset, mappings, mapping_bytes);
   dolly_process_spawn_response response = {0};
   const int64_t result = dolly_process_call(
       DOLLY_PROCESS_SPAWN, packet, packet_size, &response, sizeof(response));
@@ -502,6 +511,16 @@ static int spawn_process(const char *path, int argc, char **argv,
   if (result < 0) return (int)result;
   return (uint64_t)result == sizeof(response) && response.reserved == 0 &&
       response.pid <= INT32_MAX ? (int)response.pid : -EIO;
+}
+
+static int spawn_process(const char *path, int argc, char **argv,
+                         char *const envp[], int stdin_fd, int stdout_fd,
+                         int stderr_fd, double timeout_milliseconds, const char *cwd) {
+  const dolly_process_fd_mapping mappings[] = {
+      {(uint32_t)stdin_fd, 0}, {(uint32_t)stdout_fd, 1}, {(uint32_t)stderr_fd, 2},
+  };
+  return dolly_spawn_mapped(path, argc, argv, envp, cwd,
+      DOLLY_PROCESS_INHERIT_FDS_NONE, mappings, 3, timeout_milliseconds);
 }
 
 int dolly_spawn(const char *path, int argc, char **argv,
