@@ -29,7 +29,6 @@ typedef enum {
   TOKEN_AND,
   TOKEN_OR,
   TOKEN_PIPE,
-  TOKEN_NOT,
   TOKEN_INPUT,
   TOKEN_OUTPUT,
   TOKEN_APPEND,
@@ -1259,9 +1258,6 @@ static TokenKind operator_kind(const char *source, size_t *length,
   switch (*source) {
     case ';': case '\n': return TOKEN_SEMI;
     case '|': return TOKEN_PIPE;
-    case '!':
-      if (token_boundary) return TOKEN_NOT;
-      break;
     case '(': return TOKEN_LPAREN;
     case ')': return TOKEN_RPAREN;
     default: *length = 0; return TOKEN_WORD;
@@ -1372,13 +1368,6 @@ static int lex(const char *source, TokenList *tokens) {
       fputs("slop: tab-stripping <<- here-documents are unsupported\n",
             stderr);
       return 0;
-    }
-    if (kind == TOKEN_NOT && tokens->count != 0 &&
-        tokens->items[tokens->count - 1].kind != TOKEN_SEMI &&
-        tokens->items[tokens->count - 1].kind != TOKEN_AND &&
-        tokens->items[tokens->count - 1].kind != TOKEN_OR) {
-      operator_length = 0;
-      kind = TOKEN_WORD;
     }
     if (operator_length != 0) {
       if (kind == TOKEN_SEMI && *source == '\n' && tokens->count != 0) {
@@ -3036,8 +3025,6 @@ static int run_simple(Shell *shell, Token *tokens, size_t start, size_t end,
 }
 
 static int run_pipeline(Shell *shell, Token *tokens, size_t start, size_t end) {
-  int invert = 0;
-  if (start < end && tokens[start].kind == TOKEN_NOT) { invert = 1; start++; }
   if (start == end) { fputs("slop: expected a command\n", stderr); return 2; }
   int input = STDIN_FILENO, owned_input = -1, status = 0;
   int rightmost_failure = 0;
@@ -3069,7 +3056,7 @@ static int run_pipeline(Shell *shell, Token *tokens, size_t start, size_t end) {
   }
   if (owned_input >= 0) close(owned_input);
   if (shell->pipefail && rightmost_failure != 0) status = rightmost_failure;
-  return invert ? status == 0 : status;
+  return status;
 }
 
 enum {
@@ -3871,6 +3858,13 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
         (previous == TOKEN_SEMI ||
          (previous == TOKEN_AND && status == 0) ||
          (previous == TOKEN_OR && status != 0));
+    const int invert = command_word(parser, "!");
+    if (invert && ++parser->cursor == parser->end) {
+      fputs("slop: expected a command after !\n", stderr);
+      parser->error = 1;
+      return 2;
+    }
+    const int suppress_command_errexit = suppress_errexit || invert;
     char *function_name = NULL;
     size_t function_body_start = 0;
     const int definition = function_header(parser, &function_name,
@@ -3880,15 +3874,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
       parser->error = 1;
       return 2;
     }
-    const int invert_subshell = parser->tokens[parser->cursor].kind == TOKEN_NOT &&
-        parser->cursor + 1 < parser->end &&
-        parser->tokens[parser->cursor + 1].kind == TOKEN_LPAREN;
-    if (invert_subshell) {
-      parser->cursor++;
-      const int result = parse_subshell(shell, parser, should_run, 1);
-      if (parser->error) return 2;
-      if (should_run) status = result == 0;
-    } else if (definition > 0) {
+    if (definition > 0) {
       const int result = parse_function_definition(shell, parser, should_run,
                                                    function_name,
                                                    function_body_start);
@@ -3897,31 +3883,31 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
       if (should_run) status = result;
     } else if (command_word(parser, "{")) {
       const int result = parse_group(shell, parser, should_run,
-                                     suppress_errexit);
+                                     suppress_command_errexit);
       if (parser->error) return 2;
       if (should_run) status = result;
     } else if (parser->tokens[parser->cursor].kind == TOKEN_LPAREN) {
       const int result = parse_subshell(shell, parser, should_run,
-                                       suppress_errexit);
+                                       suppress_command_errexit);
       if (parser->error) return 2;
       if (should_run) status = result;
     } else if (command_word(parser, "if")) {
-      const int result = parse_if(shell, parser, should_run, suppress_errexit);
+      const int result = parse_if(shell, parser, should_run, suppress_command_errexit);
       if (parser->error) return 2;
       if (should_run) status = result;
     } else if (command_word(parser, "for")) {
-      const int result = parse_for(shell, parser, should_run, suppress_errexit);
+      const int result = parse_for(shell, parser, should_run, suppress_command_errexit);
       if (parser->error) return 2;
       if (should_run) status = result;
     } else if (command_word(parser, "while") || command_word(parser, "until")) {
       const int until = command_word(parser, "until");
       const int result = parse_while(shell, parser, should_run,
-                                     suppress_errexit, until);
+                                     suppress_command_errexit, until);
       if (parser->error) return 2;
       if (should_run) status = result;
     } else if (command_word(parser, "case")) {
       const int result = parse_case(shell, parser, should_run,
-                                    suppress_errexit);
+                                    suppress_command_errexit);
       if (parser->error) return 2;
       if (should_run) status = result;
     } else {
@@ -3944,6 +3930,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
     }
 
     if (should_run) {
+      if (invert) status = status == 0;
       shell->last_status = status;
       if (!shell->active) {
         status = shell->exit_status;
@@ -3959,7 +3946,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
       if ((stops & STOP_CASE_CLAUSE) != 0 &&
           separator == TOKEN_CASE_END) {
         *stopped = STOP_CASE_CLAUSE;
-        if (should_run && shell->errexit && !suppress_errexit && status != 0) {
+        if (should_run && shell->errexit && !suppress_command_errexit && status != 0) {
           aborted = 1;
         }
         break;
@@ -3976,7 +3963,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
         }
       }
     }
-    if (should_run && shell->errexit && !suppress_errexit && status != 0 &&
+    if (should_run && shell->errexit && !suppress_command_errexit && status != 0 &&
         separator != TOKEN_AND && separator != TOKEN_OR) {
       aborted = 1;
     }

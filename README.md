@@ -20,8 +20,9 @@ Dolly currently boots a source-built userspace containing:
   Git, and Fetch-backed libcurl;
 - an optional Python image with source-built CPython 3.14 and Bonnie for
   recursive, hash-verified wheel and source-distribution builds through that
-  same libcurl; a clean browser gate source-builds and imports NumPy and Pandas
-  as Dolly-native wasm64 extensions. CPython reports the distinct `dolly`
+  same libcurl. C/C++ extensions work; the latest NumPy/Pandas source-build
+  check is blocked by missing subprocess descriptor inheritance, detailed in
+  [port status](docs/port-status.md). CPython reports the distinct `dolly`
   platform, raw sockets fail explicitly, upstream `termios` controls Dolly's
   in-Wasm line discipline, requirements files are accepted sequentially, and
   wheel console entry points become separately compiled wasm64 PATH commands;

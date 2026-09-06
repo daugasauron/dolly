@@ -830,7 +830,6 @@ test("slop reserves only stateful shell operations and resolves utilities throug
   assert.match(shell, /case 'B': return 2;/);
   assert.doesNotMatch(shell, /SLOP_DEFERRED_STATUS|expand_deferred_status/);
   assert.match(shell, /expand_deferred_dollars\(shell, tokens, start, end\)/);
-  assert.match(shell, /kind == TOKEN_NOT && tokens->count != 0/);
   assert.doesNotMatch(shell, /readline|linenoise|editline/);
   assert.match(startup, /SLOP cc \\\n[\s\S]*?-o \/bin\/tar/);
   assert.match(startup, /SLOP git \\\n\s+--version/);

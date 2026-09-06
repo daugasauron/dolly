@@ -18,6 +18,7 @@ import os
 import posixpath
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -28,23 +29,6 @@ from email.parser import BytesParser
 
 
 MAX_INSTALLED_BYTES = 256 * 1024 * 1024
-
-
-def _sync_pythonpath() -> None:
-    """Apply command-local PYTHONPATH in Dolly's reused CPython instance."""
-    previous = getattr(sys, "_dolly_bonnie_pythonpath", ())
-    for path in previous:
-        while path in sys.path:
-            sys.path.remove(path)
-    current = tuple(
-        path for path in os.environ.get("PYTHONPATH", "").split(":") if path
-    )
-    for path in reversed(current):
-        sys.path.insert(0, path)
-    sys._dolly_bonnie_pythonpath = current
-
-
-_sync_pythonpath()
 
 
 def _load_packaging():
@@ -564,31 +548,43 @@ def _source_build_backend(sdist_path: str) -> str:
     return backend if isinstance(backend, str) else ""
 
 
-def _source_build_setup_arguments(sdist_path: str) -> tuple[str, ...]:
-    """Return target-specific upstream build options, never source patches.
-
-    NumPy deliberately adds ``-O3`` after environment CFLAGS for its generated
-    ufunc translation units.  Those units are unusually expensive in a
-    memory-constrained browser compiler process.  Its supported Meson options
-    provide the correct target configuration: a debug build removes that
-    trailing ``-O3``, while ``disable-optimization`` removes CPU dispatch and
-    per-function optimization attributes that are not useful on Dolly.
-    """
+def _source_build_config_settings(
+        sdist_path: str, policy_path: str = "/etc/bonnie/build.toml") -> list[str]:
+    try:
+        with open(policy_path, "rb") as stream:
+            policy = tomllib.load(stream)
+    except FileNotFoundError:
+        return []
     metadata_bytes, _ = _sdist_documents(sdist_path)
     metadata = BytesParser().parsebytes(metadata_bytes)
-    name = metadata.get("Name")
-    if name and PACKAGING["canonicalize_name"](name) == "numpy":
-        return ("-Dbuildtype=debug", "-Ddisable-optimization=true")
-    return ()
+    name = PACKAGING["canonicalize_name"](metadata.get("Name", ""))
+    arguments = []
+    for package, settings in policy.items():
+        if not package or package != PACKAGING["canonicalize_name"](package) or not isinstance(settings, dict):
+            raise ValueError(f"{policy_path}: expected normalized package tables")
+        for key, values in settings.items():
+            if not key or "=" in key or "\0" in key:
+                raise ValueError(f"{policy_path}: invalid config-setting key {key!r}")
+            values = values if isinstance(values, list) else [values]
+            if not values or any(not isinstance(value, str) or "\0" in value for value in values):
+                raise ValueError(f"{policy_path}: {package}.{key} must be a string or nonempty string array")
+            if package == name:
+                for value in values:
+                    arguments.extend(["--config-settings", f"{key}={value}"])
+    if arguments:
+        print(f"bonnie: build settings from {policy_path} [{name}]", flush=True)
+    return arguments
 
 
 def build(sdist_path: str, wheel_path: str) -> None:
     bundled = glob.glob("/usr/lib/python*/ensurepip/_bundled/pip-*-py3-none-any.whl")
     if not bundled:
         raise RuntimeError("CPython's bundled pip frontend is unavailable")
-    sys.path.insert(0, max(bundled))
-    from pip._internal.cli.main import main as pip_main
-
+    backend = _source_build_backend(sdist_path)
+    settings = _source_build_config_settings(sdist_path)
+    if backend.split(":", 1)[0] == "mesonpy" and any(
+            value.split("=", 1)[0] in {"build-dir", "compile-args"} for value in settings[1::2]):
+        raise ValueError("Bonnie owns Meson's build-dir and serial compile-args")
     directory = tempfile.mkdtemp(prefix="bonnie-wheel-", dir="/tmp")
     log_path = posixpath.join(directory, "pip.log")
     pip_arguments = [
@@ -605,35 +601,27 @@ def build(sdist_path: str, wheel_path: str) -> None:
         "--progress-bar", "off",
         "--wheel-dir", directory,
     ]
-    if _source_build_backend(sdist_path).split(":", 1)[0] == "mesonpy":
+    if backend.split(":", 1)[0] == "mesonpy":
         pip_arguments.extend([
             "--config-settings",
             f"build-dir={posixpath.join(directory, 'meson-build')}",
             "--config-settings",
             "compile-args=-j1",
         ])
-        for argument in _source_build_setup_arguments(sdist_path):
-            pip_arguments.extend(["--config-settings", f"setup-args={argument}"])
+    pip_arguments.extend(settings)
     pip_arguments.append(sdist_path)
-    previous_tempdir = tempfile.tempdir
-    previous_build_flags = {
-        name: os.environ.get(name) for name in ("CFLAGS", "CXXFLAGS")
-    }
-    # Keep every PEP 517 frontend temporary inside Bonnie's transaction.  On a
-    # failure, --no-clean leaves backend diagnostics available long enough to
-    # report them; the outer finally removes the complete transaction either
-    # way, so package builds never leak process-global /tmp state.
-    tempfile.tempdir = directory
-    # Dolly source builds optimize for bounded browser build time. Packages
-    # that genuinely need optimized native code can explicitly override these
-    # command-local environment variables.
-    os.environ.setdefault("CFLAGS", "-O0 -DNDEBUG -fno-sanitize-coverage")
-    os.environ.setdefault("CXXFLAGS", "-O0 -DNDEBUG -fno-sanitize-coverage")
+    # pip is a CLI, not a reentrant Python library. Its process owns its logging
+    # and temporary globals; Bonnie owns the directory after that process exits.
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = max(bundled) + (
+        ":" + environment["PYTHONPATH"] if environment.get("PYTHONPATH") else "")
+    environment["TMPDIR"] = directory
+    environment.setdefault("CFLAGS", "-O0 -DNDEBUG -fno-sanitize-coverage")
+    environment.setdefault("CXXFLAGS", "-O0 -DNDEBUG -fno-sanitize-coverage")
     try:
-        try:
-            status = pip_main(pip_arguments)
-        finally:
-            tempfile.tempdir = previous_tempdir
+        status = subprocess.run(
+            [sys.executable, "-m", "pip", *pip_arguments], env=environment,
+        ).returncode
         if status != 0:
             logs = [("frontend", log_path)]
             logs.extend(
@@ -659,17 +647,9 @@ def build(sdist_path: str, wheel_path: str) -> None:
         wheels = glob.glob(posixpath.join(directory, "*.whl"))
         if len(wheels) != 1:
             raise RuntimeError(f"source build produced {len(wheels)} wheels")
-        if os.path.exists(wheel_path):
-            os.unlink(wheel_path)
         os.replace(wheels[0], wheel_path)
     finally:
-        tempfile.tempdir = previous_tempdir
-        for name, value in previous_build_flags.items():
-            if value is None:
-                os.environ.pop(name, None)
-            else:
-                os.environ[name] = value
-        shutil.rmtree(directory, ignore_errors=True)
+        shutil.rmtree(directory)
 
 
 def satisfies(specification: str, version: str) -> None:

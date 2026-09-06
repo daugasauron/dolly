@@ -15,6 +15,15 @@ export const sourceFiles = {
 };
 
 export const shellCases = [
+  ["negation after then", "if :; then ! :; fi", 1],
+  ["negation after else", "if ! :; then exit 91; else ! :; fi", 1],
+  ["negation in a loop body", "for x in one; do ! :; done", 1],
+  ["negation in a group", "{ ! :; }", 1],
+  ["negation in an if condition", "if ! :; then exit 91; else :; fi", 0],
+  ["negated failure selects then", "if ! (exit 7); then :; else exit 91; fi", 0],
+  ["negation suppresses errexit", "set -e; ! :; exit 19", 19],
+  ["negated group suppresses errexit", "set -e; ! { (exit 7); :; }; exit 19", 19],
+  ["bang within an argument is literal", "set -- ! foo! !foo; case $1:$2:$3 in '!':foo!:'!foo') :;; *) exit 91;; esac", 0],
   ["sourcing shares replacement arguments", "set -- old; . ./replace.slop; case $#:$1:$2 in 2:new:tail) :;; *) exit 91;; esac", 0],
   ["sourcing shares shifted arguments", "set -- old kept; . ./shift.slop; case $1 in kept) :;; *) exit 91;; esac", 0],
   ["explicit source arguments are temporary", "set -- old kept; . ./replace.slop temporary; case $1:$2 in old:kept) :;; *) exit 91;; esac", 0, 91],

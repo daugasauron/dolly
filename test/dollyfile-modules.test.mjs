@@ -947,6 +947,7 @@ test("Bonnie is a retained two-file command with transactional graph helpers", a
     assert.match(requirement, />=2/);
     assert.match(requirement, /<3/);
     assert.match(requirement, /!=2\.5/);
+    execFileSync("python3", ["-B", resolve(projectDir, "test/fixtures/bonnie-policy.py"), helperPath, temporary]);
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
@@ -960,16 +961,19 @@ test("Bonnie is a retained two-file command with transactional graph helpers", a
   assert.doesNotMatch(frontend, /compile_entry_points|bonnie-entry-%u\.c/);
   assert.match(frontend, /stage-reset/);
   assert.match(frontend, /bonnie-stage-/);
-  assert.match(helper, /def _sync_pythonpath\(\)/);
+  assert.doesNotMatch(helper, /_sync_pythonpath|pip\._internal\.cli|pip_main/);
+  assert.match(helper, /\[sys\.executable, "-m", "pip", \*pip_arguments\]/);
   assert.match(helper, /--no-build-isolation/);
-  assert.match(helper, /def _source_build_setup_arguments\(sdist_path: str\)/);
-  assert.match(helper, /"-Dbuildtype=debug", "-Ddisable-optimization=true"/);
+  assert.match(helper, /def _source_build_config_settings\(/);
+  assert.doesNotMatch(helper, /["']numpy["']|-Ddisable-optimization/);
+  assert.match(bonnie.files.find(({ path }) => path === "/etc/bonnie/build.toml").body,
+    /\[numpy\][\s\S]*"-Dbuildtype=debug", "-Ddisable-optimization=true"/);
   assert.match(helper, /"compile-args=-j1"/);
-  assert.match(helper, /f"setup-args=\{argument\}"/);
+  assert.match(helper, /f"\{key\}=\{value\}"/);
   assert.match(helper, /"-O0 -DNDEBUG -fno-sanitize-coverage"/);
   assert.match(helper, /wheel path escapes its installation directory/);
   assert.match(helper, /log_path = posixpath\.join\(directory, "pip\.log"\)/);
-  assert.match(helper, /finally:[\s\S]*shutil\.rmtree\(directory, ignore_errors=True\)/);
+  assert.match(helper, /finally:[\s\S]*shutil\.rmtree\(directory\)/);
   assert.doesNotMatch(helper, /requests\.|urllib\.request|socket\./);
 });
 

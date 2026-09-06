@@ -13,6 +13,7 @@ import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources } f
 import { sha256, verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
+import { verifyDocumentationLinks } from "./package-documentation.mjs";
 
 // Generated metadata is data, not executable input to the release verifier.
 export function parseGeneratedConstant(source, name) {
@@ -68,6 +69,7 @@ export async function sourceManifest(root) {
 }
 
 export async function verifySite(site) {
+  await verifyDocumentationLinks(site);
   const constant = async (file, name) => parseGeneratedConstant(await readFile(resolve(site, "dist", file), "utf8"), name);
   const buildId = await constant("dolly-build-id.mjs", "DOLLY_BUILD_ID");
   const runtimeHash = createHash("sha256");

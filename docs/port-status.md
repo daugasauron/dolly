@@ -27,6 +27,19 @@ host-process escape hatches.
 | `raylib`, `Box3D`, `graphics-demo` | Pinned upstream raylib 6.0 and Box3D 0.1.0 plus Dolly presentation and serial-task adapters and a 3D game source; all objects and archives compile inside the gamedev image | Upstream no-OS software rendering, real C17 3D rigid-body physics, bounded logical framebuffer sizing, animation-frame pacing, semantic cursor/input, finite frame checks, and terminal restoration without DOM, WebGL, sockets, pthreads, or a new browser import |
 | `cc`, `c++`, `ld`, `ar` | Current pinned Clang/LLD/Zig LLVM provider linked into one private compiler executable; separate source-compiled command frontends | Source/object/archive compilation, stdin/file preprocessing and macro dumps, C17/C++23, multi-object and `-L`/`-l` links, deterministic GNU archives, exact import validation, and ABI stamping; each invocation receives a fresh Worker, memory, allocator, and LLVM state while file publication crosses the typed process gate |
 
+Bonnie reads upstream PEP 517 config-settings from `/etc/bonnie/build.toml`,
+defined in `modules/bonnie.dm`. Tables use normalized package names; each key
+accepts a string or nonempty string array. The default NumPy table selects
+Meson's debug build and disables CPU optimization so generated ufunc sources
+do not override `CFLAGS` with an expensive `-O3`. Editing or removing that file
+changes package policy without editing Bonnie. Other packages get their upstream
+defaults; Bonnie still supplies serial Meson compilation and owns its scratch
+directory. Its `build-dir` and `compile-args` settings cannot be overridden by
+package policy. Invalid policy fails before creating build temporary state.
+The bundled pip frontend runs as a child Python process inside Dolly, using its
+CLI rather than its private in-process API. Bonnie keeps its log and temporary
+files in one transaction directory and removes it after the child exits.
+
 QuickJS-ng's `quickjs-libc.c` is intentionally excluded. It exposes native
 `fork`, `exec`, `popen`, `dlopen`, signals, polling, and raw-terminal functions.
 The engine itself needs none of those. Dolly's adapter exposes only execution,
@@ -108,9 +121,11 @@ dimensions. Ctrl+C remains unconditional lifecycle supervision even in raw
 mode. The adapter adds no browser import; command lifecycle
 restoration prevents a runtime that exits or is interrupted in raw mode from
 stranding the shell. Process-local dynamic loading and source-built libffi now
-support `_ctypes`, C and C++ extension modules, and Dolly-native wheels. A clean
-packaged-image gate resolves, source-builds, imports, and exercises NumPy and
-Pandas. Meson source builds are deliberately single-job: parallel compiler
+support `_ctypes`, C and C++ extension modules, and Dolly-native wheels. The latest
+clean NumPy/Pandas check stops before compiler detection: Meson 1.11.1 requests
+`close_fds=False`, which Dolly's subprocess adapter rejects. Correct descriptor
+inheritance is required; silently ignoring that option would be wrong. Meson
+source builds are deliberately single-job: parallel compiler
 Workers multiply WebAssembly memories without improving the compatibility
 contract. Bonnie also selects NumPy's supported no-CPU-optimization/debug
 configuration with release assertions disabled, keeping its generated ufunc
@@ -126,8 +141,8 @@ upstream Zig 0.16.0 frontend as an ABI-validated wasm64 command. Native
 `/usr/bin/zig` runs inside Dolly and emits relocatable WebAssembly objects
 directly through a typed bridge to the runtime's LLVM WebAssembly backend.
 It compiles the pinned Ghostty VT and uucode graph into
-`/usr/lib/libghostty-vt.a`, `/usr/bin/ghostty-vt`, and the resident display
-module. A cold-browser proof compiles the graph, feeds VT bytes to the public C
+`/usr/lib/libghostty-vt.a` and the resident display module. A cold-browser proof
+compiles the graph, feeds VT bytes to the public C
 API, and inspects the resulting cell grid.
 
 The compiler is one private process executable containing the Clang, LLD, and

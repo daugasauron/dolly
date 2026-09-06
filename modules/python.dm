@@ -25,7 +25,7 @@ REQUIRES TOOL   touch
 
 USE HOST /modules/libffi.dm  91019e57acbe055e2323a499427f2e27602a45d7fb4c26b6c02622eefb002899
 USE HOST /modules/cpython.dm 86c83d27ad7e79f0bbccabd0ab9929cd38a715148265a55baa0da676ec912999
-USE HOST /modules/bonnie.dm  c8d97a1f19b1a429f58fc33e6ae6c18384d986f23bda8b295f1ce392588b6732
+USE HOST /modules/bonnie.dm  16c5d5a7e065b604afa20a374db27cffc9210e458d55002f54d71701e73d32f7
 
 EXPORTS TOOL   python
 EXPORTS TOOL   python3

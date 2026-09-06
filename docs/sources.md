@@ -87,7 +87,7 @@ directories, rejects absolute/traversal names, and writes solely to WasmFS.
 | Zig 0.16 | Official host Zig builds the Zig/LLVM object linked into the ABI-validated private compiler executable; `config/zig-sdk-files.txt` selects the target SDK archive | `/usr/bin/zig` asks a fresh compiler process to emit wasm64 objects without adding kernel imports |
 | Ghostty + uucode | Pinned source and generated configuration/tables are archived | Zig builds Ghostty VT and its static library; Dolly cc builds the one explicit resident kernel display plugin |
 | QuickJS-ng | Exact engine source is archived; ambient `quickjs-libc.c` is excluded | `/usr/lib/libdolly-js.a`, `qjs`, Janis, and Pi frontend |
-| Pi | Locked npm packages are bundled to a checked QuickJS-compatible ESM input | `/usr/bin/pi` runs upstream TUI and Dolly extension files |
+| Pi | Pinned Git TypeScript sources, published generated model data, and locked external npm dependencies are archived | TypeScript runs under Janis inside Dolly and emits the seven Pi workspace packages; `/usr/bin/pi` loads the unbundled module graph |
 | stb_truetype + Iosevka | Commit/digest-pinned header and fonts are served independently | display rasterizer and runtime terminal font |
 
 Host-side preparation is allowed to make pinned upstream trees buildable, but

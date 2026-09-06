@@ -80,9 +80,10 @@ The development server is also an HTTP destination. `scripts/serve.mjs` and
 the browser harness serve application assets, not the host checkout. The local
 server serves only manifest-listed files from verified whole-app releases;
 HTML pins assets under `/_dolly/RELEASE_DIGEST/`. This is static application
-delivery, not a guest-selected host filesystem capability. Their
-documentation check confines the resolved path to `docs/`; a URL-prefix check
-alone is insufficient. Tests request encoded parent paths and require 404.
+delivery, not a guest-selected host filesystem capability. Documentation links
+are packaged from an explicit public-source allowlist and checked before release;
+links cannot publish arbitrary checkout files. The harness confines documentation
+requests to `docs/`. Tests request encoded parent paths and require 404.
 
 The kernel has **no general browser dynamic-loader import**. It is statically
 linked with dynamic JavaScript execution disabled. Ghostty remains source-built

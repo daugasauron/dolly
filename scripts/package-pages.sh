@@ -109,11 +109,9 @@ for module_name in "${module_names[@]}"; do
 done
 cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
 cp "${project_dir}"/include/dolly/*.h "${staging}/site/include/dolly/"
-cp "${project_dir}/docs/dollyfile.md" "${project_dir}/docs/architecture.md" \
-  "${project_dir}/docs/security.md" "${project_dir}/docs/port-status.md" \
-  "${project_dir}/docs/browser-boundary.md" "${project_dir}/docs/http.md" \
-  "${project_dir}/docs/sessions.md" \
-  "${staging}/site/docs/"
+node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${staging}/site" \
+  docs/dollyfile.md docs/architecture.md docs/security.md docs/port-status.md \
+  docs/browser-boundary.md docs/http.md docs/sessions.md docs/sources.md
 for image_name in "${image_names[@]}"; do
   cp -R "${project_dir}/build/routes/${image_name}" "${staging}/site/"
 done

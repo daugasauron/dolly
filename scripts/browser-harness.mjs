@@ -1321,8 +1321,12 @@ chrome = spawn(chromeBinary, [
         assert.equal(await submit(`mkdir -p ${scratch}`), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.py`), 0);
         assert.equal(await submit(`python ${scratch}/probe.py ${scratch}`), 0);
+        const policySource = await readFile(resolve(projectDir, "test/fixtures/bonnie-policy.py"), "utf8");
+        assert.equal(await submit(`printf '%s\\n' ${policySource.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/policy.py`), 0);
+        assert.equal(await submit(`python ${scratch}/policy.py /usr/lib/bonnie/bonnie.py ${scratch} --build`), 0,
+          "Bonnie must pass image-configured settings to a real PEP 517 backend and clean its temporary state");
       } finally { await submit(`rm -rf ${scratch}`); }
-      console.log("browser: Python starts real children immediately; PID/cwd/env, streaming pipes/input, nonblocking poll, timeout and cancellation passed");
+      console.log("browser: Python children, streaming, cancellation and Bonnie's real PEP 517 policy/cleanup passed");
       break browserProof;
     }
     if (processLifecycleMode) {
@@ -1477,6 +1481,10 @@ chrome = spawn(chromeBinary, [
         assert.equal(await submit(`${scratch}/inventory ${scratch}/expected.manifest`), 0,
           "live manifest and system paths must match the packaged image");
         assert.equal(await submit("command -v dollyfile && dollyfile --help"), 0);
+        assert.equal(await submit(`help > ${scratch}/help && ! grep -q ghostty-vt ${scratch}/help`), 0,
+          "help must not advertise an absent Ghostty command");
+        assert.equal(await submit(`if test -f /usr/bin/tsc; then grep -q '^TypeScript:' ${scratch}/help; else ! grep -q '^TypeScript:' ${scratch}/help; fi`), 0,
+          "help must match this image's TypeScript availability");
       } finally {
         await submit(`rm -rf ${scratch}`);
       }

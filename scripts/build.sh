@@ -45,6 +45,11 @@ has_module() {
   [[ -n "${selected_module[$1]:-}" ]]
 }
 
+if has_module pi && [[ ! -f "${project_dir}/node_modules/@earendil-works/pi-ai/package.json" ]]; then
+  echo "dolly: run npm ci before building Pi images" >&2
+  exit 1
+fi
+
 has_module sbase && sbase_dir="$("${project_dir}/scripts/fetch-sbase.sh")"
 if has_module awk; then
   awk_dir="$("${project_dir}/scripts/fetch-awk.sh")"

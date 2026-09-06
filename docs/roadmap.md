@@ -52,8 +52,9 @@ The acceptance gate now passes in Chromium: fresh images compile and restore;
 clean processes run mixed Zig and Clang sequences and repeated optimized Clang
 jobs; C, C++, Make, Ninja, process-local DSOs, CPU-loop timeout, Ctrl-C, descriptor
 inheritance, pipelines, framebuffer restoration, and post-failure execution
-are permanent browser regressions; and Bonnie source-builds/imports NumPy and
-Pandas. This added no compiler-private browser import or host-build fallback.
+are permanent browser regressions. The latest NumPy/Pandas source-build check
+is blocked by subprocess descriptor inheritance; see the Python track below.
+This added no compiler-private browser import or host-build fallback.
 
 ## Phase 1 — make builds declarative (complete)
 
@@ -294,15 +295,16 @@ NumPy and Pandas are the acceptance workload for native CPython extensions,
 not special packages unpacked despite an incompatible tag. CPython now loads
 Dolly process-local DSOs, retains matching headers and sysconfig metadata, and
 uses a Dolly wasm64 extension identity. Upstream libffi is source-built for
-`_ctypes`; minimal C/C++ extension fixtures, NumPy, and Pandas all build from
-source inside the browser. PyEmscripten/Pyodide binaries are not used.
+`_ctypes`; minimal C/C++ extension fixtures build from source inside the browser.
+PyEmscripten/Pyodide binaries are not used.
 
-The packaged Python-image gate starts without NumPy, Pandas, or Meson; Bonnie
-resolves and source-builds the complete graph; fresh Python processes import
-the extensions and execute representative array/dataframe operations; raw
-sockets remain denied; and temporary build state is removed. Next, freeze the
-public SOABI/wheel tag and broaden the compatibility corpus without weakening
-the process or browser boundaries.
+The packaged Python-image gate starts without NumPy, Pandas, or Meson and
+requires complete source builds, array/dataframe computations, denied raw
+sockets and temporary-state cleanup. Its latest run fails before NumPy compiler
+detection because Meson requests `close_fds=False`. First implement real
+descriptor inheritance and close-on-exec semantics; the current libc flag
+no-ops cannot support that option correctly. Then rerun the complete gate before
+freezing the public SOABI/wheel tag or broadening the compatibility corpus.
 
 ### Egress receipts
 
