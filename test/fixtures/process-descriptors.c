@@ -103,8 +103,13 @@ static void nonblocking_pipes(void) {
   CHECK(capacity >= 4096);
   CHECK(read(pipes[0], bytes, 1) == 1);
   CHECK(write(pipes[1], "xx", 2) == -1 && errno == EAGAIN);
+  struct iovec pair[] = {{(void *)"a", 1}, {(void *)"b", 1}};
+  CHECK(writev(pipes[1], pair, 2) == -1 && errno == EAGAIN);
   CHECK(read(pipes[0], bytes, 4095) == 4095);
   CHECK(write(pipes[1], bytes, sizeof(bytes)) == 4096);
+  CHECK(read(pipes[0], bytes, 4096) == 4096);
+  struct iovec large[] = {{bytes, 3}, {bytes + 3, sizeof(bytes) - 3}};
+  CHECK(writev(pipes[1], large, 2) == 4096);
   CHECK(close(pipes[1]) == 0);
   size_t received = 0;
   for (;;) {
@@ -115,6 +120,26 @@ static void nonblocking_pipes(void) {
   }
   CHECK(received == capacity);
   CHECK(close(pipes[0]) == 0);
+}
+
+static void vectored_io(void) {
+  unsigned char original[70000], received[70000];
+  for (size_t index = 0; index < sizeof(original); ++index) original[index] = index;
+  struct iovec parts[] = {{NULL, 0}, {original, 1}, {original + 1, 16000},
+    {NULL, 0}, {original + 16001, 40000}, {original + 56001, 13999}, {NULL, 0}};
+  int fd = scratch("");
+  CHECK(writev(fd, parts, 7) == sizeof(original));
+  CHECK(lseek(fd, 0, SEEK_SET) == 0);
+  struct iovec reads[] = {{received, 40001}, {NULL, 0}, {received + 40001, 29999}};
+  CHECK(readv(fd, reads, 3) == sizeof(received));
+  CHECK(memcmp(original, received, sizeof(original)) == 0);
+  CHECK(close(fd) == 0);
+  int pipes[2];
+  CHECK(pipe(pipes) == 0);
+  CHECK(write(pipes[1], "x", 1) == 1);
+  struct iovec short_read[] = {{received, 1}, {received + 1, 1}};
+  CHECK(readv(pipes[0], short_read, 2) == 1 && received[0] == 'x');
+  CHECK(close(pipes[0]) == 0 && close(pipes[1]) == 0);
 }
 
 static void descriptor_flags(void) {
@@ -329,6 +354,7 @@ int main(int argc, char **argv) {
 #endif
   descriptor_flags();
   nonblocking_pipes();
+  vectored_io();
   record_locks();
 #ifdef __EMSCRIPTEN__
   spawning(argv[0]);

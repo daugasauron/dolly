@@ -155,15 +155,26 @@ __wasi_errno_t __wasi_fd_read(__wasi_fd_t descriptor,
                               size_t vector_count,
                               __wasi_size_t *completed) {
   *completed = 0;
-  for (size_t index = 0; index < vector_count; ++index) {
-    size_t current = 0;
-    __wasi_errno_t error = fd_read_one(
-        descriptor, vectors[index].buf, vectors[index].buf_len, &current);
-    if (error != 0) return *completed != 0 ? 0 : error;
-    *completed += current;
-    if (current != vectors[index].buf_len) break;
+  if (vector_count == 0) return 0;
+  if (vector_count == 1)
+    return fd_read_one(descriptor, vectors[0].buf, vectors[0].buf_len, completed);
+  size_t size = 0;
+  for (size_t index = 0; index < vector_count && size < DOLLY_PROCESS_PACKET_LIMIT; ++index) {
+    const size_t room = DOLLY_PROCESS_PACKET_LIMIT - size;
+    size += vectors[index].buf_len < room ? vectors[index].buf_len : room;
   }
-  return 0;
+  unsigned char *bytes = malloc(size != 0 ? size : 1);
+  if (bytes == NULL) return ENOMEM;
+  const __wasi_errno_t error = fd_read_one(descriptor, bytes, size, completed);
+  size_t offset = 0;
+  for (size_t index = 0; index < vector_count && offset < *completed; ++index) {
+    const size_t remaining = *completed - offset;
+    const size_t count = vectors[index].buf_len < remaining ? vectors[index].buf_len : remaining;
+    if (count != 0) memcpy(vectors[index].buf, bytes + offset, count);
+    offset += count;
+  }
+  free(bytes);
+  return error;
 }
 
 static __wasi_errno_t fd_pread_one(uint32_t descriptor, void *buffer,
@@ -253,48 +264,50 @@ __wasi_errno_t __wasi_fd_pwrite(__wasi_fd_t descriptor,
   return 0;
 }
 
-static __wasi_errno_t fd_write_one(uint32_t descriptor,
-                                   const unsigned char *buffer,
-                                   size_t size, size_t *completed) {
-  if (size > DOLLY_PROCESS_IO_CHUNK) {
-    size = DOLLY_PROCESS_IO_CHUNK;
-  }
-  const size_t packet_size = sizeof(dolly_process_fd_io_request) + size;
-  unsigned char *packet = malloc(packet_size);
-  if (packet == NULL) return ENOMEM;
-  dolly_process_fd_io_request request = {descriptor, 0, size};
-  memcpy(packet, &request, sizeof(request));
-  memcpy(packet + sizeof(request), buffer, size);
-  dolly_process_io_result response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_FD_WRITE, packet, packet_size,
-      &response, sizeof(response));
-  free(packet);
-  const __wasi_errno_t error = call_errno(result);
-  if (error != 0) return error;
-  if ((uint64_t)result != sizeof(response) || response.size > size) return EIO;
-  *completed = response.size;
-  return 0;
-}
-
 __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
                                const __wasi_ciovec_t *vectors,
                                size_t vector_count,
                                __wasi_size_t *completed) {
   *completed = 0;
-  for (size_t index = 0; index < vector_count; ++index) {
-    const unsigned char *cursor = vectors[index].buf;
-    size_t remaining = vectors[index].buf_len;
-    while (remaining != 0) {
-      size_t current = 0;
-      __wasi_errno_t error = fd_write_one(
-          descriptor, cursor, remaining, &current);
-      if (error != 0) return *completed != 0 ? 0 : error;
-      *completed += current;
-      if (current == 0) return 0;
-      cursor += current;
-      remaining -= current;
+  size_t vector_offset = 0;
+  while (vector_count != 0) {
+    size_t size = 0;
+    for (size_t index = 0; index < vector_count && size < DOLLY_PROCESS_IO_CHUNK; ++index) {
+      const size_t available = vectors[index].buf_len - (index == 0 ? vector_offset : 0);
+      const size_t room = DOLLY_PROCESS_IO_CHUNK - size;
+      size += available < room ? available : room;
     }
+    const size_t packet_size = sizeof(dolly_process_fd_io_request) + size;
+    unsigned char *packet = malloc(packet_size);
+    if (packet == NULL) return *completed != 0 ? 0 : ENOMEM;
+    const dolly_process_fd_io_request request = {descriptor, 0, size};
+    memcpy(packet, &request, sizeof(request));
+    size_t offset = 0;
+    for (size_t index = 0; index < vector_count && offset < size; ++index) {
+      const size_t start = index == 0 ? vector_offset : 0;
+      const size_t available = vectors[index].buf_len - start;
+      const size_t count = available < size - offset ? available : size - offset;
+      if (count != 0) memcpy(packet + sizeof(request) + offset,
+                             (const unsigned char *)vectors[index].buf + start, count);
+      offset += count;
+    }
+    dolly_process_io_result response = {0};
+    const int64_t result = dolly_process_call(
+        DOLLY_PROCESS_FD_WRITE, packet, packet_size, &response, sizeof(response));
+    free(packet);
+    const __wasi_errno_t error = call_errno(result);
+    if (error != 0) return *completed != 0 ? 0 : error;
+    if ((uint64_t)result != sizeof(response) || response.size > size) return EIO;
+    *completed += response.size;
+    if (response.size == 0) return 0;
+    size_t written = response.size;
+    while (vector_count != 0 && written >= vectors[0].buf_len - vector_offset) {
+      written -= vectors[0].buf_len - vector_offset;
+      ++vectors;
+      --vector_count;
+      vector_offset = 0;
+    }
+    vector_offset += written;
   }
   return 0;
 }
