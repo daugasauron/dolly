@@ -110,7 +110,10 @@ translates them into `dolly_process_0.call`; the resulting executable does not
 import WASI. This is bootstrap input, not a permanent Emscripten loader ABI.
 
 Each process owns its descriptor flags separately from shared open-file offsets
-and status flags. `FD_CLOEXEC` works for files, pipes and duplicates. Spawn
+and status flags. Pipe `O_NONBLOCK` is shared by duplicates of the same end;
+empty reads and full writes return `EAGAIN`, while closing all writers gives
+EOF. `pipe2`, `fcntl` and `FIONBIO` use the existing descriptor operations.
+`FD_CLOEXEC` works for files, pipes and duplicates. Spawn
 selects no inherited descriptors, standard streams, or all open non-CLOEXEC
 descriptors, then applies explicit parent-to-child mappings. Mappings clear
 child CLOEXEC without changing the parent; sources always refer to the parent,

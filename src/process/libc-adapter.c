@@ -159,7 +159,7 @@ __wasi_errno_t __wasi_fd_read(__wasi_fd_t descriptor,
     size_t current = 0;
     __wasi_errno_t error = fd_read_one(
         descriptor, vectors[index].buf, vectors[index].buf_len, &current);
-    if (error != 0) return error;
+    if (error != 0) return *completed != 0 ? 0 : error;
     *completed += current;
     if (current != vectors[index].buf_len) break;
   }
@@ -289,7 +289,7 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
       size_t current = 0;
       __wasi_errno_t error = fd_write_one(
           descriptor, cursor, remaining, &current);
-      if (error != 0) return error;
+      if (error != 0) return *completed != 0 ? 0 : error;
       *completed += current;
       if (current == 0) return 0;
       cursor += current;
@@ -1163,7 +1163,6 @@ int __syscall_pipe2(int descriptors[2], int flags) {
   known |= O_NONBLOCK;
 #endif
   if ((flags & ~known) != 0) return -EINVAL;
-  if ((flags & O_NONBLOCK) != 0) return -ENOTSUP;
   const dolly_process_pipe_request request = {
       (flags & O_CLOEXEC) != 0 ? DOLLY_PROCESS_FD_CLOEXEC : 0, 0,
   };
@@ -1174,6 +1173,16 @@ int __syscall_pipe2(int descriptors[2], int flags) {
   if ((uint64_t)result != sizeof(response) ||
       response.read_descriptor > INT_MAX || response.write_descriptor > INT_MAX ||
       response.read_descriptor == response.write_descriptor) return -EIO;
+  if (flags & O_NONBLOCK) {
+    int error = fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, response.read_descriptor, O_NONBLOCK);
+    if (error == 0)
+      error = fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, response.write_descriptor, O_NONBLOCK);
+    if (error != 0) {
+      close(response.read_descriptor);
+      close(response.write_descriptor);
+      return error;
+    }
+  }
   descriptors[0] = (int)response.read_descriptor;
   descriptors[1] = (int)response.write_descriptor;
   return 0;

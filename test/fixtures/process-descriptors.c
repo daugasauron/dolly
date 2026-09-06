@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/uio.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #ifdef __EMSCRIPTEN__
@@ -68,6 +69,52 @@ static void record_locks(void) {
 #endif
   CHECK(fcntl(fd, F_GETFD) == 0 && lseek(fd, 0, SEEK_CUR) == 0);
   CHECK(close(fd) == 0);
+}
+
+static void nonblocking_pipes(void) {
+  int pipes[2];
+  CHECK(pipe2(pipes, O_CLOEXEC | O_NONBLOCK) == 0);
+  for (int index = 0; index < 2; ++index) {
+    CHECK(fcntl(pipes[index], F_GETFD) == FD_CLOEXEC);
+    CHECK((fcntl(pipes[index], F_GETFL) & O_NONBLOCK) != 0);
+  }
+  int duplicate = dup(pipes[0]), disabled = 0, enabled = 1;
+  CHECK(duplicate >= 0 && fcntl(duplicate, F_GETFD) == 0);
+  CHECK(ioctl(duplicate, FIONBIO, &disabled) == 0);
+  CHECK((fcntl(pipes[0], F_GETFL) & O_NONBLOCK) == 0);
+  CHECK((fcntl(pipes[1], F_GETFL) & O_NONBLOCK) != 0);
+  CHECK(ioctl(pipes[0], FIONBIO, &enabled) == 0);
+  CHECK((fcntl(duplicate, F_GETFL) & O_NONBLOCK) != 0);
+  CHECK(close(duplicate) == 0);
+  char bytes[8192] = {0};
+  CHECK(read(pipes[0], bytes, 1) == -1 && errno == EAGAIN);
+  CHECK(read(pipes[0], bytes, 0) == 0);
+  CHECK(write(pipes[1], "x", 1) == 1);
+  struct iovec vectors[] = {{bytes, 1}, {bytes + 1, 1}};
+  CHECK(readv(pipes[0], vectors, 2) == 1 && bytes[0] == 'x');
+  size_t capacity = 0;
+  for (;;) {
+    ssize_t count = write(pipes[1], bytes, sizeof(bytes));
+    if (count < 0) { CHECK(errno == EAGAIN); break; }
+    CHECK(count > 0);
+    capacity += count;
+    CHECK(capacity <= 1024 * 1024);
+  }
+  CHECK(capacity >= 4096);
+  CHECK(read(pipes[0], bytes, 1) == 1);
+  CHECK(write(pipes[1], "xx", 2) == -1 && errno == EAGAIN);
+  CHECK(read(pipes[0], bytes, 4095) == 4095);
+  CHECK(write(pipes[1], bytes, sizeof(bytes)) == 4096);
+  CHECK(close(pipes[1]) == 0);
+  size_t received = 0;
+  for (;;) {
+    ssize_t count = read(pipes[0], bytes, sizeof(bytes));
+    CHECK(count >= 0);
+    if (count == 0) break;
+    received += count;
+  }
+  CHECK(received == capacity);
+  CHECK(close(pipes[0]) == 0);
 }
 
 static void descriptor_flags(void) {
@@ -152,6 +199,13 @@ static void inheritance(const char *path, uint32_t policy, unsigned mask,
 }
 
 static int child(int argc, char **argv) {
+  if (strcmp(argv[1], "nonblocking") == 0) {
+    CHECK((fcntl(20, F_GETFL) & O_NONBLOCK) != 0);
+    char byte;
+    CHECK(read(20, &byte, 1) == -1 && errno == EAGAIN);
+    CHECK(fcntl(20, F_SETFL, 0) == 0);
+    return 0;
+  }
   if (strcmp(argv[1], "inherit") == 0) {
     CHECK(argc == 3);
     unsigned expected = (unsigned)strtoul(argv[2], NULL, 10);
@@ -215,6 +269,15 @@ static void rejected_packets(const char *path, int writer) {
 }
 
 static void spawning(const char *path) {
+  int shared_pipe[2];
+  CHECK(pipe2(shared_pipe, O_NONBLOCK | O_CLOEXEC) == 0);
+  char *pipe_arguments[] = {(char *)path, "nonblocking", NULL};
+  const dolly_process_fd_mapping pipe_mapping = {(uint32_t)shared_pipe[0], 20};
+  completed(dolly_spawn_mapped(path, 2, pipe_arguments, NULL, NULL,
+      DOLLY_PROCESS_INHERIT_FDS_STDIO, &pipe_mapping, 1, 10000));
+  CHECK((fcntl(shared_pipe[0], F_GETFL) & O_NONBLOCK) == 0);
+  CHECK((fcntl(shared_pipe[1], F_GETFL) & O_NONBLOCK) != 0);
+  CHECK(close(shared_pipe[0]) == 0 && close(shared_pipe[1]) == 0);
   int first = scratch("A"), second = scratch("B"), output[2];
   CHECK(dup2(first, 20) == 20 && dup2(second, 21) == 21);
   CHECK(close(first) == 0 && close(second) == 0);
@@ -265,6 +328,7 @@ int main(int argc, char **argv) {
   (void)argv;
 #endif
   descriptor_flags();
+  nonblocking_pipes();
   record_locks();
 #ifdef __EMSCRIPTEN__
   spawning(argv[0]);

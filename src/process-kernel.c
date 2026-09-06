@@ -39,6 +39,7 @@ typedef struct {
   size_t size;
   uint32_t readers;
   uint32_t writers;
+  unsigned char nonblocking[2]; /* Shared by duplicates of each pipe end. */
   unsigned char bytes[DOLLY_KERNEL_PIPE_CAPACITY];
 } dolly_kernel_pipe;
 
@@ -865,7 +866,8 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
     }
     if (request.size == 0) return 0;
     if (pipe->size == 0) {
-      return pipe->writers == 0 ? 0 : DOLLY_PROCESS_DISPATCH_DEFERRED;
+      return pipe->writers == 0 ? 0 : pipe->nonblocking[0] ? -EAGAIN :
+          DOLLY_PROCESS_DISPATCH_DEFERRED;
     }
     size_t count = (size_t)request.size;
     if (count > pipe->size) count = pipe->size;
@@ -1019,7 +1021,8 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
     }
     if (pipe->readers == 0) return -EPIPE;
     const size_t available = DOLLY_KERNEL_PIPE_CAPACITY - pipe->size;
-    if (available == 0) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+    if (available == 0 || (request.size <= PIPE_BUF && available < request.size))
+      return pipe->nonblocking[1] ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
     size_t completed = (size_t)request.size;
     if (completed > available) completed = available;
     const size_t tail = (pipe->offset + pipe->size) % DOLLY_KERNEL_PIPE_CAPACITY;
@@ -1716,8 +1719,9 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
       int flags;
       if (process->pipes[request.descriptor] != NULL) {
-        flags = process->pipe_directions[request.descriptor] ==
-                DOLLY_KERNEL_PIPE_READ ? O_RDONLY : O_WRONLY;
+        const unsigned end = process->pipe_directions[request.descriptor] - 1;
+        flags = end == 0 ? O_RDONLY : O_WRONLY;
+        if (process->pipes[request.descriptor]->nonblocking[end]) flags |= O_NONBLOCK;
       } else {
         const int descriptor = descriptor_for(process, request.descriptor);
         if (descriptor < 0) return descriptor;
@@ -1737,8 +1741,10 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       memcpy(&request, process_mailbox, sizeof(request));
       if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
       if (process->pipes[request.descriptor] != NULL) {
-        return (request.flags & (O_APPEND | O_NONBLOCK | O_ASYNC)) == 0
-            ? 0 : -ENOTSUP;
+        if (request.flags & (O_APPEND | O_ASYNC)) return -ENOTSUP;
+        const unsigned end = process->pipe_directions[request.descriptor] - 1;
+        process->pipes[request.descriptor]->nonblocking[end] = (request.flags & O_NONBLOCK) != 0;
+        return 0;
       }
       const int descriptor = descriptor_for(process, request.descriptor);
       if (descriptor < 0) return descriptor;

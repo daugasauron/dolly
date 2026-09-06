@@ -126,6 +126,14 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+Nonblocking pipes now use the existing descriptor operations, sharing status
+flags across duplicate/inherited handles and preserving partial I/O on errors.
+Native and Chrome checks cover empty/full pipes, EOF, `pipe2`, `FIONBIO` and
+child flag sharing. All 12 images, 195 source tests and the full Chrome suite
+passed (`build/nonblocking-pipes-{images-2,source-2,browser}.log`). No browser
+imports changed. The isolated Rust process probe motivated this correction;
+it is not a shipped Rust toolchain or a working native-agent image.
+
 Latest memory follow-up: each system-image restore consumes its staging buffer
 on success or failure; retries must restage. The canonical snapshot contract now
 reports format 2, matching the codec. Chrome tests execute that contract and
