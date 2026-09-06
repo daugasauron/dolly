@@ -1,4 +1,4 @@
-const decoder = new TextDecoder("utf-8", { fatal: true });
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 export const MAX_SNAPSHOT_BYTES = 512 * 1024 * 1024;
 
 function compareBytes(left, right) {
@@ -26,8 +26,8 @@ export function decodeSnapshotRecords(input) {
     offset += 16;
     if (kind < 1 || kind > 3 || pathLength < 2 || pathLength >= 4096 ||
         size > BigInt(MAX_SNAPSHOT_BYTES) || (kind === 1 && size !== 0n) ||
-        (kind === 3 && (size === 0n || size >= 4096n)) ||
-        offset > bytes.length - pathLength - Number(size)) throw new Error("invalid snapshot record size");
+        (kind === 3 && (size === 0n || size >= 4096n))) throw new Error("invalid snapshot record size");
+    if (offset > bytes.length - pathLength - Number(size)) throw new Error("truncated snapshot record");
     const pathBytes = bytes.subarray(offset, offset + pathLength);
     const path = decoder.decode(pathBytes);
     if (!path.startsWith("/") || /[\0\\\r\n]/.test(path) ||

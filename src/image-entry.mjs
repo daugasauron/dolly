@@ -3,7 +3,7 @@ export function decodeImageEntry(bytes) {
   if (!(bytes instanceof Uint8Array) || bytes.byteLength < 16 || bytes.byteLength > 64 * 1024) {
     throw new TypeError("invalid image ENTRY record");
   }
-  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (decoder.decode(bytes.subarray(0, 8)) !== "DOLLYENT" || view.getUint32(8, true) !== 1) {
     throw new TypeError("invalid image ENTRY version");

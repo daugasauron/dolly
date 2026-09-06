@@ -133,7 +133,11 @@ SLOP cc /tmp/iteration.c -o /usr/bin/iteration
 EXPORTS TOOL iteration
 EXPORTS ENV DOLLY_ITERATION first
 EXPORTS ENV DOLLY_ITERATION APPEND second
-ENTRY /bin/slop
+FILE /usr/share/iteration-entry.slop
+    test "$1" = '\uFEFFargument' || { printf 'ENTRY argument lost U+FEFF\\n'; exit 87; }
+    /bin/foreground -i /bin/slop
+EXPORTS FILE iteration-entry /usr/share/iteration-entry.slop
+ENTRY /bin/slop /usr/share/iteration-entry.slop '\uFEFFargument'
 ` : null;
 const snapshotSizeLimit = 512 * 1024 * 1024;
 const codexFixtureAuthorizationCode = "dolly-browser-authorization-code";
@@ -2930,7 +2934,7 @@ int main(int argc, char **argv) {
       for (const label of missingDependencyMode ? ["missing-base"] : ["published-base", "cached-base", "edited-command"]) {
         const started = performance.now();
         assert.equal(await waitForValue(debuggerClient.send,
-          "document.documentElement?.dataset.dollyStatus ?? ''", value => value === "ready" || value === "failed", "v3 iteration"), "ready");
+          "document.documentElement?.dataset.dollyStatus ?? ''", value => ["ready", "failed", "exited"].includes(value), "v3 iteration"), "ready");
         assert.equal(await evaluate(debuggerClient.send, "location.origin"),
           externalPage ? new URL(externalPage).origin : localOrigin, "rebuild ignored the requested server");
         await waitForTerminalText(debuggerClient.send, /(?:^|\n)dolly:[^\n]*\$\s*$/, "custom image Slop entry");

@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { decodeSystemSnapshot, resolveSnapshotFile, validateSnapshotEntry } from "../scripts/system-snapshot-format.mjs";
+import { decodeSystemSnapshot, decodeSnapshotEnvironment, resolveSnapshotFile, validateSnapshotEntry } from "../scripts/system-snapshot-format.mjs";
 import { readWasmInterface } from "../scripts/wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { decodeImageEntry } from "../src/image-entry.mjs";
+import { decodeSnapshotRecords } from "../src/snapshot-records.mjs";
 
 function snapshot(records) {
   const header = Buffer.alloc(16);
@@ -40,6 +41,21 @@ test("snapshot resolution follows each symlink before evaluating dot-dot", () =>
   assert.throws(() => resolveSnapshotFile(parsed, "/file/../a/file"), /not a directory/);
 });
 
+test("binary record strings preserve a literal leading U+FEFF", () => {
+  const parsed = decodeSystemSnapshot(snapshot([
+    ["/tree/link", 3, "\uFEFFtarget"], ["/tree/target", 2, "wrong"],
+    ["/tree/\uFEFFtarget", 2, "correct"],
+  ]));
+  assert.equal(resolveSnapshotFile(parsed, "/tree/link").toString(), "correct");
+  const value = Buffer.from("\uFEFFvalue"), header = Buffer.alloc(24);
+  header.write("DOLLYENV"); header.writeUInt32LE(1, 8); header.writeUInt32LE(1, 12);
+  header.writeUInt32LE(1, 16); header.writeUInt32LE(value.length, 20);
+  assert.equal(decodeSnapshotEnvironment(Buffer.concat([header, Buffer.from("X"), value])).get("X"), "\uFEFFvalue");
+  const name = Buffer.from("\uFEFFX");
+  header.writeUInt32LE(name.length, 16);
+  assert.throws(() => decodeSnapshotEnvironment(Buffer.concat([header, name, value])), /name/);
+});
+
 test("snapshot rejects malformed kinds, paths, parent graphs, lengths and ordering", () => {
   const unicode = [["/\ue000", 2], ["/𐀀", 2]];
   assert.deepEqual(decodeSystemSnapshot(snapshot(unicode)).manifest, unicode.map(([path]) => path));
@@ -49,7 +65,10 @@ test("snapshot rejects malformed kinds, paths, parent graphs, lengths and orderi
     [["/", 1]], [["/dir/", 1]], [["/a/../b", 2]], [["/a\0b", 2]], [["/a\nb", 2]],
     [["/b", 2], ["/a", 2]], [["/a", 2], ["/a", 2]],
     [["/a", 3, "b"], ["/a/file", 2]], [["/a", 2], ["/a/file", 2]],
-  ]) assert.throws(() => decodeSystemSnapshot(snapshot(records)));
+    [["\uFEFF/file", 2]], [["/tmp/file", 2]], [["/workspace/file", 2]],
+  ]) for (const decode of [decodeSystemSnapshot, decodeSnapshotRecords]) {
+    assert.throws(() => decode(snapshot(records)));
+  }
   const bytes = snapshot([["/file", 2, "data"]]);
   assert.throws(() => decodeSystemSnapshot(bytes.subarray(0, -1)), /truncated/);
   assert.throws(() => decodeSystemSnapshot(Buffer.concat([bytes, Buffer.of(0)])), /trailing/);
@@ -70,6 +89,14 @@ test("ENTRY admission validates retained bytes against the real process contract
   withEmptyArgument.writeUInt32LE(2, 12);
   assert.deepEqual(validate([["/app", 2, executable], ["/etc/dolly/entry", 2, withEmptyArgument]]), ["/app", ""]);
   assert.deepEqual(decodeImageEntry(withEmptyArgument), ["/app", ""]);
+  const value = Buffer.from("\uFEFFargument"), length = Buffer.alloc(4);
+  length.writeUInt32LE(value.length);
+  const withBomArgument = Buffer.concat([control, length, value]);
+  withBomArgument.writeUInt32LE(2, 12);
+  assert.deepEqual(decodeImageEntry(withBomArgument), ["/app", "\uFEFFargument"]);
+  const bomPath = Buffer.from("\uFEFF/app"), badEntry = Buffer.alloc(20);
+  control.copy(badEntry, 0, 0, 16); badEntry.writeUInt32LE(bomPath.length, 16);
+  assert.throws(() => decodeImageEntry(Buffer.concat([badEntry, bomPath])), /payload/);
   assert.throws(() => decodeImageEntry(withEmptyArgument.subarray(0, -1)), /truncated/);
   assert.deepEqual(validate([["/app", 3, "program"], ["/etc/dolly/entry", 2, control],
     ["/program", 2, executable]]), ["/app"]);

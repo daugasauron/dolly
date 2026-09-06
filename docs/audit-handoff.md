@@ -137,6 +137,13 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+Snapshot/ENTRY readers now preserve literal U+FEFF in binary string fields;
+tooling shares the browser's record parser instead of duplicating it. The old
+release misresolves a BOM-prefixed symlink target and loses an ENTRY argument;
+the real custom-image regression exits with its explicit diagnostic there.
+197 source tests and the full Chrome suite pass, with all 12 image bytes unchanged
+(`build/snapshot-bom-{before,entry-before-2,source-final,browser,images}.log`).
+
 The unused kernel HTTP convenience wrapper is removed; its process-local
 implementation is the sole C/libcurl owner. All 12 images, 196 source tests and
 the full Chrome suite pass (`build/dead-http-{images,source-final,browser}.log`).
