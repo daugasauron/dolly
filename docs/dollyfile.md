@@ -143,12 +143,13 @@ All five existing images remain source recipes: `default`, `pi`, `python`,
 `python-pi`, and `gamedev`. There is no required catalog-wide dependency solver
 or additional module interface language.
 
-For recipe-only iteration, run `npm run image -- IMAGE`. It refreshes pins,
-builds the selected image and any missing referenced artifacts, and uses the
-existing Wasm runtime. Add `--package` to create a verified local preview release
-for `npm run serve`. Rebuild the runtime separately when changing the kernel,
-bootstrap seed, or Dollyfile executor. `SOURCE` inputs still need their correct
-content hashes; recipe pin refresh does not bless changed external inputs.
+For image iteration, run `npm run image -- IMAGE`. It prepares the selected
+image's local source inputs, refreshes their `SOURCE HOST` hashes and recipe
+references, then builds using the existing Wasm runtime. Upstream downloads
+still require their independent pins; `SOURCE URL` hashes are never refreshed
+automatically. Add `--package` to create a verified local preview release for
+`npm run serve`. Rebuild the runtime separately when changing the kernel,
+bootstrap seed, or Dollyfile executor.
 
 Published images share compressed packs of identical filesystem records. Each
 image lists the packs it needs; the browser reconstructs and verifies the exact

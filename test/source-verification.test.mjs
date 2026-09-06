@@ -1,9 +1,37 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { updateRecipePins } from "../scripts/update-module-pins.mjs";
+
+test("prepared HOST bytes update module and image pins without changing URL pins", async () => {
+  const scratch = await mkdtemp(join(tmpdir(), "dolly-image-source-"));
+  const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+  const pin = "0".repeat(64);
+  try {
+    await mkdir(join(scratch, "modules"));
+    await mkdir(join(scratch, "dist/static"), { recursive: true });
+    await writeFile(join(scratch, "Dollyfile"), `DOLLY 3\nIMAGE default\nUSE HOST /modules/tool.dm ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 3\nIMAGE addon\nFROM HOST /Dollyfile ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "modules/tool.dm"), `DOLLY 3\nMODULE tool\nSOURCE HOST /static/tool.c /tmp/tool.c ${pin}\nSOURCE URL https://example.invalid/source /tmp/upstream ${pin}\n`);
+    for (const bytes of ["first source", "edited source"]) {
+      await writeFile(join(scratch, "dist/static/tool.c"), bytes);
+      await updateRecipePins(scratch, true);
+      const module = await readFile(join(scratch, "modules/tool.dm"), "utf8");
+      const base = await readFile(join(scratch, "Dollyfile"), "utf8");
+      const addon = await readFile(join(scratch, "Dollyfile-addon"), "utf8");
+      assert.ok(module.includes(`/tmp/tool.c ${digest(bytes)}`));
+      assert.ok(module.includes(`/tmp/upstream ${pin}`));
+      assert.ok(base.includes(digest(module)));
+      assert.ok(addon.includes(digest(base)));
+      await updateRecipePins(scratch, true);
+      assert.equal(await readFile(join(scratch, "Dollyfile-addon"), "utf8"), addon);
+    }
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
 
 test("pinned Git sources reject modified, staged, untracked and ignored bytes without deleting them", async () => {
   const scratch = await mkdtemp(join(tmpdir(), "dolly-source-verification-"));

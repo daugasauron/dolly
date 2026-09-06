@@ -754,5 +754,5 @@ MODULE bad
   const lint = 'node "${project_dir}/scripts/lint-dollyfiles.mjs"';
   assert.ok(build.indexOf(lint) > 0);
   assert.ok(build.indexOf(lint) < build.indexOf("podman run"));
-  assert.ok(build.indexOf(lint) < build.indexOf("fetch-sbase.sh"));
+  assert.ok(build.indexOf(lint) < build.indexOf("prepare-image-sources.sh"));
 });

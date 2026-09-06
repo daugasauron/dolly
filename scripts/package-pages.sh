@@ -127,7 +127,13 @@ cp -R "${project_dir}/build/routes/custom" "${project_dir}/build/routes/rebuild"
   "${staging}/site/"
 cp "${project_dir}/build/routes/404.html" "${staging}/site/404.html"
 cp -R "${project_dir}/build/routes/view" "${staging}/site/"
-cp -R "${project_dir}/dist/static" "${staging}/site/"
+source_rows="$(node "${project_dir}/scripts/list-images.mjs" --sources)"
+while IFS=$'\t' read -r source_path source_metadata; do
+  [[ "${source_path}" == /static/* ]] || continue
+  destination="${staging}/site${source_path}"
+  mkdir -p "$(dirname -- "${destination}")"
+  cp -- "${project_dir}/dist${source_path}" "${destination}"
+done <<< "${source_rows}"
 cp \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/dolly-build-id.mjs" \

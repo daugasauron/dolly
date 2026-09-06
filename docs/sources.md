@@ -2,6 +2,13 @@
 
 Dolly separates the common machine seed from image inputs.
 
+`scripts/prepare-image-sources.sh` prepares the selected catalog's inputs without
+compiling the kernel. `npm run image -- IMAGE` invokes it before refreshing the
+image: edits to a staged command or runtime become new `SOURCE HOST` pins, not
+silently reused old bytes. Upstream pins and explicit `SOURCE URL` hashes remain
+independent. Adding a module means referencing it from a source-visible Dollyfile;
+arbitrary local files do not become browser-readable inputs.
+
 ## Build flow
 
 ```text

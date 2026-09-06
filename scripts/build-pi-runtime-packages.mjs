@@ -46,7 +46,7 @@ const command = spawnSync(
   process.execPath,
   [
     resolve(projectDir, "scripts/build-source-tar.mjs"),
-    "dist/static/default/pi-runtime-packages.tar",
+    process.argv[2] ?? "dist/static/default/pi-runtime-packages.tar",
     "--exclude-suffix=.map",
     ...mappings,
   ],

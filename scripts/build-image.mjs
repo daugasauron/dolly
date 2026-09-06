@@ -20,6 +20,7 @@ async function run(command, args) {
 }
 const started = performance.now();
 await run(process.execPath, ["scripts/update-module-pins.mjs"]);
+await run("bash", ["scripts/prepare-image-sources.sh"]);
 await run(process.execPath, ["scripts/generate-routes.mjs"]);
 await run(process.execPath, ["scripts/build-system-snapshot.mjs"]);
 if (option === "--package") await run("./scripts/package-pages.sh", []);

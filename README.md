@@ -54,10 +54,9 @@ program fetches and verifies every independent `SOURCE` and executes the recipe
 strictly row by row. Prebuilt boot does not download image source inputs.
 Both boot paths expose the same declared system files, including `/bin/dollyfile`
 and the explicitly retained compiler SDK; startup does not run acceptance tests.
-Each image's final startup module installs `/home/dolly/.dollyrc`; the runtime
-runs that ordinary Slop script before `ENTRY`, keeping greetings and suggested
-commands in source-visible userspace rather than browser UI or new recipe
-syntax.
+Each image's final startup module installs `/home/dolly/.dollyrc`; its ordinary
+Slop entry script runs that file before the selected application, keeping
+greetings and suggested commands in source-visible userspace.
 Mutable runtime state never becomes browser or host filesystem state.
 Named sessions are the explicit exception in storage direction: Ctrl+Shift+S
 serializes filesystem changes against the base image, compresses them, and stores
@@ -151,6 +150,7 @@ Useful narrower commands:
 
 ```sh
 npm run build:runtime         # build the runtime without exporting a snapshot
+npm run image -- pi           # prepare image inputs and reuse the existing runtime
 npm run snapshot              # refresh routes, rebuild, and package every image
 DOLLY_SNAPSHOT_IMAGE=python npm run snapshot
 DOLLY_SNAPSHOT_IMAGE=python npm run snapshot:reproducible

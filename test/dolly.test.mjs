@@ -971,7 +971,7 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   );
   const runtime = await readFile(new URL("../src/dolly.c", import.meta.url), "utf8");
   const driver = await readFile(new URL("../src/ghostty/display.c", import.meta.url), "utf8");
-  const packaging = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
+  const packaging = await readFile(new URL("../scripts/prepare-image-sources.sh", import.meta.url), "utf8");
   const gamedev = await readFile(new URL("../modules/gamedev.dm", import.meta.url), "utf8");
   const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
 
