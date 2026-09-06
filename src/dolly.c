@@ -292,25 +292,6 @@ uint32_t dolly_http_chunk_capacity(void) {
   return DOLLY_HTTP_CHUNK_CAPACITY;
 }
 
-static int append_http_text(char **target, size_t *length,
-                            const unsigned char *bytes, size_t count) {
-  if (count > SIZE_MAX - *length - 1) return -EOVERFLOW;
-  char *grown = realloc(*target, *length + count + 1);
-  if (grown == NULL) return -ENOMEM;
-  memcpy(grown + *length, bytes, count);
-  *length += count;
-  grown[*length] = '\0';
-  *target = grown;
-  return 0;
-}
-
-void dolly_http_response_dispose(dolly_http_response *response) {
-  if (response == NULL) return;
-  free(response->effective_url);
-  response->effective_url = NULL;
-  response->status = 0;
-}
-
 int dolly_http_start(const char *method, const char *url, const char *headers,
                      const void *body, size_t body_size, unsigned int flags,
                      unsigned int *sequence_out) {
@@ -385,68 +366,6 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
       memory_order_release, memory_order_relaxed);
   emscripten_atomic_notify((void *)&http_mailbox.state,
                            EMSCRIPTEN_NOTIFY_ALL_WAITERS);
-  return result;
-}
-
-int dolly_http_perform(const dolly_http_request *request,
-                       dolly_http_response *response) {
-  if (request == NULL || response == NULL) return -EINVAL;
-  response->status = 0;
-  response->effective_url = NULL;
-  size_t effective_url_length = 0;
-  unsigned char *data = malloc(DOLLY_HTTP_CHUNK_CAPACITY);
-  if (data == NULL) return -ENOMEM;
-  unsigned int sequence = 0;
-  int result = dolly_http_start(
-      request->method, request->url, request->headers, request->body,
-      request->body_size, request->flags, &sequence);
-  if (result != 0) {
-    free(data);
-    return result;
-  }
-
-  for (;;) {
-    dolly_http_chunk chunk = {0};
-    int polled;
-    while ((polled = dolly_http_poll(sequence, &chunk, data,
-                                     DOLLY_HTTP_CHUNK_CAPACITY)) == 0) {
-      const uint32_t state = atomic_load_explicit(
-          &http_mailbox.state, memory_order_acquire);
-      if (state == 1) {
-        emscripten_atomic_wait_u32((void *)&http_mailbox.state, state,
-                                   ATOMICS_WAIT_DURATION_INFINITE);
-      }
-    }
-    if (polled < 0 && result == 0) result = polled;
-    if (chunk.status != 0) response->status = chunk.status;
-    if (chunk.error != 0 && result == 0) {
-      result = -(int)chunk.error;
-    }
-    if ((request->flags & DOLLY_HTTP_FAIL_STATUS) != 0 &&
-        chunk.status >= 400 && result == 0) result = (int)chunk.status;
-
-    if (result == 0 && chunk.kind == 1) {
-      result = append_http_text(&response->effective_url,
-                                &effective_url_length,
-                                data, chunk.length);
-    } else if (result == 0 && chunk.kind == 2 && request->header != NULL) {
-      if (request->header(data, chunk.length,
-                          request->header_context) != chunk.length) {
-        result = -ECANCELED;
-      }
-    } else if (result == 0 && chunk.kind == 3 && request->write != NULL) {
-      if (request->write(data, chunk.length,
-                         request->write_context) != chunk.length) {
-        result = -ECANCELED;
-      }
-    }
-    if (chunk.eof) break;
-    if (result != 0) {
-      (void)dolly_http_cancel(sequence);
-      break;
-    }
-  }
-  free(data);
   return result;
 }
 

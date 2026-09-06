@@ -88,6 +88,11 @@ All 12 snapshots build and 193 source tests pass. Focused real-browser evidence:
 `sha256:7fd76651d919daea0874797fa23426c0e53ea11a2db2480f996408dfa43c8ec5`.
 This is not a fresh cold-bootstrap or Firefox pointer-capture proof.
 
+The later published `/bhop/` also passes Firefox 153.0.4 click-gated capture,
+unheld relative motion, Space/both wheel jumps, Escape, Q and Ctrl-C recovery,
+including a surviving file (`build/firefox-bhop-2.log`). The first probe failed
+in its WebDriver script before exercising capture; no application fix was needed.
+
 ## Lazy image artifact loading
 
 Dependency resolution now reads descriptors; only direct worker inputs load
@@ -131,6 +136,12 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 (`build/stable-packs-cross-release.log`).
 
 ## Completed
+
+The unused kernel HTTP convenience wrapper is removed; its process-local
+implementation is the sole C/libcurl owner. All 12 images, 196 source tests and
+the full Chrome suite pass (`build/dead-http-{images,source-final,browser}.log`).
+Runtime code/data and named ABI signatures are unchanged; export ordering
+changed the build ID, so images were rebuilt without relaxing identity checks.
 
 HTTP failures now preserve received status/effective URL for libcurl callers;
 the next request still clears old metadata. Body/header cancellation remains

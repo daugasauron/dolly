@@ -90,8 +90,8 @@ replace its imports.
 - `dolly_http_start` dispatches a copied request and returns its sequence;
 - `dolly_http_poll` nonblockingly acknowledges at most one URL, header, body,
   EOF, or error record;
-- `dolly_http_perform` is the synchronous C/libcurl convenience layer that
-  waits and drains those same primitives.
+- `dolly_http_perform` is the process-local synchronous C/libcurl convenience
+  layer that waits and drains those same primitives.
 
 Received status and effective URL survive a failed or callback-cancelled
 transfer. Callers always release the response with `dolly_http_response_dispose`.

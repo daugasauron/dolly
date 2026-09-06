@@ -1350,6 +1350,8 @@ test("raw sockets terminate in the process runtime while HTTP uses the typed bro
   }
   assert.match(runtime, /static int raw_socket_unavailable\(void\) \{\s*errno = ENOSYS;/);
   assert.match(runtime, /dolly_process_call\(\s*DOLLY_PROCESS_HTTP_START/);
+  assert.match(runtime, /dolly_http_perform[\s\S]*?dolly_http_start\(/);
+  assert.match(runtime, /dolly_http_perform[\s\S]*?dolly_http_poll\(/);
   assert.doesNotMatch(libcurl, /\bsocket\s*\(|\bconnect\s*\(|\bgetaddrinfo\s*\(/);
   assert.match(libcurl, /dolly_http_perform\(&request, &response\)/);
   for (const option of [
@@ -1583,8 +1585,6 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
 
   assert.match(httpHeader, /int dolly_http_start\(/);
   assert.match(httpHeader, /int dolly_http_poll\(/);
-  assert.match(runtime, /dolly_http_perform[\s\S]*?dolly_http_start\(/);
-  assert.match(runtime, /dolly_http_perform[\s\S]*?dolly_http_poll\(/);
   assert.match(quickjs, /DOLLY_JS_FUNCTION\("httpStart", js_dolly_http_start, 4\)/);
   assert.match(quickjs, /DOLLY_JS_FUNCTION\("httpPoll", js_dolly_http_poll, 1\)/);
   assert.match(nodeRuntime, /const pendingHttp = new Set\(\)/);
