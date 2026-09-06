@@ -76,6 +76,8 @@ export function createReleaseServer(releases) {
       }
       response.writeHead(200, {
         ...isolationHeaders,
+        "cache-control": pinned && /^dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/.test(relative)
+          ? "public, max-age=31536000, immutable" : "no-store",
         "content-type": /^Dollyfile(?:-|$)/.test(relative) ? "text/plain; charset=utf-8" :
           mimeTypes.get(extname(relative)) ?? "application/octet-stream",
       });

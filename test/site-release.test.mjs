@@ -78,9 +78,10 @@ test("published server pins complete versions, preserves public session URLs and
   t.after(() => rm(releases, { recursive: true, force: true }));
   async function version(text) {
     const stage = resolve(releases, "candidate");
-    for (const path of ["release", "src", "docs", "default", "session"]) await mkdir(resolve(stage, path), { recursive: true });
+    for (const path of ["release", "src", "docs", "default", "session", "dist/packs"]) await mkdir(resolve(stage, path), { recursive: true });
     for (const [path, contents] of Object.entries({
       "src/browser.mjs": text, "docs/browser-boundary.md": "boundary",
+      [`dist/packs/${"a".repeat(64)}.snapshot.gz`]: "shared compressed bytes",
       "default/index.html": '<html><head></head><script src="../src/browser.mjs"></script></html>',
       "session/open.html": '<html><head></head><script src="src/browser.mjs"></script></html>',
     })) await writeFile(resolve(stage, path), contents);
@@ -100,6 +101,10 @@ test("published server pins complete versions, preserves public session URLs and
   const base = `http://127.0.0.1:${server.address().port}`;
   const get = path => fetch(base + "/" + path, { signal: AbortSignal.timeout(5000) });
   assert.match(await (await get("default")).text(), new RegExp(`<base href="/_dolly/${old}/default/">`));
+  const pack = `dist/packs/${"a".repeat(64)}.snapshot.gz`;
+  assert.equal((await get(`_dolly/${old}/${pack}`)).headers.get("cache-control"), "public, max-age=31536000, immutable");
+  assert.equal((await get(pack)).headers.get("cache-control"), "no-store");
+  assert.equal((await get("default")).headers.get("cache-control"), "no-store");
   assert.match(await (await get("session/work.1")).text(), new RegExp(`<base href="/_dolly/${old}/">`));
   assert.equal(sessionLoadUrl("work.1", `${base}/_dolly/${old}/`).href, `${base}/session/work.1`);
   const current = await version("new version");
