@@ -30,28 +30,27 @@ USE HOST /modules/sbase-tools-11.dm e8121cc66576e4641cb99bbfb5fe60c07749b725a0c3
 USE HOST /modules/sbase-tools-12.dm 6f1a4fc873a037e749f9456711be8d1424decb454f4379e954239a6134847266
 USE HOST /modules/agent-tools.dm    06047c671c1a3337df7dbac8ccc53326c38ab422273e4b17ae6597d2b5d7b148
 
-# This is both a runtime and an SDK. Re-exports inherit the exact child object;
-# an object not listed here is build-private and is absent from the image.
-EXPORTS HEADER libc
-EXPORTS HEADER toolchain
-EXPORTS HEADER runtime
-EXPORTS HEADER process
-EXPORTS HEADER http
-EXPORTS HEADER display
-EXPORTS HEADER download
-EXPORTS HEADER cpp
-EXPORTS HEADER zlib
-EXPORTS HEADER zconf
-EXPORTS HEADER curl
-EXPORTS HEADER ghostty-vt
+# Retain the runtime and SDK at these paths when the module finishes.
+EXPORTS HEADER libc       /usr/include
+EXPORTS HEADER toolchain  /usr/include/dolly/toolchain.h
+EXPORTS HEADER runtime    /usr/include/dolly/runtime.h
+EXPORTS HEADER process    /usr/include/dolly/process.h
+EXPORTS HEADER http       /usr/include/dolly/http.h
+EXPORTS HEADER display    /usr/include/dolly/display.h
+EXPORTS HEADER download   /usr/include/dolly/download.h
+EXPORTS HEADER cpp        /usr/include/c++/v1
+EXPORTS HEADER zlib       /usr/include/zlib.h
+EXPORTS HEADER zconf      /usr/include/zconf.h
+EXPORTS HEADER curl       /usr/include/curl
+EXPORTS HEADER ghostty-vt /usr/include/ghostty
 
-EXPORTS LIB compiler-rt
-EXPORTS LIB c++
-EXPORTS LIB c++abi
-EXPORTS LIB z
-EXPORTS LIB curl
-EXPORTS LIB ghostty-vt
-EXPORTS LIB display
+EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
+EXPORTS LIB c++         /usr/lib/dolly/process/libc++-ww-wasmexcept.a
+EXPORTS LIB c++abi      /usr/lib/dolly/process/libc++abi-ww-wasmexcept.a
+EXPORTS LIB z           /usr/lib/libz.a
+EXPORTS LIB curl        /usr/lib/libcurl.a
+EXPORTS LIB ghostty-vt  /usr/lib/libghostty-vt.a
+EXPORTS LIB display     /usr/lib/libdisplay.so
 
 EXPORTS ENV CC
 EXPORTS ENV CXX
@@ -150,8 +149,8 @@ EXPORTS TOOL dd
 EXPORTS TOOL tty
 EXPORTS TOOL gzip
 
-EXPORTS FOLDER zig-lib
-EXPORTS FOLDER process-sdk
-EXPORTS FOLDER clang-headers
-EXPORTS FILE   compiler
-EXPORTS FILE   kernel-plugin-abi
+EXPORTS FOLDER zig-lib           /usr/lib/zig
+EXPORTS FOLDER process-sdk       /usr/lib/dolly/process
+EXPORTS FOLDER clang-headers     /usr/lib/clang/24/include
+EXPORTS FILE   compiler          /usr/libexec/dolly/process-bin/compiler
+EXPORTS FILE   kernel-plugin-abi /usr/lib/dolly/dolly-kernel-plugin-0.wasm

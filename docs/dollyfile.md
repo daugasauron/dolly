@@ -66,27 +66,30 @@ failure reports the responsible recipe and line.
 ## Outputs and environment
 
 `EXPORTS TOOL name` resolves a command on `PATH`. An optional hash asserts its
-bytes. `FILE`, `LIB`, `FOLDER`, and `HEADER` exports take a name and an absolute
-path. `FILE` and `LIB` must be files, `FOLDER` a directory, and `HEADER` may be
-either. These are small runtime checks, not compatibility certificates.
+bytes. `FILE`, `LIB`, `FOLDER`, and `HEADER` exports require a name and an absolute
+path, including when exporting a child's outputs. `FILE` and `LIB` must be files,
+`FOLDER` a directory, and `HEADER` may be either. These are small runtime checks,
+not compatibility certificates.
 
 ```text
 EXPORTS LIB example /usr/lib/libexample.a
 EXPORTS HEADER example /usr/include/example
+EXPORTS FOLDER python-stdlib /usr/lib/python3.14
 EXPORTS ENV EXAMPLE_HOME /usr/share/example
 EXPORTS ENV PATH APPEND /opt/example/bin
 ```
 
-An export without a path can forward an earlier or child object's name.
 Declarations may precede creation of their outputs: members are captured when
-the module finishes. Forwarding preserves that captured membership. Repeated
-exports replace the previous named object. An image retains its direct modules'
-exports; a module selects which child exports to offer in turn. Explicit
-`FILE` and `FOLDER` retention also survives composition.
+the module finishes. A directory export includes the files present at that point,
+including additions made after a child finishes. Repeated exports replace the
+previous named object. An image retains its direct modules' exports; a module
+selects which outputs to offer in turn. Explicit `FILE` and `FOLDER` retention
+also survives composition.
 
 Environment assignments take effect immediately and persist through subsequent
-steps. `APPEND` joins with a colon. The final environment values are stored in
-the image; loading a base does not replay assignments or append them twice.
+steps. `EXPORTS ENV NAME` keeps the current value; `APPEND` joins with a colon.
+The final environment values are stored in the image; loading a base does not
+replay assignments or append them twice.
 Recipe values are literal; shell expansion happens inside `SLOP`.
 
 Unretained intermediate files disappear when the finished image boots. Temporary

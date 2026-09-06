@@ -43,7 +43,7 @@ test("inspection permits repeated, mixed modules and unresolved runtime assertio
     const child = "DOLLY 3\nMODULE child\nFILE /usr/share/value\n    child\nEXPORTS FILE value /usr/share/value\n";
     const mixed = `DOLLY 3
 MODULE mixed
-EXPORTS FILE value
+EXPORTS FILE value /usr/share/value
 REQUIRES TOOL whatever
 SLOP LABEL=value implicit-tool; another-tool
 USE HOST /modules/child.dm ${digest(child)}

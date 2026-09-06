@@ -1312,14 +1312,14 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
         (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
     const char *detail = NULL, *sha256 = NULL;
     int append = 0;
-    if (result == 0 && count != 2) {
+    if (result == 0) {
       if (strcmp(words[0], "TOOL") == 0) {
-        if (count != 3 || !valid_sha256(words[2])) result = 2;
-        else sha256 = words[2];
+        if (count != 2 && (count != 3 || !valid_sha256(words[2]))) result = 2;
+        else if (count == 3) sha256 = words[2];
       } else if (strcmp(words[0], "ENV") == 0) {
         if (count == 3) detail = words[2];
         else if (count == 4 && strcmp(words[2], "APPEND") == 0) { detail = words[3]; append = 1; }
-        else result = 2;
+        else if (count != 2) result = 2;
       } else {
         if (count != 3 || !valid_absolute_path(words[2]) || forbidden_keep(words[2])) result = 2;
         else detail = words[2];
@@ -1376,7 +1376,7 @@ static int finish_exports(Scope *exports, const Scope *visible, int execute) {
       if (execute && object->detail == NULL) return -ENOENT;
       continue;
     }
-    const Object *provider = object->detail == NULL && object->sha256 == NULL
+    const Object *provider = strcmp(object->type, "TOOL") == 0 && object->sha256 == NULL
                                  ? scope_find(visible, object->type, object->name) : NULL;
     if (provider != NULL) {
       Scope copy = {0};

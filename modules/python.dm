@@ -30,9 +30,9 @@ EXPORTS TOOL   python3
 EXPORTS TOOL   bonnie
 EXPORTS ENV    PYTHONDONTWRITEBYTECODE
 EXPORTS ENV    PYTHONUTF8
-EXPORTS FOLDER python-stdlib
-EXPORTS HEADER python
-EXPORTS HEADER ffi
-EXPORTS HEADER ffitarget
-EXPORTS LIB    ffi
-EXPORTS LIB    python
+EXPORTS FOLDER python-stdlib /usr/lib/python3.14
+EXPORTS HEADER python        /usr/include/python3.14
+EXPORTS HEADER ffi           /usr/include/ffi.h
+EXPORTS HEADER ffitarget     /usr/include/ffitarget.h
+EXPORTS LIB    ffi           /usr/lib/libffi.a
+EXPORTS LIB    python        /usr/lib/libpython3.14.a

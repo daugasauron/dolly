@@ -170,8 +170,8 @@ ENTRY /bin/result
   }
 });
 
-test("aggregate exports inherit the exact child object", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-exact-reexport-"));
+test("aggregate filesystem exports use their declared paths without provider checks", async () => {
+  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-explicit-export-"));
   try {
     await mkdir(resolve(fixture, "modules"));
     const child = "DOLLY 3\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
@@ -179,7 +179,7 @@ test("aggregate exports inherit the exact child object", async () => {
 MODULE aggregate
 
 USE HOST /modules/child.dm ${digest(child)}
-EXPORTS LIB z
+EXPORTS LIB z /usr/lib/replacement.a
 `;
     await Promise.all([
       writeFile(resolve(fixture, "modules/child.dm"), child),
@@ -192,8 +192,7 @@ USE HOST /modules/aggregate.dm ${digest(aggregate)}
 ENTRY /bin/result
 `);
     const graph = await loadDollyfileGraph(fixture);
-    assert.deepEqual(graph.exporters.get("LIB:z").exported.details, ["/usr/lib/libz.a"]);
-    assert.doesNotThrow(() => inspectDollyfile(aggregate.replace("EXPORTS LIB z", "EXPORTS LIB z /wrong")));
+    assert.deepEqual(graph.exporters.get("LIB:z").exported.details, ["/usr/lib/replacement.a"]);
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }

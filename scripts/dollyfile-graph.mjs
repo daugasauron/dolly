@@ -82,8 +82,8 @@ export async function loadDollyfileGraph(projectDir, rootFilename = "Dollyfile")
         }
       }
     }
-    // Exports describe the completed module. A bare name can be supplied by a
-    // child, an inherited base, or the runtime filesystem itself.
+    // Exports describe the completed module. Bare TOOL and ENV names may
+    // resolve against a child, an inherited base, or runtime state.
     for (const exported of record.exports) {
       const provider = visible.get(key(exported));
       let resolved = exported;

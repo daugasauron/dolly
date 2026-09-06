@@ -49,8 +49,9 @@ const deferred = module("parser-deferred", `EXPORTS FOLDER all ${outputs}/captur
 SLOP mkdir -p ${outputs}/captured
 SLOP printf a > ${outputs}/captured/a
 SLOP printf b > ${outputs}/captured/b`);
-const forward = module("parser-forward", `EXPORTS FOLDER all
-${deferred}`);
+const aggregate = module("parser-aggregate", `EXPORTS FOLDER all ${outputs}/captured
+${deferred}
+SLOP printf c > ${outputs}/captured/c`);
 const environment = module("parser-environment", `EXPORTS ENV DOLLY_V3_ENV first
 EXPORTS ENV DOLLY_V3_ENV APPEND second
 SLOP test "$DOLLY_V3_ENV" = first:second`);
@@ -60,7 +61,7 @@ SLOP rm ${outputs}/deleted`);
 const cases = [
   { name: "mixed", uses: mixed, check: `test "$(cat ${outputs}/mixed)" = after && test "$(cat ${outputs}/owned)" = overwritten` },
   { name: "repeat", uses: first + first, check: `test "$(cat ${outputs}/owned)" = first` },
-  { name: "deferred", uses: forward, check: `grep -q ${outputs}/captured/b /etc/dolly/image.manifest` },
+  { name: "deferred", uses: aggregate, check: `grep -q ${outputs}/captured/b /etc/dolly/image.manifest && grep -q ${outputs}/captured/c /etc/dolly/image.manifest` },
   { name: "environment", uses: environment },
   { name: "deletion", uses: deletion, check: `test ! -f ${outputs}/deleted && ! grep -q ${outputs}/deleted /etc/dolly/image.manifest` },
   { name: "quoted", uses: quoted, check: `test "$(cat ${outputs}/quoted)" = 'two words' && test "$(cat ${outputs}/cwd)" = '${scratch}/space dir'` },

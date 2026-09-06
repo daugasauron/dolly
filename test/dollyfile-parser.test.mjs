@@ -22,6 +22,7 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
       'SLOP "CWD" / "cc" ""', 'SLOP cc "unterminated', "SLOP CWD /workspace/ cc",
       "SLOP cc input.c", 'SLOP cc "東京 input.c" # comment',
       'EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"', "EXPORTS ENV DOLLY_TEST_VALUE APPEND",
+      "EXPORTS ENV DOLLY_TEST_VALUE", "EXPORTS TOOL cc",
       "EXPORTS ENV DOLLY_TEST_VALUE APPEND extra words", "REQUIRES TOOL cc", "SLOP unknown ; another", "SLOP LABEL=value cc",
       "SLOP cc; unknown", "EXPORTS FILE future", `EXPORTS TOOL ${"a".repeat(129)}`,
       'FILE "/usr/share/a b"', "FILE /workspace/no", "FILE /usr/share/trailing/",
@@ -36,6 +37,21 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
       const actual = run("parse", recipe);
       assert.equal(actual.status === 0, accepted, `${row}\n${actual.stderr}`);
       if (row.includes('"APPEND literal"')) assert.match(actual.stdout, /ENV-VALUE:APPEND literal/);
+    }
+    for (const type of ["FILE", "FOLDER", "HEADER", "LIB"]) {
+      const declaration = `EXPORTS ${type} value /usr/share/value\n`;
+      const source = prefix + declaration;
+      assert.doesNotThrow(() => inspectDollyfile(source));
+      await writeFile(recipe, source);
+      assert.equal(run("parse", recipe).status, 0, type);
+      for (const earlier of ["", declaration]) {
+        const invalid = prefix + earlier + `EXPORTS ${type} value\n`;
+        assert.throws(() => inspectDollyfile(invalid), new RegExp(`invalid ${type} export`));
+        await writeFile(recipe, invalid);
+        const actual = run("parse", recipe);
+        assert.notEqual(actual.status, 0, type);
+        assert.match(actual.stderr, /EXPORTS failed/);
+      }
     }
     await writeFile(recipe, 'DOLLY 3\nMODULE "probe"\n');
     assert.equal(run("parse", recipe).status, 0, "quoted module identity");

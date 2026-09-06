@@ -214,18 +214,13 @@ function inspectVersion3(source, label, rows) {
       case "EXPORTS": {
         assertObject(tokens, label, item, "EXPORTS");
         const [type, name, ...details] = tokens;
-        if (details.length === 0) {
-          // A named export may refer to an object supplied earlier at runtime.
-        } else if (type === "TOOL") {
+        if (type === "TOOL") {
           if (details.length !== 0 && (details.length !== 1 || !sha256Pattern.test(details[0]))) fail(label, item.line, "invalid TOOL export");
-        } else if (["LIB", "FILE", "FOLDER"].includes(type)) {
+        } else if (["LIB", "FILE", "FOLDER", "HEADER"].includes(type)) {
           if (details.length !== 1 || !validAbsolutePath(details[0]) ||
               forbiddenKeep(details[0])) fail(label, item.line, `invalid ${type} export`);
-        } else if (type === "HEADER") {
-          if (details.length !== 1 || !validAbsolutePath(details[0]) ||
-              forbiddenKeep(details[0])) fail(label, item.line, "invalid HEADER export");
         } else if (type === "ENV") {
-          if (details.length !== 1 &&
+          if (details.length > 1 &&
               !(details.length === 2 && details[0] === "APPEND")) {
             fail(label, item.line, "invalid ENV export");
           }

@@ -2,7 +2,7 @@ DOLLY 3
 IMAGE default
 
 # Shared interactive userspace. Other images reuse its completed artifact.
-USE HOST /modules/default.dm         0f39bb1557d76db46548b76eb0c101b367430fb6f91301c8b2defe2507dd979e
+USE HOST /modules/default.dm         c1835da45285964af40f53263a3db3f38b670b592350b0e5370928c671f68d95
 USE HOST /modules/startup-default.dm 634b3aa591fa2cc336a1baf7a14d19c54ef641e3f98a953e3ae6b5e091ecb3fd
 
 ENTRY /bin/slop
