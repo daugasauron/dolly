@@ -99,6 +99,12 @@ writers, and schema migration preserving the separate named-session record.
 `build/lazy-artifacts-browser-complete.log`. The earlier broad run passed its
 individual checks but its launcher was edited while executing and ended with
 a shell EOF; the unchanged rerun passed. Runtime and snapshot bytes are unchanged.
+The local release at port 9000 also passed addon rebuild/cache/failure tests and
+desktop/portrait graphics checks (`build/lazy-artifacts-port9000-final.log`,
+`build/lazy-artifacts-gamedev-port9000.log`). The harness now honors the requested
+external server for rebuild routes; its first mislabeled port-9000 run had used
+the fixture server. The corrected run loaded eight published Pi packs, then only
+the cached Pi payload on subsequent builds.
 
 ## Completed
 

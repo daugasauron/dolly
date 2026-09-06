@@ -1284,7 +1284,10 @@ if (pagesLiveMode &&
   throw new Error("pages-live mode requires an HTTPS github.io DOLLY_BROWSER_PAGE");
 }
 const localOrigin = `http://${browserHostname}:${address.port}`;
-const rebuildPage = `${localOrigin}${browserBase}${iterationMode ? "custom" : selectedImage}/rebuild/`;
+const rebuildPath = `${iterationMode ? "custom" : selectedImage}/rebuild/`;
+const rebuildPage = externalPage
+  ? new URL(rebuildPath, externalPage.endsWith("/") ? externalPage : `${externalPage}/`).href
+  : `${localOrigin}${browserBase}${rebuildPath}`;
 const snapshotPage = `${localOrigin}${browserBase}${selectedImage}/?autorun=shell`;
 const menuPage = `${localOrigin}${browserBase}`;
 const interactivePage = externalPage
@@ -2907,6 +2910,8 @@ int main(int argc, char **argv) {
         const started = performance.now();
         assert.equal(await waitForValue(debuggerClient.send,
           "document.documentElement?.dataset.dollyStatus ?? ''", value => value === "ready" || value === "failed", "v3 iteration"), "ready");
+        assert.equal(await evaluate(debuggerClient.send, "location.origin"),
+          externalPage ? new URL(externalPage).origin : localOrigin, "rebuild ignored the requested server");
         await waitForTerminalText(debuggerClient.send, /(?:^|\n)dolly:[^\n]*\$\s*$/, "custom image Slop entry");
         await clearTerminalSelection(debuggerClient.send);
         const marker = label === "edited-command" ? "iteration-two" : "iteration-one";
