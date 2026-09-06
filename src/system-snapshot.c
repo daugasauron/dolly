@@ -140,6 +140,12 @@ static uintptr_t capture_size;
 static unsigned char *restore_bytes;
 static uintptr_t restore_capacity;
 
+static void discard_capture(void) {
+  free(capture_bytes);
+  capture_bytes = NULL;
+  capture_size = 0;
+}
+
 static int compare_paths(const void *left, const void *right) {
   return strcmp(*(const char *const *)left, *(const char *const *)right);
 }
@@ -183,6 +189,7 @@ static int prune_path(const dolly_snapshot_manifest *manifest, const char *path)
 }
 
 int dolly_snapshot_prune(void) {
+  discard_capture();
   dolly_snapshot_manifest manifest;
   if (load_manifest(&manifest) != 0) return 1;
   const int status = prune_path(&manifest, "/");
@@ -352,8 +359,7 @@ int dolly_snapshot_restore_staged(uintptr_t size) {
   return result;
 }
 
-EMSCRIPTEN_KEEPALIVE
-int dolly_snapshot_capture(void) {
+static int capture_snapshot(void) {
   dolly_snapshot_manifest manifest;
   if (load_manifest(&manifest) != 0) {
     fprintf(stderr, "dolly: could not load image manifest: %s\n", strerror(errno));
@@ -386,15 +392,13 @@ int dolly_snapshot_capture(void) {
     }
   }
 
-  unsigned char *replacement = realloc(capture_bytes, total);
-  if (replacement == NULL) {
+  capture_bytes = malloc(total);
+  if (capture_bytes == NULL) {
     fprintf(stderr, "dolly: snapshot buffer allocation failed: %s\n", strerror(errno));
     free(metadata);
     dispose_manifest(&manifest);
     return 1;
   }
-  capture_bytes = replacement;
-  capture_size = 0;
   unsigned char *cursor = capture_bytes;
   memcpy(cursor, DOLLY_SNAPSHOT_MAGIC, sizeof(DOLLY_SNAPSHOT_MAGIC));
   cursor += sizeof(DOLLY_SNAPSHOT_MAGIC);
@@ -425,6 +429,14 @@ int dolly_snapshot_capture(void) {
   }
   capture_size = total;
   return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_snapshot_capture(void) {
+  discard_capture();
+  const int result = capture_snapshot();
+  if (result != 0) discard_capture();
+  return result;
 }
 
 EMSCRIPTEN_KEEPALIVE

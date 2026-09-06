@@ -9,12 +9,14 @@
 uintptr_t dolly_snapshot_restore_address(uintptr_t size);
 // Consumes the staging allocation on success or failure; restage before retrying.
 int dolly_snapshot_restore_staged(uintptr_t size);
+// A new capture invalidates the old range; failed capture leaves no range.
 int dolly_snapshot_capture(void);
 uintptr_t dolly_snapshot_address(void);
 uintptr_t dolly_snapshot_size(void);
 uint32_t dolly_snapshot_format_version(void);
 
-// Boot-only: discard build inputs not retained by the image. Not a host export.
+// Boot-only: release captured bytes and discard unretained build inputs.
+// The worker must copy the capture before finishing boot. Not a host export.
 int dolly_snapshot_prune(void);
 
 #endif

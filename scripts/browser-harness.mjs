@@ -645,7 +645,14 @@ function startServer() {
         response.writeHead(404, isolatedHeaders).end("not found");
         return;
       }
-      const body = await readFile(servedPath);
+      let body = await readFile(servedPath);
+      if (iterationMode && !externalPage && relative === "src/runtime-worker.mjs") {
+        const finish = "bootstrapStatus = dolly._dolly_bootstrap_finish();";
+        assert.ok(body.toString().includes(finish));
+        body = Buffer.from(body.toString().replace(finish, `${finish}
+          if (dolly._dolly_snapshot_address() !== 0n || dolly._dolly_snapshot_size() !== 0n)
+            throw new Error('finished rebuild retained its capture buffer');`));
+      }
       staticRequestPaths.add(requestUrl.pathname);
       const source = sourceArtifacts.get(requested)?.source;
       response.writeHead(packagedSite && sessionRoute && requested !== "session/open.html" ? 404 : 200, {

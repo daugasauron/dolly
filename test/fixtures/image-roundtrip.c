@@ -52,6 +52,16 @@ static int roundtrip(void) {
   memcpy(staged, (const void *)dolly_snapshot_address(), size);
   CHECK(dolly_snapshot_restore_staged(size) == 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
+  discard_capture();
+  CHECK(dolly_snapshot_address() == 0 && dolly_snapshot_size() == 0);
+  discard_capture();
+  CHECK(dolly_snapshot_capture() == 0 && dolly_snapshot_size() == size);
+  CHECK(unlink(ROOT "/file") == 0);
+  CHECK(dolly_snapshot_capture() != 0);
+  CHECK(dolly_snapshot_address() == 0 && dolly_snapshot_size() == 0);
+  CHECK(dolly_fs_restore(&records[4], 1, 0) == 0);
+  CHECK(dolly_snapshot_capture() == 0 && dolly_snapshot_size() == size);
+  discard_capture();
   return 0;
 }
 

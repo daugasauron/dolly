@@ -29,7 +29,9 @@
     i32.const 0)
 
   ;; A cold /rebuild asks Wasm to capture the system manifest, then copies the
-  ;; resulting opaque range into a static packaged artifact.
+  ;; resulting opaque range into a static packaged artifact. Each capture
+  ;; invalidates its predecessor; failure leaves address/size zero. Finishing
+  ;; boot releases the successful capture, so copy it before bootstrap_finish.
   (func (export "dolly_snapshot_capture") (result i32)
     i32.const 0)
   (func (export "dolly_snapshot_address") (result i64)
