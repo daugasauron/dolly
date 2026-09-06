@@ -3,6 +3,8 @@ import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 const applicationBase = new URL("../", import.meta.url);
+const packBase = new URL(applicationBase);
+packBase.pathname = packBase.pathname.replace(/_dolly\/[0-9a-f]{64}\/$/, "");
 const imageDefinitions = new Map(DOLLY_IMAGES.map(definition => [definition.image, definition]));
 const encoder = new TextEncoder();
 const expectedRecipes = image => imageDefinitions.get(image).recipes;
@@ -114,7 +116,7 @@ export async function loadPackagedSystemSnapshot(image, metadata) {
   if (metadata.encoding === "packs") {
     const parts = [];
     for (const pack of validateSnapshotPacks(metadata)) {
-      const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, applicationBase);
+      const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, packBase);
       const response = await fetch(url, { cache: "force-cache", credentials: "same-origin", redirect: "error" });
       if (!response.ok || !response.body) throw new Error(`snapshot pack returned HTTP ${response.status}`);
       const reader = response.body.pipeThrough(new DecompressionStream("gzip")).getReader();

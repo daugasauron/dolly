@@ -99,6 +99,11 @@ are packaged from an explicit public-source allowlist and checked before release
 links cannot publish arbitrary checkout files. The harness confines documentation
 requests to `docs/`. Tests request encoded parent paths and require 404.
 
+Only `dist/packs/HEX_DIGEST.snapshot.gz` also has a release-independent URL.
+That lookup searches digest-verified published manifests, then checks the selected
+file against its manifest hash. It never serves loose cache/build files. Old
+published packs remain available for release-pinned tabs after publication.
+
 Mouse and touch forward the same bounded press/drag/release records. The host
 has no phone mode, gesture interpretation, or application command menu.
 Phone-oriented images own their controls and gesture handling inside Wasm;

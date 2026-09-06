@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile, readlink } from "node:fs/promises";
+import { readFile, readlink, readdir } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -27,11 +27,14 @@ const isolationHeaders = {
   "cache-control": "no-store",
 };
 const releaseDigest = /^[0-9a-f]{64}$/;
+const snapshotPackPath = /^dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/;
 
 // Only published files are visible. dist/ and the source checkout are build inputs,
 // never the running app. Each HTML response pins subsequent asset requests.
 export function createReleaseServer(releases) {
   const manifests = new Map();
+  const packReleases = new Map();
+  let scannedRelease;
   async function filesFor(digest) {
     if (!releaseDigest.test(digest)) throw new Error("invalid release ID");
     if (!manifests.has(digest)) {
@@ -46,6 +49,7 @@ export function createReleaseServer(releases) {
         files.set(match[2], match[1]);
       }
       manifests.set(digest, files);
+      for (const path of files.keys()) if (snapshotPackPath.test(path)) packReleases.set(path, digest);
     }
     return manifests.get(digest);
   }
@@ -61,7 +65,19 @@ export function createReleaseServer(releases) {
       const pinned = /^_dolly\/([0-9a-f]{64})\/(.*)$/.exec(path);
       if (pinned) [, digest, path] = pinned;
       else digest = await readlink(resolve(releases, "current"));
-      const files = await filesFor(digest);
+      let files = await filesFor(digest);
+      if (!pinned && snapshotPackPath.test(path) && !files.has(path)) {
+        // Stable content URLs may outlive the current release. Only discover
+        // files through digest-verified published manifests, never loose blobs.
+        if (!packReleases.has(path) && scannedRelease !== digest) {
+          for (const entry of await readdir(releases)) if (releaseDigest.test(entry)) {
+            try { await filesFor(entry); } catch { /* Ignore incomplete or corrupt old releases. */ }
+          }
+          scannedRelease = digest;
+        }
+        digest = packReleases.get(path);
+        files = await filesFor(digest);
+      }
       const route = path.replace(/\/+$/, "");
       const session = /^session\/[A-Za-z0-9._-]{1,64}$/.test(route) && !files.has(route);
       const relative = session ? "session/open.html" : files.has(path) ? path :
@@ -76,7 +92,7 @@ export function createReleaseServer(releases) {
       }
       response.writeHead(200, {
         ...isolationHeaders,
-        "cache-control": pinned && /^dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/.test(relative)
+        "cache-control": snapshotPackPath.test(relative)
           ? "public, max-age=31536000, immutable" : "no-store",
         "content-type": /^Dollyfile(?:-|$)/.test(relative) ? "text/plain; charset=utf-8" :
           mimeTypes.get(extname(relative)) ?? "application/octet-stream",

@@ -177,5 +177,9 @@ Published images share compressed packs of identical filesystem records. Each
 image lists the packs it needs; the browser reconstructs and verifies the exact
 snapshot before restoring it. File identity includes path, kind, and contents,
 so overwrites and symlinks remain distinct. Pack URLs are content-addressed and
-can be reused across images. This reduces distribution duplication without
+can be reused across images and local releases. Shared groups are split into
+2–4 MiB record packs where possible; a larger file stands alone. This limits
+small-edit churn without duplicating shared files. A partially overlapping image
+can still change small common packs, but not unrelated large-file packs.
+This reduces distribution duplication without
 adding layer-mount behavior to the Wasm filesystem.

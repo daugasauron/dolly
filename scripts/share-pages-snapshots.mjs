@@ -7,6 +7,29 @@ import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, val
 import { parseGeneratedConstant } from "./site-release.mjs";
 
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+export function splitSnapshotRecords(records) {
+  const entries = [...records].map(([path, record]) => ({ path, record, encodedPath: Buffer.from(path) }))
+    .sort((left, right) => Buffer.compare(left.encodedPath, right.encodedPath));
+  const parts = [];
+  let part = new Map(), size = 16;
+  const finish = () => {
+    if (part.size) parts.push(part);
+    part = new Map(); size = 16;
+  };
+  for (const { path, record, encodedPath } of entries) {
+    const length = 16 + encodedPath.length + record.data.length;
+    if (size + length > 4 * 1024 * 1024) finish();
+    part.set(path, record);
+    size += length;
+    // Large files stand alone. Path landmarks let later packs stabilize after
+    // small edits without tying their boundaries to the catalog's image names.
+    if (size >= 4 * 1024 * 1024 || (size >= 2 * 1024 * 1024 &&
+        (createHash("sha256").update(encodedPath).digest()[0] & 31) === 0)) finish();
+  }
+  finish();
+  return parts;
+}
+
 export async function shareSnapshots(directory) {
   const images = [], identical = new Map();
   for (const name of (await readdir(directory)).sort()) {
@@ -35,13 +58,15 @@ export async function shareSnapshots(directory) {
   const parts = new Map();
   let packedBytes = 0;
   for (const group of groups.values()) {
-    const bytes = encodeSnapshotRecords(group.records);
-    const sha256 = digest(bytes), compressed = gzipSync(bytes, { level: 6 });
-    const pack = { sha256, byteLength: bytes.length, encodedByteLength: compressed.length };
-    parts.set(sha256, bytes);
-    await writeFile(resolve(directory, "packs", `${sha256}.snapshot.gz`), compressed);
-    packedBytes += compressed.length;
-    for (const image of group.images) image.packs.push(pack);
+    for (const records of splitSnapshotRecords(group.records)) {
+      const bytes = encodeSnapshotRecords(records);
+      const sha256 = digest(bytes), compressed = gzipSync(bytes, { level: 6 });
+      const pack = { sha256, byteLength: bytes.length, encodedByteLength: compressed.length };
+      parts.set(sha256, bytes);
+      await writeFile(resolve(directory, "packs", `${sha256}.snapshot.gz`), compressed);
+      packedBytes += compressed.length;
+      for (const image of group.images) image.packs.push(pack);
+    }
   }
   for (const image of images) {
     image.packs.sort((left, right) => left.sha256.localeCompare(right.sha256));
@@ -52,7 +77,7 @@ export async function shareSnapshots(directory) {
     await writeFile(resolve(directory, image.name), `// Generated shared snapshot manifest.\nexport const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify(metadata, null, 2)});\n`);
   }
   for (const image of images) await rm(resolve(directory, `dolly-${image.metadata.image}-system.snapshot`));
-  console.log(`dolly: ${images.length} images share ${groups.size} packs (${packedBytes} compressed bytes)`);
-  return { images: images.length, packs: groups.size, packedBytes };
+  console.log(`dolly: ${images.length} images share ${parts.size} packs (${packedBytes} compressed bytes)`);
+  return { images: images.length, packs: parts.size, packedBytes };
 }
 if (process.argv[1] === import.meta.filename) await shareSnapshots(resolve(process.argv[2]));

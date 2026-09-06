@@ -3088,6 +3088,25 @@ int main(int argc, char **argv) {
         legacyDiscarded: true, upgraded: true, sessionPreserved: true });
       console.log('browser: real IndexedDB transaction rollback under injected quota failure, selected-digest pinning, atomic concurrent publication/cleanup, and exact published corruption recovery passed');
       console.log('browser: image-cache schema upgrade discards only rebuildable cache entries and preserves the separate named-session record');
+      if (externalPage) {
+        const packCache = await evaluate(debuggerClient.send, `(async () => {
+          const { loadPackagedSystemSnapshot } = await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
+          const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(${JSON.stringify(`${browserBase}dist/dolly-pi-system-snapshot.mjs`)});
+          if (metadata.encoding !== 'packs') throw new Error('external app did not publish shared packs');
+          performance.clearResourceTimings();
+          performance.setResourceTimingBufferSize(2000);
+          await loadPackagedSystemSnapshot('pi', metadata);
+          const resources = performance.getEntriesByType('resource').filter(entry => entry.name.includes('/dist/packs/'));
+          return { expected: metadata.packs.length, reads: resources.map(entry => ({
+            path: new URL(entry.name).pathname, transferred: entry.transferSize, encoded: entry.encodedBodySize,
+          })) };
+        })()`);
+        assert.equal(packCache.reads.length, packCache.expected);
+        assert.ok(packCache.reads.every(read => read.path.startsWith(`${browserBasePrefix}/dist/packs/`)), "pack URLs still contain a release ID");
+        assert.ok(packCache.reads.every(read => read.encoded > 0 && read.transferred === 0),
+          `published packs were not reused from the browser HTTP cache: ${JSON.stringify(packCache.reads.filter(read => read.transferred !== 0))}`);
+        console.log(`browser: ${packCache.reads.length} release-independent Pi packs reloaded with zero network transfer`);
+      }
       break browserProof;
     }
     if (snapshotExportMode) {

@@ -76,12 +76,12 @@ test("source provenance includes uncommitted inputs but excludes local agent sta
 test("published server pins complete versions, preserves public session URLs and denies checkout access", async t => {
   const releases = await mkdtemp(resolve(tmpdir(), "dolly-release-server-"));
   t.after(() => rm(releases, { recursive: true, force: true }));
-  async function version(text) {
+  async function version(text, packName = "a".repeat(64)) {
     const stage = resolve(releases, "candidate");
     for (const path of ["release", "src", "docs", "default", "session", "dist/packs"]) await mkdir(resolve(stage, path), { recursive: true });
     for (const [path, contents] of Object.entries({
       "src/browser.mjs": text, "docs/browser-boundary.md": "boundary",
-      [`dist/packs/${"a".repeat(64)}.snapshot.gz`]: "shared compressed bytes",
+      [`dist/packs/${packName}.snapshot.gz`]: "shared compressed bytes",
       "default/index.html": '<html><head></head><script src="../src/browser.mjs"></script></html>',
       "session/open.html": '<html><head></head><script src="src/browser.mjs"></script></html>',
     })) await writeFile(resolve(stage, path), contents);
@@ -103,11 +103,29 @@ test("published server pins complete versions, preserves public session URLs and
   assert.match(await (await get("default")).text(), new RegExp(`<base href="/_dolly/${old}/default/">`));
   const pack = `dist/packs/${"a".repeat(64)}.snapshot.gz`;
   assert.equal((await get(`_dolly/${old}/${pack}`)).headers.get("cache-control"), "public, max-age=31536000, immutable");
-  assert.equal((await get(pack)).headers.get("cache-control"), "no-store");
+  assert.equal((await get(pack)).headers.get("cache-control"), "public, max-age=31536000, immutable");
   assert.equal((await get("default")).headers.get("cache-control"), "no-store");
   assert.match(await (await get("session/work.1")).text(), new RegExp(`<base href="/_dolly/${old}/">`));
   assert.equal(sessionLoadUrl("work.1", `${base}/_dolly/${old}/`).href, `${base}/session/work.1`);
-  const current = await version("new version");
+  const current = await version("new version", "b".repeat(64));
+  assert.equal(await (await get(pack)).text(), "shared compressed bytes", "old public packs remain available after publication");
+  const loosePack = `dist/packs/${"c".repeat(64)}.snapshot.gz`;
+  await writeFile(resolve(releases, current, loosePack), "unlisted blob");
+  for (const name of ["candidate", "c".repeat(64)]) {
+    await mkdir(resolve(releases, name, "release"), { recursive: true });
+    await mkdir(resolve(releases, name, "dist/packs"), { recursive: true });
+    await writeFile(resolve(releases, name, loosePack), "unpublished blob");
+    await writeFile(resolve(releases, name, "release/files.sha256"), `${sha256("unpublished blob")}  ${loosePack}\n`);
+  }
+  const coldServer = createReleaseServer(releases);
+  coldServer.listen(0, "127.0.0.1");
+  await once(coldServer, "listening");
+  t.after(() => new Promise(resolveClose => { coldServer.closeAllConnections(); coldServer.close(resolveClose); }));
+  const coldGet = path => fetch(`http://127.0.0.1:${coldServer.address().port}/${path}`, { signal: AbortSignal.timeout(5000) });
+  assert.equal(await (await coldGet(pack)).text(), "shared compressed bytes", "a restarted server finds packs in verified old manifests");
+  assert.equal((await coldGet(loosePack)).status, 404, "loose or unverified candidates cannot provide public packs");
+  await writeFile(resolve(releases, old, pack), "tampered pack");
+  assert.equal((await coldGet(pack)).status, 404, "cached manifest lookup still verifies each served file");
   assert.equal(await (await get("src/browser.mjs")).text(), "new version");
   assert.equal(await (await get(`_dolly/${old}/src/browser.mjs`)).text(), "old version");
   assert.equal(await (await get(`_dolly/${current}/src/browser.mjs`)).text(), "new version");
