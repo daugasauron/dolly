@@ -126,6 +126,16 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+Vectored I/O now uses one read request and gathers writes across vector
+boundaries, preserving short reads and small pipe-write atomicity. Boot finish
+releases captured snapshot bytes; failed captures invalidate the old range.
+Both bugs were reproduced against the previous release. Native sanitizer
+checks, all 12 image builds, 195 source tests and the complete Chrome suite
+pass (`build/vectored-capture-{native,images,source,browser}.log`). The rebuild
+test checks the released capture range inside the actual kernel. No browser
+imports, exports or snapshot format changed. Runtime:
+`sha256:51843e466965d5a46d876e639c00edb3c8012894ea18af64bd170e2c34f37be8`.
+
 Nonblocking pipes now use the existing descriptor operations, sharing status
 flags across duplicate/inherited handles and preserving partial I/O on errors.
 Native and Chrome checks cover empty/full pipes, EOF, `pipe2`, `FIONBIO` and

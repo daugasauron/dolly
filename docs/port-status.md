@@ -177,9 +177,11 @@ No native Claude Code or Codex image is advertised as working.
   application is Rust, not the small JavaScript launcher. The
   [pinned core manifest](https://github.com/openai/codex/blob/rust-v0.153.4/codex-rs/core/Cargo.toml)
   includes Tokio process/signal/multithread execution, PTY support and HTTP clients.
-  A source `cargo check` at commit `3d2ee51` now reaches Mio 1.2.0, which rejects
-  the experimental Wasm target and has no selected polling/wakeup backend.
-  Local evidence: `build/rust-port.3xZ2cO/codex-check-3.log`.
+  A source `cargo check` at commit `3d2ee51` first hit Mio's unsupported target;
+  selecting its existing poll/pipe backend now passes an isolated browser probe.
+  The next full-source attempt stops at native OpenSSL discovery. Those clients
+  need an explicit broker-backed HTTP port, not host sockets. Local evidence:
+  `build/rust-port.3xZ2cO/codex-check-{3,4}.log`.
 - Claude Code 2.1.263 is distributed as native platform binaries; the inspected
   installed executable is x86-64 ELF. The [installation documentation](https://code.claude.com/docs/en/setup)
   confirms npm installs the same native executable rather than a Node application.
@@ -199,6 +201,12 @@ in-Wasm POSIX-spawn adapter, and the target's `__main_argc_argv` entry name.
 Rust objects and `std` were cross-compiled externally; this is not a shipped
 Rust SDK or a Rust compiler running inside Dolly. Local evidence:
 `build/rust-port.3xZ2cO/std-main-published-browser.log`.
+Mio 1.2.0's existing Unix backend also passes repeated pipe readiness/re-arming,
+wake/reset and EOF checks (`build/rust-port.3xZ2cO/mio-browser.log`). Its local
+patch selects existing implementations; this does not provide Tokio threads
+or a socket transport. Unmodified Tokio 1.52.3 separately passes single-threaded
+tasks, timers, bounded channels and timeouts
+(`build/rust-port.3xZ2cO/tokio-browser.log`).
 HTTP would need to use Dolly's existing broker-backed library; execution and
 terminal state must stay inside Wasm. Current native packages cannot simply be
 copied into `/bin`. No host imports, native process fallback, platform spoofing,
