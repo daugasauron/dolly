@@ -591,8 +591,10 @@ static int wait_process(int pid, uint32_t flags, dolly_process_wait_response *re
       response, sizeof(*response));
   if (result < 0) return (int)result;
   if ((uint64_t)result != sizeof(*response) || response->status > 255 ||
-      (response->signal_number != 0 && response->signal_number != SIGINT &&
-       response->signal_number != SIGKILL && response->signal_number != SIGTERM) ||
+      (response->signal_number != 0 && response->signal_number != SIGHUP &&
+       response->signal_number != SIGINT && response->signal_number != SIGQUIT &&
+       response->signal_number != SIGABRT && response->signal_number != SIGKILL &&
+       response->signal_number != SIGPIPE && response->signal_number != SIGTERM) ||
       (response->signal_number != 0 && response->status != 128 + response->signal_number)) return -EIO;
   return 0;
 }
@@ -921,8 +923,10 @@ pid_t dolly_waitpid(pid_t pid, int *status, int options) {
 }
 
 int dolly_kill(pid_t pid, int signal_number) {
-  if (pid <= 0 || (signal_number != 0 && signal_number != SIGINT &&
-                  signal_number != SIGKILL && signal_number != SIGTERM)) {
+  if (pid <= 0 || (signal_number != 0 && signal_number != SIGHUP &&
+                  signal_number != SIGINT && signal_number != SIGQUIT &&
+                  signal_number != SIGABRT && signal_number != SIGKILL &&
+                  signal_number != SIGPIPE && signal_number != SIGTERM)) {
     errno = ENOTSUP;
     return -1;
   }
@@ -1018,12 +1022,17 @@ int dolly_interrupt_poll(void) {
   int32_t response = 0;
   const int64_t result = dolly_process_call(
       DOLLY_PROCESS_INTERRUPT_POLL, NULL, 0, &response, sizeof(response));
-  return result == sizeof(response) ? response : 0;
+  if (result != sizeof(response) || !response) return 0;
+  if (response != SIGINT) raise(response);
+  int32_t pending;
+  (void)dolly_process_call(DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE,
+      &response, sizeof(response), &pending, sizeof(pending));
+  return response == SIGINT ? response : 0;
 }
 
 void dolly_interrupt_checkpoint(void) {
-  const int signal_number = dolly_interrupt_poll();
-  if (signal_number != 0) dolly_exit_signal(signal_number);
+  dolly_process_info_response response;
+  (void)dolly_process_call(DOLLY_PROCESS_INFO, NULL, 0, &response, sizeof(response));
 }
 
 void dolly_exit_signal(int signal_number) {

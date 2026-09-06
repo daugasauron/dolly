@@ -11,8 +11,9 @@ const spawnForeground = 2;
 const spawnInteractive = 4;
 const deferredResult = -(1n << 63n);
 const processSpawn = 64;
-const interruptPoll = 66;
 const processSignal = 68;
+const signalAcknowledge = 69;
+const supportedSignals = [0, 1, 2, 3, 6, 9, 13, 15];
 const sigint = 2;
 const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
 const interruptGraceMilliseconds = 500;
@@ -238,15 +239,22 @@ export class DollyProcessSupervisor {
       (candidate) => !candidate.retiring && candidate.pid !== pid &&
         this.#descendantDepth(candidate, pid) !== 0,
     );
-    if (!process.interactive) this.#deliverSignal(process);
-    for (const child of descendants) this.#deliverSignal(child);
+    const now = performance.now();
+    for (const target of process.interactive ? descendants : [process, ...descendants]) {
+      if (now - (target.terminalInterruptAt ?? -Infinity) < 1000) {
+        this.#forceExit(target.pid, 130, sigint);
+      } else {
+        target.terminalInterruptAt = now;
+        this.#deliverSignal(target);
+      }
+    }
     return !process.interactive || descendants.length !== 0;
   }
 
   #deliverSignal(process, signalNumber = sigint) {
     if (!process || process.retiring || this.processes.get(process.pid) !== process) return false;
     const result = this.dolly._dolly_process_signal(process.pid, signalNumber);
-    if (signalNumber !== sigint || result !== 0 || !process.started) {
+    if (signalNumber === 9 || result !== 0 || !process.started) {
       return this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
     }
     const deferred = this.deferred.get(process.pid);
@@ -257,7 +265,7 @@ export class DollyProcessSupervisor {
     if (process.interruptTimer === null) {
       process.interruptTimer = setTimeout(() => {
         process.interruptTimer = null;
-        this.interrupt(process.pid);
+        this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
       }, interruptGraceMilliseconds);
     }
     return true;
@@ -466,6 +474,12 @@ export class DollyProcessSupervisor {
       );
       if (result === deferredResult) {
         this.deferred.set(process.pid, { process, message });
+        if (message.operation === 5 && process.interruptTimer !== null) {
+          // The parent has finished cleanup; signalled children retain their
+          // own deadlines while the kernel waits for them to finish theirs.
+          clearTimeout(process.interruptTimer);
+          process.interruptTimer = null;
+        }
         return;
       }
       if (result >= 0n) {
@@ -486,7 +500,7 @@ export class DollyProcessSupervisor {
           const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
           signalDelivery = { pid: response.getUint32(0, true), signal: response.getUint32(4, true) };
           if (signalDelivery.pid === 0 || signalDelivery.pid > 0x7fffffff ||
-              ![0, 2, 9, 15].includes(signalDelivery.signal)) {
+              !supportedSignals.includes(signalDelivery.signal)) {
             throw new Error("invalid kernel signal target");
           }
         }
@@ -502,7 +516,9 @@ export class DollyProcessSupervisor {
     }
     this.deferred.delete(process.pid);
     this.#signal(process, message.sequence, result);
-    if (message.operation === interruptPoll && process.interruptTimer !== null) {
+    if (message.operation === signalAcknowledge && result === 4n &&
+        new DataView(this.kernelMemory.buffer, this.mailboxAddress, 4).getInt32(0, true) === 0 &&
+        process.interruptTimer !== null) {
       clearTimeout(process.interruptTimer);
       process.interruptTimer = null;
     }

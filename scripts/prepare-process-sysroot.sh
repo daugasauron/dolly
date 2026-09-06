@@ -52,6 +52,11 @@ done
 cp -- "${process_runtime}" "${staging}/libdolly-process.a"
 cp -- "${reserved_libc_symbols}" "${staging}/libc-provider.symbols"
 
+# Dolly owns signal state. Keeping the replaced objects lets -rdynamic root
+# Emscripten's action_abort/action_terminate helpers and pull in a second owner.
+emar d "${staging}/libc-ww.a" \
+  raise.o sigaction.o pthread_sigmask.o sigtimedwait.o
+
 "${llvm_nm}" -j --defined-only --extern-only \
   "${staging}/libc-ww.a" \
   "${staging}/libdlmalloc-ww.a" \
@@ -73,8 +78,8 @@ done <"${staging}/libc-provider.symbols"
 # archives are static, so publish their provider symbol set and let -rdynamic
 # executables root and export it.
 #
-# libc and dlmalloc contribute their public C spellings. Private archive
-# helpers are implementation details and Emscripten's browser-facing API is
+# libc, its Dolly adapters and dlmalloc contribute their public C spellings.
+# Private helpers are implementation details and Emscripten's browser-facing API is
 # deliberately excluded: neither is part of Dolly's process-local libc ABI.
 # The small reviewed file adds conventional reserved public libc spellings
 # (for example __errno_location) without publishing every private underscore
@@ -87,6 +92,7 @@ done <"${staging}/libc-provider.symbols"
 {
   "${llvm_nm}" -j --defined-only --extern-only \
     "${staging}/libc-ww.a" \
+    "${staging}/libdolly-process.a" \
     "${staging}/libdlmalloc-ww.a" \
     2>/dev/null | awk \
       'NF && $0 !~ /:$/ && $0 !~ /^_/ && $0 !~ /^emscripten_/ { print }'

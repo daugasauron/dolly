@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -51,7 +52,10 @@ pid_t __syscall_wait4(pid_t pid, int *status, int options, struct rusage *usage)
 }
 
 /* Emscripten's kill is a self-only libc implementation, not a syscall veneer. */
-int kill(pid_t pid, int signal_number) { return dolly_kill(pid, signal_number); }
+int kill(pid_t pid, int signal_number) {
+  if (pid == getpid() && signal_number != 0) return raise(signal_number);
+  return dolly_kill(pid, signal_number);
+}
 
 static __wasi_errno_t call_errno(int64_t result) {
   if (result >= 0) return 0;

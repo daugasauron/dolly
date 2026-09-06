@@ -51,6 +51,14 @@ int clock_nanosleep(clockid_t clock, int flags,
   if (result < 0) {
     if (remaining != NULL && (flags & TIMER_ABSTIME) == 0) {
       *remaining = (struct timespec){0};
+      struct timespec now;
+      uint64_t current;
+      if (result == -EINTR && clock_gettime(clock, &now) == 0 &&
+          timespec_nanoseconds(&now, &current) == 0 && current < deadline) {
+        const uint64_t left = deadline - current;
+        remaining->tv_sec = left / 1000000000u;
+        remaining->tv_nsec = left % 1000000000u;
+      }
     }
     return (int)-result;
   }

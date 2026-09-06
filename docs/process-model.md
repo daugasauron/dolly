@@ -211,10 +211,10 @@ address space without discarding kernel filesystem state.
 The process packet contract includes actual PID/parent IDs, an optional absolute
 spawn cwd, nonblocking wait, and positive-PID signals. Selecting a child's cwd
 is atomic in the kernel and never changes the parent's cwd. `kill(pid, 0)` checks
-existence; SIGINT, SIGTERM and SIGKILL are supported. Groups, stopped states and
-general signal handlers are not implemented; unsupported signals fail with
-ENOTSUP. TERM/KILL take their default termination action, including a command
-still waiting to enter its Worker. They do not address native host processes.
+existence; HUP, INT, QUIT, ABRT, KILL, PIPE and TERM are supported. Groups and
+stopped states are not implemented; unsupported signals fail with ENOTSUP.
+SIGKILL and signals before Worker entry terminate without handlers. These
+operations do not address native host processes.
 
 Exit and wait records carry a separate termination-signal field. A normal
 `exit(130)` is an ordinary exit; it is not inferred to be SIGINT. libc translates
@@ -249,13 +249,32 @@ Ctrl-C when idle, while its active descendants receive process-directed SIGINT.
 An ordinary foreground job is itself cancellable. Image-owned init scripts use
 the ordinary `/bin/foreground` launcher to select these roles; the browser does
 not recognize Slop, Pi or recovery paths.
-The trusted supervisor records `SIGINT` in the kernel. A process can consume it
-through `DOLLY_PROCESS_INTERRUPT_POLL`; a deferred syscall is woken with
-`EINTR`. If the process exits without consuming the signal, the kernel
-overrides its ordinary exit code with status 130. If it never polls, exits, or
-handles the signal within the short grace period, the supervisor terminates
-that process Worker and the kernel reports status 130. This is the availability
-backstop that a cooperative signal implementation alone cannot provide.
+The trusted supervisor records signals in the kernel and wakes deferred calls
+with `EINTR`. The process-local libc wrapper delivers pending signals at syscall
+boundaries through ordinary `signal`/`sigaction` handlers. It supports masks,
+pending/coalesced signals, re-raising, SA_RESTART, SA_RESETHAND, SA_NODEFER and
+SA_SIGINFO. SA_ONSTACK uses the current stack; alternate stacks are unavailable.
+Handler calls stay in Wasm; no handler function enters JavaScript.
+Unsupported action flags fail explicitly. There is no asynchronous stack
+preemption, alternate signal stack, signal-wait operations, or general
+handler-longjmp support.
+
+Polling a signal begins delivery; `SIGNAL_ACKNOWLEDGE` completes it after the
+handler returns. A handler stuck in a CPU loop therefore cannot cancel the
+500 ms termination deadline merely by receiving its signal. A parent exiting
+during a foreground-tree interrupt waits for signalled children to finish their
+own handlers under their own deadlines. A second terminal Ctrl-C within one
+second forcibly cancels the job even if its handler ignores the first.
+The page never reloads or discards the filesystem to cancel a job. A failure of
+the kernel/supervisor itself is outside this per-process cancellation guarantee.
+
+Normal `exit` runs atexit callbacks. Default signal termination does not; programs
+such as Git use their own registered signal cleanup handlers. A handler may
+explicitly call `exit`, or restore the default disposition and re-raise to keep
+a signal termination status. Forced Worker termination/SIGKILL cannot run
+application cleanup: kernel resources are reclaimed, but named user files may
+remain. Ignored or blocked signals do not shorten sleeps; a delivered handler
+interrupts sleep/poll, while SA_RESTART restarts read/write/wait calls.
 
 Timed spawns carry an absolute monotonic deadline in the spawn packet. The
 kernel remains authoritative for the value and exposes only the remaining

@@ -181,3 +181,113 @@ index 120e01f..ad06ebf 100644
  
  	sigchain_pop(SIGPIPE);
  
+diff --git a/send-pack.c b/send-pack.c
+--- a/send-pack.c
++++ b/send-pack.c
+@@ -7,6 +7,9 @@
+ #include "odb.h"
+ #include "pkt-line.h"
+ #include "sideband.h"
++#ifdef DOLLY
++#include "tempfile.h"
++#endif
+ #include "run-command.h"
+ #include "remote.h"
+ #include "connect.h"
+@@ -281,6 +284,7 @@
+ 	return ret;
+ }
+ 
++#ifndef DOLLY
+ static int sideband_demux(int in UNUSED, int out, void *data)
+ {
+ 	int *fd = data, ret;
+@@ -290,6 +294,7 @@
+ 	close(out);
+ 	return ret;
+ }
++#endif
+ 
+ static int advertise_shallow_grafts_cb(const struct commit_graft *graft, void *cb)
+ {
+@@ -727,6 +732,7 @@
+ 		packet_flush(out);
+ 	}
+ 
++#ifndef DOLLY
+ 	if (use_sideband && cmds_sent) {
+ 		memset(&demux, 0, sizeof(demux));
+ 		demux.proc = sideband_demux;
+@@ -737,6 +743,7 @@
+ 			die("send-pack: unable to fork off sideband demultiplexer");
+ 		in = demux.out;
+ 	}
++#endif
+ 
+ 	packet_reader_init(&reader, in, NULL, 0,
+ 			   PACKET_READ_CHOMP_NEWLINE |
+@@ -755,13 +762,19 @@
+ 			 * as well as marking refs with their remote status (if
+ 			 * we get one).
+ 			 */
++#ifdef DOLLY
++			if (status_report && !use_sideband)
++#else
+ 			if (status_report)
++#endif
+ 				receive_status(r, &reader, remote_refs);
+ 
++#ifndef DOLLY
+ 			if (use_sideband) {
+ 				close(demux.out);
+ 				finish_async(&demux);
+ 			}
++#endif
+ 			fd[1] = -1;
+ 
+ 			ret = -1;
+@@ -774,6 +787,31 @@
+ 	if (args->stateless_rpc && cmds_sent)
+ 		packet_flush(out);
+ 
++#ifdef DOLLY
++	if (use_sideband && cmds_sent) {
++		struct tempfile *spool = mks_tempfile_t("git-send-pack-XXXXXX");
++
++		/* The complete request is sent before receiving its sideband report. */
++		if (!spool)
++			die_errno("send-pack: unable to create status spool");
++		demux.out = dup(get_tempfile_fd(spool));
++		if (demux.out < 0)
++			die_errno("send-pack: unable to duplicate status spool");
++		if (delete_tempfile(&spool))
++			die_errno("send-pack: unable to unlink status spool");
++		if (recv_sideband("send-pack", fd[0], demux.out)) {
++			close(demux.out);
++			ret = -1;
++			goto out;
++		}
++		if (lseek(demux.out, 0, SEEK_SET) < 0)
++			die_errno("send-pack: unable to rewind status spool");
++		packet_reader_init(&reader, demux.out, NULL, 0,
++				   PACKET_READ_CHOMP_NEWLINE |
++				   PACKET_READ_DIE_ON_ERR_PACKET);
++	}
++#endif
++
+ 	if (status_report && cmds_sent)
+ 		ret = receive_status(r, &reader, remote_refs);
+ 	else
+@@ -783,10 +821,12 @@
+ 
+ 	if (use_sideband && cmds_sent) {
+ 		close(demux.out);
++#ifndef DOLLY
+ 		if (finish_async(&demux)) {
+ 			error("error in sideband demultiplexer");
+ 			ret = -1;
+ 		}
++#endif
+ 	}
+ 
+ 	if (ret < 0)

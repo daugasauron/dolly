@@ -228,7 +228,7 @@ need. Credential values remain inside Dolly; the browser does not inject them.
 Dolly is still a research prototype. The private process ABI is experimental,
 and the resident display plugin still uses an Emscripten-specific interface.
 Janis is a subset rather than Node, and the Pi external package profile is not
-a general package manager. Git HTTP clone/fetch works with CORS-enabled remotes;
-push and configured clean/smudge filters remain unsupported. Process termination
+a general package manager. Git HTTP clone/fetch/push works with CORS-enabled remotes;
+configured clean/smudge filters remain unsupported. Process termination
 reclaims each command's private memory; the shared
 filesystem remains alive in the kernel.

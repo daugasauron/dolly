@@ -219,6 +219,9 @@ process_link_flags=(
   "${process_compile_flags[@]}" -c src/process/poll.c \
   -o build/process-poll.o
 "${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" -c src/process/signal.c \
+  -o build/process-signal.o
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
   "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
   /emsdk/upstream/emscripten/system/lib/pthread/pthread_self_stub.c \
   -o build/process-pthread-self.o
@@ -245,6 +248,7 @@ done
   build/process-mmap.o \
   build/process-time.o \
   build/process-poll.o \
+  build/process-signal.o \
   build/process-pthread-self.o \
   build/process-default-attr.o \
   build/process-pthread-stub.o \

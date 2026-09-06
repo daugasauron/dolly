@@ -4,7 +4,7 @@ IMAGE python
 # Python extends the ordinary interactive userspace. In particular, every
 # browser-facing image needs the in-sandbox display driver exported by default;
 # the Python aggregate remains independently cacheable above that prefix.
-USE HOST /modules/default.dm        50d625c988fbcd0ca6f6143c2eb27b22654897dbb94cc5de0b59298c8e8ba7e4
+USE HOST /modules/default.dm        bbfb2d00e3e4cbd6fcbd1d6812610075adc2ce140c3925a8b62107c7382d17c8
 USE HOST /modules/python.dm         b9b1fef80aacc0dca801f9b29ad6d7be61ffaa248d06aa5e52e2b2c51ce44166
 USE HOST /modules/startup-python.dm 7007e901067f2a58cdf00ce8e0d4f034e264f409dba8f9ff1b9f482d814ed4f0
 

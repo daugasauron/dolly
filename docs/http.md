@@ -245,15 +245,18 @@ a reproducer is explicitly stated; this is not a formal proof.
 The boot build compiles upstream Git 2.55.0 sources into `/usr/lib/libgit.a`,
 links `/usr/bin/git` with zlib, and separately links upstream
 `git-remote-http`/`git-remote-https` with `-lgit -lcurl -lz`. The real-browser
-test proves local operations and HTTP v0/v2 discovery, clone/fetch, checkout,
-branch updates and shallow/deepen. It checks a pack larger than the pipe buffer,
-damaged-pack/HTTP failures and cancellation of a live response.
+test proves local operations, HTTP v0/v2 discovery and clone/fetch, checkout,
+shallow/deepen, and HTTP push with remote ref/content verification. It checks
+packs larger than the pipe buffer, remote rejection, damaged-pack/HTTP failures,
+transfer cancellation and successful recovery.
 
 The launcher uses existing mapped spawn and pipes. Sideband receive writes to
 an immediately unlinked in-Wasm file before ordinary index-pack runs; it adds
 no browser operation. Git's PATH probe ignores execute bits, and ordinary libc
-exit runs its cleanup handlers. Push and configured clean/smudge filters remain
-outside the validated port.
+exit runs its cleanup handlers. Push sends its pack before receiving sideband
+status into an unlinked in-Wasm spool, then uses upstream status parsing.
+Configured clean/smudge filters remain outside the validated port. Cancelling
+an HTTP exchange does not undo a ref update already accepted by the remote.
 
 The test's native Git is only a remote HTTP reference server. Every client
 command runs in browser Wasm. Real remotes must permit Fetch/CORS and satisfy

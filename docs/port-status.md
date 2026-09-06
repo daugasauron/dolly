@@ -16,7 +16,7 @@ host-process escape hatches.
 | `awk` | [Pinned One True Awk and Bison](../config/source-pins.sh); parser generated reproducibly, then compiled in Dolly at boot | A generated-source build: upstream `maketab` is compiled as a private non-PATH command and executed to create `proctab.c` in WasmFS before the final command is linked; field separators, programs, files, pipes, CSV, and explicit subprocess denial are tested |
 | `curl` / `libcurl.a` | [Pinned official curl headers](../config/source-pins.sh); Dolly's compatibility implementation and curl client are compiled in Dolly at boot | Normal `#include <curl/curl.h>` and `-lcurl`; methods, headers, bodies, callbacks, response metadata, and a synchronous multi API over one typed Fetch broker |
 | `gzip` | Dolly's decompression-only C frontend is compiled in Dolly against its source-built pinned zlib | `gzip -dc` turns ordinary `.tar.gz`/`.tgz` inputs into a tar stream entirely in WasmFS; compression and the broad GNU gzip CLI intentionally fail rather than claim compatibility |
-| `git` | [Pinned Git and zlib](../config/source-pins.sh); GNU Make compiles upstream sources with a mapped-spawn and serial sideband-receive port | Local init/config/add/commit/log; HTTP v0/v2 clone/fetch, checkout/ref updates, shallow/deepen, damaged-pack rejection and transfer cancellation through the single broker; ordinary libc exit cleans failed index updates |
+| `git` | [Pinned Git and zlib](../config/source-pins.sh); GNU Make compiles upstream sources with a mapped-spawn and serial sideband-receive port | Local init/config/add/commit/log; HTTP v0/v2 clone/fetch, push, checkout/ref updates, shallow/deepen, damaged-pack rejection and transfer cancellation through the single broker; normal exit and cooperative signals clean index locks |
 | `make` | Checksum-pinned upstream GNU Make 4.4.1; configured and patched as an exact source manifest, then compiled in Dolly at boot | Real dependency evaluation, automatic variables, `$(shell ...)`, separate compilation and linking, up-to-date checks, and accepted-but-serial `-jN`; every recipe enters `/bin/slop -c`, while every tool invocation gets private process state |
 | `ninja` | Commit-pinned upstream Samurai 1.3 C99 sources with one reviewed Dolly scheduler patch; its 13 ordinary translation units are compiled in Dolly at boot | Ninja build-file parsing, dependency graphs, dirty checks, depfiles, response files, and build logs; ready edges execute synchronously through `/bin/slop -c`, while `-jN` is accepted but intentionally serial |
 | `qjs`, `janis` | [Pinned QuickJS-ng](../config/source-pins.sh); unchanged engine sources plus `src/runtimes/quickjs-main.c`, all compiled in Dolly at boot | A large current C runtime, exact ECMAScript math, allocator and clock surface, source files, stdin, arguments, exception status, repeated invocation, and finite WasmFS-only bare ESM resolution with confined `package.json` exports |
@@ -55,9 +55,9 @@ This is not general POSIX signal-handler or process-group emulation.
 
 ## Deferred ports
 
-### Git filters and push
+### Git filters
 
-Ordinary HTTP clone/fetch now uses private child processes and real bounded
+Ordinary HTTP clone/fetch/push now uses private child processes and real bounded
 pipes. Sideband receive spools into an immediately unlinked in-Wasm file before
 indexing, trading pack-sized temporary storage for a simple serial path. The
 browser fixture validates both protocol versions with a pack larger than the
@@ -65,11 +65,13 @@ pipe buffer; its native Git is only the remote reference HTTP server.
 Remote servers must permit browser Fetch/CORS. The port adds no proxy or
 browser-policy exception.
 
-Configured clean/smudge filters and push still need ports of upstream async
-callbacks. No general `fork`, process replacement, daemon, or raw-socket support
-is implied. Forced SIGINT does not run libc atexit callbacks, so interrupted
-index writers may still leave lockfiles; the incoming pack spool cannot leave
-a pathname. Browser redirect policy remains independently enforceable.
+Push receives its sideband status into a second unlinked spool after sending
+the pack. Configured clean/smudge filters still need an upstream callback port.
+No general `fork`, process replacement, daemon, or raw-socket support is implied.
+Git's ordinary signal handlers now clean interrupted index locks. Forced Worker
+termination cannot run handlers; its named files may remain, while the unlinked
+pack/status spools cannot leave a pathname. Browser redirect policy remains
+independently enforceable.
 
 ### Vim: source-build probe
 

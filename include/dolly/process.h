@@ -19,7 +19,6 @@ extern "C" {
  * kernel pointers. A non-negative result is the response size. A negative
  * result is a negated POSIX errno value.
  */
-__attribute__((import_module("dolly_process_0"), import_name("call")))
 int64_t dolly_process_call(uint32_t operation,
                            const void *request, uint64_t request_size,
                            void *response, uint64_t response_capacity);
@@ -76,6 +75,8 @@ enum dolly_process_operation {
   DOLLY_PROCESS_INTERRUPT_POLL = 66,
   DOLLY_PROCESS_INFO = 67,
   DOLLY_PROCESS_SIGNAL = 68,
+  /* Complete delivery after the userspace handler returns. i32 signal -> i32 pending. */
+  DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE = 69,
 
   DOLLY_PROCESS_HTTP_START = 80,
   DOLLY_PROCESS_HTTP_POLL = 81,

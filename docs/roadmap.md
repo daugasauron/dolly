@@ -146,8 +146,9 @@ pack corruption and transfer cancellation through `env.dolly_http_dispatch`.
 No browser import was added. Remotes must permit browser Fetch/CORS; redirect
 and credential policy remains at the same browser boundary.
 
-Push and configured clean/smudge filters still need separate ports of upstream
-async callbacks. See [port status](port-status.md#git-filters-and-push).
+HTTP push also uses serial sideband spooling; browser tests check remote refs,
+contents, rejection and interrupted-transfer recovery. Configured clean/smudge
+filters still need an upstream callback port. See [port status](port-status.md#git-filters).
 
 ### Nested guest Wasm experiment
 

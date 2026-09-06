@@ -29,8 +29,6 @@ const bootstrapMaximumCharacters = 8192;
 const bootstrapLines = [];
 let bootstrapCharacters = 0;
 let bootstrapFragment = "";
-const hardInterruptGraceMilliseconds = 2000;
-const hardInterruptRecoveryKey = "dolly-hard-interrupt-v1";
 
 const encoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -56,25 +54,6 @@ let currentSessionName = null;
 let sessionSavePromise = null;
 let sessionSaveController = null;
 let sessionStatusTimer;
-let pendingForegroundInterrupt = null;
-let hardRestarting = false;
-
-let hardInterruptRecovery = null;
-try {
-  const encoded = sessionStorage.getItem(hardInterruptRecoveryKey);
-  sessionStorage.removeItem(hardInterruptRecoveryKey);
-  if (encoded !== null) {
-    const candidate = JSON.parse(encoded);
-    if (candidate?.buildId === DOLLY_BUILD_ID &&
-        typeof candidate.image === "string" &&
-        (candidate.session === null || validSessionName(candidate.session))) {
-      hardInterruptRecovery = candidate;
-    }
-  }
-} catch {
-  // Recovery is only a user-facing hint. The worker restart itself must not
-  // depend on browser storage being available.
-}
 
 function startBrowserDownload(message) {
   if (typeof message.name !== "string" || message.name.length === 0 ||
@@ -723,61 +702,12 @@ sessionSaveButton.addEventListener("click", () => {
   void saveCurrentSession().catch(() => {});
 });
 
-function clearPendingForegroundInterrupt() {
-  if (pendingForegroundInterrupt !== null) {
-    clearTimeout(pendingForegroundInterrupt.timeout);
-    pendingForegroundInterrupt = null;
-  }
-}
-
-function hardRestartRuntime(pid) {
-  if (hardRestarting) return;
-  hardRestarting = true;
-  sessionSaveController?.abort(new Error("Dolly is restarting; the previous save is unchanged"));
-  clearPendingForegroundInterrupt();
-  document.documentElement.dataset.dollyStatus = "hard-restarting";
-  document.documentElement.dataset.hardInterruptPid = String(pid);
-  networkTransport?.interrupt();
-  presenter?.stop();
-  resizeObserver?.disconnect();
-  runtimeReady = false;
-  try {
-    sessionStorage.setItem(hardInterruptRecoveryKey, JSON.stringify({
-      buildId: DOLLY_BUILD_ID,
-      image: activeImage,
-      session: currentSessionName,
-    }));
-  } catch {
-    // The hard stop remains effective even when sessionStorage is unavailable.
-  }
-  runtimeWorker?.terminate();
-  location.reload();
-}
-
 function requestForegroundInterrupt() {
   if (!transport) return false;
   const pid = transport.foregroundPid();
   if (pid <= 0 || !transport.foregroundInterruptible()) return false;
-  const resultSequence = transport.currentResultSequence();
-  const repeated = pendingForegroundInterrupt?.pid === pid &&
-    pendingForegroundInterrupt.resultSequence === resultSequence;
   if (!transport.interruptForeground()) return false;
   networkTransport?.interrupt();
-  if (repeated) {
-    hardRestartRuntime(pid);
-    return true;
-  }
-  clearPendingForegroundInterrupt();
-  const timeout = setTimeout(() => {
-    if (runtimeReady && transport?.foregroundPid() === pid &&
-        transport.currentResultSequence() === resultSequence &&
-        transport.foregroundInterruptible()) {
-      hardRestartRuntime(pid);
-    } else {
-      clearPendingForegroundInterrupt();
-    }
-  }, hardInterruptGraceMilliseconds);
-  pendingForegroundInterrupt = { pid, resultSequence, timeout };
   return true;
 }
 
@@ -1305,17 +1235,6 @@ async function boot() {
     : bootMode === "rebuild"
     ? "REBUILD FROM SOURCE"
     : "PRECOMPILED SYSTEM"}\n\n`);
-  if (hardInterruptRecovery !== null) {
-    const restoredCheckpoint = restoredSession !== null &&
-      restoredSession.name === hardInterruptRecovery.session;
-    document.documentElement.dataset.hardInterruptRecovery =
-      restoredCheckpoint ? "session" : "base";
-    appendBootstrap(
-      `HARD INTERRUPT / ${restoredCheckpoint
-        ? `RESTORING CHECKPOINT ${restoredSession.name}`
-        : "RESETTING TO BASE IMAGE"}\n\n`,
-    );
-  }
   mount.addEventListener("pointerdown", () => keyboard.focus({ preventScroll: true }));
   keyboard.addEventListener("compositionend", (event) => {
     if (!transport?.pushText(event.data)) {

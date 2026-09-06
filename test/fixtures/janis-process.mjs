@@ -92,6 +92,16 @@ await check('child abort and deadlines stop work', async () => {
   const missing = await new Promise(resolve => execFile('/does-not-exist', [], resolve));
   assert(missing?.code === 'ENOENT', 'execFile did not report spawn failure');
 });
+await check('QuickJS CPU-loop polling preserves SIGTERM', async () => {
+  const child = spawn('/usr/bin/qjs', ['-e', 'print("ready"); for (;;) {}']);
+  const done = completion(child);
+  try {
+    await new Promise(resolve => child.stdout.once('data', resolve));
+    assert(child.kill('SIGTERM'), 'SIGTERM rejected');
+    const result = await done;
+    assert(result.status === null && result.signal === 'SIGTERM', 'interpreter consumed SIGTERM without terminating');
+  } finally { child.kill('SIGKILL'); await done; }
+});
 await check('unsupported child options fail explicitly', async () => {
   for (const options of [{ detached: true }, { uid: 1 }, { stdio: ['pipe', 'pipe', 'pipe', 'pipe'] }]) {
     const child = spawn('/bin/true', [], options);

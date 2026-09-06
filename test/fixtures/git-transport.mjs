@@ -21,6 +21,7 @@ export function createGitTransportFixture() {
   delete environment.GIT_CONFIG_COUNT;
   const requests = [];
   const cancellation = { started: false, closed: false };
+  const pushCancellation = { started: false, closed: false };
   let corruptions = 0;
   const responses = new Set();
   const dispose = () => {
@@ -54,16 +55,28 @@ export function createGitTransportFixture() {
     const blob = git(["hash-object", "large.bin"]).toString().trim();
     const pack = git(["pack-objects", "--stdout", "--all"]);
     assert.ok(pack.length > 65536, "fixture must exceed the kernel pipe capacity");
+    git(["config", "receive.denyNonFastForwards", "true"]);
+    const pushData = Buffer.alloc(192 * 1024);
+    for (let offset = 0; offset < pushData.length; offset += 32) {
+      createHash("sha256").update(`dolly-push-${offset}`).digest().copy(pushData, offset);
+    }
     return {
-      initial, second, blob, requests, cancellation, dispose,
+      initial, second, blob, requests, cancellation, pushCancellation, dispose,
       get corruptions() { return corruptions; },
+      pushedBlob() { return git(["show", "refs/heads/from-dolly:pushed.bin"]); },
+      pushHead() { return git(["rev-parse", "refs/heads/from-dolly"]).toString().trim(); },
+      verify() { git(["fsck", "--full"]); },
       advance() {
         const third = commit("third.txt", "third\n");
         git(["branch", "-f", "feature", third]);
         return third;
       },
       async serve(request, response, url) {
-        const match = /^\/fixture\/git-transport\/(repo|error|corrupt|cancel)\/(info\/refs|git-upload-pack)$/.exec(url.pathname);
+        if (url.pathname === "/fixture/git-transport/push-data") {
+          response.writeHead(200, {"content-type": "application/octet-stream"}).end(pushData);
+          return true;
+        }
+        const match = /^\/fixture\/git-transport\/(repo|error|corrupt|cancel|reject-push|cancel-push)\/(info\/refs|git-upload-pack|git-receive-pack)$/.exec(url.pathname);
         if (!match) return false;
         const [, variant, operation] = match;
         const protocol = request.headers["git-protocol"] ?? "";
@@ -73,6 +86,8 @@ export function createGitTransportFixture() {
           return true;
         }
         const advertisement = operation === "info/refs";
+        const service = advertisement ? url.searchParams.get("service") : operation;
+        assert.ok(["git-upload-pack", "git-receive-pack"].includes(service));
         assert.equal(request.method, advertisement ? "GET" : "POST");
         const chunks = [];
         let size = 0;
@@ -83,7 +98,22 @@ export function createGitTransportFixture() {
         }
         const input = Buffer.concat(chunks);
         requests.push({ protocol, operation, body: input.toString() });
-        const body = git(["upload-pack", "--stateless-rpc",
+        if (!advertisement && service === "git-receive-pack" && variant === "reject-push") {
+          response.writeHead(403).end("fixture refuses push\n");
+          return true;
+        }
+        if (!advertisement && service === "git-receive-pack" && variant === "cancel-push") {
+          pushCancellation.started = input.includes("PACK");
+          responses.add(response);
+          response.once("close", () => {
+            pushCancellation.closed = true;
+            responses.delete(response);
+          });
+          response.writeHead(200, {"content-type": "application/x-git-receive-pack-result"});
+          response.flushHeaders();
+          return true;
+        }
+        const body = git([service.slice(4), "--stateless-rpc",
           ...(advertisement ? ["--advertise-refs"] : []), "."], input, protocol);
         const packOffset = body.indexOf("PACK");
         if (variant === "corrupt" && !advertisement && packOffset >= 0) {
@@ -92,10 +122,11 @@ export function createGitTransportFixture() {
         }
         response.writeHead(200, {
           "cache-control": "no-store",
-          "content-type": `application/x-git-upload-pack-${advertisement ? "advertisement" : "result"}`,
+          "content-type": `application/x-${service}-${advertisement ? "advertisement" : "result"}`,
         });
-        if (advertisement && protocol !== "version=2") {
-          response.write("001e# service=git-upload-pack\n0000");
+        if (advertisement && (service === "git-receive-pack" || protocol !== "version=2")) {
+          const prefix = `# service=${service}\n`;
+          response.write(`${(Buffer.byteLength(prefix) + 4).toString(16).padStart(4, "0")}${prefix}0000`);
         }
         if (variant === "cancel" && !advertisement && /(?:command=fetch|want [0-9a-f])/.test(input.toString())) {
           cancellation.started = true;
@@ -108,6 +139,7 @@ export function createGitTransportFixture() {
         } else response.end(body);
         return true;
       },
+      pushData,
     };
   } catch (error) { dispose(); throw error; }
 }
@@ -156,8 +188,34 @@ export async function runGitTransport({ submit, origin, fixture }) {
       await new Promise(resolve => setTimeout(resolve, 20));
     }
     assert.equal(fixture.cancellation.closed, true, "cancelled Git must release the HTTP response");
+    const push = `${scratch}/clone-2`;
+    await check(`curl -fsS ${origin}/fixture/git-transport/push-data -o ${push}/pushed.bin`);
+    await check(`git -C ${push} add pushed.bin && git -C ${push} commit -qm browser-push`);
+    await check(`timeout 30 git -C ${push} push origin HEAD:refs/heads/from-dolly`);
+    assert.deepEqual(fixture.pushedBlob(), fixture.pushData);
+    const firstPush = fixture.pushHead();
+    await equals(`git -C ${push} rev-parse HEAD`, firstPush);
+    await check(`echo next > ${push}/next.txt && git -C ${push} add next.txt && git -C ${push} commit -qm next-push`);
+    await check(`timeout 30 git -C ${push} push origin HEAD:refs/heads/from-dolly`);
+    const secondPush = fixture.pushHead();
+    assert.notEqual(secondPush, firstPush);
+    assert.equal(await submit(`timeout 30 git -C ${push} push --force origin ${firstPush}:refs/heads/from-dolly`), 1);
+    assert.equal(fixture.pushHead(), secondPush, "server rejection must preserve the remote ref");
+    await check(`echo pending > ${push}/pending.txt && git -C ${push} add pending.txt && git -C ${push} commit -qm pending-push`);
+    assert.notEqual(await submit(`timeout 15 git -C ${push} push ${origin}/fixture/git-transport/reject-push HEAD:refs/heads/from-dolly`), 0);
+    assert.equal(fixture.pushHead(), secondPush);
+    assert.equal(await submit(`timeout 5 git -C ${push} push ${origin}/fixture/git-transport/cancel-push HEAD:refs/heads/from-dolly`), 124);
+    assert.equal(fixture.pushCancellation.started, true, "push cancellation must interrupt a real pack exchange");
+    for (let attempt = 0; !fixture.pushCancellation.closed && attempt < 100; ++attempt) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.equal(fixture.pushCancellation.closed, true);
+    assert.equal(fixture.pushHead(), secondPush);
+    await check(`timeout 30 git -C ${push} push origin HEAD:refs/heads/from-dolly`);
+    fixture.verify();
     await check(`timeout 15 git ls-remote ${remote} > ${scratch}/after-cancel`);
     await check(`test -z "$(find /tmp -maxdepth 1 -name 'git-fetch-pack-*')"`);
+    await check(`test -z "$(find /tmp -maxdepth 1 -name 'git-send-pack-*')"`);
     for (const protocol of ["", "version=2"]) {
       assert.ok(fixture.requests.some(request => request.protocol === protocol &&
         request.operation === "git-upload-pack" && /want [0-9a-f]/.test(request.body)));

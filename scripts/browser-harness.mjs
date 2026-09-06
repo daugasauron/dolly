@@ -1231,7 +1231,7 @@ chrome = spawn(chromeBinary, [
       const submit = command => evaluate(debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(command)})`);
       await runGitTransport({ submit, origin: localOrigin, fixture: gitTransportFixture });
-      console.log("browser: Git HTTP protocols 0/2, large pack, clone/fetch/checkout, shallow/deepen, lock cleanup, errors and transfer cancellation passed");
+      console.log("browser: Git HTTP clone/fetch/push, large packs, shallow/deepen, remote rejection, lock cleanup and transfer cancellation/recovery passed");
       break browserProof;
     }
     if (libcurlContractMode) {
@@ -1316,6 +1316,7 @@ chrome = spawn(chromeBinary, [
         `window.__dolly.submit(${JSON.stringify(command)})`);
       const scratch = "/tmp/dolly-process-lifecycle-test";
       const source = await readFile(resolve(projectDir, "test/fixtures/process-lifecycle.c"), "utf8");
+      let lifecycleFailure;
       try {
         assert.equal(await submit(`mkdir -p ${scratch}`), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.c`), 0);
@@ -1323,6 +1324,22 @@ chrome = spawn(chromeBinary, [
         const descriptors = await readFile(resolve(projectDir, "test/fixtures/process-descriptors.c"), "utf8");
         assert.equal(await submit(`printf '%s\\n' ${descriptors.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/descriptors.c`), 0);
         assert.equal(await submit(`cc -O0 -fno-sanitize-coverage ${scratch}/descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`), 0);
+        const signals = await readFile(resolve(projectDir, "test/fixtures/process-signals.c"), "utf8");
+        assert.equal(await submit(`printf '%s\\n' ${signals.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/signals.c`), 0);
+        assert.equal(await submit(`cc -O0 -rdynamic ${scratch}/signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`), 0);
+        let ignoreFinished = false;
+        const ignoring = submit(`${scratch}/signals ${scratch} ignore-loop`).then(status => {
+          ignoreFinished = true;
+          return status;
+        });
+        await waitForTerminalText(debuggerClient.send, /SIGNAL-IGNORE-READY\s*$/, "signal-ignoring command ready");
+        const interruptKey = {key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67};
+        await dispatchKey(debuggerClient.send, interruptKey);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        assert.equal(ignoreFinished, false, "one Ctrl-C must honor SIG_IGN");
+        await dispatchKey(debuggerClient.send, interruptKey);
+        assert.equal(await ignoring, 130);
+        assert.equal(await submit(`test -f ${scratch}/signal.lock && test ! -e ${scratch}/atexit`), 0);
         assert.equal(await submit(`git config --file ${scratch}/config user.email before && timeout 5 git config --file ${scratch}/config user.email after`), 0);
         if (selectedImage === "default") {
           const send = debuggerClient.send;
@@ -1394,8 +1411,17 @@ chrome = spawn(chromeBinary, [
           }
           console.log("browser: image-owned rc failure/missing/directory/cancellation and nested app/recovery/outer-shell lifecycle passed");
         }
-      } finally { await submit(`rm -rf ${scratch}`); }
-      console.log("browser: process PID/parent, wait, signals, descriptor flags/inheritance/mappings and pipe cleanup passed");
+      } catch (error) {
+        lifecycleFailure = error;
+        throw error;
+      } finally {
+        try { await submit(`rm -rf ${scratch}`); }
+        catch (error) {
+          if (!lifecycleFailure) throw error;
+          console.error("browser: lifecycle scratch cleanup also failed:", error.message);
+        }
+      }
+      console.log("browser: process PID/parent, wait, signal handlers/escalation, descriptor flags/inheritance/mappings and pipe cleanup passed");
       break browserProof;
     }
     if (janisFilesMode) {
@@ -1668,11 +1694,14 @@ chrome = spawn(chromeBinary, [
           `if (${name} != ${value}) return 1;`).join("\n");
         const source = `#define _POSIX_C_SOURCE 200809L
 #include <errno.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include <dolly/process.h>
 #include <dolly/runtime.h>
+static volatile sig_atomic_t received;
+static void on_interrupt(int number) { received = number; }
 int main(int argc, char **argv) {
   ${constants}
   dolly_process_dso_close_request close_request = {123456};
@@ -1681,16 +1710,17 @@ int main(int argc, char **argv) {
   if (dolly_process_call(DOLLY_PROCESS_DSO_CLOSE, &close_request, sizeof(close_request), &response, 1) != -ENOBUFS) return 3;
   if (dolly_process_call(DOLLY_PROCESS_FFI_CALL, NULL, 0, NULL, 0) != -EINVAL) return 4;
   if (argc == 1) return 0;
+  struct sigaction action = {.sa_handler = on_interrupt};
+  if (sigaction(SIGINT, &action, NULL)) return 8;
   struct timespec now;
   if (clock_gettime(CLOCK_MONOTONIC, &now)) return 5;
   dolly_process_clock_sleep_request request = {1, 0, (uint64_t)now.tv_sec * 1000000000 + now.tv_nsec + 60000000000};
   int64_t interrupted = dolly_process_call(DOLLY_PROCESS_CLOCK_SLEEP, &request, sizeof(request), NULL, 0);
-  dolly_interrupt_poll();
   FILE *file = fopen("/tmp/process-abi/interrupt-result", "w");
   if (!file) return 6;
   fprintf(file, "%s\\n", interrupted == -EINTR ? "EINTR-OK" : "WRONG-ERRNO");
   fclose(file);
-  return interrupted == -EINTR ? 0 : 7;
+  return interrupted == -EINTR && received == SIGINT ? 0 : 7;
 }
 `;
         const sourceFormat = source.replaceAll("\\", "\\\\").replaceAll("\n", "\\n")
@@ -1709,6 +1739,7 @@ int main(int argc, char **argv) {
         const interrupted = await waitForValue(debuggerClient.send, "window.__processErrnoResult",
           value => value !== null, "errno probe cancellation", 200);
         assert.equal(interrupted.error, undefined);
+        assert.equal(interrupted.status, 0);
         assert.equal(await submit("grep -q EINTR-OK /tmp/process-abi/interrupt-result"), 0);
       } finally { await submit("rm -rf /tmp/process-abi"); }
       console.log("browser: freestanding WAT ran through Slop; wrong executable/DSO types rejected before allocation; local/GOT linking passed; optional DSO/FFI returned ENOSYS; C/JS errno and interrupted syscall round trips passed");

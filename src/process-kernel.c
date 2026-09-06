@@ -66,7 +66,8 @@ typedef struct {
   size_t image_size;
   uint64_t deadline_nanoseconds;
   uint32_t http_sequence;
-  int pending_signal;
+  uint32_t pending_signals;
+  int handling_signal;
 } dolly_kernel_process;
 
 _Alignas(64) static unsigned char
@@ -219,8 +220,13 @@ static void dispose_process(dolly_kernel_process *process) {
 }
 
 static int supported_signal(int signal_number) {
-  return signal_number == 0 || signal_number == SIGINT ||
-      signal_number == SIGKILL || signal_number == SIGTERM;
+  return signal_number == 0 || signal_number == SIGHUP || signal_number == SIGINT ||
+      signal_number == SIGQUIT || signal_number == SIGABRT || signal_number == SIGKILL ||
+      signal_number == SIGPIPE || signal_number == SIGTERM;
+}
+
+static int next_signal(const dolly_kernel_process *process) {
+  return process->pending_signals ? __builtin_ctz(process->pending_signals) : 0;
 }
 
 static void mark_process_exited(dolly_kernel_process *process, int status,
@@ -1539,6 +1545,10 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
   if (process == NULL) return -ESRCH;
   if (process->state != DOLLY_KERNEL_PROCESS_RUNNING &&
       operation != DOLLY_PROCESS_EXIT) return -ESRCH;
+  if (process->pending_signals && !process->handling_signal &&
+      operation != DOLLY_PROCESS_INTERRUPT_POLL &&
+      operation != DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE &&
+      operation != DOLLY_PROCESS_EXIT) return -EINTR;
 
   switch (operation) {
     case DOLLY_PROCESS_ARGUMENT_SIZES:
@@ -2070,10 +2080,23 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
     }
     case DOLLY_PROCESS_INTERRUPT_POLL: {
       if (request_size != 0 || response_capacity < sizeof(int32_t)) return -EINVAL;
-      const int32_t response = process->pending_signal;
-      process->pending_signal = 0;
+      const int32_t response = process->handling_signal ? 0 : next_signal(process);
+      if (response) {
+        process->pending_signals &= ~(1u << response);
+        process->handling_signal = response;
+      }
       memcpy(process_mailbox, &response, sizeof(response));
       return sizeof(response);
+    }
+    case DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE: {
+      if (request_size != sizeof(int32_t) || response_capacity < sizeof(int32_t)) return -EINVAL;
+      int32_t number;
+      memcpy(&number, process_mailbox, sizeof(number));
+      if (!number || number != process->handling_signal) return -EINVAL;
+      process->handling_signal = 0;
+      const int32_t remaining = next_signal(process);
+      memcpy(process_mailbox, &remaining, sizeof(remaining));
+      return sizeof(remaining);
     }
     case DOLLY_PROCESS_TERMINAL:
       return terminal_packet(process, request_size, response_capacity);
@@ -2182,10 +2205,17 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       /* Waking a blocking operation with EINTR must not let an otherwise
        * signal-unaware program turn Ctrl-C into an arbitrary failure status.
        * A runtime that deliberately handles SIGINT acknowledges it through
-       * DOLLY_PROCESS_INTERRUPT_POLL, which clears pending_signal. */
+       * DOLLY_PROCESS_INTERRUPT_POLL. */
       const int signal_number = request.signal_number != 0
-          ? (int)request.signal_number : process->pending_signal;
+          ? (int)request.signal_number : next_signal(process);
       const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
+      /* A foreground-tree interrupt must let children finish their own
+       * handlers before a parent's exit reclaims the subtree. */
+      for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+        const dolly_kernel_process *child = &process_table[index];
+        if (child->parent_pid == process->pid && child->state == DOLLY_KERNEL_PROCESS_RUNNING &&
+            (child->pending_signals || child->handling_signal)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+      }
       mark_process_exited(process, status, signal_number);
       return 0;
     }
@@ -2283,11 +2313,10 @@ int dolly_process_signal(int pid, int signal_number) {
   }
   if (!supported_signal(signal_number)) return -ENOTSUP;
   if (signal_number == 0) return 0;
-  if (signal_number == SIGINT && process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
-    process->pending_signal = signal_number;
+  if (signal_number != SIGKILL && process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
+    process->pending_signals |= 1u << signal_number;
   } else {
-    /* No general signal handlers or stopped states: TERM/KILL, and signals
-     * before command entry, have their default termination action. */
+    /* SIGKILL and signals before command entry cannot run userspace handlers. */
     mark_process_exited(process, 128 + signal_number, signal_number);
   }
   return 0;

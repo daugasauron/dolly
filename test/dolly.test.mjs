@@ -905,6 +905,7 @@ test("foreground SIGINT is PID-targeted and always has a forced Worker terminati
   const processKernel = await readFile(
     new URL("../src/process-kernel.c", import.meta.url), "utf8",
   );
+  const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
   const quickjs = await readFile(new URL("../src/runtimes/quickjs-main.c", import.meta.url), "utf8");
 
   assert.match(display, /interrupt_sequence/);
@@ -926,6 +927,8 @@ test("foreground SIGINT is PID-targeted and always has a forced Worker terminati
   assert.doesNotMatch(supervisor, /_dolly_process_foreground_(?:set|clear)/);
   assert.match(supervisor, /_dolly_process_signal\(process\.pid, signalNumber\)/);
   assert.match(supervisor, /interruptGraceMilliseconds = 500/);
+  assert.match(supervisor, /message\.operation === signalAcknowledge/);
+  assert.doesNotMatch(browser, /hardRestartRuntime|location\.reload\(/);
   assert.match(supervisor, /#armDeadline\(process\)/);
   assert.match(supervisor, /#forceExit\(process\.pid, 124\)/);
   assert.match(supervisor, /crypto\.subtle\.digest\("SHA-256", bytes\)/);
@@ -934,7 +937,7 @@ test("foreground SIGINT is PID-targeted and always has a forced Worker terminati
   assert.match(supervisor, /createProcessMemory\(memoryRequirements\)/);
   assert.match(processKernel, /dolly_process_deadline_remaining\(int pid\)/);
   assert.match(processKernel,
-               /request\.signal_number : process->pending_signal[\s\S]*?128 \+ signal_number/);
+               /request\.signal_number : next_signal\(process\)[\s\S]*?128 \+ signal_number/);
   const timeoutCommand = await readFile(
     new URL("../src/commands/timeout.c", import.meta.url), "utf8",
   );
@@ -1184,6 +1187,7 @@ test("the process DSO provider exposes only reviewed reserved libc ABI names", a
   );
   assert.match(preparation, /process-libc-provider\.symbols/);
   assert.match(preparation, /\^emscripten_/);
+  assert.match(preparation, /emar d "\$\{staging\}\/libc-ww\.a" \\\n\s+raise\.o sigaction\.o pthread_sigmask\.o sigtimedwait\.o/);
   for (const symbol of ["__errno_location", "__fpclassifyl", "__signbitl"]) {
     assert.match(reserved, new RegExp(`^${symbol}$`, "m"));
   }

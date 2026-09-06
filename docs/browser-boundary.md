@@ -107,6 +107,10 @@ policy. Foreground roles live in Wasm process records. The internal
 [`dolly-supervisor-0.wat`](../abi/dolly-supervisor-0.wat) exports let the supervisor
 read those roles and acknowledge Worker retirement before a child becomes
 waitable; they add no browser import or network authority.
+Signal handlers execute in process Wasm at syscall boundaries. The supervisor
+keeps its termination timer until userspace acknowledges completed delivery,
+not merely receipt, and a rapid second Ctrl-C forces cancellation. Handler
+cleanup adds no browser capability; the syscall packet ABI binds the handshake.
 
 ## Recheck mechanically
 

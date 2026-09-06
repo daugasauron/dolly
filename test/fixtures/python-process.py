@@ -97,6 +97,25 @@ def streaming_and_timeout():
         cleanup(child)
 
 
+def signal_cleanup():
+    marker = root + "/signal.lock"
+    child = sp.Popen([sys.executable, "-c",
+                      "import os, signal, sys, time\n"
+                      "def stop(number, frame):\n"
+                      " os.unlink(sys.argv[1]); sys.exit(37)\n"
+                      "signal.signal(signal.SIGTERM, stop)\n"
+                      "open(sys.argv[1], 'w').close()\n"
+                      "print('ready', flush=True)\n"
+                      "time.sleep(30)\n", marker], stdout=sp.PIPE, text=True)
+    try:
+        assert child.stdout.readline() == "ready\n"
+        child.terminate()
+        assert child.wait(timeout=3) == 37, "Python handler did not complete"
+        assert not os.path.exists(marker), "Python signal cleanup left its lock"
+    finally:
+        cleanup(child)
+
+
 def bidirectional_pipes():
     payload = bytes(range(256)) * 1024
     child = sp.Popen([sys.executable, "-c",
@@ -259,6 +278,7 @@ for name, operation in (
     ("observable start, PID, nonblocking poll and terminate", starts_before_wait),
     ("creation-time cwd/environment and explicit environment", creation_state),
     ("streaming, non-destructive wait timeout and kill", streaming_and_timeout),
+    ("Python signal handler cleanup", signal_cleanup),
     ("communicate drains simultaneous bounded stdin/stdout/stderr", bidirectional_pipes),
     ("descriptor flags, inheritance, pass_fds and shared offsets", descriptor_inheritance),
     ("invalid descriptors and failed spawn cleanup", descriptor_errors),

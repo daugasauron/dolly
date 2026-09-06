@@ -6,7 +6,7 @@ MODULE bootstrap
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE HOST /include/dolly/toolchain.h /usr/include/dolly/toolchain.h 9e72211e0380b9d900848741c0c1197b370cf93b2de64a8f4d199ea5aab6c9bb
 SOURCE HOST /include/dolly/runtime.h   /usr/include/dolly/runtime.h   cf6bacbfa773ae253d3abc5b7f3e006e4b017aaefab4d0ea412476f9d6d5b2a9
-SOURCE HOST /include/dolly/process.h   /usr/include/dolly/process.h   6087f0237a5272ad17c4d023ec1aac805d09452d6d04a93cc721b5d47e023851
+SOURCE HOST /include/dolly/process.h   /usr/include/dolly/process.h   e68eb32d2bf5c2182ff9bc5ef29db9b8581b6fb2841518abc2a52573602e5977
 SOURCE HOST /include/dolly/http.h      /usr/include/dolly/http.h      b35e5d626ba2747cc3b819e822381e051dd0cd62301aa7b69ab268965ea249cd
 SOURCE HOST /include/dolly/display.h   /usr/include/dolly/display.h   b47317d717b1e75e5b328fc4a61ad1c98e4f0d99ee6766f402fca2ac825e26bd
 SOURCE HOST /include/dolly/download.h  /usr/include/dolly/download.h  8924a3e4c82183c2840f9734dcca8a2427b085c5e004d32c90496f926246cc89

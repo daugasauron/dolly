@@ -1,8 +1,30 @@
 # Audit checkpoint
 
-Closed 2026-09-06. Functional source: `91a7fa2`. No remaining implementation
-items from this audit. Broader work belongs in the [roadmap](roadmap.md);
+Audit baseline closed 2026-09-06 at `91a7fa2`. Its verification below describes
+that source, not subsequent changes. Broader work belongs in the [roadmap](roadmap.md);
 API scope is the user's design choice, not an operation-profiling exercise.
+
+## Signal cleanup and Git push follow-up
+
+The current follow-up implements process-local signal handlers and bounded
+delivery/acknowledgment, child cleanup before parent retirement, and rapid
+second-Ctrl-C job termination. It removes the page's destructive automatic
+reload fallback. Git HTTP push uses serial in-Wasm sideband spooling; tests
+verify remote content/refs, rejection, interruption and recovery. Network
+authority is unchanged; no raw sockets or CORS bypass was added.
+
+All five images, 203 source tests and the complete Chrome suite passed, plus
+gamedev framebuffer/cancellation checks. Python handler cleanup and QuickJS
+CPU-loop SIGTERM are covered. The copied process libc excludes Emscripten's
+replaced signal objects, so `-rdynamic`/DSO hosts have one signal-state owner.
+Runtime: `sha256:2802a696066ccdf59d43768512cacd79a02e0bc42a24dccb07d7ec34a52c9851`.
+Evidence: `build/signal-push-all-snapshots.log`,
+`build/signal-push-source-suite-final.log`, `build/signal-push-browser-suite-final.log`
+and `build/signal-push-gamedev-browser.log`. Earlier failed runs remain available.
+This follow-up used the existing seed toolchain/cache; it is not a new cold-bootstrap proof.
+
+Next: review/integrate the separate Dollyfile v3 experiment at
+`/tmp/dolly-v3.l3vYGA`, which this pass has not modified.
 
 ## Completed
 
@@ -60,5 +82,5 @@ Preserve `.pi/`, `.pi-subagents/`, `work/`, reusable module caches, and
 moved to recoverable system trash after retaining its evidence.
 
 Do not turn this result into claims of complete POSIX/Node/libcurl support,
-Git push/filter support, Safari/phone/audio verification, general signal-handler
-cleanup, or a formal containment proof. Follow [AGENTS.md](../AGENTS.md).
+Git filter support, Safari/phone/audio verification, cleanup after forced Worker
+termination, or a formal containment proof. Follow [AGENTS.md](../AGENTS.md).
