@@ -177,6 +177,9 @@ No native Claude Code or Codex image is advertised as working.
   application is Rust, not the small JavaScript launcher. The
   [pinned core manifest](https://github.com/openai/codex/blob/rust-v0.153.4/codex-rs/core/Cargo.toml)
   includes Tokio process/signal/multithread execution, PTY support and HTTP clients.
+  A source `cargo check` at commit `3d2ee51` now reaches Mio 1.2.0, which rejects
+  the experimental Wasm target and has no selected polling/wakeup backend.
+  Local evidence: `build/rust-port.3xZ2cO/codex-check-3.log`.
 - Claude Code 2.1.263 is distributed as native platform binaries; the inspected
   installed executable is x86-64 ELF. The [installation documentation](https://code.claude.com/docs/en/setup)
   confirms npm installs the same native executable rather than a Node application.
@@ -187,12 +190,15 @@ A credible Codex port starts with Rust's standard library and dependencies
 targeting Dolly's existing process ABI. Rust's generic
 [wasm64 target](https://doc.rust-lang.org/rustc/platform-support/wasm64-unknown-unknown.html)
 does not provide working filesystem/network I/O or a ready Dolly libc integration.
-An isolated Rust 1.98.1 `no_std` probe now links with Dolly's own `cc` and runs
-in Chrome: 64-bit values, C/Rust aggregate arguments/returns, callbacks and
-bidirectional filesystem I/O through Dolly libc passed twice. Rust and `core`
-were cross-compiled externally; this does not provide a Rust compiler inside
-Dolly or working `std::fs`/`std::process`. Local evidence:
-`build/rust-port.3xZ2cO/{prepare,build,browser}.log`.
+An isolated Rust 1.98.1 target now links through Dolly's own `cc` and runs a
+normal Rust `main` in Chrome. C/Rust layouts, Unicode arguments, allocation,
+filesystem metadata, clocks, child env/cwd/status and captured stdout/stderr
+passed twice, including 256 KiB on each child stream. This required corrected
+Emscripten libc bindings, standard-library process selection, an experimental
+in-Wasm POSIX-spawn adapter, and the target's `__main_argc_argv` entry name.
+Rust objects and `std` were cross-compiled externally; this is not a shipped
+Rust SDK or a Rust compiler running inside Dolly. Local evidence:
+`build/rust-port.3xZ2cO/std-main-published-browser.log`.
 HTTP would need to use Dolly's existing broker-backed library; execution and
 terminal state must stay inside Wasm. Current native packages cannot simply be
 copied into `/bin`. No host imports, native process fallback, platform spoofing,
