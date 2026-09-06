@@ -58,6 +58,7 @@ const slopMode = isMode("slop", "slop-source");
 const utf8Mode = isMode("utf8");
 const terminalUiMode = isMode("terminal-ui");
 const graphicsMode = isMode("graphics");
+const debuggerDisconnectMode = isMode("debugger-disconnect");
 const janisFilesMode = isMode("janis-files");
 const janisProcessMode = isMode("janis-process");
 const processLifecycleMode = isMode("process-lifecycle");
@@ -691,10 +692,15 @@ async function connectDebugger({ debugPort, page }) {
   await new Promise((resolveSocket, reject) => {
     socket.addEventListener("open", resolveSocket, { once: true });
     socket.addEventListener("error", reject, { once: true });
+    socket.addEventListener("close", () => reject(new Error("Chrome debugger closed before opening")), { once: true });
   });
 
   let nextId = 1;
   const pending = new Map();
+  socket.addEventListener("close", () => {
+    for (const handler of pending.values()) handler.reject(new Error("Chrome debugger disconnected"));
+    pending.clear();
+  });
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(String(event.data));
     if (!message.id) return;
@@ -706,10 +712,12 @@ async function connectDebugger({ debugPort, page }) {
   });
 
   function send(method, params = {}) {
+    if (socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Chrome debugger disconnected"));
     const id = nextId++;
     return new Promise((resolveCommand, reject) => {
       pending.set(id, { resolve: resolveCommand, reject });
-      socket.send(JSON.stringify({ id, method, params }));
+      try { socket.send(JSON.stringify({ id, method, params })); }
+      catch (error) { pending.delete(id); reject(error); }
     });
   }
   return { socket, send };
@@ -1436,7 +1444,7 @@ chrome = spawn(chromeBinary, [
     })();`,
   });
   await debuggerClient.send("Page.navigate", {
-    url: menuMode
+    url: debuggerDisconnectMode ? "about:blank" : menuMode
       ? menuPage
       : snapshotExportMode || iterationMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
@@ -1449,6 +1457,16 @@ chrome = spawn(chromeBinary, [
   });
 
   browserProof: {
+    if (debuggerDisconnectMode) {
+      const pending = evaluate(debuggerClient.send, "new Promise(() => {})");
+      await evaluate(debuggerClient.send, "true");
+      const rejected = assert.rejects(pending, /Chrome debugger disconnected/);
+      chrome.kill("SIGTERM");
+      await rejected;
+      await assert.rejects(evaluate(debuggerClient.send, "true"), /Chrome debugger disconnected/);
+      console.log("browser: terminating Chrome rejects pending and subsequent debugger commands and cleans up");
+      break browserProof;
+    }
     if (graphicsMode) {
       assert.ok(["gamedev", "gamedev-phone"].includes(selectedImage));
       assert.equal(await waitForValue(debuggerClient.send,
@@ -4629,7 +4647,7 @@ int main(int argc, char **argv) {
   if (chrome !== null) {
     chrome.kill("SIGTERM");
     await new Promise((resolveExit) => {
-      if (chrome.exitCode !== null) resolveExit();
+      if (chrome.exitCode !== null || chrome.signalCode !== null) resolveExit();
       else chrome.once("exit", resolveExit);
     });
   }

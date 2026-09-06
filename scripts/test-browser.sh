@@ -16,6 +16,8 @@ if [[ -n "${DOLLY_BROWSER_MODE:-}" ]]; then
   exec node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 fi
 
+DOLLY_BROWSER_MODE=debugger-disconnect \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=boundary \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
