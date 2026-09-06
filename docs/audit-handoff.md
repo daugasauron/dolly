@@ -54,7 +54,7 @@ Evidence: `build/v3-boundaries-snapshots-2.log`,
 The first SDK attempt caught an incorrectly indented FILE declaration in its
 extracted Makefile; the original failure log remains available.
 
-Remaining v3 work: stable small packs and redundant restore/copy costs. Singularity is
+Remaining v3 work: investigate redundant restore/copy costs. Singularity is
 now the source-built gamedev demo: real orbital forces, projectiles, pulses and
 in-Wasm controls. The separate gamedev-phone image reuses that responsive program;
 phone menus, Pi command injection and touch-scroll translation were removed from
@@ -105,6 +105,21 @@ desktop/portrait graphics checks (`build/lazy-artifacts-port9000-final.log`,
 external server for rebuild routes; its first mislabeled port-9000 run had used
 the fixture server. The corrected run loaded eight published Pi packs, then only
 the cached Pi payload on subsequent builds.
+
+## Stable snapshot packs
+
+Shared record groups now split into bounded packs; large files stand alone.
+The 12-image catalog is 90,939,590 compressed bytes, just 31,865 bytes larger.
+A small Pi config edit needs 172,487 new bytes instead of 51,147,183; unrelated
+images need about 106 KB, not a replacement 51 MB pack. Pack counts remain 40–82
+per image. Evidence: `build/bounded-pack-measurements.log` and
+`build/pack-edit-measurements.log`. No snapshot format or Wasm ABI changed.
+
+Release-independent pack URLs use only verified published manifests, including
+older releases; loose and tampered files are rejected. All 12 packaged image
+inventories, 195 source tests and the full Chrome suite passed. The port-9000
+probe reloaded all 72 Pi packs with zero network transfer:
+`build/stable-packs-{source-final,browser-suite,port9000,publication}.log`.
 
 ## Completed
 

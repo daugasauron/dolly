@@ -1413,6 +1413,7 @@ chrome = spawn(chromeBinary, [
         if (!sessionStorage.getItem("dolly-custom-source")) sessionStorage.setItem("dolly-custom-source", ${JSON.stringify(iterationRecipe)});
         globalThis.__artifactReads = [];
         globalThis.__artifactFetches = [];
+        performance.setResourceTimingBufferSize(4000);
         const get = IDBObjectStore.prototype.get;
         IDBObjectStore.prototype.get = function(key) {
           const request = get.call(this, key), store = this.name;
@@ -2921,6 +2922,8 @@ int main(int argc, char **argv) {
           digest: [...new Uint8Array(await crypto.subtle.digest("SHA-256", window.__dolly.systemSnapshot))].map(b => b.toString(16).padStart(2, "0")).join(""),
           log: document.querySelector("#bootstrap-log").textContent,
           reads: window.__artifactReads, downloads: window.__artifactFetches,
+          packs: performance.getEntriesByType('resource').filter(entry => entry.name.includes('/dist/packs/'))
+            .map(entry => ({ transferred: entry.transferSize, encoded: entry.encodedBodySize })),
         }))()`);
         assert.match(evidence.log, /reusing (?:local|published) /);
         assert.doesNotMatch(evidence.log, /private compiler, Slop, and Dollyfile engine installed/);
@@ -2942,7 +2945,10 @@ int main(int argc, char **argv) {
         else if (label === "cached-base") assert.equal(evidence.digest, firstDigest, "cached composition changed the artifact");
         else assert.notEqual(evidence.digest, firstDigest, "editing the command did not change the artifact");
         console.log(`browser: v3 ${label}: command, environment and deletion verified; ${(performance.now() - started).toFixed(0)}ms; ${evidence.digest}`);
-        console.log(`browser: v3 ${label}: ${payloadReads.reduce((sum, read) => sum + read.bytes, 0)} cached payload bytes, ${evidence.downloads.length} snapshot downloads; no unused ancestor payloads`);
+        console.log(`browser: v3 ${label}: ${payloadReads.reduce((sum, read) => sum + read.bytes, 0)} cached payload bytes, ${evidence.downloads.length} snapshot fetches; no unused ancestor payloads`);
+        if (evidence.packs.length) console.log(`browser: v3 ${label}: ${evidence.packs.length} pack resources, ` +
+          `${evidence.packs.reduce((sum, pack) => sum + pack.transferred, 0)} network bytes, ` +
+          `${evidence.packs.reduce((sum, pack) => sum + pack.encoded, 0)} encoded body bytes`);
         if (missingDependencyMode) {
           assert.match(evidence.log, /building missing pi artifact/);
           assert.match(evidence.log, /reusing published pi-runtime artifact/);
