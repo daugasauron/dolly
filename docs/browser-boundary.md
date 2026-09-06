@@ -101,6 +101,12 @@ has no phone mode, gesture interpretation, or application command menu.
 Phone-oriented images own their controls and gesture handling inside Wasm;
 they use the same framebuffer and input contract as desktop images.
 
+Display mailbox v5 permits a graphics owner to request captured mouse input.
+The host calls `requestPointerLock` only inside a user's canvas press handler,
+never from a Wasm callback or background message. Escape and lease release undo
+capture; only bounded relative deltas and capture-state records enter Wasm.
+This grants no network, DOM, filesystem or process handle to the program.
+
 The kernel has **no general browser dynamic-loader import**. It is statically
 linked with dynamic JavaScript execution disabled. Ghostty remains source-built
 inside Dolly: boot copies its bounded WasmFS bytes and passes them to

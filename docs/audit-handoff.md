@@ -67,6 +67,21 @@ Current native-agent blockers are in
 The external audit survives at `/home/daug/dolly-audits/v3-3c8e352`; its old
 temporary worktree does not.
 
+## Airtime local follow-up
+
+The separate `/bhop/` image adds a source-built first-person strafe-jumping
+course without replacing Singularity. Its movement checks run both natively and
+inside Dolly. Display mailbox v5 adds only user-click-gated pointer capture and
+bounded relative input records; no Wasm import was added. Escape releases capture,
+and Q/Ctrl-C restore the terminal and preserve files. Rendering now clears depth
+each frame; a browser pixel check catches disappearing platforms after jumping.
+
+All 12 snapshots build and 193 source tests pass. Focused real-browser evidence:
+`build/bhop-browser-final.log`, `build/bhop-singularity-regression.log`, and
+`build/bhop-boundary.log`. Runtime:
+`sha256:7fd76651d919daea0874797fa23426c0e53ea11a2db2480f996408dfa43c8ec5`.
+This is not a fresh cold-bootstrap or Firefox pointer-capture proof.
+
 ## Completed
 
 - One short, explicit browser HTTP boundary with bounded admission, typed

@@ -20,8 +20,8 @@ cross the sole `dolly_process_0.call` executable import:
 - `dolly_display_present` atomically publishes that buffer;
 - `dolly_display_wait_frame` waits for the next browser animation frame using
   a sequence word, without exposing a callback, timer, or browser object;
-- `dolly_display_set_cursor` selects one value from the closed text, default,
-  crosshair, pointer, and hidden cursor enum;
+- `dolly_display_set_cursor` selects a closed cursor value, including the
+  user-click-gated capture request;
 - `dolly_display_next_event` returns one bounded semantic Dolly input record,
   or times out;
 - `dolly_display_release` restores the terminal.
@@ -33,11 +33,18 @@ enforces maximum width, height, stride, generation, buffer index, and complete
 frame length before publishing it. A process cannot publish a private or
 arbitrary browser address. The browser scales the checked kernel image.
 
-Mailbox version 4 adds only two atomic words: an animation-frame sequence and
+Mailbox version 4 added two atomic words: an animation-frame sequence and
 a semantic cursor value. The trusted page increments the former from
 `requestAnimationFrame` only while a graphics lease is active and maps the
 latter through a fixed JavaScript table. Neither is a new Wasm import or an
 open-ended browser capability.
+
+Version 5 adds a captured-cursor request and relative motion/capture-state input
+records, without changing the 128-byte layout or adding a Wasm import. Capture
+requires a user click while a graphics owner requests it. Escape, release of the
+graphics lease, or runtime failure releases the mouse. Motion is a bounded signed
+delta in thousandths of a CSS pixel, independent of rendering resolution; camera
+movement and sensitivity belong to the program in Wasm.
 
 While a lease is active, Ghostty keeps parsing terminal output and tracks
 resize internally but does not publish frames. On release it immediately
@@ -103,6 +110,23 @@ remove the wasm64 browser requirement or add a touch-only emergency interrupt.
 Edit `/usr/src/dolly/gamedev/graphics-demo.c`, then run
 `make -f /usr/src/dolly/gamedev/gamedev.mk` to rebuild only the demo against
 the completed SDK. Its source and Pi skill document the same adapter API.
+
+## Airtime bunny-hop course
+
+`/bhop/` starts Airtime, a separate bunny-hop course image; Singularity remains
+available at `/gamedev/`. `bhop` uses a swept 32×72-unit player hull and its own
+100 Hz movement simulation, not a dynamic rigid-body controller. Air acceleration
+uses full 250-unit wishspeed but caps only the velocity projection at 30, so
+synchronized A/D and mouse turning can build speed. Gravity is 800, jump height
+45, ground friction 4 and air acceleration 10. This is an original implementation
+inspired by [GoldSrc movement](https://github.com/rehlds/ReGameDLL_CS/blob/master/regamedll/pm_shared/pm_shared.cpp),
+not a CS engine/assets port: it deliberately omits stock stamina/speed penalties
+for bhop-server-style momentum. Space is edge-triggered, both wheel directions
+request jump, and the input buffer lasts two simulation ticks; there is no held
+Space auto-hop. Escape pauses/releases the mouse; Q exits. Checkpoints and the
+speed/timing HUD are in Wasm, with a personal best at `/workspace/bhop-record.txt`.
+Edit `/usr/src/dolly/bhop/bhop.c` and run
+`make -f /usr/src/dolly/bhop/bhop.mk all check` to rebuild and test the movement.
 
 ## Terminal selection and scrolling
 

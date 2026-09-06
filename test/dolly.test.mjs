@@ -550,6 +550,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const expectedPrograms = new Map([
+    ["bhop", "/usr/bin/bhop"],
     ["default", "/bin/slop"],
     ["pi", "/usr/bin/pi"],
     ["python", "/bin/slop"],
@@ -583,7 +584,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.ok(metadata.manifest.includes(expectedPrograms.get(image)));
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),
-      ["pi", "pi-runtime", "python-pi", "gamedev", "gamedev-phone"].includes(image),
+      ["pi", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop"].includes(image),
     );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
@@ -600,7 +601,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const frontend = ["default", "pi", "python", "python-pi", "gamedev", "gamedev-phone"].includes(image);
+    const frontend = ["default", "pi", "python", "python-pi", "gamedev", "gamedev-phone", "bhop"].includes(image);
     assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), frontend);
     assert.deepEqual(metadata.entry, ["/bin/foreground", "-i", "/bin/slop",
       ...(frontend ? ["/etc/dolly/init.slop"] : [])]);
@@ -636,6 +637,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(artifact("dolly-images.mjs"));
   const knownImages = [
     { image: "default", dollyfile: "Dollyfile" },
+    { image: "bhop", dollyfile: "Dollyfile-bhop" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
     { image: "gamedev-phone", dollyfile: "Dollyfile-gamedev-phone" },
     { image: "gamedev-sdk", dollyfile: "Dollyfile-gamedev-sdk" },

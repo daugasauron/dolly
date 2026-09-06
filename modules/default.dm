@@ -2,7 +2,7 @@ DOLLY 3
 MODULE default
 
 # Execute these recipes in order; re-export the useful runtime and SDK below.
-USE HOST /modules/bootstrap.dm      9772d5166101e75617127867b3f4fcffcef4d3cb14c65780578e98c213a6e3c8
+USE HOST /modules/bootstrap.dm      f05e162ae1a8f17bea9e8b6624a20f1436f9afacc73e28e1926cbf54fd677a3a
 USE HOST /modules/core-tools.dm     42bc8954f5f995a05262752bac670967c3a5a13edcecca7e325dc814d28506b2
 USE HOST /modules/download.dm       74b6c1c6a911150a593758806ee5939f52f42cdb93632f68406adcecb0ca03bf
 USE HOST /modules/tar.dm            0bff7c2d25ab0ce49401bd2e32f341520663f3e3d21d6d4f5bbd73a083a725c5

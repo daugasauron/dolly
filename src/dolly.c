@@ -760,7 +760,7 @@ int dolly_kernel_display_set_cursor(int owner_pid, uint64_t generation,
                                     uint32_t cursor) {
   int status = validate_display_lease(owner_pid, generation);
   if (status != 0) return status;
-  if (cursor > DOLLY_DISPLAY_CURSOR_HIDDEN) return -EINVAL;
+  if (cursor > DOLLY_DISPLAY_CURSOR_CAPTURED) return -EINVAL;
   atomic_store_explicit(&display_mailbox.cursor_style, cursor,
                         memory_order_release);
   return 0;
@@ -977,6 +977,11 @@ int dolly_terminal_present_pending(void) {
   for (uint32_t cursor = read; cursor != write; ++cursor) {
     dolly_input_event *event = &display_mailbox.events[
         cursor & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+    if (event->type == DOLLY_INPUT_EVENT_POINTER_MOTION ||
+        event->type == DOLLY_INPUT_EVENT_POINTER_CAPTURE) {
+      event->type = 0;
+      continue;
+    }
     if (event->type == DOLLY_INPUT_EVENT_RESIZE ||
         event->type == DOLLY_INPUT_EVENT_POINTER ||
         event->type == DOLLY_INPUT_EVENT_SCROLL) {

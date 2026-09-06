@@ -80,6 +80,7 @@ function startBrowserDownload(message) {
 }
 
 function displayFatal(message) {
+  if (document.pointerLockElement === canvas) document.exitPointerLock();
   sessionSaveController?.abort(new Error("The runtime stopped; the previous save is unchanged"));
   canvas.hidden = true;
   bootstrapLog.hidden = false;
@@ -303,6 +304,15 @@ class DisplayTransport {
     });
   }
 
+  relativePointerRequested() {
+    return this.graphicsActive() && this.cursorStyle() === 5;
+  }
+
+  pushPointerMotion(event) {
+    const delta = value => Math.max(-32_768_000, Math.min(32_768_000, Math.round(value * 1000)));
+    return this.pushRecord({ type: 8, width: delta(event.movementX), height: delta(event.movementY) });
+  }
+
   copySelection() {
     for (let attempt = 0; attempt < 3; attempt++) {
       const before = Atomics.load(
@@ -471,10 +481,14 @@ class FramebufferPresenter {
 
   stop() {
     this.running = false;
+    if (document.pointerLockElement === this.canvas) document.exitPointerLock();
   }
 
   updateCursor() {
-    const styles = ["text", "default", "crosshair", "pointer", "none"];
+    if (document.pointerLockElement === this.canvas && !this.transport.relativePointerRequested()) {
+      document.exitPointerLock();
+    }
+    const styles = ["text", "default", "crosshair", "pointer", "none", "crosshair"];
     const style = styles[this.transport.cursorStyle()] ?? "default";
     if (this.canvas.style.cursor !== style) this.canvas.style.cursor = style;
     document.documentElement.dataset.cursorStyle = style;
@@ -676,6 +690,11 @@ function requestForegroundInterrupt() {
 
 function handleKeyboardEvent(event) {
   if (!transport) return;
+  if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {
+    document.exitPointerLock();
+    event.preventDefault();
+    return;
+  }
   const clipboardChord = event.ctrlKey && event.shiftKey &&
     !event.altKey && !event.metaKey;
   if (clipboardChord && event.code === "KeyS") {
@@ -750,6 +769,17 @@ function pushPointer(event, action) {
 
 canvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0 || !transport) return;
+  if (transport.relativePointerRequested()) {
+    keyboard.blur();
+    event.preventDefault();
+    if (!event.isTrusted) return;
+    if (document.pointerLockElement !== canvas) {
+      const failed = error => { document.documentElement.dataset.pointerLockError = String(error); };
+      try { void Promise.resolve(canvas.requestPointerLock()).catch(failed); }
+      catch (error) { failed(error); }
+    }
+    return;
+  }
   canvas.setPointerCapture(event.pointerId);
   if (transport.graphicsActive()) keyboard.blur();
   else keyboard.focus({ preventScroll: true });
@@ -758,6 +788,13 @@ canvas.addEventListener("pointerdown", (event) => {
   event.preventDefault();
 });
 canvas.addEventListener("pointermove", (event) => {
+  if (document.pointerLockElement === canvas) {
+    if (transport?.relativePointerRequested() && !transport.pushPointerMotion(event)) {
+      document.documentElement.dataset.inputOverflow = "true";
+    }
+    event.preventDefault();
+    return;
+  }
   if (!selecting || (event.buttons & 1) === 0) return;
   pushPointer(event, 2);
   event.preventDefault();
@@ -775,6 +812,14 @@ canvas.addEventListener("pointercancel", (event) => {
   if (selecting) {
     selecting = false;
     pushPointer(event, 0);
+  }
+});
+document.addEventListener("pointerlockchange", () => {
+  selecting = false;
+  const captured = document.pointerLockElement === canvas;
+  document.documentElement.dataset.pointerLocked = String(captured);
+  if (transport && !transport.pushRecord({ type: 9, action: captured ? 1 : 0 })) {
+    document.documentElement.dataset.inputOverflow = "true";
   }
 });
 canvas.addEventListener("wheel", (event) => {
@@ -1298,7 +1343,7 @@ async function boot() {
   });
   appendBootstrap(bootstrapDecoder.decode(), true);
   runtimeReady = true;
-  if (ready.version !== 4) throw new Error(`unsupported display mailbox ${ready.version}`);
+  if (ready.version !== 5) throw new Error(`unsupported display mailbox ${ready.version}`);
   if (ready.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION) throw new Error(`unsupported HTTP mailbox ${ready.httpVersion}`);
   if (ready.sessionVersion !== 2) {
     throw new Error(`unsupported session mailbox ${ready.sessionVersion}`);

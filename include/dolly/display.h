@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 enum {
-  DOLLY_DISPLAY_MAILBOX_VERSION = 4,
+  DOLLY_DISPLAY_MAILBOX_VERSION = 5,
   DOLLY_DISPLAY_MAILBOX_HEADER_SIZE = 128,
   DOLLY_DISPLAY_EVENT_SIZE = 128,
   DOLLY_DISPLAY_EVENT_CAPACITY = 256,
@@ -33,6 +33,9 @@ typedef enum {
   DOLLY_DISPLAY_CURSOR_CROSSHAIR = 2,
   DOLLY_DISPLAY_CURSOR_POINTER = 3,
   DOLLY_DISPLAY_CURSOR_HIDDEN = 4,
+  // Request relative mouse input. The host may capture only after a user click;
+  // Escape releases capture. POINTER_CAPTURE reports actual acquisition/loss.
+  DOLLY_DISPLAY_CURSOR_CAPTURED = 5,
 } dolly_display_cursor;
 
 typedef enum {
@@ -47,6 +50,11 @@ typedef enum {
   // screen. The browser forwards intent; the in-Wasm display driver owns the
   // viewport and all scrollback state.
   DOLLY_INPUT_EVENT_SCROLL = 7,
+  // width_css_px/height_css_px contain signed int32 deltas in thousandths of
+  // a CSS pixel, independent of framebuffer resolution and device scale.
+  DOLLY_INPUT_EVENT_POINTER_MOTION = 8,
+  // action is 1 while captured, 0 after capture is lost.
+  DOLLY_INPUT_EVENT_POINTER_CAPTURE = 9,
 } dolly_input_event_type;
 
 typedef enum {

@@ -1,6 +1,6 @@
 DOLLY 3
 IMAGE system
 
-USE HOST /modules/default.dm d172162385e9827edfecec5103c31ee769df51d6697c2f0a667ad3878fcafdf8
+USE HOST /modules/default.dm 1c66c7ce763587f311d713b608ae8f619c0aa1413af4371bec9693a28fb3cda1
 
 ENTRY /bin/foreground -i /bin/slop

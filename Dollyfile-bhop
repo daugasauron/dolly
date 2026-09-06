@@ -1,0 +1,22 @@
+DOLLY 3
+IMAGE bhop
+
+FROM HOST /Dollyfile-gamedev 10fad0ef5d7a802d277717289b0574a03c34ac2ffc8d2662766543041545a79f
+USE HOST /modules/bhop.dm 3031ccc234135fa51250549d20d8564d66a7a1180ea19347328f33634e16e444
+
+FILE /etc/dolly/init.slop
+    if test -f "$HOME/.dollyrc"; then
+      /bin/foreground /bin/slop -e "$HOME/.dollyrc"
+    fi
+    /bin/foreground /usr/bin/bhop
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+FILE /home/dolly/.dollyrc
+    printf '\033[33mDOLLY / AIRTIME\033[0m\n'
+    printf 'Click once to capture the mouse. Escape releases; Q exits.\n'
+    printf 'WASD moves. Space and scroll up/down jump. R restarts; F returns to a checkpoint.\n'
+    printf 'Release W in air, then strafe A/D while turning the mouse in the same direction.\n'
+    printf 'Edit /usr/src/dolly/bhop/bhop.c; make -f /usr/src/dolly/bhop/bhop.mk all check.\n\n'
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

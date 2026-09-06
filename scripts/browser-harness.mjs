@@ -58,6 +58,7 @@ const slopMode = isMode("slop", "slop-source");
 const utf8Mode = isMode("utf8");
 const terminalUiMode = isMode("terminal-ui");
 const graphicsMode = isMode("graphics");
+const bhopMode = isMode("bhop");
 const debuggerDisconnectMode = isMode("debugger-disconnect");
 const janisFilesMode = isMode("janis-files");
 const janisProcessMode = isMode("janis-process");
@@ -1091,7 +1092,7 @@ async function enterRecoveryShell(send) {
       `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "runtime image Slop prompt")`);
   }
   let entryPid;
-  if (["gamedev", "gamedev-phone"].includes(selectedImage)) {
+  if (["gamedev", "gamedev-phone", "bhop"].includes(selectedImage)) {
     entryPid = await waitForValue(
       send,
       "window.__dolly?.graphicsActive ? window.__dolly.foregroundPid : 0",
@@ -1451,12 +1452,102 @@ chrome = spawn(chromeBinary, [
       : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || libcurlContractMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode || gitTransportMode || graphicsMode
+        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode || gitTransportMode || graphicsMode || bhopMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (bhopMode) {
+      const send = debuggerClient.send;
+      assert.equal(selectedImage, "bhop");
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus",
+        value => value === "ready" || value === "failed", "Airtime boot"), "ready");
+      await enterRecoveryShell(send);
+      const submit = command => evaluate(send, `window.__dolly.submit(${JSON.stringify(command)})`);
+      assert.equal(await submit("make -f /usr/src/dolly/bhop/bhop.mk check"), 0);
+      for (const [args, expected] of [["--frames 12", 0], ["--frames 0", 2], ["--frames -1", 2]]) {
+        assert.equal(await submit(`bhop ${args}`), expected);
+      }
+      await evaluate(send, `window.__bhopResult = null;
+        window.__dolly.submit('bhop').then(status => { window.__bhopResult = status; }); true`);
+      await waitForValue(send, "window.__dolly.graphicsActive", value => value === true, "Airtime display lease");
+      await delay(200);
+      assert.equal(await evaluate(send, "document.pointerLockElement"), null, "a Wasm request must not automatically capture input");
+      await evaluate(send, "document.querySelector('#display').dispatchEvent(new PointerEvent('pointerdown', {button: 0}))");
+      assert.equal(await evaluate(send, "document.pointerLockElement"), null, "synthetic page input must not grant capture");
+      const point = await evaluate(send, `(() => {
+        const bounds = document.querySelector('#display').getBoundingClientRect();
+        return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+      })()`);
+      const click = async () => {
+        await send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", buttons: 1, clickCount: 1 });
+        await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", buttons: 0, clickCount: 1 });
+        await waitForValue(send, "document.pointerLockElement?.id", value => value === "display", "click-to-capture mouse");
+      };
+      await click();
+      await evaluate(send, `(() => {
+        const transport = window.__dolly.transport, original = transport.pushPointerMotion;
+        window.__bhopMotion = [];
+        transport.pushPointerMotion = function(event) {
+          window.__bhopMotion.push([event.movementX, event.movementY, event.buttons]);
+          return original.call(this, event);
+        };
+        window.__bhopRestoreMotion = () => { transport.pushPointerMotion = original; };
+      })()`);
+      try {
+        await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: point.x + 80, y: point.y + 35, buttons: 0 });
+        await send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point, buttons: 0 });
+        const motion = await waitForValue(send, "window.__bhopMotion", value => value?.length >= 2, "relative motion without a held mouse button");
+        assert.ok(motion.some(([x, y, buttons]) => (x || y) && buttons === 0));
+        assert.ok(motion.some(([x]) => x < 0), "relative motion must preserve negative deltas");
+      } finally { await evaluate(send, "window.__bhopRestoreMotion(); delete window.__bhopRestoreMotion"); }
+      await send("Input.dispatchKeyEvent", { type: "keyDown", key: " ", code: "Space", windowsVirtualKeyCode: 32 });
+      await delay(900);
+      await send("Input.dispatchKeyEvent", { type: "keyUp", key: " ", code: "Space", windowsVirtualKeyCode: 32 });
+      for (const deltaY of [-100, 100]) {
+        await send("Input.dispatchMouseEvent", { type: "mouseWheel", ...point, deltaX: 0, deltaY });
+        await delay(900);
+      }
+      const floorFraction = await evaluate(send, `(() => {
+        const canvas = document.querySelector('#display');
+        const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        let floor = 0;
+        for (let y = Math.ceil(canvas.height * 0.55); y < canvas.height * 0.8; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            const i = (y * canvas.width + x) * 4;
+            if (pixels[i] > 150 && pixels[i + 1] > 150 && pixels[i + 2] > 150) floor++;
+          }
+        }
+        return floor / (canvas.width * canvas.height);
+      })()`);
+      assert.ok(floorFraction > 0.08, `the starting platform disappeared after camera motion: ${floorFraction}`);
+      const shot = await send("Page.captureScreenshot", { format: "png" });
+      await writeFile(resolve(projectDir, "build/bhop-firstperson.png"), shot.data, "base64");
+      await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      await waitForValue(send, "document.pointerLockElement", value => value === null, "Escape releases mouse capture");
+      assert.equal(await evaluate(send, "window.__bhopResult"), null, "Escape pauses rather than kills the game");
+      // Chrome imposes a short recapture cooldown after Escape, even for a new click.
+      await delay(1300);
+      assert.equal(await evaluate(send, "document.pointerLockElement"), null, "the game must not recapture without a new click");
+      await click();
+      await dispatchKey(send, { key: "q", code: "KeyQ", windowsVirtualKeyCode: 81 });
+      assert.equal(await waitForValue(send, "window.__bhopResult", value => value !== null, "Airtime normal exit"), 0);
+      await waitForValue(send, "document.pointerLockElement", value => value === null, "game exit releases captured mouse");
+      const terminal = await evaluate(send, "window.__dolly.visibleTerminalText()");
+      assert.match(terminal, /bhop: ticks=\d+ jumps=3 falls=0 pad=0/, "Space must jump once, followed by one jump in each wheel direction");
+      assert.equal(await submit("echo BHOP-SURVIVED > bhop-survived.txt"), 0);
+      await evaluate(send, `window.__bhopResult = null;
+        window.__dolly.submit('bhop').then(status => { window.__bhopResult = status; }); true`);
+      await waitForValue(send, "window.__dolly.graphicsActive", value => value === true, "second Airtime lease");
+      await click();
+      await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+      assert.equal(await waitForValue(send, "window.__bhopResult", value => value !== null, "Airtime cancellation"), 130);
+      await waitForValue(send, "document.pointerLockElement", value => value === null, "cancellation releases captured mouse");
+      assert.equal(await submit("grep -q BHOP-SURVIVED bhop-survived.txt"), 0);
+      console.log("browser: Airtime source-built movement checks, mouse capture/free look/Escape, Space and both wheel jumps, normal exit and Ctrl-C recovery passed");
+      break browserProof;
+    }
     if (debuggerDisconnectMode) {
       const pending = evaluate(debuggerClient.send, "new Promise(() => {})");
       await evaluate(debuggerClient.send, "true");

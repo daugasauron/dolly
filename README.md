@@ -42,7 +42,8 @@ Dolly currently boots a source-built userspace containing:
 - an exclusive in-Wasm RGBA framebuffer lease for games and visual tools, with
   automatic terminal restoration on return or Ctrl-C; the gamedev image adds
   source-built raylib 6.0, Box3D 0.1.0, a Pi skill, and an interactive 3D
-  physics game;
+  physics game; `/bhop/` adds Airtime, a first-person strafe-jumping course with
+  click-to-capture mouse look and Space/wheel jumping;
 - Ghostty-owned selection and scrollback inside Wasm. Phone-oriented controls
   belong to programs in separate images, starting with `/gamedev-phone/`.
 
