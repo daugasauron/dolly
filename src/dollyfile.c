@@ -64,6 +64,13 @@ typedef struct {
 } Scope;
 
 typedef struct {
+  Buffer bytes;
+  dolly_fs_record *records;
+  uint32_t count;
+  char recipe_sha256[65];
+} Artifact;
+
+typedef struct {
   char *host_base;
   char **keep;
   size_t keep_count;
@@ -80,6 +87,7 @@ typedef struct {
   size_t environment_name_capacity;
   char *selected_image;
   Scope exports;
+  Artifact artifact;
 } Engine;
 
 typedef struct {
@@ -380,9 +388,14 @@ static int fetch_memory(const char *url, Buffer *buffer) {
 static int read_file_buffer(const char *path, Buffer *buffer) {
   int descriptor = open(path, O_RDONLY);
   if (descriptor < 0) return -errno;
-  unsigned char bytes[4096];
+  unsigned char bytes[64 * 1024];
+  struct stat metadata;
   int result = 0;
-  for (;;) {
+  if (fstat(descriptor, &metadata) == 0 && S_ISREG(metadata.st_mode)) {
+    result = (uint64_t)metadata.st_size > buffer->limit ? -EFBIG
+        : buffer_reserve(buffer, (size_t)metadata.st_size);
+  }
+  while (result == 0) {
     const ssize_t count = read(descriptor, bytes, sizeof(bytes));
     if (count < 0) {
       result = -errno;
@@ -1084,12 +1097,6 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
   return result == 0 && cursor != end ? -EINVAL : result;
 }
 
-typedef struct {
-  Buffer bytes;
-  dolly_fs_record *records;
-  uint32_t count;
-} Artifact;
-
 static void dispose_artifact(Artifact *artifact) {
   if (artifact->records != NULL) {
     for (uint32_t index = 0; index < artifact->count; ++index) free(artifact->records[index].path);
@@ -1107,6 +1114,8 @@ static const dolly_fs_record *artifact_file(const Artifact *artifact, const char
 }
 
 static int read_artifact(Artifact *artifact, const char *expected) {
+  if (strcmp(artifact->recipe_sha256, expected) == 0) return 0;
+  dispose_artifact(artifact);
   char path[128];
   snprintf(path, sizeof(path), "/etc/dolly/artifacts/%s.snapshot", expected);
   artifact->bytes.limit = MAX_SOURCE_BYTES;
@@ -1146,7 +1155,9 @@ static int read_artifact(Artifact *artifact, const char *expected) {
   if (cursor != end || recipe == NULL || recipe->kind != DOLLY_FS_FILE) return -EINVAL;
   char actual[65];
   sha256_bytes(recipe->data, recipe->size, actual);
-  return strcmp(actual, expected) == 0 ? 0 : -EBADMSG;
+  if (strcmp(actual, expected) != 0) return -EBADMSG;
+  memcpy(artifact->recipe_sha256, expected, sizeof(artifact->recipe_sha256));
+  return 0;
 }
 
 static int artifact_has_path(const Artifact *artifact, const char *path) {
@@ -1162,20 +1173,20 @@ static int artifact_has_path(const Artifact *artifact, const char *path) {
 
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
                          const char *source, const char *destination, Scope *visible) {
-  Artifact artifact = {0};
-  int result = read_artifact(&artifact, expected);
-  const dolly_fs_record *receipt = result == 0 ? artifact_file(&artifact, "/etc/dolly/artifact") : NULL;
+  Artifact *artifact = &engine->artifact;
+  int result = read_artifact(artifact, expected);
+  const dolly_fs_record *receipt = result == 0 ? artifact_file(artifact, "/etc/dolly/artifact") : NULL;
   if (result == 0 && (receipt == NULL || receipt->kind != DOLLY_FS_FILE)) result = -EINVAL;
   if (result == 0) result = read_artifact_receipt(engine, receipt->data, receipt->size,
                                                  locator, expected, source == NULL ? visible : NULL);
-  if (result == 0 && source != NULL && !artifact_has_path(&artifact, source)) {
+  if (result == 0 && source != NULL && !artifact_has_path(artifact, source)) {
     result = -ENOENT;
   }
   size_t count = 0;
-  dolly_fs_record *selected = result == 0 ? calloc(artifact.count, sizeof(*selected)) : NULL;
+  dolly_fs_record *selected = result == 0 ? calloc(artifact->count, sizeof(*selected)) : NULL;
   if (result == 0 && selected == NULL) result = -ENOMEM;
-  for (uint32_t index = 0; result == 0 && index < artifact.count; ++index) {
-    const dolly_fs_record *record = &artifact.records[index];
+  for (uint32_t index = 0; result == 0 && index < artifact->count; ++index) {
+    const dolly_fs_record *record = &artifact->records[index];
     const char *suffix = record->path;
     if (source != NULL && strcmp(source, "/") != 0) {
       const size_t length = strlen(source);
@@ -1212,7 +1223,6 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   else fprintf(stderr, "dollyfile: artifact %s: %s\n", locator, strerror(-result));
   for (size_t index = 0; index < count; ++index) free(selected[index].path);
   free(selected);
-  dispose_artifact(&artifact);
   return result;
 }
 
@@ -1238,6 +1248,9 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
   while (*separator != '\0' && !isspace((unsigned char)*separator)) ++separator;
   char *arguments = separator;
   if (*separator != '\0') { *separator++ = '\0'; arguments = trim(separator); }
+  // Consecutive COPY rows share one decoded input, released before any other
+  // operation can mutate files or start a memory-intensive compiler process.
+  if (strcmp(text, "COPY") != 0) dispose_artifact(&engine->artifact);
   if (!*header_seen) {
     if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "3") != 0) {
       fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 3\n", locator, line_number);
@@ -1808,6 +1821,7 @@ static int seal_manifest(Engine *engine) {
 }
 
 static void dispose_engine(Engine *engine) {
+  dispose_artifact(&engine->artifact);
   dispose_scope(&engine->exports);
   free(engine->host_base);
   free(engine->selected_image);

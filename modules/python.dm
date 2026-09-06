@@ -1,7 +1,7 @@
 DOLLY 3
 MODULE python
 
-# Build the Python runtime, native extension SDK, and package installer.
+# Build the Python runtime and native extension SDK; Bonnie is a later image step.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
@@ -22,12 +22,10 @@ REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
 USE HOST /modules/libffi.dm  28021caac7880de565fcd5825cf6f8351b5af9a05424bf68888fda27b2f4423d
-USE HOST /modules/cpython.dm 86acc7cfcf1fe9acfddd6e43ecac01c4b97c9e66c869c2fbf10da835ab8c3ec8
-USE HOST /modules/bonnie.dm  74f09a4492122d8bf308fef420d1fe3d66223808d9f07170ac7f513b0c01d06b
+USE HOST /modules/cpython.dm b0889c614ce9fb2bfa44b15cded40a5f24aee7ae7afc474439c802022e2b2b57
 
 EXPORTS TOOL   python
 EXPORTS TOOL   python3
-EXPORTS TOOL   bonnie
 EXPORTS ENV    PYTHONDONTWRITEBYTECODE
 EXPORTS ENV    PYTHONUTF8
 EXPORTS FOLDER python-stdlib /usr/lib/python3.14

@@ -167,6 +167,31 @@ access over WasmFS and subprocess calls over Dolly lifecycle—not as a claim th
 QuickJS is Node. The staged compatibility and source-build work for Pi is
 tracked in [`pi-agent-plan.md`](pi-agent-plan.md).
 
+## Native agent compatibility investigation
+
+As checked on 2026-09-06, this is separate from Pi's working Codex-provider login.
+No native Claude Code or Codex image is advertised as working.
+
+- Codex 0.153.4's unchanged npm launcher was executed by Janis in a real Dolly
+  browser session. It exited 1: `Unsupported platform: wasm (wasm64)`. Its
+  application is Rust, not the small JavaScript launcher. The
+  [pinned core manifest](https://github.com/openai/codex/blob/rust-v0.153.4/codex-rs/core/Cargo.toml)
+  includes Tokio process/signal/multithread execution, PTY support and HTTP clients.
+- Claude Code 2.1.263 is distributed as native platform binaries; the inspected
+  installed executable is x86-64 ELF. The [installation documentation](https://code.claude.com/docs/en/setup)
+  confirms npm installs the same native executable rather than a Node application.
+  An old JavaScript release would be a different, explicitly labeled experiment,
+  not evidence of current-version compatibility.
+
+A credible Codex port starts with Rust's standard library and dependencies
+targeting Dolly's existing process ABI. Rust's generic
+[wasm64 target](https://doc.rust-lang.org/rustc/platform-support/wasm64-unknown-unknown.html)
+does not provide working filesystem/network I/O or a ready Dolly libc integration.
+HTTP would need to use Dolly's existing broker-backed library; execution and
+terminal state must stay inside Wasm. Current native packages cannot simply be
+copied into `/bin`. No host imports, native process fallback, platform spoofing,
+raw sockets, or weakened admission checks were added for this investigation.
+
 ## Next substrate order
 
 The project-wide sequencing and acceptance gates now live in

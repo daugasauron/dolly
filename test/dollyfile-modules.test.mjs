@@ -378,7 +378,7 @@ test("redistributed upstream modules retain their licenses", async () => {
     ["quickjs", ["/usr/share/licenses/quickjs-ng/LICENSE"]],
     ["libffi", ["/usr/share/licenses/libffi/LICENSE"]],
     ["cpython", ["/usr/share/licenses/cpython/LICENSE"]],
-    ["gamedev", [
+    ["gamedev-sdk", [
       "/usr/share/licenses/raylib/LICENSE",
       "/usr/share/licenses/box3d/LICENSE",
     ]],
@@ -652,7 +652,8 @@ test("build modules declare tools used by their own recipes", async () => {
   const recipeTools = new Map([
     ["awk", ["cc"]],
     ["curl", ["ar", "cc"]],
-    ["gamedev", ["ar", "cc", "mkdir"]],
+    ["gamedev-sdk", ["ar", "cc", "mkdir"]],
+    ["gamedev", ["cc", "make"]],
     ["ghostty", ["ar", "cc", "zig"]],
     ["git", ["ar", "cc", "mkdir", "rm"]],
     ["ninja", ["make"]],
@@ -678,7 +679,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
   const modules = uniqueModules(await loadImages());
   const requiringLibc = [
     "tar", "core-tools", "download", "make", "cpp", "ninja", "zlib", "curl", "git", "quickjs", "pi",
-    "ghostty", "awk", "sbase", "python", "libffi", "cpython", "bonnie", "gamedev",
+    "ghostty", "awk", "sbase", "python", "libffi", "cpython", "bonnie", "gamedev-sdk",
   ];
   for (const name of requiringLibc) {
     assert.ok(
@@ -701,7 +702,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
   assert.deepEqual(headers("libffi"), ["libc"]);
   assert.deepEqual(headers("cpython"), ["libc", "ffi", "ffitarget", "runtime", "zlib"]);
   assert.deepEqual(headers("bonnie"), ["curl", "libc", "runtime"]);
-  assert.deepEqual(headers("gamedev"), ["libc", "display"]);
+  assert.deepEqual(headers("gamedev-sdk"), ["libc", "display"]);
 
   const exportedHeaders = (name) => modules.get(name).exports
     .filter(({ type }) => type === "HEADER")
@@ -711,7 +712,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
   assert.deepEqual(exportedHeaders("curl"), ["curl"]);
   assert.deepEqual(exportedHeaders("quickjs"), ["quickjs-runner"]);
   assert.deepEqual(exportedHeaders("ghostty"), ["ghostty-vt"]);
-  assert.deepEqual(exportedHeaders("gamedev"), ["raylib", "box3d", "dolly-raylib"]);
+  assert.deepEqual(exportedHeaders("gamedev-sdk"), ["raylib", "box3d", "dolly-raylib"]);
 
   const ghostty = modules.get("ghostty");
   assert.ok(ghostty.exports.some(({ type, name }) => type === "LIB" && name === "display"));

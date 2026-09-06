@@ -42,7 +42,7 @@ if has_module ghostty; then
   uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
   stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
 fi
-if has_module gamedev; then
+if has_module gamedev-sdk; then
   raylib_dir="$("${project_dir}/scripts/fetch-raylib.sh")"
   box3d_dir="$("${project_dir}/scripts/fetch-box3d.sh")"
 fi
@@ -262,7 +262,7 @@ node scripts/build-source-tar.mjs "${static_dir}/default/quickjs.tar" \
   "${quickjs_dir}/quickjs.h" /usr/src/quickjs/quickjs.h \
   "${quickjs_dir}/LICENSE" /usr/share/licenses/quickjs-ng/LICENSE
 fi
-if has_module gamedev; then
+if has_module gamedev-sdk; then
 node scripts/build-source-tar.mjs "${static_dir}/gamedev/raylib.tar" \
   "${raylib_dir}/src" /usr/src/raylib/src \
   "${raylib_dir}/LICENSE" /usr/share/licenses/raylib/LICENSE \

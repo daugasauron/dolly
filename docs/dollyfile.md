@@ -67,8 +67,10 @@ failure reports the responsible recipe and line.
 
 The browser runs the retained `ENTRY` once. Startup, `.dollyrc`, foreground
 ownership and recovery belong to ordinary image scripts, not browser logic.
-The catalog uses `/bin/foreground -i /bin/slop /etc/dolly/init.slop`; its startup
+Frontend images use `/bin/foreground -i /bin/slop /etc/dolly/init.slop`; their startup
 modules run `.dollyrc`, launch the selected program and provide a recovery shell.
+Reusable runtime images enter `/bin/foreground -i /bin/slop` directly, without
+installing an application's startup policy.
 See [process lifecycle](process-model.md#cancellation).
 
 `EXPORTS TOOL name` resolves a command on `PATH`; it takes no path. The builder
@@ -139,9 +141,24 @@ referenced image artifacts. Unpinned network access inside arbitrary commands
 is not made reproducible by the cache; change a recipe pin or rebuild the
 relevant artifact when refreshing such inputs.
 
-All five existing images remain source recipes: `default`, `pi`, `python`,
-`python-pi`, and `gamedev`. There is no required catalog-wide dependency solver
-or additional module interface language.
+The five frontend images remain `default`, `pi`, `python`, `python-pi`, and
+`gamedev`. Five reusable images separate the expensive build boundaries:
+
+| Image | Completed input | Adds |
+| --- | --- | --- |
+| `system` | Seed | Shell, commands, compilers, Git, terminal |
+| `javascript` | `system` | QuickJS/Janis and TypeScript |
+| `pi-runtime` | `javascript` | Pi, without startup configuration |
+| `python-runtime` | `system` | CPython and C extension SDK |
+| `gamedev-sdk` | `system` | raylib, Box3D and presentation adapter |
+
+Bonnie builds above `python-runtime`; the game builds above the completed SDK.
+Python+Pi copies only Python's executables, libraries, headers, licenses and
+Bonnie configuration into `pi-runtime`, leaving unrelated Pi/system files alone.
+Consecutive COPY rows reuse one decoded input, released before other operations.
+The SDK keeps upstream sources and libraries, not timestamp-sensitive object
+files. These are ordinary recipes, not a catalog-wide dependency solver or
+another module interface language.
 
 For image iteration, run `npm run image -- IMAGE`. It prepares the selected
 image's local source inputs, refreshes their `SOURCE HOST` hashes and recipe

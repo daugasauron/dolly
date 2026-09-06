@@ -1,0 +1,6 @@
+DOLLY 3
+IMAGE system
+
+USE HOST /modules/default.dm d172162385e9827edfecec5103c31ee769df51d6697c2f0a667ad3878fcafdf8
+
+ENTRY /bin/foreground -i /bin/slop

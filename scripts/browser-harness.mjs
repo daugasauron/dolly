@@ -879,6 +879,10 @@ async function waitForCommandResult(send, sequence, description) {
 }
 
 async function enterRecoveryShell(send) {
+  if (JSON.stringify(selectedGraph.root.entry) === JSON.stringify(["/bin/foreground", "-i", "/bin/slop"])) {
+    return evaluate(send,
+      `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "runtime image Slop prompt")`);
+  }
   let entryPid;
   if (selectedImage === "gamedev") {
     entryPid = await waitForValue(
@@ -2546,23 +2550,10 @@ int main(int argc, char **argv) {
       assert.equal(menuEvidence.title, "DOLLY");
       assert.equal(menuEvidence.background, "rgb(38, 38, 38)");
       assert.match(menuEvidence.font, /Dolly IosevkaTerm SemiBold/);
-      assert.deepEqual(menuEvidence.links, [
-        `${browserBasePrefix}/default/`,
-        `${browserBasePrefix}/default/rebuild/`,
-        `${browserBasePrefix}/view/default/`,
-        `${browserBasePrefix}/pi/`,
-        `${browserBasePrefix}/pi/rebuild/`,
-        `${browserBasePrefix}/view/pi/`,
-        `${browserBasePrefix}/python/`,
-        `${browserBasePrefix}/python/rebuild/`,
-        `${browserBasePrefix}/view/python/`,
-        `${browserBasePrefix}/python-pi/`,
-        `${browserBasePrefix}/python-pi/rebuild/`,
-        `${browserBasePrefix}/view/python-pi/`,
-        `${browserBasePrefix}/gamedev/`,
-        `${browserBasePrefix}/gamedev/rebuild/`,
-        `${browserBasePrefix}/view/gamedev/`,
-      ]);
+      assert.deepEqual(menuEvidence.links.toSorted(), imageDefinitions.flatMap(({ image }) => [
+        `${browserBasePrefix}/${image}/`, `${browserBasePrefix}/${image}/rebuild/`,
+        `${browserBasePrefix}/view/${image}/`,
+      ]).toSorted());
       assert.equal(menuEvidence.interactiveElements, 0);
       assert.doesNotMatch(menuEvidence.text, /voice input/i);
       console.log(
@@ -2604,21 +2595,21 @@ int main(int argc, char **argv) {
         const { loadImageArtifact, describeImageArtifact, saveImageArtifact } = await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
         const { decodeSnapshotRecords, encodeSnapshotRecords } = await import(${JSON.stringify(`${browserBase}src/snapshot-records.mjs`)});
         const { prepareImageArtifacts } = await import(${JSON.stringify(`${browserBase}src/image-build.mjs`)});
-        const base = DOLLY_IMAGES.find(image => image.image === 'default');
-        const pi = DOLLY_IMAGES.find(image => image.image === 'pi');
+        const base = DOLLY_IMAGES.find(image => image.image === 'system');
+        const child = DOLLY_IMAGES.find(image => image.image === 'javascript');
         const original = await loadImageArtifact(base.sha256);
-        if (!original) throw new Error('missing cached default');
+        if (!original) throw new Error('missing cached system');
         const oldInputs = [{ recipeSha256: base.sha256, sha256: original.sha256 }];
-        if (!await loadImageArtifact(pi.sha256, oldInputs)) throw new Error('missing cached Pi');
+        if (!await loadImageArtifact(child.sha256, oldInputs)) throw new Error('missing cached JavaScript');
         const records = decodeSnapshotRecords(original.bytes);
-        const init = records.get('/home/dolly/.dollyrc');
-        if (init?.kind !== 2) throw new Error('missing base init script');
-        records.set('/home/dolly/.dollyrc', { kind: 2, data: new TextEncoder().encode(
+        const init = records.get('/etc/gitconfig');
+        if (init?.kind !== 2) throw new Error('missing base Git config');
+        records.set('/etc/gitconfig', { kind: 2, data: new TextEncoder().encode(
           new TextDecoder().decode(init.data) + '\\n# changed base output\\n') });
         const changed = await describeImageArtifact(encodeSnapshotRecords(records).buffer, base.sha256);
         try {
           if (!await saveImageArtifact(changed, '/' + base.dollyfile)) throw new Error('cache write failed');
-          const staleHit = await loadImageArtifact(pi.sha256, [{ recipeSha256: base.sha256, sha256: changed.sha256 }]);
+          const staleHit = await loadImageArtifact(child.sha256, [{ recipeSha256: base.sha256, sha256: changed.sha256 }]);
           let requested, failure;
           try {
             await prepareImageArtifacts('gamedev', null, async image => {
@@ -2633,7 +2624,7 @@ int main(int argc, char **argv) {
         }
       })()`);
       assert.deepEqual(invalidation, { sameRecipe: true, changedBytes: true, staleHit: false,
-        requested: 'pi', failure: 'EXPECTED_REBUILD' });
+        requested: 'javascript', failure: 'EXPECTED_REBUILD' });
       console.log('browser: changing base bytes without changing its recipe rejects cached and published child artifacts');
       break browserProof;
     }

@@ -555,6 +555,11 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["python", "/bin/slop"],
     ["python-pi", "/usr/bin/pi"],
     ["gamedev", "/usr/bin/graphics-demo"],
+    ["system", "/bin/slop"],
+    ["javascript", "/usr/bin/tsc"],
+    ["pi-runtime", "/usr/bin/pi"],
+    ["python-runtime", "/usr/bin/python"],
+    ["gamedev-sdk", "/usr/lib/libbox3d.a"],
   ]);
   for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
@@ -577,7 +582,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.ok(metadata.manifest.includes(expectedPrograms.get(image)));
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),
-      ["pi", "python-pi", "gamedev"].includes(image),
+      ["pi", "pi-runtime", "python-pi", "gamedev"].includes(image),
     );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
@@ -594,9 +599,12 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    assert.ok(metadata.manifest.includes("/etc/dolly/init.slop"));
-    assert.deepEqual(metadata.entry,
-      ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
+    const frontend = ["default", "pi", "python", "python-pi", "gamedev"].includes(image);
+    assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), frontend);
+    assert.deepEqual(metadata.entry, ["/bin/foreground", "-i", "/bin/slop",
+      ...(frontend ? ["/etc/dolly/init.slop"] : [])]);
+    assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);
+    assert.equal(metadata.manifest.some(path => /^\/usr\/src\/(raylib|box3d|dolly\/gamedev)\/build\//.test(path)), false);
     if (image === "default") {
       graph.exporters.set("ENV:PATH", { exported: { type: "ENV", name: "PATH", details: ["advisory-only"] } });
       assert.deepEqual(verifySnapshotIdentity(definitions.find(item => item.image === image), graph,
@@ -628,9 +636,14 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const knownImages = [
     { image: "default", dollyfile: "Dollyfile" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
+    { image: "gamedev-sdk", dollyfile: "Dollyfile-gamedev-sdk" },
+    { image: "javascript", dollyfile: "Dollyfile-javascript" },
     { image: "pi", dollyfile: "Dollyfile-pi" },
+    { image: "pi-runtime", dollyfile: "Dollyfile-pi-runtime" },
     { image: "python", dollyfile: "Dollyfile-python" },
     { image: "python-pi", dollyfile: "Dollyfile-python-pi" },
+    { image: "python-runtime", dollyfile: "Dollyfile-python-runtime" },
+    { image: "system", dollyfile: "Dollyfile-system" },
   ];
   const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
   assert.ok(DOLLY_IMAGES.length > 0);
@@ -672,7 +685,9 @@ test("the common seed builds Dollyfile and only essential command wrappers", asy
   assert.match(worker, /processSupervisor\.spawn\(arguments_\[0\], arguments_\)/);
   assert.doesNotMatch(bootstrap, /startup\.slop/);
   assert.match(recipe, /^DOLLY 3$/m);
-  assert.match(recipe, /^USE HOST \/modules\/default\.dm\s+[0-9a-f]{64}$/m);
+  assert.match(recipe, /^FROM HOST \/Dollyfile-system\s+[0-9a-f]{64}$/m);
+  const system = await readFile(new URL("../Dollyfile-system", import.meta.url), "utf8");
+  assert.match(system, /^USE HOST \/modules\/default\.dm\s+[0-9a-f]{64}$/m);
   assert.match(recipe, /^USE HOST \/modules\/startup-default\.dm\s+[0-9a-f]{64}$/m);
   assert.doesNotMatch(recipe, /BANNER|GREETING/);
   assert.doesNotMatch(recipe, /startup\.mk/);
@@ -973,6 +988,7 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   const driver = await readFile(new URL("../src/ghostty/display.c", import.meta.url), "utf8");
   const packaging = await readFile(new URL("../scripts/prepare-image-sources.sh", import.meta.url), "utf8");
   const gamedev = await readFile(new URL("../modules/gamedev.dm", import.meta.url), "utf8");
+  const gamedevSdk = await readFile(new URL("../modules/gamedev-sdk.dm", import.meta.url), "utf8");
   const browser = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
 
   assert.match(display, /DOLLY_DISPLAY_PIXEL_RGBA8/);
@@ -1014,22 +1030,23 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   assert.match(browser, /pushScroll\(deltaRows\)/);
   assert.match(browser, /addEventListener\("wheel"/);
   assert.match(browser, /event\.pointerType === "touch"/);
-  assert.match(gamedev, /dolly_display_acquire\(&context->surface\)/);
-  assert.match(gamedev, /dolly_display_present\(context->surface\.generation/);
+  assert.match(gamedevSdk, /dolly_display_acquire\(&context->surface\)/);
+  assert.match(gamedevSdk, /dolly_display_present\(context->surface\.generation/);
   assert.match(gamedev, /\/usr\/bin\/graphics-demo: \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
   assert.match(packaging, /fetch-box3d\.sh/);
   assert.match(gamedev, /FILE \/usr\/src\/dolly\/gamedev\/graphics-demo\.c\n    /);
   assert.match(gamedev, /FILE \/usr\/src\/dolly\/gamedev\/gamedev\.mk\n    /);
   assert.match(gamedev, /EXPORTS TOOL\s+graphics-demo/);
-  assert.match(gamedev, /raylib\.tar/);
-  assert.match(gamedev, /box3d\.tar/);
+  assert.match(gamedevSdk, /raylib\.tar/);
+  assert.match(gamedevSdk, /box3d\.tar/);
   assert.match(gamedev, /skills\/dolly-gamedev\/SKILL\.md/);
-  assert.match(gamedev, /-DPLATFORM_MEMORY/);
+  assert.match(gamedevSdk, /-DPLATFORM_MEMORY/);
   assert.match(gamedev, /libbox3d\.a/);
   assert.match(gamedev, /#include <box3d\/box3d\.h>/);
   assert.match(gamedev, /#include <dolly\/raylib\.h>/);
   assert.match(browser, /graphicsActive\(\)/);
   assert.doesNotMatch(gamedev, /EM_JS|fetch\s*\(|window\.|document\./i);
+  assert.doesNotMatch(gamedevSdk, /EM_JS|fetch\s*\(|window\.|document\./i);
 });
 
 test("process executables and DSOs are revalidated at their actual load boundaries", async () => {

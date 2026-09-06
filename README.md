@@ -54,9 +54,11 @@ program fetches and verifies every independent `SOURCE` and executes the recipe
 strictly row by row. Prebuilt boot does not download image source inputs.
 Both boot paths expose the same declared system files, including `/bin/dollyfile`
 and the explicitly retained compiler SDK; startup does not run acceptance tests.
-Each image's final startup module installs `/home/dolly/.dollyrc`; its ordinary
+Each frontend image's final startup module installs `/home/dolly/.dollyrc`; its ordinary
 Slop entry script runs that file before the selected application, keeping
 greetings and suggested commands in source-visible userspace.
+Reusable system, JavaScript, Python, Pi and graphics SDK images separate expensive
+builds from small tools and startup edits; see [image composition](docs/dollyfile.md#build-reuse).
 Mutable runtime state never becomes browser or host filesystem state.
 Named sessions are the explicit exception in storage direction: Ctrl+Shift+S
 serializes filesystem changes against the base image, compresses them, and stores

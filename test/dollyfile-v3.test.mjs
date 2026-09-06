@@ -12,8 +12,14 @@ import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 const project = resolve(import.meta.dirname, "..");
 const digest = source => createHash("sha256").update(source).digest("hex");
 
-test("all five images use explicit artifact boundaries with source provenance", async () => {
-  const expected = { default: [], pi: ["default"], python: ["default"], gamedev: ["pi"], "python-pi": ["pi", "python"] };
+test("images separate reusable runtimes from applications and configuration", async () => {
+  const expected = {
+    system: [], default: ["system"], javascript: ["system"],
+    "pi-runtime": ["javascript"], pi: ["pi-runtime"],
+    "python-runtime": ["system"], python: ["python-runtime"],
+    "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
+    "python-pi": ["pi-runtime", "python"],
+  };
   for (const definition of await discoverImageDefinitions(project)) {
     const graph = await loadDollyfileGraph(project, definition.filename);
     assert.deepEqual([...new Set(graph.artifacts.map(artifact => artifact.image))], expected[definition.image]);
@@ -28,12 +34,15 @@ test("all five images use explicit artifact boundaries with source provenance", 
     if (definition.image === "python-pi") {
       assert.equal(graph.root.uses.length, 1, "only integration executes in the combined image");
       assert.deepEqual(graph.root.artifacts.filter(artifact => artifact.copy).map(({ source, destination }) => [source, destination]),
-        [["/usr", "/usr"], ["/etc/bonnie", "/etc/bonnie"]]);
+        ["/usr/bin/python", "/usr/bin/python3", "/usr/bin/bonnie", "/usr/include/python3.14",
+          "/usr/include/ffi.h", "/usr/include/ffitarget.h", "/usr/lib/python3.14", "/usr/lib/bonnie",
+          "/usr/lib/libpython3.14.a", "/usr/lib/libffi.a", "/usr/share/licenses/cpython",
+          "/usr/share/licenses/libffi", "/etc/bonnie"].map(path => [path, path]));
     }
   }
   const definitions = await discoverImageDefinitions(project);
   assert.deepEqual(new Set((await selectImageDefinitions(definitions, "python-pi")).map(item => item.image)),
-    new Set(["python-pi", "pi", "python", "default"]));
+    new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system"]));
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

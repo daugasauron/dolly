@@ -9,8 +9,7 @@ REQUIRES TOOL   cc
 REQUIRES TOOL   python
 REQUIRES TOOL   rm
 
-# Bonnie changes much faster than CPython. Keeping its source and result in a
-# separate leaf lets module-prefix caching reuse the complete interpreter SDK.
+# Its callers reuse the completed Python runtime image before building Bonnie.
 SOURCE HOST /static/python/commands/bonnie.c  /tmp/bonnie/bonnie.c      a30a9a65692065136dacb87d59c970908d9d91cd2cfc108273ea0c8217db3b42
 SOURCE HOST /static/python/runtimes/bonnie.py /usr/lib/bonnie/bonnie.py 40e8cb73a263843146b927c03ce3b56bd21302559783ab9bee073eeb8ddfbec1
 

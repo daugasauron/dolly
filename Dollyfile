@@ -1,8 +1,7 @@
 DOLLY 3
 IMAGE default
 
-# Shared interactive userspace. Other images reuse its completed artifact.
-USE HOST /modules/default.dm         d172162385e9827edfecec5103c31ee769df51d6697c2f0a667ad3878fcafdf8
+FROM HOST /Dollyfile-system 4576a91917da8a114b21de93c99875f2d5cabd79696f617f17ef24de30c1eaaf
 USE HOST /modules/startup-default.dm 6ea3d8f2250e47c9f3864b17fa701bed414c738f22fa228ea5b103c6b030da66
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

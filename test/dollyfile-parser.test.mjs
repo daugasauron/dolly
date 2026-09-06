@@ -96,6 +96,12 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
     const overridden = run("environment", recipe, childPath);
     assert.equal(overridden.status, 0, overridden.stderr);
     assert.equal(overridden.stdout, "ENV-VALUE:new\nENV-EXPORT:new\n");
+    await writeFile(recipe, prefix + "# buffered input\n".repeat(6000));
+    assert.equal(run("parse", recipe).status, 0, "regular-file input spans multiple read buffers");
+    await writeFile(recipe, prefix + "# buffered input\n".repeat(8192));
+    assert.notEqual(run("parse", recipe).status, 0, "oversized regular-file input is rejected");
+    assert.equal(run("artifact-reuse", "unused").status, 0,
+      "decoded COPY input is reused only until a different input or non-COPY declaration");
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }

@@ -39,8 +39,24 @@ Evidence: `build/v3-integration-snapshots.log`, `build/v3-integration-source-2.l
 and `build/v3-integration-browser.log`. Earlier failing iteration runs exposed a
 test startup assumption: a custom Slop entry is not the catalog's Pi entry.
 
-Remaining v3 work: stable runtime image boundaries, source-only preparation,
-Python packaging size/COPY scope, lazy artifact loading and stable small packs.
+Source-only preparation is committed as `cae5c91`. Local source edits stage and
+refresh HOST pins without rebuilding the kernel. The 10-image catalog now has
+explicit system, JavaScript, Pi, Python and graphics SDK boundaries. Narrow COPY
+rows reuse one decoded input; Python3 is a symlink, stdlib tests are omitted,
+and the graphics SDK retains no stale objects. Python+Pi is 336.2 MB instead of
+381.8 MB; startup-only default/Pi stages built in 3.9/6.6 seconds.
+
+All 10 snapshots, 192 source tests and the complete Chrome suite passed, including
+actual-base-byte invalidation, Python/Bonnie, Git push, cancellation and sessions.
+Runtime: `sha256:307af62359ab8dd88b42dc18900601bf7aae0256a86cdeb05b7225cb96fdda14`.
+Evidence: `build/v3-boundaries-snapshots-2.log`,
+`build/v3-boundaries-source-suite-2.log`, `build/v3-boundaries-browser-suite.log`.
+The first SDK attempt caught an incorrectly indented FILE declaration in its
+extracted Makefile; the original failure log remains available.
+
+Remaining v3 work: lazy artifact loading and stable small packs. The new graphics
+demo is still an unpublished experiment; current native-agent blockers are in
+[port status](port-status.md#native-agent-compatibility-investigation).
 The external audit survives at `/home/daug/dolly-audits/v3-3c8e352`; its old
 temporary worktree does not.
 

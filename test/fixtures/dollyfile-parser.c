@@ -74,6 +74,26 @@ int main(int argc, char **argv) {
     dolly_fs_record records[] = {{.path = "/usr/bin/tool"}, {.path = "/explicit"}};
     Artifact artifact = {.records = records, .count = 2};
     result = artifact_has_path(&artifact, argv[2]) ? 0 : 2;
+  } else if (strcmp(argv[1], "artifact-reuse") == 0) {
+    const char *pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    engine.artifact.bytes.data = malloc(1);
+    strcpy(engine.artifact.recipe_sha256, pin);
+    // There is no corresponding host file: this call must use the decoded input.
+    result = read_artifact(&engine.artifact, pin);
+    char *kind = NULL, *name = NULL;
+    int header = 0;
+    size_t operations = 0;
+    char comment[] = "# between COPY rows", declaration[] = "DOLLY 3";
+    if (result == 0) result = process_line(&engine, "probe", 0, 1, comment,
+        NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
+    if (engine.artifact.bytes.data == NULL) result = 2;
+    if (result == 0) result = process_line(&engine, "probe", 0, 2, declaration,
+        NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
+    if (engine.artifact.bytes.data != NULL || engine.artifact.recipe_sha256[0]) result = 2;
+    engine.artifact.bytes.data = malloc(1);
+    strcpy(engine.artifact.recipe_sha256, pin);
+    if (read_artifact(&engine.artifact, "different") != -ENOENT ||
+        engine.artifact.bytes.data != NULL || engine.artifact.recipe_sha256[0]) result = 2;
   } else if (strcmp(argv[1], "image-locator") == 0) {
     result = valid_image_locator(argv[2]) ? 0 : 2;
   } else if (strcmp(argv[1], "path") == 0) {

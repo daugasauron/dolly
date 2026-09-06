@@ -220,9 +220,7 @@ SLOP cp \
 SLOP mv \
   /usr/src/python/python \
   /usr/bin/python
-SLOP cp \
-  /usr/bin/python \
-  /usr/bin/python3
+SLOP ln -sf python /usr/bin/python3
 SLOP mkdir \
   -p \
   /usr/include/python3.14
@@ -300,4 +298,5 @@ SLOP rm \
   /tmp/python \
   /tmp/python-header-check \
   /tmp/python-check.txt \
+  /usr/lib/python3.14/test \
   /usr/src/python
