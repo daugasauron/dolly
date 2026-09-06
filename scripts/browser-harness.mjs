@@ -17,6 +17,7 @@ import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
+import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git-transport.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -60,6 +61,7 @@ const janisProcessMode = isMode("janis-process");
 const processLifecycleMode = isMode("process-lifecycle");
 const pythonProcessMode = isMode("python-process");
 const libcurlContractMode = isMode("libcurl-contract");
+const gitTransportMode = isMode("git-transport");
 const piOpenRouterMode = isMode("pi-openrouter");
 const piAuditMode = isMode("pi-audit");
 const realOpenRouterMode = piOpenRouterMode || piAuditMode;
@@ -180,6 +182,7 @@ const routeDocuments = new Map([
   ["/session", "build/routes/session/index.html"],
 ]);
 let gitDiscoveryRequest = null;
+let gitTransportFixture = null;
 let libcurlPostRequest = null;
 const libcurlContractRequests = [];
 const libcurlCancelledRequests = [];
@@ -215,6 +218,7 @@ function startServer() {
         response.setHeader("access-control-allow-headers", request.headers["access-control-request-headers"] ?? "");
         if (request.method === "OPTIONS") { response.writeHead(204); response.end(); return; }
       }
+      if (gitTransportFixture && await gitTransportFixture.serve(request, response, requestUrl)) return;
       if (dollyfileParserMode && parserRecipes.has(requestUrl.pathname)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
         response.end(parserRecipes.get(requestUrl.pathname));
@@ -1036,6 +1040,7 @@ let ephemeralProfileRoot = null;
 let persistentProfile = null;
 let userDataDir = null;
 try {
+if (gitTransportMode) gitTransportFixture = createGitTransportFixture();
 const address = server.address();
 if (pagesLiveMode &&
     (externalPage === undefined ||
@@ -1212,12 +1217,23 @@ chrome = spawn(chromeBinary, [
       : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || libcurlContractMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode
+        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode || gitTransportMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (gitTransportMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Git transport boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      await runGitTransport({ submit, origin: localOrigin, fixture: gitTransportFixture });
+      console.log("browser: Git HTTP protocols 0/2, large pack, clone/fetch/checkout, shallow/deepen, lock cleanup, errors and transfer cancellation passed");
+      break browserProof;
+    }
     if (libcurlContractMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -4453,6 +4469,7 @@ int main(int argc, char **argv) {
   }
   throw error;
 } finally {
+  gitTransportFixture?.dispose();
   debuggerClient?.socket.close();
   if (chrome !== null) {
     chrome.kill("SIGTERM");

@@ -139,20 +139,15 @@ source-graph requirement and is not implied by successful emit.
 
 ## Phase 4 — complete ordinary Git transport
 
-The HTTP engine already performs Git protocol discovery. Finish the normal CLI
-workflow without introducing sockets or host subprocesses.
+**Implemented:** existing mapped spawn launches Git helpers, while sideband
+receive uses an immediately unlinked in-Wasm spool before indexing. Browser
+fixtures prove HTTP v0/v2 clone/fetch, checkout/branch updates, shallow/deepen,
+pack corruption and transfer cancellation through `env.dolly_http_dispatch`.
+No browser import was added. Remotes must permit browser Fetch/CORS; redirect
+and credential policy remains at the same browser boundary.
 
-- Trace `git clone` and `git fetch` through Git's remote-helper protocol.
-- Prefer a small serial helper/lifecycle adapter before adding concurrency.
-- Implement request-body streaming only if pack upload size proves fixed
-  buffering inadequate.
-- Make every redirect hop a new browser-policy authorization or continue to
-  reject redirects explicitly.
-- Add fixture repositories for clone, fetch, branch update, shallow clone, and
-  failure/cancellation.
-
-Acceptance gate: unmodified `git clone URL`, `git fetch`, and checkout work
-through `env.dolly_http_dispatch`; no new browser import appears.
+Push and configured clean/smudge filters still need separate ports of upstream
+async callbacks. See [port status](port-status.md#git-filters-and-push).
 
 ### Nested guest Wasm experiment
 

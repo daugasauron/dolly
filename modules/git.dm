@@ -14,7 +14,7 @@ REQUIRES HEADER runtime
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 
-SOURCE HOST /static/default/git.tar /tmp/git.tar de16aff0eb6fa490618b66f0f6e5b16206e8cc212498070a5e605a1bb749d8ca
+SOURCE HOST /static/default/git.tar /tmp/git.tar 9918bdc53a5f5c4b9421c82c96b9b51314d62186b0fece1370b1bf55b3715427
 SLOP tar \
   -xf /tmp/git.tar \
   -C /
@@ -39,7 +39,6 @@ FILE /tmp/git/Makefile
       -Wno-ignored-attributes \
       -D_DEFAULT_SOURCE \
       -DDOLLY \
-      -Uatexit \
       -DNO_GETTEXT \
       -DNO_ICONV \
       -DNO_EXPAT \
@@ -50,7 +49,6 @@ FILE /tmp/git/Makefile
       -DNO_PYTHON \
       -DNO_IPV6 \
       -DNO_MMAP \
-      -DNO_POLL \
       -DNO_REGEX \
       -DGAWK \
       -DNO_MBSUPPORT \
@@ -83,7 +81,6 @@ FILE /tmp/git/Makefile
       '-DGIT_MAN_PATH="/usr/share/man"' \
       '-DGIT_INFO_PATH="/usr/share/info"' \
       -I /usr/src/git/compat/regex \
-      -I /usr/src/git/compat/poll \
       -I /usr/src/git \
       -include dolly/runtime.h
     all: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https

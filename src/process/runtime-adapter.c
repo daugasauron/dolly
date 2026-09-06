@@ -682,14 +682,6 @@ ssize_t dolly_getrandom(void *buffer, size_t length, unsigned flags) {
   return process_getrandom(buffer, length, flags);
 }
 
-int dolly_atexit(void (*callback)(void)) {
-  if (callback == NULL) {
-    errno = EINVAL;
-    return -1;
-  }
-  return atexit(callback);
-}
-
 char *dolly_getpass(const char *prompt) {
   static char password[256];
   if (prompt != NULL) {
@@ -909,34 +901,6 @@ struct servent *getservbyname(const char *name, const char *protocol) {
 
 struct servent *dolly_getservbyname(const char *name, const char *protocol) {
   return getservbyname(name, protocol);
-}
-
-int dolly_execve(const char *path, char *const argv[], char *const envp[]) {
-  if (path == NULL || argv == NULL || argv[0] == NULL) {
-    errno = EFAULT;
-    return -1;
-  }
-  int argc = 0;
-  while (argv[argc] != NULL) {
-    if (argc == INT_MAX) {
-      errno = E2BIG;
-      return -1;
-    }
-    ++argc;
-  }
-  const int pid = dolly_spawn_env(path, argc, (char **)argv, envp,
-                                  STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
-  if (pid < 0) {
-    errno = -pid;
-    return -1;
-  }
-  int status = 126;
-  const int waited = dolly_wait(pid, &status);
-  if (waited != 0) {
-    errno = -waited;
-    return -1;
-  }
-  dolly_exit(status);
 }
 
 pid_t dolly_waitpid(pid_t pid, int *status, int options) {

@@ -171,32 +171,45 @@ Evidence: `build/image-init-checkpoint-runtime.log`,
 `build/image-init-checkpoint-pandas.log`,
 `build/image-init-native-descriptors.log`.
 
-## Remaining work, in order
+Committed as `3f87592` and published locally as release
+`cdf70329b5825d1605eb83a10fd12259053f6b6e864ef2a6f6aae69616a120aa`.
+All five staged inventories, release verification and the Python process/Bonnie
+fixture against port 9000 pass. Evidence: `build/image-init-checkpoint-publication.log`,
+`build/image-init-checkpoint-release-verification.log`,
+`build/image-init-checkpoint-port9000.log`. Nothing was pushed or remotely deployed.
 
-### Complete ordinary Git transport
+## Git transport checkpoint
 
-Exercise fixture-backed `git clone`, `fetch`, checkout, branch updates, shallow
-clone, errors and cancellation. Protocol discovery already works; helper pipes
-and lifecycle still need end-to-end proof. Prefer a small serial implementation,
-without sockets or host subprocesses. Keep redirect denial explicit unless
-every hop is separately authorized by browser policy.
+The port uses existing mapped spawn for `start_command`, with
+upstream PATH/shell/env preparation and CLOEXEC-aware inheritance. Sideband
+receive uses an immediately unlinked seekable spool before starting index-pack;
+it does not synchronously run arbitrary callbacks against bounded pipes.
+`NO_POLL`/compat-poll and the legacy exit/atexit/repository-reset patches are
+removed. Ordinary libc exit owns Git cleanup; unused `dolly_execve` and
+`dolly_atexit` wrappers are removed from the runtime.
 
-Read-only audit found the concrete gaps: upstream `run-command.c:start_command`
-still forks; `fetch-pack.c:get_pack` also forks via `start_async` for sideband
-demultiplexing, including protocol v2. Use the existing Dolly spawn/env/cwd API
-for the former and an owned unlinked seekable pack spool for the latter; do not
-run arbitrary async callbacks synchronously against bounded pipes. Git also
-still selects `NO_POLL`/`compat/poll` despite Dolly's real pipe-poll support.
-Start with fixture-backed `ls-remote`, then clone/fetch using a pack larger than
-64 KiB, native-Git-validated fixture data, and real transfer cancellation.
+Native port, HTTP-reference and real Chrome Git fixtures pass.
+`test/fixtures/git-transport.mjs` exercises protocol v0/v2,
+packs larger than 64 KiB, refs, clone/fetch/checkout, shallow/deepen, failed
+index-lock cleanup, HTTP/damaged-pack errors and mid-transfer cancellation. Run
+`DOLLY_IMAGE=default DOLLY_BROWSER_MODE=git-transport ./scripts/test-browser.sh`.
+The native fixture is only the remote HTTP reference server, never a guest
+execution fallback. Remote servers must permit browser Fetch/CORS; no proxy,
+browser-policy exception or additional outer import is added.
 
-Revisit the legacy exit patches while doing this: `config/git-dolly.patch`
-redirects Git's `exit` to `dolly_exit`, which bypasses libc's registered atexit
-handlers, and still clears shared-repository state before exit. Add a failed
-index-update/lockfile cleanup regression and prefer ordinary private-process
-libc exit. The unused `dolly_execve` compatibility helper still implements
-spawn/wait/exit rather than replacement; remove it or fail explicitly, and do
-not use it for Git's spawn port.
+Runtime `sha256:3fa9475da90995caf3b6566653827a2dcc51b859fe5b2a19c7d2ede1cd5acba5`
+is built (`build/git-transport-runtime.log`). All five images rebuilt
+(`build/git-transport-all-snapshots.log`), 203 source tests and all five live
+inventories pass (`build/git-transport-source-tests-final.log`,
+`build/git-transport-inventories.log`). Git acceptance:
+`build/git-transport-browser-final.log`. The complete Chrome suite passes
+(`build/git-transport-full-chrome.log`), including Pi, Python/Bonnie, lifecycle,
+sessions, C++ and Zig. Local publication remains independently verified;
+`build/releases/current/release/source.commit` identifies the served checkpoint.
+Configured clean/smudge filters and push still have unsupported async callback
+paths; forced SIGINT does not promise libc atexit lock cleanup.
+
+## Remaining work
 
 ### D1 — Finish one uninterrupted fresh-cache bootstrap
 

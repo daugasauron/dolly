@@ -23,7 +23,6 @@ const sources = [
   // builtin_sources array.
   "builtin/pack-redundant.c",
   "compat/stub/procinfo.c",
-  "compat/poll/poll.c",
   "compat/qsort_s.c",
   "compat/regex/regex.c",
   "compat/memmem.c",

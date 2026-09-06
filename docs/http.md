@@ -240,25 +240,21 @@ of OpenRouter; see [Pi networking](pi-agent-plan.md#network-and-credentials).
 Safari remains unverified. The broader findings above are source review unless
 a reproducer is explicitly stated; this is not a formal proof.
 
-## Git result and remaining gap
+## Git transport
 
 The boot build compiles upstream Git 2.55.0 sources into `/usr/lib/libgit.a`,
 links `/usr/bin/git` with zlib, and separately links upstream
 `git-remote-http`/`git-remote-https` with `-lgit -lcurl -lz`. The real-browser
-test proves local repository operations and checks that `git-remote-http` sends
-a protocol-v2 discovery GET, including `Git-Protocol: version=2`, through the
-Fetch provider.
+test proves local operations and HTTP v0/v2 discovery, clone/fetch, checkout,
+branch updates and shallow/deepen. It checks a pack larger than the pipe buffer,
+damaged-pack/HTTP failures and cancellation of a live response.
 
-Full `git clone https://...` remains unproven at the helper-launch layer, not
-at HTTP linking. Git normally exchanges protocol data with a remote helper over
-bidirectional pipes. Dolly now has immediate spawn, real pipes, nonblocking wait
-and signals; Git's fork-oriented launcher still needs to use those operations.
-The next gate is a real clone/fetch over the existing broker, with no host
-subprocess or socket fallback.
+The launcher uses existing mapped spawn and pipes. Sideband receive writes to
+an immediately unlinked in-Wasm file before ordinary index-pack runs; it adds
+no browser operation. Git's PATH probe ignores execute bits, and ordinary libc
+exit runs its cleanup handlers. Push and configured clean/smudge filters remain
+outside the validated port.
 
-A browser probe also verifies the packaging distinction: `git --exec-path`
-is `/usr/libexec/dolly` and `git-remote-http` exists there. Dolly has no Unix
-permission model, so the Git target patch treats any regular file as eligible
-during its pre-spawn PATH lookup; execute bits are not introduced as policy.
-With that false gate removed, the remaining work belongs to the helper-launch
-adapter rather than filesystem permissions or a new browser capability.
+The test's native Git is only a remote HTTP reference server. Every client
+command runs in browser Wasm. Real remotes must permit Fetch/CORS and satisfy
+the embedding's HTTP policy; there is no hidden proxy or socket fallback.

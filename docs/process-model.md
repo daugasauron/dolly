@@ -161,7 +161,7 @@ filesystem namespace. Dolly does the same at the WebAssembly abstraction:
 | syscall instruction | `dolly_process_0.call` through the Wasm gate |
 | kernel VFS | kernel-owned WasmFS successor |
 | descriptor table | per-process integer handles to kernel descriptions |
-| `execve`/`waitpid` | fresh instance start and kernel result; positive-PID `WNOHANG` leaves a running child unreaped |
+| spawn / `waitpid` | fresh instance start and kernel result; positive-PID `WNOHANG` leaves a running child unreaped; process replacement is not implemented |
 | signal delivery | kernel pending signal plus bounded Worker-termination fallback |
 
 Immutable compiled `WebAssembly.Module` objects may be cached by content digest,

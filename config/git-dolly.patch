@@ -1,63 +1,183 @@
-diff --git a/git-compat-util.h b/git-compat-util.h
-index 4bcdb89..bce7be1 100644
---- a/git-compat-util.h
-+++ b/git-compat-util.h
-@@ -1071,7 +1071,12 @@ int cmd_main(int, const char **);
-  * optionally emit a message before calling the real exit().
-  */
- int common_exit(const char *file, int line, int code);
-+#ifdef DOLLY
-+#undef exit
-+#define exit(code) dolly_exit(common_exit(__FILE__, __LINE__, (code)))
-+#else
- #define exit(code) exit(common_exit(__FILE__, __LINE__, (code)))
-+#endif
- 
- /*
-  * This include must come after system headers, since it introduces macros that
 diff --git a/run-command.c b/run-command.c
-index 5326b1a..39374ba 100644
+index e70a8a3..a4070e3 100644
 --- a/run-command.c
 +++ b/run-command.c
-@@ -138,0 +139,6 @@ int is_executable(const char *name)
+@@ -1,6 +1,7 @@
+ #define DISABLE_SIGN_COMPARE_WARNINGS
+ 
+ #include "git-compat-util.h"
++#include "abspath.h"
+ #include "run-command.h"
+ #include "environment.h"
+ #include "exec-cmd.h"
+@@ -136,6 +137,11 @@ int is_executable(const char *name)
+ 	    !S_ISREG(st.st_mode))
+ 		return 0;
+ 
 +#ifdef DOLLY
-+	/* Dolly has no permission model. Filesystem command validation happens at
-+	 * the module loader boundary, so Unix execute bits cannot gate PATH lookup. */
++	/* The module loader validates executables; Dolly has no execute bits. */
 +	return 1;
 +#endif
 +
-@@ -1126,7 +1126,11 @@ int git_atexit(void (*handler)(void))
- 	ALLOC_GROW(git_atexit_hdlrs.handlers, git_atexit_hdlrs.nr + 1, git_atexit_hdlrs.alloc);
- 	git_atexit_hdlrs.handlers[git_atexit_hdlrs.nr++] = handler;
- 	if (!git_atexit_installed) {
-+#ifdef DOLLY
-+		if (dolly_atexit(&git_atexit_dispatch))
-+#else
- 		if (atexit(&git_atexit_dispatch))
-+#endif
- 			return -1;
- 		git_atexit_installed = 1;
- 	}
-diff --git a/common-exit.c b/common-exit.c
-index e3e851f..9fe1f43 100644
---- a/common-exit.c
-+++ b/common-exit.c
-@@ -1,4 +1,7 @@
-+#define USE_THE_REPOSITORY_VARIABLE
-+
- #include "git-compat-util.h"
-+#include "repository.h"
- #include "trace2.h"
+ #if defined(GIT_WINDOWS_NATIVE)
+ 	/*
+ 	 * On Windows there is no executable bit. The file extension
+@@ -745,7 +751,95 @@ fail_pipe:
+ 	if (cmd->odb_to_close)
+ 		odb_close(cmd->odb_to_close);
  
- static void check_bug_if_BUG(void)
-@@ -28,5 +29,10 @@ int common_exit(const char *file, int line, int code)
- 	check_bug_if_BUG();
- 	trace2_cmd_exit_fl(file, line, code);
- 
+-#ifndef GIT_WINDOWS_NATIVE
 +#ifdef DOLLY
-+	repo_clear(the_repository);
-+	memset(the_repository, 0, sizeof(*the_repository));
-+#endif
++{
++	int fhin = 0, fhout = 1, fherr = 2, null_fd = -1;
++	char **childenv = NULL;
++	char *cwd = NULL, *path = NULL;
++	struct strvec argv = STRVEC_INIT;
++	dolly_process_fd_mapping mappings[3];
++	uint32_t inheritance = cmd->close_fd_above_stderr
++		? DOLLY_PROCESS_INHERIT_FDS_NONE : DOLLY_PROCESS_INHERIT_FDS_ALL;
 +
- 	return code;
++	cmd->pid = -1;
++	if (prepare_cmd(&argv, cmd) < 0)
++		goto dolly_spawn_done;
++	if (argv.nr > INT_MAX) {
++		errno = E2BIG;
++		goto dolly_spawn_done;
++	}
++	trace_argv_printf(&argv.v[1], "trace: start_command:");
++	if (cmd->no_stdin || cmd->no_stdout || cmd->no_stderr) {
++		null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
++		if (null_fd < 0)
++			goto dolly_spawn_done;
++	}
++	if (cmd->no_stdin)
++		fhin = null_fd;
++	else if (need_in)
++		fhin = fdin[0];
++	else if (cmd->in)
++		fhin = cmd->in;
++	if (cmd->no_stderr)
++		fherr = null_fd;
++	else if (need_err)
++		fherr = fderr[1];
++	else if (cmd->err > 1)
++		fherr = cmd->err;
++	if (cmd->no_stdout)
++		fhout = null_fd;
++	else if (cmd->stdout_to_stderr)
++		fhout = fherr;
++	else if (need_out)
++		fhout = fdout[1];
++	else if (cmd->out > 1)
++		fhout = cmd->out;
++
++	/* These owned descriptors are closed by the fork branch before exec. */
++	{
++		int owned[] = { need_in ? fdin[0] : -1,
++			need_out ? fdout[1] : -1, need_err ? fderr[1] : -1,
++			cmd->in, cmd->out, cmd->err, null_fd };
++		for (size_t i = 0; i < ARRAY_SIZE(owned); i++) {
++			if (owned[i] > 2) {
++				int flags = fcntl(owned[i], F_GETFD);
++				if (flags < 0 || fcntl(owned[i], F_SETFD, flags | FD_CLOEXEC) < 0)
++					goto dolly_spawn_done;
++			}
++		}
++	}
++	mappings[0] = (dolly_process_fd_mapping){fhin, 0};
++	mappings[1] = (dolly_process_fd_mapping){fhout, 1};
++	mappings[2] = (dolly_process_fd_mapping){fherr, 2};
++	childenv = prep_childenv(cmd->env.v);
++	if (cmd->dir)
++		cwd = absolute_pathdup(cmd->dir);
++	path = cwd && !is_absolute_path(argv.v[1])
++		? xstrfmt("%s/%s", cwd, argv.v[1])
++		: absolute_pathdup(argv.v[1]);
++	cmd->pid = dolly_spawn_mapped(path, argv.nr - 1,
++		(char **)argv.v + 1, childenv, cwd, inheritance, mappings, 3, -1);
++	if (cmd->pid == -ENOEXEC)
++		cmd->pid = dolly_spawn_mapped(argv.v[0], argv.nr,
++			(char **)argv.v, childenv, cwd, inheritance, mappings, 3, -1);
++	if (cmd->pid < 0) {
++		errno = -cmd->pid;
++		cmd->pid = -1;
++	}
++dolly_spawn_done:
++	failed_errno = errno;
++	if (cmd->pid < 0 && (!cmd->silent_exec_failure || errno != ENOENT))
++		error_errno("cannot spawn %s", cmd->args.v[0]);
++	if (cmd->pid >= 0 && cmd->clean_on_exit)
++		mark_child_for_cleanup(cmd->pid, cmd);
++	if (null_fd >= 0)
++		close(null_fd);
++	strvec_clear(&argv);
++	free(childenv);
++	free(cwd);
++	free(path);
++}
++#elif !defined(GIT_WINDOWS_NATIVE)
+ {
+ 	int notify_pipe[2];
+ 	int null_fd = -1;
+diff --git a/fetch-pack.c b/fetch-pack.c
+index 120e01f..ad06ebf 100644
+--- a/fetch-pack.c
++++ b/fetch-pack.c
+@@ -892,6 +892,7 @@ static int everything_local(struct fetch_pack_args *args,
+ 	return retval;
  }
+ 
++#ifndef DOLLY
+ static int sideband_demux(int in UNUSED, int out, void *data)
+ {
+ 	int *xd = data;
+@@ -901,6 +902,7 @@ static int sideband_demux(int in UNUSED, int out, void *data)
+ 	close(out);
+ 	return ret;
+ }
++#endif
+ 
+ static void create_promisor_file(const char *keep_name,
+ 				 struct ref **sought, int nr_sought)
+@@ -972,6 +974,22 @@ static int get_pack(struct fetch_pack_args *args,
+ 
+ 	memset(&demux, 0, sizeof(demux));
+ 	if (use_sideband) {
++#ifdef DOLLY
++		struct tempfile *spool = mks_tempfile_t("git-fetch-pack-XXXXXX");
++
++		/* Receive before indexing: a pipe would deadlock without a reader. */
++		if (!spool)
++			die_errno(_("fetch-pack: unable to create pack spool"));
++		demux.out = dup(get_tempfile_fd(spool));
++		if (demux.out < 0)
++			die_errno(_("fetch-pack: unable to duplicate pack spool"));
++		if (delete_tempfile(&spool))
++			die_errno(_("fetch-pack: unable to unlink pack spool"));
++		if (recv_sideband("fetch-pack", xd[0], demux.out))
++			die(_("error in sideband demultiplexer"));
++		if (lseek(demux.out, 0, SEEK_SET) < 0)
++			die_errno(_("fetch-pack: unable to rewind pack spool"));
++#else
+ 		/* xd[] is talking with upload-pack; subprocess reads from
+ 		 * xd[0], spits out band#2 to stderr, and feeds us band#1
+ 		 * through demux->out.
+@@ -982,6 +1000,7 @@ static int get_pack(struct fetch_pack_args *args,
+ 		demux.isolate_sigpipe = 1;
+ 		if (start_async(&demux))
+ 			die(_("fetch-pack: unable to fork off sideband demultiplexer"));
++#endif
+ 	}
+ 	else
+ 		demux.out = xd[0];
+@@ -1098,8 +1117,10 @@ static int get_pack(struct fetch_pack_args *args,
+ 			ret == 0;
+ 	else
+ 		die(_("%s failed"), cmd_name);
++#ifndef DOLLY
+ 	if (use_sideband && finish_async(&demux))
+ 		die(_("error in sideband demultiplexer"));
++#endif
+ 
+ 	sigchain_pop(SIGPIPE);
+ 

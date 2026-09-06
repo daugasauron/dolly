@@ -120,15 +120,10 @@ int dolly_system(const char *command);
 FILE *dolly_popen(const char *command, const char *mode);
 int dolly_pclose(FILE *stream);
 
-// Handlers are scoped to the current command invocation and run in reverse
-// registration order when its main returns or calls dolly_exit.
-int dolly_atexit(void (*callback)(void));
-
 char *dolly_getpass(const char *prompt);
 ssize_t dolly_getrandom(void *buffer, size_t length, unsigned flags);
 
-// Minimal exec/wait compatibility above Dolly's serialized process model.
-int dolly_execve(const char *path, char *const argv[], char *const envp[]);
+// POSIX-shaped waiting and signals above Dolly's private processes.
 pid_t dolly_waitpid(pid_t pid, int *status, int options);
 int dolly_kill(pid_t pid, int signal_number);
 unsigned dolly_alarm(unsigned seconds);
