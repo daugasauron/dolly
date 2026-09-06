@@ -54,8 +54,15 @@ Evidence: `build/v3-boundaries-snapshots-2.log`,
 The first SDK attempt caught an incorrectly indented FILE declaration in its
 extracted Makefile; the original failure log remains available.
 
-Remaining v3 work: lazy artifact loading and stable small packs. The new graphics
-demo is still an unpublished experiment; current native-agent blockers are in
+Remaining v3 work: lazy artifact loading and stable small packs. Singularity is
+now the source-built gamedev demo: real orbital forces, projectiles, pulses and
+in-Wasm controls. The separate gamedev-phone image reuses that responsive program;
+phone menus, Pi command injection and touch-scroll translation were removed from
+the host. No browser contract changed. 192 source tests and desktop/portrait
+graphics checks passed, including raw touch drag/EXIT and Ctrl-C shell recovery
+(`build/singularity-deploy-source-2.log`, `build/singularity-deploy-graphics.log`).
+The broader rerun is logged in `build/singularity-deploy-browser.log`.
+Current native-agent blockers are in
 [port status](port-status.md#native-agent-compatibility-investigation).
 The external audit survives at `/home/daug/dolly-audits/v3-3c8e352`; its old
 temporary worktree does not.

@@ -18,6 +18,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "pi-runtime": ["javascript"], pi: ["pi-runtime"],
     "python-runtime": ["system"], python: ["python-runtime"],
     "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
+    "gamedev-phone": ["gamedev"],
     "python-pi": ["pi-runtime", "python"],
   };
   for (const definition of await discoverImageDefinitions(project)) {

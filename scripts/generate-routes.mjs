@@ -76,13 +76,7 @@ for (const route of routes) {
     .replaceAll("{{DOLLY_BASE}}", route.base)
     .replaceAll("{{DOLLY_IMAGE}}", route.image)
     .replaceAll("{{DOLLY_MODE}}", route.mode)
-    .replaceAll("{{DOLLY_LOAD_SESSION}}", String(route.load))
-    .replaceAll(
-      "{{DOLLY_PHONE_EXTRA}}",
-      route.image === "gamedev"
-        ? '<button type="button" data-dolly-input="/demo\\r">Framebuffer demo</button>'
-        : "",
-    );
+    .replaceAll("{{DOLLY_LOAD_SESSION}}", String(route.load));
   await writeFile(output, page);
 }
 

@@ -84,14 +84,25 @@ viewport aspect ratio, then the browser scales the complete image. This raised
 the measured demo cadence from about 21 to 48 frames per second on the audit
 machine without adding a browser import.
 
-`/usr/bin/graphics-demo` is an interactive 3D physics game built from both
-libraries. It renders oriented rigid bodies, collapsible block towers, a
-distance-joint pendulum, and Box3D explosions with Iosevka UI text, a fixed
-physics step, animation-frame pacing, and a crosshair cursor. Use WASD or
-arrows to move, Space to jump, E or a pointer click to blast, R to reset, and Q
-or Escape to restore Slop. For a finite smoke test, run
-`graphics-demo --frames 2`. The retained source and Pi skill document the same
-adapter API for agent-written games.
+`/usr/bin/graphics-demo` is Singularity, an orbital physics playground built
+from both libraries. Its stacked structures, force-driven vortex, projectiles
+and outward pulses use real Box3D bodies. Software-rendered face lighting,
+energy trails and Iosevka text stay inside Wasm. Rendering caps each axis at 800
+pixels, preserving portrait layouts. A 960×540 prototype reached about 60 FPS
+idle and with the field active on the development machine; 1280×720 fell to
+26–32 FPS. This is not a phone performance claim.
+
+Space/click fires, G toggles gravity, E releases a pulse, A/D or drag orbits,
+W/S zooms, R resets, and Q/Escape restores Slop. Bottom buttons support touch;
+touch drags are ordinary pointer records. `/gamedev-phone/` is a separate image
+with touch-oriented startup instructions and the same responsive Wasm program.
+Its FIRE/PULSE/GRAVITY/RESET/EXIT controls are drawn and handled inside Wasm.
+The host has no phone menu. Shell/Pi still require a keyboard, and this does not
+remove the wasm64 browser requirement or add a touch-only emergency interrupt.
+`graphics-demo --frames 12` is a finite smoke test.
+Edit `/usr/src/dolly/gamedev/graphics-demo.c`, then run
+`make -f /usr/src/dolly/gamedev/gamedev.mk` to rebuild only the demo against
+the completed SDK. Its source and Pi skill document the same adapter API.
 
 ## Terminal selection and scrolling
 
@@ -111,9 +122,7 @@ worker; neither services the ring while a game owns the display lease. UI change
 are rendered together at the end of the tick, without a second input queue or a
 new browser capability.
 
-Wheel movement is encoded as signed thousandths of a terminal row. Touch drag
-is converted to the same semantic record on phones. Fractional deltas,
+Wheel movement is encoded as signed thousandths of a terminal row. Fractional deltas,
 scrollback position, terminal history, and rasterization all remain in Wasm;
-the browser has no terminal viewport of its own. Touch taps still become a
-bounded Ghostty pointer gesture, while a vertical drag scrolls rather than
-selects.
+the browser has no terminal viewport of its own. Mouse and touch use the same
+pointer records; the browser does not turn touch gestures into terminal scrolls.

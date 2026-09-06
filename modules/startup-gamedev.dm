@@ -23,4 +23,6 @@ FILE /etc/dolly/init.slop
 FILE /home/dolly/.dollyrc
     printf '\033[33mDOLLY / GAMEDEV\033[0m\n'
     printf 'raylib 6 and Box3D run against Dolly exclusive framebuffer presentation.\n'
-    printf 'The demo starts now; press Q to return, then inspect /usr/src/dolly/gamedev.\n\n'
+    printf 'Singularity starts now: G lifts the towers, E releases them, Space fires.\n'
+    printf 'Drag to orbit; Q returns to Slop. Edit /usr/src/dolly/gamedev/graphics-demo.c\n'
+    printf 'and rebuild with make -f /usr/src/dolly/gamedev/gamedev.mk.\n\n'

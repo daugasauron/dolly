@@ -555,6 +555,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["python", "/bin/slop"],
     ["python-pi", "/usr/bin/pi"],
     ["gamedev", "/usr/bin/graphics-demo"],
+    ["gamedev-phone", "/usr/bin/graphics-demo"],
     ["system", "/bin/slop"],
     ["javascript", "/usr/bin/tsc"],
     ["pi-runtime", "/usr/bin/pi"],
@@ -582,7 +583,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.ok(metadata.manifest.includes(expectedPrograms.get(image)));
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),
-      ["pi", "pi-runtime", "python-pi", "gamedev"].includes(image),
+      ["pi", "pi-runtime", "python-pi", "gamedev", "gamedev-phone"].includes(image),
     );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
@@ -599,7 +600,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const frontend = ["default", "pi", "python", "python-pi", "gamedev"].includes(image);
+    const frontend = ["default", "pi", "python", "python-pi", "gamedev", "gamedev-phone"].includes(image);
     assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), frontend);
     assert.deepEqual(metadata.entry, ["/bin/foreground", "-i", "/bin/slop",
       ...(frontend ? ["/etc/dolly/init.slop"] : [])]);
@@ -636,6 +637,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const knownImages = [
     { image: "default", dollyfile: "Dollyfile" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
+    { image: "gamedev-phone", dollyfile: "Dollyfile-gamedev-phone" },
     { image: "gamedev-sdk", dollyfile: "Dollyfile-gamedev-sdk" },
     { image: "javascript", dollyfile: "Dollyfile-javascript" },
     { image: "pi", dollyfile: "Dollyfile-pi" },
@@ -1029,7 +1031,7 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   assert.match(driver, /ghostty_terminal_scroll_viewport/);
   assert.match(browser, /pushScroll\(deltaRows\)/);
   assert.match(browser, /addEventListener\("wheel"/);
-  assert.match(browser, /event\.pointerType === "touch"/);
+  assert.match(browser, /canvas\.setPointerCapture\(event\.pointerId\)/);
   assert.match(gamedevSdk, /dolly_display_acquire\(&context->surface\)/);
   assert.match(gamedevSdk, /dolly_display_present\(context->surface\.generation/);
   assert.match(gamedev, /\/usr\/bin\/graphics-demo: \/usr\/src\/dolly\/gamedev\/graphics-demo\.c/);
@@ -1675,8 +1677,8 @@ test("upstream Pi is compiled in Dolly and customized only through normal files"
   assert.match(init, /image entry exited; entering the recovery Slop shell/);
   assert.match(init, /restarting Pi after unexpected status/);
   assert.match(init, /case "\$status" in 0\|130\) break/);
-  assert.match(page, /id="phone-menu-button"/);
-  assert.match(page, /data-dolly-input="\/login openrouter\\r"/);
+  assert.doesNotMatch(page, /phone-menu|data-dolly-input/);
+  assert.doesNotMatch(browser, /phoneMenu|touchScroll|updatePhoneMode|pointerType/);
   assert.doesNotMatch(page, /data-dolly-voice/);
   assert.doesNotMatch(browser, /SpeechRecognition|webkitSpeechRecognition|getUserMedia/);
   assert.match(browser, /dataset\.defaultPi = "passed"/);

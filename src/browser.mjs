@@ -19,9 +19,6 @@ const mount = document.querySelector("#terminal");
 const canvas = document.querySelector("#display");
 const keyboard = document.querySelector("#keyboard");
 const bootstrapLog = document.querySelector("#bootstrap-log");
-const phoneMenuButton = document.querySelector("#phone-menu-button");
-const phoneMenu = document.querySelector("#phone-menu");
-const sessionSaveButton = document.querySelector("#session-save-button");
 bootstrapLog.replaceChildren();
 
 const defaultFontSizeMilli = 15000;
@@ -80,37 +77,6 @@ function startBrowserDownload(message) {
   downloadCount++;
   document.documentElement.dataset.downloadCount = String(downloadCount);
   document.documentElement.dataset.downloadName = message.name;
-}
-
-function updatePhoneMode() {
-  const narrow = matchMedia("(max-width: 960px)").matches;
-  const coarse = matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
-  document.documentElement.dataset.phone = narrow && coarse ? "on" : "off";
-}
-
-updatePhoneMode();
-addEventListener("resize", updatePhoneMode);
-
-function closePhoneMenu() {
-  phoneMenu.dataset.open = "false";
-  phoneMenuButton.setAttribute("aria-expanded", "false");
-}
-
-phoneMenuButton.addEventListener("click", () => {
-  const open = phoneMenu.dataset.open !== "true";
-  phoneMenu.dataset.open = String(open);
-  phoneMenuButton.setAttribute("aria-expanded", String(open));
-});
-
-for (const button of phoneMenu.querySelectorAll("[data-dolly-input]")) {
-  button.addEventListener("click", () => {
-    const input = button.dataset.dollyInput.replaceAll("\\r", "\r");
-    if (transport && !transport.pushText(input)) {
-      document.documentElement.dataset.inputOverflow = "true";
-    }
-    closePhoneMenu();
-    keyboard.focus({ preventScroll: true });
-  });
 }
 
 function displayFatal(message) {
@@ -699,11 +665,6 @@ async function saveCurrentSession(requestedName) {
   return sessionSavePromise;
 }
 
-sessionSaveButton.addEventListener("click", () => {
-  closePhoneMenu();
-  void saveCurrentSession().catch(() => {});
-});
-
 function requestForegroundInterrupt() {
   if (!transport) return false;
   const pid = transport.foregroundPid();
@@ -771,7 +732,6 @@ window.addEventListener("keydown", handleKeyboardEvent, { capture: true });
 window.addEventListener("keyup", handleKeyboardEvent, { capture: true });
 
 let selecting = false;
-let touchScroll = null;
 
 function pointerPosition(event) {
   const bounds = canvas.getBoundingClientRect();
@@ -791,56 +751,18 @@ function pushPointer(event, action) {
 canvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0 || !transport) return;
   canvas.setPointerCapture(event.pointerId);
-  keyboard.focus({ preventScroll: true });
-  if (event.pointerType === "touch") {
-    touchScroll = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      lastY: event.clientY,
-      scrolling: false,
-    };
-    event.preventDefault();
-    return;
-  }
+  if (transport.graphicsActive()) keyboard.blur();
+  else keyboard.focus({ preventScroll: true });
   selecting = true;
   pushPointer(event, 1);
   event.preventDefault();
 });
 canvas.addEventListener("pointermove", (event) => {
-  if (touchScroll?.pointerId === event.pointerId) {
-    const horizontal = Math.abs(event.clientX - touchScroll.startX);
-    const vertical = Math.abs(event.clientY - touchScroll.startY);
-    if (!touchScroll.scrolling && vertical > 8 && vertical > horizontal) {
-      touchScroll.scrolling = true;
-    }
-    if (touchScroll.scrolling) {
-      const cellHeight = Math.max(1, transport.geometry().cellHeight);
-      if (!transport.pushScroll((touchScroll.lastY - event.clientY) / cellHeight)) {
-        document.documentElement.dataset.inputOverflow = "true";
-      }
-      touchScroll.lastY = event.clientY;
-    }
-    event.preventDefault();
-    return;
-  }
   if (!selecting || (event.buttons & 1) === 0) return;
   pushPointer(event, 2);
   event.preventDefault();
 });
 canvas.addEventListener("pointerup", (event) => {
-  if (touchScroll?.pointerId === event.pointerId) {
-    if (!touchScroll.scrolling) {
-      pushPointer(event, 1);
-      pushPointer(event, 0);
-    }
-    touchScroll = null;
-    if (canvas.hasPointerCapture(event.pointerId)) {
-      canvas.releasePointerCapture(event.pointerId);
-    }
-    event.preventDefault();
-    return;
-  }
   if (!selecting || event.button !== 0) return;
   selecting = false;
   pushPointer(event, 0);
@@ -850,7 +772,6 @@ canvas.addEventListener("pointerup", (event) => {
   event.preventDefault();
 });
 canvas.addEventListener("pointercancel", (event) => {
-  if (touchScroll?.pointerId === event.pointerId) touchScroll = null;
   if (selecting) {
     selecting = false;
     pushPointer(event, 0);
@@ -948,7 +869,7 @@ async function runBrowserProof() {
   // image startup. Pi exits on Ctrl-D, while the gamedev entry exits on Q.
   const shellPrompt = /(?:^|\n)dolly:[^\n]*\$\s*$/;
   let entryPid;
-  if (activeImage === "gamedev") {
+  if (hasRecipe("gamedev")) {
     await waitFor(() => transport.foregroundPid() > 0 && transport.graphicsActive(),
       "gamedev entry display lease");
     entryPid = transport.foregroundPid();
@@ -959,7 +880,7 @@ async function runBrowserProof() {
     );
   }
   if (activeImage !== "default") {
-    if (activeImage === "gamedev") {
+    if (hasRecipe("gamedev")) {
       transport.pushSyntheticKey("q", "KeyQ");
       transport.pushSyntheticKey("q", "KeyQ", 0, 0);
     } else {
@@ -1095,7 +1016,7 @@ async function runBrowserProof() {
     ["ls /usr/lib/libghostty-vt.a"],
     ["test ! -e /usr/bin/ghostty-vt"],
     ["graphics-demo --frames 2", undefined,
-      document.documentElement.dataset.image === "gamedev" ? 0 : 127],
+      hasRecipe("gamedev") ? 0 : 127],
     ["cc --version"],
     ["c++ --version"],
     ["echo \"int main(void) { volatile unsigned long n = 0; for (;;) n++; }\" > interrupt-loop.c"],
@@ -1237,7 +1158,6 @@ async function boot() {
     : bootMode === "rebuild"
     ? "REBUILD FROM SOURCE"
     : "PRECOMPILED SYSTEM"}\n\n`);
-  mount.addEventListener("pointerdown", () => keyboard.focus({ preventScroll: true }));
   keyboard.addEventListener("compositionend", (event) => {
     if (!transport?.pushText(event.data)) {
       document.documentElement.dataset.inputOverflow = "true";

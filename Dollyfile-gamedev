@@ -16,7 +16,7 @@ COPY FROM HOST /Dollyfile-gamedev-sdk 9b5b5188b6acd38ad023fe25787bb425c6628761b2
 COPY FROM HOST /Dollyfile-gamedev-sdk 9b5b5188b6acd38ad023fe25787bb425c6628761b25f7adbb859ed294f18b5c9 /usr/src/dolly/gamedev /usr/src/dolly/gamedev
 COPY FROM HOST /Dollyfile-gamedev-sdk 9b5b5188b6acd38ad023fe25787bb425c6628761b25f7adbb859ed294f18b5c9 /usr/share/licenses/raylib /usr/share/licenses/raylib
 COPY FROM HOST /Dollyfile-gamedev-sdk 9b5b5188b6acd38ad023fe25787bb425c6628761b25f7adbb859ed294f18b5c9 /usr/share/licenses/box3d /usr/share/licenses/box3d
-USE HOST /modules/gamedev.dm 3f832a1ffb7b506eb8ed372eb30f20c12cce74cd19a23d2f15b6668b90f60a20
-USE HOST /modules/startup-gamedev.dm d8ac990c02d5877f1101a6166dbfd591ea8747e6af5cd6b6a588c0a85d5a85d1
+USE HOST /modules/gamedev.dm eb9765e0f56d04b21ff26ccb54db0bff09affadb16dc110f83a605d6ba5c55e9
+USE HOST /modules/startup-gamedev.dm 546cb812e7ca5cbde1532b631464ae59eca73e12fd162c3725673f25ca0977d0
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

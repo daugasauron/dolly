@@ -96,6 +96,11 @@ are packaged from an explicit public-source allowlist and checked before release
 links cannot publish arbitrary checkout files. The harness confines documentation
 requests to `docs/`. Tests request encoded parent paths and require 404.
 
+Mouse and touch forward the same bounded press/drag/release records. The host
+has no phone mode, gesture interpretation, or application command menu.
+Phone-oriented images own their controls and gesture handling inside Wasm;
+they use the same framebuffer and input contract as desktop images.
+
 The kernel has **no general browser dynamic-loader import**. It is statically
 linked with dynamic JavaScript execution disabled. Ghostty remains source-built
 inside Dolly: boot copies its bounded WasmFS bytes and passes them to

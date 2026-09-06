@@ -57,6 +57,7 @@ const makeMode = isMode("make");
 const slopMode = isMode("slop", "slop-source");
 const utf8Mode = isMode("utf8");
 const terminalUiMode = isMode("terminal-ui");
+const graphicsMode = isMode("graphics");
 const janisFilesMode = isMode("janis-files");
 const janisProcessMode = isMode("janis-process");
 const processLifecycleMode = isMode("process-lifecycle");
@@ -878,13 +879,211 @@ async function waitForCommandResult(send, sequence, description) {
   );
 }
 
+async function runGraphicsProof(send, phone = false) {
+  for (const [arguments_, status] of [["--frames 12", 0], ["--frames 0", 2], ["--frames -1", 2]]) {
+    assert.equal(await evaluate(send, `window.__dolly.submit(${JSON.stringify(`graphics-demo ${arguments_}`)})`), status);
+  }
+  assert.equal(
+    await evaluate(
+      send,
+      `window.__dolly.submit(${JSON.stringify(
+        "test -s /usr/src/dolly/gamedev/graphics-demo.c && " +
+        "test -s /usr/src/dolly/gamedev/gamedev.mk",
+      )})`,
+    ),
+    0,
+    "the gamedev image did not retain its source-visible starter",
+  );
+  const performanceBeforeGraphics = await measureShellBatch(
+    send,
+    "before-graphics",
+  );
+  await evaluate(
+    send,
+    `window.__graphicsResult = null;
+     window.__dolly.submit("graphics-demo").then(
+       status => { window.__graphicsResult = { status }; },
+       error => { window.__graphicsResult = { error: String(error) }; },
+     ); true`,
+  );
+  await waitForValue(
+    send,
+    "window.__dolly.graphicsActive",
+    (value) => value === true,
+    "graphics framebuffer ownership",
+    200,
+  );
+  const graphicsPixels = await waitForValue(
+    send,
+    `(() => {
+      const canvas = document.querySelector('#display');
+      const pixels = canvas.getContext('2d')
+        .getImageData(0, 0, canvas.width, canvas.height).data;
+      let background = 0;
+      let accent = 0;
+      for (let index = 0; index < pixels.length; index += 4) {
+        const red = pixels[index];
+        const green = pixels[index + 1];
+        const blue = pixels[index + 2];
+        if (red <= 20 && green <= 35 && blue >= 15 && blue <= 55 &&
+            pixels[index + 3] === 255) background++;
+        if (Math.max(red, green, blue) - Math.min(red, green, blue) > 35 &&
+            red + green + blue > 200 && pixels[index + 3] === 255) accent++;
+      }
+      return { background, accent };
+    })()`,
+    (value) => value.background > 1000 && value.accent > 100,
+    "graphics-demo RGBA frame",
+    200,
+  );
+  assert.ok(graphicsPixels.background > graphicsPixels.accent);
+  await evaluate(send, `(() => {
+    const canvas = document.querySelector('#display');
+    window.__graphicsBefore = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    window.__dolly.key('g', 'KeyG');
+  })()`);
+  const framesBefore = await evaluate(send, "Number(document.documentElement.dataset.frameSequence)");
+  await delay(1500);
+  assert.ok(await evaluate(send, "Number(document.documentElement.dataset.frameSequence)") - framesBefore >= 10,
+    "the physics field must keep presenting frames");
+  const changed = await evaluate(send, `(() => {
+    const canvas = document.querySelector('#display');
+    const after = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    const before = window.__graphicsBefore;
+    delete window.__graphicsBefore;
+    let changed = 0;
+    for (let i = 0; i < before.length; i += 4) {
+      if (before[i] !== after[i] || before[i + 1] !== after[i + 1] || before[i + 2] !== after[i + 2]) changed++;
+    }
+    return changed / (after.length / 4);
+  })()`);
+  assert.ok(changed > 0.01, "the field must visibly change the rigid-body scene");
+  if (phone) {
+    const screenshot = await send("Page.captureScreenshot", { format: "png" });
+    await writeFile(resolve(projectDir, "build/singularity-phone-chrome.png"), screenshot.data, "base64");
+  }
+  const gesture = await evaluate(send, `(() => {
+    const transport = window.__dolly.transport, original = transport.pushPointer;
+    window.__graphicsPointerActions = [];
+    transport.pushPointer = function(x, y, action, event) {
+      window.__graphicsPointerActions.push(action);
+      return original.call(this, x, y, action, event);
+    };
+    window.__restoreGraphicsPointer = () => { transport.pushPointer = original; };
+    const bounds = document.querySelector('#display').getBoundingClientRect();
+    return { x: bounds.x + bounds.width * 0.5, y: bounds.y + bounds.height * 0.4 };
+  })()`);
+  try {
+    await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...gesture, id: 1 }] });
+    for (let i = 1; i <= 4; ++i) {
+      await send("Input.dispatchTouchEvent", { type: "touchMove",
+        touchPoints: [{ x: gesture.x + i * 12, y: gesture.y + i * 8, id: 1 }] });
+    }
+    await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    const actions = await evaluate(send, "window.__graphicsPointerActions");
+    assert.equal(actions[0], 1);
+    assert.ok(actions.includes(2), "touch drag must reach graphics, not terminal scrolling");
+    assert.equal(actions.at(-1), 0);
+  } finally {
+    await evaluate(send, "window.__restoreGraphicsPointer(); delete window.__restoreGraphicsPointer; delete window.__graphicsPointerActions");
+  }
+  if (phone) {
+    const exit = await evaluate(send, `(() => {
+      const canvas = document.querySelector('#display'), bounds = canvas.getBoundingClientRect();
+      return { x: bounds.x + (16 + 4.5 * Math.floor((canvas.width - 32) / 5)) * bounds.width / canvas.width,
+        y: bounds.y + (canvas.height - 37) * bounds.height / canvas.height };
+    })()`);
+    await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...exit, id: 1 }] });
+    await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } else {
+    assert.equal(await evaluate(send, "window.__dolly.key('q', 'KeyQ')"), true);
+  }
+  assert.deepEqual(
+    await waitForValue(
+      send,
+      "window.__graphicsResult",
+      (value) => value !== null,
+      "graphics-demo normal release",
+      200,
+    ),
+    { status: 0 },
+  );
+  assert.equal(await evaluate(send, "window.__dolly.graphicsActive"), false);
+  assert.equal(
+    await evaluate(
+      send,
+      "window.__dolly.submit('echo GRAPHICS-RESTORED > graphics-restored.txt')",
+    ),
+    0,
+  );
+
+  await evaluate(
+    send,
+    `window.__graphicsInterruptResult = null;
+     window.__dolly.submit("graphics-demo").then(
+       status => { window.__graphicsInterruptResult = { status }; },
+       error => { window.__graphicsInterruptResult = { error: String(error) }; },
+     ); true`,
+  );
+  await waitForValue(
+    send,
+    "window.__dolly.graphicsActive",
+    (value) => value === true,
+    "interruptible graphics framebuffer ownership",
+    200,
+  );
+  await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+  assert.deepEqual(
+    await waitForValue(
+      send,
+      "window.__graphicsInterruptResult",
+      (value) => value !== null,
+      "graphics-demo SIGINT restoration",
+      200,
+    ),
+    { status: 130 },
+  );
+  assert.equal(await evaluate(send, "window.__dolly.graphicsActive"), false);
+  assert.equal(
+    await evaluate(
+      send,
+      "window.__dolly.submit('grep -q GRAPHICS-RESTORED graphics-restored.txt')",
+    ),
+    0,
+    "terminal or filesystem did not survive forced graphics restoration",
+  );
+  const performanceAfterGraphics = await measureShellBatch(
+    send,
+    "after-graphics",
+  );
+  assert.ok(
+    performanceAfterGraphics.milliseconds <=
+      Math.max(2000, performanceBeforeGraphics.milliseconds * 4),
+    `commands slowed down after framebuffer restoration: ${JSON.stringify({
+      before: performanceBeforeGraphics,
+      after: performanceAfterGraphics,
+    })}`,
+  );
+  assert.ok(
+    performanceAfterGraphics.frames <= performanceAfterGraphics.commands * 6,
+    `terminal produced too many post-graphics frames: ${JSON.stringify(
+      performanceAfterGraphics,
+    )}`,
+  );
+  console.log(
+    `browser: ${phone ? "portrait/Wasm EXIT button" : "desktop/Q"} graphics, finite frames, gravity, touch drag and Ctrl-C; post-framebuffer command batch ${performanceAfterGraphics.milliseconds}ms/` +
+    `${performanceAfterGraphics.frames} frames; before ` +
+    `${performanceBeforeGraphics.milliseconds}ms/${performanceBeforeGraphics.frames} frames`,
+  );
+}
+
 async function enterRecoveryShell(send) {
   if (JSON.stringify(selectedGraph.root.entry) === JSON.stringify(["/bin/foreground", "-i", "/bin/slop"])) {
     return evaluate(send,
       `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "runtime image Slop prompt")`);
   }
   let entryPid;
-  if (selectedImage === "gamedev") {
+  if (["gamedev", "gamedev-phone"].includes(selectedImage)) {
     entryPid = await waitForValue(
       send,
       "window.__dolly?.graphicsActive ? window.__dolly.foregroundPid : 0",
@@ -1244,12 +1443,28 @@ chrome = spawn(chromeBinary, [
       : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || libcurlContractMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
         || pythonPackageMode || pythonInteractiveMode || toolchainProbeMode || zigSingleProviderMode
-        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode || gitTransportMode
+        || lifecycleProbeMode || boundaryMode || processAbiMode || processSmokeMode || dollyfileParserMode || imageRetentionMode || imageInventoryMode || gitTransportMode || graphicsMode
         ? interactivePage
         : snapshotPage,
   });
 
   browserProof: {
+    if (graphicsMode) {
+      assert.ok(["gamedev", "gamedev-phone"].includes(selectedImage));
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "gamedev boot"), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      await runGraphicsProof(debuggerClient.send);
+      await debuggerClient.send("Emulation.setDeviceMetricsOverride", {
+        width: 390, height: 844, deviceScaleFactor: 2, mobile: true,
+      });
+      await debuggerClient.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+      await evaluate(debuggerClient.send, "dispatchEvent(new Event('resize'))");
+      assert.equal(await evaluate(debuggerClient.send, "document.querySelector('#phone-menu')"), null);
+      await runGraphicsProof(debuggerClient.send, true);
+      break browserProof;
+    }
     if (gitTransportMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -3806,150 +4021,7 @@ int main(int argc, char **argv) {
     "the shell or shared filesystem did not survive foreground SIGINT",
   );
 
-  if (selectedImage === "gamedev") {
-  assert.equal(
-    await evaluate(
-      debuggerClient.send,
-      `window.__dolly.submit(${JSON.stringify(
-        "test -s /usr/src/dolly/gamedev/graphics-demo.c && " +
-        "test -s /usr/src/dolly/gamedev/gamedev.mk",
-      )})`,
-    ),
-    0,
-    "the gamedev image did not retain its source-visible starter",
-  );
-  const performanceBeforeGraphics = await measureShellBatch(
-    debuggerClient.send,
-    "before-graphics",
-  );
-  await evaluate(
-    debuggerClient.send,
-    `window.__graphicsResult = null;
-     window.__dolly.submit("graphics-demo").then(
-       status => { window.__graphicsResult = { status }; },
-       error => { window.__graphicsResult = { error: String(error) }; },
-     ); true`,
-  );
-  await waitForValue(
-    debuggerClient.send,
-    "window.__dolly.graphicsActive",
-    (value) => value === true,
-    "graphics framebuffer ownership",
-    200,
-  );
-  const graphicsPixels = await waitForValue(
-    debuggerClient.send,
-    `(() => {
-      const canvas = document.querySelector('#display');
-      const pixels = canvas.getContext('2d')
-        .getImageData(0, 0, canvas.width, canvas.height).data;
-      let background = 0;
-      let accent = 0;
-      for (let index = 0; index < pixels.length; index += 4) {
-        const red = pixels[index];
-        const green = pixels[index + 1];
-        const blue = pixels[index + 2];
-        if (red >= 24 && red <= 50 && green >= 24 && green <= 50 &&
-            blue >= 24 && blue <= 50 &&
-            Math.max(red, green, blue) - Math.min(red, green, blue) <= 8 &&
-            pixels[index + 3] === 255) background++;
-        if (Math.max(red, green, blue) - Math.min(red, green, blue) > 35 &&
-            red + green + blue > 200 && pixels[index + 3] === 255) accent++;
-      }
-      return { background, accent };
-    })()`,
-    (value) => value.background > 1000 && value.accent > 100,
-    "graphics-demo RGBA frame",
-    200,
-  );
-  assert.ok(graphicsPixels.background > graphicsPixels.accent);
-  assert.equal(
-    await evaluate(debuggerClient.send, "window.__dolly.key('q', 'KeyQ')"),
-    true,
-  );
-  assert.deepEqual(
-    await waitForValue(
-      debuggerClient.send,
-      "window.__graphicsResult",
-      (value) => value !== null,
-      "graphics-demo normal release",
-      200,
-    ),
-    { status: 0 },
-  );
-  assert.equal(await evaluate(debuggerClient.send, "window.__dolly.graphicsActive"), false);
-  assert.equal(
-    await evaluate(
-      debuggerClient.send,
-      "window.__dolly.submit('echo GRAPHICS-RESTORED > graphics-restored.txt')",
-    ),
-    0,
-  );
-
-  await evaluate(
-    debuggerClient.send,
-    `window.__graphicsInterruptResult = null;
-     window.__dolly.submit("graphics-demo").then(
-       status => { window.__graphicsInterruptResult = { status }; },
-       error => { window.__graphicsInterruptResult = { error: String(error) }; },
-     ); true`,
-  );
-  await waitForValue(
-    debuggerClient.send,
-    "window.__dolly.graphicsActive",
-    (value) => value === true,
-    "interruptible graphics framebuffer ownership",
-    200,
-  );
-  await dispatchKey(debuggerClient.send, {
-    key: "c",
-    code: "KeyC",
-    modifiers: 2,
-    windowsVirtualKeyCode: 67,
-  });
-  assert.deepEqual(
-    await waitForValue(
-      debuggerClient.send,
-      "window.__graphicsInterruptResult",
-      (value) => value !== null,
-      "graphics-demo SIGINT restoration",
-      200,
-    ),
-    { status: 130 },
-  );
-  assert.equal(await evaluate(debuggerClient.send, "window.__dolly.graphicsActive"), false);
-  assert.equal(
-    await evaluate(
-      debuggerClient.send,
-      "window.__dolly.submit('grep -q GRAPHICS-RESTORED graphics-restored.txt')",
-    ),
-    0,
-    "terminal or filesystem did not survive forced graphics restoration",
-  );
-  const performanceAfterGraphics = await measureShellBatch(
-    debuggerClient.send,
-    "after-graphics",
-  );
-  assert.ok(
-    performanceAfterGraphics.milliseconds <=
-      Math.max(2000, performanceBeforeGraphics.milliseconds * 4),
-    `commands slowed down after framebuffer restoration: ${JSON.stringify({
-      before: performanceBeforeGraphics,
-      after: performanceAfterGraphics,
-    })}`,
-  );
-  assert.ok(
-    performanceAfterGraphics.frames <= performanceAfterGraphics.commands * 6,
-    `terminal produced too many post-graphics frames: ${JSON.stringify(
-      performanceAfterGraphics,
-    )}`,
-  );
-  console.log(
-    `browser: post-framebuffer command batch ${performanceAfterGraphics.milliseconds}ms/` +
-    `${performanceAfterGraphics.frames} frames; before ` +
-    `${performanceBeforeGraphics.milliseconds}ms/${performanceBeforeGraphics.frames} frames`,
-  );
-  }
+  if (["gamedev", "gamedev-phone"].includes(selectedImage)) await runGraphicsProof(debuggerClient.send);
 
   const initialFontSize = await evaluate(debuggerClient.send, "window.__dolly.fontSize");
   await dispatchKey(debuggerClient.send, {
@@ -4509,43 +4581,11 @@ int main(int argc, char **argv) {
     200,
   );
 
-  await debuggerClient.send("Emulation.setDeviceMetricsOverride", {
-    width: 390,
-    height: 844,
-    deviceScaleFactor: 2,
-    mobile: true,
-  });
-  await debuggerClient.send("Emulation.setTouchEmulationEnabled", {
-    enabled: true,
-    maxTouchPoints: 5,
-  });
-  await evaluate(debuggerClient.send, "dispatchEvent(new Event('resize'))");
-  await waitForValue(
-    debuggerClient.send,
-    "document.documentElement.dataset.phone",
-    (value) => value === "on",
-    "phone-only Dolly controls",
-    200,
-  );
-  const phoneButton = await evaluate(debuggerClient.send, `(() => {
-    const bounds = document.querySelector('#phone-menu-button').getBoundingClientRect();
-    return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-  })()`);
-  await debuggerClient.send("Input.dispatchMouseEvent", {
-    type: "mousePressed", ...phoneButton, button: "left", buttons: 1, clickCount: 1,
-  });
-  await debuggerClient.send("Input.dispatchMouseEvent", {
-    type: "mouseReleased", ...phoneButton, button: "left", buttons: 0, clickCount: 1,
-  });
-  assert.equal(
-    await evaluate(debuggerClient.send, "document.querySelector('#phone-menu').dataset.open"),
-    "true",
-  );
   console.log(
     `browser: sandbox Ghostty rendered ${evidence.canvasWidth}x${evidence.canvasHeight} ` +
     `(${evidence.cols}x${evidence.rows} cells), static snapshot boot ` +
     `${snapshotBootMilliseconds}ms, raw keys/Ctrl+Shift+V/C/block-cursor/zoom/fullscreen, ` +
-    "Ghostty selection/scroll and phone menu passed" +
+    "Ghostty selection/scroll passed" +
     (selectedModuleNames.has("pi")
       ? "; Pi credential storage/model discovery and Codex OAuth exchange passed"
       : ""),

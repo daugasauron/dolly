@@ -43,8 +43,8 @@ Dolly currently boots a source-built userspace containing:
   automatic terminal restoration on return or Ctrl-C; the gamedev image adds
   source-built raylib 6.0, Box3D 0.1.0, a Pi skill, and an interactive 3D
   physics game;
-- Ghostty-owned selection and scrollback inside Wasm, phone touch scrolling, a
-  minimal phone `/` command menu.
+- Ghostty-owned selection and scrollback inside Wasm. Phone-oriented controls
+  belong to programs in separate images, starting with `/gamedev-phone/`.
 
 The root page is an image and documentation menu generated from source-visible
 Dollyfiles. `/default/`, `/pi/`, `/python/`, `/python-pi/`, and `/gamedev/` restore snapshots cryptographically
@@ -125,7 +125,7 @@ npm run serve                 # http://127.0.0.1:8080/
 The Pages deployment is intentionally artifact-based: the current browser
 bundle is hundreds of megabytes and does not belong in Git history. After a
 local audited build, `scripts/package-pages.sh` creates the static release
-asset consumed by the manual `Deploy Dolly demo` workflow. It checks all five
+asset consumed by the manual `Deploy Dolly demo` workflow. It checks all
 packaged images in Chrome and binds acceptance to a complete file manifest and
 the source hashes. The workflow requires the artifact SHA-256 and source commit,
 checks the archive before extraction, and verifies its contents against that
@@ -134,7 +134,7 @@ dirty local builds remain usable but do not match a committed release.
 Take the digest from the audited local build, not a second download from the
 release being verified. A tiny same-origin
 service worker supplies the COOP/COEP headers that GitHub Pages cannot set.
-Packaged snapshots use gzip delivery to keep all five images below the Pages
+Packaged snapshots use gzip delivery to keep the images below the Pages
 site size limit; the browser bounds decompression and verifies the original
 snapshot size and SHA-256 before loading it into Wasm.
 The local server reads `build/releases/current`, never mutable `dist/` or source
