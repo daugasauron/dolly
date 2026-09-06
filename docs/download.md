@@ -41,15 +41,17 @@ The browser-facing contract in `abi/dolly-download-0.wat` contains:
 
 The four values are name pointer/length and data pointer/length in kernel
 memory64. They describe one capability call, not four capabilities. Generated
-loader glue validates safe numeric ranges, strict UTF-8, filename length and
+loader glue validates safe numeric ranges, literal UTF-8, filename length and
 characters, and the 64 MiB bound before copying the bytes out of shared memory.
+Leading U+FEFF is part of the name, not a BOM to discard.
 The worker independently validates the copied request and transfers its
 unshared `ArrayBuffer`. The page validates it again, creates a Blob URL, clicks
-a hidden anchor carrying only the sanitized base name, and revokes the URL.
+a hidden anchor carrying only the validated base name, and revokes the URL.
 
 The browser proof configures a real Chrome download directory, invokes
-`/bin/download`, and compares the exact downloaded bytes. Static tests also
-verify the WAT signature and exact import allowlist.
+`/bin/download`, checks literal ASCII/Unicode names at dispatch, and compares
+the downloaded bytes. The browser chooses the final local filename. Static
+tests also verify the WAT signature and exact import allowlist.
 
 ## Security meaning
 

@@ -64,6 +64,8 @@ abort, and bounded local output/device operations. They do not grant host
 paths, native processes, sockets, DOM access, or JavaScript evaluation.
 User input, framebuffer output, file downloads, and explicit opaque session
 storage are additional visible channels; see the [security model](security.md).
+Download names use literal UTF-8; basename, character and size checks remain
+independent of the browser's final filename choice.
 "One network edge" does not mean "no other information crosses the boundary."
 For saves, Wasm owns base fingerprints and filesystem delta encoding; the page
 copies bounded opaque chunks to local IndexedDB. `/session/` lists metadata and

@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, resolve, sep } from "node:path";
@@ -4117,53 +4117,36 @@ int main(int argc, char **argv) {
     0,
   );
 
-  assert.equal(
-    await evaluate(
-      debuggerClient.send,
-      `window.__dolly.submit(${JSON.stringify(
-        "echo DOLLY-BROWSER-DOWNLOAD > /workspace/browser-download.txt",
-      )})`,
-    ),
-    0,
-  );
-  const downloadCountBefore = await evaluate(
-    debuggerClient.send,
-    "Number(document.documentElement.dataset.downloadCount ?? 0)",
-  );
-  const downloadStatus = await evaluate(
-    debuggerClient.send,
-    'window.__dolly.submit("download /workspace/browser-download.txt")',
-  );
-  if (downloadStatus !== 0) {
-    console.error(await visibleTerminalText(debuggerClient.send));
-    const failedDownloadScreenshot = await debuggerClient.send("Page.captureScreenshot", {
-      format: "png",
-      fromSurface: true,
-    });
-    await writeFile(
-      resolve(projectDir, "build/browser-download-failed.png"),
-      failedDownloadScreenshot.data,
-      "base64",
-    );
+  for (const name of ["browser-download.txt", "\uFEFFbrowser-download.txt"]) {
+    const path = `/workspace/${name}`;
+    const submit = command => evaluate(debuggerClient.send,
+      `window.__dolly.submit(${JSON.stringify(command)})`);
+    assert.equal(await submit(`echo DOLLY-BROWSER-DOWNLOAD > ${path}`), 0);
+    const count = await evaluate(debuggerClient.send,
+      "Number(document.documentElement.dataset.downloadCount ?? 0)");
+    const previousFiles = new Set(await readdir(browserDownloadDirectory));
+    assert.equal(await submit(`download ${path}`), 0);
+    await waitForValue(debuggerClient.send,
+      "Number(document.documentElement.dataset.downloadCount ?? 0)",
+      value => value === count + 1, "browser download dispatch", 200);
+    assert.equal(await evaluate(debuggerClient.send, "document.documentElement.dataset.downloadName"),
+      name, "download dispatch changed the literal filename");
+    let downloadedBytes = null, savedName;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const files = (await readdir(browserDownloadDirectory)).filter(file =>
+        !previousFiles.has(file) && !file.endsWith(".crdownload"));
+      if (files.length === 1) {
+        savedName = files[0];
+        downloadedBytes = await readFile(resolve(browserDownloadDirectory, savedName), "utf8").catch(() => null);
+      }
+      if (downloadedBytes !== null) break;
+      await delay(25);
+    }
+    assert.equal(downloadedBytes, "DOLLY-BROWSER-DOWNLOAD\n");
+    if (name === "browser-download.txt") assert.equal(savedName, name);
+    console.log(`browser: download requested ${JSON.stringify(name)}, Chrome saved ${JSON.stringify(savedName)}`);
+    assert.equal(await submit(`rm ${path}`), 0);
   }
-  assert.equal(downloadStatus, 0);
-  await waitForValue(
-    debuggerClient.send,
-    "Number(document.documentElement.dataset.downloadCount ?? 0)",
-    (value) => value === downloadCountBefore + 1,
-    "browser download dispatch",
-    200,
-  );
-  let downloadedBytes = null;
-  for (let attempt = 0; attempt < 200; attempt++) {
-    downloadedBytes = await readFile(
-      resolve(browserDownloadDirectory, "browser-download.txt"),
-      "utf8",
-    ).catch(() => null);
-    if (downloadedBytes !== null) break;
-    await delay(25);
-  }
-  assert.equal(downloadedBytes, "DOLLY-BROWSER-DOWNLOAD\n");
 
   const resultSequence = await evaluate(
     debuggerClient.send,

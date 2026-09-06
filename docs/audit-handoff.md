@@ -137,6 +137,13 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+Download dispatch preserves literal UTF-8 filenames; Chrome's separate local
+filename sanitization is checked alongside the exact downloaded bytes. The
+unused kernel CPU-affinity helpers are removed. All 12 images, 200 source tests
+and the full Chrome suite pass (`build/literal-download-{before,core-2,images,source,browser}.log`).
+Kernel code/data and raw snapshots remain byte-identical; only export ordering
+changed the runtime identity, and all images were rebuilt without bypassing it.
+
 HTTP metadata is no longer BOM-stripped or Unicode-trimmed; Fetch's `Headers`
 owns header validation and value normalization. The boundary probe now imports
 the selected app's assets, including its admission worker code, rather than

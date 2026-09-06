@@ -2,7 +2,6 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <sched.h>
 #include <stddef.h>
 #include <stdatomic.h>
 #include <stdint.h>
@@ -23,38 +22,6 @@
 #include "process-kernel.h"
 #include "session-snapshot.h"
 #include "system-snapshot.h"
-
-// musl exposes CPU_COUNT_S through this out-of-line helper, but Emscripten's
-// non-pthread main-module link does not retain a definition for it. Keep the
-// result deterministic and wholly in-Wasm: Dolly currently advertises one
-// serialized execution context through sched_getaffinity().
-int __sched_cpucount(size_t size, const void *set) {
-  if (set == NULL) return 0;
-  const unsigned char *bytes = (const unsigned char *)set;
-  int count = 0;
-  for (size_t index = 0; index < size; ++index) {
-    unsigned char value = bytes[index];
-    while (value != 0) {
-      count += value & 1u;
-      value >>= 1;
-    }
-  }
-  return count;
-}
-
-int sched_getaffinity(pid_t pid, size_t size, void *set) {
-  if (set == NULL || size == 0) {
-    errno = EINVAL;
-    return -1;
-  }
-  if (pid != 0 && pid != getpid()) {
-    errno = ESRCH;
-    return -1;
-  }
-  memset(set, 0, size);
-  ((unsigned char *)set)[0] = 1;
-  return 0;
-}
 
 static uint32_t consumed_interrupt_sequence;
 static uint32_t active_terminal_mask = 0x7u;
@@ -211,7 +178,7 @@ DOLLY_EM_JS(int, dolly_download_dispatch,
       dataStart + dataSize > HEAPU8.length) return -EINVAL;
   let decoded;
   try {
-    decoded = new TextDecoder("utf-8", { fatal: true }).decode(
+    decoded = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
       HEAPU8.slice(nameStart, nameStart + nameSize),
     );
   } catch (_) {
