@@ -15,7 +15,7 @@ import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
 const projectDir = resolve(import.meta.dirname, "..");
 const outputDir = resolve(projectDir, "build/routes");
 const template = await readFile(resolve(projectDir, "terminal.html"), "utf8");
-const definitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
+const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const primaryImage = definitions.find(({ image }) => image === "default")?.image ??
   definitions[0].image;
 const staticSources = await inspectStaticSources(projectDir, definitions);
@@ -24,6 +24,24 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
   graph: await loadDollyfileGraph(projectDir, definition.filename),
 })));
 await writeImageRegistry(projectDir, definitions, staticSources);
+const selectedNames = new Set(definitions.map(definition => definition.image));
+const menuNames = new Set();
+let menu = (await readFile(resolve(projectDir, "index.html"), "utf8"))
+  .replace(/<section class="image">[\s\S]*?<\/section>/g, section => {
+    const name = /<h3>([^<]+)<\/h3>/.exec(section)?.[1];
+    if (!selectedNames.has(name)) return "";
+    menuNames.add(name);
+    return section;
+  });
+for (const { image } of definitions) {
+  if (menuNames.has(image)) continue;
+  menu = menu.replace("</nav>", `<section class="image"><h3>${image}</h3>
+    <div class="image-links"><a href="./${image}/">open →</a>
+    <a href="./${image}/rebuild/">rebuild</a><a href="./view/${image}/">Dollyfile</a></div>
+    </section></nav>`);
+}
+await mkdir(outputDir, { recursive: true });
+await writeFile(resolve(outputDir, "index.html"), menu);
 const routes = [
   ...definitions.flatMap(({ image }) => [
     { path: `${image}/index.html`, base: "../", image, mode: "snapshot", load: false },

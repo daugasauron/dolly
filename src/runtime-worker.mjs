@@ -1,7 +1,10 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
-import { loadModuleLayers, saveModuleLayers } from "./module-cache.mjs";
+import { describeImageArtifact, saveImageArtifact, sha256,
+  loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
+import { imageInputs } from "./image-inputs.mjs";
+import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { DollyProcessSupervisor } from "./process-supervisor.mjs";
 import { instantiateKernelPlugin } from "./kernel-plugin.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
@@ -9,7 +12,6 @@ import { createHttpAdmission } from "./http-broker.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const snapshotSizeLimit = 512 * 1024 * 1024;
-const moduleCacheBytesLimit = 512 * 1024 * 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -56,114 +58,6 @@ function locateArtifact(path) {
   return new URL(`dist/${path}`, applicationBase).href;
 }
 
-function hex(bytes) {
-  return [...new Uint8Array(bytes)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function sha256(bytes) {
-  return hex(await crypto.subtle.digest("SHA-256", bytes));
-}
-
-function removeCacheTree(dolly, path) {
-  try {
-    const metadata = dolly.FS.lstat(path);
-    if (!dolly.FS.isDir(metadata.mode)) {
-      dolly.FS.unlink(path);
-      return;
-    }
-    for (const name of dolly.FS.readdir(path)) {
-      if (name !== "." && name !== "..") removeCacheTree(dolly, `${path}/${name}`);
-    }
-    dolly.FS.rmdir(path);
-  } catch {
-    // The cache is optional. Cleanup must never hide the actual build result.
-  }
-}
-
-async function stageModuleCache(dolly, replaceFile) {
-  if (bootMode !== "rebuild" || configuredImage === "custom") return 0;
-  const expected = imageDefinitions.get(configuredImage).moduleCaches;
-  let layers;
-  try {
-    layers = await loadModuleLayers(
-      DOLLY_BUILD_ID,
-      expected.map(({ cacheKey }) => cacheKey),
-    );
-  } catch {
-    return 0;
-  }
-  if (layers.length === 0) return 0;
-  const directory = "/etc/dolly/module-cache-input";
-  try {
-    dolly.FS.mkdirTree(directory);
-  } catch {
-    return 0;
-  }
-  let staged = 0;
-  for (const layer of layers) {
-    const path = `${directory}/${layer.cacheKey}.layer`;
-    try {
-      if (await sha256(layer.bytes) !== layer.sha256) continue;
-      replaceFile(path, new Uint8Array(layer.bytes));
-      staged += 1;
-    } catch {
-      removeCacheTree(dolly, path);
-    }
-  }
-  if (staged === 0) removeCacheTree(dolly, directory);
-  return staged;
-}
-
-async function publishModuleCache(dolly) {
-  if (bootMode !== "rebuild" || configuredImage === "custom") return 0;
-  const expected = new Set(
-    imageDefinitions.get(configuredImage).moduleCaches.map(({ cacheKey }) => cacheKey),
-  );
-  const directory = "/etc/dolly/module-cache-output";
-  let names;
-  try {
-    names = dolly.FS.readdir(directory);
-  } catch {
-    return 0;
-  }
-  const layers = [];
-  let total = 0;
-  for (const name of names) {
-    const match = /^([0-9a-f]{64})\.layer$/.exec(name);
-    if (!match || !expected.has(match[1])) continue;
-    const path = `${directory}/${name}`;
-    try {
-      const size = dolly.FS.stat(path).size;
-      if (!Number.isSafeInteger(size) || size < 16 ||
-          size > moduleCacheBytesLimit - total) continue;
-      const source = dolly.FS.readFile(path);
-      if (source.byteLength !== size) continue;
-      const bytes = new Uint8Array(source.byteLength);
-      bytes.set(source);
-      layers.push({ cacheKey: match[1], sha256: await sha256(bytes), bytes: bytes.buffer });
-      total += bytes.byteLength;
-    } catch {
-      // Ignore a malformed or unreadable optional cache layer.
-    }
-  }
-  removeCacheTree(dolly, directory);
-  if (layers.length === 0) return 0;
-  try {
-    const allowedCacheKeys = DOLLY_IMAGES.flatMap(
-      ({ moduleCaches }) => moduleCaches.map(({ cacheKey }) => cacheKey),
-    );
-    return await saveModuleLayers(DOLLY_BUILD_ID, layers, allowedCacheKeys);
-  } catch {
-    return 0;
-  }
-}
-
-function removeStagedModuleCache(dolly) {
-  removeCacheTree(dolly, "/etc/dolly/module-cache-input");
-}
-
 function readImageEntry(dolly) {
   return decodeImageEntry(dolly.FS.readFile("/etc/dolly/entry"));
 }
@@ -173,160 +67,6 @@ async function runImageEntry(dolly, supervisor) {
   return supervisor.spawn(arguments_[0], arguments_, {
     foreground: true,
   });
-}
-
-function expectedRecipes(image) {
-  return imageDefinitions.get(image).recipes;
-}
-
-function validSnapshotPath(path) {
-  return typeof path === "string" && path.startsWith("/") && path.length > 1 &&
-    path.length <= 4096 && !path.includes("\\") && !path.includes("\0") &&
-    !path.includes("//") &&
-    !path.split("/").some((part) => part === "." || part === "..") &&
-    !["/tmp", "/workspace", "/home/dolly/.pi/agent/auth.json", "/home/dolly/.pi/agent/sessions"]
-      .some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
-}
-
-async function verifyVisibleRecipes(recipes) {
-  for (const recipe of recipes) {
-    const response = await fetch(new URL(recipe.sourcePath.slice(1), applicationBase), {
-      cache: "no-store", credentials: "same-origin", redirect: "error",
-    });
-    if (!response.ok) throw new Error(`${recipe.sourcePath} returned HTTP ${response.status}`);
-    const bytes = await response.arrayBuffer();
-    if (bytes.byteLength !== recipe.byteLength || await sha256(bytes) !== recipe.sha256) {
-      throw new Error(`${recipe.sourcePath} does not match the packaged snapshot recipe`);
-    }
-  }
-}
-
-function expectedModules(image) {
-  return imageDefinitions.get(image).modules;
-}
-
-async function loadPackagedSnapshotMetadata(image) {
-  const metadataUrl = new URL(
-    `dist/dolly-${image}-system-snapshot.mjs`, applicationBase,
-  );
-  let metadata;
-  try {
-    ({ DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(metadataUrl.href));
-  } catch {
-    throw new Error("The packaged system snapshot is missing. Run npm run snapshot first.");
-  }
-  const recipes = expectedRecipes(image);
-  const modules = expectedModules(image);
-  if (metadata === null || typeof metadata !== "object" ||
-      metadata.image !== image || metadata.buildId !== DOLLY_BUILD_ID ||
-      metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
-      JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
-      JSON.stringify(metadata.modules) !== JSON.stringify(modules) ||
-      !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
-      metadata.byteLength > snapshotSizeLimit ||
-      (metadata.encoding !== undefined && metadata.encoding !== "gzip") ||
-      (metadata.encoding === "gzip" &&
-       (!Number.isSafeInteger(metadata.encodedByteLength) ||
-        metadata.encodedByteLength <= 0 || metadata.encodedByteLength > snapshotSizeLimit)) ||
-      !/^[0-9a-f]{64}$/.test(metadata.sha256) ||
-      !Array.isArray(metadata.manifest) || metadata.manifest.length === 0 ||
-      metadata.manifest.length > 100_000) {
-    throw new Error("The packaged system snapshot metadata does not match this Dolly build");
-  }
-  let manifestBytes = 0;
-  // The Wasm reader validates ordering by UTF-8 bytes, not JS UTF-16 strings.
-  for (const path of metadata.manifest) {
-    if (!validSnapshotPath(path)) {
-      throw new Error("The packaged system snapshot has an invalid retained-path manifest");
-    }
-    manifestBytes += encoder.encode(path).byteLength + 1;
-  }
-  if (manifestBytes > 8 * 1024 * 1024) {
-    throw new Error("The packaged system snapshot manifest is too large");
-  }
-  for (const required of [
-    "/etc/dolly/Dollyfile",
-    "/etc/dolly/entry",
-    "/etc/dolly/environment",
-    "/etc/dolly/image",
-    "/etc/dolly/recipes.lock",
-  ]) {
-    if (!metadata.manifest.includes(required)) {
-      throw new Error(`The packaged system snapshot is missing ${required}`);
-    }
-  }
-  await verifyVisibleRecipes(recipes);
-  return metadata;
-}
-
-async function loadPackagedSystemSnapshot(image, metadata) {
-  const compressed = metadata.encoding === "gzip";
-  const artifactUrl = new URL(
-    `dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, applicationBase,
-  );
-  let response;
-  try {
-    response = await fetch(artifactUrl, {
-      cache: "no-store", credentials: "same-origin", redirect: "error",
-    });
-  } catch {
-    throw new Error("The packaged system snapshot could not be loaded");
-  }
-  if (!response.ok) throw new Error(`The packaged system snapshot returned HTTP ${response.status}`);
-  const declared = response.headers.get("content-length");
-  const expectedLength = compressed ? metadata.encodedByteLength : metadata.byteLength;
-  if (declared !== null && Number(declared) !== expectedLength) {
-    throw new Error("The packaged system snapshot has the wrong HTTP content length");
-  }
-  if (!response.body) throw new Error("The packaged system snapshot has no body");
-  const stream = compressed
-    ? response.body.pipeThrough(new DecompressionStream("gzip"))
-    : response.body;
-  const reader = stream.getReader();
-  const bytes = new Uint8Array(metadata.byteLength);
-  let offset = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value.byteLength > bytes.byteLength - offset) {
-        await reader.cancel();
-        throw new Error("The packaged system snapshot exceeds its declared size");
-      }
-      bytes.set(value, offset);
-      offset += value.byteLength;
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  if (offset !== metadata.byteLength || await sha256(bytes) !== metadata.sha256) {
-    throw new Error("The packaged system snapshot failed its integrity check");
-  }
-  return bytes.buffer;
-}
-
-function isStrictModulePrefix(candidate, target) {
-  return candidate.length > 0 && candidate.length < target.length &&
-    candidate.every((module, index) =>
-      module.location === target[index].location &&
-      module.sha256 === target[index].sha256);
-}
-
-async function findModuleCache() {
-  const target = expectedModules(configuredImage);
-  const candidates = [...imageDefinitions.values()]
-    .filter((definition) => isStrictModulePrefix(definition.modules, target))
-    .sort((left, right) => right.modules.length - left.modules.length);
-  for (const candidate of candidates) {
-    try {
-      const metadata = await loadPackagedSnapshotMetadata(candidate.image);
-      return { image: candidate.image, uses: candidate.modules.length, metadata };
-    } catch {
-      // A missing or stale prefix is only a cache miss. The cold rebuild path
-      // remains authoritative and will produce a new verified snapshot.
-    }
-  }
-  return null;
 }
 
 function checkedMemoryRange(memory, addressValue, sizeValue) {
@@ -395,13 +135,31 @@ async function waitForBrowserAcknowledgement(type, failure) {
 let dolly = null;
 let processSupervisor = null;
 const httpAdmission = createHttpAdmission(request => self.postMessage({ type: "http-request", ...request }));
+async function boot() {
 try {
   const snapshotMetadata = bootMode === "snapshot"
     ? await loadPackagedSnapshotMetadata(configuredImage)
     : null;
-  const moduleCache = bootMode === "rebuild" && configuredImage !== "custom"
-    ? await findModuleCache()
-    : null;
+  const definition = imageDefinitions.get(configuredImage);
+  const recipeSha256 = configuredImage === "custom"
+    ? await sha256(encoder.encode(bootConfig.customSource)) : definition.sha256;
+  const baseReference = configuredImage === "custom"
+    ? inspectDollyfile(bootConfig.customSource).from : definition.artifacts.find(reference => !reference.copy);
+  const artifacts = new Map();
+  if (bootConfig.artifacts !== undefined && (!Array.isArray(bootConfig.artifacts) || bootConfig.artifacts.length > 256)) {
+    throw new Error("invalid build artifacts");
+  }
+  for (const candidate of bootConfig.artifacts ?? []) {
+    if (candidate?.buildId !== DOLLY_BUILD_ID || !/^[0-9a-f]{64}$/.test(candidate.recipeSha256) ||
+        !(candidate.bytes instanceof ArrayBuffer) || await sha256(candidate.bytes) !== candidate.sha256) {
+      throw new Error("build artifact integrity mismatch");
+    }
+    artifacts.set(candidate.recipeSha256, await describeImageArtifact(candidate.bytes, candidate.recipeSha256));
+  }
+  bootConfig.artifacts = undefined;
+  const inputs = imageInputs([...artifacts.values()]);
+  const baseArtifact = baseReference ? artifacts.get(baseReference.sha256) : null;
+  if (bootMode === "rebuild" && baseReference && !baseArtifact) throw new Error("base image artifact was not provided");
   bootstrapStage("loading Dolly runtime...");
   const nativeTextDecoder = globalThis.TextDecoder;
   globalThis.TextDecoder = undefined;
@@ -477,11 +235,12 @@ try {
   if (configuredImage === "custom") {
     replaceFile("/etc/dolly/upload.Dollyfile", bootConfig.customSource);
   }
-  const stagedModuleLayers = await stageModuleCache(dolly, replaceFile);
-  if (stagedModuleLayers !== 0) {
-    bootstrapStage(`staged ${stagedModuleLayers} local module cache layers...`);
+  dolly.FS.mkdirTree("/etc/dolly/artifacts");
+  for (const artifact of artifacts.values()) {
+    replaceFile(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`, new Uint8Array(artifact.bytes));
+    if (artifact !== baseArtifact) artifact.bytes = null;
   }
-  const restoreMetadata = snapshotMetadata ?? moduleCache?.metadata;
+  const restoreMetadata = snapshotMetadata ?? baseArtifact;
   if (restoreMetadata) {
     replaceFile("/etc/dolly/image.manifest", `${restoreMetadata.manifest.join("\n")}\n`);
   }
@@ -507,55 +266,26 @@ try {
   let finishRebuiltImage = false;
   if (bootMode === "rebuild") {
     bootstrapStage("building userspace from the Dollyfile...");
-    if (moduleCache) {
-      bootstrapStage(
-        `using ${moduleCache.uses}-module ${moduleCache.image} prefix cache...`,
-      );
-      const snapshot = await loadPackagedSystemSnapshot(
-        moduleCache.image, moduleCache.metadata,
-      );
-      const restoreAddress = dolly._dolly_snapshot_restore_address(
-        BigInt(snapshot.byteLength),
-      );
-      const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
-      new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
-      bootstrapStatus = dolly._dolly_process_bootstrap_resume_prepare(
-        BigInt(range.size), moduleCache.uses,
-      );
+    if (baseArtifact) {
+      bootstrapStage(`restoring base ${baseReference.location}...`);
+      const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(baseArtifact.bytes.byteLength));
+      const range = checkedMemoryRange(memory, restoreAddress, baseArtifact.bytes.byteLength);
+      new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(baseArtifact.bytes));
+      bootstrapStatus = dolly._dolly_process_bootstrap_resume_prepare(BigInt(range.size), 1);
+      baseArtifact.bytes = null;
     } else {
       bootstrapStatus = dolly._dolly_process_bootstrap_prepare();
     }
     if (bootstrapStatus === 0) {
-      processSupervisor = await DollyProcessSupervisor.create(
-        dolly, memory, applicationBase,
-      );
-      const bootstrapArguments = [
-        "/usr/libexec/dolly/process-bin/bootstrap",
-        ...(moduleCache ? ["--resume", String(moduleCache.uses)] : []),
-      ];
-      bootstrapStatus = await processSupervisor.spawn(
-        "/usr/libexec/dolly/process-bin/bootstrap",
-        bootstrapArguments,
-      );
+      processSupervisor = await DollyProcessSupervisor.create(dolly, memory, applicationBase);
+      const arguments_ = baseArtifact
+        ? ["/bin/dollyfile", recipeLocator, applicationBase.href]
+        : ["/usr/libexec/dolly/process-bin/bootstrap"];
+      bootstrapStatus = await processSupervisor.spawn(arguments_[0], arguments_);
     }
-    removeStagedModuleCache(dolly);
-
-    // A compiler-heavy cold build can exhaust its disposable Wasm instance
-    // after several modules. Publish every fully completed, content-addressed
-    // layer even when a later module fails so a reload can resume in fresh
-    // memory. The C engine validates the layer format and exact cache key on
-    // restoration; incomplete modules never create an output layer.
-    const savedModuleLayers = await publishModuleCache(dolly);
-    if (savedModuleLayers !== 0) {
-      bootstrapStage(`saved ${savedModuleLayers} local module cache layers`);
-    }
-
+    for (const artifact of artifacts.values()) dolly.FS.unlink(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
+    artifacts.clear();
     if (bootstrapStatus === 0) {
-      if (moduleCache) {
-        bootstrapStage(
-          `module cache reused ${moduleCache.uses} modules from ${moduleCache.image}`,
-        );
-      }
       if (dolly._dolly_snapshot_capture() !== 0) {
         throw new Error("Dolly system snapshot capture failed");
       }
@@ -565,7 +295,12 @@ try {
       const copy = new Uint8Array(range.size);
       copy.set(new Uint8Array(memory.buffer, range.address, range.size));
       snapshotBytes = range.size;
-      self.postMessage({ type: "system-snapshot", bytes: copy.buffer }, [copy.buffer]);
+      const artifact = await describeImageArtifact(copy.buffer, recipeSha256, inputs);
+      const cacheSlot = configuredImage === "custom"
+        ? `custom:${inspectDollyfile(bootConfig.customSource).image}` : `/${definition.dollyfile}`;
+      const saved = await saveImageArtifact(artifact, cacheSlot);
+      bootstrapStage(saved ? "saved completed image artifact" : "image built; local cache unavailable");
+      self.postMessage({ type: "system-snapshot", bytes: copy.buffer, inputs }, [copy.buffer]);
       finishRebuiltImage = true;
     }
   } else {
@@ -579,6 +314,10 @@ try {
   }
   if (bootstrapStatus !== 0) throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
 
+  if (bootConfig.buildOnly) {
+    self.close();
+    return;
+  }
   processSupervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase);
 
   if (finishRebuiltImage) {
@@ -683,3 +422,5 @@ try {
     stack: error instanceof Error ? error.stack ?? "" : "",
   });
 }
+}
+await boot();

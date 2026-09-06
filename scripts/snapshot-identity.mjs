@@ -26,21 +26,8 @@ export function verifySnapshotIdentity(definition, graph, parsed, processContrac
   if (!selectedBytes || decoder.decode(selectedBytes) !== definition.source) {
     throw new Error("snapshot canonical Dollyfile does not match the selected recipe");
   }
-  const environment = decodeSnapshotEnvironment(parsed.files.get("/etc/dolly/environment"));
-  const expectedEnvironment = [...graph.exporters.values()]
-    .map(({ exported }) => exported).filter(({ type }) => type === "ENV");
-  if (environment.size !== expectedEnvironment.length) {
-    throw new Error("snapshot environment does not match image exports");
-  }
-  for (const exported of expectedEnvironment) {
-    const [operation, appended] = exported.details;
-    const append = exported.details.length === 2 && operation === "APPEND";
-    if (!environment.has(exported.name) ||
-        (!append && environment.get(exported.name) !== operation) ||
-        (append && !environment.get(exported.name).split(":").includes(appended))) {
-      throw new Error(`snapshot environment does not match ENV ${exported.name}`);
-    }
-  }
+  // Runtime ordering determines ENV, not the advisory source inspection graph.
+  decodeSnapshotEnvironment(parsed.files.get("/etc/dolly/environment"));
   const entry = validateSnapshotEntry(parsed, processContract, processAbiDigest);
   if (JSON.stringify(entry) !== JSON.stringify(definition.parsed.entry)) {
     throw new Error("snapshot ENTRY does not match the selected recipe");

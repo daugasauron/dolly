@@ -7,6 +7,8 @@ import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writ
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
+import { mergeSnapshotRecords, validateSnapshotPacks } from "../src/snapshot-records.mjs";
+import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { contractDigest, validateBrowserImports } from "./dolly-abi.mjs";
 import { loadDollyfileGraph, recipeRecords } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources } from "./image-definitions.mjs";
@@ -65,7 +67,8 @@ export async function sourceManifest(root) {
   const paths = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ".",
     ":(exclude).pi/**", ":(exclude).pi-subagents/**", ":(exclude)work/**"], { cwd: root, encoding: "utf8" })
     .split("\0").filter(Boolean);
-  return fileManifest(root, paths);
+  const deleted = new Set(execFileSync("git", ["ls-files", "-z", "--deleted"], { cwd: root, encoding: "utf8" }).split("\0"));
+  return fileManifest(root, paths.filter(path => !deleted.has(path)));
 }
 
 export async function verifySite(site) {
@@ -93,15 +96,33 @@ export async function verifySite(site) {
     const image = definition.image;
     const graph = await loadDollyfileGraph(site, definition.filename);
     const metadata = await constant(`dolly-${image}-system-snapshot.mjs`, "DOLLY_SYSTEM_SNAPSHOT");
+    const inputs = await Promise.all(graph.artifacts.map(async reference => ({
+      recipeSha256: reference.sha256,
+      sha256: (await constant(`dolly-${reference.image}-system-snapshot.mjs`, "DOLLY_SYSTEM_SNAPSHOT")).sha256,
+    })));
+    if (!imageInputsMatch(metadata.inputs, inputs)) throw new Error(`${image}: release image inputs mismatch`);
     if (metadata.image !== image || metadata.buildId !== buildId ||
         metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
         !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength < 16 ||
         metadata.byteLength > 512 * 1024 * 1024 ||
-        ![undefined, "gzip"].includes(metadata.encoding)) throw new Error(`${image}: release snapshot identity mismatch`);
-    let bytes = await readFile(resolve(site, `dist/dolly-${image}-system.snapshot${metadata.encoding ? ".gz" : ""}`));
-    if (metadata.encoding === "gzip") {
-      if (bytes.length !== metadata.encodedByteLength) throw new Error(`${image}: encoded snapshot size mismatch`);
-      bytes = gunzipSync(bytes, { maxOutputLength: metadata.byteLength });
+        ![undefined, "gzip", "packs"].includes(metadata.encoding)) throw new Error(`${image}: release snapshot identity mismatch`);
+    let bytes;
+    if (metadata.encoding === "packs") {
+      const parts = [];
+      for (const pack of validateSnapshotPacks(metadata)) {
+        const compressed = await readFile(resolve(site, `dist/packs/${pack.sha256}.snapshot.gz`));
+        if (compressed.length !== pack.encodedByteLength) throw new Error(`${image}: pack size mismatch`);
+        const part = gunzipSync(compressed, { maxOutputLength: pack.byteLength });
+        if (part.length !== pack.byteLength || sha256(part) !== pack.sha256) throw new Error(`${image}: pack digest mismatch`);
+        parts.push(part);
+      }
+      bytes = mergeSnapshotRecords(parts);
+    } else {
+      bytes = await readFile(resolve(site, `dist/dolly-${image}-system.snapshot${metadata.encoding ? ".gz" : ""}`));
+      if (metadata.encoding === "gzip") {
+        if (bytes.length !== metadata.encodedByteLength) throw new Error(`${image}: encoded snapshot size mismatch`);
+        bytes = gunzipSync(bytes, { maxOutputLength: metadata.byteLength });
+      }
     }
     if (bytes.length !== metadata.byteLength || sha256(bytes) !== metadata.sha256) {
       throw new Error(`${image}: release snapshot digest mismatch`);

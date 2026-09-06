@@ -1,380 +1,158 @@
-# Dollyfile version 2
+# Dollyfile version 3
 
-A Dollyfile is a sequential recipe for one userspace image. Image files select
-modules; modules declare the interface they consume and expose, acquire exact
-inputs, build inside Dolly, and nominate the files that survive snapshotting.
+Dollyfiles are ordered recipes executed by `/bin/dollyfile` inside Wasm.
+Modules group useful steps. They can mix commands, files, child modules, and
+exports, depend on earlier state, and overwrite existing files. The source
+viewer describes this composition; it does not prove that the programs work.
 
-The authoritative parser and executor is [`src/dollyfile.c`](../src/dollyfile.c).
-It is compiled to `/bin/dollyfile` and executes inside the sandbox. JavaScript
-does an earlier structural lint for fast feedback and renders the same source
-as linked plain text, but it does not build the image.
-
-## Shape
-
-An image is deliberately small:
+V3 reuses completed images through explicit `FROM` and `COPY FROM` references.
+Modules within a stage execute normally. A cached image includes its retained
+filesystem, environment, exact exported objects, and recipe provenance.
 
 ```text
-DOLLY 2
-IMAGE pi
+DOLLY 3
+IMAGE example
 
-USE HOST /modules/default.dm    <sha256>
-USE HOST /modules/quickjs.dm    <sha256>
-USE HOST /modules/typescript.dm <sha256>
-USE HOST /modules/pi.dm         <sha256>
-USE HOST /modules/startup-pi.dm <sha256>
-
-ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
-```
-
-A leaf module can build and expose an object:
-
-```text
-DOLLY 2
-MODULE example
-
-REQUIRES HEADER libc
-REQUIRES TOOL   cc
-REQUIRES TOOL   rm
+FROM HOST /Dollyfile-pi <sha256>
 
 FILE /tmp/example.c
     #include <stdio.h>
-    int main(void) { puts("example"); }
-
-SLOP cc \
-  /tmp/example.c \
-  -o /usr/bin/example
-
+    int main(void) { puts("hello from an additional tool"); }
+SLOP cc /tmp/example.c -o /usr/bin/example
 EXPORTS TOOL example
 
-SLOP rm \
-  -f \
-  /tmp/example.c
+ENTRY /bin/slop
 ```
 
-An aggregate module contains `USE` rows and explicitly re-exports only the
-part of its direct children that the next level may consume. The forms do not
-overlap: an image contains only `USE` plus one final `ENTRY`; a module is either
-a leaf with build steps or an aggregate with child `USE` rows. An aggregate
-cannot hide extra `SOURCE`, `FILE`, `FOLDER`, or `SLOP` effects alongside its
-composition graph.
+This starts with the completed Pi userspace and builds one extra command. The
+base's compiler, shell, JavaScript runtime, and agent tools are reused, and the
+base's entry program never starts. Replace `<sha256>` with the referenced
+recipe's digest. `node scripts/update-module-pins.mjs` refreshes references
+through the catalog, including nested modules and image dependencies.
 
-## Sequential rules
+## Operations
 
-Every declaration takes effect at its source position.
+| Declaration | Behavior |
+| --- | --- |
+| `DOLLY 3` | First declaration; selects this language version. |
+| `IMAGE name` / `MODULE name` | Recipe identity. |
+| `USE HOST /modules/name.dm HASH` | Verify and execute the module here. Repeated uses execute again. |
+| `FROM HOST /Dollyfile-name HASH` | Begin an image from a completed artifact; must be the image's first operation. |
+| `COPY FROM HOST /Dollyfile-name HASH /source /destination` | Copy a retained file or tree from an independent artifact. |
+| `SOURCE HOST /path /destination HASH` | Fetch a pinned release input through the HTTP broker. |
+| `SOURCE URL https://… /destination HASH` | Fetch a pinned input through the same broker. |
+| `SLOP command…` | Run the command in Slop with failure stopping the recipe. |
+| `SLOP CWD /directory command…` | Run the command from the specified directory. |
+| `FILE /path` | Retain a file, optionally writing the following indented body first. |
+| `FOLDER /path` | Retain the directory and its current members. |
+| `EXPORTS TYPE name [details]` | Offer an object when this module finishes. |
+| `REQUIRES TYPE name` | Check availability at this point during execution. |
+| `ENTRY /program [arguments…]` | Final image declaration; chooses its own entry program. |
 
-- `USE HOST /modules/name.dm HASH` fetches that exact module, checks its hash,
-  and executes it immediately. One image graph may select a module name or
-  locator only once.
-- A module's `REQUIRES TYPE name` must be satisfied by an export visible from
-  an earlier sibling selected by its parent. That exact object is imported into
-  the module and is consequently available to its direct children. Nothing
-  else from the provider leaks through. Requirements precede composition or
-  build declarations; dependencies are never searched or reordered.
-- A leaf `EXPORTS` checks the object now and makes it visible to the parent.
-  An aggregate `EXPORTS TYPE name` must re-export an identically named object
-  from one of its direct children. It cannot redeclare the path, value, or hash;
-  those details are inherited exactly from the child.
-- `SOURCE HOST|URL location /destination HASH` downloads, verifies, and writes
-  one exact input before continuing.
-- `FILE /path` consumes every following line beginning with four spaces. The
-  four spaces are stripped. The first other line ends the file body. A
-  body-less `FILE` retains an already-created file.
-- A trailing `\` joins physical lines into one declaration. Build commands use
-  `SLOP [CWD /directory] command ...`; a nonzero status aborts immediately.
-- `ENTRY /absolute/program [arguments ...]` selects the image entry point and
-  is the image's final declaration.
+`COPY FROM` maps the source itself to the destination. Directories merge;
+matching files are replaced and unrelated destination files survive. A missing
+source fails. Copying files does not import environment variables or named
+exports. Every imported artifact contributes its original source provenance.
+The Python+Pi recipe demonstrates copying Python into an independently built
+Pi userspace.
 
-Whitespace between arguments is insignificant, so columns may be aligned for
-readability without changing the parser.
+Modules share the current filesystem and environment. `REQUIRES TOOL cc`
+checks command availability on `PATH`; the command need not have a declared
+provider. `REQUIRES ENV NAME` checks the environment. Other named assertions
+check an earlier object's path and basic kind. Assertions are optional and can
+appear wherever they are useful. A module can use undeclared tools; a command
+failure reports the responsible recipe and line.
 
-## Session startup
+## Outputs and environment
 
-The browser executes the retained `ENTRY` once, with no knowledge of Slop, Pi,
-startup files, retries, or recovery shells. Those choices belong to the image.
-The five source images use a final module to retain `/etc/dolly/init.slop` and
-`/home/dolly/.dollyrc` as ordinary `FILE` declarations. Their entry is
-`/bin/foreground -i /bin/slop /etc/dolly/init.slop`.
+The browser runs the retained `ENTRY` once. Startup, `.dollyrc`, foreground
+ownership and recovery belong to ordinary image scripts, not browser logic.
+The catalog uses `/bin/foreground -i /bin/slop /etc/dolly/init.slop`; its startup
+modules run `.dollyrc`, launch the selected program and provide a recovery shell.
+See [process lifecycle](process-model.md#cancellation).
 
-`foreground [-i] /absolute/program [arguments ...]` is a source-built command
-that starts a child with inherited stdio, environment, and cwd, waits, and
-returns its status. It selects that child as the terminal foreground; `-i`
-marks an interactive owner whose commands can be cancelled without ending the
-owner. This is a userspace lifecycle operation, not another browser capability.
-
-The init script checks whether `$HOME/.dollyrc` is a regular file and, if so,
-runs it in a separate `/bin/slop -e` process. Filesystem changes persist, but
-shell variables and environment changes end with that child; persistent image
-environment belongs in module `EXPORTS ENV` declarations. A nonzero status
-other than cancellation (130) prints a diagnostic; startup continues.
-
-The script then starts the image's shell, Pi, or graphics demo. Pi retries at
-most twice after an unexpected failure, never after status 0 or 130. When that
-program exits, every supplied image offers one recovery Slop shell; exiting
-that shell ends the entry. Edit the retained init script or its source module
-to change this policy, with no browser changes.
-
-## Types
-
-The current interface object types are:
-
-- `TOOL name [HASH]`: an executable resolved in `/bin` or `/usr/bin`. Bootstrap
-  compiler tools carry hashes because they are the externally supplied binary
-  seed; source-built tools are authenticated through their pinned recipe and
-  source inputs.
-- `HEADER name /path`: a header file or header tree.
-- `LIB name /path`: one exact static or shared library file.
-- `FILE name /path`: an individually named file interface.
-- `FOLDER name /path`: a named directory interface.
-- `ENV name value` or `ENV name APPEND value`: a persistent environment value.
-
-Quoting preserves one value: `ENV LABEL "APPEND literal"` sets that exact text;
-only a separate `APPEND value` pair requests path-list appending. Paths are
-canonical absolute UTF-8 paths shorter than 4096 bytes, without dot segments,
-trailing slashes, backslashes, or line breaks. `CWD /` is the root exception.
-
-Names are dependency identities, not a package resolver. The path is evidence
-for and storage behind the identity.
-
-## SLOP tool discipline
-
-The executable that starts each `SLOP` row must have appeared in an earlier
-`REQUIRES TOOL` or local `EXPORTS TOOL` row. The fast JavaScript lint and the C
-Dollyfile builder perform this same small sequential check.
-Quoted tool names and `CWD` paths use the same word reader as other directives.
-After decoding the optional `CWD`, the original shell command—including its
-quotes—is passed intact to Slop.
-
-The check exists only while a Dollyfile is building. It does not add variables,
-allowlists, or policy to Slop. Normal interactive Slop is completely unchanged.
-This is structural recipe validation, not a security boundary.
-
-A tool module also declares the ordinary command set that its execution model
-needs. For example, the Make module requires `cp`, while a consumer invoking
-Make requires only `make`; this keeps the command dependency attached to the
-tool that dispatches it. The small checker deliberately does not parse
-Makefiles or constrain interactive Slop, so this remains build-graph
-documentation rather than a security policy.
-
-## What survives the build
-
-The build filesystem may contain arbitrary intermediates, but the snapshot
-builder never walks it looking for outputs. It serializes only the sorted paths
-in `/etc/dolly/image.manifest`.
-An explicit `SOURCE` destination or inline `FILE` has one module owner. Another
-module claiming that exact path fails before fetching or writing its replacement;
-the same module may update its own path sequentially. JavaScript checks the same
-ownership rule while building the inspection graph.
-
-Retention roots are explicit:
-
-- A leaf `EXPORTS TOOL`, `HEADER`, `LIB`, `FILE`, or `FOLDER` validates the
-  exact file or directory that proves that export. `ENV` validates and applies
-  a value but retains no file.
-- At the image boundary, each direct module export is retained. An aggregate
-  therefore controls its complete public closure: a leaf object omitted from
-  every aggregate re-export is build-private and does not enter the image.
-- `FILE /path` retains that exact non-temporary file. `FILE /tmp/...` is an
-  inline or generated build input and is intentionally discarded.
-- `FOLDER /path` freezes that directory and its descendants at that source
-  position, including empty directories and symlinks without following them.
-  Paths created below it by a later module are not silently absorbed.
-- Dolly adds the selected recipe, every pinned module recipe, the recipe lock,
-  image name, entry record, exported environment record, and the manifest
-  itself.
-
-Aggregate re-exports preserve the exact underlying path and the file membership
-captured by the producing module; they do not rescan or create a copy. An
-aggregate also removes child `ENV` values it did not re-export.
-Unexported compiler objects, extracted sources, and other build results
-disappear unless a non-temporary `FILE` or `FOLDER` explicitly keeps them.
-This applies to the live filesystem after a rebuild as well as prebuilt boot:
-before entry, Wasm removes unretained paths, preserving runtime `/dev` and
-`/seed` and empty `/tmp`, `/workspace`, and `/home/dolly`. Prebuilt boot does not
-copy seed `/usr` into the image. The default module explicitly re-exports the
-compiler SDK and `/bin/dollyfile`, so both remain ordinary installed tools.
-
-`ENTRY` does not implicitly retain an executable: its path and resolved target
-must belong to the image's retained outputs, or sealing fails. Packaging resolves
-the entry against the retained snapshot, not the build filesystem, and applies
-the same typed process-ABI validator as browser admission. This also rejects
-broken entry symlink chains and incompatible executables before publication.
-`ENTRY` permits empty arguments, with at most 256 arguments, 4096 bytes per
-argument, and a 64 KiB record. Packaging and browser boot share one bounded
-record decoder. The C engine checks these limits before sealing.
-
-System snapshots and module-cache layers use envelope version 2 with records
-`kind:u32, path-length:u32, data-length:u64, path, data` (little-endian). Kinds are
-directory (1, no data), regular file (2), and symlink (3, raw target bytes).
-Session deltas share those kinds and add deletion (4). Restoration validates
-the complete sorted parent graph before writing and never follows an old
-symlink while replacing a path. No mode, timestamp, or permission model is added.
-
-There can therefore be more retained files than public exports, but never from
-implicit discovery. They come from private `FILE`/`FOLDER` declarations, fixed
-image-control files, or an explicitly exported directory. A broad directory
-root is worth reviewing carefully: for example, exporting `/usr/include` means
-every header present when that export is declared is retained. The manifest is the
-smallest *declared* closure, which is not automatically the smallest semantic
-closure.
-
-Only `ENV` objects exported by direct image modules are serialized. Packaged
-boots apply the versioned `/etc/dolly/environment` record after restoring the
-filesystem and before loading `DISPLAY` or starting the entry point. A prefix
-rebuild reconstructs the same values while replaying its skipped module
-declarations, avoiding a double application of `ENV ... APPEND`. Ambient
-build-process variables are never serialized.
-
-Mutable session paths such as `/workspace`, `/tmp`, Pi credentials, and Pi
-sessions cannot be retained. Every executable module must leave `/tmp` empty
-when it returns; this catches temporary objects made indirectly by `make`, the
-compiler, or another required tool. Module-owned scratch cleanup is therefore
-a checked build invariant rather than a convention. A failed recipe produces
-neither an image nor a layer for the failed module; its scratch is removed.
-Already completed, validated module layers remain reusable.
-
-## Module cache
-
-Successful leaf modules with `SLOP` build work emit a content-addressed layer
-containing only their declared non-temporary `FILE`/`FOLDER` paths and exact
-non-`ENV` exports. Source-only interface modules remain cheap cold steps and do
-not duplicate preinstalled seed objects in browser storage. The
-layer key binds the module to every earlier completed recipe and to the exact
-objects visible through its parent scope. Changing an early dependency or a
-parent import therefore invalidates the affected layers, while editing a late
-module reuses the expensive prefix. Cache hits restore the layer, then replay
-the module parser with execution disabled; requirements, exports, environment,
-tool discipline, hashes, and cleanup checks are still validated.
-
-The trusted runtime worker stores these optional layers in a dedicated
-IndexedDB database under the runtime build ID. It loads only keys listed for
-the selected source graph, verifies each layer hash, and stages opaque bytes in
-WasmFS. Wasm code receives no IndexedDB, JavaScript, cookie, local-storage, or
-general browser API. A missing, malformed, unreadable, storage-denied, or
-quota-limited cache is a normal cold-build fallback. A layer is fully validated
-before any of its files are restored. Reads are bounded across all requested
-layers, and keys no longer referenced by any packaged image are removed. Module
-cache files are removed before the finished image snapshot and live shell start.
-An overall build failure preserves already completed, validated module layers;
-unfinished module scratch is discarded.
-
-Interactive browsers retain this database for their normal origin. The
-headless snapshot builder uses a dedicated worktree-local Chrome profile under
-`.cache/snapshot-browser-profile` and a deterministic worktree-local loopback
-port, so repeated `npm run snapshot` invocations use the same browser origin
-and reuse valid layers instead of starting with empty browser storage. That
-profile is a development cache only; it is not copied into snapshots or Pages
-artifacts. `DOLLY_BROWSER_PROFILE` and `DOLLY_BROWSER_PORT` can override those
-choices.
-
-Before launching Chrome, the snapshot builder also validates an existing
-packaged image against the current runtime ID and complete recipe identity,
-parses its environment/entry/manifest, and verifies its byte length and SHA-256.
-An exact match is already the requested output and is skipped. Set
-`DOLLY_FORCE_SNAPSHOT=1` to rebuild even a current image.
-
-`DOLLY_SNAPSHOT_IMAGE=default npm run snapshot:reproducible` is a different
-operation: it launches two builds with separate empty browser profiles, then
-reuses the first profile for a third, cached build. The test server does not
-serve packaged snapshots. Each run must export a fresh snapshot, the harness
-checks whether module restoration actually occurred, and all three byte streams
-must agree. Outputs and profiles are owned temporary files; the published image
-and normal development cache are neither inputs nor overwritten. This checks
-userspace rebuilding against the current external compiler seed, not a clean
-rebuild of the external toolchain itself.
-
-There is a second coarse packaged cache:
-
-A rebuild may reuse the longest packaged image whose top-level `USE` rows are
-an exact prefix of the requested image. The five current recipes end with
-different startup modules, so none is a strict prefix of another; sharing
-dependencies alone does not qualify. Benefit from this extra cache is unproven
-for the current catalog.
-The builder still fetches, hashes, parses, and validates every skipped module;
-it replays declarations and environment exports but does not rerun their
-`SOURCE`, inline `FILE`, or `SLOP` effects.
-
-Cache identity is the runtime build ID plus the ordered module locations and
-hashes. The snapshot byte length, SHA-256, root recipe, and retained-path
-manifest receive the same checks as a normal packaged image. A missing, stale,
-or non-prefix snapshot is a cache miss and falls back to a cold build.
-
-Both mechanisms are build optimizations. They add no Slop behavior, guest
-command policy, or network edge. The outputs available after a cache hit remain
-exactly the files selected by the source modules' `FILE`, `FOLDER`, and leaf
-`EXPORTS` declarations.
-
-Cache paths must not alter output bytes. The synchronous compiler therefore
-uses one stable, cleaned scratch namespace instead of embedding an invocation
-counter in temporary object names, and LLD merges sections on one thread.
-CPython's otherwise time-varying build-info translation unit receives a fixed
-date and time. The current reproducibility gate compares two cold default-image
-builds and one layer-cached build byte-for-byte. It does not verify every extended
-image or the packaged-prefix path.
-
-The runtime build ID hashes the runtime Wasm followed by its data file, not the
-entire source tree or browser implementation. Those bytes changing rotate the
-cache namespace; recipe/module hashes are bound separately. Browser-only edits
-do not automatically invalidate cached userspace.
-
-Because the conservative key includes the complete earlier recipe prefix,
-independent leaves are ordered deliberately: expensive stable foundations such
-as native Zig and the Ghostty display build come immediately after their real
-prerequisites, while cheaper SDK and utility leaves follow them. The same
-boundary applies inside aggregates: `python.dm` runs the expensive
-`cpython.dm` leaf before the faster-moving `bonnie.dm` package installer, so a
-resolver-only edit restores CPython rather than rebuilding it. This preserves
-the simple shared-filesystem correctness model without making an unrelated C++,
-Git, or Python recipe edit recompile the terminal stack.
-
-## Exploring `COPY FROM`
-
-There is one concrete use that modules do not solve: build a complete SDK image,
-then derive a smaller runtime image containing selected files without rerunning
-or retaining the SDK's compiler and sources. That is a real multi-stage build,
-not a module dependency.
-
-The candidate syntax is intentionally not accepted yet:
+`EXPORTS TOOL name` resolves a command on `PATH`; it takes no path. The builder
+retains the resolved file when the module finishes. An optional hash asserts its
+bytes. `FILE`, `LIB`, `FOLDER`, and `HEADER` exports require a name and an absolute
+path, including when exporting a child's outputs. `FILE` and `LIB` must be files,
+`FOLDER` a directory, and `HEADER` may be either. These are small runtime checks,
+not compatibility certificates.
 
 ```text
-COPY FROM sdk /usr/bin/application       /usr/bin/application
-COPY FROM sdk /usr/lib/libapplication.so /usr/lib/libapplication.so
+EXPORTS LIB example /usr/lib/libexample.a
+EXPORTS HEADER example /usr/include/example
+EXPORTS FOLDER python-stdlib /usr/lib/python3.14
+EXPORTS ENV EXAMPLE_HOME /usr/share/example
+EXPORTS ENV PATH APPEND /opt/example/bin
 ```
 
-For this to be reproducible, `sdk` cannot be an unpinned friendly name. It must
-resolve to a source-visible Dollyfile, the same runtime build ID, its complete
-recipe chain, and a verified snapshot digest. Directory copies additionally
-need a canonical tree digest and the same forbidden-descendant checks as
-`FOLDER`. The copied files would be new owned outputs of the receiving image;
-the source image's environment, entry point, credentials, sessions, and all
-unselected paths would remain absent.
+Declarations may precede creation of their outputs: members are captured when
+the module finishes. A directory export includes the files present at that point,
+including additions made after a child finishes. Repeated exports replace the
+previous named object. An image retains its direct modules' exports; a module
+selects which outputs to offer in turn. Explicit `FILE` and `FOLDER` retention
+also survives composition.
 
-Implementing the spelling before that resolver exists would make `COPY FROM`
-less reproducible than `SOURCE` and add a second implicit trust path. The
-C++/Python SDK-to-runtime split is the intended proving case. If it needs this
-operation, the implementation should first expose packaged snapshots as a
-verified, bounded read-only artifact source, then add the small path-copy
-directive above. It should not make images recursively execute other images.
+Environment assignments take effect immediately and persist through subsequent
+steps. `EXPORTS ENV NAME` keeps the current value; `APPEND` joins with a colon.
+The final environment values are stored in the image; loading a base does not
+replay assignments or append them twice.
+Recipe values are literal; shell expansion happens inside `SLOP`.
 
-For ordinary library composition, `REQUIRES`/`EXPORTS` remains the smaller
-mechanism. `SOURCE` remains the operation for an independently pinned external
-file.
+Unretained intermediate files disappear when the finished image boots. Temporary
+files do not need explicit cleanup to make a module valid. Cleaning large build
+trees can still reduce peak memory. Deleting an earlier retained file removes it
+from the final image. Mutable workspace files, agent credentials, and session
+history cannot be packaged as image outputs.
 
-## Selecting host preparation
+## Text and inspection
 
-`DOLLY_BUILD_IMAGES=default` (or a comma-separated list) limits host source
-preparation, static routes, the generated registry, snapshots, and packaged
-modules to the selected image graphs. Omitting it builds all source-visible
-images. The common runtime compiler seed remains shared because every current
-image builds above it.
+Recipe words support quotes and escapes. Comments begin with `#` at the start
+of a word, outside quotes. Comments are removed before interpreting a trailing
+backslash as a continuation. `SLOP` preserves the command's original quoting
+when passing it to the shell.
 
-## Network and identity
+A `FILE` body consists of consecutive lines starting with four spaces. Exactly
+those four spaces are removed; a blank content line needs four spaces too.
+The first line without that indentation ends the body. Body text is literal,
+including comments and backslashes.
 
-All module and source requests cross `env.dolly_http_dispatch`, the same single
-browser broker used by programs. A recipe does not grant network authority;
-the browser policy still controls destinations, credentials, redirects, size,
-quota, and approval.
+The linked plaintext viewer keeps modules, runtime assertions, inputs, and
+artifact references clickable. A missing inferred provider is not a lint
+error. Syntax, source hashes, recursive inclusion cycles, ABI admission, and
+browser authority remain checked.
 
-Snapshot metadata binds the opaque snapshot to the runtime build, image name,
-root Dollyfile, full pinned recipe chain, entry arguments, exact retained-path
-manifest, byte length, and SHA-256. A stale recipe or runtime therefore cannot
-silently restore an older image.
+## Build reuse
+
+The browser looks for a verified local artifact, then a matching published
+artifact. A missing dependency is built in a disposable Wasm instance before
+its consumer. Builds run sequentially, and each completed artifact is saved
+before later stages run. Each worker uses the same explicit HTTP policy.
+
+Cache identity includes the runtime build ID, the root recipe hash, and the
+actual snapshot digests of its direct image inputs. A dependency rebuilt into
+different bytes invalidates its consumers even if its recipe did not change.
+V3 does not cache individual modules by their declared outputs: arbitrary
+reads, overwrites, and deletions make that
+insufficient. Explicit rebuild reruns the selected stage while reusing its
+referenced image artifacts. Unpinned network access inside arbitrary commands
+is not made reproducible by the cache; change a recipe pin or rebuild the
+relevant artifact when refreshing such inputs.
+
+All five existing images remain source recipes: `default`, `pi`, `python`,
+`python-pi`, and `gamedev`. There is no required catalog-wide dependency solver
+or additional module interface language.
+
+For recipe-only iteration, run `npm run image -- IMAGE`. It refreshes pins,
+builds the selected image and any missing referenced artifacts, and uses the
+existing Wasm runtime. Add `--package` to create a verified local preview release
+for `npm run serve`. Rebuild the runtime separately when changing the kernel,
+bootstrap seed, or Dollyfile executor. `SOURCE` inputs still need their correct
+content hashes; recipe pin refresh does not bless changed external inputs.
+
+Published images share compressed packs of identical filesystem records. Each
+image lists the packs it needs; the browser reconstructs and verifies the exact
+snapshot before restoring it. File identity includes path, kind, and contents,
+so overwrites and symlinks remain distinct. Pack URLs are content-addressed and
+can be reused across images. This reduces distribution duplication without
+adding layer-mount behavior to the Wasm filesystem.

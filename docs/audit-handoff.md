@@ -23,8 +23,26 @@ Evidence: `build/signal-push-all-snapshots.log`,
 and `build/signal-push-gamedev-browser.log`. Earlier failed runs remain available.
 This follow-up used the existing seed toolchain/cache; it is not a new cold-bootstrap proof.
 
-Next: review/integrate the separate Dollyfile v3 experiment at
-`/tmp/dolly-v3.l3vYGA`, which this pass has not modified.
+## Dollyfile v3 integration
+
+Integrated the surviving `codex/dollyfile-v3` branch, preserving the signal,
+Git and image-owned startup changes above. Modules remain sequential and
+permissive; only completed images are cached. TOOL exports resolve on PATH and
+retain that output, runtime ENV overrides remain authoritative, and the C/JS
+parsers agree on empty commands and image-name limits. No browser imports changed.
+
+All five v3 images, 191 source tests and the complete Chrome suite passed.
+The addon test verifies sealed/restored PATH outputs, edited commands, cache
+reuse and invalidation when base bytes change without changing the base recipe.
+Runtime: `sha256:f8a9a548a07d5f58a191e0d37cef7bf2d2c8e6db34717fa59452423bc12267c1`.
+Evidence: `build/v3-integration-snapshots.log`, `build/v3-integration-source-2.log`
+and `build/v3-integration-browser.log`. Earlier failing iteration runs exposed a
+test startup assumption: a custom Slop entry is not the catalog's Pi entry.
+
+Remaining v3 work: stable runtime image boundaries, source-only preparation,
+Python packaging size/COPY scope, lazy artifact loading and stable small packs.
+The external audit survives at `/home/daug/dolly-audits/v3-3c8e352`; its old
+temporary worktree does not.
 
 ## Completed
 

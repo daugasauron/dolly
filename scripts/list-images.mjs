@@ -10,7 +10,7 @@ import {
 import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
-const definitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
+const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 if (process.argv[2] === "--sources") {
   for (const source of await inspectStaticSources(projectDir, definitions)) {
     console.log(`${source.path}\t${source.media}\t${source.sha256}\t${source.byteLength}`);

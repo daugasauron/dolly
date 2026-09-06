@@ -1,10 +1,10 @@
-DOLLY 2
+DOLLY 3
 IMAGE pi
 
-USE HOST /modules/default.dm    bbfb2d00e3e4cbd6fcbd1d6812610075adc2ce140c3925a8b62107c7382d17c8
-USE HOST /modules/quickjs.dm    8961ddc19e5e691703f2d41e9b861e53e89b2461f8b3f72fb81adb320c665073
-USE HOST /modules/typescript.dm f10a3b924e5e80d3f0cfe8c07311d538812f1eaef4af60c0a9a6189c3672b6cb
-USE HOST /modules/pi.dm         da3f406e490065aa1550aab691f87f34d658191eacd3334ca5c309fca7766dd1
-USE HOST /modules/startup-pi.dm d8b4edda3197b58cce941663bd7d9afd71a0dc1dbe24c1e790894cd95700dce4
+FROM HOST /Dollyfile 54b4cc5fb29a474909739ef6919c54020f14ae0d724c48b230764c1405c48575
+USE HOST /modules/quickjs.dm    201e0508c9186273d1560a23b90085f10140ca6dd650c7a9f5a7870b15b2fada
+USE HOST /modules/typescript.dm 6e3d68d10ad21724da28f91f6bf9350d16db16917d93e793b9004f0b6688b3a0
+USE HOST /modules/pi.dm         d522add24178abe6a1d5cb9fe59faf45200fb7ea880604e604880390fddd68f7
+USE HOST /modules/startup-pi.dm 2260ef3f5dd28500dece441f55a7a35cd900b5cfe01882a9d0f58aa3a675b8a8
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

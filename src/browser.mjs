@@ -1,3 +1,4 @@
+import { prepareImageArtifacts } from "./image-build.mjs";
 import { consumeDollyHttpPolicy } from "./http-policy.mjs";
 import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION } from "./http-broker.mjs";
 import { SessionTransport } from "./session-transport.mjs";
@@ -44,6 +45,7 @@ let presenter;
 let resizeObserver;
 let runtimeReady = false;
 let builtSystemSnapshot = null;
+let builtSystemInputs = null;
 let rebuiltSessionBaseVerified = false;
 let httpAdmission;
 const maximumDownloadBytes = 64 * 1024 * 1024;
@@ -1250,6 +1252,50 @@ async function boot() {
     }
   });
 
+  async function buildDependency(dependencyImage, artifacts) {
+    const worker = new Worker(new URL("./runtime-worker.mjs", import.meta.url), {
+      type: "module", name: `dolly-build-${dependencyImage}`,
+    });
+    let network, admission;
+    const outputDecoder = new TextDecoder();
+    try {
+      return await new Promise((resolve, reject) => {
+        worker.addEventListener("error", reject, { once: true });
+        worker.addEventListener("message", event => {
+          const message = event.data;
+          try {
+            if (message.type === "bootstrap") appendBootstrap(message.text);
+            else if (message.type === "bootstrap-bytes") appendBootstrap(outputDecoder.decode(message.bytes, { stream: true }));
+            else if (message.type === "system-snapshot") resolve({ bytes: message.bytes, inputs: message.inputs });
+            else if (message.type === "error") reject(new Error(message.message));
+            else if (message.type === "broker-ready") {
+              if (network || message.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION ||
+                  !(message.httpAdmission instanceof SharedArrayBuffer) || message.httpAdmission.byteLength !== 8) {
+                throw new Error("invalid build HTTP broker handshake");
+              }
+              admission = new Int32Array(message.httpAdmission);
+              network = new NetworkTransport(message.memory, message.httpAddress, message.httpCapacity, httpPolicy);
+              worker.postMessage({ type: "broker-ready-ack" });
+            } else if (message.type === "http-request") {
+              if (!network) throw new Error("build requested HTTP before broker setup");
+              void network.dispatch(message).then(result => {
+                Atomics.store(admission, 1, result);
+                Atomics.store(admission, 0, 0);
+                Atomics.notify(admission, 0);
+              }).catch(reject);
+            }
+          } catch (error) { reject(error); }
+        });
+        worker.postMessage({ type: "configure", mode: "rebuild", image: dependencyImage, buildOnly: true, artifacts });
+      });
+    } finally {
+      network?.interrupt();
+      worker.terminate();
+    }
+  }
+  const artifacts = bootMode === "rebuild"
+    ? await prepareImageArtifacts(image, customSource, buildDependency, text => appendBootstrap(`${text}\n`)) : [];
+
   const workerUrl = new URL("./runtime-worker.mjs", import.meta.url);
   runtimeWorker = new Worker(workerUrl, {
     type: "module",
@@ -1263,6 +1309,7 @@ async function boot() {
       appendBootstrap(bootstrapDecoder.decode(message.bytes, { stream: true }));
     } else if (message.type === "system-snapshot") {
       builtSystemSnapshot = message.bytes;
+      builtSystemInputs = message.inputs;
     } else if (message.type === "broker-ready") {
       try {
         if (networkTransport !== undefined || message.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION) {
@@ -1306,12 +1353,13 @@ async function boot() {
     type: "configure",
     image,
     mode: bootMode,
+    artifacts,
     ...(customSource === undefined ? {} : { customSource }),
     ...(sessionSnapshot === undefined ? {} : { sessionSnapshot }),
   };
   runtimeWorker.postMessage(
     workerConfiguration,
-    sessionSnapshot === undefined ? [] : [sessionSnapshot],
+    [...artifacts.map(artifact => artifact.bytes), ...(sessionSnapshot === undefined ? [] : [sessionSnapshot])],
   );
 
   const ready = await new Promise((resolve, reject) => {
@@ -1422,6 +1470,9 @@ async function boot() {
     },
     get systemSnapshot() {
       return builtSystemSnapshot;
+    },
+    get systemInputs() {
+      return builtSystemInputs;
     },
     get sessionName() {
       return currentSessionName;

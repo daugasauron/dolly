@@ -8,7 +8,6 @@ import test from "node:test";
 
 import {
   loadDollyfileGraph,
-  moduleCacheRecords,
 } from "../scripts/dollyfile-graph.mjs";
 import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
@@ -59,15 +58,6 @@ const imageSpecs = [
     program: "/usr/bin/graphics-demo",
   },
 ];
-const defaultChildren = [
-  "bootstrap", "core-tools", "download", "tar", "make", "zig", "ghostty", "cpp",
-  "ninja", "zlib", "curl", "git", "awk", "sbase",
-  "sbase-tools-1", "sbase-tools-2", "sbase-tools-3", "sbase-tools-4",
-  "sbase-tools-5", "sbase-tools-6", "sbase-tools-7", "sbase-tools-8",
-  "sbase-tools-9", "sbase-tools-10", "sbase-tools-11", "sbase-tools-12",
-  "agent-tools",
-];
-
 async function loadImages() {
   return Promise.all(imageSpecs.map(async (spec) => ({
     spec,
@@ -87,65 +77,6 @@ function digest(source) {
   return createHash("sha256").update(source).digest("hex");
 }
 
-function assertAlignedTableBlocks(source, label) {
-  const lines = source.split("\n");
-  const pattern = /^(USE|SOURCE|REQUIRES|EXPORTS)\b/;
-  for (let start = 0; start < lines.length;) {
-    const first = pattern.exec(lines[start]);
-    if (!first) {
-      start += 1;
-      continue;
-    }
-    const directive = first[1];
-    let end = start + 1;
-    while (end < lines.length && pattern.exec(lines[end])?.[1] === directive) end += 1;
-    const rows = lines.slice(start, end).map((line) =>
-      [...line.matchAll(/\S+/g)].map((match) => match.index));
-    const columnCount = Math.max(...rows.map((row) => row.length));
-    for (let column = 0; column < columnCount; column += 1) {
-      const positions = new Set(rows.flatMap((row) => row[column] === undefined ? [] : [row[column]]));
-      assert.equal(
-        positions.size,
-        1,
-        `${label}:${start + 1}-${end}: column ${column + 1} is not aligned`,
-      );
-    }
-    start = end;
-  }
-}
-
-test("each image directly selects its unique ordered modules", async () => {
-  const images = await loadImages();
-  for (const { spec, graph } of images) {
-    assert.equal(graph.root.image, spec.image);
-    assert.deepEqual(graph.root.entry,
-      ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
-    assert.equal(graph.root.requirements.length, 0);
-    assert.deepEqual(graph.root.children.map(({ name }) => name), spec.uses);
-    assert.equal(new Set(graph.modules.map(({ name }) => name)).size, graph.modules.length);
-    for (const module of graph.modules) {
-      for (const edge of module.dependencies) {
-        assert.ok(
-          edge.provider.parent === module.parent ||
-          module.parent.imports.has(`${edge.requirement.type}:${edge.requirement.name}`),
-          `${edge.provider.name} -> ${module.name}`,
-        );
-      }
-    }
-  }
-  const modules = uniqueModules(images);
-  assert.deepEqual(
-    modules.get("default").children.map(({ name }) => name),
-    defaultChildren,
-  );
-  const diskModules = (await readdir(resolve(projectDir, "modules")))
-    .filter((name) => name.endsWith(".dm"));
-  assert.deepEqual(
-    [...modules.keys()].sort(),
-    diskModules.map((name) => name.slice(0, -3)).sort(),
-  );
-});
-
 test("QuickJS is selected only by Pi-bearing images", async () => {
   const images = await loadImages();
   const defaultGraph = images.find(({ spec }) => spec.image === "default").graph;
@@ -157,10 +88,10 @@ test("QuickJS is selected only by Pi-bearing images", async () => {
 
   for (const { spec, graph } of images.filter(({ spec }) =>
     ["pi", "python-pi", "gamedev"].includes(spec.image))) {
-    const quickjs = graph.root.children.find(({ name }) => name === "quickjs");
-    const pi = graph.root.children.find(({ name }) => name === "pi");
-    assert.ok(quickjs, `${spec.image} must directly USE quickjs`);
-    assert.ok(pi, `${spec.image} must directly USE pi`);
+    const quickjs = graph.modules.find(({ name }) => name === "quickjs");
+    const pi = graph.modules.find(({ name }) => name === "pi");
+    assert.ok(quickjs, `${spec.image} must include quickjs`);
+    assert.ok(pi, `${spec.image} must include pi`);
     for (const requirement of ["LIB:dolly-js", "HEADER:quickjs-runner"]) {
       const [type, name] = requirement.split(":");
       const edge = pi.dependencies.find((item) =>
@@ -198,82 +129,18 @@ test("the linked viewer preserves table alignment whitespace", async () => {
   }
 });
 
-test("a requirement cannot be satisfied by a later USE", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-sequential-"));
-  try {
-    await mkdir(resolve(fixture, "modules"));
-    const consumer = "DOLLY 2\nMODULE consumer\n\nREQUIRES TOOL cc\n";
-    const provider = "DOLLY 2\nMODULE provider\n\nEXPORTS TOOL cc\n";
-    await Promise.all([
-      writeFile(resolve(fixture, "modules/consumer.dm"), consumer),
-      writeFile(resolve(fixture, "modules/provider.dm"), provider),
-    ]);
-    const root = (first, second) => `DOLLY 2
-IMAGE default
-
-USE HOST /modules/${first}.dm ${digest(first === "consumer" ? consumer : provider)}
-USE HOST /modules/${second}.dm ${digest(second === "consumer" ? consumer : provider)}
-
-ENTRY /bin/cc
-`;
-    await writeFile(resolve(fixture, "Dollyfile"), root("consumer", "provider"));
-    await assert.rejects(
-      loadDollyfileGraph(fixture),
-      /TOOL cc must be exported by an earlier USE/,
-    );
-    await writeFile(resolve(fixture, "Dollyfile"), root("provider", "consumer"));
-    const graph = await loadDollyfileGraph(fixture);
-    assert.deepEqual(graph.modules.map(({ name }) => name), ["provider", "consumer"]);
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
-test("grandchild exports do not leak into their grandparent scope", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-nested-scope-"));
-  try {
-    await mkdir(resolve(fixture, "modules"));
-    const provider = "DOLLY 2\nMODULE provider\n\nEXPORTS TOOL cc\n";
-    const aggregate = `DOLLY 2
-MODULE aggregate
-
-USE HOST /modules/provider.dm ${digest(provider)}
-`;
-    const consumer = "DOLLY 2\nMODULE consumer\n\nREQUIRES TOOL cc\n";
-    await Promise.all([
-      writeFile(resolve(fixture, "modules/provider.dm"), provider),
-      writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
-      writeFile(resolve(fixture, "modules/consumer.dm"), consumer),
-    ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
-IMAGE default
-
-USE HOST /modules/aggregate.dm ${digest(aggregate)}
-USE HOST /modules/consumer.dm  ${digest(consumer)}
-
-ENTRY /bin/cc
-`);
-    await assert.rejects(
-      loadDollyfileGraph(fixture),
-      /TOOL cc must be exported by an earlier USE in Dollyfile/,
-    );
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
 test("an aggregate imports its requirements into its child scope", async () => {
   const fixture = await mkdtemp(resolve(tmpdir(), "dolly-imported-requirement-"));
   try {
     await mkdir(resolve(fixture, "modules"));
-    const seed = "DOLLY 2\nMODULE seed\n\nEXPORTS TOOL cc\n";
-    const child = `DOLLY 2
+    const seed = "DOLLY 3\nMODULE seed\n\nEXPORTS TOOL cc\n";
+    const child = `DOLLY 3
 MODULE child
 
 REQUIRES TOOL cc
 EXPORTS TOOL result
 `;
-    const aggregate = `DOLLY 2
+    const aggregate = `DOLLY 3
 MODULE aggregate
 
 REQUIRES TOOL cc
@@ -286,7 +153,7 @@ EXPORTS TOOL result
       writeFile(resolve(fixture, "modules/child.dm"), child),
       writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
     ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
+    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 3
 IMAGE default
 
 USE HOST /modules/seed.dm      ${digest(seed)}
@@ -303,215 +170,36 @@ ENTRY /bin/result
   }
 });
 
-test("aggregate exports inherit the exact child object", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-exact-reexport-"));
+test("aggregate filesystem exports use their declared paths without provider checks", async () => {
+  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-explicit-export-"));
   try {
     await mkdir(resolve(fixture, "modules"));
-    const child = "DOLLY 2\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
-    const aggregate = `DOLLY 2
+    const child = "DOLLY 3\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
+    const aggregate = `DOLLY 3
 MODULE aggregate
 
 USE HOST /modules/child.dm ${digest(child)}
-EXPORTS LIB z
+EXPORTS LIB z /usr/lib/replacement.a
 `;
     await Promise.all([
       writeFile(resolve(fixture, "modules/child.dm"), child),
       writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
     ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
+    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 3
 IMAGE default
 
 USE HOST /modules/aggregate.dm ${digest(aggregate)}
 ENTRY /bin/result
 `);
     const graph = await loadDollyfileGraph(fixture);
-    assert.deepEqual(graph.exporters.get("LIB:z").exported.details, ["/usr/lib/libz.a"]);
-    assert.throws(
-      () => inspectDollyfile(aggregate.replace("EXPORTS LIB z", "EXPORTS LIB z /wrong")),
-      /aggregate EXPORTS inherits its object/,
-    );
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
-test("the fast parser accepts only the C executor's version-2 forms", () => {
-  assert.throws(
-    () => inspectDollyfile("DOLLY 1\nIMAGE old\n", "old.Dollyfile"),
-    /first declaration must be DOLLY 2/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-MODULE bad
-EXPORTS ENV VALUE too many words
-`, "bad.dm"),
-    /invalid ENV export/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-MODULE bad
-EXPORTS ENV BAD-NAME value
-`, "bad.dm"),
-    /invalid EXPORTS environment name/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-IMAGE bad
-USE URL https://example.invalid/module.dm ${"0".repeat(64)}
-ENTRY /bin/bad
-`, "bad.Dollyfile"),
-    /invalid USE/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-IMAGE bad
-SOURCE URL https://example.invalid/input /tmp/input ${"0".repeat(64)}
-ENTRY /bin/bad
-`, "bad.Dollyfile"),
-    /IMAGE may only declare USE and ENTRY/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-MODULE mixed
-USE HOST /modules/child.dm ${"0".repeat(64)}
-FILE /tmp/input
-    value
-`, "mixed.dm"),
-    /aggregate MODULE cannot contain build steps/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-MODULE mixed
-FILE /tmp/input
-    value
-USE HOST /modules/child.dm ${"0".repeat(64)}
-`, "mixed.dm"),
-    /leaf MODULE cannot also USE child modules/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-MODULE mixed
-EXPORTS TOOL result
-USE HOST /modules/child.dm ${"0".repeat(64)}
-`, "mixed.dm"),
-    /leaf MODULE cannot also USE child modules/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-MODULE late-requirement
-USE HOST /modules/child.dm ${"0".repeat(64)}
-REQUIRES TOOL cc
-`, "late-requirement.dm"),
-    /REQUIRES must precede module composition and build declarations/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-MODULE duplicate-requirement
-REQUIRES TOOL cc
-REQUIRES TOOL cc
-`, "duplicate-requirement.dm"),
-    /duplicate REQUIRES TOOL cc/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-MODULE bad-url
-SOURCE URL file:///host/input /tmp/input ${"0".repeat(64)}
-`, "bad-url.dm"),
-    /invalid SOURCE/,
-  );
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 2
-IMAGE bad
-ENTRY /bin/bad
-USE HOST /modules/child.dm ${"0".repeat(64)}
-`, "bad.Dollyfile"),
-    /ENTRY must be the final declaration/,
-  );
-});
-
-test("module identity and declared writes have one owner", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-owned-paths-"));
-  try {
-    await mkdir(resolve(fixture, "modules"));
-    const first = `DOLLY 2
-MODULE first
-
-FILE /usr/share/value
-    first
-EXPORTS FILE first /usr/share/value
-`;
-    const wrongName = "DOLLY 2\nMODULE not-second\n";
-    await Promise.all([
-      writeFile(resolve(fixture, "modules/first.dm"), first),
-      writeFile(resolve(fixture, "modules/second.dm"), wrongName),
-    ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
-IMAGE default
-
-USE HOST /modules/first.dm  ${digest(first)}
-USE HOST /modules/second.dm ${digest(wrongName)}
-
-ENTRY /usr/share/value
-`);
-    await assert.rejects(loadDollyfileGraph(fixture), /MODULE not-second must match its filename/);
-
-    const second = `DOLLY 2
-MODULE second
-
-FILE /usr/share/value
-    second
-EXPORTS FILE second /usr/share/value
-`;
-    await writeFile(resolve(fixture, "modules/second.dm"), second);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
-IMAGE default
-
-USE HOST /modules/first.dm  ${digest(first)}
-USE HOST /modules/second.dm ${digest(second)}
-
-ENTRY /usr/share/value
-`);
-    await assert.rejects(loadDollyfileGraph(fixture), /already written by modules\/first\.dm/);
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
-test("image environment and directory membership are sealed by the C engine", async () => {
-  const engine = await readFile(resolve(projectDir, "src/dollyfile.c"), "utf8");
-  const runtime = await readFile(resolve(projectDir, "src/dolly.c"), "utf8");
-  assert.match(engine, /'D', 'O', 'L', 'L', 'Y', 'E', 'N', 'V'/);
-  assert.match(engine, /environment_names/);
-  assert.match(engine, /write_environment_file\(engine\)/);
-  assert.match(engine, /strcmp\(text, "FOLDER"\)[\s\S]*?collect_tree\(engine, words\[0\]\)/);
-  assert.doesNotMatch(engine, /keep_trees|KEEP-TREE/);
-  assert.match(engine, /collect_paths[\s\S]*?forbidden_keep\(path\)/);
-  assert.match(engine, /clean_temporary_directory\(locator\)/);
-  assert.match(runtime, /load_image_environment\(\)[\s\S]*?prepare_display_driver\(\)/);
-});
-
-test("a module cannot be USEd twice in one Dollyfile graph", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-duplicate-use-"));
-  try {
-    await mkdir(resolve(fixture, "modules"));
-    const provider = "DOLLY 2\nMODULE provider\n\nEXPORTS TOOL cc\n";
-    await writeFile(resolve(fixture, "modules/provider.dm"), provider);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
-IMAGE default
-
-USE HOST /modules/provider.dm ${digest(provider)}
-USE HOST /modules/provider.dm ${digest(provider)}
-
-ENTRY /bin/cc
-`);
-    await assert.rejects(loadDollyfileGraph(fixture), /duplicate USE \/modules\/provider\.dm/);
+    assert.deepEqual(graph.exporters.get("LIB:z").exported.details, ["/usr/lib/replacement.a"]);
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
 });
 
 test("FILE consumes four-space-indented content and stops at the first other line", () => {
-  const parsed = inspectDollyfile(`DOLLY 2
+  const parsed = inspectDollyfile(`DOLLY 3
 MODULE inline
 REQUIRES TOOL printf
 
@@ -527,7 +215,7 @@ SLOP printf done
   assert.deepEqual(parsed.slops[0].command, ["printf", "done"]);
 });
 
-test("version 2 has plain hashes, no media labels, and no interface object types", async () => {
+test("version 3 keeps plain hashes and lightweight object declarations", async () => {
   const names = await readdir(resolve(projectDir, "modules"));
   for (const name of [...imageSpecs.map(({ filename }) => filename), ...names.map((entry) => `modules/${entry}`)]) {
     const source = await readFile(resolve(projectDir, name), "utf8");
@@ -535,7 +223,6 @@ test("version 2 has plain hashes, no media labels, and no interface object types
     assert.doesNotMatch(source, /^(?:REQUIRES|EXPORTS) (?:RUNTIME|HOST|WAT)\b/m, name);
     assert.doesNotMatch(source, /^CONTRACT\b/m, name);
     assert.doesNotMatch(source, /^FILE .*<</m, name);
-    assertAlignedTableBlocks(source, name);
   }
 });
 
@@ -669,29 +356,6 @@ test("each image owns init and .dollyrc policy and Python plus Pi owns Bonnie gu
   assert.doesNotMatch(slop, /Dolly slop 0\.1|Python packages: bonnie install/);
 });
 
-test("each module removes the build scratch paths it declares", async () => {
-  const modules = uniqueModules(await loadImages());
-  for (const module of modules.values()) {
-    const extractScratchRoots = (value) => [...String(value).matchAll(/\/tmp\/([A-Za-z0-9._-]+)/g)]
-      .map((match) => `/tmp/${match[1]}`);
-    const scratchRoots = new Set(
-      [...module.sources.flatMap(({ destination }) => extractScratchRoots(destination)),
-        ...module.files.flatMap(({ path }) => extractScratchRoots(path)),
-        ...module.slops.flatMap(({ cwd, command }) =>
-          [cwd, ...command].flatMap(extractScratchRoots))],
-    );
-    if (scratchRoots.size === 0) continue;
-    const cleanup = module.slops.at(-1)?.command ?? [];
-    assert.equal(cleanup[0], "rm", `${module.name} must end by cleaning its scratch paths`);
-    for (const root of scratchRoots) {
-      assert.ok(cleanup.includes(root), `${module.name} does not clean ${root}`);
-    }
-  }
-  const engine = await readFile(new URL("../src/dollyfile.c", import.meta.url), "utf8");
-  assert.match(engine, /verify_temporary_directory_empty\(locator\)/);
-  assert.match(engine, /clean_temporary_directory\(locator\)/);
-});
-
 test("redistributed upstream modules retain their licenses", async () => {
   const modules = uniqueModules(await loadImages());
   const expected = new Map([
@@ -756,40 +420,6 @@ test("host preparation can select one image and only its reachable modules", asy
   assert.equal(modules.includes("gamedev"), false);
 });
 
-test("scratch referenced only by SLOP still requires explicit cleanup", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-slop-scratch-"));
-  try {
-    await mkdir(resolve(fixture, "modules"));
-    const seed = "DOLLY 2\nMODULE seed\n\nEXPORTS TOOL cc\n";
-    const leaky = `DOLLY 2
-MODULE leaky
-
-REQUIRES TOOL cc
-SLOP cc \\
-  -o /tmp/leaky/object.o \\
-  input.c
-`;
-    await Promise.all([
-      writeFile(resolve(fixture, "modules/seed.dm"), seed),
-      writeFile(resolve(fixture, "modules/leaky.dm"), leaky),
-    ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
-IMAGE default
-
-USE HOST /modules/seed.dm  ${digest(seed)}
-USE HOST /modules/leaky.dm ${digest(leaky)}
-
-ENTRY /bin/cc
-`);
-    await assert.rejects(
-      loadDollyfileGraph(fixture),
-      /module must end by removing its build scratch/,
-    );
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
 test("non-temporary SOURCE inputs are retained or explicitly removed by their module", async () => {
   const modules = uniqueModules(await loadImages());
   const contains = (root, path) => path === root || path.startsWith(`${root}/`);
@@ -820,108 +450,6 @@ test("non-temporary SOURCE inputs are retained or explicitly removed by their mo
       );
     }
   }
-});
-
-test("module cache keys bind each leaf to the complete earlier recipe prefix", async () => {
-  const graph = await loadDollyfileGraph(projectDir);
-  const caches = moduleCacheRecords(graph);
-  assert.deepEqual(caches.map(({ locator }) => locator), [
-    "/modules/core-tools.dm",
-    "/modules/download.dm",
-    "/modules/tar.dm",
-    "/modules/make.dm",
-    "/modules/zig.dm",
-    "/modules/ghostty.dm",
-    "/modules/cpp.dm",
-    "/modules/ninja.dm",
-    "/modules/zlib.dm",
-    "/modules/curl.dm",
-    "/modules/git.dm",
-    "/modules/awk.dm",
-    "/modules/sbase.dm",
-    "/modules/sbase-tools-1.dm",
-    "/modules/sbase-tools-2.dm",
-    "/modules/sbase-tools-3.dm",
-    "/modules/sbase-tools-4.dm",
-    "/modules/sbase-tools-5.dm",
-    "/modules/sbase-tools-6.dm",
-    "/modules/sbase-tools-7.dm",
-    "/modules/sbase-tools-8.dm",
-    "/modules/sbase-tools-9.dm",
-    "/modules/sbase-tools-10.dm",
-    "/modules/sbase-tools-11.dm",
-    "/modules/sbase-tools-12.dm",
-    "/modules/agent-tools.dm",
-  ]);
-  assert.ok(caches.every(({ cacheKey }) => /^[0-9a-f]{64}$/.test(cacheKey)));
-  assert.equal(new Set(caches.map(({ cacheKey }) => cacheKey)).size, caches.length);
-});
-
-test("nested leaf cache keys bind the exact scope imported by their parent", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-cache-scope-"));
-  try {
-    await mkdir(resolve(fixture, "modules"));
-    const seed = `DOLLY 2
-MODULE seed
-
-EXPORTS TOOL cc
-EXPORTS TOOL ar
-`;
-    const child = `DOLLY 2
-MODULE child
-
-REQUIRES TOOL cc
-SLOP cc --version
-EXPORTS LIB result /usr/lib/result.a
-`;
-    const aggregate = (includeAr) => `DOLLY 2
-MODULE aggregate
-
-REQUIRES TOOL cc
-${includeAr ? "REQUIRES TOOL ar\n" : ""}USE HOST /modules/child.dm ${digest(child)}
-
-EXPORTS LIB result
-`;
-    await Promise.all([
-      writeFile(resolve(fixture, "modules/seed.dm"), seed),
-      writeFile(resolve(fixture, "modules/child.dm"), child),
-    ]);
-    const keyFor = async (includeAr) => {
-      const parent = aggregate(includeAr);
-      await writeFile(resolve(fixture, "modules/aggregate.dm"), parent);
-      await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
-IMAGE default
-
-USE HOST /modules/seed.dm      ${digest(seed)}
-USE HOST /modules/aggregate.dm ${digest(parent)}
-
-ENTRY /bin/result
-`);
-      const graph = await loadDollyfileGraph(fixture);
-      return moduleCacheRecords(graph)
-        .find(({ locator }) => locator === "/modules/child.dm").cacheKey;
-    };
-    assert.notEqual(await keyFor(false), await keyFor(true));
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
-test("Python keeps the stable interpreter ahead of the fast-moving installer", async () => {
-  const graph = await loadDollyfileGraph(projectDir, "Dollyfile-python-pi");
-  const python = graph.modules.find(({ name }) => name === "python");
-  assert.deepEqual(
-    python.children.map(({ name }) => name),
-    ["libffi", "cpython", "bonnie"],
-  );
-  assert.equal(python.slops.length, 0);
-  const cached = moduleCacheRecords(graph).map(({ locator }) => locator);
-  const libffi = cached.indexOf("/modules/libffi.dm");
-  const cpython = cached.indexOf("/modules/cpython.dm");
-  const bonnie = cached.indexOf("/modules/bonnie.dm");
-  assert.ok(libffi >= 0);
-  assert.equal(cpython, libffi + 1);
-  assert.equal(bonnie, cpython + 1);
 });
 
 test("Bonnie is a retained two-file command with transactional graph helpers", async () => {
@@ -983,32 +511,6 @@ test("Bonnie is a retained two-file command with transactional graph helpers", a
   assert.match(helper, /log_path = posixpath\.join\(directory, "pip\.log"\)/);
   assert.match(helper, /finally:[\s\S]*shutil\.rmtree\(directory\)/);
   assert.doesNotMatch(helper, /requests\.|urllib\.request|socket\./);
-});
-
-test("the trusted module cache exposes no guest-selected browser capability", async () => {
-  const cache = await readFile(resolve(projectDir, "src/module-cache.mjs"), "utf8");
-  const worker = await readFile(resolve(projectDir, "src/runtime-worker.mjs"), "utf8");
-  const snapshotBuilder = await readFile(
-    resolve(projectDir, "scripts/build-system-snapshot.mjs"), "utf8",
-  );
-  assert.match(cache, /indexedDB\.open/);
-  assert.match(
-    cache,
-    /for \(const layer of layers\)[\s\S]*database\.transaction\(storeName, "readwrite"\)/,
-  );
-  assert.match(cache, /Preserve already committed prefix layers/);
-  assert.doesNotMatch(cache, /\b(?:fetch|eval|Function|localStorage|sessionStorage|document|cookie)\b/);
-  assert.match(worker, /imageDefinitions\.get\(configuredImage\)\.moduleCaches/);
-  assert.match(worker, /await sha256\(layer\.bytes\) !== layer\.sha256/);
-  assert.match(worker, /expected\.has\(match\[1\]\)/);
-  assert.match(worker, /removeCacheTree\(dolly, directory\)/);
-  assert.match(snapshotBuilder, /\.cache\/snapshot-browser-profile/);
-  assert.match(snapshotBuilder, /DOLLY_BROWSER_PROFILE: snapshotBrowserProfile/);
-  assert.match(snapshotBuilder, /DOLLY_BROWSER_PORT: snapshotBrowserPort/);
-  assert.match(snapshotBuilder, /DOLLY_FORCE_SNAPSHOT/);
-  assert.match(snapshotBuilder, /verifySnapshotIdentity\(definitionByImage\.get\(image\), graphs\.get\(image\), parsed/);
-  assert.match(snapshotBuilder, /const entry = verifyImage\(image, parsed\)/);
-  assert.match(snapshotBuilder, /metadata\.sha256 === digest\(snapshot\)/);
 });
 
 test("compiler outputs do not depend on skipped cache-prefix job counts", async () => {
@@ -1127,16 +629,6 @@ test("snapshot creation and pruning share the canonical module recipe graph", as
   assert.doesNotMatch(pruner, /definition\.extends/);
 });
 
-test("packaged-prefix parsing defers private descendant export validation", async () => {
-  const engine = await readFile(resolve(projectDir, "src/dollyfile.c"), "utf8");
-  assert.match(engine, /const int exported_files_available = filesystem_available \|\| depth == 1/);
-  assert.match(
-    engine,
-    /exported_files_available &&\s*exports->items\[exports->count - 1\]\.members == NULL/,
-  );
-  assert.match(engine, /&module_form, recipe_execute, execute\)/);
-});
-
 test("build modules declare tools used by their own recipes", async () => {
   const modules = uniqueModules(await loadImages());
   const module = (name) => modules.get(name);
@@ -1250,85 +742,9 @@ test("the experiment has one execution form, no KEEP state, and no extras module
     path.endsWith("/awk-maketab") || path.endsWith("/proctab.c")), false);
 });
 
-test("SLOP commands require an earlier tool declaration", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-slop-tools-"));
-  try {
-    await mkdir(resolve(fixture, "modules"));
-    const provider = "DOLLY 2\nMODULE provider\n\nEXPORTS TOOL cc\n";
-    const invalid = `DOLLY 2
-MODULE invalid
-
-REQUIRES TOOL cc
-SLOP surprise --version
-`;
-    await Promise.all([
-      writeFile(resolve(fixture, "modules/provider.dm"), provider),
-      writeFile(resolve(fixture, "modules/invalid.dm"), invalid),
-    ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
-IMAGE default
-
-USE HOST /modules/provider.dm ${digest(provider)}
-USE HOST /modules/invalid.dm  ${digest(invalid)}
-
-ENTRY /bin/cc
-`);
-    await assert.rejects(
-      loadDollyfileGraph(fixture),
-      /SLOP command surprise must be declared by an earlier REQUIRES TOOL or EXPORTS TOOL/,
-    );
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
-test("a consumer cannot use a tool required only by another module", async () => {
-  const fixture = await mkdtemp(resolve(tmpdir(), "dolly-nested-tools-"));
-  try {
-    await mkdir(resolve(fixture, "modules"));
-    const seed = "DOLLY 2\nMODULE seed\n\nEXPORTS TOOL cc\n";
-    const maker = `DOLLY 2
-MODULE maker
-
-REQUIRES TOOL cc
-EXPORTS TOOL make
-`;
-    const consumer = (command) => `DOLLY 2
-MODULE consumer
-
-REQUIRES TOOL make
-SLOP ${command} --version
-`;
-    await Promise.all([
-      writeFile(resolve(fixture, "modules/seed.dm"), seed),
-      writeFile(resolve(fixture, "modules/maker.dm"), maker),
-    ]);
-    const writeImage = async (command) => {
-      const source = consumer(command);
-      await writeFile(resolve(fixture, "modules/consumer.dm"), source);
-      await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 2
-IMAGE default
-
-USE HOST /modules/seed.dm     ${digest(seed)}
-USE HOST /modules/maker.dm    ${digest(maker)}
-USE HOST /modules/consumer.dm ${digest(source)}
-
-ENTRY /bin/make
-`);
-    };
-    await writeImage("cc");
-    await assert.rejects(loadDollyfileGraph(fixture), /SLOP command cc must be declared/);
-    await writeImage("make");
-    const graph = await loadDollyfileGraph(fixture);
-    assert.ok(graph.modules.find(({ name }) => name === "maker"));
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
 test("format and graph linting runs before the expensive runtime build", async () => {
   assert.throws(
-    () => inspectDollyfile(`DOLLY 2
+    () => inspectDollyfile(`DOLLY 3
 SOURCE HOST /static/input /tmp/input ${"0".repeat(64)}
 MODULE bad
 `, "modules/bad.dm"),

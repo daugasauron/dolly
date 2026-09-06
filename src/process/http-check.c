@@ -33,7 +33,7 @@ int main(void) {
   dolly_http_response response = {0};
   const int result = dolly_http_perform(&request, &response);
   const int valid = result == 0 && response.status == 200 &&
-      body.length >= 7 && memcmp(body.bytes, "DOLLY 2", 7) == 0;
+      body.length >= 7 && memcmp(body.bytes, "DOLLY 3", 7) == 0;
   dolly_http_response_dispose(&response);
   if (!valid) return 101;
   return write(STDOUT_FILENO, "PROCESS-HTTP-OK\n", 16) == 16 ? 0 : 102;

@@ -84,7 +84,7 @@ literally the only information crossing the Wasm boundary:
 | HTTP dispatch and mailbox | both | Autonomous external communication and the principal confidentiality/integrity boundary |
 | Explicit file download | Wasm to local user | Bounded, user-visible export of one regular WasmFS file; no host path or filesystem handle enters Wasm |
 | Named session mailbox | Wasm to/from browser storage | Explicit opaque filesystem snapshot; browser stores bytes but receives no path-level operation or mount |
-| Build-module cache | WasmFS to/from trusted worker storage | Exact expected content-addressed output layers during rebuild only; no guest-selected storage operation or browser object enters Wasm |
+| Image artifact cache | WasmFS to/from trusted worker storage | Completed build results bound to runtime and recipe identity; explicit FROM/COPY imports run in Wasm, with no guest-selected browser storage operation |
 | Clocks, timezone, entropy, startup environment | browser to Wasm | Inputs, not network egress |
 | Seed, exact recipe/source responses, and system snapshot | browser to Wasm | Fixed application inputs or policy-authorized broker responses, not ambient guest authority |
 | Boot-only resident plugin | WasmFS bytes to trusted boot code | Pure Wasm instantiation with a closed kernel-export map; no loader import, paths, URLs, or dependency fetching |

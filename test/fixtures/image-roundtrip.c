@@ -1,16 +1,10 @@
-// Compile inside Dolly. These tests exercise the actual image/layer codecs
+// Compile inside Dolly. These tests exercise the actual image codec
 // against the shared Wasm filesystem, not a native filesystem substitute.
 #ifndef __wasm__
 #error This fixture temporarily replaces the sandbox image manifest; run in Dolly only.
 #endif
 #define _POSIX_C_SOURCE 200809L
-#ifdef TEST_LAYER
-#define main dollyfile_main
-#include "dollyfile.c"
-#undef main
-#else
 #include "system-snapshot.c"
-#endif
 
 #define ROOT "/usr/share/dolly-image-roundtrip"
 #define CHECK(expression) do { if (!(expression)) { \
@@ -27,24 +21,6 @@ static dolly_fs_record records[] = {
   {ROOT "/link", DOLLY_FS_SYMLINK, 4, (const unsigned char *)"file"},
 };
 
-#ifdef TEST_LAYER
-static const char key[] = "c500000000000000000000000000000000000000000000000000000000000000";
-static int roundtrip(void) {
-  Engine engine = {0};
-  Scope exports = {0};
-  CHECK(collect_tree(&engine, ROOT) == 0);
-  CHECK(write_module_layer(&engine, &exports, 0, key) == 0);
-  dispose_engine(&engine);
-  char *output = module_cache_path("/etc/dolly/module-cache-output", key);
-  char *input = module_cache_path("/etc/dolly/module-cache-input", key);
-  CHECK(output != NULL && input != NULL && mkdir_parents(input, 0) == 0);
-  CHECK(rename(output, input) == 0);
-  free(output); free(input);
-  CHECK(dolly_fs_remove_tree(ROOT) == 0);
-  CHECK(restore_module_layer(key) == 0);
-  return 0;
-}
-#else
 static int roundtrip(void) {
   FILE *manifest = fopen("/etc/dolly/image.manifest", "w");
   CHECK(manifest != NULL);
@@ -62,7 +38,6 @@ static int roundtrip(void) {
   CHECK(dolly_snapshot_restore_staged(size) != 0);
   return 0;
 }
-#endif
 
 static int check_roundtrip(void) {
   CHECK(dolly_fs_restore(records, 6, 1) == 0);
@@ -83,25 +58,15 @@ static int check_roundtrip(void) {
 int main(void) {
   struct stat metadata;
   CHECK(lstat(ROOT, &metadata) == -1 && errno == ENOENT);
-#ifndef TEST_LAYER
   const int descriptor = open("/etc/dolly/image.manifest", O_RDONLY);
   CHECK(descriptor >= 0 && fstat(descriptor, &metadata) == 0);
   const size_t saved_size = metadata.st_size;
   unsigned char *saved = malloc(saved_size);
   CHECK(saved != NULL && read_exact(descriptor, saved, saved_size) == 0 && close(descriptor) == 0);
-#endif
   const int result = check_roundtrip();
   CHECK(dolly_fs_remove_tree(ROOT) == 0);
-#ifdef TEST_LAYER
-  char *input = module_cache_path("/etc/dolly/module-cache-input", key);
-  char *output = module_cache_path("/etc/dolly/module-cache-output", key);
-  CHECK(input != NULL && output != NULL);
-  unlink(input); unlink(output);
-  free(input); free(output);
-#else
   FILE *manifest = fopen("/etc/dolly/image.manifest", "w");
   CHECK(manifest != NULL && fwrite(saved, 1, saved_size, manifest) == saved_size && fclose(manifest) == 0);
   free(saved);
-#endif
   return result;
 }

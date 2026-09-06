@@ -8,7 +8,7 @@ const outputs = "/usr/share/dollyfile-parser-test";
 const digest = value => createHash("sha256").update(value).digest("hex");
 export const parserRecipes = new Map();
 function module(name, rows) {
-  const source = `DOLLY 2\nMODULE ${name}\n${rows}\n`;
+  const source = `DOLLY 3\nMODULE ${name}\n${rows}\n`;
   inspectDollyfile(source);
   const path = `/modules/${name}.dm`;
   parserRecipes.set(path, source);
@@ -38,17 +38,42 @@ const badLibrary = module("parser-library", `EXPORTS LIB bad ${outputs}/director
 const badFolder = module("parser-folder", `EXPORTS FOLDER bad ${outputs}/quoted`);
 const bareFolder = module("parser-bare-folder", `FOLDER ${outputs}/quoted`);
 const bareFile = module("parser-bare-file", `FILE ${outputs}/directory`);
+const mixed = module("parser-mixed", `EXPORTS FILE final ${outputs}/mixed
+SLOP printf before > ${outputs}/mixed
+${first}
+SLOP printf after > ${outputs}/mixed
+${second}
+REQUIRES TOOL cat
+FILE ${outputs}/mixed`);
+const deferred = module("parser-deferred", `EXPORTS FOLDER all ${outputs}/captured
+SLOP mkdir -p ${outputs}/captured
+SLOP printf a > ${outputs}/captured/a
+SLOP printf b > ${outputs}/captured/b`);
+const aggregate = module("parser-aggregate", `EXPORTS FOLDER all ${outputs}/captured
+${deferred}
+SLOP printf c > ${outputs}/captured/c`);
+const environment = module("parser-environment", `EXPORTS ENV DOLLY_V3_ENV first
+EXPORTS ENV DOLLY_V3_ENV APPEND second
+SLOP test "$DOLLY_V3_ENV" = first:second`);
+const deletion = module("parser-deletion", `FILE ${outputs}/deleted
+    old
+SLOP rm ${outputs}/deleted`);
 const cases = [
+  { name: "mixed", uses: mixed, check: `test "$(cat ${outputs}/mixed)" = after && test "$(cat ${outputs}/owned)" = overwritten` },
+  { name: "repeat", uses: first + first, check: `test "$(cat ${outputs}/owned)" = first` },
+  { name: "deferred", uses: aggregate, check: `grep -q ${outputs}/captured/b /etc/dolly/image.manifest && grep -q ${outputs}/captured/c /etc/dolly/image.manifest` },
+  { name: "environment", uses: environment },
+  { name: "deletion", uses: deletion, check: `test ! -f ${outputs}/deleted && ! grep -q ${outputs}/deleted /etc/dolly/image.manifest` },
   { name: "quoted", uses: quoted, check: `test "$(cat ${outputs}/quoted)" = 'two words' && test "$(cat ${outputs}/cwd)" = '${scratch}/space dir'` },
   { name: "order", uses: order, check: `test "$(cat ${outputs}/order)" = after` },
-  { name: "duplicate", uses: first + second, error: "already written by", check: `test "$(cat ${outputs}/owned)" = first` },
+  { name: "duplicate", uses: first + second, check: `test "$(cat ${outputs}/owned)" = overwritten` },
   { name: "library", uses: badLibrary, error: "missing exported LIB" },
   { name: "folder", uses: badFolder, error: "missing exported FOLDER" },
-  { name: "bare-folder", uses: bareFolder, error: "invalid FOLDER declaration" },
-  { name: "bare-file", uses: bareFile, error: "invalid FILE declaration" },
+  { name: "bare-folder", uses: bareFolder, error: "FOLDER failed" },
+  { name: "bare-file", uses: bareFile, error: "FILE failed" },
 ];
 for (const item of cases) {
-  const source = `DOLLY 2\nIMAGE parser-test\n${seed}${item.uses}ENTRY /bin/slop ""\n`;
+  const source = `DOLLY 3\nIMAGE parser-test\n${seed}${item.uses}ENTRY /bin/slop ""\n`;
   inspectDollyfile(source);
   parserRecipes.set(`/fixture/parser-${item.name}.Dollyfile`, source);
 }

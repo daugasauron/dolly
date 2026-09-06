@@ -1,11 +1,8 @@
-DOLLY 2
+DOLLY 3
 IMAGE python
 
-# Python extends the ordinary interactive userspace. In particular, every
-# browser-facing image needs the in-sandbox display driver exported by default;
-# the Python aggregate remains independently cacheable above that prefix.
-USE HOST /modules/default.dm        bbfb2d00e3e4cbd6fcbd1d6812610075adc2ce140c3925a8b62107c7382d17c8
-USE HOST /modules/python.dm         b9b1fef80aacc0dca801f9b29ad6d7be61ffaa248d06aa5e52e2b2c51ce44166
-USE HOST /modules/startup-python.dm 7007e901067f2a58cdf00ce8e0d4f034e264f409dba8f9ff1b9f482d814ed4f0
+FROM HOST /Dollyfile 54b4cc5fb29a474909739ef6919c54020f14ae0d724c48b230764c1405c48575
+USE HOST /modules/python.dm         ef95bfb21c31995525ee0cd65c6b7ac6cb4d661bf0100d5ad0595ec4ebca3b96
+USE HOST /modules/startup-python.dm 47862762650eb16f7dfc77c48007e3ad1e0dca884e37ed19c045d68528c2bd80
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

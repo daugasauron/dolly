@@ -1,4 +1,4 @@
-DOLLY 2
+DOLLY 3
 MODULE ghostty
 
 REQUIRES HEADER libc

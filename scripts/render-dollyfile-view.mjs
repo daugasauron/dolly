@@ -11,6 +11,7 @@ function objectId(type, name) {
 }
 
 function moduleHref(current, target, fragment = "") {
+  if (target.kind === "image") return `${current.kind === "image" ? "../../" : "../../../../"}view/${target.image}/${fragment}`;
   if (current.kind === "image") return `modules/${target.name}/${fragment}`;
   if (current === target) return fragment || "./";
   return `../${target.name}/${fragment}`;
@@ -71,7 +72,17 @@ function renderUse(record, row, prefix, spacing, rest, graph) {
     `${escapeHtml(rest.slice(0, locationPosition))}` +
     `${link(use.location, moduleHref(record, selected))}` +
     `${escapeHtml(rest.slice(locationPosition + use.location.length, hashPosition))}` +
-    `${escapeHtml(use.sha256)}`;
+    `${escapeHtml(use.sha256 + rest.slice(hashPosition + use.sha256.length))}`;
+}
+
+function renderArtifact(record, row, prefix, spacing, rest) {
+  const artifact = record.artifactTargets.find(item => item.reference.line === row.line);
+  if (!artifact) return escapeHtml(`${prefix}${row.directive}${spacing}${rest}`);
+  const location = artifact.reference.location;
+  const position = rest.indexOf(location);
+  if (position < 0) return escapeHtml(`${prefix}${row.directive}${spacing}${rest}`);
+  return `${escapeHtml(prefix)}<b>${row.directive}</b>${escapeHtml(spacing + rest.slice(0, position))}` +
+    link(location, moduleHref(record, artifact.target)) + escapeHtml(rest.slice(position + location.length));
 }
 
 function renderSourceReference(record, row, prefix, spacing, rest) {
@@ -108,6 +119,7 @@ function renderSource(record, graph) {
       if (match) {
         const [, prefix, directive, spacing, rest] = match;
         if (directive === "USE") body = renderUse(record, row, prefix, spacing, rest, graph);
+        else if (directive === "FROM" || directive === "COPY") body = renderArtifact(record, row, prefix, spacing, rest);
         else if (directive === "REQUIRES") body = renderRequirement(record, row, prefix, spacing, rest);
         else if (directive === "EXPORTS") body = renderExport(record, row, prefix, spacing, rest);
         else if (directive === "SOURCE") body = renderSourceReference(record, row, prefix, spacing, rest);

@@ -64,12 +64,6 @@ typedef struct {
 } Scope;
 
 typedef struct {
-  char *path;
-  char *locator;
-  size_t line;
-} DeclaredWrite;
-
-typedef struct {
   char *host_base;
   char **keep;
   size_t keep_count;
@@ -81,19 +75,11 @@ typedef struct {
   size_t recipe_capacity;
   char **stack;
   size_t stack_count;
-  char **selected_modules;
-  size_t selected_module_count;
-  size_t selected_module_capacity;
-  char **selected_names;
-  size_t selected_name_count;
-  size_t selected_name_capacity;
   char **environment_names;
   size_t environment_name_count;
   size_t environment_name_capacity;
   char *selected_image;
-  size_t resume_uses;
-  DeclaredWrite *writes;
-  size_t write_count;
+  Scope exports;
 } Engine;
 
 typedef struct {
@@ -571,7 +557,12 @@ static int next_word(char **input, char **output, char **word) {
   int quote = 0, escaped = 0;
   while (**input != '\0') {
     const unsigned char character = (unsigned char)*(*input)++;
-    if (escaped) { *(*output)++ = (char)character; escaped = 0; }
+    if (escaped) {
+      if (quote == '"' && character != '$' && character != '`' &&
+          character != '"' && character != '\\') *(*output)++ = '\\';
+      *(*output)++ = (char)character;
+      escaped = 0;
+    }
     else if (character == '\\' && quote != '\'') escaped = 1;
     else if (quote != 0) {
       if (character == quote) quote = 0;
@@ -640,38 +631,57 @@ static const Object *scope_find(const Scope *scope, const char *type,
   return NULL;
 }
 
-static int scope_add(Scope *scope, const char *type, const char *name,
-                     const char *detail, const char *sha256) {
-  if (scope_find(scope, type, name) != NULL) return -EEXIST;
-  if (scope->count == scope->capacity) {
-    const size_t next = scope->capacity == 0 ? 16 : scope->capacity * 2;
-    Object *replacement = realloc(scope->items, next * sizeof(*replacement));
-    if (replacement == NULL) return -ENOMEM;
-    scope->items = replacement;
-    scope->capacity = next;
+static void dispose_object(Object *object) {
+  free(object->type);
+  free(object->name);
+  free(object->detail);
+  free(object->sha256);
+  ObjectMembers *members = object->members;
+  if (members != NULL && --members->references == 0) {
+    for (size_t index = 0; index < members->count; ++index) free(members->items[index]);
+    free(members->items);
+    free(members);
   }
-  Object *object = &scope->items[scope->count];
   memset(object, 0, sizeof(*object));
-  object->type = strdup(type);
-  object->name = strdup(name);
-  object->detail = detail == NULL ? NULL : strdup(detail);
-  object->sha256 = sha256 == NULL ? NULL : strdup(sha256);
-  if (object->type == NULL || object->name == NULL ||
-      (detail != NULL && object->detail == NULL) ||
-      (sha256 != NULL && object->sha256 == NULL)) return -ENOMEM;
-  ++scope->count;
-  return 0;
 }
 
 static int scope_add_object(Scope *scope, const Object *source) {
-  int result = scope_add(scope, source->type, source->name,
-                         source->detail, source->sha256);
-  if (result != 0) return result;
-  Object *destination = &scope->items[scope->count - 1];
-  destination->append_environment = source->append_environment;
-  destination->members = source->members;
-  if (destination->members != NULL) ++destination->members->references;
+  Object object = {
+      .type = strdup(source->type), .name = strdup(source->name),
+      .detail = source->detail == NULL ? NULL : strdup(source->detail),
+      .sha256 = source->sha256 == NULL ? NULL : strdup(source->sha256),
+      .append_environment = source->append_environment, .members = source->members,
+  };
+  if (object.members != NULL) ++object.members->references;
+  if (object.type == NULL || object.name == NULL ||
+      (source->detail != NULL && object.detail == NULL) ||
+      (source->sha256 != NULL && object.sha256 == NULL)) {
+    dispose_object(&object);
+    return -ENOMEM;
+  }
+  const Object *previous = scope_find(scope, object.type, object.name);
+  if (previous != NULL) {
+    const size_t index = (size_t)(previous - scope->items);
+    dispose_object(&scope->items[index]);
+    memmove(&scope->items[index], &scope->items[index + 1],
+            (--scope->count - index) * sizeof(*scope->items));
+  }
+  if (scope->count == scope->capacity) {
+    const size_t next = scope->capacity == 0 ? 16 : scope->capacity * 2;
+    Object *replacement = realloc(scope->items, next * sizeof(*replacement));
+    if (replacement == NULL) { dispose_object(&object); return -ENOMEM; }
+    scope->items = replacement;
+    scope->capacity = next;
+  }
+  scope->items[scope->count++] = object;
   return 0;
+}
+
+static int scope_add(Scope *scope, const char *type, const char *name,
+                     const char *detail, const char *sha256) {
+  const Object object = {.type = (char *)type, .name = (char *)name,
+                          .detail = (char *)detail, .sha256 = (char *)sha256};
+  return scope_add_object(scope, &object);
 }
 
 static int scope_copy(Scope *destination, const Scope *source) {
@@ -683,51 +693,37 @@ static int scope_copy(Scope *destination, const Scope *source) {
 }
 
 static void dispose_scope(Scope *scope) {
-  for (size_t index = 0; index < scope->count; ++index) {
-    free(scope->items[index].type);
-    free(scope->items[index].name);
-    free(scope->items[index].detail);
-    free(scope->items[index].sha256);
-    ObjectMembers *members = scope->items[index].members;
-    if (members != NULL && --members->references == 0) {
-      for (size_t member = 0; member < members->count; ++member) {
-        free(members->items[member]);
-      }
-      free(members->items);
-      free(members);
-    }
-  }
+  for (size_t index = 0; index < scope->count; ++index) dispose_object(&scope->items[index]);
   free(scope->items);
   memset(scope, 0, sizeof(*scope));
 }
 
-static int permit_tool(Scope *scope, const char *name) {
-  const int result = scope_add(scope, "TOOL", name, NULL, NULL);
-  return result == -EEXIST ? 0 : result;
-}
-
-static int contains_string(char *const *items, size_t count, const char *value) {
-  for (size_t index = 0; index < count; ++index) {
-    if (strcmp(items[index], value) == 0) return 1;
-  }
-  return 0;
-}
-
 static int resolve_tool(const char *name, char **path_out) {
-  static const char *const directories[] = {"/bin", "/usr/bin"};
-  for (size_t index = 0; index < sizeof(directories) / sizeof(directories[0]); ++index) {
-    const size_t length = strlen(directories[index]) + strlen(name) + 2;
+  const char *environment = getenv("PATH");
+  char *directories = strdup(environment == NULL ? "/bin:/usr/bin" : environment);
+  if (directories == NULL) return -ENOMEM;
+  int result = -ENOENT;
+  char *directory = directories;
+  for (;;) {
+    char *end = strchr(directory, ':');
+    if (end != NULL) *end = '\0';
+    const size_t length = strlen(directory) + strlen(name) + 3;
     char *path = malloc(length);
-    if (path == NULL) return -ENOMEM;
-    snprintf(path, length, "%s/%s", directories[index], name);
+    if (path == NULL) { result = -ENOMEM; break; }
+    snprintf(path, length, "%s/%s", *directory == '\0' ? "." : directory, name);
     struct stat metadata;
     if (stat(path, &metadata) == 0 && S_ISREG(metadata.st_mode)) {
-      *path_out = path;
-      return 0;
+      *path_out = path[0] == '/' ? strdup(path) : realpath(path, NULL);
+      result = *path_out == NULL ? -errno : 0;
+      free(path);
+      break;
     }
     free(path);
+    if (end == NULL) break;
+    directory = end + 1;
   }
-  return -ENOENT;
+  free(directories);
+  return result;
 }
 
 static int compare_strings(const void *left, const void *right);
@@ -789,7 +785,10 @@ static int resolve_export_path(const char *type, const char *name,
   char *path = NULL;
   int result = 0;
   if (strcmp(type, "TOOL") == 0) {
-    result = resolve_tool(name, &path);
+    if (detail != NULL) {
+      path = strdup(detail);
+      if (path == NULL) result = -ENOMEM;
+    } else result = resolve_tool(name, &path);
     if (result == 0 && expected != NULL) {
       char actual[65];
       result = sha256_file(path, actual);
@@ -801,6 +800,7 @@ static int resolve_export_path(const char *type, const char *name,
       }
     }
   } else {
+    if (detail == NULL) return -ENOENT;
     path = strdup(detail);
     if (path == NULL) result = -ENOMEM;
   }
@@ -837,6 +837,11 @@ static int capture_export_members(Object *object) {
   if (result == 0) {
     result = collect_paths(&object->members->items, &object->members->count,
                            &object->members->capacity, path);
+    if (result == 0 && strcmp(object->type, "TOOL") == 0) {
+      free(object->detail);
+      object->detail = path;
+      path = NULL;
+    }
   }
   free(path);
   return result;
@@ -859,52 +864,6 @@ static int retain_export(Engine *engine, const Object *object) {
   return result;
 }
 
-static void module_cache_key(const Engine *engine, const Scope *available,
-                             const char *locator, const char digest[65],
-                             char output[65]) {
-  static const char prefix[] = "DOLLY-MODULE-CACHE 1\n";
-  Sha256 sha;
-  unsigned char bytes[32];
-  sha256_init(&sha);
-  sha256_update(&sha, prefix, sizeof(prefix) - 1);
-  for (size_t index = 0; index < engine->recipe_count; ++index) {
-    const RecipeRecord *record = &engine->recipes[index];
-    sha256_update(&sha, record->locator, strlen(record->locator));
-    sha256_update(&sha, " ", 1);
-    sha256_update(&sha, record->digest, 64);
-    sha256_update(&sha, "\n", 1);
-  }
-  sha256_update(&sha, locator, strlen(locator));
-  sha256_update(&sha, " ", 1);
-  sha256_update(&sha, digest, 64);
-  sha256_update(&sha, "\n", 1);
-  static const char scope_prefix[] = "DOLLY-MODULE-SCOPE 1\0";
-  sha256_update(&sha, scope_prefix, sizeof(scope_prefix) - 1);
-  for (size_t index = 0; index < available->count; ++index) {
-    const Object *object = &available->items[index];
-    sha256_update(&sha, object->type, strlen(object->type));
-    sha256_update(&sha, "\0", 1);
-    sha256_update(&sha, object->name, strlen(object->name));
-    sha256_update(&sha, "\0", 1);
-    if (object->detail != NULL) {
-      if (object->append_environment) sha256_update(&sha, "APPEND ", 7);
-      sha256_update(&sha, object->detail, strlen(object->detail));
-    }
-    sha256_update(&sha, "\0", 1);
-    if (object->sha256 != NULL) sha256_update(&sha, object->sha256, 64);
-    sha256_update(&sha, "\0", 1);
-  }
-  sha256_finish(&sha, bytes);
-  digest_hex(bytes, output);
-}
-
-static char *module_cache_path(const char *directory, const char key[65]) {
-  const size_t length = strlen(directory) + 72;
-  char *path = malloc(length);
-  if (path != NULL) snprintf(path, length, "%s/%s.layer", directory, key);
-  return path;
-}
-
 static size_t append_u32(Buffer *buffer, uint32_t value) {
   unsigned char bytes[4] = {
       (unsigned char)value,
@@ -913,95 +872,6 @@ static size_t append_u32(Buffer *buffer, uint32_t value) {
       (unsigned char)(value >> 24),
   };
   return append_buffer(bytes, sizeof(bytes), buffer);
-}
-
-static size_t append_u64(Buffer *buffer, uint64_t value) {
-  unsigned char bytes[8];
-  for (unsigned index = 0; index < 8; ++index) {
-    bytes[index] = (unsigned char)(value >> (index * 8));
-  }
-  return append_buffer(bytes, sizeof(bytes), buffer);
-}
-
-static int append_layer_record(Buffer *layer, const char *path) {
-  dolly_fs_record record = {.path = (char *)path};
-  if (dolly_fs_metadata(path, &record.kind, &record.size) != 0) return -errno;
-  if (record.size > MAX_SOURCE_BYTES || !dolly_fs_valid_path(path)) {
-    return -EINVAL;
-  }
-  if (append_u32(layer, record.kind) != 4 ||
-      append_u32(layer, (uint32_t)strlen(path)) != 4 ||
-      append_u64(layer, record.size) != 8 ||
-      append_buffer(path, strlen(path), layer) != strlen(path)) return -EFBIG;
-  int result = buffer_reserve(layer, record.size);
-  if (result != 0) return result;
-  if (dolly_fs_read_data(&record, layer->data + layer->length) != 0) return -errno;
-  layer->length += record.size;
-  return 0;
-}
-
-static int write_module_layer(Engine *engine, const Scope *exports,
-                              size_t keep_start,
-                              const char key[65]) {
-  char **paths = NULL;
-  size_t count = 0;
-  size_t capacity = 0;
-  int result = 0;
-  for (size_t index = keep_start; result == 0 && index < engine->keep_count; ++index) {
-    result = append_string(&paths, &count, &capacity, engine->keep[index]);
-  }
-  for (size_t index = 0; result == 0 && index < exports->count; ++index) {
-    const Object *object = &exports->items[index];
-    if (strcmp(object->type, "ENV") == 0) continue;
-    if (object->members == NULL) {
-      result = -EINVAL;
-      break;
-    }
-    for (size_t member = 0;
-         result == 0 && member < object->members->count; ++member) {
-      result = append_string(&paths, &count, &capacity,
-                              object->members->items[member]);
-    }
-  }
-  if (result == 0 && count > MAX_MANIFEST_FILES) result = -E2BIG;
-  if (result == 0) {
-    qsort(paths, count, sizeof(*paths), compare_strings);
-    size_t unique = 0;
-    for (size_t index = 0; index < count; ++index) {
-      if (unique != 0 && strcmp(paths[unique - 1], paths[index]) == 0) {
-        free(paths[index]);
-      } else {
-        paths[unique++] = paths[index];
-      }
-    }
-    count = unique;
-  }
-  Buffer layer = {.limit = MAX_SOURCE_BYTES};
-  static const unsigned char magic[8] = {'D', 'O', 'L', 'L', 'Y', 'L', 'Y', 'R'};
-  if (result == 0 &&
-      (append_buffer(magic, sizeof(magic), &layer) != sizeof(magic) ||
-       append_u32(&layer, 2) != 4 || append_u32(&layer, (uint32_t)count) != 4)) {
-    result = -EFBIG;
-  }
-  for (size_t index = 0; result == 0 && index < count; ++index) {
-    result = append_layer_record(&layer, paths[index]);
-  }
-  char *output = NULL;
-  if (result == 0) {
-    output = module_cache_path("/etc/dolly/module-cache-output", key);
-    if (output == NULL) result = -ENOMEM;
-  }
-  if (result == 0) result = mkdir_parents(output, 0);
-  if (result == 0) result = dolly_write_file(output, layer.data, layer.length);
-  if (result == 0) {
-    printf("dollyfile: saved module layer %s (%zu paths, %zu bytes)\n",
-           key, count, layer.length);
-  }
-  free(output);
-  free(layer.data);
-  for (size_t index = 0; index < count; ++index) free(paths[index]);
-  free(paths);
-  return result;
 }
 
 static int take_layer_bytes(const unsigned char **cursor, const unsigned char *end,
@@ -1031,76 +901,6 @@ static int take_layer_u64(const unsigned char **cursor, const unsigned char *end
   return 0;
 }
 
-static int restore_module_layer(const char key[65]) {
-  char *path = module_cache_path("/etc/dolly/module-cache-input", key);
-  if (path == NULL) return -ENOMEM;
-  Buffer layer = {.limit = MAX_SOURCE_BYTES};
-  int result = read_file_buffer(path, &layer);
-  free(path);
-  if (result != 0) {
-    free(layer.data);
-    return result;
-  }
-  static const unsigned char magic[8] = {'D', 'O', 'L', 'L', 'Y', 'L', 'Y', 'R'};
-  const unsigned char *cursor = layer.data;
-  const unsigned char *end = layer.data + layer.length;
-  const unsigned char *actual_magic;
-  uint32_t version = 0;
-  uint32_t count = 0;
-  if (take_layer_bytes(&cursor, end, 8, &actual_magic) != 0 ||
-      memcmp(actual_magic, magic, 8) != 0 ||
-      take_layer_u32(&cursor, end, &version) != 0 || version != 2 ||
-      take_layer_u32(&cursor, end, &count) != 0 || count > MAX_MANIFEST_FILES) {
-    result = -EINVAL;
-  }
-  dolly_fs_record *entries = result == 0 && count != 0
-                            ? calloc(count, sizeof(*entries))
-                            : NULL;
-  if (result == 0 && count != 0 && entries == NULL) result = -ENOMEM;
-  const char *previous = NULL;
-  for (uint32_t index = 0; result == 0 && index < count; ++index) {
-    uint32_t path_length = 0;
-    uint64_t data_length = 0;
-    const unsigned char *path_bytes;
-    const unsigned char *data;
-    if (take_layer_u32(&cursor, end, &entries[index].kind) != 0 ||
-        entries[index].kind < DOLLY_FS_DIRECTORY || entries[index].kind > DOLLY_FS_SYMLINK ||
-        take_layer_u32(&cursor, end, &path_length) != 0 || path_length == 0 ||
-        path_length > 4096 || take_layer_u64(&cursor, end, &data_length) != 0 ||
-        data_length > MAX_SOURCE_BYTES ||
-        take_layer_bytes(&cursor, end, path_length, &path_bytes) != 0 ||
-        take_layer_bytes(&cursor, end, (size_t)data_length, &data) != 0) {
-      result = -EINVAL;
-      break;
-    }
-    entries[index].path = malloc((size_t)path_length + 1);
-    if (entries[index].path == NULL) {
-      result = -ENOMEM;
-      break;
-    }
-    memcpy(entries[index].path, path_bytes, path_length);
-    entries[index].path[path_length] = '\0';
-    entries[index].data = data;
-    entries[index].size = (uintptr_t)data_length;
-    if (strlen(entries[index].path) != path_length ||
-        !valid_absolute_path(entries[index].path) ||
-        forbidden_keep(entries[index].path) ||
-        (previous != NULL && strcmp(previous, entries[index].path) >= 0)) {
-      result = -EINVAL;
-    }
-    previous = entries[index].path;
-  }
-  if (result == 0 && cursor != end) result = -EINVAL;
-  if (result == 0 && dolly_fs_restore(entries, count, 1) != 0) result = -errno;
-  if (result == 0) printf("dollyfile: restored module layer %s\n", key);
-  if (entries != NULL) {
-    for (uint32_t index = 0; index < count; ++index) free(entries[index].path);
-  }
-  free(entries);
-  free(layer.data);
-  return result;
-}
-
 static int run_slop(const char *cwd, const char *command) {
   if (chdir(cwd) != 0) return -errno;
   printf("+ SLOP CWD %s %s\n", cwd, command);
@@ -1118,11 +918,10 @@ static int run_slop(const char *cwd, const char *command) {
   return status;
 }
 
-static int execute_slop(char *arguments, const Scope *permitted_tools,
-                        int execute) {
+static int execute_slop(char *arguments, int execute) {
   char *command = trim(arguments);
   char *copy = strdup(command);
-  if (copy == NULL) return 1;
+  if (copy == NULL) return -ENOMEM;
   char *input = copy, *output = copy, *word = NULL, *cwd = "/";
   int result = next_word(&input, &output, &word);
   if (result == 0 && word != NULL && strcmp(word, "CWD") == 0) {
@@ -1133,17 +932,8 @@ static int execute_slop(char *arguments, const Scope *permitted_tools,
     if (result == 0) result = next_word(&input, &output, &word);
   }
   if (result == 0 && (word == NULL || *word == '\0')) result = 2;
-  if (result == 0) {
-    const char *tool = strrchr(word, '/');
-    tool = tool == NULL ? word : tool + 1;
-    if (scope_find(permitted_tools, "TOOL", tool) == NULL) {
-      fprintf(stderr, "dollyfile: SLOP tool %s was not declared by an earlier "
-                      "REQUIRES TOOL or EXPORTS TOOL\n", tool);
-      result = 2;
-    }
-  }
   while (result == 0 && word != NULL) result = next_word(&input, &output, &word);
-  if (result == 0 && execute) result = run_slop(cwd, command) == 0 ? 0 : 1;
+  if (result == 0 && execute) result = run_slop(cwd, command);
   free(copy);
   return result;
 }
@@ -1153,73 +943,6 @@ static int write_inline_file(const char *path, const unsigned char *body,
   const int parent_status = mkdir_parents(path, 0);
   if (parent_status != 0) return parent_status;
   return dolly_write_file(path, body, body_length);
-}
-
-static int verify_temporary_directory_empty(const char *locator) {
-  DIR *directory = opendir("/tmp");
-  if (directory == NULL) return errno == ENOENT ? 0 : -errno;
-  struct dirent *entry;
-  int result = 0;
-  while ((entry = readdir(directory)) != NULL) {
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
-    fprintf(stderr,
-            "dollyfile: module %s left temporary path /tmp/%s; "
-            "each module must remove its own build scratch\n",
-            locator, entry->d_name);
-    result = 2;
-    break;
-  }
-  if (closedir(directory) != 0 && result == 0) result = -errno;
-  return result;
-}
-
-static int remove_path_recursive(const char *path) {
-  struct stat metadata;
-  if (lstat(path, &metadata) != 0) return errno == ENOENT ? 0 : -errno;
-  if (!S_ISDIR(metadata.st_mode)) return unlink(path) == 0 ? 0 : -errno;
-  DIR *directory = opendir(path);
-  if (directory == NULL) return -errno;
-  struct dirent *entry;
-  int result = 0;
-  while (result == 0 && (entry = readdir(directory)) != NULL) {
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
-    const size_t length = strlen(path) + strlen(entry->d_name) + 2;
-    char *child = malloc(length);
-    if (child == NULL) {
-      result = -ENOMEM;
-      break;
-    }
-    snprintf(child, length, "%s/%s", path, entry->d_name);
-    result = remove_path_recursive(child);
-    free(child);
-  }
-  if (closedir(directory) != 0 && result == 0) result = -errno;
-  if (result == 0 && rmdir(path) != 0) result = -errno;
-  return result;
-}
-
-static int clean_temporary_directory(const char *locator) {
-  DIR *directory = opendir("/tmp");
-  if (directory == NULL) return errno == ENOENT ? 0 : -errno;
-  struct dirent *entry;
-  int result = 0;
-  while (result == 0 && (entry = readdir(directory)) != NULL) {
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
-    const size_t length = strlen(entry->d_name) + 6;
-    char *path = malloc(length);
-    if (path == NULL) {
-      result = -ENOMEM;
-      break;
-    }
-    snprintf(path, length, "/tmp/%s", entry->d_name);
-    result = remove_path_recursive(path);
-    free(path);
-  }
-  if (closedir(directory) != 0 && result == 0) result = -errno;
-  if (result == 0) {
-    fprintf(stderr, "dollyfile: cleaned failed module scratch after %s\n", locator);
-  }
-  return result;
 }
 
 static int set_entry(Engine *engine, char **words, size_t count) {
@@ -1243,23 +966,254 @@ static int set_entry(Engine *engine, char **words, size_t count) {
   return 0;
 }
 
-static int declare_write(Engine *engine, const char *path,
-                          const char *locator, size_t line) {
-  for (size_t index = 0; index < engine->write_count; ++index) {
-    const DeclaredWrite *previous = &engine->writes[index];
-    if (strcmp(previous->path, path) != 0) continue;
-    if (strcmp(previous->locator, locator) == 0) return 0;
-    fprintf(stderr, "dollyfile: %s:%zu: %s is already written by %s:%zu\n",
-            locator, line, path, previous->locator, previous->line);
-    return 2;
+static int append_recipe(Engine *engine, const char *kind, const char *name,
+                         const char *locator, const char digest[65],
+                         const char *source);
+
+static int append_text(Buffer *buffer, const char *text) {
+  const size_t length = text == NULL ? 0 : strlen(text);
+  return length <= UINT32_MAX && append_u32(buffer, (uint32_t)length) == 4 &&
+         append_buffer(text, length, buffer) == length ? 0 : -EFBIG;
+}
+
+static int take_text(const unsigned char **cursor, const unsigned char *end,
+                      char **output) {
+  uint32_t length;
+  const unsigned char *bytes;
+  if (take_layer_u32(cursor, end, &length) != 0 ||
+      take_layer_bytes(cursor, end, length, &bytes) != 0 ||
+      memchr(bytes, 0, length) != NULL) return -EINVAL;
+  *output = strndup((const char *)bytes, length);
+  return *output == NULL ? -ENOMEM : 0;
+}
+
+// The artifact carries exact completed exports and source provenance. Importing
+// it never replays a recipe or recaptures a directory from a later filesystem.
+static int write_artifact_receipt(Engine *engine) {
+  Buffer receipt = {.limit = MAX_SOURCE_BYTES};
+  int result = append_buffer("DOLLYART", 8, &receipt) == 8 &&
+               append_u32(&receipt, 3) == 4 &&
+               append_u32(&receipt, (uint32_t)engine->recipe_count) == 4 ? 0 : -EFBIG;
+  for (size_t index = 0; result == 0 && index < engine->recipe_count; ++index) {
+    const RecipeRecord *record = &engine->recipes[index];
+    if (append_text(&receipt, record->kind) != 0 ||
+        append_text(&receipt, record->name) != 0 ||
+        append_text(&receipt, record->locator) != 0 ||
+        append_text(&receipt, record->digest) != 0 ||
+        append_text(&receipt, record->source) != 0) result = -EFBIG;
   }
-  DeclaredWrite *writes = realloc(engine->writes,
-      (engine->write_count + 1) * sizeof(*writes));
-  if (writes == NULL) return -ENOMEM;
-  engine->writes = writes;
-  DeclaredWrite *write = &writes[engine->write_count++];
-  *write = (DeclaredWrite){strdup(path), strdup(locator), line};
-  return write->path != NULL && write->locator != NULL ? 0 : -ENOMEM;
+  if (result == 0 && append_u32(&receipt, (uint32_t)engine->exports.count) != 4) result = -EFBIG;
+  for (size_t index = 0; result == 0 && index < engine->exports.count; ++index) {
+    const Object *object = &engine->exports.items[index];
+    const char *detail = strcmp(object->type, "ENV") == 0 ? getenv(object->name) : object->detail;
+    const size_t count = object->members == NULL ? 0 : object->members->count;
+    if (append_text(&receipt, object->type) != 0 ||
+        append_text(&receipt, object->name) != 0 ||
+        append_text(&receipt, detail) != 0 ||
+        append_text(&receipt, object->sha256) != 0 ||
+        append_u32(&receipt, (uint32_t)count) != 4) result = -EFBIG;
+    for (size_t member = 0; result == 0 && member < count; ++member) {
+      result = append_text(&receipt, object->members->items[member]);
+    }
+  }
+  if (result == 0) result = dolly_write_file("/etc/dolly/artifact", receipt.data, receipt.length);
+  free(receipt.data);
+  if (result == 0) result = append_string(&engine->keep, &engine->keep_count,
+                                         &engine->keep_capacity, "/etc/dolly/artifact");
+  return result;
+}
+
+static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
+                                 size_t length, const char *locator,
+                                 const char *expected, Scope *exports) {
+  const unsigned char *cursor = bytes, *end = bytes + length, *magic;
+  uint32_t version, count;
+  if (take_layer_bytes(&cursor, end, 8, &magic) != 0 || memcmp(magic, "DOLLYART", 8) != 0 ||
+      take_layer_u32(&cursor, end, &version) != 0 || version != 3 ||
+      take_layer_u32(&cursor, end, &count) != 0 || count == 0 || count > 4096) return -EINVAL;
+  int result = 0;
+  for (uint32_t index = 0; result == 0 && index < count; ++index) {
+    char *kind = NULL, *name = NULL, *location = NULL, *digest = NULL, *source = NULL;
+    if (take_text(&cursor, end, &kind) != 0 || take_text(&cursor, end, &name) != 0 ||
+        take_text(&cursor, end, &location) != 0 || take_text(&cursor, end, &digest) != 0 ||
+        take_text(&cursor, end, &source) != 0) result = -EINVAL;
+    char actual[65];
+    if (result == 0) {
+      sha256_bytes(source, strlen(source), actual);
+      if ((strcmp(kind, "IMAGE") != 0 && strcmp(kind, "MODULE") != 0) ||
+          !valid_module_name(name) || !valid_absolute_path(location) ||
+          !valid_sha256(digest) || strcmp(actual, digest) != 0 ||
+          strlen(source) > MAX_RECIPE_BYTES) result = -EBADMSG;
+    }
+    if (result == 0 && index + 1 == count &&
+        (strcmp(kind, "IMAGE") != 0 || strcmp(location, locator) != 0 ||
+         strcmp(digest, expected) != 0)) result = -EBADMSG;
+    if (result == 0) result = append_recipe(engine, kind, name, location, digest, source);
+    free(kind); free(name); free(location); free(digest); free(source);
+  }
+  if (result == 0 && (take_layer_u32(&cursor, end, &count) != 0 || count > 10000)) result = -EINVAL;
+  for (uint32_t index = 0; result == 0 && index < count; ++index) {
+    Object object = {0};
+    uint32_t members = 0;
+    if (take_text(&cursor, end, &object.type) != 0 || take_text(&cursor, end, &object.name) != 0 ||
+        take_text(&cursor, end, &object.detail) != 0 || take_text(&cursor, end, &object.sha256) != 0 ||
+        take_layer_u32(&cursor, end, &members) != 0 || members > MAX_MANIFEST_FILES) result = -EINVAL;
+    if (result == 0 && (!valid_object_type(object.type) ||
+        (strcmp(object.type, "ENV") == 0 ? !valid_environment_name(object.name) : !valid_object_name(object.name)) ||
+        (*object.sha256 != '\0' && !valid_sha256(object.sha256)))) result = -EINVAL;
+    if (result == 0) {
+      if (*object.sha256 == '\0') { free(object.sha256); object.sha256 = NULL; }
+      if (*object.detail == '\0' && strcmp(object.type, "ENV") != 0) {
+        free(object.detail); object.detail = NULL;
+      }
+      object.members = calloc(1, sizeof(*object.members));
+      if (object.members == NULL) result = -ENOMEM;
+      else object.members->references = 1;
+    }
+    for (uint32_t member = 0; result == 0 && member < members; ++member) {
+      char *path = NULL;
+      result = take_text(&cursor, end, &path);
+      if (result == 0 && (!valid_absolute_path(path) || forbidden_keep(path))) result = -EINVAL;
+      if (result == 0) result = append_string(&object.members->items, &object.members->count,
+                                             &object.members->capacity, path);
+      free(path);
+    }
+    if (result == 0 && exports != NULL) result = scope_add_object(exports, &object);
+    dispose_object(&object);
+  }
+  return result == 0 && cursor != end ? -EINVAL : result;
+}
+
+typedef struct {
+  Buffer bytes;
+  dolly_fs_record *records;
+  uint32_t count;
+} Artifact;
+
+static void dispose_artifact(Artifact *artifact) {
+  if (artifact->records != NULL) {
+    for (uint32_t index = 0; index < artifact->count; ++index) free(artifact->records[index].path);
+  }
+  free(artifact->records);
+  free(artifact->bytes.data);
+  memset(artifact, 0, sizeof(*artifact));
+}
+
+static const dolly_fs_record *artifact_file(const Artifact *artifact, const char *path) {
+  for (uint32_t index = 0; index < artifact->count; ++index) {
+    if (strcmp(artifact->records[index].path, path) == 0) return &artifact->records[index];
+  }
+  return NULL;
+}
+
+static int read_artifact(Artifact *artifact, const char *expected) {
+  char path[128];
+  snprintf(path, sizeof(path), "/etc/dolly/artifacts/%s.snapshot", expected);
+  artifact->bytes.limit = MAX_SOURCE_BYTES;
+  int result = read_file_buffer(path, &artifact->bytes);
+  if (result != 0) return result;
+  const unsigned char *cursor = artifact->bytes.data;
+  const unsigned char *end = cursor + artifact->bytes.length, *magic;
+  uint32_t version;
+  if (take_layer_bytes(&cursor, end, 8, &magic) != 0 || memcmp(magic, "DOLLYSNP", 8) != 0 ||
+      take_layer_u32(&cursor, end, &version) != 0 || version != 2 ||
+      take_layer_u32(&cursor, end, &artifact->count) != 0 ||
+      artifact->count == 0 || artifact->count > MAX_MANIFEST_FILES) return -EINVAL;
+  artifact->records = calloc(artifact->count, sizeof(*artifact->records));
+  if (artifact->records == NULL) return -ENOMEM;
+  for (uint32_t index = 0; index < artifact->count; ++index) {
+    dolly_fs_record *record = &artifact->records[index];
+    uint32_t path_length;
+    uint64_t size;
+    const unsigned char *path_bytes;
+    if (take_layer_u32(&cursor, end, &record->kind) != 0 ||
+        record->kind < DOLLY_FS_DIRECTORY || record->kind > DOLLY_FS_SYMLINK ||
+        take_layer_u32(&cursor, end, &path_length) != 0 || path_length == 0 || path_length >= PATH_MAX ||
+        take_layer_u64(&cursor, end, &size) != 0 || size > MAX_SOURCE_BYTES ||
+        take_layer_bytes(&cursor, end, path_length, &path_bytes) != 0 ||
+        take_layer_bytes(&cursor, end, (size_t)size, &record->data) != 0 ||
+        memchr(path_bytes, 0, path_length) != NULL) return -EINVAL;
+    record->path = strndup((const char *)path_bytes, path_length);
+    record->size = (uintptr_t)size;
+    if (record->path == NULL) return -ENOMEM;
+    if (!valid_absolute_path(record->path) || forbidden_keep(record->path) ||
+        (index != 0 && strcmp(artifact->records[index - 1].path, record->path) >= 0) ||
+        (record->kind == DOLLY_FS_DIRECTORY && record->size != 0) ||
+        (record->kind == DOLLY_FS_SYMLINK && (record->size == 0 || record->size >= PATH_MAX ||
+          memchr(record->data, 0, record->size) != NULL))) return -EINVAL;
+  }
+  const dolly_fs_record *recipe = artifact_file(artifact, "/etc/dolly/Dollyfile");
+  if (cursor != end || recipe == NULL || recipe->kind != DOLLY_FS_FILE) return -EINVAL;
+  char actual[65];
+  sha256_bytes(recipe->data, recipe->size, actual);
+  return strcmp(actual, expected) == 0 ? 0 : -EBADMSG;
+}
+
+static int artifact_has_path(const Artifact *artifact, const char *path) {
+  if (strcmp(path, "/") == 0) return artifact->count != 0;
+  const size_t length = strlen(path);
+  for (uint32_t index = 0; index < artifact->count; ++index) {
+    const char *candidate = artifact->records[index].path;
+    if (strncmp(candidate, path, length) == 0 &&
+        (candidate[length] == '\0' || candidate[length] == '/')) return 1;
+  }
+  return 0;
+}
+
+static int load_artifact(Engine *engine, const char *locator, const char *expected,
+                         const char *source, const char *destination, Scope *visible) {
+  Artifact artifact = {0};
+  int result = read_artifact(&artifact, expected);
+  const dolly_fs_record *receipt = result == 0 ? artifact_file(&artifact, "/etc/dolly/artifact") : NULL;
+  if (result == 0 && (receipt == NULL || receipt->kind != DOLLY_FS_FILE)) result = -EINVAL;
+  if (result == 0) result = read_artifact_receipt(engine, receipt->data, receipt->size,
+                                                 locator, expected, source == NULL ? visible : NULL);
+  if (result == 0 && source != NULL && !artifact_has_path(&artifact, source)) {
+    result = -ENOENT;
+  }
+  size_t count = 0;
+  dolly_fs_record *selected = result == 0 ? calloc(artifact.count, sizeof(*selected)) : NULL;
+  if (result == 0 && selected == NULL) result = -ENOMEM;
+  for (uint32_t index = 0; result == 0 && index < artifact.count; ++index) {
+    const dolly_fs_record *record = &artifact.records[index];
+    const char *suffix = record->path;
+    if (source != NULL && strcmp(source, "/") != 0) {
+      const size_t length = strlen(source);
+      if (strncmp(record->path, source, length) != 0 ||
+          (record->path[length] != '\0' && record->path[length] != '/')) continue;
+      suffix += length;
+    }
+    const char *prefix = source == NULL || strcmp(destination, "/") == 0 ? "" : destination;
+    const size_t length = strlen(prefix) + strlen(suffix) + 1;
+    char *path = malloc(length);
+    if (path == NULL) { result = -ENOMEM; break; }
+    snprintf(path, length, "%s%s", prefix, suffix);
+    if (*path == '\0' && record->kind == DOLLY_FS_DIRECTORY) { free(path); continue; }
+    if (!valid_absolute_path(path) || forbidden_keep(path)) { free(path); result = -EINVAL; break; }
+    selected[count] = *record;
+    selected[count++].path = path;
+  }
+  if (result == 0 && dolly_fs_restore(selected, count, 1) != 0) result = -errno;
+  for (size_t index = 0; result == 0 && index < count; ++index) {
+    result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
+  }
+  if (result == 0 && source == NULL) {
+    for (size_t index = 0; result == 0 && index < visible->count; ++index) {
+      const Object *object = &visible->items[index];
+      if (strcmp(object->type, "ENV") == 0) {
+        result = apply_environment(object->name, object->detail, 0);
+        if (result == 0) result = append_string(&engine->environment_names,
+            &engine->environment_name_count, &engine->environment_name_capacity, object->name);
+      }
+    }
+    if (result == 0) result = scope_copy(&engine->exports, visible);
+  }
+  if (result == 0) printf("dollyfile: %s %s (%zu paths)\n", source == NULL ? "FROM" : "COPY FROM", locator, count);
+  else fprintf(stderr, "dollyfile: artifact %s: %s\n", locator, strerror(-result));
+  for (size_t index = 0; index < count; ++index) free(selected[index].path);
+  free(selected);
+  dispose_artifact(&artifact);
+  return result;
 }
 
 static int execute_recipe(Engine *engine, const char *locator,
@@ -1267,29 +1221,26 @@ static int execute_recipe(Engine *engine, const char *locator,
                           const Scope *available, int root, int execute,
                           Scope *exports_out);
 
+static int valid_image_locator(const char *value) {
+  return strcmp(value, "/Dollyfile") == 0 ||
+         (strncmp(value, "/Dollyfile-", 11) == 0 && valid_name(value + 11));
+}
+
 static int process_line(Engine *engine, const char *locator, size_t depth,
                         size_t line_number, char *line,
                         const unsigned char *body, size_t body_length,
-                        const Scope *available, Scope *imports, Scope *children,
-                        Scope *permitted_tools, Scope *exports,
-                        char **kind, char **name,
-                        int *header_seen, size_t *uses, size_t *slops,
-                        int *module_form, int execute,
-                        int filesystem_available) {
+                        Scope *visible, Scope *exports, char **kind, char **name,
+                        int *header_seen, size_t *operations, int execute) {
   strip_comment(line);
   char *text = trim(line);
   if (*text == '\0') return 0;
   char *separator = text;
   while (*separator != '\0' && !isspace((unsigned char)*separator)) ++separator;
   char *arguments = separator;
-  if (*separator != '\0') {
-    *separator++ = '\0';
-    arguments = trim(separator);
-  }
+  if (*separator != '\0') { *separator++ = '\0'; arguments = trim(separator); }
   if (!*header_seen) {
-    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "2") != 0) {
-      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 2\n",
-              locator, line_number);
+    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "3") != 0) {
+      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 3\n", locator, line_number);
       return 2;
     }
     *header_seen = 1;
@@ -1302,276 +1253,157 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     const char *value = parsed == 0 && count == 1 ? identity[0] : "";
     free(identity);
     if ((strcmp(text, "IMAGE") != 0 && strcmp(text, "MODULE") != 0) ||
-        (strcmp(text, "IMAGE") == 0 ? !valid_name(value)
-                                     : !valid_module_name(value))) {
-      fprintf(stderr, "dollyfile: %s:%zu: expected IMAGE or MODULE\n",
-              locator, line_number);
-      return 2;
-    }
+        (strcmp(text, "IMAGE") == 0 ? !valid_name(value) : !valid_module_name(value))) return 2;
     *kind = strdup(text);
     *name = strdup(value);
-    if (*kind == NULL || *name == NULL) return 1;
-    if (strcmp(text, "MODULE") == 0) {
-      if (contains_string(engine->selected_names, engine->selected_name_count,
-                          value)) {
-        fprintf(stderr, "dollyfile: %s:%zu: module %s was already USEd\n",
-                locator, line_number, value);
-        return 2;
-      }
-      if (append_string(&engine->selected_names, &engine->selected_name_count,
-                        &engine->selected_name_capacity, value) != 0) return 1;
-    }
-    return 0;
+    return *kind == NULL || *name == NULL ? -ENOMEM : 0;
   }
   int result = 0;
   char **words = NULL;
   size_t count = 0;
   const int image = strcmp(*kind, "IMAGE") == 0;
-  const int build_step = strcmp(text, "SOURCE") == 0 ||
-                         strcmp(text, "FILE") == 0 ||
-                         strcmp(text, "FOLDER") == 0 ||
-                         strcmp(text, "SLOP") == 0;
-  if ((image && strcmp(text, "USE") != 0 && strcmp(text, "ENTRY") != 0) ||
-      (image && engine->entry_count != 0) ||
-      (!image && strcmp(text, "USE") == 0 && *module_form == 2) ||
-      (!image && build_step && *module_form == 1) ||
-      (!image && strcmp(text, "REQUIRES") == 0 && *module_form != 0)) {
-    result = 2;
-  }
-  if (result == 0 && !image && strcmp(text, "USE") == 0) *module_form = 1;
-  if (result == 0 && !image && build_step) *module_form = 2;
-  if (result == 0 && !image && strcmp(text, "EXPORTS") == 0 &&
-      *module_form == 0) {
-    *module_form = 2;
-  }
-  if (result != 0) {
-    // The common error path below reports the invalid declaration.
-  } else if (strcmp(text, "IMAGE") == 0 || strcmp(text, "MODULE") == 0 ||
-      strcmp(text, "DOLLY") == 0) {
-    result = 2;
-  } else if (strcmp(text, "USE") == 0) {
+  if (image && engine->entry_count != 0) result = 2;
+  else if (strcmp(text, "USE") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 &&
-        (count != 3 || strcmp(words[0], "HOST") != 0 ||
-         !valid_module_locator(words[1]) || !valid_sha256(words[2]))) result = 2;
+    if (result == 0 && (count != 3 || strcmp(words[0], "HOST") != 0 ||
+        !valid_module_locator(words[1]) || !valid_sha256(words[2]))) result = 2;
     if (result == 0) {
-      Scope child = {0};
-      Scope visible = {0};
-      const int child_execute =
-          execute && !(depth == 0 && *uses < engine->resume_uses);
-      if (!child_execute && depth == 0) {
-        printf("dollyfile: cache hit %s\n", words[1]);
-      }
-      if (result == 0) result = scope_copy(&visible, imports);
-      if (result == 0) result = scope_copy(&visible, children);
-      if (result == 0) {
-        result = execute_recipe(engine, words[1], words[2], depth + 1,
-                                &visible, 0, child_execute, &child);
-      }
-      dispose_scope(&visible);
-      for (size_t index = 0; result == 0 && depth == 0 && index < child.count;
-           ++index) {
-        result = retain_export(engine, &child.items[index]);
-        if (result == 0 && strcmp(child.items[index].type, "ENV") == 0) {
-          result = append_string(&engine->environment_names,
-                                 &engine->environment_name_count,
-                                 &engine->environment_name_capacity,
-                                 child.items[index].name);
-        }
-        if (result != 0) {
-          fprintf(stderr, "dollyfile: %s:%zu: missing image export %s %s: %s\n",
-                  locator, line_number, child.items[index].type,
-                  child.items[index].name, strerror(-result));
-          result = 1;
-        }
-      }
-      for (size_t index = 0; result == 0 && index < child.count; ++index) {
-        const Object *object = &child.items[index];
-        if (scope_find(imports, object->type, object->name) != NULL) {
-          result = -EEXIST;
-        } else {
-          result = scope_add_object(children, object);
-        }
-        if (result == -EEXIST) {
-          fprintf(stderr, "dollyfile: %s:%zu: duplicate export %s %s in scope\n",
-                  locator, line_number, object->type, object->name);
-          result = 2;
+      Scope child = {0}, child_available = {0};
+      result = scope_copy(&child_available, visible);
+      if (result == 0) result = scope_copy(&child_available, exports);
+      if (result == 0) result = execute_recipe(engine, words[1], words[2], depth + 1,
+                                               &child_available, 0, execute, &child);
+      dispose_scope(&child_available);
+      if (result == 0) result = scope_copy(visible, &child);
+      if (result == 0 && image) {
+        result = scope_copy(&engine->exports, &child);
+        for (size_t index = 0; result == 0 && execute && index < child.count; ++index) {
+          result = retain_export(engine, &child.items[index]);
         }
       }
       dispose_scope(&child);
-      if (result == 0) ++*uses;
     }
+  } else if (strcmp(text, "FROM") == 0 || strcmp(text, "COPY") == 0) {
+    const int copy = strcmp(text, "COPY") == 0;
+    result = split_words(arguments, &words, &count);
+    const size_t offset = copy ? 1 : 0;
+    if (result == 0 && (count != (copy ? 6 : 3) ||
+        (copy && strcmp(words[0], "FROM") != 0) || (!copy && (!image || *operations != 0)) ||
+        strcmp(words[offset], "HOST") != 0 || !valid_image_locator(words[offset + 1]) ||
+        !valid_sha256(words[offset + 2]))) result = 2;
+    if (result == 0 && copy &&
+        ((strcmp(words[4], "/") != 0 && !valid_absolute_path(words[4])) ||
+         (strcmp(words[5], "/") != 0 && !valid_absolute_path(words[5])))) result = 2;
+    if (result == 0 && execute) result = load_artifact(engine, words[offset + 1], words[offset + 2],
+                                                       copy ? words[4] : NULL, copy ? words[5] : NULL, visible);
   } else if (strcmp(text, "REQUIRES") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 &&
-        (strcmp(*kind, "IMAGE") == 0 || count != 2 ||
-         !valid_object_type(words[0]) ||
-         (strcmp(words[0], "ENV") == 0
-              ? !valid_environment_name(words[1])
-              : !valid_object_name(words[1])))) result = 2;
-    const Object *provider = result == 0
-                                 ? scope_find(available, words[0], words[1])
-                                 : NULL;
-    if (result == 0 && provider == NULL) {
-      fprintf(stderr,
-              "dollyfile: %s:%zu: %s %s must be exported by an earlier USE\n",
-              locator, line_number, words[0], words[1]);
-      result = 2;
-    }
-    if (result == 0) {
-      result = scope_add_object(imports, provider);
-      if (result == -EEXIST) result = 2;
-    }
-    if (result == 0 && strcmp(words[0], "TOOL") == 0) {
-      result = permit_tool(permitted_tools, provider->name);
+    if (result == 0 && (count != 2 || !valid_object_type(words[0]) ||
+        (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
+    if (result == 0 && execute) {
+      if (strcmp(words[0], "ENV") == 0) result = getenv(words[1]) == NULL ? -ENOENT : 0;
+      else if (strcmp(words[0], "TOOL") == 0) {
+        char *path = NULL;
+        result = resolve_tool(words[1], &path);
+        free(path);
+      } else {
+        const Object *provider = scope_find(exports, words[0], words[1]);
+        if (provider == NULL) provider = scope_find(visible, words[0], words[1]);
+        result = provider == NULL ? -ENOENT :
+            validate_export(provider->type, provider->name, provider->detail, provider->sha256, 0);
+      }
+      if (result != 0) fprintf(stderr, "dollyfile: required %s %s is unavailable\n", words[0], words[1]);
     }
   } else if (strcmp(text, "EXPORTS") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 &&
-        (count < 2 || !valid_object_type(words[0]) ||
-         (strcmp(words[0], "ENV") == 0
-              ? !valid_environment_name(words[1])
-              : !valid_object_name(words[1])))) result = 2;
-    const char *detail = NULL;
-    const char *sha256 = NULL;
-    int append_environment = 0;
-    const Object *child_export = result == 0 && *uses != 0
-                                     ? scope_find(children, words[0], words[1])
-                                     : NULL;
-    if (result == 0 && *uses != 0 && child_export == NULL) {
-      fprintf(stderr,
-              "dollyfile: %s:%zu: aggregate export %s %s must come from a direct child\n",
-              locator, line_number, words[0], words[1]);
-      result = 2;
-    }
-    if (result == 0 && *uses != 0) {
-      if (count != 2) result = 2;
-      else {
-        detail = child_export->detail;
-        sha256 = child_export->sha256;
-      }
-    } else if (result == 0 && strcmp(words[0], "TOOL") == 0) {
-      if (count == 3 && valid_sha256(words[2])) sha256 = words[2];
-      else if (count != 2) result = 2;
-    } else if (result == 0 && strcmp(words[0], "ENV") == 0) {
-      if (count == 3) detail = words[2];
-      else if (count == 4 && strcmp(words[2], "APPEND") == 0) {
-        detail = words[3];
-        append_environment = 1;
-      } else result = 2;
-    } else if (result == 0) {
-      if (count != 3 || !valid_absolute_path(words[2]) ||
-          forbidden_keep(words[2])) result = 2;
-      else detail = words[2];
-    }
+    if (result == 0 && (count < 2 || !valid_object_type(words[0]) ||
+        (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
+    const char *detail = NULL, *sha256 = NULL;
+    int append = 0;
     if (result == 0) {
-      result = *uses != 0
-                   ? scope_add_object(exports, child_export)
-                   : scope_add(exports, words[0], words[1], detail, sha256);
-      if (result == -EEXIST) result = 2;
-      if (result == 0 && *uses == 0) exports->items[exports->count - 1].append_environment = append_environment;
-    }
-    // A packaged-prefix resume parses every skipped descendant to reconstruct
-    // the module graph, but the snapshot contains only the top-level module's
-    // public exports. Do not require a private descendant export to remain on
-    // disk. At depth 1 the export is public to the image and must be present;
-    // a leaf-layer cache also sets filesystem_available because it restored
-    // the complete leaf output before parsing its declarations.
-    const int exported_files_available = filesystem_available || depth == 1;
-    if (result == 0 && *uses == 0 &&
-        (strcmp(words[0], "ENV") == 0 || exported_files_available)) {
-      result = validate_export(words[0], words[1], detail, sha256, append_environment);
-      if (result != 0) {
-        fprintf(stderr, "dollyfile: %s:%zu: missing exported %s %s: %s\n",
-                locator, line_number, words[0], words[1], strerror(-result));
-        result = 1;
+      if (strcmp(words[0], "TOOL") == 0) {
+        if (count != 2 && (count != 3 || !valid_sha256(words[2]))) result = 2;
+        else if (count == 3) sha256 = words[2];
+      } else if (strcmp(words[0], "ENV") == 0) {
+        if (count == 3) detail = words[2];
+        else if (count == 4 && strcmp(words[2], "APPEND") == 0) { detail = words[3]; append = 1; }
+        else if (count != 2) result = 2;
+      } else {
+        if (count != 3 || !valid_absolute_path(words[2]) || forbidden_keep(words[2])) result = 2;
+        else detail = words[2];
       }
     }
-    if (result == 0 && strcmp(words[0], "ENV") != 0 &&
-        exported_files_available &&
-        exports->items[exports->count - 1].members == NULL) {
-      result = capture_export_members(&exports->items[exports->count - 1]);
-      if (result != 0) {
-        fprintf(stderr, "dollyfile: %s:%zu: could not capture exported %s %s: %s\n",
-                locator, line_number, words[0], words[1], strerror(-result));
-        result = 1;
-      }
+    if (result == 0 && strcmp(words[0], "ENV") == 0) {
+      if (detail != NULL) result = apply_environment(words[1], detail, append);
+      if (result == 0) result = append_string(&engine->environment_names, &engine->environment_name_count,
+                                               &engine->environment_name_capacity, words[1]);
+      detail = getenv(words[1]);
     }
-    if (result == 0 && strcmp(words[0], "TOOL") == 0) {
-      result = permit_tool(permitted_tools, words[1]);
-    }
+    if (result == 0) result = scope_add(exports, words[0], words[1], detail, sha256);
   } else if (strcmp(text, "SOURCE") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 &&
-        (count != 4 || (strcmp(words[0], "HOST") != 0 &&
-                        strcmp(words[0], "URL") != 0) ||
-         (strcmp(words[0], "HOST") == 0 && !valid_absolute_path(words[1])) ||
-         (strcmp(words[0], "URL") == 0 &&
-          ((strncmp(words[1], "https://", 8) != 0 &&
-            strncmp(words[1], "http://", 7) != 0) ||
-           strchr(words[1], '#') != NULL)) ||
-         !valid_absolute_path(words[2]) || !valid_sha256(words[3]))) result = 2;
-    if (result == 0) result = declare_write(engine, words[2], locator, line_number);
-    if (result == 0 && execute &&
-        fetch_source(engine, words[0], words[1], words[2], words[3]) != 0) {
-      result = 1;
-    }
+    if (result == 0 && (count != 4 || (strcmp(words[0], "HOST") != 0 && strcmp(words[0], "URL") != 0) ||
+        (strcmp(words[0], "HOST") == 0 && !valid_absolute_path(words[1])) ||
+        (strcmp(words[0], "URL") == 0 && ((strncmp(words[1], "https://", 8) != 0 &&
+          strncmp(words[1], "http://", 7) != 0) || strchr(words[1], '#') != NULL)) ||
+        !valid_absolute_path(words[2]) || !valid_sha256(words[3]))) result = 2;
+    if (result == 0 && execute) result = fetch_source(engine, words[0], words[1], words[2], words[3]);
   } else if (strcmp(text, "SLOP") == 0) {
-    result = execute_slop(arguments, permitted_tools, execute);
-    if (result == 0) ++*slops;
+    result = execute_slop(arguments, execute);
   } else if (strcmp(text, "FILE") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 1 || !valid_absolute_path(words[0]))) result = 2;
-    if (result == 0 && forbidden_keep(words[0]) &&
-        strncmp(words[0], "/tmp/", 5) != 0) result = 2;
-    if (result == 0 && body != NULL) result = declare_write(engine, words[0], locator, line_number);
-    if (result == 0 && execute && body != NULL) {
-      const int status = write_inline_file(words[0], body, body_length);
-      if (status != 0) result = 1;
-    }
-    if (result == 0 && (execute || (filesystem_available && !forbidden_keep(words[0])))) {
-      result = validate_export("FILE", "FILE", words[0], NULL, 0);
-    }
-    if (result == 0 && forbidden_keep(words[0])) {
-      if (strncmp(words[0], "/tmp/", 5) != 0) {
-        result = 2;
-      }
-    } else if (result == 0) {
-      result = append_string(&engine->keep, &engine->keep_count,
-                             &engine->keep_capacity, words[0]);
-    }
+    if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) ||
+        (forbidden_keep(words[0]) && strncmp(words[0], "/tmp/", 5) != 0))) result = 2;
+    if (result == 0 && execute && body != NULL) result = write_inline_file(words[0], body, body_length);
+    if (result == 0 && execute) result = validate_export("FILE", "FILE", words[0], NULL, 0);
+    if (result == 0 && !forbidden_keep(words[0])) result = append_string(&engine->keep,
+        &engine->keep_count, &engine->keep_capacity, words[0]);
   } else if (strcmp(text, "FOLDER") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) ||
-                        forbidden_keep(words[0]))) result = 2;
-    if (result == 0) result = validate_export("FOLDER", "FOLDER", words[0], NULL, 0);
-    if (result == 0) {
-      result = collect_tree(engine, words[0]);
-      if (result != 0) {
-        fprintf(stderr, "dollyfile: %s:%zu: FOLDER is missing or invalid: %s\n",
-                locator, line_number, strerror(-result));
-        result = 1;
-      }
-    }
+    if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) || forbidden_keep(words[0]))) result = 2;
+    if (result == 0 && execute) result = validate_export("FOLDER", "FOLDER", words[0], NULL, 0);
+    if (result == 0 && execute) result = collect_tree(engine, words[0]);
   } else if (strcmp(text, "ENTRY") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (strcmp(*kind, "IMAGE") != 0 || engine->entry_count != 0 ||
-                        count == 0 || !valid_absolute_path(words[0]))) result = 2;
+    if (result == 0 && (!image || count == 0 || !valid_absolute_path(words[0]))) result = 2;
     if (result == 0) result = set_entry(engine, words, count);
-  } else {
-    result = 2;
-  }
+  } else result = 2;
+  ++*operations;
   free(words);
-  if (result != 0) {
-    fprintf(stderr, "dollyfile: %s:%zu: invalid %s declaration\n",
-            locator, line_number, text);
-  }
+  if (result != 0) fprintf(stderr, "dollyfile: %s:%zu: %s failed (%d)\n", locator, line_number, text, result);
   return result;
+}
+
+static int finish_exports(Scope *exports, int execute) {
+  for (size_t index = 0; index < exports->count; ++index) {
+    Object *object = &exports->items[index];
+    if (strcmp(object->type, "ENV") == 0) {
+      const char *value = getenv(object->name);
+      free(object->detail);
+      object->detail = value == NULL ? NULL : strdup(value);
+      if (execute && object->detail == NULL) return -ENOENT;
+      continue;
+    }
+    if (execute && object->members == NULL) {
+      const int result = capture_export_members(object);
+      if (result != 0) {
+        fprintf(stderr, "dollyfile: missing exported %s %s: %s\n", object->type, object->name, strerror(-result));
+        return result;
+      }
+    }
+  }
+  return 0;
 }
 
 static int append_recipe(Engine *engine, const char *kind, const char *name,
                          const char *locator, const char digest[65],
                          const char *source) {
+  for (size_t index = 0; index < engine->recipe_count; ++index) {
+    const RecipeRecord *record = &engine->recipes[index];
+    if (strcmp(record->locator, locator) == 0) {
+      return strcmp(record->digest, digest) == 0 ? 0 : -EBADMSG;
+    }
+  }
   if (engine->recipe_count == engine->recipe_capacity) {
     const size_t next = engine->recipe_capacity == 0 ? 4 : engine->recipe_capacity * 2;
     RecipeRecord *replacement = realloc(engine->recipes, next * sizeof(*replacement));
@@ -1604,17 +1436,6 @@ static int execute_recipe(Engine *engine, const char *locator,
       return 2;
     }
   }
-  if (!root) {
-    if (contains_string(engine->selected_modules, engine->selected_module_count,
-                        locator)) {
-      fprintf(stderr,
-              "dollyfile: module %s may be USEd only once in one Dollyfile graph\n",
-              locator);
-      return 2;
-    }
-    if (append_string(&engine->selected_modules, &engine->selected_module_count,
-                      &engine->selected_module_capacity, locator) != 0) return 1;
-  }
   Buffer recipe = {.limit = MAX_RECIPE_BYTES};
   char digest[65];
   int result = fetch_recipe(engine, locator, &recipe, digest);
@@ -1629,26 +1450,6 @@ static int execute_recipe(Engine *engine, const char *locator,
             locator, expected_sha256, digest);
     free(recipe.data);
     return 2;
-  }
-  char cache_key[65] = {0};
-  int recipe_execute = execute;
-  if (!root) {
-    module_cache_key(engine, available, locator, digest, cache_key);
-    if (execute) {
-      const int cache_status = restore_module_layer(cache_key);
-      if (cache_status == 0) {
-        recipe_execute = 0;
-      } else if (cache_status != -ENOENT) {
-        fprintf(stderr, "dollyfile: ignoring invalid module cache %s: %s\n",
-                cache_key, strerror(-cache_status));
-        char *cache_path = module_cache_path("/etc/dolly/module-cache-input",
-                                             cache_key);
-        if (cache_path != NULL) {
-          unlink(cache_path);
-          free(cache_path);
-        }
-      }
-    }
   }
   char **stack_replacement = realloc(engine->stack,
       (engine->stack_count + 1) * sizeof(*engine->stack));
@@ -1666,13 +1467,9 @@ static int execute_recipe(Engine *engine, const char *locator,
   char *kind = NULL;
   char *name = NULL;
   int header_seen = 0;
-  size_t uses = 0;
-  size_t slops = 0;
-  int module_form = 0;
-  Scope imports = {0};
-  Scope children = {0};
-  Scope permitted_tools = {0};
-  const size_t keep_start = engine->keep_count;
+  size_t operations = 0;
+  Scope visible = {0};
+  result = scope_copy(&visible, available);
   size_t physical_line = 1;
   size_t cursor = 0;
   while (result == 0 && cursor < recipe.length) {
@@ -1683,16 +1480,16 @@ static int execute_recipe(Engine *engine, const char *locator,
       size_t end = cursor;
       while (end < recipe.length && recipe.data[end] != '\n' &&
              recipe.data[end] != '\r') ++end;
-      size_t content_end = end;
-      while (content_end > cursor &&
-             (recipe.data[content_end - 1] == ' ' ||
-              recipe.data[content_end - 1] == '\t')) --content_end;
-      continued = content_end > cursor && recipe.data[content_end - 1] == '\\';
-      if (continued) --content_end;
-      if (logical.length != 0 && append_buffer(" ", 1, &logical) != 1) result = 1;
-      if (result == 0 && append_buffer(recipe.data + cursor,
-                                      content_end - cursor, &logical) !=
-                             content_end - cursor) result = 1;
+      char *physical = strndup((char *)recipe.data + cursor, end - cursor);
+      if (physical == NULL) { result = -ENOMEM; break; }
+      strip_comment(physical);
+      size_t length = strlen(physical);
+      while (length != 0 && (physical[length - 1] == ' ' || physical[length - 1] == '\t')) --length;
+      continued = length != 0 && physical[length - 1] == '\\';
+      if (continued) --length;
+      if (logical.length != 0 && append_buffer(" ", 1, &logical) != 1) result = -ENOMEM;
+      if (result == 0 && append_buffer(physical, length, &logical) != length) result = -EFBIG;
+      free(physical);
       if (end < recipe.length && recipe.data[end] == '\r' &&
           end + 1 < recipe.length && recipe.data[end + 1] == '\n') ++end;
       cursor = end < recipe.length ? end + 1 : end;
@@ -1746,10 +1543,8 @@ static int execute_recipe(Engine *engine, const char *locator,
     if (result == 0) {
       result = process_line(engine, locator, depth, logical_line,
                             (char *)logical.data,
-                            body.data, body.length, available, &imports, &children,
-                            &permitted_tools, exports_out,
-                            &kind, &name, &header_seen, &uses, &slops,
-                            &module_form, recipe_execute, execute);
+                            body.data, body.length, &visible, exports_out,
+                            &kind, &name, &header_seen, &operations, execute);
     }
     free(body.data);
     free(logical.data);
@@ -1775,53 +1570,15 @@ static int execute_recipe(Engine *engine, const char *locator,
     fprintf(stderr, "dollyfile: %s: IMAGE is missing ENTRY\n", locator);
     result = 2;
   }
-  if (result == 0 && root && engine->resume_uses > uses) {
-    fprintf(stderr, "dollyfile: cache prefix has %zu USEs, recipe has %zu\n",
-            engine->resume_uses, uses);
-    result = 2;
-  }
-  if (result == 0 && !root && uses != 0) {
-    for (size_t index = 0; index < children.count; ++index) {
-      const Object *object = &children.items[index];
-      if (strcmp(object->type, "ENV") != 0 ||
-          scope_find(exports_out, object->type, object->name) != NULL) continue;
-      const Object *inherited = scope_find(&imports, object->type, object->name);
-      const int environment_status = inherited == NULL
-                                         ? unsetenv(object->name)
-                                         : apply_environment(inherited->name,
-                                                             inherited->detail,
-                                                             inherited->append_environment);
-      if (environment_status != 0) {
-        fprintf(stderr, "dollyfile: could not hide private ENV %s from %s\n",
-                object->name, locator);
-        result = 1;
-        break;
-      }
+  if (result == 0) result = finish_exports(exports_out, execute);
+  if (result == 0 && root) {
+    result = scope_copy(&engine->exports, exports_out);
+    for (size_t index = 0; result == 0 && execute && index < exports_out->count; ++index) {
+      result = retain_export(engine, &exports_out->items[index]);
     }
-  }
-  if (execute && !root) {
-    if (result == 0) {
-      result = verify_temporary_directory_empty(locator);
-      if (result < 0) {
-        fprintf(stderr, "dollyfile: could not inspect /tmp after %s: %s\n",
-                locator, strerror(-result));
-        result = 1;
-      }
-    }
-    if (result != 0) {
-      const int cleanup_status = clean_temporary_directory(locator);
-      if (cleanup_status != 0) {
-        fprintf(stderr, "dollyfile: could not clean /tmp after %s failed: %s\n",
-                locator, strerror(-cleanup_status));
-      }
-    }
-  }
-  if (result == 0 && recipe_execute && !root && uses == 0 && slops != 0) {
-    const int cache_status = write_module_layer(
-        engine, exports_out, keep_start, cache_key);
-    if (cache_status != 0) {
-      fprintf(stderr, "dollyfile: could not save optional module cache %s: %s\n",
-              cache_key, strerror(-cache_status));
+    for (size_t index = 0; result == 0 && index < engine->environment_name_count; ++index) {
+      const char *variable = engine->environment_names[index];
+      result = scope_add(&engine->exports, "ENV", variable, getenv(variable), NULL);
     }
   }
   if (result == 0) result = append_recipe(engine, kind, name, locator, digest,
@@ -1833,9 +1590,7 @@ static int execute_recipe(Engine *engine, const char *locator,
   }
   free(kind);
   free(name);
-  dispose_scope(&imports);
-  dispose_scope(&children);
-  dispose_scope(&permitted_tools);
+  dispose_scope(&visible);
   free(recipe.data);
   free(engine->stack[--engine->stack_count]);
   if (result != 0) dispose_scope(exports_out);
@@ -2021,11 +1776,12 @@ static int seal_manifest(Engine *engine) {
     fprintf(stderr, "dollyfile: ENTRY and its target must be retained by module exports: %s\n", entry);
     return 1;
   }
-  if (write_control_files(engine) != 0) return 1;
+  if (write_control_files(engine) != 0 || write_artifact_receipt(engine) != 0) return 1;
   qsort(engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings);
   Buffer manifest = {.limit = 8 * 1024 * 1024};
   for (size_t index = 0; index < engine->keep_count; ++index) {
     struct stat metadata;
+    if (lstat(engine->keep[index], &metadata) != 0 && (errno == ENOENT || errno == ENOTDIR)) continue;
     if (!dolly_fs_valid_path(engine->keep[index]) || strpbrk(engine->keep[index], "\\\r\n") != NULL ||
         lstat(engine->keep[index], &metadata) != 0 ||
         (!S_ISREG(metadata.st_mode) && !S_ISDIR(metadata.st_mode) && !S_ISLNK(metadata.st_mode))) {
@@ -2052,11 +1808,7 @@ static int seal_manifest(Engine *engine) {
 }
 
 static void dispose_engine(Engine *engine) {
-  for (size_t index = 0; index < engine->write_count; ++index) {
-    free(engine->writes[index].path);
-    free(engine->writes[index].locator);
-  }
-  free(engine->writes);
+  dispose_scope(&engine->exports);
   free(engine->host_base);
   free(engine->selected_image);
   for (size_t index = 0; index < engine->keep_count; ++index) free(engine->keep[index]);
@@ -2072,14 +1824,6 @@ static void dispose_engine(Engine *engine) {
   free(engine->recipes);
   for (size_t index = 0; index < engine->stack_count; ++index) free(engine->stack[index]);
   free(engine->stack);
-  for (size_t index = 0; index < engine->selected_module_count; ++index) {
-    free(engine->selected_modules[index]);
-  }
-  free(engine->selected_modules);
-  for (size_t index = 0; index < engine->selected_name_count; ++index) {
-    free(engine->selected_names[index]);
-  }
-  free(engine->selected_names);
   for (size_t index = 0; index < engine->environment_name_count; ++index) {
     free(engine->environment_names[index]);
   }
@@ -2087,7 +1831,7 @@ static void dispose_engine(Engine *engine) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: dollyfile RECIPE-LOCATOR HOST-BASE [--resume USES]\n", stream);
+  fputs("usage: dollyfile RECIPE-LOCATOR HOST-BASE\n", stream);
 }
 
 int main(int argc, char **argv) {
@@ -2095,24 +1839,12 @@ int main(int argc, char **argv) {
     usage(stdout);
     return 0;
   }
-  if ((argc != 3 && argc != 5) ||
+  if (argc != 3 ||
       !(strncmp(argv[2], "https://", 8) == 0 || strncmp(argv[2], "http://", 7) == 0)) {
     usage(stderr);
     return 2;
   }
-  size_t resume_uses = 0;
-  if (argc == 5) {
-    char *end = NULL;
-    errno = 0;
-    const unsigned long parsed = strtoul(argv[4], &end, 10);
-    if (strcmp(argv[3], "--resume") != 0 || errno != 0 || end == argv[4] ||
-        *end != '\0' || parsed == 0 || parsed > 256) {
-      usage(stderr);
-      return 2;
-    }
-    resume_uses = (size_t)parsed;
-  }
-  Engine engine = {.host_base = strdup(argv[2]), .resume_uses = resume_uses};
+  Engine engine = {.host_base = strdup(argv[2])};
   if (engine.host_base == NULL) return 1;
   Scope available = {0};
   Scope exports = {0};
