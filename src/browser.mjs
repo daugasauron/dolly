@@ -29,7 +29,7 @@ let bootstrapCharacters = 0;
 let bootstrapFragment = "";
 
 const encoder = new TextEncoder();
-const textDecoder = new TextDecoder();
+const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
 const bootstrapDecoder = new TextDecoder();
 const runtimeFailureRejectors = new Set();
 

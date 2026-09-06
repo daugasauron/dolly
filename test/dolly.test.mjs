@@ -609,9 +609,16 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.manifest.some(path => /^\/usr\/src\/(raylib|box3d|dolly\/gamedev)\/build\//.test(path)), false);
     if (image === "default") {
       graph.exporters.set("ENV:PATH", { exported: { type: "ENV", name: "PATH", details: ["advisory-only"] } });
-      assert.deepEqual(verifySnapshotIdentity(definitions.find(item => item.image === image), graph,
-        decodeSystemSnapshot(snapshot), processContract, DOLLY_PROCESS_ABI_DIGEST), metadata.entry,
+      const parsed = decodeSystemSnapshot(snapshot);
+      const verify = value => verifySnapshotIdentity(definitions.find(item => item.image === image), graph,
+        value, processContract, DOLLY_PROCESS_ABI_DIGEST);
+      assert.deepEqual(verify(parsed), metadata.entry,
       "source inspection must not override the runtime's final environment");
+      for (const path of ["/etc/dolly/image", "/etc/dolly/recipes.lock", "/etc/dolly/Dollyfile"]) {
+        const modified = { ...parsed, files: new Map(parsed.files) };
+        modified.files.set(path, Buffer.concat([Buffer.from("\uFEFF"), parsed.files.get(path)]));
+        assert.throws(() => verify(modified), /snapshot/, `${path}: modified metadata must not compare equal`);
+      }
     }
   }
 });

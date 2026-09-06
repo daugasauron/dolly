@@ -13,7 +13,7 @@ import { createHttpAdmission } from "./http-broker.mjs";
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const snapshotSizeLimit = 512 * 1024 * 1024;
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
+const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
 
 const bootConfig = await new Promise((resolve, reject) => {
   const timeout = setTimeout(

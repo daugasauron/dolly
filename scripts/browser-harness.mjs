@@ -202,6 +202,8 @@ const sourceArtifacts = new Map(staticSources.map((source) => [
   },
 ]));
 const routeDocuments = new Map([
+  ["/", "build/routes/index.html"],
+  ["/index.html", "build/routes/index.html"],
   ...imageDefinitions.flatMap(({ image }) => [
     [`/${image}`, `build/routes/${image}/index.html`],
     [`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`],
@@ -627,9 +629,7 @@ function startServer() {
       const route = decodeURIComponent(staticPath).replace(/\/+$/, "") || "/";
       const requested = route.slice(1);
       const sessionRoute = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(route);
-      const relative = route === "/"
-        ? "index.html"
-        : sessionRoute ? "build/routes/session/open.html"
+      const relative = sessionRoute ? "build/routes/session/open.html"
         : routeDocuments.get(route) ?? sourceArtifacts.get(requested)?.relative ?? requested;
       const path = resolve(projectDir, relative);
       const distAsset = relative.startsWith("dist/") &&
@@ -643,7 +643,7 @@ function startServer() {
         response.writeHead(404, isolatedHeaders).end("not found");
         return;
       }
-      const packagedRelative = route === "/" ? "index.html"
+      const packagedRelative = route === "/" || route === "/index.html" ? "index.html"
         : sessionRoute ? (requested === "session/open.html" ? "session/open.html" : "404.html")
         : routeDocuments.has(route) ? `${requested}/index.html` : requested;
       const servedPath = packagedSite ? resolve(packagedSite, packagedRelative) : path;
@@ -2901,21 +2901,23 @@ int main(int argc, char **argv) {
         200,
       );
       const menuEvidence = await evaluate(debuggerClient.send, `(() => ({
+        url: location.href,
+        base: document.baseURI,
         title: document.querySelector('h1')?.textContent,
         background: getComputedStyle(document.documentElement).backgroundColor,
         font: getComputedStyle(document.documentElement).fontFamily,
-        links: Array.from(document.querySelectorAll('.image-links a'), (link) =>
-          new URL(link.href).pathname),
+        links: Array.from(document.querySelectorAll('.image-links a'), (link) => link.href),
         interactiveElements: document.querySelectorAll('script, form, input, button').length,
         text: document.body.textContent,
       }))()`);
+      assert.equal(menuEvidence.url, menuPage);
+      assert.equal(new URL(menuEvidence.base).origin, new URL(menuPage).origin);
       assert.equal(menuEvidence.title, "DOLLY");
       assert.equal(menuEvidence.background, "rgb(38, 38, 38)");
       assert.match(menuEvidence.font, /Dolly IosevkaTerm SemiBold/);
       assert.deepEqual(menuEvidence.links.toSorted(), imageDefinitions.flatMap(({ image }) => [
-        `${browserBasePrefix}/${image}/`, `${browserBasePrefix}/${image}/rebuild/`,
-        `${browserBasePrefix}/view/${image}/`,
-      ]).toSorted());
+        `${image}/`, `${image}/rebuild/`, `view/${image}/`,
+      ]).map(path => new URL(path, menuEvidence.base).href).toSorted());
       assert.equal(menuEvidence.interactiveElements, 0);
       assert.doesNotMatch(menuEvidence.text, /voice input/i);
       console.log(
@@ -4042,6 +4044,22 @@ int main(int argc, char **argv) {
     assert.equal(status, expected, command);
   }
   console.log(`browser: ${commandCases.length} shell/tool cases passed`);
+
+  const compositionPrefix = "printf '%s' '";
+  const composedText = "a".repeat(88 - Buffer.byteLength(compositionPrefix)) + "\uFEFFあ😀";
+  const compositionSequence = await evaluate(debuggerClient.send, `(() => {
+    const sequence = window.__dolly.transport.currentResultSequence();
+    document.querySelector('#keyboard').dispatchEvent(new CompositionEvent('compositionend', {
+      data: ${JSON.stringify(`${compositionPrefix}${composedText}' > /tmp/composed-text.txt`)},
+    }));
+    return sequence;
+  })()`);
+  await dispatchKey(debuggerClient.send, { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  assert.equal(await evaluate(debuggerClient.send,
+    `window.__dolly.transport.waitForResult(${compositionSequence})`), 0);
+  assert.equal(await evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(
+    `test "$(wc -c < /tmp/composed-text.txt)" -eq ${Buffer.byteLength(composedText)} && rm /tmp/composed-text.txt`,
+  )})`), 0, "composed UTF-8 text changed at the 88-byte packet boundary");
 
   assert.equal(
     await evaluate(

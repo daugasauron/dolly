@@ -137,6 +137,14 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+Text packets and copied selections preserve literal U+FEFF; composed input no
+longer loses three bytes at a packet boundary. Image metadata comparisons also
+remain literal. 201 source tests and the full Chrome suite pass; old-release
+Chrome and Firefox fail the new input regression. Evidence:
+`build/literal-text-{source-final,browser-2,browser-before,firefox-before-2}.log`.
+The menu test now uses generated routes and release-relative links, and runs in
+the routine suite. No Wasm ABI or image-format change was needed.
+
 The browser host no longer ships a URL-triggered regression runner or stores its
 command history. The harness owns all 160 Pi-image command cases, drives normal
 startup/recovery, and honors the selected external app for core/menu routes.

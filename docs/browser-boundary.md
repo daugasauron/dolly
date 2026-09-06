@@ -66,6 +66,8 @@ User input, framebuffer output, file downloads, and explicit opaque session
 storage are additional visible channels; see the [security model](security.md).
 Download names use literal UTF-8; basename, character and size checks remain
 independent of the browser's final filename choice.
+Input packets and copied selections also preserve literal UTF-8 across packet
+boundaries. Image identity checks do not discard leading characters.
 "One network edge" does not mean "no other information crosses the boundary."
 For saves, Wasm owns base fingerprints and filesystem delta encoding; the page
 copies bounded opaque chunks to local IndexedDB. `/session/` lists metadata and

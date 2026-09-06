@@ -5,6 +5,36 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
+import vm from "node:vm";
+
+test("display text packets and copied selections preserve literal UTF-8", async () => {
+  const source = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
+  const Display = vm.runInNewContext(`
+    const encoder = new TextEncoder();
+    ${source.match(/^const textDecoder = .*;$/m)[0]}
+    ${source.slice(source.indexOf("class DisplayTransport {"), source.indexOf("class FramebufferPresenter {"))}
+    DisplayTransport;
+  `, { TextEncoder, TextDecoder, SharedArrayBuffer });
+  const buffer = new SharedArrayBuffer(4096);
+  const transport = new Display(buffer, 0, 128, 8, 2048, 3072, 1024);
+  for (const padding of [0, 1, 84, 85, 86, 87, 88, 89, 175]) {
+    transport.words.fill(0);
+    const text = "a".repeat(padding) + "\uFEFF日本語😀";
+    assert.equal(transport.pushText(text), true);
+    const packets = [];
+    for (let index = 0; index < transport.words[Display.eventWrite]; index++) {
+      const offset = Display.headerSize + index * 128;
+      const length = new DataView(buffer, offset, 128).getUint16(36, true);
+      packets.push(Buffer.from(buffer, offset + 40, length));
+    }
+    assert.deepEqual(Buffer.concat(packets), Buffer.from(text), `packet boundary after ${padding} bytes`);
+    const bytes = Buffer.from(text);
+    transport.bytes.set(bytes, transport.copyAddress);
+    transport.words[Display.copyFlags] = Display.copyAvailable;
+    transport.words[Display.copyLength] = bytes.length;
+    assert.equal(transport.copySelection(), text, "selection text must remain literal");
+  }
+});
 
 test("terminal UI compaction preserves input order across wrap and producer publication", async () => {
   const project = resolve(import.meta.dirname, "..");
