@@ -667,12 +667,12 @@ CURLcode curl_easy_perform(CURL *handle) {
   int status = dolly_http_perform(&request, &response);
   free(headers);
   free(body);
+  easy->response_code = response.status;
+  easy->effective_url = response.effective_url;
+  response.effective_url = NULL;
   if (status != 0) {
     result = map_http_error(status);
   } else {
-    easy->response_code = response.status;
-    easy->effective_url = response.effective_url;
-    response.effective_url = NULL;
     if (easy->fail_on_error && easy->response_code >= 400)
       result = CURLE_HTTP_RETURNED_ERROR;
   }

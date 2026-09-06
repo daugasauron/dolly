@@ -170,7 +170,7 @@ int dolly_http_perform(const dolly_http_request *request,
       (void)dolly_http_cancel(sequence);
       break;
     }
-    response->status = chunk.status;
+    if (chunk.status != 0) response->status = chunk.status;
     if (chunk.error != 0 && result == 0) {
       result = -(int)chunk.error;
     }
@@ -198,7 +198,6 @@ int dolly_http_perform(const dolly_http_request *request,
     }
   }
   free(data);
-  if (result != 0) dolly_http_response_dispose(response);
   return result;
 }
 

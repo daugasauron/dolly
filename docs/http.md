@@ -93,6 +93,9 @@ replace its imports.
 - `dolly_http_perform` is the synchronous C/libcurl convenience layer that
   waits and drains those same primitives.
 
+Received status and effective URL survive a failed or callback-cancelled
+transfer. Callers always release the response with `dolly_http_response_dispose`.
+
 A request contains:
 
 - method and URL;

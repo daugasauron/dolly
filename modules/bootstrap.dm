@@ -7,7 +7,7 @@ MODULE bootstrap
 SOURCE HOST /include/dolly/toolchain.h /usr/include/dolly/toolchain.h 9e72211e0380b9d900848741c0c1197b370cf93b2de64a8f4d199ea5aab6c9bb
 SOURCE HOST /include/dolly/runtime.h   /usr/include/dolly/runtime.h   cf6bacbfa773ae253d3abc5b7f3e006e4b017aaefab4d0ea412476f9d6d5b2a9
 SOURCE HOST /include/dolly/process.h   /usr/include/dolly/process.h   e68eb32d2bf5c2182ff9bc5ef29db9b8581b6fb2841518abc2a52573602e5977
-SOURCE HOST /include/dolly/http.h      /usr/include/dolly/http.h      b35e5d626ba2747cc3b819e822381e051dd0cd62301aa7b69ab268965ea249cd
+SOURCE HOST /include/dolly/http.h      /usr/include/dolly/http.h      7e003122545cd86a44daef371ed15ea9f323dc277e1a9ce9fa4dcd74fc0c6d64
 SOURCE HOST /include/dolly/display.h   /usr/include/dolly/display.h   f6cb60e0b7d53286cb4af0b728bf2f460a2993a0f8c5f72c9d7a97386cd1cf48
 SOURCE HOST /include/dolly/download.h  /usr/include/dolly/download.h  8924a3e4c82183c2840f9734dcca8a2427b085c5e004d32c90496f926246cc89
 

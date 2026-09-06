@@ -418,7 +418,7 @@ int dolly_http_perform(const dolly_http_request *request,
       }
     }
     if (polled < 0 && result == 0) result = polled;
-    response->status = chunk.status;
+    if (chunk.status != 0) response->status = chunk.status;
     if (chunk.error != 0 && result == 0) {
       result = -(int)chunk.error;
     }
@@ -447,7 +447,6 @@ int dolly_http_perform(const dolly_http_request *request,
     }
   }
   free(data);
-  if (result != 0) dolly_http_response_dispose(response);
   return result;
 }
 

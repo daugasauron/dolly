@@ -88,6 +88,7 @@ int dolly_http_cancel(unsigned int sequence);
 // no filesystem or process capability: only the explicit request data above.
 // Returns zero or a negative errno value. With DOLLY_HTTP_FAIL_STATUS,
 // an HTTP status >= 400 is returned as a positive value instead.
+// Received response metadata survives errors; always dispose the response.
 int dolly_http_perform(const dolly_http_request *request,
                        dolly_http_response *response);
 void dolly_http_response_dispose(dolly_http_response *response);

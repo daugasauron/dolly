@@ -207,7 +207,15 @@ patch selects existing implementations; this does not provide Tokio threads
 or a socket transport. Unmodified Tokio 1.52.3 separately passes single-threaded
 tasks, timers, bounded channels and timeouts
 (`build/rust-port.3xZ2cO/tokio-browser.log`).
-HTTP would need to use Dolly's existing broker-backed library; execution and
+Unmodified `curl-sys` 0.4.90 bindings also link against Dolly's source-built
+libcurl and pass binary POST, header and response callbacks in Chrome
+(`build/rust-port.3xZ2cO/http-sys-browser-1.log`). Cargo's target build-script
+overrides defer native-library linking to Dolly; they supply no host transport.
+The higher-level `curl` 0.4.50 crate compiles but does not link unchanged: its
+handle destructor requires `curl_formfree`. Its constructor also requires seek,
+progress and socket callbacks that Dolly does not implement. No fake multipart
+or socket support was added to satisfy it.
+An actual Codex HTTP port must use the broker-backed path; execution and
 terminal state must stay inside Wasm. Current native packages cannot simply be
 copied into `/bin`. No host imports, native process fallback, platform spoofing,
 raw sockets, or weakened admission checks were added for this investigation.

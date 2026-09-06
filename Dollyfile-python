@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE python
 
-FROM HOST /Dollyfile-python-runtime 515344b190d02d18606550b91e5d0e2711c9e8beb15a23b97f8d52ecb77aea5c
+FROM HOST /Dollyfile-python-runtime 5d9f2c1918dfc48d7f18e98a7cc32d1f4c99be362f56a54e444b4adeada613c0
 USE HOST /modules/bonnie.dm 7d0bbc8751ba0e1cf873da8fb346db4045d4175c926b48a2baf7a3db3592125d
 USE HOST /modules/startup-python.dm 47862762650eb16f7dfc77c48007e3ad1e0dca884e37ed19c045d68528c2bd80
 

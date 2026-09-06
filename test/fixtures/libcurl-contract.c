@@ -171,7 +171,20 @@ int main(int argc, char **argv) {
     const double started = now();
     EXPECT(curl_easy_perform(curl), CURLE_WRITE_ERROR);
     if (now() - started > 0.7) { fputs("CURL FAIL: rejected callback waited for the rest of the response\n", stderr); ++failures; }
+    EXPECT(curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status), CURLE_OK);
+    char *effective = NULL;
+    EXPECT(curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effective), CURLE_OK);
+    if (status != 200 || effective == NULL || strcmp(effective, url) != 0) {
+      fputs("CURL FAIL: rejected callback lost received response metadata\n", stderr);
+      ++failures;
+    }
   }
+  EXPECT(curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "https"), CURLE_OK);
+  EXPECT(curl_easy_perform(curl), CURLE_UNSUPPORTED_PROTOCOL);
+  EXPECT(curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status), CURLE_OK);
+  char *effective = NULL;
+  EXPECT(curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effective), CURLE_OK);
+  if (status != 0 || effective != NULL) ++failures;
   curl_easy_cleanup(curl);
   if (failures) { fprintf(stderr, "CURL-CONTRACT: %d failures\n", failures); return 1; }
   puts("CURL-CONTRACT-OK");

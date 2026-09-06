@@ -132,6 +132,12 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+HTTP failures now preserve received status/effective URL for libcurl callers;
+the next request still clears old metadata. Body/header cancellation remains
+prompt. The previous release fails the new C regression and an isolated Rust
+`curl-sys` probe. All 12 image builds, 196 source tests and the full Chrome suite
+pass (`build/http-partial-{images,source,browser}.log`); no browser contract changed.
+
 Vectored I/O now uses one read request and gathers writes across vector
 boundaries, preserving short reads and small pipe-write atomicity. Boot finish
 releases captured snapshot bytes; failed captures invalidate the old range.

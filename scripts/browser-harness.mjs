@@ -1629,7 +1629,8 @@ chrome = spawn(chromeBinary, [
       try {
         assert.equal(await submit(`mkdir -p ${scratch}`), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.c`), 0);
-        assert.equal(await submit(`cc -O0 ${scratch}/probe.c -lcurl -o ${scratch}/probe && timeout 20 ${scratch}/probe ${localOrigin}/fixture/pi/libcurl-contract`), 0);
+        const status = await submit(`cc -O0 ${scratch}/probe.c -lcurl -o ${scratch}/probe && timeout 20 ${scratch}/probe ${localOrigin}/fixture/pi/libcurl-contract`);
+        assert.equal(status, 0, status === 0 ? undefined : await evaluate(debuggerClient.send, "window.__dolly.visibleTerminalText()"));
         assert.deepEqual(libcurlContractRequests, [
           { authorization: null, body: "payload" },
           { authorization: "Basic dXNlcjpwYXNz", body: "payload" },
