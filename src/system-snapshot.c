@@ -279,7 +279,7 @@ uintptr_t dolly_snapshot_restore_address(uintptr_t size) {
   return (uintptr_t)restore_bytes;
 }
 
-static int restore_staged(uintptr_t size) {
+static int restore_staged(uintptr_t size, const char *only_path) {
   dolly_snapshot_manifest manifest;
   if (load_manifest(&manifest) != 0) {
     fprintf(stderr, "dolly: could not load image manifest: %s\n", strerror(errno));
@@ -341,7 +341,17 @@ static int restore_staged(uintptr_t size) {
     errno = EINVAL;
     goto done;
   }
-  result = dolly_fs_restore(records, file_count, 1);
+  if (only_path == NULL) {
+    result = dolly_fs_restore(records, file_count, 1);
+  } else if (dolly_fs_validate_restore(records, file_count, 1) == 0) {
+    errno = ENOENT;
+    for (uint32_t index = 0; index < file_count; ++index) {
+      if (strcmp(records[index].path, only_path) != 0) continue;
+      if (records[index].kind != DOLLY_FS_FILE) errno = EINVAL;
+      else result = dolly_fs_restore(&records[index], 1, 1);
+      break;
+    }
+  }
 
 done:
   free(records);
@@ -349,8 +359,8 @@ done:
   return result;
 }
 
-int dolly_snapshot_restore_staged(uintptr_t size) {
-  const int result = restore_staged(size);
+int dolly_snapshot_restore_staged(uintptr_t size, const char *only_path) {
+  const int result = restore_staged(size, only_path);
   const int error = errno;
   free(restore_bytes);
   restore_bytes = NULL;

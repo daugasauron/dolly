@@ -19,6 +19,8 @@
     i32.const 0)
   (func (export "dolly_process_bootstrap_prepare") (result i32)
     i32.const 0)
+  ;; Restore only /bin/dollyfile from the staged base. That command's FROM
+  ;; operation owns the full filesystem restore. The second parameter is 1.
   (func (export "dolly_process_bootstrap_resume_prepare")
     (param i64 i32) (result i32)
     i32.const 0)

@@ -128,8 +128,8 @@ static inline int dolly_fs_parents(const char *path, int create) {
   return 0;
 }
 
-static inline int dolly_fs_restore(const dolly_fs_record *records, size_t count,
-                                    int allow_missing_parents) {
+static inline int dolly_fs_validate_restore(const dolly_fs_record *records, size_t count,
+                                             int allow_missing_parents) {
   // Validate all records and their final parent graph before changing anything.
   for (size_t index = 0; index < count; ++index) {
     const dolly_fs_record *record = &records[index];
@@ -166,6 +166,12 @@ static inline int dolly_fs_restore(const dolly_fs_record *records, size_t count,
       *slash = '/';
     }
   }
+  return 0;
+}
+
+static inline int dolly_fs_restore(const dolly_fs_record *records, size_t count,
+                                    int allow_missing_parents) {
+  if (dolly_fs_validate_restore(records, count, allow_missing_parents) != 0) return -1;
   // Children first; do not follow old symlink ancestors during type changes.
   for (size_t index = count; index != 0; --index) {
     const dolly_fs_record *record = &records[index - 1];

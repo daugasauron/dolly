@@ -54,8 +54,7 @@ Evidence: `build/v3-boundaries-snapshots-2.log`,
 The first SDK attempt caught an incorrectly indented FILE declaration in its
 extracted Makefile; the original failure log remains available.
 
-Remaining v3 work: investigate redundant restore/copy costs. Singularity is
-now the source-built gamedev demo: real orbital forces, projectiles, pulses and
+Singularity is now the source-built gamedev demo: real orbital forces, projectiles, pulses and
 in-Wasm controls. The separate gamedev-phone image reuses that responsive program;
 phone menus, Pi command injection and touch-scroll translation were removed from
 the host. No browser contract changed. 192 source tests and desktop/portrait
@@ -161,8 +160,16 @@ All 12 images, 195 source tests and the complete Chrome suite passed:
 The same Pi boot probe reports 769,327,104 bytes of kernel linear memory versus
 882,049,024 at the previous checkpoint; this is not total browser RSS.
 Runtime: `sha256:6250bc65ad644aa1eeefd7a937797c58d3a88ad614e2a21a6fd7173fa1f1766b`.
-The separate Worker/C FROM double restore remains open; no implicit resume
-shortcut or extra host operation was introduced.
+The subsequent Worker/C FROM double restore is now removed. Bootstrap validates
+the whole base but restores only `/bin/dollyfile`; C `FROM` owns the full restore.
+No hidden resume state, browser operation or snapshot format was added. In the
+same Pi addon probe, kernel linear memory fell from 1,113,587,712 to 1,002,438,656
+bytes; cached rebuild time was 6.0 versus 5.4 seconds (single runs, not browser RSS).
+All 12 images, 196 source tests and the full Chrome suite pass. Filtered codec
+tests reject malformed unselected records before mutation; the browser's
+builder-only assertion rejects the old release. Evidence:
+`build/builder-restore-{images,source,codec-2,negative,after,browser}.log`.
+Runtime: `sha256:2ebb1caf5f39e39ad85f79acab788545740820e8035526d003fa463881c08d0e`.
 
 - One short, explicit browser HTTP boundary with bounded admission, typed
   failures, cancellation, binary bodies and enforced embedding policy.

@@ -7,8 +7,9 @@
 // The build packages this as an opaque blob. Paths, validation, and all
 // filesystem operations remain owned by the Wasm runtime.
 uintptr_t dolly_snapshot_restore_address(uintptr_t size);
+// Validate the whole image; restore all paths or one regular file for bootstrap.
 // Consumes the staging allocation on success or failure; restage before retrying.
-int dolly_snapshot_restore_staged(uintptr_t size);
+int dolly_snapshot_restore_staged(uintptr_t size, const char *only_path);
 // A new capture invalidates the old range; failed capture leaves no range.
 int dolly_snapshot_capture(void);
 uintptr_t dolly_snapshot_address(void);

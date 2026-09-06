@@ -32,25 +32,58 @@ static int roundtrip(void) {
   CHECK(staged != NULL);
   memcpy(staged, (const void *)dolly_snapshot_address(), size);
   CHECK(dolly_fs_remove_tree(ROOT) == 0);
-  CHECK(dolly_snapshot_restore_staged(size) == 0);
+  CHECK(dolly_snapshot_restore_staged(size, NULL) == 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
-  CHECK(dolly_snapshot_restore_staged(size) != 0 && errno == EINVAL);
+  for (const char **path = (const char *[]){ROOT "/missing", ROOT, ROOT "/link", NULL}; *path; ++path) {
+    staged = (unsigned char *)dolly_snapshot_restore_address(size);
+    CHECK(staged != NULL);
+    memcpy(staged, (const void *)dolly_snapshot_address(), size);
+    CHECK(dolly_snapshot_restore_staged(size, *path) != 0);
+    CHECK(restore_bytes == NULL && restore_capacity == 0);
+  }
+  CHECK(dolly_fs_remove_tree(ROOT) == 0);
+  for (int corruption = 0; corruption < 2; ++corruption) {
+    staged = (unsigned char *)dolly_snapshot_restore_address(size);
+    CHECK(staged != NULL);
+    memcpy(staged, (const void *)dolly_snapshot_address(), size);
+    if (corruption == 0) staged[16] = DOLLY_FS_FILE; // invalid parent elsewhere in the image
+    else staged[size - 1] = 0; // invalid unselected symlink
+    CHECK(dolly_snapshot_restore_staged(size, ROOT "/file") != 0);
+    CHECK(restore_bytes == NULL && restore_capacity == 0);
+    CHECK(access(ROOT, F_OK) == -1 && errno == ENOENT);
+  }
+  staged = (unsigned char *)dolly_snapshot_restore_address(size);
+  CHECK(staged != NULL);
+  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  CHECK(dolly_snapshot_restore_staged(size, ROOT "/file") == 0);
+  CHECK(restore_bytes == NULL && restore_capacity == 0);
+  unsigned char selected[4];
+  CHECK(dolly_fs_read_data(&records[4], selected) == 0 && memcmp(selected, "data", 4) == 0);
+  CHECK(access(ROOT "/empty", F_OK) == -1 && errno == ENOENT);
+  struct stat absent;
+  CHECK(lstat(ROOT "/link", &absent) == -1 && errno == ENOENT);
+  staged = (unsigned char *)dolly_snapshot_restore_address(size);
+  CHECK(staged != NULL);
+  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  CHECK(dolly_snapshot_restore_staged(size, NULL) == 0);
+  CHECK(restore_bytes == NULL && restore_capacity == 0);
+  CHECK(dolly_snapshot_restore_staged(size, NULL) != 0 && errno == EINVAL);
   // A malformed path kind fails before touching the restored file tree.
   staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
   memcpy(staged, (const void *)dolly_snapshot_address(), size);
   staged[16] = 4;
-  CHECK(dolly_snapshot_restore_staged(size) != 0);
+  CHECK(dolly_snapshot_restore_staged(size, NULL) != 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
   staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
   memcpy(staged, (const void *)dolly_snapshot_address(), size);
-  CHECK(dolly_snapshot_restore_staged(size + 1) != 0 && errno == EINVAL);
+  CHECK(dolly_snapshot_restore_staged(size + 1, NULL) != 0 && errno == EINVAL);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
   staged = (unsigned char *)dolly_snapshot_restore_address(size);
   CHECK(staged != NULL);
   memcpy(staged, (const void *)dolly_snapshot_address(), size);
-  CHECK(dolly_snapshot_restore_staged(size) == 0);
+  CHECK(dolly_snapshot_restore_staged(size, NULL) == 0);
   CHECK(restore_bytes == NULL && restore_capacity == 0);
   discard_capture();
   CHECK(dolly_snapshot_address() == 0 && dolly_snapshot_size() == 0);

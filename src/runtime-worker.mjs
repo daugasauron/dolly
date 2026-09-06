@@ -267,7 +267,7 @@ try {
   if (bootMode === "rebuild") {
     bootstrapStage("building userspace from the Dollyfile...");
     if (baseArtifact) {
-      bootstrapStage(`restoring base ${baseReference.location}...`);
+      bootstrapStage(`loading builder from ${baseReference.location}...`);
       const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(baseArtifact.bytes.byteLength));
       const range = checkedMemoryRange(memory, restoreAddress, baseArtifact.bytes.byteLength);
       new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(baseArtifact.bytes));

@@ -647,9 +647,14 @@ function startServer() {
       }
       let body = await readFile(servedPath);
       if (iterationMode && !externalPage && relative === "src/runtime-worker.mjs") {
+        const resume = "bootstrapStatus = dolly._dolly_process_bootstrap_resume_prepare(BigInt(range.size), 1);";
         const finish = "bootstrapStatus = dolly._dolly_bootstrap_finish();";
+        assert.ok(body.toString().includes(resume));
         assert.ok(body.toString().includes(finish));
-        body = Buffer.from(body.toString().replace(finish, `${finish}
+        body = Buffer.from(body.toString().replace(resume, `${resume}
+          if (bootstrapStatus === 0 && dolly.FS.readdir('/bin').filter(name => name !== '.' && name !== '..').join(',') !== 'dollyfile')
+            throw new Error('bootstrap restored more than the image builder');`
+        ).replace(finish, `${finish}
           if (dolly._dolly_snapshot_address() !== 0n || dolly._dolly_snapshot_size() !== 0n)
             throw new Error('finished rebuild retained its capture buffer');`));
       }
@@ -2935,6 +2940,7 @@ int main(int argc, char **argv) {
         const evidence = await evaluate(debuggerClient.send, `(async () => ({
           digest: [...new Uint8Array(await crypto.subtle.digest("SHA-256", window.__dolly.systemSnapshot))].map(b => b.toString(16).padStart(2, "0")).join(""),
           log: document.querySelector("#bootstrap-log").textContent,
+          kernelBytes: window.__dolly.display.buffer.byteLength,
           reads: window.__artifactReads, downloads: window.__artifactFetches,
           packs: performance.getEntriesByType('resource').filter(entry => entry.name.includes('/dist/packs/'))
             .map(entry => ({ transferred: entry.transferSize, encoded: entry.encodedBodySize })),
@@ -2959,6 +2965,7 @@ int main(int argc, char **argv) {
         else if (label === "cached-base") assert.equal(evidence.digest, firstDigest, "cached composition changed the artifact");
         else assert.notEqual(evidence.digest, firstDigest, "editing the command did not change the artifact");
         console.log(`browser: v3 ${label}: command, environment and deletion verified; ${(performance.now() - started).toFixed(0)}ms; ${evidence.digest}`);
+        console.log(`browser: v3 ${label}: kernel linear memory ${evidence.kernelBytes} bytes`);
         console.log(`browser: v3 ${label}: ${payloadReads.reduce((sum, read) => sum + read.bytes, 0)} cached payload bytes, ${evidence.downloads.length} snapshot fetches; no unused ancestor payloads`);
         if (evidence.packs.length) console.log(`browser: v3 ${label}: ${evidence.packs.length} pack resources, ` +
           `${evidence.packs.reduce((sum, pack) => sum + pack.transferred, 0)} network bytes, ` +

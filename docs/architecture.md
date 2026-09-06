@@ -134,9 +134,11 @@ Slop command, check outputs, clean temporary state, then continue. V3 caches
 completed images, never individual modules. `FROM` and `COPY` reuse explicit
 image artifacts; cache identity includes the actual direct input digests.
 
-The seed has two executables: the bootstrap runner and compiler. During rebuild,
-the runner compiles Slop, `/bin/dollyfile`, and the tiny compiler frontends from
-seeded source. Everything else is built by the chosen module graph. The
+The seed has two executables: the bootstrap runner and compiler. Without a
+`FROM` base, the runner compiles Slop, `/bin/dollyfile`, and the tiny compiler
+frontends from seeded source. With a base, boot validates its entire snapshot
+but restores only `/bin/dollyfile`; that command's `FROM` performs the sole full
+base restore. Everything else is built by the chosen module graph. The
 `bootstrap` module exports the compiler and its complete process SDK explicitly;
 images retain them through ordinary module re-exports.
 

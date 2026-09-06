@@ -1396,9 +1396,9 @@ EMSCRIPTEN_KEEPALIVE
 int dolly_process_bootstrap_resume_prepare(uintptr_t size,
                                            uint32_t resume_uses) {
   if (resume_uses != 1 || initialize_boot_environment() != 0) return 1;
-  puts("dolly: restoring base image artifact");
+  puts("dolly: restoring image builder");
   fflush(stdout);
-  if (dolly_snapshot_restore_staged(size) != 0) {
+  if (dolly_snapshot_restore_staged(size, "/bin/dollyfile") != 0) {
     fprintf(stderr, "dolly: invalid base image artifact: %s\n",
             strerror(errno));
     return 1;
@@ -1411,7 +1411,7 @@ int dolly_bootstrap_snapshot(uintptr_t size) {
   if (initialize_boot_environment() != 0) return 1;
   puts("dolly: restoring precompiled system snapshot");
   fflush(stdout);
-  if (dolly_snapshot_restore_staged(size) != 0) {
+  if (dolly_snapshot_restore_staged(size, NULL) != 0) {
     fprintf(stderr, "dolly: invalid system snapshot: %s\n", strerror(errno));
     return 1;
   }
