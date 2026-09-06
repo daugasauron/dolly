@@ -33,9 +33,25 @@ static int roundtrip(void) {
   memcpy(staged, (const void *)dolly_snapshot_address(), size);
   CHECK(dolly_fs_remove_tree(ROOT) == 0);
   CHECK(dolly_snapshot_restore_staged(size) == 0);
+  CHECK(restore_bytes == NULL && restore_capacity == 0);
+  CHECK(dolly_snapshot_restore_staged(size) != 0 && errno == EINVAL);
   // A malformed path kind fails before touching the restored file tree.
+  staged = (unsigned char *)dolly_snapshot_restore_address(size);
+  CHECK(staged != NULL);
+  memcpy(staged, (const void *)dolly_snapshot_address(), size);
   staged[16] = 4;
   CHECK(dolly_snapshot_restore_staged(size) != 0);
+  CHECK(restore_bytes == NULL && restore_capacity == 0);
+  staged = (unsigned char *)dolly_snapshot_restore_address(size);
+  CHECK(staged != NULL);
+  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  CHECK(dolly_snapshot_restore_staged(size + 1) != 0 && errno == EINVAL);
+  CHECK(restore_bytes == NULL && restore_capacity == 0);
+  staged = (unsigned char *)dolly_snapshot_restore_address(size);
+  CHECK(staged != NULL);
+  memcpy(staged, (const void *)dolly_snapshot_address(), size);
+  CHECK(dolly_snapshot_restore_staged(size) == 0);
+  CHECK(restore_bytes == NULL && restore_capacity == 0);
   return 0;
 }
 

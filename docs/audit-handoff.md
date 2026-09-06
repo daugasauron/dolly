@@ -126,6 +126,19 @@ packs: 72,559,927 encoded body bytes with zero network bytes transferred
 
 ## Completed
 
+Latest memory follow-up: each system-image restore consumes its staging buffer
+on success or failure; retries must restage. The canonical snapshot contract now
+reports format 2, matching the codec. Chrome tests execute that contract and
+compile the real codec to check successful, malformed, oversized and repeated
+restores with released staging state. No import or filesystem format changed.
+All 12 images, 195 source tests and the complete Chrome suite passed:
+`build/snapshot-staging-{runtime,images,source,retention,browser}.log`.
+The same Pi boot probe reports 769,327,104 bytes of kernel linear memory versus
+882,049,024 at the previous checkpoint; this is not total browser RSS.
+Runtime: `sha256:6250bc65ad644aa1eeefd7a937797c58d3a88ad614e2a21a6fd7173fa1f1766b`.
+The separate Worker/C FROM double restore remains open; no implicit resume
+shortcut or extra host operation was introduced.
+
 - One short, explicit browser HTTP boundary with bounded admission, typed
   failures, cancellation, binary bodies and enforced embedding policy.
   [Review map](browser-boundary.md), [HTTP contract](http.md).

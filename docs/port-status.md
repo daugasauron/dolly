@@ -187,6 +187,12 @@ A credible Codex port starts with Rust's standard library and dependencies
 targeting Dolly's existing process ABI. Rust's generic
 [wasm64 target](https://doc.rust-lang.org/rustc/platform-support/wasm64-unknown-unknown.html)
 does not provide working filesystem/network I/O or a ready Dolly libc integration.
+An isolated Rust 1.98.1 `no_std` probe now links with Dolly's own `cc` and runs
+in Chrome: 64-bit values, C/Rust aggregate arguments/returns, callbacks and
+bidirectional filesystem I/O through Dolly libc passed twice. Rust and `core`
+were cross-compiled externally; this does not provide a Rust compiler inside
+Dolly or working `std::fs`/`std::process`. Local evidence:
+`build/rust-port.3xZ2cO/{prepare,build,browser}.log`.
 HTTP would need to use Dolly's existing broker-backed library; execution and
 terminal state must stay inside Wasm. Current native packages cannot simply be
 copied into `/bin`. No host imports, native process fallback, platform spoofing,

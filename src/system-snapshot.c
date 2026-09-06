@@ -272,7 +272,7 @@ uintptr_t dolly_snapshot_restore_address(uintptr_t size) {
   return (uintptr_t)restore_bytes;
 }
 
-int dolly_snapshot_restore_staged(uintptr_t size) {
+static int restore_staged(uintptr_t size) {
   dolly_snapshot_manifest manifest;
   if (load_manifest(&manifest) != 0) {
     fprintf(stderr, "dolly: could not load image manifest: %s\n", strerror(errno));
@@ -339,6 +339,16 @@ int dolly_snapshot_restore_staged(uintptr_t size) {
 done:
   free(records);
   dispose_manifest(&manifest);
+  return result;
+}
+
+int dolly_snapshot_restore_staged(uintptr_t size) {
+  const int result = restore_staged(size);
+  const int error = errno;
+  free(restore_bytes);
+  restore_bytes = NULL;
+  restore_capacity = 0;
+  errno = error;
   return result;
 }
 

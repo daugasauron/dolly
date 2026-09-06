@@ -1943,6 +1943,12 @@ chrome = spawn(chromeBinary, [
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "image retention boot", 1200), "ready");
+      assert.equal(await evaluate(debuggerClient.send, `(async () => {
+        const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: 'i64' });
+        const { instance } = await WebAssembly.instantiateStreaming(
+          fetch(${JSON.stringify(`${browserBase}dist/dolly-snapshot-0.wasm`)}), { env: { memory } });
+        return instance.exports.dolly_snapshot_format_version();
+      })()`), 2, "snapshot contract version");
       await enterRecoveryShell(debuggerClient.send);
       const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
       const scratch = "/tmp/dolly-image-retention";

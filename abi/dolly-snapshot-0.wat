@@ -1,15 +1,16 @@
 (module
-  ;; Build-artifact contract. Snapshot contents remain opaque to the harness:
-  ;; the Wasm runtime owns the fixed path manifest and binary format.
+  ;; Build-artifact contract. The browser may pack and persist these records;
+  ;; the Wasm runtime validates and restores the retained filesystem.
   ;; This adds no callable browser import and therefore no escape capability.
   (import "env" "memory" (memory i64 1024 131072 shared))
 
   (func (export "dolly_snapshot_format_version") (result i32)
-    i32.const 1)
+    i32.const 2)
 
   ;; Allocate a bounded staging region in Wasm memory. The worker may only copy
   ;; the verified packaged snapshot into this checked region before asking Wasm
-  ;; to restore it.
+  ;; to restore it. A restore attempt consumes the staging allocation, including
+  ;; on failure; the caller must allocate and copy again before retrying.
   (func (export "dolly_snapshot_restore_address") (param i64) (result i64)
     i64.const 0)
   (func (export "dolly_bootstrap_snapshot") (param i64) (result i32)
