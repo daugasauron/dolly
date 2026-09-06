@@ -19,11 +19,14 @@ uintptr_t dolly_process_image_size(int pid);
 int dolly_process_image_consumed(int pid);
 int dolly_process_worker_started(int pid);
 int dolly_process_worker_failed(int pid, int status, int signal_number);
+int dolly_process_worker_retired(int pid);
+int dolly_process_spawn_flags(int pid);
 int dolly_process_signal(int pid, int signal_number);
 double dolly_process_deadline_remaining(int pid);
 int dolly_process_collect(int pid);
 int dolly_process_parent(int pid);
 int dolly_process_descends_from(int pid, int ancestor_pid);
+void dolly_kernel_foreground_publish(int pid, int interruptible);
 
 int dolly_kernel_display_acquire(int pid, dolly_display_surface *surface);
 int dolly_kernel_display_set_size(int pid, uint64_t generation,

@@ -48,6 +48,8 @@ typedef struct {
   int state;
   int status;
   int exit_signal;
+  uint32_t spawn_flags;
+  int worker_retired;
   int descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char descriptor_flags[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   dolly_kernel_pipe *pipes[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
@@ -72,6 +74,7 @@ _Alignas(64) static unsigned char
 static dolly_kernel_process process_table[DOLLY_KERNEL_PROCESS_LIMIT];
 static int next_process_pid = 100;
 static uint32_t live_pipe_count;
+static int foreground_pid;
 
 extern char **environ;
 void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
@@ -83,6 +86,7 @@ int dolly_terminal_mode_get(int descriptor);
 int dolly_terminal_mode_set(int descriptor, uint32_t flags);
 void dolly_terminal_publish_result(int status);
 int dolly_download_file(const char *path);
+void dolly_terminal_discard_pending_input(void);
 
 static dolly_kernel_process *find_process(int pid) {
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
@@ -104,6 +108,33 @@ int dolly_process_descends_from(int pid, int ancestor_pid) {
     process = find_process(process->parent_pid);
   }
   return 0;
+}
+
+static void refresh_foreground(void) {
+  dolly_kernel_process *owner = find_process(foreground_pid);
+  while (owner != NULL &&
+         (owner->worker_retired ||
+          (owner->spawn_flags & DOLLY_PROCESS_SPAWN_FOREGROUND) == 0)) {
+    owner = find_process(owner->parent_pid);
+  }
+  foreground_pid = owner == NULL ? 0 : owner->pid;
+  int interruptible = 0;
+  if (owner != NULL && owner->state != DOLLY_KERNEL_PROCESS_EXITED) {
+    if ((owner->spawn_flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) == 0) {
+      interruptible = 1;
+    } else {
+      for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+        const dolly_kernel_process *child = &process_table[index];
+        if (child->state != DOLLY_KERNEL_PROCESS_FREE && !child->worker_retired &&
+            child->pid != foreground_pid &&
+            dolly_process_descends_from(child->pid, foreground_pid)) {
+          interruptible = 1;
+          break;
+        }
+      }
+    }
+  }
+  dolly_kernel_foreground_publish(foreground_pid, interruptible);
 }
 
 static void dispose_vector(char ***vector, uint32_t *count) {
@@ -194,18 +225,19 @@ static int supported_signal(int signal_number) {
 
 static void mark_process_exited(dolly_kernel_process *process, int status,
                                 int signal_number) {
+  if (process->state == DOLLY_KERNEL_PROCESS_EXITED) return;
   const int pid = process->pid;
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *child = &process_table[index];
     if (child->state == DOLLY_KERNEL_PROCESS_FREE || child->parent_pid != pid) continue;
     mark_process_exited(child, status, signal_number);
-    dispose_process(child);
   }
   dolly_kernel_display_release_owner(process->pid);
   release_process_resources(process);
   process->status = status >= 0 && status <= 255 ? status : 126;
   process->exit_signal = signal_number;
   process->state = DOLLY_KERNEL_PROCESS_EXITED;
+  refresh_foreground();
 }
 
 static dolly_kernel_process *allocate_process(void) {
@@ -477,7 +509,11 @@ static int spawn_packet(int parent_pid, size_t size) {
       request.reserved != 0 ||
       request.descriptor_inheritance > DOLLY_PROCESS_INHERIT_FDS_ALL ||
       request.mapping_count > DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
-      (request.flags & ~DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT) != 0 ||
+      (request.flags & ~(DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT |
+                        DOLLY_PROCESS_SPAWN_FOREGROUND |
+                        DOLLY_PROCESS_SPAWN_INTERACTIVE)) != 0 ||
+      ((request.flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) != 0 &&
+       (request.flags & DOLLY_PROCESS_SPAWN_FOREGROUND) == 0) ||
       request.argument_bytes > SIZE_MAX || request.environment_bytes > SIZE_MAX) {
     return -EINVAL;
   }
@@ -494,10 +530,14 @@ static int spawn_packet(int parent_pid, size_t size) {
   }
   const unsigned char *cursor = process_mailbox + sizeof(request);
   if (memchr(cursor, 0, path_size) != NULL || cursor[0] != '/') return -EINVAL;
+  if ((request.flags & DOLLY_PROCESS_SPAWN_FOREGROUND) != 0 &&
+      foreground_pid != 0 &&
+      !dolly_process_descends_from(parent_pid, foreground_pid)) return -EBUSY;
 
   dolly_kernel_process *process = allocate_process();
   if (process == NULL) return -EAGAIN;
   process->parent_pid = parent_pid;
+  process->spawn_flags = request.flags;
   process->deadline_nanoseconds = request.deadline_nanoseconds;
   dolly_kernel_process *parent = parent_pid == 0 ? NULL : find_process(parent_pid);
   int result = 0;
@@ -577,6 +617,10 @@ static int spawn_packet(int parent_pid, size_t size) {
     dispose_process(process);
     return result;
   }
+  if ((request.flags & DOLLY_PROCESS_SPAWN_FOREGROUND) != 0) {
+    foreground_pid = process->pid;
+  }
+  refresh_foreground();
   return process->pid;
 }
 
@@ -1993,7 +2037,7 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       if ((request.flags & ~DOLLY_PROCESS_WAIT_NONBLOCK) != 0) return -EINVAL;
       dolly_kernel_process *child = find_process((int)request.pid);
       if (child == NULL || child->parent_pid != pid) return -ECHILD;
-      if (child->state != DOLLY_KERNEL_PROCESS_EXITED) {
+      if (child->state != DOLLY_KERNEL_PROCESS_EXITED || !child->worker_retired) {
         return (request.flags & DOLLY_PROCESS_WAIT_NONBLOCK) != 0
             ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
@@ -2204,6 +2248,34 @@ int dolly_process_worker_failed(int pid, int status, int signal_number) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+int dolly_process_worker_retired(int pid) {
+  dolly_kernel_process *process = find_process(pid);
+  if (process == NULL) return -ESRCH;
+  if (process->state != DOLLY_KERNEL_PROCESS_EXITED) return -EINVAL;
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    const dolly_kernel_process *child = &process_table[index];
+    if (child->state != DOLLY_KERNEL_PROCESS_FREE &&
+        child->parent_pid == pid && !child->worker_retired) return -EAGAIN;
+  }
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    dolly_kernel_process *child = &process_table[index];
+    if (child->state != DOLLY_KERNEL_PROCESS_FREE && child->parent_pid == pid) {
+      dispose_process(child);
+    }
+  }
+  process->worker_retired = 1;
+  if (foreground_pid == pid) dolly_terminal_discard_pending_input();
+  refresh_foreground();
+  return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_process_spawn_flags(int pid) {
+  dolly_kernel_process *process = find_process(pid);
+  return process == NULL ? -ESRCH : (int)process->spawn_flags;
+}
+
+EMSCRIPTEN_KEEPALIVE
 int dolly_process_signal(int pid, int signal_number) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED) {
@@ -2238,7 +2310,7 @@ EMSCRIPTEN_KEEPALIVE
 int dolly_process_collect(int pid) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;
-  if (process->state != DOLLY_KERNEL_PROCESS_EXITED) return -EAGAIN;
+  if (process->state != DOLLY_KERNEL_PROCESS_EXITED || !process->worker_retired) return -EAGAIN;
   const int status = process->status;
   dispose_process(process);
   return status;

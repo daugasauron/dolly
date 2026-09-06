@@ -30,17 +30,17 @@ test("module-owned command sources have no divergent standalone copies", async (
 const imageSpecs = [
   {
     image: "default", filename: "Dollyfile",
-    uses: ["default", "startup-default"], entry: "/bin/slop",
+    uses: ["default", "startup-default"], program: "/bin/slop",
   },
   {
     image: "pi", filename: "Dollyfile-pi",
     uses: ["default", "quickjs", "typescript", "pi", "startup-pi"],
-    entry: "/usr/bin/pi",
+    program: "/usr/bin/pi",
   },
   {
     image: "python", filename: "Dollyfile-python",
     uses: ["default", "python", "startup-python"],
-    entry: "/bin/slop",
+    program: "/bin/slop",
   },
   {
     image: "python-pi", filename: "Dollyfile-python-pi",
@@ -48,7 +48,7 @@ const imageSpecs = [
       "default", "python", "quickjs", "typescript", "pi",
       "python-pi-integration",
     ],
-    entry: "/usr/bin/pi",
+    program: "/usr/bin/pi",
   },
   {
     image: "gamedev", filename: "Dollyfile-gamedev",
@@ -56,7 +56,7 @@ const imageSpecs = [
       "default", "quickjs", "typescript", "pi", "gamedev",
       "startup-gamedev",
     ],
-    entry: "/usr/bin/graphics-demo",
+    program: "/usr/bin/graphics-demo",
   },
 ];
 const defaultChildren = [
@@ -118,7 +118,8 @@ test("each image directly selects its unique ordered modules", async () => {
   const images = await loadImages();
   for (const { spec, graph } of images) {
     assert.equal(graph.root.image, spec.image);
-    assert.deepEqual(graph.root.entry, [spec.entry]);
+    assert.deepEqual(graph.root.entry,
+      ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
     assert.equal(graph.root.requirements.length, 0);
     assert.deepEqual(graph.root.children.map(({ name }) => name), spec.uses);
     assert.equal(new Set(graph.modules.map(({ name }) => name)).size, graph.modules.length);
@@ -590,7 +591,9 @@ test("small Dolly-owned command sources are inline", async () => {
   const download = graph.modules.find(({ name }) => name === "download");
   const tar = graph.modules.find(({ name }) => name === "tar");
   assert.equal(core.sources.length, 0);
-  assert.equal(core.files.length, 14);
+  assert.equal(core.files.length, 15);
+  assert.match(core.files.find(({ path }) => path.endsWith("/foreground.c")).body,
+    /dolly_spawn_foreground/);
   assert.match(core.files.find(({ path }) => path.endsWith("/ls.c")).body, /int main/);
   assert.equal(core.files.some(({ path }) => path.endsWith("/download.c")), false);
   assert.match(download.files.find(({ path }) => path.endsWith("/download.c")).body,
@@ -631,7 +634,7 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
     details[0] === "/usr/lib/node_modules/@earendil-works/pi-coding-agent"));
 });
 
-test("each image owns an ordinary pre-entry .dollyrc and Python plus Pi owns Bonnie guidance", async () => {
+test("each image owns init and .dollyrc policy and Python plus Pi owns Bonnie guidance", async () => {
   const images = await loadImages();
   for (const { spec, graph } of images) {
     const startup = graph.root.children.at(-1);
@@ -640,6 +643,11 @@ test("each image owns an ordinary pre-entry .dollyrc and Python plus Pi owns Bon
     assert.ok(startupFile?.body.includes(`DOLLY / ${
       spec.image === "python-pi" ? "PYTHON + PI" : spec.image.toUpperCase()
     }`));
+    const init = startup.files.find(({ path }) => path === "/etc/dolly/init.slop");
+    assert.ok(init?.body.includes(spec.program));
+    assert.match(init.body, /test -f "\$HOME\/\.dollyrc"/);
+    assert.match(init.body, /\/bin\/foreground \/bin\/slop -e "\$HOME\/\.dollyrc"/);
+    assert.match(init.body, /image entry exited; entering the recovery Slop shell/);
   }
 
   const pythonPi = images.find(({ spec }) => spec.image === "python-pi").graph;
@@ -647,7 +655,8 @@ test("each image owns an ordinary pre-entry .dollyrc and Python plus Pi owns Bon
     name === "python-pi-integration");
   assert.deepEqual(
     integration.requirements.map(({ type, name }) => `${type}:${name}`),
-    ["TOOL:bonnie", "TOOL:pi", "TOOL:python"],
+    ["TOOL:bonnie", "TOOL:pi", "TOOL:python", "TOOL:slop",
+      "TOOL:foreground", "TOOL:test", "TOOL:printf"],
   );
   const skill = integration.files.find(({ path }) =>
     path === "/home/dolly/.pi/agent/skills/bonnie/SKILL.md");
@@ -655,8 +664,7 @@ test("each image owns an ordinary pre-entry .dollyrc and Python plus Pi owns Bon
   assert.match(skill.body, /bonnie install requests/);
 
   const worker = await readFile(resolve(projectDir, "src/runtime-worker.mjs"), "utf8");
-  assert.match(worker, /const startupPath = "\/home\/dolly\/\.dollyrc"/);
-  assert.match(worker, /"\/bin\/slop", \["slop", "-e", startupPath\]/);
+  assert.doesNotMatch(worker, /\.dollyrc|\/bin\/slop|\/usr\/bin\/pi/);
   const slop = await readFile(resolve(projectDir, "src/slop.c"), "utf8");
   assert.doesNotMatch(slop, /Dolly slop 0\.1|Python packages: bonnie install/);
 });
@@ -1189,7 +1197,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
   const headers = (name) => modules.get(name).requirements
     .filter(({ type }) => type === "HEADER")
     .map(({ name: header }) => header);
-  assert.deepEqual(headers("core-tools"), ["libc"]);
+  assert.deepEqual(headers("core-tools"), ["libc", "runtime"]);
   assert.deepEqual(headers("download"), ["libc", "download"]);
   assert.deepEqual(headers("cpp"), ["libc"]);
   assert.deepEqual(headers("ninja"), ["libc", "runtime"]);

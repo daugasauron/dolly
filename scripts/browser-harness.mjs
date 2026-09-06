@@ -853,22 +853,12 @@ async function waitForCommandResult(send, sequence, description) {
 }
 
 async function enterRecoveryShell(send) {
-  const entryPid = await waitForValue(
-    send,
-    `(() => {
-      const pid = window.__dolly?.foregroundPid ?? 0;
-      return pid === Number(document.documentElement.dataset.entryPid) ? pid : 0;
-    })()`,
-    (value) => value > 0,
-    "image entry foreground process",
-    600,
-  );
-  await delay(500);
+  let entryPid;
   if (selectedImage === "gamedev") {
-    await waitForValue(
+    entryPid = await waitForValue(
       send,
-      "window.__dolly?.graphicsActive ?? false",
-      (value) => value === true,
+      "window.__dolly?.graphicsActive ? window.__dolly.foregroundPid : 0",
+      (value) => value > 0,
       "gamedev entry display lease",
       200,
     );
@@ -877,6 +867,9 @@ async function enterRecoveryShell(send) {
       true,
     );
   } else {
+    entryPid = await evaluate(send,
+      `window.__dolly.waitForInteractiveTerminal(${selectedImage === "pi" || selectedImage === "python-pi"
+        ? "/! Slop/" : "/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/"}, "image entry terminal")`);
     await dispatchKey(send, {
       key: "d",
       code: "KeyD",
@@ -884,45 +877,14 @@ async function enterRecoveryShell(send) {
       windowsVirtualKeyCode: 68,
     });
   }
-  return waitForValue(
-    send,
-    `(() => {
-      const transport = window.__dolly?.transport;
-      if (!transport) return 0;
-      const pid = transport.foregroundPid();
-      return pid > 0 && pid !== ${entryPid} &&
-        !transport.foregroundInterruptible() && transport.inputIdle()
-        ? pid
-        : 0;
-    })()`,
-    (value) => value > 0,
-    "recovery Slop foreground process",
-    600,
-  );
+  return evaluate(send,
+    `window.__dolly.waitForInteractiveTerminal(
+      /Dolly: image entry exited; entering the recovery Slop shell\\.[\\s\\S]*\\ndolly:[^\\n]*\\$\\s*$/,
+      "recovery Slop prompt", ${entryPid})`);
 }
 
 async function visibleTerminalText(send) {
-  await evaluate(send, `(() => {
-    const transport = window.__dolly.transport;
-    const geometry = transport.geometry();
-    const dimensions = transport.dimensions();
-    if (!geometry.cellWidth || !geometry.cellHeight ||
-        !dimensions.cols || !dimensions.rows) return false;
-    const startX = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
-    const startY = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
-    const endX = geometry.paddingX +
-      Math.max(0, dimensions.cols - 1) * geometry.cellWidth +
-      Math.floor(geometry.cellWidth / 2);
-    const endY = geometry.paddingY +
-      Math.max(0, dimensions.rows - 1) * geometry.cellHeight +
-      Math.floor(geometry.cellHeight / 2);
-    transport.pushPointer(startX, startY, 1, {});
-    transport.pushPointer(endX, endY, 2, {});
-    transport.pushPointer(endX, endY, 0, {});
-    return true;
-  })()`);
-  await delay(30);
-  return await evaluate(send, "window.__dolly.copySelection() ?? ''");
+  return evaluate(send, "window.__dolly.visibleTerminalText()");
 }
 
 async function clearTerminalSelection(send) {
@@ -1333,7 +1295,7 @@ chrome = spawn(chromeBinary, [
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "process lifecycle boot", 1200), "ready");
-      await enterRecoveryShell(debuggerClient.send);
+      const outerPid = await enterRecoveryShell(debuggerClient.send);
       const submit = command => evaluate(debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(command)})`);
       const scratch = "/tmp/dolly-process-lifecycle-test";
@@ -1346,6 +1308,76 @@ chrome = spawn(chromeBinary, [
         assert.equal(await submit(`printf '%s\\n' ${descriptors.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/descriptors.c`), 0);
         assert.equal(await submit(`cc -O0 -fno-sanitize-coverage ${scratch}/descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`), 0);
         assert.equal(await submit(`git config --file ${scratch}/config user.email before && timeout 5 git config --file ${scratch}/config user.email after`), 0);
+        if (selectedImage === "default") {
+          const send = debuggerClient.send;
+          const exitShell = () => dispatchKey(send, {
+            key: "d", code: "KeyD", modifiers: 2, windowsVirtualKeyCode: 68,
+          });
+          const shellPrompt = '/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/';
+          const nestedCommand = async command => {
+            const sequence = await evaluate(send, "window.__dolly.transport.currentResultSequence()");
+            await inputText(send, `${command}\r`);
+            assert.equal(await waitForCommandResult(send, sequence, command), 0);
+          };
+          try {
+            for (const [name, rc] of [
+              ["failed", "exit 7\n"],
+              ["missing", null],
+              ["directory", null],
+              ["cancel", "printf 'DOLLY-INIT-RC-SLEEP\\n'\nsleep 30\nprintf 'DOLLY-INIT-RC-WRONG\\n'\n"],
+            ]) {
+              const home = `${scratch}/init-${name}`;
+              assert.equal(await submit(`mkdir -p ${home}${name === "directory" ? "/.dollyrc" : ""}`), 0);
+              if (rc !== null) assert.equal(await submit(`printf '%s\\n' ${rc.trimEnd().split("\n").map(shellQuote).join(" ")} > ${home}/.dollyrc`), 0);
+              assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
+              const marker = `DOLLY-INIT-OUTER-${name}`;
+              // No pending submit promise: nested interactive shells publish
+              // their own command results before the outer invocation exits.
+              await inputText(send, `HOME=${home} timeout 45 /bin/foreground -i /bin/slop /etc/dolly/init.slop; printf '\\n${marker}=%s\\n' "$?"\r`);
+              let cancelledAt;
+              if (name === "cancel") {
+                await waitForTerminalText(send, /DOLLY-INIT-RC-SLEEP/, "sleeping startup script", 200);
+                await waitForValue(send, "window.__dolly.transport.foregroundInterruptible()",
+                  Boolean, "interruptible startup script", 100);
+                cancelledAt = Date.now();
+                await dispatchKey(send, {
+                  key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67,
+                });
+              }
+              const appPid = await evaluate(send,
+                `window.__dolly.waitForInteractiveTerminal(${shellPrompt}, "nested image app", ${outerPid})`);
+              if (cancelledAt !== undefined) assert.ok(Date.now() - cancelledAt < 10_000,
+                "Ctrl+C must reach the app before the thirty-second startup sleep ends");
+              const terminal = await visibleTerminalText(send);
+              if (name === "failed") assert.match(terminal, /Dolly: .*\.dollyrc exited with status 7; continuing\./);
+              else assert.doesNotMatch(terminal, /Dolly: .*\.dollyrc exited with status/);
+              assert.doesNotMatch(terminal, /DOLLY-INIT-RC-WRONG/);
+              await nestedCommand(`printf '%s\\n' app-${name} > "$HOME/proof"`);
+              assert.equal(await evaluate(send,
+                `window.__dolly.waitForInteractiveTerminal(${shellPrompt}, "usable nested image app")`), appPid);
+              await exitShell();
+              const recoveryPid = await evaluate(send,
+                `window.__dolly.waitForInteractiveTerminal(
+                  /Dolly: image entry exited; entering the recovery Slop shell\\.[\\s\\S]*\\ndolly:[^\\n]*\\$\\s*$/,
+                  "nested image recovery", ${appPid})`);
+              assert.notEqual(recoveryPid, outerPid);
+              await nestedCommand(`test "$HOME" = ${home}`);
+              assert.equal(await evaluate(send,
+                `window.__dolly.waitForInteractiveTerminal(${shellPrompt}, "usable nested recovery")`), recoveryPid);
+              await exitShell();
+              await waitForValue(send, "window.__dolly.foregroundPid", pid => pid === outerPid,
+                "outer shell restored after nested recovery", 200);
+              await waitForTerminalText(send, new RegExp(`${marker}=0`), "nested init exit status", 100);
+              assert.equal(await submit(`test "$(cat ${home}/proof)" = app-${name}`), 0);
+            }
+          } finally {
+            // The ordinary timeout also bounds cleanup if a readiness assertion fails.
+            await waitForValue(send,
+              `window.__dolly.foregroundPid === ${outerPid} && !window.__dolly.transport.foregroundInterruptible()`,
+              Boolean, "nested startup watchdog cleanup", 600);
+          }
+          console.log("browser: image-owned rc failure/missing/directory/cancellation and nested app/recovery/outer-shell lifecycle passed");
+        }
       } finally { await submit(`rm -rf ${scratch}`); }
       console.log("browser: process PID/parent, wait, signals, descriptor flags/inheritance/mappings and pipe cleanup passed");
       break browserProof;
@@ -1705,18 +1737,9 @@ int main(int argc, char **argv) {
         1200,
       );
       assert.equal(state, "ready");
-      if (selectedGraph.root.entry[0] === "/bin/slop") {
-        await waitForValue(
-          debuggerClient.send,
-          `(() => {
-            const transport = window.__dolly?.transport;
-            return transport && transport.foregroundPid() > 0 &&
-              !transport.foregroundInterruptible() && transport.inputIdle();
-          })()`,
-          (value) => value === true,
-          "Python image Slop prompt",
-          600,
-        );
+      if (selectedImage === "default" || selectedImage === "python") {
+        await evaluate(debuggerClient.send,
+          'window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "Python image Slop prompt")');
       } else {
         await enterRecoveryShell(debuggerClient.send);
       }

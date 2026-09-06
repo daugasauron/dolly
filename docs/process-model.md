@@ -222,10 +222,19 @@ the records to POSIX wait status, while `dolly_wait` retains normalized shell
 status for existing callers. The supervisor WAT contract also types the explicit
 signal argument for forced termination.
 
+An exited child is not waitable until the trusted supervisor has dropped its
+Worker, memory and gate references and acknowledged retirement. Parent shutdown
+retires descendants first. Large interactive processes get one bounded browser
+reclamation window before that acknowledgment; Worker termination itself has no
+completion event. This applies equally to nested and root processes.
+
 PID/parent identity is immutable within one private process and cached in its
 libc adapter. Its sole thread has the same TID as PID. Both the libc thread record
 and shared-memory stdio locking use that identity; retaining Emscripten's fallback
 TID would deadlock `flockfile` followed by ordinary locked stdio operations.
+This is separate from advisory file locks: `F_GETLK`, `F_SETLK` and `F_SETLKW`
+return `ENOTSUP` for valid descriptors and `EBADF` for invalid ones. They never
+pretend to acquire a lock.
 
 HTTP_POLL also returns immediately: a zero-ready response means no chunk is
 available yet. Runtimes can therefore service timers and issue HTTP_CANCEL while
@@ -233,6 +242,13 @@ waiting for headers or body bytes. The synchronous C performer waits between
 pending polls; no additional browser import or communication path is involved.
 
 The browser publishes Ctrl-C only for the displayed foreground process tree.
+Foreground and interactive roles are explicit spawn flags, owned by the kernel.
+Only the current foreground tree can transfer ownership to a child; retirement
+restores its nearest foreground ancestor. An interactive owner receives terminal
+Ctrl-C when idle, while its active descendants receive process-directed SIGINT.
+An ordinary foreground job is itself cancellable. Image-owned init scripts use
+the ordinary `/bin/foreground` launcher to select these roles; the browser does
+not recognize Slop, Pi or recovery paths.
 The trusted supervisor records `SIGINT` in the kernel. A process can consume it
 through `DOLLY_PROCESS_INTERRUPT_POLL`; a deferred syscall is woken with
 `EINTR`. If the process exits without consuming the signal, the kernel

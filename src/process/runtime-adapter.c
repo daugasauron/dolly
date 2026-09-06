@@ -425,11 +425,12 @@ int dolly_display_release(uint64_t generation) {
   return 0;
 }
 
-int dolly_spawn_mapped(const char *path, int argc, char **argv,
+static int spawn_mapped(const char *path, int argc, char **argv,
                         char *const envp[], const char *cwd,
                         uint32_t descriptor_inheritance,
                         const dolly_process_fd_mapping *mappings,
-                        uint32_t mapping_count, double timeout_milliseconds) {
+                        uint32_t mapping_count, double timeout_milliseconds,
+                        uint32_t flags) {
   if (path == NULL || argv == NULL || argc <= 0 ||
       descriptor_inheritance > DOLLY_PROCESS_INHERIT_FDS_ALL ||
       (mapping_count != 0 && mappings == NULL) ||
@@ -475,7 +476,7 @@ int dolly_spawn_mapped(const char *path, int argc, char **argv,
     deadline = now + (uint64_t)delta;
   }
   const dolly_process_spawn_request request = {
-      envp == NULL ? DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT : 0,
+      flags | (envp == NULL ? DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT : 0),
       (uint32_t)argc,
       environment_count,
       (uint32_t)cwd_size,
@@ -511,6 +512,25 @@ int dolly_spawn_mapped(const char *path, int argc, char **argv,
   if (result < 0) return (int)result;
   return (uint64_t)result == sizeof(response) && response.reserved == 0 &&
       response.pid <= INT32_MAX ? (int)response.pid : -EIO;
+}
+
+int dolly_spawn_mapped(const char *path, int argc, char **argv,
+                        char *const envp[], const char *cwd,
+                        uint32_t descriptor_inheritance,
+                        const dolly_process_fd_mapping *mappings,
+                        uint32_t mapping_count, double timeout_milliseconds) {
+  return spawn_mapped(path, argc, argv, envp, cwd, descriptor_inheritance,
+                      mappings, mapping_count, timeout_milliseconds, 0);
+}
+
+int dolly_spawn_foreground(const char *path, int argc, char **argv,
+                           int interactive) {
+  if (interactive != 0 && interactive != 1) return -EINVAL;
+  const dolly_process_fd_mapping mappings[] = {{0, 0}, {1, 1}, {2, 2}};
+  return spawn_mapped(path, argc, argv, environ, NULL,
+      DOLLY_PROCESS_INHERIT_FDS_NONE, mappings, 3, -1,
+      DOLLY_PROCESS_SPAWN_FOREGROUND |
+          (interactive ? DOLLY_PROCESS_SPAWN_INTERACTIVE : 0));
 }
 
 static int spawn_process(const char *path, int argc, char **argv,

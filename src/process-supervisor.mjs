@@ -7,7 +7,10 @@ const encoder = new TextEncoder();
 const packetLimit = 1024 * 1024;
 const spawnHeaderSize = 56;
 const inheritEnvironment = 1;
+const spawnForeground = 2;
+const spawnInteractive = 4;
 const deferredResult = -(1n << 63n);
+const processSpawn = 64;
 const interruptPoll = 66;
 const processSignal = 68;
 const sigint = 2;
@@ -55,7 +58,7 @@ function encodeStrings(strings, label) {
   return output;
 }
 
-function encodeSpawn(path, arguments_, environment, descriptors) {
+function encodeSpawn(path, arguments_, environment, descriptors, flags) {
   if (typeof path !== "string" || !path.startsWith("/") || path.includes("\0")) {
     throw new TypeError("a process path must be absolute");
   }
@@ -78,7 +81,7 @@ function encodeSpawn(path, arguments_, environment, descriptors) {
 
   const packet = new Uint8Array(size);
   const view = new DataView(packet.buffer);
-  view.setUint32(0, environment === undefined ? inheritEnvironment : 0, true);
+  view.setUint32(0, flags | (environment === undefined ? inheritEnvironment : 0), true);
   view.setUint32(4, arguments_.length, true);
   view.setUint32(8, environment?.length ?? 0, true);
   view.setUint32(12, 0, true);
@@ -130,7 +133,6 @@ export class DollyProcessSupervisor {
     this.compiledModules = new Map();
     this.compiledModuleBytes = 0;
     this.launchChain = Promise.resolve();
-    this.foregroundRootPid = 0;
     this.mailboxAddress = Number(dolly._dolly_process_mailbox_address());
     this.mailboxCapacity = Number(dolly._dolly_process_mailbox_capacity());
     if (dolly._dolly_process_supervisor_version() !== 0 ||
@@ -173,10 +175,8 @@ export class DollyProcessSupervisor {
         (interactive && !foreground)) {
       throw new TypeError("invalid process foreground options");
     }
-    if (foreground && this.foregroundRootPid !== 0) {
-      throw new Error("Dolly already has a foreground process tree");
-    }
-    const packet = encodeSpawn(path, arguments_, environment, descriptors);
+    const flags = (foreground ? spawnForeground : 0) | (interactive ? spawnInteractive : 0);
+    const packet = encodeSpawn(path, arguments_, environment, descriptors, flags);
     new Uint8Array(
       this.kernelMemory.buffer,
       this.mailboxAddress,
@@ -185,48 +185,39 @@ export class DollyProcessSupervisor {
     const pid = this.dolly._dolly_process_spawn_serialized(BigInt(packet.length));
     if (pid < 0) throw new Error(`Dolly process spawn failed with errno ${-pid}`);
     const completion = new Promise((resolve, reject) => {
-      this.processes.set(pid, {
-        pid, parent: 0, resolve, reject, worker: null, gate: null, control: null,
-        memory: null, messageHandler: null, errorHandler: null,
-        messageErrorHandler: null, started: false,
-        failure: null, foregroundRoot: foreground, interactive,
-        interruptTimer: null, deadlineTimer: null,
-      });
+      this.#registerProcess(pid, 0, resolve, reject);
     });
-    if (foreground) {
-      this.foregroundRootPid = pid;
-      this.#updateForeground();
-    }
     this.#scheduleLaunches();
     return completion;
   }
 
-  #descendsFrom(process, ancestorPid) {
-    let candidate = process;
-    for (let depth = 0; depth < this.processes.size; ++depth) {
-      if (candidate.parent === ancestorPid) return true;
-      if (candidate.parent === 0) return false;
-      candidate = this.processes.get(candidate.parent);
-      if (!candidate) return false;
+  #registerProcess(pid, parent, resolve = null, reject = null) {
+    const flags = this.dolly._dolly_process_spawn_flags(pid);
+    if (pid <= 0 || this.processes.has(pid) || flags < 0 ||
+        this.dolly._dolly_process_parent(pid) !== parent) {
+      throw new Error(`kernel supplied invalid process ${pid}`);
     }
-    return false;
+    const process = {
+      pid, parent, resolve, reject, worker: null, gate: null, control: null,
+      memory: null, messageHandler: null, errorHandler: null,
+      messageErrorHandler: null, started: false,
+      failure: null, interactive: (flags & spawnInteractive) !== 0, retiring: false,
+      interruptTimer: null, deadlineTimer: null, retirementTimer: null,
+      reclamationDeadline: 0,
+    };
+    this.processes.set(pid, process);
+    this.#armDeadline(process);
   }
 
-  #updateForeground() {
-    if (this.foregroundRootPid === 0) return;
-    const root = this.processes.get(this.foregroundRootPid);
-    if (!root) {
-      this.dolly._dolly_process_foreground_clear(this.foregroundRootPid);
-      this.foregroundRootPid = 0;
-      return;
+  #descendantDepth(process, ancestorPid) {
+    let candidate = process;
+    for (let depth = 0; depth < this.processes.size; ++depth) {
+      if (candidate.parent === ancestorPid) return depth + 1;
+      if (candidate.parent === 0) return 0;
+      candidate = this.processes.get(candidate.parent);
+      if (!candidate) return 0;
     }
-    const hasForegroundJob = root.interactive && [...this.processes.values()].some(
-      (process) => process.pid !== root.pid && this.#descendsFrom(process, root.pid),
-    );
-    const status = this.dolly._dolly_process_foreground_set(
-      root.pid, root.interactive ? Number(hasForegroundJob) : 1,
-    );
-    if (status !== 0) throw new Error(`Dolly rejected foreground process ${root.pid}`);
+    return 0;
   }
 
   #serviceTick() {
@@ -242,20 +233,20 @@ export class DollyProcessSupervisor {
 
   #interruptForeground(pid) {
     const process = this.processes.get(pid);
-    if (!process) return false;
-    if (!process.foregroundRoot || !process.interactive) return this.#deliverSignal(process);
+    if (!process || process.retiring) return false;
     const descendants = [...this.processes.values()].filter(
-      (candidate) => candidate.pid !== pid && this.#descendsFrom(candidate, pid),
+      (candidate) => !candidate.retiring && candidate.pid !== pid &&
+        this.#descendantDepth(candidate, pid) !== 0,
     );
-    if (descendants.length === 0) return this.#deliverSignal(process);
+    if (!process.interactive) this.#deliverSignal(process);
     for (const child of descendants) this.#deliverSignal(child);
-    return true;
+    return !process.interactive || descendants.length !== 0;
   }
 
   #deliverSignal(process, signalNumber = sigint) {
-    if (!process || !this.processes.has(process.pid)) return false;
+    if (!process || process.retiring || this.processes.get(process.pid) !== process) return false;
     const result = this.dolly._dolly_process_signal(process.pid, signalNumber);
-    if (signalNumber !== sigint || result !== 0) {
+    if (signalNumber !== sigint || result !== 0 || !process.started) {
       return this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
     }
     const deferred = this.deferred.get(process.pid);
@@ -276,18 +267,7 @@ export class DollyProcessSupervisor {
     this.launchChain = this.launchChain
       .then(() => this.#launchPending())
       .catch((error) => {
-        for (const process of this.processes.values()) {
-          this.#clearTimers(process);
-          if (process.reject) process.reject(error);
-          this.#disposeWorker(process);
-          this.dolly._dolly_process_worker_failed(process.pid, 126, 0);
-        }
-        for (const process of this.processes.values()) {
-          this.dolly._dolly_process_collect(process.pid);
-        }
-        this.deferred.clear();
-        this.processes.clear();
-        this.#updateForeground();
+        for (const process of [...this.processes.values()]) this.#fail(process, error);
       });
   }
 
@@ -365,19 +345,8 @@ export class DollyProcessSupervisor {
     for (;;) {
       const pid = this.dolly._dolly_process_next_launch();
       if (pid === 0) return;
-      let process = this.processes.get(pid);
-      if (!process) {
-        const parent = this.dolly._dolly_process_parent(pid);
-        if (parent <= 0) throw new Error(`kernel supplied an invalid parent for process ${pid}`);
-        process = {
-          pid, parent, resolve: null, reject: null, worker: null, gate: null, control: null,
-          memory: null, messageHandler: null, errorHandler: null,
-          messageErrorHandler: null, started: false,
-          failure: null, foregroundRoot: false, interactive: false,
-          interruptTimer: null, deadlineTimer: null,
-        };
-        this.processes.set(pid, process);
-      }
+      const process = this.processes.get(pid);
+      if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
       const address = Number(this.dolly._dolly_process_image_address(pid));
       const size = Number(this.dolly._dolly_process_image_size(pid));
       if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
@@ -391,8 +360,10 @@ export class DollyProcessSupervisor {
       }
       try {
         const { module, memoryRequirements, processInterface } = await this.#compileProcess(bytes);
+        if (!this.#canLaunch(process)) continue;
         const memory = createProcessMemory(memoryRequirements);
-        const gate = await WebAssembly.instantiate(this.gateModule, {
+        process.memory = memory;
+        const gate = new WebAssembly.Instance(this.gateModule, {
           process: { memory },
           kernel: { memory: this.kernelMemory },
         });
@@ -404,7 +375,6 @@ export class DollyProcessSupervisor {
         process.worker = worker;
         process.gate = gate;
         process.control = new Int32Array(control);
-        process.memory = memory;
         process.messageHandler = (event) => this.#message(process, event.data);
         process.errorHandler = (event) => {
           this.#fail(process, new Error(event.message || `process ${pid} Worker failed`));
@@ -417,12 +387,20 @@ export class DollyProcessSupervisor {
         worker.addEventListener("messageerror", process.messageErrorHandler, { once: true });
         worker.postMessage({ type: "configure", pid, module, memory, control,
           processInterface, dsoContract: this.dsoContract });
-        this.#armDeadline(process);
-        this.#updateForeground();
       } catch (error) {
         this.#fail(process, error);
       }
     }
+  }
+
+  #canLaunch(process) {
+    if (this.processes.get(process.pid) !== process || process.retiring) return false;
+    // An ancestor's EXIT can reach the kernel before its Worker posts finished.
+    if (this.dolly._dolly_process_deadline_remaining(process.pid) === -2) {
+      this.#retire(process);
+      return false;
+    }
+    return true;
   }
 
   #signal(process, sequence, result) {
@@ -449,8 +427,10 @@ export class DollyProcessSupervisor {
   #clearTimers(process) {
     if (process.interruptTimer !== null) clearTimeout(process.interruptTimer);
     if (process.deadlineTimer !== null) clearTimeout(process.deadlineTimer);
+    if (process.retirementTimer !== null) clearTimeout(process.retirementTimer);
     process.interruptTimer = null;
     process.deadlineTimer = null;
+    process.retirementTimer = null;
   }
 
   #syscall(process, message, retry = false) {
@@ -492,6 +472,15 @@ export class DollyProcessSupervisor {
         if (result > BigInt(message.responseCapacity)) {
           throw new Error(`kernel overfilled process ${process.pid} response`);
         }
+        if (message.operation === processSpawn) {
+          if (result !== 8n) throw new Error("invalid kernel spawn response");
+          const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
+          const pid = response.getUint32(0, true);
+          if (pid === 0 || pid > 0x7fffffff || response.getUint32(4, true) !== 0) {
+            throw new Error("invalid kernel spawn identity");
+          }
+          this.#registerProcess(pid, process.pid);
+        }
         if (message.operation === processSignal) {
           if (result !== 8n) throw new Error("invalid kernel signal response");
           const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
@@ -524,6 +513,7 @@ export class DollyProcessSupervisor {
   }
 
   #message(process, message) {
+    if (this.processes.get(process.pid) !== process || process.retiring) return;
     if (message?.pid !== process.pid) {
       this.#fail(process, new Error(`process ${process.pid} sent a mismatched identity`));
     } else if (message.type === "started") {
@@ -536,18 +526,7 @@ export class DollyProcessSupervisor {
       this.#syscall(process, message);
     } else if (message.type === "finished") {
       this.dolly._dolly_process_worker_failed(process.pid, message.status ?? 0, 0);
-      this.#terminateDescendantWorkers(process.pid, 126);
-      if (process.parent === 0) {
-        const status = this.dolly._dolly_process_collect(process.pid);
-        this.#finish(process, status);
-      } else {
-        this.#clearTimers(process);
-        this.#disposeWorker(process);
-        this.deferred.delete(process.pid);
-        this.processes.delete(process.pid);
-        this.#updateForeground();
-        this.serviceDeferred();
-      }
+      this.#retire(process);
     } else if (message.type === "failed") {
       const detail = message.stack ? `${message.message}\n${message.stack}` : message.message;
       this.#fail(process, new Error(detail || `process ${process.pid} failed`));
@@ -556,34 +535,62 @@ export class DollyProcessSupervisor {
     }
   }
 
-  #finish(process, status) {
-    const residentBytes = process.memory?.buffer.byteLength ?? 0;
-    const needsReclamationWindow = process.interactive &&
-      residentBytes >= largeInteractiveProcessBytes;
+  #reclamationDeadline(process) {
+    return Math.max(process.reclamationDeadline,
+      process.interactive && (process.memory?.buffer.byteLength ?? 0) >= largeInteractiveProcessBytes
+        ? performance.now() + workerReclamationMilliseconds : 0);
+  }
+
+  #retire(process) {
+    process.retiring = true;
+    const { descendants, reclamationDeadline } = this.#terminateDescendantWorkers(process.pid);
+    process.reclamationDeadline = Math.max(
+      this.#reclamationDeadline(process), reclamationDeadline,
+    );
     this.#clearTimers(process);
     this.#disposeWorker(process);
-    this.processes.delete(process.pid);
-    this.#updateForeground();
-    const settle = () => {
-      if (process.failure) {
-        process.reject(process.failure);
-      } else if (!Number.isInteger(status) || status < 0 || status > 255) {
-        process.reject(new Error(`kernel returned invalid status for process ${process.pid}`));
-      } else {
-        process.resolve(status);
+    this.deferred.delete(process.pid);
+    const retired = () => {
+      process.retirementTimer = null;
+      if (this.processes.get(process.pid) !== process) return;
+      for (const descendant of descendants) {
+        this.#acknowledgeRetirement(descendant);
+        this.dolly._dolly_process_collect(descendant.pid);
       }
+      this.#acknowledgeRetirement(process);
+      if (process.parent === 0) this.#finish(process);
+      else this.serviceDeferred();
     };
-    // Dedicated Worker termination has no completion event. Large QuickJS/Pi
-    // memories otherwise remain charged long enough for an immediately
-    // launched recovery process to stall in Chromium. References are already
-    // cleared above; one bounded event-loop window lets the browser reclaim
-    // the detached memory before the caller starts another interactive root.
-    if (needsReclamationWindow) setTimeout(settle, workerReclamationMilliseconds);
-    else settle();
+    // Worker.terminate() has no completion event. Drop all references, then allow
+    // one bounded reclamation window for large interactive memories before WAIT
+    // can let a surviving parent launch their replacement.
+    const delay = process.reclamationDeadline - performance.now();
+    if (delay > 0) process.retirementTimer = setTimeout(retired, delay);
+    else retired();
+  }
+
+  #acknowledgeRetirement(process) {
+    const result = this.dolly._dolly_process_worker_retired(process.pid);
+    if (result !== 0) {
+      throw new Error(`kernel rejected process ${process.pid} retirement: ${result}`);
+    }
+    this.processes.delete(process.pid);
+  }
+
+  #finish(process) {
+    const status = this.dolly._dolly_process_collect(process.pid);
+    if (process.failure) {
+      process.failure.status = status;
+      process.reject(process.failure);
+    } else if (!Number.isInteger(status) || status < 0 || status > 255) {
+      process.reject(new Error(`kernel returned invalid status for process ${process.pid}`));
+    } else {
+      process.resolve(status);
+    }
   }
 
   #fail(process, error) {
-    if (!this.processes.has(process.pid)) return;
+    if (process.retiring || this.processes.get(process.pid) !== process) return;
     const detail = error instanceof Error ? error : new Error(String(error));
     const stage = process.started ? "while running" : "during startup";
     this.#writeTerminal(
@@ -591,20 +598,10 @@ export class DollyProcessSupervisor {
         `${terminalFailureReason(detail)}\r\n`,
     );
     detail.message = `Dolly process ${process.pid} failed: ${detail.message}`;
-    this.#clearTimers(process);
-    this.#disposeWorker(process);
+    process.failure = detail;
     this.dolly._dolly_process_worker_failed(process.pid, 126, 0);
-    this.#terminateDescendantWorkers(process.pid, 126);
-    const status = process.parent === 0
-      ? this.dolly._dolly_process_collect(process.pid) : 126;
-    this.processes.delete(process.pid);
-    this.#updateForeground();
-    detail.status = status;
-    if (process.reject) process.reject(detail);
-    else {
-      console.error(detail.stack ?? detail.message);
-      this.serviceDeferred();
-    }
+    if (!process.reject) console.error(detail.stack ?? detail.message);
+    this.#retire(process);
   }
 
   interrupt(pid) {
@@ -614,47 +611,27 @@ export class DollyProcessSupervisor {
   #forceExit(pid, status, signalNumber = 0) {
     const process = this.processes.get(pid);
     if (!process) return false;
-    this.#clearTimers(process);
-    this.#disposeWorker(process);
+    if (process.retiring) return true;
     this.dolly._dolly_process_worker_failed(pid, status, signalNumber);
-    this.#terminateDescendantWorkers(pid, status, signalNumber);
-    this.processes.delete(pid);
-    this.deferred.delete(pid);
-    if (process.parent === 0) {
-      const status = this.dolly._dolly_process_collect(pid);
-      process.resolve(status);
-    } else {
-      this.serviceDeferred();
-    }
-    this.#updateForeground();
+    this.#retire(process);
     return true;
   }
 
-  #terminateDescendantWorkers(parentPid, status, signalNumber = 0) {
-    const descendants = [];
-    for (const process of this.processes.values()) {
-      let candidate = process;
-      for (let depth = 0; depth < this.processes.size; ++depth) {
-        if (candidate.parent === parentPid) {
-          descendants.push(process);
-          break;
-        }
-        if (candidate.parent === 0) break;
-        candidate = this.processes.get(candidate.parent);
-        if (!candidate) break;
-      }
-    }
+  #terminateDescendantWorkers(parentPid) {
+    const descendants = [...this.processes.values()]
+      .map((process) => ({ process, depth: this.#descendantDepth(process, parentPid) }))
+      .filter(({ depth }) => depth !== 0)
+      .sort((left, right) => right.depth - left.depth)
+      .map(({ process }) => process);
+    let reclamationDeadline = 0;
     for (const process of descendants) {
+      process.retiring = true;
+      reclamationDeadline = Math.max(reclamationDeadline, this.#reclamationDeadline(process));
       this.#clearTimers(process);
       this.#disposeWorker(process);
-      this.dolly._dolly_process_worker_failed(process.pid, status, signalNumber);
-      this.dolly._dolly_process_collect(process.pid);
       this.deferred.delete(process.pid);
-      this.processes.delete(process.pid);
-      if (process.reject) {
-        process.reject(new Error(`Dolly process ${process.pid} was terminated with its parent`));
-      }
     }
+    return { descendants, reclamationDeadline };
   }
 
   #disposeWorker(process) {
@@ -682,8 +659,9 @@ export class DollyProcessSupervisor {
 
   serviceDeferred() {
     for (const { process, message } of [...this.deferred.values()]) {
-      if (this.processes.has(process.pid)) this.#syscall(process, message, true);
-      else this.deferred.delete(process.pid);
+      if (this.processes.get(process.pid) === process && !process.retiring) {
+        this.#syscall(process, message, true);
+      } else this.deferred.delete(process.pid);
     }
   }
 }

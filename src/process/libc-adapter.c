@@ -1113,7 +1113,6 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
 /*
  * Emscripten's musl syscall veneer passes a pointer to its packed variadic
  * arguments. Descriptor and open-file flags are distinct kernel state.
- * Advisory record locks succeed because Dolly has one cooperating userspace.
  */
 int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
   int integer = 0;
@@ -1141,18 +1140,13 @@ int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
     case F_SETFL:
       return arguments == 0 ? -EINVAL :
           fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, descriptor, integer);
-    case F_GETLK: {
-      uintptr_t pointer = 0;
-      if (arguments != 0) {
-        memcpy(&pointer, (const void *)arguments, sizeof(pointer));
-      }
-      if (pointer == 0) return -EFAULT;
-      ((struct flock *)pointer)->l_type = F_UNLCK;
-      return 0;
-    }
+    case F_GETLK:
     case F_SETLK:
-    case F_SETLKW:
-      return arguments == 0 ? -EFAULT : 0;
+    case F_SETLKW: {
+      const int flags = fd_flags_get(
+          DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS, descriptor);
+      return flags < 0 ? flags : -ENOTSUP;
+    }
     default:
       return -EINVAL;
   }

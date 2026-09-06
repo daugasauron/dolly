@@ -104,6 +104,9 @@ enum dolly_process_operation {
 
 enum dolly_process_spawn_flags {
   DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT = 1u << 0,
+  DOLLY_PROCESS_SPAWN_FOREGROUND = 1u << 1,
+  /* Foreground owner survives Ctrl-C; its active descendants receive SIGINT. */
+  DOLLY_PROCESS_SPAWN_INTERACTIVE = 1u << 2,
 };
 
 enum dolly_process_descriptor_inheritance {
@@ -117,7 +120,7 @@ enum dolly_process_descriptor_flags {
 };
 
 enum dolly_process_wait_flags {
-  /* Return -EAGAIN without reaping when the child has not exited. */
+  /* Return -EAGAIN until the child exits and its Worker is retired. */
   DOLLY_PROCESS_WAIT_NONBLOCK = 1u << 0,
 };
 

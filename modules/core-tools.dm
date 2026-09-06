@@ -2,11 +2,47 @@ DOLLY 2
 MODULE core-tools
 
 REQUIRES HEADER libc
+REQUIRES HEADER runtime
 REQUIRES TOOL   cc
 REQUIRES TOOL   rm
 
 # Small Dolly-owned commands live directly in the module. The root's module
 # hash authenticates their source; each TOOL export names the compiled result.
+FILE /tmp/core-tools/foreground.c
+    #include <errno.h>
+    #include <stdio.h>
+    #include <string.h>
+    #include <dolly/runtime.h>
+    
+    int main(int argc, char **argv) {
+      int first = 1;
+      int interactive = 0;
+      if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+        fputs("usage: foreground [-i] /absolute/program [ARG ...]\n", stdout);
+        return 0;
+      }
+      if (first < argc && strcmp(argv[first], "-i") == 0) {
+        interactive = 1;
+        first++;
+      }
+      if (first == argc || argv[first][0] != '/') {
+        fputs("usage: foreground [-i] /absolute/program [ARG ...]\n", stderr);
+        return 2;
+      }
+      const int pid = dolly_spawn_foreground(argv[first], argc - first,
+                                             argv + first, interactive);
+      if (pid < 0) {
+        fprintf(stderr, "foreground: %s: %s\n", argv[first], strerror(-pid));
+        return pid == -ENOENT ? 127 : 126;
+      }
+      int status;
+      const int waited = dolly_wait(pid, &status);
+      if (waited < 0) {
+        fprintf(stderr, "foreground: wait: %s\n", strerror(-waited));
+        return 126;
+      }
+      return status;
+    }
 FILE /tmp/core-tools/help.c
     #include <stdio.h>
     #include <stdlib.h>
@@ -1120,6 +1156,9 @@ FILE /tmp/core-tools/cp.c
       return status;
     }
 SLOP cc \
+  /tmp/core-tools/foreground.c \
+  -o /bin/foreground
+SLOP cc \
   /tmp/core-tools/help.c \
   -o /bin/help
 SLOP cc \
@@ -1162,6 +1201,7 @@ SLOP cc \
 SLOP cc \
   /tmp/core-tools/cp.c \
   -o /bin/cp
+EXPORTS TOOL foreground
 EXPORTS TOOL help
 EXPORTS TOOL pwd
 EXPORTS TOOL cd

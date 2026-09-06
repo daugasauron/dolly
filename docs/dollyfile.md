@@ -17,11 +17,13 @@ An image is deliberately small:
 DOLLY 2
 IMAGE pi
 
-USE HOST /modules/default.dm <sha256>
-USE HOST /modules/quickjs.dm <sha256>
-USE HOST /modules/pi.dm      <sha256>
+USE HOST /modules/default.dm    <sha256>
+USE HOST /modules/quickjs.dm    <sha256>
+USE HOST /modules/typescript.dm <sha256>
+USE HOST /modules/pi.dm         <sha256>
+USE HOST /modules/startup-pi.dm <sha256>
 
-ENTRY /usr/bin/pi
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 ```
 
 A leaf module can build and expose an object:
@@ -87,19 +89,29 @@ readability without changing the parser.
 
 ## Session startup
 
-Startup policy is ordinary userspace, not Dollyfile syntax. An image may retain
-`/home/dolly/.dollyrc` through a normal module `FILE` declaration. After a
-snapshot has been restored or a rebuild has completed, the runtime executes
-that file once as `/bin/slop -e /home/dolly/.dollyrc`, then starts `ENTRY`.
-The five source images select small final startup modules so their greeting and
-useful examples remain visible in the root Dollyfile graph.
+The browser executes the retained `ENTRY` once, with no knowledge of Slop, Pi,
+startup files, retries, or recovery shells. Those choices belong to the image.
+The five source images use a final module to retain `/etc/dolly/init.slop` and
+`/home/dolly/.dollyrc` as ordinary `FILE` declarations. Their entry is
+`/bin/foreground -i /bin/slop /etc/dolly/init.slop`.
 
-The script is a separate process. Its filesystem writes persist in the shared
-in-Wasm filesystem, while shell-local variables and environment changes end
-with that process; persistent environment belongs in explicit module
-`EXPORTS ENV` declarations. A nonzero startup status is reported and `ENTRY`
-still runs, so a convenience greeting cannot make the recovery shell
-unreachable.
+`foreground [-i] /absolute/program [arguments ...]` is a source-built command
+that starts a child with inherited stdio, environment, and cwd, waits, and
+returns its status. It selects that child as the terminal foreground; `-i`
+marks an interactive owner whose commands can be cancelled without ending the
+owner. This is a userspace lifecycle operation, not another browser capability.
+
+The init script checks whether `$HOME/.dollyrc` is a regular file and, if so,
+runs it in a separate `/bin/slop -e` process. Filesystem changes persist, but
+shell variables and environment changes end with that child; persistent image
+environment belongs in module `EXPORTS ENV` declarations. A nonzero status
+other than cancellation (130) prints a diagnostic; startup continues.
+
+The script then starts the image's shell, Pi, or graphics demo. Pi retries at
+most twice after an unexpected failure, never after status 0 or 130. When that
+program exits, every supplied image offers one recovery Slop shell; exiting
+that shell ends the entry. Edit the retained init script or its source module
+to change this policy, with no browser changes.
 
 ## Types
 

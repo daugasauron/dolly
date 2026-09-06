@@ -14,6 +14,9 @@
   (func $worker_started (param i32) (result i32) i32.const 0)
   ;; PID, normalized exit status, explicit termination signal (zero for normal).
   (func $worker_failed (param i32 i32 i32) (result i32) i32.const 0)
+  ;; A child becomes waitable only after its Worker references are retired.
+  (func $worker_retired (param i32) (result i32) i32.const 0)
+  (func $spawn_flags (param i32) (result i32) i32.const 0)
   (func $signal (param i32 i32) (result i32) i32.const 0)
   (func $deadline_remaining (param i32) (result f64) f64.const -1)
   (func $collect (param i32) (result i32) i32.const 0)
@@ -30,6 +33,8 @@
   (export "dolly_process_image_consumed" (func $image_consumed))
   (export "dolly_process_worker_started" (func $worker_started))
   (export "dolly_process_worker_failed" (func $worker_failed))
+  (export "dolly_process_worker_retired" (func $worker_retired))
+  (export "dolly_process_spawn_flags" (func $spawn_flags))
   (export "dolly_process_signal" (func $signal))
   (export "dolly_process_deadline_remaining" (func $deadline_remaining))
   (export "dolly_process_collect" (func $collect))

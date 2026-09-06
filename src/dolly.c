@@ -836,7 +836,7 @@ void dolly_terminal_reset_cooked(void) {
   clearerr(stdin);
 }
 
-static void dolly_terminal_discard_pending_input(void) {
+void dolly_terminal_discard_pending_input(void) {
   // An application may return immediately on a key-down event while the
   // matching key-up record is already queued. That record belongs to the old
   // foreground command and must not become input to its successor. Preserve
@@ -873,15 +873,14 @@ void dolly_terminal_publish_result(int status) {
                            EMSCRIPTEN_NOTIFY_ALL_WAITERS);
 }
 
-/*
- * Private Wasm processes execute in Workers, but the terminal ownership word
- * remains kernel state in the shared userspace memory. The supervisor changes
- * only this explicit process-shaped state; the browser merely publishes an
- * interrupt request for the displayed foreground owner.
- */
-EMSCRIPTEN_KEEPALIVE
-int dolly_process_foreground_set(int pid, int interruptible) {
-  if (pid <= 0 || (interruptible != 0 && interruptible != 1)) return -EINVAL;
+/* The process kernel owns foreground policy; the browser only reads this
+ * mailbox and publishes interrupts addressed to the displayed owner. */
+void dolly_kernel_foreground_publish(int pid, int interruptible) {
+  const uint32_t previous = atomic_load_explicit(
+      &display_mailbox.foreground_pid, memory_order_acquire);
+  if (previous != 0 && previous != (uint32_t)pid) {
+    release_display_lease_for_pid((int)previous);
+  }
   atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)pid,
                         memory_order_release);
   if (interruptible) {
@@ -894,23 +893,6 @@ int dolly_process_foreground_set(int pid, int interruptible) {
         ~((uint32_t)DOLLY_DISPLAY_FOREGROUND_INTERRUPTIBLE),
         memory_order_release);
   }
-  return 0;
-}
-
-EMSCRIPTEN_KEEPALIVE
-int dolly_process_foreground_clear(int pid) {
-  if (pid <= 0 || atomic_load_explicit(
-          &display_mailbox.foreground_pid, memory_order_acquire) !=
-          (uint32_t)pid) return -ESRCH;
-  release_display_lease_for_pid(pid);
-  atomic_store_explicit(&display_mailbox.foreground_pid, 0,
-                        memory_order_release);
-  atomic_fetch_and_explicit(
-      &display_mailbox.flags,
-      ~((uint32_t)DOLLY_DISPLAY_FOREGROUND_INTERRUPTIBLE),
-      memory_order_release);
-  dolly_terminal_discard_pending_input();
-  return 0;
 }
 
 EMSCRIPTEN_KEEPALIVE

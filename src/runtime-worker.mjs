@@ -168,66 +168,10 @@ function readImageEntry(dolly) {
   return decodeImageEntry(dolly.FS.readFile("/etc/dolly/entry"));
 }
 
-function terminalWrite(dolly, memory, text) {
-  const bytes = encoder.encode(text);
-  const address = dolly._malloc(BigInt(Math.max(1, bytes.byteLength)));
-  if (address === 0 || address === 0n) {
-    throw new RangeError("terminal output allocation failed");
-  }
-  try {
-    new Uint8Array(memory.buffer, Number(address), bytes.byteLength).set(bytes);
-    dolly._dolly_terminal_write_bytes(BigInt(address), BigInt(bytes.byteLength));
-  } finally {
-    dolly._free(BigInt(address));
-  }
-}
-
-async function runImageEntry(dolly, memory, supervisor) {
+async function runImageEntry(dolly, supervisor) {
   const arguments_ = readImageEntry(dolly);
-  const path = arguments_[0];
-  const interactive = path === "/bin/slop" || path === "/usr/bin/pi";
-  const startupPath = "/home/dolly/.dollyrc";
-  if (dolly.FS.analyzePath(startupPath).exists) {
-    const startup = dolly.FS.stat(startupPath);
-    if ((startup.mode & 0xf000) !== 0x8000) {
-      throw new TypeError(`${startupPath} is not a regular file`);
-    }
-    const startupStatus = await supervisor.spawn(
-      "/bin/slop", ["slop", "-e", startupPath], {
-        foreground: true,
-        interactive: true,
-      },
-    );
-    if (startupStatus !== 0 && startupStatus !== 130) {
-      terminalWrite(
-        dolly, memory,
-        `\r\nDolly: ${startupPath} exited with status ${startupStatus}; continuing.\r\n`,
-      );
-    }
-  }
-  let status = 126;
-  for (let attempt = 0; attempt < 3; ++attempt) {
-    const completion = supervisor.spawn(path, arguments_, {
-      foreground: true,
-      interactive,
-    });
-    self.postMessage({ type: "entry-started", pid: supervisor.foregroundRootPid });
-    status = await completion;
-    if (path !== "/usr/bin/pi" || status === 0 || status === 130 || attempt === 2) {
-      break;
-    }
-    terminalWrite(
-      dolly, memory,
-      `\r\nDolly: restarting Pi after unexpected status ${status} (${attempt + 1}/2).\r\n`,
-    );
-  }
-  terminalWrite(
-    dolly, memory,
-    "\r\nDolly: image entry exited; entering the recovery Slop shell.\r\n",
-  );
-  return supervisor.spawn("/bin/slop", ["slop"], {
+  return supervisor.spawn(arguments_[0], arguments_, {
     foreground: true,
-    interactive: true,
   });
 }
 
@@ -721,7 +665,7 @@ try {
   });
   await displayReady;
 
-  const status = await runImageEntry(dolly, memory, processSupervisor);
+  const status = await runImageEntry(dolly, processSupervisor);
   self.postMessage({ type: "exited", status });
 } catch (error) {
   let compilerTrace = "";

@@ -478,7 +478,7 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(worker, /configuredImage !== "custom"[\s\S]*?findModuleCache\(\)/);
   assert.match(worker, /function runImageEntry\(/);
   assert.match(worker, /readImageEntry\(dolly\)/);
-  assert.match(worker, /supervisor\.spawn\(path, arguments_/);
+  assert.match(worker, /supervisor\.spawn\(arguments_\[0\], arguments_/);
   assert.doesNotMatch(worker, /_dolly_shell_run\(\)/);
   assert.match(worker, /function createDollyMemory\(\)/);
   assert.match(worker, /Dolly requires shared WebAssembly memory64/);
@@ -545,7 +545,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
-  const expectedEntries = new Map([
+  const expectedPrograms = new Map([
     ["default", "/bin/slop"],
     ["pi", "/usr/bin/pi"],
     ["python", "/bin/slop"],
@@ -570,7 +570,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       ({ location, sha256 }) => ({ location, sha256 }),
     ));
     assert.deepEqual(metadata.manifest, [...metadata.manifest].sort());
-    assert.ok(metadata.manifest.includes(expectedEntries.get(image)));
+    assert.ok(metadata.manifest.includes(expectedPrograms.get(image)));
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),
       ["pi", "python-pi", "gamedev"].includes(image),
@@ -589,7 +589,10 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       /\/__pycache__(?:\/|$)|\.pyc$/.test(path)), false, `${image} must not retain build-time Python bytecode`);
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
-    assert.deepEqual(metadata.entry, [expectedEntries.get(image)]);
+    assert.ok(metadata.manifest.includes("/bin/foreground"));
+    assert.ok(metadata.manifest.includes("/etc/dolly/init.slop"));
+    assert.deepEqual(metadata.entry,
+      ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
   }
 });
 
@@ -915,9 +918,12 @@ test("foreground SIGINT is PID-targeted and always has a forced Worker terminati
   assert.match(supervisor, /Worker failed \$\{stage\}/);
   assert.match(supervisor, /interrupt\(pid\)[\s\S]*?#forceExit\(pid, 130, sigint\)/);
   assert.match(supervisor, /_dolly_process_worker_failed\(pid, status, signalNumber\)/);
-  assert.match(supervisor, /#terminateDescendantWorkers\(pid, status, signalNumber\)/);
-  assert.match(supervisor,
-               /#terminateDescendantWorkers\(parentPid, status, signalNumber = 0\)[\s\S]*?_dolly_process_collect\(process\.pid\)/);
+  assert.match(supervisor, /#retire\(process\)/);
+  assert.match(supervisor, /#terminateDescendantWorkers\(process\.pid\)/);
+  assert.match(supervisor, /right\.depth - left\.depth/);
+  assert.match(supervisor, /_dolly_process_worker_retired\(process\.pid\)/);
+  assert.match(processKernel, /child->state != DOLLY_KERNEL_PROCESS_EXITED \|\| !child->worker_retired/);
+  assert.doesNotMatch(supervisor, /_dolly_process_foreground_(?:set|clear)/);
   assert.match(supervisor, /_dolly_process_signal\(process\.pid, signalNumber\)/);
   assert.match(supervisor, /interruptGraceMilliseconds = 500/);
   assert.match(supervisor, /#armDeadline\(process\)/);
@@ -1671,10 +1677,13 @@ test("upstream Pi is compiled in Dolly and customized only through normal files"
   assert.match(systemPrompt, /cannot disable browser CORS/);
   assert.match(extension, /pi\.on\("session_start"/);
   assert.match(runtimeWorker, /readImageEntry\(dolly\)/);
-  assert.match(runtimeWorker, /supervisor\.spawn\(path, arguments_/);
-  assert.match(runtimeWorker, /image entry exited; entering the recovery Slop shell/);
-  assert.match(runtimeWorker, /restarting Pi after unexpected status/);
-  assert.match(runtimeWorker, /status === 130/);
+  assert.match(runtimeWorker, /supervisor\.spawn\(arguments_\[0\], arguments_/);
+  assert.doesNotMatch(runtimeWorker, /\/bin\/slop|\/usr\/bin\/pi|\.dollyrc|restarting Pi/);
+  const init = await readFile(new URL("../modules/startup-pi.dm", import.meta.url), "utf8");
+  assert.match(init, /FILE \/etc\/dolly\/init\.slop/);
+  assert.match(init, /image entry exited; entering the recovery Slop shell/);
+  assert.match(init, /restarting Pi after unexpected status/);
+  assert.match(init, /case "\$status" in 0\|130\) break/);
   assert.match(page, /id="phone-menu-button"/);
   assert.match(page, /data-dolly-input="\/login openrouter\\r"/);
   assert.doesNotMatch(page, /data-dolly-voice/);

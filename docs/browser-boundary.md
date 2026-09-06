@@ -102,6 +102,12 @@ DSO/FFI support is not a prerequisite for running a program.
 The optional DSO profile is `abi/dolly-process-dso-0.wat`; library symbols are
 resolved only from typed process-local Wasm exports, never browser globals.
 
+The supervisor executes the image's ENTRY without selecting programs or recovery
+policy. Foreground roles live in Wasm process records. The internal
+[`dolly-supervisor-0.wat`](../abi/dolly-supervisor-0.wat) exports let the supervisor
+read those roles and acknowledge Worker retirement before a child becomes
+waitable; they add no browser import or network authority.
+
 ## Recheck mechanically
 
 ```sh

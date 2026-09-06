@@ -138,35 +138,40 @@ Useful evidence:
 - Permanent publication checks: `test/site-release.test.mjs` and
   `node scripts/test-site-release.mjs` (requires a published release).
 
+## Validated image-owned startup checkpoint
+
+All five images now retain `/etc/dolly/init.slop` and execute it through the
+source-built `/bin/foreground` command. Startup files, selected applications,
+bounded Pi retries and recovery belong to the image, not the browser worker.
+Foreground ownership and interactive roles live in Wasm. A child becomes
+waitable only after Worker retirement; normal exit, startup failure, forced exit,
+queued launches and abandoned descendants share the same cleanup path.
+
+Advisory locks no longer pretend to succeed: `F_GETLK`, `F_SETLK` and `F_SETLKW`
+return `ENOTSUP`, or `EBADF` for invalid descriptors. Native and browser fixtures
+cover these errors without modifying the lock request.
+
+Runtime: `sha256:9bda008611f887927ae5d2da9f311e3909130c0c421997f4984a2934f3f754b3`.
+Process ABI: `3659a65f30869b8506116c3e12421df0fb5bd173277dad5b0888c3ad0a426203`.
+All five images rebuilt; 203 source tests and the complete Chrome suite pass,
+still with exactly 28 outer imports. The lifecycle fixture also checks failed,
+missing, nonregular and cancelled `.dollyrc`, nested app/recovery shells,
+inherited state, competing foreground claims and retired/pending orphan cleanup.
+Selection remains usable while keyboard input is queued.
+All five live inventory checks pass. A fresh `bonnie install pandas` also built
+NumPy, Pandas and their frontend dependencies from source; fresh-process array
+and groupby checks, staging cleanup and raw-socket denial pass on this runtime.
+
+Evidence: `build/image-init-checkpoint-runtime.log`,
+`build/image-init-checkpoint-snapshots.log`,
+`build/image-init-checkpoint-source-tests.log`,
+`build/image-init-checkpoint-lifecycle.log`,
+`build/image-init-checkpoint-chrome.log`,
+`build/image-init-checkpoint-inventories.log`,
+`build/image-init-checkpoint-pandas.log`,
+`build/image-init-native-descriptors.log`.
+
 ## Remaining work, in order
-
-### D5 — Put image policy inside the image
-
-`src/runtime-worker.mjs:runImageEntry` still knows Slop/Pi paths, startup,
-Pi retry and recovery policy. Move those decisions into ordinary image-owned
-entry/init files. Preserve startup output, shell recovery, Ctrl-C and game
-cancellation. Account for the supervisor's foreground-root/interactive semantics;
-wrapping everything in a child shell must not make an idle shell permanently
-interruptible or kill the recovery shell on every Ctrl-C. Do not fake `exec`.
-
-Acceptance: customizing an image needs no browser-worker path edits; package
-choices are explicit; cancellation and process/file sharing still pass.
-
-The concrete small design is an image init script plus an ordinary foreground
-launcher backed by typed foreground/interactive spawn flags, not path detection.
-Keep ownership in Wasm. Child WAIT must not complete before the supervisor
-retires its Worker references; otherwise nested Pi recovery bypasses the current
-large-interactive-root reclamation window. Cover normal exit, startup failure and
-forced termination. No Pi-specific sleeps or fake process replacement.
-
-### Remove remaining advisory-lock success stubs
-
-`src/process/libc-adapter.c:__syscall_fcntl64` still reports `F_GETLK` as unlocked
-and accepts `F_SETLK`/`F_SETLKW` without recording any lock, even for invalid
-descriptors. This predates the descriptor fix and is not covered by its proof.
-Fail explicitly when locks are unsupported, or implement kernel-owned locks if
-a real consumer demonstrates the need. Add a finite invalid-handle/conflicting-
-owner check; do not preserve the fiction of one cooperating process.
 
 ### Complete ordinary Git transport
 
@@ -185,14 +190,13 @@ still selects `NO_POLL`/`compat/poll` despite Dolly's real pipe-poll support.
 Start with fixture-backed `ls-remote`, then clone/fetch using a pack larger than
 64 KiB, native-Git-validated fixture data, and real transfer cancellation.
 
-### Measure real platform operations
-
-Static imports cannot measure operations multiplexed through the packet gate.
-Count operations per invocation inside Wasm, exercise real Git/Make/Pi/compiler
-workloads, and export only explicit test artifacts. Include attempted operations
-and failures, not just successful calls. Compare relevant stdout/stderr/status,
-filesystem and network behavior with reference POSIX fixtures.
-Use measured consumers to justify ABI 1; do not freeze a speculative API.
+Revisit the legacy exit patches while doing this: `config/git-dolly.patch`
+redirects Git's `exit` to `dolly_exit`, which bypasses libc's registered atexit
+handlers, and still clears shared-repository state before exit. Add a failed
+index-update/lockfile cleanup regression and prefer ordinary private-process
+libc exit. The unused `dolly_execve` compatibility helper still implements
+spawn/wait/exit rather than replacement; remove it or fail explicitly, and do
+not use it for Git's spawn port.
 
 ### D1 — Finish one uninterrupted fresh-cache bootstrap
 
@@ -210,6 +214,9 @@ system trash, recoverably. Preserve logs and the source-cache backup at
 `build/d6-source-cache-backup.v3dj1y`; do not silently delete it.
 
 ## Closure rules
+
+An operation census is not part of this audit: the user owns the API's design
+and does not want profiling to become a prerequisite for it.
 
 The goal includes **all remaining sections**, not only HTTP or publication.
 An item closes with a minimal implementation, relevant real-browser evidence and

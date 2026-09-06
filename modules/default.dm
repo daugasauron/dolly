@@ -3,8 +3,8 @@ MODULE default
 
 # Direct children form this module's private sequential scope. Each child's
 # requirements resolve only against exports from earlier children in this list.
-USE HOST /modules/bootstrap.dm      d9aa83f9036e9ed6f4f850b808b267a358068bcf0130533c4480ccdb5a427e52
-USE HOST /modules/core-tools.dm     28c8521de34ba1564e2ec9845bc1ca3e459d970a9bb7c87338c1b83143cfbcd9
+USE HOST /modules/bootstrap.dm      0c7041af3346aca6325fd7c7bfe3d16e2b624e7d88ef24dd5cca0ae021afde72
+USE HOST /modules/core-tools.dm     d496560155b098e7aec196ca11eaba2a83caa43e557d05cb7198fe288ac05d79
 USE HOST /modules/download.dm       b1ed73b5a7ead559f95796024b3d04c1e39cdfbb92d8beae12a1956fc88f1758
 USE HOST /modules/tar.dm            360a6449122d932cea12f270ce54a67f2b9022629613f16186b9f4971d49cc3f
 USE HOST /modules/make.dm           cd76b282f98810858ec6026602996277b699540f6b55fb8fbb5c4992c1f8762e
@@ -64,6 +64,7 @@ EXPORTS ENV DISPLAY
 
 EXPORTS TOOL slop
 EXPORTS TOOL dollyfile
+EXPORTS TOOL foreground
 EXPORTS TOOL help
 EXPORTS TOOL pwd
 EXPORTS TOOL cd

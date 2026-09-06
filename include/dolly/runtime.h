@@ -16,6 +16,11 @@ extern "C" {
 int dolly_spawn(const char *path, int argc, char **argv,
                 int stdin_fd, int stdout_fd, int stderr_fd);
 
+// Transfer foreground ownership to a child, restoring it after retirement.
+// Inherits cwd, environment and stdio. interactive must be zero or one.
+int dolly_spawn_foreground(const char *path, int argc, char **argv,
+                           int interactive);
+
 // Spawn with a kernel-owned deadline. A deadline expiry returns shell status
 // 124 without a host process.
 int dolly_spawn_timeout(const char *path, int argc, char **argv,

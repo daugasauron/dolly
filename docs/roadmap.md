@@ -87,7 +87,7 @@ rebuilds and restores in a real browser; recipe/source/retention changes
 invalidate identity or fail. Successful modules must leave `/tmp` empty, and
 failed modules have their scratch tree reclaimed before the build is discarded.
 
-## Phase 2 — measure the platform instead of guessing it
+## Phase 2 — refine the platform contract
 
 The static process census verifies a sealed snapshot, validates executables
 against the current process ABI, and maps their exact callable imports. The
@@ -95,22 +95,10 @@ packet-call gate multiplexes platform operations, so imports alone cannot
 identify which operations each program uses. See
 [`platform-census.md`](platform-census.md).
 
-- Record and validate the machine imports of every executable. **Static
-  sealed-image census implemented; all use the typed packet-call gate.**
-- Record path, descriptor, clock, entropy, lifecycle, and HTTP operations by
-  process invocation during acceptance workloads.
-- Generate a matrix: operation × program × exercised/not exercised.
-- Compare the same fixtures on Dolly and a reference POSIX system for exit
-  status, stdout/stderr, filesystem changes, and network transcript.
-- Keep the census entirely inside the sandbox or export it only as an explicit
-  test artifact; it must not become a new runtime communication channel.
-
-Acceptance gate: Git, Make, QuickJS/Pi, Zig, and Ghostty have repeatable
-operation profiles, and every proposed ABI-v1 operation is justified by at
-least two consumers or one essential agent workflow.
-
-This is the evidence needed to design a substrate below libc without replacing
-one accidental API with another speculative API.
+API shape is a user-led design decision. An operation census is not a planned
+audit task or a prerequisite for ABI changes. Continue testing exact imports,
+documented semantics and real program compatibility without adding profiling
+infrastructure.
 
 ## Phase 3 — harden the completed Pi source loop
 

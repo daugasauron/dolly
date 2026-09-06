@@ -961,12 +961,51 @@ async function submitInput(command, input = `${command}\r`) {
   return commandStatus;
 }
 
-async function waitFor(predicate, description) {
-  for (let attempt = 0; attempt < 500; attempt++) {
-    if (predicate()) return;
+async function waitFor(predicate, description, attempts = 500) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (await predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`timed out waiting for ${description}`);
+}
+
+async function visibleTerminalText() {
+  const geometry = transport.geometry();
+  const dimensions = transport.dimensions();
+  if (!geometry.cellWidth || !geometry.cellHeight ||
+      !dimensions.cols || !dimensions.rows) return "";
+  const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
+  const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
+  const sequence = Atomics.load(transport.words,
+    transport.word + DisplayTransport.copySequence);
+  transport.pushPointer(x, y, 1, {});
+  transport.pushPointer(x + (dimensions.cols - 1) * geometry.cellWidth,
+    y + (dimensions.rows - 1) * geometry.cellHeight, 2, {});
+  transport.pushPointer(x + (dimensions.cols - 1) * geometry.cellWidth,
+    y + (dimensions.rows - 1) * geometry.cellHeight, 0, {});
+  await waitFor(() => Atomics.load(transport.words,
+    transport.word + DisplayTransport.copySequence) !== sequence,
+  "terminal selection publication");
+  return transport.copySelection() ?? "";
+}
+
+async function waitForInteractiveTerminal(pattern, description, previousPid = 0) {
+  let pid;
+  await waitFor(async () => {
+    pid = transport.foregroundPid();
+    if (pid <= 0 || pid === previousPid || transport.foregroundInterruptible() ||
+        transport.graphicsActive() || !transport.inputIdle()) return false;
+    const text = await visibleTerminalText();
+    return transport.foregroundPid() === pid &&
+      !transport.foregroundInterruptible() && pattern.test(text);
+  }, description, 6000);
+  const geometry = transport.geometry();
+  const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
+  const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
+  transport.pushPointer(x, y, 1, {});
+  transport.pushPointer(x, y, 0, {});
+  await waitFor(() => transport.inputIdle(), "terminal selection cleanup");
+  return pid;
 }
 
 async function runBrowserProof() {
@@ -975,25 +1014,29 @@ async function runBrowserProof() {
   const hasRecipe = (name) => recipes.has(name);
   // The regression suite reaches the recovery shell without changing normal
   // image startup. Pi exits on Ctrl-D, while the gamedev entry exits on Q.
-  await waitFor(() => transport.foregroundPid() > 0 &&
-    transport.foregroundPid() === Number(document.documentElement.dataset.entryPid),
-  "image entry foreground pid");
+  const shellPrompt = /(?:^|\n)dolly:[^\n]*\$\s*$/;
+  let entryPid;
+  if (activeImage === "gamedev") {
+    await waitFor(() => transport.foregroundPid() > 0 && transport.graphicsActive(),
+      "gamedev entry display lease");
+    entryPid = transport.foregroundPid();
+  } else {
+    entryPid = await waitForInteractiveTerminal(
+      activeImage === "pi" || activeImage === "python-pi" ? /! Slop/ : shellPrompt,
+      "image entry terminal",
+    );
+  }
   if (activeImage !== "default") {
-    const entryPid = transport.foregroundPid();
     if (activeImage === "gamedev") {
-      await waitFor(() => transport.graphicsActive(), "gamedev entry display lease");
       transport.pushSyntheticKey("q", "KeyQ");
       transport.pushSyntheticKey("q", "KeyQ", 0, 0);
     } else {
       transport.pushSyntheticKey("d", "KeyD", 2);
       transport.pushSyntheticKey("d", "KeyD", 2, 0);
     }
-    await waitFor(
-      () => transport.foregroundPid() > 0 &&
-        transport.foregroundPid() !== entryPid &&
-        !transport.foregroundInterruptible() &&
-        transport.inputIdle(),
-      "recovery Slop foreground pid",
+    await waitForInteractiveTerminal(
+      /Dolly: image entry exited; entering the recovery Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/,
+      "recovery Slop prompt", entryPid,
     );
   }
   document.documentElement.dataset.defaultPi = "passed";
@@ -1319,8 +1362,6 @@ async function boot() {
       } catch (error) {
         displayFatal(error instanceof Error ? error.message : String(error));
       }
-    } else if (message.type === "entry-started") {
-      document.documentElement.dataset.entryPid = String(message.pid);
     } else if (message.type === "exited") {
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "http-request") {
@@ -1481,6 +1522,8 @@ async function boot() {
     copySelection() {
       return transport.copySelection();
     },
+    visibleTerminalText,
+    waitForInteractiveTerminal,
     key(key, code, modifiers = 0) {
       return transport.pushSyntheticKey(key, code, modifiers);
     },

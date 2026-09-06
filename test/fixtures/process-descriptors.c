@@ -27,6 +27,49 @@ static int scratch(const char *contents) {
   return fd;
 }
 
+static void record_locks(void) {
+  int fd = scratch("lock"), closed = dup(fd);
+  CHECK(closed >= 0 && close(closed) == 0);
+  struct flock lock = {.l_type = F_WRLCK, .l_whence = SEEK_SET, .l_len = 1};
+  const int commands[] = {F_GETLK, F_SETLK, F_SETLKW};
+  for (unsigned index = 0; index < sizeof(commands) / sizeof(commands[0]); ++index) {
+    errno = 0;
+    CHECK(fcntl(-1, commands[index], &lock) == -1 && errno == EBADF);
+    errno = 0;
+    CHECK(fcntl(closed, commands[index], &lock) == -1 && errno == EBADF);
+#ifdef __EMSCRIPTEN__
+    unsigned char before[sizeof(lock)];
+    memcpy(before, &lock, sizeof(lock));
+    errno = 0;
+    CHECK(fcntl(fd, commands[index], &lock) == -1 && errno == ENOTSUP);
+    CHECK(memcmp(before, &lock, sizeof(lock)) == 0);
+#endif
+  }
+#ifdef __EMSCRIPTEN__
+  lock.l_type = F_UNLCK;
+  errno = 0;
+  CHECK(fcntl(fd, F_SETLK, &lock) == -1 && errno == ENOTSUP);
+#else
+  CHECK(fcntl(fd, F_SETLK, &lock) == 0);
+  pid_t pid = fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    CHECK(fcntl(fd, F_GETLK, &lock) == 0);
+    CHECK(lock.l_type == F_WRLCK && lock.l_pid == getppid());
+    errno = 0;
+    CHECK(fcntl(fd, F_SETLK, &lock) == -1 && (errno == EACCES || errno == EAGAIN));
+    _exit(0);
+  }
+  int status;
+  CHECK(waitpid(pid, &status, 0) == pid);
+  CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  lock.l_type = F_UNLCK;
+  CHECK(fcntl(fd, F_SETLKW, &lock) == 0);
+#endif
+  CHECK(fcntl(fd, F_GETFD) == 0 && lseek(fd, 0, SEEK_CUR) == 0);
+  CHECK(close(fd) == 0);
+}
+
 static void descriptor_flags(void) {
   int fd = scratch("abc"), duplicate, pipes[2];
   CHECK(fcntl(fd, F_GETFD) == 0);
@@ -222,6 +265,7 @@ int main(int argc, char **argv) {
   (void)argv;
 #endif
   descriptor_flags();
+  record_locks();
 #ifdef __EMSCRIPTEN__
   spawning(argv[0]);
 #endif
