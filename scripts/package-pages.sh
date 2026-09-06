@@ -82,6 +82,7 @@ done
 
 mkdir -p "${staging}/site/src" "${staging}/site/dist" "${staging}/site/docs" \
   "${staging}/site/modules" "${staging}/site/abi" "${staging}/site/include/dolly"
+node "${project_dir}/scripts/site-release.mjs" source "${staging}/site" "${project_dir}"
 cp "${project_dir}/index.html" "${project_dir}/terminal.html" \
   "${dollyfiles[@]/#/${project_dir}/}" \
   "${project_dir}/coi-serviceworker.js" \
@@ -152,7 +153,9 @@ if (( site_bytes > 1000000000 )); then
   exit 1
 fi
 echo "dolly: Pages site is ${site_bytes} bytes"
+node "${project_dir}/scripts/site-release.mjs" accept "${staging}/site" "${project_dir}"
 tar -C "${staging}/site" -czf "${temporary_output}" .
 mv -- "${temporary_output}" "${output}"
+node "${project_dir}/scripts/site-release.mjs" publish "${staging}/site" "${project_dir}/build/releases"
 echo "dolly: wrote $(du -h "${output}" | cut -f1) Pages artifact to ${output}"
 sha256sum -- "${output}"

@@ -1,6 +1,6 @@
 # Sessions
 
-`Ctrl+Shift+S` saves files in the current prebuilt image. The first save asks for
+`Ctrl+Shift+S` saves files in the current image. The first save asks for
 a name; later saves update it. A small notification reports progress, success,
 or failure. The phone menu has the same save action and a link to saved sessions.
 Names use 1–64 ASCII letters, digits, dots, underscores, or hyphens;
@@ -49,10 +49,12 @@ loading. Older/incompatible saves remain listed and stored, but are not migrated
 or silently applied to a different base. Updating Dolly can make an older save
 unloadable. There is currently no cross-build migration or export UI.
 
-Named saves require a prebuilt, source-visible image. Uploaded custom recipes
-are tab-local. Rebuild routes are also still rejected: their filesystem is now
-pruned to the same retained image, but named-save admission remains prebuilt-only
-until cross-route session baseline equivalence has a dedicated regression.
+Named saves require a source-visible image with a matching prebuilt snapshot.
+On a rebuild route, the first save verifies that the entire rebuilt base is
+byte-identical to that snapshot before capturing a delta. A different base fails
+visibly without writing a saved record. Uploaded custom recipes remain tab-local.
+The `session-rebuild` browser regression compares the bases, rejects a changed
+base, then saves on `/IMAGE/rebuild` and restores through `/session/NAME`.
 
 Session persistence adds no Wasm import or path-level browser filesystem API.
 The review surface is `src/session-snapshot.c`, the shared path restoration in

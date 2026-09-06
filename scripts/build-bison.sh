@@ -52,7 +52,7 @@ if [[ ! -x "${install_dir}/bin/bison" ]]; then
     "${source_dir}/configure" --prefix="${install_dir}" --disable-nls
     make -j"${jobs}"
     make DESTDIR="${temporary_install}" install
-  )
+  ) >&2
   staged_install="${temporary_install}${install_dir}"
   if [[ ! -x "${staged_install}/bin/bison" ]]; then
     echo "dolly: staged Bison install did not produce bin/bison" >&2

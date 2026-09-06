@@ -51,7 +51,7 @@ function interfaceMap(entries, key) {
   return result;
 }
 
-function contractDigest(contract) {
+export function contractDigest(contract) {
   const lines = [
     "dolly-contract-v1",
     ...contract.imports.map(describeImport).sort().map((line) => `import ${line}`),

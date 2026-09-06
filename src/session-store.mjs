@@ -17,7 +17,10 @@ export function sessionImageIdentity(definitions, selectedImage) {
 
 export function sessionLoadUrl(name, applicationBase) {
   if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
-  return new URL(`session/${name}`, applicationBase);
+  const base = new URL(applicationBase);
+  // Local releases pin assets by digest; named-session links stay public and stable.
+  base.pathname = base.pathname.replace(/_dolly\/[0-9a-f]{64}\/$/, "");
+  return new URL(`session/${name}`, base);
 }
 
 export async function listStoredSessions() {

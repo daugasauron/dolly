@@ -383,9 +383,9 @@ typedef struct {
 
 /*
  * HTTP requests remain byte-oriented at the process boundary. Strings are
- * UTF-8 byte sequences without trailing NULs in the packet; the kernel owns
- * conversion to the browser broker's existing NUL-terminated API. The body
- * follows the three strings.
+ * UTF-8 byte sequences without trailing NULs in the packet. The body follows
+ * the three strings. Their combined byte count plus this 24-byte header must
+ * fit DOLLY_PROCESS_PACKET_LIMIT; larger requests fail E2BIG before dispatch.
  */
 typedef struct {
   uint32_t flags;

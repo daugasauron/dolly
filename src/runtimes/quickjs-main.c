@@ -23,15 +23,9 @@
 
 enum {
   DOLLY_JS_USAGE = 64,
-  DOLLY_JS_MAX_HTTP_BYTES = 16 * 1024 * 1024,
   DOLLY_JS_MAX_RANDOM_BYTES = 1024 * 1024,
   DOLLY_JS_MAX_STACK_BYTES = 8 * 1024 * 1024,
 };
-
-typedef struct {
-  unsigned char *data;
-  size_t length;
-} byte_buffer;
 
 static int janis_exit_requested;
 static int janis_exit_status;
@@ -925,92 +919,6 @@ static JSValue js_dolly_exit(JSContext *context, JSValueConst this_value,
   return JS_ThrowInternalError(context, "Janis process exited");
 }
 
-static int byte_buffer_append(byte_buffer *buffer, const void *bytes,
-                              size_t length) {
-  if (length > DOLLY_JS_MAX_HTTP_BYTES - buffer->length) return -1;
-  unsigned char *grown = realloc(buffer->data, buffer->length + length + 1);
-  if (grown == NULL) return -1;
-  memcpy(grown + buffer->length, bytes, length);
-  buffer->length += length;
-  grown[buffer->length] = '\0';
-  buffer->data = grown;
-  return 0;
-}
-
-static size_t http_collect(const void *bytes, size_t length, void *opaque) {
-  return byte_buffer_append(opaque, bytes, length) == 0 ? length : 0;
-}
-
-static JSValue js_dolly_http(JSContext *context, JSValueConst this_value,
-                             int argc, JSValueConst *argv) {
-  (void)this_value;
-  if (argc < 2) {
-    return JS_ThrowTypeError(context, "http requires method and URL");
-  }
-  const char *method = JS_ToCString(context, argv[0]);
-  const char *url = JS_ToCString(context, argv[1]);
-  const char *headers = argc >= 3 ? JS_ToCString(context, argv[2]) : NULL;
-  size_t body_length = 0;
-  const char *body = NULL;
-  if (argc >= 4 && !JS_IsNull(argv[3]) && !JS_IsUndefined(argv[3])) {
-    body = JS_ToCStringLen(context, &body_length, argv[3]);
-  }
-  if (method == NULL || url == NULL || (argc >= 3 && headers == NULL) ||
-      (argc >= 4 && !JS_IsNull(argv[3]) && !JS_IsUndefined(argv[3]) &&
-       body == NULL)) {
-    if (method != NULL) JS_FreeCString(context, method);
-    if (url != NULL) JS_FreeCString(context, url);
-    if (headers != NULL) JS_FreeCString(context, headers);
-    if (body != NULL) JS_FreeCString(context, body);
-    return JS_EXCEPTION;
-  }
-
-  byte_buffer response_headers = {0};
-  byte_buffer response_body = {0};
-  dolly_http_request request = {
-      .method = method,
-      .url = url,
-      .headers = headers == NULL ? "" : headers,
-      .body = body,
-      .body_size = body_length,
-      .flags = DOLLY_HTTP_FOLLOW_REDIRECTS,
-      .write = http_collect,
-      .write_context = &response_body,
-      .header = http_collect,
-      .header_context = &response_headers,
-  };
-  dolly_http_response response = {0};
-  const int status = dolly_http_perform(&request, &response);
-  JS_FreeCString(context, method);
-  JS_FreeCString(context, url);
-  if (headers != NULL) JS_FreeCString(context, headers);
-  if (body != NULL) JS_FreeCString(context, body);
-  if (status != 0) {
-    free(response_headers.data);
-    free(response_body.data);
-    return JS_ThrowInternalError(context, "HTTP request failed: %d", status);
-  }
-
-  JSValue result = JS_NewObject(context);
-  JS_SetPropertyStr(context, result, "status",
-                    JS_NewUint32(context, response.status));
-  JS_SetPropertyStr(
-      context, result, "url",
-      JS_NewString(context,
-                   response.effective_url == NULL ? "" : response.effective_url));
-  JS_SetPropertyStr(context, result, "headers",
-                    JS_NewStringLen(context,
-                                    (const char *)response_headers.data,
-                                    response_headers.length));
-  JS_SetPropertyStr(context, result, "body",
-                    JS_NewUint8ArrayCopy(context, response_body.data,
-                                         response_body.length));
-  dolly_http_response_dispose(&response);
-  free(response_headers.data);
-  free(response_body.data);
-  return result;
-}
-
 static JSValue js_dolly_http_start(JSContext *context,
                                     JSValueConst this_value,
                                     int argc, JSValueConst *argv) {
@@ -1022,9 +930,9 @@ static JSValue js_dolly_http_start(JSContext *context,
   const char *url = JS_ToCString(context, argv[1]);
   const char *headers = argc >= 3 ? JS_ToCString(context, argv[2]) : NULL;
   size_t body_length = 0;
-  const char *body = NULL;
+  const unsigned char *body = NULL;
   if (argc >= 4 && !JS_IsNull(argv[3]) && !JS_IsUndefined(argv[3])) {
-    body = JS_ToCStringLen(context, &body_length, argv[3]);
+    body = JS_GetUint8Array(context, &body_length, argv[3]);
   }
   if (method == NULL || url == NULL || (argc >= 3 && headers == NULL) ||
       (argc >= 4 && !JS_IsNull(argv[3]) && !JS_IsUndefined(argv[3]) &&
@@ -1032,7 +940,6 @@ static JSValue js_dolly_http_start(JSContext *context,
     if (method != NULL) JS_FreeCString(context, method);
     if (url != NULL) JS_FreeCString(context, url);
     if (headers != NULL) JS_FreeCString(context, headers);
-    if (body != NULL) JS_FreeCString(context, body);
     return JS_EXCEPTION;
   }
 
@@ -1043,7 +950,6 @@ static JSValue js_dolly_http_start(JSContext *context,
   JS_FreeCString(context, method);
   JS_FreeCString(context, url);
   if (headers != NULL) JS_FreeCString(context, headers);
-  if (body != NULL) JS_FreeCString(context, body);
   if (status != 0) return http_error(context, "httpStart", -status, sequence);
   return JS_NewUint32(context, sequence);
 }
@@ -1463,7 +1369,6 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("isatty", js_dolly_isatty, 1);
   DOLLY_JS_FUNCTION("terminalSize", js_dolly_terminal_size, 0);
   DOLLY_JS_FUNCTION("exit", js_dolly_exit, 1);
-  DOLLY_JS_FUNCTION("http", js_dolly_http, 4);
   DOLLY_JS_FUNCTION("httpStart", js_dolly_http_start, 4);
   DOLLY_JS_FUNCTION("httpPoll", js_dolly_http_poll, 1);
   DOLLY_JS_FUNCTION("httpCancel", js_dolly_http_cancel, 1);

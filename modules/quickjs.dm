@@ -12,9 +12,9 @@ REQUIRES HEADER http
 REQUIRES HEADER download
 
 SOURCE HOST /static/default/quickjs.tar               /tmp/quickjs.tar                       d23b73610440a642dfb49de7910cbf34550d31b3a9ca375291f9c74444749d8a
-SOURCE HOST /static/default/runtimes/quickjs-main.c   /usr/src/dolly/runtimes/quickjs-main.c d056b2514c11506e5cdef61abe05214a465e08b1da712bfec3ad1c7b7564b3fd
+SOURCE HOST /static/default/runtimes/quickjs-main.c   /usr/src/dolly/runtimes/quickjs-main.c d4067d7efa81a55841291de73e6c55aef9ae4ec9280a828296bf48761dc7aa1a
 SOURCE HOST /static/default/runtimes/quickjs-runner.h /usr/include/dolly/quickjs-runner.h    94853e68315a36d48167d4b8c1a09f4c33acf12f93e27f713110f0578ad5c597
-SOURCE HOST /static/default/runtimes/dolly-node.js    /usr/lib/dolly/node.js                 74645b9be9d61f2f0eb02c340dff06bff012ca7f31fb4db57c474e4fc26ec328
+SOURCE HOST /static/default/runtimes/dolly-node.js    /usr/lib/dolly/node.js                 a1c9c28b3a720133c9c5fdc76bd13614a436279c453230e140d591dd763ae0a8
 SOURCE HOST /static/default/runtimes/janis.js         /usr/lib/janis/runtime.js              ee7a649f5be48187a9984e57166b62b233d7e6650919ce92eeb0058b92573a55
 SOURCE HOST /static/default/commands/qjs.c            /usr/src/dolly/commands/qjs.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b
 SOURCE HOST /static/default/commands/janis.c          /usr/src/dolly/commands/janis.c        08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b

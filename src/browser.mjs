@@ -46,6 +46,7 @@ let presenter;
 let resizeObserver;
 let runtimeReady = false;
 let builtSystemSnapshot = null;
+let rebuiltSessionBaseVerified = false;
 let httpAdmission;
 const maximumDownloadBytes = 64 * 1024 * 1024;
 let downloadCount = 0;
@@ -655,8 +656,17 @@ async function saveCurrentSession(requestedName) {
     if (!activeImageIdentity) {
       throw new Error("Uploaded custom images cannot save named sessions yet");
     }
-    if (document.documentElement.dataset.bootMode !== "snapshot") {
-      throw new Error("Open the prebuilt image before saving a named session");
+    if (builtSystemSnapshot !== null && !rebuiltSessionBaseVerified) {
+      const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
+        `../dist/dolly-${activeImage}-system-snapshot.mjs`);
+      const digest = await crypto.subtle.digest("SHA-256", builtSystemSnapshot);
+      const actual = [...new Uint8Array(digest)]
+        .map(byte => byte.toString(16).padStart(2, "0")).join("");
+      if (metadata.image !== activeImage || metadata.buildId !== DOLLY_BUILD_ID ||
+          metadata.byteLength !== builtSystemSnapshot.byteLength || metadata.sha256 !== actual) {
+        throw new Error("Rebuilt filesystem differs from the prebuilt session base; no session was saved");
+      }
+      rebuiltSessionBaseVerified = true;
     }
     let name = requestedName ?? currentSessionName;
     if (name === null) {

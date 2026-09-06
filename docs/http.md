@@ -106,6 +106,20 @@ allocator state, or process state. Callback execution and all writes to files
 remain inside Wasm.
 
 Janis uses QuickJS's `httpStart`/`httpPoll` bridge.
+Request bodies stay binary: strings are UTF-8 encoded once, and ArrayBuffers,
+typed-array views (including Buffer), and DataViews are copied at `fetch()`
+invocation with their exact byte offset and length. Queued requests therefore
+cannot observe later caller mutations. The native bridge accepts only byte
+arrays or null; there is no duplicate synchronous `Dolly.http()` adapter.
+
+Process clients (Janis, Python, curl, Git) have a stricter upload limit than
+the outer broker: method, URL, serialized headers, and body must fit in the
+1 MiB process packet **including its 24-byte header**. Thus the maximum body
+is `1048576 - 24 - methodBytes - urlBytes - headerBytes`. Metadata counts UTF-8
+bytes without trailing NULs. Oversized packets fail `E2BIG` before network
+dispatch (Janis `requestId: 0`). The broker's independent 8 MiB body cap also
+covers direct kernel callers; neither cap overrides a smaller host policy.
+
 Its `fetch()` returns a `Response` as soon as response headers arrive and
 enqueues each body record into an in-Wasm `ReadableStream`. Janis calls the HTTP
 pump alongside Promise jobs and timers, using at most a 10 ms terminal wait
@@ -114,7 +128,11 @@ not a second process, a socket API, or ambient browser `fetch`. Version 0 still
 allows only one in-flight broker request. Janis queues overlapping `fetch()`
 calls in Wasm and retries `EBUSY` on later event-loop turns; aborting a queued
 request removes it without dispatching or cancelling someone else's transfer.
-The C start API still reports `-EBUSY`; callers must handle contention.
+The C start API still reports `-EBUSY`; callers must handle contention. Response
+chunks are eagerly queued inside the runtime, bounded per transfer by the
+browser's response-byte policy, not by consumer demand. This is not a claim of
+complete Fetch/Streams compatibility or a bound on all responses retained by
+an application.
 
 HTTP ownership ends at the nested command boundary. If an asynchronous runtime
 returns with a request pending or with an unread final mailbox record, Dolly
@@ -194,24 +212,11 @@ is sufficient if its callers queue honestly and cancellation stays responsive.
 The trusted policy and transport remain together in two reviewable modules;
 libcurl's larger compatibility surface is inside Wasm, not additional browser authority.
 
-Remaining findings, in priority order:
-
-1. **Byte semantics and limits disagree.** Janis decodes `Uint8Array` uploads
-   into text before dispatch; arbitrary binary uploads are not preserved.
-   The process packet ceiling is 1 MiB including metadata, versus the default
-   broker body limit of 8 MiB. Browser metadata now has independent fixed caps,
-   while `maxRequestBytes` deliberately counts only the body. Expose truthful
-   effective process upload limits and keep binary data binary through QuickJS.
-2. **Some supported-looking behavior is not implemented.** Redirect intent is
-   accepted but every redirect fails; the Fetch facade also buffers incoming
-   chunks regardless of consumer demand. Keep redirect denial explicit and
-   document eager bounded buffering; do not introduce sockets or silently
-   enable Fetch's redirect following.
-3. **An unused synchronous JS adapter remains.** `Dolly.http()` has no in-tree
-   callers, buffers the entire response, and still reports a numeric generic
-   error. Remove it and its private collector when consolidating the JS byte
-   path; do not maintain a second Fetch implementation. The streaming Janis
-   path carries the typed errors described above.
+The byte-path follow-up removes the unused synchronous JS collector and keeps
+uploads binary through QuickJS. Process and browser limits are distinct and
+documented above. Remaining compatibility limits are intentional redirect denial
+and eager response buffering: do not silently enable native Fetch redirects or
+claim demand-driven backpressure.
 
 The default budget remains 256 attempts reaching agent-request authorization,
 including denied attempts; trusted exact bootstrap downloads are exempt.

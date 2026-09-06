@@ -74,9 +74,9 @@ authority:
 - replace large deterministic source archives with a content-addressed cache
   without weakening row-by-row completion;
 - record output digests for important build products in the image lock;
-- eliminate byte-level snapshot drift still observed in Python and Python+Pi;
-  their recipes, runtime ID, and byte sizes are stable, but repeated packaging
-  does not yet reproduce the same snapshot digest;
+- extend independent cold-build reproducibility checks to every image; Python
+  now matches across two cold builds and one cached build after disabling
+  build-time bytecode caches, alongside the existing default-image proof;
 - keep each port's build and cleanup in its own pinned `.dm` module;
 - make snapshot logical reproducibility measurable across clean hosts.
 
@@ -88,13 +88,14 @@ failed modules have their scratch tree reclaimed before the build is discarded.
 
 ## Phase 2 — measure the platform instead of guessing it
 
-The first static platform-census slice is implemented. It verifies a sealed
-snapshot, identifies executables by ABI structure, and emits exact typed
-operation-to-program and program-to-operation mappings. See
+The static process census verifies a sealed snapshot, validates executables
+against the current process ABI, and maps their exact callable imports. The
+packet-call gate multiplexes platform operations, so imports alone cannot
+identify which operations each program uses. See
 [`platform-census.md`](platform-census.md).
 
-- Record imported Dolly/libc symbols for every linked executable. **Static
-  sealed-image census implemented.**
+- Record and validate the machine imports of every executable. **Static
+  sealed-image census implemented; all use the typed packet-call gate.**
 - Record path, descriptor, clock, entropy, lifecycle, and HTTP operations by
   process invocation during acceptance workloads.
 - Generate a matrix: operation × program × exercised/not exercised.

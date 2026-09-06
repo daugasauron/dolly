@@ -1,136 +1,98 @@
 #!/usr/bin/env node
 
-import { readFile } from "node:fs/promises";
+import { readFile, readlink } from "node:fs/promises";
 import { createServer } from "node:http";
-import { extname, resolve, sep } from "node:path";
+import { extname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { sha256 } from "./snapshot-identity.mjs";
 
-import {
-  discoverImageDefinitions,
-  inspectStaticSources,
-  selectImageDefinitions,
-} from "./image-definitions.mjs";
-import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
-
-const projectDir = resolve(import.meta.dirname, "..");
-const distDirectory = resolve(projectDir, "dist");
-const port = Number(process.env.DOLLY_PORT ?? 8080);
-const imageDefinitions = selectImageDefinitions(await discoverImageDefinitions(projectDir));
-const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
-const imageGraphs = await Promise.all(imageDefinitions.map(async (definition) => ({
-  definition,
-  graph: await loadDollyfileGraph(projectDir, definition.filename),
-})));
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
   [".txt", "text/plain; charset=utf-8"],
   [".wat", "text/plain; charset=utf-8"],
   [".h", "text/plain; charset=utf-8"],
-  [".c", "text/plain; charset=utf-8"],
-  [".zig", "text/plain; charset=utf-8"],
-  [".json", "application/json; charset=utf-8"],
   [".dm", "text/plain; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"],
   [".wasm", "application/wasm"],
-  [".data", "application/octet-stream"],
-  [".snapshot", "application/octet-stream"],
   [".woff2", "font/woff2"],
 ]);
-
 const isolationHeaders = {
   "cross-origin-opener-policy": "same-origin",
   "cross-origin-embedder-policy": "require-corp",
   "cross-origin-resource-policy": "same-origin",
+  "cache-control": "no-store",
 };
-const publicSources = new Set([
-  "index.html",
-  ...imageDefinitions.map((definition) => definition.filename),
-  "coi-serviceworker.js",
-  "src/browser.mjs",
-  "src/http-policy.mjs",
-  "src/http-broker.mjs",
-  "src/kernel-plugin.mjs",
-  "src/image-entry.mjs",
-  "src/module-cache.mjs",
-  "src/process-ffi.mjs",
-  "src/process-abi.mjs",
-  "src/wasm-interface.mjs",
-  "src/process-supervisor.mjs",
-  "src/process-worker.mjs",
-  "src/session-store.mjs",
-  "src/session-transport.mjs",
-  "src/sessions.mjs",
-  "src/runtime-worker.mjs",
-]);
-const sourceArtifacts = new Map(staticSources.map((source) => [
-  source.path.slice(1),
-  {
-    relative: source.path.startsWith("/static/")
-      ? `dist/${source.path.slice(1)}`
-      : source.path.slice(1),
-    source,
-  },
-]));
-const routeDocuments = new Map([
-  ...imageDefinitions.flatMap(({ image }) => [
-    [`/${image}`, `build/routes/${image}/index.html`],
-    [`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`],
-    [`/view/${image}`, `build/routes/view/${image}/index.html`],
-  ]),
-  ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
-  ["/rebuild", "build/routes/rebuild/index.html"],
-  ["/load", "build/routes/load/index.html"],
-  ["/session", "build/routes/session/index.html"],
-  ...imageGraphs.flatMap(({ definition, graph }) => graph.modules.map((module) => [
-    `/view/${definition.image}/modules/${module.name}`,
-    `build/routes/view/${definition.image}/modules/${module.name}/index.html`,
-  ])),
-]);
+const releaseDigest = /^[0-9a-f]{64}$/;
 
-const server = createServer(async (request, response) => {
-  try {
-    const requestUrl = new URL(request.url, "http://127.0.0.1");
-    const route = decodeURIComponent(requestUrl.pathname).replace(/\/+$/, "") || "/";
-    const requested = route.slice(1);
-    const sessionRoute = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(route);
-    const relative = route === "/"
-      ? "index.html"
-      : sessionRoute ? "build/routes/session/open.html"
-      : routeDocuments.get(route) ?? sourceArtifacts.get(requested)?.relative ??
-        (requested.startsWith("static/") ? `dist/${requested}` : requested);
-    const path = resolve(projectDir, relative);
-    const distAsset = relative.startsWith("dist/") &&
-      path.startsWith(`${distDirectory}${sep}`);
-    const documentationAsset = relative.startsWith("docs/") &&
-      path.startsWith(`${resolve(projectDir, "docs")}${sep}`);
-    const inspectableDefinition = ["modules", "abi", "include"].some(
-      (directory) => relative.startsWith(`${directory}/`) &&
-        path.startsWith(`${resolve(projectDir, directory)}${sep}`),
-    );
-    if ((request.method !== "GET" && request.method !== "HEAD") ||
-        (!publicSources.has(relative) && !routeDocuments.has(route) && !sessionRoute &&
-         !sourceArtifacts.has(requested) &&
-         !documentationAsset && !inspectableDefinition && !distAsset)) {
-      response.writeHead(404, isolationHeaders).end("not found");
-      return;
+// Only published files are visible. dist/ and the source checkout are build inputs,
+// never the running app. Each HTML response pins subsequent asset requests.
+export function createReleaseServer(releases) {
+  const manifests = new Map();
+  async function filesFor(digest) {
+    if (!releaseDigest.test(digest)) throw new Error("invalid release ID");
+    if (!manifests.has(digest)) {
+      const manifest = await readFile(resolve(releases, digest, "release/files.sha256"), "utf8");
+      if (sha256(manifest) !== digest) throw new Error("release manifest changed");
+      const files = new Map();
+      for (const row of manifest.trimEnd().split("\n")) {
+        const match = /^([0-9a-f]{64})  (.+)$/.exec(row);
+        if (!match || /[\\\0]/.test(match[2]) ||
+            match[2].split("/").some(part => !part || part === "." || part === "..") ||
+            files.has(match[2])) throw new Error("invalid release file manifest");
+        files.set(match[2], match[1]);
+      }
+      manifests.set(digest, files);
     }
-    const body = await readFile(path);
-    const source = sourceArtifacts.get(requested)?.source;
-    response.writeHead(200, {
-      ...isolationHeaders,
-      "content-type": inspectableDefinition || imageDefinitions.some(
-        (definition) => definition.filename === relative,
-      ) ? "text/plain; charset=utf-8" :
-        mimeTypes.get(extname(path)) ?? "application/octet-stream",
-      "cache-control": "no-store",
-    });
-    response.end(request.method === "HEAD" ? undefined : body);
-  } catch {
-    response.writeHead(404, isolationHeaders).end("not found");
+    return manifests.get(digest);
   }
-});
+  return createServer(async (request, response) => {
+    try {
+      if (!["GET", "HEAD"].includes(request.method)) throw new Error("unsupported method");
+      const url = new URL(request.url, "http://127.0.0.1");
+      let path = decodeURIComponent(url.pathname).slice(1);
+      if (/[\\\0]/.test(path) || path.split("/").some(part => part === "." || part === "..")) {
+        throw new Error("invalid path");
+      }
+      let digest;
+      const pinned = /^_dolly\/([0-9a-f]{64})\/(.*)$/.exec(path);
+      if (pinned) [, digest, path] = pinned;
+      else digest = await readlink(resolve(releases, "current"));
+      const files = await filesFor(digest);
+      const route = path.replace(/\/+$/, "");
+      const session = /^session\/[A-Za-z0-9._-]{1,64}$/.test(route) && !files.has(route);
+      const relative = session ? "session/open.html" : files.has(path) ? path :
+        `${route ? route + "/" : ""}index.html`;
+      if (!files.has(relative)) throw new Error("not published");
+      let body = await readFile(resolve(releases, digest, relative));
+      if (sha256(body) !== files.get(relative)) throw new Error("published file changed");
+      if (relative.endsWith(".html")) {
+        const directory = session ? "" : relative.slice(0, relative.lastIndexOf("/") + 1);
+        body = Buffer.from(body.toString("utf8").replace(/<head>/i,
+          `<head><base href="/_dolly/${digest}/${directory}">`));
+      }
+      response.writeHead(200, {
+        ...isolationHeaders,
+        "content-type": /^Dollyfile(?:-|$)/.test(relative) ? "text/plain; charset=utf-8" :
+          mimeTypes.get(extname(relative)) ?? "application/octet-stream",
+      });
+      response.end(request.method === "HEAD" ? undefined : body);
+    } catch {
+      response.writeHead(404, isolationHeaders).end("not found");
+    }
+  });
+}
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`dolly: http://127.0.0.1:${server.address().port}/`);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const releases = resolve(import.meta.dirname, "../build/releases");
+  try {
+    if (!releaseDigest.test(await readlink(resolve(releases, "current")))) throw new Error("invalid current release");
+  } catch {
+    throw new Error("No published Dolly app. Run npm run publish after building; failed builds leave it untouched.");
+  }
+  const server = createReleaseServer(releases);
+  server.listen(Number(process.env.DOLLY_PORT ?? 8080), "127.0.0.1", () => {
+    console.log(`dolly: http://127.0.0.1:${server.address().port}/`);
+  });
+}

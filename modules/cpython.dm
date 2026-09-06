@@ -21,6 +21,10 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
+# Upstream Make runs the new interpreter before installing Lib. Do not retain
+# timestamped bytecode caches from that build in the immutable image.
+EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
+
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
@@ -251,10 +255,9 @@ SLOP cc \
 
 EXPORTS TOOL   python
 EXPORTS TOOL   python3
-EXPORTS ENV    PYTHONDONTWRITEBYTECODE 1
-EXPORTS ENV    PYTHONUTF8              1
-EXPORTS LIB    python                  /usr/lib/libpython3.14.a
-EXPORTS HEADER python                  /usr/include/python3.14
+EXPORTS ENV    PYTHONUTF8 1
+EXPORTS LIB    python     /usr/lib/libpython3.14.a
+EXPORTS HEADER python     /usr/include/python3.14
 
 SLOP python \
   --version

@@ -34,7 +34,7 @@ if [[ ! -d "${source_dir}/.git" ]]; then
   git init "${source_dir}"
   git -C "${source_dir}" remote add origin "${DOLLY_LLVM_URL}"
   git -C "${source_dir}" sparse-checkout init --cone
-  git -C "${source_dir}" sparse-checkout set llvm clang lld cmake third-party
+  git -C "${source_dir}" sparse-checkout set llvm clang lld libc cmake third-party
   git -C "${source_dir}" fetch --depth=1 origin "${llvm_commit}"
   git -C "${source_dir}" checkout --detach FETCH_HEAD
 fi
@@ -45,6 +45,7 @@ if [[ "${actual_commit}" != "${llvm_commit}" ]]; then
   echo "dolly: move that cache aside and run this script again" >&2
   exit 1
 fi
+git -C "${source_dir}" sparse-checkout add libc
 
 lld_patch="${project_dir}/config/lld-dolly.patch"
 if patch --batch --forward --fuzz=0 --dry-run -d "${source_dir}" -p1 \
@@ -56,6 +57,7 @@ elif ! patch --batch --reverse --fuzz=0 --dry-run -d "${source_dir}" -p1 \
   echo "dolly: LLVM source does not match the pinned LLD target patch" >&2
   exit 1
 fi
+bash "${project_dir}/scripts/verify-git-source.sh" "${source_dir}" "${llvm_commit}" "${lld_patch}"
 
 # Build and run these native tools inside the pinned container. Its libc need
 # not match the workstation's. CMake tracks sources and missing outputs.
@@ -107,7 +109,7 @@ fi
   -DLLVM_LINK_LLVM_DYLIB=OFF
 
 "${container[@]}" cmake --build .cache/llvm-wasm \
-  --target clangFrontendTool clangCodeGen lldWasm LLVMWebAssemblyCodeGen \
+  --target clangFrontendTool clangCodeGen clang-resource-headers lldWasm LLVMWebAssemblyCodeGen \
   --parallel "${jobs}"
 
 temporary_stamp="$(mktemp "${wasm_dir}/.dolly-toolchain-key.XXXXXX")"

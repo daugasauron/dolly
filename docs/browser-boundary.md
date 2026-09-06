@@ -67,6 +67,9 @@ For saves, Wasm owns base fingerprints and filesystem delta encoding; the page
 copies bounded opaque chunks to local IndexedDB. `/session/` lists metadata and
 `/session/NAME` boots the verified base before Wasm applies the delta. No new Wasm
 import or path-level host filesystem API is involved; see [sessions](sessions.md).
+For a rebuilt image, the page's first save reads the selected image's fixed
+snapshot metadata and checks the complete rebuilt base digest before allowing
+a delta save. It cannot substitute a guest-selected metadata URL.
 
 Boot reads fixed application assets. `runtime-worker.mjs` accepts only the
 fixed `dolly.wasm` and `dolly.data` artifact names for the generated runtime.
@@ -74,7 +77,10 @@ Other startup snapshots and recipe assets have their own fixed identities;
 these reads are not guest-selected URLs.
 
 The development server is also an HTTP destination. `scripts/serve.mjs` and
-the browser harness serve application assets, not the host checkout. Their
+the browser harness serve application assets, not the host checkout. The local
+server serves only manifest-listed files from verified whole-app releases;
+HTML pins assets under `/_dolly/RELEASE_DIGEST/`. This is static application
+delivery, not a guest-selected host filesystem capability. Their
 documentation check confines the resolved path to `docs/`; a URL-prefix check
 alone is insufficient. Tests request encoded parent paths and require 404.
 

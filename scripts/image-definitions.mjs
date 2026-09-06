@@ -59,7 +59,7 @@ export function selectImageDefinitions(definitions, selection = process.env.DOLL
   return selected;
 }
 
-export async function inspectStaticSources(projectDir, definitions) {
+export async function inspectStaticSources(projectDir, definitions, staticDirectory = resolve(projectDir, "dist/static")) {
   const sources = new Map();
   for (const definition of definitions) {
     const graph = await loadDollyfileGraph(projectDir, definition.filename);
@@ -94,7 +94,7 @@ export async function inspectStaticSources(projectDir, definitions) {
       }
       if (previous) continue;
       const diskPath = source.location.startsWith("/static/")
-        ? resolve(projectDir, "dist", source.location.slice(1))
+        ? resolve(staticDirectory, source.location.slice("/static/".length))
         : resolve(projectDir, source.location.slice(1));
       const [bytes, metadata] = await Promise.all([readFile(diskPath), stat(diskPath)]);
       if (!metadata.isFile()) throw new Error(`${diskPath}: static source is not a file`);
@@ -133,7 +133,7 @@ export function registrySource(definitions, staticSources = []) {
     `export const DOLLY_STATIC_SOURCES = Object.freeze(${JSON.stringify(staticSources, null, 2)});\n`;
 }
 
-export async function writeImageRegistry(projectDir, definitions, staticSources = []) {
+export async function imageRegistrySource(projectDir, definitions, staticSources = []) {
   const enriched = await Promise.all(definitions.map(async (definition) => {
     const graph = await loadDollyfileGraph(projectDir, definition.filename);
     return {
@@ -145,8 +145,10 @@ export async function writeImageRegistry(projectDir, definitions, staticSources 
       },
     };
   }));
-  await writeFile(
-    resolve(projectDir, "dist/dolly-images.mjs"),
-    registrySource(enriched, staticSources),
-  );
+  return registrySource(enriched, staticSources);
+}
+
+export async function writeImageRegistry(projectDir, definitions, staticSources = []) {
+  await writeFile(resolve(projectDir, "dist/dolly-images.mjs"),
+    await imageRegistrySource(projectDir, definitions, staticSources));
 }

@@ -70,7 +70,8 @@ const pagesIsolationMode = isMode("pages-isolation", "session-pages");
 const pagesLiveMode = isMode("pages-live");
 const menuMode = isMode("menu");
 const routeSmokeMode = isMode("route-smoke");
-const sessionMode = isMode("session", "session-pages");
+const sessionRebuildMode = isMode("session-rebuild");
+const sessionMode = isMode("session", "session-pages") || sessionRebuildMode;
 const pythonPackageMode = isMode("python-packages");
 const pythonInteractiveMode = isMode("python-interactive");
 const toolchainProbeMode = isMode("toolchain-probes");
@@ -268,6 +269,11 @@ function startServer() {
       }
       if (janisProcessMode && requestUrl.pathname === "/fixture/never-requested") {
         cancelledQueuedRequestSeen = true;
+      }
+      if (janisProcessMode && requestUrl.pathname === "/fixture/bytes") {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "application/octet-stream" });
+        request.pipe(response);
+        return;
       }
       if (janisProcessMode && requestUrl.pathname.startsWith("/fixture/abort/")) {
         const record = { path: requestUrl.pathname, finished: false, closed: false };
@@ -1239,7 +1245,7 @@ chrome = spawn(chromeBinary, [
   await debuggerClient.send("Page.navigate", {
     url: menuMode
       ? menuPage
-      : snapshotExportMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
+      : snapshotExportMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
       : piDevelopmentMode || cppMode || makeMode || slopMode || utf8Mode || terminalUiMode || janisFilesMode || janisProcessMode || processLifecycleMode || pythonProcessMode || libcurlContractMode || realOpenRouterMode || missingSnapshotMode
         || pagesIsolationMode || pagesLiveMode || routeSmokeMode || sessionMode
@@ -2138,9 +2144,33 @@ int main(int argc, char **argv) {
         "document.documentElement?.dataset.dollyStatus ?? ''",
         (value) => value === "ready" || value === "failed",
         "Dolly session source boot",
-        1200,
+        sessionRebuildMode ? 12_000 : 1200,
       );
       assert.equal(initialState, "ready");
+      if (sessionRebuildMode) {
+        const comparison = await evaluate(debuggerClient.send, `(async () => {
+          const bytes = window.__dolly.systemSnapshot;
+          const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
+            ${JSON.stringify(`${browserBase}dist/dolly-${selectedImage}-system-snapshot.mjs`)});
+          const digest = await crypto.subtle.digest("SHA-256", bytes);
+          const actual = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+          return { actual, expected: metadata.sha256, mode: document.documentElement.dataset.bootMode };
+        })()`);
+        assert.equal(comparison.mode, "rebuild");
+        assert.equal(comparison.actual, comparison.expected, "rebuilt session base differs from the prebuilt image");
+        console.log(`browser: ${selectedImage} rebuilt session base is byte-identical to the packaged snapshot`);
+        assert.equal(await evaluate(debuggerClient.send, `(async () => {
+          const bytes = new Uint8Array(window.__dolly.systemSnapshot);
+          bytes[bytes.length - 1] ^= 1;
+          let error;
+          try { await window.__dolly.saveSession("wrong-rebuilt-base"); }
+          catch (caught) { error = caught.message; }
+          finally { bytes[bytes.length - 1] ^= 1; }
+          const store = await import(${JSON.stringify(`${browserBase}src/session-store.mjs`)});
+          return /differs from the prebuilt session base/.test(error) &&
+            await store.loadStoredSession("wrong-rebuilt-base") === null;
+        })()`), true, "a non-identical rebuilt base must not produce a named save");
+      }
       await enterRecoveryShell(debuggerClient.send);
       assert.equal(await evaluate(
         debuggerClient.send,

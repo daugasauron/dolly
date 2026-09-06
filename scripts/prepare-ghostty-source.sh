@@ -12,15 +12,7 @@ if [[ ! -f "${source_dir}/src/lib_vt.zig" || ! -f "${source_dir}/include/ghostty
   exit 64
 fi
 
-actual="$(git -C "${source_dir}" rev-parse HEAD)"
-if [[ "${actual}" != "${DOLLY_GHOSTTY_COMMIT}" ]]; then
-  echo "dolly: expected Ghostty ${DOLLY_GHOSTTY_COMMIT}, found ${actual}" >&2
-  exit 1
-fi
-if [[ -n "$(git -C "${source_dir}" status --porcelain)" ]]; then
-  echo "dolly: pinned Ghostty checkout has local source changes" >&2
-  exit 1
-fi
+bash "${project_dir}/scripts/verify-git-source.sh" "${source_dir}" "${DOLLY_GHOSTTY_COMMIT}"
 
 recipe_hash="$(sha256sum "${manifest}" "${patch_file}" | sha256sum | cut -d' ' -f1)"
 output_dir="${project_dir}/.cache/ghostty-dolly-${DOLLY_GHOSTTY_COMMIT}-${recipe_hash:0:16}"

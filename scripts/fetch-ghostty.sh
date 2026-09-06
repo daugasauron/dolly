@@ -22,14 +22,6 @@ if [[ ! -d "${source_dir}/.git" ]]; then
   trap - EXIT
 fi
 
-actual="$(git -C "${source_dir}" rev-parse HEAD)"
-if [[ "${actual}" != "${commit}" ]]; then
-  echo "dolly: expected Ghostty ${commit}, found ${actual}" >&2
-  exit 1
-fi
-if [[ -n "$(git -C "${source_dir}" status --porcelain)" ]]; then
-  echo "dolly: pinned Ghostty checkout has local source changes" >&2
-  exit 1
-fi
+bash "${project_dir}/scripts/verify-git-source.sh" "${source_dir}" "${commit}"
 
 printf '%s\n' "${source_dir}"

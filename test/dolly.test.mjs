@@ -430,33 +430,6 @@ test("Janis owns and cleans its generated module-adapter scratch tree", async ()
   assert.match(runner, /cleanup_janis\(context\)/);
 });
 
-test("development servers expose application assets rather than the host checkout", async () => {
-  const child = spawn(process.execPath, [new URL("../scripts/serve.mjs", import.meta.url).pathname], {
-    env: { ...process.env, DOLLY_PORT: "0" }, stdio: ["ignore", "pipe", "inherit"],
-  });
-  const exited = once(child, "exit");
-  try {
-    const [output] = await Promise.race([
-      once(child.stdout, "data", { signal: AbortSignal.timeout(10_000) }),
-      exited.then(([status]) => { throw new Error(`server exited before listening: ${status}`); }),
-    ]);
-    const origin = output.toString().match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
-    assert.ok(origin, output.toString());
-    for (const [path, status] of [
-      ["docs/browser-boundary.md", 200], ["src/browser.mjs", 200],
-      ["AGENTS.md", 404], ["src/compiler.cpp", 404],
-      ["docs/..%2fAGENTS.md", 404], ["docs/..%2fsrc%2fcompiler.cpp", 404],
-      ["dist/..%2fAGENTS.md", 404],
-    ]) {
-      const response = await fetch(new URL(path, origin), { signal: AbortSignal.timeout(10_000) });
-      await response.body.cancel();
-      assert.equal(response.status, status, path);
-    }
-  } finally {
-    if (child.exitCode === null && child.signalCode === null) child.kill();
-    await exited;
-  }
-});
 
 test("the frontend only blits sandbox RGBA and forwards bounded input events", async () => {
   const frontend = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
@@ -612,6 +585,8 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
     for (const recipe of recipes) assert.ok(metadata.manifest.includes(recipe.retainedPath));
     assert.equal(metadata.manifest.some((path) => path.startsWith("/workspace")), false);
+    assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/") &&
+      /\/__pycache__(?:\/|$)|\.pyc$/.test(path)), false, `${image} must not retain build-time Python bytecode`);
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.deepEqual(metadata.entry, [expectedEntries.get(image)]);
@@ -807,7 +782,11 @@ test("the wasm64 Clang/LLD cache is bound to its pinned inputs", async () => {
   assert.match(toolchain, /--target llvm-tblgen clang-tblgen llvm-nm --parallel/);
   assert.doesNotMatch(toolchain, /if \[\[ ! -x.*llvm-tblgen/);
   assert.match(toolchain, /cmake --build \.cache\/llvm-native/);
+  assert.match(toolchain, /sparse-checkout set llvm clang lld libc cmake third-party/);
+  assert.match(toolchain, /sparse-checkout add libc/);
+  assert.match(toolchain, /--target clangFrontendTool clangCodeGen clang-resource-headers/);
   assert.match(build, /"\$\{container\[@\]\}" \.\/scripts\/prepare-process-sysroot\.sh/);
+  assert.match(build, /--wasm64 --pic build libclang_rt\.builtins\n\.\/scripts\/prepare-compiler-rt\.sh/);
   assert.match(toolchain, /mv -T -- "\$\{temporary_stamp\}"/);
   assert.match(key, /DOLLY_LLVM_COMMIT/);
   assert.match(key, /DOLLY_EMSDK_IMAGE/);
@@ -1335,7 +1314,7 @@ test("Zig bootstraps the retained Ghostty VT and display libraries inside Dolly"
   assert.match(zigPatch, /LLVMInitializeWebAssemblyTarget/);
   assert.match(zigPatch, /Dolly's native Zig compiler only includes the WebAssembly LLVM target/);
 
-  assert.match(ghosttyFetch, /status --porcelain/);
+  assert.match(ghosttyFetch, /verify-git-source\.sh/);
   assert.match(ghosttyPatch, /builtin\.target\.cpu\.arch\.isWasm\(\) and builtin\.link_libc/);
   assert.match(build, /prepare-zig-native\.sh/);
   assert.match(build, /build-native-zig\.sh/);

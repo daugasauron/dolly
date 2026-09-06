@@ -994,7 +994,8 @@ test("the trusted module cache exposes no guest-selected browser capability", as
   assert.match(snapshotBuilder, /DOLLY_BROWSER_PROFILE: snapshotBrowserProfile/);
   assert.match(snapshotBuilder, /DOLLY_BROWSER_PORT: snapshotBrowserPort/);
   assert.match(snapshotBuilder, /DOLLY_FORCE_SNAPSHOT/);
-  assert.match(snapshotBuilder, /verifySnapshotIdentity\(image, parsed, expectedRecipes\(image\)\)/);
+  assert.match(snapshotBuilder, /verifySnapshotIdentity\(definitionByImage\.get\(image\), graphs\.get\(image\), parsed/);
+  assert.match(snapshotBuilder, /const entry = verifyImage\(image, parsed\)/);
   assert.match(snapshotBuilder, /metadata\.sha256 === digest\(snapshot\)/);
 });
 

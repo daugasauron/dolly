@@ -1,128 +1,80 @@
 #!/usr/bin/env node
 
-import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-
 import { discoverImageDefinitions } from "./image-definitions.mjs";
+import { parseGeneratedConstant } from "./site-release.mjs";
+import { sha256 } from "./snapshot-identity.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
-import { formatWasmType, parseWasmInterface } from "./wasm-interface.mjs";
+import { formatWasmType, parseWasmInterface, readWasmInterface } from "./wasm-interface.mjs";
+import { validateProcessInterface } from "../src/process-abi.mjs";
 
-const projectDir = resolve(import.meta.dirname, "..");
-const image = process.argv[2];
-const definitions = await discoverImageDefinitions(projectDir);
-if (!image || !definitions.some((definition) => definition.image === image)) {
-  throw new Error("usage: npm run census -- IMAGE");
-}
-
-const snapshotPath = resolve(projectDir, `dist/dolly-${image}-system.snapshot`);
-const metadataPath = resolve(projectDir, `dist/dolly-${image}-system-snapshot.mjs`);
-const bytes = await readFile(snapshotPath);
-const sha256 = createHash("sha256").update(bytes).digest("hex");
-const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
-  `${pathToFileURL(metadataPath).href}?sha256=${sha256}`
-);
-if (metadata.image !== image || metadata.byteLength !== bytes.length ||
-    metadata.sha256 !== sha256) {
-  throw new Error(`${image} snapshot does not match its sealed metadata`);
-}
-
-const infrastructure = new Set([
-  "env.memory",
-  "env.__indirect_function_table",
-  "env.__memory_base",
-  "env.__stack_pointer",
-  "env.__table_base",
-  "env.__table_base32",
-]);
-
-function isWasm(candidate) {
-  return candidate.length >= 8 &&
-    candidate[0] === 0x00 && candidate[1] === 0x61 &&
-    candidate[2] === 0x73 && candidate[3] === 0x6d &&
-    candidate[4] === 0x01 && candidate[5] === 0x00 &&
-    candidate[6] === 0x00 && candidate[7] === 0x00;
-}
-
-function hasText(candidate, text) {
-  const needle = Buffer.from(text);
-  return candidate.indexOf(needle) >= 0;
-}
-
-function markdownCode(value) {
-  return `\`${String(value).replaceAll("`", "\\`")}\``;
-}
-
-const { files } = decodeSystemSnapshot(bytes);
-const executables = [];
-const consumersByOperation = new Map();
-for (const [path, candidate] of files) {
-  if (!isWasm(candidate) || !hasText(candidate, "dolly.abi")) continue;
-  const wasm = parseWasmInterface(candidate, path);
-  const entry = wasm.exports.find((item) => item.name === "dolly_main");
-  if (!wasm.customSections.includes("dolly.abi") || entry?.type.kind !== "func") {
-    continue;
+export function censusProcessImports(files, contract, digest) {
+  const executables = [];
+  for (const [path, bytes] of files) {
+    if (bytes.length < 8 || bytes.subarray(0, 4).toString("hex") !== "0061736d") continue;
+    const wasm = parseWasmInterface(bytes, path);
+    if (!wasm.customSections.includes("dolly.process")) continue;
+    validateProcessInterface(contract, wasm, digest);
+    executables.push({
+      path,
+      imports: wasm.imports.filter(entry => entry.type.kind === "func")
+        .map(entry => `${entry.module}.${entry.name} ${formatWasmType(entry.type)}`).sort(),
+    });
   }
-  const imports = [];
-  for (const imported of wasm.imports) {
-    const name = `${imported.module}.${imported.name}`;
-    if (infrastructure.has(name) || imported.module.startsWith("GOT.")) continue;
-    const operation = `${name} ${formatWasmType(imported.type)}`;
-    if (!imports.includes(operation)) imports.push(operation);
-  }
-  imports.sort();
-  executables.push({ path, imports });
-  for (const operation of imports) {
-    const consumers = consumersByOperation.get(operation) ?? [];
-    consumers.push(path);
-    consumersByOperation.set(operation, consumers);
-  }
+  if (!executables.length) throw new Error("sealed image contains no valid Dolly process executables");
+  return executables.sort((left, right) => left.path.localeCompare(right.path));
 }
-executables.sort((left, right) => left.path.localeCompare(right.path));
-const operations = [...consumersByOperation.entries()].sort(
-  ([left], [right]) => left.localeCompare(right),
-);
 
-const lines = [
-  `# Dolly static platform census: ${image}`,
-  "",
-  `Snapshot: ${markdownCode(sha256)}`,
-  "",
-  `Runtime build: ${markdownCode(metadata.buildId)}`,
-  "",
-  `${executables.length} ABI-stamped executables import ` +
-    `${operations.length} distinct non-relocation operations. This is a ` +
-    "link-time requirement census, not evidence that every operation executed.",
-  "",
-  "Infrastructure imports for shared memory/table and `GOT.*` relocation are " +
-    "excluded. Everything below is an exact typed import present in at least one executable.",
-  "",
-  "## Operation to consumers",
-  "",
-  "| Typed import | Consumers |",
-  "| --- | --- |",
-];
-for (const [operation, consumers] of operations) {
-  lines.push(`| ${markdownCode(operation)} | ${consumers.map(markdownCode).join(", ")} |`);
+async function main() {
+  const project = resolve(import.meta.dirname, "..");
+  const image = process.argv[2];
+  const definitions = await discoverImageDefinitions(project);
+  if (!definitions.some(definition => definition.image === image)) {
+    throw new Error("usage: npm run census -- IMAGE");
+  }
+  const bytes = await readFile(resolve(project, `dist/dolly-${image}-system.snapshot`));
+  const metadata = parseGeneratedConstant(
+    await readFile(resolve(project, `dist/dolly-${image}-system-snapshot.mjs`), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
+  const buildId = parseGeneratedConstant(
+    await readFile(resolve(project, "dist/dolly-build-id.mjs"), "utf8"), "DOLLY_BUILD_ID");
+  if (metadata.image !== image || metadata.buildId !== buildId ||
+      metadata.byteLength !== bytes.length || metadata.sha256 !== sha256(bytes)) {
+    throw new Error("snapshot does not match its sealed runtime metadata");
+  }
+  const contract = await readWasmInterface(resolve(project, "dist/dolly-process-0.wasm"));
+  const digest = parseGeneratedConstant(
+    await readFile(resolve(project, "dist/dolly-process-abi.mjs"), "utf8"), "DOLLY_PROCESS_ABI_DIGEST");
+  const executables = censusProcessImports(decodeSystemSnapshot(bytes).files, contract, digest);
+  const consumers = new Map();
+  for (const executable of executables) for (const imported of executable.imports) {
+    const paths = consumers.get(imported) ?? [];
+    paths.push(executable.path);
+    consumers.set(imported, paths);
+  }
+  const code = value => `\`${String(value).replaceAll("\`", "\\\`")}\``;
+  const lines = [
+    `# Dolly static process census: ${image}`, "",
+    `Snapshot: ${code(metadata.sha256)}`, "",
+    `Runtime build: ${code(buildId)}`, "",
+    `${executables.length} validated process executables, ${consumers.size} distinct callable imports.`, "",
+    "The process ABI multiplexes platform operations through one typed packet-call gate.",
+    "Static imports do not identify which packet operations a program actually uses.",
+    "Private memory is omitted; resident plugins and process-local DSOs are not executables.", "",
+    "## Callable import to executables", "",
+    "| Typed import | Executables |", "| --- | --- |",
+    ...[...consumers].sort(([left], [right]) => left.localeCompare(right))
+      .map(([imported, paths]) => `| ${code(imported)} | ${paths.map(code).join(", ")} |`),
+    "", "## Executable to callable imports", "",
+    "| Executable | Callable imports |", "| --- | ---: |",
+    ...executables.map(executable => `| ${code(executable.path)} | ${executable.imports.length} |`),
+    "",
+  ];
+  await mkdir(resolve(project, "build"), { recursive: true });
+  const output = resolve(project, `build/platform-census-${image}.md`);
+  await writeFile(output, lines.join("\n"));
+  console.log(`dolly: wrote ${image} census for ${executables.length} executables and ${consumers.size} callable imports to ${output}`);
 }
-lines.push(
-  "",
-  "## Executable to operations",
-  "",
-  "| Executable | Imported operations |",
-  "| --- | ---: |",
-);
-for (const executable of executables) {
-  lines.push(`| ${markdownCode(executable.path)} | ${executable.imports.length} |`);
-}
-lines.push("");
 
-const outputPath = resolve(projectDir, `build/platform-census-${image}.md`);
-await mkdir(resolve(projectDir, "build"), { recursive: true });
-await writeFile(outputPath, lines.join("\n"));
-console.log(
-  `dolly: wrote ${image} census for ${executables.length} executables and ` +
-  `${operations.length} operations to ${outputPath}`,
-);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

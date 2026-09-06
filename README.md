@@ -106,28 +106,40 @@ to trace the actual imports and the complete HTTP path.
 
 ## Build and run
 
-Requirements: Node.js, npm, Git, Google Chrome, Docker or Podman, and host
-Python 3.14 for CPython source preparation. The seed build creates its own
-native LLVM tools; the browser runtime never uses host Python or processes.
+Requirements: Node.js, npm, Git, Google Chrome, Docker or Podman, host Python
+3.14, and a host C/C++ compiler with GNU Make. Python prepares CPython sources;
+the compiler/Make build the pinned Bison source generator. The LLVM seed builds
+and runs its native tools inside the pinned container. These are build-time
+tools; the browser runtime never uses host Python or processes.
 
 ```sh
 npm ci
 ./scripts/build-toolchain.sh   # expensive one-time wasm64 Clang/LLD seed
 npm test                      # build, snapshot, static tests, browser proof
+npm run publish               # verify/test a complete app, publish locally, package Pages
 npm run serve                 # http://127.0.0.1:8080/
 ```
 
 The Pages deployment is intentionally artifact-based: the current browser
 bundle is hundreds of megabytes and does not belong in Git history. After a
 local audited build, `scripts/package-pages.sh` creates the static release
-asset consumed by the manual `Deploy Dolly demo` workflow.
-The workflow requires the artifact SHA-256 printed by the packager and checks it
-before extraction; take that digest from the audited local build, not a second
-download from the release being verified. A tiny same-origin
+asset consumed by the manual `Deploy Dolly demo` workflow. It checks all five
+packaged images in Chrome and binds acceptance to a complete file manifest and
+the source hashes. The workflow requires the artifact SHA-256 and source commit,
+checks the archive before extraction, and verifies its contents against that
+checkout. Commit changes before making an artifact intended for deployment;
+dirty local builds remain usable but do not match a committed release.
+Take the digest from the audited local build, not a second download from the
+release being verified. A tiny same-origin
 service worker supplies the COOP/COEP headers that GitHub Pages cannot set.
 Packaged snapshots use gzip delivery to keep all five images below the Pages
 site size limit; the browser bounds decompression and verifies the original
 snapshot size and SHA-256 before loading it into Wasm.
+The local server reads `build/releases/current`, never mutable `dist/` or source
+files. Publishing atomically switches the complete app; failed builds leave the
+last version available, and open tabs keep digest-pinned assets. Old release
+directories stay available for those tabs. After source changes, build the
+affected outputs and run `npm run publish` to update the served app.
 The public Pages embedding permits generic HTTP(S) through Dolly's one browser
 broker, including sandbox-supplied credential headers. This is useful for
 agents and deliberately not safe against exfiltration from a compromised

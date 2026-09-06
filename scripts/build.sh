@@ -653,6 +653,8 @@ node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-process-0.wasm \
   build/generated/dolly-process-abi-digest.h \
   DOLLY_PROCESS_ABI_DIGEST
+"${container[@]}" /emsdk/upstream/emscripten/embuilder \
+  --wasm64 --pic build libclang_rt.builtins
 ./scripts/prepare-compiler-rt.sh
 
 "${container[@]}" /emsdk/upstream/emscripten/emcmake cmake \

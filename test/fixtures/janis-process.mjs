@@ -128,6 +128,40 @@ await check('HTTP policy errors retain code, errno and request identity', async 
   try { await fetch(`${origin}/${'x'.repeat(8192)}`); } catch (value) { error = value; }
   assert(error?.code === 'E2BIG' && /byte limit/.test(error.message), 'HTTP admission lost its byte-limit error');
 });
+await check('fetch preserves binary uploads, byte views and queued input ownership', async () => {
+  const bytes = Uint8Array.from({ length: 256 }, (_, index) => index);
+  const padded = new Uint8Array(260);
+  padded.set(bytes, 2);
+  for (const body of [bytes, bytes.buffer, padded.subarray(2, 258),
+    new DataView(padded.buffer, 2, 256), new Uint16Array(bytes.buffer),
+    Buffer.from(bytes), new Uint8Array(), '日本語\0😀']) {
+    const expected = typeof body === 'string' ? new TextEncoder().encode(body) :
+      ArrayBuffer.isView(body) ? new Uint8Array(body.buffer, body.byteOffset, body.byteLength) : new Uint8Array(body);
+    const response = await fetch(`${origin}/fixture/bytes`, { method: 'POST', body });
+    const actual = new Uint8Array(await response.arrayBuffer());
+    assert(actual.length === expected.length && actual.every((byte, index) => byte === expected[index]),
+      `upload changed bytes for ${body.constructor.name}`);
+  }
+  const owned = bytes.slice();
+  const pending = fetch(`${origin}/fixture/bytes`, { method: 'POST', body: owned });
+  owned.fill(0);
+  const actual = new Uint8Array(await (await pending).arrayBuffer());
+  assert(actual.every((byte, index) => byte === bytes[index]), 'queued fetch borrowed mutable input');
+  assert(typeof Dolly.http === 'undefined', 'unused synchronous HTTP adapter remains');
+});
+await check('HTTP process upload limit includes UTF-8 metadata and packet header', async () => {
+  const url = `${origin}/fixture/bytes`;
+  const headers = { 'x-byte-test': 'metadata' };
+  const capacity = 1024 * 1024 - 24 - new TextEncoder().encode(`POST${url}x-byte-test: metadata\r\n`).length;
+  const body = new Uint8Array(capacity).fill(0xa5);
+  const response = await fetch(url, { method: 'POST', headers, body });
+  const actual = new Uint8Array(await response.arrayBuffer());
+  assert(actual.length === capacity && actual.every(byte => byte === 0xa5), 'exact packet-limit upload failed');
+  let error;
+  try { await fetch(url, { method: 'POST', headers, body: new Uint8Array(capacity + 1) }); }
+  catch (value) { error = value; }
+  assert(error?.code === 'E2BIG' && error.requestId === 0, 'oversize upload was not rejected before dispatch');
+});
 await check('overlapping fetches wait for the single HTTP mailbox', async () => {
   const responses = await Promise.all(Array.from({ length: 3 }, async () => {
     const response = await fetch(`${origin}/fixture/http.txt`);

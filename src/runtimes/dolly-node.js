@@ -788,8 +788,13 @@ globalThis.fetch = (input, init = {}) => {
     for (const [name, value] of new DollyHeaders(init.headers)) headers.set(name, value);
   }
   let body = init.body ?? input.body ?? null;
-  if (body instanceof Uint8Array) body = Dolly.decode(body);
-  if (body !== null && typeof body !== "string") body = String(body);
+  if (ArrayBuffer.isView(body)) {
+    body = new Uint8Array(body.buffer, body.byteOffset, body.byteLength).slice();
+  } else if (body instanceof ArrayBuffer) {
+    body = new Uint8Array(body.slice(0));
+  } else if (body !== null) {
+    body = new TextEncoder().encode(String(body));
+  }
   const headerBlock = [...headers].map(([name, value]) => `${name}: ${value}\r\n`).join("");
   const signal = init.signal === undefined ? input.signal : init.signal;
   return new Promise((resolve, reject) => {

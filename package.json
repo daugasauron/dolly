@@ -15,7 +15,8 @@
     "pi:census": "node scripts/pi-runtime-census.mjs",
     "build": "npm run build:runtime && npm run snapshot",
     "test": "npm run build && node --test test/*.test.mjs && ./scripts/test-browser.sh",
-    "serve": "npm run routes && node scripts/serve.mjs"
+    "publish": "./scripts/package-pages.sh",
+    "serve": "node scripts/serve.mjs"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.4",

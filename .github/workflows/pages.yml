@@ -10,6 +10,9 @@ on:
       artifact_sha256:
         description: SHA-256 printed by package-pages.sh for the audited artifact
         required: true
+      source_commit:
+        description: Committed source revision recorded in the audited artifact
+        required: true
 
 permissions:
   contents: read
@@ -27,6 +30,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+          path: _source
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: Download audited browser build
         env:
           GH_TOKEN: ${{ github.token }}
@@ -40,6 +50,8 @@ jobs:
           printf '%s  dolly-pages.tar.gz\n' "${EXPECTED_SHA256}" | sha256sum --check --strict -
       - name: Extract browser build
         run: mkdir _site && tar -C _site -xzf dolly-pages.tar.gz
+      - name: Verify complete release and source provenance
+        run: node _source/scripts/site-release.mjs verify _site _source
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
