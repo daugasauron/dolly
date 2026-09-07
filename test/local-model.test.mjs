@@ -191,6 +191,27 @@ test("abort forcibly settles an unresponsive worker, releases the lease, and per
   service.dispose();
 });
 
+test("failed GPU cleanup unloads the worker instead of advertising a ready model", async () => {
+  const worker = new FakeWorker();
+  const post = worker.postMessage.bind(worker);
+  worker.postMessage = message => message.type === "cancel"
+    ? queueMicrotask(() => worker.dispatchEvent(new MessageEvent("message", {
+      data: { id: message.id, error: "Local GPU model was lost; load it again." },
+    }))) : post(message);
+  const service = new LocalModelService({ createWorker: () => worker });
+  await service.load();
+  const response = await service.fetch(url, init(request()));
+  const rejected = assert.rejects(response.text(), /stopped/);
+  await service.stop();
+  await rejected;
+  assert.equal(service.state, "error");
+  assert.match(service.detail, /GPU model was lost/);
+  assert.equal(worker.terminated, true);
+  assert.equal(service.pending.size, 0);
+  assert.equal(service.active, undefined);
+  assert.equal((await service.fetch(url, init(request()))).status, 409);
+});
+
 test("local inference permits slow progress beyond two minutes and reports a stalled engine through SSE", async t => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let worker = new FakeWorker({ chunks: 3 });

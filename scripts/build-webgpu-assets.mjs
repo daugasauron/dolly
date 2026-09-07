@@ -2,7 +2,7 @@
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, "dist/webgpu");
@@ -25,5 +25,18 @@ await writeFile(resolve(output, "LICENSE.webllm.txt"),
   await readFile(resolve(root, "node_modules/@mlc-ai/web-llm/LICENSE")));
 await build({ stdin: { contents: 'export { MLCEngine } from "@mlc-ai/web-llm";', resolveDir: root },
   bundle: true, format: "esm", platform: "browser", target: "es2022", minify: true,
+  plugins: [{ name: "webllm-prefill-tensor-lifetime", setup(builder) {
+    builder.onLoad({ filter: /@mlc-ai\/web-llm\/lib\/index\.js$/ }, async ({ path }) => {
+      const source = await readFile(path, "utf8");
+      // WebLLM 0.2.84 leaks every detached prefill result except the last.
+      const assignment = "                logits = this.tvm.detachFromCurrentScope(yield this.embedAndForward(chunk, chunkLen));";
+      if (createHash("sha256").update(source).digest("hex") !== "4917bf1b8969ca20a0b74b2773cbc9c14f77ce7427df491cd56c252f9a6070c7") {
+        throw new Error("Recheck WebLLM's prefill tensor lifetime before updating its bundle");
+      }
+      return { contents: "/*! Dolly modification: release intermediate prefill tensors in WebLLM 0.2.84. */\n" +
+        source.replace(assignment, `                logits?.dispose();\n${assignment}`),
+        loader: "js", resolveDir: dirname(path) };
+    });
+  } }],
   outfile: resolve(output, "webllm.mjs"), legalComments: "linked" });
 console.log("dolly: WebGPU browser assets ready (weights download only when the user loads the model)");

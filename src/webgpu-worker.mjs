@@ -92,6 +92,8 @@ async function command(message) {
       while (iterator && !(await iterator.next()).done) { /* Discard cancelled output. */ }
     } catch { /* Interrupted structured output is expected to be incomplete. */ }
     finally { iterator = undefined; }
+    // WebLLM may have unloaded itself after losing the GPU device.
+    await engine.getMessage(model.id);
     return;
   }
   throw new Error("Unknown model worker command");

@@ -94,8 +94,14 @@ state are outside `dolly.data` and userspace/session snapshots. Each request
 supplies its complete conversation and resets the model's chat state.
 Cancellation interrupts WebLLM, waits for it to settle, and terminates the
 private worker after two seconds if necessary. Termination also rejects all
-pending host promises. Idle models survive Pi restarts; leaving the page
+pending host promises. Failed GPU cleanup unloads the model and permits reloading.
+Idle models survive Pi restarts; leaving the page
 disposes the worker. There is no cross-tab scheduler or service worker model.
+
+The browser bundle fixes a tensor leak in WebLLM 0.2.84's prefill loop: each
+intermediate result is released before the next prompt chunk replaces it.
+The build checks the upstream source hash before applying this one-line fix;
+dependency updates must recheck it. Weights stay loaded between requests.
 
 The canonical Wasm ABI and its 28 imports are unchanged. The added browser
 capability is bounded inference, exposed through `dolly_http_dispatch`, not
@@ -119,6 +125,12 @@ The real-model browser test opens its own Chrome profile and window. On this
 Linux setup it uses X11/Vulkan and explicit WebGPU flags; ordinary headless
 Chrome did not expose the NVIDIA adapter. It never disables web security or
 uses a native inference server. A GPU is required for this opt-in test.
+It also exercises fourteen growing prompts to catch GPU memory accumulation.
+
+Firefox 153.0.4 hit a native `WebGPUParent::MapCallback` assertion during a
+long agent run, matching [Mozilla bug 1976766](https://bugzilla.mozilla.org/show_bug.cgi?id=1976766).
+Fixing the tensor leak removes a measured source of GPU memory growth; a worker
+cannot contain a native browser graphics crash.
 
 Qwen 2B is a small integration default, not evidence of reliable autonomous
 coding. wllama remains a later adapter, outside this first experiment.

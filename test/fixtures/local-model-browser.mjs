@@ -199,6 +199,17 @@ export async function runLocalModelProof({ evaluate, wait, submit, press, setOff
   }
   assert.equal(await submit("grep -q LOCAL-QWEN-OK /tmp/local-qwen-proof.txt"), 0);
   console.log("browser: all three model sizes generated text; switching preserved Dolly files and reused the 2B cache");
+  let previousTokens = 0;
+  for (let turn = 1; turn <= 14; turn++) {
+    const answer = await evaluate(`__completeLocal({max_tokens:8,stream_options:{include_usage:true},
+      messages:[{role:'user',content:'Test data:'+ ' hello'.repeat(${turn * 900})+'\\nReply with hello.'}]})`);
+    assert.match(answer, /\[DONE\]/);
+    const chunks = answer.split("\n").filter(line => line.startsWith("data: {")).map(line => JSON.parse(line.slice(6)));
+    const usage = chunks.find(chunk => chunk.usage)?.usage;
+    assert.ok(usage?.prompt_tokens > previousTokens + 500, "stress prompts must exercise increasing context sizes");
+    previousTokens = usage.prompt_tokens;
+  }
+  console.log("browser: 14 growing prompts reached", previousTokens, "tokens without exhausting the GPU");
   if (process.env.DOLLY_LOCAL_REMOVE_CACHE === "1") {
     await evaluate("document.querySelector('#local-model [data-action=remove]').click()");
     const cleared = await wait("({state:__localService.state,detail:__localService.detail})",

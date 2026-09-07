@@ -105,7 +105,12 @@ export class LocalModelService extends EventTarget {
         if (this.active === active) this.dispose(new Error("Model did not stop; worker unloaded. Load it again."));
       }, this.cancelGrace);
       try { await this.rpc("cancel", { generation: active.id }); }
-      catch { /* Disposal rejects outstanding requests as well as terminating the worker. */ }
+      catch (error) {
+        if (this.active === active && this.worker) {
+          this.dispose(error);
+          this.status("error", error.message);
+        }
+      }
       finally { clearTimeout(timer); this.release(active); }
     })();
     return active.stopping;
