@@ -2,9 +2,10 @@
 
 ## Checkpoint — 2026-09-08
 
-Port 9000 serves application `2644155`, immutable release
-`112f511d5ba064bd1500a9bc8cfeb9e8034e4a378d7f9a08cfbb2544280c3f90`.
-The subsequent handoff update changes no runtime or image bytes.
+Port 9000 serves application `b21a5c2`, immutable release
+`26170a7ea988c7de1e9f184ec4a88d983851609099e6af07cc9775d70967c794`.
+Subsequent preparation/test/handoff changes preserve all published asset bytes.
+All 263 source tests pass (`build/checkpoint-source-final.log`).
 No public push, deployment or hosting purchase has been performed.
 
 Runtime identity:
@@ -15,6 +16,24 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
 
 ## Validated work
 
+- The pinned Qwen 3.5 chat configs contained obsolete Qwen 2 stop-token IDs,
+  truncating ordinary Korean text. Worker overrides now match all three pinned
+  tokenizers. The actual 4B browser failure and fix are retained in
+  `build/qwen-stop-tokens-browser-{red-assert,green}.log`; Janis also verifies
+  complete output through the existing Wasm HTTP boundary
+  (`build/qwen-stop-tokens-wasm-browser.log`). All 19 packaged image inventories
+  pass (`build/qwen-stop-tokens-publish.log`), as does live Studio startup/linting
+  (`build/qwen-stop-tokens-live-studio.log`). The final published GPU suite passes
+  all three model sizes, real Pi file tools, offline use, cache reuse and
+  cancellation (102 ms), plus 14 growing prompts reaching 12,625 tokens
+  (`build/qwen-stop-tokens-full-gpu-browser-final.log`).
+- WebGPU asset preparation now owns unique scratch outside the public asset
+  directory, cleans failures and stages the bundle before publishing complete
+  files; the manifest is published last. This is per-file replacement, not a
+  directory transaction. Injected partial-write/bundler failures preserve old
+  complete outputs, and verified assets are reused
+  (`build/webgpu-staging-{red,green-final}.log`). Actual preparation preserves
+  all 14 generated files byte-for-byte (`build/webgpu-staging-prepare-final.log`).
 - Pi's edit tool now rejects unchanged replacements, empty search text and
   overlapping duplicate matches without writing the file. Literal replacements
   preserve BOM, CRLF and Unicode. The regressions fail on the old implementation
@@ -118,30 +137,28 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
   byte-for-byte (`build/public-artifact-unparsed-provenance.log`).
   This is a bounded pattern scan, not proof that every possible secret encoding
   or unsupported archive format was inspected.
-  Repeating it on the Pi edit release found no new flagged bodies and the same
-  public fixtures (`build/pi-edit-artifact-privacy{,-comparison}.log`).
+  Repeating it on the current Qwen release found no new flagged bodies and the
+  same public fixtures (`build/qwen-stop-tokens-artifact-privacy{,-comparison}.log`).
 
 ## Outstanding issues
 
 1. **Local Pi reliability and recovery.** Guided Qwen 4B starters pass, but
-   independent 2B/4B author/build/debug/open remains unreliable. Shorter,
-   template-first guidance helped preserve pins, repair a compiler error in the
-   recipe and open a result; that program still returned 0 for two newline-
-   terminated lines. Other trials invented syntax or tested commands in Studio
-   instead of the built image. One trial repaired an export declaration and a
-   missing C header, then exposed the build-stdin hang fixed above. A subsequent
-   trial on the published fix with normal model settings repeated an invalid
-   export declaration and no-op edits; it never reached build approval. This
-   exposed the edit-tool feedback bug fixed above, but independent authoring has
-   not been retested with that correction. A successful build is not proof of
-   correct code (`build/studio-manual-evidence/studio-fixed-stdin.jsonl`).
+   independent author/build/debug/open remains unreliable after the edit fix.
+   Normal settings repeated invalid exports and unsupported `sed -i` commands;
+   no-op edits now correctly fail. A separate temperature 0.7/top-p 0.8 trial
+   built and opened an image, but its line counter returned 0 for two lines
+   (`build/studio-pi-edit-sampling-correctness-final.log`). Explicit repair
+   feedback still produced incorrect C and omitted requested assertions. Its
+   second build opened, but the independent I/O recheck was interrupted, not
+   passed. Sampling changes were test-only, not new defaults. Preserve the
+   `studio-pi-edit-{default,sampling,repair}.jsonl` transcripts and recipes under
+   `build/studio-manual-evidence/`. Successful compilation is not code correctness.
    Ctrl+C returns 130; the two-second cancellation fallback can unload the model.
    The shell/files survive, and explicit cached reload restores real Pi tool use.
    In Pi's upstream JSON mode, a model-error event can accompany exit 0: its
    `print-mode.ts` only maps final assistant errors to exit 1 in text mode.
    Inspect JSON events, not only the process status; this is not evidence of a
-   Dolly exit-status defect. Independent author/repair/run remains unproven. Preserve
-   `build/studio-manual-evidence/` and the cached GPU profile.
+   Dolly exit-status defect. Preserve the cached GPU profile.
 2. **Missing Pi search tools.** Genuine fd/ripgrep are not installed. Resolve the
    Rust bootstrap boundary: pinned external compiler versus an in-Dolly compiler.
    fd's single-thread option still creates threads. Do not ship renamed substitutes
@@ -161,9 +178,11 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    and archive fixtures are not Dolly user data and should not be blindly deleted.
 5. **Build cost and disk pressure.** Fresh-runtime CMake took 1,143 seconds,
    Neovim 222 seconds and Python 100 seconds; cached Studio assembly took 9 seconds.
-   About 5 GiB of development disk remains after publication. Two reproducible
+   Only 2.7 GiB of development disk remains at this checkpoint. Two reproducible
    static-test exports were removed earlier; their logs and source releases are
-   retained. Preserve user caches and releases.
+   retained. Preserve user caches and releases; avoid further large builds.
+   One cached 2B startup took 119 seconds; a later warm reload took 4.3 seconds.
+   The startup outlier's cause is unproven, not a claimed performance fix.
 
 GPU guidance, home-page sorting, approved Studio build/log/open and the Foundry
 bhop expansion are implemented and browser tested. See the
@@ -171,39 +190,31 @@ bhop expansion are implemented and browser tested. See the
 
 ## Isolated Codex experiment
 
-Branch `codex/wasm64-native-agent-20260907` is clean and paused at `ec529f0`.
+Branch `codex/wasm64-native-agent-20260907` is clean and paused at `e9b8c4f`
+(provider source checkpoint `e2c0a98`).
 Its worktree's `CODEX-HANDOFF.md` contains reproduction steps and evidence.
 No experimental Rust patches were merged into main.
 
-Real browser proofs cover upstream execpolicy, process waits/cancellation,
-Responses/SSE, layered configuration, installed upstream defaults and now the
-actual AuthManager's API-key loading/cache/rotation notifications/logout. The
-real TOML/layer/CLI-override and managed-requirement loaders now produce the
-AuthConfig, replacing fixture-constructed configuration in that proof. The
-storage factory selects upstream's existing default cloud loader for
-its private API-key manager without constructing an unused native cloud client.
-That loader feeds production configuration and Responses. The production model
-client's HTTP constructor now delegates to the same broker-backed transport seam
-exercised in browser tests, including default headers and explicit overrides.
-Those proofs pass twice per run (`codex-default-transport-browser{2,3}.log` in the
-experiment's build directory). The actual provider-owned models endpoint now
-also passes configured requests, auth/headers, typed Unicode catalogs and ETags,
-empty/invalid responses, HTTP errors, timeout and dropped-request cancellation,
-with immediate reuse. The browser suite runs twice and retains the Responses
-checks (`codex-models-endpoint-browser1.log`). Fifteen patches replay without fuzz;
-native libraries and the target type-check;
-native test execution is not established. The cloud library's native graph shrank
-from 1,229 to 930 units by reusing the existing client backoff helper. Exact outer
-ABI checks pass. No new host capability was added. OAuth and unresolved auth fail
-explicitly; no live credentials were used for these fixture-backed tests.
+Real upstream components run in browser Wasm: execpolicy, process waits and
+cancellation, layered TOML/managed configuration, API-key AuthManager, actual
+ConfiguredModelProvider, model-manager WasmFS caches and Responses/SSE. The
+provider owns the exercised auth and model managers; its browser proof passes
+twice again (`codex-core-boundary-provider-browser.log` in the experiment's
+build directory). Seventeen patches replay without fuzz; selected native and
+target libraries type-check, not the full core or native test suite. Exact outer
+ABI checks pass. No new host capability or live credential was used. OAuth and
+unsupported auth modes fail explicitly. Rust compilation remains an external
+bootstrap step; Dolly's compiler links the archive inside Wasm.
 
 **The full Codex agent does not run.** Real ConfigBuilder/ModelClient/CLI
-integration remains unported; the previous core target check failed on 29 Tokio
-socket errors. The native models-manager cache/refresh and telemetry graph,
-ModelClient WebSocket fields, full configuration/environment construction,
-process groups/executable identity and SQLite workers remain. The native
-thread/socket dependency graph must be separated, not satisfied by host fallbacks.
-There is no in-Dolly Rust SDK.
+integration remains unported. A fresh exact-feature Tokio diagnostic reproduces
+28 socket2 errors and one Unix peer-credential error in 3.22 seconds, before
+core type-checking. Actual contributors include file-search, exec-server,
+code-mode, WebSockets, MCP and telemetry; the target graph is 716 units.
+Fallible model-manager construction must propagate through cyclic/spawned
+startup. Native transport fields, full configuration/environment construction,
+process groups/executable identity and SQLite workers also remain. Separate
+these native dependencies without host fallbacks. There is no in-Dolly Rust SDK.
 Experiment processes are stopped.
 
 ## Handoff rules
