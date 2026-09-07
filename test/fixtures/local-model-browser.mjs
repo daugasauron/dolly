@@ -145,9 +145,9 @@ export async function runLocalModelProof({ evaluate, wait, submit, press, setOff
   assert.match(content(copied), /^A\s+내용\s+B$/, "ordinary Qwen 3.5 tokens must not terminate generation");
   console.log("browser: Korean output survives the obsolete Qwen 2 stop-token IDs");
   const literal = await evaluate(`__completeLocal({temperature:0,messages:[
-    {role:'system',content:'Copy the user text exactly. Preserve punctuation. Output nothing else.'},
-    {role:'user',content:'A $& B'}]})`);
-  assert.match(content(literal), /^A\s+\$&\s+B$/, "prompt templates must preserve literal source text");
+    {role:'system',content:"Return the user's JSON unchanged. No code fences or explanation."},
+    {role:'user',content:JSON.stringify({value:'A $& B'})}]})`);
+  assert.deepEqual(JSON.parse(content(literal)), { value: "A $& B" }, "prompt templates must preserve literal source text");
   console.log("browser: literal dollar sequences reach the model unchanged");
   const tool = await evaluate(`__completeLocal({messages:[{role:'user',content:'Read /tmp/example.txt using the read tool.'}],
     tools:[{type:'function',function:{name:'read',description:'Read a file',parameters:{type:'object',properties:{path:{type:'string'}},required:['path'],additionalProperties:false}}}]})`);

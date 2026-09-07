@@ -2,10 +2,10 @@
 
 ## Checkpoint — 2026-09-08
 
-Port 9000 serves application `b21a5c2`, immutable release
-`26170a7ea988c7de1e9f184ec4a88d983851609099e6af07cc9775d70967c794`.
-Subsequent preparation/test/handoff changes preserve all published asset bytes.
-All 263 source tests pass (`build/checkpoint-source-final.log`).
+Port 9000 serves application `9e1671f`, immutable release
+`12d5e7339426623845beff0022ac1da77e3aea75ba6934a98d679ce14b03221b`.
+Subsequent test/handoff changes preserve all published asset bytes.
+All 266 source tests pass (`build/literal-checkpoint-source-final.log`).
 No public push, deployment or hosting purchase has been performed.
 
 Runtime identity:
@@ -16,17 +16,37 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
 
 ## Validated work
 
+- WebLLM's prompt formatter interpreted JavaScript replacement sequences in
+  message text and removed literal `{function_string}`. Template expansion now
+  precedes literal message insertion. The actual formatter's exact-byte tests
+  fail before the fix and pass for system/user/assistant messages
+  (`build/webllm-literal-prompts-{red,green}.log`). Identical real-browser JSON
+  requests return `A {user_message} B` on the old release and `A $& B` on the fix
+  (`build/webllm-literal-json-browser-{red,green-assert}.log`). A plain-text echo
+  dropped `$` even on the fix; that failed trial is retained, not counted as a
+  pass. The browser regression now checks the JSON value exactly.
+- Packaging reads raw snapshots directly instead of copying and then deleting
+  4,029,066,146 staging bytes. An actual ENOSPC failure exposed the duplication;
+  its cleanup preserved the live release. The corrected publication succeeds,
+  with all 19 browser inventories passing (`build/snapshot-staging-publish.log`).
+  All 141 packs and 19 snapshot manifests remain byte-identical
+  (`build/snapshot-staging-byte-identity.log`); source snapshots are retained.
+- Browser tests no longer delete Chrome profile locks or trust a stale debugger
+  port file. Startup reads its own process's endpoint announcement. A second
+  harness refuses an occupied profile while the first model remains usable;
+  locks and debugger identity remain unchanged
+  (`build/browser-profile-live-proof.log`). Exit/disconnection cleanup and
+  normal Studio startup pass (`build/browser-profile-{disconnect,studio}.log`).
 - The pinned Qwen 3.5 chat configs contained obsolete Qwen 2 stop-token IDs,
   truncating ordinary Korean text. Worker overrides now match all three pinned
   tokenizers. The actual 4B browser failure and fix are retained in
   `build/qwen-stop-tokens-browser-{red-assert,green}.log`; Janis also verifies
   complete output through the existing Wasm HTTP boundary
-  (`build/qwen-stop-tokens-wasm-browser.log`). All 19 packaged image inventories
-  pass (`build/qwen-stop-tokens-publish.log`), as does live Studio startup/linting
-  (`build/qwen-stop-tokens-live-studio.log`). The final published GPU suite passes
+  (`build/qwen-stop-tokens-wasm-browser.log`). Live Studio startup/linting passes
+  (`build/webllm-literal-prompts-live-studio.log`). The current GPU suite passes
   all three model sizes, real Pi file tools, offline use, cache reuse and
-  cancellation (102 ms), plus 14 growing prompts reaching 12,625 tokens
-  (`build/qwen-stop-tokens-full-gpu-browser-final.log`).
+  cancellation (101 ms), plus 14 growing prompts reaching 12,625 tokens
+  (`build/webllm-literal-prompts-full-gpu-browser-final.log`).
 - WebGPU asset preparation now owns unique scratch outside the public asset
   directory, cleans failures and stages the bundle before publishing complete
   files; the manifest is published last. This is per-file replacement, not a
@@ -137,8 +157,9 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
   byte-for-byte (`build/public-artifact-unparsed-provenance.log`).
   This is a bounded pattern scan, not proof that every possible secret encoding
   or unsupported archive format was inspected.
-  Repeating it on the current Qwen release found no new flagged bodies and the
-  same public fixtures (`build/qwen-stop-tokens-artifact-privacy{,-comparison}.log`).
+  Repeating it on the current literal-prompt release found no new flagged bodies
+  and the same public fixtures
+  (`build/webllm-literal-prompts-artifact-privacy{,-comparison}.log`).
 
 ## Outstanding issues
 
@@ -178,11 +199,18 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    and archive fixtures are not Dolly user data and should not be blindly deleted.
 5. **Build cost and disk pressure.** Fresh-runtime CMake took 1,143 seconds,
    Neovim 222 seconds and Python 100 seconds; cached Studio assembly took 9 seconds.
-   Only 2.7 GiB of development disk remains at this checkpoint. Two reproducible
+   Around 2 GiB of development disk remains at this checkpoint. Two reproducible
    static-test exports were removed earlier; their logs and source releases are
    retained. Preserve user caches and releases; avoid further large builds.
-   One cached 2B startup took 119 seconds; a later warm reload took 4.3 seconds.
-   The startup outlier's cause is unproven, not a claimed performance fix.
+   One cached 2B startup took 119 seconds. A fresh browser process loaded it in
+   4.17 seconds with phase timings (`build/gpu-load-phase-first.log`); the next
+   published run took 4.34 seconds. The outlier's cause remains unproven.
+6. **Literal filenames.** The same substitution audit found two unfixed cases:
+   `janisMappedTarget` in `src/runtimes/janis.js` maps `./$&` to `./src/*.js`
+   instead of `./src/$&.js`; `src/studio/lint.mjs` duplicates a `$&`-containing
+   filename in diagnostics. Actual mapper/parser executions reproduce both
+   (`build/literal-substitution-followups.log`). Use literal replacements and
+   verify the installed runtime/linter, not only these component probes.
 
 GPU guidance, home-page sorting, approved Studio build/log/open and the Foundry
 bhop expansion are implemented and browser tested. See the
