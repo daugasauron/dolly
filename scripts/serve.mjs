@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { sha256 } from "./snapshot-identity.mjs";
+import { renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -27,7 +28,6 @@ const isolationHeaders = {
   "cache-control": "no-store",
 };
 const releaseDigest = /^[0-9a-f]{64}$/;
-const snapshotPackPath = /^dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/;
 
 // Only published files are visible. dist/ and the source checkout are build inputs,
 // never the running app. Each HTML response pins subsequent asset requests.
@@ -86,22 +86,7 @@ export function createReleaseServer(releases) {
       let body = await readFile(resolve(releases, digest, relative));
       if (sha256(body) !== files.get(relative)) throw new Error("published file changed");
       if (relative.endsWith(".html")) {
-        const directory = session ? "" : relative.slice(0, relative.lastIndexOf("/") + 1);
-        const assetBase = `/_dolly/${digest}/${directory}`;
-        body = Buffer.from(body.toString("utf8")
-          .replace(/<head>/i, `<head><base href="${assetBase}">`)
-          .replace(/(<a\b[^>]*\bhref=")([^"]*)(")/gi, (match, before, href, after) => {
-            // Pin resources, not navigation. Static deployments without a
-            // release prefix already have clean, relative links.
-            const target = new URL(href, `http://dolly.invalid${assetBase}`);
-            const prefix = `/_dolly/${digest}/`;
-            if (target.origin !== "http://dolly.invalid" || !target.pathname.startsWith(prefix)) return match;
-            const path = target.pathname.slice(prefix.length);
-            const page = files.has(path) ? path.endsWith(".html")
-              : files.has(`${path.replace(/\/+$/, "")}/index.html`) || (path === "" && files.has("index.html"));
-            // Raw recipes and source links keep their reviewed release identity.
-            return page ? `${before}/${path}${target.search}${target.hash}${after}` : match;
-          }));
+        body = Buffer.from(renderReleasePage(body.toString("utf8"), relative, digest, files));
       }
       response.writeHead(200, {
         ...isolationHeaders,

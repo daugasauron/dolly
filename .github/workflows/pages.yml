@@ -53,9 +53,14 @@ jobs:
       - name: Verify complete release and source provenance
         run: node _source/scripts/site-release.mjs verify _site _source
       - uses: actions/configure-pages@v5
+        id: pages
+      - name: Export release-pinned static layout
+        env:
+          DOLLY_PUBLIC_BASE: ${{ steps.pages.outputs.base_path }}
+        run: node _source/scripts/export-static.mjs _site _static "${DOLLY_PUBLIC_BASE}/"
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: _site
+          path: _static
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

@@ -17,6 +17,7 @@
     "build": "npm run build:runtime && npm run snapshot",
     "test": "npm run build && node --test test/*.test.mjs && ./scripts/test-browser.sh",
     "publish": "./scripts/package-pages.sh",
+    "export:static": "node scripts/export-static.mjs",
     "serve": "node scripts/serve.mjs",
     "build:webgpu": "node scripts/build-webgpu-assets.mjs"
   },

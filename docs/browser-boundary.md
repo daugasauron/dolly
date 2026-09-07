@@ -145,6 +145,11 @@ the browser harness serve application assets, not the host checkout. The local
 server serves only manifest-listed files from verified whole-app releases;
 HTML pins assets under `/_dolly/RELEASE_DIGEST/`. This is static application
 delivery; navigation links use clean public paths such as `/gamedev/`.
+`scripts/export-static.mjs` produces that layout from a verified release without
+serving the checkout. The local server and static exporter share the same HTML
+pinning function; the isolation service worker remains at the public root.
+Deployment routing, headers and retention are described in
+[static deployment](deployment.md).
 The `/custom/` page accepts a bounded, explicitly submitted Dollyfile and
 uses the existing fresh-Wasm rebuild path, not a browser recipe executor.
 The recipe receives the normal broker policy, never additional authority.

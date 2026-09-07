@@ -9,6 +9,45 @@ import { fileManifest, parseGeneratedConstant, publishRelease, siteManifest, sou
 import { createReleaseServer } from "../scripts/serve.mjs";
 import { sha256 } from "../scripts/snapshot-identity.mjs";
 import { sessionLoadUrl } from "../src/session-store.mjs";
+import { deploymentBase, renderReleasePage } from "../scripts/release-layout.mjs";
+import { exportStaticSite } from "../scripts/export-static.mjs";
+
+test("static pages pin assets below the deployment prefix but keep navigation public", () => {
+  const digest = "a".repeat(64);
+  const files = new Set(["index.html", "default/index.html", "session/index.html", "src/browser.mjs", "Dollyfile"]);
+  const source = '<html><head></head><script src="../src/browser.mjs"></script>' +
+    '<a href="../session/">sessions</a><a href="#help">help</a>' +
+    '<a href="../Dollyfile">source</a><a href="https://example.com/">external</a></html>';
+  for (const base of ["/", "/dolly/", "/demo/dolly/"]) {
+    const page = renderReleasePage(source, "default/index.html", digest, files, base);
+    assert.ok(page.includes(`<base href="${base}_dolly/${digest}/default/">`));
+    assert.ok(page.includes(`<a href="${base}session/">`));
+    assert.ok(page.includes(`<a href="${base}default/#help">`));
+    assert.ok(page.includes('<script src="../src/browser.mjs">'));
+    assert.ok(page.includes('<a href="../Dollyfile">'));
+    assert.ok(page.includes('<a href="https://example.com/">'));
+    for (const path of ["404.html", "session/open.html"]) {
+      assert.ok(renderReleasePage('<head></head>', path, digest, files, base)
+        .includes(`<base href="${base}_dolly/${digest}/">`));
+    }
+  }
+  for (const base of ["dolly/", "//example.com/", "/../", "/a/../b/", "/a//b/", "/a?b/", '/a"b/']) {
+    assert.throws(() => deploymentBase(base), /deployment base/);
+  }
+  assert.throws(() => renderReleasePage(source, "index.html", "../bad", files), /invalid release ID/);
+});
+
+test("static export refuses existing destinations and unverified releases", async t => {
+  const root = await mkdtemp(resolve(tmpdir(), "dolly-static-test-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(resolve(root, "keep"), "owned data");
+  await assert.rejects(exportStaticSite(root, root), /destination already exists/);
+  assert.equal(await readFile(resolve(root, "keep"), "utf8"), "owned data");
+  await assert.rejects(exportStaticSite(root, resolve(root, "output")), /cannot modify its source/);
+  await mkdir(resolve(root, "unverified"));
+  await assert.rejects(exportStaticSite(resolve(root, "unverified"), resolve(root, "output")), /ENOENT/);
+  await assert.rejects(readFile(resolve(root, "output")), /ENOENT/);
+});
 
 test("release metadata accepts generated JSON constants, never JavaScript", () => {
   assert.deepEqual(parseGeneratedConstant('// Generated.\nexport const TEST = Object.freeze({"value":1});\n', "TEST"), { value: 1 });

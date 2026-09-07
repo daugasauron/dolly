@@ -552,7 +552,7 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(page, /<textarea id="keyboard"/);
   assert.match(page, /id="bootstrap-log"/);
   assert.match(page, /crossOriginIsolated/);
-  assert.match(page, /serviceWorker\.register\("\{\{DOLLY_BASE\}\}coi-serviceworker\.js"/);
+  assert.match(page, /serviceWorker\.register\(new URL\("coi-serviceworker\.js", publicRoot\)/);
   assert.doesNotMatch(page, /DOLLY_HTTP_POLICY/);
   assert.doesNotMatch(page, /api\/v1\/chat\/completions/);
   assert.match(isolation, /target\.origin !== self\.location\.origin/);

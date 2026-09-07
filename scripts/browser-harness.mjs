@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { runLocalModelProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, resolve, sep } from "node:path";
@@ -646,7 +646,7 @@ function startServer() {
             ? requestUrl.pathname.slice(browserBasePrefix.length)
             : null;
       if (requestedMode === "image-inventory" &&
-          ["/dist/dolly.data", "/dist/dolly-seed.mjs"].includes(staticPath)) {
+          /\/dist\/dolly(?:\.data|-seed\.mjs)$/.test(staticPath)) {
         response.writeHead(404, isolatedHeaders).end("prebuilt boot must not need the compiler seed");
         return;
       }
@@ -660,6 +660,36 @@ function startServer() {
       }
       if (staticPath === null) {
         response.writeHead(404, isolatedHeaders).end("not found");
+        return;
+      }
+      if (packagedSite) {
+        const requested = decodeURIComponent(staticPath).slice(1);
+        if (/[\\\0]/.test(requested) || requested.split("/").some(part => part === "." || part === "..")) {
+          response.writeHead(404, isolatedHeaders).end("not found");
+          return;
+        }
+        let path = resolve(packagedSite, requested);
+        let status = 200;
+        try {
+          const info = await lstat(path);
+          if (info.isDirectory()) path = resolve(path, "index.html");
+          else if (!info.isFile()) throw new Error("not a static file");
+          await lstat(path);
+        } catch (error) {
+          if (error.code !== "ENOENT" || request.headers["sec-fetch-mode"] !== "navigate") throw error;
+          path = resolve(packagedSite, "404.html");
+          status = 404;
+        }
+        if (!path.startsWith(packagedSite + sep) || !["GET", "HEAD"].includes(request.method)) {
+          response.writeHead(404, isolatedHeaders).end("not found");
+          return;
+        }
+        const body = await readFile(path);
+        staticRequestPaths.add(requestUrl.pathname);
+        response.writeHead(status, { ...isolatedHeaders,
+          "content-type": /(?:^|\/)Dollyfile(?:-|$)/.test(requested) ? "text/plain; charset=utf-8"
+            : mimeTypes.get(extname(path)) ?? "application/octet-stream" });
+        response.end(request.method === "HEAD" ? undefined : body);
         return;
       }
 
@@ -680,15 +710,7 @@ function startServer() {
         response.writeHead(404, isolatedHeaders).end("not found");
         return;
       }
-      const packagedRelative = route === "/" || route === "/index.html" ? "index.html"
-        : sessionRoute ? (requested === "session/open.html" ? "session/open.html" : "404.html")
-        : routeDocuments.has(route) ? `${requested}/index.html` : requested;
-      const servedPath = packagedSite ? resolve(packagedSite, packagedRelative) : path;
-      if (packagedSite && !servedPath.startsWith(`${packagedSite}${sep}`)) {
-        response.writeHead(404, isolatedHeaders).end("not found");
-        return;
-      }
-      let body = await readFile(servedPath);
+      let body = await readFile(path);
       if (iterationMode && !externalPage && relative === "src/runtime-worker.mjs") {
         const resume = "bootstrapStatus = dolly._dolly_process_bootstrap_resume_prepare(BigInt(range.size), 1);";
         const finish = "bootstrapStatus = dolly._dolly_bootstrap_finish();";
@@ -703,7 +725,7 @@ function startServer() {
       }
       staticRequestPaths.add(requestUrl.pathname);
       const source = sourceArtifacts.get(requested)?.source;
-      response.writeHead(packagedSite && sessionRoute && requested !== "session/open.html" ? 404 : 200, {
+      response.writeHead(200, {
         ...isolatedHeaders,
         "content-type": source?.media === "txt" || imageDefinitions.some(
           (definition) => definition.filename === relative,
