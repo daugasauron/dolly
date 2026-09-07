@@ -1,10 +1,12 @@
 # Overnight release work
 
 Original target: 2026-09-08 07:00 JST; baseline `2ccaab2`.
-All 19 images passed packaged inventories and 260 source tests pass; browser checks
+All 19 images passed packaged inventories and 261 source tests pass; browser checks
 validate the build-stdin fix, including Studio, Python, Pi, Neovim and Git.
-Application `2eeecd4` is published locally on port 9000, with a passing live
-Studio build/open/lint check. Named session save/load also passes.
+Application `2644155` is published locally on port 9000. Pi edits now reject
+no-op/empty/ambiguous replacements; source and live-browser regressions pass,
+along with Studio's Pi startup and Neovim linting. Build/open and named session
+save/load checks pass on the prior release, which has identical runtime bytes.
 No public deployment or hosting purchase is part of this work.
 See [audit handoff](audit-handoff.md) for exact
 release identity, evidence and remaining issues; unchecked items are unfinished.
@@ -25,7 +27,8 @@ release identity, evidence and remaining issues; unchecked items are unfinished.
   input/output tests. A later trial exposed a real noninteractive-build stdin
   hang; `/dev/null` fixes it without changing the host ABI. The real-browser
   Studio regression passes, but independent agent correctness remains unproven.
-  Preserve failed evidence.
+  A normal-settings trial repeated invalid exports and no-op edits; the latter
+  exposed the corrected edit feedback bug. Preserve failed evidence.
 - [x] Research classic bhop courses and add Foundry: smaller spaced platforms,
   touch-triggered collapse, distinct routes and an industrial map. Actual browser
   play verifies movement, landing and collapse timing.
@@ -38,9 +41,10 @@ release identity, evidence and remaining issues; unchecked items are unfinished.
   cold/warm transfer is measured. Provider choice, old-release retention and
   realistic network/load testing remain open.
 - [ ] Complete the independent Codex experiment without changing main or the host
-  contract. Clean checkpoint `afde252` runs production TOML/CLI/managed-requirement
+  contract. Clean checkpoint `ec529f0` runs production TOML/CLI/managed-requirement
   auth bootstrap, cloud/configuration factories and the shared HTTP-construction
-  seam with Responses, not a full agent. ConfigBuilder/ModelClient/core and native
+  seam with Responses and the actual typed models endpoint, not a full agent.
+  ConfigBuilder/ModelClient/core and native
   socket/thread dependencies remain unported.
 
 Preserve the last complete local release while building. Publish only validated

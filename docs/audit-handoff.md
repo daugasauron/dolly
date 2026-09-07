@@ -2,8 +2,8 @@
 
 ## Checkpoint — 2026-09-08
 
-Port 9000 serves application `2eeecd4`, immutable release
-`79d7a92d9f176895ef6417aad936f0b39f3fd1f36770f6ae86c7aa4dc21a3a8b`.
+Port 9000 serves application `2644155`, immutable release
+`112f511d5ba064bd1500a9bc8cfeb9e8034e4a378d7f9a08cfbb2544280c3f90`.
 The subsequent handoff update changes no runtime or image bytes.
 No public push, deployment or hosting purchase has been performed.
 
@@ -22,7 +22,12 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
   (`build/pi-edit-{contract-red,contract-green,browser-red,browser-green}.log`).
   All 261 source tests pass (`build/pi-edit-source-final.log`); all affected Pi
   layers rebuilt successfully, with unchanged bases reused
-  (`build/pi-edit-snapshots.log`).
+  (`build/pi-edit-snapshots.log`). Upstream Pi's TUI, incremental SSE and installed
+  write/edit tools pass (`build/pi-edit-tui-browser.log`). All 19 packaged image
+  inventories passed before publication (`build/pi-edit-publish.log`).
+  Live port 9000 also passes installed edit/UTF-8 regressions and Studio's Pi
+  startup, example linting and Neovim diagnostics
+  (`build/pi-edit-live-{browser,studio}.log`).
 - A manual Studio trial exposed a genuine build hang: `SLOP` inherited a terminal
   stdin even though the isolated builder cannot receive keyboard input. Build
   commands now receive `/dev/null`; explicit pipes and redirection remain normal
@@ -113,6 +118,8 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
   byte-for-byte (`build/public-artifact-unparsed-provenance.log`).
   This is a bounded pattern scan, not proof that every possible secret encoding
   or unsupported archive format was inspected.
+  Repeating it on the Pi edit release found no new flagged bodies and the same
+  public fixtures (`build/pi-edit-artifact-privacy{,-comparison}.log`).
 
 ## Outstanding issues
 
@@ -164,7 +171,7 @@ bhop expansion are implemented and browser tested. See the
 
 ## Isolated Codex experiment
 
-Branch `codex/wasm64-native-agent-20260907` is clean and paused at `afde252`.
+Branch `codex/wasm64-native-agent-20260907` is clean and paused at `ec529f0`.
 Its worktree's `CODEX-HANDOFF.md` contains reproduction steps and evidence.
 No experimental Rust patches were merged into main.
 
@@ -179,7 +186,12 @@ That loader feeds production configuration and Responses. The production model
 client's HTTP constructor now delegates to the same broker-backed transport seam
 exercised in browser tests, including default headers and explicit overrides.
 Those proofs pass twice per run (`codex-default-transport-browser{2,3}.log` in the
-experiment's build directory). Native libraries and the target type-check;
+experiment's build directory). The actual provider-owned models endpoint now
+also passes configured requests, auth/headers, typed Unicode catalogs and ETags,
+empty/invalid responses, HTTP errors, timeout and dropped-request cancellation,
+with immediate reuse. The browser suite runs twice and retains the Responses
+checks (`codex-models-endpoint-browser1.log`). Fifteen patches replay without fuzz;
+native libraries and the target type-check;
 native test execution is not established. The cloud library's native graph shrank
 from 1,229 to 930 units by reusing the existing client backoff helper. Exact outer
 ABI checks pass. No new host capability was added. OAuth and unresolved auth fail
@@ -187,9 +199,11 @@ explicitly; no live credentials were used for these fixture-backed tests.
 
 **The full Codex agent does not run.** Real ConfigBuilder/ModelClient/CLI
 integration remains unported; the previous core target check failed on 29 Tokio
-socket errors. The next production seam is the models-list transport constructor.
-The native thread/socket dependency graph must
-be separated, not satisfied by host fallbacks. There is no in-Dolly Rust SDK.
+socket errors. The native models-manager cache/refresh and telemetry graph,
+ModelClient WebSocket fields, full configuration/environment construction,
+process groups/executable identity and SQLite workers remain. The native
+thread/socket dependency graph must be separated, not satisfied by host fallbacks.
+There is no in-Dolly Rust SDK.
 Experiment processes are stopped.
 
 ## Handoff rules
