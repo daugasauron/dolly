@@ -5,11 +5,13 @@ try {
   const args = process.argv.slice(2);
   const open = args[0] === "--open";
   if (open) args.shift();
-  if (args.length !== 1 || args[0] === "--help") {
+  if (args.length !== 1 || args[0].startsWith("-")) {
     console.log("usage: dollyfile-build [--open] DOLLYFILE");
     process.exit(args[0] === "--help" ? 0 : 2);
   }
-  const source = readFileSync(args[0], "utf8");
+  let source;
+  try { source = readFileSync(args[0], "utf8"); }
+  catch (error) { throw new Error(`Cannot read recipe ${JSON.stringify(args[0])}: ${error.message}`); }
   if (inspectDollyfile(source).kind !== "image") throw new Error("Build an IMAGE recipe, not a MODULE");
   const response = await fetch(`https://build.dolly.invalid/v1/builds${open ? "/open" : ""}`, {
     method: "POST", body: source,

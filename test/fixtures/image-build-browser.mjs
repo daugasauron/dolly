@@ -34,6 +34,9 @@ ENTRY /bin/foreground -i /bin/slop
 `;
   try {
     assert.equal(await submit("dollyfile-build --help"), 0);
+    assert.equal(await submit("dollyfile-build --version"), 2);
+    assert.equal(await submit("dollyfile-build /workspace/missing-Dollyfile"), 1);
+    assert.match(await evaluate("__dolly.visibleTerminalText()"), /Cannot read recipe "\/workspace\/missing-Dollyfile"/);
     assert.equal(await submit("printf kept > /workspace/build-parent-proof"), 0);
     await start(source, true);
     assert.equal(await evaluate("document.querySelector('#image-build pre').textContent"), source);

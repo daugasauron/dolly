@@ -1669,6 +1669,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       await enterRecoveryShell(debuggerClient.send);
       if (studioModelMode) assert.equal(selectedImage, "dollyfile-studio");
       await (studioModelMode ? runStudioModelProof : runLocalModelProof)({
+        modelId: process.env.DOLLY_STUDIO_MODEL,
         evaluate: expression => evaluate(debuggerClient.send, expression),
         press: key => dispatchKey(debuggerClient.send, key),
         wait: (expression, predicate, description, attempts) => waitForValue(debuggerClient.send, expression, predicate, description, attempts),

@@ -10,7 +10,7 @@ REQUIRES TOOL slop
 REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 
-SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar 0b9d5def2403d8ade1c457b13d48a1839ac48861ec6494ef9decbba44d0980b2
+SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar db2d4c062977bd3be8ef5169fb96eedd95cbb1d5a055cd4af9aab05ee2dc5203
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello

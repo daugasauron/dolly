@@ -4,9 +4,9 @@ Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
 locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
-The user's 2026-09-07 checkpoint was preserved before overnight work resumed.
-Application `accbf50` is
-published on port 9000, with all 19 image inventories and 252 source tests passing.
+Paused at the user's 2026-09-07 checkpoint request; the remaining scope below
+has not been completed. Application baseline `7cdc961` was published on port
+9000, with all 19 image inventories and 252 source tests passing.
 The real Studio build/log/open/cancel workflow passes against that local release.
 Unchecked items below remain unfinished, not implicitly included in the checkpoint.
 
@@ -37,6 +37,7 @@ catalog after validated milestones; retain old release assets for open tabs.
 
 GPU help, catalog ordering, Studio build/log/open and the Foundry bhop expansion
 are implemented and browser tested. The Qwen 3.5 native tool-format fix passes source tests and two real GPU
-starters; the repair starter still fails. Local-model workflow validation,
+starters; the repair starter still fails. Manual 2B/4B trials do not yet satisfy
+the requested author/build/debug workflow. Local-model workflow validation,
 fd/ripgrep and release review remain open. See
 [audit handoff](audit-handoff.md) for evidence and the isolated Codex experiment.
