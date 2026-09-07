@@ -131,7 +131,7 @@ function forbiddenKeep(value) {
 
 function assertObject(tokens, label, item, directive) {
   if (tokens.length < 2 || !objectTypes.has(tokens[0])) {
-    fail(label, item.line, `invalid ${directive}`);
+    fail(label, item.line, `invalid ${directive}; expected ${directive} <${[...objectTypes].join("|")}> NAME`);
   }
   if (tokens[0] === "ENV" && !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(tokens[1])) {
     fail(label, item.line, `invalid ${directive} environment name`);

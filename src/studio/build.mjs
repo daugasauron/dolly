@@ -33,7 +33,8 @@ try {
         else if (event.type === "status") console.log(event.text);
         else if (event.type === "result") {
           completed = true;
-          console.log(`Built ${event.image} (${event.sha256}). Use Open image in the browser.`);
+          console.log(`Built ${event.image} (${event.sha256}). This session is unchanged; commands belong to the new image.`);
+          console.log("Put tests in the recipe as SLOP lines. Use Open image in the browser to run it.");
         } else if (event.type !== "progress") throw new Error("Invalid build service event");
       }
       if (done) break;

@@ -3,7 +3,9 @@ import os
 import signal
 import subprocess as sp
 import sys
+import termios
 import time
+import tty
 import warnings
 
 root = sys.argv[1]
@@ -31,6 +33,18 @@ def check(name, operation):
     except Exception as error:
         failures.append(name)
         print("PYTHON-PROCESS FAIL:", name, type(error).__name__, str(error), flush=True)
+
+
+def terminal_modes():
+    assert os.isatty(0)
+    before = termios.tcgetattr(0)
+    try:
+        assert len(termios.tcgetwinsize(0)) == 2
+        tty.setraw(0)
+        assert termios.tcgetattr(0)[3] & termios.ICANON == 0
+    finally:
+        termios.tcsetattr(0, termios.TCSANOW, before)
+    assert termios.tcgetattr(0) == before
 
 
 def starts_before_wait():
@@ -275,6 +289,7 @@ def status_and_options():
 
 
 for name, operation in (
+    ("interactive stdin terminal mode round-trip", terminal_modes),
     ("observable start, PID, nonblocking poll and terminate", starts_before_wait),
     ("creation-time cwd/environment and explicit environment", creation_state),
     ("streaming, non-destructive wait timeout and kill", streaming_and_timeout),

@@ -915,12 +915,19 @@ static int take_layer_u64(const unsigned char **cursor, const unsigned char *end
 }
 
 static int run_slop(const char *cwd, const char *command) {
-  if (chdir(cwd) != 0) return -errno;
+  const int input = open("/dev/null", O_RDONLY);
+  if (input < 0) return -errno;
+  if (chdir(cwd) != 0) {
+    const int error = -errno;
+    close(input);
+    return error;
+  }
   printf("+ SLOP CWD %s %s\n", cwd, command);
   fflush(stdout);
   char *arguments[] = {"slop", "-e", "-c", (char *)command, NULL};
   const int pid = dolly_spawn("/bin/slop", 4, arguments,
-                              STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+                              input, STDOUT_FILENO, STDERR_FILENO);
+  close(input);
   int status = pid;
   if (pid >= 0) {
     status = 126;

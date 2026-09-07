@@ -25,6 +25,14 @@ FILE /tmp/proof/check.slop
     if download /etc/dolly/Dollyfile; then exit 1; fi
     printf 'BUILD-SERVICES-DENIED\\n'
 SLOP slop -e /tmp/proof/check.slop
+FILE /tmp/proof/stdin.c
+    #include <unistd.h>
+    int main(void) { char byte; return isatty(0) || read(0, &byte, 1) != 0 || read(0, &byte, 1) != 0; }
+SLOP cc /tmp/proof/stdin.c -o /tmp/proof/stdin
+SLOP timeout 2 /tmp/proof/stdin
+SLOP test "$(printf pipe-input | cat)" = pipe-input
+SLOP printf file-input > /tmp/proof/input
+SLOP test "$(cat < /tmp/proof/input)" = file-input
 SLOP printf 'LIVE-BUILD-OUTPUT\\n'
 SLOP sleep 4
 SLOP cc /tmp/proof/hello.c -o /usr/bin/hello
@@ -41,11 +49,14 @@ ENTRY /bin/foreground -i /bin/slop
     await start(source, true);
     assert.equal(await evaluate("document.querySelector('#image-build pre').textContent"), source);
     await click('#image-build [data-action="approve"]');
-    await wait("__dolly.visibleTerminalText()", text => /\nLIVE-BUILD-OUTPUT\r?\n/.test(text), "live build log before completion");
-    assert.equal(await evaluate("__buildStatus"), null);
+    const progress = await wait("(async () => ({text: await __dolly.visibleTerminalText(), status: __buildStatus}))()",
+      state => state.status !== null || /\nLIVE-BUILD-OUTPUT\r?\n/.test(state.text), "live build log before completion");
+    assert.match(progress.text, /\nLIVE-BUILD-OUTPUT\r?\n/);
+    assert.equal(progress.status, null);
     await waitState("ready");
     assert.equal(await wait("__buildStatus", value => value !== null, "successful build status"), 0);
     assert.equal(await submit("test \"$(cat /workspace/build-parent-proof)\" = kept"), 0);
+    assert.equal(await submit("test ! -e /usr/bin/hello"), 0, "built tools are not installed in the calling session");
     const result = await openResult();
     try {
       assert.equal(await result.wait("document.documentElement?.dataset.dollyStatus", value => ["ready", "failed"].includes(value), "result boot"), "ready");

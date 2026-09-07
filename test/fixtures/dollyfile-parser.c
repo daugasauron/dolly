@@ -7,6 +7,7 @@
 static Buffer source;
 static Buffer child_source;
 static int capture_shell;
+static int captured_input = -1;
 
 int dolly_http_perform(const dolly_http_request *request, dolly_http_response *response) {
   const Buffer *input = &source;
@@ -21,8 +22,11 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
   (void)path; (void)bytes; (void)length; abort();
 }
 int dolly_spawn(const char *path, int argc, char **argv, int input, int output, int error) {
-  (void)input; (void)output; (void)error;
+  (void)output; (void)error;
   if (!capture_shell || strcmp(path, "/bin/slop") != 0 || argc != 4) abort();
+  char byte;
+  if (isatty(input) || read(input, &byte, 1) != 0 || read(input, &byte, 1) != 0) return -EIO;
+  captured_input = input;
   char cwd[PATH_MAX];
   if (getcwd(cwd, sizeof(cwd)) == NULL) abort();
   printf("RAW-CWD:%s\nRAW-COMMAND:%s\n", cwd, argv[3]);
@@ -30,6 +34,7 @@ int dolly_spawn(const char *path, int argc, char **argv, int input, int output, 
 }
 int dolly_wait(int pid, int *status) {
   if (!capture_shell || pid != 1) abort();
+  if (fcntl(captured_input, F_GETFD) != -1 || errno != EBADF) return -EBADF;
   *status = 0;
   return 0;
 }

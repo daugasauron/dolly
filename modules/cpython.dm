@@ -286,7 +286,7 @@ SLOP c++ \
   /tmp/python-header-check/check.cpp \
   -o /tmp/python-header-check/check.o
 SLOP python \
-  -c 'import os, termios, tty; before = termios.tcgetattr(0); assert len(termios.tcgetwinsize(0)) == 2; tty.setraw(0); after = termios.tcgetattr(0); assert after[3] & termios.ICANON == 0; termios.tcsetattr(0, termios.TCSANOW, before); assert os.isatty(0)'
+  -c 'import os, sys, termios, tty; assert not os.isatty(0); assert sys.stdin.buffer.read(1) == b""'
 
 FILE /usr/share/licenses/cpython/LICENSE
 EXPORTS FOLDER python-stdlib /usr/lib/python3.14

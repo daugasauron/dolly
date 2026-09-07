@@ -25,6 +25,7 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
       "SLOP cc input.c", 'SLOP cc "東京 input.c" # comment',
       'EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"', "EXPORTS ENV DOLLY_TEST_VALUE APPEND",
       "EXPORTS ENV DOLLY_TEST_VALUE", "EXPORTS TOOL cc", "EXPORTS TOOL cc /bin/cc",
+      "EXPORTS linecount linecount", "REQUIRES cc", "EXPORTS TOOL",
       "EXPORTS ENV DOLLY_TEST_VALUE APPEND extra words", "REQUIRES TOOL cc", "SLOP unknown ; another", "SLOP LABEL=value cc",
       "SLOP cc; unknown", "EXPORTS FILE future", `EXPORTS TOOL ${"a".repeat(129)}`,
       'FILE "/usr/share/a b"', "FILE /workspace/no", "FILE /usr/share/trailing/",
@@ -39,6 +40,11 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
       const actual = run("parse", recipe);
       assert.equal(actual.status === 0, accepted, `${row}\n${actual.stderr}`);
       if (row.includes('"APPEND literal"')) assert.match(actual.stdout, /ENV-VALUE:APPEND literal/);
+    }
+    for (const directive of ["REQUIRES", "EXPORTS"]) {
+      assert.throws(() => inspectDollyfile(prefix + directive + " linecount linecount\n", "Draft"),
+        { message: `Draft:4: invalid ${directive}; expected ${directive} <TOOL|LIB|ENV|FILE|FOLDER|HEADER> NAME` });
+      assert.doesNotThrow(() => inspectDollyfile(prefix + directive + " TOOL linecount\n"));
     }
     for (const type of ["FILE", "FOLDER", "HEADER", "LIB"]) {
       const declaration = `EXPORTS ${type} value /usr/share/value\n`;
@@ -77,7 +83,8 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
     const directory = resolve(scratch, "space dir");
     await mkdir(directory);
     for (const command of ['"cc" "a b.c"', "cc 'a b.c' ; cc second.c"]) {
-      const result = run("slop", `CWD "${directory}" ${command}`);
+      const result = spawnSync(program, ["slop", `CWD "${directory}" ${command}`],
+        { encoding: "utf8", input: "caller input must not reach recipe commands" });
       assert.equal(result.status, 0, result.stderr);
       assert.ok(result.stdout.includes(`RAW-CWD:${directory}\nRAW-COMMAND:${command}\n`));
     }

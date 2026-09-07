@@ -150,6 +150,8 @@ Recipe words support quotes and escapes. Comments begin with `#` at the start
 of a word, outside quotes. Comments are removed before interpreting a trailing
 backslash as a continuation. `SLOP` preserves the command's original quoting
 when passing it to the shell.
+Build commands receive EOF from `/dev/null` on stdin; they cannot prompt
+interactively. Use ordinary pipes or file redirection to supply input explicitly.
 
 A `FILE` body consists of consecutive lines starting with four spaces. Exactly
 those four spaces are removed; a blank content line needs four spaces too.
