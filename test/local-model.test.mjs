@@ -201,15 +201,29 @@ test("failed GPU cleanup unloads the worker instead of advertising a ready model
   const service = new LocalModelService({ createWorker: () => worker });
   await service.load();
   const response = await service.fetch(url, init(request()));
-  const rejected = assert.rejects(response.text(), /stopped/);
+  const reader = response.body.getReader();
+  await reader.read();
   await service.stop();
-  await rejected;
+  await assert.rejects(reader.read(), /stopped/);
   assert.equal(service.state, "error");
   assert.match(service.detail, /GPU model was lost/);
   assert.equal(worker.terminated, true);
   assert.equal(service.pending.size, 0);
   assert.equal(service.active, undefined);
   assert.equal((await service.fetch(url, init(request()))).status, 409);
+});
+
+test("cancellation before stream demand leaves the idle model usable", async () => {
+  const worker = new FakeWorker();
+  const service = new LocalModelService({ createWorker: () => worker });
+  await service.load();
+  const response = await service.fetch(url, init(request()));
+  await service.stop();
+  await assert.rejects(response.text(), /stopped/);
+  assert.deepEqual(worker.commands, ["load"]);
+  assert.equal(service.state, "ready");
+  assert.match(await (await service.fetch(url, init(request()))).text(), /hello/);
+  service.dispose();
 });
 
 test("local inference permits slow progress beyond two minutes and reports a stalled engine through SSE", async t => {

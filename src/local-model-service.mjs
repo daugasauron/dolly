@@ -99,6 +99,7 @@ export class LocalModelService extends EventTarget {
     if (!active) return;
     if (active.stopping) return active.stopping;
     active.controller?.error(reason);
+    if (!active.started) { this.release(active); return; }
     this.status("stopping", "Stopping generation…");
     active.stopping = (async () => {
       const timer = setTimeout(() => {

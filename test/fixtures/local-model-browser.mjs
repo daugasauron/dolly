@@ -141,7 +141,9 @@ export async function runLocalModelProof({ evaluate, wait, submit, press, setOff
   await evaluate("document.querySelector('#local-model [data-action=stop]').click()");
   const stopped = await wait("__longPi", value => value !== null, "Pi cancellation", 300);
   assert.notEqual(stopped, 0);
-  await wait("__localService.state", state => state === "ready", "model lease released", 100);
+  const released = await wait("({state:__localService.state,detail:__localService.detail})",
+    value => ["ready", "error", "unloaded"].includes(value.state), "model lease released", 100);
+  assert.equal(released.state, "ready", released.detail);
   console.log("browser: cancellation returned to the shell in", Date.now() - cancelledAt, "ms");
   const afterCancel = await evaluate(`__completeLocal({messages:[{role:'user',content:'Reply with hello.'}]})`);
   assert.match(afterCancel, /hello/i);
