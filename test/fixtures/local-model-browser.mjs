@@ -1,5 +1,32 @@
 import assert from "node:assert/strict";
 
+export async function runLocalCacheProof(evaluate) {
+  const result = await evaluate(`(async () => {
+    const names = ['webllm/model','webllm/config','webllm/wasm','local-cache-session-proof'];
+    for (const name of names) await new Promise((resolve,reject) => {
+      const request = indexedDB.open(name,1);
+      request.onupgradeneeded = () => request.result.createObjectStore('proof');
+      request.onsuccess = () => { request.result.close(); resolve(); };
+      request.onerror = () => reject(request.error);
+    });
+    const fetchRequest = globalThis.fetch;
+    let fetches = 0;
+    globalThis.fetch = () => { fetches++; return Promise.reject(new Error('Cache removal must stay local')); };
+    const panel = document.querySelector('#local-model');
+    try {
+      for (let attempt=0; attempt<2; attempt++) {
+        panel.querySelector('[data-action=remove]').click();
+        for(let poll=0; panel.dataset.state==='clearing' && poll<100; poll++) await new Promise(r=>setTimeout(r,20));
+        if(panel.dataset.state!=='unloaded') throw new Error(panel.querySelector('[role=status]').textContent);
+      }
+      const remaining = (await indexedDB.databases()).map(db=>db.name);
+      return {fetches, modelDatabases:remaining.filter(name=>names.slice(0,3).includes(name)), session:remaining.includes(names[3])};
+    } finally { globalThis.fetch = fetchRequest; indexedDB.deleteDatabase(names[3]); }
+  })()`);
+  assert.deepEqual(result, { fetches: 0, modelDatabases: [], session: true });
+  console.log("browser: cache removal works before/after caching, makes no Fetch calls, and preserves other databases");
+}
+
 export async function runLocalModelProof({ evaluate, wait, submit, setOffline }) {
   console.log("browser: checking local provider discovery in Pi");
   assert.equal(await submit("pi --list-models webgpu > /tmp/local-models.txt && grep -q Qwen3.5 /tmp/local-models.txt"), 0);

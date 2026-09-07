@@ -31,10 +31,16 @@ export function mountLocalModel() {
     service.dispose();
     service.status("clearing", "Removing the cached model…");
     try {
-      const { deleteModelAllInfoInCache } = await import("../dist/webgpu/webllm.mjs");
-      const manifest = await (await fetch(new URL("../dist/webgpu/assets.json", import.meta.url))).json();
-      await deleteModelAllInfoInCache(manifest.model, { cacheBackend: "indexeddb", model_list: [{ model_id: manifest.model,
-        model: manifest.baseURL, model_lib: manifest.assets.find(a => a.file === "qwen.wasm").url }] });
+      // One approved model uses WebLLM's three IndexedDB scopes. Its upstream
+      // deletion helper fetches uncached metadata; local deletion needs no IO.
+      for (const name of ["webllm/model", "webllm/config", "webllm/wasm"]) {
+        await new Promise((resolve, reject) => {
+          const request = indexedDB.deleteDatabase(name);
+          request.onsuccess = resolve;
+          request.onerror = () => reject(request.error);
+          request.onblocked = () => reject(new Error("Close other Dolly tabs using the model, then retry."));
+        });
+      }
       service.status("unloaded", "Cached model removed. Loading it again will download the weights.");
     } catch (error) { service.status("error", `Could not remove cached model: ${error.message}`); }
   });

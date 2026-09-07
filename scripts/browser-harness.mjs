@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { runLocalModelProof } from "../test/fixtures/local-model-browser.mjs";
+import { runLocalModelProof, runLocalCacheProof } from "../test/fixtures/local-model-browser.mjs";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -86,6 +86,7 @@ const pythonInteractiveMode = isMode("python-interactive");
 const toolchainProbeMode = isMode("toolchain-probes");
 const zigSingleProviderMode = isMode("zig-single-provider");
 const localModelMode = isMode("local-model");
+const localCacheMode = isMode("local-model-cache");
 const optimizedLifecycleProbeMode =
   isMode("optimized-lifecycle-probe");
 const lifecycleProbeMode =
@@ -1499,6 +1500,13 @@ chrome = spawn(chromeBinary, [
   await debuggerClient.send("Page.navigate", { url: initialPage });
 
   browserProof: {
+    if (localCacheMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "local cache UI boot", 1200), "ready");
+      await runLocalCacheProof(expression => evaluate(debuggerClient.send, expression));
+      break browserProof;
+    }
     if (localModelMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",

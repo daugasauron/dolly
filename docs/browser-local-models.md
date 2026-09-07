@@ -5,7 +5,8 @@ The `pi-local` experiment adds Qwen3.5 2B through WebLLM 0.2.84. Open
 in Pi's normal model picker. The first load downloads approximately 1.1 GB.
 It requires a hardware WebGPU adapter with `shader-f16`; there is no CPU or
 cloud fallback. **Stop** cancels generation, **Unload** releases its worker,
-and **Remove cached model** deletes the model's browser cache.
+and **Remove cached model** clears this origin's WebLLM model databases without
+network access. Dolly files and saved sessions have separate storage.
 
 The provider extension is an ordinary JavaScript file installed by
 [`browser-model-providers.dm`](../modules/browser-model-providers.dm).
