@@ -4,11 +4,12 @@ Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
 locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
-Feature work is paused at the user's requested checkpoint. Application `03be879`
-is published on port 9000, including the SIGCHLD/tar fixes and final Python-path
-and Studio-skill cleanup. All 19 fresh-runtime images, all 254 tests, targeted
-browser checks and all packaged image inventories passed. See the audit handoff
-for the served checkpoint and final verification logs.
+Feature work is paused at the user's requested checkpoint. Application `cf744c8`
+is published on port 9000, including the SIGCHLD/tar fixes, Python-path and
+Studio-skill cleanup, and lazy compiler-seed loading. All 254 tests and all 19
+packaged inventories pass; prebuilt images now boot with seed downloads denied.
+The previous fresh-runtime image builds remain valid because the Wasm and seed
+bytes are unchanged. See the audit handoff for verification and remaining issues.
 Unchecked items below remain unfinished, not implicitly included in the checkpoint.
 
 - [x] GPU setup guidance beside the model picker; test unavailable adapters and
@@ -39,7 +40,8 @@ catalog after validated milestones; retain old release assets for open tabs.
 GPU help, catalog ordering, Studio build/log/open and the Foundry bhop expansion
 are implemented and browser tested. All three guided starters now pass with real
 local Qwen 4B; default 2B and independent author/build/debug work remain unreliable.
-The Codex experiment is separately checkpointed and paused at `d84e8af`; the full
-agent is not running. Local-model workflow validation, fd/ripgrep and release review
-remain open. See
+The Codex experiment is separately checkpointed and paused at `61e5925`; real
+filesystem/configuration loading works with an explicit defaults file, but normal
+executable discovery and the full agent remain unported. Local-model workflow
+validation, fd/ripgrep and release review remain open. See
 [audit handoff](audit-handoff.md) for evidence and the isolated Codex experiment.

@@ -37,14 +37,32 @@ before a small edit. This instruction change is not proof of model reliability.
 
 ## Local release and verification
 
-Port 9000 serves application checkpoint `03be879`, release
-`1481b83450773e32531757f077b50117f4291e4e3e6360f9b7df330dc4c6fbe4`.
-All 19 packaged image inventories passed before atomic local publication
-(`build/checkpoint-final-publish.log`). The previous release is retained for
-already-open pinned tabs. No builder or manual model experiment is left running.
+Port 9000 serves application checkpoint `cf744c8`, release
+`88edd0bdaad58bcf681b60fd7dc6db121d569a3189dfe00a159adb9a006007e7`.
+All 19 packaged image inventories passed with compiler-seed downloads denied
+before atomic local publication (`build/lazy-kernel-seed-publish.log`). Previous
+releases are retained for already-open pinned tabs. Feature work is paused at
+the user's requested checkpoint; this is not a completed release audit.
 
 The runtime identity is:
 `sha256:79b64cf05defff93afedad28f306c23a7f2be37f744f2f02c93b6bcd6364bc35`.
+
+The latest fix removes an unnecessary 113,301,281-byte compiler-seed download
+from prebuilt launches and derived builds. Root rebuilds load a separate,
+standard Emscripten bundle; a genuine Ghostty root rebuild passed. The Wasm and
+seed bytes are unchanged, preserving snapshot identities and the outer ABI.
+The kernel JavaScript loader shrank from 121,451 to 50,012 bytes. Release-pinned
+assets now use immutable HTTP caching; unpinned URLs remain uncached.
+All 254 source checks, derived-build/cache checks, named-session save/load and
+the real browser boundary checks pass
+(`build/lazy-kernel-seed-{final-source,derived-final,session,boundary}.log`).
+The seed-denied prebuilt and fresh-root proofs are in
+`build/lazy-kernel-seed-browser.log`.
+Actual port-9000 checks pass for zero-transfer repeated kernel/loader reads,
+Studio build/log/open, denied/failed builds, cancellation, signals, descriptors,
+pipes and nested-shell recovery
+(`build/lazy-kernel-seed-port9000-{cache,build,lifecycle}.log`). Test browsers,
+temporary servers and both agents' experiments are stopped; port 9000 remains.
 
 The final Python/Studio snapshot refresh and all 254 source tests pass
 (`build/checkpoint-final-{snapshots,source}.log`). Python children, streaming,
@@ -53,9 +71,6 @@ callbacks pass (`build/checkpoint-final-python-browser.log`). All three Python
 snapshots contain no personal builder-home path in any retained file
 (`build/checkpoint-final-python-paths.log`). Studio's Pi startup, example linting
 and Neovim syntax/diagnostics pass (`build/checkpoint-final-studio-browser.log`).
-Actual port-9000 Studio build/log/open, denial, failure and cancellation checks
-pass, as do default-image signal/descriptor/pipe and nested-shell recovery checks
-(`build/checkpoint-final-port9000.log`).
 No public push, deployment or hosting purchase has been performed.
 
 ## Outstanding issues
@@ -88,8 +103,14 @@ No public push, deployment or hosting purchase has been performed.
    including 124 MB of compressed snapshot packs.
    Seven assets exceed 25 MiB, the
    [Cloudflare Pages per-file limit](https://developers.cloudflare.com/pages/platform/limits/);
-   the site cannot be uploaded there unchanged. Provider-neutral asset routing,
-   caching, compression and isolation headers still need deployment validation.
+   the site cannot be uploaded there unchanged. The local server pins each page
+   to an immutable release, but the flat static-hosting archive does not yet
+   provide the same versioned layout and old-tab protection. Static asset routing,
+   service-worker scope and isolation headers need deployment validation.
+   Prebuilt launches no longer need the compiler seed, but root rebuilds still
+   download its 113 MB data file; Chrome did not cache this large response even
+   with immutable headers (`build/release-cache-after-browser.log`). Compression
+   and large-asset delivery remain open; total cold-load savings are not measured.
    CPython's personal-path leak is fixed at source preparation, but the complete
    compressed-artifact scan remains unfinished. Pinned upstream model binaries
    contain upstream authors' build paths; these are not Dolly user data. Other
@@ -98,7 +119,7 @@ No public push, deployment or hosting purchase has been performed.
    No host/proxy capability was added to address hosting.
 5. **Build cost and disk headroom.** The latest fresh-runtime CMake build took
    1,170 seconds, Neovim 222 seconds and Python 102 seconds; cached Studio assembly
-   took 9 seconds. The development disk is 99% full, with about 15 GiB free.
+   took 9 seconds. The development disk is 99% full, with about 12 GiB free.
    Review owned build outputs before another cold build; do not delete user
    caches or releases needed by open pinned tabs.
 
@@ -109,18 +130,25 @@ remain in Git history; remaining requested scope is in
 
 ## Isolated Codex experiment
 
-Branch `codex/wasm64-native-agent-20260907` is clean and paused at `d84e8af`.
+Branch `codex/wasm64-native-agent-20260907` is clean and paused at `61e5925`.
 See its `CODEX-HANDOFF.md` before reuse; no experimental Rust patches were merged.
 
 Real browser proofs cover upstream execpolicy and the Responses/SSE path:
 auth headers, retries, Unicode streaming, typed errors, cancellation and reuse.
-Real browser configuration/provider/API-key storage round-trips now also pass,
-using fixture credentials. The actual `codex-exec` target still fails on 29 Tokio
-socket errors. Its production startup requires an OS thread, multithread Tokio,
-an embedded app-server and native-heavy executor services; the normal graph has
-814 target build units. Fixing async filesystem calls alone is insufficient.
-The next clean port step is separating real local executor/AuthManager code from
-unavailable native services, not adding socket/thread stubs or a substitute CLI.
+The genuine local filesystem was separated from native executor services;
+the native executor still type-checks. In the browser, the production layered
+configuration loader, precedence/error checks and credential-file-to-Responses
+path pass twice with an explicit defaults file. Native tests were type-checked,
+not executed. No experimental host imports were added.
+
+Normal packaged-default discovery fails before parsing its embedded defaults:
+Rust's `current_exe()` reports that `/proc/self/exe` is unavailable. This is a
+fatal startup error, not an optional missing config. No fake `/proc` or host
+capability was added. Actual AuthManager/ConfigBuilder integration and separating
+the CLI's native Tokio socket/thread/process-group dependencies remain open;
+the earlier full-target check failed on 29 socket errors. The normal graph has
+814 target build units. The next step must use the real production startup,
+not a substitute CLI or successful disconnected probe.
 **The full Codex agent does not run.** No experiment processes remain.
 
 ## Handoff rules
