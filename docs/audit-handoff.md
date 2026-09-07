@@ -3,9 +3,9 @@
 ## Checkpoint — 2026-09-08
 
 Work is paused at the user's requested checkpoint. Port 9000 serves
-application `c79380d`, immutable release
-`6732dddd6ee0b34c33de1c745b0f65e792fa1893b02eea0cedf26d63d9f416f2`.
-Follow-up source work does not replace that release until browser acceptance.
+application `ac13356`, immutable release
+`960336bd0a69ef0085e1c0f56d8a301bc944b39275e1d00168f8afee5da0fb7b`.
+The subsequent handoff update changes no runtime or image bytes.
 No public push, deployment or hosting purchase has been performed.
 
 Runtime identity:
@@ -15,12 +15,15 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
 
 ## Validated work
 
-- All 260 source tests pass (`build/studio-skill-source.log`).
+- All 260 source tests pass (`build/audit-checkpoint-source-final.log`).
   All 19 images completed genuine fresh-runtime builds, then passed packaged
   inventories before publication (`build/sigchld-tar-snapshots.log`,
-  `build/qwen-history-publish.log`). A live port-9000 inventory and
+  `build/audit-checkpoint-publish.log`). A live port-9000 inventory and
   headerless static-export session test pass
   (`build/checkpoint-september8-port9000.log`, `build/checkpoint-static-session-final.log`).
+- The updated Studio snapshot builds in 8.6 seconds using cached bases. Its live
+  port-9000 check passes Pi startup, installed example linting and Neovim syntax,
+  unsaved-buffer linting and save diagnostics (`build/audit-checkpoint-live-studio.log`).
 - Quiet-child SIGCHLD is delivered only once the child is waitable. Cancellation,
   escalation, descriptors, pipes, nested-shell recovery and `tar -xf -` pass
   in real browsers (`build/sigchld-tar-lifecycle-browser.log`). Boundary,
@@ -75,21 +78,16 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
 
 ## Outstanding issues
 
-1. **Local Pi reliability and recovery.** Default Qwen 2B is unreliable for
-   independent author/build/debug/open. Guided 4B starters pass, but independent
-   trials generated wrong code, edited disposable builder paths and invented
-   recipe syntax/base references. After the history fix, 4B still looped through
-   invalid recipes and missing tools: 28 model requests, no approved image build,
-   then the explicit 600-second test limit returned 124. Its cancellation fallback
-   unloaded the model after two seconds; the shell and files survived. An earlier
-   Ctrl+C returned 130 and left the model ready.
-   Explicit reload from cached weights resumes real Pi tool calls, but an
-   unloaded-model error still gives Pi exit 0; inspect its final assistant message.
-   Template-first guidance has been applied and rebuilt in 8.6 seconds. It helped
-   4B preserve pins, repair a compiler error in the recipe and open a result, but
-   that program returned 0 for two newline-terminated lines. Other trials looped
-   on syntax or tested commands in Studio instead of the built image. Complete
-   independent author/repair/run remains unproven. Preserve
+1. **Local Pi reliability and recovery.** Guided Qwen 4B starters pass, but
+   independent 2B/4B author/build/debug/open remains unreliable. Shorter,
+   template-first guidance helped preserve pins, repair a compiler error in the
+   recipe and open a result; that program still returned 0 for two newline-
+   terminated lines. Other trials invented syntax or tested commands in Studio
+   instead of the built image. A successful build is not proof of correct code.
+   Ctrl+C returns 130; the two-second cancellation fallback can unload the model.
+   The shell/files survive, and explicit cached reload restores real Pi tool use.
+   An unloaded-model error can nevertheless give Pi exit 0; inspect its final
+   assistant message. Independent author/repair/run remains unproven. Preserve
    `build/studio-manual-evidence/` and the cached GPU profile.
 2. **Missing Pi search tools.** Genuine fd/ripgrep are not installed. Resolve the
    Rust bootstrap boundary: pinned external compiler versus an in-Dolly compiler.
@@ -108,7 +106,7 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
    and archive fixtures are not Dolly user data and should not be blindly deleted.
 5. **Build cost and disk pressure.** Fresh-runtime CMake took 1,170 seconds,
    Neovim 222 seconds and Python 102 seconds; cached Studio assembly took 9 seconds.
-   About 7 GiB of development disk remains after removing two verified,
+   About 6 GiB of development disk remains after removing two verified,
    reproducible static-test exports. Their evidence logs and source releases are
    retained; regenerate the exports when needed. Preserve user caches and releases.
 

@@ -1,7 +1,7 @@
 # Overnight release work
 
 Original target: 2026-09-08 07:00 JST; baseline `2ccaab2`.
-Work is paused at the user's requested checkpoint. Application `c79380d` is
+Work is paused at the user's requested checkpoint. Application `ac13356` is
 published locally on port 9000; all 19 images passed packaged inventories.
 The latest source checks pass 260 tests. No public deployment or hosting
 purchase is part of this work. See [audit handoff](audit-handoff.md) for exact
