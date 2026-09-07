@@ -1,257 +1,112 @@
 # Dolly
 
-Dolly is an experiment in defining the smallest useful coding-agent userspace
-for the browser. A wasm64 kernel owns the in-memory userspace, while ordinary
-programs run in private wasm64 memories and reach that shared state only through
-the typed Dolly process ABI. The complete userspace communicates with the
-outside world only through explicit browser imports.
+Dolly is a minimal POSIX-like coding-agent userspace inside a browser's wasm64
+sandbox. Programs are ordinary executable files found through `PATH`. Slop,
+compilers, language runtimes and tools share one filesystem owned by the Wasm
+kernel; the browser provides neither a host filesystem nor native subprocesses.
 
-The project is deliberately not “Linux in a tab.” It asks a narrower question:
-which files, commands, lifecycle operations, clocks, entropy, and network
-facilities do real coding agents actually need?
+The experiment is the compile target: typed imports/exports, memory layout,
+files and command lifecycle. See [AGENTS.md](AGENTS.md) for the design intent.
 
-## Current state
+## Try an image
 
-Dolly currently boots a source-built userspace containing:
+The home page lists source-visible Dollyfiles and their prebuilt/rebuild routes.
 
-- the finite Slop shell and separately compiled core commands in `/bin`;
-- Clang 24, LLD, C and C++23 compilation, archives, and dynamic loading;
-- GNU Make, Ninja-compatible Samurai, One True Awk, sbase utilities, zlib,
-  Git, and Fetch-backed libcurl;
-- an optional Python image with source-built CPython 3.14 and Bonnie for
-  recursive, hash-verified wheel and source-distribution builds through that
-  same libcurl. C/C++ extensions and fresh NumPy/Pandas source builds pass
-  browser checks; see [port status](docs/port-status.md) for scope.
-  CPython reports the distinct `dolly`
-  platform, raw sockets fail explicitly, upstream `termios` controls Dolly's
-  in-Wasm line discipline, requirements files are accepted sequentially, and
-  wheel console entry points become separately compiled wasm64 PATH commands;
-  offline environment inspection includes dependency-consistency checks;
-- QuickJS-ng with the Janis Node-shaped compatibility layer;
-- TypeScript 5.9.3 running under Janis as `/usr/bin/tsc`, with single- and
-  multi-file ESM compilation into WasmFS and target-side emit of the exact
-  seven-package, 495-module upstream Pi runtime workspace;
-- `/usr/bin/pi` loading that source-built, unbundled workspace plus an explicit
-  lockfile-verified external package profile through Janis's WasmFS-only ESM,
-  CommonJS, and JSON resolver; the full TUI, JavaScript extensions, timer
-  animation, fixture streaming, and a real OpenRouter tool/install turn pass
-  without a host-generated application bundle;
-- optional [browser-local Qwen inference](docs/browser-local-models.md) in
-  `/pi-local/`, through the existing HTTP broker with no additional Wasm imports;
-  `Ctrl+Shift+L` loads a model on a compatible WebGPU device;
-- [source-built Neovim](docs/neovim.md) in `/neovim/`, opening the editor
-  immediately and returning to Slop after `:q`;
-- `/dollyfile-studio/`: Pi + Neovim for creating custom images, with local
-  models, working examples, a Pi skill, syntax highlighting and linting;
-- `upload DESTINATION` and `download FILE` for explicit local-user file
-  transfer; uploads require a file selection and never overwrite;
-- `Ctrl+Shift+V`/`Ctrl+Shift+C` paste and copy through bounded in-Wasm
-  clipboard buffers, plus browser-tested OpenRouter/Codex login flows;
-- native wasm64 Zig in `/ghostty-build/`, whose finished Ghostty terminal is
-  copied into system images for in-Wasm text rasterization;
-- an exclusive in-Wasm RGBA framebuffer lease for games and visual tools, with
-  automatic terminal restoration on return or Ctrl-C; the gamedev image adds
-  source-built raylib 6.0, Box3D 0.1.0, a Pi skill, and an interactive 3D
-  physics game; `/bhop/` adds Airtime, a first-person strafe-jumping course with
-  click-to-capture mouse look and Space/wheel jumping;
-- Ghostty-owned selection and scrollback inside Wasm. Phone-oriented controls
-  belong to programs in separate images, starting with `/gamedev-phone/`.
+- `/default/`: Slop, C/C++, Make, Git and conventional command-line tools.
+- `/python/` and `/python-pi/`: CPython, Bonnie package installation and optional Pi.
+- `/pi/` and `/pi-local/`: Pi running under QuickJS-ng/Janis, with remote or
+  browser-local models.
+- `/neovim/`: source-built Neovim; `:q` returns to Slop.
+- `/gamedev/` and `/bhop/`: source-built raylib/Box3D and the Foundry
+  strafe-jumping course.
+- `/dollyfile-studio/`: Pi, Neovim syntax/linting and examples for creating images.
+  `dollyfile-build --open FILE` requests browser approval, streams build logs,
+  and opens the verified result.
 
-The root page is an image and documentation menu generated from source-visible
-Dollyfiles. `/default/`, `/pi/`, `/python/`, `/python-pi/`, and `/gamedev/` restore snapshots cryptographically
-bound to their exact recipe chains, entry records, and retained manifests. Each
-image's `/rebuild/` route compiles `/bin/dollyfile` inside Wasm, then that C
-program fetches and verifies every independent `SOURCE` and executes the recipe
-strictly row by row. Prebuilt boot does not download image source inputs.
-Both boot paths expose the same declared system files, including `/bin/dollyfile`
-and the explicitly retained compiler SDK; startup does not run acceptance tests.
-Most frontend images' final startup modules install `/home/dolly/.dollyrc`; their ordinary
-Slop entry script runs that file before the selected application, keeping
-greetings and suggested commands in source-visible userspace.
-Reusable system, JavaScript, Python, Pi and graphics SDK images separate expensive
-builds from small tools and startup edits; see [image composition](docs/dollyfile.md#build-reuse).
-Mutable runtime state never becomes browser or host filesystem state.
-Named sessions are the explicit exception in storage direction: Ctrl+Shift+S
-serializes filesystem changes against the base image, compresses them, and stores
-the opaque bytes in same-origin IndexedDB. `/session/` lists local saves;
-`/session/NAME` restores one whose runtime build and Dollyfile identity still match.
+`/custom/` accepts a pasted or uploaded Dollyfile and builds it in a fresh
+sandbox. Recipes run sequentially; source hashes and image identities are
+verified. Prebuilt launches skip compilation and source downloads. Expensive
+builder images are separate: system images copy Ghostty's finished display
+library without retaining its Zig SDK.
 
-The menu's **Run a Dollyfile** link opens `/custom/` for text or file upload.
-A bounded browser-side syntax check selects the rebuild route; the C
-engine remains authoritative. The text stays in the current tab's
-`sessionStorage` and executes at `/custom/rebuild/` in a fresh Wasm
-sandbox. Selecting a file does not upload the recipe to the server.
-Because that source is tab-local rather than a packaged image identity,
-uploaded custom images do not yet support named-session save/restore.
-Studio's `dollyfile-build --open FILE` submits the same isolated build through
-the existing HTTP broker, with browser approval and streaming logs. Completed
-images open from the verified cache at `/custom/run/`; see the
-[build workflow](docs/image-build-service.md).
+`upload DESTINATION` asks the user to choose one file; `download FILE` exports
+one. `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+S` saves filesystem changes in this
+browser, and `/session/` lists named saves. `/session/NAME` restores a matching
+base image plus those changes, not running processes. Custom-image save/load
+is not implemented. See [sessions](docs/sessions.md).
 
-The browser must support shared WebAssembly memory64 and table64. Chrome does;
-Safari/WebKit support is version-dependent. On iPhone and iPad every browser
-uses the installed WebKit engine. Dolly does not silently fall back to wasm32
-because pointer width is part of its machine ABI.
+Dolly requires shared WebAssembly memory64 and table64; there is no wasm32
+fallback. Local Qwen additionally requires a compatible hardware WebGPU adapter.
+`Ctrl+Shift+L` opens its model picker and setup help; see
+[local models](docs/browser-local-models.md).
 
-## Architecture
+## The boundary
 
 ```text
-trusted browser page
-  ├─ fixed startup assets
-  ├─ raw input + bounded RGBA canvas blit
-  ├─ explicit user-selected file input → bounded upload mailbox
-  ├─ explicit bounded file download → local user
-  └─ env.dolly_http_dispatch       ← sole agent-selected network edge
-              │
-              ▼
-wasm64 kernel
-  ├─ WasmFS, descriptors, cwd, environment, terminal, lifecycle
-  ├─ resident Ghostty display plugin
-  └─ typed, copying process gate
-              │
-              ├─ Slop and each /bin or /usr/bin command
-              ├─ language runtimes and their process-local DSOs
-              ├─ private Clang/LLD compiler executable
-              └─ standalone Zig compiler (ghostty-build image only)
-                 (one Worker and private memory per running process)
+trusted browser imports and providers
+  ├─ bounded input/display, explicit user file transfer and opaque session storage
+  └─ env.dolly_http_dispatch → browser policy → Fetch
+                 │
+wasm64 kernel: filesystem, descriptors, environment and lifecycle
+                 │ typed process gate
+                 └─ ordinary programs in private Wasm memories
 ```
 
-Assume that every byte inside the Wasm machine is compromised. Containment
-comes from the outer import boundary, not from permissions between commands.
-The browser does not provide a host filesystem, native subprocesses, sockets,
-DOM access, or ambient `fetch`. See [the security model](docs/security.md).
-Start with the short [browser-boundary review guide](docs/browser-boundary.md)
-to trace the actual imports and the complete HTTP path.
+Assume the entire Wasm userspace is compromised. Internal process separation
+supports lifecycle and compatibility; the outer browser imports provide host
+containment. Programs receive no ambient Fetch, sockets, DOM or JavaScript
+evaluation capability. Unsupported operations fail explicitly.
+
+The demo intentionally allows arbitrary HTTP(S), including credentials stored
+inside Dolly. It therefore does **not** prevent exfiltration of sandbox data.
+A restricted embedding must enforce destination/header/resource policy in the
+browser broker. CORS still applies. Start with the human-readable
+[boundary review](docs/browser-boundary.md) and [HTTP contract](docs/http.md).
 
 ## Build and run
 
-Requirements: Node.js, npm, Git, Google Chrome, Docker or Podman, host Python
-3.14, and a host C/C++ compiler with GNU Make. Python prepares CPython sources;
-the compiler/Make build the pinned Bison source generator. The LLVM seed builds
-and runs its native tools inside the pinned container. These are build-time
-tools; the browser runtime never uses host Python or processes.
+Build-time requirements: Node.js/npm, Git, Google Chrome, Docker or Podman,
+Python 3.14, a host C/C++ compiler and GNU Make. These bootstrap tools are not
+available to sandbox programs.
 
 ```sh
 npm ci
-./scripts/build-toolchain.sh   # expensive one-time wasm64 Clang/LLD seed
-npm test                      # build, snapshot, static tests, browser proof
-npm run publish               # verify/test a complete app, publish locally, package Pages
-npm run serve                 # http://127.0.0.1:8080/
+./scripts/build-toolchain.sh   # expensive one-time compiler seed
+npm test                      # build images, source tests and real browser checks
+DOLLY_BUILD_IMAGES=all npm run publish
+DOLLY_PORT=9000 npm run serve
 ```
 
-The Pages deployment is intentionally artifact-based: the current browser
-bundle is hundreds of megabytes and does not belong in Git history. After a
-local audited build, `scripts/package-pages.sh` creates the static release
-asset consumed by the manual `Deploy Dolly demo` workflow. It checks all
-packaged images in Chrome and binds acceptance to a complete file manifest and
-the source hashes. The workflow requires the artifact SHA-256 and source commit,
-checks the archive before extraction, and verifies its contents against that
-checkout. Commit changes before making an artifact intended for deployment;
-dirty local builds remain usable but do not match a committed release.
-Take the digest from the audited local build, not a second download from the
-release being verified. A tiny same-origin
-service worker supplies the COOP/COEP headers that GitHub Pages cannot set.
-Packaged snapshots use gzip delivery to keep the images below the Pages
-site size limit; the browser bounds decompression and verifies the original
-snapshot size and SHA-256 before loading it into Wasm.
-The local server reads `build/releases/current`, never mutable `dist/` or source
-files. Publishing atomically switches the complete app; failed builds leave the
-last version available, and open tabs keep digest-pinned assets. Old release
-directories stay available for those tabs. After source changes, build the
-affected outputs and run `npm run publish` to update the served app.
-`DOLLY_BUILD_IMAGES` also limits the published catalog; a partial publication
-replaces the menu, it does not merge with the previous release. Use
-`DOLLY_BUILD_IMAGES=all npm run publish` to keep every image available.
-The public Pages embedding permits generic HTTP(S) through Dolly's one browser
-broker, including sandbox-supplied credential headers. This is useful for
-agents and deliberately not safe against exfiltration from a compromised
-userspace. A stricter embedding can install exact destination rules without
-changing the Wasm runtime.
+The server reads `build/releases/current`, never mutable source or `dist/`.
+Publication verifies the whole catalog and switches it atomically; old releases
+remain available to pinned tabs. `DOLLY_BUILD_IMAGES` limits the published
+catalog, replacing rather than merging the menu.
 
-Useful narrower commands:
+For narrower iteration, use `npm run image -- pi` to prepare one image,
+`DOLLY_SNAPSHOT_IMAGE=pi npm run snapshot` to rebuild its snapshot, and
+`node --test test/*.test.mjs` for source checks.
+
+Static deployments export a verified release:
 
 ```sh
-npm run build:runtime         # build the runtime without exporting a snapshot
-npm run image -- pi           # prepare image inputs and reuse the existing runtime
-npm run snapshot              # refresh routes, rebuild, and package every image
-DOLLY_SNAPSHOT_IMAGE=python npm run snapshot
-DOLLY_SNAPSHOT_IMAGE=python npm run snapshot:reproducible
-npm run census -- default
-npm run fingerprint -- default
-node --test test/dolly.test.mjs
-./scripts/test-browser.sh
+npm run export:static -- build/releases/current build/static-site /
 ```
 
-The development HTTP broker is intentionally permissive and is not a safe
-deployment policy. A real embedding must install exact destination rules and
-explicitly allow only the sandbox credential-header names those destinations
-need. Credential values remain inside Dolly; the browser does not inject them.
+Use `/dolly/` for a nested deployment. The exporter does not upload anything;
+routing, headers, immutable caching and retention requirements are documented in
+[deployment](docs/deployment.md). Commit before producing an artifact intended
+for the manual Pages workflow; published binaries do not belong in Git history.
 
-## Contracts and documentation
+## Further reading
 
-- [Architecture](docs/architecture.md) — kernel, private processes, compiler,
-  filesystem, lifecycle, snapshot, and display design.
-- [Process model](docs/process-model.md) — executable format, copying syscall
-  gate, process trees, deadlines, and cancellation.
-- [ABI](abi/README.md) — canonical WAT contracts, executable format, validation,
-  and generated build glue.
-- [Security](docs/security.md) — threat model, trusted computing base, single
-  egress edge, and required invariants.
-- [Boundary review](docs/browser-boundary.md) — the small set of files to read
-  to understand and check browser authority.
-- [HTTP](docs/http.md) — typed request surface, libcurl compatibility, and
-  browser-side policy.
-- [CORS](docs/cors.md) — the browser constraint and safe relay options.
-- [Download](docs/download.md) — the explicit bounded WasmFS-to-local-user
-  file export contract.
-- [Sessions](docs/sessions.md) — opaque WasmFS save/restore through gzip and
-  same-origin IndexedDB.
-- [Slop and Make](docs/slop.md) — the deliberately finite shell language and
-  synchronous build semantics.
-- [Display ownership](docs/display.md) — fullscreen framebuffer leases, input,
-  double buffering, and terminal restoration.
-- [Sources](docs/sources.md) — source pins, patches, generated artifacts, and
-  reproducibility policy.
-- [Platform census](docs/platform-census.md) — exact typed imports by sealed
-  image and the path toward workload-derived ABI evidence.
-- [Capability fingerprints](docs/capability-fingerprint.md) — compact separate
-  identities for browser authority and complete sealed-image contents.
-- [Port status](docs/port-status.md) — evidence for current and deferred ports.
-- [Neovim](docs/neovim.md) — source-built editor, builder images and limitations.
-- [Pi compatibility](docs/pi-agent-plan.md) — current Pi/Janis boundary,
-  evidence, and next work.
-- [JavaScript runtime choice](docs/javascript-runtime.md) — why QuickJS-ng is
-  retained and what would justify replacing it.
-- [Zig and Ghostty](docs/zig-ghostty.md) and the
-  [native Zig bootstrap](docs/native-zig-bootstrap.md) — focused runtime
-  experiments.
-- [Project audit](docs/audit-2026-08-30.md) and agent workload audits from
-  [2026-08-31](docs/agent-audit-2026-08-31.md) and
-  [2026-09-01](docs/agent-audit-2026-09-01.md) — dated verification records;
-  current priorities live in the roadmap.
-- [Roadmap](docs/roadmap.md) — prioritized next milestones and acceptance gates.
-- [Audit handoff](docs/audit-handoff.md) — remaining September 5 findings,
-  evidence, acceptance gates, and uncommitted checkpoint state.
-- [Dollyfile version 3](docs/dollyfile.md) — the C-executed sequential
-  source-to-snapshot recipe and image identity model.
+- [Dollyfile language](docs/dollyfile.md) and [Studio build service](docs/image-build-service.md).
+- [Architecture](docs/architecture.md), [process model](docs/process-model.md) and
+  [canonical ABI](abi/README.md).
+- [Source pins and preparation](docs/sources.md), [port status](docs/port-status.md)
+  and [Slop/Make](docs/slop.md).
+- [Audit handoff](docs/audit-handoff.md): current evidence and remaining work.
 
-## Design rules
-
-- WAT/Wasm and C headers are the contracts; JSON is generated only for tools
-  that require it.
-- Programs are ordinary files found through `PATH`, not browser registrations
-  or `argv[0]` multicalls.
-- Unsupported behavior fails explicitly. Compatibility must not silently turn
-  into a host capability or a plausible-but-wrong result.
-- Serial, synchronous implementations are preferred until a real agent
-  workload proves that concurrency is necessary.
-- New imports are capabilities and require contract, policy, and browser-test
-  review.
-
-Dolly is still a research prototype. The private process ABI is experimental,
-and the resident display plugin still uses an Emscripten-specific interface.
-Janis is a subset rather than Node, and the Pi external package profile is not
-a general package manager. Git HTTP clone/fetch/push works with CORS-enabled remotes;
-configured clean/smudge filters remain unsupported. Process termination
-reclaims each command's private memory; the shared
-filesystem remains alive in the kernel.
+Dolly is a research prototype, not full Linux, Node or libcurl compatibility.
+The process ABI is experimental; the display plugin remains Emscripten-specific.
+Small local models are not yet reliable for independent Studio workflows,
+fd/ripgrep are missing, and the isolated Codex port is not a working full agent.

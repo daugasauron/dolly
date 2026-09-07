@@ -2,7 +2,7 @@
 
 `Ctrl+Shift+S` saves files in the current image. The first save asks for
 a name; later saves update it. A small notification reports progress, success,
-or failure. The phone menu has the same save action and a link to saved sessions.
+or failure.
 Names use 1–64 ASCII letters, digits, dots, underscores, or hyphens;
 `.`, `..`, and the static listing document `index.html` are reserved.
 
