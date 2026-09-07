@@ -37,7 +37,7 @@ test("unreferenced module sources are admitted without staging their inputs or e
 test("images separate reusable runtimes from applications and configuration", async () => {
   const expected = {
     system: [], default: ["system"], javascript: ["system"],
-    "pi-runtime": ["javascript"], pi: ["pi-runtime"],
+    "pi-runtime": ["javascript"], pi: ["pi-runtime"], "pi-local": ["pi"],
     "python-runtime": ["system"], python: ["python-runtime"],
     "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
     "gamedev-phone": ["gamedev"],

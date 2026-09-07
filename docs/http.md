@@ -2,6 +2,12 @@
 
 ## One outer capability
 
+The browser-local model experiment routes reserved `*.dolly.invalid` addresses
+to an independent inference worker through this same mailbox. It uses separate
+local admission and never forwards those destinations to Fetch. See the
+[local model protocol](browser-local-models.md); ordinary network policy below
+continues to apply to real HTTP destinations.
+
 Programs do not import Fetch, sockets, DNS, or TLS. They call an in-Wasm C API,
 which eventually reaches this one kernel-module import:
 

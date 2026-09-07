@@ -67,6 +67,12 @@
         max-width: calc(100vw - 2rem); padding: 0.5rem 0.75rem;
         background: #262626; border: 1px solid #77736c; font-size: 14px;
       }
+      #local-model { position: fixed; right: 0.6rem; bottom: 0.6rem; z-index: 6;
+        background: #262626; border: 1px solid #77736c; padding: 0.6rem;
+        font: 14px/1.4 monospace; max-width: min(360px, calc(100vw - 1.2rem)); }
+      #local-model summary { cursor: pointer; }
+      #local-model p { margin: 0.7rem 0; }
+      #local-model button { font: inherit; padding: 0.35rem 0.5rem; cursor: pointer; }
       @media (max-width: 640px) {
         #bootstrap-log { padding: 0.65rem 0.75rem; }
       }

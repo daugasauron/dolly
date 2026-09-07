@@ -59,6 +59,18 @@ an allowlist bounds authority, not the intent of each request.
 
 ## Check for other authority
 
+The `pi-local` experiment also exposes bounded browser-local inference through
+the same HTTP mailbox, with no additional Wasm import. Review
+[`src/local-model-service.mjs`](../src/local-model-service.mjs) for reserved URL
+routing, local admission, byte/deadline bounds and cancellation;
+[`src/local-model-contract.mjs`](../src/local-model-contract.mjs) for request
+validation; and [`src/webgpu-worker.mjs`](../src/webgpu-worker.mjs) plus
+`config/webgpu-assets.json` for the independent accelerator and fixed, verified
+asset graph. The worker receives no Dolly memory or tool callbacks. Browser
+controls select model loading; guest calls cannot download arbitrary assets.
+Build workers deny every reserved local destination. Remote HTTP rules do not
+grant local inference. See [the local service contract](browser-local-models.md).
+
 The remaining imports supply clocks, entropy, startup data, memory growth,
 abort, and bounded local output/device operations. They do not grant host
 paths, native processes, sockets, DOM access, or JavaScript evaluation.

@@ -14,6 +14,7 @@ staging="$(mktemp -d)"
 mkdir -p "$(dirname -- "${output}")"
 temporary_output="$(mktemp "$(dirname -- "${output}")/.dolly-pages.XXXXXX")"
 
+node "${project_dir}/scripts/build-webgpu-assets.mjs"
 node "${project_dir}/scripts/generate-routes.mjs"
 
 mapfile -t image_rows < <(node "${project_dir}/scripts/list-images.mjs")
@@ -108,12 +109,14 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/session-transport.mjs" \
   "${project_dir}/src/sessions.mjs" \
   "${project_dir}/src/runtime-worker.mjs" \
+  "${project_dir}/src/local-model-contract.mjs" \
+  "${project_dir}/src/local-model-service.mjs" \
+  "${project_dir}/src/local-model-ui.mjs" \
+  "${project_dir}/src/qwen-completions.mjs" \
+  "${project_dir}/src/webgpu-worker.mjs" \
   "${staging}/site/src/"
 cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
 cp "${project_dir}"/include/dolly/*.h "${staging}/site/include/dolly/"
-node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${staging}/site" \
-  docs/dollyfile.md docs/architecture.md docs/security.md docs/port-status.md \
-  docs/browser-boundary.md docs/http.md docs/sessions.md docs/sources.md
 for image_name in "${image_names[@]}"; do
   cp -R "${project_dir}/build/routes/${image_name}" "${staging}/site/"
 done
@@ -123,6 +126,7 @@ cp -R "${project_dir}/build/routes/custom" "${project_dir}/build/routes/rebuild"
   "${staging}/site/"
 cp "${project_dir}/build/routes/404.html" "${staging}/site/404.html"
 cp -R "${project_dir}/build/routes/view" "${staging}/site/"
+cp -R "${project_dir}/dist/webgpu" "${staging}/site/dist/webgpu"
 source_rows="$(node "${project_dir}/scripts/list-images.mjs" --sources)"
 while IFS=$'\t' read -r source_path source_metadata; do
   case "${source_path}" in
@@ -134,6 +138,9 @@ while IFS=$'\t' read -r source_path source_metadata; do
   mkdir -p "$(dirname -- "${destination}")"
   cp -- "${source_file}" "${destination}"
 done <<< "${source_rows}"
+node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${staging}/site" \
+  docs/dollyfile.md docs/architecture.md docs/security.md docs/port-status.md \
+  docs/browser-boundary.md docs/http.md docs/sessions.md docs/sources.md
 cp \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/dolly-build-id.mjs" \
