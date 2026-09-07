@@ -4,6 +4,11 @@ Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
 locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
+Paused at the user's 2026-09-07 checkpoint request. Application `accbf50` is
+published on port 9000, with all 19 image inventories and 252 source tests passing.
+The real Studio build/log/open/cancel workflow passes against that local release.
+Unchecked items below remain unfinished, not implicitly included in the checkpoint.
+
 - [x] GPU setup guidance beside the model picker; test unavailable adapters and
   a real Chrome GPU load. Do not silently change flags or use a remote fallback.
 - [ ] Genuine fd/ripgrep in every Pi image, resolved from PATH. Check upstream

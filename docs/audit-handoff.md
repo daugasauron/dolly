@@ -2,6 +2,16 @@
 
 ## Latest checkpoint — 2026-09-07
 
+Feature work paused at the user's checkpoint request. Application commit
+`accbf50` is published at `http://localhost:9000/`; all 19 packaged image
+inventories passed (`build/studio-build-publish.log`). Release identity:
+`0b393d78e88ca239792f0efe3c451e3415aba30a5a7cc9563b8721ad1a4535b3`.
+A fresh source-suite run passed all 252 tests (`build/checkpoint-source-final.log`).
+The actual port-9000 Studio build/open test also passed, including incremental
+logs, a source-compiled command in the new tab, failure/denial status, and
+Ctrl-C recovery (`build/studio-build-port9000.log`). No public push or deployment
+was performed. These are focused checks, not a new full browser-suite run.
+
 Chrome GPU errors now link to short setup instructions; unavailable/fallback
 adapters fail before downloading weights. The home page sorts default first,
 then alphabetically. Qwen 3.5 now uses its native function/parameter tool format
@@ -46,19 +56,35 @@ Outstanding defects and verification gaps:
   Fix readiness and fresh-output assertions before treating that run as evidence.
 - **Custom-image persistence:** named-session save/load is unavailable for
   tab-local uploaded recipes. Preserve the validated image identity when adding it.
+  The built result opens from this browser's verified cache; its URL alone is
+  not a portable image or persistent session.
 - **Cold build cost:** uncached CMake took 1,434 seconds and Neovim 264 seconds;
   cached Studio assembly took about 10 seconds. No host compilation fallback.
 
 Remaining feature/release work is tracked in [the overnight plan](overnight-plan.md):
-The bhop expansion and full public source/artifact and static-hosting review
-have not been implemented or completed.
+The bhop expansion is researched but not implemented; the existing game is
+unchanged. The public source/artifact and static-hosting review is unfinished,
+including personal-path cleanup and provider-neutral asset delivery. The current
+package is 775,138,368 bytes, with 123,952,822 compressed snapshot-pack bytes
+shared across 19 images; this is not yet a hosting-cost or cold-load assessment.
 
-The isolated `codex/wasm64-native-agent-20260907` checkpoint (`751919c`) runs the real upstream
-`codex-execpolicy` CLI in Chrome, with correct allow/forbidden results. It found
-and fixed a Rust target allocator-alignment mismatch (16-byte assumption versus
-Emscripten's 8-byte malloc guarantee). Its target patches remain off main; consult
-that branch's `CODEX-HANDOFF.md` before reusing the bootstrap. The full Codex agent
-is still blocked by native runtime/dependency assumptions, not running in Dolly.
+The isolated `codex/wasm64-native-agent-20260907` checkpoint (`cb9314f`) runs the
+real upstream `codex-execpolicy` CLI in Chrome, with correct allow/forbidden
+results, and a Codex HTTP transport through the existing Dolly broker. Browser
+tests verify streaming, binary/JSON/Zstd requests, errors, deadlines and Drop
+cancellation. It also fixes a Rust target allocator-alignment mismatch (16-byte
+assumption versus Emscripten's 8-byte malloc guarantee). These target patches
+remain off main; consult that branch's `CODEX-HANDOFF.md` before reuse.
+
+The full Codex agent is **not running**. Its dependency graph still enables
+native networking and multithreaded Tokio; many callers bypass the HTTP trait.
+Separately, Dolly does not emit SIGCHLD: a quiet child exiting after 100 ms was
+only observed after an unrelated 3-second timer. This needs an in-Wasm lifecycle
+fix, not a new browser import or a polling process shim. No authentication or
+complete agent workflow has been verified. Its final diagnostic still fails
+with 29 socket2/Unix-peer-credential errors; the handoff-only checkpoint
+`47105fd` records the exact command and next lifecycle requirements. That worktree
+is clean and paused, with no experiment processes left running.
 
 ## Current authoring checkpoint — 2026-09-07
 
