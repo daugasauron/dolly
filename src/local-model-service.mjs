@@ -1,6 +1,4 @@
-import { HttpError } from "./http-policy.mjs";
-import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
-import { LOCAL_MODEL_ORIGIN, LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_LIMITS, reservedLocalURL, validateCompletion } from "./local-model-contract.mjs";
+import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_LIMITS, validateCompletion } from "./local-model-contract.mjs";
 
 const encoder = new TextEncoder();
 const cancelled = () => new DOMException("Local generation stopped", "AbortError");
@@ -176,31 +174,4 @@ function withURL(response, url) {
 }
 function json(value, status, url) {
   return withURL(new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } }), url);
-}
-
-// Local authority is independent of remote HTTP authority. Always reserve the
-// namespace, including when the service is absent (notably image builders).
-export function localModelTransport(remotePolicy, service, remoteFetch = globalThis.fetch.bind(globalThis)) {
-  function localRule(url, method, bytes) {
-    if (!service || url.origin !== LOCAL_MODEL_ORIGIN || url.username || url.password || url.search || url.hash ||
-        !((method === "GET" && url.pathname === "/v1/models" && bytes === 0) ||
-          (method === "POST" && url.pathname === "/v1/chat/completions")) || bytes > LOCAL_LIMITS.maxRequestBytes) {
-      throw new HttpError(DOLLY_ERRNO.EACCES, "Browser-local service request denied");
-    }
-    return LOCAL_LIMITS;
-  }
-  return {
-    policy: { authorize(url, method, headers, bytes) {
-      if (!reservedLocalURL(url)) return remotePolicy.authorize(url, method, headers, bytes);
-      const rule = localRule(url, method, bytes);
-      for (const name of [...headers.keys()]) headers.delete(name);
-      return rule;
-    } },
-    fetchRequest: (url, init) => {
-      url = new URL(url);
-      if (!reservedLocalURL(url)) return remoteFetch(url, init);
-      localRule(url, init.method, init.body?.byteLength ?? 0);
-      return service.fetch(url, { ...init, headers: new Headers() });
-    },
-  };
 }

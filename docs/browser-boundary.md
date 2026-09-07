@@ -61,8 +61,9 @@ an allowlist bounds authority, not the intent of each request.
 
 The `pi-local` experiment also exposes bounded browser-local inference through
 the same HTTP mailbox, with no additional Wasm import. Review
-[`src/local-model-service.mjs`](../src/local-model-service.mjs) for reserved URL
-routing, local admission, byte bounds, the progress-based idle timeout and
+[`src/local-services.mjs`](../src/local-services.mjs) for the complete, explicit
+local URL admission table; [`src/local-model-service.mjs`](../src/local-model-service.mjs)
+for inference byte bounds, the progress-based idle timeout and
 cancellation; the HTTP broker also caps each local request at ten minutes;
 [`src/local-model-contract.mjs`](../src/local-model-contract.mjs) for request
 validation and the approved model catalog; and [`src/webgpu-worker.mjs`](../src/webgpu-worker.mjs) plus
@@ -72,6 +73,17 @@ controls select one model size to load. The worker permits only that size's
 pinned assets; guest calls cannot load models or change the loaded selection.
 Build workers deny every reserved local destination. Remote HTTP rules do not
 grant local inference. See [the local service contract](browser-local-models.md).
+
+The second explicit local service is image building: two POST paths under
+`https://build.dolly.invalid/v1/builds`, also through the existing HTTP import.
+The browser requires a user approval for each bounded recipe, permits one build
+at a time and terminates its independent Wasm worker on cancellation/deadline.
+That worker gets the parent's remote HTTP policy but neither local service.
+Only a user gesture can reserve/open a result tab; no guest-selected browser URL
+is navigated. Result tabs intersect inherited browser restrictions with the new
+page's policy (`http-policy.mjs`); recipe bytes cannot supply that configuration.
+Completed bytes use the existing verified artifact cache. Review
+[the build service contract](image-build-service.md) and its linked implementations.
 
 The remaining imports supply clocks, entropy, startup data, memory growth,
 abort, and bounded local output/device operations. They do not grant host
@@ -121,7 +133,7 @@ allowlist. That allowlist includes the release's nonempty regular `modules/*.dm`
 including unused modules; it does not admit arbitrary checkout paths or stage
 their dependencies. Source hashes and byte lengths remain exact.
 Missing dependencies run sequentially in disposable Wasm workers;
-`browser.mjs` gives each worker the same HTTP policy and bounded broker handshake.
+`image-builder.mjs` gives each worker the same HTTP policy and bounded broker handshake.
 Their entry programs never start. Artifacts are opaque build results in IndexedDB;
 restoration and all filesystem mutations happen in Wasm. This adds no kernel import
 or guest-selected browser filesystem operation.

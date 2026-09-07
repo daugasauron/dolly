@@ -79,10 +79,14 @@ the opaque bytes in same-origin IndexedDB. `/session/` lists local saves;
 The menu's **Run a Dollyfile** link opens `/custom/` for text or file upload.
 A bounded browser-side syntax check selects the rebuild route; the C
 engine remains authoritative. The text stays in the current tab's
-`sessionStorage` and executes only at `/custom/rebuild/` in a fresh Wasm
+`sessionStorage` and executes at `/custom/rebuild/` in a fresh Wasm
 sandbox. Selecting a file does not upload the recipe to the server.
 Because that source is tab-local rather than a packaged image identity,
 uploaded custom images do not yet support named-session save/restore.
+Studio's `dollyfile-build --open FILE` submits the same isolated build through
+the existing HTTP broker, with browser approval and streaming logs. Completed
+images open from the verified cache at `/custom/run/`; see the
+[build workflow](docs/image-build-service.md).
 
 The browser must support shared WebAssembly memory64 and table64. Chrome does;
 Safari/WebKit support is version-dependent. On iPhone and iPad every browser

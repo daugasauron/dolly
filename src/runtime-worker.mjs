@@ -9,6 +9,7 @@ import { DollyProcessSupervisor } from "./process-supervisor.mjs";
 import { instantiateKernelPlugin } from "./kernel-plugin.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { createHttpAdmission } from "./http-broker.mjs";
+import { checkedCustomArtifact } from "./custom-image.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const snapshotSizeLimit = 512 * 1024 * 1024;
@@ -32,11 +33,10 @@ const configuredImage = bootConfig.image;
 const imageDefinitions = new Map(
   DOLLY_IMAGES.map((definition) => [definition.image, definition]),
 );
-if (!(imageDefinitions.has(configuredImage) ||
-      (configuredImage === "custom" && bootMode === "rebuild"))) {
+if (!(imageDefinitions.has(configuredImage) || configuredImage === "custom")) {
   throw new Error("invalid Dolly image selection");
 }
-if (bootConfig.customSource !== undefined &&
+if ((configuredImage === "custom" || bootConfig.customSource !== undefined) &&
     (typeof bootConfig.customSource !== "string" ||
      encoder.encode(bootConfig.customSource).byteLength > MAX_DOLLYFILE_BYTES ||
      bootConfig.customSource.includes("\0"))) {
@@ -138,7 +138,8 @@ const httpAdmission = createHttpAdmission(request => self.postMessage({ type: "h
 async function boot() {
 try {
   const snapshotMetadata = bootMode === "snapshot"
-    ? await loadPackagedSnapshotMetadata(configuredImage)
+    ? configuredImage === "custom" ? await checkedCustomArtifact(bootConfig.customSource, bootConfig.customArtifact)
+      : await loadPackagedSnapshotMetadata(configuredImage)
     : null;
   const definition = imageDefinitions.get(configuredImage);
   const recipeSha256 = configuredImage === "custom"
@@ -182,6 +183,7 @@ try {
     bootstrapWriteBytes: (bytes) => self.postMessage({ type: "bootstrap-bytes", bytes }),
     httpDispatch: httpAdmission.dispatch,
     downloadDispatch: ({ name, bytes }) => {
+      if (bootConfig.buildOnly) return -DOLLY_ERRNO.ENOSYS;
       if (typeof name !== "string" || name.length === 0 || name.length > 255 ||
           /[\/\\\u0000-\u001f\u007f]/u.test(name) ||
           !(bytes instanceof Uint8Array) || bytes.byteLength > 64 * 1024 * 1024) {
@@ -305,12 +307,17 @@ try {
     }
   } else {
     bootstrapStage("loading precompiled userspace snapshot...");
-    const snapshot = await loadPackagedSystemSnapshot(configuredImage, snapshotMetadata);
+    const snapshot = configuredImage === "custom" ? snapshotMetadata.bytes
+      : await loadPackagedSystemSnapshot(configuredImage, snapshotMetadata);
     const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
     const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
     new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
     bootstrapStatus = dolly._dolly_bootstrap_snapshot(BigInt(range.size));
     snapshotBytes = range.size;
+    if (configuredImage === "custom") {
+      snapshotMetadata.bytes = undefined;
+      bootConfig.customArtifact = undefined;
+    }
   }
   if (bootstrapStatus !== 0) throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
 

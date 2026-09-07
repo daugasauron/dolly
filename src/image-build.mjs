@@ -6,12 +6,13 @@ import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, 
 
 // Only explicit image references schedule builds. Modules still execute in
 // order inside their caller's userspace; this traversal makes no input guesses.
-export async function prepareImageArtifacts(image, customSource, build, report) {
+export async function prepareImageArtifacts(image, customSource, build, report, signal) {
   const definitions = new Map(DOLLY_IMAGES.map(definition => [definition.image, definition]));
   const sources = new Map(DOLLY_STATIC_SOURCES.map(source => [source.path, source]));
   const applicationBase = new URL("../", import.meta.url);
   const artifacts = new Map(), active = new Set();
   async function materialize(node) {
+    signal?.throwIfAborted();
     if (node.artifact?.bytes.byteLength > 0) return node.artifact;
     const { definition, descriptor } = node;
     let artifact = await loadImageArtifact(descriptor);
@@ -23,15 +24,17 @@ export async function prepareImageArtifacts(image, customSource, build, report) 
       if (metadata.sha256 !== descriptor.sha256 || !imageInputsMatch(metadata.inputs, descriptor.inputs)) {
         throw new Error(`${definition.image}: selected image artifact is no longer available; retry the rebuild`);
       }
-      artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(definition.image, metadata),
+      artifact = await describeImageArtifact(await loadPackagedSystemSnapshot(definition.image, metadata, signal),
         definition.sha256, descriptor.inputs);
       report(`reusing published ${definition.image} artifact`);
       await saveImageArtifact(artifact, `/${definition.dollyfile}`);
     }
     node.artifact = artifact;
+    signal?.throwIfAborted();
     return artifact;
   }
   async function customReferences(source, stack = []) {
+    signal?.throwIfAborted();
     if (stack.length >= 16) throw new Error("recipe depth exceeds 16");
     const recipe = inspectDollyfile(source);
     const references = [...recipe.artifacts];
@@ -39,7 +42,7 @@ export async function prepareImageArtifacts(image, customSource, build, report) 
       if (stack.includes(use.location)) throw new Error(`recipe cycle at ${use.location}`);
       const admitted = sources.get(use.location);
       if (admitted?.sha256 !== use.sha256) throw new Error(`${use.location}: module pin is not in this release; update its hash, regenerate routes and republish`);
-      const response = await fetch(new URL(use.location.slice(1), applicationBase), { credentials: "same-origin", redirect: "error" });
+      const response = await fetch(new URL(use.location.slice(1), applicationBase), { credentials: "same-origin", redirect: "error", signal });
       if (!response.ok) throw new Error(`${use.location}: HTTP ${response.status}`);
       const bytes = await response.arrayBuffer();
       if (bytes.byteLength !== admitted.byteLength || await sha256(bytes) !== use.sha256) throw new Error(`${use.location}: module pin mismatch`);
@@ -48,6 +51,7 @@ export async function prepareImageArtifacts(image, customSource, build, report) 
     return references;
   }
   async function resolve(reference) {
+    signal?.throwIfAborted();
     if (artifacts.has(reference.sha256)) return artifacts.get(reference.sha256);
     const definition = DOLLY_IMAGES.find(candidate => `/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
     if (!definition) throw new Error(`${reference.location}: image pin is not present in this release`);
@@ -74,6 +78,7 @@ export async function prepareImageArtifacts(image, customSource, build, report) 
         descriptor = artifact;
       }
     }
+    signal?.throwIfAborted();
     active.delete(definition.image);
     const node = { definition, descriptor, metadata, artifact };
     artifacts.set(definition.sha256, node);

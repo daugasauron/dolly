@@ -1,0 +1,2 @@
+#!/bin/slop
+janis /usr/share/dollyfile-studio/build.mjs "$@"

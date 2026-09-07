@@ -29,6 +29,8 @@ DOLLY_IMAGE=default DOLLY_BROWSER_MODE=custom-dollyfile \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=dollyfile-studio DOLLY_BROWSER_MODE=dollyfile-studio \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=dollyfile-studio DOLLY_BROWSER_MODE=image-build \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=bhop DOLLY_BROWSER_MODE=bhop \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=process-abi \

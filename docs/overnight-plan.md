@@ -9,7 +9,7 @@ or hosting purchase is part of this work.
 - [ ] Genuine fd/ripgrep in every Pi image, resolved from PATH. Check upstream
   tool behavior and Pi startup/search; document any Rust bootstrap boundary.
 - [x] Deterministic home-page ordering, default first then alphabetical.
-- [ ] Studio submits recipes through the existing HTTP broker to an isolated
+- [x] Studio submits recipes through the existing HTTP broker to an isolated
   in-browser build, receives bounded live logs/errors, and can open successful
   output in another tab. Review approval, resource limits and the single boundary.
 - [ ] Manually exercise local Pi in Studio: read the skill, author a real recipe,
@@ -29,8 +29,8 @@ or hosting purchase is part of this work.
 Preserve the last complete local release while building. Publish the whole
 catalog after validated milestones; retain old release assets for open tabs.
 
-Checkpoint requested before further scope: GPU help and catalog ordering are
-done. The Qwen 3.5 native tool-format fix passes source tests and two real GPU
-starters; the repair starter still fails. Studio submission, fd/ripgrep, bhop
-expansion and release review remain open. See [audit handoff](audit-handoff.md)
-for confirmed defects, measured costs and the isolated Codex experiment.
+GPU help, catalog ordering and Studio build/log/open are implemented and browser
+tested. The Qwen 3.5 native tool-format fix passes source tests and two real GPU
+starters; the repair starter still fails. Local-model workflow validation,
+fd/ripgrep, bhop expansion and release review remain open. See
+[audit handoff](audit-handoff.md) for evidence and the isolated Codex experiment.

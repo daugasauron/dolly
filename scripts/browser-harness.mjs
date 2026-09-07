@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { runLocalModelProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
+import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -68,6 +69,7 @@ const terminalUiMode = isMode("terminal-ui");
 const uploadMode = isMode("upload");
 const customDollyfileMode = isMode("custom-dollyfile");
 const studioMode = isMode("dollyfile-studio");
+const imageBuildMode = isMode("image-build");
 const graphicsMode = isMode("graphics");
 const bhopMode = isMode("bhop");
 const debuggerDisconnectMode = isMode("debugger-disconnect");
@@ -198,6 +200,11 @@ const publicSources = new Set([
   "src/image-entry.mjs",
   "src/image-artifact.mjs",
   "src/image-build.mjs",
+  "src/image-builder.mjs",
+  "src/image-build-service.mjs",
+  "src/image-build-ui.mjs",
+  "src/local-services.mjs",
+  "src/custom-image.mjs",
   "src/image-inputs.mjs",
   "src/snapshot-records.mjs",
   "src/process-ffi.mjs",
@@ -230,6 +237,7 @@ const routeDocuments = new Map([
     [`/view/${image}`, `build/routes/view/${image}/index.html`],
   ]),
   ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
+  ["/custom/run", "build/routes/custom/run/index.html"],
   ["/custom", "build/routes/custom/index.html"],
   ["/rebuild", "build/routes/rebuild/index.html"],
   ["/load", "build/routes/load/index.html"],
@@ -723,13 +731,12 @@ async function waitForDebugPort(userDataDir, chrome) {
   throw new Error("timed out waiting for Chrome debugging endpoint");
 }
 
-async function connectDebugger({ debugPort, page }) {
-  const targetResponse = await fetch(
-    `http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(page)}`,
-    { method: "PUT" },
-  );
-  if (!targetResponse.ok) throw new Error(`could not create Chrome target: ${targetResponse.status}`);
-  const target = await targetResponse.json();
+async function connectDebugger({ debugPort, page, target }) {
+  if (!target) {
+    const response = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(page)}`, { method: "PUT" });
+    if (!response.ok) throw new Error(`could not create Chrome target: ${response.status}`);
+    target = await response.json();
+  }
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolveSocket, reject) => {
     socket.addEventListener("open", resolveSocket, { once: true });
@@ -1539,6 +1546,41 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
   await debuggerClient.send("Page.navigate", { url: initialPage });
 
   browserProof: {
+    if (imageBuildMode) {
+      const send = debuggerClient.send;
+      assert.equal(selectedImage, "dollyfile-studio");
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus", value => ["ready", "failed"].includes(value), "Studio build boot"), "ready");
+      await enterRecoveryShell(send);
+      await runImageBuildProof({
+        evaluate: expression => evaluate(send, expression),
+        wait: (expression, predicate, label) => waitForValue(send, expression, predicate, label),
+        submit: command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`),
+        press: key => dispatchKey(send, key),
+        click: async selector => {
+          const point = await evaluate(send, `(() => { const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
+          await send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", buttons: 1, clickCount: 1 });
+          await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", buttons: 0, clickCount: 1 });
+        },
+        openResult: async () => {
+          let target;
+          for (let i = 0; i < 100; i++) {
+            const targets = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
+            target = targets.find(target => new URL(target.url).pathname.endsWith("/custom/run/"));
+            if (target) break;
+            await delay(50);
+          }
+          assert.ok(target, "no result tab opened");
+          const client = await connectDebugger({ debugPort, target });
+          await client.send("Runtime.enable");
+          return {
+            evaluate: expression => evaluate(client.send, expression),
+            wait: (expression, predicate, label) => waitForValue(client.send, expression, predicate, label),
+            close: async () => { await client.send("Page.close"); client.socket.close(); },
+          };
+        },
+      });
+      break browserProof;
+    }
     if (customDollyfileMode) {
       const send = debuggerClient.send;
       const editor = new URL("custom/", menuPage).href;

@@ -1,6 +1,6 @@
 ---
 name: dollyfiles
-description: Create, edit, lint and explain custom Dollyfile images in Dollyfile Studio, using Pi and Neovim inside the browser sandbox.
+description: Create, edit, lint and build custom Dollyfile images in Dollyfile Studio, using Pi and Neovim inside the browser sandbox.
 ---
 
 # Create a Dolly image
@@ -31,11 +31,25 @@ These examples contain the current release's real system-image pin.
    when possible, and clean that directory. The complete image still needs a
    fresh sandbox build. Do not run `/bin/dollyfile` against the active Pi session:
    its FROM and retention operations deliberately replace image state.
-5. When the user requests an export, use Pi's `download` tool, or run
-   `download /workspace/Dollyfile`. On the site's **Run a Dollyfile** page, paste
-   the text or choose the exported file, then **Build and run**. This builds in
-   a fresh sandbox and launches its ENTRY. Report build failures honestly;
-   lint and a scratch compilation are not a successful image build.
+5. Run `dollyfile-build /workspace/Dollyfile` to submit a fresh sandbox build.
+   The browser shows the recipe for user approval; logs stream back to the tool.
+   A nonzero exit is failure: inspect the compiler/builder error, edit the draft,
+   and retry. Lint and a scratch compilation are not a successful image build.
+   Use `dollyfile-build --open /workspace/Dollyfile` when the user wants to run it:
+   **Build and open** reserves a tab on their approval click and launches the
+   verified result when ready. Otherwise **Open image** is offered after success.
+   Ctrl+C or the browser's Cancel stops only the build, not this Studio session.
+
+The build service accepts raw recipe text at
+`https://build.dolly.invalid/v1/builds` (POST), or `/v1/builds/open`. It uses the
+existing HTTP broker, not a native compiler/server. Builds use the same network
+policy, cannot call browser-local services, and are limited to one at a time,
+128 KiB recipes, 8 MiB logs and 45 minutes. For protocol details, read
+`/usr/share/dollyfile-studio/build-service.md`. No credentials or files from the
+active Studio session are automatically copied into the fresh build.
+
+When exporting a recipe, use Pi's `download` tool or `download /workspace/Dollyfile`.
+The site's **Run a Dollyfile** page also accepts pasted/uploaded recipes.
 
 Custom uploads are tab-local and cannot currently be saved as named sessions.
 Keep the recipe itself. Ctrl+Shift+S saves the Studio session's files in this

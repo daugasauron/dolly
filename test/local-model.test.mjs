@@ -4,7 +4,8 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { DollyHttpPolicy } from "../src/http-policy.mjs";
 import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_MODEL_ORIGIN, LOCAL_LIMITS, validateCompletion } from "../src/local-model-contract.mjs";
-import { LocalModelService, localModelTransport } from "../src/local-model-service.mjs";
+import { LocalModelService } from "../src/local-model-service.mjs";
+import { localServicesTransport } from "../src/local-services.mjs";
 import { qwenRequest, qwenCompletions, qwenToolCalls } from "../src/qwen-completions.mjs";
 
 const request = () => ({ model: DEFAULT_LOCAL_MODEL.id, stream: true, messages: [{ role: "user", content: "Hello" }] });
@@ -36,13 +37,13 @@ test("local capability and remote policy are independent; reserved addresses nev
   let fetched = 0;
   const remote = async () => { fetched++; return new Response("remote"); };
   const service = new LocalModelService();
-  const allowed = localModelTransport(new DollyHttpPolicy({ rules: [] }), service, remote);
+  const allowed = localServicesTransport(new DollyHttpPolicy({ rules: [] }), { model: service }, remote);
   const headers = new Headers({ authorization: "secret", "x-custom-key": "secret" });
   assert.equal(allowed.policy.authorize(url, "POST", headers, 10).timeoutMilliseconds, 600_000);
   assert.equal([...headers].length, 0);
   assert.throws(() => allowed.policy.authorize(new URL("https://example.com/"), "GET", headers, 0), /denied/);
   assert.equal((await allowed.fetchRequest(url, init(request()))).status, 409);
-  const denied = localModelTransport(new DollyHttpPolicy(), undefined, remote);
+  const denied = localServicesTransport(new DollyHttpPolicy(), undefined, remote);
   for (const address of [url.href, "https://wllama.dolly.invalid/v1/models", "http://webgpu.dolly.invalid/", "https://dolly.invalid/", "https://webgpu.dolly.invalid./"]) {
     assert.throws(() => denied.policy.authorize(new URL(address), "GET", new Headers(), 0), /denied/);
     assert.throws(() => denied.fetchRequest(address, { method: "GET" }), /denied/);

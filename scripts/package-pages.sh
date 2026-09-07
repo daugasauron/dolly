@@ -38,6 +38,11 @@ for required in \
   src/image-entry.mjs \
   src/image-artifact.mjs \
   src/image-build.mjs \
+  src/image-builder.mjs \
+  src/image-build-service.mjs \
+  src/image-build-ui.mjs \
+  src/local-services.mjs \
+  src/custom-image.mjs \
   src/image-inputs.mjs \
   src/snapshot-records.mjs \
   src/process-ffi.mjs \
@@ -100,6 +105,11 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/image-entry.mjs" \
   "${project_dir}/src/image-artifact.mjs" \
   "${project_dir}/src/image-build.mjs" \
+  "${project_dir}/src/image-builder.mjs" \
+  "${project_dir}/src/image-build-service.mjs" \
+  "${project_dir}/src/image-build-ui.mjs" \
+  "${project_dir}/src/local-services.mjs" \
+  "${project_dir}/src/custom-image.mjs" \
   "${project_dir}/src/image-inputs.mjs" \
   "${project_dir}/src/snapshot-records.mjs" \
   "${project_dir}/src/process-ffi.mjs" \

@@ -13,11 +13,6 @@ export const LOCAL_LIMITS = Object.freeze({
   timeoutMilliseconds: 600_000, idleTimeoutMilliseconds: 120_000, credentialHeaders: new Set(),
 });
 
-export function reservedLocalURL(url) {
-  const host = url.hostname.toLowerCase().replace(/\.$/, "");
-  return host === "dolly.invalid" || host.endsWith(".dolly.invalid");
-}
-
 function check(condition, message) {
   if (!condition) throw new Error(message);
 }

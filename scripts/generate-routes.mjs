@@ -42,6 +42,7 @@ const routes = [
     { path: `${image}/rebuild/index.html`, base: "../../", image, mode: "rebuild", load: false },
   ]),
   { path: "custom/rebuild/index.html", base: "../../", image: "custom", mode: "rebuild", load: false },
+  { path: "custom/run/index.html", base: "../../", image: "custom", mode: "snapshot", load: false },
   { path: "rebuild/index.html", base: "../", image: primaryImage, mode: "rebuild", load: false },
   { path: "load/index.html", base: "../", image: primaryImage, mode: "snapshot", load: true },
   { path: "session/open.html", base: "", image: primaryImage, mode: "snapshot", load: true },

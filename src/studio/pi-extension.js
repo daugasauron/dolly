@@ -5,6 +5,7 @@ export default function (pi) {
       "Dollyfile Studio · /dolly-hello · /dolly-tool · /dolly-fix",
       "Ctrl+Shift+L: load Qwen locally. /model selects a local or remote model.",
       "Ctrl+D leaves Pi; nvim /workspace/Dollyfile opens the editor.",
+      "dollyfile-build --open /workspace/Dollyfile builds with browser approval.",
     ]);
   });
 }

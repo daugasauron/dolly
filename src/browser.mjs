@@ -1,7 +1,10 @@
 import { prepareImageArtifacts } from "./image-build.mjs";
-import { consumeDollyHttpPolicy } from "./http-policy.mjs";
+import { buildImage } from "./image-builder.mjs";
+import { mountImageBuild } from "./image-build-ui.mjs";
+import { loadCustomImage } from "./custom-image.mjs";
+import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./http-policy.mjs";
 import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION } from "./http-broker.mjs";
-import { localModelTransport } from "./local-model-service.mjs";
+import { localServicesTransport } from "./local-services.mjs";
 import { mountLocalModel, toggleLocalModel } from "./local-model-ui.mjs";
 import { SessionTransport } from "./session-transport.mjs";
 import { UploadTransport, chooseUploadFile } from "./upload-transport.mjs";
@@ -712,7 +715,7 @@ function handleKeyboardEvent(event) {
     return;
   }
   if (!transport) return;
-  if (event.target.closest?.("#local-model")) return;
+  if (event.target.closest?.("#local-model, #image-build")) return;
   if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {
     document.exitPointerLock();
     event.preventDefault();
@@ -939,7 +942,6 @@ async function boot() {
       !(packagedImages.has(configured.image) || configured.image === "custom") ||
       !["snapshot", "rebuild"].includes(configured.mode) ||
       typeof configured.loadSession !== "boolean" ||
-      (configured.image === "custom" && configured.mode !== "rebuild") ||
       (configured.loadSession && configured.mode !== "snapshot")) {
     throw new Error("invalid Dolly route configuration");
   }
@@ -972,20 +974,27 @@ async function boot() {
     })),
     ...DOLLY_STATIC_SOURCES,
   ];
-  const httpPolicy = consumeDollyHttpPolicy(
+  let httpPolicy = consumeDollyHttpPolicy(
     window,
     trustedBootstrapSources,
     applicationBase,
   );
+  if (image === "custom" && bootMode === "snapshot") {
+    httpPolicy = restrictDollyHttpPolicy(httpPolicy, JSON.parse(sessionStorage.getItem("dolly-custom-policy")),
+      trustedBootstrapSources, applicationBase);
+  }
   const localModel = mountLocalModel();
-  const applicationNetwork = localModelTransport(httpPolicy, localModel);
-  const buildNetwork = localModelTransport(httpPolicy);
+  const buildNetwork = localServicesTransport(httpPolicy);
+  const imageBuild = mountImageBuild(buildNetwork, httpPolicyConfigurations(httpPolicy));
+  const applicationNetwork = localServicesTransport(httpPolicy, { model: localModel, build: imageBuild });
   const customSource = image === "custom"
     ? sessionStorage.getItem("dolly-custom-source")
     : undefined;
   if (image === "custom" && !customSource) {
     throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
   }
+  const customArtifact = image === "custom" && bootMode === "snapshot"
+    ? await loadCustomImage(customSource, JSON.parse(sessionStorage.getItem("dolly-custom-artifact"))) : undefined;
   appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${restoredSession
     ? `RESTORE SESSION ${restoredSession.name}`
     : bootMode === "rebuild"
@@ -1005,48 +1014,7 @@ async function boot() {
     }
   });
 
-  async function buildDependency(dependencyImage, artifacts) {
-    const worker = new Worker(new URL("./runtime-worker.mjs", import.meta.url), {
-      type: "module", name: `dolly-build-${dependencyImage}`,
-    });
-    let network, admission;
-    const outputDecoder = new TextDecoder();
-    try {
-      return await new Promise((resolve, reject) => {
-        worker.addEventListener("error", reject, { once: true });
-        worker.addEventListener("message", event => {
-          const message = event.data;
-          try {
-            if (message.type === "bootstrap") appendBootstrap(message.text);
-            else if (message.type === "bootstrap-bytes") appendBootstrap(outputDecoder.decode(message.bytes, { stream: true }));
-            else if (message.type === "system-snapshot") resolve({ bytes: message.bytes, inputs: message.inputs });
-            else if (message.type === "error") reject(new Error(message.message));
-            else if (message.type === "broker-ready") {
-              if (network || message.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION ||
-                  !(message.httpAdmission instanceof SharedArrayBuffer) || message.httpAdmission.byteLength !== 8) {
-                throw new Error("invalid build HTTP broker handshake");
-              }
-              admission = new Int32Array(message.httpAdmission);
-              network = new NetworkTransport(message.memory, message.httpAddress, message.httpCapacity,
-                buildNetwork.policy, { fetchRequest: buildNetwork.fetchRequest });
-              worker.postMessage({ type: "broker-ready-ack" });
-            } else if (message.type === "http-request") {
-              if (!network) throw new Error("build requested HTTP before broker setup");
-              void network.dispatch(message).then(result => {
-                Atomics.store(admission, 1, result);
-                Atomics.store(admission, 0, 0);
-                Atomics.notify(admission, 0);
-              }).catch(reject);
-            }
-          } catch (error) { reject(error); }
-        });
-        worker.postMessage({ type: "configure", mode: "rebuild", image: dependencyImage, buildOnly: true, artifacts });
-      });
-    } finally {
-      network?.interrupt();
-      worker.terminate();
-    }
-  }
+  const buildDependency = (image, artifacts) => buildImage(image, artifacts, buildNetwork, appendBootstrap);
   const artifacts = bootMode === "rebuild"
     ? await prepareImageArtifacts(image, customSource, buildDependency, text => appendBootstrap(`${text}\n`)) : [];
 
@@ -1112,11 +1080,13 @@ async function boot() {
     mode: bootMode,
     artifacts,
     ...(customSource === undefined ? {} : { customSource }),
+    ...(customArtifact === undefined ? {} : { customArtifact }),
     ...(sessionSnapshot === undefined ? {} : { sessionSnapshot }),
   };
   runtimeWorker.postMessage(
     workerConfiguration,
-    [...artifacts.map(artifact => artifact.bytes), ...(sessionSnapshot === undefined ? [] : [sessionSnapshot])],
+    [...artifacts.map(artifact => artifact.bytes), ...(sessionSnapshot === undefined ? [] : [sessionSnapshot]),
+      ...(customArtifact === undefined ? [] : [customArtifact.bytes])],
   );
 
   const ready = await new Promise((resolve, reject) => {

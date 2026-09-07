@@ -112,12 +112,13 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   return metadata;
 }
 
-export async function loadPackagedSystemSnapshot(image, metadata) {
+export async function loadPackagedSystemSnapshot(image, metadata, signal) {
   if (metadata.encoding === "packs") {
     const parts = [];
     for (const pack of validateSnapshotPacks(metadata)) {
+      signal?.throwIfAborted();
       const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, packBase);
-      const response = await fetch(url, { cache: "force-cache", credentials: "same-origin", redirect: "error" });
+      const response = await fetch(url, { cache: "force-cache", credentials: "same-origin", redirect: "error", signal });
       if (!response.ok || !response.body) throw new Error(`snapshot pack returned HTTP ${response.status}`);
       const reader = response.body.pipeThrough(new DecompressionStream("gzip")).getReader();
       const bytes = new Uint8Array(pack.byteLength);
@@ -145,7 +146,7 @@ export async function loadPackagedSystemSnapshot(image, metadata) {
   let response;
   try {
     response = await fetch(artifactUrl, {
-      cache: "no-store", credentials: "same-origin", redirect: "error",
+      cache: "no-store", credentials: "same-origin", redirect: "error", signal,
     });
   } catch {
     throw new Error("The packaged system snapshot could not be loaded");

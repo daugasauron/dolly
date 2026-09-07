@@ -6,15 +6,28 @@ Chrome GPU errors now link to short setup instructions; unavailable/fallback
 adapters fail before downloading weights. The home page sorts default first,
 then alphabetically. Qwen 3.5 now uses its native function/parameter tool format
 instead of Qwen 3's JSON envelopes, preserving literal shell/code strings and
-rejecting incomplete calls. No Wasm import or network authority changed.
+rejecting incomplete calls.
 
-All 246 source tests pass (`build/checkpoint-qwen-source.log`). GPU-help and
-menu browser checks pass (`build/overnight-{gpu-help,menu}-browser.log`). The real
+Studio now provides `dollyfile-build [--open] FILE`: explicit browser approval,
+live logs through the existing HTTP broker, a cancellable disposable Wasm build,
+and verified cached-result launch at `/custom/run/`. Local admission is a short
+table in `src/local-services.mjs`. Builders deny local services/downloads; result
+tabs intersect inherited and new-page HTTP restrictions. No Wasm import changed.
+
+Browser evidence: `build/studio-build-policy-browser.log` proves actual command
+submission, output before completion, source-compiled C in the new tab, inherited
+network denial, separate files, failure/denial status and Ctrl-C recovery.
+`build/studio-build-{editor,boundary,local-menu}-browser.log` covers Neovim,
+the exact 28 imports and existing local-model controls. All 252 source tests pass
+(`build/studio-build-source-final2.log`). The final Studio snapshot rebuilt in
+8.5 seconds; the other 18 snapshots and kernel were reused
+(`build/studio-build-snapshot-final.log`). This is not a new cold bootstrap.
+
+GPU-help and menu browser checks pass (`build/overnight-{gpu-help,menu}-browser.log`). The real
 Chrome GPU run passed `/dolly-hello` and `/dolly-tool`, but `/dolly-fix` repeated
 prose until its token limit and created no file. The aggregate local-model test
 therefore **fails** (`build/overnight-qwen-native-browser.log`); this is progress,
-not a reliable end-to-end Studio workflow. The 19 previously verified image
-snapshots and the runtime are unchanged by these frontend edits.
+not a reliable end-to-end agent author/build/debug workflow.
 
 Outstanding defects and verification gaps:
 
@@ -37,8 +50,8 @@ Outstanding defects and verification gaps:
   cached Studio assembly took about 10 seconds. No host compilation fallback.
 
 Remaining feature/release work is tracked in [the overnight plan](overnight-plan.md):
-Studio's HTTP build/log/open workflow, the bhop expansion, and the full public
-source/artifact and static-hosting review have not been implemented or completed.
+The bhop expansion and full public source/artifact and static-hosting review
+have not been implemented or completed.
 
 The isolated `codex/wasm64-native-agent-20260907` checkpoint (`751919c`) runs the real upstream
 `codex-execpolicy` CLI in Chrome, with correct allow/forbidden results. It found

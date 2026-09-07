@@ -142,9 +142,12 @@ if has_module dollyfile-studio; then
     "${project_dir}/src/studio/examples" /usr/share/dollyfile-studio/examples \
     "${project_dir}/src/studio/install.slop" /usr/share/dollyfile-studio/install.slop \
     "${project_dir}/src/studio/lint.mjs" /usr/share/dollyfile-studio/lint.mjs \
+    "${project_dir}/src/studio/build.mjs" /usr/share/dollyfile-studio/build.mjs \
     "${project_dir}/src/dollyfile-view.mjs" /usr/share/dollyfile-studio/parser.mjs \
     "${project_dir}/docs/dollyfile.md" /usr/share/dollyfile-studio/dollyfile.md \
+    "${project_dir}/docs/image-build-service.md" /usr/share/dollyfile-studio/build-service.md \
     "${project_dir}/src/studio/dollyfile-lint" /usr/bin/dollyfile-lint \
+    "${project_dir}/src/studio/dollyfile-build" /usr/bin/dollyfile-build \
     "${project_dir}/src/studio/nvim" /home/dolly/.config/nvim \
     "${project_dir}/src/studio/pi-extension.js" /home/dolly/.pi/agent/extensions/dollyfile-studio.js \
     "${project_dir}/src/studio/prompts" /home/dolly/.pi/agent/prompts \

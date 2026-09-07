@@ -93,7 +93,7 @@ tools in Dolly, using Dolly's filesystem and shell.
 
 ## Browser authority and assets
 
-[`local-model-service.mjs`](../src/local-model-service.mjs) composes local and
+[`local-services.mjs`](../src/local-services.mjs) composes local and
 remote policy independently. All `dolly.invalid` destinations are reserved,
 including unknown services, HTTP variants, trailing dots and disabled routes.
 They cannot fall through to browser Fetch. Image builders get no local service.

@@ -214,3 +214,36 @@ export function consumeDollyHttpPolicy(
   Reflect.deleteProperty(globalObject, "DOLLY_HTTP_POLICY");
   return new DollyHttpPolicy(configuration, trustedSources, applicationBase);
 }
+
+// Trusted browser state for an explicitly opened result tab, never Wasm data.
+export function httpPolicyConfigurations(policy) {
+  if (policy.configurations) return policy.configurations;
+  return [policy.hardened ? { maxRequests: policy.maxRequests, rules: policy.rules.map(rule => ({
+    origin: rule.origin, ...(rule.path === null ? { pathPrefix: rule.pathPrefix } : { path: rule.path }),
+    methods: [...rule.methods], credentialHeaders: [...rule.credentialHeaders],
+    maxRequestBytes: rule.maxRequestBytes, maxResponseBytes: rule.maxResponseBytes,
+    timeoutMilliseconds: rule.timeoutMilliseconds,
+  })) } : null];
+}
+
+export function restrictDollyHttpPolicy(policy, inherited, trustedSources, applicationBase) {
+  if (!Array.isArray(inherited) || inherited.length === 0 || inherited.length > 16 ||
+      new TextEncoder().encode(JSON.stringify(inherited)).byteLength > 65536) {
+    throw new Error("Invalid inherited image HTTP policy");
+  }
+  const configurations = [...new Set([...httpPolicyConfigurations(policy), ...inherited].map(value => JSON.stringify(value)))].map(value => JSON.parse(value));
+  const policies = configurations.map(configuration => new DollyHttpPolicy(configuration ?? undefined, trustedSources, applicationBase));
+  return {
+    configurations,
+    authorize(target, method, headers, bytes) {
+      // Every policy must allow it. Sequential header stripping intersects
+      // credentials too; neither the parent nor the new embedding can widen it.
+      const rules = policies.map(policy => policy.authorize(target, method, headers, bytes));
+      return {
+        maxRequestBytes: Math.min(...rules.map(rule => rule.maxRequestBytes)),
+        maxResponseBytes: Math.min(...rules.map(rule => rule.maxResponseBytes)),
+        timeoutMilliseconds: Math.min(...rules.map(rule => rule.timeoutMilliseconds)),
+      };
+    },
+  };
+}

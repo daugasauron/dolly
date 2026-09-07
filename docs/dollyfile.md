@@ -56,6 +56,12 @@ Linting checks syntax without fetching or executing anything; only a fresh
 image build checks source pins, commands and outputs. Do not run the builder
 against your active Studio filesystem to test a draft.
 
+`dollyfile-build /workspace/Dollyfile` submits a disposable Wasm build through
+the existing HTTP broker. Review and approve it in the browser; logs and errors
+stream back to the command. Add `--open` to reserve a result tab on approval,
+or choose **Open image** after success. See [the build service](image-build-service.md)
+for cancellation, limits and the cached-result identity.
+
 Use `download /workspace/Dollyfile` to export a recipe. In the system/default
 images and their descendants, `upload /workspace/NAME` opens a user-approved
 file chooser for any local file up to 64 MiB. It never replaces an existing

@@ -71,6 +71,14 @@
         max-width: calc(100vw - 2rem); font: inherit; }
       #file-upload::backdrop { background: #0008; }
       #file-upload input, #file-upload button { font: inherit; }
+      #image-build { position: fixed; right: 0.6rem; bottom: 0.6rem; z-index: 7;
+        width: min(520px, calc(100vw - 1.2rem)); max-height: calc(100vh - 1.2rem); overflow: auto;
+        background: #262626; border: 1px solid #f2d45c; padding: 0.75rem; font-size: 15px; }
+      #image-build[hidden], #image-build [hidden] { display: none; }
+      #image-build p { margin: 0 0 0.6rem; }
+      #image-build details { margin-bottom: 0.6rem; }
+      #image-build pre { max-height: 40vh; overflow: auto; white-space: pre-wrap; font: inherit; }
+      #image-build button { color: inherit; background: inherit; border: 1px solid #77736c; font: inherit; cursor: pointer; }
       #local-model { position: fixed; right: 0.6rem; top: 0.6rem; z-index: 6;
         background: #f2d45c; color: #262626; border: 1px solid currentColor; padding: 0.75rem;
         font: 600 15px/1.4 "Dolly IosevkaTerm SemiBold", monospace;
