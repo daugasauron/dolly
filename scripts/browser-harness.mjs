@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { waitForDebugger } from "./browser-startup.mjs";
 import { runLocalModelProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -746,21 +747,6 @@ function startServer() {
   });
 }
 
-async function waitForDebugPort(userDataDir, chrome) {
-  const path = resolve(userDataDir, "DevToolsActivePort");
-  for (let attempt = 0; attempt < 200; attempt++) {
-    if (chrome.exitCode !== null) throw new Error(`Chrome exited with ${chrome.exitCode}`);
-    try {
-      const [port] = (await readFile(path, "utf8")).trim().split("\n");
-      if (port) return Number(port);
-    } catch {
-      // Chrome creates the file after its debugging endpoint is listening.
-    }
-    await delay(50);
-  }
-  throw new Error("timed out waiting for Chrome debugging endpoint");
-}
-
 async function connectDebugger({ debugPort, page, target }) {
   if (!target) {
     const response = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(page)}`, { method: "PUT" });
@@ -1467,14 +1453,6 @@ if (realOpenRouterMode) {
     : await mkdtemp(`${tmpdir()}/dolly-chrome-`);
   if (requestedProfile) await mkdir(userDataDir, { recursive: true });
 }
-for (const transient of [
-  "DevToolsActivePort",
-  "SingletonCookie",
-  "SingletonLock",
-  "SingletonSocket",
-]) {
-  await rm(resolve(userDataDir, transient), { force: true });
-}
 chrome = spawn(chromeBinary, [
   ...(localModelMode ? ["--ozone-platform=x11"] : ["--headless=new"]),
   "--no-sandbox",
@@ -1490,7 +1468,7 @@ chrome = spawn(chromeBinary, [
 ], { stdio: ["ignore", "ignore", "pipe"] });
 chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + bytes.toString()).slice(-8000); });
 
-  const debugPort = await waitForDebugPort(userDataDir, chrome);
+  const debugPort = await waitForDebugger(chrome);
   debuggerClient = await connectDebugger({
     debugPort,
     page: "about:blank",
