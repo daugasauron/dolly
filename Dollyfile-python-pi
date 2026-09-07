@@ -1,20 +1,20 @@
 DOLLY 3
 IMAGE python-pi
 
-FROM HOST /Dollyfile-pi-runtime 61c6198531769c47d95162f448c7fb7aa08e40dc3e5cae9e2d4d70784b8f8b10
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/bin/python /usr/bin/python
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/bin/python3 /usr/bin/python3
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/bin/bonnie /usr/bin/bonnie
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/include/python3.14 /usr/include/python3.14
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/include/ffi.h /usr/include/ffi.h
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/include/ffitarget.h /usr/include/ffitarget.h
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/lib/python3.14 /usr/lib/python3.14
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/lib/bonnie /usr/lib/bonnie
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/lib/libpython3.14.a /usr/lib/libpython3.14.a
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/lib/libffi.a /usr/lib/libffi.a
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/share/licenses/cpython /usr/share/licenses/cpython
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /usr/share/licenses/libffi /usr/share/licenses/libffi
-COPY FROM HOST /Dollyfile-python b373d65ecd2b13ce50418649914d945fa33e7bfc2545d9b0aa1b1426998b18bf /etc/bonnie /etc/bonnie
+FROM HOST /Dollyfile-pi-runtime 24c2314e3ee6f5ca956abef15e49e91df0d482ffdbee075a1cd8f7a57073f221
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/bin/python /usr/bin/python
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/bin/python3 /usr/bin/python3
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/bin/bonnie /usr/bin/bonnie
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/include/python3.14 /usr/include/python3.14
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/include/ffi.h /usr/include/ffi.h
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/include/ffitarget.h /usr/include/ffitarget.h
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/lib/python3.14 /usr/lib/python3.14
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/lib/bonnie /usr/lib/bonnie
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/lib/libpython3.14.a /usr/lib/libpython3.14.a
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/lib/libffi.a /usr/lib/libffi.a
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/share/licenses/cpython /usr/share/licenses/cpython
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /usr/share/licenses/libffi /usr/share/licenses/libffi
+COPY FROM HOST /Dollyfile-python f1217233c69a329728d791480aa4acdf7cb185058ccbaa1a97cb20771dd5217c /etc/bonnie /etc/bonnie
 EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 EXPORTS ENV PYTHONUTF8 1
 

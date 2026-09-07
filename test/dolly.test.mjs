@@ -963,7 +963,11 @@ test("foreground SIGINT is PID-targeted and always has a forced Worker terminati
   assert.match(supervisor, /createProcessMemory\(memoryRequirements\)/);
   assert.match(processKernel, /dolly_process_deadline_remaining\(int pid\)/);
   assert.match(processKernel,
-               /pending_signals & ~\(1u << SIGWINCH\)[\s\S]*?128 \+ signal_number/);
+               /notification_signals = \(1u << SIGCHLD\) \| \(1u << SIGWINCH\)/);
+  assert.match(processKernel,
+               /pending_signals & ~notification_signals[\s\S]*?128 \+ signal_number/);
+  assert.match(processKernel,
+               /process->worker_retired = 1;[\s\S]*?parent->pending_signals \|= 1u << SIGCHLD/);
   const timeoutCommand = await readFile(
     new URL("../src/commands/timeout.c", import.meta.url), "utf8",
   );

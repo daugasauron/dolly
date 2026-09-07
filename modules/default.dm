@@ -6,7 +6,7 @@ USE HOST /modules/bootstrap.dm      aee346d9fdc9ddfdffdcf74d0a58647f5b49110e8dc8
 USE HOST /modules/core-tools.dm     42bc8954f5f995a05262752bac670967c3a5a13edcecca7e325dc814d28506b2
 USE HOST /modules/download.dm       74b6c1c6a911150a593758806ee5939f52f42cdb93632f68406adcecb0ca03bf
 USE HOST /modules/upload.dm         71da809b012f0228082a39240075387b23a44d8ba24a3a641b0f85a899606ea0
-USE HOST /modules/tar.dm            0bff7c2d25ab0ce49401bd2e32f341520663f3e3d21d6d4f5bbd73a083a725c5
+USE HOST /modules/tar.dm            cc9e50ec101244cbf57f926b82d537da9efe0d18d483a8b3f38dfde350960101
 USE HOST /modules/make.dm           f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9fd0225dd8f05ea0e02a1
 USE HOST /modules/cpp.dm            a7ede03621f9a6de44d4c2c9dbe64dce96c87b286aab6216a3390c64eb3eed52
 USE HOST /modules/ninja.dm          84b060b2ab700c37083cd698a619630d1f25663156320a0acae3fe07053777f7

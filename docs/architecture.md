@@ -94,6 +94,11 @@ the typed kernel operations, which alone reach the browser broker. Fork and
 threads are absent; serialized process-shaped behavior is preferred whenever
 that is enough for agent tooling.
 
+Child retirement queues a coalesced SIGCHLD notification only after WAIT can
+collect the exit status. Its default disposition is nonterminating; local
+signal masks defer handlers. This is not job control or complete POSIX siginfo:
+child status comes from waitpid, and SA_NOCLDWAIT remains unsupported.
+
 ## Compiler and C++
 
 Clang 24, LLD and LLVM live in an ordinary private compiler executable. Small

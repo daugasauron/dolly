@@ -23,6 +23,8 @@ import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cas
 import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git-transport.mjs";
 import { runUploadProof, selectFile } from "../test/fixtures/upload-browser.mjs";
 import { runStudioModelProof } from "../test/fixtures/studio-model-browser.mjs";
+import { tarArchive } from "../test/fixtures/tar.mjs";
+import { gzipSync } from "node:zlib";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const imageDefinitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -1937,6 +1939,14 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         const signals = await readFile(resolve(projectDir, "test/fixtures/process-signals.c"), "utf8");
         assert.equal(await submit(`printf '%s\\n' ${signals.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/signals.c`), 0);
         assert.equal(await submit(`cc -O0 -rdynamic ${scratch}/signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`), 0);
+        const childSignals = await readFile(resolve(projectDir, "test/fixtures/process-sigchld.c"), "utf8");
+        assert.equal(await submit(`printf '%s\\n' ${childSignals.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/sigchld.c`), 0);
+        assert.equal(await submit(`cc -O0 ${scratch}/sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`), 0);
+        const tar = tarArchive("nested/message", Buffer.from("TAR-STDIN-OK\n"));
+        const octal = bytes => [...bytes].map(byte => "\\" + byte.toString(8).padStart(3, "0")).join("");
+        assert.equal(await submit(`printf '${octal(gzipSync(tar))}' > ${scratch}/input.tgz`), 0);
+        assert.equal(await submit(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch}`), 0);
+        assert.equal(await submit(`test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`), 0);
         let ignoreFinished = false;
         const ignoring = submit(`${scratch}/signals ${scratch} ignore-loop`).then(status => {
           ignoreFinished = true;

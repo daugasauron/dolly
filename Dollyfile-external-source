@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE external-source
 
-FROM HOST /Dollyfile-system fa5e99e4866209e7782397d04a399383f6429ef018a55a6faf33e8561d746e10
+FROM HOST /Dollyfile-system 70aed4c44336876331b9325478560391d17cc20f2bc130ccbf3a0512c4530765
 
 # Unchanged xxd source from Vim 9.1.0000, fetched directly from upstream.
 SOURCE URL https://raw.githubusercontent.com/vim/vim/b4ddc6c11e95cef4b372e239871fae1c8d4f72b6/src/xxd/xxd.c /usr/src/xxd/xxd.c 081c52b38668bb1f68afbb9fef4d73eec88fc12f6ac0f8bef5abf4332d8a61d0

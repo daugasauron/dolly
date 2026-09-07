@@ -228,6 +228,8 @@ static int supported_signal(int signal_number) {
       signal_number == SIGPIPE || signal_number == SIGTERM || signal_number == SIGWINCH;
 }
 
+static const uint32_t notification_signals = (1u << SIGCHLD) | (1u << SIGWINCH);
+
 void dolly_kernel_terminal_resized(void) {
   if (!foreground_pid) return;
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; index++) {
@@ -2228,7 +2230,7 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
        * signal-unaware program turn Ctrl-C into an arbitrary failure status.
        * A runtime that deliberately handles SIGINT acknowledges it through
        * DOLLY_PROCESS_INTERRUPT_POLL. */
-      const uint32_t terminating = process->pending_signals & ~(1u << SIGWINCH);
+      const uint32_t terminating = process->pending_signals & ~notification_signals;
       const int signal_number = request.signal_number != 0
           ? (int)request.signal_number : (terminating ? __builtin_ctz(terminating) : 0);
       const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
@@ -2237,8 +2239,8 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
         const dolly_kernel_process *child = &process_table[index];
         if (child->parent_pid == process->pid && child->state == DOLLY_KERNEL_PROCESS_RUNNING &&
-            ((child->pending_signals & ~(1u << SIGWINCH)) ||
-             (child->handling_signal && child->handling_signal != SIGWINCH)))
+            ((child->pending_signals & ~notification_signals) ||
+             (child->handling_signal && !(notification_signals & (1u << child->handling_signal)))))
           return DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
       mark_process_exited(process, status, signal_number);
@@ -2307,6 +2309,7 @@ int dolly_process_worker_retired(int pid) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;
   if (process->state != DOLLY_KERNEL_PROCESS_EXITED) return -EINVAL;
+  if (process->worker_retired) return 0;
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     const dolly_kernel_process *child = &process_table[index];
     if (child->state != DOLLY_KERNEL_PROCESS_FREE &&
@@ -2319,6 +2322,10 @@ int dolly_process_worker_retired(int pid) {
     }
   }
   process->worker_retired = 1;
+  /* WAIT must see the child as waitable before its parent's handler runs. */
+  dolly_kernel_process *parent = find_process(process->parent_pid);
+  if (parent != NULL && parent->state == DOLLY_KERNEL_PROCESS_RUNNING)
+    parent->pending_signals |= 1u << SIGCHLD;
   if (foreground_pid == pid) dolly_terminal_discard_pending_input();
   refresh_foreground();
   return 0;

@@ -22,6 +22,7 @@ FILE /tmp/bootstrap/tar.c
       unsigned char *bytes = bytes_value;
       while (length != 0) {
         const ssize_t count = read(descriptor, bytes, length);
+        if (count < 0 && errno == EINTR) continue;
         if (count < 0) return -1;
         if (count == 0) {
           errno = EIO;
@@ -37,7 +38,9 @@ FILE /tmp/bootstrap/tar.c
       const unsigned char *bytes = bytes_value;
       while (length != 0) {
         const ssize_t count = write(descriptor, bytes, length);
-        if (count <= 0) return -1;
+        if (count < 0 && errno == EINTR) continue;
+        if (count < 0) return -1;
+        if (count == 0) { errno = EIO; return -1; }
         bytes += (size_t)count;
         length -= (size_t)count;
       }
@@ -130,7 +133,7 @@ FILE /tmp/bootstrap/tar.c
     }
     
     static int extract(const char *archive_path, const char *directory) {
-      int archive = open(archive_path, O_RDONLY);
+      int archive = strcmp(archive_path, "-") == 0 ? dup(STDIN_FILENO) : open(archive_path, O_RDONLY);
       if (archive < 0) return -1;
       unsigned char header[BLOCK_SIZE];
       unsigned char data[BLOCK_SIZE];
@@ -228,12 +231,6 @@ FILE /tmp/bootstrap/tar.c
           }
           remaining -= count;
         }
-        if (size == 0 || size % BLOCK_SIZE == 0) {
-          // No partial padding block remains. Zero-size regular files still need
-          // their output descriptor closed below.
-        } else if (remaining == 0) {
-          // The final read above consumed the whole padded block.
-        }
         if (target >= 0 && close(target) != 0 && status == 0) status = -1;
         free(output);
         if (status != 0) break;
@@ -246,7 +243,7 @@ FILE /tmp/bootstrap/tar.c
     }
     
     static void usage(FILE *stream) {
-      fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\n", stream);
+      fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\nUse - as ARCHIVE to read stdin.\n", stream);
     }
     
     int main(int argc, char **argv) {
