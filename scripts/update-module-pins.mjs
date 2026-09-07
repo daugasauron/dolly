@@ -15,11 +15,22 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
     const recipe = inspectDollyfile(original, location);
     const lines = original.split(/\r\n|\r|\n/);
     function replacePin(reference, sha256) {
+      if (reference.sha256 === sha256) return;
       const row = recipe.rows.find(row => row.line === reference.line);
       for (let index = row.line - 1; index < row.endLine; index += 1) {
-        if (lines[index].includes(reference.sha256)) {
-          lines[index] = lines[index].replace(reference.sha256, sha256);
-          return;
+        for (let offset = 0; (offset = lines[index].indexOf(reference.sha256, offset)) !== -1; offset += reference.sha256.length) {
+          const candidate = [...lines];
+          candidate[index] = lines[index].slice(0, offset) + sha256 +
+            lines[index].slice(offset + reference.sha256.length);
+          // Let the parser distinguish a pin from identical path/comment text.
+          const parsed = inspectDollyfile(candidate.join("\n"), location);
+          const updated = [...parsed.sources, ...parsed.uses, ...parsed.artifacts]
+            .find(item => item.line === reference.line);
+          if (updated?.sha256 === sha256 && Object.entries(reference)
+            .every(([key, value]) => key === "sha256" || updated[key] === value)) {
+            lines[index] = candidate[index];
+            return;
+          }
         }
       }
       throw new Error(`${location}:${row.line}: cannot locate recipe pin`);

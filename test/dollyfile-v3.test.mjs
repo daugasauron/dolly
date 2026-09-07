@@ -8,9 +8,44 @@ import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions, inspectStaticSources, selectImageDefinitions } from "../scripts/image-definitions.mjs";
 import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
+import { updateRecipePins } from "../scripts/update-module-pins.mjs";
 
 const project = resolve(import.meta.dirname, "..");
 const digest = source => createHash("sha256").update(source).digest("hex");
+
+test("pin updates change only digest operands, not matching paths or comments", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-pin-operands-"));
+  try {
+    const old = "0".repeat(64), payload = "new source bytes\n";
+    const base = "DOLLY 3\nIMAGE base\nENTRY /bin/slop\n";
+    const module = "DOLLY 3\nMODULE child\nSLOP true\n";
+    await mkdir(resolve(directory, "modules"));
+    await mkdir(resolve(directory, "dist/static"), { recursive: true });
+    await writeFile(resolve(directory, "dist/static", old), payload);
+    await writeFile(resolve(directory, "Dollyfile-base"), base);
+    await writeFile(resolve(directory, "modules/child.dm"), module);
+    const recipe = (sourcePin, basePin, modulePin) => `DOLLY 3
+IMAGE default
+FROM HOST /Dollyfile-base '${basePin}' # ${old}
+SOURCE HOST /static/${old} \\ # ${old}
+  /tmp/${old} \\
+  "${sourcePin}" # ${old}
+COPY FROM HOST /Dollyfile-base ${basePin} /usr/share/${old} /usr/share/${old}
+USE HOST /modules/child.dm \\ # ${old}
+  ${modulePin}
+FILE /usr/share/note
+    ${old}
+ENTRY /bin/slop
+`;
+    await writeFile(resolve(directory, "Dollyfile"), recipe(old, old, old));
+    await updateRecipePins(directory, true);
+    const expected = recipe(digest(payload), digest(base), digest(module));
+    assert.equal(await readFile(resolve(directory, "Dollyfile"), "utf8"), expected);
+    await updateRecipePins(directory, true);
+    assert.equal(await readFile(resolve(directory, "Dollyfile"), "utf8"), expected, "second update is byte-identical");
+    await loadDollyfileGraph(directory);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
 
 test("unreferenced module sources are admitted without staging their inputs or executing them", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-module-source-"));
