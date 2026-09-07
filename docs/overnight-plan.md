@@ -4,10 +4,11 @@ Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
 locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
-The requested checkpoint is preserved while the explicit overnight goal resumes;
-the remaining scope below has not been completed. Application `e633777` is on port
-9000, with all 19 image inventories and 252 source tests passing.
-The real Studio build/log/open/cancel workflow passes against that local release.
+Feature work is paused at the user's requested checkpoint. Source `026ec83`
+contains the browser-tested SIGCHLD/tar fixes; the existing full-image rebuild
+is preserved in the background. Application `e633777` remains on port 9000,
+with all 19 image inventories and real Studio build/log/open/cancel checks passing.
+The new runtime still needs its complete catalog-identity check and publication.
 Unchecked items below remain unfinished, not implicitly included in the checkpoint.
 
 - [x] GPU setup guidance beside the model picker; test unavailable adapters and
@@ -36,8 +37,9 @@ Preserve the last complete local release while building. Publish the whole
 catalog after validated milestones; retain old release assets for open tabs.
 
 GPU help, catalog ordering, Studio build/log/open and the Foundry bhop expansion
-are implemented and browser tested. The Qwen 3.5 native tool-format fix passes source tests and two real GPU
-starters; the repair starter still fails. Manual 2B/4B trials do not yet satisfy
-the requested author/build/debug workflow. Local-model workflow validation,
-fd/ripgrep and release review remain open. See
+are implemented and browser tested. All three guided starters now pass with real
+local Qwen 4B; default 2B and independent author/build/debug work remain unreliable.
+The Codex experiment is separately checkpointed and paused at `4f77a9a`; the full
+agent is not running. Local-model workflow validation, fd/ripgrep and release review
+remain open. See
 [audit handoff](audit-handoff.md) for evidence and the isolated Codex experiment.
