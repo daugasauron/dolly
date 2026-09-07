@@ -1,0 +1,17 @@
+DOLLY 3
+IMAGE hello-tool
+
+FROM HOST /Dollyfile-system @SYSTEM_SHA256@
+
+FILE /tmp/hello-tool/hello.c
+    #include <stdio.h>
+    int main(int argc, char **argv) {
+      printf("Hello, %s!\n", argc > 1 ? argv[1] : "Dolly");
+      return 0;
+    }
+SLOP cc -std=c17 -O1 /tmp/hello-tool/hello.c -o /usr/bin/hello
+EXPORTS TOOL hello
+SLOP hello agent
+SLOP rm -rf /tmp/hello-tool
+
+ENTRY /bin/foreground -i /bin/slop

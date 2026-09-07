@@ -65,6 +65,7 @@ rm -f \
   "${project_dir}/dist/dolly-http-0.wasm" \
   "${project_dir}/dist/dolly-display-0.wasm" \
   "${project_dir}/dist/dolly-download-0.wasm" \
+  "${project_dir}/dist/dolly-upload-0.wasm" \
   "${project_dir}/dist/dolly-terminal-0.wasm" \
   "${project_dir}/dist/dolly-snapshot-0.wasm" \
   "${project_dir}/dist/dolly-build-id.mjs" \
@@ -294,6 +295,10 @@ node scripts/dolly-abi.mjs validate-process-dso \
   --disable-compact-imports \
   -o build/dolly-download-0.wasm
 
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-upload-0.wat \
+  --enable-memory64 --enable-threads --disable-compact-imports \
+  -o build/dolly-upload-0.wasm
+
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-snapshot-0.wat \
   --enable-memory64 \
   --enable-reference-types \
@@ -307,6 +312,7 @@ node scripts/dolly-abi.mjs emit-emscripten-exports \
   build/dolly-kernel-plugin-0.wasm \
   build/dolly-display-0.wasm \
   build/dolly-http-0.wasm \
+  build/dolly-upload-0.wasm \
   build/dolly-snapshot-0.wasm \
   build/dolly-supervisor-0.wasm \
   build/runtime-exports.json
@@ -363,6 +369,7 @@ cp build/dolly-process-gate-0.wasm dist/dolly-process-gate-0.wasm
 cp build/dolly-supervisor-0.wasm dist/dolly-supervisor-0.wasm
 cp build/dolly-display-0.wasm dist/dolly-display-0.wasm
 cp build/dolly-download-0.wasm dist/dolly-download-0.wasm
+cp build/dolly-upload-0.wasm dist/dolly-upload-0.wasm
 cp build/dolly-http-0.wasm dist/dolly-http-0.wasm
 cp build/dolly-snapshot-0.wasm dist/dolly-snapshot-0.wasm
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2

@@ -89,6 +89,8 @@ location.replace(new URL("../session/" + (valid ? name : ""), location.href));
 </script>`);
 await writeFile(resolve(outputDir, "session/index.html"),
   await readFile(resolve(projectDir, "sessions.html"), "utf8"));
+await writeFile(resolve(outputDir, "custom/index.html"),
+  await readFile(resolve(projectDir, "custom.html"), "utf8"));
 
 const graphPages = graphs.flatMap(({ definition, graph }) => [
   { path: `view/${definition.image}/index.html`, record: graph.root, graph },

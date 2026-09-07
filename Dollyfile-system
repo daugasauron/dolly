@@ -1,13 +1,13 @@
 DOLLY 3
 IMAGE system
 
-USE HOST /modules/default.dm 5e07b41970a527fae51c9713cfc40887ed8426c1f33a8b7b439276b7234b995c
+USE HOST /modules/default.dm f6b71b1201fb58bbd563539e58066686b390ba45760c7206e413ad2c8ad2b175
 
 # The terminal's build tools and SDK do not belong in the everyday userspace.
-COPY FROM HOST /Dollyfile-ghostty-build 15a12a0d2f613be8b286a5988acfb46fd54ce2ef131012475b20e48ab946638f /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY FROM HOST /Dollyfile-ghostty-build 15a12a0d2f613be8b286a5988acfb46fd54ce2ef131012475b20e48ab946638f /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY FROM HOST /Dollyfile-ghostty-build 15a12a0d2f613be8b286a5988acfb46fd54ce2ef131012475b20e48ab946638f /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY FROM HOST /Dollyfile-ghostty-build 15a12a0d2f613be8b286a5988acfb46fd54ce2ef131012475b20e48ab946638f /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY FROM HOST /Dollyfile-ghostty-build 786bcafbe41b73844198d2a6b14540c30e916d960a4d33445287d3dfa86b05aa /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-ghostty-build 786bcafbe41b73844198d2a6b14540c30e916d960a4d33445287d3dfa86b05aa /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY FROM HOST /Dollyfile-ghostty-build 786bcafbe41b73844198d2a6b14540c30e916d960a4d33445287d3dfa86b05aa /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY FROM HOST /Dollyfile-ghostty-build 786bcafbe41b73844198d2a6b14540c30e916d960a4d33445287d3dfa86b05aa /usr/share/licenses/uucode /usr/share/licenses/uucode
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
 

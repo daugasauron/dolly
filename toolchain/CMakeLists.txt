@@ -23,6 +23,7 @@ add_executable(dolly
   ../src/dolly.c
   ../src/process-kernel.c
   ../src/session-snapshot.c
+  ../src/upload.c
   ../src/system-snapshot.c
 )
 

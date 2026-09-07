@@ -1,0 +1,5 @@
+system_sha=$(sha256sum /etc/dolly/recipes/system.Dollyfile)
+system_sha=${system_sha%% *}
+for name in hello tool; do
+  sed "s/@SYSTEM_SHA256@/$system_sha/g" "/usr/share/dollyfile-studio/examples/$name.in" > "/usr/share/dollyfile-studio/examples/Dollyfile-$name"
+done

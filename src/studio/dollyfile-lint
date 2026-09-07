@@ -1,0 +1,2 @@
+#!/bin/slop
+qjs -m /usr/share/dollyfile-studio/lint.mjs "$@"

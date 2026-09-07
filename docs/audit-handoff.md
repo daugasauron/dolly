@@ -1,5 +1,45 @@
 # Audit checkpoint
 
+## Current authoring checkpoint — 2026-09-07
+
+Clean navigation URLs retain release-pinned assets. `/custom/` accepts pasted
+or uploaded recipes and builds them in fresh Wasm. `/dollyfile-studio/` combines
+Pi, reusable Neovim, a Dollyfile skill, examples, prompt templates and syntax-only
+linting. System images provide `upload DESTINATION`: explicit user-selected
+bytes, no overwrite, bounded chunks and cancellation cleanup; no browser import
+was added. Pi now reports nonzero shell exits as tool errors, preserving output.
+
+All 19 snapshots and 244 source tests pass. Focused Chrome/Firefox tests cover
+file upload and custom builds; Chrome also covers Studio/Neovim editing, exact
+browser imports, lifecycle recovery, bhop and Python-Pi sessions. Evidence:
+`build/studio-prompts-snapshot.log`, `build/studio-checkpoint-tests.log`,
+`build/studio-checkpoint-browser.log`, `build/studio-firefox-browser.log`, and
+`build/studio-{boundary,lifecycle,bhop,session,neovim}-browser.log`.
+This is not a fresh cold-bootstrap or a rerun of every browser-suite mode.
+
+Outstanding issues, kept outside this checkpoint:
+
+- **Local-model task reliability:** Qwen 2B loaded and completed `/dolly-hello`,
+  but `/dolly-tool` tried reading the not-yet-created output instead of running
+  the supplied command, then stopped. Earlier broad prompts edited the installed
+  example or invented a command. The source examples build successfully; do not
+  claim all agent starters reliably complete. The opt-in `studio-local-model`
+  browser proof checks all three tasks and fails when their outputs are absent.
+  Keep inference/tool traces when distinguishing model failures from runtime bugs.
+- **Custom-image persistence:** named-session save/load is unavailable for
+  tab-local uploaded recipes. Keep/export the recipe; Studio itself supports
+  normal named sessions. A follow-up needs a saved, validated custom base identity,
+  not a bypass of the existing identity checks.
+- **Cold iteration cost:** CMake's uncached image took 1,434 seconds; Neovim's
+  build image took 264 seconds. Cached Studio assembly took about 10 seconds.
+  Preserve image/toolchain separation and investigate cold builds independently;
+  do not add host compilation fallbacks or invalidate the kernel for image edits.
+- **GPU startup coverage:** one first-download run lost its browser debugger;
+  subsequent cached loads worked. No cause was established. Fresh-profile retry,
+  interruption and memory behavior need a separate GPU-focused reproduction.
+
+The following sections are historical verification, not current outstanding work.
+
 Audit baseline closed 2026-09-06 at `91a7fa2`. Its verification below describes
 that source, not subsequent changes. Broader work belongs in the [roadmap](roadmap.md);
 API scope is the user's design choice, not an operation-profiling exercise.

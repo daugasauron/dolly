@@ -398,6 +398,8 @@ try {
     sessionNameCapacity: dolly._dolly_session_name_capacity(),
     sessionTransferAddress: Number(dolly._dolly_session_transfer_address()),
     sessionTransferCapacity: dolly._dolly_session_transfer_capacity(),
+    uploadAddress: Number(dolly._dolly_upload_mailbox_address()),
+    uploadVersion: dolly._dolly_upload_mailbox_version(),
     httpAddress: Number(dolly._dolly_http_mailbox_address()),
     httpCapacity: dolly._dolly_http_chunk_capacity(),
     httpVersion: dolly._dolly_http_mailbox_version(),

@@ -5,7 +5,7 @@ import { dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const linkedSources = new Set([
-  "src/dolly.c", "src/dollyfile.c", "config/source-pins.sh", "config/zig-sdk-files.txt",
+  "src/dolly.c", "src/dollyfile.c", "src/upload.c", "config/source-pins.sh", "config/zig-sdk-files.txt",
 ]);
 
 export function documentationLinks(source) {

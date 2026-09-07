@@ -86,6 +86,7 @@ export default function dollyTools(pi) {
         undefined, { cwd: context.cwd, signal },
       );
       output += stdout.decode() + stderr.decode();
+      if (result.status !== 0) throw new Error(`${output}${output ? "\n" : ""}Command exited with code ${result.status}`);
       if (!output) output = `(status ${result.status})`;
       return { ...text(output), details: { status: result.status } };
     },

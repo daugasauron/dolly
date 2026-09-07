@@ -47,6 +47,8 @@ for required in \
   src/process-worker.mjs \
   src/session-store.mjs \
   src/session-transport.mjs \
+  src/upload-transport.mjs \
+  src/custom-dollyfile.mjs \
   src/sessions.mjs \
   src/runtime-worker.mjs \
   dist/dolly-images.mjs \
@@ -107,6 +109,8 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/process-worker.mjs" \
   "${project_dir}/src/session-store.mjs" \
   "${project_dir}/src/session-transport.mjs" \
+  "${project_dir}/src/upload-transport.mjs" \
+  "${project_dir}/src/custom-dollyfile.mjs" \
   "${project_dir}/src/sessions.mjs" \
   "${project_dir}/src/runtime-worker.mjs" \
   "${project_dir}/src/local-model-contract.mjs" \

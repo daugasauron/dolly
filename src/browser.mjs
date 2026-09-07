@@ -4,6 +4,7 @@ import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION } from "./http-broker.mjs"
 import { localModelTransport } from "./local-model-service.mjs";
 import { mountLocalModel, toggleLocalModel } from "./local-model-ui.mjs";
 import { SessionTransport } from "./session-transport.mjs";
+import { UploadTransport, chooseUploadFile } from "./upload-transport.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   decodeSessionSnapshot,
@@ -38,6 +39,8 @@ const runtimeFailureRejectors = new Set();
 let runtimeWorker;
 let transport;
 let sessionTransport;
+let uploadTransport;
+let uploadTimer;
 let networkTransport;
 let presenter;
 let resizeObserver;
@@ -81,6 +84,8 @@ function startBrowserDownload(message) {
 }
 
 function displayFatal(message) {
+  clearInterval(uploadTimer);
+  uploadTransport?.close();
   if (document.pointerLockElement === canvas) document.exitPointerLock();
   sessionSaveController?.abort(new Error("The runtime stopped; the previous save is unchanged"));
   canvas.hidden = true;
@@ -692,6 +697,14 @@ function requestForegroundInterrupt() {
 }
 
 function handleKeyboardEvent(event) {
+  if (document.querySelector("#file-upload[open]")) {
+    if (event.type === "keydown" && event.ctrlKey && !event.shiftKey &&
+        !event.altKey && !event.metaKey && event.code === "KeyC") {
+      event.preventDefault();
+      requestForegroundInterrupt();
+    }
+    return;
+  }
   if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyL") {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -1071,6 +1084,8 @@ async function boot() {
         displayFatal(error instanceof Error ? error.message : String(error));
       }
     } else if (message.type === "exited") {
+      clearInterval(uploadTimer);
+      uploadTransport?.close();
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "http-request") {
       void networkTransport.dispatch(message).then((result) => {
@@ -1125,6 +1140,7 @@ async function boot() {
   if (ready.sessionVersion !== 2) {
     throw new Error(`unsupported session mailbox ${ready.sessionVersion}`);
   }
+  if (ready.uploadVersion !== 0) throw new Error(`unsupported upload mailbox ${ready.uploadVersion}`);
   if (ready.frameAddresses.length !== 2 || ready.frameAddresses.some((address) => !address)) {
     throw new Error("Dolly did not publish both framebuffer addresses");
   }
@@ -1158,6 +1174,8 @@ async function boot() {
     transport,
   );
   activeImage = ready.image;
+  uploadTransport = new UploadTransport(ready.memory, ready.uploadAddress, chooseUploadFile);
+  uploadTimer = setInterval(() => { void uploadTransport.poll(); }, 50);
   // Uploaded recipes exist only in this tab and have no source-visible,
   // restorable image identity. They can run normally, but named-session save
   // remains unavailable until custom recipes gain an explicit persistence

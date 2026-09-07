@@ -83,6 +83,7 @@ literally the only information crossing the Wasm boundary:
 | Bootstrap text callback | Wasm to browser | Source-build progress before the resident renderer exists; ignored for normal terminal output after activation |
 | HTTP dispatch and mailbox | both | Autonomous external communication and the principal confidentiality/integrity boundary |
 | Explicit file download | Wasm to local user | Bounded, user-visible export of one regular WasmFS file; no host path or filesystem handle enters Wasm |
+| File upload mailbox | local user to Wasm | Explicit picker, at most 64 MiB of bytes; no host path, filename, directory enumeration or file handle |
 | Named session mailbox | Wasm to/from browser storage | Explicit opaque filesystem snapshot; browser stores bytes but receives no path-level operation or mount |
 | Image artifact cache | WasmFS to/from trusted worker storage | Completed build results bound to runtime and recipe identity; explicit FROM/COPY imports run in Wasm, with no guest-selected browser storage operation |
 | Clocks, timezone, entropy, startup environment | browser to Wasm | Inputs, not network egress |
@@ -108,6 +109,14 @@ embedding that needs approval, quotas, or disabled export must enforce that in
 this browser provider. This is a local-user output capability, not a network
 capability and not a substitute for HTTP policy. The exact contract is in
 [`download.md`](download.md).
+
+`upload DESTINATION` requests a visible file chooser. A user must select a file;
+the browser copies only its bounded bytes, and Wasm creates the destination.
+Cancellation removes the partial file and existing destinations are never
+replaced. This is input through a typed mailbox, not an HTTP endpoint or a
+filesystem mount. Once uploaded, bytes are ordinary sandbox data and can leave
+through any HTTP destination the embedding permits. See the
+[boundary review map](browser-boundary.md) for the complete implementation.
 
 The worker creates the shared `WebAssembly.Memory`, and trusted page JavaScript
 can inspect it. Dolly protects the browser host from agent code; it does not try

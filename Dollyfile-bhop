@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE bhop
 
-FROM HOST /Dollyfile-gamedev a519ef0e2e442aab671dd916b6d5b4e002c54ec1bc51e5bd9c8a711d3de03f39
+FROM HOST /Dollyfile-gamedev 05027be090f332e5a6bd050588d29f3fb76307c0ee1486e84fd3c7cff61968b7
 USE HOST /modules/bhop.dm 3031ccc234135fa51250549d20d8564d66a7a1180ea19347328f33634e16e444
 
 FILE /etc/dolly/init.slop

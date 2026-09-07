@@ -41,6 +41,10 @@ Dolly currently boots a source-built userspace containing:
   `Ctrl+Shift+L` loads a model on a compatible WebGPU device;
 - [source-built Neovim](docs/neovim.md) in `/neovim/`, opening the editor
   immediately and returning to Slop after `:q`;
+- `/dollyfile-studio/`: Pi + Neovim for creating custom images, with local
+  models, working examples, a Pi skill, syntax highlighting and linting;
+- `upload DESTINATION` and `download FILE` for explicit local-user file
+  transfer; uploads require a file selection and never overwrite;
 - `Ctrl+Shift+V`/`Ctrl+Shift+C` paste and copy through bounded in-Wasm
   clipboard buffers, plus browser-tested OpenRouter/Codex login flows;
 - native wasm64 Zig in `/ghostty-build/`, whose finished Ghostty terminal is
@@ -72,8 +76,8 @@ serializes filesystem changes against the base image, compresses them, and store
 the opaque bytes in same-origin IndexedDB. `/session/` lists local saves;
 `/session/NAME` restores one whose runtime build and Dollyfile identity still match.
 
-The menu also accepts a bounded text Dollyfile that selects pinned modules.
-A small browser-side check only selects the route; the C
+The menu's **Run a Dollyfile** link opens `/custom/` for text or file upload.
+A bounded browser-side syntax check selects the rebuild route; the C
 engine remains authoritative. The text stays in the current tab's
 `sessionStorage` and executes only at `/custom/rebuild/` in a fresh Wasm
 sandbox. Selecting a file does not upload the recipe to the server.
@@ -91,6 +95,7 @@ because pointer width is part of its machine ABI.
 trusted browser page
   ├─ fixed startup assets
   ├─ raw input + bounded RGBA canvas blit
+  ├─ explicit user-selected file input → bounded upload mailbox
   ├─ explicit bounded file download → local user
   └─ env.dolly_http_dispatch       ← sole agent-selected network edge
               │

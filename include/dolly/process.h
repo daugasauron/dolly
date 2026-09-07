@@ -69,6 +69,8 @@ enum dolly_process_operation {
   DOLLY_PROCESS_FD_POLL = 54,
   DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55,
   DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56,
+  /* path_request -> no response; user-selected file, no overwrite. */
+  DOLLY_PROCESS_UPLOAD_FILE = 57,
 
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,

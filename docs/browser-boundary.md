@@ -78,6 +78,17 @@ abort, and bounded local output/device operations. They do not grant host
 paths, native processes, sockets, DOM access, or JavaScript evaluation.
 User input, framebuffer output, file downloads, and explicit opaque session
 storage are additional visible channels; see the [security model](security.md).
+`upload DESTINATION` is explicit local-user file input, not a host filesystem.
+Review [`abi/dolly-upload-0.wat`](../abi/dolly-upload-0.wat),
+[`src/upload-transport.mjs`](../src/upload-transport.mjs) and
+[`src/upload.c`](../src/upload.c): a separate mailbox requests a visible picker;
+only the user can select a file. The browser supplies up to 64 MiB in 64 KiB
+chunks. No host path, filename, handle or URL enters Wasm. Dolly owns the
+destination and temporary file, publishes only a complete file without
+overwriting, and removes partial data when the process exits or is cancelled.
+This adds two typed mailbox exports and **no browser import**. Rebuild-only
+workers do not mount the picker. Treat uploaded bytes as sandbox data: an
+agent with allowed HTTP access can send them outside, just like pasted text.
 Download names use literal UTF-8; basename, character and size checks remain
 independent of the browser's final filename choice.
 Input packets and copied selections also preserve literal UTF-8 across packet
@@ -119,7 +130,11 @@ The development server is also an HTTP destination. `scripts/serve.mjs` and
 the browser harness serve application assets, not the host checkout. The local
 server serves only manifest-listed files from verified whole-app releases;
 HTML pins assets under `/_dolly/RELEASE_DIGEST/`. This is static application
-delivery, not a guest-selected host filesystem capability. Documentation links
+delivery; navigation links use clean public paths such as `/gamedev/`.
+The `/custom/` page accepts a bounded, explicitly submitted Dollyfile and
+uses the existing fresh-Wasm rebuild path, not a browser recipe executor.
+The recipe receives the normal broker policy, never additional authority.
+None of this grants guest-selected host filesystem access. Documentation links
 are packaged from an explicit public-source allowlist and checked before release;
 links cannot publish arbitrary checkout files. The harness confines documentation
 requests to `docs/`. Tests request encoded parent paths and require 404.

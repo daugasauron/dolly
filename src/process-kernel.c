@@ -1,4 +1,5 @@
 #include "process-kernel.h"
+#include "upload.h"
 
 #include <dolly/http.h>
 #include <dolly/process.h>
@@ -197,6 +198,7 @@ static void release_descriptor(dolly_kernel_process *process,
 }
 
 static void release_process_resources(dolly_kernel_process *process) {
+  dolly_upload_cancel_process(process->pid);
   if (process->http_sequence != 0) {
     (void)dolly_http_cancel(process->http_sequence);
     process->http_sequence = 0;
@@ -2118,16 +2120,18 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
     }
     case DOLLY_PROCESS_TERMINAL:
       return terminal_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_UPLOAD_FILE:
     case DOLLY_PROCESS_DOWNLOAD_FILE: {
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, &request,
-                                       &path, &directory);
+      int64_t result = decode_path_request(process, request_size, &request,
+                                          &path, &directory);
       if (result == 0 && (request.flags != 0 || directory != AT_FDCWD)) {
         result = -EINVAL;
       }
-      if (result == 0) result = dolly_download_file(path);
+      if (result == 0) result = operation == DOLLY_PROCESS_UPLOAD_FILE
+          ? dolly_upload_process_file(process->pid, path) : dolly_download_file(path);
       free(path);
       return result;
     }

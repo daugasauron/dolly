@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE gamedev-sdk
 
-FROM HOST /Dollyfile-system 7ce9d80710acc550efa7f541c652a8ddfd9b3c69fbc69add74ce86db5b3d234f
+FROM HOST /Dollyfile-system fa5e99e4866209e7782397d04a399383f6429ef018a55a6faf33e8561d746e10
 USE HOST /modules/gamedev-sdk.dm 4f1dfc250518d2b385ef5c69ce36463633afe2c87bd5f590fee7f5856e51b0cb
 
 ENTRY /bin/foreground -i /bin/slop

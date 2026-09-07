@@ -39,6 +39,28 @@ Open `/external-source/rebuild/`, then try `printf Dolly | xxd` or
 External sources still require browser CORS and permission from the HTTP broker;
 the recipe cannot grant itself network access.
 
+## Custom images
+
+Open `/custom/` (**Run a Dollyfile** on the menu), paste a recipe or select a
+UTF-8 file up to 128 KiB, then build and run it in a fresh sandbox. FROM/COPY/USE
+pins must match images and modules published by that site. The recipe remains
+in this tab; named-session saving is not yet supported for custom images.
+
+`/dollyfile-studio/` starts Pi with Neovim, local WebGPU models, a Dollyfile
+skill and `/dolly-hello`, `/dolly-tool`, `/dolly-fix` prompt templates. Load Qwen
+using Ctrl+Shift+L before using the default local provider, or select a remote
+provider with `/model`. Exit Pi to Slop and run `nvim /workspace/Dollyfile` to
+edit; `:DollyLint` checks the buffer, and saving also lints. The standalone
+`dollyfile-lint FILE` uses the browser's inspection parser inside QuickJS.
+Linting checks syntax without fetching or executing anything; only a fresh
+image build checks source pins, commands and outputs. Do not run the builder
+against your active Studio filesystem to test a draft.
+
+Use `download /workspace/Dollyfile` to export a recipe. In the system/default
+images and their descendants, `upload /workspace/NAME` opens a user-approved
+file chooser for any local file up to 64 MiB. It never replaces an existing
+destination; cancellation removes the partial upload. No PC path is exposed.
+
 ## Operations
 
 | Declaration | Behavior |

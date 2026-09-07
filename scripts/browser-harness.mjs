@@ -20,6 +20,8 @@ import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
 import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git-transport.mjs";
+import { runUploadProof, selectFile } from "../test/fixtures/upload-browser.mjs";
+import { runStudioModelProof } from "../test/fixtures/studio-model-browser.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const imageDefinitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -63,6 +65,9 @@ const makeMode = isMode("make");
 const slopMode = isMode("slop", "slop-source");
 const utf8Mode = isMode("utf8");
 const terminalUiMode = isMode("terminal-ui");
+const uploadMode = isMode("upload");
+const customDollyfileMode = isMode("custom-dollyfile");
+const studioMode = isMode("dollyfile-studio");
 const graphicsMode = isMode("graphics");
 const bhopMode = isMode("bhop");
 const debuggerDisconnectMode = isMode("debugger-disconnect");
@@ -88,7 +93,8 @@ const pythonPackageMode = isMode("python-packages");
 const pythonInteractiveMode = isMode("python-interactive");
 const toolchainProbeMode = isMode("toolchain-probes");
 const zigSdkMode = isMode("zig-sdk");
-const localModelMode = isMode("local-model");
+const studioModelMode = isMode("studio-local-model");
+const localModelMode = isMode("local-model") || studioModelMode;
 const localCacheMode = isMode("local-model-cache");
 const optimizedLifecycleProbeMode =
   isMode("optimized-lifecycle-probe");
@@ -201,6 +207,8 @@ const publicSources = new Set([
   "src/process-worker.mjs",
   "src/session-store.mjs",
   "src/session-transport.mjs",
+  "src/upload-transport.mjs",
+  "src/custom-dollyfile.mjs",
   "src/sessions.mjs",
   "src/runtime-worker.mjs",
 ]);
@@ -222,6 +230,7 @@ const routeDocuments = new Map([
     [`/view/${image}`, `build/routes/view/${image}/index.html`],
   ]),
   ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
+  ["/custom", "build/routes/custom/index.html"],
   ["/rebuild", "build/routes/rebuild/index.html"],
   ["/load", "build/routes/load/index.html"],
   ["/session", "build/routes/session/index.html"],
@@ -1138,7 +1147,7 @@ async function enterRecoveryShell(send) {
     );
   } else {
     entryPid = await evaluate(send,
-      `window.__dolly.waitForInteractiveTerminal(${["pi", "python-pi", "pi-local"].includes(selectedImage)
+      `window.__dolly.waitForInteractiveTerminal(${["pi", "python-pi", "pi-local", "dollyfile-studio"].includes(selectedImage)
         ? "/Bash is not installed/" : "/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/"}, "image entry terminal")`);
     await dispatchKey(send, {
       key: "d",
@@ -1316,6 +1325,7 @@ async function typeCorrectedHelp(send) {
 const server = await startServer();
 let browserDownloadDirectory = null;
 let chrome = null;
+let chromeDiagnostics = "";
 let debuggerClient;
 let ephemeralProfileRoot = null;
 let persistentProfile = null;
@@ -1440,7 +1450,8 @@ chrome = spawn(chromeBinary, [
   `--user-data-dir=${userDataDir}`,
   "--window-size=1280,800",
   "about:blank",
-], { stdio: "ignore" });
+], { stdio: ["ignore", "ignore", "pipe"] });
+chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + bytes.toString()).slice(-8000); });
 
   const debugPort = await waitForDebugPort(userDataDir, chrome);
   debuggerClient = await connectDebugger({
@@ -1518,7 +1529,8 @@ chrome = spawn(chromeBinary, [
       };
     })();`,
   });
-  const initialPage = debuggerDisconnectMode ? "about:blank" : menuMode
+  const initialPage = debuggerDisconnectMode ? "about:blank" : customDollyfileMode
+      ? new URL("custom/", menuPage).href : menuMode
       ? menuPage
       : snapshotExportMode || iterationMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
@@ -1527,6 +1539,76 @@ chrome = spawn(chromeBinary, [
   await debuggerClient.send("Page.navigate", { url: initialPage });
 
   browserProof: {
+    if (customDollyfileMode) {
+      const send = debuggerClient.send;
+      const editor = new URL("custom/", menuPage).href;
+      await waitForValue(send, "document.querySelector('#source')?.value ?? ''", Boolean, "Dollyfile editor");
+      const original = await evaluate(send, "document.querySelector('#source').value");
+      await evaluate(send, `document.querySelector('#source').value = 'DOLLY 2'; document.querySelector('form').requestSubmit(); true`);
+      assert.match(await evaluate(send, "document.querySelector('#status').textContent"), /DOLLY 3/);
+      assert.equal(await evaluate(send, "location.href"), editor);
+      const scratch = await mkdtemp(resolve(tmpdir(), "dolly-custom-upload-"));
+      try {
+        const oversized = resolve(scratch, "oversized");
+        await writeFile(oversized, "x".repeat(128 * 1024 + 1));
+        await selectFile(send, "#dollyfile-upload", oversized);
+        await waitForValue(send, "document.querySelector('#status').textContent", text => /128 KiB/.test(text), "oversize Dollyfile rejection");
+        for (const file of [false, true]) {
+          const template = file ? await readFile(resolve(projectDir, "src/studio/examples/tool.in"), "utf8") : original;
+          const recipe = template.replace("@SYSTEM_SHA256@", original.match(/FROM HOST \/Dollyfile-system ([0-9a-f]{64})/)[1]);
+          if (file) {
+            await send("Page.navigate", { url: editor });
+            await waitForValue(send, "document.querySelector('#source')?.value ?? ''", Boolean, "Dollyfile file input");
+            const path = resolve(scratch, "Dollyfile");
+            await writeFile(path, recipe);
+            await selectFile(send, "#dollyfile-upload", path);
+            await waitForValue(send, "document.querySelector('#source').value", value => value === recipe, "uploaded Dollyfile text");
+          } else await evaluate(send, `document.querySelector('#source').value = ${JSON.stringify(recipe)}; true`);
+          await evaluate(send, "document.querySelector('form').requestSubmit(); true");
+          assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
+            value => value === "ready" || value === "failed", "custom image build"), "ready");
+          assert.equal(await evaluate(send, "location.pathname"), `${browserBase}custom/rebuild/`);
+          await evaluate(send, `__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, 'custom shell')`);
+          const command = file ? `test "$(hello agent)" = 'Hello, agent!'`
+            : "grep -q 'Hello from your custom image' /usr/share/hello.txt";
+          assert.equal(await evaluate(send, `__dolly.submit(${JSON.stringify(command)})`), 0);
+        }
+      } finally { await rm(scratch, { recursive: true, force: true }); }
+      console.log("browser: invalid/oversize Dollyfiles refused; pasted and file-uploaded images build in Wasm, launch Slop and run a source-compiled command");
+      break browserProof;
+    }
+    if (studioMode) {
+      const send = debuggerClient.send;
+      assert.equal(selectedImage, "dollyfile-studio");
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus",
+        value => value === "ready" || value === "failed", "Studio boot"), "ready");
+      await waitForTerminalText(send, /Dollyfile Studio.*dolly-hello/, "Pi Studio starter prompts");
+      await enterRecoveryShell(send);
+      const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
+      assert.equal(await submit("test -f /workspace/Dollyfile && dollyfile-lint /workspace/Dollyfile"), 0);
+      assert.equal(await submit("dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-tool"), 0);
+      assert.equal(await submit("printf 'DOLLY 2\\n' | dollyfile-lint --stdin Draft"), 1);
+      assert.equal(await submit("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/browser-model-providers.js"), 0);
+      const source = await readFile(resolve(projectDir, "test/fixtures/studio-nvim.lua"), "utf8");
+      assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > /tmp/studio-nvim.lua`), 0);
+      try {
+        assert.equal(await submit("timeout 60 nvim --headless -n -i NONE -S /tmp/studio-nvim.lua"), 0);
+      } finally { await submit("rm -f /tmp/studio-nvim.lua /tmp/Dollyfile-studio-lint"); }
+      console.log("browser: Studio launches Pi with prompts; real examples lint; Neovim detects syntax, lints unsaved buffers and refreshes diagnostics on save");
+      break browserProof;
+    }
+    if (uploadMode) {
+      const send = debuggerClient.send;
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus",
+        value => value === "ready" || value === "failed", "upload image boot"), "ready");
+      await enterRecoveryShell(send);
+      await runUploadProof({ send, evaluate: expression => evaluate(send, expression),
+        wait: (expression, predicate, label, attempts) => waitForValue(send, expression, predicate, label, attempts),
+        submit: command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`),
+        press: key => dispatchKey(send, key) });
+      console.log("browser: user-approved binary/empty uploads, no overwrite, picker cancellation, Ctrl-C and scratch cleanup passed");
+      break browserProof;
+    }
     if (localCacheMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -1543,7 +1625,8 @@ chrome = spawn(chromeBinary, [
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "local model boot", 1200), "ready");
       await enterRecoveryShell(debuggerClient.send);
-      await runLocalModelProof({
+      if (studioModelMode) assert.equal(selectedImage, "dollyfile-studio");
+      await (studioModelMode ? runStudioModelProof : runLocalModelProof)({
         evaluate: expression => evaluate(debuggerClient.send, expression),
         press: key => dispatchKey(debuggerClient.send, key),
         wait: (expression, predicate, description, attempts) => waitForValue(debuggerClient.send, expression, predicate, description, attempts),
@@ -3256,14 +3339,14 @@ int main(int argc, char **argv) {
       assert.match(menuEvidence.font, /Dolly IosevkaTerm SemiBold/);
       assert.deepEqual(menuEvidence.links.toSorted(), imageDefinitions.flatMap(({ image }) => [
         `${image}/`, `${image}/rebuild/`, `view/${image}/`,
-      ]).map(path => new URL(path, menuEvidence.base).href).toSorted());
+      ]).map(path => new URL(path, menuEvidence.url).href).toSorted());
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
       for (const { image, text } of menuEvidence.descriptions) {
         assert.ok(text, `${image}: missing image description`);
       }
       assert.equal(menuEvidence.interactiveElements, 0);
       assert.doesNotMatch(menuEvidence.text, /voice input/i);
-      await evaluate(debuggerClient.send, `document.querySelector('a[href="#shortcuts"]').click()`);
+      await evaluate(debuggerClient.send, `document.querySelector('a[href$="#shortcuts"]').click()`);
       await waitForValue(debuggerClient.send, "location.hash",
         value => value === "#shortcuts", "shortcuts link navigation", 200);
       const shortcuts = await evaluate(debuggerClient.send, `(() => {
@@ -3276,7 +3359,7 @@ int main(int argc, char **argv) {
         assert.ok(shortcuts.text.includes(key), `shortcuts guide is missing ${key}`);
       }
       assert.doesNotMatch(shortcuts.text, /Ctrl\+C|mouse capture/);
-      assert.equal(shortcuts.load, new URL("session/", menuEvidence.base).href);
+      assert.equal(shortcuts.load, new URL("session/", menuEvidence.url).href);
       console.log(
         "browser: static root menu exposes image links and a working shortcuts reference",
       );
@@ -5245,6 +5328,10 @@ int main(int argc, char **argv) {
   );
   }
 } catch (error) {
+  if (chrome && (chrome.exitCode !== null || chrome.signalCode !== null ||
+      debuggerClient?.socket.readyState === WebSocket.CLOSED)) {
+    process.stderr.write(`browser process: exit ${chrome?.exitCode}, signal ${chrome?.signalCode}\n${chromeDiagnostics}\n`);
+  }
   if (debuggerClient) {
     if (piAuditMode) {
       const failedAuditScreenshot = await debuggerClient.send(

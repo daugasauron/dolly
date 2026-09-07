@@ -166,6 +166,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
   const expected = new Set(["_main"]);
   const contract = await readWasmInterface(kernelPluginContractPath);
   const displayContract = await readWasmInterface(artifact("dolly-display-0.wasm"));
+  const uploadContract = await readWasmInterface(artifact("dolly-upload-0.wasm"));
   const httpContract = await readWasmInterface(artifact("dolly-http-0.wasm"));
   const snapshotContract = await readWasmInterface(artifact("dolly-snapshot-0.wasm"));
   const supervisorContract = await readWasmInterface(
@@ -178,6 +179,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
     }
   }
   for (const entry of displayContract.exports) expected.add(`_${entry.name}`);
+  for (const entry of uploadContract.exports) expected.add(`_${entry.name}`);
   for (const entry of httpContract.exports) expected.add(`_${entry.name}`);
   for (const entry of snapshotContract.exports) expected.add(`_${entry.name}`);
   for (const entry of supervisorContract.exports) expected.add(`_${entry.name}`);
@@ -276,6 +278,17 @@ test("the runtime implements the bounded browser download contract", async () =>
   assert.match(browser, /maximumDownloadBytes = 64 \* 1024 \* 1024/);
   assert.match(browser, /URL\.createObjectURL\(new Blob/);
   assert.match(browser, /link\.download = message\.name/);
+});
+
+test("user-approved upload has typed mailbox exports and no new browser import", async () => {
+  const contract = await readWasmInterface(artifact("dolly-upload-0.wasm"));
+  const runtime = await readWasmInterface(artifact("dolly.wasm"));
+  assert.deepEqual(contract.imports.map(entry => entry.name), ["memory"]);
+  for (const required of contract.exports) {
+    const actual = runtime.exports.find(entry => entry.name === required.name);
+    assert.ok(actual, required.name);
+    assert.equal(sameWasmType(actual.type, required.type), true);
+  }
 });
 
 test("the runtime implements the opaque system snapshot contract", async () => {
@@ -552,6 +565,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const expectedPrograms = new Map([
     ["bhop", "/usr/bin/bhop"],
     ["default", "/bin/slop"],
+    ["dollyfile-studio", "/usr/bin/dollyfile-lint"],
     ["external-source", "/usr/bin/xxd"],
     ["pi", "/usr/bin/pi"],
     ["pi-local", "/usr/bin/pi"],
@@ -590,7 +604,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.ok(metadata.manifest.includes(expectedPrograms.get(image)));
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),
-      ["pi", "pi-local", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop"].includes(image),
+      ["pi", "pi-local", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop", "dollyfile-studio"].includes(image),
     );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
@@ -607,7 +621,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const shellStartup = ["default", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "neovim"].includes(image);
+    const shellStartup = ["default", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "neovim", "dollyfile-studio"].includes(image);
     assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup);
     assert.deepEqual(metadata.entry, graph.root.entry);
     assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);
@@ -651,6 +665,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     { image: "default", dollyfile: "Dollyfile" },
     { image: "bhop", dollyfile: "Dollyfile-bhop" },
     { image: "cmake-build", dollyfile: "Dollyfile-cmake-build" },
+    { image: "dollyfile-studio", dollyfile: "Dollyfile-dollyfile-studio" },
     { image: "external-source", dollyfile: "Dollyfile-external-source" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
     { image: "gamedev-phone", dollyfile: "Dollyfile-gamedev-phone" },

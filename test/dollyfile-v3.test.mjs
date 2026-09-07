@@ -38,6 +38,7 @@ test("images separate reusable runtimes from applications and configuration", as
   const expected = {
     "ghostty-build": [], system: ["ghostty-build"], default: ["system"], javascript: ["system"],
     "external-source": ["system"],
+    "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system"], "neovim-build": ["cmake-build"],
     neovim: ["system", "neovim-build"],
     "pi-runtime": ["javascript"], pi: ["pi-runtime"], "pi-local": ["pi"],
@@ -59,15 +60,15 @@ test("images separate reusable runtimes from applications and configuration", as
       assert.ok(graph.root.files.some(file => file.path === "/usr/share/nvim/welcome.txt"));
       assert.equal(graph.exporters.has("TOOL:nvim"), true);
       assert.equal(graph.exporters.has("TOOL:cmake"), false);
-      assert.equal(graph.root.artifacts.filter(artifact => artifact.copy)
+      assert.equal(graph.artifacts.filter(artifact => artifact.copy)
         .some(artifact => /\/tmp\/|\/include\/|cmake/.test(artifact.source)), false);
     }
     const records = recipeRecords(graph);
     assert.equal(records.at(-1).name, definition.image);
     assert.equal(new Set(records.map(record => record.locator)).size, records.length);
-    const page = renderDollyfilePage(graph.root, graph);
+    const pages = graph.records.map(record => renderDollyfilePage(record, graph));
     for (const dependency of expected[definition.image]) {
-      assert.ok(page.includes(`href="../../view/${dependency}/"`));
+      assert.ok(pages.some(page => page.includes(`/view/${dependency}/"`)), `${definition.image} must link its ${dependency} dependency`);
       assert.ok(records.some(record => record.kind === "image" && record.name === dependency));
     }
     if (definition.image === "python-pi") {

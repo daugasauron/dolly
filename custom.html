@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Custom Dollyfile · Dolly</title>
+    <style>
+      @font-face { font-family: Dolly; src: url("../dist/IosevkaTerm-SemiBold.woff2"); font-weight: 600; }
+      :root { color: #e8e3d7; background: #262626; font: 600 16px/1.5 Dolly, monospace; }
+      * { box-sizing: border-box; }
+      main { width: min(58rem, calc(100% - 2rem)); margin: 8vh auto; }
+      h1 { color: #f2d45c; }
+      a { color: inherit; text-decoration-color: #f2d45c; text-underline-offset: .2em; }
+      textarea { display: block; width: 100%; min-height: 24rem; margin: 1rem 0;
+        padding: .75rem; background: inherit; color: inherit; border: 1px solid #77736c; font: inherit; }
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+      #status { white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="../">Dolly →</a>
+      <h1>Run a Dollyfile</h1>
+      <p>Paste a recipe or choose a UTF-8 file (128 KiB maximum). It builds and runs inside Wasm.</p>
+      <p>Recipes can make HTTP requests. Run only ones you intend to run. Custom builds stay in this tab; named-session saving is not supported yet.</p>
+      <form id="custom-dollyfile">
+        <input type="file" id="dollyfile-upload" aria-label="Choose a Dollyfile">
+        <textarea id="source" aria-label="Dollyfile source" spellcheck="false" required></textarea>
+        <button type="submit">Build and run →</button>
+      </form>
+      <p id="status" role="status"></p>
+      <p><a href="../docs/dollyfile.md">Syntax reference</a> · <a href="../dollyfile-studio/">Create one with Pi + Neovim</a></p>
+    </main>
+    <script type="module" src="../src/custom-dollyfile.mjs"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+DOLLY 3
+IMAGE hello
+
+FROM HOST /Dollyfile-system @SYSTEM_SHA256@
+
+FILE /usr/share/hello.txt
+    Hello from my custom Dolly image!
+
+FILE /etc/dolly/hello.slop
+    cat /usr/share/hello.txt
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/hello.slop

@@ -99,6 +99,8 @@ URL/path resolution, dependency fetching, or JavaScript evaluation.
   agent-selected network edge.
 - `dolly-download-0.wat` describes an explicit, bounded local-user file
   download.
+- `dolly-upload-0.wat` describes user-approved file input through a separate
+  shared-memory mailbox, with no new browser import.
 - `dolly-snapshot-0.wat` describes opaque system/session snapshot staging and
   bootstrap operations.
 

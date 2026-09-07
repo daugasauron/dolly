@@ -87,8 +87,21 @@ export function createReleaseServer(releases) {
       if (sha256(body) !== files.get(relative)) throw new Error("published file changed");
       if (relative.endsWith(".html")) {
         const directory = session ? "" : relative.slice(0, relative.lastIndexOf("/") + 1);
-        body = Buffer.from(body.toString("utf8").replace(/<head>/i,
-          `<head><base href="/_dolly/${digest}/${directory}">`));
+        const assetBase = `/_dolly/${digest}/${directory}`;
+        body = Buffer.from(body.toString("utf8")
+          .replace(/<head>/i, `<head><base href="${assetBase}">`)
+          .replace(/(<a\b[^>]*\bhref=")([^"]*)(")/gi, (match, before, href, after) => {
+            // Pin resources, not navigation. Static deployments without a
+            // release prefix already have clean, relative links.
+            const target = new URL(href, `http://dolly.invalid${assetBase}`);
+            const prefix = `/_dolly/${digest}/`;
+            if (target.origin !== "http://dolly.invalid" || !target.pathname.startsWith(prefix)) return match;
+            const path = target.pathname.slice(prefix.length);
+            const page = files.has(path) ? path.endsWith(".html")
+              : files.has(`${path.replace(/\/+$/, "")}/index.html`) || (path === "" && files.has("index.html"));
+            // Raw recipes and source links keep their reviewed release identity.
+            return page ? `${before}/${path}${target.search}${target.hash}${after}` : match;
+          }));
       }
       response.writeHead(200, {
         ...isolationHeaders,

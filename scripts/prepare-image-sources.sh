@@ -137,6 +137,19 @@ fi
 if has_module browser-model-providers; then
   copy_static "${project_dir}/src/pi/browser-model-providers.js" default/pi/browser-model-providers.js
 fi
+if has_module dollyfile-studio; then
+  node scripts/build-source-tar.mjs "${static_dir}/studio/studio.tar" \
+    "${project_dir}/src/studio/examples" /usr/share/dollyfile-studio/examples \
+    "${project_dir}/src/studio/install.slop" /usr/share/dollyfile-studio/install.slop \
+    "${project_dir}/src/studio/lint.mjs" /usr/share/dollyfile-studio/lint.mjs \
+    "${project_dir}/src/dollyfile-view.mjs" /usr/share/dollyfile-studio/parser.mjs \
+    "${project_dir}/docs/dollyfile.md" /usr/share/dollyfile-studio/dollyfile.md \
+    "${project_dir}/src/studio/dollyfile-lint" /usr/bin/dollyfile-lint \
+    "${project_dir}/src/studio/nvim" /home/dolly/.config/nvim \
+    "${project_dir}/src/studio/pi-extension.js" /home/dolly/.pi/agent/extensions/dollyfile-studio.js \
+    "${project_dir}/src/studio/prompts" /home/dolly/.pi/agent/prompts \
+    "${project_dir}/src/pi/skills/dollyfiles" /home/dolly/.pi/agent/skills/dollyfiles
+fi
 if has_module typescript; then
   copy_static "${project_dir}/src/commands/tsc.c" default/commands/tsc.c
   copy_static "${project_dir}/src/runtimes/tsc-dolly.mjs" default/runtimes/tsc-dolly.mjs
