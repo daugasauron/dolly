@@ -2,10 +2,9 @@
 
 ## Checkpoint — 2026-09-08
 
-The replacement catalog is built and browser-tested, awaiting local publication.
-Port 9000 still serves
-application `ac13356`, immutable release
-`960336bd0a69ef0085e1c0f56d8a301bc944b39275e1d00168f8afee5da0fb7b`.
+Port 9000 serves application `2eeecd4`, immutable release
+`79d7a92d9f176895ef6417aad936f0b39f3fd1f36770f6ae86c7aa4dc21a3a8b`.
+The subsequent handoff update changes no runtime or image bytes.
 No public push, deployment or hosting purchase has been performed.
 
 Runtime identity:
@@ -37,7 +36,10 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
   images completed genuine fresh-runtime builds
   (`build/dollyfile-stdin-{all-snapshots,snapshots-final}.log`); the first run's
   Python recipe failure and the successful correction are retained separately.
-  Packaged inventories are the remaining local-publication gate.
+  All 19 packaged inventories passed before local publication
+  (`build/dollyfile-stdin-publish.log`). The final live Studio check passes
+  build/stream/open/cancellation, Pi startup and Neovim linting
+  (`build/dollyfile-stdin-live-studio.log`).
   Named save/load also passes on the rebuilt Python/Pi image, including edits,
   deletions, credentials/history, corrupt/wrong-base rejection and preserved
   checkpoints (`build/dollyfile-stdin-session-browser.log`).
@@ -91,10 +93,14 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
   each image, including Worker requests.
 - CPython's personal bootstrap path was removed at source preparation; all three
   Python snapshots are clean of that path. The expanded release scan covered
-  1,121 files, 48,874 tar members, 18,874 snapshot records and 1,067 nested ZIP
+  1,121 files, 48,875 tar members, 18,875 snapshot records and 1,067 nested ZIP
   members. No checked Dolly personal-path or OpenRouter-key patterns matched.
   All 13 private-key blocks matched pinned upstream CPython test fixtures
-  byte-for-byte (`build/public-artifact-{expanded-current,fixture-provenance}.log`).
+  byte-for-byte (`build/public-artifact-fixture-provenance.log`). The new release
+  introduces no new flagged bodies
+  (`build/dollyfile-stdin-artifact-privacy{,-comparison}.log`). The tracked-source
+  scan also has no checked personal-path/key matches
+  (`build/dollyfile-stdin-source-privacy.log`).
   The 16 unparsed archive occurrences also match pinned Zig/CPython fixtures
   byte-for-byte (`build/public-artifact-unparsed-provenance.log`).
   This is a bounded pattern scan, not proof that every possible secret encoding
@@ -134,7 +140,7 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    and archive fixtures are not Dolly user data and should not be blindly deleted.
 5. **Build cost and disk pressure.** Fresh-runtime CMake took 1,143 seconds,
    Neovim 222 seconds and Python 100 seconds; cached Studio assembly took 9 seconds.
-   About 6 GiB of development disk remains before publication. Two reproducible
+   About 5 GiB of development disk remains after publication. Two reproducible
    static-test exports were removed earlier; their logs and source releases are
    retained. Preserve user caches and releases.
 

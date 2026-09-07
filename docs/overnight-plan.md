@@ -1,9 +1,10 @@
 # Overnight release work
 
 Original target: 2026-09-08 07:00 JST; baseline `2ccaab2`.
-All 19 replacement images are built and 260 source tests pass; browser checks
+All 19 images passed packaged inventories and 260 source tests pass; browser checks
 validate the build-stdin fix, including Studio, Python, Pi, Neovim and Git.
-Application `ac13356` stays on port 9000 until packaged inventories pass.
+Application `2eeecd4` is published locally on port 9000, with a passing live
+Studio build/open/lint check. Named session save/load also passes.
 No public deployment or hosting purchase is part of this work.
 See [audit handoff](audit-handoff.md) for exact
 release identity, evidence and remaining issues; unchecked items are unfinished.
