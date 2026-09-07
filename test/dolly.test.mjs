@@ -689,6 +689,10 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     knownImages.filter(({ image }) => selected.has(image)),
   );
   assert.ok(DOLLY_STATIC_SOURCES.length >= 50);
+  const generatedMenu = await readFile(new URL("../build/routes/index.html", import.meta.url), "utf8");
+  assert.deepEqual([...generatedMenu.matchAll(/<h3>([^<]+)<\/h3>/g)].map(match => match[1]),
+    DOLLY_IMAGES.map(({ image }) => image).sort((a, b) =>
+      Number(b === "default") - Number(a === "default") || a.localeCompare(b, "en")));
   for (const image of DOLLY_IMAGES) {
     await readFile(new URL(`../build/routes/${image.image}/index.html`, import.meta.url));
     await readFile(new URL(`../build/routes/${image.image}/rebuild/index.html`, import.meta.url));

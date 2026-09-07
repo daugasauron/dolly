@@ -6,6 +6,26 @@ Click a model row, or use arrow keys and Enter, to load that size.
 Escape or Ctrl+Shift+L closes the menu and returns focus to the terminal.
 Select the same size under `webgpu` in Pi's normal model picker.
 
+## Chrome setup
+
+If the picker cannot find a hardware GPU, expand **GPU setup / Chrome**:
+
+1. In `chrome://settings/system`, enable graphics acceleration and relaunch.
+2. Check `chrome://gpu`: WebGPU should say hardware accelerated, not software
+   only. Update Chrome and the GPU driver if necessary.
+3. Linux support may require `chrome://flags/#enable-unsafe-webgpu` and
+   `chrome://flags/#enable-vulkan`, followed by a restart. These are experimental
+   settings; reset them if unstable. Flags cannot supply missing GPU features.
+4. Use HTTPS or localhost. The Qwen models require `shader-f16`; on an unsupported
+   device, select a remote provider in Pi instead.
+
+For blocklisted hardware or multi-GPU laptops, consult
+[Chrome's troubleshooting guide](https://developer.chrome.com/docs/web-platform/webgpu/troubleshooting-tips?hl=en)
+before overriding driver safeguards. Dolly never changes these settings, asks
+you to disable browser security, or silently sends local prompts to a server.
+
+## Model sizes
+
 | Size | First weight download | Role |
 | --- | --- | --- |
 | 0.8B | 0.42 GB | Quick experiments; weak at tool use |

@@ -22,7 +22,21 @@ export function mountLocalModel() {
       <li role="menuitem" data-action="remove" tabindex="-1">Clear cached models</li>
     </ul>
     <p role="status"></p>
-    <p>Use the same model in Pi.<br>↑↓ choose · Enter select · Esc close</p>`;
+    <p>Use the same model in Pi.<br>↑↓ choose · Enter select · Esc close</p>
+    <details id="local-model-help"><summary>GPU setup / Chrome</summary>
+      <p>Enable graphics acceleration in <code>chrome://settings/system</code>,
+      then relaunch Chrome. In <code>chrome://gpu</code>, check that WebGPU is
+      hardware accelerated.</p>
+      <p>On Linux, Chrome may require the experimental
+      <code>chrome://flags/#enable-unsafe-webgpu</code> and
+      <code>chrome://flags/#enable-vulkan</code> flags, then a restart.
+      These are experimental; reset them if Chrome becomes unstable.</p>
+      <p>Update Chrome and your GPU driver. Dolly needs HTTPS (or localhost)
+      and a GPU with <code>shader-f16</code>. Software rendering is insufficient.</p>
+      <p><a href="${new URL('../docs/browser-local-models.md#chrome-setup', import.meta.url)}"
+      target="_blank" rel="noopener">More setup help</a> · You can also choose a
+      remote provider in Pi.</p>
+    </details>`;
   const items = [...panel.querySelectorAll("[data-action]")];
   const available = () => items.filter(item => !item.hidden);
   let current = items.find(item => item.dataset.model === DEFAULT_LOCAL_MODEL.id);
@@ -34,6 +48,9 @@ export function mountLocalModel() {
   function render() {
     panel.dataset.state = service.state;
     panel.querySelector('[role="status"]').textContent = service.detail;
+    if (service.state === "error" && /WebGPU|GPU adapter|shader-f16/.test(service.detail)) {
+      panel.querySelector("details").open = true;
+    }
     for (const item of items) {
       const action = item.dataset.action;
       item.hidden = action === "stop" ? !["generating", "stopping"].includes(service.state)
@@ -77,7 +94,8 @@ export function mountLocalModel() {
   });
   panel.addEventListener("keydown", event => {
     const choices = available(), index = choices.indexOf(current);
-    if (["Escape", "Tab"].includes(event.key)) toggleLocalModel();
+    if (event.key === "Escape") toggleLocalModel();
+    else if (event.key === "Tab" || event.target.closest("details")) return;
     else if (event.key === "ArrowDown") select(choices[(index + 1) % choices.length], true);
     else if (event.key === "ArrowUp") select(choices[(index - 1 + choices.length) % choices.length], true);
     else if (event.key === "Home") select(choices[0], true);

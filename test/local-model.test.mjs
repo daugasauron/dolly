@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import { runInNewContext } from "node:vm";
 import { DollyHttpPolicy } from "../src/http-policy.mjs";
 import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_MODEL_ORIGIN, LOCAL_LIMITS, validateCompletion } from "../src/local-model-contract.mjs";
 import { LocalModelService, localModelTransport } from "../src/local-model-service.mjs";
@@ -10,6 +11,26 @@ const request = () => ({ model: DEFAULT_LOCAL_MODEL.id, stream: true, messages: 
 const tool = { type: "function", function: { name: "read", parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } };
 const url = new URL(`${LOCAL_MODEL_ORIGIN}/v1/chat/completions`);
 const init = body => ({ method: "POST", body: new TextEncoder().encode(JSON.stringify(body)), signal: new AbortController().signal });
+
+test("GPU preflight fails with setup guidance before any model download", async () => {
+  const source = (await readFile(new URL("../src/webgpu-worker.mjs", import.meta.url), "utf8"))
+    .replace(/^import .*;\n/gm, "")
+    .replaceAll("import.meta.url", JSON.stringify(new URL("../src/webgpu-worker.mjs", import.meta.url).href));
+  for (const adapter of [null, { info: { isFallbackAdapter: true } }, { features: new Set() }]) {
+    let receive, downloads = 0;
+    let respond;
+    const response = new Promise(resolve => { respond = resolve; });
+    runInNewContext(source, {
+      LOCAL_MODELS, navigator: { gpu: { requestAdapter: async () => adapter } },
+      fetch() { downloads++; throw new Error("Unexpected model asset request"); },
+      addEventListener(_event, callback) { receive = callback; },
+      postMessage(message) { if (message.id) respond(message); },
+    });
+    receive({ data: { id: 1, type: "load", modelId: DEFAULT_LOCAL_MODEL.id } });
+    assert.match((await response).error, /GPU setup below/);
+    assert.equal(downloads, 0);
+  }
+});
 
 test("local capability and remote policy are independent; reserved addresses never reach Fetch", async () => {
   let fetched = 0;

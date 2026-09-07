@@ -13,8 +13,10 @@ async function load(modelId) {
   try {
     postMessage({ progress: "Checking the worker’s WebGPU adapter…" });
     const adapter = await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" });
-    if (!adapter || adapter.info?.isFallbackAdapter) throw new Error("A hardware WebGPU adapter is required");
-    if (!adapter.features.has("shader-f16")) throw new Error("This Qwen model requires WebGPU shader-f16");
+    if (!adapter || adapter.info?.isFallbackAdapter) {
+      throw new Error("The browser could not provide a hardware WebGPU adapter. Open GPU setup below to enable acceleration and check your driver.");
+    }
+    if (!adapter.features.has("shader-f16")) throw new Error("This GPU lacks WebGPU shader-f16. See GPU setup below; a compatible GPU/driver is required.");
     postMessage({ progress: "Preparing the pinned model assets…" });
     const catalog = await (await nativeFetch(new URL("../dist/webgpu/assets.json", import.meta.url))).json();
     const manifest = catalog.models.find(entry => entry.model === model.id);

@@ -3341,6 +3341,9 @@ int main(int argc, char **argv) {
         `${image}/`, `${image}/rebuild/`, `view/${image}/`,
       ]).map(path => new URL(path, menuEvidence.url).href).toSorted());
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
+      assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image),
+        imageDefinitions.map(({ image }) => image).sort((a, b) =>
+          Number(b === "default") - Number(a === "default") || a.localeCompare(b, "en")));
       for (const { image, text } of menuEvidence.descriptions) {
         assert.ok(text, `${image}: missing image description`);
       }

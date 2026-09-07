@@ -24,22 +24,16 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
   graph: await loadDollyfileGraph(projectDir, definition.filename),
 })));
 await writeImageRegistry(projectDir, definitions, staticSources);
-const selectedNames = new Set(definitions.map(definition => definition.image));
-const menuNames = new Set();
-let menu = (await readFile(resolve(projectDir, "index.html"), "utf8"))
-  .replace(/<section class="image">[\s\S]*?<\/section>/g, section => {
-    const name = /<h3>([^<]+)<\/h3>/.exec(section)?.[1];
-    if (!selectedNames.has(name)) return "";
-    menuNames.add(name);
-    return section;
-  });
-for (const { image } of definitions) {
-  if (menuNames.has(image)) continue;
-  menu = menu.replace("</nav>", `<section class="image"><h3>${image}</h3>
+const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
+const cards = new Map([...menuTemplate.matchAll(/<section class="image">[\s\S]*?<\/section>/g)]
+  .map(([section]) => [/<h3>([^<]+)<\/h3>/.exec(section)[1], section]));
+const ordered = [...definitions].sort((a, b) =>
+  Number(b.image === "default") - Number(a.image === "default") || a.image.localeCompare(b.image, "en"));
+const menu = menuTemplate.replace(/(<nav\b[^>]*>)[\s\S]*?(<\/nav>)/, (_match, start, end) =>
+  start + "\n" + ordered.map(({ image }) => cards.get(image) ?? `<section class="image"><h3>${image}</h3>
     <div class="image-links"><a href="./${image}/">open →</a>
     <a href="./${image}/rebuild/">rebuild</a><a href="./view/${image}/">Dollyfile</a></div>
-    </section></nav>`);
-}
+    </section>`).join("\n") + "\n" + end);
 await mkdir(outputDir, { recursive: true });
 await writeFile(resolve(outputDir, "index.html"), menu);
 const routes = [

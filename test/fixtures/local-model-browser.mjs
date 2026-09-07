@@ -28,6 +28,11 @@ export async function runLocalMenuProof(evaluate, press) {
     assert.equal(await evaluate("document.querySelector('#local-model').hidden"), true);
     assert.deepEqual(await evaluate("__menuKeys"), []);
     await toggle();
+    await evaluate("document.querySelector('#local-model-help summary').focus()");
+    await press({ key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+    assert.equal(await evaluate("document.querySelector('#local-model-help').open"), true);
+    assert.equal(await evaluate("document.querySelector('#local-model').dataset.state"), "unloaded");
+    await evaluate("document.querySelector('#local-model-help').open = false; true");
   } finally {
     await evaluate("__dolly.transport.pushKey=__menuPushKey; true");
   }
@@ -35,6 +40,24 @@ export async function runLocalMenuProof(evaluate, press) {
 }
 
 export async function runLocalCacheProof(evaluate) {
+  const setup = await evaluate(`(async () => {
+    const {LocalModelService} = await import(new URL('../src/local-model-service.mjs', document.baseURI));
+    const rpc = LocalModelService.prototype.rpc;
+    LocalModelService.prototype.rpc = () => Promise.reject(new Error('No hardware WebGPU adapter: fixture'));
+    try {
+      document.querySelector('#local-model [data-action=load]').click();
+      await new Promise(resolve => setTimeout(resolve, 20));
+      const help = document.querySelector('#local-model-help');
+      return {state:document.querySelector('#local-model').dataset.state, open:help.open,
+        text:help.textContent, link:help.querySelector('a').href};
+    } finally { LocalModelService.prototype.rpc = rpc; }
+  })()`);
+  assert.equal(setup.state, "error");
+  assert.equal(setup.open, true);
+  assert.match(setup.text, /chrome:\/\/settings\/system/);
+  assert.match(setup.text, /chrome:\/\/gpu/);
+  assert.match(setup.text, /experimental/);
+  assert.match(setup.link, /docs\/browser-local-models.md#chrome-setup$/);
   const result = await evaluate(`(async () => {
     const names = ['webllm/model','webllm/config','webllm/wasm','local-cache-session-proof'];
     for (const name of names) await new Promise((resolve,reject) => {
