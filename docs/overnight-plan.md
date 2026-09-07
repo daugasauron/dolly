@@ -18,6 +18,10 @@ release identity, evidence and remaining issues; unchecked items are unfinished.
   a real Chrome GPU load. No silent flags or remote fallback.
 - [ ] Genuine fd/ripgrep in every Pi image, resolved from PATH. Resolve the Rust
   bootstrap boundary and upstream threading requirements.
+  An isolated, externally Rust-compiled upstream ripgrep now links and runs
+  inside Dolly; default serial searches, mmap and direct cancellation pass.
+  Three missing upstream pthread attribute functions were compiled in the guest.
+  This is not an installed tool or an in-Dolly Rust compiler.
 - [x] Deterministic home-page ordering, default first then alphabetical.
 - [x] Studio submits approved recipes through the existing HTTP broker to an
   isolated in-browser build, streams bounded logs/errors and opens successful
@@ -59,4 +63,7 @@ release identity, evidence and remaining issues; unchecked items are unfinished.
 Preserve the last complete local release while building. Publish only validated
 catalogs and retain old release assets for open tabs. The Codex experiment is
 paused; manual Studio evidence and its cached profile are retained.
-Port 9000 remains available. Around 1.5 GiB of disk remains; no large rebuilds.
+The resumed isolated probe also found a stock-shell pipeline cancellation bug
+and tar's rejection of ordinary `./` entries; see the audit handoff. Neither is
+fixed in the published release. Pipeline cancellation is the next cleanup target.
+Port 9000 remains available. Around 1.2 GiB of disk remains; no large rebuilds.

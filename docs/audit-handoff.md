@@ -196,6 +196,18 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    Rust bootstrap boundary: pinned external compiler versus an in-Dolly compiler.
    fd's single-thread option still creates threads. Do not ship renamed substitutes
    or represent externally compiled tools as source-built inside Dolly.
+   An isolated upstream ripgrep 15.1.0 probe now runs in the published browser:
+   default serial search/listing, Unicode, ignore rules, pipes, exit statuses,
+   explicit mmap and direct Ctrl+C/reuse pass (5 ms cancellation). Rust objects
+   were externally compiled; Dolly compiled three missing upstream pthread
+   attribute functions and linked the executable. No ripgrep source patch or
+   host change was needed. Evidence and reproduction scripts are under
+   `build/ripgrep-probe.OHvH0j/`; final proof is `browser-direct-cancel.log`.
+   `scripts/build.sh` must include `pthread_attr_init`,
+   `pthread_attr_setstacksize` and `pthread_attr_destroy` in the process archive.
+   These functions do not implement threads. SDK packaging remains unfinished.
+   The probe's upstream build script picked up Dolly's parent Git revision;
+   isolate Git discovery and remap host source paths before packaging Rust tools.
 3. **Custom-image persistence.** Uploaded recipes cannot yet use named-session
    save/load. Result URLs refer to this browser's verified cache, not portable
    images or persistent sessions. Preserve exact image identity when extending it.
@@ -211,7 +223,7 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    and archive fixtures are not Dolly user data and should not be blindly deleted.
 5. **Build cost and disk pressure.** Fresh-runtime CMake took 1,143 seconds,
    Neovim 222 seconds and Python 100 seconds; cached Studio assembly took 9 seconds.
-   Around 1.5 GiB of development disk remains at this checkpoint. The final
+   Around 1.2 GiB of development disk remains after the isolated Rust probe. The final
    publication used RAM-backed temporary staging; no old releases were deleted.
    Two reproducible static-test exports were removed earlier; their logs and
    source releases are retained. Preserve user caches and releases; avoid further
@@ -219,6 +231,21 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    One cached 2B startup took 119 seconds. A fresh browser process loaded it in
    4.17 seconds with phase timings (`build/gpu-load-phase-first.log`); the next
    published run took 4.34 seconds. The outlier's cause remains unproven.
+6. **Pipeline cancellation — next fix.** A fresh stock default image reproduces
+   `sleep 30 | /bin/slop -c 'echo wrongly-ran > FILE'` continuing after Ctrl+C:
+   the second stage writes FILE and the pipeline returns 0 in 31 ms. This does
+   not involve Rust (`build/pipeline-interrupt-browser-red.log`, reproduced by
+   `node build/pipeline-interrupt-probe.mjs`). Slop's serial pipeline advances
+   after the interrupted child; `dolly_wait` discards the signal metadata already
+   available through `waitpid`. Preserve real termination information and stop
+   the current command's remaining work. Do not infer a signal from numeric 130:
+   the probe also confirms an ordinary `exit 130` must allow later pipeline work.
+   Cover compound pipelines and command lists, descriptors and prompt recovery.
+7. **Ordinary tar root entries.** The extractor rejects `./` and `./file` paths
+   from a conventional `tar -cf archive -C DIRECTORY .`. Real-browser failure:
+   `build/ripgrep-probe.OHvH0j/browser-link.log`. Normalize safe leading `./`
+   components and accept empty root directory markers without accepting parent
+   traversal or treating a root marker as a regular file. This is not fixed.
 
 GPU guidance, home-page sorting, approved Studio build/log/open and the Foundry
 bhop expansion are implemented and browser tested. See the
