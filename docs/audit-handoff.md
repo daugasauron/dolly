@@ -2,10 +2,12 @@
 
 ## Checkpoint — 2026-09-08
 
-Port 9000 serves application `9e1671f`, immutable release
-`12d5e7339426623845beff0022ac1da77e3aea75ba6934a98d679ce14b03221b`.
-Subsequent test/handoff changes preserve all published asset bytes.
-All 266 source tests pass (`build/literal-checkpoint-source-final.log`).
+Port 9000 serves application `15f658e`, immutable release
+`9ad971deddb9c062971caf544ef23e2c7f255dc4887163637422fd1b8857a29e`.
+Work is paused at the user's requested checkpoint; the remaining goals below
+are not complete. The final handoff-only commit does not change the application.
+All 268 source tests pass (`build/checkpoint-20260908-source.log`).
+All 19 packaged browser inventories pass (`build/literal-filenames-publish.log`).
 No public push, deployment or hosting purchase has been performed.
 
 Runtime identity:
@@ -16,6 +18,16 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
 
 ## Validated work
 
+- Janis package exports/imports and Studio lint diagnostics now preserve literal
+  filenames containing JavaScript replacement sequences such as `$&`. Both
+  actual components fail before the fix and pass after it; installed-browser
+  regressions likewise fail on the old images and pass on the rebuilt ones
+  (`build/literal-filenames-{source,janis-browser,studio-browser}-{red,green}.log`).
+  All nine affected images rebuilt from the corrected, pinned sources; cached
+  bases were reused (`build/literal-filenames-snapshots.log`). Final checks on
+  port 9000 pass Janis filesystem/package loading and Studio's Pi startup,
+  example linting and Neovim unsaved/save diagnostics
+  (`build/literal-filenames-live-{janis,studio}.log`).
 - WebLLM's prompt formatter interpreted JavaScript replacement sequences in
   message text and removed literal `{function_string}`. Template expansion now
   precedes literal message insertion. The actual formatter's exact-byte tests
@@ -157,9 +169,9 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
   byte-for-byte (`build/public-artifact-unparsed-provenance.log`).
   This is a bounded pattern scan, not proof that every possible secret encoding
   or unsupported archive format was inspected.
-  Repeating it on the current literal-prompt release found no new flagged bodies
+  Repeating it on the current literal-filename release found no new flagged bodies
   and the same public fixtures
-  (`build/webllm-literal-prompts-artifact-privacy{,-comparison}.log`).
+  (`build/literal-filenames-artifact-privacy{,-comparison}.log`).
 
 ## Outstanding issues
 
@@ -191,7 +203,7 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    but there is no cross-build migration or export UI.
 4. **Final release review and hosting.** Static export is verified; provider
    selection, WAN/load testing and production retention are not.
-   The release is about 775 MB, including 124 MB of compressed snapshot packs;
+   The release is about 772 MB, including 124 MB of compressed snapshot packs;
    seven individual assets exceed 25 MiB. Root rebuilds still download the 113 MB
    seed, which Chrome did not cache. Keep prior `_dolly/` releases and packs for
    open tabs: an ordinary one-release GitHub Pages deployment does not do this.
@@ -199,18 +211,14 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    and archive fixtures are not Dolly user data and should not be blindly deleted.
 5. **Build cost and disk pressure.** Fresh-runtime CMake took 1,143 seconds,
    Neovim 222 seconds and Python 100 seconds; cached Studio assembly took 9 seconds.
-   Around 2 GiB of development disk remains at this checkpoint. Two reproducible
-   static-test exports were removed earlier; their logs and source releases are
-   retained. Preserve user caches and releases; avoid further large builds.
+   Around 1.5 GiB of development disk remains at this checkpoint. The final
+   publication used RAM-backed temporary staging; no old releases were deleted.
+   Two reproducible static-test exports were removed earlier; their logs and
+   source releases are retained. Preserve user caches and releases; avoid further
+   large builds.
    One cached 2B startup took 119 seconds. A fresh browser process loaded it in
    4.17 seconds with phase timings (`build/gpu-load-phase-first.log`); the next
    published run took 4.34 seconds. The outlier's cause remains unproven.
-6. **Literal filenames.** The same substitution audit found two unfixed cases:
-   `janisMappedTarget` in `src/runtimes/janis.js` maps `./$&` to `./src/*.js`
-   instead of `./src/$&.js`; `src/studio/lint.mjs` duplicates a `$&`-containing
-   filename in diagnostics. Actual mapper/parser executions reproduce both
-   (`build/literal-substitution-followups.log`). Use literal replacements and
-   verify the installed runtime/linter, not only these component probes.
 
 GPU guidance, home-page sorting, approved Studio build/log/open and the Foundry
 bhop expansion are implemented and browser tested. See the
