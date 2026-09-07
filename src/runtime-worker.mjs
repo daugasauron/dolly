@@ -200,6 +200,11 @@ try {
   };
   dolly = await createDolly(dollyOptions);
   globalThis.TextDecoder = nativeTextDecoder;
+  if (bootMode === "rebuild" && !baseArtifact) {
+    bootstrapStage("loading root compiler seed...");
+    const { default: loadSeed } = await import("../dist/dolly-seed.mjs");
+    await loadSeed(dolly);
+  }
   bootstrapStage("Dolly runtime loaded");
 
   dolly.FS.mkdirTree("/dev");

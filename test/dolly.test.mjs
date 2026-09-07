@@ -136,11 +136,31 @@ test("a statically linked process executable satisfies dolly-process-0", async (
 });
 
 test("the production seed contains only bootstrap and compiler executables, not acceptance probes", async () => {
-  const cmake = await readFile(new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
+  const { default: loadSeed } = await import("../dist/dolly-seed.mjs");
+  const bytes = await readFile(new URL("../dist/dolly.data", import.meta.url));
+  const files = new Map();
+  let dependencies = 0;
+  await loadSeed({
+    getPreloadedPackage(_name, size) {
+      assert.equal(size, bytes.byteLength);
+      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    },
+    FS_createPath() {},
+    FS_createDataFile(path, _name, contents) { files.set(path, contents); },
+    addRunDependency() { dependencies++; },
+    removeRunDependency() { dependencies--; },
+  });
+  assert.equal(dependencies, 0);
+  const prefix = "/seed/usr/libexec/dolly/process-bin/";
+  assert.deepEqual([...files.keys()].filter(path => path.startsWith(prefix))
+    .map(path => path.slice(prefix.length)).sort(), ["bootstrap", "compiler"]);
+  for (const name of ["bootstrap", "compiler"]) {
+    assert.deepEqual(Buffer.from(files.get(prefix + name)),
+      await readFile(new URL(`../build/process-bin/${name}`, import.meta.url)));
+  }
+  assert.ok(files.has("/seed/usr/include/stdio.h"));
+  assert.ok(![...files.keys()].some(path => path.includes("/c++/v1/")));
   const worker = await readFile(new URL("../src/runtime-worker.mjs", import.meta.url), "utf8");
-  assert.deepEqual([...cmake.matchAll(/--preload-file ([^\s"]+)@\/seed\/usr\/libexec\/dolly\/process-bin\/([^\s"]+)/g)]
-    .map((match) => match[2]).sort(), ["bootstrap", "compiler"]);
-  assert.doesNotMatch(cmake, /process-bin@|dso-(?:cpp-)?(?:check|library)/);
   assert.doesNotMatch(worker, /PROCESS-PRIVATE-OK|process-check|dso-cpp-check|verifying private process/);
 });
 
@@ -1202,7 +1222,6 @@ test("the C++ SDK uses one genuine process runtime for implicit and explicit lin
   assert.doesNotMatch(cpp, /libcxx-.*-dolly|SLOP ar/);
   assert.match(cpp, /SOURCE HOST \/static\/default\/libcxx-headers\.tar/);
   assert.match(cpp, /SLOP tar \\\n+  -xf \/tmp\/cpp\/libcxx-headers\.tar/);
-  assert.match(packaging, /--exclude-file \*\/c\+\+\/v1\/\*/);
   assert.match(packaging, /build\/generated\/libclang_rt\.dolly\.a/);
   assert.match(compilerRtPreparation, /ar d "\$\{staging\}" emscripten_setjmp\.o/);
   assert.match(compilerRtPreparation, /mv -T -- "\$\{staging\}" "\$\{output_archive\}"/);

@@ -50,10 +50,6 @@ set(DOLLY_LLVM_LIBRARIES
   LLVMObject
 )
 
-# Emscripten makes --preload-file directory nodes read-only. Keep its packaged
-# input under /seed; Dolly installs that tree into its mutable in-Wasm /usr
-# filesystem before invoking the compiler. No image-specific source belongs in
-# this common seed.
 target_link_options(dolly PRIVATE
   -m64
   -O2
@@ -67,6 +63,7 @@ target_link_options(dolly PRIVATE
   "SHELL:-Wl,--export-table,--growable-table"
   -sDYNAMIC_EXECUTION=0
   -sWASMFS
+  -sFORCE_FILESYSTEM=1
   -sALLOW_MEMORY_GROWTH=1
   -sIMPORTED_MEMORY=1
   -sINITIAL_MEMORY=67108864
@@ -78,35 +75,42 @@ target_link_options(dolly PRIVATE
   -sENVIRONMENT=worker
   -sINVOKE_RUN=0
   --profiling-funcs
-  "SHELL:-sEXPORTED_RUNTIME_METHODS=FS,FS_createPath,FS_createDataFile"
+  "SHELL:-sEXPORTED_RUNTIME_METHODS=FS,FS_createPath,FS_createDataFile,addRunDependency,removeRunDependency"
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
   "SHELL:--js-library /src/src/browser-broker.js"
-  "SHELL:--preload-file /src/.cache/emscripten/sysroot/include@/seed/usr/include"
-  "SHELL:--exclude-file */c++/v1/*"
-  "SHELL:--preload-file /src/build/generated/libclang_rt.dolly.a@/seed/usr/lib/libclang_rt.builtins.a"
-  "SHELL:--preload-file /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include"
-  "SHELL:--preload-file /src/include/dolly/http.h@/seed/usr/include/dolly/http.h"
-  "SHELL:--preload-file /src/include/dolly/display.h@/seed/usr/include/dolly/display.h"
-  "SHELL:--preload-file /src/include/dolly/download.h@/seed/usr/include/dolly/download.h"
-  "SHELL:--preload-file /src/include/dolly/runtime.h@/seed/usr/include/dolly/runtime.h"
-  "SHELL:--preload-file /src/include/dolly/process.h@/seed/usr/include/dolly/process.h"
-  "SHELL:--preload-file /src/include/dolly/toolchain.h@/seed/usr/include/dolly/toolchain.h"
-  "SHELL:--preload-file /src/src/slop.c@/seed/usr/src/dolly/slop.c"
-  "SHELL:--preload-file /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c"
-  "SHELL:--preload-file /src/src/sha256.h@/seed/usr/src/dolly/sha256.h"
-  "SHELL:--preload-file /src/src/fs-record.h@/seed/usr/src/dolly/fs-record.h"
-  "SHELL:--preload-file /src/src/commands/mkdir.c@/seed/usr/src/dolly/commands/mkdir.c"
-  "SHELL:--preload-file /src/src/commands/rm.c@/seed/usr/src/dolly/commands/rm.c"
-  "SHELL:--preload-file /src/src/process/cc.c@/seed/usr/src/dolly/process-tools/cc.c"
-  "SHELL:--preload-file /src/src/process/cxx.c@/seed/usr/src/dolly/process-tools/cxx.c"
-  "SHELL:--preload-file /src/src/process/ld.c@/seed/usr/src/dolly/process-tools/ld.c"
-  "SHELL:--preload-file /src/src/process/ar.c@/seed/usr/src/dolly/process-tools/ar.c"
-  "SHELL:--preload-file /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm"
-  "SHELL:--preload-file /src/build/dolly-process-0.wasm@/seed/usr/lib/dolly/dolly-process-0.wasm"
-  "SHELL:--preload-file ${DOLLY_PROCESS_SYSROOT_DIR}@/seed/usr/lib/dolly/process"
-  "SHELL:--preload-file /src/build/process-bin/bootstrap@/seed/usr/libexec/dolly/process-bin/bootstrap"
-  "SHELL:--preload-file /src/build/process-bin/compiler@/seed/usr/libexec/dolly/process-bin/compiler"
 )
+
+# Only a root rebuild needs this bundle. Restored images already contain their
+# compiler and tools, so kernel instantiation must not preload the seed.
+add_custom_target(dolly-seed
+  COMMAND bash /src/scripts/prepare-kernel-seed.sh
+    /src/.cache/emscripten/sysroot/include@/seed/usr/include
+    /src/build/generated/libclang_rt.dolly.a@/seed/usr/lib/libclang_rt.builtins.a
+    /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include
+    /src/include/dolly/http.h@/seed/usr/include/dolly/http.h
+    /src/include/dolly/display.h@/seed/usr/include/dolly/display.h
+    /src/include/dolly/download.h@/seed/usr/include/dolly/download.h
+    /src/include/dolly/runtime.h@/seed/usr/include/dolly/runtime.h
+    /src/include/dolly/process.h@/seed/usr/include/dolly/process.h
+    /src/include/dolly/toolchain.h@/seed/usr/include/dolly/toolchain.h
+    /src/src/slop.c@/seed/usr/src/dolly/slop.c
+    /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c
+    /src/src/sha256.h@/seed/usr/src/dolly/sha256.h
+    /src/src/fs-record.h@/seed/usr/src/dolly/fs-record.h
+    /src/src/commands/mkdir.c@/seed/usr/src/dolly/commands/mkdir.c
+    /src/src/commands/rm.c@/seed/usr/src/dolly/commands/rm.c
+    /src/src/process/cc.c@/seed/usr/src/dolly/process-tools/cc.c
+    /src/src/process/cxx.c@/seed/usr/src/dolly/process-tools/cxx.c
+    /src/src/process/ld.c@/seed/usr/src/dolly/process-tools/ld.c
+    /src/src/process/ar.c@/seed/usr/src/dolly/process-tools/ar.c
+    /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm
+    /src/build/dolly-process-0.wasm@/seed/usr/lib/dolly/dolly-process-0.wasm
+    ${DOLLY_PROCESS_SYSROOT_DIR}@/seed/usr/lib/dolly/process
+    /src/build/process-bin/bootstrap@/seed/usr/libexec/dolly/process-bin/bootstrap
+    /src/build/process-bin/compiler@/seed/usr/libexec/dolly/process-bin/compiler
+  VERBATIM
+)
+add_dependencies(dolly dolly-seed)
 
 set_target_properties(dolly PROPERTIES
   OUTPUT_NAME dolly

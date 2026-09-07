@@ -105,7 +105,7 @@ export function createReleaseServer(releases) {
       }
       response.writeHead(200, {
         ...isolationHeaders,
-        "cache-control": snapshotPackPath.test(relative)
+        "cache-control": pinned || snapshotPackPath.test(relative)
           ? "public, max-age=31536000, immutable" : "no-store",
         "content-type": /^Dollyfile(?:-|$)/.test(relative) ? "text/plain; charset=utf-8" :
           mimeTypes.get(extname(relative)) ?? "application/octet-stream",

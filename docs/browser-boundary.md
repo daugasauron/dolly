@@ -116,6 +116,8 @@ a delta save. It cannot substitute a guest-selected metadata URL.
 
 Boot reads fixed application assets. `runtime-worker.mjs` accepts only the
 fixed `dolly.wasm` and `dolly.data` artifact names for the generated runtime.
+The standalone Emscripten seed loader runs only for a root rebuild without a
+base image; prebuilt boot and derived builds do not download `dolly.data`.
 Other startup snapshots and recipe assets have their own fixed identities;
 these reads are not guest-selected URLs.
 Regression commands live in `test/fixtures`, not in the shipped page; there is
@@ -155,6 +157,8 @@ Only `dist/packs/HEX_DIGEST.snapshot.gz` also has a release-independent URL.
 That lookup searches digest-verified published manifests, then checks the selected
 file against its manifest hash. It never serves loose cache/build files. Old
 published packs remain available for release-pinned tabs after publication.
+Release-pinned assets also use immutable HTTP caching; unpinned navigation and
+asset URLs remain uncached so publication cannot mix versions in an open tab.
 
 Mouse and touch forward the same bounded press/drag/release records. The host
 has no phone mode, gesture interpretation, or application command menu.

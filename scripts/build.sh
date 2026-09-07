@@ -55,6 +55,7 @@ fi
 rm -f \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.mjs" \
+  "${project_dir}/dist/dolly-seed.mjs" \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-kernel-plugin-0.wasm" \
   "${project_dir}/dist/dolly-0.wasm" \

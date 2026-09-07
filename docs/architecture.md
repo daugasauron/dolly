@@ -149,12 +149,12 @@ base restore. Everything else is built by the chosen module graph. The
 `bootstrap` module exports the compiler and its complete process SDK explicitly;
 images retain them through ordinary module re-exports.
 
-Prebuilt boot restores the sealed snapshot without installing seed `/usr`,
+Prebuilt boot restores the sealed snapshot without downloading the compiler seed,
 replaying builds, fetching source archives, or running acceptance probes. Both
 boot paths discard unretained build inputs before starting the entry program.
-Only runtime-owned `/dev` and `/seed`, empty working directories, and the exact
-retained image remain. Process acceptance programs are source-built and run by
-the browser test harness, not production startup.
+Only runtime-owned `/dev` (plus `/seed` after a root rebuild), empty working
+directories, and the exact retained image remain. Process acceptance programs
+are source-built and run by the browser test harness, not production startup.
 
 ## Terminal and graphics
 

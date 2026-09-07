@@ -110,6 +110,8 @@ test("published server pins complete versions, preserves public session URLs and
   assert.match(page, /a href="\.\.\/src\/browser.mjs"/, "source inspection links keep the same release too");
   const pack = `dist/packs/${"a".repeat(64)}.snapshot.gz`;
   assert.equal((await get(`_dolly/${old}/${pack}`)).headers.get("cache-control"), "public, max-age=31536000, immutable");
+  assert.equal((await get(`_dolly/${old}/src/browser.mjs`)).headers.get("cache-control"), "public, max-age=31536000, immutable");
+  assert.equal((await get("src/browser.mjs")).headers.get("cache-control"), "no-store");
   assert.equal((await get(pack)).headers.get("cache-control"), "public, max-age=31536000, immutable");
   assert.equal((await get("default")).headers.get("cache-control"), "no-store");
   assert.match(await (await get("session/work.1")).text(), new RegExp(`<base href="/_dolly/${old}/">`));

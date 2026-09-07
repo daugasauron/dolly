@@ -64,6 +64,7 @@ const missingDependencyMode = isMode("v3-missing-dependency");
 const iterationMode = isMode("v3-iteration") || missingDependencyMode;
 const imageRetentionMode = isMode("image-retention");
 const imageInventoryMode = isMode("image-inventory", "image-inventory-rebuild");
+const releaseCacheMode = isMode("release-cache");
 const makeMode = isMode("make");
 const slopMode = isMode("slop", "slop-source");
 const utf8Mode = isMode("utf8");
@@ -644,6 +645,11 @@ function startServer() {
           : requestUrl.pathname.startsWith(`${browserBasePrefix}/`)
             ? requestUrl.pathname.slice(browserBasePrefix.length)
             : null;
+      if (requestedMode === "image-inventory" &&
+          ["/dist/dolly.data", "/dist/dolly-seed.mjs"].includes(staticPath)) {
+        response.writeHead(404, isolatedHeaders).end("prebuilt boot must not need the compiler seed");
+        return;
+      }
       if ((unpackagedSnapshotMode && /^\/dist\/dolly-.+-system(?:\.snapshot(?:\.gz)?|-snapshot\.mjs)$/.test(staticPath)) ||
           (missingDependencyMode && staticPath === "/dist/dolly-pi-system-snapshot.mjs") ||
           missingSnapshotMode &&
@@ -1548,6 +1554,38 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
   await debuggerClient.send("Page.navigate", { url: initialPage });
 
   browserProof: {
+    if (releaseCacheMode) {
+      assert.ok(externalPage, "release-cache requires a published application URL");
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus", value => ["ready", "failed"].includes(value), "release cache boot"), "ready");
+      const reads = await evaluate(debuggerClient.send, `(async () => {
+        const base = new URL('../', document.baseURI);
+        if (!/_dolly\\/[0-9a-f]{64}\\/$/.test(base.pathname)) throw new Error('application assets are not release-pinned');
+        performance.clearResourceTimings();
+        performance.setResourceTimingBufferSize(1000);
+        const reads = [];
+        for (const name of ['dolly.mjs', 'dolly.wasm']) {
+          const url = new URL('dist/' + name, base);
+          for (let attempt = 0; attempt < 2; attempt++) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(name + ': HTTP ' + response.status);
+            const bytes = await response.arrayBuffer();
+            const timing = performance.getEntriesByName(url.href).at(-1);
+            reads.push({ name, attempt, bytes: bytes.byteLength, transferred: timing?.transferSize,
+              cache: response.headers.get('cache-control') });
+          }
+        }
+        return reads;
+      })()`);
+      console.log("browser: release cache reads", JSON.stringify(reads));
+      for (const read of reads) {
+        assert.ok(read.bytes > 0, read.name);
+        assert.equal(read.cache, "public, max-age=31536000, immutable", read.name);
+        if (read.attempt === 1) assert.equal(read.transferred, 0, `${read.name} transferred again`);
+      }
+      console.log("browser: release-pinned kernel loader and Wasm reused with zero network transfer");
+      break browserProof;
+    }
     if (imageBuildMode) {
       const send = debuggerClient.send;
       assert.equal(selectedImage, "dollyfile-studio");
@@ -2419,6 +2457,13 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "image inventory boot"), "ready");
+      if (!externalPage) {
+        const definition = imageDefinitions.find(({ image }) => image === selectedImage);
+        const needsSeed = requestedMode === "image-inventory-rebuild" &&
+          !definition.artifacts.some(reference => !reference.copy);
+        assert.equal([...staticRequestPaths].some(path => path.endsWith("/dist/dolly.data")), needsSeed,
+          "only a root rebuild may download the compiler seed");
+      }
       if (selectedImage === "default" && process.env.DOLLY_BROWSER_MODE === "image-inventory") {
         assert.equal(await evaluate(debuggerClient.send, "window.__dolly.httpRequestCount"), 0,
           "prebuilt startup must not run HTTP acceptance probes");
@@ -3476,6 +3521,8 @@ int main(int argc, char **argv) {
         assert.match(evidence.log, /reusing (?:local|published) /);
         assert.doesNotMatch(evidence.log, /private compiler, Slop, and Dollyfile engine installed/);
         assert.equal([...staticRequestPaths].some(path => path.includes("/static/")), false, "iteration fetched build sources for its foundation");
+        assert.equal([...staticRequestPaths].some(path => path.endsWith("/dist/dolly.data")), false,
+          "derived builds must reuse their base compiler without downloading the seed");
         const payloadReads = evidence.reads.filter(read => read.bytes > 0);
         if (label === "published-base" || missingDependencyMode) {
           assert.equal(payloadReads.length, 0, "fresh profile unexpectedly read cached payloads");

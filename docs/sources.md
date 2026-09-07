@@ -22,7 +22,7 @@ fetch/prepare scripts --> verified .cache checkouts and build/generated trees
         +--> deterministic independent dist/static inputs and ustar archives
         |
         v
-toolchain/CMakeLists.txt --> /seed in dist/dolly.data + dist/dolly.wasm
+toolchain/CMakeLists.txt --> kernel + separate root-build seed bundle
         |
         v
 Dollyfile/module rows --> browser broker --> exact SHA-256-checked files in WasmFS
@@ -39,11 +39,12 @@ Dollyfile/module rows --> browser broker --> exact SHA-256-checked files in Wasm
 
 The Emscripten data file contains the bootstrap seed: process sysroot and Clang
 headers, Dolly headers and ABI schemas, Slop/Dollyfile/core-command source, and
-the private compiler executable. Emscripten marks packaged directory nodes
-read-only, so it is mounted at `/seed`; `src/dolly.c` copies selected inputs
-into freshly created mutable `/usr` directories before compilation. The small
-kernel does not link the compiler. No permission or executable-bit policy is
-added to Dolly.
+the private compiler executable. Emscripten's standalone `dolly-seed.mjs` loader
+mounts it at `/seed` only for a root rebuild without a `FROM` base;
+`src/dolly.c` installs those inputs into `/usr` before compilation. Prebuilt
+images and builds with a base already contain their compiler and do not fetch
+the seed. The small kernel does not link the compiler. No permission or
+executable-bit policy is added to Dolly.
 
 Every other input appears as an independent `SOURCE HOST location destination
 HASH` row in one of the pinned `/modules/*.dm` recipes selected by `Dollyfile`,
@@ -118,7 +119,7 @@ partial replacement look complete.
 ## Runtime layout
 
 ```text
-/seed/          immutable packaged compiler input, copied during boot
+/seed/          packaged compiler input, installed only during root rebuilds
 /usr/src/       fetched and extracted target source
 /usr/include/   mutable compiler and library headers
 /usr/lib/       source-built libraries and retained runtimes
@@ -131,15 +132,16 @@ partial replacement look complete.
 /tmp/           disposable downloads, objects, and staged links
 ```
 
-Except for the immutable `/seed` package, this is WasmFS memory state. None of
-these paths maps to a browser or native-host filesystem.
+All of these paths are WasmFS memory state. None maps to a browser or native-host
+filesystem.
 
 ## Generated files
 
 Generated outputs are divided by authority:
 
 - `build/generated/` contains deterministic host preparation such as Awk parser
-  output, selected Git/Make trees, Ghostty tables, and the Pi ESM bundle.
+  output and selected Git/Make trees. The pinned generated Unicode tables are
+  tracked separately under `src/ghostty/generated/` with their provenance README.
 - `dist/static/` contains exactly the bytes named by `SOURCE HOST` rows.
 - `dist/dolly-images.mjs` is disposable JavaScript route/policy metadata derived
   from visible recipes; it is not an ABI or recipe source.
@@ -147,7 +149,7 @@ Generated outputs are divided by authority:
   actual browser rebuild.
 
 `node scripts/verify-static-sources.mjs` is the cheap integrity check.
-`npm run snapshot` is the expensive proof that both recipes execute in a real
+`npm run snapshot` is the expensive proof that selected recipes execute in a real
 browser and that the resulting retained files can be serialized.
 
 ## Remaining reproducibility limits
@@ -157,8 +159,6 @@ browser and that the resulting retained files can be serialized.
   cold, packaged-prefix, and module-layer builds produce identical snapshot
   bytes. Cross-kernel and cross-browser bit reproducibility is not yet claimed;
   logical identity and every input byte remain sealed and verified there.
-- Pi is still host-bundled with pinned esbuild rather than compiled from
-  TypeScript inside Dolly.
 - Prepared Git/Ghostty/Zig trees contain reviewed target adaptations; reducing
   patches in favor of upstream target configuration remains preferred.
 - The common seed is still large because it includes current Clang/LLVM and
