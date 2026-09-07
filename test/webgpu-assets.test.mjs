@@ -64,3 +64,37 @@ test("WebGPU preparation owns scratch, preserves complete outputs on failure and
     } finally { await fs.rm(root, { recursive: true, force: true }); }
   }
 });
+
+test("the prepared WebLLM formatter preserves literal source code in every message role", async () => {
+  const root = await fs.mkdtemp(resolve(tmpdir(), "dolly-webllm-template-"));
+  try {
+    const script = await fs.readFile(new URL("../scripts/build-webgpu-assets.mjs", import.meta.url), "utf8");
+    let prepared;
+    await runInNewContext("(async () => {\n" + script.replace(/^#!.*\n/, "")
+      .replace(/^import .*;\n/gm, "").replaceAll("import.meta.dirname", JSON.stringify(resolve(root, "scripts"))) + "\n})()", {
+      ...fs, Buffer, createHash, dirname, resolve, console: { log() {} },
+      readFile: async (path, encoding) => path.endsWith("config/webgpu-assets.json") ? '{"models":[]}'
+        : path.endsWith("LICENSE") ? "fixture license" : fs.readFile(path, encoding),
+      build: async ({ plugins }) => {
+        let load;
+        plugins[0].setup({ onLoad(_filter, callback) { load = callback; } });
+        prepared = (await load({ path: new URL("../node_modules/@mlc-ai/web-llm/lib/index.js", import.meta.url).pathname })).contents;
+      },
+    });
+    const manifest = JSON.parse(await fs.readFile(new URL("../config/webgpu-assets.json", import.meta.url)));
+    const asset = manifest.models[0].assets.find(asset => asset.file === "mlc-chat-config.json");
+    const config = JSON.parse(await fs.readFile(new URL(`../dist/webgpu/${asset.sha256}-${asset.file}`, import.meta.url)));
+    const Conversation = runInNewContext(prepared.slice(prepared.indexOf("class Conversation {"), prepared.indexOf("function getConversation(")) + "\nConversation", {
+      Role: { user: "user", assistant: "assistant" },
+      MessagePlaceholders: { system: "{system_message}", user: "{user_message}",
+        assistant: "{assistant_message}", function: "{function_string}" },
+    });
+    const input = "$& $$ $' $` {function_string}\n日本語\n";
+    const conversation = new Conversation(config.conv_template);
+    conversation.override_system_message = input;
+    conversation.appendMessage("user", input);
+    conversation.appendMessage("assistant", input);
+    assert.deepEqual(Array.from(conversation.getPromptArray(config)), ["system", "user", "assistant"].map(role =>
+      `<|im_start|>${role}\n${input}<|im_end|>\n`));
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});

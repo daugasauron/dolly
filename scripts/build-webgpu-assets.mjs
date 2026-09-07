@@ -26,16 +26,21 @@ try {
     await readFile(resolve(root, "node_modules/@mlc-ai/web-llm/LICENSE")));
   await build({ stdin: { contents: 'export { MLCEngine } from "@mlc-ai/web-llm";', resolveDir: root },
     bundle: true, format: "esm", platform: "browser", target: "es2022", minify: true,
-    plugins: [{ name: "webllm-prefill-tensor-lifetime", setup(builder) {
+    plugins: [{ name: "webllm-corrections", setup(builder) {
       builder.onLoad({ filter: /@mlc-ai\/web-llm\/lib\/index\.js$/ }, async ({ path }) => {
         const source = await readFile(path, "utf8");
         // WebLLM 0.2.84 leaks every detached prefill result except the last.
         const assignment = "                logits = this.tvm.detachFromCurrentScope(yield this.embedAndForward(chunk, chunkLen));";
         if (createHash("sha256").update(source).digest("hex") !== "4917bf1b8969ca20a0b74b2773cbc9c14f77ce7427df491cd56c252f9a6070c7") {
-          throw new Error("Recheck WebLLM's prefill tensor lifetime before updating its bundle");
+          throw new Error("Recheck WebLLM's tensor lifetime and literal prompt substitution before updating its bundle");
         }
-        return { contents: "/*! Dolly modification: release intermediate prefill tensors in WebLLM 0.2.84. */\n" +
-          source.replace(assignment, `                logits?.dispose();\n${assignment}`),
+        return { contents: "/*! Dolly modifications: release intermediate prefill tensors and preserve literal prompt text in WebLLM 0.2.84. */\n" +
+          source.replace(assignment, `                logits?.dispose();\n${assignment}`)
+            .replace("replace(MessagePlaceholders.system, system_message)", "replace(MessagePlaceholders.system, () => system_message)")
+            .replace("_a.replace(MessagePlaceholders[Role[role]], textContentPart)", "_a")
+            .replace("replace(MessagePlaceholders.function, this.function_string)", "replace(MessagePlaceholders.function, () => this.function_string)")
+            // Expand the template before inserting message data, which may contain placeholders or $ substitutions.
+            .replace('replace(MessagePlaceholders.function, "");', 'replace(MessagePlaceholders.function, "");\n                message_str = message_str?.replace(MessagePlaceholders[Role[role]], () => textContentPart);'),
           loader: "js", resolveDir: dirname(path) };
       });
     } }],

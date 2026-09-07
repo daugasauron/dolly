@@ -125,10 +125,12 @@ pending host promises. Failed GPU cleanup unloads the model and permits reloadin
 Idle models survive Pi restarts; leaving the page
 disposes the worker. There is no cross-tab scheduler or service worker model.
 
-The browser bundle fixes a tensor leak in WebLLM 0.2.84's prefill loop: each
-intermediate result is released before the next prompt chunk replaces it.
-The build checks the upstream source hash before applying this one-line fix;
-dependency updates must recheck it. Weights stay loaded between requests.
+The browser bundle fixes WebLLM 0.2.84's prefill tensor leak and prompt
+substitution: intermediate tensors are released, and message text is inserted
+literally after expanding template placeholders. Source code containing `$&`,
+`$'` or `{function_string}` must not be rewritten before reaching the model.
+The build checks the upstream source hash before applying these corrections;
+dependency updates must recheck them. Weights stay loaded between requests.
 
 The canonical Wasm ABI and its 28 imports are unchanged. The added browser
 capability is bounded inference, exposed through `dolly_http_dispatch`, not
