@@ -80,6 +80,20 @@ export class LocalModelService extends EventTarget {
     this.active = undefined;
     if (this.worker) this.ready();
   }
+  progress(active) {
+    clearTimeout(active.deadline);
+    active.deadline = setTimeout(() => this.fail(active,
+      new Error("Local model made no progress for two minutes. Try a smaller model or a shorter prompt.")),
+    LOCAL_LIMITS.idleTimeoutMilliseconds);
+  }
+  fail(active, error) {
+    if (this.active !== active || active.stopping) return;
+    // An SSE error keeps the engine failure visible through Pi's OpenAI client.
+    active.controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: { message: error.message, type: "local_model_error" } })}\n\n`));
+    active.controller.close();
+    active.controller = undefined;
+    void this.stop(error);
+  }
   async stop(reason = cancelled()) {
     const active = this.active;
     if (!active) return;
@@ -112,7 +126,7 @@ export class LocalModelService extends EventTarget {
     this.status("generating", `${this.model.name} is generating…`);
     active.abort = () => { void this.stop(init.signal.reason ?? cancelled()); };
     active.signal?.addEventListener("abort", active.abort, { once: true });
-    active.deadline = setTimeout(() => { void this.stop(new Error("Local generation exceeded 120 seconds")); }, LOCAL_LIMITS.timeoutMilliseconds);
+    this.progress(active);
     const created = Math.floor(Date.now() / 1000), id = `chatcmpl-dolly-${active.id}`;
     const body = new ReadableStream({
       start: controller => { active.controller = controller; },
@@ -125,6 +139,7 @@ export class LocalModelService extends EventTarget {
           }
           const result = await this.rpc("next", { generation: active.id });
           if (this.active !== active || active.stopping) return;
+          this.progress(active);
           let text;
           if (result.done) {
             if (!active.finished) throw new Error("Model stream ended without a finish reason");
@@ -140,13 +155,7 @@ export class LocalModelService extends EventTarget {
           controller.enqueue(bytes);
           if (result.done) { controller.close(); this.release(active); }
         } catch (error) {
-          if (this.active === active && !active.stopping) {
-            // OpenAI's SSE parser propagates error events to Pi with this message.
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: { message: error.message, type: "local_model_error" } })}\n\n`));
-            controller.close();
-            active.controller = undefined;
-            await this.stop(error);
-          }
+          this.fail(active, error);
         }
       },
       cancel: reason => { active.controller = undefined; return this.stop(reason ?? cancelled()); },

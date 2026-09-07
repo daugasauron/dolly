@@ -41,8 +41,10 @@ The protocol accepts one streamed choice, text messages, function tools,
 `required`). Unknown fields and modalities fail explicitly. Input is capped
 at 1 MiB, tool schemas at 64 KiB/32 tools, response at 8 MiB, context at 16,384
 tokens, and output at 2,048 tokens. WebLLM rejects prompts beyond the configured
-context. Generation has a 120-second deadline including downstream stalls.
-Model preparation is a separate user action outside that deadline.
+context. Local inference stops after two minutes without a worker result;
+each completion chunk renews that idle deadline. The browser broker also
+enforces a ten-minute total request cap, including downstream stalls. Remote
+HTTP keeps its existing limits. Model preparation is a separate user action.
 
 An unloaded or busy model returns HTTP 409 with an actionable message. This
 includes requesting a different size from the loaded model: guest requests
@@ -58,6 +60,8 @@ chunks. Each worker `next` operation follows downstream demand. Qwen tool
 responses use constrained JSON because this WebLLM release's native tool API
 does not support Qwen. The small adapter converts that JSON into standard tool
 calls and translates tool-result history into Qwen's conversation template.
+An explanation before a tool envelope is preserved as assistant text alongside
+the call; it does not turn a valid tool call into a plain-text answer.
 It buffers at most 128 KiB of structured output and shows the answer/tool call
 after that response finishes; ordinary text streams incrementally. It does not
 repair malformed output or guess missing calls. Pi executes the resulting

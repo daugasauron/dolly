@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { DollyHttpPolicy } from "../src/http-policy.mjs";
-import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_MODEL_ORIGIN, validateCompletion } from "../src/local-model-contract.mjs";
+import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_MODEL_ORIGIN, LOCAL_LIMITS, validateCompletion } from "../src/local-model-contract.mjs";
 import { LocalModelService, localModelTransport } from "../src/local-model-service.mjs";
 import { qwenRequest, qwenCompletions } from "../src/qwen-completions.mjs";
 
@@ -17,7 +17,7 @@ test("local capability and remote policy are independent; reserved addresses nev
   const service = new LocalModelService();
   const allowed = localModelTransport(new DollyHttpPolicy({ rules: [] }), service, remote);
   const headers = new Headers({ authorization: "secret", "x-custom-key": "secret" });
-  allowed.policy.authorize(url, "POST", headers, 10);
+  assert.equal(allowed.policy.authorize(url, "POST", headers, 10).timeoutMilliseconds, 600_000);
   assert.equal([...headers].length, 0);
   assert.throws(() => allowed.policy.authorize(new URL("https://example.com/"), "GET", headers, 0), /denied/);
   assert.equal((await allowed.fetchRequest(url, init(request()))).status, 409);
@@ -88,6 +88,20 @@ test("Qwen translates tool history and emits standard calls, without repairing i
   assert.equal(translated.messages.at(-1).role, "user");
   assert.match(translated.messages.at(-1).content, /file contents/);
   assert.ok(translated.response_format.structural_tag.includes('"read"'));
+  engine.chat.completions.create = async function* () {
+    yield { choices: [{ delta: { content: 'Let me look.\n<tool_call>{"name":"read","arguments":{"path":"/tmp/a"}}</tool_call>' }, finish_reason: "stop" }] };
+  };
+  const prefaced = await Array.fromAsync(qwenCompletions(engine, input));
+  const prefacedChoice = prefaced.find(c => c.choices?.[0]?.finish_reason).choices[0];
+  assert.equal(prefacedChoice.finish_reason, "tool_calls");
+  assert.equal(prefacedChoice.delta.content, "Let me look.");
+  const history = qwenRequest({ ...input, messages: [...input.messages,
+    { role: "assistant", ...prefacedChoice.delta }, { role: "tool", tool_call_id: prefacedChoice.delta.tool_calls[0].id, content: "file contents" }] });
+  assert.ok(history.messages.at(-2).content.startsWith("Let me look.\n<tool_call>"));
+  engine.chat.completions.create = async function* () {
+    yield { choices: [{ delta: { content: 'Let me look.\n<tool_call>{"name":"read","arguments":' }, finish_reason: "length" }] };
+  };
+  await assert.rejects(async () => Array.fromAsync(qwenCompletions(engine, input)), /length/);
   engine.chat.completions.create = async function* () { yield { choices: [{ delta: { content: "<tool_call>unfinished" }, finish_reason: "length" }] }; };
   await assert.rejects(async () => Array.fromAsync(qwenCompletions(engine, input)), /length/);
   engine.chat.completions.create = async function* () { yield { choices: [{ delta: { content: "<tool_call>unfinished" } }] }; };
@@ -95,14 +109,14 @@ test("Qwen translates tool history and emits standard calls, without repairing i
 });
 
 class FakeWorker extends EventTarget {
-  constructor({ stuck = false } = {}) { super(); this.stuck = stuck; this.commands = []; this.pulls = 0; }
+  constructor({ stuck = false, chunks = 1 } = {}) { super(); this.stuck = stuck; this.chunks = chunks; this.commands = []; this.pulls = 0; }
   postMessage(message) {
     this.commands.push(message.type);
     if (this.stuck && ["next", "cancel"].includes(message.type)) return;
     let value;
     if (message.type === "load") { this.modelId = message.modelId; value = { contextWindow: 16384 }; }
-    if (message.type === "next") value = this.pulls++ === 0
-      ? { value: { choices: [{ index: 0, delta: { content: "hello" }, finish_reason: "stop" }] }, done: false }
+    if (message.type === "next") value = this.pulls++ < this.chunks
+      ? { value: { choices: [{ index: 0, delta: { content: "hello" }, finish_reason: this.pulls === this.chunks ? "stop" : null }] }, done: false }
       : { done: true };
     queueMicrotask(() => this.dispatchEvent(new MessageEvent("message", { data: { id: message.id, value } })));
   }
@@ -175,4 +189,34 @@ test("abort forcibly settles an unresponsive worker, releases the lease, and per
   await service.load();
   assert.match(await (await service.fetch(url, init(request()))).text(), /hello/);
   service.dispose();
+});
+
+test("local inference permits slow progress beyond two minutes and reports a stalled engine through SSE", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let worker = new FakeWorker({ chunks: 3 });
+  const service = new LocalModelService({ createWorker: () => worker });
+  await service.load();
+  const response = await service.fetch(url, init(request()));
+  const reader = response.body.getReader();
+  for (let chunk = 0; chunk < 3; chunk++) {
+    assert.match(new TextDecoder().decode((await reader.read()).value), /hello/);
+    t.mock.timers.tick(LOCAL_LIMITS.idleTimeoutMilliseconds - 1);
+    assert.equal(service.state, "generating");
+  }
+  assert.match(new TextDecoder().decode((await reader.read()).value), /\[DONE\]/);
+  assert.equal(service.state, "ready");
+  service.dispose();
+  worker = new FakeWorker({ stuck: true });
+  await service.load();
+  const stalled = await service.fetch(url, init(request()));
+  const reading = stalled.body.getReader().read();
+  await Promise.resolve();
+  t.mock.timers.tick(LOCAL_LIMITS.idleTimeoutMilliseconds);
+  const error = new TextDecoder().decode((await reading).value);
+  assert.match(error, /Local model made no progress/);
+  assert.doesNotMatch(error, /\[DONE\]/);
+  t.mock.timers.tick(2000);
+  await service.stop();
+  assert.equal(worker.terminated, true);
+  assert.equal(service.pending.size, 0);
 });

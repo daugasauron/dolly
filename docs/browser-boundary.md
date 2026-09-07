@@ -62,7 +62,8 @@ an allowlist bounds authority, not the intent of each request.
 The `pi-local` experiment also exposes bounded browser-local inference through
 the same HTTP mailbox, with no additional Wasm import. Review
 [`src/local-model-service.mjs`](../src/local-model-service.mjs) for reserved URL
-routing, local admission, byte/deadline bounds and cancellation;
+routing, local admission, byte bounds, the progress-based idle timeout and
+cancellation; the HTTP broker also caps each local request at ten minutes;
 [`src/local-model-contract.mjs`](../src/local-model-contract.mjs) for request
 validation and the approved model catalog; and [`src/webgpu-worker.mjs`](../src/webgpu-worker.mjs) plus
 `config/webgpu-assets.json` for the independent accelerator and fixed, verified

@@ -10,7 +10,7 @@ export const LOCAL_MODELS = Object.freeze([
 export const DEFAULT_LOCAL_MODEL = LOCAL_MODELS[0];
 export const LOCAL_LIMITS = Object.freeze({
   maxRequestBytes: 1024 * 1024, maxResponseBytes: 8 * 1024 * 1024,
-  timeoutMilliseconds: 120_000, credentialHeaders: new Set(),
+  timeoutMilliseconds: 600_000, idleTimeoutMilliseconds: 120_000, credentialHeaders: new Set(),
 });
 
 export function reservedLocalURL(url) {

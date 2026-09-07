@@ -16,7 +16,7 @@ export function qwenRequest(request) {
       role = "user";
       content = JSON.stringify({ tool_result: { id: message.tool_call_id, content } }) + "\nContinue the user's request using this result.";
     } else if (message.tool_calls?.length) {
-      content = message.tool_calls.map(call => `<tool_call>${JSON.stringify({
+      content += (content ? "\n" : "") + message.tool_calls.map(call => `<tool_call>${JSON.stringify({
         name: call.function.name, arguments: JSON.parse(call.function.arguments),
       })}</tool_call>`).join("\n");
     }
@@ -78,14 +78,16 @@ export async function* qwenCompletions(engine, request) {
   if (!prefixDone && prefix.trim()) throw new Error("Model emitted an incomplete thinking prefix");
   let delta = {};
   if (nativeRequest.response_format) {
-    if (output.trimStart().startsWith("<tool")) {
+    const toolStart = output.indexOf("<tool_call>");
+    if (toolStart !== -1 || output.trimStart().startsWith("<tool")) {
       if (terminal !== "stop") throw new Error(`Structured model response ended with ${terminal}; no tool was executed`);
-      const envelope = /^\s*<tool_call>([\s\S]*)<\/tool_call>\s*$/.exec(output);
+      const envelope = /^<tool_call>([\s\S]*)<\/tool_call>\s*$/.exec(output.slice(Math.max(0, toolStart)));
       if (!envelope) throw new Error("Model returned an incomplete tool envelope");
       const call = JSON.parse(envelope[1]);
       if (!request.tools.some(t => t.function.name === call.name) || !call.arguments || typeof call.arguments !== "object" || Array.isArray(call.arguments)) {
         throw new Error("Model returned an invalid tool call");
       }
+      if (toolStart > 0) delta.content = output.slice(0, toolStart).trimEnd();
       delta.tool_calls = [{ index: 0, id: `call_${crypto.randomUUID().replaceAll("-", "")}`, type: "function",
         function: { name: call.name, arguments: JSON.stringify(call.arguments) } }];
       terminal = "tool_calls";
