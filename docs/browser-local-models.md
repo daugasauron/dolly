@@ -81,7 +81,8 @@ The independent model worker receives copied JSON and returns completion
 chunks. Each worker `next` operation follows downstream demand. This WebLLM
 release does not provide Qwen's native tool API. The adapter follows
 [Qwen 3.5's function/parameter template](https://huggingface.co/Qwen/Qwen3.5-2B/blob/15852e8c16360a2fea060d615a32b45270f8a8fc/chat_template.jinja),
-including tool-response history; it does not force Qwen 3's JSON envelopes.
+including tool-response history and empty reasoning markers on assistant turns
+after the latest user query; it does not force Qwen 3's JSON envelopes.
 String parameters preserve literal shell quotes and code rather than requiring
 JSON escaping. Complete native calls become ordinary OpenAI tool calls.
 An explanation before a tool envelope is preserved as assistant text alongside

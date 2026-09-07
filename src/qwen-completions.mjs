@@ -11,6 +11,8 @@ function toolText(call) {
 export function qwenRequest(request) {
   const tools = request.tool_choice === "none" ? [] : request.tools ?? [];
   const messages = [];
+  const lastQuery = request.messages.findLastIndex(message => message.role === "user" &&
+    !/^<tool_response>[\s\S]*<\/tool_response>$/.test(message.content.trim()));
   const system = request.messages.filter(m => m.role === "system").map(m => m.content);
   if (tools.length) {
     system.unshift('# Tools\n\n<tools>\n' + tools.map(tool => JSON.stringify(tool)).join("\n") +
@@ -21,15 +23,18 @@ export function qwenRequest(request) {
       'A tool result reports what happened; use it to continue the original task, without repeating successful work.' +
       (request.tool_choice === "required" ? '\nThis response must call a tool.' : ''));
   }
-  for (const message of request.messages) {
+  for (const [index, message] of request.messages.entries()) {
     if (message.role === "system") continue;
     let role = message.role, content = message.content ?? "";
     if (role === "tool") {
       role = "user";
       content = `<tool_response>\n${content}\n</tool_response>`;
     } else if (message.tool_calls?.length) {
-      content += (content ? "\n" : "") + message.tool_calls.map(toolText).join("\n");
+      content += (content ? "\n\n" : "") + message.tool_calls.map(toolText).join("\n");
     }
+    // Qwen retains an empty reasoning block in the current tool round even
+    // with thinking disabled; WebLLM adds it only to the new reply header.
+    if (role === "assistant" && index > lastQuery) content = "<think>\n\n</think>\n\n" + content;
     if (messages.at(-1)?.role === role) messages.at(-1).content += "\n" + content;
     else messages.push({ role, content });
   }

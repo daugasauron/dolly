@@ -111,7 +111,7 @@ test("Qwen translates tool history and emits standard calls, without repairing i
   assert.equal(translated.messages.at(-1).role, "user");
   assert.match(translated.messages.at(-1).content, /file contents/);
   assert.match(translated.messages[0].content, /<tools>[\s\S]*"read"[\s\S]*<\/tools>/);
-  assert.equal(translated.messages.at(-2).content, envelope);
+  assert.equal(translated.messages.at(-2).content, "<think>\n\n</think>\n\n" + envelope);
   assert.equal(translated.messages.at(-1).content, "<tool_response>\nfile contents\n</tool_response>");
   assert.equal(translated.response_format, undefined);
   engine.chat.completions.create = async function* () {
@@ -123,7 +123,7 @@ test("Qwen translates tool history and emits standard calls, without repairing i
   assert.equal(prefacedChoice.delta.content, "Let me look.");
   const history = qwenRequest({ ...input, messages: [...input.messages,
     { role: "assistant", ...prefacedChoice.delta }, { role: "tool", tool_call_id: prefacedChoice.delta.tool_calls[0].id, content: "file contents" }] });
-  assert.ok(history.messages.at(-2).content.startsWith("Let me look.\n<tool_call>"));
+  assert.equal(history.messages.at(-2).content, "<think>\n\n</think>\n\nLet me look.\n\n" + envelope);
   engine.chat.completions.create = async function* () {
     yield { choices: [{ delta: { content: 'Let me look.\n<tool_call>\n<function=read>\n<parameter=path>' }, finish_reason: "length" }] };
   };
@@ -140,9 +140,10 @@ test("Qwen native parameters preserve shell/code strings and reject incomplete o
   }, required: ["command"], additionalProperties: false };
   const tools = [{ type: "function", function: { name: "bash", parameters } }];
   const args = { command: '\uFEFF  printf \'%s\\n\' "$value"\n# 日本語\n  ', limit: 7, options: { quiet: true } };
-  const source = qwenRequest({ ...request(), tools, messages: [
+  const history = qwenRequest({ ...request(), tools, messages: [
     ...request().messages, { role: "assistant", tool_calls: [{ function: { name: "bash", arguments: JSON.stringify(args) } }] },
   ] }).messages.at(-1).content;
+  const source = history.slice(history.indexOf("<tool_call>"));
   const calls = qwenToolCalls(source + "\n" + source, tools);
   assert.equal(calls.length, 2);
   assert.notEqual(calls[0].id, calls[1].id);
@@ -154,6 +155,28 @@ test("Qwen native parameters preserve shell/code strings and reject incomplete o
     "<tool_call><function=bash></function></tool_call>",
     '<tool_call>{"name":"bash","arguments":{"command":"echo wrong format"}}</tool_call>',
   ]) assert.throws(() => qwenToolCalls(malformed, tools));
+});
+
+test("Qwen history retains the whole conversation and marks only the current tool round", () => {
+  const translated = qwenRequest({ ...request(), messages: [
+    { role: "user", content: "Old task" },
+    { role: "assistant", content: "Old answer" },
+    { role: "user", content: "Current task" },
+    { role: "assistant", content: "Current call" },
+    { role: "tool", content: "First result", tool_call_id: "a" },
+    { role: "tool", content: "Second result", tool_call_id: "b" },
+    { role: "assistant", content: "Next call" },
+    { role: "user", content: "<tool_response>\nThird result\n</tool_response>" },
+  ] });
+  assert.deepEqual(translated.messages.slice(1), [
+    { role: "user", content: "Old task" },
+    { role: "assistant", content: "Old answer" },
+    { role: "user", content: "Current task" },
+    { role: "assistant", content: "<think>\n\n</think>\n\nCurrent call" },
+    { role: "user", content: "<tool_response>\nFirst result\n</tool_response>\n<tool_response>\nSecond result\n</tool_response>" },
+    { role: "assistant", content: "<think>\n\n</think>\n\nNext call" },
+    { role: "user", content: "<tool_response>\nThird result\n</tool_response>" },
+  ]);
 });
 
 class FakeWorker extends EventTarget {
