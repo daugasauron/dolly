@@ -1,8 +1,13 @@
 export const LOCAL_MODEL_ORIGIN = "https://webgpu.dolly.invalid";
-export const LOCAL_MODEL = Object.freeze({
-  id: "Qwen3.5-2B-q4f16_1-MLC", object: "model", owned_by: "webgpu",
-  name: "Qwen3.5 2B · WebGPU", context_window: 16384, max_tokens: 2048,
-});
+export const LOCAL_MODELS = Object.freeze([
+  { size: "2B", download_bytes: 1059315328 },
+  { size: "0.8B", download_bytes: 423937664 },
+  { size: "4B", download_bytes: 2367117312 },
+].map(({ size, download_bytes }) => Object.freeze({
+  id: `Qwen3.5-${size}-q4f16_1-MLC`, object: "model", owned_by: "webgpu",
+  name: `Qwen3.5 ${size} · WebGPU`, context_window: 16384, max_tokens: 2048, download_bytes,
+})));
+export const DEFAULT_LOCAL_MODEL = LOCAL_MODELS[0];
 export const LOCAL_LIMITS = Object.freeze({
   maxRequestBytes: 1024 * 1024, maxResponseBytes: 8 * 1024 * 1024,
   timeoutMilliseconds: 120_000, credentialHeaders: new Set(),
@@ -34,10 +39,11 @@ function calls(value) {
 // Validate before copying a request to the accelerator. Never forward engine options.
 export function validateCompletion(request) {
   keys(request, ["model", "messages", "stream", "stream_options", "max_tokens", "temperature", "top_p", "tools", "tool_choice", "n"]);
-  check(request.model === LOCAL_MODEL.id, "Unknown model");
+  const model = LOCAL_MODELS.find(model => model.id === request.model);
+  check(model, "Unknown model");
   check(request.stream === true && (request.n === undefined || request.n === 1), "Only one streamed choice is supported");
   check(Number.isInteger(request.max_tokens ?? 1024) && (request.max_tokens ?? 1024) > 0 &&
-    (request.max_tokens ?? 1024) <= LOCAL_MODEL.max_tokens, "max_tokens exceeds the model limit");
+    (request.max_tokens ?? 1024) <= model.max_tokens, "max_tokens exceeds the model limit");
   for (const [field, max] of [["temperature", 2], ["top_p", 1]]) {
     check(request[field] === undefined || (Number.isFinite(request[field]) && request[field] >= 0 && request[field] <= max), `Invalid ${field}`);
   }

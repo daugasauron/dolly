@@ -1,6 +1,7 @@
 # Browser-local inference experiment
 
-The first implementation is WebGPU with Qwen3.5 2B through WebLLM 0.2.84.
+The first implementation is WebGPU with Qwen3.5 through WebLLM 0.2.84:
+0.8B, 2B (default), and 4B selected through browser controls and Pi's model picker.
 The user narrowed the original two-engine proposal to this first provider.
 The implemented protocol, controls and build instructions are in
 [browser-local-models.md](browser-local-models.md).
@@ -14,7 +15,7 @@ its manifest and matching its runtime/image sources to this baseline.
 
 The independent worker exposes an OpenAI-compatible service through the
 existing HTTP broker. The Wasm ABI is unchanged. Browser controls load the
-approved model; guest requests only select its public ID and supply bounded
+approved size; guest requests only select a public ID and supply bounded
 conversation/tool data. The worker returns descriptions of tool calls. Pi
 executes them through ordinary Dolly commands and files.
 

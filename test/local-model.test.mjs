@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { DollyHttpPolicy } from "../src/http-policy.mjs";
-import { LOCAL_MODEL, LOCAL_MODEL_ORIGIN, validateCompletion } from "../src/local-model-contract.mjs";
+import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_MODEL_ORIGIN, validateCompletion } from "../src/local-model-contract.mjs";
 import { LocalModelService, localModelTransport } from "../src/local-model-service.mjs";
 import { qwenRequest, qwenCompletions } from "../src/qwen-completions.mjs";
 
-const request = () => ({ model: LOCAL_MODEL.id, stream: true, messages: [{ role: "user", content: "Hello" }] });
+const request = () => ({ model: DEFAULT_LOCAL_MODEL.id, stream: true, messages: [{ role: "user", content: "Hello" }] });
 const tool = { type: "function", function: { name: "read", parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } };
 const url = new URL(`${LOCAL_MODEL_ORIGIN}/v1/chat/completions`);
 const init = body => ({ method: "POST", body: new TextEncoder().encode(JSON.stringify(body)), signal: new AbortController().signal });
@@ -39,9 +40,30 @@ test("request validation rejects unsupported capabilities and unreasonable work"
     { messages: [{ role: "user", content: [{ type: "image_url", image_url: { url: "evil" } }] }] }]) {
     assert.throws(() => validateCompletion({ ...request(), ...change }));
   }
-  assert.equal(validateCompletion(request()).model, LOCAL_MODEL.id);
+  assert.equal(validateCompletion(request()).model, DEFAULT_LOCAL_MODEL.id);
   const parts = { ...request(), messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }] };
   assert.equal(validateCompletion(parts).messages[0].content, "Hello");
+});
+
+test("discovered models match pinned assets and weight sizes, without loading a worker", async () => {
+  const service = new LocalModelService({ createWorker: () => { throw new Error("Unexpected model load"); } });
+  const catalog = await (await service.fetch(new URL(`${LOCAL_MODEL_ORIGIN}/v1/models`))).json();
+  const manifest = JSON.parse(await readFile(new URL("../config/webgpu-assets.json", import.meta.url)));
+  assert.deepEqual(catalog.data.map(m => m.id), manifest.models.map(m => m.model));
+  assert.equal(catalog.data[0].id, DEFAULT_LOCAL_MODEL.id);
+  for (const model of catalog.data) {
+    const pinned = manifest.models.find(m => m.model === model.id);
+    assert.match(pinned.baseURL, /\/resolve\/[0-9a-f]{40}\/$/);
+    assert.equal(model.download_bytes, pinned.assets.filter(a => !a.bundle).reduce((sum, a) => sum + a.bytes, 0));
+    assert.equal(validateCompletion({ ...request(), model: model.id }).model, model.id);
+    for (const asset of pinned.assets) {
+      assert.match(asset.sha256, /^[0-9a-f]{64}$/);
+      assert.ok(asset.bytes > 0);
+      assert.ok(asset.url.startsWith(pinned.baseURL) || /binary-mlc-llm-libs\/[0-9a-f]{40}\//.test(asset.url));
+      assert.equal(asset.bundle, !asset.file.endsWith(".bin"));
+    }
+  }
+  assert.equal(service.state, "unloaded");
 });
 
 test("Qwen translates tool history and emits standard calls, without repairing invalid output", async () => {
@@ -78,7 +100,7 @@ class FakeWorker extends EventTarget {
     this.commands.push(message.type);
     if (this.stuck && ["next", "cancel"].includes(message.type)) return;
     let value;
-    if (message.type === "load") value = { contextWindow: 16384 };
+    if (message.type === "load") { this.modelId = message.modelId; value = { contextWindow: 16384 }; }
     if (message.type === "next") value = this.pulls++ === 0
       ? { value: { choices: [{ index: 0, delta: { content: "hello" }, finish_reason: "stop" }] }, done: false }
       : { done: true };
@@ -86,6 +108,34 @@ class FakeWorker extends EventTarget {
   }
   terminate() { this.terminated = true; }
 }
+
+test("only explicit idle loads switch models; guest requests cannot download or run a different size", async () => {
+  const workers = [];
+  const service = new LocalModelService({ createWorker: () => {
+    assert.ok(workers.every(worker => worker.terminated));
+    const worker = new FakeWorker(); workers.push(worker); return worker;
+  } });
+  await service.load();
+  await service.load();
+  await assert.rejects(service.load("https://evil.test/model"), /Unknown model/);
+  assert.equal(workers.length, 1);
+  const other = LOCAL_MODELS[1];
+  const unavailable = await service.fetch(url, init({ ...request(), model: other.id }));
+  assert.equal(unavailable.status, 409);
+  assert.ok((await unavailable.json()).error.message.includes(other.id));
+  assert.equal(workers[0].commands.includes("start"), false);
+  await service.load(other.id);
+  assert.equal(workers.length, 2);
+  assert.equal(workers[1].modelId, other.id);
+  assert.equal(service.model.id, other.id);
+  const response = await service.fetch(url, init({ ...request(), model: other.id }));
+  await assert.rejects(service.load(DEFAULT_LOCAL_MODEL.id), /busy/);
+  assert.match(await response.text(), new RegExp(other.id.replaceAll(".", "\\.")));
+  assert.equal(service.state, "ready");
+  assert.ok(service.detail.includes(other.name));
+  service.dispose();
+  assert.equal(service.model, undefined);
+});
 
 test("streaming is demand driven, keeps the logical URL, and excludes overlapping generations", async () => {
   const worker = new FakeWorker();

@@ -1,18 +1,30 @@
 # Browser-local models
 
-The `pi-local` experiment adds Qwen3.5 2B through WebLLM 0.2.84. Open
-`/pi-local/`, expand **Local model**, and click **Load Qwen**. Select `webgpu`
-in Pi's normal model picker. The first load downloads approximately 1.1 GB.
+The `pi-local` experiment adds Qwen3.5 through WebLLM 0.2.84. Open
+`/pi-local/`, expand **Local model**, choose a size, and click **Load Qwen**.
+Select the same size under `webgpu` in Pi's normal model picker.
+
+| Size | First weight download | Role |
+| --- | --- | --- |
+| 0.8B | 0.42 GB | Quick experiments; weak at tool use |
+| 2B (default) | 1.06 GB | Initial Pi integration default |
+| 4B | 2.37 GB | Larger model; needs more GPU memory |
+
+Selecting a size only updates the download information. **Switch and load**
+replaces the idle model; only one worker/model is active per tab. Cached weights
+are kept for switching back. GPU memory also includes working buffers and the
+16,384-token context; download size is not a GPU memory estimate.
 It requires a hardware WebGPU adapter with `shader-f16`; there is no CPU or
 cloud fallback. **Stop** cancels generation, **Unload** releases its worker,
-and **Remove cached model** clears this origin's WebLLM model databases without
+and **Clear all model caches** clears this origin's WebLLM model databases without
 network access. Dolly files and saved sessions have separate storage.
 
 The provider extension is an ordinary JavaScript file installed by
 [`browser-model-providers.dm`](../modules/browser-model-providers.dm).
 [`Dollyfile-pi-local`](../Dollyfile-pi-local) starts from the completed Pi image.
 Extension changes rebuild this small leaf; they do not compile Pi or Janis.
-The experiment leaves the other image recipes unchanged.
+Pi discovers all sizes through the provider catalog. Adding a host model or
+switching sizes requires no image rebuild.
 
 ## Service contract
 
@@ -32,7 +44,9 @@ tokens, and output at 2,048 tokens. WebLLM rejects prompts beyond the configured
 context. Generation has a 120-second deadline including downstream stalls.
 Model preparation is a separate user action outside that deadline.
 
-An unloaded or busy model returns HTTP 409 with an actionable message. Invalid
+An unloaded or busy model returns HTTP 409 with an actionable message. This
+includes requesting a different size from the loaded model: guest requests
+never trigger a download or implicitly switch the browser's selection. Invalid
 requests return HTTP 400. Engine failures in an established stream produce an
 OpenAI error event; an incomplete tool response never executes a partial tool.
 The current HTTP mailbox admits one request at a time; overlapping sandbox
@@ -59,11 +73,12 @@ Local requests discard every header, including credentials. The extension's
 `dolly-local` API key is a non-secret client placeholder.
 
 [`webgpu-worker.mjs`](../src/webgpu-worker.mjs) owns the accelerator and permits
-only the asset URLs in `config/webgpu-assets.json`, during loading only. That
-manifest pins a model revision, model-library revision, lengths and SHA-256
-digests. Small metadata, tokenizer and model Wasm files ship as browser assets;
-weight shards download from the pinned Hugging Face revision when the user
-loads the model. Those asset requests omit credentials and may follow the
+only the selected model's asset URLs in `config/webgpu-assets.json`, during
+loading only. That manifest pins model revisions, model-library revisions,
+lengths and SHA-256 digests. Small metadata, tokenizer and model Wasm files ship
+as browser assets; identical bundled files are shared by content hash. Weight
+shards download from the pinned Hugging Face revision when the user loads the
+model. Those asset requests omit credentials and may follow the
 model host's CDN redirects; their complete bytes must match the manifest.
 Guest requests cannot select URLs, executable code, or engine options.
 
@@ -100,8 +115,7 @@ Chrome did not expose the NVIDIA adapter. It never disables web security or
 uses a native inference server. A GPU is required for this opt-in test.
 
 Qwen 2B is a small integration default, not evidence of reliable autonomous
-coding. A larger model can use the same service format without changing Dolly's
-ABI or rebuilding Pi. wllama remains a later adapter, outside this first experiment.
+coding. wllama remains a later adapter, outside this first experiment.
 
 References: [WebLLM worker support](https://webllm.mlc.ai/docs/user/advanced_usage.html),
 [pinned WebLLM model catalog](https://github.com/mlc-ai/web-llm/blob/9e572d6ed95e248f29634996cd32cc8f3023d89d/src/config.ts),

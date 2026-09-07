@@ -1,6 +1,6 @@
 import { HttpError } from "./http-policy.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
-import { LOCAL_MODEL_ORIGIN, LOCAL_MODEL, LOCAL_LIMITS, reservedLocalURL, validateCompletion } from "./local-model-contract.mjs";
+import { LOCAL_MODEL_ORIGIN, LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_LIMITS, reservedLocalURL, validateCompletion } from "./local-model-contract.mjs";
 
 const encoder = new TextEncoder();
 const cancelled = () => new DOMException("Local generation stopped", "AbortError");
@@ -14,7 +14,7 @@ export class LocalModelService extends EventTarget {
     this.pending = new Map();
     this.sequence = 0;
     this.state = "unloaded";
-    this.detail = "Load Qwen in this tab, then select webgpu in Pi’s model picker.";
+    this.detail = "Choose a size and load it, then select the same model under webgpu in Pi.";
   }
   status(state, detail) {
     this.state = state;
@@ -29,28 +29,36 @@ export class LocalModelService extends EventTarget {
       this.worker.postMessage({ id, type, ...data });
     });
   }
-  async load() {
-    if (this.state !== "unloaded" && this.state !== "error") return;
+  ready() {
+    this.status("ready", `${this.model.name} ready · ${this.model.context_window} token context`);
+  }
+  async load(modelId = DEFAULT_LOCAL_MODEL.id) {
+    const model = LOCAL_MODELS.find(model => model.id === modelId);
+    if (!model) throw new Error("Unknown model");
+    if (!["unloaded", "error", "ready"].includes(this.state)) throw new Error("Model is busy; stop or unload it before switching.");
+    if (this.state === "ready" && this.model.id === modelId) return;
     this.dispose();
-    this.status("loading", "Checking WebGPU and loading Qwen…");
-    const worker = this.worker = this.createWorker();
-    worker.addEventListener("message", ({ data }) => {
-      if (worker !== this.worker) return;
-      if (data.progress) { this.status("loading", data.progress); return; }
-      const pending = this.pending.get(data.id);
-      if (!pending) return;
-      this.pending.delete(data.id);
-      if (data.error) pending.reject(new Error(data.error));
-      else pending.resolve(data.value);
-    });
-    worker.addEventListener("error", event => {
-      if (worker !== this.worker) return;
-      this.dispose(new Error(event.message || "Model worker failed"));
-      this.status("error", event.message || "Model worker failed; load it again.");
-    });
+    this.model = model;
+    this.status("loading", `Checking WebGPU and loading ${model.name}…`);
+    let worker;
     try {
-      const result = await this.rpc("load");
-      if (worker === this.worker) this.status("ready", `Qwen ready · ${result.contextWindow} token context · WebGPU`);
+      worker = this.worker = this.createWorker();
+      worker.addEventListener("message", ({ data }) => {
+        if (worker !== this.worker) return;
+        if (data.progress) { this.status("loading", data.progress); return; }
+        const pending = this.pending.get(data.id);
+        if (!pending) return;
+        this.pending.delete(data.id);
+        if (data.error) pending.reject(new Error(data.error));
+        else pending.resolve(data.value);
+      });
+      worker.addEventListener("error", event => {
+        if (worker !== this.worker) return;
+        this.dispose(new Error(event.message || "Model worker failed"));
+        this.status("error", event.message || "Model worker failed; load it again.");
+      });
+      await this.rpc("load", { modelId });
+      if (worker === this.worker) this.ready();
     } catch (error) {
       if (worker === this.worker) { this.dispose(error); this.status("error", error.message); }
     }
@@ -59,6 +67,7 @@ export class LocalModelService extends EventTarget {
     this.active?.controller?.error(error);
     this.worker?.terminate();
     this.worker = undefined;
+    this.model = undefined;
     for (const pending of this.pending.values()) pending.reject(error);
     this.pending.clear();
     if (this.active) this.release(this.active);
@@ -69,7 +78,7 @@ export class LocalModelService extends EventTarget {
     clearTimeout(active.deadline);
     active.signal?.removeEventListener("abort", active.abort);
     this.active = undefined;
-    if (this.worker) this.status("ready", "Qwen ready · WebGPU");
+    if (this.worker) this.ready();
   }
   async stop(reason = cancelled()) {
     const active = this.active;
@@ -88,19 +97,19 @@ export class LocalModelService extends EventTarget {
     return active.stopping;
   }
   async fetch(url, init) {
-    if (url.pathname === "/v1/models") return json({ object: "list", data: [LOCAL_MODEL] }, 200, url);
+    if (url.pathname === "/v1/models") return json({ object: "list", data: LOCAL_MODELS }, 200, url);
     let request;
     try {
       request = validateCompletion(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(init.body)));
     } catch (error) { return json({ error: { message: error.message, type: "invalid_request_error" } }, 400, url); }
-    if (this.state !== "ready") return json({ error: { message: this.active
+    if (this.state !== "ready" || this.model.id !== request.model) return json({ error: { message: this.active
       ? "Local model is busy; wait for the current generation to stop."
-      : "Model not loaded. Open Local model in the browser and load Qwen first.",
+      : `${request.model} is not loaded. Open Local model in the browser and load that size, or select the loaded model in Pi.`,
     type: "local_model_unavailable" } }, 409, url);
     init.signal?.throwIfAborted();
     const active = { id: ++this.sequence, signal: init.signal, bytes: 0, finished: false };
     this.active = active;
-    this.status("generating", "Qwen is generating…");
+    this.status("generating", `${this.model.name} is generating…`);
     active.abort = () => { void this.stop(init.signal.reason ?? cancelled()); };
     active.signal?.addEventListener("abort", active.abort, { once: true });
     active.deadline = setTimeout(() => { void this.stop(new Error("Local generation exceeded 120 seconds")); }, LOCAL_LIMITS.timeoutMilliseconds);

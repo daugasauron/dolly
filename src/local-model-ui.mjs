@@ -1,17 +1,21 @@
 import { LocalModelService } from "./local-model-service.mjs";
+import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL } from "./local-model-contract.mjs";
 
 export function mountLocalModel() {
   const service = new LocalModelService();
   const panel = document.createElement("details");
   panel.id = "local-model";
   panel.innerHTML = `<summary>Local model</summary>
-    <strong>Qwen3.5 2B</strong>
-    <p>Runs in this tab using WebGPU. First load downloads about 1.1 GB; cached weights are reused. Requires shader-f16.</p>
+    <p><label>Model size <select aria-label="Local model size"></select></label></p>
+    <p data-download></p>
+    <p>Runs in this tab using WebGPU with shader-f16. One model is loaded at a time; cached weights are reused when switching.</p>
     <p role="status"></p><button type="button" data-action="load">Load Qwen</button>
     <button type="button" data-action="stop">Stop</button>
     <button type="button" data-action="unload">Unload</button>
-    <button type="button" data-action="remove">Remove cached model</button>
-    <p>Select <b>webgpu</b> in Pi’s model picker after loading. Small models can make poor tool choices; review their work.</p>`;
+    <button type="button" data-action="remove">Clear all model caches</button>
+    <p>Select the same size under <b>webgpu</b> in Pi’s model picker. 0.8B is useful for quick experiments but weak at tool use.</p>`;
+  const select = panel.querySelector("select");
+  for (const model of LOCAL_MODELS) select.add(new Option(model.name + (model === DEFAULT_LOCAL_MODEL ? " (default)" : ""), model.id));
   const load = panel.querySelector('[data-action="load"]');
   const stop = panel.querySelector('[data-action="stop"]');
   const unload = panel.querySelector('[data-action="unload"]');
@@ -19,19 +23,24 @@ export function mountLocalModel() {
   function render() {
     panel.dataset.state = service.state;
     panel.querySelector('[role="status"]').textContent = service.detail;
-    load.disabled = !["unloaded", "error"].includes(service.state);
+    const selected = LOCAL_MODELS.find(model => model.id === select.value);
+    panel.querySelector("[data-download]").textContent = `First load: ${(selected.download_bytes / 1e9).toFixed(2)} GB of weights. Selecting a size does not download it.`;
+    select.disabled = !["unloaded", "error", "ready"].includes(service.state);
+    load.disabled = select.disabled || (service.state === "ready" && service.model.id === select.value);
+    load.textContent = service.state === "ready" && service.model.id !== select.value ? "Switch and load" : "Load Qwen";
     stop.disabled = !["generating", "stopping"].includes(service.state);
     unload.disabled = ["unloaded", "clearing"].includes(service.state);
     remove.disabled = service.state === "clearing";
   }
-  load.addEventListener("click", () => { void service.load(); });
+  select.addEventListener("change", render);
+  load.addEventListener("click", () => { void service.load(select.value); });
   stop.addEventListener("click", () => { void service.stop(); });
   unload.addEventListener("click", () => service.dispose());
   remove.addEventListener("click", async () => {
     service.dispose();
-    service.status("clearing", "Removing the cached model…");
+    service.status("clearing", "Clearing all model caches…");
     try {
-      // One approved model uses WebLLM's three IndexedDB scopes. Its upstream
+      // All model sizes share WebLLM's three IndexedDB scopes. Its upstream
       // deletion helper fetches uncached metadata; local deletion needs no IO.
       for (const name of ["webllm/model", "webllm/config", "webllm/wasm"]) {
         await new Promise((resolve, reject) => {
@@ -41,8 +50,8 @@ export function mountLocalModel() {
           request.onblocked = () => reject(new Error("Close other Dolly tabs using the model, then retry."));
         });
       }
-      service.status("unloaded", "Cached model removed. Loading it again will download the weights.");
-    } catch (error) { service.status("error", `Could not remove cached model: ${error.message}`); }
+      service.status("unloaded", "Model caches removed. Loading a model again will download its weights.");
+    } catch (error) { service.status("error", `Could not clear model caches: ${error.message}`); }
   });
   service.addEventListener("change", render);
   panel.addEventListener("toggle", () => {

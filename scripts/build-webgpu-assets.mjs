@@ -10,8 +10,8 @@ await mkdir(output, { recursive: true });
 const manifestBytes = await readFile(resolve(root, "config/webgpu-assets.json"));
 const manifest = JSON.parse(manifestBytes);
 const valid = (bytes, asset) => bytes.length === asset.bytes && createHash("sha256").update(bytes).digest("hex") === asset.sha256;
-for (const asset of manifest.assets.filter(a => a.bundle)) {
-  const destination = resolve(output, asset.file);
+for (const asset of manifest.models.flatMap(model => model.assets).filter(a => a.bundle)) {
+  const destination = resolve(output, `${asset.sha256}-${asset.file}`);
   try { if (valid(await readFile(destination), asset)) continue; } catch { /* First build. */ }
   const response = await fetch(asset.url);
   if (!response.ok) throw new Error(`${asset.file}: HTTP ${response.status}`);

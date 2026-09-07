@@ -64,10 +64,11 @@ the same HTTP mailbox, with no additional Wasm import. Review
 [`src/local-model-service.mjs`](../src/local-model-service.mjs) for reserved URL
 routing, local admission, byte/deadline bounds and cancellation;
 [`src/local-model-contract.mjs`](../src/local-model-contract.mjs) for request
-validation; and [`src/webgpu-worker.mjs`](../src/webgpu-worker.mjs) plus
+validation and the approved model catalog; and [`src/webgpu-worker.mjs`](../src/webgpu-worker.mjs) plus
 `config/webgpu-assets.json` for the independent accelerator and fixed, verified
 asset graph. The worker receives no Dolly memory or tool callbacks. Browser
-controls select model loading; guest calls cannot download arbitrary assets.
+controls select one model size to load. The worker permits only that size's
+pinned assets; guest calls cannot load models or change the loaded selection.
 Build workers deny every reserved local destination. Remote HTTP rules do not
 grant local inference. See [the local service contract](browser-local-models.md).
 

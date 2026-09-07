@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL } from "../../src/local-model-contract.mjs";
 
 export async function runLocalCacheProof(evaluate) {
   const result = await evaluate(`(async () => {
@@ -29,7 +30,8 @@ export async function runLocalCacheProof(evaluate) {
 
 export async function runLocalModelProof({ evaluate, wait, submit, setOffline }) {
   console.log("browser: checking local provider discovery in Pi");
-  assert.equal(await submit("pi --list-models webgpu > /tmp/local-models.txt && grep -q Qwen3.5 /tmp/local-models.txt"), 0);
+  assert.equal(await submit("pi --list-models webgpu > /tmp/local-models.txt"), 0);
+  for (const model of LOCAL_MODELS) assert.equal(await submit(`grep -q ${model.id} /tmp/local-models.txt`), 0);
   const gpu = await evaluate(`(async () => {
     const adapter = await navigator.gpu?.requestAdapter({powerPreference:'high-performance'});
     return adapter ? { vendor: adapter.info.vendor, architecture: adapter.info.architecture,
@@ -40,7 +42,7 @@ export async function runLocalModelProof({ evaluate, wait, submit, setOffline })
   await evaluate(`(async () => {
     const {LocalModelService} = await import(new URL('../src/local-model-service.mjs', document.baseURI));
     const originalLoad = LocalModelService.prototype.load;
-    LocalModelService.prototype.load = function() { globalThis.__localService = this; return originalLoad.call(this); };
+    LocalModelService.prototype.load = function(...args) { globalThis.__localService = this; return originalLoad.apply(this,args); };
     const originalFetch = LocalModelService.prototype.fetch;
     globalThis.__localRequests = [];
     LocalModelService.prototype.fetch = function(url, init) {
@@ -48,8 +50,21 @@ export async function runLocalModelProof({ evaluate, wait, submit, setOffline })
       return originalFetch.call(this, url, init);
     };
     document.querySelector('#local-model').open = true;
-    document.querySelector('#local-model [data-action="load"]').click();
   })()`);
+  const picker = await evaluate(`(() => {
+    const panel=document.querySelector('#local-model'), select=panel.querySelector('select');
+    const initial=select.value, options=[...select.options].map(option=>option.value);
+    select.value=options[1]; select.dispatchEvent(new Event('change'));
+    const preview={state:panel.dataset.state,loadStarted:!!globalThis.__localService,download:panel.querySelector('[data-download]').textContent};
+    select.value=initial; select.dispatchEvent(new Event('change'));
+    return {initial,options,preview};
+  })()`);
+  assert.equal(picker.initial, DEFAULT_LOCAL_MODEL.id);
+  assert.deepEqual(picker.options, LOCAL_MODELS.map(m => m.id));
+  assert.equal(picker.preview.state, "unloaded");
+  assert.equal(picker.preview.loadStarted, false);
+  assert.match(picker.preview.download, /0.42 GB/);
+  await evaluate("document.querySelector('#local-model [data-action=load]').click()");
   const started = Date.now();
   const state = await wait("({state:document.querySelector('#local-model').dataset.state, detail:document.querySelector('#local-model [role=status]').textContent})",
     v => ["ready", "error", "unloaded"].includes(v.state), "Qwen load", 6000);
@@ -58,7 +73,7 @@ export async function runLocalModelProof({ evaluate, wait, submit, setOffline })
   await evaluate(`globalThis.__completeLocal = async function(extra) {
     const response = await __localService.fetch(new URL('https://webgpu.dolly.invalid/v1/chat/completions'), {
       method:'POST', signal:new AbortController().signal,
-      body:new TextEncoder().encode(JSON.stringify({model:'Qwen3.5-2B-q4f16_1-MLC',stream:true,max_tokens:256,...extra}))
+      body:new TextEncoder().encode(JSON.stringify({model:__localService.model.id,stream:true,max_tokens:256,...extra}))
     });
     return response.text();
   }; true`);
@@ -118,12 +133,45 @@ export async function runLocalModelProof({ evaluate, wait, submit, setOffline })
   assert.equal(await evaluate("__localService.state"), "ready");
   assert.deepEqual(await evaluate("__loadProgress.filter(text=>text.startsWith('Downloading and verifying'))"), []);
   console.log("browser: model reload", Date.now() - warmStarted, "ms with zero model asset downloads");
+  for (const model of [...LOCAL_MODELS.slice(1), DEFAULT_LOCAL_MODEL]) {
+    const previous = await evaluate("__localService.model.id");
+    const selection = await evaluate(`(() => {
+      const panel=document.querySelector('#local-model'), select=panel.querySelector('select');
+      select.value=${JSON.stringify(model.id)}; select.dispatchEvent(new Event('change'));
+      return {model:__localService.model.id,button:panel.querySelector('[data-action=load]').textContent};
+    })()`);
+    assert.equal(selection.model, previous);
+    assert.equal(selection.button, "Switch and load");
+    const denied = await evaluate(`(async () => {
+      const response=await __localService.fetch(new URL('https://webgpu.dolly.invalid/v1/chat/completions'),
+        {method:'POST',body:new TextEncoder().encode(JSON.stringify({model:${JSON.stringify(model.id)},stream:true,messages:[{role:'user',content:'hello'}]}))});
+      return {status:response.status,body:await response.text()};
+    })()`);
+    assert.equal(denied.status, 409);
+    assert.ok(denied.body.includes(model.id));
+    const switching = Date.now();
+    await evaluate("__loadProgress=[]; document.querySelector('#local-model [data-action=load]').click()");
+    assert.equal(await evaluate("document.querySelector('#local-model select').disabled"), true);
+    const loaded = await wait("({state:__localService.state,model:__localService.model?.id,detail:__localService.detail})",
+      v => ["ready", "error"].includes(v.state), `load ${model.id}`, 6000);
+    assert.equal(loaded.state, "ready", loaded.detail);
+    assert.equal(loaded.model, model.id);
+    const downloads = await evaluate("__loadProgress.filter(text=>text.startsWith('Downloading and verifying')).length");
+    if (model === DEFAULT_LOCAL_MODEL) assert.equal(downloads, 0);
+    console.log("browser: switched to", model.id, "in", Date.now() - switching, "ms; asset downloads", downloads);
+    const answer = await evaluate("__completeLocal({messages:[{role:'user',content:'Reply with exactly: hello Dolly'}]})");
+    assert.match(answer, /hello/i);
+    assert.match(answer, /\[DONE\]/);
+    assert.ok(answer.includes(model.id));
+  }
+  assert.equal(await submit("grep -q LOCAL-QWEN-OK /tmp/local-qwen-proof.txt"), 0);
+  console.log("browser: all three model sizes generated text; switching preserved Dolly files and reused the 2B cache");
   if (process.env.DOLLY_LOCAL_REMOVE_CACHE === "1") {
     await evaluate("document.querySelector('#local-model [data-action=remove]').click()");
     const cleared = await wait("({state:__localService.state,detail:__localService.detail})",
       value => ["unloaded", "error"].includes(value.state), "remove cached model", 300);
     assert.equal(cleared.state, "unloaded", cleared.detail);
     assert.match(cleared.detail, /removed/);
-    console.log("browser: selected model cache removed through browser controls");
+    console.log("browser: all model caches removed through browser controls");
   }
 }

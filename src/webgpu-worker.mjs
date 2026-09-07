@@ -1,12 +1,14 @@
-import { LOCAL_MODEL, validateCompletion } from "./local-model-contract.mjs";
+import { LOCAL_MODELS, validateCompletion } from "./local-model-contract.mjs";
 import { qwenCompletions } from "./qwen-completions.mjs";
 
 let engine, iterator, nextPending, generation, loading = false;
-let manifest;
+let model;
 const nativeFetch = globalThis.fetch.bind(globalThis);
 
-async function load() {
+async function load(modelId) {
   if (engine || loading) throw new Error("Model is already loaded or loading");
+  model = LOCAL_MODELS.find(model => model.id === modelId);
+  if (!model) throw new Error("Unknown model");
   loading = true;
   try {
     postMessage({ progress: "Checking the worker’s WebGPU adapter…" });
@@ -14,7 +16,9 @@ async function load() {
     if (!adapter || adapter.info?.isFallbackAdapter) throw new Error("A hardware WebGPU adapter is required");
     if (!adapter.features.has("shader-f16")) throw new Error("This Qwen model requires WebGPU shader-f16");
     postMessage({ progress: "Preparing the pinned model assets…" });
-    manifest = await (await nativeFetch(new URL("../dist/webgpu/assets.json", import.meta.url))).json();
+    const catalog = await (await nativeFetch(new URL("../dist/webgpu/assets.json", import.meta.url))).json();
+    const manifest = catalog.models.find(entry => entry.model === model.id);
+    if (!manifest) throw new Error("Model assets are missing from this release");
     postMessage({ progress: "Starting WebLLM…" });
     const assets = new Map(manifest.assets.map(asset => [asset.url, asset]));
     // Engine downloads are a trusted, fixed asset graph, never guest URLs.
@@ -23,7 +27,7 @@ async function load() {
       const asset = assets.get(url);
       if (!loading || !asset || (init.method ?? input.method ?? "GET") !== "GET") throw new Error(`Denied model asset: ${url}`);
       postMessage({ progress: `Downloading and verifying ${asset.file}…` });
-      const target = asset.bundle ? new URL(`../dist/webgpu/${asset.file}`, import.meta.url) : asset.url;
+      const target = asset.bundle ? new URL(`../dist/webgpu/${asset.sha256}-${asset.file}`, import.meta.url) : asset.url;
       const response = await nativeFetch(target, { signal: init.signal ?? input.signal,
         credentials: "omit", referrerPolicy: "no-referrer" });
       if (!response.ok) throw new Error(`Model asset ${asset.file}: HTTP ${response.status}`);
@@ -48,22 +52,23 @@ async function load() {
     engine = new MLCEngine({
       // CacheStorage.add bypasses the guarded Fetch implementation. The pinned
       // IndexedDB backend calls Fetch and stores only the verified response.
-      appConfig: { cacheBackend: "indexeddb", model_list: [{ model_id: LOCAL_MODEL.id, model: manifest.baseURL,
+      appConfig: { cacheBackend: "indexeddb", model_list: [{ model_id: model.id, model: manifest.baseURL,
         model_lib: manifest.assets.find(a => a.file === "qwen.wasm").url,
-        overrides: { context_window_size: LOCAL_MODEL.context_window, max_history_size: 1 } }] },
+        overrides: { context_window_size: model.context_window, max_history_size: 1 } }] },
       initProgressCallback: report => postMessage({ progress: report.text }),
     });
-    await engine.reload(LOCAL_MODEL.id);
+    await engine.reload(model.id);
     return { adapter: { vendor: adapter.info?.vendor, architecture: adapter.info?.architecture,
-      description: adapter.info?.description }, contextWindow: LOCAL_MODEL.context_window };
+      description: adapter.info?.description }, contextWindow: model.context_window };
   } finally { loading = false; }
 }
 
 async function command(message) {
-  if (message.type === "load") return load();
+  if (message.type === "load") return load(message.modelId);
   if (message.type === "start") {
     if (!engine || iterator) throw new Error("Model unavailable or busy");
     const request = validateCompletion(message.request);
+    if (request.model !== model.id) throw new Error("Requested model is not loaded");
     generation = message.generation;
     iterator = qwenCompletions(engine, request);
     return;
