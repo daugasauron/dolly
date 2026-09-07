@@ -2,6 +2,6 @@ DOLLY 3
 IMAGE python-runtime
 
 FROM HOST /Dollyfile-system 70aed4c44336876331b9325478560391d17cc20f2bc130ccbf3a0512c4530765
-USE HOST /modules/python.dm 80561ed520d81dc655e3cf0199eabc99f2cce10916a163f9f635c5f65e5ff93c
+USE HOST /modules/python.dm cb1fa925cd6862206dbd2c5ad8d7cdb6916eac65e77430ff81e1fb4b099f15a7
 
 ENTRY /bin/foreground -i /bin/slop

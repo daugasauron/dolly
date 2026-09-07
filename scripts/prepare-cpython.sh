@@ -51,19 +51,20 @@ cp -- "${project_dir}/src/runtimes/cpython-process.c" \
 patch --batch --fuzz=0 --no-backup-if-mismatch -d "${temporary}" -p1 \
   < "${project_dir}/config/cpython-dolly.patch" >/dev/null
 
-build_python_root="$(cd -- "$(dirname -- "${build_python}")/.." && pwd)"
+build_python_root="$("${build_python}" -c 'import sys; print(sys.base_prefix)')"
+container_python=/opt/dolly-build-python/bin/python3.14
 
 if command -v podman >/dev/null 2>&1; then
   container=(podman run --rm --userns=keep-id
     -v "${project_dir}:/src"
-    -v "${build_python_root}:${build_python_root}:ro"
+    -v "${build_python_root}:/opt/dolly-build-python:ro"
     -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache"
     -w "/src/${temporary#"${project_dir}/"}"
     "${DOLLY_EMSDK_IMAGE}")
 elif command -v docker >/dev/null 2>&1; then
   container=(docker run --rm -u "$(id -u):$(id -g)"
     -v "${project_dir}:/src"
-    -v "${build_python_root}:${build_python_root}:ro"
+    -v "${build_python_root}:/opt/dolly-build-python:ro"
     -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache"
     -w "/src/${temporary#"${project_dir}/"}"
     "${DOLLY_EMSDK_IMAGE}")
@@ -94,7 +95,7 @@ fi
   /emsdk/upstream/emscripten/emconfigure ./configure \
     --host=wasm64-unknown-emscripten \
     --build=x86_64-pc-linux-gnu \
-    --with-build-python="${build_python}" \
+    --with-build-python="${container_python}" \
     --without-pymalloc \
     --without-mimalloc \
     --disable-shared \

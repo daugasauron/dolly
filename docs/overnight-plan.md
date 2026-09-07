@@ -5,10 +5,11 @@ locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
 Feature work is paused at the user's requested checkpoint. Source `026ec83`
-contains the browser-tested SIGCHLD/tar fixes; the existing full-image rebuild
-is preserved in the background. Application `e633777` remains on port 9000,
-with all 19 image inventories and real Studio build/log/open/cancel checks passing.
-The new runtime still needs its complete catalog-identity check and publication.
+contains the browser-tested SIGCHLD/tar fixes; all 19 fresh-runtime snapshots and
+the complete 253-test suite passed. Final Python-path and Studio-skill cleanup
+also passes its image refresh, all 254 tests and targeted browser checks.
+Whole-catalog local publication remains. See the audit handoff for the
+served checkpoint and final verification logs.
 Unchecked items below remain unfinished, not implicitly included in the checkpoint.
 
 - [x] GPU setup guidance beside the model picker; test unavailable adapters and
@@ -39,7 +40,7 @@ catalog after validated milestones; retain old release assets for open tabs.
 GPU help, catalog ordering, Studio build/log/open and the Foundry bhop expansion
 are implemented and browser tested. All three guided starters now pass with real
 local Qwen 4B; default 2B and independent author/build/debug work remain unreliable.
-The Codex experiment is separately checkpointed and paused at `4f77a9a`; the full
+The Codex experiment is separately checkpointed and paused at `d84e8af`; the full
 agent is not running. Local-model workflow validation, fd/ripgrep and release review
 remain open. See
 [audit handoff](audit-handoff.md) for evidence and the isolated Codex experiment.

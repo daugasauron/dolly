@@ -15,9 +15,9 @@ succeeded. Pi startup tests wait for freshly rendered readiness, not a fixed del
 
 Verification of the new runtime:
 
-- 252 source checks pass (`build/sigchld-checkpoint-source.log`). The single
-  catalog-wide snapshot-identity test was explicitly excluded while snapshots
-  were being regenerated; this is **not** the complete 253-test run.
+- All 253 source checks pass, including the catalog-wide snapshot-identity test
+  (`build/sigchld-checkpoint-all-source.log`). All 19 images completed the genuine
+  fresh-runtime build (`build/sigchld-tar-snapshots.log`).
 - Browser lifecycle checks pass: SIGCHLD handlers/masking/wait readiness,
   cancellation/escalation/recovery, descriptors and the real
   `gzip -dc archive.tgz | tar -xf -` pipeline
@@ -28,7 +28,14 @@ Verification of the new runtime:
 - Pi TUI, incremental child/model output and fixture-backed write/edit calls
   pass (`build/sigchld-checkpoint-pi-browser.log`).
 
-## Local release and in-flight build
+The final cleanup removes a personal bootstrap-interpreter path from CPython's
+generated configuration by mounting its actual installation at a canonical
+container path. A regression test checks the prepared archive, not script text.
+Studio's skill now directs compiler-error repairs to the recipe, not the
+disposable builder's filesystem; it no longer requires reading the entire manual
+before a small edit. This instruction change is not proof of model reliability.
+
+## Local release and verification
 
 Port 9000 still serves the complete application checkpoint `e633777`, release
 `14e9b8a21cf303e3ce46f95c4928d16f1ed11a39bba609aca35a7a93341ed20a`.
@@ -37,30 +44,36 @@ denial, failure and cancellation checks passed
 (`build/checkpoint-request-{publish,port9000}.log`).
 The new Pi/kernel/tar changes have **not** been promoted there.
 
-The already-running `DOLLY_BUILD_IMAGES=all npm run snapshot` is preserved.
-At this checkpoint nine images have completed; CMake is rebuilding.
-Follow `build/sigchld-tar-snapshots.log`; do not start a duplicate builder or
-edit its source/recipe inputs. This is a genuine fresh-runtime build, not
-re-keyed old snapshots. New runtime identity:
+The runtime identity is:
 `sha256:79b64cf05defff93afedad28f306c23a7f2be37f744f2f02c93b6bcd6364bc35`.
 
-Next checkpoint step: after the builder succeeds, run the **unfiltered**
-`node --test test/*.test.mjs`, publish all 19 images locally, and retest port 9000.
-Keep the previous whole-app release until that succeeds. No public push,
-deployment or hosting purchase has been performed.
+The final Python/Studio snapshot refresh and all 254 source tests pass
+(`build/checkpoint-final-{snapshots,source}.log`). Python children, streaming,
+cancellation, Bonnie's real PEP 517 build/cleanup, interactive stdin and ctypes
+callbacks pass (`build/checkpoint-final-python-browser.log`). All three Python
+snapshots contain no personal builder-home path in any retained file
+(`build/checkpoint-final-python-paths.log`). Studio's Pi startup, example linting
+and Neovim syntax/diagnostics pass (`build/checkpoint-final-studio-browser.log`).
+Whole-catalog local publication is the remaining checkpoint operation.
+No public push, deployment or hosting purchase has been performed.
 
 ## Outstanding issues
 
 1. **Local Pi reliability.** Default Qwen 2B is not reliable for the independent
    author/build/debug/open workflow. Guided 4B starters now pass all three tasks
    (`build/studio-qwen4-starters-browser.log`), but that is not proof of
-   independent authoring or scratch cleanup. Manual trials produced token-limit
-   failures, repeated tool calls, and a recipe omitting the requested C command.
+   independent authoring or scratch cleanup. The new manual 4B trial produced
+   a syntactically valid recipe with incorrect line-counting C code. Two approved
+   builds exposed compiler errors; Pi then tried editing the builder's `/tmp`
+   files in Studio instead of its recipe. The next attempt failed because the
+   local model was no longer loaded, so the skill correction is not yet
+   behaviorally validated. Earlier trials also hit token limits and repeated calls.
    Pi can exit 0 even when its final assistant message reports an error; tests
    now inspect that result. Evidence: `build/studio-manual-evidence/`.
    An official-sampling comparison did not fix 2B and was reverted
-   (`build/studio-qwen-sampling-browser.log`). Cold GPU download/recovery also
-   needs another run; an earlier debugger disconnect has no established cause.
+   (`build/studio-qwen-sampling-browser.log`). A real cold 4B download and load
+   succeeded on localhost:9000; cancellation/reload recovery still needs a
+   complete run. Manual experiment browsers are stopped; evidence is retained.
 2. **Missing Pi search tools.** Genuine fd/ripgrep are not installed. The Rust
    bootstrap choice remains unresolved: pinned external Rust compiler, or
    compilation entirely inside Dolly. fd's single-thread option still creates
@@ -76,10 +89,15 @@ deployment or hosting purchase has been performed.
    [Cloudflare Pages per-file limit](https://developers.cloudflare.com/pages/platform/limits/);
    the site cannot be uploaded there unchanged. Provider-neutral asset routing,
    caching, compression and isolation headers still need deployment validation.
-   No host/proxy capability was added to address this.
-5. **Build cost and disk headroom.** Previous uncached CMake took 1,434 seconds,
-   Neovim 264 seconds, versus roughly 10 seconds for cached Studio assembly.
-   The development disk is 98% full, with about 24 GiB free at checkpoint.
+   CPython's personal-path leak is fixed at source preparation, but the complete
+   compressed-artifact scan remains unfinished. Pinned upstream model binaries
+   contain upstream authors' build paths; these are not Dolly user data. Other
+   archive pattern matches need classification, not automatic deletion or a
+   claim that every private-key-shaped test fixture is a leaked credential.
+   No host/proxy capability was added to address hosting.
+5. **Build cost and disk headroom.** The latest fresh-runtime CMake build took
+   1,170 seconds, Neovim 222 seconds and Python 102 seconds; cached Studio assembly
+   took 9 seconds. The development disk is 99% full, with about 16 GiB free.
    Review owned build outputs before another cold build; do not delete user
    caches or releases needed by open pinned tabs.
 
@@ -90,15 +108,19 @@ remain in Git history; remaining requested scope is in
 
 ## Isolated Codex experiment
 
-Branch `codex/wasm64-native-agent-20260907` is clean and paused at `4f77a9a`.
+Branch `codex/wasm64-native-agent-20260907` is clean and paused at `d84e8af`.
 See its `CODEX-HANDOFF.md` before reuse; no experimental Rust patches were merged.
 
 Real browser proofs cover upstream execpolicy and the Responses/SSE path:
 auth headers, retries, Unicode streaming, typed errors, cancellation and reuse.
-The latest configuration/provider/API-key storage work passes wasm64 and native
-compile checks only. Browser login/config round-trip, AuthManager/full CLI,
-process-group lifecycle and reachable Tokio asynchronous filesystem paths remain
-unfinished. **The full Codex agent does not run.** No experiment processes remain.
+Real browser configuration/provider/API-key storage round-trips now also pass,
+using fixture credentials. The actual `codex-exec` target still fails on 29 Tokio
+socket errors. Its production startup requires an OS thread, multithread Tokio,
+an embedded app-server and native-heavy executor services; the normal graph has
+814 target build units. Fixing async filesystem calls alone is insufficient.
+The next clean port step is separating real local executor/AuthManager code from
+unavailable native services, not adding socket/thread stubs or a substitute CLI.
+**The full Codex agent does not run.** No experiment processes remain.
 
 ## Handoff rules
 

@@ -22,7 +22,7 @@ REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
 USE HOST /modules/libffi.dm  28021caac7880de565fcd5825cf6f8351b5af9a05424bf68888fda27b2f4423d
-USE HOST /modules/cpython.dm 04687625fdcd587e14504fd3e4265c33f68f9896dc69b8dc572bdaae5de1528e
+USE HOST /modules/cpython.dm 3807c9860150d9d4e744034d72527f101b93aec21a6c44cb1a606ecd52a1f2ad
 
 EXPORTS TOOL   python
 EXPORTS TOOL   python3

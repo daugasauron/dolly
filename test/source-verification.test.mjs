@@ -7,6 +7,15 @@ import { join } from "node:path";
 import test from "node:test";
 import { updateRecipePins } from "../scripts/update-module-pins.mjs";
 
+test("prepared CPython configuration keeps bootstrap paths independent of the builder's home", () => {
+  const archive = new URL("../dist/static/python/cpython.tar", import.meta.url).pathname;
+  for (const name of ["Makefile", "Makefile.pre", "config.status"]) {
+    const configuration = execFileSync("tar", ["-xOf", archive, `usr/src/python/${name}`], { encoding: "utf8" });
+    assert.ok(configuration.includes("--with-build-python=/opt/dolly-build-python/bin/python3.14"), name);
+    assert.equal(/\/(?:home|Users)\/|\/src\/build\/generated\/cpython-source\./.test(configuration), false, name);
+  }
+});
+
 test("prepared HOST bytes update module and image pins without changing URL pins", async () => {
   const scratch = await mkdtemp(join(tmpdir(), "dolly-image-source-"));
   const digest = bytes => createHash("sha256").update(bytes).digest("hex");

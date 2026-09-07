@@ -10,9 +10,9 @@ Git and Slop. The shell tool is called `bash` for Pi compatibility, but executes
 Slop. Check `command -v TOOL` before assuming another tool is installed. There
 are no native host processes or sockets, and the image does not include Zig.
 
-Read `/usr/share/dollyfile-studio/dollyfile.md` for the maintained language
-reference before writing a recipe. Read the relevant example, not every
-installed source: `/usr/share/dollyfile-studio/examples/Dollyfile-hello` is a
+Use `/usr/share/dollyfile-studio/dollyfile.md` for language details when needed.
+Start with the relevant example, not every installed source:
+`/usr/share/dollyfile-studio/examples/Dollyfile-hello` is a
 greeting plus shell; `Dollyfile-tool` compiles a separate C executable.
 These examples contain the current release's real system-image pin.
 
@@ -35,6 +35,8 @@ These examples contain the current release's real system-image pin.
    The browser shows the recipe for user approval; logs stream back to the tool.
    A nonzero exit is failure: inspect the compiler/builder error, edit the draft,
    and retry. Lint and a scratch compilation are not a successful image build.
+   Paths in build errors belong to the disposable builder. Edit the matching
+   FILE body or SLOP line in your recipe, not that builder's `/tmp` path in Studio.
    Use `dollyfile-build --open /workspace/Dollyfile` when the user wants to run it:
    **Build and open** reserves a tab on their approval click and launches the
    verified result when ready. Otherwise **Open image** is offered after success.
