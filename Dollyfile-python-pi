@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE python-pi
 
-FROM HOST /Dollyfile-pi-runtime 24c2314e3ee6f5ca956abef15e49e91df0d482ffdbee075a1cd8f7a57073f221
+FROM HOST /Dollyfile-pi-runtime 0d1bcaa04176bf74c64a9942378cea8cd9b9c5755cba9eeebb76a4c2907b67f7
 COPY FROM HOST /Dollyfile-python d910c4f479a3dde7f4ba7f3de7f82d898cb6a02f3cc239a5590a83a3a5d23322 /usr/bin/python /usr/bin/python
 COPY FROM HOST /Dollyfile-python d910c4f479a3dde7f4ba7f3de7f82d898cb6a02f3cc239a5590a83a3a5d23322 /usr/bin/python3 /usr/bin/python3
 COPY FROM HOST /Dollyfile-python d910c4f479a3dde7f4ba7f3de7f82d898cb6a02f3cc239a5590a83a3a5d23322 /usr/bin/bonnie /usr/bin/bonnie

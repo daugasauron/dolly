@@ -15,6 +15,14 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
 
 ## Validated work
 
+- Pi's edit tool now rejects unchanged replacements, empty search text and
+  overlapping duplicate matches without writing the file. Literal replacements
+  preserve BOM, CRLF and Unicode. The regressions fail on the old implementation
+  and pass both as source tests and through the installed browser image
+  (`build/pi-edit-{contract-red,contract-green,browser-red,browser-green}.log`).
+  All 261 source tests pass (`build/pi-edit-source-final.log`); all affected Pi
+  layers rebuilt successfully, with unchanged bases reused
+  (`build/pi-edit-snapshots.log`).
 - A manual Studio trial exposed a genuine build hang: `SLOP` inherited a terminal
   stdin even though the isolated builder cannot receive keyboard input. Build
   commands now receive `/dev/null`; explicit pipes and redirection remain normal
@@ -113,13 +121,19 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    template-first guidance helped preserve pins, repair a compiler error in the
    recipe and open a result; that program still returned 0 for two newline-
    terminated lines. Other trials invented syntax or tested commands in Studio
-   instead of the built image. The latest trial repaired an export declaration
-   and a missing C header, then exposed the build-stdin hang fixed above. Its
-   correctness was not established. A successful build is not proof of correct code.
+   instead of the built image. One trial repaired an export declaration and a
+   missing C header, then exposed the build-stdin hang fixed above. A subsequent
+   trial on the published fix with normal model settings repeated an invalid
+   export declaration and no-op edits; it never reached build approval. This
+   exposed the edit-tool feedback bug fixed above, but independent authoring has
+   not been retested with that correction. A successful build is not proof of
+   correct code (`build/studio-manual-evidence/studio-fixed-stdin.jsonl`).
    Ctrl+C returns 130; the two-second cancellation fallback can unload the model.
    The shell/files survive, and explicit cached reload restores real Pi tool use.
-   An unloaded-model error can nevertheless give Pi exit 0; inspect its final
-   assistant message. Independent author/repair/run remains unproven. Preserve
+   In Pi's upstream JSON mode, a model-error event can accompany exit 0: its
+   `print-mode.ts` only maps final assistant errors to exit 1 in text mode.
+   Inspect JSON events, not only the process status; this is not evidence of a
+   Dolly exit-status defect. Independent author/repair/run remains unproven. Preserve
    `build/studio-manual-evidence/` and the cached GPU profile.
 2. **Missing Pi search tools.** Genuine fd/ripgrep are not installed. Resolve the
    Rust bootstrap boundary: pinned external compiler versus an in-Dolly compiler.

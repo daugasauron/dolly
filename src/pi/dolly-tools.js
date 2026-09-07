@@ -138,9 +138,11 @@ export default function dollyTools(pi) {
     async execute(_id, parameters, _signal, _update, context) {
       const target = absolute(parameters.path, context.cwd);
       const contents = Dolly.readFile(target);
+      if (!parameters.old_text.length) throw new Error("old_text must not be empty");
+      if (parameters.old_text === parameters.new_text) throw new Error("No changes: old_text and new_text are identical");
       const first = contents.indexOf(parameters.old_text);
       if (first < 0) throw new Error("old_text was not found");
-      if (contents.indexOf(parameters.old_text, first + parameters.old_text.length) >= 0) {
+      if (contents.indexOf(parameters.old_text, first + 1) >= 0) {
         throw new Error("old_text occurs more than once");
       }
       Dolly.writeFile(target,

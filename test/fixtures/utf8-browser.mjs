@@ -71,6 +71,22 @@ if (process.argv.includes("stdin")) {
     value => updates.push(value.content[0].text), { cwd: Dolly.cwd() });
   equal(result.content[0].text, "あ😀��", "Pi interleaved pipes and both EOF flushes");
   if (!updates.includes("あ") || !updates.includes("あ😀")) throw new Error("UTF8: Pi did not stream completed characters");
+  const edit = (old_text, new_text) => registered.get("edit").execute("edit",
+    { path: "edit.txt", old_text, new_text }, undefined, undefined, { cwd: Dolly.cwd() });
+  for (const [original, old, replacement, expected] of [
+    ["same", "same", "same", "No changes"],
+    ["", "", "insert", "old_text must not be empty"],
+    ["aaa", "aa", "b", "more than once"],
+  ]) {
+    Dolly.writeFile("edit.txt", original);
+    let error = "";
+    try { await edit(old, replacement); } catch (failure) { error = failure.message; }
+    if (!error.includes(expected)) throw new Error(`Pi edit did not reject ${expected}: ${error}`);
+    equal(Dolly.readFile("edit.txt"), original, "rejected edit preserves bytes");
+  }
+  Dolly.writeFile("edit.txt", "\uFEFFα\r\nold\r\n😀\r\n");
+  await edit("old", "$& new");
+  equal(Dolly.readFile("edit.txt"), "\uFEFFα\r\n$& new\r\n😀\r\n", "literal Pi edit preserves BOM/CRLF/Unicode");
   console.log(`UTF8-OK: ${expected.length} decoder cases, HTTP, Node streams, Pi pipes, binary writes`);
   process.exitCode = 1;
   setTimeout(() => Promise.resolve().then(() => { process.exitCode = 0; }), 0);
