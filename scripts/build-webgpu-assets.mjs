@@ -21,6 +21,8 @@ for (const asset of manifest.assets.filter(a => a.bundle)) {
   await rename(`${destination}.tmp`, destination);
 }
 await writeFile(resolve(output, "assets.json"), manifestBytes);
+await writeFile(resolve(output, "LICENSE.webllm.txt"),
+  await readFile(resolve(root, "node_modules/@mlc-ai/web-llm/LICENSE")));
 await build({ stdin: { contents: 'export { MLCEngine, deleteModelAllInfoInCache } from "@mlc-ai/web-llm";', resolveDir: root },
   bundle: true, format: "esm", platform: "browser", target: "es2022", minify: true,
   outfile: resolve(output, "webllm.mjs"), legalComments: "linked" });
