@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, readdir, rename, rm } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
 const [, , outputArgument, ...inputArguments] = process.argv;
@@ -37,7 +37,7 @@ function validArchivePath(value) {
 }
 
 async function collect(input, destination) {
-  const metadata = await stat(input);
+  const metadata = await lstat(input);
   if (metadata.isFile()) {
     if (excludeSuffixes.some((suffix) => destination.endsWith(suffix))) {
       excludedFiles++;
@@ -120,18 +120,19 @@ function headerFor(record) {
 }
 
 await mkdir(dirname(output), { recursive: true });
-const temporary = `${output}.${process.pid}.tmp`;
-await rm(temporary, { force: true });
-let file = await open(temporary, "wx");
+const staging = await mkdtemp(join(dirname(output), ".source-tar-"));
+const temporary = join(staging, "archive.tar");
+let file = null;
 const digest = createHash("sha256");
 let total = 0;
 async function emit(bytes) {
-  await file.write(bytes);
+  await file.writeFile(bytes);
   digest.update(bytes);
   total += bytes.length;
 }
 
 try {
+  file = await open(temporary, "wx");
   for (const record of records) {
     await emit(headerFor(record));
     const source = await open(record.input, "r");
@@ -161,7 +162,7 @@ try {
   await rename(temporary, output);
 } finally {
   if (file !== null) await file.close().catch(() => {});
-  await rm(temporary, { force: true });
+  await rm(staging, { recursive: true, force: true });
 }
 
 console.log(

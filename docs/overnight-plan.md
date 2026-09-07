@@ -1,47 +1,37 @@
 # Overnight release work
 
-Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
-locally, but local-model starters are not yet reliable. No public deployment
-or hosting purchase is part of this work.
+Original target: 2026-09-08 07:00 JST; baseline `2ccaab2`.
+Work is paused at the user's requested checkpoint. Application `4b61edf` is
+published locally on port 9000; all 19 images passed packaged inventories.
+The latest source checkpoint passes 258 tests. No public deployment or hosting
+purchase is part of this work. See [audit handoff](audit-handoff.md) for exact
+release identity, evidence and remaining issues; unchecked items are unfinished.
 
-Feature work is paused at the user's requested checkpoint. Application `cf744c8`
-is published on port 9000, including the SIGCHLD/tar fixes, Python-path and
-Studio-skill cleanup, and lazy compiler-seed loading. All 254 tests and all 19
-packaged inventories pass; prebuilt images now boot with seed downloads denied.
-The previous fresh-runtime image builds remain valid because the Wasm and seed
-bytes are unchanged. See the audit handoff for verification and remaining issues.
-Unchecked items below remain unfinished, not implicitly included in the checkpoint.
-
-- [x] GPU setup guidance beside the model picker; test unavailable adapters and
-  a real Chrome GPU load. Do not silently change flags or use a remote fallback.
-- [ ] Genuine fd/ripgrep in every Pi image, resolved from PATH. Check upstream
-  tool behavior and Pi startup/search; document any Rust bootstrap boundary.
+- [x] GPU setup guidance beside the model picker, unavailable-adapter tests and
+  a real Chrome GPU load. No silent flags or remote fallback.
+- [ ] Genuine fd/ripgrep in every Pi image, resolved from PATH. Resolve the Rust
+  bootstrap boundary and upstream threading requirements.
 - [x] Deterministic home-page ordering, default first then alphabetical.
-- [x] Studio submits recipes through the existing HTTP broker to an isolated
-  in-browser build, receives bounded live logs/errors, and can open successful
-  output in another tab. Review approval, resource limits and the single boundary.
-- [ ] Manually exercise local Pi in Studio: read the skill, author a real recipe,
-  build it, inspect errors, fix them and launch the result. Keep failed evidence.
-- [x] Research classic bhop courses; expand Airtime with smaller spaced platforms,
-  touch-triggered disappearing platforms, distinct routes and an industrial map.
-  Verify strafe movement, landing/collapse timing and actual browser play.
-- [ ] Audit the final source/artifacts for correctness, shortcuts, temporary state,
-  personal data and secrets. Run all images and relevant browser suites.
-- [ ] Prepare provider-neutral static deployment and separable immutable assets;
-  research current hosting limits/costs, verify caching/CORS/integrity and avoid
-  committing to a provider before the user chooses.
-- [ ] Manage the independent `codex/wasm64-native-agent-20260907` experiment.
-  No main-tree mutations or host-contract changes; report genuine measured
-  progress/blockers, not a launcher or shim advertised as working Codex.
+- [x] Studio submits approved recipes through the existing HTTP broker to an
+  isolated in-browser build, streams bounded logs/errors and opens successful
+  output in another tab. Approval, denial and cancellation are browser-tested.
+- [ ] Manually validate local Pi independently authoring, building, debugging and
+  launching a correct image. Guided Qwen 4B starters pass; independent workflow
+  and model recovery do not. Preserve failed evidence.
+- [x] Research classic bhop courses and add Foundry: smaller spaced platforms,
+  touch-triggered collapse, distinct routes and an industrial map. Actual browser
+  play verifies movement, landing and collapse timing.
+- [ ] Finish the source/artifact/privacy review. All images and relevant browser
+  suites pass; personal CPython paths and archive-writer bugs are fixed. The
+  expanded scan classifies certificate fixtures, but is not an exhaustive audit.
+- [x] Prepare provider-neutral static export with separable immutable assets.
+  Nested-path and headerless browser boot/build/session checks pass. Production
+  provider choice, old-release retention and cold-load measurement remain open.
+- [ ] Complete the independent Codex experiment without changing main or the host
+  contract. Clean checkpoint `64d6d44` runs genuine AuthManager/API-key and
+  Responses components in the browser, not a full agent. Higher-level auth,
+  ConfigBuilder and native socket/thread dependencies remain unported.
 
-Preserve the last complete local release while building. Publish the whole
-catalog after validated milestones; retain old release assets for open tabs.
-
-GPU help, catalog ordering, Studio build/log/open and the Foundry bhop expansion
-are implemented and browser tested. All three guided starters now pass with real
-local Qwen 4B; default 2B and independent author/build/debug work remain unreliable.
-The Codex experiment is separately checkpointed and paused at `61e5925`; real
-filesystem/configuration loading works with an explicit defaults file, but normal
-executable discovery and the full agent remain unported. Local-model workflow
-validation, fd/ripgrep and release review remain open. See
-[audit handoff](audit-handoff.md) for evidence and the isolated Codex experiment.
+Preserve the last complete local release while building. Publish only validated
+catalogs and retain old release assets for open tabs. Experimental browsers and
+the Codex subagent are stopped; port 9000 remains available.

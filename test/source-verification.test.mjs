@@ -1,11 +1,66 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { updateRecipePins } from "../scripts/update-module-pins.mjs";
+
+test("source archives are deterministic, complete under short writes, and own their staging", async t => {
+  const scratch = await mkdtemp(join(tmpdir(), "dolly-source-tar-"));
+  t.after(() => rm(scratch, { recursive: true, force: true }));
+  const input = join(scratch, "input"), output = join(scratch, "source.tar");
+  await mkdir(join(input, "nested"), { recursive: true });
+  await writeFile(join(input, "a"), "source\n");
+  const large = Buffer.alloc(200_001, 0x7f);
+  await writeFile(join(input, "nested/b"), large);
+  const script = new URL("../scripts/build-source-tar.mjs", import.meta.url).pathname;
+  // A regular-file write can complete only part of its buffer. Do not let
+  // the archive writer silently hash bytes it never actually wrote.
+  const preload = `import { open } from 'node:fs/promises';
+    const handle = await open(${JSON.stringify(join(input, "a"))}, 'r');
+    const prototype = Object.getPrototypeOf(handle), write = prototype.write;
+    prototype.write = function(bytes) { return write.call(this, bytes.subarray(0, Math.ceil(bytes.length / 2))); };
+    await handle.close();`;
+  const first = execFileSync(process.execPath, [script, output, input, "/usr/src/fixture"], { encoding: "utf8" });
+  const expected = await readFile(output);
+  const expectedHash = createHash("sha256").update(expected).digest("hex");
+  const second = execFileSync(process.execPath, ["--import", "data:text/javascript," + encodeURIComponent(preload),
+    script, output, input, "/usr/src/fixture"], { encoding: "utf8" });
+  assert.equal(first, second);
+  assert.equal(createHash("sha256").update(await readFile(output)).digest("hex"), expectedHash);
+  assert.ok(first.includes(expectedHash));
+  assert.deepEqual(execFileSync("tar", ["-xOf", output, "usr/src/fixture/nested/b"]), large);
+  assert.equal(execFileSync("tar", ["-tf", output], { encoding: "utf8" }),
+    "usr/src/fixture/a\nusr/src/fixture/nested/b\n");
+  const octal = (offset, length) => Number.parseInt(expected.subarray(offset, offset + length).toString(), 8);
+  for (const offset of [108, 116, 136]) assert.equal(octal(offset, offset === 136 ? 12 : 8), 0);
+  assert.ok(expected.subarray(265, 329).every(byte => byte === 0), "archive retained a host owner name");
+  assert.deepEqual((await readdir(scratch)).sort(), ["input", "source.tar"]);
+});
+
+test("source archives reject symlinks and clean failed staging without replacing previous output", async t => {
+  const scratch = await mkdtemp(join(tmpdir(), "dolly-source-link-"));
+  t.after(() => rm(scratch, { recursive: true, force: true }));
+  const output = join(scratch, "source.tar"), input = join(scratch, "input");
+  await mkdir(input);
+  await writeFile(join(scratch, "private"), "not a declared source");
+  await writeFile(output, "previous valid output");
+  await symlink(join(scratch, "private"), join(input, "link"));
+  const script = new URL("../scripts/build-source-tar.mjs", import.meta.url).pathname;
+  for (const [path, destination] of [
+    [join(input, "link"), "/usr/src/fixture"],
+    [input, "/usr/src/fixture"],
+    [join(scratch, "private"), "/" + "a".repeat(101)],
+  ]) {
+    const result = spawnSync(process.execPath, [script, output, path, destination], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /unsupported source input|reject non-file input|path does not fit ustar/);
+    assert.equal(await readFile(output, "utf8"), "previous valid output");
+  }
+  assert.deepEqual((await readdir(scratch)).sort(), ["input", "private", "source.tar"]);
+});
 
 test("prepared CPython configuration keeps bootstrap paths independent of the builder's home", () => {
   const archive = new URL("../dist/static/python/cpython.tar", import.meta.url).pathname;

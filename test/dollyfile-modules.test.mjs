@@ -540,9 +540,6 @@ test("host preparation scripts publish atomically and own their temporary paths"
       assert.match(source, /await rm\(/, `${name} must remove temporary directories`);
     }
   }
-  const archive = await readFile(
-    resolve(projectDir, "scripts/build-source-tar.mjs"), "utf8",
-  );
   const snapshots = await readFile(
     resolve(projectDir, "scripts/build-system-snapshot.mjs"), "utf8",
   );
@@ -572,8 +569,6 @@ test("host preparation scripts publish atomically and own their temporary paths"
   const preparedCpython = await readFile(
     resolve(projectDir, "scripts/prepare-cpython.sh"), "utf8",
   );
-  assert.match(archive, /await rename\(temporary, output\)/);
-  assert.match(archive, /await rm\(temporary, \{ force: true \}\)/);
   assert.match(snapshots, /finally\s*\{[\s\S]*?rm\(temporarySnapshotPath/);
   assert.match(snapshots, /rename\(temporarySnapshotPath, snapshotPath\)/);
   assert.doesNotMatch(build, /rm -f[\s\S]*?dolly-\$\{image_name\}-system\.snapshot/);

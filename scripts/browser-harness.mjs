@@ -72,7 +72,7 @@ const terminalUiMode = isMode("terminal-ui");
 const uploadMode = isMode("upload");
 const customDollyfileMode = isMode("custom-dollyfile");
 const studioMode = isMode("dollyfile-studio");
-const imageBuildMode = isMode("image-build");
+const imageBuildMode = isMode("image-build", "image-build-pages");
 const graphicsMode = isMode("graphics");
 const bhopMode = isMode("bhop");
 const debuggerDisconnectMode = isMode("debugger-disconnect");
@@ -88,7 +88,7 @@ const realOpenRouterMode = piOpenRouterMode || piAuditMode;
 const missingSnapshotMode = isMode("snapshot-missing");
 const unpackagedSnapshotMode = isMode("snapshot-unpackaged");
 const snapshotExportMode = isMode("snapshot-export") || unpackagedSnapshotMode;
-const pagesIsolationMode = isMode("pages-isolation", "session-pages");
+const pagesIsolationMode = isMode("pages-isolation", "session-pages", "image-build-pages");
 const pagesLiveMode = isMode("pages-live");
 const menuMode = isMode("menu");
 const routeSmokeMode = isMode("route-smoke");
@@ -3186,11 +3186,13 @@ int main(int argc, char **argv) {
         sessionRebuildMode ? 12_000 : 1200,
       );
       assert.equal(initialState, "ready");
+      const sessionAssets = await evaluate(debuggerClient.send,
+        `new URL(${JSON.stringify(sessionRebuildMode ? "../../" : "../")}, document.baseURI).href`);
       if (sessionRebuildMode) {
         const comparison = await evaluate(debuggerClient.send, `(async () => {
           const bytes = window.__dolly.systemSnapshot;
           const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
-            ${JSON.stringify(`${browserBase}dist/dolly-${selectedImage}-system-snapshot.mjs`)});
+            ${JSON.stringify(new URL(`dist/dolly-${selectedImage}-system-snapshot.mjs`, sessionAssets).href)});
           const digest = await crypto.subtle.digest("SHA-256", bytes);
           const actual = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
           return { actual, expected: metadata.sha256, mode: document.documentElement.dataset.bootMode };
@@ -3205,7 +3207,7 @@ int main(int argc, char **argv) {
           try { await window.__dolly.saveSession("wrong-rebuilt-base"); }
           catch (caught) { error = caught.message; }
           finally { bytes[bytes.length - 1] ^= 1; }
-          const store = await import(${JSON.stringify(`${browserBase}src/session-store.mjs`)});
+          const store = await import(${JSON.stringify(new URL("src/session-store.mjs", sessionAssets).href)});
           return /differs from the prebuilt session base/.test(error) &&
             await store.loadStoredSession("wrong-rebuilt-base") === null;
         })()`), true, "a non-identical rebuilt base must not produce a named save");
@@ -3359,7 +3361,7 @@ int main(int argc, char **argv) {
       // Storage failure must be visible and must not replace the last good
       // checkpoint. Inject the browser's quota error at the actual IDB put.
       assert.deepEqual(await evaluate(debuggerClient.send, `(async () => {
-        const store = await import(${JSON.stringify(`${browserBase}src/session-store.mjs`)});
+        const store = await import(${JSON.stringify(new URL("src/session-store.mjs", sessionAssets).href)});
         const before = await store.loadStoredSession("browser-proof");
         const original = IDBObjectStore.prototype.put;
         let error;
@@ -3376,7 +3378,7 @@ int main(int argc, char **argv) {
             document.querySelector("#session-status").textContent.includes("Storage quota test") };
       })()`), { error: "QuotaExceededError", same: true, visible: true });
       await evaluate(debuggerClient.send, `(async () => {
-        const store = await import(${JSON.stringify(`${browserBase}src/session-store.mjs`)});
+        const store = await import(${JSON.stringify(new URL("src/session-store.mjs", sessionAssets).href)});
         const good = await store.loadStoredSession("browser-proof");
         await store.saveStoredSession({ ...good, name: "wrong-base", buildId: "different-runtime" });
         await store.saveStoredSession({ ...good, name: "broken-data", encoding: "identity", bytes: new ArrayBuffer(16) });
@@ -3579,12 +3581,13 @@ int main(int argc, char **argv) {
         await debuggerClient.send("Page.navigate", { url: "about:blank" });
         await debuggerClient.send("Page.navigate", { url: rebuildPage });
       }
+      const iterationAssets = await evaluate(debuggerClient.send, "new URL('../../', document.baseURI).href");
       const invalidation = await evaluate(debuggerClient.send, `(async () => {
-        const { DOLLY_IMAGES } = await import(${JSON.stringify(`${browserBase}dist/dolly-images.mjs`)});
+        const { DOLLY_IMAGES } = await import(${JSON.stringify(new URL("dist/dolly-images.mjs", iterationAssets).href)});
         const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact,
-          loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } = await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
-        const { decodeSnapshotRecords, encodeSnapshotRecords } = await import(${JSON.stringify(`${browserBase}src/snapshot-records.mjs`)});
-        const { prepareImageArtifacts } = await import(${JSON.stringify(`${browserBase}src/image-build.mjs`)});
+          loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } = await import(${JSON.stringify(new URL("src/image-artifact.mjs", iterationAssets).href)});
+        const { decodeSnapshotRecords, encodeSnapshotRecords } = await import(${JSON.stringify(new URL("src/snapshot-records.mjs", iterationAssets).href)});
+        const { prepareImageArtifacts } = await import(${JSON.stringify(new URL("src/image-build.mjs", iterationAssets).href)});
         const base = DOLLY_IMAGES.find(image => image.image === 'system');
         const child = DOLLY_IMAGES.find(image => image.image === 'javascript');
         const prime = async definition => {
@@ -3626,10 +3629,10 @@ int main(int argc, char **argv) {
       console.log('browser: changing base bytes without changing its recipe rejects cached and published child artifacts');
       const cacheChecks = await evaluate(debuggerClient.send, `(async () => {
         const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact, sha256 } =
-          await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
-        const { encodeSnapshotRecords } = await import(${JSON.stringify(`${browserBase}src/snapshot-records.mjs`)});
-        const { DOLLY_IMAGES } = await import(${JSON.stringify(`${browserBase}dist/dolly-images.mjs`)});
-        const { prepareImageArtifacts } = await import(${JSON.stringify(`${browserBase}src/image-build.mjs`)});
+          await import(${JSON.stringify(new URL("src/image-artifact.mjs", iterationAssets).href)});
+        const { encodeSnapshotRecords } = await import(${JSON.stringify(new URL("src/snapshot-records.mjs", iterationAssets).href)});
+        const { DOLLY_IMAGES } = await import(${JSON.stringify(new URL("dist/dolly-images.mjs", iterationAssets).href)});
+        const { prepareImageArtifacts } = await import(${JSON.stringify(new URL("src/image-build.mjs", iterationAssets).href)});
         const make = async (name, value) => {
           const source = new TextEncoder().encode('DOLLY 3\\nIMAGE ' + name + '\\nENTRY /bin/slop\\n');
           return describeImageArtifact(encodeSnapshotRecords(new Map([
@@ -3669,7 +3672,7 @@ int main(int argc, char **argv) {
         const concurrent = writes.every(Boolean) && survivors.length === 1 &&
           (await loadImageArtifact(survivors[0]))?.sha256 === survivors[0].sha256;
         const pi = DOLLY_IMAGES.find(image => image.image === 'pi');
-        const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(${JSON.stringify(`${browserBase}dist/dolly-pi-system-snapshot.mjs`)});
+        const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(${JSON.stringify(new URL("dist/dolly-pi-system-snapshot.mjs", iterationAssets).href)});
         const piArtifact = await loadImageArtifact(await loadImageArtifactDescriptor(pi.sha256, metadata.inputs));
         if (!piArtifact) throw new Error('missing Pi cache');
         let recovered;
@@ -3680,7 +3683,7 @@ int main(int argc, char **argv) {
             async () => { throw new Error('corruption must recover the exact published bytes, not rebuild a new identity'); }, () => {});
           recovered = artifact.sha256 === piArtifact.sha256 && artifact.bytes.byteLength === piArtifact.bytes.byteLength;
         } finally { await saveImageArtifact(piArtifact, '/' + pi.dollyfile); }
-        const { saveStoredSession, loadStoredSession } = await import(${JSON.stringify(`${browserBase}src/session-store.mjs`)});
+        const { saveStoredSession, loadStoredSession } = await import(${JSON.stringify(new URL("src/session-store.mjs", iterationAssets).href)});
         await saveStoredSession({ name: 'cache-migration-proof', formatVersion: 2, buildId: first.buildId,
           image: 'pi', imageIdentity: 'pi:' + pi.sha256, updatedAt: 0, encoding: 'identity', bytes: first.bytes });
         // Reset only this disposable test origin's image cache to its old schema.
@@ -3714,8 +3717,8 @@ int main(int argc, char **argv) {
       console.log('browser: image-cache schema upgrade discards only rebuildable cache entries and preserves the separate named-session record');
       if (externalPage) {
         const packCache = await evaluate(debuggerClient.send, `(async () => {
-          const { loadPackagedSystemSnapshot } = await import(${JSON.stringify(`${browserBase}src/image-artifact.mjs`)});
-          const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(${JSON.stringify(`${browserBase}dist/dolly-pi-system-snapshot.mjs`)});
+          const { loadPackagedSystemSnapshot } = await import(${JSON.stringify(new URL("src/image-artifact.mjs", iterationAssets).href)});
+          const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(${JSON.stringify(new URL("dist/dolly-pi-system-snapshot.mjs", iterationAssets).href)});
           if (metadata.encoding !== 'packs') throw new Error('external app did not publish shared packs');
           performance.clearResourceTimings();
           performance.setResourceTimingBufferSize(2000);
