@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks } from "../src/snapshot-records.mjs";
@@ -30,12 +30,12 @@ export function splitSnapshotRecords(records) {
   return parts;
 }
 
-export async function shareSnapshots(directory) {
+export async function shareSnapshots(directory, snapshots) {
   const images = [], identical = new Map();
   for (const name of (await readdir(directory)).sort()) {
     if (!/^dolly-.+-system-snapshot\.mjs$/.test(name)) continue;
     const metadata = parseGeneratedConstant(await readFile(resolve(directory, name), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
-    const bytes = await readFile(resolve(directory, `dolly-${metadata.image}-system.snapshot`));
+    const bytes = await readFile(resolve(snapshots, `dolly-${metadata.image}-system.snapshot`));
     if (bytes.length !== metadata.byteLength || digest(bytes) !== metadata.sha256) throw new Error(`${name}: snapshot mismatch`);
     const image = { metadata, name, packs: [] };
     images.push(image);
@@ -76,8 +76,7 @@ export async function shareSnapshots(directory) {
     validateSnapshotPacks(metadata);
     await writeFile(resolve(directory, image.name), `// Generated shared snapshot manifest.\nexport const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify(metadata, null, 2)});\n`);
   }
-  for (const image of images) await rm(resolve(directory, `dolly-${image.metadata.image}-system.snapshot`));
   console.log(`dolly: ${images.length} images share ${parts.size} packs (${packedBytes} compressed bytes)`);
   return { images: images.length, packs: parts.size, packedBytes };
 }
-if (process.argv[1] === import.meta.filename) await shareSnapshots(resolve(process.argv[2]));
+if (process.argv[1] === import.meta.filename) await shareSnapshots(resolve(process.argv[2]), resolve(process.argv[3]));

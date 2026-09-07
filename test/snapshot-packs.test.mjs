@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -12,13 +12,18 @@ import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, val
 const digest = value => createHash("sha256").update(value).digest("hex");
 const file = text => ({ kind: 2, data: new TextEncoder().encode(text) });
 async function packImages(directory, inputs) {
+  const snapshots = resolve(directory, "inputs");
+  await mkdir(snapshots, { recursive: true });
   for (const [image, records] of inputs) {
     const bytes = encodeSnapshotRecords(records);
-    await writeFile(resolve(directory, `dolly-${image}-system.snapshot`), bytes);
+    await writeFile(resolve(snapshots, `dolly-${image}-system.snapshot`), bytes);
     await writeFile(resolve(directory, `dolly-${image}-system-snapshot.mjs`),
       `export const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify({ image, byteLength: bytes.length, sha256: digest(bytes) })});\n`);
   }
-  await shareSnapshots(directory);
+  await shareSnapshots(directory, snapshots);
+  for (const [image, records] of inputs) {
+    assert.deepEqual(new Uint8Array(await readFile(resolve(snapshots, `dolly-${image}-system.snapshot`))), encodeSnapshotRecords(records));
+  }
   return new Map(await Promise.all([...inputs.keys()].map(async image => [image,
     parseGeneratedConstant(await readFile(resolve(directory, `dolly-${image}-system-snapshot.mjs`), "utf8"), "DOLLY_SYSTEM_SNAPSHOT")])));
 }

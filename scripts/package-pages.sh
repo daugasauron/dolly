@@ -175,10 +175,9 @@ cp \
 for image_name in "${image_names[@]}"; do
   cp \
     "${project_dir}/dist/dolly-${image_name}-system-snapshot.mjs" \
-    "${project_dir}/dist/dolly-${image_name}-system.snapshot" \
     "${staging}/site/dist/"
 done
-node "${project_dir}/scripts/share-pages-snapshots.mjs" "${staging}/site/dist"
+node "${project_dir}/scripts/share-pages-snapshots.mjs" "${staging}/site/dist" "${project_dir}/dist"
 touch "${staging}/site/.nojekyll"
 site_bytes="$(du -sb "${staging}/site" | cut -f1)"
 if (( site_bytes > 1000000000 )); then
