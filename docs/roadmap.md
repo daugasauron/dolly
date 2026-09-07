@@ -201,14 +201,15 @@ ABI 0 now proves a deliberately small platform substrate with these families:
 - process-local dynamic-module and foreign-call mechanics.
 
 The Emscripten-musl-derived process sysroot, libc++, QuickJS, CPython, Zig,
-Clang/LLD, and ordinary C/C++ tools already run above it. Use the census and
-browser regressions to remove accidental operations, freeze exact semantics,
-and version the result as ABI 1. Keep the process ABI distinct from the narrow
-resident display-plugin contract and the outer browser device imports.
+Clang/LLD, and ordinary C/C++ tools already run above it. API shape remains a
+user-led design choice, not an operation-counting exercise. Use browser
+regressions to verify the chosen semantics before versioning them as ABI 1.
+Keep the process ABI distinct from the narrow resident display-plugin contract
+and the outer browser device imports.
 
-Acceptance gate: at least three independent runtimes share files and lifecycle
-through ABI 1; every operation has a real workload and conformance fixture; the
-outer browser capability set does not grow.
+Acceptance gate: independent runtimes share files and lifecycle through the
+agreed ABI 1; conformance tests verify its exact types and documented behavior;
+the outer browser capability set does not grow.
 
 ## Phase 7 — capsules and distribution
 

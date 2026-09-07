@@ -206,8 +206,7 @@ destroys its mutable state.
 - no native host filesystem, process, socket, DOM, or ambient Fetch capability;
 - no fork, threads, multiprocessing, or performance-oriented parallel make;
 - serialized pipes and process scheduling are acceptable;
-- raw TCP/UDP software is out of scope unless represented by a future explicit
-  broker contract; and
+- raw TCP/UDP compatibility is out of scope; ports use the HTTP bridge; and
 - the resident display plugin is an internal bootstrap exception, not a second
   general application ABI.
 

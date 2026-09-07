@@ -2,10 +2,10 @@
 
 ## Checkpoint — 2026-09-08
 
-Feature work is paused at the user's requested checkpoint. Port 9000 serves
+Work is paused at the user's requested checkpoint. Port 9000 serves
 application `c79380d`, immutable release
 `6732dddd6ee0b34c33de1c745b0f65e792fa1893b02eea0cedf26d63d9f416f2`.
-The subsequent handoff update changes no runtime or image bytes.
+Follow-up source work does not replace that release until browser acceptance.
 No public push, deployment or hosting purchase has been performed.
 
 Runtime identity:
@@ -15,7 +15,7 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
 
 ## Validated work
 
-- All 259 source tests pass (`build/checkpoint-september8-source.log`).
+- All 260 source tests pass (`build/studio-skill-source.log`).
   All 19 images completed genuine fresh-runtime builds, then passed packaged
   inventories before publication (`build/sigchld-tar-snapshots.log`,
   `build/qwen-history-publish.log`). A live port-9000 inventory and
@@ -47,6 +47,10 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
   the old writer and pass on the fix. Regenerating all prepared sources preserved
   every prior byte hash (`build/source-tar-audit-before-final.log`,
   `build/checkpoint-source-archives-{before.sha256,prepare.log}`).
+- Recipe pin updates now distinguish digest operands from identical text in
+  paths and comments. A behavioral regression fails on the old updater; the
+  fixed updater preserves formatting and remains byte-identical on a second run
+  (`build/pin-operands-{before,after}.log`).
 - Qwen history now preserves the empty thinking markers required in the current
   tool round and separates assistant text from tool calls correctly. Regression
   tests pass, but this did not make independent recipe authoring reliable.
@@ -63,7 +67,9 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
   1,121 files, 48,874 tar members, 18,874 snapshot records and 1,067 nested ZIP
   members. No checked Dolly personal-path or OpenRouter-key patterns matched.
   All 13 private-key blocks matched pinned upstream CPython test fixtures
-  byte-for-byte (`build/public-artifact-{expanded-scan,fixture-provenance}.log`).
+  byte-for-byte (`build/public-artifact-{expanded-current,fixture-provenance}.log`).
+  The 16 unparsed archive occurrences also match pinned Zig/CPython fixtures
+  byte-for-byte (`build/public-artifact-unparsed-provenance.log`).
   This is a bounded pattern scan, not proof that every possible secret encoding
   or unsupported archive format was inspected.
 
@@ -76,12 +82,15 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
    invalid recipes and missing tools: 28 model requests, no approved image build,
    then the explicit 600-second test limit returned 124. Its cancellation fallback
    unloaded the model after two seconds; the shell and files survived. An earlier
-   Ctrl+C returned 130 and left the model ready. Reload-and-retry after forced
-   unload remains unverified, and a previous attempt received "model not loaded".
-   Pi may exit 0 despite a final assistant error; inspect that message as well.
-   Preserve `build/studio-manual-evidence/` and the cached GPU profile. Next: make
-   the Studio guidance template-first, then prove one complete real 4B
-   author/repair/run trial and recovery. The proposed skill rewrite is not applied.
+   Ctrl+C returned 130 and left the model ready.
+   Explicit reload from cached weights resumes real Pi tool calls, but an
+   unloaded-model error still gives Pi exit 0; inspect its final assistant message.
+   Template-first guidance has been applied and rebuilt in 8.6 seconds. It helped
+   4B preserve pins, repair a compiler error in the recipe and open a result, but
+   that program returned 0 for two newline-terminated lines. Other trials looped
+   on syntax or tested commands in Studio instead of the built image. Complete
+   independent author/repair/run remains unproven. Preserve
+   `build/studio-manual-evidence/` and the cached GPU profile.
 2. **Missing Pi search tools.** Genuine fd/ripgrep are not installed. Resolve the
    Rust bootstrap boundary: pinned external compiler versus an in-Dolly compiler.
    fd's single-thread option still creates threads. Do not ship renamed substitutes
@@ -95,13 +104,13 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
    seven individual assets exceed 25 MiB. Root rebuilds still download the 113 MB
    seed, which Chrome did not cache. Keep prior `_dolly/` releases and packs for
    open tabs: an ordinary one-release GitHub Pages deployment does not do this.
-   Review remaining source/docs and unsupported nested archive fixtures; the scan
-   recorded 16 unparsed fixture occurrences. Upstream model build paths and public
-   certificate fixtures are not Dolly user data and should not be blindly deleted.
+   Review remaining source/docs. Upstream model build paths and public certificate
+   and archive fixtures are not Dolly user data and should not be blindly deleted.
 5. **Build cost and disk pressure.** Fresh-runtime CMake took 1,170 seconds,
    Neovim 222 seconds and Python 102 seconds; cached Studio assembly took 9 seconds.
-   About 6 GiB of development disk remains. Review owned, reproducible validation
-   exports before another cold build; preserve user caches and pinned releases.
+   About 7 GiB of development disk remains after removing two verified,
+   reproducible static-test exports. Their evidence logs and source releases are
+   retained; regenerate the exports when needed. Preserve user caches and releases.
 
 GPU guidance, home-page sorting, approved Studio build/log/open and the Foundry
 bhop expansion are implemented and browser tested. See the
@@ -109,14 +118,16 @@ bhop expansion are implemented and browser tested. See the
 
 ## Isolated Codex experiment
 
-Branch `codex/wasm64-native-agent-20260907` is clean and paused at `6e73bb9`.
+Branch `codex/wasm64-native-agent-20260907` is clean and paused at `3d9e7d2`.
 Its worktree's `CODEX-HANDOFF.md` contains reproduction steps and evidence.
 No experimental Rust patches were merged into main.
 
 Real browser proofs cover upstream execpolicy, process waits/cancellation,
 Responses/SSE, layered configuration, installed upstream defaults and now the
 actual AuthManager's API-key loading/cache/rotation notifications/logout. The
-real storage factory now selects upstream's existing default cloud loader for
+real TOML/layer/CLI-override and managed-requirement loaders now produce the
+AuthConfig, replacing fixture-constructed configuration in that proof. The
+storage factory selects upstream's existing default cloud loader for
 its private API-key manager without constructing an unused native cloud client.
 That loader feeds production configuration and Responses; browser proofs pass
 twice per run. Native libraries and the target type-check; native test execution

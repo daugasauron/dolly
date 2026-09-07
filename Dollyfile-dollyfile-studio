@@ -3,6 +3,6 @@ IMAGE dollyfile-studio
 
 FROM HOST /Dollyfile-pi-local e9b740adb4f9fd8f5c7c14024eaaa6de14af46067f8d7e3f3bb481a2e399048f
 USE HOST /modules/neovim-runtime.dm d40577fdf44e88053c09f68df53d286265cd5fe98fe7016ce7cadf2a94bc4782
-USE HOST /modules/dollyfile-studio.dm 5589a29b2770a8a4c33b2dcde15eb51688ed785599f57d146e1177c3c0e1ea7a
+USE HOST /modules/dollyfile-studio.dm 7407b17d41b9612dbc92e2987c27e98203363396536526fe016bafa6046a9f39
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
