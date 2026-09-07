@@ -4,12 +4,11 @@ Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
 locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
-Feature work is paused at the user's requested checkpoint. Source `026ec83`
-contains the browser-tested SIGCHLD/tar fixes; all 19 fresh-runtime snapshots and
-the complete 253-test suite passed. Final Python-path and Studio-skill cleanup
-also passes its image refresh, all 254 tests and targeted browser checks.
-Whole-catalog local publication remains. See the audit handoff for the
-served checkpoint and final verification logs.
+Feature work is paused at the user's requested checkpoint. Application `03be879`
+is published on port 9000, including the SIGCHLD/tar fixes and final Python-path
+and Studio-skill cleanup. All 19 fresh-runtime images, all 254 tests, targeted
+browser checks and all packaged image inventories passed. See the audit handoff
+for the served checkpoint and final verification logs.
 Unchecked items below remain unfinished, not implicitly included in the checkpoint.
 
 - [x] GPU setup guidance beside the model picker; test unavailable adapters and

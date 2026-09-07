@@ -15,8 +15,8 @@ succeeded. Pi startup tests wait for freshly rendered readiness, not a fixed del
 
 Verification of the new runtime:
 
-- All 253 source checks pass, including the catalog-wide snapshot-identity test
-  (`build/sigchld-checkpoint-all-source.log`). All 19 images completed the genuine
+- All 254 source checks pass, including the catalog-wide snapshot-identity test
+  (`build/checkpoint-final-source.log`). All 19 images completed the genuine
   fresh-runtime build (`build/sigchld-tar-snapshots.log`).
 - Browser lifecycle checks pass: SIGCHLD handlers/masking/wait readiness,
   cancellation/escalation/recovery, descriptors and the real
@@ -37,12 +37,11 @@ before a small edit. This instruction change is not proof of model reliability.
 
 ## Local release and verification
 
-Port 9000 still serves the complete application checkpoint `e633777`, release
-`14e9b8a21cf303e3ce46f95c4928d16f1ed11a39bba609aca35a7a93341ed20a`.
-All 19 packaged inventories and the actual port-9000 Studio build/log/open,
-denial, failure and cancellation checks passed
-(`build/checkpoint-request-{publish,port9000}.log`).
-The new Pi/kernel/tar changes have **not** been promoted there.
+Port 9000 serves application checkpoint `03be879`, release
+`1481b83450773e32531757f077b50117f4291e4e3e6360f9b7df330dc4c6fbe4`.
+All 19 packaged image inventories passed before atomic local publication
+(`build/checkpoint-final-publish.log`). The previous release is retained for
+already-open pinned tabs. No builder or manual model experiment is left running.
 
 The runtime identity is:
 `sha256:79b64cf05defff93afedad28f306c23a7f2be37f744f2f02c93b6bcd6364bc35`.
@@ -54,7 +53,9 @@ callbacks pass (`build/checkpoint-final-python-browser.log`). All three Python
 snapshots contain no personal builder-home path in any retained file
 (`build/checkpoint-final-python-paths.log`). Studio's Pi startup, example linting
 and Neovim syntax/diagnostics pass (`build/checkpoint-final-studio-browser.log`).
-Whole-catalog local publication is the remaining checkpoint operation.
+Actual port-9000 Studio build/log/open, denial, failure and cancellation checks
+pass, as do default-image signal/descriptor/pipe and nested-shell recovery checks
+(`build/checkpoint-final-port9000.log`).
 No public push, deployment or hosting purchase has been performed.
 
 ## Outstanding issues
@@ -83,8 +84,8 @@ No public push, deployment or hosting purchase has been performed.
    alone is neither a portable image nor a persistent session. Preserve exact
    image identity when extending this.
 4. **Release audit and hosting.** The full source/artifact/privacy review and
-   cold-load measurement are unfinished. The published site contains 772,296,052
-   regular-file bytes, including 123,967,440 compressed snapshot-pack bytes.
+   cold-load measurement are unfinished. The packaged site is about 775 MB,
+   including 124 MB of compressed snapshot packs.
    Seven assets exceed 25 MiB, the
    [Cloudflare Pages per-file limit](https://developers.cloudflare.com/pages/platform/limits/);
    the site cannot be uploaded there unchanged. Provider-neutral asset routing,
@@ -97,7 +98,7 @@ No public push, deployment or hosting purchase has been performed.
    No host/proxy capability was added to address hosting.
 5. **Build cost and disk headroom.** The latest fresh-runtime CMake build took
    1,170 seconds, Neovim 222 seconds and Python 102 seconds; cached Studio assembly
-   took 9 seconds. The development disk is 99% full, with about 16 GiB free.
+   took 9 seconds. The development disk is 99% full, with about 15 GiB free.
    Review owned build outputs before another cold build; do not delete user
    caches or releases needed by open pinned tabs.
 
