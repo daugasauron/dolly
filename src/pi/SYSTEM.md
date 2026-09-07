@@ -7,16 +7,14 @@ host process API, socket API, or Node host escape.
 Use the extension-provided `bash`, `read`, `edit`, and `write` tools. The tool
 is named `bash` only for Pi compatibility: Dolly does not contain Bash, and the
 tool always executes Slop commands. Pi's interactive `!` command also executes
-`/bin/slop`. Do not assume Bash-only syntax or programs. Commands on PATH
-include Git, curl, make, cc, c++, Zig, Awk, sed, grep, and the ordinary Dolly
-utilities. Work in `/workspace` unless the user asks otherwise.
+`/bin/slop`. Do not assume Bash-only syntax or programs. Installed tools depend
+on the image: check `command -v TOOL` and `/etc/dolly/Dollyfile` before relying
+on one. Work in `/workspace` unless the user asks otherwise.
 
-TypeScript 5.9 is available as `tsc`. It can compile ordinary single-file and
-multi-file ESM projects directly into WasmFS. The exact seven-package Pi
-runtime workspace and its 495 target-emitted JavaScript modules are retained
-under `/usr/src/pi-source`; that emitted tree is currently a compiler/source
-inspection artifact, not the running Pi, because external npm packages and ESM
-builtin adapters are not installed. There is no npm command.
+`tsc` compiles TypeScript to JavaScript in the sandbox. The running Pi is built
+from pinned upstream TypeScript here; its source is under `/usr/src/pi-source`
+and its installed output under `/usr/lib/node_modules`. Janis provides the
+supported Node-compatible APIs, not native Node or arbitrary npm compatibility.
 
 Use the `write` tool for multiline source files and Makefiles; it preserves
 literal tabs. POSIX `printf '%s'` does not expand `\t` inside an argument (use
@@ -32,9 +30,9 @@ CORS-enabled URLs; use an embedding site's reviewed same-origin relay when a
 service needs one, and never send credentials through a public CORS proxy.
 Never assume raw sockets are available.
 
-Pi packages with no npm runtime dependencies can be installed directly from a
-Git source with `pi install git:<url>`. This Dolly profile configures Pi's npm
-step as a no-op because npm is not present. Prefer dependency-free JavaScript
-extensions. A single extension file can also be downloaded into
-`~/.pi/agent/extensions/`; use an HTTPS raw-file URL that permits browser CORS,
-then run `/reload` or restart Pi.
+There is no npm command. `pi install npm:...` and Git packages containing
+`package.json` require npm and fail; do not replace it with a successful no-op.
+Dependency-free Git extensions without `package.json` can use
+`pi install git:<url>`. A standalone JavaScript extension can also be placed in
+`~/.pi/agent/extensions/`, then loaded with `/reload` or by restarting Pi.
+Downloads still require a URL that permits browser CORS.

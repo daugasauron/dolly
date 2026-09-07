@@ -2,14 +2,13 @@
 
 ## Latest checkpoint — 2026-09-07
 
-Work is paused at the user's requested checkpoint. Application baseline
-`7cdc961` was published at `http://localhost:9000/`; all 19 packaged image
-inventories passed (`build/bhop-foundry-publish.log`). Release identity:
-`05414e8a7895887d0e399e73d656c8a0678597562734ea0da756efe36d2741d9`.
-A fresh source-suite run passed all 252 tests (`build/bhop-foundry-source-verified.log`).
+Application checkpoint `e633777` is published at `http://localhost:9000/`;
+all 19 packaged image inventories passed (`build/checkpoint-request-publish.log`).
+Release identity: `14e9b8a21cf303e3ce46f95c4928d16f1ed11a39bba609aca35a7a93341ed20a`.
+A fresh source-suite run passed all 252 tests (`build/checkpoint-request-source.log`).
 The actual port-9000 Studio build/open test also passed, including incremental
 logs, a source-compiled command in the new tab, failure/denial status, and
-Ctrl-C recovery (`build/studio-build-port9000.log`). No public push or deployment
+Ctrl-C recovery (`build/checkpoint-request-port9000.log`). No public push or deployment
 was performed. These are focused checks, not a new full browser-suite run.
 The published Foundry play/collapse check passes too
 (`build/bhop-foundry-port9000-final.log`); the first port check reached the old
@@ -66,20 +65,28 @@ passed. All 252 source tests and the actual browser build/open/deny/cancel
 checks pass (`build/studio-diagnostics-{source,browser}.log`). Only the Studio
 snapshot rebuilt, in 9.1 seconds (`build/studio-diagnostics-snapshot.log`).
 
+The resumed cleanup removes Pi's fake npm command and corrects its stale
+environment instructions. Missing npm now fails before network access; upstream
+Git installs without `package.json` do not need npm. The Pi, Python-Pi and Studio
+browser tests pass, including fresh startup, Slop commands, streaming child
+output and model-fixture write/edit calls (`build/pi-honest-settings-browser-verified.log`,
+`build/{python-pi,studio-pi}-honest-settings-browser.log`). Readiness now uses
+a freshly rendered session notification instead of a fixed delay or an
+interruptibility flag; shell-launched Pi remains interruptible while idle.
+Pi's runtime rebuilt in 62.7 seconds; its dependent images took 5.5–8.9 seconds.
+No kernel changed. These new images are not yet the release on port 9000.
+
+A real 2B comparison using Qwen's published non-thinking sampling defaults
+passed only the greeting starter; tool and repair tasks still failed
+(`build/studio-qwen-sampling-browser.log`). The experimental settings were
+removed, not advertised as a reliability fix.
+
 Outstanding defects and verification gaps:
 
 - **Local Pi reliability:** repeat the three starters and exercise skill-led
   author/build/debug work. Do not weaken output checks or substitute scripted
   actions for the model. Cold GPU download/recovery still needs reproduction;
   one earlier run lost its debugger, with no established cause.
-- **Misleading Pi instructions:** `src/pi/SYSTEM.md` still claims Zig is always
-  installed and the compiled Pi tree is not the running agent. The actual Pi
-  module installs its compiled output and locked runtime dependencies. Replace
-  stale fixed inventories with accurate image-aware guidance.
-- **Fake npm success:** both Pi settings files use `npmCommand: ["/bin/echo"]`.
-  This can conceal missing package dependencies. Inspect the install flow and
-  make unsupported dependency installation fail explicitly without breaking
-  genuinely dependency-free extensions.
 - **Missing Pi search tools:** genuine fd/ripgrep are not installed. Rust
   bootstrap versus fully in-sandbox Rust compilation needs an explicit decision.
   fd's `--threads 1` still creates threads; it is not a serial implementation.
@@ -89,9 +96,6 @@ Outstanding defects and verification gaps:
 - **Quiet child completion:** main does not promptly notify SIGCHLD listeners;
   an isolated fix is browser-tested on the Codex branch (details below), but
   still needs review and a real main-runtime/image rebuild before integration.
-- **Pi test readiness:** the streaming UI fixture's fixed startup delay can send
-  input before Pi is ready; matching an old echoed marker can then hide failure.
-  Fix readiness and fresh-output assertions before treating that run as evidence.
 - **Custom-image persistence:** named-session save/load is unavailable for
   tab-local uploaded recipes. Preserve the validated image identity when adding it.
   The built result opens from this browser's verified cache; its URL alone is
@@ -139,11 +143,13 @@ fixes wait-ready notification inside Wasm; `376819e` records browser proof of
 112–127-ms waits, cancellation/reaping and recovery, with identical 28 imports
 and 128 exports. It used explicitly re-keyed same-ABI test snapshots, not a new
 product bootstrap; do not merge those test artifacts. Neither commit is on main.
-The later source-only dependency separation lets real `codex-client`, protocol
-and HTTP Responses APIs target-check. The Responses browser probe still fails
-to link because upstream features retain Tokio blocking-pool pthread imports;
-no fake pthread implementation was added. Consult the branch handoff for its
-final checkpoint. No complete or authenticated Codex agent workflow is verified.
+Isolated checkpoint `09e69b0` now runs real HTTP Responses APIs twice in Wasm:
+auth headers, retries, typed Unicode SSE, completion/errors, cancellation and
+subsequent HTTP reuse. Native API checks and four native cache tests pass.
+Target-specific Tokio feature selection removed the pthread link blocker;
+the reader now cancels when its consumer drops. No pthread stubs or host
+changes. Async thread-backed filesystem use and a full authenticated Codex
+agent workflow are still unverified; see that branch's `CODEX-HANDOFF.md`.
 
 ## Historical verification
 

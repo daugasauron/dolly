@@ -27,7 +27,6 @@ FOLDER /home/dolly/.config/nvim
 
 FILE /home/dolly/.pi/agent/settings.json
     {
-      "npmCommand": ["/bin/echo"],
       "enableInstallTelemetry": false,
       "images": {"autoResize": false},
       "shellPath": "/bin/slop",

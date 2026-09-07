@@ -26,8 +26,8 @@ SOURCE HOST /static/default/pi-quickjs-compat.mjs                /usr/lib/pi/qui
 SOURCE HOST /static/default/runtimes/apply-pi-quickjs-compat.mjs /usr/lib/pi/apply-pi-quickjs-compat.mjs         52b83033d7f25770bba0a0d6f27a1b265123add7561b0a141910d2a425deb298
 SOURCE HOST /static/default/commands/pi.c                        /tmp/pi/pi.c                                    2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e
 SOURCE HOST /static/default/pi/dolly-tools.js                    /home/dolly/.pi/agent/extensions/dolly-tools.js ec9c46d5db0f41eec5f76eb27959b4f5243edb92d29627a634ae9228bdbfc1e0
-SOURCE HOST /static/default/pi/SYSTEM.md                         /home/dolly/.pi/agent/SYSTEM.md                 9831e43c2edb91864c1c2d99b8c78a0b7f7d94682556f76bde638d8088647861
-SOURCE HOST /static/default/pi/settings.json                     /home/dolly/.pi/agent/settings.json             965a08d704e4231103679addb1dc60d54f8173961c9b96371c72f563bb8ace82
+SOURCE HOST /static/default/pi/SYSTEM.md                         /home/dolly/.pi/agent/SYSTEM.md                 34ef04d9e0414c95c672b3d9f933a74de0ddad9dba352030b5af842df3820d32
+SOURCE HOST /static/default/pi/settings.json                     /home/dolly/.pi/agent/settings.json             26df82e404bbee8f70c40b9ac275eb76a577120c96f2e70fa3f4ed41917814b7
 SOURCE HOST /static/default/pi/dolly-theme.json                  /home/dolly/.pi/agent/themes/dolly.json         ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297
 SOURCE HOST /static/default/pi/dolly-skill.md                    /home/dolly/.pi/agent/skills/dolly/SKILL.md     0599fb95cbf1b9420a52852b0fcbe31d8617235187053873f17f4a07bde95fc3
 

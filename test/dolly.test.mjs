@@ -1723,7 +1723,9 @@ test("upstream Pi is compiled in Dolly and customized only through normal files"
   assert.match(systemPrompt, /Slop/);
   assert.match(systemPrompt, /Dolly does not contain Bash/);
   assert.match(systemPrompt, /browser WebAssembly sandbox/);
-  assert.deepEqual(settings.npmCommand, ["/bin/echo"]);
+  assert.equal(settings.npmCommand, undefined);
+  const studioRecipe = await readFile(new URL("../modules/dollyfile-studio.dm", import.meta.url), "utf8");
+  assert.doesNotMatch(studioRecipe, /"npmCommand"/);
   assert.equal(settings.shellPath, "/bin/slop");
   assert.match(startup, /extensions\/dolly-tools\.js/);
   assert.match(startup, /\.pi\/agent\/SYSTEM\.md/);

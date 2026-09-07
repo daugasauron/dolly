@@ -1,5 +1,4 @@
 {
-  "npmCommand": ["/bin/echo"],
   "enableInstallTelemetry": false,
   "images": {
     "autoResize": false

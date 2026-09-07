@@ -1455,7 +1455,7 @@ chrome = spawn(chromeBinary, [
     "--enable-features=Vulkan,VulkanFromANGLE,WebGPUDeveloperFeatures"] : ["--disable-gpu"]),
   "--remote-debugging-port=0",
   `--user-data-dir=${userDataDir}`,
-  "--window-size=1280,800",
+  piDevelopmentMode || realOpenRouterMode ? "--window-size=1280,1120" : "--window-size=1280,800",
   "about:blank",
 ], { stdio: ["ignore", "ignore", "pipe"] });
 chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + bytes.toString()).slice(-8000); });
@@ -3850,6 +3850,14 @@ int main(int argc, char **argv) {
       assert.equal(state, "ready");
       await enterRecoveryShell(debuggerClient.send);
 
+      const installRequests = await evaluate(debuggerClient.send, "__dolly.httpRequestCount");
+      assert.notEqual(await evaluate(debuggerClient.send,
+        `__dolly.submit('pi install npm:@dolly-test/nonexistent-package@0.0.0')`), 0,
+      "Pi must not pretend npm installed a package");
+      assert.match(await visibleTerminalText(debuggerClient.send), /npm/);
+      assert.equal(await evaluate(debuggerClient.send, "__dolly.httpRequestCount"), installRequests,
+        "missing npm must fail before network access");
+
       const modelConfig = JSON.stringify(realOpenRouterMode ? {
         providers: {
           "dolly-openrouter": {
@@ -3926,6 +3934,8 @@ int main(int argc, char **argv) {
       const piCommand = process.env.DOLLY_PI_COMMAND ?? (realOpenRouterMode
         ? "pi --provider dolly-openrouter --model deepseek/deepseek-v4-flash-0731"
         : "pi --provider dolly-test --model dolly-test-model --api-key sandbox-placeholder");
+      assert.equal(await evaluate(debuggerClient.send,
+        `__dolly.submit(${JSON.stringify("printf '\\033[2J\\033[3J\\033[H'")})`), 0);
       if (piAuditMode) {
         await evaluate(debuggerClient.send, `(() => {
           window.__piResult = null;
@@ -3955,7 +3965,8 @@ int main(int argc, char **argv) {
       );
       assert.equal(startup.result, null, `Pi exited during startup with status ${startup.result}`);
       assert.notEqual(startup.foreground, 0);
-      await delay(Number(process.env.DOLLY_PI_STARTUP_DELAY_MS ?? 3000));
+      await waitForTerminalText(debuggerClient.send, /Bash is not installed/, "fresh Pi session_start notification");
+      await clearTerminalSelection(debuggerClient.send);
       const settledStartup = await evaluate(
         debuggerClient.send,
         "({ foreground: window.__dolly.foregroundPid, result: window.__piResult })",
@@ -4006,7 +4017,7 @@ int main(int argc, char **argv) {
       });
       await waitForTerminalText(
         debuggerClient.send,
-        /dolly-slop-bang-marker/,
+        /(?:^|\n)[ \t]*dolly-slop-bang-marker[ \t]*(?:\r?\n|$)/,
         "Pi's ! command executing ls through /bin/slop",
       );
       await clearTerminalSelection(debuggerClient.send);
@@ -4286,6 +4297,8 @@ int main(int argc, char **argv) {
         );
         assert.equal(fixtureConfigStatus, 0);
         piModelRequests.length = 0;
+        assert.equal(await evaluate(debuggerClient.send,
+          `__dolly.submit(${JSON.stringify("printf '\\033[2J\\033[3J\\033[H'")})`), 0);
         await evaluate(debuggerClient.send, `(() => {
           window.__piResult = null;
           window.__piPromise = window.__dolly.submit(
@@ -4299,7 +4312,8 @@ int main(int argc, char **argv) {
           "restarted Pi with installed extension",
           600,
         );
-        await delay(Number(process.env.DOLLY_PI_STARTUP_DELAY_MS ?? 3000));
+        await waitForTerminalText(debuggerClient.send, /Bash is not installed/, "fresh restarted Pi session_start notification");
+        await clearTerminalSelection(debuggerClient.send);
         const restarted = await evaluate(
           debuggerClient.send,
           "({ foreground: window.__dolly.foregroundPid, result: window.__piResult })",

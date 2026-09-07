@@ -4,8 +4,8 @@ Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
 locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
-Paused at the user's 2026-09-07 checkpoint request; the remaining scope below
-has not been completed. Application baseline `7cdc961` was published on port
+The requested checkpoint is preserved while the explicit overnight goal resumes;
+the remaining scope below has not been completed. Application `e633777` is on port
 9000, with all 19 image inventories and 252 source tests passing.
 The real Studio build/log/open/cancel workflow passes against that local release.
 Unchecked items below remain unfinished, not implicitly included in the checkpoint.
