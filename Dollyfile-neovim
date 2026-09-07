@@ -29,8 +29,13 @@ FILE /usr/share/nvim/welcome.txt
     :w saves; :q quits; :q! discards changes.
     :edit /workspace/example.c opens a file in your workspace.
     :!ls runs a command through Slop. :help opens Neovim's help.
-    Quitting ends the image. Reload the page to start it again.
+    Quitting returns to Slop. Run nvim to open the editor again.
     Files live in the sandbox. Ctrl+Shift+S saves your session in this browser.
     PTY terminals, detached jobs, raw sockets and LuaJIT FFI are not supported.
 
-ENTRY /usr/bin/nvim /usr/share/nvim/welcome.txt
+FILE /etc/dolly/init.slop
+    /bin/foreground /usr/bin/nvim /usr/share/nvim/welcome.txt
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

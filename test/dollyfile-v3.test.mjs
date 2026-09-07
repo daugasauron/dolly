@@ -39,7 +39,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "ghostty-build": [], system: ["ghostty-build"], default: ["system"], javascript: ["system"],
     "cmake-build": ["system"], "neovim-build": ["cmake-build"],
     neovim: ["system", "neovim-build"],
-    "pi-runtime": ["javascript"], pi: ["pi-runtime"],
+    "pi-runtime": ["javascript"], pi: ["pi-runtime"], "pi-local": ["pi"],
     "python-runtime": ["system"], python: ["python-runtime"],
     "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
     "gamedev-phone": ["gamedev"],
@@ -51,7 +51,10 @@ test("images separate reusable runtimes from applications and configuration", as
     assert.deepEqual([...new Set(graph.artifacts.map(artifact => artifact.image))], expected[definition.image]);
     assert.equal(graph.exporters.has("TOOL:zig"), definition.image === "ghostty-build");
     if (definition.image === "neovim") {
-      assert.deepEqual(graph.root.entry, ["/usr/bin/nvim", "/usr/share/nvim/welcome.txt"]);
+      assert.deepEqual(graph.root.entry, ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
+      const startup = graph.root.files.find(file => file.path === "/etc/dolly/init.slop").body;
+      assert.match(startup, /foreground \/usr\/bin\/nvim \/usr\/share\/nvim\/welcome.txt/);
+      assert.match(startup, /foreground -i \/bin\/slop/);
       assert.ok(graph.root.files.some(file => file.path === "/usr/share/nvim/welcome.txt"));
       assert.equal(graph.exporters.has("TOOL:nvim"), true);
       assert.equal(graph.exporters.has("TOOL:cmake"), false);

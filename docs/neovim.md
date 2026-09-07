@@ -12,9 +12,10 @@ inside Dolly's browser sandbox. Versions and archive hashes live in
 | `neovim-build` | CMake builder plus Lua, LPeg, luv, utf8proc, Tree-sitter, Neovim and seven parsers. |
 | `neovim` | System tools plus the copied editor, runtime, parsers and licenses. No CMake or build scratch. |
 
-[`Dollyfile-neovim`](../Dollyfile-neovim) enters `/usr/bin/nvim /usr/share/nvim/welcome.txt`
-directly and configures `/bin/slop` for `:!command`. `:q` ends the image; reload
-to start again. There is no startup shell or automatic recovery shell.
+[`Dollyfile-neovim`](../Dollyfile-neovim) opens `/usr/bin/nvim /usr/share/nvim/welcome.txt`
+immediately and configures `/bin/slop` for `:!command`. A small in-sandbox entry
+script starts the recovery Slop shell after `:q` or interruption. Run `nvim` to
+reopen the editor; no browser-side program selection or recovery policy is added.
 `nvim --clean` skips user configuration; `/bin/sh` still resolves to Slop.
 
 ```sh

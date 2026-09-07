@@ -17,11 +17,16 @@
     "build": "npm run build:runtime && npm run snapshot",
     "test": "npm run build && node --test test/*.test.mjs && ./scripts/test-browser.sh",
     "publish": "./scripts/package-pages.sh",
-    "serve": "node scripts/serve.mjs"
+    "serve": "node scripts/serve.mjs",
+    "build:webgpu": "node scripts/build-webgpu-assets.mjs"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.4",
     "@earendil-works/pi-ai": "0.84.4",
-    "@earendil-works/pi-coding-agent": "0.84.4"
+    "@earendil-works/pi-coding-agent": "0.84.4",
+    "@mlc-ai/web-llm": "0.2.84"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
   }
 }

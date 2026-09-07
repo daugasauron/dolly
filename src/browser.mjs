@@ -1,6 +1,8 @@
 import { prepareImageArtifacts } from "./image-build.mjs";
 import { consumeDollyHttpPolicy } from "./http-policy.mjs";
 import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION } from "./http-broker.mjs";
+import { localModelTransport } from "./local-model-service.mjs";
+import { mountLocalModel, toggleLocalModel } from "./local-model-ui.mjs";
 import { SessionTransport } from "./session-transport.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
@@ -690,7 +692,14 @@ function requestForegroundInterrupt() {
 }
 
 function handleKeyboardEvent(event) {
+  if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyL") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.type === "keydown" && !event.repeat) toggleLocalModel();
+    return;
+  }
   if (!transport) return;
+  if (event.target.closest?.("#local-model")) return;
   if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {
     document.exitPointerLock();
     event.preventDefault();
@@ -955,6 +964,9 @@ async function boot() {
     trustedBootstrapSources,
     applicationBase,
   );
+  const localModel = mountLocalModel();
+  const applicationNetwork = localModelTransport(httpPolicy, localModel);
+  const buildNetwork = localModelTransport(httpPolicy);
   const customSource = image === "custom"
     ? sessionStorage.getItem("dolly-custom-source")
     : undefined;
@@ -1002,7 +1014,8 @@ async function boot() {
                 throw new Error("invalid build HTTP broker handshake");
               }
               admission = new Int32Array(message.httpAdmission);
-              network = new NetworkTransport(message.memory, message.httpAddress, message.httpCapacity, httpPolicy);
+              network = new NetworkTransport(message.memory, message.httpAddress, message.httpCapacity,
+                buildNetwork.policy, { fetchRequest: buildNetwork.fetchRequest });
               worker.postMessage({ type: "broker-ready-ack" });
             } else if (message.type === "http-request") {
               if (!network) throw new Error("build requested HTTP before broker setup");
@@ -1050,7 +1063,8 @@ async function boot() {
           message.memory,
           message.httpAddress,
           message.httpCapacity,
-          httpPolicy,
+          applicationNetwork.policy,
+          { fetchRequest: applicationNetwork.fetchRequest },
         );
         runtimeWorker.postMessage({ type: "broker-ready-ack" });
       } catch (error) {

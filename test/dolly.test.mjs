@@ -553,6 +553,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["bhop", "/usr/bin/bhop"],
     ["default", "/bin/slop"],
     ["pi", "/usr/bin/pi"],
+    ["pi-local", "/usr/bin/pi"],
     ["python", "/bin/slop"],
     ["python-pi", "/usr/bin/pi"],
     ["gamedev", "/usr/bin/graphics-demo"],
@@ -588,7 +589,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.ok(metadata.manifest.includes(expectedPrograms.get(image)));
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),
-      ["pi", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop"].includes(image),
+      ["pi", "pi-local", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop"].includes(image),
     );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
@@ -605,7 +606,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const shellStartup = ["default", "pi", "python", "python-pi", "gamedev", "gamedev-phone", "bhop"].includes(image);
+    const shellStartup = ["default", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "neovim"].includes(image);
     assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup);
     assert.deepEqual(metadata.entry, graph.root.entry);
     assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);

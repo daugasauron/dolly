@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { runLocalModelProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -87,6 +88,8 @@ const pythonPackageMode = isMode("python-packages");
 const pythonInteractiveMode = isMode("python-interactive");
 const toolchainProbeMode = isMode("toolchain-probes");
 const zigSdkMode = isMode("zig-sdk");
+const localModelMode = isMode("local-model");
+const localCacheMode = isMode("local-model-cache");
 const optimizedLifecycleProbeMode =
   isMode("optimized-lifecycle-probe");
 const lifecycleProbeMode =
@@ -180,6 +183,11 @@ const publicSources = new Set([
   "src/dollyfile-view.mjs",
   "src/http-policy.mjs",
   "src/http-broker.mjs",
+  "src/local-model-contract.mjs",
+  "src/local-model-service.mjs",
+  "src/local-model-ui.mjs",
+  "src/qwen-completions.mjs",
+  "src/webgpu-worker.mjs",
   "src/kernel-plugin.mjs",
   "src/image-entry.mjs",
   "src/image-artifact.mjs",
@@ -1130,7 +1138,7 @@ async function enterRecoveryShell(send) {
     );
   } else {
     entryPid = await evaluate(send,
-      `window.__dolly.waitForInteractiveTerminal(${selectedImage === "pi" || selectedImage === "python-pi"
+      `window.__dolly.waitForInteractiveTerminal(${["pi", "python-pi", "pi-local"].includes(selectedImage)
         ? "/Bash is not installed/" : "/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/"}, "image entry terminal")`);
     await dispatchKey(send, {
       key: "d",
@@ -1413,9 +1421,13 @@ for (const transient of [
   await rm(resolve(userDataDir, transient), { force: true });
 }
 chrome = spawn(chromeBinary, [
-  "--headless=new",
+  ...(localModelMode ? ["--ozone-platform=x11"] : ["--headless=new"]),
   "--no-sandbox",
-  "--disable-gpu",
+  ...(localModelMode ? ["--ignore-gpu-blocklist", "--enable-unsafe-webgpu",
+    "--enable-dawn-features=allow_unsafe_apis,vulkan_enable_f16_on_nvidia",
+    "--disable-dawn-features=disallow_unsafe_apis", "--use-angle=vulkan",
+    "--enable-webgpu-developer-features", "--use-webgpu-power-preference=default-high-performance",
+    "--enable-features=Vulkan,VulkanFromANGLE,WebGPUDeveloperFeatures"] : ["--disable-gpu"]),
   "--remote-debugging-port=0",
   `--user-data-dir=${userDataDir}`,
   "--window-size=1280,800",
@@ -1507,6 +1519,38 @@ chrome = spawn(chromeBinary, [
   await debuggerClient.send("Page.navigate", { url: initialPage });
 
   browserProof: {
+    if (localCacheMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "local cache UI boot", 1200), "ready");
+      await runLocalMenuProof(expression => evaluate(debuggerClient.send, expression),
+        key => dispatchKey(debuggerClient.send, key));
+      const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
+      await writeFile(resolve(projectDir, "build/local-model-menu.png"), screenshot.data, "base64");
+      await runLocalCacheProof(expression => evaluate(debuggerClient.send, expression));
+      break browserProof;
+    }
+    if (localModelMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "local model boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      await runLocalModelProof({
+        evaluate: expression => evaluate(debuggerClient.send, expression),
+        press: key => dispatchKey(debuggerClient.send, key),
+        wait: (expression, predicate, description, attempts) => waitForValue(debuggerClient.send, expression, predicate, description, attempts),
+        submit: command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`),
+        setOffline: async offline => {
+          await debuggerClient.send("Network.enable");
+          await debuggerClient.send("Network.emulateNetworkConditions", {
+            offline, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
+          });
+        },
+      });
+      const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
+      await writeFile(resolve(projectDir, "build/local-model-browser.png"), screenshot.data, "base64");
+      break browserProof;
+    }
     if (bhopMode) {
       const send = debuggerClient.send;
       assert.equal(selectedImage, "bhop");
@@ -2003,7 +2047,10 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "Neovim boot", 1200), "ready");
-      if (selectedGraph.root.entry[0] === "/usr/bin/nvim") {
+      if (selectedImage === "neovim") {
+        await runLocalMenuProof(expression => evaluate(debuggerClient.send, expression),
+          key => dispatchKey(debuggerClient.send, key));
+        await dispatchKey(debuggerClient.send, {key: "Escape", code: "Escape", windowsVirtualKeyCode: 27});
         await waitForTerminalText(debuggerClient.send, /Neovim inside Dolly/, "direct Neovim ENTRY");
         await clearTerminalSelection(debuggerClient.send);
         await neovimEx(debuggerClient.send, "edit /tmp/dolly-neovim-entry.txt");
@@ -2024,9 +2071,12 @@ install(TARGETS probe RUNTIME DESTINATION bin)
         await dispatchKey(debuggerClient.send, {key: "Enter", code: "Enter", windowsVirtualKeyCode: 13});
         assert.equal(await neovimShell(debuggerClient.send, "rm /tmp/dolly-neovim-entry.txt"), 0);
         await neovimEx(debuggerClient.send, "q");
-        await waitForValue(debuggerClient.send, "document.documentElement.dataset.dollyStatus",
-          value => value === "exited", "Neovim ENTRY :q", 100);
-        console.log("browser: direct Neovim ENTRY, shifted text, Escape, :w, :! Slop command and :q passed");
+        await evaluate(debuggerClient.send, `window.__dolly.waitForInteractiveTerminal(
+          /Dolly: image entry exited; entering the recovery Slop shell\\.[\\s\\S]*\\ndolly:[^\\n]*\\$\\s*$/,
+          "Neovim :q recovery shell")`);
+        assert.equal(await evaluate(debuggerClient.send,
+          `window.__dolly.submit("printf NVIM-RECOVERY-OK")`), 0);
+        console.log("browser: Neovim startup, local menu focus, shifted text, Escape, :w, :! Slop command and :q recovery passed");
         break browserProof;
       }
       await enterRecoveryShell(debuggerClient.send);
@@ -2198,7 +2248,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
         assert.equal(await evaluate(debuggerClient.send, "window.__dolly.httpRequestCount"), 0,
           "prebuilt startup must not run HTTP acceptance probes");
       }
-      const editorEntry = selectedGraph.root.entry[0] === "/usr/bin/nvim";
+      const editorEntry = selectedImage === "neovim";
       if (editorEntry) {
         await waitForTerminalText(debuggerClient.send, /Neovim inside Dolly/, "Neovim inventory entry");
         await clearTerminalSelection(debuggerClient.send);

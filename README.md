@@ -36,6 +36,11 @@ Dolly currently boots a source-built userspace containing:
   CommonJS, and JSON resolver; the full TUI, JavaScript extensions, timer
   animation, fixture streaming, and a real OpenRouter tool/install turn pass
   without a host-generated application bundle;
+- optional [browser-local Qwen inference](docs/browser-local-models.md) in
+  `/pi-local/`, through the existing HTTP broker with no additional Wasm imports;
+  `Ctrl+Shift+L` loads a model on a compatible WebGPU device;
+- [source-built Neovim](docs/neovim.md) in `/neovim/`, opening the editor
+  immediately and returning to Slop after `:q`;
 - `Ctrl+Shift+V`/`Ctrl+Shift+C` paste and copy through bounded in-Wasm
   clipboard buffers, plus browser-tested OpenRouter/Codex login flows;
 - native wasm64 Zig in `/ghostty-build/`, whose finished Ghostty terminal is
@@ -56,7 +61,7 @@ program fetches and verifies every independent `SOURCE` and executes the recipe
 strictly row by row. Prebuilt boot does not download image source inputs.
 Both boot paths expose the same declared system files, including `/bin/dollyfile`
 and the explicitly retained compiler SDK; startup does not run acceptance tests.
-Each frontend image's final startup module installs `/home/dolly/.dollyrc`; its ordinary
+Most frontend images' final startup modules install `/home/dolly/.dollyrc`; their ordinary
 Slop entry script runs that file before the selected application, keeping
 greetings and suggested commands in source-visible userspace.
 Reusable system, JavaScript, Python, Pi and graphics SDK images separate expensive

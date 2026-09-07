@@ -134,6 +134,9 @@ if has_module pi; then
   copy_static "${project_dir}/src/pi/dolly-theme.json" default/pi/dolly-theme.json
   copy_static "${project_dir}/src/pi/skills/dolly/SKILL.md" default/pi/dolly-skill.md
 fi
+if has_module browser-model-providers; then
+  copy_static "${project_dir}/src/pi/browser-model-providers.js" default/pi/browser-model-providers.js
+fi
 if has_module typescript; then
   copy_static "${project_dir}/src/commands/tsc.c" default/commands/tsc.c
   copy_static "${project_dir}/src/runtimes/tsc-dolly.mjs" default/runtimes/tsc-dolly.mjs
