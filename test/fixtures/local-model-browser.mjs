@@ -1,6 +1,39 @@
 import assert from "node:assert/strict";
 import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL } from "../../src/local-model-contract.mjs";
 
+export async function runLocalMenuProof(evaluate, press) {
+  assert.equal(await evaluate("document.querySelector('#local-model').hidden"), true);
+  assert.equal(await evaluate("document.querySelectorAll('#local-model button, #local-model select').length"), 0);
+  await evaluate(`globalThis.__menuKeys=[]; globalThis.__menuPushKey=__dolly.transport.pushKey;
+    __dolly.transport.pushKey=function(event){if(event.type==='keydown')__menuKeys.push(event.code);return __menuPushKey.call(this,event);}; true`);
+  try {
+    const toggle = () => press({ key: "L", code: "KeyL", modifiers: 10, windowsVirtualKeyCode: 76 });
+    await toggle();
+    const opened = await evaluate(`(() => {
+      const panel=document.querySelector('#local-model'), rect=panel.getBoundingClientRect();
+      return {hidden:panel.hidden,color:getComputedStyle(panel).backgroundColor,top:rect.top,
+        right:innerWidth-rect.right,focused:document.activeElement.dataset.model};
+    })()`);
+    assert.equal(opened.hidden, false);
+    assert.equal(opened.color, "rgb(242, 212, 92)");
+    assert.ok(opened.top < 20 && opened.right < 20);
+    assert.equal(opened.focused, DEFAULT_LOCAL_MODEL.id);
+    await press({ key: "ArrowDown", code: "ArrowDown", windowsVirtualKeyCode: 40 });
+    assert.equal(await evaluate("document.activeElement.dataset.model"), LOCAL_MODELS[1].id);
+    assert.equal(await evaluate("document.querySelector('#local-model').dataset.state"), "unloaded");
+    await press({ key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    assert.equal(await evaluate("document.querySelector('#local-model').hidden && document.activeElement.id==='keyboard'"), true);
+    await toggle();
+    await toggle();
+    assert.equal(await evaluate("document.querySelector('#local-model').hidden"), true);
+    assert.deepEqual(await evaluate("__menuKeys"), []);
+    await toggle();
+  } finally {
+    await evaluate("__dolly.transport.pushKey=__menuPushKey; true");
+  }
+  console.log("browser: yellow model menu starts hidden; Ctrl+Shift+L, arrows and Escape preserve terminal input/focus");
+}
+
 export async function runLocalCacheProof(evaluate) {
   const result = await evaluate(`(async () => {
     const names = ['webllm/model','webllm/config','webllm/wasm','local-cache-session-proof'];
@@ -28,7 +61,7 @@ export async function runLocalCacheProof(evaluate) {
   console.log("browser: cache removal works before/after caching, makes no Fetch calls, and preserves other databases");
 }
 
-export async function runLocalModelProof({ evaluate, wait, submit, setOffline }) {
+export async function runLocalModelProof({ evaluate, wait, submit, press, setOffline }) {
   console.log("browser: checking local provider discovery in Pi");
   assert.equal(await submit("pi --list-models webgpu > /tmp/local-models.txt"), 0);
   for (const model of LOCAL_MODELS) assert.equal(await submit(`grep -q ${model.id} /tmp/local-models.txt`), 0);
@@ -49,14 +82,14 @@ export async function runLocalModelProof({ evaluate, wait, submit, setOffline })
       if (init.body) __localRequests.push(JSON.parse(new TextDecoder().decode(init.body)));
       return originalFetch.call(this, url, init);
     };
-    document.querySelector('#local-model').open = true;
   })()`);
+  await press({ key: "L", code: "KeyL", modifiers: 10, windowsVirtualKeyCode: 76 });
   const picker = await evaluate(`(() => {
-    const panel=document.querySelector('#local-model'), select=panel.querySelector('select');
-    const initial=select.value, options=[...select.options].map(option=>option.value);
-    select.value=options[1]; select.dispatchEvent(new Event('change'));
-    const preview={state:panel.dataset.state,loadStarted:!!globalThis.__localService,download:panel.querySelector('[data-download]').textContent};
-    select.value=initial; select.dispatchEvent(new Event('change'));
+    const panel=document.querySelector('#local-model'), rows=[...panel.querySelectorAll('[data-model]')];
+    const initial=document.activeElement.dataset.model, options=rows.map(row=>row.dataset.model);
+    rows[1].focus();
+    const preview={state:panel.dataset.state,loadStarted:!!globalThis.__localService,download:rows[1].textContent};
+    rows[0].focus();
     return {initial,options,preview};
   })()`);
   assert.equal(picker.initial, DEFAULT_LOCAL_MODEL.id);
@@ -64,7 +97,7 @@ export async function runLocalModelProof({ evaluate, wait, submit, setOffline })
   assert.equal(picker.preview.state, "unloaded");
   assert.equal(picker.preview.loadStarted, false);
   assert.match(picker.preview.download, /0.42 GB/);
-  await evaluate("document.querySelector('#local-model [data-action=load]').click()");
+  await press({ key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
   const started = Date.now();
   const state = await wait("({state:document.querySelector('#local-model').dataset.state, detail:document.querySelector('#local-model [role=status]').textContent})",
     v => ["ready", "error", "unloaded"].includes(v.state), "Qwen load", 6000);
@@ -136,12 +169,12 @@ export async function runLocalModelProof({ evaluate, wait, submit, setOffline })
   for (const model of [...LOCAL_MODELS.slice(1), DEFAULT_LOCAL_MODEL]) {
     const previous = await evaluate("__localService.model.id");
     const selection = await evaluate(`(() => {
-      const panel=document.querySelector('#local-model'), select=panel.querySelector('select');
-      select.value=${JSON.stringify(model.id)}; select.dispatchEvent(new Event('change'));
-      return {model:__localService.model.id,button:panel.querySelector('[data-action=load]').textContent};
+      const row=document.querySelector('#local-model [data-model="${model.id}"]');
+      row.focus();
+      return {model:__localService.model.id,disabled:row.getAttribute('aria-disabled')};
     })()`);
     assert.equal(selection.model, previous);
-    assert.equal(selection.button, "Switch and load");
+    assert.equal(selection.disabled, "false");
     const denied = await evaluate(`(async () => {
       const response=await __localService.fetch(new URL('https://webgpu.dolly.invalid/v1/chat/completions'),
         {method:'POST',body:new TextEncoder().encode(JSON.stringify({model:${JSON.stringify(model.id)},stream:true,messages:[{role:'user',content:'hello'}]}))});
@@ -150,8 +183,8 @@ export async function runLocalModelProof({ evaluate, wait, submit, setOffline })
     assert.equal(denied.status, 409);
     assert.ok(denied.body.includes(model.id));
     const switching = Date.now();
-    await evaluate("__loadProgress=[]; document.querySelector('#local-model [data-action=load]').click()");
-    assert.equal(await evaluate("document.querySelector('#local-model select').disabled"), true);
+    await evaluate(`__loadProgress=[]; document.querySelector('#local-model [data-model="${model.id}"]').click()`);
+    assert.equal(await evaluate(`document.querySelector('#local-model [data-model="${model.id}"]').getAttribute('aria-disabled')`), "true");
     const loaded = await wait("({state:__localService.state,model:__localService.model?.id,detail:__localService.detail})",
       v => ["ready", "error"].includes(v.state), `load ${model.id}`, 6000);
     assert.equal(loaded.state, "ready", loaded.detail);

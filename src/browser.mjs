@@ -2,7 +2,7 @@ import { prepareImageArtifacts } from "./image-build.mjs";
 import { consumeDollyHttpPolicy } from "./http-policy.mjs";
 import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION } from "./http-broker.mjs";
 import { localModelTransport } from "./local-model-service.mjs";
-import { mountLocalModel } from "./local-model-ui.mjs";
+import { mountLocalModel, toggleLocalModel } from "./local-model-ui.mjs";
 import { SessionTransport } from "./session-transport.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
@@ -690,6 +690,12 @@ function requestForegroundInterrupt() {
 }
 
 function handleKeyboardEvent(event) {
+  if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyL") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.type === "keydown" && !event.repeat) toggleLocalModel();
+    return;
+  }
   if (!transport) return;
   if (event.target.closest?.("#local-model")) return;
   if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {

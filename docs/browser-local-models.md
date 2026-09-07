@@ -1,7 +1,9 @@
 # Browser-local models
 
 The `pi-local` experiment adds Qwen3.5 through WebLLM 0.2.84. Open
-`/pi-local/`, expand **Local model**, choose a size, and click **Load Qwen**.
+`/pi-local/` and press **Ctrl+Shift+L** to open the hidden Local model menu.
+Click a model row, or use arrow keys and Enter, to load that size.
+Escape or Ctrl+Shift+L closes the menu and returns focus to the terminal.
 Select the same size under `webgpu` in Pi's normal model picker.
 
 | Size | First weight download | Role |
@@ -10,13 +12,13 @@ Select the same size under `webgpu` in Pi's normal model picker.
 | 2B (default) | 1.06 GB | Initial Pi integration default |
 | 4B | 2.37 GB | Larger model; needs more GPU memory |
 
-Selecting a size only updates the download information. **Switch and load**
+Moving keyboard focus does not download anything. Activating a model row
 replaces the idle model; only one worker/model is active per tab. Cached weights
 are kept for switching back. GPU memory also includes working buffers and the
 16,384-token context; download size is not a GPU memory estimate.
 It requires a hardware WebGPU adapter with `shader-f16`; there is no CPU or
-cloud fallback. **Stop** cancels generation, **Unload** releases its worker,
-and **Clear all model caches** clears this origin's WebLLM model databases without
+cloud fallback. **Stop generation** cancels generation, **Unload** releases its worker,
+and **Clear cached models** clears this origin's WebLLM model databases without
 network access. Dolly files and saved sessions have separate storage.
 
 The provider extension is an ordinary JavaScript file installed by

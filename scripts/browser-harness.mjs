@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { runLocalModelProof, runLocalCacheProof } from "../test/fixtures/local-model-browser.mjs";
+import { runLocalModelProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -1504,6 +1504,10 @@ chrome = spawn(chromeBinary, [
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "local cache UI boot", 1200), "ready");
+      await runLocalMenuProof(expression => evaluate(debuggerClient.send, expression),
+        key => dispatchKey(debuggerClient.send, key));
+      const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
+      await writeFile(resolve(projectDir, "build/local-model-menu.png"), screenshot.data, "base64");
       await runLocalCacheProof(expression => evaluate(debuggerClient.send, expression));
       break browserProof;
     }
@@ -1514,6 +1518,7 @@ chrome = spawn(chromeBinary, [
       await enterRecoveryShell(debuggerClient.send);
       await runLocalModelProof({
         evaluate: expression => evaluate(debuggerClient.send, expression),
+        press: key => dispatchKey(debuggerClient.send, key),
         wait: (expression, predicate, description, attempts) => waitForValue(debuggerClient.send, expression, predicate, description, attempts),
         submit: command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`),
         setOffline: async offline => {

@@ -14,7 +14,7 @@ export class LocalModelService extends EventTarget {
     this.pending = new Map();
     this.sequence = 0;
     this.state = "unloaded";
-    this.detail = "Choose a size and load it, then select the same model under webgpu in Pi.";
+    this.detail = "Select a model to load it. Cached weights are reused.";
   }
   status(state, detail) {
     this.state = state;
@@ -118,7 +118,7 @@ export class LocalModelService extends EventTarget {
     } catch (error) { return json({ error: { message: error.message, type: "invalid_request_error" } }, 400, url); }
     if (this.state !== "ready" || this.model.id !== request.model) return json({ error: { message: this.active
       ? "Local model is busy; wait for the current generation to stop."
-      : `${request.model} is not loaded. Open Local model in the browser and load that size, or select the loaded model in Pi.`,
+      : `${request.model} is not loaded. Press Ctrl+Shift+L to load that size, or select the loaded model in Pi.`,
     type: "local_model_unavailable" } }, 409, url);
     init.signal?.throwIfAborted();
     const active = { id: ++this.sequence, signal: init.signal, bytes: 0, finished: false };
