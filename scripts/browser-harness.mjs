@@ -1368,6 +1368,14 @@ if (dollyfileParserMode) {
     });
   }
 }
+if (snapshotExportMode || requestedMode === "image-inventory-rebuild") {
+  // Build tests permit the selected recipe's explicit upstream GETs only.
+  for (const record of selectedGraph.records) for (const source of record.sources) {
+    if (source.transport !== "url") continue;
+    const url = new URL(source.location);
+    fixturePolicy.rules.push({ origin: url.origin, path: url.pathname, methods: ["GET"] });
+  }
+}
 if (pythonPackageMode) {
   fixturePolicy.rules.unshift(
     {
@@ -2266,6 +2274,11 @@ install(TARGETS probe RUNTIME DESTINATION bin)
         assert.equal(await submit(`help > ${scratch}/help`), 0);
         assert.equal(await submit(`${scratch}/inventory ${localOrigin}/fixture/image.manifest ${scratch}/help`), 0,
           "live manifest, system paths and help must match the packaged image");
+        if (selectedImage === "external-source") {
+          assert.equal(await submit("test \"$(command -v xxd)\" = /usr/bin/xxd"), 0);
+          assert.equal(await submit("test \"$(printf Dolly | xxd -p)\" = 446f6c6c79"), 0);
+          assert.equal(await submit("test \"$(printf 446f6c6c79 | xxd -r -p)\" = Dolly"), 0);
+        }
       } finally {
         await submit(`rm -rf ${scratch}`);
       }

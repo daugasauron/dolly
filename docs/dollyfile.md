@@ -30,6 +30,15 @@ base's entry program never starts. Replace `<sha256>` with the referenced
 recipe's digest. `node scripts/update-module-pins.mjs` refreshes references
 through the catalog, including nested modules and image dependencies.
 
+[`Dollyfile-external-source`](../Dollyfile-external-source) is a runnable
+`SOURCE URL` example: it downloads upstream `xxd.c` from a fixed Git commit,
+verifies its digest, and compiles `/usr/bin/xxd` inside Dolly. Only the base image
+uses `HOST`; the C source is neither vendored nor fetched by the host build.
+Open `/external-source/rebuild/`, then try `printf Dolly | xxd` or
+`printf 446f6c6c79 | xxd -r -p`. The prebuilt route needs no upstream download.
+External sources still require browser CORS and permission from the HTTP broker;
+the recipe cannot grant itself network access.
+
 ## Operations
 
 | Declaration | Behavior |

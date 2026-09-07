@@ -1,0 +1,13 @@
+DOLLY 3
+IMAGE external-source
+
+FROM HOST /Dollyfile-system 7ce9d80710acc550efa7f541c652a8ddfd9b3c69fbc69add74ce86db5b3d234f
+
+# Unchanged xxd source from Vim 9.1.0000, fetched directly from upstream.
+SOURCE URL https://raw.githubusercontent.com/vim/vim/b4ddc6c11e95cef4b372e239871fae1c8d4f72b6/src/xxd/xxd.c /usr/src/xxd/xxd.c 081c52b38668bb1f68afbb9fef4d73eec88fc12f6ac0f8bef5abf4332d8a61d0
+SLOP cc -std=c17 -DUNIX -D_POSIX_C_SOURCE=200809L -O1 /usr/src/xxd/xxd.c -o /usr/bin/xxd
+EXPORTS TOOL xxd
+# Keep the source, including its copyright and license notice.
+FILE /usr/src/xxd/xxd.c
+
+ENTRY /bin/foreground -i /bin/slop

@@ -37,6 +37,7 @@ test("unreferenced module sources are admitted without staging their inputs or e
 test("images separate reusable runtimes from applications and configuration", async () => {
   const expected = {
     "ghostty-build": [], system: ["ghostty-build"], default: ["system"], javascript: ["system"],
+    "external-source": ["system"],
     "cmake-build": ["system"], "neovim-build": ["cmake-build"],
     neovim: ["system", "neovim-build"],
     "pi-runtime": ["javascript"], pi: ["pi-runtime"], "pi-local": ["pi"],

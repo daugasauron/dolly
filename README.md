@@ -150,6 +150,9 @@ files. Publishing atomically switches the complete app; failed builds leave the
 last version available, and open tabs keep digest-pinned assets. Old release
 directories stay available for those tabs. After source changes, build the
 affected outputs and run `npm run publish` to update the served app.
+`DOLLY_BUILD_IMAGES` also limits the published catalog; a partial publication
+replaces the menu, it does not merge with the previous release. Use
+`DOLLY_BUILD_IMAGES=all npm run publish` to keep every image available.
 The public Pages embedding permits generic HTTP(S) through Dolly's one browser
 broker, including sandbox-supplied credential headers. This is useful for
 agents and deliberately not safe against exfiltration from a compromised

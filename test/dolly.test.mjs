@@ -552,6 +552,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const expectedPrograms = new Map([
     ["bhop", "/usr/bin/bhop"],
     ["default", "/bin/slop"],
+    ["external-source", "/usr/bin/xxd"],
     ["pi", "/usr/bin/pi"],
     ["pi-local", "/usr/bin/pi"],
     ["python", "/bin/slop"],
@@ -650,6 +651,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     { image: "default", dollyfile: "Dollyfile" },
     { image: "bhop", dollyfile: "Dollyfile-bhop" },
     { image: "cmake-build", dollyfile: "Dollyfile-cmake-build" },
+    { image: "external-source", dollyfile: "Dollyfile-external-source" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
     { image: "gamedev-phone", dollyfile: "Dollyfile-gamedev-phone" },
     { image: "gamedev-sdk", dollyfile: "Dollyfile-gamedev-sdk" },
