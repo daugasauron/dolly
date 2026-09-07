@@ -56,7 +56,9 @@ async function load(modelId) {
       // IndexedDB backend calls Fetch and stores only the verified response.
       appConfig: { cacheBackend: "indexeddb", model_list: [{ model_id: model.id, model: manifest.baseURL,
         model_lib: manifest.assets.find(a => a.file === "qwen.wasm").url,
-        overrides: { context_window_size: model.context_window, max_history_size: 1 } }] },
+        overrides: { context_window_size: model.context_window, max_history_size: 1,
+          // The pinned MLC configs retain Qwen 2 IDs; these match Qwen 3.5's tokenizers.
+          conv_config: { stop_token_ids: [248044, 248046] } } }] },
       initProgressCallback: report => postMessage({ progress: report.text }),
     });
     await engine.reload(model.id);

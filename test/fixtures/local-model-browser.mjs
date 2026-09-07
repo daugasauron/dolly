@@ -137,6 +137,13 @@ export async function runLocalModelProof({ evaluate, wait, submit, press, setOff
   console.log("browser: text response", hello.slice(-800));
   assert.match(hello, /hello/i);
   assert.match(hello, /\[DONE\]/);
+  const copied = await evaluate(`__completeLocal({temperature:0,messages:[
+    {role:'system',content:'Repeat the user text exactly. No explanation, no quotes.'},
+    {role:'user',content:'A 내용 B'}]})`);
+  const copiedText = copied.split("\n").filter(line => line.startsWith("data: {")).flatMap(line =>
+    JSON.parse(line.slice(6)).choices ?? []).map(choice => choice.delta?.content ?? "").join("");
+  assert.equal(copiedText, "A 내용 B", "ordinary Qwen 3.5 tokens must not terminate generation");
+  console.log("browser: Korean output survives the obsolete Qwen 2 stop-token IDs");
   const tool = await evaluate(`__completeLocal({messages:[{role:'user',content:'Read /tmp/example.txt using the read tool.'}],
     tools:[{type:'function',function:{name:'read',description:'Read a file',parameters:{type:'object',properties:{path:{type:'string'}},required:['path'],additionalProperties:false}}}]})`);
   console.log("browser: tool response", tool.slice(-1000));

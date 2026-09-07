@@ -92,6 +92,10 @@ after that response finishes; ordinary text streams incrementally. It does not
 repair malformed output or guess missing calls. Pi executes the resulting
 tools in Dolly, using Dolly's filesystem and shell.
 
+The pinned MLC chat configs still carry Qwen 2's stop-token IDs. The worker
+overrides them with Qwen 3.5's IDs, checked against all three pinned tokenizers;
+otherwise ordinary Korean text can incorrectly end a reply.
+
 ## Browser authority and assets
 
 [`local-services.mjs`](../src/local-services.mjs) composes local and

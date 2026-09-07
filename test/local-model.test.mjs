@@ -33,6 +33,41 @@ test("GPU preflight fails with setup guidance before any model download", async 
   }
 });
 
+test("the worker's effective stop tokens match every pinned Qwen tokenizer", async () => {
+  const source = (await readFile(new URL("../src/webgpu-worker.mjs", import.meta.url), "utf8"))
+    .replace(/^import .*;\n/gm, "")
+    .replaceAll("import.meta.url", JSON.stringify(new URL("../src/webgpu-worker.mjs", import.meta.url).href))
+    .replace('await import("../dist/webgpu/webllm.mjs")', "{ MLCEngine: globalThis.MLCEngine }");
+  const manifest = JSON.parse(await readFile(new URL("../config/webgpu-assets.json", import.meta.url)));
+  for (const model of manifest.models) {
+    const asset = async file => {
+      const pinned = model.assets.find(asset => asset.file === file);
+      return JSON.parse(await readFile(new URL(`../dist/webgpu/${pinned.sha256}-${file}`, import.meta.url)));
+    };
+    const config = await asset("mlc-chat-config.json"), tokenizer = await asset("tokenizer.json");
+    let receive, options, respond;
+    const result = new Promise(resolve => { respond = resolve; });
+    runInNewContext(source, {
+      LOCAL_MODELS, URL, navigator: { gpu: { requestAdapter: async () => ({ features: new Set(["shader-f16"]) }) } },
+      fetch: async () => ({ json: async () => manifest }),
+      MLCEngine: class {
+        constructor(value) { options = value.appConfig.model_list[0].overrides; }
+        async reload(id) { assert.equal(id, model.model); }
+      },
+      addEventListener(_event, callback) { receive = callback; },
+      postMessage(message) { if (message.id) respond(message); },
+    });
+    receive({ data: { id: 1, type: "load", modelId: model.model } });
+    assert.equal((await result).error, undefined);
+    const effective = { ...config.conv_template, ...options.conv_config };
+    assert.deepEqual(Array.from(effective.stop_token_ids), effective.stop_str.map(text => {
+      const token = tokenizer.added_tokens.find(token => token.content === text && token.special);
+      assert.ok(token, `${model.model}: missing stop token ${text}`);
+      return token.id;
+    }), model.model);
+  }
+});
+
 test("local capability and remote policy are independent; reserved addresses never reach Fetch", async () => {
   let fetched = 0;
   const remote = async () => { fetched++; return new Response("remote"); };
