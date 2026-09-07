@@ -658,6 +658,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     { image: "neovim", dollyfile: "Dollyfile-neovim" },
     { image: "neovim-build", dollyfile: "Dollyfile-neovim-build" },
     { image: "pi", dollyfile: "Dollyfile-pi" },
+    { image: "pi-local", dollyfile: "Dollyfile-pi-local" },
     { image: "pi-runtime", dollyfile: "Dollyfile-pi-runtime" },
     { image: "python", dollyfile: "Dollyfile-python" },
     { image: "python-pi", dollyfile: "Dollyfile-python-pi" },
