@@ -63,7 +63,8 @@ release identity, evidence and remaining issues; unchecked items are unfinished.
 Preserve the last complete local release while building. Publish only validated
 catalogs and retain old release assets for open tabs. The Codex experiment is
 paused; manual Studio evidence and its cached profile are retained.
-The resumed isolated probe also found a stock-shell pipeline cancellation bug
+The resumed isolated probe also found a stock-shell command cancellation bug
 and tar's rejection of ordinary `./` entries; see the audit handoff. Neither is
-fixed in the published release. Pipeline cancellation is the next cleanup target.
+fixed in the published release. Cancellation is reproduced in simple/compound
+pipelines and semicolon lists; it is the next cleanup target.
 Port 9000 remains available. Around 1.2 GiB of disk remains; no large rebuilds.

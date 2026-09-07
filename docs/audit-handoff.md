@@ -231,7 +231,7 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    One cached 2B startup took 119 seconds. A fresh browser process loaded it in
    4.17 seconds with phase timings (`build/gpu-load-phase-first.log`); the next
    published run took 4.34 seconds. The outlier's cause remains unproven.
-6. **Pipeline cancellation — next fix.** A fresh stock default image reproduces
+6. **Command cancellation — next fix.** A fresh stock default image reproduces
    `sleep 30 | /bin/slop -c 'echo wrongly-ran > FILE'` continuing after Ctrl+C:
    the second stage writes FILE and the pipeline returns 0 in 31 ms. This does
    not involve Rust (`build/pipeline-interrupt-browser-red.log`, reproduced by
@@ -240,7 +240,11 @@ byte-identical; the compiler seed now contains the corrected Dollyfile executor.
    available through `waitpid`. Preserve real termination information and stop
    the current command's remaining work. Do not infer a signal from numeric 130:
    the probe also confirms an ordinary `exit 130` must allow later pipeline work.
-   Cover compound pipelines and command lists, descriptors and prompt recovery.
+   The same failure is now reproduced for `(sleep 30) | ...` and
+   `sleep 30; ...`, both executing the later write and returning 0
+   (`build/pipeline-interrupt-{compound,list}-browser-red.log`; pass `compound`
+   or `list` to the same probe). Cover descriptor cleanup and prompt recovery,
+   and propagate real signal termination through nested noninteractive shells.
 7. **Ordinary tar root entries.** The extractor rejects `./` and `./file` paths
    from a conventional `tar -cf archive -C DIRECTORY .`. Real-browser failure:
    `build/ripgrep-probe.OHvH0j/browser-link.log`. Normalize safe leading `./`
