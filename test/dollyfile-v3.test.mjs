@@ -36,7 +36,9 @@ test("unreferenced module sources are admitted without staging their inputs or e
 
 test("images separate reusable runtimes from applications and configuration", async () => {
   const expected = {
-    system: [], default: ["system"], javascript: ["system"],
+    "ghostty-build": [], system: ["ghostty-build"], default: ["system"], javascript: ["system"],
+    "cmake-build": ["system"], "neovim-build": ["cmake-build"],
+    neovim: ["system", "neovim-build"],
     "pi-runtime": ["javascript"], pi: ["pi-runtime"],
     "python-runtime": ["system"], python: ["python-runtime"],
     "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
@@ -47,6 +49,15 @@ test("images separate reusable runtimes from applications and configuration", as
   for (const definition of await discoverImageDefinitions(project)) {
     const graph = await loadDollyfileGraph(project, definition.filename);
     assert.deepEqual([...new Set(graph.artifacts.map(artifact => artifact.image))], expected[definition.image]);
+    assert.equal(graph.exporters.has("TOOL:zig"), definition.image === "ghostty-build");
+    if (definition.image === "neovim") {
+      assert.deepEqual(graph.root.entry, ["/usr/bin/nvim", "/usr/share/nvim/welcome.txt"]);
+      assert.ok(graph.root.files.some(file => file.path === "/usr/share/nvim/welcome.txt"));
+      assert.equal(graph.exporters.has("TOOL:nvim"), true);
+      assert.equal(graph.exporters.has("TOOL:cmake"), false);
+      assert.equal(graph.root.artifacts.filter(artifact => artifact.copy)
+        .some(artifact => /\/tmp\/|\/include\/|cmake/.test(artifact.source)), false);
+    }
     const records = recipeRecords(graph);
     assert.equal(records.at(-1).name, definition.image);
     assert.equal(new Set(records.map(record => record.locator)).size, records.length);
@@ -66,7 +77,7 @@ test("images separate reusable runtimes from applications and configuration", as
   }
   const definitions = await discoverImageDefinitions(project);
   assert.deepEqual(new Set((await selectImageDefinitions(definitions, "python-pi")).map(item => item.image)),
-    new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system"]));
+    new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system", "ghostty-build"]));
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

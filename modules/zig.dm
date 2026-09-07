@@ -1,17 +1,15 @@
 DOLLY 3
 MODULE zig
 
-REQUIRES TOOL cc
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
 # The wasm64-emscripten SDK follows config/zig-sdk-files.txt. Dolly supplies libc
 # and C++ separately; this is not Zig's distribution for every target OS.
-SOURCE HOST /static/default/commands/zig.c /tmp/zig.c       07ebca822aeeee47ef33f81418ca83875659aa0b4449a79553bbcd3411b441e4
+# Like Clang in the bootstrap seed, this compiler is built by the outer
+# toolchain and validated against dolly-process-0. It runs entirely in Wasm.
+SOURCE HOST /static/default/zig.wasm /usr/bin/zig e97ee4ea18040b54351b91e0008bd31c10fd698d506a5e0cdcbadec685b62e8b
 SOURCE HOST /static/default/zig-lib.tar    /tmp/zig-lib.tar 205fcde54b306ab68dcbbbbe45d1c1b314147b6dd9b3dcaf48a56eb8e70497e2
-SLOP cc \
-  /tmp/zig.c \
-  -o /usr/bin/zig
 SLOP tar \
   -xf /tmp/zig-lib.tar \
   -C /
@@ -23,5 +21,4 @@ FILE /usr/share/licenses/zig/LICENSE
 
 SLOP rm \
   -f \
-  /tmp/zig.c \
   /tmp/zig-lib.tar

@@ -27,6 +27,7 @@ int dolly_process_collect(int pid);
 int dolly_process_parent(int pid);
 int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_foreground_publish(int pid, int interruptible);
+void dolly_kernel_terminal_resized(void);
 
 int dolly_kernel_display_acquire(int pid, dolly_display_surface *surface);
 int dolly_kernel_display_set_size(int pid, uint64_t generation,

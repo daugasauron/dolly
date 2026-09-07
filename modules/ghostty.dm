@@ -12,7 +12,7 @@ REQUIRES TOOL   zig
 
 SOURCE HOST /static/default/ghostty.tar              /tmp/ghostty.tar                          62927872d21cfe1bb2c76a5f90499a4139e0da16168db1afdb2d4b429d995eb3
 SOURCE HOST /static/default/uucode.tar               /tmp/uucode.tar                           27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e
-SOURCE HOST /static/default/ghostty/display.c        /usr/src/dolly/ghostty/display.c          9e81dcc80c90d094cd165400a2f02e8fd8bb05272dbe2a6b170b06c7a7582e25
+SOURCE HOST /static/default/ghostty/display.c        /usr/src/dolly/ghostty/display.c          73377d9065c698acf228d396f72c049315f051b4976fbdbcf7f68db8ed85cfed
 SOURCE HOST /static/default/stb_truetype.h           /tmp/ghostty/stb_truetype.h               ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
 SOURCE HOST /static/default/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654
 SLOP tar \

@@ -1,0 +1,12 @@
+DOLLY 3
+IMAGE ghostty-build
+
+# Independent of system: that image imports our finished terminal, not our SDK.
+USE HOST /modules/bootstrap.dm a10fe022b6fa214ce6e89867cd659a2e0a4499e0e9373c705c314fdad2da8272
+USE HOST /modules/core-tools.dm 42bc8954f5f995a05262752bac670967c3a5a13edcecca7e325dc814d28506b2
+USE HOST /modules/tar.dm 0bff7c2d25ab0ce49401bd2e32f341520663f3e3d21d6d4f5bbd73a083a725c5
+USE HOST /modules/make.dm f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9fd0225dd8f05ea0e02a1
+USE HOST /modules/zig.dm 6087d9d07ce84e95bb93b2a5c72f200fd9c4fab4b29f29eccc7c18b803a29a6d
+USE HOST /modules/ghostty.dm ccdea5180bec391add17b2539b5ae09b707288e381c401ec3b23abe3de96f937
+
+ENTRY /bin/foreground -i /bin/slop

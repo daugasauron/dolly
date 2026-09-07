@@ -27,6 +27,21 @@ export async function runProcessSmoke(submit, origin) {
       const output = name.replace(/\.c(?:pp)?$/, library ? ".so" : "");
       await run(`cd ${scratch}; ${cxx ? "c++" : "cc"} -O0 ${library ? "-shared" : "-rdynamic"} ${name} -o ${output}`);
     }
+    await run(`printf '%s\\n' '-O0 cpp-check.cpp -o "response program"' > compile.rsp`);
+    await run("printf '%s\\n' '@compile.rsp' > nested.rsp");
+    await run("c++ @nested.rsp && './response program'");
+    await run("printf '%s\\n' '@cycle.rsp' > cycle.rsp");
+    assert.equal(await submit("cc @cycle.rsp"), 64, "recursive compiler response file");
+    assert.notEqual(await submit("cc @missing.rsp"), 0, "missing compiler response file");
+    await run("printf '#warning diagnostic-probe\\nint main(void) { return 0; }\\n' > warning.c");
+    assert.notEqual(await submit("cc -Werror warning.c -o warning"), 0, "warnings as errors");
+    await run("cc -Werror -w warning.c -o warning && ./warning");
+    await run("printf 'int main(void) { return ((char)-1 < 0) != EXPECT_SIGNED; }\\n' > char.c");
+    await run("cc -O0 -funsigned-char -DEXPECT_SIGNED=0 char.c -o char && ./char");
+    await run("cc -O0 -funsigned-char -fsigned-char -DEXPECT_SIGNED=1 char.c -o char && ./char");
+    await run("cc -O0 -fno-unsigned-char -fno-signed-char -DEXPECT_SIGNED=0 char.c -o char && ./char");
+    await run("printf '#include <pty.h>\\n#include <errno.h>\\nint main(void) { int master, slave; return openpty(&master, &slave, 0, 0, 0) != -1 || errno != ENOENT; }\\n' > pty.c");
+    await run("cc -O0 pty.c -lutil -o pty && ./pty");
     for (const command of [
       "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
       "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
@@ -38,6 +53,10 @@ export async function runProcessSmoke(submit, origin) {
       `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "cc --version",
       `./dso-check ${scratch}/dso-library.so`, `./dso-cpp-check ${scratch}/dso-cpp-library.so`,
     ]) await run(command);
+    await run(`./fs-check write ${scratch}/data`);
+    assert.equal(await submit(`./dso-check ${scratch}/dso-library.so 37`), 37,
+      "a DSO exits only its owning process through the shared libc provider");
+    await run(`./fs-check read ${scratch}/data`);
   } finally {
     await submit(`cd /workspace; rm -rf ${scratch}`);
   }

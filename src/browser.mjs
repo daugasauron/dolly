@@ -21,7 +21,7 @@ const keyboard = document.querySelector("#keyboard");
 const bootstrapLog = document.querySelector("#bootstrap-log");
 bootstrapLog.replaceChildren();
 
-const defaultFontSizeMilli = 15000;
+const defaultFontSizeMilli = 20000;
 const bootstrapMaximumLines = 40;
 const bootstrapMaximumCharacters = 8192;
 const bootstrapLines = [];
@@ -560,7 +560,9 @@ function appendBootstrap(text, flush = false) {
   while (offset < complete.length) {
     const newline = complete.indexOf("\n", offset);
     const end = newline === -1 ? complete.length : newline + 1;
-    const record = complete.slice(offset, end).slice(-bootstrapMaximumCharacters);
+    const record = complete.slice(offset, end)
+      .replace(/\x1b\[[0-9;:]*m/g, "")
+      .slice(-bootstrapMaximumCharacters);
     const node = document.createTextNode(record);
     bootstrapLines.push(node);
     bootstrapCharacters += record.length;
@@ -870,7 +872,7 @@ async function visibleTerminalText() {
   const dimensions = transport.dimensions();
   if (!geometry.cellWidth || !geometry.cellHeight ||
       !dimensions.cols || !dimensions.rows) return "";
-  const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
+  const x = geometry.paddingX + Math.floor(geometry.cellWidth / 4);
   const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
   const sequence = Atomics.load(transport.words,
     transport.word + DisplayTransport.copySequence);

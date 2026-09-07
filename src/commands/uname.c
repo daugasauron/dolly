@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <sys/utsname.h>
 
 enum {
   SHOW_SYSTEM = 1u << 0,
@@ -51,15 +52,17 @@ int main(int argc, char **argv) {
   }
   if (fields == 0) fields = SHOW_SYSTEM;
 
+  struct utsname information;
+  if (uname(&information) != 0) { perror("uname"); return 1; }
   const struct {
     unsigned field;
     const char *value;
   } values[] = {
-    {SHOW_SYSTEM, "Dolly"},
-    {SHOW_NODE, "dolly"},
-    {SHOW_RELEASE, "0"},
-    {SHOW_VERSION, "dolly-process-0"},
-    {SHOW_MACHINE, "wasm64"},
+    {SHOW_SYSTEM, information.sysname},
+    {SHOW_NODE, information.nodename},
+    {SHOW_RELEASE, information.release},
+    {SHOW_VERSION, information.version},
+    {SHOW_MACHINE, information.machine},
   };
   int separator = 0;
   for (size_t index = 0; index < sizeof(values) / sizeof(values[0]); index++) {

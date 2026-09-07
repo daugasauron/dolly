@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/utsname.h>
 
 static unsigned invocation_count;
 extern char **environ;
@@ -9,6 +10,9 @@ extern char **environ;
 int main(int argc, char **argv) {
   ++invocation_count;
   if (invocation_count != 1) return 90;
+  struct utsname platform;
+  if (uname(&platform) != 0 || strcmp(platform.sysname, "Dolly") != 0 ||
+      strcmp(platform.machine, "wasm64") != 0) return 97;
   const char *program = argc > 0 ? strrchr(argv[0], '/') : NULL;
   program = program == NULL ? (argc > 0 ? argv[0] : NULL) : program + 1;
   if (argc != 2 || program == NULL || strcmp(program, "process-check") != 0 ||

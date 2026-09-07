@@ -1,11 +1,12 @@
 /* CPython termios adapter over Dolly's libc-independent terminal modes.
  *
  * This file belongs above the Dolly substrate. It translates Emscripten
- * musl's struct termios layout into Dolly's closed canonical/echo mask;
+ * musl's struct termios layout into Dolly's terminal discipline mask;
  * that libc structure is intentionally not part of the Dolly machine ABI.
  */
 
 #include <dolly/runtime.h>
+#include <dolly/process.h>
 
 #include <errno.h>
 #include <stdarg.h>
@@ -31,7 +32,8 @@ int dolly_py_tcgetattr(int descriptor, struct termios *attributes) {
 
   memset(attributes, 0, sizeof(*attributes));
   attributes->c_iflag = ICRNL | IXON;
-  attributes->c_oflag = OPOST | ONLCR;
+  if (mode & DOLLY_TERMINAL_OPOST) attributes->c_oflag |= OPOST;
+  if (mode & DOLLY_TERMINAL_ONLCR) attributes->c_oflag |= ONLCR;
   attributes->c_cflag = CS8 | CREAD;
   if ((mode & DOLLY_TERMINAL_CANONICAL) != 0) attributes->c_lflag |= ICANON;
   if ((mode & DOLLY_TERMINAL_ECHO) != 0) {
@@ -65,6 +67,8 @@ int dolly_py_tcsetattr(int descriptor, int action,
   uint32_t mode = 0;
   if ((attributes->c_lflag & ICANON) != 0) mode |= DOLLY_TERMINAL_CANONICAL;
   if ((attributes->c_lflag & ECHO) != 0) mode |= DOLLY_TERMINAL_ECHO;
+  if (attributes->c_oflag & OPOST) mode |= DOLLY_TERMINAL_OPOST;
+  if (attributes->c_oflag & ONLCR) mode |= DOLLY_TERMINAL_ONLCR;
   const int result = dolly_terminal_mode_set(descriptor, mode);
   if (result >= 0) return result;
   errno = -result;
@@ -133,9 +137,19 @@ int dolly_py_ioctl(int descriptor, int request, ...) {
       return -1;
     }
     struct winsize *size = argument;
+    const dolly_process_terminal_request query = {
+        DOLLY_PROCESS_TERMINAL_SIZE, (uint32_t)descriptor, 0, 0, 0,
+    };
+    dolly_process_terminal_response response;
+    const int64_t result = dolly_process_call(
+        DOLLY_PROCESS_TERMINAL, &query, sizeof(query), &response, sizeof(response));
+    if (result < 0 || (uint64_t)result != sizeof(response)) {
+      errno = result < 0 ? (int)-result : EIO;
+      return -1;
+    }
     memset(size, 0, sizeof(*size));
-    size->ws_row = (unsigned short)dolly_terminal_rows();
-    size->ws_col = (unsigned short)dolly_terminal_columns();
+    size->ws_row = (unsigned short)response.rows;
+    size->ws_col = (unsigned short)response.columns;
     return 0;
   }
   errno = request == TIOCSWINSZ ? EPERM : ENOTTY;

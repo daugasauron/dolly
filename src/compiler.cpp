@@ -21,6 +21,7 @@
 #include <clang/Serialization/PCHContainerOperations.h>
 #include <lld/Common/Driver.h>
 #include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/BinaryFormat/Wasm.h>
 #include <llvm/Object/Archive.h>
 #include <llvm/Object/ArchiveWriter.h>
@@ -28,6 +29,7 @@
 #include <llvm/Support/Error.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/StringSaver.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/VirtualFileSystem.h>
 #include <llvm/Support/raw_ostream.h>
@@ -71,6 +73,7 @@ struct DriverOptions {
   bool shared_library = false;
   bool link_cxx_runtime = false;
   bool standard_selected = false;
+  bool unsigned_char = false;
   DebugInfoKind debug_info = DebugInfoKind::None;
   std::string output;
   std::string forced_language;
@@ -122,7 +125,7 @@ bool is_linker_option(const std::string &argument) {
 
 bool is_implicit_process_runtime_library(const std::string &name) {
   return name == "c" || name == "m" || name == "dl" || name == "rt" ||
-      name == "pthread";
+      name == "pthread" || name == "util";
 }
 
 void add_library(DriverOptions &options, const std::string &name,
@@ -207,7 +210,7 @@ void print_help(const char *program, int driver_mode) {
       program);
 }
 
-bool take_option_value(int argc, char **argv, int &index,
+bool take_option_value(int argc, const char *const *argv, int &index,
                        const char *option, std::string &value) {
   if (index + 1 >= argc) {
     std::fprintf(stderr, "%s: %s requires an argument\n", argv[0], option);
@@ -217,7 +220,7 @@ bool take_option_value(int argc, char **argv, int &index,
   return true;
 }
 
-int parse_driver_options(int argc, char **argv, DriverOptions &options,
+int parse_driver_options(int argc, const char *const *argv, DriverOptions &options,
                          int driver_mode) {
   for (int index = 1; index < argc; index++) {
     std::string argument = argv[index];
@@ -284,9 +287,10 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
                argument == "-Os" || argument == "-Oz") {
       options.optimization_selected = true;
       options.frontend_options.push_back(argument);
-    } else if (argument == "-funsigned-char") {
-      // Clang's public driver spelling maps to this cc1/frontend spelling.
-      options.frontend_options.push_back("-fno-signed-char");
+    } else if (argument == "-funsigned-char" || argument == "-fno-signed-char") {
+      options.unsigned_char = true;
+    } else if (argument == "-fsigned-char" || argument == "-fno-unsigned-char") {
+      options.unsigned_char = false;
     } else if (argument == "-fdolly-runtime-interrupt-handler") {
       // Language runtimes can still use this explicit marker to document that
       // they poll dolly_interrupt_poll() at their own safe boundaries. A
@@ -357,6 +361,7 @@ int parse_driver_options(int argc, char **argv, DriverOptions &options,
       options.debug_info = DebugInfoKind::None;
     } else if (argument == "-pedantic" ||
                argument == "-pedantic-errors" ||
+               argument == "-w" ||
                (starts_with(argument, "-W") &&
                 !starts_with(argument, "-Wl,"))) {
       options.frontend_options.push_back(argument);
@@ -559,6 +564,7 @@ bool run_frontend(const std::string &source, const std::string &language,
     }
   }
   if (!options.optimization_selected) arguments.push_back("-O2");
+  if (options.unsigned_char) arguments.push_back("-fno-signed-char");
   if (!options.standard_selected) {
     arguments.push_back(language == "c++" ? "-std=c++23" : "-std=c17");
   }
@@ -1895,7 +1901,7 @@ int compile_and_link(const DriverOptions &options, int default_language,
   return published ? 0 : 1;
 }
 
-int run_archive(int argc, char **argv, unsigned long long job) {
+int run_archive(int argc, const char *const *argv, unsigned long long job) {
   if (argc == 2 && std::strcmp(argv[1], "--help") == 0) {
     print_help(argv[0], DOLLY_TOOLCHAIN_AR);
     return 0;
@@ -1961,11 +1967,18 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
   // Commands execute synchronously and remove staged outputs before return.
   // A stable name also keeps LLD tie-breakers independent of cache hits.
   constexpr unsigned long long job = 0;
+  llvm::BumpPtrAllocator response_allocator;
+  llvm::StringSaver response_saver(response_allocator);
+  llvm::SmallVector<const char *, 16> arguments(argv, argv + argc);
+  if (!llvm::cl::ExpandResponseFiles(response_saver,
+          llvm::cl::TokenizeGNUCommandLine, arguments) || arguments.size() > INT_MAX)
+    return 64;
+  argc = static_cast<int>(arguments.size());
   if (default_language == DOLLY_TOOLCHAIN_AR) {
-    return run_archive(argc, argv, job);
+    return run_archive(argc, arguments.data(), job);
   }
   DriverOptions options;
-  const int parse_status = parse_driver_options(argc, argv, options,
+  const int parse_status = parse_driver_options(argc, arguments.data(), options,
                                                 default_language);
   if (parse_status > 0) return 0;
   if (parse_status < 0) return 64;

@@ -38,7 +38,8 @@ Dolly currently boots a source-built userspace containing:
   without a host-generated application bundle;
 - `Ctrl+Shift+V`/`Ctrl+Shift+C` paste and copy through bounded in-Wasm
   clipboard buffers, plus browser-tested OpenRouter/Codex login flows;
-- native wasm64 Zig and Ghostty's VT engine with in-Wasm text rasterization;
+- native wasm64 Zig in `/ghostty-build/`, whose finished Ghostty terminal is
+  copied into system images for in-Wasm text rasterization;
 - an exclusive in-Wasm RGBA framebuffer lease for games and visual tools, with
   automatic terminal restoration on return or Ctrl-C; the gamedev image adds
   source-built raylib 6.0, Box3D 0.1.0, a Pi skill, and an interactive 3D
@@ -96,7 +97,8 @@ wasm64 kernel
               │
               ├─ Slop and each /bin or /usr/bin command
               ├─ language runtimes and their process-local DSOs
-              └─ private Clang/LLD/Zig compiler executable
+              ├─ private Clang/LLD compiler executable
+              └─ standalone Zig compiler (ghostty-build image only)
                  (one Worker and private memory per running process)
 ```
 
@@ -198,6 +200,7 @@ need. Credential values remain inside Dolly; the browser does not inject them.
 - [Capability fingerprints](docs/capability-fingerprint.md) — compact separate
   identities for browser authority and complete sealed-image contents.
 - [Port status](docs/port-status.md) — evidence for current and deferred ports.
+- [Neovim](docs/neovim.md) — source-built editor, builder images and limitations.
 - [Pi compatibility](docs/pi-agent-plan.md) — current Pi/Janis boundary,
   evidence, and next work.
 - [JavaScript runtime choice](docs/javascript-runtime.md) — why QuickJS-ng is

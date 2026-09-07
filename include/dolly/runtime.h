@@ -81,11 +81,14 @@ uint32_t dolly_terminal_columns(void);
 uint32_t dolly_terminal_rows(void);
 
 // Small terminal discipline contract. Language/libc adapters translate their
-// own termios layouts above these two stable semantic bits. Foreground Ctrl+C
+// own termios layouts above these semantic bits. OPOST enables output
+// processing; ONLCR maps LF to CRLF when OPOST is enabled. Foreground Ctrl+C
 // remains a lifecycle operation, not mutable terminal state.
 enum {
   DOLLY_TERMINAL_CANONICAL = 1u << 0,
   DOLLY_TERMINAL_ECHO = 1u << 1,
+  DOLLY_TERMINAL_OPOST = 1u << 2,
+  DOLLY_TERMINAL_ONLCR = 1u << 3,
 };
 
 // Returns a non-negative DOLLY_TERMINAL_* mask, or a negative errno value.
@@ -102,10 +105,9 @@ int dolly_interrupt_poll(void);
 void dolly_interrupt_checkpoint(void);
 
 // Dolly terminals are WasmFS character devices whose browser-free line and
-// raw disciplines live in the runtime. Emscripten's generic isatty probes a
-// native-style ioctl that those devices intentionally do not expose, so the
-// target uses this descriptor-kind check instead. Regular redirected files
-// and serial pipeline spools return false.
+// raw disciplines live in the runtime. The descriptor-kind check distinguishes
+// them from other character devices such as /dev/null. libc's isatty uses this
+// same operation; redirected files and pipes return false.
 int dolly_isatty(int descriptor);
 
 // Terminates only the currently executing Dolly process.

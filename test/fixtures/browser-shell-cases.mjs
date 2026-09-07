@@ -119,7 +119,7 @@ export function browserShellCases(modules, fixtureOrigin) {
     ["echo /b* | grep -q /bin"],
     ["ls /usr/bin"],
     ["echo USR-BIN-LIST-END"],
-    ["ls /usr/lib/libghostty-vt.a"],
+    ["ls /usr/lib/libdisplay.so"],
     ["test ! -e /usr/bin/ghostty-vt"],
     ["graphics-demo --frames 2", undefined,
       hasModule("gamedev") ? 0 : 127],

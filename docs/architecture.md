@@ -96,10 +96,12 @@ that is enough for agent tooling.
 
 ## Compiler and C++
 
-Clang 24, LLD, the Zig frontend bridge, and LLVM live in one ordinary private
-compiler executable. The main kernel does not link them. Small `/bin/cc`,
-`/bin/c++`, `/bin/ld`, `/bin/ar`, and `/usr/bin/zig` frontends spawn it through
-the same process API as every other program.
+Clang 24, LLD and LLVM live in an ordinary private compiler executable. Small
+`/bin/cc`, `/bin/c++`, `/bin/ld` and `/bin/ar` frontends spawn it through the
+same process API as every other program. Zig is a separate executable with its
+own LLVM/LLD backend, installed only in the `ghostty-build` image. The main
+kernel links neither compiler. System images copy that builder's finished
+terminal plugin, font and licenses without retaining its Zig SDK.
 
 The driver reads and writes only kernel-backed filesystem paths. It links the
 process adapter, libc, allocator, compiler builtins, and (for C++) libc++,

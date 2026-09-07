@@ -9,7 +9,6 @@ llvm_nm="${project_dir}/.cache/llvm-native/bin/llvm-nm"
 reserved_libc_symbols="${project_dir}/config/process-libc-provider.symbols"
 
 libraries=(
-  crt1.o
   libstandalonewasm-ww-memgrow.a
   libstubs.a
   libc-ww.a
@@ -49,6 +48,7 @@ trap cleanup EXIT HUP INT TERM
 for library in "${libraries[@]}"; do
   cp -- "${emscripten_lib}/${library}" "${staging}/${library}"
 done
+cp -- "${project_dir}/build/process-crt1.o" "${staging}/crt1.o"
 cp -- "${process_runtime}" "${staging}/libdolly-process.a"
 cp -- "${reserved_libc_symbols}" "${staging}/libc-provider.symbols"
 
@@ -59,7 +59,9 @@ emar d "${staging}/libc-ww.a" \
 
 "${llvm_nm}" -j --defined-only --extern-only \
   "${staging}/libc-ww.a" \
+  "${staging}/libstubs.a" \
   "${staging}/libdlmalloc-ww.a" \
+  "${staging}/libstandalonewasm-ww-memgrow.a" \
   2>/dev/null | awk 'NF && $0 !~ /:$/ { print }' | LC_ALL=C sort -u \
   >"${staging}/.libc-defined.symbols"
 while IFS= read -r symbol; do
@@ -92,6 +94,7 @@ done <"${staging}/libc-provider.symbols"
 {
   "${llvm_nm}" -j --defined-only --extern-only \
     "${staging}/libc-ww.a" \
+    "${staging}/libstandalonewasm-ww-memgrow.a" \
     "${staging}/libdolly-process.a" \
     "${staging}/libdlmalloc-ww.a" \
     2>/dev/null | awk \

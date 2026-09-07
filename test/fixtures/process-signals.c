@@ -45,6 +45,11 @@ static void information_handler(int number, siginfo_t *information, void *contex
   received = number == SIGTERM && information->si_signo == number && context == NULL;
 }
 
+static void resize_handler(int number) {
+  usleep(650000); /* Resize must not inherit the interrupt termination deadline. */
+  received = number == SIGWINCH;
+}
+
 static double now(void) {
   struct timespec value;
   CHECK(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
@@ -61,6 +66,16 @@ int main(int argc, char **argv) {
   CHECK(argc >= 2);
   CHECK(snprintf(lock_path, sizeof(lock_path), "%s/signal.lock", argv[1]) < sizeof(lock_path));
   CHECK(snprintf(exit_path, sizeof(exit_path), "%s/atexit", argv[1]) < sizeof(exit_path));
+  if (argc == 3 && (!strcmp(argv[2], "winch-exit") || !strcmp(argv[2], "winch-handler"))) {
+    const int handled = !strcmp(argv[2], "winch-handler");
+    if (handled) CHECK(signal(SIGWINCH, resize_handler) != SIG_ERR);
+    CHECK(kill(getpid(), SIGWINCH) == 0);
+    if (handled) {
+      usleep(1);
+      CHECK(received == 1);
+    }
+    dolly_exit(23);
+  }
   if (argc == 3) {
     mode = argv[2];
     if (!strcmp(mode, "leaf")) snprintf(lock_path, sizeof(lock_path), "%s/leaf.lock", argv[1]);
@@ -102,6 +117,14 @@ int main(int argc, char **argv) {
       else CHECK(result == -1 && errno == EINTR && received == 1 && remaining.tv_sec >= 9);
     }
     return 0;
+  }
+
+  for (int handled = 0; handled < 2; handled++) {
+    char *resize_exit_arguments[] = {argv[0], argv[1], handled ? "winch-handler" : "winch-exit", NULL};
+    int resize_exit_pid = dolly_spawn(argv[0], 3, resize_exit_arguments, 0, 1, 2);
+    int resize_exit_status;
+    CHECK(resize_exit_pid > 0 && waitpid(resize_exit_pid, &resize_exit_status, 0) == resize_exit_pid);
+    CHECK(WIFEXITED(resize_exit_status) && WEXITSTATUS(resize_exit_status) == 23);
   }
 
   for (int number = SIGINT; number <= SIGTERM; number += SIGTERM - SIGINT) {

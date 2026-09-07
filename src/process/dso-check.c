@@ -2,11 +2,12 @@
 
 #include <dlfcn.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 int main(int argc, char **argv) {
-  if (argc != 2) return 2;
+  if (argc != 2 && argc != 3) return 2;
   void *handle = dolly_dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
   if (handle == NULL) {
     const char *error = dolly_dlerror();
@@ -14,7 +15,17 @@ int main(int argc, char **argv) {
             error == NULL ? "unknown error" : error);
     return 60;
   }
-  void *symbol = dolly_dlsym(handle, "dolly_process_dso_answer");
+  void *symbol;
+  if (argc == 3) {
+    symbol = dolly_dlsym(handle, "dolly_process_dso_exit");
+    if (symbol == NULL) return 68;
+    void (*finish)(int);
+    _Static_assert(sizeof(finish) == sizeof(symbol), "function pointer representation");
+    memcpy(&finish, &symbol, sizeof(finish));
+    finish(atoi(argv[2]));
+    return 69;
+  }
+  symbol = dolly_dlsym(handle, "dolly_process_dso_answer");
   if (symbol == NULL) {
     const char *error = dolly_dlerror();
     fprintf(stderr, "process-dso-check: symbol failed: %s\n",

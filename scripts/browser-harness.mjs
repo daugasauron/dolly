@@ -50,6 +50,9 @@ const cppMode = isMode("cpp");
 const boundaryMode = isMode("boundary");
 const processAbiMode = isMode("process-abi");
 const processSmokeMode = isMode("process-smoke");
+const libuvMode = isMode("libuv");
+const cmakeMode = isMode("cmake");
+const neovimMode = isMode("neovim");
 const dollyfileParserMode = isMode("dollyfile-parser");
 const missingDependencyMode = isMode("v3-missing-dependency");
 const iterationMode = isMode("v3-iteration") || missingDependencyMode;
@@ -83,7 +86,7 @@ const sessionMode = isMode("session", "session-pages") || sessionRebuildMode;
 const pythonPackageMode = isMode("python-packages");
 const pythonInteractiveMode = isMode("python-interactive");
 const toolchainProbeMode = isMode("toolchain-probes");
-const zigSingleProviderMode = isMode("zig-single-provider");
+const zigSdkMode = isMode("zig-sdk");
 const optimizedLifecycleProbeMode =
   isMode("optimized-lifecycle-probe");
 const lifecycleProbeMode =
@@ -118,6 +121,7 @@ if (!new Set(imageDefinitions.map((definition) => definition.image)).has(selecte
 const selectedDefinition = imageDefinitions.find(({ image }) => image === selectedImage);
 const selectedGraph = await loadDollyfileGraph(projectDir, selectedDefinition.filename);
 const selectedModuleNames = new Set(selectedGraph.modules.map(({ name }) => name));
+const hasZig = selectedGraph.exporters.has("TOOL:zig");
 const iterationRecipe = iterationMode ? `DOLLY 3
 IMAGE iteration
 FROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}
@@ -262,6 +266,11 @@ function startServer() {
         response.end(await readFile(resolve(projectDir, "src", requestUrl.pathname.slice("/fixture/parser-".length))));
         return;
       }
+      if (libuvMode && requestUrl.pathname === "/fixture/libuv-source.tar") {
+        response.writeHead(200, isolatedHeaders);
+        response.end(await readFile(resolve(projectDir, "build/fixtures/libuv-source.tar")));
+        return;
+      }
       if (processSmokeMode && requestUrl.pathname.startsWith("/fixture/")) {
         const name = requestUrl.pathname.slice("/fixture/".length);
         if (Object.hasOwn(processSmokeSources, name)) {
@@ -269,11 +278,6 @@ function startServer() {
           response.end(await readFile(resolve(projectDir, processSmokeSources[name])));
           return;
         }
-      }
-      if (imageInventoryMode && requestUrl.pathname === "/fixture/image-inventory.c") {
-        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
-        response.end(await readFile(resolve(projectDir, "test/fixtures/image-inventory.c")));
-        return;
       }
       if (imageInventoryMode && requestUrl.pathname === "/fixture/image.manifest") {
         const { DOLLY_SYSTEM_SNAPSHOT } = await import(
@@ -1127,7 +1131,7 @@ async function enterRecoveryShell(send) {
   } else {
     entryPid = await evaluate(send,
       `window.__dolly.waitForInteractiveTerminal(${selectedImage === "pi" || selectedImage === "python-pi"
-        ? "/! Slop/" : "/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/"}, "image entry terminal")`);
+        ? "/Bash is not installed/" : "/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/"}, "image entry terminal")`);
     await dispatchKey(send, {
       key: "d",
       code: "KeyD",
@@ -1139,6 +1143,21 @@ async function enterRecoveryShell(send) {
     `window.__dolly.waitForInteractiveTerminal(
       /Dolly: image entry exited; entering the recovery Slop shell\\.[\\s\\S]*\\ndolly:[^\\n]*\\$\\s*$/,
       "recovery Slop prompt", ${entryPid})`);
+}
+
+async function neovimEx(send, command) {
+  await dispatchKey(send, {key: ":", code: "Semicolon", modifiers: 8, text: ":"});
+  await inputText(send, command);
+  await dispatchKey(send, {key: "Enter", code: "Enter", windowsVirtualKeyCode: 13});
+}
+
+let neovimShellSequence = 0;
+async function neovimShell(send, command) {
+  const marker = `DOLLY-SHELL-${++neovimShellSequence}:`;
+  await neovimEx(send, `lua vim.fn.system(${JSON.stringify(command)}); print('${marker}' .. vim.v.shell_error)`);
+  const text = await waitForTerminalText(send, new RegExp(`${marker}([0-9]+)`), "Neovim shell status", 600);
+  await clearTerminalSelection(send);
+  return Number(text.match(new RegExp(`${marker}([0-9]+)`))[1]);
 }
 
 async function visibleTerminalText(send) {
@@ -1834,7 +1853,38 @@ chrome = spawn(chromeBinary, [
       const source = await readFile(resolve(projectDir, "test/fixtures/terminal-ui.c"), "utf8");
       assert.equal(await submit(`mkdir -p ${scratch}`), 0);
       try {
+        await clearTerminalSelection(debuggerClient.send);
+        assert.equal(await submit("printf '\\033[48;2;20;22;27m\\033[2J\\033[HXX  XX\\033[K\\033[3;1H\\033[48;5;24mXX  XX\\033[K\\033[0m\\033[5;1H'"), 0);
+        await delay(100);
+        const backgrounds = await evaluate(debuggerClient.send, `(() => {
+          const { paddingX, paddingY, cellWidth, cellHeight } = window.__dolly.transport.geometry();
+          const context = document.querySelector('#display').getContext('2d');
+          return [[0, 0], [2, 0], [10, 0], [10, 1], [0, 2], [2, 2], [10, 2]].map(([x, y]) =>
+            [...context.getImageData(paddingX + x * cellWidth, paddingY + y * cellHeight, 1, 1).data]);
+        })()`);
+        assert.deepEqual(backgrounds, [
+          ...Array(4).fill([20, 22, 27, 255]), ...Array(3).fill([0, 95, 135, 255]),
+        ], "text, spaces and erased cells must share their RGB/palette background");
+        assert.equal(await submit("printf '\\033[0m\\033[2J\\033[H'"), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/main.c && cc ${scratch}/main.c -o ${scratch}/probe`), 0);
+        await evaluate(debuggerClient.send, `(() => {
+          window.__terminalUiStatus = null;
+          window.__dolly.submit('${scratch}/probe keys').then(status => {window.__terminalUiStatus = status});
+        })()`);
+        await waitForTerminalText(debuggerClient.send, /DOLLY-KEYS-READY/, "kitty keyboard probe");
+        for (const [key, code] of [[":", "Semicolon"], ["A", "KeyA"], ["?", "Slash"], ["_", "Minus"]]) {
+          await dispatchKey(debuggerClient.send, {key, code, modifiers: 8, text: key});
+        }
+        await dispatchKey(debuggerClient.send, {key: "Escape", code: "Escape", windowsVirtualKeyCode: 27});
+        assert.equal(await waitForValue(debuggerClient.send, "window.__terminalUiStatus",
+          value => value !== null, "shifted text and Escape in kitty keyboard mode", 100), 0);
+        assert.equal(await submit(`${scratch}/probe discipline`), 0,
+          "termios output flags must round-trip and control Ghostty's actual cursor position");
+        const pythonTermios = await readFile(resolve(projectDir, "src/runtimes/cpython-termios.c"), "utf8");
+        assert.equal(await submit(`printf '%s\\n' ${pythonTermios.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/python-termios.c`), 0);
+        assert.equal(await submit(`cc -Dtcgetattr=dolly_py_tcgetattr -Dtcsetattr=dolly_py_tcsetattr -Dioctl=dolly_py_ioctl ${scratch}/main.c ${scratch}/python-termios.c -o ${scratch}/python-probe`), 0);
+        assert.equal(await submit(`${scratch}/python-probe discipline`), 0,
+          "CPython's termios adapter must agree with the standard libc behavior");
         for (const argument of ["", "query", "partial"]) {
           assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
           await clearTerminalSelection(debuggerClient.send);
@@ -1911,6 +1961,225 @@ chrome = spawn(chromeBinary, [
       console.log("browser: Dollyfile preserves quoted commands/CWD and literal ENV, fetches/executes rows sequentially, supports mixed/repeated modules and overwrites, captures completed exports, and rejects wrong export kinds");
       break browserProof;
     }
+    if (cmakeMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "CMake probe boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const run = async command => assert.equal(await submit(command), 0,
+        await evaluate(debuggerClient.send, "window.__dolly.visibleTerminalText()"));
+      const scratch = "/tmp/dolly-cmake-smoke";
+      await run(`mkdir ${scratch}`);
+      try {
+        const sources = {
+          "CMakeLists.txt": `cmake_minimum_required(VERSION 3.20)
+project(dolly_probe C CXX)
+add_library(answer STATIC answer.c)
+add_executable(probe main.cpp)
+target_link_libraries(probe PRIVATE answer)
+install(TARGETS probe RUNTIME DESTINATION bin)
+`,
+          "answer.c": "int answer(void) { return 42; }\n",
+          "main.cpp": '#include <iostream>\nextern "C" int answer(void);\nint main() { std::cout << "CMAKE-OK\\n"; return answer() != 42; }\n',
+        };
+        for (const [name, source] of Object.entries(sources)) {
+          const lines = source.trimEnd().split("\n").map(line => `echo -- ${shellQuote(line)}`);
+          await run(`{ ${lines.join("; ")}; } > ${scratch}/${name}`);
+        }
+        await run(`cmake -S ${scratch} -B ${scratch}/build -DCMAKE_C_FLAGS=-O0 -DCMAKE_CXX_FLAGS=-O0 -DCMAKE_INSTALL_PREFIX=${scratch}/install`);
+        await run(`cmake --build ${scratch}/build --parallel 1`);
+        await run(`cmake --install ${scratch}/build`);
+        await run(`${scratch}/install/bin/probe`);
+        await run(`cmake --build ${scratch}/build --parallel 1`);
+      } finally {
+        await submit(`cd /workspace; rm -rf ${scratch}`);
+      }
+      console.log("browser: installed CMake configured, built, installed and reran a C/C++ project using Dolly processes");
+      break browserProof;
+    }
+    if (neovimMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Neovim boot", 1200), "ready");
+      if (selectedGraph.root.entry[0] === "/usr/bin/nvim") {
+        await waitForTerminalText(debuggerClient.send, /Neovim inside Dolly/, "direct Neovim ENTRY");
+        await clearTerminalSelection(debuggerClient.send);
+        await neovimEx(debuggerClient.send, "edit /tmp/dolly-neovim-entry.txt");
+        await typeText(debuggerClient.send, "i");
+        for (const [key, code] of [["A", "KeyA"], [":", "Semicolon"], ["?", "Slash"], ["_", "Minus"]])
+          await dispatchKey(debuggerClient.send, {key, code, modifiers: 8, text: key});
+        await waitForTerminalText(debuggerClient.send, /A:\?_/, "Neovim physically shifted text");
+        await clearTerminalSelection(debuggerClient.send);
+        await dispatchKey(debuggerClient.send, {key: "Escape", code: "Escape", windowsVirtualKeyCode: 27});
+        await delay(300);
+        await neovimEx(debuggerClient.send, "w");
+        await waitForTerminalText(debuggerClient.send, /written/, "Neovim :w");
+        await clearTerminalSelection(debuggerClient.send);
+        assert.equal(await neovimShell(debuggerClient.send,
+          "test ! -e /usr/bin/cmake && test ! -d /usr/share/cmake-4.4 && test \"$(cat /tmp/dolly-neovim-entry.txt)\" = 'A:?_'"), 0);
+        await neovimEx(debuggerClient.send, "!printf NVIM-SLOP-COMMAND");
+        await waitForTerminalText(debuggerClient.send, /NVIM-SLOP-COMMAND[\s\S]*Press ENTER/, "Neovim :! command output");
+        await dispatchKey(debuggerClient.send, {key: "Enter", code: "Enter", windowsVirtualKeyCode: 13});
+        assert.equal(await neovimShell(debuggerClient.send, "rm /tmp/dolly-neovim-entry.txt"), 0);
+        await neovimEx(debuggerClient.send, "q");
+        await waitForValue(debuggerClient.send, "document.documentElement.dataset.dollyStatus",
+          value => value === "exited", "Neovim ENTRY :q", 100);
+        console.log("browser: direct Neovim ENTRY, shifted text, Escape, :w, :! Slop command and :q passed");
+        break browserProof;
+      }
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      const scratch = "/tmp/dolly-neovim-smoke";
+      assert.equal(await submit(`mkdir ${scratch}`), 0);
+      const escape = () => dispatchKey(debuggerClient.send,
+        { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      try {
+        const modeProbe = "#include <dolly/runtime.h>\nint main(void) { return dolly_terminal_mode_get(0); }\n";
+        assert.equal(await submit(`printf '%s\\n' ${modeProbe.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/mode.c && cc ${scratch}/mode.c -o ${scratch}/mode`), 0);
+        const terminalMode = await submit(`${scratch}/mode`);
+        assert.ok(terminalMode >= 0 && terminalMode <= 15);
+        assert.equal(await submit(`printf 'DOLLY-NVIM-READY\\n' > ${scratch}/edit.txt`), 0);
+        assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
+        await evaluate(debuggerClient.send, `(() => {
+          window.__neovimStatus = null;
+          window.__dolly.submit('nvim --clean ${scratch}/edit.txt').then(status => {
+            window.__neovimStatus = status;
+          });
+        })()`);
+        await waitForTerminalText(debuggerClient.send, /DOLLY-NVIM-READY/, "Neovim TUI file", 200);
+        await clearTerminalSelection(debuggerClient.send);
+        await typeText(debuggerClient.send, "ggi");
+        assert.equal(await evaluate(debuggerClient.send,
+          'window.__dolly.paste("Dolly 日本語\\n")'), true);
+        try {
+          await waitForTerminalText(debuggerClient.send, /Dolly 日本語/, "Neovim Unicode paste", 100);
+        } finally {
+          await clearTerminalSelection(debuggerClient.send);
+          const screenshot = await debuggerClient.send("Page.captureScreenshot", {
+            format: "png", fromSurface: true,
+          });
+          await writeFile(resolve(projectDir, "build/dolly-neovim.png"), screenshot.data, "base64");
+        }
+        const modePixels = `(() => {
+          const { paddingX, paddingY, cellWidth, cellHeight } = window.__dolly.transport.geometry();
+          const { rows } = window.__dolly.transport.dimensions();
+          const pixels = document.querySelector('#display').getContext('2d').getImageData(
+            paddingX, paddingY + (rows - 1) * cellHeight, cellWidth * 12, cellHeight).data;
+          let count = 0;
+          for (let i = 0; i < pixels.length; i += 4)
+            if (pixels[i] > 100 && pixels[i + 1] > 100 && pixels[i + 2] > 100) count++;
+          return count;
+        })()`;
+        assert.ok(await evaluate(debuggerClient.send, modePixels) > 0, "Insert mode is visible");
+        await escape();
+        // Reading pixels sends no input events that could wake a stuck TUI.
+        await waitForValue(debuggerClient.send, modePixels, value => value === 0,
+          "Escape leaves Insert mode without another key or resize", 40);
+        await clearTerminalSelection(debuggerClient.send);
+        const before = await evaluate(debuggerClient.send, "window.__dolly.transport.dimensions()");
+        await debuggerClient.send("Emulation.setDeviceMetricsOverride", {
+          width: 1000, height: 750, deviceScaleFactor: 1, mobile: false,
+        });
+        const dimensions = await waitForValue(debuggerClient.send,
+          "window.__dolly.transport.dimensions()", value => value.cols !== before.cols,
+          "Neovim resized terminal", 100);
+        await neovimEx(debuggerClient.send,
+          `lua vim.fn.writefile({vim.o.columns .. 'x' .. vim.o.lines}, '${scratch}/size')`);
+        await neovimEx(debuggerClient.send, "wq");
+        assert.equal(await waitForValue(debuggerClient.send, "window.__neovimStatus",
+          value => value !== null, "Neovim save and quit", 200), 0);
+        assert.equal(await submit(`test "$(cat ${scratch}/size)" = '${dimensions.cols}x${dimensions.rows}'`), 0);
+        assert.equal(await submit(`grep -q '^Dolly 日本語$' ${scratch}/edit.txt`), 0);
+        assert.equal(await submit(`timeout 30 nvim --clean --headless ${scratch}/edit.txt -c 'lua assert(vim.api.nvim_get_current_line() == "Dolly 日本語")' -c quit`), 0);
+        assert.equal(await submit(`${scratch}/mode`), terminalMode, "normal exit restores terminal discipline");
+        assert.equal(await submit(`timeout 30 nvim --headless -c 'lua assert(vim.o.shell == "/bin/slop"); assert(vim.fn.system("printf SLOP-NVIM") == "SLOP-NVIM")' -c quit`), 0);
+        await submit("printf '\\033[2J\\033[H'");
+        await evaluate(debuggerClient.send, `(() => {
+          window.__neovimStatus = null;
+          window.__dolly.submit('nvim --clean ${scratch}/edit.txt').then(status => {
+            window.__neovimStatus = status;
+          });
+        })()`);
+        await waitForTerminalText(debuggerClient.send, /Dolly 日本語/, "Neovim reopened TUI", 200);
+        await clearTerminalSelection(debuggerClient.send);
+        await neovimEx(debuggerClient.send, "sleep 30");
+        await delay(100);
+        await dispatchKey(debuggerClient.send,
+          { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+        assert.notEqual(await waitForValue(debuggerClient.send, "window.__neovimStatus",
+          value => value !== null, "Neovim interrupted before its thirty-second sleep finishes", 100), 0);
+        assert.equal(await submit(`${scratch}/mode`), terminalMode, "SIGINT exit restores terminal discipline");
+        assert.equal(await submit(`grep -q '^Dolly 日本語$' ${scratch}/edit.txt`), 0);
+      } finally {
+        await debuggerClient.send("Emulation.clearDeviceMetricsOverride");
+        if (await evaluate(debuggerClient.send, "window.__neovimStatus === null")) {
+          await escape();
+          await neovimEx(debuggerClient.send, "qa!");
+          await waitForValue(debuggerClient.send, "window.__neovimStatus",
+            value => value !== null, "Neovim stopped before cleanup", 200);
+        }
+        await submit(`cd /workspace; rm -rf ${scratch}`);
+      }
+      console.log("browser: Neovim TUI edited, pasted Unicode, resized, saved/reopened, used Slop, and restored terminal modes after normal exit and Ctrl-C");
+      break browserProof;
+    }
+    if (libuvMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "libuv probe boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send,
+        `window.__dolly.submit(${JSON.stringify(command)})`);
+      try {
+        for (const command of [
+          `curl -fsS ${localOrigin}/fixture/libuv-source.tar -o /tmp/libuv-source.tar`,
+          "tar -xf /tmp/libuv-source.tar -C /",
+          "cd /tmp/dolly-libuv && make",
+          "cc -O0 -Isource/include probe.c libuv.a -o probe",
+          "timeout 30 ./probe",
+          "cc -shared -rdynamic objects/*.o -o libuv.so",
+          "cc -O0 -rdynamic -Isource/include dso.c -o dso",
+          "timeout 30 ./dso",
+        ]) assert.equal(await submit(command), 0, command);
+        for (const cancel of [false, true]) {
+          assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
+          await clearTerminalSelection(debuggerClient.send);
+          await evaluate(debuggerClient.send, `(() => {
+            window.__libuvStatus = null;
+            window.__dolly.submit('timeout 15 ./probe tty').then(status => {
+              window.__libuvStatus = status;
+            });
+          })()`);
+          await waitForTerminalText(debuggerClient.send, /LIBUV-TTY-READY/, "libuv raw terminal", 100);
+          await debuggerClient.send("Emulation.setDeviceMetricsOverride", {
+            width: cancel ? 1000 : 900, height: cancel ? 750 : 650,
+            deviceScaleFactor: 1, mobile: false,
+          });
+          await waitForTerminalText(debuggerClient.send, /LIBUV-RESIZED/, "libuv SIGWINCH", 100);
+          if (cancel) await dispatchKey(debuggerClient.send,
+            { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          else await typeText(debuggerClient.send, "hello");
+          assert.equal(await waitForValue(debuggerClient.send, "window.__libuvStatus",
+            value => value !== null, "libuv terminal completion", 200), cancel ? 130 : 0);
+          if (cancel) assert.equal(await submit("test -f interrupt-handled"), 0,
+            "SIGINT must reach the libuv callback, not only terminate its Worker");
+        }
+      } finally {
+        if (await evaluate(debuggerClient.send, "window.__libuvStatus === null")) {
+          await dispatchKey(debuggerClient.send,
+            { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          await waitForValue(debuggerClient.send, "window.__libuvStatus",
+            value => value !== null, "libuv probe stopped before cleanup", 200);
+        }
+        await debuggerClient.send("Emulation.clearDeviceMetricsOverride");
+        await submit("cd /workspace; rm -rf /tmp/dolly-libuv /tmp/libuv-source.tar");
+      }
+      console.log("browser: source-built libuv work, cancellation, files, streamed children, cleanup, TTY input, resize and restoration passed");
+      break browserProof;
+    }
     if (processSmokeMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -1929,21 +2198,24 @@ chrome = spawn(chromeBinary, [
         assert.equal(await evaluate(debuggerClient.send, "window.__dolly.httpRequestCount"), 0,
           "prebuilt startup must not run HTTP acceptance probes");
       }
-      await enterRecoveryShell(debuggerClient.send);
-      const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
+      const editorEntry = selectedGraph.root.entry[0] === "/usr/bin/nvim";
+      if (editorEntry) {
+        await waitForTerminalText(debuggerClient.send, /Neovim inside Dolly/, "Neovim inventory entry");
+        await clearTerminalSelection(debuggerClient.send);
+      } else await enterRecoveryShell(debuggerClient.send);
+      const submit = command => editorEntry ? neovimShell(debuggerClient.send, command)
+        : evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
       const scratch = "/tmp/dolly-image-inventory";
       assert.equal(await submit(`mkdir ${scratch}`), 0);
       try {
-        assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/image-inventory.c -o ${scratch}/inventory.c`), 0);
-        assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/image.manifest -o ${scratch}/expected.manifest`), 0);
+        const source = await readFile(resolve(projectDir, "test/fixtures/image-inventory.c"), "utf8");
+        const lines = source.trimEnd().split("\n").map(line => `echo -- ${shellQuote(line)}`);
+        assert.equal(await submit(`{ ${lines.join("; ")}; } > ${scratch}/inventory.c`), 0);
         assert.equal(await submit(`cc -O1 ${scratch}/inventory.c -o ${scratch}/inventory`), 0);
-        assert.equal(await submit(`${scratch}/inventory ${scratch}/expected.manifest`), 0,
-          "live manifest and system paths must match the packaged image");
-        assert.equal(await submit("command -v dollyfile && dollyfile --help"), 0);
-        assert.equal(await submit(`help > ${scratch}/help && ! grep -q ghostty-vt ${scratch}/help`), 0,
-          "help must not advertise an absent Ghostty command");
-        assert.equal(await submit(`if test -f /usr/bin/tsc; then grep -q '^TypeScript:' ${scratch}/help; else ! grep -q '^TypeScript:' ${scratch}/help; fi`), 0,
-          "help must match this image's TypeScript availability");
+        assert.equal(await submit("type dollyfile && dollyfile --help"), 0);
+        assert.equal(await submit(`help > ${scratch}/help`), 0);
+        assert.equal(await submit(`${scratch}/inventory ${localOrigin}/fixture/image.manifest ${scratch}/help`), 0,
+          "live manifest, system paths and help must match the packaged image");
       } finally {
         await submit(`rm -rf ${scratch}`);
       }
@@ -2399,12 +2671,12 @@ int main(int argc, char **argv) {
       console.log("browser: GNU Make used Slop to compile, link, and run a two-file C program");
       break browserProof;
     }
-    if (zigSingleProviderMode) {
+    if (zigSdkMode) {
       const state = await waitForValue(
         debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         (value) => value === "ready" || value === "failed",
-        "single-provider Zig image boot",
+        "standalone Zig image boot",
         1200,
       );
       assert.equal(state, "ready");
@@ -2459,7 +2731,7 @@ int main(int argc, char **argv) {
         "echo 'extern int dolly_extension_host(void); int dolly_extension(void) { return dolly_extension_host(); }' > /tmp/dolly-meson-extension.c",
         "cc -shared -fPIC -Wl,--allow-shlib-undefined /tmp/dolly-meson-extension.c -o /tmp/dolly-meson-extension.so",
         "test -s /tmp/dolly-meson-extension.so",
-        ...(selectedModuleNames.has("zig") ? [
+        ...(hasZig ? [
           "echo 'export fn dolly_zig_probe() callconv(.c) u32 { return 42; }' > /tmp/dolly-zig-probe.zig",
           "zig build-obj -OReleaseSmall -target wasm64-emscripten " +
             "-mcpu=generic+atomics -fPIC -fsingle-threaded -fcompiler-rt -lc " +
@@ -2484,7 +2756,7 @@ int main(int argc, char **argv) {
       console.log(
         "browser: rejected compile probe recovered; repeated Meson-style " +
           "C++ detection, compile, link, and run passed" +
-          (selectedModuleNames.has("zig") ? "; Clang also survived Zig codegen" : ""),
+          (hasZig ? "; Clang also survived Zig codegen" : ""),
       );
       break browserProof;
     }
@@ -2907,6 +3179,10 @@ int main(int argc, char **argv) {
         background: getComputedStyle(document.documentElement).backgroundColor,
         font: getComputedStyle(document.documentElement).fontFamily,
         links: Array.from(document.querySelectorAll('.image-links a'), (link) => link.href),
+        descriptions: Array.from(document.querySelectorAll('.image'), (card) => ({
+          image: card.querySelector('h3')?.textContent,
+          text: card.querySelector('p')?.textContent.trim() ?? '',
+        })),
         interactiveElements: document.querySelectorAll('script, form, input, button').length,
         text: document.body.textContent,
       }))()`);
@@ -2918,10 +3194,28 @@ int main(int argc, char **argv) {
       assert.deepEqual(menuEvidence.links.toSorted(), imageDefinitions.flatMap(({ image }) => [
         `${image}/`, `${image}/rebuild/`, `view/${image}/`,
       ]).map(path => new URL(path, menuEvidence.base).href).toSorted());
+      assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
+      for (const { image, text } of menuEvidence.descriptions) {
+        assert.ok(text, `${image}: missing image description`);
+      }
       assert.equal(menuEvidence.interactiveElements, 0);
       assert.doesNotMatch(menuEvidence.text, /voice input/i);
+      await evaluate(debuggerClient.send, `document.querySelector('a[href="#shortcuts"]').click()`);
+      await waitForValue(debuggerClient.send, "location.hash",
+        value => value === "#shortcuts", "shortcuts link navigation", 200);
+      const shortcuts = await evaluate(debuggerClient.send, `(() => {
+        const section = document.querySelector('#shortcuts');
+        return { hash: location.hash, text: section.textContent,
+          load: section.querySelector('a').href };
+      })()`);
+      assert.equal(shortcuts.hash, "#shortcuts");
+      for (const key of ["Ctrl+Shift+C", "Ctrl+Shift+V", "Ctrl+Shift+S", "F11"]) {
+        assert.ok(shortcuts.text.includes(key), `shortcuts guide is missing ${key}`);
+      }
+      assert.doesNotMatch(shortcuts.text, /Ctrl\+C|mouse capture/);
+      assert.equal(shortcuts.load, new URL("session/", menuEvidence.base).href);
       console.log(
-        "browser: static root menu exposes open, rebuild, and Dollyfile-view links",
+        "browser: static root menu exposes image links and a working shortcuts reference",
       );
       break browserProof;
     }
@@ -2997,9 +3291,9 @@ int main(int argc, char **argv) {
           if (!await saveImageArtifact(artifact, '/' + definition.dollyfile)) throw new Error('cache priming failed');
           return artifact;
         };
-        await prime(base);
+        const primedBase = await prime(base);
         await prime(child);
-        const original = await loadImageArtifact(await loadImageArtifactDescriptor(base.sha256));
+        const original = await loadImageArtifact(await loadImageArtifactDescriptor(base.sha256, primedBase.inputs));
         if (!original) throw new Error('missing cached system');
         const oldInputs = [{ recipeSha256: base.sha256, sha256: original.sha256 }];
         if (!await loadImageArtifactDescriptor(child.sha256, oldInputs)) throw new Error('missing cached JavaScript');
@@ -3008,7 +3302,7 @@ int main(int argc, char **argv) {
         if (init?.kind !== 2) throw new Error('missing base Git config');
         records.set('/etc/gitconfig', { kind: 2, data: new TextEncoder().encode(
           new TextDecoder().decode(init.data) + '\\n# changed base output\\n') });
-        const changed = await describeImageArtifact(encodeSnapshotRecords(records).buffer, base.sha256);
+        const changed = await describeImageArtifact(encodeSnapshotRecords(records).buffer, base.sha256, original.inputs);
         try {
           if (!await saveImageArtifact(changed, '/' + base.dollyfile)) throw new Error('cache write failed');
           const staleHit = await loadImageArtifactDescriptor(child.sha256, [{ recipeSha256: base.sha256, sha256: changed.sha256 }]);
@@ -3149,6 +3443,8 @@ int main(int argc, char **argv) {
         "document.documentElement?.dataset.dollyStatus ?? ''",
         (value) => value === "ready" || value === "failed",
         "Dolly source rebuild",
+        // Source builds have no fixed duration; the caller controls cancellation.
+        Infinity,
       );
       assert.equal(state, "ready");
       const evidence = await evaluate(debuggerClient.send, `(() => {
@@ -3308,6 +3604,9 @@ int main(int argc, char **argv) {
       assert.equal(state, "ready");
       await enterRecoveryShell(debuggerClient.send);
       const { runCppSdkCases } = await import("../test/fixtures/cpp-sdk.mjs");
+      if (!hasZig) assert.equal(await evaluate(debuggerClient.send,
+        `window.__dolly.submit('test ! -e /usr/bin/zig && test ! -e /usr/lib/zig')`), 0,
+      "C/C++ image must not retain the Zig compiler or SDK");
       await runCppSdkCases(command => evaluate(
           debuggerClient.send,
           `window.__dolly.submit(${JSON.stringify(command)})`,
@@ -4433,7 +4732,7 @@ int main(int argc, char **argv) {
   const surfaceToCssY = (value) => selectionGeometry.top +
     value * selectionGeometry.cssHeight / selectionGeometry.canvasHeight;
   const selectionStartX = surfaceToCssX(
-    selectionGeometry.paddingX + selectionGeometry.cellWidth / 2,
+    selectionGeometry.paddingX + selectionGeometry.cellWidth / 4,
   );
   const selectionEndX = surfaceToCssX(
     // Ghostty uses the pointer half within the final cell to decide whether
@@ -4786,11 +5085,12 @@ int main(int argc, char **argv) {
       frameSequence: Number(document.documentElement.dataset.frameSequence ?? 0),
       cols: Number(document.documentElement.dataset.terminalCols ?? 0),
       rows: Number(document.documentElement.dataset.terminalRows ?? 0),
+      geometry,
       dropped: Atomics.load(transport.words, transport.word + transport.constructor.eventDropped),
       bars: document.querySelectorAll('header, footer').length,
       backgroundColor: getComputedStyle(document.body).backgroundColor,
       caretColor: getComputedStyle(document.querySelector('#terminal')).caretColor,
-      bootstrapFontLoaded: document.fonts.check('600 15px "Dolly IosevkaTerm SemiBold"'),
+      bootstrapFontLoaded: document.fonts.check('600 20px "Dolly IosevkaTerm SemiBold"'),
       bootstrapHidden: document.querySelector('#bootstrap-log').hidden,
       bootstrap: document.querySelector('#bootstrap-log').textContent,
       networkError: document.documentElement.dataset.networkError ?? '',
@@ -4815,7 +5115,11 @@ int main(int argc, char **argv) {
   assert.equal(evidence.canvasWidth, evidence.cssWidth);
   assert.equal(evidence.canvasHeight, evidence.cssHeight);
   assert.ok(evidence.frameSequence > 100);
-  assert.ok(evidence.cols > 100 && evidence.rows > 20);
+  assert.ok(evidence.cols > 0 && evidence.rows > 0);
+  assert.equal(evidence.cols, Math.floor(
+    (evidence.canvasWidth - 2 * evidence.geometry.paddingX) / evidence.geometry.cellWidth));
+  assert.equal(evidence.rows, Math.floor(
+    (evidence.canvasHeight - 2 * evidence.geometry.paddingY) / evidence.geometry.cellHeight));
   assert.equal(evidence.dropped, 0);
   assert.equal(evidence.bars, 0);
   assert.equal(evidence.backgroundColor, "rgb(38, 38, 38)");
@@ -4830,9 +5134,9 @@ int main(int argc, char **argv) {
   assert.ok(evidence.foregroundPixels > 100);
   assert.ok(evidence.accentPixels > 10);
   assert.ok(evidence.cursorAccentPixels > evidence.cursorCellPixels * 0.5);
-  assert.equal(initialFontSize, 15);
-  assert.equal(increasedFontSize, 16);
-  assert.equal(restoredFontSize, 15);
+  assert.equal(initialFontSize, 20);
+  assert.equal(increasedFontSize, 21);
+  assert.equal(restoredFontSize, 20);
   assert.deepEqual(curlCliRequest, { header: "yes", body: "one=1&two=2" });
   assert.deepEqual(gitDiscoveryRequest, { method: "GET", protocol: "version=2" });
   assert.equal(piModelRequests.length, 0);

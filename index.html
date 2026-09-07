@@ -32,6 +32,9 @@
       .image h3 { margin: 0 0 0.65rem; color: #f2d45c; font-size: 1.15rem; }
       .image p { color: #b7b1a6; }
       .image-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+      #shortcuts dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.5rem; }
+      #shortcuts dd { margin: 0; }
+      kbd { font: inherit; white-space: nowrap; }
     </style>
   </head>
   <body>
@@ -40,11 +43,11 @@
       <p class="lead">A small POSIX-like coding-agent userspace contained in one browser WebAssembly machine. Pick an image or rebuild it visibly from source.</p>
 
       <h2>Images</h2>
-      <p><a href="./session/">Saved sessions →</a> · Save from a running image with Ctrl+Shift+S.</p>
+      <p><a href="./session/">Saved sessions →</a> · <a href="#shortcuts">Shortcuts</a></p>
       <nav class="routes" aria-label="Dolly images">
         <section class="image">
           <h3>default</h3>
-          <p>The base tool environment. Starts <code>/bin/slop</code>.</p>
+          <p>Everyday shell environment with Git, Make and C/C++. Starts Slop.</p>
           <div class="image-links">
             <a href="./default/">open →</a>
             <a href="./default/rebuild/">rebuild</a>
@@ -53,7 +56,7 @@
         </section>
         <section class="image">
           <h3>pi</h3>
-          <p>Default plus QuickJS and Pi. Starts <code>/usr/bin/pi</code>.</p>
+          <p>Pi coding agent with JavaScript/TypeScript tools and the shared shell environment.</p>
           <div class="image-links">
             <a href="./pi/">open →</a>
             <a href="./pi/rebuild/">rebuild</a>
@@ -62,7 +65,7 @@
         </section>
         <section class="image">
           <h3>python</h3>
-          <p>Focused CPython runtime and native-extension SDK. Starts <code>/bin/slop</code>.</p>
+          <p>CPython, the Bonnie package manager and native-extension build tools. Starts Slop.</p>
           <div class="image-links">
             <a href="./python/">open →</a>
             <a href="./python/rebuild/">rebuild</a>
@@ -71,7 +74,7 @@
         </section>
         <section class="image">
           <h3>python-pi</h3>
-          <p>Pi plus CPython. Starts <code>/usr/bin/pi</code>.</p>
+          <p>Pi with Python, Bonnie and package-installation guidance inside the sandbox.</p>
           <div class="image-links">
             <a href="./python-pi/">open →</a>
             <a href="./python-pi/rebuild/">rebuild</a>
@@ -80,14 +83,126 @@
         </section>
         <section class="image">
           <h3>gamedev</h3>
-          <p>Pi plus raylib and Box3D. Starts <code>/usr/bin/graphics-demo</code>.</p>
+          <p>Singularity: an interactive 3D physics playground with raylib, Box3D and Pi.</p>
           <div class="image-links">
             <a href="./gamedev/">open →</a>
             <a href="./gamedev/rebuild/">rebuild</a>
             <a href="./view/gamedev/">Dollyfile</a>
           </div>
         </section>
+        <section class="image">
+          <h3>bhop</h3>
+          <p>Airtime: a CS-style bunny-hop course with air strafing, scroll jumping and mouse capture.</p>
+          <div class="image-links">
+            <a href="./bhop/">open →</a>
+            <a href="./bhop/rebuild/">rebuild</a>
+            <a href="./view/bhop/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>gamedev-phone</h3>
+          <p>Singularity with touch controls inside the sandbox. Requires a wasm64-capable browser.</p>
+          <div class="image-links">
+            <a href="./gamedev-phone/">open →</a>
+            <a href="./gamedev-phone/rebuild/">rebuild</a>
+            <a href="./view/gamedev-phone/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>gamedev-sdk</h3>
+          <p>Reusable raylib and Box3D headers, libraries and sources for building games. Starts Slop.</p>
+          <div class="image-links">
+            <a href="./gamedev-sdk/">open →</a>
+            <a href="./gamedev-sdk/rebuild/">rebuild</a>
+            <a href="./view/gamedev-sdk/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>javascript</h3>
+          <p>QuickJS, Janis and TypeScript for building JavaScript tools. Starts Slop.</p>
+          <div class="image-links">
+            <a href="./javascript/">open →</a>
+            <a href="./javascript/rebuild/">rebuild</a>
+            <a href="./view/javascript/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>pi-runtime</h3>
+          <p>Reusable Pi and JavaScript toolchain base. Starts Slop instead of launching Pi.</p>
+          <div class="image-links">
+            <a href="./pi-runtime/">open →</a>
+            <a href="./pi-runtime/rebuild/">rebuild</a>
+            <a href="./view/pi-runtime/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>python-runtime</h3>
+          <p>CPython and its native-extension SDK without Bonnie. Starts Slop.</p>
+          <div class="image-links">
+            <a href="./python-runtime/">open →</a>
+            <a href="./python-runtime/rebuild/">rebuild</a>
+            <a href="./view/python-runtime/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>system</h3>
+          <p>Shared shell, Git, build tools and C/C++ SDK used by the other images.</p>
+          <div class="image-links">
+            <a href="./system/">open →</a>
+            <a href="./system/rebuild/">rebuild</a>
+            <a href="./view/system/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>ghostty-build</h3>
+          <p>Builds the Ghostty terminal from source with Zig. Includes its compiler and SDK; starts Slop.</p>
+          <div class="image-links">
+            <a href="./ghostty-build/">open →</a>
+            <a href="./ghostty-build/rebuild/">rebuild</a>
+            <a href="./view/ghostty-build/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>cmake-build</h3>
+          <p>Bootstraps CMake from source for building C/C++ projects. Includes libuv and Slop.</p>
+          <div class="image-links">
+            <a href="./cmake-build/">open →</a>
+            <a href="./cmake-build/rebuild/">rebuild</a>
+            <a href="./view/cmake-build/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>neovim-build</h3>
+          <p>Builds Neovim, Lua and syntax parsers from source. Includes CMake and development libraries.</p>
+          <div class="image-links">
+            <a href="./neovim-build/">open →</a>
+            <a href="./neovim-build/rebuild/">rebuild</a>
+            <a href="./view/neovim-build/">Dollyfile</a>
+          </div>
+        </section>
+        <section class="image">
+          <h3>neovim</h3>
+          <p>Neovim with Lua and syntax parsers, built from source. Edit sandbox files through Ghostty.</p>
+          <div class="image-links">
+            <a href="./neovim/">open →</a>
+            <a href="./neovim/rebuild/">rebuild</a>
+            <a href="./view/neovim/">Dollyfile</a>
+          </div>
+        </section>
       </nav>
+      <section id="shortcuts" aria-labelledby="shortcuts-title">
+        <h2 id="shortcuts-title">Shortcuts</h2>
+        <dl>
+          <dt>Copy</dt><dd>Select text, then <kbd>Ctrl+Shift+C</kbd>.</dd>
+          <dt>Paste</dt><dd><kbd>Ctrl+Shift+V</kbd></dd>
+          <dt>Save</dt><dd><kbd>Ctrl+Shift+S</kbd>. Name it once; later saves update it.</dd>
+          <dt>Load</dt><dd>Open <a href="./session/">Saved sessions</a> and choose a name.</dd>
+          <dt>Font size</dt><dd><kbd>Ctrl +</kbd> / <kbd>Ctrl −</kbd></dd>
+          <dt>Fullscreen</dt><dd><kbd>F11</kbd> to enter or leave.</dd>
+          <dt>Shell</dt><dd><kbd>Tab</kbd> completes; <kbd>↑</kbd> / <kbd>↓</kbd> browse history.</dd>
+        </dl>
+        <p>Saves keep files, not running programs. Stored only in this browser and site.</p>
+      </section>
     </main>
   </body>
 </html>

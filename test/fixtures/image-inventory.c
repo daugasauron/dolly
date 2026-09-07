@@ -5,9 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <dolly/http.h>
 
 static char **paths;
 static size_t path_count, extra, missing, live;
+
+static size_t write_expected(const void *bytes, size_t length, void *stream) {
+  return fwrite(bytes, 1, length, stream);
+}
 
 static int retained(const char *path, int directory) {
   for (size_t index = 0; index < path_count; ++index) {
@@ -41,11 +47,20 @@ static int walk(const char *path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) return 2;
+  if (argc != 3) return 2;
   FILE *manifest = fopen("/etc/dolly/image.manifest", "r");
   if (manifest == NULL) return 2;
-  FILE *expected = fopen(argv[1], "r");
+  FILE *expected = tmpfile();
   if (expected == NULL) return 2;
+  const dolly_http_request request = {
+    .method = "GET", .url = argv[1], .flags = DOLLY_HTTP_FAIL_STATUS,
+    .write = write_expected, .write_context = expected,
+  };
+  dolly_http_response response = {0};
+  const int fetched = dolly_http_perform(&request, &response);
+  dolly_http_response_dispose(&response);
+  if (fetched != 0 || ferror(expected)) { fclose(expected); return 2; }
+  rewind(expected);
   int byte;
   do {
     byte = fgetc(manifest);
@@ -69,6 +84,19 @@ int main(int argc, char **argv) {
   }
   free(line);
   if (fclose(manifest) != 0) return 2;
+  FILE *help = fopen(argv[2], "r");
+  if (help == NULL) return 2;
+  char help_line[4096];
+  int typescript = 0, absent_command = 0;
+  while (fgets(help_line, sizeof(help_line), help) != NULL) {
+    if (strstr(help_line, "ghostty-vt") != NULL) absent_command = 1;
+    if (strncmp(help_line, "TypeScript:", 11) == 0) typescript = 1;
+  }
+  if (ferror(help) || fclose(help) != 0) return 2;
+  if (absent_command || typescript != (access("/usr/bin/tsc", F_OK) == 0)) {
+    fputs("help does not match this image's commands\n", stderr);
+    return 1;
+  }
   const int status = walk("/bin") || walk("/etc") || walk("/usr");
   printf("IMAGE-INVENTORY: %zu declared, %zu live system paths, %zu extra, %zu missing\n",
     path_count, live, extra, missing);

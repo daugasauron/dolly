@@ -4,8 +4,8 @@ MODULE bootstrap
 # This is the first step. It has no requirements: its exact compiler commands
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
-SOURCE HOST /include/dolly/toolchain.h /usr/include/dolly/toolchain.h 9e72211e0380b9d900848741c0c1197b370cf93b2de64a8f4d199ea5aab6c9bb
-SOURCE HOST /include/dolly/runtime.h   /usr/include/dolly/runtime.h   cf6bacbfa773ae253d3abc5b7f3e006e4b017aaefab4d0ea412476f9d6d5b2a9
+SOURCE HOST /include/dolly/toolchain.h /usr/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415
+SOURCE HOST /include/dolly/runtime.h   /usr/include/dolly/runtime.h   060f61049f36cec927ca4560a53f870c0af08052d5e7506981f5e61657873b71
 SOURCE HOST /include/dolly/process.h   /usr/include/dolly/process.h   e68eb32d2bf5c2182ff9bc5ef29db9b8581b6fb2841518abc2a52573602e5977
 SOURCE HOST /include/dolly/http.h      /usr/include/dolly/http.h      7e003122545cd86a44daef371ed15ea9f323dc277e1a9ce9fa4dcd74fc0c6d64
 SOURCE HOST /include/dolly/display.h   /usr/include/dolly/display.h   f6cb60e0b7d53286cb4af0b728bf2f460a2993a0f8c5f72c9d7a97386cd1cf48

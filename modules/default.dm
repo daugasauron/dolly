@@ -2,13 +2,11 @@ DOLLY 3
 MODULE default
 
 # Execute these recipes in order; re-export the useful runtime and SDK below.
-USE HOST /modules/bootstrap.dm      2cb7a1b0df42a6f45fad66752142b6a08f1e98f25c13d3c54f68182d02cb7dd0
+USE HOST /modules/bootstrap.dm      a10fe022b6fa214ce6e89867cd659a2e0a4499e0e9373c705c314fdad2da8272
 USE HOST /modules/core-tools.dm     42bc8954f5f995a05262752bac670967c3a5a13edcecca7e325dc814d28506b2
 USE HOST /modules/download.dm       74b6c1c6a911150a593758806ee5939f52f42cdb93632f68406adcecb0ca03bf
 USE HOST /modules/tar.dm            0bff7c2d25ab0ce49401bd2e32f341520663f3e3d21d6d4f5bbd73a083a725c5
 USE HOST /modules/make.dm           f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9fd0225dd8f05ea0e02a1
-USE HOST /modules/zig.dm            baba1266d9e196b134d0b513a50ac9d1100a312e11cf5e3109ceb07b64880f28
-USE HOST /modules/ghostty.dm        68cb9783d225f771265951957c1e861a05f904444d819539c3e98440d7fac4fb
 USE HOST /modules/cpp.dm            a7ede03621f9a6de44d4c2c9dbe64dce96c87b286aab6216a3390c64eb3eed52
 USE HOST /modules/ninja.dm          84b060b2ab700c37083cd698a619630d1f25663156320a0acae3fe07053777f7
 USE HOST /modules/zlib.dm           c5671bb656443794bbb15aac5c9eebbd48621aea664b002c9757aaf9742ca1a9
@@ -28,7 +26,7 @@ USE HOST /modules/sbase-tools-9.dm  eff5de6801c4d483b2853fa027f07beaed6662395172
 USE HOST /modules/sbase-tools-10.dm 5eb35e784f68afbf40e5509a047a386f689d90d69dd3dccaf535f39b4d18c999
 USE HOST /modules/sbase-tools-11.dm e8121cc66576e4641cb99bbfb5fe60c07749b725a0c3a7a3c6e6e677a42ccd9f
 USE HOST /modules/sbase-tools-12.dm 6f1a4fc873a037e749f9456711be8d1424decb454f4379e954239a6134847266
-USE HOST /modules/agent-tools.dm    06047c671c1a3337df7dbac8ccc53326c38ab422273e4b17ae6597d2b5d7b148
+USE HOST /modules/agent-tools.dm    c431eced287781cca823f7ac28a13f8eb81f59ae6a818339818847b7bd593bed
 
 # Retain the runtime and SDK at these paths when the module finishes.
 EXPORTS HEADER libc       /usr/include
@@ -42,23 +40,18 @@ EXPORTS HEADER cpp        /usr/include/c++/v1
 EXPORTS HEADER zlib       /usr/include/zlib.h
 EXPORTS HEADER zconf      /usr/include/zconf.h
 EXPORTS HEADER curl       /usr/include/curl
-EXPORTS HEADER ghostty-vt /usr/include/ghostty
 
 EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
 EXPORTS LIB c++         /usr/lib/dolly/process/libc++-ww-wasmexcept.a
 EXPORTS LIB c++abi      /usr/lib/dolly/process/libc++abi-ww-wasmexcept.a
 EXPORTS LIB z           /usr/lib/libz.a
 EXPORTS LIB curl        /usr/lib/libcurl.a
-EXPORTS LIB ghostty-vt  /usr/lib/libghostty-vt.a
-EXPORTS LIB display     /usr/lib/libdisplay.so
 
 EXPORTS ENV CC
 EXPORTS ENV CXX
 EXPORTS ENV AR
 EXPORTS ENV SHELL
 EXPORTS ENV PATH
-EXPORTS ENV ZIG_LIB_DIR
-EXPORTS ENV DISPLAY
 
 EXPORTS TOOL slop
 EXPORTS TOOL dollyfile
@@ -85,7 +78,6 @@ EXPORTS TOOL make
 EXPORTS TOOL ninja
 EXPORTS TOOL curl
 EXPORTS TOOL git
-EXPORTS TOOL zig
 EXPORTS TOOL awk
 EXPORTS TOOL printf
 EXPORTS TOOL grep
@@ -150,7 +142,6 @@ EXPORTS TOOL dd
 EXPORTS TOOL tty
 EXPORTS TOOL gzip
 
-EXPORTS FOLDER zig-lib           /usr/lib/zig
 EXPORTS FOLDER process-sdk       /usr/lib/dolly/process
 EXPORTS FOLDER clang-headers     /usr/lib/clang/24/include
 EXPORTS FILE   compiler          /usr/libexec/dolly/process-bin/compiler

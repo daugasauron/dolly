@@ -10,11 +10,10 @@ enum {
   DOLLY_TOOLCHAIN_CXX = 1,
   DOLLY_TOOLCHAIN_LD = 2,
   DOLLY_TOOLCHAIN_AR = 3,
-  DOLLY_TOOLCHAIN_ZIG = 4,
 };
 
 // Runs the compiler process's C/C++/linker driver. This function is internal to
-// /usr/libexec/dolly/compiler; it is not a kernel service or machine-ABI entry.
+// /usr/libexec/dolly/process-bin/compiler; it is not a kernel service or ABI entry.
 int dolly_toolchain_main(int argc, char **argv, int default_language);
 
 // Process tool frontends delegate to the private compiler executable instead

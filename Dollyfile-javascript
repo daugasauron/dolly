@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE javascript
 
-FROM HOST /Dollyfile-system 577b35909d779ad10c3729c2118bb1d4a5096f25980d3885c1c76dbd55117f4c
+FROM HOST /Dollyfile-system 7ce9d80710acc550efa7f541c652a8ddfd9b3c69fbc69add74ce86db5b3d234f
 USE HOST /modules/quickjs.dm 201e0508c9186273d1560a23b90085f10140ca6dd650c7a9f5a7870b15b2fada
 USE HOST /modules/typescript.dm 6e3d68d10ad21724da28f91f6bf9350d16db16917d93e793b9004f0b6688b3a0
 

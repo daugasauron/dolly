@@ -593,7 +593,8 @@ static int wait_process(int pid, uint32_t flags, dolly_process_wait_response *re
       (response->signal_number != 0 && response->signal_number != SIGHUP &&
        response->signal_number != SIGINT && response->signal_number != SIGQUIT &&
        response->signal_number != SIGABRT && response->signal_number != SIGKILL &&
-       response->signal_number != SIGPIPE && response->signal_number != SIGTERM) ||
+       response->signal_number != SIGPIPE && response->signal_number != SIGTERM &&
+       response->signal_number != SIGWINCH) ||
       (response->signal_number != 0 && response->status != 128 + response->signal_number)) return -EIO;
   return 0;
 }
@@ -613,11 +614,10 @@ int dolly_toolchain_proxy(int argc, char **argv, int default_language) {
       "--dolly-toolchain-mode=c++",
       "--dolly-toolchain-mode=ld",
       "--dolly-toolchain-mode=ar",
-      "--dolly-toolchain-mode=zig",
   };
   if (argc <= 0 || argv == NULL || argv[0] == NULL ||
       default_language < DOLLY_TOOLCHAIN_C ||
-      default_language > DOLLY_TOOLCHAIN_ZIG || argc == INT32_MAX) return 64;
+      default_language > DOLLY_TOOLCHAIN_AR || argc == INT32_MAX) return 64;
   char **forward = calloc((size_t)argc + 2, sizeof(*forward));
   if (forward == NULL) return 1;
   forward[0] = argv[0];
@@ -925,7 +925,8 @@ int dolly_kill(pid_t pid, int signal_number) {
   if (pid <= 0 || (signal_number != 0 && signal_number != SIGHUP &&
                   signal_number != SIGINT && signal_number != SIGQUIT &&
                   signal_number != SIGABRT && signal_number != SIGKILL &&
-                  signal_number != SIGPIPE && signal_number != SIGTERM)) {
+                  signal_number != SIGPIPE && signal_number != SIGTERM &&
+                  signal_number != SIGWINCH)) {
     errno = ENOTSUP;
     return -1;
   }

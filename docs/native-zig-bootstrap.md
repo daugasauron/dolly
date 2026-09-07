@@ -1,9 +1,10 @@
 # Native Zig bootstrap notes
 
 The historical standalone Zig side-module design documented here was replaced
-by the private process compiler. Zig, Clang, LLD, and their LLVM support now
-live in `/usr/libexec/dolly/process-bin/compiler`, which is a normal
-`dolly-process-0` executable with fresh memory on every invocation. No LLVM or
+by private process executables. Clang/LLD live in
+`/usr/libexec/dolly/process-bin/compiler`; Zig and its LLVM/LLD support live in
+`/usr/bin/zig` in the `ghostty-build` image. Both use `dolly-process-0`, with
+fresh memory on every invocation. No LLVM or
 Zig bridge function remains in the resident kernel contract.
 
 For the current implementation, file map, source adaptations, reproducibility

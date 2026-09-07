@@ -26,7 +26,8 @@
 static uint32_t consumed_interrupt_sequence;
 static uint32_t active_terminal_mask = 0x7u;
 static uint32_t terminal_mode_flags =
-    DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO;
+    DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
+    DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
 
 _Static_assert((DOLLY_DISPLAY_EVENT_CAPACITY &
                 (DOLLY_DISPLAY_EVENT_CAPACITY - 1)) == 0,
@@ -357,6 +358,19 @@ int dolly_http_cancel(unsigned int active_sequence) {
   return dolly_http_dispatch(NULL, 0, NULL, 0, NULL, 0, NULL, 0, 0, sequence);
 }
 
+static int handle_terminal_event(const dolly_input_event *event,
+                                  unsigned char *output, size_t capacity,
+                                  size_t *length) {
+  const uint32_t columns = atomic_load(&display_mailbox.terminal_cols);
+  const uint32_t rows = atomic_load(&display_mailbox.terminal_rows);
+  const int result = display_driver->handle_event(event, output, capacity, length);
+  if (result == 0 && event != NULL && event->type == DOLLY_INPUT_EVENT_RESIZE &&
+      (columns != atomic_load(&display_mailbox.terminal_cols) ||
+       rows != atomic_load(&display_mailbox.terminal_rows)))
+    dolly_kernel_terminal_resized();
+  return result;
+}
+
 static int dolly_terminal_fill_raw_timeout(double milliseconds) {
   for (;;) {
     dolly_session_service();
@@ -371,7 +385,7 @@ static int dolly_terminal_fill_raw_timeout(double milliseconds) {
     encoded_input_length = 0;
 
     if (display_driver != NULL &&
-        display_driver->handle_event(NULL, encoded_input,
+        handle_terminal_event(NULL, encoded_input,
                                      sizeof(encoded_input),
                                      &encoded_input_length) == 0 &&
         encoded_input_length != 0) continue;
@@ -386,7 +400,7 @@ static int dolly_terminal_fill_raw_timeout(double milliseconds) {
       atomic_store_explicit(&display_mailbox.event_read, read + 1,
                             memory_order_release);
       if (display_driver != NULL &&
-          display_driver->handle_event(&event, encoded_input,
+          handle_terminal_event(&event, encoded_input,
                                        sizeof(encoded_input),
                                        &encoded_input_length) == 0 &&
           encoded_input_length != 0) continue;
@@ -658,12 +672,12 @@ static int update_suspended_terminal_layout(const dolly_input_event *event) {
   unsigned char ignored[256];
   size_t ignored_length = 0;
   do {
-    if (display_driver->handle_event(NULL, ignored, sizeof(ignored),
+    if (handle_terminal_event(NULL, ignored, sizeof(ignored),
                                      &ignored_length) != 0) {
       return -EIO;
     }
   } while (ignored_length != 0);
-  if (display_driver->handle_event(event, ignored, sizeof(ignored),
+  if (handle_terminal_event(event, ignored, sizeof(ignored),
                                    &ignored_length) != 0) {
     return -EIO;
   }
@@ -816,7 +830,8 @@ int dolly_terminal_mode_get(int descriptor) {
 }
 
 int dolly_terminal_mode_set(int descriptor, uint32_t flags) {
-  const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO;
+  const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
+      DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
   if ((flags & ~valid) != 0) return -EINVAL;
   if (!dolly_isatty(descriptor)) return -errno;
   terminal_mode_flags = flags;
@@ -834,6 +849,18 @@ EMSCRIPTEN_KEEPALIVE
 void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
   if (bytes == NULL || length == 0) return;
   if (display_driver != NULL) {
+    const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
+    if ((terminal_mode_flags & newline) == newline) {
+      uintptr_t start = 0;
+      for (uintptr_t index = 0; index < length; ++index) {
+        if (bytes[index] != '\n') continue;
+        if (index > start) display_driver->write(bytes + start, index - start);
+        display_driver->write((const unsigned char *)"\r\n", 2);
+        start = index + 1;
+      }
+      bytes += start;
+      length -= start;
+    }
     display_driver->write(bytes, (size_t)length);
   } else {
     dolly_bootstrap_write_bytes(bytes, length);
@@ -870,7 +897,7 @@ int dolly_terminal_present_pending(void) {
     if (event->type == DOLLY_INPUT_EVENT_RESIZE ||
         event->type == DOLLY_INPUT_EVENT_POINTER ||
         event->type == DOLLY_INPUT_EVENT_SCROLL) {
-      (void)display_driver->handle_event(event, &preserved, 0, &output_length);
+      (void)handle_terminal_event(event, &preserved, 0, &output_length);
       event->type = 0;
     }
   }
@@ -888,7 +915,7 @@ int dolly_terminal_present_pending(void) {
     }
   }
   atomic_store_explicit(&display_mailbox.event_read, retained, memory_order_release);
-  return display_driver->handle_event(
+  return handle_terminal_event(
       NULL, &preserved, 0, &output_length);
 }
 

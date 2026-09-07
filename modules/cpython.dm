@@ -37,7 +37,7 @@ SLOP tar \
 SOURCE HOST /static/python/runtimes/cpython-platform.c        /usr/src/python/Python/dolly_platform.c         9a58412f3ecfebfef6bbd67dfc5fa43959314568b6add06c7c0d548ddc7eb5b6
 SOURCE HOST /static/python/runtimes/cpython-extension-check.c /usr/src/python/Modules/dolly_extension_check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071
 SOURCE HOST /static/python/runtimes/cpython-socket-stubs.c    /usr/src/python/Modules/dolly_socket_stubs.c    d54e0a1d299c128d483e7edc9dc089693e8ca53a7de54509e687a87a6368a4ce
-SOURCE HOST /static/python/runtimes/cpython-termios.c         /usr/src/python/Modules/dolly_termios.c         b1241a673ceb4a34327a6245954acad23a4e77ce97d6817114b303ea32cd6cd0
+SOURCE HOST /static/python/runtimes/cpython-termios.c         /usr/src/python/Modules/dolly_termios.c         420aaec556731d408e6e5c856931cdacb29c0c391e7aec6fdc5b58357cb5ab1e
 SOURCE HOST /static/python/runtimes/cpython-process.c         /usr/src/python/Modules/dolly_process.c         9dfbbe0c2de367d829b4fec488ff4e17488324c4cc4c750b34de2c82547fb943
 SOURCE HOST /static/python/runtimes/cpython-subprocess.py     /usr/src/python/Lib/_dolly_subprocess.py        cabc2b4eb15e61332c2b63454724c3b390c5f2a2f0effa2889861e123835b785
 

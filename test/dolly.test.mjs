@@ -405,12 +405,12 @@ test("browser acceptance preserves compiler lifecycle probes on the private proc
     readFile(new URL("../docs/roadmap.md", import.meta.url), "utf8"),
     readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8"),
   ]);
-  assert.match(harness, /isMode\("zig-single-provider"\)/);
+  assert.match(harness, /isMode\("zig-sdk"\)/);
   assert.match(harness, /isMode\("lifecycle-probe"\)/);
   assert.match(harness, /isMode\("optimized-lifecycle-probe"\)/);
   assert.match(harness, /isMode\("make"\)/);
   assert.match(launcher, /DOLLY_BROWSER_MODE=cpp/);
-  assert.match(launcher, /DOLLY_BROWSER_MODE=zig-single-provider/);
+  assert.match(launcher, /DOLLY_IMAGE=ghostty-build DOLLY_BROWSER_MODE=zig-sdk/);
   assert.match(roadmap, /every ordinary executable a fresh Worker/);
   assert.match(roadmap, /run mixed Zig and[\s\S]*Clang sequences/);
   assert.match(roadmap, /pure CPU loop exits 124/);
@@ -562,6 +562,10 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["pi-runtime", "/usr/bin/pi"],
     ["python-runtime", "/usr/bin/python"],
     ["gamedev-sdk", "/usr/lib/libbox3d.a"],
+    ["ghostty-build", "/usr/bin/zig"],
+    ["cmake-build", "/usr/bin/cmake"],
+    ["neovim-build", "/usr/bin/nvim"],
+    ["neovim", "/usr/bin/nvim"],
   ]);
   for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
@@ -601,10 +605,9 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const frontend = ["default", "pi", "python", "python-pi", "gamedev", "gamedev-phone", "bhop"].includes(image);
-    assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), frontend);
-    assert.deepEqual(metadata.entry, ["/bin/foreground", "-i", "/bin/slop",
-      ...(frontend ? ["/etc/dolly/init.slop"] : [])]);
+    const shellStartup = ["default", "pi", "python", "python-pi", "gamedev", "gamedev-phone", "bhop"].includes(image);
+    assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup);
+    assert.deepEqual(metadata.entry, graph.root.entry);
     assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);
     assert.equal(metadata.manifest.some(path => /^\/usr\/src\/(raylib|box3d|dolly\/gamedev)\/build\//.test(path)), false);
     if (image === "default") {
@@ -645,10 +648,14 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const knownImages = [
     { image: "default", dollyfile: "Dollyfile" },
     { image: "bhop", dollyfile: "Dollyfile-bhop" },
+    { image: "cmake-build", dollyfile: "Dollyfile-cmake-build" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
     { image: "gamedev-phone", dollyfile: "Dollyfile-gamedev-phone" },
     { image: "gamedev-sdk", dollyfile: "Dollyfile-gamedev-sdk" },
+    { image: "ghostty-build", dollyfile: "Dollyfile-ghostty-build" },
     { image: "javascript", dollyfile: "Dollyfile-javascript" },
+    { image: "neovim", dollyfile: "Dollyfile-neovim" },
+    { image: "neovim-build", dollyfile: "Dollyfile-neovim-build" },
     { image: "pi", dollyfile: "Dollyfile-pi" },
     { image: "pi-runtime", dollyfile: "Dollyfile-pi-runtime" },
     { image: "python", dollyfile: "Dollyfile-python" },
@@ -933,7 +940,7 @@ test("foreground SIGINT is PID-targeted and always has a forced Worker terminati
   assert.match(supervisor, /createProcessMemory\(memoryRequirements\)/);
   assert.match(processKernel, /dolly_process_deadline_remaining\(int pid\)/);
   assert.match(processKernel,
-               /request\.signal_number : next_signal\(process\)[\s\S]*?128 \+ signal_number/);
+               /pending_signals & ~\(1u << SIGWINCH\)[\s\S]*?128 \+ signal_number/);
   const timeoutCommand = await readFile(
     new URL("../src/commands/timeout.c", import.meta.url), "utf8",
   );
@@ -1033,7 +1040,7 @@ test("foreground commands can exclusively lease and safely restore the in-Wasm f
   assert.match(driver, /if \(event == NULL && frame_dirty\) render_frame\(\)/);
   assert.match(driver, /frame_dirty = true/);
   assert.match(runtime, /int dolly_terminal_present_pending\(void\)/);
-  assert.match(runtime, /handle_event\(\s*NULL, &preserved, 0, &output_length\)/);
+  assert.match(runtime, /handle_terminal_event\(\s*NULL, &preserved, 0, &output_length\)/);
   assert.match(display, /DOLLY_INPUT_EVENT_SCROLL = 7/);
   assert.match(driver, /ghostty_selection_gesture_new/);
   assert.match(driver, /ghostty_selection_gesture_event\(/);
@@ -1327,15 +1334,15 @@ test("Zig bootstraps the retained Ghostty VT and display libraries inside Dolly"
   assert.match(build, /build-native-zig\.sh/);
   assert.match(build, /-DDOLLY_ZIG_DIR="\$\{zig_container_dir\}"/);
 
-  assert.match(zigRecipe, /SOURCE HOST \/static\/default\/commands\/zig\.c\s+\/tmp\/zig\.c/);
-  assert.match(zigRecipe, /SLOP cc \\\n+  \/tmp\/zig\.c \\\n+  -o \/usr\/bin\/zig/);
+  assert.match(zigRecipe, /SOURCE HOST \/static\/default\/zig\.wasm\s+\/usr\/bin\/zig/);
   assert.match(zigRecipe, /SOURCE HOST \/static\/default\/zig-lib\.tar/);
   assert.match(ghosttyRecipe, /SOURCE HOST \/static\/default\/ghostty\.tar/);
   assert.match(ghosttyRecipe, /SOURCE HOST \/static\/default\/uucode\.tar/);
   assert.doesNotMatch(packaging, /--preload-file .*DOLLY_(?:ZIG|GHOSTTY|UUCODE)/);
   assert.match(packaging, /sysroot\/include@\/seed\/usr\/include/);
   assert.match(packaging, /"\$\{DOLLY_ZIG_DIR\}\/src\/zig_llvm\.cpp"/);
-  assert.match(packaging, /add_executable\(dolly-process-compiler[\s\S]*?"\$\{DOLLY_ZIG_OBJECT\}"/);
+  assert.match(packaging, /add_executable\(dolly-process-zig[^)]*"\$\{DOLLY_ZIG_OBJECT\}"/);
+  assert.doesNotMatch(packaging.match(/add_executable\(dolly-process-compiler[^)]*\)/)[0], /zig/i);
   assert.doesNotMatch(processAbi, /Zig|LLVM|LLD/);
   assert.match(zigBrowserGate, /await runZigSdkCases\(/);
   assert.doesNotMatch(zigBrowserGate, /zig-object-check browser-answer\.o/);

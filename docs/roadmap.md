@@ -39,7 +39,9 @@ and the HTTP device.
 memory and one typed packet-call gate and exports `_start`; it cannot import
 browser or kernel-libc functions. A trusted multi-memory Wasm gate copies
 bounded pointer-free packets between process and kernel memory. Clang, LLD, and
-Zig are one private compiler executable rather than resident kernel code.
+Zig run as private compiler executables rather than resident kernel code.
+Zig is separate from Clang/LLD and retained only by the Ghostty build image;
+the shared system copies its finished terminal output.
 Ghostty's persistent display driver is the sole explicit kernel plugin.
 
 Ctrl-C records SIGINT for the foreground process tree, wakes deferred calls,

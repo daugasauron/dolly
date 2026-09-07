@@ -32,6 +32,17 @@ has_module zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
 has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 has_module make && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
 has_module ninja && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
+has_module libuv && libuv_dir="$(bash "${project_dir}/scripts/prepare-libuv.sh")"
+has_module lua && lua_archive="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" lua)"
+has_module lpeg && lpeg_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lpeg)"
+has_module cmake && cmake_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" cmake)"
+if has_module neovim || has_module neovim-parsers; then
+  neovim_dir="$(bash "${project_dir}/scripts/prepare-neovim.sh")"
+fi
+if has_module luv; then
+  luv_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" luv)"
+  lua_compat53_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lua_compat53)"
+fi
 has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-emscripten-system-libs.sh")"
 has_module libffi && libffi_dir="$("${project_dir}/scripts/prepare-libffi.sh")"
 has_module cpython && cpython_dir="$("${project_dir}/scripts/prepare-cpython.sh")"
@@ -141,7 +152,7 @@ if has_module ghostty; then
   copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
 fi
 if has_module zig; then
-  copy_static "${project_dir}/src/process/zig.c" default/commands/zig.c
+  copy_static "${project_dir}/build/process-tools/zig.wasm" default/zig.wasm
 fi
 
 if has_module make; then
@@ -149,6 +160,74 @@ if has_module make; then
     "${make_dir}" /usr/src/make \
     "${make_dir}/COPYING" /usr/share/licenses/make/COPYING
 fi
+if has_module libuv; then
+  node scripts/build-source-tar.mjs "${static_dir}/neovim/libuv.tar" \
+    "${libuv_dir}/include" /tmp/libuv/source/include \
+    "${libuv_dir}/src" /tmp/libuv/source/src \
+    "${libuv_dir}/LICENSE" /usr/share/licenses/libuv/LICENSE \
+    "${project_dir}/src/libuv" /tmp/libuv/dolly \
+    "${project_dir}/config/libuv-dolly.mk" /tmp/libuv/Makefile
+fi
+if has_module lua; then
+  copy_static "${lua_archive}" neovim/lua-5.1.5.tar.gz
+fi
+if has_module lpeg; then
+  node scripts/build-source-tar.mjs "${static_dir}/neovim/lpeg.tar" \
+    "${lpeg_dir}" /tmp/lpeg/source \
+    "${lpeg_dir}/lpeg.html" /usr/share/licenses/lpeg/lpeg.html
+fi
+if has_module cmake; then
+  node scripts/build-source-tar.mjs "${static_dir}/neovim/cmake.tar" \
+    "${cmake_dir}" /tmp/cmake/source \
+    "${project_dir}/config/cmake/Dolly.cmake" /tmp/cmake/source/Modules/Platform/Dolly.cmake \
+    "${cmake_dir}/LICENSE.rst" /usr/share/licenses/cmake/LICENSE.rst
+fi
+if has_module luv; then
+  node scripts/build-source-tar.mjs "${static_dir}/neovim/luv.tar" \
+    "${luv_dir}" /tmp/luv/source \
+    "${lua_compat53_dir}" /tmp/luv/source/deps/lua-compat-5.3 \
+    "${luv_dir}/LICENSE.txt" /usr/share/licenses/luv/LICENSE.txt \
+    "${lua_compat53_dir}/LICENSE" /usr/share/licenses/lua-compat53/LICENSE
+fi
+if has_module neovim; then
+  node scripts/build-source-tar.mjs "${static_dir}/neovim/neovim.tar" \
+    "${neovim_dir}" /tmp/neovim/source \
+    "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim/LICENSE.txt \
+    "${neovim_dir}/src/mpack/LICENSE-MIT" /usr/share/licenses/neovim/mpack \
+    "${neovim_dir}/src/nvim/vterm/LICENSE" /usr/share/licenses/neovim/vterm
+fi
+if has_module neovim-parsers; then
+  parser_inputs=()
+  for language in c lua vim vimdoc query markdown; do
+    parser_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" "treesitter_${language}")"
+    parser_target="/tmp/neovim-parsers/${language}"
+    parser_license=LICENSE
+    if [[ "${language}" == lua ]]; then parser_license=LICENSE.md; fi
+    parser_inputs+=("${parser_dir}/${parser_license}" "/usr/share/licenses/neovim-parsers/${language}")
+    parser_cmake=TreesitterParserCMakeLists.txt
+    if [[ "${language}" == markdown ]]; then
+      parser_cmake=MarkdownParserCMakeLists.txt
+      for grammar in tree-sitter-markdown tree-sitter-markdown-inline; do
+        parser_inputs+=("${parser_dir}/${grammar}/src" "${parser_target}/${grammar}/src")
+      done
+    else
+      parser_inputs+=("${parser_dir}/src" "${parser_target}/src")
+    fi
+    parser_inputs+=("${neovim_dir}/cmake.deps/cmake/${parser_cmake}" "${parser_target}/CMakeLists.txt")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/neovim/parsers.tar" "${parser_inputs[@]}" \
+    "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim-parsers/build-recipes
+fi
+for dependency in utf8proc treesitter; do
+  if has_module "${dependency}"; then
+    dependency_dir="$(bash scripts/fetch-pinned-source.sh "${dependency}")"
+    dependency_license=LICENSE
+    if [[ "${dependency}" == utf8proc ]]; then dependency_license=LICENSE.md; fi
+    node scripts/build-source-tar.mjs "${static_dir}/neovim/${dependency}.tar" \
+      "${dependency_dir}" "/tmp/${dependency}/source" \
+      "${dependency_dir}/${dependency_license}" "/usr/share/licenses/${dependency}/LICENSE"
+  fi
+done
 if has_module ninja; then
   node scripts/build-source-tar.mjs "${static_dir}/default/samurai.tar" \
     "${samurai_dir}" /tmp/ninja/source \

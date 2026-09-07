@@ -43,9 +43,11 @@ typedef enum {
 typedef struct {
   TokenKind kind;
   char *text;
+  char *quote_mask;
   int quoted;
   int split;
   int positional_fields;
+  int newline;
   int descriptor;
   int target_descriptor;
 } Token;
@@ -157,7 +159,10 @@ static char *buffer_release(Buffer *buffer) {
 }
 
 static void tokens_dispose(TokenList *tokens) {
-  for (size_t index = 0; index < tokens->count; index++) free(tokens->items[index].text);
+  for (size_t index = 0; index < tokens->count; index++) {
+    free(tokens->items[index].text);
+    free(tokens->items[index].quote_mask);
+  }
   free(tokens->items);
   memset(tokens, 0, sizeof(*tokens));
 }
@@ -188,6 +193,14 @@ static int tokens_clone_range(const Token *tokens, size_t start, size_t end,
       return 0;
     }
     copy->items[copy->count - 1].split = tokens[index].split;
+    if (tokens[index].quote_mask) {
+      copy->items[copy->count - 1].quote_mask = strdup(tokens[index].quote_mask);
+      if (!copy->items[copy->count - 1].quote_mask) {
+        tokens_dispose(copy);
+        return 0;
+      }
+    }
+    copy->items[copy->count - 1].newline = tokens[index].newline;
     copy->items[copy->count - 1].positional_fields =
         tokens[index].positional_fields;
     copy->items[copy->count - 1].descriptor = tokens[index].descriptor;
@@ -366,7 +379,8 @@ static int valid_name(const char *text, size_t length) {
 }
 
 static const char *parameter_value(Shell *shell, const char *name,
-                                   size_t length, char temporary[64]) {
+                                   size_t length, char temporary[64], int *is_set) {
+  if (is_set) *is_set = 1;
   if (length == 1 && name[0] == '?') {
     snprintf(temporary, 64, "%d", shell->last_status);
     return temporary;
@@ -388,16 +402,35 @@ static const char *parameter_value(Shell *shell, const char *name,
     temporary[index] = '\0';
     return temporary;
   }
-  if (length == 1 && isdigit((unsigned char)name[0])) {
-    int index = name[0] - '0';
-    return index < shell->argc ? shell->argv[index] : "";
+  if (length && isdigit((unsigned char)name[0])) {
+    size_t index = 0;
+    for (size_t digit = 0; digit < length; digit++) {
+      if (!isdigit((unsigned char)name[digit])) return "";
+      if (index <= (size_t)shell->argc)
+        index = index * 10 + (unsigned)(name[digit] - '0');
+    }
+    if (is_set) *is_set = index < (size_t)shell->argc;
+    return index < (size_t)shell->argc ? shell->argv[index] : "";
   }
   if (!valid_name(name, length)) return "";
   char *copy = strndup(name, length);
   if (copy == NULL) return NULL;
   const char *value = getenv(copy);
   free(copy);
+  if (is_set) *is_set = value != NULL;
   return value == NULL ? "" : value;
+}
+
+static const char *parameter_name_end(const char *name) {
+  const char *end = name;
+  if (is_name_start(*end)) {
+    while (is_name_byte(*end)) end++;
+  } else if (isdigit((unsigned char)*end)) {
+    while (isdigit((unsigned char)*end)) end++;
+  } else if (*end && strchr("?$#@*-", *end)) {
+    end++;
+  }
+  return end;
 }
 
 // Return the closing brace for a ${...} expression. Nested parameter
@@ -915,7 +948,8 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       if (quote != '\0') {
         if (*source == quote) quote = '\0';
         else if (*source == '\\' && quote == '"' && source[1] != '\0') source++;
-      } else if (*source == '\'' || *source == '"') quote = *source;
+      } else if (*source == '\\' && source[1] != '\0') source++;
+      else if (*source == '\'' || *source == '"') quote = *source;
       else if (*source == '(') depth++;
       else if (*source == ')' && --depth == 0) break;
       source++;
@@ -944,21 +978,18 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       return -1;
     }
     const char *body_cursor = body;
-    if (*body_cursor == '#') {
+    if (*body_cursor == '#' && body_cursor + 1 != closing) {
       const char *length_name = ++body_cursor;
-      if (!is_name_start(*body_cursor)) {
-        fputs("slop: unsupported parameter length expansion\n", stderr);
-        return -1;
-      }
-      while (body_cursor < closing && is_name_byte(*body_cursor)) body_cursor++;
-      if (body_cursor != closing) {
+      body_cursor = parameter_name_end(body_cursor);
+      if (body_cursor == length_name || body_cursor != closing ||
+          *length_name == '@' || *length_name == '*') {
         fputs("slop: unsupported parameter length expansion\n", stderr);
         return -1;
       }
       char temporary[64];
       const char *value = parameter_value(shell, length_name,
                                           (size_t)(body_cursor - length_name),
-                                          temporary);
+                                          temporary, NULL);
       char result[64];
       const int written = value == NULL ? -1 :
           snprintf(result, sizeof(result), "%zu", strlen(value));
@@ -967,11 +998,12 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       *cursor = closing + 1;
       return 1;
     }
-    if (!is_name_start(*body_cursor)) {
-      fputs("slop: unsupported parameter expansion\n", stderr);
+    body_cursor = parameter_name_end(body_cursor);
+    if (body_cursor == body) {
+      fprintf(stderr, "slop: unsupported parameter expansion: ${%.*s}\n",
+              (int)(closing - body), body);
       return -1;
     }
-    while (body_cursor < closing && is_name_byte(*body_cursor)) body_cursor++;
     name = body;
     length = (size_t)(body_cursor - body);
     if (body_cursor != closing) {
@@ -981,7 +1013,8 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
                                     (*body_cursor == '#' || *body_cursor == '%');
       if (body_cursor == closing ||
           (!pattern_operation && strchr("-=+?", *body_cursor) == NULL)) {
-        fputs("slop: unsupported parameter expansion\n", stderr);
+        fprintf(stderr, "slop: unsupported parameter expansion: ${%.*s}\n",
+                (int)(closing - body), body);
         return -1;
       }
       const char operation = *body_cursor++;
@@ -993,8 +1026,15 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       }
       char *variable = strndup(name, length);
       if (variable == NULL) return -1;
-      const char *value = getenv(variable);
-      const int set = value != NULL;
+      if (length == 1 && strchr("@*", *name)) {
+        fprintf(stderr, "slop: unsupported parameter operation: %s\n", variable);
+        free(variable);
+        return -1;
+      }
+      char temporary[64];
+      int set;
+      const char *value = parameter_value(shell, name, length, temporary, &set);
+      if (!value) { free(variable); return -1; }
       const int usable = set && (!colon || value[0] != '\0');
       const char *replacement = body_cursor;
       const size_t replacement_length = (size_t)(closing - body_cursor);
@@ -1018,6 +1058,9 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       } else if (operation == '=') {
         if (usable) {
           ok = buffer_append(word, value, strlen(value));
+        } else if (!valid_name(name, length)) {
+          fprintf(stderr, "slop: cannot assign parameter: %s\n", variable);
+          ok = 0;
         } else {
           Buffer assigned = {0};
           ok = expand_parameter_word(shell, replacement, replacement_length,
@@ -1073,7 +1116,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
     }
   } else {
     char temporary[64];
-    const char *value = parameter_value(shell, name, length, temporary);
+    const char *value = parameter_value(shell, name, length, temporary, NULL);
     if (value == NULL || !buffer_append(word, value, strlen(value))) return -1;
   }
   *cursor = source;
@@ -1094,7 +1137,8 @@ static int defer_dollar(const char **cursor, Buffer *word) {
       if (quote != '\0') {
         if (*source == quote) quote = '\0';
         else if (*source == '\\' && quote == '"' && source[1] != '\0') source++;
-      } else if (*source == '\'' || *source == '"') quote = *source;
+      } else if (*source == '\\' && source[1] != '\0') source++;
+      else if (*source == '\'' || *source == '"') quote = *source;
       else if (*source == '(') depth++;
       else if (*source == ')' && --depth == 0) {
         source++;
@@ -1135,10 +1179,8 @@ static int defer_dollar(const char **cursor, Buffer *word) {
   return 1;
 }
 
-// Preserve the common legacy `command` spelling as an execution-time frame.
-// Deliberately do not attempt the historical escaped-backtick nesting rules;
-// modern $(command) is the unambiguous nested form supported by Slop.
-static int defer_backtick(const char **cursor, Buffer *word) {
+// Backquotes remove one escape layer before parsing the captured command.
+static int defer_backtick(const char **cursor, Buffer *word, int double_quoted) {
   const char *start = *cursor + 1;
   const char *source = start;
   while (*source != '\0' && *source != '`') {
@@ -1151,9 +1193,17 @@ static int defer_backtick(const char **cursor, Buffer *word) {
   }
 
   Buffer expression = {0};
-  if (!buffer_append(&expression, "$(", 2) ||
-      !buffer_append(&expression, start, (size_t)(source - start)) ||
-      !buffer_character(&expression, ')')) {
+  if (!buffer_append(&expression, "$(", 2)) return -1;
+  for (const char *byte = start; byte < source; byte++) {
+    if (*byte == '\\' && byte + 1 < source &&
+        (strchr("$`\\", byte[1]) || (double_quoted && byte[1] == '"')))
+      byte++;
+    if (!buffer_character(&expression, *byte)) {
+      free(expression.data);
+      return -1;
+    }
+  }
+  if (!buffer_character(&expression, ')')) {
     free(expression.data);
     return -1;
   }
@@ -1379,6 +1429,7 @@ static int lex(const char *source, TokenList *tokens) {
         }
       }
       if (!token_push(tokens, kind, NULL, 0)) return 0;
+      tokens->items[tokens->count - 1].newline = kind == TOKEN_SEMI && *source == '\n';
       tokens->items[tokens->count - 1].descriptor = descriptor;
       tokens->items[tokens->count - 1].target_descriptor = target_descriptor;
       if (kind == TOKEN_HEREDOC) {
@@ -1392,7 +1443,7 @@ static int lex(const char *source, TokenList *tokens) {
       continue;
     }
 
-    Buffer word = {0};
+    Buffer word = {0}, quote_mask = {0};
     char quote = '\0';
     int quoted = 0;
     int touched = 0;
@@ -1407,6 +1458,7 @@ static int lex(const char *source, TokenList *tokens) {
         if (operator_length != 0) break;
       }
       char byte = *source;
+      int protected = quote != '\0';
       if (quote == '\0' && (byte == '\'' || byte == '"')) {
         quote = byte; quoted = touched = 1; source++;
       } else if (quote != '\0' && byte == quote) {
@@ -1414,35 +1466,43 @@ static int lex(const char *source, TokenList *tokens) {
       } else if (byte == '\\' && quote != '\'') {
         source++;
         if (*source == '\0') {
-          free(word.data); fputs("slop: trailing backslash\n", stderr); return 0;
+          fputs("slop: trailing backslash\n", stderr); goto word_error;
         }
         if (*source == '\n') {
           source++;
           continue;
         }
+        if (quote == '"' && !strchr("$`\"\\", *source)) {
+          if (!append_lexed_character(&word, '\\')) goto word_error;
+        }
+        protected = 1;
         quoted = touched = 1;
-        if (!append_lexed_character(&word, *source++)) { free(word.data); return 0; }
+        if (!append_lexed_character(&word, *source++)) goto word_error;
       } else if (byte == '$' && quote != '\'') {
         touched = 1;
         if (quote == '\0') split = 1;
-        if (defer_dollar(&source, &word) < 0) { free(word.data); return 0; }
+        if (defer_dollar(&source, &word) < 0) goto word_error;
       } else if (byte == '`' && quote != '\'') {
         touched = 1;
         if (quote == '\0') split = 1;
-        if (defer_backtick(&source, &word) < 0) { free(word.data); return 0; }
+        if (defer_backtick(&source, &word, quote == '"') < 0) goto word_error;
       } else {
         touched = 1;
-        if (!append_lexed_character(&word, byte)) { free(word.data); return 0; }
+        if (!append_lexed_character(&word, byte)) goto word_error;
         source++;
+      }
+      while (quote_mask.length < word.length) {
+        if (!buffer_character(&quote_mask, protected ? 'q' : 'u')) goto word_error;
       }
     }
     if (quote != '\0') {
-      free(word.data); fputs("slop: unterminated quote\n", stderr); return 0;
+      fputs("slop: unterminated quote\n", stderr); goto word_error;
     }
     if (!touched) {
-      free(word.data); return 0;
+      goto word_error;
     }
     char *word_text = buffer_release(&word);
+    if (!word_text) goto word_error;
     if (tokens->count != 0 &&
         (tokens->items[tokens->count - 1].kind == TOKEN_DUP_INPUT ||
          tokens->items[tokens->count - 1].kind == TOKEN_DUP_OUTPUT) &&
@@ -1450,13 +1510,21 @@ static int lex(const char *source, TokenList *tokens) {
             SLOP_DYNAMIC_DESCRIPTOR) {
       tokens->items[tokens->count - 1].text = word_text;
       tokens->items[tokens->count - 1].quoted = quoted;
+      free(quote_mask.data);
       continue;
     }
-    if (!token_push(tokens, TOKEN_WORD, word_text, quoted)) return 0;
-    tokens->items[tokens->count - 1].split = split && !quoted;
+    if (!token_push(tokens, TOKEN_WORD, word_text, quoted)) { free(quote_mask.data); return 0; }
+    tokens->items[tokens->count - 1].quote_mask = buffer_release(&quote_mask);
+    if (!tokens->items[tokens->count - 1].quote_mask) return 0;
+    tokens->items[tokens->count - 1].split = split;
     tokens->items[tokens->count - 1].positional_fields =
         quoted && deferred_quoted_positional_fields(
                       tokens->items[tokens->count - 1].text);
+    continue;
+word_error:
+    free(word.data);
+    free(quote_mask.data);
+    return 0;
   }
   if (pending_count != 0) {
     fputs("slop: here-document body must begin on the next line\n", stderr);
@@ -1467,6 +1535,11 @@ static int lex(const char *source, TokenList *tokens) {
 
 static int wildcard_match(const char *pattern, const char *text) {
   while (*pattern != '\0') {
+    if (*pattern == '\\' && pattern[1]) {
+      pattern++;
+      if (*pattern++ != *text++) return 0;
+      continue;
+    }
     if (*pattern == '*') {
       while (*pattern == '*') pattern++;
       if (*pattern == '\0') return 1;
@@ -1504,20 +1577,35 @@ static int compare_strings(const void *left, const void *right) {
 }
 
 static int expand_glob(Arguments *arguments, const Token *token) {
-  if (token->quoted || strpbrk(token->text, "*?[") == NULL) return argument_push(arguments, token->text);
+  int has_pattern = 0;
+  for (size_t index = 0; token->text[index]; index++)
+    if (strchr("*?[", token->text[index]) &&
+        (token->quote_mask ? token->quote_mask[index] != 'q' : !token->quoted)) has_pattern = 1;
+  if (!has_pattern) return argument_push(arguments, token->text);
   const char *slash = strrchr(token->text, '/');
   size_t directory_length = slash == NULL ? 0 : (size_t)(slash - token->text);
   int root_directory = slash == token->text;
-  const char *pattern = slash == NULL ? token->text : slash + 1;
+  const char *suffix = slash == NULL ? token->text : slash + 1;
+  if (!*suffix) return argument_push(arguments, token->text);
+  for (size_t index = 0; index < directory_length; index++)
+    if (strchr("*?[", token->text[index]) &&
+        (!token->quote_mask || token->quote_mask[index] != 'q'))
+      return argument_push(arguments, token->text);
   char *directory = slash == NULL ? strdup(".")
                     : root_directory ? strdup("/")
                                      : strndup(token->text, directory_length);
-  if (directory == NULL || strpbrk(directory, "*?[") != NULL) {
-    free(directory); return argument_push(arguments, token->text);
-  }
+  if (directory == NULL) return 0;
   DIR *stream = opendir(directory);
   if (stream == NULL) { free(directory); return argument_push(arguments, token->text); }
   Arguments matches = {0};
+  Buffer pattern_buffer = {0};
+  for (const char *byte = suffix; *byte; byte++) {
+    int protected = token->quote_mask && token->quote_mask[byte - token->text] == 'q';
+    if ((*byte == '\\' || (protected && strchr("*?[]", *byte))) &&
+        !buffer_character(&pattern_buffer, '\\')) goto glob_error;
+    if (!buffer_character(&pattern_buffer, *byte)) goto glob_error;
+  }
+  const char *pattern = pattern_buffer.data;
   struct dirent *entry;
   while ((entry = readdir(stream)) != NULL) {
     if (entry->d_name[0] == '.' && pattern[0] != '.') continue;
@@ -1534,6 +1622,7 @@ static int expand_glob(Arguments *arguments, const Token *token) {
   }
   closedir(stream);
   free(directory);
+  free(pattern_buffer.data);
   if (matches.count == 0) { arguments_dispose(&matches); return argument_push(arguments, token->text); }
   qsort(matches.items, matches.count, sizeof(*matches.items), compare_strings);
   for (size_t index = 0; index < matches.count; index++) {
@@ -1544,6 +1633,7 @@ static int expand_glob(Arguments *arguments, const Token *token) {
   arguments_dispose(&matches);
   return 1;
 glob_error:
+  free(pattern_buffer.data);
   closedir(stream); free(directory); arguments_dispose(&matches); return 0;
 }
 
@@ -2668,47 +2758,59 @@ static int expand_deferred_dollars(Shell *shell, Token *tokens,
     if (tokens[index].positional_fields) continue;
     if (tokens[index].text == NULL ||
         strchr(tokens[index].text, SLOP_DEFERRED_DOLLAR) == NULL) continue;
-    Buffer expanded = {0};
+    Buffer expanded = {0}, expanded_mask = {0};
     const char *cursor = tokens[index].text;
     while (*cursor != '\0') {
+      const char protection = tokens[index].quote_mask
+          ? tokens[index].quote_mask[cursor - tokens[index].text] : 'u';
       if (*cursor != SLOP_DEFERRED_DOLLAR) {
         if (!buffer_character(&expanded, *cursor++)) goto memory_error;
-        continue;
-      }
-      cursor++;
-      if (*cursor == SLOP_DEFERRED_DOLLAR) {
-        if (!buffer_character(&expanded, *cursor++)) goto memory_error;
-        continue;
-      }
-      if (!isdigit((unsigned char)*cursor)) goto malformed;
-      size_t length = 0;
-      while (isdigit((unsigned char)*cursor)) {
-        const unsigned digit = (unsigned)(*cursor - '0');
-        if (length > (SIZE_MAX - digit) / 10) goto malformed;
-        length = length * 10 + digit;
+      } else if (cursor[1] == SLOP_DEFERRED_DOLLAR) {
         cursor++;
+        if (!buffer_character(&expanded, *cursor++)) goto memory_error;
+      } else {
+        cursor++;
+        if (!isdigit((unsigned char)*cursor)) goto malformed;
+        size_t length = 0;
+        while (isdigit((unsigned char)*cursor)) {
+          const unsigned digit = (unsigned)(*cursor - '0');
+          if (length > (SIZE_MAX - digit) / 10) goto malformed;
+          length = length * 10 + digit;
+          cursor++;
+        }
+        if (*cursor++ != ':' || strlen(cursor) < length) goto malformed;
+        char *expression = strndup(cursor, length);
+        if (expression == NULL) goto memory_error;
+        const char *expression_cursor = expression;
+        const int result = expand_dollar_now(shell, &expression_cursor, &expanded);
+        const int complete = result >= 0 && *expression_cursor == '\0';
+        free(expression);
+        if (!complete) goto expansion_error;
+        cursor += length;
       }
-      if (*cursor++ != ':' || strlen(cursor) < length) goto malformed;
-      char *expression = strndup(cursor, length);
-      if (expression == NULL) goto memory_error;
-      const char *expression_cursor = expression;
-      const int result = expand_dollar_now(shell, &expression_cursor, &expanded);
-      const int complete = result >= 0 && *expression_cursor == '\0';
-      free(expression);
-      if (!complete) goto expansion_error;
-      cursor += length;
+      if (tokens[index].quote_mask) {
+        while (expanded_mask.length < expanded.length)
+          if (!buffer_character(&expanded_mask, protection)) goto memory_error;
+      }
     }
     free(tokens[index].text);
     tokens[index].text = buffer_release(&expanded);
+    if (tokens[index].quote_mask) {
+      free(tokens[index].quote_mask);
+      tokens[index].quote_mask = buffer_release(&expanded_mask);
+      if (!tokens[index].quote_mask) return 0;
+    }
     if (tokens[index].text == NULL) return 0;
     continue;
 
 malformed:
     fputs("slop: malformed deferred expansion\n", stderr);
 expansion_error:
+    free(expanded_mask.data);
     free(expanded.data);
     return -1;
 memory_error:
+    free(expanded_mask.data);
     free(expanded.data);
     return 0;
   }
@@ -2767,6 +2869,17 @@ static int expand_tilde_words(Token *tokens, size_t start, size_t end,
     memcpy(expanded, token->text, prefix);
     memcpy(expanded + prefix, home, home_length);
     memcpy(expanded + prefix + home_length, tilde + 1, suffix_length + 1);
+    char *mask = malloc(prefix + home_length + suffix_length + 1);
+    if (!mask) { free(expanded); return 0; }
+    memset(mask, 'u', prefix + home_length + suffix_length);
+    if (token->quote_mask) {
+      memcpy(mask, token->quote_mask, prefix);
+      memcpy(mask + prefix + home_length, token->quote_mask + prefix + 1, suffix_length);
+    }
+    memset(mask + prefix, 'q', home_length);
+    mask[prefix + home_length + suffix_length] = '\0';
+    free(token->quote_mask);
+    token->quote_mask = mask;
     free(token->text);
     token->text = expanded;
   }
@@ -2871,18 +2984,22 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
     return 1;
   }
   if (!token->split) return expand_glob(arguments, token);
+  if (token->quoted && !token->text[0]) return argument_push(arguments, "");
   const char *ifs = getenv("IFS");
   if (ifs == NULL) ifs = " \t\n";
   if (ifs[0] == '\0') return expand_glob(arguments, token);
   const char *cursor = token->text;
   while (*cursor != '\0') {
-    while (*cursor != '\0' && ifs_byte(ifs, *cursor)) cursor++;
+    while (*cursor != '\0' && ifs_byte(ifs, *cursor) &&
+           (!token->quote_mask || token->quote_mask[cursor - token->text] != 'q')) cursor++;
     if (*cursor == '\0') break;
     const char *start = cursor;
-    while (*cursor != '\0' && !ifs_byte(ifs, *cursor)) cursor++;
+    while (*cursor != '\0' && (!ifs_byte(ifs, *cursor) ||
+           (token->quote_mask && token->quote_mask[cursor - token->text] == 'q'))) cursor++;
     Token field = {
         .kind = TOKEN_WORD,
         .text = strndup(start, (size_t)(cursor - start)),
+        .quote_mask = token->quote_mask ? token->quote_mask + (start - token->text) : NULL,
     };
     if (field.text == NULL || !expand_glob(arguments, &field)) {
       free(field.text);
@@ -2995,32 +3112,14 @@ syntax_error:
 static int run_simple(Shell *shell, Token *tokens, size_t start, size_t end,
                       int pipeline_input, int pipeline_output) {
   const size_t count = end - start;
-  Token *copy = calloc(count == 0 ? 1 : count, sizeof(*copy));
-  if (copy == NULL) {
+  TokenList copy = {0};
+  if (!tokens_clone_range(tokens, start, end, &copy)) {
     fputs("slop: out of memory\n", stderr);
     return 1;
   }
-  for (size_t index = 0; index < count; index++) {
-    copy[index].kind = tokens[start + index].kind;
-    copy[index].quoted = tokens[start + index].quoted;
-    copy[index].split = tokens[start + index].split;
-    copy[index].positional_fields = tokens[start + index].positional_fields;
-    copy[index].descriptor = tokens[start + index].descriptor;
-    copy[index].target_descriptor = tokens[start + index].target_descriptor;
-    if (tokens[start + index].text != NULL) {
-      copy[index].text = strdup(tokens[start + index].text);
-      if (copy[index].text == NULL) {
-        for (size_t dispose = 0; dispose < index; dispose++) free(copy[dispose].text);
-        free(copy);
-        fputs("slop: out of memory\n", stderr);
-        return 1;
-      }
-    }
-  }
-  const int status = run_simple_mutable(shell, copy, 0, count,
+  const int status = run_simple_mutable(shell, copy.items, 0, count,
                                         pipeline_input, pipeline_output);
-  for (size_t index = 0; index < count; index++) free(copy[index].text);
-  free(copy);
+  tokens_dispose(&copy);
   return status;
 }
 
@@ -3137,10 +3236,14 @@ static int function_header(const CommandParser *parser, char **name,
   } else {
     return 0;
   }
-  if (!valid_name(first, name_length) || brace_index >= parser->end ||
+  if (!valid_name(first, name_length)) return 0;
+  while (brace_index < parser->end &&
+         parser->tokens[brace_index].kind == TOKEN_SEMI &&
+         parser->tokens[brace_index].newline) brace_index++;
+  if (brace_index >= parser->end ||
       parser->tokens[brace_index].kind != TOKEN_WORD ||
       parser->tokens[brace_index].quoted ||
-      strcmp(parser->tokens[brace_index].text, "{") != 0) return 0;
+      strcmp(parser->tokens[brace_index].text, "{") != 0) return -2;
   *name = strndup(first, name_length);
   if (*name == NULL) return -1;
   *body_start = brace_index + 1;
@@ -3441,22 +3544,13 @@ static int expand_loop_words(Shell *shell, Token *tokens, size_t start,
       fputs("slop: invalid operator in for word list\n", stderr);
       return 0;
     }
-    Token copy = {
-        .kind = TOKEN_WORD,
-        .text = strdup(tokens[index].text),
-        .quoted = tokens[index].quoted,
-        .split = tokens[index].split,
-        .positional_fields = tokens[index].positional_fields,
-    };
-    if (copy.text == NULL) return 0;
-    const int dollar_status = expand_deferred_dollars(shell, &copy, 0, 1);
-    if (dollar_status <= 0 ||
-        !expand_tilde_words(&copy, 0, 1, 0) ||
-        !expand_word_arguments(shell, values, &copy)) {
-      free(copy.text);
-      return 0;
-    }
-    free(copy.text);
+    TokenList copy = {0};
+    if (!tokens_clone_range(tokens, index, index + 1, &copy)) return 0;
+    const int ok = expand_deferred_dollars(shell, copy.items, 0, 1) > 0 &&
+        expand_tilde_words(copy.items, 0, 1, 0) &&
+        expand_word_arguments(shell, values, copy.items);
+    tokens_dispose(&copy);
+    if (!ok) return 0;
   }
   return 1;
 }
@@ -3654,9 +3748,11 @@ static char *expand_case_text(Shell *shell, const Token *token,
   const int dollar_status = expand_deferred_dollars(shell, &copy, 0, 1);
   if (dollar_status <= 0 ||
       !expand_tilde_words(&copy, 0, 1, 0)) {
+    free(copy.quote_mask);
     free(copy.text);
     return NULL;
   }
+  free(copy.quote_mask);
   return copy.text;
 }
 
@@ -3870,7 +3966,8 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
     const int definition = function_header(parser, &function_name,
                                            &function_body_start);
     if (definition < 0) {
-      fputs("slop: function definition: out of memory\n", stderr);
+      fputs(definition == -2 ? "slop: function definition requires {\n"
+                            : "slop: function definition: out of memory\n", stderr);
       parser->error = 1;
       return 2;
     }

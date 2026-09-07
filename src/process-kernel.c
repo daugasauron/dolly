@@ -223,7 +223,17 @@ static void dispose_process(dolly_kernel_process *process) {
 static int supported_signal(int signal_number) {
   return signal_number == 0 || signal_number == SIGHUP || signal_number == SIGINT ||
       signal_number == SIGQUIT || signal_number == SIGABRT || signal_number == SIGKILL ||
-      signal_number == SIGPIPE || signal_number == SIGTERM;
+      signal_number == SIGPIPE || signal_number == SIGTERM || signal_number == SIGWINCH;
+}
+
+void dolly_kernel_terminal_resized(void) {
+  if (!foreground_pid) return;
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; index++) {
+    dolly_kernel_process *process = &process_table[index];
+    if (process->state == DOLLY_KERNEL_PROCESS_RUNNING &&
+        dolly_process_descends_from(process->pid, foreground_pid))
+      process->pending_signals |= 1u << SIGWINCH;
+  }
 }
 
 static int next_signal(const dolly_kernel_process *process) {
@@ -1804,6 +1814,8 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       if (descriptor < 0) return descriptor;
       struct stat metadata;
       if (fstat(descriptor, &metadata) != 0) return -errno;
+      if (process->terminal_descriptors[request.descriptor])
+        metadata.st_mode = (metadata.st_mode & ~S_IFMT) | S_IFCHR;
       dolly_process_stat_response response;
       encode_stat(&metadata, &response);
       memcpy(process_mailbox, &response, sizeof(response));
@@ -2212,15 +2224,18 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
        * signal-unaware program turn Ctrl-C into an arbitrary failure status.
        * A runtime that deliberately handles SIGINT acknowledges it through
        * DOLLY_PROCESS_INTERRUPT_POLL. */
+      const uint32_t terminating = process->pending_signals & ~(1u << SIGWINCH);
       const int signal_number = request.signal_number != 0
-          ? (int)request.signal_number : next_signal(process);
+          ? (int)request.signal_number : (terminating ? __builtin_ctz(terminating) : 0);
       const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
       /* A foreground-tree interrupt must let children finish their own
        * handlers before a parent's exit reclaims the subtree. */
       for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
         const dolly_kernel_process *child = &process_table[index];
         if (child->parent_pid == process->pid && child->state == DOLLY_KERNEL_PROCESS_RUNNING &&
-            (child->pending_signals || child->handling_signal)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+            ((child->pending_signals & ~(1u << SIGWINCH)) ||
+             (child->handling_signal && child->handling_signal != SIGWINCH)))
+          return DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
       mark_process_exited(process, status, signal_number);
       return 0;
@@ -2319,6 +2334,8 @@ int dolly_process_signal(int pid, int signal_number) {
   }
   if (!supported_signal(signal_number)) return -ENOTSUP;
   if (signal_number == 0) return 0;
+  if (signal_number == SIGWINCH && process->state != DOLLY_KERNEL_PROCESS_RUNNING)
+    return 0;
   if (signal_number != SIGKILL && process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
     process->pending_signals |= 1u << signal_number;
   } else {

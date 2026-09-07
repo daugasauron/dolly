@@ -37,11 +37,7 @@ target_compile_options(dolly PRIVATE
   -matomics
   -mbulk-memory
 )
-set(DOLLY_CLANG_LLD_LIBRARIES
-  clangFrontendTool
-  clangCodeGen
-  clangFrontend
-  clangBasic
+set(DOLLY_LLVM_LIBRARIES
   lldWasm
   lldCommon
   LLVMWebAssemblyCodeGen
@@ -124,54 +120,64 @@ set_target_properties(dolly PROPERTIES
 add_executable(dolly-process-compiler
   ../src/compiler.cpp
   ../src/process/compiler-main.c
+)
+target_link_libraries(dolly-process-compiler PRIVATE
+  clangFrontendTool clangCodeGen clangFrontend clangBasic
+)
+add_executable(dolly-process-zig
+  ../src/process/zig.c
   "${DOLLY_ZIG_DIR}/src/zig_llvm.cpp"
   "${DOLLY_ZIG_OBJECT}"
 )
-target_include_directories(dolly-process-compiler PRIVATE
-  ../include
-  ../build/generated
-  ${LLVM_INCLUDE_DIRS}
-  ${CLANG_INCLUDE_DIRS}
-  ${LLD_INCLUDE_DIRS}
-)
-target_compile_options(dolly-process-compiler PRIVATE
-  -m64
-  -O2
-  -fno-exceptions
-  -fno-rtti
-  -fwasm-exceptions
-  -matomics
-  -mbulk-memory
-  -sSUPPORT_LONGJMP=wasm
-  -sWASM_LEGACY_EXCEPTIONS=0
-)
-target_compile_features(dolly-process-compiler PRIVATE cxx_std_17)
-target_link_libraries(dolly-process-compiler PRIVATE
-  "-Wl,--whole-archive"
-  /src/build/libdolly-process.a
-  "-Wl,--no-whole-archive"
-  ${DOLLY_CLANG_LLD_LIBRARIES}
-)
-target_link_options(dolly-process-compiler PRIVATE
-  -m64
-  -O2
-  -fwasm-exceptions
-  -matomics
-  -mbulk-memory
-  "SHELL:-Wl,--shared-memory,--no-check-features"
-  "SHELL:-Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table"
-  -sSTANDALONE_WASM=1
-  -sIMPORTED_MEMORY=1
-  -sSHARED_MEMORY=1
-  -sSUPPORT_LONGJMP=wasm
-  -sWASM_LEGACY_EXCEPTIONS=0
-  -sALLOW_MEMORY_GROWTH=1
-  -sINITIAL_MEMORY=33554432
-  -sMAXIMUM_MEMORY=8589934592
-  -sSTACK_SIZE=8388608
-)
-set_target_properties(dolly-process-compiler PROPERTIES
-  OUTPUT_NAME compiler
-  SUFFIX .wasm
-  RUNTIME_OUTPUT_DIRECTORY /src/build/process-tools
-)
+foreach(tool compiler zig)
+  target_include_directories(dolly-process-${tool} PRIVATE
+    ../include
+    ../build/generated
+    ${LLVM_INCLUDE_DIRS}
+    ${CLANG_INCLUDE_DIRS}
+    ${LLD_INCLUDE_DIRS}
+  )
+  target_compile_options(dolly-process-${tool} PRIVATE
+    -m64
+    -O2
+    -fno-exceptions
+    -fno-rtti
+    -fwasm-exceptions
+    -matomics
+    -mbulk-memory
+    -sSUPPORT_LONGJMP=wasm
+    -sWASM_LEGACY_EXCEPTIONS=0
+  )
+  target_compile_features(dolly-process-${tool} PRIVATE cxx_std_17)
+  target_link_libraries(dolly-process-${tool} PRIVATE
+    /src/build/process-crt1.o
+    "-Wl,--whole-archive"
+    /src/build/libdolly-process.a
+    "-Wl,--no-whole-archive"
+    ${DOLLY_LLVM_LIBRARIES}
+  )
+  target_link_options(dolly-process-${tool} PRIVATE
+    -nostartfiles
+    -m64
+    -O2
+    -fwasm-exceptions
+    -matomics
+    -mbulk-memory
+    "SHELL:-Wl,--shared-memory,--no-check-features"
+    "SHELL:-Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table"
+    -sSTANDALONE_WASM=1
+    -sIMPORTED_MEMORY=1
+    -sSHARED_MEMORY=1
+    -sSUPPORT_LONGJMP=wasm
+    -sWASM_LEGACY_EXCEPTIONS=0
+    -sALLOW_MEMORY_GROWTH=1
+    -sINITIAL_MEMORY=33554432
+    -sMAXIMUM_MEMORY=8589934592
+    -sSTACK_SIZE=8388608
+  )
+  set_target_properties(dolly-process-${tool} PROPERTIES
+    OUTPUT_NAME ${tool}
+    SUFFIX .wasm
+    RUNTIME_OUTPUT_DIRECTORY /src/build/process-tools
+  )
+endforeach()

@@ -25,7 +25,7 @@ host-process escape hatches.
 | `python`, `python3` | Pinned upstream CPython 3.14 is configured for the wasm64 target outside the browser, then all target objects and the executable are compiled by GNU Make inside Dolly | A large C runtime sharing WasmFS, Dolly entropy, clocks, locale, zlib, writable user-site paths, and explicit single-thread compatibility; it identifies as `sys.platform == "dolly"` so packages do not assume Pyodide's ambient `js`, `_socket` imports but every raw network operation fails locally with `ENOSYS`, and upstream `termios` controls the small in-Wasm terminal mode contract |
 | `bonnie` | Dolly C frontend plus a retained Python resolver compiled in the Python image and linked to the source-built Fetch-backed libcurl | Resolves complete runtime and PEP 517 build-requirement graphs, verifies and stages wheels/source distributions transactionally, builds native extensions with Dolly's C/C++ toolchain, and publishes only after preparation; `list`, `freeze`, `show`, and `check` inspect installed metadata. Full backtracking and arbitrary native-package compatibility remain explicit gaps |
 | `raylib`, `Box3D`, `graphics-demo` | Pinned upstream raylib 6.0 and Box3D 0.1.0 plus Dolly presentation and serial-task adapters and a 3D game source; all objects and archives compile inside the gamedev image | Upstream no-OS software rendering, real C17 3D rigid-body physics, bounded logical framebuffer sizing, animation-frame pacing, semantic cursor/input, finite frame checks, and terminal restoration without DOM, WebGL, sockets, pthreads, or a new browser import |
-| `cc`, `c++`, `ld`, `ar` | Current pinned Clang/LLD/Zig LLVM provider linked into one private compiler executable; separate source-compiled command frontends | Source/object/archive compilation, stdin/file preprocessing and macro dumps, C17/C++23, multi-object and `-L`/`-l` links, deterministic GNU archives, exact import validation, and ABI stamping; each invocation receives a fresh Worker, memory, allocator, and LLVM state while file publication crosses the typed process gate |
+| `cc`, `c++`, `ld`, `ar` | Current pinned Clang/LLD/LLVM linked into one private compiler executable, independent of Zig; separate source-compiled command frontends | Source/object/archive compilation, stdin/file preprocessing and macro dumps, C17/C++23, multi-object and `-L`/`-l` links, deterministic GNU archives, exact import validation, and ABI stamping; each invocation receives a fresh Worker, memory, allocator, and LLVM state while file publication crosses the typed process gate |
 
 Bonnie reads upstream PEP 517 config-settings from `/etc/bonnie/build.toml`,
 defined in `modules/bonnie.dm`. Tables use normalized package names; each key
@@ -111,7 +111,7 @@ Upstream `faulthandler` is built in and supports enable/disable and synchronous
 traceback dumps; its OS core-dump suppression is excluded because Dolly has no
 resource limits, and delayed dumps explicitly fail at the existing no-thread
 boundary. Upstream `termios` and `tty` are also built in through a
-CPython-specific adapter over Dolly's canonical/echo bits and in-Wasm window
+CPython-specific adapter over Dolly's terminal discipline bits and in-Wasm window
 dimensions. Ctrl+C remains unconditional lifecycle supervision even in raw
 mode. The adapter adds no browser import; command lifecycle
 restoration prevents a runtime that exits or is interrupted in raw mode from
@@ -136,17 +136,18 @@ pretending unsupported packages work.
 Implemented. A checksum-pinned official Zig stage zero compiles the pinned
 upstream Zig 0.16.0 frontend as an ABI-validated wasm64 command. Native
 `/usr/bin/zig` runs inside Dolly and emits relocatable WebAssembly objects
-directly through a typed bridge to the runtime's LLVM WebAssembly backend.
+through its own linked LLVM WebAssembly backend.
 It compiles the pinned Ghostty VT and uucode graph into
 `/usr/lib/libghostty-vt.a` and the resident display module. A cold-browser proof
 compiles the graph, feeds VT bytes to the public C
 API, and inspects the resulting cell grid.
 
-The compiler is one private process executable containing the Clang, LLD, and
-Zig LLVM provider. Every invocation receives a fresh Worker, memory, table,
+Clang/LLD and Zig are separate private process executables. The `ghostty-build`
+image retains Zig and builds the terminal; the system image copies only its
+display plugin, font and licenses. Every invocation receives a fresh Worker, memory, table,
 allocator, and LLVM state while its inputs and outputs cross the typed process
 gate into the kernel filesystem. Browser regressions pass optimized repeated
-Clang jobs, mixed Clang/Zig orderings, and Zig single-provider code generation
+Clang jobs, mixed Clang/Zig orderings, and independent Zig code generation
 without promoting `ZigLLVM*` functions into the stable Dolly substrate.
 
 This is intentionally the `libghostty-vt` terminal core, not the GTK/macOS

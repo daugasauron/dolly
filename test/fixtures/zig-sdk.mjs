@@ -32,21 +32,28 @@ int main(void) {
 
 export async function runZigSdkCases(submit) {
   const scratch = "/tmp/dolly-zig-sdk-test";
+  const clang = "/usr/libexec/dolly/process-bin/compiler";
   const run = async command => assert.equal(await submit(command), 0, command);
   await run(`mkdir -p ${scratch}`);
   try {
     await run("zig version");
     for (const [name, text] of [["main.zig", source], ["main.c", driver]]) {
-      await run(`printf '%s\\n' ${text.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/${name}`);
+      const lines = text.trimEnd().split("\n").map(line => `echo -- ${shellQuote(line)}`);
+      await run(`{ ${lines.join("; ")}; } > ${scratch}/${name}`);
     }
     const flags = `-OReleaseSmall -target wasm64-emscripten -mcpu=generic+atomics ` +
       `-fPIC -fsingle-threaded -fcompiler-rt -lc --cache-dir ${scratch}/cache ` +
       `--global-cache-dir ${scratch}/global-cache`;
-    await run(`zig build-obj ${flags} -femit-bin=${scratch}/main.o -Mroot=${scratch}/main.zig`);
+    await run(`mv ${clang} ${scratch}/clang`);
+    try {
+      await run(`zig build-obj ${flags} -femit-bin=${scratch}/main.o -Mroot=${scratch}/main.zig`);
+      await run(`zig test-obj --test-no-exec ${flags} -femit-bin=${scratch}/test.o -Mroot=${scratch}/main.zig`);
+      await run(`test -s ${scratch}/test.o`);
+    } finally {
+      await run(`mv ${scratch}/clang ${clang}`);
+    }
     await run(`cc ${scratch}/main.c ${scratch}/main.o -lm -o ${scratch}/main`);
     await run(`${scratch}/main`);
-    await run(`zig test-obj --test-no-exec ${flags} -femit-bin=${scratch}/test.o -Mroot=${scratch}/main.zig`);
-    await run(`test -s ${scratch}/test.o`);
   } finally {
     await submit(`rm -rf ${scratch}`);
   }

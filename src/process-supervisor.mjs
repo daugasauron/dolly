@@ -13,8 +13,9 @@ const deferredResult = -(1n << 63n);
 const processSpawn = 64;
 const processSignal = 68;
 const signalAcknowledge = 69;
-const supportedSignals = [0, 1, 2, 3, 6, 9, 13, 15];
+const supportedSignals = [0, 1, 2, 3, 6, 9, 13, 15, 28];
 const sigint = 2;
+const sigwinch = 28;
 const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
 const interruptGraceMilliseconds = 500;
 const compiledModuleCacheEntries = 64;
@@ -254,6 +255,9 @@ export class DollyProcessSupervisor {
   #deliverSignal(process, signalNumber = sigint) {
     if (!process || process.retiring || this.processes.get(process.pid) !== process) return false;
     const result = this.dolly._dolly_process_signal(process.pid, signalNumber);
+    // Resize notification is not an interrupt request and must never acquire
+    // a forced-termination deadline, including before program entry.
+    if (signalNumber === sigwinch && (result !== 0 || !process.started)) return result === 0;
     if (signalNumber === 9 || result !== 0 || !process.started) {
       return this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
     }
@@ -262,7 +266,7 @@ export class DollyProcessSupervisor {
       this.deferred.delete(process.pid);
       this.#signal(process, deferred.message.sequence, interruptedSystemCall);
     }
-    if (process.interruptTimer === null) {
+    if (signalNumber !== sigwinch && process.interruptTimer === null) {
       process.interruptTimer = setTimeout(() => {
         process.interruptTimer = null;
         this.#forceExit(process.pid, 128 + signalNumber, signalNumber);

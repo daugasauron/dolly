@@ -7,6 +7,11 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <sched.h>
+#include <semaphore.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -17,12 +22,25 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
+#include <sys/utsname.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
 #include <wasi/api.h>
 
 #define DOLLY_PROCESS_IO_CHUNK 16384u
+
+int isatty(int descriptor) { return dolly_isatty(descriptor); }
+
+int uname(struct utsname *information) {
+  if (information == NULL) { errno = EFAULT; return -1; }
+  const struct utsname target = {
+      .sysname = "Dolly", .nodename = "dolly", .release = "0",
+      .version = "dolly-process-0", .machine = "wasm64",
+  };
+  *information = target;
+  return 0;
+}
 
 static pid_t process_id(int parent) {
   static dolly_process_info_response identity;
@@ -770,13 +788,23 @@ int __syscall_socket(int domain, int type, int protocol, int unused1,
 }
 
 int getaddrinfo(const char *node, const char *service,
-                const void *hints, void **result) {
+                const struct addrinfo *hints, struct addrinfo **result) {
   (void)node;
   (void)service;
   (void)hints;
   if (result != NULL) *result = NULL;
-  return -4; /* EAI_FAIL without importing a platform-specific netdb value. */
+  return EAI_FAIL;
 }
+
+/* No address list is allocated by Dolly's unsupported resolver. */
+void freeaddrinfo(struct addrinfo *result) { (void)result; }
+struct protoent *getprotobyname(const char *name) {
+  (void)name; errno = ENOSYS; return NULL;
+}
+struct protoent *getprotobynumber(int number) {
+  (void)number; errno = ENOSYS; return NULL;
+}
+const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
 
 /*
  * This is the process target's serialized libc fallback.  Runtimes such as
@@ -784,7 +812,40 @@ int getaddrinfo(const char *node, const char *service,
  * their own; normal static-link symbol ownership must let that definition
  * replace the generic one without a runtime-specific linker exception.
  */
-__attribute__((weak)) uintptr_t pthread_self(void) { return 1; }
+__attribute__((weak)) pthread_t pthread_self(void) { return (pthread_t)(uintptr_t)1; }
+
+__attribute__((weak)) int pthread_condattr_init(pthread_condattr_t *attribute) {
+  (void)attribute; return ENOSYS;
+}
+__attribute__((weak)) int pthread_condattr_destroy(pthread_condattr_t *attribute) {
+  (void)attribute; return ENOSYS;
+}
+__attribute__((weak)) int pthread_condattr_setclock(pthread_condattr_t *attribute,
+                                                  clockid_t clock) {
+  (void)attribute; (void)clock; return ENOSYS;
+}
+__attribute__((weak)) int pthread_getname_np(pthread_t thread, char *name, size_t size) {
+  (void)thread; (void)name; (void)size; return ENOSYS;
+}
+__attribute__((weak)) int pthread_setname_np(pthread_t thread, const char *name) {
+  (void)thread; (void)name; return ENOSYS;
+}
+__attribute__((weak)) int pthread_getschedparam(pthread_t thread, int *policy,
+                                               struct sched_param *parameter) {
+  (void)thread; (void)policy; (void)parameter; return ENOSYS;
+}
+__attribute__((weak)) int pthread_setschedparam(pthread_t thread, int policy,
+                                               const struct sched_param *parameter) {
+  (void)thread; (void)policy; (void)parameter; return ENOSYS;
+}
+int sched_get_priority_max(int policy) { (void)policy; errno = ENOSYS; return -1; }
+int sched_get_priority_min(int policy) { (void)policy; errno = ENOSYS; return -1; }
+__attribute__((weak)) int sem_init(sem_t *semaphore, int shared, unsigned value) {
+  (void)semaphore; (void)shared; (void)value; errno = ENOSYS; return -1;
+}
+__attribute__((weak)) int sem_destroy(sem_t *semaphore) {
+  (void)semaphore; errno = ENOSYS; return -1;
+}
 
 int sysctlbyname(const char *name, void *old_value, size_t *old_size,
                  const void *new_value, size_t new_size) {
@@ -1069,7 +1130,8 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       struct termios attributes;
       memset(&attributes, 0, sizeof(attributes));
       attributes.c_iflag = ICRNL | IXON;
-      attributes.c_oflag = OPOST | ONLCR;
+      if (mode & DOLLY_TERMINAL_OPOST) attributes.c_oflag |= OPOST;
+      if (mode & DOLLY_TERMINAL_ONLCR) attributes.c_oflag |= ONLCR;
       attributes.c_cflag = CS8 | CREAD;
       attributes.c_lflag = ISIG;
       if ((mode & DOLLY_TERMINAL_CANONICAL) != 0) {
@@ -1103,16 +1165,24 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
         mode |= DOLLY_TERMINAL_CANONICAL;
       }
       if ((attributes.c_lflag & ECHO) != 0) mode |= DOLLY_TERMINAL_ECHO;
+      if (attributes.c_oflag & OPOST) mode |= DOLLY_TERMINAL_OPOST;
+      if (attributes.c_oflag & ONLCR) mode |= DOLLY_TERMINAL_ONLCR;
       return dolly_terminal_mode_set(descriptor, mode);
     }
     case TIOCGWINSZ: {
       if (argument == 0) return -EFAULT;
-      const int mode = dolly_terminal_mode_get(descriptor);
-      if (mode < 0) return mode;
+      const dolly_process_terminal_request request = {
+          DOLLY_PROCESS_TERMINAL_SIZE, (uint32_t)descriptor, 0, 0, 0,
+      };
+      dolly_process_terminal_response response;
+      const int64_t result = dolly_process_call(
+          DOLLY_PROCESS_TERMINAL, &request, sizeof(request), &response, sizeof(response));
+      if (result < 0) return (int)result;
+      if ((uint64_t)result != sizeof(response)) return -EIO;
       struct winsize size;
       memset(&size, 0, sizeof(size));
-      size.ws_row = (unsigned short)dolly_terminal_rows();
-      size.ws_col = (unsigned short)dolly_terminal_columns();
+      size.ws_row = (unsigned short)response.rows;
+      size.ws_col = (unsigned short)response.columns;
       memcpy((void *)argument, &size, sizeof(size));
       return 0;
     }

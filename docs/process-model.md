@@ -66,6 +66,8 @@ error numbers are generated from the target headers, not copied from Linux.
 An executable may contain a WebAssembly start section for private memory/TLS
 initialization. Process execution itself begins only when the supervisor calls
 the exported `_start`; instantiation must not perform a kernel operation.
+The C/C++ startup object completes TLS address relocations before constructors,
+then invokes `main` and `exit`. This is in Wasm, not a browser initialization hook.
 Initial memory is executable metadata rather than an ABI-wide constant. Small
 commands therefore do not pay for a compiler-sized initial heap, while the
 contract still fixes shared memory64 and its 8 GiB ceiling. This corresponds to
@@ -145,6 +147,11 @@ absolute monotonic deadline lets the supervisor defer and retry the same call;
 Ctrl-C wakes it with `EINTR`. This is enough for event-driven terminal clients
 such as CPython's PyREPL without introducing sockets or asynchronous host I/O.
 
+The in-Wasm terminal discipline owns canonical input, echo, and the independent
+`OPOST`/`ONLCR` output bits. libc and CPython translate their `termios` layouts
+above this mask. Ghostty receives the resulting bytes unchanged: raw output must
+preserve bare LF cursor movements, while cooked output can map LF to CRLF.
+
 Upstream libffi 3.5.2 supplies the generic implementation and public wasm64
 layout. Dolly replaces only its Emscripten JavaScript-library backend with
 `src/runtimes/libffi-dolly.c`, which serializes calls over
@@ -214,9 +221,9 @@ address space without discarding kernel filesystem state.
 The process packet contract includes actual PID/parent IDs, an optional absolute
 spawn cwd, nonblocking wait, and positive-PID signals. Selecting a child's cwd
 is atomic in the kernel and never changes the parent's cwd. `kill(pid, 0)` checks
-existence; HUP, INT, QUIT, ABRT, KILL, PIPE and TERM are supported. Groups and
+existence; HUP, INT, QUIT, ABRT, KILL, PIPE, TERM and WINCH are supported. Groups and
 stopped states are not implemented; unsupported signals fail with ENOTSUP.
-SIGKILL and signals before Worker entry terminate without handlers. These
+SIGKILL and terminating signals before Worker entry skip handlers. These
 operations do not address native host processes.
 
 Exit and wait records carry a separate termination-signal field. A normal
@@ -252,6 +259,8 @@ Ctrl-C when idle, while its active descendants receive process-directed SIGINT.
 An ordinary foreground job is itself cancellable. Image-owned init scripts use
 the ordinary `/bin/foreground` launcher to select these roles; the browser does
 not recognize Slop, Pi or recovery paths.
+Terminal layout changes queue SIGWINCH for the foreground tree after publishing
+the new dimensions. Resize is ignored by default and has no termination deadline.
 The trusted supervisor records signals in the kernel and wakes deferred calls
 with `EINTR`. The process-local libc wrapper delivers pending signals at syscall
 boundaries through ordinary `signal`/`sigaction` handlers. It supports masks,

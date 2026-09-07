@@ -14,7 +14,7 @@ export fn ZigLlvmAr_main(_: c_int, _: [*:null]?[*:0]u8) callconv(.c) c_int {
     return 1;
 }
 
-// compiler-main.c selects this entry only for --dolly-toolchain-mode=zig.
+// The standalone compiler's C main calls this entry directly.
 // Everything below Zig is ordinary process libc plus dolly-process-0; there
 // are no kernel-libc imports or browser fallbacks in this executable.
 export fn dolly_main(argc: c_int, argv: [*][*:0]u8) callconv(.c) c_int {

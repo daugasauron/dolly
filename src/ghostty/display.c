@@ -18,7 +18,7 @@ enum {
   DRIVER_ABI_VERSION = 3,
   MIN_FONT_MILLI = 8000,
   MAX_FONT_MILLI = 32000,
-  DEFAULT_FONT_MILLI = 15000,
+  DEFAULT_FONT_MILLI = 20000,
   DEFAULT_SCALE_MILLI = 1000,
   PTY_RESPONSE_CAPACITY = 512 * 1024,
   MAX_GRAPHEME_CODEPOINTS = 16,
@@ -161,7 +161,6 @@ static int font_ascent;
 static unsigned char pty_response[PTY_RESPONSE_CAPACITY];
 static size_t pty_response_read;
 static size_t pty_response_write;
-static int previous_output_was_cr;
 static GhosttySelectionGesture selection_gesture;
 static GhosttySelectionGestureEvent selection_press;
 static GhosttySelectionGestureEvent selection_drag;
@@ -435,6 +434,8 @@ static int set_layout(uint32_t width_css, uint32_t height_css,
   uint32_t rows = clamp_u32(usable_height / cell_height, 1, UINT16_MAX);
   if (ghostty_terminal_resize(terminal, (uint16_t)cols, (uint16_t)rows,
                               cell_width, cell_height) != GHOSTTY_SUCCESS) return -1;
+  __c11_atomic_store(&mailbox->terminal_cols, cols, __ATOMIC_RELAXED);
+  __c11_atomic_store(&mailbox->terminal_rows, rows, __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->font_size_milli, font_size_milli,
                      __ATOMIC_RELAXED);
   __c11_atomic_store(&mailbox->cell_width, cell_width, __ATOMIC_RELAXED);
@@ -487,15 +488,25 @@ static void render_frame(void) {
       if (ghostty_terminal_grid_ref(terminal, point, &ref) != GHOSTTY_SUCCESS) continue;
       GhosttyCell cell = 0;
       GhosttyStyle style = GHOSTTY_INIT_SIZED(GhosttyStyle);
+      GhosttyCellContentTag content = GHOSTTY_CELL_CONTENT_CODEPOINT;
       bool has_text = false;
       GhosttyCellWide wide = GHOSTTY_CELL_WIDE_NARROW;
       if (ghostty_grid_ref_cell(&ref, &cell) != GHOSTTY_SUCCESS ||
           ghostty_grid_ref_style(&ref, &style) != GHOSTTY_SUCCESS ||
+          ghostty_cell_get(cell, GHOSTTY_CELL_DATA_CONTENT_TAG, &content) != GHOSTTY_SUCCESS ||
           ghostty_cell_get(cell, GHOSTTY_CELL_DATA_HAS_TEXT, &has_text) != GHOSTTY_SUCCESS ||
           ghostty_cell_get(cell, GHOSTTY_CELL_DATA_WIDE, &wide) != GHOSTTY_SUCCESS) continue;
 
       GhosttyColorRgb fg = theme_color(&style.fg_color, false);
       GhosttyColorRgb bg = theme_color(&style.bg_color, true);
+      // Erased cells store their background in the cell, not its text style.
+      if (content == GHOSTTY_CELL_CONTENT_BG_COLOR_RGB) {
+        (void)ghostty_cell_get(cell, GHOSTTY_CELL_DATA_COLOR_RGB, &bg);
+      } else if (content == GHOSTTY_CELL_CONTENT_BG_COLOR_PALETTE) {
+        GhosttyColorPaletteIndex index = 0;
+        (void)ghostty_cell_get(cell, GHOSTTY_CELL_DATA_COLOR_PALETTE, &index);
+        bg = terminal_palette[index];
+      }
       if (style.inverse) {
         GhosttyColorRgb temporary = fg;
         fg = bg;
@@ -503,9 +514,7 @@ static void render_frame(void) {
       }
       const int x = (int)padding_x + (int)column * (int)cell_width;
       const int y = (int)padding_y + (int)row * (int)cell_height;
-      if (style.bg_color.tag != GHOSTTY_STYLE_COLOR_NONE || style.inverse) {
-        fill_rect(frame, x, y, (int)cell_width, (int)cell_height, bg);
-      }
+      fill_rect(frame, x, y, (int)cell_width, (int)cell_height, bg);
       bool selected = false;
       if (has_selection) {
         (void)ghostty_terminal_selection_contains(
@@ -614,21 +623,7 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
 
 static void write_terminal(const unsigned char *bytes, size_t length) {
   if (terminal == NULL || bytes == NULL || length == 0) return;
-  size_t start = 0;
-  for (size_t index = 0; index < length; ++index) {
-    if (bytes[index] != '\n' || previous_output_was_cr) {
-      previous_output_was_cr = bytes[index] == '\r';
-      continue;
-    }
-    if (index > start) ghostty_terminal_vt_write(terminal, bytes + start,
-                                                 index - start);
-    static const unsigned char newline[] = {'\r', '\n'};
-    ghostty_terminal_vt_write(terminal, newline, sizeof(newline));
-    start = index + 1;
-    previous_output_was_cr = false;
-  }
-  if (start < length) ghostty_terminal_vt_write(terminal, bytes + start,
-                                                length - start);
+  ghostty_terminal_vt_write(terminal, bytes, length);
   frame_dirty = true;
 }
 
@@ -912,10 +907,13 @@ static int handle_event(const dolly_input_event *event,
   if ((event->modifiers & DOLLY_INPUT_MOD_CAPS_LOCK) != 0) mods |= GHOSTTY_MODS_CAPS_LOCK;
   if ((event->modifiers & DOLLY_INPUT_MOD_NUM_LOCK) != 0) mods |= GHOSTTY_MODS_NUM_LOCK;
   ghostty_key_event_set_mods(key_event, mods);
-  ghostty_key_event_set_consumed_mods(key_event, 0);
+  const bool printable = printable_key(key, event->key_length);
+  // KeyboardEvent.key already contains the text produced by Shift (e.g. ':').
+  ghostty_key_event_set_consumed_mods(key_event,
+      printable ? mods & GHOSTTY_MODS_SHIFT : 0);
   ghostty_key_event_set_composing(
       key_event, (event->flags & DOLLY_INPUT_FLAG_COMPOSING) != 0);
-  if (printable_key(key, event->key_length)) {
+  if (printable) {
     ghostty_key_event_set_utf8(key_event, key, event->key_length);
   } else {
     ghostty_key_event_set_utf8(key_event, NULL, 0);

@@ -1,5 +1,5 @@
-#include <dolly/toolchain.h>
+int dolly_main(int argc, char **argv);
 
 int main(int argc, char **argv) {
-  return dolly_toolchain_proxy(argc, argv, DOLLY_TOOLCHAIN_ZIG);
+  return dolly_main(argc, argv);
 }

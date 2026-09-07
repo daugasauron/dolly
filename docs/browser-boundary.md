@@ -154,6 +154,8 @@ Signal handlers execute in process Wasm at syscall boundaries. The supervisor
 keeps its termination timer until userspace acknowledges completed delivery,
 not merely receipt, and a rapid second Ctrl-C forces cancellation. Handler
 cleanup adds no browser capability; the syscall packet ABI binds the handshake.
+SIGWINCH reports an in-Wasm terminal layout change through that same signal
+path. Unlike cancellation, it never starts a forced-termination timer.
 
 ## Recheck mechanically
 

@@ -61,5 +61,9 @@ DOLLY_IMAGE=python-pi DOLLY_BROWSER_MODE=session \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=cpp \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
-DOLLY_BROWSER_MODE=zig-single-provider \
+DOLLY_IMAGE=ghostty-build DOLLY_BROWSER_MODE=zig-sdk \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=cmake-build DOLLY_BROWSER_MODE=cmake \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=neovim DOLLY_BROWSER_MODE=neovim \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"

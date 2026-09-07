@@ -1,6 +1,7 @@
-# Public reserved libc ABI spellings which process DSOs may import from their
-# owning executable. Keep this list explicit: libc's remaining underscore
-# names are implementation details and must not become a de facto Dolly ABI.
+# Additional public libc spellings which DSOs may import from their owner.
+# Keep reserved names and selected unsupported-operation stubs explicit;
+# private libc helpers must not become a de facto Dolly ABI.
+__assert_fail
 __ctype_b_loc
 __ctype_get_mb_cur_max
 __ctype_tolower_loc
@@ -18,3 +19,5 @@ __signbitf
 __signbitl
 __stack_chk_fail
 __stack_chk_guard
+getgrgid_r
+getpwuid_r

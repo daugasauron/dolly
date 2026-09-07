@@ -149,6 +149,7 @@ process_libc_internal_flags=(
   -I/emsdk/upstream/emscripten/system/lib/pthread
 )
 process_link_flags=(
+  -nostartfiles build/process-crt1.o
   -sSTANDALONE_WASM=1
   -sIMPORTED_MEMORY=1
   -sSHARED_MEMORY=1
@@ -161,6 +162,9 @@ process_link_flags=(
   -Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table
 )
 
+"${container[@]}" /emsdk/upstream/emscripten/emcc \
+  "${process_compile_flags[@]}" -c src/process/crt1.c \
+  -o build/process-crt1.o
 "${container[@]}" /emsdk/upstream/emscripten/emcc \
   "${process_compile_flags[@]}" -c src/process/libc-adapter.c \
   -o build/process-libc-adapter.o
@@ -298,8 +302,6 @@ node scripts/dolly-abi.mjs validate-process-dso \
   -o build/dolly-snapshot-0.wasm
 
 native_zig_object="$("${project_dir}/scripts/build-native-zig.sh")"
-bash "${project_dir}/scripts/prepare-image-sources.sh"
-node scripts/generate-routes.mjs
 
 node scripts/dolly-abi.mjs emit-emscripten-exports \
   build/dolly-kernel-plugin-0.wasm \
@@ -334,14 +336,16 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DDOLLY_ZIG_DIR="${zig_container_dir}" \
   -DDOLLY_ZIG_OBJECT="/src/${native_zig_object#"${project_dir}/"}" \
   -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}"
-"${container[@]}" cmake --build build/runtime --target dolly-process-compiler --parallel
+"${container[@]}" cmake --build build/runtime --target dolly-process-compiler dolly-process-zig --parallel
 node scripts/dolly-abi.mjs stamp-process \
   build/dolly-process-0.wasm \
-  build/process-tools/compiler.wasm
+  build/process-tools/compiler.wasm build/process-tools/zig.wasm
 node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm \
-  build/process-tools/compiler.wasm
+  build/process-tools/compiler.wasm build/process-tools/zig.wasm
 cp build/process-tools/compiler.wasm build/process-bin/compiler
+bash "${project_dir}/scripts/prepare-image-sources.sh"
+node scripts/generate-routes.mjs
 "${container[@]}" cmake --build build/runtime --target dolly --parallel
 
 node scripts/dolly-abi.mjs stamp \

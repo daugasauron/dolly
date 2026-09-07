@@ -1,0 +1,36 @@
+DOLLY 3
+IMAGE neovim
+
+FROM HOST /Dollyfile-system 7ce9d80710acc550efa7f541c652a8ddfd9b3c69fbc69add74ce86db5b3d234f
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/bin/nvim /usr/bin/nvim
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/nvim /usr/share/nvim
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/lib/nvim /usr/lib/nvim
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/neovim /usr/share/licenses/neovim
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/neovim-parsers /usr/share/licenses/neovim-parsers
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/libuv /usr/share/licenses/libuv
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/lua /usr/share/licenses/lua
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/luv /usr/share/licenses/luv
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/lua-compat53 /usr/share/licenses/lua-compat53
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/lpeg /usr/share/licenses/lpeg
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/utf8proc /usr/share/licenses/utf8proc
+COPY FROM HOST /Dollyfile-neovim-build 29d12a0a9a343809d3342e02335c5599040c21744edf040e1cbcfa405abcd0a0 /usr/share/licenses/treesitter /usr/share/licenses/treesitter
+EXPORTS TOOL nvim
+EXPORTS FOLDER nvim-runtime /usr/share/nvim
+EXPORTS FOLDER nvim-libraries /usr/lib/nvim
+
+USE HOST /modules/posix-shell.dm 8b980e03bb4ee4402bb8eba064503859479298979694a968fa7f1563e94eac51
+
+FILE /home/dolly/.config/nvim/init.lua
+    vim.opt.shell = "/bin/slop"
+
+FILE /usr/share/nvim/welcome.txt
+    Neovim inside Dolly
+    Press i to insert text. Escape returns to normal mode.
+    :w saves; :q quits; :q! discards changes.
+    :edit /workspace/example.c opens a file in your workspace.
+    :!ls runs a command through Slop. :help opens Neovim's help.
+    Quitting ends the image. Reload the page to start it again.
+    Files live in the sandbox. Ctrl+Shift+S saves your session in this browser.
+    PTY terminals, detached jobs, raw sockets and LuaJIT FFI are not supported.
+
+ENTRY /usr/bin/nvim /usr/share/nvim/welcome.txt
