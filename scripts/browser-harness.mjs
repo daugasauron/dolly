@@ -1670,13 +1670,17 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       assert.equal(await submit("test -f /workspace/Dollyfile && dollyfile-lint /workspace/Dollyfile"), 0);
       assert.equal(await submit("dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-tool"), 0);
       assert.equal(await submit("printf 'DOLLY 2\\n' | dollyfile-lint --stdin Draft"), 1);
+      for (const suffix of ["$&", "$$", "$'", "$`", "東京"]) {
+        const label = `Dollyfile-${suffix}`;
+        assert.equal(await submit(`message=$(printf 'DOLLY 3\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); status=$?; test "$status" = 1 && test "$message" = ${shellQuote(`${label}:1: missing IMAGE or MODULE`)}`), 0);
+      }
       assert.equal(await submit("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/browser-model-providers.js"), 0);
       const source = await readFile(resolve(projectDir, "test/fixtures/studio-nvim.lua"), "utf8");
       assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > /tmp/studio-nvim.lua`), 0);
       try {
         assert.equal(await submit("timeout 60 nvim --headless -n -i NONE -S /tmp/studio-nvim.lua"), 0);
       } finally { await submit("rm -f /tmp/studio-nvim.lua /tmp/Dollyfile-studio-lint"); }
-      console.log("browser: Studio launches Pi with prompts; real examples lint; Neovim detects syntax, lints unsaved buffers and refreshes diagnostics on save");
+      console.log("browser: Studio launches Pi with prompts; examples lint with literal filenames; Neovim detects syntax, lints unsaved buffers and refreshes diagnostics on save");
       break browserProof;
     }
     if (uploadMode) {
@@ -2096,7 +2100,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.mjs`), 0);
         assert.equal(await submit(`janis -m ${scratch}/probe.mjs ${scratch}`), 0);
       } finally { await submit(`rm -rf ${scratch}`); }
-      console.log("browser: Janis environment, Buffer views, real file descriptors/offsets, symlink metadata and explicit watch failure passed");
+      console.log("browser: Janis environment, Buffer views, real file descriptors/offsets, symlink metadata, literal package paths and explicit watch failure passed");
       break browserProof;
     }
     if (terminalUiMode) {

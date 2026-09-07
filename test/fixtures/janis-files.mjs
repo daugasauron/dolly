@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import { createRequire } from "node:module";
 
 const root = process.argv[2];
 const failures = [];
@@ -138,6 +139,18 @@ await check("stat follows symlinks and lstat/Dirent do not", () => {
 await check("unsupported watches fail explicitly", () => {
   rejects(() => fs.watch(root, () => {}), "ERR_METHOD_NOT_IMPLEMENTED");
   rejects(() => fs.watchFile(`${root}/target`, () => {}), "ERR_METHOD_NOT_IMPLEMENTED");
+});
+await check("package exports and imports preserve literal filenames", () => {
+  const directory = `${root}/node_modules/literal-files`;
+  fs.mkdirSync(`${directory}/src`, { recursive: true });
+  fs.writeFileSync(`${directory}/package.json`, JSON.stringify({ name: "literal-files",
+    exports: { "./*": "./src/*.cjs" }, imports: { "#literal/*": "./src/*.cjs" } }));
+  const require = createRequire(`${root}/entry.cjs`), internal = createRequire(`${directory}/entry.cjs`);
+  for (const name of ["plain", "$&", "$$", "$'", "$`", "東京"]) {
+    fs.writeFileSync(`${directory}/src/${name}.cjs`, `module.exports = ${JSON.stringify(name)};`);
+    equal(require(`literal-files/${name}`), name);
+    equal(internal(`#literal/${name}`), name);
+  }
 });
 if (failures.length) throw new Error(`${failures.length} Janis filesystem/environment groups failed`);
 console.log("JANIS-FILES-OK");

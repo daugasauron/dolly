@@ -12,7 +12,7 @@ try {
 } catch (error) {
   const message = String(error.message);
   console.error(message.startsWith(label + ":")
-    ? /:\d+: /.test(message) ? message : message.replace(label + ":", label + ":1:")
+    ? /:\d+: /.test(message) ? message : message.replace(label + ":", () => label + ":1:")
     : `${label}:1: ${message}`);
   Dolly.exit(1);
 }

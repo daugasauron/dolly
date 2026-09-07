@@ -1920,7 +1920,7 @@ function janisMappedTarget(map, key, conditions) {
       target,
     };
   }
-  return best?.target?.replaceAll("*", best.match);
+  return best?.target?.replaceAll("*", () => best.match);
 }
 
 function janisPackageExport(exportsValue, subpath, conditions) {

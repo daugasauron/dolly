@@ -2,7 +2,7 @@ DOLLY 3
 IMAGE javascript
 
 FROM HOST /Dollyfile-system 70aed4c44336876331b9325478560391d17cc20f2bc130ccbf3a0512c4530765
-USE HOST /modules/quickjs.dm 201e0508c9186273d1560a23b90085f10140ca6dd650c7a9f5a7870b15b2fada
+USE HOST /modules/quickjs.dm e43b31e924ba3fe6f305612475fcdc518aa41d2278975e57800bf4868b63fd85
 USE HOST /modules/typescript.dm 6e3d68d10ad21724da28f91f6bf9350d16db16917d93e793b9004f0b6688b3a0
 
 ENTRY /bin/foreground -i /bin/slop
