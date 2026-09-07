@@ -4,7 +4,7 @@ Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
 locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
-- [ ] GPU setup guidance beside the model picker; test unavailable adapters and
+- [x] GPU setup guidance beside the model picker; test unavailable adapters and
   a real Chrome GPU load. Do not silently change flags or use a remote fallback.
 - [ ] Genuine fd/ripgrep in every Pi image, resolved from PATH. Check upstream
   tool behavior and Pi startup/search; document any Rust bootstrap boundary.
@@ -28,3 +28,9 @@ or hosting purchase is part of this work.
 
 Preserve the last complete local release while building. Publish the whole
 catalog after validated milestones; retain old release assets for open tabs.
+
+Checkpoint requested before further scope: GPU help and catalog ordering are
+done. The Qwen 3.5 native tool-format fix passes source tests and two real GPU
+starters; the repair starter still fails. Studio submission, fd/ripgrep, bhop
+expansion and release review remain open. See [audit handoff](audit-handoff.md)
+for confirmed defects, measured costs and the isolated Codex experiment.

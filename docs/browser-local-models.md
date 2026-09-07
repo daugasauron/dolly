@@ -78,13 +78,15 @@ HTTP requests receive `EBUSY`. Pi normally finishes inference before executing
 its tools. There is no additional request queue.
 
 The independent model worker receives copied JSON and returns completion
-chunks. Each worker `next` operation follows downstream demand. Qwen tool
-responses use constrained JSON because this WebLLM release's native tool API
-does not support Qwen. The small adapter converts that JSON into standard tool
-calls and translates tool-result history into Qwen's conversation template.
+chunks. Each worker `next` operation follows downstream demand. This WebLLM
+release does not provide Qwen's native tool API. The adapter follows
+[Qwen 3.5's function/parameter template](https://huggingface.co/Qwen/Qwen3.5-2B/blob/15852e8c16360a2fea060d615a32b45270f8a8fc/chat_template.jinja),
+including tool-response history; it does not force Qwen 3's JSON envelopes.
+String parameters preserve literal shell quotes and code rather than requiring
+JSON escaping. Complete native calls become ordinary OpenAI tool calls.
 An explanation before a tool envelope is preserved as assistant text alongside
 the call; it does not turn a valid tool call into a plain-text answer.
-It buffers at most 128 KiB of structured output and shows the answer/tool call
+It buffers at most 128 KiB of tool-enabled output and shows the answer/tool call
 after that response finishes; ordinary text streams incrementally. It does not
 repair malformed output or guess missing calls. Pi executes the resulting
 tools in Dolly, using Dolly's filesystem and shell.

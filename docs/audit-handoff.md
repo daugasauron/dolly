@@ -1,5 +1,52 @@
 # Audit checkpoint
 
+## Latest checkpoint — 2026-09-07
+
+Chrome GPU errors now link to short setup instructions; unavailable/fallback
+adapters fail before downloading weights. The home page sorts default first,
+then alphabetically. Qwen 3.5 now uses its native function/parameter tool format
+instead of Qwen 3's JSON envelopes, preserving literal shell/code strings and
+rejecting incomplete calls. No Wasm import or network authority changed.
+
+All 246 source tests pass (`build/checkpoint-qwen-source.log`). GPU-help and
+menu browser checks pass (`build/overnight-{gpu-help,menu}-browser.log`). The real
+Chrome GPU run passed `/dolly-hello` and `/dolly-tool`, but `/dolly-fix` repeated
+prose until its token limit and created no file. The aggregate local-model test
+therefore **fails** (`build/overnight-qwen-native-browser.log`); this is progress,
+not a reliable end-to-end Studio workflow. The 19 previously verified image
+snapshots and the runtime are unchanged by these frontend edits.
+
+Outstanding defects and verification gaps:
+
+- **Local Pi reliability:** repeat the three starters and exercise skill-led
+  author/build/debug work. Do not weaken output checks or substitute scripted
+  actions for the model. Cold GPU download/recovery still needs reproduction;
+  one earlier run lost its debugger, with no established cause.
+- **Missing Pi search tools:** genuine fd/ripgrep are not installed. Rust
+  bootstrap versus fully in-sandbox Rust compilation needs an explicit decision.
+  fd's `--threads 1` still creates threads; it is not a serial implementation.
+- **Tar stdin:** `tar -xf -` opens a file named `-`, so the conventional
+  `gzip -dc archive.tgz | tar -xf -` pipeline fails. The isolated Rust experiment
+  reproduced this; `modules/tar.dm` confirms the unconditional path open.
+- **Pi test readiness:** the streaming UI fixture's fixed startup delay can send
+  input before Pi is ready; matching an old echoed marker can then hide failure.
+  Fix readiness and fresh-output assertions before treating that run as evidence.
+- **Custom-image persistence:** named-session save/load is unavailable for
+  tab-local uploaded recipes. Preserve the validated image identity when adding it.
+- **Cold build cost:** uncached CMake took 1,434 seconds and Neovim 264 seconds;
+  cached Studio assembly took about 10 seconds. No host compilation fallback.
+
+Remaining feature/release work is tracked in [the overnight plan](overnight-plan.md):
+Studio's HTTP build/log/open workflow, the bhop expansion, and the full public
+source/artifact and static-hosting review have not been implemented or completed.
+
+The isolated `codex/wasm64-native-agent-20260907` checkpoint (`751919c`) runs the real upstream
+`codex-execpolicy` CLI in Chrome, with correct allow/forbidden results. It found
+and fixed a Rust target allocator-alignment mismatch (16-byte assumption versus
+Emscripten's 8-byte malloc guarantee). Its target patches remain off main; consult
+that branch's `CODEX-HANDOFF.md` before reusing the bootstrap. The full Codex agent
+is still blocked by native runtime/dependency assumptions, not running in Dolly.
+
 ## Current authoring checkpoint — 2026-09-07
 
 Clean navigation URLs retain release-pinned assets. `/custom/` accepts pasted
@@ -16,27 +63,6 @@ browser imports, lifecycle recovery, bhop and Python-Pi sessions. Evidence:
 `build/studio-checkpoint-browser.log`, `build/studio-firefox-browser.log`, and
 `build/studio-{boundary,lifecycle,bhop,session,neovim}-browser.log`.
 This is not a fresh cold-bootstrap or a rerun of every browser-suite mode.
-
-Outstanding issues, kept outside this checkpoint:
-
-- **Local-model task reliability:** Qwen 2B loaded and completed `/dolly-hello`,
-  but `/dolly-tool` tried reading the not-yet-created output instead of running
-  the supplied command, then stopped. Earlier broad prompts edited the installed
-  example or invented a command. The source examples build successfully; do not
-  claim all agent starters reliably complete. The opt-in `studio-local-model`
-  browser proof checks all three tasks and fails when their outputs are absent.
-  Keep inference/tool traces when distinguishing model failures from runtime bugs.
-- **Custom-image persistence:** named-session save/load is unavailable for
-  tab-local uploaded recipes. Keep/export the recipe; Studio itself supports
-  normal named sessions. A follow-up needs a saved, validated custom base identity,
-  not a bypass of the existing identity checks.
-- **Cold iteration cost:** CMake's uncached image took 1,434 seconds; Neovim's
-  build image took 264 seconds. Cached Studio assembly took about 10 seconds.
-  Preserve image/toolchain separation and investigate cold builds independently;
-  do not add host compilation fallbacks or invalidate the kernel for image edits.
-- **GPU startup coverage:** one first-download run lost its browser debugger;
-  subsequent cached loads worked. No cause was established. Fresh-profile retry,
-  interruption and memory behavior need a separate GPU-focused reproduction.
 
 The following sections are historical verification, not current outstanding work.
 

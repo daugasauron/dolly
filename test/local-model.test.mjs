@@ -5,7 +5,7 @@ import { runInNewContext } from "node:vm";
 import { DollyHttpPolicy } from "../src/http-policy.mjs";
 import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL, LOCAL_MODEL_ORIGIN, LOCAL_LIMITS, validateCompletion } from "../src/local-model-contract.mjs";
 import { LocalModelService, localModelTransport } from "../src/local-model-service.mjs";
-import { qwenRequest, qwenCompletions } from "../src/qwen-completions.mjs";
+import { qwenRequest, qwenCompletions, qwenToolCalls } from "../src/qwen-completions.mjs";
 
 const request = () => ({ model: DEFAULT_LOCAL_MODEL.id, stream: true, messages: [{ role: "user", content: "Hello" }] });
 const tool = { type: "function", function: { name: "read", parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } };
@@ -89,12 +89,13 @@ test("discovered models match pinned assets and weight sizes, without loading a 
 
 test("Qwen translates tool history and emits standard calls, without repairing invalid output", async () => {
   const input = { ...request(), tools: [tool], stream_options: { include_usage: true } };
+  const envelope = '<tool_call>\n<function=read>\n<parameter=path>\n/tmp/a\n</parameter>\n</function>\n</tool_call>';
   const engine = {
     resetChat: async () => {},
     chat: { completions: { async *create() {
       yield { choices: [{ delta: { content: "<thi" }, finish_reason: null }] };
       yield { choices: [{ delta: { content: "nk>\n\n</think>\n\n" }, finish_reason: null }] };
-      yield { choices: [{ delta: { content: '<tool_call>{"name":"read","arguments":{"path":"/tmp/a"}}</tool_call>' }, finish_reason: null }] };
+      yield { choices: [{ delta: { content: envelope }, finish_reason: null }] };
       yield { choices: [{ delta: {}, finish_reason: "stop" }], usage: { completion_tokens: 25 } };
     } } },
   };
@@ -108,9 +109,12 @@ test("Qwen translates tool history and emits standard calls, without repairing i
     { role: "tool", tool_call_id: call.id, content: "file contents" }] });
   assert.equal(translated.messages.at(-1).role, "user");
   assert.match(translated.messages.at(-1).content, /file contents/);
-  assert.ok(translated.response_format.structural_tag.includes('"read"'));
+  assert.match(translated.messages[0].content, /<tools>[\s\S]*"read"[\s\S]*<\/tools>/);
+  assert.equal(translated.messages.at(-2).content, envelope);
+  assert.equal(translated.messages.at(-1).content, "<tool_response>\nfile contents\n</tool_response>");
+  assert.equal(translated.response_format, undefined);
   engine.chat.completions.create = async function* () {
-    yield { choices: [{ delta: { content: 'Let me look.\n<tool_call>{"name":"read","arguments":{"path":"/tmp/a"}}</tool_call>' }, finish_reason: "stop" }] };
+    yield { choices: [{ delta: { content: 'Let me look.\n' + envelope }, finish_reason: "stop" }] };
   };
   const prefaced = await Array.fromAsync(qwenCompletions(engine, input));
   const prefacedChoice = prefaced.find(c => c.choices?.[0]?.finish_reason).choices[0];
@@ -120,13 +124,35 @@ test("Qwen translates tool history and emits standard calls, without repairing i
     { role: "assistant", ...prefacedChoice.delta }, { role: "tool", tool_call_id: prefacedChoice.delta.tool_calls[0].id, content: "file contents" }] });
   assert.ok(history.messages.at(-2).content.startsWith("Let me look.\n<tool_call>"));
   engine.chat.completions.create = async function* () {
-    yield { choices: [{ delta: { content: 'Let me look.\n<tool_call>{"name":"read","arguments":' }, finish_reason: "length" }] };
+    yield { choices: [{ delta: { content: 'Let me look.\n<tool_call>\n<function=read>\n<parameter=path>' }, finish_reason: "length" }] };
   };
   await assert.rejects(async () => Array.fromAsync(qwenCompletions(engine, input)), /length/);
   engine.chat.completions.create = async function* () { yield { choices: [{ delta: { content: "<tool_call>unfinished" }, finish_reason: "length" }] }; };
   await assert.rejects(async () => Array.fromAsync(qwenCompletions(engine, input)), /length/);
   engine.chat.completions.create = async function* () { yield { choices: [{ delta: { content: "<tool_call>unfinished" } }] }; };
   await assert.rejects(async () => Array.fromAsync(qwenCompletions(engine, input)), /finish reason/);
+});
+
+test("Qwen native parameters preserve shell/code strings and reject incomplete or ambiguous calls", () => {
+  const parameters = { type: "object", properties: {
+    command: { type: "string" }, limit: { type: "integer" }, options: { type: "object" },
+  }, required: ["command"], additionalProperties: false };
+  const tools = [{ type: "function", function: { name: "bash", parameters } }];
+  const args = { command: '\uFEFF  printf \'%s\\n\' "$value"\n# 日本語\n  ', limit: 7, options: { quiet: true } };
+  const source = qwenRequest({ ...request(), tools, messages: [
+    ...request().messages, { role: "assistant", tool_calls: [{ function: { name: "bash", arguments: JSON.stringify(args) } }] },
+  ] }).messages.at(-1).content;
+  const calls = qwenToolCalls(source + "\n" + source, tools);
+  assert.equal(calls.length, 2);
+  assert.notEqual(calls[0].id, calls[1].id);
+  assert.deepEqual(JSON.parse(calls[0].function.arguments), args);
+  for (const malformed of [
+    source.slice(0, -1), source + "extra", source.replace("<function=bash>", "<function=unknown>"),
+    source.replace("<parameter=command>", "<parameter=surprise>"),
+    source.replace("<parameter=limit>", "<parameter=command>"),
+    "<tool_call><function=bash></function></tool_call>",
+    '<tool_call>{"name":"bash","arguments":{"command":"echo wrong format"}}</tool_call>',
+  ]) assert.throws(() => qwenToolCalls(malformed, tools));
 });
 
 class FakeWorker extends EventTarget {
