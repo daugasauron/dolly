@@ -1,9 +1,9 @@
 # Overnight release work
 
 Original target: 2026-09-08 07:00 JST; baseline `2ccaab2`.
-Work is paused at the user's requested checkpoint. Application `4b61edf` is
+Work is paused at the user's requested checkpoint. Application `c79380d` is
 published locally on port 9000; all 19 images passed packaged inventories.
-The latest source checkpoint passes 258 tests. No public deployment or hosting
+The latest source checkpoint passes 259 tests. No public deployment or hosting
 purchase is part of this work. See [audit handoff](audit-handoff.md) for exact
 release identity, evidence and remaining issues; unchecked items are unfinished.
 
@@ -17,7 +17,8 @@ release identity, evidence and remaining issues; unchecked items are unfinished.
   output in another tab. Approval, denial and cancellation are browser-tested.
 - [ ] Manually validate local Pi independently authoring, building, debugging and
   launching a correct image. Guided Qwen 4B starters pass; independent workflow
-  and model recovery do not. Preserve failed evidence.
+  still fails after the Qwen history fix. Forced cancellation can unload the
+  model; reload-and-retry remains unverified. Preserve failed evidence.
 - [x] Research classic bhop courses and add Foundry: smaller spaced platforms,
   touch-triggered collapse, distinct routes and an industrial map. Actual browser
   play verifies movement, landing and collapse timing.
@@ -26,11 +27,12 @@ release identity, evidence and remaining issues; unchecked items are unfinished.
   expanded scan classifies certificate fixtures, but is not an exhaustive audit.
 - [x] Prepare provider-neutral static export with separable immutable assets.
   Nested-path and headerless browser boot/build/session checks pass. Production
-  provider choice, old-release retention and cold-load measurement remain open.
+  cold/warm transfer is measured. Provider choice, old-release retention and
+  realistic network/load testing remain open.
 - [ ] Complete the independent Codex experiment without changing main or the host
-  contract. Clean checkpoint `64d6d44` runs genuine AuthManager/API-key and
-  Responses components in the browser, not a full agent. Higher-level auth,
-  ConfigBuilder and native socket/thread dependencies remain unported.
+  contract. Clean checkpoint `6e73bb9` runs genuine API-key auth, the production
+  cloud/configuration factories and Responses in the browser, not a full agent.
+  ConfigBuilder/core and native socket/thread dependencies remain unported.
 
 Preserve the last complete local release while building. Publish only validated
 catalogs and retain old release assets for open tabs. Experimental browsers and

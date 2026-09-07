@@ -3,10 +3,10 @@
 ## Checkpoint — 2026-09-08
 
 Feature work is paused at the user's requested checkpoint. Port 9000 serves
-application `4b61edf`, immutable release
-`61a9688a0e2537179f4ee7037100abf0b9fa83d6ad855cf8761951534fdb7e1d`.
-The subsequent archive-writer and browser-test fixes do not change its runtime
-or images. No public push, deployment or hosting purchase has been performed.
+application `c79380d`, immutable release
+`6732dddd6ee0b34c33de1c745b0f65e792fa1893b02eea0cedf26d63d9f416f2`.
+The subsequent handoff update changes no runtime or image bytes.
+No public push, deployment or hosting purchase has been performed.
 
 Runtime identity:
 `sha256:79b64cf05defff93afedad28f306c23a7f2be37f744f2f02c93b6bcd6364bc35`.
@@ -15,12 +15,12 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
 
 ## Validated work
 
-- All 258 source tests pass (`build/checkpoint-archive-final-source.log`).
+- All 259 source tests pass (`build/checkpoint-september8-source.log`).
   All 19 images completed genuine fresh-runtime builds, then passed packaged
   inventories before publication (`build/sigchld-tar-snapshots.log`,
-  `build/static-deployment-publish.log`). A final live port-9000 inventory and
+  `build/qwen-history-publish.log`). A live port-9000 inventory and
   headerless static-export session test pass
-  (`build/checkpoint-port9000-final.log`, `build/checkpoint-static-session-final.log`).
+  (`build/checkpoint-september8-port9000.log`, `build/checkpoint-static-session-final.log`).
 - Quiet-child SIGCHLD is delivered only once the child is waitable. Cancellation,
   escalation, descriptors, pipes, nested-shell recovery and `tar -xf -` pass
   in real browsers (`build/sigchld-tar-lifecycle-browser.log`). Boundary,
@@ -47,6 +47,17 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
   the old writer and pass on the fix. Regenerating all prepared sources preserved
   every prior byte hash (`build/source-tar-audit-before-final.log`,
   `build/checkpoint-source-archives-{before.sha256,prepare.log}`).
+- Qwen history now preserves the empty thinking markers required in the current
+  tool round and separates assistant text from tool calls correctly. Regression
+  tests pass, but this did not make independent recipe authoring reliable.
+  The README is shorter and no longer makes stale phone/login claims.
+- Actual Chrome navigation measured 43,507,555 response-body bytes cold and
+  121,102 warm for default; Studio used 78,186,172 cold and 155,792 warm.
+  Snapshot-ready times were 1.12/1.12 seconds and 2.23/2.13 seconds respectively
+  (`build/{default,studio}-cold-boot-final.log`). These are single local,
+  unthrottled cold/warm pairs, not WAN or fully interactive Pi timings. They
+  exclude protocol overhead and GPU model weights; a fresh profile measured
+  each image, including Worker requests.
 - CPython's personal bootstrap path was removed at source preparation; all three
   Python snapshots are clean of that path. The expanded release scan covered
   1,121 files, 48,874 tar members, 18,874 snapshot records and 1,067 nested ZIP
@@ -58,14 +69,19 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
 
 ## Outstanding issues
 
-1. **Local Pi reliability.** Default Qwen 2B is unreliable for independent
-   author/build/debug/open. Guided 4B starters pass, but a manual trial generated
-   incorrect line-counting code, hit compile errors and edited disposable builder
-   paths instead of the recipe. The next attempt reported that the model was no
-   longer loaded. The corrective Studio skill is not behaviorally validated.
-   Pi may exit 0 despite a final assistant error; tests must inspect that message.
-   Preserve `build/studio-manual-evidence/` and the cached GPU profile. Next: one
-   complete real 4B author/repair/run trial, checking program output and recovery.
+1. **Local Pi reliability and recovery.** Default Qwen 2B is unreliable for
+   independent author/build/debug/open. Guided 4B starters pass, but independent
+   trials generated wrong code, edited disposable builder paths and invented
+   recipe syntax/base references. After the history fix, 4B still looped through
+   invalid recipes and missing tools: 28 model requests, no approved image build,
+   then the explicit 600-second test limit returned 124. Its cancellation fallback
+   unloaded the model after two seconds; the shell and files survived. An earlier
+   Ctrl+C returned 130 and left the model ready. Reload-and-retry after forced
+   unload remains unverified, and a previous attempt received "model not loaded".
+   Pi may exit 0 despite a final assistant error; inspect that message as well.
+   Preserve `build/studio-manual-evidence/` and the cached GPU profile. Next: make
+   the Studio guidance template-first, then prove one complete real 4B
+   author/repair/run trial and recovery. The proposed skill rewrite is not applied.
 2. **Missing Pi search tools.** Genuine fd/ripgrep are not installed. Resolve the
    Rust bootstrap boundary: pinned external compiler versus an in-Dolly compiler.
    fd's single-thread option still creates threads. Do not ship renamed substitutes
@@ -74,7 +90,7 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
    save/load. Result URLs refer to this browser's verified cache, not portable
    images or persistent sessions. Preserve exact image identity when extending it.
 4. **Final release review and hosting.** Static export is verified; provider
-   selection, total cold-load measurement and production retention are not.
+   selection, WAN/load testing and production retention are not.
    The release is about 775 MB, including 124 MB of compressed snapshot packs;
    seven individual assets exceed 25 MiB. Root rebuilds still download the 113 MB
    seed, which Chrome did not cache. Keep prior `_dolly/` releases and packs for
@@ -84,7 +100,7 @@ including types (`build/sigchld-checkpoint-outer-abi.log`).
    certificate fixtures are not Dolly user data and should not be blindly deleted.
 5. **Build cost and disk pressure.** Fresh-runtime CMake took 1,170 seconds,
    Neovim 222 seconds and Python 102 seconds; cached Studio assembly took 9 seconds.
-   About 8 GiB of development disk remains. Review owned, reproducible validation
+   About 6 GiB of development disk remains. Review owned, reproducible validation
    exports before another cold build; preserve user caches and pinned releases.
 
 GPU guidance, home-page sorting, approved Studio build/log/open and the Foundry
@@ -93,21 +109,25 @@ bhop expansion are implemented and browser tested. See the
 
 ## Isolated Codex experiment
 
-Branch `codex/wasm64-native-agent-20260907` is clean and paused at `64d6d44`.
+Branch `codex/wasm64-native-agent-20260907` is clean and paused at `6e73bb9`.
 Its worktree's `CODEX-HANDOFF.md` contains reproduction steps and evidence.
 No experimental Rust patches were merged into main.
 
 Real browser proofs cover upstream execpolicy, process waits/cancellation,
 Responses/SSE, layered configuration, installed upstream defaults and now the
 actual AuthManager's API-key loading/cache/rotation notifications/logout. The
-cached credential feeds the real BearerAuthProvider and Responses client. Native
-libraries type-check; exact outer ABI checks pass. No new host capability was
-added. OAuth and other unsupported modes fail explicitly; no live credentials
-were used for these fixture-backed tests.
+real storage factory now selects upstream's existing default cloud loader for
+its private API-key manager without constructing an unused native cloud client.
+That loader feeds production configuration and Responses; browser proofs pass
+twice per run. Native libraries and the target type-check; native test execution
+is not established. The cloud library's normal native dependency graph shrank
+from 1,229 to 930 units by reusing the existing client backoff helper. Exact outer
+ABI checks pass. No new host capability was added. OAuth and unresolved auth fail
+explicitly; no live credentials were used for these fixture-backed tests.
 
-**The full Codex agent does not run.** Higher-level auth factories and real
-ConfigBuilder/CLI integration remain unported; the previous core target check
-failed on 29 Tokio socket errors. The native thread/socket dependency graph must
+**The full Codex agent does not run.** Real ConfigBuilder/CLI integration remains
+unported; the previous core target check failed on 29 Tokio socket errors.
+The native thread/socket dependency graph must
 be separated, not satisfied by host fallbacks. There is no in-Dolly Rust SDK.
 Experiment processes are stopped.
 
