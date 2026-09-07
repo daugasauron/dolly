@@ -4,7 +4,8 @@ Target: 2026-09-08 07:00 JST. Baseline: `2ccaab2`; all 19 images are published
 locally, but local-model starters are not yet reliable. No public deployment
 or hosting purchase is part of this work.
 
-Paused at the user's 2026-09-07 checkpoint request. Application `accbf50` is
+The user's 2026-09-07 checkpoint was preserved before overnight work resumed.
+Application `accbf50` is
 published on port 9000, with all 19 image inventories and 252 source tests passing.
 The real Studio build/log/open/cancel workflow passes against that local release.
 Unchecked items below remain unfinished, not implicitly included in the checkpoint.
@@ -19,7 +20,7 @@ Unchecked items below remain unfinished, not implicitly included in the checkpoi
   output in another tab. Review approval, resource limits and the single boundary.
 - [ ] Manually exercise local Pi in Studio: read the skill, author a real recipe,
   build it, inspect errors, fix them and launch the result. Keep failed evidence.
-- [ ] Research classic bhop courses; expand Airtime with smaller spaced platforms,
+- [x] Research classic bhop courses; expand Airtime with smaller spaced platforms,
   touch-triggered disappearing platforms, distinct routes and an industrial map.
   Verify strafe movement, landing/collapse timing and actual browser play.
 - [ ] Audit the final source/artifacts for correctness, shortcuts, temporary state,
@@ -34,8 +35,8 @@ Unchecked items below remain unfinished, not implicitly included in the checkpoi
 Preserve the last complete local release while building. Publish the whole
 catalog after validated milestones; retain old release assets for open tabs.
 
-GPU help, catalog ordering and Studio build/log/open are implemented and browser
-tested. The Qwen 3.5 native tool-format fix passes source tests and two real GPU
+GPU help, catalog ordering, Studio build/log/open and the Foundry bhop expansion
+are implemented and browser tested. The Qwen 3.5 native tool-format fix passes source tests and two real GPU
 starters; the repair starter still fails. Local-model workflow validation,
-fd/ripgrep, bhop expansion and release review remain open. See
+fd/ripgrep and release review remain open. See
 [audit handoff](audit-handoff.md) for evidence and the isolated Codex experiment.

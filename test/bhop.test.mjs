@@ -13,12 +13,15 @@ test("Airtime preserves air-strafe projection, landing momentum and swept hull c
   try {
     const binary = join(directory, "check");
     const compilation = spawnSync("cc", ["-std=c17", "-O2", "-Wall", "-Wextra", "-Werror", "-x", "c", "-", "-lm", "-o", binary], {
-      input: source("bhop-movement.h") + source("bhop-check.c").replace('#include "bhop-movement.h"', ""), encoding: "utf8",
+      input: source("bhop-movement.h") + source("bhop-course.h").replace('#include "bhop-movement.h"', "") +
+        source("bhop-check.c").replace('#include "bhop-course.h"', ""), encoding: "utf8",
     });
     assert.equal(compilation.status, 0, compilation.stderr);
     const check = spawnSync(binary, [], { encoding: "utf8", timeout: 5000 });
     assert.equal(check.status, 0, check.stderr);
     assert.match(check.stdout, /synchronized strafe 4[2-9][0-9]/);
     assert.match(check.stdout, /landing momentum and swept wall sliding passed/);
+    assert.match(check.stdout, /100ms collapse, 2s return, safe checkpoints and immediate jumping passed/);
+    assert.match(check.stdout, /all 32 individual gaps reachable/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

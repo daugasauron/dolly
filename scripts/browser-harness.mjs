@@ -1710,6 +1710,9 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         await send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", buttons: 1, clickCount: 1 });
         await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", buttons: 0, clickCount: 1 });
         await waitForValue(send, "document.pointerLockElement?.id", value => value === "display", "click-to-capture mouse");
+        const frame = await evaluate(send, "Number(document.documentElement.dataset.frameSequence)");
+        await waitForValue(send, "Number(document.documentElement.dataset.frameSequence)",
+          value => value >= frame + 2, "game consumes capture before held movement keys");
       };
       await click();
       await evaluate(send, `(() => {
@@ -1767,10 +1770,38 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         window.__dolly.submit('bhop').then(status => { window.__bhopResult = status; }); true`);
       await waitForValue(send, "window.__dolly.graphicsActive", value => value === true, "second Airtime lease");
       await click();
+      for (const section of [2, 3, 4]) {
+        await dispatchKey(send, { key: String(section), code: `Digit${section}`, windowsVirtualKeyCode: 48 + section });
+        await delay(400);
+        const practice = await send("Page.captureScreenshot", { format: "png" });
+        await writeFile(resolve(projectDir, `build/bhop-section-${section}.png`), practice.data, "base64");
+      }
       await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
       assert.equal(await waitForValue(send, "window.__bhopResult", value => value !== null, "Airtime cancellation"), 130);
       await waitForValue(send, "document.pointerLockElement", value => value === null, "cancellation releases captured mouse");
       assert.equal(await submit("grep -q BHOP-SURVIVED bhop-survived.txt"), 0);
+      assert.equal(await submit("test ! -f /workspace/bhop-foundry-record.txt"), 0, "section practice cannot create a course record");
+      let landing;
+      for (const launch of [1450, 1350, 1550]) {
+        await evaluate(send, `window.__bhopResult = null;
+          window.__dolly.submit('bhop').then(status => { window.__bhopResult = status; }); true`);
+        await waitForValue(send, "window.__dolly.graphicsActive", value => value === true, "playable course lease");
+        await click();
+        await send("Input.dispatchKeyEvent", { type: "keyDown", key: "w", code: "KeyW", modifiers: 0, windowsVirtualKeyCode: 87 });
+        await delay(launch);
+        await dispatchKey(send, { key: " ", code: "Space", windowsVirtualKeyCode: 32 });
+        await delay(650);
+        await send("Input.dispatchKeyEvent", { type: "keyUp", key: "w", code: "KeyW", modifiers: 0, windowsVirtualKeyCode: 87 });
+        await delay(1000);
+        await dispatchKey(send, { key: "q", code: "KeyQ", windowsVirtualKeyCode: 81 });
+        assert.equal(await waitForValue(send, "window.__bhopResult", value => value !== null, "played course exit"), 0);
+        const output = await evaluate(send, "window.__dolly.visibleTerminalText()");
+        landing = [...output.matchAll(/bhop: ticks=(\d+) jumps=(\d+) falls=(\d+) pad=(\d+) peak=([\d.]+) speed=([\d.]+) collapses=(\d+)/g)].at(-1);
+        console.log(`browser: Foundry launch ${launch}ms: ${landing?.[0] ?? output}`);
+        if (landing && Number(landing[2]) >= 1 && Number(landing[4]) >= 1 && Number(landing[7]) >= 1) break;
+      }
+      assert.ok(landing && Number(landing[2]) >= 1 && Number(landing[4]) >= 1 && Number(landing[7]) >= 1,
+        "real keyboard play must land on a small pad and trigger its collapse");
       console.log("browser: Airtime source-built movement checks, mouse capture/free look/Escape, Space and both wheel jumps, normal exit and Ctrl-C recovery passed");
       break browserProof;
     }

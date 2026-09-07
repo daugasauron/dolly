@@ -2,7 +2,7 @@
 
 ## Latest checkpoint — 2026-09-07
 
-Feature work paused at the user's checkpoint request. Application commit
+The user's checkpoint was preserved before overnight work resumed. Application commit
 `accbf50` is published at `http://localhost:9000/`; all 19 packaged image
 inventories passed (`build/studio-build-publish.log`). Release identity:
 `0b393d78e88ca239792f0efe3c451e3415aba30a5a7cc9563b8721ad1a4535b3`.
@@ -62,8 +62,22 @@ Outstanding defects and verification gaps:
   cached Studio assembly took about 10 seconds. No host compilation fallback.
 
 Remaining feature/release work is tracked in [the overnight plan](overnight-plan.md):
-The bhop expansion is researched but not implemented; the existing game is
-unchanged. The public source/artifact and static-hosting review is unfinished,
+The bhop expansion now implements Foundry: 32 jumps through four original
+industrial sections, 88–64-unit pads spaced 220–250 units apart, 100-ms collapse
+and two-second return, safe checkpoints and section practice without record
+writes. Native and in-Wasm checks prove unchanged strafe acceleration, collapse
+timing and every individual gap's reachability (not an automated full-course run).
+`build/bhop-foundry-play-browser-final.log` proves real keyboard play onto a pad and
+its collapse, all four sections, pointer capture, jumping and cancellation.
+The first play fixture sent W before the game consumed capture and therefore
+never moved; it now waits for two rendered frames. Original failed evidence is
+retained. Source suite: 252 passes (`build/bhop-foundry-source-verified.log`); the changed
+image rebuilt inside Dolly in 7.9 seconds (`build/bhop-foundry-snapshot-final.log`).
+An earlier suite ran while the snapshot was being replaced and correctly
+rejected mismatched recipe identity; the final suite ran after publication of
+the completed local snapshot. Do not run snapshot-identity checks mid-build.
+
+The public source/artifact and static-hosting review is unfinished,
 including personal-path cleanup and provider-neutral asset delivery. The current
 package is 775,138,368 bytes, with 123,952,822 compressed snapshot-pack bytes
 shared across 19 images; this is not yet a hosting-cost or cold-load assessment.

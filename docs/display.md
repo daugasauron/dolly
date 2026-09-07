@@ -124,7 +124,15 @@ not a CS engine/assets port: it deliberately omits stock stamina/speed penalties
 for bhop-server-style momentum. Space is edge-triggered, both wheel directions
 request jump, and the input buffer lasts two simulation ticks; there is no held
 Space auto-hop. Escape pauses/releases the mouse; Q exits. Checkpoints and the
-speed/timing HUD are in Wasm, with a personal best at `/workspace/bhop-record.txt`.
+speed/timing HUD are in Wasm, with a course-specific best at
+`/workspace/bhop-foundry-record.txt` (old course records are left untouched).
+Foundry has 32 jumps through a loading yard, turbine hall, reactor and silo run.
+Ordinary pads narrow from 88 to 64 units, with center spacings of 220–250 units.
+They become non-solid 100 ms after landing and return two seconds later,
+inspired by [Blockmaker's touch-triggered bhop blocks](https://github.com/Nikolow/AMXX-Plugins/blob/master/BlockMaker/BM%20-%20betterplay.sma).
+The industrial geometry is original, not Valve map data or textures.
+Cyan checkpoint decks stay solid; respawning resets collapsed pads.
+Keys 1–4 select section practice without recording a best time; R starts a full run.
 Edit `/usr/src/dolly/bhop/bhop.c` and run
 `make -f /usr/src/dolly/bhop/bhop.mk all check` to rebuild and test the movement.
 

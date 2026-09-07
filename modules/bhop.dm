@@ -48,6 +48,8 @@ FILE /usr/src/dolly/bhop/bhop-movement.h
                              const bh_box *boxes, int count) {
       bh_trace best = {.fraction = 1, .box = -1};
       for (int box = 0; box < count; ++box) {
+        if (boxes[box].low[0] >= boxes[box].high[0] || boxes[box].low[1] >= boxes[box].high[1] ||
+            boxes[box].low[2] >= boxes[box].high[2]) continue;
         float enter = -INFINITY, leave = INFINITY, normal[3] = {0};
         int intersects = 1;
         for (int axis = 0; axis < 3; ++axis) {
@@ -138,8 +140,55 @@ FILE /usr/src/dolly/bhop/bhop-movement.h
     }
     #endif
 
-FILE /usr/src/dolly/bhop/bhop-check.c
+FILE /usr/src/dolly/bhop/bhop-course.h
+    #ifndef DOLLY_BHOP_COURSE_H
+    #define DOLLY_BHOP_COURSE_H
     #include "bhop-movement.h"
+    
+    enum { BH_PADS = 33, BH_PAD_DELAY = 10, BH_PAD_RETURN = 200 };
+    typedef struct {
+      bh_box pads[BH_PADS];
+      int cooldown[BH_PADS], collapses;
+    } bh_course;
+    
+    static int bh_checkpoint(int pad) { return pad >= 0 && pad < BH_PADS && pad % 8 == 0; }
+    static void bh_course_init(bh_course *course) {
+      const float x[BH_PADS] = {0, 0, 48, 110, 160, 180, 140, 70, 0,
+        -60, -130, -180, -160, -100, -20, 60, 120,
+        180, 220, 190, 120, 40, -40, -120, -180,
+        -200, -150, -80, 0, 80, 150, 190, 180};
+      const float top[BH_PADS] = {0, 0, 0, 16, 16, 32, 32, 48, 48,
+        32, 16, 0, -16, -16, 0, 0, 0,
+        0, 16, 16, 32, 32, 48, 48, 64,
+        64, 80, 80, 96, 96, 112, 112, 128};
+      memset(course, 0, sizeof(*course));
+      float z = 0;
+      for (int i = 0; i < BH_PADS; ++i) {
+        int section = i ? (i - 1) / 8 : 0;
+        if (i) z -= i == 1 ? 400 : 220 + section * 10;
+        float width = i == 0 ? 512 : bh_checkpoint(i) ? 224 : 88 - section * 8;
+        float depth = bh_checkpoint(i) ? (i == 0 ? 512 : 256) : width;
+        course->pads[i] = (bh_box){{x[i] - width / 2, top[i] - 32, z - depth / 2},
+          {x[i] + width / 2, top[i], z + depth / 2}};
+      }
+    }
+    static void bh_course_tick(bh_course *course, bh_player *player, float yaw, float forward, float side) {
+      bh_box solid[BH_PADS];
+      memcpy(solid, course->pads, sizeof(solid));
+      for (int i = 0; i < BH_PADS; ++i) {
+        if (course->cooldown[i] && --course->cooldown[i] == BH_PAD_RETURN) ++course->collapses;
+        if (course->cooldown[i] > 0 && course->cooldown[i] <= BH_PAD_RETURN)
+          solid[i].high[1] = solid[i].low[1];
+      }
+      bh_tick(player, yaw, forward, side, solid, BH_PADS);
+      int pad = player->ground;
+      if (pad >= 0 && !bh_checkpoint(pad) && !course->cooldown[pad])
+        course->cooldown[pad] = BH_PAD_DELAY + BH_PAD_RETURN;
+    }
+    #endif
+
+FILE /usr/src/dolly/bhop/bhop-check.c
+    #include "bhop-course.h"
     #include <stdio.h>
     
     #define CHECK(condition) do { if (!(condition)) { \
@@ -194,12 +243,64 @@ FILE /usr/src/dolly/bhop/bhop-check.c
       CHECK(player.velocity[0] == 0 && player.velocity[2] == -100);
       CHECK(fabsf(player.position[2] + 1) < 0.001f);
       puts("bhop: projection cap, full-wish acceleration, diagonal input, friction, 45-unit jump, landing momentum and swept wall sliding passed");
+    
+      bh_course course;
+      bh_course_init(&course);
+      bh_box pad = course.pads[1];
+      player = (bh_player){.position = {(pad.low[0] + pad.high[0]) / 2, pad.high[1] + 0.01f,
+        (pad.low[2] + pad.high[2]) / 2}};
+      bh_course_tick(&course, &player, 0, 0, 0);
+      CHECK(course.cooldown[1] == BH_PAD_DELAY + BH_PAD_RETURN && player.ground == 1);
+      for (int i = 1; i < BH_PAD_DELAY; ++i) {
+        bh_course_tick(&course, &player, 0, 0, 0);
+        CHECK(player.ground == 1);
+      }
+      bh_course_tick(&course, &player, 0, 0, 0);
+      CHECK(player.ground == -1 && course.collapses == 1);
+      for (int i = 0; i < BH_PAD_RETURN; ++i) bh_course_tick(&course, &player, 0, 0, 0);
+      CHECK(course.cooldown[1] == 0 && player.position[1] < pad.low[1]);
+      player = (bh_player){.position = {0, 0.01f, 0}};
+      for (int i = 0; i < 250; ++i) bh_course_tick(&course, &player, 0, 0, 0);
+      CHECK(player.ground == 0 && course.cooldown[0] == 0);
+      bh_course_init(&course);
+      player = (bh_player){.position = {0, 0.01f, -400}};
+      bh_course_tick(&course, &player, 0, 0, 0);
+      player.jump_queue = 2;
+      for (int i = 0; i < BH_PAD_DELAY + 1; ++i) bh_course_tick(&course, &player, 0, 0, 0);
+      CHECK(player.jumps == 1 && player.position[1] > 20 && course.collapses == 1);
+      puts("bhop: 100ms collapse, 2s return, safe checkpoints and immediate jumping passed");
+    
+      float fastest = 0;
+      for (int next = 1; next < BH_PADS; ++next) {
+        bh_course_init(&course);
+        bh_box start = course.pads[next - 1], end = course.pads[next];
+        float sx = (start.low[0] + start.high[0]) / 2, sz = (start.low[2] + start.high[2]) / 2;
+        float ex = (end.low[0] + end.high[0]) / 2, ez = (end.low[2] + end.high[2]) / 2;
+        // Check each gap independently with real swept physics, not just the ballistic formula.
+        // Checkpoints provide a run-up; ordinary pads must be crossed without stopping.
+        if (bh_checkpoint(next - 1)) sz = start.low[2] + 8;
+        float rise = end.high[1] - start.high[1];
+        float flight = (sqrtf(2 * BH_GRAVITY * 45) + sqrtf(2 * BH_GRAVITY * (45 - rise))) / BH_GRAVITY;
+        float vx = (ex - sx) / flight, vz = (ez - sz) / flight;
+        float speed = hypotf(vx, vz);
+        fastest = fmaxf(fastest, speed);
+        CHECK(speed < 440 && (!bh_checkpoint(next - 1) || speed < BH_RUN_SPEED));
+        player = (bh_player){.position = {sx, start.high[1] + 0.01f, sz},
+          .velocity = {vx, 0, vz}, .jump_queue = 2};
+        int landed = -1;
+        for (int tick = 0; tick < 100 && landed < 0; ++tick) {
+          bh_course_tick(&course, &player, 0, 0, 0);
+          if (player.ground >= 0) landed = player.ground;
+        }
+        CHECK(landed == next);
+      }
+      printf("bhop: all 32 individual gaps reachable, maximum center-landing speed %.1f u/s\n", fastest);
       return 0;
     }
 
 FILE /usr/src/dolly/bhop/bhop.c
     #define _POSIX_C_SOURCE 200809L
-    #include "bhop-movement.h"
+    #include "bhop-course.h"
     #include <dolly/raylib.h>
     #include <raymath.h>
     #include <rlgl.h>
@@ -208,18 +309,18 @@ FILE /usr/src/dolly/bhop/bhop.c
     #include <stdlib.h>
     #include <time.h>
     
-    enum { PLATFORM_COUNT = 23 };
+    enum { PLATFORM_COUNT = BH_PADS };
     static const Color SKY = {20, 28, 38, 255}, INK = {231, 235, 234, 255};
     static const Color ACCENT = {255, 185, 82, 255}, CYAN = {84, 218, 205, 255};
     static const Color MUTED = {145, 159, 172, 255};
-    static const char *record_path = "/workspace/bhop-record.txt";
+    static const char *record_path = "/workspace/bhop-foundry-record.txt";
     
     typedef struct {
       bh_player player;
-      bh_box boxes[PLATFORM_COUNT];
+      bh_course course;
       int forward, backward, left, right, turn_left, turn_right, looking, quit;
-      int checkpoint, furthest, deaths, finished, ticks, air_ticks, gain_ticks;
-      float yaw, pitch, elapsed, best, peak_speed, last_speed, landing_speed;
+      int checkpoint, furthest, deaths, finished, practice, ticks, jumps, air_ticks, gain_ticks;
+      float yaw, pitch, elapsed, best, peak_speed, landing_speed;
     } game;
     
     static double seconds(void) {
@@ -236,20 +337,7 @@ FILE /usr/src/dolly/bhop/bhop.c
       return (Vector3){(box.low[0] + box.high[0]) / 2, (box.low[1] + box.high[1]) / 2,
         (box.low[2] + box.high[2]) / 2};
     }
-    static int is_checkpoint(int index) { return index == 0 || index == 7 || index == 14 || index == 22; }
-    
-    static void make_course(game *state) {
-      const float offsets[] = {0, 0, 48, 106, 152, 110, 42, 0, -64, -138, -180,
-        -116, -34, 54, 90, 178, 240, 172, 72, -36, -100, -40, 0};
-      for (int i = 0; i < PLATFORM_COUNT; ++i) {
-        float width = i == 0 ? 512 : is_checkpoint(i) ? 240 : 112;
-        float depth = i == 0 ? 512 : is_checkpoint(i) ? 210 : 112;
-        float z = i == 0 ? 0 : -360 - (i - 1) * 168;
-        float top = (i % 7 == 3 || i % 7 == 4) ? 16 : 0;
-        state->boxes[i] = (bh_box){{offsets[i] - width / 2, top - 64, z - depth / 2},
-          {offsets[i] + width / 2, top, z + depth / 2}};
-      }
-    }
+    static int is_checkpoint(int index) { return bh_checkpoint(index); }
     static void clear_keys(game *state) {
       state->forward = state->backward = state->left = state->right = 0;
       state->turn_left = state->turn_right = 0;
@@ -258,25 +346,30 @@ FILE /usr/src/dolly/bhop/bhop.c
     static void respawn(game *state, int restart) {
       if (restart) {
         state->checkpoint = state->furthest = state->deaths = state->finished = 0;
-        state->ticks = state->air_ticks = state->gain_ticks = 0;
+        state->practice = 0;
+        state->ticks = state->jumps = state->air_ticks = state->gain_ticks = 0;
         state->elapsed = state->peak_speed = state->landing_speed = 0;
       }
-      bh_box pad = state->boxes[state->checkpoint];
+      memset(state->course.cooldown, 0, sizeof(state->course.cooldown));
+      if (restart) state->course.collapses = 0;
+      bh_box pad = state->course.pads[state->checkpoint];
       state->player = (bh_player){.position = {(pad.low[0] + pad.high[0]) / 2,
         pad.high[1] + 0.01f, (pad.low[2] + pad.high[2]) / 2 + (state->checkpoint == 0 ? 115 : 40)},
         .ground = state->checkpoint};
-      state->yaw = 0;
+      Vector3 here = center(pad), next = center(state->course.pads[state->checkpoint + (state->checkpoint < BH_PADS - 1)]);
+      state->yaw = atan2f(next.x - here.x, here.z - next.z);
       state->pitch = -0.06f;
-      state->last_speed = 0;
       clear_keys(state);
     }
     static void tick(game *state) {
       if (!state->looking || state->finished) return;
       state->yaw += (state->turn_right - state->turn_left) * BH_STEP * 1.6f;
       int grounded = state->player.ground >= 0;
+      int jumps = state->player.jumps;
       float before = bh_speed(&state->player);
-      bh_tick(&state->player, state->yaw, state->forward - state->backward,
-        state->right - state->left, state->boxes, PLATFORM_COUNT);
+      bh_course_tick(&state->course, &state->player, state->yaw, state->forward - state->backward,
+        state->right - state->left);
+      state->jumps += state->player.jumps - jumps;
       ++state->ticks;
       float speed = bh_speed(&state->player);
       state->peak_speed = fmaxf(state->peak_speed, speed);
@@ -291,14 +384,13 @@ FILE /usr/src/dolly/bhop/bhop.c
       if (pad > state->checkpoint && is_checkpoint(pad)) state->checkpoint = pad;
       if (pad == PLATFORM_COUNT - 1 && !state->finished) {
         state->finished = 1;
-        if (!state->best || state->elapsed < state->best) {
+        if (!state->practice && (!state->best || state->elapsed < state->best)) {
           state->best = state->elapsed;
           FILE *record = fopen(record_path, "w");
           if (record) { fprintf(record, "%.3f\n", state->best); fclose(record); }
         }
       }
       if (state->player.position[1] < -200) { ++state->deaths; respawn(state, 0); }
-      state->last_speed = speed;
     }
     static void input(game *state, const dolly_input_event *event) {
       if (event->type == DOLLY_INPUT_EVENT_POINTER_CAPTURE) {
@@ -325,17 +417,47 @@ FILE /usr/src/dolly/bhop/bhop.c
           if (dolly_raylib_code_is(event, "KeyR")) respawn(state, 1);
           if (dolly_raylib_code_is(event, "KeyF")) { ++state->deaths; respawn(state, 0); }
           if (dolly_raylib_code_is(event, "KeyQ")) state->quit = 1;
+          const char *sections[] = {"Digit1", "Digit2", "Digit3", "Digit4"};
+          for (int i = 0; i < 4; ++i) if (dolly_raylib_code_is(event, sections[i])) {
+            state->checkpoint = state->furthest = i * 8;
+            state->finished = 0;
+            state->practice = 1;
+            state->elapsed = 0;
+            respawn(state, 0);
+          }
         }
       }
     }
     static void label(Font font, const char *message, float x, float y, float size, Color color) {
       DrawTextEx(font, message, (Vector2){x, y}, size, 0, color);
     }
-    static void platform(bh_box box, int index, float fade) {
+    static void shaded_cube(Vector3 middle, Vector3 size, Color color, float fog) {
+      static const int faces[6][4] = {{0, 4, 6, 2}, {1, 3, 7, 5}, {0, 1, 5, 4},
+        {2, 6, 7, 3}, {0, 2, 3, 1}, {4, 5, 7, 6}};
+      static const float light[] = {0.68f, 0.85f, 0.5f, 1, 0.72f, 0.9f};
+      Vector3 corner[8];
+      for (int i = 0; i < 8; ++i) corner[i] = (Vector3){middle.x + (i & 1 ? 0.5f : -0.5f) * size.x,
+        middle.y + (i & 2 ? 0.5f : -0.5f) * size.y, middle.z + (i & 4 ? 0.5f : -0.5f) * size.z};
+      for (int i = 0; i < 6; ++i) {
+        Color shade = blend((Color){color.r * light[i], color.g * light[i], color.b * light[i], 255}, SKY, fog);
+        DrawTriangle3D(corner[faces[i][0]], corner[faces[i][1]], corner[faces[i][2]], shade);
+        DrawTriangle3D(corner[faces[i][0]], corner[faces[i][2]], corner[faces[i][3]], shade);
+      }
+    }
+    static void platform(bh_box box, int index, int cooldown, float fade) {
+      int hidden = cooldown > 0 && cooldown <= BH_PAD_RETURN;
+      if (hidden) {
+        int falling = BH_PAD_RETURN - cooldown;
+        if (falling > 24) return;
+        float drop = falling * falling * 0.65f;
+        box.low[1] -= drop;
+        box.high[1] -= drop;
+        fade = fmaxf(fade, falling / 26.0f);
+      }
       Vector3 middle = center(box);
-      Color rim = blend(is_checkpoint(index) ? CYAN : ACCENT, SKY, fade);
-      Color stone = blend((Color){132, 144, 153, 255}, SKY, fade);
-      DrawCube(middle, box.high[0] - box.low[0], 64, box.high[2] - box.low[2], stone);
+      Color rim = blend(is_checkpoint(index) ? CYAN : cooldown ? (Color){255, 89, 58, 255} : ACCENT, SKY, fade);
+      shaded_cube(middle, (Vector3){box.high[0] - box.low[0], box.high[1] - box.low[1], box.high[2] - box.low[2]},
+        (Color){132, 144, 153, 255}, fade);
       DrawCube((Vector3){middle.x, box.high[1] - 3, middle.z},
         box.high[0] - box.low[0] + 1, 6, box.high[2] - box.low[2] + 1, rim);
       float y = box.high[1] + 0.07f;
@@ -348,8 +470,69 @@ FILE /usr/src/dolly/bhop/bhop.c
         DrawTriangle3D((Vector3){left, y, back}, (Vector3){left, y, front}, (Vector3){right, y, front}, tile);
         DrawTriangle3D((Vector3){left, y, back}, (Vector3){right, y, front}, (Vector3){right, y, back}, tile);
       }
-      DrawCube((Vector3){middle.x, box.low[1] - 84, middle.z}, 22, 168, 22,
-        blend((Color){43, 59, 73, 255}, SKY, fade));
+      if (is_checkpoint(index)) {
+        DrawCube((Vector3){middle.x, box.low[1] - 116, middle.z}, 60, 232, 60,
+          blend((Color){43, 59, 73, 255}, SKY, fade));
+        for (int side = -1; side <= 1; side += 2) {
+          float x = side < 0 ? box.low[0] - 8 : box.high[0] + 8;
+          DrawCube((Vector3){x, box.high[1] + 24, middle.z + 30}, 5, 5, 130, rim);
+          for (int end = -1; end <= 1; end += 2)
+            DrawCube((Vector3){x, box.high[1] + 12, middle.z + 30 + end * 62}, 5, 24, 5, rim);
+        }
+      }
+    }
+    static void structure(Vector3 eye, Vector3 middle, Vector3 size, Color color) {
+      float distance = Vector3Distance(eye, middle);
+      if (distance < 1900) shaded_cube(middle, size, color, Clamp((distance - 550) / 1450, 0, 0.95f));
+    }
+    static void industrial_yard(const game *state, Vector3 eye) {
+      const Color steel = {65, 82, 92, 255}, concrete = {101, 115, 120, 255};
+      const Color rust = {128, 73, 46, 255}, blue = {40, 89, 117, 255};
+      for (int i = 0; i < BH_PADS; i += 2) {
+        Vector3 pad = center(state->course.pads[i]);
+        if (fabsf(pad.z - eye.z) > 1800) continue;
+        int section = i / 8;
+        float floor = -250;
+        structure(eye, (Vector3){0, floor, pad.z}, (Vector3){1280, 12, 480}, (Color){31, 46, 55, 255});
+        for (int side = -1; side <= 1; side += 2) {
+          float x = side * 520;
+          structure(eye, (Vector3){x, 100, pad.z}, (Vector3){24, 700, 32}, steel);
+          structure(eye, (Vector3){x - side * 12, 85, pad.z + 17}, (Vector3){5, 95, 2}, ACCENT);
+          structure(eye, (Vector3){side * 625, -135, pad.z}, (Vector3){245, 210, 465}, section == 0 ? blue : concrete);
+          if (section == 0) {
+            // Stacked ribbed shipping containers and open sky at the loading yard.
+            structure(eye, (Vector3){side * 660, 50, pad.z - 75}, (Vector3){270, 165, 300}, i % 4 ? rust : blue);
+            for (int rib = 0; rib < 6; ++rib)
+              structure(eye, (Vector3){side * 519, 50, pad.z - 200 + rib * 50}, (Vector3){8, 150, 7}, steel);
+          } else if (section == 1) {
+            // Tall windowed turbine hall, suspended ducts and overhead beams.
+            structure(eye, (Vector3){side * 550, 260, pad.z}, (Vector3){32, 340, 460}, concrete);
+            for (int window = 0; window < 3; ++window)
+              structure(eye, (Vector3){side * 530, 285, pad.z - 150 + window * 150},
+                (Vector3){3, 92, 105}, (Color){74, 136, 154, 255});
+            structure(eye, (Vector3){side * 345, 330, pad.z}, (Vector3){68, 62, 475}, steel);
+          } else {
+            // Original reactor/silo shapes; low polygon counts suit the software renderer.
+            float distance = Vector3Distance(eye, (Vector3){side * 710, 0, pad.z});
+            if (distance < 1700) {
+              Color tank = blend(section == 2 ? blue : concrete, SKY, Clamp((distance - 450) / 1450, 0, 0.94f));
+              DrawCylinder((Vector3){side * 710, -220, pad.z}, 125, 145, section == 2 ? 590 : 790, 12, tank);
+              DrawCylinder((Vector3){side * 710, section == 2 ? 220 : 400, pad.z}, 149, 149, 18, 12,
+                blend(section == 2 ? CYAN : ACCENT, SKY, Clamp(distance / 2000, 0, 0.9f)));
+            }
+            structure(eye, (Vector3){side * 460, -170, pad.z}, (Vector3){14, 20, 470}, section == 2 ? CYAN : ACCENT);
+          }
+        }
+        if (section == 1 || i % 4 == 0) {
+          structure(eye, (Vector3){0, 425, pad.z}, (Vector3){1080, 24, 32}, steel);
+          structure(eye, (Vector3){0, 409, pad.z}, (Vector3){240, 4, 18}, (Color){233, 219, 168, 255});
+        }
+        if (is_checkpoint(i)) {
+          structure(eye, (Vector3){pad.x, pad.y + 194, pad.z - 100}, (Vector3){310, 46, 24}, blue);
+          for (int side = -1; side <= 1; side += 2)
+            structure(eye, (Vector3){pad.x + side * 152, pad.y + 90, pad.z - 100}, (Vector3){8, 220, 8}, CYAN);
+        }
+      }
     }
     static void draw(game *state, Font font, int width, int height) {
       BeginDrawing();
@@ -360,28 +543,26 @@ FILE /usr/src/dolly/bhop/bhop.c
         eye.y + sinf(state->pitch), eye.z - cosf(state->yaw) * cosf(state->pitch)},
         .up = {0, 1, 0}, .fovy = 74, .projection = CAMERA_PERSPECTIVE};
       BeginMode3D(camera);
+      industrial_yard(state, eye);
       for (int i = 0; i < PLATFORM_COUNT; ++i) {
-        float distance = Vector3Distance(eye, center(state->boxes[i]));
-        if (distance < 1900) platform(state->boxes[i], i, Clamp((distance - 450) / 1500, 0, 0.92f));
-      }
-      for (int i = 0; i < 18; ++i) {
-        float z = 250 - i * 240;
-        if (fabsf(z - eye.z) > 1700) continue;
-        float fade = Clamp((fabsf(z - eye.z) - 400) / 1400, 0, 0.93f);
-        for (int side = -1; side <= 1; side += 2) {
-          float x = side * 490;
-          DrawCube((Vector3){x, 55, z}, 28, 530, 36, blend((Color){43, 56, 69, 255}, SKY, fade));
-          DrawCube((Vector3){x, 95, z - 18.5f}, 7, 190, 2, blend(ACCENT, SKY, fade));
-        }
-        DrawCube((Vector3){0, -216, z}, 1020, 12, 15, blend((Color){38, 53, 66, 255}, SKY, fade));
+        float distance = Vector3Distance(eye, center(state->course.pads[i]));
+        if (distance < 1900) platform(state->course.pads[i], i, state->course.cooldown[i],
+          Clamp((distance - 450) / 1500, 0, 0.92f));
       }
       EndMode3D();
     
       DrawRectangle(0, 0, width, 62, (Color){12, 18, 25, 255});
       label(font, "A I R T I M E", 18, 10, 25, INK);
-      label(font, "GOLDSRC-STYLE STRAFE TRIALS", 20, 39, 11, ACCENT);
+      label(font, "FOUNDRY / STRAFE TRIALS", 20, 39, 11, ACCENT);
+      const char *sections[] = {"01 / LOADING YARD", "02 / TURBINE HALL", "03 / REACTOR", "04 / SILO RUN", "FINISH"};
+      label(font, sections[state->checkpoint / 8], width / 2 - 95, 14, 14, CYAN);
+      for (int i = 0; i < BH_PADS; ++i) {
+        Color color = i <= state->furthest ? CYAN : is_checkpoint(i) ? INK : MUTED;
+        DrawRectangle(width / 2 - 96 + i * 6, 43, 3, is_checkpoint(i) ? 8 : 4, color);
+      }
       char text[160];
-      snprintf(text, sizeof(text), "%05.2f  /  BEST %s", state->elapsed, state->best > 0 ? TextFormat("%.2f", state->best) : "--");
+      if (state->practice) snprintf(text, sizeof(text), "%05.2f  /  PRACTICE", state->elapsed);
+      else snprintf(text, sizeof(text), "%05.2f  /  BEST %s", state->elapsed, state->best > 0 ? TextFormat("%.2f", state->best) : "--");
       label(font, text, width - 230, 17, 18, INK);
       snprintf(text, sizeof(text), "PAD %02d/%02d    FALLS %d", state->furthest, PLATFORM_COUNT - 1, state->deaths);
       label(font, text, width - 230, 41, 11, MUTED);
@@ -401,23 +582,34 @@ FILE /usr/src/dolly/bhop/bhop.c
       label(font, text, 20, height - 53, 11, MUTED);
       label(font, "WASD   SPACE / WHEEL JUMP", width - 222, height - 77, 11, INK);
       label(font, "R RESTART   F CHECKPOINT   Q EXIT", width - 222, height - 53, 10, MUTED);
+      label(font, "1-4 PRACTICE A SECTION", width - 222, height - 33, 10, MUTED);
     
       DrawLine(width / 2 - 5, height / 2, width / 2 + 5, height / 2, INK);
       DrawLine(width / 2, height / 2 - 5, width / 2, height / 2 + 5, INK);
+      int ground = state->player.ground;
+      if (ground >= 0 && !is_checkpoint(ground)) {
+        label(font, "JUMP!", width / 2 - 25, height / 2 + 25, 16, ACCENT);
+        DrawRectangle(width / 2 - 32, height / 2 + 47,
+          64 * (state->course.cooldown[ground] - BH_PAD_RETURN) / BH_PAD_DELAY, 3, ACCENT);
+      }
       if (!state->looking || state->finished) {
         int panel_width = width > 540 ? 500 : width - 30, x = (width - panel_width) / 2;
-        DrawRectangle(x, height / 2 - 74, panel_width, 150, (Color){12, 18, 25, 255});
+        DrawRectangle(x, height / 2 - 74, panel_width, 178, (Color){12, 18, 25, 255});
         DrawRectangle(x, height / 2 - 74, panel_width, 2, ACCENT);
         label(font, state->finished ? "COURSE COMPLETE" : "CLICK TO TAKE THE MOUSE", x + 22, height / 2 - 54, 23, INK);
         label(font, "W to launch. In air, release W and strafe A / D", x + 22, height / 2 - 17, 12, MUTED);
         label(font, "while turning the mouse in the same direction.", x + 22, height / 2 + 3, 12, MUTED);
+        label(font, "Yellow pads drop on touch. Cyan decks are safe.", x + 22, height / 2 + 26, 12, INK);
         label(font, state->finished ? "R to race again. Q returns to Slop." :
-          "Space or either wheel direction jumps. Esc releases.", x + 22, height / 2 + 38, 12, ACCENT);
+          "Space or either wheel direction jumps. Esc releases.", x + 22, height / 2 + 65, 12, ACCENT);
       }
     }
     static int usage(const char *name, int status) {
       fprintf(status ? stderr : stdout, "usage: %s [--frames COUNT]\n"
         "Click once for mouse look; Escape releases. WASD moves; Space and wheel up/down jump.\n"
+        "Foundry: 32 jumps through the yard, turbine hall, reactor and silos.\n"
+        "Yellow pads collapse 100ms after landing and return after 2s; cyan checkpoints stay solid.\n"
+        "1-4 practices a section without recording a best time; R begins a full run.\n"
         "R restarts; F returns to a checkpoint; Q exits. Release W in air and match A/D with mouse turn.\n", name);
       return status;
     }
@@ -442,7 +634,7 @@ FILE /usr/src/dolly/bhop/bhop.c
       SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
       rlSetClipPlanes(1, 2400);
       game state = {0};
-      make_course(&state);
+      bh_course_init(&state.course);
       respawn(&state, 1);
       FILE *record = fopen(record_path, "r");
       if (record) { if (fscanf(record, "%f", &state.best) != 1 || !isfinite(state.best) || state.best < 0) state.best = 0; fclose(record); }
@@ -469,15 +661,15 @@ FILE /usr/src/dolly/bhop/bhop.c
       }
       UnloadFont(font);
       dolly_raylib_close(&graphics);
-      printf("bhop: ticks=%d jumps=%d falls=%d pad=%d peak=%.3f speed=%.3f\n",
-        state.ticks, state.player.jumps, state.deaths, state.furthest, state.peak_speed, bh_speed(&state.player));
+      printf("bhop: ticks=%d jumps=%d falls=%d pad=%d peak=%.3f speed=%.3f collapses=%d\n",
+        state.ticks, state.jumps, state.deaths, state.furthest, state.peak_speed, bh_speed(&state.player), state.course.collapses);
       return result;
     }
 
 FILE /usr/src/dolly/bhop/bhop.mk
     .PHONY: all check
     all: /usr/bin/bhop
-    /usr/bin/bhop: /usr/src/dolly/bhop/bhop.c /usr/src/dolly/bhop/bhop-movement.h /usr/lib/libdolly-raylib.a /usr/lib/libraylib.a /usr/lib/libm.a
+    /usr/bin/bhop: /usr/src/dolly/bhop/bhop.c /usr/src/dolly/bhop/bhop-movement.h /usr/src/dolly/bhop/bhop-course.h /usr/lib/libdolly-raylib.a /usr/lib/libraylib.a /usr/lib/libm.a
     	cc -std=c17 -O2 -fno-builtin $< -o $@ -ldolly-raylib -lraylib -lm
     check:
     	@output=/tmp/bhop-check.$$$$; status=0; cc -std=c17 -O2 -fno-builtin /usr/src/dolly/bhop/bhop-check.c -o "$$output" -lm && "$$output" || status=$$?; rm -f "$$output"; exit "$$status"
