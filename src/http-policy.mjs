@@ -137,11 +137,11 @@ export class DollyHttpPolicy {
     this.rules = this.hardened
       ? Object.freeze((configuration.rules ?? []).map(normalizeRule))
       : Object.freeze([]);
-    this.maxRequests = positiveInteger(
+    this.maxRequests = this.hardened ? positiveInteger(
       configuration?.maxRequests,
       defaultLimits.maxRequests,
       "maxRequests",
-    );
+    ) : Infinity;
     this.trustedSources = new Map(trustedSources.map((source) => {
       const rule = normalizeTrustedSource(source, applicationBase);
       return [rule.href, rule];
@@ -182,6 +182,7 @@ export class DollyHttpPolicy {
           throw new HttpError(DOLLY_ERRNO.EPROTONOSUPPORT, "Dolly HTTP requires HTTP(S)");
         }
         rule = {
+          followRedirects: true,
           credentialHeaders: null,
           maxRequestBytes: defaultLimits.maxRequestBytes,
           maxResponseBytes: defaultLimits.maxResponseBytes,
@@ -240,6 +241,7 @@ export function restrictDollyHttpPolicy(policy, inherited, trustedSources, appli
       // credentials too; neither the parent nor the new embedding can widen it.
       const rules = policies.map(policy => policy.authorize(target, method, headers, bytes));
       return {
+        followRedirects: rules.every(rule => rule.followRedirects === true),
         maxRequestBytes: Math.min(...rules.map(rule => rule.maxRequestBytes)),
         maxResponseBytes: Math.min(...rules.map(rule => rule.maxResponseBytes)),
         timeoutMilliseconds: Math.min(...rules.map(rule => rule.timeoutMilliseconds)),

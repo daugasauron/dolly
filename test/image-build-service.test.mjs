@@ -29,7 +29,7 @@ test("opened results intersect parent and embedding HTTP authority, limits and c
   const intersected = restrictDollyHttpPolicy(stricterPage, policies);
   const headers = new Headers({ authorization: "sandbox-secret" });
   assert.deepEqual(intersected.authorize(target, "POST", headers, 1), {
-    maxRequestBytes: 50, maxResponseBytes: 10, timeoutMilliseconds: 50,
+    maxRequestBytes: 50, maxResponseBytes: 10, timeoutMilliseconds: 50, followRedirects: false,
   });
   assert.equal(headers.has("authorization"), false);
   for (const invalid of [null, [], {}, Array(17).fill(null)]) assert.throws(() => restrictDollyHttpPolicy(parent, invalid));
@@ -49,13 +49,13 @@ test("build authority has exact routes, independent policy, and no ambient crede
   for (const [address, method, size] of [
     [url, "GET", 0], [url, "POST", BUILD_LIMITS.maxRequestBytes + 1],
     [url + "?open=1", "POST", 1], [url + "#x", "POST", 1], [url + "/more", "POST", 1],
+    [url + "/open", "POST", 1],
     ["http://build.dolly.invalid/v1/builds", "POST", 1],
     ["https://build.dolly.invalid./v1/builds", "POST", 1],
     ["https://name@build.dolly.invalid/v1/builds", "POST", 1],
     ["https://other.dolly.invalid/v1/builds", "POST", 1],
     ["https://webgpu.dolly.invalid/v1/models", "GET", 0],
   ]) assert.throws(() => allowed.policy.authorize(new URL(address), method, new Headers(), size), /denied/);
-  assert.equal(allowed.policy.authorize(new URL(url + "/open"), "POST", new Headers(), 1), BUILD_LIMITS);
   assert.throws(() => allowed.policy.authorize(new URL("https://example.com"), "GET", new Headers(), 0), /denied/);
   const builder = localServicesTransport(new DollyHttpPolicy(), undefined, remote);
   for (const address of [url, "https://webgpu.dolly.invalid/v1/models", "https://dolly.invalid/"]) {
@@ -64,7 +64,7 @@ test("build authority has exact routes, independent policy, and no ambient crede
   assert.equal(remoteCalls, 0);
 });
 
-test("approval precedes work, logs stream before completion, and a completed result releases the lease", async () => {
+test("builds start immediately, stream before completion, and release the lease without opening anything", async () => {
   let finish, runs = 0;
   const service = new ImageBuildService(async (text, report) => {
     runs++;
@@ -73,18 +73,15 @@ test("approval precedes work, logs stream before completion, and a completed res
     await new Promise(resolve => { finish = resolve; });
     return { sha256: "a".repeat(64) };
   });
-  const response = await service.fetch(new URL(url + "/open"), request());
+  const response = await service.fetch(url, request());
   const reader = response.body.getReader();
-  assert.equal(response.url, url + "/open");
+  assert.equal(response.url, url.href);
   assert.equal((await event(reader)).type, "status");
-  assert.equal(runs, 0);
-  assert.equal(service.active.open, true);
+  assert.equal(runs, 1);
   assert.equal((await service.fetch(url, request())).status, 409);
-  const work = service.approve();
   assert.deepEqual(await event(reader), { type: "log", text: "compile first\n" });
   assert.equal(service.state, "building");
   finish();
-  await work;
   assert.equal((await event(reader)).type, "result");
   assert.equal((await reader.read()).done, true);
   assert.equal(service.state, "ready");
@@ -92,7 +89,7 @@ test("approval precedes work, logs stream before completion, and a completed res
   assert.equal(service.result.source, source);
 });
 
-test("pending denial, consumer cancellation and running cancellation release owned state", async () => {
+test("UI, consumer and request cancellation release owned state", async () => {
   let runs = 0;
   const service = new ImageBuildService(async (_text, _report, signal) => {
     runs++;
@@ -100,7 +97,7 @@ test("pending denial, consumer cancellation and running cancellation release own
   });
   let response = await service.fetch(url, request());
   service.cancel();
-  assert.equal(runs, 0);
+  assert.equal(runs, 1);
   assert.match(await response.text(), /Image build cancelled/);
   assert.equal(service.active, undefined);
   response = await service.fetch(url, request());
@@ -108,13 +105,11 @@ test("pending denial, consumer cancellation and running cancellation release own
   assert.equal(service.active, undefined);
   const controller = new AbortController();
   response = await service.fetch(url, request(source, controller.signal));
-  const work = service.approve();
   controller.abort("caller stopped");
-  await work;
   assert.match(await response.text(), /caller stopped/);
   assert.equal(service.active, undefined);
   assert.equal(service.state, "error");
-  assert.equal(runs, 1);
+  assert.equal(runs, 3);
 });
 
 test("malformed/oversize sources never start work; build errors and output floods produce bounded failures", async () => {
@@ -126,7 +121,6 @@ test("malformed/oversize sources never start work; build errors and output flood
   assert.equal(runs, 0);
   assert.equal(service.active, undefined);
   const response = await service.fetch(url, request());
-  await service.approve();
   const text = await response.text();
   assert.match(text, /log exceeds/);
   assert.ok(text.length < 1024);

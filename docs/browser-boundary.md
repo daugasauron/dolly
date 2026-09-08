@@ -43,15 +43,20 @@ Read these pieces in order:
    the trusted embedding's destination, method, credential-header, and quota
    rules. The policy comes from trusted page configuration, not Wasm.
 
-The fetch call always omits ambient browser credentials and referrers and
-rejects redirects. Credentials supplied by the sandbox remain ordinary request
+The fetch call always omits ambient browser credentials and referrers.
+Redirects follow only when the caller requests them and `authorize` returns
+`followRedirects: true`: ordinary unrestricted HTTP(S), never explicit
+destination rules or exact bootstrap grants. Inherited policies intersect this
+permission. Native Fetch handles every hop; it cannot invoke the browser-local
+build/model services. Credentials supplied by the sandbox remain ordinary request
 data; the browser never injects secrets. Request and response limits and the
 deadline belong to the browser. A guest that stops consuming mailbox records
 cannot keep the request alive beyond that deadline. Terminal failure uses a
 separate atomic state, so a late guest acknowledgement cannot erase it.
 Failures carry target errno codes, never request contents or credentials.
 
-The demo deliberately permits arbitrary HTTP(S). That is useful for agents,
+The demo deliberately permits arbitrary HTTP(S) and caller-requested redirects,
+with no lifetime request quota. Byte caps and deadlines remain. That is useful for agents,
 but it **does not prevent exfiltration of sandbox data**. An embedding needing
 a restricted network must install explicit rules; see [HTTP policy](http.md).
 An allowed destination can itself relay data or have external side effects:
@@ -69,18 +74,22 @@ cancellation; the HTTP broker also caps each local request at ten minutes;
 validation and the approved model catalog; and [`src/webgpu-worker.mjs`](../src/webgpu-worker.mjs) plus
 `config/webgpu-assets.json` for the independent accelerator and fixed, verified
 asset graph. The worker receives no Dolly memory or tool callbacks. Browser
-controls select one model size to load. The worker permits only that size's
+controls select one model size. The worker automatically selects its pinned FP16
+variant when the hardware adapter exposes `shader-f16`, otherwise FP32, regardless
+of browser name. A two-minute loading-idle timeout terminates a stalled worker.
+The worker permits only that variant's
 pinned assets; guest calls cannot load models or change the loaded selection.
 Build workers deny every reserved local destination. Remote HTTP rules do not
 grant local inference. See [the local service contract](browser-local-models.md).
 
-The second explicit local service is image building: two POST paths under
-`https://build.dolly.invalid/v1/builds`, also through the existing HTTP import.
-The browser requires a user approval for each bounded recipe, permits one build
-at a time and terminates its independent Wasm worker on cancellation/deadline.
+The second explicit local service is image building: one POST path,
+`https://build.dolly.invalid/v1/builds`, through the existing HTTP import.
+Bounded recipes start immediately, without user approval. The browser permits
+one build at a time and terminates its independent Wasm worker on cancellation/deadline.
 That worker gets the parent's remote HTTP policy but neither local service.
-Only a user gesture can reserve/open a result tab; no guest-selected browser URL
-is navigated. Result tabs intersect inherited browser restrictions with the new
+No build reserves or opens a tab. Only the user's **Open image** click after
+completion launches its ENTRY; there is no HTTP opening endpoint and no
+guest-selected browser URL is navigated. Result tabs intersect inherited browser restrictions with the new
 page's policy (`http-policy.mjs`); recipe bytes cannot supply that configuration.
 Completed bytes use the existing verified artifact cache. Review
 [the build service contract](image-build-service.md) and its linked implementations.
@@ -90,6 +99,9 @@ abort, and bounded local output/device operations. They do not grant host
 paths, native processes, sockets, DOM access, or JavaScript evaluation.
 User input, framebuffer output, file downloads, and explicit opaque session
 storage are additional visible channels; see the [security model](security.md).
+At boot, `/etc/dolly/host.base` records the public release URL after image
+restoration, before the session baseline. It grants no authority: `curl` of
+those published assets still crosses the same HTTP broker.
 `upload DESTINATION` is explicit local-user file input, not a host filesystem.
 Review [`abi/dolly-upload-0.wat`](../abi/dolly-upload-0.wat),
 [`src/upload-transport.mjs`](../src/upload-transport.mjs) and
@@ -110,6 +122,10 @@ For saves, Wasm owns base fingerprints and filesystem delta encoding; the page
 copies bounded opaque chunks to local IndexedDB. `/session/` lists metadata and
 `/session/NAME` boots the verified base before Wasm applies the delta. No new Wasm
 import or path-level host filesystem API is involved; see [sessions](sessions.md).
+`session-file.mjs` wraps the opaque delta for explicit local file export/import:
+bounded metadata, SHA-256 integrity and bounded decompression, never browser code
+or paths. Import cannot overwrite a save or launch Wasm. Delete requires user
+confirmation. Export includes credentials; the file is not encrypted or signed.
 For a rebuilt image, the page's first save reads the selected image's fixed
 snapshot metadata and checks the complete rebuilt base digest before allowing
 a delta save. It cannot substitute a guest-selected metadata URL.

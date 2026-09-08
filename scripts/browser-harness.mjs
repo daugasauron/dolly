@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { waitForDebugger } from "./browser-startup.mjs";
-import { runLocalModelProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
+import { runLocalModelProof, runLocalCompatibilityProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -22,8 +22,10 @@ import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
 import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git-transport.mjs";
+import { createHttpRedirectFixture } from "../test/fixtures/http-redirect-server.mjs";
 import { runUploadProof, selectFile } from "../test/fixtures/upload-browser.mjs";
 import { runStudioModelProof } from "../test/fixtures/studio-model-browser.mjs";
+import { runSessionFilesProof } from "../test/fixtures/session-files-browser.mjs";
 import { tarArchive } from "../test/fixtures/tar.mjs";
 import { gzipSync } from "node:zlib";
 
@@ -55,6 +57,7 @@ function isMode(...names) {
 const piDevelopmentMode = isMode("pi");
 const cppMode = isMode("cpp");
 const boundaryMode = isMode("boundary");
+const httpDefaultsMode = isMode("http-defaults");
 const processAbiMode = isMode("process-abi");
 const processSmokeMode = isMode("process-smoke");
 const libuvMode = isMode("libuv");
@@ -100,7 +103,8 @@ const pythonInteractiveMode = isMode("python-interactive");
 const toolchainProbeMode = isMode("toolchain-probes");
 const zigSdkMode = isMode("zig-sdk");
 const studioModelMode = isMode("studio-local-model");
-const localModelMode = isMode("local-model") || studioModelMode;
+const localCompatibilityMode = isMode("local-model-fp32");
+const localModelMode = isMode("local-model") || studioModelMode || localCompatibilityMode;
 const localCacheMode = isMode("local-model-cache");
 const optimizedLifecycleProbeMode =
   isMode("optimized-lifecycle-probe");
@@ -217,6 +221,7 @@ const publicSources = new Set([
   "src/process-supervisor.mjs",
   "src/process-worker.mjs",
   "src/session-store.mjs",
+  "src/session-file.mjs",
   "src/session-transport.mjs",
   "src/upload-transport.mjs",
   "src/custom-dollyfile.mjs",
@@ -265,6 +270,7 @@ function delay(milliseconds) {
 }
 
 function startServer() {
+  const httpRedirectFixture = createHttpRedirectFixture();
   const isolatedHeaders = pagesIsolationMode ? {
     "cache-control": "no-store",
   } : {
@@ -279,6 +285,7 @@ function startServer() {
       // The selected external app also imports fixture ES-module dependencies
       // from this test server. Production handlers and HTTP policy are unchanged.
       if (externalPage) response.setHeader("access-control-allow-origin", new URL(externalPage).origin);
+      if (await httpRedirectFixture(request, response, requestUrl)) return;
       if (requestUrl.pathname.startsWith("/fixture/")) {
         response.setHeader("access-control-allow-methods", "GET, HEAD, POST, PUT, OPTIONS");
         response.setHeader("access-control-allow-headers", request.headers["access-control-request-headers"] ?? "");
@@ -1171,7 +1178,7 @@ async function enterRecoveryShell(send) {
   } else {
     entryPid = await evaluate(send,
       `window.__dolly.waitForInteractiveTerminal(${["pi", "python-pi", "pi-local", "dollyfile-studio"].includes(selectedImage)
-        ? "/Bash is not installed/" : "/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/"}, "image entry terminal")`);
+        ? "/Bash is not installed|Dollyfile Studio.*dolly-hello/" : "/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/"}, "image entry terminal")`);
     await dispatchKey(send, {
       key: "d",
       code: "KeyD",
@@ -1456,7 +1463,8 @@ if (realOpenRouterMode) {
 chrome = spawn(chromeBinary, [
   ...(localModelMode ? ["--ozone-platform=x11"] : ["--headless=new"]),
   "--no-sandbox",
-  ...(localModelMode ? ["--ignore-gpu-blocklist", "--enable-unsafe-webgpu",
+  ...(localCompatibilityMode ? ["--enable-unsafe-webgpu", "--use-angle=vulkan",
+    "--enable-features=Vulkan,VulkanFromANGLE"] : localModelMode ? ["--ignore-gpu-blocklist", "--enable-unsafe-webgpu",
     "--enable-dawn-features=allow_unsafe_apis,vulkan_enable_f16_on_nvidia",
     "--disable-dawn-features=disallow_unsafe_apis", "--use-angle=vulkan",
     "--enable-webgpu-developer-features", "--use-webgpu-power-preference=default-high-performance",
@@ -1486,7 +1494,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
   });
   await debuggerClient.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `(() => {
-      ${pagesLiveMode
+      ${pagesLiveMode || httpDefaultsMode
         ? ""
         : `globalThis.DOLLY_HTTP_POLICY = ${JSON.stringify(fixturePolicy)};`}
       ${iterationMode ? `
@@ -1596,6 +1604,8 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         wait: (expression, predicate, label) => waitForValue(send, expression, predicate, label),
         submit: command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`),
         press: key => dispatchKey(send, key),
+        pageCount: async () => (await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json())
+          .filter(target => target.type === "page").length,
         click: async selector => {
           const point = await evaluate(send, `(() => { const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
           await send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", buttons: 1, clickCount: 1 });
@@ -1605,7 +1615,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
           let target;
           for (let i = 0; i < 100; i++) {
             const targets = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
-            target = targets.find(target => new URL(target.url).pathname.endsWith("/custom/run/"));
+            target = targets.find(target => target.url && new URL(target.url).pathname.endsWith("/custom/run/"));
             if (target) break;
             await delay(50);
           }
@@ -1675,12 +1685,50 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await submit(`message=$(printf 'DOLLY 3\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); status=$?; test "$status" = 1 && test "$message" = ${shellQuote(`${label}:1: missing IMAGE or MODULE`)}`), 0);
       }
       assert.equal(await submit("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/browser-model-providers.js"), 0);
+      try {
+        assert.equal(await submit('base=$(cat /etc/dolly/host.base); curl -f "${base}modules/quickjs.dm" -o /tmp/studio-host-module.dm && curl -f "${base}static/default/quickjs.tar" -o /tmp/studio-host-source.tar'), 0);
+        assert.equal(await submit("hash=$(sha256sum /tmp/studio-host-source.tar | awk '{print $1}'); grep -q $hash /tmp/studio-host-module.dm"), 0);
+        assert.equal(await submit('base=$(cat /etc/dolly/host.base); curl -f "${base}static/default/runtimes/quickjs-main.c" -o /tmp/studio-host-source.c && grep -q dolly_quickjs_run /tmp/studio-host-source.c'), 0);
+      } finally { await submit("rm -f /tmp/studio-host-module.dm /tmp/studio-host-source.tar /tmp/studio-host-source.c"); }
       const source = await readFile(resolve(projectDir, "test/fixtures/studio-nvim.lua"), "utf8");
       assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > /tmp/studio-nvim.lua`), 0);
       try {
         assert.equal(await submit("timeout 60 nvim --headless -n -i NONE -S /tmp/studio-nvim.lua"), 0);
       } finally { await submit("rm -f /tmp/studio-nvim.lua /tmp/Dollyfile-studio-lint"); }
-      console.log("browser: Studio launches Pi with prompts; examples lint with literal filenames; Neovim detects syntax, lints unsaved buffers and refreshes diagnostics on save");
+      await submit("printf '\\033[2J\\033[H'");
+      await evaluate(send, `(() => {
+        window.__studioEditorStatus = null;
+        __dolly.submit('nvim /workspace/Dollyfile').then(status => { window.__studioEditorStatus = status; });
+      })()`);
+      await waitForTerminalText(send, /DOLLY 3/, "Studio editor recipe");
+      await clearTerminalSelection(send);
+      await typeText(send, "G");
+      const yellowOnLine = row => evaluate(send, `(() => {
+        const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
+        const pixels = document.querySelector('#display').getContext('2d').getImageData(
+          paddingX, paddingY + ${row} * cellHeight, cellWidth * 20, cellHeight).data;
+        let count = 0;
+        for (let i = 0; i < pixels.length; i += 4)
+          if (pixels[i] === 242 && pixels[i + 1] === 212 && pixels[i + 2] === 92) count++;
+        return count;
+      })()`);
+      assert.ok(await yellowOnLine(0) > 10, "DOLLY is visibly highlighted on the canvas");
+      assert.ok(await yellowOnLine(5) > 10, "FILE is visibly highlighted on the canvas");
+      assert.equal(await yellowOnLine(6), 0, "FILE body remains plain text");
+      await typeText(send, "gg$a0");
+      await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      await waitForTerminalText(send, /! .*DOLLY 3/, "visible automatic lint error without saving");
+      await clearTerminalSelection(send);
+      const errorScreenshot = await send("Page.captureScreenshot", { format: "png" });
+      await writeFile(resolve(projectDir, "build/studio-nvim-error.png"), errorScreenshot.data, "base64");
+      await typeText(send, "$x");
+      await waitForValue(send, "__dolly.visibleTerminalText()", text => !/! .*DOLLY 3/.test(text), "correcting a recipe clears its error");
+      await clearTerminalSelection(send);
+      const screenshot = await send("Page.captureScreenshot", { format: "png" });
+      await writeFile(resolve(projectDir, "build/studio-nvim-colors.png"), screenshot.data, "base64");
+      await neovimEx(send, "q!");
+      assert.equal(await waitForValue(send, "window.__studioEditorStatus", value => value !== null, "Studio editor quit"), 0);
+      console.log("browser: Studio launches Pi with prompts; examples lint with literal filenames; Neovim visibly highlights directives and automatically displays/clears unsaved lint errors, then returns to Slop");
       break browserProof;
     }
     if (uploadMode) {
@@ -1700,7 +1748,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "local cache UI boot", 1200), "ready");
       await runLocalMenuProof(expression => evaluate(debuggerClient.send, expression),
-        key => dispatchKey(debuggerClient.send, key));
+        key => dispatchKey(debuggerClient.send, key), debuggerClient.send);
       const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
       await writeFile(resolve(projectDir, "build/local-model-menu.png"), screenshot.data, "base64");
       await runLocalCacheProof(expression => evaluate(debuggerClient.send, expression));
@@ -1712,7 +1760,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         value => value === "ready" || value === "failed", "local model boot", 1200), "ready");
       await enterRecoveryShell(debuggerClient.send);
       if (studioModelMode) assert.equal(selectedImage, "dollyfile-studio");
-      await (studioModelMode ? runStudioModelProof : runLocalModelProof)({
+      await (localCompatibilityMode ? runLocalCompatibilityProof : studioModelMode ? runStudioModelProof : runLocalModelProof)({
         modelId: process.env.DOLLY_STUDIO_MODEL,
         evaluate: expression => evaluate(debuggerClient.send, expression),
         press: key => dispatchKey(debuggerClient.send, key),
@@ -2099,8 +2147,37 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await submit(`mkdir -p ${scratch} && echo target > ${scratch}/target && ln -s target ${scratch}/link && ln -s absent ${scratch}/dangling && ln -s keep-dir ${scratch}/directory-link`), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.mjs`), 0);
         assert.equal(await submit(`janis -m ${scratch}/probe.mjs ${scratch}`), 0);
-      } finally { await submit(`rm -rf ${scratch}`); }
-      console.log("browser: Janis environment, Buffer views, real file descriptors/offsets, symlink metadata, literal package paths and explicit watch failure passed");
+        const sessions = await readFile(resolve(projectDir, "test/fixtures/pi-sessions.mjs"), "utf8");
+        assert.equal(await submit(`printf '%s\\n' ${sessions.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/sessions.mjs`), 0);
+        assert.equal(await submit(`janis -m ${scratch}/sessions.mjs ${scratch}`), 0);
+        assert.equal(await submit("clear"), 0);
+        await evaluate(debuggerClient.send, `globalThis.__resumeExit=null;
+          void __dolly.submit('pi --session-dir ${scratch}/sessions').then(status=>{__resumeExit=status;}); true`);
+        await waitForTerminalText(debuggerClient.send, /Bash is not installed|Dollyfile Studio.*dolly-hello/, "Pi restart");
+        await clearTerminalSelection(debuggerClient.send);
+        await inputText(debuggerClient.send, "/resume");
+        await dispatchKey(debuggerClient.send, { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+        await waitForTerminalText(debuggerClient.send, /DOLLY-RESUME-PROOF-/, "Pi resume picker");
+        await clearTerminalSelection(debuggerClient.send);
+        await typeText(debuggerClient.send, '"DOLLY-RESUME-PROOF-11"');
+        await waitForValue(debuggerClient.send, "__dolly.visibleTerminalText()",
+          text => text.includes("DOLLY-RESUME-PROOF-11") && !text.includes("DOLLY-RESUME-PROOF-10"), "filtered Pi session");
+        await clearTerminalSelection(debuggerClient.send);
+        await dispatchKey(debuggerClient.send, { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+        await waitForTerminalText(debuggerClient.send, /resume reply 11/, "resumed Pi conversation");
+        await clearTerminalSelection(debuggerClient.send);
+        await dispatchKey(debuggerClient.send, { key: "d", code: "KeyD", modifiers: 2, windowsVirtualKeyCode: 68 });
+        assert.equal(await waitForValue(debuggerClient.send, "__resumeExit", value => value !== null, "Pi quit after resume"), 0);
+      } finally {
+        if (await evaluate(debuggerClient.send, "globalThis.__resumeExit === null")) {
+          await dispatchKey(debuggerClient.send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+          await dispatchKey(debuggerClient.send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          await dispatchKey(debuggerClient.send, { key: "d", code: "KeyD", modifiers: 2, windowsVirtualKeyCode: 68 });
+          await waitForValue(debuggerClient.send, "__resumeExit", value => value !== null, "Pi stopped before cleanup");
+        }
+        await submit(`rm -rf ${scratch}`);
+      }
+      console.log("browser: Janis filesystem and Pi session save/list/reopen plus interactive /resume passed");
       break browserProof;
     }
     if (terminalUiMode) {
@@ -2266,7 +2343,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
         value => value === "ready" || value === "failed", "Neovim boot", 1200), "ready");
       if (selectedImage === "neovim") {
         await runLocalMenuProof(expression => evaluate(debuggerClient.send, expression),
-          key => dispatchKey(debuggerClient.send, key));
+          key => dispatchKey(debuggerClient.send, key), debuggerClient.send);
         await dispatchKey(debuggerClient.send, {key: "Escape", code: "Escape", windowsVirtualKeyCode: 27});
         await waitForTerminalText(debuggerClient.send, /Neovim inside Dolly/, "direct Neovim ENTRY");
         await clearTerminalSelection(debuggerClient.send);
@@ -2685,7 +2762,7 @@ int main(int argc, char **argv) {
       console.log("browser: freestanding WAT ran through Slop; wrong executable/DSO types rejected before allocation; local/GOT linking passed; optional DSO/FFI returned ENOSYS; C/JS errno and interrupted syscall round trips passed");
       break browserProof;
     }
-    if (boundaryMode) {
+    if (boundaryMode || httpDefaultsMode) {
       const state = await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "boundary snapshot boot", 1200);
@@ -2697,12 +2774,21 @@ int main(int argc, char **argv) {
       assert.equal(result.pluginRejections, 3);
       assert.equal(result.policyDeniedBeforeFetch, true);
       assert.equal(result.nonConsumingDeadline, true);
+      assert.equal(result.defaultRedirects, true);
       for (const path of ["docs/..%2fAGENTS.md", "docs/..%2fsrc%2fcompiler.cpp"]) {
         assert.equal(await evaluate(debuggerClient.send,
           `fetch(${JSON.stringify(`${localOrigin}${browserBase}${path}`)}).then(response => response.status)`),
         404, `development server escaped its public documentation root: ${path}`);
       }
       await enterRecoveryShell(debuggerClient.send);
+      if (httpDefaultsMode) {
+        for (const command of [
+          `if curl -fsS ${localOrigin}/fixture/http-redirect; then false; else true; fi`,
+          `curl -fsSL ${localOrigin}/fixture/http-redirect > /tmp/boundary-redirect.txt`,
+          'grep -q \'"method":"GET"\' /tmp/boundary-redirect.txt',
+          "rm -f /tmp/boundary-redirect.txt",
+        ]) assert.equal(await evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`), 0, command);
+      }
       for (const command of [
         `if curl -fsS ${localOrigin}/not-allowed; then false; else true; fi`,
         `curl -fsS ${localOrigin}/fixture/http.txt > /tmp/boundary-http.txt`,
@@ -3160,6 +3246,7 @@ int main(int argc, char **argv) {
     }
     if (sessionMode) {
       const sessionOrigin = new URL(interactivePage).origin;
+      const piSessions = selectedModuleNames.has("pi") ? "/workspace/pi-session-proof" : null;
       const initialState = await waitForValue(
         debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -3195,6 +3282,14 @@ int main(int argc, char **argv) {
         })()`), true, "a non-identical rebuilt base must not produce a named save");
       }
       await enterRecoveryShell(debuggerClient.send);
+      if (piSessions) {
+        const source = await readFile(resolve(projectDir, "test/fixtures/pi-sessions.mjs"), "utf8");
+        for (const command of [`mkdir ${piSessions}`,
+          `printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${piSessions}/probe.mjs`,
+          `janis -m ${piSessions}/probe.mjs ${piSessions}`]) {
+          assert.equal(await evaluate(debuggerClient.send, `__dolly.submit(${JSON.stringify(command)})`), 0);
+        }
+      }
       assert.equal(await evaluate(
         debuggerClient.send,
         'window.__dolly.submit("echo SESSION-WORKSPACE > /workspace/session-proof.txt")',
@@ -3298,6 +3393,7 @@ int main(int argc, char **argv) {
         "grep -q SESSION-WORKSPACE /home/dolly/.slop_history",
         "grep -q 'DOLLY-SESSION 1' /home/dolly/.dolly-session-name",
         "grep -q 'name browser-proof' /home/dolly/.dolly-session-name",
+        ...(piSessions ? [`janis -m ${piSessions}/probe.mjs ${piSessions} verify`] : []),
       ]) {
         assert.equal(await evaluate(
           debuggerClient.send,
@@ -3328,6 +3424,12 @@ int main(int argc, char **argv) {
         `${browserBase}session/browser-proof`);
       assert.equal(await evaluate(debuggerClient.send, "typeof window.__dolly"), "undefined",
         "listing sessions should not boot a Wasm runtime");
+      await runSessionFilesProof({
+        evaluate: expression => evaluate(debuggerClient.send, expression),
+        wait: (...args) => waitForValue(debuggerClient.send, ...args),
+        selectFile: (...args) => selectFile(debuggerClient.send, ...args),
+        downloadDirectory: browserDownloadDirectory,
+      });
       await evaluate(debuggerClient.send, "document.querySelector('#sessions a').click()");
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -3335,6 +3437,7 @@ int main(int argc, char **argv) {
       await enterRecoveryShell(debuggerClient.send);
       for (const command of [
         "grep -q SECOND-SAVE /workspace/session-proof.txt",
+        ...(piSessions ? [`janis -m ${piSessions}/probe.mjs ${piSessions} verify`] : []),
         "test ! -e /workspace/session-large",
         "test ! -e /usr/include/zconf.h",
         "grep -q SESSION-TYPE /usr/share/licenses/zlib/LICENSE/child",

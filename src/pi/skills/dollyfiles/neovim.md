@@ -7,8 +7,9 @@ the shell to return. Pi's captured shell tool does not own an interactive
 terminal, so do not launch interactive nvim through it.
 
 The installed plugin recognizes Dollyfile, Dollyfile-* and *.dm. It highlights
-syntax, sets four-space indentation and lints on save. `:DollyLint` checks the
-current buffer without saving it. `:lua vim.diagnostic.open_float()` explains
+directives in yellow, sets four-space indentation and shows inline lint errors
+on open, save and after edits (leaving insert mode). `:DollyLint` checks the
+current buffer immediately without saving it. `:lua vim.diagnostic.open_float()` explains
 the current diagnostic. There is no LSP; linting never executes SLOP, downloads
 sources or changes image state.
 

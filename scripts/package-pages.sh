@@ -51,6 +51,7 @@ for required in \
   src/process-supervisor.mjs \
   src/process-worker.mjs \
   src/session-store.mjs \
+  src/session-file.mjs \
   src/session-transport.mjs \
   src/upload-transport.mjs \
   src/custom-dollyfile.mjs \
@@ -119,6 +120,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/process-supervisor.mjs" \
   "${project_dir}/src/process-worker.mjs" \
   "${project_dir}/src/session-store.mjs" \
+  "${project_dir}/src/session-file.mjs" \
   "${project_dir}/src/session-transport.mjs" \
   "${project_dir}/src/upload-transport.mjs" \
   "${project_dir}/src/custom-dollyfile.mjs" \

@@ -12,6 +12,7 @@ export function mountLocalModel() {
   const service = new LocalModelService();
   const panel = document.createElement("section");
   panel.id = "local-model";
+  panel.tabIndex = -1;
   panel.hidden = true;
   panel.innerHTML = `<header><span>Local model</span><span>Ctrl+Shift+L</span></header>
     <ul role="menu" aria-label="Local model">
@@ -23,7 +24,7 @@ export function mountLocalModel() {
     </ul>
     <p role="status"></p>
     <p>Use the same model in Pi.<br>↑↓ choose · Enter select · Esc close</p>
-    <details id="local-model-help"><summary>GPU setup / Chrome</summary>
+    <details id="local-model-help"><summary>GPU setup</summary>
       <p>Enable graphics acceleration in <code>chrome://settings/system</code>,
       then relaunch Chrome. In <code>chrome://gpu</code>, check that WebGPU is
       hardware accelerated.</p>
@@ -31,8 +32,14 @@ export function mountLocalModel() {
       <code>chrome://flags/#enable-unsafe-webgpu</code> and
       <code>chrome://flags/#enable-vulkan</code> flags, then a restart.
       These are experimental; reset them if Chrome becomes unstable.</p>
-      <p>Update Chrome and your GPU driver. Dolly needs HTTPS (or localhost)
-      and a GPU with <code>shader-f16</code>. Software rendering is insufficient.</p>
+      <p>Dolly automatically uses FP16 when available, otherwise FP32.
+      Choose the same Qwen size in either browser; FP32 needs more GPU memory.
+      In Firefox, update the browser and driver, then check WebGPU in
+      <code>about:support</code>. Linux may require the experimental
+      <code>dom.webgpu.enabled</code> preference in <code>about:config</code>;
+      restart after changing it. Reset it if Firefox becomes unstable.</p>
+      <p>Dolly needs HTTPS (or localhost) and a hardware GPU. Software rendering
+      is insufficient. Select text to copy with Ctrl+C or Ctrl+Shift+C.</p>
       <p><a href="${new URL('../docs/browser-local-models.md#chrome-setup', import.meta.url)}"
       target="_blank" rel="noopener">More setup help</a> · You can also choose a
       remote provider in Pi.</p>
@@ -59,7 +66,7 @@ export function mountLocalModel() {
         ? !["unloaded", "error", "ready"].includes(service.state) : service.state === "clearing"));
       if (action === "load") item.setAttribute("aria-checked", String(item.dataset.model === service.model?.id));
     }
-    const focused = panel.contains(document.activeElement);
+    const focused = items.includes(document.activeElement) && document.activeElement.hidden;
     select(available().includes(current) ? current : available()[0], focused);
   }
   async function activate(item) {
@@ -95,7 +102,13 @@ export function mountLocalModel() {
   panel.addEventListener("keydown", event => {
     const choices = available(), index = choices.indexOf(current);
     if (event.key === "Escape") toggleLocalModel();
-    else if (event.key === "Tab" || event.target.closest("details")) return;
+    else if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyC") {
+      const selection = getSelection();
+      if (selection && panel.contains(selection.anchorNode) && !selection.isCollapsed) {
+        void navigator.clipboard.writeText(selection.toString()).catch(() => {});
+      }
+    }
+    else if (!event.target.closest("[data-action]") || event.ctrlKey || event.metaKey || event.altKey || event.key === "Tab") return;
     else if (event.key === "ArrowDown") select(choices[(index + 1) % choices.length], true);
     else if (event.key === "ArrowUp") select(choices[(index - 1 + choices.length) % choices.length], true);
     else if (event.key === "Home") select(choices[0], true);

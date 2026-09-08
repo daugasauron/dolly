@@ -18,7 +18,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const asset = path => new URL(path, assetRoot).href;
   const { instantiateKernelPlugin } = await import(asset("src/kernel-plugin.mjs"));
   const { NetworkTransport } = await import(asset("src/http-broker.mjs"));
-  const { DollyHttpPolicy } = await import(asset("src/http-policy.mjs"));
+  const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("src/http-policy.mjs"));
   const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
   const { DOLLY_ERRNO: errno } = await import(asset("dist/dolly-errno.mjs"));
   const fixtureOrigin = new URL(import.meta.url).origin;
@@ -120,8 +120,49 @@ export async function runBrowserBoundaryChecks(assetRoot) {
       (valid ? errno.EIO : fields.url ? errno.EACCES : errno.EINVAL), "literal metadata lost its errno");
   }
   check(observations[0] === "\u00A0value\u00A0", "Unicode header whitespace was stripped");
+
+  broker.fetchRequest = fetchRequest;
+  const unrestricted = new DollyHttpPolicy();
+  for (let index = 0; index < 300; index++) unrestricted.authorize(new URL(fixtureOrigin), "GET", new Headers(), 0);
+  const restricted = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
+    path: "/fixture/http-redirect", methods: ["POST"] }] });
+  const inherited = parent => restrictDollyHttpPolicy(new DollyHttpPolicy(), httpPolicyConfigurations(parent));
+  const observed = async () => (await fetch(new URL("/fixture/http-observations", fixtureOrigin))).json();
+  let sequence = 10;
+  for (const [policy, flags, status, follows] of [
+    [unrestricted, 2, 307, true], [unrestricted, 2, 302, true], [unrestricted, 0, 307, false],
+    [restricted, 2, 307, false], [inherited(unrestricted), 2, 307, true],
+    [inherited(restricted), 2, 307, false],
+  ]) {
+    const before = (await observed()).length, chunks = [];
+    broker.policy = policy;
+    Atomics.store(broker.words, broker.word + NetworkTransport.sequence, ++sequence);
+    Atomics.store(broker.words, broker.word, 1);
+    const request = broker.request({ method: "POST", url: `${fixtureOrigin}/fixture/http-redirect?status=${status}`,
+      headers: "Authorization: Bearer sandbox-fixture\r\nX-API-Key: sandbox-fixture", body: new TextEncoder().encode("sandbox-body"), flags, sequence });
+    const drain = setInterval(() => {
+      if (Atomics.load(broker.words, broker.word) !== 2) return;
+      const length = Atomics.load(broker.words, broker.word + NetworkTransport.length);
+      if (Atomics.load(broker.words, broker.word + NetworkTransport.kind) === 3) {
+        chunks.push(new TextDecoder().decode(broker.bytes.slice(broker.address + 64, broker.address + 64 + length)));
+      }
+      Atomics.compareExchange(broker.words, broker.word, 2, 1);
+      Atomics.notify(broker.words, broker.word);
+    }, 1);
+    try { await request; } finally { clearInterval(drain); }
+    const after = await observed();
+    check(after.length === before + (follows ? 1 : 0), `redirect destination contacted incorrectly: flags=${flags}, follows=${follows}`);
+    if (follows) {
+      check(JSON.stringify(JSON.parse(chunks.join(""))) === JSON.stringify(after.at(-1)), "redirected response did not reach the mailbox");
+      const result = after.at(-1);
+      check(result.method === (status === 302 ? "GET" : "POST"), "redirect method changed incorrectly");
+      check(result.body === (status === 302 ? "" : "sandbox-body"), "redirect body changed incorrectly");
+      check(result.authorization === null && result.apiKey === "sandbox-fixture", "cross-origin credential handling changed");
+      check(result.cookie === null && result.referer === null, "redirect leaked ambient browser state");
+    } else check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.EIO, "redirect rejection lost its error");
+  }
   return { assetRoot, imports: names(kernel).length, pluginRejections: 3, policyDeniedBeforeFetch: true,
-    nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true, literalMetadata: true };
+    nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true, literalMetadata: true, defaultRedirects: true };
 }
 
 async function checkAdmissionQueue(broker, errno, brokerUrl) {

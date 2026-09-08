@@ -50,16 +50,17 @@ in this tab; named-session saving is not yet supported for custom images.
 skill and `/dolly-hello`, `/dolly-tool`, `/dolly-fix` prompt templates. Load Qwen
 using Ctrl+Shift+L before using the default local provider, or select a remote
 provider with `/model`. Exit Pi to Slop and run `nvim /workspace/Dollyfile` to
-edit; `:DollyLint` checks the buffer, and saving also lints. The standalone
+edit. Directives are yellow; inline lint errors refresh on open, save and after
+edits (leaving insert mode). `:DollyLint` checks immediately. The standalone
 `dollyfile-lint FILE` uses the browser's inspection parser inside QuickJS.
 Linting checks syntax without fetching or executing anything; only a fresh
 image build checks source pins, commands and outputs. Do not run the builder
 against your active Studio filesystem to test a draft.
 
 `dollyfile-build /workspace/Dollyfile` submits a disposable Wasm build through
-the existing HTTP broker. Review and approve it in the browser; logs and errors
-stream back to the command. Add `--open` to reserve a result tab on approval,
-or choose **Open image** after success. See [the build service](image-build-service.md)
+the existing HTTP broker. It starts immediately and streams logs and errors
+back to the command. Only choosing **Open image** after success opens a new
+tab and runs its ENTRY. See [the build service](image-build-service.md)
 for cancellation, limits and the cached-result identity.
 
 Use `download /workspace/Dollyfile` to export a recipe. In the system/default

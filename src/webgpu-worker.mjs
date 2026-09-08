@@ -12,14 +12,17 @@ async function load(modelId) {
   loading = true;
   try {
     postMessage({ progress: "Checking the worker’s WebGPU adapter…" });
-    const adapter = await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" });
+    if (!navigator.gpu) throw new Error("WebGPU is unavailable or disabled in this browser. Use HTTPS (or localhost) and open GPU setup below for your browser's settings.");
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     if (!adapter || adapter.info?.isFallbackAdapter) {
       throw new Error("The browser could not provide a hardware WebGPU adapter. Open GPU setup below to enable acceleration and check your driver.");
     }
-    if (!adapter.features.has("shader-f16")) throw new Error("This GPU lacks WebGPU shader-f16. See GPU setup below; a compatible GPU/driver is required.");
-    postMessage({ progress: "Preparing the pinned model assets…" });
-    const catalog = await (await nativeFetch(new URL("../dist/webgpu/assets.json", import.meta.url))).json();
-    const manifest = catalog.models.find(entry => entry.model === model.id);
+    const precision = adapter.features.has("shader-f16") ? "f16" : "f32";
+    postMessage({ progress: `Preparing ${model.name} · ${precision === "f16" ? "FP16" : "FP32 (shader-f16 unavailable)"}…` });
+    const response = await nativeFetch(new URL("../dist/webgpu/assets.json", import.meta.url));
+    if (!response.ok) throw new Error(`Model catalog: HTTP ${response.status}. Reload Dolly to retry.`);
+    const catalog = await response.json();
+    const manifest = catalog.models.find(entry => entry.model === `${model.id}-q4${precision}_1-MLC`);
     if (!manifest) throw new Error("Model assets are missing from this release");
     postMessage({ progress: "Starting WebLLM…" });
     const assets = new Map(manifest.assets.map(asset => [asset.url, asset]));
@@ -30,12 +33,17 @@ async function load(modelId) {
       if (!loading || !asset || (init.method ?? input.method ?? "GET") !== "GET") throw new Error(`Denied model asset: ${url}`);
       postMessage({ progress: `Downloading and verifying ${asset.file}…` });
       const target = asset.bundle ? new URL(`../dist/webgpu/${asset.sha256}-${asset.file}`, import.meta.url) : asset.url;
-      const response = await nativeFetch(target, { signal: init.signal ?? input.signal,
-        credentials: "omit", referrerPolicy: "no-referrer" });
+      let response;
+      try {
+        response = await nativeFetch(target, { signal: init.signal ?? input.signal,
+          credentials: "omit", referrerPolicy: "no-referrer" });
+      } catch (error) {
+        throw new Error(`Could not download ${asset.file}: ${error.message}. Check your connection and retry loading.`);
+      }
       if (!response.ok) throw new Error(`Model asset ${asset.file}: HTTP ${response.status}`);
       const bytes = new Uint8Array(asset.bytes);
       const reader = response.body.getReader();
-      let offset = 0;
+      let offset = 0, reportedAt = 0;
       try {
         for (;;) {
           const { done, value } = await reader.read();
@@ -43,6 +51,10 @@ async function load(modelId) {
           if (value.length > bytes.length - offset) throw new Error(`Model asset exceeds declared size: ${asset.file}`);
           bytes.set(value, offset);
           offset += value.length;
+          if (Date.now() - reportedAt >= 1000) {
+            postMessage({ progress: `Downloading ${asset.file}: ${(offset / 1e6).toFixed(1)} / ${(asset.bytes / 1e6).toFixed(1)} MB` });
+            reportedAt = Date.now();
+          }
         }
       } finally { await reader.cancel(); }
       const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(n => n.toString(16).padStart(2, "0")).join("");
@@ -61,8 +73,10 @@ async function load(modelId) {
           conv_config: { stop_token_ids: [248044, 248046] } } }] },
       initProgressCallback: report => postMessage({ progress: report.text }),
     });
-    await engine.reload(model.id);
-    return { adapter: { vendor: adapter.info?.vendor, architecture: adapter.info?.architecture,
+    try { await engine.reload(model.id); }
+    catch (error) { throw new Error(`Could not load ${model.name}: ${error.message}. Try loading again, or choose a smaller model if GPU memory is exhausted.`); }
+    return { precision: precision === "f16" ? "FP16" : "FP32", variant: manifest.model,
+      adapter: { vendor: adapter.info?.vendor, architecture: adapter.info?.architecture,
       description: adapter.info?.description }, contextWindow: model.context_window };
   } finally { loading = false; }
 }

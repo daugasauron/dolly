@@ -148,8 +148,8 @@ The public Pages environment pages intentionally run the no-configuration broker
 mode. A completely compromised Wasm userspace can send readable sandbox data
 and sandbox-supplied credential headers to any HTTP(S) destination that accepts
 the browser's CORS request. Browser ambient credentials and referrers remain
-omitted, redirects remain rejected, and finite size, time, and request-count
-limits still apply. This is useful for general-purpose agent tools but is not
+omitted. Caller-requested redirects are allowed, with finite byte/time limits
+but no lifetime request quota. This is useful for general-purpose agent tools but is not
 an exfiltration-safe deployment policy. A stricter embedding can set
 `DOLLY_HTTP_POLICY` before loading `browser.mjs` without changing the Wasm
 runtime or adding another network edge.

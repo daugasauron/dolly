@@ -18,6 +18,11 @@
       ul { padding: 0; list-style: none; }
       li { padding: 1rem 0; border-top: 1px solid #77736c; overflow-wrap: anywhere; }
       small { display: block; color: #b7b1a6; }
+      button { color: inherit; background: none; border: 0; padding: 0;
+        font: inherit; text-decoration: underline; text-decoration-color: #f2d45c; cursor: pointer; }
+      button { margin: 0.5rem 1rem 0 0; }
+      button:disabled { opacity: 0.5; cursor: wait; }
+      #import-session { max-width: 100%; font: inherit; }
     </style>
   </head>
   <body>
@@ -26,6 +31,9 @@
       <h1>Saved sessions</h1>
       <p>Saves in this browser, on this site. Nothing is uploaded or synced.</p>
       <p>Ctrl+Shift+S saves files, including credentials and shell history. Loading starts a fresh program; it does not resume running processes.</p>
+      <p>Exported files include credentials and are not encrypted. Import only files you trust. The matching runtime and image are required to open a save.</p>
+      <label for="import-session">Import session file</label>
+      <input id="import-session" type="file" accept=".dolly-session,application/octet-stream">
       <p id="status" role="status">Reading saved sessions…</p>
       <ul id="sessions"></ul>
     </main>

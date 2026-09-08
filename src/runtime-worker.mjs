@@ -340,6 +340,9 @@ try {
     }
   }
 
+  // Image pruning removes bootstrap inputs. Publish the current release URL
+  // after artifact capture/restore so portable images never retain a build host.
+  replaceFile("/etc/dolly/host.base", applicationBase.href);
   bootstrapStage("indexing session baseline...");
   if (dolly._dolly_session_base_capture() !== 0) {
     throw new Error("Dolly could not index the base filesystem for sessions");

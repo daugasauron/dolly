@@ -23,6 +23,8 @@ DOLLY_BROWSER_MODE=menu \
 node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=boundary \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_BROWSER_MODE=http-defaults \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=upload \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=custom-dollyfile \

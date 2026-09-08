@@ -1,16 +1,14 @@
 # Building from Studio
 
-Run `dollyfile-build [--open] /workspace/Dollyfile` in Studio, including through
-Pi's shell tool. Review the recipe in the browser and choose **Build**. Logs
+Run `dollyfile-build /workspace/Dollyfile` in Studio, including through
+Pi's shell tool. Building starts immediately, without an approval prompt. Logs
 stream back to the caller; compile or builder failures give a nonzero command
 exit. Correct the recipe and submit it again. The current Studio filesystem,
 credentials and session stay separate from the new build.
 
-**Build and open** reserves a blank tab on the user's approval click, then
-launches the completed image there. This is necessary for normal popup rules.
-If that tab is closed or blocked, **Open image** retries with a fresh user click.
-Without `--open`, opening is offered after the build. A failed/cancelled build
-closes only its still-blank reserved tab, never a tab the user navigated elsewhere.
+After success, click **Open image** to launch the result in a new tab. This
+click is the only approval: no tab is reserved during compilation, and a build
+cannot open one automatically. Popup blocking can be retried with another click.
 
 The completed image is bound to the runtime, exact root recipe, direct input
 digests and snapshot hash in the existing browser image cache. `/custom/run/`
@@ -22,12 +20,9 @@ require rebuilding, and custom images do not yet support named-session saves.
 ## HTTP contract
 
 There is no new Wasm import or native build server. The existing
-`env.dolly_http_dispatch` broker routes these two browser-local requests:
-
-| Request | Body | Result |
-| --- | --- | --- |
-| `POST https://build.dolly.invalid/v1/builds` | Literal UTF-8 Dollyfile | Build with user approval |
-| `POST https://build.dolly.invalid/v1/builds/open` | Literal UTF-8 Dollyfile | Build and reserve a result tab on approval |
+`env.dolly_http_dispatch` broker routes one browser-local request:
+`POST https://build.dolly.invalid/v1/builds` with a literal UTF-8 Dollyfile body.
+It starts a build and returns its event stream. There is no HTTP opening endpoint.
 
 No queries, credentials, alternate origins, redirects or other methods are
 accepted. Local admission is independent of the remote HTTP allowlist; all
@@ -43,8 +38,8 @@ per-tab request counters with the same configured quotas. Policy comes from
 trusted browser state, not recipe/snapshot contents, and missing inheritance
 fails closed. Reopening a build cannot silently restore unrestricted HTTP.
 
-One request may be pending/running per page. Limits are 128 KiB of recipe text,
-8 MiB of encoded response and 45 minutes including approval. Missing image
+One request may run per page; cancellation retains that lease until work stops.
+Limits are 128 KiB of recipe text, 8 MiB of encoded response and 45 minutes. Missing image
 dependencies build sequentially. The bounded stream also limits queued output
 when a caller does not consume it. A periodic progress event keeps quiet builds
 observable; it does not extend the absolute deadline.
@@ -52,13 +47,13 @@ observable; it does not extend the absolute deadline.
 Responses use `application/x-ndjson`, one JSON object per line:
 
 ```text
-{"type":"status","text":"Waiting for browser approval…"}
+{"type":"status","text":"Building example in a separate sandbox…"}
 {"type":"log","text":"compiler output\n"}
 {"type":"progress","state":"building"}
 {"type":"result","image":"example","sha256":"…"}
 ```
 
-HTTP 400 rejects an invalid recipe before approval; 409 reports a busy builder.
+HTTP 400 rejects an invalid recipe before execution; 409 reports a busy builder.
 Once streaming starts, HTTP status is already 200: a terminal
 `{"type":"error","message":"…"}` means failure. Only a terminal `result`
 followed by a complete stream means success. EOF without a result is failure.

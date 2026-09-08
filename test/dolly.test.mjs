@@ -1539,7 +1539,7 @@ test("the browser HTTP policy owns destination authority while credentials stay 
   assert.equal(isDollyCredentialHeader("content-type"), false);
 });
 
-test("the no-configuration HTTP policy permits generic destinations and credentials", () => {
+test("the no-configuration HTTP policy permits destinations and credentials without a lifetime quota", () => {
   const policy = new DollyHttpPolicy();
   const headers = new Headers({
     authorization: "Bearer sandbox-key",
@@ -1554,6 +1554,9 @@ test("the no-configuration HTTP policy permits generic destinations and credenti
     new Headers(),
     0,
   ));
+  for (let index = 0; index < 300; index++) {
+    assert.equal(policy.authorize(new URL("https://models.example/v1/models"), "GET", headers, 0).followRedirects, true);
+  }
 });
 
 test("the browser consumes credential policy without exposing it as page state", () => {

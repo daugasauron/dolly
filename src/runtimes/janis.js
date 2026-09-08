@@ -298,6 +298,86 @@ class JanisStringDecoder {
   }
 }
 
+// Non-terminal line input for file scanners, pipes and simple questions.
+class JanisReadline extends JanisEventEmitter {
+  closed = false;
+  constructor(options, output) {
+    super();
+    if (options?.on) options = { input: options, output };
+    const { input, crlfDelay = 100 } = options;
+    if (!input?.on) throw new TypeError("readline requires an input stream");
+    if (options.terminal === true) throw new Error("Janis readline does not implement terminal editing");
+    this.input = input;
+    this.output = options.output;
+    const decoder = new JanisStringDecoder();
+    let pending = "", lastCR = null;
+    const accept = text => {
+      if (!text || this.closed) return;
+      if (lastCR !== null && text[0] === "\n" && Date.now() - lastCR <= Math.max(100, crlfDelay)) text = text.slice(1);
+      lastCR = null;
+      let start = 0;
+      for (let index = 0; index < text.length && !this.closed; index++) {
+        const char = text[index];
+        if (char !== "\r" && char !== "\n") continue;
+        const line = pending + text.slice(start, index);
+        pending = "";
+        if (char === "\r") {
+          if (text[index + 1] === "\n") index++;
+          else if (index === text.length - 1) lastCR = Date.now();
+        }
+        start = index + 1;
+        this.emit("line", line);
+      }
+      pending += text.slice(start);
+    };
+    const data = chunk => accept(decoder.write(chunk));
+    const end = () => {
+      accept(decoder.end());
+      if (pending && !this.closed) this.emit("line", pending);
+      this.close();
+    };
+    const error = value => { this.close(); this.emit("error", value); };
+    const close = () => this.close();
+    this.detach = () => {
+      for (const [name, listener] of [["data", data], ["end", end], ["error", error], ["close", close]]) input.off(name, listener);
+    };
+    input.on("data", data).on("end", end).on("error", error).on("close", close);
+    input.resume();
+  }
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    this.detach();
+    this.input.pause();
+    this.emit("close");
+  }
+  question(text, callback) {
+    if (this.closed) throw new Error("readline is closed");
+    this.output?.write(text);
+    this.once("line", callback);
+  }
+  [Symbol.asyncIterator]() {
+    const lines = [];
+    let done = this.closed, failure, wake;
+    const line = value => { lines.push(value); wake?.(); };
+    const close = () => { done = true; wake?.(); };
+    const error = value => { failure = value; done = true; wake?.(); };
+    this.on("line", line).on("close", close).on("error", error);
+    const detach = () => this.off("line", line).off("close", close).off("error", error);
+    return {
+      next: async () => {
+        while (!lines.length && !done) await new Promise(resolve => { wake = resolve; });
+        if (failure) { detach(); throw failure; }
+        if (lines.length) return { value: lines.shift(), done: false };
+        detach();
+        return { done: true };
+      },
+      return: async () => { this.close(); lines.length = 0; detach(); return { done: true }; },
+      [Symbol.asyncIterator]() { return this; },
+    };
+  }
+}
+
 class JanisStdin extends JanisEventEmitter {
   get isTTY() { return Boolean(Dolly.isatty(0)); }
   isRaw = false;
@@ -2249,7 +2329,7 @@ const janisBuiltinModules = {
   process,
   querystring: janisQuerystring,
   readline: {
-    createInterface: () => { const interface_ = new JanisEventEmitter(); interface_.close = () => interface_.emit("close"); interface_.question = (_text, callback) => callback(""); return interface_; },
+    createInterface: (options, output) => new JanisReadline(options, output),
     emitKeypressEvents() {},
     clearLine: () => true,
     cursorTo: () => true,

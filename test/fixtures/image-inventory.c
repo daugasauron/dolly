@@ -21,7 +21,8 @@ static int retained(const char *path, int directory) {
         (directory && strncmp(path, paths[index], strlen(path)) == 0 &&
          paths[index][strlen(path)] == '/')) return 1;
   }
-  return strcmp(path, "/etc/dolly/image.manifest") == 0;
+  return strcmp(path, "/etc/dolly/image.manifest") == 0 ||
+         strcmp(path, "/etc/dolly/host.base") == 0;
 }
 
 static int walk(const char *path) {

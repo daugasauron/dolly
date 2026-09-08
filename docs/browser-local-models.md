@@ -5,10 +5,12 @@ The `pi-local` experiment adds Qwen3.5 through WebLLM 0.2.84. Open
 Click a model row, or use arrow keys and Enter, to load that size.
 Escape or Ctrl+Shift+L closes the menu and returns focus to the terminal.
 Select the same size under `webgpu` in Pi's normal model picker.
+Panel text is selectable; Ctrl+C or Ctrl+Shift+C copies the selection without
+sending input to the terminal.
 
 ## Chrome setup
 
-If the picker cannot find a hardware GPU, expand **GPU setup / Chrome**:
+If the picker cannot find a hardware GPU, expand **GPU setup**:
 
 1. In `chrome://settings/system`, enable graphics acceleration and relaunch.
 2. Check `chrome://gpu`: WebGPU should say hardware accelerated, not software
@@ -16,8 +18,16 @@ If the picker cannot find a hardware GPU, expand **GPU setup / Chrome**:
 3. Linux support may require `chrome://flags/#enable-unsafe-webgpu` and
    `chrome://flags/#enable-vulkan`, followed by a restart. These are experimental
    settings; reset them if unstable. Flags cannot supply missing GPU features.
-4. Use HTTPS or localhost. The Qwen models require `shader-f16`; on an unsupported
-   device, select a remote provider in Pi instead.
+4. Use HTTPS or localhost. Dolly automatically selects FP16 when the hardware
+   adapter exposes `shader-f16`, otherwise FP32. All three sizes have both pinned
+   variants. The model ID is the same in either browser, e.g. `Qwen3.5-2B`.
+
+In Firefox, update the browser and GPU driver and check WebGPU in `about:support`.
+On Linux, WebGPU may require the experimental `dom.webgpu.enabled` preference in
+`about:config` and a restart. Reset it if unstable; Dolly cannot enable it for you.
+[Firefox experimental WebGPU support](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Experimental_features#webgpu_api).
+The ready message reports the selected arithmetic. Missing `shader-f16` alone is
+not an error and does not require a different model selection in Pi.
 
 For blocklisted hardware or multi-GPU laptops, consult
 [Chrome's troubleshooting guide](https://developer.chrome.com/docs/web-platform/webgpu/troubleshooting-tips?hl=en)
@@ -36,10 +46,13 @@ Moving keyboard focus does not download anything. Activating a model row
 replaces the idle model; only one worker/model is active per tab. Cached weights
 are kept for switching back. GPU memory also includes working buffers and the
 16,384-token context; download size is not a GPU memory estimate.
-It requires a hardware WebGPU adapter with `shader-f16`; there is no CPU or
+FP16 requires `shader-f16`; FP32 does not, but uses larger working buffers
+and can be slower. Both require a hardware WebGPU adapter. There is no CPU or
 cloud fallback. **Stop generation** cancels generation, **Unload** releases its worker,
 and **Clear cached models** clears this origin's WebLLM model databases without
-network access. Dolly files and saved sessions have separate storage.
+network access. Loading reports download progress; two minutes without progress
+unloads a stalled worker with a retry message. Unload also cancels loading.
+Dolly files and saved sessions have separate storage and survive these operations.
 
 The provider extension is an ordinary JavaScript file installed by
 [`browser-model-providers.dm`](../modules/browser-model-providers.dm).
@@ -146,6 +159,7 @@ npm run build:webgpu
 npm run image -- pi-local
 node --test test/local-model.test.mjs test/http-broker.test.mjs
 DOLLY_IMAGE=pi-local DOLLY_BROWSER_MODE=local-model ./scripts/test-browser.sh
+DOLLY_IMAGE=pi-local DOLLY_BROWSER_MODE=local-model-fp32 ./scripts/test-browser.sh
 npm run publish
 npm run serve
 ```
@@ -155,6 +169,9 @@ Linux setup it uses X11/Vulkan and explicit WebGPU flags; ordinary headless
 Chrome did not expose the NVIDIA adapter. It never disables web security or
 uses a native inference server. A GPU is required for this opt-in test.
 It also exercises fourteen growing prompts to catch GPU memory accumulation.
+The `local-model-fp32` proof requires an adapter without `shader-f16` and omits
+the f16 override. It selects the ordinary 2B row, verifies automatic FP32 selection,
+and runs a Pi file-reading turn using the same public model ID.
 
 Firefox 153.0.4 hit a native `WebGPUParent::MapCallback` assertion during a
 long agent run, matching [Mozilla bug 1976766](https://bugzilla.mozilla.org/show_bug.cgi?id=1976766).

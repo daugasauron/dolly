@@ -25,18 +25,18 @@ not installed. No native host processes or sockets are available.
    compilation and before scratch cleanup. New commands belong to the built
    image; building it does not install those commands in Studio.
 3. Run `dollyfile-lint RECIPE`. This checks syntax, not build success.
-4. Run `dollyfile-build --open RECIPE`. The user reviews the recipe and clicks
-   **Build and open**; logs stream back while a fresh sandbox builds the image.
-   The reserved tab opens the verified result only after a successful build.
+4. Run `dollyfile-build RECIPE`. It starts immediately in a fresh sandbox and
+   streams logs back; test builds need no user approval. After success the user
+   may click **Open image** to launch it in a new tab. Do not wait for that click
+   to inspect build results or iterate on the recipe.
 5. On a build error, fix the corresponding FILE body or SLOP command **in the
    recipe**, lint and retry. Error paths belong to the disposable builder, not
    this Studio filesystem. A successful lint or local compilation is not a
    successful image build. Report the actual build/test results.
 
-Use `dollyfile-build RECIPE` without `--open` when only a build is requested.
 Do not invoke `/bin/dollyfile` directly in Studio: it replaces the running image.
 The build does not inherit Studio's files or credentials. Ctrl+C cancels it
-without discarding Studio. The existing HTTP broker mediates approval and network
+without discarding Studio. The existing HTTP broker mediates build limits and network
 policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
 
 ## Important language details
@@ -47,12 +47,52 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
 - Compile with `cc`; write executables to `/usr/bin`. `EXPORTS TOOL name`
   takes only the command's PATH name, not an extra path. No chmod is needed.
 - SLOP executes ordinary shell commands sequentially and fails on errors.
+  Keep each command on one logical line; use `printf 'a\nb\n'` for newlines
+  in test data, or put a multiline script in FILE and run it with Slop.
   For stdin tests, pipe text: `printf 'input\n' | tool`. `< PATH` reads a file;
   it does not supply inline text. Check results with `test "$(COMMAND)" = EXPECTED`.
 - Own and remove build scratch under `/tmp`. Do not retain credentials or agent
   history. A local `.dm` is not a published HOST dependency; inline its steps.
 - ENTRY is mandatory and final. The tool example enters a Slop prompt.
   COPY FROM copies files, not environment or named exports.
+
+## Porting upstream programs
+
+`SOURCE HOST` assets from **other modules and images** can be inspected with
+`curl`; they are published web assets, not access to the PC's filesystem.
+Read the module recipe under `/etc/dolly/recipes` for the exact path and pin.
+The current release's base URL is in `/etc/dolly/host.base`, including any
+deployment prefix. For example, inspect QuickJS's recipe and C source without
+installing that module:
+
+```sh
+base=$(cat /etc/dolly/host.base)
+curl -f "${base}modules/quickjs.dm"
+curl -f "${base}static/default/runtimes/quickjs-main.c"
+```
+
+For archives, download with `curl -f URL -o /tmp/NAME.tar`, compare `sha256sum`
+with the recipe pin, then extract with `tar -xf ARCHIVE -C SCRATCH_DIRECTORY`.
+Create and clean your scratch directory; Dolly's small tar does not support `-t`.
+Use the same published HOST path and pin in the new recipe; do not turn it into
+a localhost URL. Reading an archive does not make its tools available in Studio.
+
+Check runtime requirements before writing a large build recipe. PTYs,
+`fork`/`forkpty` and local Unix sockets are not implemented: tmux needs platform
+work, not just ncurses/libevent archives. Do not replace required libraries with
+empty headers or successful no-op functions to claim a working port.
+
+HTTP status 0 means no readable browser response, not proof of an allowlist.
+The default site permits HTTP(S) and caller-requested redirects (`curl -L`),
+with byte/time limits but no lifetime request quota. Fetch still enforces CORS.
+SOURCE downloads require a direct URL. A site operator may
+impose additional policy. Changing curl to Git cannot bypass this. Use a
+published HOST source or an upstream
+CORS-enabled URL; raw.githubusercontent.com can serve binary files too.
+Do not invent HOST paths or pins: inspect the published recipes, download an
+accessible source once and run `sha256sum` on its bytes. If transport fails,
+report the URL and error separately from missing runtime APIs. Preserve the
+draft rather than repeatedly trying equivalent download endpoints.
 
 ## Editor, models and files
 

@@ -137,7 +137,7 @@ export async function loadStoredSession(name) {
   return (await transaction("readonly", (store) => store.get(name))) ?? null;
 }
 
-export async function saveStoredSession(record) {
+export function validateSessionRecord(record) {
   if (record === null || typeof record !== "object" ||
       !validSessionName(record.name) ||
       record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION ||
@@ -149,5 +149,14 @@ export async function saveStoredSession(record) {
       !["gzip", "identity"].includes(record.encoding)) {
     throw new TypeError("invalid Dolly session record");
   }
-  await transaction("readwrite", (store) => store.put(record));
+}
+
+export async function saveStoredSession(record, { overwrite = true } = {}) {
+  validateSessionRecord(record);
+  await transaction("readwrite", (store) => overwrite ? store.put(record) : store.add(record));
+}
+
+export async function deleteStoredSession(name) {
+  if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
+  await transaction("readwrite", store => store.delete(name));
 }

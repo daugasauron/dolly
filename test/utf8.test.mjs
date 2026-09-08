@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { StringDecoder } from "node:string_decoder";
+import { createInterface } from "node:readline";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import vm from "node:vm";
 import { decoderCases, decodeChunks, utf8Vectors } from "./fixtures/utf8-cases.mjs";
@@ -24,6 +26,56 @@ function context(overrides = {}) {
   vm.runInContext(janis, sandbox);
   return sandbox;
 }
+
+test("readline scans split UTF-8, CRLF, blank lines and a final unterminated line", async () => {
+  const sandbox = context();
+  for (const bytes of [Buffer.from("日本語\r\n\rnext\n\nlast😀"), Buffer.from("\n"), Buffer.alloc(0)]) {
+    for (let split = 0; split <= bytes.length; split++) {
+      const results = [];
+      for (const factory of [createInterface, sandbox.__janisBuiltin("readline").createInterface]) {
+        const input = new PassThrough();
+        const lines = factory({ input, crlfDelay: Infinity });
+        const events = [];
+        lines.on("line", line => events.push(line));
+        const collect = (async () => { const values = []; for await (const line of lines) values.push(line); return values; })();
+        input.write(bytes.subarray(0, split)); input.end(bytes.subarray(split));
+        results.push({ lines: await collect, events });
+        assert.equal(input.listenerCount("data"), 0);
+      }
+      assert.deepEqual(results[1], results[0]);
+    }
+  }
+});
+
+test("readline closes on early iterator return and reports input errors", async () => {
+  const factory = context().__janisBuiltin("readline").createInterface;
+  const input = new PassThrough(), lines = factory({ input }), iterator = lines[Symbol.asyncIterator]();
+  const pending = iterator.next();
+  input.write("first\nsecond\n");
+  assert.equal((await pending).value, "first");
+  await iterator.return();
+  assert.equal((await iterator.next()).done, true);
+  assert.equal(lines.closed, true);
+  assert.equal(input.listenerCount("data"), 0);
+  const broken = new PassThrough(), scan = factory({ input: broken });
+  const next = scan[Symbol.asyncIterator]().next();
+  broken.destroy(new Error("read failed"));
+  await assert.rejects(next, /read failed/);
+  assert.equal(broken.listenerCount("data"), 0);
+});
+
+test("readline questions wait for an actual input line", () => {
+  const factory = context().__janisBuiltin("readline").createInterface;
+  const input = new PassThrough();
+  let prompt = "", answer;
+  const lines = factory({ input, output: { write: text => { prompt += text; } } });
+  lines.question("Proceed? ", value => { answer = value; lines.close(); });
+  assert.equal(answer, undefined);
+  assert.equal(prompt, "Proceed? ");
+  input.write("yes\n");
+  assert.equal(answer, "yes");
+  assert.equal(lines.closed, true);
+});
 
 test("UTF-8 split points, malformed input, BOM, fatal errors and flush match TextDecoder", () => {
   const { TextDecoder: Decoder } = context();

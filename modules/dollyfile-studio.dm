@@ -10,7 +10,7 @@ REQUIRES TOOL slop
 REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 
-SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar 6deeb3ac79d8fc8e539d1d2dad861ade5cd7ea7c0449ebe2959d4286e8603d7e
+SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar 949c1263f911ff3a49f4b4cb3c39ae10957b77af698c2620e1c449adada810d2
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello
@@ -32,7 +32,7 @@ FILE /home/dolly/.pi/agent/settings.json
       "shellPath": "/bin/slop",
       "theme": "dolly",
       "defaultProvider": "webgpu",
-      "defaultModel": "Qwen3.5-2B-q4f16_1-MLC"
+      "defaultModel": "Qwen3.5-2B"
     }
 
 FILE /home/dolly/.dollyrc
@@ -43,4 +43,4 @@ FILE /home/dolly/.dollyrc
     printf 'Start with /dolly-hello, /dolly-tool or /dolly-fix in Pi.\n'
     printf 'Ctrl+Shift+L: load local Qwen; /model: select it or a remote provider.\n'
     printf 'Leave Pi with Ctrl+D on an empty prompt, then: nvim /workspace/Dollyfile\n'
-    printf 'dollyfile-lint checks syntax; dollyfile-build --open builds in a new sandbox.\n\n'
+    printf 'dollyfile-build streams a test build; click Open image when finished.\n\n'

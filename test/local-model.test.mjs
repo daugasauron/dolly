@@ -17,18 +17,20 @@ test("GPU preflight fails with setup guidance before any model download", async 
   const source = (await readFile(new URL("../src/webgpu-worker.mjs", import.meta.url), "utf8"))
     .replace(/^import .*;\n/gm, "")
     .replaceAll("import.meta.url", JSON.stringify(new URL("../src/webgpu-worker.mjs", import.meta.url).href));
-  for (const adapter of [null, { info: { isFallbackAdapter: true } }, { features: new Set() }]) {
+  for (const adapter of [undefined, null, { info: { isFallbackAdapter: true } }]) {
     let receive, downloads = 0;
     let respond;
     const response = new Promise(resolve => { respond = resolve; });
     runInNewContext(source, {
-      LOCAL_MODELS, navigator: { gpu: { requestAdapter: async () => adapter } },
+      LOCAL_MODELS, navigator: { gpu: adapter === undefined ? undefined : { requestAdapter: async () => adapter } },
       fetch() { downloads++; throw new Error("Unexpected model asset request"); },
       addEventListener(_event, callback) { receive = callback; },
       postMessage(message) { if (message.id) respond(message); },
     });
     receive({ data: { id: 1, type: "load", modelId: DEFAULT_LOCAL_MODEL.id } });
-    assert.match((await response).error, /GPU setup below/);
+    const message = (await response).error;
+    assert.match(message, /GPU setup below/);
+    if (adapter === undefined) assert.match(message, /unavailable or disabled/);
     assert.equal(downloads, 0);
   }
 });
@@ -40,6 +42,7 @@ test("the worker's effective stop tokens match every pinned Qwen tokenizer", asy
     .replace('await import("../dist/webgpu/webllm.mjs")', "{ MLCEngine: globalThis.MLCEngine }");
   const manifest = JSON.parse(await readFile(new URL("../config/webgpu-assets.json", import.meta.url)));
   for (const model of manifest.models) {
+    const logicalId = model.model.split("-q4")[0];
     const asset = async file => {
       const pinned = model.assets.find(asset => asset.file === file);
       return JSON.parse(await readFile(new URL(`../dist/webgpu/${pinned.sha256}-${file}`, import.meta.url)));
@@ -48,17 +51,20 @@ test("the worker's effective stop tokens match every pinned Qwen tokenizer", asy
     let receive, options, respond;
     const result = new Promise(resolve => { respond = resolve; });
     runInNewContext(source, {
-      LOCAL_MODELS, URL, navigator: { gpu: { requestAdapter: async () => ({ features: new Set(["shader-f16"]) }) } },
-      fetch: async () => ({ json: async () => manifest }),
+      LOCAL_MODELS, URL, navigator: { gpu: { requestAdapter: async () => ({ features: new Set(
+        model.model.includes("q4f16") ? ["shader-f16"] : []) }) } },
+      fetch: async () => ({ ok: true, json: async () => manifest }),
       MLCEngine: class {
         constructor(value) { options = value.appConfig.model_list[0].overrides; }
-        async reload(id) { assert.equal(id, model.model); }
+        async reload(id) { assert.equal(id, logicalId); }
       },
       addEventListener(_event, callback) { receive = callback; },
       postMessage(message) { if (message.id) respond(message); },
     });
-    receive({ data: { id: 1, type: "load", modelId: model.model } });
-    assert.equal((await result).error, undefined);
+    receive({ data: { id: 1, type: "load", modelId: logicalId } });
+    const loaded = await result;
+    assert.equal(loaded.error, undefined);
+    assert.equal(loaded.value.variant, model.model, "same logical model automatically selects the GPU-compatible variant");
     const effective = { ...config.conv_template, ...options.conv_config };
     assert.deepEqual(Array.from(effective.stop_token_ids), effective.stop_str.map(text => {
       const token = tokenizer.added_tokens.find(token => token.content === text && token.special);
@@ -106,18 +112,21 @@ test("discovered models match pinned assets and weight sizes, without loading a 
   const service = new LocalModelService({ createWorker: () => { throw new Error("Unexpected model load"); } });
   const catalog = await (await service.fetch(new URL(`${LOCAL_MODEL_ORIGIN}/v1/models`))).json();
   const manifest = JSON.parse(await readFile(new URL("../config/webgpu-assets.json", import.meta.url)));
-  assert.deepEqual(catalog.data.map(m => m.id), manifest.models.map(m => m.model));
+  assert.equal(catalog.data.length, 3, "one choice per size, not one per GPU precision");
+  assert.equal(manifest.models.length, catalog.data.length * 2);
   assert.equal(catalog.data[0].id, DEFAULT_LOCAL_MODEL.id);
   for (const model of catalog.data) {
-    const pinned = manifest.models.find(m => m.model === model.id);
-    assert.match(pinned.baseURL, /\/resolve\/[0-9a-f]{40}\/$/);
-    assert.equal(model.download_bytes, pinned.assets.filter(a => !a.bundle).reduce((sum, a) => sum + a.bytes, 0));
-    assert.equal(validateCompletion({ ...request(), model: model.id }).model, model.id);
-    for (const asset of pinned.assets) {
-      assert.match(asset.sha256, /^[0-9a-f]{64}$/);
-      assert.ok(asset.bytes > 0);
-      assert.ok(asset.url.startsWith(pinned.baseURL) || /binary-mlc-llm-libs\/[0-9a-f]{40}\//.test(asset.url));
-      assert.equal(asset.bundle, !asset.file.endsWith(".bin"));
+    for (const precision of ["f16", "f32"]) {
+      const pinned = manifest.models.find(m => m.model === `${model.id}-q4${precision}_1-MLC`);
+      assert.match(pinned.baseURL, /\/resolve\/[0-9a-f]{40}\/$/);
+      assert.equal(model.download_bytes, pinned.assets.filter(a => !a.bundle).reduce((sum, a) => sum + a.bytes, 0));
+      assert.equal(validateCompletion({ ...request(), model: model.id }).model, model.id);
+      for (const asset of pinned.assets) {
+        assert.match(asset.sha256, /^[0-9a-f]{64}$/);
+        assert.ok(asset.bytes > 0);
+        assert.ok(asset.url.startsWith(pinned.baseURL) || /binary-mlc-llm-libs\/[0-9a-f]{40}\//.test(asset.url));
+        assert.equal(asset.bundle, !asset.file.endsWith(".bin"));
+      }
     }
   }
   assert.equal(service.state, "unloaded");
@@ -220,7 +229,7 @@ class FakeWorker extends EventTarget {
     this.commands.push(message.type);
     if (this.stuck && ["next", "cancel"].includes(message.type)) return;
     let value;
-    if (message.type === "load") { this.modelId = message.modelId; value = { contextWindow: 16384 }; }
+    if (message.type === "load") { this.modelId = message.modelId; value = { contextWindow: 16384, precision: "FP32" }; }
     if (message.type === "next") value = this.pulls++ < this.chunks
       ? { value: { choices: [{ index: 0, delta: { content: "hello" }, finish_reason: this.pulls === this.chunks ? "stop" : null }] }, done: false }
       : { done: true };
@@ -228,6 +237,29 @@ class FakeWorker extends EventTarget {
   }
   terminate() { this.terminated = true; }
 }
+
+test("stalled or cancelled model loading terminates its worker and permits retry", async () => {
+  let worker = new FakeWorker();
+  worker.postMessage = () => {};
+  const service = new LocalModelService({ createWorker: () => worker, loadIdleTimeout: 15 });
+  await service.load();
+  assert.equal(service.state, "error");
+  assert.match(service.detail, /no progress.*retry/);
+  assert.equal(worker.terminated, true);
+  assert.equal(service.pending.size, 0);
+  worker = new FakeWorker();
+  worker.postMessage = () => {};
+  const loading = service.load();
+  service.dispose();
+  await loading;
+  assert.equal(service.state, "unloaded");
+  assert.equal(worker.terminated, true);
+  worker = new FakeWorker();
+  await service.load();
+  assert.equal(service.state, "ready");
+  assert.match(service.detail, /FP32/);
+  service.dispose();
+});
 
 test("only explicit idle loads switch models; guest requests cannot download or run a different size", async () => {
   const workers = [];

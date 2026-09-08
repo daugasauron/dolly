@@ -13,7 +13,7 @@ function response(body, status, url) {
   } }), "url", { value: url.href });
 }
 
-// One explicit approval, one bounded stream, one disposable build at a time.
+// One bounded stream and one disposable build at a time. Opening is UI-only.
 // The run callback receives only recipe text, logging and cancellation.
 export class ImageBuildService extends EventTarget {
   constructor(run) {
@@ -54,11 +54,10 @@ export class ImageBuildService extends EventTarget {
     if (!job || job.controller.signal.aborted) return;
     job.controller.abort(reason);
     this.finish(job, reason);
-    this.status(job.started ? "stopping" : "error", reason.message);
-    if (!job.started) this.release(job);
+    this.status("stopping", reason.message);
   }
   async fetch(url, init) {
-    if (this.active) return response(JSON.stringify({ type: "error", message: "An image build is already pending or running" }) + "\n", 409, url);
+    if (this.active) return response(JSON.stringify({ type: "error", message: "An image build is already running or stopping" }) + "\n", 409, url);
     let source, recipe;
     try {
       if (!init.body || init.body.byteLength > MAX_DOLLYFILE_BYTES) throw new Error("Dollyfile exceeds 128 KiB");
@@ -68,7 +67,7 @@ export class ImageBuildService extends EventTarget {
       if (recipe.kind !== "image") throw new Error("Submit an IMAGE recipe, not a MODULE");
     } catch (error) { return response(JSON.stringify({ type: "error", message: error.message }) + "\n", 400, url); }
     init.signal?.throwIfAborted();
-    const job = { source, name: recipe.image, open: url.pathname.endsWith("/open"),
+    const job = { source, name: recipe.image,
       signal: init.signal, controller: new AbortController(), bytes: 0 };
     this.active = job;
     this.result = undefined;
@@ -79,20 +78,18 @@ export class ImageBuildService extends EventTarget {
       start: stream => { job.stream = stream; },
       cancel: () => { job.stream = undefined; this.cancel(); },
     }, { highWaterMark: 0 });
-    this.emit(job, { type: "status", text: "Waiting for browser approval. Review the Dollyfile and choose Build." });
+    this.emit(job, { type: "status", text: `Building ${job.name} in a separate sandbox…` });
     job.heartbeat = setInterval(() => {
       try { this.emit(job, { type: "progress", state: this.state }); }
       catch (error) { this.cancel(error); }
     }, 10_000);
-    this.status("pending", `Build ${job.name}? This runs another Wasm sandbox, using this page's HTTP policy.`);
+    this.status("building", `Building ${job.name}… Logs stream to the calling command.`);
+    void this.execute(job);
     return response(body, 200, url);
   }
-  async approve() {
-    const job = this.active;
-    if (!job || job.started || job.controller.signal.aborted) return;
-    job.started = true;
-    this.status("building", `Building ${job.name}… Logs stream to the calling command.`);
+  async execute(job) {
     try {
+      job.controller.signal.throwIfAborted();
       const artifact = await this.run(job.source, text => {
         job.controller.signal.throwIfAborted();
         this.emit(job, { type: "log", text });

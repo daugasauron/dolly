@@ -195,7 +195,8 @@ export class NetworkTransport {
           ? undefined
           : body,
         credentials: "omit",
-        redirect: "error",
+        // Restricted rules cannot authorize the browser's hidden redirect hops.
+        redirect: (flags & 2) && rule.followRedirects === true ? "follow" : "error",
         referrerPolicy: "no-referrer",
         signal: controller.signal,
       });

@@ -20,8 +20,8 @@ The home page lists source-visible Dollyfiles and their prebuilt/rebuild routes.
 - `/gamedev/` and `/bhop/`: source-built raylib/Box3D and the Foundry
   strafe-jumping course.
 - `/dollyfile-studio/`: Pi, Neovim syntax/linting and examples for creating images.
-  `dollyfile-build --open FILE` requests browser approval, streams build logs,
-  and opens the verified result.
+  `dollyfile-build FILE` starts an isolated build and streams logs immediately.
+  Click **Open image** to launch the completed result in a new tab.
 
 `/custom/` accepts a pasted or uploaded Dollyfile and builds it in a fresh
 sandbox. Recipes run sequentially; source hashes and image identities are

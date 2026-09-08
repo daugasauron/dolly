@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
 
-export async function runImageBuildProof({ evaluate, wait, submit, click, press, openResult }) {
+export async function runImageBuildProof({ evaluate, wait, submit, click, press, openResult, pageCount }) {
   const quote = text => "'" + text.replaceAll("'", "'\\''") + "'";
   const waitState = state => wait("document.querySelector('#image-build')?.dataset.state", value => value === state, `build ${state}`);
-  async function start(source, open = false) {
+  async function start(source) {
     assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(quote).join(" ")} > /workspace/Dollyfile-build-proof`), 0);
     await evaluate(`globalThis.__buildStatus = null;
-      void __dolly.submit(${JSON.stringify(`dollyfile-build ${open ? "--open " : ""}/workspace/Dollyfile-build-proof`)}).then(status => { __buildStatus = status; }); true`);
-    await waitState("pending");
+      void __dolly.submit('dollyfile-build /workspace/Dollyfile-build-proof').then(status => { __buildStatus = status; }); true`);
+    await waitState("building");
     assert.equal(await evaluate("__buildStatus"), null);
+    assert.equal(await evaluate("document.querySelector('#image-build [data-action=approve]') === null"), true);
+    assert.equal(await evaluate("document.querySelector('#image-build [data-action=open]').hidden"), true);
   }
   const base = await evaluate(`(async () => {
     const {DOLLY_IMAGES} = await import(new URL('../dist/dolly-images.mjs', document.baseURI));
@@ -43,20 +45,24 @@ ENTRY /bin/foreground -i /bin/slop
   try {
     assert.equal(await submit("dollyfile-build --help"), 0);
     assert.equal(await submit("dollyfile-build --version"), 2);
+    assert.equal(await submit("dollyfile-build --open /workspace/Dollyfile"), 2);
     assert.equal(await submit("dollyfile-build /workspace/missing-Dollyfile"), 1);
     assert.match(await evaluate("__dolly.visibleTerminalText()"), /Cannot read recipe "\/workspace\/missing-Dollyfile"/);
     assert.equal(await submit("printf kept > /workspace/build-parent-proof"), 0);
-    await start(source, true);
+    const pages = await pageCount();
+    await start(source);
     assert.equal(await evaluate("document.querySelector('#image-build pre').textContent"), source);
-    await click('#image-build [data-action="approve"]');
     const progress = await wait("(async () => ({text: await __dolly.visibleTerminalText(), status: __buildStatus}))()",
       state => state.status !== null || /\nLIVE-BUILD-OUTPUT\r?\n/.test(state.text), "live build log before completion");
     assert.match(progress.text, /\nLIVE-BUILD-OUTPUT\r?\n/);
     assert.equal(progress.status, null);
+    assert.equal(await pageCount(), pages, "building must not open a blank tab");
     await waitState("ready");
     assert.equal(await wait("__buildStatus", value => value !== null, "successful build status"), 0);
     assert.equal(await submit("test \"$(cat /workspace/build-parent-proof)\" = kept"), 0);
     assert.equal(await submit("test ! -e /usr/bin/hello"), 0, "built tools are not installed in the calling session");
+    assert.equal(await pageCount(), pages, "completing a build must not open a tab");
+    await click('#image-build [data-action="open"]');
     const result = await openResult();
     try {
       assert.equal(await result.wait("document.documentElement?.dataset.dollyStatus", value => ["ready", "failed"].includes(value), "result boot"), "ready");
@@ -70,20 +76,19 @@ ENTRY /bin/foreground -i /bin/slop
       assert.match(log, /loading precompiled userspace snapshot/);
       assert.doesNotMatch(log, /building userspace from the Dollyfile/);
     } finally { await result.close(); }
-    console.log("browser: approved HTTP build streamed before completion; source-compiled C runs in a new cached-result tab, without parent files or local build services");
+    console.log("browser: HTTP build starts and streams without approval; only clicking Open image opens a completed result, without parent files or local build services");
 
     await start(source.replace("SLOP sleep 4", "SLOP false"));
-    await click('#image-build [data-action="approve"]');
     await waitState("error");
     assert.notEqual(await wait("__buildStatus", value => value !== null, "failed build status"), 0);
     assert.match(await evaluate("document.querySelector('#image-build [role=status]').textContent"), /bootstrap failed/);
 
-    await start(source);
+    await start(source.replace("SLOP sleep 4", "SLOP sleep 60"));
     await click('#image-build [data-action="cancel"]');
-    assert.notEqual(await wait("__buildStatus", value => value !== null, "denied build status"), 0);
+    assert.notEqual(await wait("__buildStatus", value => value !== null, "UI-cancelled build status"), 0);
+    await waitState("error");
 
     await start(source.replace("SLOP sleep 4", "SLOP sleep 60").replace("LIVE-BUILD-OUTPUT", "LIVE-CANCEL-OUTPUT"));
-    await click('#image-build [data-action="approve"]');
     await wait("__dolly.visibleTerminalText()", text => /\nLIVE-CANCEL-OUTPUT\r?\n/.test(text), "running build before Ctrl-C");
     const stoppedAt = Date.now();
     await press({ key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
@@ -91,7 +96,8 @@ ENTRY /bin/foreground -i /bin/slop
     await waitState("error");
     assert.ok(Date.now() - stoppedAt < 5000, "build cancellation exceeded five seconds");
     assert.equal(await submit("test \"$(cat /workspace/build-parent-proof)\" = kept"), 0);
-    console.log("browser: failing/denied builds return nonzero; Ctrl-C stops an active build and preserves the Studio session");
+    assert.equal(await pageCount(), pages, "failure and cancellation must not open tabs");
+    console.log("browser: failed/cancelled builds return nonzero; UI cancellation and Ctrl-C preserve Studio without opening tabs");
   } finally {
     await evaluate("document.querySelector('#image-build [data-action=cancel]').click(); true");
     await submit("rm -f /workspace/Dollyfile-build-proof /workspace/build-parent-proof");

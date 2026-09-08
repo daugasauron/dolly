@@ -17,7 +17,7 @@ export function localServicesTransport(remotePolicy, { model, build } = {}, remo
           ((method === "GET" && url.pathname === "/v1/models" && bytes === 0) ||
            (method === "POST" && url.pathname === "/v1/chat/completions"))) return [model, LOCAL_LIMITS];
       if (build && url.origin === BUILD_ORIGIN && bytes <= BUILD_LIMITS.maxRequestBytes && method === "POST" &&
-          ["/v1/builds", "/v1/builds/open"].includes(url.pathname)) return [build, BUILD_LIMITS];
+          url.pathname === "/v1/builds") return [build, BUILD_LIMITS];
     }
     throw new HttpError(DOLLY_ERRNO.EACCES, "Browser-local service request denied");
   }

@@ -4,8 +4,9 @@ export const LOCAL_MODELS = Object.freeze([
   { size: "0.8B", download_bytes: 423937664 },
   { size: "4B", download_bytes: 2367117312 },
 ].map(({ size, download_bytes }) => Object.freeze({
-  id: `Qwen3.5-${size}-q4f16_1-MLC`, object: "model", owned_by: "webgpu",
-  name: `Qwen3.5 ${size} · WebGPU`, context_window: 16384, max_tokens: 2048, download_bytes,
+  id: `Qwen3.5-${size}`, object: "model", owned_by: "webgpu",
+  name: `Qwen3.5 ${size} · WebGPU`,
+  context_window: 16384, max_tokens: 2048, download_bytes,
 })));
 export const DEFAULT_LOCAL_MODEL = LOCAL_MODELS[0];
 export const LOCAL_LIMITS = Object.freeze({

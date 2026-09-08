@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { LOCAL_MODELS, DEFAULT_LOCAL_MODEL } from "../../src/local-model-contract.mjs";
 
-export async function runLocalMenuProof(evaluate, press) {
+export async function runLocalMenuProof(evaluate, press, send) {
   assert.equal(await evaluate("document.querySelector('#local-model').hidden"), true);
   assert.equal(await evaluate("document.querySelectorAll('#local-model button, #local-model select').length"), 0);
   await evaluate(`globalThis.__menuKeys=[]; globalThis.__menuPushKey=__dolly.transport.pushKey;
@@ -32,11 +32,30 @@ export async function runLocalMenuProof(evaluate, press) {
     await press({ key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
     assert.equal(await evaluate("document.querySelector('#local-model-help').open"), true);
     assert.equal(await evaluate("document.querySelector('#local-model').dataset.state"), "unloaded");
+    await send("Browser.grantPermissions", { origin: await evaluate("location.origin"),
+      permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"] });
+    const point = await evaluate(`(() => {
+      const r=document.querySelector('#local-model [role=status]').getBoundingClientRect();
+      return {x:r.left+15,y:r.top+8};
+    })()`);
+    for (const type of ["mousePressed", "mouseReleased"]) {
+      await send("Input.dispatchMouseEvent", { type, ...point, button: "left", clickCount: 3 });
+    }
+    const selected = await evaluate("getSelection().toString()");
+    assert.ok(selected.trim().length > 10, "panel text must be selectable with the mouse");
+    assert.equal(await evaluate("document.activeElement.id"), "local-model");
+    for (const modifiers of [2, 10]) {
+      await evaluate("navigator.clipboard.writeText('not the selection')");
+      await press({ key: modifiers === 2 ? "c" : "C", code: "KeyC", modifiers, windowsVirtualKeyCode: 67 });
+      assert.equal(await evaluate("navigator.clipboard.readText()"), selected);
+    }
+    assert.deepEqual(await evaluate("__menuKeys"), []);
+    await evaluate("getSelection().removeAllRanges()");
     await evaluate("document.querySelector('#local-model-help').open = false; true");
   } finally {
     await evaluate("__dolly.transport.pushKey=__menuPushKey; true");
   }
-  console.log("browser: yellow model menu starts hidden; Ctrl+Shift+L, arrows and Escape preserve terminal input/focus");
+  console.log("browser: model menu navigation and native/terminal-style copy preserve terminal input/focus");
 }
 
 export async function runLocalCacheProof(evaluate) {
@@ -155,14 +174,14 @@ export async function runLocalModelProof({ evaluate, wait, submit, press, setOff
   assert.match(tool, /tool_calls/);
   assert.match(tool, /example.txt/);
   const startedPi = Date.now();
-  const status = await submit("pi --provider webgpu --model Qwen3.5-2B-q4f16_1-MLC --no-session -p 'Use the bash tool to run: printf LOCAL-QWEN-OK > /tmp/local-qwen-proof.txt . Then read that file with the read tool and tell me its content.' > /tmp/local-qwen-answer.txt 2>&1");
+  const status = await submit("pi --provider webgpu --model Qwen3.5-2B --no-session -p 'Use the bash tool to run: printf LOCAL-QWEN-OK > /tmp/local-qwen-proof.txt . Then read that file with the read tool and tell me its content.' > /tmp/local-qwen-answer.txt 2>&1");
   console.log("browser: Pi turn", Date.now() - startedPi, "ms; status", status);
   console.log("browser: requests", JSON.stringify(await evaluate("__localRequests.map(r=>({messages:r.messages.length,tools:r.tools?.map(t=>t.function.name),bytes:JSON.stringify(r).length}))")));
   await submit("cat /tmp/local-qwen-answer.txt");
   console.log("browser: Pi output", await evaluate("__dolly.visibleTerminalText()"));
   assert.equal(status, 0);
   assert.equal(await submit("grep -q LOCAL-QWEN-OK /tmp/local-qwen-proof.txt"), 0);
-  const readStatus = await submit("timeout 45 pi --provider webgpu --model Qwen3.5-2B-q4f16_1-MLC --no-session -p 'Read /tmp/local-qwen-proof.txt using the read tool, then answer with its exact contents.' > /tmp/local-qwen-read.txt 2>&1");
+  const readStatus = await submit("timeout 45 pi --provider webgpu --model Qwen3.5-2B --no-session -p 'Read /tmp/local-qwen-proof.txt using the read tool, then answer with its exact contents.' > /tmp/local-qwen-read.txt 2>&1");
   await submit("cat /tmp/local-qwen-read.txt");
   console.log("browser: Pi read result", await evaluate("__dolly.visibleTerminalText()"));
   assert.equal(readStatus, 0);
@@ -170,7 +189,7 @@ export async function runLocalModelProof({ evaluate, wait, submit, press, setOff
   const calls = await evaluate("__localRequests.flatMap(r=>r.messages.filter(m=>m.role==='assistant').flatMap(m=>m.tool_calls??[])).map(c=>c.function.name)");
   assert.ok(calls.includes("bash") && calls.includes("read"), `Missing actual Pi tool history: ${JSON.stringify(calls)}`);
   console.log("browser: real Qwen tool use wrote the shared Dolly filesystem");
-  await evaluate(`globalThis.__longPi = null; void __dolly.submit(${JSON.stringify("timeout 30 pi --provider webgpu --model Qwen3.5-2B-q4f16_1-MLC --no-session -p 'Write out every integer from 1 to 2000, without tools, without abbreviation.' > /tmp/local-long.txt 2>&1")}).then(status => { __longPi = status; }); true`);
+  await evaluate(`globalThis.__longPi = null; void __dolly.submit(${JSON.stringify("timeout 30 pi --provider webgpu --model Qwen3.5-2B --no-session -p 'Write out every integer from 1 to 2000, without tools, without abbreviation.' > /tmp/local-long.txt 2>&1")}).then(status => { __longPi = status; }); true`);
   await wait("__localService.state", state => state === "generating", "Pi generation before cancellation", 300);
   const cancelledAt = Date.now();
   await evaluate("document.querySelector('#local-model [data-action=stop]').click()");
@@ -191,7 +210,7 @@ export async function runLocalModelProof({ evaluate, wait, submit, press, setOff
   await setOffline(true);
   try {
     assert.equal(await evaluate("fetch(new URL('../Dollyfile-pi',document.baseURI)).then(()=>false,()=>true)"), true);
-    assert.equal(await submit("timeout 45 pi --provider webgpu --model Qwen3.5-2B-q4f16_1-MLC --no-session -p 'Read /tmp/local-qwen-proof.txt with the read tool and repeat its contents.' > /tmp/local-offline.txt 2>&1"), 0);
+    assert.equal(await submit("timeout 45 pi --provider webgpu --model Qwen3.5-2B --no-session -p 'Read /tmp/local-qwen-proof.txt with the read tool and repeat its contents.' > /tmp/local-offline.txt 2>&1"), 0);
     assert.equal(await submit("grep -q LOCAL-QWEN-OK /tmp/local-offline.txt"), 0);
     console.log("browser: Pi read and answered while browser networking was offline");
   } finally { await setOffline(false); }
@@ -255,4 +274,41 @@ export async function runLocalModelProof({ evaluate, wait, submit, press, setOff
     assert.match(cleared.detail, /removed/);
     console.log("browser: all model caches removed through browser controls");
   }
+}
+
+export async function runLocalCompatibilityProof({ evaluate, wait, submit }) {
+  const model = DEFAULT_LOCAL_MODEL;
+  const gpu = await evaluate(`(async () => {
+    const adapter = await navigator.gpu?.requestAdapter({powerPreference:'high-performance'});
+    return adapter ? {vendor:adapter.info.vendor,description:adapter.info.description,
+      fallback:adapter.info.isFallbackAdapter,f16:adapter.features.has('shader-f16')} : null;
+  })()`);
+  assert.ok(gpu && !gpu.fallback && !gpu.f16, `This test requires hardware WebGPU WITHOUT shader-f16: ${JSON.stringify(gpu)}`);
+  console.log("browser: FP32 compatibility adapter", JSON.stringify(gpu));
+  await evaluate(`(async () => {
+    const {LocalModelService}=await import(new URL('../src/local-model-service.mjs',document.baseURI));
+    const load=LocalModelService.prototype.load;
+    LocalModelService.prototype.load=function(...args){globalThis.__localService=this;return load.apply(this,args);};
+    document.querySelector('#local-model [data-model="${model.id}"]').click();
+  })()`);
+  const loaded = await wait("({state:__localService.state,detail:__localService.detail})",
+    value => ["ready", "error"].includes(value.state), "FP32 model load", 6000);
+  assert.equal(loaded.state, "ready", loaded.detail);
+  assert.equal(await evaluate("__localService.backend.precision"), "FP32");
+  assert.equal(await evaluate("__localService.model.id"), model.id);
+  const scratch = "/tmp/dolly-fp32-proof";
+  assert.equal(await submit(`mkdir ${scratch} && printf LOCAL-FP32-OK > ${scratch}/input.txt`), 0);
+  try {
+    assert.equal(await submit(`pi --list-models webgpu > ${scratch}/models.txt && grep -q ${model.id} ${scratch}/models.txt`), 0);
+    const status = await submit(`timeout 120 pi --provider webgpu --model ${model.id} --no-session -p 'Read ${scratch}/input.txt using the read tool and reply with its exact contents.' > ${scratch}/answer.txt 2>&1`);
+    await submit(`cat ${scratch}/answer.txt`);
+    console.log(await evaluate("__dolly.visibleTerminalText()"));
+    assert.equal(status, 0);
+    assert.equal(await submit(`grep -q LOCAL-FP32-OK ${scratch}/answer.txt`), 0);
+    assert.equal(await evaluate("__localService.state"), "ready");
+  } finally {
+    await evaluate("__localService.dispose()");
+    await submit(`rm -rf ${scratch}`);
+  }
+  console.log("browser: Pi used Qwen FP32 on hardware WebGPU without shader-f16");
 }

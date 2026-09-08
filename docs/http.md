@@ -61,8 +61,8 @@ object before `browser.mjs` loads. A hardened policy contains exact-origin
 rules, an exact path or path prefix, allowed methods, byte/time limits, and the
 names of credential headers that may reach that destination. The module
 consumes and deletes that global during boot. It always uses
-`credentials: "omit"`, a no-referrer policy, and rejects redirects rather than
-allowing a request body to reach an unvalidated redirect destination.
+`credentials: "omit"` and a no-referrer policy. Explicit destination policies
+reject redirects so a request body cannot reach an unvalidated destination.
 
 ```js
 globalThis.DOLLY_HTTP_POLICY = {
@@ -83,8 +83,9 @@ Credential values are ordinary Dolly state. Pi may store them in its in-memory
 home directory or environment and sends its own authorization header, just as
 it does on a conventional machine. The broker never owns, injects, or rewrites
 the value. With no policy object, including in the public Pages demo, it
-preserves those headers and permits generic HTTP(S), while still enforcing
-finite request, response, timeout, and request-count limits. It is therefore
+preserves those headers and permits generic HTTP(S), including caller-requested
+redirects, without a lifetime request-count limit. Request/response byte caps
+and deadlines still apply. It is therefore
 useful but not safe against exfiltration. Embeddings that need containment
 should supply an explicit destination rule set and list only the
 credential-header names each destination needs. This policy remains effective
@@ -152,10 +153,14 @@ the page-side provider through the existing `dolly_http_dispatch` import. A
 finished or interrupted command therefore cannot leave the next command with a
 permanent busy mailbox or let it consume stale response bytes.
 
-Version 0 records follow-redirect intent for curl source compatibility but the
-browser provider rejects redirects unconditionally. A future implementation
-may follow manually only if every hop is separately authorized by policy; the
-native Fetch redirect algorithm must never bypass destination validation.
+`DOLLY_HTTP_FOLLOW_REDIRECTS` permits Fetch's native redirect handling only under
+the unrestricted policy. Without caller intent, with an explicit destination
+policy, or for exact trusted bootstrap inputs, redirects fail. An opened custom
+image follows only when both parent and embedding policies permit it. This
+requires no new Wasm import or flag. Browser `redirect: "manual"` hides redirect
+headers, so it cannot implement per-hop allowlist checks. CORS still applies;
+cross-origin redirects strip Authorization according to Fetch, not native curl.
+Other explicit headers and 307/308 bodies can reach the next destination.
 
 ## Fetch-backed libcurl
 
@@ -201,7 +206,7 @@ options return `CURLE_UNKNOWN_OPTION`. Callers must check these results.
 
 TLS verification is mandatory: enabling peer/hostname verification succeeds,
 disabling it fails. `FOLLOWLOCATION` accepts only boolean intent, as described
-above; the browser still rejects every redirect. Redirect protocol and method
+above. Redirect protocol and method
 controls are unsupported, not silently remembered for a future implementation.
 Zero-sized uploads do not consume input; short uploads and read-callback aborts
 fail before dispatch. A custom write callback receives its exact context, even NULL.
@@ -225,17 +230,17 @@ libcurl's larger compatibility surface is inside Wasm, not additional browser au
 
 The byte-path follow-up removes the unused synchronous JS collector and keeps
 uploads binary through QuickJS. Process and browser limits are distinct and
-documented above. Remaining compatibility limits are intentional redirect denial
-and eager response buffering: do not silently enable native Fetch redirects or
-claim demand-driven backpressure.
+documented above. Eager response buffering remains; do not claim demand-driven
+backpressure. Redirects now work under the unrestricted policy as described above.
 
-The default budget remains 256 attempts reaching agent-request authorization,
+Explicit policies default to 256 attempts reaching agent-request authorization,
 including denied attempts; trusted exact bootstrap downloads are exempt.
-Exhaustion now reports `EDQUOT`. This is not a bound on browser-managed preflight
+The unrestricted default has no lifetime request quota. Explicit quota
+exhaustion reports `EDQUOT`. This is not a bound on browser-managed preflight
 traffic, total session CPU/memory, or native Fetch's internal allocations.
 
 Evidence: the browser regression reproduced overlapping-request failure;
-broker tests cover policy-before-Fetch, explicit credentials, redirect denial,
+broker tests cover policy-before-Fetch, explicit credentials, redirect policy,
 byte limits, non-consuming deadlines and cancellation fencing. Version-4 span
 admission, a stalled-admission flood, and typed failures pass in Chrome and
 Firefox 153; C/libcurl and Janis retain denial diagnostics in browser tests.

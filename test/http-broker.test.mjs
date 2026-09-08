@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../src/http-broker.mjs";
-import { DollyHttpPolicy } from "../src/http-policy.mjs";
+import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../src/http-policy.mjs";
+import { localServicesTransport } from "../src/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const target = "https://fixture.example/allowed";
@@ -103,6 +104,32 @@ test("HTTP request and response limits are enforced by the provider", async () =
   assert.equal(f.load(NetworkTransport.state), 3);
   assert.equal(f.load(NetworkTransport.error), errno.E2BIG);
   assert.equal(f.broker.active, false);
+});
+
+test("redirects require both caller intent and unrestricted destination authority", async () => {
+  const unrestricted = new DollyHttpPolicy();
+  const restricted = new DollyHttpPolicy({ rules: [{ origin: new URL(target).origin }] });
+  const inherited = parent => restrictDollyHttpPolicy(new DollyHttpPolicy(), httpPolicyConfigurations(parent));
+  const pinned = new DollyHttpPolicy(undefined, [{ path: "/allowed", byteLength: 100 }], target);
+  for (const [policy, flags, redirect] of [
+    [unrestricted, 0, "error"], [unrestricted, 2, "follow"], [unrestricted, 3, "follow"],
+    [restricted, 2, "error"], [pinned, 2, "error"],
+    [inherited(unrestricted), 2, "follow"], [inherited(restricted), 2, "error"],
+    [restrictDollyHttpPolicy(restricted, [null]), 2, "error"],
+  ]) {
+    let observed;
+    const network = localServicesTransport(policy, undefined, async (_url, options) => {
+      observed = options; return new Response("ok");
+    });
+    const f = fixture({}, network.fetchRequest);
+    f.broker.policy = network.policy;
+    const records = await consume(f, f.request({ flags, headers: "Authorization: Bearer sandbox-key" }));
+    assert.equal(observed.redirect, redirect);
+    assert.equal(observed.credentials, "omit");
+    assert.equal(observed.referrerPolicy, "no-referrer");
+    if (redirect === "follow") assert.equal(observed.headers.get("authorization"), "Bearer sandbox-key");
+    assert.equal(records.at(-1).eof, 1);
+  }
 });
 
 test("a non-consuming mailbox cannot retain HTTP resources past the host deadline", async () => {

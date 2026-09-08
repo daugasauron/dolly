@@ -10,11 +10,23 @@ Names use 1–64 ASCII letters, digits, dots, underscores, or hyphens;
 - `/session/NAME` loads one. Save also changes the current URL to this address.
 - Old `/load/?session=NAME` bookmarks redirect to the named path.
 
+The list has **Export**, **Import session file**, and **Delete**. Export downloads
+an unencrypted `.dolly-session` file; import checks its size, checksum and
+compression, then asks for a name. Existing saves are never overwritten by an
+import. Delete asks for confirmation and only removes that local checkpoint,
+not an already-running session or an exported file. Importing does not start Wasm.
+
 These routes also work below a deployment prefix, such as `/dolly/session/NAME`.
 The local server maps named paths to one launcher; static hosting uses `404.html`
 on first navigation and the isolation service worker thereafter.
 
 ## What survives
+
+Pi writes conversations to `~/.pi/agent/sessions/` inside Dolly once an assistant
+response exists. `/resume` lists them; `pi -c` continues the latest conversation
+for the current directory. Exiting Pi does not delete them. Reloading a fresh
+image resets the in-memory filesystem: save with Ctrl+Shift+S before leaving,
+then load `/session/NAME` and use Pi's `/resume`. An empty Pi session has no file.
 
 Saves preserve files, empty directories, symlinks, and deletions, including
 workspace changes, installed tools, shell history, Pi conversations, and
@@ -42,12 +54,15 @@ compresses and stores the result. Transfer and restore staging buffers are freed
 Saves are local to this browser profile and origin (scheme, hostname, and port).
 They are not uploaded, synced, or shared by the session URL. Clearing site data
 deletes them. Credentials are included intentionally; anyone with access to the
-browser profile can recover them. See [Security](security.md).
+browser profile or an exported file can recover them. Import only files you
+trust; exports are checksummed against corruption, not authenticated.
+See [Security](security.md).
 
 The runtime build ID and complete inherited Dollyfile identity must match before
 loading. Older/incompatible saves remain listed and stored, but are not migrated
 or silently applied to a different base. Updating Dolly can make an older save
-unloadable. There is currently no cross-build migration or export UI.
+unloadable. Export/import can move a save between browsers or domains, but
+does not migrate it across runtime or image versions.
 
 Named saves require a source-visible image with a matching prebuilt snapshot.
 On a rebuild route, the first save verifies that the entire rebuilt base is
@@ -59,5 +74,5 @@ base, then saves on `/IMAGE/rebuild` and restores through `/session/NAME`.
 Session persistence adds no Wasm import or path-level browser filesystem API.
 The review surface is `src/session-snapshot.c`, the shared path restoration in
 `src/fs-record.h`, `src/session-transport.mjs`,
-`src/session-store.mjs`, and the boot/save call sites in the page and runtime worker.
+`src/session-store.mjs`, `src/session-file.mjs`, and the boot/save call sites in the page and runtime worker.
 `env.dolly_http_dispatch` remains the sole intentional agent-selected network edge.

@@ -5,10 +5,11 @@ const cancelled = () => new DOMException("Local generation stopped", "AbortError
 
 export class LocalModelService extends EventTarget {
   constructor({ createWorker = () => new Worker(new URL("./webgpu-worker.mjs", import.meta.url),
-    { type: "module", name: "dolly-webgpu" }), cancelGrace = 2000 } = {}) {
+    { type: "module", name: "dolly-webgpu" }), cancelGrace = 2000, loadIdleTimeout = 120_000 } = {}) {
     super();
     this.createWorker = createWorker;
     this.cancelGrace = cancelGrace;
+    this.loadIdleTimeout = loadIdleTimeout;
     this.pending = new Map();
     this.sequence = 0;
     this.state = "unloaded";
@@ -28,7 +29,16 @@ export class LocalModelService extends EventTarget {
     });
   }
   ready() {
-    this.status("ready", `${this.model.name} ready · ${this.model.context_window} token context`);
+    this.status("ready", `${this.model.name} ready${this.backend?.precision ? ` · ${this.backend.precision}` : ""} · ${this.model.context_window} token context`);
+  }
+  loadingProgress(detail) {
+    clearTimeout(this.loadDeadline);
+    this.status("loading", detail);
+    this.loadDeadline = setTimeout(() => {
+      const error = new Error("Model loading made no progress for two minutes. Check your connection and GPU setup, then retry or choose a smaller model. Your Dolly session is unchanged.");
+      this.dispose(error);
+      this.status("error", error.message);
+    }, this.loadIdleTimeout);
   }
   async load(modelId = DEFAULT_LOCAL_MODEL.id) {
     const model = LOCAL_MODELS.find(model => model.id === modelId);
@@ -37,13 +47,13 @@ export class LocalModelService extends EventTarget {
     if (this.state === "ready" && this.model.id === modelId) return;
     this.dispose();
     this.model = model;
-    this.status("loading", `Checking WebGPU and loading ${model.name}…`);
+    this.loadingProgress(`Checking WebGPU and loading ${model.name}…`);
     let worker;
     try {
       worker = this.worker = this.createWorker();
       worker.addEventListener("message", ({ data }) => {
         if (worker !== this.worker) return;
-        if (data.progress) { this.status("loading", data.progress); return; }
+        if (data.progress) { this.loadingProgress(data.progress); return; }
         const pending = this.pending.get(data.id);
         if (!pending) return;
         this.pending.delete(data.id);
@@ -55,17 +65,23 @@ export class LocalModelService extends EventTarget {
         this.dispose(new Error(event.message || "Model worker failed"));
         this.status("error", event.message || "Model worker failed; load it again.");
       });
-      await this.rpc("load", { modelId });
-      if (worker === this.worker) this.ready();
+      const backend = await this.rpc("load", { modelId });
+      if (worker === this.worker) {
+        clearTimeout(this.loadDeadline);
+        this.backend = backend;
+        this.ready();
+      }
     } catch (error) {
       if (worker === this.worker) { this.dispose(error); this.status("error", error.message); }
     }
   }
   dispose(error = cancelled()) {
+    clearTimeout(this.loadDeadline);
     this.active?.controller?.error(error);
     this.worker?.terminate();
     this.worker = undefined;
     this.model = undefined;
+    this.backend = undefined;
     for (const pending of this.pending.values()) pending.reject(error);
     this.pending.clear();
     if (this.active) this.release(this.active);

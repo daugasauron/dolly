@@ -25,49 +25,24 @@ export function mountImageBuild(network, policies) {
   panel.innerHTML = `<p role="status"></p>
     <details><summary>Review Dollyfile</summary><pre></pre></details>
     <p>One build · 45 minute limit · existing HTTP policy</p>
-    <button data-action="approve">Build</button>
     <button data-action="cancel">Cancel</button>
     <button data-action="open">Open image</button>
     <button data-action="close">Close</button>`;
-  let target, previousState;
-  function closeBlankTab() {
-    try { if (target && !target.closed && target.location.href === "about:blank") target.close(); } catch { /* User navigated the tab. */ }
-    target = undefined;
-  }
   function render() {
     panel.hidden = false;
     panel.dataset.state = service.state;
     panel.querySelector('[role="status"]').textContent = service.detail;
-    if (service.state === "pending") panel.querySelector("pre").textContent = service.active.source;
+    panel.querySelector("pre").textContent = service.active?.source ?? service.result?.source ?? "";
     for (const button of panel.querySelectorAll("button")) {
-      button.hidden = button.dataset.action === "approve" ? service.state !== "pending"
-        : button.dataset.action === "cancel" ? !["pending", "building"].includes(service.state)
+      button.hidden = button.dataset.action === "cancel" ? service.state !== "building"
         : button.dataset.action === "open" ? service.state !== "ready"
-        : ["pending", "building", "stopping"].includes(service.state);
+        : ["building", "stopping"].includes(service.state);
     }
-    const approval = panel.querySelector('[data-action="approve"]');
-    approval.textContent = service.active?.open ? "Build and open" : "Build";
-    if (service.state === "pending" && previousState !== "pending") approval.focus({ preventScroll: true });
-    if (service.state === "ready" && target) {
-      try { openCustomImage({ ...service.result, policies }, target); }
-      catch (error) { panel.querySelector('[role="status"]').textContent += " " + error.message; }
-      target = undefined;
-    } else if (service.state === "error") closeBlankTab();
-    previousState = service.state;
   }
   panel.addEventListener("click", event => {
     const action = event.target.dataset.action;
-    if (action === "approve") {
-      if (service.active?.open) {
-        target = window.open("about:blank", "_blank");
-        if (target) {
-          target.document.title = "Dolly — building image";
-          target.document.body.textContent = "Dolly is building your image. Logs and cancellation are in the original tab.";
-        }
-      }
-      void service.approve();
-    } else if (action === "cancel") service.cancel();
-    else if (action === "open") {
+    if (action === "cancel") service.cancel();
+    else if (action === "open" && service.state === "ready") {
       try { openCustomImage({ ...service.result, policies }); }
       catch (error) { panel.querySelector('[role="status"]').textContent = error.message; }
     } else if (action === "close") panel.hidden = true;
@@ -84,6 +59,6 @@ export function mountImageBuild(network, policies) {
   });
   service.addEventListener("change", render);
   document.body.append(panel);
-  addEventListener("pagehide", () => { service.cancel(); closeBlankTab(); }, { once: true });
+  addEventListener("pagehide", () => service.cancel(), { once: true });
   return service;
 }

@@ -1,11 +1,123 @@
 # Audit handoff
 
-## Checkpoint — 2026-09-08
+## Stable release in progress — 2026-09-08
 
-Port 9000 serves application `15f658e`, immutable release
+Scope is UX/stability, not PTYs/tmux or new ports. Session file export/import/delete
+now passes a real Chrome save → downloaded file → delete → import → Wasm restore,
+including Pi sessions and credentials. Names cannot collide on import; deletion
+requires confirmation. `build/stable-release-session-chrome-2.log` and
+`test/session-file.test.mjs` cover the change. Files remain unencrypted local data.
+
+Qwen now has one logical ID per size (`Qwen3.5-2B`, etc.). The worker selects
+pinned FP16/FP32 assets from adapter features, not browser identity; all sizes
+have both variants. Loading progress is visible and a two-minute idle timeout
+terminates a stalled model worker without touching Dolly's filesystem. Real Pi
+file reading passes on Chrome hardware without f16, using the ordinary 2B menu
+choice (`build/stable-release-auto-qwen-chrome-2.log`). All 277 source tests pass
+(`build/stable-release-source-tests-2.log`). Studio's default model ID is updated
+and its small leaf snapshot rebuilt; no runtime ABI/binary change.
+All 19 images pass publication checks (`build/stable-release-publish.log`).
+Published Chrome passes both real Qwen/Pi file use and file-export session restore
+(`build/stable-release-live-{qwen,session}-chrome.log`). Firefox 155.0.1 also passes
+the downloaded-file session round-trip (`build/stable-release-session-firefox-3.log`).
+Earlier Firefox fixture runs sent commands before Slop's first input wait; the
+corrected fixture waits for the interactive prompt before and after restore.
+Fresh Firefox/Linux reports disabled WebGPU cleanly. GPU inference verification
+uses `dom.webgpu.enabled=true` in its own temporary test profile, not the user's.
+Firefox passes three consecutive real Pi file-reading turns with automatic FP16
+(`build/stable-release-qwen-firefox-enabled.log`); Chrome uses automatic FP32.
+Publication passed all 19 inventories (`build/stable-release-publish-final.log`).
+Port 9000 serves the sealed directory selected by `build/releases/current`.
+Published Firefox disabled-GPU
+guidance and shell recovery pass, as do Chrome menu copy/cache controls
+(`build/stable-release-gpu-disabled-firefox.log`,
+`build/stable-release-live-gpu-menu-chrome.log`). All 277 final source tests pass.
+The extended Firefox GPU run now also passes: cancellation in 1,943 ms, fourteen
+growing prompts through 12,625 input tokens, cached model reload and subsequent
+inference with the in-Wasm filesystem preserved
+(`build/stable-release-firefox-soak.log`). This is bounded evidence, not a claim
+that experimental Firefox/Linux WebGPU can never crash.
+
+`npm run export:pages` now prepares static-only Cloudflare Pages delivery with
+Brotli for oversized binary downloads and explicitly retained sealed releases.
+Source runtime/ABI files are untouched. The initial export with one predecessor
+contains 2,820 files and 14 compressed downloads; no file exceeds 25 MiB. The
+provider's local Pages runtime requires opaque MIME types for compressed SOURCE
+artifacts; its normal `application/wasm` compression otherwise overwrites the
+encoding header. Workers Static Assets double-compresses even opaque files and
+must not be substituted. The full local Pages proof now passes decoded SHA-256
+for all 14 compressed assets, isolation/cache headers, retained-release URLs,
+unchanged gzip packs, a real system rebuild and Studio session file export →
+delete → import → named-URL Wasm restore. See
+`build/stable-release-pages-browser-3.log`. Candidate output is
+`build/cloudflare-pages-candidate-2` (2,820 files, about 674 MB including one
+predecessor; largest file 24,980,297 bytes). Its deployment manifest verifies.
+All 280 source tests pass (`build/stable-release-pages-source-tests-2.log`).
+Owned browser profiles, local provider processes/tool installation and the first
+failed candidate export are cleaned; the passing export and logs are retained.
+
+Remaining release gates:
+
+- Verify the **public** Pages edge's compressed delivery, isolation headers,
+  named-session routes and retained URLs; local provider proofs pass. See
+  [deployment measurements](deployment.md#fixed-cost-release-candidate).
+- Publish the committed checkpoint to GitHub Pages, then use the same audited
+  release artifact for `daugasauron.com`. The user explicitly chose the root
+  domain and wants its existing site replaced, not a subdomain.
+- Confirm Cloudflare account/DNS access before the domain deployment. No domain
+  mutation or hosting purchase has been performed.
+
+The committed source-aligned refresh uses `build/stable-release-committed-publish.log`
+and `build/stable-release-checkpoint-export.log`; its Pages output is
+`build/cloudflare-pages-checkpoint`, retaining the previously tested release.
+Verify `build/releases/current` against the checkout before uploading, and check
+`deployment.sha256` inside that export. Do not change source files during sealing.
+
+## HTTP defaults — 2026-09-08
+
+Unconfigured networking permits caller-requested Fetch redirects and has no
+lifetime request quota. Explicit destination rules, inherited restrictions and
+exact bootstrap grants still reject redirects; byte caps, deadlines and omitted
+browser credentials remain. The Wasm ABI and binaries are unchanged. All 269
+source tests pass, and Chrome checks cross-origin 302/307 behavior, restricted
+destinations never contacted, inherited rules and in-Wasm curl -L
+(`build/http-defaults-{source-all,browser-green-stable,browser-restricted}.log`).
+
+## Studio follow-up — 2026-09-08
+
+Studio now gives Dollyfile directives an explicit yellow style and displays
+inline diagnostics. Automatic linting is deferred/coalesced after open/edit/save
+callbacks. Canvas checks and keyboard editing pass in Chrome; three consecutive
+Firefox runs pass with the updated plugin (`build/studio-editor-firefox-deferred-final-*.log`).
+Earlier Firefox probes observed one Neovim startup trap and cold terminal-copy
+timeouts during Pi startup and editor checks. Their broader cause is not
+established; the supplied Pi session summary contains no crash trace.
+
+`dollyfile-build FILE` now starts and streams immediately. Only a user's
+**Open image** click launches the completed result; the approval state, reserved
+tabs, `--open` option and HTTP opening route are removed. The browser proof
+checks no tabs appear during/after building, explicit result opening, isolation,
+failure and cancellation (`build/studio-immediate-build-browser-final.log`).
+All 268 source tests pass (`build/studio-immediate-build-source-tests.log`).
+All 19 packaged image inventories pass. Live port 9000 checks pass immediate
+build/stream/open/cancel and Studio editing in Chrome, plus installed Studio
+editing in Firefox (`build/studio-combined-live-{build,editor,firefox}.log`).
+
+Tmux is not installed. The next checkpoint needs in-Wasm PTYs (independent
+input/output, mode, size, EOF and foreground signals), local Unix IPC, and a
+deliberate spawn-based port of tmux's fork sites. Build real ncurses/libevent,
+then add a Studio entry script with Pi and Neovim panes. No browser socket,
+native-process fallback or additional outer Wasm import is intended. A real C
+probe confirms socketpair is ENOSYS and /dev/ptmx is absent. Browser curl gets
+HTTP 200 from GitHub's API and raw files, while release downloads fail; this
+is not evidence of a Studio-only allowlist (`build/studio-porting-probe.log`).
+
+## Prior checkpoint — 2026-09-08
+
+The prior checkpoint served application `15f658e`, immutable release
 `9ad971deddb9c062971caf544ef23e2c7f255dc4887163637422fd1b8857a29e`.
-Work is paused at the user's requested checkpoint; the remaining goals below
-are not complete. The final handoff-only commit does not change the application.
+Overnight work paused at the user's requested checkpoint; the remaining goals
+below are not complete. The handoff-only commit did not change the application.
 All 268 source tests pass (`build/checkpoint-20260908-source.log`).
 All 19 packaged browser inventories pass (`build/literal-filenames-publish.log`).
 No public push, deployment or hosting purchase has been performed.

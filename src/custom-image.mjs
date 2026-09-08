@@ -23,16 +23,21 @@ export async function checkedCustomArtifact(source, candidate) {
   return artifact;
 }
 
-// Call from a user gesture, or pass the blank tab reserved at build approval.
+// Call only from the user's Open image gesture after a build completes.
 // Only a fixed app route is navigable; the recipe never supplies a host URL.
-export function openCustomImage(result, target = window.open("about:blank", "_blank")) {
-  if (!target || target.closed) throw new Error("Popup blocked or tab closed. Choose Open image to retry.");
-  if (target.location.href !== "about:blank") throw new Error("The build tab was navigated elsewhere. Choose Open image to retry.");
-  target.sessionStorage.setItem("dolly-custom-source", result.source);
-  target.sessionStorage.setItem("dolly-custom-artifact", JSON.stringify(result.artifact));
-  target.sessionStorage.setItem("dolly-custom-policy", JSON.stringify(result.policies));
-  target.opener = null;
-  const url = new URL("../custom/run/", import.meta.url);
-  url.pathname = url.pathname.replace(/\/_dolly\/[0-9a-f]{64}\//, "/");
-  target.location.replace(url);
+export function openCustomImage(result) {
+  const target = window.open("about:blank", "_blank");
+  if (!target) throw new Error("Popup blocked. Choose Open image to retry.");
+  try {
+    target.sessionStorage.setItem("dolly-custom-source", result.source);
+    target.sessionStorage.setItem("dolly-custom-artifact", JSON.stringify(result.artifact));
+    target.sessionStorage.setItem("dolly-custom-policy", JSON.stringify(result.policies));
+    target.opener = null;
+    const url = new URL("../custom/run/", import.meta.url);
+    url.pathname = url.pathname.replace(/\/_dolly\/[0-9a-f]{64}\//, "/");
+    target.location.replace(url);
+  } catch (error) {
+    target.close();
+    throw error;
+  }
 }
