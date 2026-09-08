@@ -6,14 +6,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <dolly/http.h>
 
 static char **paths;
 static size_t path_count, extra, missing, live;
-
-static size_t write_expected(const void *bytes, size_t length, void *stream) {
-  return fwrite(bytes, 1, length, stream);
-}
 
 static int retained(const char *path, int directory) {
   for (size_t index = 0; index < path_count; ++index) {
@@ -48,30 +43,9 @@ static int walk(const char *path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3) return 2;
+  if (argc != 2) return 2;
   FILE *manifest = fopen("/etc/dolly/image.manifest", "r");
   if (manifest == NULL) return 2;
-  FILE *expected = tmpfile();
-  if (expected == NULL) return 2;
-  const dolly_http_request request = {
-    .method = "GET", .url = argv[1], .flags = DOLLY_HTTP_FAIL_STATUS,
-    .write = write_expected, .write_context = expected,
-  };
-  dolly_http_response response = {0};
-  const int fetched = dolly_http_perform(&request, &response);
-  dolly_http_response_dispose(&response);
-  if (fetched != 0 || ferror(expected)) { fclose(expected); return 2; }
-  rewind(expected);
-  int byte;
-  do {
-    byte = fgetc(manifest);
-    if (byte != fgetc(expected)) {
-      fputs("live manifest differs from the packaged image\n", stderr);
-      return 1;
-    }
-  } while (byte != EOF);
-  if (ferror(manifest) || ferror(expected) || fclose(expected) != 0) return 2;
-  rewind(manifest);
   char *line = NULL;
   size_t capacity = 0;
   ssize_t length;
@@ -85,7 +59,7 @@ int main(int argc, char **argv) {
   }
   free(line);
   if (fclose(manifest) != 0) return 2;
-  FILE *help = fopen(argv[2], "r");
+  FILE *help = fopen(argv[1], "r");
   if (help == NULL) return 2;
   char help_line[4096];
   int typescript = 0, absent_command = 0;

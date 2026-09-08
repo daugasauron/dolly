@@ -73,12 +73,11 @@ sites to 1 GB and has a 100 GB/month soft bandwidth limit, making it a constrain
 demo target rather than the intended high-load deployment.
 [GitHub Pages limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits).
 
-For larger deployment, keep the same path layout behind an object-store/CDN
-origin. With R2, production caching requires a custom domain and appropriate
-cache rules; the `r2.dev` endpoint is rate-limited development hosting.
-[R2 public-bucket documentation](https://developers.cloudflare.com/r2/buckets/public-buckets/).
-Provider selection, account changes, load testing and public deployment remain
-separate decisions. No provider has been configured by this preparation.
+Cloudflare Pages is the selected high-traffic host. Its production site is
+`https://dolly-9dk.pages.dev/`, project `dolly`; no Functions or storage bindings
+are deployed. The September 8 deployment `e0e677db-e059-425c-8084-e0ad240bbf7c`
+uses release `fe1e44c38acd11c07d82586d70b2315db26c7461d16b02c1e5afc64cab40ac7a`
+from the same `pages-32d3b34-r1` artifact as GitHub Pages.
 
 ## Fixed-cost release candidate
 
@@ -117,14 +116,28 @@ delivery. Browser-loaded runtime modules remain `application/wasm` and are not
 precompressed by this exporter. **Workers Static Assets is not interchangeable**:
 its local server double-compresses even opaque precompressed files.
 
-Public Pages-edge verification is still required before deployment: check
-decoded asset hashes, browser boot/rebuild, cross-origin isolation, named-session
-restoration and old-release URLs. Do not add a Function, Worker, R2 origin or
-proxy merely to pass these checks; that changes the fixed-cost assumptions.
-The September 8 local Pages proof passes those checks, including a system rebuild
-and Studio session file round-trip. Its two-release export contains 2,820 files,
-about 674 MB total, with a largest file of 24,980,297 bytes. These are deployment
-totals, not per-visitor downloads: an image loads only its selected assets/packs.
+Check public Pages delivery after every export: decoded asset hashes, browser
+boot/rebuild, cross-origin isolation, named-session restoration and old-release
+URLs. Do not add a Function, Worker, R2 origin or proxy merely to pass these checks;
+that changes the fixed-cost assumptions. September 8 public checks pass all 14
+decoded compressed-download hashes, unchanged gzip packs, isolation/cache/MIME
+headers, retained-release URLs and Studio's session file round-trip
+(`build/stable-release-pages-public-{transport,sessions}.log`).
+A cold system rebuild and its compiled filesystem inventory also pass
+(`build/stable-release-pages-public-rebuild-2.log`).
+The two-release export contains 2,820 files, about 674 MB total, with a largest
+file of 24,980,297 bytes. These are deployment totals, not per-visitor downloads:
+an image loads only its selected assets/packs.
+
+Upload an already verified export with the authenticated CLI:
+
+```sh
+npx wrangler@4.129.1 pages deploy build/pages-next --project-name dolly --branch main
+```
+
+Verify the public release seal before switching a custom domain. Keep both the
+sealed release and export manifest as the deployment receipt; do not rebuild
+images for another host.
 
 R2's zero egress fee is not a fixed bill: storage and origin reads are metered.
 Budget alerts are not spending caps; a cap that stops serving also fails the
@@ -133,8 +146,11 @@ No finite hosting plan guarantees unlimited availability; provider terms and
 upstream model-weight availability remain constraints even with free static traffic.
 
 Target domain: `daugasauron.com`, replacing its existing site as requested.
-Deploy to GitHub Pages first. Public DNS already uses Cloudflare; account/DNS
-control still needs confirmation before changing the domain.
+GitHub Pages deployed first. The Cloudflare zone and Pages project share the same
+account, and the domain is associated with the project. DNS remains pending:
+the root CNAME must point to `dolly-9dk.pages.dev`. Wrangler's OAuth login can
+deploy Pages but cannot edit DNS; finish the domain's DNS setup in the dashboard,
+preserving unrelated records, then verify domain TLS, release seal and browser boot.
 
 Another candidate is CloudFront's **$15/month Pro flat-rate plan**, with 50 TB
 and 10 million requests as monthly allowances, not hard cutoffs. It has no CDN

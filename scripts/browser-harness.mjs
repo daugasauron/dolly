@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { waitForDebugger } from "./browser-startup.mjs";
 import { runLocalModelProof, runLocalCompatibilityProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
@@ -314,13 +315,6 @@ function startServer() {
           response.end(await readFile(resolve(projectDir, processSmokeSources[name])));
           return;
         }
-      }
-      if (imageInventoryMode && requestUrl.pathname === "/fixture/image.manifest") {
-        const { DOLLY_SYSTEM_SNAPSHOT } = await import(
-          `../dist/dolly-${selectedImage}-system-snapshot.mjs`);
-        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
-        response.end(DOLLY_SYSTEM_SNAPSHOT.manifest.join("\n") + "\n");
-        return;
       }
       if (imageRetentionMode && requestUrl.pathname.startsWith("/fixture/")) {
         const sources = {
@@ -2565,7 +2559,13 @@ install(TARGETS probe RUNTIME DESTINATION bin)
         assert.equal(await submit(`cc -O1 ${scratch}/inventory.c -o ${scratch}/inventory`), 0);
         assert.equal(await submit("type dollyfile && dollyfile --help"), 0);
         assert.equal(await submit(`help > ${scratch}/help`), 0);
-        assert.equal(await submit(`${scratch}/inventory ${localOrigin}/fixture/image.manifest ${scratch}/help`), 0,
+        const { DOLLY_SYSTEM_SNAPSHOT } = await import(
+          `../dist/dolly-${selectedImage}-system-snapshot.mjs`);
+        const manifestHash = createHash("sha256")
+          .update(DOLLY_SYSTEM_SNAPSHOT.manifest.join("\n") + "\n").digest("hex");
+        assert.equal(await submit(`test "$(sha256sum /etc/dolly/image.manifest | cut -d ' ' -f 1)" = ${manifestHash}`), 0,
+          "live manifest bytes must match the packaged image");
+        assert.equal(await submit(`${scratch}/inventory ${scratch}/help`), 0,
           "live manifest, system paths and help must match the packaged image");
         if (selectedImage === "external-source") {
           assert.equal(await submit("test \"$(command -v xxd)\" = /usr/bin/xxd"), 0);

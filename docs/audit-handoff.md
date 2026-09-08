@@ -15,6 +15,26 @@ The post-release repository follow-up only corrects an obsolete README assertion
 in the live smoke test and records this receipt; it does not change the deployed
 application. Public session tests require `DOLLY_BROWSER_BASE=/dolly/`.
 
+Cloudflare Pages is also live at `https://dolly-9dk.pages.dev/`, project `dolly`,
+deployment `e0e677db-e059-425c-8084-e0ad240bbf7c`. It serves the same audited
+release `fe1e44c38acd11c07d82586d70b2315db26c7461d16b02c1e5afc64cab40ac7a`,
+retaining `987466e3485b3fdd1a90138fe695443fa90ad34af644fcff9b4a0e1158dad962`.
+All 19 public image routes pin that release. Public delivery passes all 14
+decoded compressed-file hashes, untouched gzip packs, MIME/isolation/cache
+headers, named-session routes and retained assets
+(`build/stable-release-pages-public-transport.log`). Real Studio session
+export/delete/import/restore and prebuilt inventory pass
+(`build/stable-release-pages-public-{sessions,inventory}.log`). No Functions,
+Worker, R2 backend or paid hosting subscription was added.
+
+The first public system rebuild completed, but the inventory fixture's subsequent
+localhost HTTP fetch failed with status 2. The inventory assertion now compares
+the in-Wasm manifest's SHA-256 with the packaged manifest and walks paths in C,
+without an unrelated test-server fetch. Browser networking/ABI is unchanged.
+The corrected public system rebuild and full inventory pass
+(`build/stable-release-pages-public-rebuild-2.log`).
+All 280 source tests pass (`build/stable-release-pages-deployed-source-tests.log`).
+
 Scope is UX/stability, not PTYs/tmux or new ports. Session file export/import/delete
 now passes a real Chrome save → downloaded file → delete → import → Wasm restore,
 including Pi sessions and credentials. Names cannot collide on import; deletion
@@ -71,13 +91,13 @@ failed candidate export are cleaned; the passing export and logs are retained.
 
 Remaining release gates:
 
-- Verify the **public** Pages edge's compressed delivery, isolation headers,
-  named-session routes and retained URLs; local provider proofs pass. See
-  [deployment measurements](deployment.md#fixed-cost-release-candidate).
-- Use the same audited release artifact for `daugasauron.com`. The user chose the root
-  domain and wants its existing site replaced, not a subdomain.
-- Confirm Cloudflare account/DNS access before the domain deployment. No domain
-  mutation or hosting purchase has been performed.
+- Finish `daugasauron.com` DNS in the dashboard: the root CNAME must point to
+  `dolly-9dk.pages.dev`, replacing only the old root web record. The user was sent
+  this step. The active zone and Pages project share an account; the domain is
+  associated, but Pages reports `CNAME record not set`. The authenticated Wrangler
+  login has Pages access, not DNS read/edit access; no DNS records were changed.
+- After DNS activates, verify the domain's TLS, release seal and real browser
+  boot/session restoration. Do not rebuild images or add metered hosting to do so.
 
 The committed source-aligned refresh uses `build/stable-release-committed-publish.log`
 and `build/stable-release-checkpoint-export.log`; its Pages output is
