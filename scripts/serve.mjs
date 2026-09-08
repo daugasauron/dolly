@@ -103,7 +103,7 @@ export function createReleaseServer(releases) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const releases = resolve(import.meta.dirname, "../build/releases");
+  const releases = process.argv[2] ? resolve(process.argv[2]) : resolve(import.meta.dirname, "../build/releases");
   try {
     if (!releaseDigest.test(await readlink(resolve(releases, "current")))) throw new Error("invalid current release");
   } catch {

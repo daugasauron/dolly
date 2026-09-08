@@ -5,8 +5,15 @@ and SDL2 compile from pinned source inside Dolly. The game's GPL source and
 data are included, with notices and corresponding source. Separate music is
 omitted. Audio and thread creation are unavailable; the browser ABI is unchanged.
 
-Build the snapshot: `npm run image -- rts-arena`. The browser harness below
-tests it directly. Configure OpenRouter with Pi's `/login`, exit Pi, then run:
+Build and serve a separate local release (leaves the normal release untouched):
+
+```sh
+npm run image -- rts-arena
+DOLLY_BUILD_IMAGES=rts-arena ./scripts/package-pages.sh build/rts-pages.tar.gz build/rts-releases
+DOLLY_PORT=9001 npm run serve -- build/rts-releases
+```
+
+Open `/rts-arena/`. Configure OpenRouter with Pi's `/login`, exit Pi, then run:
 
 ```sh
 rts-arena OPENROUTER_MODEL_1 OPENROUTER_MODEL_2 [seconds]
@@ -55,21 +62,27 @@ both replays play through the upstream loader to EOF with its state CRC checks.
 A damaged checksum must report a synchronization failure and exit with status 74.
 These are short replay checks, not a completed live-model battle.
 
-The key remaining issue is **independent network progress**. HTTP mailbox v4
-permits one request in flight across Dolly. A slow model can hold that slot and
-delay the opponent. The current experiment cannot fairly compare model latency.
-Fixing this needs a deliberately versioned, bounded multi-request design through
-the same sole `env.dolly_http_dispatch` edge; no sockets or ambient browser access.
-Do not hide the limitation behind artificial decision intervals.
+HTTP mailbox v4 permits one request in flight across Dolly. A slow model can
+delay the opponent; this is accepted for the initial experiment, which is not a
+fair model-latency benchmark. The browser contract remains unchanged. There are
+no artificial decision intervals.
 
 The process-call packet limit is also 1 MiB, below the broker's 8 MiB request
 limit. Keeping only the newest image avoids accumulating screenshots into an
 oversized request, but does not fix that general payload-limit mismatch.
 
-Still required: live OpenRouter testing with a fresh temporary key, a complete
-battle and its replay, after resolving the independent-HTTP issue above.
-Keys belong in the live sandbox, never source archives, snapshots or match logs.
+The opt-in `rts-live` browser mode runs a paid two-minute OpenRouter match:
+`deepseek/deepseek-v4-flash-vision-exp:low` versus `x-ai/grok-4.6:low`. It reads
+one key from stdin without echoing, uses a fresh profile, and exports verified
+histories/replays to `build/rts-live-match.json` (base64 file contents).
+The September 8 live proof completed with 7 DeepSeek actions and 11 Grok actions,
+both thinking streams, no API errors, and a clean timed exit. Reported usage was
+about $0.048; this is not an invoice or a latency comparison.
 
-Selected-image packaging also fails: shared documentation links to unselected
-`Dollyfile-pi-local`, which the packager rejects as an unpublished source. No
-sealed RTS release has been produced; the existing local release is unchanged.
+```sh
+DOLLY_BUILD_IMAGES=rts-arena DOLLY_IMAGE=rts-arena DOLLY_BROWSER_MODE=rts-live ./scripts/test-browser.sh
+```
+
+A short live match is not a completed battle to victory. That longer gameplay
+check remains. Keys belong in the live sandbox, never source archives, snapshots
+or match logs. Ordinary V4 Flash and V4 Pro are text-only; use the vision variant.

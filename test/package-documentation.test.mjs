@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { documentationLinks, packageDocumentation, verifyDocumentationLinks } from "../scripts/package-documentation.mjs";
+import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 
 test("documentation packaging closes local links without exposing private source", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-docs-test-"));
@@ -25,4 +26,26 @@ test("documentation packaging closes local links without exposing private source
     await writeFile(resolve(project, "docs/a.md"), `[private](${link})`);
     await assert.rejects(packageDocumentation(project, site, ["docs/a.md"]), /unpublished source|escapes the site/);
   }
+});
+
+test("partial releases include recipe examples without selecting their images or requiring default", async t => {
+  const root = await mkdtemp(resolve(tmpdir(), "dolly-docs-images-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const project = resolve(root, "project"), site = resolve(root, "site");
+  for (const path of ["docs", "abi"]) await mkdir(resolve(project, path), { recursive: true });
+  await mkdir(site);
+  const example = "DOLLY 3\nIMAGE example\nENTRY /bin/slop\n";
+  await writeFile(resolve(project, "Dollyfile-example"), example);
+  await writeFile(resolve(site, "Dollyfile-selected"), "DOLLY 3\nIMAGE selected\nENTRY /bin/slop\n");
+  await writeFile(resolve(project, "abi/README.md"), "ABI");
+  await writeFile(resolve(project, "docs/a.md"),
+    "[example](../Dollyfile-example#part) [ABI](../abi/README.md)\n```\n[unchanged](../Dollyfile-example)\n```\n");
+  await packageDocumentation(project, site, ["docs/a.md"]);
+  await verifyDocumentationLinks(site);
+  assert.equal(await readFile(resolve(site, "Dollyfile-example.txt"), "utf8"), example);
+  assert.match(await readFile(resolve(site, "docs/a.md"), "utf8"), /Dollyfile-example\.txt#part/);
+  assert.match(await readFile(resolve(site, "docs/a.md"), "utf8"), /```\n\[unchanged\]\(\.\.\/Dollyfile-example\)\n```/);
+  assert.deepEqual((await discoverImageDefinitions(site)).map(item => item.image), ["selected"]);
+  await rm(resolve(site, "Dollyfile-selected"));
+  await assert.rejects(discoverImageDefinitions(site), /No Dollyfile/);
 });

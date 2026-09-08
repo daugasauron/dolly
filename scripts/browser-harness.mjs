@@ -82,6 +82,7 @@ const imageBuildMode = isMode("image-build", "image-build-pages");
 const graphicsMode = isMode("graphics");
 const sdl2Mode = isMode("sdl2");
 const rtsMode = isMode("rts");
+const rtsLiveMode = isMode("rts-live");
 const bhopMode = isMode("bhop");
 const debuggerDisconnectMode = isMode("debugger-disconnect");
 const janisFilesMode = isMode("janis-files");
@@ -92,7 +93,7 @@ const libcurlContractMode = isMode("libcurl-contract");
 const gitTransportMode = isMode("git-transport");
 const piOpenRouterMode = isMode("pi-openrouter");
 const piAuditMode = isMode("pi-audit");
-const realOpenRouterMode = piOpenRouterMode || piAuditMode;
+const realOpenRouterMode = piOpenRouterMode || piAuditMode || rtsLiveMode;
 const missingSnapshotMode = isMode("snapshot-missing");
 const unpackagedSnapshotMode = isMode("snapshot-unpackaged");
 const snapshotExportMode = isMode("snapshot-export") || unpackagedSnapshotMode;
@@ -331,6 +332,11 @@ function startServer() {
       if (rtsMode && ["/fixture/rts-match.mjs", "/fixture/rts-history.mjs"].includes(requestUrl.pathname)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/javascript" });
         response.end(await readFile(resolve(projectDir, "test/fixtures", requestUrl.pathname.split("/").at(-1))));
+        return;
+      }
+      if (rtsLiveMode && requestUrl.pathname === "/fixture/rts-live.mjs") {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/javascript" });
+        response.end(await readFile(resolve(projectDir, "test/fixtures/rts-live.mjs")));
         return;
       }
       if (processSmokeMode && requestUrl.pathname.startsWith("/fixture/")) {
@@ -1395,6 +1401,7 @@ const menuPage = externalPage
   : `${localOrigin}${browserBase}`;
 const rebuildPage = new URL(rebuildPath, menuPage).href;
 const interactivePage = new URL(`${selectedImage}/`, menuPage).href;
+if (realOpenRouterMode) console.log("browser: waiting for an OpenRouter key on standard input (not echoed)");
 let openRouterSecret = realOpenRouterMode ? await readSecretLine() : "";
 if (realOpenRouterMode && !/^sk-or-v1-[A-Za-z0-9_-]+$/.test(openRouterSecret)) {
   throw new Error("Pi OpenRouter mode requires one API key line on standard input");
@@ -1467,6 +1474,10 @@ if (realOpenRouterMode) {
     timeoutMilliseconds: 120_000,
   });
 }
+if (rtsLiveMode) fixturePolicy.rules.unshift({
+  origin: "https://openrouter.ai", path: "/api/v1/models", methods: ["GET"],
+  maxResponseBytes: 16 * 1024 * 1024,
+});
 const requestedProfile = process.env.DOLLY_BROWSER_PROFILE;
 persistentProfile = requestedProfile;
 browserDownloadDirectory = await mkdtemp(`${tmpdir()}/dolly-browser-downloads-`);
@@ -1930,6 +1941,55 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       await rejected;
       await assert.rejects(evaluate(debuggerClient.send, "true"), /Chrome debugger disconnected/);
       console.log("browser: terminating Chrome rejects pending and subsequent debugger commands and cleans up");
+      break browserProof;
+    }
+    if (rtsLiveMode) {
+      const send = debuggerClient.send;
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "live RTS image boot"), "ready");
+      await enterRecoveryShell(send);
+      const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
+      try {
+        assert.equal(await submit(`mkdir /tmp/rts-live-agent; curl -fsS ${localOrigin}/fixture/rts-live.mjs -o /tmp/rts-live.mjs; janis -m /tmp/rts-live.mjs prepare`), 0);
+        const auth = JSON.stringify({ openrouter: { type: "api_key", key: openRouterSecret } });
+        assert.equal(await submit(`printf %s ${shellQuote(auth)} > /tmp/rts-live-agent/auth.json`), 0);
+        await submit("printf '\\033[2J\\033[3J\\033[H'");
+        const command = "PI_CODING_AGENT_DIR=/tmp/rts-live-agent rts-arena deepseek/deepseek-v4-flash-vision-exp:low x-ai/grok-4.6:low 120";
+        await evaluate(send, `window.__liveResult = null; void __dolly.submit(${JSON.stringify(command)}).then(status => window.__liveResult = status); true`);
+        for (let elapsed = 0; elapsed < 180 && await evaluate(send, "window.__liveResult") === null; elapsed += 10) {
+          await delay(10000);
+          console.log(`browser: live RTS ${elapsed + 10}s, HTTP requests: ${await evaluate(send, "__dolly.httpRequestCount")}`);
+          if (await evaluate(send, "__dolly.graphicsActive")) {
+            const screenshot = await send("Page.captureScreenshot", { format: "png" });
+            await writeFile(resolve(projectDir, "build/rts-live-chrome.png"), screenshot.data, "base64");
+          }
+        }
+        const status = await evaluate(send, "window.__liveResult");
+        assert.notEqual(status, null, "live match must stop at its time limit");
+        const inspected = await submit("janis -m /tmp/rts-live.mjs inspect");
+        const report = await visibleTerminalText(send);
+        assert.ok(!report.includes(openRouterSecret), "credential must not enter terminal output");
+        console.log(report);
+        assert.equal(inspected, 0, "both live models must act and retain histories");
+        assert.equal(status, 0, "live arena must exit cleanly");
+        assert.equal(await submit("download /tmp/rts-live-match.json"), 0);
+        let archive;
+        for (let attempt = 0; attempt < 200 && !archive; attempt++) {
+          archive = await readFile(resolve(browserDownloadDirectory, "rts-live-match.json")).catch(() => null);
+          if (!archive) await delay(25);
+        }
+        assert.ok(archive, "live match histories and replays must download");
+        assert.ok(!archive.includes(Buffer.from(openRouterSecret)), "credential must not enter match archive");
+        await writeFile(resolve(projectDir, "build/rts-live-match.json"), archive);
+        console.log("browser: live OpenRouter RTS histories, actions and replays verified and exported");
+      } finally {
+        if (await evaluate(send, "__dolly.graphicsActive")) {
+          await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          await waitForValue(send, "__dolly.graphicsActive", value => !value, "live RTS cancellation");
+        }
+        await submit("rm -rf /tmp/rts-live-agent /tmp/rts-live.mjs /tmp/rts-live-match.json");
+        openRouterSecret = "";
+      }
       break browserProof;
     }
     if (rtsMode) {
