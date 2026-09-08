@@ -71,7 +71,12 @@ export async function runCppSdkCases(submit, python) {
       await run(`cc ${option} -I${scratch}/first ${scratch}/includes.c -o ${scratch}/includes`);
       await run(`${scratch}/includes`);
     }
+    for (const option of [`-isystem ${scratch}/first`, `-isystem${scratch}/first`]) {
+      await run(`cc ${option} -idirafter${scratch}/after ${scratch}/includes.c -o ${scratch}/includes`);
+      await run(`${scratch}/includes`);
+    }
     assert.equal(await submit("cc -idirafter"), 64);
+    assert.equal(await submit("cc -isystem"), 64);
     await write("main.cpp", source);
     await run(`c++ -O1 -c ${scratch}/main.cpp -o ${scratch}/main.o`);
     for (const link of ["c++", "c++ -lc++ -lc++abi", "cc -lc++ -lc++abi",
