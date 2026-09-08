@@ -383,8 +383,13 @@ class JanisStdin extends JanisEventEmitter {
   isRaw = false;
   readable = true;
   readableEncoding = null;
-  #resumed = false;
+  #resumed = null;
   #decoder;
+  on(name, listener) {
+    super.on(name, listener);
+    if (name === "data" && this.#resumed !== false) this.#resumed = true;
+    return this;
+  }
   setEncoding(encoding) {
     this.#decoder = new JanisStringDecoder(encoding);
     this.readableEncoding = this.#decoder.encoding;
@@ -654,7 +659,10 @@ function fsMkdir(path, options = {}) {
   let current = path.startsWith("/") ? "/" : "";
   for (const part of path.split("/").filter(Boolean)) {
     current = current === "/" ? `/${part}` : current ? `${current}/${part}` : part;
-    if (!fsExists(current)) fsNative(current, "mkdir", () => Dolly.fsMkdir(current));
+    if (!fsExists(current)) {
+      try { fsNative(current, "mkdir", () => Dolly.fsMkdir(current)); }
+      catch (error) { if (error.code !== "EEXIST" || !fsStat(current).isDirectory()) throw error; }
+    }
     else if (!fsStat(current).isDirectory()) {
       throw Object.assign(new Error(`ENOTDIR: not a directory, mkdir '${current}'`), {
         code: "ENOTDIR", path: current, syscall: "mkdir",
@@ -2068,7 +2076,7 @@ function janisPackageImport(specifier, baseName, forRequire = false, raw = false
 // Module adapters must exist as files because QuickJS's module loader consumes
 // filesystem paths. Keep them in one invocation-owned scratch tree; the native
 // runner calls __janisCleanup before destroying this JavaScript context.
-const janisTemporaryRoot = `/tmp/janis-${Math.random().toString(16).slice(2, 14)}`;
+const janisTemporaryRoot = `/tmp/janis-${process.pid}-${Math.random().toString(16).slice(2, 14)}`;
 
 function janisEsmBuiltin(specifier) {
   const name = String(specifier).replace(/^node:/, "");

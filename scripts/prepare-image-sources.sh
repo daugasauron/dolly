@@ -36,6 +36,8 @@ has_module libuv && libuv_dir="$(bash "${project_dir}/scripts/prepare-libuv.sh")
 has_module lua && lua_archive="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" lua)"
 has_module lpeg && lpeg_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lpeg)"
 has_module cmake && cmake_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" cmake)"
+has_module sdl2 && sdl2_dir="$(bash "${project_dir}/scripts/prepare-sdl2.sh")"
+has_module seven-kingdoms && seven_kingdoms_dir="$(bash "${project_dir}/scripts/prepare-seven-kingdoms.sh")"
 if has_module neovim || has_module neovim-parsers; then
   neovim_dir="$(bash "${project_dir}/scripts/prepare-neovim.sh")"
 fi
@@ -214,6 +216,35 @@ if has_module neovim; then
     "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim/LICENSE.txt \
     "${neovim_dir}/src/mpack/LICENSE-MIT" /usr/share/licenses/neovim/mpack \
     "${neovim_dir}/src/nvim/vterm/LICENSE" /usr/share/licenses/neovim/vterm
+fi
+if has_module sdl2; then
+  sdl2_inputs=()
+  for entry in src include cmake CMakeLists.txt SDL2Config.cmake.in SDL2.spec.in \
+    sdl2.pc.in sdl2-config.in sdl2.m4 cmake_uninstall.cmake.in LICENSE.txt; do
+    sdl2_inputs+=("${sdl2_dir}/${entry}" "/tmp/sdl2/source/${entry}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/sdl2/source.tar" \
+    "${sdl2_inputs[@]}" \
+    "${sdl2_dir}/LICENSE.txt" /usr/share/licenses/SDL2/LICENSE.txt
+fi
+if has_module seven-kingdoms; then
+  rts_port_inputs=()
+  for entry in Makefile config.h OAUDIO.h arena.cpp arena.h input.cpp input.h; do
+    rts_port_inputs+=("${project_dir}/src/rts/${entry}" "/usr/src/dolly/rts/${entry}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/rts/seven-kingdoms.tar" \
+    "${seven_kingdoms_dir}/src" /usr/src/7kaa/src \
+    "${seven_kingdoms_dir}/include" /usr/src/7kaa/include \
+    "${seven_kingdoms_dir}/data" /usr/share/7kaa \
+    "${seven_kingdoms_dir}/COPYING" /usr/share/licenses/7kaa/COPYING \
+    "${seven_kingdoms_dir}/COPYING" /usr/src/7kaa/COPYING \
+    "${rts_port_inputs[@]}"
+fi
+if has_module rts-arena; then
+  node scripts/build-source-tar.mjs "${static_dir}/rts/arena.tar" \
+    "${project_dir}/src/rts/player.js" /usr/src/dolly/rts/player.js \
+    "${project_dir}/src/rts/PLAYER.md" /usr/src/dolly/rts/PLAYER.md \
+    "${project_dir}/src/rts/spectator" /usr/src/dolly/rts/spectator
 fi
 if has_module neovim-parsers; then
   parser_inputs=()

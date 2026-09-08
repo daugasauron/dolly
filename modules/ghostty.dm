@@ -10,7 +10,7 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   zig
 
-SOURCE HOST /static/default/ghostty.tar              /tmp/ghostty.tar                          62927872d21cfe1bb2c76a5f90499a4139e0da16168db1afdb2d4b429d995eb3
+SOURCE HOST /static/default/ghostty.tar              /tmp/ghostty.tar                          945865657d183d1b97124e383af4c455da577f42215d58cdd29ee4a942136664
 SOURCE HOST /static/default/uucode.tar               /tmp/uucode.tar                           27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e
 SOURCE HOST /static/default/ghostty/display.c        /usr/src/dolly/ghostty/display.c          73377d9065c698acf228d396f72c049315f051b4976fbdbcf7f68db8ed85cfed
 SOURCE HOST /static/default/stb_truetype.h           /tmp/ghostty/stb_truetype.h               ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab

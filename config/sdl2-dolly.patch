@@ -1,0 +1,55 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2968,6 +2968,23 @@
+   set(SDL_VIDEO_VULKAN 0)
+ endif()
+ 
++if(CMAKE_SYSTEM_NAME STREQUAL "Dolly")
++  set(SDL_VIDEO_DRIVER_DOLLY 1)
++  set(HAVE_SDL_VIDEO TRUE)
++  list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/video/dolly/SDL_dollyvideo.c)
++  set(SDL_TIMER_UNIX 1)
++  set(HAVE_SDL_TIMERS TRUE)
++  list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/timer/unix/SDL_systimer.c)
++  # Thread creation remains unsupported. Use SDL's existing serial primitives.
++  set(SDL_THREADS_DISABLED 1)
++  set(HAVE_SDL_THREADS TRUE)
++  file(GLOB THREADS_SOURCES ${SDL2_SOURCE_DIR}/src/thread/generic/*.c)
++  list(APPEND SOURCE_FILES ${THREADS_SOURCES})
++  set(SDL_FILESYSTEM_UNIX 1)
++  set(HAVE_SDL_FILESYSTEM TRUE)
++  list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/filesystem/unix/SDL_sysfilesystem.c)
++endif()
++
+ # Platform-independent options
+ CheckLibSampleRate()
+ 
+--- a/include/SDL_config.h.cmake
++++ b/include/SDL_config.h.cmake
+@@ -414,1 +414,2 @@
++#cmakedefine SDL_VIDEO_DRIVER_DOLLY @SDL_VIDEO_DRIVER_DOLLY@
+ #cmakedefine SDL_VIDEO_DRIVER_DUMMY @SDL_VIDEO_DRIVER_DUMMY@
+--- a/src/video/SDL_sysvideo.h
++++ b/src/video/SDL_sysvideo.h
+@@ -476,1 +476,2 @@
++extern VideoBootStrap DOLLY_bootstrap;
+ extern VideoBootStrap DUMMY_bootstrap;
+--- a/src/video/SDL_video.c
++++ b/src/video/SDL_video.c
+@@ -72,6 +72,9 @@
+ 
+ /* Available video drivers */
+ static VideoBootStrap *bootstrap[] = {
++#ifdef SDL_VIDEO_DRIVER_DOLLY
++    &DOLLY_bootstrap,
++#endif
+ #ifdef SDL_VIDEO_DRIVER_COCOA
+     &COCOA_bootstrap,
+ #endif
+--- a/src/dynapi/SDL_dynapi.h
++++ b/src/dynapi/SDL_dynapi.h
+@@ -47,1 +47,3 @@
+-#if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE /* probably not useful on iOS. */
++#if defined(DOLLY)
++#define SDL_DYNAMIC_API 0
++#elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE /* probably not useful on iOS. */

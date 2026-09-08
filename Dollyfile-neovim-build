@@ -2,7 +2,7 @@ DOLLY 3
 IMAGE neovim-build
 
 # Source-build workspace; the Neovim port is still in progress.
-FROM HOST /Dollyfile-cmake-build 5ffe2f7e9e6d1b2a530b920478c11b623a7eacebd1535b83269f97005a17d078
+FROM HOST /Dollyfile-cmake-build 1af3e61ec098b96687a53ebfcc30802d719613dfc2fabb48500325fa0a77b492
 USE HOST /modules/lua.dm 47d8ef115f40c2b963a821142af4647ac26ab6b310896d4e72d3ffd07bd5eee1
 USE HOST /modules/lpeg.dm 19fd6f2032d92363f9817883cac93df30d48f999a0388c264cace4940019b16b
 USE HOST /modules/luv.dm eaeb7757070a9058a93012936fc1b6ddf4397939d2bb018c2489824564c0fb17
