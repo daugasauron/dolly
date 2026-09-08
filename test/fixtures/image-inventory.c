@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "sha256.h"
 
 static char **paths;
 static size_t path_count, extra, missing, live;
@@ -43,13 +44,16 @@ static int walk(const char *path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) return 2;
+  if (argc != 3) return 2;
   FILE *manifest = fopen("/etc/dolly/image.manifest", "r");
   if (manifest == NULL) return 2;
+  Sha256 hash;
+  sha256_init(&hash);
   char *line = NULL;
   size_t capacity = 0;
   ssize_t length;
   while ((length = getline(&line, &capacity, manifest)) > 0) {
+    sha256_update(&hash, line, (size_t)length);
     if (line[length - 1] != '\n') return 2;
     line[length - 1] = 0;
     paths = realloc(paths, (path_count + 1) * sizeof(*paths));
@@ -58,7 +62,16 @@ int main(int argc, char **argv) {
     if (lstat(line, &metadata) != 0) { fprintf(stderr, "missing: %s\n", line); ++missing; }
   }
   free(line);
-  if (fclose(manifest) != 0) return 2;
+  if (ferror(manifest) || fclose(manifest) != 0) return 2;
+  unsigned char digest[32];
+  char hex[65];
+  sha256_finish(&hash, digest);
+  for (size_t index = 0; index < sizeof(digest); ++index)
+    snprintf(hex + index * 2, 3, "%02x", digest[index]);
+  if (strcmp(hex, argv[2]) != 0) {
+    fputs("manifest digest does not match the packaged image\n", stderr);
+    return 1;
+  }
   FILE *help = fopen(argv[1], "r");
   if (help == NULL) return 2;
   char help_line[4096];

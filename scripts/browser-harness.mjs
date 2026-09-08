@@ -2777,7 +2777,8 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       const scratch = "/tmp/dolly-image-inventory";
       assert.equal(await submit(`mkdir ${scratch}`), 0);
       try {
-        const source = await readFile(resolve(projectDir, "test/fixtures/image-inventory.c"), "utf8");
+        const source = (await readFile(resolve(projectDir, "test/fixtures/image-inventory.c"), "utf8"))
+          .replace('#include "sha256.h"', await readFile(resolve(projectDir, "src/sha256.h"), "utf8"));
         const lines = source.trimEnd().split("\n").map(line => `echo -- ${shellQuote(line)}`);
         assert.equal(await submit(`{ ${lines.join("; ")}; } > ${scratch}/inventory.c`), 0);
         assert.equal(await submit(`cc -O1 ${scratch}/inventory.c -o ${scratch}/inventory`), 0);
@@ -2787,9 +2788,9 @@ install(TARGETS probe RUNTIME DESTINATION bin)
           `../dist/dolly-${selectedImage}-system-snapshot.mjs`);
         const manifestHash = createHash("sha256")
           .update(DOLLY_SYSTEM_SNAPSHOT.manifest.join("\n") + "\n").digest("hex");
-        assert.equal(await submit(`test "$(sha256sum /etc/dolly/image.manifest | cut -d ' ' -f 1)" = ${manifestHash}`), 0,
-          "live manifest bytes must match the packaged image");
-        assert.equal(await submit(`${scratch}/inventory ${scratch}/help`), 0,
+        assert.notEqual(await submit(`${scratch}/inventory ${scratch}/help ${"0".repeat(64)}`), 0,
+          "live manifest verification must reject a different digest");
+        assert.equal(await submit(`${scratch}/inventory ${scratch}/help ${manifestHash}`), 0,
           "live manifest, system paths and help must match the packaged image");
         if (selectedImage === "external-source") {
           assert.equal(await submit("test \"$(command -v xxd)\" = /usr/bin/xxd"), 0);
