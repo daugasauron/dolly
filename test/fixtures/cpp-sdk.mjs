@@ -61,6 +61,17 @@ export async function runCppSdkCases(submit, python) {
   const write = (name, text) => run(`printf '%s\\n' ${text.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/${name}`);
   await run(`mkdir -p ${scratch}`);
   try {
+    await run(`mkdir ${scratch}/after ${scratch}/first`);
+    await write("after/stdio.h", "#error after includes must not shadow system headers");
+    await write("after/priority.h", "#error after includes must not shadow user headers");
+    await write("first/priority.h", "#define PRIORITY 42");
+    await write("after/only-after.h", "#define AFTER 42");
+    await write("includes.c", "#include <stdio.h>\n#include <priority.h>\n#include <only-after.h>\nint main(void) { return AFTER != PRIORITY; }");
+    for (const option of [`-idirafter ${scratch}/after`, `-idirafter${scratch}/after`]) {
+      await run(`cc ${option} -I${scratch}/first ${scratch}/includes.c -o ${scratch}/includes`);
+      await run(`${scratch}/includes`);
+    }
+    assert.equal(await submit("cc -idirafter"), 64);
     await write("main.cpp", source);
     await run(`c++ -O1 -c ${scratch}/main.cpp -o ${scratch}/main.o`);
     for (const link of ["c++", "c++ -lc++ -lc++abi", "cc -lc++ -lc++abi",
