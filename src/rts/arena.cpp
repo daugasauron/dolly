@@ -104,6 +104,10 @@ void dolly_rts_configure()
 
 void dolly_rts_poll()
 {
+    if (remote.sync_test_level < 0 && (player || remote.is_replay() || remote.is_replay_end())) {
+        std::fputs("RTS: game state synchronization failed\n", stderr);
+        _exit(74);
+    }
     if (!player) return;
     if (stopping()) sys.signal_exit_flag = 2;
 }

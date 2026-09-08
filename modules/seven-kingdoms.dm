@@ -13,7 +13,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE HOST /static/rts/seven-kingdoms.tar /tmp/seven-kingdoms/source.tar ff827274a757a565d998655ed64caa764cf396e8e896063ba955df97e7b4e062
+SOURCE HOST /static/rts/seven-kingdoms.tar /tmp/seven-kingdoms/source.tar bc32d9ccdd8c881270f8cb6a9e543f2b1f5047725f5f204cc0c2d24471e9952d
 SLOP tar -xf /tmp/seven-kingdoms/source.tar -C /
 SLOP make -f /usr/src/dolly/rts/Makefile
 

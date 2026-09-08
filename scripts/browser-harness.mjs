@@ -1939,7 +1939,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       await enterRecoveryShell(send);
       const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
       try {
-        assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/rts-match.mjs -o /tmp/rts-match.mjs`), 0);
+        assert.equal(await submit(`mkdir /tmp/rts-replay-test; curl -fsS ${localOrigin}/fixture/rts-match.mjs -o /tmp/rts-match.mjs`), 0);
         assert.equal(await submit("rts-arena"), 64, "compiled launcher loads its real JavaScript entry");
         await evaluate(send, `window.__rtsResult = null; void __dolly.submit('seven-kingdoms -demo -noaudio -win -rnd 12345').then(status => window.__rtsResult = status); true`);
         const gameStart = await waitForValue(send, "({active: __dolly.graphicsActive, result: window.__rtsResult})",
@@ -1952,7 +1952,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
           "SDL may handle interrupted event polling as a clean quit");
         assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
         assert.equal(await submit("test -f /tmp/rts-match.mjs"), 0);
-        await evaluate(send, `window.__matchResult = null; void __dolly.submit('janis -m /tmp/rts-match.mjs').then(status => window.__matchResult = status); true`);
+        await evaluate(send, `window.__matchResult = null; void __dolly.submit('janis -m /tmp/rts-match.mjs /tmp/rts-replay-test').then(status => window.__matchResult = status); true`);
         const matchStart = await waitForValue(send, "({active: __dolly.graphicsActive, result: window.__matchResult})",
           state => state.active || state.result !== null, "two-player spectator display", 2400);
         assert.equal(matchStart.active, true, `match exited before display: ${matchStart.result}`);
@@ -1962,6 +1962,33 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         await writeFile(resolve(projectDir, "build/rts-match-chrome.png"), screenshot.data, "base64");
         assert.equal(await waitForValue(send, "window.__matchResult", value => value !== null, "two-player match proof"), 0);
         assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
+        const replayMarker = `(() => { const c = document.querySelector('canvas');
+          const pixels = c.getContext('2d').getImageData(5, 5, 100, 50).data;
+          let hash = 2166136261; for (const byte of pixels) hash = Math.imul(hash ^ byte, 16777619);
+          return hash >>> 0; })()`;
+        for (const player of [1, 2]) {
+          await evaluate(send, `window.__replayResult = null; void __dolly.submit('SKCONFIG=/tmp/rts-replay-test/player${player} seven-kingdoms -noaudio -win').then(status => window.__replayResult = status); true`);
+          await waitForValue(send, "__dolly.graphicsActive", Boolean, "upstream replay menu");
+          await delay(500);
+          const menu = await evaluate(send, replayMarker);
+          await dispatchKey(send, { key: "r", code: "KeyR", windowsVirtualKeyCode: 82 });
+          await waitForValue(send, replayMarker, value => value !== menu, "recorded match starts playing");
+          const replayScreenshot = await send("Page.captureScreenshot", { format: "png" });
+          await writeFile(resolve(projectDir, `build/rts-replay-${player}.png`), replayScreenshot.data, "base64");
+          await waitForValue(send, replayMarker, value => value === menu, "replay reaches EOF and returns to the main menu", 2400);
+          assert.equal(await evaluate(send, "window.__replayResult"), null, "replay returns to the game menu, not a crashed process");
+          await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          assert.ok([0, 130].includes(await waitForValue(send, "window.__replayResult", value => value !== null, "replay process cancellation")));
+        }
+        console.log("browser: real recruitment recorded by both engines; both upstream replays play to EOF");
+        await evaluate(send, `window.__replayResult = null; void __dolly.submit('SKCONFIG=/tmp/rts-replay-test/corrupt seven-kingdoms -noaudio -win').then(status => window.__replayResult = status); true`);
+        await waitForValue(send, "__dolly.graphicsActive", Boolean, "corrupted replay menu");
+        await delay(500);
+        await dispatchKey(send, { key: "r", code: "KeyR", windowsVirtualKeyCode: 82 });
+        assert.equal(await waitForValue(send, "window.__replayResult", value => value !== null, "replay checksum mismatch fails explicitly"), 74);
+        assert.match(await visibleTerminalText(send), /RTS: game state synchronization failed/);
+        assert.equal(await evaluate(send, "__dolly.graphicsActive"), false);
+        console.log("browser: a damaged replay checksum is rejected, not silently played with divergent state");
         const config = { providers: { openrouter: { baseUrl: `${localOrigin}/fixture/rts/v1`, api: "openai-completions",
           apiKey: "rts-fixture-only", models: ["rts-test-fast", "rts-test-slow"].map(id => ({ id, name: id,
             reasoning: true, input: ["text", "image"], contextWindow: 128000, maxTokens: 4096,
@@ -1992,7 +2019,13 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await waitForValue(send, "window.__piMatchResult", value => value !== null, "Escape stops both Pi players and engines"), 0);
         assert.equal(await evaluate(send, "__dolly.graphicsActive"), false);
         assert.equal(await submit("janis -m /tmp/rts-history.mjs 'Viewer exited (0)'"), 0);
-      } finally { await submit("rm -rf /tmp/rts-match.mjs /tmp/rts-history.mjs /tmp/rts-pi-agent"); }
+      } finally {
+        if (await evaluate(send, "__dolly.graphicsActive")) {
+          await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          await waitForValue(send, "__dolly.graphicsActive", value => !value, "failed RTS test releases its display");
+        }
+        await submit("rm -rf /tmp/rts-match.mjs /tmp/rts-history.mjs /tmp/rts-pi-agent /tmp/rts-replay-test");
+      }
       console.log("browser: real RTS multiplayer, player-view separation, continuous simulation, sequential input, orderly stop/replay and foreground cancellation passed");
       break browserProof;
     }

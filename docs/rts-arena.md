@@ -5,8 +5,8 @@ and SDL2 compile from pinned source inside Dolly. The game's GPL source and
 data are included, with notices and corresponding source. Separate music is
 omitted. Audio and thread creation are unavailable; the browser ABI is unchanged.
 
-Build: `npm run image -- rts-arena --package`, then `npm run serve` and open
-`/rts-arena/`. Configure OpenRouter with Pi's `/login`, exit Pi, then run:
+Build the snapshot: `npm run image -- rts-arena`. The browser harness below
+tests it directly. Configure OpenRouter with Pi's `/login`, exit Pi, then run:
 
 ```sh
 rts-arena OPENROUTER_MODEL_1 OPENROUTER_MODEL_2 [seconds]
@@ -17,6 +17,10 @@ The default match limit is 600 seconds. Loading the image makes no paid calls.
 Escape stops the match, saves replays and returns to Slop. Ctrl-C is the runtime's
 forced-cancellation fallback: existing files survive, but final replay capture
 and match scratch cleanup are not guaranteed.
+
+To watch a saved replay, set `SKCONFIG` to its `player1-game` or `player2-game`
+directory, run `seven-kingdoms -noaudio -win`, then press `R` at the main menu.
+Upstream loads that directory's `NONAME.RPL` and returns to the menu at EOF.
 
 ## How it works
 
@@ -45,7 +49,11 @@ Chrome proofs: `DOLLY_IMAGE=sdl2-build DOLLY_BROWSER_MODE=sdl2
 ./scripts/test-browser.sh`. They cover real rendering/input, process reload,
 PNG encoding, rejected/cancelled batches, separate player views, continuous
 simulation, real Pi RPC/tool/history streaming against an explicitly scripted
-local HTTP provider, and orderly shutdown. This is not a live-model match.
+local HTTP provider, and orderly shutdown. A normal town click and recruit key
+produce a unit; both engines record the same recruitment command/frame, and
+both replays play through the upstream loader to EOF with its state CRC checks.
+A damaged checksum must report a synchronization failure and exit with status 74.
+These are short replay checks, not a completed live-model battle.
 
 The key remaining issue is **independent network progress**. HTTP mailbox v4
 permits one request in flight across Dolly. A slow model can hold that slot and
@@ -59,5 +67,9 @@ limit. Keeping only the newest image avoids accumulating screenshots into an
 oversized request, but does not fix that general payload-limit mismatch.
 
 Still required: live OpenRouter testing with a fresh temporary key, a complete
-battle with ordinary game orders, and replay playback/determinism verification.
+battle and its replay, after resolving the independent-HTTP issue above.
 Keys belong in the live sandbox, never source archives, snapshots or match logs.
+
+Selected-image packaging also fails: shared documentation links to unselected
+`Dollyfile-pi-local`, which the packager rejects as an unpublished source. No
+sealed RTS release has been produced; the existing local release is unchanged.
