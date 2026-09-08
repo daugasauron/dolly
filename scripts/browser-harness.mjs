@@ -3959,7 +3959,7 @@ int main(int argc, char **argv) {
           await evaluate(
             debuggerClient.send,
             `window.__dolly.submit(${JSON.stringify(
-              "grep -q '^Dolly is an experiment' " +
+              "grep -q '^# Dolly$' " +
               "/tmp/pages-generic-network.txt",
             )})`,
           ),
@@ -3974,7 +3974,7 @@ int main(int argc, char **argv) {
           0,
         );
         console.log(
-          `browser: live Pages booted isolated Ghostty and default Pi in ${
+          `browser: live Pages booted isolated Ghostty and ${selectedImage} in ${
             Date.now() - pagesBootStarted
           }ms; generic HTTPS reached raw.githubusercontent.com through Dolly's broker`,
         );

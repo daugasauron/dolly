@@ -1,6 +1,19 @@
 # Audit handoff
 
-## Stable release in progress — 2026-09-08
+## Stable checkpoint — 2026-09-08
+
+GitHub Pages is live at `https://daugasauron.github.io/dolly/`, deployed by run
+`34184222497`. The audited application source is commit `32d3b34`, release tag
+`pages-32d3b34-r1`, artifact `dolly-pages.tar.gz` SHA-256
+`fbb6d1fe6673e97125ba17a2335b1f07719767aa1a2fe5c20a7dd7a60287023b`.
+Both host exports have 1,131 identical decoded sealed files; their 691 public
+HTML pages differ only by deployment prefix (`build/stable-release-export-equivalence.log`).
+Public browser boot/HTTP, actual Qwen FP32/Pi file reading, and session
+export → delete → import → named-URL restore pass
+(`build/stable-release-github-{live-2,qwen,sessions-2}.log`).
+The post-release repository follow-up only corrects an obsolete README assertion
+in the live smoke test and records this receipt; it does not change the deployed
+application. Public session tests require `DOLLY_BROWSER_BASE=/dolly/`.
 
 Scope is UX/stability, not PTYs/tmux or new ports. Session file export/import/delete
 now passes a real Chrome save → downloaded file → delete → import → Wasm restore,
@@ -61,8 +74,7 @@ Remaining release gates:
 - Verify the **public** Pages edge's compressed delivery, isolation headers,
   named-session routes and retained URLs; local provider proofs pass. See
   [deployment measurements](deployment.md#fixed-cost-release-candidate).
-- Publish the committed checkpoint to GitHub Pages, then use the same audited
-  release artifact for `daugasauron.com`. The user explicitly chose the root
+- Use the same audited release artifact for `daugasauron.com`. The user chose the root
   domain and wants its existing site replaced, not a subdomain.
 - Confirm Cloudflare account/DNS access before the domain deployment. No domain
   mutation or hosting purchase has been performed.
@@ -70,7 +82,8 @@ Remaining release gates:
 The committed source-aligned refresh uses `build/stable-release-committed-publish.log`
 and `build/stable-release-checkpoint-export.log`; its Pages output is
 `build/cloudflare-pages-checkpoint`, retaining the previously tested release.
-Verify `build/releases/current` against the checkout before uploading, and check
+Verify `build/releases/current` against its recorded source commit, not later
+test/documentation-only commits, and check
 `deployment.sha256` inside that export. Do not change source files during sealing.
 
 ## HTTP defaults — 2026-09-08
