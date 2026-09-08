@@ -145,12 +145,14 @@ availability requirement. [R2 pricing](https://developers.cloudflare.com/r2/pric
 No finite hosting plan guarantees unlimited availability; provider terms and
 upstream model-weight availability remain constraints even with free static traffic.
 
-Target domain: `daugasauron.com`, replacing its existing site as requested.
+`https://daugasauron.com/` now replaces the old site and serves the same release.
 GitHub Pages deployed first. The Cloudflare zone and Pages project share the same
-account, and the domain is associated with the project. DNS remains pending:
-the root CNAME must point to `dolly-9dk.pages.dev`. Wrangler's OAuth login can
-deploy Pages but cannot edit DNS; finish the domain's DNS setup in the dashboard,
-preserving unrelated records, then verify domain TLS, release seal and browser boot.
+account; the root points to `dolly-9dk.pages.dev`. Domain HTTPS, decoded hashes,
+isolation headers and browser session restoration pass
+(`build/stable-release-domain-{transport,sessions}.log`). Pages' DNS verification
+is active, with separate HTTP validation still pending at the last check.
+Wrangler's OAuth login can deploy Pages but cannot read/edit DNS. Preserve email
+and unrelated records when changing the root website's DNS.
 
 Another candidate is CloudFront's **$15/month Pro flat-rate plan**, with 50 TB
 and 10 million requests as monthly allowances, not hard cutoffs. It has no CDN

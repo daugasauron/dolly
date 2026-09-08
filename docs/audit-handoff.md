@@ -89,15 +89,18 @@ All 280 source tests pass (`build/stable-release-pages-source-tests-2.log`).
 Owned browser profiles, local provider processes/tool installation and the first
 failed candidate export are cleaned; the passing export and logs are retained.
 
-Remaining release gates:
+`https://daugasauron.com/` now serves the same release over valid HTTPS. Public
+decoded delivery, headers, retention and a real Studio session file round-trip
+pass (`build/stable-release-domain-{transport,sessions}.log`). Pages reports DNS
+verification active; its separate HTTP validation/domain status is still pending.
 
-- Finish `daugasauron.com` DNS in the dashboard: the root CNAME must point to
-  `dolly-9dk.pages.dev`, replacing only the old root web record. The user was sent
-  this step. The active zone and Pages project share an account; the domain is
-  associated, but Pages reports `CNAME record not set`. The authenticated Wrangler
-  login has Pages access, not DNS read/edit access; no DNS records were changed.
-- After DNS activates, verify the domain's TLS, release seal and real browser
-  boot/session restoration. Do not rebuild images or add metered hosting to do so.
+Remaining follow-up:
+
+- Confirm Pages finishes its pending validation without changing the working DNS.
+- The user reported deleting all old DNS records. Authoritative queries show no
+  root MX/TXT records and `www` is NXDOMAIN. Asked whether email or other services
+  were in use; do not invent replacements. The authenticated Wrangler login has
+  Pages access, not DNS read/edit access; the agent made no DNS changes.
 
 The committed source-aligned refresh uses `build/stable-release-committed-publish.log`
 and `build/stable-release-checkpoint-export.log`; its Pages output is
