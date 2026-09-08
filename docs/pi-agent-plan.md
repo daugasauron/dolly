@@ -1,227 +1,74 @@
 # Pi on Dolly
 
-Status: `/usr/bin/pi` is the target-emitted upstream Pi CLI. TypeScript 5.9.3
-compiles all 495 modules in Pi's seven runtime workspace packages inside Dolly;
-Janis resolves that unbundled graph and its reviewed external package profile
-entirely from WasmFS. Fixture and real OpenRouter agent turns pass in Chrome.
-Last updated: 2026-09-01.
+Pi runs under QuickJS-ng and Janis as an ordinary private Wasm process.
+Its source is not forked: Dolly provides an extension and a finite Node-shaped
+runtime over the shared filesystem, process API and HTTP broker.
 
-## Purpose
+## Build
 
-Pi is Dolly's primary agent workload. The objective is not to reproduce Node or
-Linux; it is to measure which filesystem, terminal, lifecycle, JavaScript, and
-network behavior a useful coding agent actually needs.
+`/usr/bin/tsc` runs the pinned official TypeScript compiler inside Dolly and
+emits Pi's upstream workspace packages under `/usr/lib/node_modules`.
+The source remains under `/usr/src/pi-source`.
+This is `noCheck` JavaScript emit, not full TypeScript type checking.
+An asserted post-emit transform lowers six Unicode-set regexes unsupported by
+the pinned QuickJS version.
 
-```text
-pinned Pi TypeScript ── tsc in Dolly ── unbundled ESM packages
-                                      │
-                                      ▼
-QuickJS-ng ── Janis Node subset ── Pi Dolly extension
-       │                │                    │
-       └────────────────┴────────────────────┘
-                        │
-             kernel WasmFS + Slop process
-                        │
-       Ghostty RGBA ◀── Dolly runtime ──▶ one HTTP broker
-```
+External JavaScript packages are selected by `config/pi-runtime-packages.txt`
+and verified against `package-lock.json` before archival. They resolve from
+WasmFS, not a host loader or runtime network download.
+`npm run pi:census` reports their pins and licenses. There is no host Pi bundle;
+host esbuild is used separately for browser WebGPU assets.
 
-Everything above the broker lives in Dolly's wasm64 userspace. Pi, Slop, and
-each child have private process memory while sharing files and descriptors
-through the kernel. No Node process, host filesystem, socket, DOM, browser
-`fetch`, or native subprocess is forwarded into Pi.
+## Use
 
-## What works
+Pi's `bash` tool and interactive `!` execute Slop, not Bash.
+`/bin/sh` is a compatibility alias to Slop. Child stdout/stderr stream through
+real process pipes; cancellation uses the same lifecycle boundary as other tools.
+Installed programs depend on the image: use `command -v TOOL`.
 
-- `/usr/bin/pi` is a normal filesystem executable resolved through `PATH`.
-- Pinned upstream Pi 0.84.4 runs on source-built QuickJS-ng through Janis.
-- `/usr/bin/tsc` runs the unchanged official TypeScript 5.9.3 compiler under
-  Janis. Single-file and multi-file ESM fixtures compile and execute entirely
-  in WasmFS during a browser rebuild.
-- The exact Pi Git commit is archived independently and all 495
-  modules in telemetry, AI, agent, protocol, client, TUI, and coding-agent emit
-  inside Dolly. A dependency-free emitted module is executed with QuickJS and
-  the full source/output tree remains inspectable at `/usr/src/pi-source`.
-- Those seven target-emitted packages are also published with their unchanged
-  manifests under `/usr/lib/node_modules/@earendil-works`. A real browser test
-  imports the telemetry package by its scoped name through Janis; the package
-  resolver and compiled workspace are therefore connected, not parallel demos.
-- `PI_PACKAGE_DIR` names the conventional installed coding-agent package root,
-  where the target-emitted `dist` tree, themes, export assets, documentation,
-  and examples live together. Every Dollyfile build runs Pi's upstream startup
-  benchmark path, so missing runtime resources fail image construction rather
-  than hiding behind a successful `pi --version`.
-- The complete interactive TUI renders through Ghostty inside Wasm; raw input,
-  resize, timers, selection, paste, copy, Ctrl-C, and Ctrl-D are exercised in a
-  real browser.
-- A normal Pi extension provides `bash`, `read`, `edit`, and `write` behavior
-  through `/bin/slop`, Dolly lifecycle calls, and shared WasmFS. Pi is told that
-  the available shell is Slop; it does not need a hidden `sh` or `bash` binary.
-- Model responses stream incrementally while Pi's Promise jobs, timers, and
-  terminal frames continue to advance.
-- OpenRouter keys and OpenAI Codex OAuth credentials are written by Pi to its
-  in-Wasm `auth.json`. Login and fresh-process model discovery are browser
-  tested. Credentials are not baked into snapshots.
-- The Codex flow uses Pi's upstream PKCE implementation. The unavailable local
-  callback listener fails as `ENOSYS`, after which the supported manual-code
-  path completes through the same HTTP broker.
-- Dependency-free JavaScript extensions install into WasmFS, reload through
-  upstream Jiti, and can invoke tools. Arbitrary npm packages and native addons
-  are not supported.
-- A deterministic browser proof authors a typed extension in `/workspace`,
-  compiles it with Dolly's `/usr/bin/tsc` into Pi's extension directory,
-  restarts Pi in the same WasmFS, and invokes the emitted tool through the
-  fixture model. TypeScript extension development therefore uses the target
-  compiler rather than a host bundle.
-- Pi's latest-version request is disabled with `PI_SKIP_VERSION_CHECK=1`; it no
-  longer creates a useless CORS error at startup.
-- An unexpected nonzero top-level Pi exit is retried twice in the same WasmFS.
-  Normal exit and Ctrl-C still enter the recovery shell. This protects against
-  transient provider/JavaScript failure but is not a substitute for fixing a
-  reproducible crash.
-- Pi receives an installed Dolly skill describing the architecture, security
-  boundary, source tree, and supported development workflow.
+Leave Pi with `/exit` or Ctrl+D on an empty prompt. In Studio, run
+`nvim /workspace/Dollyfile` from Slop for interactive editing, then `pi`
+to return. Pi's captured shell tool is not an interactive editor terminal.
+Tmux/split panes are not implemented.
 
-Pi itself is not forked. One asserted post-emit transform lowers exactly six
-Unicode-set regular expressions that QuickJS-ng 0.15 cannot parse and fails if
-the expected upstream declarations change. The narrow target config uses
-`noCheck` and removes ambient host type packages, so Dolly claims reproducible
-emit rather than full type checking.
+Pi sessions live under `~/.pi/agent/sessions`; upstream writes a session after
+the first assistant response. `/resume` uses those in-Wasm files.
+Use a Dolly [session save](sessions.md) to retain them across page reloads.
 
-The seven workspace packages retain their upstream module structure and
-manifests. A source-visible list names 31 external published packages; the host
-build accepts them only when installed metadata matches versioned integrity
-records in `package-lock.json`, then packages their ordinary files. Janis
-resolves all of this from `/usr/lib/node_modules`. There is no host application
-bundle, npm client, browser module loader, or resolution-time network path.
-`npm run pi:census` reports the exact integrity and license evidence for each
-entry, flags install scripts and nested native/Wasm payloads, and inventories
-the archive by file role. QuickJS/Janis has no source-map consumer, so the
-explicit package step excludes 1,670 generated maps / 13,569,865 bytes. The
-remaining 12,172,642 bytes of declaration/source/test/doc candidates stay
-retained until runtime reachability and license rules justify another exact
-policy.
-
-The Dolly profile excludes Photon because its nested wasm32 module cannot run
-under QuickJS-ng. `images.autoResize` is false, and the sequential image build
-executes Pi's real `processImage` pass-through path with a fixed PNG payload;
-the build fails unless the bytes and MIME type survive unchanged.
-
-## Compatibility boundary
-
-Janis is deliberately finite. It implements only behavior demonstrated by Pi
-or a named extension:
-
-| Surface | Dolly implementation |
-| --- | --- |
-| `process`, argv, env, cwd | command-local state over Dolly libc/WasmFS |
-| `Buffer`, encoders, URLs, paths | in-process JavaScript/C helpers |
-| `node:fs` and `fs/promises` | real Dolly file descriptors, positioned I/O, stat/lstat/fstat and timestamps; settled Promises where required; watching explicitly unsupported |
-| ESM and CommonJS packages | WasmFS-only `node_modules` ancestry, import/require conditions, exact and wildcard exports/imports, package type, JSON modules, and explicit builtin adapters |
-| Node resolution details | `import.meta.resolve`, relative `.cjs`, mode-aware package exports, and deterministic `fs.globSync` over WasmFS |
-| events, timers, Promise jobs | one serial cooperative event pump |
-| crypto hashes, HMAC, UUID, entropy | in-Wasm implementations plus Dolly entropy |
-| standard streams and tty facts | Dolly descriptors and terminal device |
-| child-process-shaped shell calls | synchronous `dolly_spawn`/`dolly_wait` with captured files |
-| Fetch, responses, streams | `dolly_http_start`/`dolly_http_poll` over the sole browser broker |
-
-Unsupported neighboring APIs fail explicitly. There are no worker threads,
-detached jobs, native addons, N-API, raw sockets, proxy agents, ambient host
-environment, or `process.binding` escape hatch. Promise-shaped operations may
-be synchronous underneath because observable compatibility matters more than
-parallelism in this experiment.
-
-Environment enumeration/spread reads the same in-Wasm environment as individual
-properties. Buffer slices use native typed-array bounds and shared views. Open
-files survive rename/unlink; `FileHandle.close()` invalidates the handle even if
-its descriptor number is later reused. These behaviors are exercised by
-`test/fixtures/janis-files.mjs` in both Pi images; no browser filesystem is used.
-
-QuickJS-ng remains the engine until a concrete engine-level incompatibility
-justifies a replacement. The comparison and replacement gate are in
-[`javascript-runtime.md`](javascript-runtime.md).
-
-## Display and input
-
-```text
-browser key/text/resize/pointer records
-                    │
-                    ▼
-          versioned Wasm mailbox
-                    │
-                    ▼
- Pi stdin ◀── Dolly tty ──▶ stdout VT bytes
-                              │
-                              ▼
-                    Ghostty + glyph rasterizer
-                              │
-                              ▼
-                   bounded RGBA canvas blit
-```
-
-The browser captures necessary platform events and copies checked RGBA frames.
-It does not interpret terminal cells, URLs, OSC commands, command names, or
-filesystem paths. Clipboard transfer requires an explicit local-user gesture
-and bounded shared-memory buffers. Fullscreen is likewise a browser gesture.
-Details live in [`display.md`](display.md).
+Dependency-free JavaScript extensions can use `~/.pi/agent/extensions/` and
+`/reload`. Compile TypeScript extensions with `tsc` first.
+There is no npm client, native-addon support or arbitrary npm compatibility.
+Pi package installation that needs npm fails explicitly.
 
 ## Network and credentials
 
-Pi creates ordinary HTTP requests inside Wasm. Janis converts them to Dolly's
-typed mailbox protocol; only `env.dolly_http_dispatch` reaches trusted browser
-code. A hardened embedding can restrict destination, method, credential header,
-redirect, byte count, timeout, and request quota even after total userspace
-compromise.
+Credentials may live in Pi's in-Wasm `auth.json`. They are excluded from
+standard system images but included in user session saves/exports.
+The default broker permits HTTP(S), including caller credentials and requested
+redirects, with byte/time limits but no lifetime request quota.
+This is useful compatibility, not an exfiltration defense.
 
-The public demo intentionally permits generic HTTP(S), subject to browser CORS
-and finite quotas. A page cannot disable CORS. Pi's short system guidance is to
-use direct CORS-enabled endpoints or an owned, reviewed relay and never expose
-credentials to a public anonymous proxy. See [`cors.md`](cors.md) and
-[`security.md`](security.md).
+Catalog refresh and model inference are separate requests. A failed optional
+catalog refresh does not prove that a key or chat endpoint is broken.
+`pi --offline` skips startup catalog/update traffic; it does **not** disable
+provider conversations. Version checking is disabled by the image profile.
 
-Pi's optional catalog refresh uses `https://pi.dev/api/models/providers/openrouter`,
-not OpenRouter's own models endpoint. On 2026-09-06 that service lacked CORS
-permission for Dolly's origin: Firefox rejected a direct page Fetch as well.
-The resulting "could not be refreshed; using cached models" warning does not
-mean the API key or chat request failed. `pi --offline` disables Pi's startup
-catalog/update requests and uses bundled models; provider conversations still
-use the normal HTTP broker. This does not bypass CORS or change browser policy.
+OpenRouter and fixture tool-use flows have browser coverage. Manual PKCE OAuth
+has fixture coverage, but real-provider login still depends on browser CORS and
+supported callback flows; there is no native listener.
+See [HTTP](http.md), [CORS](cors.md) and [local models](browser-local-models.md).
+Local model loading requires the user's explicit browser action.
 
-## Regression gates
+## Limits and verification
 
-1. The browser import allowlist changes only after capability review;
-   `env.dolly_http_dispatch` remains the sole agent-selected network import.
-2. Pi filesystem and module paths cannot observe host files or trigger network
-   loading.
-3. Credentials remain in mutable Wasm state and may leave only in request data
-   accepted by browser policy; snapshots contain none.
-4. Redirect, origin, credential-header, size, timeout, cancellation, and quota
-   rules remain enforceable after total in-Wasm compromise.
-5. Repeated Pi invocations reset timers, modules, descriptors, tty modes,
-   command exit state, display ownership, abandoned HTTP work, and input queued
-   for the preceding foreground process.
-6. A production-worker browser test performs login/model discovery, a streamed
-   model turn, a tool call, a WasmFS edit, a Slop command, terminal input, and
-   a target-compiled TypeScript extension load after restart.
-7. Terminal output cannot autonomously write the system clipboard, open a URL,
-   fetch an image, or select a DOM target.
+Janis provides filesystem/package resolution, timers, streams, crypto helpers
+and child processes; [its contract](javascript-runtime.md) records limitations.
+No raw sockets, worker threads, detached jobs, host environment or
+`process.binding` escape is available.
 
-## Next work
+Pi image resizing is disabled: Photon needs JavaScript's nested WebAssembly API,
+which Janis does not expose. Supported image input passes through unchanged.
 
-1. Broaden the target-Pi provider/extension matrix and turn each missing Node
-   behavior into a focused Janis regression. Keep resolution offline and
-   package installation separate from the runtime loader.
-2. Turn the external profile's new lock/license/risk/candidate census into an
-   exact reachability-based pruning policy; do not execute npm lifecycle scripts
-   or add native addons implicitly.
-3. Finish Git's HTTP remote-helper path so Pi can install reviewed Git
-   extensions using the existing broker.
-4. Add full TypeScript type inputs only when their diagnostic value justifies
-   retaining that source graph; keep emit and type-check claims distinct.
-5. Add package-manager behavior only for concrete agent workloads. Keep native addons,
-   lifecycle scripts, workers, and background processes out until evidence
-   demands them.
-6. Turn any reproducible unexpected Pi exit into a focused regression and fix
-   its cause; retain the bounded restart only as session-loss mitigation.
-
-The broader sequence and acceptance gates are in [`roadmap.md`](roadmap.md),
-while exact current tool evidence is in [`port-status.md`](port-status.md).
+Browser fixtures cover the TUI, split UTF-8/SSE, live child output, cancellation,
+credential persistence and target-compiled extension use. Local small-model
+independent Studio tasks remain unreliable; see the [handoff](audit-handoff.md).

@@ -1,164 +1,93 @@
 # Static deployment
 
-Build and browser-verify the normal release first (`npm run publish`). Export
-that sealed release into a new directory; the parent directory must exist:
+The public sites are [GitHub Pages](https://daugasauron.github.io/dolly/) and
+[daugasauron.com](https://daugasauron.com/), backed by the Cloudflare Pages
+project `dolly`. They consume the same audited `dolly-pages.tar.gz` artifact,
+not separately rebuilt images. The [handoff](audit-handoff.md) records the checkpoint.
+
+## Export
+
+First publish and browser-verify a sealed release. Export to a new directory
+whose parent already exists:
 
 ```sh
-npm run export:static -- build/releases/current build/static-site /
+npm run export:static -- build/releases/current build/static-site /dolly/
+npm run export:pages -- build/releases/current build/pages-site
 ```
 
-Use `/dolly/` instead of `/` when hosting below that prefix. The exporter verifies
-the complete release, reads only its sealed files, refuses existing destinations,
-and publishes its owned staging directory only after completion. It does not
-upload anything. `deployment.sha256` checks the exported bytes with
-`sha256sum --check deployment.sha256` from the output directory.
+The static exporter uses the supplied prefix; the Pages exporter uses `/`.
+Both verify sealed input, reject an existing destination and publish staging
+atomically. Neither uploads anything. Run `sha256sum --check deployment.sha256`
+inside an export to verify its uploaded bytes.
+
+GitHub's manual workflow consumes the audited artifact and uses `/dolly/`.
+The domain uses that same artifact with root navigation and Pages-specific
+delivery headers/encoding. Compare decoded immutable bytes against
+`release/files.sha256`, not compressed wire representations.
 
 ## Delivery contract
 
-All paths below are relative to the configured public prefix.
+| Path, relative to public prefix | Cache behavior |
+| --- | --- |
+| `_dolly/RELEASE/` code, recipes and source/runtime assets | Immutable |
+| `dist/packs/HASH.snapshot.gz` shared snapshot packs | Immutable |
+| Public HTML and `coi-serviceworker.js` | No-store |
 
-| Path | Contents | Cache policy |
-| --- | --- | --- |
-| `_dolly/RELEASE/` | Immutable application code, recipes, source archives and runtime assets | `public, max-age=31536000, immutable` |
-| `dist/packs/HASH.snapshot.gz` | Shared content-addressed snapshot packs, stored only once | `public, max-age=31536000, immutable` |
-| Public HTML, `coi-serviceworker.js` | Clean navigation and isolation bootstrap | `no-store` |
+User routes stay clean, such as `/gamedev/`, `/custom/` and `/session/NAME`;
+the hash in asset URLs prevents an open tab from mixing releases.
 
-HTML pins its resources to one release while links stay clean (`/gamedev/`,
-`/session/`, `/custom/`). There is no runtime asset-server configuration or
-guest-controlled asset origin. An edge server can route the two immutable path
-prefixes to object storage and the small HTML pages to another backend, while
-the browser still sees one HTTPS origin. This does not change Dolly's HTTP broker.
+Serve directory `index.html` files. Unknown navigations use the packaged
+`404.html`, preserving URL and 404 status for first visits to named sessions.
+Missing assets must not receive an HTML success response. Preserve MIME types.
 
-Serve directory routes through `index.html`. Unknown navigations must serve the
-packaged `404.html`, retaining the requested URL and HTTP 404 status; this enables
-first visits to `/session/NAME`. Missing assets must remain failures, not receive
-an HTML success response. Preserve MIME types, especially JavaScript modules and
-`application/wasm`.
+Prefer `Cross-Origin-Opener-Policy: same-origin`,
+`Cross-Origin-Embedder-Policy: require-corp` and
+`Cross-Origin-Resource-Policy: same-origin`. On hosts without these headers,
+the root service worker establishes isolation for same-origin responses;
+cross-origin broker requests pass through unchanged.
 
-Prefer these response headers:
+Snapshot `.gz` files are application payloads: do **not** mark them
+`Content-Encoding: gzip`. Dolly decompresses and verifies those bytes itself.
 
-```text
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-Cross-Origin-Resource-Policy: same-origin
-```
+## Cloudflare Pages
 
-On hosts without configurable headers, the service worker establishes isolation
-for same-origin responses. It lives at the public application root, not under
-the immutable release prefix. Cross-origin broker requests pass through unchanged.
-Snapshot `.gz` files are compressed application payloads: do **not** mark them
-`Content-Encoding: gzip`; Dolly explicitly decompresses and verifies those bytes.
-Ordinary HTTP compression can be used for uncompressed application assets.
+This deployment is static only: no Functions, Worker, R2 origin or proxy.
+The Pages exporter enforces its configured file/count/header limits and
+Brotli-compresses oversized source/compiler downloads. Browser-loaded runtime
+code is not precompressed; snapshot packs remain unchanged.
 
-## Publishing and retention
-
-GitHub Pages and `daugasauron.com` must consume the **same audited
-`dolly-pages.tar.gz` release asset**, identified by its SHA-256 and source commit.
-Do not rebuild images for the second host. Verify/extract that artifact, then use
-`export:static` with `/dolly/` for GitHub and `export:pages` with `/` for the domain.
-Both exports preserve the same sealed application, runtime, recipes and snapshot
-bytes. Only public navigation prefixes and HTTP delivery headers/encoding differ.
-Compare the decoded immutable assets to the shared `release/files.sha256` seal.
-
-Upload immutable assets first, verify their hashes, then switch the public HTML
-as one deployment. Never replace bytes at an existing immutable URL. Keep old
-release directories and snapshot packs available for open tabs; the exporter
-emits one release, so the deployment's storage policy must preserve predecessors.
-Do not use a destructive sync of a single export over all existing assets.
-
-The GitHub Pages workflow verifies the audited input artifact and exports this
-layout using the configured Pages prefix. Pages replaces the whole deployment;
-one-release uploads do not preserve assets for old tabs. It also limits published
-sites to 1 GB and has a 100 GB/month soft bandwidth limit, making it a constrained
-demo target rather than the intended high-load deployment.
-[GitHub Pages limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits).
-
-Cloudflare Pages is the selected high-traffic host. Its production site is
-`https://dolly-9dk.pages.dev/`, project `dolly`; no Functions or storage bindings
-are deployed. The September 8 deployment `e0e677db-e059-425c-8084-e0ad240bbf7c`
-uses release `fe1e44c38acd11c07d82586d70b2315db26c7461d16b02c1e5afc64cab40ac7a`
-from the same `pages-32d3b34-r1` artifact as GitHub Pages.
-
-## Fixed-cost release candidate
-
-The release target is flat-cost static delivery, not a metered application
-backend. **Cloudflare Pages, without Functions**, documents free, unlimited static
-requests. Its free-plan limits are 25 MiB per file, 20,000 files and 100 header
-rules. [Static request pricing](https://developers.cloudflare.com/pages/functions/pricing/#static-asset-requests),
-[Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
-
-The Pages-specific exporter verifies sealed releases, Brotli-compresses oversized
-binary downloads and emits `_headers`. It refuses assets that still exceed the
-limits. The browser receives the original, hash-verified bytes through normal
-HTTP decoding; no loader or Wasm import changes are needed. `dolly.data` shrinks
-from 113,301,428 to 24,924,158 bytes with Brotli-9. Snapshot packs remain unchanged.
-The exporter deliberately rejects new oversized browser-code assets until their
-delivery is verified; it only compresses source artifacts and the compiler seed.
+Compressed SOURCE downloads use `application/octet-stream`: the tested Pages
+runtime otherwise overwrites the encoding for Wasm MIME types. Do not substitute
+Workers Static Assets; its tested encoding behavior is different.
 
 ```sh
-npm run export:pages -- build/releases/current build/pages-site
-# Subsequent deployment: include every predecessor that must remain usable.
+# Include sealed predecessor releases needed by existing tabs.
 npm run export:pages -- build/releases/current build/pages-next build/releases/PREVIOUS_RELEASE_ID
-```
-
-Additional arguments are **sealed release directories**, not previous exports.
-Their immutable assets are retained, shared packs deduplicated and only the
-current release supplies public HTML. Limits fail before atomic publication;
-old releases are never silently dropped. Keep the original sealed releases for
-the next export. `deployment.sha256` describes the actual uploaded bytes,
-including their encoded representation and headers. The original release's
-manifest still describes the decoded application bytes.
-
-Local Wrangler 4.129.1 Pages tests require opaque `application/octet-stream` for
-compressed SOURCE downloads, including the Zig executable. With
-`application/wasm`, its local server overwrites `Content-Encoding` and corrupts
-delivery. Browser-loaded runtime modules remain `application/wasm` and are not
-precompressed by this exporter. **Workers Static Assets is not interchangeable**:
-its local server double-compresses even opaque precompressed files.
-
-Check public Pages delivery after every export: decoded asset hashes, browser
-boot/rebuild, cross-origin isolation, named-session restoration and old-release
-URLs. Do not add a Function, Worker, R2 origin or proxy merely to pass these checks;
-that changes the fixed-cost assumptions. September 8 public checks pass all 14
-decoded compressed-download hashes, unchanged gzip packs, isolation/cache/MIME
-headers, retained-release URLs and Studio's session file round-trip
-(`build/stable-release-pages-public-{transport,sessions}.log`).
-A cold system rebuild and its compiled filesystem inventory also pass
-(`build/stable-release-pages-public-rebuild-2.log`).
-The two-release export contains 2,820 files, about 674 MB total, with a largest
-file of 24,980,297 bytes. These are deployment totals, not per-visitor downloads:
-an image loads only its selected assets/packs.
-
-Upload an already verified export with the authenticated CLI:
-
-```sh
 npx wrangler@4.129.1 pages deploy build/pages-next --project-name dolly --branch main
 ```
 
-Verify the public release seal before switching a custom domain. Keep both the
-sealed release and export manifest as the deployment receipt; do not rebuild
-images for another host.
+Predecessor arguments are sealed release directories, not old exports.
+Their immutable assets are retained and packs deduplicated; only the current
+release supplies public HTML. Limits fail before publication, never silently
+dropping predecessors.
 
-R2's zero egress fee is not a fixed bill: storage and origin reads are metered.
-Budget alerts are not spending caps; a cap that stops serving also fails the
-availability requirement. [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
-No finite hosting plan guarantees unlimited availability; provider terms and
-upstream model-weight availability remain constraints even with free static traffic.
+Disable CDN HTML rewriting, email obfuscation and injected analytics. They alter
+the reviewed browser code or source views. Verify delivered hashes and requests,
+not just dashboard settings. Do not place credentials in build artifacts.
 
-`https://daugasauron.com/` now replaces the old site and serves the same release.
-GitHub Pages deployed first. The Cloudflare zone and Pages project share the same
-account; the root points to `dolly-9dk.pages.dev`. Domain HTTPS, decoded hashes,
-isolation headers and browser session restoration pass
-(`build/stable-release-domain-{transport,sessions}.log`). Pages' DNS verification
-is active, with separate HTTP validation still pending at the last check.
-Wrangler's OAuth login can deploy Pages but cannot read/edit DNS. Preserve email
-and unrelated records when changing the root website's DNS.
+## Release checks and retention
 
-Another candidate is CloudFront's **$15/month Pro flat-rate plan**, with 50 TB
-and 10 million requests as monthly allowances, not hard cutoffs. It has no CDN
-overage charges; sustained excess usage can reduce delivery performance. Origin
-costs remain separate: S3 storage credits do not establish a cap on S3 request
-charges. An entirely fixed bill would also need a fixed-cost origin and bounded
-ancillary services. This is a fallback to evaluate, not a purchased plan.
-[Plan prices](https://docs.aws.amazon.com/PricingPlanManager/latest/UserGuide/plans.html),
-[allowances and covered costs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/flat-rate-pricing-plan.html).
+Verify decoded hashes, MIME/isolation/cache headers, boot/rebuild, named-session
+restoration and old-release URLs after deployment. Keep source commit, sealed
+release and export manifest as receipts. Do not edit source during sealing.
+
+Upload immutable assets before switching HTML; never replace existing immutable
+bytes. Keep predecessor releases for pinned tabs. GitHub Pages replaces a whole
+deployment, so exporting only one release does not preserve old tabs.
+
+Flat-cost expectations depend on remaining static-only and within provider
+terms. Consult [Pages limits](https://developers.cloudflare.com/pages/platform/limits/),
+[static request pricing](https://developers.cloudflare.com/pages/functions/pricing/#static-asset-requests)
+and [GitHub limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)
+before changing delivery. These do not guarantee unlimited availability or
+availability of external model-weight hosts.

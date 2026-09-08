@@ -148,4 +148,4 @@ Treat any typed import/export, opcode, packet field, pointer width, memory
 limit, or lifecycle rule as an ABI change. Update the WAT, C layout header,
 both sides of the implementation, static contract tests, real browser tests,
 and documentation together. A digest change intentionally invalidates old
-executables, module-cache layers, sessions, and snapshots.
+executables, image caches, sessions, and snapshots.

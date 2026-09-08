@@ -2,11 +2,10 @@
 
 ## One outer capability
 
-The browser-local model experiment routes reserved `*.dolly.invalid` addresses
-to an independent inference worker through this same mailbox. It uses separate
-local admission and never forwards those destinations to Fetch. See the
-[local model protocol](browser-local-models.md); ordinary network policy below
-continues to apply to real HTTP destinations.
+Reserved `*.dolly.invalid` addresses use separately admitted browser-local
+[model](browser-local-models.md) and [build](image-build-service.md) services
+through this same mailbox. They never reach Fetch. The policy below governs
+ordinary remote HTTP destinations.
 
 Programs do not import Fetch, sockets, DNS, or TLS. They call an in-Wasm C API,
 which eventually reaches this one kernel-module import:
@@ -82,7 +81,9 @@ globalThis.DOLLY_HTTP_POLICY = {
 Credential values are ordinary Dolly state. Pi may store them in its in-memory
 home directory or environment and sends its own authorization header, just as
 it does on a conventional machine. The broker never owns, injects, or rewrites
-the value. With no policy object, including in the public Pages demo, it
+the value. Explicit policies default to 256 authorization attempts, including
+denied attempts; exact trusted bootstrap downloads are exempt. With no policy
+object, including in the public Pages demo, it
 preserves those headers and permits generic HTTP(S), including caller-requested
 redirects, without a lifetime request-count limit. Request/response byte caps
 and deadlines still apply. It is therefore
@@ -219,46 +220,10 @@ is no raw-socket API, FTP, SSH transport, custom TLS backend or asynchronous fd 
 The important property is architectural: `libcurl.a` is an adapter above the
 same typed broker. It does not widen the browser import closure.
 
-## HTTP audit checkpoint (2026-09-06)
-
-Keep the architecture: one browser-authorized exchange, byte-oriented request
-and response data, and ordinary runtime adapters above it. One import describes
-authority, not a requirement for one simultaneous request. A serial transport
-is sufficient if its callers queue honestly and cancellation stays responsive.
-The trusted policy and transport remain together in two reviewable modules;
-libcurl's larger compatibility surface is inside Wasm, not additional browser authority.
-
-The byte-path follow-up removes the unused synchronous JS collector and keeps
-uploads binary through QuickJS. Process and browser limits are distinct and
-documented above. Eager response buffering remains; do not claim demand-driven
-backpressure. Redirects now work under the unrestricted policy as described above.
-
-Explicit policies default to 256 attempts reaching agent-request authorization,
-including denied attempts; trusted exact bootstrap downloads are exempt.
-The unrestricted default has no lifetime request quota. Explicit quota
-exhaustion reports `EDQUOT`. This is not a bound on browser-managed preflight
-traffic, total session CPU/memory, or native Fetch's internal allocations.
-
-Evidence: the browser regression reproduced overlapping-request failure;
-broker tests cover policy-before-Fetch, explicit credentials, redirect policy,
-byte limits, non-consuming deadlines and cancellation fencing. Version-4 span
-admission, a stalled-admission flood, and typed failures pass in Chrome and
-Firefox 153; C/libcurl and Janis retain denial diagnostics in browser tests.
-A disposable
-Chrome sandbox on local port 9000 fetched OpenRouter's catalog through curl
-and Janis, and upstream Pi received a verified `deepseek/deepseek-v4-pro` reply.
-Firefox 153 reproduced a separate provider bug: calling unbound native Fetch
-as a broker method throws before networking. Binding it to the browser global
-fixes the real Pi `/login` and chat flow; the regression tests now exercise the
-default provider instead of hiding it behind an injected arrow function.
-Pi's optional `pi.dev` catalog refresh still fails browser CORS independently
-of OpenRouter; see [Pi networking](pi-agent-plan.md#network-and-credentials).
-Safari remains unverified. The broader findings above are source review unless
-a reproducer is explicitly stated; this is not a formal proof.
 
 ## Git transport
 
-The boot build compiles upstream Git 2.55.0 sources into `/usr/lib/libgit.a`,
+The Git module compiles pinned upstream sources into `/usr/lib/libgit.a`,
 links `/usr/bin/git` with zlib, and separately links upstream
 `git-remote-http`/`git-remote-https` with `-lgit -lcurl -lz`. The real-browser
 test proves local operations, HTTP v0/v2 discovery and clone/fetch, checkout,

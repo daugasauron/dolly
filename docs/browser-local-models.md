@@ -86,9 +86,9 @@ includes requesting a different size from the loaded model: guest requests
 never trigger a download or implicitly switch the browser's selection. Invalid
 requests return HTTP 400. Engine failures in an established stream produce an
 OpenAI error event; an incomplete tool response never executes a partial tool.
-The current HTTP mailbox admits one request at a time; overlapping sandbox
-HTTP requests receive `EBUSY`. Pi normally finishes inference before executing
-its tools. There is no additional request queue.
+The HTTP mailbox admits one request at a time. C callers receive `EBUSY` on
+contention; Janis queues overlapping Fetch calls in Wasm. There is no parallel
+inference queue. Pi normally finishes inference before executing tools.
 
 The independent model worker receives copied JSON and returns completion
 chunks. Each worker `next` operation follows downstream demand. This WebLLM
@@ -173,10 +173,8 @@ The `local-model-fp32` proof requires an adapter without `shader-f16` and omits
 the f16 override. It selects the ordinary 2B row, verifies automatic FP32 selection,
 and runs a Pi file-reading turn using the same public model ID.
 
-Firefox 153.0.4 hit a native `WebGPUParent::MapCallback` assertion during a
-long agent run, matching [Mozilla bug 1976766](https://bugzilla.mozilla.org/show_bug.cgi?id=1976766).
-Fixing the tensor leak removes a measured source of GPU memory growth; a worker
-cannot contain a native browser graphics crash.
+Experimental browser GPU implementations can still fail outside Worker-level
+recovery. The tensor-leak regression is not a guarantee against native crashes.
 
 Qwen 2B is a small integration default, not evidence of reliable autonomous
 coding. wllama remains a later adapter, outside this first experiment.

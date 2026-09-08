@@ -5,12 +5,6 @@ reproduce a Linux login shell. It provides the smallest useful command
 contract for building and running agent tools, especially GNU Make recipes,
 inside Dolly's one browser-contained Wasm machine.
 
-This distinction is central to the experiment. Existing agent harnesses are
-often specified as “Node on something Linux-like,” which leaves the actual
-filesystem, process, shell, and network contracts implicit. Slop makes the
-shell portion inspectable: supported syntax has simple synchronous semantics;
-unsupported syntax fails instead of escaping to a host shell.
-
 ## Executable and lifecycle
 
 `src/slop.c` is compiled by Dolly's in-Wasm C compiler at bootstrap and
@@ -50,7 +44,7 @@ outside the shell editor and are not.
 The shell initializes `PATH=/bin:/usr/bin`. A command containing `/` is opened
 directly; every other utility is resolved by searching `PATH` for a regular
 file. Dolly has no user or permission model, so discovery has no execute-bit or
-`chmod` check. Native tools are distinct wasm64 dynamic modules—there is no
+`chmod` check. Tools are distinct private wasm64 executables—there is no
 multicall switch on `argv[0]`. A file with a bounded `#!` line instead dispatches
 to its absolute interpreter inside WasmFS, which gives Python and future
 runtimes conventional script entry points without a host process escape.
@@ -257,15 +251,14 @@ Dolly's kernel `SIGINT` path and returns status 130, leaving Slop and the
 shared in-memory filesystem alive. Cooperative polling gets a 500 ms grace
 period; a process that ignores it has its private Worker forcibly terminated.
 
-Language runtimes can also use `dolly_spawn_timeout` to place an inherited
-deadline around a synchronous Slop invocation. Pi's shell tool always supplies
-an empty finite stdin spool and a 60-second deadline: commands that read stdin
-see EOF instead of taking over Pi's terminal, and instrumented C/C++ or
-QuickJS loops return status 124. Interactive `!` commands deliberately retain
-the terminal. The trusted supervisor also arms a hard timer from the kernel's
-absolute child deadline, so uninstrumented CPU loops are terminated with
-status 124. Only the child process memory is discarded; the kernel filesystem
-and parent runtime survive.
+Pi's shell tool and `!` use pipe-backed child handles, stream stdout/stderr,
+and close stdin with EOF; neither provides an interactive child terminal.
+There is no fixed 60-second tool deadline. Callers may supply a timeout, and
+timed spawns have a trusted supervisor timer that returns status 124 even for
+uninstrumented CPU loops. The kernel filesystem and parent survive.
+
+Known gap: Slop can continue later list/pipeline stages after a child receives
+SIGINT. See the [cancellation task](audit-handoff.md#next-fix-shell-cancellation).
 
 ## GNU Make
 

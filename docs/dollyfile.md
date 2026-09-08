@@ -142,8 +142,9 @@ Recipe values are literal; shell expansion happens inside `SLOP`.
 Unretained intermediate files disappear when the finished image boots. Temporary
 files do not need explicit cleanup to make a module valid. Cleaning large build
 trees can still reduce peak memory. Deleting an earlier retained file removes it
-from the final image. Mutable workspace files, agent credentials, and session
-history cannot be packaged as image outputs.
+from the final image. Standard workspace, temporary and Pi auth/session paths
+are excluded; this is not a secret scanner. Never export credentials under
+another path.
 
 ## Text and inspection
 
@@ -186,24 +187,9 @@ referenced image artifacts. Unpinned network access inside arbitrary commands
 is not made reproducible by the cache; change a recipe pin or rebuild the
 relevant artifact when refreshing such inputs.
 
-Frontend images include `default`, `pi`, `python`, `python-pi`, `gamedev`,
-`bhop` and `gamedev-phone`. Reusable images separate expensive build boundaries:
-
-| Image | Completed input | Adds |
-| --- | --- | --- |
-| `system` | Seed | Shell, commands, compilers, Git, terminal |
-| `javascript` | `system` | QuickJS/Janis and TypeScript |
-| `pi-runtime` | `javascript` | Pi, without startup configuration |
-| `python-runtime` | `system` | CPython and C extension SDK |
-| `gamedev-sdk` | `system` | raylib, Box3D and presentation adapter |
-
-Bonnie builds above `python-runtime`; the game builds above the completed SDK.
-Python+Pi copies only Python's executables, libraries, headers, licenses and
-Bonnie configuration into `pi-runtime`, leaving unrelated Pi/system files alone.
-Consecutive COPY rows reuse one decoded input, released before other operations.
-The SDK keeps upstream sources and libraries, not timestamp-sensitive object
-files. These are ordinary recipes, not a catalog-wide dependency solver or
-another module interface language.
+Expensive compilers and SDKs live in reusable builder images. Frontends copy
+only their selected outputs. The source-visible recipes define the graph;
+there is no catalog-wide dependency solver or implicit module cache.
 
 For image iteration, run `npm run image -- IMAGE`. It prepares the selected
 image's local source inputs, refreshes their `SOURCE HOST` hashes and recipe

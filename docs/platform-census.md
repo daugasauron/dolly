@@ -16,8 +16,7 @@ display plugins and process-local DSOs are excluded.
 
 `build/platform-census-IMAGE.md` maps exact callable imports to executables and
 back. Every process uses the one `dolly_process_0.call` packet gate; the private
-memory import is not counted as an operation. The previous census looked for the obsolete
-`dolly_main` interface and silently produced zero rows; empty results now fail.
+memory import is not counted as an operation. Empty results fail.
 
 This is **not a platform-operation usage census**. File, lifecycle, clock,
 entropy and HTTP requests are operation numbers inside packets, not separate

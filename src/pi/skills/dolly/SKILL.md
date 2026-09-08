@@ -14,8 +14,8 @@ Dollyfiles, toolchain, commands, Pi integration, terminal, or tests.
 
 ## Non-negotiable model
 
-- The complete in-Wasm userspace is one trust domain. Commands may share
-  memory, libc state, a function table, and the WasmFS filesystem.
+- The complete in-Wasm userspace is one trust domain. Ordinary commands have
+  private memory and runtime state, with a shared kernel-owned WasmFS filesystem.
 - Mutable files, descriptors, working directories, environments, and command
   bookkeeping live in WebAssembly memory. No command may reach a host file or
   native process.
@@ -31,7 +31,8 @@ Dollyfiles, toolchain, commands, Pi integration, terminal, or tests.
 
 - `abi/`: typed Wasm machine contracts and snapshot extension.
 - `include/dolly/`: C-facing platform and HTTP interfaces.
-- `src/dolly.c`: runtime, shared filesystem, command lifecycle, and boot.
+- `src/dolly.c`: kernel integration and boot; `src/process-kernel.c`: process
+  records, descriptors, signals and filesystem operations.
 - `src/runtime-worker.mjs`: isolated worker instantiation and broker mailboxes.
 - `src/browser.mjs`: trusted browser UI and capability provider.
 - `src/http-policy.mjs`: browser-side network authorization.
@@ -61,7 +62,7 @@ Dollyfiles, toolchain, commands, Pi integration, terminal, or tests.
 5. Inspect the main module's exact imports after ABI changes. A browser test
    must prove denied host access and the intended capability allowlist.
 
-Inside a packaged Dolly image, `/seed/usr/include/dolly/` contains public
-headers and `/usr/src/dolly/` contains selected build inputs, not the whole Git
-repository. Clone the repository into `/workspace` when the task needs full
-source history and network policy permits it.
+In compiler-equipped images, `/usr/include/dolly/` contains public headers.
+Retained build inputs are not the whole Git repository; `/seed` exists only
+during root rebuilds. Clone into `/workspace` when the task needs full source
+history and network policy permits it.

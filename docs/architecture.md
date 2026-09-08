@@ -1,215 +1,76 @@
 # Architecture
 
-## Thesis
-
-Dolly is a small POSIX-like userspace for coding agents, not Linux emulation.
-Programs get the conventional things that make source ports useful—arguments,
-environment, files, descriptors, cwd, clocks, entropy, pipes, spawn/wait,
-terminal I/O, dynamic libraries, and HTTP—through a defined wasm64 compile
-target.
-
-The target is the product. Browser wrappers and individual language adapters
-can change; the machine contract, data layout, filesystem semantics, and
-lifecycle rules must remain small, typed, inspectable, and versioned.
-
-## Topology
+Dolly is a POSIX-like userspace, not Linux emulation. The compile target is the
+interface: exact Wasm types, packet layouts, files and lifecycle semantics.
+Design constraints live in AGENTS.md; exact contracts live in [abi/](../abi/README.md).
 
 ```text
-trusted browser embedding
-  ├─ fixed application assets and snapshot bytes
-  ├─ Worker lifecycle
-  ├─ raw user input + checked RGBA canvas blit
-  ├─ explicit local-user file download
-  └─ env.dolly_http_dispatch  (only agent-selected network edge)
-                    │
-                    ▼
-kernel Wasm memory64 instance
-  ├─ in-memory WasmFS, cwd, environments and descriptors
-  ├─ process table, pipes, clocks, entropy mediation and signals
-  ├─ terminal/display state and HTTP mailbox
-  └─ one sealed resident Ghostty display plugin
-                    │
-          pointer-free packet syscall
-                    │
-                    ▼
-fresh private process Worker
-  ├─ executable's own shared memory64 and table
-  ├─ statically linked libc, allocator, globals and TLS
-  └─ optional process-local DSOs
+trusted browser: fixed assets, Worker scheduling, bounded devices, HTTP policy
+                                │
+Wasm kernel: filesystem, descriptors, environments, processes, tty, HTTP mailbox
+                                │
+                  typed, pointer-free process gate
+                                │
+private Wasm processes: Slop, compilers, runtimes, tools, games
 ```
 
-The browser is the embedder and device provider, not the OS implementation.
-Filesystem and process semantics stay in Wasm. A trusted multi-memory Wasm gate
-copies bounded packets between one process memory and the kernel mailbox.
+## Processes and tools
 
-## Executables and lifecycle
+Every ordinary command is a `dolly-process-0` executable with a private
+memory and one typed call import. Each spawn gets a fresh Worker and runtime
+state; kernel files and inherited descriptors survive process replacement.
+A multi-memory Wasm gate copies bounded packets, not host objects or pointers.
 
-Every command, shell, compiler, build tool, language runtime, Pi instance, and
-game is a `dolly-process-0` executable. It imports only a private `env.memory`
-and `dolly_process_0.call`, then exports `_start`. The supervisor constructs a
-fresh instance for every spawn and discards its complete address space on exit.
+Executable files are found through `PATH`; supported `#!` scripts resolve
+absolute in-Wasm interpreters. Execution does not depend on permission bits.
+The libc adapter translates Emscripten musl's low-level calls to Dolly operations;
+final programs do not import WASI or Emscripten's browser API.
 
-This mirrors the useful property of Linux `execve`: user memory is new while
-kernel objects survive. Dolly preserves selected descriptor descriptions, cwd,
-environment values, filesystem state, parent/child records, and exit status in
-the kernel. It does not try to snapshot and reset libc or LLVM globals inside a
-shared address space.
+Clang/LLD/LLVM run in a private compiler executable behind `cc`, `c++`,
+`ld` and `ar`. Zig is separate and installed only in `ghostty-build`.
+C++ and process-local DSOs share their owning process's memory/table, not the
+kernel's. See [process semantics](process-model.md).
 
-Regular files beginning with `#!` are the second executable form. The kernel
-accepts a bounded line containing an absolute in-Wasm interpreter and at most
-one optional argument, rewrites argv conventionally, and repeats normal Wasm
-loading. It cannot name a host executable.
+The kernel owns spawn/wait, pipes and signals. The supervisor can terminate an
+uncooperative Worker without discarding the filesystem. Fork, native threads,
+raw sockets and complete POSIX job control are unsupported. Serial execution is
+intentional; known shell cancellation gaps are in the [handoff](audit-handoff.md).
 
-Execution does not depend on Unix permission bits. `PATH` resolution finds a
-regular Wasm executable or supported shebang file; ownership and chmod are not
-security mechanisms in Dolly.
+## Images and files
 
-Ctrl-C targets the foreground process tree. The kernel records `SIGINT`, wakes
-a deferred call with `EINTR`, and exposes a cooperative poll. The trusted
-supervisor forcibly terminates a Worker after a 500 ms grace period if code
-does not reach a safepoint. Status 130 and descriptor/display cleanup remain
-kernel-owned, so the shell and filesystem survive a hung compiler or program.
+The kernel's in-memory WasmFS is the only filesystem. Browser storage is never
+mounted. Descriptors are per-process handles to kernel-owned files or pipes.
 
-## Platform substrate
+[Dollyfile 3](dollyfile.md) executes in Wasm, row by row. Modules build ordinary
+programs from pinned source; images retain explicit outputs and environment.
+Completed images, not modules, are cached. `FROM` and `COPY` reuse verified
+image artifacts.
 
-`include/dolly/process.h` defines the closed operation set and packet layouts:
+A root rebuild starts with externally bootstrapped kernel/compiler bytes and a
+runner that compiles Slop and the Dollyfile executor. Derived rebuilds use their
+declared base. Prebuilt boot restores a sealed snapshot without downloading the
+compiler seed or compiling sources. [Sources](sources.md) records the exceptions.
 
-- argument and environment transfer;
-- descriptor read/write/seek/stat/sync/dup/pipe/directory operations and
-  deadline-bounded readiness polling;
-- path open/stat/create/remove/rename/link/symlink/readlink/cwd operations;
-- clock, sleep, entropy, terminal and explicit download operations;
-- spawn, wait, signal polling and exit;
-- streaming HTTP; and
-- exclusive framebuffer lease operations.
+Named [sessions](sessions.md) save filesystem deltas against an exact base
+image, not process memory. Standard mutable workspace, temporary and Pi auth/
+session paths are excluded from system snapshots; this is not a general secret
+scanner. Unsaved state disappears when the tab is closed.
 
-The initial libc is pinned Emscripten musl compiled in standalone wasm64 mode.
-`src/process/libc-adapter.c` translates its low-level WASI-shaped calls into the
-single Dolly process call, so final executables do not import WASI. This is a
-bootstrap implementation below the public libc API, not a promise that
-Emscripten's JavaScript ABI is Dolly's platform.
+## Display and browser authority
 
-Raw sockets deliberately fail inside the process runtime. HTTP libraries use
-the typed kernel operations, which alone reach the browser broker. Fork and
-threads are absent; serialized process-shaped behavior is preferred whenever
-that is enough for agent tooling.
+Ghostty is the one resident kernel plugin. Its narrow loader accepts WasmFS
+bytes and links an explicit kernel export map; it cannot fetch dependencies or
+evaluate JavaScript. System images copy its finished plugin, font and licenses
+from `ghostty-build` without retaining the Zig SDK.
 
-Child retirement queues a coalesced SIGCHLD notification only after WAIT can
-collect the exit status. Its default disposition is nonterminating; local
-signal masks defer handlers. This is not job control or complete POSIX siginfo:
-child status comes from waitpid, and SA_NOCLDWAIT remains unsupported.
+Bootstrap progress uses a plain-text sink. Once Ghostty loads, VT parsing,
+scrollback, selection and font rasterization run in Wasm; the browser blits
+checked RGBA. Foreground graphics programs can lease the display and return it
+on exit. See [display](display.md).
 
-## Compiler and C++
-
-Clang 24, LLD and LLVM live in an ordinary private compiler executable. Small
-`/bin/cc`, `/bin/c++`, `/bin/ld` and `/bin/ar` frontends spawn it through the
-same process API as every other program. Zig is a separate executable with its
-own LLVM/LLD backend, installed only in the `ghostty-build` image. The main
-kernel links neither compiler. System images copy that builder's finished
-terminal plugin, font and licenses without retaining its Zig SDK.
-
-The driver reads and writes only kernel-backed filesystem paths. It links the
-process adapter, libc, allocator, compiler builtins, and (for C++) libc++,
-libc++abi, and unwind support. Final executables are validated and stamped
-before atomic publication. A failed or cancelled compilation loses only the
-compiler process memory.
-
-Process-local DSOs share the owning executable's memory/table and resolve
-against its exported libc/C++/application namespace. Dolly's source-built
-libffi translates `ffi_call` and closure operations inside the same Worker,
-which is sufficient for CPython `_ctypes` without another browser import.
-
-One deliberately different format exists: a sealed resident kernel plugin for
-Ghostty's terminal driver. It is compiled only with
-`--dolly-kernel-plugin -shared` against the narrow
-`dolly-kernel-plugin-0` contract. It is not available as an ordinary command
-format. Trusted boot code copies its WasmFS bytes and instantiates them through
-`src/kernel-plugin.mjs` using only actual kernel Wasm exports and shared
-memory/table globals. The statically linked kernel has no general browser
-dynamic-loader import; the boot loader accepts no URL or dependency path.
-
-## Filesystem and image construction
-
-The root filesystem is an in-memory WasmFS backend owned by the kernel. Browser
-storage is never mounted. Process descriptor numbers map to per-process kernel
-records; copied descriptors may reference the same in-Wasm open file or pipe.
-
-Each source-visible Dollyfile selects pinned `.dm` modules. `/rebuild/` runs a
-C Dollyfile engine inside a private process. It handles rows strictly in order:
-fetch one authorized source, verify SHA-256, write it into WasmFS, execute its
-Slop command, check outputs, clean temporary state, then continue. V3 caches
-completed images, never individual modules. `FROM` and `COPY` reuse explicit
-image artifacts; cache identity includes the actual direct input digests.
-
-The seed has two executables: the bootstrap runner and compiler. Without a
-`FROM` base, the runner compiles Slop, `/bin/dollyfile`, and the tiny compiler
-frontends from seeded source. With a base, boot validates its entire snapshot
-but restores only `/bin/dollyfile`; that command's `FROM` performs the sole full
-base restore. Everything else is built by the chosen module graph. The
-`bootstrap` module exports the compiler and its complete process SDK explicitly;
-images retain them through ordinary module re-exports.
-
-Prebuilt boot restores the sealed snapshot without downloading the compiler seed,
-replaying builds, fetching source archives, or running acceptance probes. Both
-boot paths discard unretained build inputs before starting the entry program.
-Only runtime-owned `/dev` (plus `/seed` after a root rebuild), empty working
-directories, and the exact retained image remain. Process acceptance programs
-are source-built and run by the browser test harness, not production startup.
-
-## Terminal and graphics
-
-Before Ghostty exists, a bootstrap-only browser callback displays plain build
-progress. After the source-built driver loads, terminal bytes, VT parsing,
-scrollback, selection, paste rules, font rasterization, and the cell grid stay
-inside the kernel Wasm instance. The browser validates metadata and blits one
-complete RGBA buffer; it does not parse escape sequences.
-
-A foreground process can lease the framebuffer through process opcodes. Its
-pixels remain in private process memory until copied in bounded chunks through
-the gate into an inactive kernel frame. Present swaps only a complete checked
-frame. Exit, SIGINT, or Worker failure releases the lease and restores the
-resident terminal. Programs receive semantic input records, never DOM or
-Canvas objects.
-
-## Network and containment
-
-Assume total compromise of all in-Wasm state. The host-security perimeter is
-the import closure of the main runtime and the trusted browser implementations
-behind it. Private process memories improve correctness and availability; they
-are not required for the containment thesis.
-
-`env.dolly_http_dispatch` is the sole intentional agent-selected network
-import. A compromised userspace can format arbitrary method, URL, headers, and
-body for that broker, so origin, path, credential-header, redirect, quota,
-timeout, and approval policy must be enforced browser-side. No in-Wasm check is
-trusted for egress policy.
-
-Other browser crossings are narrow device or explicit-user channels: raw
-input, checked pixels, bootstrap text, fixed assets, entropy/clocks, named
-opaque session bytes, and an explicit local file download. The complete threat
-model and allowlist requirements are in [security.md](security.md).
-
-## Snapshots and sessions
-
-System snapshots are immutable deployment artifacts bound to the runtime build
-ID, exact recipe chain, module identities, entry record, retained manifest,
-length, and SHA-256. Mutable `/workspace`, credentials, and `/tmp` are excluded.
-
-Named sessions are explicit opaque filesystem serializations stored in
-same-origin IndexedDB. The guest gets no storage API or host path. A session is
-restored only when its runtime/image identity matches; closing an unsaved tab
-destroys its mutable state.
-
-## Deliberate limitations
-
-- wasm64, shared memory, multiple memories, and Workers are required;
-- no native host filesystem, process, socket, DOM, or ambient Fetch capability;
-- no fork, threads, multiprocessing, or performance-oriented parallel make;
-- serialized pipes and process scheduling are acceptable;
-- raw TCP/UDP compatibility is out of scope; ports use the HTTP bridge; and
-- the resident display plugin is an internal bootstrap exception, not a second
-  general application ABI.
-
-See [the ABI reference](../abi/README.md), [process model](process-model.md),
-[security model](security.md), [Dollyfile language](dollyfile.md), and
-[roadmap](roadmap.md).
+Private processes improve recovery, not the host-containment thesis. Assume
+the entire Wasm userspace is compromised. The trusted outer imports and their
+browser implementations are the security perimeter. HTTP uses one explicit
+broker; other crossings are bounded devices and user file/session operations.
+The [review map](browser-boundary.md) identifies their implementation, and the
+[security model](security.md) explains their authority.

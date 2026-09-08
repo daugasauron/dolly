@@ -17,7 +17,7 @@ config/source-pins.sh
         v
 fetch/prepare scripts --> verified .cache checkouts and build/generated trees
         |
-        +--> external wasm64 Clang/LLD and native Zig command
+        +--> external bootstrap of wasm64 Clang/LLD and Zig commands
         |
         +--> deterministic independent dist/static inputs and ustar archives
         |
@@ -46,10 +46,9 @@ images and builds with a base already contain their compiler and do not fetch
 the seed. The small kernel does not link the compiler. No permission or
 executable-bit policy is added to Dolly.
 
-Every other input appears as an independent `SOURCE HOST location destination
-HASH` row in one of the pinned `/modules/*.dm` recipes selected by `Dollyfile`,
-`Dollyfile-pi`, `Dollyfile-python`, `Dollyfile-python-pi`, or
-`Dollyfile-gamedev`.
+Other inputs appear as `SOURCE HOST location destination HASH` or `SOURCE URL`
+rows in the selected Dollyfile/module graph. HOST pins the prepared release
+bytes; URL fetches its independently pinned upstream bytes during a rebuild.
 `scripts/verify-static-sources.mjs` checks
 the actual served byte sequence for every row. There is no aggregate `.assets`
 filesystem image and no JavaScript recipe compiler.
@@ -156,7 +155,7 @@ browser and that the resulting retained files can be serialized.
 
 - Under the pinned toolchain and browser, target compiler scratch names,
   single-threaded LLD section merging, and CPython build metadata are fixed so
-  cold, packaged-prefix, and module-layer builds produce identical snapshot
+  cold, packaged-prefix, and cached-image builds produce identical snapshot
   bytes. Cross-kernel and cross-browser bit reproducibility is not yet claimed;
   logical identity and every input byte remain sealed and verified there.
 - Prepared Git/Ghostty/Zig trees contain reviewed target adaptations; reducing

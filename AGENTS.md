@@ -4,9 +4,8 @@ Define a minimal but useful POSIX-like agent userspace interface for WebAssembly
 The final goal is to run agents such as pi agent as natively as possible in a
 browser with the tools that coding agents actually need to be useful.
 
-A secondary but important goal is to define the actual API that and agent
-opeates in to be able to specialize it without considering how the backend (in
-this case the browser) is implemented.
+A secondary goal is to define the API an agent operates against, so it can be
+specialized independently of the backend (currently the browser).
 
 # Thesis
 
@@ -23,7 +22,7 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
 
 - **Every line of code is a maintenance burden**
 - This includes documentation, tests and comments.
-- Every line in this repo has to earn it's right to be there
+- Every line in this repo has to earn its right to be there
 - Documentation rot
 - Removing code is a win
 - Never keep/add code that "might be useful in the future"
@@ -39,7 +38,7 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
 - Dolly runs in a browser WebAssembly sandbox and targets wasm64.
 - Mutable userspace state lives in WebAssembly memory. This includes filesystem
   contents and metadata, file descriptors, working directories, environments,
-  and future process bookkeeping.
+  and process bookkeeping.
 - The browser host is not Dolly's filesystem and cannot provide native
   subprocesses.
 - Network access crosses one explicit, restrictable browser broker. Programs do
@@ -55,7 +54,7 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
   language or runtime.
 - The core interface must remain small, typed, inspectable, and versioned.
 - Dolly is a clean experiment. Do not import architecture or implementation
-  from Piodide merely because it already exists.
+  from Pyodide merely because it already exists.
 
 # Interface layers
 
@@ -69,23 +68,20 @@ Keep these layers distinct:
 4. Agent-facing behavior emerges from ordinary commands and files rather than
    a large agent-specific host API.
 
-The current Emscripten main-module libc surface is an experimental probe, not
-automatically the stable Dolly ABI. The long-term target should sit below libc
-so arbitrary runtimes can share a small substrate without permanently exposing
-every libc entry point.
+The process contract sits below libc. Its current Emscripten musl adapter is a
+bootstrap implementation, not the stable interface. The resident Ghostty plugin
+has a separate internal contract; programs must not compile against kernel libc.
 
 # Runtime model
 
-The initial implementation may use shared-everything dynamic objects: commands
-share an address space, allocator, function table, libc, and filesystem. This
-does not isolate commands from one another; the security boundary is between
-the complete Dolly userspace and the browser host.
+Ordinary commands run in fresh private Wasm memories. The Wasm kernel owns the
+shared filesystem, descriptors, environments, spawn/wait, pipes and signals.
+Private processes support lifecycle and recovery; the security boundary remains
+between the complete Dolly userspace and the browser host.
 
-Process-shaped behavior such as `spawn`, `wait`, exit status, pipes, and signal
-delivery should eventually be implemented inside Dolly. Until then,
-subprocess-related operations must fail explicitly rather than escaping to the
-host. Command-local `exit` is caught at the nested invocation boundary; fatal
-`abort` remains a runtime-wide version-0 limitation.
+Process exit, abort or forced Worker termination must preserve the kernel and
+shell. Unsupported operations fail explicitly rather than escaping to the host.
+Prefer simple serial semantics over multiprocessing or performance machinery.
 
 # Development rules
 
@@ -108,9 +104,9 @@ host. Command-local `exit` is caught at the nested invocation boundary; fatal
 
 # Bootstrapping direction
 
-Use a current external C/C++ toolchain first to define and test the target. Once
-the target is credible, compile a C/C++ compiler for Dolly so programs can be
-built inside the sandbox and written directly into the shared filesystem.
+An external toolchain builds the kernel and compiler seed. The resulting
+in-sandbox C/C++ compiler builds ordinary programs into the shared filesystem.
+Keep bootstrap exceptions explicit in `docs/sources.md`.
 
 Keeping the Wasm runtime interface, filesystem substrate, lifecycle model, and
 browser network broker small and well defined is the central design priority.

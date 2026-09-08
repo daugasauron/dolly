@@ -432,10 +432,9 @@ test("the main-module provider exports Emscripten side-module stack bounds", asy
 });
 
 test("browser acceptance preserves compiler lifecycle probes on the private process model", async () => {
-  const [harness, launcher, roadmap, compiler] = await Promise.all([
+  const [harness, launcher, compiler] = await Promise.all([
     readFile(new URL("../scripts/browser-harness.mjs", import.meta.url), "utf8"),
     readFile(new URL("../scripts/test-browser.sh", import.meta.url), "utf8"),
-    readFile(new URL("../docs/roadmap.md", import.meta.url), "utf8"),
     readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8"),
   ]);
   assert.match(harness, /isMode\("zig-sdk"\)/);
@@ -444,9 +443,6 @@ test("browser acceptance preserves compiler lifecycle probes on the private proc
   assert.match(harness, /isMode\("make"\)/);
   assert.match(launcher, /DOLLY_BROWSER_MODE=cpp/);
   assert.match(launcher, /DOLLY_IMAGE=ghostty-build DOLLY_BROWSER_MODE=zig-sdk/);
-  assert.match(roadmap, /every ordinary executable a fresh Worker/);
-  assert.match(roadmap, /run mixed Zig and[\s\S]*Clang sequences/);
-  assert.match(roadmap, /pure CPU loop exits 124/);
   assert.match(compiler, /"-vectorize-loops"/);
   assert.match(compiler, /"-vectorize-slp"/);
   assert.ok(browserShellCases(new Set(), "http://fixture.invalid")

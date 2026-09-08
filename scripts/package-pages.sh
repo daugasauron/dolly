@@ -134,6 +134,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${staging}/site/src/"
 cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
 cp "${project_dir}"/include/dolly/*.h "${staging}/site/include/dolly/"
+cp "${project_dir}/LICENSE" "${staging}/site/LICENSE"
 for image_name in "${image_names[@]}"; do
   cp -R "${project_dir}/build/routes/${image_name}" "${staging}/site/"
 done
