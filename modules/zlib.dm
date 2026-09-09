@@ -8,7 +8,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE HOST /static/default/zlib.tar /tmp/zlib.tar 40b7d2e43d4020d6d58ff480ccfab6fed01797276111f77281c45dec886c6dff
+SOURCE HOST /static/default/zlib.tar /tmp/zlib.tar 3ff2e65dc35be0baa91250384dbe2b0d7c16aa73496dc20eeca86221588ead73
 SLOP tar \
   -xf /tmp/zlib.tar \
   -C /
@@ -17,7 +17,7 @@ FILE /tmp/zlib/Makefile
     .RECIPEPREFIX := >
     CC := cc
     AR := ar
-    NAMES := adler32 crc32 deflate gzclose gzlib gzread gzwrite infback inffast inflate inftrees trees uncompr zutil
+    NAMES := adler32 compress crc32 deflate gzclose gzlib gzread gzwrite infback inffast inflate inftrees trees uncompr zutil
     OBJECTS := $(addprefix /tmp/zlib/,$(addsuffix .o,$(NAMES)))
     all: /usr/lib/libz.a
     /tmp/zlib/%.o: /usr/src/zlib/%.c

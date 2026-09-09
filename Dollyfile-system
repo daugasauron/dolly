@@ -1,17 +1,17 @@
 DOLLY 3
 IMAGE system
 
-FROM HOST /Dollyfile-system-build b11afa06577766217d008e25a68a33bf49059261ed07a3985768ba729d941c7b
+FROM HOST /Dollyfile-system-build bd5e65a3927e71679024afe324a54d4cd2d6c4800c2c9b286f07210c30dabd04
 
 # Keep the tools produced by the in-sandbox Rust source builds.
-COPY FROM HOST /Dollyfile-ripgrep f9130d8ffeda1fd4e8ee8f528f29a80dbff7fed464b919b8430bdbe46db146f8 /usr/bin/rg /usr/bin/rg
-COPY FROM HOST /Dollyfile-ripgrep f9130d8ffeda1fd4e8ee8f528f29a80dbff7fed464b919b8430bdbe46db146f8 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
-COPY FROM HOST /Dollyfile-ripgrep f9130d8ffeda1fd4e8ee8f528f29a80dbff7fed464b919b8430bdbe46db146f8 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
+COPY FROM HOST /Dollyfile-ripgrep c16d9a799bb44fd4f66d9199e11e018c5ae8cfeaf52983832b335762c75ba90b /usr/bin/rg /usr/bin/rg
+COPY FROM HOST /Dollyfile-ripgrep c16d9a799bb44fd4f66d9199e11e018c5ae8cfeaf52983832b335762c75ba90b /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
+COPY FROM HOST /Dollyfile-ripgrep c16d9a799bb44fd4f66d9199e11e018c5ae8cfeaf52983832b335762c75ba90b /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
 EXPORTS TOOL rg
 
-COPY FROM HOST /Dollyfile-fd-build 77a6629fa97c484d813d3e5cd24a6cfc00c73655fa9a13a85ffd8c4dfcbb3904 /usr/bin/fd /usr/bin/fd
-COPY FROM HOST /Dollyfile-fd-build 77a6629fa97c484d813d3e5cd24a6cfc00c73655fa9a13a85ffd8c4dfcbb3904 /usr/share/licenses/fd /usr/share/licenses/fd
-COPY FROM HOST /Dollyfile-fd-build 77a6629fa97c484d813d3e5cd24a6cfc00c73655fa9a13a85ffd8c4dfcbb3904 /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
+COPY FROM HOST /Dollyfile-fd-build 631dfb1aab94cdf155c0d7a81c18cab6ef6b6f8ebf53f4a10de8168fe864850e /usr/bin/fd /usr/bin/fd
+COPY FROM HOST /Dollyfile-fd-build 631dfb1aab94cdf155c0d7a81c18cab6ef6b6f8ebf53f4a10de8168fe864850e /usr/share/licenses/fd /usr/share/licenses/fd
+COPY FROM HOST /Dollyfile-fd-build 631dfb1aab94cdf155c0d7a81c18cab6ef6b6f8ebf53f4a10de8168fe864850e /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
 EXPORTS TOOL fd
 
 ENTRY /bin/foreground -i /bin/slop

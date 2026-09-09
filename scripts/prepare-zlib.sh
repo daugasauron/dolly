@@ -24,7 +24,7 @@ temporary="$(mktemp -d "${project_dir}/build/generated/.zlib-source.XXXXXX")"
 trap 'rm -rf -- "${temporary}"' EXIT
 
 for path in \
-  adler32.c crc32.c crc32.h deflate.c deflate.h gzclose.c gzlib.c gzread.c \
+  adler32.c compress.c crc32.c crc32.h deflate.c deflate.h gzclose.c gzlib.c gzread.c \
   gzwrite.c gzguts.h infback.c \
   inffast.c inffast.h inffixed.h inflate.c inflate.h inftrees.c inftrees.h \
   trees.c trees.h uncompr.c zconf.h zlib.h zutil.c zutil.h; do

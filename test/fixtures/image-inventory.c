@@ -62,14 +62,14 @@ int main(int argc, char **argv) {
     if (lstat(line, &metadata) != 0) { fprintf(stderr, "missing: %s\n", line); ++missing; }
   }
   free(line);
-  if (fclose(manifest) != 0) return 2;
+  if (ferror(manifest) || fclose(manifest) != 0) return 2;
   unsigned char digest[32];
-  char hexadecimal[65];
+  char hex[65];
   sha256_finish(&hash, digest);
   for (size_t index = 0; index < sizeof(digest); ++index)
-    snprintf(hexadecimal + index * 2, 3, "%02x", digest[index]);
-  if (strcmp(hexadecimal, argv[2]) != 0) {
-    fputs("live manifest differs from the packaged image\n", stderr);
+    snprintf(hex + index * 2, 3, "%02x", digest[index]);
+  if (strcmp(hex, argv[2]) != 0) {
+    fputs("manifest digest does not match the packaged image\n", stderr);
     return 1;
   }
   FILE *help = fopen(argv[1], "r");

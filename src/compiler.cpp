@@ -367,11 +367,14 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       options.frontend_options.push_back(argument);
     } else if (argument == "-I" || argument == "-D" ||
                argument == "-U" || argument == "-include" ||
-               argument == "-isystem") {
+               argument == "-isystem" || argument == "-idirafter") {
       std::string value;
       if (!take_option_value(argc, argv, index, argument.c_str(), value)) return -1;
       options.frontend_options.push_back(argument);
       options.frontend_options.push_back(value);
+    } else if ((starts_with(argument, "-idirafter") && argument.size() > 10) ||
+               (starts_with(argument, "-isystem") && argument.size() > 8)) {
+      options.frontend_options.push_back(argument);
     } else if ((starts_with(argument, "-I") || starts_with(argument, "-D") ||
                 starts_with(argument, "-U")) && argument.size() > 2) {
       options.frontend_options.push_back(argument);

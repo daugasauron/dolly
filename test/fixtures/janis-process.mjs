@@ -40,6 +40,40 @@ await check('creation-time cwd, exact environment, argv and sync input', async (
   const cat = spawnSync('/bin/cat', [], { input: bytes });
   assert(cat.status === 0 && cat.stdout.equals(bytes), 'binary sync input was lost');
 });
+await check('concurrent ESM adapters have independent scratch and cleanup', async () => {
+  const source = `${root}/parallel-esm.mjs`;
+  fs.writeFileSync(source, `import fs from 'node:fs'; import path from 'node:path';
+    const own = fs.readdirSync('/tmp').filter(name => name.startsWith('janis-' + process.pid + '-'));
+    if (own.length !== 1) throw Error('missing process-owned module directory');
+    await new Promise(resolve => setTimeout(resolve, Number(process.argv[2])));
+    if (!fs.existsSync(path.join('/tmp', own[0]))) throw Error('another process removed my adapters');
+    console.log(own[0]);`);
+  const children = [50, 300, 500].map(ms => spawn('/usr/bin/janis', ['-m', source, String(ms)]));
+  const completions = children.map(completion);
+  try {
+    const results = await Promise.all(completions);
+    assert(results.every(result => result.status === 0), results.map(result => result.stderr.toString()).join('\n'));
+    const directories = results.map(result => result.stdout.toString().trim());
+    assert(new Set(directories).size === 3, 'module directories overlap');
+    assert(directories.every(directory => !fs.existsSync('/tmp/' + directory)), 'module scratch survived normal exit');
+  } finally {
+    for (const child of children) child.kill('SIGKILL');
+    await Promise.all(completions);
+    fs.rmSync(source, { force: true });
+  }
+});
+await check('recursive mkdir tolerates another process winning directory creation', async () => {
+  const directory = `${root}/mkdir-race`;
+  const mkdir = Dolly.fsMkdir;
+  Dolly.fsMkdir = path => { if (path === directory) mkdir(path); return mkdir(path); };
+  try {
+    fs.mkdirSync(directory, { recursive: true });
+    assert(fs.statSync(directory).isDirectory(), 'concurrent creation was not accepted');
+  } finally {
+    Dolly.fsMkdir = mkdir;
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
 await check('bounded pipes carry binary stdin and both output streams', async () => {
   const child = spawn('/usr/bin/janis', ['-e', 'let x; while ((x=Dolly.readStdin(4096)).length) { Dolly.fsWrite(1,x,0,x.length); Dolly.fsWrite(2,x,0,x.length); }']);
   const done = completion(child);
@@ -48,6 +82,14 @@ await check('bounded pipes carry binary stdin and both output streams', async ()
   child.stdin.end(bytes);
   const result = await done;
   assert(result.status === 0 && result.stdout.equals(bytes) && result.stderr.equals(bytes), 'pipe bytes were lost');
+});
+await check('a piped stdin data listener starts flowing without explicit resume', async () => {
+  const child = spawn('/usr/bin/janis', ['-e',
+    'process.stdin.on("data", chunk => process.stdout.write(chunk)); process.stdin.on("end", () => console.log("EOF"));']);
+  const done = completion(child);
+  child.stdin.end('rpc input\n');
+  const result = await done;
+  assert(result.status === 0 && result.stdout.toString() === 'rpc input\nEOF\n', 'stdin listener exited without consuming its pipe');
 });
 await check('paused output stays in the kernel pipe until resumed', async () => {
   const child = spawn('/bin/slop', ['-c', '/bin/echo prefix; /bin/sleep .2; /bin/echo suffix']);

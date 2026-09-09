@@ -33,6 +33,7 @@ import { runUploadProof, selectFile } from "../test/fixtures/upload-browser.mjs"
 import { runStudioModelProof } from "../test/fixtures/studio-model-browser.mjs";
 import { runSessionFilesProof } from "../test/fixtures/session-files-browser.mjs";
 import { tarArchive } from "../test/fixtures/tar.mjs";
+import { rtsProvider } from "../test/fixtures/rts-provider.mjs";
 import { gzipSync } from "node:zlib";
 
 const projectDir = resolve(import.meta.dirname, "..");
@@ -93,6 +94,22 @@ const customDollyfileMode = isMode("custom-dollyfile");
 const studioMode = isMode("dollyfile-studio");
 const imageBuildMode = isMode("image-build", "image-build-pages");
 const graphicsMode = isMode("graphics");
+const sdl2Mode = isMode("sdl2");
+const rtsMode = isMode("rts");
+const rtsLauncherMode = isMode("rts-launcher");
+const rtsReplayMode = isMode("rts-replay");
+const rtsSplitReplayMode = isMode("rts-split-replay");
+const rtsLiveMode = isMode("rts-live");
+const rtsLiveConfiguration = rtsLiveMode && process.env.DOLLY_RTS_MODELS_FILE
+  ? JSON.parse(await readFile(resolve(process.env.DOLLY_RTS_MODELS_FILE), "utf8")) : null;
+const rtsLiveModels = (process.env.DOLLY_RTS_MODELS ??
+  "openai/gpt-5.6-luna:low,google/gemini-2.5-flash:low").split(",");
+const rtsLiveSeconds = Number(process.env.DOLLY_RTS_SECONDS ?? 1200);
+const rtsLiveDollars = Number(process.env.DOLLY_RTS_USD ?? 0.50);
+if (rtsLiveMode && (rtsLiveModels.length !== 2 || rtsLiveModels.some(model => !/^[\w./:-]+$/.test(model)) ||
+    !Number.isInteger(rtsLiveSeconds) || rtsLiveSeconds < 10 || rtsLiveSeconds > 3600 ||
+    !Number.isFinite(rtsLiveDollars) || rtsLiveDollars <= 0 || rtsLiveDollars > 2))
+  throw Error("RTS live proof needs two comma-separated models, 10..3600 seconds and a USD limit up to 2");
 const bhopMode = isMode("bhop");
 const debuggerDisconnectMode = isMode("debugger-disconnect");
 const janisFilesMode = isMode("janis-files");
@@ -103,7 +120,7 @@ const libcurlContractMode = isMode("libcurl-contract");
 const gitTransportMode = isMode("git-transport");
 const piOpenRouterMode = isMode("pi-openrouter");
 const piAuditMode = isMode("pi-audit");
-const realOpenRouterMode = piOpenRouterMode || piAuditMode;
+const realOpenRouterMode = piOpenRouterMode || piAuditMode || (rtsLiveMode && !rtsLiveConfiguration);
 const missingSnapshotMode = isMode("snapshot-missing");
 const unpackagedSnapshotMode = isMode("snapshot-unpackaged");
 const snapshotExportMode = isMode("snapshot-export") || unpackagedSnapshotMode;
@@ -276,6 +293,7 @@ let curlCliRequest = null;
 let snapshotUpload = null;
 const staticRequestPaths = new Set();
 const piModelRequests = [];
+const rtsModelFixture = rtsProvider();
 const janisAbortRequests = [];
 let cancelledQueuedRequestSeen = false;
 const piFixtureStream = { request: 0, phase: "idle" };
@@ -332,6 +350,37 @@ function startServer() {
           response.end(await readFile(resolve(projectDir, rustToolSources[name])));
           return;
         }
+      }
+      if (sdl2Mode && requestUrl.pathname.startsWith("/fixture/")) {
+        const sources = { "sdl2-probe.c": "test/fixtures/sdl2-probe.c",
+          "rts-input-probe.cpp": "test/fixtures/rts-input-probe.cpp",
+          "input.cpp": "src/rts/input.cpp", "input.h": "src/rts/input.h" };
+        const name = requestUrl.pathname.slice("/fixture/".length);
+        if (Object.hasOwn(sources, name)) {
+          response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+          response.end(await readFile(resolve(projectDir, sources[name])));
+          return;
+        }
+      }
+      if (rtsMode && requestUrl.pathname === "/fixture/rts/v1/chat/completions") {
+        try { await rtsModelFixture.handle(request, response, isolatedHeaders); }
+        catch (error) { console.error("RTS provider fixture:", error); throw error; }
+        return;
+      }
+      if (rtsMode && ["/fixture/rts-match.mjs", "/fixture/rts-history.mjs"].includes(requestUrl.pathname)) {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/javascript" });
+        response.end(await readFile(resolve(projectDir, "test/fixtures", requestUrl.pathname.split("/").at(-1))));
+        return;
+      }
+      if (rtsLiveMode && requestUrl.pathname === "/fixture/rts-live.mjs") {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/javascript" });
+        response.end(await readFile(resolve(projectDir, "test/fixtures/rts-live.mjs")));
+        return;
+      }
+      if (rtsSplitReplayMode && requestUrl.pathname === "/fixture/rts-split-replay.mjs") {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/javascript" });
+        response.end(await readFile(resolve(projectDir, "test/fixtures/rts-split-replay.mjs")));
+        return;
       }
       if (processSmokeMode && requestUrl.pathname.startsWith("/fixture/")) {
         const name = requestUrl.pathname.slice("/fixture/".length);
@@ -1177,6 +1226,11 @@ async function runGraphicsProof(send, phone = false) {
 }
 
 async function enterRecoveryShell(send) {
+  if (selectedImage === "rts-arena") {
+    await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Choose \\[1\\]:/, "RTS launcher")`);
+    await inputText(send, "5\n");
+    return evaluate(send, `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "RTS shell")`);
+  }
   if (JSON.stringify(selectedGraph.root.entry) === JSON.stringify(["/bin/foreground", "-i", "/bin/slop"])) {
     return evaluate(send,
       `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "runtime image Slop prompt")`);
@@ -1398,13 +1452,14 @@ const menuPage = externalPage
   : `${localOrigin}${browserBase}`;
 const rebuildPage = new URL(rebuildPath, menuPage).href;
 const interactivePage = new URL(`${selectedImage}/`, menuPage).href;
+if (realOpenRouterMode) console.log("browser: waiting for an OpenRouter key on standard input (not echoed)");
 let openRouterSecret = realOpenRouterMode ? await readSecretLine() : "";
 if (realOpenRouterMode && !/^sk-or-v1-[A-Za-z0-9_-]+$/.test(openRouterSecret)) {
   throw new Error("Pi OpenRouter mode requires one API key line on standard input");
 }
 const fixtureCredential = "Bearer sandbox-placeholder";
 const fixturePolicy = {
-  maxRequests: 256,
+  maxRequests: rtsLiveMode ? 1024 : 256,
   rules: [
     {
       origin: "https://auth.openai.com",
@@ -1433,6 +1488,10 @@ if (tokioMode) {
     fixturePolicy.rules.push({ origin: localOrigin, path, methods: ["GET"] });
   }
 }
+if (rtsMode) fixturePolicy.rules.unshift({
+  origin: localOrigin, path: "/fixture/rts/v1/chat/completions", methods: ["POST"],
+  credentialHeaders: ["authorization"], maxRequestBytes: 16 * 1024 * 1024,
+});
 if (dollyfileParserMode) {
   for (const path of parserRecipes.keys()) {
     if (path.startsWith("/modules/")) fixturePolicy.rules.push({
@@ -1475,10 +1534,23 @@ if (realOpenRouterMode) {
     timeoutMilliseconds: 120_000,
   });
 }
+if (rtsLiveMode && !rtsLiveConfiguration) fixturePolicy.rules.unshift({
+  origin: "https://openrouter.ai", path: "/api/v1/models", methods: ["GET"],
+  maxResponseBytes: 16 * 1024 * 1024,
+}, {
+  origin: "https://openrouter.ai", path: "/api/v1/key", methods: ["GET"], credentialHeaders: ["authorization"],
+});
+if (rtsLiveConfiguration) for (const provider of Object.values(rtsLiveConfiguration.providers)) {
+  const url = new URL(provider.baseUrl);
+  if (url.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(url.hostname) || provider.api !== "openai-codex-responses")
+    throw Error("RTS subscription tests require an explicit loopback Codex relay");
+  fixturePolicy.rules.unshift({ origin: url.origin, path: "/codex/responses", methods: ["POST"],
+    credentialHeaders: ["authorization"], maxRequestBytes: 8 * 1024 * 1024, timeoutMilliseconds: 120000 });
+}
 const requestedProfile = process.env.DOLLY_BROWSER_PROFILE;
 persistentProfile = requestedProfile;
 browserDownloadDirectory = await mkdtemp(`${tmpdir()}/dolly-browser-downloads-`);
-if (realOpenRouterMode) {
+if (realOpenRouterMode || rtsLiveMode) {
   // The real credential is intentionally copied into Dolly's ephemeral
   // in-memory filesystem. A fresh browser profile avoids unrelated persistence
   // outside that sandbox while exercising the same setup applications use.
@@ -1941,6 +2013,439 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       await rejected;
       await assert.rejects(evaluate(debuggerClient.send, "true"), /Chrome debugger disconnected/);
       console.log("browser: terminating Chrome rejects pending and subsequent debugger commands and cleans up");
+      break browserProof;
+    }
+    if (rtsLauncherMode) {
+      const send = debuggerClient.send;
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "launcher image boot"), "ready");
+      const terminal = text => evaluate(send, `window.__dolly.waitForInteractiveTerminal(new RegExp(${JSON.stringify(text + "[^\\n]*:\\s*$")}), "launcher prompt")`);
+      const answer = async (prompt, value) => { await terminal(prompt); await inputText(send, value + "\n"); };
+      const picker = title => evaluate(send, `window.__dolly.waitForInteractiveTerminal(new RegExp(${JSON.stringify(title)}), "fuzzy picker")`);
+      const enter = () => dispatchKey(send, { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+      const escape = () => dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      const screenshot = async name => writeFile(resolve(projectDir, `build/rts-launcher-${name}.png`),
+        (await send("Page.captureScreenshot", { format: "png" })).data, "base64");
+      await terminal("Choose");
+      await screenshot("menu");
+      const requests = await evaluate(send, "__dolly.httpRequestCount");
+      await answer("Choose", "1");
+      await waitForValue(send, "__dolly.graphicsActive", Boolean, "included replay without upload");
+      await delay(4000);
+      await screenshot("demo");
+      await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      await waitForValue(send, "__dolly.graphicsActive", value => !value, "replay returns to launcher");
+      await terminal("Choose");
+      assert.equal(await evaluate(send, "__dolly.httpRequestCount"), requests, "bundled replay is offline");
+      await answer("Choose", "4");
+      await answer("Open file picker", "y");
+      await waitForValue(send, "!!document.querySelector('#file-upload[open]')", Boolean, "relay file picker");
+      const relayPath = resolve(browserDownloadDirectory, "models.json");
+      await writeFile(relayPath, JSON.stringify({ providers: { "codex-local": {
+        api: "openai-codex-responses", baseUrl: "http://127.0.0.1:9002", apiKey: "fixture-relay-capability",
+        models: [{ id: "rts-vision-fixture", name: "Vision fixture", reasoning: true, input: ["text", "image"],
+          thinkingLevelMap: { high: "high", xhigh: "xhigh", low: null }, contextWindow: 65536, maxTokens: 4096,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }] } } }));
+      await selectFile(send, "#file-upload input", relayPath);
+      await terminal("Choose");
+      assert.match(await visibleTerminalText(send), /Local Codex models imported/);
+      await answer("Choose", "2");
+      await picker("Player 1 provider");
+      await inputText(send, "cdxl");
+      await picker("1 / 1 matches");
+      await screenshot("providers");
+      await enter();
+      await picker("Player 1 model");
+      await inputText(send, "nonexistent");
+      await picker("No matches");
+      await enter();
+      await picker("No matches");
+      await dispatchKey(send, { key: "u", code: "KeyU", modifiers: 2, windowsVirtualKeyCode: 85 });
+      await inputText(send, "rtsvsfx");
+      await picker("1 / 1 matches");
+      await screenshot("models");
+      await escape();
+      await picker("Player 1 provider");
+      await enter();
+      await picker("Player 1 model");
+      await enter();
+      await answer("Thinking", "high");
+      await picker("Player 2 provider");
+      await enter();
+      await picker("Player 2 model");
+      await enter();
+      await answer("Thinking", "xhigh");
+      await answer("Match seconds", "10");
+      await answer("Reported USD limit", "0.25");
+      await terminal("Start model calls");
+      await screenshot("confirm");
+      assert.equal(await evaluate(send, "__dolly.httpRequestCount"), requests, "picker and confirmation make no model calls");
+      await answer("Start model calls", "n");
+      await answer("Choose", "3");
+      await terminal("API key");
+      await inputText(send, "fixture-hidden-openrouter-key");
+      await delay(300);
+      assert.doesNotMatch(await visibleTerminalText(send), /fixture-hidden-openrouter-key/);
+      await inputText(send, "\n");
+      await terminal("Choose");
+      assert.doesNotMatch(await visibleTerminalText(send), /fixture-hidden-openrouter-key|fixture-relay-capability/);
+      await answer("Choose", "2");
+      await picker("Player 1 provider");
+      await inputText(send, "opnrtr");
+      await picker("1 / 2 matches");
+      await enter();
+      await picker("Player 1 model");
+      await screenshot("openrouter");
+      assert.doesNotMatch(await visibleTerminalText(send), /\[text only\]/);
+      await inputText(send, "gem fla");
+      await picker("> gem fla");
+      await screenshot("fuzzy-openrouter");
+      const selected = async () => (await visibleTerminalText(send)).match(/^→ .+$/m)?.[0];
+      const beforeArrow = await selected();
+      assert.ok(beforeArrow, "fuzzy search highlights a matching model");
+      await dispatchKey(send, { key: "ArrowDown", code: "ArrowDown", windowsVirtualKeyCode: 40 });
+      await picker("> gem fla");
+      assert.notEqual(await selected(), beforeArrow, "Down changes the highlighted model");
+      await dispatchKey(send, { key: "ArrowUp", code: "ArrowUp", windowsVirtualKeyCode: 38 });
+      await picker("> gem fla");
+      assert.equal(await selected(), beforeArrow, "Up restores the previous model");
+      await escape();
+      await picker("Player 1 provider");
+      await escape();
+      await answer("Choose", "5");
+      await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "launcher shell")`);
+      const check = `const fs=globalThis.__janisBuiltin("fs"); const dir=process.env.HOME+"/.pi/agent"; const auth=JSON.parse(fs.readFileSync(dir+"/auth.json","utf8")); if(auth.openrouter?.key!=="fixture-hidden-openrouter-key") throw Error("Pi credential store mismatch"); if(fs.readdirSync("/tmp").some(name=>name.startsWith("rts-relay-import-")||name.startsWith("dolly-rts-replay-"))) throw Error("launcher scratch leak"); console.log("RTS-LAUNCHER-OK");`;
+      assert.equal(await evaluate(send, `__dolly.submit(${JSON.stringify("janis -e " + shellQuote(check))})`), 0);
+      console.log("browser: baked offline replay, relay upload, live fuzzy provider/model search, arrows/Enter/Escape, vision filtering, confirmation, masked credentials and shell recovery passed");
+      break browserProof;
+    }
+    if (rtsSplitReplayMode) {
+      const send = debuggerClient.send;
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "split replay image boot"), "ready");
+      await enterRecoveryShell(send);
+      const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
+      const replayDirectory = process.env.DOLLY_RTS_REPLAY_BUNDLE ? "/workspace/rts-high-vs-xhigh" : "/usr/share/dolly/rts/rts-high-vs-xhigh";
+      if (process.env.DOLLY_RTS_REPLAY_BUNDLE) {
+        await evaluate(send, `window.__uploadResult = null; void __dolly.submit('upload /workspace/match.tar.gz').then(status => window.__uploadResult = status); true`);
+        await waitForValue(send, "!!document.querySelector('#file-upload[open]')", Boolean, "match bundle picker");
+        await selectFile(send, "#file-upload input", resolve(projectDir, process.env.DOLLY_RTS_REPLAY_BUNDLE));
+        assert.equal(await waitForValue(send, "window.__uploadResult", value => value !== null, "match bundle upload"), 0);
+        assert.equal(await submit("gzip -dc /workspace/match.tar.gz | tar -xf - -C /workspace"), 0);
+      }
+      assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/rts-split-replay.mjs -o /tmp/rts-split-replay.mjs`), 0);
+      const requests = await evaluate(send, "__dolly.httpRequestCount");
+      await evaluate(send, `window.__replayResult = null; void __dolly.submit('janis -m /tmp/rts-split-replay.mjs ${replayDirectory}').then(status => window.__replayResult = status); true`);
+      const phase = async name => {
+        const result = await waitForValue(send,
+          "({name:document.documentElement.dataset.downloadName, result:window.__replayResult})",
+          value => value.name === `replay-${name}` || value.result !== null, `replay ${name}`, 2400);
+        assert.equal(result.name, `replay-${name}`, `replay ended early (${result.result})`);
+      };
+      try {
+        await phase("ready");
+        await dispatchKey(send, { key: " ", code: "Space", windowsVirtualKeyCode: 32 });
+        await phase("paused");
+        const preview = await send("Page.captureScreenshot", { format: "png" });
+        await writeFile(resolve(projectDir, "build/rts-split-replay-start.png"), preview.data, "base64");
+        await dispatchKey(send, { key: " ", code: "Space", windowsVirtualKeyCode: 32 });
+        for (let index = 0; index < 6; ++index) {
+          await dispatchKey(send, { key: "=", code: "Equal", windowsVirtualKeyCode: 187 });
+          await delay(200);
+        }
+        await delay(5000);
+        const middle = await send("Page.captureScreenshot", { format: "png" });
+        await writeFile(resolve(projectDir, "build/rts-split-replay-thinking.png"), middle.data, "base64");
+        await phase("eof");
+        const end = await send("Page.captureScreenshot", { format: "png" });
+        await writeFile(resolve(projectDir, "build/rts-split-replay-end.png"), end.data, "base64");
+        await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+        assert.equal(await waitForValue(send, "window.__replayResult", value => value !== null, "replay cleanup"), 0);
+        assert.equal(await evaluate(send, "__dolly.httpRequestCount"), requests, "replay makes no network requests");
+        assert.equal(await evaluate(send, "__dolly.graphicsActive"), false);
+        await evaluate(send, `window.__replayResult = null; void __dolly.submit('rts-arena --replay ${replayDirectory}').then(status => window.__replayResult = status); true`);
+        await waitForValue(send, "__dolly.graphicsActive", Boolean, "replay restarted for cancellation");
+        await delay(1500);
+        await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+        assert.equal(await waitForValue(send, "window.__replayResult", value => value !== null, "Ctrl-C cancels replay"), 130);
+        assert.equal(await evaluate(send, "__dolly.graphicsActive"), false);
+        assert.equal(await submit("printf 'shell survived replay\\n'"), 0);
+        console.log(await visibleTerminalText(send));
+      } finally {
+        if (await evaluate(send, "__dolly.graphicsActive"))
+          await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+        await waitForValue(send, "__dolly.graphicsActive", value => !value, "replay test releases display");
+        console.log(await visibleTerminalText(send));
+      }
+      console.log("browser: continuous two-player replay, recorded thinking, pause/speed/EOF, no HTTP and shell recovery passed");
+      break browserProof;
+    }
+    if (rtsReplayMode) {
+      const send = debuggerClient.send;
+      const replayFile = resolve(process.env.DOLLY_RTS_REPLAY_FILE ?? "build/rts-live-player1.rpl");
+      const digest = createHash("sha256").update(await readFile(replayFile)).digest("hex");
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "RTS replay image boot"), "ready");
+      await enterRecoveryShell(send);
+      const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
+      await evaluate(send, `window.__uploadResult = null; void __dolly.submit('upload /workspace/review.rpl').then(status => window.__uploadResult = status); true`);
+      await waitForValue(send, "!!document.querySelector('#file-upload[open]')", Boolean, "replay file picker");
+      await selectFile(send, "#file-upload input", replayFile);
+      assert.equal(await waitForValue(send, "window.__uploadResult", value => value !== null, "replay upload"), 0);
+      assert.equal(await submit(`test "$(sha256sum /workspace/review.rpl | cut -d ' ' -f 1)" = ${digest}`), 0);
+      await evaluate(send, `window.__replayResult = null; void __dolly.submit('seven-kingdoms -noaudio -win -replay /workspace/review.rpl').then(status => window.__replayResult = status); true`);
+      await waitForValue(send, "__dolly.graphicsActive", Boolean, "normal-speed replay display");
+      await delay(1000);
+      const preview = await send("Page.captureScreenshot", { format: "png" });
+      await writeFile(resolve(projectDir, "build/rts-replay-review.png"), preview.data, "base64");
+      await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+      assert.ok([0, 130].includes(await waitForValue(send, "window.__replayResult", value => value !== null, "replay cancellation")));
+      await evaluate(send, `window.__replayResult = null; void __dolly.submit('seven-kingdoms -noaudio -win -speed 99 -replay /workspace/review.rpl').then(status => window.__replayResult = status); true`);
+      for (let elapsed = 0; elapsed < 3600 && await evaluate(send, "window.__replayResult") === null; elapsed += 10) {
+        await delay(10000);
+        console.log(`browser: replay ${elapsed + 10}s`);
+        if (await evaluate(send, "__dolly.graphicsActive")) {
+          const screenshot = await send("Page.captureScreenshot", { format: "png" });
+          await writeFile(resolve(projectDir, "build/rts-replay-review.png"), screenshot.data, "base64");
+        }
+      }
+      assert.equal(await evaluate(send, "window.__replayResult"), 0, "file replay exits normally");
+      const output = await visibleTerminalText(send);
+      assert.match(output, /RTS replay reached EOF at game frame [1-9]\d*/);
+      assert.equal(await submit(`test "$(sha256sum /workspace/review.rpl | cut -d ' ' -f 1)" = ${digest}`), 0,
+        "playback must not change the uploaded recording");
+      console.log(output);
+      console.log("browser: uploaded replay verified through native EOF; original bytes unchanged");
+      break browserProof;
+    }
+    if (rtsLiveMode) {
+      const send = debuggerClient.send;
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "live RTS image boot"), "ready");
+      await enterRecoveryShell(send);
+      const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
+      try {
+        assert.equal(await submit(`mkdir /tmp/rts-live-agent; curl -fsS ${localOrigin}/fixture/rts-live.mjs -o /tmp/rts-live.mjs`), 0);
+        const auth = JSON.stringify(rtsLiveConfiguration ? {} : { openrouter: { type: "api_key", key: openRouterSecret } });
+        assert.equal(await submit(`printf %s ${shellQuote(auth)} > /tmp/rts-live-agent/auth.json`), 0);
+        if (rtsLiveConfiguration) {
+          assert.equal(await submit(`printf %s ${shellQuote(JSON.stringify(rtsLiveConfiguration))} > /tmp/rts-live-agent/models.json`), 0);
+          assert.equal(await submit(`printf %s '{"transport":"sse"}' > /tmp/rts-live-agent/settings.json`), 0);
+        } else assert.equal(await submit(`janis -m /tmp/rts-live.mjs prepare ${rtsLiveModels.map(model =>
+          shellQuote(model.replace(/:(off|minimal|low|medium|high|xhigh|max|ultra)$/, ""))).join(" ")}`), 0);
+        await submit("printf '\\033[2J\\033[3J\\033[H'");
+        const command = `PI_CODING_AGENT_DIR=/tmp/rts-live-agent rts-arena ${rtsLiveModels.map(shellQuote).join(" ")} ${rtsLiveSeconds} ${rtsLiveDollars}`;
+        await evaluate(send, `window.__liveResult = null; void __dolly.submit(${JSON.stringify(command)}).then(status => window.__liveResult = status); true`);
+        for (let elapsed = 0; elapsed < rtsLiveSeconds + 90 && await evaluate(send, "window.__liveResult") === null; elapsed += 10) {
+          await delay(10000);
+          console.log(`browser: live RTS ${elapsed + 10}s, HTTP requests: ${await evaluate(send, "__dolly.httpRequestCount")}`);
+          if (await evaluate(send, "__dolly.graphicsActive")) {
+            const screenshot = await send("Page.captureScreenshot", { format: "png" });
+            await writeFile(resolve(projectDir, "build/rts-live-chrome.png"), screenshot.data, "base64");
+          }
+        }
+        const status = await evaluate(send, "window.__liveResult");
+        assert.notEqual(status, null, "live match must stop at its time limit");
+        const inspected = await submit("janis -m /tmp/rts-live.mjs inspect");
+        const report = await visibleTerminalText(send);
+        const secrets = rtsLiveConfiguration ? Object.values(rtsLiveConfiguration.providers).map(provider => provider.apiKey) : [openRouterSecret];
+        assert.ok(secrets.every(secret => typeof secret === "string" && secret.length > 0 && !report.includes(secret)), "credential must not enter terminal output");
+        console.log(report);
+        const download = async name => {
+          assert.match(name, /^(parts\.json|match-\d+\.part|player[12]\.rpl)$/);
+          assert.equal(await submit(`download /tmp/rts-live-export/${name}`), 0);
+          let bytes;
+          for (let attempt = 0; attempt < 400 && !bytes; attempt++) {
+            bytes = await readFile(resolve(browserDownloadDirectory, name)).catch(() => null);
+            if (!bytes) await delay(25);
+          }
+          assert.ok(bytes, `live match export ${name} must download`);
+          return bytes;
+        };
+        const parts = JSON.parse(await download("parts.json")), chunks = [];
+        assert.ok(parts.length > 0 && parts.length <= 256, "bounded live match archive");
+        for (const name of parts) chunks.push(await download(name));
+        const archive = Buffer.concat(chunks);
+        const exported = JSON.parse(archive); // Reassembly must preserve UTF-8 across chunk boundaries.
+        assert.ok(secrets.every(secret => !archive.includes(Buffer.from(secret))), "credential must not enter match archive");
+        await writeFile(resolve(projectDir, "build/rts-live-match.json"), archive);
+        const matchNames = new Set(Object.keys(exported.files).map(name => name.split("/")[0]));
+        assert.equal(matchNames.size, 1, "archive must contain exactly one match");
+        const matchName = [...matchNames][0];
+        for (const player of [1, 2]) {
+          const replay = await download(`player${player}.rpl`);
+          assert.equal(replay.subarray(0, 4).toString(), "7KRP", "native replay file header");
+          assert.deepEqual(replay, Buffer.from(exported.files[`${matchName}/player${player}-game/NONAME.RPL`] ?? "", "base64"),
+            "independent replay download matches the archived bytes");
+          await writeFile(resolve(projectDir, `build/rts-live-player${player}.rpl`), replay);
+        }
+        for (const name of ["result.txt", "player1.jsonl", "player2.jsonl",
+          "player1.events.jsonl", "player2.events.jsonl", "player1-game/NONAME.RPL", "player2-game/NONAME.RPL"])
+          assert.ok(Buffer.from(exported.files[`${matchName}/${name}`] ?? "", "base64").length > 0,
+            `downloaded archive is missing ${name}`);
+        assert.equal(inspected, 0, "both live models must act and retain histories");
+        assert.equal(status, 0, "live arena must exit cleanly");
+        console.log("browser: live RTS provider histories, actions and replays verified and exported");
+      } finally {
+        if (await evaluate(send, "__dolly.graphicsActive")) {
+          await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          await waitForValue(send, "__dolly.graphicsActive", value => !value, "live RTS cancellation");
+        }
+        await submit("rm -rf /tmp/rts-live-agent /tmp/rts-live.mjs /tmp/rts-live-export");
+        openRouterSecret = "";
+      }
+      break browserProof;
+    }
+    if (rtsMode) {
+      const send = debuggerClient.send;
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "RTS image boot"), "ready");
+      await enterRecoveryShell(send);
+      const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
+      try {
+        assert.equal(await submit(`mkdir /tmp/rts-replay-test; curl -fsS ${localOrigin}/fixture/rts-match.mjs -o /tmp/rts-match.mjs`), 0);
+        assert.equal(await submit("rts-arena --help"), 64, "compiled match command loads its real JavaScript entry");
+        await evaluate(send, `window.__rtsResult = null; void __dolly.submit('seven-kingdoms -demo -noaudio -win -rnd 12345').then(status => window.__rtsResult = status); true`);
+        const gameStart = await waitForValue(send, "({active: __dolly.graphicsActive, result: window.__rtsResult})",
+          state => state.active || state.result !== null, "real game framebuffer", 1800);
+        assert.equal(gameStart.active, true, `game exited before display: ${gameStart.result}`);
+        await delay(3000);
+        assert.equal(await evaluate(send, "window.__rtsResult"), null, "game must remain live before interruption");
+        await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+        assert.ok([0, 130].includes(await waitForValue(send, "window.__rtsResult", value => value !== null, "game cancellation")),
+          "SDL may handle interrupted event polling as a clean quit");
+        assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
+        assert.equal(await submit("test -f /tmp/rts-match.mjs"), 0);
+        await evaluate(send, `window.__matchResult = null; void __dolly.submit('janis -m /tmp/rts-match.mjs /tmp/rts-replay-test').then(status => window.__matchResult = status); true`);
+        const matchStart = await waitForValue(send, "({active: __dolly.graphicsActive, result: window.__matchResult})",
+          state => state.active || state.result !== null, "two-player spectator display", 2400);
+        if (!matchStart.active) for (const name of ["training-key.png", "training-click.png"]) {
+          if (await submit(`test -f /tmp/rts-replay-test/${name}`) !== 0) continue;
+          assert.equal(await submit(`download /tmp/rts-replay-test/${name}`), 0);
+          let bytes;
+          for (let attempt = 0; attempt < 200 && !bytes; attempt++) {
+            bytes = await readFile(resolve(browserDownloadDirectory, name)).catch(() => null);
+            if (!bytes) await delay(25);
+          }
+          if (bytes) await writeFile(resolve(projectDir, `build/rts-${name}`), bytes);
+        }
+        assert.equal(matchStart.active, true, `match exited before display: ${matchStart.result}` +
+          (matchStart.active ? "" : `\n${await visibleTerminalText(send)}`));
+        await waitForValue(send, `(() => { const c = document.querySelector('canvas'); return c.width === 1600 && c.height === 972; })()`,
+          Boolean, "two-player spectator geometry");
+        const screenshot = await send("Page.captureScreenshot", { format: "png" });
+        await writeFile(resolve(projectDir, "build/rts-match-chrome.png"), screenshot.data, "base64");
+        assert.equal(await waitForValue(send, "window.__matchResult", value => value !== null, "two-player match proof"), 0);
+        assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
+        const replayMarker = `(() => { const c = document.querySelector('canvas');
+          const pixels = c.getContext('2d').getImageData(5, 5, 100, 50).data;
+          let hash = 2166136261; for (const byte of pixels) hash = Math.imul(hash ^ byte, 16777619);
+          return hash >>> 0; })()`;
+        for (const player of [1, 2]) {
+          await evaluate(send, `window.__replayResult = null; void __dolly.submit('SKCONFIG=/tmp/rts-replay-test/player${player} seven-kingdoms -noaudio -win').then(status => window.__replayResult = status); true`);
+          await waitForValue(send, "__dolly.graphicsActive", Boolean, "upstream replay menu");
+          await delay(500);
+          const menu = await evaluate(send, replayMarker);
+          await dispatchKey(send, { key: "r", code: "KeyR", windowsVirtualKeyCode: 82 });
+          await waitForValue(send, replayMarker, value => value !== menu, "recorded match starts playing");
+          const replayScreenshot = await send("Page.captureScreenshot", { format: "png" });
+          await writeFile(resolve(projectDir, `build/rts-replay-${player}.png`), replayScreenshot.data, "base64");
+          await waitForValue(send, replayMarker, value => value === menu, "replay reaches EOF and returns to the main menu", 2400);
+          assert.equal(await evaluate(send, "window.__replayResult"), null, "replay returns to the game menu, not a crashed process");
+          await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          assert.ok([0, 130].includes(await waitForValue(send, "window.__replayResult", value => value !== null, "replay process cancellation")));
+        }
+        console.log("browser: real recruitment recorded by both engines; both upstream replays play to EOF");
+        assert.equal(await submit("seven-kingdoms -noaudio -win -replay"), 64);
+        assert.equal(await submit("seven-kingdoms -noaudio -win -replay /tmp/absent-replay.rpl"), 65);
+        assert.equal(await submit("printf invalid > /tmp/rts-replay-test/invalid.rpl; seven-kingdoms -noaudio -win -replay /tmp/rts-replay-test/invalid.rpl"), 65);
+        assert.equal(await submit("seven-kingdoms -noaudio -win -speed 99 -replay /tmp/rts-replay-test/player1/NONAME.RPL"), 0);
+        assert.match(await visibleTerminalText(send), /RTS replay reached EOF at game frame [1-9]\d*/);
+        await evaluate(send, `window.__replayResult = null; void __dolly.submit('SKCONFIG=/tmp/rts-replay-test/corrupt seven-kingdoms -noaudio -win').then(status => window.__replayResult = status); true`);
+        await waitForValue(send, "__dolly.graphicsActive", Boolean, "corrupted replay menu");
+        await delay(500);
+        await dispatchKey(send, { key: "r", code: "KeyR", windowsVirtualKeyCode: 82 });
+        assert.equal(await waitForValue(send, "window.__replayResult", value => value !== null, "replay checksum mismatch fails explicitly"), 74);
+        assert.match(await visibleTerminalText(send), /RTS: game state synchronization failed/);
+        assert.equal(await evaluate(send, "__dolly.graphicsActive"), false);
+        console.log("browser: a damaged replay checksum is rejected, not silently played with divergent state");
+        assert.equal(await submit("seven-kingdoms -noaudio -win -speed 99 -replay /tmp/rts-replay-test/corrupt/NONAME.RPL"), 74);
+        console.log("browser: direct replay CLI handles EOF, missing/bad files and checksum rejection");
+        const config = { providers: { openrouter: { baseUrl: `${localOrigin}/fixture/rts/v1`, api: "openai-completions",
+          apiKey: "rts-fixture-only", models: ["rts-test-fast", "rts-test-slow"].map(id => ({ id, name: id,
+            reasoning: true, input: ["text", "image"], contextWindow: 128000, maxTokens: 4096,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } })) } } };
+        assert.equal(await submit(`mkdir /tmp/rts-pi-agent; printf %s ${shellQuote(JSON.stringify(config))} > /tmp/rts-pi-agent/models.json`), 0);
+        await evaluate(send, `window.__piMatchResult = null; void __dolly.submit('PI_CODING_AGENT_DIR=/tmp/rts-pi-agent rts-arena rts-test-fast rts-test-slow 25').then(status => window.__piMatchResult = status); true`);
+        const piStart = await waitForValue(send, "({active: __dolly.graphicsActive, result: window.__piMatchResult})",
+          state => state.active || state.result !== null, "Pi match viewer");
+        assert.equal(piStart.active, true, `Pi match exited before display: ${piStart.result}`);
+        await delay(8000);
+        const piScreenshot = await send("Page.captureScreenshot", { format: "png" });
+        await writeFile(resolve(projectDir, "build/rts-pi-chrome.png"), piScreenshot.data, "base64");
+        const piStatus = await waitForValue(send, "window.__piMatchResult", value => value !== null, "Pi match time limit", 2400);
+        if (piStatus !== 0) {
+          await submit(`janis -e ${shellQuote('const fs=globalThis.__janisBuiltin("fs"); for(const name of fs.readdirSync("/workspace/rts-matches")) for(const player of [1,2]) console.log(fs.readFileSync(`/workspace/rts-matches/${name}/player${player}.stderr.log`,"utf8"));')}`);
+          console.log(await visibleTerminalText(send));
+          await submit(`janis -e ${shellQuote('const fs=globalThis.__janisBuiltin("fs"); for(const name of fs.readdirSync("/workspace/rts-matches")) for(const player of [1,2]) console.log(fs.readFileSync(`/workspace/rts-matches/${name}/player${player}.events.jsonl`,"utf8"));')}`);
+          console.log(await visibleTerminalText(send));
+        }
+        assert.equal(piStatus, 0);
+        console.log(`browser: actual Pi sessions against scripted provider: ${JSON.stringify(rtsModelFixture.verify())}`);
+        assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/rts-history.mjs -o /tmp/rts-history.mjs; janis -m /tmp/rts-history.mjs`), 0);
+        await evaluate(send, `window.__piMatchResult = null; void __dolly.submit('PI_CODING_AGENT_DIR=/tmp/rts-pi-agent rts-arena rts-test-fast rts-test-slow 25').then(status => window.__piMatchResult = status); true`);
+        await waitForValue(send, "__dolly.graphicsActive", Boolean, "restarted Pi match");
+        await delay(8000);
+        assert.equal(await evaluate(send, "window.__piMatchResult"), null);
+        await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+        assert.equal(await waitForValue(send, "window.__piMatchResult", value => value !== null, "Escape stops both Pi players and engines"), 0);
+        assert.equal(await evaluate(send, "__dolly.graphicsActive"), false);
+        assert.equal(await submit("janis -m /tmp/rts-history.mjs 'Viewer exited (0)'"), 0);
+      } finally {
+        if (await evaluate(send, "__dolly.graphicsActive")) {
+          await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          await waitForValue(send, "__dolly.graphicsActive", value => !value, "failed RTS test releases its display");
+        }
+        await submit("rm -rf /tmp/rts-match.mjs /tmp/rts-history.mjs /tmp/rts-pi-agent /tmp/rts-replay-test");
+      }
+      console.log("browser: real RTS multiplayer, player-view separation, continuous simulation, sequential input, orderly stop/replay and foreground cancellation passed");
+      break browserProof;
+    }
+    if (sdl2Mode) {
+      const send = debuggerClient.send;
+      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "SDL2 image boot"), "ready");
+      await enterRecoveryShell(send);
+      const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
+      try {
+        assert.equal(await submit(`mkdir /tmp/dolly-sdl2; curl -fsS ${localOrigin}/fixture/sdl2-probe.c -o /tmp/dolly-sdl2/probe.c; cc -O0 -I/usr/include/SDL2 /tmp/dolly-sdl2/probe.c -o /tmp/dolly-sdl2/probe -lSDL2 -lm`), 0);
+        for (let i = 0; i < 2; ++i) assert.equal(await submit("/tmp/dolly-sdl2/probe"), 0);
+        await evaluate(send, `window.__sdlResult = null; void __dolly.submit('/tmp/dolly-sdl2/probe input').then(status => window.__sdlResult = status); true`);
+        await waitForValue(send, "__dolly.transport.graphicsActive()", Boolean, "SDL2 framebuffer lease");
+        await waitForValue(send, `(() => { const c = document.querySelector('canvas');
+          if (c.width !== 320 || c.height !== 240) return false;
+          const x = c.getContext('2d'); return JSON.stringify([[80,60],[240,60],[80,180],[240,180]].map(([a,b]) => Array.from(x.getImageData(a,b,1,1).data))); })()`,
+          value => value === '[[255,0,0,255],[0,255,0,255],[0,0,255,255],[255,255,255,255]]', "SDL2 RGB565 texture presentation");
+        const box = await evaluate(send, `(() => { const r = document.querySelector('canvas').getBoundingClientRect(); return {x:r.left+r.width/4,y:r.top+r.height/4}; })()`);
+        await send("Input.dispatchMouseEvent", { type: "mousePressed", button: "left", clickCount: 1, ...box });
+        await send("Input.dispatchMouseEvent", { type: "mouseReleased", button: "left", clickCount: 1, ...box });
+        await dispatchKey(send, { key: "a", code: "KeyA", windowsVirtualKeyCode: 65 });
+        await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+        assert.equal(await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 input completion"), 0);
+        assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
+        assert.equal(await submit("test -s /tmp/dolly-sdl2/probe.c"), 0);
+        for (const name of ["input.cpp", "input.h", "rts-input-probe.cpp"])
+          assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/${name} -o /tmp/dolly-sdl2/${name}`), 0);
+        assert.equal(await submit("mkdir /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 /tmp/dolly-sdl2/input.cpp /tmp/dolly-sdl2/rts-input-probe.cpp -o /tmp/dolly-sdl2/rts-input-probe -lSDL2 -lz -lm && /tmp/dolly-sdl2/rts-input-probe"), 0);
+        assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false, "offscreen player input must not acquire the browser display");
+      } finally {
+        if (await evaluate(send, "window.__sdlResult === null")) {
+          await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+          await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 probe cancellation");
+        }
+        await submit("rm -rf /tmp/dolly-sdl2");
+      }
+      console.log("browser: SDL2 source build, RGB565 presentation, keyboard/click input, display restoration, offscreen ordered batches, PNG screenshots, invalid batches and held-input cancellation passed");
       break browserProof;
     }
     if (graphicsMode) {
@@ -2642,6 +3147,8 @@ install(TARGETS probe RUNTIME DESTINATION bin)
           `../dist/dolly-${selectedImage}-system-snapshot.mjs`);
         const manifestHash = createHash("sha256")
           .update(DOLLY_SYSTEM_SNAPSHOT.manifest.join("\n") + "\n").digest("hex");
+        assert.notEqual(await submit(`${scratch}/inventory ${scratch}/help ${"0".repeat(64)}`), 0,
+          "live manifest verification must reject a different digest");
         assert.equal(await submit(`${scratch}/inventory ${scratch}/help ${manifestHash}`), 0,
           "live manifest, system paths and help must match the packaged image");
         if (selectedImage === "external-source") {

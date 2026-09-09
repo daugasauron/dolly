@@ -63,6 +63,7 @@ and [deployment](docs/deployment.md) for sealed static exports.
 - [Dollyfiles](docs/dollyfile.md) and [Studio builds](docs/image-build-service.md).
 - [Architecture](docs/architecture.md), [processes](docs/process-model.md), [ABI](abi/README.md).
 - [Slop and Make](docs/slop.md), [ports](docs/port-status.md), [Pi](docs/pi-agent-plan.md).
+- [RTS arena experiment](docs/rts-arena.md) (branch work, not deployed).
 - [Remaining audit work](docs/audit-handoff.md) and [direction](docs/roadmap.md).
 
 Dolly is a prototype, not full POSIX, Node or libcurl compatibility.

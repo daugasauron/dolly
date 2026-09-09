@@ -10,7 +10,7 @@ USE HOST /modules/tar.dm            cc9e50ec101244cbf57f926b82d537da9efe0d18d483
 USE HOST /modules/make.dm           f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9fd0225dd8f05ea0e02a1
 USE HOST /modules/cpp.dm            a7ede03621f9a6de44d4c2c9dbe64dce96c87b286aab6216a3390c64eb3eed52
 USE HOST /modules/ninja.dm          84b060b2ab700c37083cd698a619630d1f25663156320a0acae3fe07053777f7
-USE HOST /modules/zlib.dm           c5671bb656443794bbb15aac5c9eebbd48621aea664b002c9757aaf9742ca1a9
+USE HOST /modules/zlib.dm           0d4994c6687385e288747ef53e621707c064cf8666239f7f6210480c72c57b35
 USE HOST /modules/curl.dm           f92d767aa1a4be186afdace77df9d7bdb846f8a96267c8062bc21617eff9c919
 USE HOST /modules/git.dm            70c6691e9f126fa1c9168bc5c44568063de4163a96b6dd5d9c51a90724a8e6fa
 USE HOST /modules/awk.dm            b9ff535f661dd7e24b0136e3067d08b5880c16fae6abce38bd1677428ac72a65

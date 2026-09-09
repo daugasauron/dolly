@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE pi-local
 
-FROM HOST /Dollyfile-pi 1c1e254a7913e54e9d8bd58275e7a163f9f99d8fb227b3601e3a6b1c818f1518
+FROM HOST /Dollyfile-pi ee3aab6f6cd99e2533f1cc0fbb75acac3bff9ef21381ffb9af8927a38605b92f
 USE HOST /modules/browser-model-providers.dm bc379c5fd71b1e5c7b3d7b9f677995100f0f860068187c14ee1a0a3056303169
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

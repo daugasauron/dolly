@@ -3,6 +3,7 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 output="${1:-${project_dir}/build/dolly-pages.tar.gz}"
+releases="${2:-${project_dir}/build/releases}"
 staging=""
 temporary_output=""
 cleanup() {
@@ -187,6 +188,6 @@ echo "dolly: Pages site is ${site_bytes} bytes"
 node "${project_dir}/scripts/site-release.mjs" accept "${staging}/site" "${project_dir}"
 tar -C "${staging}/site" -czf "${temporary_output}" .
 mv -- "${temporary_output}" "${output}"
-node "${project_dir}/scripts/site-release.mjs" publish "${staging}/site" "${project_dir}/build/releases"
+node "${project_dir}/scripts/site-release.mjs" publish "${staging}/site" "${releases}"
 echo "dolly: wrote $(du -h "${output}" | cut -f1) Pages artifact to ${output}"
 sha256sum -- "${output}"

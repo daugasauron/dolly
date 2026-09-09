@@ -606,6 +606,9 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["cmake-build", "/usr/bin/cmake"],
     ["neovim-build", "/usr/bin/nvim"],
     ["neovim", "/usr/bin/nvim"],
+    ["sdl2-build", "/usr/lib/libSDL2.a"],
+    ["rts-build", "/usr/bin/seven-kingdoms"],
+    ["rts-arena", "/usr/bin/rts-arena"],
   ]);
   for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
@@ -640,7 +643,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     }
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),
-      ["pi", "pi-local", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop", "dollyfile-studio"].includes(image),
+      ["pi", "pi-local", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop", "dollyfile-studio", "rts-arena"].includes(image),
     );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
@@ -657,7 +660,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const shellStartup = ["default", "codex", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "neovim", "dollyfile-studio"].includes(image);
+    const shellStartup = ["default", "codex", "rts-arena", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "neovim", "dollyfile-studio"].includes(image);
     assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup);
     assert.deepEqual(metadata.entry, graph.root.entry);
     assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);
@@ -721,8 +724,11 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     { image: "python-pi", dollyfile: "Dollyfile-python-pi" },
     { image: "python-runtime", dollyfile: "Dollyfile-python-runtime" },
     { image: "ripgrep", dollyfile: "Dollyfile-ripgrep" },
+    { image: "rts-arena", dollyfile: "Dollyfile-rts-arena" },
+    { image: "rts-build", dollyfile: "Dollyfile-rts-build" },
     { image: "rust-sdk", dollyfile: "Dollyfile-rust-sdk" },
     { image: "rust-tools", dollyfile: "Dollyfile-rust-tools" },
+    { image: "sdl2-build", dollyfile: "Dollyfile-sdl2-build" },
     { image: "system", dollyfile: "Dollyfile-system" },
     { image: "system-build", dollyfile: "Dollyfile-system-build" },
   ];

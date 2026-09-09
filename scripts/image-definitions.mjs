@@ -30,9 +30,7 @@ export async function discoverImageDefinitions(projectDir) {
       parsed,
     });
   }
-  if (!definitions.some((definition) => definition.image === "default")) {
-    throw new Error("Dollyfile: the default image definition is required");
-  }
+  if (!definitions.length) throw new Error("No Dollyfile image definitions found");
   definitions.sort((left, right) => {
     if (left.image === "default") return -1;
     if (right.image === "default") return 1;

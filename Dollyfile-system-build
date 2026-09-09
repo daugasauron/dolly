@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE system-build
 
-USE HOST /modules/default.dm 529f15465322f832bd17c6135ad2a44b12499d4c6ae801f1d69eeacedb9c4d79
+USE HOST /modules/default.dm 80cb3afea7b124983dea90dff769b27d9acd377e4658a7b996887e41a227c6e1
 
 # Bootstrap independently of system, which imports the source-built Rust tools.
 COPY FROM HOST /Dollyfile-ghostty-build b8bc6cb44d5916c3d869d0c7afd62c24919c0a5dbbfc2a30b7607bd395f421d3 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
