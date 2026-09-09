@@ -25,15 +25,21 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
 })));
 await writeImageRegistry(projectDir, definitions, staticSources);
 const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
-const cards = new Map([...menuTemplate.matchAll(/<section class="image">[\s\S]*?<\/section>/g)]
-  .map(([section]) => [/<h3>([^<]+)<\/h3>/.exec(section)[1], section]));
+const rows = new Map([...menuTemplate.matchAll(/<tr class="image" data-image="([^"]+)">[\s\S]*?<\/tr>/g)]
+  .map(([row, image]) => [image, row]));
+const isBuild = image => /-(build|sdk|runtime)$/.test(image) ||
+  ["system", "ripgrep", "rust-tools"].includes(image);
 const ordered = [...definitions].sort((a, b) =>
-  Number(b.image === "default") - Number(a.image === "default") || a.image.localeCompare(b.image, "en"));
-const menu = menuTemplate.replace(/(<nav\b[^>]*>)[\s\S]*?(<\/nav>)/, (_match, start, end) =>
-  start + "\n" + ordered.map(({ image }) => cards.get(image) ?? `<section class="image"><h3>${image}</h3>
-    <div class="image-links"><a href="./${image}/">open →</a>
-    <a href="./${image}/rebuild/">rebuild</a><a href="./view/${image}/">Dollyfile</a></div>
-    </section>`).join("\n") + "\n" + end);
+  Number(b.image === "default") - Number(a.image === "default") ||
+  Number(isBuild(a.image)) - Number(isBuild(b.image)) || a.image.localeCompare(b.image, "en"));
+const firstBuild = ordered.find(({ image }) => isBuild(image))?.image;
+const menu = menuTemplate.replace(/<tbody>[\s\S]*?<\/tbody>/, () =>
+  "<tbody>\n" + ordered.map(({ image }) =>
+    (image === firstBuild ? '<tr class="group"><th colspan="3">Build images</th></tr>\n' : "") +
+    (rows.get(image) ?? `<tr class="image" data-image="${image}"><th scope="row"><a href="./${image}/">${image}</a></th>
+    <td class="description">Dolly userspace</td><td><div class="image-links"><a href="./${image}/">open →</a>
+    <a href="./${image}/rebuild/">rebuild</a><a href="./view/${image}/">Dollyfile</a></div></td>
+    </tr>`)).join("\n") + "\n</tbody>");
 await mkdir(outputDir, { recursive: true });
 await writeFile(resolve(outputDir, "index.html"), menu);
 const routes = [

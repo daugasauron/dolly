@@ -20,18 +20,24 @@
       }
       * { box-sizing: border-box; }
       body { margin: 0; min-height: 100vh; }
-      main { width: min(58rem, calc(100% - 2rem)); margin: 0 auto; padding: 8vh 0 5rem; }
+      main { width: min(76rem, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 3rem; }
       h1, h2, p { margin: 0 0 1rem; }
-      h1 { color: #f2d45c; font-size: clamp(2rem, 8vw, 5rem); line-height: 1; letter-spacing: -0.06em; }
+      h1 { color: #f2d45c; font-size: clamp(2rem, 6vw, 3rem); line-height: 1; letter-spacing: -0.06em; }
       h2 { margin-top: 2.5rem; color: #f2d45c; font-size: 1rem; text-transform: uppercase; }
       a { color: inherit; text-decoration-color: #f2d45c; text-underline-offset: 0.22em; }
       a:hover, a:focus-visible { color: #f2d45c; }
       .lead { max-width: 47rem; font-size: 1.1rem; }
-      .routes { display: grid; grid-template-columns: 1fr; gap: 1px; padding: 1px; background: #77736c; }
-      .image { min-height: 8rem; padding: 1rem; background: #262626; }
-      .image h3 { margin: 0 0 0.65rem; color: #f2d45c; font-size: 1.15rem; }
-      .image p { color: #b7b1a6; }
-      .image-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+      .routes { overflow-x: auto; }
+      table { width: 100%; min-width: 48rem; border-collapse: collapse; table-layout: fixed; font-size: 0.9rem; }
+      .name-column { width: 11rem; }
+      .links-column { width: 14rem; }
+      th, td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #55524c; text-align: left; white-space: nowrap; }
+      thead th { color: #b7b1a6; font-weight: inherit; }
+      .image th { color: #f2d45c; font-weight: inherit; }
+      .description { color: #b7b1a6; overflow: hidden; text-overflow: ellipsis; }
+      .image-links { display: flex; gap: 1rem; }
+      .group th { padding-top: 1.2rem; color: #f2d45c; font-weight: inherit; }
+      .image:hover { background: #30302c; }
       #shortcuts dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.5rem; }
       #shortcuts dd { margin: 0; }
       kbd { font: inherit; white-space: nowrap; }
@@ -44,178 +50,114 @@
 
       <h2>Images</h2>
       <p><a href="./session/">Saved sessions →</a> · <a href="./custom/">Run a Dollyfile →</a> · <a href="#shortcuts">Shortcuts</a></p>
-      <nav class="routes" aria-label="Dolly images">
-        <section class="image">
-          <h3>dollyfile-studio</h3>
-          <p>Create custom images with Pi, local Qwen models, Neovim syntax highlighting and Dollyfile linting.</p>
-          <div class="image-links">
-            <a href="./dollyfile-studio/">open →</a>
-            <a href="./dollyfile-studio/rebuild/">rebuild</a>
-            <a href="./view/dollyfile-studio/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>default</h3>
-          <p>Everyday shell environment with Git, Make and C/C++. Starts Slop.</p>
-          <div class="image-links">
-            <a href="./default/">open →</a>
-            <a href="./default/rebuild/">rebuild</a>
-            <a href="./view/default/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>external-source</h3>
-          <p>Example: fetch pinned upstream xxd source over HTTPS and compile it inside Dolly. Try printf Dolly | xxd.</p>
-          <div class="image-links">
-            <a href="./external-source/">open →</a>
-            <a href="./external-source/rebuild/">rebuild</a>
-            <a href="./view/external-source/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>pi</h3>
-          <p>Pi coding agent with JavaScript/TypeScript tools and the shared shell environment.</p>
-          <div class="image-links">
-            <a href="./pi/">open →</a>
-            <a href="./pi/rebuild/">rebuild</a>
-            <a href="./view/pi/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>pi-local</h3>
-          <p>Pi with on-device Qwen models via WebGPU. Open Ctrl+Shift+L to load a model; no API key needed.</p>
-          <div class="image-links">
-            <a href="./pi-local/">open →</a>
-            <a href="./pi-local/rebuild/">rebuild</a>
-            <a href="./view/pi-local/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>python</h3>
-          <p>CPython, the Bonnie package manager and native-extension build tools. Starts Slop.</p>
-          <div class="image-links">
-            <a href="./python/">open →</a>
-            <a href="./python/rebuild/">rebuild</a>
-            <a href="./view/python/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>python-pi</h3>
-          <p>Pi with Python, Bonnie and package-installation guidance inside the sandbox.</p>
-          <div class="image-links">
-            <a href="./python-pi/">open →</a>
-            <a href="./python-pi/rebuild/">rebuild</a>
-            <a href="./view/python-pi/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>gamedev</h3>
-          <p>Singularity: an interactive 3D physics playground with raylib, Box3D and Pi.</p>
-          <div class="image-links">
-            <a href="./gamedev/">open →</a>
-            <a href="./gamedev/rebuild/">rebuild</a>
-            <a href="./view/gamedev/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>bhop</h3>
-          <p>Airtime: Foundry. Industrial strafe trials with disappearing pads, scroll jumping and mouse capture.</p>
-          <div class="image-links">
-            <a href="./bhop/">open →</a>
-            <a href="./bhop/rebuild/">rebuild</a>
-            <a href="./view/bhop/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>gamedev-phone</h3>
-          <p>Singularity with touch controls inside the sandbox. Requires a wasm64-capable browser.</p>
-          <div class="image-links">
-            <a href="./gamedev-phone/">open →</a>
-            <a href="./gamedev-phone/rebuild/">rebuild</a>
-            <a href="./view/gamedev-phone/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>gamedev-sdk</h3>
-          <p>Reusable raylib and Box3D headers, libraries and sources for building games. Starts Slop.</p>
-          <div class="image-links">
-            <a href="./gamedev-sdk/">open →</a>
-            <a href="./gamedev-sdk/rebuild/">rebuild</a>
-            <a href="./view/gamedev-sdk/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>javascript</h3>
-          <p>QuickJS, Janis and TypeScript for building JavaScript tools. Starts Slop.</p>
-          <div class="image-links">
-            <a href="./javascript/">open →</a>
-            <a href="./javascript/rebuild/">rebuild</a>
-            <a href="./view/javascript/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>pi-runtime</h3>
-          <p>Reusable Pi and JavaScript toolchain base. Starts Slop instead of launching Pi.</p>
-          <div class="image-links">
-            <a href="./pi-runtime/">open →</a>
-            <a href="./pi-runtime/rebuild/">rebuild</a>
-            <a href="./view/pi-runtime/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>python-runtime</h3>
-          <p>CPython and its native-extension SDK without Bonnie. Starts Slop.</p>
-          <div class="image-links">
-            <a href="./python-runtime/">open →</a>
-            <a href="./python-runtime/rebuild/">rebuild</a>
-            <a href="./view/python-runtime/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>system</h3>
-          <p>Shared shell, Git, build tools and C/C++ SDK used by the other images.</p>
-          <div class="image-links">
-            <a href="./system/">open →</a>
-            <a href="./system/rebuild/">rebuild</a>
-            <a href="./view/system/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>ghostty-build</h3>
-          <p>Builds the Ghostty terminal from source with Zig. Includes its compiler and SDK; starts Slop.</p>
-          <div class="image-links">
-            <a href="./ghostty-build/">open →</a>
-            <a href="./ghostty-build/rebuild/">rebuild</a>
-            <a href="./view/ghostty-build/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>cmake-build</h3>
-          <p>Bootstraps CMake from source for building C/C++ projects. Includes libuv and Slop.</p>
-          <div class="image-links">
-            <a href="./cmake-build/">open →</a>
-            <a href="./cmake-build/rebuild/">rebuild</a>
-            <a href="./view/cmake-build/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>neovim-build</h3>
-          <p>Builds Neovim, Lua and syntax parsers from source. Includes CMake and development libraries.</p>
-          <div class="image-links">
-            <a href="./neovim-build/">open →</a>
-            <a href="./neovim-build/rebuild/">rebuild</a>
-            <a href="./view/neovim-build/">Dollyfile</a>
-          </div>
-        </section>
-        <section class="image">
-          <h3>neovim</h3>
-          <p>Neovim with Lua and syntax parsers, built from source. Edit sandbox files through Ghostty.</p>
-          <div class="image-links">
-            <a href="./neovim/">open →</a>
-            <a href="./neovim/rebuild/">rebuild</a>
-            <a href="./view/neovim/">Dollyfile</a>
-          </div>
-        </section>
+      <nav class="routes" aria-label="Dolly images" tabindex="0">
+        <table>
+          <colgroup><col class="name-column"><col><col class="links-column"></colgroup>
+          <thead><tr><th scope="col">Image</th><th scope="col">Includes</th><th scope="col">Links</th></tr></thead>
+          <tbody>
+          <tr class="image" data-image="default">
+            <th scope="row"><a href="./default/">default</a></th><td class="description">Shell, Git, ripgrep, Make and C/C++.</td>
+            <td><div class="image-links"><a href="./default/">open →</a><a href="./default/rebuild/">rebuild</a><a href="./view/default/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="bhop">
+            <th scope="row"><a href="./bhop/">bhop</a></th><td class="description">Airtime: Foundry — strafe trials and scroll jumping.</td>
+            <td><div class="image-links"><a href="./bhop/">open →</a><a href="./bhop/rebuild/">rebuild</a><a href="./view/bhop/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="codex">
+            <th scope="row"><a href="./codex/">codex</a></th><td class="description">Codex TUI with shell tools and ripgrep.</td>
+            <td><div class="image-links"><a href="./codex/">open →</a><a href="./codex/rebuild/">rebuild</a><a href="./view/codex/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="dollyfile-studio">
+            <th scope="row"><a href="./dollyfile-studio/">dollyfile-studio</a></th><td class="description">Create images with Pi, local models and Neovim.</td>
+            <td><div class="image-links"><a href="./dollyfile-studio/">open →</a><a href="./dollyfile-studio/rebuild/">rebuild</a><a href="./view/dollyfile-studio/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="external-source">
+            <th scope="row"><a href="./external-source/">external-source</a></th><td class="description">Build and run upstream xxd from a pinned source.</td>
+            <td><div class="image-links"><a href="./external-source/">open →</a><a href="./external-source/rebuild/">rebuild</a><a href="./view/external-source/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="gamedev">
+            <th scope="row"><a href="./gamedev/">gamedev</a></th><td class="description">Singularity — a 3D physics playground with Pi.</td>
+            <td><div class="image-links"><a href="./gamedev/">open →</a><a href="./gamedev/rebuild/">rebuild</a><a href="./view/gamedev/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="gamedev-phone">
+            <th scope="row"><a href="./gamedev-phone/">gamedev-phone</a></th><td class="description">Singularity with touch controls.</td>
+            <td><div class="image-links"><a href="./gamedev-phone/">open →</a><a href="./gamedev-phone/rebuild/">rebuild</a><a href="./view/gamedev-phone/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="javascript">
+            <th scope="row"><a href="./javascript/">javascript</a></th><td class="description">QuickJS, Janis and TypeScript.</td>
+            <td><div class="image-links"><a href="./javascript/">open →</a><a href="./javascript/rebuild/">rebuild</a><a href="./view/javascript/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="neovim">
+            <th scope="row"><a href="./neovim/">neovim</a></th><td class="description">Neovim with Lua and syntax parsers.</td>
+            <td><div class="image-links"><a href="./neovim/">open →</a><a href="./neovim/rebuild/">rebuild</a><a href="./view/neovim/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="pi">
+            <th scope="row"><a href="./pi/">pi</a></th><td class="description">Pi coding agent with JavaScript and shell tools.</td>
+            <td><div class="image-links"><a href="./pi/">open →</a><a href="./pi/rebuild/">rebuild</a><a href="./view/pi/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="pi-local">
+            <th scope="row"><a href="./pi-local/">pi-local</a></th><td class="description">Pi with on-device Qwen models via WebGPU.</td>
+            <td><div class="image-links"><a href="./pi-local/">open →</a><a href="./pi-local/rebuild/">rebuild</a><a href="./view/pi-local/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="python">
+            <th scope="row"><a href="./python/">python</a></th><td class="description">CPython, Bonnie and native-extension tools.</td>
+            <td><div class="image-links"><a href="./python/">open →</a><a href="./python/rebuild/">rebuild</a><a href="./view/python/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="python-pi">
+            <th scope="row"><a href="./python-pi/">python-pi</a></th><td class="description">Pi with Python and Bonnie.</td>
+            <td><div class="image-links"><a href="./python-pi/">open →</a><a href="./python-pi/rebuild/">rebuild</a><a href="./view/python-pi/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="group"><th colspan="3">Build images</th></tr>
+          <tr class="image" data-image="cmake-build">
+            <th scope="row"><a href="./cmake-build/">cmake-build</a></th><td class="description">CMake bootstrap and libuv.</td>
+            <td><div class="image-links"><a href="./cmake-build/">open →</a><a href="./cmake-build/rebuild/">rebuild</a><a href="./view/cmake-build/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="codex-build">
+            <th scope="row"><a href="./codex-build/">codex-build</a></th><td class="description">Source-built Codex and its build record.</td>
+            <td><div class="image-links"><a href="./codex-build/">open →</a><a href="./codex-build/rebuild/">rebuild</a><a href="./view/codex-build/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="gamedev-sdk">
+            <th scope="row"><a href="./gamedev-sdk/">gamedev-sdk</a></th><td class="description">raylib and Box3D headers, libraries and sources.</td>
+            <td><div class="image-links"><a href="./gamedev-sdk/">open →</a><a href="./gamedev-sdk/rebuild/">rebuild</a><a href="./view/gamedev-sdk/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="ghostty-build">
+            <th scope="row"><a href="./ghostty-build/">ghostty-build</a></th><td class="description">Ghostty terminal build with Zig and its SDK.</td>
+            <td><div class="image-links"><a href="./ghostty-build/">open →</a><a href="./ghostty-build/rebuild/">rebuild</a><a href="./view/ghostty-build/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="neovim-build">
+            <th scope="row"><a href="./neovim-build/">neovim-build</a></th><td class="description">Neovim, Lua and syntax-parser build tools.</td>
+            <td><div class="image-links"><a href="./neovim-build/">open →</a><a href="./neovim-build/rebuild/">rebuild</a><a href="./view/neovim-build/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="pi-runtime">
+            <th scope="row"><a href="./pi-runtime/">pi-runtime</a></th><td class="description">Reusable Pi and JavaScript runtime.</td>
+            <td><div class="image-links"><a href="./pi-runtime/">open →</a><a href="./pi-runtime/rebuild/">rebuild</a><a href="./view/pi-runtime/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="protox-build">
+            <th scope="row"><a href="./protox-build/">protox-build</a></th><td class="description">Source-built protobuf compiler for Codex.</td>
+            <td><div class="image-links"><a href="./protox-build/">open →</a><a href="./protox-build/rebuild/">rebuild</a><a href="./view/protox-build/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="python-runtime">
+            <th scope="row"><a href="./python-runtime/">python-runtime</a></th><td class="description">CPython and its native-extension SDK.</td>
+            <td><div class="image-links"><a href="./python-runtime/">open →</a><a href="./python-runtime/rebuild/">rebuild</a><a href="./view/python-runtime/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="ripgrep">
+            <th scope="row"><a href="./ripgrep/">ripgrep</a></th><td class="description">Build ripgrep with Patti and retain rg.</td>
+            <td><div class="image-links"><a href="./ripgrep/">open →</a><a href="./ripgrep/rebuild/">rebuild</a><a href="./view/ripgrep/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="rust-sdk">
+            <th scope="row"><a href="./rust-sdk/">rust-sdk</a></th><td class="description">Rust compiler, standard library and procedural macros.</td>
+            <td><div class="image-links"><a href="./rust-sdk/">open →</a><a href="./rust-sdk/rebuild/">rebuild</a><a href="./view/rust-sdk/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="rust-tools">
+            <th scope="row"><a href="./rust-tools/">rust-tools</a></th><td class="description">Rust SDK and the C Patti build orchestrator.</td>
+            <td><div class="image-links"><a href="./rust-tools/">open →</a><a href="./rust-tools/rebuild/">rebuild</a><a href="./view/rust-tools/">Dollyfile</a></div></td>
+          </tr>
+          <tr class="image" data-image="system">
+            <th scope="row"><a href="./system/">system</a></th><td class="description">Shared shell, Git, build tools and C/C++ SDK.</td>
+            <td><div class="image-links"><a href="./system/">open →</a><a href="./system/rebuild/">rebuild</a><a href="./view/system/">Dollyfile</a></div></td>
+          </tr>
+          </tbody>
+        </table>
       </nav>
       <section id="shortcuts" aria-labelledby="shortcuts-title">
         <h2 id="shortcuts-title">Shortcuts</h2>

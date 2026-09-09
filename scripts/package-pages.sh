@@ -183,10 +183,6 @@ done
 node "${project_dir}/scripts/share-pages-snapshots.mjs" "${staging}/site/dist" "${project_dir}/dist"
 touch "${staging}/site/.nojekyll"
 site_bytes="$(du -sb "${staging}/site" | cut -f1)"
-if (( site_bytes > 1000000000 )); then
-  echo "dolly: Pages site exceeds 1 GB (${site_bytes} bytes)" >&2
-  exit 1
-fi
 echo "dolly: Pages site is ${site_bytes} bytes"
 node "${project_dir}/scripts/site-release.mjs" accept "${staging}/site" "${project_dir}"
 tar -C "${staging}/site" -czf "${temporary_output}" .

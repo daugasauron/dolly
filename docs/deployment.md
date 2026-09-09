@@ -20,6 +20,9 @@ Both verify sealed input, reject an existing destination and publish staging
 atomically. Neither uploads anything. Run `sha256sum --check deployment.sha256`
 inside an export to verify its uploaded bytes.
 
+Local packages can contain the complete image catalog. The GitHub deployment
+workflow checks its 1 GB limit against the exported site before upload.
+
 GitHub's manual workflow consumes the audited artifact and uses `/dolly/`.
 The domain uses that same artifact with root navigation and Pages-specific
 delivery headers/encoding. Compare decoded immutable bytes against

@@ -681,6 +681,8 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     { image: "default", dollyfile: "Dollyfile" },
     { image: "bhop", dollyfile: "Dollyfile-bhop" },
     { image: "cmake-build", dollyfile: "Dollyfile-cmake-build" },
+    { image: "codex", dollyfile: "Dollyfile-codex" },
+    { image: "codex-build", dollyfile: "Dollyfile-codex-build" },
     { image: "dollyfile-studio", dollyfile: "Dollyfile-dollyfile-studio" },
     { image: "external-source", dollyfile: "Dollyfile-external-source" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
@@ -693,9 +695,13 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     { image: "pi", dollyfile: "Dollyfile-pi" },
     { image: "pi-local", dollyfile: "Dollyfile-pi-local" },
     { image: "pi-runtime", dollyfile: "Dollyfile-pi-runtime" },
+    { image: "protox-build", dollyfile: "Dollyfile-protox-build" },
     { image: "python", dollyfile: "Dollyfile-python" },
     { image: "python-pi", dollyfile: "Dollyfile-python-pi" },
     { image: "python-runtime", dollyfile: "Dollyfile-python-runtime" },
+    { image: "ripgrep", dollyfile: "Dollyfile-ripgrep" },
+    { image: "rust-sdk", dollyfile: "Dollyfile-rust-sdk" },
+    { image: "rust-tools", dollyfile: "Dollyfile-rust-tools" },
     { image: "system", dollyfile: "Dollyfile-system" },
   ];
   const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
@@ -706,9 +712,12 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   );
   assert.ok(DOLLY_STATIC_SOURCES.length >= 50);
   const generatedMenu = await readFile(new URL("../build/routes/index.html", import.meta.url), "utf8");
-  assert.deepEqual([...generatedMenu.matchAll(/<h3>([^<]+)<\/h3>/g)].map(match => match[1]),
-    DOLLY_IMAGES.map(({ image }) => image).sort((a, b) =>
-      Number(b === "default") - Number(a === "default") || a.localeCompare(b, "en")));
+  const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
+    "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi",
+    "cmake-build", "codex-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
+    "protox-build", "python-runtime", "ripgrep", "rust-sdk", "rust-tools", "system"];
+  assert.deepEqual([...generatedMenu.matchAll(/<tr class="image" data-image="([^"]+)">/g)].map(match => match[1]),
+    menuOrder.filter(image => selected.has(image)));
   for (const image of DOLLY_IMAGES) {
     await readFile(new URL(`../build/routes/${image.image}/index.html`, import.meta.url));
     await readFile(new URL(`../build/routes/${image.image}/rebuild/index.html`, import.meta.url));

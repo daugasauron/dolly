@@ -58,6 +58,13 @@ jobs:
         env:
           DOLLY_PUBLIC_BASE: ${{ steps.pages.outputs.base_path }}
         run: node _source/scripts/export-static.mjs _site _static "${DOLLY_PUBLIC_BASE}/"
+      - name: Check deployment size
+        run: |
+          site_bytes="$(du -sb _static | cut -f1)"
+          if (( site_bytes > 1000000000 )); then
+            echo "dolly: Pages site exceeds 1 GB (${site_bytes} bytes)" >&2
+            exit 1
+          fi
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _static

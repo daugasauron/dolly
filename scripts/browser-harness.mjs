@@ -3616,9 +3616,10 @@ int main(int argc, char **argv) {
         background: getComputedStyle(document.documentElement).backgroundColor,
         font: getComputedStyle(document.documentElement).fontFamily,
         links: Array.from(document.querySelectorAll('.image-links a'), (link) => link.href),
-        descriptions: Array.from(document.querySelectorAll('.image'), (card) => ({
-          image: card.querySelector('h3')?.textContent,
-          text: card.querySelector('p')?.textContent.trim() ?? '',
+        descriptions: Array.from(document.querySelectorAll('tr.image'), (row) => ({
+          image: row.dataset.image,
+          text: row.querySelector('.description')?.textContent.trim() ?? '',
+          height: row.getBoundingClientRect().height,
         })),
         interactiveElements: document.querySelectorAll('script, form, input, button').length,
         text: document.body.textContent,
@@ -3632,11 +3633,35 @@ int main(int argc, char **argv) {
         `${image}/`, `${image}/rebuild/`, `view/${image}/`,
       ]).map(path => new URL(path, menuEvidence.url).href).toSorted());
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
-      assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image),
-        imageDefinitions.map(({ image }) => image).sort((a, b) =>
-          Number(b === "default") - Number(a === "default") || a.localeCompare(b, "en")));
-      for (const { image, text } of menuEvidence.descriptions) {
+      const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
+        "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi",
+        "cmake-build", "codex-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
+        "protox-build", "python-runtime", "ripgrep", "rust-sdk", "rust-tools", "system"];
+      const selected = new Set(imageDefinitions.map(({ image }) => image));
+      assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image), menuOrder.filter(image => selected.has(image)));
+      for (const { image, text, height } of menuEvidence.descriptions) {
         assert.ok(text, `${image}: missing image description`);
+        assert.ok(height <= 40, `${image}: row is too tall (${height}px)`);
+      }
+      const screenshots = resolve(projectDir, "build/menu-check");
+      await mkdir(screenshots, { recursive: true });
+      for (const [name, width] of [["desktop", 1280], ["mobile", 390]]) {
+        await debuggerClient.send("Emulation.setDeviceMetricsOverride", {
+          width, height: 900, deviceScaleFactor: 1, mobile: false,
+        });
+        await evaluate(debuggerClient.send, "document.fonts.ready.then(() => true)");
+        const layout = await evaluate(debuggerClient.send, `({
+          width: document.documentElement.clientWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          heights: Array.from(document.querySelectorAll('tr.image'), row => row.getBoundingClientRect().height),
+        })`);
+        assert.equal(layout.scrollWidth, layout.width, `${name}: page overflows horizontally`);
+        assert.ok(layout.heights.every(height => height <= 40), `${name}: image rows wrap`);
+        const { cssContentSize } = await debuggerClient.send("Page.getLayoutMetrics");
+        const { data } = await debuggerClient.send("Page.captureScreenshot", {
+          format: "png", captureBeyondViewport: true, clip: { ...cssContentSize, scale: 1 },
+        });
+        await writeFile(resolve(screenshots, `${name}.png`), Buffer.from(data, "base64"));
       }
       assert.equal(menuEvidence.interactiveElements, 0);
       assert.doesNotMatch(menuEvidence.text, /voice input/i);
