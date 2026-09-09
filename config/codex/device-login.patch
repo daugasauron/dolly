@@ -1,0 +1,114 @@
+--- a/login/src/server.rs
++++ b/login/src/server.rs
+@@ -892,9 +892,8 @@
+     auth_credentials_store_mode: AuthCredentialsStoreMode,
+     keyring_backend_kind: AuthKeyringBackendKind,
+ ) -> io::Result<()> {
+-    // Reuse existing synchronous logic but run it off the async runtime.
+     let codex_home = codex_home.to_path_buf();
+-    tokio::task::spawn_blocking(move || {
++    let persist = move || {
+         let mut tokens = TokenData {
+             id_token: parse_chatgpt_jwt_claims(&id_token).map_err(io::Error::other)?,
+             access_token,
+@@ -923,9 +922,14 @@
+             auth_credentials_store_mode,
+             keyring_backend_kind,
+         )
+-    })
+-    .await
+-    .map_err(|e| io::Error::other(format!("persist task failed: {e}")))?
++    };
++    // Dolly's credential store is in Wasm memory and needs no worker thread.
++    #[cfg(target_os = "emscripten")]
++    return persist();
++    #[cfg(not(target_os = "emscripten"))]
++    tokio::task::spawn_blocking(persist)
++        .await
++        .map_err(|e| io::Error::other(format!("persist task failed: {e}")))?
+ }
+ 
+ /// Validates the ID token against an optional workspace restriction.
+--- a/login/src/auth/default_client.rs
++++ b/login/src/auth/default_client.rs
+@@ -284,13 +284,17 @@
+         .acquire()
+         .await
+         .map_err(std::io::Error::other)?;
+-    tokio::task::spawn_blocking(move || {
++    let build = move || {
+         let _permit = permit;
+         create_client_for_route(&http_client_factory, &request_url, route_class)
+             .map_err(std::io::Error::from)
+-    })
+-    .await
+-    .map_err(std::io::Error::other)?
++    };
++    #[cfg(target_os = "emscripten")]
++    return build();
++    #[cfg(not(target_os = "emscripten"))]
++    tokio::task::spawn_blocking(build)
++        .await
++        .map_err(std::io::Error::other)?
+ }
+ 
+ fn default_http_client_builder() -> HttpClientBuilder {
+--- a/cli/src/login.rs
++++ b/cli/src/login.rs
+@@ -30,6 +30,7 @@
+ use std::io::Read;
+ use std::path::Path;
+ use std::path::PathBuf;
++#[cfg(not(target_os = "emscripten"))]
+ use tracing_appender::non_blocking;
+ use tracing_appender::non_blocking::WorkerGuard;
+ use tracing_subscriber::EnvFilter;
+@@ -90,11 +91,17 @@
+         }
+     };
+ 
+-    let (non_blocking, guard) = non_blocking(log_file);
++    #[cfg(not(target_os = "emscripten"))]
++    let (writer, guard) = {
++        let (writer, guard) = non_blocking(log_file);
++        (writer, Some(guard))
++    };
++    #[cfg(target_os = "emscripten")]
++    let (writer, guard) = (std::sync::Mutex::new(log_file), None);
+     let env_filter = EnvFilter::try_from_default_env()
+         .unwrap_or_else(|_| EnvFilter::new("codex_cli=info,codex_core=info,codex_login=info"));
+     let file_layer = tracing_subscriber::fmt::layer()
+-        .with_writer(non_blocking)
++        .with_writer(writer)
+         .with_target(true)
+         .with_ansi(false)
+         .with_filter(env_filter);
+@@ -110,7 +117,7 @@
+         return None;
+     }
+ 
+-    Some(guard)
++    guard
+ }
+ 
+ fn print_login_server_start(actual_port: u16, auth_url: &str) {
+--- a/core/src/config/edit.rs
++++ b/core/src/config/edit.rs
+@@ -17,6 +17,7 @@
+ use std::collections::HashSet;
+ use std::path::Path;
+ use std::path::PathBuf;
++#[cfg(not(target_os = "emscripten"))]
+ use tokio::task;
+ use toml_edit::ArrayOfTables;
+ use toml_edit::DocumentMut;
+@@ -992,6 +993,9 @@
+ 
+     /// Apply edits asynchronously via a blocking offload.
+     pub async fn apply(self) -> anyhow::Result<()> {
++        #[cfg(target_os = "emscripten")]
++        return self.apply_blocking();
++        #[cfg(not(target_os = "emscripten"))]
+         task::spawn_blocking(move || {
+             apply_blocking_to_resolved_file(&self.config_path, &self.edits)
+         })

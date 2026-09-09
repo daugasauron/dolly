@@ -94,3 +94,5 @@ DOLLY_IMAGE=rust-tools DOLLY_BROWSER_MODE=tokio \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=codex DOLLY_BROWSER_MODE=codex \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=codex DOLLY_BROWSER_MODE=codex-login \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"

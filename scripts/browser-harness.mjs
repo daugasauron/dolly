@@ -21,6 +21,7 @@ import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases
 import { browserShellCases } from "../test/fixtures/browser-shell-cases.mjs";
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 import { demoFixture } from "../test/fixtures/codex-responses.mjs";
+import { createCodexLoginFixture, runCodexLogin, codexLoginRules, codexLoginFetch } from "../test/fixtures/codex-login.mjs";
 import { runCodexTui } from "../test/fixtures/codex-tui.mjs";
 import { createTokioFixture } from "../test/fixtures/tokio.mjs";
 import { rustToolSources, runRustTools, runRipgrep, runFd } from "../test/fixtures/rust-tools.mjs";
@@ -68,6 +69,8 @@ const processSmokeMode = isMode("process-smoke");
 const rustToolsMode = isMode("rust-tools");
 const tokioMode = isMode("tokio");
 const codexMode = isMode("codex");
+const codexLoginMode = isMode("codex-login");
+const codexLoginFixture = codexLoginMode ? createCodexLoginFixture() : null;
 const codexFixture = codexMode ? demoFixture() : null;
 const tokioFixture = tokioMode ? createTokioFixture() : null;
 const fdMode = isMode("fd");
@@ -303,6 +306,7 @@ function startServer() {
         response.setHeader("access-control-allow-headers", request.headers["access-control-request-headers"] ?? "");
         if (request.method === "OPTIONS") { response.writeHead(204); response.end(); return; }
       }
+      if (codexLoginFixture && codexLoginFixture.handle(request, response)) return;
       if (codexFixture && codexFixture.handle(request, response)) return;
       if (tokioFixture && await tokioFixture.handle(request, response, requestUrl)) return;
       if (gitTransportFixture && await gitTransportFixture.serve(request, response, requestUrl)) return;
@@ -1420,6 +1424,7 @@ const fixturePolicy = {
     },
   ],
 };
+if (codexLoginMode) fixturePolicy.rules.unshift(...codexLoginRules);
 if (codexMode) {
   fixturePolicy.rules.push({ origin: localOrigin, path: "/demo/v1/responses", methods: ["POST"] });
 }
@@ -1559,7 +1564,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
           location.href,
         );
         ${iterationMode ? `if (/\\.snapshot(?:\\.gz)?$/.test(target.pathname)) globalThis.__artifactFetches.push(target.pathname);` : ""}
-        if (target.href === "https://auth.openai.com/oauth/token") {
+        if (!${codexLoginMode} && target.href === "https://auth.openai.com/oauth/token") {
           const request = new Request(target, init);
           globalThis.__dollyCodexTokenRequests.push({
             method: request.method,
@@ -1578,6 +1583,9 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         return nativeFetch(input, init);
       };
     })();`,
+  });
+  if (codexLoginMode) await debuggerClient.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(${codexLoginFetch.toString()})(${JSON.stringify(localOrigin)});`,
   });
   const initialPage = debuggerDisconnectMode ? "about:blank" : customDollyfileMode
       ? new URL("custom/", menuPage).href : menuMode
@@ -2551,11 +2559,17 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       console.log("browser: source-built libuv work, cancellation, files, streamed children, cleanup, TTY input, resize and restoration passed");
       break browserProof;
     }
-    if (codexMode) {
+    if (codexMode || codexLoginMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "Codex image boot", 1200), "ready");
       await enterRecoveryShell(debuggerClient.send);
+      if (codexLoginMode) {
+        await runCodexLogin(debuggerClient.send, expression => evaluate(debuggerClient.send, expression), codexLoginFixture);
+        codexLoginFixture.verify();
+        console.log("browser: Codex device login cancellation, persistence, authenticated tool use, restart, refresh and CLI passed");
+        break browserProof;
+      }
       await runCodexTui(debuggerClient.send, expression => evaluate(debuggerClient.send, expression), localOrigin);
       codexFixture.verify();
       console.log("browser: real Codex TUI editing, paste, shell tool, file bytes, status and exit passed");

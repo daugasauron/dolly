@@ -1,6 +1,7 @@
 // A deterministic Responses API fixture. Codex executes the tool in Dolly.
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
+import { zstdDecompressSync } from "node:zlib";
 
 export const demoMarker = "DOLLY-CODEX-TOOL-PROOF";
 export const demoPath = "/workspace/codex-demo/proof.txt";
@@ -24,7 +25,11 @@ export function demoFixture(directory) {
           if (size > 8 * 1024 * 1024) throw new Error("demo request exceeds 8 MiB");
           chunks.push(chunk);
         }
-        const body = JSON.parse(Buffer.concat(chunks).toString());
+        const encoding = request.headers["content-encoding"];
+        assert.ok(!encoding || encoding === "zstd", "unsupported request encoding");
+        const bytes = Buffer.concat(chunks);
+        const body = JSON.parse((encoding ? zstdDecompressSync(bytes,
+          { maxOutputLength: 8 * 1024 * 1024 }) : bytes).toString());
         requests++;
         if (directory) await writeFile(`${directory}/demo-request-${requests}.json`, JSON.stringify(body, null, 2));
         const output = body.input?.find(item => item.type === "function_call_output" && item.call_id === callId);

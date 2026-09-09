@@ -4,7 +4,7 @@ IMAGE codex-build
 FROM HOST /Dollyfile-rust-tools 5cc5548cacbeeb998448479084f58a11fa8332eed9826e7f3d50e06e0f0177ff
 COPY FROM HOST /Dollyfile-protox-build 4bd964bead6f30ccb313d7e564e575e9afe1446073561047a9d81499b7964132 /usr/bin/protox /usr/bin/protox
 EXPORTS TOOL protox
-USE HOST /modules/codex-build.dm 758159b9f1b3125edec69f9874f59e673be8e8aff9e85f4e4da53ee1b0dde326
+USE HOST /modules/codex-build.dm bd3250764be8c4eb48bd3a067c686e6426f1132a0a5f5c34232d62154329fd5e
 
 # Retain the completed tool; the reusable compiler remains in rust-tools.
 SLOP rm -rf /opt/rust-sdk /usr/bin/patti

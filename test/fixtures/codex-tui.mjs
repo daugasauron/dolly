@@ -12,8 +12,6 @@ approval_policy = "never"
 sandbox_mode = "danger-full-access"
 allow_login_shell = false
 check_for_update_on_startup = false
-[projects."/workspace/codex-demo"]
-trust_level = "trusted"
 [features]
 plugins = false
 [analytics]
@@ -30,7 +28,7 @@ request_max_retries = 0
 stream_max_retries = 0
 `;
   await run("cp ~/.codex/installation_id /tmp/codex-id; cp ~/.codex/config.toml /tmp/codex-default-config");
-  await run("grep -q 'https://api.openai.com/v1' /tmp/codex-default-config");
+  await run("grep -q 'requires_openai_auth = true' /tmp/codex-default-config && ! grep -q 'base_url' /tmp/codex-default-config");
   await run("CODEX_HOME=/tmp/codex-home/nested codex --version && cmp /tmp/codex-home/nested/config.toml /tmp/codex-default-config");
   await run("cp /tmp/codex-home/nested/installation_id /tmp/codex-custom-id && printf '# existing user config\\n' > /tmp/codex-home/nested/config.toml");
   await run("CODEX_HOME=/tmp/codex-home/nested codex --version && cmp /tmp/codex-home/nested/installation_id /tmp/codex-custom-id && grep -q '^# existing user config$' /tmp/codex-home/nested/config.toml");
@@ -45,6 +43,7 @@ stream_max_retries = 0
     let text;
     for (let i = 0; i < 600; i++) {
       text = await evaluate("window.__dolly.visibleTerminalText()");
+      if (/application panicked|Worker failed/.test(text)) throw Error(`Codex crashed: ${text}`);
       if (pattern.test(text)) return text;
       await pause(100);
     }
@@ -58,7 +57,9 @@ stream_max_retries = 0
     assert.equal(await evaluate(`window.__dolly.key(${JSON.stringify(key)}, ${JSON.stringify(code)}, ${modifiers})`), true);
     await pause(100);
   }
-  await waitText(/gpt-5\.5/);
+  await waitText(/Do you trust the contents of this directory/);
+  await key("Enter");
+  await waitText(/model:\s+gpt-5\.5/);
   await input("AC");
   await key("ArrowLeft");
   await input("B");

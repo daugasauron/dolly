@@ -7,6 +7,7 @@ cli_auth_credentials_store = "file"
 
 [features]
 plugins = false
+apps = false
 
 [analytics]
 enabled = false
@@ -16,7 +17,6 @@ persistence = "none"
 
 [model_providers.openai-http]
 name = "OpenAI"
-base_url = "https://api.openai.com/v1"
 wire_api = "responses"
 requires_openai_auth = true
 supports_websockets = false

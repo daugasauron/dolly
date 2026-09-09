@@ -12,13 +12,13 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL protox
 
-SOURCE HOST /static/codex/sources-00.part /tmp/codex-sources-00.part 34a478349d9925278bf1b4fbedaefd5c96fb720362de815f7ae3d64c05bb19de
-SOURCE HOST /static/codex/sources-01.part /tmp/codex-sources-01.part 3ed798d02e5dbbf5ff2642634baaa9c61776e078727a68afaa8b0159a331545f
-SOURCE HOST /static/codex/sources-02.part /tmp/codex-sources-02.part 6da329711e4976fa4a6f5d48bad2b13265d611ab1378125fa4be28e098358f17
-SOURCE HOST /static/codex/sources-03.part /tmp/codex-sources-03.part 2fe1ac84bd799b99cfcc5c6a0e8967696c80972dcccf72d748a2b6c787c0b778
-SOURCE HOST /static/codex/sources-04.part /tmp/codex-sources-04.part a32534a8b1e9376f6970564a9e77a36332987818ddb18a0934dcea76f69b58da
-SOURCE HOST /static/codex/sources-05.part /tmp/codex-sources-05.part 74eb786b8278adb8fb61d25efad760e811b7310ec9e03c5856ee6b87511c9eeb
-SOURCE HOST /static/codex/sources-06.part /tmp/codex-sources-06.part 947378cd19eeb10c6c05ec16cc41dd8f655d833bc93a0b33b5647b04e4ed34a3
+SOURCE HOST /static/codex/sources-00.part /tmp/codex-sources-00.part bc7f7954251dfaad3b176308157252c1304fa6e4a9cd17ddbb76ecd93aa96d03
+SOURCE HOST /static/codex/sources-01.part /tmp/codex-sources-01.part 0ec30b8e31c39d5d75dfc3bac57ccc7cb3386cefc497ec54f184d54ce3080a6a
+SOURCE HOST /static/codex/sources-02.part /tmp/codex-sources-02.part f2c9a1331611014e11ad05f1a50f0d759cbaeabaccd0117b1fb984c9ebadd7e0
+SOURCE HOST /static/codex/sources-03.part /tmp/codex-sources-03.part 3e6ffe79bf6938e53f287c08d33005d55bfc5baf283726407952a538625fe50e
+SOURCE HOST /static/codex/sources-04.part /tmp/codex-sources-04.part 558e0757c624f8ca8d35258f1506ed6c79cb8393ab830199e4e6dc2048919602
+SOURCE HOST /static/codex/sources-05.part /tmp/codex-sources-05.part e1bb9db8d87698c18e31dd7d5954baa9b32276e838c59f10dfdabda2efe08521
+SOURCE HOST /static/codex/sources-06.part /tmp/codex-sources-06.part fe124daa94cb64402b121fa9bb9f5dc6264d5f89d9684762b6d2c99eeeb5d8a5
 SOURCE HOST /static/codex/no-js.c /tmp/codex-no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd
 SOURCE HOST /static/codex/patti.toml /tmp/codex-patti.toml d0576e2f732a57850652677d3b95abab03f5875c599de51e5244b6081ca9c334
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part | gzip -dc - | tar -xf - -C /
