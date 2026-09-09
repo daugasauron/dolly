@@ -20,6 +20,7 @@ import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
 import { browserShellCases } from "../test/fixtures/browser-shell-cases.mjs";
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
+import { rustToolSources, runRustTools, runRipgrep } from "../test/fixtures/rust-tools.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
 import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git-transport.mjs";
@@ -61,6 +62,8 @@ const boundaryMode = isMode("boundary");
 const httpDefaultsMode = isMode("http-defaults");
 const processAbiMode = isMode("process-abi");
 const processSmokeMode = isMode("process-smoke");
+const rustToolsMode = isMode("rust-tools");
+const ripgrepMode = isMode("ripgrep");
 const libuvMode = isMode("libuv");
 const cmakeMode = isMode("cmake");
 const neovimMode = isMode("neovim");
@@ -307,6 +310,14 @@ function startServer() {
         response.writeHead(200, isolatedHeaders);
         response.end(await readFile(resolve(projectDir, "build/fixtures/libuv-source.tar")));
         return;
+      }
+      if (rustToolsMode && requestUrl.pathname.startsWith("/fixture/rust/")) {
+        const name = requestUrl.pathname.slice("/fixture/rust/".length);
+        if (Object.hasOwn(rustToolSources, name)) {
+          response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
+          response.end(await readFile(resolve(projectDir, rustToolSources[name])));
+          return;
+        }
       }
       if (processSmokeMode && requestUrl.pathname.startsWith("/fixture/")) {
         const name = requestUrl.pathname.slice("/fixture/".length);
@@ -2518,6 +2529,17 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       console.log("browser: source-built libuv work, cancellation, files, streamed children, cleanup, TTY input, resize and restoration passed");
       break browserProof;
     }
+    if (rustToolsMode || ripgrepMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Rust tools boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
+      if (rustToolsMode) await runRustTools(submit, localOrigin);
+      else await runRipgrep(submit);
+      console.log(`browser: ${requestedMode} source-built tools passed in the shared Wasm filesystem`);
+      break browserProof;
+    }
     if (processSmokeMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -2553,7 +2575,8 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       const scratch = "/tmp/dolly-image-inventory";
       assert.equal(await submit(`mkdir ${scratch}`), 0);
       try {
-        const source = await readFile(resolve(projectDir, "test/fixtures/image-inventory.c"), "utf8");
+        const source = (await readFile(resolve(projectDir, "test/fixtures/image-inventory.c"), "utf8"))
+          .replace('#include "sha256.h"', await readFile(resolve(projectDir, "src/sha256.h"), "utf8"));
         const lines = source.trimEnd().split("\n").map(line => `echo -- ${shellQuote(line)}`);
         assert.equal(await submit(`{ ${lines.join("; ")}; } > ${scratch}/inventory.c`), 0);
         assert.equal(await submit(`cc -O1 ${scratch}/inventory.c -o ${scratch}/inventory`), 0);
@@ -2563,9 +2586,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
           `../dist/dolly-${selectedImage}-system-snapshot.mjs`);
         const manifestHash = createHash("sha256")
           .update(DOLLY_SYSTEM_SNAPSHOT.manifest.join("\n") + "\n").digest("hex");
-        assert.equal(await submit(`test "$(sha256sum /etc/dolly/image.manifest | cut -d ' ' -f 1)" = ${manifestHash}`), 0,
-          "live manifest bytes must match the packaged image");
-        assert.equal(await submit(`${scratch}/inventory ${scratch}/help`), 0,
+        assert.equal(await submit(`${scratch}/inventory ${scratch}/help ${manifestHash}`), 0,
           "live manifest, system paths and help must match the packaged image");
         if (selectedImage === "external-source") {
           assert.equal(await submit("test \"$(command -v xxd)\" = /usr/bin/xxd"), 0);

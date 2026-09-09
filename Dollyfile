@@ -4,4 +4,10 @@ IMAGE default
 FROM HOST /Dollyfile-system 7f86b29505af649198a038e8251be3f5ef51dc6367a6809569c958967a83760b
 USE HOST /modules/startup-default.dm 2f161e509b1ffbb01b859703251cec4ebf4cfeaceb90e851bd91992a73740a32
 
+# Keep the tool produced by the in-sandbox Rust source build.
+COPY FROM HOST /Dollyfile-ripgrep b3b318bebcf303b6c1064efccb9dbf732d1ce2e5e2985d65a09ec98a4e7ed930 /usr/bin/rg /usr/bin/rg
+COPY FROM HOST /Dollyfile-ripgrep b3b318bebcf303b6c1064efccb9dbf732d1ce2e5e2985d65a09ec98a4e7ed930 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
+COPY FROM HOST /Dollyfile-ripgrep b3b318bebcf303b6c1064efccb9dbf732d1ce2e5e2985d65a09ec98a4e7ed930 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
+EXPORTS TOOL rg
+
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

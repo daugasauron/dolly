@@ -98,6 +98,12 @@ if has_module patti; then
     copy_static "src/third_party/tomlc17/${name}" "patti/${name}"
   done
 fi
+for program in ripgrep protox; do
+  if has_module "${program}"; then
+    python3 scripts/prepare-rust-sources.py "${program}"
+    copy_static "build/rust-sources/${program}.tar" "rust/${program}.tar"
+  fi
+done
 if has_module quickjs; then
   for command in qjs janis; do
     copy_static "${project_dir}/src/commands/${command}.c" "default/commands/${command}.c"

@@ -529,8 +529,8 @@ test("compiler outputs do not depend on skipped cache-prefix job counts", async 
 });
 
 test("host preparation scripts publish atomically and own their temporary paths", async () => {
-  const scriptNames = await readdir(resolve(projectDir, "scripts"));
-  for (const name of scriptNames) {
+  const scriptNames = await readdir(resolve(projectDir, "scripts"), { withFileTypes: true });
+  for (const { name } of scriptNames.filter(entry => entry.isFile())) {
     const source = await readFile(resolve(projectDir, "scripts", name), "utf8");
     if (/(?:^|[($=;|& \t])mktemp[ \t]/m.test(source)) {
       assert.match(source, /trap .*EXIT|trap cleanup EXIT/, `${name} must trap cleanup`);
@@ -751,4 +751,22 @@ MODULE bad
   assert.ok(build.indexOf(lint) > 0);
   assert.ok(build.indexOf(lint) < build.indexOf("podman run"));
   assert.ok(build.indexOf(lint) < build.indexOf("prepare-image-sources.sh"));
+});
+
+test("Patti pins its C implementation and parser without a Python runtime dependency", async () => {
+  const module = inspectDollyfile(await readFile(resolve(projectDir, "modules/patti.dm"), "utf8"), "patti.dm");
+  assert.ok(!module.requirements.some(requirement => requirement.name.startsWith("python")));
+  const sources = new Map([
+    ["patti.c", "src/commands/patti.c"], ["sha256.h", "src/sha256.h"],
+    ["tomlc17.c", "src/third_party/tomlc17/tomlc17.c"],
+    ["tomlc17.h", "src/third_party/tomlc17/tomlc17.h"],
+    ["LICENSE", "src/third_party/tomlc17/LICENSE"],
+  ]);
+  assert.equal(module.sources.length, sources.size);
+  for (const source of module.sources) {
+    const path = sources.get(basename(source.location));
+    assert.ok(path, source.location);
+    assert.equal(createHash("sha256").update(await readFile(resolve(projectDir, path))).digest("hex"), source.sha256);
+  }
+  assert.ok(module.slops.some(step => step.command[0] === "cc" && step.command.includes("/usr/bin/patti")));
 });

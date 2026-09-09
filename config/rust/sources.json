@@ -1,0 +1,12 @@
+{
+  "ripgrep": {
+    "url": "https://codeload.github.com/BurntSushi/ripgrep/tar.gz/refs/tags/15.1.0",
+    "sha256": "046fa01a216793b8bd2750f9d68d4ad43986eb9c0d6122600f993906012972e8",
+    "directory": "ripgrep-15.1.0"
+  },
+  "protox": {
+    "url": "https://static.crates.io/crates/protox/protox-0.9.1.crate",
+    "sha256": "4f25a07a73c6717f0b9bbbd685918f5df9815f7efba450b83d9c9dea41f0e3a1",
+    "directory": "protox-0.9.1"
+  }
+}

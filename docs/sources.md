@@ -162,3 +162,33 @@ browser and that the resulting retained files can be serialized.
   patches in favor of upstream target configuration remains preferred.
 - The common seed is still large because it includes current Clang/LLVM and
   complete compiler headers.
+
+## Rust compiler seed and source-built tools
+
+`bash scripts/build-rust-toolchain.sh` builds the external Rust 1.98.1 / LLVM
+22.1.8 seed after the C runtime. It requires Linux x86_64, Podman, Python 3.12+
+(`tarfile` data filters and `tomllib`), curl and patch. Native bootstrap archive
+hashes are in `toolchain/rust/bootstrap-sources.json`; compiler/library patches
+and target configuration live beside them. The completed SDK contains rustc,
+std, proc_macro, the target libc source and the small POSIX spawn archive.
+Its final Wasm executable is validated against `dolly-process-0` before packing.
+Changed preparation inputs invalidate prepared source; the seed cache verifies
+its recorded input key and artifact checksum.
+
+The [Rust SDK image](../Dollyfile-rust-sdk) imports that seed and compiles its
+C linker adapter in Dolly. [Rust tools](../Dollyfile-rust-tools) adds C Patti.
+[Ripgrep](../Dollyfile-ripgrep) and [Protox](../Dollyfile-protox-build) compile
+locked upstream sources with Patti inside the browser. The default image copies
+`rg` from the ripgrep image. Build command records remain under
+`/usr/share/dolly/builds`; Rust itself is kept out of the default image.
+
+`config/rust/sources.json` pins upstream tool archives. Host preparation stages
+source and lockfile-checksummed crate archives, allowing the image recipes to
+build offline without registry Git or CORS dependencies. It compiles no
+application code. Ripgrep's libc lock entry explicitly selects the SDK's patched
+0.2.186 source; its other dependency pins are unchanged.
+
+This remains an experimental Emscripten-based Rust target with serial compiler
+execution and panic-abort. Cargo, incremental compilation, file locking and
+application threads are not provided. Compiler bootstrapping inside Dolly and
+byte-identical Rust seeds across different host checkout paths are not claimed.

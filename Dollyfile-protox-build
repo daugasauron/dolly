@@ -1,0 +1,7 @@
+DOLLY 3
+IMAGE protox-build
+
+FROM HOST /Dollyfile-rust-tools 0021aa396d1a2dace1e3ed6df57fb15f28deb32465e614efc2838a341d7f6c49
+USE HOST /modules/protox.dm 01063277f04a4fa090235e9fcf89c5d0fb4846d6396e7bf517e895e20a6de07f
+
+ENTRY /bin/foreground -i /bin/slop
