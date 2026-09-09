@@ -3636,7 +3636,7 @@ int main(int argc, char **argv) {
       const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
         "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi",
         "cmake-build", "codex-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
-        "protox-build", "python-runtime", "ripgrep", "rust-sdk", "rust-tools", "system"];
+        "protox-build", "python-runtime", "ripgrep", "rust-sdk", "rust-tools", "system", "system-build"];
       const selected = new Set(imageDefinitions.map(({ image }) => image));
       assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image), menuOrder.filter(image => selected.has(image)));
       for (const { image, text, height } of menuEvidence.descriptions) {

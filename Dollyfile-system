@@ -1,14 +1,12 @@
 DOLLY 3
 IMAGE system
 
-USE HOST /modules/default.dm 529f15465322f832bd17c6135ad2a44b12499d4c6ae801f1d69eeacedb9c4d79
+FROM HOST /Dollyfile-system-build b11afa06577766217d008e25a68a33bf49059261ed07a3985768ba729d941c7b
 
-# The terminal's build tools and SDK do not belong in the everyday userspace.
-COPY FROM HOST /Dollyfile-ghostty-build b8bc6cb44d5916c3d869d0c7afd62c24919c0a5dbbfc2a30b7607bd395f421d3 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY FROM HOST /Dollyfile-ghostty-build b8bc6cb44d5916c3d869d0c7afd62c24919c0a5dbbfc2a30b7607bd395f421d3 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY FROM HOST /Dollyfile-ghostty-build b8bc6cb44d5916c3d869d0c7afd62c24919c0a5dbbfc2a30b7607bd395f421d3 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY FROM HOST /Dollyfile-ghostty-build b8bc6cb44d5916c3d869d0c7afd62c24919c0a5dbbfc2a30b7607bd395f421d3 /usr/share/licenses/uucode /usr/share/licenses/uucode
-EXPORTS LIB display /usr/lib/libdisplay.so
-EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+# Keep the tool produced by the in-sandbox Rust source build.
+COPY FROM HOST /Dollyfile-ripgrep f9130d8ffeda1fd4e8ee8f528f29a80dbff7fed464b919b8430bdbe46db146f8 /usr/bin/rg /usr/bin/rg
+COPY FROM HOST /Dollyfile-ripgrep f9130d8ffeda1fd4e8ee8f528f29a80dbff7fed464b919b8430bdbe46db146f8 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
+COPY FROM HOST /Dollyfile-ripgrep f9130d8ffeda1fd4e8ee8f528f29a80dbff7fed464b919b8430bdbe46db146f8 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
+EXPORTS TOOL rg
 
 ENTRY /bin/foreground -i /bin/slop

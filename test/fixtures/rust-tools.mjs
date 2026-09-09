@@ -55,6 +55,23 @@ export async function runRipgrep(submit) {
     assert.equal(await submit("rg '[' first.txt"), 2);
     await run("printf 'needle changed\\n' > first.txt");
     await run('test "$(rg -n needle .)" = "./first.txt:1:needle changed"');
+    const pi = "/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist";
+    const probe = `
+import { ensureTool } from "${pi}/utils/tools-manager.js";
+import { createGrepTool } from "${pi}/core/tools/grep.js";
+const messages = [];
+if (await ensureTool("rg", status => messages.push(status)) !== "rg" || messages.length) {
+  throw new Error("Pi did not find system ripgrep: " + JSON.stringify(messages));
+}
+const result = await createGrepTool("${root}").execute("rg-check", { pattern: "needle", glob: "first.txt" });
+const text = result.content.map(part => part.text ?? "").join("\\n");
+if (text.trim() !== "first.txt:1: needle changed") {
+  throw new Error("Pi grep returned unexpected matches: " + text);
+}
+console.log("Pi found system ripgrep and searched through its upstream grep tool");
+`;
+    await run(`printf %s ${shellQuote(probe.trim().replaceAll("\n", " "))} > ${root}/pi.mjs`);
+    await run(`if test -f ${pi}/utils/tools-manager.js; then PI_OFFLINE=1 janis -m ${root}/pi.mjs; fi`);
   } finally {
     await submit(`cd /workspace; rm -rf ${root}`);
   }

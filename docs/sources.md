@@ -178,9 +178,11 @@ its recorded input key and artifact checksum.
 The [Rust SDK image](../Dollyfile-rust-sdk) imports that seed and compiles its
 C linker adapter in Dolly. [Rust tools](../Dollyfile-rust-tools) adds C Patti.
 [Ripgrep](../Dollyfile-ripgrep) and [Protox](../Dollyfile-protox-build) compile
-locked upstream sources with Patti inside the browser. The default image copies
-`rg` from the ripgrep image. Build command records remain under
-`/usr/share/dolly/builds`; Rust itself is kept out of the default image.
+locked upstream sources with Patti inside the browser. The shared `system` image
+copies `rg` from the ripgrep image, so Pi, Studio and other application images
+inherit it. The Rust SDK starts from [system-build](../Dollyfile-system-build)
+to avoid depending on the tool it builds. Build command records remain under
+`/usr/share/dolly/builds`; the Rust compiler stays in the build images.
 
 `config/rust/sources.json` pins upstream tool archives. Host preparation stages
 source and lockfile-checksummed crate archives, allowing the image recipes to
