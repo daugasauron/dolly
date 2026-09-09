@@ -22,7 +22,7 @@ import { browserShellCases } from "../test/fixtures/browser-shell-cases.mjs";
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 import { demoFixture } from "../test/fixtures/codex-responses.mjs";
 import { createCodexLoginFixture, runCodexLogin, codexLoginRules, codexLoginFetch } from "../test/fixtures/codex-login.mjs";
-import { runCodexTui } from "../test/fixtures/codex-tui.mjs";
+import { runCodexTui, codexProtectedInputDelay } from "../test/fixtures/codex-tui.mjs";
 import { createTokioFixture } from "../test/fixtures/tokio.mjs";
 import { rustToolSources, runRustTools, runRipgrep, runFd } from "../test/fixtures/rust-tools.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
@@ -1274,6 +1274,7 @@ async function enterRecoveryShell(send) {
     );
   } else if (selectedImage === "codex") {
     await waitForTerminalText(send, /Sign in with ChatGPT/, "Codex entry sign-in TUI", 1200);
+    await delay(codexProtectedInputDelay);
     entryPid = await evaluate(send, "window.__dolly.foregroundPid");
     await send("Page.bringToFront");
     await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });

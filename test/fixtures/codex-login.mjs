@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { demoFixture } from "./codex-responses.mjs";
+import { codexProtectedInputDelay } from "./codex-tui.mjs";
 
 const issuer = "https://auth.openai.com";
 const backend = "https://chatgpt.com";
@@ -159,6 +160,7 @@ export async function runCodexLogin(send, evaluate, fixture) {
   await run("clear");
   let running = submit("codex --no-alt-screen -m gpt-5.5");
   await waitText(/Sign in with Device Code/);
+  await pause(codexProtectedInputDelay);
   await key("ArrowDown");
   await key("Enter");
   await waitText(/DOLLY-TEST/);
@@ -176,6 +178,7 @@ export async function runCodexLogin(send, evaluate, fixture) {
   await run("clear");
   running = submit("codex --no-alt-screen -m gpt-5.5");
   await waitText(/Sign in with Device Code/);
+  await pause(codexProtectedInputDelay);
   await key("ArrowDown");
   await key("Enter");
   await waitText(/DOLLY-TEST/);
@@ -183,6 +186,7 @@ export async function runCodexLogin(send, evaluate, fixture) {
   await waitText(/Signed in with your ChatGPT account/);
   await key("Enter");
   await waitText(/Do you trust the contents of this directory/);
+  await pause(codexProtectedInputDelay);
   await key("Enter");
   await waitText(/model:\s+gpt-5\.5/);
   await input("Use a shell command to create proof.txt containing DOLLY-CODEX-TOOL-PROOF, then read it back.");

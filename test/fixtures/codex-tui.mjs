@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { shellQuote } from "./slop-cases.mjs";
 
+// Upstream tui/input_boundary.rs discards input for up to one second after protected screens draw.
+export const codexProtectedInputDelay = 1100;
+
 export async function runCodexTui(send, evaluate, origin) {
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   const submit = command => evaluate(`window.__dolly.submit(${JSON.stringify(command)})`);
@@ -58,6 +61,7 @@ stream_max_retries = 0
     await pause(100);
   }
   await waitText(/Do you trust the contents of this directory/);
+  await pause(codexProtectedInputDelay);
   await key("Enter");
   await waitText(/model:\s+gpt-5\.5/);
   await input("AC");
