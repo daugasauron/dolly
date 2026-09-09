@@ -74,7 +74,10 @@ npx wrangler@4.129.1 pages deploy build/pages-next --project-name dolly --branch
 
 Predecessor arguments are sealed release directories, not old exports.
 Their immutable assets are retained and packs deduplicated; only the current
-release supplies public HTML. An older release without multipart support cannot
+release supplies public HTML. Retention verifies every recorded byte and its
+original inventory-acceptance receipt, without imposing newer recipe or
+documentation rules on old releases. The current release passes all current
+checks. An older release without multipart support cannot
 be retained if it needs an oversized, incompressible asset. Limits fail before
 publication, never silently dropping predecessors.
 

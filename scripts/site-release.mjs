@@ -144,15 +144,37 @@ export async function verifySite(site) {
   return definitions.map(({ image }) => image);
 }
 
-export async function verifyRelease(site, sourceRoot) {
+async function verifyReleaseFiles(site) {
   const manifest = await readFile(resolve(site, "release/files.sha256"), "utf8");
   if (manifest !== await siteManifest(site)) throw new Error("release file manifest mismatch");
-  const images = await verifySite(site);
+  return manifest;
+}
+
+async function verifyAcceptance(site, manifest, images) {
   const expected = `DOLLY-ACCEPTANCE 1\nfiles sha256:${sha256(manifest)}\n` +
     images.map(image => `PASS image-inventory ${image}\n`).join("");
   if (await readFile(resolve(site, "release/acceptance.txt"), "utf8") !== expected) {
     throw new Error("release browser acceptance is missing or belongs to different bytes");
   }
+}
+
+// Retention preserves previously accepted immutable bytes, without applying
+// newer source/documentation rules or publishing their HTML as the current app.
+export async function verifyRetainedRelease(site) {
+  const manifest = await verifyReleaseFiles(site);
+  const source = await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8");
+  const registry = parseGeneratedConstant(source.split("\nexport const DOLLY_STATIC_SOURCES =", 1)[0], "DOLLY_IMAGES");
+  if (!Array.isArray(registry) || !registry.length || registry.length > 256 ||
+      registry.some(item => !/^[a-z][a-z0-9-]{0,31}$/.test(item?.image)) ||
+      new Set(registry.map(item => item.image)).size !== registry.length) throw new Error("invalid retained image registry");
+  await verifyAcceptance(site, manifest, registry.map(item => item.image));
+  return sha256(manifest);
+}
+
+export async function verifyRelease(site, sourceRoot) {
+  const manifest = await verifyReleaseFiles(site);
+  const images = await verifySite(site);
+  await verifyAcceptance(site, manifest, images);
   if (sourceRoot) {
     const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: sourceRoot, encoding: "utf8" });
     if (await readFile(resolve(site, "release/source.commit"), "utf8") !== commit ||

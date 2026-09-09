@@ -3,11 +3,11 @@
 import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { fileManifest, verifyRelease } from "./site-release.mjs";
+import { fileManifest, verifyRelease, verifyRetainedRelease } from "./site-release.mjs";
 import { deploymentBase, renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
 
-export async function exportStaticSite(site, output, base = "/") {
+async function exportRelease(site, output, base, retained) {
   deploymentBase(base);
   site = resolve(site);
   output = resolve(output);
@@ -20,7 +20,7 @@ export async function exportStaticSite(site, output, base = "/") {
   site = await realpath(site);
   output = resolve(await realpath(dirname(output)), basename(output));
   if (output.startsWith(site + sep)) throw new Error("static export cannot modify its source release");
-  const digest = await verifyRelease(site);
+  const digest = await (retained ? verifyRetainedRelease(site) : verifyRelease(site));
   const manifest = await readFile(resolve(site, "release/files.sha256"), "utf8");
   if (sha256(manifest) !== digest) throw new Error("release changed before export");
   const files = new Map(manifest.trimEnd().split("\n").map(row => [row.slice(66), row.slice(0, 64)]));
@@ -40,9 +40,9 @@ export async function exportStaticSite(site, output, base = "/") {
       const bytes = await readFile(resolve(site, path));
       if (sha256(bytes) !== expected) throw new Error(`release changed during export: ${path}`);
       await write(snapshotPackPath.test(path) ? path : `_dolly/${digest}/${path}`, bytes);
-      if (path.endsWith(".html")) {
+      if (!retained && path.endsWith(".html")) {
         await write(path, renderReleasePage(bytes.toString("utf8"), path, digest, files, base));
-      } else if (path === "coi-serviceworker.js" || path === ".nojekyll") {
+      } else if (!retained && (path === "coi-serviceworker.js" || path === ".nojekyll")) {
         await write(path, bytes);
       }
     }
@@ -52,6 +52,14 @@ export async function exportStaticSite(site, output, base = "/") {
     await rm(staging, { recursive: true, force: true });
   }
   return digest;
+}
+
+export async function exportStaticSite(site, output, base = "/") {
+  return exportRelease(site, output, base, false);
+}
+
+export async function exportRetainedStaticAssets(site, output) {
+  return exportRelease(site, output, "/", true);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

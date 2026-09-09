@@ -5,7 +5,7 @@ import { basename, dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { brotliCompress, constants } from "node:zlib";
-import { exportStaticSite } from "./export-static.mjs";
+import { exportStaticSite, exportRetainedStaticAssets } from "./export-static.mjs";
 import { fileManifest } from "./site-release.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
 
@@ -73,7 +73,7 @@ export async function exportCloudflarePages(site, output, retained = []) {
     let current;
     for (const [index, release] of releases.entries()) {
       const exported = resolve(staging, "release");
-      const digest = await exportStaticSite(release, exported);
+      const digest = await (index ? exportRetainedStaticAssets(release, exported) : exportStaticSite(release, exported));
       if (!index) current = digest;
       const manifest = await readFile(resolve(exported, "deployment.sha256"), "utf8");
       const supportsParts = manifest.includes(`  _dolly/${digest}/src/static-asset.mjs\n`);

@@ -5,12 +5,12 @@ import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { fileManifest, parseGeneratedConstant, publishRelease, siteManifest, sourceManifest, verifyRelease } from "../scripts/site-release.mjs";
+import { fileManifest, parseGeneratedConstant, publishRelease, siteManifest, sourceManifest, verifyRelease, verifyRetainedRelease } from "../scripts/site-release.mjs";
 import { createReleaseServer } from "../scripts/serve.mjs";
 import { sha256 } from "../scripts/snapshot-identity.mjs";
 import { sessionLoadUrl } from "../src/session-store.mjs";
 import { deploymentBase, renderReleasePage } from "../scripts/release-layout.mjs";
-import { exportStaticSite } from "../scripts/export-static.mjs";
+import { exportStaticSite, exportRetainedStaticAssets } from "../scripts/export-static.mjs";
 
 test("static pages pin assets below the deployment prefix but keep navigation public", () => {
   const digest = "a".repeat(64);
@@ -47,6 +47,30 @@ test("static export refuses existing destinations and unverified releases", asyn
   await mkdir(resolve(root, "unverified"));
   await assert.rejects(exportStaticSite(resolve(root, "unverified"), resolve(root, "output")), /ENOENT/);
   await assert.rejects(readFile(resolve(root, "output")), /ENOENT/);
+});
+
+test("retention verifies the original seal without republishing legacy HTML or weakening current acceptance", async t => {
+  const root = await mkdtemp(resolve(tmpdir(), "dolly-retained-test-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const site = resolve(root, "old"), output = resolve(root, "export");
+  for (const path of ["dist", "docs", "release"]) await mkdir(resolve(site, path), { recursive: true });
+  await writeFile(resolve(site, "index.html"), "old application");
+  await writeFile(resolve(site, "docs/architecture.md"), "[Old broken link](security.md)\n");
+  await writeFile(resolve(site, "dist/dolly-images.mjs"), 'export const DOLLY_IMAGES = Object.freeze([{"image":"default"}]);\n');
+  const manifest = await siteManifest(site), digest = sha256(manifest);
+  await writeFile(resolve(site, "release/files.sha256"), manifest);
+  const receipt = `DOLLY-ACCEPTANCE 1\nfiles sha256:${digest}\nPASS image-inventory default\n`;
+  await writeFile(resolve(site, "release/acceptance.txt"), receipt);
+  assert.equal(await verifyRetainedRelease(site), digest);
+  await assert.rejects(verifyRelease(site), /security\.md/);
+  assert.equal(await exportRetainedStaticAssets(site, output), digest);
+  assert.equal(await readFile(resolve(output, `_dolly/${digest}/index.html`), "utf8"), "old application");
+  await assert.rejects(readFile(resolve(output, "index.html")), { code: "ENOENT" });
+  await writeFile(resolve(site, "release/acceptance.txt"), receipt.replace(digest, "0".repeat(64)));
+  await assert.rejects(verifyRetainedRelease(site), /acceptance/);
+  await writeFile(resolve(site, "release/acceptance.txt"), receipt);
+  await writeFile(resolve(site, "index.html"), "changed application");
+  await assert.rejects(verifyRetainedRelease(site), /file manifest mismatch/);
 });
 
 test("release metadata accepts generated JSON constants, never JavaScript", () => {
