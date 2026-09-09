@@ -2565,6 +2565,14 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "Rust tools boot", 1200), "ready");
+      if (fdMode && selectedImage === "dollyfile-studio") {
+        const startup = await waitForTerminalText(debuggerClient.send,
+          /Dollyfile Studio.*dolly-hello/, "Studio prompts after tool discovery");
+        assert.doesNotMatch(startup, /(?:fd|ripgrep)\s+not found|Failed to download (?:fd|ripgrep)/i);
+        await clearTerminalSelection(debuggerClient.send);
+        const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
+        await writeFile(resolve(projectDir, "build/studio-system-tools.png"), screenshot.data, "base64");
+      }
       await enterRecoveryShell(debuggerClient.send);
       const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
       if (tokioMode) await tokioFixture.run(submit, localOrigin);
