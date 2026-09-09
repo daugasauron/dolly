@@ -115,6 +115,8 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/custom-image.mjs" \
   "${project_dir}/src/image-inputs.mjs" \
   "${project_dir}/src/snapshot-records.mjs" \
+  "${project_dir}/src/static-asset.mjs" \
+  "${project_dir}/src/source-download.mjs" \
   "${project_dir}/src/process-ffi.mjs" \
   "${project_dir}/src/process-abi.mjs" \
   "${project_dir}/src/wasm-interface.mjs" \

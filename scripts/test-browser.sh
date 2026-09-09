@@ -83,6 +83,8 @@ DOLLY_IMAGE=neovim DOLLY_BROWSER_MODE=neovim \
 
 DOLLY_IMAGE=rust-tools DOLLY_BROWSER_MODE=rust-tools \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=rust-sdk DOLLY_BROWSER_MODE=source-download \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 for image in default system pi dollyfile-studio; do
   for tool in ripgrep fd; do
     DOLLY_IMAGE="${image}" DOLLY_BROWSER_MODE="${tool}" \
@@ -96,3 +98,10 @@ DOLLY_IMAGE=codex DOLLY_BROWSER_MODE=codex \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=codex DOLLY_BROWSER_MODE=codex-login \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+
+DOLLY_IMAGE=sdl2-build DOLLY_BROWSER_MODE=sdl2 \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+for mode in rts-launcher rts rts-split-replay; do
+  DOLLY_IMAGE=rts-arena DOLLY_BROWSER_MODE="${mode}" \
+    node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+done

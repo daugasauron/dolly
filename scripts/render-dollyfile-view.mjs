@@ -92,7 +92,7 @@ function renderSourceReference(record, row, prefix, spacing, rest) {
   const before = rest.slice(0, rest.indexOf(location));
   const after = rest.slice(rest.indexOf(location) + location.length);
   return `${escapeHtml(prefix)}<b>${row.directive}</b>${escapeHtml(spacing + before)}` +
-    `${link(location, rawHref(record, location))}${escapeHtml(after)}`;
+    `${link(location, rawHref(record, location), source.transport === "host" ? "source" : "")}${escapeHtml(after)}`;
 }
 
 function renderSlop(record, row, prefix, spacing, rest) {
@@ -143,6 +143,7 @@ export function renderDollyfilePage(record, graph) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>${escapeHtml(title)} · Dollyfile</title>
+  <script type="module" src="${appBase}src/source-download.mjs"></script>
   <style>
     @font-face { font-family: Dolly; src: url("${appBase}dist/IosevkaTerm-SemiBold.woff2"); font-weight: 600; }
     :root { color: #e8e3d7; background: #262626; font: 600 15px/1.5 Dolly, monospace; }

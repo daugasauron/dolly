@@ -1,6 +1,6 @@
 # Audit handoff
 
-Open work as of 2026-09-08. Completed audit narratives are in Git history;
+Open work as of 2026-09-10. Completed audit narratives are in Git history;
 this file is the remaining-work list, not a release diary.
 
 ## Next fix: shell cancellation
@@ -45,15 +45,6 @@ Cover descriptor cleanup and prompt recovery.
 
 ## Ports and larger follow-ups
 
-- **ripgrep/fd:** neither genuine tool is installed. A ripgrep 15.1 probe passes
-  browser search, Unicode, ignore rules, pipes, mmap, statuses and cancellation.
-  Rust objects were compiled externally; Dolly compiled three missing upstream
-  pthread-attribute functions and linked them. This is not an in-Dolly Rust build.
-  Reproduction lives in `build/ripgrep-probe.OHvH0j/`, especially
-  `browser-direct-cancel.log`. Packaging still needs
-  `pthread_attr_init/setstacksize/destroy` in the process archive, isolated Git
-  version discovery and remapped source paths. These helpers do not implement
-  threads; fd's single-thread option still creates them.
 - **Studio split panes:** tmux is not installed. It needs in-Wasm PTYs, local
   Unix IPC, ncurses/libevent and a deliberate spawn-based port of fork sites.
   The probe in `build/studio-porting-probe.log` finds no `/dev/ptmx` and
@@ -66,21 +57,26 @@ Cover descriptor cleanup and prompt recovery.
   deployed, not awaiting provider selection. Avoid full rebuilds for small
   leaf changes; inspect current disk usage instead of relying on old timings.
 
-## Isolated Codex experiment
+## Rust, Codex and RTS
 
-Branch `codex/wasm64-native-agent-20260907` is paused at `e9b8c4f`;
-its worktree's `CODEX-HANDOFF.md` has reproduction details. No experimental
-Rust patches were merged into main.
+The system now includes ripgrep and fd, compiled from Rust source inside Dolly
+with C Patti. Pi and Studio inherit both. The Rust compiler is the explicit
+external seed; see [sources](sources.md#rust-compiler-seed-and-source-built-tools).
 
-Selected upstream policy, configuration, auth/model-manager and Responses/SSE
-components pass browser probes with the unchanged outer ABI. Rust compilation
-is external. **The full agent does not run:** CLI/core construction, Tokio
-socket dependencies, native transport and SQLite workers remain. There is no
-in-Dolly Rust SDK; unsupported auth modes fail explicitly.
+The full [Codex TUI](codex.md) runs with current-thread Tokio, real shell tools
+and device-code sign-in. Browser tests use synthetic OAuth/model responses;
+real account inference is not established. ChatGPT's model and Responses
+endpoints reject a clean browser's CORS preflight. A reviewed transport remains
+necessary for that backend. Socket-based MCP clients, application threads and
+native OS sandbox hooks remain unsupported.
+
+The [RTS handover](rts-handoff.md) records integration and outstanding replay,
+input and transport limits. The optional Pi relay does not configure Codex's
+own model transport.
 
 ## Checkpoint and preservation
 
-The audited application source is `32d3b34`, release asset
+The last recorded public deployment used application source `32d3b34`, release asset
 `pages-32d3b34-r1/dolly-pages.tar.gz`, SHA-256
 `fbb6d1fe6673e97125ba17a2335b1f07719767aa1a2fe5c20a7dd7a60287023b`.
 GitHub Pages and daugasauron.com use the same application artifact.

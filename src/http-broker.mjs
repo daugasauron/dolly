@@ -1,5 +1,6 @@
 import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "./http-policy.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
+import { decodeStaticAsset } from "./static-asset.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
@@ -188,7 +189,7 @@ export class NetworkTransport {
       this.deadline = performance.now() + rule.timeoutMilliseconds;
       timeout = setTimeout(() => controller.abort(), rule.timeoutMilliseconds);
       failure = errno.EIO;
-      const response = await this.fetchRequest(target, {
+      const init = {
         method: upperMethod,
         headers,
         body: body === null || upperMethod === "GET" || upperMethod === "HEAD"
@@ -199,7 +200,9 @@ export class NetworkTransport {
         redirect: (flags & 2) && rule.followRedirects === true ? "follow" : "error",
         referrerPolicy: "no-referrer",
         signal: controller.signal,
-      });
+      };
+      let response = await this.fetchRequest(target, init);
+      if (rule.bootstrap === true) response = await decodeStaticAsset(response, target, init, rule.maxResponseBytes, this.fetchRequest);
       status = response.status;
       await this.publish(token, sequence, encoder.encode(response.url), status, false, 0, 1);
       await this.publish(

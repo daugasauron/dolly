@@ -7,7 +7,7 @@ import { brotliDecompressSync } from "node:zlib";
 import test from "node:test";
 import { exportCloudflarePages, pagesAsset, pagesHeaders } from "../scripts/export-cloudflare-pages.mjs";
 
-test("Pages transport compresses oversized assets, never changes snapshot encoding", async () => {
+test("Pages transport compresses source assets and splits incompressible files without changing decoded bytes", async () => {
   const small = Buffer.from("ordinary asset");
   assert.equal((await pagesAsset(small, "small.wasm")).bytes, small);
   assert.equal((await pagesAsset(small, "pack.snapshot.gz")).compressed, false);
@@ -16,8 +16,14 @@ test("Pages transport compresses oversized assets, never changes snapshot encodi
   assert.equal(encoded.compressed, true);
   assert.ok(encoded.bytes.length < 25 * 1024 * 1024);
   assert.deepEqual(brotliDecompressSync(encoded.bytes), large);
-  await assert.rejects(pagesAsset(large, "pack.snapshot.gz"), /snapshot pack exceeds/);
-  await assert.rejects(pagesAsset(randomBytes(large.length), "_dolly/release/static/incompressible.data"), /limit after Brotli/);
+  for (const [bytes, path] of [[large, `dist/packs/${"a".repeat(64)}.snapshot.gz`],
+    [randomBytes(large.length), "_dolly/release/static/incompressible.data"]]) {
+    const asset = await pagesAsset(bytes, path);
+    assert.equal(asset.compressed, false);
+    assert.deepEqual(Buffer.concat(asset.parts), bytes);
+    assert.ok(asset.parts.every(part => part.length <= 20 * 1024 * 1024));
+    assert.equal(JSON.parse(asset.bytes).byteLength, bytes.length);
+  }
   await assert.rejects(pagesAsset(large, "_dolly/release/dist/dolly.wasm"), /new delivery check/);
 });
 
@@ -29,6 +35,10 @@ test("Pages headers retain isolation, explicit transport encoding and bounded ru
   assert.match(headers, /dist\/dolly.data\n  Content-Encoding: br/);
   assert.match(headers, /zig.wasm\n  Content-Encoding: br\n  Content-Type: application\/octet-stream/);
   assert.doesNotMatch(headers, /Content-Encoding: gzip/);
+  const multipart = pagesHeaders([], [prefix + "static/rust/sdk.tar.gz", `dist/packs/${"b".repeat(64)}.snapshot.gz`]);
+  assert.equal((multipart.match(/X-Dolly-Parts: 1/g) ?? []).length, 2);
+  assert.doesNotMatch(multipart, /Content-Encoding/);
+  assert.throws(() => pagesHeaders([], ["https://other.example/file"]), /invalid Pages multipart path/);
   assert.throws(() => pagesHeaders([prefix + "a\n/*"]), /invalid Pages header path/);
   assert.throws(() => pagesHeaders(Array.from({ length: 96 }, (_, i) => prefix + i)), /header limits/);
 });

@@ -65,6 +65,7 @@ const piDevelopmentMode = isMode("pi");
 const cppMode = isMode("cpp");
 const boundaryMode = isMode("boundary");
 const httpDefaultsMode = isMode("http-defaults");
+const sourceDownloadMode = isMode("source-download");
 const processAbiMode = isMode("process-abi");
 const processSmokeMode = isMode("process-smoke");
 const rustToolsMode = isMode("rust-tools");
@@ -247,6 +248,8 @@ const publicSources = new Set([
   "src/custom-image.mjs",
   "src/image-inputs.mjs",
   "src/snapshot-records.mjs",
+  "src/static-asset.mjs",
+  "src/source-download.mjs",
   "src/process-ffi.mjs",
   "src/process-abi.mjs",
   "src/wasm-interface.mjs",
@@ -277,6 +280,9 @@ const routeDocuments = new Map([
     [`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`],
     [`/view/${image}`, `build/routes/view/${image}/index.html`],
   ]),
+  ...selectedGraph.modules.map(({ name }) => [
+    `/view/${selectedImage}/modules/${name}`, `build/routes/view/${selectedImage}/modules/${name}/index.html`,
+  ]),
   ["/custom/rebuild", "build/routes/custom/rebuild/index.html"],
   ["/custom/run", "build/routes/custom/run/index.html"],
   ["/custom", "build/routes/custom/index.html"],
@@ -292,6 +298,8 @@ const libcurlCancelledRequests = [];
 let curlCliRequest = null;
 let snapshotUpload = null;
 const staticRequestPaths = new Set();
+let corruptAssetPart = false;
+const assetPartRequests = [];
 const piModelRequests = [];
 const rtsModelFixture = rtsProvider();
 const janisAbortRequests = [];
@@ -721,6 +729,22 @@ function startServer() {
           : requestUrl.pathname.startsWith(`${browserBasePrefix}/`)
             ? requestUrl.pathname.slice(browserBasePrefix.length)
             : null;
+      if ((boundaryMode || httpDefaultsMode) && /^\/static\/default\/commands\/curl\.c(?:\.part-[01])?$/.test(staticPath)) {
+        const bytes = await readFile(resolve(distDirectory, "static/default/commands/curl.c"));
+        const half = Math.ceil(bytes.length / 2), parts = [bytes.subarray(0, half), bytes.subarray(half)];
+        const digest = value => createHash("sha256").update(value).digest("hex");
+        const index = /\.part-([01])$/.exec(staticPath);
+        if (index) {
+          assetPartRequests.push(requestUrl.pathname);
+          response.writeHead(200, { ...isolatedHeaders, "content-type": "application/octet-stream" });
+          response.end(corruptAssetPart ? Buffer.from("corrupt") : parts[Number(index[1])]);
+        } else {
+          response.writeHead(200, { ...isolatedHeaders, "content-type": "application/octet-stream", "x-dolly-parts": "1" });
+          response.end(JSON.stringify({ byteLength: bytes.length, sha256: digest(bytes),
+            parts: parts.map(part => ({ byteLength: part.length, sha256: digest(part) })) }));
+        }
+        return;
+      }
       if (requestedMode === "image-inventory" &&
           /\/dist\/dolly(?:\.data|-seed\.mjs)$/.test(staticPath)) {
         response.writeHead(404, isolatedHeaders).end("prebuilt boot must not need the compiler seed");
@@ -1659,7 +1683,8 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
   if (codexLoginMode) await debuggerClient.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `(${codexLoginFetch.toString()})(${JSON.stringify(localOrigin)});`,
   });
-  const initialPage = debuggerDisconnectMode ? "about:blank" : customDollyfileMode
+  const initialPage = sourceDownloadMode ? new URL("view/rust-sdk/modules/rust-sdk/", menuPage).href
+    : debuggerDisconnectMode ? "about:blank" : customDollyfileMode
       ? new URL("custom/", menuPage).href : menuMode
       ? menuPage
       : snapshotExportMode || iterationMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
@@ -1669,6 +1694,29 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
   await debuggerClient.send("Page.navigate", { url: initialPage });
 
   browserProof: {
+    if (sourceDownloadMode) {
+      const send = debuggerClient.send;
+      await waitForValue(send, `document.readyState === 'complete' && !!document.querySelector('a.source[href$="/static/rust/rust-sdk.tar.gz"]')`,
+        value => value === true, "source viewer", 600);
+      const point = await evaluate(send, `(() => {
+        const link = document.querySelector('a.source[href$="/static/rust/rust-sdk.tar.gz"]');
+        link.scrollIntoView(); const box = link.getBoundingClientRect();
+        return {x: box.x + box.width / 2, y: box.y + box.height / 2};
+      })()`);
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", buttons: 1, clickCount: 1 });
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", buttons: 0, clickCount: 1 });
+      let downloaded;
+      for (let attempt = 0; attempt < 2400 && !downloaded; attempt++) {
+        downloaded = await readFile(resolve(browserDownloadDirectory, "rust-sdk.tar.gz")).catch(() => null);
+        if (!downloaded) await delay(50);
+      }
+      assert.ok(downloaded, `source download failed: ${await evaluate(send, "document.querySelector('[role=status]')?.textContent")}`);
+      const expected = await readFile(resolve(distDirectory, "static/rust/rust-sdk.tar.gz"));
+      assert.equal(downloaded.length, expected.length);
+      assert.equal(createHash("sha256").update(downloaded).digest("hex"), createHash("sha256").update(expected).digest("hex"));
+      console.log(`browser: source viewer downloaded the complete ${downloaded.length}-byte pinned Rust SDK archive`);
+      break browserProof;
+    }
     if (releaseCacheMode) {
       assert.ok(externalPage, "release-cache requires a published application URL");
       assert.equal(await waitForValue(debuggerClient.send,
@@ -3372,6 +3420,22 @@ int main(int argc, char **argv) {
           'grep -q \'"method":"GET"\' /tmp/boundary-redirect.txt',
           "rm -f /tmp/boundary-redirect.txt",
         ]) assert.equal(await evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`), 0, command);
+      }
+      if (!externalPage) {
+        const source = `${localOrigin}${browserBase}static/default/commands/curl.c`;
+        const digest = createHash("sha256").update(await readFile(resolve(distDirectory, "static/default/commands/curl.c"))).digest("hex");
+        const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
+        assert.equal(await submit(`curl -fsS ${source} -o /tmp/boundary-source.c`), 0);
+        assert.equal(await submit(`test "$(sha256sum /tmp/boundary-source.c | cut -d ' ' -f 1)" = ${digest}`), 0);
+        assert.equal(assetPartRequests.length, 2, "one authorized source fetch reads its two fixed parts");
+        if (boundaryMode) {
+          assert.notEqual(await submit(`curl -fsS ${source}.part-0 -o /tmp/boundary-denied`), 0);
+          assert.equal(assetPartRequests.length, 2, "derived delivery does not grant guest access to sibling URLs");
+        }
+        corruptAssetPart = true;
+        assert.notEqual(await submit(`curl -fsS ${source} -o /tmp/boundary-corrupt`), 0);
+        await submit("rm -f /tmp/boundary-source.c /tmp/boundary-denied /tmp/boundary-corrupt");
+        console.log("browser: broker reconstructed an authorized multipart source; corruption and unauthorized sibling access rejected");
       }
       for (const command of [
         `if curl -fsS ${localOrigin}/not-allowed; then false; else true; fi`,
@@ -6100,7 +6164,7 @@ int main(int argc, char **argv) {
       rows: Number(document.documentElement.dataset.terminalRows ?? 0),
       geometry,
       dropped: Atomics.load(transport.words, transport.word + transport.constructor.eventDropped),
-      bars: document.querySelectorAll('header, footer').length,
+      bars: [...document.querySelectorAll('header, footer')].filter(element => element.getClientRects().length).length,
       backgroundColor: getComputedStyle(document.body).backgroundColor,
       caretColor: getComputedStyle(document.querySelector('#terminal')).caretColor,
       bootstrapFontLoaded: document.fonts.check('600 20px "Dolly IosevkaTerm SemiBold"'),

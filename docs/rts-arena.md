@@ -1,7 +1,7 @@
 # RTS arena experiment
 
-Branch: `rts-arena`, not deployed. Seven Kingdoms: Ancient Adversaries 2.15.7
-and SDL2 compile from pinned source inside Dolly. The game's GPL source and
+The `rts-arena` image includes Seven Kingdoms: Ancient Adversaries 2.15.7
+and SDL2, compiled from pinned source inside Dolly. The game's GPL source and
 data are included, with notices and corresponding source. Separate music is
 omitted. Audio and thread creation are unavailable; the browser ABI is unchanged.
 

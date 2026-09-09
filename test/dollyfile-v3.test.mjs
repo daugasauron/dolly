@@ -71,7 +71,11 @@ test("unreferenced module sources are admitted without staging their inputs or e
 
 test("images separate reusable runtimes from applications and configuration", async () => {
   const expected = {
-    "ghostty-build": [], system: ["ghostty-build"], default: ["system"], javascript: ["system"],
+    "ghostty-build": [], "system-build": ["ghostty-build"],
+    system: ["system-build", "ripgrep", "fd-build"], default: ["system"], javascript: ["system"],
+    "rust-sdk": ["system-build"], "rust-tools": ["rust-sdk"],
+    ripgrep: ["rust-tools"], "fd-build": ["rust-tools"], "protox-build": ["rust-tools"],
+    "codex-build": ["rust-tools", "protox-build"], codex: ["default", "codex-build"],
     "external-source": ["system"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system"], "neovim-build": ["cmake-build"],
@@ -119,7 +123,8 @@ test("images separate reusable runtimes from applications and configuration", as
   }
   const definitions = await discoverImageDefinitions(project);
   assert.deepEqual(new Set((await selectImageDefinitions(definitions, "python-pi")).map(item => item.image)),
-    new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system", "ghostty-build"]));
+    new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system", "ghostty-build",
+      "system-build", "rust-sdk", "rust-tools", "ripgrep", "fd-build"]));
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

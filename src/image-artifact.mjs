@@ -1,6 +1,7 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
+import { decodeStaticAsset } from "./static-asset.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 const applicationBase = new URL("../", import.meta.url);
 const packBase = new URL(applicationBase);
@@ -118,7 +119,8 @@ export async function loadPackagedSystemSnapshot(image, metadata, signal) {
     for (const pack of validateSnapshotPacks(metadata)) {
       signal?.throwIfAborted();
       const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, packBase);
-      const response = await fetch(url, { cache: "force-cache", credentials: "same-origin", redirect: "error", signal });
+      const init = { cache: "force-cache", credentials: "same-origin", redirect: "error", signal };
+      const response = await decodeStaticAsset(await fetch(url, init), url, init, pack.encodedByteLength);
       if (!response.ok || !response.body) throw new Error(`snapshot pack returned HTTP ${response.status}`);
       const reader = response.body.pipeThrough(new DecompressionStream("gzip")).getReader();
       const bytes = new Uint8Array(pack.byteLength);

@@ -56,8 +56,11 @@ Snapshot `.gz` files are application payloads: do **not** mark them
 
 This deployment is static only: no Functions, Worker, R2 origin or proxy.
 The Pages exporter enforces its configured file/count/header limits and
-Brotli-compresses oversized source/compiler downloads. Browser-loaded runtime
-code is not precompressed; snapshot packs remain unchanged.
+Brotli-compresses oversized source/compiler downloads. Incompressible source
+archives and large snapshot packs use 20 MiB file parts. Their original URL
+returns a bounded manifest with `X-Dolly-Parts: 1`; Dolly verifies and joins the
+fixed sibling parts before consuming the original bytes. Snapshot gzip encoding
+is unchanged. Browser-loaded runtime code is not precompressed or split.
 
 Compressed SOURCE downloads use `application/octet-stream`: the tested Pages
 runtime otherwise overwrites the encoding for Wasm MIME types. Do not substitute
@@ -71,8 +74,9 @@ npx wrangler@4.129.1 pages deploy build/pages-next --project-name dolly --branch
 
 Predecessor arguments are sealed release directories, not old exports.
 Their immutable assets are retained and packs deduplicated; only the current
-release supplies public HTML. Limits fail before publication, never silently
-dropping predecessors.
+release supplies public HTML. An older release without multipart support cannot
+be retained if it needs an oversized, incompressible asset. Limits fail before
+publication, never silently dropping predecessors.
 
 Disable CDN HTML rewriting, email obfuscation and injected analytics. They alter
 the reviewed browser code or source views. Verify delivered hashes and requests,

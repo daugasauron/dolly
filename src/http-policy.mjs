@@ -124,6 +124,7 @@ function normalizeTrustedSource(source, applicationBase) {
   }
   return Object.freeze({
     href: target.href,
+    bootstrap: true,
     maxRequestBytes: 1,
     maxResponseBytes: source.byteLength,
     timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
@@ -241,6 +242,7 @@ export function restrictDollyHttpPolicy(policy, inherited, trustedSources, appli
       // credentials too; neither the parent nor the new embedding can widen it.
       const rules = policies.map(policy => policy.authorize(target, method, headers, bytes));
       return {
+        bootstrap: rules.every(rule => rule.bootstrap === true),
         followRedirects: rules.every(rule => rule.followRedirects === true),
         maxRequestBytes: Math.min(...rules.map(rule => rule.maxRequestBytes)),
         maxResponseBytes: Math.min(...rules.map(rule => rule.maxResponseBytes)),

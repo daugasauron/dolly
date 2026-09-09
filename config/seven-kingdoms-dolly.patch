@@ -86,11 +86,12 @@
 --- a/src/OVGA.cpp
 +++ b/src/OVGA.cpp
 @@ -357,6 +357,8 @@
- void Vga::handle_messages()
+-void Vga::handle_messages()
++void Vga::handle_messages(bool playerInput)
  {
     SDL_Event event;
 +   dolly_rts_poll();
-+   dolly_rts_input(window, sys.frame_count);
++   if (playerInput) dolly_rts_input(window, sys.frame_count);
  
     while( SDL_PollEvent(&event) )
     {
@@ -211,3 +212,15 @@
 +	}
  	//--- set scenario as complete if the player wins ---//
  	if( nation_array.player_recno && winNationRecno == nation_array.player_recno )
+--- a/include/OVGA.h
++++ b/include/OVGA.h
+@@ -117,1 +117,1 @@
+-	void   handle_messages();
++	void   handle_messages(bool playerInput = false);
+--- a/src/OSYS2.cpp
++++ b/src/OSYS2.cpp
+@@ -90,1 +90,4 @@
++	// Advance agent input once per UI update; nested yields only pump events.
++	// Widgets must consume releases before another action moves the pointer.
++	vga.handle_messages(true);
+ 	mouse.get_event();

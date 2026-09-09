@@ -741,9 +741,9 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   assert.ok(DOLLY_STATIC_SOURCES.length >= 50);
   const generatedMenu = await readFile(new URL("../build/routes/index.html", import.meta.url), "utf8");
   const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
-    "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi",
+    "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi", "rts-arena",
     "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
-    "protox-build", "python-runtime", "ripgrep", "rust-sdk", "rust-tools", "system", "system-build"];
+    "protox-build", "python-runtime", "ripgrep", "rts-build", "rust-sdk", "rust-tools", "sdl2-build", "system", "system-build"];
   assert.deepEqual([...generatedMenu.matchAll(/<tr class="image" data-image="([^"]+)">/g)].map(match => match[1]),
     menuOrder.filter(image => selected.has(image)));
   for (const image of DOLLY_IMAGES) {

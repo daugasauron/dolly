@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../src/http-broker.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../src/http-policy.mjs";
@@ -68,6 +69,38 @@ test("HTTP authorization happens before any fetch", async () => {
   assert.equal(f.load(NetworkTransport.state), 3);
   assert.equal(f.load(NetworkTransport.error), errno.EACCES);
   assert.equal(f.broker.active, false);
+});
+
+test("multipart delivery is restricted to embedding-selected sources, including inherited policy", async () => {
+  const parts = [Buffer.from("first"), Buffer.from("second")], bytes = Buffer.concat(parts);
+  const digest = value => createHash("sha256").update(value).digest("hex");
+  const manifest = JSON.stringify({ byteLength: bytes.length, sha256: digest(bytes),
+    parts: parts.map(part => ({ byteLength: part.length, sha256: digest(part) })) });
+  const sources = [{ path: "/allowed", byteLength: bytes.length }];
+  const pinned = new DollyHttpPolicy({ rules: [] }, sources, target);
+  for (const policy of [pinned, restrictDollyHttpPolicy(pinned, [null], sources, target)]) {
+    const calls = [];
+    const f = fixture({}, async (url, init) => {
+      calls.push(url.href);
+      assert.equal(init.credentials, "omit");
+      assert.equal(init.redirect, "error");
+      if (calls.length === 1) return new Response(manifest, { headers: { "x-dolly-parts": "1" } });
+      assert.equal(init.headers, undefined);
+      return new Response(parts[calls.length - 2]);
+    });
+    f.broker.policy = policy;
+    const records = await consume(f, f.request({ headers: "Authorization: Bearer private" }));
+    assert.deepEqual(calls, [target, target + ".part-0", target + ".part-1"]);
+    assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), bytes.toString());
+    await bounded(f.request({ url: target + ".part-0" }, 2));
+    assert.equal(calls.length, 3);
+    assert.equal(f.load(NetworkTransport.error), errno.EACCES);
+  }
+  let calls = 0;
+  const remote = fixture({}, async () => { calls++; return new Response(manifest, { headers: { "x-dolly-parts": "1" } }); });
+  const records = await consume(remote, remote.request());
+  assert.equal(calls, 1, "remote response headers cannot request additional destinations");
+  assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), manifest);
 });
 
 test("the HTTP provider forwards only explicit sandbox credentials, with no redirects or ambient credentials", async () => {

@@ -29,7 +29,7 @@ test("opened results intersect parent and embedding HTTP authority, limits and c
   const intersected = restrictDollyHttpPolicy(stricterPage, policies);
   const headers = new Headers({ authorization: "sandbox-secret" });
   assert.deepEqual(intersected.authorize(target, "POST", headers, 1), {
-    maxRequestBytes: 50, maxResponseBytes: 10, timeoutMilliseconds: 50, followRedirects: false,
+    maxRequestBytes: 50, maxResponseBytes: 10, timeoutMilliseconds: 50, followRedirects: false, bootstrap: false,
   });
   assert.equal(headers.has("authorization"), false);
   for (const invalid of [null, [], {}, Array(17).fill(null)]) assert.throws(() => restrictDollyHttpPolicy(parent, invalid));

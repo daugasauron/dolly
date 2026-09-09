@@ -7,8 +7,10 @@ modules. This page records compatibility, not a second source inventory.
 
 | Family | Current support | Important limits |
 | --- | --- | --- |
-| Slop and core/sbase tools | Separate PATH executables, basic shell scripts and conventional text/file tools | [Slop](slop.md) is not Bash; fd/ripgrep absent |
+| Slop and core/sbase tools | Separate PATH executables, basic shell scripts and conventional text/file tools | [Slop](slop.md) is not Bash |
 | C/C++ | Private Clang/LLD compiler, objects, archives, C++ libraries and process-local DSOs | No native host target, fork or threads |
+| Rust / Patti | Seed compiler runs in Dolly; C Patti builds ripgrep, fd, Protox and Codex from source in-browser | Serial target adaptations; external compiler seed; [source details](sources.md#rust-compiler-seed-and-source-built-tools) |
+| Codex | Real TUI, shell tools and device-code login | Current-thread Tokio; model endpoints require browser CORS; [port details](codex.md) |
 | Make / Ninja | Source-built GNU Make and Samurai; Slop recipes and dependency tracking | `-jN` accepted but serial |
 | Git / curl | Local Git plus HTTP clone/fetch/push; Fetch-backed libcurl | CORS applies; no sockets; Git clean/smudge filters unported |
 | Lua / QuickJS / Janis | Source-built runtimes sharing WasmFS | Janis is a [finite Node subset](javascript-runtime.md), not native Node |
@@ -65,6 +67,6 @@ No native Node, arbitrary npm/native addons, nested JavaScript WebAssembly,
 PTY/tmux, raw TCP/UDP or host subprocess fallback. Pi's Photon image resizer is
 excluded because it requires nested Wasm; supported images pass through unchanged.
 
-The isolated Rust/Codex experiment is not a shipped full agent or in-Dolly Rust
-SDK. Further work and reproducible failures belong in the
+The system image includes source-built ripgrep and fd; Pi and Studio inherit
+both. Runtime compatibility and reproducible failures belong in the
 [audit handoff](audit-handoff.md).

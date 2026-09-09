@@ -156,17 +156,19 @@ try {
   };
   const moveAway = { type: "move", x: 750, y: 560, milliseconds: 100 };
   const closeTraining = { type: "click", x: 550, y: 560, button: "right" };
-  const trainingView = await inputs[0]([{ type: "key", key: "B" }, moveAway]);
-  const trainingPanel = panel();
-  await inputs[0]([closeTraining]);
-  assert(panel() !== trainingPanel, "training dialog must close on right-click");
-  const clickedView = await inputs[0]([{ type: "click", x: 658, y: 490, button: "left" }, moveAway]);
-  if (panel() !== trainingPanel) {
-    fs.writeFileSync(`${replayRoot}/training-key.png`, trainingView.png);
-    fs.writeFileSync(`${replayRoot}/training-click.png`, clickedView.png);
-    throw Error("click-then-move must open the same dialog as its keyboard shortcut before returning a screenshot");
+  for (let attempt = 1; attempt <= 20; attempt++) {
+    const trainingView = await inputs[0]([{ type: "key", key: "B" }, moveAway]);
+    const trainingPanel = panel();
+    await inputs[0]([closeTraining]);
+    assert(panel() !== trainingPanel, "training dialog must close on right-click");
+    const clickedView = await inputs[0]([{ type: "click", x: 658, y: 490, button: "left" }, moveAway]);
+    if (panel() !== trainingPanel) {
+      fs.writeFileSync(`${replayRoot}/training-key.png`, trainingView.png);
+      fs.writeFileSync(`${replayRoot}/training-click.png`, clickedView.png);
+      throw Error(`click-then-move mismatch on attempt ${attempt}; key frame=${trainingView.frame} ms=${trainingView.milliseconds}, click frame=${clickedView.frame} ms=${clickedView.milliseconds}; live=${JSON.stringify(view(engines[0].directory))}`);
+    }
+    await inputs[0]([closeTraining]);
   }
-  await inputs[0]([closeTraining]);
   console.log("RTS-RELEASE-ORDER-OK: click release is consumed before the next pointer move and screenshot");
   for (const index of [1, 2]) fs.writeFileSync(`${scratch}/player${index}.txt`,
     "Browser integration test: real game engines; no model or provider is running.\nPlayer 1: select the town and recruit with R. Player 2: no input.\n");

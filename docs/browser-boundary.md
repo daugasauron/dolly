@@ -32,6 +32,17 @@ and referrers; the browser does not inject secrets. Explicit destination rules
 and bootstrap grants reject redirects. Unrestricted policy follows only on
 caller request; inherited policies intersect that permission.
 
+[src/static-asset.mjs](../src/static-asset.mjs) reassembles oversized static
+downloads only for embedding-selected bootstrap URLs or pinned snapshot packs.
+The manifest contains sizes and hashes, never destinations. Parts are fixed
+siblings of the original URL, fetched without guest headers, credentials or
+redirects, under the original deadline and byte bound. An ordinary remote
+response cannot activate this path. Inherited policies must all identify the
+request as a bootstrap grant; sibling URLs gain no independent guest grant.
+The Dollyfile viewer's `src/source-download.mjs` uses the same decoder after a
+user clicks a large, registry-listed source link, verifying its pinned hash
+before offering the original archive as a download.
+
 Deadlines include mailbox backpressure. A guest that stops reading cannot keep
 a request alive indefinitely. Atomic terminal failure cannot be erased by a late
 acknowledgement. Errors expose target errno, not request contents or credentials.
