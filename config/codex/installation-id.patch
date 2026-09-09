@@ -1,0 +1,18 @@
+--- a/core/src/installation_id.rs
++++ b/core/src/installation_id.rs
+@@ -16,6 +16,15 @@
+ 
+ pub(crate) const INSTALLATION_ID_FILENAME: &str = "installation_id";
+ 
++#[cfg(target_os = "emscripten")]
++pub async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Result<String> {
++    let contents = fs::read_to_string(codex_home.join(INSTALLATION_ID_FILENAME)).await?;
++    Uuid::parse_str(contents.trim())
++        .map(|id| id.to_string())
++        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))
++}
++
++#[cfg(not(target_os = "emscripten"))]
+ pub async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Result<String> {
+     let path = codex_home.join(INSTALLATION_ID_FILENAME);
+     fs::create_dir_all(codex_home).await?;

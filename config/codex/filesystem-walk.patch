@@ -1,0 +1,68 @@
+--- a/exec-server/src/local_file_system.rs
++++ b/exec-server/src/local_file_system.rs
+@@ -705,6 +705,15 @@
+         options: WalkOptions,
+         cancelled: &CancellationToken,
+     ) -> io::Result<WalkOutcome> {
++        futures::FutureExt::now_or_never(Self::walk_inner(root, options, cancelled))
++            .expect("native filesystem walk does not suspend")
++    }
++
++    async fn walk_inner(
++        root: &PathUri,
++        options: WalkOptions,
++        cancelled: &CancellationToken,
++    ) -> io::Result<WalkOutcome> {
+         if options.max_directories == 0 || options.max_entries == 0 {
+             return Err(io::Error::new(
+                 io::ErrorKind::InvalidInput,
+@@ -743,7 +752,7 @@
+         let mut response_bytes = 0usize;
+ 
+         while let Some((directory, depth)) = queue.pop_front() {
+-            let entries = walk_read_directory(&directory, cancelled);
++            let entries = walk_read_directory_inner(&directory, cancelled).await;
+             check_walk_cancelled(cancelled)?;
+             let mut entries = match entries {
+                 Ok(entries) => entries,
+@@ -762,6 +771,8 @@
+             entries.sort();
+ 
+             for file_name in entries {
++                #[cfg(target_os = "emscripten")]
++                tokio::task::yield_now().await;
+                 check_walk_cancelled(cancelled)?;
+                 if entry_count == options.max_entries {
+                     outcome.truncated = true;
+@@ -1020,6 +1031,9 @@
+             let path = path.clone();
+             let cancelled = CancellationToken::new();
+             let _cancel_on_drop = cancelled.clone().drop_guard();
++            #[cfg(target_os = "emscripten")]
++            return Self::walk_inner(&path, options, &cancelled).await;
++            #[cfg(not(target_os = "emscripten"))]
+             tokio::task::spawn_blocking(move || Self::sync_walk(&path, options, &cancelled))
+                 .await
+                 .map_err(|err| io::Error::other(format!("filesystem task failed: {err}")))?
+@@ -1082,11 +1096,21 @@
+ }
+ 
+ fn walk_read_directory(path: &PathUri, cancelled: &CancellationToken) -> io::Result<Vec<String>> {
++    futures::FutureExt::now_or_never(walk_read_directory_inner(path, cancelled))
++        .expect("native directory read does not suspend")
++}
++
++async fn walk_read_directory_inner(
++    path: &PathUri,
++    cancelled: &CancellationToken,
++) -> io::Result<Vec<String>> {
+     check_walk_cancelled(cancelled)?;
+     let path = path.to_abs_path()?;
+     let mut entries = Vec::new();
+     for entry in std::fs::read_dir(path.as_path())? {
+         check_walk_cancelled(cancelled)?;
++        #[cfg(target_os = "emscripten")]
++        tokio::task::yield_now().await;
+         let entry = entry?;
+         let Ok(file_type) = entry.file_type() else {
+             continue;

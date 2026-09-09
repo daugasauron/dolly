@@ -104,6 +104,18 @@ for program in ripgrep protox; do
     copy_static "build/rust-sources/${program}.tar" "rust/${program}.tar"
   fi
 done
+if has_module codex-build; then
+  python3 scripts/prepare-codex-sources.py
+  for part in build/codex-source-parts/*.part; do
+    copy_static "${part}" "codex/$(basename "${part}")"
+  done
+  copy_static config/codex/no-js.c codex/no-js.c
+  copy_static config/codex/patti.toml codex/patti.toml
+fi
+if has_module codex; then
+  copy_static src/codex/launch.c codex/launch.c
+  copy_static src/codex/config.toml codex/config.toml
+fi
 if has_module quickjs; then
   for command in qjs janis; do
     copy_static "${project_dir}/src/commands/${command}.c" "default/commands/${command}.c"

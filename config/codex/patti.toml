@@ -1,0 +1,36 @@
+[build-script.env]
+CRATE_CC_NO_DEFAULTS = "1"
+CFLAGS = "-O1 -D_POSIX_C_SOURCE=200809L"
+CXXFLAGS = "-O1"
+
+[package.aws-lc-sys.env]
+AWS_LC_SYS_NO_JITTER_ENTROPY = "1"
+
+[package.onig_sys.env]
+CFLAGS = "-O1 -D_POSIX_C_SOURCE=200809L -DHAVE_ALLOCA_H=1 -DONIG_DISABLE_DIRECT_THREADING=1"
+
+[package.codex-code-mode-protocol.env]
+PROTOC = "/usr/bin/protox"
+
+[[rustc]]
+package = "codex-core"
+crate-type = "rlib"
+args = ["-C", "codegen-units=16", "-C", "lto=off", "-Ztime-passes"]
+
+[[rustc]]
+package = "codex-tui"
+crate-type = "rlib"
+args = ["-C", "codegen-units=16", "-C", "lto=off", "-Ztime-passes"]
+
+[[rustc]]
+crate-name = "codex"
+crate-type = "bin"
+args = ["-C", "link-arg=/tmp/codex-build/tools/no-js.o", "-C", "link-arg=-Wl,--initial-memory=33554432"]
+
+[[rustc]]
+crate-name = "codex_exec"
+crate-type = "bin"
+args = ["-C", "link-arg=/tmp/codex-build/tools/no-js.o", "-C", "link-arg=-Wl,--initial-memory=33554432"]
+
+[cache]
+inputs = ["/tmp/codex-build/tools/no-js.o", "/usr/bin/protox"]

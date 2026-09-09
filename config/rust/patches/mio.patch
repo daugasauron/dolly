@@ -1,0 +1,107 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -40,7 +40,7 @@
+ //!
+ //! The available features are described in the [`features`] module.
+ 
+-#[cfg(all(target_family = "wasm", not(target_os = "wasi")))]
++#[cfg(all(target_family = "wasm", not(any(target_os = "wasi", target_os = "emscripten"))))]
+ compile_error!("This wasm target is unsupported by mio. If using Tokio, disable the net feature.");
+ 
+ // macros used internally
+--- a/src/poll.rs
++++ b/src/poll.rs
+@@ -2,6 +2,7 @@
+     unix,
+     not(mio_unsupported_force_poll_poll),
+     not(any(
++        target_os = "emscripten",
+         target_os = "aix",
+         target_os = "espidf",
+         target_os = "fuchsia",
+@@ -445,6 +446,7 @@
+     unix,
+     not(mio_unsupported_force_poll_poll),
+     not(any(
++        target_os = "emscripten",
+         target_os = "aix",
+         target_os = "espidf",
+         target_os = "fuchsia",
+@@ -747,6 +749,7 @@
+     unix,
+     not(mio_unsupported_force_poll_poll),
+     not(any(
++        target_os = "emscripten",
+         target_os = "aix",
+         target_os = "espidf",
+         target_os = "haiku",
+@@ -769,6 +772,7 @@
+     unix,
+     not(mio_unsupported_force_poll_poll),
+     not(any(
++        target_os = "emscripten",
+         target_os = "aix",
+         target_os = "espidf",
+         target_os = "haiku",
+@@ -792,6 +796,7 @@
+         unix,
+         not(mio_unsupported_force_poll_poll),
+         not(any(
++            target_os = "emscripten",
+             target_os = "aix",
+             target_os = "espidf",
+             target_os = "hermit",
+--- a/src/sys/unix/mod.rs
++++ b/src/sys/unix/mod.rs
+@@ -40,6 +40,7 @@
+     ), path = "selector/kqueue.rs")]
+     #[cfg_attr(any(
+         mio_unsupported_force_poll_poll,
++        target_os = "emscripten",
+         target_os = "aix",
+         target_os = "espidf",
+         target_os = "fuchsia",
+@@ -81,6 +82,7 @@
+     #[cfg_attr(any(
+         // NOTE: also add to the list for the `pipe` module below.
+         mio_unsupported_force_waker_pipe,
++        target_os = "emscripten",
+         all(
+             // `kqueue(2)` based waker doesn't work with `poll(2)`.
+             mio_unsupported_force_poll_poll,
+@@ -131,6 +133,7 @@
+             feature = "os-ext",
+             // For the `Waker` type based on a pipe.
+             mio_unsupported_force_waker_pipe,
++            target_os = "emscripten",
+             all(
+                 // `kqueue(2)` based waker doesn't work with `poll(2)`.
+                 mio_unsupported_force_poll_poll,
+--- a/src/sys/unix/pipe.rs
++++ b/src/sys/unix/pipe.rs
+@@ -9,6 +9,7 @@
+     let mut fds: [RawFd; 2] = [-1, -1];
+ 
+     #[cfg(any(
++        target_os = "emscripten",
+         target_os = "android",
+         target_os = "dragonfly",
+         target_os = "freebsd",
+--- a/src/sys/unix/tcp.rs
++++ b/src/sys/unix/tcp.rs
+@@ -89,6 +89,7 @@
+     // OSs inherit the non-blocking flag from the listener, so we just have to
+     // set `CLOEXEC`.
+     #[cfg(any(
++        target_os = "emscripten",
+         target_os = "aix",
+         target_os = "haiku",
+         target_os = "ios",
+@@ -118,6 +119,7 @@
+             // See https://github.com/tokio-rs/mio/issues/1450
+             #[cfg(any(
+                 all(target_arch = "x86", target_os = "android"),
++                target_os = "emscripten",
+                 target_os = "aix",
+                 target_os = "espidf",
+                 target_os = "vita",

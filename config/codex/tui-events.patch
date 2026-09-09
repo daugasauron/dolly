@@ -1,0 +1,91 @@
+--- a/tui/src/tui/event_stream.rs
++++ b/tui/src/tui/event_stream.rs
+@@ -115,14 +115,17 @@
+ }
+ 
+ /// Real crossterm-backed event source.
++#[cfg(not(target_os = "emscripten"))]
+ pub struct CrosstermEventSource(pub crossterm::event::EventStream);
+ 
++#[cfg(not(target_os = "emscripten"))]
+ impl Default for CrosstermEventSource {
+     fn default() -> Self {
+         Self(crossterm::event::EventStream::new())
+     }
+ }
+ 
++#[cfg(not(target_os = "emscripten"))]
+ impl EventSource for CrosstermEventSource {
+     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<EventResult>> {
+         // Crossterm's Windows backend expects Win32 input records. If VT input is inherited or
+@@ -140,6 +143,37 @@
+         }
+ 
+         result
++    }
++}
++
++#[cfg(target_os = "emscripten")]
++pub struct CrosstermEventSource(Pin<Box<tokio::time::Sleep>>);
++
++#[cfg(target_os = "emscripten")]
++impl Default for CrosstermEventSource {
++    fn default() -> Self {
++        Self(Box::pin(tokio::time::sleep(std::time::Duration::ZERO)))
++    }
++}
++
++#[cfg(target_os = "emscripten")]
++impl EventSource for CrosstermEventSource {
++    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<EventResult>> {
++        use std::future::Future;
++        use std::time::Duration;
++        let timer = &mut self.get_mut().0;
++        if timer.as_mut().poll(cx).is_pending() {
++            return Poll::Pending;
++        }
++        match crossterm::event::poll(Duration::from_millis(1)) {
++            Ok(true) => Poll::Ready(Some(crossterm::event::read())),
++            Err(error) => Poll::Ready(Some(Err(error))),
++            Ok(false) => {
++                timer.as_mut().reset(tokio::time::Instant::now() + Duration::from_millis(8));
++                let _ = timer.as_mut().poll(cx);
++                Poll::Pending
++            }
++        }
+     }
+ }
+ 
+--- a/tui/Cargo.toml
++++ b/tui/Cargo.toml
+@@ -126,6 +126,9 @@
+ codex-windows-sandbox = { workspace = true }
+ tokio-util = { workspace = true, features = ["time"] }
+ 
++[target.'cfg(target_os = "emscripten")'.dependencies]
++crossterm = { workspace = true, features = ["use-dev-tty", "libc"] }
++
+ [target.'cfg(unix)'.dependencies]
+ libc = { workspace = true }
+ 
+--- a/tui/src/startup_orchestration.rs
++++ b/tui/src/startup_orchestration.rs
+@@ -334,6 +334,7 @@
+         show_raw_agent_reasoning: cli.oss.then_some(true),
+         bypass_hook_trust: cli.bypass_hook_trust.then_some(true),
+         additional_writable_roots: additional_dirs,
++        ephemeral: cfg!(target_os = "emscripten").then_some(true),
+         ..Default::default()
+     };
+ 
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -5361,6 +5361,8 @@
+ version = "0.29.0"
+ source = "git+https://github.com/openai-oss-forks/crossterm?rev=45fecb9508105988f42fe6ff0441783ed3717f92#45fecb9508105988f42fe6ff0441783ed3717f92"
+ dependencies = [
++ "filedescriptor",
++ "libc",
+  "bitflags 2.13.1",
+  "crossterm_winapi",
+  "derive_more 2.1.1",

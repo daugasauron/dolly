@@ -8,5 +8,10 @@
     "url": "https://static.crates.io/crates/protox/protox-0.9.1.crate",
     "sha256": "4f25a07a73c6717f0b9bbbd685918f5df9815f7efba450b83d9c9dea41f0e3a1",
     "directory": "protox-0.9.1"
+  },
+  "codex": {
+    "url": "https://codeload.github.com/openai/codex/tar.gz/3d2ee51ca2d5db578f328aa75e20aa22c0197c9a",
+    "sha256": "bbbf66ffa30846f1e9bc3ae8a87a5aa0bb768efee8dbb94759dc9eb64bb4aa3a",
+    "directory": "codex-3d2ee51ca2d5db578f328aa75e20aa22c0197c9a"
   }
 }

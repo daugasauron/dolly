@@ -1,0 +1,20 @@
+--- a/src/adler32.rs
++++ b/src/adler32.rs
+@@ -6,7 +6,7 @@
+ mod generic;
+ #[cfg(target_arch = "aarch64")]
+ mod neon;
+-#[cfg(any(target_arch = "wasm32", target_arch = "wasm64"))]
++#[cfg(target_arch = "wasm32")]
+ mod wasm;
+ 
+ pub fn adler32(start_checksum: u32, data: &[u8]) -> u32 {
+@@ -27,7 +27,7 @@
+         return self::neon::adler32_neon(start_checksum, data);
+     }
+ 
+-    #[cfg(any(target_arch = "wasm32", target_arch = "wasm64"))]
++    #[cfg(target_arch = "wasm32")]
+     if crate::cpu_features::is_enabled_simd128() {
+         return self::wasm::adler32_wasm(start_checksum, data);
+     }

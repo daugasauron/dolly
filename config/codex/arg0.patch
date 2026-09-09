@@ -1,0 +1,61 @@
+--- a/arg0/src/lib.rs
++++ b/arg0/src/lib.rs
+@@ -227,23 +227,31 @@
+     let path_entry_guard = arg0_dispatch();
+     let current_exe = std::env::current_exe().ok();
+ 
+-    // Regular invocation. Run the async entry point on a thread with the same
+-    // stack budget as Tokio workers; `Runtime::block_on` otherwise runs the
+-    // top-level future on the caller's OS stack.
+-    let handle = std::thread::Builder::new()
+-        .name("codex-main".to_string())
+-        .stack_size(THREAD_STACK_SIZE_BYTES)
+-        .spawn(move || {
+-            let runtime = build_runtime()?;
+-            runtime.block_on(run_main_with_arg0_guard(
+-                path_entry_guard,
+-                current_exe,
+-                main_fn,
+-            ))
+-        })?;
+-    match handle.join() {
+-        Ok(result) => result,
+-        Err(payload) => std::panic::resume_unwind(payload),
++    #[cfg(target_os = "emscripten")]
++    return build_runtime()?.block_on(run_main_with_arg0_guard(
++        path_entry_guard, current_exe, main_fn,
++    ));
++
++    #[cfg(not(target_os = "emscripten"))]
++    {
++        // Regular invocation. Run the async entry point on a thread with the same
++        // stack budget as Tokio workers; `Runtime::block_on` otherwise runs the
++        // top-level future on the caller's OS stack.
++        let handle = std::thread::Builder::new()
++            .name("codex-main".to_string())
++            .stack_size(THREAD_STACK_SIZE_BYTES)
++            .spawn(move || {
++                let runtime = build_runtime()?;
++                runtime.block_on(run_main_with_arg0_guard(
++                    path_entry_guard,
++                    current_exe,
++                    main_fn,
++                ))
++            })?;
++        match handle.join() {
++            Ok(result) => result,
++            Err(payload) => std::panic::resume_unwind(payload),
++        }
+     }
+ }
+ 
+@@ -288,6 +296,9 @@
+ }
+ 
+ fn build_runtime() -> anyhow::Result<tokio::runtime::Runtime> {
++    #[cfg(target_os = "emscripten")]
++    let mut builder = tokio::runtime::Builder::new_current_thread();
++    #[cfg(not(target_os = "emscripten"))]
+     let mut builder = tokio::runtime::Builder::new_multi_thread();
+     builder.enable_all();
+     builder.thread_stack_size(THREAD_STACK_SIZE_BYTES);

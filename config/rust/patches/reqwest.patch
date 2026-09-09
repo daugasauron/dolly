@@ -1,0 +1,64 @@
+--- a/src/async_impl/mod.rs
++++ b/src/async_impl/mod.rs
+@@ -12,3 +12,6 @@
+ pub(crate) mod request;
+ mod response;
+ mod upgrade;
++
++#[cfg(target_os = "emscripten")]
++mod dolly;
+--- a/src/async_impl/client.rs
++++ b/src/async_impl/client.rs
+@@ -2602,6 +2602,14 @@
+ 
+         let body = body.unwrap_or_else(Body::empty);
+ 
++        #[cfg(target_os = "emscripten")]
++        let in_flight = ResponseFuture::Dolly(Box::pin(super::dolly::send(
++            method.clone(), url.clone(), headers.clone(), body,
++            #[cfg(feature = "cookies")]
++            self.inner.cookie_store.clone(),
++        )));
++        #[cfg(not(target_os = "emscripten"))]
++        let in_flight = {
+         self.proxy_auth(&uri, &mut headers);
+         self.proxy_custom_headers(&uri, &mut headers);
+ 
+@@ -2610,7 +2618,7 @@
+             .uri(uri)
+             .version(version);
+ 
+-        let in_flight = match version {
++        match version {
+             #[cfg(feature = "http3")]
+             http::Version::HTTP_3 if self.inner.h3_client.is_some() => {
+                 let mut req = builder.body(body).expect("valid request parts");
+@@ -2624,6 +2632,7 @@
+                 let mut hyper = self.inner.hyper.clone();
+                 ResponseFuture::Default(hyper.call(req))
+             }
++        }
+         };
+ 
+         let total_timeout = self
+@@ -2993,6 +3002,8 @@
+ }
+ 
+ enum ResponseFuture {
++    #[cfg(target_os = "emscripten")]
++    Dolly(Pin<Box<dyn Future<Output = Result<hyper::Response<super::body::ResponseBody>, crate::Error>> + Send + Sync>>),
+     Default(LayeredFuture<HyperService>),
+     #[cfg(feature = "http3")]
+     H3(LayeredFuture<H3Client>),
+@@ -3059,6 +3070,11 @@
+         }
+ 
+         let res = match self.as_mut().in_flight().get_mut() {
++            #[cfg(target_os = "emscripten")]
++            ResponseFuture::Dolly(r) => match ready!(r.as_mut().poll(cx)) {
++                Ok(response) => response,
++                Err(error) => return Poll::Ready(Err(error.with_url(self.url.clone()))),
++            },
+             ResponseFuture::Default(r) => match ready!(Pin::new(r).poll(cx)) {
+                 Err(e) => {
+                     return Poll::Ready(Err(e.if_no_url(|| self.url.clone())));

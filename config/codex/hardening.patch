@@ -1,0 +1,18 @@
+--- a/process-hardening/src/lib.rs
++++ b/process-hardening/src/lib.rs
+@@ -30,14 +30,7 @@
+ #[cfg(target_os = "macos")]
+ const PTRACE_DENY_ATTACH_FAILED_EXIT_CODE: i32 = 6;
+ 
+-#[cfg(any(
+-    target_os = "linux",
+-    target_os = "android",
+-    target_os = "macos",
+-    target_os = "freebsd",
+-    target_os = "netbsd",
+-    target_os = "openbsd"
+-))]
++#[cfg(unix)]
+ const SET_RLIMIT_CORE_FAILED_EXIT_CODE: i32 = 7;
+ 
+ #[cfg(any(target_os = "linux", target_os = "android"))]

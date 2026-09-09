@@ -1,0 +1,16 @@
+DOLLY 3
+IMAGE codex
+
+FROM HOST /Dollyfile 61fb07c8d5d4fc5dad232fc3fbfbf7bcec3b486ae33ceb2503ef409470b7bdeb
+COPY FROM HOST /Dollyfile-codex-build ef3a47734739fc6c7dd8dc7a3d383ef93ce661b09f547e9a657bcd2ba4525520 /usr/bin/codex /usr/libexec/codex
+COPY FROM HOST /Dollyfile-codex-build ef3a47734739fc6c7dd8dc7a3d383ef93ce661b09f547e9a657bcd2ba4525520 /usr/share/licenses/codex /usr/share/licenses/codex
+COPY FROM HOST /Dollyfile-codex-build ef3a47734739fc6c7dd8dc7a3d383ef93ce661b09f547e9a657bcd2ba4525520 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+USE HOST /modules/posix-shell.dm 8b980e03bb4ee4402bb8eba064503859479298979694a968fa7f1563e94eac51
+USE HOST /modules/codex.dm fa53d33c5990610662f45fd1a853d1d108c59de09d4fcf64ee2d1283228e7485
+
+FILE /etc/dolly/init.slop
+    /bin/foreground -i /usr/bin/codex
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

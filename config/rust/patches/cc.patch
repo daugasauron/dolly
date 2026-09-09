@@ -1,0 +1,113 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -53,7 +53,7 @@
+ [dependencies.find-msvc-tools]
+ version = "0.1.9"
+ 
+-[dependencies.jobserver]
++[target.'cfg(not(target_os = "emscripten"))'.dependencies.jobserver]
+ version = "0.1.30"
+ optional = true
+ default-features = false
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -254,7 +254,7 @@
+ 
+ use shlex::Shlex;
+ 
+-#[cfg(feature = "parallel")]
++#[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+ mod parallel;
+ 
+ mod target;
+@@ -447,7 +447,7 @@
+     UnknownTarget,
+     /// Invalid rustc flag.
+     InvalidFlag,
+-    #[cfg(feature = "parallel")]
++    #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+     /// jobserver helpthread failure
+     JobserverHelpThreadError,
+     /// `cc` has been disabled by an environment variable.
+@@ -1782,7 +1782,7 @@
+     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
+         check_disabled()?;
+ 
+-        #[cfg(feature = "parallel")]
++        #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+         if objs.len() > 1 {
+             return parallel::run_commands_in_parallel(
+                 &self.cargo_output,
+@@ -2658,6 +2658,10 @@
+             .map(|o| o.dst.as_path())
+             .chain(self.objects.iter().map(std::ops::Deref::deref))
+             .collect();
++        if cfg!(target_os = "emscripten") {
++            let mut ar = self.try_get_archiver()?;
++            return run(ar.arg("rcs").arg(dst).args(&objs), &self.cargo_output);
++        }
+         for chunk in objs.chunks(100) {
+             self.assemble_progressive(dst, chunk)?;
+         }
+--- a/src/command_helpers.rs
++++ b/src/command_helpers.rs
+@@ -98,9 +98,9 @@
+ 
+ pub(crate) struct StderrForwarder {
+     inner: Option<(ChildStderr, Vec<u8>)>,
+-    #[cfg(feature = "parallel")]
++    #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+     is_non_blocking: bool,
+-    #[cfg(feature = "parallel")]
++    #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+     bytes_available_failed: bool,
+     /// number of bytes buffered in inner
+     bytes_buffered: usize,
+@@ -116,9 +116,9 @@
+                 .take()
+                 .map(|stderr| (stderr, Vec::with_capacity(MIN_BUFFER_CAPACITY))),
+             bytes_buffered: 0,
+-            #[cfg(feature = "parallel")]
++            #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+             is_non_blocking: false,
+-            #[cfg(feature = "parallel")]
++            #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+             bytes_available_failed: false,
+         }
+     }
+@@ -128,9 +128,9 @@
+             loop {
+                 // For non-blocking we check to see if there is data available, so we should try to
+                 // read at least that much. For blocking, always read at least the minimum amount.
+-                #[cfg(not(feature = "parallel"))]
++                #[cfg(not(all(feature = "parallel", not(target_os = "emscripten"))))]
+                 let to_reserve = MIN_BUFFER_CAPACITY;
+-                #[cfg(feature = "parallel")]
++                #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+                 let to_reserve = if self.is_non_blocking && !self.bytes_available_failed {
+                     match crate::parallel::stderr::bytes_available(stderr) {
+                         #[cfg(windows)]
+@@ -216,7 +216,7 @@
+         }
+     }
+ 
+-    #[cfg(feature = "parallel")]
++    #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+     pub(crate) fn set_non_blocking(&mut self) -> Result<(), Error> {
+         assert!(!self.is_non_blocking);
+ 
+@@ -229,12 +229,12 @@
+         Ok(())
+     }
+ 
+-    #[cfg(feature = "parallel")]
++    #[cfg(all(feature = "parallel", not(target_os = "emscripten")))]
+     pub(crate) fn forward_all(&mut self) {
+         while !self.forward_available() {}
+     }
+ 
+-    #[cfg(not(feature = "parallel"))]
++    #[cfg(not(all(feature = "parallel", not(target_os = "emscripten"))))]
+     fn forward_all(&mut self) {
+         let forward_result = self.forward_available();
+         assert!(forward_result, "Should have consumed all data");

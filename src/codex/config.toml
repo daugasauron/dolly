@@ -1,0 +1,22 @@
+model_provider = "openai-http"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+allow_login_shell = false
+check_for_update_on_startup = false
+cli_auth_credentials_store = "file"
+
+[features]
+plugins = false
+
+[analytics]
+enabled = false
+
+[history]
+persistence = "none"
+
+[model_providers.openai-http]
+name = "OpenAI"
+base_url = "https://api.openai.com/v1"
+wire_api = "responses"
+requires_openai_auth = true
+supports_websockets = false

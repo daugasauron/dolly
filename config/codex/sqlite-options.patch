@@ -1,0 +1,29 @@
+--- a/state/src/sqlite.rs
++++ b/state/src/sqlite.rs
+@@ -279,13 +279,15 @@
+         let options = SqliteConnectOptions::new()
+             .filename(path)
+             .create_if_missing(true)
+-            .journal_mode(SqliteJournalMode::Wal)
++            .journal_mode(if cfg!(target_os = "emscripten") { SqliteJournalMode::Delete } else { SqliteJournalMode::Wal })
+             .synchronous(SqliteSynchronous::Normal)
+             .auto_vacuum(SqliteAutoVacuum::Incremental)
+             .busy_timeout(Duration::from_secs(5))
+             .log_statements(LevelFilter::Off);
++        #[cfg(target_os = "emscripten")]
++        let options = options.vfs("unix-dotfile");
+         SqlitePoolOptions::new()
+-            .max_connections(5)
++            .max_connections(if cfg!(target_os = "emscripten") { 1 } else { 5 })
+             .connect_with(options)
+             .await
+     }
+@@ -301,6 +303,8 @@
+             .create_if_missing(false)
+             .read_only(true)
+             .log_statements(LevelFilter::Off);
++        #[cfg(target_os = "emscripten")]
++        { options = options.vfs("unix-dotfile"); }
+         if let Some(busy_timeout) = busy_timeout {
+             options = options.busy_timeout(busy_timeout);
+         }

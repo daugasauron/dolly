@@ -1,0 +1,11 @@
+[package]
+name = "dolly-tokio-probe"
+version = "0.0.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+libc = "=0.2.186"
+tokio = { version = "=1.52.3", features = ["full", "test-util"] }
+zlib-rs = "=0.5.5"

@@ -1,0 +1,12 @@
+--- a/src/sys/unix/mod.rs
++++ b/src/sys/unix/mod.rs
+@@ -340,6 +340,9 @@
+ 	}
+ 
+ 	pub fn set_break(&self, enable: bool) -> std::io::Result<()> {
++		#[cfg(target_os = "emscripten")]
++		return Err(std::io::Error::from_raw_os_error(libc::ENOTSUP));
++		#[cfg(not(target_os = "emscripten"))]
+ 		unsafe {
+ 			if enable {
+ 				check(libc::ioctl(self.file.as_raw_fd(), libc::TIOCSBRK as _))?;

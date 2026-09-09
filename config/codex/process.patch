@@ -1,0 +1,66 @@
+--- a/utils/pty/src/pipe.rs
++++ b/utils/pty/src/pipe.rs
+@@ -154,9 +154,9 @@
+     }
+     #[cfg(target_os = "linux")]
+     let parent_pid = unsafe { libc::getpid() };
+-    #[cfg(unix)]
++    #[cfg(all(unix, not(target_os = "emscripten")))]
+     let inherited_fds = inherited_fds.to_vec();
+-    #[cfg(unix)]
++    #[cfg(all(unix, not(target_os = "emscripten")))]
+     unsafe {
+         command.pre_exec(move || {
+             crate::process_group::detach_from_tty()?;
+--- a/core/src/spawn.rs
++++ b/core/src/spawn.rs
+@@ -91,7 +91,7 @@
+     // any child processes that were spawned as part of a `"shell"` tool call
+     // to also be terminated.
+ 
+-    #[cfg(unix)]
++    #[cfg(all(unix, not(target_os = "emscripten")))]
+     unsafe {
+         let detach_from_tty = matches!(stdio_policy, StdioPolicy::RedirectForShellTool);
+         #[cfg(target_os = "linux")]
+--- a/utils/pty/src/process_group.rs
++++ b/utils/pty/src/process_group.rs
+@@ -13,6 +13,9 @@
+ //!   `SIGTERM` when the parent exits, and re-checks the parent PID to avoid
+ //!   races during fork/exec.
+ //!
++//! Dolly uses the command PID and kernel-owned descendants instead of Unix groups.
++//! Killing or exiting the command retires its descendants; catchable signals
++//! target the command. Spawn needs no fork hook or controlling-terminal detach.
+ //! On non-Unix platforms these helpers are no-ops.
+ 
+ use std::io;
+@@ -88,6 +91,10 @@
+ ///
+ /// This resolves the PGID for `pid` and sends SIGKILL to the whole group.
+ pub fn kill_process_group_by_pid(pid: u32) -> io::Result<()> {
++    #[cfg(target_os = "emscripten")]
++    return kill_process_group(pid);
++    #[cfg(not(target_os = "emscripten"))]
++    {
+     use std::io::ErrorKind;
+ 
+     let pid = pid as libc::pid_t;
+@@ -109,6 +116,7 @@
+     }
+ 
+     Ok(())
++    }
+ }
+ 
+ #[cfg(not(unix))]
+@@ -121,6 +129,9 @@
+ fn signal_process_group_id(pgid: libc::pid_t, signal: libc::c_int) -> io::Result<bool> {
+     use std::io::ErrorKind;
+ 
++    #[cfg(target_os = "emscripten")]
++    let result = unsafe { libc::kill(pgid, signal) };
++    #[cfg(not(target_os = "emscripten"))]
+     let result = unsafe { libc::killpg(pgid, signal) };
+     if result == -1 {
+         let err = io::Error::last_os_error();

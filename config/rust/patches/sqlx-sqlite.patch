@@ -1,0 +1,138 @@
+--- a/src/connection/worker.rs
++++ b/src/connection/worker.rs
+@@ -1,6 +1,7 @@
+ use std::future::Future;
+ use std::sync::atomic::{AtomicUsize, Ordering};
+ use std::sync::Arc;
++#[cfg(not(target_os = "emscripten"))]
+ use std::thread;
+ 
+ use futures_channel::oneshot;
+@@ -22,7 +23,7 @@
+ #[cfg(feature = "deserialize")]
+ use crate::connection::deserialize::{deserialize, serialize, SchemaName, SqliteOwnedBuf};
+ 
+-// Each SQLite connection has a dedicated thread.
++// Each SQLite connection has a serial worker: a task on Emscripten, a thread elsewhere.
+ 
+ // TODO: Tweak this so that we can use a thread pool per pool of SQLite3 connections to reduce
+ //       OS resource usage. Low priority because a high concurrent load for SQLite3 is very
+@@ -105,9 +106,12 @@
+     pub(crate) async fn establish(params: EstablishParams) -> Result<Self, Error> {
+         let (establish_tx, establish_rx) = oneshot::channel();
+ 
+-        thread::Builder::new()
+-            .name(params.thread_name.clone())
+-            .spawn(move || {
++        #[cfg(not(target_os = "emscripten"))]
++        let thread_name = params.thread_name.clone();
++        let run = move || async move {
++                #[cfg(target_os = "emscripten")]
++                let (command_tx, command_rx) = flume::unbounded();
++                #[cfg(not(target_os = "emscripten"))]
+                 let (command_tx, command_rx) = flume::bounded(params.command_channel_size);
+ 
+                 let conn = match params.establish() {
+@@ -143,7 +147,8 @@
+                 // would rollback an already completed transaction.
+                 let mut ignore_next_start_rollback = false;
+ 
+-                for (cmd, span) in command_rx {
++                while let Ok((cmd, span)) = command_rx.recv_async().await {
++                    #[cfg(not(target_os = "emscripten"))]
+                     let _guard = span.enter();
+                     match cmd {
+                         Command::Prepare { query, tx } => {
+@@ -171,7 +176,7 @@
+                             {
+                                 Ok(iter) => iter,
+                                 Err(e) => {
+-                                    tx.send(Err(e)).ok();
++                                    tx.send_async(Err(e)).await.ok();
+                                     continue;
+                                 }
+                             };
+@@ -180,7 +185,7 @@
+                                 None => {
+                                     for res in iter {
+                                         let has_error = res.is_err();
+-                                        if tx.send(res).is_err() || has_error {
++                                        if tx.send_async(res).await.is_err() || has_error {
+                                             break;
+                                         }
+                                     }
+@@ -195,13 +200,13 @@
+                                                 rows_returned += 1;
+                                                 if rows_returned >= limit {
+                                                     drop(iter);
+-                                                    let _ = tx.send(res);
++                                                    let _ = tx.send_async(res).await;
+                                                     break;
+                                                 }
+                                             }
+                                         }
+                                         let has_error = res.is_err();
+-                                        if tx.send(res).is_err() || has_error {
++                                        if tx.send_async(res).await.is_err() || has_error {
+                                             break;
+                                         }
+                                     }
+@@ -219,7 +224,7 @@
+                                 // we're already in a transaction (we need to
+                                 // issue a `SAVEPOINT` instead)
+                                 Some(_) if depth > 0 => {
+-                                    if tx.blocking_send(Err(Error::InvalidSavePointStatement)).is_err() {
++                                    if tx.send(Err(Error::InvalidSavePointStatement)).await.is_err() {
+                                         break;
+                                     }
+                                     continue;
+@@ -241,7 +246,7 @@
+                                     });
+                             let res_ok = res.is_ok();
+ 
+-                            if tx.blocking_send(res).is_err() && res_ok {
++                            if tx.send(res).await.is_err() && res_ok {
+                                 // The BEGIN was processed but not acknowledged. This means no
+                                 // `Transaction` was created and so there is no way to commit /
+                                 // rollback this transaction. We need to roll it back
+@@ -275,7 +280,7 @@
+                             };
+                             let res_ok = res.is_ok();
+ 
+-                            if tx.blocking_send(res).is_err() && res_ok {
++                            if tx.send(res).await.is_err() && res_ok {
+                                 // The COMMIT was processed but not acknowledged. This means that
+                                 // the `Transaction` doesn't know it was committed and will try to
+                                 // rollback on drop. We need to ignore that rollback.
+@@ -303,7 +308,7 @@
+                             let res_ok = res.is_ok();
+ 
+                             if let Some(tx) = tx {
+-                                if tx.blocking_send(res).is_err() && res_ok {
++                                if tx.send(res).await.is_err() && res_ok {
+                                     // The ROLLBACK was processed but not acknowledged. This means
+                                     // that the `Transaction` doesn't know it was rolled back and
+                                     // will try to rollback again on drop. We need to ignore that
+@@ -327,7 +332,7 @@
+                         }
+                         Command::UnlockDb => {
+                             drop(conn);
+-                            conn = futures_executor::block_on(shared.conn.lock());
++                            conn = shared.conn.lock().await;
+                         }
+                         Command::Ping { tx } => {
+                             tx.send(()).ok();
+@@ -342,7 +347,12 @@
+                         }
+                     }
+                 }
+-            })?;
++        };
++        #[cfg(target_os = "emscripten")]
++        sqlx_core::rt::spawn(tracing::Instrument::instrument(run(), Span::current()));
++        #[cfg(not(target_os = "emscripten"))]
++        thread::Builder::new().name(thread_name)
++            .spawn(move || futures_executor::block_on(run()))?;
+ 
+         establish_rx.await.map_err(|_| Error::WorkerCrashed)?
+     }

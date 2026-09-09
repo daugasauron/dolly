@@ -12,6 +12,9 @@ else
   exit 1
 fi
 
+if [[ "${DOLLY_BROWSER_MODE:-}" == tokio ]]; then
+  python3 "${project_dir}/test/fixtures/prepare-tokio.py"
+fi
 if [[ -n "${DOLLY_BROWSER_MODE:-}" ]]; then
   exec node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 fi
@@ -76,4 +79,14 @@ DOLLY_IMAGE=ghostty-build DOLLY_BROWSER_MODE=zig-sdk \
 DOLLY_IMAGE=cmake-build DOLLY_BROWSER_MODE=cmake \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=neovim DOLLY_BROWSER_MODE=neovim \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+
+DOLLY_IMAGE=rust-tools DOLLY_BROWSER_MODE=rust-tools \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=default DOLLY_BROWSER_MODE=ripgrep \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+python3 "${project_dir}/test/fixtures/prepare-tokio.py"
+DOLLY_IMAGE=rust-tools DOLLY_BROWSER_MODE=tokio \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=codex DOLLY_BROWSER_MODE=codex \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"

@@ -1,0 +1,62 @@
+--- a/tui/Cargo.toml
++++ b/tui/Cargo.toml
+@@ -142,9 +142,8 @@
+ ] }
+ winsplit = "0.1"
+ 
+-# Clipboard support via `arboard` is not available on Android/Termux.
+-# Only include it for non-Android targets so the crate builds on Android.
+-[target.'cfg(not(target_os = "android"))'.dependencies]
++# Native clipboard support is unavailable on Android/Termux and Dolly.
++[target.'cfg(not(any(target_os = "android", target_os = "emscripten")))'.dependencies]
+ arboard = { workspace = true }
+ 
+ 
+--- a/tui/src/clipboard_paste.rs
++++ b/tui/src/clipboard_paste.rs
+@@ -47,7 +47,7 @@
+ }
+ 
+ /// Capture image from system clipboard, encode to PNG, and return bytes + info.
+-#[cfg(not(target_os = "android"))]
++#[cfg(not(any(target_os = "android", target_os = "emscripten")))]
+ pub fn paste_image_as_png() -> Result<(Vec<u8>, PastedImageInfo), PasteImageError> {
+     let _span = tracing::debug_span!("paste_image_as_png").entered();
+     tracing::debug!("attempting clipboard image read");
+@@ -108,6 +108,13 @@
+     ))
+ }
+ 
++#[cfg(target_os = "emscripten")]
++pub fn paste_image_as_png() -> Result<(Vec<u8>, PastedImageInfo), PasteImageError> {
++    Err(PasteImageError::ClipboardUnavailable(
++        "clipboard image paste is unsupported in Dolly".into(),
++    ))
++}
++
+ /// Android/Termux does not support arboard; return a clear error.
+ #[cfg(target_os = "android")]
+ pub fn paste_image_as_png() -> Result<(Vec<u8>, PastedImageInfo), PasteImageError> {
+--- a/tui/src/clipboard_copy.rs
++++ b/tui/src/clipboard_copy.rs
+@@ -222,7 +222,7 @@
+ /// triggers `os_log` / `NSLog` output on stderr. Because the TUI owns the
+ /// terminal, that stray output corrupts the display. We temporarily redirect
+ /// fd 2 to `/dev/null` around the call to keep the screen clean.
+-#[cfg(all(not(target_os = "android"), not(target_os = "linux")))]
++#[cfg(not(any(target_os = "android", target_os = "emscripten", target_os = "linux")))]
+ fn arboard_copy(text: &str) -> Result<Option<ClipboardLease>, String> {
+     #[cfg(target_os = "macos")]
+     let _stderr_lock = STDERR_SUPPRESSION_MUTEX
+@@ -252,6 +252,11 @@
+         .set_text(text)
+         .map_err(|e| format!("failed to set clipboard text: {e}"))?;
+     Ok(Some(ClipboardLease::native_linux(clipboard)))
++}
++
++#[cfg(target_os = "emscripten")]
++fn arboard_copy(_text: &str) -> Result<Option<ClipboardLease>, String> {
++    Err("native clipboard unavailable in Dolly".to_string())
+ }
+ 
+ #[cfg(target_os = "android")]

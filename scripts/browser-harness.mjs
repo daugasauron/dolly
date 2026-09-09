@@ -20,6 +20,9 @@ import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
 import { browserShellCases } from "../test/fixtures/browser-shell-cases.mjs";
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
+import { demoFixture } from "../test/fixtures/codex-responses.mjs";
+import { runCodexTui } from "../test/fixtures/codex-tui.mjs";
+import { createTokioFixture } from "../test/fixtures/tokio.mjs";
 import { rustToolSources, runRustTools, runRipgrep } from "../test/fixtures/rust-tools.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
@@ -63,6 +66,10 @@ const httpDefaultsMode = isMode("http-defaults");
 const processAbiMode = isMode("process-abi");
 const processSmokeMode = isMode("process-smoke");
 const rustToolsMode = isMode("rust-tools");
+const tokioMode = isMode("tokio");
+const codexMode = isMode("codex");
+const codexFixture = codexMode ? demoFixture() : null;
+const tokioFixture = tokioMode ? createTokioFixture() : null;
 const ripgrepMode = isMode("ripgrep");
 const libuvMode = isMode("libuv");
 const cmakeMode = isMode("cmake");
@@ -295,6 +302,8 @@ function startServer() {
         response.setHeader("access-control-allow-headers", request.headers["access-control-request-headers"] ?? "");
         if (request.method === "OPTIONS") { response.writeHead(204); response.end(); return; }
       }
+      if (codexFixture && codexFixture.handle(request, response)) return;
+      if (tokioFixture && await tokioFixture.handle(request, response, requestUrl)) return;
       if (gitTransportFixture && await gitTransportFixture.serve(request, response, requestUrl)) return;
       if (dollyfileParserMode && parserRecipes.has(requestUrl.pathname)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
@@ -1180,6 +1189,10 @@ async function enterRecoveryShell(send) {
       await evaluate(send, "window.__dolly.key('q', 'KeyQ')"),
       true,
     );
+  } else if (selectedImage === "codex") {
+    await waitForTerminalText(send, /Sign in with ChatGPT/, "Codex entry sign-in TUI", 1200);
+    entryPid = await evaluate(send, "window.__dolly.foregroundPid");
+    await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
   } else {
     entryPid = await evaluate(send,
       `window.__dolly.waitForInteractiveTerminal(${["pi", "python-pi", "pi-local", "dollyfile-studio"].includes(selectedImage)
@@ -1406,6 +1419,14 @@ const fixturePolicy = {
     },
   ],
 };
+if (codexMode) {
+  fixturePolicy.rules.push({ origin: localOrigin, path: "/demo/v1/responses", methods: ["POST"] });
+}
+if (tokioMode) {
+  for (const path of ["/tokio/stream", "/tokio/slow"]) {
+    fixturePolicy.rules.push({ origin: localOrigin, path, methods: ["GET"] });
+  }
+}
 if (dollyfileParserMode) {
   for (const path of parserRecipes.keys()) {
     if (path.startsWith("/modules/")) fixturePolicy.rules.push({
@@ -2529,13 +2550,24 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       console.log("browser: source-built libuv work, cancellation, files, streamed children, cleanup, TTY input, resize and restoration passed");
       break browserProof;
     }
-    if (rustToolsMode || ripgrepMode) {
+    if (codexMode) {
+      assert.equal(await waitForValue(debuggerClient.send,
+        "document.documentElement?.dataset.dollyStatus ?? ''",
+        value => value === "ready" || value === "failed", "Codex image boot", 1200), "ready");
+      await enterRecoveryShell(debuggerClient.send);
+      await runCodexTui(debuggerClient.send, expression => evaluate(debuggerClient.send, expression), localOrigin);
+      codexFixture.verify();
+      console.log("browser: real Codex TUI editing, paste, shell tool, file bytes, status and exit passed");
+      break browserProof;
+    }
+    if (rustToolsMode || ripgrepMode || tokioMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "Rust tools boot", 1200), "ready");
       await enterRecoveryShell(debuggerClient.send);
       const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
-      if (rustToolsMode) await runRustTools(submit, localOrigin);
+      if (tokioMode) await tokioFixture.run(submit, localOrigin);
+      else if (rustToolsMode) await runRustTools(submit, localOrigin);
       else await runRipgrep(submit);
       console.log(`browser: ${requestedMode} source-built tools passed in the shared Wasm filesystem`);
       break browserProof;

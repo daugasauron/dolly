@@ -192,3 +192,6 @@ This remains an experimental Emscripten-based Rust target with serial compiler
 execution and panic-abort. Cargo, incremental compilation, file locking and
 application threads are not provided. Compiler bootstrapping inside Dolly and
 byte-identical Rust seeds across different host checkout paths are not claimed.
+
+The [Codex port](codex.md) builds on these stages and keeps its runtime setup
+separate from the compiler seed and reusable Rust library adaptations.

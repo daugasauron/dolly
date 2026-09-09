@@ -1,0 +1,132 @@
+--- a/src/event/source/unix/tty.rs
++++ b/src/event/source/unix/tty.rs
+@@ -1,9 +1,12 @@
++#[cfg(target_os = "emscripten")]
++use std::fs::File as NotificationFd;
++#[cfg(not(target_os = "emscripten"))]
++use std::os::unix::net::UnixStream as NotificationFd;
+ #[cfg(feature = "libc")]
+ use std::os::unix::prelude::AsRawFd;
+ use std::{
+     collections::VecDeque,
+     io,
+-    os::unix::net::UnixStream,
+     time::{Duration, Instant},
+ };
+ 
+@@ -26,14 +29,14 @@
+ /// Holds a prototypical Waker and a receiver we can wait on when doing select().
+ #[cfg(feature = "event-stream")]
+ struct WakePipe {
+-    receiver: UnixStream,
++    receiver: NotificationFd,
+     waker: Waker,
+ }
+ 
+ #[cfg(feature = "event-stream")]
+ impl WakePipe {
+     fn new() -> io::Result<Self> {
+-        let (receiver, sender) = nonblocking_unix_pair()?;
++        let (receiver, sender) = nonblocking_notification_pair()?;
+         Ok(WakePipe {
+             receiver,
+             waker: Waker::new(sender),
+@@ -53,16 +56,34 @@
+     parser: Parser,
+     tty_buffer: [u8; TTY_BUFFER_SIZE],
+     tty: FileDesc<'static>,
+-    winch_signal_receiver: UnixStream,
++    winch_signal_receiver: NotificationFd,
+     #[cfg(feature = "event-stream")]
+     wake_pipe: WakePipe,
+ }
+ 
+-fn nonblocking_unix_pair() -> io::Result<(UnixStream, UnixStream)> {
+-    let (receiver, sender) = UnixStream::pair()?;
++#[cfg(not(target_os = "emscripten"))]
++fn nonblocking_notification_pair() -> io::Result<(NotificationFd, NotificationFd)> {
++    let (receiver, sender) = NotificationFd::pair()?;
+     receiver.set_nonblocking(true)?;
+     sender.set_nonblocking(true)?;
+     Ok((receiver, sender))
++}
++
++#[cfg(target_os = "emscripten")]
++fn nonblocking_notification_pair() -> io::Result<(NotificationFd, NotificationFd)> {
++    use std::os::fd::FromRawFd;
++    let mut descriptors = [-1; 2];
++    if unsafe { libc::pipe(descriptors.as_mut_ptr()) } != 0 {
++        return Err(io::Error::last_os_error());
++    }
++    let reader = unsafe { NotificationFd::from_raw_fd(descriptors[0]) };
++    let writer = unsafe { NotificationFd::from_raw_fd(descriptors[1]) };
++    for fd in &descriptors {
++        if unsafe { libc::fcntl(*fd, libc::F_SETFL, libc::O_NONBLOCK) } == -1 {
++            return Err(io::Error::last_os_error());
++        }
++    }
++    Ok((reader, writer))
+ }
+ 
+ impl UnixInternalEventSource {
+@@ -76,7 +97,7 @@
+             tty_buffer: [0u8; TTY_BUFFER_SIZE],
+             tty: input_fd,
+             winch_signal_receiver: {
+-                let (receiver, sender) = nonblocking_unix_pair()?;
++                let (receiver, sender) = nonblocking_notification_pair()?;
+                 // Unregistering is unnecessary because EventSource is a singleton
+                 #[cfg(feature = "libc")]
+                 pipe::register(libc::SIGWINCH, sender)?;
+@@ -170,9 +191,21 @@
+                         return Ok(Some(event));
+                     }
+ 
+-                    // The source owns this descriptor for the lifetime of its borrow.
+-                    let fd = unsafe { rustix::fd::BorrowedFd::borrow_raw(self.tty.raw_fd()) };
+-                    if read_count == 0 || rustix::io::ioctl_fionread(fd)? == 0 {
++                    if read_count == 0 { break; }
++                    #[cfg(target_os = "emscripten")]
++                    let ready = {
++                        let mut remaining = [make_pollfd(&self.tty)];
++                        poll(&mut remaining, Some(Duration::ZERO))
++                            .map_err(io::Error::other)?;
++                        remaining[0].revents & POLLIN != 0
++                    };
++                    #[cfg(not(target_os = "emscripten"))]
++                    let ready = {
++                        // The source owns this descriptor for the lifetime of its borrow.
++                        let fd = unsafe { rustix::fd::BorrowedFd::borrow_raw(self.tty.raw_fd()) };
++                        rustix::io::ioctl_fionread(fd)? != 0
++                    };
++                    if !ready {
+                         break;
+                     }
+                     if timeout.elapsed() {
+--- a/src/event/sys/unix/waker/tty.rs
++++ b/src/event/sys/unix/waker/tty.rs
+@@ -1,18 +1,21 @@
++#[cfg(target_os = "emscripten")]
++use std::fs::File as NotificationFd;
++#[cfg(not(target_os = "emscripten"))]
++use std::os::unix::net::UnixStream as NotificationFd;
+ use std::{
+     io::{self, Write},
+-    os::unix::net::UnixStream,
+     sync::{Arc, Mutex},
+ };
+ 
+ /// Allows to wake up the EventSource::try_read() method.
+ #[derive(Clone, Debug)]
+ pub(crate) struct Waker {
+-    inner: Arc<Mutex<UnixStream>>,
++    inner: Arc<Mutex<NotificationFd>>,
+ }
+ 
+ impl Waker {
+     /// Create a new `Waker`.
+-    pub(crate) fn new(writer: UnixStream) -> Self {
++    pub(crate) fn new(writer: NotificationFd) -> Self {
+         Self {
+             inner: Arc::new(Mutex::new(writer)),
+         }

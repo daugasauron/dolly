@@ -1,0 +1,86 @@
+--- a/src/fs/mod.rs
++++ b/src/fs/mod.rs
+@@ -16,7 +16,8 @@
+ //! such as hangs during runtime shutdown. For special files, you should use a
+ //! dedicated type such as [`tokio::net::unix::pipe`] or [`AsyncFd`] instead.
+ //!
+-//! Currently, Tokio will always use [`spawn_blocking`] on all platforms, but it
++//! On the Dolly wasm64 memory-filesystem target, file operations execute inline,
++//! without a worker thread. Other targets use [`spawn_blocking`], but it
+ //! may be changed to use asynchronous file system APIs such as io_uring in the
+ //! future.
+ //!
+@@ -302,10 +303,13 @@
+     pub(crate) use self::open_options::UringOpenOptions;
+ }
+ 
++#[cfg(not(test))]
++mod blocking;
++
+ use std::io;
+ 
+ #[cfg(not(test))]
+-use crate::blocking::spawn_blocking;
++use crate::fs::blocking::spawn_blocking;
+ #[cfg(test)]
+ use mocks::spawn_blocking;
+ 
+--- a/src/fs/file.rs
++++ b/src/fs/file.rs
+@@ -24,9 +24,9 @@
+ #[cfg(test)]
+ use super::mocks::{spawn_blocking, spawn_mandatory_blocking};
+ #[cfg(not(test))]
+-use crate::blocking::JoinHandle;
++use crate::fs::blocking::JoinHandle;
+ #[cfg(not(test))]
+-use crate::blocking::{spawn_blocking, spawn_mandatory_blocking};
++use crate::fs::blocking::{spawn_blocking, spawn_mandatory_blocking};
+ #[cfg(not(test))]
+ use std::fs::File as StdFile;
+ 
+--- a/src/fs/read_dir.rs
++++ b/src/fs/read_dir.rs
+@@ -15,9 +15,9 @@
+ #[cfg(test)]
+ use super::mocks::JoinHandle;
+ #[cfg(not(test))]
+-use crate::blocking::spawn_blocking;
++use crate::fs::blocking::spawn_blocking;
+ #[cfg(not(test))]
+-use crate::blocking::JoinHandle;
++use crate::fs::blocking::JoinHandle;
+ 
+ const CHUNK_SIZE: usize = 32;
+ 
+--- /dev/null
++++ b/src/fs/blocking.rs
+@@ -0,0 +1,28 @@
++#[cfg(not(all(target_os = "emscripten", target_arch = "wasm64")))]
++pub(crate) use crate::blocking::{JoinHandle, spawn_blocking, spawn_mandatory_blocking};
++
++#[cfg(all(target_os = "emscripten", target_arch = "wasm64"))]
++pub(crate) use memory_file_system::*;
++
++#[cfg(all(target_os = "emscripten", target_arch = "wasm64"))]
++mod memory_file_system {
++    pub(crate) type JoinHandle<T> = std::future::Ready<Result<T, crate::task::JoinError>>;
++
++    // Only filesystem operations use this adapter. Public task/thread spawning
++    // is unchanged; in-memory regular-file operations need no background worker.
++    pub(crate) fn spawn_blocking<F, T>(operation: F) -> JoinHandle<T>
++    where
++        F: FnOnce() -> T + Send + 'static,
++        T: Send + 'static,
++    {
++        std::future::ready(Ok(operation()))
++    }
++
++    pub(crate) fn spawn_mandatory_blocking<F, T>(operation: F) -> Option<JoinHandle<T>>
++    where
++        F: FnOnce() -> T + Send + 'static,
++        T: Send + 'static,
++    {
++        Some(spawn_blocking(operation))
++    }
++}

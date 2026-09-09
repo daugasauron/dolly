@@ -1,0 +1,36 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -518,6 +518,7 @@
+         target_os = "dragonfly",
+         target_os = "freebsd",
+         target_os = "fuchsia",
++        target_os = "emscripten",
+         target_os = "illumos",
+         target_os = "ios",
+         target_os = "visionos",
+@@ -548,6 +549,7 @@
+             target_os = "dragonfly",
+             target_os = "freebsd",
+             target_os = "fuchsia",
++            target_os = "emscripten",
+             target_os = "illumos",
+             target_os = "ios",
+             target_os = "visionos",
+--- a/src/sys/unix.rs
++++ b/src/sys/unix.rs
+@@ -388,6 +388,7 @@
+         )
+     ),
+     target_os = "aix",
++    target_os = "emscripten",
+     target_os = "dragonfly",
+     target_os = "freebsd",
+     target_os = "fuchsia",
+@@ -1252,6 +1253,7 @@
+         target_os = "dragonfly",
+         target_os = "freebsd",
+         target_os = "fuchsia",
++        target_os = "emscripten",
+         target_os = "hurd",
+         target_os = "illumos",
+         target_os = "ios",

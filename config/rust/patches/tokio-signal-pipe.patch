@@ -1,0 +1,93 @@
+--- a/src/signal/unix.rs
++++ b/src/signal/unix.rs
+@@ -12,7 +12,10 @@
+ use crate::signal::RxFuture;
+ use crate::sync::watch;
+ 
++#[cfg(not(target_os = "emscripten"))]
+ use mio::net::UnixStream;
++#[cfg(target_os = "emscripten")]
++use mio::unix::pipe;
+ use std::io::{self, Error, ErrorKind, Write};
+ use std::sync::OnceLock;
+ use std::task::{Context, Poll};
+@@ -62,13 +65,22 @@
+ 
+ #[derive(Debug)]
+ pub(crate) struct OsExtraData {
++    #[cfg(not(target_os = "emscripten"))]
+     sender: UnixStream,
++    #[cfg(not(target_os = "emscripten"))]
+     pub(crate) receiver: UnixStream,
++    #[cfg(target_os = "emscripten")]
++    sender: pipe::Sender,
++    #[cfg(target_os = "emscripten")]
++    pub(crate) receiver: pipe::Receiver,
+ }
+ 
+ impl Default for OsExtraData {
+     fn default() -> Self {
++        #[cfg(not(target_os = "emscripten"))]
+         let (receiver, sender) = UnixStream::pair().expect("failed to create UnixStream");
++        #[cfg(target_os = "emscripten")]
++        let (sender, receiver) = pipe::new().expect("failed to create signal pipe");
+ 
+         Self { sender, receiver }
+     }
+--- a/src/runtime/signal/mod.rs
++++ b/src/runtime/signal/mod.rs
+@@ -5,7 +5,10 @@
+ use crate::runtime::{driver, io};
+ use crate::signal::registry::globals;
+ 
+-use mio::net::UnixStream;
++#[cfg(not(target_os = "emscripten"))]
++use mio::net::UnixStream as SignalReceiver;
++#[cfg(target_os = "emscripten")]
++use mio::unix::pipe::Receiver as SignalReceiver;
+ use std::io::{self as std_io, Read};
+ use std::sync::{Arc, Weak};
+ use std::time::Duration;
+@@ -21,7 +24,7 @@
+     io: io::Driver,
+ 
+     /// A pipe for receiving wake events from the signal handler
+-    receiver: UnixStream,
++    receiver: SignalReceiver,
+ 
+     /// Shared state. The driver keeps a strong ref and the handle keeps a weak
+     /// ref. The weak ref is used to check if the driver is still active before
+@@ -67,9 +70,18 @@
+         let receiver_fd = globals().receiver.as_raw_fd();
+ 
+         // safety: there is nothing unsafe about this, but the `from_raw_fd` fn is marked as unsafe.
+-        let original =
+-            ManuallyDrop::new(unsafe { std::os::unix::net::UnixStream::from_raw_fd(receiver_fd) });
+-        let mut receiver = UnixStream::from_std(original.try_clone()?);
++        #[cfg(not(target_os = "emscripten"))]
++        let mut receiver = {
++            let original =
++                ManuallyDrop::new(unsafe { std::os::unix::net::UnixStream::from_raw_fd(receiver_fd) });
++            SignalReceiver::from_std(original.try_clone()?)
++        };
++        #[cfg(target_os = "emscripten")]
++        let mut receiver = {
++            use std::os::fd::IntoRawFd;
++            let original = ManuallyDrop::new(unsafe { std::fs::File::from_raw_fd(receiver_fd) });
++            unsafe { SignalReceiver::from_raw_fd(original.try_clone()?.into_raw_fd()) }
++        };
+ 
+         io_handle.register_signal_receiver(&mut receiver)?;
+ 
+--- a/src/runtime/io/driver/signal.rs
++++ b/src/runtime/io/driver/signal.rs
+@@ -5,7 +5,7 @@
+ impl Handle {
+     pub(crate) fn register_signal_receiver(
+         &self,
+-        receiver: &mut mio::net::UnixStream,
++        receiver: &mut impl mio::event::Source,
+     ) -> io::Result<()> {
+         self.registry
+             .register(receiver, TOKEN_SIGNAL, mio::Interest::READABLE)?;
+
