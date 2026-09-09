@@ -1,0 +1,18 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -88,13 +88,13 @@
+ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+ 
+ mod error;
+-#[cfg(unix)]
++#[cfg(all(unix, not(all(target_arch = "wasm64", target_os = "emscripten"))))]
+ #[path = "unix.rs"]
+ mod imp;
+ #[cfg(windows)]
+ #[path = "windows.rs"]
+ mod imp;
+-#[cfg(not(any(unix, windows)))]
++#[cfg(any(not(any(unix, windows)), all(target_arch = "wasm64", target_os = "emscripten")))]
+ #[path = "wasm.rs"]
+ mod imp;
+ 

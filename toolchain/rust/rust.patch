@@ -1,0 +1,592 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -1,53 +1,6 @@
+ [workspace]
+ resolver = "2"
+-members = [
+-# tidy-alphabetical-start
+-  "compiler/rustc",
+-  "src/build_helper",
+-  "src/rustc-std-workspace/rustc-std-workspace-alloc",
+-  "src/rustc-std-workspace/rustc-std-workspace-core",
+-  "src/rustc-std-workspace/rustc-std-workspace-std",
+-  "src/rustdoc-json-types",
+-  "src/tools/build-manifest",
+-  "src/tools/bump-stage0",
+-  "src/tools/cargotest",
+-  "src/tools/clippy",
+-  "src/tools/clippy/clippy_dev",
+-  "src/tools/collect-license-metadata",
+-  "src/tools/compiletest",
+-  "src/tools/coverage-dump",
+-  "src/tools/features-status-dump",
+-  "src/tools/generate-copyright",
+-  "src/tools/generate-windows-sys",
+-  "src/tools/html-checker",
+-  "src/tools/jsondocck",
+-  "src/tools/jsondoclint",
+-  "src/tools/linkchecker",
+-  "src/tools/lint-docs",
+-  "src/tools/lld-wrapper",
+-  "src/tools/llvm-bitcode-linker",
+-  "src/tools/miri",
+-  "src/tools/miri/cargo-miri",
+-  "src/tools/miropt-test-tools",
+-  "src/tools/opt-dist",
+-  "src/tools/remote-test-client",
+-  "src/tools/remote-test-server",
+-  "src/tools/replace-version-placeholder",
+-  "src/tools/run-make-support",
+-  "src/tools/rust-installer",
+-  "src/tools/rustdoc",
+-  "src/tools/rustdoc-gui-test",
+-  "src/tools/rustdoc-themes",
+-  "src/tools/rustfmt",
+-  "src/tools/test-float-parse",
+-  "src/tools/tidy",
+-  "src/tools/tier-check",
+-  "src/tools/unicode-table-generator",
+-  "src/tools/unstable-book-gen",
+-  "src/tools/wasm-component-ld",
+-  "src/tools/x",
+-# tidy-alphabetical-end
+-]
++members = ["compiler/rustc"]
+ 
+ exclude = [
+   "build",
+--- a/compiler/rustc_codegen_llvm/src/llvm_util.rs
++++ b/compiler/rustc_codegen_llvm/src/llvm_util.rs
+@@ -28,6 +28,8 @@
+ pub(crate) fn init(sess: &Session) {
+     unsafe {
+         // Before we touch LLVM, make sure that multithreading is enabled.
++        // Dolly's frontend and codegen coordinator both run synchronously.
++        #[cfg(not(all(target_arch = "wasm64", target_os = "emscripten")))]
+         if !llvm::LLVMIsMultithreaded().is_true() {
+             bug!("LLVM compiled without support for threads");
+         }
+--- a/compiler/rustc_codegen_ssa/src/back/write.rs
++++ b/compiler/rustc_codegen_ssa/src/back/write.rs
+@@ -1,3 +1,6 @@
++#[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++mod serial;
++
+ use std::marker::PhantomData;
+ use std::panic::AssertUnwindSafe;
+ use std::path::{Path, PathBuf};
+@@ -418,6 +421,8 @@
+     tcx: TyCtxt<'_>,
+     allocator_module: Option<ModuleCodegen<B::Module>>,
+ ) -> OngoingCodegen<B> {
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    return serial::start(backend, tcx, allocator_module);
+     let (coordinator_send, coordinator_receive) = channel();
+ 
+     let no_builtins = find_attr!(tcx, crate, NoBuiltins);
+@@ -448,6 +453,8 @@
+         coordinator: Coordinator {
+             sender: coordinator_send,
+             future: Some(coordinator_thread),
++            #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++            serial: None,
+             phantom: PhantomData,
+         },
+         output_filenames: Arc::clone(tcx.output_filenames(())),
+@@ -1212,39 +1219,11 @@
+     Lending,
+ }
+ 
+-fn start_executing_work<B: WriteBackendMethods>(
+-    backend: B,
+-    tcx: TyCtxt<'_>,
+-    shared_emitter: SharedEmitter,
+-    codegen_worker_send: Sender<CguMessage>,
+-    coordinator_receive: Receiver<Message<B>>,
+-    regular_config: Arc<ModuleConfig>,
+-    allocator_config: Arc<ModuleConfig>,
+-    mut allocator_module: Option<ModuleCodegen<B::Module>>,
+-    coordinator_send: Sender<Message<B>>,
+-) -> thread::JoinHandle<Result<MaybeLtoModules<B>, ()>> {
++fn codegen_context<B: WriteBackendMethods>(backend: &B, tcx: TyCtxt<'_>,
++    regular_config: Arc<ModuleConfig>) -> CodegenContext {
+     let sess = tcx.sess;
+-    let prof = sess.prof.clone();
+-
+-    // Compute the set of symbols we need to retain when doing thin local LTO (if we need to)
+-    let exported_symbols_for_lto =
+-        if sess.lto() == Lto::ThinLocal { lto::exported_symbols_for_lto(tcx, &[]) } else { vec![] };
+-
+-    // First up, convert our jobserver into a helper thread so we can use normal
+-    // mpsc channels to manage our messages and such.
+-    // After we've requested tokens then we'll, when we can,
+-    // get tokens on `coordinator_receive` which will
+-    // get managed in the main loop below.
+-    let coordinator_send2 = coordinator_send.clone();
+-    let helper = jobserver::client()
+-        .into_helper_thread(move |token| {
+-            drop(coordinator_send2.send(Message::Token::<B>(token)));
+-        })
+-        .expect("failed to spawn helper thread");
+-
+     let opt_level = tcx.backend_optimization_level(());
+     let backend_features = tcx.global_backend_features(()).clone();
+-    let tm_factory = backend.target_machine_factory(tcx.sess, opt_level, &backend_features);
+ 
+     let remark_dir = if let Some(ref dir) = sess.opts.unstable_opts.remark_dir {
+         let result = fs::create_dir_all(dir).and_then(|_| dir.canonicalize());
+@@ -1256,7 +1235,7 @@
+         None
+     };
+ 
+-    let cgcx = CodegenContext {
++    CodegenContext {
+         crate_types: tcx.crate_types().to_vec(),
+         lto: sess.lto(),
+         use_linker_plugin_lto: sess.opts.cg.linker_plugin_lto.enabled(),
+@@ -1283,7 +1262,41 @@
+         split_dwarf_kind: tcx.sess.opts.unstable_opts.split_dwarf_kind,
+         parallel: backend.supports_parallel() && !sess.opts.unstable_opts.no_parallel_backend,
+         pointer_size: tcx.data_layout.pointer_size(),
+-    };
++    }
++}
++
++fn start_executing_work<B: WriteBackendMethods>(
++    backend: B,
++    tcx: TyCtxt<'_>,
++    shared_emitter: SharedEmitter,
++    codegen_worker_send: Sender<CguMessage>,
++    coordinator_receive: Receiver<Message<B>>,
++    regular_config: Arc<ModuleConfig>,
++    allocator_config: Arc<ModuleConfig>,
++    mut allocator_module: Option<ModuleCodegen<B::Module>>,
++    coordinator_send: Sender<Message<B>>,
++) -> thread::JoinHandle<Result<MaybeLtoModules<B>, ()>> {
++    let sess = tcx.sess;
++    let prof = sess.prof.clone();
++
++    // Compute the set of symbols we need to retain when doing thin local LTO (if we need to)
++    let exported_symbols_for_lto =
++        if sess.lto() == Lto::ThinLocal { lto::exported_symbols_for_lto(tcx, &[]) } else { vec![] };
++
++    // First up, convert our jobserver into a helper thread so we can use normal
++    // mpsc channels to manage our messages and such.
++    // After we've requested tokens then we'll, when we can,
++    // get tokens on `coordinator_receive` which will
++    // get managed in the main loop below.
++    let coordinator_send2 = coordinator_send.clone();
++    let helper = jobserver::client()
++        .into_helper_thread(move |token| {
++            drop(coordinator_send2.send(Message::Token::<B>(token)));
++        })
++        .expect("failed to spawn helper thread");
++
++    let cgcx = codegen_context(&backend, tcx, regular_config);
++    let tm_factory = backend.target_machine_factory(sess, cgcx.opt_level, &cgcx.backend_features);
+ 
+     // This is the "main loop" of parallel work happening for parallel codegen.
+     // It's here that we manage parallelism, schedule work, and work with
+@@ -1765,6 +1778,9 @@
+             }),
+         }))
+     };
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    unreachable!("Dolly uses the synchronous codegen coordinator");
++    #[cfg(not(all(target_arch = "wasm64", target_os = "emscripten")))]
+     return std::thread::Builder::new()
+         .name("coordinator".to_owned())
+         .spawn(f)
+@@ -1872,6 +1888,9 @@
+         };
+         drop(coordinator_send.send(msg));
+     };
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    unreachable!("Dolly uses synchronous codegen work");
++    #[cfg(not(all(target_arch = "wasm64", target_os = "emscripten")))]
+     std::thread::Builder::new().name(name).spawn(f).expect("failed to spawn work thread");
+ }
+ 
+@@ -1914,6 +1933,9 @@
+         };
+         drop(coordinator_send.send(msg));
+     };
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    unreachable!("Dolly uses synchronous codegen work");
++    #[cfg(not(all(target_arch = "wasm64", target_os = "emscripten")))]
+     std::thread::Builder::new().name(name).spawn(f).expect("failed to spawn work thread");
+ }
+ 
+@@ -1933,6 +1955,8 @@
+ #[derive(Clone)]
+ pub struct SharedEmitter {
+     sender: Sender<SharedEmitterMessage>,
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    direct: Option<Arc<rustc_data_structures::sync::Lock<Box<rustc_errors::emitter::DynEmitter>>>>,
+ }
+ 
+ pub struct SharedEmitterMain {
+@@ -1943,7 +1967,11 @@
+     fn new() -> (SharedEmitter, SharedEmitterMain) {
+         let (sender, receiver) = channel();
+ 
+-        (SharedEmitter { sender }, SharedEmitterMain { receiver })
++        (SharedEmitter {
++            sender,
++            #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++            direct: None,
++        }, SharedEmitterMain { receiver })
+     }
+ 
+     pub fn inline_asm_error(&self, err: InlineAsmError) {
+@@ -1951,12 +1979,25 @@
+     }
+ 
+     fn fatal(&self, msg: &str) {
++        #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++        if self.direct.is_some() {
++            self.clone().emit_diagnostic(rustc_errors::DiagInner::new(Level::Fatal, msg.to_owned()));
++            return;
++        }
+         drop(self.sender.send(SharedEmitterMessage::Fatal(msg.to_string())));
+     }
+ }
+ 
+ impl Emitter for SharedEmitter {
+     fn emit_diagnostic(&mut self, mut diag: rustc_errors::DiagInner) {
++        #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++        if let Some(emitter) = &self.direct {
++            // A fatal diagnostic must reach stderr before the serial process exits.
++            let error = diag.is_error();
++            emitter.lock().emit_diagnostic(diag);
++            if error { FatalError.raise(); }
++            return;
++        }
+         // Check that we aren't missing anything interesting when converting to
+         // the cut-down local `DiagInner`.
+         assert!(!diag.span.has_span_labels());
+@@ -2064,6 +2105,8 @@
+ }
+ 
+ pub struct Coordinator<B: WriteBackendMethods> {
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    serial: Option<std::cell::RefCell<serial::SerialCodegen<B>>>,
+     sender: Sender<Message<B>>,
+     future: Option<thread::JoinHandle<Result<MaybeLtoModules<B>, ()>>>,
+     // Only used for the Message type.
+@@ -2099,7 +2142,18 @@
+ }
+ 
+ impl<B: WriteBackendMethods> OngoingCodegen<B> {
+-    pub fn join(self, sess: &Session, crate_info: &CrateInfo) -> (CompiledModules, WorkProductMap) {
++    pub fn join(mut self, sess: &Session, crate_info: &CrateInfo) -> (CompiledModules, WorkProductMap) {
++        #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++        {
++            let serial = self.coordinator.serial.take().expect("serial compiler state");
++            let mut modules = serial.into_inner().finish(&self.backend, sess, crate_info);
++            self.shared_emitter_main.check(sess, true);
++            sess.dcx().abort_if_errors();
++            modules.modules.sort_by(|a, b| a.name.cmp(&b.name));
++            let products = copy_all_cgu_workproducts_to_incr_comp_cache_dir(sess, &modules);
++            produce_final_output_artifacts(sess, &modules, &self.output_filenames);
++            return (modules, products);
++        }
+         self.shared_emitter_main.check(sess, true);
+ 
+         let maybe_lto_modules = sess.time("join_worker_thread", || match self.coordinator.join() {
+@@ -2195,6 +2249,8 @@
+     }
+ 
+     pub(crate) fn wait_for_signal_to_codegen_item(&self) {
++        #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++        if self.coordinator.serial.is_some() { return; }
+         match self.codegen_worker_receive.recv() {
+             Ok(CguMessage) => {
+                 // Ok to proceed.
+@@ -2212,6 +2268,11 @@
+     module: ModuleCodegen<B::Module>,
+     cost: u64,
+ ) {
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    if let Some(serial) = &coordinator.serial {
++        serial.borrow_mut().submit(WorkItem::Optimize(module));
++        return;
++    }
+     let llvm_work_item = WorkItem::Optimize(module);
+     drop(coordinator.sender.send(Message::CodegenDone::<B> { llvm_work_item, cost }));
+ }
+@@ -2220,6 +2281,11 @@
+     coordinator: &Coordinator<B>,
+     module: CachedModuleCodegen,
+ ) {
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    if let Some(serial) = &coordinator.serial {
++        serial.borrow_mut().submit(WorkItem::CopyPostLtoArtifacts(module));
++        return;
++    }
+     let llvm_work_item = WorkItem::CopyPostLtoArtifacts(module);
+     drop(coordinator.sender.send(Message::CodegenDone::<B> { llvm_work_item, cost: 0 }));
+ }
+@@ -2231,6 +2297,11 @@
+ ) {
+     let filename = pre_lto_bitcode_filename(&module.name);
+     let bitcode_path = in_incr_comp_dir_sess(tcx.sess, &filename);
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    if let Some(serial) = &coordinator.serial {
++        serial.borrow_mut().imports.push((bitcode_path, module.source));
++        return;
++    }
+     // Schedule the module to be loaded
+     drop(
+         coordinator
+--- a/compiler/rustc_data_structures/src/jobserver.rs
++++ b/compiler/rustc_data_structures/src/jobserver.rs
+@@ -100,6 +100,8 @@
+             wake_pending: Condvar::new(),
+             helper: OnceLock::new(),
+         });
++        #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++        return proxy;
+         let proxy_ = Arc::clone(&proxy);
+         let helper = proxy
+             .client
+--- a/compiler/rustc_driver/Cargo.toml
++++ b/compiler/rustc_driver/Cargo.toml
+@@ -4,7 +4,7 @@
+ edition = "2024"
+ 
+ [lib]
+-crate-type = ["dylib"]
++crate-type = ["rlib"]
+ 
+ [dependencies]
+ # tidy-alphabetical-start
+--- a/compiler/rustc_interface/src/util.rs
++++ b/compiler/rustc_interface/src/util.rs
+@@ -133,6 +133,7 @@
+     })
+ }
+ 
++#[cfg(not(all(target_arch = "wasm64", target_os = "emscripten")))]
+ fn run_in_thread_with_globals<F: FnOnce(CurrentGcx, Arc<Proxy>) -> R + Send, R: Send>(
+     thread_stack_size: usize,
+     edition: Edition,
+@@ -172,6 +173,16 @@
+     })
+ }
+ 
++#[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++fn run_in_thread_with_globals<F: FnOnce(CurrentGcx, Arc<Proxy>) -> R + Send, R: Send>(
++    thread_stack_size: usize, edition: Edition, sm_inputs: SourceMapInputs,
++    extra_symbols: &[&'static str], f: F,
++) -> R {
++    assert!(thread_stack_size <= DEFAULT_STACK_SIZE, "Dolly compiler stack is fixed at 8 MiB");
++    rustc_span::create_session_globals_then(edition, extra_symbols, Some(sm_inputs),
++        || f(CurrentGcx::new(), Proxy::new()))
++}
++
+ pub(crate) fn run_in_thread_pool_with_globals<
+     F: FnOnce(CurrentGcx, Arc<Proxy>) -> R + Send,
+     R: Send,
+@@ -192,6 +203,18 @@
+     let thread_stack_size = init_stack_size(thread_builder_diag);
+ 
+     let registry = sync::Registry::new(std::num::NonZero::new(threads).unwrap());
++
++    #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++    {
++        if threads != 1 {
++            thread_builder_diag.early_fatal("Dolly supports one compiler thread");
++        }
++        return run_in_thread_with_globals(thread_stack_size, edition, sm_inputs, extra_symbols,
++            |current_gcx, jobserver_proxy| {
++                registry.register();
++                f(current_gcx, jobserver_proxy)
++            });
++    }
+ 
+     let Some(proof) = sync::check_dyn_thread_safe() else {
+         return run_in_thread_with_globals(
+--- a/compiler/rustc_session/src/config.rs
++++ b/compiler/rustc_session/src/config.rs
+@@ -1367,7 +1367,11 @@
+ 
+ impl Sysroot {
+     pub fn new(explicit: Option<PathBuf>) -> Sysroot {
+-        Sysroot { explicit, default: filesearch::default_sysroot() }
++        #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++        let default = explicit.clone().unwrap_or_else(filesearch::default_sysroot);
++        #[cfg(not(all(target_arch = "wasm64", target_os = "emscripten")))]
++        let default = filesearch::default_sysroot();
++        Sysroot { explicit, default }
+     }
+ 
+     /// Return explicit sysroot if it was passed with `--sysroot`, or default sysroot otherwise.
+--- a/compiler/rustc_session/src/filesearch.rs
++++ b/compiler/rustc_session/src/filesearch.rs
+@@ -57,7 +57,12 @@
+     sysroot.join(rustlib_path).join("bin")
+ }
+ 
+-#[cfg(unix)]
++#[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++fn current_dll_path() -> Result<PathBuf, String> {
++    Err("the static Dolly compiler requires --sysroot".into())
++}
++
++#[cfg(all(unix, not(all(target_arch = "wasm64", target_os = "emscripten"))))]
+ fn current_dll_path() -> Result<PathBuf, String> {
+     use std::sync::OnceLock;
+ 
+--- a/compiler/rustc_session/src/session.rs
++++ b/compiler/rustc_session/src/session.rs
+@@ -949,7 +949,7 @@
+ 
+ // JUSTIFICATION: part of session construction
+ #[allow(rustc::bad_opt_access)]
+-fn default_emitter(sopts: &config::Options, source_map: Arc<SourceMap>) -> Box<DynEmitter> {
++pub fn default_emitter(sopts: &config::Options, source_map: Arc<SourceMap>) -> Box<DynEmitter> {
+     let macro_backtrace = sopts.unstable_opts.macro_backtrace;
+     let track_diagnostics = sopts.unstable_opts.track_diagnostics;
+     let terminal_url = match sopts.unstable_opts.terminal_urls {
+--- a/compiler/rustc_span/src/fatal_error.rs
++++ b/compiler/rustc_span/src/fatal_error.rs
+@@ -13,6 +13,8 @@
+ 
+ impl FatalError {
+     pub fn raise(self) -> ! {
++        #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++        std::process::exit(1);
+         std::panic::resume_unwind(Box::new(FatalErrorMarker))
+     }
+ }
+--- /dev/null
++++ b/compiler/rustc_codegen_ssa/src/back/write/serial.rs
+@@ -0,0 +1,127 @@
++use std::cell::RefCell;
++
++use super::*;
++
++pub(super) struct SerialCodegen<B: WriteBackendMethods> {
++    cgcx: CodegenContext,
++    prof: SelfProfilerRef,
++    emitter: SharedEmitter,
++    allocator_config: ModuleConfig,
++    allocator: Option<ModuleCodegen<B::Module>>,
++    modules: Vec<CompiledModule>,
++    fat: Vec<FatLtoInput<B>>,
++    thin: Vec<ThinLtoInput<B>>,
++    pub(super) imports: Vec<(PathBuf, WorkProduct)>,
++    exported_symbols: Vec<String>,
++}
++
++pub(super) fn start<B: WriteBackendMethods>(
++    backend: B,
++    tcx: TyCtxt<'_>,
++    mut allocator: Option<ModuleCodegen<B::Module>>,
++) -> OngoingCodegen<B> {
++    let no_builtins = find_attr!(tcx, crate, NoBuiltins);
++    let config = Arc::new(ModuleConfig::new(ModuleKind::Regular, tcx, no_builtins));
++    let allocator_config = ModuleConfig::new(ModuleKind::Allocator, tcx, no_builtins);
++    let cgcx = codegen_context(&backend, tcx, config);
++    let prof = tcx.sess.prof.clone();
++    let (mut emitter, shared_emitter_main) = SharedEmitter::new();
++    emitter.direct = Some(Arc::new(rustc_data_structures::sync::Lock::new(
++        rustc_session::default_emitter(&tcx.sess.opts, tcx.sess.psess.clone_source_map()),
++    )));
++    if let Some(module) = &mut allocator {
++        B::optimize(&cgcx, &prof, &emitter, module, &allocator_config);
++    }
++    let exported_symbols = if cgcx.lto == Lto::ThinLocal {
++        lto::exported_symbols_for_lto(tcx, &[])
++    } else {
++        vec![]
++    };
++    let serial = SerialCodegen {
++        cgcx, prof, emitter, allocator_config, allocator,
++        modules: vec![], fat: vec![], thin: vec![], imports: vec![], exported_symbols,
++    };
++    OngoingCodegen {
++        backend,
++        output_filenames: Arc::clone(tcx.output_filenames(())),
++        coordinator: Coordinator {
++            sender: channel().0,
++            future: None,
++            phantom: PhantomData,
++            serial: Some(RefCell::new(serial)),
++        },
++        codegen_worker_receive: channel().1,
++        shared_emitter_main,
++    }
++}
++
++impl<B: WriteBackendMethods> SerialCodegen<B> {
++    pub(super) fn submit(&mut self, work: WorkItem<B>) {
++        let result = match work {
++            WorkItem::Optimize(module) => execute_optimize_work_item::<B>(
++                &self.cgcx, &self.prof, self.emitter.clone(), module),
++            WorkItem::CopyPostLtoArtifacts(module) => WorkItemResult::Finished(
++                execute_copy_from_cache_work_item(
++                    &self.cgcx, &self.prof, self.emitter.clone(), module)),
++        };
++        match result {
++            WorkItemResult::Finished(module) => self.modules.push(module),
++            WorkItemResult::NeedsFatLto(input) => self.fat.push(input),
++            WorkItemResult::NeedsThinLto(name, buffer) => self.thin.push(ThinLtoInput::Red {
++                name, buffer: SerializedModule::Local(buffer),
++            }),
++        }
++    }
++
++    pub(super) fn finish(mut self, backend: &B, sess: &Session, info: &CrateInfo) -> CompiledModules {
++        let tm_factory = backend.target_machine_factory(sess, self.cgcx.opt_level, &self.cgcx.backend_features);
++        if !self.fat.is_empty() {
++            assert!(self.modules.is_empty() && self.thin.is_empty());
++            if let Some(module) = self.allocator.take() {
++                self.fat.push(FatLtoInput::InMemory(module));
++            }
++            for (bitcode_path, product) in self.imports {
++                self.fat.push(FatLtoInput::Serialized { name: product.cgu_name, bitcode_path });
++            }
++            return CompiledModules {
++                modules: vec![do_fat_lto(sess, &self.cgcx, self.emitter, tm_factory,
++                    &info.exported_symbols_for_lto, &info.each_linked_rlib_file_for_lto, self.fat)],
++                allocator_module: None,
++            };
++        }
++        if !self.thin.is_empty() || !self.imports.is_empty() {
++            assert!(self.modules.is_empty());
++            for (bitcode_path, wp) in self.imports {
++                self.thin.push(ThinLtoInput::Green { wp, bitcode_path });
++            }
++            let (exports, rlibs) = if self.cgcx.lto == Lto::ThinLocal {
++                (self.exported_symbols.as_slice(), &[][..])
++            } else {
++                if let Some(module) = self.allocator.take() {
++                    self.thin.push(ThinLtoInput::Red {
++                        name: module.name,
++                        buffer: SerializedModule::Local(B::serialize_module(module.module_llvm, true)),
++                    });
++                }
++                (info.exported_symbols_for_lto.as_slice(), info.each_linked_rlib_file_for_lto.as_slice())
++            };
++            let dcx = DiagCtxt::new(Box::new(self.emitter.clone()));
++            check_lto_allowed(&self.cgcx, dcx.handle());
++            for (work, _) in generate_thin_lto_work::<B>(
++                &self.cgcx, &self.prof, dcx.handle(), exports, rlibs, self.thin,
++            ) {
++                self.modules.push(match work {
++                    ThinLtoWorkItem::CopyPostLtoArtifacts(module) => execute_copy_from_cache_work_item(
++                        &self.cgcx, &self.prof, self.emitter.clone(), module),
++                    ThinLtoWorkItem::ThinLto(module) => B::optimize_and_codegen_thin(
++                        &self.cgcx, &self.prof, &self.emitter, tm_factory.clone(), module),
++                });
++            }
++        }
++        CompiledModules {
++            modules: self.modules,
++            allocator_module: self.allocator.map(|module| B::codegen(
++                &self.cgcx, &self.prof, &self.emitter, module, &self.allocator_config)),
++        }
++    }
++}

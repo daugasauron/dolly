@@ -1,0 +1,174 @@
+--- a/src/unix/linux_like/emscripten/mod.rs
++++ b/src/unix/linux_like/emscripten/mod.rs
+@@ -9,24 +9,24 @@
+ pub type mqd_t = c_int;
+ pub type msgqnum_t = c_ulong;
+ pub type msglen_t = c_ulong;
+-pub type nfds_t = c_ulong;
++pub type nfds_t = c_uint;
+ pub type nl_item = c_int;
+ pub type idtype_t = c_uint;
+ pub type loff_t = i64;
+ pub type pthread_key_t = c_uint;
+ 
+-pub type clock_t = c_long;
++pub type clock_t = c_int;
+ pub type time_t = i64;
+-pub type suseconds_t = c_long;
++pub type suseconds_t = c_int;
+ pub type ino_t = u64;
+ pub type off_t = i64;
+ pub type blkcnt_t = i32;
+ 
+-pub type blksize_t = c_long;
+-pub type fsblkcnt_t = u32;
+-pub type fsfilcnt_t = u32;
++pub type blksize_t = c_int;
++pub type fsblkcnt_t = u64;
++pub type fsfilcnt_t = u64;
+ pub type rlim_t = u64;
+-pub type nlink_t = u32;
++pub type nlink_t = usize;
+ 
+ pub type ino64_t = crate::ino_t;
+ pub type off64_t = off_t;
+@@ -45,6 +45,23 @@
+ }
+ 
+ s! {
++    pub struct posix_spawnattr_t {
++        __flags: c_int,
++        __pgrp: crate::pid_t,
++        __def: crate::sigset_t,
++        __mask: crate::sigset_t,
++        __prio: c_int,
++        __pol: c_int,
++        __fn: *mut c_void,
++        __pad: [c_char; 64 - core::mem::size_of::<*mut c_void>()],
++    }
++
++    pub struct posix_spawn_file_actions_t {
++        __pad0: [c_int; 2],
++        __actions: *mut c_void,
++        __pad: [c_int; 16],
++    }
++
+     pub struct glob_t {
+         pub gl_pathc: size_t,
+         pub gl_pathv: *mut *mut c_char,
+@@ -90,6 +107,7 @@
+         pub f_ffree: crate::fsfilcnt_t,
+         pub f_favail: crate::fsfilcnt_t,
+         pub f_fsid: c_ulong,
++        #[cfg(target_pointer_width = "32")]
+         __f_unused: Padding<c_int>,
+         pub f_flag: c_ulong,
+         pub f_namemax: c_ulong,
+@@ -188,11 +206,11 @@
+     }
+ 
+     pub struct pthread_attr_t {
+-        __size: [u32; 11],
++        __size: [usize; 11],
+     }
+ 
+     pub struct sigset_t {
+-        __val: [c_ulong; 32],
++        __val: [c_ulong; 2],
+     }
+ 
+     pub struct msghdr {
+@@ -212,7 +230,7 @@
+     }
+ 
+     pub struct sem_t {
+-        __val: [c_int; 4],
++        __val: [c_int; core::mem::size_of::<c_long>()],
+     }
+     pub struct stat {
+         pub st_dev: crate::dev_t,
+@@ -304,12 +322,14 @@
+         pub ha: [c_uchar; crate::MAX_ADDR_LEN],
+     }
+ 
+-    #[repr(align(4))]
++    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
++    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+     pub struct pthread_mutex_t {
+         size: [u8; crate::__SIZEOF_PTHREAD_MUTEX_T],
+     }
+ 
+-    #[repr(align(4))]
++    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
++    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+     pub struct pthread_rwlock_t {
+         size: [u8; crate::__SIZEOF_PTHREAD_RWLOCK_T],
+     }
+@@ -646,6 +666,9 @@
+ pub const F_LOCK: c_int = 1;
+ pub const F_TEST: c_int = 3;
+ pub const F_TLOCK: c_int = 2;
++pub const F_RDLCK: c_int = 0;
++pub const F_WRLCK: c_int = 1;
++pub const F_UNLCK: c_int = 2;
+ pub const F_ULOCK: c_int = 0;
+ 
+ pub const ST_RDONLY: c_ulong = 1;
+@@ -1064,8 +1087,8 @@
+ pub const SO_PEEK_OFF: c_int = 42;
+ pub const SO_BUSY_POLL: c_int = 46;
+ 
+-pub const __SIZEOF_PTHREAD_RWLOCK_T: usize = 32;
+-pub const __SIZEOF_PTHREAD_MUTEX_T: usize = 24;
++pub const __SIZEOF_PTHREAD_RWLOCK_T: usize = if cfg!(target_pointer_width = "64") { 56 } else { 32 };
++pub const __SIZEOF_PTHREAD_MUTEX_T: usize = if cfg!(target_pointer_width = "64") { 40 } else { 24 };
+ 
+ pub const O_DIRECT: c_int = 0x4000;
+ pub const O_DIRECTORY: c_int = 0x10000;
+@@ -1172,10 +1195,19 @@
+ 
+ pub const MAP_HUGETLB: c_int = 0x040000;
+ 
++#[cfg(not(target_arch = "wasm64"))]
+ pub const F_GETLK: c_int = 12;
++#[cfg(target_arch = "wasm64")]
++pub const F_GETLK: c_int = 5;
+ pub const F_GETOWN: c_int = 9;
++#[cfg(not(target_arch = "wasm64"))]
+ pub const F_SETLK: c_int = 13;
++#[cfg(target_arch = "wasm64")]
++pub const F_SETLK: c_int = 6;
++#[cfg(not(target_arch = "wasm64"))]
+ pub const F_SETLKW: c_int = 14;
++#[cfg(target_arch = "wasm64")]
++pub const F_SETLKW: c_int = 7;
+ pub const F_SETOWN: c_int = 8;
+ pub const F_OFD_GETLK: c_int = 36;
+ pub const F_OFD_SETLK: c_int = 37;
+@@ -1328,7 +1360,26 @@
+     }
+ }
+ 
++pub const POSIX_SPAWN_SETPGROUP: c_int = 2;
++pub const POSIX_SPAWN_SETSIGDEF: c_int = 4;
++pub const POSIX_SPAWN_SETSIGMASK: c_int = 8;
++
+ extern "C" {
++    pub fn sigwait(set: *const crate::sigset_t, signal: *mut c_int) -> c_int;
++    pub fn pthread_sigmask(how: c_int, set: *const crate::sigset_t, oldset: *mut crate::sigset_t) -> c_int;
++    pub fn faccessat(fd: c_int, path: *const c_char, mode: c_int, flags: c_int) -> c_int;
++    pub fn posix_spawnp(pid: *mut crate::pid_t, path: *const c_char,
++        actions: *const posix_spawn_file_actions_t, attr: *const posix_spawnattr_t,
++        argv: *const *mut c_char, envp: *const *mut c_char) -> c_int;
++    pub fn posix_spawnattr_init(attr: *mut posix_spawnattr_t) -> c_int;
++    pub fn posix_spawnattr_destroy(attr: *mut posix_spawnattr_t) -> c_int;
++    pub fn posix_spawnattr_setflags(attr: *mut posix_spawnattr_t, flags: c_short) -> c_int;
++    pub fn posix_spawnattr_setpgroup(attr: *mut posix_spawnattr_t, pgroup: crate::pid_t) -> c_int;
++    pub fn posix_spawnattr_setsigdefault(attr: *mut posix_spawnattr_t, set: *const crate::sigset_t) -> c_int;
++    pub fn posix_spawn_file_actions_init(actions: *mut posix_spawn_file_actions_t) -> c_int;
++    pub fn posix_spawn_file_actions_destroy(actions: *mut posix_spawn_file_actions_t) -> c_int;
++    pub fn posix_spawn_file_actions_adddup2(actions: *mut posix_spawn_file_actions_t, source: c_int, target: c_int) -> c_int;
++    pub fn posix_spawn_file_actions_addchdir_np(actions: *mut posix_spawn_file_actions_t, path: *const c_char) -> c_int;
+     pub fn getrlimit(resource: c_int, rlim: *mut crate::rlimit) -> c_int;
+     pub fn setrlimit(resource: c_int, rlim: *const crate::rlimit) -> c_int;
+     pub fn strerror_r(errnum: c_int, buf: *mut c_char, buflen: size_t) -> c_int;

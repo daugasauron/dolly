@@ -1,0 +1,14 @@
+--- a/compiler/rustc_metadata/src/locator.rs
++++ b/compiler/rustc_metadata/src/locator.rs
+@@ -345,6 +345,11 @@
+     }
+ 
+     pub(crate) fn for_proc_macro(&mut self, sess: &'a Session, path_kind: PathKind) {
++        #[cfg(all(target_arch = "wasm64", target_os = "emscripten"))]
++        if sess.target.llvm_target == "wasm64-unknown-emscripten" {
++            self.for_target_proc_macro(sess, path_kind);
++            return;
++        }
+         self.is_proc_macro = true;
+         self.target = &sess.host;
+         self.tuple = TargetTuple::from_tuple(config::host_tuple());

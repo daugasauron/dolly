@@ -85,6 +85,12 @@ if has_module curl; then
   copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
 fi
+if has_module rust-sdk; then
+  bash scripts/build-rust-toolchain.sh
+  copy_static build/rustc-port/rust-sdk.tar.gz rust/rust-sdk.tar.gz
+  copy_static src/commands/rustc.sh rust/rustc.sh
+  copy_static src/runtimes/rust-linker.c rust/rust-linker.c
+fi
 if has_module quickjs; then
   for command in qjs janis; do
     copy_static "${project_dir}/src/commands/${command}.c" "default/commands/${command}.c"

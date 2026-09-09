@@ -1,0 +1,233 @@
+--- a/compiler/rustc_mir_build/src/builder/matches/buckets.rs
++++ b/compiler/rustc_mir_build/src/builder/matches/buckets.rs
+@@ -11,11 +11,11 @@
+ };
+ 
+ /// Output of [`Builder::partition_candidates_into_buckets`].
+-pub(crate) struct PartitionedCandidates<'tcx, 'b, 'c> {
++pub(crate) struct PartitionedCandidates<'tcx, 'b> {
+     /// For each possible outcome of the test, the candidates that are matched in that outcome.
+     pub(crate) target_candidates: FxIndexMap<TestBranch<'tcx>, Vec<&'b mut Candidate<'tcx>>>,
+     /// The remaining candidates that weren't associated with any test outcome.
+-    pub(crate) remaining_candidates: &'b mut [&'c mut Candidate<'tcx>],
++    pub(crate) remaining_candidates: Vec<&'b mut Candidate<'tcx>>,
+ }
+ 
+ impl<'a, 'tcx> Builder<'a, 'tcx> {
+@@ -55,41 +55,34 @@
+     /// The bucketed candidates are mutated to remove entailed match pairs:
+     /// - candidate 0 becomes `[z @ true]` since we know that `x` was `true`;
+     /// - candidate 1 becomes `[y @ false]` since we know that `x` was `false`.
+-    pub(super) fn partition_candidates_into_buckets<'b, 'c>(
++    pub(super) fn partition_candidates_into_buckets<'b>(
+         &mut self,
+         match_place: Place<'tcx>,
+         test: &Test<'tcx>,
+-        mut candidates: &'b mut [&'c mut Candidate<'tcx>],
+-    ) -> PartitionedCandidates<'tcx, 'b, 'c> {
++        candidates: Vec<&'b mut Candidate<'tcx>>,
++    ) -> PartitionedCandidates<'tcx, 'b> {
+         // For each of the possible outcomes, collect a vector of candidates that apply if the test
+         // has that particular outcome.
+         let mut target_candidates: FxIndexMap<_, Vec<&mut Candidate<'_>>> = Default::default();
+ 
+         let total_candidate_count = candidates.len();
+ 
+-        // Partition the candidates into the appropriate vector in `target_candidates`.
+-        // Note that at some point we may encounter a candidate where the test is not relevant;
+-        // at that point, we stop partitioning.
+-        while let Some(candidate) = candidates.first_mut() {
++        let mut remaining_candidates = Vec::new();
++        let mut candidates = candidates.into_iter();
++        while let Some(candidate) = candidates.next() {
+             let Some(branch) =
+                 self.choose_bucket_for_candidate(match_place, test, candidate, &target_candidates)
+             else {
++                remaining_candidates.push(candidate);
++                remaining_candidates.extend(candidates);
+                 break;
+             };
+-            let (candidate, rest) = candidates.split_first_mut().unwrap();
+-            target_candidates.entry(branch).or_insert_with(Vec::new).push(candidate);
+-            candidates = rest;
++            target_candidates.entry(branch).or_default().push(candidate);
+         }
+-
+-        // At least the first candidate ought to be tested
+-        assert!(
+-            total_candidate_count > candidates.len(),
+-            "{total_candidate_count}, {candidates:#?}"
+-        );
+-        debug!("tested_candidates: {}", total_candidate_count - candidates.len());
+-        debug!("untested_candidates: {}", candidates.len());
+-
+-        PartitionedCandidates { target_candidates, remaining_candidates: candidates }
++        assert!(total_candidate_count > remaining_candidates.len());
++        debug!("tested_candidates: {}", total_candidate_count - remaining_candidates.len());
++        debug!("untested_candidates: {}", remaining_candidates.len());
++        PartitionedCandidates { target_candidates, remaining_candidates }
+     }
+ 
+     /// Given that we are performing `test` against `test_place`, this job
+--- a/compiler/rustc_mir_build/src/builder/matches/mod.rs
++++ b/compiler/rustc_mir_build/src/builder/matches/mod.rs
+@@ -11,7 +11,6 @@
+ 
+ use itertools::Itertools;
+ use rustc_abi::{FIRST_VARIANT, FieldIdx, VariantIdx};
+-use rustc_data_structures::fx::FxIndexMap;
+ use rustc_data_structures::stack::ensure_sufficient_stack;
+ use rustc_hir::{BindingMode, ByRef, LangItem, LetStmt, LocalSource, Node};
+ use rustc_middle::middle::region::{self, TempLifetime};
+@@ -1757,47 +1756,35 @@
+         &mut self,
+         span: Span,
+         scrutinee_span: Span,
+-        mut start_block: BasicBlock,
++        start_block: BasicBlock,
+         candidates: &mut [&mut Candidate<'tcx>],
+     ) -> BasicBlock {
+-        if let [first, ..] = candidates {
+-            if first.false_edge_start_block.is_none() {
+-                first.false_edge_start_block = Some(start_block);
+-            }
+-        }
+-
+-        // Process a prefix of the candidates.
+-        let rest = match candidates {
+-            [] => {
+-                // If there are no candidates that still need testing, we're done.
+-                return start_block;
+-            }
+-            [first, remaining @ ..] if first.match_pairs.is_empty() => {
+-                // The first candidate has satisfied all its match pairs.
+-                // We record the blocks that will be needed by match arm lowering,
+-                // and then continue with the remaining candidates.
+-                let remainder_start = self.select_matched_candidate(first, start_block);
+-                remainder_start.and(remaining)
+-            }
+-            candidates if candidates.iter().any(|candidate| candidate.starts_with_or_pattern()) => {
+-                // If any candidate starts with an or-pattern, we want to expand or-patterns
+-                // before we do any more tests.
+-                //
+-                // The only candidate we strictly _need_ to expand here is the first one.
+-                // But by expanding other candidates as early as possible, we unlock more
+-                // opportunities to include them in test outcomes, making the match tree
+-                // smaller and simpler.
+-                self.expand_and_match_or_candidates(span, scrutinee_span, start_block, candidates)
+-            }
+-            candidates => {
+-                // The first candidate has some unsatisfied match pairs; we proceed to do more tests.
+-                self.test_candidates(span, scrutinee_span, candidates, start_block)
+-            }
+-        };
+-
+-        // Process any candidates that remain.
+-        let remaining_candidates = unpack!(start_block = rest);
+-        self.match_candidates(span, scrutinee_span, start_block, remaining_candidates)
++        let final_otherwise = self.cfg.start_new_block();
++        let candidates: Vec<_> = candidates.iter_mut().map(|candidate| &mut **candidate).collect();
++        let mut pending = vec![(start_block, candidates, final_otherwise)];
++        while let Some((mut block, mut candidates, otherwise)) = pending.pop() {
++            loop {
++                let Some(first) = candidates.first_mut() else {
++                    let source_info = self.source_info(span);
++                    self.cfg.goto(block, source_info, otherwise);
++                    break;
++                };
++                first.false_edge_start_block.get_or_insert(block);
++                if first.match_pairs.is_empty() {
++                    block = self.select_matched_candidate(candidates.remove(0), block);
++                } else if candidates.iter().any(|candidate| candidate.starts_with_or_pattern()) {
++                    let rest = self.expand_and_match_or_candidates(
++                        span, scrutinee_span, block, &mut candidates,
++                    );
++                    let remaining = unpack!(block = rest).len();
++                    candidates.drain(..candidates.len() - remaining);
++                } else {
++                    self.test_candidates(span, scrutinee_span, candidates, block, otherwise, &mut pending);
++                    break;
++                }
++            }
++        }
++        final_otherwise
+     }
+ 
+     /// Link up matched candidates.
+@@ -2273,57 +2260,34 @@
+     /// ```
+     ///
+     /// We return the unprocessed candidates.
+-    fn test_candidates<'b, 'c>(
++    fn test_candidates<'b>(
+         &mut self,
+         span: Span,
+         scrutinee_span: Span,
+-        candidates: &'b mut [&'c mut Candidate<'tcx>],
++        candidates: Vec<&'b mut Candidate<'tcx>>,
+         start_block: BasicBlock,
+-    ) -> BlockAnd<&'b mut [&'c mut Candidate<'tcx>]> {
+-        // Choose a match pair from the first candidate, and use it to determine a
+-        // test to perform that will confirm or refute that match pair.
+-        let (match_place, test) = self.pick_test(candidates);
+-
+-        // For each of the N possible test outcomes, build the vector of candidates that applies if
+-        // the test has that particular outcome. This also mutates the candidates to remove match
+-        // pairs that are fully satisfied by the relevant outcome.
++        otherwise: BasicBlock,
++        pending: &mut Vec<(BasicBlock, Vec<&'b mut Candidate<'tcx>>, BasicBlock)>,
++    ) {
++        let (match_place, test) = self.pick_test(&candidates);
+         let PartitionedCandidates { target_candidates, remaining_candidates } =
+             self.partition_candidates_into_buckets(match_place, &test, candidates);
+-
+-        // The block that we should branch to if none of the `target_candidates` match.
+         let remainder_start = self.cfg.start_new_block();
+-
+-        // For each outcome of the test, recursively lower the rest of the match tree
+-        // from that point. (Note that we haven't lowered the actual test yet!)
+-        let target_blocks: FxIndexMap<_, _> = target_candidates
+-            .into_iter()
+-            .map(|(branch, mut candidates)| {
+-                let branch_start = self.cfg.start_new_block();
+-                // Recursively lower the rest of the match tree after the relevant outcome.
+-                let branch_otherwise =
+-                    self.match_candidates(span, scrutinee_span, branch_start, &mut *candidates);
+-
+-                // Link up the `otherwise` block of the subtree to `remainder_start`.
+-                let source_info = self.source_info(span);
+-                self.cfg.goto(branch_otherwise, source_info, remainder_start);
+-                (branch, branch_start)
+-            })
+-            .collect();
+-
+-        // Perform the chosen test, branching to one of the N subtrees prepared above
+-        // (or to `remainder_start` if no outcome was satisfied).
++        pending.push((remainder_start, remaining_candidates, otherwise));
++
++        let branches: Vec<_> = target_candidates.into_iter().map(|(branch, candidates)| {
++            (branch, self.cfg.start_new_block(), candidates)
++        }).collect();
++        let target_blocks = branches.iter().map(|(branch, block, _)| (*branch, *block)).collect();
++        // Preserve depth-first candidate processing without growing the call stack.
++        for (_, branch_start, candidates) in branches.into_iter().rev() {
++            pending.push((branch_start, candidates, remainder_start));
++        }
+         self.perform_test(
+-            span,
+-            scrutinee_span,
+-            start_block,
+-            remainder_start,
+-            match_place,
+-            &test,
+-            target_blocks,
++            span, scrutinee_span, start_block, remainder_start, match_place, &test, target_blocks,
+         );
+-
+-        remainder_start.and(remaining_candidates)
+-    }
++    }
++
+ }
+ 
+ ///////////////////////////////////////////////////////////////////////////

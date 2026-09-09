@@ -1,0 +1,72 @@
+--- a/library/std/src/sys/alloc/mod.rs
++++ b/library/std/src/sys/alloc/mod.rs
+@@ -24,6 +24,7 @@
+     target_arch = "powerpc64",
+     target_arch = "sparc",
+     target_arch = "wasm32",
++    all(target_arch = "wasm64", target_os = "emscripten"),
+     target_arch = "hexagon",
+     target_arch = "riscv32",
+     target_arch = "xtensa",
+--- a/library/std/src/sys/pal/unix/mod.rs
++++ b/library/std/src/sys/pal/unix/mod.rs
+@@ -142,7 +142,6 @@
+ 
+     unsafe fn reset_sigpipe(#[allow(unused_variables)] sigpipe: u8) {
+         #[cfg(not(any(
+-            target_os = "emscripten",
+             target_os = "fuchsia",
+             target_os = "horizon",
+             target_os = "vxworks",
+@@ -189,7 +188,6 @@
+ // This is set (up to once) in reset_sigpipe.
+ #[cfg(not(any(
+     target_os = "espidf",
+-    target_os = "emscripten",
+     target_os = "fuchsia",
+     target_os = "horizon",
+     target_os = "vxworks",
+@@ -200,7 +198,6 @@
+ 
+ #[cfg(not(any(
+     target_os = "espidf",
+-    target_os = "emscripten",
+     target_os = "fuchsia",
+     target_os = "horizon",
+     target_os = "vxworks",
+--- a/library/std/src/sys/process/unix/unix.rs
++++ b/library/std/src/sys/process/unix/unix.rs
+@@ -424,6 +424,7 @@
+     }
+ 
+     #[cfg(not(any(
++        target_os = "emscripten",
+         target_os = "freebsd",
+         target_os = "illumos",
+         all(target_os = "linux", target_env = "gnu"),
+@@ -444,6 +445,7 @@
+     // Only support platforms for which posix_spawn() can return ENOENT
+     // directly.
+     #[cfg(any(
++        target_os = "emscripten",
+         target_os = "freebsd",
+         target_os = "illumos",
+         all(target_os = "linux", target_env = "gnu"),
+@@ -603,7 +605,7 @@
+         /// Some platforms can set a new working directory for a spawned process in the
+         /// `posix_spawn` path. This function looks up the function pointer for adding
+         /// such an action to a `posix_spawn_file_actions_t` struct.
+-        #[cfg(not(any(all(target_os = "linux", target_env = "musl"), target_os = "cygwin")))]
++        #[cfg(not(any(all(target_os = "linux", target_env = "musl"), target_os = "cygwin", target_os = "emscripten")))]
+         fn get_posix_spawn_addchdir() -> Option<PosixSpawnAddChdirFn> {
+             use crate::sys::weak::weak;
+ 
+@@ -639,7 +641,7 @@
+         /// of the symbol at compile time or know about it upfront.
+         ///
+         /// Cygwin doesn't support weak symbol, so just link it.
+-        #[cfg(any(all(target_os = "linux", target_env = "musl"), target_os = "cygwin"))]
++        #[cfg(any(all(target_os = "linux", target_env = "musl"), target_os = "cygwin", target_os = "emscripten"))]
+         fn get_posix_spawn_addchdir() -> Option<PosixSpawnAddChdirFn> {
+             // Our minimum required musl supports this function, so we can just use it.
+             Some(libc::posix_spawn_file_actions_addchdir_np)
