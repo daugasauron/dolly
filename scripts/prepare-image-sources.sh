@@ -91,6 +91,13 @@ if has_module rust-sdk; then
   copy_static src/commands/rustc.sh rust/rustc.sh
   copy_static src/runtimes/rust-linker.c rust/rust-linker.c
 fi
+if has_module patti; then
+  copy_static src/commands/patti.c patti/patti.c
+  copy_static src/sha256.h patti/sha256.h
+  for name in tomlc17.c tomlc17.h LICENSE; do
+    copy_static "src/third_party/tomlc17/${name}" "patti/${name}"
+  done
+fi
 if has_module quickjs; then
   for command in qjs janis; do
     copy_static "${project_dir}/src/commands/${command}.c" "default/commands/${command}.c"
