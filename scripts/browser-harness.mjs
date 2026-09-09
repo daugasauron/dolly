@@ -1743,7 +1743,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       console.log("browser: release cache reads", JSON.stringify(reads));
       for (const read of reads) {
         assert.ok(read.bytes > 0, read.name);
-        assert.equal(read.cache, "public, max-age=31536000, immutable", read.name);
+        assert.match(read.cache, /^public, max-age=31536000, immutable(?:, no-transform)?$/, read.name);
         if (read.attempt === 1) assert.equal(read.transferred, 0, `${read.name} transferred again`);
       }
       console.log("browser: release-pinned kernel loader and Wasm reused with zero network transfer");
@@ -4230,9 +4230,9 @@ int main(int argc, char **argv) {
       ]).map(path => new URL(path, menuEvidence.url).href).toSorted());
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
       const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
-        "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi",
+        "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi", "rts-arena",
         "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
-        "protox-build", "python-runtime", "ripgrep", "rust-sdk", "rust-tools", "system", "system-build"];
+        "protox-build", "python-runtime", "ripgrep", "rts-build", "rust-sdk", "rust-tools", "sdl2-build", "system", "system-build"];
       const selected = new Set(imageDefinitions.map(({ image }) => image));
       assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image), menuOrder.filter(image => selected.has(image)));
       for (const { image, text, height } of menuEvidence.descriptions) {

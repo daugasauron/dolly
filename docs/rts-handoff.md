@@ -13,10 +13,11 @@ Patti, ripgrep, fd and Codex work in the private integration checkout.
 The combined catalog has 30 images, with compact rows and build images last.
 
 The integration checkout is
-`/home/daug/dolly-audits/runtime-integration-20260909`. Final combined browser
-acceptance and deployment export are still in progress; main remains on the
-verified Codex checkpoint `170bbdb` until they pass. The detailed build/test
-journal is its ignored `work/runtime-integration/rts-integration-task.md`.
+`/home/daug/dolly-audits/runtime-integration-20260909`. Main is updated only after
+combined browser acceptance and the deployment export pass. The served release
+records its exact source in `build/releases/current/release/source.commit` and
+its image acceptance in `release/acceptance.txt`. The detailed build/test journal
+is the checkout's ignored `work/runtime-integration/rts-integration-task.md`.
 Do not modify `/home/daug/dev/dolly` or stop that checkout's services.
 
 ## Runtime distinctions to preserve
@@ -39,8 +40,8 @@ Do not modify `/home/daug/dev/dolly` or stop that checkout's services.
 The input integration fixes an intermittent missed click: advancing input from
 nested event polls could move the pointer before a widget consumed its release.
 Agent input now advances once per UI update. A real browser reproduction failed
-on repetition 15 before the change; an in-Dolly source rebuild passed all 20
-repetitions and the full multiplayer/Pi/short-replay checks afterward.
+on repetition 15 before the change; the canonical source-built image passed all
+20 repetitions and the full multiplayer/Pi/replay checks afterward.
 
 ## Source map
 
@@ -79,8 +80,9 @@ images; open a fresh tab after publication. Local releases are preserved in
 
 Default browser tests now include SDL2, the launcher, the full scripted-provider
 RTS regression and the complete included split replay. `rts-live` remains opt-in
-because it makes real provider calls. The complete replay must show frame 27741
-in both panes, leave recordings unchanged and issue no model/HTTP requests.
+because it makes real provider calls. The complete replay passed with frame
+27741 in both panes, matching final traces, unchanged recordings and no HTTP
+requests. Pause, speed changes, EOF review and shell recovery also passed.
 
 An earlier handover run recorded `mouse menu/quit must not stall either player`
 during concurrent packaging. Isolated reruns passed; its cause remains
