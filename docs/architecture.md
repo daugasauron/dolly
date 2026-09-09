@@ -26,6 +26,11 @@ absolute in-Wasm interpreters. Execution does not depend on permission bits.
 The libc adapter translates Emscripten musl's low-level calls to Dolly operations;
 final programs do not import WASI or Emscripten's browser API.
 
+The bootstrap `readlink("/proc/self/exe")` query returns the kernel-recorded
+canonical path of the loaded image, including a shebang's interpreter. Changes
+to argv, cwd or the file after loading do not change this identity. This narrow
+compatibility query does not expose a general `/proc` filesystem.
+
 Clang/LLD/LLVM run in a private compiler executable behind `cc`, `c++`,
 `ld` and `ar`. Zig is separate and installed only in `ghostty-build`.
 C++ and process-local DSOs share their owning process's memory/table, not the

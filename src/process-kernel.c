@@ -393,7 +393,13 @@ static int read_image(dolly_kernel_process *process) {
     const int loaded = read_image_bytes(process);
     if (loaded != 0) return loaded;
     if (process->image_size >= sizeof(wasm_header) &&
-        memcmp(process->image, wasm_header, sizeof(wasm_header)) == 0) return 0;
+        memcmp(process->image, wasm_header, sizeof(wasm_header)) == 0) {
+      char *canonical = realpath(process->path, NULL);
+      if (canonical == NULL) return -errno;
+      free(process->path);
+      process->path = canonical;
+      return 0;
+    }
     if (depth == DOLLY_KERNEL_SHEBANG_DEPTH) return -ELOOP;
     const int redirected = redirect_shebang(process);
     if (redirected != 0) return redirected;
@@ -898,9 +904,19 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
   if (process->terminal_descriptors[request.descriptor]) {
     if (request.size == 0) return 0;
     const int byte = dolly_terminal_read_raw_timeout(0);
-    if (byte < 0) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+    if (byte < 0) {
+      const int flags = fcntl(descriptor, F_GETFL);
+      if (flags < 0) return -errno;
+      return flags & O_NONBLOCK ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
+    }
     process_mailbox[0] = (unsigned char)byte;
-    return 1;
+    size_t count = 1;
+    while (count < request.size) {
+      const int next = dolly_terminal_read_raw_timeout(0);
+      if (next < 0) break;
+      process_mailbox[count++] = (unsigned char)next;
+    }
+    return (int64_t)count;
   }
   for (;;) {
     ssize_t count = read(descriptor, process_mailbox, (size_t)request.size);
@@ -1968,9 +1984,19 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
                                        &path, &directory);
       if (result == 0 && request.flags != 0) result = -EINVAL;
       if (result == 0) {
-        ssize_t count = readlinkat(directory, path, (char *)process_mailbox,
-                                   response_capacity);
-        result = count < 0 ? -errno : (int)count;
+        if (strcmp(path, "/proc/self/exe") == 0) {
+          if (response_capacity == 0) result = -EINVAL;
+          else {
+            size_t count = strlen(process->path);
+            if (count > response_capacity) count = response_capacity;
+            memcpy(process_mailbox, process->path, count);
+            result = (int)count;
+          }
+        } else {
+          ssize_t count = readlinkat(directory, path, (char *)process_mailbox,
+                                     response_capacity);
+          result = count < 0 ? -errno : (int)count;
+        }
       }
       free(path);
       return result;

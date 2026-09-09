@@ -10,6 +10,8 @@ export const processSmokeSources = Object.freeze({
   "pipe-driver.c": "src/process/pipe-driver.c",
   "poll-check.c": "src/process/poll-check.c",
   "mmap-check.c": "src/process/mmap-check.c",
+  "terminal-check.c": "src/process/terminal-check.c",
+  "self-exe-check.c": "src/process/self-exe-check.c",
   "dso-check.c": "src/process/dso-check.c",
   "dso-library.c": "src/process/dso-library.c",
   "dso-cpp-check.cpp": "src/process/dso-cpp-check.cpp",
@@ -43,6 +45,14 @@ export async function runProcessSmoke(submit, origin) {
     await run("cc -O0 -fno-unsigned-char -fno-signed-char -DEXPECT_SIGNED=0 char.c -o char && ./char");
     await run("printf '#include <pty.h>\\n#include <errno.h>\\nint main(void) { int master, slave; return openpty(&master, &slave, 0, 0, 0) != -1 || errno != ENOENT; }\\n' > pty.c");
     await run("cc -O0 pty.c -lutil -o pty && ./pty");
+    await run("printf 'static volatile unsigned char data[20 * 1024 * 1024] = {1};\\nint main(void) { data[sizeof(data)-1]=42; return data[0]!=1 || data[sizeof(data)-1]!=42; }\\n' > memory.c");
+    assert.notEqual(await submit("cc memory.c -o memory"), 0, "static data exceeds the default initial memory");
+    await run("cc memory.c -Wl,--initial-memory=33554432,--max-memory=67108864 -o memory && ./memory");
+    assert.notEqual(await submit("cc memory.c -Wl,--initial-memory=33554432,--max-memory=17179869184 -o memory"), 0,
+      "compiler rejects memory above the process ceiling");
+    await run("cp self-exe-check identity-one && cp self-exe-check identity-two && ln -s self-exe-check identity-alias");
+    await run(`printf '#!${scratch}/self-exe-check ${scratch}/self-exe-check\\n' > identity-script`);
+    await run("./self-exe-check && ./identity-script");
     for (const command of [
       "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
       "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
@@ -51,7 +61,7 @@ export async function runProcessSmoke(submit, origin) {
       `DOLLY_PROCESS_HTTP_CHECK_URL=${origin}/fixture/http.txt ./http-check`,
       `/bin/slop -c './fs-check write ${scratch}/data && ./fs-check read ${scratch}/data'`,
       "/bin/slop -c 'export DOLLY_PROCESS_CHECK=private-memory; case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; ./process-check fresh'",
-      `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "cc --version",
+      `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "./terminal-check", "cc --version",
       `./dso-check ${scratch}/dso-library.so`, `./dso-cpp-check ${scratch}/dso-cpp-library.so`,
     ]) await run(command);
     await run(`./fs-check write ${scratch}/data`);

@@ -1435,6 +1435,19 @@ void encode_u64_le(uint64_t value, unsigned char output[8]) {
   }
 }
 
+bool process_memory_requirements(const LoadedWasm &executable,
+                                 unsigned char output[16]) {
+  for (const llvm::wasm::WasmImport &entry : executable.object->imports()) {
+    if (entry.Module == "env" && entry.Field == "memory" &&
+        entry.Kind == llvm::wasm::WASM_EXTERNAL_MEMORY) {
+      encode_u64_le(entry.Memory.Minimum, output);
+      encode_u64_le(entry.Memory.Maximum, output + 8);
+      return true;
+    }
+  }
+  return false;
+}
+
 bool validate_process_executable(const std::string &path, bool stamped) {
   LoadedWasm executable;
   if (!load_wasm(path, executable) || !executable.signatures_parsed) return false;
@@ -1461,8 +1474,9 @@ bool validate_process_executable(const std::string &path, bool stamped) {
           llvm::wasm::WASM_LIMITS_FLAG_IS_SHARED |
           llvm::wasm::WASM_LIMITS_FLAG_IS_64;
       if ((entry.Memory.Flags & required_flags) != required_flags ||
-          entry.Memory.Minimum != kProcessInitialMemoryPages ||
-          entry.Memory.Maximum != kProcessMaximumMemoryPages) {
+          entry.Memory.Minimum < 1 ||
+          entry.Memory.Maximum > kProcessMaximumMemoryPages ||
+          entry.Memory.Minimum > entry.Memory.Maximum) {
         std::fprintf(stderr,
                      "dolly-cc: process executable %s has incompatible memory64 limits\n",
                      path.c_str());
@@ -1535,8 +1549,7 @@ bool validate_process_executable(const std::string &path, bool stamped) {
     return false;
   }
   unsigned char memory_requirements[16];
-  encode_u64_le(kProcessInitialMemoryPages, memory_requirements);
-  encode_u64_le(kProcessMaximumMemoryPages, memory_requirements + 8);
+  if (!process_memory_requirements(executable, memory_requirements)) return false;
   size_t memory_matches = 0;
   if (!process_section(executable, "dolly.process.memory", memory_requirements,
                        sizeof(memory_requirements), memory_matches) ||
@@ -1688,9 +1701,10 @@ bool append_custom_section(const std::string &path, const char *name,
 
 bool stamp_process_executable(const std::string &output) {
   static_assert(sizeof(DOLLY_PROCESS_ABI_DIGEST) == 32);
+  LoadedWasm executable;
+  if (!load_wasm(output, executable)) return false;
   unsigned char memory_requirements[16];
-  encode_u64_le(kProcessInitialMemoryPages, memory_requirements);
-  encode_u64_le(kProcessMaximumMemoryPages, memory_requirements + 8);
+  if (!process_memory_requirements(executable, memory_requirements)) return false;
   return append_custom_section(output, "dolly.process",
                                DOLLY_PROCESS_ABI_DIGEST,
                                sizeof(DOLLY_PROCESS_ABI_DIGEST)) &&

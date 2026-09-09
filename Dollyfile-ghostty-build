@@ -6,7 +6,7 @@ USE HOST /modules/bootstrap.dm aee346d9fdc9ddfdffdcf74d0a58647f5b49110e8dc808b09
 USE HOST /modules/core-tools.dm 42bc8954f5f995a05262752bac670967c3a5a13edcecca7e325dc814d28506b2
 USE HOST /modules/tar.dm cc9e50ec101244cbf57f926b82d537da9efe0d18d483a8b3f38dfde350960101
 USE HOST /modules/make.dm f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9fd0225dd8f05ea0e02a1
-USE HOST /modules/zig.dm 08e1bc230ee34ce01472a0e3a93de56db8f0b7fdd5e42bc98a4bf3e7b7bc35fa
-USE HOST /modules/ghostty.dm ccdea5180bec391add17b2539b5ae09b707288e381c401ec3b23abe3de96f937
+USE HOST /modules/zig.dm 51f10d300c22daa933bf488c8adc9176384d93e7634a32a1655d1e0d4b0d71c2
+USE HOST /modules/ghostty.dm df86a48d6d01bcbfc2d724a0fa488a7b83a16b19a2d66e3fe6ee4cd3d9456b63
 
 ENTRY /bin/foreground -i /bin/slop
