@@ -1,5 +1,6 @@
 // Player-local SDL input and screenshots. SPDX-License-Identifier: GPL-2.0-or-later
 #include "input.h"
+#include "arena.h"
 #include <SDL.h>
 #include <zlib.h>
 #include <cerrno>
@@ -7,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <unistd.h>
 
@@ -24,7 +26,7 @@ const char *directory() { return std::getenv("DOLLY_RTS_PLAYER_DIR"); }
 std::string path(const char *name) { return std::string(directory()) + "/" + name; }
 RtsInputAction actions[RTS_INPUT_MAX_ACTIONS];
 uint32_t request_id, action_count, action_index, action_started, last_view;
-bool running, capture_pending;
+bool running, released, capture_pending;
 SDL_Window *input_window;
 SDL_Scancode held_key = SDL_SCANCODE_UNKNOWN;
 uint32_t held_modifiers, held_button;
@@ -60,8 +62,10 @@ bool publish(const char *name, const void *header, size_t header_size, const voi
 
 void response(uint32_t id, uint32_t status, uint32_t frame, const std::vector<unsigned char> &png = {})
 {
+    int x = 0, y = 0;
+    SDL_GetMouseState(&x, &y);
     const RtsInputResponse header = { RTS_INPUT_MAGIC, RTS_INPUT_VERSION, id, status,
-        frame, SDL_GetTicks(), static_cast<uint32_t>(png.size()), 0 };
+        frame, SDL_GetTicks(), static_cast<uint32_t>(png.size()), static_cast<uint16_t>(x), static_cast<uint16_t>(y) };
     if (!publish("response", &header, sizeof(header), png.data(), png.size()))
         std::fprintf(stderr, "RTS: cannot publish input response: %s\n", std::strerror(errno));
     if (FILE *log = std::fopen(path("inputs.log").c_str(), "a")) {
@@ -91,6 +95,7 @@ bool valid_action(const RtsInputAction &a)
 void start_action(uint32_t now, uint32_t frame)
 {
     action_started = now;
+    released = false;
     const RtsInputAction &a = actions[action_index];
     if (FILE *log = std::fopen(path("inputs.log").c_str(), "a")) {
         std::fprintf(log, "action id=%u index=%u frame=%u ms=%u kind=%u x=%u y=%u end_x=%u end_y=%u button=%u duration=%u modifiers=%u key=%s\n",
@@ -128,19 +133,41 @@ void png_chunk(std::vector<unsigned char> &png, const char *type, const unsigned
 
 std::vector<unsigned char> encode_png(const std::vector<unsigned char> &pixels)
 {
-    const size_t pitch = 800 * 4;
+    // The game's palette fits in 256 opaque colors. Preserve exact pixels,
+    // with an RGBA fallback for other renderers; never resize model observations.
+    std::unordered_map<uint32_t, unsigned char> colors;
+    std::vector<unsigned char> palette, indices(800 * 600);
+    bool indexed = true;
+    for (size_t i = 0; i < indices.size(); ++i) {
+        uint32_t color;
+        std::memcpy(&color, pixels.data() + i * 4, 4);
+        const auto found = colors.find(color);
+        if (pixels[i * 4 + 3] != 255 || (found == colors.end() && colors.size() == 256)) {
+            indexed = false;
+            break;
+        }
+        if (found != colors.end()) indices[i] = found->second;
+        else {
+            indices[i] = static_cast<unsigned char>(colors.size());
+            colors.emplace(color, indices[i]);
+            palette.insert(palette.end(), pixels.data() + i * 4, pixels.data() + i * 4 + 3);
+        }
+    }
+    const size_t pitch = 800 * (indexed ? 1 : 4);
+    const auto &source = indexed ? indices : pixels;
     std::vector<unsigned char> filtered((pitch + 1) * 600, 0);
     for (size_t y = 0; y < 600; ++y)
-        std::memcpy(filtered.data() + y * (pitch + 1) + 1, pixels.data() + y * pitch, pitch);
+        std::memcpy(filtered.data() + y * (pitch + 1) + 1, source.data() + y * pitch, pitch);
     uLongf compressed_size = compressBound(filtered.size());
     std::vector<unsigned char> compressed(compressed_size);
-    if (compress2(compressed.data(), &compressed_size, filtered.data(), filtered.size(), Z_BEST_SPEED) != Z_OK) return {};
+    if (compress2(compressed.data(), &compressed_size, filtered.data(), filtered.size(), Z_DEFAULT_COMPRESSION) != Z_OK) return {};
     std::vector<unsigned char> png = { 137, 80, 78, 71, 13, 10, 26, 10 };
     std::vector<unsigned char> header;
     append_be32(header, 800);
     append_be32(header, 600);
-    header.insert(header.end(), { 8, 6, 0, 0, 0 });
+    header.insert(header.end(), { 8, static_cast<unsigned char>(indexed ? 3 : 6), 0, 0, 0 });
     png_chunk(png, "IHDR", header.data(), header.size());
+    if (indexed) png_chunk(png, "PLTE", palette.data(), palette.size());
     png_chunk(png, "IDAT", compressed.data(), compressed_size);
     png_chunk(png, "IEND", nullptr, 0);
     return png;
@@ -152,6 +179,41 @@ void dolly_rts_input(SDL_Window *window, uint32_t frame)
     if (!directory()) return;
     input_window = window;
     SDL_SetKeyboardFocus(window);
+    if (dolly_rts_replay_player()) {
+        if (!frame) return;
+        struct Recorded { uint32_t frame, milliseconds; RtsInputAction action; };
+        static std::vector<Recorded> records;
+        static size_t index;
+        static bool loaded;
+        if (!loaded) {
+            FILE *file = std::fopen(path("replay-inputs").c_str(), "rb");
+            if (!file) std::exit(65);
+            Recorded record;
+            while (std::fread(&record, sizeof(record), 1, file) == 1) {
+                if (!valid_action(record.action) || records.size() >= 100000) std::exit(65);
+                records.push_back(record);
+            }
+            std::fclose(file);
+            loaded = true;
+        }
+        if (released) { running = released = false; ++index; }
+        if (!running && index < records.size() && records[index].frame <= frame) {
+            actions[action_index = 0] = records[index].action;
+            running = true;
+            start_action(records[index].milliseconds, frame);
+        }
+        if (!running) return;
+        const auto &a = actions[0];
+        const uint32_t now = dolly_rts_replay_milliseconds(frame);
+        const uint32_t elapsed = now > action_started ? now - action_started : 0;
+        if (a.kind == RTS_DRAG) {
+            const double fraction = elapsed >= a.milliseconds ? 1.0 : double(elapsed) / a.milliseconds;
+            SDL_SendMouseMotion(window, 0, SDL_FALSE,
+                int(a.x + (double(a.end_x) - a.x) * fraction), int(a.y + (double(a.end_y) - a.y) * fraction));
+        }
+        if (elapsed >= a.milliseconds) { release_inputs(); released = true; }
+        return;
+    }
     uint32_t cancelled = 0;
     if (FILE *file = std::fopen(path("cancel").c_str(), "rb")) {
         const bool valid = std::fread(&cancelled, sizeof(cancelled), 1, file) == 1 && std::fgetc(file) == EOF;
@@ -160,8 +222,9 @@ void dolly_rts_input(SDL_Window *window, uint32_t frame)
         if (!valid) cancelled = 0;
         if (valid && (running || capture_pending) && cancelled == request_id) {
             release_inputs();
-            running = capture_pending = false;
+            running = released = capture_pending = false;
             response(request_id, ECANCELED, frame);
+            return; // Consume releases before accepting a concurrently queued replacement.
         }
     }
     if (FILE *file = std::fopen(path("request").c_str(), "rb")) {
@@ -192,6 +255,17 @@ void dolly_rts_input(SDL_Window *window, uint32_t frame)
         }
     }
     if (!running) return;
+    // Let the game consume button/key release at the old pointer position
+    // before the next action changes SDL's live state. Its widgets read both
+    // queued events and current state when committing a click.
+    if (released) {
+        if (++action_index == action_count) {
+            running = released = false;
+            capture_pending = true;
+            return;
+        }
+        start_action(SDL_GetTicks(), frame);
+    }
     const RtsInputAction &a = actions[action_index];
     const uint32_t now = SDL_GetTicks(), elapsed = now - action_started;
     if (a.kind == RTS_DRAG) {
@@ -201,15 +275,14 @@ void dolly_rts_input(SDL_Window *window, uint32_t frame)
     }
     if (elapsed < a.milliseconds) return;
     release_inputs();
-    if (++action_index < action_count) start_action(now, frame);
-    else { running = false; capture_pending = true; }
+    released = true;
 }
 
 void dolly_rts_frame(SDL_Renderer *renderer, uint32_t frame)
 {
     if (!directory()) return;
     const uint32_t now = SDL_GetTicks();
-    if (!capture_pending && now - last_view < 50) return;
+    if (!capture_pending && now - last_view < 50 && !dolly_rts_replay_eof()) return;
     int width = 0, height = 0;
     if (SDL_GetRendererOutputSize(renderer, &width, &height) != 0 || width != 800 || height != 600) {
         if (capture_pending) response(request_id, EINVAL, frame);
@@ -240,5 +313,5 @@ void dolly_rts_input_close(uint32_t frame)
     if (!directory()) return;
     release_inputs();
     if (running || capture_pending) response(request_id, ECANCELED, frame);
-    running = capture_pending = false;
+    running = released = capture_pending = false;
 }

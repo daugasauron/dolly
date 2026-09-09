@@ -1,11 +1,25 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { connectPlayer } from "../player.js";
+import { connectPlayer, describeScreenshot, playerModel } from "../player.js";
+import { traceText } from "./trace.mjs";
+import { replayMatch } from "./replay.mjs";
 const fs = globalThis.__janisBuiltin("fs");
 const { spawn } = globalThis.__janisBuiltin("child_process");
-const [first, second, duration = "600"] = process.argv.slice(2);
+if (process.argv.length === 2) {
+  const { launcher } = await import("./launcher.mjs");
+  await launcher();
+  process.exit(0);
+}
+const [first, second, duration = "600", allowance = "1"] = process.argv.slice(2);
+if (first === "--replay") {
+  try { await replayMatch(process.argv.slice(3)); }
+  catch (error) { console.error(`rts-arena: ${error.message}`); process.exitCode = 1; }
+  process.exit(process.exitCode ?? 0);
+}
 const seconds = Number(duration);
-if (!first || !second || process.argv.length > 5 || !Number.isInteger(seconds) || seconds < 10 || seconds > 3600) {
-  console.error("usage: rts-arena OPENROUTER_MODEL_1 OPENROUTER_MODEL_2 [seconds: 10..3600, default 600]");
+const budget = Number(allowance);
+if (!first || !second || process.argv.length > 6 || !Number.isInteger(seconds) || seconds < 10 || seconds > 3600 ||
+    !Number.isFinite(budget) || budget <= 0) {
+  console.error("usage: rts-arena [PROVIDER::]MODEL_1 [PROVIDER::]MODEL_2 [seconds: 10..3600, default 600] [USD: default 1]; default provider: openrouter");
   process.exit(64);
 }
 
@@ -14,7 +28,7 @@ const match = fs.mkdtempSync("/workspace/rts-matches/match-");
 const scratch = fs.mkdtempSync("/tmp/dolly-rts-");
 const children = [], requests = [], agents = [], engines = [];
 const controller = new AbortController();
-let stopped = false, reason, complete;
+let stopped = false, reason, complete, spent = 0;
 const done = new Promise(resolve => { complete = resolve; });
 const stop = message => {
   if (stopped) return;
@@ -30,11 +44,20 @@ const stop = message => {
 const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const fail = error => { if (!stopped) { process.exitCode = 1; stop(`Error: ${error.message ?? error}`); } };
 
+function gameResult() {
+  for (const [index, agent] of agents.entries()) {
+    const path = `${agent.directory}/result.txt`;
+    if (!fs.existsSync(path)) continue;
+    const result = fs.readFileSync(path, "utf8").trim().match(/^([12]) (\d+)$/);
+    if (result) return `Player ${result[1]} won at game frame ${result[2]} (reported by player ${index + 1})`;
+  }
+}
+
 function launch(command, arguments_, options, label) {
   const child = spawn(command, arguments_, options);
   const closed = new Promise(resolve => child.once("close", (code, signal) => {
     if (!stopped && code !== 0) process.exitCode = 1;
-    stop(`${label} exited (${signal ?? code})`);
+    stop(gameResult() ?? `${label} exited (${signal ?? code})`);
     resolve();
   }));
   child.on("error", fail);
@@ -59,31 +82,40 @@ function gameReady(directory) {
 }
 
 function player(index, model) {
+  const selected = playerModel(model);
   const directory = `${scratch}/player${index}`;
   fs.mkdirSync(directory);
   const environment = { ...process.env, DOLLY_RTS_PLAYER: String(index), DOLLY_RTS_PLAYER_DIR: directory };
   const traceFile = `${match}/player${index}.txt`;
   const eventFile = `${match}/player${index}.events.jsonl`;
-  let trace = `Player ${index}: ${model}\nWaiting for Pi. Thinking is shown only when the provider exposes it.\n`;
-  const record = (type, data, text = "") => {
-    fs.appendFileSync(eventFile, JSON.stringify({ time: Date.now(), type, ...data }) + "\n");
+  let trace = "";
+  const record = (type, data) => {
+    const event = { time: Date.now(), type, ...data };
+    fs.appendFileSync(eventFile, JSON.stringify(event) + "\n");
+    const text = traceText(event);
     if (text) {
       trace = (trace + text).slice(-16000);
       fs.writeFileSync(`${traceFile}.tmp`, trace);
       fs.renameSync(`${traceFile}.tmp`, traceFile);
     }
   };
-  record("start", { model }, "\n");
+  const usage = (value, source, stopReason) => {
+    spent += value?.cost?.total ?? 0;
+    record("usage", { usage: value, source, stopReason, reportedUSD: spent, limitUSD: budget });
+    fs.writeFileSync(`${match}/usage.json`, JSON.stringify({ reportedUSD: spent, limitUSD: budget }) + "\n");
+    if (spent >= budget) stop("Reported model cost limit reached");
+  };
+  record("start", { model, player: index });
   const log = fs.openSync(`${match}/player${index}.stderr.log`, "w");
   let pi;
   try {
-    pi = launch("pi", ["--mode", "rpc", "--provider", "openrouter", "--model", model,
+    pi = launch("pi", ["--mode", "rpc", "--provider", selected.provider, "--model", selected.model,
       "--session", `${match}/player${index}.jsonl`, "--no-extensions", "--extension", "/usr/src/dolly/rts/player.js",
       "--no-context-files", "--no-skills", "--no-prompt-templates", "--tools", "game_input",
       "--system-prompt", fs.readFileSync("/usr/src/dolly/rts/PLAYER.md", "utf8")],
     { env: environment, stdio: ["pipe", "pipe", log] }, `Player ${index} Pi`);
   } finally { fs.closeSync(log); }
-  let serial = 0, buffer = "", prompting = false;
+  let serial = 0, buffer = "", prompting = false, responseError;
   const pending = new Map();
   const rpc = (type, fields = {}) => new Promise((resolve, reject) => {
     const id = `arena-${++serial}`;
@@ -102,9 +134,8 @@ function player(index, model) {
     try {
       const image = await input([], controller.signal);
       if (stopped) return;
-      record("observation", { frame: image.frame, milliseconds: image.milliseconds },
-        `\n[view: frame ${image.frame}, ${image.milliseconds} ms]\n`);
-      await rpc("prompt", { message: `Play from your current view (frame ${image.frame}, ${image.milliseconds} ms). The game is running.`,
+      record("observation", { frame: image.frame, milliseconds: image.milliseconds });
+      await rpc("prompt", { message: describeScreenshot(image) + " Play from this view.",
         images: [{ type: "image", mimeType: "image/png", data: Buffer.from(image.png).toString("base64") }] });
     } catch (error) { if (!stopped) fail(error); }
   }
@@ -117,22 +148,32 @@ function player(index, model) {
     } else if (message.type === "message_update") {
       const update = message.assistantMessageEvent;
       if (update?.type === "thinking_delta" || update?.type === "text_delta")
-        record(update.type, { delta: update.delta }, update.delta);
-      else if (update?.type === "thinking_start") record("thinking", {}, "\n[thinking]\n");
-      else if (update?.type === "text_start") record("text", {}, "\n[assistant]\n");
+        record(update.type, { delta: update.delta });
+      else if (update?.type === "thinking_start") record("thinking", {});
+      else if (update?.type === "text_start") record("text", {});
     } else if (message.type === "tool_execution_start") {
-      record("tool", { toolCallId: message.toolCallId, name: message.toolName, args: message.args },
-        `\n[${message.toolName}] ${JSON.stringify(message.args)}\n`);
+      record("tool", { toolCallId: message.toolCallId, name: message.toolName, args: message.args });
     } else if (message.type === "tool_execution_end") {
-      record("tool_result", { toolCallId: message.toolCallId, isError: message.isError, details: message.result?.details },
-        `\n[result] ${JSON.stringify(message.result?.details ?? message.result?.content?.filter(item => item.type === "text"))}\n`);
+      const feedback = message.result?.content?.filter(item => item.type === "text");
+      record("tool_result", { toolCallId: message.toolCallId, isError: message.isError, details: message.result?.details, feedback });
     } else if (message.type === "message_end" && message.message?.role === "assistant") {
-      record("usage", { usage: message.message.usage, stopReason: message.message.stopReason });
-      if (["error", "aborted"].includes(message.message.stopReason))
-        fail(Error(`Player ${index}: ${message.message.errorMessage ?? message.message.stopReason}`));
-    } else if (message.type === "agent_end") {
+      usage(message.message.usage, "assistant", message.message.stopReason);
+      responseError = ["error", "aborted"].includes(message.message.stopReason)
+        ? message.message.errorMessage ?? message.message.stopReason : undefined;
+      if (responseError) record("provider_error", { message: responseError });
+    } else if (message.type === "auto_retry_start") {
+      record("retry", { attempt: message.attempt, delayMs: message.delayMs });
+    } else if (message.type === "compaction_start") {
+      record("compaction_start", {});
+    } else if (message.type === "compaction_end") {
+      record("compaction_end", { aborted: message.aborted, error: message.errorMessage,
+        tokensBefore: message.result?.tokensBefore, tokensAfter: message.result?.estimatedTokensAfter });
+      if (message.result?.usage) usage(message.result.usage, "compaction");
+      if (message.errorMessage) fail(Error(`Player ${index} compaction: ${message.errorMessage}`));
+    } else if (message.type === "agent_settled") {
       prompting = false;
-      void prompt(); // Independent continuation: no shared decision timer or turn barrier.
+      if (responseError) fail(Error(`Player ${index}: ${responseError}`));
+      else void prompt(); // Independent continuation: no shared decision timer or turn barrier.
     }
   }
   pi.stdout.setEncoding("utf8");
@@ -148,20 +189,19 @@ function player(index, model) {
       }
     } catch (error) { fail(error); }
   });
-  return { directory, environment, prompt, rpc, record };
+  return { directory, environment, prompt, rpc, record, provider: selected.provider };
 }
 
 let timer, resultTimer;
 try {
-  console.log(`RTS match: ${match}\n${seconds}s limit; Escape in the viewer stops the match. Histories are kept.`);
-  fs.writeFileSync(`${match}/match.json`, JSON.stringify({ models: [first, second], seconds, seed: 12345, started: Date.now() }) + "\n");
+  console.log(`RTS match: ${match}\n${seconds}s / $${budget} reported-cost limit; in-flight calls may exceed it. Escape stops the match. Histories are kept.`);
+  fs.writeFileSync(`${match}/match.json`, JSON.stringify({ models: [first, second], seconds, budgetUSD: budget, seed: 12345, started: Date.now() }) + "\n");
   agents.push(player(1, first), player(2, second));
   await Promise.all(agents.map(async agent => {
     const state = await agent.rpc("get_state");
-    if (state.model?.provider !== "openrouter") throw Error("Both players must use OpenRouter models");
-    if (!state.model?.input?.includes("image")) throw Error("Both OpenRouter models must support image input");
-    agent.record("configuration", { model: state.model.id, provider: state.model.provider, thinking: state.thinkingLevel },
-      `\n[model: ${state.model.id}; thinking: ${state.thinkingLevel}]\n`);
+    if (state.model?.provider !== agent.provider) throw Error(`Expected provider ${agent.provider}`);
+    if (!state.model?.input?.includes("image")) throw Error("Both models must support image input");
+    agent.record("configuration", { model: state.model.id, provider: state.model.provider, thinking: state.thinkingLevel });
   }));
   if (stopped) throw Error(reason);
   engines.push(...agents.map((agent, index) => {
@@ -182,10 +222,8 @@ try {
     timer = setTimeout(() => stop("Match time limit reached"), seconds * 1000);
     resultTimer = setInterval(() => {
       try {
-        for (const [index, agent] of agents.entries()) {
-          const result = `${agent.directory}/result.txt`;
-          if (fs.existsSync(result)) stop(`Game result from player ${index + 1}: ${fs.readFileSync(result, "utf8").trim()}`);
-        }
+        const result = gameResult();
+        if (result) stop(result);
       } catch (error) { fail(error); }
     }, 100);
     for (const agent of agents) void agent.prompt();
@@ -204,18 +242,21 @@ finally {
   const force = setTimeout(() => { for (const { child } of children) child.kill("SIGKILL"); }, 2000);
   await Promise.all(children.map(({ closed }) => closed));
   clearTimeout(force);
+  let preserved = false;
   try {
     for (const [index, agent] of agents.entries()) {
       const replay = `${match}/player${index + 1}-game`;
       fs.mkdirSync(replay);
-      for (const name of fs.readdirSync(agent.directory)) {
-        if (!/\.(RPL|rpl)$/.test(name) && name !== "result.txt" && name !== "inputs.log") continue;
-        fs.copyFileSync(`${agent.directory}/${name}`, `${replay}/${name}`);
+      for (const name of ["NONAME.RPL", "inputs.log", "result.txt"]) {
+        const source = `${agent.directory}/${name}`;
+        if (fs.existsSync(source)) fs.renameSync(source, `${replay}/${name}`);
       }
     }
     fs.writeFileSync(`${match}/result.txt`, reason + "\n");
+    preserved = true;
   } finally {
-    fs.rmSync(scratch, { recursive: true, force: true });
+    if (preserved) fs.rmSync(scratch, { recursive: true, force: true });
+    else console.error(`Replay preservation failed; recover remaining files from ${scratch}`);
     for (const index of [1, 2]) {
       const temporary = `${match}/player${index}.txt.tmp`;
       if (fs.existsSync(temporary)) fs.unlinkSync(temporary);

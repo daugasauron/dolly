@@ -1,6 +1,7 @@
 // Pi extension. All game I/O stays in Dolly's in-Wasm filesystem.
 // SPDX-License-Identifier: GPL-2.0-or-later
 const magic = 0x31535452;
+const version = 2;
 const kinds = { move: 1, click: 2, key: 3, drag: 4, wait: 5 };
 const buttons = { left: 1, middle: 2, right: 3 };
 const modifiers = { Shift: 1, Control: 2, Alt: 4 };
@@ -10,18 +11,40 @@ const keys = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", "Space", "Return", "Esc
 const integer = (minimum, maximum) => ({ type: "integer", minimum, maximum });
 const enumeration = values => ({ type: "string", enum: values });
 const object = (properties, required) => ({ type: "object", properties, required, additionalProperties: false });
-const point = { x: integer(0, 799), y: integer(0, 599) };
-const time = { milliseconds: integer(16, 2000) };
-const kind = type => ({ type: { const: type, type: "string" } });
-export const parameters = object({ actions: { type: "array", maxItems: 16, items: { oneOf: [
-  object({ ...kind("move"), ...point }, ["type", "x", "y"]),
-  object({ ...kind("click"), ...point, button: enumeration(Object.keys(buttons)), ...time }, ["type", "x", "y", "button"]),
-  object({ ...kind("key"), key: enumeration(keys), modifiers: { type: "array", maxItems: 3,
-    uniqueItems: true, items: enumeration(Object.keys(modifiers)) }, ...time }, ["type", "key"]),
-  object({ ...kind("drag"), ...point, end_x: point.x, end_y: point.y,
-    button: enumeration(Object.keys(buttons)), ...time }, ["type", "x", "y", "end_x", "end_y", "button"]),
-  object({ ...kind("wait"), ...time }, ["type", "milliseconds"]),
-] } } }, ["actions"]);
+const point = {
+  x: { ...integer(0, 799), description: "Absolute pixel x in your own 800x600 screenshot, measured rightward from its left edge." },
+  y: { ...integer(0, 599), description: "Absolute pixel y in your own 800x600 screenshot, measured downward from its top edge." },
+};
+export function playerModel(selector) {
+  const separator = selector.indexOf("::");
+  const provider = separator < 0 ? "openrouter" : selector.slice(0, separator);
+  const model = separator < 0 ? selector : selector.slice(separator + 2);
+  if (!/^[a-zA-Z0-9_-]+$/.test(provider) || !model || model.includes("::"))
+    throw Error("Expected MODEL or PROVIDER::MODEL");
+  return { provider, model };
+}
+export const coordinateConvention = "Use absolute integer pixels in this 800x600 screenshot: " +
+  "(0,0) is top-left; x increases rightward to 799, y increases downward to 599. " +
+  "Center is approximately (400,300). No percentages, normalized coordinates, relative deltas, " +
+  "or browser/spectator offsets; player 2 must not add 800 to x.";
+
+export function describeScreenshot({ frame, milliseconds, pointer }) {
+  return `Your own view at game frame ${frame}, ${milliseconds} ms since launch. ` +
+    `Mouse pointer: (${pointer.x},${pointer.y}); this is the cursor, not a world object. ` +
+    coordinateConvention + " The game is still running; this image ages while you think.";
+}
+const fields = {
+  move: ["x", "y"], click: ["x", "y", "button"], key: ["key"],
+  drag: ["x", "y", "end_x", "end_y", "button"], wait: ["milliseconds"],
+};
+export const parameters = object({ actions: { type: "array", maxItems: 16, items: object({
+  type: { ...enumeration(Object.keys(kinds)), description:
+    "move: x,y, no button press (aim/hover); click: x,y,button; key: key and optional modifiers; drag: x,y,end_x,end_y,button; wait: milliseconds." },
+  ...point, end_x: point.x, end_y: point.y,
+  button: enumeration(Object.keys(buttons)), key: enumeration(keys),
+  modifiers: { type: "array", maxItems: 3, uniqueItems: true, items: enumeration(Object.keys(modifiers)) },
+  milliseconds: { ...integer(16, 2000), description: "Input duration, or time to remain at a moved pointer position." },
+}, ["type"]) } }, ["actions"]);
 
 function uint(value, minimum, maximum, label) {
   if (!Number.isInteger(value) || value < minimum || value > maximum) throw Error(`Invalid ${label}`);
@@ -33,12 +56,14 @@ export function encodeBatch(actions, id) {
   if (!Array.isArray(actions) || actions.length > 16) throw Error("At most 16 actions per batch");
   const bytes = new Uint8Array(16 + actions.length * 64);
   const view = new DataView(bytes.buffer);
-  [magic, 1, id, actions.length].forEach((value, index) => view.setUint32(index * 4, value, true));
+  [magic, version, id, actions.length].forEach((value, index) => view.setUint32(index * 4, value, true));
   let duration = 0;
   for (const [index, action] of actions.entries()) {
-    const schema = parameters.properties.actions.items.oneOf.find(item => item.properties.type.const === action?.type);
-    if (!schema || !action || Object.keys(action).some(key => !Object.hasOwn(schema.properties, key)) ||
-        schema.required.some(key => !Object.hasOwn(action, key))) throw Error("Invalid action fields");
+    if (!action || !Object.hasOwn(fields, action.type)) throw Error("Each action needs type: move, click, key, drag or wait");
+    const required = fields[action.type];
+    const allowed = ["type", "milliseconds", ...required, ...(action.type === "key" ? ["modifiers"] : [])];
+    if (Object.keys(action).some(key => !allowed.includes(key)) || required.some(key => !Object.hasOwn(action, key)))
+      throw Error(`${action.type} requires ${required.join(", ")}; allowed fields: ${allowed.join(", ")}. No actions were executed.`);
     const type = kinds[action.type];
     const milliseconds = uint(action.milliseconds ?? (type === 1 ? 16 : type === 4 ? 250 : 100), 16, 2000, "duration");
     duration += milliseconds;
@@ -74,13 +99,15 @@ export function decodeScreenshot(bytes, id) {
   if (bytes.byteLength < 32) throw Error("Truncated game response");
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const word = index => view.getUint32(index * 4, true);
-  if (word(0) !== magic || word(1) !== 1 || word(2) !== id || word(7) !== 0 || word(6) !== bytes.byteLength - 32)
+  if (word(0) !== magic || word(1) !== version || word(2) !== id || word(6) !== bytes.byteLength - 32)
     throw Error("Invalid game response");
   if (word(3)) throw Error(`Game input failed (errno ${word(3)})`);
   const png = bytes.subarray(32);
   if (png.length < 8 || ![137, 80, 78, 71, 13, 10, 26, 10].every((value, i) => png[i] === value))
     throw Error("Game response is not a PNG screenshot");
-  return { png, frame: word(4), milliseconds: word(5) };
+  const pointer = { x: view.getUint16(28, true), y: view.getUint16(30, true) };
+  if (pointer.x >= 800 || pointer.y >= 600) throw Error("Invalid screenshot pointer coordinates");
+  return { png, frame: word(4), milliseconds: word(5), pointer };
 }
 
 export function connectPlayer(fs, directory, firstId = 1) {
@@ -138,10 +165,19 @@ export function connectPlayer(fs, directory, firstId = 1) {
 }
 
 export function modelContext(messages) {
-  const latest = messages.findLastIndex(message => Array.isArray(message.content) &&
-    message.content.some(part => part.type === "image"));
-  return messages.map((message, index) => index === latest || !Array.isArray(message.content) ? message :
-    { ...message, content: message.content.filter(part => part.type !== "image") });
+  const images = messages.flatMap((message, index) => Array.isArray(message.content) &&
+    message.content.some(part => part.type === "image") ? [index] : []).slice(-2);
+  const size = images.reduce((total, index) => total + messages[index].content.reduce((sum, part) =>
+    sum + (part.type === "image" ? part.data.length : 0), 0), 0);
+  // Leave room for text/tool history below the process packet's 1 MiB limit.
+  if (images.length > 1 && size > 640 * 1024) images.shift();
+  return messages.map((message, index) => {
+    if (!Array.isArray(message.content)) return message;
+    if (!images.includes(index)) return { ...message, content: message.content.filter(part => part.type !== "image") };
+    const label = index === images.at(-1) ? "CURRENT screenshot: use this view for your next inputs." :
+      "PREVIOUS screenshot: comparison only, not the current state.";
+    return { ...message, content: [{ type: "text", text: label }, ...message.content] };
+  });
 }
 
 export default function playerTools(pi) {
@@ -151,17 +187,19 @@ export default function playerTools(pi) {
     name: "game_input",
     label: "game input",
     description: "Send an ordered batch of ordinary mouse/keyboard inputs to your 800x600 player view. " +
-      "Maximum 16 actions and 2000 ms total. The game keeps running while you think. " +
+      coordinateConvention + " " +
+      "Maximum 16 actions and 2000 ms in requested durations. The game keeps running while you think. " +
+      "Before calling, briefly state your observation and intent in ordinary assistant text; it stays in your history. " +
+      "Use a move-only call to aim without clicking: inspect the returned cursor/hover feedback, then adjust or click in a later call. " +
+      "There are no intermediate screenshots within a batch. " +
       "Returns a fresh screenshot after execution. Send an empty actions array to look without acting. " +
       "Key and click duration defaults to 100 ms, drag to 250 ms. Modifiers apply to key presses only.",
     parameters,
     async execute(_callId, arguments_, signal) {
       const screenshot = await input(arguments_.actions, signal);
-      const text = `Your view at game frame ${screenshot.frame}, ${screenshot.milliseconds} ms since launch. ` +
-        "The game is still running; this image ages while you think.";
-      return { content: [{ type: "text", text }, { type: "image", mimeType: "image/png",
+      return { content: [{ type: "text", text: describeScreenshot(screenshot) }, { type: "image", mimeType: "image/png",
         data: Buffer.from(screenshot.png).toString("base64") }],
-        details: { frame: screenshot.frame, milliseconds: screenshot.milliseconds, actions: arguments_.actions } };
+        details: { frame: screenshot.frame, milliseconds: screenshot.milliseconds, pointer: screenshot.pointer, actions: arguments_.actions } };
     },
   });
 }

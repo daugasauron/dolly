@@ -42,11 +42,12 @@ test("browser preparation never removes another process's profile locks or debug
     const source = await readFile(new URL("../scripts/browser-harness.mjs", import.meta.url), "utf8");
     const preparation = source.slice(source.indexOf("const requestedProfile = "), source.indexOf("chrome = spawn(chromeBinary, ["));
     assert.ok(preparation.includes("requestedProfile"));
-    await runInNewContext(`(async () => {
+    for (const rtsLiveMode of [false, true]) await runInNewContext(`(async () => {
       let persistentProfile, browserDownloadDirectory, userDataDir, ephemeralProfileRoot;
       ${preparation}
-    })()`, { process: { env: { DOLLY_BROWSER_PROFILE: profile } }, realOpenRouterMode: false,
-      mkdir, mkdtemp, rm, resolve, tmpdir: () => root });
+      assert.equal(persistentProfile, rtsLiveMode ? null : process.env.DOLLY_BROWSER_PROFILE);
+    })()`, { process: { env: { DOLLY_BROWSER_PROFILE: profile } }, realOpenRouterMode: false, rtsLiveMode,
+      assert, mkdir, mkdtemp, rm, resolve, tmpdir: () => root });
     for (const name of names) {
       assert.equal(await readFile(resolve(profile, name), "utf8"), `owned by another browser: ${name}`);
     }

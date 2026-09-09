@@ -16,10 +16,16 @@ REQUIRES TOOL slop
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL tar
+REQUIRES TOOL gzip
+REQUIRES TOOL upload
+REQUIRES TOOL mkdir
 
-SOURCE HOST /static/rts/arena.tar /tmp/rts-arena/source.tar df4795409009538cce732a3249bf7b50a548fa76971d620b520be29e47f582a3
+SOURCE HOST /static/rts/arena.tar /tmp/rts-arena/source.tar efbae2b542ac6a5e1d47ad607908dc7fe4639de4f5ef5b692e3206db660b82f0
 SOURCE HOST /static/default/stb_truetype.h /tmp/rts-arena/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
 SLOP tar -xf /tmp/rts-arena/source.tar -C /
+SLOP mkdir -p /usr/share/dolly/rts
+SLOP gzip -dc /tmp/rts-arena/demo.tar.gz | tar -xf - -C /usr/share/dolly/rts
+FOLDER /usr/share/dolly/rts
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/rts-arena \
   /usr/src/dolly/rts/spectator/viewer.cpp -o /usr/bin/rts-viewer -lSDL2 -lm
 SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
@@ -33,13 +39,8 @@ FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then
       /bin/slop -e "$HOME/.dollyrc"
     fi
+    /bin/foreground -i /usr/bin/rts-arena
     /bin/foreground -i /bin/slop
 FILE /home/dolly/.dollyrc
-    printf '\033[33mDOLLY / RTS ARENA\033[0m\n'
-    printf 'Two Pi agents play Seven Kingdoms from separate player screenshots.\n'
-    printf 'First run pi and use /login for OpenRouter, then exit Pi.\n'
-    printf 'Start: rts-arena MODEL_1 MODEL_2 [seconds, default 600]\n'
-    printf 'Both models must accept images. Real API calls cost money.\n'
-    printf 'Escape stops the match. Histories: /workspace/rts-matches\n'
-    printf 'Try the game yourself: seven-kingdoms -noaudio -win\n\n'
+    printf 'Shell commands: rts-arena (launcher), seven-kingdoms -noaudio -win (play yourself).\n\n'
 SLOP rm -rf /tmp/rts-arena

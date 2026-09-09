@@ -103,6 +103,13 @@ digest. Documentation publishing has an explicit source allowlist.
 The [static exporter](deployment.md) preserves this layout.
 Neither a custom recipe nor a test query can turn the server into a shell.
 
+The optional development-only Codex relay (`scripts/codex-relay.mjs`) is a
+separate HTTP destination, not a browser import or shipped local service. It
+binds loopback, checks exact Host/Origin and a random bearer capability, bounds
+requests, and forwards only the fixed Codex inference endpoint without redirects.
+Only this relay reads the local subscription login; it exposes no filesystem or
+process operations. Granting its capability permits spending that account's quota.
+
 ## Recheck
 
 ```sh

@@ -13,12 +13,76 @@
  
  #ifdef ENABLE_INTRO_VIDEO
  	//----------- play movie ---------------//
-@@ -366,3 +368,4 @@
+@@ -366,3 +368,5 @@
 -	switch( cmd_line.startup_mode )
 +	if (dolly_rts_player()) dolly_rts_run();
++	else if (dolly_rts_replay(argc, argv)) {}
 +	else switch( cmd_line.startup_mode )
  	{
  	case STARTUP_NORMAL:
+--- a/include/OBATTLE.h
++++ b/include/OBATTLE.h
+@@ -48,1 +48,1 @@
+-	void	run_replay();
++	int	run_replay(char *filename = 0);
+--- a/src/OBATTLE.cpp
++++ b/src/OBATTLE.cpp
+@@ -665,5 +665,5 @@
+-void Battle::run_replay()
++int Battle::run_replay(char *filename)
+ {
+ 	NewNationPara *mpGame = (NewNationPara *)mem_add(sizeof(NewNationPara)*MAX_NATION);
+ 	int mpPlayerCount = 0;
+-	FilePath full_path(sys.dir_config);
++	FilePath full_path(filename ? filename : sys.dir_config);
+@@ -672,9 +672,9 @@
+-	full_path += "NONAME.RPL";
+-	if( full_path.error_flag )
+-		return;
+-
+-	if( !remote.init_replay_load(full_path, mpGame, &mpPlayerCount) )
+-		return;
++	if (!filename) full_path += "NONAME.RPL";
++	if( full_path.error_flag || !remote.init_replay_load(full_path, mpGame, &mpPlayerCount) )
++	{
++		mem_del(mpGame);
++		return 0;
++	}
+ 
+ 	game.init();
+-	game.game_mode = GAME_DEMO;
++	game.game_mode = dolly_rts_replay_player() ? GAME_MULTI_PLAYER : GAME_DEMO;
+@@ -683,5 +683,8 @@
+ 	mem_del(mpGame);
++	if (dolly_rts_replay_player()) vga.flip();
++	const int result = remote.is_replay_end() ? 1 : 2;
+ 	remote.deinit();
+ 	game.deinit();
+ 	config = tmpConfig;
++	return result;
+ }
+--- a/src/ONATIONA.cpp
++++ b/src/ONATIONA.cpp
+@@ -184,1 +184,3 @@
++	if (dolly_rts_replay_player() == nationRecno) nationType = NATION_OWN;
++
+ 	if( nationType == NATION_OWN )
+--- a/src/OREMOTE.cpp
++++ b/src/OREMOTE.cpp
+@@ -191,1 +191,1 @@
+-	return connectivity_mode == MODE_MP_ENABLED;
++	return connectivity_mode == MODE_MP_ENABLED || dolly_rts_replay_detecting();
+@@ -241,1 +241,2 @@
++	if (dolly_rts_replay_player()) return dolly_rts_replay_player();
+ 	err_when(connectivity_mode != MODE_MP_ENABLED);
+--- a/src/OREMOTE2.cpp
++++ b/src/OREMOTE2.cpp
+@@ -186,4 +186,5 @@
+ char* Remote::new_send_queue_msg(uint32_t msgId, int dataSize)
+ {
++	if (dolly_rts_replay_player()) return dolly_rts_replay_discard(dataSize);
+ 	char *dataPtr = send_queue[0].reserve(sizeof(short) + sizeof(uint32_t) + dataSize);
+ 
 --- a/src/OVGA.cpp
 +++ b/src/OVGA.cpp
 @@ -357,6 +357,8 @@
@@ -30,6 +94,9 @@
  
     while( SDL_PollEvent(&event) )
     {
+@@ -804,1 +806,1 @@
+-   if (cur_ticks > ticks + 17 || cur_ticks < ticks) {
++   if (cur_ticks > ticks + 17 || cur_ticks < ticks || dolly_rts_replay_eof()) {
 @@ -807,6 +809,7 @@
        SDL_UpdateTexture(texture, NULL, target->pixels, target->pitch);
        SDL_RenderClear(renderer);
@@ -67,25 +134,72 @@
  	int ret;
 --- a/src/OSYS.cpp
 +++ b/src/OSYS.cpp
+@@ -797,1 +797,3 @@
++         dolly_rts_replay_detect(true);
+          detect();
++         dolly_rts_replay_detect(false);
 @@ -1423,4 +1423,5 @@
        if ( !ec_remote.is_player_valid(nationRecno) )
        {
 +         if (dolly_rts_player()) dolly_rts_transport_failed();
           DEBUG_LOG("Connection Lost");
           DEBUG_LOG(nationRecno);
-@@ -2621,4 +2622,5 @@
+@@ -1479,1 +1481,2 @@
++   if (dolly_rts_replay_player()) return dolly_rts_replay_next_frame();
+    //----- special modes: 0-frozen, 9-fastest possible -----//
+@@ -1680,4 +1681,5 @@
+       config.opaque_report = !config.opaque_report;
++      if (dolly_rts_player() || dolly_rts_replay_player()) return;
+ 
+       if( config.opaque_report )
+          box.msg( _("Opaque report mode") );
+@@ -2621,4 +2623,5 @@
  void Sys::set_speed(int frameSpeed, int remoteCall)
  {
-+   if (dolly_rts_player()) return;
++   if (dolly_rts_player() || dolly_rts_replay_player()) return;
     short requested_speed;
  
+@@ -2664,4 +2667,5 @@
+ void Sys::capture_screen()
+ {
++   if (dolly_rts_player() || dolly_rts_replay_player()) return;
+    FilePath full_path(dir_config);
+    const char filename_template[] = "7KXXXXXX.BMP";
+@@ -2767,4 +2771,5 @@
+ void Sys::save_game()
+ {
++   if (dolly_rts_player() || dolly_rts_replay_player()) return;
+    if( nation_array.player_recno==0 )     // cannot save game when the player's kingdom has been destroyed
+       return;
+--- a/src/OSYS2.cpp
++++ b/src/OSYS2.cpp
+@@ -575,1 +575,1 @@
+-		if( !remote.is_enable() )		// help is only available in a single player game as it has to pause the game
++		if( !remote.is_enable() && !dolly_rts_replay_player() )
+--- a/src/OSYS.cpp
++++ b/src/OSYS.cpp
+@@ -1198,3 +1198,3 @@
+-   if( remote.is_enable() )
++   if( remote.is_enable() && !dolly_rts_replay_player() )
+    {
+       //yield_wsock_msg();
+--- a/src/OINGMENU.cpp
++++ b/src/OINGMENU.cpp
+@@ -74,4 +74,6 @@
+ void InGameMenu::enter(char untilExitFlag)
+ {
++   // Arena lifecycle belongs to the spectator, not the players.
++   if (dolly_rts_player() || dolly_rts_replay_player()) return;
+    if( active_flag )
+       return;
 --- a/src/OOPTMENU.cpp
 +++ b/src/OOPTMENU.cpp
-@@ -318,3 +318,3 @@
--	else if( frame_speed_slide.detect() == 1)
-+	else if( !dolly_rts_player() && frame_speed_slide.detect() == 1)
- 	{
- 		tempConfig.frame_speed = frame_speed_slide.view_recno <= 30 ? frame_speed_slide.view_recno : 99;
+@@ -93,4 +93,5 @@
+ void OptionMenu::enter(char untilExitFlag)
+ {
++	if (dolly_rts_player() || dolly_rts_replay_player()) return;
+ 	if( is_active() )
+ 		return;
 --- a/src/OGAMEND.cpp
 +++ b/src/OGAMEND.cpp
 @@ -78,4 +78,8 @@

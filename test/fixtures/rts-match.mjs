@@ -22,8 +22,8 @@ const view = directory => {
     return { frame: bytes.readUInt32LE(0), milliseconds: bytes.readUInt32LE(4) };
   } finally { fs.closeSync(fd); }
 };
-async function until(test, description) {
-  const deadline = Date.now() + 90000;
+async function until(test, description, timeout = 90000) {
+  const deadline = Date.now() + timeout;
   while (!test()) {
     if (failed) throw failed;
     if (Date.now() >= deadline) throw Error(`RTS test timed out: ${description}`);
@@ -98,7 +98,76 @@ try {
   const [first, second] = await Promise.all(inputs.map(input => input([])));
   assert(Buffer.from(first.png).toString("base64") !== Buffer.from(second.png).toString("base64"),
     "Players must have different own-fog UI views");
+  // Move between two static panel regions: the rendered cursor must leave its
+  // old position, appear at the new one, and return without a click.
+  const cursorRegions = [];
+  for (const x of [650, 750, 650]) {
+    const screenshot = await inputs[0]([{ type: "move", x, y: 560, milliseconds: 100 }]);
+    equal(screenshot.pointer.x, x, "screenshot reports the actual pointer x");
+    equal(screenshot.pointer.y, 560, "screenshot reports the actual pointer y");
+    const pixels = fs.readFileSync(`${engines[0].directory}/view.rgba`);
+    cursorRegions.push([650, 750].map(center => Buffer.concat(Array.from({ length: 48 }, (_, row) => {
+      const start = 16 + ((536 + row) * 800 + center - 24) * 4;
+      return pixels.subarray(start, start + 48 * 4);
+    })).toString("base64")));
+  }
+  for (const region of [0, 1]) {
+    assert(cursorRegions[0][region] !== cursorRegions[1][region], "move-only input must relocate the visible cursor");
+    equal(cursorRegions[0][region], cursorRegions[2][region], "returning the cursor must restore the same panel pixels");
+  }
+  // Exercise the real menu/shortcut paths, not an input-broker blacklist.
+  // The quit buttons would enter a blocking confirmation in the unguarded game.
+  const lifecycleInputs = [
+    ["mouse menu/quit", [{ type: "click", x: 755, y: 25, button: "left" },
+      { type: "click", x: 285, y: 407, button: "left" }]],
+    ["keyboard menu/quit", [{ type: "key", key: "F10" },
+      { type: "click", x: 285, y: 441, button: "left" }]],
+    ...["O", "S", "L", "F11", "Space", "0", "1", "9", "P"].map(key =>
+      [key, [{ type: "key", key }]]),
+  ];
+  for (const [label, actions] of lifecycleInputs) {
+    await inputs[0](actions);
+    const before = engines.map(engine => view(engine.directory));
+    await inputs[0]([{ type: "wait", milliseconds: 1000 }]);
+    await until(() => engines.every((engine, index) => view(engine.directory).frame >= before[index].frame + 10),
+      `${label} must not stall either player`, 5000).catch(error => {
+        throw Error(`${error.message}; views: ${JSON.stringify({ before, after: engines.map(engine => view(engine.directory)) })}`);
+      });
+    for (const [index, engine] of engines.entries()) {
+      const after = view(engine.directory);
+      const frames = after.frame - before[index].frame, elapsed = after.milliseconds - before[index].milliseconds;
+      assert(frames >= Math.floor(elapsed * 0.010) - 2 && frames <= Math.ceil(elapsed * 0.025) + 2,
+        `${label} must preserve simulation speed: ${frames} frames in ${elapsed} ms`);
+    }
+  }
+  await inputs[0]([{ type: "key", key: "P" }, { type: "key", key: "Escape" }]);
+  assert(engines.every(engine => !fs.readdirSync(engine.directory).some(name => /\.(SVM|SAV|BMP)$/i.test(name))),
+    "Player shortcuts must not create saves or screenshots");
+  console.log("RTS-LIFECYCLE-OK: menu, options, saves, screenshots and pause/speed keys cannot interrupt the match");
   await inputs[0]([{ type: "click", x: 330, y: 350, button: "left" }, { type: "key", key: "R" }]);
+  // Compare the same dialog opened by keyboard and by click-then-move. Moving
+  // before the button consumes its release used to cancel the click entirely.
+  const panel = () => {
+    const pixels = fs.readFileSync(`${engines[0].directory}/view.rgba`);
+    return Buffer.concat(Array.from({ length: 120 }, (_, row) => {
+      const start = 16 + ((320 + row) * 800 + 590) * 4;
+      return pixels.subarray(start, start + 140 * 4);
+    })).toString("base64");
+  };
+  const moveAway = { type: "move", x: 750, y: 560, milliseconds: 100 };
+  const closeTraining = { type: "click", x: 550, y: 560, button: "right" };
+  const trainingView = await inputs[0]([{ type: "key", key: "B" }, moveAway]);
+  const trainingPanel = panel();
+  await inputs[0]([closeTraining]);
+  assert(panel() !== trainingPanel, "training dialog must close on right-click");
+  const clickedView = await inputs[0]([{ type: "click", x: 658, y: 490, button: "left" }, moveAway]);
+  if (panel() !== trainingPanel) {
+    fs.writeFileSync(`${replayRoot}/training-key.png`, trainingView.png);
+    fs.writeFileSync(`${replayRoot}/training-click.png`, clickedView.png);
+    throw Error("click-then-move must open the same dialog as its keyboard shortcut before returning a screenshot");
+  }
+  await inputs[0]([closeTraining]);
+  console.log("RTS-RELEASE-ORDER-OK: click release is consumed before the next pointer move and screenshot");
   for (const index of [1, 2]) fs.writeFileSync(`${scratch}/player${index}.txt`,
     "Browser integration test: real game engines; no model or provider is running.\nPlayer 1: select the town and recruit with R. Player 2: no input.\n");
   viewer = spawn("rts-viewer", [scratch, scratch, "fixture 1", "fixture 2"], { stdio: ["ignore", "inherit", "inherit"] });

@@ -124,9 +124,20 @@ int main(int argc, char **argv)
     const int status = running ? 0 : 1;
     if (!running) std::fprintf(stderr, "rts-viewer: %s\n", SDL_GetError());
     while (running) {
+        const auto replay = read(std::string(argv[1]) + "/replay-status", 4096);
         SDL_Event event;
-        while (SDL_PollEvent(&event))
+        while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)) running = false;
+            if (!replay.empty() && event.type == SDL_KEYDOWN && !event.key.repeat) {
+                const auto key = event.key.keysym.sym;
+                const char *command = key == SDLK_SPACE ? "pause" : key == SDLK_EQUALS || key == SDLK_PLUS ? "faster" :
+                    key == SDLK_MINUS ? "slower" : nullptr;
+                const std::string path = std::string(argv[1]) + "/replay-control";
+                if (command) if (FILE *file = std::fopen(path.c_str(), "a")) {
+                    std::fprintf(file, "%s\n", command); std::fclose(file);
+                }
+            }
+        }
         SDL_SetRenderDrawColor(renderer, 38, 38, 38, 255);
         SDL_RenderClear(renderer);
         for (int n = 0; n < 2; ++n) {
@@ -144,14 +155,15 @@ int main(int argc, char **argv)
             const auto trace = read(std::string(argv[2]) + "/" + player + ".txt", 128 * 1024);
             text(std::string(trace.begin(), trace.end()), n * 800 + 10, 638, 780, 13, true);
         }
-        text("Escape: stop match | Both games keep running while Pi thinks. Full histories are saved in /workspace/rts-matches.",
+        text(replay.empty() ? "Escape: stop match | Both games keep running while Pi thinks. Full histories are saved in /workspace/rts-matches." :
+            std::string(replay.begin(), replay.end()),
             10, 944, 1580, 1, false);
         SDL_RenderPresent(renderer);
         if (glyphs.size() > 2048) {
             for (auto &entry : glyphs) SDL_DestroyTexture(entry.second.texture);
             glyphs.clear();
         }
-        SDL_Delay(100);
+        SDL_Delay(33);
     }
     for (auto &entry : glyphs) SDL_DestroyTexture(entry.second.texture);
     for (auto view : views) SDL_DestroyTexture(view);

@@ -4,9 +4,17 @@
 #include <stdint.h>
 int dolly_rts_prepare();
 uint32_t dolly_rts_player();
+uint32_t dolly_rts_replay_player();
+bool dolly_rts_replay_eof();
+bool dolly_rts_replay_detecting();
+void dolly_rts_replay_detect(bool active);
+int dolly_rts_replay_next_frame();
+uint32_t dolly_rts_replay_milliseconds(uint32_t frame);
+char *dolly_rts_replay_discard(int size);
 void dolly_rts_configure();
 void dolly_rts_poll();
 void dolly_rts_run();
+bool dolly_rts_replay(int argc, char **argv);
 int dolly_rts_send(uint32_t to, const void *bytes, uint32_t size);
 char *dolly_rts_receive(uint32_t *from, uint32_t *size, int *system_messages);
 void dolly_rts_transport_failed();

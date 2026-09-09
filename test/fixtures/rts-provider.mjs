@@ -19,13 +19,19 @@ export function rtsProvider() {
     const id = `rts-fixture-${requests.length}`;
     response.writeHead(200, { ...headers, "content-type": "text/event-stream" });
     response.flushHeaders();
-    await new Promise(resolve => setTimeout(resolve, payload.model === "rts-test-fast" ? 30 : 650));
+    await new Promise(resolve => setTimeout(resolve, payload.model === "rts-test-fast" ? 30 : 4000));
     if (response.destroyed) return;
     const send = (delta, finish_reason = null) => response.write(`data: ${JSON.stringify({
       id, object: "chat.completion.chunk", created: 0, model: payload.model,
       choices: [{ index: 0, delta, finish_reason }],
     })}\n\n`);
     send({ role: "assistant", reasoning_content: "RTS-FIXTURE-THINKING: scripted integration test, not a real model.\n" });
+    send({ content: "RTS-FIXTURE-INTENT: I will compare the next view after these inputs.\n" });
+    if (requests.filter(request => request.model === payload.model).length === 2) {
+      send({}, "stop");
+      response.end("data: [DONE]\n\n");
+      return;
+    }
     const key = payload.model === "rts-test-fast" ? "Right" : "Left";
     send({ tool_calls: [{ index: 0, id: `call_${id}`, type: "function", function: {
       name: "game_input", arguments: JSON.stringify({ actions: [
@@ -42,7 +48,13 @@ export function rtsProvider() {
     assert.notEqual(fast[0].images[0], slow[0].images[0], "Players must not share their initial observation");
     for (const sequence of [fast, slow]) {
       assert.ok(sequence.some(request => request.messages.some(message => message.role === "tool")), "Tool history must reach the next request");
-      assert.ok(sequence.every(request => request.images.length === 1), "Only the newest screenshot belongs in model context");
+      assert.ok(sequence.some(request => request.messages.filter(message => message.role === "user" &&
+        JSON.stringify(message.content).includes("Play from this view.")).length >= 2),
+        "a text-only response must settle before the supervisor continues the same session");
+      assert.ok(sequence.every(request => request.images.length <= 2), "Keep at most two recent screenshots in model context");
+      assert.ok(sequence.some(request => request.images.length === 2), "Include before/after feedback");
+      assert.ok(sequence.slice(1).every(request => request.messages.some(message => message.role === "assistant" &&
+        JSON.stringify(message.content).includes("RTS-FIXTURE-INTENT"))), "Ordinary assistant intent must reach subsequent requests");
       assert.ok(sequence.some(request => request.images[0] !== sequence[0].images[0]), "Fresh tool screenshots must reach the provider");
     }
     return { fast: fast.length, slow: slow.length };

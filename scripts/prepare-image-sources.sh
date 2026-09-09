@@ -244,7 +244,8 @@ if has_module rts-arena; then
   node scripts/build-source-tar.mjs "${static_dir}/rts/arena.tar" \
     "${project_dir}/src/rts/player.js" /usr/src/dolly/rts/player.js \
     "${project_dir}/src/rts/PLAYER.md" /usr/src/dolly/rts/PLAYER.md \
-    "${project_dir}/src/rts/spectator" /usr/src/dolly/rts/spectator
+    "${project_dir}/src/rts/spectator" /usr/src/dolly/rts/spectator \
+    "${project_dir}/src/rts/demo.tar.gz" /tmp/rts-arena/demo.tar.gz
 fi
 if has_module neovim-parsers; then
   parser_inputs=()

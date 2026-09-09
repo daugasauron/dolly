@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define RTS_INPUT_MAGIC 0x31535452u
-#define RTS_INPUT_VERSION 1u
+#define RTS_INPUT_VERSION 2u
 #define RTS_INPUT_MAX_ACTIONS 16u
 #define RTS_INPUT_MAX_MILLISECONDS 2000u
 
@@ -26,7 +26,8 @@ typedef struct {
 // Exactly png_size PNG bytes follow this 32-byte header. Status is an errno;
 // a failed or cancelled batch has no image. Times are relative to game launch.
 typedef struct {
-    uint32_t magic, version, id, status, frame, milliseconds, png_size, reserved;
+    uint32_t magic, version, id, status, frame, milliseconds, png_size;
+    uint16_t pointer_x, pointer_y;
 } RtsInputResponse;
 
 #ifdef __cplusplus
