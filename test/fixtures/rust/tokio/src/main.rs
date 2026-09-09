@@ -106,6 +106,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
         tokio::time::timeout(Duration::from_secs(3), http::get(&format!("{origin}/stream"), |bytes| {
+            if received.is_empty() && !bytes.is_empty() {
+                println!("TOKIO-HTTP-FIRST-{}", std::env::var("TOKIO_HTTP_RUN").unwrap());
+            }
             if !bytes.is_empty() { arrivals.push(Instant::now()); }
             received.extend_from_slice(bytes);
         })).await??;

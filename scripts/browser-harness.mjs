@@ -362,7 +362,7 @@ function startServer() {
       if (sdl2Mode && requestUrl.pathname.startsWith("/fixture/")) {
         const sources = { "sdl2-probe.c": "test/fixtures/sdl2-probe.c",
           "rts-input-probe.cpp": "test/fixtures/rts-input-probe.cpp",
-          "input.cpp": "src/rts/input.cpp", "input.h": "src/rts/input.h" };
+          "input.cpp": "src/rts/input.cpp", "input.h": "src/rts/input.h", "arena.h": "src/rts/arena.h" };
         const name = requestUrl.pathname.slice("/fixture/".length);
         if (Object.hasOwn(sources, name)) {
           response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
@@ -2482,7 +2482,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 input completion"), 0);
         assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
         assert.equal(await submit("test -s /tmp/dolly-sdl2/probe.c"), 0);
-        for (const name of ["input.cpp", "input.h", "rts-input-probe.cpp"])
+        for (const name of ["input.cpp", "input.h", "arena.h", "rts-input-probe.cpp"])
           assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/${name} -o /tmp/dolly-sdl2/${name}`), 0);
         assert.equal(await submit("mkdir /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 /tmp/dolly-sdl2/input.cpp /tmp/dolly-sdl2/rts-input-probe.cpp -o /tmp/dolly-sdl2/rts-input-probe -lSDL2 -lz -lm && /tmp/dolly-sdl2/rts-input-probe"), 0);
         assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false, "offscreen player input must not acquire the browser display");
@@ -3142,7 +3142,8 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       }
       await enterRecoveryShell(debuggerClient.send);
       const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
-      if (tokioMode) await tokioFixture.run(submit, localOrigin);
+      if (tokioMode) await tokioFixture.run(submit, localOrigin, iteration =>
+        waitForTerminalText(debuggerClient.send, new RegExp(`TOKIO-HTTP-FIRST-${iteration}`), "Tokio first HTTP chunk"));
       else if (rustToolsMode) await runRustTools(submit, localOrigin);
       else if (fdMode) await runFd(submit);
       else await runRipgrep(submit);
