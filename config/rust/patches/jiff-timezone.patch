@@ -1,0 +1,11 @@
+--- a/src/tz/system/mod.rs
++++ b/src/tz/system/mod.rs
+@@ -29,7 +29,7 @@
+ mod sys;
+ 
+ #[cfg(all(target_family = "wasm", target_os = "emscripten"))]
+-#[path = "wasm_emscripten.rs"]
++#[path = "unix.rs"]
+ mod sys;
+ 
+ #[cfg(not(any(

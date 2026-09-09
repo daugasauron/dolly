@@ -1,0 +1,7 @@
+DOLLY 3
+IMAGE fd-build
+
+FROM HOST /Dollyfile-rust-tools 5cc5548cacbeeb998448479084f58a11fa8332eed9826e7f3d50e06e0f0177ff
+USE HOST /modules/fd.dm 2ae6465c5950a5b086ed67b0968ee3ef296b96c5b9980ce0fd829001bf6c45c3
+
+ENTRY /bin/foreground -i /bin/slop

@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE codex
 
-FROM HOST /Dollyfile e5ff7f552f6bb46bd1367f3b80ca176571a3d50e688ed91a2a9bdbcfda505035
+FROM HOST /Dollyfile a5a142c985be28d3a6b87d3df28c96e6d37ae1efcc784f813060f526f86deb7e
 COPY FROM HOST /Dollyfile-codex-build 7b951c182fc43be00991a0c2a028e6298f1f403e21bc2e56227b7d552389f5dd /usr/bin/codex /usr/libexec/codex
 COPY FROM HOST /Dollyfile-codex-build 7b951c182fc43be00991a0c2a028e6298f1f403e21bc2e56227b7d552389f5dd /usr/share/licenses/codex /usr/share/licenses/codex
 COPY FROM HOST /Dollyfile-codex-build 7b951c182fc43be00991a0c2a028e6298f1f403e21bc2e56227b7d552389f5dd /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json

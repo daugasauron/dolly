@@ -585,6 +585,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["default", "/bin/slop"],
     ["dollyfile-studio", "/usr/bin/dollyfile-lint"],
     ["external-source", "/usr/bin/xxd"],
+    ["fd-build", "/usr/bin/fd"],
     ["pi", "/usr/bin/pi"],
     ["pi-local", "/usr/bin/pi"],
     ["python", "/bin/slop"],
@@ -628,7 +629,13 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     for (const path of ["/usr/bin/rg", "/usr/share/dolly/builds/ripgrep.json",
       "/usr/share/licenses/ripgrep/LICENSE-MIT"]) {
       assert.equal(metadata.manifest.includes(path),
-        !["system-build", "ghostty-build", "rust-sdk", "rust-tools", "protox-build", "codex-build"].includes(image),
+        !["system-build", "ghostty-build", "rust-sdk", "rust-tools", "protox-build", "codex-build", "fd-build"].includes(image),
+        `${image}: ${path}`);
+    }
+    for (const path of ["/usr/bin/fd", "/usr/share/dolly/builds/fd.json",
+      "/usr/share/licenses/fd/LICENSE-MIT", "/usr/share/licenses/fd/LICENSE-APACHE"]) {
+      assert.equal(metadata.manifest.includes(path),
+        !["system-build", "ghostty-build", "rust-sdk", "rust-tools", "protox-build", "codex-build", "ripgrep"].includes(image),
         `${image}: ${path}`);
     }
     assert.equal(
@@ -698,6 +705,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     { image: "codex-build", dollyfile: "Dollyfile-codex-build" },
     { image: "dollyfile-studio", dollyfile: "Dollyfile-dollyfile-studio" },
     { image: "external-source", dollyfile: "Dollyfile-external-source" },
+    { image: "fd-build", dollyfile: "Dollyfile-fd-build" },
     { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
     { image: "gamedev-phone", dollyfile: "Dollyfile-gamedev-phone" },
     { image: "gamedev-sdk", dollyfile: "Dollyfile-gamedev-sdk" },
@@ -728,7 +736,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const generatedMenu = await readFile(new URL("../build/routes/index.html", import.meta.url), "utf8");
   const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
     "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi",
-    "cmake-build", "codex-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
+    "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
     "protox-build", "python-runtime", "ripgrep", "rust-sdk", "rust-tools", "system", "system-build"];
   assert.deepEqual([...generatedMenu.matchAll(/<tr class="image" data-image="([^"]+)">/g)].map(match => match[1]),
     menuOrder.filter(image => selected.has(image)));

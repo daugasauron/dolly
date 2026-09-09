@@ -83,9 +83,11 @@ DOLLY_IMAGE=neovim DOLLY_BROWSER_MODE=neovim \
 
 DOLLY_IMAGE=rust-tools DOLLY_BROWSER_MODE=rust-tools \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
-for rg_image in default system pi dollyfile-studio; do
-  DOLLY_IMAGE="${rg_image}" DOLLY_BROWSER_MODE=ripgrep \
-    node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+for image in default system pi dollyfile-studio; do
+  for tool in ripgrep fd; do
+    DOLLY_IMAGE="${image}" DOLLY_BROWSER_MODE="${tool}" \
+      node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+  done
 done
 python3 "${project_dir}/test/fixtures/prepare-tokio.py"
 DOLLY_IMAGE=rust-tools DOLLY_BROWSER_MODE=tokio \

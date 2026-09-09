@@ -98,7 +98,7 @@ if has_module patti; then
     copy_static "src/third_party/tomlc17/${name}" "patti/${name}"
   done
 fi
-for program in ripgrep protox; do
+for program in ripgrep protox fd; do
   if has_module "${program}"; then
     python3 scripts/prepare-rust-sources.py "${program}"
     copy_static "build/rust-sources/${program}.tar" "rust/${program}.tar"

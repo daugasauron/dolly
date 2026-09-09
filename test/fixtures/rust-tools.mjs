@@ -76,3 +76,51 @@ console.log("Pi found system ripgrep and searched through its upstream grep tool
     await submit(`cd /workspace; rm -rf ${root}`);
   }
 }
+
+export async function runFd(submit) {
+  const root = "/tmp/dolly-fd-check";
+  const run = async command => assert.equal(await submit(command), 0, command);
+  await run(`mkdir -p ${root}/tree/nested ${root}/pruned/child ${root}/blocked/child`);
+  try {
+    await run(`cd ${root}; printf 'hello\\n' > tree/first.txt; touch tree/nested/日本語.txt tree/.hidden.txt tree/ignored.txt`);
+    await run("printf 'ignored.txt\\n' > tree/.gitignore; touch pruned/child/leaf blocked/STOP blocked/child/leaf");
+    await run("fd --version | grep -q 'fd 10.5.0'");
+    await run('test "$(fd --color=never --no-require-git -t f -e txt . tree | wc -l)" = 2');
+    await run('test "$(fd --color=never --hidden --no-ignore -t f -e txt . tree | wc -l)" = 4');
+    await run('test "$(fd --color=never --glob 日本語.txt tree)" = tree/nested/日本語.txt');
+    await run('test "$(fd --color=never --max-depth 1 -e txt . tree | wc -l)" = 2');
+    await run('test "$(fd --color=never --prune . pruned)" = pruned/child/');
+    await run('test -z "$(fd --color=never --ignore-contain STOP . blocked)"');
+    await run('test "$(fd --color=never --max-results 1 -e txt . tree | wc -l)" = 1');
+    await run('test "$(TZ=UTC fd --color=never --changed-within 1d first tree)" = tree/first.txt');
+    await run('test -z "$(TZ=UTC fd --color=never --changed-before 1d first tree)"');
+    await run("fd --quiet first tree");
+    assert.equal(await submit("fd --quiet absent-pattern tree"), 1);
+    assert.equal(await submit("fd '[' tree"), 1);
+    assert.equal(await submit("fd --threads 2 first tree"), 1);
+    await run('test "$(fd --color=never first tree -x cat {})" = hello');
+    await run('test "$(fd --color=never first tree -X cat {})" = hello');
+    await run('test "$(fd --color=always first tree | wc -c)" -gt 0');
+    await run('test "$(fd --print0 first tree | wc -c)" = 15');
+    await run('mv tree/first.txt tree/changed.txt; test "$(fd --color=never changed tree)" = tree/changed.txt');
+    const pi = "/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist";
+    const probe = `
+import { ensureTool } from "${pi}/utils/tools-manager.js";
+import { createFindTool } from "${pi}/core/tools/find.js";
+const messages = [];
+if (await ensureTool("fd", status => messages.push(status)) !== "fd" || messages.length) {
+  throw new Error("Pi did not find system fd: " + JSON.stringify(messages));
+}
+const result = await createFindTool("${root}/tree").execute("fd-check", { pattern: "*.txt" });
+const text = result.content.map(part => part.text ?? "").join("\\n");
+if (text.trim() !== ".hidden.txt\\nchanged.txt\\nnested/日本語.txt") {
+  throw new Error("Pi find returned unexpected matches: " + text);
+}
+console.log("Pi found system fd without warnings and searched through its upstream find tool");
+`;
+    await run(`printf %s ${shellQuote(probe.trim().replaceAll("\n", " "))} > ${root}/pi.mjs`);
+    await run(`if test -f ${pi}/utils/tools-manager.js; then PI_OFFLINE=1 janis -m ${root}/pi.mjs; fi`);
+  } finally {
+    await submit(`cd /workspace; rm -rf ${root}`);
+  }
+}

@@ -1,0 +1,475 @@
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -199,37 +199,7 @@
+         match self.recv() {
+             Ok(batch) => {
+                 for result in batch {
+-                    match result {
+-                        WorkerResult::Entry(dir_entry) => {
+-                            if self.config.quiet {
+-                                return Err(ExitCode::HasResults(true));
+-                            }
+-
+-                            match self.mode {
+-                                ReceiverMode::Buffering => {
+-                                    self.buffer.push(dir_entry);
+-                                    if self.buffer.len() > MAX_BUFFER_LENGTH {
+-                                        self.stream()?;
+-                                    }
+-                                }
+-                                ReceiverMode::Streaming => {
+-                                    self.print(&dir_entry)?;
+-                                }
+-                            }
+-
+-                            self.num_results += 1;
+-                            if let Some(max_results) = self.config.max_results
+-                                && self.num_results >= max_results
+-                            {
+-                                return self.stop();
+-                            }
+-                        }
+-                        WorkerResult::Error(err) => {
+-                            if self.config.show_filesystem_errors {
+-                                print_error(err.to_string());
+-                            }
+-                        }
+-                    }
++                    self.accept(result)?;
+                 }
+ 
+                 // If we don't have another batch ready, flush before waiting
+@@ -245,6 +215,41 @@
+             }
+         }
+ 
++        Ok(())
++    }
++
++    fn accept(&mut self, result: WorkerResult) -> Result<(), ExitCode> {
++        match result {
++            WorkerResult::Entry(dir_entry) => {
++                if self.config.quiet {
++                    return Err(ExitCode::HasResults(true));
++                }
++
++                match self.mode {
++                    ReceiverMode::Buffering => {
++                        self.buffer.push(dir_entry);
++                        if self.buffer.len() > MAX_BUFFER_LENGTH {
++                            self.stream()?;
++                        }
++                    }
++                    ReceiverMode::Streaming => {
++                        self.print(&dir_entry)?;
++                    }
++                }
++
++                self.num_results += 1;
++                if let Some(max_results) = self.config.max_results
++                    && self.num_results >= max_results
++                {
++                    return self.stop();
++                }
++            }
++            WorkerResult::Error(err) => {
++                if self.config.show_filesystem_errors {
++                    print_error(err.to_string());
++                }
++            }
++        }
+         Ok(())
+     }
+ 
+@@ -344,7 +349,7 @@
+             .map_err(|_| anyhow!("Mismatch in exclude patterns"))
+     }
+ 
+-    fn build_walker(&self, paths: &[PathBuf]) -> Result<WalkParallel> {
++    fn build_walker(&self, paths: &[PathBuf]) -> Result<WalkBuilder> {
+         let first_path = &paths[0];
+         let config = &self.config;
+         let overrides = self.build_overrides(paths)?;
+@@ -399,8 +404,8 @@
+             builder.add(path);
+         }
+ 
+-        let walker = builder.threads(config.threads).build_parallel();
+-        Ok(walker)
++        builder.threads(config.threads);
++        Ok(builder)
+     }
+ 
+     /// Run the receiver work, either on this thread or a pool of background
+@@ -442,9 +447,7 @@
+     /// Spawn the sender threads.
+     fn spawn_senders(&self, walker: WalkParallel, tx: Sender<Batch>) {
+         walker.run(|| {
+-            let patterns = &self.patterns;
+             let config = &self.config;
+-            let quit_flag = self.quit_flag.as_ref();
+ 
+             let mut limit = 0x100;
+             if let Some(cmd) = &config.command
+@@ -456,167 +459,213 @@
+             }
+             let mut tx = BatchSender::new(tx.clone(), limit);
+ 
+-            Box::new(move |entry| {
+-                if quit_flag.load(Ordering::Relaxed) {
+-                    return WalkState::Quit;
+-                }
+-
+-                if let Ok(e) = &entry {
+-                    // If the entry is a directory that contains a
+-                    // "ignore contain" file", we want to skip this
+-                    // directory.
+-                    // Check the filetype first to avoid unnecessary
+-                    // syscalls.
+-                    if e.file_type().is_some_and(|t| t.is_dir()) {
+-                        let entry_path = e.path();
+-                        if config
+-                            .ignore_contain
+-                            .iter()
+-                            .any(|ic| entry_path.join(ic).exists())
+-                        {
+-                            return WalkState::Skip;
+-                        }
+-                    }
+-                    if e.depth() == 0 {
+-                        // Skip the root directory entry.
++            Box::new(move |entry| self.visit(entry, |result| tx.send(result)))
++        });
++    }
++
++    fn visit(
++        &self,
++        entry: Result<ignore::DirEntry, ignore::Error>,
++        mut send: impl FnMut(WorkerResult) -> Result<(), SendError<()>>,
++    ) -> WalkState {
++        let patterns = &self.patterns;
++        let config = &self.config;
++        let quit_flag = self.quit_flag.as_ref();
++        if quit_flag.load(Ordering::Relaxed) {
++            return WalkState::Quit;
++        }
++
++        if let Ok(e) = &entry {
++            // If the entry is a directory that contains a
++            // "ignore contain" file", we want to skip this
++            // directory.
++            // Check the filetype first to avoid unnecessary
++            // syscalls.
++            if e.file_type().is_some_and(|t| t.is_dir()) {
++                let entry_path = e.path();
++                if config
++                    .ignore_contain
++                    .iter()
++                    .any(|ic| entry_path.join(ic).exists())
++                {
++                    return WalkState::Skip;
++                }
++            }
++            if e.depth() == 0 {
++                // Skip the root directory entry.
++                return WalkState::Continue;
++            }
++        }
++        let entry = match entry {
++            Ok(e) => DirEntry::normal(e),
++            Err(ignore::Error::WithPath {
++                path,
++                err: inner_err,
++            }) if inner_err
++                .io_error()
++                .is_some_and(|io_error| io_error.kind() == io::ErrorKind::NotFound)
++                && path
++                    .symlink_metadata()
++                    .ok()
++                    .is_some_and(|m| m.file_type().is_symlink()) =>
++            {
++                DirEntry::broken_symlink(path)
++            }
++            Err(err) => {
++                return match send(WorkerResult::Error(err)) {
++                    Ok(_) => WalkState::Continue,
++                    Err(_) => WalkState::Quit,
++                };
++            }
++        };
++
++        if let Some(min_depth) = config.min_depth
++            && entry.depth().is_none_or(|d| d < min_depth)
++        {
++            return WalkState::Continue;
++        }
++
++        // Check the name first, since it doesn't require metadata
++        let entry_path = entry.path();
++
++        let search_str = search_str_for_entry(entry_path, config.full_path_base.as_deref());
++
++        if !patterns
++            .iter()
++            .all(|pat| pat.is_match(&filesystem::osstr_to_bytes(search_str.as_ref())))
++        {
++            return WalkState::Continue;
++        }
++
++        // Filter out unwanted extensions.
++        if let Some(ref exts_regex) = config.extensions {
++            if let Some(path_str) = entry_path.file_name() {
++                if !exts_regex.is_match(&filesystem::osstr_to_bytes(path_str)) {
++                    return WalkState::Continue;
++                }
++            } else {
++                return WalkState::Continue;
++            }
++        }
++
++        // Filter out unwanted file types.
++        if let Some(ref file_types) = config.file_types
++            && file_types.should_ignore(&entry)
++        {
++            return WalkState::Continue;
++        }
++
++        #[cfg(unix)]
++        {
++            if let Some(ref owner_constraint) = config.owner_constraint {
++                if let Some(metadata) = entry.metadata() {
++                    if !owner_constraint.matches(metadata) {
+                         return WalkState::Continue;
+                     }
+-                }
+-                let entry = match entry {
+-                    Ok(e) => DirEntry::normal(e),
+-                    Err(ignore::Error::WithPath {
+-                        path,
+-                        err: inner_err,
+-                    }) if inner_err
+-                        .io_error()
+-                        .is_some_and(|io_error| io_error.kind() == io::ErrorKind::NotFound)
+-                        && path
+-                            .symlink_metadata()
+-                            .ok()
+-                            .is_some_and(|m| m.file_type().is_symlink()) =>
++                } else {
++                    return WalkState::Continue;
++                }
++            }
++        }
++
++        // Filter out unwanted sizes if it is a file and we have been given size constraints.
++        if !config.size_constraints.is_empty() {
++            if entry_path.is_file() {
++                if let Some(metadata) = entry.metadata() {
++                    let file_size = metadata.len();
++                    if config
++                        .size_constraints
++                        .iter()
++                        .any(|sc| !sc.is_within(file_size))
+                     {
+-                        DirEntry::broken_symlink(path)
+-                    }
+-                    Err(err) => {
+-                        return match tx.send(WorkerResult::Error(err)) {
+-                            Ok(_) => WalkState::Continue,
+-                            Err(_) => WalkState::Quit,
+-                        };
+-                    }
+-                };
+-
+-                if let Some(min_depth) = config.min_depth
+-                    && entry.depth().is_none_or(|d| d < min_depth)
+-                {
+-                    return WalkState::Continue;
+-                }
+-
+-                // Check the name first, since it doesn't require metadata
+-                let entry_path = entry.path();
+-
+-                let search_str = search_str_for_entry(entry_path, config.full_path_base.as_deref());
+-
+-                if !patterns
+-                    .iter()
+-                    .all(|pat| pat.is_match(&filesystem::osstr_to_bytes(search_str.as_ref())))
+-                {
+-                    return WalkState::Continue;
+-                }
+-
+-                // Filter out unwanted extensions.
+-                if let Some(ref exts_regex) = config.extensions {
+-                    if let Some(path_str) = entry_path.file_name() {
+-                        if !exts_regex.is_match(&filesystem::osstr_to_bytes(path_str)) {
+-                            return WalkState::Continue;
+-                        }
+-                    } else {
+                         return WalkState::Continue;
+                     }
+-                }
+-
+-                // Filter out unwanted file types.
+-                if let Some(ref file_types) = config.file_types
+-                    && file_types.should_ignore(&entry)
+-                {
++                } else {
+                     return WalkState::Continue;
+                 }
+-
+-                #[cfg(unix)]
+-                {
+-                    if let Some(ref owner_constraint) = config.owner_constraint {
+-                        if let Some(metadata) = entry.metadata() {
+-                            if !owner_constraint.matches(metadata) {
+-                                return WalkState::Continue;
+-                            }
+-                        } else {
+-                            return WalkState::Continue;
+-                        }
+-                    }
+-                }
+-
+-                // Filter out unwanted sizes if it is a file and we have been given size constraints.
+-                if !config.size_constraints.is_empty() {
+-                    if entry_path.is_file() {
+-                        if let Some(metadata) = entry.metadata() {
+-                            let file_size = metadata.len();
+-                            if config
+-                                .size_constraints
+-                                .iter()
+-                                .any(|sc| !sc.is_within(file_size))
+-                            {
+-                                return WalkState::Continue;
+-                            }
+-                        } else {
+-                            return WalkState::Continue;
+-                        }
+-                    } else {
+-                        return WalkState::Continue;
+-                    }
+-                }
+-
+-                // Filter out unwanted modification times
+-                if !config.time_constraints.is_empty() {
+-                    let mut matched = false;
+-                    if let Some(metadata) = entry.metadata()
+-                        && let Ok(modified) = metadata.modified()
+-                    {
+-                        matched = config
+-                            .time_constraints
+-                            .iter()
+-                            .all(|tf| tf.applies_to(&modified));
+-                    }
+-                    if !matched {
+-                        return WalkState::Continue;
+-                    }
+-                }
+-
+-                if config.is_printing()
+-                    && let Some(ls_colors) = &config.ls_colors
+-                {
+-                    // Compute colors in parallel
+-                    entry.style(ls_colors);
+-                }
+-
+-                let send_result = tx.send(WorkerResult::Entry(entry));
+-
+-                if send_result.is_err() {
+-                    return WalkState::Quit;
+-                }
+-
+-                // Apply pruning.
+-                if config.prune {
+-                    return WalkState::Skip;
+-                }
+-
+-                WalkState::Continue
+-            })
++            } else {
++                return WalkState::Continue;
++            }
++        }
++
++        // Filter out unwanted modification times
++        if !config.time_constraints.is_empty() {
++            let mut matched = false;
++            if let Some(metadata) = entry.metadata()
++                && let Ok(modified) = metadata.modified()
++            {
++                matched = config
++                    .time_constraints
++                    .iter()
++                    .all(|tf| tf.applies_to(&modified));
++            }
++            if !matched {
++                return WalkState::Continue;
++            }
++        }
++
++        if config.is_printing()
++            && let Some(ls_colors) = &config.ls_colors
++        {
++            // Compute colors in parallel
++            entry.style(ls_colors);
++        }
++
++        let send_result = send(WorkerResult::Entry(entry));
++
++        if send_result.is_err() {
++            return WalkState::Quit;
++        }
++
++        // Apply pruning.
++        if config.prune {
++            return WalkState::Skip;
++        }
++
++        WalkState::Continue
++    }
++
++    #[cfg(target_os = "emscripten")]
++    fn scan(&self, paths: &[PathBuf]) -> Result<ExitCode> {
++        anyhow::ensure!(self.config.threads == 1, "Dolly supports one fd worker");
++        let mut walker = self.build_walker(paths)?.build();
++        let results = std::iter::from_fn(|| loop {
++            let entry = walker.next()?;
++            let directory = entry.as_ref().is_ok_and(|e| e.file_type().is_some_and(|t| t.is_dir()));
++            let mut result = None;
++            match self.visit(entry, |item| { result = Some(item); Ok(()) }) {
++                WalkState::Quit => return None,
++                WalkState::Skip if directory => walker.skip_current_dir(),
++                _ => (),
++            }
++            if result.is_some() { return result; }
+         });
++        if let Some(cmd) = &self.config.command {
++            return Ok(if cmd.in_batch_mode() {
++                exec::batch(results, cmd, &self.config)
++            } else {
++                exec::job(results, cmd, &self.config)
++            });
++        }
++        let (_, rx) = bounded(0);
++        let mut output = ReceiverBuffer::new(self, rx, io::BufWriter::new(io::stdout().lock()));
++        for result in results {
++            if output.mode == ReceiverMode::Buffering && Instant::now() >= output.deadline {
++                if let Err(code) = output.stream() { return Ok(code); }
++            }
++            if let Err(code) = output.accept(result) { return Ok(code); }
++            if output.mode == ReceiverMode::Streaming {
++                if let Err(code) = output.flush() { return Ok(code); }
++            }
++        }
++        Ok(output.stop().unwrap_err())
+     }
+ 
+     /// Perform the recursive scan.
++    #[cfg(not(target_os = "emscripten"))]
+     fn scan(&self, paths: &[PathBuf]) -> Result<ExitCode> {
+         let config = &self.config;
+-        let walker = self.build_walker(paths)?;
++        let walker = self.build_walker(paths)?.build_parallel();
+ 
+         if config.ls_colors.is_some() && config.is_printing() {
+             let quit_flag = Arc::clone(&self.quit_flag);

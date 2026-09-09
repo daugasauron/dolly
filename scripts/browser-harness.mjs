@@ -23,7 +23,7 @@ import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
 import { demoFixture } from "../test/fixtures/codex-responses.mjs";
 import { runCodexTui } from "../test/fixtures/codex-tui.mjs";
 import { createTokioFixture } from "../test/fixtures/tokio.mjs";
-import { rustToolSources, runRustTools, runRipgrep } from "../test/fixtures/rust-tools.mjs";
+import { rustToolSources, runRustTools, runRipgrep, runFd } from "../test/fixtures/rust-tools.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
 import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git-transport.mjs";
@@ -70,6 +70,7 @@ const tokioMode = isMode("tokio");
 const codexMode = isMode("codex");
 const codexFixture = codexMode ? demoFixture() : null;
 const tokioFixture = tokioMode ? createTokioFixture() : null;
+const fdMode = isMode("fd");
 const ripgrepMode = isMode("ripgrep");
 const libuvMode = isMode("libuv");
 const cmakeMode = isMode("cmake");
@@ -2560,7 +2561,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       console.log("browser: real Codex TUI editing, paste, shell tool, file bytes, status and exit passed");
       break browserProof;
     }
-    if (rustToolsMode || ripgrepMode || tokioMode) {
+    if (rustToolsMode || ripgrepMode || fdMode || tokioMode) {
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "Rust tools boot", 1200), "ready");
@@ -2568,6 +2569,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       const submit = command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`);
       if (tokioMode) await tokioFixture.run(submit, localOrigin);
       else if (rustToolsMode) await runRustTools(submit, localOrigin);
+      else if (fdMode) await runFd(submit);
       else await runRipgrep(submit);
       console.log(`browser: ${requestedMode} source-built tools passed in the shared Wasm filesystem`);
       break browserProof;
@@ -3635,7 +3637,7 @@ int main(int argc, char **argv) {
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
       const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
         "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi",
-        "cmake-build", "codex-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
+        "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
         "protox-build", "python-runtime", "ripgrep", "rust-sdk", "rust-tools", "system", "system-build"];
       const selected = new Set(imageDefinitions.map(({ image }) => image));
       assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image), menuOrder.filter(image => selected.has(image)));

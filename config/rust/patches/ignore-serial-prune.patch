@@ -1,0 +1,17 @@
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -1124,6 +1124,14 @@
+ }
+ 
+ impl Walk {
++    /// Skip descendants of the directory most recently yielded by this walk.
++    #[cfg(target_os = "emscripten")]
++    pub fn skip_current_dir(&mut self) {
++        if let Some(walk) = &mut self.it {
++            walk.it.skip_current_dir();
++        }
++    }
++
+     /// Creates a new recursive directory iterator for the file path given.
+     ///
+     /// Note that this uses default settings, which include respecting

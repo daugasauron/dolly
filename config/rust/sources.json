@@ -13,5 +13,10 @@
     "url": "https://codeload.github.com/openai/codex/tar.gz/3d2ee51ca2d5db578f328aa75e20aa22c0197c9a",
     "sha256": "bbbf66ffa30846f1e9bc3ae8a87a5aa0bb768efee8dbb94759dc9eb64bb4aa3a",
     "directory": "codex-3d2ee51ca2d5db578f328aa75e20aa22c0197c9a"
+  },
+  "fd": {
+    "url": "https://codeload.github.com/sharkdp/fd/tar.gz/refs/tags/v10.5.0",
+    "sha256": "e6d9e90730bf316101691e49d59cc02565278dc3779d33a77423801569484851",
+    "directory": "fd-10.5.0"
   }
 }
