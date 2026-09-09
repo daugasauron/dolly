@@ -9,6 +9,7 @@ export const processSmokeSources = Object.freeze({
   "pipe-check.c": "src/process/pipe-check.c",
   "pipe-driver.c": "src/process/pipe-driver.c",
   "poll-check.c": "src/process/poll-check.c",
+  "mmap-check.c": "src/process/mmap-check.c",
   "dso-check.c": "src/process/dso-check.c",
   "dso-library.c": "src/process/dso-library.c",
   "dso-cpp-check.cpp": "src/process/dso-cpp-check.cpp",
@@ -50,7 +51,7 @@ export async function runProcessSmoke(submit, origin) {
       `DOLLY_PROCESS_HTTP_CHECK_URL=${origin}/fixture/http.txt ./http-check`,
       `/bin/slop -c './fs-check write ${scratch}/data && ./fs-check read ${scratch}/data'`,
       "/bin/slop -c 'export DOLLY_PROCESS_CHECK=private-memory; case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; ./process-check fresh'",
-      `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "cc --version",
+      `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "cc --version",
       `./dso-check ${scratch}/dso-library.so`, `./dso-cpp-check ${scratch}/dso-cpp-library.so`,
     ]) await run(command);
     await run(`./fs-check write ${scratch}/data`);

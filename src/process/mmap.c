@@ -3,11 +3,9 @@
 /*
  * Process-local mmap emulation for Dolly's WebAssembly target.
  *
- * A mapping is ordinary private Wasm memory. File-backed mappings copy bytes
- * through Dolly's descriptor substrate and retain their own descriptor, so the
- * mapping remains valid after the caller closes the descriptor used to create
- * it. MAP_SHARED mappings copy changed bytes back on msync() and munmap(). No
- * browser mapping, JavaScript object, or additional machine import is needed.
+ * A mapping is private Wasm memory, filled through Dolly's descriptor substrate.
+ * Only MAP_SHARED retains a descriptor for msync()/munmap() writeback; all
+ * mappings survive the caller closing the original descriptor.
  *
  * Wasm cannot revoke access to a subrange of linear memory. Version 0 therefore
  * supports whole-mapping munmap(), which is the only operation for which it can
@@ -138,17 +136,19 @@ intptr_t __syscall_mmap2(void *requested_address, size_t length,
       free(mapping);
       return -EACCES;
     }
-    retained_descriptor = dup(descriptor);
-    if (retained_descriptor < 0) {
-      const int error = errno;
-      free(address);
-      free(mapping);
-      return -error;
+    if (mapping_type == MAP_SHARED) {
+      retained_descriptor = dup(descriptor);
+      if (retained_descriptor < 0) {
+        const int error = errno;
+        free(address);
+        free(mapping);
+        return -error;
+      }
     }
     const int result = read_mapping(
-        retained_descriptor, address, length, file_offset);
+        descriptor, address, length, file_offset);
     if (result != 0) {
-      close(retained_descriptor);
+      if (retained_descriptor >= 0) close(retained_descriptor);
       free(address);
       free(mapping);
       return result;
