@@ -69,6 +69,7 @@ async function runDsoChecks() {
       check(data.getInt32(136, true) === 0, `${name}: valid DSO load failed`);
       check(data.getUint32(64, true) === 1 && data.getBigUint64(68, true) === 42n,
         `${name}: direct/GOT function resolution or constructors failed`);
+      check(data.getBigUint64(88, true) === 32768n, `${name}: GOT.mem data export was not rebased`);
       if (name === "start") check(data.getUint32(76, true) === 1, "Wasm initialization did not run");
     }
   }

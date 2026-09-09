@@ -95,6 +95,8 @@ Ordinary processes import only private memory and a typed Wasm gate.
 `src/process-abi.mjs` validates the contract before execution.
 `src/process-worker.mjs` loads process-local DSOs with typed symbol checks;
 it receives no Fetch, filesystem or JavaScript-evaluation adapter.
+Side-module data exports are offsets from their allocated memory base;
+`dlsym` and `GOT.mem` expose the corresponding absolute process addresses.
 Internal validation is defense in depth, not the host trust boundary.
 
 The local server serves manifest-listed, verified releases, not source or loose

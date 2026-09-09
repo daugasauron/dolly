@@ -189,8 +189,16 @@ function functionIndex(value) {
   return index;
 }
 
-function typedSymbols(exports, values) {
-  return new Map([...exports].map(entry => [entry.name, { type: entry.type, value: values[entry.name] }]));
+function typedSymbols(exports, values, memoryBase = 0n) {
+  return new Map([...exports].map(entry => {
+    let value = values[entry.name];
+    // Side-module data exports are offsets; dlsym and GOT.mem need addresses.
+    if (memoryBase !== 0n && entry.type.kind === "global" &&
+        entry.type.value === "i64" && !entry.type.mutable) {
+      value = new WebAssembly.Global({ value: "i64", mutable: false }, memoryBase + value.value);
+    }
+    return [entry.name, { type: entry.type, value }];
+  }));
 }
 
 function globalSymbol(name) {
@@ -331,7 +339,7 @@ function instantiateDso(bytes, flags) {
     if (existing !== undefined) relocation.global.value = symbolAddress(existing);
   }
   dsoInstance = new WebAssembly.Instance(module, imports);
-  dsoSymbols = typedSymbols(parsed.exports.values(), dsoInstance.exports);
+  dsoSymbols = typedSymbols(parsed.exports.values(), dsoInstance.exports, memoryBase);
   for (const pending of pendingFunctions) {
     if (pending.weak && !globalSymbol(pending.name) && !dsoSymbols.has(pending.name)) continue;
     pending.value = resolveFunction(pending);

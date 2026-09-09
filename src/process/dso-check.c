@@ -45,6 +45,13 @@ int main(int argc, char **argv) {
   }
   if (dolly_dlsym(handle, "\uFEFF\uFEFFdolly_process_dso_answer") != NULL ||
       dolly_dlerror() == NULL) return 67;
+  int *data = dolly_dlsym(handle, "dolly_process_dso_data");
+  symbol = dolly_dlsym(handle, "dolly_process_dso_data_address");
+  int *(*data_address)(void);
+  memcpy(&data_address, &symbol, sizeof(data_address));
+  if (data == NULL || symbol == NULL || data != data_address() || *data != 41) return 70;
+  *data = 42;
+  if (*data_address() != 42) return 71;
   if (dolly_dlclose(handle) != 0) return 63;
   return write(STDOUT_FILENO, "PROCESS-DSO-OK\n", 15) == 15 ? 0 : 64;
 }

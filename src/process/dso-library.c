@@ -10,6 +10,9 @@
 
 static int increment(int value) { return value + 1; }
 
+int dolly_process_dso_data = 41;
+int *dolly_process_dso_data_address(void) { return &dolly_process_dso_data; }
+
 static const char library_name[] = "dolly-process-dso";
 
 static const struct {

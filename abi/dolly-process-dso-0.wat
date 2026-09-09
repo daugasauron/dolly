@@ -7,6 +7,8 @@
   (import "env" "__memory_base" (global i64))
   (import "env" "__table_base" (global i64))
   ;; "symbol" stands for any relocation symbol name in these namespaces.
+  ;; Immutable i64 side-module data exports are offsets from __memory_base;
+  ;; GOT.mem and dlsym expose the corresponding absolute process address.
   (import "GOT.mem" "symbol" (global (mut i64)))
   (import "GOT.func" "symbol" (global (mut i64)))
 
