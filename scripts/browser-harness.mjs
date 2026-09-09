@@ -1275,6 +1275,7 @@ async function enterRecoveryShell(send) {
   } else if (selectedImage === "codex") {
     await waitForTerminalText(send, /Sign in with ChatGPT/, "Codex entry sign-in TUI", 1200);
     entryPid = await evaluate(send, "window.__dolly.foregroundPid");
+    await send("Page.bringToFront");
     await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
   } else {
     entryPid = await evaluate(send,
