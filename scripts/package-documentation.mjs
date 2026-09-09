@@ -30,6 +30,8 @@ export async function packageDocumentation(project, site, roots) {
       if (error.code !== "ENOENT") throw error;
     }
     if (!alreadyPublished && !linkedSources.has(path) &&
+        !/^Dollyfile(?:-[a-z0-9-]+)?$/.test(path) &&
+        !/^modules\/[a-z0-9-]+\.dm$/.test(path) &&
         !/^docs\/[a-z0-9-]+\.md$/.test(path) && path !== "abi/README.md") {
       throw new Error(`documentation links to an unpublished source: ${path}`);
     }

@@ -10,13 +10,14 @@ test("documentation packaging closes local links without exposing private source
   t.after(() => rm(root, { recursive: true, force: true }));
   const project = resolve(root, "project"), site = resolve(root, "site");
   for (const path of ["docs", "src", "abi"]) await mkdir(resolve(project, path), { recursive: true });
-  await writeFile(resolve(project, "docs/a.md"), "[b](b.md#heading) [ABI](../abi/README.md)");
+  await writeFile(resolve(project, "docs/a.md"), "[b](b.md#heading) [ABI](../abi/README.md) [unselected image](../Dollyfile-extra)");
+  await writeFile(resolve(project, "Dollyfile-extra"), "DOLLY 3\nIMAGE extra\n");
   await writeFile(resolve(project, "docs/b.md"), "[a](a.md) [source](../src/dolly.c)");
   await writeFile(resolve(project, "abi/README.md"), "[a](../docs/a.md)");
   await writeFile(resolve(project, "src/dolly.c"), "public source\n");
   assert.deepEqual(documentationLinks("[web](https://example.test/) [a](a.md#part) ```[not a link](x)```"), ["a.md"]);
   const copied = await packageDocumentation(project, site, ["docs/a.md"]);
-  assert.deepEqual([...copied].sort(), ["abi/README.md", "docs/a.md", "docs/b.md", "src/dolly.c"]);
+  assert.deepEqual([...copied].sort(), ["Dollyfile-extra", "abi/README.md", "docs/a.md", "docs/b.md", "src/dolly.c"]);
   await verifyDocumentationLinks(site);
   assert.equal(await readFile(resolve(site, "src/dolly.c"), "utf8"), "public source\n");
   await rm(resolve(site, "docs/b.md"));

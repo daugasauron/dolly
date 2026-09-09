@@ -11,7 +11,7 @@ import { mergeSnapshotRecords, validateSnapshotPacks } from "../src/snapshot-rec
 import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { contractDigest, validateBrowserImports } from "./dolly-abi.mjs";
 import { loadDollyfileGraph, recipeRecords } from "./dollyfile-graph.mjs";
-import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources } from "./image-definitions.mjs";
+import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources, selectImageDefinitions } from "./image-definitions.mjs";
 import { sha256, verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
@@ -88,7 +88,11 @@ export async function verifySite(site) {
   const browserContract = await readWasmInterface(resolve(site, "dist/dolly-browser-0.wasm"));
   const runtime = await readWasmInterface(resolve(site, "dist/dolly.wasm"));
   validateBrowserImports(browserContract.imports, runtime.imports);
-  const definitions = await discoverImageDefinitions(site);
+  // Documentation may include recipe text for images outside this release.
+  const registrySource = await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8");
+  const registry = parseGeneratedConstant(registrySource.split("\nexport const DOLLY_STATIC_SOURCES =", 1)[0], "DOLLY_IMAGES");
+  const definitions = await selectImageDefinitions(await discoverImageDefinitions(site),
+    registry.map(({ image }) => image).join(","));
   const sources = await inspectStaticSources(site, definitions, resolve(site, "static"));
   if (await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8") !==
       await imageRegistrySource(site, definitions, sources)) throw new Error("release image registry mismatch");
@@ -189,6 +193,7 @@ async function acceptSite(site, project) {
       const env = { ...process.env, DOLLY_IMAGE: image, DOLLY_BROWSER_MODE: "image-inventory", DOLLY_BROWSER_SITE: site };
       // Acceptance owns its profile and must visit these staged bytes, not an external app.
       for (const name of ["DOLLY_BROWSER_PAGE", "DOLLY_BROWSER_PROFILE", "DOLLY_BROWSER_PORT", "DOLLY_BUILD_IMAGES"]) delete env[name];
+      env.DOLLY_BUILD_IMAGES = images.join(",");
       const child = spawn(resolve(project, "scripts/test-browser.sh"), [], { cwd: project, env, stdio: "inherit" });
       child.once("error", reject);
       child.once("exit", (code, signal) => code === 0 ? resolveRun() :
