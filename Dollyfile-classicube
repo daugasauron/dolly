@@ -12,14 +12,14 @@ COPY FROM HOST /Dollyfile-sdl2-build e6ae2d71ba092c3ed38013c3331ea74a76d3d26bb4c
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/classicube-agent.dm 38300d3716dbb5324563e9d12569435273956ee7c153b4160df1f413ee6e5ce9
+USE HOST /modules/classicube-agent.dm e40c947a1693843a1fbdaf47055a5505394dee0140a4f11226b44f927361c7f1
 
 FILE /home/dolly/classicube/options.txt
     window-width=640
     window-height=480
     viewdist=32
     fpslimit=Limit60FPS
-    gui-showfps=True
+    gui-showfps=False
     musicvolume=0
     soundsvolume=0
 

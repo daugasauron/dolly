@@ -76,6 +76,7 @@ inherited browser restrictions; recipe bytes cannot set browser policy.
 | Provider / reference | What to verify |
 | --- | --- |
 | [Display contract](../abi/dolly-display-0.wat), [display.md](display.md) | Checked complete RGBA frames and bounded semantic input; no privileged VT/OSC/HTML parsing |
+| Fullscreen handler in `src/browser.mjs` | Keyboard initiated; disabled for the ClassiCube image, which has no function-key shortcuts |
 | Clipboard handlers in `src/browser.mjs` | Copy/paste only after user gestures; bounded literal text |
 | Pointer-lock handlers in `src/browser.mjs` | Capture only on a trusted canvas press; Escape/lease release undo it. Graphics button/hover forwarding grants no capture; terminal selection remains left-button only |
 | [Upload transport](../src/upload-transport.mjs), [C command](../src/upload.c) | Visible user picker, at most 64 MiB in 64 KiB chunks; bytes only, no host name/path/handle |

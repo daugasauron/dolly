@@ -1,39 +1,46 @@
 # ClassiCube agent world
 
-`Dollyfile-classicube` opens directly into a playable offline world. The game fills
-Dolly's canvas; an overlay shows the selected provider, vision model, reasoning
-effort and accumulated reported cost. Starting or restoring the image makes no
-model calls. **F11** toggles browser fullscreen.
+`Dollyfile-classicube` opens directly into an offline world. Controls, cost,
+activity and the prompt editor live in a side panel. The complete game view fits
+beside it, including the game's own HUD. **Tab** hides every panel and dialog so
+the game fills the canvas; Tab shows the controls again. Panel and activity
+visibility are saved in `ui.conf`. Starting or restoring makes no model calls.
 
 | Control | Action |
 | --- | --- |
-| F2 / Settings | Configure the agent; settings save automatically |
-| Enter / instruction button | Open the prompt editor |
-| Enter / Send | Send an instruction, or steer the working agent |
+| Tab / Hide | Hide or show the entire interface, retaining unfinished input |
+| Backtick | Switch between your controls and the agent's controls |
+| Ctrl+, / Settings | Open or close agent settings |
+| Enter / instruction field | Write an instruction |
+| Enter / Send | Send an instruction or steer the working agent |
 | Shift+Enter | Insert a newline |
-| Ctrl+Enter | Interrupt the current task and send the new instruction |
-| Escape / Interrupt | Interrupt the agent; keep the editor open for a new instruction |
-| F6 | Switch between your controls and the agent's controls |
-| Tab | Show or hide activity |
+| Ctrl+Enter | Interrupt the current task and send a replacement |
+| Escape / Interrupt | Interrupt the agent; Escape backs out of settings |
+| Activity button | Hide or show activity independently |
 | Scroll / Page Up / Page Down / End | Browse activity / follow live output |
-| F10 | Save the world and exit to Dolly's shell |
+| Save & exit button | Save the world and exit to Dolly's shell |
 
-You start with control. Click the world to capture the mouse: WASD moves, Space
-jumps, left/right click breaks/places, and B opens inventory. Escape releases
-capture; Escape again opens the game's menu. Opening settings or the human
-prompt editor releases held inputs. After closing an overlay, double-click the
-world to capture the mouse again. F6 interrupts pending inference and releases
-held agent inputs before handing control to you. Switching back lets the agent
-inspect the changed world and continue the current task. With no task yet, it
-opens the prompt editor. Escape closes the editor when you control the game.
+ClassiCube's agent interface assigns no function-key shortcuts. To play, hide
+the panel with Tab or **Play yourself**, then click the game to capture the
+mouse. WASD moves, Space jumps, left/right click breaks/places, and B opens
+inventory. Escape releases capture; Escape again opens the game menu. Showing
+the panel releases manual inputs and frees the cursor for clicking controls.
+The agent continues working when you show or hide its panel. Switching to human
+control interrupts inference and releases held inputs; switching back lets the
+agent inspect the changed world and continue its task.
 
-Connect OpenRouter through **F2 → OpenRouter API key** (hidden input), or
-**Sign in with OpenRouter**. The code flow downloads a small page containing the
-sign-in link. Open it, authorize, then paste the resulting code into the overlay;
-no callback server is needed. Choose a model and effort with the filter, arrows,
-Enter or mouse. The live catalog includes image input and tool calling; a cached
-catalog remains available if refresh fails. Credentials live in Pi's in-Wasm
-credential store and are never included in the distributed image.
+The provider selector offers **OpenRouter** and **Codex (local proxy)** even
+before connection. Choose a provider, then connect it through its own
+**Connection** page. OpenRouter offers sign-in or a hidden API-key field. The
+sign-in flow downloads a page containing the authorization link; open it and
+paste the resulting code into Dolly. No callback server is needed.
+
+Model selection has its own search field, Clear button, scrolling list and
+scrollbar. Click a visible row to apply it, or use arrows and Enter. Back returns
+to settings without changing the selection. Reasoning effort is a separate
+selector. The live OpenRouter catalog includes image input and tool calling; a
+cached catalog remains available if refresh fails. Credentials live in Pi's
+in-Wasm store and are never included in the distributed image.
 
 For development with your Codex subscription, use an existing `codex login` and
 start the same loopback proxy used by RTS Arena:
@@ -43,7 +50,7 @@ node scripts/codex-relay.mjs 9092 http://127.0.0.1:9091
 ```
 
 Use the exact local origin where Dolly is open as the final argument. Choose
-**F2 → Local Codex proxy**, upload the private `models.json` path printed by the
+**Provider → Codex (local proxy) → Connect local proxy**, upload the private `models.json` path printed by the
 proxy, and select a vision model and effort. Keep the proxy running; native
 `~/.codex/auth.json` stays on the host. Restarting the proxy requires importing
 its new configuration. **Disconnect provider** removes it from Dolly.
@@ -60,7 +67,7 @@ When the agent finishes, it waits for another instruction without making calls.
 Preferences are ordinary files in `/home/dolly/.config/classicube`:
 `agent.json` contains provider/model/effort; `conversation.jsonl`, `activity.txt`,
 `usage.json`, `last-prompt.txt` and `draft.txt` retain conversation, activity,
-reported usage and unfinished input. Pi credentials and proxy configuration live
+reported usage and unfinished input. `ui.conf` stores panel visibility. Pi credentials and proxy configuration live
 under `/home/dolly/.pi/agent`. The world autosaves every five seconds and on exit
 to `/home/dolly/classicube/maps/agent-world.cw`. Use Dolly's **Save session** to
 retain these files across page reloads or export/import them with the session.
@@ -83,8 +90,10 @@ involved. The input codec, screenshot history policy and text renderer are share
 with RTS Arena. This is ClassiCube's creative game, without audio or multiplayer.
 
 Browser modes `classicube` and `classicube-agent` test manual play and the full
-agent flow against an explicitly scripted provider, including keyboard/mouse
-input, interruption, handoff and session restoration. The opt-in
+agent flow against an explicitly scripted provider in Chrome through DevTools
+automation. Checks cover unobstructed game pixels, panel toggles, mouse/keyboard
+selection, scrolling and empty searches, provider connection, interruption,
+handoff and session restoration. The opt-in
 `classicube-agent-live` mode reads an OpenRouter key from stdin without echoing
 and runs a bounded live test in a fresh browser profile. `DOLLY_CLASSICUBE_MODEL`
 selects the model. Set `DOLLY_CLASSICUBE_MODELS_FILE` to the proxy's configuration

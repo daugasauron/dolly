@@ -16,7 +16,7 @@ export function createSettings(fs, scratch, run, changed) {
   const modelsPath = `${directory}/models.json`;
   let selection = { ...defaultSelection }, registry, answer, revision = 0;
   const clean = value => String(value ?? "").replace(/[\t\r\n]/g, " ");
-  const menu = (title, rows, message = "Settings save automatically with your Dolly session.", mode = "list") =>
+  const menu = (title, rows, message = "Changes save automatically.", mode = "list") =>
     writeAtomic(fs, `${scratch}/menu`, [++revision, mode, clean(title), clean(message),
       ...rows.map(row => row.map(clean).join("\t"))].join("\n"));
   const selected = () => {
@@ -37,13 +37,15 @@ export function createSettings(fs, scratch, run, changed) {
     writeAtomic(fs, `${settingsDirectory}/agent.json`, JSON.stringify(selection) + "\n");
     selected(); await changed(selection);
   };
+  const providerName = () => selection.provider === "codex-local" ? "Codex (local proxy)" : "OpenRouter";
   const home = message => menu("Agent settings", [
-    ["provider", "Provider", selection.provider], ["model", "Model", selection.model || "Choose a vision model"],
-    ["effort", "Reasoning effort", selection.effort], ["key", "OpenRouter API key", "Connect or replace key"],
-    ["oauth", "Sign in with OpenRouter", "Download sign-in link, then paste code"],
-    ["relay", "Local Codex proxy", "Import proxy models.json"], ["refresh", "Refresh OpenRouter models", "Vision and tool-capable models"],
-    ["disconnect", "Disconnect provider", selection.provider], ["close", "Back to world", "F2 or Escape"],
-  ], message);
+    ["provider", "Provider", providerName()], ["model", "Model", selection.model || "Select a model"],
+    ["effort", "Reasoning effort", selection.effort], ["connection", "Connection", providerName()],
+  ], message, "settings");
+  const providers = () => menu("Provider", [
+    ["provider:openrouter", "OpenRouter", "Use an OpenRouter account or API key"],
+    ["provider:codex-local", "Codex (local proxy)", "Use your Codex subscription through a local proxy"],
+  ]);
   const ask = (title, { secret = false, message } = {}) => new Promise((resolve, reject) => {
     menu(title, [], message || "Enter submits · Escape cancels", secret ? "secret" : "input");
     answer = { resolve, reject };
@@ -58,37 +60,51 @@ export function createSettings(fs, scratch, run, changed) {
     await models(true);
   };
   async function select(key) {
-    const runtime = await models();
     if (key === "home") return home();
-    if (key === "provider") return menu("Choose provider", ["openrouter", "codex-local"].filter(id => runtime.hasConfiguredAuth(id))
-      .map(id => [`provider:${id}`, id === "openrouter" ? "OpenRouter" : "Local Codex", id === "codex-local" ? "Subscription proxy" : "API usage"]),
-      "Connect an account from Agent settings if it is missing here.");
+    if (key === "provider") return providers();
+    const runtime = await models();
     if (key.startsWith("provider:")) {
       const provider = key.slice(9);
-      if (!["openrouter", "codex-local"].includes(provider) || !runtime.hasConfiguredAuth(provider)) throw Error("Connect this provider first");
-      await save({ provider, model: provider === selection.provider ? selection.model : "", effort: selection.effort });
-      return select("model");
+      if (!["openrouter", "codex-local"].includes(provider)) throw Error("Choose an available provider");
+      if (provider !== selection.provider) await save({ provider, model: "", effort: "low" });
+      return runtime.hasConfiguredAuth(provider) ? home() : select("connection");
     }
-    if (key === "model") return menu("Choose vision model", runtime.getModels(selection.provider).filter(model => model.input.includes("image"))
-      .sort((a, b) => a.id.localeCompare(b.id)).map(model => [`model:${model.id}`, model.id,
-        selection.provider === "codex-local" ? "Subscription" : `$${model.cost.input} input / $${model.cost.output} output per million tokens`]),
-      "Type to filter · arrows select · Enter applies");
+    if (key === "connection") {
+      const connected = runtime.hasConfiguredAuth(selection.provider);
+      return menu(providerName(), selection.provider === "codex-local" ? [
+        ["relay", connected ? "Replace proxy configuration" : "Connect local proxy", "Choose the proxy's models.json file"],
+        ...(connected ? [["disconnect", "Disconnect", "Remove this proxy from Dolly"]] : []),
+      ] : [
+        ["oauth", "Sign in with OpenRouter", "Open the sign-in link and paste the authorization code"],
+        ["key", connected ? "Replace API key" : "Use an API key", "Paste a key with hidden input"],
+        ...(connected ? [["refresh", "Refresh model list", "Fetch the current OpenRouter catalog"], ["disconnect", "Disconnect", "Remove OpenRouter sign-in"]] : []),
+      ], connected ? "Connected" : "Connect this provider to start an agent.");
+    }
+    if (key === "model") {
+      if (!runtime.hasConfiguredAuth(selection.provider)) return select("connection");
+      return menu("Model", runtime.getModels(selection.provider).filter(model => model.input.includes("image"))
+        .sort((a, b) => a.id.localeCompare(b.id)).map(model => [`model:${model.id}`, model.id,
+          model.id === selection.model ? "Selected" : selection.provider === "codex-local" ? "Subscription" :
+            `$${model.cost.input} input / $${model.cost.output} output per million tokens`]),
+        "Search models · click a row to select", "models");
+    }
     if (key.startsWith("model:")) {
       const model = runtime.getModels(selection.provider).find(model => model.id === key.slice(6) && model.input.includes("image"));
       if (!model) throw Error("Choose an available vision model");
       const levels = efforts(model);
       await save({ ...selection, model: model.id, effort: levels.includes(selection.effort) ? selection.effort : levels[0] });
-      return select("effort");
+      return home();
     }
     if (key === "effort" || key.startsWith("effort:")) {
       const model = runtime.getModels(selection.provider).find(model => model.id === selection.model);
       if (!model) return select("model");
       const levels = efforts(model);
-      if (key === "effort") return menu("Choose reasoning effort", levels.map(level => [`effort:${level}`, level, level === selection.effort ? "Selected" : ""]));
+      if (key === "effort") return menu("Reasoning effort", levels.map(level => [`effort:${level}`, level, level === selection.effort ? "Selected" : ""]));
       if (!levels.includes(key.slice(7))) throw Error("Unsupported reasoning effort");
       await save({ ...selection, effort: key.slice(7) }); return home();
     }
     if (key === "key" || key === "oauth") {
+      if (selection.provider !== "openrouter") throw Error("Select OpenRouter first");
       const credential = key === "key" ? await ask("OpenRouter API key", { secret: true }) : await signIn(ask, async (_message, url) => {
         const path = `${scratch}/openrouter-sign-in.html`;
         fs.writeFileSync(path, `<!doctype html><meta charset="utf-8"><title>Connect Dolly</title><p><a href="${url}">Sign in with OpenRouter</a></p><p>Approve the connection, then paste the authorization code into Dolly.</p>`);
@@ -103,12 +119,13 @@ export function createSettings(fs, scratch, run, changed) {
       return select("model");
     }
     if (key === "relay") {
+      if (selection.provider !== "codex-local") throw Error("Select Codex first");
       menu("Local Codex proxy", [], "Keep the proxy running on your computer. Choose the private models.json it prints; keep native auth.json on the host.", "busy");
       if (!await importRelay(fs, run, directory)) return home();
       await models(true); await save({ ...selection, provider: "codex-local", model: selection.provider === "codex-local" ? selection.model : "" });
       return select("model");
     }
-    if (key === "refresh") { menu("Refreshing models", [], "Contacting OpenRouter…", "busy"); await refresh(); return select("model"); }
+    if (key === "refresh") { if (selection.provider !== "openrouter") throw Error("Select OpenRouter first"); menu("Refreshing models", [], "Contacting OpenRouter…", "busy"); await refresh(); return select("model"); }
     if (key === "disconnect") {
       if (selection.provider === "codex-local") {
         const config = fs.existsSync(modelsPath) ? JSON.parse(fs.readFileSync(modelsPath, "utf8")) : {};
@@ -121,11 +138,13 @@ export function createSettings(fs, scratch, run, changed) {
   }
   return { get selection() { return selection; }, home,
     respond(value) { const pending = answer; answer = undefined; if (value === null) pending?.reject(Error("Cancelled")); else pending?.resolve(value); },
-    async select(key) { try { await select(key); } catch (error) { home(String(error.message).replace(/sk-or-v1-[\w-]+/g, "[redacted]")); } },
+    async select(key) {
+      if (!["home", "provider"].includes(key)) menu("Loading", [], "Loading provider settings…", "busy");
+      try { await select(key); } catch (error) { home(String(error.message).replace(/sk-or-v1-[\w-]+/g, "[redacted]")); } },
     async ready() {
       const runtime = await models();
       if (!runtime.hasConfiguredAuth(selection.provider) || !runtime.getModels(selection.provider).some(model => model.id === selection.model && model.input.includes("image")))
-        throw Error("Connect a provider and choose a vision model in F2 settings.");
+        throw Error("Connect a provider and choose a vision model in settings.");
     },
   };
 }

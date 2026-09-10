@@ -8,7 +8,6 @@ const quote = text => "'" + text.replace(/\n/g, " ").replace(/'/g, "'\\''") + "'
 export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input, projectDir, secret, live, liveModel, downloadDirectory, relayFile, selectFile }) {
   await wait("document.documentElement?.dataset.dollyStatus", value => value === "ready", "world boot");
   await wait("__dolly.graphicsActive", Boolean, "world display before sign-in");
-  await wait("__dolly.transport.relativePointerRequested()", Boolean, "playable world before sign-in");
   const press = (name, code = name, keyCode) => key({ key: name, code, ...(keyCode ? { windowsVirtualKeyCode: keyCode } : {}) });
   const chord = async (name, code, number, modifier = "Control", modifierCode = "ControlLeft", modifierNumber = 17, mask = 2) => {
     await send("Input.dispatchKeyEvent", {type:"keyDown",key:modifier,code:modifierCode,windowsVirtualKeyCode:modifierNumber,modifiers:mask});
@@ -16,6 +15,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     await send("Input.dispatchKeyEvent", {type:"keyUp",key:modifier,code:modifierCode,windowsVirtualKeyCode:modifierNumber});
   };
   const enter = () => press("Enter", "Enter", 13), escape = () => press("Escape", "Escape", 27);
+  const tab = () => press("Tab", "Tab", 9), handoff = () => press("`", "Backquote", 192);
   const snapshot = async name => writeFile(resolve(projectDir, `build/classicube-overlay-${name}.png`), (await send("Page.captureScreenshot", { format: "png" })).data, "base64");
   const click = async (x, y, button = "left") => {
     const position = await evaluate(`(() => { const r=document.querySelector('#display').getBoundingClientRect(); return {x:r.x+r.width*${x}/1280,y:r.y+r.height*${y}/960}; })()`);
@@ -39,10 +39,14 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
         const name=path.split('/').pop();
         if(['menu','selection.txt','status.txt','cost.txt','activity.txt','inputs.log'].includes(name)) result[name]=new TextDecoder().decode(data);
         if(name==='control' && data.length===8) result.control=new DataView(data.buffer,data.byteOffset,8).getUint32(4,true);
-        if(name==='view.rgba' && data.length>16) result.frame=new DataView(data.buffer,data.byteOffset,16).getUint32(0,true);
+        if(name==='view.rgba' && data.length>16) {
+          result.frame=new DataView(data.buffer,data.byteOffset,16).getUint32(0,true);
+          result.pixels=[[600,20],[600,460],[20,460]].map(([x,y])=>Array.from(data.subarray(16+(y*640+x)*4,16+(y*640+x)*4+3)));
+        }
       }
       if(path==='/home/dolly/classicube/maps/agent-world.cw') result.world=Array.from(data);
       if(path==='/home/dolly/.config/classicube/agent.json') result.config=JSON.parse(new TextDecoder().decode(data));
+      if(path==='/home/dolly/.config/classicube/ui.conf') result.ui=new TextDecoder().decode(data);
       if(path==='/home/dolly/.config/classicube/draft.txt') result.draft=new TextDecoder().decode(data);
       if(path==='/home/dolly/.config/classicube/usage.json') result.usage=JSON.parse(new TextDecoder().decode(data));
       if(path.endsWith('/agent.events.jsonl')) result.events=(result.events||[]).concat(new TextDecoder().decode(data).trim().split('\\n').filter(Boolean).map(JSON.parse));
@@ -57,38 +61,101 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   const menu = title => state(s => s.menu?.split('\n')[2] === title && !s.menu.includes('\nbusy\n'), title);
   const choose = async (title, filter) => { await menu(title); if (filter) await input(filter); await enter(); };
   const events = (s, type) => (s.events || []).filter(e => e.type === type);
-  assert.equal(await evaluate("__dolly.httpRequestCount"), 0, "booting straight into the world makes no network requests");
-  await snapshot("world");
-  await click(640,480); await wait("document.pointerLockElement?.id", value=>value==='display', 'human mouse capture');
+  const field = async n => { await menu('Agent settings'); await click(600,280+n*104); };
+  const row = async (title, id) => {
+    const current=await menu(title), rows=current.menu.split('\n').slice(4).map(line=>line.split('\t'));
+    const index=rows.findIndex(row=>row[0]===id); assert.ok(index>=0 && index<10, `visible row ${id}`);
+    await click(600,316+index*48);
+  };
+  const gamePixels = async docked => {
+    let actual, expected;
+    // The game and viewer are separate workers; a filesystem snapshot can lead the painted frame.
+    for(let n=0;n<12;n++) {
+      const s=await state(s=>s.frame>0,'world framebuffer'); expected=s.pixels;
+      actual=await evaluate(`(() => {const c=document.querySelector('#display'),g=c.getContext('2d');
+        return [[600,20],[600,460],[20,460]].map(([x,y])=>Array.from(g.getImageData(Math.floor((x+.5)*${docked?880:1280}/640),${docked?150:0}+Math.floor((y+.5)*${docked?660:960}/480),1,1).data).slice(0,3));})()`);
+      if(JSON.stringify(actual)===JSON.stringify(expected)) return;
+      await delay(200);
+    }
+    assert.deepEqual(actual,expected,docked?'panel does not cover the game edges':'hidden interface leaves the complete game unobstructed');
+  };
+  assert.equal(await evaluate("__dolly.httpRequestCount"),0,'world starts without network calls');
+  await state(s=>s.ui?.includes('interface=1') && s.frame>0,'docked controls');
+  await gamePixels(true); await snapshot('docked');
+  for(const n of [2,6,10,11]) await press(`F${n}`,`F${n}`,111+n);
+  assert.equal(await evaluate('!!document.fullscreenElement'),false,'function keys do not control this app');
+  await state(s=>s.ui.includes('interface=1') && s.control===0,'function keys leave controls unchanged');
+  await tab(); await state(s=>s.ui.includes('interface=0') && s.control===1,'Tab hides all controls');
+  await gamePixels(false); await snapshot('game-only');
+  await wait('__dolly.transport.relativePointerRequested()',Boolean,'manual capture requested');
+  await click(640,480); await wait("document.pointerLockElement?.id",value=>value==='display','human mouse capture');
   await send("Input.dispatchKeyEvent",{type:'keyDown',key:'w',code:'KeyW',windowsVirtualKeyCode:87}); await delay(500);
   await send("Input.dispatchKeyEvent",{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
-  await escape(); await wait("document.pointerLockElement",value=>value===null,'release human capture'); await delay(150);
-  await enter(); await input("Enter works after releasing capture 日本語 ✓");
-  await state(s=>s.draft==='Enter works after releasing capture 日本語 ✓', 'Enter reclaims keyboard focus and edits the prompt', 8);
-  await chord('a','KeyA',65); await press('Backspace','Backspace',8);
-  await state(s=>s.draft==='', 'Ctrl+A clears the prompt');
-  await escape();
-  await delay(200); await click(1005,28); await menu("Agent settings");
-  if (relayFile) {
-    await choose("Agent settings", "Local Codex proxy");
-    await wait("!!document.querySelector('#file-upload[open]')", Boolean, "proxy upload"); await selectFile(relayFile);
-  } else if (live) {
-    await choose("Agent settings", "OpenRouter API key"); await menu("OpenRouter API key"); await input(secret); await enter();
+  await escape(); await delay(150); await enter(); await input('Enter works after releasing capture 日本語 ✓');
+  await state(s=>s.draft==='Enter works after releasing capture 日本語 ✓','prompt accepts immediate paste',8);
+  await tab(); await state(s=>s.ui.includes('interface=0') && s.draft.endsWith('日本語 ✓'),'hiding UI retains draft');
+  await tab(); await enter(); await chord('a','KeyA',65); await press('Backspace','Backspace',8);
+  await state(s=>s.draft==='','Ctrl+A clears draft'); await escape();
+  await click(1050,386); const home=await menu('Agent settings');
+  assert.deepEqual(home.menu.split('\n').slice(4).map(line=>line.split('\t')[0]),['provider','model','effort','connection']);
+  await field(0); const providers=await menu('Provider');
+  assert.match(providers.menu,/provider:openrouter/); assert.match(providers.menu,/provider:codex-local/);
+  await row('Provider','provider:codex-local');
+  const codex=await menu('Codex (local proxy)'); assert.match(codex.menu,/Connect local proxy/); assert.doesNotMatch(codex.menu,/OpenRouter|API key/);
+  await snapshot('codex-provider');
+  if(relayFile) {
+    await row('Codex (local proxy)','relay');
+    await wait("!!document.querySelector('#file-upload[open]')",Boolean,'proxy upload'); await selectFile(relayFile);
   } else {
-    await choose("Agent settings", "Sign in with OpenRouter"); await menu("Authorization code");
-    await input("classicube-authorization-fixture"); await press("Enter", "NumpadEnter", 13);
+    await click(210,132); await field(0); await row('Provider','provider:openrouter');
+    const router=await menu('OpenRouter'); assert.doesNotMatch(router.menu,/proxy|relay/);
+    if(!live) {
+      await row('OpenRouter','key'); await menu('OpenRouter API key'); await input('cancelled-input'); await escape();
+      await menu('Agent settings'); await field(3); await menu('OpenRouter');
+    }
+    await row('OpenRouter',live?'key':'oauth');
+    await menu(live?'OpenRouter API key':'Authorization code');
+    await input(live?secret:'classicube-authorization-fixture'); await press('Enter','NumpadEnter',13);
   }
-  const model = liveModel || (relayFile ? "gpt-5.6-luna" : live ? "google/gemini-2.5-flash" : "fixture/vision");
-  await choose("Choose vision model", model); await choose("Choose reasoning effort", "low"); await menu("Agent settings");
-  await snapshot("settings");
-  const configured = await probe();
-  assert.deepEqual(configured.config,{provider:relayFile?'codex-local':'openrouter',model,effort:'low'});
-  assert.equal(configured.config.seconds, undefined); assert.equal(configured.config.budget, undefined);
-  assert.equal((await evaluate("__dolly.httpRequestCount")),relayFile?0:live?2:3,'setup has no inference calls');
-  await press('F2','F2',113);
-  await enter(); await input(live ? 'Look around, place three blocks in a short row, inspect them and report what you actually did.' : 'CLASSICUBE-FIXTURE-TASK: exercise ordinary game controls and inspect the results.');
-  await snapshot("prompt"); await click(1120,860);
+  const model=liveModel || (relayFile?'gpt-5.6-luna':live?'google/gemini-2.5-flash':'fixture/vision');
+  const catalog=await menu('Model');
+  const models=catalog.menu.split('\n').slice(4).map(line=>line.split('\t')[0].slice(6));
+  if(!live) assert.ok(models.length>10,'exercise a model list with multiple pages');
+  await input('no-such-model-zzzz'); await delay(150); await snapshot('no-matches'); await click(600,316);
+  assert.equal((await probe()).config.model,'','empty search cannot select an invisible model');
+  await click(1035,248); await delay(150);
+  if(models.length>10) {
+  const region=()=>evaluate(`(() => {const c=document.querySelector('#display'),d=c.getContext('2d').getImageData(190,292,892,480).data;let h=2166136261;for(const b of d)h=Math.imul(h^b,16777619);return h>>>0;})()`);
+  const initial=await region();
+  const wheel=await evaluate("(() => {const r=document.querySelector('#display').getBoundingClientRect();return {x:r.x+r.width*600/1280,y:r.y+r.height*500/960};})()");
+  await send('Input.dispatchMouseEvent',{type:'mouseWheel',...wheel,deltaX:0,deltaY:180}); await delay(200);
+  assert.notEqual(await region(),initial,'wheel scrolls visible models without selecting');
+  assert.equal((await probe()).config.model,'');
+  const track=await evaluate("(() => {const r=document.querySelector('#display').getBoundingClientRect();return {x:r.x+r.width*1096/1280,y:r.y+r.height*300/960,end:r.y+r.height*771/960};})()");
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:track.x,y:track.y,button:'left',buttons:1,clickCount:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:track.x,y:track.end,buttons:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:track.x,y:track.end,button:'left',buttons:0,clickCount:1});
+  await delay(150); await snapshot('model-scroll'); await click(600,316);
+  await state(s=>s.config.model===models.at(-10),'click selects the visible row after scrolling');
+  await field(1);
+  if(!live) {
+    await menu('Model'); await input('fixture/list-'); await press('ArrowDown','ArrowDown',40); await enter();
+    await state(s=>s.config.model==='fixture/list-01','arrows and Enter select the next matching model'); await field(1);
+  }
+  }
+  await choose('Model',model); await menu('Agent settings');
+  await field(2); await row('Reasoning effort','effort:low'); await menu('Agent settings');
+  await chord(',','Comma',188); await chord(',','Comma',188); await menu('Agent settings');
+  const configured=await probe(); assert.deepEqual(configured.config,{provider:relayFile?'codex-local':'openrouter',model,effort:'low'});
+  assert.equal(await evaluate('__dolly.httpRequestCount'),relayFile?0:live?2:3,'selection makes no inference calls');
+  await snapshot('settings'); await click(1090,132);
+  await click(1040,515); await state(s=>s.ui.includes('activity=0'),'hide activity independently');
+  await click(1040,515); await state(s=>s.ui.includes('activity=1'),'restore activity');
+  await enter(); await input(live?'Look around, place three blocks in a short row, inspect them and report what you actually did.':'CLASSICUBE-FIXTURE-TASK: exercise ordinary game controls and inspect the results.');
+  await snapshot('prompt'); await click(1170,886);
   await state(s=>events(s,'configuration').length>0,'real Pi configuration');
+  await tab(); await state(s=>s.control===2 && s.ui.includes('interface=0'),'hiding interface keeps agent in control');
+  await gamePixels(false); await tab();
   if(live) { await state(s=>events(s,'tool_result').some(e=>!e.isError && e.details?.actions.length),'live model uses the game controls',75); await snapshot('live'); }
   else await state(s=>events(s,'tool_result').length>=3 && events(s,'settled').length>0,'first task completes');
   await enter(); await input(live ? 'Inspect your recent work and describe it. Stop acting when finished.' : 'Follow-up proof: turn left and walk briefly, then finish. Keep this complete pasted instruction: 日本語 ✓.'); await enter();
@@ -103,27 +170,29 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     const count=await evaluate('__dolly.httpRequestCount');
     await enter(); await input('INTERRUPT-PROOF: keep working until I take control.'); await enter();
     await wait('__dolly.httpRequestCount',n=>n>count,'slow inference request begins');
-    await press('F6','F6',117); await state(s=>s.control===1,'F6 gives human control immediately');
+    await handoff(); await state(s=>s.control===1,'Backtick gives human control immediately');
     await delay(1000); const interrupted=await probe();
     assert.equal(events(interrupted,'tool_result').length,events(completed,'tool_result').length,'interrupted inference executes no inputs');
-    await press('F6','F6',117); await state(s=>s.control===2 && events(s,'tool').length>events(completed,'tool').length,'F6 resumes the existing task');
-    await press('F6','F6',117); await state(s=>s.control===1,'take over during an active input batch');
+    await handoff(); await state(s=>s.control===2 && events(s,'tool').length>events(completed,'tool').length,'Backtick resumes the existing task');
+    await handoff(); await state(s=>s.control===1,'take over during an active input batch');
     await delay(500);
     const requests = await evaluate('__dolly.httpRequestCount');
-    await press('F6','F6',117); await wait('__dolly.httpRequestCount',n=>n>requests,'resume before steering');
+    await handoff(); await wait('__dolly.httpRequestCount',n=>n>requests,'resume before steering');
     await enter(); await input('STEER-PROOF: inspect before continuing.'); await enter();
     await state(s=>s['status.txt']==='Instruction queued for the agent','Enter steers while inference is running');
     await enter(); await input('REPLACE-PROOF: replace the current instruction.'); await chord('Enter','Enter',13);
     await wait('__dolly.httpRequestCount',n=>n>requests+1,'Ctrl+Enter interrupts and sends a replacement');
     await state(s=>events(s,'tool').length>events(completed,'tool').length+1,'replacement starts an input batch');
     await escape(); await state(s=>s.control===0,'Escape interrupts without closing the world');
-    await press('F6','F6',117); await state(s=>s.control===1,'human controls after replacement');
-  } else { await press('F6','F6',117); await state(s=>s.control===1,'live agent yields control'); }
+    await handoff(); await state(s=>s.control===1,'human controls after replacement');
+  } else { await handoff(); await state(s=>s.control===1,'live agent yields control'); }
   await click(640,480); await wait('document.pointerLockElement?.id',v=>v==='display','human control after agent');
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:'d',code:'KeyD',windowsVirtualKeyCode:68}); await delay(400);
   await send('Input.dispatchKeyEvent',{type:'keyUp',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
-  await escape(); await delay(100); await click(240,920);
+  await escape(); await delay(100); await tab(); await click(1040,770);
   const draft='Saved unfinished instruction 日本語 ✓'; await input(draft); await state(s=>s.draft===draft,'clickable editor saves unfinished text');
+  await click(1040,515); await tab();
+  await state(s=>s.ui.includes('interface=0') && s.ui.includes('activity=0'),'saved hidden interface and activity');
   await delay(5200); const before = await probe();
   await evaluate("__dolly.saveSession('classicube-world-proof')");
   await send('Page.navigate',{url:await evaluate("new URL('/session/classicube-world-proof',location.href).href")});
@@ -137,10 +206,11 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     return data.subarray(offset + 4, offset + 4 + length);
   };
   assert.deepEqual(blocks(restored.world),blocks(before.world),'restored world retains every block');
+  assert.equal(restored.ui,before.ui,'interface visibility survives restore');
   assert.deepEqual(restored.config,before.config); assert.equal(restored.draft,draft); assert.deepEqual(restored.usage,before.usage);
   assert.equal(await evaluate('__dolly.httpRequestCount'),0,'restoring settings/history does not start model calls');
   await enter(); await snapshot('restored');
-  await press('F10','F10',121); await wait('__dolly.graphicsActive',v=>!v,'save and exit');
+  await click(975,934); await wait('__dolly.graphicsActive',v=>!v,'save and exit');
   await evaluate("__dolly.waitForInteractiveTerminal(/dolly:[^\\n]*\\$\\s*$/, 'recovery shell')");
   const inspect=`const fs=globalThis.__janisBuiltin('fs'); const root='/workspace/classicube-runs'; const report={events:[],files:{}};
     const authPath=process.env.HOME+'/.pi/agent/auth.json', modelsPath=process.env.HOME+'/.pi/agent/models.json';
@@ -160,5 +230,5 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   let bytes; for(let n=0;n<200&&!bytes;n++){bytes=await readFile(resolve(downloadDirectory,'classicube-report.json')).catch(()=>null);if(!bytes)await delay(50);}
   assert.ok(bytes); const report=JSON.parse(bytes); assert.deepEqual(report.scratch,[]);
   await writeFile(resolve(projectDir,`build/classicube-overlay-${relayFile?'relay-live':live?'live':'fixture'}-report.json`),bytes);
-  console.log(`browser: ClassiCube ${live?'LIVE':'scripted'}: immediate manual play, overlay setup, Enter/click/numpad input, agent tools, F6 handoff, interruption, uncapped usage and full config/history/world session restoration passed`);
+  console.log(`browser: ClassiCube ${live?'LIVE':'scripted'}: unobstructed docked/full game pixels, hide/show panels, no function-key actions, provider isolation, search/clear/${models.length>10?'wheel/scrollbar/':''}mouse selection, prompt input, agent tools, backtick handoff, interruption and config/history/world/UI restoration passed`);
 }

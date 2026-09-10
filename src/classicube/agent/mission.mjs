@@ -42,7 +42,7 @@ export async function runWorld() {
     }
   };
   const stop = message => { if (!stopped) { stopped = true; reason = message; observation?.abort(); settings.respond(null); } };
-  const fault = error => { record("provider_error", { message: error.message }); status("Agent error · Enter to retry or F2 to configure"); };
+  const fault = error => { record("provider_error", { message: error.message }); status("Agent error · Enter to retry or Ctrl+, to configure"); };
   const runCommand = (command, args) => new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "inherit", "inherit"] });
     child.once("error", reject); child.once("close", resolve);
@@ -122,7 +122,7 @@ export async function runWorld() {
       });
       const selected = await current.rpc("get_state");
       if (selected.model?.provider !== config.provider || selected.model.id !== config.model || selected.thinkingLevel !== config.effort)
-        throw Error("The selected provider, model or effort is unavailable. Open F2 settings.");
+        throw Error("The selected provider, model or effort is unavailable. Open settings with Ctrl+,.");
       record("configuration", { ...config, thinking: selected.thinkingLevel });
       return current;
     })();
@@ -216,7 +216,7 @@ export async function runWorld() {
     const force = setTimeout(() => { for (const { child } of processes) child.kill("SIGKILL"); }, 5000);
     await Promise.all(processes.map(({ closed }) => closed)); clearTimeout(force);
     for (const name of ["inputs.log", "view.rgba"]) if (fs.existsSync(`${scratch}/${name}`)) fs.renameSync(`${scratch}/${name}`, `${run}/${name}`);
-    for (const name of ["agent.json", "conversation.jsonl", "usage.json", "last-prompt.txt", "draft.txt"]) {
+    for (const name of ["agent.json", "conversation.jsonl", "usage.json", "last-prompt.txt", "draft.txt", "ui.conf"]) {
       if (fs.existsSync(`${settingsDirectory}/${name}`)) fs.copyFileSync(`${settingsDirectory}/${name}`, `${run}/${name}`);
     }
     fs.writeFileSync(`${run}/result.txt`, reason + "\n");

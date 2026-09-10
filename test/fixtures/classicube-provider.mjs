@@ -8,10 +8,13 @@ export function classicubeProvider() {
     async handle(request, response, headers) {
       const path = new URL(request.url, "http://fixture").pathname;
       const json = (status, body) => { response.writeHead(status, { ...headers, "content-type": "application/json" }); response.end(JSON.stringify(body)); };
-      if (path.endsWith("/models")) return json(200, { data: [{ id: "fixture/vision", name: "ClassiCube vision fixture",
-        architecture: { input_modalities: ["text", "image"], output_modalities: ["text"] },
-        supported_parameters: ["tools", "reasoning"], context_length: 128000,
-        top_provider: { max_completion_tokens: 4096 }, pricing: { prompt: "0.1", completion: "0.2" } }] });
+      if (path.endsWith("/models")) {
+        const model = { id: "fixture/vision", name: "ClassiCube vision fixture",
+          architecture: { input_modalities: ["text", "image"], output_modalities: ["text"] },
+          supported_parameters: ["tools", "reasoning"], context_length: 128000,
+          top_provider: { max_completion_tokens: 4096 }, pricing: { prompt: "0.1", completion: "0.2" } };
+        return json(200, { data: [model, ...Array.from({length:24},(_,n)=>({...model,id:`fixture/list-${String(n).padStart(2,"0")}`}))] });
+      }
       if (path.endsWith("/key")) return json(request.headers.authorization === "Bearer sk-or-v1-classicube-fixture" ? 200 : 401, { data: { usage: 0 } });
       const chunks = []; for await (const chunk of request) chunks.push(chunk);
       const payload = JSON.parse(Buffer.concat(chunks).toString("utf8"));

@@ -1290,7 +1290,11 @@ async function enterRecoveryShell(send) {
     );
   } else if (selectedImage === "classicube") {
     await waitForValue(send, "window.__dolly?.graphicsActive", Boolean, "ClassiCube world");
-    await dispatchKey(send, { key: "F10", code: "F10", windowsVirtualKeyCode: 121 });
+    await waitForValue(send, "document.querySelector('#display').width === 1280 && document.querySelector('#display').height === 960", Boolean, "ClassiCube controls");
+    const point = await evaluate(send, `(() => { const r = document.querySelector('#display').getBoundingClientRect();
+      return {x:r.x+r.width*975/1280,y:r.y+r.height*934/960}; })()`);
+    await send("Input.dispatchMouseEvent", {type:"mousePressed",...point,button:"left",buttons:1,clickCount:1});
+    await send("Input.dispatchMouseEvent", {type:"mouseReleased",...point,button:"left",buttons:0,clickCount:1});
     return evaluate(send, `window.__dolly.waitForInteractiveTerminal(/dolly:[^\\n]*\\$\\s*$/, "ClassiCube shell")`);
   } else if (selectedImage === "codex") {
     await waitForTerminalText(send, /Sign in with ChatGPT/, "Codex entry sign-in TUI", 1200);

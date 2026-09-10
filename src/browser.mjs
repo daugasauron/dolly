@@ -766,7 +766,7 @@ function handleKeyboardEvent(event) {
     event.stopImmediatePropagation();
     return;
   }
-  if (event.type === "keydown" && event.key === "F11") void toggleFullscreen(event);
+  if (event.type === "keydown" && event.key === "F11" && activeImage !== "classicube") void toggleFullscreen(event);
   if (!transport.pushKey(event)) {
     document.documentElement.dataset.inputOverflow = "true";
   }

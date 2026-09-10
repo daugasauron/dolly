@@ -73,8 +73,11 @@ int main(int argc, char **argv) {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_StartTextInput();
     const std::string scratch(argv[1]), directory(argv[2]);
-    bool running = true, panel = true, entering = false, settings = false, human = true, paused = false, focused = true, relative = false, capture = true;
-    int scroll = 0, selected = 0;
+    const auto preferences = contents(directory + "/ui.conf");
+    bool interface = preferences.find("interface=0") == std::string::npos;
+    bool activity = preferences.find("activity=0") == std::string::npos;
+    bool running = true, entering = false, settings = false, human = true, paused = false, focused = true, relative = false, dragging = false;
+    int scroll = 0, selected = 0, first = 0;
     uint32_t last_frame = 0, command_serial = 0, human_serial = 0;
     GameControl gate = {0, CONTROL_PAUSED};
     Editor prompt, filter, answer;
@@ -84,14 +87,28 @@ int main(int argc, char **argv) {
     std::vector<int> matches;
     std::vector<HumanEvent> manual;
     const auto command = [&](const std::string &name, const std::string &body = "") { publish(scratch + "/command." + std::to_string(++command_serial), name + "\n" + body); };
+    const auto save_ui = [&]() { publish(directory + "/ui.conf", "interface=" + std::to_string(interface) + "\nactivity=" + std::to_string(activity) + "\n"); };
     const auto update_gate = [&]() {
-        const uint32_t owner = settings || (human && (entering || !focused)) || (!human && paused) ? CONTROL_PAUSED : human ? CONTROL_HUMAN : CONTROL_AGENT;
+        const uint32_t owner = settings || (human && (interface || !focused)) || (!human && paused) ? CONTROL_PAUSED : human ? CONTROL_HUMAN : CONTROL_AGENT;
         if (gate.generation && gate.owner == owner) return;
         gate.owner = owner; ++gate.generation; manual.clear(); publish(scratch + "/control", &gate, sizeof(gate));
     };
-    const auto open_settings = [&]() { capture = false; entering = false; settings = true; paused = true; filter.set(""); command("settings"); update_gate(); };
     const auto close_settings = [&]() { command("cancel"); settings = false; answer.set(""); update_gate(); };
-    const auto open_prompt = [&]() { if (settings) close_settings(); capture = false; entering = true; update_gate(); };
+    const auto show_interface = [&](bool show) {
+        if (!show) { if (settings) close_settings(); entering = false; }
+        interface = show; dragging = false; save_ui(); update_gate();
+    };
+    const auto open_settings = [&](const std::string &page = "home") {
+        interface = true; entering = false; settings = true; paused = true;
+        filter.set(""); title = "Loading"; menu_mode = "busy"; rows.clear(); matches.clear();
+        command("select", page); save_ui(); update_gate();
+    };
+    const auto open_prompt = [&]() { if (settings) close_settings(); interface = true; entering = true; save_ui(); update_gate(); };
+    const auto switch_control = [&]() {
+        if (settings) close_settings(); entering = false; human = !human; paused = false;
+        if (human) interface = false;
+        save_ui(); update_gate(); command(human ? "interrupt" : "resume");
+    };
     const auto send_prompt = [&](bool replace) {
         if (prompt.value.find_first_not_of(" \t\r\n") == std::string::npos) return;
         const auto selection = split(contents(scratch + "/selection.txt"));
@@ -101,13 +118,17 @@ int main(int argc, char **argv) {
         command(replace ? "replace" : "prompt", prompt.value); prompt.set(""); publish(directory + "/draft.txt", "");
     };
     const auto choose = [&]() {
-        if (menu_mode == "input" || menu_mode == "secret") { if (!answer.value.empty()) { command("answer", answer.value); answer.set(""); menu_mode = "busy"; } return; }
-        if (menu_mode != "list" || matches.empty()) return;
-        const auto key = rows[matches[selected]][0];
-        if (key == "close") close_settings();
-        else { command("select", key); menu_mode = "busy"; }
+        if (menu_mode == "input" || menu_mode == "secret") {
+            if (!answer.value.empty()) { command("answer", answer.value); answer.set(""); menu_mode = "busy"; } return;
+        }
+        if (menu_mode == "busy" || matches.empty()) return;
+        command("select", rows[matches[selected]][0]); menu_mode = "busy";
     };
-    update_gate();
+    const auto back = [&]() {
+        if (menu_mode == "settings") close_settings();
+        else { command("cancel"); command("select", "home"); menu_mode = "busy"; }
+    };
+    save_ui(); update_gate();
     while (running) {
         const bool game_relative = contents(scratch + "/relative") == "1";
         const auto menu = contents(scratch + "/menu");
@@ -118,7 +139,7 @@ int main(int argc, char **argv) {
                 menu_mode = lines[1]; title = lines[2]; message = lines[3];
                 for (size_t n = 4; n < lines.size(); ++n) { auto row = split(lines[n], '\t'); if (row.size() >= 2) rows.push_back(row); }
             }
-            filter.set(""); answer.set(""); selected = 0;
+            filter.set(""); answer.set(""); selected = first = 0; dragging = false;
         }
         const auto refresh_matches = [&]() {
             matches.clear(); const auto words = split(lower(filter.value), ' ');
@@ -128,77 +149,115 @@ int main(int argc, char **argv) {
                 if (match) matches.push_back(n);
             }
             selected = std::max(0, std::min(selected, static_cast<int>(matches.size()) - 1));
+            first = std::max(0, std::min(first, static_cast<int>(matches.size()) - 10));
         };
         refresh_matches();
+        const auto move_selection = [&](int next) {
+            selected = std::max(0, std::min(next, static_cast<int>(matches.size()) - 1));
+            if (selected < first) first = selected;
+            if (selected >= first + 10) first = selected - 9;
+        };
         if (!contents(scratch + "/show-settings").empty()) { std::remove((scratch + "/show-settings").c_str()); open_settings(); }
         if (!contents(scratch + "/show-prompt").empty()) { std::remove((scratch + "/show-prompt").c_str()); open_prompt(); }
+        const SDL_Rect editor = {900, activity ? 738 : 548, 360, activity ? 112 : 302};
+        const auto scroll_to = [&](int y) {
+            first = std::max(0, static_cast<int>(matches.size()) - 10) * std::max(0, std::min(479, y - 292)) / 479;
+        };
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             bool consumed = false;
             if (event.type == SDL_QUIT) running = false;
             if (event.type == SDL_WINDOWEVENT && (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST || event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)) {
-                focused = event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED; if (!focused) capture = false; update_gate();
+                focused = event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED; update_gate();
             }
             if (event.type == SDL_KEYDOWN) {
                 const auto key = event.key.keysym.sym;
                 const bool enter = key == SDLK_RETURN || key == SDLK_KP_ENTER;
                 const bool ctrl = event.key.keysym.mod & (KMOD_CTRL | KMOD_GUI);
-                if (!event.key.repeat && key == SDLK_F10) { running = false; consumed = true; }
-                else if (!event.key.repeat && key == SDLK_F6) {
-                    if (settings) close_settings(); entering = false; human = !human; capture = human; paused = false; update_gate();
-                    command(human ? "interrupt" : "resume"); consumed = true;
-                } else if (!event.key.repeat && key == SDLK_F2) { if (settings) close_settings(); else open_settings(); consumed = true; }
+                if (key >= SDLK_F1 && key <= SDLK_F12) consumed = true;
+                else if (!event.key.repeat && key == SDLK_TAB) { show_interface(!interface); consumed = true; }
+                else if (!event.key.repeat && key == SDLK_BACKQUOTE && !(event.key.keysym.mod & KMOD_SHIFT)) { switch_control(); consumed = true; }
+                else if (!event.key.repeat && ctrl && key == SDLK_COMMA) { if (settings) close_settings(); else open_settings(); consumed = true; }
                 else if (settings) {
                     consumed = true;
-                    if (key == SDLK_ESCAPE) { if (menu_mode == "input" || menu_mode == "secret") command("cancel"); else close_settings(); }
+                    if (key == SDLK_ESCAPE) back();
                     else if (enter && !event.key.repeat) choose();
-                    else if (menu_mode == "list") {
-                        if (key == SDLK_UP) --selected; else if (key == SDLK_DOWN) ++selected; else filter.key(key, ctrl);
-                        refresh_matches();
-                    } else if (menu_mode == "input" || menu_mode == "secret") answer.key(key, ctrl);
+                    else if (menu_mode == "input" || menu_mode == "secret") answer.key(key, ctrl);
+                    else if (menu_mode != "busy") {
+                        if (key == SDLK_UP) move_selection(selected - 1);
+                        else if (key == SDLK_DOWN) move_selection(selected + 1);
+                        else if (key == SDLK_PAGEUP || key == SDLK_PAGEDOWN) {
+                            const int delta = key == SDLK_PAGEUP ? -10 : 10; first += delta; selected += delta; refresh_matches();
+                        }
+                        else if (key == SDLK_HOME && menu_mode != "models") move_selection(0);
+                        else if (key == SDLK_END && menu_mode != "models") move_selection(matches.size() - 1);
+                        else if (menu_mode == "models") { filter.key(key, ctrl); selected = first = 0; refresh_matches(); }
+                    }
                 } else if (entering) {
                     consumed = true;
                     if (enter && !event.key.repeat) { if (event.key.keysym.mod & KMOD_SHIFT) prompt.insert("\n"); else send_prompt(ctrl); }
                     else if (key == SDLK_ESCAPE) {
-                        if (human) entering = false;
-                        else { paused = true; command("interrupt"); }
+                        entering = false;
+                        if (!human) { paused = true; command("interrupt"); }
                         update_gate();
                     } else if (key == SDLK_UP && prompt.value.empty()) prompt.set(contents(directory + "/last-prompt.txt"));
                     else prompt.key(key, ctrl);
                     publish(directory + "/draft.txt", prompt.value);
                 } else if (enter && !event.key.repeat) { open_prompt(); consumed = true; }
-                else if (!event.key.repeat && key == SDLK_TAB) { panel = !panel; consumed = true; }
                 else if (!human && key == SDLK_ESCAPE) { paused = true; command("interrupt"); open_prompt(); consumed = true; }
-                else if (!human && key == SDLK_PAGEUP) { scroll += 800; consumed = true; }
-                else if (!human && key == SDLK_PAGEDOWN) { scroll = std::max(0, scroll - 800); consumed = true; }
-                else if (!human && key == SDLK_END) { scroll = 0; consumed = true; }
+                else if (interface && activity && key == SDLK_PAGEUP) { scroll += 800; consumed = true; }
+                else if (interface && activity && key == SDLK_PAGEDOWN) { scroll = std::max(0, scroll - 800); consumed = true; }
+                else if (interface && activity && key == SDLK_END) { scroll = 0; consumed = true; }
             }
             if (event.type == SDL_TEXTINPUT) {
-                if (settings) { if (menu_mode == "list") { filter.insert(event.text.text); selected = 0; refresh_matches(); }
-                    else if (menu_mode == "input" || menu_mode == "secret") answer.insert(event.text.text); consumed = true; }
-                else if (entering) { prompt.insert(event.text.text); publish(directory + "/draft.txt", prompt.value); consumed = true; }
-            }
-            if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && !relative) {
-                const bool released = event.type == SDL_MOUSEBUTTONUP;
-                const int x = event.button.x, y = event.button.y;
                 if (settings) {
+                    if (menu_mode == "models") { filter.insert(event.text.text); selected = first = 0; refresh_matches(); }
+                    else if (menu_mode == "input" || menu_mode == "secret") answer.insert(event.text.text);
                     consumed = true;
-                    if (released && hit(x, y, {1020, 128, 60, 42})) close_settings();
-                    else if (released && (menu_mode == "input" || menu_mode == "secret") && hit(x, y, {940, 714, 140, 46})) choose();
-                    else if (released && menu_mode == "list" && y >= 292 && y < 708 && x >= 200 && x < 1080) {
-                        const int index = selected / 8 * 8 + (y - 292) / 52;
-                        if (index < static_cast<int>(matches.size())) { selected = index; choose(); }
-                    }
-                } else if (hit(x, y, {930, 8, 168, 44})) { if (released) open_settings(); consumed = true; }
-                else if (hit(x, y, {1108, 8, 160, 44})) { if (released) panel = !panel; consumed = true; }
-                else if (entering && hit(x, y, {1050, 838, 146, 46})) { if (released) send_prompt(false); consumed = true; }
-                else if (entering && hit(x, y, {886, 838, 146, 46})) { if (released) { paused = true; command("interrupt"); update_gate(); } consumed = true; }
-                else if (hit(x, y, {18, 900, 1010, 52})) { if (released) open_prompt(); consumed = true; }
-                else if (entering || (panel && x >= 870) || y < 78 || y >= 886) consumed = true;
-                else if (human && !capture && game_relative) { if (released) capture = true; consumed = true; }
+                } else if (entering) { prompt.insert(event.text.text); publish(directory + "/draft.txt", prompt.value); consumed = true; }
             }
-            if (event.type == SDL_MOUSEWHEEL && settings && menu_mode == "list") { selected -= event.wheel.y; refresh_matches(); consumed = true; }
-            else if (event.type == SDL_MOUSEWHEEL && !human && panel) { scroll = std::max(0, scroll + event.wheel.y * 160); consumed = true; }
+            const bool ended_drag = dragging && event.type == SDL_MOUSEBUTTONUP;
+            if (dragging && event.type == SDL_MOUSEMOTION) { scroll_to(event.motion.y); consumed = true; }
+            if (ended_drag) { scroll_to(event.button.y); dragging = false; consumed = true; }
+            if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && interface && !relative && !ended_drag) {
+                consumed = true;
+                if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT && settings &&
+                    (menu_mode == "models" || menu_mode == "list") && hit(event.button.x, event.button.y, {1088, 292, 18, 480})) {
+                    dragging = true; scroll_to(event.button.y);
+                }
+                if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT) {
+                    const int x = event.button.x, y = event.button.y;
+                    if (settings) {
+                        if (hit(x, y, {1066, 112, 48, 40})) close_settings();
+                        else if (hit(x, y, {162, 112, 105, 40})) back();
+                        else if ((menu_mode == "input" || menu_mode == "secret") && hit(x, y, {940, 790, 150, 44})) choose();
+                        else if (menu_mode == "models" && hit(x, y, {1002, 226, 74, 44})) { filter.set(""); selected = first = 0; refresh_matches(); }
+                        else if (menu_mode == "settings" && hit(x, y, {190, 238, 900, 416})) { selected = (y - 238) / 104; if (selected < static_cast<int>(matches.size())) choose(); }
+                        else if ((menu_mode == "models" || menu_mode == "list") && hit(x, y, {190, 292, 892, 480})) {
+                            const int row = first + (y - 292) / 48;
+                            if (row < static_cast<int>(matches.size())) { selected = row; choose(); }
+                        }
+                    } else if (hit(x, y, {1148, 16, 112, 38})) show_interface(false);
+                    else if (hit(x, y, {900, 70, 360, 42})) { if (human) show_interface(false); else switch_control(); }
+                    else if (hit(x, y, {900, 144, 360, 46})) open_settings("provider");
+                    else if (hit(x, y, {900, 220, 360, 54})) open_settings("model");
+                    else if (hit(x, y, {900, 306, 360, 42})) open_settings("effort");
+                    else if (hit(x, y, {900, 366, 360, 38})) open_settings();
+                    else if (hit(x, y, {900, 496, 360, 36})) { activity = !activity; save_ui(); }
+                    else if (hit(x, y, editor)) open_prompt();
+                    else if (hit(x, y, {900, 866, 170, 40})) { paused = true; command("interrupt"); entering = false; update_gate(); }
+                    else if (hit(x, y, {1090, 866, 170, 40})) send_prompt(false);
+                    else if (hit(x, y, {900, 920, 150, 28})) running = false;
+                    else if (x < 880) { if (human) show_interface(false); else entering = false; }
+                }
+            }
+            if (event.type == SDL_MOUSEWHEEL && interface) {
+                consumed = true;
+                if (settings && (menu_mode == "models" || menu_mode == "list")) {
+                    const int delta = event.wheel.y ? event.wheel.y : event.wheel.preciseY > 0 ? 1 : -1;
+                    first = std::max(0, std::min(first - delta, static_cast<int>(matches.size()) - 10));
+                } else if (!settings && activity) scroll = std::max(0, scroll + event.wheel.y * 160);
+            }
             if (!consumed && gate.owner == CONTROL_HUMAN && manual.size() < 256) {
                 HumanEvent item = {};
                 if ((event.type == SDL_KEYDOWN && !event.key.repeat) || event.type == SDL_KEYUP) {
@@ -218,58 +277,76 @@ int main(int argc, char **argv) {
             std::memcpy(data.data(), &header, sizeof(header)); std::memcpy(data.data() + sizeof(header), manual.data(), manual.size() * sizeof(HumanEvent));
             publish(scratch + "/human." + std::to_string(++human_serial), data.data(), data.size()); manual.clear();
         }
-        const bool want_relative = gate.owner == CONTROL_HUMAN && capture && game_relative;
+        const bool want_relative = gate.owner == CONTROL_HUMAN && game_relative;
         if (want_relative != relative) { SDL_SetRelativeMouseMode(want_relative ? SDL_TRUE : SDL_FALSE); relative = want_relative; }
         auto bytes = read(scratch + "/view.rgba", 16 + 640 * 480 * 4);
         uint32_t header[4] = {};
         if (bytes.size() == 16 + 640 * 480 * 4) std::memcpy(header, bytes.data(), 16);
         if (header[2] == 640 && header[3] == 480 && header[0] != last_frame) { SDL_UpdateTexture(view, nullptr, bytes.data() + 16, 640 * 4); last_frame = header[0]; }
-        SDL_SetRenderDrawColor(renderer, 16, 23, 28, 255); SDL_RenderClear(renderer);
-        if (last_frame) SDL_RenderCopy(renderer, view, nullptr, nullptr);
-        shade({0, 0, 1280, 78});
-        const auto selection = split(contents(scratch + "/selection.txt"));
-        const std::string configured = selection.size() >= 3 ? selection[0] + " / " + (selection[1].empty() ? "Choose model (F2)" : selection[1]) + " / " + selection[2] : "Configure agent with F2";
-        text((human ? "YOU  /  " : "AGENT  /  ") + configured, 18, 12, 890, 1, false);
-        text(contents(scratch + "/cost.txt") + (human && !capture && !entering && !settings ? " · Double-click world to capture mouse" : ""), 18, 46, 1200, 1, false);
-        button("F2 Settings", {930, 8, 168, 44}); button(panel ? "Tab Hide trace" : "Tab Show trace", {1108, 8, 160, 44});
-        if (panel && !settings) {
-            shade({870, 78, 410, 808}, 235);
-            text("AGENT ACTIVITY", 892, 98, 365, 1, false);
-            text(contents(scratch + "/status.txt"), 892, 136, 365, 2, false);
-            std::string activity = contents(scratch + "/activity.txt");
-            scroll = std::min(scroll, std::max(0, static_cast<int>(activity.size()) - 500));
-            if (scroll) activity.resize(activity.size() - scroll);
-            text(activity, 892, 198, 365, 28, true);
-            text(scroll ? "Scrolled · End follows live" : "Live · Scroll for earlier activity", 892, 854, 365, 1, false);
-        }
-        shade({0, 886, 1280, 74});
-        button("Enter / click to give an instruction", {18, 900, 520, 46});
-        text("F6: " + std::string(human ? "agent takes control" : "take control") + "  |  F10: save & exit", 564, 914, 700, 1, false);
-        if (entering && !settings) {
-            shade({72, 614, 1136, 284}, 250);
-            text("INSTRUCTION   Enter: send / steer   Shift+Enter: newline   Ctrl+Enter: interrupt & send", 94, 630, 1090, 1, false);
-            shade({90, 666, 1100, 156}, 255, prompt.all ? 36 : 20, prompt.all ? 64 : 31, prompt.all ? 82 : 40);
-            text(prompt.display(), 104, 676, 1070, 6, true);
-            button("Esc Interrupt", {886, 838, 146, 46}); button("Send", {1050, 838, 146, 46});
+        SDL_SetRenderDrawColor(renderer, 10, 15, 20, 255); SDL_RenderClear(renderer);
+        const SDL_Rect game = interface ? SDL_Rect{0, 150, 880, 660} : SDL_Rect{0, 0, 1280, 960};
+        if (last_frame) SDL_RenderCopy(renderer, view, nullptr, &game);
+        if (interface) {
+            shade({880, 0, 400, 960}, 255);
+            text("AGENT WORLD", 900, 25, 235, 1, false); button("Tab Hide", {1148, 16, 112, 38});
+            button(human ? "Play yourself  /  hide panel" : "Take control  /  `", {900, 70, 360, 42});
+            const auto selection = split(contents(scratch + "/selection.txt"));
+            text("Provider", 900, 120, 360, 1, false);
+            button(selection.size() >= 3 && selection[0] == "codex-local" ? "Codex (local proxy)" : "OpenRouter", {900, 144, 360, 46});
+            text("Model", 900, 196, 360, 1, false);
+            shade({900, 220, 360, 54}, 255, 38, 63, 73);
+            text(selection.size() >= 3 && !selection[1].empty() ? selection[1] : "Select a model", 912, 227, 336, 2, false);
+            text("Reasoning effort", 900, 282, 360, 1, false);
+            button(selection.size() >= 3 ? selection[2] : "low", {900, 306, 360, 42});
+            button("Settings  /  Ctrl+,", {900, 366, 360, 38});
+            text(contents(scratch + "/cost.txt"), 900, 418, 360, 2, false);
+            text(contents(scratch + "/status.txt"), 900, 462, 360, 1, false);
+            button(activity ? "Activity  /  hide" : "Activity  /  show", {900, 496, 360, 36});
+            if (activity) {
+                std::string trace = contents(scratch + "/activity.txt");
+                scroll = std::min(scroll, std::max(0, static_cast<int>(trace.size()) - 300));
+                if (scroll) trace.resize(trace.size() - scroll);
+                text(trace.empty() ? "Give the agent an instruction.\nIts activity will appear here." : trace, 900, 546, 360, 7, true);
+            }
+            text("Instruction  /  Enter", 900, editor.y - 28, 360, 1, false);
+            shade(editor, 255, entering ? 30 : 20, entering ? 50 : 31, entering ? 65 : 40);
+            text(entering ? prompt.display() : prompt.value.empty() ? "Click here to write…" : prompt.value, editor.x + 12, editor.y + 8, editor.w - 24, (editor.h - 16) / 22, true);
+            button("Interrupt / Esc", {900, 866, 170, 40}); button("Send / Enter", {1090, 866, 170, 40});
+            text("Save & exit", 912, 924, 140, 1, false); text("` Switch control", 1070, 924, 200, 1, false);
+            text("Tab: game only    `: switch control    Enter: instruction", 36, 870, 800, 1, false);
         }
         if (settings) {
-            shade({180, 112, 920, 688}, 250);
-            text(title.empty() ? "Agent settings" : title, 208, 136, 790, 1, false); button("X", {1020, 128, 60, 42});
-            text(message, 208, 184, 864, 3, false);
-            if (menu_mode == "list") {
-                shade({208, 248, 864, 38}, 255, 28, 42, 51); text("Filter: " + filter.display(), 220, 256, 840, 1, false);
-                const int start = selected / 8 * 8;
-                for (int n = start; n < std::min(start + 8, static_cast<int>(matches.size())); ++n) {
-                    const int y = 292 + (n - start) * 52; const auto &row = rows[matches[n]];
-                    if (n == selected) shade({200, y, 880, 50}, 255, 38, 63, 73);
-                    text(row[1], 216, y + 2, 850, 1, false);
-                    if (row.size() > 2) text(row[2], 216, y + 25, 850, 1, false);
+            shade({140, 92, 1000, 776}, 255);
+            button("Back", {162, 112, 105, 40}); text(title, 290, 122, 760, 1, false); button("X", {1066, 112, 48, 40});
+            text(message, 190, 174, 900, 2, false);
+            if (menu_mode == "settings") {
+                for (size_t n = 0; n < rows.size(); ++n) {
+                    const int y = 238 + n * 104;
+                    shade({190, y, 900, 88}, 255, selected == static_cast<int>(n) ? 38 : 24, 45, 58);
+                    text(rows[n][1], 210, y + 10, 860, 1, false);
+                    if (rows[n].size() > 2) text(rows[n][2], 210, y + 42, 860, 1, false);
                 }
-                text(matches.empty() ? "No matches" : std::to_string(selected + 1) + " / " + std::to_string(matches.size()) + "    Arrows / click select · Enter applies", 208, 746, 864, 1, false);
+            } else if (menu_mode == "models" || menu_mode == "list") {
+                if (menu_mode == "models") {
+                    shade({190, 226, 888, 44}, 255, 28, 42, 51);
+                    text(filter.value.empty() ? "Search models…" : filter.display(), 204, 236, 784, 1, false); button("Clear", {1002, 226, 74, 44});
+                }
+                for (int n = first; n < std::min(first + 10, static_cast<int>(matches.size())); ++n) {
+                    const int y = 292 + (n - first) * 48; const auto &row = rows[matches[n]];
+                    shade({190, y, 892, 46}, 255, n == selected ? 38 : 20, n == selected ? 63 : 31, n == selected ? 73 : 40);
+                    text(row[1], 204, y + 2, 864, 1, false);
+                    if (row.size() > 2) text(row[2], 204, y + 24, 864, 1, false);
+                }
+                if (matches.size() > 10) {
+                    shade({1088, 292, 18, 480}, 255, 30, 44, 54);
+                    const int height = 4800 / matches.size();
+                    shade({1088, 292 + first * (480 - height) / (static_cast<int>(matches.size()) - 10), 18, height}, 255, 87, 130, 145);
+                }
+                text(matches.empty() ? "No matching models. Clear the search to start again." : std::to_string(first + 1) + "–" + std::to_string(std::min(first + 10, static_cast<int>(matches.size()))) + " of " + std::to_string(matches.size()) + "    Click to select · arrows / Enter · scroll", 190, 806, 900, 1, false);
             } else if (menu_mode == "input" || menu_mode == "secret") {
-                shade({208, 296, 864, 220}, 255, 20, 31, 40); text(answer.display(menu_mode == "secret"), 222, 312, 835, 8, true);
-                text("Enter submits · Escape cancels", 208, 728, 650, 1, false); button("Submit", {940, 714, 140, 46});
-            }
+                shade({190, 260, 900, 244}, 255, 20, 31, 40); text(answer.display(menu_mode == "secret"), 208, 280, 864, 9, true);
+                text("Enter submits · Back cancels", 190, 802, 680, 1, false); button("Connect", {940, 790, 150, 44});
+            } else text("Please wait…", 190, 264, 900, 1, false);
         }
         SDL_RenderPresent(renderer); SDL_Delay(33);
         if (glyphs.size() > 2048) { for (auto &item : glyphs) SDL_DestroyTexture(item.second.texture); glyphs.clear(); }
