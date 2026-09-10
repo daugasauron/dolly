@@ -152,6 +152,15 @@ static void DollyPumpEvents(_THIS)
             if (event.action != DOLLY_KEY_ACTION_RELEASE) SDL_SetKeyboardFocus(video->window);
             SDL_SendKeyboardKey(event.action == DOLLY_KEY_ACTION_RELEASE ? SDL_RELEASED : SDL_PRESSED,
                                 DollyScancode(&event));
+            if (event.action != DOLLY_KEY_ACTION_RELEASE && !(event.flags & DOLLY_INPUT_FLAG_COMPOSING) &&
+                !(event.modifiers & (DOLLY_INPUT_MOD_CONTROL | DOLLY_INPUT_MOD_META))) {
+                char text[SDL_TEXTINPUTEVENT_TEXT_SIZE];
+                if (event.key_length < sizeof(text)) {
+                    SDL_memcpy(text, event.data, event.key_length);
+                    text[event.key_length] = 0;
+                    if (SDL_utf8strlen(text) == 1) SDL_SendKeyboardText(text);
+                }
+            }
             break;
         case DOLLY_INPUT_EVENT_TEXT: {
             size_t offset = (size_t)event.key_length + event.code_length;

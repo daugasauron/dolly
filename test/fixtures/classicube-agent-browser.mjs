@@ -14,6 +14,14 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     await key({key:name,code,windowsVirtualKeyCode:number,modifiers:mask});
     await send("Input.dispatchKeyEvent", {type:"keyUp",key:modifier,code:modifierCode,windowsVirtualKeyCode:modifierNumber});
   };
+  const type = async text => {
+    for (const character of text) await key({key:character,code:/[a-z]/i.test(character)?`Key${character.toUpperCase()}`:character===' '?'Space':'',text:character});
+  };
+  const fullscreen = async () => {
+    const before=await evaluate('!!document.fullscreenElement');
+    await press('F11','F11',122);
+    await wait('!!document.fullscreenElement',value=>value!==before,'F11 toggles fullscreen');
+  };
   const enter = () => press("Enter", "Enter", 13), escape = () => press("Escape", "Escape", 27);
   const tab = () => press("Tab", "Tab", 9), handoff = () => press("`", "Backquote", 192);
   const snapshot = async name => writeFile(resolve(projectDir, `build/classicube-overlay-${name}.png`), (await send("Page.captureScreenshot", { format: "png" })).data, "base64");
@@ -59,7 +67,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     throw Error(`${label}: ${JSON.stringify({ menu:last.menu, control:last.control, status:last['status.txt'], config:last.config, events:last.events?.slice(-3) })}`);
   };
   const menu = title => state(s => s.menu?.split('\n')[2] === title && !s.menu.includes('\nbusy\n'), title);
-  const choose = async (title, filter) => { await menu(title); if (filter) await input(filter); await enter(); };
+  const choose = async (title, filter) => { await menu(title); if (filter) await type(filter); await enter(); };
   const events = (s, type) => (s.events || []).filter(e => e.type === type);
   const field = async n => { await menu('Agent settings'); await click(600,280+n*104); };
   const row = async (title, id) => {
@@ -82,21 +90,34 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   assert.equal(await evaluate("__dolly.httpRequestCount"),0,'world starts without network calls');
   await state(s=>s.ui?.includes('interface=1') && s.frame>0,'docked controls');
   await gamePixels(true); await snapshot('docked');
-  for(const n of [2,6,10,11]) await press(`F${n}`,`F${n}`,111+n);
-  assert.equal(await evaluate('!!document.fullscreenElement'),false,'function keys do not control this app');
+  for(const n of [2,6,10]) await press(`F${n}`,`F${n}`,111+n);
+  assert.equal(await evaluate('!!document.fullscreenElement'),false,'other function keys do not control this app');
   await state(s=>s.ui.includes('interface=1') && s.control===0,'function keys leave controls unchanged');
+  await fullscreen(); await fullscreen();
   await tab(); await state(s=>s.ui.includes('interface=0') && s.control===1,'Tab hides all controls');
   await gamePixels(false); await snapshot('game-only');
   await wait('__dolly.transport.relativePointerRequested()',Boolean,'manual capture requested');
   await click(640,480); await wait("document.pointerLockElement?.id",value=>value==='display','human mouse capture');
   await send("Input.dispatchKeyEvent",{type:'keyDown',key:'w',code:'KeyW',windowsVirtualKeyCode:87}); await delay(500);
   await send("Input.dispatchKeyEvent",{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
-  await escape(); await delay(150); await enter(); await input('Enter works after releasing capture 日本語 ✓');
+  await escape(); await delay(150); await enter();
+  await press('a','KeyA',65); await chord('B','KeyB',66,'Shift','ShiftLeft',16,8);
+  await chord('!','Digit1',49,'Shift','ShiftLeft',16,8);
+  await press('é','KeyE',69); await press('あ','KeyA',65);
+  await state(s=>s.draft==='aB!éあ','physical keyboard produces layout-aware prompt text',8);
+  await fullscreen(); await fullscreen();
+  await state(s=>s.draft==='aB!éあ','fullscreen preserves the focused draft');
+  await chord('a','KeyA',65); await type('Replacement');
+  await state(s=>s.draft==='Replacement','typing replaces selected text');
+  await chord('Enter','Enter',13,'Shift','ShiftLeft',16,8); await type('line 2');
+  await state(s=>s.draft==='Replacement\nline 2','Shift+Enter inserts a newline');
+  await chord('a','KeyA',65); await press('Backspace','Backspace',8);
+  await input('Enter works after releasing capture 日本語 ✓');
   await state(s=>s.draft==='Enter works after releasing capture 日本語 ✓','prompt accepts immediate paste',8);
   await tab(); await state(s=>s.ui.includes('interface=0') && s.draft.endsWith('日本語 ✓'),'hiding UI retains draft');
   await tab(); await enter(); await chord('a','KeyA',65); await press('Backspace','Backspace',8);
   await state(s=>s.draft==='','Ctrl+A clears draft'); await escape();
-  await click(1050,386); const home=await menu('Agent settings');
+  await click(980,87); const home=await menu('Agent settings');
   assert.deepEqual(home.menu.split('\n').slice(4).map(line=>line.split('\t')[0]),['provider','model','effort','connection']);
   await field(0); const providers=await menu('Provider');
   assert.match(providers.menu,/provider:openrouter/); assert.match(providers.menu,/provider:codex-local/);
@@ -105,7 +126,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await snapshot('codex-provider');
   if(relayFile) {
     await row('Codex (local proxy)','relay');
-    await wait("!!document.querySelector('#file-upload[open]')",Boolean,'proxy upload'); await selectFile(relayFile);
+    await wait("!!document.querySelector('#file-upload[open]')",Boolean,'proxy upload'); await fullscreen(); await fullscreen(); await selectFile(relayFile);
   } else {
     await click(210,132); await field(0); await row('Provider','provider:openrouter');
     const router=await menu('OpenRouter'); assert.doesNotMatch(router.menu,/proxy|relay/);
@@ -121,7 +142,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   const catalog=await menu('Model');
   const models=catalog.menu.split('\n').slice(4).map(line=>line.split('\t')[0].slice(6));
   if(!live) assert.ok(models.length>10,'exercise a model list with multiple pages');
-  await input('no-such-model-zzzz'); await delay(150); await snapshot('no-matches'); await click(600,316);
+  await type('no-such-model-zzzz'); await delay(150); await snapshot('no-matches'); await click(600,316);
   assert.equal((await probe()).config.model,'','empty search cannot select an invisible model');
   await click(1035,248); await delay(150);
   if(models.length>10) {
@@ -139,7 +160,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await state(s=>s.config.model===models.at(-10),'click selects the visible row after scrolling');
   await field(1);
   if(!live) {
-    await menu('Model'); await input('fixture/list-'); await press('ArrowDown','ArrowDown',40); await enter();
+    await menu('Model'); await type('fixture/list-'); await press('ArrowDown','ArrowDown',40); await enter();
     await state(s=>s.config.model==='fixture/list-01','arrows and Enter select the next matching model'); await field(1);
   }
   }
@@ -148,17 +169,21 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await chord(',','Comma',188); await chord(',','Comma',188); await menu('Agent settings');
   const configured=await probe(); assert.deepEqual(configured.config,{provider:relayFile?'codex-local':'openrouter',model,effort:'low'});
   assert.equal(await evaluate('__dolly.httpRequestCount'),relayFile?0:live?2:3,'selection makes no inference calls');
-  await snapshot('settings'); await click(1090,132);
-  await click(1040,515); await state(s=>s.ui.includes('activity=0'),'hide activity independently');
-  await click(1040,515); await state(s=>s.ui.includes('activity=1'),'restore activity');
-  await enter(); await input(live?'Look around, place three blocks in a short row, inspect them and report what you actually did.':'CLASSICUBE-FIXTURE-TASK: exercise ordinary game controls and inspect the results.');
+  await fullscreen(); await fullscreen(); await snapshot('settings'); await click(1090,132);
+  await delay(150); await snapshot('log-panel');
+  await click(1210,238); await state(s=>s.ui.includes('activity=0'),'hide activity independently');
+  await click(1210,238); await state(s=>s.ui.includes('activity=1'),'restore activity');
+  const instruction=live?'Look around, place three blocks in a short row, inspect them and report what you actually did.':'CLASSICUBE-FIXTURE-TASK: exercise ordinary game controls and inspect the results.';
+  await click(980,886); await type(instruction);
+  await state(s=>s.draft===instruction,'the complete typed instruction is stored');
   await snapshot('prompt'); await click(1170,886);
-  await state(s=>events(s,'configuration').length>0,'real Pi configuration');
+  const started=await state(s=>events(s,'configuration').length>0,'real Pi configuration');
+  assert.equal(events(started,'prompt')[0].text,instruction,'Send delivers the complete typed prompt');
   await tab(); await state(s=>s.control===2 && s.ui.includes('interface=0'),'hiding interface keeps agent in control');
   await gamePixels(false); await tab();
   if(live) { await state(s=>events(s,'tool_result').some(e=>!e.isError && e.details?.actions.length),'live model uses the game controls',75); await snapshot('live'); }
   else await state(s=>events(s,'tool_result').length>=3 && events(s,'settled').length>0,'first task completes');
-  await enter(); await input(live ? 'Inspect your recent work and describe it. Stop acting when finished.' : 'Follow-up proof: turn left and walk briefly, then finish. Keep this complete pasted instruction: 日本語 ✓.'); await enter();
+  await enter(); await type(live ? 'Inspect your recent work and describe it. Stop acting when finished.' : 'Follow-up proof: turn left and walk briefly, then finish. Keep this complete typed instruction.'); await enter();
   if(live) await delay(18000);
   else await state(s=>events(s,'tool_result').length>=4 && events(s,'settled').length>=2,'Enter sends a follow-up');
   const completed = await probe();
@@ -168,7 +193,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await snapshot(live?'live-traces':'traces');
   if(!live) {
     const count=await evaluate('__dolly.httpRequestCount');
-    await enter(); await input('INTERRUPT-PROOF: keep working until I take control.'); await enter();
+    await enter(); await type('INTERRUPT-PROOF: keep working until I take control.'); await enter();
     await wait('__dolly.httpRequestCount',n=>n>count,'slow inference request begins');
     await handoff(); await state(s=>s.control===1,'Backtick gives human control immediately');
     await delay(1000); const interrupted=await probe();
@@ -178,9 +203,9 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     await delay(500);
     const requests = await evaluate('__dolly.httpRequestCount');
     await handoff(); await wait('__dolly.httpRequestCount',n=>n>requests,'resume before steering');
-    await enter(); await input('STEER-PROOF: inspect before continuing.'); await enter();
+    await enter(); await type('STEER-PROOF: inspect before continuing.'); await enter();
     await state(s=>s['status.txt']==='Instruction queued for the agent','Enter steers while inference is running');
-    await enter(); await input('REPLACE-PROOF: replace the current instruction.'); await chord('Enter','Enter',13);
+    await enter(); await type('REPLACE-PROOF: replace the current instruction.'); await chord('Enter','Enter',13);
     await wait('__dolly.httpRequestCount',n=>n>requests+1,'Ctrl+Enter interrupts and sends a replacement');
     await state(s=>events(s,'tool').length>events(completed,'tool').length+1,'replacement starts an input batch');
     await escape(); await state(s=>s.control===0,'Escape interrupts without closing the world');
@@ -189,9 +214,9 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await click(640,480); await wait('document.pointerLockElement?.id',v=>v==='display','human control after agent');
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:'d',code:'KeyD',windowsVirtualKeyCode:68}); await delay(400);
   await send('Input.dispatchKeyEvent',{type:'keyUp',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
-  await escape(); await delay(100); await tab(); await click(1040,770);
+  await escape(); await delay(100); await tab(); await click(980,886);
   const draft='Saved unfinished instruction 日本語 ✓'; await input(draft); await state(s=>s.draft===draft,'clickable editor saves unfinished text');
-  await click(1040,515); await tab();
+  await click(1210,238); await tab();
   await state(s=>s.ui.includes('interface=0') && s.ui.includes('activity=0'),'saved hidden interface and activity');
   await delay(5200); const before = await probe();
   await evaluate("__dolly.saveSession('classicube-world-proof')");
@@ -230,5 +255,5 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   let bytes; for(let n=0;n<200&&!bytes;n++){bytes=await readFile(resolve(downloadDirectory,'classicube-report.json')).catch(()=>null);if(!bytes)await delay(50);}
   assert.ok(bytes); const report=JSON.parse(bytes); assert.deepEqual(report.scratch,[]);
   await writeFile(resolve(projectDir,`build/classicube-overlay-${relayFile?'relay-live':live?'live':'fixture'}-report.json`),bytes);
-  console.log(`browser: ClassiCube ${live?'LIVE':'scripted'}: unobstructed docked/full game pixels, hide/show panels, no function-key actions, provider isolation, search/clear/${models.length>10?'wheel/scrollbar/':''}mouse selection, prompt input, agent tools, backtick handoff, interruption and config/history/world/UI restoration passed`);
+  console.log(`browser: ClassiCube ${live?'LIVE':'scripted'}: unobstructed docked/full game pixels, hide/show panels, F11 fullscreen in game/editor/settings, real keyboard typing, separate settings/log, provider isolation, search/clear/${models.length>10?'wheel/scrollbar/':''}mouse selection, prompt input, agent tools, backtick handoff, interruption and config/history/world/UI restoration passed`);
 }

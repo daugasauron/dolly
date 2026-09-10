@@ -2537,6 +2537,18 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         await send("Input.dispatchMouseEvent", { type: "mousePressed", button: "right", clickCount: 1, ...box });
         await send("Input.dispatchMouseEvent", { type: "mouseReleased", button: "right", clickCount: 1, ...box });
         await dispatchKey(send, { key: "a", code: "KeyA", windowsVirtualKeyCode: 65 });
+        for (const [key,code,modifiers] of [["B","KeyB",8],["!","Digit1",8],["é","KeyE",0],["😀","",0]])
+          await dispatchKey(send, {key,code,modifiers,text:key});
+        await send("Input.dispatchKeyEvent", {type:"keyDown",key:"x",code:"KeyX"});
+        await send("Input.dispatchKeyEvent", {type:"keyDown",key:"x",code:"KeyX",autoRepeat:true});
+        await send("Input.dispatchKeyEvent", {type:"keyUp",key:"x",code:"KeyX"});
+        for (const [key,code,modifiers] of [["d","KeyD",2],["k","KeyK",4],["Dead","Quote",0],["ArrowLeft","ArrowLeft",0]])
+          await dispatchKey(send, {key,code,modifiers});
+        await evaluate(send, `(() => { const k=document.querySelector('#keyboard');
+          k.dispatchEvent(new KeyboardEvent('keydown',{key:'e',code:'KeyE',isComposing:true,bubbles:true}));
+          k.dispatchEvent(new KeyboardEvent('keyup',{key:'e',code:'KeyE',isComposing:true,bubbles:true}));
+          k.dispatchEvent(new CompositionEvent('compositionend',{data:'日本語'})); })()`);
+        await inputText(send, " ✓");
         await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
         assert.equal(await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 input completion"), 0);
         assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
@@ -2552,7 +2564,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         }
         await submit("rm -rf /tmp/dolly-sdl2");
       }
-      console.log("browser: SDL2 source build, RGB565 presentation, keyboard/click input, display restoration, offscreen ordered batches, PNG screenshots, invalid batches and held-input cancellation passed");
+      console.log("browser: SDL2 source build, RGB565 presentation, typed Unicode/repeat/composition/paste and shortcut filtering, keyboard/click input, display restoration, offscreen ordered batches, PNG screenshots, invalid batches and held-input cancellation passed");
       break browserProof;
     }
     if (graphicsMode) {

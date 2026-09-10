@@ -1,26 +1,31 @@
 # ClassiCube agent world
 
-`Dollyfile-classicube` opens directly into an offline world. Controls, cost,
-activity and the prompt editor live in a side panel. The complete game view fits
-beside it, including the game's own HUD. **Tab** hides every panel and dialog so
-the game fills the canvas; Tab shows the controls again. Panel and activity
-visibility are saved in `ui.conf`. Starting or restoring makes no model calls.
+`Dollyfile-classicube` opens directly into an offline world with an agent log
+beside the complete game view. Provider, model, effort and connection live in a
+separate **Settings** dialog. Close it to follow reasoning, replies and actions
+while keeping status and cost visible. **Message** or Enter opens the prompt;
+sending collapses the editor to leave more room for the log.
+
+**Tab** hides every panel and dialog so the game fills the canvas; Tab shows the
+log again. Panel and log visibility are saved in `ui.conf`. Starting or restoring
+makes no model calls.
 
 | Control | Action |
 | --- | --- |
+| F11 | Toggle fullscreen, including while editing or configuring |
 | Tab / Hide | Hide or show the entire interface, retaining unfinished input |
 | Backtick | Switch between your controls and the agent's controls |
 | Ctrl+, / Settings | Open or close agent settings |
-| Enter / instruction field | Write an instruction |
+| Enter / Message | Write an instruction |
 | Enter / Send | Send an instruction or steer the working agent |
 | Shift+Enter | Insert a newline |
 | Ctrl+Enter | Interrupt the current task and send a replacement |
 | Escape / Interrupt | Interrupt the agent; Escape backs out of settings |
-| Activity button | Hide or show activity independently |
+| Hide log / Show log | Hide or show traces independently |
 | Scroll / Page Up / Page Down / End | Browse activity / follow live output |
 | Save & exit button | Save the world and exit to Dolly's shell |
 
-ClassiCube's agent interface assigns no function-key shortcuts. To play, hide
+F11 is the only function-key shortcut. To play, hide
 the panel with Tab or **Play yourself**, then click the game to capture the
 mouse. WASD moves, Space jumps, left/right click breaks/places, and B opens
 inventory. Escape releases capture; Escape again opens the game menu. Showing
@@ -92,7 +97,8 @@ with RTS Arena. This is ClassiCube's creative game, without audio or multiplayer
 Browser modes `classicube` and `classicube-agent` test manual play and the full
 agent flow against an explicitly scripted provider in Chrome through DevTools
 automation. Checks cover unobstructed game pixels, panel toggles, mouse/keyboard
-selection, scrolling and empty searches, provider connection, interruption,
+typing (separately from paste), F11 in the editor and settings, selection,
+scrolling and empty searches, provider connection, interruption,
 handoff and session restoration. The opt-in
 `classicube-agent-live` mode reads an OpenRouter key from stdin without echoing
 and runs a bounded live test in a fresh browser profile. `DOLLY_CLASSICUBE_MODEL`

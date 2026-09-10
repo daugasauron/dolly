@@ -46,6 +46,10 @@ struct Editor {
     }
     void key(SDL_Keycode key, bool control) {
         if (control && key == SDLK_a) { all = true; return; }
+        switch (key) {
+            case SDLK_BACKSPACE: case SDLK_DELETE: case SDLK_LEFT: case SDLK_RIGHT: case SDLK_HOME: case SDLK_END: break;
+            default: return;
+        }
         if ((key == SDLK_BACKSPACE || key == SDLK_DELETE) && all) { set(""); return; }
         if (key == SDLK_BACKSPACE && cursor) { const auto n = previous(); value.erase(n, cursor - n); cursor = n; }
         if (key == SDLK_DELETE && cursor < value.size()) value.erase(cursor, next() - cursor);
@@ -159,7 +163,7 @@ int main(int argc, char **argv) {
         };
         if (!contents(scratch + "/show-settings").empty()) { std::remove((scratch + "/show-settings").c_str()); open_settings(); }
         if (!contents(scratch + "/show-prompt").empty()) { std::remove((scratch + "/show-prompt").c_str()); open_prompt(); }
-        const SDL_Rect editor = {900, activity ? 738 : 548, 360, activity ? 112 : 302};
+        const SDL_Rect editor = {900, activity ? 738 : 278, 360, activity ? 112 : 572};
         const auto scroll_to = [&](int y) {
             first = std::max(0, static_cast<int>(matches.size()) - 10) * std::max(0, std::min(479, y - 292)) / 479;
         };
@@ -238,15 +242,18 @@ int main(int argc, char **argv) {
                             if (row < static_cast<int>(matches.size())) { selected = row; choose(); }
                         }
                     } else if (hit(x, y, {1148, 16, 112, 38})) show_interface(false);
-                    else if (hit(x, y, {900, 70, 360, 42})) { if (human) show_interface(false); else switch_control(); }
-                    else if (hit(x, y, {900, 144, 360, 46})) open_settings("provider");
-                    else if (hit(x, y, {900, 220, 360, 54})) open_settings("model");
-                    else if (hit(x, y, {900, 306, 360, 42})) open_settings("effort");
-                    else if (hit(x, y, {900, 366, 360, 38})) open_settings();
-                    else if (hit(x, y, {900, 496, 360, 36})) { activity = !activity; save_ui(); }
-                    else if (hit(x, y, editor)) open_prompt();
-                    else if (hit(x, y, {900, 866, 170, 40})) { paused = true; command("interrupt"); entering = false; update_gate(); }
-                    else if (hit(x, y, {1090, 866, 170, 40})) send_prompt(false);
+                    else if (hit(x, y, {900, 68, 170, 38})) open_settings();
+                    else if (hit(x, y, {1090, 68, 170, 38})) { if (human) show_interface(false); else switch_control(); }
+                    else if (hit(x, y, {1160, 220, 100, 36})) { activity = !activity; save_ui(); }
+                    else if ((entering || !prompt.value.empty()) && hit(x, y, editor)) open_prompt();
+                    else if (hit(x, y, {900, 866, 170, 40})) {
+                        if (entering || !prompt.value.empty()) { paused = true; command("interrupt"); entering = false; update_gate(); }
+                        else open_prompt();
+                    }
+                    else if (hit(x, y, {1090, 866, 170, 40})) {
+                        if (entering || !prompt.value.empty()) send_prompt(false);
+                        else { paused = true; command("interrupt"); update_gate(); }
+                    }
                     else if (hit(x, y, {900, 920, 150, 28})) running = false;
                     else if (x < 880) { if (human) show_interface(false); else entering = false; }
                 }
@@ -288,30 +295,27 @@ int main(int argc, char **argv) {
         if (last_frame) SDL_RenderCopy(renderer, view, nullptr, &game);
         if (interface) {
             shade({880, 0, 400, 960}, 255);
-            text("AGENT WORLD", 900, 25, 235, 1, false); button("Tab Hide", {1148, 16, 112, 38});
-            button(human ? "Play yourself  /  hide panel" : "Take control  /  `", {900, 70, 360, 42});
-            const auto selection = split(contents(scratch + "/selection.txt"));
-            text("Provider", 900, 120, 360, 1, false);
-            button(selection.size() >= 3 && selection[0] == "codex-local" ? "Codex (local proxy)" : "OpenRouter", {900, 144, 360, 46});
-            text("Model", 900, 196, 360, 1, false);
-            shade({900, 220, 360, 54}, 255, 38, 63, 73);
-            text(selection.size() >= 3 && !selection[1].empty() ? selection[1] : "Select a model", 912, 227, 336, 2, false);
-            text("Reasoning effort", 900, 282, 360, 1, false);
-            button(selection.size() >= 3 ? selection[2] : "low", {900, 306, 360, 42});
-            button("Settings  /  Ctrl+,", {900, 366, 360, 38});
-            text(contents(scratch + "/cost.txt"), 900, 418, 360, 2, false);
-            text(contents(scratch + "/status.txt"), 900, 462, 360, 1, false);
-            button(activity ? "Activity  /  hide" : "Activity  /  show", {900, 496, 360, 36});
+            text("AGENT LOG", 900, 25, 235, 1, false); button("Tab Hide", {1148, 16, 112, 38});
+            button("Settings", {900, 68, 170, 38});
+            button(human ? "Play yourself" : "Take control / `", {1090, 68, 170, 38});
+            text(contents(scratch + "/status.txt"), 900, 122, 360, 2, false);
+            text(contents(scratch + "/cost.txt"), 900, 174, 360, 2, false);
+            text("Reasoning & actions", 900, 230, 250, 1, false);
+            button(activity ? "Hide log" : "Show log", {1160, 220, 100, 36});
+            const bool composing = entering || !prompt.value.empty();
             if (activity) {
                 std::string trace = contents(scratch + "/activity.txt");
                 scroll = std::min(scroll, std::max(0, static_cast<int>(trace.size()) - 300));
                 if (scroll) trace.resize(trace.size() - scroll);
-                text(trace.empty() ? "Give the agent an instruction.\nIts activity will appear here." : trace, 900, 546, 360, 7, true);
+                text(trace.empty() ? "Configure your agent in Settings, then press Enter to give it an instruction.\n\nReasoning, replies and game actions will appear here." : trace, 900, 270, 360, composing ? 19 : 26, true);
             }
-            text("Instruction  /  Enter", 900, editor.y - 28, 360, 1, false);
-            shade(editor, 255, entering ? 30 : 20, entering ? 50 : 31, entering ? 65 : 40);
-            text(entering ? prompt.display() : prompt.value.empty() ? "Click here to write…" : prompt.value, editor.x + 12, editor.y + 8, editor.w - 24, (editor.h - 16) / 22, true);
-            button("Interrupt / Esc", {900, 866, 170, 40}); button("Send / Enter", {1090, 866, 170, 40});
+            if (composing) {
+                text("Instruction / Enter sends", 900, editor.y - 28, 360, 1, false);
+                shade(editor, 255, entering ? 30 : 20, entering ? 50 : 31, entering ? 65 : 40);
+                text(entering ? prompt.display() : prompt.value, editor.x + 12, editor.y + 8, editor.w - 24, (editor.h - 16) / 22, true);
+            }
+            button(composing ? "Interrupt / Esc" : "Message / Enter", {900, 866, 170, 40});
+            button(composing ? "Send / Enter" : "Interrupt / Esc", {1090, 866, 170, 40});
             text("Save & exit", 912, 924, 140, 1, false); text("` Switch control", 1070, 924, 200, 1, false);
             text("Tab: game only    `: switch control    Enter: instruction", 36, 870, 800, 1, false);
         }

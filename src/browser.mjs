@@ -701,6 +701,12 @@ function requestForegroundInterrupt() {
 }
 
 function handleKeyboardEvent(event) {
+  if (event.key === "F11") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.type === "keydown" && !event.repeat) void toggleFullscreen(event);
+    return;
+  }
   if (document.querySelector("#file-upload[open]")) {
     if (event.type === "keydown" && event.ctrlKey && !event.shiftKey &&
         !event.altKey && !event.metaKey && event.code === "KeyC") {
@@ -766,7 +772,6 @@ function handleKeyboardEvent(event) {
     event.stopImmediatePropagation();
     return;
   }
-  if (event.type === "keydown" && event.key === "F11" && activeImage !== "classicube") void toggleFullscreen(event);
   if (!transport.pushKey(event)) {
     document.documentElement.dataset.inputOverflow = "true";
   }

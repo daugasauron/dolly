@@ -30,6 +30,8 @@ int main(int argc, char **argv)
     Uint64 started = SDL_GetTicks64();
     SDL_Delay(10);
     assert(SDL_GetTicks64() >= started + 5);
+    SDL_StartTextInput();
+    char typed[128] = "";
     int clicks = 0, right_clicks = 0, keys = 0, quit = 0;
     for (int frame = 0; !quit; ++frame) {
         assert(SDL_RenderClear(renderer) == 0);
@@ -38,6 +40,10 @@ int main(int argc, char **argv)
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) quit = 1;
+            if (event.type == SDL_TEXTINPUT) {
+                assert(strlen(typed) + strlen(event.text.text) < sizeof(typed));
+                strcat(typed, event.text.text);
+            }
             if (event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_A) ++keys;
             if (event.type == SDL_MOUSEBUTTONDOWN) {
                 assert(event.button.button == SDL_BUTTON_LEFT || event.button.button == SDL_BUTTON_RIGHT);
@@ -55,7 +61,10 @@ int main(int argc, char **argv)
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    if (argc > 1 && !strcmp(argv[1], "input")) assert(clicks == 1 && right_clicks == 1 && keys == 1);
+    if (argc > 1 && !strcmp(argv[1], "input")) {
+        assert(clicks == 1 && right_clicks == 1 && keys == 1);
+        assert(!strcmp(typed, "aB!é😀xx日本語 ✓"));
+    }
     puts("SDL2-PROBE-OK");
     return 0;
 }
