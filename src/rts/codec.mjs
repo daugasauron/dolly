@@ -1,6 +1,7 @@
 // Bounded, versioned application input packets. SPDX-License-Identifier: GPL-2.0-or-later
-export function createInputCodec({ magic, version, width, height, look = false }) {
-  const kinds = { move: 1, click: 2, key: 3, drag: 4, wait: 5, ...(look ? { look: 6 } : {}) };
+export function createInputCodec({ magic, version, width, height, look = false, text = false }) {
+  const kinds = { move: 1, click: 2, key: 3, drag: 4, wait: 5, ...(look ? { look: 6 } : {}), ...(text ? { text: 7 } : {}) };
+  const stride = text ? 288 : 64;
   const buttons = { left: 1, middle: 2, right: 3 };
   const modifiers = { Shift: 1, Control: 2, Alt: 4 };
   const keys = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", "Space", "Return", "Escape", "Tab",
@@ -17,12 +18,14 @@ export function createInputCodec({ magic, version, width, height, look = false }
     move: ["x", "y"], click: ["x", "y", "button"], key: ["key"],
     drag: ["x", "y", "end_x", "end_y", "button"], wait: ["milliseconds"],
     ...(look ? { look: ["dx", "dy"] } : {}),
+    ...(text ? { text: ["text"] } : {}),
   };
   const parameters = object({ actions: { type: "array", maxItems: 16, items: object({
     type: { ...enumeration(Object.keys(kinds)), description:
       "move: x,y, no button press (aim/hover); click: x,y,button; key: key and optional modifiers; drag: x,y,end_x,end_y,button; wait: milliseconds." + (look ? " look: relative mouse dx,dy in pixels; positive dx turns right, positive dy looks down." : "") },
     ...point, end_x: point.x, end_y: point.y,
     ...(look ? { dx: integer(-1600, 1600), dy: integer(-1600, 1600) } : {}),
+    ...(text ? { text: { type: "string", minLength: 1, maxLength: 255, description: "Type UTF-8 text into the focused game field (at most 255 bytes). No control characters; send Return separately to submit." } } : {}),
     button: enumeration(Object.keys(buttons)), key: enumeration(keys),
     modifiers: { type: "array", maxItems: 3, uniqueItems: true, items: enumeration(Object.keys(modifiers)) },
     milliseconds: { ...integer(16, 2000), description: "Input duration, or time to remain at a moved pointer position." },
@@ -36,7 +39,7 @@ export function createInputCodec({ magic, version, width, height, look = false }
   function encodeBatch(actions, id) {
     boundedInteger(id, 1, 0xffffffff, "request id");
     if (!Array.isArray(actions) || actions.length > 16) throw Error("At most 16 actions per batch");
-    const bytes = new Uint8Array(16 + actions.length * 64);
+    const bytes = new Uint8Array(16 + actions.length * stride);
     const view = new DataView(bytes.buffer);
     [magic, version, id, actions.length].forEach((value, index) => view.setUint32(index * 4, value, true));
     let duration = 0;
@@ -73,10 +76,16 @@ export function createInputCodec({ magic, version, width, height, look = false }
         if (!Array.isArray(selected) || selected.length > 3 || new Set(selected).size !== selected.length ||
             selected.some(value => !Object.hasOwn(modifiers, value))) throw Error("Invalid key modifiers");
         for (const value of selected) modifier |= modifiers[value];
-        bytes.set(new TextEncoder().encode(action.key), 16 + index * 64 + 32);
+        bytes.set(new TextEncoder().encode(action.key), 16 + index * stride + 32);
+      }
+      if (type === 7) {
+        if (typeof action.text !== "string" || !action.text || /[\u0000-\u001f\u007f]/.test(action.text)) throw Error("Text must be nonempty and contain no control characters");
+        const encoded = new TextEncoder().encode(action.text);
+        if (encoded.length > 255 || new TextDecoder().decode(encoded) !== action.text) throw Error("Text must be valid UTF-8, at most 255 bytes");
+        bytes.set(encoded, 16 + index * stride + 32);
       }
       [type, x, y, endX, endY, button, milliseconds, modifier].forEach((value, word) =>
-        view.setUint32(16 + index * 64 + word * 4, value, true));
+        view.setUint32(16 + index * stride + word * 4, value, true));
     }
     return bytes;
   }

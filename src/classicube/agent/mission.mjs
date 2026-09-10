@@ -13,6 +13,9 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
   let stopped = false, reason = "World closed", agent, starting, interrupting, closing;
   let busy = false, state = "Your controls", trace = saved("activity.txt"), lastPrompt = saved("last-prompt.txt");
   let failure = "", waitingSince = 0, waitingSecond = 0;
+  const idlePrompt = saved("idle-prompt.txt").trim() || "Explore the world and have fun.";
+  writeAtomic(fs, `${settingsDirectory}/idle-prompt.txt`, idlePrompt);
+  let idleAt = 0, pendingOperations = 0;
   let serial = 0, commandSerial = 0, observedGeneration = 0, operation = Promise.resolve(), observation;
   const processes = [];
   const control = () => {
@@ -34,15 +37,15 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
     const actions = event.args?.actions;
     const text = type === "tool" && Array.isArray(actions) ? `\n[game_input] ${actions.length ? actions.map(a =>
       a.type === "look" ? `look (${a.dx || 0}, ${a.dy || 0})` : a.type === "key" ? `${a.key} ${a.milliseconds || 0} ms` :
-      a.type === "click" ? `${a.button || "left"} click` : a.type).join("; ") : "observe"}\n` :
-      type === "tool_result" && !event.isError ? "" : type === "prompt" ? `\n[user] ${event.text}\n` : type === "configuration" ? `\n[model] ${event.provider} / ${event.model} / ${event.effort}\n` : type === "interrupt" ? "\n[interrupted]\n" : type === "retry_end" ? `\n[${event.success ? "Provider reconnected" : event.cancelled ? "Retry cancelled" : "Automatic retries stopped · Retry task to continue"}]\n` : type === "usage" ? "" : traceText(event);
+      a.type === "click" ? `${a.button || "left"} click` : a.type === "text" ? `type ${JSON.stringify(a.text)}` : a.type).join("; ") : "observe"}\n` :
+      type === "tool_result" && !event.isError ? "" : type === "prompt" ? `\n[${event.source === "idle" ? "idle" : "user"}] ${event.text}\n` : type === "configuration" ? `\n[model] ${event.provider} / ${event.model} / ${event.effort}\n` : type === "interrupt" ? "\n[interrupted]\n" : type === "retry_end" ? `\n[${event.success ? "Provider reconnected" : event.cancelled ? "Retry cancelled" : "Automatic retries stopped · Retry task to continue"}]\n` : type === "usage" ? "" : traceText(event);
     if (text) {
       trace = (trace + text).slice(-64000); atomic("activity.txt", trace);
       writeAtomic(fs, `${settingsDirectory}/activity.txt`, trace);
     }
   };
   const stop = message => { if (!stopped) { stopped = true; reason = message; observation?.abort(); settings.respond(null); } };
-  const fault = error => { failure = error.message; waitingSince = 0; record("provider_error", { message: failure }); status("Provider error"); };
+  const fault = error => { failure = error.message; waitingSince = idleAt = 0; record("provider_error", { message: failure }); status("Provider error"); };
   const runCommand = (command, args) => new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "inherit", "inherit"] });
     child.once("error", reject); child.once("close", resolve);
@@ -80,7 +83,9 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
       }
       else if (message.message?.stopReason !== "aborted") failure = "";
     } else if (message.type === "agent_settled") {
-      busy = false; waitingSince = 0; record("settled"); status(interrupting ? "Interrupted · Enter to give another instruction" : "Ready · Enter to give another instruction");
+      busy = false; waitingSince = 0; record("settled");
+      idleAt = !failure && !interrupting && !closing && !stopped && control().owner === 2 ? Date.now() + 5000 : 0;
+      status(idleAt ? "Exploring again shortly · Enter to steer" : "Interrupted · Enter to give another instruction");
     } else if (message.type === "auto_retry_start") {
       busy = true; record("retry", { attempt: message.attempt, maxAttempts: message.maxAttempts, delayMs: message.delayMs, message: message.errorMessage });
       status(`Retrying ${message.attempt}/${message.maxAttempts} in ${Math.ceil(message.delayMs / 1000)} s`);
@@ -156,7 +161,7 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
     finally { starting = undefined; }
   }
   function interrupt() {
-    observation?.abort(); waitingSince = 0;
+    observation?.abort(); waitingSince = idleAt = 0;
     if (interrupting) return interrupting;
     if (!agent) { busy = false; return Promise.resolve(); }
     record("interrupt"); status("Interrupted · Enter to give another instruction");
@@ -177,12 +182,12 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
     return closing;
   }
   const input = connect(fs, scratch, 0x80000000);
-  async function prompt(text, replace = false, resume = false) {
+  async function prompt(text, replace = false, resume = false, automatic = false) {
     if (!text.trim() || text.length > 65536 || stopped) return;
     if (replace) await interrupt(); else if (interrupting) await interrupting;
-    failure = ""; status();
-    if (!resume) { lastPrompt = text; writeAtomic(fs, `${settingsDirectory}/last-prompt.txt`, text); }
-    record("prompt", { text });
+    idleAt = 0; failure = ""; status();
+    if (!resume || !lastPrompt.trim()) { lastPrompt = text; writeAtomic(fs, `${settingsDirectory}/last-prompt.txt`, text); }
+    record("prompt", { text, source: automatic ? "idle" : "user" });
     const generation = control().generation;
     const current = await ensureAgent();
     if (stopped || control().owner !== 2 || control().generation !== generation) return;
@@ -197,7 +202,10 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
         images: [{ type: "image", mimeType: "image/png", data: Buffer.from(image.png).toString("base64") }] });
     } finally { observation = undefined; }
   }
-  const enqueue = task => { operation = operation.then(task).catch(error => { busy = false; if (!stopped) fault(error); }); };
+  const enqueue = task => {
+    ++pendingOperations;
+    operation = operation.then(task).catch(error => { busy = false; if (!stopped) fault(error); }).finally(() => { --pendingOperations; });
+  };
   atomic("activity.txt", trace); status();
   record("world_start");
   const gameLog = fs.openSync(`${run}/game.log`, "w");
@@ -213,6 +221,7 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
       }
       if (gate.generation !== observedGeneration) {
         observedGeneration = gate.generation;
+        if (gate.owner !== 2) idleAt = 0;
         if (gate.owner !== 2 && busy) void interrupt();
         status();
       }
@@ -236,9 +245,13 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
         }
         else if (command === "resume") {
           if (!settings.selection.model) atomic("show-settings", "1");
-          else if (!lastPrompt.trim()) atomic("show-prompt", "1");
+          else if (!lastPrompt.trim()) enqueue(() => prompt(idlePrompt, false, false, true));
           else enqueue(() => prompt(`Continue the current task: ${lastPrompt}\nI used manual controls; inspect the current screenshot before acting.`, false, true));
         }
+      }
+      if (idleAt && Date.now() >= idleAt && gate.owner === 2 && !busy && !failure && !pendingOperations && !starting && !interrupting && !closing) {
+        idleAt = 0;
+        enqueue(() => control().owner === 2 && control().generation === gate.generation && !stopped ? prompt(idlePrompt, false, true, true) : undefined);
       }
       await wait(33);
     }
@@ -249,7 +262,7 @@ export async function runPlayer({ fs, spawn, world, run, scratch, directory: set
     const force = setTimeout(() => { for (const { child } of processes) child.kill("SIGKILL"); }, 5000);
     await Promise.all(processes.map(({ closed }) => closed)); clearTimeout(force);
     for (const name of ["inputs.log", "view.rgba"]) if (fs.existsSync(`${scratch}/${name}`)) fs.renameSync(`${scratch}/${name}`, `${run}/${name}`);
-    for (const name of ["agent.json", "conversation.jsonl", "usage.json", "last-prompt.txt", "draft.txt", "ui.conf"]) {
+    for (const name of ["agent.json", "conversation.jsonl", "usage.json", "last-prompt.txt", "idle-prompt.txt", "draft.txt", "ui.conf"]) {
       if (fs.existsSync(`${settingsDirectory}/${name}`)) fs.copyFileSync(`${settingsDirectory}/${name}`, `${run}/${name}`);
     }
     fs.writeFileSync(`${run}/result.txt`, reason + "\n");

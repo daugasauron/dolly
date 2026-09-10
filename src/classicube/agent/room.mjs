@@ -131,7 +131,14 @@ export class ClassicRoom {
         this.broadcast(update, 0, true);
         if (previous !== block) { ++this.revision; this.changed("block", { player: client.id, x, y, z, previous, block, revision: this.revision }); }
       } else if (id === 13) {
-        const chat = packet(13, 66); chat[1] = 0; string(chat, 2, `${client.name}: ${p.subarray(2).toString("utf8").trim()}`); this.broadcast(chat);
+        let end = p.length; while (end > 2 && (p[end - 1] === 32 || p[end - 1] === 0)) --end;
+        const message = p.subarray(2, end);
+        if (!message.length) continue;
+        const line = Buffer.concat([Buffer.from(`${client.name}: `), message]);
+        for (let offset = 0; offset < line.length; offset += 64) {
+          const chat = packet(13, 66); chat.fill(32, 2); line.copy(chat, 2, offset, offset + 64); this.broadcast(chat);
+        }
+        this.changed("chat", { player: client.id, bytes: Array.from(message) });
       }
     }
     client.input = Buffer.from(client.input.subarray(offset));

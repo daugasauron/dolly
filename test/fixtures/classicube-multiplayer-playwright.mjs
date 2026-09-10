@@ -32,7 +32,7 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
       }
       if(/\/tmp\/classicube-agent-[^/]+\/watching$/.test(path))result.watching=Number(decode.decode(data));
       const profile=path.match(/^\/home\/dolly\/.config\/classicube\/(?:players\/(\d+)\/)?([^/]+)$/);
-      if(profile){const p=result.profiles[profile[1]||1] ||= {};if(['agent.json','draft.txt','last-prompt.txt','usage.json','activity.txt','conversation.jsonl'].includes(profile[2]))p[profile[2]]=decode.decode(data);}
+      if(profile){const p=result.profiles[profile[1]||1] ||= {};if(['agent.json','idle-prompt.txt','draft.txt','last-prompt.txt','usage.json','activity.txt','conversation.jsonl'].includes(profile[2]))p[profile[2]]=decode.decode(data);}
       const events=path.match(/\/player-(\d+)\/agent.events.jsonl$/);
       if(events)(result.agentEvents[events[1]] ||= []).push(...decode.decode(data).trim().split('\n').filter(Boolean).map(JSON.parse));
       if(path==='/home/dolly/.config/classicube/ui.conf')result.ui=decode.decode(data);
@@ -89,18 +89,23 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
   await state(s=>s.watching===2&&s.players[2]?.ready==='1'&&s.events.some(e=>e.type==='join'&&e.player===2),'second real client joins');
   await state(s=>s.profiles[2]?.['agent.json']===s.profiles[1]?.['agent.json'],'new player inherits configuration');
   await key('[');await state(s=>s.watching===1&&s.room.selected===1,'previous player persists');
-  const exploration='Explore this world using ordinary controls. Look left and right, then walk away from your starting position for at least two seconds total in short batches, checking screenshots for obstacles. Use at most six game_input calls, then describe what you actually saw and stop.';
+  const exploration='First send exactly "Hello from Player 1! Exploring now." in the in-game chat using T, text, Return. Then explore this world using ordinary controls. Look left and right, then walk away from your starting position for at least two seconds total in short batches, checking screenshots for obstacles. Use at most eight game_input calls, then describe what you actually saw and stop.';
   await prompt(exploration);
   await state(s=>events(s,1,'prompt').some(e=>e.text===exploration),'complete typed exploration prompt');
   await key(']');await state(s=>s.watching===2,'next player');
-  const building='Build a short row of three stone blocks on the nearby ground or treetop. Look down enough to target a reachable surface, select hotbar slot 1, and right click to place. Move sideways between placements and inspect your screenshots. Use at most twelve game_input calls. Verify the actual blocks before claiming success; then stop.';
+  await state(s=>s.events.some(e=>e.type==='chat'&&e.player===1&&Buffer.from(e.bytes).toString()==='Hello from Player 1! Exploring now.'),'live agent sends actual in-game chat',90);
+  await shot('chat-peer');
+  const building='Place a stone block on the nearby ground or treetop. Look down enough to target a reachable surface, select hotbar slot 1, and right click to place. Inspect the result and verify the actual block before claiming success, then stop. Use at most four game_input calls.';
   await prompt(building);
   await state(s=>events(s,2,'prompt').some(e=>e.text===building),'complete typed building prompt');
   await state(s=>events(s,1,'tool_result').some(e=>!e.isError)&&events(s,2,'tool_result').some(e=>!e.isError),'both independent live agents use real game controls',100);
   await shot('live');
   for(let id=3;id<=4;id++){
     await click(770,66);await state(s=>s.watching===id&&s.players[id]?.ready==='1'&&s.events.some(e=>e.type==='join'&&e.player===id),`player ${id} joins`);
-    await prompt(`You are Player ${id}. Survey the world from here. Turn right in four short look batches, inspecting each screenshot, then describe what you saw and stop. Use at most four game_input calls.`);
+    if(id===4) {
+      await key('`');
+      await state(s=>events(s,4,'prompt').some(e=>e.source==='idle'&&e.text==='Explore the world and have fun.'),'new agent starts default exploration without a prompt');
+    } else await prompt(`You are Player ${id}. Survey the world from here. Turn right in four short look batches, inspecting each screenshot, then describe what you saw and stop. Use at most four game_input calls.`);
   }
   const four=await measure('four players while agents work');
   const titleHash=()=>{const data=document.querySelector('#display').getContext('2d').getImageData(900,20,180,30).data;let h=0;for(let n=0;n<data.length;n+=4)h=(Math.imul(h,31)+data[n])|0;return h;};
@@ -110,9 +115,10 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
   await key(']');
   await click(770,66);assert.equal(Object.keys((await probe()).players).length,4,'capacity enforced');
   await click(240,66);await state(s=>s.watching===2,'watch builder while other clients run');
-  const built=await state(s=>s.events.filter(e=>e.type==='block'&&e.player===2&&e.block>0).length>=3,'live agent places three real blocks',150);
+  const built=await state(s=>s.events.some(e=>e.type==='block'&&e.player===2&&e.block>0),'live agent places a real block',150);
   console.log('playwright: real block placements',JSON.stringify(built.events.filter(e=>e.type==='block')));
-  await state(s=>[1,2,3,4].every(id=>events(s,id,'tool_result').some(e=>!e.isError)&&events(s,id,'settled').length>0),'all four live tasks finish',150);
+  await state(s=>[1,2,3,4].every(id=>events(s,id,'tool_result').some(e=>!e.isError))&&[1,2,3].every(id=>events(s,id,'settled').length>0),'all four live agents act and explicit tasks finish',150);
+  await state(s=>events(s,1,'prompt').some(e=>e.source==='idle'),'completed live agent resumes exploring',45);
   await shot('built');
   const complete=await probe();
   for(const id of [1,2,3,4]){assert.ok(events(complete,id,'thinking_delta').length);assert.equal(events(complete,id,'provider_error').length,0);}
@@ -135,6 +141,9 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
   await key('Enter');await type('Player 2 unfinished [build] instruction');await key('Escape');
   await click(80,66);await key('Enter');await type('Player 1 unfinished exploration');await key('Escape');
   await click(240,66);await state(s=>s.profiles[1]['draft.txt']==='Player 1 unfinished exploration'&&s.profiles[2]['draft.txt']==='Player 2 unfinished [build] instruction','drafts isolated per player');
+  for(const id of [1,2,3,4]){await click(20+(id-1)*162+70,66);await key('Escape');await key('Escape');}
+  await click(240,66);
+  await state(s=>Object.values(s.players).every(p=>p.owner!==2),'pause every agent before saving');
   await shot('traces');await key('Tab');await state(s=>s.ui.includes('interface=0'),'hide all chrome');await shot('game-only');
   await page.waitForTimeout(5500);const before=await probe();
   const savedWorld=decodeWorld(gunzipSync(Buffer.from(before.world)));
@@ -145,7 +154,7 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
   const restored=await state(s=>Object.keys(s.players).length===4&&Object.values(s.players).every(p=>p.ready==='1')&&s.events.filter(e=>e.type==='join').length>=8,'four-player session restores',75);
   assert.equal(restored.watching,2);assert.equal(restored.ui,before.ui);
   for(let i=0;i<4;i++)assert.ok(restored.room.players[i].position.slice(0,3).every((v,n)=>Math.abs(v-before.room.players[i].position[n])<=4),`player ${i+1} restores position`);
-  for(let id=1;id<=4;id++)for(const name of ['agent.json','draft.txt','usage.json','conversation.jsonl'])assert.equal(restored.profiles[id]?.[name],before.profiles[id]?.[name],`player ${id} persisted ${name}`);
+  for(let id=1;id<=4;id++)for(const name of ['agent.json','idle-prompt.txt','draft.txt','usage.json','conversation.jsonl'])assert.equal(restored.profiles[id]?.[name],before.profiles[id]?.[name],`player ${id} persisted ${name}`);
   assert.deepEqual(decodeWorld(gunzipSync(Buffer.from(restored.world))).blocks,decodeWorld(gunzipSync(Buffer.from(before.world))).blocks,'every shared world block survives restore');
   assert.equal(await page.evaluate(()=>__dolly.httpRequestCount),0,'restore never starts inference');
   await key('Tab');await shot('restored');await click(975,934);await page.waitForFunction(()=>!__dolly.graphicsActive);

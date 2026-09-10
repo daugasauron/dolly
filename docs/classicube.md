@@ -71,12 +71,17 @@ selected player. New players inherit the selected player's model settings;
 credentials are shared. Restoring a session recreates the players in manual
 control and makes no model calls.
 
-The first instruction starts a real Pi RPC agent with a persistent conversation.
+The first instruction, or handing control to a configured agent, starts a real
+Pi RPC agent with a persistent conversation. With no task yet, it starts with
+"Explore the world and have fun."
 Further instructions steer a running task or start a follow-up. Settings changes
 restart Pi with the same conversation. The activity panel shows assistant text,
 tool actions and the reasoning the provider exposes. The game keeps running
 while the model responds. There is no application time cap or dollar stop limit.
-When the agent finishes, it waits for another instruction without making calls.
+Five seconds after a successful task finishes, the idle instruction prompts it
+again with a fresh screenshot. This repeats while the agent has control. Your
+instructions take priority; Interrupt, taking control, and opening Settings pause
+continuation. Provider errors retain their explicit retry state.
 While waiting for a provider, the status shows elapsed seconds. Transient errors
 use Pi's automatic retries and show their attempt and delay in the log. After
 retries fail, **Retry task** restarts Pi with the saved conversation and a fresh
@@ -97,14 +102,22 @@ to `/home/dolly/classicube/maps/agent-world.cw`. Use Dolly's **Save session** to
 retain these files across page reloads or export/import them with the session.
 Restoration starts in human control. Run histories remain under
 `/workspace/classicube-runs`.
+`idle-prompt.txt` contains the default activity to resume when idle (loaded when
+the world starts, inherited by new players, and included in saves).
 
 The sole agent tool is `game_input`, using the same screenshot-and-input approach
 as RTS Arena. Each batch permits up to 16 sequential actions and 2000 ms of
 requested input duration, followed by a fresh 640×480 PNG. Inputs are mouse
-movement, clicks, drags, timed keys, waits and relative mouse movement for looking
+movement, clicks, drags, timed keys, text, waits and relative mouse movement for looking
 around. There are no world queries or block-editing APIs. Agent screenshots
 contain only the game. Input ownership and handoff use private files in the
 shared Wasm filesystem; inference requests use Dolly's existing HTTP broker.
+
+For in-game chat, agents press T, send a `text` action, then press Return.
+Text uses SDL text-input events and supports up to 255 UTF-8 bytes per action;
+printable key actions include their US keyboard text event. The local room uses
+Classic protocol without extensions, so upstream chat accepts ASCII characters.
+Chat is broadcast to the other players.
 
 Build with `npm run image -- classicube`. `Dollyfile-classicube-build` compiles
 pinned upstream C inside Dolly using SDL2, software rendering and cooperative map

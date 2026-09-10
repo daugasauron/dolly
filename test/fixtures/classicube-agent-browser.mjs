@@ -5,7 +5,7 @@ import { gunzipSync } from "node:zlib";
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const quote = text => "'" + text.replace(/\n/g, " ").replace(/'/g, "'\\''") + "'";
 
-export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input, projectDir, secret, live, liveModel, downloadDirectory, relayFile, selectFile }) {
+export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input, projectDir, secret, live, liveModel, downloadDirectory, relayFile, selectFile, fixture }) {
   await wait("document.documentElement?.dataset.dollyStatus", value => value === "ready", "world boot");
   await wait("__dolly.graphicsActive", Boolean, "world display before sign-in");
   const press = (name, code = name, keyCode) => key({ key: name, code, ...(keyCode ? { windowsVirtualKeyCode: keyCode } : {}) });
@@ -56,19 +56,30 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
       if(path==='/home/dolly/.config/classicube/agent.json') result.config=JSON.parse(new TextDecoder().decode(data));
       if(path==='/home/dolly/.config/classicube/ui.conf') result.ui=new TextDecoder().decode(data);
       if(path==='/home/dolly/.config/classicube/draft.txt') result.draft=new TextDecoder().decode(data);
+      if(path==='/home/dolly/.config/classicube/idle-prompt.txt') result.idlePrompt=new TextDecoder().decode(data);
       if(path==='/home/dolly/.config/classicube/usage.json') result.usage=JSON.parse(new TextDecoder().decode(data));
       if(path.endsWith('/agent.events.jsonl')) result.events=(result.events||[]).concat(new TextDecoder().decode(data).trim().split('\\n').filter(Boolean).map(JSON.parse));
+      if(path.endsWith('/world.events.jsonl')) result.worldEvents=(result.worldEvents||[]).concat(new TextDecoder().decode(data).trim().split('\\n').filter(Boolean).map(JSON.parse));
     }
     return result;
   })()`);
   const state = async (predicate, label, seconds = 45) => {
     const deadline = Date.now() + seconds * 1000; let last;
     do { last = await probe(); if (predicate(last)) return last; await delay(150); } while (Date.now() < deadline);
+    await writeFile(resolve(projectDir,'build/classicube-overlay-failure.json'),JSON.stringify({events:last.events,worldEvents:last.worldEvents,
+      requests:fixture?.requests.map(({index,phase})=>({index,phase}))}));
     throw Error(`${label}: ${JSON.stringify({ menu:last.menu, control:last.control, status:last['status.txt'], config:last.config, events:last.events?.slice(-3) })}`);
   };
   const menu = title => state(s => s.menu?.split('\n')[2] === title && !s.menu.includes('\nbusy\n'), title);
   const choose = async (title, filter) => { await menu(title); if (filter) await type(filter); await enter(); };
   const events = (s, type) => (s.events || []).filter(e => e.type === type);
+  const requested = async phase => {
+    const deadline = Date.now() + 45000;
+    while (!fixture.requests.some(request => request.phase === phase)) {
+      if (Date.now() > deadline) throw Error(`Provider request ${phase} was not sent`);
+      await delay(100);
+    }
+  };
   const field = async n => { await menu('Agent settings'); await click(600,280+n*104); };
   const row = async (title, id) => {
     const current=await menu(title), rows=current.menu.split('\n').slice(4).map(line=>line.split('\t'));
@@ -173,40 +184,55 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await delay(150); await snapshot('log-panel');
   await click(1210,238); await state(s=>s.ui.includes('activity=0'),'hide activity independently');
   await click(1210,238); await state(s=>s.ui.includes('activity=1'),'restore activity');
+  if (!live) {
+    await handoff();
+    const active = await state(s=>events(s,'prompt').filter(e=>e.source==='idle').length>=3 && s['status.txt'].startsWith('Exploring again') &&
+      events(s,'settled').at(-1)?.time>events(s,'prompt').at(-1)?.time,'default exploration starts without a user prompt and repeats',60);
+    assert.equal(active.idlePrompt,'Explore the world and have fun.');
+    assert.ok(events(active,'prompt').filter(e=>e.source==='idle').every(e=>e.text===active.idlePrompt));
+    await escape(); await escape(); await state(s=>s.control===0,'Interrupt pauses autonomous continuation');
+    const requests = fixture.requests.length; await delay(6500);
+    assert.equal(fixture.requests.length,requests,'paused player never receives an idle ping');
+  }
   const instruction=live?'Look around, place three blocks in a short row, inspect them and report what you actually did.':'CLASSICUBE-FIXTURE-TASK: exercise ordinary game controls and inspect the results.';
   await click(980,886); await type(instruction);
   await state(s=>s.draft===instruction,'the complete typed instruction is stored');
   await snapshot('prompt'); await click(1170,886);
-  const started=await state(s=>events(s,'configuration').length>0,'real Pi configuration');
-  assert.equal(events(started,'prompt')[0].text,instruction,'Send delivers the complete typed prompt');
+  const started=await state(s=>events(s,'configuration').length>0 && events(s,'prompt').some(e=>e.text===instruction),'real Pi configuration');
+  assert.equal(events(started,'prompt').find(e=>e.source!=='idle').text,instruction,'Send delivers the complete typed prompt');
   await tab(); await state(s=>s.control===2 && s.ui.includes('interface=0'),'hiding interface keeps agent in control');
   await gamePixels(false); await tab();
   if(live) { await state(s=>events(s,'tool_result').some(e=>!e.isError && e.details?.actions.length),'live model uses the game controls',75); await snapshot('live'); }
-  else await state(s=>events(s,'tool_result').length>=3 && events(s,'settled').length>0,'first task completes');
-  await enter(); await type(live ? 'Inspect your recent work and describe it. Stop acting when finished.' : 'Follow-up proof: turn left and walk briefly, then finish. Keep this complete typed instruction.'); await enter();
+  else {
+    const complete = await state(s=>events(s,'tool_result').length>=3 && events(s,'settled').some(e=>e.time>events(s,'prompt').find(e=>e.text===instruction).time),'first task completes',90);
+    const chats = complete.worldEvents.filter(e=>e.type==='chat').map(e=>Buffer.from(e.bytes));
+    assert.deepEqual(chats,[Buffer.from("Hello, team! Let's explore together."),Buffer.from("Chat: 123456789012345678901234! Let's explore.")],
+      'chat preserves complete messages across UTF-8 chunks; upstream Classic chat filters non-ASCII without FullCP437 negotiation');
+    await snapshot('chat');
+  }
+  const followup = live ? 'Inspect your recent work and describe it. Stop acting when finished.' : 'Follow-up proof: turn left and walk briefly, then finish. Keep this complete typed instruction.';
+  await enter(); await type(followup); await enter();
   if(live) await delay(18000);
-  else await state(s=>events(s,'tool_result').length>=4 && events(s,'settled').length>=2,'Enter sends a follow-up');
+  else await state(s=>events(s,'tool_result').length>=4 && events(s,'settled').some(e=>e.time>events(s,'prompt').find(e=>e.text===followup)?.time),'Enter sends a follow-up');
   const completed = await probe();
   assert.ok(events(completed,'tool_result').some(e=>!e.isError && e.details.actions.length));
   assert.ok(events(completed,'thinking_delta').length || events(completed,'text_delta').length);
   if(!live) assert.ok(completed.usage.reportedUSD>1,'the world and agent continue beyond the former dollar limit');
   await snapshot(live?'live-traces':'traces');
   if(!live) {
-    const count=await evaluate('__dolly.httpRequestCount');
     await enter(); await type('INTERRUPT-PROOF: keep working until I take control.'); await enter();
-    await wait('__dolly.httpRequestCount',n=>n>count,'slow inference request begins');
+    await requested('interrupt');
     await handoff(); await state(s=>s.control===1,'Backtick gives human control immediately');
     await delay(1000); const interrupted=await probe();
     assert.equal(events(interrupted,'tool_result').length,events(completed,'tool_result').length,'interrupted inference executes no inputs');
     await handoff(); await state(s=>s.control===2 && events(s,'tool').length>events(completed,'tool').length,'Backtick resumes the existing task');
     await handoff(); await state(s=>s.control===1,'take over during an active input batch');
     await delay(500);
-    const requests = await evaluate('__dolly.httpRequestCount');
-    await handoff(); await wait('__dolly.httpRequestCount',n=>n>requests,'resume before steering');
+    await handoff(); await requested('resume-2');
     await enter(); await type('STEER-PROOF: inspect before continuing.'); await enter();
     await state(s=>s['status.txt']==='Instruction queued for the agent','Enter steers while inference is running');
     await enter(); await type('REPLACE-PROOF: replace the current instruction.'); await chord('Enter','Enter',13);
-    await wait('__dolly.httpRequestCount',n=>n>requests+1,'Ctrl+Enter interrupts and sends a replacement');
+    await requested('replace');
     await state(s=>events(s,'tool').length>events(completed,'tool').length+1,'replacement starts an input batch');
     await escape(); await state(s=>s.control===0,'Escape interrupts without closing the world');
     await handoff(); await state(s=>s.control===1,'human controls after replacement');
@@ -216,17 +242,17 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     await enter(); await type('TRANSIENT-TIMEOUT-PROOF: inspect and finish.'); await enter();
     const retrying = await state(s=>events(s,'retry').length>0,'provider timeout triggers an automatic retry');
     assert.equal(events(retrying,'retry').at(-1).delayMs, 2000);
-    await state(s=>events(s,'settled').length>settled && s['status.txt'].startsWith('Ready') && s.retry==='', 'transient timeout recovers');
+    await state(s=>events(s,'settled').length>settled && s['status.txt'].startsWith('Exploring again') && s.retry==='', 'transient timeout recovers');
     await enter(); await type('PERSISTENT-TIMEOUT-PROOF: inspect and finish.'); await enter();
     const failed = await state(s=>s.retry==='1' && events(s,'retry_end').some(e=>!e.success), 'exhausted retries stay visible',60);
     assert.match(failed['status.txt'], /Agent error/);
     assert.equal(events(failed,'retry_end').at(-1).success,false);
-    await delay(1000); assert.equal((await probe())['status.txt'],failed['status.txt'],'settled must not erase the provider error');
+    await delay(6500); assert.equal((await probe())['status.txt'],failed['status.txt'],'settled and idle continuation must not erase the provider error');
     await snapshot('timeout');
     await click(1170,886);
-    const recovered = await state(s=>events(s,'settled').length>events(failed,'settled').length && s['status.txt'].startsWith('Ready') && s.retry==='', 'Retry task restarts Pi with its saved conversation');
+    const recovered = await state(s=>events(s,'settled').length>events(failed,'settled').length && s['status.txt'].startsWith('Exploring again') && s.retry==='', 'Retry task restarts Pi with its saved conversation');
     assert.equal(events(recovered,'configuration').length,events(failed,'configuration').length+1);
-    assert.equal(events(recovered,'observation').length,events(failed,'observation').length+1,'retry observes the current world');
+    assert.ok(events(recovered,'observation').length>events(failed,'observation').length,'retry observes the current world');
     assert.equal(events(recovered,'tool').length,events(failed,'tool').length,'completed game actions are not replayed');
     assert.doesNotMatch(recovered['activity.txt'], /undefined ms/);
     await snapshot('reconnected');
@@ -255,6 +281,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   assert.deepEqual(blocks(restored.world),blocks(before.world),'restored world retains every block');
   assert.equal(restored.ui,before.ui,'interface visibility survives restore');
   assert.deepEqual(restored.config,before.config); assert.equal(restored.draft,draft); assert.deepEqual(restored.usage,before.usage);
+  assert.equal(restored.idlePrompt,before.idlePrompt,'idle instruction survives save/restore');
   assert.equal(await evaluate('__dolly.httpRequestCount'),0,'restoring settings/history does not start model calls');
   await enter(); await snapshot('restored');
   await click(975,934); await wait('__dolly.graphicsActive',v=>!v,'save and exit');

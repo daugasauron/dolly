@@ -33,8 +33,10 @@ export async function runWorld() {
     for (const path of [directory,scratch,cwd,`${cwd}/maps`,`${cwd}/texpacks`]) fs.mkdirSync(path,{recursive:true});
     if (!fs.existsSync(`${cwd}/texpacks/default.zip`)) fs.copyFileSync(`${world}/texpacks/default.zip`,`${cwd}/texpacks/default.zip`);
     if (!fs.existsSync(`${cwd}/options.txt`)) fs.copyFileSync(`${world}/options.txt`,`${cwd}/options.txt`);
-    if (clone && !fs.existsSync(`${directory}/agent.json`) && fs.existsSync(`${clone.directory}/agent.json`))
-      fs.copyFileSync(`${clone.directory}/agent.json`,`${directory}/agent.json`);
+    if (clone) for (const name of ["agent.json","idle-prompt.txt"]) {
+      if (!fs.existsSync(`${directory}/${name}`) && fs.existsSync(`${clone.directory}/${name}`))
+        fs.copyFileSync(`${clone.directory}/${name}`,`${directory}/${name}`);
+    }
     writeAtomic(fs,`${scratch}/status.txt`,"Preparing world…");
     const player = {id,name,directory,scratch,cwd}; players.push(player); roster(); return player;
   };

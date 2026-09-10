@@ -1977,6 +1977,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
     }
     if (classicubeAgentMode || classicubeAgentLiveMode) {
       await runClassiCubeAgentProof({ send: debuggerClient.send,
+        fixture: classicubeAgentMode ? classicubeModelFixture : undefined,
         evaluate: expression => evaluate(debuggerClient.send, expression),
         wait: (expression, predicate, label) => waitForValue(debuggerClient.send, expression, predicate, label, 2400),
         key: options => dispatchKey(debuggerClient.send, options),

@@ -64,3 +64,18 @@ test('edits during a late join follow its map snapshot and a malformed client do
   fs.writeFileSync(path.join(a.directory,'net.out.1'),Buffer.from([255]));room.tick();room.tick();assert.equal(drain(a).at(-1)[0],14);
   room.receive(b,block(5,1,4,4));room.tick();assert.equal(room.world.blocks[5+4*16+256],4);
 });
+test('chat preserves Classic character bytes and broadcasts the whole message to every client',async t=>{
+  const {room,add,drain,changes}=fixture(t),a=add(1),b=add(2);
+  await joined(room,a);await joined(room,b);drain(a);drain(b);
+  const message=Buffer.concat([Buffer.from("Hello! "),Buffer.from([0x82]),Buffer.from('x'.repeat(56))]);
+  const request=Buffer.alloc(66,32);request[0]=13;request[1]=255;message.copy(request,2);
+  room.receive(a,request);room.tick();
+  for(const client of [a,b]) {
+    const lines=drain(client).filter(p=>p[0]===13);
+    assert.equal(lines.length,2,'the name prefix must not truncate a full chat message');
+    const received=Buffer.concat(lines.map(p=>p.subarray(2)));
+    const expected=Buffer.concat([Buffer.from('Player 1: '),message]);
+    assert.deepEqual(received.subarray(0,expected.length),expected);
+  }
+  assert.deepEqual(changes.find(e=>e.type==='chat').bytes,Array.from(message));
+});

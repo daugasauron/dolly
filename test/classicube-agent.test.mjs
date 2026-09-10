@@ -68,3 +68,20 @@ test("model selection excludes text-only and non-tool models, preserving effort 
   assert.throws(() => validateSelection({ ...selection, provider: "unconfigured" }));
   assert.throws(() => validateSelection({ ...selection, effort: "extreme" }));
 });
+
+test("ClassiCube encodes bounded UTF-8 text separately from control keys", () => {
+  const text = "Chat: 123456789012345678901234é! Let's explore.";
+  const args = { actions: [{type:"key",key:"T"},{type:"text",text},{type:"key",key:"Return"}] };
+  assert.deepEqual(validateToolArguments({name:"game_input",parameters:codec.parameters},{name:"game_input",arguments:args}),args);
+  const bytes = codec.encodeBatch(args.actions, 1), view = new DataView(bytes.buffer);
+  assert.equal(view.getUint32(4,true),2);
+  assert.equal(bytes.length,16+3*288);
+  assert.equal(view.getUint32(16,true),3);
+  assert.equal(view.getUint32(16+288,true),7);
+  const payload = bytes.subarray(16+288+32,16+288+288);
+  assert.equal(new TextDecoder().decode(payload.subarray(0,payload.indexOf(0))),text);
+  assert.doesNotThrow(()=>codec.encodeBatch([{type:"text",text:"a".repeat(255)}],1));
+  for(const text of ["", "a".repeat(256), "é".repeat(128), "\uD800", "hello\n", "\0", "\t", "\x7f"])
+    assert.throws(()=>codec.encodeBatch([{type:"text",text}],1));
+  assert.throws(()=>codec.encodeBatch([{type:"text",text:"Hi",key:"T"}],1));
+});

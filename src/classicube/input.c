@@ -18,22 +18,22 @@
 #include <unistd.h>
 
 #define MAGIC 0x31424343u
-#define VERSION 1u
+#define VERSION 2u
 #define WIDTH 640
 #define HEIGHT 480
-enum { MOVE = 1, CLICK, KEY, DRAG, WAIT, LOOK };
+enum { MOVE = 1, CLICK, KEY, DRAG, WAIT, LOOK, TEXT };
 typedef struct { uint32_t magic, version, id, count; } Request;
 typedef struct {
     uint32_t kind;
     int32_t x, y, end_x, end_y;
     uint32_t button, milliseconds, modifiers;
-    char key[32];
+    char key[256];
 } Action;
 typedef struct {
     uint32_t magic, version, id, status, frame, milliseconds, size;
     uint16_t x, y;
 } Response;
-_Static_assert(sizeof(Action) == 64 && sizeof(Response) == 32, "ClassiCube input layout");
+_Static_assert(sizeof(Action) == 288 && sizeof(Response) == 32, "ClassiCube input layout");
 extern int SDL_SendKeyboardKey(Uint8, SDL_Scancode);
 extern int SDL_SendMouseMotion(SDL_Window *, Uint32, SDL_bool, int, int);
 extern int SDL_SendMouseButton(SDL_Window *, Uint32, Uint8, Uint8);
@@ -85,19 +85,38 @@ static void release(void) {
     if (a->button) SDL_SendMouseButton(window, 0, SDL_RELEASED, a->button);
 }
 static int valid(const Action *a) {
-    if (a->kind < MOVE || a->kind > LOOK || a->milliseconds < 16 || a->milliseconds > 2000 || a->modifiers > 7) return 0;
+    if (a->kind < MOVE || a->kind > TEXT || a->milliseconds < 16 || a->milliseconds > 2000 || a->modifiers > 7) return 0;
     if (a->kind == LOOK) {
         if (a->x < -1600 || a->x > 1600 || a->y < -1600 || a->y > 1600) return 0;
     } else if (a->x < 0 || a->x >= WIDTH || a->y < 0 || a->y >= HEIGHT) return 0;
     if (a->end_x < 0 || a->end_x >= WIDTH || a->end_y < 0 || a->end_y >= HEIGHT) return 0;
     if (a->kind != DRAG && (a->end_x || a->end_y)) return 0;
-    if ((a->kind == KEY || a->kind == WAIT) && (a->x || a->y)) return 0;
+    if ((a->kind == KEY || a->kind == WAIT || a->kind == TEXT) && (a->x || a->y)) return 0;
     if (a->kind == CLICK || a->kind == DRAG) { if (a->button < 1 || a->button > 3) return 0; }
     else if (a->button) return 0;
     if (a->kind == KEY) return memchr(a->key, 0, sizeof(a->key)) && SDL_GetScancodeFromName(a->key) != SDL_SCANCODE_UNKNOWN;
     if (a->modifiers) return 0;
+    if (a->kind == TEXT) {
+        const char *end = memchr(a->key, 0, sizeof(a->key)), *cursor = a->key;
+        if (!end || end == cursor) return 0;
+        while (cursor < end) {
+            cc_codepoint cp;
+            int size = Convert_Utf8ToCodepoint(&cp, cursor, end - cursor);
+            if (!size || cp < 32 || cp == 127) return 0;
+            cursor += size;
+        }
+        return 1;
+    }
     for (size_t i = 0; i < sizeof(a->key); ++i) if (a->key[i]) return 0;
     return 1;
+}
+static void type_text(const char *text) {
+    while (*text) {
+        SDL_Event event = { .type = SDL_TEXTINPUT };
+        size_t size = SDL_utf8strlcpy(event.text.text, text, sizeof(event.text.text));
+        if (!size) break;
+        event.text.windowID = SDL_GetWindowID(window); SDL_PushEvent(&event); text += size;
+    }
 }
 static void start(void) {
     Action *a = &actions[index_]; started = SDL_GetTicks(); released = 0;
@@ -109,8 +128,17 @@ static void start(void) {
     if (a->button) SDL_SendMouseButton(window, 0, SDL_PRESSED, a->button);
     if (a->kind == KEY) {
         modifiers(a->modifiers, SDL_PRESSED);
-        SDL_SendKeyboardKey(SDL_PRESSED, SDL_GetScancodeFromName(a->key));
+        SDL_Scancode scan = SDL_GetScancodeFromName(a->key);
+        SDL_SendKeyboardKey(SDL_PRESSED, scan);
+        SDL_Keycode key = SDL_GetKeyFromScancode(scan);
+        /* Match a physical keyboard, including the opening chat key's text event. */
+        if (key >= 32 && key < 127 && !(a->modifiers & 6)) {
+            if ((a->modifiers & 1) && key >= 'a' && key <= 'z') key -= 'a' - 'A';
+            if ((a->modifiers & 1) && key >= '0' && key <= '9') key = ")!@#$%^&*("[key - '0'];
+            char text[] = { (char)key, 0 }; type_text(text);
+        }
     }
+    if (a->kind == TEXT) type_text(a->key);
     FILE *log = open_file("inputs.log", "a");
     if (log) { fprintf(log, "id=%u index=%u frame=%u kind=%u x=%d y=%d button=%u duration=%u key=%s\n",
         id, index_, frame, a->kind, a->x, a->y, a->button, a->milliseconds, a->key); fclose(log); }
