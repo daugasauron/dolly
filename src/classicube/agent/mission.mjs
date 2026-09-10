@@ -6,6 +6,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function runTask(configuration) {
   const config = validateTask(configuration);
+  const provider = config.provider ?? "openrouter", subscription = provider === "codex-local";
   const fs = globalThis.__janisBuiltin("fs"), { spawn } = globalThis.__janisBuiltin("child_process");
   fs.mkdirSync("/workspace/classicube-runs", { recursive: true });
   const run = fs.mkdtempSync("/workspace/classicube-runs/run-");
@@ -21,11 +22,12 @@ export async function runTask(configuration) {
   const atomic = (name, text) => {
     fs.writeFileSync(`${run}/${name}.tmp`, text); fs.renameSync(`${run}/${name}.tmp`, `${run}/${name}`);
   };
-  const status = text => { state = text; atomic("status.txt", `${text}\nReported cost $${spent.toFixed(4)} / $${config.budget}`); };
+  const status = text => { state = text; atomic("status.txt", `${text}\n` + (subscription
+    ? `Codex subscription · ${config.seconds}s time limit` : `Reported cost $${spent.toFixed(4)} / $${config.budget}`)); };
   const record = (type, fields = {}) => {
     const event = JSON.parse(JSON.stringify({ time: Date.now(), type, ...fields }).replace(/sk-or-v1-[A-Za-z0-9_-]+/g, "[redacted]"));
     fs.appendFileSync(`${run}/agent.events.jsonl`, JSON.stringify(event) + "\n");
-    const text = traceText(event) || (type === "prompt" ? `\n[user] ${event.text}\n` : "");
+    const text = (subscription && type === "usage" ? "" : traceText(event)) || (type === "prompt" ? `\n[user] ${event.text}\n` : "");
     if (text) { trace = (trace + text).slice(-32000); atomic("agent.txt", trace); }
   };
   const stop = message => {
@@ -65,7 +67,7 @@ export async function runTask(configuration) {
     spent += value?.cost?.total ?? 0;
     record("usage", { usage: value, source, stopReason, reportedUSD: spent, limitUSD: config.budget });
     atomic("usage.json", JSON.stringify({ reportedUSD: spent, limitUSD: config.budget }) + "\n"); status(state);
-    if (spent >= config.budget) stop("Reported model cost limit reached");
+    if (!subscription && spent >= config.budget) stop("Reported model cost limit reached");
   }
   function event(message) {
     if (message.type === "response") {
@@ -100,7 +102,7 @@ export async function runTask(configuration) {
     record("start", { model: config.model, player: 1 }); status(state);
     const log = fs.openSync(`${run}/agent.stderr.log`, "w");
     try {
-      pi = launch("pi", ["--mode", "rpc", "--provider", "openrouter", "--model", config.model,
+      pi = launch("pi", ["--mode", "rpc", "--provider", provider, "--model", config.model,
         "--thinking", config.effort, "--session", `${run}/agent.jsonl`, "--no-extensions", "--extension",
         "/usr/src/dolly/classicube/agent/player.js", "--no-context-files", "--no-skills", "--no-prompt-templates",
         "--tools", "game_input", "--system-prompt", fs.readFileSync("/usr/src/dolly/classicube/agent/PLAYER.md", "utf8")],
@@ -119,8 +121,8 @@ export async function runTask(configuration) {
       } catch (error) { fail(error); }
     });
     const selected = await rpc("get_state");
-    if (selected.model?.provider !== "openrouter" || !selected.model.input?.includes("image"))
-      throw Error("Select an OpenRouter model with image input.");
+    if (selected.model?.provider !== provider || selected.model.id !== config.model || !selected.model.input?.includes("image"))
+      throw Error("The selected provider and vision model are unavailable. Reconnect in setup.");
     if (selected.thinkingLevel !== config.effort) throw Error("The selected model did not accept that effort level.");
     record("configuration", { model: selected.model.id, provider: selected.model.provider, thinking: selected.thinkingLevel });
     const engineLog = fs.openSync(`${run}/game.log`, "w");

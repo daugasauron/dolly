@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { modelLabel, relayProvider } from "../src/rts/spectator/launcher.mjs";
 import { createPicker } from "../src/rts/spectator/picker.mjs";
+import { importRelay } from "../src/rts/spectator/relay.mjs";
+import fs from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as ui from "../node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui/dist/index.js";
 
 test("picker filters live with Pi's fuzzy matcher, navigates, edits, pastes and cancels", () => {
@@ -52,4 +56,22 @@ test("local relay import accepts only its provider data, never native auth or co
     assert.throws(() => read({ ...provider, baseUrl }), /models.json/);
   assert.throws(() => read({ ...provider, apiKey: "!some-command" }), /models.json/);
   assert.throws(() => read({ ...provider, models: [{ id: "text-only", input: ["text"] }] }), /models.json/);
+});
+
+test("relay upload preserves other providers and leaves configuration intact on cancellation or invalid input", async t => {
+  const directory = fs.mkdtempSync(join(tmpdir(), "dolly-relay-import-test-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const path = join(directory, "models.json"), original = { providers: { openrouter: { models: [] } } };
+  fs.writeFileSync(path, JSON.stringify(original));
+  assert.equal(await importRelay(fs, async () => 1, directory), false);
+  const upload = value => async (command, [path]) => { assert.equal(command, "upload"); fs.writeFileSync(path, JSON.stringify(value)); return 0; };
+  await assert.rejects(importRelay(fs, upload({ auth_mode: "chatgpt", tokens: {} }), directory), /models.json/);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path)), original);
+  const config = { providers: { "codex-local": { api: "openai-codex-responses", baseUrl: "http://127.0.0.1:9092",
+    apiKey: "fixture-capability", models: [{ id: "vision", input: ["image"] }] }, untrusted: { apiKey: "!command" } } };
+  assert.equal(await importRelay(fs, upload(config), directory), true);
+  const merged = JSON.parse(fs.readFileSync(path));
+  assert.deepEqual(merged.providers.openrouter, original.providers.openrouter);
+  assert.equal(merged.providers["codex-local"].apiKey, "fixture-capability");
+  assert.equal(merged.providers.untrusted, undefined);
 });

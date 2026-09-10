@@ -12,7 +12,7 @@ COPY FROM HOST /Dollyfile-sdl2-build cd9d185dadd9b3e6eab0959345a706c35031bea797b
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/classicube-agent.dm e8110ab42cde618b8d16e66ee07acc0b323c5d5f5dcb3a475f87d9d82484d8a8
+USE HOST /modules/classicube-agent.dm 917194ca9aaafe3962678202415d5c7fd643b12bb12f8d893b6b405f5b129d41
 
 FILE /home/dolly/classicube/options.txt
     window-width=640

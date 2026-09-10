@@ -5,7 +5,7 @@ import { gunzipSync } from "node:zlib";
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const quote = text => "'" + text.replace(/\n/g, " ").replace(/'/g, "'\\''") + "'";
 
-export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input, projectDir, secret, live, liveModel, downloadDirectory }) {
+export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input, projectDir, secret, live, liveModel, downloadDirectory, relayFile, selectFile }) {
   await wait("document.documentElement?.dataset.dollyStatus", value => value === "ready", "ClassiCube agent boot");
   const terminal = () => evaluate("__dolly.visibleTerminalText()");
   const screen = text => wait("__dolly.visibleTerminalText()", value => value.includes(text), text);
@@ -30,19 +30,25 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     await evaluate(`__dolly.submit(${JSON.stringify(`janis -e ${quote(script)}`)})`);
     throw Error(`ClassiCube run exited early: ${await terminal()}`);
   };
-  await screen("Connect to OpenRouter");
+  await screen("Connect an agent");
   assert.equal(await evaluate("__dolly.httpRequestCount"), 0, "loading the setup screen makes no network requests");
   await snapshot("connect");
-  if (live) {
-    await choose("Connect to OpenRouter", "API key"); await screen("OpenRouter API key:");
+  if (relayFile) {
+    await choose("Connect an agent", "Development: local Codex proxy");
+    await wait("!!document.querySelector('#file-upload[open]')", Boolean, "local proxy configuration upload");
+    await selectFile(relayFile);
+    await screen("Model provider"); await escape();
+    await choose("Connect an agent", "Continue with local Codex proxy");
+  } else if (live) {
+    await choose("Connect an agent", "API key"); await screen("OpenRouter API key:");
     await input(secret); await enter();
   } else {
-    await choose("Connect to OpenRouter", "Sign in with"); await screen("Authorization code:");
+    await choose("Connect an agent", "Sign in with"); await screen("Authorization code:");
     assert.match((await terminal()).replace(/\s+/g, ""), /code_challenge=[A-Za-z0-9_-]{43}&code_challenge_method=S256/);
     await input("classicube-authorization-fixture"); await enter();
   }
-  const model = liveModel || (live ? "google/gemini-2.5-flash" : "fixture/vision");
-  await choose("Model provider", model.split("/")[0]);
+  const model = liveModel || (relayFile ? "gpt-5.6-luna" : live ? "google/gemini-2.5-flash" : "fixture/vision");
+  await choose("Model provider", relayFile ? "Local Codex" : model.split("/")[0]);
   await screen("Vision model"); await input(model); await snapshot("models"); await enter();
   await choose("Reasoning effort", "low");
   await screen("Task:");
@@ -51,10 +57,13 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     : "CLASSICUBE-FIXTURE-TASK: exercise ordinary game controls and inspect the results.";
   await input(prompt); await enter();
   await screen("Time limit, seconds"); await input(live ? "120" : "90"); await enter();
-  await screen("Reported cost limit, USD"); await input("0.25"); await enter();
+  if (!relayFile) { await screen("Reported cost limit, USD"); await input("0.25"); await enter(); }
   await screen("Ready to enter the world"); await snapshot("ready");
   const requestsBeforeStart = await evaluate("__dolly.httpRequestCount");
-  assert.ok(requestsBeforeStart <= 3, "only sign-in and catalog requests precede Start");
+  if (relayFile) {
+    assert.equal(requestsBeforeStart, 0, "proxy import, resume and selection make no network requests");
+    assert.match(await terminal(), /subscription/);
+  } else assert.ok(requestsBeforeStart <= 3, "only sign-in and catalog requests precede Start");
   await enter();
   await wait("__dolly.graphicsActive", Boolean, "agent spectator");
   assert.equal(await evaluate("document.pointerLockElement"), null, "watching the agent needs no pointer capture");
@@ -86,8 +95,9 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     const root='/workspace/classicube-runs'; const names=fs.readdirSync(root); if(names.length!==1) throw Error('expected one run');
     const dir=root+'/'+names[0];
     const events=fs.readFileSync(dir+'/agent.events.jsonl','utf8').trim().split('\\n').map(JSON.parse);
-    const auth=JSON.parse(fs.readFileSync(process.env.HOME+'/.pi/agent/auth.json','utf8')).openrouter;
-    const secret=auth.key||auth.access; const files={};
+    const credentialPath=process.env.HOME+'/.pi/agent/'+${JSON.stringify(relayFile ? "models.json" : "auth.json")};
+    const credential=JSON.parse(fs.readFileSync(credentialPath,'utf8'));
+    const secret=${relayFile ? "credential.providers['codex-local'].apiKey" : "credential.openrouter.key||credential.openrouter.access"}; const files={};
     for(const name of fs.readdirSync(dir)) {
       const data=fs.readFileSync(dir+'/'+name); if(data.includes(Buffer.from(secret))) throw Error('credential in run files');
       if(name!=='final.rgba') files[name]=data.toString('base64');
@@ -96,7 +106,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
       world:fs.readFileSync('/home/dolly/classicube/maps/agent-world.cw').toString('base64'),
       scratch:fs.readdirSync('/tmp').filter(name=>name.startsWith('classicube-agent-'))};
     fs.writeFileSync('/tmp/classicube-report.json',JSON.stringify(report));
-    fs.unlinkSync(process.env.HOME+'/.pi/agent/auth.json');
+    fs.unlinkSync(credentialPath);
     console.log('CLASSICUBE-REPORT-READY');`;
   assert.equal(await submit(`janis -e ${quote(inspect)}`), 0, `run inspection failed: ${await terminal()}`);
   assert.equal(await submit("download /tmp/classicube-report.json"), 0);
@@ -112,6 +122,8 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   assert.ok(tools.some(event => !event.isError && event.details.actions.length), "real inputs executed");
   assert.ok(report.events.some(event => event.type === "thinking_delta" || event.type === "text_delta"));
   assert.equal(report.events.find(event => event.type === "configuration").thinking, "low");
+  assert.equal(report.events.find(event => event.type === "configuration").provider, relayFile ? "codex-local" : "openrouter");
+  if (relayFile) assert.equal(JSON.parse(Buffer.from(report.files['task.json'], 'base64')).budget, 0);
   assert.equal(report.scratch.length, 0, "run scratch removed after game exit");
   assert.match(report.result, /Viewer exited \(0\)|Run time limit reached|Reported model cost limit reached/);
   const errors = report.events.filter(event => event.type === "provider_error");
@@ -129,7 +141,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     assert.equal(world.subarray(offset+4, offset+4+size).reduce((n,b)=>n+(b!==0),0), 128 * 32 * 128 + 1,
       "agent clicks add, remove and replace a real block in the saved world");
   }
-  await writeFile(resolve(projectDir, `build/classicube-agent-${live ? "live" : "fixture"}-report.json`), bytes);
+  await writeFile(resolve(projectDir, `build/classicube-agent-${relayFile ? "relay-live" : live ? "live" : "fixture"}-report.json`), bytes);
   await writeFile(resolve(projectDir, "build/classicube-agent-world.cw"), Buffer.from(report.world, "base64"));
   const requestsBeforeReload = await evaluate("__dolly.httpRequestCount");
   assert.equal(await submit("cd /home/dolly/classicube"), 0);
@@ -139,5 +151,5 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await key({ key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
   assert.ok([0, 130].includes(await wait("window.__classicubeReload", value => value !== null, "reloaded game exits")));
   assert.equal(await evaluate("__dolly.httpRequestCount"), requestsBeforeReload, "reopening the saved world is offline");
-  console.log(`browser: ClassiCube ${live ? "LIVE OpenRouter" : "scripted provider"}: setup, Pi tools, continuous game, traces, follow-up, stop/save and secret-free history passed; ${tools.length} tool results`);
+  console.log(`browser: ClassiCube ${relayFile ? "LIVE local Codex proxy" : live ? "LIVE OpenRouter" : "scripted provider"}: setup, Pi tools, continuous game, traces, follow-up, stop/save and secret-free history passed; ${tools.length} tool results`);
 }

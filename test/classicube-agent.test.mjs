@@ -66,4 +66,8 @@ test("model selection excludes text-only and non-tool models, preserving effort 
   assert.equal(validateTask(task), task);
   for (const change of [{ prompt: " " }, { prompt: "a".repeat(4097) }, { seconds: Infinity }, { seconds: 9 }, { budget: 0 }, { effort: "extreme" }])
     assert.throws(() => validateTask({ ...task, ...change }));
+  const subscription = { ...task, provider: "codex-local", budget: 0 };
+  assert.equal(validateTask(subscription), subscription);
+  assert.throws(() => validateTask({ ...subscription, budget: 1 }));
+  assert.throws(() => validateTask({ ...task, provider: "unconfigured" }));
 });

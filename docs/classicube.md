@@ -1,6 +1,6 @@
 # ClassiCube agent world
 
-`Dollyfile-classicube` opens an in-sandbox setup screen: connect to OpenRouter,
+`Dollyfile-classicube` opens an in-sandbox setup screen: connect to OpenRouter or a local Codex proxy,
 choose a model provider, vision model and reasoning effort, then enter a task.
 The provider picker groups models by their publisher on OpenRouter. The live
 catalog includes models with both image input and tool calling; a cached catalog
@@ -27,11 +27,30 @@ keys, waits and relative mouse movement for looking around. The game keeps
 running during model responses. There are no world-state queries or block-editing
 APIs. The agent's images contain only the game, not the spectator's traces.
 
-Runs default to 600 seconds and $1 of reported model cost. The latter is a stop
+OpenRouter runs default to 600 seconds and $1 of reported model cost. The latter is a stop
 threshold; an in-flight call can exceed it. When the agent finishes answering it
 waits for another instruction, without automatic model calls. Run histories,
 prompts, exposed traces and input logs remain in `/workspace/classicube-runs`.
 The next run resumes `/home/dolly/classicube/maps/agent-world.cw`.
+
+For development with your Codex subscription, use an existing `codex login` and
+start the same loopback proxy used by RTS Arena:
+
+```sh
+node scripts/codex-relay.mjs 9092 http://127.0.0.1:9091
+```
+
+Replace the final origin with the exact local HTTP origin where Dolly is open.
+Choose **Development: local Codex proxy** in setup and upload the private
+`models.json` path printed by the proxy. Select **Local Codex**, a vision model,
+effort and task. The proxy stays running on your computer and holds the native
+subscription credentials; Dolly receives a temporary relay capability. Keep
+native `~/.codex/auth.json` on the host. Restarting the proxy requires importing
+its new configuration. **Disconnect local proxy** removes it from Dolly.
+
+Subscription runs consume Codex allowance and use the run time limit instead
+of a dollar budget. They make no OpenRouter requests.
+The same screenshot tools, spectator, follow-up prompts and world saving apply.
 
 Build with `npm run image -- classicube`. The separate `Dollyfile-classicube-build`
 compiles pinned upstream C source inside Dolly using SDL2, software rendering and
@@ -52,3 +71,7 @@ agent flow against an explicitly scripted provider. The opt-in
 uses a fresh browser profile and runs a bounded live test. It exports run histories
 only after checking they contain no credential. `DOLLY_CLASSICUBE_MODEL` selects
 the live model. Live tests are never part of the default test suite.
+To test the proxy through the real upload/setup flow, set
+`DOLLY_CLASSICUBE_MODELS_FILE` to its printed configuration path in the live mode.
+Allow the test page's exact origin on the proxy (use `DOLLY_BROWSER_PORT` or
+`DOLLY_BROWSER_PAGE` to select a stable origin). This mode needs no OpenRouter key.

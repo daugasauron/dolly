@@ -47,10 +47,12 @@ export function visionModels(catalog, cached = []) {
 }
 
 export function validateTask(config) {
-  if (typeof config?.model !== "string" || !config.model || typeof config.prompt !== "string" ||
+  const provider = config?.provider ?? "openrouter";
+  if (!["openrouter", "codex-local"].includes(provider) || typeof config?.model !== "string" || !config.model || typeof config.prompt !== "string" ||
       !config.prompt.trim() || config.prompt.length > 4096 || !Number.isInteger(config.seconds) ||
-      config.seconds < 10 || config.seconds > 3600 || !Number.isFinite(config.budget) || config.budget <= 0 ||
+      config.seconds < 10 || config.seconds > 3600 || !Number.isFinite(config.budget) ||
+      (provider === "codex-local" ? config.budget !== 0 : config.budget <= 0) ||
       !["off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(config.effort))
-    throw Error("Choose a model, effort, task, 10–3600 seconds and a positive budget.");
+    throw Error("Choose a provider, model, effort, task and 10–3600 seconds. OpenRouter needs a positive budget; Codex uses subscription quota.");
   return config;
 }

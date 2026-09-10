@@ -8,6 +8,7 @@ import { runLocalModelProof, runLocalCompatibilityProof, runLocalCacheProof, run
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
 import { classicubeProvider } from "../test/fixtures/classicube-provider.mjs";
 import { runClassiCubeAgentProof } from "../test/fixtures/classicube-agent-browser.mjs";
+import { relayProvider } from "../src/rts/spectator/relay.mjs";
 import { runClassiCubeProof } from "../test/fixtures/classicube-browser.mjs";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -118,6 +119,9 @@ const bhopMode = isMode("bhop");
 const classicubeMode = isMode("classicube");
 const classicubeAgentMode = isMode("classicube-agent");
 const classicubeAgentLiveMode = isMode("classicube-agent-live");
+const classicubeRelayFile = classicubeAgentLiveMode && process.env.DOLLY_CLASSICUBE_MODELS_FILE;
+const classicubeRelayConfiguration = classicubeRelayFile
+  ? { providers: { "codex-local": relayProvider(JSON.parse(await readFile(resolve(classicubeRelayFile), "utf8"))) } } : null;
 const debuggerDisconnectMode = isMode("debugger-disconnect");
 const janisFilesMode = isMode("janis-files");
 const janisProcessMode = isMode("janis-process");
@@ -127,7 +131,7 @@ const libcurlContractMode = isMode("libcurl-contract");
 const gitTransportMode = isMode("git-transport");
 const piOpenRouterMode = isMode("pi-openrouter");
 const piAuditMode = isMode("pi-audit");
-const realOpenRouterMode = classicubeAgentLiveMode || piOpenRouterMode || piAuditMode || (rtsLiveMode && !rtsLiveConfiguration);
+const realOpenRouterMode = (classicubeAgentLiveMode && !classicubeRelayConfiguration) || piOpenRouterMode || piAuditMode || (rtsLiveMode && !rtsLiveConfiguration);
 const missingSnapshotMode = isMode("snapshot-missing");
 const unpackagedSnapshotMode = isMode("snapshot-unpackaged");
 const snapshotExportMode = isMode("snapshot-export") || unpackagedSnapshotMode;
@@ -1285,7 +1289,7 @@ async function enterRecoveryShell(send) {
       true,
     );
   } else if (selectedImage === "classicube") {
-    await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Connect to OpenRouter/, "ClassiCube setup")`);
+    await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Connect an agent/, "ClassiCube setup")`);
     await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
     return evaluate(send, `window.__dolly.waitForInteractiveTerminal(/dolly:[^\\n]*\\$\\s*$/, "ClassiCube shell")`);
   } else if (selectedImage === "codex") {
@@ -1576,7 +1580,7 @@ if (realOpenRouterMode) {
     timeoutMilliseconds: 120_000,
   });
 }
-if ((rtsLiveMode && !rtsLiveConfiguration) || classicubeAgentMode || classicubeAgentLiveMode) fixturePolicy.rules.unshift({
+if ((rtsLiveMode && !rtsLiveConfiguration) || classicubeAgentMode || (classicubeAgentLiveMode && !classicubeRelayConfiguration)) fixturePolicy.rules.unshift({
   origin: "https://openrouter.ai", path: "/api/v1/models", methods: ["GET"],
   maxResponseBytes: 16 * 1024 * 1024,
 }, {
@@ -1584,17 +1588,17 @@ if ((rtsLiveMode && !rtsLiveConfiguration) || classicubeAgentMode || classicubeA
 });
 if (classicubeAgentMode) fixturePolicy.rules.unshift({ origin: "https://openrouter.ai", path: "/api/v1/auth/keys", methods: ["POST"] },
   { origin: "https://openrouter.ai", path: "/api/v1/chat/completions", methods: ["POST"], credentialHeaders: ["authorization"], timeoutMilliseconds: 120000 });
-if (rtsLiveConfiguration) for (const provider of Object.values(rtsLiveConfiguration.providers)) {
+for (const provider of Object.values((rtsLiveConfiguration || classicubeRelayConfiguration)?.providers ?? {})) {
   const url = new URL(provider.baseUrl);
   if (url.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(url.hostname) || provider.api !== "openai-codex-responses")
-    throw Error("RTS subscription tests require an explicit loopback Codex relay");
+    throw Error("Subscription tests require an explicit loopback Codex relay");
   fixturePolicy.rules.unshift({ origin: url.origin, path: "/codex/responses", methods: ["POST"],
     credentialHeaders: ["authorization"], maxRequestBytes: 8 * 1024 * 1024, timeoutMilliseconds: 120000 });
 }
 const requestedProfile = process.env.DOLLY_BROWSER_PROFILE;
 persistentProfile = requestedProfile;
 browserDownloadDirectory = await mkdtemp(`${tmpdir()}/dolly-browser-downloads-`);
-if (realOpenRouterMode || rtsLiveMode) {
+if (realOpenRouterMode || rtsLiveMode || classicubeAgentLiveMode) {
   // The real credential is intentionally copied into Dolly's ephemeral
   // in-memory filesystem. A fresh browser profile avoids unrelated persistence
   // outside that sandbox while exercising the same setup applications use.
@@ -1962,6 +1966,8 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         key: options => dispatchKey(debuggerClient.send, options),
         input: text => inputText(debuggerClient.send, text), projectDir, secret: openRouterSecret,
         live: classicubeAgentLiveMode, liveModel: process.env.DOLLY_CLASSICUBE_MODEL,
+        relayFile: classicubeRelayFile && resolve(classicubeRelayFile),
+        selectFile: path => selectFile(debuggerClient.send, "#file-upload input", path),
         downloadDirectory: browserDownloadDirectory });
       if (classicubeAgentMode) classicubeModelFixture.verify();
       break browserProof;

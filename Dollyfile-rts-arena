@@ -13,6 +13,6 @@ COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d37
 EXPORTS TOOL seven-kingdoms
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/rts-arena.dm 6813d0c1416b8adc4283e2738762b7697f576b8a8e6f4619aa594b2ff48fb314
+USE HOST /modules/rts-arena.dm 9b9ddb4775293f6d5040210664fcfeb9d0a3f59c608efea8564e4a644a158678
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
