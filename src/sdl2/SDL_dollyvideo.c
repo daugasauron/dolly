@@ -11,6 +11,7 @@ typedef struct {
     dolly_display_surface display;
     SDL_Window *window;
     SDL_Surface *pixels;
+    SDL_bool relative;
 } DollyVideo;
 
 static int DollyError(const char *operation, int error)
@@ -161,11 +162,31 @@ static void DollyPumpEvents(_THIS)
             }
             break;
         }
-        case DOLLY_INPUT_EVENT_POINTER:
-            SDL_SendMouseMotion(video->window, 0, SDL_FALSE, event.width_css_px, event.height_css_px);
+        case DOLLY_INPUT_EVENT_POINTER: {
+            static const Uint8 buttons[] = { SDL_BUTTON_LEFT, SDL_BUTTON_MIDDLE,
+                SDL_BUTTON_RIGHT, SDL_BUTTON_X1, SDL_BUTTON_X2 };
+            unsigned button = (event.flags >> 8) & 7;
+            if (button >= SDL_arraysize(buttons)) break;
+            if (event.action == DOLLY_POINTER_ACTION_PRESS) SDL_SetKeyboardFocus(video->window);
+            if (!video->relative)
+                SDL_SendMouseMotion(video->window, 0, SDL_FALSE, event.width_css_px, event.height_css_px);
             if (event.action != DOLLY_POINTER_ACTION_DRAG)
                 SDL_SendMouseButton(video->window, 0,
-                    event.action == DOLLY_POINTER_ACTION_PRESS ? SDL_PRESSED : SDL_RELEASED, SDL_BUTTON_LEFT);
+                    event.action == DOLLY_POINTER_ACTION_PRESS ? SDL_PRESSED : SDL_RELEASED, buttons[button]);
+            break;
+        }
+        case DOLLY_INPUT_EVENT_POINTER_MOTION:
+            if (video->relative)
+                SDL_SendMouseMotion(video->window, 0, SDL_TRUE,
+                    (Sint32)event.width_css_px / 1000, (Sint32)event.height_css_px / 1000);
+            break;
+        case DOLLY_INPUT_EVENT_POINTER_CAPTURE:
+            if (!event.action && video->relative) {
+                SDL_SetKeyboardFocus(NULL);
+                SDL_ResetKeyboard();
+                for (Uint8 button = SDL_BUTTON_LEFT; button <= SDL_BUTTON_X2; ++button)
+                    SDL_SendMouseButton(video->window, 0, SDL_RELEASED, button);
+            }
             break;
         case DOLLY_INPUT_EVENT_SCROLL:
             SDL_SendMouseWheel(video->window, 0, 0, -(Sint32)event.action / 1000.0f, SDL_MOUSEWHEEL_NORMAL);
@@ -185,8 +206,28 @@ static int DollyShowCursor(SDL_Cursor *cursor)
     SDL_VideoDevice *device = SDL_GetVideoDevice();
     DollyVideo *video = device->driverdata;
     int error = dolly_display_set_cursor(video->display.generation,
-        cursor ? DOLLY_DISPLAY_CURSOR_DEFAULT : DOLLY_DISPLAY_CURSOR_HIDDEN);
+        video->relative ? DOLLY_DISPLAY_CURSOR_CAPTURED :
+        SDL_GetMouse()->cursor_shown ? DOLLY_DISPLAY_CURSOR_DEFAULT : DOLLY_DISPLAY_CURSOR_HIDDEN);
+    (void)cursor;
     return error ? DollyError("cursor", error) : 0;
+}
+
+static int DollySetRelativeMouseMode(SDL_bool enabled)
+{
+    SDL_VideoDevice *device = SDL_GetVideoDevice();
+    DollyVideo *video = device->driverdata;
+    int error = dolly_display_set_cursor(video->display.generation,
+        enabled ? DOLLY_DISPLAY_CURSOR_CAPTURED : DOLLY_DISPLAY_CURSOR_DEFAULT);
+    if (error) return DollyError("relative mouse", error);
+    video->relative = enabled;
+    return 0;
+}
+
+static void DollyWarpMouse(SDL_Window *window, int x, int y)
+{
+    SDL_VideoDevice *device = SDL_GetVideoDevice();
+    DollyVideo *video = device->driverdata;
+    if (!video->relative) SDL_SendMouseMotion(window, 0, SDL_FALSE, x, y);
 }
 
 static void DollyDeleteDevice(SDL_VideoDevice *device)
@@ -216,6 +257,8 @@ static SDL_VideoDevice *DollyCreateDevice(void)
     device->PumpEvents = DollyPumpEvents;
     device->free = DollyDeleteDevice;
     SDL_GetMouse()->ShowCursor = DollyShowCursor;
+    SDL_GetMouse()->SetRelativeMouseMode = DollySetRelativeMouseMode;
+    SDL_GetMouse()->WarpMouse = DollyWarpMouse;
     return device;
 }
 

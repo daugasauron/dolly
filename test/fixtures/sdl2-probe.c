@@ -30,7 +30,7 @@ int main(int argc, char **argv)
     Uint64 started = SDL_GetTicks64();
     SDL_Delay(10);
     assert(SDL_GetTicks64() >= started + 5);
-    int clicks = 0, keys = 0, quit = 0;
+    int clicks = 0, right_clicks = 0, keys = 0, quit = 0;
     for (int frame = 0; !quit; ++frame) {
         assert(SDL_RenderClear(renderer) == 0);
         assert(SDL_RenderCopy(renderer, texture, NULL, NULL) == 0);
@@ -40,10 +40,11 @@ int main(int argc, char **argv)
             if (event.type == SDL_QUIT) quit = 1;
             if (event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_A) ++keys;
             if (event.type == SDL_MOUSEBUTTONDOWN) {
-                assert(event.button.button == SDL_BUTTON_LEFT);
+                assert(event.button.button == SDL_BUTTON_LEFT || event.button.button == SDL_BUTTON_RIGHT);
                 assert(event.button.x >= 0 && event.button.x < 320);
                 assert(event.button.y >= 0 && event.button.y < 240);
-                ++clicks;
+                if (event.button.button == SDL_BUTTON_LEFT) ++clicks;
+                else ++right_clicks;
             }
             if (event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) quit = 1;
         }
@@ -54,7 +55,7 @@ int main(int argc, char **argv)
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    if (argc > 1 && !strcmp(argv[1], "input")) assert(clicks == 1 && keys == 1);
+    if (argc > 1 && !strcmp(argv[1], "input")) assert(clicks == 1 && right_clicks == 1 && keys == 1);
     puts("SDL2-PROBE-OK");
     return 0;
 }

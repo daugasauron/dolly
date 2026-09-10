@@ -30,6 +30,13 @@ Mailbox v5 includes animation-frame pacing and captured-pointer input in the
 undoes it. Relative movement is bounded thousandths of a CSS pixel. Camera
 sensitivity and gestures belong to the program, not the host.
 
+Pointer records use flags bits 8–10 for the DOM button number (0 left, 1 middle,
+2 right, 3 back, 4 forward). Zero preserves the original left-button encoding.
+These additive semantics keep mailbox v5's record size and offsets unchanged.
+Graphics leases receive hover and button events, including while captured;
+terminal selection still receives only left-button drags. SDL2 translates these
+records and captured movement into ordinary SDL mouse events.
+
 ## Lifecycle and terminal
 
 A lease belongs to PID/generation and can be acquired only by the foreground

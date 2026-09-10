@@ -1,7 +1,7 @@
 DOLLY 3
-IMAGE rts-build
+IMAGE classicube-build
 
 FROM HOST /Dollyfile-sdl2-build 8d534d5778f2cff9de04f258f9f2094270976744f7118391026200296d90bf1f
-USE HOST /modules/seven-kingdoms.dm ac4c5d81cd73d626b29d5e30b7b2645c6269501e248fce151ac36723b381bc74
+USE HOST /modules/classicube.dm 6e8f693dae47a4a9b5b2ef38aa43b7e31b70c2c96b21d85914fbe73a580a5a06
 
 ENTRY /bin/foreground -i /bin/slop

@@ -80,6 +80,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system"], "neovim-build": ["cmake-build"],
     "sdl2-build": ["cmake-build"], "rts-build": ["sdl2-build"],
+    "classicube-build": ["sdl2-build"], classicube: ["system", "classicube-build", "sdl2-build"],
     "rts-arena": ["pi-runtime", "rts-build"],
     neovim: ["system", "neovim-build"],
     "pi-runtime": ["javascript"], pi: ["pi-runtime"], "pi-local": ["pi"],

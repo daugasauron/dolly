@@ -101,6 +101,8 @@ DOLLY_IMAGE=codex DOLLY_BROWSER_MODE=codex-login \
 
 DOLLY_IMAGE=sdl2-build DOLLY_BROWSER_MODE=sdl2 \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=classicube DOLLY_BROWSER_MODE=classicube \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 for mode in rts-launcher rts rts-split-replay; do
   DOLLY_IMAGE=rts-arena DOLLY_BROWSER_MODE="${mode}" \
     node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"

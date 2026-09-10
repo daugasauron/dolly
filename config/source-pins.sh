@@ -153,3 +153,7 @@ DOLLY_RAYLIB_URL='https://github.com/raysan5/raylib.git'
 DOLLY_BOX3D_VERSION=0.1.0
 DOLLY_BOX3D_COMMIT=8441b4a06d6d09dcfb0b0f704df4d847d1437b92
 DOLLY_BOX3D_URL='https://github.com/erincatto/box3d.git'
+
+# ClassiCube source and bundled texture pack.
+DOLLY_CLASSICUBE_URL="https://codeload.github.com/ClassiCube/ClassiCube/tar.gz/df93681952f8bb2cb0e7943f708db30cb92a34fa"
+DOLLY_CLASSICUBE_SHA256="3490f4747012235459609a387b87300b0e52de4b76073df77340eadc9691407e"

@@ -296,6 +296,7 @@ class DisplayTransport {
       type: DisplayTransport.pointerEvent,
       action,
       modifiers,
+      flags: Math.max(0, Math.min(4, event.button ?? 0)) << 8,
       width: Math.max(0, Math.round(x)),
       height: Math.max(0, Math.round(y)),
     });
@@ -794,7 +795,7 @@ function pushPointer(event, action) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0 || !transport) return;
+  if (!transport || (event.button !== 0 && !transport.graphicsActive())) return;
   if (transport.relativePointerRequested()) {
     keyboard.blur();
     event.preventDefault();
@@ -803,6 +804,8 @@ canvas.addEventListener("pointerdown", (event) => {
       const failed = error => { document.documentElement.dataset.pointerLockError = String(error); };
       try { void Promise.resolve(canvas.requestPointerLock()).catch(failed); }
       catch (error) { failed(error); }
+    } else {
+      pushPointer(event, 1);
     }
     return;
   }
@@ -821,18 +824,21 @@ canvas.addEventListener("pointermove", (event) => {
     event.preventDefault();
     return;
   }
-  if (!selecting || (event.buttons & 1) === 0) return;
+  if (!transport?.graphicsActive() && (!selecting || (event.buttons & 1) === 0)) return;
   pushPointer(event, 2);
   event.preventDefault();
 });
 canvas.addEventListener("pointerup", (event) => {
-  if (!selecting || event.button !== 0) return;
+  if (!transport?.graphicsActive() && (!selecting || event.button !== 0)) return;
   selecting = false;
   pushPointer(event, 0);
   if (canvas.hasPointerCapture(event.pointerId)) {
     canvas.releasePointerCapture(event.pointerId);
   }
   event.preventDefault();
+});
+canvas.addEventListener("contextmenu", event => {
+  if (transport?.graphicsActive()) event.preventDefault();
 });
 canvas.addEventListener("pointercancel", (event) => {
   if (selecting) {

@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { waitForDebugger } from "./browser-startup.mjs";
 import { runLocalModelProof, runLocalCompatibilityProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
+import { runClassiCubeProof } from "../test/fixtures/classicube-browser.mjs";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -112,6 +113,7 @@ if (rtsLiveMode && (rtsLiveModels.length !== 2 || rtsLiveModels.some(model => !/
     !Number.isFinite(rtsLiveDollars) || rtsLiveDollars <= 0 || rtsLiveDollars > 2))
   throw Error("RTS live proof needs two comma-separated models, 10..3600 seconds and a USD limit up to 2");
 const bhopMode = isMode("bhop");
+const classicubeMode = isMode("classicube");
 const debuggerDisconnectMode = isMode("debugger-disconnect");
 const janisFilesMode = isMode("janis-files");
 const janisProcessMode = isMode("janis-process");
@@ -1272,6 +1274,11 @@ async function enterRecoveryShell(send) {
       await evaluate(send, "window.__dolly.key('q', 'KeyQ')"),
       true,
     );
+  } else if (selectedImage === "classicube") {
+    entryPid = await waitForValue(send,
+      "window.__dolly?.graphicsActive ? window.__dolly.foregroundPid : 0",
+      value => value > 0, "ClassiCube entry display lease");
+    await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
   } else if (selectedImage === "codex") {
     await waitForTerminalText(send, /Sign in with ChatGPT/, "Codex entry sign-in TUI", 1200);
     await delay(codexProtectedInputDelay);
@@ -1934,6 +1941,14 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       await writeFile(resolve(projectDir, "build/local-model-browser.png"), screenshot.data, "base64");
       break browserProof;
     }
+    if (classicubeMode) {
+      assert.equal(selectedImage, "classicube");
+      await runClassiCubeProof({ send: debuggerClient.send,
+        evaluate: expression => evaluate(debuggerClient.send, expression),
+        wait: (expression, predicate, label) => waitForValue(debuggerClient.send, expression, predicate, label, 1200),
+        key: options => dispatchKey(debuggerClient.send, options), projectDir });
+      break browserProof;
+    }
     if (bhopMode) {
       const send = debuggerClient.send;
       assert.equal(selectedImage, "bhop");
@@ -2479,6 +2494,8 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         const box = await evaluate(send, `(() => { const r = document.querySelector('canvas').getBoundingClientRect(); return {x:r.left+r.width/4,y:r.top+r.height/4}; })()`);
         await send("Input.dispatchMouseEvent", { type: "mousePressed", button: "left", clickCount: 1, ...box });
         await send("Input.dispatchMouseEvent", { type: "mouseReleased", button: "left", clickCount: 1, ...box });
+        await send("Input.dispatchMouseEvent", { type: "mousePressed", button: "right", clickCount: 1, ...box });
+        await send("Input.dispatchMouseEvent", { type: "mouseReleased", button: "right", clickCount: 1, ...box });
         await dispatchKey(send, { key: "a", code: "KeyA", windowsVirtualKeyCode: 65 });
         await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
         assert.equal(await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 input completion"), 0);

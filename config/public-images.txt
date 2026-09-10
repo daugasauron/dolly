@@ -1,5 +1,6 @@
 default
 bhop
+classicube
 dollyfile-studio
 external-source
 gamedev

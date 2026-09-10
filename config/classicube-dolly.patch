@@ -1,0 +1,55 @@
+--- a/src/Window_SDL2.c
++++ b/src/Window_SDL2.c
+@@ -55,7 +55,8 @@
+ }
+ 
+ void Window_PreInit(void) {
+-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
++	if (SDL_Init(SDL_INIT_VIDEO)) Window_SDLFail("initialising video");
++	SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER);
+ 	DisplayInfo.CursorVisible = true;
+ }
+ 
+@@ -410,7 +411,7 @@
+ 	if (!win_surface) Window_SDLFail("getting window surface");
+ 
+ 	fmt = win_surface->format;
+-	if (fmt->BitsPerPixel != 32) {
++	if (fmt->BitsPerPixel != 32 || fmt->Rmask != BITMAPCOLOR_R_MASK) {
+ 		/* Slow path: e.g. 15 or 16 bit pixels */
+ 		Platform_Log1("Slow color depth: %b bpp", &fmt->BitsPerPixel);
+ 		blit_surface = SDL_CreateRGBSurface(0, win_surface->w, win_surface->h, 32, 0, 0, 0, 0);
+--- a/src/Platform_Posix.c
++++ b/src/Platform_Posix.c
+@@ -35,10 +35,14 @@
+ const cc_result ReturnCode_FileNotFound     = ENOENT;
+ const cc_result ReturnCode_PathNotFound     = 99999;
+ const cc_result ReturnCode_DirectoryExists  = EEXIST;
++#ifdef CC_BUILD_NETWORKING
+ const cc_result ReturnCode_SocketInProgess  = EINPROGRESS;
+ const cc_result ReturnCode_SocketWouldBlock = EWOULDBLOCK;
+ const cc_result ReturnCode_SocketDropped    = EPIPE;
+ #define SUPPORTS_GETADDRINFO 1
++#else
++#define CC_NO_SOCKETS
++#endif
+ 
+ #if defined CC_BUILD_ANDROID
+ const char* Platform_AppNameSuffix = " android alpha";
+@@ -681,6 +685,7 @@
+ /*########################################################################################################################*
+ *---------------------------------------------------------Socket----------------------------------------------------------*
+ *#########################################################################################################################*/
++#ifdef CC_BUILD_NETWORKING
+ #if defined CC_BUILD_OS2
+ #undef AF_INET6
+ #endif
+@@ -889,6 +894,8 @@
+ }
+ #endif
+ 
++
++#endif /* CC_BUILD_NETWORKING */
+ 
+ /*########################################################################################################################*
+ *-----------------------------------------------------Process/Module------------------------------------------------------*

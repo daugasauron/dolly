@@ -77,7 +77,7 @@ inherited browser restrictions; recipe bytes cannot set browser policy.
 | --- | --- |
 | [Display contract](../abi/dolly-display-0.wat), [display.md](display.md) | Checked complete RGBA frames and bounded semantic input; no privileged VT/OSC/HTML parsing |
 | Clipboard handlers in `src/browser.mjs` | Copy/paste only after user gestures; bounded literal text |
-| Pointer-lock handlers in `src/browser.mjs` | Capture only on a canvas press; Escape/lease release undo it |
+| Pointer-lock handlers in `src/browser.mjs` | Capture only on a trusted canvas press; Escape/lease release undo it. Graphics button/hover forwarding grants no capture; terminal selection remains left-button only |
 | [Upload transport](../src/upload-transport.mjs), [C command](../src/upload.c) | Visible user picker, at most 64 MiB in 64 KiB chunks; bytes only, no host name/path/handle |
 | [Download contract](download.md) | Copied bounded file and checked basename, never a host path |
 | [Sessions](sessions.md), `src/session-file.mjs` | Opaque bounded deltas, exact base identity, bounded import decompression; no overwrite or execution on import |

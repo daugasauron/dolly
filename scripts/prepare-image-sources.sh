@@ -37,6 +37,7 @@ has_module lua && lua_archive="$(bash "${project_dir}/scripts/fetch-pinned-archi
 has_module lpeg && lpeg_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lpeg)"
 has_module cmake && cmake_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" cmake)"
 has_module sdl2 && sdl2_dir="$(bash "${project_dir}/scripts/prepare-sdl2.sh")"
+has_module classicube && classicube_dir="$(bash "${project_dir}/scripts/prepare-classicube.sh")"
 has_module seven-kingdoms && seven_kingdoms_dir="$(bash "${project_dir}/scripts/prepare-seven-kingdoms.sh")"
 if has_module neovim || has_module neovim-parsers; then
   neovim_dir="$(bash "${project_dir}/scripts/prepare-neovim.sh")"
@@ -257,6 +258,15 @@ if has_module sdl2; then
   node scripts/build-source-tar.mjs "${static_dir}/sdl2/source.tar" \
     "${sdl2_inputs[@]}" \
     "${sdl2_dir}/LICENSE.txt" /usr/share/licenses/SDL2/LICENSE.txt
+fi
+if has_module classicube; then
+  node scripts/build-source-tar.mjs "${static_dir}/classicube/source.tar.gz" \
+    "${classicube_dir}/src" /usr/src/classicube/src \
+    "${classicube_dir}/misc/sdl" /usr/src/classicube/misc/sdl \
+    "${classicube_dir}/license.txt" /usr/src/classicube/license.txt \
+    "${classicube_dir}/license.txt" /usr/share/licenses/classicube/license.txt \
+    "${classicube_dir}/misc/cc_textures.zip" /usr/share/classicube/texpacks/default.zip \
+    "${project_dir}/src/classicube" /usr/src/dolly/classicube
 fi
 if has_module seven-kingdoms; then
   rts_port_inputs=()
