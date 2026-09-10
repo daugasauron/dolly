@@ -241,10 +241,11 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     const authPath=process.env.HOME+'/.pi/agent/auth.json', modelsPath=process.env.HOME+'/.pi/agent/models.json';
     const credential=JSON.parse(fs.readFileSync(${relayFile?'modelsPath':'authPath'},'utf8'));
     const secret=${relayFile?"credential.providers['codex-local'].apiKey":"credential.openrouter.key||credential.openrouter.access"};
-    for(const name of fs.readdirSync(root)) for(const file of fs.readdirSync(root+'/'+name)) {
-      const data=fs.readFileSync(root+'/'+name+'/'+file); if(data.includes(Buffer.from(secret))) throw Error('credential in run files');
+    const inspectDirectory=path=>{for(const file of fs.readdirSync(path)) {
+      const entry=path+'/'+file;if(fs.statSync(entry).isDirectory()){inspectDirectory(entry);continue;}
+      const data=fs.readFileSync(entry); if(data.includes(Buffer.from(secret))) throw Error('credential in run files');
       if(file==='agent.events.jsonl') report.events.push(...data.toString('utf8').trim().split('\\n').filter(Boolean).map(JSON.parse));
-    }
+    }};inspectDirectory(root);
     for(const name of ['agent.json','usage.json','draft.txt','conversation.jsonl']) report.files[name]=fs.readFileSync('/home/dolly/.config/classicube/'+name,'utf8');
     report.world=fs.readFileSync('/home/dolly/classicube/maps/agent-world.cw').toString('base64');
     report.scratch=fs.readdirSync('/tmp').filter(n=>n.startsWith('classicube-agent-'));

@@ -6,6 +6,8 @@ REQUIRES HEADER quickjs-runner
 REQUIRES HEADER sdl2
 REQUIRES LIB dolly-js
 REQUIRES LIB SDL2
+REQUIRES LIB z
+REQUIRES HEADER zlib
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL pi
@@ -13,17 +15,19 @@ REQUIRES TOOL classicube
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE HOST /static/classicube/agent.tar /tmp/classicube-agent/source.tar ef8be6233c07e31216861bd9e25f6b2ba1e6aad75df092c32d1c75cf362aee6f
+SOURCE HOST /static/classicube/agent.tar /tmp/classicube-agent/source.tar 364b920b8ec54537720c1e2afc43bcdc53a3134571629e6da1c0a5c9c5a7201f
 SOURCE HOST /static/default/stb_truetype.h /tmp/classicube-agent/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
 SLOP tar -xf /tmp/classicube-agent/source.tar -C /
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
   /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm
+SLOP cc -O2 /usr/src/dolly/classicube/agent/pack.c -o /usr/bin/classicube-pack -lz
 SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
   -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler \
   /usr/src/dolly/classicube/agent/launch.c -ldolly-js -o /usr/bin/classicube-agent
 
 EXPORTS TOOL classicube-agent
 EXPORTS TOOL classicube-viewer
+EXPORTS TOOL classicube-pack
 EXPORTS FOLDER classicube-agent-source /usr/src/dolly/classicube/agent
 EXPORTS FOLDER game-input-source /usr/src/dolly/rts
 FILE /usr/src/dolly/classicube/agent/COPYING

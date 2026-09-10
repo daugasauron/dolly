@@ -124,6 +124,12 @@ requests, and forwards only the fixed Codex inference endpoint without redirects
 Only this relay reads the local subscription login; it exposes no filesystem or
 process operations. Granting its capability permits spending that account's quota.
 
+ClassiCube's shared room (`src/classicube/agent/room.mjs`) and clients exchange
+Classic packets through private files in the Wasm filesystem. The socket wrapper
+in `src/classicube/platform.c` recognizes only its local room marker and has no
+host socket fallback. Map compression, world state and all game processes stay
+inside Dolly. Multiple players add no browser authority or outer imports.
+
 ## Recheck
 
 ```sh

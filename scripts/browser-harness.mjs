@@ -118,8 +118,10 @@ if (rtsLiveMode && (rtsLiveModels.length !== 2 || rtsLiveModels.some(model => !/
 const bhopMode = isMode("bhop");
 const classicubeMode = isMode("classicube");
 const classicubeAgentMode = isMode("classicube-agent");
-const classicubeAgentLiveMode = isMode("classicube-agent-live");
+const classicubePlaywrightMode = isMode("classicube-playwright");
+const classicubeAgentLiveMode = isMode("classicube-agent-live") || classicubePlaywrightMode;
 const classicubeRelayFile = classicubeAgentLiveMode && process.env.DOLLY_CLASSICUBE_MODELS_FILE;
+if (classicubePlaywrightMode && !classicubeRelayFile) throw Error("classicube-playwright requires DOLLY_CLASSICUBE_MODELS_FILE");
 const classicubeRelayConfiguration = classicubeRelayFile
   ? { providers: { "codex-local": relayProvider(JSON.parse(await readFile(resolve(classicubeRelayFile), "utf8"))) } } : null;
 const debuggerDisconnectMode = isMode("debugger-disconnect");
@@ -1961,6 +1963,16 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       });
       const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
       await writeFile(resolve(projectDir, "build/local-model-browser.png"), screenshot.data, "base64");
+      break browserProof;
+    }
+    if (classicubePlaywrightMode) {
+      const { chromium } = await import("playwright-core");
+      const { runClassiCubeMultiplayer } = await import("../test/fixtures/classicube-multiplayer-playwright.mjs");
+      const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
+      try {
+        const page = browser.contexts()[0].pages().find(page => page.url() === initialPage);
+        await runClassiCubeMultiplayer({page, modelsFile:classicubeRelayFile, projectDir});
+      } finally { await browser.close(); }
       break browserProof;
     }
     if (classicubeAgentMode || classicubeAgentLiveMode) {

@@ -30,6 +30,7 @@
     "@mlc-ai/web-llm": "0.2.84"
   },
   "devDependencies": {
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "playwright-core": "1.63.0"
   }
 }

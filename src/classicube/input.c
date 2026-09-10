@@ -7,6 +7,7 @@
 #include "String_.h"
 #include "Input.h"
 #include "World.h"
+#include "Game.h"
 #include "Formats.h"
 #include "Deflate.h"
 #include <errno.h>
@@ -40,7 +41,7 @@ extern void SDL_SetKeyboardFocus(SDL_Window *);
 static Action actions[16];
 static uint32_t id, count, index_, started, frame, last_view, last_save, human_serial;
 static GameControl control;
-static int active, released, capture, stopped;
+static int active, released, capture, stopped, watched = 1;
 static SDL_Window *window;
 static uint8_t pixels[WIDTH * HEIGHT * 4], png[WIDTH * HEIGHT * 4 + 65536];
 
@@ -177,12 +178,24 @@ void DollyAgent_Poll(SDL_Window *target) {
     if (!directory() || stopped || !target) return;
     window = target; SDL_SetKeyboardFocus(window);
     controls();
-    if (World.Loaded && World.Blocks && SDL_GetTicks() - last_save >= 5000) { save_world(); last_save = SDL_GetTicks(); }
+    const char *watch = getenv("DOLLY_CLASSICUBE_WATCH");
+    if (watch) {
+        const char *player = getenv("DOLLY_CLASSICUBE_PLAYER");
+        FILE *selected = fopen(watch, "r"); int number = 0;
+        if (selected) { fscanf(selected, "%d", &number); fclose(selected); }
+        const int visible = player && number == atoi(player);
+        if (visible != watched) { watched = visible; Game_SetMinFrameTime(watched ? 1000.0f / 60 : 1000.0f / 15); }
+    }
+    if (getenv("DOLLY_CLASSICUBE_SEED") && World.Loaded && World.Blocks) {
+        save_world(); stopped = 1;
+        SDL_Event event = { .type = SDL_QUIT }; SDL_PushEvent(&event); return;
+    }
+    if (!getenv("DOLLY_CLASSICUBE_NET") && World.Loaded && World.Blocks && SDL_GetTicks() - last_save >= 5000) { save_world(); last_save = SDL_GetTicks(); }
     FILE *file = open_file("stop", "r");
     if (file) {
         fclose(file); release();
         if (active || capture) response(id, ECANCELED, 0);
-        active = capture = 0; stopped = 1; save_world();
+        active = capture = 0; stopped = 1; if (!getenv("DOLLY_CLASSICUBE_NET")) save_world();
         SDL_Event event = { .type = SDL_QUIT }; SDL_PushEvent(&event); return;
     }
     uint32_t cancelled = 0;
@@ -232,12 +245,16 @@ static cc_result write_png(struct Stream *stream, const cc_uint8 *data, cc_uint3
 void DollyAgent_Frame(struct Bitmap *bitmap) {
     if (!directory() || stopped) return;
     ++frame;
+    static int previous_raw = -1, ready;
+    if (previous_raw != Input.RawMode) { previous_raw = Input.RawMode; publish("relative", Input.RawMode ? "1" : "0", 1, NULL, 0); }
+    if (!ready && Input.RawMode && World.Blocks) { publish("ready", "1", 1, NULL, 0); ready = 1; }
+
     if (bitmap->width != WIDTH || bitmap->height != HEIGHT) {
         if (capture) response(id, EINVAL, 0);
         capture = 0; return;
     }
     uint32_t now = SDL_GetTicks();
-    if (!capture && now - last_view < 33) return;
+    if (!capture && (!watched || now - last_view < 16)) return;
     for (int i = 0; i < WIDTH * HEIGHT; ++i) {
         BitmapCol c = bitmap->scan0[i];
         pixels[i * 4] = BitmapCol_R(c); pixels[i * 4 + 1] = BitmapCol_G(c);
@@ -245,9 +262,6 @@ void DollyAgent_Frame(struct Bitmap *bitmap) {
     }
     uint32_t header[] = { frame, now, WIDTH, HEIGHT };
     publish("view.rgba", header, sizeof(header), pixels, sizeof(pixels)); last_view = now;
-    static int previous_raw = -1;
-    if (previous_raw != Input.RawMode) { previous_raw = Input.RawMode; publish("relative", Input.RawMode ? "1" : "0", 1, NULL, 0); }
-    if (Input.RawMode && World.Blocks) publish("ready", "1", 1, NULL, 0);
     if (capture) {
         struct Stream output; Stream_ReadonlyMemory(&output, png, sizeof(png));
         output.Write = write_png;

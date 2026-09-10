@@ -261,7 +261,7 @@ if has_module sdl2; then
 fi
 if has_module classicube; then
   classicube_port_inputs=()
-  for entry in Makefile config.h platform.c logger.c window.c input.c input.h agent/control.h; do
+  for entry in Makefile config.h platform.c logger.c window.c input.c input.h http.c agent/control.h; do
     classicube_port_inputs+=("${project_dir}/src/classicube/${entry}" "/usr/src/dolly/classicube/${entry}")
   done
   node scripts/build-source-tar.mjs "${static_dir}/classicube/source.tar.gz" \

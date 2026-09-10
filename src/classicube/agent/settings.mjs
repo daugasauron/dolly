@@ -5,13 +5,13 @@ export const settingsDirectory = "/home/dolly/.config/classicube";
 export const defaultSelection = { provider: "openrouter", model: "", effort: "low" };
 export const writeAtomic = (fs, path, data) => { fs.writeFileSync(`${path}.tmp`, data); fs.renameSync(`${path}.tmp`, path); };
 
-export function loadSelection(fs) {
-  const path = `${settingsDirectory}/agent.json`;
+export function loadSelection(fs, profile = settingsDirectory) {
+  const path = `${profile}/agent.json`;
   if (!fs.existsSync(path)) return { ...defaultSelection };
   return validateSelection(JSON.parse(fs.readFileSync(path, "utf8")));
 }
 
-export function createSettings(fs, scratch, run, changed) {
+export function createSettings(fs, scratch, run, changed, profile = settingsDirectory) {
   const directory = process.env.PI_CODING_AGENT_DIR || `${process.env.HOME}/.pi/agent`;
   const modelsPath = `${directory}/models.json`;
   let selection = { ...defaultSelection }, registry, answer, revision = 0;
@@ -22,7 +22,7 @@ export function createSettings(fs, scratch, run, changed) {
   const selected = () => {
     writeAtomic(fs, `${scratch}/selection.txt`, `${selection.provider}\n${selection.model}\n${selection.effort}`);
   };
-  try { selection = loadSelection(fs); } catch { menu("Settings", [], "Saved settings are invalid. Choose a provider and model again."); }
+  try { selection = loadSelection(fs, profile); } catch { menu("Settings", [], "Saved settings are invalid. Choose a provider and model again."); }
   selected();
   const models = async (reload = false) => {
     if (!registry || reload) {
@@ -34,7 +34,7 @@ export function createSettings(fs, scratch, run, changed) {
   };
   const save = async next => {
     selection = validateSelection(next);
-    writeAtomic(fs, `${settingsDirectory}/agent.json`, JSON.stringify(selection) + "\n");
+    writeAtomic(fs, `${profile}/agent.json`, JSON.stringify(selection) + "\n");
     selected(); await changed(selection);
   };
   const providerName = () => selection.provider === "codex-local" ? "Codex (local proxy)" : "OpenRouter";

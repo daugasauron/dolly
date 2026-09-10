@@ -1,16 +1,10 @@
 // Pi supervision and all application state stay inside Dolly. SPDX-License-Identifier: GPL-2.0-or-later
 import { connect, describe } from "./player.js";
-import { createSettings, settingsDirectory, writeAtomic } from "./settings.mjs";
+import { createSettings, writeAtomic } from "./settings.mjs";
 import { traceText } from "../../rts/spectator/trace.mjs";
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function runWorld() {
-  const fs = globalThis.__janisBuiltin("fs"), { spawn } = globalThis.__janisBuiltin("child_process");
-  const world = "/home/dolly/classicube";
-  for (const path of [settingsDirectory, `${world}/maps`, "/workspace/classicube-runs"]) fs.mkdirSync(path, { recursive: true });
-  // Session files retain IPC files, but restart their processes from the image entry.
-  for (const name of fs.readdirSync("/tmp")) if (name.startsWith("classicube-agent-")) fs.rmSync(`/tmp/${name}`, { recursive: true, force: true });
-  const run = fs.mkdtempSync("/workspace/classicube-runs/run-"), scratch = fs.mkdtempSync("/tmp/classicube-agent-");
+export async function runPlayer({ fs, spawn, world, run, scratch, directory: settingsDirectory, args, env }) {
   const atomic = (name, data) => writeAtomic(fs, `${scratch}/${name}`, data);
   const saved = name => fs.existsSync(`${settingsDirectory}/${name}`) ? fs.readFileSync(`${settingsDirectory}/${name}`, "utf8") : "";
   let usage = { reportedUSD: 0, tokens: 0 };
@@ -35,7 +29,11 @@ export async function runWorld() {
   const record = (type, fields = {}) => {
     const event = JSON.parse(JSON.stringify({ time: Date.now(), type, ...fields }).replace(/sk-or-v1-[\w-]+/g, "[redacted]"));
     fs.appendFileSync(`${run}/agent.events.jsonl`, JSON.stringify(event) + "\n");
-    const text = type === "prompt" ? `\n[user] ${event.text}\n` : type === "configuration" ? `\n[model] ${event.provider} / ${event.model} / ${event.effort}\n` : type === "interrupt" ? "\n[interrupted]\n" : type === "usage" ? "" : traceText(event);
+    const actions = event.args?.actions;
+    const text = type === "tool" && Array.isArray(actions) ? `\n[game_input] ${actions.length ? actions.map(a =>
+      a.type === "look" ? `look (${a.dx || 0}, ${a.dy || 0})` : a.type === "key" ? `${a.key} ${a.milliseconds || 0} ms` :
+      a.type === "click" ? `${a.button || "left"} click` : a.type).join("; ") : "observe"}\n` :
+      type === "tool_result" && !event.isError ? "" : type === "prompt" ? `\n[user] ${event.text}\n` : type === "configuration" ? `\n[model] ${event.provider} / ${event.model} / ${event.effort}\n` : type === "interrupt" ? "\n[interrupted]\n" : type === "usage" ? "" : traceText(event);
     if (text) {
       trace = (trace + text).slice(-64000); atomic("activity.txt", trace);
       writeAtomic(fs, `${settingsDirectory}/activity.txt`, trace);
@@ -47,7 +45,7 @@ export async function runWorld() {
     const child = spawn(command, args, { stdio: ["ignore", "inherit", "inherit"] });
     child.once("error", reject); child.once("close", resolve);
   });
-  const settings = createSettings(fs, scratch, runCommand, async () => { await closeAgent(); status("Settings saved · Enter to give an instruction"); });
+  const settings = createSettings(fs, scratch, runCommand, async () => { await closeAgent(); status("Settings saved · Enter to give an instruction"); }, settingsDirectory);
   function launch(command, args, options) {
     const child = spawn(command, args, options);
     const closed = new Promise(resolve => child.once("close", code => { stop(`${command} exited (${code})`); resolve(); }));
@@ -178,12 +176,12 @@ export async function runWorld() {
   atomic("activity.txt", trace); status();
   record("world_start");
   const gameLog = fs.openSync(`${run}/game.log`, "w");
-  const game = launch("classicube", [fs.existsSync(`${world}/maps/agent-world.cw`) ? "maps/agent-world.cw" : "--singleplayer"],
-    { cwd: world, env: { ...process.env, SDL_VIDEODRIVER: "dummy", DOLLY_CLASSICUBE_DIR: scratch }, stdio: ["ignore", gameLog, gameLog] });
+  const game = launch("classicube", args,
+    { cwd: world, env: { ...process.env, SDL_VIDEODRIVER: "dummy", DOLLY_CLASSICUBE_DIR: scratch, ...env }, stdio: ["ignore", gameLog, gameLog] });
   fs.closeSync(gameLog);
-  launch("classicube-viewer", [scratch, settingsDirectory], { stdio: ["ignore", "inherit", "inherit"] });
   try {
     while (!stopped) {
+      if (fs.existsSync(`${scratch}/stop`)) { stop("Player stopped"); break; }
       const gate = control();
       if (gate.generation !== observedGeneration) {
         observedGeneration = gate.generation;
@@ -220,7 +218,7 @@ export async function runWorld() {
       if (fs.existsSync(`${settingsDirectory}/${name}`)) fs.copyFileSync(`${settingsDirectory}/${name}`, `${run}/${name}`);
     }
     fs.writeFileSync(`${run}/result.txt`, reason + "\n");
-    fs.rmSync(scratch, { recursive: true, force: true });
-    console.log(`${reason}\nWorld and agent settings saved. History: ${run}`);
+    atomic("ended", reason);
+    return reason;
   }
 }

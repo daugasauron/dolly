@@ -65,6 +65,15 @@ struct Editor {
     }
 };
 
+struct PlayerUI {
+    int id = 1, scroll = 0;
+    std::string name, scratch, directory;
+    bool human = true, paused = false, entering = false;
+    uint32_t command_serial = 0, human_serial = 0, last_frame = 0;
+    GameControl gate = {1, CONTROL_PAUSED};
+    Editor prompt;
+};
+
 int main(int argc, char **argv) {
     if (argc != 3) return 64;
     auto font_bytes = read("/usr/share/fonts/IosevkaTerm-SemiBold.ttf", 16 * 1024 * 1024);
@@ -76,50 +85,74 @@ int main(int argc, char **argv) {
     if (!view) { std::fprintf(stderr, "ClassiCube viewer: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_StartTextInput();
-    const std::string scratch(argv[1]), directory(argv[2]);
-    const auto preferences = contents(directory + "/ui.conf");
+    const std::string hub(argv[1]), root(argv[2]);
+    const auto preferences = contents(root + "/ui.conf");
     bool interface = preferences.find("interface=0") == std::string::npos;
     bool activity = preferences.find("activity=0") == std::string::npos;
-    bool running = true, entering = false, settings = false, human = true, paused = false, focused = true, relative = false, dragging = false;
-    int scroll = 0, selected = 0, first = 0;
-    uint32_t last_frame = 0, command_serial = 0, human_serial = 0;
-    GameControl gate = {0, CONTROL_PAUSED};
-    Editor prompt, filter, answer;
-    prompt.set(contents(directory + "/draft.txt"));
+    bool running = true, settings = false, focused = true, relative = false, dragging = false;
+    int selected = 0, first = 0;
+    Editor filter, answer;
+    std::map<int, PlayerUI> players;
+    const auto load_players = [&]() {
+        for (const auto &line : split(contents(hub + "/players.txt"))) {
+            const auto fields = split(line, '\t');
+            if (fields.size() != 4) continue;
+            const int id = std::atoi(fields[0].c_str());
+            if (id < 1 || id > 4 || players.count(id)) continue;
+            auto &p = players[id]; p.id = id; p.name = fields[1]; p.directory = fields[2]; p.scratch = fields[3];
+            p.prompt.set(contents(p.directory + "/draft.txt")); publish(p.scratch + "/control", &p.gate, sizeof(p.gate));
+        }
+    };
+    load_players();
+    if (players.empty()) return 1;
+    const int initial = std::atoi(contents(hub + "/watching").c_str());
+    PlayerUI *player = &players.at(players.count(initial) ? initial : players.begin()->first);
     std::string previous_menu, menu_mode, title, message;
     std::vector<std::vector<std::string>> rows;
     std::vector<int> matches;
     std::vector<HumanEvent> manual;
-    const auto command = [&](const std::string &name, const std::string &body = "") { publish(scratch + "/command." + std::to_string(++command_serial), name + "\n" + body); };
-    const auto save_ui = [&]() { publish(directory + "/ui.conf", "interface=" + std::to_string(interface) + "\nactivity=" + std::to_string(activity) + "\n"); };
+    const auto command = [&](const std::string &name, const std::string &body = "") { publish(player->scratch + "/command." + std::to_string(++player->command_serial), name + "\n" + body); };
+    const auto save_ui = [&]() { publish(root + "/ui.conf", "interface=" + std::to_string(interface) + "\nactivity=" + std::to_string(activity) + "\n"); };
     const auto update_gate = [&]() {
-        const uint32_t owner = settings || (human && (interface || !focused)) || (!human && paused) ? CONTROL_PAUSED : human ? CONTROL_HUMAN : CONTROL_AGENT;
-        if (gate.generation && gate.owner == owner) return;
-        gate.owner = owner; ++gate.generation; manual.clear(); publish(scratch + "/control", &gate, sizeof(gate));
+        const uint32_t owner = settings || (player->human && (interface || !focused)) || (!player->human && player->paused) ? CONTROL_PAUSED : player->human ? CONTROL_HUMAN : CONTROL_AGENT;
+        if (player->gate.generation && player->gate.owner == owner) return;
+        player->gate.owner = owner; ++player->gate.generation; manual.clear(); publish(player->scratch + "/control", &player->gate, sizeof(player->gate));
     };
     const auto close_settings = [&]() { command("cancel"); settings = false; answer.set(""); update_gate(); };
     const auto show_interface = [&](bool show) {
-        if (!show) { if (settings) close_settings(); entering = false; }
+        if (!show) { if (settings) close_settings(); player->entering = false; }
         interface = show; dragging = false; save_ui(); update_gate();
     };
     const auto open_settings = [&](const std::string &page = "home") {
-        interface = true; entering = false; settings = true; paused = true;
+        if (!contents(player->scratch + "/ended").empty()) return;
+        interface = true; player->entering = false; settings = true; player->paused = true;
         filter.set(""); title = "Loading"; menu_mode = "busy"; rows.clear(); matches.clear();
         command("select", page); save_ui(); update_gate();
     };
-    const auto open_prompt = [&]() { if (settings) close_settings(); interface = true; entering = true; save_ui(); update_gate(); };
+    const auto open_prompt = [&]() { if (settings) close_settings(); interface = true; player->entering = true; save_ui(); update_gate(); };
     const auto switch_control = [&]() {
-        if (settings) close_settings(); entering = false; human = !human; paused = false;
-        if (human) interface = false;
-        save_ui(); update_gate(); command(human ? "interrupt" : "resume");
+        if (!contents(player->scratch + "/ended").empty()) return;
+        if (settings) close_settings(); player->entering = false; player->human = !player->human; player->paused = false;
+        if (player->human) interface = false;
+        save_ui(); update_gate(); command(player->human ? "interrupt" : "resume");
+    };
+    const auto switch_player = [&](int id) {
+        if (!players.count(id) || id == player->id) return;
+        if (settings) close_settings();
+        player->entering = false;
+        if (player->human) { player->gate.owner = CONTROL_PAUSED; ++player->gate.generation; publish(player->scratch + "/control", &player->gate, sizeof(player->gate)); }
+        manual.clear(); player = &players.at(id); player->last_frame = 0;
+        previous_menu.clear(); rows.clear(); matches.clear(); filter.set(""); answer.set(""); selected = first = 0;
+        publish(hub + "/watching", std::to_string(id)); update_gate();
     };
     const auto send_prompt = [&](bool replace) {
-        if (prompt.value.find_first_not_of(" \t\r\n") == std::string::npos) return;
-        const auto selection = split(contents(scratch + "/selection.txt"));
+        if (!contents(player->scratch + "/ended").empty()) return;
+        if (player->prompt.value.find_first_not_of(" \t\r\n") == std::string::npos) return;
+        const auto selection = split(contents(player->scratch + "/selection.txt"));
         if (selection.size() < 3 || selection[1].empty()) { open_settings(); return; }
-        human = false; paused = false; entering = false; update_gate();
-        if (replace) { ++gate.generation; publish(scratch + "/control", &gate, sizeof(gate)); }
-        command(replace ? "replace" : "prompt", prompt.value); prompt.set(""); publish(directory + "/draft.txt", "");
+        player->human = false; player->paused = false; player->entering = false; update_gate();
+        if (replace) { ++player->gate.generation; publish(player->scratch + "/control", &player->gate, sizeof(player->gate)); }
+        command(replace ? "replace" : "prompt", player->prompt.value); player->prompt.set(""); publish(player->directory + "/draft.txt", "");
     };
     const auto choose = [&]() {
         if (menu_mode == "input" || menu_mode == "secret") {
@@ -132,10 +165,15 @@ int main(int argc, char **argv) {
         if (menu_mode == "settings") close_settings();
         else { command("cancel"); command("select", "home"); menu_mode = "busy"; }
     };
+    std::vector<unsigned char> pixels(640 * 480 * 4);
     save_ui(); update_gate();
     while (running) {
-        const bool game_relative = contents(scratch + "/relative") == "1";
-        const auto menu = contents(scratch + "/menu");
+        const uint32_t frame_started = SDL_GetTicks();
+        load_players();
+        const auto requested = contents(hub + "/select-player");
+        if (!requested.empty()) { std::remove((hub + "/select-player").c_str()); switch_player(std::atoi(requested.c_str())); }
+        const bool game_relative = contents(player->scratch + "/relative") == "1";
+        const auto menu = contents(player->scratch + "/menu");
         if (menu != previous_menu) {
             previous_menu = menu;
             const auto lines = split(menu); rows.clear();
@@ -161,8 +199,8 @@ int main(int argc, char **argv) {
             if (selected < first) first = selected;
             if (selected >= first + 10) first = selected - 9;
         };
-        if (!contents(scratch + "/show-settings").empty()) { std::remove((scratch + "/show-settings").c_str()); open_settings(); }
-        if (!contents(scratch + "/show-prompt").empty()) { std::remove((scratch + "/show-prompt").c_str()); open_prompt(); }
+        if (!contents(player->scratch + "/show-settings").empty()) { std::remove((player->scratch + "/show-settings").c_str()); open_settings(); }
+        if (!contents(player->scratch + "/show-prompt").empty()) { std::remove((player->scratch + "/show-prompt").c_str()); open_prompt(); }
         const SDL_Rect editor = {900, activity ? 738 : 278, 360, activity ? 112 : 572};
         const auto scroll_to = [&](int y) {
             first = std::max(0, static_cast<int>(matches.size()) - 10) * std::max(0, std::min(479, y - 292)) / 479;
@@ -182,6 +220,10 @@ int main(int argc, char **argv) {
                 else if (!event.key.repeat && key == SDLK_TAB) { show_interface(!interface); consumed = true; }
                 else if (!event.key.repeat && key == SDLK_BACKQUOTE && !(event.key.keysym.mod & KMOD_SHIFT)) { switch_control(); consumed = true; }
                 else if (!event.key.repeat && ctrl && key == SDLK_COMMA) { if (settings) close_settings(); else open_settings(); consumed = true; }
+                else if (!settings && !player->entering && !event.key.repeat && (key == SDLK_LEFTBRACKET || key == SDLK_RIGHTBRACKET)) {
+                    const int step = key == SDLK_LEFTBRACKET ? -1 : 1;
+                    switch_player((player->id - 1 + step + players.size()) % players.size() + 1); consumed = true;
+                }
                 else if (settings) {
                     consumed = true;
                     if (key == SDLK_ESCAPE) back();
@@ -197,28 +239,28 @@ int main(int argc, char **argv) {
                         else if (key == SDLK_END && menu_mode != "models") move_selection(matches.size() - 1);
                         else if (menu_mode == "models") { filter.key(key, ctrl); selected = first = 0; refresh_matches(); }
                     }
-                } else if (entering) {
+                } else if (player->entering) {
                     consumed = true;
-                    if (enter && !event.key.repeat) { if (event.key.keysym.mod & KMOD_SHIFT) prompt.insert("\n"); else send_prompt(ctrl); }
+                    if (enter && !event.key.repeat) { if (event.key.keysym.mod & KMOD_SHIFT) player->prompt.insert("\n"); else send_prompt(ctrl); }
                     else if (key == SDLK_ESCAPE) {
-                        entering = false;
-                        if (!human) { paused = true; command("interrupt"); }
+                        player->entering = false;
+                        if (!player->human) { player->paused = true; command("interrupt"); }
                         update_gate();
-                    } else if (key == SDLK_UP && prompt.value.empty()) prompt.set(contents(directory + "/last-prompt.txt"));
-                    else prompt.key(key, ctrl);
-                    publish(directory + "/draft.txt", prompt.value);
+                    } else if (key == SDLK_UP && player->prompt.value.empty()) player->prompt.set(contents(player->directory + "/last-prompt.txt"));
+                    else player->prompt.key(key, ctrl);
+                    publish(player->directory + "/draft.txt", player->prompt.value);
                 } else if (enter && !event.key.repeat) { open_prompt(); consumed = true; }
-                else if (!human && key == SDLK_ESCAPE) { paused = true; command("interrupt"); open_prompt(); consumed = true; }
-                else if (interface && activity && key == SDLK_PAGEUP) { scroll += 800; consumed = true; }
-                else if (interface && activity && key == SDLK_PAGEDOWN) { scroll = std::max(0, scroll - 800); consumed = true; }
-                else if (interface && activity && key == SDLK_END) { scroll = 0; consumed = true; }
+                else if (!player->human && key == SDLK_ESCAPE) { player->paused = true; command("interrupt"); open_prompt(); consumed = true; }
+                else if (interface && activity && key == SDLK_PAGEUP) { player->scroll += 800; consumed = true; }
+                else if (interface && activity && key == SDLK_PAGEDOWN) { player->scroll = std::max(0, player->scroll - 800); consumed = true; }
+                else if (interface && activity && key == SDLK_END) { player->scroll = 0; consumed = true; }
             }
             if (event.type == SDL_TEXTINPUT) {
                 if (settings) {
                     if (menu_mode == "models") { filter.insert(event.text.text); selected = first = 0; refresh_matches(); }
                     else if (menu_mode == "input" || menu_mode == "secret") answer.insert(event.text.text);
                     consumed = true;
-                } else if (entering) { prompt.insert(event.text.text); publish(directory + "/draft.txt", prompt.value); consumed = true; }
+                } else if (player->entering) { player->prompt.insert(event.text.text); publish(player->directory + "/draft.txt", player->prompt.value); consumed = true; }
             }
             const bool ended_drag = dragging && event.type == SDL_MOUSEBUTTONUP;
             if (dragging && event.type == SDL_MOUSEMOTION) { scroll_to(event.motion.y); consumed = true; }
@@ -241,21 +283,25 @@ int main(int argc, char **argv) {
                             const int row = first + (y - 292) / 48;
                             if (row < static_cast<int>(matches.size())) { selected = row; choose(); }
                         }
-                    } else if (hit(x, y, {1148, 16, 112, 38})) show_interface(false);
+                    } else if (hit(x, y, {20, 44, 648, 48})) {
+                        const int id = (x - 20) / 162 + 1; switch_player(id);
+                    }
+                    else if (hit(x, y, {684, 44, 176, 48})) { if (players.size() < 4) publish(hub + "/add-player", std::to_string(player->id)); }
+                    else if (hit(x, y, {1148, 16, 112, 38})) show_interface(false);
                     else if (hit(x, y, {900, 68, 170, 38})) open_settings();
-                    else if (hit(x, y, {1090, 68, 170, 38})) { if (human) show_interface(false); else switch_control(); }
+                    else if (hit(x, y, {1090, 68, 170, 38})) { if (player->human) show_interface(false); else switch_control(); }
                     else if (hit(x, y, {1160, 220, 100, 36})) { activity = !activity; save_ui(); }
-                    else if ((entering || !prompt.value.empty()) && hit(x, y, editor)) open_prompt();
+                    else if ((player->entering || !player->prompt.value.empty()) && hit(x, y, editor)) open_prompt();
                     else if (hit(x, y, {900, 866, 170, 40})) {
-                        if (entering || !prompt.value.empty()) { paused = true; command("interrupt"); entering = false; update_gate(); }
+                        if (player->entering || !player->prompt.value.empty()) { player->paused = true; command("interrupt"); player->entering = false; update_gate(); }
                         else open_prompt();
                     }
                     else if (hit(x, y, {1090, 866, 170, 40})) {
-                        if (entering || !prompt.value.empty()) send_prompt(false);
-                        else { paused = true; command("interrupt"); update_gate(); }
+                        if (player->entering || !player->prompt.value.empty()) send_prompt(false);
+                        else { player->paused = true; command("interrupt"); update_gate(); }
                     }
                     else if (hit(x, y, {900, 920, 150, 28})) running = false;
-                    else if (x < 880) { if (human) show_interface(false); else entering = false; }
+                    else if (x < 880) { if (player->human) show_interface(false); else player->entering = false; }
                 }
             }
             if (event.type == SDL_MOUSEWHEEL && interface) {
@@ -263,9 +309,9 @@ int main(int argc, char **argv) {
                 if (settings && (menu_mode == "models" || menu_mode == "list")) {
                     const int delta = event.wheel.y ? event.wheel.y : event.wheel.preciseY > 0 ? 1 : -1;
                     first = std::max(0, std::min(first - delta, static_cast<int>(matches.size()) - 10));
-                } else if (!settings && activity) scroll = std::max(0, scroll + event.wheel.y * 160);
+                } else if (!settings && activity) player->scroll = std::max(0, player->scroll + event.wheel.y * 160);
             }
-            if (!consumed && gate.owner == CONTROL_HUMAN && manual.size() < 256) {
+            if (!consumed && player->gate.owner == CONTROL_HUMAN && manual.size() < 256) {
                 HumanEvent item = {};
                 if ((event.type == SDL_KEYDOWN && !event.key.repeat) || event.type == SDL_KEYUP) {
                     item.kind = HUMAN_KEY; item.a = event.key.keysym.scancode; item.b = event.type == SDL_KEYDOWN;
@@ -279,45 +325,60 @@ int main(int argc, char **argv) {
             }
         }
         if (!manual.empty()) {
-            HumanBatch header = {gate.generation, static_cast<uint32_t>(manual.size())};
+            HumanBatch header = {player->gate.generation, static_cast<uint32_t>(manual.size())};
             std::vector<unsigned char> data(sizeof(header) + manual.size() * sizeof(HumanEvent));
             std::memcpy(data.data(), &header, sizeof(header)); std::memcpy(data.data() + sizeof(header), manual.data(), manual.size() * sizeof(HumanEvent));
-            publish(scratch + "/human." + std::to_string(++human_serial), data.data(), data.size()); manual.clear();
+            publish(player->scratch + "/human." + std::to_string(++player->human_serial), data.data(), data.size()); manual.clear();
         }
-        const bool want_relative = gate.owner == CONTROL_HUMAN && game_relative;
+        const bool want_relative = player->gate.owner == CONTROL_HUMAN && game_relative;
         if (want_relative != relative) { SDL_SetRelativeMouseMode(want_relative ? SDL_TRUE : SDL_FALSE); relative = want_relative; }
-        auto bytes = read(scratch + "/view.rgba", 16 + 640 * 480 * 4);
-        uint32_t header[4] = {};
-        if (bytes.size() == 16 + 640 * 480 * 4) std::memcpy(header, bytes.data(), 16);
-        if (header[2] == 640 && header[3] == 480 && header[0] != last_frame) { SDL_UpdateTexture(view, nullptr, bytes.data() + 16, 640 * 4); last_frame = header[0]; }
+        if (FILE *frame = std::fopen((player->scratch + "/view.rgba").c_str(), "rb")) {
+            uint32_t header[4] = {};
+            if (std::fread(header, 1, sizeof(header), frame) == sizeof(header) && header[2] == 640 && header[3] == 480 && header[0] != player->last_frame &&
+                std::fread(pixels.data(), 1, pixels.size(), frame) == pixels.size()) {
+                SDL_UpdateTexture(view, nullptr, pixels.data(), 640 * 4); player->last_frame = header[0];
+            }
+            std::fclose(frame);
+        }
         SDL_SetRenderDrawColor(renderer, 10, 15, 20, 255); SDL_RenderClear(renderer);
         const SDL_Rect game = interface ? SDL_Rect{0, 150, 880, 660} : SDL_Rect{0, 0, 1280, 960};
-        if (last_frame) SDL_RenderCopy(renderer, view, nullptr, &game);
+        if (player->last_frame) SDL_RenderCopy(renderer, view, nullptr, &game);
         if (interface) {
             shade({880, 0, 400, 960}, 255);
-            text("AGENT LOG", 900, 25, 235, 1, false); button("Tab Hide", {1148, 16, 112, 38});
+            for (const auto &entry : players) {
+                const auto &p = entry.second; const int x = 20 + (p.id - 1) * 162;
+                button((p.id == player->id ? "> " : "") + p.name, {x, 44, 152, 48});
+                auto status = contents(p.scratch + "/ended").empty() ? contents(p.scratch + "/status.txt") : "Player closed";
+                if (status.find("Your controls") == 0) status = "Your controls";
+                else if (status.find("Ready") == 0) status = "Ready";
+                else if (status.find("Acting") == 0) status = "Acting";
+                else if (status.find("error") != std::string::npos) status = "Agent error";
+                text(status, x, 102, 152, 1, false);
+            }
+            button(players.size() < 4 ? "+ Add player" : "4 players", {684, 44, 176, 48});
+            text(player->name + " / Log", 900, 25, 235, 1, false); button("Tab Hide", {1148, 16, 112, 38});
             button("Settings", {900, 68, 170, 38});
-            button(human ? "Play yourself" : "Take control / `", {1090, 68, 170, 38});
-            text(contents(scratch + "/status.txt"), 900, 122, 360, 2, false);
-            text(contents(scratch + "/cost.txt"), 900, 174, 360, 2, false);
+            button(player->human ? "Play yourself" : "Take control / `", {1090, 68, 170, 38});
+            text(contents(player->scratch + "/ended").empty() ? contents(player->scratch + "/status.txt") : "Player closed. Save & exit to reopen.", 900, 122, 360, 2, false);
+            text(contents(player->scratch + "/cost.txt"), 900, 174, 360, 2, false);
             text("Reasoning & actions", 900, 230, 250, 1, false);
             button(activity ? "Hide log" : "Show log", {1160, 220, 100, 36});
-            const bool composing = entering || !prompt.value.empty();
+            const bool composing = player->entering || !player->prompt.value.empty();
             if (activity) {
-                std::string trace = contents(scratch + "/activity.txt");
-                scroll = std::min(scroll, std::max(0, static_cast<int>(trace.size()) - 300));
-                if (scroll) trace.resize(trace.size() - scroll);
+                std::string trace = contents(player->scratch + "/activity.txt");
+                player->scroll = std::min(player->scroll, std::max(0, static_cast<int>(trace.size()) - 300));
+                if (player->scroll) trace.resize(trace.size() - player->scroll);
                 text(trace.empty() ? "Configure your agent in Settings, then press Enter to give it an instruction.\n\nReasoning, replies and game actions will appear here." : trace, 900, 270, 360, composing ? 19 : 26, true);
             }
             if (composing) {
                 text("Instruction / Enter sends", 900, editor.y - 28, 360, 1, false);
-                shade(editor, 255, entering ? 30 : 20, entering ? 50 : 31, entering ? 65 : 40);
-                text(entering ? prompt.display() : prompt.value, editor.x + 12, editor.y + 8, editor.w - 24, (editor.h - 16) / 22, true);
+                shade(editor, 255, player->entering ? 30 : 20, player->entering ? 50 : 31, player->entering ? 65 : 40);
+                text(player->entering ? player->prompt.display() : player->prompt.value, editor.x + 12, editor.y + 8, editor.w - 24, (editor.h - 16) / 22, true);
             }
             button(composing ? "Interrupt / Esc" : "Message / Enter", {900, 866, 170, 40});
             button(composing ? "Send / Enter" : "Interrupt / Esc", {1090, 866, 170, 40});
             text("Save & exit", 912, 924, 140, 1, false); text("` Switch control", 1070, 924, 200, 1, false);
-            text("Tab: game only    `: switch control    Enter: instruction", 36, 870, 800, 1, false);
+            text("Tab: game only   [ ]: player   `: take control   Enter: message", 36, 870, 800, 1, false);
         }
         if (settings) {
             shade({140, 92, 1000, 776}, 255);
@@ -352,10 +413,14 @@ int main(int argc, char **argv) {
                 text("Enter submits · Back cancels", 190, 802, 680, 1, false); button("Connect", {940, 790, 150, 44});
             } else text("Please wait…", 190, 264, 900, 1, false);
         }
-        SDL_RenderPresent(renderer); SDL_Delay(33);
+        SDL_RenderPresent(renderer);
+        const uint32_t elapsed = SDL_GetTicks() - frame_started;
+        SDL_Delay(elapsed < 16 ? 16 - elapsed : 1);
         if (glyphs.size() > 2048) { for (auto &item : glyphs) SDL_DestroyTexture(item.second.texture); glyphs.clear(); }
     }
-    gate.owner = CONTROL_PAUSED; ++gate.generation; publish(scratch + "/control", &gate, sizeof(gate));
+    for (auto &entry : players) {
+        auto &p = entry.second; p.gate.owner = CONTROL_PAUSED; ++p.gate.generation; publish(p.scratch + "/control", &p.gate, sizeof(p.gate));
+    }
     SDL_SetRelativeMouseMode(SDL_FALSE);
     for (auto &item : glyphs) SDL_DestroyTexture(item.second.texture);
     SDL_DestroyTexture(view); SDL_DestroyRenderer(renderer); SDL_DestroyWindow(window); SDL_Quit();

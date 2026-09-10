@@ -43,8 +43,7 @@ export function classicubeProvider() {
         object: "chat.completion.chunk", created: 0, model: payload.model, choices: [{ index: 0, delta, finish_reason }], ...(finish_reason ? { usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 } } : {}) })}\n\n`);
       send({ role: "assistant", reasoning_content: "CLASSICUBE-FIXTURE-THINKING: scripted integration proof.\n" });
       const batches = [
-        [{ type: "key", key: "Escape", milliseconds: 32 }, { type: "click", x: 480, y: 190, button: "left" },
-          { type: "click", x: 200, y: 340, button: "left" }],
+        [{ type: "look", dx: 100, dy: 100 }, { type: "key", key: "D", milliseconds: 200 }],
         [{ type: "look", dy: 350 }, { type: "click", button: "right" }],
         [{ type: "click", x: 320, y: 240, button: "left" }, { type: "click", x: 320, y: 240, button: "right" },
           { type: "key", key: "W", milliseconds: 500 }],
