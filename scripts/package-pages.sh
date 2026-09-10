@@ -2,7 +2,6 @@
 set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-export DOLLY_BUILD_IMAGES="${DOLLY_BUILD_IMAGES:-$(paste -sd, "${project_dir}/config/public-images.txt")}"
 output="${1:-${project_dir}/build/dolly-pages.tar.gz}"
 releases="${2:-${project_dir}/build/releases}"
 staging=""

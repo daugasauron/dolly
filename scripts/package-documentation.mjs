@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 
 const linkedSources = new Set([
   "src/dolly.c", "src/dollyfile.c", "src/upload.c", "config/source-pins.sh", "config/zig-sdk-files.txt",
-  "config/public-images.txt",
+  "config/github-pages-images.txt",
 ]);
 const recipePath = /^Dollyfile(?:-[a-z][a-z0-9-]*)?$/;
 // Documentation examples are text, not additional images to build and publish.

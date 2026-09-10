@@ -76,10 +76,10 @@ own model transport.
 
 ## Checkpoint and preservation
 
-The last recorded public deployment used application source `32d3b34`, release asset
-`pages-32d3b34-r1/dolly-pages.tar.gz`, SHA-256
-`fbb6d1fe6673e97125ba17a2335b1f07719767aa1a2fe5c20a7dd7a60287023b`.
-GitHub Pages and daugasauron.com use the same application artifact.
+The domain retains the full catalog from `ade9f99` (`pages-ade9f99-r1`).
+GitHub Pages uses the smaller catalog from `21eb832` (`pages-21eb832-r1`),
+including RTS Arena but excluding Codex. Both use the same application code;
+image selection is packaging configuration, not a source fork.
 Release procedures and delivery checks live in [deployment](deployment.md).
 
 Port 9000 serves `build/releases/current`;
