@@ -9,7 +9,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE HOST /static/sdl2/source.tar /tmp/sdl2/source.tar 0e9ff8962345c781cec332529a4f536729939274f13cbbab9fab0d762cf00d9c
+SOURCE HOST /static/sdl2/source.tar /tmp/sdl2/source.tar 3f98890bf140f6c42de74a3dcc3982f9259fff21cd629a7d698f99a6d8e1ae2a
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

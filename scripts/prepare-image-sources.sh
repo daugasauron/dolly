@@ -260,13 +260,26 @@ if has_module sdl2; then
     "${sdl2_dir}/LICENSE.txt" /usr/share/licenses/SDL2/LICENSE.txt
 fi
 if has_module classicube; then
+  classicube_port_inputs=()
+  for entry in Makefile config.h platform.c logger.c window.c input.c input.h; do
+    classicube_port_inputs+=("${project_dir}/src/classicube/${entry}" "/usr/src/dolly/classicube/${entry}")
+  done
   node scripts/build-source-tar.mjs "${static_dir}/classicube/source.tar.gz" \
     "${classicube_dir}/src" /usr/src/classicube/src \
     "${classicube_dir}/misc/sdl" /usr/src/classicube/misc/sdl \
     "${classicube_dir}/license.txt" /usr/src/classicube/license.txt \
     "${classicube_dir}/license.txt" /usr/share/licenses/classicube/license.txt \
     "${classicube_dir}/misc/cc_textures.zip" /usr/share/classicube/texpacks/default.zip \
-    "${project_dir}/src/classicube" /usr/src/dolly/classicube
+    "${classicube_port_inputs[@]}"
+fi
+if has_module classicube-agent; then
+  classicube_shared_inputs=()
+  for entry in player.js codec.mjs spectator/picker.mjs spectator/prompt.mjs spectator/trace.mjs spectator/graphics.h; do
+    classicube_shared_inputs+=("${project_dir}/src/rts/${entry}" "/usr/src/dolly/rts/${entry}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/classicube/agent.tar" \
+    "${project_dir}/src/classicube/agent" /usr/src/dolly/classicube/agent \
+    "${classicube_shared_inputs[@]}"
 fi
 if has_module seven-kingdoms; then
   rts_port_inputs=()
@@ -284,6 +297,7 @@ fi
 if has_module rts-arena; then
   node scripts/build-source-tar.mjs "${static_dir}/rts/arena.tar" \
     "${project_dir}/src/rts/player.js" /usr/src/dolly/rts/player.js \
+    "${project_dir}/src/rts/codec.mjs" /usr/src/dolly/rts/codec.mjs \
     "${project_dir}/src/rts/PLAYER.md" /usr/src/dolly/rts/PLAYER.md \
     "${project_dir}/src/rts/spectator" /usr/src/dolly/rts/spectator \
     "${project_dir}/src/rts/demo.tar.gz" /tmp/rts-arena/demo.tar.gz

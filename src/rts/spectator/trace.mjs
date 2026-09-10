@@ -9,7 +9,7 @@ export function traceText(event) {
     case "thinking_delta": case "text_delta": return event.delta;
     case "tool": return `\n[${event.name}] ${JSON.stringify(event.args)}\n`;
     case "tool_result": return `\n[${event.isError ? "input rejected" : "result"}] ${JSON.stringify(event.isError ? event.feedback : event.details)}\n`;
-    case "usage": return `\n[reported match cost: $${event.reportedUSD.toFixed(4)} / $${event.limitUSD}]\n`;
+    case "usage": return `\n[reported cost: $${event.reportedUSD.toFixed(4)} / $${event.limitUSD}]\n`;
     case "provider_error": return `\n[provider error] ${event.message}\n`;
     case "retry": return `\n[retry ${event.attempt}: ${event.delayMs} ms]\n`;
     case "compaction_start": return "\n[summarizing older history]\n";

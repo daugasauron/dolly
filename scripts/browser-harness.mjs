@@ -6,6 +6,8 @@ import { createHash } from "node:crypto";
 import { waitForDebugger } from "./browser-startup.mjs";
 import { runLocalModelProof, runLocalCompatibilityProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
+import { classicubeProvider } from "../test/fixtures/classicube-provider.mjs";
+import { runClassiCubeAgentProof } from "../test/fixtures/classicube-agent-browser.mjs";
 import { runClassiCubeProof } from "../test/fixtures/classicube-browser.mjs";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -114,6 +116,8 @@ if (rtsLiveMode && (rtsLiveModels.length !== 2 || rtsLiveModels.some(model => !/
   throw Error("RTS live proof needs two comma-separated models, 10..3600 seconds and a USD limit up to 2");
 const bhopMode = isMode("bhop");
 const classicubeMode = isMode("classicube");
+const classicubeAgentMode = isMode("classicube-agent");
+const classicubeAgentLiveMode = isMode("classicube-agent-live");
 const debuggerDisconnectMode = isMode("debugger-disconnect");
 const janisFilesMode = isMode("janis-files");
 const janisProcessMode = isMode("janis-process");
@@ -123,7 +127,7 @@ const libcurlContractMode = isMode("libcurl-contract");
 const gitTransportMode = isMode("git-transport");
 const piOpenRouterMode = isMode("pi-openrouter");
 const piAuditMode = isMode("pi-audit");
-const realOpenRouterMode = piOpenRouterMode || piAuditMode || (rtsLiveMode && !rtsLiveConfiguration);
+const realOpenRouterMode = classicubeAgentLiveMode || piOpenRouterMode || piAuditMode || (rtsLiveMode && !rtsLiveConfiguration);
 const missingSnapshotMode = isMode("snapshot-missing");
 const unpackagedSnapshotMode = isMode("snapshot-unpackaged");
 const snapshotExportMode = isMode("snapshot-export") || unpackagedSnapshotMode;
@@ -304,6 +308,7 @@ let corruptAssetPart = false;
 const assetPartRequests = [];
 const piModelRequests = [];
 const rtsModelFixture = rtsProvider();
+const classicubeModelFixture = classicubeProvider();
 const janisAbortRequests = [];
 let cancelledQueuedRequestSeen = false;
 const piFixtureStream = { request: 0, phase: "idle" };
@@ -371,6 +376,11 @@ function startServer() {
           response.end(await readFile(resolve(projectDir, sources[name])));
           return;
         }
+      }
+      if (classicubeAgentMode && requestUrl.pathname.startsWith("/fixture/classicube/api/v1/")) {
+        try { await classicubeModelFixture.handle(request, response, isolatedHeaders); }
+        catch (error) { console.error("ClassiCube provider fixture:", error); response.destroy(); }
+        return;
       }
       if (rtsMode && requestUrl.pathname === "/fixture/rts/v1/chat/completions") {
         try { await rtsModelFixture.handle(request, response, isolatedHeaders); }
@@ -1275,10 +1285,9 @@ async function enterRecoveryShell(send) {
       true,
     );
   } else if (selectedImage === "classicube") {
-    entryPid = await waitForValue(send,
-      "window.__dolly?.graphicsActive ? window.__dolly.foregroundPid : 0",
-      value => value > 0, "ClassiCube entry display lease");
-    await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
+    await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Connect to OpenRouter/, "ClassiCube setup")`);
+    await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    return evaluate(send, `window.__dolly.waitForInteractiveTerminal(/dolly:[^\\n]*\\$\\s*$/, "ClassiCube shell")`);
   } else if (selectedImage === "codex") {
     await waitForTerminalText(send, /Sign in with ChatGPT/, "Codex entry sign-in TUI", 1200);
     await delay(codexProtectedInputDelay);
@@ -1567,12 +1576,14 @@ if (realOpenRouterMode) {
     timeoutMilliseconds: 120_000,
   });
 }
-if (rtsLiveMode && !rtsLiveConfiguration) fixturePolicy.rules.unshift({
+if ((rtsLiveMode && !rtsLiveConfiguration) || classicubeAgentMode || classicubeAgentLiveMode) fixturePolicy.rules.unshift({
   origin: "https://openrouter.ai", path: "/api/v1/models", methods: ["GET"],
   maxResponseBytes: 16 * 1024 * 1024,
 }, {
   origin: "https://openrouter.ai", path: "/api/v1/key", methods: ["GET"], credentialHeaders: ["authorization"],
 });
+if (classicubeAgentMode) fixturePolicy.rules.unshift({ origin: "https://openrouter.ai", path: "/api/v1/auth/keys", methods: ["POST"] },
+  { origin: "https://openrouter.ai", path: "/api/v1/chat/completions", methods: ["POST"], credentialHeaders: ["authorization"], timeoutMilliseconds: 120000 });
 if (rtsLiveConfiguration) for (const provider of Object.values(rtsLiveConfiguration.providers)) {
   const url = new URL(provider.baseUrl);
   if (url.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(url.hostname) || provider.api !== "openai-codex-responses")
@@ -1684,6 +1695,9 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
             status: 200,
             headers: { "content-type": "application/json" },
           });
+        }
+        if (${classicubeAgentMode} && target.origin === "https://openrouter.ai") {
+          return nativeFetch(${JSON.stringify(localOrigin)} + "/fixture/classicube" + target.pathname, init);
         }
         return nativeFetch(input, init);
       };
@@ -1941,8 +1955,24 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       await writeFile(resolve(projectDir, "build/local-model-browser.png"), screenshot.data, "base64");
       break browserProof;
     }
+    if (classicubeAgentMode || classicubeAgentLiveMode) {
+      await runClassiCubeAgentProof({ send: debuggerClient.send,
+        evaluate: expression => evaluate(debuggerClient.send, expression),
+        wait: (expression, predicate, label) => waitForValue(debuggerClient.send, expression, predicate, label, 2400),
+        key: options => dispatchKey(debuggerClient.send, options),
+        input: text => inputText(debuggerClient.send, text), projectDir, secret: openRouterSecret,
+        live: classicubeAgentLiveMode, liveModel: process.env.DOLLY_CLASSICUBE_MODEL,
+        downloadDirectory: browserDownloadDirectory });
+      if (classicubeAgentMode) classicubeModelFixture.verify();
+      break browserProof;
+    }
     if (classicubeMode) {
       assert.equal(selectedImage, "classicube");
+      const send = debuggerClient.send;
+      await waitForValue(send, "document.documentElement?.dataset.dollyStatus", value => value === "ready", "ClassiCube boot", 1200);
+      await enterRecoveryShell(send);
+      assert.equal(await evaluate(send, "__dolly.submit('cd /home/dolly/classicube')"), 0);
+      await evaluate(send, "void __dolly.submit('classicube --singleplayer'); true");
       await runClassiCubeProof({ send: debuggerClient.send,
         evaluate: expression => evaluate(debuggerClient.send, expression),
         wait: (expression, predicate, label) => waitForValue(debuggerClient.send, expression, predicate, label, 1200),

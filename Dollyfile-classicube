@@ -1,11 +1,18 @@
 DOLLY 3
 IMAGE classicube
 
-FROM HOST /Dollyfile-system a56a42dc9aaeb10b6dcb5bbfa17a07ffe685c919f63a81830817955162ff1ac8
-COPY FROM HOST /Dollyfile-classicube-build e6bc33df5b510fe84025a3acf1aa280a473cecd6e7fb85f4c8c5e97ea794996e /usr/bin/classicube /usr/bin/classicube
-COPY FROM HOST /Dollyfile-classicube-build e6bc33df5b510fe84025a3acf1aa280a473cecd6e7fb85f4c8c5e97ea794996e /usr/share/classicube /home/dolly/classicube
-COPY FROM HOST /Dollyfile-classicube-build e6bc33df5b510fe84025a3acf1aa280a473cecd6e7fb85f4c8c5e97ea794996e /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY FROM HOST /Dollyfile-sdl2-build 8d534d5778f2cff9de04f258f9f2094270976744f7118391026200296d90bf1f /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM HOST /Dollyfile-pi-runtime 3ad438d2148f470e335b616ffc56fc35e8b230788b8d70dd4751d1716507e250
+COPY FROM HOST /Dollyfile-classicube-build 3965bb3d0a2a697e62541c145d2e2486e8c94317b8063645407e0c54e25add2b /usr/bin/classicube /usr/bin/classicube
+COPY FROM HOST /Dollyfile-classicube-build 3965bb3d0a2a697e62541c145d2e2486e8c94317b8063645407e0c54e25add2b /usr/share/classicube /home/dolly/classicube
+COPY FROM HOST /Dollyfile-classicube-build 3965bb3d0a2a697e62541c145d2e2486e8c94317b8063645407e0c54e25add2b /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY FROM HOST /Dollyfile-sdl2-build cd9d185dadd9b3e6eab0959345a706c35031bea797b6c3eae0873f8218d80c5a /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+
+COPY FROM HOST /Dollyfile-sdl2-build cd9d185dadd9b3e6eab0959345a706c35031bea797b6c3eae0873f8218d80c5a /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-sdl2-build cd9d185dadd9b3e6eab0959345a706c35031bea797b6c3eae0873f8218d80c5a /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+EXPORTS TOOL classicube
+EXPORTS HEADER sdl2 /usr/include/SDL2
+EXPORTS LIB SDL2 /usr/lib/libSDL2.a
+USE HOST /modules/classicube-agent.dm e8110ab42cde618b8d16e66ee07acc0b323c5d5f5dcb3a475f87d9d82484d8a8
 
 FILE /home/dolly/classicube/options.txt
     window-width=640
@@ -17,12 +24,8 @@ FILE /home/dolly/classicube/options.txt
     soundsvolume=0
 
 FILE /etc/dolly/init.slop
-    cd /home/dolly/classicube
-    printf 'ClassiCube: click to capture the mouse. WASD moves; Space jumps.\n'
-    printf 'Left click breaks blocks; right click places them. B opens the inventory; Escape opens the menu.\n'
-    /bin/foreground /usr/bin/classicube --singleplayer
-    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
-    printf 'Restart: cd /home/dolly/classicube; classicube --singleplayer\n'
+    /bin/foreground -i /usr/bin/classicube-agent
+    printf '\nDolly: ClassiCube launcher exited; entering the recovery Slop shell.\n'
     /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

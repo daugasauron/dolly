@@ -2,17 +2,17 @@ DOLLY 3
 IMAGE rts-arena
 
 FROM HOST /Dollyfile-pi-runtime 3ad438d2148f470e335b616ffc56fc35e8b230788b8d70dd4751d1716507e250
-COPY FROM HOST /Dollyfile-rts-build 572f025ea4c0313d92fb874232818b6eee9b708831d7ef076410e83d6fcb2b70 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY FROM HOST /Dollyfile-rts-build 572f025ea4c0313d92fb874232818b6eee9b708831d7ef076410e83d6fcb2b70 /usr/share/7kaa /usr/share/7kaa
-COPY FROM HOST /Dollyfile-rts-build 572f025ea4c0313d92fb874232818b6eee9b708831d7ef076410e83d6fcb2b70 /usr/src/7kaa /usr/src/7kaa
-COPY FROM HOST /Dollyfile-rts-build 572f025ea4c0313d92fb874232818b6eee9b708831d7ef076410e83d6fcb2b70 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY FROM HOST /Dollyfile-rts-build 572f025ea4c0313d92fb874232818b6eee9b708831d7ef076410e83d6fcb2b70 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM HOST /Dollyfile-rts-build 572f025ea4c0313d92fb874232818b6eee9b708831d7ef076410e83d6fcb2b70 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
-COPY FROM HOST /Dollyfile-rts-build 572f025ea4c0313d92fb874232818b6eee9b708831d7ef076410e83d6fcb2b70 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
-COPY FROM HOST /Dollyfile-rts-build 572f025ea4c0313d92fb874232818b6eee9b708831d7ef076410e83d6fcb2b70 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d371c120d49774cfbc7ff7e /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d371c120d49774cfbc7ff7e /usr/share/7kaa /usr/share/7kaa
+COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d371c120d49774cfbc7ff7e /usr/src/7kaa /usr/src/7kaa
+COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d371c120d49774cfbc7ff7e /usr/src/dolly/rts /usr/src/dolly/rts
+COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d371c120d49774cfbc7ff7e /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d371c120d49774cfbc7ff7e /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d371c120d49774cfbc7ff7e /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+COPY FROM HOST /Dollyfile-rts-build 0b0b30d17ab0b95ffa9c1377d7372f43f7eef0398d371c120d49774cfbc7ff7e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS TOOL seven-kingdoms
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/rts-arena.dm 2ddbbb76ab2f44d3ba56d9752d79264162a66cab56a0abef36785edd75c0839c
+USE HOST /modules/rts-arena.dm 6813d0c1416b8adc4283e2738762b7697f576b8a8e6f4619aa594b2ff48fb314
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

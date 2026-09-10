@@ -118,8 +118,6 @@ running the `rts-live` mode below. This still uses the real browser HTTP broker.
 - A separate in-Wasm SDL spectator renders both views and the thinking deltas
   the provider actually exposes. It does not manufacture hidden reasoning.
 
-The browser pointer currently supplies left-button input only. Agent tools
-synthesize right/middle clicks inside SDL without changing host capabilities.
 Swap model arguments for a return match with the opposite starting positions.
 
 ## Validation and remaining work

@@ -154,11 +154,18 @@ static void DollyPumpEvents(_THIS)
             break;
         case DOLLY_INPUT_EVENT_TEXT: {
             size_t offset = (size_t)event.key_length + event.code_length;
-            if (offset + event.text_length <= sizeof(event.data) && event.text_length < SDL_TEXTINPUTEVENT_TEXT_SIZE) {
+            if (offset + event.text_length <= sizeof(event.data)) {
                 char text[SDL_TEXTINPUTEVENT_TEXT_SIZE];
-                SDL_memcpy(text, event.data + offset, event.text_length);
-                text[event.text_length] = 0;
-                SDL_SendKeyboardText(text);
+                const size_t end = offset + event.text_length;
+                while (offset < end) {
+                    size_t count = SDL_min(end - offset, sizeof(text) - 1);
+                    while (count && offset + count < end && (event.data[offset + count] & 0xc0) == 0x80) --count;
+                    if (!count) break;
+                    SDL_memcpy(text, event.data + offset, count);
+                    text[count] = 0;
+                    SDL_SendKeyboardText(text);
+                    offset += count;
+                }
             }
             break;
         }
