@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 export function classicubeProvider() {
   const requests = [];
   let exchanges = 0;
+  let transientFailures = 0, persistentFailures = 0;
   return {
     requests,
     async handle(request, response, headers) {
@@ -37,7 +38,16 @@ export function classicubeProvider() {
       }
       const index = requests.length; requests.push({ images, messages: payload.messages });
       response.writeHead(200, { ...headers, "content-type": "text/event-stream" }); response.flushHeaders();
-      await new Promise(resolve => setTimeout(resolve, index === 0 ? 6000 : [6,8].includes(index) ? 10000 : 250));
+      const lastUser = JSON.stringify(payload.messages.findLast(message => message.role === "user")?.content);
+      if (index === 9) assert.match(lastUser, /REPLACE-PROOF/, "interruption must discard queued steering before the next request");
+      if ((lastUser.includes("TRANSIENT-TIMEOUT-PROOF") && transientFailures++ === 0) ||
+          (lastUser.includes("PERSISTENT-TIMEOUT-PROOF") && !lastUser.includes("The provider connection failed."))) {
+        if (lastUser.includes("PERSISTENT-TIMEOUT-PROOF")) persistentFailures++;
+        response.end(`data: ${JSON.stringify({ error: { message: "Injected provider timeout: Codex SSE response headers timed out after 300000ms", type: "timeout" } })}\n\n`);
+        return;
+      }
+      if ([6,8].includes(index)) { await new Promise(resolve => response.once("close", resolve)); return; }
+      await new Promise(resolve => setTimeout(resolve, index === 0 ? 6000 : 250));
       if (response.destroyed) return;
       const send = (delta, finish_reason = null) => response.write(`data: ${JSON.stringify({ id: `cc-${index}`,
         object: "chat.completion.chunk", created: 0, model: payload.model, choices: [{ index: 0, delta, finish_reason }], ...(finish_reason ? { usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 } } : {}) })}\n\n`);
@@ -59,6 +69,8 @@ export function classicubeProvider() {
     },
     verify() {
       assert.equal(exchanges, 1, "PKCE login must exchange its code once");
+      assert.ok(transientFailures >= 2, "transient timeout must recover automatically");
+      assert.equal(persistentFailures, 4, "persistent timeout must exhaust three Pi retries");
       assert.ok(requests.length >= 10, "the agent must act, finish and accept a follow-up");
       assert.ok(requests.slice(1).some(item => item.images.at(-1) !== requests[0].images[0]));
       assert.ok(requests.slice(1).every(item => item.messages.some(message => message.role === "tool")));

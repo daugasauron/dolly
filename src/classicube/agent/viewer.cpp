@@ -298,6 +298,9 @@ int main(int argc, char **argv) {
                     }
                     else if (hit(x, y, {1090, 866, 170, 40})) {
                         if (player->entering || !player->prompt.value.empty()) send_prompt(false);
+                        else if (contents(player->scratch + "/retry") == "1") {
+                            player->human = false; player->paused = false; update_gate(); command("retry");
+                        }
                         else { player->paused = true; command("interrupt"); update_gate(); }
                     }
                     else if (hit(x, y, {900, 920, 150, 28})) running = false;
@@ -376,7 +379,7 @@ int main(int argc, char **argv) {
                 text(player->entering ? player->prompt.display() : player->prompt.value, editor.x + 12, editor.y + 8, editor.w - 24, (editor.h - 16) / 22, true);
             }
             button(composing ? "Interrupt / Esc" : "Message / Enter", {900, 866, 170, 40});
-            button(composing ? "Send / Enter" : "Interrupt / Esc", {1090, 866, 170, 40});
+            button(composing ? "Send / Enter" : contents(player->scratch + "/retry") == "1" ? "Retry task" : "Interrupt / Esc", {1090, 866, 170, 40});
             text("Save & exit", 912, 924, 140, 1, false); text("` Switch control", 1070, 924, 200, 1, false);
             text("Tab: game only   [ ]: player   `: take control   Enter: message", 36, 870, 800, 1, false);
         }

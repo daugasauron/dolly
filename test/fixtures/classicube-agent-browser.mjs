@@ -45,7 +45,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
       const data=bytes.subarray(offset,offset+size); offset+=size;
       if(path.includes('/tmp/classicube-agent-')) {
         const name=path.split('/').pop();
-        if(['menu','selection.txt','status.txt','cost.txt','activity.txt','inputs.log'].includes(name)) result[name]=new TextDecoder().decode(data);
+        if(['menu','selection.txt','status.txt','cost.txt','activity.txt','inputs.log','retry'].includes(name)) result[name]=new TextDecoder().decode(data);
         if(name==='control' && data.length===8) result.control=new DataView(data.buffer,data.byteOffset,8).getUint32(4,true);
         if(name==='view.rgba' && data.length>16) {
           result.frame=new DataView(data.buffer,data.byteOffset,16).getUint32(0,true);
@@ -211,6 +211,28 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     await escape(); await state(s=>s.control===0,'Escape interrupts without closing the world');
     await handoff(); await state(s=>s.control===1,'human controls after replacement');
   } else { await handoff(); await state(s=>s.control===1,'live agent yields control'); }
+  if (!live) {
+    const before = await probe(), settled = events(before, 'settled').length;
+    await enter(); await type('TRANSIENT-TIMEOUT-PROOF: inspect and finish.'); await enter();
+    const retrying = await state(s=>events(s,'retry').length>0,'provider timeout triggers an automatic retry');
+    assert.equal(events(retrying,'retry').at(-1).delayMs, 2000);
+    await state(s=>events(s,'settled').length>settled && s['status.txt'].startsWith('Ready') && s.retry==='', 'transient timeout recovers');
+    await enter(); await type('PERSISTENT-TIMEOUT-PROOF: inspect and finish.'); await enter();
+    const failed = await state(s=>s.retry==='1' && events(s,'retry_end').some(e=>!e.success), 'exhausted retries stay visible',60);
+    assert.match(failed['status.txt'], /Agent error/);
+    assert.equal(events(failed,'retry_end').at(-1).success,false);
+    await delay(1000); assert.equal((await probe())['status.txt'],failed['status.txt'],'settled must not erase the provider error');
+    await snapshot('timeout');
+    await click(1170,886);
+    const recovered = await state(s=>events(s,'settled').length>events(failed,'settled').length && s['status.txt'].startsWith('Ready') && s.retry==='', 'Retry task restarts Pi with its saved conversation');
+    assert.equal(events(recovered,'configuration').length,events(failed,'configuration').length+1);
+    assert.equal(events(recovered,'observation').length,events(failed,'observation').length+1,'retry observes the current world');
+    assert.equal(events(recovered,'tool').length,events(failed,'tool').length,'completed game actions are not replayed');
+    assert.doesNotMatch(recovered['activity.txt'], /undefined ms/);
+    await snapshot('reconnected');
+    await handoff(); await state(s=>s.control===1,'human controls after provider recovery');
+    console.log('browser: injected provider timeout: automatic retry, exhausted retries, persistent error, Retry task with a fresh Pi process, conversation and observation passed');
+  }
   await click(640,480); await wait('document.pointerLockElement?.id',v=>v==='display','human control after agent');
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:'d',code:'KeyD',windowsVirtualKeyCode:68}); await delay(400);
   await send('Input.dispatchKeyEvent',{type:'keyUp',key:'d',code:'KeyD',windowsVirtualKeyCode:68});

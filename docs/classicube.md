@@ -77,6 +77,14 @@ restart Pi with the same conversation. The activity panel shows assistant text,
 tool actions and the reasoning the provider exposes. The game keeps running
 while the model responds. There is no application time cap or dollar stop limit.
 When the agent finishes, it waits for another instruction without making calls.
+While waiting for a provider, the status shows elapsed seconds. Transient errors
+use Pi's automatic retries and show their attempt and delay in the log. After
+retries fail, **Retry task** restarts Pi with the saved conversation and a fresh
+screenshot. It retains the world and completed actions. Escape still interrupts
+a pending request; an unresponsive Pi process is terminated so it can restart.
+Provider and broker request deadlines still apply. Players share Dolly's single
+HTTP mailbox, and waiting for another player counts toward the provider's
+connection timeout.
 
 Preferences are ordinary files in `/home/dolly/.config/classicube` for Player 1
 and its `players/2` through `players/4` subdirectories for the other players.
