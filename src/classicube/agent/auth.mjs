@@ -13,13 +13,13 @@ export async function checkKey(key) {
   await openRouterJSON("key", { headers: { Authorization: `Bearer ${key}` } });
 }
 
-export async function signIn(ask) {
+export async function signIn(ask, show = console.log) {
   const crypto = globalThis.__janisBuiltin("crypto");
   const base64url = bytes => bytes.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const verifier = base64url(crypto.randomBytes(32));
   const challenge = base64url(crypto.createHash("sha256").update(verifier).digest());
   const url = `https://openrouter.ai/auth?code_challenge=${challenge}&code_challenge_method=S256&key_label=Dolly%20ClassiCube`;
-  console.log(`\nOpen this link in your browser and sign in to OpenRouter:\n\n${url}\n\nPaste the authorization code shown after you approve the connection.`);
+  await show(`\nOpen this link in your browser and sign in to OpenRouter:\n\n${url}\n\nPaste the authorization code shown after you approve the connection.`, url);
   const code = await ask("Authorization code", { secret: true });
   if (!code) throw Error("Sign-in cancelled");
   const result = await openRouterJSON("auth/keys", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -46,13 +46,9 @@ export function visionModels(catalog, cached = []) {
         cacheRead: Number(model.pricing.input_cache_read || 0) * 1e6, cacheWrite: 0 } }));
 }
 
-export function validateTask(config) {
-  const provider = config?.provider ?? "openrouter";
-  if (!["openrouter", "codex-local"].includes(provider) || typeof config?.model !== "string" || !config.model || typeof config.prompt !== "string" ||
-      !config.prompt.trim() || config.prompt.length > 4096 || !Number.isInteger(config.seconds) ||
-      config.seconds < 10 || config.seconds > 3600 || !Number.isFinite(config.budget) ||
-      (provider === "codex-local" ? config.budget !== 0 : config.budget <= 0) ||
-      !["off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(config.effort))
-    throw Error("Choose a provider, model, effort, task and 10–3600 seconds. OpenRouter needs a positive budget; Codex uses subscription quota.");
-  return config;
+export function validateSelection(config) {
+  if (!config || !["openrouter", "codex-local"].includes(config.provider) || typeof config.model !== "string" ||
+      config.model.length > 256 || !["off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(config.effort))
+    throw Error("Choose a provider, vision model and supported reasoning effort.");
+  return { provider: config.provider, model: config.model, effort: config.effort };
 }

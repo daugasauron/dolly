@@ -3,7 +3,7 @@ import test from "node:test";
 import { validateToolArguments } from "@earendil-works/pi-ai";
 import { codec } from "../src/classicube/agent/player.js";
 import * as crypto from "node:crypto";
-import { efforts, validateTask, visionModels, signIn } from "../src/classicube/agent/auth.mjs";
+import { efforts, validateSelection, visionModels, signIn } from "../src/classicube/agent/auth.mjs";
 
 test("OpenRouter code login binds a portable S256 challenge to its one-use verifier", async t => {
   const logs = []; const original = globalThis.__janisBuiltin;
@@ -62,12 +62,9 @@ test("model selection excludes text-only and non-tool models, preserving effort 
   assert.equal(models.length, 1); assert.equal(models[0].cost.input, 1); assert.equal(models[0].cost.output, 2);
   assert.deepEqual(efforts(models[0]), ["minimal", "low", "medium", "high", "xhigh"]);
   assert.deepEqual(efforts({ reasoning: false }), ["off"]);
-  const task = { model: base.id, effort: "low", prompt: "Build a house", seconds: 60, budget: 0.25 };
-  assert.equal(validateTask(task), task);
-  for (const change of [{ prompt: " " }, { prompt: "a".repeat(4097) }, { seconds: Infinity }, { seconds: 9 }, { budget: 0 }, { effort: "extreme" }])
-    assert.throws(() => validateTask({ ...task, ...change }));
-  const subscription = { ...task, provider: "codex-local", budget: 0 };
-  assert.equal(validateTask(subscription), subscription);
-  assert.throws(() => validateTask({ ...subscription, budget: 1 }));
-  assert.throws(() => validateTask({ ...task, provider: "unconfigured" }));
+  const selection = { provider: "openrouter", model: base.id, effort: "low" };
+  assert.deepEqual(validateSelection({ ...selection, seconds: 60, budget: 0.25, prompt: "old task" }), selection);
+  assert.deepEqual(validateSelection({ ...selection, provider: "codex-local" }), { ...selection, provider: "codex-local" });
+  assert.throws(() => validateSelection({ ...selection, provider: "unconfigured" }));
+  assert.throws(() => validateSelection({ ...selection, effort: "extreme" }));
 });

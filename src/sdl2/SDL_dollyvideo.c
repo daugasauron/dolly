@@ -149,6 +149,7 @@ static void DollyPumpEvents(_THIS)
         }
         switch (event.type) {
         case DOLLY_INPUT_EVENT_KEY:
+            if (event.action != DOLLY_KEY_ACTION_RELEASE) SDL_SetKeyboardFocus(video->window);
             SDL_SendKeyboardKey(event.action == DOLLY_KEY_ACTION_RELEASE ? SDL_RELEASED : SDL_PRESSED,
                                 DollyScancode(&event));
             break;

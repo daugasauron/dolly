@@ -1,165 +1,226 @@
-// Pi RPC supervision stays inside Dolly. SPDX-License-Identifier: GPL-2.0-or-later
+// Pi supervision and all application state stay inside Dolly. SPDX-License-Identifier: GPL-2.0-or-later
 import { connect, describe } from "./player.js";
-import { validateTask } from "./auth.mjs";
+import { createSettings, settingsDirectory, writeAtomic } from "./settings.mjs";
 import { traceText } from "../../rts/spectator/trace.mjs";
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function runTask(configuration) {
-  const config = validateTask(configuration);
-  const provider = config.provider ?? "openrouter", subscription = provider === "codex-local";
+export async function runWorld() {
   const fs = globalThis.__janisBuiltin("fs"), { spawn } = globalThis.__janisBuiltin("child_process");
-  fs.mkdirSync("/workspace/classicube-runs", { recursive: true });
-  const run = fs.mkdtempSync("/workspace/classicube-runs/run-");
-  const scratch = fs.mkdtempSync("/tmp/classicube-agent-");
   const world = "/home/dolly/classicube";
-  fs.mkdirSync(`${world}/maps`, { recursive: true });
-  fs.writeFileSync(`${run}/task.json`, JSON.stringify({ ...config, started: Date.now() }) + "\n");
-  fs.writeFileSync(`${run}/prompt.txt`, config.prompt);
-  const controller = new AbortController(), pending = new Map(), children = [];
-  let stopped = false, reason, complete, spent = 0, trace = "", state = "Loading the world", buffer = "", serial = 0;
-  let pi, game, prompting = false, responseError, timer, controls;
-  const done = new Promise(resolve => { complete = resolve; });
-  const atomic = (name, text) => {
-    fs.writeFileSync(`${run}/${name}.tmp`, text); fs.renameSync(`${run}/${name}.tmp`, `${run}/${name}`);
+  for (const path of [settingsDirectory, `${world}/maps`, "/workspace/classicube-runs"]) fs.mkdirSync(path, { recursive: true });
+  // Session files retain IPC files, but restart their processes from the image entry.
+  for (const name of fs.readdirSync("/tmp")) if (name.startsWith("classicube-agent-")) fs.rmSync(`/tmp/${name}`, { recursive: true, force: true });
+  const run = fs.mkdtempSync("/workspace/classicube-runs/run-"), scratch = fs.mkdtempSync("/tmp/classicube-agent-");
+  const atomic = (name, data) => writeAtomic(fs, `${scratch}/${name}`, data);
+  const saved = name => fs.existsSync(`${settingsDirectory}/${name}`) ? fs.readFileSync(`${settingsDirectory}/${name}`, "utf8") : "";
+  let usage = { reportedUSD: 0, tokens: 0 };
+  try { usage = JSON.parse(saved("usage.json")) || usage; } catch {}
+  usage = { reportedUSD: Number.isFinite(usage.reportedUSD) ? usage.reportedUSD : 0, tokens: Number.isFinite(usage.tokens) ? usage.tokens : 0 };
+  let stopped = false, reason = "World closed", agent, starting, interrupting, closing;
+  let busy = false, state = "Your controls", trace = saved("activity.txt"), lastPrompt = saved("last-prompt.txt");
+  let serial = 0, commandSerial = 0, observedGeneration = 0, operation = Promise.resolve(), observation;
+  const processes = [];
+  const control = () => {
+    if (!fs.existsSync(`${scratch}/control`)) return { generation: 0, owner: 1 };
+    const bytes = fs.readFileSync(`${scratch}/control`);
+    return bytes.length === 8 ? { generation: bytes.readUInt32LE(0), owner: bytes.readUInt32LE(4) } : { generation: 0, owner: 0 };
   };
-  const status = text => { state = text; atomic("status.txt", `${text}\n` + (subscription
-    ? `Codex subscription · ${config.seconds}s time limit` : `Reported cost $${spent.toFixed(4)} / $${config.budget}`)); };
+  const status = text => {
+    if (text) state = text;
+    const owner = control().owner;
+    atomic("status.txt", owner === 1 ? "Your controls · Agent paused" : owner === 0 ? "Agent paused" : state);
+    const subscription = settings.selection.provider === "codex-local";
+    atomic("cost.txt", `$${Number(usage.reportedUSD).toFixed(4)} reported${subscription ? " · Codex subscription" : ""}`);
+  };
   const record = (type, fields = {}) => {
-    const event = JSON.parse(JSON.stringify({ time: Date.now(), type, ...fields }).replace(/sk-or-v1-[A-Za-z0-9_-]+/g, "[redacted]"));
+    const event = JSON.parse(JSON.stringify({ time: Date.now(), type, ...fields }).replace(/sk-or-v1-[\w-]+/g, "[redacted]"));
     fs.appendFileSync(`${run}/agent.events.jsonl`, JSON.stringify(event) + "\n");
-    const text = (subscription && type === "usage" ? "" : traceText(event)) || (type === "prompt" ? `\n[user] ${event.text}\n` : "");
-    if (text) { trace = (trace + text).slice(-32000); atomic("agent.txt", trace); }
+    const text = type === "prompt" ? `\n[user] ${event.text}\n` : type === "configuration" ? `\n[model] ${event.provider} / ${event.model} / ${event.effort}\n` : type === "interrupt" ? "\n[interrupted]\n" : type === "usage" ? "" : traceText(event);
+    if (text) {
+      trace = (trace + text).slice(-64000); atomic("activity.txt", trace);
+      writeAtomic(fs, `${settingsDirectory}/activity.txt`, trace);
+    }
   };
-  const stop = message => {
-    if (stopped) return;
-    stopped = true; reason = message; controller.abort();
-    for (const request of pending.values()) request.reject(Error(message));
-    pending.clear(); complete();
-  };
-  const fail = error => { if (!stopped) { process.exitCode = 1; record("provider_error", { message: error.message }); stop(error.message); } };
-  function launch(command, args, options, label) {
-    const child = spawn(command, args, options);
-    const closed = new Promise(resolve => child.once("close", (code, signal) => {
-      if (!stopped && code !== 0) process.exitCode = 1;
-      stop(`${label} exited (${signal ?? code})`); resolve();
-    }));
-    child.on("error", fail); child.stdin?.on("error", fail); children.push({ child, closed }); return child;
-  }
-  const rpc = (type, fields = {}) => new Promise((resolve, reject) => {
-    const id = `classicube-${++serial}`;
-    const timeout = setTimeout(() => { pending.delete(id); reject(Error(`Pi ${type} timed out`)); }, 30000);
-    pending.set(id, { resolve: value => { clearTimeout(timeout); resolve(value); }, reject: error => { clearTimeout(timeout); reject(error); } });
-    pi.stdin.write(JSON.stringify({ id, type, ...fields }) + "\n");
+  const stop = message => { if (!stopped) { stopped = true; reason = message; observation?.abort(); settings.respond(null); } };
+  const fault = error => { record("provider_error", { message: error.message }); status("Agent error · Enter to retry or F2 to configure"); };
+  const runCommand = (command, args) => new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "inherit", "inherit"] });
+    child.once("error", reject); child.once("close", resolve);
   });
-  const input = connect(fs, scratch, 0x80000000);
-  const prompt = async text => {
-    if (stopped) return;
-    record("prompt", { text });
-    if (prompting) { await rpc("steer", { message: text }); return; }
-    prompting = true; responseError = undefined; status("Observing");
-    const image = await input([], controller.signal);
-    record("observation", { frame: image.frame, milliseconds: image.milliseconds });
-    await rpc("prompt", { message: `${text}\n\n${describe(image)}`,
-      images: [{ type: "image", mimeType: "image/png", data: Buffer.from(image.png).toString("base64") }] });
-    status("Agent working");
-  };
-  function usage(value, source, stopReason) {
-    spent += value?.cost?.total ?? 0;
-    record("usage", { usage: value, source, stopReason, reportedUSD: spent, limitUSD: config.budget });
-    atomic("usage.json", JSON.stringify({ reportedUSD: spent, limitUSD: config.budget }) + "\n"); status(state);
-    if (!subscription && spent >= config.budget) stop("Reported model cost limit reached");
+  const settings = createSettings(fs, scratch, runCommand, async () => { await closeAgent(); status("Settings saved · Enter to give an instruction"); });
+  function launch(command, args, options) {
+    const child = spawn(command, args, options);
+    const closed = new Promise(resolve => child.once("close", code => { stop(`${command} exited (${code})`); resolve(); }));
+    child.on("error", error => { fault(error); stop(error.message); }); processes.push({ child, closed }); return child;
   }
   function event(message) {
-    if (message.type === "response") {
-      const request = pending.get(message.id); pending.delete(message.id);
-      if (message.success) request?.resolve(message.data); else request?.reject(Error(message.error));
-    } else if (message.type === "message_update") {
+    if (message.type === "message_update") {
       const update = message.assistantMessageEvent;
-      if (update?.type === "thinking_delta" || update?.type === "text_delta") record(update.type, { delta: update.delta });
+      if (["thinking_delta", "text_delta"].includes(update?.type)) record(update.type, { delta: update.delta });
       if (update?.type === "thinking_start") { record("thinking"); status("Thinking"); }
       if (update?.type === "text_start") { record("text"); status("Agent working"); }
     } else if (message.type === "tool_execution_start") {
-      status("Acting in the world"); record("tool", { toolCallId: message.toolCallId, name: message.toolName, args: message.args });
+      record("tool", { toolCallId: message.toolCallId, name: message.toolName, args: message.args }); status("Acting in the world");
     } else if (message.type === "tool_execution_end") {
       record("tool_result", { toolCallId: message.toolCallId, isError: message.isError, details: message.result?.details,
         feedback: message.result?.content?.filter(item => item.type === "text") });
-    } else if (message.type === "message_end" && message.message?.role === "assistant") {
-      usage(message.message.usage, "assistant", message.message.stopReason);
-      responseError = ["error", "aborted"].includes(message.message.stopReason) ? message.message.errorMessage ?? message.message.stopReason : undefined;
-    } else if (message.type === "auto_retry_start") {
-      record("retry", { attempt: message.attempt, delayMs: message.delayMs }); status("Retrying provider request");
-    } else if (message.type === "compaction_start") { record("compaction_start"); status("Summarizing history");
-    } else if (message.type === "compaction_end") {
-      if (message.result?.usage) usage(message.result.usage, "compaction");
-      if (message.errorMessage) fail(Error(message.errorMessage));
-    } else if (message.type === "agent_settled") {
-      prompting = false;
-      if (responseError) fail(Error(responseError));
-      else { record("settled"); status("Agent finished · Enter to give another instruction"); }
-    }
+    } else if ((message.type === "message_end" && message.message?.role === "assistant") || message.type === "compaction_end") {
+      const value = message.message?.usage ?? message.result?.usage;
+      if (value) {
+        usage.reportedUSD += value.cost?.total ?? 0; usage.tokens += value.totalTokens ?? 0;
+        record("usage", { usage: value, reportedUSD: usage.reportedUSD });
+        writeAtomic(fs, `${settingsDirectory}/usage.json`, JSON.stringify(usage)); status();
+      }
+      if (message.message?.stopReason === "error" || message.errorMessage) fault(Error(message.message?.errorMessage ?? message.errorMessage));
+    } else if (message.type === "agent_settled") { busy = false; record("settled"); status("Ready · Enter to give another instruction"); }
+    else if (message.type === "auto_retry_start") { record("retry", { attempt: message.attempt }); status("Retrying provider request"); }
   }
-  try {
-    record("start", { model: config.model, player: 1 }); status(state);
-    const log = fs.openSync(`${run}/agent.stderr.log`, "w");
-    try {
-      pi = launch("pi", ["--mode", "rpc", "--provider", provider, "--model", config.model,
-        "--thinking", config.effort, "--session", `${run}/agent.jsonl`, "--no-extensions", "--extension",
+  async function ensureAgent() {
+    if (agent) return agent;
+    if (starting) return starting;
+    starting = (async () => {
+      await settings.ready();
+      const config = { ...settings.selection }, pending = new Map();
+      const stderr = fs.openSync(`${run}/agent.stderr.log`, "a");
+      const child = spawn("pi", ["--mode", "rpc", "--provider", config.provider, "--model", config.model,
+        "--thinking", config.effort, "--session", `${settingsDirectory}/conversation.jsonl`, "--no-extensions", "--extension",
         "/usr/src/dolly/classicube/agent/player.js", "--no-context-files", "--no-skills", "--no-prompt-templates",
         "--tools", "game_input", "--system-prompt", fs.readFileSync("/usr/src/dolly/classicube/agent/PLAYER.md", "utf8")],
-      { env: { ...process.env, DOLLY_CLASSICUBE_DIR: scratch }, stdio: ["pipe", "pipe", log] }, "Agent");
-    } finally { fs.closeSync(log); }
-    pi.stdout.setEncoding("utf8");
-    pi.stdout.on("data", text => {
-      try {
-        buffer += text;
-        if (buffer.length > 64 * 1024 * 1024) throw Error("Oversized Pi response");
-        let newline;
-        while ((newline = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, newline); buffer = buffer.slice(newline + 1);
-          if (line.trim()) event(JSON.parse(line));
-        }
-      } catch (error) { fail(error); }
-    });
-    const selected = await rpc("get_state");
-    if (selected.model?.provider !== provider || selected.model.id !== config.model || !selected.model.input?.includes("image"))
-      throw Error("The selected provider and vision model are unavailable. Reconnect in setup.");
-    if (selected.thinkingLevel !== config.effort) throw Error("The selected model did not accept that effort level.");
-    record("configuration", { model: selected.model.id, provider: selected.model.provider, thinking: selected.thinkingLevel });
-    const engineLog = fs.openSync(`${run}/game.log`, "w");
-    try {
-      game = launch("classicube", [fs.existsSync(`${world}/maps/agent-world.cw`) ? "maps/agent-world.cw" : "--singleplayer"],
-        { cwd: world, env: { ...process.env, SDL_VIDEODRIVER: "dummy", DOLLY_CLASSICUBE_DIR: scratch },
-          stdio: ["ignore", engineLog, engineLog] }, "Game");
-    } finally { fs.closeSync(engineLog); }
-    launch("classicube-viewer", [scratch, run, `${config.model} / ${config.effort}`], { stdio: ["ignore", "inherit", "inherit"] }, "Viewer");
-    const deadline = Date.now() + 90000;
-    while (!stopped && !fs.existsSync(`${scratch}/ready`)) {
-      if (Date.now() >= deadline) throw Error("World startup timed out. See the saved game log.");
-      await wait(50);
-    }
-    if (!stopped) {
-      timer = setTimeout(() => stop("Run time limit reached"), config.seconds * 1000);
-      controls = setInterval(() => {
-        if (!fs.existsSync(`${scratch}/prompt`)) return;
+      { env: { ...process.env, DOLLY_CLASSICUBE_DIR: scratch }, stdio: ["pipe", "pipe", stderr] });
+      fs.closeSync(stderr);
+      let buffer = "";
+      const current = { child, rpc(type, fields = {}) {
+        return new Promise((resolve, reject) => {
+          const id = `classicube-${++serial}`;
+          const timer = setTimeout(() => { pending.delete(id); reject(Error(`Pi ${type} timed out`)); }, 30000);
+          pending.set(id, { resolve: value => { clearTimeout(timer); resolve(value); }, reject: error => { clearTimeout(timer); reject(error); } });
+          child.stdin.write(JSON.stringify({ id, type, ...fields }) + "\n");
+        });
+      } };
+      current.closed = new Promise(resolve => child.once("close", code => {
+        for (const request of pending.values()) request.reject(Error("Agent stopped")); pending.clear();
+        if (agent === current) { agent = undefined; busy = false; if (!closing && !stopped) status(`Agent exited (${code}) · Enter to restart`); }
+        resolve();
+      }));
+      agent = current;
+      child.on("error", fault); child.stdin.on("error", error => { if (!closing && !stopped) fault(error); });
+      child.stdout.setEncoding("utf8"); child.stdout.on("data", text => {
         try {
-          const text = fs.readFileSync(`${scratch}/prompt`, "utf8").trim(); fs.unlinkSync(`${scratch}/prompt`);
-          if (text && text.length <= 4096) void prompt(text).catch(fail);
-        } catch (error) { fail(error); }
-      }, 100);
-      void prompt(config.prompt).catch(fail);
+          buffer += text;
+          if (buffer.length > 64 * 1024 * 1024) throw Error("Oversized Pi response");
+          let newline;
+          while ((newline = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, newline); buffer = buffer.slice(newline + 1);
+            if (!line.trim()) continue;
+            const message = JSON.parse(line);
+            if (message.type === "response") {
+              const request = pending.get(message.id); pending.delete(message.id);
+              if (message.success) request?.resolve(message.data); else request?.reject(Error(message.error));
+            } else event(message);
+          }
+        } catch (error) { fault(error); }
+      });
+      const selected = await current.rpc("get_state");
+      if (selected.model?.provider !== config.provider || selected.model.id !== config.model || selected.thinkingLevel !== config.effort)
+        throw Error("The selected provider, model or effort is unavailable. Open F2 settings.");
+      record("configuration", { ...config, thinking: selected.thinkingLevel });
+      return current;
+    })();
+    try { return await starting; }
+    catch (error) { const current = agent; agent = undefined; current?.child.kill("SIGTERM"); throw error; }
+    finally { starting = undefined; }
+  }
+  function interrupt() {
+    observation?.abort();
+    if (interrupting) return interrupting;
+    if (!agent) { busy = false; return Promise.resolve(); }
+    record("interrupt"); status("Interrupted · Enter to give another instruction");
+    interrupting = (async () => {
+      try { await agent.rpc("abort"); await agent?.rpc("clear_queue"); }
+      catch (error) { if (!closing && !stopped) fault(error); }
+      busy = false;
+    })().finally(() => { interrupting = undefined; });
+    return interrupting;
+  }
+  async function closeAgent() {
+    if (closing) return closing;
+    closing = (async () => {
+      await interrupt();
+      if (starting) await starting.catch(() => {});
+      if (!agent) return;
+      const current = agent; current.child.kill("SIGTERM");
+      const force = setTimeout(() => current.child.kill("SIGKILL"), 2000);
+      await current.closed; clearTimeout(force);
+    })().finally(() => { closing = undefined; });
+    return closing;
+  }
+  const input = connect(fs, scratch, 0x80000000);
+  async function prompt(text, replace = false, resume = false) {
+    if (!text.trim() || text.length > 65536 || stopped) return;
+    if (replace) await interrupt(); else if (interrupting) await interrupting;
+    if (!resume) { lastPrompt = text; writeAtomic(fs, `${settingsDirectory}/last-prompt.txt`, text); }
+    record("prompt", { text });
+    const generation = control().generation;
+    const current = await ensureAgent();
+    if (stopped || control().owner !== 2 || control().generation !== generation) return;
+    if (busy) { await current.rpc("steer", { message: text }); status("Instruction queued for the agent"); return; }
+    busy = true; status("Observing"); observation = new AbortController();
+    try {
+      const image = await input([], observation.signal);
+      if (stopped || control().owner !== 2 || control().generation !== generation) return;
+      record("observation", { frame: image.frame, milliseconds: image.milliseconds });
+      await current.rpc("prompt", { message: `${text}\n\n${describe(image)}`,
+        images: [{ type: "image", mimeType: "image/png", data: Buffer.from(image.png).toString("base64") }] });
+      status("Agent working");
+    } finally { observation = undefined; }
+  }
+  const enqueue = task => { operation = operation.then(task).catch(error => { busy = false; if (!stopped) fault(error); }); };
+  atomic("activity.txt", trace); status();
+  record("world_start");
+  const gameLog = fs.openSync(`${run}/game.log`, "w");
+  const game = launch("classicube", [fs.existsSync(`${world}/maps/agent-world.cw`) ? "maps/agent-world.cw" : "--singleplayer"],
+    { cwd: world, env: { ...process.env, SDL_VIDEODRIVER: "dummy", DOLLY_CLASSICUBE_DIR: scratch }, stdio: ["ignore", gameLog, gameLog] });
+  fs.closeSync(gameLog);
+  launch("classicube-viewer", [scratch, settingsDirectory], { stdio: ["ignore", "inherit", "inherit"] });
+  try {
+    while (!stopped) {
+      const gate = control();
+      if (gate.generation !== observedGeneration) {
+        observedGeneration = gate.generation;
+        if (gate.owner !== 2 && busy) void interrupt();
+        status();
+      }
+      for (let n = 0; n < 32; ++n) {
+        const path = `${scratch}/command.${commandSerial + 1}`;
+        if (!fs.existsSync(path)) break;
+        const message = fs.readFileSync(path, "utf8"); fs.unlinkSync(path); ++commandSerial;
+        const newline = message.indexOf("\n"), command = newline < 0 ? message : message.slice(0, newline), body = newline < 0 ? "" : message.slice(newline + 1);
+        if (command === "answer") settings.respond(body);
+        else if (command === "cancel") settings.respond(null);
+        else if (command === "interrupt") void interrupt();
+        else if (command === "settings") { settings.home(); }
+        else if (command === "select") enqueue(() => settings.select(body));
+        else if (command === "prompt" || command === "replace") enqueue(() => prompt(body, command === "replace"));
+        else if (command === "resume") {
+          if (!settings.selection.model) atomic("show-settings", "1");
+          else if (!lastPrompt.trim()) atomic("show-prompt", "1");
+          else enqueue(() => prompt(`Continue the current task: ${lastPrompt}\nI used manual controls; inspect the current screenshot before acting.`, false, true));
+        }
+      }
+      await wait(33);
     }
-    await done;
-  } catch (error) { fail(error); }
-  finally {
-    stop("Run finished"); clearTimeout(timer); clearInterval(controls);
-    fs.writeFileSync(`${scratch}/stop`, "\n");
-    for (const { child } of children) { child.stdout?.resume(); if (child !== game) child.kill("SIGTERM"); }
-    const force = setTimeout(() => { for (const { child } of children) child.kill("SIGKILL"); }, 5000);
-    await Promise.all(children.map(({ closed }) => closed)); clearTimeout(force);
-    if (fs.existsSync(`${scratch}/inputs.log`)) fs.renameSync(`${scratch}/inputs.log`, `${run}/inputs.log`);
-    if (fs.existsSync(`${scratch}/view.rgba`)) fs.renameSync(`${scratch}/view.rgba`, `${run}/final.rgba`);
-    atomic("result.txt", reason + "\n");
+  } finally {
+    stop("World closed"); await closeAgent();
+    fs.writeFileSync(`${scratch}/stop`, "1");
+    for (const { child } of processes) if (child !== game) child.kill("SIGTERM");
+    const force = setTimeout(() => { for (const { child } of processes) child.kill("SIGKILL"); }, 5000);
+    await Promise.all(processes.map(({ closed }) => closed)); clearTimeout(force);
+    for (const name of ["inputs.log", "view.rgba"]) if (fs.existsSync(`${scratch}/${name}`)) fs.renameSync(`${scratch}/${name}`, `${run}/${name}`);
+    for (const name of ["agent.json", "conversation.jsonl", "usage.json", "last-prompt.txt", "draft.txt"]) {
+      if (fs.existsSync(`${settingsDirectory}/${name}`)) fs.copyFileSync(`${settingsDirectory}/${name}`, `${run}/${name}`);
+    }
+    fs.writeFileSync(`${run}/result.txt`, reason + "\n");
     fs.rmSync(scratch, { recursive: true, force: true });
-    console.log(`${reason}\nWorld: ${world}/maps/agent-world.cw\nPrompts, traces and history: ${run}`);
+    console.log(`${reason}\nWorld and agent settings saved. History: ${run}`);
   }
 }

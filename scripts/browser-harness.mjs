@@ -1289,8 +1289,8 @@ async function enterRecoveryShell(send) {
       true,
     );
   } else if (selectedImage === "classicube") {
-    await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Connect an agent/, "ClassiCube setup")`);
-    await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    await waitForValue(send, "window.__dolly?.graphicsActive", Boolean, "ClassiCube world");
+    await dispatchKey(send, { key: "F10", code: "F10", windowsVirtualKeyCode: 121 });
     return evaluate(send, `window.__dolly.waitForInteractiveTerminal(/dolly:[^\\n]*\\$\\s*$/, "ClassiCube shell")`);
   } else if (selectedImage === "codex") {
     await waitForTerminalText(send, /Sign in with ChatGPT/, "Codex entry sign-in TUI", 1200);

@@ -1,6 +1,7 @@
 /* Timed SDL inputs and rendered observations, with no world queries for agents.
  * SPDX-License-Identifier: MIT */
 #include "input.h"
+#include "agent/control.h"
 #include "Bitmap.h"
 #include "Stream.h"
 #include "String_.h"
@@ -37,7 +38,8 @@ extern int SDL_SendMouseMotion(SDL_Window *, Uint32, SDL_bool, int, int);
 extern int SDL_SendMouseButton(SDL_Window *, Uint32, Uint8, Uint8);
 extern void SDL_SetKeyboardFocus(SDL_Window *);
 static Action actions[16];
-static uint32_t id, count, index_, started, frame, last_view;
+static uint32_t id, count, index_, started, frame, last_view, last_save, human_serial;
+static GameControl control;
 static int active, released, capture, stopped;
 static SDL_Window *window;
 static uint8_t pixels[WIDTH * HEIGHT * 4], png[WIDTH * HEIGHT * 4 + 65536];
@@ -113,7 +115,7 @@ static void start(void) {
         id, index_, frame, a->kind, a->x, a->y, a->button, a->milliseconds, a->key); fclose(log); }
 }
 static void save_world(void) {
-    if (!World.Blocks) return;
+    if (!World.Blocks || !World.Loaded) return;
     static struct GZipState gzip;
     struct Stream file, compressed;
     cc_string filename = String_FromConst("maps/agent-world.cw.tmp");
@@ -128,9 +130,54 @@ static void save_world(void) {
     if (!error && rename("maps/agent-world.cw.tmp", "maps/agent-world.cw")) error = errno;
     if (error) fprintf(stderr, "ClassiCube: world save failed (%u)\n", error);
 }
+static void controls(void) {
+    FILE *file = open_file("control", "rb");
+    GameControl next;
+    if (file) {
+        int okay = fread(&next, sizeof(next), 1, file) == 1 && fgetc(file) == EOF && next.owner <= CONTROL_AGENT;
+        fclose(file);
+        if (okay && next.generation != control.generation) {
+            for (int scan = 1; scan < SDL_NUM_SCANCODES; ++scan) SDL_SendKeyboardKey(SDL_RELEASED, scan);
+            for (int button = 1; button <= 5; ++button) SDL_SendMouseButton(window, 0, SDL_RELEASED, button);
+            if (active || capture) response(id, ECANCELED, 0);
+            active = capture = released = 0;
+            control = next;
+            if ((file = open_file("inputs.log", "a"))) {
+                fprintf(file, "control=%u generation=%u frame=%u\n", control.owner, control.generation, frame); fclose(file);
+            }
+        }
+    }
+    for (int n = 0; n < 32; ++n) {
+        char name[40]; snprintf(name, sizeof(name), "human.%u", human_serial + 1);
+        file = open_file(name, "rb");
+        if (!file) break;
+        HumanBatch batch; HumanEvent events[256];
+        int okay = fread(&batch, sizeof(batch), 1, file) == 1 && batch.count <= 256;
+        if (okay) okay = fread(events, sizeof(HumanEvent), batch.count, file) == batch.count && fgetc(file) == EOF;
+        fclose(file); remove_file(name); ++human_serial;
+        if (!okay || control.owner != CONTROL_HUMAN || batch.generation != control.generation) continue;
+        for (uint32_t i = 0; i < batch.count; ++i) {
+            HumanEvent *e = &events[i];
+            if (e->kind == HUMAN_KEY && e->a > 0 && e->a < SDL_NUM_SCANCODES)
+                SDL_SendKeyboardKey(e->b ? SDL_PRESSED : SDL_RELEASED, e->a);
+            if (e->kind == HUMAN_MOTION)
+                SDL_SendMouseMotion(window, 0, e->c ? SDL_TRUE : SDL_FALSE, e->a, e->b);
+            if (e->kind == HUMAN_BUTTON && e->a >= 1 && e->a <= 5)
+                SDL_SendMouseButton(window, 0, e->b ? SDL_PRESSED : SDL_RELEASED, e->a);
+            if (e->kind == HUMAN_WHEEL) {
+                SDL_Event event = { .type = SDL_MOUSEWHEEL }; event.wheel.x = e->a; event.wheel.y = e->b; SDL_PushEvent(&event);
+            }
+            if (e->kind == HUMAN_TEXT && memchr(e->text, 0, sizeof(e->text))) {
+                SDL_Event event = { .type = SDL_TEXTINPUT }; memcpy(event.text.text, e->text, sizeof(e->text)); SDL_PushEvent(&event);
+            }
+        }
+    }
+}
 void DollyAgent_Poll(SDL_Window *target) {
     if (!directory() || stopped || !target) return;
     window = target; SDL_SetKeyboardFocus(window);
+    controls();
+    if (World.Loaded && World.Blocks && SDL_GetTicks() - last_save >= 5000) { save_world(); last_save = SDL_GetTicks(); }
     FILE *file = open_file("stop", "r");
     if (file) {
         fclose(file); release();
@@ -155,6 +202,7 @@ void DollyAgent_Poll(SDL_Window *target) {
         uint32_t duration = 0;
         for (uint32_t i = 0; okay && i < request.count; ++i) { okay = valid(&batch[i]); duration += batch[i].milliseconds; }
         if (!okay || duration > 2000) response(request.id, EINVAL, 0);
+        else if (request.count && control.owner != CONTROL_AGENT) response(request.id, EACCES, 0);
         else if (request.id == cancelled) response(request.id, ECANCELED, 0);
         else if (active || capture) response(request.id, EBUSY, 0);
         else {
@@ -197,6 +245,8 @@ void DollyAgent_Frame(struct Bitmap *bitmap) {
     }
     uint32_t header[] = { frame, now, WIDTH, HEIGHT };
     publish("view.rgba", header, sizeof(header), pixels, sizeof(pixels)); last_view = now;
+    static int previous_raw = -1;
+    if (previous_raw != Input.RawMode) { previous_raw = Input.RawMode; publish("relative", Input.RawMode ? "1" : "0", 1, NULL, 0); }
     if (Input.RawMode && World.Blocks) publish("ready", "1", 1, NULL, 0);
     if (capture) {
         struct Stream output; Stream_ReadonlyMemory(&output, png, sizeof(png));
