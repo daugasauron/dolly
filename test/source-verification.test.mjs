@@ -5,12 +5,13 @@ import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { gunzipSync } from "node:zlib";
 import { updateRecipePins } from "../scripts/update-module-pins.mjs";
 
-test("source archives are deterministic, complete under short writes, and own their staging", async t => {
+for (const extension of ["tar", "tar.gz"]) test(`${extension} source archives are deterministic, complete under short writes, and own their staging`, async t => {
   const scratch = await mkdtemp(join(tmpdir(), "dolly-source-tar-"));
   t.after(() => rm(scratch, { recursive: true, force: true }));
-  const input = join(scratch, "input"), output = join(scratch, "source.tar");
+  const input = join(scratch, "input"), output = join(scratch, `source.${extension}`);
   await mkdir(join(input, "nested"), { recursive: true });
   await writeFile(join(input, "a"), "source\n");
   const large = Buffer.alloc(200_001, 0x7f);
@@ -34,10 +35,11 @@ test("source archives are deterministic, complete under short writes, and own th
   assert.deepEqual(execFileSync("tar", ["-xOf", output, "usr/src/fixture/nested/b"]), large);
   assert.equal(execFileSync("tar", ["-tf", output], { encoding: "utf8" }),
     "usr/src/fixture/a\nusr/src/fixture/nested/b\n");
-  const octal = (offset, length) => Number.parseInt(expected.subarray(offset, offset + length).toString(), 8);
+  const raw = extension === "tar.gz" ? gunzipSync(expected) : expected;
+  const octal = (offset, length) => Number.parseInt(raw.subarray(offset, offset + length).toString(), 8);
   for (const offset of [108, 116, 136]) assert.equal(octal(offset, offset === 136 ? 12 : 8), 0);
-  assert.ok(expected.subarray(265, 329).every(byte => byte === 0), "archive retained a host owner name");
-  assert.deepEqual((await readdir(scratch)).sort(), ["input", "source.tar"]);
+  assert.ok(raw.subarray(265, 329).every(byte => byte === 0), "archive retained a host owner name");
+  assert.deepEqual((await readdir(scratch)).sort(), ["input", `source.${extension}`]);
 });
 
 test("source archives reject symlinks and clean failed staging without replacing previous output", async t => {
@@ -63,7 +65,7 @@ test("source archives reject symlinks and clean failed staging without replacing
 });
 
 test("prepared CPython configuration keeps bootstrap paths independent of the builder's home", () => {
-  const archive = new URL("../dist/static/python/cpython.tar", import.meta.url).pathname;
+  const archive = new URL("../dist/static/python/cpython.tar.gz", import.meta.url).pathname;
   for (const name of ["Makefile", "Makefile.pre", "config.status"]) {
     const configuration = execFileSync("tar", ["-xOf", archive, `usr/src/python/${name}`], { encoding: "utf8" });
     assert.ok(configuration.includes("--with-build-python=/opt/dolly-build-python/bin/python3.14"), name);

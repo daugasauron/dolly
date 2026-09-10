@@ -229,7 +229,7 @@ if has_module lpeg; then
     "${lpeg_dir}/lpeg.html" /usr/share/licenses/lpeg/lpeg.html
 fi
 if has_module cmake; then
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/cmake.tar" \
+  node scripts/build-source-tar.mjs "${static_dir}/neovim/cmake.tar.gz" \
     "${cmake_dir}" /tmp/cmake/source \
     "${project_dir}/config/cmake/Dolly.cmake" /tmp/cmake/source/Modules/Platform/Dolly.cmake \
     "${cmake_dir}/LICENSE.rst" /usr/share/licenses/cmake/LICENSE.rst
@@ -242,7 +242,7 @@ if has_module luv; then
     "${lua_compat53_dir}/LICENSE" /usr/share/licenses/lua-compat53/LICENSE
 fi
 if has_module neovim; then
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/neovim.tar" \
+  node scripts/build-source-tar.mjs "${static_dir}/neovim/neovim.tar.gz" \
     "${neovim_dir}" /tmp/neovim/source \
     "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim/LICENSE.txt \
     "${neovim_dir}/src/mpack/LICENSE-MIT" /usr/share/licenses/neovim/mpack \
@@ -263,7 +263,7 @@ if has_module seven-kingdoms; then
   for entry in Makefile config.h OAUDIO.h arena.cpp arena.h input.cpp input.h; do
     rts_port_inputs+=("${project_dir}/src/rts/${entry}" "/usr/src/dolly/rts/${entry}")
   done
-  node scripts/build-source-tar.mjs "${static_dir}/rts/seven-kingdoms.tar" \
+  node scripts/build-source-tar.mjs "${static_dir}/rts/seven-kingdoms.tar.gz" \
     "${seven_kingdoms_dir}/src" /usr/src/7kaa/src \
     "${seven_kingdoms_dir}/include" /usr/src/7kaa/include \
     "${seven_kingdoms_dir}/data" /usr/share/7kaa \
@@ -435,7 +435,7 @@ node scripts/build-source-tar.mjs "${static_dir}/gamedev/box3d.tar" \
   "${box3d_dir}/README.md" /usr/src/box3d/README.md
 fi
 if has_module cpython; then
-node scripts/build-source-tar.mjs "${static_dir}/python/cpython.tar" \
+node scripts/build-source-tar.mjs "${static_dir}/python/cpython.tar.gz" \
   "${cpython_dir}/Include" /usr/src/python/Include \
   "${cpython_dir}/Parser" /usr/src/python/Parser \
   "${cpython_dir}/Objects" /usr/src/python/Objects \

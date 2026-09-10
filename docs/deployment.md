@@ -20,8 +20,24 @@ Both verify sealed input, reject an existing destination and publish staging
 atomically. Neither uploads anything. Run `sha256sum --check deployment.sha256`
 inside an export to verify its uploaded bytes.
 
-Local packages can contain the complete image catalog. The GitHub deployment
-workflow checks its 1 GB limit against the exported site before upload.
+The shared public catalog is [public-images.txt](../config/public-images.txt).
+It excludes Codex, retaining RTS Arena and every other user-facing image.
+Packaging defaults to this list. Selection includes all build dependencies;
+omitted Dollyfiles remain in source.
+Use the same selection when preparing, snapshotting and packaging:
+
+```sh
+export DOLLY_BUILD_IMAGES="$(paste -sd, config/public-images.txt)"
+node scripts/update-module-pins.mjs
+bash scripts/prepare-image-sources.sh
+npm run snapshot
+npm run publish
+```
+
+Large CMake, CPython, Neovim and Seven Kingdoms inputs are ordinary `.tar.gz`
+archives, verified by SOURCE and extracted by `gzip`/`tar` inside Wasm on both
+hosts. Local packages may include the full catalog with `DOLLY_BUILD_IMAGES=all`.
+GitHub's workflow checks the exported site's 1 GB limit.
 
 GitHub's manual workflow consumes the audited artifact and uses `/dolly/`.
 The domain uses that same artifact with root navigation and Pages-specific

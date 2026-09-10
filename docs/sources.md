@@ -68,7 +68,7 @@ The deterministic ustar writer in `scripts/build-source-tar.mjs`:
 - sorts records using a fixed locale;
 - emits regular files only with fixed owner, mode, and timestamp fields;
 - writes no host paths or ambient metadata;
-- reports the resulting archive SHA-256.
+- gzip-compresses `.tar.gz` outputs deterministically and reports the final archive SHA-256.
 
 The small `/bin/tar` extractor is inline in `modules/tar.dm` and compiled inside
 Dolly before any archive row executes. It accepts only regular files and

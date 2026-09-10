@@ -11,10 +11,11 @@ REQUIRES TOOL c++
 REQUIRES TOOL make
 REQUIRES TOOL mkdir
 REQUIRES TOOL tar
+REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE HOST /static/rts/seven-kingdoms.tar /tmp/seven-kingdoms/source.tar 6fce0503e476ae68f6148cf6f462cb5ea59d08d7e5468a72849992ef6b6d386d
-SLOP tar -xf /tmp/seven-kingdoms/source.tar -C /
+SOURCE HOST /static/rts/seven-kingdoms.tar.gz /tmp/seven-kingdoms/source.tar.gz 3aad67177fca52d82c53b9a1e4d80665e3b11457480ca434cb9c9294195b04d6
+SLOP gzip -dc /tmp/seven-kingdoms/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/rts/Makefile
 
 EXPORTS TOOL seven-kingdoms

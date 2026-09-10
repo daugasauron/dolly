@@ -23,11 +23,12 @@ REQUIRES TOOL slop
 REQUIRES TOOL sh
 REQUIRES TOOL sleep
 REQUIRES TOOL tar
+REQUIRES TOOL gzip
 REQUIRES TOOL timeout
 REQUIRES TOOL rm
 
-SOURCE HOST /static/neovim/neovim.tar /tmp/neovim/source.tar c090bbf588fdecbed00599904583da903f0ddf7d875c5a35f00d1b458fbd7371
-SLOP tar -xf /tmp/neovim/source.tar -C /
+SOURCE HOST /static/neovim/neovim.tar.gz /tmp/neovim/source.tar.gz 33277d465eebd937357c59a83378d6faef72dd47e1a20a140f16660eec598b0e
+SLOP gzip -dc /tmp/neovim/source.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/neovim/source -B /tmp/neovim/build \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS=-DDOLLY -DCMAKE_C_FLAGS_DEBUG=-O0 \

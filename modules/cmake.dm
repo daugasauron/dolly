@@ -16,6 +16,7 @@ REQUIRES TOOL make
 REQUIRES TOOL slop
 REQUIRES TOOL sh
 REQUIRES TOOL tar
+REQUIRES TOOL gzip
 REQUIRES TOOL mkdir
 REQUIRES TOOL cp
 REQUIRES TOOL rm
@@ -34,8 +35,8 @@ REQUIRES TOOL true
 REQUIRES TOOL uname
 REQUIRES TOOL which
 
-SOURCE HOST /static/neovim/cmake.tar /tmp/cmake/source.tar 5998029fcd38be176d3fa88af700aa95f21e817aea3a8168c6d3ce90ba7d240d
-SLOP tar -xf /tmp/cmake/source.tar -C /
+SOURCE HOST /static/neovim/cmake.tar.gz /tmp/cmake/source.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41
+SLOP gzip -dc /tmp/cmake/source.tar.gz | tar -xf - -C /
 
 FILE /tmp/cmake/build.slop
     set -ex

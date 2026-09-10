@@ -18,6 +18,7 @@ REQUIRES TOOL   mv
 REQUIRES TOOL   rm
 REQUIRES TOOL   slop
 REQUIRES TOOL   tar
+REQUIRES TOOL   gzip
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
@@ -28,11 +29,9 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE HOST /static/python/cpython.tar /tmp/cpython.tar 3f7baa1b1c0598f44bb3334d346d851fcb41d3c511a7bac1fe31a036d008f47b
+SOURCE HOST /static/python/cpython.tar.gz /tmp/cpython.tar.gz 142995f7859e547bdf0b8c8d736919b1543f54aec3c220af86cbf5f31bf71b8e
 
-SLOP tar \
-  -xf /tmp/cpython.tar \
-  -C /
+SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
 SOURCE HOST /static/python/runtimes/cpython-platform.c        /usr/src/python/Python/dolly_platform.c         9a58412f3ecfebfef6bbd67dfc5fa43959314568b6add06c7c0d548ddc7eb5b6
 SOURCE HOST /static/python/runtimes/cpython-extension-check.c /usr/src/python/Modules/dolly_extension_check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071
@@ -293,7 +292,7 @@ EXPORTS FOLDER python-stdlib /usr/lib/python3.14
 
 SLOP rm \
   -rf \
-  /tmp/cpython.tar \
+  /tmp/cpython.tar.gz \
   /tmp/mmap-check \
   /tmp/python \
   /tmp/python-header-check \
