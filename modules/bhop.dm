@@ -3,6 +3,21 @@ MODULE bhop
 
 REQUIRES TOOL cc
 REQUIRES TOOL make
+REQUIRES TOOL c++
+REQUIRES TOOL pi
+REQUIRES TOOL download
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+REQUIRES HEADER cpp
+REQUIRES HEADER quickjs-runner
+REQUIRES HEADER sdl2
+REQUIRES LIB dolly-js
+REQUIRES LIB SDL2
+
+SOURCE HOST /static/bhop/source.tar /tmp/bhop-source.tar d26b3cb68f3436d5e7eeda5c906e48a4799b56023a7427a86d976e611d3be6b1
+SOURCE HOST /static/default/stb_truetype.h /tmp/bhop-stb/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
+SLOP tar -xf /tmp/bhop-source.tar -C /
+FILE /usr/src/dolly/game-agent/COPYING
 
 FILE /usr/src/dolly/bhop/bhop-movement.h
     #ifndef DOLLY_BHOP_MOVEMENT_H
@@ -301,6 +316,7 @@ FILE /usr/src/dolly/bhop/bhop-check.c
 FILE /usr/src/dolly/bhop/bhop.c
     #define _POSIX_C_SOURCE 200809L
     #include "bhop-course.h"
+    #include "agent/input.h"
     #include <dolly/raylib.h>
     #include <raymath.h>
     #include <rlgl.h>
@@ -613,6 +629,14 @@ FILE /usr/src/dolly/bhop/bhop.c
         "R restarts; F returns to a checkpoint; Q exits. Release W in air and match A/D with mouse turn.\n", name);
       return status;
     }
+    static void agent_input(void *context, const dolly_input_event *event) { input(context, event); }
+    static int agent_frame(game *state, Font font) {
+      static unsigned char pixels[960 * 540 * 4];
+      draw(state, font, 960, 540);
+      EndDrawing();
+      rlCopyFramebuffer(0, 0, 960, 540, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8, pixels);
+      return bh_agent_frame(pixels);
+    }
     int main(int argc, char **argv) {
       unsigned long limit = 0;
       if (argc == 2 && strcmp(argv[1], "--help") == 0) return usage(argv[0], 0);
@@ -622,18 +646,24 @@ FILE /usr/src/dolly/bhop/bhop.c
         limit = strtoul(argv[2], &end, 10);
         if (errno || argv[2][0] < '0' || argv[2][0] > '9' || *end || !limit) return usage(argv[0], 2);
       } else if (argc != 1) return usage(argv[0], 2);
-      dolly_raylib graphics;
-      if (dolly_raylib_open_sized(&graphics, "Dolly Airtime", 960, 540) != 0) return 1;
-      if (dolly_raylib_set_cursor(&graphics, DOLLY_DISPLAY_CURSOR_CAPTURED) != 0) {
+      game state = {0};
+      const int agent = bh_agent_open(agent_input, &state);
+      dolly_raylib graphics = {0};
+      if (agent) {
+        graphics.surface.width = 960; graphics.surface.height = 540;
+        InitWindow(960, 540, "Dolly Airtime");
+        if (!IsWindowReady()) return 1;
+        SetTraceLogLevel(LOG_WARNING);
+      } else if (dolly_raylib_open_sized(&graphics, "Dolly Airtime", 960, 540) != 0) return 1;
+      if (!agent && dolly_raylib_set_cursor(&graphics, DOLLY_DISPLAY_CURSOR_CAPTURED) != 0) {
         dolly_raylib_close(&graphics);
         fputs("bhop: this runtime does not support captured mouse input\n", stderr);
         return 1;
       }
       Font font = LoadFontEx("/usr/share/fonts/IosevkaTerm-SemiBold.ttf", 32, NULL, 0);
-      if (!IsFontValid(font)) { dolly_raylib_close(&graphics); return 1; }
+      if (!IsFontValid(font)) { if (agent) CloseWindow(); else dolly_raylib_close(&graphics); return 1; }
       SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
       rlSetClipPlanes(1, 2400);
-      game state = {0};
       bh_course_init(&state.course);
       respawn(&state, 1);
       FILE *record = fopen(record_path, "r");
@@ -642,9 +672,12 @@ FILE /usr/src/dolly/bhop/bhop.c
       unsigned long frames = 0;
       int result = 0;
       while (!state.quit && (!limit || frames < limit)) {
-        if (frames && dolly_raylib_wait_frame(&graphics, 1000) < 0) { result = 1; break; }
+        if (agent) {
+          const struct timespec interval = {0, 8000000}; nanosleep(&interval, NULL);
+          if (bh_agent_poll()) break;
+        } else if (frames && dolly_raylib_wait_frame(&graphics, 1000) < 0) { result = 1; break; }
         dolly_input_event event;
-        for (int i = 0; i < 256; ++i) {
+        for (int i = 0; !agent && i < 256; ++i) {
           int status = dolly_raylib_next_event(&graphics, &event, 0);
           if (status < 0) { result = 1; state.quit = 1; break; }
           if (!status) break;
@@ -654,13 +687,26 @@ FILE /usr/src/dolly/bhop/bhop.c
         double now = seconds();
         accumulator += now >= previous ? fmin(now - previous, 0.1) : 0;
         previous = now;
-        for (int i = 0; accumulator >= BH_STEP && i < 10; ++i, accumulator -= BH_STEP) tick(&state);
-        draw(&state, font, graphics.surface.width, graphics.surface.height);
-        if (dolly_raylib_end_frame(&graphics) != 0) { result = 1; break; }
+        int drawn = 0;
+        for (int i = 0; accumulator >= BH_STEP && i < 10; ++i, accumulator -= BH_STEP) {
+          if (agent) bh_agent_tick();
+          tick(&state); drawn = 0;
+          if (agent && bh_agent_capture_due()) {
+            if (!agent_frame(&state, font)) { result = 1; break; }
+            drawn = 1;
+          }
+        }
+        if (result) break;
+        if (agent) {
+          if (!drawn && !agent_frame(&state, font)) { result = 1; break; }
+        } else {
+          draw(&state, font, graphics.surface.width, graphics.surface.height);
+          if (dolly_raylib_end_frame(&graphics) != 0) { result = 1; break; }
+        }
         ++frames;
       }
       UnloadFont(font);
-      dolly_raylib_close(&graphics);
+      if (agent) { bh_agent_close(); CloseWindow(); } else dolly_raylib_close(&graphics);
       printf("bhop: ticks=%d jumps=%d falls=%d pad=%d peak=%.3f speed=%.3f collapses=%d\n",
         state.ticks, state.jumps, state.deaths, state.furthest, state.peak_speed, bh_speed(&state.player), state.course.collapses);
       return result;
@@ -669,11 +715,20 @@ FILE /usr/src/dolly/bhop/bhop.c
 FILE /usr/src/dolly/bhop/bhop.mk
     .PHONY: all check
     all: /usr/bin/bhop
-    /usr/bin/bhop: /usr/src/dolly/bhop/bhop.c /usr/src/dolly/bhop/bhop-movement.h /usr/src/dolly/bhop/bhop-course.h /usr/lib/libdolly-raylib.a /usr/lib/libraylib.a /usr/lib/libm.a
-    	cc -std=c17 -O2 -fno-builtin $< -o $@ -ldolly-raylib -lraylib -lm
+    /usr/bin/bhop: /usr/src/dolly/bhop/bhop.c /usr/src/dolly/bhop/bhop-movement.h /usr/src/dolly/bhop/bhop-course.h /usr/src/dolly/bhop/agent/input.c /usr/src/dolly/bhop/agent/input.h /usr/src/dolly/bhop/agent/timeline.h /usr/src/dolly/game-agent/control.h /usr/lib/libdolly-raylib.a /usr/lib/libraylib.a /usr/lib/libm.a
+    	cc -std=c17 -O2 -fno-builtin $< /usr/src/dolly/bhop/agent/input.c -o $@ -ldolly-raylib -lraylib -lm
     check:
     	@output=/tmp/bhop-check.$$$$; status=0; cc -std=c17 -O2 -fno-builtin /usr/src/dolly/bhop/bhop-check.c -o "$$output" -lm && "$$output" || status=$$?; rm -f "$$output"; exit "$$status"
 
 SLOP make -f /usr/src/dolly/bhop/bhop.mk all check
 
+SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/bhop-stb /usr/src/dolly/game-agent/viewer.cpp -o /usr/bin/bhop-viewer -lSDL2 -lm
+SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler /usr/src/dolly/bhop/agent/launch.c -ldolly-js -o /usr/bin/bhop-agent
+SLOP rm -rf /tmp/bhop-source.tar /tmp/bhop-stb
+
 EXPORTS TOOL bhop
+EXPORTS TOOL bhop-agent
+EXPORTS TOOL bhop-viewer
+EXPORTS FOLDER bhop-agent-source /usr/src/dolly/bhop/agent
+EXPORTS FOLDER game-agent-source /usr/src/dolly/game-agent
+EXPORTS FOLDER game-input-source /usr/src/dolly/rts

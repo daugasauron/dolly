@@ -74,7 +74,8 @@ for software-rendered 3D; the browser scales the complete image.
 - `/bhop/` runs Airtime's Foundry course. A/D plus mouse turning builds air
   speed; Space or either wheel direction jumps. Escape pauses/releases capture,
   Q exits, R resets and 1–4 select practice sections. It uses its own fixed-step
-  movement controller, not Box3D player physics.
+  movement controller, not Box3D player physics. The [agent overlay](bhop.md)
+  supports OpenRouter and local Codex with recorded framebuffer attempts.
 - `/gamedev-phone/` keeps touch controls inside the same Wasm program.
   It still needs a memory64-capable browser.
 

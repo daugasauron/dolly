@@ -270,6 +270,7 @@ if has_module classicube; then
     "${classicube_dir}/license.txt" /usr/src/classicube/license.txt \
     "${classicube_dir}/license.txt" /usr/share/licenses/classicube/license.txt \
     "${classicube_dir}/misc/cc_textures.zip" /usr/share/classicube/texpacks/default.zip \
+    "${project_dir}/src/game-agent/control.h" /usr/src/dolly/game-agent/control.h \
     "${classicube_port_inputs[@]}"
 fi
 if has_module classicube-agent; then
@@ -279,7 +280,18 @@ if has_module classicube-agent; then
   done
   node scripts/build-source-tar.mjs "${static_dir}/classicube/agent.tar" \
     "${project_dir}/src/classicube/agent" /usr/src/dolly/classicube/agent \
+    "${project_dir}/src/game-agent" /usr/src/dolly/game-agent \
     "${classicube_shared_inputs[@]}"
+fi
+if has_module bhop; then
+  bhop_shared_inputs=()
+  for entry in spectator/relay.mjs spectator/trace.mjs spectator/graphics.h; do
+    bhop_shared_inputs+=("${project_dir}/src/rts/${entry}" "/usr/src/dolly/rts/${entry}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/bhop/source.tar" \
+    "${project_dir}/src/bhop/agent" /usr/src/dolly/bhop/agent \
+    "${project_dir}/src/game-agent" /usr/src/dolly/game-agent \
+    "${bhop_shared_inputs[@]}"
 fi
 if has_module seven-kingdoms; then
   rts_port_inputs=()

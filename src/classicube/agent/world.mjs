@@ -66,7 +66,7 @@ export async function runWorld() {
     saved.players.every((p,i)=>p.id===i+1 && typeof p.name==='string' && /^[\w -]{1,24}$/.test(p.name)) ? saved.players : [{id:1,name:"Player 1"}];
   for (const p of initial) setup(p.id,p.name);
   writeAtomic(fs,`${hub}/watching`,String(players.some(p=>p.id===saved.selected)?saved.selected:1));
-  const viewer = spawn("classicube-viewer",[hub,settingsDirectory],{stdio:["ignore","inherit","inherit"]});
+  const viewer = spawn("classicube-viewer",[hub,settingsDirectory,"640","480","4","ClassiCube / Agent World"],{stdio:["ignore","inherit","inherit"]});
   const viewerClosed = new Promise(resolve=>viewer.once("close",()=>{stopped=true;resolve();}));
   viewer.on("error",()=>{stopped=true;});
   try {

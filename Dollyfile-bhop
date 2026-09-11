@@ -2,19 +2,25 @@ DOLLY 3
 IMAGE bhop
 
 FROM HOST /Dollyfile-gamedev ca508b7ece40ce044e247a21e191777dda7dc88435085bc2460f02da5cbafd5b
-USE HOST /modules/bhop.dm ca380ee456021868db78ccc255c1dc902a811c9b7e0be8a3d0bb89bbf03c0e03
+COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637ed6e34a9d8932f96bd453 /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637ed6e34a9d8932f96bd453 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637ed6e34a9d8932f96bd453 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+EXPORTS HEADER sdl2 /usr/include/SDL2
+EXPORTS LIB SDL2 /usr/lib/libSDL2.a
+USE HOST /modules/bhop.dm 134f1b2323bd6e4dc50fb2e37dee0731997fa30372903c5b5c9bd454cbef08dd
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then
       /bin/foreground /bin/slop -e "$HOME/.dollyrc"
     fi
-    /bin/foreground /usr/bin/bhop
+    /bin/foreground -i /usr/bin/bhop-agent
     printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
     /bin/foreground -i /bin/slop
 
 FILE /home/dolly/.dollyrc
     printf '\033[33mDOLLY / AIRTIME: FOUNDRY\033[0m\n'
-    printf 'Click once to capture the mouse. Escape releases; Q exits.\n'
+    printf 'Tab hides the agent UI; backtick toggles human/agent controls; Enter opens a prompt.\n'
+    printf 'Settings connects OpenRouter or local Codex. Review attempts exports captured frames.\n'
     printf 'WASD moves. Space and scroll up/down jump. R restarts; F returns to a checkpoint.\n'
     printf 'Release W in air, then strafe A/D while turning the mouse in the same direction.\n'
     printf '32 jumps: yard, turbine hall, reactor, silos. Yellow pads collapse; cyan checkpoints are safe.\n'

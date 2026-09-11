@@ -2,9 +2,9 @@ DOLLY 3
 IMAGE classicube
 
 FROM HOST /Dollyfile-pi-runtime 3ad438d2148f470e335b616ffc56fc35e8b230788b8d70dd4751d1716507e250
-COPY FROM HOST /Dollyfile-classicube-build b8c598abee19be68cfeb7636087a54d0b0297231c324eb7e782b624cc35ba8a9 /usr/bin/classicube /usr/bin/classicube
-COPY FROM HOST /Dollyfile-classicube-build b8c598abee19be68cfeb7636087a54d0b0297231c324eb7e782b624cc35ba8a9 /usr/share/classicube /home/dolly/classicube
-COPY FROM HOST /Dollyfile-classicube-build b8c598abee19be68cfeb7636087a54d0b0297231c324eb7e782b624cc35ba8a9 /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY FROM HOST /Dollyfile-classicube-build 8b2b3775d6c648dff457a19c56db373cfc0b34a3098e813cc717d8c29204d7b1 /usr/bin/classicube /usr/bin/classicube
+COPY FROM HOST /Dollyfile-classicube-build 8b2b3775d6c648dff457a19c56db373cfc0b34a3098e813cc717d8c29204d7b1 /usr/share/classicube /home/dolly/classicube
+COPY FROM HOST /Dollyfile-classicube-build 8b2b3775d6c648dff457a19c56db373cfc0b34a3098e813cc717d8c29204d7b1 /usr/share/licenses/classicube /usr/share/licenses/classicube
 COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637ed6e34a9d8932f96bd453 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 
 COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637ed6e34a9d8932f96bd453 /usr/include/SDL2 /usr/include/SDL2
@@ -12,7 +12,7 @@ COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/classicube-agent.dm dcce1ae9a41bf2dc04f0e39b60ead0601c0377541ec8875a9fcfe1689001e078
+USE HOST /modules/classicube-agent.dm 527a08a2386c5ac3bde6709b5d377fb285da2fb6bdded258624b99df51a482e1
 
 FILE /home/dolly/classicube/options.txt
     window-width=640

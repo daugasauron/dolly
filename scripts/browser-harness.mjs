@@ -6,6 +6,8 @@ import { createHash } from "node:crypto";
 import { waitForDebugger } from "./browser-startup.mjs";
 import { runLocalModelProof, runLocalCompatibilityProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
+import { bhopProvider } from "../test/fixtures/bhop-provider.mjs";
+import { runBhopAgentProof } from "../test/fixtures/bhop-agent-browser.mjs";
 import { classicubeProvider } from "../test/fixtures/classicube-provider.mjs";
 import { runClassiCubeAgentProof } from "../test/fixtures/classicube-agent-browser.mjs";
 import { relayProvider } from "../src/rts/spectator/relay.mjs";
@@ -116,11 +118,14 @@ if (rtsLiveMode && (rtsLiveModels.length !== 2 || rtsLiveModels.some(model => !/
     !Number.isFinite(rtsLiveDollars) || rtsLiveDollars <= 0 || rtsLiveDollars > 2))
   throw Error("RTS live proof needs two comma-separated models, 10..3600 seconds and a USD limit up to 2");
 const bhopMode = isMode("bhop");
+const bhopAgentMode = isMode("bhop-agent");
+const bhopAgentLiveMode = isMode("bhop-agent-live");
 const classicubeMode = isMode("classicube");
 const classicubeAgentMode = isMode("classicube-agent");
 const classicubePlaywrightMode = isMode("classicube-playwright");
 const classicubeAgentLiveMode = isMode("classicube-agent-live") || classicubePlaywrightMode;
-const classicubeRelayFile = classicubeAgentLiveMode && process.env.DOLLY_CLASSICUBE_MODELS_FILE;
+const classicubeRelayFile = (classicubeAgentLiveMode && process.env.DOLLY_CLASSICUBE_MODELS_FILE) || (bhopAgentLiveMode && process.env.DOLLY_BHOP_MODELS_FILE);
+if (bhopAgentLiveMode && !classicubeRelayFile) throw Error("bhop-agent-live requires DOLLY_BHOP_MODELS_FILE");
 if (classicubePlaywrightMode && !classicubeRelayFile) throw Error("classicube-playwright requires DOLLY_CLASSICUBE_MODELS_FILE");
 const classicubeRelayConfiguration = classicubeRelayFile
   ? { providers: { "codex-local": relayProvider(JSON.parse(await readFile(resolve(classicubeRelayFile), "utf8"))) } } : null;
@@ -315,6 +320,7 @@ const assetPartRequests = [];
 const piModelRequests = [];
 const rtsModelFixture = rtsProvider();
 const classicubeModelFixture = classicubeProvider();
+const bhopModelFixture = bhopProvider();
 const janisAbortRequests = [];
 let cancelledQueuedRequestSeen = false;
 const piFixtureStream = { request: 0, phase: "idle" };
@@ -382,6 +388,11 @@ function startServer() {
           response.end(await readFile(resolve(projectDir, sources[name])));
           return;
         }
+      }
+      if (bhopAgentMode && requestUrl.pathname.startsWith("/fixture/bhop/api/v1/")) {
+        try { await bhopModelFixture.handle(request, response, isolatedHeaders); }
+        catch (error) { console.error("Bhop provider fixture:", error); response.destroy(); }
+        return;
       }
       if (classicubeAgentMode && requestUrl.pathname.startsWith("/fixture/classicube/api/v1/")) {
         try { await classicubeModelFixture.handle(request, response, isolatedHeaders); }
@@ -1278,7 +1289,7 @@ async function enterRecoveryShell(send) {
       `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "runtime image Slop prompt")`);
   }
   let entryPid;
-  if (["gamedev", "gamedev-phone", "bhop"].includes(selectedImage)) {
+  if (["gamedev", "gamedev-phone"].includes(selectedImage)) {
     entryPid = await waitForValue(
       send,
       "window.__dolly?.graphicsActive ? window.__dolly.foregroundPid : 0",
@@ -1290,7 +1301,7 @@ async function enterRecoveryShell(send) {
       await evaluate(send, "window.__dolly.key('q', 'KeyQ')"),
       true,
     );
-  } else if (selectedImage === "classicube") {
+  } else if (["classicube", "bhop"].includes(selectedImage)) {
     await waitForValue(send, "window.__dolly?.graphicsActive", Boolean, "ClassiCube world");
     await waitForValue(send, "document.querySelector('#display').width === 1280 && document.querySelector('#display').height === 960", Boolean, "ClassiCube controls");
     const point = await evaluate(send, `(() => { const r = document.querySelector('#display').getBoundingClientRect();
@@ -1586,13 +1597,13 @@ if (realOpenRouterMode) {
     timeoutMilliseconds: 120_000,
   });
 }
-if ((rtsLiveMode && !rtsLiveConfiguration) || classicubeAgentMode || (classicubeAgentLiveMode && !classicubeRelayConfiguration)) fixturePolicy.rules.unshift({
+if ((rtsLiveMode && !rtsLiveConfiguration) || classicubeAgentMode || bhopAgentMode || (classicubeAgentLiveMode && !classicubeRelayConfiguration)) fixturePolicy.rules.unshift({
   origin: "https://openrouter.ai", path: "/api/v1/models", methods: ["GET"],
   maxResponseBytes: 16 * 1024 * 1024,
 }, {
   origin: "https://openrouter.ai", path: "/api/v1/key", methods: ["GET"], credentialHeaders: ["authorization"],
 });
-if (classicubeAgentMode) fixturePolicy.rules.unshift({ origin: "https://openrouter.ai", path: "/api/v1/auth/keys", methods: ["POST"] },
+if (classicubeAgentMode || bhopAgentMode) fixturePolicy.rules.unshift({ origin: "https://openrouter.ai", path: "/api/v1/auth/keys", methods: ["POST"] },
   { origin: "https://openrouter.ai", path: "/api/v1/chat/completions", methods: ["POST"], credentialHeaders: ["authorization"], timeoutMilliseconds: 120000 });
 for (const provider of Object.values((rtsLiveConfiguration || classicubeRelayConfiguration)?.providers ?? {})) {
   const url = new URL(provider.baseUrl);
@@ -1604,7 +1615,7 @@ for (const provider of Object.values((rtsLiveConfiguration || classicubeRelayCon
 const requestedProfile = process.env.DOLLY_BROWSER_PROFILE;
 persistentProfile = requestedProfile;
 browserDownloadDirectory = await mkdtemp(`${tmpdir()}/dolly-browser-downloads-`);
-if (realOpenRouterMode || rtsLiveMode || classicubeAgentLiveMode) {
+if (realOpenRouterMode || rtsLiveMode || classicubeAgentLiveMode || bhopAgentLiveMode) {
   // The real credential is intentionally copied into Dolly's ephemeral
   // in-memory filesystem. A fresh browser profile avoids unrelated persistence
   // outside that sandbox while exercising the same setup applications use.
@@ -1705,6 +1716,9 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
             status: 200,
             headers: { "content-type": "application/json" },
           });
+        }
+        if (${bhopAgentMode} && target.origin === "https://openrouter.ai") {
+          return nativeFetch(${JSON.stringify(localOrigin)} + "/fixture/bhop" + target.pathname, init);
         }
         if (${classicubeAgentMode} && target.origin === "https://openrouter.ai") {
           return nativeFetch(${JSON.stringify(localOrigin)} + "/fixture/classicube" + target.pathname, init);
@@ -1963,6 +1977,17 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       });
       const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
       await writeFile(resolve(projectDir, "build/local-model-browser.png"), screenshot.data, "base64");
+      break browserProof;
+    }
+    if (bhopAgentMode || bhopAgentLiveMode) {
+      const { chromium } = await import("playwright-core");
+      const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
+      try {
+        const page = browser.contexts()[0].pages().find(page => page.url() === initialPage);
+        await runBhopAgentProof({page, projectDir, fixture:bhopAgentMode ? bhopModelFixture : null,
+          modelsFile:classicubeRelayFile, downloadDirectory:browserDownloadDirectory});
+      } finally { await browser.close(); }
+      if (bhopAgentMode) bhopModelFixture.verify();
       break browserProof;
     }
     if (classicubePlaywrightMode) {
