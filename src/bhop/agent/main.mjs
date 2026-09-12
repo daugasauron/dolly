@@ -13,11 +13,12 @@ if(!/^\/workspace\/bhop-runs\/run-[\w-]+$/.test(run)||!fs.existsSync(run))run=fs
 writeAtomic(fs,runFile,run);
 writeAtomic(fs,`${scratch}/players.txt`,`1\tRunner\t${profile}\t${scratch}`);writeAtomic(fs,`${scratch}/watching`,'1');
 const viewer=spawn('bhop-viewer',[scratch,profile,'960','540','1','Airtime / Foundry'],{stdio:['ignore','inherit','inherit']});
-const closed=new Promise(resolve=>viewer.once('close',()=>{writeAtomic(fs,`${scratch}/stop`,'1');resolve();}));
+const closed=new Promise(resolve=>viewer.once('close',(code,signal)=>{writeAtomic(fs,`${scratch}/stop`,signal?`Viewer received ${signal}`:`Viewer exited (${code})`);resolve();}));
 viewer.on('error',error=>{console.error(error.message);writeAtomic(fs,`${scratch}/stop`,'1');});
 const environment=(scratch,run)=>({DOLLY_BHOP_DIR:scratch,DOLLY_BHOP_RUN:run});
+let reason='Startup failed';
 try {
-  await runAgent({fs,spawn,world:'/workspace',run,scratch,directory:profile,app:{
+  reason=await runAgent({fs,spawn,world:'/workspace',run,scratch,directory:profile,app:{
     command:'bhop',connect,describe,toolText,tools:['game_input','review_attempt'],
     extension:'/usr/src/dolly/bhop/agent/player.js',instructions:'/usr/src/dolly/bhop/agent/PLAYER.md',
     agentEnvironment:environment,gameEnvironment:environment,review:exportReplay,
@@ -26,5 +27,5 @@ try {
   }});
 } finally {
   viewer.kill('SIGTERM');const force=setTimeout(()=>viewer.kill('SIGKILL'),2000);await closed;clearTimeout(force);
-  fs.rmSync(scratch,{recursive:true,force:true});console.log(`Bhop attempts and profile saved. Recordings: ${run}`);
+  fs.rmSync(scratch,{recursive:true,force:true});console.log(`Bhop stopped: ${reason}. Attempts and profile saved. Recordings: ${run}`);
 }

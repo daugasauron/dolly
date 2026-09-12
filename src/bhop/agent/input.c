@@ -35,11 +35,11 @@ static FILE *open_file(const char *name, const char *mode) { char p[1024]; path(
 static void remove_file(const char *name) { char p[1024]; path(p, name); unlink(p); }
 static int publish(const char *name, const void *header, size_t size, const void *data, size_t length) {
     char target[1024], temporary[1030]; path(target, name); snprintf(temporary, sizeof(temporary), "%s.tmp", target);
-    FILE *file = fopen(temporary, "wb"); if (!file) return 0;
+    FILE *file = fopen(temporary, "wb"); if (!file) { perror(temporary); return 0; }
     int okay = fwrite(header, 1, size, file) == size && (!length || fwrite(data, 1, length, file) == length);
     if (fclose(file)) okay = 0;
     if (okay) okay = !rename(temporary, target);
-    if (!okay) unlink(temporary);
+    if (!okay) { perror(target); unlink(temporary); }
     return okay;
 }
 static void log_input(const dolly_input_event *event) {
@@ -157,15 +157,15 @@ int bh_agent_frame(const void *pixels) {
     if (!bh_agent_capture_due()) return 1;
     Image image = {(void *)pixels, WIDTH, HEIGHT, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
     int size = 0; unsigned char *png = ExportImageToMemory(image, ".png", &size);
-    if (!png || size <= 0) { MemFree(png); return 0; }
+    if (!png || size <= 0) { fputs("bhop: PNG encoding failed\n", stderr); MemFree(png); return 0; }
     if (recording && (force_sample || tick != last_sample_tick)) {
         char name[1100]; snprintf(name, sizeof(name), "%s/frame-%06u.png", attempt_path, sample);
         FILE *file = fopen(name, "wb");
-        if (!file) { MemFree(png); return 0; }
+        if (!file) { perror(name); MemFree(png); return 0; }
         int okay = fwrite(png, 1, size, file) == (size_t)size; if (fclose(file)) okay = 0;
-        if (!okay) { MemFree(png); return 0; }
+        if (!okay) { perror(name); MemFree(png); return 0; }
         snprintf(name, sizeof(name), "%s/frames.jsonl", attempt_path); file = fopen(name, "a");
-        if (!file) { MemFree(png); return 0; }
+        if (!file) { perror(name); MemFree(png); return 0; }
         fprintf(file, "{\"index\":%u,\"tick\":%u,\"milliseconds\":%u,\"wall_ms\":%u}\n", sample++, tick - attempt_tick, (tick - attempt_tick) * 10, header[1]);
         fclose(file); force_sample = 0; last_sample_tick = tick;
     }

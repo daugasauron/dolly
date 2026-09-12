@@ -213,7 +213,10 @@ export async function runAgent({ fs, spawn, world, run, scratch, directory: sett
   fs.closeSync(gameLog);
   try {
     while (!stopped) {
-      if (fs.existsSync(`${scratch}/stop`)) { stop("Player stopped"); break; }
+      if (fs.existsSync(`${scratch}/stop`)) {
+        const message=fs.readFileSync(`${scratch}/stop`, "utf8").trim();
+        stop(message && message !== "1" ? message : "Player stopped"); break;
+      }
       const gate = control();
       if (waitingSince && state.startsWith("Waiting for provider") && Math.floor((Date.now() - waitingSince) / 1000) !== waitingSecond) {
         waitingSecond = Math.floor((Date.now() - waitingSince) / 1000); status(`Waiting for provider · ${waitingSecond} s`);
@@ -255,6 +258,9 @@ export async function runAgent({ fs, spawn, world, run, scratch, directory: sett
       }
       await wait(33);
     }
+  } catch (error) {
+    stop(`Supervisor error: ${error.message}`);
+    console.error(reason);
   } finally {
     stop("World closed"); await closeAgent();
     fs.writeFileSync(`${scratch}/stop`, "1");
@@ -267,6 +273,6 @@ export async function runAgent({ fs, spawn, world, run, scratch, directory: sett
     }
     fs.writeFileSync(`${run}/result.txt`, reason + "\n");
     atomic("ended", reason);
-    return reason;
   }
+  return reason;
 }
