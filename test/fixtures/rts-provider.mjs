@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 
 export function rtsProvider() {
   const requests = [];
+  const firstModels = new Set();
+  let releaseFirst;
+  const bothStarted = new Promise(resolve => { releaseFirst = resolve; });
   async function handle(request, response, headers) {
     assert.equal(request.method, "POST");
     assert.equal(request.headers.authorization, "Bearer rts-fixture-only");
@@ -19,6 +22,16 @@ export function rtsProvider() {
     const id = `rts-fixture-${requests.length}`;
     response.writeHead(200, { ...headers, "content-type": "text/event-stream" });
     response.flushHeaders();
+    if (!firstModels.has(payload.model)) {
+      firstModels.add(payload.model);
+      if (firstModels.size === 2) releaseFirst();
+      let timeout;
+      try {
+        await Promise.race([bothStarted, new Promise((_, reject) => {
+          timeout = setTimeout(() => reject(Error("RTS players did not start overlapping HTTP streams")), 30000);
+        })]);
+      } finally { clearTimeout(timeout); }
+    }
     await new Promise(resolve => setTimeout(resolve, payload.model === "rts-test-fast" ? 30 : 4000));
     if (response.destroyed) return;
     const send = (delta, finish_reason = null) => response.write(`data: ${JSON.stringify({
@@ -42,6 +55,7 @@ export function rtsProvider() {
     response.end("data: [DONE]\n\n");
   }
   function verify() {
+    assert.equal(firstModels.size, 2, "Both players must start HTTP before either initial response finishes");
     const fast = requests.filter(request => request.model === "rts-test-fast");
     const slow = requests.filter(request => request.model === "rts-test-slow");
     assert.ok(fast.length >= 2 && slow.length >= 2, "Both actual Pi sessions must complete tool/provider cycles");
@@ -57,7 +71,7 @@ export function rtsProvider() {
         JSON.stringify(message.content).includes("RTS-FIXTURE-INTENT"))), "Ordinary assistant intent must reach subsequent requests");
       assert.ok(sequence.some(request => request.images[0] !== sequence[0].images[0]), "Fresh tool screenshots must reach the provider");
     }
-    return { fast: fast.length, slow: slow.length };
+    return { fast: fast.length, slow: slow.length, overlappingPlayers: firstModels.size };
   }
   return { handle, verify };
 }
