@@ -5,18 +5,29 @@ export async function exportReplay(fs,run,scratch,command) {
   const names=fs.readdirSync(run).filter(name=>/^attempt-\d{6}$/.test(name)).sort();
   for(const name of names) {
     const saved=recording(fs,run,Number(name.slice(8))),file=`${attemptPath(run,saved.attempt)}/inputs.jsonl`;
-    attempts.push({id:saved.attempt,frames:saved.frames.map(frame=>({...frame,url:'data:image/png;base64,'+fs.readFileSync(framePath(run,saved.attempt,frame.index)).toString('base64')})),
+    attempts.push({id:saved.attempt,totalFrames:saved.frames.length,frames:saved.frames.map(frame=>({...frame,bytes:4*Math.ceil(fs.statSync(framePath(run,saved.attempt,frame.index)).size/3)+256})),
       inputs:fs.existsSync(file)?fs.readFileSync(file,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[]});
   }
+  // Bound the portable preview before reading PNG payloads. Original frames stay intact.
+  const overhead=Buffer.byteLength(JSON.stringify(attempts.map(a=>({...a,frames:[]}))));
+  const longest=Math.max(0,...attempts.map(a=>a.frames.length));
+  let stride=1;
+  const selected=(frame,n,frames)=>n%stride===0||n===frames.length-1;
+  while(overhead+attempts.reduce((sum,a)=>sum+a.frames.filter(selected).reduce((sum,f)=>sum+f.bytes,0),0)>48*1024*1024) {
+    if(stride>=longest)throw Error(`Replay index exceeds the portable download budget. Full recordings remain in ${run}.`);
+    stride*=2;
+  }
+  for(const attempt of attempts) attempt.frames=attempt.frames.filter(selected).map(({bytes,...frame})=>({...frame,
+    url:'data:image/png;base64,'+fs.readFileSync(framePath(run,attempt.id,frame.index)).toString('base64')}));
   const path=`${scratch}/bhop-attempts.html`;
   fs.writeFileSync(path,`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Airtime attempt review</title>
 <style>body{margin:0;background:#0c121b;color:#e7ebea;font:16px system-ui}main{max-width:1200px;margin:auto;padding:20px}header,nav{display:flex;gap:16px;align-items:center;flex-wrap:wrap}h1{font-size:22px}button,select{font:inherit;background:#263f49;color:inherit;border:1px solid #597a88;padding:8px}img{display:block;width:100%;margin:16px 0}input{flex:1;min-width:180px}pre{white-space:pre-wrap;max-height:240px;overflow:auto;color:#91dae0}small{color:#a4b1b9}</style>
-<main><header><h1>Airtime / Attempt review</h1><select aria-label="Attempt"></select><small>Recorded framebuffers and keyboard/mouse events</small></header>
+<main><header><h1>Airtime / Attempt review</h1><select aria-label="Attempt"></select><small id="coverage"></small></header>
 <img alt="Recorded bhop framebuffer"><nav><button id="play">Play</button><button id="back">Previous</button><input type="range" min="0" value="0" aria-label="Frame"><button id="next">Next</button><output></output></nav><pre></pre></main>
 <script>const attempts=${JSON.stringify(attempts).replace(/</g,'\\u003c')},select=document.querySelector('select'),slider=document.querySelector('input'),output=document.querySelector('output'),image=document.querySelector('img');let timer;
 for(const a of attempts)select.add(new Option('Attempt '+a.id,a.id));select.selectedIndex=attempts.length-1;
 function current(){return attempts.find(a=>a.id===Number(select.value))}
-function draw(){const a=current(),f=a?.frames[Number(slider.value)];slider.max=Math.max(0,(a?.frames.length||1)-1);if(!f){output.textContent='No frames recorded yet';return}image.src=f.url;output.textContent='Frame '+f.index+' · '+(f.milliseconds/1000).toFixed(2)+' s';document.querySelector('pre').textContent=a.inputs.filter(e=>e.tick<=f.tick&&e.tick>f.tick-20).map(e=>e.type===1?(e.tick*10)+' ms '+e.code+(e.action?' down':' up'):e.type===8?(e.tick*10)+' ms mouse ('+e.dx_milli/1000+', '+e.dy_milli/1000+')':e.type===7?(e.tick*10)+' ms wheel '+e.action:(e.tick*10)+' ms pointer '+(e.action?'captured':'released')).join('\\n')}
+function draw(){const a=current(),f=a?.frames[Number(slider.value)];slider.max=Math.max(0,(a?.frames.length||1)-1);document.querySelector('#coverage').textContent=a?a.frames.length+' of '+a.totalFrames+' recorded frames · '+(a.frames.length<a.totalFrames?'Sampled portable preview; full PNGs remain in Dolly.':'All frames included.'):'No attempts recorded';if(!f){output.textContent='No frames recorded yet';return}image.src=f.url;output.textContent='Frame '+f.index+' · '+(f.milliseconds/1000).toFixed(2)+' s';document.querySelector('pre').textContent=a.inputs.filter(e=>e.tick<=f.tick&&e.tick>f.tick-20).map(e=>e.type===1?(e.tick*10)+' ms '+e.code+(e.action?' down':' up'):e.type===8?(e.tick*10)+' ms mouse ('+e.dx_milli/1000+', '+e.dy_milli/1000+')':e.type===7?(e.tick*10)+' ms wheel '+e.action:(e.tick*10)+' ms pointer '+(e.action?'captured':'released')).join('\\n')}
 function stop(){clearTimeout(timer);timer=null;document.querySelector('#play').textContent='Play'}
 function step(){const a=current(),n=Number(slider.value);if(!a||n>=a.frames.length-1){stop();return}timer=setTimeout(()=>{slider.value=n+1;draw();step()},Math.max(10,a.frames[n+1].milliseconds-a.frames[n].milliseconds))}
 select.onchange=()=>{stop();slider.value=0;draw()};slider.oninput=()=>{stop();draw()};document.querySelector('#back').onclick=()=>{stop();slider.value=Number(slider.value)-1;draw()};document.querySelector('#next').onclick=()=>{stop();slider.value=Number(slider.value)+1;draw()};document.querySelector('#play').onclick=()=>{if(timer)stop();else{if(Number(slider.value)>=Number(slider.max))slider.value=0;draw();document.querySelector('#play').textContent='Pause';step()}};draw();</script></html>`);

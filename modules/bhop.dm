@@ -14,7 +14,7 @@ REQUIRES HEADER sdl2
 REQUIRES LIB dolly-js
 REQUIRES LIB SDL2
 
-SOURCE HOST /static/bhop/source.tar /tmp/bhop-source.tar cd52be55fd03826c67c844a13ed1b898b7739986b1180ff86d7f239249311762
+SOURCE HOST /static/bhop/source.tar /tmp/bhop-source.tar 215c847c6da05473492913dc3da68d496ce9d9761183edca1f8a6cf31e390c66
 SOURCE HOST /static/default/stb_truetype.h /tmp/bhop-stb/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
 SLOP tar -xf /tmp/bhop-source.tar -C /
 FILE /usr/src/dolly/game-agent/COPYING
