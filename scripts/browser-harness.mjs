@@ -322,6 +322,7 @@ const rtsModelFixture = rtsProvider();
 const classicubeModelFixture = classicubeProvider();
 const bhopModelFixture = bhopProvider();
 const janisAbortRequests = [];
+const httpOverlapPairs = new Map();
 let cancelledQueuedRequestSeen = false;
 const piFixtureStream = { request: 0, phase: "idle" };
 
@@ -502,6 +503,24 @@ function startServer() {
           "content-type": "text/plain; charset=utf-8",
         });
         response.end("FETCHED-THROUGH-BROWSER\n");
+        return;
+      }
+      if (requestUrl.pathname === "/fixture/http-overlap") {
+        // Distinct request URLs avoid the browser's identical-GET cache lock.
+        const group = requestUrl.searchParams.get("group") || "default";
+        let pair = httpOverlapPairs.get(group);
+        if (!pair) {
+          pair = { responses: [], timer: setTimeout(() => {
+            httpOverlapPairs.delete(group);
+            for (const waiting of pair.responses) { waiting.writeHead(504, isolatedHeaders); waiting.end("requests did not overlap"); }
+          }, 3000) };
+          httpOverlapPairs.set(group, pair);
+        }
+        pair.responses.push(response);
+        if (pair.responses.length === 2) {
+          clearTimeout(pair.timer); httpOverlapPairs.delete(group);
+          for (const waiting of pair.responses) { waiting.writeHead(200, isolatedHeaders); waiting.end("OVERLAP-OK\n"); }
+        }
         return;
       }
       if (libcurlContractMode && requestUrl.pathname === "/fixture/pi/libcurl-contract") {
@@ -2661,7 +2680,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
           { phase: "header", finished: false, closed: true },
         ], "rejected callbacks must close the actual HTTP connections");
       } finally { await submit(`rm -rf ${scratch}`); }
-      console.log("browser: libcurl rejects unavailable options, enforces protocol restrictions before HTTP, and preserves explicit authentication/callback state");
+      console.log("browser: libcurl multi transfers overlap at the server; unavailable options, protocol restrictions, authentication and callback cancellation passed");
       break browserProof;
     }
     if (janisProcessMode) {
@@ -2679,10 +2698,12 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await submit(`timeout 30 janis -m ${scratch}/probe.mjs ${scratch} ${localOrigin}`), 0);
         await delay(100);
         assert.equal(cancelledQueuedRequestSeen, false, "a cancelled queued fetch must never reach HTTP");
-        assert.deepEqual(janisAbortRequests.map(({ path, finished, closed }) => [path.split("/").at(-1), finished, closed]),
-          [["before", false, true], ["body", false, true], ["cancel", false, true]], "abort/cancel must close the actual HTTP connections");
+        assert.deepEqual(janisAbortRequests.map(({ path, finished, closed }) => [path.split("/").at(-1), finished, closed]).sort(),
+          [["before", false, true], ["body", false, true], ["cancel", false, true],
+            ["child-one", false, true], ["child-two", false, true], ["peer", true, true]].sort(),
+          "abort/exit must close only the owner's actual HTTP connections");
       } finally { await submit(`rm -rf ${scratch}`); }
-      console.log("browser: Janis real children, input/env/cwd, streaming, kill, child/HTTP abort and deadlines passed");
+      console.log("browser: Janis same-process/cross-process HTTP overlap, 18-request saturation, per-process cancellation preserving a peer, children and streaming/deadlines passed");
       break browserProof;
     }
     if (pythonProcessMode) {
@@ -4338,9 +4359,9 @@ int main(int argc, char **argv) {
         `${image}/`, `${image}/rebuild/`, `view/${image}/`,
       ]).map(path => new URL(path, menuEvidence.url).href).toSorted());
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
-      const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
+      const menuOrder = ["default", "bhop", "classicube", "codex", "dollyfile-studio", "external-source",
         "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi", "rts-arena",
-        "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
+        "classicube-build", "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
         "protox-build", "python-runtime", "ripgrep", "rts-build", "rust-sdk", "rust-tools", "sdl2-build", "system", "system-build"];
       const selected = new Set(imageDefinitions.map(({ image }) => image));
       assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image), menuOrder.filter(image => selected.has(image)));

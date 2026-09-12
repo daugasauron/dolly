@@ -657,18 +657,35 @@ function parseResponseHeaders(block) {
 }
 
 class DollyResponse {
-  constructor(native) {
-    this.status = native.status;
-    this.statusText = "";
+  constructor(body = null, init = {}) {
+    this.status = Number(init.status ?? 200);
+    if (!Number.isInteger(this.status) || this.status < 200 || this.status > 599) {
+      throw new RangeError("invalid response status");
+    }
+    this.statusText = String(init.statusText ?? "");
+    if (/[^\t\x20-\x7e\x80-\xff]/.test(this.statusText)) throw new TypeError("invalid response status text");
+    if (body !== null && [204, 205, 304].includes(this.status)) throw new TypeError("response status forbids a body");
     this.ok = this.status >= 200 && this.status < 300;
-    this.url = native.url;
+    this.url = "";
     this.redirected = false;
-    this.type = "basic";
-    this.headers = parseResponseHeaders(native.headers);
-    this.body = native.body;
+    this.type = "default";
+    this.headers = new DollyHeaders(init.headers);
+    if (body !== null && !(body instanceof ReadableStream)) {
+      let bytes, contentType;
+      if (ArrayBuffer.isView(body)) bytes = new Uint8Array(body.buffer, body.byteOffset, body.byteLength).slice();
+      else if (body instanceof ArrayBuffer) bytes = new Uint8Array(body.slice(0));
+      else {
+        bytes = new TextEncoder().encode(String(body));
+        contentType = body instanceof URLSearchParams ? "application/x-www-form-urlencoded;charset=UTF-8" : "text/plain;charset=UTF-8";
+      }
+      if (contentType && !this.headers.has("content-type")) this.headers.set("content-type", contentType);
+      body = new ReadableStream({ start(controller) { controller.enqueue(bytes); controller.close(); } });
+    }
+    this.body = body;
     this.bodyUsed = false;
   }
   async #consume() {
+    if (this.body === null) return new Uint8Array();
     if (this.bodyUsed) throw new TypeError("response body was already consumed");
     this.bodyUsed = true;
     const chunks = [];
@@ -723,12 +740,14 @@ function failHttp(request, error, cancel = true) {
 function resolveHttpHeaders(request) {
   if (request.resolved) return;
   request.resolved = true;
-  request.resolve(new DollyResponse({
+  const body = request.method === "HEAD" || [204, 205, 304].includes(request.status) ? null : request.body;
+  const response = new DollyResponse(body, {
     status: request.status,
-    url: request.effectiveUrl || request.requestUrl,
-    headers: request.headers,
-    body: request.body,
-  }));
+    headers: parseResponseHeaders(request.headers),
+  });
+  response.url = request.effectiveUrl || request.requestUrl;
+  response.type = "basic";
+  request.resolve(response);
 }
 
 // Polling never crosses the browser boundary itself: it only consumes the
@@ -743,9 +762,9 @@ globalThis.__dollyHttpPump = () => {
           request.headerBlock, request.requestBody);
         request.requestBody = null;
       } catch (error) {
-        // The one in-Wasm mailbox may also be owned by another process.
+        // Keep polling active transfers while admission waits for pool capacity.
         // Retry on a later event-loop turn; queued aborts remain immediate.
-        if (error.code === "EBUSY") break;
+        if (error.code === "EBUSY") continue;
         failHttp(request, error);
         continue;
       }

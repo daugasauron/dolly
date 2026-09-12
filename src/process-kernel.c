@@ -67,7 +67,7 @@ typedef struct {
   unsigned char *image;
   size_t image_size;
   uint64_t deadline_nanoseconds;
-  uint32_t http_sequence;
+  uint32_t http_sequences[DOLLY_HTTP_SLOT_COUNT];
   uint32_t pending_signals;
   int handling_signal;
 } dolly_kernel_process;
@@ -199,9 +199,11 @@ static void release_descriptor(dolly_kernel_process *process,
 
 static void release_process_resources(dolly_kernel_process *process) {
   dolly_upload_cancel_process(process->pid);
-  if (process->http_sequence != 0) {
-    (void)dolly_http_cancel(process->http_sequence);
-    process->http_sequence = 0;
+  for (size_t index = 0; index < DOLLY_HTTP_SLOT_COUNT; ++index) {
+    if (process->http_sequences[index] != 0) {
+      (void)dolly_http_cancel(process->http_sequences[index]);
+      process->http_sequences[index] = 0;
+    }
   }
   for (size_t index = 0; index < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++index) {
     release_descriptor(process, (uint32_t)index);
@@ -1457,7 +1459,6 @@ static int64_t http_start_packet(dolly_kernel_process *process,
       response_capacity < sizeof(dolly_process_http_start_response)) {
     return -EINVAL;
   }
-  if (process->http_sequence != 0) return -EBUSY;
   dolly_process_http_start_request request;
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.method_size == 0 || request.url_size == 0 ||
@@ -1502,7 +1503,7 @@ static int64_t http_start_packet(dolly_kernel_process *process,
       method, url, headers, cursor, body_size, request.flags, &sequence);
   free(strings);
   if (result != 0) return result;
-  process->http_sequence = sequence;
+  process->http_sequences[(sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = sequence;
   const dolly_process_http_start_response response = {sequence, 0};
   memcpy(process_mailbox, &response, sizeof(response));
   return sizeof(response);
@@ -1518,7 +1519,7 @@ static int64_t http_poll_packet(dolly_kernel_process *process,
   dolly_process_http_poll_request request;
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0 || request.sequence == 0 ||
-      request.sequence != process->http_sequence) return -ESTALE;
+      request.sequence != process->http_sequences[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT]) return -ESTALE;
   dolly_http_chunk chunk = {0};
   const size_t data_capacity =
       (size_t)response_capacity - sizeof(dolly_process_http_poll_response);
@@ -1532,7 +1533,7 @@ static int64_t http_poll_packet(dolly_kernel_process *process,
       (uint32_t)result, chunk.status, chunk.kind, chunk.error, chunk.eof, 0, chunk.length,
   };
   memcpy(process_mailbox, &response, sizeof(response));
-  if (chunk.eof) process->http_sequence = 0;
+  if (chunk.eof) process->http_sequences[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = 0;
   return (int64_t)(sizeof(response) + chunk.length);
 }
 
@@ -1544,9 +1545,9 @@ static int64_t http_cancel_packet(dolly_kernel_process *process,
   dolly_process_http_cancel_request request;
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0 || request.sequence == 0 ||
-      request.sequence != process->http_sequence) return -ESTALE;
+      request.sequence != process->http_sequences[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT]) return -ESTALE;
   const int result = dolly_http_cancel(request.sequence);
-  if (result == 0) process->http_sequence = 0;
+  if (result == 0) process->http_sequences[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = 0;
   return result;
 }
 

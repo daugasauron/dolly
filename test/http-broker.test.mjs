@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../src/http-broker.mjs";
+import { NetworkTransport, DOLLY_HTTP_LIMITS, DOLLY_HTTP_SLOT_COUNT } from "../src/http-broker.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../src/http-policy.mjs";
 import { localServicesTransport } from "../src/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
@@ -12,17 +12,20 @@ function fixture(configuration = {}, fetchRequest) {
     rules: [{ origin: new URL(target).origin, path: "/allowed", methods: ["GET", "POST"],
       timeoutMilliseconds: 1000, ...configuration }],
   });
-  const broker = new NetworkTransport(new SharedArrayBuffer(65536 + 128), 64, 65536,
+  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, 65536,
     policy, { fetchRequest, baseURL: target });
-  const store = (field, value) => Atomics.store(broker.words, broker.word + field, value);
-  const load = field => Atomics.load(broker.words, broker.word + field);
+  let currentSequence = 1;
+  const address = () => broker.address + ((currentSequence - 1) % DOLLY_HTTP_SLOT_COUNT) * (65536 + 64);
+  const store = (field, value) => Atomics.store(broker.words, address() / 4 + field, value);
+  const load = field => Atomics.load(broker.words, address() / 4 + field);
   const request = (overrides = {}, sequence = 1) => {
+    currentSequence = sequence;
     store(NetworkTransport.sequence, sequence);
     store(NetworkTransport.state, 1);
     return broker.request({ method: "GET", url: target, headers: "", body: null,
       flags: 0, sequence, ...overrides });
   };
-  return { broker, store, load, request };
+  return { broker, store, load, request, get word() { return address() / 4; }, get address() { return address(); } };
 }
 
 async function bounded(promise) {
@@ -34,6 +37,10 @@ async function bounded(promise) {
   } finally { clearTimeout(timer); }
 }
 
+async function settled(f) {
+  while (f.broker.active) await new Promise(resolve => setTimeout(resolve, 1));
+}
+
 async function consume(f, request) {
   const records = [];
   const drain = () => {
@@ -41,9 +48,9 @@ async function consume(f, request) {
     const length = f.load(NetworkTransport.length);
     const eof = f.load(NetworkTransport.eof);
     records.push({ kind: f.load(NetworkTransport.kind), eof,
-      bytes: f.broker.bytes.slice(f.broker.address + 64, f.broker.address + 64 + length) });
-    Atomics.compareExchange(f.broker.words, f.broker.word, 2, eof ? 0 : 1);
-    Atomics.notify(f.broker.words, f.broker.word);
+      bytes: f.broker.bytes.slice(f.address + 64, f.address + 64 + length) });
+    Atomics.compareExchange(f.broker.words, f.word, 2, eof ? 0 : 1);
+    Atomics.notify(f.broker.words, f.word);
   };
   const interval = setInterval(drain, 1);
   try { await bounded(request); drain(); return records; }
@@ -173,12 +180,28 @@ test("a non-consuming mailbox cannot retain HTTP resources past the host deadlin
   await bounded(f.request());
   assert.equal(signal.aborted, true);
   assert.equal(f.broker.active, false);
-  assert.equal(f.broker.activeToken, 0);
   assert.equal(f.load(NetworkTransport.state), 3);
   assert.equal(f.load(NetworkTransport.error), errno.ETIMEDOUT);
   // A late acknowledgement of the old chunk must not erase terminal failure.
-  assert.equal(Atomics.compareExchange(f.broker.words, f.broker.word, 2, 1), 3);
+  assert.equal(Atomics.compareExchange(f.broker.words, f.word, 2, 1), 3);
   assert.equal(f.load(NetworkTransport.state), 3);
+});
+
+test("a provider ignoring abort cannot hide a deadline or release its occupied slot", async () => {
+  let finish;
+  const f = fixture({ timeoutMilliseconds: 20 }, () => new Promise(resolve => { finish = resolve; }));
+  const pending = f.request();
+  await bounded((async () => {
+    while (f.load(NetworkTransport.state) !== 3) await new Promise(resolve => setTimeout(resolve, 1));
+  })());
+  assert.equal(f.load(NetworkTransport.error), errno.ETIMEDOUT);
+  assert.equal(f.broker.active, true, "the unresolved provider still occupies its host slot");
+  f.store(NetworkTransport.state, 0); // Wasm consumes the terminal error.
+  finish(new Response("late"));
+  await bounded(pending);
+  assert.equal(f.broker.active, false);
+  assert.equal(f.load(NetworkTransport.state), 0, "late completion must not resurrect an unowned terminal slot");
+  assert.equal(f.load(NetworkTransport.error), errno.ETIMEDOUT);
 });
 
 test("interrupting an old HTTP request does not abort or overwrite its successor", async () => {
@@ -187,7 +210,7 @@ test("interrupting an old HTTP request does not abort or overwrite its successor
     signals.push(options.signal); return new Response("ok");
   });
   const old = f.request();
-  f.broker.interrupt();
+  await f.broker.dispatch(cancelMessage(1));
   const next = f.request({}, 2);
   await bounded(old);
   assert.equal(signals[0].aborted, true);
@@ -198,24 +221,21 @@ test("interrupting an old HTTP request does not abort or overwrite its successor
 });
 
 test("a queued publication cannot write after interruption", async () => {
-  const f = fixture();
-  f.broker.activeToken = 1;
-  f.store(NetworkTransport.sequence, 1);
+  const f = fixture({}, async () => new Response("old"));
+  const pending = f.request();
+  await f.broker.dispatch(cancelMessage(1));
+  f.store(NetworkTransport.sequence, 17);
   f.store(NetworkTransport.state, 1);
-  const pending = f.broker.publish(1, 1, Uint8Array.of(42), 200, false, 0, 3);
-  f.broker.interrupt();
-  f.store(NetworkTransport.sequence, 2);
-  f.store(NetworkTransport.state, 1);
-  await assert.rejects(pending, { name: "AbortError" });
+  await bounded(pending);
   assert.equal(f.load(NetworkTransport.state), 1);
   assert.equal(f.load(NetworkTransport.length), 0);
-  assert.equal(f.broker.bytes[f.broker.address + NetworkTransport.headerSize], 0);
+  assert.equal(f.broker.bytes[f.address + NetworkTransport.headerSize], 0);
 });
 
-function admission(f, overrides = {}) {
+function admission(f, overrides = {}, sequence = 1) {
   const memory = new SharedArrayBuffer(1024);
   const bytes = new Uint8Array(memory);
-  const message = { memory, flags: 0, sequence: 1 };
+  const message = { memory, flags: 0, sequence };
   let offset = 8;
   for (const [name, value] of Object.entries({ method: "GET", url: target, headers: "", body: "", ...overrides })) {
     const data = new TextEncoder().encode(value);
@@ -224,7 +244,7 @@ function admission(f, overrides = {}) {
     bytes.set(data, offset);
     offset += data.length;
   }
-  f.store(NetworkTransport.sequence, 1);
+  f.store(NetworkTransport.sequence, sequence);
   f.store(NetworkTransport.state, 1);
   return message;
 }
@@ -238,7 +258,7 @@ test("HTTP metadata is not repaired by stripping Unicode before validation", asy
     let calls = 0;
     const f = fixture({}, async () => { calls++; return new Response("ok"); });
     assert.equal(await f.broker.dispatch(admission(f, fields)), 0);
-    await consume(f, f.broker.pending);
+    await consume(f, settled(f));
     assert.equal(calls, 0, JSON.stringify(fields));
     assert.equal(f.load(NetworkTransport.error), fields.url ? errno.EACCES : errno.EINVAL);
   }
@@ -251,7 +271,7 @@ test("HTTP header values use Fetch whitespace normalization, not Unicode trim", 
       observed = options.headers.get("x-value"); return new Response("ok");
     });
     assert.equal(await f.broker.dispatch(admission(f, { headers: `X-Value:${value}\r\n` })), 0);
-    await consume(f, f.broker.pending);
+    await consume(f, settled(f));
     assert.equal(observed, new Headers({ "X-Value": value }).get("x-value"));
   }
 });
@@ -269,10 +289,10 @@ test("HTTP validates every span before decoding or copying any guest data", asyn
   }
   assert.equal(decode.mock.callCount(), 0);
   assert.equal(copy.mock.callCount(), 0);
-  assert.equal(f.broker.pending, null);
+  assert.equal(f.broker.active, false);
 });
 
-test("HTTP admission copies explicit spans, rejects overlap, and cancels before readmission", async () => {
+test("HTTP admission rejects occupied slots and cancels the exact handle", async () => {
   let calls = 0;
   const f = fixture({}, async (_url, options) => {
     calls++;
@@ -282,11 +302,11 @@ test("HTTP admission copies explicit spans, rejects overlap, and cancels before 
   assert.equal(await f.broker.dispatch(message), 0);
   assert.equal(calls, 1);
   assert.equal(await f.broker.dispatch(message), -errno.EBUSY);
-  const cancel = { ...message, sequence: 2 };
+  const cancel = { ...message };
   for (const name of Object.keys(DOLLY_HTTP_LIMITS)) { cancel[name] = 0n; cancel[`${name}Size`] = 0n; }
-  f.store(NetworkTransport.sequence, 2);
   assert.equal(await bounded(f.broker.dispatch(cancel)), 0);
-  assert.equal(f.broker.pending, null);
+  await bounded(settled(f));
+  assert.equal(f.broker.active, false);
   assert.equal(calls, 1);
   assert.equal(await f.broker.dispatch({ ...cancel, urlSize: 1n }), -errno.EINVAL);
   const bytes = new Uint8Array(message.memory);
@@ -303,8 +323,122 @@ test("HTTP terminal errors distinguish quota, timeout, cancellation, and opaque 
   f.broker.policy.maxRequests = 1;
   await bounded(f.request({}, 2));
   assert.equal(f.load(NetworkTransport.error), errno.EDQUOT);
-  f.broker.activeToken = 3;
-  f.broker.interrupt();
+  f.broker.policy.maxRequests = 100;
+  f.broker.fetchRequest = async () => new Response("cancel me");
+  const cancelled = f.request({}, 3);
+  await f.broker.dispatch(cancelMessage(3));
+  await bounded(cancelled);
   assert.equal(f.load(NetworkTransport.state), 3);
   assert.equal(f.load(NetworkTransport.error), errno.ECANCELED);
+});
+
+function channel(broker, sequence) {
+  const address = broker.address + ((sequence - 1) % DOLLY_HTTP_SLOT_COUNT) * (65536 + 64);
+  const word = address / 4;
+  return { broker, address, word,
+    store: (field, value) => Atomics.store(broker.words, word + field, value),
+    load: field => Atomics.load(broker.words, word + field) };
+}
+
+function cancelMessage(sequence) {
+  return { sequence, flags: 0, ...Object.fromEntries(Object.keys(DOLLY_HTTP_LIMITS)
+    .flatMap(name => [[name, 0n], [`${name}Size`, 0n]])) };
+}
+
+test("HTTP handles preserve their high bit across the Wasm i32 import", async () => {
+  const f = fixture({}, async (_url, { signal }) => new Promise((_, reject) =>
+    signal.addEventListener("abort", () => reject(signal.reason))));
+  for (const sequence of [0x80000000, 0xffffffff]) {
+    const view = channel(f.broker, sequence);
+    const message = admission(view, {}, sequence);
+    assert.equal(await f.broker.dispatch({ ...message, sequence: sequence | 0 }), 0);
+    assert.equal(await f.broker.dispatch(cancelMessage(sequence | 0)), 0);
+    await bounded(settled(f));
+    assert.equal(view.load(NetworkTransport.state), 3);
+    assert.equal(view.load(NetworkTransport.error), errno.ECANCELED);
+  }
+});
+
+test("independent HTTP streams reach the provider before either response completes", async () => {
+  const responses = [];
+  const f = fixture({}, async () => new Promise(resolve => responses.push(resolve)));
+  const channels = [channel(f.broker, 1), channel(f.broker, 2)];
+  for (let index = 0; index < channels.length; index++)
+    assert.equal(await f.broker.dispatch(admission(channels[index], {}, index + 1)), 0);
+  assert.equal(responses.length, 2, "requests must overlap at the actual provider call");
+  const consumers = channels.map(view => consume(view, settled(f)));
+  responses.forEach((resolve, index) => resolve(new Response(`player-${index + 1}`)));
+  const records = await Promise.all(consumers);
+  assert.deepEqual(records.map(items => Buffer.concat(items.filter(x => x.kind === 3).map(x => x.bytes)).toString()),
+    ["player-1", "player-2"]);
+  assert.equal(f.broker.completedRequestCount, 2);
+});
+
+test("cancelled providers retain bounded host slots without blocking peers or admission", async () => {
+  const providers = [];
+  const f = fixture({}, async (_url, { signal }) => new Promise(resolve => providers.push({ signal, resolve })));
+  const channels = Array.from({ length: DOLLY_HTTP_SLOT_COUNT }, (_, i) => channel(f.broker, i + 1));
+  for (let index = 0; index < channels.length; index++) {
+    assert.equal(await f.broker.dispatch(admission(channels[index], {}, index + 1)), 0);
+    assert.equal(await bounded(f.broker.dispatch(cancelMessage(index + 1))), 0);
+  }
+  assert.equal(providers.length, DOLLY_HTTP_SLOT_COUNT);
+  assert(providers.every(provider => provider.signal.aborted));
+  assert.equal(await f.broker.dispatch(admission(channels[0], {}, 17)), -errno.EBUSY,
+    "forging a free guest slot must not start a seventeenth provider");
+  assert.equal(providers.length, DOLLY_HTTP_SLOT_COUNT);
+  providers.forEach(provider => provider.resolve(new Response("late")));
+  await bounded(settled(f));
+  assert.equal(channels[0].load(NetworkTransport.state), 1, "old completions must not overwrite generation 17");
+  assert.equal(channels[0].load(NetworkTransport.length), 0);
+  const survivor = channel(f.broker, 17);
+  f.broker.fetchRequest = async () => new Response("survivor");
+  assert.equal(await f.broker.dispatch(admission(survivor, {}, 17)), 0);
+  assert.equal(await f.broker.dispatch(cancelMessage(1)), -errno.ESTALE);
+  const records = await consume(survivor, settled(f));
+  assert.equal(records.at(-1).eof, 1);
+});
+
+test("cancelling one request leaves the other stream and its deadline independent", async () => {
+  const signals = [];
+  const f = fixture({}, async (_url, { signal }) => {
+    signals.push(signal); return new Response("peer response");
+  });
+  const first = channel(f.broker, 1), second = channel(f.broker, 2);
+  assert.equal(await f.broker.dispatch(admission(first, {}, 1)), 0);
+  assert.equal(await f.broker.dispatch(admission(second, {}, 2)), 0);
+  assert.equal(await f.broker.dispatch(cancelMessage(1)), 0);
+  assert(signals[0].aborted);
+  assert.equal(signals[1].aborted, false);
+  assert.equal(first.load(NetworkTransport.error), errno.ECANCELED);
+  const records = await consume(second, settled(f));
+  assert.equal(Buffer.concat(records.filter(x => x.kind === 3).map(x => x.bytes)).toString(), "peer response");
+});
+
+test("concurrent requests share quota and each stalled reader has a deadline", async () => {
+  let calls = 0;
+  const f = fixture({ timeoutMilliseconds: 25 }, async () => { calls++; return new Response("body"); });
+  f.broker.policy.maxRequests = 1;
+  const first = channel(f.broker, 1), second = channel(f.broker, 2);
+  assert.equal(await f.broker.dispatch(admission(first, {}, 1)), 0);
+  assert.equal(await f.broker.dispatch(admission(second, {}, 2)), 0);
+  await bounded(settled(f));
+  assert.equal(calls, 1);
+  assert.equal(second.load(NetworkTransport.error), errno.EDQUOT);
+  assert.equal(first.load(NetworkTransport.error), errno.ETIMEDOUT);
+  assert.equal(f.broker.active, false);
+});
+
+test("runtime teardown aborts every provider and refuses already-queued admissions", async () => {
+  let calls = 0;
+  const f = fixture({}, async () => { calls++; return new Response("body"); });
+  const first = channel(f.broker, 1), second = channel(f.broker, 2);
+  assert.equal(await f.broker.dispatch(admission(first, {}, 1)), 0);
+  assert.equal(await f.broker.dispatch(admission(second, {}, 2)), 0);
+  f.broker.close();
+  assert.equal(await f.broker.dispatch(admission(channel(f.broker, 3), {}, 3)), -errno.ECANCELED);
+  await bounded(settled(f));
+  assert.equal(first.load(NetworkTransport.error), errno.ECANCELED);
+  assert.equal(second.load(NetworkTransport.error), errno.ECANCELED);
+  assert.equal(calls, 2);
 });

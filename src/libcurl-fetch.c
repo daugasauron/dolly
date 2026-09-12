@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
 #include <dolly/http.h>
 
@@ -55,8 +56,20 @@ typedef struct {
   char *content_type;
 } DollyEasy;
 
+typedef struct {
+  const char *method;
+  char *headers;
+  unsigned char *body;
+  size_t body_size;
+  unsigned int sequence;
+  int prepared;
+  dolly_http_response response;
+  size_t url_length, url_capacity;
+} DollyTransfer;
+
 typedef struct DollyMultiEntry {
   DollyEasy *easy;
+  DollyTransfer transfer;
   CURLcode result;
   int complete;
   int reported;
@@ -561,8 +574,7 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
   return result;
 }
 
-CURLcode curl_easy_perform(CURL *handle) {
-  DollyEasy *easy = (DollyEasy *)handle;
+static CURLcode prepare_transfer(DollyEasy *easy, DollyTransfer *transfer) {
   if (!valid_easy(easy) || easy->url == NULL) return CURLE_URL_MALFORMAT;
   reset_result(easy);
   const unsigned protocol = strncasecmp(easy->url, "http://", 7) == 0 ? PROTOCOL_HTTP :
@@ -650,37 +662,74 @@ CURLcode curl_easy_perform(CURL *handle) {
     }
   }
 
-  dolly_http_response response = {0};
-  CallbackContext callback = {.easy = easy, .response = &response};
-  dolly_http_request request = {
-      .method = method,
-      .url = easy->url,
-      .headers = headers,
-      .body = body,
-      .body_size = body_size,
-      .flags = easy->follow ? DOLLY_HTTP_FOLLOW_REDIRECTS : 0,
-      .write = easy->nobody ? NULL : perform_write,
-      .write_context = &callback,
-      .header = perform_header,
-      .header_context = &callback,
-  };
-  int status = dolly_http_perform(&request, &response);
-  free(headers);
-  free(body);
-  easy->response_code = response.status;
-  easy->effective_url = response.effective_url;
-  response.effective_url = NULL;
-  if (status != 0) {
-    result = map_http_error(status);
-  } else {
-    if (easy->fail_on_error && easy->response_code >= 400)
-      result = CURLE_HTTP_RETURNED_ERROR;
+  transfer->method = method;
+  transfer->headers = headers;
+  transfer->body = body;
+  transfer->body_size = body_size;
+  transfer->prepared = 1;
+  return CURLE_OK;
+}
+
+static void dispose_transfer(DollyTransfer *transfer) {
+  if (transfer->sequence != 0) (void)dolly_http_cancel(transfer->sequence);
+  free(transfer->headers);
+  free(transfer->body);
+  dolly_http_response_dispose(&transfer->response);
+  memset(transfer, 0, sizeof(*transfer));
+}
+
+// At most one record per call. Easy and multi use the same transfer engine.
+static int poll_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *result) {
+  int status = 0;
+  if (!transfer->prepared) {
+    *result = prepare_transfer(easy, transfer);
+    if (*result != CURLE_OK) return 1;
   }
-  dolly_http_response_dispose(&response);
-  if (result != CURLE_OK && easy->error_buffer != NULL) {
+  if (transfer->sequence == 0) {
+    status = dolly_http_start(transfer->method, easy->url, transfer->headers,
+        transfer->body, transfer->body_size,
+        easy->follow ? DOLLY_HTTP_FOLLOW_REDIRECTS : 0, &transfer->sequence);
+    if (status == -EBUSY) return 0;
+    if (status != 0) goto finished;
+    free(transfer->headers); transfer->headers = NULL;
+    free(transfer->body); transfer->body = NULL;
+  }
+  unsigned char bytes[DOLLY_HTTP_CHUNK_CAPACITY];
+  dolly_http_chunk chunk = {0};
+  status = dolly_http_poll(transfer->sequence, &chunk, bytes, sizeof(bytes));
+  if (status == 0) return 0;
+  if (status < 0) goto finished;
+  status = -(int)chunk.error;
+  if (chunk.status != 0) easy->response_code = transfer->response.status = chunk.status;
+  CallbackContext callback = {.easy = easy, .response = &transfer->response};
+  if (status == 0 && chunk.kind == 1) {
+    if (!append_bytes(&transfer->response.effective_url, &transfer->url_length,
+                      &transfer->url_capacity, bytes, chunk.length)) status = -ENOMEM;
+  } else if (status == 0 && chunk.kind == 2) {
+    if (perform_header(bytes, chunk.length, &callback) != chunk.length) status = -ECANCELED;
+  } else if (status == 0 && chunk.kind == 3 && !easy->nobody) {
+    if (perform_write(bytes, chunk.length, &callback) != chunk.length) status = -ECANCELED;
+  }
+  if (chunk.eof) transfer->sequence = 0;
+  if (status == 0 && !chunk.eof) return 0;
+finished:
+  free(easy->effective_url);
+  easy->effective_url = transfer->response.effective_url;
+  transfer->response.effective_url = NULL;
+  *result = status != 0 ? map_http_error(status) :
+      easy->fail_on_error && easy->response_code >= 400 ? CURLE_HTTP_RETURNED_ERROR : CURLE_OK;
+  dispose_transfer(transfer);
+  if (*result != CURLE_OK && easy->error_buffer != NULL)
     snprintf(easy->error_buffer, CURL_ERROR_SIZE, "%s",
-        status < 0 && status != -ECANCELED ? dolly_http_error_message(-status) : curl_easy_strerror(result));
-  }
+        status < 0 && status != -ECANCELED ? dolly_http_error_message(-status) : curl_easy_strerror(*result));
+  return 1;
+}
+
+CURLcode curl_easy_perform(CURL *handle) {
+  DollyTransfer transfer = {0};
+  CURLcode result = CURLE_OK;
+  while (!poll_transfer((DollyEasy *)handle, &transfer, &result)) usleep(10000);
+  dispose_transfer(&transfer);
   return result;
 }
 
@@ -785,6 +834,7 @@ CURLMcode curl_multi_remove_handle(CURLM *multi_handle, CURL *easy_handle) {
     if ((*entry)->easy == (DollyEasy *)easy_handle) {
       DollyMultiEntry *removed = *entry;
       *entry = removed->next;
+      dispose_transfer(&removed->transfer);
       free(removed);
       return CURLM_OK;
     }
@@ -797,13 +847,13 @@ CURLMcode curl_multi_perform(CURLM *multi_handle, int *running_handles) {
   DollyMulti *multi = (DollyMulti *)multi_handle;
   if (!valid_multi(multi)) return CURLM_BAD_HANDLE;
   if (running_handles == NULL) return CURLM_BAD_FUNCTION_ARGUMENT;
+  *running_handles = 0;
   for (DollyMultiEntry *entry = multi->entries; entry != NULL; entry = entry->next) {
     if (!entry->complete) {
-      entry->result = curl_easy_perform((CURL *)entry->easy);
-      entry->complete = 1;
+      entry->complete = poll_transfer(entry->easy, &entry->transfer, &entry->result);
+      if (!entry->complete) ++*running_handles;
     }
   }
-  *running_handles = 0;
   return CURLM_OK;
 }
 
@@ -845,7 +895,9 @@ CURLMcode curl_multi_fdset(CURLM *multi_handle, fd_set *read_fd_set,
 CURLMcode curl_multi_timeout(CURLM *multi_handle, long *milliseconds) {
   if (!valid_multi((DollyMulti *)multi_handle)) return CURLM_BAD_HANDLE;
   if (milliseconds == NULL) return CURLM_BAD_FUNCTION_ARGUMENT;
-  *milliseconds = 0;
+  *milliseconds = -1;
+  for (DollyMultiEntry *entry = ((DollyMulti *)multi_handle)->entries; entry != NULL; entry = entry->next)
+    if (!entry->complete) { *milliseconds = 10; break; }
   return CURLM_OK;
 }
 
@@ -855,6 +907,7 @@ CURLMcode curl_multi_cleanup(CURLM *multi_handle) {
   DollyMultiEntry *entry = multi->entries;
   while (entry != NULL) {
     DollyMultiEntry *next = entry->next;
+    dispose_transfer(&entry->transfer);
     free(entry);
     entry = next;
   }

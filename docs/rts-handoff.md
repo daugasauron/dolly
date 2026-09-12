@@ -29,7 +29,8 @@ Do not modify `/home/daug/dev/dolly` or stop that checkout's services.
   player views and histories. Tools use each player's 800×600 pixels. No
   supplied strategy, scripted opening or model-decision barrier is present.
 - Engines animate independently of model responses. The viewer's 33 ms redraw
-  cadence is not a guaranteed measured frame rate. HTTP remains serial.
+  cadence is not a guaranteed measured frame rate. The later [HTTP pool](http.md)
+  removes the serial request limit present at this integration checkpoint.
 - Replay uses both native recordings and logged UI input, plus recorded exposed
   thinking/tool events. UI replay never reissues simulation commands. No Pi
   processes or model requests run during playback. EOF holds the actual final

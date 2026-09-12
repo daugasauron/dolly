@@ -17,7 +17,7 @@ function uleb(value) {
 export async function runBrowserBoundaryChecks(assetRoot) {
   const asset = path => new URL(path, assetRoot).href;
   const { instantiateKernelPlugin } = await import(asset("src/kernel-plugin.mjs"));
-  const { NetworkTransport } = await import(asset("src/http-broker.mjs"));
+  const { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } = await import(asset("src/http-broker.mjs"));
   const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("src/http-policy.mjs"));
   const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
   const { DOLLY_ERRNO: errno } = await import(asset("dist/dolly-errno.mjs"));
@@ -27,6 +27,13 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const names = module => WebAssembly.Module.imports(module).map(x => `${x.module}.${x.name}`).sort();
   check(JSON.stringify(names(kernel)) === JSON.stringify(names(contract)), "outer import set changed");
   check(!names(kernel).some(x => /dlopen|dlsym/.test(x)), "kernel exposes a general loader");
+  const http = await WebAssembly.instantiateStreaming(fetch(asset("dist/dolly-http-0.wasm")), { env: {
+    memory: new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" }),
+    dolly_http_dispatch: () => 0,
+  } });
+  check(http.instance.exports.dolly_http_mailbox_version() === DOLLY_HTTP_MAILBOX_VERSION &&
+    http.instance.exports.dolly_http_slot_count() === DOLLY_HTTP_SLOT_COUNT &&
+    http.instance.exports.dolly_http_chunk_capacity() === 65536, "HTTP transport constants differ from canonical Wasm");
 
   // A normal Dolly process is not a resident plugin. Adding the expected
   // compatibility tag must not grant its syscall import to a kernel plugin.
@@ -42,9 +49,15 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const policy = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
     path: "/fixture/http.txt", methods: ["GET"], timeoutMilliseconds: 1000 }] });
   let calls = 0, signal, received = false;
-  const broker = new NetworkTransport(new SharedArrayBuffer(65536 + 128), 64, 65536, policy, {
+  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, 65536, policy, {
     baseURL: location.href,
   });
+  const word = broker.address / 4;
+  const words = broker.words;
+  const handle = generation => (generation - 1) * DOLLY_HTTP_SLOT_COUNT + 1;
+  const settled = async () => {
+    while (broker.active) await new Promise(resolve => setTimeout(resolve, 1));
+  };
   const fetchRequest = broker.fetchRequest.bind(broker);
   broker.fetchRequest = async (url, options) => {
     calls++; signal = options.signal;
@@ -52,15 +65,16 @@ export async function runBrowserBoundaryChecks(assetRoot) {
     received = true;
     return response;
   };
-  const begin = (sequence, path) => {
-    Atomics.store(broker.words, broker.word + NetworkTransport.sequence, sequence);
-    Atomics.store(broker.words, broker.word, 1);
+  const begin = (generation, path) => {
+    const sequence = handle(generation);
+    Atomics.store(words, word + NetworkTransport.sequence, sequence);
+    Atomics.store(words, word, 1);
     return broker.request({ method: "GET", url: new URL(path, fixtureOrigin).href,
       headers: "", body: null, flags: 0, sequence });
   };
   await begin(1, "/not-allowed");
   check(calls === 0, "denied request reached fetch");
-  check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.EACCES,
+  check(Atomics.load(words, word + NetworkTransport.error) === errno.EACCES,
     "policy denial lost its errno");
   const waiting = begin(2, "/fixture/http.txt");
   let timer;
@@ -68,25 +82,26 @@ export async function runBrowserBoundaryChecks(assetRoot) {
     await Promise.race([waiting, new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error("HTTP mailbox timeout stalled")), 2000);
     })]);
-  } finally { clearTimeout(timer); broker.interrupt(); }
+  } finally { clearTimeout(timer); }
   check(received, "fixture response never reached mailbox backpressure");
   check(calls === 1 && signal.aborted, "HTTP timeout did not release its request");
   check(!broker.active, "HTTP slot remains active");
-  check(Atomics.load(broker.words, broker.word) === 3, "missing terminal failure state");
-  check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.ETIMEDOUT,
+  check(Atomics.load(words, word) === 3, "missing terminal failure state");
+  check(Atomics.load(words, word + NetworkTransport.error) === errno.ETIMEDOUT,
     "deadline lost its errno");
   broker.policy.maxRequests = 2;
   await begin(3, "/fixture/http.txt");
-  check(calls === 1 && Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.EDQUOT,
+  check(calls === 1 && Atomics.load(words, word + NetworkTransport.error) === errno.EDQUOT,
     "quota exhaustion was not distinguished before Fetch");
   broker.policy = new DollyHttpPolicy(undefined);
   await begin(4, "http://127.0.0.1:1/"); // Browsers reject this unsafe port opaquely.
-  check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.EIO,
+  check(Atomics.load(words, word + NetworkTransport.error) === errno.EIO,
     "native Fetch failure lost its transport errno");
   const cancelled = begin(5, "/fixture/http.txt");
-  broker.interrupt();
+  await broker.dispatch({ sequence: handle(5), method: 0n, methodSize: 0n, url: 0n, urlSize: 0n,
+    headers: 0n, headersSize: 0n, body: 0n, bodySize: 0n, flags: 0 });
   await cancelled;
-  check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.ECANCELED,
+  check(Atomics.load(words, word + NetworkTransport.error) === errno.ECANCELED,
     "interruption lost its cancellation errno");
   await checkAdmissionQueue(broker, errno, asset("src/http-broker.mjs"));
   const observations = [];
@@ -103,7 +118,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
     [{ headers: "X-Value: \t\u00A0value\u00A0\t " }, true],
   ]) {
     const memory = new SharedArrayBuffer(1024), bytes = new Uint8Array(memory);
-    const request = { memory, flags: 0, sequence: 6 };
+    const request = { memory, flags: 0, sequence: handle(6) };
     let offset = 8;
     for (const [name, value] of Object.entries({ method: "GET",
       url: `${fixtureOrigin}/fixture/http.txt`, headers: "", body: "", ...fields })) {
@@ -111,12 +126,12 @@ export async function runBrowserBoundaryChecks(assetRoot) {
       request[name] = BigInt(offset); request[`${name}Size`] = BigInt(data.length);
       bytes.set(data, offset); offset += data.length;
     }
-    Atomics.store(broker.words, broker.word + NetworkTransport.sequence, 6);
-    Atomics.store(broker.words, broker.word, 1);
+    Atomics.store(words, word + NetworkTransport.sequence, handle(6));
+    Atomics.store(words, word, 1);
     check(await broker.dispatch(request) === 0, "literal metadata admission failed");
-    await broker.pending;
+    await settled();
     check(observations.length === (valid ? 1 : 0), `metadata was rewritten before Fetch: ${JSON.stringify(fields)}`);
-    check(Atomics.load(broker.words, broker.word + NetworkTransport.error) ===
+    check(Atomics.load(words, word + NetworkTransport.error) ===
       (valid ? errno.EIO : fields.url ? errno.EACCES : errno.EINVAL), "literal metadata lost its errno");
   }
   check(observations[0] === "\u00A0value\u00A0", "Unicode header whitespace was stripped");
@@ -136,18 +151,18 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   ]) {
     const before = (await observed()).length, chunks = [];
     broker.policy = policy;
-    Atomics.store(broker.words, broker.word + NetworkTransport.sequence, ++sequence);
-    Atomics.store(broker.words, broker.word, 1);
+    Atomics.store(words, word + NetworkTransport.sequence, handle(++sequence));
+    Atomics.store(words, word, 1);
     const request = broker.request({ method: "POST", url: `${fixtureOrigin}/fixture/http-redirect?status=${status}`,
-      headers: "Authorization: Bearer sandbox-fixture\r\nX-API-Key: sandbox-fixture", body: new TextEncoder().encode("sandbox-body"), flags, sequence });
+      headers: "Authorization: Bearer sandbox-fixture\r\nX-API-Key: sandbox-fixture", body: new TextEncoder().encode("sandbox-body"), flags, sequence: handle(sequence) });
     const drain = setInterval(() => {
-      if (Atomics.load(broker.words, broker.word) !== 2) return;
-      const length = Atomics.load(broker.words, broker.word + NetworkTransport.length);
-      if (Atomics.load(broker.words, broker.word + NetworkTransport.kind) === 3) {
+      if (Atomics.load(words, word) !== 2) return;
+      const length = Atomics.load(words, word + NetworkTransport.length);
+      if (Atomics.load(words, word + NetworkTransport.kind) === 3) {
         chunks.push(new TextDecoder().decode(broker.bytes.slice(broker.address + 64, broker.address + 64 + length)));
       }
-      Atomics.compareExchange(broker.words, broker.word, 2, 1);
-      Atomics.notify(broker.words, broker.word);
+      Atomics.compareExchange(words, word, 2, 1);
+      Atomics.notify(words, word);
     }, 1);
     try { await request; } finally { clearInterval(drain); }
     const after = await observed();
@@ -159,7 +174,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
       check(result.body === (status === 302 ? "" : "sandbox-body"), "redirect body changed incorrectly");
       check(result.authorization === null && result.apiKey === "sandbox-fixture", "cross-origin credential handling changed");
       check(result.cookie === null && result.referer === null, "redirect leaked ambient browser state");
-    } else check(Atomics.load(broker.words, broker.word + NetworkTransport.error) === errno.EIO, "redirect rejection lost its error");
+    } else check(Atomics.load(words, word + NetworkTransport.error) === errno.EIO, "redirect rejection lost its error");
   }
   return { assetRoot, imports: names(kernel).length, pluginRejections: 3, policyDeniedBeforeFetch: true,
     nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true, literalMetadata: true, defaultRedirects: true };

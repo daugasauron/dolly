@@ -18,6 +18,12 @@ function completion(child) {
   return new Promise(resolve => child.once('close', (status, signal) => resolve({ status, signal, stdout, stderr, error })));
 }
 
+await check('provider errors survive standard Response reconstruction', async () => {
+  const response = new Response('{"error":{"message":"provider failure"}}', { status: 429 });
+  assert(response.status === 429 && !response.ok, 'response lost its error status');
+  assert((await response.json()).error.message === 'provider failure', 'response body was lost');
+});
+
 await check('real PID, immediate launch and nonblocking event loop', async () => {
   const child = spawn('/bin/slop', ['-c', `/bin/echo started > ${root}/started; /bin/sleep 1`]);
   const done = completion(child);
@@ -214,13 +220,13 @@ await check('HTTP process upload limit includes UTF-8 metadata and packet header
   catch (value) { error = value; }
   assert(error?.code === 'E2BIG' && error.requestId === 0, 'oversize upload was not rejected before dispatch');
 });
-await check('overlapping fetches wait for the single HTTP mailbox', async () => {
-  const responses = await Promise.all(Array.from({ length: 3 }, async () => {
-    const response = await fetch(`${origin}/fixture/http.txt`);
+await check('two fetches reach the server before either response completes', async () => {
+  const responses = await Promise.all(Array.from({ length: 2 }, async (_, index) => {
+    const response = await fetch(`${origin}/fixture/http-overlap?group=janis&request=${index}`);
     assert(response.ok, `HTTP status ${response.status}`);
     return response.text();
   }));
-  assert(responses.every(body => body === responses[0] && body.length > 0), 'queued fetch lost a response');
+  assert(responses.every(body => body === 'OVERLAP-OK\n'), 'requests did not overlap at the server');
 });
 await check('queued HTTP abort never starts or cancels another request', async () => {
   const first = fetch(`${origin}/fixture/http.txt`).then(response => response.text());
@@ -232,16 +238,44 @@ await check('queued HTTP abort never starts or cancels another request', async (
   assert(await queued === reason, 'queued abort lost its reason');
   assert((await first).length > 0, 'queued abort cancelled the active request');
 });
-await check('fetch waits when another in-Wasm caller owns HTTP', async () => {
+await check('an unread in-Wasm HTTP request does not block another fetch', async () => {
   const sequence = Dolly.httpStart('GET', `${origin}/fixture/http.txt`, '', null);
-  let finished = false;
-  const queued = fetch(`${origin}/fixture/http.txt`).then(response => response.text())
-    .finally(() => { finished = true; });
+  const queued = fetch(`${origin}/fixture/http.txt`).then(response => response.text());
   try {
-    await delay(50);
-    assert(!finished, 'busy HTTP failed instead of waiting');
+    assert((await queued).length > 0, 'another request blocked on an unread mailbox');
   } finally { Dolly.httpCancel(sequence); }
-  assert((await queued).length > 0, 'queued fetch did not resume after release');
+});
+await check('requests from different processes overlap at the server', async () => {
+  const children = Array.from({ length: 2 }, (_, index) => spawn('/usr/bin/janis', ['-e',
+    `fetch(${JSON.stringify(`${origin}/fixture/http-overlap?group=children&request=${index}`)}).then(r=>r.text()).then(console.log)`]));
+  const results = await Promise.all(children.map(completion));
+  assert(results.every(result => result.status === 0 && result.stdout.toString().includes('OVERLAP-OK')),
+    'child HTTP requests were serialized');
+});
+await check('pool saturation queues requests without stopping active transfers', async () => {
+  const responses = await Promise.all(Array.from({ length: 18 }, async (_, index) => {
+    const response = await fetch(`${origin}/fixture/http-overlap?group=saturation&request=${index}`);
+    return response.status === 200 && await response.text() === 'OVERLAP-OK\n';
+  }));
+  assert(responses.every(Boolean), 'queued requests stopped the HTTP pump');
+});
+await check('killing a process cancels all its requests without cancelling a peer', async () => {
+  const urls = ['child-one', 'child-two'].map(name => `${origin}/fixture/abort/${name}`);
+  const child = spawn('/usr/bin/janis', ['-e',
+    `Promise.all(${JSON.stringify(urls)}.map(async url=>{const r=await fetch(url);console.log('HEADERS');return r.text();})).then(console.log)`]);
+  let output = '';
+  child.stdout.on('data', chunk => { output += chunk.toString(); });
+  const done = completion(child);
+  try {
+    const deadline = Date.now() + 5000;
+    while (output.split('HEADERS').length < 3 && Date.now() < deadline) await delay(10);
+    assert(output.split('HEADERS').length === 3, 'child did not start both streams');
+    const peer = await fetch(`${origin}/fixture/abort/peer`);
+    child.kill('SIGKILL');
+    const result = await done;
+    assert(result.signal === 'SIGKILL', 'child was not forcibly terminated');
+    assert(await peer.text() === 'prefixsuffix', 'process cleanup cancelled a peer transfer');
+  } finally { child.kill('SIGKILL'); await done; }
 });
 await check('HTTP deadline cancels before headers', async () => {
   const started = Date.now();

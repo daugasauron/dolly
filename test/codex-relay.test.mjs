@@ -35,6 +35,32 @@ test("relay model metadata preserves supported reasoning levels instead of silen
   assert.equal(model.thinkingLevelMap.minimal, null, "do not advertise an unsupported effort");
 });
 
+test("relay forwards concurrent requests without a slot limit and cancels independently", async t => {
+  const token = relayToken(), pending = [];
+  const server = createCodexRelay({ token, origins: [], models: ["test"],
+    credentials: async () => ({ access: "fixture", accountId: "fixture" }),
+    fetch: async (_url, { signal }) => new Response(new ReadableStream({ start(controller) {
+      pending.push({ signal, controller });
+      signal.addEventListener("abort", () => controller.error(Error("aborted")), { once: true });
+    } })) });
+  server.listen(0, "127.0.0.1"); await once(server, "listening");
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const responses = await Promise.all(Array.from({ length: 4 }, () =>
+    fetch(`http://127.0.0.1:${server.address().port}/codex/responses`, {
+      method: "POST", headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ model: "test", stream: true, store: false }),
+    })));
+  assert.deepEqual(responses.map(response => response.status), [200, 200, 200, 200]);
+  assert.equal(pending.length, 4, "all requests reach upstream before any completes");
+  const aborted = once(pending[0].signal, "abort");
+  await responses[0].body.cancel(); await aborted;
+  for (const { signal, controller } of pending.slice(1)) {
+    assert.equal(signal.aborted, false);
+    controller.enqueue(new TextEncoder().encode("OK")); controller.close();
+  }
+  assert.deepEqual(await Promise.all(responses.slice(1).map(response => response.text())), ["OK", "OK", "OK"]);
+});
+
 test("subscription relay has one authenticated inference destination and streams unchanged bytes", async t => {
   const token = relayToken(), origin = "http://localhost:9001";
   const calls = [];

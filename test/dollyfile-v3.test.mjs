@@ -87,7 +87,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "python-runtime": ["system"], python: ["python-runtime"],
     "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
     "gamedev-phone": ["gamedev"],
-    bhop: ["gamedev"],
+    bhop: ["gamedev", "sdl2-build"],
     "python-pi": ["pi-runtime", "python"],
   };
   for (const definition of await discoverImageDefinitions(project)) {

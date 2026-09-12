@@ -264,6 +264,7 @@ try {
     memory: memory.buffer,
     httpAddress: Number(dolly._dolly_http_mailbox_address()),
     httpCapacity: dolly._dolly_http_chunk_capacity(),
+    httpSlots: dolly._dolly_http_slot_count(),
     httpVersion: dolly._dolly_http_mailbox_version(),
   });
   await brokerReady;
@@ -417,6 +418,7 @@ try {
     uploadVersion: dolly._dolly_upload_mailbox_version(),
     httpAddress: Number(dolly._dolly_http_mailbox_address()),
     httpCapacity: dolly._dolly_http_chunk_capacity(),
+    httpSlots: dolly._dolly_http_slot_count(),
     httpVersion: dolly._dolly_http_mailbox_version(),
   });
   await displayReady;

@@ -57,7 +57,6 @@ export function createCodexRelay({ token, origins, credentials, models, fetch: u
     const supplied = Buffer.from(request.headers.authorization ?? "");
     if (supplied.length !== authorization.length || !timingSafeEqual(supplied, authorization)) return fail(401, "Relay token required");
     if (Number(request.headers["content-length"]) > limit) return fail(413, "Request too large");
-    if (active.size >= 2) return fail(429, "Both relay slots are busy");
     const controller = new AbortController();
     active.add(controller);
     const timeout = setTimeout(() => controller.abort(), 120000);

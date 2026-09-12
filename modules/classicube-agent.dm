@@ -15,7 +15,7 @@ REQUIRES TOOL classicube
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE HOST /static/classicube/agent.tar /tmp/classicube-agent/source.tar 232ba4a396875d726be62e5073a323d2e0d1b9a0ba063a8e12b3b3e68325125c
+SOURCE HOST /static/classicube/agent.tar /tmp/classicube-agent/source.tar 172ceb808eb02d8ec16ea865b2863f70959bebe7d38e132f78ab8034280f865d
 SOURCE HOST /static/default/stb_truetype.h /tmp/classicube-agent/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
 SLOP tar -xf /tmp/classicube-agent/source.tar -C /
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
