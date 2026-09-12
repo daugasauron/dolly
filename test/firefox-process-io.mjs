@@ -10,6 +10,7 @@ try {
   await page.goto(url);
   await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "ready" && globalThis.__dolly);
   assert.equal(await page.evaluate(() => __dolly.graphicsActive), false, "start with a shell image");
+  await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
   await page.evaluate(() => {
     globalThis.uploadStatus = null;
     void __dolly.submit("upload /tmp/process-io-stress.c").then(code => uploadStatus = code);
