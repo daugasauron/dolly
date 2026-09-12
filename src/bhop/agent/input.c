@@ -22,7 +22,7 @@ static bh_request request;
 static bh_action actions[BH_INPUT_ACTIONS];
 static uint32_t tick, frame, held, action, action_tick, human_serial;
 static uint32_t attempt, attempt_tick, sample, last_sample_tick, first_sample;
-static int pending, complete, result, recording, force_sample;
+static int pending, complete, result, recording, force_sample, view_failed;
 static char attempt_path[1024];
 static double started;
 
@@ -33,13 +33,20 @@ static double now(void) {
 static void path(char *out, const char *name) { snprintf(out, 1024, "%s/%s", directory, name); }
 static FILE *open_file(const char *name, const char *mode) { char p[1024]; path(p, name); return fopen(p, mode); }
 static void remove_file(const char *name) { char p[1024]; path(p, name); unlink(p); }
-static int publish(const char *name, const void *header, size_t size, const void *data, size_t length) {
+static int write_atomic(const char *name, const void *header, size_t size, const void *data, size_t length) {
     char target[1024], temporary[1030]; path(target, name); snprintf(temporary, sizeof(temporary), "%s.tmp", target);
-    FILE *file = fopen(temporary, "wb"); if (!file) { perror(temporary); return 0; }
-    int okay = fwrite(header, 1, size, file) == size && (!length || fwrite(data, 1, length, file) == length);
-    if (fclose(file)) okay = 0;
-    if (okay) okay = !rename(temporary, target);
-    if (!okay) { perror(target); unlink(temporary); }
+    FILE *file = fopen(temporary, "wb"); if (!file) return 0;
+    errno = 0;
+    int error = fwrite(header, 1, size, file) != size || (length && fwrite(data, 1, length, file) != length)
+        ? (errno ? errno : EIO) : 0;
+    if (fclose(file) && !error) error = errno ? errno : EIO;
+    if (!error && rename(temporary, target)) error = errno;
+    if (error) { unlink(temporary); errno = error; return 0; }
+    return 1;
+}
+static int publish(const char *name, const void *header, size_t size, const void *data, size_t length) {
+    const int okay = write_atomic(name, header, size, data, length);
+    if (!okay) { char target[1024]; path(target, name); perror(target); }
     return okay;
 }
 static void log_input(const dolly_input_event *event) {
@@ -153,7 +160,10 @@ void bh_agent_tick(void) {
 int bh_agent_capture_due(void) { return complete || (recording && (force_sample || tick - last_sample_tick >= 10)); }
 int bh_agent_frame(const void *pixels) {
     uint32_t header[] = {++frame, (uint32_t)(now() - started), WIDTH, HEIGHT};
-    if (!publish("view.rgba", header, sizeof(header), pixels, WIDTH * HEIGHT * 4)) return 0;
+    const int visible = write_atomic("view.rgba", header, sizeof(header), pixels, WIDTH * HEIGHT * 4);
+    if (!visible && !view_failed) fprintf(stderr, "bhop: live preview update failed (%s/view.rgba): %s\n", directory, strerror(errno));
+    if (visible && view_failed) fputs("bhop: live preview recovered\n", stderr);
+    view_failed = !visible;
     if (!bh_agent_capture_due()) return 1;
     Image image = {(void *)pixels, WIDTH, HEIGHT, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
     int size = 0; unsigned char *png = ExportImageToMemory(image, ".png", &size);

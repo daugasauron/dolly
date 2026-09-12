@@ -150,4 +150,20 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
   }
   await writeFile(resolve(projectDir,`build/bhop-agent-${fixture?'fixture':'live'}-report.json`),JSON.stringify({events:restored.events,attempts:restored.attempts}));
   console.log(`browser: bhop ${fixture?'scripted OpenRouter':'LIVE Codex'}: unchanged game framebuffer, typed prompt, precise timed inputs, mid-attempt recording, archive review, automatic retry, handoff/cancellation, F11 and persisted settings/history/recordings passed`);
+  if(fixture) {
+    await key('q');
+    await page.waitForFunction(()=>!__dolly.graphicsActive);
+    await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:\/workspace\$/, 'bhop recovery shell'));
+    await page.evaluate(()=>{globalThis.bhopFixtureUpload=null;void __dolly.submit('upload /tmp/bhop-frame-failure.c').then(code=>bhopFixtureUpload=code);});
+    await page.locator('#file-upload input').setInputFiles(resolve(projectDir,'test/fixtures/bhop-frame-failure.c'));
+    await page.waitForFunction(()=>bhopFixtureUpload!==null);assert.equal(await page.evaluate(()=>bhopFixtureUpload),0);
+    assert.equal(await page.evaluate(()=>__dolly.submit('cc -std=c17 -O2 -fno-builtin -Dmain=bhop_main /usr/src/dolly/bhop/bhop.c /usr/src/dolly/bhop/agent/input.c /tmp/bhop-frame-failure.c -o /tmp/bhop-frame-failure-bin -ldolly-raylib -lraylib -lm')),0);
+    assert.equal(await page.evaluate(()=>__dolly.submit('/tmp/bhop-frame-failure-bin')),0);
+    const output=await page.evaluate(()=>__dolly.visibleTerminalText());
+    assert.equal(output.match(/live preview update failed/g)?.length,1);
+    assert.match(output,/live preview recovered/);
+    assert.match(output,/missing preview files recovered; agent response and recording survived/);
+    await shot('preview-recovery');
+    console.log('browser: bhop missing preview files recover without ending the game, agent response or recording');
+  }
 }
