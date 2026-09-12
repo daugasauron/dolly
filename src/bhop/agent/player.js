@@ -1,6 +1,6 @@
 // Vision and input tools only. All recordings stay in Dolly's filesystem. SPDX-License-Identifier: GPL-2.0-or-later
 import { parameters, encodeBatch } from './codec.mjs';
-export const describe = image => `Bhop framebuffer at frame ${image.frame}, ${image.milliseconds} ms since launch (960×540). The course keeps running while you think. No game-state telemetry is available.`;
+export const describe = image => `Bhop framebuffer at frame ${image.frame}, ${image.milliseconds} ms since launch (960×540). The course keeps running while you think. No game-state telemetry is available.${image.recording_failures ? ` Recording warning: ${image.recording_failures} snapshots could not be saved in this attempt; its archive has gaps. This is the current live view. Details are in game.log.` : ''}`;
 export const toolText = (name,args) => name==='game_input' ? args.actions.map(a=>`${a.ticks*10} ms [${a.keys.join('+')||'release'}] mouse (${a.mouse_dx||0}, ${a.mouse_dy||0})${a.wheel?' wheel '+a.wheel:''}`).join('; ') || 'observe' : JSON.stringify(args);
 const wait = ms => new Promise(resolve=>setTimeout(resolve,ms));
 export function connect(fs,directory,firstId=1) {
@@ -76,10 +76,10 @@ export default function tools(pi) {
   pi.registerTool({name:'game_input',label:'bhop input',parameters,
     description:'Run a timeline of ordinary keyboard and relative mouse inputs in the unchanged bhop course. Each tick is 10 ms. Keys and mouse movement act simultaneously; mouse_dx/mouse_dy are TOTAL CSS pixels spread evenly over that segment (0.001 pixel precision). Positive x turns right; positive y looks down. One CSS pixel rotates the view by 0.0011 radians. Adjacent segments preserve held keys, and the batch ends by releasing them. Space jumps on a new press, not on every tick; release it between jumps or send wheel:1/-1. R is the ordinary full-course restart. No practice or teleport controls are exposed. Maximum 128 segments and 3000 ticks (30 seconds). Empty actions observes without acting. The game keeps running between calls. Actual framebuffers are recorded every 100 ms throughout agent control, including while inference is pending. Returns sampled frames from this batch; review_attempt can inspect the full recording. Explain your observation and proposed attempt before acting.',
     async execute(_id,args,signal) {
-      const image=await input(args.actions,signal),saved=recording(fs,run,image.attempt);
-      const sampled=choose(saved.frames.filter(frame=>frame.index>=image.first&&frame.index<=image.last));
+      const image=await input(args.actions,signal);
+      const sampled=image.recording_failures?[]:choose(recording(fs,run,image.attempt).frames.filter(frame=>frame.index>=image.first&&frame.index<=image.last));
       const result=sampled.length?review(fs,run,image.attempt,sampled):{content:[],details:{}};
-      result.content.unshift({type:'text',text:`${describe(image)} The following frames show this input batch in time order; the last is its end view. All intermediate snapshots remain available through review_attempt.`});
+      result.content.unshift({type:'text',text:describe(image)+(sampled.length?' The following frames show this input batch in time order. Saved snapshots remain available through review_attempt.':'')});
       if(!sampled.length)result.content.push({type:'image',mimeType:'image/png',data:image.png.toString('base64')});
       result.details={...result.details,frame:image.frame,milliseconds:image.milliseconds,actions:args.actions};return result;
     }});

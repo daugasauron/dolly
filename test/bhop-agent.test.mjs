@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { encodeBatch, parameters } from '../src/bhop/agent/codec.mjs';
-import { review, modelContext } from '../src/bhop/agent/player.js';
+import registerTools, { review, modelContext } from '../src/bhop/agent/player.js';
 
 test('browser tool encoding reaches native ticks with exact signed fractional mouse movement', () => {
   const directory = fs.mkdtempSync(join(tmpdir(), 'bhop-timeline-')), binary = join(directory, 'check');
@@ -67,4 +67,32 @@ test('attempt review returns only selected recorded frames and retains their his
     assert.equal(context[1].content,result.content);
     assert.equal(history[0].content.length,2);
   } finally {fs.rmSync(run,{recursive:true,force:true});}
+});
+
+test('recording failures return a live view and an explicit gap warning without reading the archive', async () => {
+  const directory=fs.mkdtempSync(join(tmpdir(),'bhop-live-')),previous=globalThis.__janisBuiltin;
+  const environment=[process.env.DOLLY_BHOP_DIR,process.env.DOLLY_BHOP_RUN];
+  try {
+    const control=Buffer.alloc(8);control.writeUInt32LE(1);control.writeUInt32LE(2,4);fs.writeFileSync(`${directory}/control`,control);
+    const png=Buffer.alloc(24);png.writeUInt32BE(960,16);png.writeUInt32BE(540,20);
+    globalThis.__janisBuiltin=()=>({...fs,renameSync(source,target) {
+      fs.renameSync(source,target);
+      if(target===`${directory}/request`) {
+        fs.writeFileSync(`${directory}/response.png`,png);
+        fs.writeFileSync(`${directory}/response`,JSON.stringify({version:1,id:1,status:0,frame:123,milliseconds:456,attempt:1,recording_failures:6}));
+      }
+    }});
+    process.env.DOLLY_BHOP_DIR=directory;process.env.DOLLY_BHOP_RUN=`${directory}/missing-archive`;
+    const tools=[];registerTools({on(){},registerTool(tool){tools.push(tool);}});
+    const result=await tools.find(tool=>tool.name==='game_input').execute('test',{actions:[]});
+    assert.match(result.content[0].text,/6 snapshots could not be saved.*archive has gaps.*current live view/);
+    assert.deepEqual(result.content.filter(part=>part.type==='image').map(part=>part.data),[png.toString('base64')]);
+    assert.equal(result.details.frame,123);
+  } finally {
+    globalThis.__janisBuiltin=previous;
+    for(const [index,name] of ['DOLLY_BHOP_DIR','DOLLY_BHOP_RUN'].entries()) {
+      if(environment[index]===undefined)delete process.env[name];else process.env[name]=environment[index];
+    }
+    fs.rmSync(directory,{recursive:true,force:true});
+  }
 });

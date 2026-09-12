@@ -165,5 +165,15 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
     assert.match(output,/missing preview files recovered; agent response and recording survived/);
     await shot('preview-recovery');
     console.log('browser: bhop missing preview files recover without ending the game, agent response or recording');
+    await page.evaluate(()=>{globalThis.bhopFixtureUpload=null;void __dolly.submit('upload /tmp/bhop-recording-failure.c').then(code=>bhopFixtureUpload=code);});
+    await page.locator('#file-upload input').setInputFiles(resolve(projectDir,'test/fixtures/bhop-recording-failure.c'));
+    await page.waitForFunction(()=>bhopFixtureUpload!==null);assert.equal(await page.evaluate(()=>bhopFixtureUpload),0);
+    assert.equal(await page.evaluate(()=>__dolly.submit('cc -std=c17 -O2 -fno-builtin -Dmain=bhop_main -Dfopen=bh_test_open -Dfwrite=bh_test_write -Dfclose=bh_test_close /usr/src/dolly/bhop/bhop.c /usr/src/dolly/bhop/agent/input.c /tmp/bhop-recording-failure.c -o /tmp/bhop-recording-failure-bin -ldolly-raylib -lraylib -lm')),0);
+    assert.equal(await page.evaluate(()=>__dolly.submit('/tmp/bhop-recording-failure-bin')),0);
+    const recordingOutput=await page.evaluate(()=>__dolly.visibleTerminalText());
+    for(const operation of ['open','write','close'])assert.equal(recordingOutput.match(new RegExp(`recording ${operation} failed`, 'g'))?.length,2);
+    assert.doesNotMatch(recordingOutput,/recording .*failed[^\n]*No such file/);
+    assert.match(recordingOutput,/recording failures recovered; committed frames and live agent responses survived/);
+    console.log('browser: bhop PNG/index open, short-write and close failures preserve recordings and live agent responses');
   }
 }

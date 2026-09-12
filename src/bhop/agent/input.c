@@ -22,7 +22,8 @@ static bh_request request;
 static bh_action actions[BH_INPUT_ACTIONS];
 static uint32_t tick, frame, held, action, action_tick, human_serial;
 static uint32_t attempt, attempt_tick, sample, last_sample_tick, first_sample;
-static int pending, complete, result, recording, force_sample, view_failed;
+static uint32_t recording_failures;
+static int pending, complete, result, recording, force_sample, view_failed, recording_failed;
 static char attempt_path[1024];
 static double started;
 
@@ -69,7 +70,7 @@ static void set_keys(uint32_t next) {
     held = next;
 }
 static void new_attempt(void) {
-    ++attempt; sample = 0; attempt_tick = tick; recording = force_sample = 1;
+    ++attempt; sample = recording_failures = recording_failed = 0; attempt_tick = tick; recording = force_sample = 1;
     snprintf(attempt_path, sizeof(attempt_path), "%s/attempt-%06u", run, attempt);
     if (mkdir(attempt_path, 0777) && errno != EEXIST) { recording = 0; return; }
     char info[160]; const int size = snprintf(info, sizeof(info), "{\"attempt\":%u,\"tick\":%u,\"sample_ticks\":10}\n", attempt, tick);
@@ -158,6 +159,33 @@ void bh_agent_tick(void) {
     ++tick;
 }
 int bh_agent_capture_due(void) { return complete || (recording && (force_sample || tick - last_sample_tick >= 10)); }
+static int record_file(const char *name, const void *data, size_t size, int append) {
+    const char *operation = "open";
+    FILE *file = fopen(name, append ? "ab" : "wb");
+    int error = file ? 0 : (errno ? errno : EIO);
+    long offset = -1;
+    if (file && append) {
+        operation = "seek";
+        if (fseek(file, 0, SEEK_END) || (offset = ftell(file)) < 0) error = errno ? errno : EIO;
+    }
+    if (file && !error) {
+        operation = "write"; errno = 0;
+        if (fwrite(data, 1, size, file) != size) error = errno ? errno : EIO;
+    }
+    if (file) {
+        const int closed = fclose(file);
+        if (closed && !error) { operation = "close"; error = errno ? errno : EIO; }
+    }
+    if (!error) return 1;
+    if (!recording_failed) fprintf(stderr, "bhop: recording %s failed (%s, %zu bytes): %s (errno %d); game continues\n",
+        operation, name, size, strerror(error), error);
+    // A partial index line must never advertise an incomplete frame.
+    if (append && offset >= 0 && truncate(name, offset)) {
+        fprintf(stderr, "bhop: recording rollback failed (%s): %s; recording paused until the next attempt\n", name, strerror(errno));
+        recording = 0;
+    }
+    return 0;
+}
 int bh_agent_frame(const void *pixels) {
     uint32_t header[] = {++frame, (uint32_t)(now() - started), WIDTH, HEIGHT};
     const int visible = write_atomic("view.rgba", header, sizeof(header), pixels, WIDTH * HEIGHT * 4);
@@ -170,20 +198,29 @@ int bh_agent_frame(const void *pixels) {
     if (!png || size <= 0) { fputs("bhop: PNG encoding failed\n", stderr); MemFree(png); return 0; }
     if (recording && (force_sample || tick != last_sample_tick)) {
         char name[1100]; snprintf(name, sizeof(name), "%s/frame-%06u.png", attempt_path, sample);
-        FILE *file = fopen(name, "wb");
-        if (!file) { perror(name); MemFree(png); return 0; }
-        int okay = fwrite(png, 1, size, file) == (size_t)size; if (fclose(file)) okay = 0;
-        if (!okay) { perror(name); MemFree(png); return 0; }
-        snprintf(name, sizeof(name), "%s/frames.jsonl", attempt_path); file = fopen(name, "a");
-        if (!file) { perror(name); MemFree(png); return 0; }
-        fprintf(file, "{\"index\":%u,\"tick\":%u,\"milliseconds\":%u,\"wall_ms\":%u}\n", sample++, tick - attempt_tick, (tick - attempt_tick) * 10, header[1]);
-        fclose(file); force_sample = 0; last_sample_tick = tick;
+        int saved = record_file(name, png, size, 0);
+        if (saved) {
+            char metadata[160];
+            const int length = snprintf(metadata, sizeof(metadata), "{\"index\":%u,\"tick\":%u,\"milliseconds\":%u,\"wall_ms\":%u}\n",
+                sample, tick - attempt_tick, (tick - attempt_tick) * 10, header[1]);
+            snprintf(name, sizeof(name), "%s/frames.jsonl", attempt_path);
+            saved = record_file(name, metadata, length, 1);
+        }
+        if (saved) {
+            ++sample;
+            if (recording_failed) fputs("bhop: recording recovered\n", stderr);
+        } else {
+            ++recording_failures;
+            snprintf(name, sizeof(name), "%s/frame-%06u.png", attempt_path, sample); unlink(name);
+        }
+        recording_failed = !saved;
+        force_sample = 0; last_sample_tick = tick;
     }
     if (pending && complete) {
         set_keys(0);
         char response[256];
-        const int length = snprintf(response, sizeof(response), "{\"version\":1,\"id\":%u,\"status\":%d,\"frame\":%u,\"milliseconds\":%u,\"attempt\":%u,\"first\":%u,\"last\":%u}\n",
-            request.id, result, frame, header[1], attempt, first_sample, sample ? sample - 1 : 0);
+        const int length = snprintf(response, sizeof(response), "{\"version\":1,\"id\":%u,\"status\":%d,\"frame\":%u,\"milliseconds\":%u,\"attempt\":%u,\"first\":%u,\"last\":%u,\"recording_failures\":%u}\n",
+            request.id, result, frame, header[1], attempt, first_sample, sample ? sample - 1 : 0, recording_failures);
         if (!publish("response.png", png, size, NULL, 0) || !publish("response", response, length, NULL, 0)) { MemFree(png); return 0; }
         pending = complete = 0;
     }
