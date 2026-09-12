@@ -86,9 +86,10 @@ includes requesting a different size from the loaded model: guest requests
 never trigger a download or implicitly switch the browser's selection. Invalid
 requests return HTTP 400. Engine failures in an established stream produce an
 OpenAI error event; an incomplete tool response never executes a partial tool.
-The HTTP mailbox admits one request at a time. C callers receive `EBUSY` on
-contention; Janis queues overlapping Fetch calls in Wasm. There is no parallel
-inference queue. Pi normally finishes inference before executing tools.
+The shared HTTP broker permits concurrent transfers, but this local model
+service still admits one inference at a time and returns HTTP 409 when busy.
+It has no inference queue. Remote model streams can overlap independently.
+Pi normally finishes inference before executing tools.
 
 The independent model worker receives copied JSON and returns completion
 chunks. Each worker `next` operation follows downstream demand. This WebLLM

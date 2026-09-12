@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 static int failures;
 static size_t received;
@@ -187,6 +188,36 @@ int main(int argc, char **argv) {
   if (status != 0 || effective != NULL) ++failures;
   curl_easy_cleanup(curl);
   if (failures) { fprintf(stderr, "CURL-CONTRACT: %d failures\n", failures); return 1; }
+  CURLM *multi = curl_multi_init();
+  CURL *peers[2] = {curl_easy_init(), curl_easy_init()};
+  char overlap[1024];
+  for (int index = 0; index < 2; ++index) {
+    snprintf(overlap, sizeof(overlap), "%.*s/fixture/http-overlap?group=curl&request=%d", (int)(path - argv[1]), argv[1], index);
+    EXPECT(curl_easy_setopt(peers[index], CURLOPT_URL, overlap), CURLE_OK);
+    EXPECT(curl_easy_setopt(peers[index], CURLOPT_WRITEFUNCTION, write_body), CURLE_OK);
+    EXPECT(curl_easy_setopt(peers[index], CURLOPT_WRITEDATA, NULL), CURLE_OK);
+    EXPECT(curl_multi_add_handle(multi, peers[index]), CURLM_OK);
+  }
+  int running = 2, messages = 0, remaining;
+  const double started = now();
+  do {
+    EXPECT(curl_multi_perform(multi, &running), CURLM_OK);
+    if (now() - started > 5) { fprintf(stderr, "CURL FAIL: %d concurrent transfers timed out\n", running); ++failures; break; }
+    if (running) nanosleep(&(struct timespec){.tv_nsec = 10000000}, NULL);
+  } while (running);
+  CURLMsg *message;
+  while ((message = curl_multi_info_read(multi, &remaining)) != NULL) {
+    ++messages;
+    EXPECT(message->data.result, CURLE_OK);
+    EXPECT(curl_easy_getinfo(message->easy_handle, CURLINFO_RESPONSE_CODE, &status), CURLE_OK);
+    if (status != 200) { fprintf(stderr, "CURL FAIL: overlap HTTP status %ld\n", status); ++failures; }
+  }
+  if (messages != 2) { fprintf(stderr, "CURL FAIL: %d completion messages, expected 2\n", messages); ++failures; }
+  for (int index = 0; index < 2; ++index) {
+    curl_multi_remove_handle(multi, peers[index]); curl_easy_cleanup(peers[index]);
+  }
+  curl_multi_cleanup(multi);
+  if (failures) { fprintf(stderr, "CURL-MULTI: %d failures\n", failures); return 1; }
   puts("CURL-CONTRACT-OK");
   return 0;
 }

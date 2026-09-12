@@ -20,7 +20,7 @@ REQUIRES TOOL gzip
 REQUIRES TOOL upload
 REQUIRES TOOL mkdir
 
-SOURCE HOST /static/rts/arena.tar /tmp/rts-arena/source.tar adfea1cf8bf9c4f2a97c6ac76781070ec90f4ba8d068b6ea6f483593263ab680
+SOURCE HOST /static/rts/arena.tar /tmp/rts-arena/source.tar c2a432d88f410a57e3be39cf0bb9c881de816937d4fcb7c45f93f1925c77f221
 SOURCE HOST /static/default/stb_truetype.h /tmp/rts-arena/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab
 SLOP tar -xf /tmp/rts-arena/source.tar -C /
 SLOP mkdir -p /usr/share/dolly/rts

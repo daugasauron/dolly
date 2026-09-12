@@ -10,9 +10,9 @@ extern "C" {
 
 enum {
   DOLLY_HTTP_CHUNK_CAPACITY = 64 * 1024,
+  DOLLY_HTTP_SLOT_COUNT = 16,
   DOLLY_HTTP_FAIL_STATUS = 1u << 0,
-  // Records caller intent. The version-0 browser provider still rejects every
-  // redirect; a later provider may follow only after authorizing each hop.
+  // Caller intent; the browser policy decides whether redirects are allowed.
   DOLLY_HTTP_FOLLOW_REDIRECTS = 1u << 1,
 };
 
@@ -64,10 +64,9 @@ static inline const char *dolly_http_error_message(int error) {
   }
 }
 
-// Starts one request without blocking the calling runtime. Version 0 permits
-// one in-flight request because the browser boundary intentionally contains a
-// single fixed mailbox. The browser copies all request bytes before this call
-// returns. `sequence` identifies the claimed mailbox generation.
+// Starts an independent request. The browser copies bounded request bytes before
+// returning. `sequence` is an opaque nonzero handle, not a process identifier.
+// EBUSY means the bounded pool is full; callers may retry after yielding.
 int dolly_http_start(const char *method, const char *url, const char *headers,
                      const void *body, size_t body_size, unsigned int flags,
                      unsigned int *sequence);
@@ -80,7 +79,7 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
 int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
                     void *data, size_t capacity);
 
-// Cancels the matching in-flight request and releases the single broker slot.
+// Cancels only the matching request, without waiting for the provider to settle.
 // A stale sequence fails without affecting a newer request.
 int dolly_http_cancel(unsigned int sequence);
 

@@ -117,9 +117,9 @@ function player(index, model) {
   } finally { fs.closeSync(log); }
   let serial = 0, buffer = "", prompting = false, responseError;
   const pending = new Map();
-  const rpc = (type, fields = {}) => new Promise((resolve, reject) => {
+  const rpc = (type, fields = {}, timeoutMs = 30000) => new Promise((resolve, reject) => {
     const id = `arena-${++serial}`;
-    const timeout = setTimeout(() => { pending.delete(id); reject(Error(`Pi ${type} timed out`)); }, 30000);
+    const timeout = setTimeout(() => { pending.delete(id); reject(Error(`Pi ${type} timed out`)); }, timeoutMs);
     pending.set(id, {
       resolve: data => { clearTimeout(timeout); resolve(data); },
       reject: error => { clearTimeout(timeout); reject(error); },
@@ -198,7 +198,7 @@ try {
   fs.writeFileSync(`${match}/match.json`, JSON.stringify({ models: [first, second], seconds, budgetUSD: budget, seed: 12345, started: Date.now() }) + "\n");
   agents.push(player(1, first), player(2, second));
   await Promise.all(agents.map(async agent => {
-    const state = await agent.rpc("get_state");
+    const state = await agent.rpc("get_state", {}, 120000);
     if (state.model?.provider !== agent.provider) throw Error(`Expected provider ${agent.provider}`);
     if (!state.model?.input?.includes("image")) throw Error("Both models must support image input");
     agent.record("configuration", { model: state.model.id, provider: state.model.provider, thinking: state.thinkingLevel });

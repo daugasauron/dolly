@@ -3,7 +3,7 @@ import { buildImage } from "./image-builder.mjs";
 import { mountImageBuild } from "./image-build-ui.mjs";
 import { loadCustomImage } from "./custom-image.mjs";
 import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./http-policy.mjs";
-import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION } from "./http-broker.mjs";
+import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "./http-broker.mjs";
 import { localServicesTransport } from "./local-services.mjs";
 import { mountLocalModel, toggleLocalModel } from "./local-model-ui.mjs";
 import { SessionTransport } from "./session-transport.mjs";
@@ -696,7 +696,6 @@ function requestForegroundInterrupt() {
   const pid = transport.foregroundPid();
   if (pid <= 0 || !transport.foregroundInterruptible()) return false;
   if (!transport.interruptForeground()) return false;
-  networkTransport?.interrupt();
   return true;
 }
 
@@ -1045,7 +1044,7 @@ async function boot() {
       builtSystemInputs = message.inputs;
     } else if (message.type === "broker-ready") {
       try {
-        if (networkTransport !== undefined || message.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION) {
+        if (networkTransport !== undefined || message.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION || message.httpSlots !== DOLLY_HTTP_SLOT_COUNT) {
           throw new Error("Dolly supplied an invalid HTTP broker handshake");
         }
         if (!(message.httpAdmission instanceof SharedArrayBuffer) || message.httpAdmission.byteLength !== 8)
@@ -1065,6 +1064,7 @@ async function boot() {
     } else if (message.type === "exited") {
       clearInterval(uploadTimer);
       uploadTransport?.close();
+      networkTransport?.close();
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "http-request") {
       void networkTransport.dispatch(message).then((result) => {
@@ -1117,7 +1117,8 @@ async function boot() {
   appendBootstrap(bootstrapDecoder.decode(), true);
   runtimeReady = true;
   if (ready.version !== 5) throw new Error(`unsupported display mailbox ${ready.version}`);
-  if (ready.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION) throw new Error(`unsupported HTTP mailbox ${ready.httpVersion}`);
+  if (ready.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION || ready.httpSlots !== DOLLY_HTTP_SLOT_COUNT)
+    throw new Error(`unsupported HTTP mailbox ${ready.httpVersion}`);
   if (ready.sessionVersion !== 2) {
     throw new Error(`unsupported session mailbox ${ready.sessionVersion}`);
   }
@@ -1246,7 +1247,7 @@ async function boot() {
 boot().catch((error) => {
   console.error(error);
   runtimeReady = false;
-  networkTransport?.interrupt();
+  networkTransport?.close();
   presenter?.stop();
   resizeObserver?.disconnect();
   runtimeWorker?.terminate();

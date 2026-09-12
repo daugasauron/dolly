@@ -47,6 +47,7 @@ test("browser preparation never removes another process's profile locks or debug
       ${preparation}
       assert.equal(persistentProfile, rtsLiveMode ? null : process.env.DOLLY_BROWSER_PROFILE);
     })()`, { process: { env: { DOLLY_BROWSER_PROFILE: profile } }, realOpenRouterMode: false, rtsLiveMode,
+      classicubeAgentLiveMode: false, bhopAgentLiveMode: false,
       assert, mkdir, mkdtemp, rm, resolve, tmpdir: () => root });
     for (const name of names) {
       assert.equal(await readFile(resolve(profile, name), "utf8"), `owned by another browser: ${name}`);

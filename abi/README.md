@@ -94,7 +94,7 @@ URL/path resolution, dependency fetching, or JavaScript evaluation.
   and collect status.
 - `dolly-display-0.wat` describes the shared RGBA/input mailbox and the one
   bootstrap text sink, plus boot-only plugin-byte and installation exports.
-- `dolly-http-0.wat` describes the streaming HTTP mailbox. Its
+- `dolly-http-0.wat` describes the versioned streaming HTTP slot pool. Its
   `env.dolly_http_dispatch` import is Dolly's sole intentional
   agent-selected network edge.
 - `dolly-download-0.wat` describes an explicit, bounded local-user file

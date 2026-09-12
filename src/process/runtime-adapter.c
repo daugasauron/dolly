@@ -153,9 +153,12 @@ int dolly_http_perform(const dolly_http_request *request,
   unsigned char *data = malloc(DOLLY_HTTP_CHUNK_CAPACITY);
   if (data == NULL) return -ENOMEM;
   unsigned int sequence = 0;
-  int result = dolly_http_start(
-      request->method, request->url, request->headers, request->body,
-      request->body_size, request->flags, &sequence);
+  int result;
+  do {
+    result = dolly_http_start(request->method, request->url, request->headers,
+        request->body, request->body_size, request->flags, &sequence);
+    if (result == -EBUSY) usleep(10000);
+  } while (result == -EBUSY);
   if (result != 0) {
     free(data);
     return result;

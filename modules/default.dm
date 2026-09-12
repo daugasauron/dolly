@@ -2,7 +2,7 @@ DOLLY 3
 MODULE default
 
 # Execute these recipes in order; re-export the useful runtime and SDK below.
-USE HOST /modules/bootstrap.dm      aee346d9fdc9ddfdffdcf74d0a58647f5b49110e8dc808b0907004b144bb5dd8
+USE HOST /modules/bootstrap.dm      837297d7767cf1724693622027285ac89ccafc2b35e20097010e4947eaf65040
 USE HOST /modules/core-tools.dm     42bc8954f5f995a05262752bac670967c3a5a13edcecca7e325dc814d28506b2
 USE HOST /modules/download.dm       74b6c1c6a911150a593758806ee5939f52f42cdb93632f68406adcecb0ca03bf
 USE HOST /modules/upload.dm         71da809b012f0228082a39240075387b23a44d8ba24a3a641b0f85a899606ea0
@@ -11,7 +11,7 @@ USE HOST /modules/make.dm           f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9
 USE HOST /modules/cpp.dm            a7ede03621f9a6de44d4c2c9dbe64dce96c87b286aab6216a3390c64eb3eed52
 USE HOST /modules/ninja.dm          84b060b2ab700c37083cd698a619630d1f25663156320a0acae3fe07053777f7
 USE HOST /modules/zlib.dm           0d4994c6687385e288747ef53e621707c064cf8666239f7f6210480c72c57b35
-USE HOST /modules/curl.dm           f92d767aa1a4be186afdace77df9d7bdb846f8a96267c8062bc21617eff9c919
+USE HOST /modules/curl.dm           78b6cf92c487e201ea69afec52cba18153d9ec46c4027f6c6bf4d07c8765e27a
 USE HOST /modules/git.dm            70c6691e9f126fa1c9168bc5c44568063de4163a96b6dd5d9c51a90724a8e6fa
 USE HOST /modules/awk.dm            b9ff535f661dd7e24b0136e3067d08b5880c16fae6abce38bd1677428ac72a65
 USE HOST /modules/sbase.dm          1c803f9d9d210c7d1fc6b1b56b6efc4e3e4c2976bbeed07f0699ecbe8724099f

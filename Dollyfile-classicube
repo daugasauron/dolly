@@ -1,18 +1,18 @@
 DOLLY 3
 IMAGE classicube
 
-FROM HOST /Dollyfile-pi-runtime 3ad438d2148f470e335b616ffc56fc35e8b230788b8d70dd4751d1716507e250
-COPY FROM HOST /Dollyfile-classicube-build 8b2b3775d6c648dff457a19c56db373cfc0b34a3098e813cc717d8c29204d7b1 /usr/bin/classicube /usr/bin/classicube
-COPY FROM HOST /Dollyfile-classicube-build 8b2b3775d6c648dff457a19c56db373cfc0b34a3098e813cc717d8c29204d7b1 /usr/share/classicube /home/dolly/classicube
-COPY FROM HOST /Dollyfile-classicube-build 8b2b3775d6c648dff457a19c56db373cfc0b34a3098e813cc717d8c29204d7b1 /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637ed6e34a9d8932f96bd453 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM HOST /Dollyfile-pi-runtime d3985d52ba32457d7cfda0709d2c7a1e6f5c812d32cf4f0ba263690120ac6412
+COPY FROM HOST /Dollyfile-classicube-build 3d8cb6b328d56cdc6e1ddfd4826a091e224463ad93ac92535f75711129ce18ff /usr/bin/classicube /usr/bin/classicube
+COPY FROM HOST /Dollyfile-classicube-build 3d8cb6b328d56cdc6e1ddfd4826a091e224463ad93ac92535f75711129ce18ff /usr/share/classicube /home/dolly/classicube
+COPY FROM HOST /Dollyfile-classicube-build 3d8cb6b328d56cdc6e1ddfd4826a091e224463ad93ac92535f75711129ce18ff /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY FROM HOST /Dollyfile-sdl2-build d77797c44cab1f3503ace167c4695ad1ebe81ddd0365bb2ae06cfb9807bfd2ba /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 
-COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637ed6e34a9d8932f96bd453 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM HOST /Dollyfile-sdl2-build 7f57b483f3d8237d85f4ce8334c88e92a0eb96cf637ed6e34a9d8932f96bd453 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM HOST /Dollyfile-sdl2-build d77797c44cab1f3503ace167c4695ad1ebe81ddd0365bb2ae06cfb9807bfd2ba /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-sdl2-build d77797c44cab1f3503ace167c4695ad1ebe81ddd0365bb2ae06cfb9807bfd2ba /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/classicube-agent.dm 527a08a2386c5ac3bde6709b5d377fb285da2fb6bdded258624b99df51a482e1
+USE HOST /modules/classicube-agent.dm 4d1673d4da89a07ad77a5cf6ac3b8cac79be075989073f5287fdf256090746f1
 
 FILE /home/dolly/classicube/options.txt
     window-width=640

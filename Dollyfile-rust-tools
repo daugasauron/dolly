@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE rust-tools
 
-FROM HOST /Dollyfile-rust-sdk 1a4af570043606a58abe24e8ee1949160198b9dc8cbbf9f5237eee192a00e8b1
+FROM HOST /Dollyfile-rust-sdk d20ab37020afcfce401601c0d228e27278d7ac5da6f891b9f621f70f85ed2b17
 USE HOST /modules/patti.dm 294b38b01bd77a94531ae36fdb1d245ba7265fb6de82b9703775744f93183780
 
 ENTRY /bin/foreground -i /bin/slop

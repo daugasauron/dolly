@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE pi-runtime
 
-FROM HOST /Dollyfile-javascript 0c3ea604af589954e04d89d71ce509877e1c1754ef10ca021e8984dd2ca97196
+FROM HOST /Dollyfile-javascript 3b4fb6c686f93f1bf31c3e1cf51cd48018423dff2684f1b6ee2f5e0c6cd2240b
 USE HOST /modules/pi.dm 68120b4a6aee551aa40d7cbbae62278b2e42afab3061547200502b13b6bd5afb
 
 ENTRY /bin/foreground -i /bin/slop

@@ -87,9 +87,11 @@ use Pi's automatic retries and show their attempt and delay in the log. After
 retries fail, **Retry task** restarts Pi with the saved conversation and a fresh
 screenshot. It retains the world and completed actions. Escape still interrupts
 a pending request; an unresponsive Pi process is terminated so it can restart.
-Provider and broker request deadlines still apply. Players share Dolly's single
-HTTP mailbox, and waiting for another player counts toward the provider's
-connection timeout.
+Provider and broker deadlines still apply. Players' model streams can overlap
+through Dolly's bounded concurrent HTTP broker. Interrupting one player cancels
+only its requests; switching views does not serialize inference.
+Cold Pi initialization has a separate two-minute allowance; normal RPC replies
+still time out after 30 seconds. Neither deadline disables interruption.
 
 Preferences are ordinary files in `/home/dolly/.config/classicube` for Player 1
 and its `players/2` through `players/4` subdirectories for the other players.

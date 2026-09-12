@@ -106,7 +106,7 @@ running the `rts-live` mode below. This still uses the real browser HTTP broker.
   A move-only batch positions the visible cursor without clicking, allowing
   an agent to inspect its aim before a separate click. Batches have no intermediate views.
   There are no decision intervals or barriers and the game never waits for
-  model decisions. **HTTP requests are currently serialized**, as explained below.
+  model decisions. Players' HTTP streams run independently through the shared broker.
 - Players discover the game themselves: no supplied game guide, strategy or
   scripted opening. Ordinary assistant text records their observations and
   intent before tool calls; it stays in the conversation, not just a thinking stream.
@@ -133,10 +133,12 @@ both replays play through the upstream loader to EOF with its state CRC checks.
 A damaged checksum must report a synchronization failure and exit with status 74.
 These are short replay checks, not a completed live-model battle.
 
-HTTP mailbox v4 permits one request in flight across Dolly. A slow model can
-delay the opponent; this is accepted for the initial experiment, which is not a
-fair model-latency benchmark. The browser contract remains unchanged. There are
-no artificial decision intervals.
+HTTP transport v5 permits concurrent model streams through the same browser
+broker. A slow response no longer occupies the opponent's HTTP slot. This alone
+does not establish a fair model-latency benchmark. There are no artificial
+decision intervals.
+Pi's first state reply allows two minutes for cold startup of both runtimes;
+subsequent RPC replies retain their 30-second deadline.
 
 The process-call packet limit is also 1 MiB, below the broker's 8 MiB request
 limit. Limiting recent images leaves room for text history, but does not fix

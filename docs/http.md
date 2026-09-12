@@ -4,7 +4,7 @@
 
 Reserved `*.dolly.invalid` addresses use separately admitted browser-local
 [model](browser-local-models.md) and [build](image-build-service.md) services
-through this same mailbox. They never reach Fetch. The policy below governs
+through this same broker. They never reach Fetch. The policy below governs
 ordinary remote HTTP destinations.
 
 Programs do not import Fetch, sockets, DNS, or TLS. They call an in-Wasm C API,
@@ -17,11 +17,12 @@ which eventually reaches this one kernel-module import:
 
 The arguments are pointer/byte-length pairs for method, URL, serialized headers
 and body, followed by flags and request sequence. They are data supplied to one
-browser broker. Admission returns zero or a negative target errno. The response returns through the version-4
-atomic mailbox defined by `abi/dolly-http-0.wat`: effective URL, header lines,
+browser broker. Admission returns zero or a negative target errno. Responses use
+the version-5 pool defined by `abi/dolly-http-0.wat`: 16 independent 64 KiB slots
+with effective URL, header lines,
 body chunks, HTTP status, EOF, and an error code. Wasm blocks in its worker
 while synchronous C clients wait for browser JavaScript to publish bounded
-chunks. JavaScript runtimes instead poll the same mailbox cooperatively, so
+chunks. JavaScript runtimes instead poll their slots cooperatively, so
 their Promise jobs and timers continue to advance between chunks.
 
 The complete browser transport is in `src/http-broker.mjs`, and authorization
@@ -36,10 +37,13 @@ limits, but cannot relax these admission caps.
 
 A private eight-byte browser acknowledgement, never mapped into Wasm, makes
 admission synchronous. The worker cannot enqueue another descriptor until the
-page has copied or rejected the current one. There is no unbounded host Promise
-queue; overlapping requests fail `EBUSY`, and cancellation waits for the old
-provider to settle before acknowledging. Fetch and response streaming remain
-asynchronous. The host deadline includes mailbox backpressure,
+page has copied or rejected the current one. Transfers then run concurrently.
+The browser owns a fixed 16-entry provider table; forged guest state cannot
+increase that limit. `EBUSY` means a slot is occupied. Cancellation aborts only
+the exact handle and acknowledges immediately; the host slot remains occupied
+until its provider settles. Slow cancellation cannot block other admissions or
+accumulate unbounded providers. All slots share the same policy and quota.
+The host deadline includes each slot's backpressure,
 not only the Fetch operation. If the guest stops consuming data, the provider
 aborts the request and publishes terminal failure (atomic state 3), without
 waiting for another acknowledgement or overwriting the current chunk. The
@@ -95,11 +99,12 @@ replace its imports.
 
 ## In-Wasm request API
 
-`include/dolly/http.h` exposes two views of the same one-request transport:
+`include/dolly/http.h` exposes synchronous and asynchronous request operations:
 
 - `dolly_http_start` dispatches a copied request and returns its sequence;
 - `dolly_http_poll` nonblockingly acknowledges at most one URL, header, body,
   EOF, or error record;
+- `dolly_http_cancel` aborts only the matching request;
 - `dolly_http_perform` is the process-local synchronous C/libcurl convenience
   layer that waits and drains those same primitives.
 
@@ -137,9 +142,9 @@ Its `fetch()` returns a `Response` as soon as response headers arrive and
 enqueues each body record into an in-Wasm `ReadableStream`. Janis calls the HTTP
 pump alongside Promise jobs and timers, using at most a 10 ms terminal wait
 while a request is active. This is cooperative re-entry in the existing worker,
-not a second process, a socket API, or ambient browser `fetch`. Version 0 still
-allows only one in-flight broker request. Janis queues overlapping `fetch()`
-calls in Wasm and retries `EBUSY` on later event-loop turns; aborting a queued
+not a socket API or ambient browser `fetch`. Requests overlap both within a
+process and across processes. Janis queues calls only when the pool is full,
+retrying `EBUSY` while continuing to poll active transfers. Aborting a queued
 request removes it without dispatching or cancelling someone else's transfer.
 The C start API still reports `-EBUSY`; callers must handle contention. Response
 chunks are eagerly queued inside the runtime, bounded per transfer by the
@@ -147,12 +152,12 @@ browser's response-byte policy, not by consumer demand. This is not a claim of
 complete Fetch/Streams compatibility or a bound on all responses retained by
 an application.
 
-HTTP ownership ends at the nested command boundary. If an asynchronous runtime
-returns with a request pending or with an unread final mailbox record, Dolly
-advances the request sequence, clears the mailbox, and cancels that request in
-the page-side provider through the existing `dolly_http_dispatch` import. A
-finished or interrupted command therefore cannot leave the next command with a
-permanent busy mailbox or let it consume stale response bytes.
+The kernel tracks every process's handles. Exit, signal termination and forced
+Worker cleanup cancel its requests, not its peers'. Whole-runtime teardown
+aborts all providers. A handle encodes slot and generation; reused slots advance
+the generation, never wrapping. Late responses and stale cancellation cannot
+touch a successor. Each slot occupies 64 header bytes plus 64 KiB of Wasm memory;
+the entire pool occupies 1,049,600 bytes.
 
 `DOLLY_HTTP_FOLLOW_REDIRECTS` permits Fetch's native redirect handling only under
 the unrestricted policy. Without caller intent, with an explicit destination
@@ -181,8 +186,8 @@ The implemented compatibility surface currently includes:
 - write, header, read, error-buffer, and debug callback plumbing;
 - status, effective URL, content type, retry-after, range, protocol restrictions,
   and basic authorization;
-- the multi calls used by Git, implemented synchronously over the one-request
-  version-0 broker.
+- the multi calls used by Git, admitting and polling independent transfers
+  without waiting for one response to complete before starting another.
 
 This is deliberately not a claim that browser Fetch can reproduce every
 libcurl behavior. The official headers make the interface source-compatible,

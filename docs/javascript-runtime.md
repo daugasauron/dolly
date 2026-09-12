@@ -19,7 +19,7 @@ Replacing the JavaScript engine would not remove the need for Node adapters.
 - Real descriptor-based files, positioned I/O, stat/lstat/fstat, and Promise
   wrappers. Open files survive rename/unlink.
 - Buffers, encoding, paths/URLs, events, timers, crypto helpers and tty streams.
-- A serial event pump for Promise jobs, HTTP and child-process pipes.
+- One cooperative event pump for Promise jobs, concurrent HTTP streams and child-process pipes.
 
 Module resolution is confined to WasmFS. Missing packages, files, exports and
 builtin adapters fail; resolution never fetches code or calls a host loader.

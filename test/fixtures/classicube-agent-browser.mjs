@@ -38,11 +38,19 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     const store=await import(new URL('session-store.mjs',browser));
     const buffer=await store.decodeSessionSnapshot(await store.loadStoredSession(name));
     await store.deleteStoredSession(name);
-    const view=new DataView(buffer), bytes=new Uint8Array(buffer), result={}; let offset=16;
+    const view=new DataView(buffer), bytes=new Uint8Array(buffer), result={players:{},agentEvents:{}}; let offset=16;
     for(let i=0;i<view.getUint32(12,true);i++) {
       const length=view.getUint32(offset+4,true), size=Number(view.getBigUint64(offset+8,true)); offset+=16;
       const path=new TextDecoder().decode(bytes.subarray(offset,offset+length)); offset+=length;
       const data=bytes.subarray(offset,offset+size); offset+=size;
+      const player=path.match(/\\/players\\/(\\d+)\\/([^/]+)$/);
+      if(player && path.includes('/tmp/classicube-agent-')) {
+        const p=result.players[player[1]] ||= {};
+        if(['ready','status.txt'].includes(player[2])) p[player[2]]=new TextDecoder().decode(data);
+        if(player[2]==='control') p.owner=new DataView(data.buffer,data.byteOffset,8).getUint32(4,true);
+      }
+      const agent=path.match(/\\/player-(\\d+)\\/agent.events.jsonl$/);
+      if(agent) (result.agentEvents[agent[1]] ||= []).push(...new TextDecoder().decode(data).trim().split('\\n').filter(Boolean).map(JSON.parse));
       if(path.includes('/tmp/classicube-agent-')) {
         const name=path.split('/').pop();
         if(['menu','selection.txt','status.txt','cost.txt','activity.txt','inputs.log','retry'].includes(name)) result[name]=new TextDecoder().decode(data);
@@ -60,13 +68,14 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
       if(path==='/home/dolly/.config/classicube/usage.json') result.usage=JSON.parse(new TextDecoder().decode(data));
       if(path.endsWith('/agent.events.jsonl')) result.events=(result.events||[]).concat(new TextDecoder().decode(data).trim().split('\\n').filter(Boolean).map(JSON.parse));
       if(path.endsWith('/world.events.jsonl')) result.worldEvents=(result.worldEvents||[]).concat(new TextDecoder().decode(data).trim().split('\\n').filter(Boolean).map(JSON.parse));
+      if(${!live} && path.endsWith('/agent.stderr.log')) result.stderr=(result.stderr||'')+new TextDecoder().decode(data).slice(-16000);
     }
     return result;
   })()`);
   const state = async (predicate, label, seconds = 45) => {
     const deadline = Date.now() + seconds * 1000; let last;
-    do { last = await probe(); if (predicate(last)) return last; await delay(150); } while (Date.now() < deadline);
-    await writeFile(resolve(projectDir,'build/classicube-overlay-failure.json'),JSON.stringify({events:last.events,worldEvents:last.worldEvents,
+    do { last = await probe(); if (predicate(last)) return last; await delay(500); } while (Date.now() < deadline);
+    await writeFile(resolve(projectDir,'build/classicube-overlay-failure.json'),JSON.stringify({events:last.events,worldEvents:last.worldEvents,stderr:last.stderr,
       requests:fixture?.requests.map(({index,phase})=>({index,phase}))}));
     throw Error(`${label}: ${JSON.stringify({ menu:last.menu, control:last.control, status:last['status.txt'], config:last.config, events:last.events?.slice(-3) })}`);
   };
@@ -284,6 +293,28 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   assert.equal(restored.idlePrompt,before.idlePrompt,'idle instruction survives save/restore');
   assert.equal(await evaluate('__dolly.httpRequestCount'),0,'restoring settings/history does not start model calls');
   await enter(); await snapshot('restored');
+  if (!live) {
+    await chord('a','KeyA',65); await press('Backspace','Backspace',8); await escape();
+    const prompt = async id => { await enter(); await type(`CONCURRENT-PLAYER-${id}`); await enter(); };
+    const thinking = (s,id) => (s.agentEvents[id]||[]).some(e=>e.type==='thinking_delta' && JSON.stringify(e).includes(`CONCURRENT-PLAYER-${id}-THINKING`));
+    await prompt(1);
+    await state(s=>thinking(s,1),'first player streams reasoning with its response held open');
+    await click(770,66);
+    await state(s=>s.players[2]?.ready==='1','second player joins');
+    await prompt(2);
+    await state(s=>thinking(s,1) && thinking(s,2),'both real Pi processes receive reasoning before either response finishes');
+    assert.equal(fixture.concurrent.size,2);
+    assert.ok([...fixture.concurrent.values()].every(transfer=>!transfer.finished && !transfer.closed));
+    await click(80,66); await escape(); await escape();
+    await state(s=>s.players[1]?.owner===0 && fixture.concurrent.get('1').closed,'interrupt cancels only the selected player');
+    assert.equal(fixture.concurrent.get('2').closed,false,'peer model response stays open');
+    fixture.concurrent.get('2').finish();
+    await state(s=>(s.agentEvents[2]||[]).some(e=>e.type==='text_delta' && JSON.stringify(e).includes('CONCURRENT-PLAYER-2-DONE')),'peer reasoning finishes after cancellation');
+    await click(240,66); await escape(); await escape();
+    await state(s=>s.players[2]?.owner===0,'pause the remaining player');
+    await snapshot('concurrent');
+    console.log('browser: two ClassiCube Pi players stream reasoning concurrently; interrupting one preserves the other');
+  }
   await click(975,934); await wait('__dolly.graphicsActive',v=>!v,'save and exit');
   await evaluate("__dolly.waitForInteractiveTerminal(/dolly:[^\\n]*\\$\\s*$/, 'recovery shell')");
   const inspect=`const fs=globalThis.__janisBuiltin('fs'); const root='/workspace/classicube-runs'; const report={events:[],files:{}};

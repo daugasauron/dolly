@@ -1,4 +1,4 @@
-import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION } from "./http-broker.mjs";
+import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "./http-broker.mjs";
 
 // Disposable Wasm userspace, with the caller's browser policy and no display,
 // file picker, local service or ENTRY. Used for dependencies and Studio builds.
@@ -22,6 +22,7 @@ export async function buildImage(image, artifacts, networkPolicy, report, { cust
           else if (message.type === "error") reject(new Error(message.message));
           else if (message.type === "broker-ready") {
             if (network || message.httpVersion !== DOLLY_HTTP_MAILBOX_VERSION ||
+                message.httpSlots !== DOLLY_HTTP_SLOT_COUNT ||
                 !(message.httpAdmission instanceof SharedArrayBuffer) || message.httpAdmission.byteLength !== 8) {
               throw new Error("invalid build HTTP broker handshake");
             }
@@ -45,7 +46,7 @@ export async function buildImage(image, artifacts, networkPolicy, report, { cust
     });
   } finally {
     signal?.removeEventListener("abort", abort);
-    network?.interrupt();
+    network?.close();
     worker.terminate();
   }
 }

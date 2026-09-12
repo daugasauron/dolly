@@ -74,7 +74,8 @@ typedef struct {
 _Static_assert(offsetof(dolly_http_mailbox, data) == DOLLY_HTTP_MAILBOX_HEADER_SIZE,
                "HTTP mailbox layout changed");
 
-_Alignas(64) static dolly_http_mailbox http_mailbox;
+_Alignas(64) static dolly_http_mailbox http_mailboxes[DOLLY_HTTP_SLOT_COUNT];
+static uint32_t next_http_slot;
 
 static unsigned char encoded_input[256];
 static size_t encoded_input_length;
@@ -247,7 +248,12 @@ uint32_t dolly_display_clipboard_capacity(void) {
 
 EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_http_mailbox_address(void) {
-  return (uintptr_t)&http_mailbox;
+  return (uintptr_t)http_mailboxes;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t dolly_http_slot_count(void) {
+  return DOLLY_HTTP_SLOT_COUNT;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -263,99 +269,84 @@ uint32_t dolly_http_chunk_capacity(void) {
 int dolly_http_start(const char *method, const char *url, const char *headers,
                      const void *body, size_t body_size, unsigned int flags,
                      unsigned int *sequence_out) {
-  const unsigned int valid_flags =
-      DOLLY_HTTP_FAIL_STATUS | DOLLY_HTTP_FOLLOW_REDIRECTS;
+  const unsigned int valid_flags = DOLLY_HTTP_FAIL_STATUS | DOLLY_HTTP_FOLLOW_REDIRECTS;
   if (method == NULL || url == NULL || sequence_out == NULL ||
       method[0] == '\0' || url[0] == '\0' || (flags & ~valid_flags) != 0 ||
       (body_size != 0 && body == NULL)) return -EINVAL;
 
-  uint32_t expected = 0;
-  if (!atomic_compare_exchange_strong_explicit(
-          &http_mailbox.state, &expected, 1,
-          memory_order_acq_rel, memory_order_acquire)) return -EBUSY;
-
-  uint32_t sequence = atomic_fetch_add_explicit(
-      &http_mailbox.sequence, 1, memory_order_acq_rel) + 1;
-  atomic_store_explicit(&http_mailbox.status, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.length, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.eof, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.error, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.kind, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.state, 1, memory_order_release);
-  const int admitted = dolly_http_dispatch(
-      method, strlen(method), url, strlen(url),
-      headers, headers == NULL ? 0 : strlen(headers),
-      body, body_size, flags, sequence);
-  if (admitted != 0) {
-    atomic_store_explicit(&http_mailbox.state, 0, memory_order_release);
-    return admitted;
+  for (uint32_t attempt = 0; attempt < DOLLY_HTTP_SLOT_COUNT; ++attempt) {
+    const uint32_t index = next_http_slot++ % DOLLY_HTTP_SLOT_COUNT;
+    dolly_http_mailbox *mailbox = &http_mailboxes[index];
+    uint32_t sequence = atomic_load_explicit(&mailbox->sequence, memory_order_acquire);
+    // Never wrap a handle and let a stale caller address a later request.
+    if (sequence > UINT32_MAX - DOLLY_HTTP_SLOT_COUNT) continue;
+    uint32_t expected = 0;
+    if (!atomic_compare_exchange_strong_explicit(
+            &mailbox->state, &expected, 1,
+            memory_order_acq_rel, memory_order_acquire)) continue;
+    sequence = sequence == 0 ? index + 1 : sequence + DOLLY_HTTP_SLOT_COUNT;
+    atomic_store_explicit(&mailbox->sequence, sequence, memory_order_release);
+    atomic_store_explicit(&mailbox->status, 0, memory_order_relaxed);
+    atomic_store_explicit(&mailbox->length, 0, memory_order_relaxed);
+    atomic_store_explicit(&mailbox->eof, 0, memory_order_relaxed);
+    atomic_store_explicit(&mailbox->error, 0, memory_order_relaxed);
+    atomic_store_explicit(&mailbox->kind, 0, memory_order_relaxed);
+    const int admitted = dolly_http_dispatch(
+        method, strlen(method), url, strlen(url),
+        headers, headers == NULL ? 0 : strlen(headers),
+        body, body_size, flags, sequence);
+    if (admitted == 0) { *sequence_out = sequence; return 0; }
+    atomic_store_explicit(&mailbox->state, 0, memory_order_release);
+    // A cancelled provider can still be settling in this browser slot.
+    if (admitted != -EBUSY) return admitted;
   }
-  *sequence_out = sequence;
-  return 0;
+  return -EBUSY;
 }
 
 int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
                     void *data, size_t capacity) {
   if (chunk == NULL || (capacity != 0 && data == NULL)) return -EINVAL;
-  if (atomic_load_explicit(&http_mailbox.sequence, memory_order_acquire) !=
-      sequence) return -ESTALE;
-  const uint32_t state = atomic_load_explicit(&http_mailbox.state, memory_order_acquire);
+  if (sequence == 0) return -ESTALE;
+  dolly_http_mailbox *mailbox = &http_mailboxes[(sequence - 1) % DOLLY_HTTP_SLOT_COUNT];
+  if (atomic_load_explicit(&mailbox->sequence, memory_order_acquire) != sequence) return -ESTALE;
+  const uint32_t state = atomic_load_explicit(&mailbox->state, memory_order_acquire);
+  if (state == 0) return -ESTALE;
   if (state == 3) {
     *chunk = (dolly_http_chunk){
-        .status = atomic_load_explicit(&http_mailbox.status, memory_order_relaxed),
-        .error = atomic_load_explicit(&http_mailbox.error, memory_order_relaxed),
+        .status = atomic_load_explicit(&mailbox->status, memory_order_relaxed),
+        .error = atomic_load_explicit(&mailbox->error, memory_order_relaxed),
         .kind = 3, .eof = 1};
-    atomic_store_explicit(&http_mailbox.state, 0, memory_order_release);
+    atomic_store_explicit(&mailbox->state, 0, memory_order_release);
     return 1;
   }
   if (state != 2) return 0;
 
-  const uint32_t length = atomic_load_explicit(
-      &http_mailbox.length, memory_order_relaxed);
-  chunk->status = atomic_load_explicit(&http_mailbox.status,
-                                       memory_order_relaxed);
-  chunk->kind = atomic_load_explicit(&http_mailbox.kind,
-                                     memory_order_relaxed);
-  chunk->error = atomic_load_explicit(&http_mailbox.error,
-                                      memory_order_relaxed);
-  chunk->eof = atomic_load_explicit(&http_mailbox.eof,
-                                    memory_order_relaxed);
-  chunk->length = length;
-
-  int result = 1;
-  if (length > DOLLY_HTTP_CHUNK_CAPACITY || length > capacity) {
-    result = -EOVERFLOW;
-  } else if (length != 0) {
-    memcpy(data, http_mailbox.data, length);
-  }
+  const uint32_t length = atomic_load_explicit(&mailbox->length, memory_order_relaxed);
+  *chunk = (dolly_http_chunk){
+      .status = atomic_load_explicit(&mailbox->status, memory_order_relaxed),
+      .kind = atomic_load_explicit(&mailbox->kind, memory_order_relaxed),
+      .error = atomic_load_explicit(&mailbox->error, memory_order_relaxed),
+      .eof = atomic_load_explicit(&mailbox->eof, memory_order_relaxed),
+      .length = length};
+  if (length > DOLLY_HTTP_CHUNK_CAPACITY || length > capacity) return -EOVERFLOW;
+  if (length != 0) memcpy(data, mailbox->data, length);
   uint32_t readable = 2;
   atomic_compare_exchange_strong_explicit(
-      &http_mailbox.state, &readable, chunk->eof ? 0 : 1,
+      &mailbox->state, &readable, chunk->eof ? 0 : 1,
       memory_order_release, memory_order_relaxed);
-  emscripten_atomic_notify((void *)&http_mailbox.state,
-                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
-  return result;
+  emscripten_atomic_notify((void *)&mailbox->state, EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+  return 1;
 }
 
-int dolly_http_cancel(unsigned int active_sequence) {
-  if (atomic_load_explicit(&http_mailbox.state, memory_order_acquire) == 0) {
-    return 0;
-  }
-  if (active_sequence == 0 || atomic_load_explicit(
-          &http_mailbox.sequence, memory_order_acquire) != active_sequence) {
-    return -ESTALE;
-  }
-  const uint32_t sequence = atomic_fetch_add_explicit(
-      &http_mailbox.sequence, 1, memory_order_acq_rel) + 1;
-  atomic_store_explicit(&http_mailbox.status, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.length, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.eof, 1, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.error, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.kind, 0, memory_order_relaxed);
-  atomic_store_explicit(&http_mailbox.state, 0, memory_order_release);
-  emscripten_atomic_notify((void *)&http_mailbox.state,
-                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
-  return dolly_http_dispatch(NULL, 0, NULL, 0, NULL, 0, NULL, 0, 0, sequence);
+int dolly_http_cancel(unsigned int sequence) {
+  if (sequence == 0) return -ESTALE;
+  dolly_http_mailbox *mailbox = &http_mailboxes[(sequence - 1) % DOLLY_HTTP_SLOT_COUNT];
+  if (atomic_load_explicit(&mailbox->sequence, memory_order_acquire) != sequence) return -ESTALE;
+  const int result = dolly_http_dispatch(NULL, 0, NULL, 0, NULL, 0, NULL, 0, 0, sequence);
+  if (result != 0) return result;
+  atomic_store_explicit(&mailbox->state, 0, memory_order_release);
+  emscripten_atomic_notify((void *)&mailbox->state, EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+  return 0;
 }
 
 static int handle_terminal_event(const dolly_input_event *event,

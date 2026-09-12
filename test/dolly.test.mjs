@@ -477,7 +477,9 @@ test("the frontend only blits sandbox RGBA and forwards bounded input events", a
   assert.match(frontend, /Atomics\.waitAsync/);
   assert.match(frontend, /interruptForeground\(\)/);
   assert.match(frontend, /event\.code === "KeyC"/);
-  assert.match(frontend, /networkTransport\?\.interrupt\(\)/);
+  assert.match(frontend, /networkTransport\?\.close\(\)/);
+  const foregroundInterrupt = frontend.slice(frontend.indexOf("function requestForegroundInterrupt()"), frontend.indexOf("function handleKeyboardEvent("));
+  assert.doesNotMatch(foregroundInterrupt, /networkTransport/, "foreground signals must not cancel peers' HTTP");
   assert.doesNotMatch(frontend, /autorun|runBrowserProof|commandResults|sandbox-placeholder/);
   assert.match(frontend, /class FramebufferPresenter/);
   assert.match(frontend, /putImageData\(new ImageData/);
@@ -580,6 +582,8 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const definitions = await discoverImageDefinitions(projectDir);
   const expectedPrograms = new Map([
     ["bhop", "/usr/bin/bhop"],
+    ["classicube", "/usr/bin/classicube-agent"],
+    ["classicube-build", "/usr/bin/classicube"],
     ["codex", "/usr/bin/codex"],
     ["codex-build", "/usr/bin/codex"],
     ["default", "/bin/slop"],
@@ -628,7 +632,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       ({ location, sha256 }) => ({ location, sha256 }),
     ));
     assert.deepEqual(metadata.manifest, [...metadata.manifest].sort());
-    assert.ok(metadata.manifest.includes(expectedPrograms.get(image)));
+    assert.ok(metadata.manifest.includes(expectedPrograms.get(image)), `${image}: primary program`);
     for (const path of ["/usr/bin/rg", "/usr/share/dolly/builds/ripgrep.json",
       "/usr/share/licenses/ripgrep/LICENSE-MIT"]) {
       assert.equal(metadata.manifest.includes(path),
@@ -643,7 +647,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     }
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),
-      ["pi", "pi-local", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop", "dollyfile-studio", "rts-arena"].includes(image),
+      ["pi", "pi-local", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop", "classicube", "dollyfile-studio", "rts-arena"].includes(image),
     );
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
@@ -660,8 +664,8 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const shellStartup = ["default", "codex", "rts-arena", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "neovim", "dollyfile-studio"].includes(image);
-    assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup);
+    const shellStartup = ["default", "codex", "rts-arena", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "classicube", "neovim", "dollyfile-studio"].includes(image);
+    assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup, `${image}: shell startup`);
     assert.deepEqual(metadata.entry, graph.root.entry);
     assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);
     assert.equal(metadata.manifest.some(path => /^\/usr\/src\/(raylib|box3d|dolly\/gamedev)\/build\//.test(path)), false);
@@ -703,6 +707,8 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   const knownImages = [
     { image: "default", dollyfile: "Dollyfile" },
     { image: "bhop", dollyfile: "Dollyfile-bhop" },
+    { image: "classicube", dollyfile: "Dollyfile-classicube" },
+    { image: "classicube-build", dollyfile: "Dollyfile-classicube-build" },
     { image: "cmake-build", dollyfile: "Dollyfile-cmake-build" },
     { image: "codex", dollyfile: "Dollyfile-codex" },
     { image: "codex-build", dollyfile: "Dollyfile-codex-build" },
@@ -740,9 +746,9 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   );
   assert.ok(DOLLY_STATIC_SOURCES.length >= 50);
   const generatedMenu = await readFile(new URL("../build/routes/index.html", import.meta.url), "utf8");
-  const menuOrder = ["default", "bhop", "codex", "dollyfile-studio", "external-source",
+  const menuOrder = ["default", "bhop", "classicube", "codex", "dollyfile-studio", "external-source",
     "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi", "rts-arena",
-    "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
+    "classicube-build", "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
     "protox-build", "python-runtime", "ripgrep", "rts-build", "rust-sdk", "rust-tools", "sdl2-build", "system", "system-build"];
   assert.deepEqual([...generatedMenu.matchAll(/<tr class="image" data-image="([^"]+)">/g)].map(match => match[1]),
     menuOrder.filter(image => selected.has(image)));
@@ -1448,7 +1454,8 @@ test("raw sockets terminate in the process runtime while HTTP uses the typed bro
   assert.match(runtime, /dolly_http_perform[\s\S]*?dolly_http_start\(/);
   assert.match(runtime, /dolly_http_perform[\s\S]*?dolly_http_poll\(/);
   assert.doesNotMatch(libcurl, /\bsocket\s*\(|\bconnect\s*\(|\bgetaddrinfo\s*\(/);
-  assert.match(libcurl, /dolly_http_perform\(&request, &response\)/);
+  for (const operation of ['start', 'poll', 'cancel'])
+    assert.match(libcurl, new RegExp(`dolly_http_${operation}\\(`));
   for (const option of [
     "--request", "--header", "--data", "--json", "--head", "--include",
     "--user", "--range", "--remote-name", "--dump-header", "--write-out",

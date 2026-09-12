@@ -743,9 +743,9 @@ globalThis.__dollyHttpPump = () => {
           request.headerBlock, request.requestBody);
         request.requestBody = null;
       } catch (error) {
-        // The one in-Wasm mailbox may also be owned by another process.
+        // Keep polling active transfers while admission waits for pool capacity.
         // Retry on a later event-loop turn; queued aborts remain immediate.
-        if (error.code === "EBUSY") break;
+        if (error.code === "EBUSY") continue;
         failHttp(request, error);
         continue;
       }

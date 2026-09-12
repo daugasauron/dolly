@@ -21,9 +21,9 @@ Follow these pieces:
    descriptors and shared memory, without scanning or copying guest strings.
 2. [src/http-broker.mjs](../src/http-broker.mjs), `createHttpAdmission`:
    one private acknowledgement prevents an unbounded dispatch-message queue.
-3. `NetworkTransport.dispatch/request`: checks spans before copying
-   (32 B method, 8 KiB URL, 64 KiB headers, 8 MiB body), parses request data,
-   authorizes it, then invokes Fetch.
+3. `NetworkTransport.dispatch`: checks spans before copying
+   (32 B method, 8 KiB URL, 64 KiB headers, 8 MiB body). `HttpTransfer.run`
+   parses the copy, calls the policy, then invokes the admitted provider.
 4. [src/http-policy.mjs](../src/http-policy.mjs), `DollyHttpPolicy.authorize`:
    trusted destination, method, credential-header and quota decisions.
 
@@ -31,6 +31,13 @@ Policy is supplied by the embedding, never Wasm. Fetch omits ambient credentials
 and referrers; the browser does not inject secrets. Explicit destination rules
 and bootstrap grants reject redirects. Unrestricted policy follows only on
 caller request; inherited policies intersect that permission.
+
+One import does not mean one active request. The broker owns a fixed 16-slot
+provider table, independent of the guest's claimed free slots. Each transfer has
+its own Wasm response buffer, generation, deadline and abort controller. All
+transfers share authorization and quota. Cancelling an exact handle acknowledges
+immediately but retains its host slot until the provider settles. Forged slot
+state and repeated cancellation therefore cannot grow an unbounded host queue.
 
 [src/static-asset.mjs](../src/static-asset.mjs) reassembles oversized static
 downloads only for embedding-selected bootstrap URLs or pinned snapshot packs.

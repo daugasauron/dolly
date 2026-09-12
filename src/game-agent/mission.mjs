@@ -149,7 +149,9 @@ export async function runAgent({ fs, spawn, world, run, scratch, directory: sett
           }
         } catch (error) { fault(error); }
       });
-      const selected = await current.rpc("get_state");
+      // The first reply includes cold-loading Pi; concurrent players can take
+      // longer than an RPC to an already running agent. Cancellation still kills it.
+      const selected = await current.rpc("get_state", {}, 120000);
       if (selected.model?.provider !== config.provider || selected.model.id !== config.model || selected.thinkingLevel !== config.effort)
         throw Error("The selected provider, model or effort is unavailable. Open settings with Ctrl+,.");
       record("configuration", { ...config, thinking: selected.thinkingLevel });

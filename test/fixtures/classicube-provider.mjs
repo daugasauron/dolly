@@ -2,11 +2,13 @@
 import assert from "node:assert/strict";
 export function classicubeProvider() {
   const requests = [];
+  const concurrent = new Map();
   let exchanges = 0;
   const steps = new Map();
   let transientFailures = 0, persistentFailures = 0;
   return {
     requests,
+    concurrent,
     async handle(request, response, headers) {
       const path = new URL(request.url, "http://fixture").pathname;
       const json = (status, body) => { response.writeHead(status, { ...headers, "content-type": "application/json" }); response.end(JSON.stringify(body)); };
@@ -38,6 +40,25 @@ export function classicubeProvider() {
         assert.equal(png.readUInt32BE(16), 640); assert.equal(png.readUInt32BE(20), 480);
       }
       const userText = message => typeof message.content === "string" ? message.content : message.content.filter(part=>part.type==='text').map(part=>part.text).join('\n');
+      const player = payload.messages.filter(message => message.role === 'user').map(userText)
+        .flatMap(text => [...text.matchAll(/CONCURRENT-PLAYER-([12])/g)]).at(-1)?.[1];
+      if (player) {
+        assert.ok(!concurrent.has(player), 'each concurrency task starts once');
+        response.writeHead(200, { ...headers, 'content-type': 'text/event-stream' });
+        const send = (delta, finish_reason = null) => response.write(`data: ${JSON.stringify({
+          id: `concurrent-${player}`, object: 'chat.completion.chunk', created: 0, model: payload.model,
+          choices: [{ index: 0, delta, finish_reason }],
+        })}\n\n`);
+        const transfer = { closed: false, finished: false, finish() {
+          this.finished = true;
+          send({ content: `CONCURRENT-PLAYER-${player}-DONE` }); send({}, 'stop');
+          response.end('data: [DONE]\n\n');
+        } };
+        concurrent.set(player, transfer);
+        send({ role: 'assistant', reasoning_content: `CONCURRENT-PLAYER-${player}-THINKING\n` });
+        await new Promise(resolve => response.once('close', () => { transfer.closed = true; resolve(); }));
+        return;
+      }
       // Pi may append screenshot messages or merge adjacent user messages after an abort.
       const users = payload.messages.filter(message=>message.role==='user').map(userText).flatMap(text=>
         Array.from(text.matchAll(/(?:Continue the current task: )?(?:CLASSICUBE-FIXTURE-TASK|Follow-up proof|INTERRUPT-PROOF|REPLACE-PROOF|STEER-PROOF|TRANSIENT-TIMEOUT-PROOF|PERSISTENT-TIMEOUT-PROOF|Explore the world and have fun\.)/g),match=>text.slice(match.index)));
