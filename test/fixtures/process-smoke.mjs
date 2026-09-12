@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 export const processSmokeSources = Object.freeze({
   "process-check.c": "src/process/check.c",
   "fs-check.c": "src/process/fs-check.c",
+  "io-stress.c": "test/fixtures/process-io-stress.c",
   "env-driver.c": "src/process/env-driver.c",
   "cpp-check.cpp": "src/process/cpp-check.cpp",
   "http-check.c": "src/process/http-check.c",
@@ -57,6 +58,7 @@ export async function runProcessSmoke(submit, origin) {
       "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
       "DOLLY_PROCESS_CHECK=private-memory ./process-check fresh",
       `./fs-check write ${scratch}/data`, `./fs-check read ${scratch}/data`,
+      "./io-stress",
       `./env-driver ${scratch}/process-check`, "./cpp-check",
       `DOLLY_PROCESS_HTTP_CHECK_URL=${origin}/fixture/http.txt ./http-check`,
       `/bin/slop -c './fs-check write ${scratch}/data && ./fs-check read ${scratch}/data'`,

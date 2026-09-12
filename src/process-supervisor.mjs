@@ -470,12 +470,14 @@ export class DollyProcessSupervisor {
         BigInt(this.mailboxAddress),
         BigInt(message.requestSize),
       );
-      result = this.dolly._dolly_process_dispatch(
+      // Firefox can enter a direct Wasm call twice. Use the generic call path
+      // so a completed syscall is never replayed against its response packet.
+      result = Reflect.apply(this.dolly._dolly_process_dispatch, this.dolly, [
         process.pid,
         message.operation,
         BigInt(message.requestSize),
         BigInt(message.responseCapacity),
-      );
+      ]);
       if (result === deferredResult) {
         this.deferred.set(process.pid, { process, message });
         if (message.operation === 5 && process.interruptTimer !== null) {
