@@ -175,7 +175,7 @@ browser and that the resulting retained files can be serialized.
 
 ## Rust compiler seed and source-built tools
 
-`bash scripts/build-rust-toolchain.sh` builds the external Rust 1.98.1 / LLVM
+`npm run build:rust-seed` explicitly builds the external Rust 1.98.1 / LLVM
 22.1.8 seed after the C runtime. It requires Linux x86_64, Podman, Python 3.12+
 (`tarfile` data filters and `tomllib`), curl and patch. Native bootstrap archive
 hashes are in `toolchain/rust/bootstrap-sources.json`; compiler/library patches
@@ -183,7 +183,12 @@ and target configuration live beside them. The completed SDK contains rustc,
 std, proc_macro, the target libc source and the small POSIX spawn archive.
 Its final Wasm executable is validated against `dolly-process-0` before packing.
 Changed preparation inputs invalidate prepared source; the seed cache verifies
-its recorded input key and artifact checksum.
+its recorded input key and artifact checksum. Run this command again after
+changing Rust bootstrap sources or target inputs. Ordinary image preparation
+stages a checksum-verified completed seed, or the existing HOST artifact pinned
+in `modules/rust-sdk.dm`; it never starts an external Rust/LLVM build. A missing
+or corrupt seed fails before fetching image sources. The image loader still
+checks the compiler against the current process ABI.
 
 The [Rust SDK image](../Dollyfile-rust-sdk) imports that seed and compiles its
 C linker adapter in Dolly. [Rust build](../Dollyfile-rust-build) adds curl and C Patti;

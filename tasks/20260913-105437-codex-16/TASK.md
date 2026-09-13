@@ -90,3 +90,8 @@ adding another cache layer yet. The runtime/image separation and native link fix
 removed the large measured iteration costs; frontend-only changes already run
 without source preparation or image builds. Keep this issue open for further
 optimization if larger selected workflows show a meaningful remaining cost.
+
+The full default/Pi commands are now measured too: 5.10 s / 5.17 s with all image
+artifacts reused and exact source validation retained. Source preparation is
+3.2 s / 2.6 s. Issue 25 made Rust compiler bootstrapping explicit, so an absent
+raw compiler build tree no longer forces that expensive operation before reuse.

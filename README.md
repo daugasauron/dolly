@@ -49,6 +49,7 @@ npm ci
 npx playwright-core install firefox
 ./scripts/build-toolchain.sh           # expensive compiler seed
 npm run build:runtime
+npm run build:rust-seed               # expensive Rust compiler seed, once
 npm run image -- default --package    # build and publish one image locally
 DOLLY_PORT=9000 npm run serve
 ```

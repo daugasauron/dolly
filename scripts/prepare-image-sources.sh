@@ -19,6 +19,31 @@ if has_module pi-build && [[ ! -f "${project_dir}/node_modules/@earendil-works/p
   exit 1
 fi
 
+staging="$(mktemp -d "${project_dir}/dist/.image-sources.XXXXXX")"
+cleanup() {
+  if [[ -d "${staging}/previous" && ! -e "${project_dir}/dist/static" ]]; then
+    mv -- "${staging}/previous" "${project_dir}/dist/static"
+  fi
+  rm -rf -- "${staging}"
+}
+trap cleanup EXIT
+static_dir="${staging}/static"
+mkdir -p "${static_dir}/default" "${static_dir}/gamedev" "${static_dir}/python"
+if [[ -d "${project_dir}/dist/static" ]]; then
+  cp -al -- "${project_dir}/dist/static/." "${static_dir}/"
+fi
+
+copy_static() {
+  local source="$1"
+  local destination="$2"
+  mkdir -p "$(dirname -- "${static_dir}/${destination}")"
+  cp --remove-destination -- "${source}" "${static_dir}/${destination}"
+}
+
+if has_module rust-sdk; then
+  node scripts/prepare-rust-seed.mjs "${static_dir}/rust/rust-sdk.tar.gz"
+fi
+
 has_module sbase && sbase_dir="$("${project_dir}/scripts/fetch-sbase.sh")"
 if has_module awk; then
   awk_dir="$("${project_dir}/scripts/fetch-awk.sh")"
@@ -62,27 +87,6 @@ if has_module gamedev-sdk; then
   raylib_dir="$("${project_dir}/scripts/fetch-raylib.sh")"
   box3d_dir="$("${project_dir}/scripts/fetch-box3d.sh")"
 fi
-staging="$(mktemp -d "${project_dir}/dist/.image-sources.XXXXXX")"
-cleanup() {
-  if [[ -d "${staging}/previous" && ! -e "${project_dir}/dist/static" ]]; then
-    mv -- "${staging}/previous" "${project_dir}/dist/static"
-  fi
-  rm -rf -- "${staging}"
-}
-trap cleanup EXIT
-static_dir="${staging}/static"
-mkdir -p "${static_dir}/default" "${static_dir}/gamedev" "${static_dir}/python"
-if [[ -d "${project_dir}/dist/static" ]]; then
-  cp -al -- "${project_dir}/dist/static/." "${static_dir}/"
-fi
-
-copy_static() {
-  local source="$1"
-  local destination="$2"
-  mkdir -p "$(dirname -- "${static_dir}/${destination}")"
-  cp --remove-destination -- "${source}" "${static_dir}/${destination}"
-}
-
 if has_module session-recovery; then
   copy_static src/commands/session-recover.c session-recovery/session-recover.c
   for header in session-records.h fs-record.h; do
@@ -95,8 +99,6 @@ if has_module curl; then
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
 fi
 if has_module rust-sdk; then
-  bash scripts/build-rust-toolchain.sh
-  copy_static build/rustc-port/rust-sdk.tar.gz rust/rust-sdk.tar.gz
   copy_static src/commands/rustc.sh rust/rustc.sh
   copy_static src/runtimes/rust-linker.c rust/rust-linker.c
 fi

@@ -8,6 +8,7 @@
     "lint:dollyfiles": "node scripts/lint-dollyfiles.mjs",
     "abi": "node scripts/dolly-abi.mjs inspect build/dolly-process-0.wasm && node scripts/dolly-abi.mjs inspect build/dolly-kernel-plugin-0.wasm",
     "build:runtime": "./scripts/build.sh",
+    "build:rust-seed": "./scripts/build-rust-toolchain.sh",
     "routes": "node scripts/generate-routes.mjs",
     "image": "node scripts/build-image.mjs",
     "snapshot": "node scripts/build-image.mjs",

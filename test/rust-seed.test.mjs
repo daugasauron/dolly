@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+import { stageRustSeed } from "../scripts/prepare-rust-seed.mjs";
+
+test("seed staging verifies completed or pinned bytes and preserves previous files on failure", async t => {
+  const project = await mkdtemp(join(tmpdir(), "dolly-seed-stage-"));
+  t.after(() => rm(project, { recursive: true, force: true }));
+  const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+  const pinned = Buffer.from("pinned seed bytes"), built = Buffer.from("completed seed bytes");
+  for (const path of ["modules", "dist/static/rust", "build/rustc-port", "output"])
+    await mkdir(join(project, path), { recursive: true });
+  const cached = join(project, "dist/static/rust/rust-sdk.tar.gz");
+  const raw = join(project, "build/rustc-port/rust-sdk.tar.gz");
+  const manifest = join(project, "build/rustc-port/seed.sha256");
+  const output = join(project, "output/rust-sdk.tar.gz");
+  await writeFile(join(project, "modules/rust-sdk.dm"), `DOLLY 3\nMODULE rust-sdk\nSOURCE HOST /static/rust/rust-sdk.tar.gz /tmp/seed ${hash(pinned)}\n`);
+  await writeFile(cached, pinned);
+  await symlink(cached, output);
+  await stageRustSeed(project, output);
+  assert.deepEqual(await readFile(output), pinned);
+  await writeFile(raw, built);
+  await writeFile(manifest, `${hash(built)}  rust-sdk.tar.gz\n`);
+  await stageRustSeed(project, output);
+  assert.deepEqual(await readFile(output), built);
+  assert.deepEqual(await readFile(cached), pinned, "staging wrote through a cached symlink");
+  await writeFile(raw, "damaged");
+  await assert.rejects(stageRustSeed(project, output));
+  assert.deepEqual(await readFile(output), built);
+  await writeFile(manifest, "invalid checksum record\n");
+  await assert.rejects(stageRustSeed(project, output));
+  await rm(manifest);
+  await writeFile(cached, "damaged pinned seed");
+  await assert.rejects(stageRustSeed(project, output));
+  assert.deepEqual(await readFile(output), built);
+  await rm(cached);
+  await assert.rejects(stageRustSeed(project, output));
+  assert.deepEqual(await readFile(output), built);
+});
