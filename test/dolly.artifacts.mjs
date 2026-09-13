@@ -382,15 +382,11 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.ok(metadata.manifest.includes(expectedPrograms.get(image)), `${image}: primary program`);
     for (const path of ["/usr/bin/rg", "/usr/share/dolly/builds/ripgrep.json",
       "/usr/share/licenses/ripgrep/LICENSE-MIT"]) {
-      assert.equal(metadata.manifest.includes(path),
-        !["system-build", "ghostty-build", "rust-sdk", "rust-build", "protox-build", "codex-build", "fd-build"].includes(image),
-        `${image}: ${path}`);
+      assert.equal(metadata.manifest.includes(path), graph.exporters.has("TOOL:rg"), `${image}: ${path}`);
     }
     for (const path of ["/usr/bin/fd", "/usr/share/dolly/builds/fd.json",
       "/usr/share/licenses/fd/LICENSE-MIT", "/usr/share/licenses/fd/LICENSE-APACHE"]) {
-      assert.equal(metadata.manifest.includes(path),
-        !["system-build", "ghostty-build", "rust-sdk", "rust-build", "protox-build", "codex-build", "ripgrep"].includes(image),
-        `${image}: ${path}`);
+      assert.equal(metadata.manifest.includes(path), graph.exporters.has("TOOL:fd"), `${image}: ${path}`);
     }
     assert.equal(
       metadata.manifest.includes("/usr/bin/pi"),

@@ -1,6 +1,6 @@
 # Remove display and Rust tool dependencies from CMake builders
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: audit,core,build
 
@@ -27,7 +27,7 @@ Do not simply remove these prerequisites or move compilation to the host.
 - Verify CMake and downstream builders in the browser, then measure fanout and
   reuse without repeatedly recompiling unchanged prerequisites.
 
-## Implementation under verification
+## Resolution
 
 `system-tools` now builds the C/C++ libraries, Git and conventional utilities
 without display/Rust packaging. `system` composes it with Ghostty, rg and fd.
@@ -38,7 +38,9 @@ CMake builds in Chrome in 1,348 seconds and produces 225,308,820 bytes, about
 17 MB smaller than the earlier interactive base. The snapshot has no display
 plugin, DISPLAY variable, Rust compiler, Zig, rg or fd. A browser then configured,
 built, installed and reran a C/C++ CMake project. Neovim built in 256 seconds;
-Studio packaged in 9 seconds. SDL and the consumer smoke checks are pending.
+Studio packaged in 9 seconds. SDL built in 200 seconds. Chrome passed SDL rendering, input, screenshots,
+ordered batches and cancellation; Studio passed visible Neovim lint/highlighting
+and Pi startup; Rust tools passed their source-build smoke check.
 
 Graph inspection finds 21 affected images for a Ghostty or fd recipe edit,
 including the producer itself. CMake, Neovim/SDL/game producers and the Rust
