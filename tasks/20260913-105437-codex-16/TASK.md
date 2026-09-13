@@ -1,7 +1,7 @@
 # Prepare only changed inputs for a selected image build
 
 - STATUS: OPEN
-- PRIORITY: 250
+- PRIORITY: 75
 - TAGS: audit,build
 
 ## Evidence
@@ -66,3 +66,27 @@ Larger unchanged archives and leaf source preparation remain open work.
 
 The unchanged rebuilt runtime also passed the complete core gate in Chrome
 (21.8 s) and Firefox (28.3 s), using the existing default image and tools.
+
+## Larger-source measurements
+
+The official unchanged `npm run image -- cmake-build` path took 3.97 s and
+4.13 s with verified cached upstream sources. Preparation/pinning took 3.4–3.6 s,
+routes 0.1 s, and complete three-image reuse inspection 0.4 s. The 117 HOST
+sources (41.4 MB) remained byte-identical; 37 unchanged files were republished.
+CMake's source archive contains 30,267 files.
+
+A temporary edit to the actual CMake platform input took 3.285 s to prepare,
+0.091 s for routes and 0.230 s to plan. Only CMake required a rebuild; the two
+headless bases were reused. Restoring the exact input and rebuilding its archive
+restored full reuse of all 18 selected images. No compiler ran for this probe.
+
+Ripgrep/fd source preparation with initially absent verified download caches took
+4.32 s / 9.67 s. Warm runs took 0.11 s / 0.18 s and reproduced the exact existing
+archive hashes. These scripts compile nothing; the separately bootstrapped Rust
+compiler seed is still the existing ABI-validated pinned input in this worktree.
+
+Remaining archive reuse is now lower priority: these measurements do not justify
+adding another cache layer yet. The runtime/image separation and native link fix
+removed the large measured iteration costs; frontend-only changes already run
+without source preparation or image builds. Keep this issue open for further
+optimization if larger selected workflows show a meaningful remaining cost.
