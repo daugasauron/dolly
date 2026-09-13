@@ -90,7 +90,7 @@ test("QuickJS is selected only by Pi-bearing images", async () => {
   for (const { spec, graph } of images.filter(({ spec }) =>
     ["pi", "python-pi", "gamedev"].includes(spec.image))) {
     const quickjs = graph.modules.find(({ name }) => name === "quickjs");
-    const pi = graph.modules.find(({ name }) => name === "pi");
+    const pi = graph.modules.find(({ name }) => name === "pi-build");
     assert.ok(quickjs, `${spec.image} must include quickjs`);
     assert.ok(pi, `${spec.image} must include pi`);
     for (const requirement of ["LIB:dolly-js", "HEADER:quickjs-runner"]) {
@@ -282,7 +282,7 @@ test("small Dolly-owned command sources are inline", async () => {
 test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", async () => {
   const graph = await loadProjectGraph("Dollyfile-pi");
   const typescript = graph.modules.find(({ name }) => name === "typescript");
-  const pi = graph.modules.find(({ name }) => name === "pi");
+  const pi = graph.modules.find(({ name }) => name === "pi-build");
   assert.ok(typescript);
   assert.ok(pi);
   assert.ok(typescript.sources.some(({ location }) =>
@@ -331,6 +331,7 @@ test("redistributed upstream modules retain their licenses", async () => {
     ["awk", ["/usr/share/licenses/awk/LICENSE"]],
     ["sbase", ["/usr/share/licenses/sbase/LICENSE"]],
     ["quickjs", ["/usr/share/licenses/quickjs-ng/LICENSE"]],
+    ["pi-build", ["/usr/share/licenses/pi-source/LICENSE"]],
     ["libffi", ["/usr/share/licenses/libffi/LICENSE"]],
     ["cpython", ["/usr/share/licenses/cpython/LICENSE"]],
     ["gamedev-sdk", [
@@ -471,7 +472,7 @@ test("build modules declare tools used by their own recipes", async () => {
     ["git", ["ar", "cc", "mkdir", "rm"]],
     ["ninja", ["make"]],
     ["agent-tools", ["cc"]],
-    ["pi", ["cc"]],
+    ["pi-build", ["cc"]],
     ["quickjs", ["ar", "cc"]],
     ["sbase", ["cc"]],
     ["typescript", ["cc"]],
@@ -491,7 +492,7 @@ test("build modules declare tools used by their own recipes", async () => {
 test("compiled modules declare their direct C header surfaces", async () => {
   const modules = uniqueModules(await loadImages());
   const requiringLibc = [
-    "tar", "core-tools", "download", "make", "cpp", "ninja", "zlib", "curl", "git", "quickjs", "pi",
+    "tar", "core-tools", "download", "make", "cpp", "ninja", "zlib", "curl", "git", "quickjs", "pi-build",
     "ghostty", "awk", "sbase", "python", "libffi", "cpython", "bonnie", "gamedev-sdk",
   ];
   for (const name of requiringLibc) {
@@ -510,7 +511,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
   assert.deepEqual(headers("curl"), ["libc", "http"]);
   assert.deepEqual(headers("git"), ["libc", "runtime", "curl", "zlib"]);
   assert.deepEqual(headers("quickjs"), ["libc", "runtime", "http", "download"]);
-  assert.deepEqual(headers("pi"), ["libc", "quickjs-runner"]);
+  assert.deepEqual(headers("pi-build"), ["libc", "quickjs-runner"]);
   assert.deepEqual(headers("python"), ["curl", "libc", "runtime", "zlib"]);
   assert.deepEqual(headers("libffi"), ["libc"]);
   assert.deepEqual(headers("cpython"), ["libc", "ffi", "ffitarget", "runtime", "zlib"]);

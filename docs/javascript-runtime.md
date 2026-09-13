@@ -8,6 +8,9 @@ QuickJS-ng + Janis node:* adapters → dolly-process-0 → Wasm kernel
 ```
 
 `qjs`, `janis`, `tsc` and `pi` are ordinary WasmFS programs.
+The headless `typescript-build` image compiles QuickJS and the TypeScript
+launcher on `system-tools`. The interactive `javascript` image copies those
+programs, libraries and headers into `system`, so display changes reuse them.
 Pi's TypeScript is emitted inside Dolly and loaded unbundled; see
 [Pi](pi-agent-plan.md) for build and package policy.
 Replacing the JavaScript engine would not remove the need for Node adapters.

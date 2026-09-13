@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE classicube
 
-FROM HOST /Dollyfile-pi-runtime 019d0e475dc19aa574c2f372809a50fd6ab7d13ca629b0ff1ccc5f916de7cf5f
+FROM HOST /Dollyfile-pi-runtime 0dca24cc1a3988ed265b6336777ce49e5e767f17941a7b119522f9807f42e259
 COPY FROM HOST /Dollyfile-classicube-build 97998875ed136adf45274b0d0d33b42cc689b4279bd2492aae3dd45ec568ac73 /usr/bin/classicube /usr/bin/classicube
 COPY FROM HOST /Dollyfile-classicube-build 97998875ed136adf45274b0d0d33b42cc689b4279bd2492aae3dd45ec568ac73 /usr/share/classicube /home/dolly/classicube
 COPY FROM HOST /Dollyfile-classicube-build 97998875ed136adf45274b0d0d33b42cc689b4279bd2492aae3dd45ec568ac73 /usr/share/licenses/classicube /usr/share/licenses/classicube

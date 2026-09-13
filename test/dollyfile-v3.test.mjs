@@ -76,7 +76,8 @@ test("images separate reusable runtimes from applications and configuration", as
   const expected = {
     "ghostty-build": ["system-build"], "system-build": [],
     "system-tools": ["system-build"],
-    system: ["system-tools", "ghostty-build", "ripgrep", "fd-build"], default: ["system"], javascript: ["system"],
+    system: ["system-tools", "ghostty-build", "ripgrep", "fd-build"], default: ["system"], javascript: ["system", "typescript-build"],
+    "typescript-build": ["system-tools"], "pi-build": ["typescript-build"],
     "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
     ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
     "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build"],
@@ -87,7 +88,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "classicube-build": ["sdl2-build"], classicube: ["pi-runtime", "classicube-build", "sdl2-build"],
     "rts-arena": ["pi-runtime", "rts-build"],
     neovim: ["system", "neovim-build"],
-    "pi-runtime": ["javascript"], pi: ["pi-runtime"], "pi-local": ["pi"],
+    "pi-runtime": ["javascript", "pi-build"], pi: ["pi-runtime"], "pi-local": ["pi"],
     "python-runtime": ["system"], python: ["python-runtime"],
     "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
     "gamedev-phone": ["gamedev"],
@@ -102,7 +103,7 @@ test("images separate reusable runtimes from applications and configuration", as
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
       assert.equal(graph.records.some(record => ["git", "ghostty", "startup-default"].includes(record.name)), false);
     }
-    if (["system-tools", "cmake-build", "neovim-build", "sdl2-build", "classicube-build", "rts-build"].includes(definition.image)) {
+    if (["system-tools", "cmake-build", "neovim-build", "sdl2-build", "classicube-build", "rts-build", "typescript-build", "pi-build"].includes(definition.image)) {
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
       assert.equal(recipeRecords(graph).some(record => ["ghostty-build", "rust-sdk", "rust-build"].includes(record.name)), false);
     }
@@ -137,8 +138,9 @@ test("images separate reusable runtimes from applications and configuration", as
   const definitions = await discoverImageDefinitions(project);
   assert.deepEqual(new Set((await selectImageDefinitions(definitions, "python-pi")).map(item => item.image)),
     new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system", "ghostty-build",
-      "system-tools", "system-build", "rust-sdk", "rust-build", "ripgrep", "fd-build"]));
-  assert.deepEqual(await selectImageDefinitions(definitions, "all"), definitions);
+      "system-tools", "system-build", "rust-sdk", "rust-build", "ripgrep", "fd-build", "typescript-build", "pi-build"]));
+  assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
+    definitions.map(item => item.image));
   const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
   const selected = await selectImageDefinitions(definitions, githubImages.join(","));
   assert.deepEqual(selected.map(item => item.image), definitions

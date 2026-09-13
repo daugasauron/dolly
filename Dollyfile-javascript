@@ -2,7 +2,22 @@ DOLLY 3
 IMAGE javascript
 
 FROM HOST /Dollyfile-system 265be7c0a304e97626ba33e552dea3122e79a55ee211d342421667da0153b1bc
-USE HOST /modules/quickjs.dm b48a88b903e1749ac28cfeec95349fd38161332cbd9a8a33bdd6446c77079cf7
-USE HOST /modules/typescript.dm 6e3d68d10ad21724da28f91f6bf9350d16db16917d93e793b9004f0b6688b3a0
+
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/bin/qjs /usr/bin/qjs
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/bin/janis /usr/bin/janis
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/bin/tsc /usr/bin/tsc
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/lib/typescript /usr/lib/typescript
+COPY FROM HOST /Dollyfile-typescript-build e156fc0649597c71c50ead3049d0551805a64a079c797b76e149e1df437601c0 /usr/share/licenses/quickjs-ng/LICENSE /usr/share/licenses/quickjs-ng/LICENSE
+
+EXPORTS TOOL qjs
+EXPORTS TOOL janis
+EXPORTS TOOL tsc
+EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
+EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
+EXPORTS FOLDER typescript /usr/lib/typescript
 
 ENTRY /bin/foreground -i /bin/slop

@@ -350,6 +350,8 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["rust-tools", "/usr/bin/patti"],
     ["protox-build", "/usr/bin/protox"],
     ["javascript", "/usr/bin/tsc"],
+    ["typescript-build", "/usr/bin/tsc"],
+    ["pi-build", "/usr/bin/pi"],
     ["pi-runtime", "/usr/bin/pi"],
     ["python-runtime", "/usr/bin/python"],
     ["gamedev-sdk", "/usr/lib/libbox3d.a"],
@@ -388,10 +390,9 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       "/usr/share/licenses/fd/LICENSE-MIT", "/usr/share/licenses/fd/LICENSE-APACHE"]) {
       assert.equal(metadata.manifest.includes(path), graph.exporters.has("TOOL:fd"), `${image}: ${path}`);
     }
-    assert.equal(
-      metadata.manifest.includes("/usr/bin/pi"),
-      ["pi", "pi-local", "pi-runtime", "python-pi", "gamedev", "gamedev-phone", "bhop", "classicube", "dollyfile-studio", "rts-arena"].includes(image),
-    );
+    for (const path of ["/usr/bin/pi", "/usr/share/licenses/pi-source/LICENSE"]) {
+      assert.equal(metadata.manifest.includes(path), graph.exporters.has("TOOL:pi"), `${image}: ${path}`);
+    }
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
       "/usr/lib/dolly/process/libc-ww.a", "/usr/lib/clang/24/include/stddef.h",

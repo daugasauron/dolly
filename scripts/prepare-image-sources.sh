@@ -14,7 +14,7 @@ has_module() {
   [[ -n "${selected_module[$1]:-}" ]]
 }
 
-if has_module pi && [[ ! -f "${project_dir}/node_modules/@earendil-works/pi-ai/package.json" ]]; then
+if has_module pi-build && [[ ! -f "${project_dir}/node_modules/@earendil-works/pi-ai/package.json" ]]; then
   echo "dolly: run npm ci before building Pi images" >&2
   exit 1
 fi
@@ -25,7 +25,7 @@ if has_module awk; then
   awk_generated_dir="$("${project_dir}/scripts/generate-awk.sh")"
 fi
 has_module quickjs && quickjs_dir="$("${project_dir}/scripts/fetch-quickjs.sh")"
-has_module pi && pi_source_dir="$("${project_dir}/scripts/fetch-pi-source.sh")"
+has_module pi-build && pi_source_dir="$("${project_dir}/scripts/fetch-pi-source.sh")"
 has_module typescript && typescript_archive="$("${project_dir}/scripts/fetch-typescript.sh")"
 has_module curl && curl_dir="$("${project_dir}/scripts/fetch-curl.sh")"
 has_module zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
@@ -163,11 +163,13 @@ fi
 if has_module ninja; then
   copy_static "${project_dir}/src/runtimes/samurai-unit-dolly.c" default/runtimes/samurai-unit-dolly.c
 fi
-if has_module pi; then
+if has_module pi-build; then
   copy_static "${project_dir}/src/commands/pi.c" default/commands/pi.c
   copy_static "${project_dir}/config/pi-tsconfig.dolly.json" default/pi-tsconfig.dolly.json
   copy_static "${project_dir}/config/pi-quickjs-compat.mjs" default/pi-quickjs-compat.mjs
   copy_static "${project_dir}/src/runtimes/apply-pi-quickjs-compat.mjs" default/runtimes/apply-pi-quickjs-compat.mjs
+fi
+if has_module pi; then
   copy_static "${project_dir}/src/pi/dolly-tools.js" default/pi/dolly-tools.js
   copy_static "${project_dir}/src/pi/SYSTEM.md" default/pi/SYSTEM.md
   copy_static "${project_dir}/src/pi/settings.json" default/pi/settings.json
@@ -504,7 +506,7 @@ node scripts/build-source-tar.mjs "${static_dir}/python/libffi.tar" \
   "${libffi_dir}/include/ffitarget.h" /usr/include/ffitarget.h \
   "${libffi_dir}/LICENSE" /usr/share/licenses/libffi/LICENSE
 fi
-if has_module pi; then
+if has_module pi-build; then
   node scripts/build-source-tar.mjs "${static_dir}/default/pi-source.tar" \
     "${pi_source_dir}/tsconfig.base.json" /usr/src/pi-source/tsconfig.base.json \
     "${pi_source_dir}/LICENSE" /usr/share/licenses/pi-source/LICENSE \

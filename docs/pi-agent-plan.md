@@ -8,6 +8,10 @@ runtime over the shared filesystem, process API and HTTP broker.
 
 `/usr/bin/tsc` runs the pinned official TypeScript compiler inside Dolly and
 emits Pi's upstream workspace packages under `/usr/lib/node_modules`.
+The headless `pi-build` image performs this compilation on `typescript-build`.
+`pi-runtime` copies the resulting programs, packages and source into the
+interactive JavaScript image, then installs the prompt, settings, theme and
+extension. Those configuration edits reuse the compiled source artifacts.
 The source remains under `/usr/src/pi-source`.
 This is `noCheck` JavaScript emit, not full TypeScript type checking.
 An asserted post-emit transform lowers six Unicode-set regexes unsupported by
