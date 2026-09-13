@@ -3,7 +3,7 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
-source_dir="$("${project_dir}/scripts/fetch-zlib.sh")"
+source_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" zlib)"
 recipe_hash="$({
   printf '%s\n' "zlib=${DOLLY_ZLIB_COMMIT}"
   sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}'

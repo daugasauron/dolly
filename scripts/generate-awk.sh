@@ -2,7 +2,7 @@
 set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-source_dir="$("${project_dir}/scripts/fetch-awk.sh")"
+source_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" awk)"
 bison="$("${project_dir}/scripts/build-bison.sh")"
 recipe_hash="$({
   sha256sum "${source_dir}/awkgram.y" "${bison}" "${BASH_SOURCE[0]}" \

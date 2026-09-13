@@ -44,15 +44,15 @@ if has_module rust-sdk; then
   node scripts/prepare-rust-seed.mjs "${static_dir}/rust/rust-sdk.tar.gz"
 fi
 
-has_module sbase && sbase_dir="$("${project_dir}/scripts/fetch-sbase.sh")"
+has_module sbase && sbase_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" sbase)"
 if has_module awk; then
-  awk_dir="$("${project_dir}/scripts/fetch-awk.sh")"
+  awk_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" awk)"
   awk_generated_dir="$("${project_dir}/scripts/generate-awk.sh")"
 fi
-has_module quickjs && quickjs_dir="$("${project_dir}/scripts/fetch-quickjs.sh")"
-has_module pi-build && pi_source_dir="$("${project_dir}/scripts/fetch-pi-source.sh")"
+has_module quickjs && quickjs_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" quickjs)"
+has_module pi-build && pi_source_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" pi-source)"
 has_module typescript && typescript_archive="$("${project_dir}/scripts/fetch-typescript.sh")"
-has_module curl && curl_dir="$("${project_dir}/scripts/fetch-curl.sh")"
+has_module curl && curl_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" curl)"
 has_module zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
 has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 has_module make && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
@@ -71,12 +71,12 @@ if has_module luv; then
   luv_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" luv)"
   lua_compat53_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lua_compat53)"
 fi
-has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-emscripten-system-libs.sh")"
+has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
 has_module libffi && libffi_dir="$("${project_dir}/scripts/prepare-libffi.sh")"
 has_module cpython && cpython_dir="$("${project_dir}/scripts/prepare-cpython.sh")"
 has_module zig && zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
 if has_module ghostty; then
-  ghostty_checkout="$("${project_dir}/scripts/fetch-ghostty.sh")"
+  ghostty_checkout="$("${project_dir}/scripts/fetch-pinned-checkout.sh" ghostty)"
   ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
   uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
   stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
@@ -84,8 +84,8 @@ if has_module ghostty; then
   runtime_font="${font_paths[1]}"
 fi
 if has_module gamedev-sdk; then
-  raylib_dir="$("${project_dir}/scripts/fetch-raylib.sh")"
-  box3d_dir="$("${project_dir}/scripts/fetch-box3d.sh")"
+  raylib_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" raylib)"
+  box3d_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" box3d)"
 fi
 if has_module session-recovery; then
   copy_static src/commands/session-recover.c session-recovery/session-recover.c

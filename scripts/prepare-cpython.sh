@@ -3,7 +3,7 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
-source_dir="$("${project_dir}/scripts/fetch-cpython.sh")"
+source_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" cpython)"
 
 build_python="$(command -v python3.14 || true)"
 if [[ -z "${build_python}" ]] ||

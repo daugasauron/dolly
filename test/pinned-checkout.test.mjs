@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import test from "node:test";
+const run = promisify(execFile);
+
+test("pinned Git fetches publish cleanly under overlap and refuse changed caches", async t => {
+  const root = await mkdtemp(join(tmpdir(), "dolly-checkout-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const origin = join(root, "origin"), project = join(root, "project");
+  for (const directory of [origin, join(project, "scripts"), join(project, "config")]) await mkdir(directory, { recursive: true });
+  const git = async (directory, ...args) => (await run("git", ["-C", directory, ...args])).stdout.trim();
+  await git(origin, "init", "--quiet");
+  await writeFile(join(origin, "source"), "pinned source\n");
+  await writeFile(join(origin, ".gitignore"), "ignored\n");
+  await git(origin, "add", "source", ".gitignore");
+  await git(origin, "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid",
+    "-c", "commit.gpgSign=false", "commit", "--quiet", "-m", "source");
+  const commit = await git(origin, "rev-parse", "HEAD");
+  for (const name of ["fetch-pinned-checkout.sh", "verify-git-source.sh"])
+    await cp(new URL(`../scripts/${name}`, import.meta.url), join(project, "scripts", name));
+  const configuration = revision => `DOLLY_SBASE_URL='${origin.replaceAll("'", "'\\''")}'\nDOLLY_SBASE_COMMIT=${revision}\n`;
+  const pins = join(project, "config/source-pins.sh");
+  await writeFile(pins, configuration(commit));
+  const fetch = async (name = "sbase") => (await run("bash", [join(project, "scripts/fetch-pinned-checkout.sh"), name])).stdout.trim();
+  const destination = join(project, ".cache", `sbase-${commit}`);
+  assert.deepEqual(await Promise.all(Array.from({ length: 4 }, () => fetch())), Array(4).fill(destination));
+  assert.equal(await git(destination, "status", "--porcelain", "--untracked-files=all"), "");
+  assert.deepEqual(await readdir(join(project, ".cache")), [`sbase-${commit}`]);
+  const before = await stat(join(destination, "source"));
+  assert.equal(await fetch(), destination);
+  assert.equal((await stat(join(destination, "source"))).mtimeMs, before.mtimeMs);
+  await writeFile(join(destination, "source"), "changed\n");
+  await assert.rejects(fetch(), /local source changes/);
+  assert.equal(await readFile(join(destination, "source"), "utf8"), "changed\n");
+  await git(destination, "add", "source");
+  await assert.rejects(fetch(), /staged source changes/);
+  await git(destination, "reset", "--hard", "--quiet", commit);
+  await writeFile(join(destination, "ignored"), "untracked input\n");
+  await assert.rejects(fetch(), /local source changes/);
+  await rm(join(destination, "ignored"));
+  assert.equal(await fetch(), destination);
+  await assert.rejects(fetch("../outside"), /unknown pinned Git source/);
+  await writeFile(pins, configuration("0".repeat(40)));
+  await assert.rejects(fetch());
+  await writeFile(pins, configuration(commit));
+  assert.equal(await fetch(), destination);
+  assert.deepEqual(await readdir(join(project, ".cache")), [`sbase-${commit}`]);
+});

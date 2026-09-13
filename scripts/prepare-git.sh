@@ -3,7 +3,7 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
-source_dir="$("${project_dir}/scripts/fetch-git.sh")"
+source_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" git)"
 recipe_hash="$({
   printf '%s\n' "git=${DOLLY_GIT_COMMIT}"
   sha256sum \

@@ -36,7 +36,7 @@ test("preparation keys track their code and survive checkout relocation", async 
       await mkdir(dirname(join(original, path)), { recursive: true });
       await cp(new URL(`../${path}`, import.meta.url), join(original, path));
     }
-    for (const name of ["fetch-samurai.sh", "fetch-zig.sh"]) {
+    for (const name of ["fetch-pinned-checkout.sh", "fetch-zig.sh"]) {
       await writeFile(join(original, "scripts", name), "#!/usr/bin/env bash\nexit 0\n", { mode: 0o755 });
     }
     await cp(original, relocated, { recursive: true });
