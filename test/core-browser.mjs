@@ -36,6 +36,8 @@ try {
         "sleep 30; echo bad > /tmp/core-interrupted",
         "sleep 30 | /bin/slop -c 'echo bad > /tmp/core-interrupted'",
         "(sleep 30) | /bin/slop -c 'echo bad > /tmp/core-interrupted'",
+        'echo "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"',
+        'for item in "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"; do echo bad > /tmp/core-interrupted; done',
       ]) {
         await page.evaluate(text => {
           globalThis.interruptedStatus = null;

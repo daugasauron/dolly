@@ -653,7 +653,7 @@ static int capture_command(Shell *shell, const char *command, Buffer *output) {
          output->data[output->length - 1] == '\n') {
     output->data[--output->length] = '\0';
   }
-  return 1;
+  return shell->active;
 }
 
 typedef struct {
@@ -4688,6 +4688,7 @@ static int interactive(Shell *shell) {
       if (report_status) shell->last_status = execute_text(shell, line);
     }
     if (shell->terminating_signal) {
+      shell->last_status = shell->exit_status;
       shell->active = 1;
       shell->terminating_signal = 0;
       shell->exit_status = 0;

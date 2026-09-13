@@ -38,9 +38,14 @@ compound commands, functions, substitution and nested shell processes. The
 interactive shell returns to its prompt. Cwd snapshots retain directory handles
 so renamed directories restore correctly.
 
-Chrome and Firefox compiled the new shell inside Dolly and passed eleven signal
+Chrome and Firefox compiled the new shell inside Dolly and passed fifteen signal
 cases, the ordinary exit-130 control, and directory renames in subshells and
-substitutions. Both browsers also ran three real Ctrl+C keypress cases in a
+substitutions. Both browsers also ran five real Ctrl+C keypress cases in a
 custom interactive image and verified prompt recovery and absent marker files.
 All 78 native sanitizer checks pass. These regressions are in the core gate;
 packaging the new shell into the standard seed/default is part of the final build.
+
+The expanded probe reproduced a second substitution running after the first was
+interrupted. Returning interruption from command expansion now prevents later
+substitutions, for-list expansions and heredocs from continuing. Interactive
+status stays 130 even when expansion is interrupted. Both browsers pass.
