@@ -87,6 +87,7 @@ export async function startBrowserServer(projectDir, image = "default") {
   }
   for (const [name, path] of Object.entries(processSmokeSources)) files.set(`/fixture/${name}`, path);
   files.set(`/${image}`, `build/routes/${image}/index.html`);
+  files.set("/custom/run", "build/routes/custom/run/index.html");
   const requests = new Set();
   const server = createServer(async (request, response) => {
     const headers = { "cache-control": "no-store", "cross-origin-opener-policy": "same-origin",

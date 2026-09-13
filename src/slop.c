@@ -6,11 +6,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <dolly/runtime.h>
@@ -70,6 +72,7 @@ typedef struct {
   int last_status;
   int substitution_status;
   int exit_status;
+  int terminating_signal;
   int errexit;
   int xtrace;
   int noexec;
@@ -107,10 +110,17 @@ typedef struct {
   char **environment;
   size_t environment_count;
   size_t environment_capacity;
-  char *cwd;
+  int cwd;
 } ShellStateSnapshot;
 
 extern char **environ;
+
+static void interrupt_shell(Shell *shell, int signal_number) {
+  if (signal_number != SIGINT && signal_number != SIGQUIT) return;
+  shell->terminating_signal = signal_number;
+  shell->active = 0;
+  shell->exit_status = 128 + signal_number;
+}
 
 static int execute_text(Shell *shell, const char *text);
 static int execute_tokens(Shell *shell, TokenList *list);
@@ -496,13 +506,14 @@ static void shell_state_snapshot_dispose(ShellStateSnapshot *snapshot) {
   for (size_t index = 0; index < snapshot->environment_count; index++)
     free(snapshot->environment[index]);
   free(snapshot->environment);
-  free(snapshot->cwd);
+  if (snapshot->cwd >= 0) close(snapshot->cwd);
   memset(snapshot, 0, sizeof(*snapshot));
+  snapshot->cwd = -1;
 }
 
 static int shell_state_capture(ShellStateSnapshot *snapshot) {
-  snapshot->cwd = getcwd(NULL, 0);
-  if (snapshot->cwd == NULL) return 0;
+  snapshot->cwd = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (snapshot->cwd < 0) return 0;
   for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
     char *copy = strdup(*entry);
     if (copy == NULL ||
@@ -546,7 +557,7 @@ static int shell_state_restore(const ShellStateSnapshot *snapshot) {
     if (setenv(name, equals + 1, 1) != 0) ok = 0;
     free(name);
   }
-  if (chdir(snapshot->cwd) != 0) ok = 0;
+  if (fchdir(snapshot->cwd) != 0) ok = 0;
   return ok;
 }
 
@@ -607,6 +618,7 @@ static int capture_command(Shell *shell, const char *command, Buffer *output) {
   }
   nested.functions = &nested_functions;
   const int command_status = execute_text(&nested, command);
+  interrupt_shell(shell, nested.terminating_signal);
   shell->substitution_status = nested.active ? command_status : nested.exit_status;
   shell->last_status = shell->substitution_status;
   functions_dispose(&nested_functions);
@@ -2381,6 +2393,7 @@ static int run_function(Shell *shell, const Function *function,
 
 static int run_with_descriptors(Shell *shell, int argc, char **argv,
                                 int input, int output, int error) {
+  if (!shell->active) return shell->exit_status;
   if (argc == 0) return 0;
   int handled = 0;
   int is_builtin = builtin_name(argv[0]);
@@ -2407,10 +2420,15 @@ static int run_with_descriptors(Shell *shell, int argc, char **argv,
   if (resolution != COMMAND_FOUND) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
   int pid = dolly_spawn(path, argc, argv, input, output, error);
   if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
-  int status = 126;
-  int wait_status = dolly_wait(pid, &status);
-  if (wait_status != 0) { fprintf(stderr, "slop: %s: wait failed: %s\n", argv[0], strerror(-wait_status)); return 126; }
-  return status;
+  int status;
+  pid_t waited;
+  do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
+  if (waited < 0) { fprintf(stderr, "slop: %s: wait failed: %s\n", argv[0], strerror(errno)); return 126; }
+  if (WIFSIGNALED(status)) {
+    interrupt_shell(shell, WTERMSIG(status));
+    return 128 + WTERMSIG(status);
+  }
+  return WIFEXITED(status) ? WEXITSTATUS(status) : 126;
 }
 
 static int save_environment_change(const char *word, EnvironmentChange *change) {
@@ -3017,6 +3035,7 @@ static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
   CommandRedirections redirections = {0};
   shell->substitution_status = 0;
   const int dollar_status = expand_deferred_dollars(shell, tokens, start, end);
+  if (!shell->active) return shell->exit_status;
   if (dollar_status == 0) goto memory_error;
   if (dollar_status < 0) goto expansion_error;
   if (!expand_tilde_words(tokens, start, end, 1)) goto memory_error;
@@ -3451,9 +3470,9 @@ static int parse_subshell(Shell *shell, CommandParser *parser, int execute,
                                   STOP_RPAREN, &stopped);
   functions_dispose(&nested_functions);
   shell_argv_dispose(&nested);
-  descriptor_state_restore(&descriptors);
   const int restored = shell_state_restore(&state);
   shell_state_snapshot_dispose(&state);
+  descriptor_state_restore(&descriptors);
   if (!restored) {
     if (pipeline_output >= 0) close(pipeline_output);
     fputs("slop: subshell: could not restore shell state\n", stderr);
@@ -3465,6 +3484,12 @@ static int parse_subshell(Shell *shell, CommandParser *parser, int execute,
     fputs("slop: subshell requires )\n", stderr);
     parser->error = 1;
     return 2;
+  }
+  if (nested.terminating_signal) {
+    interrupt_shell(shell, nested.terminating_signal);
+    if (pipeline_output >= 0) close(pipeline_output);
+    parser->cursor = pipeline_end;
+    return shell->exit_status;
   }
   int pipeline_status = status;
   int rightmost_failure = status == 0 ? 0 : status;
@@ -3494,6 +3519,10 @@ static int parse_subshell(Shell *shell, CommandParser *parser, int execute,
                                    input, output);
       close(input);
       if (pipeline_status != 0) rightmost_failure = pipeline_status;
+      if (!shell->active) {
+        if (cursor != pipeline_end) close(output);
+        break;
+      }
       if (cursor != pipeline_end) {
         if (lseek(output, 0, SEEK_SET) < 0) {
           close(output);
@@ -3503,7 +3532,6 @@ static int parse_subshell(Shell *shell, CommandParser *parser, int execute,
         input = output;
       }
       stage_start = cursor + 1;
-      if (!shell->active) break;
     }
   }
   parser->cursor = pipeline_end;
@@ -3949,7 +3977,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
       break;
     }
 
-    const int should_run = execute && !aborted &&
+    const int should_run = execute && shell->active && !aborted &&
         shell->loop_control == LOOP_CONTROL_NONE && !shell->returning &&
         (previous == TOKEN_SEMI ||
          (previous == TOKEN_AND && status == 0) ||
@@ -4659,6 +4687,11 @@ static int interactive(Shell *shell) {
       report_status = *command != '\0' && *command != '#';
       if (report_status) shell->last_status = execute_text(shell, line);
     }
+    if (shell->terminating_signal) {
+      shell->active = 1;
+      shell->terminating_signal = 0;
+      shell->exit_status = 0;
+    }
     if (report_status && shell->last_status != 0 &&
         shell->last_status != 127 && shell->active)
       fprintf(stderr, "slop: status %d\n", shell->last_status);
@@ -4736,6 +4769,7 @@ int main(int argc, char **argv) {
     const int result = shell.active ? status : shell.exit_status;
     shell_argv_dispose(&shell);
     functions_dispose(&functions);
+    if (shell.terminating_signal) raise(shell.terminating_signal);
     return result;
   }
   if (argv[index][0] == '-') { fprintf(stderr, "slop: unsupported option: %s\n", argv[index]); return 2; }
@@ -4748,5 +4782,6 @@ int main(int argc, char **argv) {
   const int result = shell.active ? status : shell.exit_status;
   shell_argv_dispose(&shell);
   functions_dispose(&functions);
+  if (shell.terminating_signal) raise(shell.terminating_signal);
   return result;
 }

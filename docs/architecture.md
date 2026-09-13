@@ -39,7 +39,8 @@ kernel's. See [process semantics](process-model.md).
 The kernel owns spawn/wait, pipes and signals. The supervisor can terminate an
 uncooperative Worker without discarding the filesystem. Fork, native threads,
 raw sockets and complete POSIX job control are unsupported. Serial execution is
-intentional; the [shell cancellation issue](../tasks/20260913-092832-codex-03/TASK.md) tracks the remaining gap.
+intentional. Slop stops interrupted lists and pipelines, propagates signal
+termination through nested shells, and keeps the interactive prompt usable.
 
 ## Images and files
 

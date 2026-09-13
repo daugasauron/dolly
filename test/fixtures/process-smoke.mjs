@@ -13,6 +13,7 @@ export const processSmokeSources = Object.freeze({
   "mmap-check.c": "src/process/mmap-check.c",
   "mmap-bounds.c": "test/fixtures/mmap-bounds.c",
   "cwd-check.c": "test/fixtures/cwd-check.c",
+  "slop-interrupt.c": "test/fixtures/slop-interrupt.c",
   "terminal-check.c": "src/process/terminal-check.c",
   "self-exe-check.c": "src/process/self-exe-check.c",
   "dso-check.c": "src/process/dso-check.c",
@@ -77,6 +78,7 @@ export async function runProcessSmoke(submit, origin) {
       `/bin/slop -c './fs-check write ${scratch}/data && ./fs-check read ${scratch}/data'`,
       "/bin/slop -c 'export DOLLY_PROCESS_CHECK=private-memory; case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; ./process-check fresh'",
       `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "./mmap-bounds", "./cwd-check", "./terminal-check", "cc --version",
+      "./slop-interrupt /bin/slop",
       `./dso-check ${scratch}/dso-library.so`, `./dso-cpp-check ${scratch}/dso-cpp-library.so`,
     ]) await run(command);
     await run(`./fs-check write ${scratch}/data`);
