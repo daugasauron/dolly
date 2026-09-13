@@ -6,18 +6,7 @@ source "${project_dir}/config/source-pins.sh"
 archive="${project_dir}/.cache/uucode-${DOLLY_UUCODE_COMMIT}.tar.gz"
 source_dir="${project_dir}/.cache/uucode-${DOLLY_UUCODE_COMMIT}"
 
-mkdir -p "${project_dir}/.cache"
-if [[ ! -f "${archive}" ]]; then
-  temporary_archive="$(mktemp "${project_dir}/.cache/uucode-download.XXXXXX")"
-  trap 'rm -f -- "${temporary_archive}"' EXIT
-  curl --fail --location --output "${temporary_archive}" "${DOLLY_UUCODE_URL}"
-  printf '%s  %s\n' "${DOLLY_UUCODE_SHA256}" "${temporary_archive}" |
-    sha256sum --check --status
-  mv -- "${temporary_archive}" "${archive}"
-  trap - EXIT
-fi
-printf '%s  %s\n' "${DOLLY_UUCODE_SHA256}" "${archive}" |
-  sha256sum --check --status
+"${project_dir}/scripts/fetch-verified-file.sh" "${DOLLY_UUCODE_URL}" "${DOLLY_UUCODE_SHA256}" "${archive}" > /dev/null
 
 if [[ ! -f "${source_dir}/src/root.zig" ]]; then
   if [[ -e "${source_dir}" ]]; then

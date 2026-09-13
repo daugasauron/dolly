@@ -23,16 +23,7 @@ esac
 
 archive="${project_dir}/.cache/zig-${platform}-${DOLLY_ZIG_VERSION}.tar.xz"
 source_dir="${project_dir}/.cache/zig-${platform}-${DOLLY_ZIG_VERSION}"
-mkdir -p "${project_dir}/.cache"
-
-if [[ ! -f "${archive}" ]] || ! echo "${sha256}  ${archive}" | sha256sum --check --status; then
-  temporary="$(mktemp "${project_dir}/.cache/zig-host.XXXXXX")"
-  trap 'rm -f -- "${temporary}"' EXIT
-  curl --fail --location --silent --show-error "${url}" --output "${temporary}"
-  echo "${sha256}  ${temporary}" | sha256sum --check --status
-  mv -- "${temporary}" "${archive}"
-  trap - EXIT
-fi
+"${project_dir}/scripts/fetch-verified-file.sh" "${url}" "${sha256}" "${archive}" > /dev/null
 
 if [[ ! -x "${source_dir}/zig" ]]; then
   temporary_dir="$(mktemp -d "${project_dir}/.cache/zig-host-extract.XXXXXX")"

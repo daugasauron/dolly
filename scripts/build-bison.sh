@@ -15,27 +15,17 @@ if ((jobs > 12)); then
 fi
 
 mkdir -p "${project_dir}/.cache"
-temporary_archive=""
 temporary_source=""
 temporary_build=""
 temporary_install=""
 cleanup() {
-  [[ -z "${temporary_archive}" ]] || rm -f -- "${temporary_archive}"
   [[ -z "${temporary_source}" ]] || rm -rf -- "${temporary_source}"
   [[ -z "${temporary_build}" ]] || rm -rf -- "${temporary_build}"
   [[ -z "${temporary_install}" ]] || rm -rf -- "${temporary_install}"
 }
 trap cleanup EXIT
 
-if [[ ! -f "${archive}" ]]; then
-  temporary_archive="$(mktemp "${project_dir}/.cache/bison-download.XXXXXX")"
-  curl --fail --location --output "${temporary_archive}" "${url}"
-  printf '%s  %s\n' "${sha256}" "${temporary_archive}" |
-    sha256sum --check --status
-  mv -- "${temporary_archive}" "${archive}"
-  temporary_archive=""
-fi
-printf '%s  %s\n' "${sha256}" "${archive}" | sha256sum --check --status
+"${project_dir}/scripts/fetch-verified-file.sh" "${url}" "${sha256}" "${archive}" > /dev/null
 
 if [[ ! -d "${source_dir}" ]]; then
   temporary_source="$(mktemp -d "${project_dir}/.cache/bison-source.XXXXXX")"
