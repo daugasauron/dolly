@@ -1,8 +1,8 @@
 DOLLY 3
 IMAGE neovim
 
-FROM HOST /Dollyfile-system 4446375e078a401bca0b467c9db567ab38b8e8900f85a3891b7238beca5d0610
-USE HOST /modules/neovim-runtime.dm 8787d5976dae7707d14a3cb3d021c4d584c42d5b001f6c8992e707a89439f0cf
+FROM HOST /Dollyfile-system 086263ba5b0f0e866fb4c3ba8c57b504f52278f613c9cd6233b5a59e3dedbfe0
+USE HOST /modules/neovim-runtime.dm 46919ad937de755fe4965486692bba5c57b0523309ba6c03256304c703408ed9
 
 FILE /home/dolly/.config/nvim/init.lua
     vim.opt.shell = "/bin/slop"

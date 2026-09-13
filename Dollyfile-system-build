@@ -3,7 +3,7 @@ IMAGE system-build
 
 USE HOST /modules/bootstrap.dm 837297d7767cf1724693622027285ac89ccafc2b35e20097010e4947eaf65040
 USE HOST /modules/core-tools.dm 42bc8954f5f995a05262752bac670967c3a5a13edcecca7e325dc814d28506b2
-USE HOST /modules/tar.dm cc9e50ec101244cbf57f926b82d537da9efe0d18d483a8b3f38dfde350960101
+USE HOST /modules/tar.dm 72b015745779b42a22f3ccc42941e9511eb35f1579c153f25e909c1a6732eef7
 USE HOST /modules/make.dm f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9fd0225dd8f05ea0e02a1
 USE HOST /modules/cpp.dm a7ede03621f9a6de44d4c2c9dbe64dce96c87b286aab6216a3390c64eb3eed52
 

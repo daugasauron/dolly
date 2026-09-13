@@ -29,6 +29,26 @@ test("tar extracts paths and stdin, preserves block padding, and rejects damaged
         assert.deepEqual(await readFile(join(output, "nested/file")), contents);
       }
     }
+    const inputDirectory = join(directory, "input"), outputDirectory = join(directory, "output");
+    await mkdir(inputDirectory); await mkdir(outputDirectory);
+    await writeFile(join(inputDirectory, "file"), "upstream tar root");
+    const upstream = spawnSync("tar", ["--format=ustar", "-cf", "-", "-C", inputDirectory, "."]);
+    assert.equal(upstream.status, 0, upstream.stderr.toString());
+    const extracted = spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: upstream.stdout });
+    assert.equal(extracted.status, 0, extracted.stderr.toString());
+    assert.equal(await readFile(join(outputDirectory, "file"), "utf8"), "upstream tar root");
+    for (const name of [".", "./", "././"]) {
+      assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: tarArchive(name, Buffer.alloc(0), "5") }).status, 0);
+      assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: tarArchive(name, Buffer.from("data")) }).status, 1);
+      assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: tarArchive(name, Buffer.from("data"), "5") }).status, 1);
+    }
+    assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: tarArchive("", Buffer.alloc(0), "5") }).status, 1);
+    const outside = join(directory, "outside");
+    await writeFile(outside, "preserved");
+    for (const name of ["../outside", "./../outside", "./a/../../outside", outside, ".//absolute", "./a\\b"]) {
+      assert.equal(spawnSync(binary, ["-xf", "-", "-C", outputDirectory], { input: tarArchive(name, Buffer.from("changed")) }).status, 1, name);
+    }
+    assert.equal(await readFile(outside, "utf8"), "preserved");
     const archive = tarArchive("file", Buffer.from("data"));
     for (const truncated of [archive.subarray(0, 100), archive.subarray(0, 514)]) {
       assert.equal(spawnSync(binary, ["-xf", "-", "-C", directory], { input: truncated }).status, 1);

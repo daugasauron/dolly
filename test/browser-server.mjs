@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { processSmokeSources } from "./fixtures/process-smoke.mjs";
+import { tarArchive } from "./fixtures/tar.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -97,6 +98,14 @@ export async function startBrowserServer(projectDir, image = "default") {
       if (path === "/fixture/http.txt") {
         response.writeHead(200, { ...headers, "content-type": "text/plain" });
         response.end(request.method === "HEAD" ? undefined : "FETCHED-THROUGH-BROWSER\n");
+        return;
+      }
+      if (path === "/fixture/root.tar") {
+        response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
+        response.end(request.method === "HEAD" ? undefined : Buffer.concat([
+          tarArchive("./", Buffer.alloc(0), "5").subarray(0, 512),
+          tarArchive("./file", Buffer.from("root preserved")),
+        ]));
         return;
       }
       const relative = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(path)

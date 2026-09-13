@@ -184,20 +184,24 @@ FILE /tmp/bootstrap/tar.c
         }
         memcpy(active_member, member, strlen(member) + 1);
         stage = "validate path";
-        if (!valid_member(member)) {
+        const unsigned char type = header[156];
+        const char *relative = member;
+        while (strncmp(relative, "./", 2) == 0) relative += 2;
+        const int root = *member != '\0' && (*relative == '\0' || strcmp(relative, ".") == 0);
+        if (root && type == '5' && size == 0) continue;
+        if (root || !valid_member(relative)) {
           errno = EINVAL;
           status = -1;
           break;
         }
-        const size_t output_length = strlen(directory) + strlen(member) + 2;
+        const size_t output_length = strlen(directory) + strlen(relative) + 2;
         char *output = malloc(output_length);
         if (output == NULL) {
           status = -1;
           break;
         }
         snprintf(output, output_length, "%s%s%s", directory,
-                 directory[strlen(directory) - 1] == '/' ? "" : "/", member);
-        const unsigned char type = header[156];
+                 directory[strlen(directory) - 1] == '/' ? "" : "/", relative);
         int target = -1;
         if (type == '5') {
           stage = "create directory";

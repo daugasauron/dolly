@@ -1,10 +1,8 @@
 # Accept safe dot-prefixed paths in tar archives
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: audit,bug,filesystem
-
-No description.
 
 ## Evidence
 
@@ -26,3 +24,10 @@ Earlier local evidence: `build/ripgrep-probe.OHvH0j/browser-link.log`.
 - Root markers are never treated as regular files.
 - Absolute paths and `..` traversal remain rejected.
 - A browser extraction check compares normal, dot-prefixed, root-directory, and traversal entries.
+
+## Resolution
+
+The extractor accepts leading `./` and empty directory root records while
+retaining traversal and malformed-path rejection. Native tests extract a real
+GNU ustar archive and prove invalid records cannot replace an outside sentinel.
+The rebuilt default extracts the root-entry fixture in Chrome and Firefox.
