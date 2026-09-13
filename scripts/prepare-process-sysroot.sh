@@ -116,6 +116,7 @@ rm -- "${staging}/.libc-defined.symbols"
   cd -- "${staging}"
   sha256sum -- \
     "${libraries[@]}" \
+    crt1.o \
     libdolly-process.a \
     libc-provider.symbols \
     dynamic-provider.symbols
