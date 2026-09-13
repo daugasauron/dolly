@@ -14,10 +14,13 @@ DOLLY_PORT=9001 npm run serve -- build/rts-releases
 ```
 
 Open `/rts-arena/`. The in-sandbox launcher offers an offline recorded match,
-OpenRouter key setup, local Codex import, and live fuzzy provider/model pickers.
-Type to filter, use arrows and Enter to select, or Escape to go back. Only vision
-models are shown, with reasoning support and pricing. Both players and the spending/time limits are confirmed before any
-model calls. OpenRouter uses Pi's credential store and cached/refreshable catalog.
+OpenRouter key setup, local Codex import, and searchable provider/model/effort menus.
+Type to filter, use arrows and Enter to select, or Escape to go back. Paste keys
+with Ctrl+Shift+V; asterisks confirm input without showing the key. Only vision
+models and their supported reasoning levels are shown. **New match** lets you
+edit either player and the spending/time limits; **Start match** begins model
+calls. Back keeps your choices while the launcher is running. OpenRouter uses
+Pi's credential store and cached/refreshable catalog.
 Save your Dolly session to retain credentials and matches across reloads.
 Choose **Shell** for the original command-line interface:
 
@@ -75,7 +78,8 @@ node scripts/codex-relay.mjs 9002 http://localhost:9001
 
 This separate loopback inference service reads the Codex login and cached
 vision-model catalog; it never runs game tools or serves files. It prints the
-path of a private, temporary Pi `models.json`. Choose **Import local Codex relay**
+path of a private, temporary Pi `models.json`. Replace the example origin above
+with the origin of your Dolly page. Choose **Local Codex**, then **Choose models.json**
 in the launcher and select that file. It adds only `codex-local` to Pi's model
 configuration, preserving other providers. Never upload native `auth.json`.
 

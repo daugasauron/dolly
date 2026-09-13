@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { modelLabel, relayProvider } from "../src/rts/spectator/launcher.mjs";
 import { createPicker } from "../src/rts/spectator/picker.mjs";
+import { createPrompt } from "../src/rts/spectator/prompt.mjs";
 import { importRelay } from "../src/rts/spectator/relay.mjs";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
@@ -42,6 +43,44 @@ test("model picker distinguishes vision, text-only, reasoning and reported price
   const model = { id: "example", input: ["text"], reasoning: false, cost: { input: 0.2, output: 0.5 } };
   assert.match(modelLabel(model), /text only.*\$0.2\/\$0.5/);
   assert.match(modelLabel({ ...model, provider: "codex-local", input: ["image"], reasoning: true }), /vision.*reasoning.*subscription/);
+});
+
+test("secret prompt shows masked paste feedback, edits and cancels without printing the credential", () => {
+  const key = "sk-or-v1-" + "0123456789abcdef".repeat(4);
+  let chosen, cancelled = false;
+  const prompt = createPrompt(ui, "API key", { secret: true }, value => { chosen = value; }, () => { cancelled = true; });
+  prompt.focused = true;
+  const screen = width => prompt.render(width).map(ui.stripTerminalSequences).join("\n");
+  prompt.handleInput("\x1b[200~" + key.slice(0, 20));
+  prompt.handleInput(key.slice(20) + "\n\x1b[201~");
+  assert.equal(chosen, undefined, "a pasted newline must not submit the key");
+  assert.match(screen(100), /\*{20}/);
+  assert.doesNotMatch(screen(100) + screen(32), /sk-or-v1-|0123456789abcdef/);
+  prompt.handleInput("\r"); assert.equal(chosen, key);
+  prompt.handleInput("\x15"); assert.doesNotMatch(screen(100), /\*/);
+  prompt.handleInput("replacement"); prompt.handleInput("\x7f");
+  prompt.handleInput("\r"); assert.equal(chosen, "replacemen");
+  prompt.handleInput("\x1b"); assert.equal(cancelled, true);
+});
+
+test("prompt retains invalid input for correction and lets Enter keep the current value", () => {
+  let chosen;
+  const prompt = createPrompt(ui, "Duration", { fallback: "600",
+    validate: value => Number(value) >= 10 ? "" : "At least 10 seconds" }, value => { chosen = value; }, () => {});
+  prompt.handleInput("1"); prompt.handleInput("\r");
+  assert.equal(chosen, undefined);
+  assert.match(prompt.render(80).map(ui.stripTerminalSequences).join("\n"), /At least 10 seconds/);
+  prompt.handleInput("0"); prompt.handleInput("\r"); assert.equal(chosen, "10");
+  prompt.handleInput("\x15"); prompt.handleInput("\r"); assert.equal(chosen, "600");
+});
+
+test("picker initially selects the current effort and preserves it when resized", () => {
+  let chosen;
+  const picker = createPicker(ui, "Effort", ["off", "low", "medium", "high"].map(value => ({ value, label: value })),
+    item => { chosen = item.value; }, () => {}, "Only supported levels are shown", "medium");
+  picker.render(40); picker.render(100); picker.handleInput("\r");
+  assert.equal(chosen, "medium");
+  picker.handleInput("\x1b[B"); picker.handleInput("\r"); assert.equal(chosen, "high");
 });
 
 test("local relay import accepts only its provider data, never native auth or command credentials", () => {

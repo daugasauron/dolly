@@ -1,37 +1,33 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-export function ask(label, { secret = false, fallback = "" } = {}) {
-  return new Promise((resolve, reject) => {
-    let value = "", escape = "", pasted = false;
-    const stdin = process.stdin, raw = stdin.isRaw;
-    const prefix = `${label}${fallback ? ` [${fallback}]` : ""}: `;
-    process.stdout.write(prefix);
-    stdin.setEncoding("utf8");
-    stdin.setRawMode(true);
-    const finish = error => {
-      stdin.removeListener("data", data); stdin.removeListener("end", end);
-      stdin.setRawMode(raw); stdin.pause();
-      process.stdout.write("\n");
-      if (error) reject(error); else resolve(value.trim() || fallback);
-    };
-    const end = () => finish(Error("Input closed"));
-    const data = chunk => {
-      for (const character of String(chunk)) {
-        if (escape || character === "\x1b") {
-          escape += character;
-          if (escape.length > 1 && escape !== "\x1b[" && /[A-Za-z~]$/.test(escape)) {
-            if (escape === "\x1b[200~") pasted = true;
-            if (escape === "\x1b[201~") pasted = false;
-            escape = "";
-          } else if (escape.length > 32) escape = "";
-          continue;
-        }
-        if (character === "\x03" || character === "\x04") return finish(Error("Cancelled"));
-        if (character === "\r" || character === "\n") { if (!pasted) return finish(); else continue; }
-        if (character === "\x7f" || character === "\b") value = [...value].slice(0, -1).join("");
-        else if (character >= " " && value.length < 4096) value += character;
-        if (!secret) process.stdout.write(`\r\x1b[2K${prefix}${value}`);
+import { dialog } from "./picker.mjs";
+
+export function createPrompt(ui, label, { secret = false, fallback = "", note = "", validate } = {}, select, cancel) {
+  const input = new ui.Input(), display = secret ? new ui.Input() : input;
+  let error = "";
+  input.onSubmit = value => {
+    const answer = value.trim() || fallback;
+    error = validate?.(answer) || "";
+    if (!error) select(answer);
+  };
+  input.onEscape = cancel;
+  return {
+    get focused() { return input.focused; },
+    set focused(value) { input.focused = display.focused = value; },
+    invalidate() { display.invalidate(); },
+    handleInput(data) { error = ""; input.handleInput(data); },
+    render(width) {
+      if (secret) {
+        display.setValue("*".repeat(input.getValue().length));
+        display.cursor = input.cursor;
       }
-    };
-    stdin.on("end", end); stdin.on("data", data); stdin.resume();
-  });
+      const text = value => new ui.Text(value, 0, 0).render(width);
+      return [...text(`\x1b[33m${label}\x1b[39m`),
+        ...text("Ctrl+Shift+V paste · Ctrl+U clear · Enter confirm · Esc back"),
+        ...(note ? text(note) : []), ...(fallback ? text(`Current: ${fallback} · Enter keeps it`) : []),
+        "", ...display.render(width), "", ...(error ? text(error) : [])];
+    },
+  };
 }
+
+export const ask = (label, options) =>
+  dialog((ui, select, cancel) => createPrompt(ui, label, options, select, cancel));

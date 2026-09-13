@@ -12,6 +12,7 @@ import { classicubeProvider } from "../test/fixtures/classicube-provider.mjs";
 import { runClassiCubeAgentProof } from "../test/fixtures/classicube-agent-browser.mjs";
 import { relayProvider } from "../src/rts/spectator/relay.mjs";
 import { runClassiCubeProof } from "../test/fixtures/classicube-browser.mjs";
+import { runRtsLauncherProof } from "../test/fixtures/rts-launcher-browser.mjs";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -2178,107 +2179,12 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       break browserProof;
     }
     if (rtsLauncherMode) {
-      const send = debuggerClient.send;
-      assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
-        value => value === "ready" || value === "failed", "launcher image boot"), "ready");
-      const terminal = text => evaluate(send, `window.__dolly.waitForInteractiveTerminal(new RegExp(${JSON.stringify(text + "[^\\n]*:\\s*$")}), "launcher prompt")`);
-      const answer = async (prompt, value) => { await terminal(prompt); await inputText(send, value + "\n"); };
-      const picker = title => evaluate(send, `window.__dolly.waitForInteractiveTerminal(new RegExp(${JSON.stringify(title)}), "fuzzy picker")`);
-      const enter = () => dispatchKey(send, { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
-      const escape = () => dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
-      const screenshot = async name => writeFile(resolve(projectDir, `build/rts-launcher-${name}.png`),
-        (await send("Page.captureScreenshot", { format: "png" })).data, "base64");
-      await terminal("Choose");
-      await screenshot("menu");
-      const requests = await evaluate(send, "__dolly.httpRequestCount");
-      await answer("Choose", "1");
-      await waitForValue(send, "__dolly.graphicsActive", Boolean, "included replay without upload");
-      await delay(4000);
-      await screenshot("demo");
-      await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
-      await waitForValue(send, "__dolly.graphicsActive", value => !value, "replay returns to launcher");
-      await terminal("Choose");
-      assert.equal(await evaluate(send, "__dolly.httpRequestCount"), requests, "bundled replay is offline");
-      await answer("Choose", "4");
-      await answer("Open file picker", "y");
-      await waitForValue(send, "!!document.querySelector('#file-upload[open]')", Boolean, "relay file picker");
-      const relayPath = resolve(browserDownloadDirectory, "models.json");
-      await writeFile(relayPath, JSON.stringify({ providers: { "codex-local": {
-        api: "openai-codex-responses", baseUrl: "http://127.0.0.1:9002", apiKey: "fixture-relay-capability",
-        models: [{ id: "rts-vision-fixture", name: "Vision fixture", reasoning: true, input: ["text", "image"],
-          thinkingLevelMap: { high: "high", xhigh: "xhigh", low: null }, contextWindow: 65536, maxTokens: 4096,
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }] } } }));
-      await selectFile(send, "#file-upload input", relayPath);
-      await terminal("Choose");
-      assert.match(await visibleTerminalText(send), /Local Codex models imported/);
-      await answer("Choose", "2");
-      await picker("Player 1 provider");
-      await inputText(send, "cdxl");
-      await picker("1 / 1 matches");
-      await screenshot("providers");
-      await enter();
-      await picker("Player 1 model");
-      await inputText(send, "nonexistent");
-      await picker("No matches");
-      await enter();
-      await picker("No matches");
-      await dispatchKey(send, { key: "u", code: "KeyU", modifiers: 2, windowsVirtualKeyCode: 85 });
-      await inputText(send, "rtsvsfx");
-      await picker("1 / 1 matches");
-      await screenshot("models");
-      await escape();
-      await picker("Player 1 provider");
-      await enter();
-      await picker("Player 1 model");
-      await enter();
-      await answer("Thinking", "high");
-      await picker("Player 2 provider");
-      await enter();
-      await picker("Player 2 model");
-      await enter();
-      await answer("Thinking", "xhigh");
-      await answer("Match seconds", "10");
-      await answer("Reported USD limit", "0.25");
-      await terminal("Start model calls");
-      await screenshot("confirm");
-      assert.equal(await evaluate(send, "__dolly.httpRequestCount"), requests, "picker and confirmation make no model calls");
-      await answer("Start model calls", "n");
-      await answer("Choose", "3");
-      await terminal("API key");
-      await inputText(send, "fixture-hidden-openrouter-key");
-      await delay(300);
-      assert.doesNotMatch(await visibleTerminalText(send), /fixture-hidden-openrouter-key/);
-      await inputText(send, "\n");
-      await terminal("Choose");
-      assert.doesNotMatch(await visibleTerminalText(send), /fixture-hidden-openrouter-key|fixture-relay-capability/);
-      await answer("Choose", "2");
-      await picker("Player 1 provider");
-      await inputText(send, "opnrtr");
-      await picker("1 / 2 matches");
-      await enter();
-      await picker("Player 1 model");
-      await screenshot("openrouter");
-      assert.doesNotMatch(await visibleTerminalText(send), /\[text only\]/);
-      await inputText(send, "gem fla");
-      await picker("> gem fla");
-      await screenshot("fuzzy-openrouter");
-      const selected = async () => (await visibleTerminalText(send)).match(/^→ .+$/m)?.[0];
-      const beforeArrow = await selected();
-      assert.ok(beforeArrow, "fuzzy search highlights a matching model");
-      await dispatchKey(send, { key: "ArrowDown", code: "ArrowDown", windowsVirtualKeyCode: 40 });
-      await picker("> gem fla");
-      assert.notEqual(await selected(), beforeArrow, "Down changes the highlighted model");
-      await dispatchKey(send, { key: "ArrowUp", code: "ArrowUp", windowsVirtualKeyCode: 38 });
-      await picker("> gem fla");
-      assert.equal(await selected(), beforeArrow, "Up restores the previous model");
-      await escape();
-      await picker("Player 1 provider");
-      await escape();
-      await answer("Choose", "5");
-      await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "launcher shell")`);
-      const check = `const fs=globalThis.__janisBuiltin("fs"); const dir=process.env.HOME+"/.pi/agent"; const auth=JSON.parse(fs.readFileSync(dir+"/auth.json","utf8")); if(auth.openrouter?.key!=="fixture-hidden-openrouter-key") throw Error("Pi credential store mismatch"); if(fs.readdirSync("/tmp").some(name=>name.startsWith("rts-relay-import-")||name.startsWith("dolly-rts-replay-"))) throw Error("launcher scratch leak"); console.log("RTS-LAUNCHER-OK");`;
-      assert.equal(await evaluate(send, `__dolly.submit(${JSON.stringify("janis -e " + shellQuote(check))})`), 0);
-      console.log("browser: baked offline replay, relay upload, live fuzzy provider/model search, arrows/Enter/Escape, vision filtering, confirmation, masked credentials and shell recovery passed");
+      await runRtsLauncherProof({ send: debuggerClient.send,
+        evaluate: expression => evaluate(debuggerClient.send, expression),
+        key: options => dispatchKey(debuggerClient.send, options),
+        input: text => inputText(debuggerClient.send, text), projectDir,
+        downloadDirectory: browserDownloadDirectory,
+        selectFile: path => selectFile(debuggerClient.send, "#file-upload input", path) });
       break browserProof;
     }
     if (rtsSplitReplayMode) {
