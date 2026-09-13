@@ -69,6 +69,11 @@ metadata from the runtime build; it does not need image snapshots or model asset
 without preparing sources, changing pins or starting a browser. Normal image
 builds print the same dependency plan after source preparation, with rebuild
 reasons and phase timings. An unpinned recipe edit must be pinned before planning.
+`build:runtime` builds the kernel and compiler seed without preparing image sources
+or deleting snapshots. `DOLLY_BUILD_IMAGES=default,pi npm run snapshot` prepares
+and builds that selection; `npm run build` runs both phases. For a reproducibility
+check, use `npm run image -- system-build --reproducible` to compare two cold
+browser builds and a cached build.
 
 ## Documentation
 

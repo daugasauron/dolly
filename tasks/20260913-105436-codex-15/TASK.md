@@ -7,7 +7,7 @@
 ## Evidence
 
 At deployed main `ff633f7`, [write-build-id.mjs](../../scripts/write-build-id.mjs)
-hashes the complete kernel Wasm plus dolly.data. [prune-stale-snapshots.mjs](../../scripts/prune-stale-snapshots.mjs)
+hashes the complete kernel Wasm plus dolly.data. [prune-stale-snapshots.mjs](https://github.com/daugasauron/dolly/blob/ff633f72f5f6c28439196d61fe573730c2739ed8/scripts/prune-stale-snapshots.mjs)
 removes every snapshot whose runtime build ID differs. The image loader and
 browser artifact cache also require that exact ID.
 
@@ -35,7 +35,7 @@ Saved sessions also use the exact runtime identity; coordinate with
 
 Image compatibility now hashes the compiler/sysroot seed, its file-map loader,
 and the process, DSO, resident-plugin and snapshot contracts. The full runtime
-ID additionally hashes the kernel. Image metadata, cache admission, pruning and
+ID additionally hashes the kernel. Image metadata, cache admission and
 release verification use the image identity; saved sessions retain their strict
 runtime identity. Kernel changes that alter image semantics still require a
 contract version change. Recipe pins and exact artifact/loaded-Wasm checks remain.
@@ -55,3 +55,10 @@ successful fresh boot. A changed image identity prunes the incompatible closure.
 
 Release packaging includes the contracts needed to recompute the image identity.
 No browser network authority or process ABI was added.
+
+The runtime build no longer deletes snapshots or scans image recipes. The old
+automatic pruner was removed: the builder already validates selected outputs,
+explains stale inputs and replaces completed artifacts; release and browser
+admission still reject incompatible bytes. This also preserves rebuild reasons.
+An actual unchanged official runtime rebuild produced identical runtime and
+image identities and left all 188 recorded image/source digests unchanged.

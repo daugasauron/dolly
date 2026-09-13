@@ -45,3 +45,24 @@ No Rust, Zig or display preparation ran for this headless compiler base.
 Unchanged selected archives are still reconstructed. Measure the larger source
 preparers and a leaf edit before adding an archive cache; this small closure's
 measured warm preparation does not justify a new cache layer by itself.
+
+Runtime compilation and image preparation are now separate commands.
+`build:runtime` builds the kernel/compiler seed; it does not prepare image
+archives, generate image routes or prune snapshots. `snapshot` uses the existing
+image command for the environment-selected catalog. Explicit image, plan, local
+package and reproducibility options share that one path; full `build` runs both.
+
+The actual official runtime build took 101.96 s with the pinned container, using
+an owned wrapper solely to mount this worktree's existing external caches read
+only. It produced exactly the previous runtime and image identities. All 188
+recorded image/source digests stayed unchanged, and the 18-image reuse plan took
+3.4 s. No image-source preparation or browser build ran during the runtime build.
+
+The environment-selected `snapshot:reproducible` path for `system-build` took
+47.0 s: source preparation 0.8 s, routes 0.1 s, two cold browser builds plus one
+cached build 46.1 s. All three 123,123,028-byte snapshots had SHA-256
+`0d857cbd26d44d4fcad18c59cbaf8efc8ec8896b7fbe918ee22552dd54518a1a`.
+Larger unchanged archives and leaf source preparation remain open work.
+
+The unchanged rebuilt runtime also passed the complete core gate in Chrome
+(21.8 s) and Firefox (28.3 s), using the existing default image and tools.

@@ -5,8 +5,6 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 image="${DOLLY_EMSDK_IMAGE}"
 
-node "${project_dir}/scripts/lint-dollyfiles.mjs"
-
 if command -v podman >/dev/null 2>&1; then
   container=(podman run --rm --userns=keep-id -v "${project_dir}:/src" -w /src "${image}")
 elif command -v docker >/dev/null 2>&1; then
@@ -348,8 +346,6 @@ node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm \
   build/process-tools/compiler.wasm build/process-tools/zig.wasm
 cp build/process-tools/compiler.wasm build/process-bin/compiler
-bash "${project_dir}/scripts/prepare-image-sources.sh"
-node scripts/generate-routes.mjs
 "${container[@]}" cmake --build build/runtime --target dolly --parallel
 
 node scripts/dolly-abi.mjs stamp \
@@ -372,4 +368,3 @@ cp build/dolly-http-0.wasm dist/dolly-http-0.wasm
 cp build/dolly-snapshot-0.wasm dist/dolly-snapshot-0.wasm
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2
 node scripts/write-build-id.mjs dist/dolly.wasm dist/dolly.data dist/dolly-build-id.mjs
-node scripts/prune-stale-snapshots.mjs
