@@ -25,3 +25,12 @@ not proof of a current Janis, compiler or model-adapter defect.
 - Judge generated programs against actual input/output behavior, separately from successful compilation or tool invocation.
 - Record failures and determine whether they belong to Dolly's runtime/template/tool integration or model capability before changing code.
 - Keep hardware/model evaluation optional; it must not slow the ordinary source/core browser gate.
+
+## Historical trace classification
+
+The retained sampling trace identifies Qwen3.5-4B-q4f16_1-MLC and records the
+actual bad edit: `while ((line = fgets(0, 0, stdin)) != NULL)` followed by adding
+`strcspn(line, "\n")` to the count. It retained `SLOP linecount agent` instead of
+the requested stdin/output tests. This is incorrect generated C and incomplete
+validation, not evidence that Dolly lost pipe input. A fresh independent model
+run is still needed to classify the current configuration.

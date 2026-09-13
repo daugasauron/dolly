@@ -107,5 +107,7 @@ itself. `/dolly-hello`, `/dolly-tool` and `/dolly-fix` are small starting prompt
 `download RECIPE` exports the draft; the site's **Run a Dollyfile** page accepts
 text/file uploads. `upload /workspace/input` asks the user to choose one PC file,
 without exposing host paths or overwriting existing targets. Ctrl+Shift+S saves
-the Studio session in this browser. Custom result images cannot yet use named
-session save/load, so keep their recipes; a result URL is not a portable image.
+a named Studio or custom-image session in this browser. Custom sessions retain
+their recipe and depend on the exact base in this browser's image cache; session
+exports do not include that base. Keep recipes too; result URLs are not portable
+images.
