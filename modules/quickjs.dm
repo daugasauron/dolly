@@ -15,7 +15,7 @@ SOURCE HOST /static/default/quickjs.tar               /tmp/quickjs.tar          
 SOURCE HOST /static/default/runtimes/quickjs-main.c   /usr/src/dolly/runtimes/quickjs-main.c d4067d7efa81a55841291de73e6c55aef9ae4ec9280a828296bf48761dc7aa1a
 SOURCE HOST /static/default/runtimes/quickjs-runner.h /usr/include/dolly/quickjs-runner.h    94853e68315a36d48167d4b8c1a09f4c33acf12f93e27f713110f0578ad5c597
 SOURCE HOST /static/default/runtimes/dolly-node.js    /usr/lib/dolly/node.js                 3b576183405b576904a56fd095d44a10c58a2dc406cd5a0dac8d66fc386b17e3
-SOURCE HOST /static/default/runtimes/janis.js         /usr/lib/janis/runtime.js              4acd4f1b87c9d61040af729d0f7747a2b93f745eda5e40afa0cb0de12699eeff
+SOURCE HOST /static/default/runtimes/janis.js         /usr/lib/janis/runtime.js              c560a73ca21884633176059c390e85de1a3d323606836cbba18ca19e870e9e84
 SOURCE HOST /static/default/commands/qjs.c            /usr/src/dolly/commands/qjs.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b
 SOURCE HOST /static/default/commands/janis.c          /usr/src/dolly/commands/janis.c        08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b
 SLOP tar \

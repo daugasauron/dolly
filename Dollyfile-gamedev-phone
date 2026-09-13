@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE gamedev-phone
 
-FROM HOST /Dollyfile-gamedev 81dfce44c50aa9b1de2f179be0615cefa63efb0ccca40cee3d0c8f46554b6ad3
+FROM HOST /Dollyfile-gamedev 5c34c3a403ebde9c05a3e924f66a3a434dbc1ac783572cee6fcac4a7c9e08dfb
 
 FILE /home/dolly/.dollyrc
     printf '\033[33mDOLLY / GAMEDEV PHONE\033[0m\n'

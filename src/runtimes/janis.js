@@ -2322,6 +2322,35 @@ const janisTls = {
   TLSSocket: class TLSSocket extends JanisEventEmitter {},
 };
 
+function janisIPv4(value) {
+  const parts = `${value}`.split(".");
+  return parts.length === 4 && parts.every(part => /^(0|[1-9][0-9]{0,2})$/.test(part) && Number(part) <= 255);
+}
+
+function janisIPv6(value) {
+  let address = `${value}`;
+  const zone = address.indexOf("%");
+  if (zone !== -1) {
+    if (!/^[0-9a-zA-Z.:-]+$/.test(address.slice(zone + 1))) return false;
+    address = address.slice(0, zone);
+  }
+  const groups = address.split(":");
+  if (groups.at(-1).includes(".")) {
+    if (!janisIPv4(groups.at(-1))) return false;
+    groups.splice(-1, 1, "0", "0");
+    address = groups.join(":");
+  }
+  const halves = address.split("::");
+  if (halves.length > 2) return false;
+  const parts = halves.flatMap(part => part === "" ? [] : part.split(":"));
+  return parts.every(part => /^[0-9a-fA-F]{1,4}$/.test(part)) &&
+    (halves.length === 2 ? parts.length < 8 : parts.length === 8);
+}
+
+function unavailableReadlineTerminal() {
+  throw Object.assign(new Error("Janis readline does not implement terminal editing or keypress events"), { code: "ENOSYS" });
+}
+
 const janisBuiltinModules = {
   "assert/strict": undefined,
   async_hooks: janisAsyncHooks,
@@ -2351,10 +2380,10 @@ const janisBuiltinModules = {
   querystring: janisQuerystring,
   readline: {
     createInterface: (options, output) => new JanisReadline(options, output),
-    emitKeypressEvents() {},
-    clearLine: () => true,
-    cursorTo: () => true,
-    moveCursor: () => true,
+    emitKeypressEvents: unavailableReadlineTerminal,
+    clearLine: unavailableReadlineTerminal,
+    cursorTo: unavailableReadlineTerminal,
+    moveCursor: unavailableReadlineTerminal,
   },
   stream: janisStream,
   "stream/promises": janisStreamPromises,
@@ -2439,9 +2468,9 @@ for (const name of ["http", "https", "net"]) {
     Socket: SocketLike,
     request: () => { throw new Error("Janis has no sockets; use fetch"); },
     get: () => { throw new Error("Janis has no sockets; use fetch"); },
-    isIP: () => 0,
-    isIPv4: () => false,
-    isIPv6: () => false,
+    isIP: value => janisIPv4(value) ? 4 : janisIPv6(value) ? 6 : 0,
+    isIPv4: janisIPv4,
+    isIPv6: janisIPv6,
     METHODS: [],
     STATUS_CODES: {},
   };
