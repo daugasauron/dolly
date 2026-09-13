@@ -30,3 +30,9 @@ tatr Markdown was outside the documentation publisher's allowlist. Added only
 The real filesystem packaging regression follows the index to a task and its
 source link, while continuing to reject private/unpublished paths. The failed
 attempt left the previous sealed release intact; the next package is rechecked.
+
+The rebuilt sealed package now passes live acceptance for all 20 selected images.
+Release `e9bfea30504d17b6bae89e4e0ce123d64b764cc717c6be3a5e201cd5af5a69b2`
+(source `71e7d5f`) includes the linked issue documentation and custom sessions.
+Archive SHA-256: `902a082df047015c0c6f0023a48e1192d121681e92993673d396a42c181dbdfe`.
+This is a local package, with no external push or deployment.
