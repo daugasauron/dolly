@@ -5,27 +5,11 @@ import { createInterface } from "node:readline";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import vm from "node:vm";
+import { janisContext as context } from "./fixtures/janis-context.mjs";
 import { decoderCases, decodeChunks, utf8Vectors } from "./fixtures/utf8-cases.mjs";
 
-const runtime = await readFile(new URL("../src/runtimes/dolly-node.js", import.meta.url), "utf8");
-const janis = await readFile(new URL("../src/runtimes/janis.js", import.meta.url), "utf8");
 const extension = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
 
-function context(overrides = {}) {
-  const sandbox = vm.createContext({
-    ArrayBuffer, SharedArrayBuffer, Uint8Array, console,
-    Dolly: {
-      encode: value => new TextEncoder().encode(value),
-      decode: bytes => new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes),
-      terminalSize: () => ({ columns: 80, rows: 24 }), getenv: () => undefined, isatty: () => false,
-      cwd: () => "/workspace", chdir() {}, fsAccess() { throw new Error("ENOENT"); },
-      ...overrides,
-    },
-  });
-  vm.runInContext(runtime, sandbox);
-  vm.runInContext(janis, sandbox);
-  return sandbox;
-}
 
 test("readline scans split UTF-8, CRLF, blank lines and a final unterminated line", async () => {
   const sandbox = context();

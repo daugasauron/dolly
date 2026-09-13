@@ -1,6 +1,6 @@
 # Delete behavior-related source assertions and keep useful coverage
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: audit,cleanup,testing
 
@@ -43,3 +43,21 @@ spelling (real seed inventory and browser compilation checks remain), viewer
 helper-name assertions, and duplicate hardcoded image/menu lists. Registry checks
 compare generated entries with discovered recipes; actual menu layout remains
 covered in Chrome. All 333 Node tests pass with the rebuilt core image selection.
+
+## Completion
+
+Finished the file-wide review of `test/dolly.artifacts.mjs`: removed 24
+source-text/redundant tests and remaining positive source-spelling assertions.
+Kept exact Wasm types/import allowlists, real seed contents, registry/source pins,
+image identity and generated-loader host-capability exclusions. Stack bounds
+are checked in the emitted Wasm rather than in CMake command spelling.
+
+Moved five actual HTTP-policy tests and the hashing known-answer test into the
+fast source suite. Hashing now loads the complete Janis runtime through the same
+small VM fixture as UTF-8 and file-URL tests; it no longer slices out function names.
+
+Validation: 288 source tests pass in 3.06 seconds. All 22 artifact/ABI/registry
+checks outside snapshot identity pass in 0.53 seconds. The snapshot identity
+check remains in the suite and will run after the ongoing image rebuild.
+The main benefit of these deletions is reduced maintenance, not a claimed
+large runtime gain from removing regex assertions.
