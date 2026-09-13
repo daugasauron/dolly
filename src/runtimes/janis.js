@@ -556,6 +556,19 @@ function resolvePath(...values) {
   }
   return normalizePath(resolved);
 }
+function pathToFileURL(path) {
+  if (typeof path !== "string") throw new TypeError("file path must be a string");
+  let resolved = resolvePath(path);
+  if (path.endsWith("/") && !resolved.endsWith("/")) resolved += "/";
+  return new URL(`file://${resolved.split("/").map(encodeURIComponent).join("/")}`);
+}
+function fileURLToPath(value) {
+  const url = value instanceof URL ? value : new URL(value);
+  if (url.protocol !== "file:" || (url.hostname && url.hostname !== "localhost") ||
+      url.username || url.password || url.port || !url.pathname.startsWith("/") ||
+      /%2f/i.test(url.pathname)) throw new TypeError("unsupported file URL");
+  return decodeURIComponent(url.pathname);
+}
 function dirname(path) {
   path = normalizePath(String(path));
   if (path === "/") return "/";
@@ -2326,7 +2339,7 @@ const janisBuiltinModules = {
   module: {
     Module: JanisModule,
     createRequire: (filename) => createJanisRequire(
-      filename instanceof URL ? decodeURIComponent(filename.pathname) : String(filename),
+      filename instanceof URL ? fileURLToPath(filename) : String(filename),
     ),
     builtinModules: [...janisBuiltinModuleNames, ...janisBuiltinModuleNames.map((name) => `node:${name}`)],
     isBuiltin: (name) => Boolean(janisBuiltinModules[String(name).replace(/^node:/, "")]),
@@ -2355,8 +2368,8 @@ const janisBuiltinModules = {
   url: {
     URL,
     URLSearchParams,
-    pathToFileURL: (path) => new URL(`file://${resolvePath(path)}`),
-    fileURLToPath: (url) => decodeURIComponent((url instanceof URL ? url : new URL(url)).pathname),
+    pathToFileURL,
+    fileURLToPath,
     domainToASCII: (value) => String(value),
     domainToUnicode: (value) => String(value),
     format: (url) => String(url),

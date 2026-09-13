@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { createRequire } from "node:module";
+import { pathToFileURL, fileURLToPath } from "node:url";
 
 const root = process.argv[2];
 const failures = [];
@@ -35,6 +36,16 @@ await check("Buffer slices clamp and share storage", () => {
   equal([...bytes.slice(-2)], [2, 9]);
   equal([...bytes.subarray(-100, 100)], [1, 2, 9]);
   equal(bytes.subarray(2, 1).length, 0);
+});
+await check("file URLs preserve special characters and Unicode", () => {
+  const require = createRequire(pathToFileURL(`${root}/entry.cjs`));
+  for (const name of ["a#b", "a?b", "a%b", "a b", "日本語😀", "a\\b", "a%2Fb"]) {
+    const path = `${root}/${name}.cjs`;
+    fs.writeFileSync(path, `module.exports = ${JSON.stringify(name)};`);
+    equal(fileURLToPath(pathToFileURL(path)), path);
+    equal(fs.readFileSync(fileURLToPath(pathToFileURL(path)), "utf8"), `module.exports = ${JSON.stringify(name)};`);
+    equal(require(`./${name}.cjs`), name);
+  }
 });
 await check("missing opens fail and exclusive creation does not truncate", () => {
   rejects(() => fs.openSync(`${root}/absent`, "r"), "ENOENT");
