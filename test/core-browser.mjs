@@ -18,8 +18,9 @@ try {
       : { headless: true });
     let expired = false;
     const deadline = setTimeout(() => { expired = true; void browser.close(); }, 120000);
+    let page;
     try {
-      const page = await browser.newPage();
+      page = await browser.newPage();
       page.setDefaultTimeout(30000);
       await page.addInitScript(origin => {
         globalThis.DOLLY_HTTP_POLICY = { maxRequests: 256,
@@ -31,32 +32,43 @@ try {
         await page.locator("#bootstrap-log").textContent());
       await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
       const submit = command => page.evaluate(text => __dolly.submit(text), command);
+      for (const fixture of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
+        assert.equal(await submit(`curl -fsS ${server.origin}/fixture/${fixture}.wasm -o /tmp/core-invalid`), 0);
+        assert.equal(await submit("/tmp/core-invalid"), 126, fixture);
+      }
+      assert.equal(await submit("rm /tmp/core-invalid"), 0);
       await runProcessSmoke(submit, server.origin);
+      const cancelledBefore = server.cancelledRequests;
       for (const command of [
         "sleep 30; echo bad > /tmp/core-interrupted",
         "sleep 30 | /bin/slop -c 'echo bad > /tmp/core-interrupted'",
         "(sleep 30) | /bin/slop -c 'echo bad > /tmp/core-interrupted'",
         'echo "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"',
         'for item in "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"; do echo bad > /tmp/core-interrupted; done',
+        `curl -fsS ${server.origin}/fixture/slow; echo bad > /tmp/core-interrupted`,
       ]) {
         await page.evaluate(text => {
           globalThis.interruptedStatus = null;
           void __dolly.submit(text).then(status => { globalThis.interruptedStatus = status; });
         }, command);
         await page.waitForFunction(() => __dolly.transport.foregroundInterruptible());
+        if (command.includes("/fixture/slow")) await page.waitForFunction(() => __dolly.httpActive);
         await page.locator("#keyboard").focus();
         await page.keyboard.press("Control+c");
         await page.waitForFunction(() => globalThis.interruptedStatus !== null, null, { timeout: 5000 });
         assert.equal(await page.evaluate(() => globalThis.interruptedStatus), 130, command);
         assert.equal(await submit("test ! -e /tmp/core-interrupted"), 0, command);
       }
+      await page.waitForFunction(() => !__dolly.httpActive);
+      assert.equal(server.cancelledRequests, cancelledBefore + 1, "cancelled HTTP response stayed open");
       assert.equal(await submit(`mkdir /tmp/core-tar; curl -fsS ${server.origin}/fixture/root.tar -o /tmp/core.tar && tar -xf /tmp/core.tar -C /tmp/core-tar && test "$(cat /tmp/core-tar/file)" = 'root preserved' && rm -rf /tmp/core-tar /tmp/core.tar`), 0);
       assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; rg -q needle /tmp/core-search && test \"$(fd --max-depth 1 '^core-search$' /tmp)\" = /tmp/core-search && rm /tmp/core-search"), 0);
       assert.notEqual(await submit(`curl -fsS ${server.origin}/denied`), 0);
       assert.equal(server.requests.has("/denied"), false, "denied userspace HTTP reached the host server");
-      console.log(`core: ${name} passed process, filesystem, C/C++, rg/fd and denied HTTP checks in ${((performance.now() - started) / 1000).toFixed(1)}s`);
+      console.log(`core: ${name} passed ABI, process, filesystem, C/C++, rg/fd, interruption and HTTP checks in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } catch (error) {
       if (expired) throw new Error(`${name}: core browser checks exceeded 120 seconds`, { cause: error });
+      if (page && !page.isClosed()) console.error(await page.evaluate(() => globalThis.__dolly?.visibleTerminalText()).catch(() => ""));
       throw new Error(`${name}: ${error.message}`, { cause: error });
     } finally {
       clearTimeout(deadline);

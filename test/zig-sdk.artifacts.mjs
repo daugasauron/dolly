@@ -6,16 +6,19 @@ import { decodeSystemSnapshot, decodeSnapshotEnvironment } from "../scripts/syst
 import { readWasmInterface } from "../scripts/wasm-interface.mjs";
 import { validateProcessInterface } from "../src/process-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
+import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
 
-test("Clang and Zig are independently validated process executables", async () => {
+const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
+
+test("the selected compiler executables obey the process ABI", async () => {
   const contract = await readWasmInterface(new URL("../dist/dolly-process-0.wasm", import.meta.url));
-  for (const name of ["compiler", "zig"]) {
+  for (const name of ["compiler", ...(selected.has("ghostty-build") ? ["zig"] : [])]) {
     validateProcessInterface(contract, await readWasmInterface(
       new URL(`../build/process-tools/${name}.wasm`, import.meta.url)), DOLLY_PROCESS_ABI_DIGEST);
   }
 });
 
-test("default copies Ghostty runtime bytes without its compiler or development files", async () => {
+test("default copies Ghostty runtime bytes without its compiler or development files", { skip: !selected.has("default") }, async () => {
   const load = async name => decodeSystemSnapshot(await readFile(
     new URL(`../dist/dolly-${name}-system.snapshot`, import.meta.url)));
   const runtime = await load("default"), builder = await load("ghostty-build");
@@ -37,7 +40,9 @@ test("default copies Ghostty runtime bytes without its compiler or development f
   assert.equal(environment.has("ZIG_LIB_DIR"), false);
 });
 
-test("the Zig SDK archive contains exactly its supported-target install roots", async () => {
+test("the Zig SDK archive contains exactly its supported-target install roots", {
+  skip: !DOLLY_STATIC_SOURCES.some(source => source.path === "/static/default/zig-lib.tar"),
+}, async () => {
   const roots = (await readFile(new URL("../config/zig-sdk-files.txt", import.meta.url), "utf8"))
     .split("\n").filter(line => line && !line.startsWith("#"));
   assert.equal(new Set(roots).size, roots.length);

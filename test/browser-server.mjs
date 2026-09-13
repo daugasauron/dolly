@@ -1,10 +1,13 @@
 import { createReadStream } from "node:fs";
-import { access, readdir } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { processSmokeSources } from "./fixtures/process-smoke.mjs";
 import { tarArchive } from "./fixtures/tar.mjs";
+import { buildIdentities } from "../scripts/write-build-id.mjs";
+import { imageInputsMatch } from "../src/image-inputs.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -70,6 +73,37 @@ export async function startBrowserServer(projectDir, image = "default") {
   if (!DOLLY_IMAGES.some(definition => definition.image === image)) {
     throw new Error(`Build ${image} once with npm run image -- ${image}, then retry the browser check.`);
   }
+  try {
+    const load = file => import(pathToFileURL(resolve(projectDir, "dist", file)).href);
+    const [{ DOLLY_BUILD_ID }, { DOLLY_IMAGE_BUILD_ID }] = await Promise.all([
+      load("dolly-build-id.mjs"), load("dolly-image-build-id.mjs"),
+    ]);
+    const actual = await buildIdentities(resolve(projectDir, "dist/dolly.wasm"), resolve(projectDir, "dist/dolly.data"));
+    if (actual.buildId !== DOLLY_BUILD_ID || actual.imageBuildId !== DOLLY_IMAGE_BUILD_ID) throw new Error("runtime identity is stale");
+    const checked = new Map();
+    async function check(definition) {
+      if (checked.has(definition.image)) return checked.get(definition.image);
+      const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await load(`dolly-${definition.image}-system-snapshot.mjs`);
+      if (metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
+          JSON.stringify(metadata.recipes) !== JSON.stringify(definition.recipes)) throw new Error(`${definition.image} inputs are stale`);
+      checked.set(definition.image, metadata);
+      const inputs = [];
+      for (const reference of definition.artifacts) {
+        const parent = DOLLY_IMAGES.find(candidate => `/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
+        if (!parent) throw new Error(`${reference.location} is missing from the registry`);
+        inputs.push({ recipeSha256: reference.sha256, sha256: (await check(parent)).sha256 });
+      }
+      if (!imageInputsMatch(metadata.inputs, inputs)) throw new Error(`${definition.image} has stale dependency outputs`);
+      return metadata;
+    }
+    const metadata = await check(DOLLY_IMAGES.find(definition => definition.image === image));
+    for (const recipe of metadata.recipes) {
+      const bytes = await readFile(resolve(projectDir, recipe.sourcePath.slice(1)));
+      if (createHash("sha256").update(bytes).digest("hex") !== recipe.sha256) throw new Error(`${recipe.sourcePath} changed`);
+    }
+  } catch (error) {
+    throw new Error(`Core artifacts are stale or incomplete: ${error.message}. Rebuild changed native code with npm run build:runtime, then run npm run image -- ${image}.`, { cause: error });
+  }
   const files = new Map([...browserSources].map(path => [`/${path}`, path]));
   for (const definition of DOLLY_IMAGES) {
     files.set(`/${definition.dollyfile}`, definition.dollyfile);
@@ -86,9 +120,13 @@ export async function startBrowserServer(projectDir, image = "default") {
     }
   }
   for (const [name, path] of Object.entries(processSmokeSources)) files.set(`/fixture/${name}`, path);
+  for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
+    files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
+  }
   files.set(`/${image}`, `build/routes/${image}/index.html`);
   files.set("/custom/run", "build/routes/custom/run/index.html");
   const requests = new Set();
+  let cancelledRequests = 0;
   const server = createServer(async (request, response) => {
     const headers = { "cache-control": "no-store", "cross-origin-opener-policy": "same-origin",
       "cross-origin-embedder-policy": "require-corp", "cross-origin-resource-policy": "same-origin" };
@@ -99,6 +137,12 @@ export async function startBrowserServer(projectDir, image = "default") {
       if (path === "/fixture/http.txt") {
         response.writeHead(200, { ...headers, "content-type": "text/plain" });
         response.end(request.method === "HEAD" ? undefined : "FETCHED-THROUGH-BROWSER\n");
+        return;
+      }
+      if (path === "/fixture/slow") {
+        response.writeHead(200, { ...headers, "content-type": "text/plain" });
+        response.write("waiting for cancellation\n");
+        response.once("close", () => { cancelledRequests++; });
         return;
       }
       if (path === "/fixture/root.tar") {
@@ -129,5 +173,6 @@ export async function startBrowserServer(projectDir, image = "default") {
     server.listen(0, "127.0.0.1", resolveListen);
   });
   return { origin: `http://127.0.0.1:${server.address().port}`, requests,
+    get cancelledRequests() { return cancelledRequests; },
     close: () => new Promise(resolveClose => { server.close(resolveClose); server.closeAllConnections(); }) };
 }

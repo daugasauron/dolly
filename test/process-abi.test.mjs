@@ -75,10 +75,6 @@ test("memory records, stamps, and side-module identity are checked from actual b
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 
-test("the shared parser handles the large compiler executable without argument spreading", async () => {
-  validate(await readFile(new URL("../build/process-tools/compiler.wasm", import.meta.url)));
-});
-
 test("browser errors use Dolly's target encoding, not Linux numbers", () => {
   assert.equal(DOLLY_ERRNO.EINTR, 27);
   assert.equal(DOLLY_ERRNO.EINVAL, 28);

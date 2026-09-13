@@ -58,6 +58,8 @@ replaces the menu; use `DOLLY_BUILD_IMAGES=all npm run publish` for all images.
 `npm test` runs Node source checks and the core scenarios in Chrome and Firefox,
 using existing runtime/default artifacts. It does not rebuild images. For one
 browser, use `npm run test:core -- firefox` (or `chromium`).
+`npm run test:source` needs only dependencies and the generated ABI fixtures and
+metadata from the runtime build; it does not need image snapshots or model assets.
 `npm run test:artifacts` checks the selected catalog and exact built contracts;
 `npm run test:full` rebuilds and runs the full distribution suite. See
 [sources](docs/sources.md) for bootstrap details and

@@ -1,6 +1,6 @@
 # Add a short Chrome and Firefox core regression gate
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: audit,testing,core
 
@@ -40,21 +40,23 @@ on deployed main's checkout; the current rts-arena worktree has older artifacts.
 - Reuse existing process-smoke and other focused modes, selecting only their dependencies; fix the [repeated graph scan](../20260913-105436-codex-13/TASK.md) before inventing another harness.
 - Report failures by scenario and record the gate's measured duration.
 
-## Progress
+## Resolution
 
-`npm test` now runs 280 source tests (3.37 s) and the existing process-smoke
-scenarios through Playwright in Chrome (18.4 s) and Firefox (24.9 s), with no
-runtime/image rebuild. The shared static fixture server reuses the harness's
-asset list. Real probes compile inside Dolly; both browsers cover shared files,
-C/C++/DSOs, fresh instances, 80,000 concurrent I/O cycles, rg/fd, allowed HTTP
-and broker denial before a request reaches the host. The superseded standalone
-Firefox I/O script is removed.
+`npm test` runs 282 source checks (3.17 s) and a bounded core gate in Chrome
+(22.6 s) and Firefox (29.5 s), without rebuilding images. Both browsers compile
+and run real C/C++ probes for ABI admission, shared files, renamed cwd, mmap
+bounds, ar member preservation, DSOs, Slop signals/lists/substitutions, and
+80,000 concurrent I/O cycles. Real Ctrl-C cancels six command forms including
+an active HTTP response; the host confirms that response closed. rg/fd and
+network denial are checked in the default image.
 
-The 53 built-artifact checks live in test/dolly.artifacts.mjs and run through
-`npm run test:artifacts`; `npm run test:full` retains the complete build and broad
-browser suite. Missing core artifacts produce a specific setup error. Each core
-browser run has a 120-second deadline and closes its browser on failure.
+Preflight rejects missing artifacts, mismatched runtime bytes, changed recipes,
+and stale dependency metadata before launching a browser, with rebuild commands.
+Native source changes still require an explicit runtime rebuild.
 
-Signals/list cancellation, HTTP cancellation, and the new audit bug probes still
-need integration before closing this task. Native source-only tests do not require
-the full image catalog; artifact verification remains available separately.
+The source suite passed in an isolated tree with only 268,307 bytes of generated
+metadata/ABI fixtures, dependencies, and source files: no kernel binary, seed,
+compiler executable, snapshots, static archives, or model assets. Built compiler,
+CPython archive and model-tokenizer checks moved to the artifact group. Selected
+catalog integrity remains available through `npm run test:artifacts`; the full
+build and browser suite remains `npm run test:full`.
