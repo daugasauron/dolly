@@ -79,6 +79,9 @@ for (const item of cases) {
 }
 parserRecipes.set("/fixture/parser-before.txt", "before");
 parserRecipes.set("/fixture/parser-after.txt", "after");
+cases.push({ name: "nul", error: "could not load recipe", check: `test ! -e ${outputs}/nul` });
+parserRecipes.set("/fixture/parser-nul.Dollyfile",
+  `DOLLY 3\nIMAGE parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
 
 export async function runDollyfileCases(submit, origin) {
   const run = async command => assert.equal(await submit(command), 0, command);

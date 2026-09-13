@@ -449,6 +449,7 @@ static int fetch_recipe(Engine *engine, const char *locator, Buffer *buffer,
   }
   if (status != 0) return status;
   if (buffer->length == 0 || buffer->length > MAX_RECIPE_BYTES) return -EFBIG;
+  if (memchr(buffer->data, '\0', buffer->length) != NULL) return -EINVAL;
   sha256_bytes(buffer->data, buffer->length, digest);
   return 0;
 }

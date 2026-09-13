@@ -107,6 +107,14 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
     assert.equal(run("parse", recipe).status, 0, "regular-file input spans multiple read buffers");
     await writeFile(recipe, prefix + "# buffered input\n".repeat(8192));
     assert.notEqual(run("parse", recipe).status, 0, "oversized regular-file input is rejected");
+    for (const tail of ["\0ignored", "\n# comment\0ignored", "\nFILE /usr/share/probe\n    body\0ignored"]) {
+      const source = prefix + "EXPORTS ENV DOLLY_TEST_VALUE changed" + tail + "\n";
+      assert.throws(() => inspectDollyfile(source));
+      await writeFile(recipe, source);
+      const actual = run("parse", recipe);
+      assert.notEqual(actual.status, 0, "NUL bytes are rejected before executing any declaration");
+      assert.doesNotMatch(actual.stdout, /ENV-VALUE:/);
+    }
     assert.equal(run("artifact-reuse", "unused").status, 0,
       "decoded COPY input is reused only until a different input or non-COPY declaration");
   } finally {
