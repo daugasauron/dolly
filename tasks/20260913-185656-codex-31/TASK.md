@@ -27,3 +27,10 @@ with its source; source-built rg/fd remain installed. The real Chrome Studio
 mode passed Pi startup/prompts, example linting, visible Neovim highlighting,
 unsaved lint errors and return to Slop. A final plan reuses all 20 images in
 3.4 s. No test was added for wording.
+
+The final local package at source `96f86c6` passed live inventory acceptance for
+all 20 selected images. It includes runtime `cf7fb16004c7477a` and this Studio
+snapshot. Release: `6eeb480d3262dbbf0941b88994f30d20bcca58fec0b94f74ff7bcd64de9ed215`.
+Archive: `/dev/shm/dolly-core-release-archives.7La9kj/site.tar.gz`, SHA256
+`34b79f6c590b779bcd4319fb8c2fbc31fa3f1323677a31b2896af11b2e5bbf31`.
+The package remains local; no remote deployment was performed.

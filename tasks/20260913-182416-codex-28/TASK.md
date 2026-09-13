@@ -44,3 +44,10 @@ The compiler seed, image compatibility ID and every retained snapshot remained
 byte-identical. All 20 selected images reused their existing artifacts; the
 complete plan inspection took 3.9 s. The only changed recorded identity file was
 the runtime build ID.
+
+A separate native-browser background probe passed three 45-second hidden-tab
+cycles in Chrome and Firefox 155, including a timed-out HTTP request and C
+compilation after resuming. Chrome also froze the page through CDP. Each cycle
+retained the in-Wasm filesystem and usable shell; neither browser reported a page
+error. These probes exercise the core default image, not a long-running Bhop
+match. Logs: `/tmp/dolly-core-{chrome,firefox}-native-background.log`.
