@@ -1,4 +1,4 @@
-import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { decodeStaticAsset } from "./static-asset.mjs";
@@ -56,7 +56,7 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   const recipes = expectedRecipes(image);
   const modules = expectedModules(image);
   if (metadata === null || typeof metadata !== "object" ||
-      metadata.image !== image || metadata.buildId !== DOLLY_BUILD_ID ||
+      metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
       metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
       JSON.stringify(metadata.modules) !== JSON.stringify(modules) ||
@@ -192,7 +192,7 @@ export async function describeImageArtifact(bytes, recipeSha256, inputs = []) {
   const source = records.get("/etc/dolly/Dollyfile");
   if (source?.kind !== 2 || await sha256(source.data) !== recipeSha256 ||
       records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
-  return { buildId: DOLLY_BUILD_ID, recipeSha256, sha256: await sha256(bytes),
+  return { buildId: DOLLY_IMAGE_BUILD_ID, recipeSha256, sha256: await sha256(bytes),
     inputs: imageInputs(inputs), byteLength: bytes.byteLength, manifest: [...records.keys()], bytes };
 }
 
@@ -223,9 +223,9 @@ async function databaseOperation(mode, operation) {
 
 export async function loadImageArtifactDescriptor(recipeSha256, inputs = []) {
   try {
-    const id = `${DOLLY_BUILD_ID}:${recipeSha256}`;
+    const id = `${DOLLY_IMAGE_BUILD_ID}:${recipeSha256}`;
     const record = await databaseOperation("readonly", store => store.get(id));
-    if (record?.id !== id || record.buildId !== DOLLY_BUILD_ID || record.recipeSha256 !== recipeSha256 ||
+    if (record?.id !== id || record.buildId !== DOLLY_IMAGE_BUILD_ID || record.recipeSha256 !== recipeSha256 ||
         !/^[0-9a-f]{64}$/.test(record.sha256) || !Number.isSafeInteger(record.byteLength) ||
         record.byteLength <= 0 || record.byteLength > snapshotSizeLimit ||
         !imageInputsMatch(record.inputs, inputs)) return null;
@@ -235,7 +235,7 @@ export async function loadImageArtifactDescriptor(recipeSha256, inputs = []) {
 
 export async function loadImageArtifact(descriptor) {
   try {
-    const id = `${DOLLY_BUILD_ID}:${descriptor.recipeSha256}`;
+    const id = `${DOLLY_IMAGE_BUILD_ID}:${descriptor.recipeSha256}`;
     const bytes = await databaseOperation("readonly", (_store, payloads) => payloads.get(id));
     if (!(bytes instanceof ArrayBuffer) || bytes.byteLength !== descriptor.byteLength ||
         bytes.byteLength > snapshotSizeLimit) return null;
@@ -246,10 +246,10 @@ export async function loadImageArtifact(descriptor) {
 
 export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) {
   try {
-    if (artifact.buildId !== DOLLY_BUILD_ID || !(artifact.bytes instanceof ArrayBuffer) ||
+    if (artifact.buildId !== DOLLY_IMAGE_BUILD_ID || !(artifact.bytes instanceof ArrayBuffer) ||
         artifact.bytes.byteLength !== artifact.byteLength || artifact.byteLength <= 0 ||
         artifact.byteLength > snapshotSizeLimit) return false;
-    const id = `${DOLLY_BUILD_ID}:${artifact.recipeSha256}`;
+    const id = `${DOLLY_IMAGE_BUILD_ID}:${artifact.recipeSha256}`;
     const { buildId, recipeSha256, sha256, inputs } = artifact;
     await databaseOperation("readwrite", (store, payloads) => {
       payloads.put(artifact.bytes, id);
@@ -257,7 +257,7 @@ export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) 
       // Publish and prune atomically: failed writes preserve the previous pair,
       // and concurrent writers cannot prune each other's newly published data.
       const remove = key => { store.delete(key); payloads.delete(key); };
-      const oldVersions = store.index("slot").openKeyCursor(IDBKeyRange.only([DOLLY_BUILD_ID, slot]));
+      const oldVersions = store.index("slot").openKeyCursor(IDBKeyRange.only([DOLLY_IMAGE_BUILD_ID, slot]));
       oldVersions.onsuccess = () => {
         const cursor = oldVersions.result;
         if (!cursor) return;
@@ -268,7 +268,7 @@ export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) 
       oldRuntimes.onsuccess = () => {
         const cursor = oldRuntimes.result;
         if (!cursor) return;
-        if (!String(cursor.key).startsWith(`${DOLLY_BUILD_ID}:`)) remove(cursor.key);
+        if (!String(cursor.key).startsWith(`${DOLLY_IMAGE_BUILD_ID}:`)) remove(cursor.key);
         cursor.continue();
       };
       return published;

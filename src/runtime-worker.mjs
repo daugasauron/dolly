@@ -1,4 +1,5 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256,
@@ -151,7 +152,7 @@ try {
     throw new Error("invalid build artifacts");
   }
   for (const candidate of bootConfig.artifacts ?? []) {
-    if (candidate?.buildId !== DOLLY_BUILD_ID || !/^[0-9a-f]{64}$/.test(candidate.recipeSha256) ||
+    if (candidate?.buildId !== DOLLY_IMAGE_BUILD_ID || !/^[0-9a-f]{64}$/.test(candidate.recipeSha256) ||
         !(candidate.bytes instanceof ArrayBuffer) || await sha256(candidate.bytes) !== candidate.sha256) {
       throw new Error("build artifact integrity mismatch");
     }

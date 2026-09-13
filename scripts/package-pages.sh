@@ -72,6 +72,8 @@ for required in \
   dist/dolly-process-abi.mjs \
   dist/dolly-process-0.wasm \
   dist/dolly-process-dso-0.wasm \
+  dist/dolly-kernel-plugin-0.wasm \
+  dist/dolly-snapshot-0.wasm \
   dist/dolly-errno.mjs \
   dist/dolly-kernel-plugin-abi.mjs \
   dist/dolly-browser-0.wasm \
@@ -175,6 +177,7 @@ node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${stag
 cp \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/dolly-build-id.mjs" \
+  "${project_dir}/dist/dolly-image-build-id.mjs" \
   "${project_dir}/dist/dolly-images.mjs" \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.mjs" \
@@ -183,6 +186,8 @@ cp \
   "${project_dir}/dist/dolly-process-abi.mjs" \
   "${project_dir}/dist/dolly-process-0.wasm" \
   "${project_dir}/dist/dolly-process-dso-0.wasm" \
+  "${project_dir}/dist/dolly-kernel-plugin-0.wasm" \
+  "${project_dir}/dist/dolly-snapshot-0.wasm" \
   "${project_dir}/dist/dolly-errno.mjs" \
   "${project_dir}/dist/dolly-kernel-plugin-abi.mjs" \
   "${project_dir}/dist/dolly-browser-0.wasm" \

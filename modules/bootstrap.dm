@@ -34,7 +34,7 @@ EXPORTS ENV SHELL /bin/slop
 EXPORTS ENV PATH  /bin:/usr/bin
 
 # These programs are linked against the seeded process adapter, so their
-# complete input identity is the runtime build ID rather than this recipe
+# complete input identity is the image build ID rather than this recipe
 # alone. They are still validated as dolly-process-0 executables when loaded.
 EXPORTS TOOL cc
 EXPORTS TOOL c++

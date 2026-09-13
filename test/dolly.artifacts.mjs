@@ -321,7 +321,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const { verifySnapshotIdentity } = await import("../scripts/snapshot-identity.mjs");
   const { DOLLY_PROCESS_ABI_DIGEST } = await import(artifact("dolly-process-abi.mjs"));
   const processContract = await readWasmInterface(processContractPath);
-  const { DOLLY_BUILD_ID } = await import(artifact("dolly-build-id.mjs"));
+  const { DOLLY_IMAGE_BUILD_ID } = await import(artifact("dolly-image-build-id.mjs"));
   const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
@@ -372,7 +372,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     );
     const recipes = recipeRecords(graph);
     assert.equal(metadata.image, image);
-    assert.equal(metadata.buildId, DOLLY_BUILD_ID);
+    assert.equal(metadata.buildId, DOLLY_IMAGE_BUILD_ID);
     assert.equal(metadata.identityVersion, 2);
     assert.deepEqual(metadata.recipes, recipes);
     assert.deepEqual(metadata.modules, graph.root.uses.map(

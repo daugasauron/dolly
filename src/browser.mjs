@@ -19,6 +19,7 @@ import {
   validSessionName,
 } from "./session-store.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
 
 const mount = document.querySelector("#terminal");
@@ -636,7 +637,7 @@ async function saveCurrentSession(requestedName) {
       const digest = await crypto.subtle.digest("SHA-256", builtSystemSnapshot);
       const actual = [...new Uint8Array(digest)]
         .map(byte => byte.toString(16).padStart(2, "0")).join("");
-      if (metadata.image !== activeImage || metadata.buildId !== DOLLY_BUILD_ID ||
+      if (metadata.image !== activeImage || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
           metadata.byteLength !== builtSystemSnapshot.byteLength || metadata.sha256 !== actual) {
         throw new Error("Rebuilt filesystem differs from the prebuilt session base; no session was saved");
       }

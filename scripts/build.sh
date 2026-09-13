@@ -70,6 +70,7 @@ rm -f \
   "${project_dir}/dist/dolly-terminal-0.wasm" \
   "${project_dir}/dist/dolly-snapshot-0.wasm" \
   "${project_dir}/dist/dolly-build-id.mjs" \
+  "${project_dir}/dist/dolly-image-build-id.mjs" \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/ghostty-web.js" \
   "${project_dir}/dist/process-check.wasm" \

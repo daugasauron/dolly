@@ -16,7 +16,7 @@ const graphs = new Map(await Promise.all(definitions.map(async (definition) => [
   definition.image,
   await loadGraph(definition.filename),
 ])));
-const { DOLLY_BUILD_ID } = await import("../dist/dolly-build-id.mjs");
+const { DOLLY_IMAGE_BUILD_ID } = await import("../dist/dolly-image-build-id.mjs");
 
 function expectedRecipes(image) {
   return recipeRecords(graphs.get(image));
@@ -51,7 +51,7 @@ for (const definition of definitions) {
       readFile(metadataPath),
     ]);
     const imported = await import(
-      `${pathToFileURL(metadataPath).href}?build=${encodeURIComponent(DOLLY_BUILD_ID)}`
+      `${pathToFileURL(metadataPath).href}?build=${encodeURIComponent(DOLLY_IMAGE_BUILD_ID)}`
     );
     snapshotMetadata = imported.DOLLY_SYSTEM_SNAPSHOT;
   } catch (error) {
@@ -69,7 +69,7 @@ for (const definition of definitions) {
   const recipes = expectedRecipes(image);
   let reason = null;
   if (snapshotMetadata?.image !== image) reason = "image mismatch";
-  else if (snapshotMetadata.buildId !== DOLLY_BUILD_ID) reason = "runtime changed";
+  else if (snapshotMetadata.buildId !== DOLLY_IMAGE_BUILD_ID) reason = "seed or image ABI changed";
   else if (snapshotMetadata.byteLength !== snapshotStat.size) reason = "size mismatch";
   else if (JSON.stringify(snapshotMetadata.recipes) !== JSON.stringify(recipes)) {
     reason = "recipe changed";

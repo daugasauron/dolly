@@ -1,9 +1,9 @@
-import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { describeImageArtifact, loadImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 
 export async function loadCustomImage(source, descriptor) {
-  if (inspectDollyfile(source).kind !== "image" || descriptor?.buildId !== DOLLY_BUILD_ID ||
+  if (inspectDollyfile(source).kind !== "image" || descriptor?.buildId !== DOLLY_IMAGE_BUILD_ID ||
       descriptor.recipeSha256 !== await sha256(new TextEncoder().encode(source))) {
     throw new Error("Completed custom image does not match this Dollyfile/runtime. Rebuild it.");
   }
@@ -13,7 +13,7 @@ export async function loadCustomImage(source, descriptor) {
 }
 
 export async function checkedCustomArtifact(source, candidate) {
-  if (inspectDollyfile(source).kind !== "image" || candidate?.buildId !== DOLLY_BUILD_ID ||
+  if (inspectDollyfile(source).kind !== "image" || candidate?.buildId !== DOLLY_IMAGE_BUILD_ID ||
       !(candidate.bytes instanceof ArrayBuffer) || candidate.bytes.byteLength > 512 * 1024 * 1024 ||
       candidate.recipeSha256 !== await sha256(new TextEncoder().encode(source))) {
     throw new Error("Invalid completed custom image");

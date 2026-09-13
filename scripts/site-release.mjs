@@ -16,6 +16,7 @@ import { sha256, verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { verifyDocumentationLinks } from "./package-documentation.mjs";
+import { buildIdentities } from "./write-build-id.mjs";
 
 // Generated metadata is data, not executable input to the release verifier.
 export function parseGeneratedConstant(source, name) {
@@ -76,11 +77,10 @@ export async function verifySite(site) {
   await verifyDocumentationLinks(site);
   const constant = async (file, name) => parseGeneratedConstant(await readFile(resolve(site, "dist", file), "utf8"), name);
   const buildId = await constant("dolly-build-id.mjs", "DOLLY_BUILD_ID");
-  const runtimeHash = createHash("sha256");
-  for (const file of ["dolly.wasm", "dolly.data"]) {
-    for await (const chunk of createReadStream(resolve(site, "dist", file))) runtimeHash.update(chunk);
-  }
-  if (buildId !== `sha256:${runtimeHash.digest("hex")}`) throw new Error("release runtime build ID mismatch");
+  const imageBuildId = await constant("dolly-image-build-id.mjs", "DOLLY_IMAGE_BUILD_ID");
+  const identity = await buildIdentities(resolve(site, "dist/dolly.wasm"), resolve(site, "dist/dolly.data"));
+  if (buildId !== identity.buildId) throw new Error("release runtime build ID mismatch");
+  if (imageBuildId !== identity.imageBuildId) throw new Error("release image build ID mismatch");
   const processContract = await readWasmInterface(resolve(site, "dist/dolly-process-0.wasm"));
   const processDigest = await constant("dolly-process-abi.mjs", "DOLLY_PROCESS_ABI_DIGEST");
   if (processDigest !== Buffer.from(contractDigest(processContract)).toString("hex")) {
@@ -106,7 +106,7 @@ export async function verifySite(site) {
       sha256: (await constant(`dolly-${reference.image}-system-snapshot.mjs`, "DOLLY_SYSTEM_SNAPSHOT")).sha256,
     })));
     if (!imageInputsMatch(metadata.inputs, inputs)) throw new Error(`${image}: release image inputs mismatch`);
-    if (metadata.image !== image || metadata.buildId !== buildId ||
+    if (metadata.image !== image || metadata.buildId !== imageBuildId ||
         metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
         !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength < 16 ||
         metadata.byteLength > 512 * 1024 * 1024 ||

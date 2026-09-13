@@ -67,6 +67,12 @@ own runtimes and configuration. `rust-tools` combines `system` with the Rust SDK
 and Patti artifacts for an interactive compiler shell. Images without DISPLAY expose build controls and
 produce cached artifacts without starting a terminal or ENTRY.
 
+Image compatibility binds the seed bytes and loader plus the process, DSO,
+kernel-plugin and snapshot contracts. Kernel implementation changes can reuse
+images when these inputs remain identical. Incompatible semantics require a
+contract version change. Recipes and artifact bytes remain separately verified;
+the full runtime build ID still binds named sessions to their original runtime.
+
 Named [sessions](sessions.md) save filesystem deltas against an exact base
 image, not process memory. Standard mutable workspace, temporary and Pi auth/
 session paths are excluded from system snapshots; this is not a general secret

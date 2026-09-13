@@ -48,7 +48,10 @@ const { DOLLY_BUILD_ID: buildId } = await import(
   `${pathToFileURL(resolve(projectDir, "dist/dolly-build-id.mjs")).href}` +
   `?runtime=${sha256(runtimeBytes)}`
 );
-if (metadata.image !== image || metadata.buildId !== buildId ||
+const { DOLLY_IMAGE_BUILD_ID: imageBuildId } = await import(
+  `${pathToFileURL(resolve(projectDir, "dist/dolly-image-build-id.mjs")).href}`
+);
+if (metadata.image !== image || metadata.buildId !== imageBuildId ||
     metadata.byteLength !== snapshotBytes.length || metadata.sha256 !== snapshotSha256) {
   throw new Error(`${image} snapshot does not match its sealed runtime metadata`);
 }
@@ -120,6 +123,7 @@ const authority = {
 const capsule = {
   image,
   runtimeBuildId: buildId,
+  imageBuildId,
   runtimeSha256: sha256(runtimeBytes),
   snapshot: {
     byteLength: snapshotBytes.length,

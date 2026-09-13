@@ -63,6 +63,11 @@ browser, use `npm run test:core -- firefox` (or `chromium`).
 [sources](docs/sources.md) for bootstrap details and
 [deployment](docs/deployment.md) for sealed static exports.
 
+`npm run image -- default --plan` checks the pinned recipes and existing outputs
+without preparing sources, changing pins or starting a browser. Normal image
+builds print the same dependency plan after source preparation, with rebuild
+reasons and phase timings. An unpinned recipe edit must be pinned before planning.
+
 ## Documentation
 
 - [Dollyfiles](docs/dollyfile.md) and [Studio builds](docs/image-build-service.md).

@@ -37,9 +37,9 @@ async function main() {
   const bytes = await readFile(resolve(project, `dist/dolly-${image}-system.snapshot`));
   const metadata = parseGeneratedConstant(
     await readFile(resolve(project, `dist/dolly-${image}-system-snapshot.mjs`), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
-  const buildId = parseGeneratedConstant(
-    await readFile(resolve(project, "dist/dolly-build-id.mjs"), "utf8"), "DOLLY_BUILD_ID");
-  if (metadata.image !== image || metadata.buildId !== buildId ||
+  const imageBuildId = parseGeneratedConstant(
+    await readFile(resolve(project, "dist/dolly-image-build-id.mjs"), "utf8"), "DOLLY_IMAGE_BUILD_ID");
+  if (metadata.image !== image || metadata.buildId !== imageBuildId ||
       metadata.byteLength !== bytes.length || metadata.sha256 !== sha256(bytes)) {
     throw new Error("snapshot does not match its sealed runtime metadata");
   }
@@ -57,7 +57,7 @@ async function main() {
   const lines = [
     `# Dolly static process census: ${image}`, "",
     `Snapshot: ${code(metadata.sha256)}`, "",
-    `Runtime build: ${code(buildId)}`, "",
+    `Image inputs: ${code(imageBuildId)}`, "",
     `${executables.length} validated process executables, ${consumers.size} distinct callable imports.`, "",
     "The process ABI multiplexes platform operations through one typed packet-call gate.",
     "Static imports do not identify which packet operations a program actually uses.",

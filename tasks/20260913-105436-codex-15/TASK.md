@@ -1,6 +1,6 @@
 # Separate image compatibility and seed identity from the kernel build hash
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: audit,core,build
 
@@ -30,3 +30,28 @@ Saved sessions also use the exact runtime identity; coordinate with
 - Keep recipe, artifact and loaded-Wasm validation; reject incompatible ABI, seed and snapshot changes.
 - Prove a compatible kernel-only edit can reuse images, while a real seed/ABI change rebuilds the appropriate closure.
 - Measure both cases and cover Chrome/Firefox admission and recovery with existing browser infrastructure.
+
+## Resolution
+
+Image compatibility now hashes the compiler/sysroot seed, its file-map loader,
+and the process, DSO, resident-plugin and snapshot contracts. The full runtime
+ID additionally hashes the kernel. Image metadata, cache admission, pruning and
+release verification use the image identity; saved sessions retain their strict
+runtime identity. Kernel changes that alter image semantics still require a
+contract version change. Recipe pins and exact artifact/loaded-Wasm checks remain.
+
+The new Slop seed rebuilt all 18 selected images and their dependencies inside
+Chrome. Their complete validated reuse plan takes 3.3 s. The selected artifacts
+passed 28 checks in 3.78 s; the unselected CPython archive check is skipped.
+
+To isolate kernel compatibility, a browser proof added a valid custom section
+to the actual kernel binary, producing a different runtime ID with unchanged
+seed/contracts. The original image bytes passed the full core gate in Chrome
+(22.7 s) and Firefox (29.4 s), and pruning retained all nine default inputs.
+This is a binary compatibility test, not a claim that arbitrary kernel semantic
+changes are safe. Changed seed/loader/ABI bytes invalidate identity in the source
+test; incompatible image metadata is rejected in both browsers, followed by a
+successful fresh boot. A changed image identity prunes the incompatible closure.
+
+Release packaging includes the contracts needed to recompute the image identity.
+No browser network authority or process ABI was added.

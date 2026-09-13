@@ -46,6 +46,13 @@ images and builds with a base already contain their compiler and do not fetch
 the seed. The small kernel does not link the compiler. No permission or
 executable-bit policy is added to Dolly.
 
+`dolly-image-build-id.mjs` identifies that seed, its loader/file map, and the
+compiled process, DSO, kernel-plugin and snapshot contracts. Images and their
+cache use this identity, so a compatible kernel implementation change does not
+recompile userspace. `dolly-build-id.mjs` additionally hashes the kernel bytes;
+packaged images record that runtime as provenance and sessions require it for
+exact restoration. A seed or contract change invalidates the image cache.
+
 Other inputs appear as `SOURCE HOST location destination HASH` or `SOURCE URL`
 rows in the selected Dollyfile/module graph. HOST pins the prepared release
 bytes; URL fetches its independently pinned upstream bytes during a rebuild.
