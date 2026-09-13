@@ -7,12 +7,13 @@ import { basename, resolve } from "node:path";
 import test from "node:test";
 
 import {
-  loadDollyfileGraph,
+  loadDollyfileGraph, createDollyfileGraphLoader,
 } from "../scripts/dollyfile-graph.mjs";
 import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+const loadProjectGraph = createDollyfileGraphLoader(projectDir);
 
 test("module-owned command sources have no divergent standalone copies", async () => {
   const commands = new Set(await readdir(resolve(projectDir, "src/commands")));
@@ -61,7 +62,7 @@ const imageSpecs = [
 async function loadImages() {
   return Promise.all(imageSpecs.map(async (spec) => ({
     spec,
-    graph: await loadDollyfileGraph(projectDir, spec.filename),
+    graph: await loadProjectGraph(spec.filename),
   })));
 }
 
@@ -102,7 +103,7 @@ test("QuickJS is selected only by Pi-bearing images", async () => {
 });
 
 test("the linked viewer preserves table alignment whitespace", async () => {
-  const graph = await loadDollyfileGraph(projectDir);
+  const graph = await loadProjectGraph();
   const page = renderDollyfilePage(graph.root, graph);
   for (const use of graph.root.uses) {
     const sourceLine = graph.root.source.split("\n")[use.line - 1];
@@ -227,7 +228,7 @@ test("version 3 keeps plain hashes and lightweight object declarations", async (
 });
 
 test("bootstrap exports exact compiler tools and first-class headers", async () => {
-  const graph = await loadDollyfileGraph(projectDir);
+  const graph = await loadProjectGraph();
   const bootstrap = graph.modules.find(({ name }) => name === "bootstrap");
   assert.equal(bootstrap.name, "bootstrap");
   assert.equal(bootstrap.requirements.length, 0);
@@ -266,14 +267,14 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   assert.ok(cpp.exports.some(({ type, name, details }) =>
     type === "ENV" && name === "CXX" && details[0] === "c++"));
 
-  const pi = (await loadDollyfileGraph(projectDir, "Dollyfile-pi"))
+  const pi = (await loadProjectGraph("Dollyfile-pi"))
     .modules.find(({ name }) => name === "pi");
   assert.ok(pi.exports.some(({ type, name, details }) =>
     type === "ENV" && name === "PI_SKIP_VERSION_CHECK" && details[0] === "1"));
 });
 
 test("small Dolly-owned command sources are inline", async () => {
-  const graph = await loadDollyfileGraph(projectDir);
+  const graph = await loadProjectGraph();
   const core = graph.modules.find(({ name }) => name === "core-tools");
   const download = graph.modules.find(({ name }) => name === "download");
   const tar = graph.modules.find(({ name }) => name === "tar");
@@ -290,7 +291,7 @@ test("small Dolly-owned command sources are inline", async () => {
 });
 
 test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", async () => {
-  const graph = await loadDollyfileGraph(projectDir, "Dollyfile-pi");
+  const graph = await loadProjectGraph("Dollyfile-pi");
   const typescript = graph.modules.find(({ name }) => name === "typescript");
   const pi = graph.modules.find(({ name }) => name === "pi");
   assert.ok(typescript);
@@ -453,7 +454,7 @@ test("non-temporary SOURCE inputs are retained or explicitly removed by their mo
 });
 
 test("Bonnie is a retained two-file command with transactional graph helpers", async () => {
-  const graph = await loadDollyfileGraph(projectDir, "Dollyfile-python");
+  const graph = await loadProjectGraph("Dollyfile-python");
   const bonnie = graph.modules.find(({ name }) => name === "bonnie");
   assert.deepEqual(
     bonnie.sources.map(({ location, destination }) => [location, destination]),
@@ -519,7 +520,7 @@ test("compiler outputs do not depend on skipped cache-prefix job counts", async 
   assert.match(compiler, /constexpr unsigned long long job = 0/);
   assert.match(compiler, /"--threads=1"/);
 
-  const pythonGraph = await loadDollyfileGraph(projectDir, "Dollyfile-python-pi");
+  const pythonGraph = await loadProjectGraph("Dollyfile-python-pi");
   const cpython = pythonGraph.modules.find(({ name }) => name === "cpython");
   const buildInfo = cpython.slops.find(({ command }) =>
     command.includes("Modules/getbuildinfo.c"));
@@ -608,20 +609,6 @@ test("host preparation scripts publish atomically and own their temporary paths"
   assert.match(preparedCpython, /build-python=\$\{build_python_identity\}/);
   assert.doesNotMatch(preparedCpython, /rm -rf -- "\$\{output_dir\}"/);
   assert.match(preparedCpython, /mv -T -- "\$\{temporary\}" "\$\{output_dir\}"/);
-});
-
-test("snapshot creation and pruning share the canonical module recipe graph", async () => {
-  const builder = await readFile(
-    resolve(projectDir, "scripts/build-system-snapshot.mjs"), "utf8",
-  );
-  const pruner = await readFile(
-    resolve(projectDir, "scripts/prune-stale-snapshots.mjs"), "utf8",
-  );
-  for (const source of [builder, pruner]) {
-    assert.match(source, /loadDollyfileGraph/);
-    assert.match(source, /recipeRecords\(graphs\.get\(image\)\)/);
-  }
-  assert.doesNotMatch(pruner, /definition\.extends/);
 });
 
 test("build modules declare tools used by their own recipes", async () => {
@@ -725,7 +712,7 @@ test("the experiment has one execution form, no KEEP state, and no extras module
     const source = await readFile(resolve(projectDir, name), "utf8");
     assert.doesNotMatch(source, /^(?:RUN|CHECK|KEEP|KEEP-TREE|WORKDIR)\b/m, name);
   }
-  const graph = await loadDollyfileGraph(projectDir);
+  const graph = await loadProjectGraph();
   assert.equal(graph.modules.some(({ name }) => name === "extras"), false);
   const make = graph.modules.find(({ name }) => name === "make");
   assert.equal(make.requirements.some(({ type, name }) =>

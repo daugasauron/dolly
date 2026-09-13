@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import {
-  loadDollyfileGraph,
+  createDollyfileGraphLoader,
   recipeRecords,
 } from "./dollyfile-graph.mjs";
 
@@ -55,11 +55,12 @@ export async function selectImageDefinitions(definitions, selection = process.en
     throw new Error(`DOLLY_BUILD_IMAGES names unknown images: ${missing.join(", ")}`);
   }
   const closure = new Map();
+  const loadGraph = createDollyfileGraphLoader(selected[0].projectDir);
   const byFilename = new Map(definitions.map(definition => [definition.filename, definition]));
   async function include(definition) {
     if (closure.has(definition.image)) return;
     closure.set(definition.image, definition);
-    const graph = await loadDollyfileGraph(definition.projectDir, definition.filename);
+    const graph = await loadGraph(definition.filename);
     for (const reference of graph.artifacts) {
       const dependency = byFilename.get(reference.location.slice(1));
       if (!dependency) throw new Error(`missing artifact recipe ${reference.location}`);
@@ -72,22 +73,13 @@ export async function selectImageDefinitions(definitions, selection = process.en
 
 export async function inspectStaticSources(projectDir, definitions, staticDirectory = resolve(projectDir, "dist/static")) {
   const sources = new Map();
+  const loadGraph = createDollyfileGraphLoader(projectDir);
   const modules = await readdir(resolve(projectDir, "modules"), { withFileTypes: true }).catch(error => {
     if (error.code === "ENOENT") return [];
     throw error;
   });
-  // Publishing module text does not execute it or select its build inputs.
-  for (const entry of modules) {
-    if (!entry.isFile() || !/^[a-z][a-z0-9-]{0,63}\.dm$/.test(entry.name)) continue;
-    const path = `/modules/${entry.name}`;
-    const bytes = await readFile(resolve(projectDir, path.slice(1)));
-    if (bytes.length === 0) continue;
-    sources.set(path, Object.freeze({
-      path, sha256: createHash("sha256").update(bytes).digest("hex"), byteLength: bytes.length,
-    }));
-  }
   for (const definition of definitions) {
-    const graph = await loadDollyfileGraph(projectDir, definition.filename);
+    const graph = await loadGraph(definition.filename);
     for (const module of graph.records) {
       const path = `/${module.relative}`;
       const previous = sources.get(path);
@@ -137,6 +129,17 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
       }));
     }
   }
+  // Publishing module text does not execute it or select its build inputs.
+  for (const entry of modules) {
+    if (!entry.isFile() || !/^[a-z][a-z0-9-]{0,63}\.dm$/.test(entry.name)) continue;
+    const path = `/modules/${entry.name}`;
+    if (sources.has(path)) continue;
+    const bytes = await readFile(resolve(projectDir, path.slice(1)));
+    if (bytes.length === 0) continue;
+    sources.set(path, Object.freeze({
+      path, sha256: createHash("sha256").update(bytes).digest("hex"), byteLength: bytes.length,
+    }));
+  }
   return [...sources.values()].sort((left, right) =>
     left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
 }
@@ -159,8 +162,9 @@ export function registrySource(definitions, staticSources = []) {
 }
 
 export async function imageRegistrySource(projectDir, definitions, staticSources = []) {
+  const loadGraph = createDollyfileGraphLoader(projectDir);
   const enriched = await Promise.all(definitions.map(async (definition) => {
-    const graph = await loadDollyfileGraph(projectDir, definition.filename);
+    const graph = await loadGraph(definition.filename);
     return {
       ...definition,
       parsed: {

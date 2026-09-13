@@ -44,6 +44,9 @@ ENTRY /bin/slop
     await updateRecipePins(directory, true);
     assert.equal(await readFile(resolve(directory, "Dollyfile"), "utf8"), expected, "second update is byte-identical");
     await loadDollyfileGraph(directory);
+    await writeFile(resolve(directory, "Dollyfile"), expected.replace(
+      `COPY FROM HOST /Dollyfile-base ${digest(base)} `, `COPY FROM HOST /Dollyfile-base ${old} `));
+    await assert.rejects(loadDollyfileGraph(directory), /stale recipe pin/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -167,6 +170,50 @@ EXPORTS ENV OPTIONS APPEND two
     assert.deepEqual(overridden.exporters.get("ENV:AUDIT_VALUE").exported.details, ["new"]);
     await writeFile(resolve(directory, "modules/child.dm"), child + "# changed\n");
     await assert.rejects(loadDollyfileGraph(directory), /stale recipe pin/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("repeated modules resolve requirements in their own caller scope", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-scopes-"));
+  try {
+    await mkdir(resolve(directory, "modules"));
+    const sources = {
+      first: "DOLLY 3\nMODULE first\nEXPORTS TOOL cc\n",
+      second: "DOLLY 3\nMODULE second\nEXPORTS TOOL cc\n",
+      consumer: "DOLLY 3\nMODULE consumer\nREQUIRES TOOL cc\n",
+    };
+    for (const [name, source] of Object.entries(sources)) {
+      await writeFile(resolve(directory, `modules/${name}.dm`), source);
+    }
+    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 3\nIMAGE default\n" +
+      ["first", "consumer", "second", "consumer"].map(name =>
+        `USE HOST /modules/${name}.dm ${digest(sources[name])}\n`).join("") + "ENTRY /bin/slop\n");
+    const { root } = await loadDollyfileGraph(directory);
+    assert.deepEqual([root.children[1], root.children[3]].map(record =>
+      record.imports.get("TOOL:cc").module.name), ["first", "second"]);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("reusing an artifact still checks the depth of each reference", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-depth-"));
+  try {
+    await mkdir(resolve(directory, "modules"));
+    const leaf = "DOLLY 3\nIMAGE leaf\nENTRY /bin/slop\n";
+    const base = `DOLLY 3\nIMAGE base\nFROM HOST /Dollyfile-leaf ${digest(leaf)}\nENTRY /bin/slop\n`;
+    await writeFile(resolve(directory, "Dollyfile-leaf"), leaf);
+    await writeFile(resolve(directory, "Dollyfile-base"), base);
+    const copy = `COPY FROM HOST /Dollyfile-base ${digest(base)} /usr/share/value /usr/share/value\n`;
+    for (const depth of [13, 14]) {
+      let operation = copy;
+      for (let i = depth - 1; i >= 0; i--) {
+        const module = `DOLLY 3\nMODULE wrapper-${i}\n${operation}`;
+        await writeFile(resolve(directory, `modules/wrapper-${i}.dm`), module);
+        operation = `USE HOST /modules/wrapper-${i}.dm ${digest(module)}\n`;
+      }
+      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 3\nIMAGE default\n${copy}${operation}ENTRY /bin/slop\n`);
+      if (depth === 13) await loadDollyfileGraph(directory);
+      else await assert.rejects(loadDollyfileGraph(directory), /recipe depth exceeds 16/);
+    }
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

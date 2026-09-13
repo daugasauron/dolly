@@ -9,10 +9,11 @@ import {
   selectImageDefinitions,
   writeImageRegistry,
 } from "./image-definitions.mjs";
-import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
+import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+const loadGraph = createDollyfileGraphLoader(projectDir);
 const outputDir = resolve(projectDir, "build/routes");
 const template = await readFile(resolve(projectDir, "terminal.html"), "utf8");
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -21,7 +22,7 @@ const primaryImage = definitions.find(({ image }) => image === "default")?.image
 const staticSources = await inspectStaticSources(projectDir, definitions);
 const graphs = await Promise.all(definitions.map(async (definition) => ({
   definition,
-  graph: await loadDollyfileGraph(projectDir, definition.filename),
+  graph: await loadGraph(definition.filename),
 })));
 await writeImageRegistry(projectDir, definitions, staticSources);
 const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");

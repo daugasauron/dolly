@@ -33,3 +33,7 @@ is to be claimed as covered; matching a function call never established it.
 - Remove redundant assertions already covered by behavior tests.
 - Retain structural checks for exact imports, forbidden host capabilities, and other deliberate boundary rules.
 - Use the existing test infrastructure and measure feedback time. Pair this work with the [graph inspection fix](../20260913-105436-codex-13/TASK.md).
+
+The graph fix also removed 14 lines asserting the builder/pruner helper function
+names. Actual snapshot identity and browser cache-invalidation checks cover the
+contract; spelling the shared helper's name does not.

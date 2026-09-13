@@ -7,9 +7,10 @@ import {
   inspectStaticSources,
   selectImageDefinitions,
 } from "./image-definitions.mjs";
-import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
+import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+const loadGraph = createDollyfileGraphLoader(projectDir);
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 if (process.argv[2] === "--sources") {
   for (const source of await inspectStaticSources(projectDir, definitions)) {
@@ -20,7 +21,7 @@ if (process.argv[2] === "--sources") {
 if (process.argv[2] === "--modules") {
   const names = new Set();
   for (const definition of definitions) {
-    const graph = await loadDollyfileGraph(projectDir, definition.filename);
+    const graph = await loadGraph(definition.filename);
     for (const module of graph.modules) names.add(module.name);
   }
   for (const name of [...names].sort()) console.log(name);

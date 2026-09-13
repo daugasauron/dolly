@@ -10,7 +10,7 @@ import {
   discoverImageDefinitions,
   selectImageDefinitions,
 } from "./image-definitions.mjs";
-import { loadDollyfileGraph, recipeRecords } from "./dollyfile-graph.mjs";
+import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { sha256 as digest, verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
@@ -18,6 +18,7 @@ import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { imageInputs, imageInputsMatch } from "../src/image-inputs.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+const loadGraph = createDollyfileGraphLoader(projectDir);
 const snapshotBrowserProfile = process.env.DOLLY_BROWSER_PROFILE ??
   resolve(projectDir, ".cache/snapshot-browser-profile");
 const snapshotBrowserPort = process.env.DOLLY_BROWSER_PORT ?? String(
@@ -28,7 +29,7 @@ const snapshotBrowserPort = process.env.DOLLY_BROWSER_PORT ?? String(
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const graphs = new Map(await Promise.all(definitions.map(async (definition) => [
   definition.image,
-  await loadDollyfileGraph(projectDir, definition.filename),
+  await loadGraph(definition.filename),
 ])));
 const definitionByImage = new Map(definitions.map((definition) => [definition.image, definition]));
 const requestedImage = process.env.DOLLY_SNAPSHOT_IMAGE;

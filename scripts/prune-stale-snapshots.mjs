@@ -7,13 +7,14 @@ import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
 import { discoverImageDefinitions } from "./image-definitions.mjs";
-import { loadDollyfileGraph, recipeRecords } from "./dollyfile-graph.mjs";
+import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+const loadGraph = createDollyfileGraphLoader(projectDir);
 const definitions = await discoverImageDefinitions(projectDir);
 const graphs = new Map(await Promise.all(definitions.map(async (definition) => [
   definition.image,
-  await loadDollyfileGraph(projectDir, definition.filename),
+  await loadGraph(definition.filename),
 ])));
 const { DOLLY_BUILD_ID } = await import("../dist/dolly-build-id.mjs");
 

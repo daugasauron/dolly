@@ -8,34 +8,43 @@ const key = object => `${object.type}:${object.name}`;
 
 // This is an inspection graph, not a dependency solver. Runtime assertions may
 // resolve against files and environment that cannot be inferred from recipes.
-export async function loadDollyfileGraph(projectDir, rootFilename = "Dollyfile") {
+export function createDollyfileGraphLoader(projectDir) {
+  const recipes = new Map();
+  return (rootFilename = "Dollyfile") => loadGraph(projectDir, rootFilename, recipes);
+}
+
+async function loadGraph(projectDir, rootFilename, recipes) {
   const modules = [], records = [], edges = [], artifacts = [];
   const active = new Set();
-  const seen = new Map();
+  const seen = new Set();
+  const images = new Map();
 
-  async function load(relative, expected, parent, available, image = false, stage = true) {
+  async function load(relative, expected, available, image = false, stage = true) {
     const path = resolve(projectDir, relative);
     if (active.has(path)) throw new Error(`${relative}: recipe cycle`);
     if (active.size >= 16) throw new Error(`${relative}: recipe depth exceeds 16`);
-    active.add(path);
-    const source = await readFile(path, "utf8");
-    const sha256 = digest(source);
+    if (!recipes.has(path)) recipes.set(path, readFile(path, "utf8").then(source => ({
+      ...inspectDollyfile(source, relative), sha256: digest(source),
+    })));
+    const parsed = await recipes.get(path);
+    const { sha256 } = parsed;
     if (expected && sha256 !== expected) throw new Error(`${relative}: stale recipe pin`);
-    const parsed = inspectDollyfile(source, relative);
     if (parsed.kind !== (image ? "image" : "module")) {
       throw new Error(`${relative}: expected ${image ? "IMAGE" : "MODULE"}`);
     }
     if (!image && relative !== `modules/${parsed.name}.dm`) throw new Error(`${relative}: MODULE ${parsed.name} must match its filename`);
+    const cached = image && !stage ? images.get(path) : null;
+    if (cached) {
+      if (active.size + cached.height > 16) throw new Error(`${relative}: recipe depth exceeds 16`);
+      return cached;
+    }
+    active.add(path);
     const record = {
-      ...parsed, path, relative, location: `/${relative}`, sha256, parent,
-      depth: parent ? parent.depth + 1 : 0, children: [], dependencies: [], consumers: [],
-      available: new Map(available), imports: new Map(), resolvedExports: new Map(),
-      reexports: new Map(), artifactTargets: [],
+      ...parsed, path, relative, location: `/${relative}`,
+      children: [], dependencies: [], imports: new Map(), artifactTargets: [],
     };
-    const previous = seen.get(relative);
-    if (previous && previous.sha256 !== sha256) throw new Error(`${relative}: conflicting recipe versions`);
-    if (!previous) {
-      seen.set(relative, record);
+    if (!seen.has(relative)) {
+      seen.add(relative);
       records.push(record);
       if (!image) modules.push(record);
     }
@@ -49,7 +58,7 @@ export async function loadDollyfileGraph(projectDir, rootFilename = "Dollyfile")
     ].sort((a, b) => a.line - b.line);
     for (const operation of operations) {
       if (operation.operation === "artifact") {
-        const target = await load(operation.location.slice(1), operation.sha256, null, new Map(), true, false);
+        const target = await load(operation.location.slice(1), operation.sha256, new Map(), true, false);
         record.artifactTargets.push({ reference: operation, target });
         if (stage) artifacts.push({ ...operation, image: target.image });
         if (!operation.copy) {
@@ -59,7 +68,7 @@ export async function loadDollyfileGraph(projectDir, rootFilename = "Dollyfile")
           }
         }
       } else if (operation.operation === "use") {
-        const child = await load(operation.location.slice(1), operation.sha256, record, visible, false, stage);
+        const child = await load(operation.location.slice(1), operation.sha256, visible, false, stage);
         child.selectedAt = operation.line;
         record.children.push(child);
         for (const [name, provider] of child.scopeExporters) {
@@ -77,7 +86,6 @@ export async function loadDollyfileGraph(projectDir, rootFilename = "Dollyfile")
           const edge = { consumer: record, requirement, provider: provider.module, exported: provider.exported };
           edges.push(edge);
           record.dependencies.push(edge);
-          provider.module.consumers.push(edge);
           record.imports.set(key(operation), provider);
         }
       }
@@ -89,30 +97,35 @@ export async function loadDollyfileGraph(projectDir, rootFilename = "Dollyfile")
       let resolved = exported;
       if ((exported.details.length === 0 || exported.type === "ENV") && provider && provider.module !== record) {
         resolved = { ...exported, details: provider.exported.details, sha256: provider.exported.sha256 };
-        record.reexports.set(key(exported), provider);
       }
-      record.resolvedExports.set(key(exported), resolved);
       published.set(key(exported), { module: record, exported: resolved });
     }
     record.scopeExporters = published;
+    record.height = 1 + Math.max(0, ...record.children.map(child => child.height),
+      ...record.artifactTargets.map(({ target }) => target.height));
+    if (image && !stage) images.set(path, record);
     active.delete(path);
     return record;
   }
 
-  const root = await load(rootFilename, null, null, new Map(), true);
+  const root = await load(rootFilename, null, new Map(), true);
   return { root, modules, records, edges, exporters: root.scopeExporters, artifacts };
+}
+
+export function loadDollyfileGraph(projectDir, rootFilename = "Dollyfile") {
+  return createDollyfileGraphLoader(projectDir)(rootFilename);
 }
 
 export function recipeRecords(graph) {
   const records = [], seen = new Set();
   function visit(record) {
+    if (seen.has(record.relative)) return;
+    seen.add(record.relative);
     const children = [
       ...record.children.map(target => ({ line: target.selectedAt, target })),
       ...record.artifactTargets.map(({ reference, target }) => ({ line: reference.line, target })),
     ].sort((a, b) => a.line - b.line);
     for (const { target } of children) visit(target);
-    if (seen.has(record.relative)) return;
-    seen.add(record.relative);
     records.push({
       kind: record.kind, name: record.name, locator: record.location,
       sourcePath: record.location,

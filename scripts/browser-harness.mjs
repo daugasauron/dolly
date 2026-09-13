@@ -44,8 +44,6 @@ import { rtsProvider } from "../test/fixtures/rts-provider.mjs";
 import { gzipSync } from "node:zlib";
 
 const projectDir = resolve(import.meta.dirname, "..");
-const imageDefinitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
-const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 const distDirectory = resolve(projectDir, "dist");
 const packagedSite = process.env.DOLLY_BROWSER_SITE
   ? resolve(process.env.DOLLY_BROWSER_SITE) : null;
@@ -185,6 +183,9 @@ if (piAuditMode &&
   );
 }
 const selectedImage = process.env.DOLLY_IMAGE ?? (missingSnapshotMode ? "default" : "pi");
+const imageDefinitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir),
+  process.env.DOLLY_BUILD_IMAGES ?? (menuMode || routeSmokeMode || pagesLiveMode ? "all" : selectedImage));
+const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 if (!new Set(imageDefinitions.map((definition) => definition.image)).has(selectedImage)) {
   throw new Error("DOLLY_IMAGE must name a source-visible Dollyfile image");
 }

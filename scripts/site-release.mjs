@@ -10,7 +10,7 @@ import { gunzipSync } from "node:zlib";
 import { mergeSnapshotRecords, validateSnapshotPacks } from "../src/snapshot-records.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { contractDigest, validateBrowserImports } from "./dolly-abi.mjs";
-import { loadDollyfileGraph, recipeRecords } from "./dollyfile-graph.mjs";
+import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources, selectImageDefinitions } from "./image-definitions.mjs";
 import { sha256, verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
@@ -72,6 +72,7 @@ export async function sourceManifest(root) {
 }
 
 export async function verifySite(site) {
+  const loadGraph = createDollyfileGraphLoader(site);
   await verifyDocumentationLinks(site);
   const constant = async (file, name) => parseGeneratedConstant(await readFile(resolve(site, "dist", file), "utf8"), name);
   const buildId = await constant("dolly-build-id.mjs", "DOLLY_BUILD_ID");
@@ -98,7 +99,7 @@ export async function verifySite(site) {
       await imageRegistrySource(site, definitions, sources)) throw new Error("release image registry mismatch");
   for (const definition of definitions) {
     const image = definition.image;
-    const graph = await loadDollyfileGraph(site, definition.filename);
+    const graph = await loadGraph(definition.filename);
     const metadata = await constant(`dolly-${image}-system-snapshot.mjs`, "DOLLY_SYSTEM_SNAPSHOT");
     const inputs = await Promise.all(graph.artifacts.map(async reference => ({
       recipeSha256: reference.sha256,

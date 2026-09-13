@@ -1,6 +1,6 @@
 # Stop repeatedly expanding the same Dollyfile dependency graph
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: audit,core,build,testing
 
@@ -31,3 +31,25 @@ Source and retention tests repeatedly load the same graphs too.
 - Validate modes before asset inspection; select the required image closure for ordinary browser scenarios.
 - Reuse graphs within a test/inspection pass; keep catalog-wide integrity validation available.
 - Measure catalog/default inspection again and run existing graph, pin, retention, and browser checks. Do not replace hash validation with source-text assertions.
+
+## Resolution
+
+Implemented on `codex/core-iteration-20260913` in `work/core-iteration`. Parsed
+recipes are shared within each inspection; completed artifact subgraphs are reused
+without reusing caller-dependent module scopes. Removed unused graph bookkeeping.
+Every edge still checks its pin and depth; recipe-lock ordering is unchanged.
+Ordinary browser modes inspect their selected image closure; catalog modes retain
+the full catalog. Invalid modes fail before source inspection.
+
+Measured 2026-09-13 with the same built artifacts: catalog inspection **223 reads
+for 223 paths, 0.62 s**; default closure **135 reads, 0.20 s**. Full Node verification
+passed **334/334 in 8.70 s** versus the 32.84 s baseline. New behavioral cases cover
+a stale pin on a later COPY, repeated USE under different providers, and a cached
+artifact referenced beyond the depth limit. Existing snapshot checks verified all
+32 retained recipe chains, entries and hashes.
+
+Chrome passed process-smoke (19.04 s), the catalog menu (1.09 s), and Pi-based
+v3-iteration (26.43 s), including source edits, cache reuse/invalidation and IndexedDB
+rollback. The iteration fixture assumes Pi; its default-image invocation failed
+on that fixture assumption, so verification used the existing supported Pi mode.
+The last small release-loader and test-cache edits passed their focused Node checks.
