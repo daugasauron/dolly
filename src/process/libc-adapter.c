@@ -717,8 +717,10 @@ int __syscall_mknodat(int directory, const char *path,
 }
 
 int __syscall_fchdir(int descriptor) {
-  (void)descriptor;
-  return -ENOSYS;
+  if (descriptor < 0) return -EBADF;
+  const int64_t result = path_call(
+      DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY, descriptor, 0, ".", NULL, 0);
+  return result < 0 ? (int)result : 0;
 }
 
 int __syscall_accept4(int descriptor, uintptr_t address,

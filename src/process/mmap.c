@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <wasi/api.h>
 
@@ -82,6 +83,13 @@ static int write_mapping(const dolly_mapping *mapping,
   const unsigned char *cursor = address;
   size_t remaining = length;
   uint64_t offset = mapping->file_offset + delta;
+  struct stat metadata;
+  if (fstat(mapping->descriptor, &metadata) != 0) return -errno;
+  if (metadata.st_size < 0) return -EIO;
+  if (offset >= (uint64_t)metadata.st_size) return 0;
+  if (remaining > (uint64_t)metadata.st_size - offset) {
+    remaining = (uint64_t)metadata.st_size - offset;
+  }
   while (remaining != 0) {
     __wasi_ciovec_t vector = {.buf = cursor, .buf_len = remaining};
     __wasi_size_t completed = 0;

@@ -29,6 +29,7 @@
 #include <llvm/Support/Error.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/Path.h>
 #include <llvm/Support/StringSaver.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/VirtualFileSystem.h>
@@ -1936,13 +1937,44 @@ int run_archive(int argc, const char *const *argv, unsigned long long job) {
   if (operation.find('r') == std::string::npos ||
       operation.find_first_not_of("rcsD") != std::string::npos) {
     std::fprintf(stderr,
-                 "%s: only deterministic archive creation with r[c][s][D] is supported\n",
+                 "%s: only deterministic archive updates with r[c][s][D] are supported\n",
                  argv[0]);
     return 64;
   }
 
   std::vector<llvm::NewArchiveMember> members;
-  members.reserve(static_cast<size_t>(argc - 3));
+  auto archive_bytes = llvm::MemoryBuffer::getFile(argv[2], false, false);
+  if (archive_bytes) {
+    auto archive = llvm::object::Archive::create((*archive_bytes)->getMemBufferRef());
+    if (!archive) {
+      std::fprintf(stderr, "%s: %s: %s\n", argv[0], argv[2],
+                   error_text(archive.takeError()).c_str());
+      return 1;
+    }
+    if ((*archive)->isThin()) {
+      std::fprintf(stderr, "%s: %s: thin archive updates are unsupported\n", argv[0], argv[2]);
+      return 1;
+    }
+    llvm::Error error = llvm::Error::success();
+    for (const auto &child : (*archive)->children(error)) {
+      auto member = llvm::NewArchiveMember::getOldMember(child, true);
+      if (!member) {
+        error = member.takeError();
+        break;
+      }
+      members.push_back(std::move(*member));
+    }
+    if (error) {
+      std::fprintf(stderr, "%s: %s: %s\n", argv[0], argv[2],
+                   error_text(std::move(error)).c_str());
+      return 1;
+    }
+  } else if (archive_bytes.getError() != std::errc::no_such_file_or_directory) {
+    std::fprintf(stderr, "%s: %s: %s\n", argv[0], argv[2],
+                 archive_bytes.getError().message().c_str());
+    return 1;
+  }
+  std::vector<bool> replaced(members.size(), false);
   for (int index = 3; index < argc; index++) {
     llvm::Expected<llvm::NewArchiveMember> member =
         llvm::NewArchiveMember::getFile(argv[index], true);
@@ -1951,7 +1983,15 @@ int run_archive(int argc, const char *const *argv, unsigned long long job) {
                    error_text(member.takeError()).c_str());
       return 1;
     }
-    members.push_back(std::move(*member));
+    member->MemberName = llvm::sys::path::filename(member->MemberName);
+    size_t existing = 0;
+    while (existing < replaced.size() &&
+           (replaced[existing] || members[existing].MemberName != member->MemberName)) ++existing;
+    if (existing == replaced.size()) members.push_back(std::move(*member));
+    else {
+      members[existing] = std::move(*member);
+      replaced[existing] = true;
+    }
   }
 
   const std::string staged = temporary_path(job, 0, ".a");

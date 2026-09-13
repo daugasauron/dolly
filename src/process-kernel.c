@@ -62,7 +62,7 @@ typedef struct {
   uint32_t argument_count;
   char **environment;
   uint32_t environment_count;
-  char *current_directory;
+  int current_directory;
   char *path;
   unsigned char *image;
   size_t image_size;
@@ -210,8 +210,8 @@ static void release_process_resources(dolly_kernel_process *process) {
   }
   dispose_vector(&process->arguments, &process->argument_count);
   dispose_vector(&process->environment, &process->environment_count);
-  free(process->current_directory);
-  process->current_directory = NULL;
+  if (process->current_directory >= 0) close(process->current_directory);
+  process->current_directory = -1;
   free(process->path);
   process->path = NULL;
   free(process->image);
@@ -268,6 +268,7 @@ static dolly_kernel_process *allocate_process(void) {
     dolly_kernel_process *process = &process_table[index];
     if (process->state != DOLLY_KERNEL_PROCESS_FREE) continue;
     memset(process, 0, sizeof(*process));
+    process->current_directory = -1;
     for (size_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT;
          ++descriptor) {
       process->descriptors[descriptor] = -1;
@@ -574,24 +575,19 @@ static int spawn_packet(int parent_pid, size_t size) {
   if (result == 0) {
     if (request.cwd_size != 0) {
       const unsigned char *cwd = process_mailbox + size - mapping_bytes - request.cwd_size;
-      char directory[PATH_MAX + 1], resolved[PATH_MAX];
-      struct stat metadata;
+      char directory[PATH_MAX + 1];
       if (cwd[0] != '/' || memchr(cwd, 0, request.cwd_size) != NULL) result = -EINVAL;
       else {
         memcpy(directory, cwd, request.cwd_size);
         directory[request.cwd_size] = 0;
-        if (realpath(directory, resolved) == NULL || stat(resolved, &metadata) != 0) result = -errno;
-        else if (!S_ISDIR(metadata.st_mode)) result = -ENOTDIR;
-        else process->current_directory = strdup(resolved);
+        process->current_directory = open(directory, O_RDONLY | O_DIRECTORY);
       }
     } else if (parent != NULL) {
-      process->current_directory = strdup(parent->current_directory);
+      process->current_directory = dup(parent->current_directory);
     } else {
-      char directory[PATH_MAX];
-      process->current_directory = getcwd(directory, sizeof(directory)) == NULL
-          ? NULL : strdup(directory);
+      process->current_directory = open(".", O_RDONLY | O_DIRECTORY);
     }
-    if (result == 0 && process->current_directory == NULL) result = -ENOMEM;
+    if (result == 0 && process->current_directory < 0) result = -errno;
   }
   process->path = malloc(path_size + 1);
   if (process->path == NULL && result == 0) result = -ENOMEM;
@@ -724,33 +720,30 @@ static int path_from_packet(dolly_kernel_process *process,
   if (size == 0 || size > PATH_MAX || memchr(bytes, 0, size) != NULL) {
     return -EINVAL;
   }
-  char *path;
   int directory = AT_FDCWD;
-  if (bytes[0] == '/') {
-    path = malloc((size_t)size + 1);
-    if (path == NULL) return -ENOMEM;
-    memcpy(path, bytes, size);
-    path[size] = 0;
-  } else if (directory_descriptor == UINT32_MAX) {
-    const size_t prefix = strlen(process->current_directory);
-    if (prefix > PATH_MAX - (size_t)size - 2) return -ENAMETOOLONG;
-    path = malloc(prefix + 1 + (size_t)size + 1);
-    if (path == NULL) return -ENOMEM;
-    memcpy(path, process->current_directory, prefix);
-    path[prefix] = '/';
-    memcpy(path + prefix + 1, bytes, size);
-    path[prefix + 1 + size] = 0;
-  } else {
-    directory = descriptor_for(process, directory_descriptor);
+  if (bytes[0] != '/') {
+    directory = directory_descriptor == UINT32_MAX
+        ? process->current_directory : descriptor_for(process, directory_descriptor);
     if (directory < 0) return directory;
-    path = malloc((size_t)size + 1);
-    if (path == NULL) return -ENOMEM;
-    memcpy(path, bytes, size);
-    path[size] = 0;
   }
+  char *path = malloc((size_t)size + 1);
+  if (path == NULL) return -ENOMEM;
+  memcpy(path, bytes, size);
+  path[size] = 0;
   *path_out = path;
   *directory_out = directory;
   return 0;
+}
+
+static int directory_path(int descriptor, char *buffer, size_t capacity) {
+  const int saved = open(".", O_RDONLY | O_DIRECTORY);
+  if (saved < 0) return -errno;
+  // Kernel dispatch is serial; restore its cwd before returning to the broker.
+  int result = fchdir(descriptor) == 0 ? 0 : -errno;
+  if (result == 0 && getcwd(buffer, capacity) == NULL) result = -errno;
+  if (fchdir(saved) != 0) result = -errno;
+  close(saved);
+  return result;
 }
 
 static int decode_path_request(dolly_kernel_process *process,
@@ -2004,10 +1997,10 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
     }
     case DOLLY_PROCESS_PATH_GET_CURRENT_DIRECTORY: {
       if (request_size != 0) return -EINVAL;
-      const size_t size = strlen(process->current_directory) + 1;
-      if (size > response_capacity) return -ENOBUFS;
-      memcpy(process_mailbox, process->current_directory, size);
-      return (int64_t)size;
+      if (response_capacity == 0) return -ENOBUFS;
+      const int result = directory_path(process->current_directory,
+          (char *)process_mailbox, response_capacity);
+      return result < 0 ? result : (int64_t)strlen((char *)process_mailbox) + 1;
     }
     case DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY: {
       dolly_process_path_request request;
@@ -2015,24 +2008,16 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       int directory = AT_FDCWD;
       int result = decode_path_request(process, request_size, &request,
                                        &path, &directory);
-      if (result == 0 && (request.flags != 0 || directory != AT_FDCWD)) {
-        result = -EINVAL;
-      }
-      struct stat metadata;
-      if (result == 0 && stat(path, &metadata) != 0) result = -errno;
-      if (result == 0 && !S_ISDIR(metadata.st_mode)) result = -ENOTDIR;
-      char *canonical = NULL;
+      if (result == 0 && request.flags != 0) result = -EINVAL;
+      int descriptor = -1;
       if (result == 0) {
-        canonical = realpath(path, NULL);
-        if (canonical == NULL) result = -errno;
+        descriptor = openat(directory, path, O_RDONLY | O_DIRECTORY);
+        if (descriptor < 0) result = -errno;
       }
       free(path);
-      if (result != 0) {
-        free(canonical);
-        return result;
-      }
-      free(process->current_directory);
-      process->current_directory = canonical;
+      if (result != 0) return result;
+      close(process->current_directory);
+      process->current_directory = descriptor;
       return 0;
     }
     case DOLLY_PROCESS_PATH_STAT_FILESYSTEM: {
@@ -2156,11 +2141,22 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       int directory = AT_FDCWD;
       int64_t result = decode_path_request(process, request_size, &request,
                                           &path, &directory);
-      if (result == 0 && (request.flags != 0 || directory != AT_FDCWD)) {
-        result = -EINVAL;
+      if (result == 0 && request.flags != 0) result = -EINVAL;
+      char absolute[PATH_MAX + 1];
+      if (result == 0 && directory != AT_FDCWD) {
+        result = directory_path(directory, absolute, sizeof(absolute));
+        if (result == 0) {
+          const size_t prefix = strlen(absolute), length = strlen(path);
+          if (prefix + 1 + length >= sizeof(absolute)) result = -ENAMETOOLONG;
+          else {
+            absolute[prefix] = '/';
+            memcpy(absolute + prefix + 1, path, length + 1);
+          }
+        }
       }
       if (result == 0) result = operation == DOLLY_PROCESS_UPLOAD_FILE
-          ? dolly_upload_process_file(process->pid, path) : dolly_download_file(path);
+          ? dolly_upload_process_file(process->pid, directory == AT_FDCWD ? path : absolute)
+          : dolly_download_file(directory == AT_FDCWD ? path : absolute);
       free(path);
       return result;
     }

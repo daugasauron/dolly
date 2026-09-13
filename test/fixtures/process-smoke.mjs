@@ -11,6 +11,8 @@ export const processSmokeSources = Object.freeze({
   "pipe-driver.c": "src/process/pipe-driver.c",
   "poll-check.c": "src/process/poll-check.c",
   "mmap-check.c": "src/process/mmap-check.c",
+  "mmap-bounds.c": "test/fixtures/mmap-bounds.c",
+  "cwd-check.c": "test/fixtures/cwd-check.c",
   "terminal-check.c": "src/process/terminal-check.c",
   "self-exe-check.c": "src/process/self-exe-check.c",
   "dso-check.c": "src/process/dso-check.c",
@@ -34,6 +36,17 @@ export async function runProcessSmoke(submit, origin) {
     await run(`printf '%s\\n' '-O0 cpp-check.cpp -o "response program"' > compile.rsp`);
     await run("printf '%s\\n' '@compile.rsp' > nested.rsp");
     await run("c++ @nested.rsp && './response program'");
+    await run("printf 'int first(void) { return 1; }\\n' > first.c; printf 'int second(void) { return 2; }\\n' > second.c; cc -c first.c second.c && ar rcs library.a first.o second.o");
+    await run("printf 'int first(void) { return 3; }\\n' > first.c; cc -c first.c && ar rcs library.a ./first.o");
+    await run("printf 'int third(void) { return 4; }\\n' > third.c; cc -c third.c && ar rcs library.a third.o");
+    await run("printf 'int first(void), second(void), third(void); int main(void) { return first()!=3 || second()!=2 || third()!=4; }\\n' > archive.c; cc archive.c library.a -o archive && ./archive");
+    await run("cp library.a saved.a");
+    assert.notEqual(await submit("ar rcs library.a second.o missing.o"), 0, "missing archive input");
+    await run("cmp library.a saved.a && ar rcs library.a && cmp library.a saved.a");
+    await run("printf invalid > invalid.a; cp invalid.a saved.a");
+    assert.notEqual(await submit("ar rcs invalid.a first.o"), 0, "invalid existing archive");
+    await run("cmp invalid.a saved.a");
+    await run("mkdir duplicate; cp second.o duplicate/first.o; ar rcs duplicate.a first.o duplicate/first.o third.o; cc archive.c duplicate.a -o archive && ./archive");
     await run("printf '%s\\n' '@cycle.rsp' > cycle.rsp");
     assert.equal(await submit("cc @cycle.rsp"), 64, "recursive compiler response file");
     assert.notEqual(await submit("cc @missing.rsp"), 0, "missing compiler response file");
@@ -63,7 +76,7 @@ export async function runProcessSmoke(submit, origin) {
       `DOLLY_PROCESS_HTTP_CHECK_URL=${origin}/fixture/http.txt ./http-check`,
       `/bin/slop -c './fs-check write ${scratch}/data && ./fs-check read ${scratch}/data'`,
       "/bin/slop -c 'export DOLLY_PROCESS_CHECK=private-memory; case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; ./process-check fresh'",
-      `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "./terminal-check", "cc --version",
+      `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "./mmap-bounds", "./cwd-check", "./terminal-check", "cc --version",
       `./dso-check ${scratch}/dso-library.so`, `./dso-cpp-check ${scratch}/dso-cpp-library.so`,
     ]) await run(command);
     await run(`./fs-check write ${scratch}/data`);

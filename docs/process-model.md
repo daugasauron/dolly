@@ -70,6 +70,13 @@ OPOST/ONLCR bits. Raw LF is preserved; cooked output can map LF to CRLF.
 Advisory file locks are not implemented: valid F_GETLK/F_SETLK/F_SETLKW return
 ENOTSUP, and invalid descriptors return EBADF. They never pretend to lock.
 
+File mappings are private Wasm copies. MAP_SHARED writes back on msync and
+whole-mapping munmap, clipping the range to the file length when writeback starts.
+A mapping past EOF does not itself extend the file. The retained descriptor
+survives closing the caller's descriptor. Changes through other mappings or file
+writes and concurrent resizes are not coherent, and Wasm cannot trap access past EOF or
+revoke a subrange of linear memory. These are not coherent native shared mappings.
+
 ## Retirement and failure
 
 The supervisor caches immutable compiled modules by SHA-256 under count/byte
@@ -89,7 +96,11 @@ with the recovery shell. This is not a guarantee against browser memory pressure
 ## Cancellation
 
 PID/parent IDs and optional spawn cwd are kernel-owned; choosing a child's cwd
-does not change the parent's. Positive-PID `kill(pid, 0)` checks existence.
+does not change the parent's. Each process retains an open directory descriptor:
+relative paths and inherited cwd follow that directory across renames, including
+ancestor renames. `getcwd` resolves its current name and returns `ENOENT` after
+unlinking; `fchdir` restores a directory held by a descriptor.
+Positive-PID `kill(pid, 0)` checks existence.
 Dolly supports a finite signal set and rejects unsupported signals/action flags.
 
 Wait records distinguish signal termination from ordinary exit. `exit(130)`
