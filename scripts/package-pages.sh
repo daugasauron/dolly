@@ -4,6 +4,11 @@ set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 output="${1:-${project_dir}/build/dolly-pages.tar.gz}"
 releases="${2:-${project_dir}/build/releases}"
+site="${3:-}"
+if [[ -n "${site}" && "${site}" != "daugasauron.com" ]]; then
+  echo "dolly: unknown site: ${site}" >&2
+  exit 1
+fi
 staging=""
 temporary_output=""
 cleanup() {
@@ -147,6 +152,9 @@ cp -R "${project_dir}/build/routes/custom" "${project_dir}/build/routes/rebuild"
   "${staging}/site/"
 cp "${project_dir}/build/routes/404.html" "${staging}/site/404.html"
 cp -R "${project_dir}/build/routes/view" "${staging}/site/"
+if [[ -n "${site}" ]]; then
+  node "${project_dir}/scripts/package-domain.mjs" "${staging}/site"
+fi
 cp -R "${project_dir}/dist/webgpu" "${staging}/site/dist/webgpu"
 source_rows="$(node "${project_dir}/scripts/list-images.mjs" --sources)"
 while IFS=$'\t' read -r source_path source_metadata; do

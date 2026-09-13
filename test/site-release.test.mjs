@@ -11,6 +11,32 @@ import { sha256 } from "../scripts/snapshot-identity.mjs";
 import { sessionLoadUrl } from "../src/session-store.mjs";
 import { deploymentBase, renderReleasePage } from "../scripts/release-layout.mjs";
 import { exportStaticSite, exportRetainedStaticAssets } from "../scripts/export-static.mjs";
+import { packageDomain } from "../scripts/package-domain.mjs";
+
+test("domain packaging adds the showcase only to its selected site, with public navigation and pinned media", async t => {
+  const root = await mkdtemp(resolve(tmpdir(), "dolly-domain-test-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const source = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  for (const name of ["domain", "github"]) {
+    await mkdir(resolve(root, name));
+    await writeFile(resolve(root, name, "index.html"), source);
+  }
+  await packageDomain(resolve(root, "domain"));
+  assert.match(await readFile(resolve(root, "domain/index.html"), "utf8"), /href="\.\/agents\/"/);
+  assert.equal(await readFile(resolve(root, "github/index.html"), "utf8"), source);
+  await assert.rejects(readFile(resolve(root, "github/agents/index.html")), { code: "ENOENT" });
+  const page = await readFile(resolve(root, "domain/agents/index.html"), "utf8");
+  const files = new Set(["index.html", "agents/index.html", ...["rts-arena", "classicube", "bhop", "dollyfile-studio"].map(name => `${name}/index.html`)]);
+  const rendered = renderReleasePage(page, "agents/index.html", "a".repeat(64), files);
+  assert.match(rendered, /<a href="\/">← Dolly/);
+  assert.match(rendered, /<a href="\/rts-arena\/">/);
+  assert.match(rendered, /<base href="\/_dolly\/a{64}\/agents\/">/);
+  assert.equal((page.match(/<video /g) ?? []).length, 4);
+  for (const [, path] of page.matchAll(/(?:src|poster)="([^"]+)"/g)) {
+    const bytes = await readFile(resolve(root, "domain/agents", path));
+    assert.ok(bytes.length > 0 && bytes.length <= 25 * 1024 * 1024, `${path} must fit a Pages asset`);
+  }
+});
 
 test("static pages pin assets below the deployment prefix but keep navigation public", () => {
   const digest = "a".repeat(64);

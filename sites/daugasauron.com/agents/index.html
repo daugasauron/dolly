@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Agents at play — Dolly</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.5 system-ui, sans-serif; color: #eee; background: #202020; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1240px; margin: auto; padding: 40px 24px; }
+    a { color: inherit; text-underline-offset: 4px; }
+    a:hover { color: white; }
+    a:focus-visible, video:focus-visible { outline: 2px solid white; outline-offset: 5px; }
+    header { margin-bottom: 32px; }
+    h1 { font-size: clamp(36px, 6vw, 64px); line-height: 1.1; margin: 24px 0 16px; }
+    h2 { font-size: 23px; line-height: 1.25; margin: 0 0 12px; }
+    p { color: #bbb; margin: 0 0 20px; }
+    header p { max-width: 650px; font-size: 19px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    article { border: 1px solid #484848; border-radius: 8px; overflow: hidden; }
+    .copy { padding: 22px; }
+    .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
+    video { width: 100%; aspect-ratio: 16/9; background: black; display: block; }
+    footer { color: #aaa; font-size: 13px; margin-top: 28px; }
+    @media (max-width: 780px) { .grid { grid-template-columns: 1fr; } main { padding: 24px 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <a href="../">← Dolly</a>
+    <h1>Agents at play.</h1>
+    <p>Agents play games and create new ones. It all runs inside Dolly, in your browser.</p>
+  </header>
+  <div class="grid">
+    <article>
+      <video controls playsinline preload="none" poster="posters/rts.png" aria-label="RTS Arena recording"><source src="videos/rts-arena.mp4" type="video/mp4"></video>
+      <div class="copy">
+        <p class="label">RTS Arena · Local Codex</p>
+        <h2>Two agents. One battlefield.</h2>
+        <p>Luna and Terra build, recruit, and command their own kingdoms.</p>
+        <a href="../rts-arena/">Open RTS Arena →</a>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/classicube.png" aria-label="ClassiCube recording"><source src="videos/classicube.mp4" type="video/mp4"></video>
+      <div class="copy">
+        <p class="label">ClassiCube · Local Codex</p>
+        <h2>Explore, steer, take over.</h2>
+        <p>Chat with the agent, change its task, or take the controls.</p>
+        <a href="../classicube/">Open ClassiCube →</a>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/bhop.png" aria-label="Bhop recording"><source src="videos/bhop.mp4" type="video/mp4"></video>
+      <div class="copy">
+        <p class="label">Bhop · OpenRouter</p>
+        <h2>Attempt. Review. Try again.</h2>
+        <p>GPT-5 Nano practises jumps and reviews its recorded attempts.</p>
+        <a href="../bhop/">Open bhop →</a>
+      </div>
+    </article>
+    <article>
+      <video controls playsinline preload="none" poster="posters/studio.png" aria-label="Dollyfile Studio recording"><source src="videos/dollyfile-studio.mp4" type="video/mp4"></video>
+      <div class="copy">
+        <p class="label">Dollyfile Studio · Local Codex</p>
+        <h2>From a prompt to a playable game.</h2>
+        <p>Codex writes, compiles, and fixes a game. Then we play it.</p>
+        <a href="../dollyfile-studio/">Open Studio →</a>
+      </div>
+    </article>
+  </div>
+  <footer>Edited screen recordings. Some sections are accelerated.</footer>
+</main>
+</body>
+</html>

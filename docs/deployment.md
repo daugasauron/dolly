@@ -4,8 +4,8 @@ The public sites are [GitHub Pages](https://daugasauron.github.io/dolly/) and
 [daugasauron.com](https://daugasauron.com/), backed by the Cloudflare Pages
 project `dolly`. Both use the same code, Dollyfiles and packaging pipeline.
 The domain publishes the full catalog, including Codex; GitHub Pages publishes
-a smaller selection to fit its 1 GB limit. Their sealed artifacts differ only
-by release contents, not host-specific application code.
+a smaller selection to fit its 1 GB limit. The domain also includes the
+“Agents at play” recordings; application code is shared between both hosts.
 
 ## Export
 
@@ -16,6 +16,16 @@ whose parent already exists:
 npm run export:static -- build/releases/current build/static-site /dolly/
 npm run export:pages -- build/releases/current build/pages-site
 ```
+
+Pass `daugasauron.com` as the third packaging argument to include `/agents/`
+and its index link. The page and media are committed under
+`sites/daugasauron.com/agents` and covered by the release seal:
+
+```sh
+DOLLY_BUILD_IMAGES=all bash scripts/package-pages.sh build/dolly-domain.tar.gz build/domain-releases daugasauron.com
+```
+
+Omit that argument for GitHub Pages. It receives no showcase page, link or media.
 
 The static exporter uses the supplied prefix; the Pages exporter uses `/`.
 Both verify sealed input, reject an existing destination and publish staging

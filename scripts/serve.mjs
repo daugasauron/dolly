@@ -20,6 +20,8 @@ const mimeTypes = new Map([
   [".mjs", "text/javascript; charset=utf-8"],
   [".wasm", "application/wasm"],
   [".woff2", "font/woff2"],
+  [".png", "image/png"],
+  [".mp4", "video/mp4"],
 ]);
 const isolationHeaders = {
   "cross-origin-opener-policy": "same-origin",
