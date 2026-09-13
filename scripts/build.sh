@@ -76,10 +76,6 @@ rm -f \
   "${project_dir}/dist/process-fs-check.wasm" \
   "${project_dir}/dist/process-pipe-check.wasm" \
   "${project_dir}/dist/slop-process.wasm"
-rm -f \
-  "${project_dir}/dist/program-inspector.wasm" \
-  "${project_dir}/dist/program-reader.wasm" \
-  "${project_dir}/dist/program-writer.wasm"
 
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-kernel-plugin-0.wat \
   --enable-memory64 \
