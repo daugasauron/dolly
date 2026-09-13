@@ -84,7 +84,7 @@ inherited browser restrictions; recipe bytes cannot set browser policy.
 | --- | --- |
 | [Display contract](../abi/dolly-display-0.wat), [display.md](display.md) | Checked complete RGBA frames and bounded semantic input; no privileged VT/OSC/HTML parsing |
 | Fullscreen handler in `src/browser.mjs` | Keyboard initiated; F11 toggles fullscreen for every image, including while a dialog is open |
-| Clipboard handlers in `src/browser.mjs` | Copy/paste only after user gestures; bounded literal text |
+| Clipboard handlers in `src/browser.mjs` | Gesture-only copy; native paste into Dolly's keyboard or game canvas/body only. Bounded literal text becomes graphics text input or terminal paste; other browser fields retain native paste |
 | Pointer-lock handlers in `src/browser.mjs` | Capture only on a trusted canvas press; Escape/lease release undo it. Graphics button/hover forwarding grants no capture; terminal selection remains left-button only |
 | [Upload transport](../src/upload-transport.mjs), [C command](../src/upload.c) | Visible user picker, at most 64 MiB in 64 KiB chunks; bytes only, no host name/path/handle |
 | [Download contract](download.md) | Copied bounded file and checked basename, never a host path |

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
+import { classicubeApiKey } from "./classicube-provider.mjs";
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const quote = text => "'" + text.replace(/\n/g, " ").replace(/'/g, "'\\''") + "'";
 
@@ -16,6 +17,10 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   };
   const type = async text => {
     for (const character of text) await key({key:character,code:/[a-z]/i.test(character)?`Key${character.toUpperCase()}`:character===' '?'Space':'',text:character});
+  };
+  const paste = async (text, modifiers = 2) => {
+    await evaluate(`navigator.clipboard.writeText(${JSON.stringify(text)})`);
+    await key({key:modifiers & 8 ? 'V' : 'v',code:'KeyV',windowsVirtualKeyCode:86,modifiers});
   };
   const fullscreen = async () => {
     const before=await evaluate('!!document.fullscreenElement');
@@ -132,7 +137,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await chord('Enter','Enter',13,'Shift','ShiftLeft',16,8); await type('line 2');
   await state(s=>s.draft==='Replacement\nline 2','Shift+Enter inserts a newline');
   await chord('a','KeyA',65); await press('Backspace','Backspace',8);
-  await input('Enter works after releasing capture 日本語 ✓');
+  await paste('Enter works after releasing capture 日本語 ✓');
   await state(s=>s.draft==='Enter works after releasing capture 日本語 ✓','prompt accepts immediate paste',8);
   await tab(); await state(s=>s.ui.includes('interface=0') && s.draft.endsWith('日本語 ✓'),'hiding UI retains draft');
   await tab(); await enter(); await chord('a','KeyA',65); await press('Backspace','Backspace',8);
@@ -153,10 +158,14 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
     if(!live) {
       await row('OpenRouter','key'); await menu('OpenRouter API key'); await input('cancelled-input'); await escape();
       await menu('Agent settings'); await field(3); await menu('OpenRouter');
+      await row('OpenRouter','key'); await menu('OpenRouter API key');
+      await paste('replace this',10); await chord('a','KeyA',65);
+      await paste(classicubeApiKey); await enter();
+      await menu('Model'); await click(210,132); await field(3); await menu('OpenRouter');
     }
     await row('OpenRouter',live?'key':'oauth');
     await menu(live?'OpenRouter API key':'Authorization code');
-    await input(live?secret:'classicube-authorization-fixture'); await press('Enter','NumpadEnter',13);
+    await paste(live?secret:'classicube-authorization-fixture',10); await press('Enter','NumpadEnter',13);
   }
   const model=liveModel || (relayFile?'gpt-5.6-luna':live?'google/gemini-2.5-flash':'fixture/vision');
   const catalog=await menu('Model');
@@ -188,7 +197,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await field(2); await row('Reasoning effort','effort:low'); await menu('Agent settings');
   await chord(',','Comma',188); await chord(',','Comma',188); await menu('Agent settings');
   const configured=await probe(); assert.deepEqual(configured.config,{provider:relayFile?'codex-local':'openrouter',model,effort:'low'});
-  assert.equal(await evaluate('__dolly.httpRequestCount'),relayFile?0:live?2:3,'selection makes no inference calls');
+  assert.equal(await evaluate('__dolly.httpRequestCount'),relayFile?0:live?2:5,'selection makes no inference calls');
   await fullscreen(); await fullscreen(); await snapshot('settings'); await click(1090,132);
   await delay(150); await snapshot('log-panel');
   await click(1210,238); await state(s=>s.ui.includes('activity=0'),'hide activity independently');

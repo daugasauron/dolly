@@ -261,6 +261,7 @@ class DisplayTransport {
   pushPaste(text) {
     const bytes = encoder.encode(text);
     if (bytes.length > this.clipboardCapacity) return false;
+    if (this.graphicsActive()) return this.pushText(text);
     const published = Atomics.load(
       this.words,
       this.word + DisplayTransport.pasteSequence,
@@ -737,9 +738,11 @@ function handleKeyboardEvent(event) {
     }
     return;
   }
-  if (clipboardChord && event.code === "KeyV") {
-    // Leave the browser's native paste gesture intact. Its PasteEvent carries
-    // the bytes into the explicit Dolly paste buffer below.
+  const graphicsPaste = transport.graphicsActive() && !event.altKey && (
+    (event.code === "KeyV" && (event.ctrlKey || event.metaKey)) ||
+    (event.code === "Insert" && event.shiftKey && !event.ctrlKey && !event.metaKey));
+  if (graphicsPaste || (clipboardChord && event.code === "KeyV")) {
+    // Let the browser deliver clipboard bytes through a user-initiated PasteEvent.
     return;
   }
   if (clipboardChord && event.code === "KeyC") {
@@ -1016,7 +1019,9 @@ async function boot() {
     }
     keyboard.value = "";
   });
-  keyboard.addEventListener("paste", (event) => {
+  window.addEventListener("paste", (event) => {
+    if (event.target !== keyboard && (!transport?.graphicsActive() ||
+        (event.target !== document.body && event.target !== canvas))) return;
     event.preventDefault();
     const text = event.clipboardData?.getData("text/plain") ?? "";
     if (text && !transport?.pushPaste(text)) {

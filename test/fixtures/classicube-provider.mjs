@@ -1,5 +1,6 @@
 // Scripted integration provider; live tests use OpenRouter separately.
 import assert from "node:assert/strict";
+export const classicubeApiKey = "sk-or-v1-" + "0123456789abcdef".repeat(4);
 export function classicubeProvider() {
   const requests = [];
   const concurrent = new Map();
@@ -19,16 +20,16 @@ export function classicubeProvider() {
           top_provider: { max_completion_tokens: 4096 }, pricing: { prompt: "0.1", completion: "0.2" } };
         return json(200, { data: [model, ...Array.from({length:24},(_,n)=>({...model,id:`fixture/list-${String(n).padStart(2,"0")}`}))] });
       }
-      if (path.endsWith("/key")) return json(request.headers.authorization === "Bearer sk-or-v1-classicube-fixture" ? 200 : 401, { data: { usage: 0 } });
+      if (path.endsWith("/key")) return json(request.headers.authorization === `Bearer ${classicubeApiKey}` ? 200 : 401, { data: { usage: 0 } });
       const chunks = []; for await (const chunk of request) chunks.push(chunk);
       const payload = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       if (path.endsWith("/auth/keys")) {
         assert.equal(payload.code, "classicube-authorization-fixture");
         assert.equal(payload.code_challenge_method, "S256"); assert.match(payload.code_verifier, /^[A-Za-z0-9_-]{43}$/);
-        exchanges++; return json(200, { key: "sk-or-v1-classicube-fixture" });
+        exchanges++; return json(200, { key: classicubeApiKey });
       }
       assert.ok(path.endsWith("/chat/completions"));
-      assert.equal(request.headers.authorization, "Bearer sk-or-v1-classicube-fixture");
+      assert.equal(request.headers.authorization, `Bearer ${classicubeApiKey}`);
       assert.equal(payload.model, "fixture/vision");
       assert.equal(payload.reasoning?.effort, "low");
       assert.deepEqual(payload.tools.map(tool => tool.function.name), ["game_input"]);
