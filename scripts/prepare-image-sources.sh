@@ -49,20 +49,19 @@ fi
 has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-emscripten-system-libs.sh")"
 has_module libffi && libffi_dir="$("${project_dir}/scripts/prepare-libffi.sh")"
 has_module cpython && cpython_dir="$("${project_dir}/scripts/prepare-cpython.sh")"
-zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
+has_module zig && zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
 if has_module ghostty; then
   ghostty_checkout="$("${project_dir}/scripts/fetch-ghostty.sh")"
   ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
   uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
   stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
+  mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
+  runtime_font="${font_paths[1]}"
 fi
 if has_module gamedev-sdk; then
   raylib_dir="$("${project_dir}/scripts/fetch-raylib.sh")"
   box3d_dir="$("${project_dir}/scripts/fetch-box3d.sh")"
 fi
-mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
-runtime_font="${font_paths[1]}"
-
 staging="$(mktemp -d "${project_dir}/dist/.image-sources.XXXXXX")"
 cleanup() {
   if [[ -d "${staging}/previous" && ! -e "${project_dir}/dist/static" ]]; then
@@ -74,14 +73,14 @@ trap cleanup EXIT
 static_dir="${staging}/static"
 mkdir -p "${static_dir}/default" "${static_dir}/gamedev" "${static_dir}/python"
 if [[ -d "${project_dir}/dist/static" ]]; then
-  cp -R -- "${project_dir}/dist/static/." "${static_dir}/"
+  cp -al -- "${project_dir}/dist/static/." "${static_dir}/"
 fi
 
 copy_static() {
   local source="$1"
   local destination="$2"
   mkdir -p "$(dirname -- "${static_dir}/${destination}")"
-  cp -- "${source}" "${static_dir}/${destination}"
+  cp --remove-destination -- "${source}" "${static_dir}/${destination}"
 }
 
 if has_module curl; then

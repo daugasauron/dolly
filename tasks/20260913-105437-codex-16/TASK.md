@@ -28,3 +28,20 @@ that every image command recompiles rustc.
 - Reuse unchanged staged inputs/archives and prepare only the selected changed inputs; retain atomic publication and exact source validation.
 - An application prompt or frontend-only edit must not reconstruct unrelated upstream archives.
 - Keep the existing image command and explicit full-build/reproducibility path; add no generic orchestration layer.
+
+## Progress (2026-09-14 JST)
+
+Source preparation now invokes Zig and font preparation only when the selected
+closure includes those modules. The static staging tree shares unchanged file
+inodes, while selected copies replace their destinations and archive writers
+publish by rename. A failure leaves the previous tree intact; existing symlink
+leaves are replaced instead of written through.
+
+A real `DOLLY_BUILD_IMAGES=system-build` preparation took 17.26 s cold (GNU Make
+configuration) and 0.83 s warm. All 82 declared HOST inputs were verified against
+their pins. The libc++ and Make archives retained exactly the previous hashes.
+No Rust, Zig or display preparation ran for this headless compiler base.
+
+Unchanged selected archives are still reconstructed. Measure the larger source
+preparers and a leaf edit before adding an archive cache; this small closure's
+measured warm preparation does not justify a new cache layer by itself.
