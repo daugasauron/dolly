@@ -49,7 +49,8 @@ test("source archives reject symlinks and clean failed staging without replacing
   const scratch = await mkdtemp(join(tmpdir(), "dolly-source-link-"));
   t.after(() => rm(scratch, { recursive: true, force: true }));
   const output = join(scratch, "source.tar"), input = join(scratch, "input");
-  await mkdir(input);
+  await mkdir(join(input, "nested"), { recursive: true });
+  await writeFile(join(input, "nested", "bad\\name.c"), "unsupported nested path\n");
   await writeFile(join(scratch, "private"), "not a declared source");
   await writeFile(output, "previous valid output");
   await symlink(join(scratch, "private"), join(input, "link"));
@@ -57,11 +58,12 @@ test("source archives reject symlinks and clean failed staging without replacing
   for (const [path, destination] of [
     [join(input, "link"), "/usr/src/fixture"],
     [input, "/usr/src/fixture"],
+    [join(input, "nested"), "/usr/src/fixture"],
     [join(scratch, "private"), "/" + "a".repeat(101)],
   ]) {
     const result = spawnSync(process.execPath, [script, output, path, destination], { encoding: "utf8" });
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /unsupported source input|reject non-file input|path does not fit ustar/);
+    assert.match(result.stderr, /unsupported source input|reject non-file input|path does not fit ustar|unsafe archive destination/);
     assert.equal(await readFile(output, "utf8"), "previous valid output");
   }
   assert.deepEqual((await readdir(scratch)).sort(), ["input", "private", "source.tar"]);

@@ -40,6 +40,9 @@ function validArchivePath(value) {
 }
 
 function collect(input, destination) {
+  if (!validArchivePath(destination)) {
+    throw new Error(`unsafe archive destination ${JSON.stringify(destination)}`);
+  }
   const metadata = lstatSync(input);
   if (metadata.isFile()) {
     if (excludeSuffixes.some((suffix) => destination.endsWith(suffix))) {
@@ -64,9 +67,6 @@ function collect(input, destination) {
 for (let index = 0; index < mappingArguments.length; index += 2) {
   const input = resolve(projectDir, mappingArguments[index]);
   const destination = mappingArguments[index + 1].replace(/\/+$/, "");
-  if (!validArchivePath(destination)) {
-    throw new Error(`unsafe archive destination ${JSON.stringify(destination)}`);
-  }
   collect(input, destination);
 }
 
