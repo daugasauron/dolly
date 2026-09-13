@@ -1,0 +1,10 @@
+audit, Finding from the 2026-09-13 architecture audit
+bug, Confirmed incorrect behavior
+core, Shared runtime or platform substrate
+filesystem, File and path semantics
+lifecycle, Process termination and recovery
+compatibility, Supported upstream API behavior
+cleanup, Remove unused code or reduce maintenance
+testing, Verification and development feedback
+build, Image dependencies and build iteration
+persistence, Saving and restoring user state

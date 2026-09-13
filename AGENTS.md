@@ -101,6 +101,10 @@ Prefer simple serial semantics over multiprocessing or performance machinery.
   maintain the review map in `docs/browser-boundary.md` when they change.
 - Verify changes in a real browser. Tests should prove shared in-Wasm state,
   module reload behavior, denied host access, and exact ABI compatibility.
+- Choose verification by the changed behavior; keep image rebuilds and full
+  distribution checks out of routine source-only iterations when unnecessary.
+- Do not test implementation spelling, user-facing prose or the wording of other
+  tests. Keep explicit ABI/capability checks and mocks that exercise real behavior.
 
 # Bootstrapping direction
 
@@ -110,3 +114,9 @@ Keep bootstrap exceptions explicit in `docs/sources.md`.
 
 Keeping the Wasm runtime interface, filesystem substrate, lifecycle model, and
 browser network broker small and well defined is the central design priority.
+
+# Issue tracking
+
+Project issues live in `tasks/<id>/TASK.md`; see [tasks/README.md](tasks/README.md).
+Keep reproduction steps, findings, and completion criteria with the issue.
+Close it only after verifying the result, recording the evidence or commit.

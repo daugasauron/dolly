@@ -2,8 +2,7 @@
 
 Dolly already builds conventional tools and runs Pi inside a browser's wasm64
 userspace. The next work should make that system easier to understand, recover
-and extend. Current bugs and evidence belong in the [audit handoff](audit-handoff.md),
-not a second checklist here.
+and extend. Current bugs and evidence belong in the [issue tracker](../tasks/README.md).
 
 ## Priorities
 

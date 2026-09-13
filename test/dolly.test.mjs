@@ -33,7 +33,6 @@ import {
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
-import { browserShellCases } from "./fixtures/browser-shell-cases.mjs";
 
 test("unknown browser modes fail before launching Chrome", () => {
   const result = spawnSync(process.execPath, [
@@ -430,36 +429,6 @@ test("the main-module provider exports Emscripten side-module stack bounds", asy
   assert.match(packaging, /--export=__stack_high/);
   assert.match(packaging, /--export=__stack_low/);
 });
-
-test("browser acceptance preserves compiler lifecycle probes on the private process model", async () => {
-  const [harness, launcher, compiler] = await Promise.all([
-    readFile(new URL("../scripts/browser-harness.mjs", import.meta.url), "utf8"),
-    readFile(new URL("../scripts/test-browser.sh", import.meta.url), "utf8"),
-    readFile(new URL("../src/compiler.cpp", import.meta.url), "utf8"),
-  ]);
-  assert.match(harness, /isMode\("zig-sdk"\)/);
-  assert.match(harness, /isMode\("lifecycle-probe"\)/);
-  assert.match(harness, /isMode\("optimized-lifecycle-probe"\)/);
-  assert.match(harness, /isMode\("make"\)/);
-  assert.match(launcher, /DOLLY_BROWSER_MODE=cpp/);
-  assert.match(launcher, /DOLLY_IMAGE=ghostty-build DOLLY_BROWSER_MODE=zig-sdk/);
-  assert.match(compiler, /"-vectorize-loops"/);
-  assert.match(compiler, /"-vectorize-slp"/);
-  assert.ok(browserShellCases(new Set(), "http://fixture.invalid")
-    .some(([command]) => command === "cc -O0 interrupt-loop.c -o interrupt-loop"));
-});
-
-test("Janis owns and cleans its generated module-adapter scratch tree", async () => {
-  const [runtime, runner] = await Promise.all([
-    readFile(new URL("../src/runtimes/janis.js", import.meta.url), "utf8"),
-    readFile(new URL("../src/runtimes/quickjs-main.c", import.meta.url), "utf8"),
-  ]);
-  assert.match(runtime, /const janisTemporaryRoot = `\/tmp\/janis-/);
-  assert.match(runtime, /globalThis\.__janisCleanup = \(\) =>/);
-  assert.match(runtime, /fsRemove\(janisTemporaryRoot, \{ recursive: true, force: true \}\)/);
-  assert.match(runner, /cleanup_janis\(context\)/);
-});
-
 
 test("the frontend only blits sandbox RGBA and forwards bounded input events", async () => {
   const frontend = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
@@ -1680,13 +1649,6 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   const settings = JSON.parse(
     await readFile(new URL("../src/pi/settings.json", import.meta.url), "utf8"),
   );
-  const theme = JSON.parse(
-    await readFile(new URL("../src/pi/dolly-theme.json", import.meta.url), "utf8"),
-  );
-  const browserProof = await readFile(
-    new URL("../scripts/browser-harness.mjs", import.meta.url),
-    "utf8",
-  );
 
   assert.match(httpHeader, /int dolly_http_start\(/);
   assert.match(httpHeader, /int dolly_http_poll\(/);
@@ -1709,18 +1671,6 @@ test("Pi receives ANSI color, cooperative timers, and incremental Fetch body chu
   assert.match(renderer, /return terminal_palette\[value->value\.palette\]/);
   assert.equal(settings.theme, "dolly");
   assert.equal(settings.shellPath, "/bin/slop");
-  assert.equal(theme.vars.yellow, "#f2d45c");
-  assert.match(browserProof, /Buffer\.from\(`data:/);
-  assert.match(browserProof, /response\.write\(bytes\.subarray\(start, offset \+ 1\)\)/);
-  assert.match(browserProof, /piFixtureStream\.phase = "prefix"/);
-  assert.match(browserProof, /thinkingAfter\.frame > thinkingStart\.frame/);
-  assert.match(browserProof, /prefixBaselineFrame = await currentFrameSequence/);
-  assert.match(browserProof, /assert\.notEqual\(prefixRenderedFrame, null/);
-  assert.match(browserProof, /piPalette\.accentOutsideCursor > 20/);
-  assert.match(browserProof, /Pi's ! command executing ls through \/bin\/slop/);
-  assert.match(browserProof, /Pi's ! command publishing child output before exit/);
-  assert.match(browserProof, /Pi buffered child output until the command exited/);
-  assert.match(browserProof, /__dollyIncompleteBootstrapPaints/);
 });
 
 test("upstream Pi is compiled in Dolly and customized only through normal files", async () => {
@@ -1733,11 +1683,6 @@ test("upstream Pi is compiled in Dolly and customized only through normal files"
   const toolchain = await readFile(new URL("../toolchain/CMakeLists.txt", import.meta.url), "utf8");
   const extension = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
   const quickjs = await readFile(new URL("../src/runtimes/quickjs-main.c", import.meta.url), "utf8");
-  const systemPrompt = await readFile(new URL("../src/pi/SYSTEM.md", import.meta.url), "utf8");
-  const dollySkill = await readFile(
-    new URL("../src/pi/skills/dolly/SKILL.md", import.meta.url),
-    "utf8",
-  );
   const settings = JSON.parse(
     await readFile(new URL("../src/pi/settings.json", import.meta.url), "utf8"),
   );
@@ -1765,32 +1710,22 @@ test("upstream Pi is compiled in Dolly and customized only through normal files"
   assert.match(quickjs, /drain_command_jobs/);
   assert.match(quickjs, /stdin_file == NULL \? 0 : fileno\(stdin_file\)/);
   assert.match(extension, /context\.ui\.setHeader/);
-  assert.match(extension, /! Slop/);
-  assert.match(extension, /Bash is not installed/);
   assert.match(extension, /Dolly\.(?:readFile|writeFile)/);
   assert.match(extension, /Dolly\.download\(target\)/);
   assert.match(extension, /registerCommand\("demo"/);
   assert.match(startup, /EXPORTS ENV\s+PI_SKIP_VERSION_CHECK\s+1/);
   assert.match(startup, /skills\/dolly\/SKILL\.md/);
-  assert.match(dollySkill, /https:\/\/github\.com\/daugasauron\/dolly/);
-  assert.match(dollySkill, /env\.dolly_http_dispatch/);
-  assert.match(systemPrompt, /cannot disable browser CORS/);
   assert.match(extension, /pi\.on\("session_start"/);
   assert.match(runtimeWorker, /readImageEntry\(dolly\)/);
   assert.match(runtimeWorker, /supervisor\.spawn\(arguments_\[0\], arguments_/);
   assert.doesNotMatch(runtimeWorker, /\/bin\/slop|\/usr\/bin\/pi|\.dollyrc|restarting Pi/);
   const init = await readFile(new URL("../modules/startup-pi.dm", import.meta.url), "utf8");
   assert.match(init, /FILE \/etc\/dolly\/init\.slop/);
-  assert.match(init, /image entry exited; entering the recovery Slop shell/);
-  assert.match(init, /restarting Pi after unexpected status/);
   assert.match(init, /case "\$status" in 0\|130\) break/);
   assert.doesNotMatch(page, /phone-menu|data-dolly-input/);
   assert.doesNotMatch(browser, /phoneMenu|touchScroll|updatePhoneMode|pointerType/);
   assert.doesNotMatch(page, /data-dolly-voice/);
   assert.doesNotMatch(browser, /SpeechRecognition|webkitSpeechRecognition|getUserMedia/);
-  assert.match(systemPrompt, /Slop/);
-  assert.match(systemPrompt, /Dolly does not contain Bash/);
-  assert.match(systemPrompt, /browser WebAssembly sandbox/);
   assert.equal(settings.npmCommand, undefined);
   const studioRecipe = await readFile(new URL("../modules/dollyfile-studio.dm", import.meta.url), "utf8");
   assert.doesNotMatch(studioRecipe, /"npmCommand"/);

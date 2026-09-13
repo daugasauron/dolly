@@ -39,7 +39,7 @@ kernel's. See [process semantics](process-model.md).
 The kernel owns spawn/wait, pipes and signals. The supervisor can terminate an
 uncooperative Worker without discarding the filesystem. Fork, native threads,
 raw sockets and complete POSIX job control are unsupported. Serial execution is
-intentional; known shell cancellation gaps are in the [handoff](audit-handoff.md).
+intentional; the [shell cancellation issue](../tasks/20260913-092832-codex-03/TASK.md) tracks the remaining gap.
 
 ## Images and files
 
