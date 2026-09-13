@@ -1,6 +1,6 @@
 # Include the process startup object in the sysroot cache identity
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: audit,bug,build,core
 
@@ -29,4 +29,10 @@ the changed startup object now selects a new directory and the old sysroot stays
 intact. A regression executes the complete preparer on small, real native
 archives; it failed before the change and passes afterward, including unchanged
 reuse and a missing-input failure. All 279 source checks pass in 3.30 s.
-The corrected seed and affected browser images still need rebuilding.
+The corrected official runtime/seed build took 96.98 s. Its image identity is
+`sha256:0ace6dd93c15c06b50230755bc138b64374783d5f3ef54c7d14ab54a5676656a`.
+All 18 selected images and their producer dependencies were rebuilt in Chrome;
+all 28 selected artifact checks pass (the unselected CPython archive is skipped).
+The new default passed the core gate in Chrome (24.5 s) and Firefox (30.3 s).
+The added checksum row accounts for the 73-byte snapshot increase. Unselected
+old artifacts remain on disk and fail compatibility admission until rebuilt.

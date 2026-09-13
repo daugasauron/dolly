@@ -62,3 +62,10 @@ explains stale inputs and replaces completed artifacts; release and browser
 admission still reject incompatible bytes. This also preserves rebuild reasons.
 An actual unchanged official runtime rebuild produced identical runtime and
 image identities and left all 188 recorded image/source digests unchanged.
+
+An actual C implementation refactor subsequently moved the session delta parser
+to a private shared header. The official kernel build changed the runtime from
+`baf89648…` to `b050e090…`, preserving image identity `0ace6dd9…`, both compiler
+binaries and the startup object. All 18 images were reused (3.7 s plan); Chrome
+(22.3 s) and Firefox (28.5 s) passed the core gate against the new kernel. Normal
+session save/export/import/restore and invalid-save cases also passed in Chrome.

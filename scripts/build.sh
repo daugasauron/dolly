@@ -159,9 +159,16 @@ process_link_flags=(
   -Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table
 )
 
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" -c src/process/crt1.c \
-  -o build/process-crt1.o
+(
+  startup_staging="$(mktemp -d build/.process-startup.XXXXXX)"
+  trap 'rm -rf -- "${startup_staging}"' EXIT
+  "${container[@]}" /emsdk/upstream/emscripten/emcc \
+    "${process_compile_flags[@]}" -c src/process/crt1.c \
+    -o "${startup_staging}/crt1.o"
+  if ! cmp -s "${startup_staging}/crt1.o" build/process-crt1.o; then
+    mv -- "${startup_staging}/crt1.o" build/process-crt1.o
+  fi
+)
 "${container[@]}" /emsdk/upstream/emscripten/emcc \
   "${process_compile_flags[@]}" -c src/process/libc-adapter.c \
   -o build/process-libc-adapter.o
