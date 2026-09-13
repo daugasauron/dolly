@@ -36,7 +36,7 @@ export async function runProcessSmoke(submit, origin) {
     await run(`printf '%s\\n' '-O0 cpp-check.cpp -o "response program"' > compile.rsp`);
     await run("printf '%s\\n' '@compile.rsp' > nested.rsp");
     await run("c++ @nested.rsp && './response program'");
-    await run("printf 'int first(void) { return 1; }\\n' > first.c; printf 'int second(void) { return 2; }\\n' > second.c; cc -c first.c second.c && ar rcs library.a first.o second.o");
+    await run("printf 'int first(void) { return 1; }\\n' > first.c; printf 'int second(void) { return 2; }\\n' > second.c; cc -c first.c && cc -c second.c && ar rcs library.a first.o second.o");
     await run("printf 'int first(void) { return 3; }\\n' > first.c; cc -c first.c && ar rcs library.a ./first.o");
     await run("printf 'int third(void) { return 4; }\\n' > third.c; cc -c third.c && ar rcs library.a third.o");
     await run("printf 'int first(void), second(void), third(void); int main(void) { return first()!=3 || second()!=2 || third()!=4; }\\n' > archive.c; cc archive.c library.a -o archive && ./archive");

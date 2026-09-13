@@ -1,6 +1,6 @@
 # Preserve existing members when updating an archive
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: audit,bug,core,build
 
@@ -19,7 +19,7 @@ returns zero but drops every other member. The next link fails with missing
 - Invalid archives or missing input files fail without changing the old archive.
 - A real browser compiles, updates, links, and runs an archive regression.
 
-## Fix under verification
+## Resolution
 
 `ar r[csD]` now preserves old members and replaces matches by basename. Replacement
 considers only unconsumed members of the original archive: new inputs may share a
@@ -27,4 +27,4 @@ basename, as Git's `builtin/commit.o` and `commit.o` do. An earlier version of t
 fix collapsed those inputs and failed the real Git link; that version was not committed.
 Chrome and Firefox now compile/link/run both archive updates and duplicate-name
 archives against the rebuilt compiler. The core gate additionally checks missing
-inputs, invalid archives and unchanged deterministic output. Git/default rebuild remains pending.
+inputs, invalid archives and unchanged deterministic output. Git now builds successfully in system-tools (120 seconds). The rebuilt default passes the complete core gate in Chrome and Firefox.

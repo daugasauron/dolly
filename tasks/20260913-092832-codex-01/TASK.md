@@ -1,6 +1,6 @@
 # Keep shared mmap writeback within the file's bounds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: audit,bug,core,filesystem
 
@@ -26,10 +26,10 @@ The existing [mmap check](https://github.com/daugasauron/dolly/blob/ff633f72f5f6
 - A browser regression covers this case and the existing descriptor-lifetime checks still pass.
 - The supported shared-mapping behavior is documented explicitly; unsupported behavior does not silently succeed.
 
-## Fix under verification
+## Resolution
 
 `write_mapping` now clips writes to the file length observed at writeback start.
 The rebuilt system-build SDK passes mappings past EOF, truncation, closed-FD
 writeback and the existing descriptor-lifetime probe in Chrome and Firefox.
 The regression is in `test/fixtures/mmap-bounds.c` and the core browser gate.
-The default-image rebuild is still pending.
+The rebuilt default image passes the complete core browser gate in Chrome and Firefox.
