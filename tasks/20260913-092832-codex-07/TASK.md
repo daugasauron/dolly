@@ -6,7 +6,7 @@
 
 ## Evidence
 
-At `ff633f7`, [test/dolly.test.mjs](../../test/dolly.test.mjs) contains 593
+At `ff633f7`, [test/dolly.test.mjs](https://github.com/daugasauron/dolly/blob/ff633f72f5f6c28439196d61fe573730c2739ed8/test/dolly.test.mjs) contains 593
 `assert.match`/`assert.doesNotMatch` calls. Source spelling often cannot establish runtime behavior
 and can make harmless refactoring expensive. Structural assertions enforcing the browser boundary have a distinct purpose.
 

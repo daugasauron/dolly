@@ -34,6 +34,7 @@ import { runCodexTui, codexProtectedInputDelay } from "../test/fixtures/codex-tu
 import { createTokioFixture } from "../test/fixtures/tokio.mjs";
 import { rustToolSources, runRustTools, runRipgrep, runFd } from "../test/fixtures/rust-tools.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
+import { browserSources, mimeTypes } from "../test/browser-server.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
 import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git-transport.mjs";
 import { createHttpRedirectFixture } from "../test/fixtures/http-redirect-server.mjs";
@@ -230,61 +231,7 @@ const codexFixtureAccessToken = [
   "dolly-browser-fixture",
 ].join(".");
 
-const mimeTypes = new Map([
-  [".html", "text/html; charset=utf-8"],
-  [".md", "text/markdown; charset=utf-8"],
-  [".dm", "text/plain; charset=utf-8"],
-  [".h", "text/plain; charset=utf-8"],
-  [".js", "text/javascript; charset=utf-8"],
-  [".mjs", "text/javascript; charset=utf-8"],
-  [".wasm", "application/wasm"],
-  [".data", "application/octet-stream"],
-  [".snapshot", "application/octet-stream"],
-  [".woff2", "font/woff2"],
-]);
-const publicSources = new Set([
-  "test/fixtures/browser-boundary.mjs",
-  "test/fixtures/http-admission-worker.mjs",
-  "test/fixtures/browser-process-abi.mjs",
-  "coi-serviceworker.js",
-  "index.html",
-  ...imageDefinitions.map((definition) => definition.filename),
-  "src/browser.mjs",
-  "src/dollyfile-view.mjs",
-  "src/http-policy.mjs",
-  "src/http-broker.mjs",
-  "src/local-model-contract.mjs",
-  "src/local-model-service.mjs",
-  "src/local-model-ui.mjs",
-  "src/qwen-completions.mjs",
-  "src/webgpu-worker.mjs",
-  "src/kernel-plugin.mjs",
-  "src/image-entry.mjs",
-  "src/image-artifact.mjs",
-  "src/image-build.mjs",
-  "src/image-builder.mjs",
-  "src/image-build-page.mjs",
-  "src/image-build-service.mjs",
-  "src/image-build-ui.mjs",
-  "src/local-services.mjs",
-  "src/custom-image.mjs",
-  "src/image-inputs.mjs",
-  "src/snapshot-records.mjs",
-  "src/static-asset.mjs",
-  "src/source-download.mjs",
-  "src/process-ffi.mjs",
-  "src/process-abi.mjs",
-  "src/wasm-interface.mjs",
-  "src/process-supervisor.mjs",
-  "src/process-worker.mjs",
-  "src/session-store.mjs",
-  "src/session-file.mjs",
-  "src/session-transport.mjs",
-  "src/upload-transport.mjs",
-  "src/custom-dollyfile.mjs",
-  "src/sessions.mjs",
-  "src/runtime-worker.mjs",
-]);
+const publicSources = new Set([...browserSources, ...imageDefinitions.map(definition => definition.filename)]);
 const sourceArtifacts = new Map(staticSources.map((source) => [
   source.path.slice(1),
   {

@@ -1,6 +1,6 @@
 # Separate compiler build bases from the interactive system image
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: audit,core,build
 
@@ -77,5 +77,13 @@ Verified on 2026-09-13 in the isolated core-iteration worktree:
 - All 333 Node tests pass in 5.33 s with the rebuilt default/rust-tools selection;
   the graph/module pair passes independently.
 
-Pi/Studio downstream builds and browser verification are still pending. Do not
-close until those consumers and default rg/fd behavior are checked.
+Pi and Studio rebuilt successfully from the new system. Chrome verified Pi's
+actual upstream ensureTool/grep/find paths for system rg/fd, without download
+warnings. Studio's 10.67 s browser check launches Pi, exercises its prompts and
+literal filenames, and checks visible Neovim highlighting/lint recovery.
+Chrome and Firefox also pass default rg/fd behavior in the new core gate.
+All 53 artifact checks pass for the rebuilt core/Pi/Studio selection.
+
+Resolved in 2c441d4. CMake still inherits display and Rust tools through system;
+its measured 1,320-second rebuild motivates the separately tracked follow-up
+[compiler consumer dependencies](../20260913-130851-codex-18/TASK.md).

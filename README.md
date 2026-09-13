@@ -46,6 +46,7 @@ a host C/C++ compiler and GNU Make. These are not sandbox capabilities.
 
 ```sh
 npm ci
+npx playwright-core install firefox
 ./scripts/build-toolchain.sh           # expensive compiler seed
 npm run build:runtime
 npm run image -- default --package    # build and publish one image locally
@@ -54,9 +55,13 @@ DOLLY_PORT=9000 npm run serve
 
 The server reads only `build/releases/current`. Publishing a selected catalog
 replaces the menu; use `DOLLY_BUILD_IMAGES=all npm run publish` for all images.
-For source checks run `node --test test/*.test.mjs`; `npm test` also builds
-and runs the browser suite. See [sources](docs/sources.md) for bootstrap details
-and [deployment](docs/deployment.md) for sealed static exports.
+`npm test` runs Node source checks and the core scenarios in Chrome and Firefox,
+using existing runtime/default artifacts. It does not rebuild images. For one
+browser, use `npm run test:core -- firefox` (or `chromium`).
+`npm run test:artifacts` checks the selected catalog and exact built contracts;
+`npm run test:full` rebuilds and runs the full distribution suite. See
+[sources](docs/sources.md) for bootstrap details and
+[deployment](docs/deployment.md) for sealed static exports.
 
 ## Documentation
 

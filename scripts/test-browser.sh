@@ -42,8 +42,6 @@ DOLLY_IMAGE=bhop DOLLY_BROWSER_MODE=bhop \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=process-abi \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
-DOLLY_IMAGE=default DOLLY_BROWSER_MODE=process-smoke \
-  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=process-lifecycle \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=libcurl-contract \

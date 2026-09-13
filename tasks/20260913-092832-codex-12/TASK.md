@@ -39,3 +39,22 @@ on deployed main's checkout; the current rts-arena worktree has older artifacts.
 - Run source-level Node tests without requiring the full distribution. Keep catalog/artifact integrity checks in a separately selected group rather than deleting useful integrity validation.
 - Reuse existing process-smoke and other focused modes, selecting only their dependencies; fix the [repeated graph scan](../20260913-105436-codex-13/TASK.md) before inventing another harness.
 - Report failures by scenario and record the gate's measured duration.
+
+## Progress
+
+`npm test` now runs 280 source tests (3.37 s) and the existing process-smoke
+scenarios through Playwright in Chrome (18.4 s) and Firefox (24.9 s), with no
+runtime/image rebuild. The shared static fixture server reuses the harness's
+asset list. Real probes compile inside Dolly; both browsers cover shared files,
+C/C++/DSOs, fresh instances, 80,000 concurrent I/O cycles, rg/fd, allowed HTTP
+and broker denial before a request reaches the host. The superseded standalone
+Firefox I/O script is removed.
+
+The 53 built-artifact checks live in test/dolly.artifacts.mjs and run through
+`npm run test:artifacts`; `npm run test:full` retains the complete build and broad
+browser suite. Missing core artifacts produce a specific setup error. Each core
+browser run has a 120-second deadline and closes its browser on failure.
+
+Signals/list cancellation, HTTP cancellation, and the new audit bug probes still
+need integration before closing this task. Native source-only tests do not require
+the full image catalog; artifact verification remains available separately.
