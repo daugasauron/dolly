@@ -1,6 +1,6 @@
 # Separate JavaScript and Pi compilation from interactive image assembly
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: audit,build,core
 
@@ -44,4 +44,9 @@ headless live inventories, Pi's local-provider TUI/tool round trip, and Studio's
 Pi/Neovim/lint workflow. Chrome and Firefox passed the actual Wasm Janis checks
 on the assembled JavaScript image. All 282 source checks passed in 3.06 s.
 All 28 selected artifact checks pass; the unselected CPython archive is skipped.
-A sealed local package with all 20 selected images is the remaining check.
+The sealed local package passed live browser acceptance for all 20 selected
+images, including both new build producers. Release
+`1ef0f980fe97470ea20059c45fe1863f4647652442d0522dc68d0706447470d3`
+was built from `df46bc1`; archive SHA-256
+`bc1dfc6ede0c27384a25081a16ad2b2f2f021457c77402fe6a23c7cb9b06290b`.
+This is a local verified release; nothing was pushed or deployed externally.
