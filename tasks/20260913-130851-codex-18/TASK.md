@@ -46,3 +46,9 @@ Graph inspection finds 21 affected images for a Ghostty or fd recipe edit,
 including the producer itself. CMake, Neovim/SDL/game producers and the Rust
 compiler branch are outside those closures. Compilation itself is not faster;
 the improvement is avoiding unrelated recompilation.
+
+Release acceptance now runs its compiled C filesystem/PATH inventory inside a
+headless build worker for producer images. It previously waited for a terminal
+on the producer's build page. The headless proof checks the original manifest,
+rejects a wrong digest and an unexpected system file, and accounts for only the
+four fixed build-staging paths. CMake passed without display or seed loading.

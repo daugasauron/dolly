@@ -198,6 +198,7 @@ const selectedGraph = await loadDollyfileGraph(projectDir, selectedDefinition.fi
 const selectedModuleNames = new Set(selectedGraph.modules.map(({ name }) => name));
 const hasZig = selectedGraph.exporters.has("TOOL:zig");
 const interactiveBuildProbe = (cmakeMode || sdl2Mode) && !selectedGraph.exporters.has("ENV:DISPLAY");
+const headlessInventory = imageInventoryMode && !selectedGraph.exporters.has("ENV:DISPLAY");
 const displayDefinition = imageDefinitions.find(definition => definition.image === "ghostty-build");
 const buildProbeRecipe = interactiveBuildProbe ? `DOLLY 3
 IMAGE browser-build-probe
@@ -1724,6 +1725,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
     : debuggerDisconnectMode ? "about:blank" : customDollyfileMode
       ? new URL("custom/", menuPage).href : menuMode
       ? menuPage
+      : headlessInventory ? interactivePage
       : iterationMode || interactiveBuildProbe || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
       : interactivePage;
@@ -3169,9 +3171,43 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       break browserProof;
     }
     if (imageInventoryMode) {
+      const { DOLLY_SYSTEM_SNAPSHOT } = await import(
+        `../dist/dolly-${selectedImage}-system-snapshot.mjs`);
+      const manifestHash = createHash("sha256")
+        .update(DOLLY_SYSTEM_SNAPSHOT.manifest.join("\n") + "\n").digest("hex");
+      const source = (await readFile(resolve(projectDir, "test/fixtures/image-inventory.c"), "utf8"))
+        .replace('#include "sha256.h"', await readFile(resolve(projectDir, "src/sha256.h"), "utf8"));
+      if (headlessInventory) {
+        await waitForValue(debuggerClient.send, "document.querySelector('#bootstrap-log') !== null",
+          Boolean, "headless inventory page", 300);
+        const build = async (image, recipe) => {
+          await evaluate(debuggerClient.send,
+            `void (${buildSnapshot.toString()})(${JSON.stringify(menuPage)}, ${JSON.stringify(image)}, ${JSON.stringify(recipe)})`);
+          const state = await waitForValue(debuggerClient.send,
+            "document.documentElement.dataset.dollyStatus", value => ["ready", "failed"].includes(value),
+            "headless inventory", image === "custom" ? 1200 : Infinity);
+          assert.equal(state, "ready", await evaluate(debuggerClient.send, "document.querySelector('#bootstrap-log').textContent"));
+        };
+        if (requestedMode === "image-inventory-rebuild") await build(selectedImage);
+        const artifact = `/etc/dolly/artifacts/${selectedGraph.root.sha256}.snapshot`;
+        const recipe = `DOLLY 3\nIMAGE inventory-proof\nFROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}\n` +
+          `FILE /tmp/inventory.c\n${source.trimEnd().split("\n").map(line => `    ${line}`).join("\n")}\n` +
+          `SLOP cc -O1 /tmp/inventory.c -o /tmp/inventory\n` +
+          `SLOP help > /tmp/help\n` +
+          `SLOP if /tmp/inventory /tmp/help ${"0".repeat(64)} ${artifact}; then exit 1; fi\n` +
+          `SLOP /tmp/inventory /tmp/help ${manifestHash} ${artifact}\n` +
+          `SLOP printf unexpected > /usr/inventory-extra\n` +
+          `SLOP if /tmp/inventory /tmp/help ${manifestHash} ${artifact}; then exit 1; fi\n` +
+          `SLOP rm /usr/inventory-extra\nENTRY /bin/slop\n`;
+        await build("custom", recipe);
+        assert.ok([...staticRequestPaths].every(path => !/\/dist\/dolly(?:\.data|-seed\.mjs)$/.test(path)) ||
+          requestedMode === "image-inventory-rebuild", "headless inventory fetched the compiler seed");
+        console.log(`browser: ${selectedImage} ${requestedMode}: live system/PATH inventory passed inside a headless build worker`);
+        break browserProof;
+      }
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
-        value => value === "ready" || value === "failed", "image inventory boot"), "ready");
+        value => value === "ready" || value === "failed", "image inventory boot", 1200), "ready");
       if (!externalPage) {
         const definition = imageDefinitions.find(({ image }) => image === selectedImage);
         const needsSeed = requestedMode === "image-inventory-rebuild" &&
@@ -3193,17 +3229,11 @@ install(TARGETS probe RUNTIME DESTINATION bin)
       const scratch = "/tmp/dolly-image-inventory";
       assert.equal(await submit(`mkdir ${scratch}`), 0);
       try {
-        const source = (await readFile(resolve(projectDir, "test/fixtures/image-inventory.c"), "utf8"))
-          .replace('#include "sha256.h"', await readFile(resolve(projectDir, "src/sha256.h"), "utf8"));
         const lines = source.trimEnd().split("\n").map(line => `echo -- ${shellQuote(line)}`);
         assert.equal(await submit(`{ ${lines.join("; ")}; } > ${scratch}/inventory.c`), 0);
         assert.equal(await submit(`cc -O1 ${scratch}/inventory.c -o ${scratch}/inventory`), 0);
         assert.equal(await submit("type dollyfile && dollyfile --help"), 0);
         assert.equal(await submit(`help > ${scratch}/help`), 0);
-        const { DOLLY_SYSTEM_SNAPSHOT } = await import(
-          `../dist/dolly-${selectedImage}-system-snapshot.mjs`);
-        const manifestHash = createHash("sha256")
-          .update(DOLLY_SYSTEM_SNAPSHOT.manifest.join("\n") + "\n").digest("hex");
         assert.notEqual(await submit(`${scratch}/inventory ${scratch}/help ${"0".repeat(64)}`), 0,
           "live manifest verification must reject a different digest");
         assert.equal(await submit(`${scratch}/inventory ${scratch}/help ${manifestHash}`), 0,

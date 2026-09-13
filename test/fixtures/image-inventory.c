@@ -10,8 +10,14 @@
 
 static char **paths;
 static size_t path_count, extra, missing, live;
+static const char *build_artifact;
 
 static int retained(const char *path, int directory) {
+  if (build_artifact != NULL &&
+      (strcmp(path, build_artifact) == 0 ||
+       strcmp(path, "/etc/dolly/artifacts") == 0 ||
+       strcmp(path, "/etc/dolly/recipe.locator") == 0 ||
+       strcmp(path, "/etc/dolly/upload.Dollyfile") == 0)) return 1;
   for (size_t index = 0; index < path_count; ++index) {
     if (strcmp(path, paths[index]) == 0 ||
         (directory && strncmp(path, paths[index], strlen(path)) == 0 &&
@@ -44,7 +50,8 @@ static int walk(const char *path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3) return 2;
+  if (argc != 3 && argc != 4) return 2;
+  if (argc == 4) build_artifact = argv[3];
   FILE *manifest = fopen("/etc/dolly/image.manifest", "r");
   if (manifest == NULL) return 2;
   Sha256 hash;

@@ -1,5 +1,6 @@
-export async function buildSnapshot(applicationBase, image) {
+export async function buildSnapshot(applicationBase, image, customSource) {
   const log = document.querySelector("#bootstrap-log");
+  document.documentElement.dataset.dollyStatus = "building";
   const report = text => { log.textContent = (log.textContent + text).slice(-8192); };
   try {
     const [registry, policy, transport, builder, graph] = await Promise.all([
@@ -14,8 +15,9 @@ export async function buildSnapshot(applicationBase, image) {
     ];
     const network = transport.localServicesTransport(
       policy.consumeDollyHttpPolicy(globalThis, sources, new URL(applicationBase)));
-    const build = (name, artifacts) => builder.buildImage(name, artifacts, network, report);
-    const artifacts = await graph.prepareImageArtifacts(image, undefined, build,
+    const build = (name, artifacts) => builder.buildImage(name, artifacts, network, report,
+      { customSource: name === "custom" ? customSource : undefined });
+    const artifacts = await graph.prepareImageArtifacts(image, customSource, build,
       text => report(`${text}\n`));
     const result = await build(image, artifacts);
     globalThis.__dolly = { systemSnapshot: result.bytes, systemInputs: result.inputs };
