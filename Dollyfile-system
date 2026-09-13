@@ -3,10 +3,10 @@ IMAGE system
 
 FROM HOST /Dollyfile-system-tools b4f94a87bc8976ccaad0e7e1c179b8e462d18a069f5d64284a7f599d20c36a4b
 
-COPY FROM HOST /Dollyfile-ghostty-build e35116c62974f6b9907a13e80338cad93827ea4fb3d212818f6a050e721b8d98 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY FROM HOST /Dollyfile-ghostty-build e35116c62974f6b9907a13e80338cad93827ea4fb3d212818f6a050e721b8d98 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY FROM HOST /Dollyfile-ghostty-build e35116c62974f6b9907a13e80338cad93827ea4fb3d212818f6a050e721b8d98 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY FROM HOST /Dollyfile-ghostty-build e35116c62974f6b9907a13e80338cad93827ea4fb3d212818f6a050e721b8d98 /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY FROM HOST /Dollyfile-ghostty-build ff025445358b4d73eddc2b318a0f88eeafc5f6c09289a9d97efe3c347af4ca72 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-ghostty-build ff025445358b4d73eddc2b318a0f88eeafc5f6c09289a9d97efe3c347af4ca72 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY FROM HOST /Dollyfile-ghostty-build ff025445358b4d73eddc2b318a0f88eeafc5f6c09289a9d97efe3c347af4ca72 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY FROM HOST /Dollyfile-ghostty-build ff025445358b4d73eddc2b318a0f88eeafc5f6c09289a9d97efe3c347af4ca72 /usr/share/licenses/uucode /usr/share/licenses/uucode
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
 
@@ -20,5 +20,7 @@ COPY FROM HOST /Dollyfile-fd-build 20529a20f16deea3f9cd9a261defec14f0c01dabd314b
 COPY FROM HOST /Dollyfile-fd-build 20529a20f16deea3f9cd9a261defec14f0c01dabd314bad494d9b7a1ea41ce2f /usr/share/licenses/fd /usr/share/licenses/fd
 COPY FROM HOST /Dollyfile-fd-build 20529a20f16deea3f9cd9a261defec14f0c01dabd314bad494d9b7a1ea41ce2f /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
 EXPORTS TOOL fd
+
+USE HOST /modules/session-recovery.dm d6901d35eef8377427138e7548f8d7fbb03d05017a8b14837888e915446c4938
 
 ENTRY /bin/foreground -i /bin/slop

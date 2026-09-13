@@ -40,7 +40,7 @@ import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git
 import { createHttpRedirectFixture } from "../test/fixtures/http-redirect-server.mjs";
 import { runUploadProof, selectFile } from "../test/fixtures/upload-browser.mjs";
 import { runStudioModelProof } from "../test/fixtures/studio-model-browser.mjs";
-import { runSessionFilesProof } from "../test/fixtures/session-files-browser.mjs";
+import { runSessionFilesProof, runSessionRecoveryProof } from "../test/fixtures/session-files-browser.mjs";
 import { tarArchive } from "../test/fixtures/tar.mjs";
 import { rtsProvider } from "../test/fixtures/rts-provider.mjs";
 import { gzipSync } from "node:zlib";
@@ -4169,6 +4169,13 @@ int main(int argc, char **argv) {
         "document.querySelectorAll('#sessions li').length"), 3);
       assert.equal(await evaluate(debuggerClient.send,
         "[...document.querySelectorAll('#sessions a')].some(link => link.textContent === 'wrong-base')"), false);
+      await runSessionRecoveryProof({
+        evaluate: expression => evaluate(debuggerClient.send, expression),
+        wait: (...args) => waitForValue(debuggerClient.send, ...args),
+        navigate: url => debuggerClient.send("Page.navigate", { url }),
+        assets: sessionAssets,
+        sessionBase: `${sessionOrigin}${browserBase}session/`,
+      });
       // Legacy bookmarks resolve to the canonical path without query params.
       await debuggerClient.send("Page.navigate", { url: `${sessionOrigin}${browserBase}load/?session=browser-proof` });
       assert.equal(await waitForValue(debuggerClient.send,

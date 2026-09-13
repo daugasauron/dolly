@@ -5,9 +5,11 @@ import { importSessionFile } from "../../src/session-file.mjs";
 
 // Run on the session list after the harness creates the real browser-proof save.
 export async function runSessionFilesProof({ evaluate, wait, selectFile, downloadDirectory }) {
-  const button = (name, label) => `Array.from(document.querySelectorAll('#sessions li'))
-    .find(li => li.firstChild.textContent === ${JSON.stringify(name)})
-    ?.querySelectorAll('button')[${label === "Export" ? 0 : 1}].click()`;
+  const button = (name, label) => `(() => {
+    const item = [...document.querySelectorAll('#sessions li')]
+      .find(li => li.firstChild.textContent === ${JSON.stringify(name)});
+    [...item.querySelectorAll('button')].find(button => button.textContent === ${JSON.stringify(label)}).click();
+  })()`;
   const count = "document.querySelectorAll('#sessions li').length";
   const idle = () => wait("!document.querySelector('#import-session').disabled", Boolean, "session operation completion", 200);
   await evaluate("window.__sessionDialogs = { prompt: window.prompt, confirm: window.confirm };");
@@ -59,4 +61,61 @@ export async function runSessionFilesProof({ evaluate, wait, selectFile, downloa
   } finally {
     await evaluate("Object.assign(window, window.__sessionDialogs); delete window.__sessionDialogs;");
   }
+}
+
+export async function runSessionRecoveryProof({ evaluate, wait, navigate, assets, sessionBase }) {
+  const store = JSON.stringify(new URL("src/session-store.mjs", assets).href);
+  const fingerprint = () => evaluate(`(async () => {
+    const record = await (await import(${store})).loadStoredSession('wrong-base');
+    return { ...record, bytes: [...new Uint8Array(await crypto.subtle.digest('SHA-256', record.bytes))] };
+  })()`);
+  const before = await fingerprint();
+  await evaluate(`(() => {
+    const item = [...document.querySelectorAll('#sessions li')].find(li => li.firstChild.textContent === 'wrong-base');
+    [...item.querySelectorAll('button')].find(button => button.textContent === 'Recover files').click();
+  })()`);
+  const boot = async () => {
+    assert.equal(await wait("document.documentElement.dataset.dollyStatus",
+      value => ["ready", "failed"].includes(value), "session file recovery", 1200), "ready",
+    await evaluate("document.querySelector('#bootstrap-log').textContent"));
+    await evaluate("__dolly.waitForInteractiveTerminal(/dolly:[^\\n]*\\$\\s*$/, 'recovered shell')");
+  };
+  await boot();
+  assert.equal(await evaluate("document.documentElement.dataset.image"), "system");
+  assert.equal(await evaluate("document.documentElement.dataset.sessionStatus"), "recovered");
+  assert.equal(await evaluate("__dolly.sessionName"), null);
+  const submit = command => evaluate(`__dolly.submit(${JSON.stringify(command)})`);
+  const destination = "/workspace/recovered-wrong-base";
+  for (const command of [
+    `grep -q SECOND-SAVE ${destination}/workspace/session-proof.txt`,
+    `grep -q SESSION-CREDENTIAL ${destination}/home/dolly/session-credential`,
+    `test -d ${destination}/workspace/session-empty`,
+    `test ! -e ${destination}/workspace/session-link`,
+    `test ! -e ${destination}/workspace/session-large`,
+    `test ! -e ${destination}/etc`,
+    `test ! -e ${destination}/usr`,
+    "test ! -e /home/dolly/session-credential",
+    "test -f /usr/include/zconf.h",
+    "test -f /usr/share/licenses/zlib/LICENSE",
+    "! grep -q SESSION-BASE-EDIT /etc/gitconfig",
+    "test ! -e /tmp/dolly-session-recovery.delta",
+  ]) assert.equal(await submit(command), 0, command);
+  assert.equal(await submit(`session-recover /tmp/missing ${destination}`), 1);
+  assert.equal(await submit(`grep -q SECOND-SAVE ${destination}/workspace/session-proof.txt`), 0);
+  assert.deepEqual(await fingerprint(), before, "recovery modified the original checkpoint");
+  assert.deepEqual(await evaluate(`(async () => {
+    let prompts = 0;
+    window.prompt = () => { prompts++; return 'recovered-copy'; };
+    return { name: await __dolly.saveSession(), prompts };
+  })()`), { name: "recovered-copy", prompts: 1 });
+  assert.deepEqual(await fingerprint(), before, "saving recovered files replaced the original checkpoint");
+  await navigate(`${sessionBase}recovered-copy`);
+  await boot();
+  assert.equal(await submit(`grep -q SECOND-SAVE ${destination}/workspace/session-proof.txt`), 0);
+  await navigate(`${sessionBase}broken-data?recover=1`);
+  assert.equal(await wait("document.documentElement.dataset.dollyStatus",
+    value => ["ready", "failed"].includes(value), "corrupt recovery", 1200), "failed");
+  assert.ok(await evaluate(`(async () => (await (await import(${store})).loadStoredSession('broken-data')) !== null)()`));
+  assert.deepEqual(await fingerprint(), before);
+  console.log("browser: incompatible save recovered into a fresh shell; original, system, conflicts and independent resave verified");
 }

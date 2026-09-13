@@ -83,6 +83,13 @@ copy_static() {
   cp --remove-destination -- "${source}" "${static_dir}/${destination}"
 }
 
+if has_module session-recovery; then
+  copy_static src/commands/session-recover.c session-recovery/session-recover.c
+  for header in session-records.h fs-record.h; do
+    copy_static "src/${header}" "session-recovery/${header}"
+  done
+fi
+
 if has_module curl; then
   copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c

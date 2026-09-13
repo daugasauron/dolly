@@ -10,7 +10,7 @@ Names use 1–64 ASCII letters, digits, dots, underscores, or hyphens;
 - `/session/NAME` loads one. Save also changes the current URL to this address.
 - Old `/load/?session=NAME` bookmarks redirect to the named path.
 
-The list has **Export**, **Import session file**, and **Delete**. Export downloads
+The list has **Export**, **Import session file**, **Delete**, and **Recover files** for older saves. Export downloads
 an unencrypted `.dolly-session` file; import checks its size, checksum and
 compression, then asks for a name. Existing saves are never overwritten by an
 import. Delete asks for confirmation and only removes that local checkpoint,
@@ -58,11 +58,16 @@ browser profile or an exported file can recover them. Import only files you
 trust; exports are checksummed against corruption, not authenticated.
 See [Security](security.md).
 
-The runtime build ID and complete inherited Dollyfile identity must match before
-loading. Older/incompatible saves remain listed and stored, but are not migrated
-or silently applied to a different base. Updating Dolly can make an older save
-unloadable. Export/import can move a save between browsers or domains, but
-does not migrate it across runtime or image versions.
+Normal loading requires matching runtime and inherited image identities. Older
+saves remain stored and exportable. **Recover files** opens a fresh `system`
+image and copies changed/new regular files and directories from `/workspace`
+and `/home` into `/workspace/recovered-NAME`, keeping both directory trees.
+System changes, deletions and symlinks are skipped. Saved startup files and
+credentials stay inside that folder for inspection, without becoming live config.
+
+Recovery leaves the original save unchanged and refuses an existing destination.
+Ctrl+Shift+S asks for a new save name. Only format-2 filesystem deltas are
+supported, and the distribution must include the `system` image.
 
 Named saves require a source-visible image with a matching prebuilt snapshot.
 On a rebuild route, the first save verifies that the entire rebuilt base is
@@ -73,6 +78,7 @@ base, then saves on `/IMAGE/rebuild` and restores through `/session/NAME`.
 
 Session persistence adds no Wasm import or path-level browser filesystem API.
 The review surface is `src/session-snapshot.c`, the shared path restoration in
-`src/fs-record.h`, `src/session-transport.mjs`,
+`src/fs-record.h`, the shared delta decoder `src/session-records.h`, the ordinary
+`src/commands/session-recover.c` program, `src/session-transport.mjs`,
 `src/session-store.mjs`, `src/session-file.mjs`, and the boot/save call sites in the page and runtime worker.
 `env.dolly_http_dispatch` remains the sole intentional agent-selected network edge.

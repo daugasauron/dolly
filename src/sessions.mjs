@@ -34,15 +34,22 @@ async function refresh() {
     const compatible = record.formatVersion === DOLLY_SESSION_FORMAT_VERSION &&
       record.buildId === DOLLY_BUILD_ID && DOLLY_IMAGES.some(({ image }) => image === record.image) &&
       record.imageIdentity === sessionImageIdentity(DOLLY_IMAGES, record.image);
+    const recoverable = !compatible && validSessionName(record.name) &&
+      record.formatVersion === DOLLY_SESSION_FORMAT_VERSION && DOLLY_IMAGES.some(({ image }) => image === "system");
     const name = document.createElement(validSessionName(record.name) && compatible ? "a" : "span");
     name.textContent = record.name;
     if (name.tagName === "A") name.href = sessionLoadUrl(record.name, new URL("../", import.meta.url));
     const detail = document.createElement("small");
     detail.textContent = `${record.image} · ${new Date(record.updatedAt).toLocaleString()} · ` +
       `${(record.byteLength / 1024).toFixed(1)} KiB` +
-      (compatible ? "" : " · Older runtime or image; saved data retained, cannot load in this build.");
+      (compatible ? "" : " · Older runtime or image; saved data retained.");
     const actions = document.createElement("div");
     for (const [label, action] of [
+      ...(recoverable ? [["Recover files", () => {
+        const url = sessionLoadUrl(record.name, new URL("../", import.meta.url));
+        url.searchParams.set("recover", "1");
+        location.assign(url);
+      }]] : []),
       ["Export", async () => {
         status.textContent = `Exporting ${record.name}…`;
         const saved = await loadStoredSession(record.name);

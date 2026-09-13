@@ -2,6 +2,7 @@ import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { validSessionName } from "./session-store.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256,
   loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
@@ -50,6 +51,10 @@ if (bootConfig.sessionSnapshot !== undefined &&
      bootMode !== "snapshot")) {
   throw new Error("invalid Dolly session snapshot");
 }
+
+if (bootConfig.recoverSession !== undefined &&
+    (!validSessionName(bootConfig.recoverSession) || bootConfig.sessionSnapshot === undefined ||
+     configuredImage !== "system")) throw new Error("invalid Dolly file recovery request");
 
 const applicationBase = new URL("../", import.meta.url);
 function locateArtifact(path) {
@@ -354,7 +359,19 @@ try {
   if (dolly._dolly_session_base_capture() !== 0) {
     throw new Error("Dolly could not index the base filesystem for sessions");
   }
-  if (bootConfig.sessionSnapshot !== undefined) {
+  if (bootConfig.recoverSession !== undefined) {
+    const path = "/tmp/dolly-session-recovery.delta";
+    const destination = `/workspace/recovered-${bootConfig.recoverSession}`;
+    bootstrapStage(`recovering saved files into ${destination}...`);
+    replaceFile(path, new Uint8Array(bootConfig.sessionSnapshot));
+    bootConfig.sessionSnapshot = undefined;
+    try {
+      const program = "/usr/bin/session-recover";
+      if (await processSupervisor.spawn(program, [program, path, destination]) !== 0) {
+        throw new Error("File recovery failed; the original saved session is unchanged");
+      }
+    } finally { dolly.FS.unlink(path); }
+  } else if (bootConfig.sessionSnapshot !== undefined) {
     bootstrapStage("restoring named session filesystem...");
     const size = bootConfig.sessionSnapshot.byteLength;
     const address = dolly._dolly_session_restore_address(BigInt(size));

@@ -962,6 +962,7 @@ async function boot() {
   }
   const bootMode = configured.mode;
   let image = configured.image;
+  const recovering = configured.loadSession && new URL(location.href).searchParams.get("recover") === "1";
   let restoredSession = null;
   let sessionSnapshot;
   if (configured.loadSession) {
@@ -969,17 +970,20 @@ async function boot() {
     if (!validSessionName(name)) throw new Error("The Dolly session URL has an invalid name");
     restoredSession = await loadStoredSession(name);
     if (restoredSession === null) throw new Error(`Session '${name}' was not found in this browser. Open /session to see saved sessions.`);
-    if (restoredSession.name !== name ||
-        restoredSession.formatVersion !== DOLLY_SESSION_FORMAT_VERSION ||
+    if (restoredSession.name !== name) throw new Error("Stored session name does not match its key");
+    if (recovering) {
+      if (restoredSession.formatVersion !== DOLLY_SESSION_FORMAT_VERSION) throw new Error("This save uses an unsupported recovery format");
+      if (!packagedImages.has("system")) throw new Error("File recovery needs the system image in this distribution");
+      image = "system";
+    } else if (restoredSession.formatVersion !== DOLLY_SESSION_FORMAT_VERSION ||
         restoredSession.buildId !== DOLLY_BUILD_ID ||
         !packagedImages.has(restoredSession.image) ||
         restoredSession.imageIdentity !==
           sessionImageIdentity(DOLLY_IMAGES, restoredSession.image)) {
       throw new Error("This save belongs to an older runtime or image recipe. It has not been deleted or overwritten. Open /session to see saved sessions.");
     }
-    image = restoredSession.image;
+    if (!recovering) { image = restoredSession.image; currentSessionName = name; }
     sessionSnapshot = await decodeSessionSnapshot(restoredSession);
-    currentSessionName = name;
   }
   const applicationBase = new URL("../", import.meta.url);
   const trustedBootstrapSources = [
@@ -1011,7 +1015,7 @@ async function boot() {
   const customArtifact = image === "custom" && bootMode === "snapshot"
     ? await loadCustomImage(customSource, JSON.parse(sessionStorage.getItem("dolly-custom-artifact"))) : undefined;
   appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${restoredSession
-    ? `RESTORE SESSION ${restoredSession.name}`
+    ? `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${restoredSession.name}`
     : bootMode === "rebuild"
     ? "REBUILD FROM SOURCE"
     : "PRECOMPILED SYSTEM"}\n\n`);
@@ -1100,6 +1104,7 @@ async function boot() {
     ...(customSource === undefined ? {} : { customSource }),
     ...(customArtifact === undefined ? {} : { customArtifact }),
     ...(sessionSnapshot === undefined ? {} : { sessionSnapshot }),
+    ...(recovering ? { recoverSession: restoredSession.name } : {}),
   };
   runtimeWorker.postMessage(
     workerConfiguration,
@@ -1172,7 +1177,10 @@ async function boot() {
   activeImageIdentity = ready.routeImage === "custom"
     ? null
     : sessionImageIdentity(DOLLY_IMAGES, ready.image);
-  if (restoredSession) {
+  if (recovering) {
+    document.documentElement.dataset.sessionStatus = "recovered";
+    showSessionStatus(`Recovered files in /workspace/recovered-${restoredSession.name}. Ctrl+Shift+S saves this as a new session.`, true);
+  } else if (restoredSession) {
     document.documentElement.dataset.session = restoredSession.name;
     document.documentElement.dataset.sessionStatus = "restored";
   }

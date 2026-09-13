@@ -1,6 +1,6 @@
 #include "session-snapshot.h"
 #include "sha256.h"
-#include "fs-record.h"
+#include "session-records.h"
 
 #include <dirent.h>
 #include <emscripten/atomic.h>
@@ -18,23 +18,9 @@
 #include <unistd.h>
 
 enum {
-  DOLLY_SESSION_VERSION = 2,
-  DOLLY_SESSION_HEADER_SIZE = 16,
-  DOLLY_SESSION_RECORD_SIZE = 16,
-  DOLLY_SESSION_MAX_RECORDS = 100000,
   DOLLY_SESSION_NAME_CAPACITY = 128,
   DOLLY_SESSION_MAILBOX_HEADER_SIZE = 64,
   DOLLY_SESSION_TRANSFER_CAPACITY = 1024 * 1024,
-  DOLLY_SESSION_DIRECTORY = DOLLY_FS_DIRECTORY,
-  DOLLY_SESSION_FILE = DOLLY_FS_FILE,
-  DOLLY_SESSION_SYMLINK = DOLLY_FS_SYMLINK,
-  DOLLY_SESSION_DELETED = DOLLY_FS_DELETED,
-};
-
-static const uintptr_t DOLLY_SESSION_MAX_SIZE =
-    (uintptr_t)512 * 1024 * 1024;
-static const unsigned char DOLLY_SESSION_MAGIC[8] = {
-    'D', 'O', 'L', 'L', 'Y', 'S', 'E', 'S',
 };
 
 typedef struct {
@@ -123,69 +109,6 @@ static void put_u64(unsigned char **cursor, uint64_t value) {
   }
 }
 
-static int take_bytes(const unsigned char **cursor, const unsigned char *end,
-                      uintptr_t length, const unsigned char **result) {
-  if (length > (uintptr_t)(end - *cursor)) return -1;
-  *result = *cursor;
-  *cursor += length;
-  return 0;
-}
-
-static int take_u32(const unsigned char **cursor, const unsigned char *end,
-                    uint32_t *result) {
-  const unsigned char *bytes;
-  if (take_bytes(cursor, end, 4, &bytes) != 0) return -1;
-  *result = (uint32_t)bytes[0] | (uint32_t)bytes[1] << 8 |
-            (uint32_t)bytes[2] << 16 | (uint32_t)bytes[3] << 24;
-  return 0;
-}
-
-static int take_u64(const unsigned char **cursor, const unsigned char *end,
-                    uint64_t *result) {
-  const unsigned char *bytes;
-  if (take_bytes(cursor, end, 8, &bytes) != 0) return -1;
-  uint64_t value = 0;
-  for (unsigned index = 0; index < 8; ++index) {
-    value |= (uint64_t)bytes[index] << (index * 8);
-  }
-  *result = value;
-  return 0;
-}
-
-static int valid_path_bytes(const unsigned char *path, uint32_t length) {
-  if (length < 2 || length >= PATH_MAX || path[0] != '/' || path[length - 1] == '/' ||
-      (length == 4 && memcmp(path, "/dev", 4) == 0) ||
-      (length > 4 && memcmp(path, "/dev/", 5) == 0) ||
-      (length == 5 && memcmp(path, "/seed", 5) == 0) ||
-      (length > 5 && memcmp(path, "/seed/", 6) == 0)) {
-    return 0;
-  }
-  for (uint32_t index = 0; index < length; ++index) {
-    if (path[index] == '\0' ||
-        (path[index] == '/' && index + 1 < length && path[index + 1] == '/')) {
-      return 0;
-    }
-  }
-  const unsigned char *component = path + 1;
-  const unsigned char *end = path + length;
-  while (component < end) {
-    const unsigned char *slash = memchr(component, '/', (size_t)(end - component));
-    const unsigned char *component_end = slash == NULL ? end : slash;
-    const size_t component_length = (size_t)(component_end - component);
-    if ((component_length == 1 && component[0] == '.') ||
-        (component_length == 2 && component[0] == '.' && component[1] == '.')) {
-      return 0;
-    }
-    component = component_end + (slash == NULL ? 0 : 1);
-  }
-  return 1;
-}
-
-static int excluded_path(const char *path) {
-  return strcmp(path, "/dev") == 0 || strncmp(path, "/dev/", 5) == 0 ||
-         strcmp(path, "/seed") == 0 || strncmp(path, "/seed/", 6) == 0;
-}
-
 static void dispose_records(dolly_session_records *records) {
   for (size_t index = 0; index < records->count; ++index) {
     free(records->records[index].path);
@@ -222,7 +145,7 @@ static int append_record(dolly_session_records *records, const char *path,
 }
 
 static int collect_tree(const char *path, dolly_session_records *records) {
-  if (excluded_path(path)) return 0;
+  if (dolly_session_excluded_path(path)) return 0;
   struct stat metadata = {0};
   if (lstat(path, &metadata) != 0) return -1;
   if (S_ISREG(metadata.st_mode)) {
@@ -518,55 +441,14 @@ uintptr_t dolly_session_restore_address(uintptr_t size) {
   return (uintptr_t)restore_bytes;
 }
 
-typedef dolly_fs_record restore_record;
-
 static int restore_filesystem(uintptr_t size) {
-  if (!base_ready || restore_bytes == NULL || size < DOLLY_SESSION_HEADER_SIZE ||
-      size > restore_capacity) return 1;
-  const unsigned char *cursor = restore_bytes;
-  const unsigned char *end = restore_bytes + size;
-  const unsigned char *magic;
-  uint32_t version, count;
-  if (take_bytes(&cursor, end, sizeof(DOLLY_SESSION_MAGIC), &magic) != 0 ||
-      memcmp(magic, DOLLY_SESSION_MAGIC, sizeof(DOLLY_SESSION_MAGIC)) != 0 ||
-      take_u32(&cursor, end, &version) != 0 ||
-      take_u32(&cursor, end, &count) != 0 ||
-      version != DOLLY_SESSION_VERSION || count > DOLLY_SESSION_MAX_RECORDS) return 1;
-
-  restore_record *records = calloc(count == 0 ? 1 : count, sizeof(*records));
-  if (records == NULL) return 1;
-  int result = 1;
-  for (uint32_t index = 0; index < count; ++index) {
-    restore_record *record = &records[index];
-    uint32_t path_length;
-    uint64_t data_length;
-    const unsigned char *path;
-    if (take_u32(&cursor, end, &record->kind) != 0 ||
-        take_u32(&cursor, end, &path_length) != 0 ||
-        take_u64(&cursor, end, &data_length) != 0 ||
-        record->kind < DOLLY_SESSION_DIRECTORY || record->kind > DOLLY_SESSION_DELETED ||
-        ((record->kind == DOLLY_SESSION_DIRECTORY || record->kind == DOLLY_SESSION_DELETED) &&
-         data_length != 0) ||
-        data_length > DOLLY_SESSION_MAX_SIZE ||
-        take_bytes(&cursor, end, path_length, &path) != 0 ||
-        !valid_path_bytes(path, path_length) ||
-        take_bytes(&cursor, end, (uintptr_t)data_length, &record->data) != 0) goto done;
-    record->path = strndup((const char *)path, path_length);
-    if (record->path == NULL) goto done;
-    record->size = (uintptr_t)data_length;
-    if (index != 0 && strcmp(records[index - 1].path, record->path) >= 0) goto done;
-    if (record->kind == DOLLY_SESSION_SYMLINK &&
-        (data_length == 0 || data_length >= PATH_MAX ||
-         memchr(record->data, 0, (size_t)data_length) != NULL)) goto done;
-  }
-  if (cursor != end) goto done;
-
-  if (dolly_fs_restore(records, count, 0) != 0) goto done;
-  result = 0;
-done:
-  for (uint32_t index = 0; index < count; ++index) free(records[index].path);
-  free(records);
-  return result;
+  if (!base_ready || size > restore_capacity) return 1;
+  dolly_fs_record *records;
+  uint32_t count;
+  if (dolly_session_decode(restore_bytes, size, &records, &count) != 0) return 1;
+  const int result = dolly_fs_restore(records, count, 0);
+  dolly_session_free_records(records, count);
+  return result != 0;
 }
 
 EMSCRIPTEN_KEEPALIVE

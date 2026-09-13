@@ -79,7 +79,9 @@ for (const route of routes) {
         target.hash = "";
         base.href = target.href;
         document.head.append(base);
-        history.replaceState(null, "", new URL("session/" + match[2], base.href));
+        const session = new URL("session/" + match[2], base.href);
+        if (new URL(location.href).searchParams.get("recover") === "1") session.search = "?recover=1";
+        history.replaceState(null, "", session);
       } else {
         globalThis.DOLLY_NOT_FOUND = true;
       }
