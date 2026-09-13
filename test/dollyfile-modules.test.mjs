@@ -97,7 +97,7 @@ test("QuickJS is selected only by Pi-bearing images", async () => {
       const [type, name] = requirement.split(":");
       const edge = pi.dependencies.find((item) =>
         item.requirement.type === type && item.requirement.name === name);
-      assert.equal(edge?.provider, quickjs, `${spec.image}: ${requirement}`);
+      assert.ok(edge?.provider === quickjs, `${spec.image}: ${requirement}`);
     }
   }
 });
