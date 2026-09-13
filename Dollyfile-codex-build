@@ -1,12 +1,12 @@
 DOLLY 3
 IMAGE codex-build
 
-FROM HOST /Dollyfile-rust-tools 0e55a0e39729bffc262fd56f7f05a8ba31b1f605dab0ce0e8af28320b3b2a95b
-COPY FROM HOST /Dollyfile-protox-build f5bed4bea90e31f0505f021fdcf6ee70d27942d3ef1ad02ef8abcbc0c2a58dfc /usr/bin/protox /usr/bin/protox
+FROM HOST /Dollyfile-rust-build 3267bf9d9a0ebaabe05e09416db4c857abbd48ee9f971b8c2939a0bf7d929c27
+COPY FROM HOST /Dollyfile-protox-build 8dc5b2e661f9a69283a3d8cb0e7aadf0835c16f9458a7cad7b208749b7b97469 /usr/bin/protox /usr/bin/protox
 EXPORTS TOOL protox
 USE HOST /modules/codex-build.dm bd3250764be8c4eb48bd3a067c686e6426f1132a0a5f5c34232d62154329fd5e
 
-# Retain the completed tool; the reusable compiler remains in rust-tools.
+# Retain the completed tool; the reusable compiler remains in rust-build.
 SLOP rm -rf /opt/rust-sdk /usr/bin/patti
 EXPORTS ENV PATH /bin:/usr/bin
-ENTRY /bin/foreground -i /bin/slop
+ENTRY /bin/slop

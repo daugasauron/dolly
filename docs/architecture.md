@@ -56,6 +56,15 @@ runner that compiles Slop and the Dollyfile executor. Derived rebuilds use their
 declared base. Prebuilt boot restores a sealed snapshot without downloading the
 compiler seed or compiling sources. [Sources](sources.md) records the exceptions.
 
+`system-build` contains the C/C++ compiler and basic build commands. Rust producers
+use `system-build → rust-sdk → rust-build`; the last adds curl and Patti. Ghostty
+also builds from `system-build`. Neither Git nor display packaging is an input to
+the Rust producers. `system` combines the compiler base, interactive utilities,
+Ghostty and source-built rg/fd. `default` adds startup; application images add their
+own runtimes and configuration. `rust-tools` combines `system` with the Rust SDK
+and Patti artifacts for an interactive compiler shell. Images without DISPLAY expose build controls and
+produce cached artifacts without starting a terminal or ENTRY.
+
 Named [sessions](sessions.md) save filesystem deltas against an exact base
 image, not process memory. Standard mutable workspace, temporary and Pi auth/
 session paths are excluded from system snapshots; this is not a general secret

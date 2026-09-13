@@ -6,7 +6,6 @@ MODULE agent-tools
 # do so through Dolly's in-userspace spawn/wait contract.
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
-REQUIRES LIB    z
 REQUIRES TOOL   cc
 REQUIRES TOOL   git
 REQUIRES TOOL   make
@@ -32,17 +31,14 @@ SOURCE HOST /static/default/commands/patch.c    /tmp/agent-tools/patch.c    840d
 SOURCE HOST /static/default/commands/du.c       /tmp/agent-tools/du.c       55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63
 SOURCE HOST /static/default/commands/dd.c       /tmp/agent-tools/dd.c       0f9f981c3b8f6b0c4c5ffd4f36cdb540e9fd2a04337443a136e87a46bbded30d
 SOURCE HOST /static/default/commands/tty.c      /tmp/agent-tools/tty.c      c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e
-SOURCE HOST /static/default/commands/gzip.c     /tmp/agent-tools/gzip.c     dc8fddc876932984ede5bf89a12d4e071de2d8e361354df29fa31e9df5b36f7f
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
     NAMES := install which command xargs find tail tee env printenv rev timeout time uname hostname realpath diff patch du dd tty
     TOOLS := $(addprefix /bin/,$(NAMES))
-    all: $(TOOLS) /bin/gzip
+    all: $(TOOLS)
     /bin/%: /tmp/agent-tools/%.c
     >cc -std=c17 $< -o $@
-    /bin/gzip: /tmp/agent-tools/gzip.c
-    >cc -std=c17 $< -lz -o $@
 SLOP make \
   -f /tmp/agent-tools/Makefile
 
@@ -66,7 +62,6 @@ EXPORTS TOOL patch
 EXPORTS TOOL du
 EXPORTS TOOL dd
 EXPORTS TOOL tty
-EXPORTS TOOL gzip
 
 SLOP rm \
   -rf \

@@ -58,6 +58,11 @@ The default permits arbitrary HTTP(S) and has no lifetime request quota.
 Byte/time bounds remain, but this is **not an exfiltration-safe policy**.
 Allowlists also do not prevent allowed destinations from relaying data.
 
+The headless [image-build page](../src/image-build-page.mjs) consumes the same
+embedding policy and registry bootstrap grants. It calls the existing
+[build worker](../src/image-builder.mjs) with that restricted transport; it adds
+no host imports or local services. Cancelling closes the worker and broker.
+
 ## Local services
 
 [src/local-services.mjs](../src/local-services.mjs) is the explicit admission

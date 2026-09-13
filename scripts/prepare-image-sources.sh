@@ -192,9 +192,12 @@ if has_module typescript; then
   copy_static "${project_dir}/src/runtimes/tsc-dolly.mjs" default/runtimes/tsc-dolly.mjs
   copy_static "${typescript_archive}" default/typescript-5.9.3.tgz
 fi
+if has_module gzip; then
+  copy_static src/commands/gzip.c default/commands/gzip.c
+fi
 if has_module agent-tools; then
   for command in install which command xargs find tail tee env printenv rev \
-      timeout time uname hostname realpath diff patch du dd tty gzip; do
+      timeout time uname hostname realpath diff patch du dd tty; do
     copy_static "${project_dir}/src/commands/${command}.c" \
       "default/commands/${command}.c"
   done

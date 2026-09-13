@@ -1,7 +1,16 @@
 DOLLY 3
 IMAGE rust-tools
 
-FROM HOST /Dollyfile-rust-sdk d20ab37020afcfce401601c0d228e27278d7ac5da6f891b9f621f70f85ed2b17
-USE HOST /modules/patti.dm 294b38b01bd77a94531ae36fdb1d245ba7265fb6de82b9703775744f93183780
+FROM HOST /Dollyfile-system 4446375e078a401bca0b467c9db567ab38b8e8900f85a3891b7238beca5d0610
+
+COPY FROM HOST /Dollyfile-rust-build 3267bf9d9a0ebaabe05e09416db4c857abbd48ee9f971b8c2939a0bf7d929c27 /opt/rust-sdk /opt/rust-sdk
+COPY FROM HOST /Dollyfile-rust-build 3267bf9d9a0ebaabe05e09416db4c857abbd48ee9f971b8c2939a0bf7d929c27 /usr/bin/patti /usr/bin/patti
+COPY FROM HOST /Dollyfile-rust-build 3267bf9d9a0ebaabe05e09416db4c857abbd48ee9f971b8c2939a0bf7d929c27 /usr/share/licenses/rust /usr/share/licenses/rust
+COPY FROM HOST /Dollyfile-rust-build 3267bf9d9a0ebaabe05e09416db4c857abbd48ee9f971b8c2939a0bf7d929c27 /usr/share/licenses/patti /usr/share/licenses/patti
+EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
+EXPORTS TOOL rustc
+EXPORTS TOOL patti
+EXPORTS FOLDER rust-sdk /opt/rust-sdk
+EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 
 ENTRY /bin/foreground -i /bin/slop

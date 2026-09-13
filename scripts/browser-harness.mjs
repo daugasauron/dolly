@@ -142,6 +142,7 @@ const realOpenRouterMode = (classicubeAgentLiveMode && !classicubeRelayConfigura
 const missingSnapshotMode = isMode("snapshot-missing");
 const unpackagedSnapshotMode = isMode("snapshot-unpackaged");
 const snapshotExportMode = isMode("snapshot-export") || unpackagedSnapshotMode;
+const buildPageMode = isMode("build-page");
 const pagesIsolationMode = isMode("pages-isolation", "session-pages", "image-build-pages");
 const pagesLiveMode = isMode("pages-live");
 const menuMode = isMode("menu");
@@ -262,6 +263,7 @@ const publicSources = new Set([
   "src/image-artifact.mjs",
   "src/image-build.mjs",
   "src/image-builder.mjs",
+  "src/image-build-page.mjs",
   "src/image-build-service.mjs",
   "src/image-build-ui.mjs",
   "src/local-services.mjs",
@@ -4241,6 +4243,29 @@ int main(int argc, char **argv) {
       );
       break browserProof;
     }
+    if (buildPageMode) {
+      await waitForValue(debuggerClient.send, "document.querySelector('#build')?.disabled === false", Boolean, "image build controls", 200);
+      assert.equal(await evaluate(debuggerClient.send, "!!document.querySelector('#display')"), false);
+      await evaluate(debuggerClient.send, "document.querySelector('#build').click()");
+      await waitForValue(debuggerClient.send, "document.querySelector('#bootstrap-log').textContent.length", value => value > 0, "active build output", 200);
+      await evaluate(debuggerClient.send, "document.querySelector('#cancel').click()");
+      await waitForValue(debuggerClient.send, "document.documentElement.dataset.dollyStatus", value => value === "cancelled", "cancelled build", 200);
+      await evaluate(debuggerClient.send, "document.querySelector('#build').click()");
+      assert.equal(await waitForValue(debuggerClient.send, "document.documentElement.dataset.dollyStatus",
+        value => ["ready", "failed"].includes(value), "headless image build"), "ready");
+      const manifest = await evaluate(debuggerClient.send, `(async () => {
+        const { DOLLY_IMAGES } = await import(${JSON.stringify(new URL("dist/dolly-images.mjs", menuPage).href)});
+        const { loadImageArtifactDescriptor, loadImageArtifact } = await import(${JSON.stringify(new URL("src/image-artifact.mjs", menuPage).href)});
+        const definition = DOLLY_IMAGES.find(image => image.image === ${JSON.stringify(selectedImage)});
+        const descriptor = await loadImageArtifactDescriptor(definition.sha256, []);
+        return (await loadImageArtifact(descriptor)).manifest;
+      })()`);
+      assert.ok(manifest.includes("/usr/libexec/dolly/process-bin/compiler"));
+      assert.equal(manifest.includes("/usr/lib/libdisplay.so"), false);
+      assert.equal(manifest.includes("/usr/bin/git"), false);
+      console.log("browser: headless compiler build cancels, retries and saves a verified artifact");
+      break browserProof;
+    }
     if (menuMode) {
       await waitForValue(
         debuggerClient.send,
@@ -4270,13 +4295,14 @@ int main(int argc, char **argv) {
       assert.equal(menuEvidence.background, "rgb(38, 38, 38)");
       assert.match(menuEvidence.font, /Dolly IosevkaTerm SemiBold/);
       assert.deepEqual(menuEvidence.links.toSorted(), imageDefinitions.flatMap(({ image }) => [
-        `${image}/`, `${image}/rebuild/`, `view/${image}/`,
+        ...(["system-build", "rust-sdk", "rust-build", "ripgrep", "fd-build", "protox-build", "codex-build"].includes(image) ? [] : [`${image}/`]),
+        `${image}/rebuild/`, `view/${image}/`,
       ]).map(path => new URL(path, menuEvidence.url).href).toSorted());
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
       const menuOrder = ["default", "bhop", "classicube", "codex", "dollyfile-studio", "external-source",
         "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi", "rts-arena",
         "classicube-build", "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
-        "protox-build", "python-runtime", "ripgrep", "rts-build", "rust-sdk", "rust-tools", "sdl2-build", "system", "system-build"];
+        "protox-build", "python-runtime", "ripgrep", "rts-build", "rust-build", "rust-sdk", "rust-tools", "sdl2-build", "system", "system-build"];
       const selected = new Set(imageDefinitions.map(({ image }) => image));
       assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image), menuOrder.filter(image => selected.has(image)));
       for (const { image, text, height } of menuEvidence.descriptions) {

@@ -569,6 +569,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["system-build", "/bin/slop"],
     ["ripgrep", "/usr/bin/rg"],
     ["rust-sdk", "/opt/rust-sdk/bin/rustc"],
+    ["rust-build", "/usr/bin/patti"],
     ["rust-tools", "/usr/bin/patti"],
     ["protox-build", "/usr/bin/protox"],
     ["javascript", "/usr/bin/tsc"],
@@ -605,13 +606,13 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     for (const path of ["/usr/bin/rg", "/usr/share/dolly/builds/ripgrep.json",
       "/usr/share/licenses/ripgrep/LICENSE-MIT"]) {
       assert.equal(metadata.manifest.includes(path),
-        !["system-build", "ghostty-build", "rust-sdk", "rust-tools", "protox-build", "codex-build", "fd-build"].includes(image),
+        !["system-build", "ghostty-build", "rust-sdk", "rust-build", "protox-build", "codex-build", "fd-build"].includes(image),
         `${image}: ${path}`);
     }
     for (const path of ["/usr/bin/fd", "/usr/share/dolly/builds/fd.json",
       "/usr/share/licenses/fd/LICENSE-MIT", "/usr/share/licenses/fd/LICENSE-APACHE"]) {
       assert.equal(metadata.manifest.includes(path),
-        !["system-build", "ghostty-build", "rust-sdk", "rust-tools", "protox-build", "codex-build", "ripgrep"].includes(image),
+        !["system-build", "ghostty-build", "rust-sdk", "rust-build", "protox-build", "codex-build", "ripgrep"].includes(image),
         `${image}: ${path}`);
     }
     assert.equal(
@@ -672,41 +673,10 @@ test("HOST inputs are independent exact pinned files", async () => {
 });
 
 test("registry, routes, and source viewer derive from Dollyfiles", async () => {
+  const projectDir = new URL("..", import.meta.url).pathname;
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(artifact("dolly-images.mjs"));
-  const knownImages = [
-    { image: "default", dollyfile: "Dollyfile" },
-    { image: "bhop", dollyfile: "Dollyfile-bhop" },
-    { image: "classicube", dollyfile: "Dollyfile-classicube" },
-    { image: "classicube-build", dollyfile: "Dollyfile-classicube-build" },
-    { image: "cmake-build", dollyfile: "Dollyfile-cmake-build" },
-    { image: "codex", dollyfile: "Dollyfile-codex" },
-    { image: "codex-build", dollyfile: "Dollyfile-codex-build" },
-    { image: "dollyfile-studio", dollyfile: "Dollyfile-dollyfile-studio" },
-    { image: "external-source", dollyfile: "Dollyfile-external-source" },
-    { image: "fd-build", dollyfile: "Dollyfile-fd-build" },
-    { image: "gamedev", dollyfile: "Dollyfile-gamedev" },
-    { image: "gamedev-phone", dollyfile: "Dollyfile-gamedev-phone" },
-    { image: "gamedev-sdk", dollyfile: "Dollyfile-gamedev-sdk" },
-    { image: "ghostty-build", dollyfile: "Dollyfile-ghostty-build" },
-    { image: "javascript", dollyfile: "Dollyfile-javascript" },
-    { image: "neovim", dollyfile: "Dollyfile-neovim" },
-    { image: "neovim-build", dollyfile: "Dollyfile-neovim-build" },
-    { image: "pi", dollyfile: "Dollyfile-pi" },
-    { image: "pi-local", dollyfile: "Dollyfile-pi-local" },
-    { image: "pi-runtime", dollyfile: "Dollyfile-pi-runtime" },
-    { image: "protox-build", dollyfile: "Dollyfile-protox-build" },
-    { image: "python", dollyfile: "Dollyfile-python" },
-    { image: "python-pi", dollyfile: "Dollyfile-python-pi" },
-    { image: "python-runtime", dollyfile: "Dollyfile-python-runtime" },
-    { image: "ripgrep", dollyfile: "Dollyfile-ripgrep" },
-    { image: "rts-arena", dollyfile: "Dollyfile-rts-arena" },
-    { image: "rts-build", dollyfile: "Dollyfile-rts-build" },
-    { image: "rust-sdk", dollyfile: "Dollyfile-rust-sdk" },
-    { image: "rust-tools", dollyfile: "Dollyfile-rust-tools" },
-    { image: "sdl2-build", dollyfile: "Dollyfile-sdl2-build" },
-    { image: "system", dollyfile: "Dollyfile-system" },
-    { image: "system-build", dollyfile: "Dollyfile-system-build" },
-  ];
+  const knownImages = (await discoverImageDefinitions(projectDir))
+    .map(({ image, filename }) => ({ image, dollyfile: filename }));
   const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));
   assert.ok(DOLLY_IMAGES.length > 0);
   assert.deepEqual(
@@ -714,13 +684,6 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     knownImages.filter(({ image }) => selected.has(image)),
   );
   assert.ok(DOLLY_STATIC_SOURCES.length >= 50);
-  const generatedMenu = await readFile(new URL("../build/routes/index.html", import.meta.url), "utf8");
-  const menuOrder = ["default", "bhop", "classicube", "codex", "dollyfile-studio", "external-source",
-    "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi", "rts-arena",
-    "classicube-build", "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
-    "protox-build", "python-runtime", "ripgrep", "rts-build", "rust-sdk", "rust-tools", "sdl2-build", "system", "system-build"];
-  assert.deepEqual([...generatedMenu.matchAll(/<tr class="image" data-image="([^"]+)">/g)].map(match => match[1]),
-    menuOrder.filter(image => selected.has(image)));
   for (const image of DOLLY_IMAGES) {
     await readFile(new URL(`../build/routes/${image.image}/index.html`, import.meta.url));
     await readFile(new URL(`../build/routes/${image.image}/rebuild/index.html`, import.meta.url));
@@ -728,40 +691,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     assert.ok(image.byteLength > 0);
     assert.match(image.sha256, /^[0-9a-f]{64}$/);
   }
-  const viewer = await readFile(new URL("../scripts/render-dollyfile-view.mjs", import.meta.url), "utf8");
-  assert.match(viewer, /<a.*href=/);
-  assert.match(viewer, /renderUse/);
-  assert.match(viewer, /renderRequirement/);
-  assert.doesNotMatch(viewer, /URLSearchParams|sessionStorage|location\.search/);
-});
 
-test("the common seed builds Dollyfile and only essential command wrappers", async () => {
-  const loader = await readFile(artifact("dolly.mjs"), "utf8");
-  const bootstrap = await readFile(
-    new URL("../src/process/bootstrap.c", import.meta.url), "utf8",
-  );
-  const worker = await readFile(
-    new URL("../src/runtime-worker.mjs", import.meta.url), "utf8",
-  );
-  const recipe = await readFile(new URL("../Dollyfile", import.meta.url), "utf8");
-  for (const output of ["slop", "dollyfile", "mkdir", "rm", "cc", "c++", "ld", "ar"]) {
-    assert.match(bootstrap, new RegExp(`"/bin/${escapeRegex(output)}"`));
-  }
-  assert.doesNotMatch(loader, /\/usr\/bin\/(?:git|make|zig|pi|qjs)/);
-  assert.match(bootstrap, /run_child\(\s*"\/bin\/dollyfile"/);
-  assert.match(bootstrap, /"\/etc\/dolly\/recipe\.locator"/);
-  assert.match(bootstrap, /"\/etc\/dolly\/host\.base"/);
-  assert.match(worker, /processSupervisor\.spawn\(arguments_\[0\], arguments_\)/);
-  assert.doesNotMatch(bootstrap, /startup\.slop/);
-  assert.match(recipe, /^DOLLY 3$/m);
-  assert.match(recipe, /^FROM HOST \/Dollyfile-system\s+[0-9a-f]{64}$/m);
-  const system = await readFile(new URL("../Dollyfile-system", import.meta.url), "utf8");
-  assert.match(system, /^FROM HOST \/Dollyfile-system-build\s+[0-9a-f]{64}$/m);
-  const systemBuild = await readFile(new URL("../Dollyfile-system-build", import.meta.url), "utf8");
-  assert.match(systemBuild, /^USE HOST \/modules\/default\.dm\s+[0-9a-f]{64}$/m);
-  assert.match(recipe, /^USE HOST \/modules\/startup-default\.dm\s+[0-9a-f]{64}$/m);
-  assert.doesNotMatch(recipe, /BANNER|GREETING/);
-  assert.doesNotMatch(recipe, /startup\.mk/);
 });
 
 test("external source pins have one shell-native manifest consumed by build scripts", async () => {

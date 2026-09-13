@@ -74,11 +74,11 @@ test("unreferenced module sources are admitted without staging their inputs or e
 
 test("images separate reusable runtimes from applications and configuration", async () => {
   const expected = {
-    "ghostty-build": [], "system-build": ["ghostty-build"],
-    system: ["system-build", "ripgrep", "fd-build"], default: ["system"], javascript: ["system"],
-    "rust-sdk": ["system-build"], "rust-tools": ["rust-sdk"],
-    ripgrep: ["rust-tools"], "fd-build": ["rust-tools"], "protox-build": ["rust-tools"],
-    "codex-build": ["rust-tools", "protox-build"], codex: ["default", "codex-build"],
+    "ghostty-build": ["system-build"], "system-build": [],
+    system: ["system-build", "ghostty-build", "ripgrep", "fd-build"], default: ["system"], javascript: ["system"],
+    "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
+    ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
+    "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build"],
     "external-source": ["system"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system"], "neovim-build": ["cmake-build"],
@@ -97,6 +97,10 @@ test("images separate reusable runtimes from applications and configuration", as
     const graph = await loadDollyfileGraph(project, definition.filename);
     assert.deepEqual([...new Set(graph.artifacts.map(artifact => artifact.image))], expected[definition.image]);
     assert.equal(graph.exporters.has("TOOL:zig"), definition.image === "ghostty-build");
+    if (["rust-sdk", "rust-build", "ripgrep", "fd-build", "protox-build", "codex-build"].includes(definition.image)) {
+      assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
+      assert.equal(graph.records.some(record => ["git", "ghostty", "startup-default"].includes(record.name)), false);
+    }
     if (definition.image === "neovim") {
       assert.deepEqual(graph.root.entry, ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
       const startup = graph.root.files.find(file => file.path === "/etc/dolly/init.slop").body;
@@ -128,7 +132,7 @@ test("images separate reusable runtimes from applications and configuration", as
   const definitions = await discoverImageDefinitions(project);
   assert.deepEqual(new Set((await selectImageDefinitions(definitions, "python-pi")).map(item => item.image)),
     new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system", "ghostty-build",
-      "system-build", "rust-sdk", "rust-tools", "ripgrep", "fd-build"]));
+      "system-build", "rust-sdk", "rust-build", "ripgrep", "fd-build"]));
   assert.deepEqual(await selectImageDefinitions(definitions, "all"), definitions);
   const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
   const selected = await selectImageDefinitions(definitions, githubImages.join(","));

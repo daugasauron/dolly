@@ -44,6 +44,7 @@ for required in \
   src/image-entry.mjs \
   src/image-artifact.mjs \
   src/image-build.mjs \
+  src/image-build-page.mjs \
   src/image-builder.mjs \
   src/image-build-service.mjs \
   src/image-build-ui.mjs \
@@ -113,6 +114,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/image-entry.mjs" \
   "${project_dir}/src/image-artifact.mjs" \
   "${project_dir}/src/image-build.mjs" \
+  "${project_dir}/src/image-build-page.mjs" \
   "${project_dir}/src/image-builder.mjs" \
   "${project_dir}/src/image-build-service.mjs" \
   "${project_dir}/src/image-build-ui.mjs" \

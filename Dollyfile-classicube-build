@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE classicube-build
 
-FROM HOST /Dollyfile-sdl2-build d77797c44cab1f3503ace167c4695ad1ebe81ddd0365bb2ae06cfb9807bfd2ba
+FROM HOST /Dollyfile-sdl2-build 92f25658a0e45058bab3943ad2c7be2faa26225a8aabc810f1ce4c42a42e2765
 USE HOST /modules/classicube.dm a5a4d0865884848937e6652252706cc20e783349bfa90cb5e6e9a3308da2761b
 
 ENTRY /bin/foreground -i /bin/slop

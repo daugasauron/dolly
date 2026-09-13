@@ -12,3 +12,4 @@ pi-local
 python
 python-pi
 rts-arena
+rust-tools

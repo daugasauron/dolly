@@ -46,3 +46,36 @@ booting the terminal and ENTRY after compilation. Chrome exported the default
 image in 3.11 seconds; all 154,337,413 bytes match the published snapshot
 (SHA256 `758ba8912bf12e891dc984f604cb7412582fce34baac46165871b9068c7b55f1`).
 This removes the exporter dependency on DISPLAY; recipe separation remains open.
+
+The compiler base now contains bootstrap/core-tools/tar/make/C++. Rust SDK adds
+zlib/gzip and the Rust seed; rust-build adds curl/Patti. Ghostty builds separately
+from the compiler base. System composes its interactive utilities, display and
+rg/fd artifacts. Codex derives from system; rust-tools combines system with the
+finished Rust SDK/Patti so its interactive utilities remain available.
+
+Actual builds caught rustc.sh's undeclared dirname dependency; shell expansion
+now locates the SDK without a subprocess. gzip is its own module instead of
+pulling Git-dependent agent-tools into the compiler build.
+
+Verified on 2026-09-13 in the isolated core-iteration worktree:
+
+- Compiler base: 123,117,597 bytes, 15.3 s browser build. Rust SDK: 375,495,528
+  bytes, 17.9 s. Patti layer: 376,133,210 bytes, 10.1 s.
+- Ripgrep: 112.6 s; fd: 154.0 s, entirely through Patti inside Chrome. No Git,
+  Ghostty or default-startup recipes occur in either producer's dependency graph.
+- Default: 154,278,999 bytes. Every retained non-recipe file is byte-identical to
+  deployed main. Recipe records changed; one redundant /usr/include/c++ parent
+  directory record disappeared, while all C++ headers remain and compile.
+- Chrome process-smoke: 17.93 s, including C++23, shared files/environment,
+  fresh invocations, HTTP, pipes/poll and C/C++ DSOs.
+- Interactive rust-tools: 14.97 s for real proc-macro builds, Cargo workspace
+  compilation via Patti and reuse with --resume.
+- New headless build page: cancel/retry and verified cached compiler artifact
+  under /dolly/ prefix, 15.81 s. Static menu/layout checks pass.
+- Two isolated cold rust-build builds plus one cached build produced identical
+  bytes: SHA256 35d66e56ea4ae058101ec4ec510ec433d371c8d38b85d095c653bdf09f3c77af.
+- All 333 Node tests pass in 5.33 s with the rebuilt default/rust-tools selection;
+  the graph/module pair passes independently.
+
+Pi/Studio downstream builds and browser verification are still pending. Do not
+close until those consumers and default rg/fd behavior are checked.

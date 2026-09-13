@@ -1,5 +1,9 @@
 #!/bin/slop
-sdk=$(cd "$(dirname "$0")/.." && pwd)
+case "$0" in
+  */*) sdk=${0%/*}/.. ;;
+  *) sdk=.. ;;
+esac
+sdk=$(cd "$sdk" && pwd)
 has_target=0
 target_value=0
 for argument in "$@"; do

@@ -16,6 +16,7 @@ const projectDir = resolve(import.meta.dirname, "..");
 const loadGraph = createDollyfileGraphLoader(projectDir);
 const outputDir = resolve(projectDir, "build/routes");
 const template = await readFile(resolve(projectDir, "terminal.html"), "utf8");
+const buildTemplate = await readFile(resolve(projectDir, "build-image.html"), "utf8");
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const primaryImage = definitions.find(({ image }) => image === "default")?.image ??
   definitions[0].image;
@@ -24,10 +25,18 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
   definition,
   graph: await loadGraph(definition.filename),
 })));
+const headless = new Set(graphs.filter(({ graph }) => !graph.exporters.has("ENV:DISPLAY"))
+  .map(({ definition }) => definition.image));
 await writeImageRegistry(projectDir, definitions, staticSources);
 const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
 const rows = new Map([...menuTemplate.matchAll(/<tr class="image" data-image="([^"]+)">[\s\S]*?<\/tr>/g)]
   .map(([row, image]) => [image, row]));
+for (const image of headless) {
+  const description = rows.get(image)?.match(/<td class="description">(.*?)<\/td>/)?.[1] ?? "Compiler build tools.";
+  rows.set(image, `<tr class="image" data-image="${image}"><th scope="row"><a href="./${image}/">${image}</a></th>
+    <td class="description">${description}</td><td><div class="image-links"><a href="./${image}/rebuild/">build →</a>
+    <a href="./view/${image}/">Dollyfile</a></div></td></tr>`);
+}
 const isBuild = image => /-(build|sdk|runtime)$/.test(image) ||
   ["system", "ripgrep", "rust-tools"].includes(image);
 const ordered = [...definitions].sort((a, b) =>
@@ -59,7 +68,7 @@ const routes = [
 for (const route of routes) {
   const output = resolve(outputDir, route.path);
   await mkdir(resolve(output, ".."), { recursive: true });
-  const page = template
+  const page = (headless.has(route.image) && !route.load ? buildTemplate : template)
     .replaceAll("{{DOLLY_ROUTE_HEAD}}", route.load ? `<script>
       const match = /^(.*\\/)session\\/([A-Za-z0-9._-]{1,64})\\/?$/.exec(location.pathname);
       if (match && match[2] !== "." && match[2] !== "..") {

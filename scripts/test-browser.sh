@@ -23,6 +23,8 @@ DOLLY_BROWSER_MODE=debugger-disconnect \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=menu \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+DOLLY_IMAGE=system-build DOLLY_BROWSER_MODE=build-page \
+  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_BROWSER_MODE=boundary \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"

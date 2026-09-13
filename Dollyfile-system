@@ -1,17 +1,27 @@
 DOLLY 3
 IMAGE system
 
-FROM HOST /Dollyfile-system-build 27170e6d04a5faf60c3bc2933e0fa9d79ffeb407c5ae53031dc8382ef5a90590
+FROM HOST /Dollyfile-system-build c56e8ded1fa161ec4775ce3d1949d14a50526b3960bade142dedaa861d51faeb
+
+USE HOST /modules/default.dm baaa74770cc47740adb3a2c03be2505d335e738af308685d6f132bc4936e0a18
+
+COPY FROM HOST /Dollyfile-ghostty-build ca91603c56f67b1eaf75cd6ad0c72d253a3fa90e9a8a1ff2f8b306f62df4b2d4 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-ghostty-build ca91603c56f67b1eaf75cd6ad0c72d253a3fa90e9a8a1ff2f8b306f62df4b2d4 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY FROM HOST /Dollyfile-ghostty-build ca91603c56f67b1eaf75cd6ad0c72d253a3fa90e9a8a1ff2f8b306f62df4b2d4 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY FROM HOST /Dollyfile-ghostty-build ca91603c56f67b1eaf75cd6ad0c72d253a3fa90e9a8a1ff2f8b306f62df4b2d4 /usr/share/licenses/uucode /usr/share/licenses/uucode
+EXPORTS LIB display /usr/lib/libdisplay.so
+EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+
 
 # Keep the tools produced by the in-sandbox Rust source builds.
-COPY FROM HOST /Dollyfile-ripgrep 36d69285bf7d65f4fd056d1109c915df7803c22a9adc7e4aaf61886951389680 /usr/bin/rg /usr/bin/rg
-COPY FROM HOST /Dollyfile-ripgrep 36d69285bf7d65f4fd056d1109c915df7803c22a9adc7e4aaf61886951389680 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
-COPY FROM HOST /Dollyfile-ripgrep 36d69285bf7d65f4fd056d1109c915df7803c22a9adc7e4aaf61886951389680 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
+COPY FROM HOST /Dollyfile-ripgrep 85c2eb27d8d8ee4c6013158c98995dbe2f4c573aa60f3568b7306259e5cadfdf /usr/bin/rg /usr/bin/rg
+COPY FROM HOST /Dollyfile-ripgrep 85c2eb27d8d8ee4c6013158c98995dbe2f4c573aa60f3568b7306259e5cadfdf /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
+COPY FROM HOST /Dollyfile-ripgrep 85c2eb27d8d8ee4c6013158c98995dbe2f4c573aa60f3568b7306259e5cadfdf /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
 EXPORTS TOOL rg
 
-COPY FROM HOST /Dollyfile-fd-build 745613b42c6328f6b07c0cf0c924b94334b1b124542e9f2d64396abf6480990a /usr/bin/fd /usr/bin/fd
-COPY FROM HOST /Dollyfile-fd-build 745613b42c6328f6b07c0cf0c924b94334b1b124542e9f2d64396abf6480990a /usr/share/licenses/fd /usr/share/licenses/fd
-COPY FROM HOST /Dollyfile-fd-build 745613b42c6328f6b07c0cf0c924b94334b1b124542e9f2d64396abf6480990a /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
+COPY FROM HOST /Dollyfile-fd-build b75370c5e864e2aede659b0058be64518730e67e1908fe40d961b4ff401828d6 /usr/bin/fd /usr/bin/fd
+COPY FROM HOST /Dollyfile-fd-build b75370c5e864e2aede659b0058be64518730e67e1908fe40d961b4ff401828d6 /usr/share/licenses/fd /usr/share/licenses/fd
+COPY FROM HOST /Dollyfile-fd-build b75370c5e864e2aede659b0058be64518730e67e1908fe40d961b4ff401828d6 /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
 EXPORTS TOOL fd
 
 ENTRY /bin/foreground -i /bin/slop

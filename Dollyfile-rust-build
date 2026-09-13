@@ -1,0 +1,8 @@
+DOLLY 3
+IMAGE rust-build
+
+FROM HOST /Dollyfile-rust-sdk 72be458b87fd00efbe5386235cda44bc5b27c3e1f98e812c899e7e4cb6150ff9
+USE HOST /modules/curl.dm 78b6cf92c487e201ea69afec52cba18153d9ec46c4027f6c6bf4d07c8765e27a
+USE HOST /modules/patti.dm 294b38b01bd77a94531ae36fdb1d245ba7265fb6de82b9703775744f93183780
+
+ENTRY /bin/slop

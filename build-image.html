@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>{{DOLLY_IMAGE}} · Dolly build</title>
+    <style>
+      :root { color: #e8e3d7; background: #262626; font: 16px/1.5 monospace; }
+      main { max-width: 70rem; margin: 2rem auto; padding: 0 1rem; }
+      a { color: inherit; } button { font: inherit; cursor: pointer; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
+    <script src="{{DOLLY_BASE}}coi-serviceworker.js"></script>
+  </head>
+  <body data-image="{{DOLLY_IMAGE}}" data-mode="{{DOLLY_MODE}}">
+    <main>
+      <a href="{{DOLLY_BASE}}">Dolly</a> · <a href="{{DOLLY_BASE}}view/{{DOLLY_IMAGE}}/">Dollyfile</a>
+      <h1>{{DOLLY_IMAGE}}</h1>
+      <p>This image supplies build tools and artifacts to other images.</p>
+      <button id="build" disabled>Build image</button>
+      <button id="cancel" hidden>Cancel</button>
+      <p id="status" role="status"></p>
+      <pre id="bootstrap-log" aria-label="Build output"></pre>
+    </main>
+    <script type="module" src="{{DOLLY_BASE}}src/image-build-page.mjs"></script>
+  </body>
+</html>

@@ -37,3 +37,9 @@ is to be claimed as covered; matching a function call never established it.
 The graph fix also removed 14 lines asserting the builder/pruner helper function
 names. Actual snapshot identity and browser cache-invalidation checks cover the
 contract; spelling the shared helper's name does not.
+
+The compiler-base change also removes a 29-line seed test that inspected source
+spelling (real seed inventory and browser compilation checks remain), viewer
+helper-name assertions, and duplicate hardcoded image/menu lists. Registry checks
+compare generated entries with discovered recipes; actual menu layout remains
+covered in Chrome. All 333 Node tests pass with the rebuilt core image selection.
