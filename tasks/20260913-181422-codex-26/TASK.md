@@ -23,3 +23,10 @@ to live priorities rather than repeating priorities of already closed issues.
 Checked remaining tracked links to the removed document and the changed local
 Markdown targets. No runtime/image rebuild or behavioral test is required for
 this documentation correction; the referenced browser checks already passed.
+
+The first sealed-package attempt caught an additional publication gap: linked
+tatr Markdown was outside the documentation publisher's allowlist. Added only
+`tasks/README.md` and conventional dated task directories to that allowlist.
+The real filesystem packaging regression follows the index to a task and its
+source link, while continuing to reject private/unpublished paths. The failed
+attempt left the previous sealed release intact; the next package is rechecked.

@@ -10,20 +10,22 @@ test("documentation packaging closes local links without exposing private source
   const root = await mkdtemp(resolve(tmpdir(), "dolly-docs-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const project = resolve(root, "project"), site = resolve(root, "site");
-  for (const path of ["docs", "src", "abi"]) await mkdir(resolve(project, path), { recursive: true });
+  for (const path of ["docs", "src", "abi", "tasks/20260913-120000-proof"]) await mkdir(resolve(project, path), { recursive: true });
   await writeFile(resolve(project, "docs/a.md"), "[b](b.md#heading) [ABI](../abi/README.md) [unselected image](../Dollyfile-extra)");
   await writeFile(resolve(project, "Dollyfile-extra"), "DOLLY 3\nIMAGE extra\n");
-  await writeFile(resolve(project, "docs/b.md"), "[a](a.md) [source](../src/dolly.c)");
+  await writeFile(resolve(project, "docs/b.md"), "[a](a.md) [source](../src/dolly.c) [issues](../tasks/README.md)");
   await writeFile(resolve(project, "abi/README.md"), "[a](../docs/a.md)");
   await writeFile(resolve(project, "src/dolly.c"), "public source\n");
+  await writeFile(resolve(project, "tasks/README.md"), "[issue](20260913-120000-proof/TASK.md)");
+  await writeFile(resolve(project, "tasks/20260913-120000-proof/TASK.md"), "[source](../../src/dolly.c)");
   assert.deepEqual(documentationLinks("[web](https://example.test/) [a](a.md#part) ```[not a link](x)```"), ["a.md"]);
   const copied = await packageDocumentation(project, site, ["docs/a.md"]);
-  assert.deepEqual([...copied].sort(), ["Dollyfile-extra", "abi/README.md", "docs/a.md", "docs/b.md", "src/dolly.c"]);
+  assert.deepEqual([...copied].sort(), ["Dollyfile-extra", "abi/README.md", "docs/a.md", "docs/b.md", "src/dolly.c", "tasks/20260913-120000-proof/TASK.md", "tasks/README.md"]);
   await verifyDocumentationLinks(site);
   assert.equal(await readFile(resolve(site, "src/dolly.c"), "utf8"), "public source\n");
   await rm(resolve(site, "docs/b.md"));
   await assert.rejects(verifyDocumentationLinks(site), { code: "ENOENT" });
-  for (const link of ["../AGENTS.md", "../.pi/private.md", "../src/compiler.cpp", "../../outside"]) {
+  for (const link of ["../AGENTS.md", "../.pi/private.md", "../src/compiler.cpp", "../tasks/private.md", "../../outside"]) {
     await writeFile(resolve(project, "docs/a.md"), `[private](${link})`);
     await assert.rejects(packageDocumentation(project, site, ["docs/a.md"]), /unpublished source|escapes the site/);
   }
