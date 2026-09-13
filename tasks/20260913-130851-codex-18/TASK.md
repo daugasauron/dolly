@@ -52,3 +52,11 @@ headless build worker for producer images. It previously waited for a terminal
 on the producer's build page. The headless proof checks the original manifest,
 rejects a wrong digest and an unexpected system file, and accounts for only the
 four fixed build-staging paths. CMake passed without display or seed loading.
+
+The sealed local release passed live inventory acceptance for all 18 selected
+images, including the headless C/C++, Rust, CMake, SDL and Neovim producers.
+The inventory fixture uses only commands present in the small compiler base.
+Local release: `6fbc79ee43043c13b6878cfe3b2b46f07b27b43efbc54131bc0327636136610c`
+(source commit `9e45b32`); 740,407,026 site bytes, 145 shared snapshot packs.
+The archive and acceptance records are under `/dev/shm/dolly-core-release.O2Y1IG/`.
+This was local packaging and verification, with no external deployment.

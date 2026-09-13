@@ -61,3 +61,9 @@ checks outside snapshot identity pass in 0.53 seconds. The snapshot identity
 check remains in the suite and will run after the ongoing image rebuild.
 The main benefit of these deletions is reduced maintenance, not a claimed
 large runtime gain from removing regex assertions.
+
+The module-suite pass removed another 182 lines of checks for helper names,
+startup text, compiler argument spelling, and script cleanup syntax. The real
+Bonnie constraint/policy executions, parsed dependency and retained-file checks,
+archive behavior, and exact ABI checks remain. All 278 source tests pass in
+3.19 s. No regex replacement tests were added.

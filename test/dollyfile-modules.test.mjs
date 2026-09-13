@@ -216,17 +216,6 @@ SLOP printf done
   assert.deepEqual(parsed.slops[0].command, ["printf", "done"]);
 });
 
-test("version 3 keeps plain hashes and lightweight object declarations", async () => {
-  const names = await readdir(resolve(projectDir, "modules"));
-  for (const name of [...imageSpecs.map(({ filename }) => filename), ...names.map((entry) => `modules/${entry}`)]) {
-    const source = await readFile(resolve(projectDir, name), "utf8");
-    assert.doesNotMatch(source, /\b(?:SHA256|BIN|TXT)\b/, name);
-    assert.doesNotMatch(source, /^(?:REQUIRES|EXPORTS) (?:RUNTIME|HOST|WAT)\b/m, name);
-    assert.doesNotMatch(source, /^CONTRACT\b/m, name);
-    assert.doesNotMatch(source, /^FILE .*<</m, name);
-  }
-});
-
 test("bootstrap exports exact compiler tools and first-class headers", async () => {
   const graph = await loadProjectGraph();
   const bootstrap = graph.modules.find(({ name }) => name === "bootstrap");
@@ -320,41 +309,6 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
   assert.ok(pi.exports.some(({ type, name, details }) =>
     type === "ENV" && name === "PI_PACKAGE_DIR" &&
     details[0] === "/usr/lib/node_modules/@earendil-works/pi-coding-agent"));
-});
-
-test("each image owns init and .dollyrc policy and Python plus Pi owns Bonnie guidance", async () => {
-  const images = await loadImages();
-  for (const { spec, graph } of images) {
-    const startup = graph.root.children.at(-1);
-    const startupFile = startup.files.find(({ path }) =>
-      path === "/home/dolly/.dollyrc");
-    assert.ok(startupFile?.body.includes(`DOLLY / ${
-      spec.image === "python-pi" ? "PYTHON + PI" : spec.image.toUpperCase()
-    }`));
-    const init = startup.files.find(({ path }) => path === "/etc/dolly/init.slop");
-    assert.ok(init?.body.includes(spec.program));
-    assert.match(init.body, /test -f "\$HOME\/\.dollyrc"/);
-    assert.match(init.body, /\/bin\/foreground \/bin\/slop -e "\$HOME\/\.dollyrc"/);
-    assert.match(init.body, /image entry exited; entering the recovery Slop shell/);
-  }
-
-  const pythonPi = images.find(({ spec }) => spec.image === "python-pi").graph;
-  const integration = pythonPi.modules.find(({ name }) =>
-    name === "python-pi-integration");
-  assert.deepEqual(
-    integration.requirements.map(({ type, name }) => `${type}:${name}`),
-    ["TOOL:bonnie", "TOOL:pi", "TOOL:python", "TOOL:slop",
-      "TOOL:foreground", "TOOL:test", "TOOL:printf"],
-  );
-  const skill = integration.files.find(({ path }) =>
-    path === "/home/dolly/.pi/agent/skills/bonnie/SKILL.md");
-  assert.match(skill.body, /Use it instead of invoking `pip`/);
-  assert.match(skill.body, /bonnie install requests/);
-
-  const worker = await readFile(resolve(projectDir, "src/runtime-worker.mjs"), "utf8");
-  assert.doesNotMatch(worker, /\.dollyrc|\/bin\/slop|\/usr\/bin\/pi/);
-  const slop = await readFile(resolve(projectDir, "src/slop.c"), "utf8");
-  assert.doesNotMatch(slop, /Dolly slop 0\.1|Python packages: bonnie install/);
 });
 
 test("redistributed upstream modules retain their licenses", async () => {
@@ -466,9 +420,7 @@ test("Bonnie is a retained two-file command with transactional graph helpers", a
   assert.ok(bonnie.files.some(({ path, body }) =>
     path === "/usr/lib/bonnie/bonnie.py" && body === null));
 
-  const frontend = await readFile(resolve(projectDir, "src/commands/bonnie.c"), "utf8");
   const helperPath = resolve(projectDir, "src/runtimes/bonnie.py");
-  const helper = await readFile(helperPath, "utf8");
   const temporary = await mkdtemp(resolve(tmpdir(), "dolly-bonnie-helper-"));
   try {
     const combined = resolve(temporary, "combined.txt");
@@ -488,127 +440,6 @@ test("Bonnie is a retained two-file command with transactional graph helpers", a
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
-
-  assert.match(frontend, /dependency constraints are unsatisfiable/);
-  assert.match(frontend, /preparing dependency graph/);
-  assert.match(frontend, /prepare_resolved_plan/);
-  assert.match(frontend, /#!\/usr\/bin\/python/);
-  assert.match(frontend, /prepare_entry_points/);
-  assert.doesNotMatch(frontend, /sys\.argv\[0\]\s*=/);
-  assert.doesNotMatch(frontend, /compile_entry_points|bonnie-entry-%u\.c/);
-  assert.match(frontend, /stage-reset/);
-  assert.match(frontend, /bonnie-stage-/);
-  assert.doesNotMatch(helper, /_sync_pythonpath|pip\._internal\.cli|pip_main/);
-  assert.match(helper, /\[sys\.executable, "-m", "pip", \*pip_arguments\]/);
-  assert.match(helper, /--no-build-isolation/);
-  assert.match(helper, /def _source_build_config_settings\(/);
-  assert.doesNotMatch(helper, /["']numpy["']|-Ddisable-optimization/);
-  assert.match(bonnie.files.find(({ path }) => path === "/etc/bonnie/build.toml").body,
-    /\[numpy\][\s\S]*"-Dbuildtype=debug", "-Ddisable-optimization=true"/);
-  assert.match(helper, /"compile-args=-j1"/);
-  assert.match(helper, /f"\{key\}=\{value\}"/);
-  assert.match(helper, /"-O0 -DNDEBUG -fno-sanitize-coverage"/);
-  assert.match(helper, /wheel path escapes its installation directory/);
-  assert.match(helper, /log_path = posixpath\.join\(directory, "pip\.log"\)/);
-  assert.match(helper, /finally:[\s\S]*shutil\.rmtree\(directory\)/);
-  assert.doesNotMatch(helper, /requests\.|urllib\.request|socket\./);
-});
-
-test("compiler outputs do not depend on skipped cache-prefix job counts", async () => {
-  const compiler = await readFile(resolve(projectDir, "src/compiler.cpp"), "utf8");
-  assert.doesNotMatch(compiler, /\bnext_job\b/);
-  assert.match(compiler, /constexpr unsigned long long job = 0/);
-  assert.match(compiler, /"--threads=1"/);
-
-  const pythonGraph = await loadProjectGraph("Dollyfile-python-pi");
-  const cpython = pythonGraph.modules.find(({ name }) => name === "cpython");
-  const buildInfo = cpython.slops.find(({ command }) =>
-    command.includes("Modules/getbuildinfo.c"));
-  assert.ok(buildInfo);
-  assert.ok(buildInfo.command.includes('-DDATE="Jan 01 1970"'));
-  assert.ok(buildInfo.command.includes('-DTIME="00:00:00"'));
-});
-
-test("host preparation scripts publish atomically and own their temporary paths", async () => {
-  const scriptNames = await readdir(resolve(projectDir, "scripts"), { withFileTypes: true });
-  for (const { name } of scriptNames.filter(entry => entry.isFile())) {
-    const source = await readFile(resolve(projectDir, "scripts", name), "utf8");
-    if (/(?:^|[($=;|& \t])mktemp[ \t]/m.test(source)) {
-      assert.match(source, /trap .*EXIT|trap cleanup EXIT/, `${name} must trap cleanup`);
-    }
-    if (/\bmkdtemp\(/.test(source)) {
-      assert.match(source, /finally\s*\{/, `${name} must clean temporary directories in finally`);
-      assert.match(source, /await rm\(/, `${name} must remove temporary directories`);
-    }
-  }
-  const snapshots = await readFile(
-    resolve(projectDir, "scripts/build-system-snapshot.mjs"), "utf8",
-  );
-  const build = await readFile(resolve(projectDir, "scripts/build.sh"), "utf8");
-  const browserHarness = await readFile(
-    resolve(projectDir, "scripts/browser-harness.mjs"), "utf8",
-  );
-  const piSource = await readFile(
-    resolve(projectDir, "scripts/fetch-pi-source.sh"), "utf8",
-  );
-  const piPackages = await readFile(
-    resolve(projectDir, "scripts/build-pi-runtime-packages.mjs"), "utf8",
-  );
-  const bison = await readFile(resolve(projectDir, "scripts/build-bison.sh"), "utf8");
-  const awk = await readFile(resolve(projectDir, "scripts/generate-awk.sh"), "utf8");
-  const nativeZig = await readFile(
-    resolve(projectDir, "scripts/build-native-zig.sh"), "utf8",
-  );
-  const samurai = await readFile(
-    resolve(projectDir, "scripts/prepare-samurai.sh"), "utf8",
-  );
-  const preparedSources = await Promise.all(
-    ["git", "libffi", "make", "zlib"].map((name) => readFile(
-      resolve(projectDir, `scripts/prepare-${name}.sh`), "utf8",
-    )),
-  );
-  const preparedCpython = await readFile(
-    resolve(projectDir, "scripts/prepare-cpython.sh"), "utf8",
-  );
-  assert.match(snapshots, /finally\s*\{[\s\S]*?rm\(temporarySnapshotPath/);
-  assert.match(snapshots, /rename\(temporarySnapshotPath, snapshotPath\)/);
-  assert.doesNotMatch(build, /rm -f[\s\S]*?dolly-\$\{image_name\}-system\.snapshot/);
-  assert.match(
-    browserHarness,
-    /const server = await startServer\(\);[\s\S]*?try \{[\s\S]*?browserDownloadDirectory = await mkdtemp/,
-  );
-  assert.match(browserHarness, /if \(chrome !== null\)/);
-  assert.match(piSource, /trap .*EXIT/);
-  assert.match(piSource, /DOLLY_PI_SOURCE_COMMIT/);
-  assert.match(piPackages, /package-lock\.json/);
-  assert.match(piPackages, /pi-runtime-packages\.tar/);
-  assert.doesNotMatch(bison, /bison-\$\{version\}-build/);
-  assert.match(bison, /make DESTDIR="\$\{temporary_install\}" install/);
-  assert.match(awk, /awk-\$\{recipe_hash:0:16\}/);
-  assert.match(awk, /mktemp -d "\$\{project_dir\}\/build\/generated\/\.awk-parser/);
-  assert.match(awk, /mv -T -- "\$\{temporary_dir\}" "\$\{generated_dir\}"/);
-  assert.match(nativeZig, /temporary_object=/);
-  assert.doesNotMatch(nativeZig, /sha256sum\s*\\\s*\n\s*"\$\{project_dir\}\/config\/source-pins\.sh"/);
-  assert.match(nativeZig, /zig-source=\$\{DOLLY_ZIG_SHA256\}/);
-  assert.match(nativeZig, /object_digest=[\s\S]*?dolly-native-zig-object=1[\s\S]*?native-build-options\.zig/);
-  assert.match(nativeZig, /-femit-bin="\$\{temporary_object\}"/);
-  assert.match(nativeZig, /mv -- "\$\{temporary_object_stamp\}" "\$\{object_stamp\}"/);
-  assert.doesNotMatch(nativeZig, /module_digest|temporary_module|validate-command/);
-  assert.match(samurai, /trap cleanup EXIT/);
-  assert.match(samurai, /patch[\s\S]*?-d "\$\{temporary\}"/);
-  assert.match(samurai, /samurai-source-\$\{DOLLY_SAMURAI_COMMIT\}-\$\{recipe_hash:0:16\}/);
-  assert.doesNotMatch(samurai, /rm -rf -- "\$\{output_dir\}"/);
-  assert.match(samurai, /mv -T -- "\$\{temporary\}" "\$\{output_dir\}"/);
-  for (const source of preparedSources) {
-    assert.match(source, /recipe_hash=/);
-    assert.match(source, /if \[\[ -d "\$\{output_dir\}" \]\]/);
-    assert.doesNotMatch(source, /rm -rf -- "\$\{output_dir\}"/);
-    assert.match(source, /mv -T --/);
-  }
-  assert.match(preparedCpython, /recipe_hash=/);
-  assert.match(preparedCpython, /build-python=\$\{build_python_identity\}/);
-  assert.doesNotMatch(preparedCpython, /rm -rf -- "\$\{output_dir\}"/);
-  assert.match(preparedCpython, /mv -T -- "\$\{temporary\}" "\$\{output_dir\}"/);
 });
 
 test("build modules declare tools used by their own recipes", async () => {
@@ -706,12 +537,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
     path === "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"));
 });
 
-test("the experiment has one execution form, no KEEP state, and no extras module", async () => {
-  const names = await readdir(resolve(projectDir, "modules"));
-  for (const name of [...imageSpecs.map(({ filename }) => filename), ...names.map((entry) => `modules/${entry}`)]) {
-    const source = await readFile(resolve(projectDir, name), "utf8");
-    assert.doesNotMatch(source, /^(?:RUN|CHECK|KEEP|KEEP-TREE|WORKDIR)\b/m, name);
-  }
+test("the system graph retains no retired extras or Awk generator inputs", async () => {
   const graph = await loadProjectGraph();
   assert.equal(graph.modules.some(({ name }) => name === "extras"), false);
   const make = graph.modules.find(({ name }) => name === "make");
@@ -725,7 +551,7 @@ test("the experiment has one execution form, no KEEP state, and no extras module
     path.endsWith("/awk-maketab") || path.endsWith("/proctab.c")), false);
 });
 
-test("format and graph linting runs before the expensive runtime build", async () => {
+test("recipes reject directives before the image or module declaration", () => {
   assert.throws(
     () => inspectDollyfile(`DOLLY 3
 SOURCE HOST /static/input /tmp/input ${"0".repeat(64)}
@@ -733,11 +559,6 @@ MODULE bad
 `, "modules/bad.dm"),
     /expected IMAGE or MODULE/,
   );
-  const build = await readFile(resolve(projectDir, "scripts/build.sh"), "utf8");
-  const lint = 'node "${project_dir}/scripts/lint-dollyfiles.mjs"';
-  assert.ok(build.indexOf(lint) > 0);
-  assert.ok(build.indexOf(lint) < build.indexOf("podman run"));
-  assert.ok(build.indexOf(lint) < build.indexOf("prepare-image-sources.sh"));
 });
 
 test("Patti pins its C implementation and parser without a Python runtime dependency", async () => {
