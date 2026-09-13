@@ -3196,7 +3196,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
           `SLOP help > /tmp/help\n` +
           `SLOP if /tmp/inventory /tmp/help ${"0".repeat(64)} ${artifact}; then exit 1; fi\n` +
           `SLOP /tmp/inventory /tmp/help ${manifestHash} ${artifact}\n` +
-          `SLOP printf unexpected > /usr/inventory-extra\n` +
+          `SLOP help > /usr/inventory-extra\n` +
           `SLOP if /tmp/inventory /tmp/help ${manifestHash} ${artifact}; then exit 1; fi\n` +
           `SLOP rm /usr/inventory-extra\nENTRY /bin/slop\n`;
         await build("custom", recipe);
