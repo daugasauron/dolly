@@ -105,8 +105,9 @@ Dolly supports a finite signal set and rejects unsupported signals/action flags.
 
 Wait records distinguish signal termination from ordinary exit. `exit(130)`
 is not SIGINT. libc exposes POSIX wait status; `dolly_wait` returns normalized
-shell status. **Slop still loses signal information in some lists/pipelines**;
-the [handoff](audit-handoff.md#next-fix-shell-cancellation) records the next fix.
+shell status. Slop uses the wait record to stop remaining list, serial pipeline
+and command-substitution work after SIGINT, while an ordinary exit 130 remains
+a command failure.
 
 Foreground and interactive roles are explicit spawn flags. Only the foreground
 tree can transfer ownership; retirement restores its nearest foreground ancestor.

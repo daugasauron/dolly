@@ -74,5 +74,6 @@ Pi image resizing is disabled: Photon needs JavaScript's nested WebAssembly API,
 which Janis does not expose. Supported image input passes through unchanged.
 
 Browser fixtures cover the TUI, split UTF-8/SSE, live child output, cancellation,
-credential persistence and target-compiled extension use. Local small-model
-independent Studio tasks remain unreliable; see the [handoff](audit-handoff.md).
+credential persistence and target-compiled extension use. Independent local-model
+task correctness is [tracked separately](../tasks/20260913-181502-codex-27/TASK.md)
+from these integration checks.

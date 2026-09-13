@@ -1,7 +1,7 @@
 # RTS arena handover
 
 Integration checked 2026-09-10. Read the checkout's `AGENTS.md`, the
-[usage guide](rts-arena.md) and [audit backlog](audit-handoff.md).
+[usage guide](rts-arena.md) and [issue tracker](../tasks/README.md).
 
 ## Integration
 

@@ -257,8 +257,9 @@ There is no fixed 60-second tool deadline. Callers may supply a timeout, and
 timed spawns have a trusted supervisor timer that returns status 124 even for
 uninstrumented CPU loops. The kernel filesystem and parent survive.
 
-Known gap: Slop can continue later list/pipeline stages after a child receives
-SIGINT. See the [cancellation task](audit-handoff.md#next-fix-shell-cancellation).
+SIGINT stops the remaining list, serial pipeline and command-substitution work.
+An ordinary `exit 130` is a command failure and does not interrupt later commands.
+See the [process cancellation contract](process-model.md#cancellation).
 
 ## GNU Make
 

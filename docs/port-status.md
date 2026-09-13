@@ -69,4 +69,4 @@ excluded because it requires nested Wasm; supported images pass through unchange
 
 The system image includes source-built ripgrep and fd; Pi and Studio inherit
 both. Runtime compatibility and reproducible failures belong in the
-[audit handoff](audit-handoff.md).
+[issue tracker](../tasks/README.md).
