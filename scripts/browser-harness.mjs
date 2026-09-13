@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { waitForDebugger } from "./browser-startup.mjs";
 import { runLocalModelProof, runLocalCompatibilityProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
+import { buildSnapshot } from "../test/fixtures/snapshot-build.mjs";
 import { bhopProvider } from "../test/fixtures/bhop-provider.mjs";
 import { runBhopAgentProof } from "../test/fixtures/bhop-agent-browser.mjs";
 import { classicubeProvider } from "../test/fixtures/classicube-provider.mjs";
@@ -744,6 +745,11 @@ function startServer() {
           "0010object-info\n" +
           "0000",
         );
+        return;
+      }
+      if (requestUrl.pathname === "/__dolly_build_page" && snapshotExportMode) {
+        response.writeHead(200, { ...isolatedHeaders, "content-type": "text/html; charset=utf-8" });
+        response.end('<!doctype html><title>Dolly image build</title><pre id="bootstrap-log"></pre>');
         return;
       }
       if (requestUrl.pathname === "/__dolly_build_snapshot" &&
@@ -1751,11 +1757,12 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
   if (codexLoginMode) await debuggerClient.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `(${codexLoginFetch.toString()})(${JSON.stringify(localOrigin)});`,
   });
-  const initialPage = sourceDownloadMode ? new URL("view/rust-sdk/modules/rust-sdk/", menuPage).href
+  const initialPage = snapshotExportMode ? new URL("/__dolly_build_page", localOrigin).href
+    : sourceDownloadMode ? new URL("view/rust-sdk/modules/rust-sdk/", menuPage).href
     : debuggerDisconnectMode ? "about:blank" : customDollyfileMode
       ? new URL("custom/", menuPage).href : menuMode
       ? menuPage
-      : snapshotExportMode || iterationMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
+      : iterationMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
       : interactivePage;
   console.log(`browser: ${requestedMode ?? "core"} ${initialPage}`);
@@ -4539,6 +4546,10 @@ int main(int argc, char **argv) {
           !output.startsWith(`${distDirectory}${sep}`)) {
         throw new Error("snapshot export requires an output path inside Dolly's dist directory");
       }
+      await waitForValue(debuggerClient.send, "document.querySelector('#bootstrap-log') !== null",
+        Boolean, "build page");
+      await evaluate(debuggerClient.send,
+        `void (${buildSnapshot.toString()})(${JSON.stringify(menuPage)}, ${JSON.stringify(selectedImage)})`);
       const state = await waitForValue(
         debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
@@ -4552,22 +4563,16 @@ int main(int argc, char **argv) {
         const bootstrap = document.querySelector('#bootstrap-log').textContent;
         const snapshot = window.__dolly?.systemSnapshot;
         return {
-          mode: document.documentElement.dataset.bootMode,
           snapshotBytes: Number(document.documentElement.dataset.snapshotBytes),
           exportedBytes: snapshot instanceof ArrayBuffer ? snapshot.byteLength : 0,
           inputs: window.__dolly.systemInputs,
           bootstrap,
-          lines: bootstrap.split('\\n').length,
-          incompletePaints: globalThis.__dollyIncompleteBootstrapPaints,
           reusedArtifact: globalThis.__dollyReusedArtifact,
         };
       })()`);
-      assert.equal(evidence.mode, "rebuild");
       assert.ok(evidence.snapshotBytes > 0);
       assert.equal(evidence.exportedBytes, evidence.snapshotBytes);
-      assert.ok(evidence.lines <= 41);
       assert.ok(evidence.bootstrap.length <= 8192);
-      assert.equal(evidence.incompletePaints, 0);
       if (unpackagedSnapshotMode) {
         assert.equal(evidence.reusedArtifact, selectedGraph.artifacts.length !== 0 && process.env.DOLLY_EXPECT_CACHE_STATE === "warm",
           "reproducibility run did not exercise its requested cold/cached path");
@@ -4576,7 +4581,6 @@ int main(int argc, char **argv) {
         evidence.bootstrap,
         new RegExp(`dollyfile: image ${selectedImage} complete; retained \\d+ paths`),
       );
-      assert.match(evidence.bootstrap, /starting sandbox display/);
       if (process.env.DOLLY_EXPECT_MODULE_CACHE) {
         assert.ok(
           evidence.bootstrap.includes(process.env.DOLLY_EXPECT_MODULE_CACHE),
@@ -4598,7 +4602,7 @@ int main(int argc, char **argv) {
       await writeFile(`${output}.inputs.json`, JSON.stringify(evidence.inputs), { flag: "wx" });
       console.log(
         `browser: exported ${snapshotUpload.length} byte ${selectedImage} snapshot ` +
-        `from /${selectedImage}/rebuild`,
+        "without starting a display or image entry",
       );
       break browserProof;
     }

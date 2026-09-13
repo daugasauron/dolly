@@ -38,3 +38,11 @@ C/C++ compilation is intentional functionality, so stripping the compiler is not
 - Keep source-built rg/fd, licenses, provenance and working C/C++ in the default system; verify them and Pi/Studio consumers in a browser.
 - A startup edit must not rebuild tool producers; unrelated Git or display edits must not rebuild Rust compilers/tools.
 - Document the small image DAG and validate exported-file/dependency closure using existing retention checks.
+
+## Progress
+
+Snapshot export now uses the existing headless image-build worker instead of
+booting the terminal and ENTRY after compilation. Chrome exported the default
+image in 3.11 seconds; all 154,337,413 bytes match the published snapshot
+(SHA256 `758ba8912bf12e891dc984f604cb7412582fce34baac46165871b9068c7b55f1`).
+This removes the exporter dependency on DISPLAY; recipe separation remains open.
