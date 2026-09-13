@@ -19,11 +19,14 @@ for (const extension of ["tar", "tar.gz"]) test(`${extension} source archives ar
   const script = new URL("../scripts/build-source-tar.mjs", import.meta.url).pathname;
   // A regular-file write can complete only part of its buffer. Do not let
   // the archive writer silently hash bytes it never actually wrote.
-  const preload = `import { open } from 'node:fs/promises';
-    const handle = await open(${JSON.stringify(join(input, "a"))}, 'r');
-    const prototype = Object.getPrototypeOf(handle), write = prototype.write;
-    prototype.write = function(bytes) { return write.call(this, bytes.subarray(0, Math.ceil(bytes.length / 2))); };
-    await handle.close();`;
+  const preload = `import fs from 'node:fs';
+    const write = fs.writeSync;
+    let shortWrites = 0;
+    fs.writeSync = (fd, bytes, offset, length, position) => {
+      shortWrites++;
+      return write(fd, bytes, offset, Math.ceil(length / 2), position);
+    };
+    process.on('exit', () => { if (!shortWrites) throw Error('short-write injection was unused'); });`;
   const first = execFileSync(process.execPath, [script, output, input, "/usr/src/fixture"], { encoding: "utf8" });
   const expected = await readFile(output);
   const expectedHash = createHash("sha256").update(expected).digest("hex");

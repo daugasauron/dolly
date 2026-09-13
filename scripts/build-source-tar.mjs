@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
-import { lstat, mkdir, mkdtemp, open, readdir, rename, rm } from "node:fs/promises";
+import { closeSync, createReadStream, createWriteStream, lstatSync, openSync, readSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
@@ -39,8 +39,8 @@ function validArchivePath(value) {
     !value.split("/").some((part) => part === "." || part === "..");
 }
 
-async function collect(input, destination) {
-  const metadata = await lstat(input);
+function collect(input, destination) {
+  const metadata = lstatSync(input);
   if (metadata.isFile()) {
     if (excludeSuffixes.some((suffix) => destination.endsWith(suffix))) {
       excludedFiles++;
@@ -51,13 +51,13 @@ async function collect(input, destination) {
     return;
   }
   if (!metadata.isDirectory()) throw new Error(`unsupported source input ${input}`);
-  const entries = await readdir(input, { withFileTypes: true });
+  const entries = readdirSync(input, { withFileTypes: true });
   entries.sort((left, right) => left.name.localeCompare(right.name, "en"));
   for (const entry of entries) {
     if (!entry.isFile() && !entry.isDirectory()) {
       throw new Error(`source archives reject non-file input ${join(input, entry.name)}`);
     }
-    await collect(join(input, entry.name), `${destination}/${entry.name}`);
+    collect(join(input, entry.name), `${destination}/${entry.name}`);
   }
 }
 
@@ -67,7 +67,7 @@ for (let index = 0; index < mappingArguments.length; index += 2) {
   if (!validArchivePath(destination)) {
     throw new Error(`unsafe archive destination ${JSON.stringify(destination)}`);
   }
-  await collect(input, destination);
+  collect(input, destination);
 }
 
 records.sort((left, right) => left.path.localeCompare(right.path, "en"));
@@ -128,39 +128,39 @@ let temporary = join(staging, "archive.tar");
 let file = null;
 let digest = createHash("sha256");
 let total = 0;
-async function emit(bytes) {
-  await file.writeFile(bytes);
+function emit(bytes) {
+  writeFileSync(file, bytes);
   digest.update(bytes);
   total += bytes.length;
 }
 
 try {
-  file = await open(temporary, "wx");
+  file = openSync(temporary, "wx");
+  const buffer = Buffer.alloc(64 * 1024);
   for (const record of records) {
-    await emit(headerFor(record));
-    const source = await open(record.input, "r");
+    emit(headerFor(record));
+    const source = openSync(record.input, "r");
     try {
-      const buffer = Buffer.alloc(64 * 1024);
       let position = 0;
       while (position < record.size) {
-        const { bytesRead } = await source.read(
-          buffer,
+        const bytesRead = readSync(
+          source, buffer,
           0,
           Math.min(buffer.length, record.size - position),
           position,
         );
         if (bytesRead === 0) throw new Error(`short read from ${record.input}`);
-        await emit(buffer.subarray(0, bytesRead));
+        emit(buffer.subarray(0, bytesRead));
         position += bytesRead;
       }
     } finally {
-      await source.close();
+      closeSync(source);
     }
     const padding = (512 - (record.size % 512)) % 512;
-    if (padding !== 0) await emit(Buffer.alloc(padding));
+    if (padding !== 0) emit(Buffer.alloc(padding));
   }
-  await emit(Buffer.alloc(1024));
-  await file.close();
+  emit(Buffer.alloc(1024));
+  closeSync(file);
   file = null;
   if (output.endsWith(".tar.gz")) {
     const compressed = join(staging, "archive.tar.gz");
@@ -177,7 +177,7 @@ try {
   }
   await rename(temporary, output);
 } finally {
-  if (file !== null) await file.close().catch(() => {});
+  if (file !== null) { try { closeSync(file); } catch {} }
   await rm(staging, { recursive: true, force: true });
 }
 

@@ -1,7 +1,7 @@
 # Prepare only changed inputs for a selected image build
 
 - STATUS: OPEN
-- PRIORITY: 75
+- PRIORITY: 25
 - TAGS: audit,build
 
 ## Evidence
@@ -95,3 +95,24 @@ The full default/Pi commands are now measured too: 5.10 s / 5.17 s with all imag
 artifacts reused and exact source validation retained. Source preparation is
 3.2 s / 2.6 s. Issue 25 made Rust compiler bootstrapping explicit, so an absent
 raw compiler build tree no longer forces that expensive operation before reuse.
+
+## Archive writer measurement
+
+A Studio skill edit rebuilt only the 9.4 s Studio leaf, but its broad first source
+preparation took 27.2 s. Per-command profiling identified CMake's 30,267-file
+archive as the largest warm writer (3.81 s in that profile); Neovim was 1.14 s.
+
+The standalone archive writer now uses serial file I/O and one reusable 64 KiB
+buffer, avoiding a promise and new buffer for each small file/header/padding
+operation. Gzip still streams and publication remains atomic. No cache is added.
+Interleaved repeated runs of the same CMake mapping produced the exact existing
+13,227,684-byte archive in **1.138/1.139 s**, versus **2.133/2.092 s** before.
+The official unchanged Studio command, interleaved in the same way, took
+**7.857/7.858 s**, versus **10.617/10.299 s** before. All artifacts were reused.
+
+All 123 staged source hashes remained identical. Existing tar/gzip regressions
+still extract with native tar and exercise short writes, rejected symlinks and
+failed staging. The short-write injection now proves it was actually reached.
+All 286 source checks and 28 applicable artifact checks pass. Remaining caching
+is lower priority; selected archives are still reconstructed and this issue does
+not claim unchanged-input caching is complete.
