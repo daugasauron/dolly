@@ -743,6 +743,7 @@ function handleKeyboardEvent(event) {
     (event.code === "Insert" && event.shiftKey && !event.ctrlKey && !event.metaKey));
   if (graphicsPaste || (clipboardChord && event.code === "KeyV")) {
     // Let the browser deliver clipboard bytes through a user-initiated PasteEvent.
+    if (graphicsPaste && event.type === "keydown") keyboard.focus({ preventScroll: true });
     return;
   }
   if (clipboardChord && event.code === "KeyC") {
