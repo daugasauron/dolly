@@ -1,5 +1,9 @@
+import { inspectDollyfile } from "./dollyfile-view.mjs";
+import { imageInputs } from "./image-inputs.mjs";
+
 export const DOLLY_SESSION_FORMAT_VERSION = 2;
 export const DOLLY_SESSION_MAX_BYTES = 512 * 1024 * 1024;
+export const DOLLY_SESSION_METADATA_MAX_BYTES = 1024 * 1024;
 
 const databaseName = "dolly-sessions-v1";
 const storeName = "sessions";
@@ -13,6 +17,34 @@ export function sessionImageIdentity(definitions, selectedImage) {
   const definition = definitions.find(({ image }) => image === selectedImage);
   if (!definition) throw new Error("Dolly session names an unknown image");
   return `${definition.image}:${definition.sha256}`;
+}
+
+export function customSessionIdentity(custom) {
+  const artifact = custom?.artifact;
+  if (!artifact || typeof artifact.buildId !== "string" || !artifact.buildId.length || artifact.buildId.length > 128 ||
+      typeof artifact.recipeSha256 !== "string" || typeof artifact.sha256 !== "string" ||
+      !/^[0-9a-f]{64}$/.test(artifact.recipeSha256) || !/^[0-9a-f]{64}$/.test(artifact.sha256) ||
+      !Number.isSafeInteger(artifact.byteLength) || artifact.byteLength <= 0 ||
+      artifact.byteLength > DOLLY_SESSION_MAX_BYTES ||
+      !Array.isArray(custom.policies) || custom.policies.length === 0 || custom.policies.length > 16 ||
+      new TextEncoder().encode(JSON.stringify(custom.policies)).byteLength > 65536 ||
+      inspectDollyfile(custom.source).kind !== "image") {
+    throw new TypeError("invalid custom session base");
+  }
+  imageInputs(artifact.inputs);
+  return `custom:${artifact.recipeSha256}:${artifact.sha256}`;
+}
+
+export function sessionCompatible(record, definitions, buildId, imageBuildId) {
+  if (record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION || record.buildId !== buildId) return false;
+  if (record.image === "custom") {
+    try {
+      return record.imageIdentity === customSessionIdentity(record.customImage) &&
+        record.customImage.artifact.buildId === imageBuildId;
+    } catch { return false; }
+  }
+  return record.customImage === undefined && definitions.some(({ image }) => image === record.image) &&
+    record.imageIdentity === sessionImageIdentity(definitions, record.image);
 }
 
 export function sessionLoadUrl(name, applicationBase) {
@@ -141,14 +173,17 @@ export function validateSessionRecord(record) {
   if (record === null || typeof record !== "object" ||
       !validSessionName(record.name) ||
       record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION ||
-      typeof record.buildId !== "string" || typeof record.image !== "string" ||
-      typeof record.imageIdentity !== "string" ||
+      typeof record.buildId !== "string" || record.buildId.length > 128 ||
+      typeof record.image !== "string" || !/^[a-z][a-z0-9-]{0,31}$/.test(record.image) ||
+      typeof record.imageIdentity !== "string" || record.imageIdentity.length > 256 ||
       !Number.isSafeInteger(record.updatedAt) ||
       !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||
       record.bytes.byteLength > DOLLY_SESSION_MAX_BYTES ||
       !["gzip", "identity"].includes(record.encoding)) {
     throw new TypeError("invalid Dolly session record");
   }
+  if (record.image === "custom" ? record.imageIdentity !== customSessionIdentity(record.customImage)
+    : record.customImage !== undefined) throw new TypeError("invalid custom session identity");
 }
 
 export async function saveStoredSession(record, { overwrite = true } = {}) {

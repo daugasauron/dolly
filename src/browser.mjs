@@ -2,6 +2,7 @@ import { prepareImageArtifacts } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
 import { mountImageBuild } from "./image-build-ui.mjs";
 import { loadCustomImage } from "./custom-image.mjs";
+import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./http-policy.mjs";
 import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "./http-broker.mjs";
 import { localServicesTransport } from "./local-services.mjs";
@@ -15,6 +16,8 @@ import {
   loadStoredSession,
   saveStoredSession,
   sessionImageIdentity,
+  customSessionIdentity,
+  sessionCompatible,
   sessionLoadUrl,
   validSessionName,
 } from "./session-store.mjs";
@@ -57,6 +60,7 @@ const maximumDownloadBytes = 64 * 1024 * 1024;
 let downloadCount = 0;
 let activeImage = null;
 let activeImageIdentity = null;
+let activeCustomImage;
 let currentSessionName = null;
 let sessionSavePromise = null;
 let sessionSaveController = null;
@@ -628,10 +632,8 @@ async function saveCurrentSession(requestedName) {
     if (!runtimeReady || !sessionTransport || !activeImage) {
       throw new Error("Dolly is not ready to save a session");
     }
-    if (!activeImageIdentity) {
-      throw new Error("Uploaded custom images cannot save named sessions yet");
-    }
-    if (builtSystemSnapshot !== null && !rebuiltSessionBaseVerified) {
+    if (activeCustomImage) await loadCustomImage(activeCustomImage.source, activeCustomImage.artifact);
+    if (!activeCustomImage && builtSystemSnapshot !== null && !rebuiltSessionBaseVerified) {
       const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
         `../dist/dolly-${activeImage}-system-snapshot.mjs`);
       const digest = await crypto.subtle.digest("SHA-256", builtSystemSnapshot);
@@ -669,6 +671,7 @@ async function saveCurrentSession(requestedName) {
       buildId: DOLLY_BUILD_ID,
       image: activeImage,
       imageIdentity: activeImageIdentity,
+      ...(activeCustomImage ? { customImage: activeCustomImage } : {}),
       updatedAt: Date.now(),
       encoding: encoded.encoding,
       bytes: encoded.bytes,
@@ -975,11 +978,7 @@ async function boot() {
       if (restoredSession.formatVersion !== DOLLY_SESSION_FORMAT_VERSION) throw new Error("This save uses an unsupported recovery format");
       if (!packagedImages.has("system")) throw new Error("File recovery needs the system image in this distribution");
       image = "system";
-    } else if (restoredSession.formatVersion !== DOLLY_SESSION_FORMAT_VERSION ||
-        restoredSession.buildId !== DOLLY_BUILD_ID ||
-        !packagedImages.has(restoredSession.image) ||
-        restoredSession.imageIdentity !==
-          sessionImageIdentity(DOLLY_IMAGES, restoredSession.image)) {
+    } else if (!sessionCompatible(restoredSession, DOLLY_IMAGES, DOLLY_BUILD_ID, DOLLY_IMAGE_BUILD_ID)) {
       throw new Error("This save belongs to an older runtime or image recipe. It has not been deleted or overwritten. Open /session to see saved sessions.");
     }
     if (!recovering) { image = restoredSession.image; currentSessionName = name; }
@@ -999,7 +998,8 @@ async function boot() {
     applicationBase,
   );
   if (image === "custom" && bootMode === "snapshot") {
-    httpPolicy = restrictDollyHttpPolicy(httpPolicy, JSON.parse(sessionStorage.getItem("dolly-custom-policy")),
+    httpPolicy = restrictDollyHttpPolicy(httpPolicy, restoredSession?.customImage.policies ??
+      JSON.parse(sessionStorage.getItem("dolly-custom-policy")),
       trustedBootstrapSources, applicationBase);
   }
   const localModel = mountLocalModel();
@@ -1007,13 +1007,14 @@ async function boot() {
   const imageBuild = mountImageBuild(buildNetwork, httpPolicyConfigurations(httpPolicy));
   const applicationNetwork = localServicesTransport(httpPolicy, { model: localModel, build: imageBuild });
   const customSource = image === "custom"
-    ? sessionStorage.getItem("dolly-custom-source")
+    ? restoredSession?.customImage.source ?? sessionStorage.getItem("dolly-custom-source")
     : undefined;
   if (image === "custom" && !customSource) {
     throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
   }
   const customArtifact = image === "custom" && bootMode === "snapshot"
-    ? await loadCustomImage(customSource, JSON.parse(sessionStorage.getItem("dolly-custom-artifact"))) : undefined;
+    ? await loadCustomImage(customSource, restoredSession?.customImage.artifact ??
+      JSON.parse(sessionStorage.getItem("dolly-custom-artifact"))) : undefined;
   appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${restoredSession
     ? `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${restoredSession.name}`
     : bootMode === "rebuild"
@@ -1167,16 +1168,18 @@ async function boot() {
     ready.sessionTransferCapacity,
     transport,
   );
-  activeImage = ready.image;
+  activeImage = ready.routeImage === "custom" ? "custom" : ready.image;
   uploadTransport = new UploadTransport(ready.memory, ready.uploadAddress, chooseUploadFile);
   uploadTimer = setInterval(() => { void uploadTransport.poll(); }, 50);
-  // Uploaded recipes exist only in this tab and have no source-visible,
-  // restorable image identity. They can run normally, but named-session save
-  // remains unavailable until custom recipes gain an explicit persistence
-  // contract.
-  activeImageIdentity = ready.routeImage === "custom"
-    ? null
-    : sessionImageIdentity(DOLLY_IMAGES, ready.image);
+  if (activeImage === "custom") {
+    const artifact = customArtifact ?? await describeImageArtifact(builtSystemSnapshot,
+      await sha256(encoder.encode(customSource)), builtSystemInputs);
+    const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = artifact;
+    activeCustomImage = { source: customSource,
+      artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs },
+      policies: httpPolicyConfigurations(httpPolicy) };
+    activeImageIdentity = customSessionIdentity(activeCustomImage);
+  } else activeImageIdentity = sessionImageIdentity(DOLLY_IMAGES, activeImage);
   if (recovering) {
     document.documentElement.dataset.sessionStatus = "recovered";
     showSessionStatus(`Recovered files in /workspace/recovered-${restoredSession.name}. Ctrl+Shift+S saves this as a new session.`, true);

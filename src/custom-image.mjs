@@ -8,7 +8,7 @@ export async function loadCustomImage(source, descriptor) {
     throw new Error("Completed custom image does not match this Dollyfile/runtime. Rebuild it.");
   }
   const artifact = await loadImageArtifact(descriptor);
-  if (!artifact) throw new Error("Completed custom image is missing or changed in the browser cache. Rebuild it.");
+  if (!artifact) throw new Error("Completed custom image is missing or changed in the browser cache. Rebuild the exact image, or open /session to recover saved files. Saved sessions have not been changed.");
   return artifact;
 }
 

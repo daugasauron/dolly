@@ -69,12 +69,24 @@ Recovery leaves the original save unchanged and refuses an existing destination.
 Ctrl+Shift+S asks for a new save name. Only format-2 filesystem deltas are
 supported, and the distribution must include the `system` image.
 
-Named saves require a source-visible image with a matching prebuilt snapshot.
-On a rebuild route, the first save verifies that the entire rebuilt base is
-byte-identical to that snapshot before capturing a delta. A different base fails
-visibly without writing a saved record. Uploaded custom recipes remain tab-local.
+For packaged images on a rebuild route, the first save verifies that the entire rebuilt base is
+byte-identical to its prebuilt snapshot before capturing a delta. A different base fails
+visibly without writing a saved record.
 The `session-rebuild` browser regression compares the bases, rejects a changed
 base, then saves on `/IMAGE/rebuild` and restores through `/session/NAME`.
+
+Custom image saves include the exact Dollyfile, completed image digest and
+inherited HTTP restrictions. They reopen after closing the build/result tab and
+preserve these fields through export/import. Restoring intersects the saved
+restrictions with the current browser policy; a save cannot grant broader access.
+The completed image must still exist in this browser's image cache: it is not
+duplicated into every save or export. Rebuilding another version or clearing the
+cache can remove that base. A missing or changed base fails without modifying
+the checkpoint; rebuild the exact image or use **Recover files**. Importing the
+session file into another browser alone does not install its custom image.
+`npm run test:custom-sessions` exercises builds, save/reopen, export/import, policy
+intersection and missing-base recovery in Chrome and Firefox using existing
+runtime/system artifacts. Append `-- firefox` to select one browser.
 
 Session persistence adds no Wasm import or path-level browser filesystem API.
 The review surface is `src/session-snapshot.c`, the shared path restoration in

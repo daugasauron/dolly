@@ -124,6 +124,8 @@ export async function startBrowserServer(projectDir, image = "default") {
     files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }
   files.set(`/${image}`, `build/routes/${image}/index.html`);
+  files.set("/custom", "build/routes/custom/index.html");
+  files.set("/custom/rebuild", "build/routes/custom/rebuild/index.html");
   files.set("/custom/run", "build/routes/custom/run/index.html");
   files.set("/session", "build/routes/session/index.html");
   const requests = new Set();

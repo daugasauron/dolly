@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { exportSessionFile, importSessionFile } from "../src/session-file.mjs";
-import { DOLLY_SESSION_MAX_BYTES, encodeSessionSnapshot, decodeSessionSnapshot } from "../src/session-store.mjs";
+import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES,
+  customSessionIdentity, sessionCompatible, encodeSessionSnapshot, decodeSessionSnapshot } from "../src/session-store.mjs";
+import { createHash } from "node:crypto";
 
 const bytes = new TextEncoder().encode("DOLLYSES-opaque-\uFEFF日本語-credential").buffer;
 const record = { name: "work.1", formatVersion: 2, buildId: "fixture-build",
@@ -36,7 +38,7 @@ test("reject corrupt, truncated, oversized and unsupported session envelopes", a
   corrupted[0] = 0;
   await assert.rejects(importSessionFile(new Blob([corrupted])), /supported/);
   const huge = new Blob();
-  Object.defineProperty(huge, "size", { value: DOLLY_SESSION_MAX_BYTES + 9000 });
+  Object.defineProperty(huge, "size", { value: DOLLY_SESSION_MAX_BYTES + DOLLY_SESSION_METADATA_MAX_BYTES + 13 });
   huge.slice = () => { throw Error("must reject size before reading"); };
   await assert.rejects(importSessionFile(huge), /file size/);
   for (const mutate of [
@@ -47,6 +49,32 @@ test("reject corrupt, truncated, oversized and unsupported session envelopes", a
   ]) await assert.rejects(importSessionFile(await edit(file, mutate)));
   await assert.rejects(importSessionFile(await exportSessionFile({ ...record, encoding: "gzip" })));
   await assert.rejects(importSessionFile(await exportSessionFile({ ...record, bytes: new ArrayBuffer(1) })), /incomplete/);
+});
+
+test("custom session files retain the exact recipe, artifact and inherited restrictions", async () => {
+  const source = `DOLLY 3\nIMAGE custom-proof\nFILE /usr/share/note\n    ${"note".repeat(2500)}\nENTRY /bin/slop\n`;
+  const customImage = { source, artifact: { buildId: "image-build",
+    recipeSha256: createHash("sha256").update(source).digest("hex"), sha256: "a".repeat(64),
+    byteLength: 1234, inputs: [{ recipeSha256: "b".repeat(64), sha256: "c".repeat(64) }] },
+    policies: [{ rules: [], maxRequests: 3 }, null] };
+  const saved = { ...record, image: "custom", imageIdentity: customSessionIdentity(customImage), customImage };
+  const imported = await importSessionFile(await exportSessionFile(saved));
+  assert.deepEqual(imported, saved);
+  assert.equal(sessionCompatible(imported, [], record.buildId, "image-build"), true);
+  assert.equal(sessionCompatible(imported, [], "another-runtime", "image-build"), false);
+  assert.equal(sessionCompatible(imported, [], record.buildId, "another-image-build"), false);
+  for (const mutate of [
+    meta => { delete meta.customImage; },
+    meta => { meta.image = "default"; },
+    meta => { meta.imageIdentity += "changed"; },
+    meta => { meta.customImage.source = "DOLLY 2"; },
+    meta => { meta.customImage.artifact.sha256 = "invalid"; },
+    meta => { meta.customImage.artifact.sha256 = ["a".repeat(64)]; },
+    meta => { meta.customImage.artifact.byteLength = DOLLY_SESSION_MAX_BYTES + 1; },
+    meta => { meta.customImage.artifact.inputs[0].sha256 = "invalid"; },
+    meta => { meta.customImage.policies = []; },
+    meta => { meta.customImage.policies = ["x".repeat(65536)]; },
+  ]) await assert.rejects(importSessionFile(await edit(await exportSessionFile(saved), mutate)));
 });
 
 test("incompatible build IDs remain exportable without interpreting filesystem records", async () => {

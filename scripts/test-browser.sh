@@ -32,8 +32,7 @@ DOLLY_BROWSER_MODE=http-defaults \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=upload \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
-DOLLY_IMAGE=default DOLLY_BROWSER_MODE=custom-dollyfile \
-  node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
+node "${project_dir}/test/custom-session-browser.mjs"
 DOLLY_IMAGE=dollyfile-studio DOLLY_BROWSER_MODE=dollyfile-studio \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=dollyfile-studio DOLLY_BROWSER_MODE=image-build \

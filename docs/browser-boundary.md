@@ -93,7 +93,7 @@ inherited browser restrictions; recipe bytes cannot set browser policy.
 | Pointer-lock handlers in `src/browser.mjs` | Capture only on a trusted canvas press; Escape/lease release undo it. Graphics button/hover forwarding grants no capture; terminal selection remains left-button only |
 | [Upload transport](../src/upload-transport.mjs), [C command](../src/upload.c) | Visible user picker, at most 64 MiB in 64 KiB chunks; bytes only, no host name/path/handle |
 | [Download contract](download.md) | Copied bounded file and checked basename, never a host path |
-| [Sessions](sessions.md), `src/session-file.mjs` | Opaque bounded deltas; exact base for restore; recovery copies only workspace/home regular files in Wasm; bounded import decompression |
+| [Sessions](sessions.md), `src/session-file.mjs` | Opaque bounded deltas; exact base for restore; custom recipe/artifact digests checked and saved HTTP restrictions intersect current policy; recovery copies only workspace/home regular files in Wasm; bounded import decompression |
 | [Kernel plugin loader](../src/kernel-plugin.mjs) | WasmFS bytes only; explicit real-kernel export map, no URL/dependency fetch or JS evaluation |
 
 The Wasm kernel owns upload destination and temporary files and refuses

@@ -1,7 +1,9 @@
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { loadImageArtifactDescriptor } from "./image-artifact.mjs";
 import {
-  DOLLY_SESSION_FORMAT_VERSION, listStoredSessions, sessionImageIdentity,
+  DOLLY_SESSION_FORMAT_VERSION, listStoredSessions, sessionCompatible,
   sessionLoadUrl, validSessionName,
   loadStoredSession, saveStoredSession, deleteStoredSession,
 } from "./session-store.mjs";
@@ -31,18 +33,21 @@ async function refresh() {
   list.replaceChildren();
   for (const record of sessions) {
     const item = document.createElement("li");
-    const compatible = record.formatVersion === DOLLY_SESSION_FORMAT_VERSION &&
-      record.buildId === DOLLY_BUILD_ID && DOLLY_IMAGES.some(({ image }) => image === record.image) &&
-      record.imageIdentity === sessionImageIdentity(DOLLY_IMAGES, record.image);
-    const recoverable = !compatible && validSessionName(record.name) &&
+    const compatible = sessionCompatible(record, DOLLY_IMAGES, DOLLY_BUILD_ID, DOLLY_IMAGE_BUILD_ID);
+    const custom = compatible ? record.customImage : undefined;
+    const cached = custom && await loadImageArtifactDescriptor(custom.artifact.recipeSha256, custom.artifact.inputs);
+    const missingBase = custom && (cached?.sha256 !== custom.artifact.sha256 || cached.byteLength !== custom.artifact.byteLength);
+    const recoverable = (!compatible || custom) && validSessionName(record.name) &&
       record.formatVersion === DOLLY_SESSION_FORMAT_VERSION && DOLLY_IMAGES.some(({ image }) => image === "system");
-    const name = document.createElement(validSessionName(record.name) && compatible ? "a" : "span");
+    const name = document.createElement(validSessionName(record.name) && compatible && !missingBase ? "a" : "span");
     name.textContent = record.name;
     if (name.tagName === "A") name.href = sessionLoadUrl(record.name, new URL("../", import.meta.url));
     const detail = document.createElement("small");
     detail.textContent = `${record.image} · ${new Date(record.updatedAt).toLocaleString()} · ` +
       `${(record.byteLength / 1024).toFixed(1)} KiB` +
-      (compatible ? "" : " · Older runtime or image; saved data retained.");
+      (missingBase ? " · Custom image missing; rebuild the exact image or recover files. Saved data retained."
+        : compatible ? custom ? " · Requires the cached custom image." : ""
+        : " · Older runtime or image; saved data retained.");
     const actions = document.createElement("div");
     for (const [label, action] of [
       ...(recoverable ? [["Recover files", () => {

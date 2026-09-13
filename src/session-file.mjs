@@ -1,16 +1,17 @@
-import { DOLLY_SESSION_MAX_BYTES, validateSessionRecord, decodeSessionSnapshot } from "./session-store.mjs";
+import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES as metadataLimit,
+  validateSessionRecord, decodeSessionSnapshot } from "./session-store.mjs";
 
 const magic = new TextEncoder().encode("DOLLYSF1");
 const headerSize = magic.length + 4;
-const metadataLimit = 8192;
 const checksum = async bytes => [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
   .map(byte => byte.toString(16).padStart(2, "0")).join("");
 
 export async function exportSessionFile(record) {
   validateSessionRecord(record);
-  const { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes } = record;
+  const { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes, customImage } = record;
   const metadata = new TextEncoder().encode(JSON.stringify({
     name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding,
+    ...(customImage === undefined ? {} : { customImage }),
     byteLength: bytes.byteLength, sha256: await checksum(bytes),
   }));
   if (metadata.byteLength > metadataLimit) throw new Error("Session metadata is too large");
@@ -34,9 +35,10 @@ export async function importSessionFile(file) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) ||
       metadata.byteLength !== file.size - headerSize - length ||
       !/^[0-9a-f]{64}$/.test(metadata.sha256)) throw new Error("Invalid session file metadata");
-  const { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding } = metadata;
+  const { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, customImage } = metadata;
   const bytes = await file.slice(headerSize + length).arrayBuffer();
-  const record = { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes };
+  const record = { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes,
+    ...(customImage === undefined ? {} : { customImage }) };
   validateSessionRecord(record);
   if (await checksum(bytes) !== metadata.sha256) throw new Error("Session file checksum failed; the file is damaged");
   const decoded = await decodeSessionSnapshot(record);
