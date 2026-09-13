@@ -1,8 +1,8 @@
 DOLLY 3
 IMAGE neovim-build
 
-# Source-build workspace; the Neovim port is still in progress.
-FROM HOST /Dollyfile-cmake-build ac4b14ceaeed9aa95bcb976ff37797141da15a5dcf10c9397dcc507afb59d6ae
+# Reusable Neovim build artifacts.
+FROM HOST /Dollyfile-cmake-build bba7a2a966822f25351bdb81ba9a9a3b2eba2eebcc79e5f2c52993bb0e351877
 USE HOST /modules/lua.dm 47d8ef115f40c2b963a821142af4647ac26ab6b310896d4e72d3ffd07bd5eee1
 USE HOST /modules/lpeg.dm 19fd6f2032d92363f9817883cac93df30d48f999a0388c264cace4940019b16b
 USE HOST /modules/luv.dm eaeb7757070a9058a93012936fc1b6ddf4397939d2bb018c2489824564c0fb17
@@ -11,4 +11,4 @@ USE HOST /modules/treesitter.dm 48b7b0cb6b913dcb986c07d2985e249c0eb6cd412019305f
 USE HOST /modules/neovim.dm a7e771275db5d655595274010a7c5ecf10aac94098789ff0f8d0a063fe2e05ee
 USE HOST /modules/neovim-parsers.dm 9669260d87ddc3cb1128123cbb66fb9e3c67b389d032942d028a997cc43c0434
 
-ENTRY /bin/foreground -i /bin/slop
+ENTRY /bin/slop

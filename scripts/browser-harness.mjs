@@ -187,7 +187,8 @@ if (piAuditMode &&
 }
 const selectedImage = process.env.DOLLY_IMAGE ?? (missingSnapshotMode ? "default" : "pi");
 const imageDefinitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir),
-  process.env.DOLLY_BUILD_IMAGES ?? (menuMode || routeSmokeMode || pagesLiveMode ? "all" : selectedImage));
+  process.env.DOLLY_BUILD_IMAGES ?? (menuMode || routeSmokeMode || pagesLiveMode ? "all"
+    : cmakeMode || sdl2Mode ? `${selectedImage},ghostty-build` : selectedImage));
 const staticSources = await inspectStaticSources(projectDir, imageDefinitions);
 if (!new Set(imageDefinitions.map((definition) => definition.image)).has(selectedImage)) {
   throw new Error("DOLLY_IMAGE must name a source-visible Dollyfile image");
@@ -196,6 +197,17 @@ const selectedDefinition = imageDefinitions.find(({ image }) => image === select
 const selectedGraph = await loadDollyfileGraph(projectDir, selectedDefinition.filename);
 const selectedModuleNames = new Set(selectedGraph.modules.map(({ name }) => name));
 const hasZig = selectedGraph.exporters.has("TOOL:zig");
+const interactiveBuildProbe = (cmakeMode || sdl2Mode) && !selectedGraph.exporters.has("ENV:DISPLAY");
+const displayDefinition = imageDefinitions.find(definition => definition.image === "ghostty-build");
+const buildProbeRecipe = interactiveBuildProbe ? `DOLLY 3
+IMAGE browser-build-probe
+FROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}
+${["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"].map(path =>
+  `COPY FROM HOST /${displayDefinition.filename} ${createHash("sha256").update(displayDefinition.source).digest("hex")} ${path} ${path}`).join("\n")}
+EXPORTS LIB display /usr/lib/libdisplay.so
+EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+ENTRY /bin/foreground -i /bin/slop
+` : null;
 const iterationRecipe = iterationMode ? `DOLLY 3
 IMAGE iteration
 FROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}
@@ -1485,7 +1497,7 @@ if (pagesLiveMode &&
   throw new Error("pages-live mode requires an HTTPS github.io DOLLY_BROWSER_PAGE");
 }
 const localOrigin = `http://${browserHostname}:${address.port}`;
-const rebuildPath = `${iterationMode ? "custom" : selectedImage}/rebuild/`;
+const rebuildPath = `${iterationMode || interactiveBuildProbe ? "custom" : selectedImage}/rebuild/`;
 const menuPage = externalPage
   ? (externalPage.endsWith("/") ? externalPage : `${externalPage}/`)
   : `${localOrigin}${browserBase}`;
@@ -1642,6 +1654,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       ${pagesLiveMode || httpDefaultsMode
         ? ""
         : `globalThis.DOLLY_HTTP_POLICY = ${JSON.stringify(fixturePolicy)};`}
+      ${interactiveBuildProbe ? `sessionStorage.setItem("dolly-custom-source", ${JSON.stringify(buildProbeRecipe)});` : ""}
       ${iterationMode ? `
         if (!sessionStorage.getItem("dolly-custom-source")) sessionStorage.setItem("dolly-custom-source", ${JSON.stringify(iterationRecipe)});
         globalThis.__artifactReads = [];
@@ -1711,7 +1724,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
     : debuggerDisconnectMode ? "about:blank" : customDollyfileMode
       ? new URL("custom/", menuPage).href : menuMode
       ? menuPage
-      : iterationMode || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
+      : iterationMode || interactiveBuildProbe || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
       : interactivePage;
   console.log(`browser: ${requestedMode ?? "core"} ${initialPage}`);
@@ -2440,7 +2453,8 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       const send = debuggerClient.send;
       assert.equal(await waitForValue(send, "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "SDL2 image boot"), "ready");
-      await enterRecoveryShell(send);
+      if (interactiveBuildProbe) await waitForTerminalText(send, /dolly:[^\n]*\$\s*$/, "SDL2 probe shell");
+      else await enterRecoveryShell(send);
       const submit = command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`);
       try {
         assert.equal(await submit(`mkdir /tmp/dolly-sdl2; curl -fsS ${localOrigin}/fixture/sdl2-probe.c -o /tmp/dolly-sdl2/probe.c; cc -O0 -I/usr/include/SDL2 /tmp/dolly-sdl2/probe.c -o /tmp/dolly-sdl2/probe -lSDL2 -lm`), 0);
@@ -2884,7 +2898,8 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       assert.equal(await waitForValue(debuggerClient.send,
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "CMake probe boot", 1200), "ready");
-      await enterRecoveryShell(debuggerClient.send);
+      if (interactiveBuildProbe) await waitForTerminalText(debuggerClient.send, /dolly:[^\n]*\$\s*$/, "CMake probe shell");
+      else await enterRecoveryShell(debuggerClient.send);
       const submit = command => evaluate(debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(command)})`);
       const run = async command => assert.equal(await submit(command), 0,

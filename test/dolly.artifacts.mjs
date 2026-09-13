@@ -343,6 +343,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["gamedev-phone", "/usr/bin/graphics-demo"],
     ["system", "/usr/bin/rg"],
     ["system-build", "/bin/slop"],
+    ["system-tools", "/usr/bin/git"],
     ["ripgrep", "/usr/bin/rg"],
     ["rust-sdk", "/opt/rust-sdk/bin/rustc"],
     ["rust-build", "/usr/bin/patti"],

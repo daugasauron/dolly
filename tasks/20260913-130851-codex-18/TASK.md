@@ -26,3 +26,21 @@ Do not simply remove these prerequisites or move compilation to the host.
   headless producers must have working build controls.
 - Verify CMake and downstream builders in the browser, then measure fanout and
   reuse without repeatedly recompiling unchanged prerequisites.
+
+## Implementation under verification
+
+`system-tools` now builds the C/C++ libraries, Git and conventional utilities
+without display/Rust packaging. `system` composes it with Ghostty, rg and fd.
+CMake, Neovim, SDL2 and the game producers inherit the headless build branch.
+The interactive leaves still compose the system and their completed artifacts.
+
+CMake builds in Chrome in 1,348 seconds and produces 225,308,820 bytes, about
+17 MB smaller than the earlier interactive base. The snapshot has no display
+plugin, DISPLAY variable, Rust compiler, Zig, rg or fd. A browser then configured,
+built, installed and reran a C/C++ CMake project. Neovim built in 256 seconds;
+Studio packaged in 9 seconds. SDL and the consumer smoke checks are pending.
+
+Graph inspection finds 21 affected images for a Ghostty or fd recipe edit,
+including the producer itself. CMake, Neovim/SDL/game producers and the Rust
+compiler branch are outside those closures. Compilation itself is not faster;
+the improvement is avoiding unrelated recompilation.

@@ -75,13 +75,14 @@ test("unreferenced module sources are admitted without staging their inputs or e
 test("images separate reusable runtimes from applications and configuration", async () => {
   const expected = {
     "ghostty-build": ["system-build"], "system-build": [],
-    system: ["system-build", "ghostty-build", "ripgrep", "fd-build"], default: ["system"], javascript: ["system"],
+    "system-tools": ["system-build"],
+    system: ["system-tools", "ghostty-build", "ripgrep", "fd-build"], default: ["system"], javascript: ["system"],
     "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
     ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
     "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build"],
     "external-source": ["system"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
-    "cmake-build": ["system"], "neovim-build": ["cmake-build"],
+    "cmake-build": ["system-tools"], "neovim-build": ["cmake-build"],
     "sdl2-build": ["cmake-build"], "rts-build": ["sdl2-build"],
     "classicube-build": ["sdl2-build"], classicube: ["pi-runtime", "classicube-build", "sdl2-build"],
     "rts-arena": ["pi-runtime", "rts-build"],
@@ -100,6 +101,10 @@ test("images separate reusable runtimes from applications and configuration", as
     if (["rust-sdk", "rust-build", "ripgrep", "fd-build", "protox-build", "codex-build"].includes(definition.image)) {
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
       assert.equal(graph.records.some(record => ["git", "ghostty", "startup-default"].includes(record.name)), false);
+    }
+    if (["system-tools", "cmake-build", "neovim-build", "sdl2-build", "classicube-build", "rts-build"].includes(definition.image)) {
+      assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
+      assert.equal(recipeRecords(graph).some(record => ["ghostty-build", "rust-sdk", "rust-build"].includes(record.name)), false);
     }
     if (definition.image === "neovim") {
       assert.deepEqual(graph.root.entry, ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
@@ -132,7 +137,7 @@ test("images separate reusable runtimes from applications and configuration", as
   const definitions = await discoverImageDefinitions(project);
   assert.deepEqual(new Set((await selectImageDefinitions(definitions, "python-pi")).map(item => item.image)),
     new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system", "ghostty-build",
-      "system-build", "rust-sdk", "rust-build", "ripgrep", "fd-build"]));
+      "system-tools", "system-build", "rust-sdk", "rust-build", "ripgrep", "fd-build"]));
   assert.deepEqual(await selectImageDefinitions(definitions, "all"), definitions);
   const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
   const selected = await selectImageDefinitions(definitions, githubImages.join(","));

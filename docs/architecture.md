@@ -60,8 +60,9 @@ compiler seed or compiling sources. [Sources](sources.md) records the exceptions
 `system-build` contains the C/C++ compiler and basic build commands. Rust producers
 use `system-build → rust-sdk → rust-build`; the last adds curl and Patti. Ghostty
 also builds from `system-build`. Neither Git nor display packaging is an input to
-the Rust producers. `system` combines the compiler base, interactive utilities,
-Ghostty and source-built rg/fd. `default` adds startup; application images add their
+the Rust producers. `system-tools` adds C/C++ libraries, Git and conventional
+utilities; CMake, Neovim and SDL build from it without display or Rust dependencies.
+`system` combines those tools, Ghostty and source-built rg/fd. `default` adds startup; application images add their
 own runtimes and configuration. `rust-tools` combines `system` with the Rust SDK
 and Patti artifacts for an interactive compiler shell. Images without DISPLAY expose build controls and
 produce cached artifacts without starting a terminal or ENTRY.

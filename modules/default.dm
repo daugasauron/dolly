@@ -1,7 +1,7 @@
 DOLLY 3
 MODULE default
 
-# Add interactive system utilities above the compiler base.
+# Shared C/C++ build and system utilities, without a display or Rust tools.
 USE HOST /modules/download.dm       74b6c1c6a911150a593758806ee5939f52f42cdb93632f68406adcecb0ca03bf
 USE HOST /modules/upload.dm         71da809b012f0228082a39240075387b23a44d8ba24a3a641b0f85a899606ea0
 USE HOST /modules/ninja.dm          84b060b2ab700c37083cd698a619630d1f25663156320a0acae3fe07053777f7
