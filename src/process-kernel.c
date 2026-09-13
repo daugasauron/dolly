@@ -689,17 +689,6 @@ static int unused_descriptor(const dolly_kernel_process *process, uint32_t minim
   return -EMFILE;
 }
 
-static int allocate_descriptor(dolly_kernel_process *process, int kernel_fd,
-                               int terminal) {
-  const int descriptor = unused_descriptor(process, 0);
-  if (descriptor >= 0) {
-    process->descriptors[descriptor] = kernel_fd;
-    process->terminal_descriptors[descriptor] = terminal != 0;
-    process->descriptor_flags[descriptor] = 0;
-  }
-  return descriptor;
-}
-
 static int allocate_pipe_descriptor(dolly_kernel_process *process,
                                     dolly_kernel_pipe *pipe,
                                     unsigned direction) {
@@ -1844,21 +1833,17 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
                                        &path, &directory);
       int flags = result == 0 ? open_flags(request.flags) : result;
       if (flags < 0) result = flags;
+      int guest_fd = result == 0 ? unused_descriptor(process, 0) : -1;
+      if (result == 0 && guest_fd < 0) result = guest_fd;
       int kernel_fd = -1;
       if (result == 0) {
         kernel_fd = openat(directory, path, flags, 0666);
         if (kernel_fd < 0) result = -errno;
       }
-      int guest_fd = -1;
-      if (result == 0) {
-        guest_fd = allocate_descriptor(process, kernel_fd, 0);
-        if (guest_fd < 0) {
-          close(kernel_fd);
-          result = guest_fd;
-        }
-      }
       free(path);
       if (result != 0) return result;
+      process->descriptors[guest_fd] = kernel_fd;
+      process->terminal_descriptors[guest_fd] = 0;
       process->descriptor_flags[guest_fd] = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
           ? DOLLY_PROCESS_FD_CLOEXEC : 0;
       dolly_process_path_open_response response = {(uint32_t)guest_fd, 0};

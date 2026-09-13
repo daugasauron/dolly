@@ -12,6 +12,7 @@ export const processSmokeSources = Object.freeze({
   "poll-check.c": "src/process/poll-check.c",
   "mmap-check.c": "src/process/mmap-check.c",
   "mmap-bounds.c": "test/fixtures/mmap-bounds.c",
+  "fd-exhaustion.c": "test/fixtures/fd-exhaustion.c",
   "cwd-check.c": "test/fixtures/cwd-check.c",
   "slop-interrupt.c": "test/fixtures/slop-interrupt.c",
   "terminal-check.c": "src/process/terminal-check.c",
@@ -77,7 +78,7 @@ export async function runProcessSmoke(submit, origin) {
       `DOLLY_PROCESS_HTTP_CHECK_URL=${origin}/fixture/http.txt ./http-check`,
       `/bin/slop -c './fs-check write ${scratch}/data && ./fs-check read ${scratch}/data'`,
       "/bin/slop -c 'export DOLLY_PROCESS_CHECK=private-memory; case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; ./process-check fresh'",
-      `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "./mmap-bounds", "./cwd-check", "./terminal-check", "cc --version",
+      `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "./mmap-bounds", "./fd-exhaustion", "./cwd-check", "./terminal-check", "cc --version",
       "./slop-interrupt /bin/slop",
       `./dso-check ${scratch}/dso-library.so`, `./dso-cpp-check ${scratch}/dso-cpp-library.so`,
     ]) await run(command);
