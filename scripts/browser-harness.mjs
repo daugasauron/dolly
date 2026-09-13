@@ -1300,8 +1300,8 @@ async function runGraphicsProof(send, phone = false) {
 
 async function enterRecoveryShell(send) {
   if (selectedImage === "rts-arena") {
-    await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Choose \\[1\\]:/, "RTS launcher")`);
-    await inputText(send, "5\n");
+    await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Type to search/, "RTS launcher")`);
+    await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
     return evaluate(send, `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "RTS shell")`);
   }
   if (JSON.stringify(selectedGraph.root.entry) === JSON.stringify(["/bin/foreground", "-i", "/bin/slop"])) {
