@@ -4,6 +4,7 @@ import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } f
 // file picker, local service or ENTRY. Used for dependencies and Studio builds.
 export async function buildImage(image, artifacts, networkPolicy, report, { customSource, signal } = {}) {
   signal?.throwIfAborted();
+  const inputs = new Map(artifacts.map(artifact => [artifact.recipeSha256, artifact]));
   const worker = new Worker(new URL("./runtime-worker.mjs", import.meta.url), {
     type: "module", name: `dolly-build-${image}`,
   });
@@ -18,6 +19,13 @@ export async function buildImage(image, artifacts, networkPolicy, report, { cust
         try {
           if (message.type === "bootstrap") report(message.text);
           else if (message.type === "bootstrap-bytes") report(decoder.decode(message.bytes, { stream: true }));
+          else if (message.type === "build-input") {
+            const artifact = inputs.get(message.recipeSha256);
+            if (!artifact || !(message.bytes instanceof ArrayBuffer) || message.bytes.byteLength !== artifact.byteLength) {
+              throw new Error("invalid returned build input");
+            }
+            artifact.bytes = message.bytes;
+          }
           else if (message.type === "system-snapshot") resolve({ bytes: message.bytes, inputs: message.inputs });
           else if (message.type === "error") reject(new Error(message.message));
           else if (message.type === "broker-ready") {
@@ -40,9 +48,10 @@ export async function buildImage(image, artifacts, networkPolicy, report, { cust
           }
         } catch (error) { reject(error); }
       });
-      // Dependency buffers can still be used by the graph resolver: copy them.
+      // The Worker returns each buffer after importing it into Wasm, so shared
+      // dependencies remain reusable without cloning gigabytes of inputs.
       worker.postMessage({ type: "configure", mode: "rebuild", image, buildOnly: true, artifacts,
-        ...(customSource === undefined ? {} : { customSource }) });
+        ...(customSource === undefined ? {} : { customSource }) }, [...new Set(artifacts.map(artifact => artifact.bytes))]);
     });
   } finally {
     signal?.removeEventListener("abort", abort);

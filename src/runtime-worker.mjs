@@ -243,9 +243,14 @@ try {
     replaceFile("/etc/dolly/upload.Dollyfile", bootConfig.customSource);
   }
   dolly.FS.mkdirTree("/etc/dolly/artifacts");
+  const releaseInput = artifact => {
+    if (bootConfig.buildOnly) self.postMessage({ type: "build-input", recipeSha256: artifact.recipeSha256,
+      bytes: artifact.bytes }, [artifact.bytes]);
+    artifact.bytes = null;
+  };
   for (const artifact of artifacts.values()) {
     replaceFile(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`, new Uint8Array(artifact.bytes));
-    if (artifact !== baseArtifact) artifact.bytes = null;
+    if (artifact !== baseArtifact) releaseInput(artifact);
   }
   const restoreMetadata = snapshotMetadata ?? baseArtifact;
   if (restoreMetadata) {
@@ -280,7 +285,7 @@ try {
       const range = checkedMemoryRange(memory, restoreAddress, baseArtifact.bytes.byteLength);
       new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(baseArtifact.bytes));
       bootstrapStatus = dolly._dolly_process_bootstrap_resume_prepare(BigInt(range.size), 1);
-      baseArtifact.bytes = null;
+      releaseInput(baseArtifact);
     } else {
       bootstrapStatus = dolly._dolly_process_bootstrap_prepare();
     }

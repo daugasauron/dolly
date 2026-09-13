@@ -1,6 +1,42 @@
 import assert from "node:assert/strict";
 
+export async function buildBufferReuse() {
+  const base = new URL("../", document.baseURI);
+  const [registry, policy, transport, builder, graph, artifactStore] = await Promise.all([
+    "dist/dolly-images.mjs", "src/http-policy.mjs", "src/local-services.mjs",
+    "src/image-builder.mjs", "src/image-build.mjs", "src/image-artifact.mjs",
+  ].map(path => import(new URL(path, base).href)));
+  const definition = registry.DOLLY_IMAGES.find(image => image.image === "system-build");
+  const source = `DOLLY 3\nIMAGE buffer-proof\nFROM HOST /${definition.dollyfile} ${definition.sha256}\nENTRY /bin/slop\n`;
+  const sources = [...registry.DOLLY_IMAGES.map(image => ({ path: `/${image.dollyfile}`, byteLength: image.byteLength })),
+    ...registry.DOLLY_STATIC_SOURCES];
+  const network = transport.localServicesTransport(policy.consumeDollyHttpPolicy({}, sources, base));
+  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, network, () => {}, { customSource });
+  const inputs = await graph.prepareImageArtifacts("custom", source, build, () => {});
+  let digest;
+  for (const text of [source, source.replace("ENTRY", "SLOP false\nENTRY"), source]) {
+    let result, failure;
+    try { result = await build("custom", inputs, text); }
+    catch (error) { failure = error.message; }
+    for (const input of inputs) {
+      if (input.bytes.byteLength !== input.byteLength || await artifactStore.sha256(input.bytes) !== input.sha256) {
+        throw new Error("Build did not return its input buffers intact");
+      }
+    }
+    if (text !== source) {
+      if (!failure?.includes("bootstrap failed")) throw new Error("Invalid recipe did not fail its build");
+    } else {
+      if (failure) throw new Error(failure);
+      const actual = await artifactStore.sha256(result.bytes);
+      if (digest && actual !== digest) throw new Error("Reusing build buffers changed output");
+      digest = actual;
+    }
+  }
+  return digest;
+}
+
 export async function runImageBuildProof({ evaluate, wait, submit, click, press, openResult, pageCount }) {
+  assert.match(await evaluate(`(${buildBufferReuse.toString()})()`), /^[0-9a-f]{64}$/);
   const quote = text => "'" + text.replaceAll("'", "'\\''") + "'";
   const waitState = state => wait("document.querySelector('#image-build')?.dataset.state", value => value === state, `build ${state}`);
   async function start(source) {
