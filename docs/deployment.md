@@ -2,8 +2,10 @@
 
 The public sites are [GitHub Pages](https://daugasauron.github.io/dolly/) and
 [daugasauron.com](https://daugasauron.com/), backed by the Cloudflare Pages
-project `dolly`. They consume the same audited `dolly-pages.tar.gz` artifact,
-not separately rebuilt images. The [handoff](audit-handoff.md) records the checkpoint.
+project `dolly`. Both use the same code, Dollyfiles and packaging pipeline.
+The domain publishes the full catalog, including Codex; GitHub Pages publishes
+a smaller selection to fit its 1 GB limit. Their sealed artifacts differ only
+by release contents, not host-specific application code.
 
 ## Export
 
@@ -20,14 +22,15 @@ Both verify sealed input, reject an existing destination and publish staging
 atomically. Neither uploads anything. Run `sha256sum --check deployment.sha256`
 inside an export to verify its uploaded bytes.
 
-The shared public catalog is [public-images.txt](../config/public-images.txt).
-It excludes Codex, retaining RTS Arena and every other user-facing image.
-Packaging defaults to this list. Selection includes all build dependencies;
-omitted Dollyfiles remain in source.
-Use the same selection when preparing, snapshotting and packaging:
+Packaging defaults to all images. For GitHub Pages only, use
+[github-pages-images.txt](../config/github-pages-images.txt), which excludes
+Codex but retains RTS Arena and every other user-facing image.
+Selection includes all build dependencies; omitted Dollyfiles remain in source.
+Use the same selection when preparing, snapshotting and packaging each artifact:
 
 ```sh
-export DOLLY_BUILD_IMAGES="$(paste -sd, config/public-images.txt)"
+export DOLLY_BUILD_IMAGES="$(paste -sd, config/github-pages-images.txt)"
+# For daugasauron.com instead: export DOLLY_BUILD_IMAGES=all
 node scripts/update-module-pins.mjs
 bash scripts/prepare-image-sources.sh
 npm run snapshot
@@ -36,12 +39,13 @@ npm run publish
 
 Large CMake, CPython, Neovim and Seven Kingdoms inputs are ordinary `.tar.gz`
 archives, verified by SOURCE and extracted by `gzip`/`tar` inside Wasm on both
-hosts. Local packages may include the full catalog with `DOLLY_BUILD_IMAGES=all`.
-GitHub's workflow checks the exported site's 1 GB limit.
+hosts. GitHub's workflow checks the exported site's 1 GB limit.
 
-GitHub's manual workflow consumes the audited artifact and uses `/dolly/`.
-The domain uses that same artifact with root navigation and Pages-specific
-delivery headers/encoding. Compare decoded immutable bytes against
+GitHub's manual workflow consumes the smaller audited artifact and uses `/dolly/`.
+The domain consumes the full artifact with root navigation and Pages-specific
+delivery headers/encoding. Export an explicit sealed release directory for each
+host; `build/releases/current` points to whichever was packaged last.
+Compare decoded immutable bytes against
 `release/files.sha256`, not compressed wire representations.
 
 ## Delivery contract

@@ -126,8 +126,9 @@ test("images separate reusable runtimes from applications and configuration", as
   assert.deepEqual(new Set((await selectImageDefinitions(definitions, "python-pi")).map(item => item.image)),
     new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system", "ghostty-build",
       "system-build", "rust-sdk", "rust-tools", "ripgrep", "fd-build"]));
-  const publicImages = (await readFile(resolve(project, "config/public-images.txt"), "utf8")).trim().split("\n");
-  const selected = await selectImageDefinitions(definitions, publicImages.join(","));
+  assert.deepEqual(await selectImageDefinitions(definitions, "all"), definitions);
+  const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
+  const selected = await selectImageDefinitions(definitions, githubImages.join(","));
   assert.deepEqual(selected.map(item => item.image), definitions
     .filter(item => !["codex", "codex-build", "protox-build"].includes(item.image)).map(item => item.image));
 });
