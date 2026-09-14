@@ -101,7 +101,7 @@ static void start_test(void){
     home_camera();say(practice_sea?"Sea trial: hulls float, ballast sinks. Use the joint keys to sail.":"Hold the joint keys to move. Can you keep it standing?");
 }
 static void drop_cargo(void){
-    if(world_view){world_drop_cargo(Clamp(orbit.target.x,-248,248),Clamp(orbit.target.z,-248,248),MATERIAL_ALLOY);world_save(embedded_context);}
+    if(world_view){world_drop_cargo(Clamp(orbit.target.x,-248,248),NAN,Clamp(orbit.target.z,-248,248),MATERIAL_ALLOY);world_save(embedded_context);}
     else if(physics.running){
         Vector3 p=physics.start;for(int i=0;i<design.count;i++)if(design.blocks[i].joint==BLOCK_MAGNET){Quaternion q;physics_pose(&physics,&design,i,&p,&q);break;}
         p.y=(physics.landscape?fmaxf(terrain_height(p.x,p.z),WATER_LEVEL):0)+.65f;physics_add_cargo(&physics,p,MATERIAL_ALLOY);
@@ -498,9 +498,9 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     else if(!strcmp(op,"spawn")){result=world_release(ctx,&design,args);if(!JS_IsException(result)){world_save(ctx);dirty=1;}}
     else if(!strcmp(op,"cargo")){
         int shared=number(ctx,args,"world",0),material=number(ctx,args,"material",MATERIAL_ALLOY);double x=real(ctx,args,"x",0),z=real(ctx,args,"z",0);
-        double y=real(ctx,args,"y",(physics.landscape?fmaxf(terrain_height(x,z),WATER_LEVEL):0)+.65f);
+        double y=real(ctx,args,"y",(shared||physics.landscape?fmaxf(terrain_height(x,z),WATER_LEVEL):0)+.65f);
         if(!isfinite(x)||!isfinite(y)||!isfinite(z)||fabs(x)>248||fabs(z)>248||y< -12||y>128||material<0||material>=MATERIAL_COUNT)result=JS_ThrowRangeError(ctx,"Cargo requires finite coordinates inside the world and a valid material");
-        else if(shared){int id=world_drop_cargo(x,z,material);world_save(ctx);result=JS_NewInt32(ctx,id);dirty=1;}
+        else if(shared){int id=world_drop_cargo(x,y,z,material);world_save(ctx);result=JS_NewInt32(ctx,id);dirty=1;}
         else if(!physics.running)result=JS_ThrowTypeError(ctx,"Reset practice before dropping cargo, or use world:true");
         else{physics_add_cargo(&physics,(Vector3){x,y,z},material);result=state(ctx);dirty=1;}
     }

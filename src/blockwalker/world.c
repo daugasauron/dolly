@@ -172,9 +172,15 @@ static Creature *spawn(const Character *design,const char *source,const char *na
     character_copy(&c->design,design);physics_attach(&c->physics,&c->design,world.physics,x,z,1);c->physics.time=world.age;
     Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);c->root_height=p.y-fmaxf(terrain_height(x,z),WATER_LEVEL);return c;
 }
-int world_drop_cargo(float x,float z,int material){
+static void set_spawn_height(Creature *c,float y){
+    float offset=y-c->physics.start.y;
+    for(int i=0;i<c->design.count;i++){
+        b3BodyId body=c->physics.parts[i].body;b3WorldTransform t=b3Body_GetTransform(body);t.p.y+=offset;b3Body_SetTransform(body,t.p,t.q);
+    }c->physics.start.y=y;
+}
+int world_drop_cargo(float x,float y,float z,int material){
     Character box={0};character_add(&box,-1,0,0,0,BLOCK_BOX,1);box.blocks[0].material=material;box.blocks[0].finish=FINISH_STRIPE;
-    Creature *cargo=spawn(&box,"function(){return ''}","Cargo",1,10,x,z);character_clear(&box);return cargo?cargo->id:0;
+    Creature *cargo=spawn(&box,"function(){return ''}","Cargo",1,10,x,z);character_clear(&box);if(cargo&&isfinite(y))set_spawn_height(cargo,y);return cargo?cargo->id:0;
 }
 JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args){
     if(!installed||!design->count)return JS_ThrowTypeError(ctx,"Build a character and install a learned controller first");
@@ -290,10 +296,11 @@ static void load_designs(JSContext *ctx,JSValueConst list,int populate){
         if(JS_IsString(code)&&JS_IsString(label)&&character_from_json(ctx,blueprint,&c)){
             JSValue anchored=JS_GetPropertyStr(ctx,item,"anchored");c.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);
             const char *source=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);int hz=get_number(ctx,item,"hz",10);float x=get_number(ctx,item,"x",0),z=get_number(ctx,item,"z",0);
+            JSValue height=JS_GetPropertyStr(ctx,item,"y");int elevated=!JS_IsUndefined(height);float y=get_number(ctx,item,"y",NAN);JS_FreeValue(ctx,height);
             Controller *probe=strlen(source)<=16384&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
-            if(probe&&isfinite(x)&&isfinite(z)){
+            if(probe&&isfinite(x)&&isfinite(z)&&(!elevated||(isfinite(y)&&y>=-12&&y<=128))){
                 x=Clamp(x,-248,248);z=Clamp(z,-248,248);remember_design(&c,source,name,hz,x,z);
-                if(populate)spawn(&c,source,name,i+1,hz,x,z);
+                if(populate){Creature *born=spawn(&c,source,name,i+1,hz,x,z);if(born&&elevated)set_spawn_height(born,y);}
             }controller_free(probe);JS_FreeCString(ctx,source);JS_FreeCString(ctx,name);
         }character_clear(&c);JS_FreeValue(ctx,item);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
     }

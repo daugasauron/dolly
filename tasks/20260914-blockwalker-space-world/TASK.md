@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 04:22 JST
+## Current checkpoint — 2026-09-15 04:49 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -27,24 +27,24 @@ Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
 Fresh images contain **30 objects/679 parts**. The latest completed live backup,
-19:19:27 UTC, has **32 survivors**, six older removals and no removals since cause
+19:46 UTC, has **35 survivors**, six older removals and no removals since cause
 diagnostics were added. Those older causes remain unknown. Read
 `build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
 for newer state; do not infer a stopped process from an old snapshot or timeout.
 
-The live Astra/xhigh Pi is testing **Cairnwing**, a larger four-foot survey lander.
-Its practice trial landed after 20 seconds with every foot touching, jets off and
-5 mm displacement from home. Verify its actual island takeoff/patrol/return before
-bundling it. Northline, Quayfin and Tidelock are now in the fresh population.
-Quayfin approaches beside Tidelock; boarding and cargo transfer remain unproven.
-The 19:24:27 UTC backup has 33 survivors, including Cairnwing ID 39 (62 parts)
-at x184,z40 on the 10 m plateau. It has run for 272 seconds with no new removals;
-its saved controller counter reports 14 cycles. Inspect actual poses/phase
-conditions before treating that counter as proof of completed landings.
-Next address [world cargo height](../20260915-043000-codex-01/TASK.md), so the loaded
-lift experiment can be reproduced in the shared world, then test real transfer.
-Preserve existing designs/cargo while adding varied larger flyers, walkers and
-working island structures with bounded randomized feedback controllers.
+Live additions awaiting independent fresh-start verification/bundling:
+**Cairnwing** ID 39 (62-part lander, x184,z40 on the 10 m plateau), **Vesper**
+ID 40 (70-part lander, x-155,z-22 on the 2 m shelf), and **Rime** ID 41
+(67-part hydraulic rover, x22,z-161). They have survived 1553, 929 and 366 seconds
+respectively. Inspect actual movement and landing poses; controller cycle counters
+alone do not prove successful flights. Northline, Quayfin and Tidelock are bundled.
+
+[World cargo height](../20260915-043000-codex-01/TASK.md) is implemented and browser
+verified: a loose crate rides Tidelock through 5.699 m travel and return, another
+travels 12.506 m on Quayfin's deck. Save/reload preserves both. The live Pi now has
+this tool and is instructed to finish its workshop experiment, then load the
+existing pier/tender. Transfer between them remains unproven. Preserve all designs
+and cargo while growing the world with varied feedback-controlled machines.
 
 ### Owned services — recheck PIDs before stopping anything
 
@@ -53,9 +53,9 @@ working island structures with bounded randomized feedback controllers.
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; allows origins 9099 and 19199 |
 | Live browser runner | 17317 | CDP `http://127.0.0.1:9231`, `build/blockwalker-water-live.mjs` |
-| Five-minute backup monitor | 137939 | `build/blockwalker-focus-monitor.mjs --watch` |
+| Five-minute backup monitor | 161788 | `build/blockwalker-cargo-monitor.mjs --watch` |
 
-The session is **`blockwalker-focus`**, with persistent browser profile
+The session is **`blockwalker-cargo`**, with persistent browser profile
 `.cache/blockwalker-browser-20260915`. Run scripts under the `build` symlink with
 `node --preserve-symlinks-main`. Logs use the matching script names under `build`.
 Current screenshots/status: `build/blockwalker-walking/latest.png`, `status.json`.
@@ -68,20 +68,24 @@ script; never print or commit it.
 The monitor mirrors selected files under
 `build/blockwalker-walking/current-state/`: the world, working blueprint, Pi
 config/events and full native session JSONL. It excludes models/auth. The native
-conversation reached **154,898,320 bytes** at 19:19 UTC; its original
-141,563,139-byte pre-migration SHA-256 prefix still matched after compaction and
-subsequent tools. Pi recognized existing Tidelock ID 38 and resumed its dock
-experiment without duplicating it. The live full-view image and real traces are
-in `build/blockwalker-walking/focus-live-world.png`.
+conversation reached **192,426,340 bytes** at 19:46 UTC. The cargo update preserved
+its exact complete SHA-256, all 35 objects and magnetic attachments. Evidence:
+`build/blockwalker-walking/cargo-updated-proof.json`, `cargo-live.png` and
+`build/blockwalker-cargo-update.log`.
 
-Latest recovery files are `focus-state.tar` (143,513,600 bytes),
-`focus-state.tar.gz` (104,211,289 bytes) and three `focus-state-XX.part` files of
-at most 48 MiB. They preserve 32 creatures at world age 15475.3333 s. Verified
-restoration retained every ID and attachments to cargo 25, 31 and 35. Evidence:
-`focus-restore-proof.json`, `focus-restored-proof.json` under the walking folder,
-and `build/blockwalker-focus-restore-resume.log`.
+Latest recovery files are `cargo-state.tar` (195,112,960 bytes),
+`cargo-state.tar.gz` (144,400,380 bytes) and three `cargo-state-XX.part` files of
+at most 48 MiB. They preserve 35 creatures at world age 17948.3833 s. The manifest
+and history hash are in `cargo-restore-proof.json` under the walking folder.
 
-For another migration, stop only the verified monitor, use
+For app-only C/JS changes, update in place after pausing Pi and backing up:
+`build/blockwalker-cargo-update.mjs` uploads the small prepared source archive,
+uses the module's cc command inside the existing Dolly filesystem, checks the
+new binary, then replaces it. Compilation took **3.24 s**, checks **5.14 s**.
+No image reload or history/credential reimport was needed. Use a new temporary
+binary/archive name on repetition. Host/runtime changes still require migration.
+
+Before an update or migration, stop only the verified monitor, use
 `build/blockwalker-magnet-pause.mjs` to pause Pi/exit to Slop, then run the current
 monitor once to capture final files. Preserve a credential-free USTAR archive,
 gzip/split as needed, and restore through the real browser file picker. The
@@ -97,7 +101,7 @@ after success. Do not truncate history or add a host filesystem bypass. See
 [streaming transfers](../20260915-030600-codex-01/TASK.md).
 
 Older `*-state.tar` archives remain in the walking folder: checkpoint,
-space-camera, water, navigation, magnet, magnet-carry, library, outposts and the
+space-camera, water, navigation, magnet, magnet-carry, library, outposts, focus and the
 compaction probe. The water recovery used a saved 28 MB conversation; an interval
 after that earlier checkpoint was lost with the old temporary browser profile
 during the desktop freeze. Do not claim that interval was recovered. Later

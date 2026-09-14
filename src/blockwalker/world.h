@@ -19,7 +19,7 @@ JSValue world_program(JSContext *ctx);
 JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args);
 JSValue world_designs(JSContext *ctx,int full);
 JSValue world_open_design(JSContext *ctx,int index,Character *design);
-int world_drop_cargo(float x,float z,int material);
+int world_drop_cargo(float x,float y,float z,int material);
 void world_step(void);
 void world_close(void);
 void world_save(JSContext *ctx);
