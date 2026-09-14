@@ -19,15 +19,15 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 05:42 JST
+## Current checkpoint — 2026-09-15 06:00 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
 Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
-Fresh images contain **35 objects/880 parts**. The latest completed live backup,
-20:37:32 UTC, has **44 survivors/1053 parts**, six older removals and no removals since cause
+Fresh images contain **42 objects/1095 parts**. The latest completed live backup,
+20:57:55 UTC, has **46 survivors/1171 parts**, six older removals and no removals since cause
 diagnostics were added. Those older causes remain unknown. Read
 `build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
 for newer state; do not infer a stopped process from an old snapshot or timeout.
@@ -51,19 +51,35 @@ shader runs both measured 32–35 FPS; later old/new terrain runs both measured
 reproduced. The live in-place update is complete; Pi's `watch_world` reports the
 new basin coordinate while its existing gantry experiment continues.
 
-[World cargo height](../20260915-043000-codex-01/TASK.md) is implemented and browser
-verified: a loose crate rides Tidelock through 5.699 m travel and return, another
-travels 12.506 m on Quayfin's deck. Save/reload preserves both. The actual Pi also
-loaded the live pier (crate 43) and, after two missed deck placements, Quayfin
-(crate 46, carried 9.36 m and still on deck at age 279 s). Transfer between them
-remains unproven. It also released **Sundial**, a 29-part telescoping two-wheel
-surveyor, ID 42 at x-46,z58; independently verify its balancing/travel before
-bundling it. Further live additions awaiting independent verification:
-**Brinehook** ID 47 (47-part salvage gantry, x151,z-5), **Marrowstep** ID 48
-(25-part diagonal walker, x-75,z35), and **Kelpglass** ID 49 (43-part boat with
-variable hull spacing, x-143,z-78), plus cargo 50. Pi is testing another larger
-shore gantry before exploring the basin. Continue with longer routes, varied
-walkers and distinctive world structures while preserving every creation/cargo.
+The latest [surveyors and salvage machines](../20260915-055500-codex-01/TASK.md)
+add five unchanged Pi designs and two loads, retaining the first 35 placements.
+Sundial balances while telescoping; Marrowstep walks both directions; Kelpglass
+completes its route with adjustable hull spacing. Brinehook and Shoalhook lift,
+carry and release independent cargo onto their receiving trays. The 90-second
+fresh replay, saved-world reopen and native integration passed. Full-screen
+views measured **34–47 FPS**, matching simulation to wall time, with the live
+Pi browser also active. Profile the population cost before another large increase;
+the shared-host figures alone do not isolate the change from earlier workloads.
+
+The live Kelpglass ID 49 remains near the western island corner on its original
+route; its widened hull conflicts with that location. The fresh catalog places
+it farther south at -163,-90, where a complete circuit was measured. The existing
+live boat was preserved. Brinehook's fresh placement is 205,0 with its own crate,
+away from Quayfin; its live original remains 151,-5. Shoalhook ID 51 recovered
+existing live crate 50 onto its tray; Pi measured 9 m horizontal recovery and
+magnet-off settling. Both cranes also passed independent fresh-start trials.
+
+[World cargo height](../20260915-043000-codex-01/TASK.md) supports explicit new-box
+placement on lifts/boats. Transfer between Quayfin and Tidelock remains unproven.
+Their live cargo and all older creations remain intact.
+
+**Obsidian Kite — basin survey circuit**, ID 52, is the latest unbundled creation:
+49 parts, start x46,z48. At age 473 s its controller recorded six completed
+circuits/landings; independently verify the actual poses and fresh behavior.
+Its 12×18 m route and 14 m cruise height explore the basin. Pi is working on a
+broader four-legged walker, Amberback. Continue larger routes, varied structures
+and performance work while preserving the complete live world/history. No live
+migration or C update was needed for this catalog-only checkpoint.
 
 ### Owned services — recheck PIDs before stopping anything
 
