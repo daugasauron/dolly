@@ -25,7 +25,10 @@ and its index link. The page and media are committed under
 DOLLY_BUILD_IMAGES=all bash scripts/package-pages.sh build/dolly-domain.tar.gz build/domain-releases daugasauron.com
 ```
 
-Omit that argument for GitHub Pages. It receives no showcase page, link or media.
+Use `github-pages` as the third argument for GitHub Pages. It receives no
+showcase page, link or media. Pi Local and Dollyfile Studio remain in its menu,
+with links and bookmark redirects to daugasauron.com: their bundled model
+exceeds GitHub Pages' site size limit. Fluid runs directly on both sites.
 
 The static exporter uses the supplied prefix; the Pages exporter uses `/`.
 Both verify sealed input, reject an existing destination and publish staging
@@ -34,7 +37,7 @@ inside an export to verify its uploaded bytes.
 
 Packaging defaults to all images. For GitHub Pages only, use
 [github-pages-images.txt](../config/github-pages-images.txt), which excludes
-Codex but retains RTS Arena and every other user-facing image.
+Codex and the two images hosted on the domain but retains RTS Arena and fluid.
 Selection includes all build dependencies; omitted Dollyfiles remain in source.
 Use the same selection when preparing, snapshotting and packaging each artifact:
 
@@ -44,7 +47,7 @@ export DOLLY_BUILD_IMAGES="$(paste -sd, config/github-pages-images.txt)"
 node scripts/update-module-pins.mjs
 bash scripts/prepare-image-sources.sh
 npm run snapshot
-npm run publish
+bash scripts/package-pages.sh build/dolly-pages.tar.gz build/github-releases github-pages
 ```
 
 Large CMake, CPython, Neovim and Seven Kingdoms inputs are ordinary `.tar.gz`

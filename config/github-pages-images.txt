@@ -1,14 +1,13 @@
 default
 bhop
 classicube
-dollyfile-studio
 external-source
 gamedev
 gamedev-phone
+gpu-fluid
 javascript
 neovim
 pi
-pi-local
 python
 python-pi
 rts-arena
