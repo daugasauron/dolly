@@ -1,6 +1,6 @@
 # Add powered magnets for cranes and cargo
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: game,physics,agent
 
@@ -51,5 +51,15 @@ conversation. The recovery archive is `build/blockwalker-walking/magnet-state.ta
 The earlier second tripod fell naturally at age 6667.4 s before this migration;
 its design remains in previous recovery archives. The newer boat, 28-part crane
 and 72-part bridge were preserved. Submitted the magnet crane experiment to
-Astra/xhigh. Keep this issue open until that real agent pickup/carry experiment
-is verified.
+Astra/xhigh. The real agent pickup/carry experiment is verified below.
+
+At 01:44 JST, the actual Astra/xhigh Pi built an 18-part anchored crane, placed
+an alloy crate and exercised it through direct keyboard tools with timed GPU
+frames. Parsed tool results verify: cargo lifted to y=2.1343 m, remained attached
+while slewing at y=2.2003 m/load=16.6313 N, then released onto the floor at
+y=0.4850 m, 2.7178 m horizontally from pickup. Captured evidence, blueprint,
+controller and measured trial states: `build/blockwalker-walking/magnet-proof.json`.
+Pi then installed a 60 Hz feedback controller that gates pickup, lift, slew,
+lowering and release on attachment, load and joint sensors; its autonomous
+shuttle experiment continues in the live world session. This completes the
+magnet task; ongoing population work remains in the larger-world task.
