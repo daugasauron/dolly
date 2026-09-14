@@ -105,6 +105,8 @@ anchor and materials. Releasing identical copies keeps one library entry; a
 fallen creature remains available to reopen. Existing world saves populate the
 library on first load. Library data lives in `blockwalker-world.json` alongside
 the population, so exporting the world also preserves its designs.
+The initial layout can place several copies of one design. Each has its own
+world identity, physics and controller state while sharing one library entry.
 
 A fresh image includes examples learned by the actual Astra/xhigh Pi: walking
 and wheeled creatures, feedback flyers, a catamaran, cranes and the opening

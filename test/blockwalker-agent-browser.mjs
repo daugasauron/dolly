@@ -32,11 +32,23 @@ try {
   }
   await shot('fresh-harbor');const fresh=samples.at(-1);
   assert.equal(fresh.creatures.length,examples.length);assert.equal(fresh.deaths,0);
+  assert.equal(fresh.creatures.filter(c=>c.name==='Cargo').length,2);assert.equal(fresh.designs.filter(d=>d.name==='Cargo').length,1,'separate cargo placements share one reusable design');
   assert.ok(fresh.creatures.filter(c=>c.distance>1).length>=5,'bundled controllers move several creations without Pi');
   assert.ok(fresh.creatures.some(c=>!c.anchored&&c.y>4&&c.up>.95),'bundled feedback flyer takes off');
   assert.ok(fresh.creatures.some(c=>c.startX===125&&c.y>-2&&c.up>.8&&c.distance>1),'bundled boat floats and travels');
-  assert.ok(samples.some(w=>w.creatures.some(c=>c.magnets.some(m=>m?.attached)&&w.creatures.some(b=>b.name==='Cargo'&&b.y>1.5))),'bundled crane picks up and lifts the loose cargo');
+  const carriers=fresh.creatures.filter(c=>c.blueprint.some(p=>p.joint===5)),held=new Set();assert.equal(carriers.length,2);
+  for(const carrier of carriers){
+   assert.ok(samples.some(w=>w.creatures.find(c=>c.id===carrier.id).magnets.some(m=>{const cargo=m?.attached&&w.creatures.find(c=>c.id===m.creature);if(cargo?.y>1.2){held.add(cargo.id);return true;}return false;})),'each programmed cargo machine lifts its own crate');
+  }
+  assert.equal(held.size,2,'the two machines handle distinct world bodies');
+  assert.ok(fresh.creatures.some(c=>c.parts>=40&&!c.anchored&&c.blueprint.every(p=>p.joint!==3&&p.joint!==4)&&c.distance>2&&c.up>.95),'the larger legged machine advances without wheels or jets');
+  assert.ok(fresh.creatures.some(c=>c.parts>=30&&c.startX>100&&!c.anchored&&c.y>-2&&c.y<0&&c.distance>2&&c.up>.9),'the larger boat floats and moves');
+  assert.equal(await page.evaluate(()=>__dolly.httpRequestCount),0,'the programmed population runs without network or model requests');
   await page.keyboard.press('Escape');await page.keyboard.press('Escape');await shell();
+  const freshRestart=page.evaluate(()=>__dolly.submit('blockwalker'));await page.waitForFunction(()=>__dolly.gpu?.active,null,{timeout:30000});await page.waitForTimeout(500);await page.keyboard.press('Escape');assert.equal(await freshRestart,0);
+  const reopened=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));
+  assert.deepEqual(reopened.creatures.map(c=>[c.id,c.name]),fresh.creatures.map(c=>[c.id,c.name]),'reopening retains all world identities without duplicating initial placements');
+  assert.equal(reopened.designs.filter(d=>d.name==='Cargo').length,1);
   assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.json')),0);
   assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --integration-check')),0);
   const result=JSON.parse(await readFile(await download('blockwalker-integration.json'),'utf8'));

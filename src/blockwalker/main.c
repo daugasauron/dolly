@@ -294,7 +294,8 @@ static void draw_ui(void){
     DrawLine(0,79,1280,79,line);DrawLine(241,80,241,674,line);DrawLine(998,80,998,674,line);DrawLine(0,674,1280,674,line);
     label(24,15,"BLOCKWALKER",28,ink);button(24,51,194,22,"Design library",library_open);
     char text[120];int joints=0;for(int i=0;i<design.count;i++)joints+=design.blocks[i].joint!=0;
-    snprintf(text,sizeof(text),"%d PARTS / %d JOINTS",design.count,joints);label(472,32,text,15,muted);
+    if(world_view){int parts=0;for(int i=0;i<world.count;i++)parts+=world.creatures[i].design.count;snprintf(text,sizeof(text),"%d OBJECTS / %d PARTS",world.count,parts);}
+    else snprintf(text,sizeof(text),"%d PARTS / %d JOINTS",design.count,joints);label(472,32,text,15,muted);
     if(!world_view)button(472,54,208,20,practice_sea?"Test surface: water":"Test surface: ground",practice_sea);
     button(352,22,104,36,world_view?"Workshop":"World",world_view);button(712,22,80,36,"Pi [Tab]",agent_panel);
     button(1052,18,204,44,(physics.running||world_view)?"Back to builder":"Test character  >",1);

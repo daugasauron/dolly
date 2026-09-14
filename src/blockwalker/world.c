@@ -283,7 +283,7 @@ static JSValue read_json(JSContext *ctx,const char *path){
     JSValue save=JS_ParseJSON(ctx,source,n,"saved-world");free(source);if(JS_IsException(save)){JS_FreeValue(ctx,JS_GetException(ctx));return JS_UNDEFINED;}
     return save;
 }
-static void load_designs(JSContext *ctx,JSValueConst list){
+static void load_designs(JSContext *ctx,JSValueConst list,int populate){
     if(!JS_IsArray(list))return;
     for(int i=0;i<get_number(ctx,list,"length",0);i++){
         JSValue item=JS_GetPropertyUint32(ctx,list,i),blueprint=JS_GetPropertyStr(ctx,item,"blueprint"),code=JS_GetPropertyStr(ctx,item,"source"),label=JS_GetPropertyStr(ctx,item,"name");Character c={0};
@@ -291,7 +291,10 @@ static void load_designs(JSContext *ctx,JSValueConst list){
             JSValue anchored=JS_GetPropertyStr(ctx,item,"anchored");c.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);
             const char *source=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);int hz=get_number(ctx,item,"hz",10);float x=get_number(ctx,item,"x",0),z=get_number(ctx,item,"z",0);
             Controller *probe=strlen(source)<=16384&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
-            if(probe&&isfinite(x)&&isfinite(z))remember_design(&c,source,name,hz,Clamp(x,-248,248),Clamp(z,-248,248));controller_free(probe);JS_FreeCString(ctx,source);JS_FreeCString(ctx,name);
+            if(probe&&isfinite(x)&&isfinite(z)){
+                x=Clamp(x,-248,248);z=Clamp(z,-248,248);remember_design(&c,source,name,hz,x,z);
+                if(populate)spawn(&c,source,name,i+1,hz,x,z);
+            }controller_free(probe);JS_FreeCString(ctx,source);JS_FreeCString(ctx,name);
         }character_clear(&c);JS_FreeValue(ctx,item);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
     }
 }
@@ -314,12 +317,9 @@ static void load_removals(JSContext *ctx,JSValueConst list){
 void world_load(JSContext *ctx){
     int fresh=access("/workspace/blockwalker-world.json",F_OK)<0&&errno==ENOENT;
     JSValue save=read_json(ctx,"/workspace/blockwalker-world.json");
-    if(JS_IsObject(save)){JSValue designs=JS_GetPropertyStr(ctx,save,"designs");load_designs(ctx,designs);JS_FreeValue(ctx,designs);}
-    JSValue examples=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");load_designs(ctx,examples);JS_FreeValue(ctx,examples);
-    if(fresh){
-        for(int i=0;i<world.design_count;i++){SavedDesign *d=&world.designs[i];spawn(&d->design,d->source,d->name,i+1,d->hz,d->x,d->z);}
-        world_save(ctx);
-    }
+    if(JS_IsObject(save)){JSValue designs=JS_GetPropertyStr(ctx,save,"designs");load_designs(ctx,designs,0);JS_FreeValue(ctx,designs);}
+    JSValue examples=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");load_designs(ctx,examples,fresh);JS_FreeValue(ctx,examples);
+    if(fresh)world_save(ctx);
     if(!JS_IsObject(save)){JS_FreeValue(ctx,save);return;}
     if(get_number(ctx,save,"version",0)!=1){JS_FreeValue(ctx,save);return;}
     JSValue removals=JS_GetPropertyStr(ctx,save,"removals");load_removals(ctx,removals);JS_FreeValue(ctx,removals);

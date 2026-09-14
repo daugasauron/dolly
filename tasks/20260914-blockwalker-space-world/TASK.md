@@ -248,3 +248,22 @@ Next distribute the newer successful designs: fresh worlds still contain the
 previous 15 starters. Preserve one library entry per design while allowing
 multiple initial placements of the same crate. Keep the live world/history and
 continue until 2026-09-15 22:00 JST.
+
+## Larger starting population, 2026-09-15 03:25 JST
+
+Task 031100 is closed: fresh sessions now have 21 objects/403 parts and 20
+distinct library designs, including the larger trimaran, six-legged machine,
+magnetic carrier and faster quadrupeds. Repeated initial crate placements no
+longer get removed by design deduplication. Both focused browser suites and a
+six-view GPU showcase passed; all controllers ran without network/model access.
+The source data is one compact JSON record per initial placement for review.
+
+The live Pi session remains `blockwalker-outposts`; its PIDs and backup paths
+above remain current. No migration is needed for this initial-population change.
+Pi has since created Postbird, a flying magnetic courier with its own crate,
+and Westwatch, a 44-part two-axis scanning structure on the western island.
+Its tool records report an actual pickup/carry/release/reattachment cycle for
+Postbird and an approximately 85-degree sweep for Westwatch; inspect the current
+full state and measured tool results before promoting these to the starter data.
+It is working on a boat route near the island docks. Preserve these newer live
+creations and all prior designs. No browser tests remain running.
