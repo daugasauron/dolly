@@ -143,7 +143,18 @@ fn water_normal(p:vec2f)->vec3f {
             color=b.color.rgb*(.69+.31*max(0,dot(rotate(b.rotation,normal),sun)));
             var face_uv=p.yz;if(abs(normal.y)>.5){face_uv=p.xz;}else if(abs(normal.z)>.5){face_uv=p.xy;}
             if(b.flags.x==101){
-                if(b.style.x==6){
+                if(b.style.x==8){
+                    let strata=.5+.5*sin(position.y*5+noise(position.xz*.22)*5);
+                    color*=.58+.25*noise(face_uv*3)+.17*strata;
+                    let vein=abs(sin(face_uv.x*.35+face_uv.y*.11+noise(face_uv*.3)*3));
+                    color=mix(color,vec3f(.08,.29,.30),.32*(1-smoothstep(.03,.07,vein)));
+                }else if(b.style.x==9){
+                    let facet=noise(floor(face_uv*3));
+                    color*=.55+.45*facet;
+                    let band=abs(fract(face_uv.y*.9+facet*.12)-.5);
+                    color+=vec3f(.035,.16,.12)*(1-smoothstep(.42,.48,band))*(.8+.2*sin(scene.world.x*.6+b.center.x));
+                    if(band>.47){color*=.45;}
+                }else if(b.style.x==6){
                     color=b.color.rgb*(.9+.1*sin(scene.world.x*.8+position.y*.4));
                     let bars=abs(fract(face_uv.y*.8)-.5);if(bars>.42){color*=.18;}
                 }else if(b.style.x==7){

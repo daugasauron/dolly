@@ -390,6 +390,16 @@ static void landmark_check(void){
     for(int i=0;i<180;i++)physics_step(&p,&c,keys);b3Pos crossed=b3Body_GetPosition(p.parts[0].body);
     assert(crossed.z>44&&crossed.y>4.4f);
     printf("LANDMARK: floor %.3f, solid beam %.3f, passage z %.3f\n",floor.y,roof.y,crossed.z);
+    const Vector3 basin[]={{46,0,72},{34,2,75},{65,8,58},{64,9,88}};
+    for(int j=0;j<4;j++){
+        Vector3 v=basin[j];assert(fabsf(terrain_height(v.x,v.z)-v.y)<.001f);
+        b3Body_SetTransform(p.parts[0].body,(b3Pos){v.x,v.y+3,v.z},(b3Quat){{0,0,0},1});b3Body_SetLinearVelocity(p.parts[0].body,(b3Vec3){0});b3Body_SetAngularVelocity(p.parts[0].body,(b3Vec3){0});
+        for(int i=0;i<180;i++)physics_step(&p,&c,keys);assert(fabsf(b3Body_GetPosition(p.parts[0].body).y-v.y-.485f)<.01f);
+    }
+    b3Body_SetTransform(p.parts[0].body,(b3Pos){46,1,50},(b3Quat){{0,0,0},1});b3Body_SetLinearVelocity(p.parts[0].body,(b3Vec3){0,0,8});
+    for(int i=0;i<180;i++)physics_step(&p,&c,keys);b3Pos basin_entry=b3Body_GetPosition(p.parts[0].body);
+    printf("BASIN: floor, ledges, rim heights and entrance y %.3f, z %.3f\n",basin_entry.y,basin_entry.z);
+    assert(basin_entry.z>58&&basin_entry.y<1.5f);
     physics_stop(&p);character_clear(&c);
 }
 int character_check(void) {

@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 05:04 JST
+## Current checkpoint — 2026-09-15 05:42 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -27,7 +27,7 @@ Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
 Fresh images contain **35 objects/880 parts**. The latest completed live backup,
-19:59:41 UTC, has **40 survivors/937 parts**, six older removals and no removals since cause
+20:37:32 UTC, has **44 survivors/1053 parts**, six older removals and no removals since cause
 diagnostics were added. Those older causes remain unknown. Read
 `build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
 for newer state; do not infer a stopped process from an old snapshot or timeout.
@@ -42,6 +42,15 @@ Existing first 30 placements remain intact; new initial loads ride Tidelock and
 Quayfin. The live world already contains these learned machines and its own cargo,
 so it was not reset for this data-only catalog update.
 
+The new [basalt basin](../20260915-051000-codex-01/TASK.md), centered at x46,z72,
+adds 21 physical terrain boxes, ledges, open entrances and matte crystal/rock
+shaders. The Basin camera button and world-tool coordinates are verified, as are
+resting heights, passage, the complete population and browser controls. Old/new
+shader runs both measured 32–35 FPS; later old/new terrain runs both measured
+54–57 FPS. The shared setup varies, with no substantial basin-specific slowdown
+reproduced. The live in-place update is complete; Pi's `watch_world` reports the
+new basin coordinate while its existing gantry experiment continues.
+
 [World cargo height](../20260915-043000-codex-01/TASK.md) is implemented and browser
 verified: a loose crate rides Tidelock through 5.699 m travel and return, another
 travels 12.506 m on Quayfin's deck. Save/reload preserves both. The actual Pi also
@@ -49,8 +58,12 @@ loaded the live pier (crate 43) and, after two missed deck placements, Quayfin
 (crate 46, carried 9.36 m and still on deck at age 279 s). Transfer between them
 remains unproven. It also released **Sundial**, a 29-part telescoping two-wheel
 surveyor, ID 42 at x-46,z58; independently verify its balancing/travel before
-bundling it. Continue with longer routes, varied walkers and distinctive world
-structures while preserving all existing creations and cargo.
+bundling it. Further live additions awaiting independent verification:
+**Brinehook** ID 47 (47-part salvage gantry, x151,z-5), **Marrowstep** ID 48
+(25-part diagonal walker, x-75,z35), and **Kelpglass** ID 49 (43-part boat with
+variable hull spacing, x-143,z-78), plus cargo 50. Pi is testing another larger
+shore gantry before exploring the basin. Continue with longer routes, varied
+walkers and distinctive world structures while preserving every creation/cargo.
 
 ### Owned services — recheck PIDs before stopping anything
 
@@ -59,9 +72,9 @@ structures while preserving all existing creations and cargo.
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; allows origins 9099 and 19199 |
 | Live browser runner | 17317 | CDP `http://127.0.0.1:9231`, `build/blockwalker-water-live.mjs` |
-| Five-minute backup monitor | 161788 | `build/blockwalker-cargo-monitor.mjs --watch` |
+| Five-minute backup monitor | 187845 | `build/blockwalker-basin-monitor.mjs --watch` |
 
-The session is **`blockwalker-cargo`**, with persistent browser profile
+The session is **`blockwalker-basin`**, with persistent browser profile
 `.cache/blockwalker-browser-20260915`. Run scripts under the `build` symlink with
 `node --preserve-symlinks-main`. Logs use the matching script names under `build`.
 Current screenshots/status: `build/blockwalker-walking/latest.png`, `status.json`.
@@ -74,23 +87,21 @@ script; never print or commit it.
 The monitor mirrors selected files under
 `build/blockwalker-walking/current-state/`: the world, working blueprint, Pi
 config/events and full native session JSONL. It excludes models/auth. The native
-conversation reached **192,426,340 bytes** at 19:46 UTC. The cargo update preserved
-its exact complete SHA-256, all 35 objects and magnetic attachments. Evidence:
-`build/blockwalker-walking/cargo-updated-proof.json`, `cargo-live.png` and
-`build/blockwalker-cargo-update.log`.
-At 19:59 UTC the native history reached **208,588,492 bytes**; the complete
-192,426,340-byte pre-update prefix still matches SHA-256. Evidence:
-`build/blockwalker-walking/cargo-continuation-proof.json`.
+conversation reached **235,645,401 bytes** before the basin update. Its exact
+complete SHA-256, all 44 objects, magnetic attachments and world age matched
+after compilation. Evidence: `build/blockwalker-walking/basin-updated-proof.json`,
+`basin-live.png` and `build/blockwalker-basin-update.log`. Earlier full-history
+prefix checks are retained in the cargo/focus proofs and linked feature tasks.
 
-Latest recovery files are `cargo-state.tar` (195,112,960 bytes),
-`cargo-state.tar.gz` (144,400,380 bytes) and three `cargo-state-XX.part` files of
-at most 48 MiB. They preserve 35 creatures at world age 17948.3833 s. The manifest
-and history hash are in `cargo-restore-proof.json` under the walking folder.
+Latest recovery files are `basin-state.tar` (238,510,080 bytes),
+`basin-state.tar.gz` (176,689,885 bytes) and four `basin-state-XX.part` files of
+at most 48 MiB. They preserve 44 creatures at world age 20331.9000 s. The manifest
+and history hash are in `basin-restore-proof.json` under the walking folder.
 
 For app-only C/JS changes, update in place after pausing Pi and backing up:
-`build/blockwalker-cargo-update.mjs` uploads the small prepared source archive,
+`build/blockwalker-basin-update.mjs` uploads the small prepared source archive,
 uses the module's cc command inside the existing Dolly filesystem, checks the
-new binary, then replaces it. Compilation took **3.24 s**, checks **5.14 s**.
+new binary, then replaces it. Compilation took **1.57 s**, checks **5.37 s**.
 No image reload or history/credential reimport was needed. Use a new temporary
 binary/archive name on repetition. Host/runtime changes still require migration.
 
@@ -98,8 +109,10 @@ Before an update or migration, stop only the verified monitor, use
 `build/blockwalker-magnet-pause.mjs` to pause Pi/exit to Slop, then run the current
 monitor once to capture final files. Preserve a credential-free USTAR archive,
 gzip/split as needed, and restore through the real browser file picker. The
-complete corrected flow is `build/blockwalker-focus-restore.mjs`; it uses CDP's
+full-restore template is `build/blockwalker-basin-restore.mjs`; it uses CDP's
 file-input setter because Playwright's remote helper rejects files over 50 MB.
+It adapts the previously verified focus restore; the basin checkpoint used an
+in-place update, so the new archive has not been reimported into a fresh browser.
 Use a fresh session name and restart its monitor after restoring. Verify IDs,
 attachments, the full history prefix and actual Astra/xhigh continuation.
 
@@ -110,7 +123,7 @@ after success. Do not truncate history or add a host filesystem bypass. See
 [streaming transfers](../20260915-030600-codex-01/TASK.md).
 
 Older `*-state.tar` archives remain in the walking folder: checkpoint,
-space-camera, water, navigation, magnet, magnet-carry, library, outposts, focus and the
+space-camera, water, navigation, magnet, magnet-carry, library, outposts, focus, cargo and the
 compaction probe. The water recovery used a saved 28 MB conversation; an interval
 after that earlier checkpoint was lost with the old temporary browser profile
 during the desktop freeze. Do not claim that interval was recovered. Later

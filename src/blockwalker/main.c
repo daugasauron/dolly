@@ -181,9 +181,9 @@ static void click(void){
     if(inside(1052,18,204,44)){if(world_view){set_world_view(0);return;}if(physics.running)back_to_builder();else start_test();return;}
     if(world_view){
         if(!agent_panel&&inside(1036,188,220,36)){drop_cargo();return;}
-        for(int i=0;i<6;i++)if(inside(24+(i%2)*102,188+(i/2)*38,92,32)){
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0}};
-            const float distances[]={24,50,100,110,150,512};
+        for(int i=0;i<7;i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72}};
+            const float distances[]={24,50,100,110,150,512,72};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;orbit_update(&orbit);dirty=1;}return;
         }
         world_page(0);
@@ -337,8 +337,8 @@ static void draw_ui(void){
     label(262,647,world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"ISLAND WORLD",17,muted);snprintf(text,sizeof(text),"%d living / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={"Home","Harbor","East","West","North","Overview"};
-        for(int i=0;i<6;i++)button(24+(i%2)*102,188+(i/2)*38,92,32,places[i],0);
+        const char *places[]={"Home","Harbor","East","West","North","Overview","Basin"};
+        for(int i=0;i<7;i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,316,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-8));
         for(int i=0;i<8&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.19s",c->id,c->name);label(24,344+i*26,text,14,c->id==world_follow?accent:ink);}

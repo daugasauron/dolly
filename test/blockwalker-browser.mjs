@@ -87,8 +87,9 @@ try {
  await page.keyboard.press('Escape');await page.keyboard.press('Tab');await page.keyboard.press('H');await frames();
  await page.keyboard.press('Escape');await frames();assert.equal((await exportBlueprint('after-world-camera')).source,blueprint.source);
  await page.mouse.click(404,40);await frames();
- for(const [x,y] of [[170,204],[68,242],[170,242],[68,280],[170,280]]){await page.mouse.click(x,y);await frames();}
- await shot('world-overview');await page.mouse.click(198,580);await page.mouse.click(100,536);await frames();await shot('world-last-creature');
+ for(const [x,y] of [[170,202],[68,234],[170,234],[68,266],[170,266]]){await page.mouse.click(x,y);await frames();}
+ await shot('world-overview');await page.mouse.click(68,298);await frames();await shot('world-basin');
+ await page.mouse.click(198,580);await page.mouse.click(100,536);await frames();await shot('world-last-creature');
  await page.mouse.move(100,390);await page.mouse.wheel(0,-100);await frames();await page.mouse.click(100,355);await frames();
  await page.keyboard.press('Escape');await frames();
  await page.mouse.click(119,352);await page.mouse.click(706,352);await frames();await shot('joint');
@@ -151,8 +152,9 @@ try {
  assert.equal(returned.length,2,'Prompt typing leaves the camera unchanged until Home');
  assert.deepEqual(returned[1],travel[0],'Home restores the world camera');
  assert.deepEqual(navigation.slice(1,6).map(({x,y,z,distance})=>[x,y,z,distance]),[[116,-1,20,50],[170,4,30,100],[-174,2,-35,110],[15,6,-175,150],[0,0,0,512]],'Place buttons visit the harbor, islands and overview');
- assert.equal(navigation[6].x,68.5,'Paging reaches the last of twelve creatures');assert.ok(navigation[6].distance>19,'A large creature fits its physical bounds');
- assert.equal(navigation[7].x,33,'Scrolling the population list reaches earlier creatures');
+ assert.deepEqual([navigation[6].x,navigation[6].y,navigation[6].z,navigation[6].distance],[46,2,72,72],'Basin button visits the physical terrain landmark');
+ assert.equal(navigation[7].x,68.5,'Paging reaches the last of twelve creatures');assert.ok(navigation[7].distance>19,'A large creature fits its physical bounds');
+ assert.equal(navigation[8].x,33,'Scrolling the population list reaches earlier creatures');
  const download=page.waitForEvent('download'),command=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-last-run.json'));
  const file=await download,path=new URL('physics.json',output).pathname;await file.saveAs(path);assert.equal(await command,0);
  const physics=JSON.parse(await readFile(path,'utf8'));
