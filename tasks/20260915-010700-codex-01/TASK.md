@@ -44,3 +44,8 @@ boat was released and remained afloat at 114 simulation seconds. Evidence:
 A separate short browser probe did not trigger compaction within its two-minute
 window, so it did not verify the notification path. Keep this issue open for
 that remaining check; do not report that probe as passed.
+
+A real threshold compaction started at 2026-09-14 17:01:57 UTC in the updated
+`blockwalker-cranes` image. The new `compaction_start` handler emitted and saved
+its reason correctly. It is still running as of 17:09:12 (27 requests, 26
+completed); await the end event before closing the remaining notification check.

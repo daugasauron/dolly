@@ -151,3 +151,28 @@ five minutes. Stop only that monitor when migrating. The latest restoration
 script is `build/blockwalker-cranes-restore.mjs`; it uses CDP's file input setter
 because Playwright's remote upload helper rejects the now-over-50 MB archive.
 No history was truncated. Continue the timed goal until 22:00 JST.
+
+## Design library checkpoint, 2026-09-15 02:11 JST
+
+Commit d30e308 adds a persistent design/controller library, 13 learned examples,
+browser selection and continuous manual Play program without Pi. Both focused
+browser suites passed; the selected catamaran moved 3.1306 m in 244 physics steps
+at up=0.99499. See closed task `20260915-020000-codex-01` for evidence.
+Commit 698d143 tracks the missing removal-cause diagnostics in task
+`20260915-021000-codex-01`; the older logs cannot distinguish posture failure
+from a failed controller, so do not claim those removals were proven falls.
+
+The live browser remains on the previous crane/camera image. It now has 17
+survivors, including Pi's newer 21-part Touchdown Pistonboot and 22-part Skybarge.
+A natural threshold compaction began at 17:01:57 UTC; its actual
+`compaction_start` event is saved in the events file and the world continues
+advancing. At 17:09:12 the monitor showed 27 requests / 26 completed, world
+age 9542.52 s and all 17 survivors. Do not abort or restart solely because the
+summary is taking several minutes; let it finish before migrating the library.
+The model, relay and monitor are confirmed live. The current PIDs/paths remain
+those listed above. No browser test remains running.
+
+Next: verify the compaction end event (task `20260915-010700-codex-01`), add
+removal diagnostics, then migrate the saved world/full conversation to the new
+image using the existing CDP file-input restoration script. Preserve all new
+creatures and cargo, and continue larger-world work until 22:00 JST.
