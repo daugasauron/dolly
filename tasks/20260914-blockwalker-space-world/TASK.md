@@ -176,3 +176,11 @@ Next: verify the compaction end event (task `20260915-010700-codex-01`), add
 removal diagnostics, then migrate the saved world/full conversation to the new
 image using the existing CDP file-input restoration script. Preserve all new
 creatures and cargo, and continue larger-world work until 22:00 JST.
+
+At 17:11:57 the summary attempt ended with Browser HTTP deadline exceeded,
+then the live Pi sent a normal request. The actual start/error-end notification
+path is now verified and task 010700 is closed; investigate the distinct
+summary-runtime failure in new task `20260915-021300-codex-01`. The full state
+was freshly saved to current-state (see blockwalker-compaction-finish.log).
+The library image remains built/verified and not yet migrated into the live
+browser. Keep both library migration and failure diagnostics in the next work.

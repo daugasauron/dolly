@@ -1,6 +1,6 @@
 # Stop advertising a smaller context window through the Codex relay
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,agent,performance
 
@@ -49,3 +49,11 @@ A real threshold compaction started at 2026-09-14 17:01:57 UTC in the updated
 `blockwalker-cranes` image. The new `compaction_start` handler emitted and saved
 its reason correctly. It is still running as of 17:09:12 (27 requests, 26
 completed); await the end event before closing the remaining notification check.
+
+At 17:11:57.104 UTC the real `compaction_end` handler recorded and displayed
+`Auto-compaction failed: Summarization failed: Browser HTTP deadline exceeded`.
+This verifies the actual start and error/end notification paths. A normal agent
+request followed at 17:11:57.520; the game continued simulating. The metadata and
+notification task is complete. The separate ten-minute summary deadline failure
+is tracked in `tasks/20260915-021300-codex-01/TASK.md`; do not claim compaction
+itself succeeded. Full state was saved by `blockwalker-cranes-monitor.mjs`.
