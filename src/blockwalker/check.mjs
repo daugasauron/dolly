@@ -83,6 +83,8 @@ try {
  Game.call('watch',true);const started=Game.call('world').seconds;
  while(Game.call('world').seconds-started<10)await sleep(40);
  const population=Game.call('world');assert(population.creatures.length===7&&population.deaths===2,'shared physics keeps cargo, hoist, boat, bridge and land/air creatures, removes failed controllers and fallen torsos');
+ const failed=population.recentRemovals.find(r=>r.name==='Bad loop'),toppled=population.recentRemovals.find(r=>r.name==='Toppler');
+ assert(failed.cause==='controller'&&failed.detail&&failed.seconds<1&&toppled.cause==='posture'&&toppled.seconds>3,'controller failure and physical collapse record distinct causes and final state');
  const fallen=Game.call('designs').find(d=>d.name==='Toppler');assert(fallen&&!population.creatures.some(c=>c.name==='Toppler'),'fallen creature retains its programmed design');
  const reopened=Game.call('open_design',{id:fallen.id});assert(reopened.parts.length===4&&reopened.source==='function(){return "A"}','reopening restores the body and controller');
  Game.call('program_trial',{steps:60});while(Game.call('state').remaining)await sleep(20);assert(Game.call('state').parts[1].angle>.1,'saved controller actually drives its restored hinge');Game.call('watch',true);

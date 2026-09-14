@@ -136,6 +136,10 @@ proxy. The Pi panel shows streaming traces and accepts messages with Enter;
 a message steers a running turn. Pause aborts inference. Idle turns receive a
 continuation prompt. Configuration and Pi sessions live under
 `/workspace/blockwalker-agent`; credentials are never baked into the image.
+A built-in Pi extension summarizes the conversation in one concise checkpoint,
+using the same Astra/xhigh model. Exact designs and the current controller stay
+available through the game tools; the full native conversation stays on disk.
+Incomplete summaries are rejected. The browser/relay deadlines remain unchanged.
 Pi's main module is loaded before its SDK to avoid a QuickJS cyclic re-export
 resolution failure; no upstream Pi source is changed.
 
@@ -155,6 +159,7 @@ strength; an object such as `{A: 0.35, S: 0.6}` applies proportional output.
 Opposite key strengths subtract. Values must be finite numbers from zero to one,
 and every key must be assigned. Output scales motor target speed or thruster
 force, within the part's configured limits. The C physics still runs at 60 Hz.
+`inspect_program` reads the currently installed source and rate without changing it.
 
 `program_trial` tests the installed program from a fresh practice drop, at its
 chosen rate, with fresh memory and up to three timed GPU pictures. Simulation
@@ -192,7 +197,10 @@ creatures to collide. After a three-second settling period, a sideways torso
 (uprightness < 0.15) or collapsed raised torso (height < 0.65 m above land) is
 removed if it stays fallen for two seconds. At sea, sinking more than three
 metres below the surface also fails. Anchored structures and single loose blocks skip posture checks;
-their controllers still have the same execution limit.
+their controllers still have the same execution limit. World observations include
+the latest eight `recentRemovals`, with cause, controller error, lifetime and
+last position/orientation. The world file retains the complete removal history.
+Older removals without those records have an unknown cause.
 
 The world autosaves to `/workspace/blockwalker-world.json`, including blueprints,
 programs, controller memory/seeds, ages, poses and velocities. Restarting the game

@@ -8,7 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-struct Controller {JSRuntime *runtime;JSContext *ctx;JSValue function,memory,random;char *source;uint32_t seed;int hz;double deadline;};
+struct Controller {JSRuntime *runtime;JSContext *ctx;JSValue function,memory,random;char *source;uint32_t seed;int hz,timed_out;double deadline;char error[160];};
+enum {REMOVAL_CONTROLLER,REMOVAL_POSTURE,REMOVAL_SUNK,REMOVAL_NONFINITE,REMOVAL_TERRAIN,REMOVAL_CAUSES};
+static const char *removal_causes[]={"controller","posture","sunk","nonfinite","terrain"};
 World world;
 static char *installed;static char installed_name[64]="Creature";static int installed_hz=10;
 static Controller *trial;static float trial_controls[128];
@@ -20,7 +22,7 @@ static void remember_design(const Character *design,const char *source,const cha
     SavedDesign *d=&world.designs[world.design_count++];memset(d,0,sizeof(*d));character_copy(&d->design,design);d->source=strdup(source);d->hz=hz;d->x=x;d->z=z;snprintf(d->name,sizeof(d->name),"%s",name);
 }
 static double seconds(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec/1e9;}
-static int interrupt(JSRuntime *rt,void *opaque){return seconds()>((Controller *)opaque)->deadline;}
+static int interrupt(JSRuntime *rt,void *opaque){Controller *c=opaque;c->timed_out=seconds()>c->deadline;return c->timed_out;}
 static JSValue random_number(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv){
     Controller *c=JS_GetContextOpaque(ctx);c->seed^=c->seed<<13;c->seed^=c->seed>>17;c->seed^=c->seed<<5;
     return JS_NewFloat64(ctx,c->seed/4294967296.0);
@@ -101,7 +103,7 @@ static int assigned(const Character *design,int key){
     for(int i=1;i<design->count;i++)if(design->blocks[i].joint&&(design->blocks[i].negative==key||design->blocks[i].positive==key))return 1;return 0;
 }
 static int controller_step(Controller *controller,const Physics *p,const Character *design,float controls[128]){
-    JSContext *ctx=controller->ctx;controller->deadline=seconds()+.004;
+    JSContext *ctx=controller->ctx;controller->timed_out=0;controller->error[0]=0;controller->deadline=seconds()+.004;
     JSValue args[]={JS_NewFloat64(ctx,p->steps/60.0),physics_sensors(ctx,p,design,1.0/controller->hz),JS_DupValue(ctx,controller->memory),JS_DupValue(ctx,controller->random)};
     JSValue result=JS_Call(ctx,controller->function,JS_UNDEFINED,4,args);for(int i=0;i<4;i++)JS_FreeValue(ctx,args[i]);
     memset(controls,0,128*sizeof(float));int valid=1;
@@ -119,6 +121,10 @@ static int controller_step(Controller *controller,const Physics *p,const Charact
             JS_FreeCString(ctx,key);JS_FreeValue(ctx,value);JS_FreeAtom(ctx,properties[i].atom);
         }js_free(ctx,properties);
     }else valid=0;
+    if(!valid){
+        snprintf(controller->error,sizeof(controller->error),"%s",controller->timed_out?"Controller deadline exceeded":"Invalid controller output");
+        if(JS_IsException(result)){JSValue error=JS_GetException(ctx);const char *text=JS_ToCString(ctx,error);if(text&&!controller->timed_out)snprintf(controller->error,sizeof(controller->error),"%s",text);JS_FreeCString(ctx,text);JS_FreeValue(ctx,error);}
+    }
     JS_FreeValue(ctx,result);return valid;
 }
 void world_trial_stop(void){controller_free(trial);trial=NULL;memset(trial_controls,0,sizeof(trial_controls));}
@@ -126,6 +132,10 @@ int world_trial_begin(void){world_trial_stop();if(installed)trial=controller_new
 int world_trial_step(Physics *p,const Character *c){
     if(!trial||(p->steps%(60/trial->hz)==0&&!controller_step(trial,p,c,trial_controls)))return 0;
     physics_drive(p,c,trial_controls);b3World_Step(p->world,1.f/60,8);physics_sample(p,c);return 1;
+}
+JSValue world_program(JSContext *ctx){
+    if(!installed)return JS_NULL;JSValue result=JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx,result,"name",JS_NewString(ctx,installed_name));JS_SetPropertyStr(ctx,result,"source",JS_NewString(ctx,installed));put_number(ctx,result,"hz",installed_hz);return result;
 }
 JSValue world_install(JSContext *ctx,JSValueConst args){
     JSValue code=JS_GetPropertyStr(ctx,args,"source"),name=JS_GetPropertyStr(ctx,args,"name");
@@ -174,8 +184,21 @@ JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args){
     remember_design(design,installed,installed_name,installed_hz,x,z);
     printf("CREATURE %d born: %s, %d parts\n",c->id,c->name,c->design.count);return JS_NewInt32(ctx,c->id);
 }
+static JSValue removal_state(JSContext *ctx,int full){
+    JSValue list=JS_NewArray(ctx);int first=full?0:(int)fmaxf(0,world.removal_count-8);
+    for(int i=first;i<world.removal_count;i++){Removal *r=&world.removals[i];JSValue item=JS_NewObject(ctx);
+        put_number(ctx,item,"id",r->id);put_number(ctx,item,"time",r->time);put_number(ctx,item,"seconds",r->seconds);put_number(ctx,item,"up",r->up);
+        put_number(ctx,item,"x",r->position.x);put_number(ctx,item,"y",r->position.y);put_number(ctx,item,"z",r->position.z);
+        JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,r->name));JS_SetPropertyStr(ctx,item,"cause",JS_NewString(ctx,removal_causes[r->cause]));JS_SetPropertyStr(ctx,item,"detail",JS_NewString(ctx,r->detail));JS_SetPropertyUint32(ctx,list,i-first,item);
+    }return list;
+}
+static Removal *new_removal(void){
+    if(world.removal_count==world.removal_capacity){world.removal_capacity=world.removal_capacity?world.removal_capacity*2:16;world.removals=array_resize(world.removals,world.removal_capacity,sizeof(Removal));}
+    Removal *r=&world.removals[world.removal_count++];memset(r,0,sizeof(*r));return r;
+}
 JSValue world_state(JSContext *ctx){
     JSValue result=JS_NewObject(ctx),list=JS_NewArray(ctx);put_number(ctx,result,"deaths",world.deaths);put_number(ctx,result,"seconds",world.age);
+    JS_SetPropertyStr(ctx,result,"recentRemovals",removal_state(ctx,0));
     JSValue terrain=JS_NewObject(ctx);put_number(ctx,terrain,"radius",WORLD_RADIUS);put_number(ctx,terrain,"waterLevel",WATER_LEVEL);
     JS_SetPropertyStr(ctx,terrain,"harbor",vector(ctx,(Vector3){112,0,20}));JS_SetPropertyStr(ctx,terrain,"seaTrial",vector(ctx,(Vector3){125,-2,10}));
     JS_SetPropertyStr(ctx,terrain,"eastIsland",vector(ctx,(Vector3){170,4,30}));JS_SetPropertyStr(ctx,terrain,"westIsland",vector(ctx,(Vector3){-174,2,-35}));JS_SetPropertyStr(ctx,terrain,"northRidge",vector(ctx,(Vector3){15,6,-175}));JS_SetPropertyStr(ctx,result,"terrain",terrain);
@@ -205,7 +228,11 @@ void world_step(void){
         int fallen=!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z)||(!c->design.anchored&&
             (p.y<(sea?WATER_LEVEL-3:ground-.5f)||(c->design.count>1&&up<.15f)||(!sea&&c->root_height>1.2f&&p.y<ground+.65f)));
         if(c->physics.steps>180&&fallen)c->fallen+=1.f/60;else if(c->fallen<100)c->fallen=0;
-        if(c->fallen>2){printf("CREATURE %d removed: %s after %.1fs\n",c->id,c->name,c->physics.steps/60.0);
+        if(c->fallen>2){
+            Removal *r=new_removal();r->id=c->id;r->time=world.age;r->seconds=c->physics.steps/60.0;r->position=p;r->up=up;snprintf(r->name,sizeof(r->name),"%s",c->name);
+            r->cause=c->fallen>=100?REMOVAL_CONTROLLER:!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z)?REMOVAL_NONFINITE:sea&&p.y<WATER_LEVEL-3?REMOVAL_SUNK:p.y<ground-.5f?REMOVAL_TERRAIN:REMOVAL_POSTURE;
+            snprintf(r->detail,sizeof(r->detail),"%s",r->cause==REMOVAL_CONTROLLER?c->controller->error:r->cause==REMOVAL_POSTURE?(up<.15f?"Root tipped over":"Raised torso collapsed"):removal_causes[r->cause]);
+            printf("CREATURE %d removed: %s after %.1fs (%s: %s; xyz %.3f %.3f %.3f, up %.3f)\n",c->id,c->name,r->seconds,removal_causes[r->cause],r->detail,p.x,p.y,p.z,up);
             physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);world.creatures[i]=world.creatures[--world.count];world.deaths++;
         }else i++;
     }
@@ -214,7 +241,7 @@ void world_close(void){
     world_trial_stop();
     for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);}
     for(int i=0;i<world.design_count;i++){character_clear(&world.designs[i].design);free(world.designs[i].source);}free(world.designs);
-    if(world.next_id)b3DestroyWorld(world.physics);free(world.creatures);memset(&world,0,sizeof(world));free(installed);installed=NULL;
+    if(world.next_id)b3DestroyWorld(world.physics);free(world.creatures);free(world.removals);memset(&world,0,sizeof(world));free(installed);installed=NULL;
 }
 static void save_json(JSContext *ctx,JSValueConst value,const char *path){
     JSValue json=JS_JSONStringify(ctx,value,JS_UNDEFINED,JS_UNDEFINED);const char *source=JS_ToCString(ctx,json);
@@ -225,6 +252,7 @@ static void save_json(JSContext *ctx,JSValueConst value,const char *path){
 void world_save(JSContext *ctx){
     JSValue save=world_state(ctx),list=JS_GetPropertyStr(ctx,save,"creatures");put_number(ctx,save,"version",1);put_number(ctx,save,"nextId",world.next_id);put_number(ctx,save,"installedHz",installed_hz);
     JS_SetPropertyStr(ctx,save,"designs",world_designs(ctx,1));
+    JS_SetPropertyStr(ctx,save,"removals",removal_state(ctx,1));
     if(installed){JS_SetPropertyStr(ctx,save,"installed",JS_NewString(ctx,installed));JS_SetPropertyStr(ctx,save,"name",JS_NewString(ctx,installed_name));}
     for(int i=0;i<world.count;i++){
         Creature *c=&world.creatures[i];JSValue item=JS_GetPropertyUint32(ctx,list,i),poses=JS_NewArray(ctx);
@@ -265,12 +293,29 @@ static void load_designs(JSContext *ctx,JSValueConst list){
         }character_clear(&c);JS_FreeValue(ctx,item);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
     }
 }
+static void load_removals(JSContext *ctx,JSValueConst list){
+    if(!JS_IsArray(list))return;
+    for(int i=0;i<get_number(ctx,list,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,list,i);if(!JS_IsObject(item)){JS_FreeValue(ctx,item);continue;}
+        JSValue kind=JS_GetPropertyStr(ctx,item,"cause"),name=JS_GetPropertyStr(ctx,item,"name"),detail=JS_GetPropertyStr(ctx,item,"detail");
+        if(JS_IsString(kind)&&JS_IsString(name)&&JS_IsString(detail)){
+            const char *k=JS_ToCString(ctx,kind),*n=JS_ToCString(ctx,name),*d=JS_ToCString(ctx,detail);int cause=0;while(cause<REMOVAL_CAUSES&&strcmp(k,removal_causes[cause]))cause++;
+            double id=get_number(ctx,item,"id",0),time=get_number(ctx,item,"time",0),age=get_number(ctx,item,"seconds",0);
+            if(cause<REMOVAL_CAUSES&&id>=1&&id<=INT32_MAX&&id==floor(id)&&isfinite(time)&&isfinite(age)){
+                Removal *r=new_removal();r->id=id;r->cause=cause;r->time=time;r->seconds=age;snprintf(r->name,sizeof(r->name),"%s",n);snprintf(r->detail,sizeof(r->detail),"%s",d);
+                const char *fields[]={"x","y","z","up"};float *values[]={&r->position.x,&r->position.y,&r->position.z,&r->up};
+                for(int j=0;j<4;j++){JSValue v=JS_GetPropertyStr(ctx,item,fields[j]);double value=NAN;if(!JS_IsNull(v))JS_ToFloat64(ctx,&value,v);*values[j]=value;JS_FreeValue(ctx,v);}
+            }JS_FreeCString(ctx,k);JS_FreeCString(ctx,n);JS_FreeCString(ctx,d);
+        }JS_FreeValue(ctx,kind);JS_FreeValue(ctx,name);JS_FreeValue(ctx,detail);JS_FreeValue(ctx,item);
+    }
+}
 void world_load(JSContext *ctx){
     JSValue save=read_json(ctx,"/workspace/blockwalker-world.json");
     if(JS_IsObject(save)){JSValue designs=JS_GetPropertyStr(ctx,save,"designs");load_designs(ctx,designs);JS_FreeValue(ctx,designs);}
     JSValue examples=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");load_designs(ctx,examples);JS_FreeValue(ctx,examples);
     if(!JS_IsObject(save)){JS_FreeValue(ctx,save);return;}
     if(get_number(ctx,save,"version",0)!=1){JS_FreeValue(ctx,save);return;}
+    JSValue removals=JS_GetPropertyStr(ctx,save,"removals");load_removals(ctx,removals);JS_FreeValue(ctx,removals);
     int hz=get_number(ctx,save,"installedHz",10);installed_hz=(hz==10||hz==20||hz==30||hz==60)?hz:10;
     JSValue code=JS_GetPropertyStr(ctx,save,"installed"),label=JS_GetPropertyStr(ctx,save,"name");
     if(JS_IsString(code)){const char *s=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);installed=strdup(s);snprintf(installed_name,sizeof(installed_name),"%s",name);JS_FreeCString(ctx,s);JS_FreeCString(ctx,name);}

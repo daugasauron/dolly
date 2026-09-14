@@ -303,7 +303,7 @@ static void draw_ui(void){
     DrawRectangle(254,643,600,23,paper);
     label(262,647,world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
-        label(24,108,"ISLAND WORLD",17,muted);snprintf(text,sizeof(text),"%d living / %d fallen",world.count,world.deaths);label(24,154,text,16,ink);
+        label(24,108,"ISLAND WORLD",17,muted);snprintf(text,sizeof(text),"%d living / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
         const char *places[]={"Home","Harbor","East","West","North","Overview"};
         for(int i=0;i<6;i++)button(24+(i%2)*102,188+(i/2)*38,92,32,places[i],0);
         label(24,316,"CREATURES / click to visit",14,muted);
@@ -450,6 +450,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     if(!strcmp(op,"state"))result=state(ctx);
     else if(!strcmp(op,"world"))result=world_state(ctx);
     else if(!strcmp(op,"designs"))result=world_designs(ctx,0);
+    else if(!strcmp(op,"installed_program"))result=world_program(ctx);
     else if(!strcmp(op,"open_design")){
         int index=number(ctx,args,"id",0)-1;result=open_design(ctx,index);
         if(!JS_IsException(result)){result=state(ctx);JS_SetPropertyStr(ctx,result,"source",JS_NewString(ctx,world.designs[index].source));}
