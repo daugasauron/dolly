@@ -193,7 +193,9 @@ const selectedGraph = await loadDollyfileGraph(projectDir, selectedDefinition.fi
 const selectedModuleNames = new Set(selectedGraph.modules.map(({ name }) => name));
 const hasZig = selectedGraph.exporters.has("TOOL:zig");
 const interactiveBuildProbe = (cmakeMode || sdl2Mode) && !selectedGraph.exporters.has("ENV:DISPLAY");
-const headlessInventory = imageInventoryMode && !selectedGraph.exporters.has("ENV:DISPLAY");
+// GPU presentation is verified on the desktop; inventory needs only the image's filesystem.
+const headlessInventory = imageInventoryMode &&
+  (!selectedGraph.exporters.has("ENV:DISPLAY") || ["gpu-demo", "gpu-fluid"].includes(selectedImage));
 const displayDefinition = imageDefinitions.find(definition => definition.image === "ghostty-build");
 const buildProbeRecipe = interactiveBuildProbe ? `DOLLY 3
 IMAGE browser-build-probe

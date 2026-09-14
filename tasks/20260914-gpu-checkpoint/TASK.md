@@ -84,6 +84,8 @@ changes require review before merging. Detailed contracts and measurements:
   kernel has exactly the typed outer imports in the browser contract. Packaging
   documentation now admits dated tatr task IDs and their evidence.json files,
   with tests retaining rejection of private files and paths outside the site.
+  GPU release inventories run in the existing headless Wasm build worker;
+  desktop browser checks separately prove rendering and input.
 
 Local verification logs: `build/gpu-checkpoint-{plan,fluid,source,inputs}.log`,
 `build/fluid-proof/`, `build/gpu-checkpoint-menu.{png,json}` and
