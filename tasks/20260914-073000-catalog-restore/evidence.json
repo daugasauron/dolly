@@ -1,0 +1,230 @@
+{
+  "deployed": {
+    "url": "https://daugasauron.com/",
+    "release": "cc12357df54072629ee0438caa10bad22883bb0721450ed8f7dcc3a46ee7a251",
+    "source": "ff633f72f5f6c28439196d61fe573730c2739ed8"
+  },
+  "catalog": {
+    "browser": "151.0.7922.71",
+    "deployed": [
+      "default",
+      "bhop",
+      "classicube",
+      "codex",
+      "dollyfile-studio",
+      "external-source",
+      "gamedev",
+      "gamedev-phone",
+      "javascript",
+      "neovim",
+      "pi",
+      "pi-local",
+      "python",
+      "python-pi",
+      "rts-arena",
+      "classicube-build",
+      "cmake-build",
+      "codex-build",
+      "fd-build",
+      "gamedev-sdk",
+      "ghostty-build",
+      "neovim-build",
+      "pi-runtime",
+      "protox-build",
+      "python-runtime",
+      "ripgrep",
+      "rts-build",
+      "rust-sdk",
+      "rust-tools",
+      "sdl2-build",
+      "system",
+      "system-build"
+    ],
+    "images": [
+      "default",
+      "bhop",
+      "classicube",
+      "codex",
+      "dollyfile-studio",
+      "external-source",
+      "gamedev",
+      "gamedev-phone",
+      "gpu-fluid",
+      "javascript",
+      "neovim",
+      "pi",
+      "pi-local",
+      "python",
+      "python-pi",
+      "rts-arena",
+      "classicube-build",
+      "cmake-build",
+      "codex-build",
+      "fd-build",
+      "gamedev-sdk",
+      "ghostty-build",
+      "llama-build",
+      "local-llm-build",
+      "neovim-build",
+      "pi-build",
+      "pi-runtime",
+      "protox-build",
+      "python-runtime",
+      "ripgrep",
+      "rts-build",
+      "rust-build",
+      "rust-sdk",
+      "rust-tools",
+      "sdl2-build",
+      "system",
+      "system-build",
+      "system-tools",
+      "typescript-build"
+    ],
+    "added": [
+      "gpu-fluid",
+      "llama-build",
+      "local-llm-build",
+      "pi-build",
+      "rust-build",
+      "system-tools",
+      "typescript-build"
+    ],
+    "linksChecked": 117,
+    "buildStartAndCancel": true,
+    "removedDemoStatus": 404
+  },
+  "runtime": "sha256:6c5933e88079941f708fa40f67ecb26b84deeefcc5d7b57fa520d25388f596d1",
+  "imageABI": "sha256:0ace6dd93c15c06b50230755bc138b64374783d5f3ef54c7d14ab54a5676656a",
+  "sourceTestsPassed": 274,
+  "recipePinsVerified": 39,
+  "hostSourcesVerified": 247,
+  "currentArtifacts": 39,
+  "rebuilt": [
+    {
+      "image": "gamedev-sdk",
+      "bytes": 175712738,
+      "seconds": 35.6
+    },
+    {
+      "image": "gamedev",
+      "bytes": 257354695,
+      "seconds": 9.4
+    },
+    {
+      "image": "bhop",
+      "bytes": 263999766,
+      "seconds": 14
+    },
+    {
+      "image": "classicube-build",
+      "bytes": 239599199,
+      "seconds": 30.7
+    },
+    {
+      "image": "classicube",
+      "bytes": 243014268,
+      "seconds": 13.7
+    },
+    {
+      "image": "protox-build",
+      "bytes": 378624177,
+      "seconds": 181.8
+    },
+    {
+      "image": "codex-build",
+      "bytes": 319033187,
+      "seconds": 4472.1
+    },
+    {
+      "image": "codex",
+      "bytes": 347143964,
+      "seconds": 8.2
+    },
+    {
+      "image": "external-source",
+      "bytes": 154431370,
+      "seconds": 5.8
+    },
+    {
+      "image": "gamedev-phone",
+      "bytes": 257354290,
+      "seconds": 5.7
+    },
+    {
+      "image": "neovim",
+      "bytes": 190571183,
+      "seconds": 7.4
+    },
+    {
+      "image": "python-runtime",
+      "bytes": 195568017,
+      "seconds": 118.1
+    },
+    {
+      "image": "python",
+      "bytes": 195714434,
+      "seconds": 9.1
+    },
+    {
+      "image": "python-pi",
+      "bytes": 276488781,
+      "seconds": 6.6
+    },
+    {
+      "image": "rts-build",
+      "bytes": 343837977,
+      "seconds": 105.1
+    },
+    {
+      "image": "rts-arena",
+      "bytes": 361074065,
+      "seconds": 12.1
+    }
+  ],
+  "unchangedSnapshots": {
+    "gpu-fluid": "25f0d6b206b559a9e74eba200d04ee3bacaafe8131fed982d170ec899b7a9d4c",
+    "pi-local": "029aee881015bc16758e03ffe0f93e1c0f214ac6f7e5e32162a3ab5dbb2134f7",
+    "dollyfile-studio": "e2c7c9500fda05eadec6bdb79c0bf0768f5681a0cb3c2a980d378a0414419b15"
+  },
+  "fluid": [
+    {
+      "browser": "chromium",
+      "version": "151.0.7922.71",
+      "controls": true,
+      "renderReadbackBytes": 0,
+      "interruptRestarts": 2,
+      "boundary": {
+        "malformedPacket": true,
+        "vertexLayout": true,
+        "bindingLimit": true,
+        "info": true,
+        "copiedPacket": true,
+        "staleHandle": true,
+        "allocationQuota": true,
+        "capabilities": true,
+        "computeConstants": true,
+        "closedScope": true
+      }
+    },
+    {
+      "browser": "firefox",
+      "version": "155.0",
+      "controls": true,
+      "renderReadbackBytes": 0,
+      "interruptRestarts": 2,
+      "boundary": {
+        "malformedPacket": true,
+        "vertexLayout": true,
+        "bindingLimit": true,
+        "info": true,
+        "copiedPacket": true,
+        "staleHandle": true,
+        "allocationQuota": true,
+        "capabilities": true,
+        "computeConstants": true,
+        "closedScope": true
+      }
+    }
+  ]
+}

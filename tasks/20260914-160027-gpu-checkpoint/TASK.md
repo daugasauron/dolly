@@ -95,6 +95,8 @@ build/gpu-checkpoint-releases daugasauron.com`. Image selection is for focused
 builds; it must not hide existing images in the shared preview. Main remains
 unmerged. The original tag and evidence below predate removal of the shader
 playground and restoration of the complete preview catalog.
+See the [catalog follow-up](../20260914-073000-catalog-restore/TASK.md) for the
+comparison with the deployed site and verification of the complete preview.
 
 The model/checkpoint task IDs now include tatr's required timestamp field;
 `tatr ls -c :checkpoint` and `tatr ls :llm` list the closed checkpoints and
