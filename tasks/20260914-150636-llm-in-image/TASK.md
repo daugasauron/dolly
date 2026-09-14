@@ -81,9 +81,8 @@ Local logs: `build/llm-{first-answer,2b-bench}.jsonl`,
 ```sh
 npm run image -- pi-local
 node test/local-llm-browser.mjs
-node test/gpu-browser.mjs
 node test/fluid-browser.mjs
-node scripts/serve-gpu-demo.mjs 9097 pi-local
+node scripts/serve-gpu.mjs 9097 pi-local
 ```
 
 The real-model test downloads 0.8B in each isolated browser, then checks process

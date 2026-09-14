@@ -3,11 +3,8 @@
 The [combined checkpoint](../tasks/20260914-160027-gpu-checkpoint/TASK.md) records the
 fluid image, in-sandbox local inference, verified artifacts and browser limits.
 
-`Dollyfile-gpu-demo` adds a C shader playground without changing any existing
-image. `cc` compiles its program and client inside Dolly. WGSL files remain in
-`/usr/src/dolly/gpu`; edit them and rerun `gpu-demo`. Keys 1/2/3 select aurora,
-prism, and an 8,192-particle compute simulation; Space pauses, Q/Escape returns
-to Slop. F11 retains the browser's existing fullscreen behavior.
+`Dollyfile-gpu-fluid` provides the GPU demonstration: an upstream C fluid solver
+compiled inside Dolly, with interactive liquid ink and volumetric smoke.
 
 The compile target remains a private memory64 process with its single
 `dolly_process_0.call` import. Operation 128 selects the separately versioned
@@ -48,13 +45,12 @@ GPU submission cannot preempt an already running shader; device loss depends
 on browser/driver recovery. Worker failure wakes pending process calls with I/O
 errors. No GPU request can name a URL, DOM element, host pointer or native process.
 
-Normal frames upload only uniforms and commands. The compute scene writes a
-storage buffer that its vertex shader reads on the same GPU. The canvas goes
+Normal frames upload only uniforms and commands. The solver writes storage
+buffers that its rendering shader reads on the same GPU. The canvas goes
 to the browser compositor without an application RGBA readback or Dolly file
 transfer. This does not promise that every browser/driver compositor is
 internally copy-free. Explicit readback maps a staging buffer and returns at
-most 64 KiB per call; `gpu-demo --check` computes `[3,5,7,9]` on the GPU and
-writes the result to `/workspace/gpu-proof.txt` inside Wasm.
+most 64 KiB per call; `fluid --check` reads the dye field back into Wasm.
 
 `Dollyfile-gpu-fluid` compiles the unchanged upstream
 [fluid simulation](https://github.com/samdauwe/webgpu-native-examples/blob/9a7c30753d6f44630564a8316eb9c44211ff0ecc/src/examples/fluid_simulation.c)
@@ -87,57 +83,37 @@ and a DOM-connected canvas, but omits the C program, Dolly transport and host
 admission checks. It is not a native C benchmark or an isolated ABI-overhead
 measurement. The readback case compares the solver output as well as timings.
 Results and screenshots go to `build/fluid-proof/`.
+The same test checks interrupt/restart, malformed packets, copied input, stale
+handles, quotas, capabilities and shader specialization constants.
 
 ```sh
 node scripts/prepare-gpu-fluid.mjs
 node scripts/generate-routes.mjs
 DOLLY_BUILD_IMAGES=gpu-fluid DOLLY_SNAPSHOT_IMAGE=gpu-fluid node scripts/build-system-snapshot.mjs
-node scripts/serve-gpu-demo.mjs 9094 gpu-fluid
+node scripts/serve-gpu.mjs
 ```
 
 The image retains the source, headers and licenses, so its Dollyfile `cc` command
 can also be repeated from the running sandbox. The cached system image supplies
-the compiler. Only the new fluid image rebuilds;
-existing recipes and snapshots, including the shader playground, remain intact.
-
-`gpu-demo --bench` measures a 64×64 uniform upload and triangle submission.
-Run `node test/gpu-browser.mjs` on the desktop display to compare that with the
-same direct WebGPU sequence. Both use a DOM-connected OffscreenCanvas, validation
-scopes and queue backpressure. An unattached canvas is not an equivalent baseline.
-These are wall-clock operation latencies, not GPU timestamps or a universal
-percentage slowdown. Provider timings include asynchronous waits; their difference
-from client timings is only an approximate measure of transport and scheduling.
-The test also exercises visible scene changes, pause, compute readback,
-repeated Ctrl-C/restart, malformed packets, copied input, stale handles and quotas.
-Results and screenshots go to `build/gpu-proof/`.
+the compiler. Only the fluid image rebuilds when its sources change.
 
 For this Linux experiment the Chrome test uses an isolated profile with Vulkan
 and WebGPU enabled; its Firefox profile enables WebGPU and requests a blocklist
-override. Installed Firefox 155.0.1 also renders all three scenes on the actual
-X11 desktop in a temporary profile with only `dom.webgpu.enabled` enabled.
+override. Both browsers render fluid on the actual X11 desktop.
 Firefox presentation is still blank in the tested headless/Xvfb configurations,
 including standalone WebGPU controls outside Dolly. Compute success alone does
 not prove visible rendering. See [desktop evidence](../tasks/20260914-021950-gpu-04/TASK.md)
-and [measurements](../tasks/20260914-013806-gpu-03/TASK.md). Test options do not
+from the original prototype. Test options do not
 modify personal profiles. Browser-controlled adapter selection
 uses `powerPreference: "high-performance"`; WebGPU does not provide a portable
 vendor-selection API. NVIDIA and AMD use the same shader and command path.
-
-Build the kernel once, then prepare only this image's source module and snapshot:
-
-```sh
-node scripts/prepare-gpu-demo.mjs
-DOLLY_BUILD_IMAGES=gpu-demo node scripts/generate-routes.mjs
-DOLLY_BUILD_IMAGES=gpu-demo DOLLY_SNAPSHOT_IMAGE=gpu-demo node scripts/build-system-snapshot.mjs
-node scripts/serve-gpu-demo.mjs 9093
-```
 
 For an isolated Chrome window on this machine's X11 desktop:
 
 ```sh
 google-chrome --user-data-dir=/tmp/dolly-gpu-preview \
   --ozone-platform=x11 --enable-unsafe-webgpu --use-angle=vulkan \
-  --enable-features=Vulkan,VulkanFromANGLE http://127.0.0.1:9093/gpu-demo/
+  --enable-features=Vulkan,VulkanFromANGLE http://127.0.0.1:9094/gpu-fluid/
 ```
 
 CAPABILITIES reports admitted feature bits and device-clamped limits in a fixed

@@ -26,8 +26,8 @@ through the verified image cache; saved deltas do not duplicate them.
 ## Run this checkout
 
 ```sh
-node scripts/serve-gpu-demo.mjs 9094 gpu-fluid
-node scripts/serve-gpu-demo.mjs 9097 pi-local
+node scripts/serve-gpu.mjs 9094 gpu-fluid
+node scripts/serve-gpu.mjs 9097 pi-local
 ```
 
 Run these in separate terminals, then open
@@ -89,11 +89,12 @@ changes require review before merging. Detailed contracts and measurements:
 
 Local verification logs: `build/gpu-checkpoint-{plan,fluid,source,inputs}.log`,
 `build/fluid-proof/`, `build/gpu-checkpoint-menu.{png,json}` and
-`build/llm-host-removal.log`. The selected checkpoint can be packaged separately
-with `DOLLY_BUILD_IMAGES=gpu-demo,gpu-fluid,pi-local,dollyfile-studio bash
-scripts/package-pages.sh build/gpu-checkpoint-20260914.tar.gz
-build/gpu-checkpoint-releases`. This preserves the main distribution and its
-existing catalog. Main remains unmerged.
+`build/llm-host-removal.log`. Package the complete catalog with `DOLLY_BUILD_IMAGES=all bash
+scripts/package-pages.sh build/gpu-checkpoint-all-20260914.tar.gz
+build/gpu-checkpoint-releases daugasauron.com`. Image selection is for focused
+builds; it must not hide existing images in the shared preview. Main remains
+unmerged. The original tag and evidence below predate removal of the shader
+playground and restoration of the complete preview catalog.
 
 The model/checkpoint task IDs now include tatr's required timestamp field;
 `tatr ls -c :checkpoint` and `tatr ls :llm` list the closed checkpoints and

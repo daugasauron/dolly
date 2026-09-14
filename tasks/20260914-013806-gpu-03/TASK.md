@@ -57,6 +57,7 @@ regression exercises three immediate interruptions/reopens in each browser.
 Only the kernel was rebuilt; all original snapshots and the demo snapshot are
 unchanged.
 
-Local demo: `node scripts/serve-gpu-demo.mjs 9093`, then
-`http://127.0.0.1:9093/gpu-demo/` in a browser exposing WebGPU.
+The shader playground has been removed. Use the upstream
+[fluid image](../../docs/gpu.md) for current rendering and boundary checks.
+The measurements here describe the original prototype.
 Controls: 1/2/3, Space, Q/Escape; existing F11 fullscreen remains.

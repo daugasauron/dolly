@@ -76,8 +76,11 @@ try {
     measurements.push({command,dolly,replay});console.log(name,JSON.stringify(measurements.at(-1)));
    }
    for(let i=0;i<2;i++){const running=submit('fluid');await page.waitForFunction(()=>__dolly.graphicsActive&&__dolly.gpu.active);await page.keyboard.press('Control+c');assert.equal(await running,130);assert.equal(await submit('fluid --check'),0);}
+   const boundary=await page.evaluate(async()=>{
+    const {gpuBoundaryProof}=await import('/test/fixtures/gpu-boundary.mjs');return gpuBoundaryProof();
+   });
    assert.deepEqual(errors,[]);
-   results.push({browser:name,version:browser.version(),adapter:renderStatus.adapter,controls:true,renderReadbackBytes:0,interruptRestarts:2,measurements});
+   results.push({browser:name,version:browser.version(),adapter:renderStatus.adapter,controls:true,renderReadbackBytes:0,interruptRestarts:2,measurements,boundary});
   } finally {await browser.close();}
  }
 } finally {await site.close();await writeFile(new URL('results.json',output),JSON.stringify(results,null,2)+'\n');}

@@ -81,7 +81,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
     ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
     "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build"],
-    "external-source": ["system"], "gpu-demo": ["system"], "gpu-fluid": ["system"],
+    "external-source": ["system"], "gpu-fluid": ["system"],
     "llama-build": ["cmake-build"], "local-llm-build": ["llama-build"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system-tools"], "neovim-build": ["cmake-build"],
@@ -145,7 +145,7 @@ test("images separate reusable runtimes from applications and configuration", as
   const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
   const selected = await selectImageDefinitions(definitions, githubImages.join(","));
   assert.deepEqual(selected.map(item => item.image), definitions
-    .filter(item => !["codex", "codex-build", "protox-build", "gpu-demo", "gpu-fluid"].includes(item.image)).map(item => item.image));
+    .filter(item => !["codex", "codex-build", "protox-build", "gpu-fluid"].includes(item.image)).map(item => item.image));
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

@@ -34,7 +34,7 @@ const rows = new Map([...menuTemplate.matchAll(/<tr class="image" data-image="([
 for (const image of headless) {
   const description = rows.get(image)?.match(/<td class="description">(.*?)<\/td>/)?.[1] ?? "Compiler build tools.";
   rows.set(image, `<tr class="image" data-image="${image}"><th scope="row"><a href="./${image}/">${image}</a></th>
-    <td class="description">${description}</td><td><div class="image-links"><a href="./${image}/rebuild/">build →</a>
+    <td class="description">${description}</td><td><div class="image-links"><a href="./${image}/">open →</a><a href="./${image}/rebuild/">rebuild</a>
     <a href="./view/${image}/">Dollyfile</a></div></td></tr>`);
 }
 const isBuild = image => /-(build|sdk|runtime)$/.test(image) ||
