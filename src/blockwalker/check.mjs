@@ -77,13 +77,15 @@ try {
  const platform=[{x:0,y:0,z:0,parent:-1,joint:0},{x:1,y:0,z:0,parent:0,joint:0},{x:0,y:0,z:1,parent:0,joint:0},{x:1,y:0,z:1,parent:1,joint:0},{x:0,y:1,z:0,parent:0,joint:1,negative:81,positive:65,axis:1}];
  Game.call('build',{parts:platform});Game.call('install',{name:'Spinner',source:'function(t,s,m,random){m.turns=(m.turns||0)+1;return t%2<1?"A":"Q"}'});
  Game.call('spawn',{x:-4,z:0,seed:17});Game.call('spawn',{x:4,z:0,seed:19});
+ const archCargo=Game.call('cargo',{world:true,x:164,z:40});
  assert(Game.call('designs').filter(d=>d.name==='Spinner').length===1,'identical releases share one saved design');
  Game.call('install',{name:'Bad loop',source:'function(){while(true){}}'});Game.call('spawn',{x:0,z:5});
  Game.call('build',{parts:[{x:0,y:3,z:0,parent:-1,joint:0},{x:0,y:2,z:0,parent:0,joint:1,negative:81,positive:65,speed:3,axis:2},{x:0,y:1,z:0,parent:1,joint:0},{x:0,y:0,z:0,parent:2,joint:0}]});
  Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});
  Game.call('watch',true);const started=Game.call('world').seconds;
  while(Game.call('world').seconds-started<10)await sleep(40);
- const population=Game.call('world');assert(population.creatures.length===7&&population.deaths===2,'shared physics keeps cargo, hoist, boat, bridge and land/air creatures, removes failed controllers and fallen torsos');
+ const population=Game.call('world');assert(population.creatures.length===8&&population.deaths===2,'shared physics keeps cargo, hoist, boat, bridge and land/air creatures, removes failed controllers and fallen torsos');
+ assert(Math.abs(population.creatures.find(c=>c.id===archCargo).y-4.485)<.01,'a body under the island arch survives on the actual floor');
  const failed=population.recentRemovals.find(r=>r.name==='Bad loop'),toppled=population.recentRemovals.find(r=>r.name==='Toppler');
  assert(failed.cause==='controller'&&failed.detail&&failed.seconds<1&&toppled.cause==='posture'&&toppled.seconds>3,'controller failure and physical collapse record distinct causes and final state');
  const fallen=Game.call('designs').find(d=>d.name==='Toppler');assert(fallen&&!population.creatures.some(c=>c.name==='Toppler'),'fallen creature retains its programmed design');
@@ -94,7 +96,7 @@ try {
  Game.call('camera',{x:116,y:-1,z:20,distance:50,pitch:.5});
  const worldPng=Buffer.from(Game.call('snapshot'));fs.writeFileSync('/workspace/blockwalker-world.png',worldPng);Game.call('save');
  const saved=JSON.parse(fs.readFileSync('/workspace/blockwalker-world.json','utf8'));
- assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===5,'feedback and legacy controller rates persist');
+ assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===6,'feedback and legacy controller rates persist');
  assert(saved.creatures.find(c=>c.name==='Cargo hoist').magnets[5].creature===cargoId,'magnet attachment saves the stable target identity');
  assert(saved.creatures.some(c=>c.anchored)&&saved.creatures.find(c=>c.name==='Harbor boat').blueprint.every(p=>p.material===1),'anchoring and hull materials persist');
  fs.writeFileSync('/workspace/blockwalker-integration.json',JSON.stringify({embedded:true,pngBytes:png.length,steps:after.steps,parts:after.parts,population}));

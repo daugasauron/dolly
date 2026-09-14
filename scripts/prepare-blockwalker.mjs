@@ -29,6 +29,8 @@ SLOP cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ /usr/src/dolly/blo
 SLOP /usr/bin/blockwalker --check
 EXPORTS TOOL blockwalker
 EXPORTS FOLDER blockwalker-source /usr/src/dolly/blockwalker
+EXPORTS HEADER dolly-gpu /usr/include/dolly/gpu.h
+EXPORTS HEADER dolly-gpu-abi /usr/include/dolly/gpu-abi.h
 `;
 await writeFile(resolve(root,"modules/blockwalker.dm"),module);
 await writeFile(resolve(root,"Dollyfile-blockwalker"),`DOLLY 3

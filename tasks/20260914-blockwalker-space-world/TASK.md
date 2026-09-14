@@ -220,3 +220,31 @@ continues on the library/diagnostics image, with 18 survivors as of 02:39 JST;
 no migration is needed for a change that only initializes absent world files.
 The preview serves the newly built starter-world image to fresh page loads.
 No browser tests remain running. Continue the timed goal until 22:00 JST.
+
+## Island outposts checkpoint, 2026-09-15 03:08 JST
+
+Task 024600 is verified: physical landing arch/pad, reactor and antenna/solar
+station; matte and emissive materials; overhead passage; exported GPU headers
+for rebuilding the included C source. Same-world old/new browser comparisons
+kept simulation at real time with zero removals. See that task for measured
+frame rates and actual GPU images. No test browser remains running.
+
+The live session is now `blockwalker-outposts`, preserving 23 creatures and the
+full conversation. New Pi designs include the 20-part Loadrunner magnetic
+carrier and its separate crate, 39-part Threewake trimaran, 46-part Landfreighter,
+and two faster quadrupeds. Its current unfinished experiment is Mooncalf with
+hinged knees. Continue toward flying cargo machines and moving island structures.
+
+Own preview PID 104549 on 9099; relay 17316 on 9010; browser runner 17317 / CDP
+9231; monitor 107009 saves every five minutes. Current restore/monitor scripts:
+`build/blockwalker-outposts-restore.mjs`, `build/blockwalker-outposts-monitor.mjs`.
+Recovery: `build/blockwalker-walking/outposts-state.tar` and `.tar.gz`. The raw
+archive exceeded the 64 MiB upload limit; gzip reduced it to 63,057,451 bytes and
+ordinary `gzip -dc | tar -xf -` restored it inside Dolly. Original conversation
+bytes were verified by SHA-256 prefix comparison after the restore. Task 030600
+tracks streaming larger imports/exports; do not confuse it with the HTTP limit.
+
+Next distribute the newer successful designs: fresh worlds still contain the
+previous 15 starters. Preserve one library entry per design while allowing
+multiple initial placements of the same crate. Keep the live world/history and
+continue until 2026-09-15 22:00 JST.

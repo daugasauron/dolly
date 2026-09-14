@@ -156,11 +156,11 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
     return at;
 }
 static size_t draw_terrain(size_t at){
-    const Color colors[]={{38,48,65,255},{76,60,86,255},{43,76,76,255},{67,70,88,255},{53,72,81,255}};
+    const Color colors[]={{38,48,65,255},{76,60,86,255},{43,76,76,255},{67,70,88,255},{53,72,81,255},{40,64,86,255},{45,191,178,255},{20,38,64,255}};
     for(int i=0;i<terrain_count;i++){
         TerrainBox b=terrain_boxes[i];box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
         Color color=colors[b.color];boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at].color[2]=color.b/255.f;
-        boxes[at].flags[0]=101;boxes[at].style[1]=b.color==4?FINISH_PANEL:FINISH_PLAIN;
+        boxes[at].flags[0]=101;boxes[at].style[0]=b.color;
         boxes[at].half[0]=b.half.x;boxes[at].half[1]=b.half.y;boxes[at++].half[2]=b.half.z;
     }return at;
 }

@@ -117,7 +117,7 @@ try{
         });
         log('Connected: codex-local / gpt-6-astra / xhigh\n');
       }
-      abortRequested=false;const prompt=pending;pending='Continue learning actual walking. Check horizontal displacement and stability, improve the gait or body, and release moving creatures. Do not wait for more input or settle for stationary designs.';
+      abortRequested=false;const prompt=pending||`Continue the latest request and current experiment. Preserve successful designs and use measured physics and a few timed pictures. Keep the world varied and moving; explore its islands when choosing new locations. Do not wait for more input. Latest request: ${config.prompt}`;pending='';
       requestError=null;await session.prompt(prompt);if(requestError)throw Error(requestError);failures=0;if(running&&call('enabled'))await sleep(2000);
     }catch(error){record({event:'error',error:String(error.message??error)});log(`\nPi: ${error.message??error}\n`);const until=Date.now()+Math.min(60000,5000*2**Math.min(failures++,4));while(running&&call('enabled')&&Date.now()<until)await sleep(200);}
   }

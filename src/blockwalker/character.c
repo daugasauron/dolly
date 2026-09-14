@@ -377,7 +377,23 @@ static void magnet_check(void){
     printf("MAGNET: pickup, latched power, lift, release, overload, self-exclusion and removed target passed\n");
     physics_stop(&p);character_clear(&c);
 }
+static void landmark_check(void){
+    Character c={0};Physics p={0};unsigned char keys[128]={0};character_add(&c,-1,0,0,0,BLOCK_BOX,0);
+    assert(terrain_height(164,40)==4&&terrain_height(-8,-170)==6&&terrain_height(0,0)==0);
+    physics_attach(&p,&c,physics_world(1),164,40,1);p.owns_world=1;
+    for(int i=0;i<240;i++)physics_step(&p,&c,keys);b3Pos floor=b3Body_GetPosition(p.parts[0].body);
+    assert(fabsf(floor.y-4.485f)<.01f);
+    b3Body_SetTransform(p.parts[0].body,(b3Pos){164,22,40},(b3Quat){{0,0,0},1});
+    for(int i=0;i<240;i++)physics_step(&p,&c,keys);b3Pos roof=b3Body_GetPosition(p.parts[0].body);
+    assert(fabsf(roof.y-19.485f)<.01f);
+    b3Body_SetTransform(p.parts[0].body,(b3Pos){164,10,35},(b3Quat){{0,0,0},1});b3Body_SetLinearVelocity(p.parts[0].body,(b3Vec3){0,0,6});
+    for(int i=0;i<180;i++)physics_step(&p,&c,keys);b3Pos crossed=b3Body_GetPosition(p.parts[0].body);
+    assert(crossed.z>44&&crossed.y>4.4f);
+    printf("LANDMARK: floor %.3f, solid beam %.3f, passage z %.3f\n",floor.y,roof.y,crossed.z);
+    physics_stop(&p);character_clear(&c);
+}
 int character_check(void) {
+    landmark_check();
     magnet_check();
     water_check();
     wheel_cart_check();

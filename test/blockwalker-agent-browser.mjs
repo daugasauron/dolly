@@ -40,20 +40,20 @@ try {
   assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.json')),0);
   assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --integration-check')),0);
   const result=JSON.parse(await readFile(await download('blockwalker-integration.json'),'utf8'));
-  assert.equal(result.embedded,true);assert.equal(result.steps,60);assert.equal(result.population.creatures.length,7);assert.equal(result.population.deaths,2);
+  assert.equal(result.embedded,true);assert.equal(result.steps,60);assert.equal(result.population.creatures.length,8);assert.equal(result.population.deaths,2);
   await download('blockwalker-magnet.png');await download('blockwalker-magnet.json');
   await download('blockwalker-feedback.png');await download('blockwalker-feedback.json');
   await download('blockwalker-observation.png');await download('blockwalker-actuators.png');await download('blockwalker-water.png');await download('blockwalker-world.png');await download('blockwalker-world.json');
   const restarted=page.evaluate(()=>__dolly.submit('blockwalker'));await page.waitForFunction(()=>__dolly.gpu?.active,null,{timeout:30000});
   await page.mouse.click(404,40);await page.waitForTimeout(2000);await shot('restored-world');await page.keyboard.press('Escape');await page.keyboard.press('Escape');assert.equal(await restarted,0);
-  const restored=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));assert.equal(restored.creatures.length,7);assert.ok(restored.creatures.every(c=>c.seconds>10));
+  const restored=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));assert.equal(restored.creatures.length,8);assert.ok(restored.creatures.every(c=>c.seconds>10));
   assert.deepEqual(restored.removals,result.population.recentRemovals,'removal causes, errors and final physical state survive restart');
   assert.equal(restored.designs.filter(d=>d.name==='Spinner').length,1);assert.ok(restored.designs.some(d=>d.name==='Toppler'&&d.blueprint.length===4&&d.source==='function(){return "A"}'),'fallen design and controller survive game restart');
   const crane=restored.creatures.find(c=>c.name==='Cargo hoist'),cargo=restored.creatures.find(c=>c.id===crane.magnets[5].creature);
   assert.ok(crane.magnets[5].attached&&crane.magnets[5].power===1&&cargo?.y>1.7,'restored latched magnet keeps holding the saved body without pressing On again');
   const boat=restored.creatures.find(c=>c.name==='Harbor boat'),bridge=restored.creatures.find(c=>c.name==='Harbor bridge');assert.ok(boat&&boat.y>-2&&boat.up>.8&&bridge&&bridge.x===96);
   const flyer=restored.creatures.find(c=>c.hz===60);assert.ok(flyer&&Math.abs(flyer.y-4.5)<.3&&flyer.up>.995);
-  console.log(JSON.stringify({embedded:true,timedCapture:true,controllerTimeout:true,feedbackHover:true,waterBuoyancy:true,anchoredBridge:true,magnetPickupLiftRelease:true,magnetRestored:true,survivors:7,worldRestored:true,pngBytes:result.pngBytes}));
+  console.log(JSON.stringify({embedded:true,timedCapture:true,controllerTimeout:true,feedbackHover:true,waterBuoyancy:true,anchoredBridge:true,magnetPickupLiftRelease:true,magnetRestored:true,overheadPassage:true,survivors:8,worldRestored:true,pngBytes:result.pngBytes}));
  }
 }catch(error){await shot('agent-failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
 finally{await browser.close();await site.close();}

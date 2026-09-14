@@ -143,12 +143,24 @@ fn water_normal(p:vec2f)->vec3f {
             color=b.color.rgb*(.69+.31*max(0,dot(rotate(b.rotation,normal),sun)));
             var face_uv=p.yz;if(abs(normal.y)>.5){face_uv=p.xz;}else if(abs(normal.z)>.5){face_uv=p.xy;}
             if(b.flags.x==101){
-                color*=.82+.18*noise(position.xz*2+position.y);
-                if(normal.y>.5){
+                if(b.style.x==6){
+                    color=b.color.rgb*(.9+.1*sin(scene.world.x*.8+position.y*.4));
+                    let bars=abs(fract(face_uv.y*.8)-.5);if(bars>.42){color*=.18;}
+                }else if(b.style.x==7){
+                    let cell=abs(fract(face_uv*vec2f(.8,1.2))-.5);
+                    color=b.color.rgb*(.8+.2*noise(floor(face_uv*vec2f(.8,1.2))));
+                    if(max(cell.x,cell.y)>.47){color=vec3f(.16,.23,.29);}
+                    if(abs(fract(face_uv.x*4)-.5)>.47){color+=vec3f(.025,.045,.065);}
+                }else if(b.style.x>=4){
+                    let panel=abs(fract(face_uv*.25)-.5);
+                    if(max(panel.x,panel.y)>.48){color*=.4;}
+                    if(b.style.x==5&&length(panel-vec2f(.4))<.018){color=vec3f(.35,.43,.46);}
+                }else{color*=.82+.18*noise(position.xz*2+position.y);}
+                if(normal.y>.5&&b.style.x<6){
                     let seam=min(abs(fract(position.x/8+.5)-.5),abs(fract(position.z/8+.5)-.5));
                     color+=vec3f(.02,.12,.13)*(1-smoothstep(.003,.01,seam));
-                }else{color*=.82+.18*sin(position.y*3+noise(position.xz*.3)*2);}
-                if(trace(position+normal*.02,sun,512,true).y>=0){color*=.65;}
+                }else if(b.style.x<4){color*=.82+.18*sin(position.y*3+noise(position.xz*.3)*2);}
+                if(b.style.x!=6&&trace(position+normal*.02,sun,512,true).y>=0){color*=.65;}
             }else{
                 let inset=abs(face_uv);
                 if(b.style.y==1){

@@ -111,6 +111,10 @@ and wheeled creatures, feedback flyers, a catamaran, cranes and the opening
 bridge. On first launch these populate the world, with loose cargo for the
 magnetic crane; click World to visit. Their controllers run without Pi or model
 access. Existing saves keep their population, including an empty world.
+The East landing site, West reactor and North signal station have matching
+physics and GPU geometry, with matte panels, lit markers and solar-cell surfaces.
+Overhead structures collide with bodies while leaving the ground beneath them
+available for walking; the `ground` sensor reports the base terrain there.
 Opening one restores both its body and program; water examples select sea trials.
 Play program runs the controller continuously without starting Pi. Stop program
 or backtick returns the joints to your keys. Pi can use `design_library` and
