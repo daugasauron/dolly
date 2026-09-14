@@ -24,6 +24,8 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Density / appearance | Inspector Mass buttons / finish buttons beneath the palette |
 | Undo | Undo button or Ctrl-Z |
 | World / workshop | World button |
+| Reuse a programmed design | Design library, then Open |
+| Play a saved controller | Test character, then Play program; Stop program or backtick returns manual control |
 | Pi panel | Pi button or Tab |
 | Agent / player joint controls | Backtick key; taking control pauses Pi |
 | Leave the editor | Escape, returning to Slop |
@@ -97,6 +99,20 @@ changing the physics.
 Pi receives horizontal distance, speed and torso orientation as well as timed
 GPU images. Its goal is actual legged walking before exploring other moving
 creatures; surviving in place or driving on wheels does not count as walking.
+
+The design library keeps each released blueprint together with its controller,
+anchor and materials. Releasing identical copies keeps one library entry; a
+fallen creature remains available to reopen. Existing world saves populate the
+library on first load. Library data lives in `blockwalker-world.json` alongside
+the population, so exporting the world also preserves its designs.
+
+A fresh image includes 13 examples learned by the actual Astra/xhigh Pi: walking
+and wheeled creatures, feedback flyers, a catamaran, cranes and the opening
+bridge. These are starting designs, not automatically spawned replacements.
+Opening one restores both its body and program; water examples select sea trials.
+Play program runs the controller continuously without starting Pi. Stop program
+or backtick returns the joints to your keys. Pi can use `design_library` and
+`open_design` to reuse and improve earlier work instead of reconstructing it.
 
 The working blueprint is `/workspace/blockwalker.character`, reloaded when
 the program restarts. Pi resumes its saved conversation as well as the world. Export downloads a copy; Import restores it into a fresh

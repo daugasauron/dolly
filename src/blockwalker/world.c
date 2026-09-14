@@ -12,6 +12,13 @@ struct Controller {JSRuntime *runtime;JSContext *ctx;JSValue function,memory,ran
 World world;
 static char *installed;static char installed_name[64]="Creature";static int installed_hz=10;
 static Controller *trial;static float trial_controls[128];
+static void remember_design(const Character *design,const char *source,const char *name,int hz,float x,float z){
+    for(int i=0;i<world.design_count;i++){SavedDesign *d=&world.designs[i];
+        if(d->hz==hz&&d->design.count==design->count&&d->design.anchored==design->anchored&&!strcmp(d->name,name)&&!strcmp(d->source,source)&&!memcmp(d->design.blocks,design->blocks,design->count*sizeof(Block)))return;
+    }
+    if(world.design_count==world.design_capacity){world.design_capacity=world.design_capacity?world.design_capacity*2:16;world.designs=array_resize(world.designs,world.design_capacity,sizeof(SavedDesign));}
+    SavedDesign *d=&world.designs[world.design_count++];memset(d,0,sizeof(*d));character_copy(&d->design,design);d->source=strdup(source);d->hz=hz;d->x=x;d->z=z;snprintf(d->name,sizeof(d->name),"%s",name);
+}
 static double seconds(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec/1e9;}
 static int interrupt(JSRuntime *rt,void *opaque){return seconds()>((Controller *)opaque)->deadline;}
 static JSValue random_number(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv){
@@ -129,6 +136,22 @@ JSValue world_install(JSContext *ctx,JSValueConst args){
     else {world_trial_stop();installed_hz=hz;free(installed);installed=strdup(source);snprintf(installed_name,sizeof(installed_name),"%s",label?label:"Creature");controller_free(probe);}
     JS_FreeCString(ctx,source);JS_FreeCString(ctx,label);JS_FreeValue(ctx,code);JS_FreeValue(ctx,name);return result;
 }
+JSValue world_designs(JSContext *ctx,int full){
+    JSValue list=JS_NewArray(ctx);
+    for(int i=0;i<world.design_count;i++){SavedDesign *d=&world.designs[i];JSValue item=JS_NewObject(ctx);
+        put_number(ctx,item,"id",i+1);put_number(ctx,item,"parts",d->design.count);put_number(ctx,item,"hz",d->hz);put_number(ctx,item,"x",d->x);put_number(ctx,item,"z",d->z);
+        JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,d->name));JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,d->design.anchored));
+        JS_SetPropertyStr(ctx,item,"sea",JS_NewBool(ctx,terrain_height(d->x,d->z)<WATER_LEVEL));
+        if(full){JS_SetPropertyStr(ctx,item,"blueprint",character_json(ctx,&d->design));JS_SetPropertyStr(ctx,item,"source",JS_NewString(ctx,d->source));}
+        JS_SetPropertyUint32(ctx,list,i,item);
+    }return list;
+}
+JSValue world_open_design(JSContext *ctx,int index,Character *design){
+    if(index<0||index>=world.design_count)return JS_ThrowRangeError(ctx,"Unknown saved design");
+    SavedDesign *d=&world.designs[index];JSValue args=JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx,args,"source",JS_NewString(ctx,d->source));JS_SetPropertyStr(ctx,args,"name",JS_NewString(ctx,d->name));put_number(ctx,args,"hz",d->hz);
+    JSValue result=world_install(ctx,args);JS_FreeValue(ctx,args);if(!JS_IsException(result))character_copy(design,&d->design);return result;
+}
 static Creature *spawn(const Character *design,const char *source,const char *name,uint32_t seed,int hz,float x,float z){
     Controller *controller=controller_new(source,seed,hz);if(!controller)return NULL;
     if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
@@ -148,6 +171,7 @@ JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args){
     if(!isfinite(x)||!isfinite(z)||fabsf(x)>WORLD_RADIUS-8||fabsf(z)>WORLD_RADIUS-8)return JS_ThrowRangeError(ctx,"Spawn must be inside the 512 m world; the sea surrounds the central 200 m ground");
     Creature *c=spawn(design,installed,installed_name,(uint32_t)get_number(ctx,args,"seed",index+1),installed_hz,x,z);
     if(!c)return JS_ThrowInternalError(ctx,"Controller failed to initialize");
+    remember_design(design,installed,installed_name,installed_hz,x,z);
     printf("CREATURE %d born: %s, %d parts\n",c->id,c->name,c->design.count);return JS_NewInt32(ctx,c->id);
 }
 JSValue world_state(JSContext *ctx){
@@ -189,6 +213,7 @@ void world_step(void){
 void world_close(void){
     world_trial_stop();
     for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);}
+    for(int i=0;i<world.design_count;i++){character_clear(&world.designs[i].design);free(world.designs[i].source);}free(world.designs);
     if(world.next_id)b3DestroyWorld(world.physics);free(world.creatures);memset(&world,0,sizeof(world));free(installed);installed=NULL;
 }
 static void save_json(JSContext *ctx,JSValueConst value,const char *path){
@@ -199,6 +224,7 @@ static void save_json(JSContext *ctx,JSValueConst value,const char *path){
 }
 void world_save(JSContext *ctx){
     JSValue save=world_state(ctx),list=JS_GetPropertyStr(ctx,save,"creatures");put_number(ctx,save,"version",1);put_number(ctx,save,"nextId",world.next_id);put_number(ctx,save,"installedHz",installed_hz);
+    JS_SetPropertyStr(ctx,save,"designs",world_designs(ctx,1));
     if(installed){JS_SetPropertyStr(ctx,save,"installed",JS_NewString(ctx,installed));JS_SetPropertyStr(ctx,save,"name",JS_NewString(ctx,installed_name));}
     for(int i=0;i<world.count;i++){
         Creature *c=&world.creatures[i];JSValue item=JS_GetPropertyUint32(ctx,list,i),poses=JS_NewArray(ctx);
@@ -221,10 +247,29 @@ void world_save(JSContext *ctx){
         }JS_FreeValue(ctx,magnets);JS_FreeValue(ctx,item);
     }save_json(ctx,save,"/workspace/blockwalker-world.json");JS_FreeValue(ctx,list);JS_FreeValue(ctx,save);
 }
+static JSValue read_json(JSContext *ctx,const char *path){
+    FILE *f=fopen(path,"r");if(!f)return JS_UNDEFINED;fseek(f,0,SEEK_END);long size=ftell(f);rewind(f);
+    if(size<0||size>128*1024*1024){fclose(f);return JS_UNDEFINED;}char *source=array_resize(NULL,size+1,1);size_t n=fread(source,1,size,f);source[n]=0;fclose(f);
+    JSValue save=JS_ParseJSON(ctx,source,n,"saved-world");free(source);if(JS_IsException(save)){JS_FreeValue(ctx,JS_GetException(ctx));return JS_UNDEFINED;}
+    return save;
+}
+static void load_designs(JSContext *ctx,JSValueConst list){
+    if(!JS_IsArray(list))return;
+    for(int i=0;i<get_number(ctx,list,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,list,i),blueprint=JS_GetPropertyStr(ctx,item,"blueprint"),code=JS_GetPropertyStr(ctx,item,"source"),label=JS_GetPropertyStr(ctx,item,"name");Character c={0};
+        if(JS_IsString(code)&&JS_IsString(label)&&character_from_json(ctx,blueprint,&c)){
+            JSValue anchored=JS_GetPropertyStr(ctx,item,"anchored");c.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);
+            const char *source=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);int hz=get_number(ctx,item,"hz",10);float x=get_number(ctx,item,"x",0),z=get_number(ctx,item,"z",0);
+            Controller *probe=strlen(source)<=16384&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
+            if(probe&&isfinite(x)&&isfinite(z))remember_design(&c,source,name,hz,Clamp(x,-248,248),Clamp(z,-248,248));controller_free(probe);JS_FreeCString(ctx,source);JS_FreeCString(ctx,name);
+        }character_clear(&c);JS_FreeValue(ctx,item);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
+    }
+}
 void world_load(JSContext *ctx){
-    FILE *f=fopen("/workspace/blockwalker-world.json","r");if(!f)return;fseek(f,0,SEEK_END);long size=ftell(f);rewind(f);
-    if(size<0||size>128*1024*1024){fclose(f);return;}char *source=array_resize(NULL,size+1,1);size_t n=fread(source,1,size,f);source[n]=0;fclose(f);
-    JSValue save=JS_ParseJSON(ctx,source,n,"saved-world");free(source);if(JS_IsException(save)){JS_FreeValue(ctx,JS_GetException(ctx));return;}
+    JSValue save=read_json(ctx,"/workspace/blockwalker-world.json");
+    if(JS_IsObject(save)){JSValue designs=JS_GetPropertyStr(ctx,save,"designs");load_designs(ctx,designs);JS_FreeValue(ctx,designs);}
+    JSValue examples=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");load_designs(ctx,examples);JS_FreeValue(ctx,examples);
+    if(!JS_IsObject(save)){JS_FreeValue(ctx,save);return;}
     if(get_number(ctx,save,"version",0)!=1){JS_FreeValue(ctx,save);return;}
     int hz=get_number(ctx,save,"installedHz",10);installed_hz=(hz==10||hz==20||hz==30||hz==60)?hz:10;
     JSValue code=JS_GetPropertyStr(ctx,save,"installed"),label=JS_GetPropertyStr(ctx,save,"name");
@@ -247,6 +292,7 @@ void world_load(JSContext *ctx){
                     for(int k=0;k<13;k++){JSValue v=JS_GetPropertyUint32(ctx,pose,k);if(JS_ToFloat64(ctx,&p[k],v)<0||!isfinite(p[k]))valid=0;JS_FreeValue(ctx,v);}JS_FreeValue(ctx,pose);
                     if(valid){b3BodyId b=creature->physics.parts[j].body;b3Body_SetTransform(b,(b3Pos){p[0],p[1],p[2]},(b3Quat){{p[3],p[4],p[5]},p[6]});b3Body_SetLinearVelocity(b,(b3Vec3){p[7],p[8],p[9]});b3Body_SetAngularVelocity(b,(b3Vec3){p[10],p[11],p[12]});}
                 }JS_FreeValue(ctx,poses);
+                if(strcmp(creature->name,"Cargo"))remember_design(&c,s,creature->name,hz,creature->physics.start.x,creature->physics.start.z);
             }JS_FreeCString(ctx,s);JS_FreeCString(ctx,name);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
         }character_clear(&c);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,item);
     }

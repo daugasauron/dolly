@@ -4,6 +4,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const timer=setInterval(()=>Game.frame(),16);
 try {
  const before=Game.call('state');assert(before.parts.length>0,'builder has parts');
+ const examples=Game.call('designs');assert(examples.some(d=>d.parts>50&&d.anchored)&&examples.some(d=>d.sea),'fresh image includes larger learned mechanisms and water designs');
  Game.call('watch',true);Game.call('camera',{x:140,y:12,z:-70,distance:60,yaw:1.2,pitch:.4});
  const worldCamera=Game.call('state').camera;Game.call('watch',true);
  assert(JSON.stringify(Game.call('state').camera)===JSON.stringify(worldCamera),'watch preserves a travelled world camera');
@@ -75,12 +76,16 @@ try {
  const platform=[{x:0,y:0,z:0,parent:-1,joint:0},{x:1,y:0,z:0,parent:0,joint:0},{x:0,y:0,z:1,parent:0,joint:0},{x:1,y:0,z:1,parent:1,joint:0},{x:0,y:1,z:0,parent:0,joint:1,negative:81,positive:65,axis:1}];
  Game.call('build',{parts:platform});Game.call('install',{name:'Spinner',source:'function(t,s,m,random){m.turns=(m.turns||0)+1;return t%2<1?"A":"Q"}'});
  Game.call('spawn',{x:-4,z:0,seed:17});Game.call('spawn',{x:4,z:0,seed:19});
+ assert(Game.call('designs').filter(d=>d.name==='Spinner').length===1,'identical releases share one saved design');
  Game.call('install',{name:'Bad loop',source:'function(){while(true){}}'});Game.call('spawn',{x:0,z:5});
  Game.call('build',{parts:[{x:0,y:3,z:0,parent:-1,joint:0},{x:0,y:2,z:0,parent:0,joint:1,negative:81,positive:65,speed:3,axis:2},{x:0,y:1,z:0,parent:1,joint:0},{x:0,y:0,z:0,parent:2,joint:0}]});
  Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});
  Game.call('watch',true);const started=Game.call('world').seconds;
  while(Game.call('world').seconds-started<10)await sleep(40);
  const population=Game.call('world');assert(population.creatures.length===7&&population.deaths===2,'shared physics keeps cargo, hoist, boat, bridge and land/air creatures, removes failed controllers and fallen torsos');
+ const fallen=Game.call('designs').find(d=>d.name==='Toppler');assert(fallen&&!population.creatures.some(c=>c.name==='Toppler'),'fallen creature retains its programmed design');
+ const reopened=Game.call('open_design',{id:fallen.id});assert(reopened.parts.length===4&&reopened.source==='function(){return "A"}','reopening restores the body and controller');
+ Game.call('program_trial',{steps:60});while(Game.call('state').remaining)await sleep(20);assert(Game.call('state').parts[1].angle>.1,'saved controller actually drives its restored hinge');Game.call('watch',true);
  const crane=population.creatures.find(c=>c.name==='Cargo hoist'),cargo=population.creatures.find(c=>c.id===cargoId);assert(crane.magnets[5].attached&&crane.magnets[5].power===1&&cargo.y>1.7,'world crane carries a separate cargo creature');
  const harbor=population.creatures.find(c=>c.name==='Harbor boat'),anchored=population.creatures.find(c=>c.name==='Harbor bridge');assert(harbor.y>-2&&harbor.up>.8&&anchored.x===96,'boat remains afloat and structure stays anchored');
  Game.call('camera',{x:116,y:-1,z:20,distance:50,pitch:.5});
@@ -90,5 +95,6 @@ try {
  assert(saved.creatures.find(c=>c.name==='Cargo hoist').magnets[5].creature===cargoId,'magnet attachment saves the stable target identity');
  assert(saved.creatures.some(c=>c.anchored)&&saved.creatures.find(c=>c.name==='Harbor boat').blueprint.every(p=>p.material===1),'anchoring and hull materials persist');
  fs.writeFileSync('/workspace/blockwalker-integration.json',JSON.stringify({embedded:true,pngBytes:png.length,steps:after.steps,parts:after.parts,population}));
+ Game.call('open_design',{id:examples.find(d=>d.sea&&!d.anchored).id});Game.call('reset');assert(Game.call('state').sea,'reset keeps the water surface selected by a saved boat');
  console.log('BLOCKWALKER EMBED CHECK: direct C calls, GPU PNG, timed keyboard, paused inference, shared world, controller timeout, survivors, persistence');
 }finally{clearInterval(timer);Game.call('exit');}

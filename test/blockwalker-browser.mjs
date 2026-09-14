@@ -29,10 +29,17 @@ try {
  const upload=page.evaluate(()=>__dolly.submit('upload /tmp/blockwalker-camera.mjs'));
  await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(new URL('./fixtures/blockwalker-camera.mjs',import.meta.url).pathname);assert.equal(await upload,0);
  assert.equal(await page.evaluate(()=>__dolly.submit('cp /tmp/blockwalker-camera.mjs /usr/src/dolly/blockwalker/check.mjs')),0);
- const editor=page.evaluate(()=>__dolly.submit('blockwalker --integration-check'));
+ const editor=page.evaluate(()=>__dolly.submit('blockwalker --integration-check'));editor.catch(()=>{});
  await page.waitForFunction(()=>__dolly.gpu?.active&&__dolly.gpu.stats.frames>20,null,{timeout:30000});
  await shot('builder');let blueprint=await exportBlueprint('starter');
  assert.equal(blueprint.count,5);assert.equal(blueprint.blocks.filter(b=>b.joint).length,4);
+ const examples=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8'));
+ const boatIndex=examples.findIndex(d=>!d.anchored&&d.blueprint.filter(b=>b.material===1).length>8);assert.ok(boatIndex>=0);
+ await page.mouse.click(120,62);await frames();await shot('design-library');let libraryPage=0;
+ while(boatIndex>=libraryPage+8){await page.mouse.click(940,575);await frames();libraryPage+=8;}
+ await page.mouse.click(928,222+(boatIndex-libraryPage)*42);await frames();const libraryBoat=await exportBlueprint('library-boat');assert.equal(libraryBoat.count,examples[boatIndex].blueprint.length);assert.deepEqual(libraryBoat.blocks.map(b=>b.material),examples[boatIndex].blueprint.map(b=>b.material));
+ await page.mouse.click(1156,40);await frames();await page.mouse.click(120,370);await page.waitForTimeout(4000);await shot('library-program-playing');
+ await page.keyboard.press('Backquote');await frames();await page.keyboard.press('Escape');await frames();await page.mouse.click(560,64);await importBlueprint(blueprint.path);
  await page.mouse.click(1140,346);await page.mouse.click(1160,588);await page.mouse.click(120,352);await page.mouse.click(145,464);await frames();
  const styled=await exportBlueprint('anchored-hull');assert.equal(styled.anchored,1);assert.equal(styled.blocks[0].material,1);assert.equal(styled.blocks[0].finish,2);
  await shot('materials');await importBlueprint(styled.path);assert.equal((await exportBlueprint('materials-restored')).source,styled.source);await importBlueprint(blueprint.path);
@@ -124,6 +131,9 @@ try {
  await page.keyboard.press('Escape');
  await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
  assert.equal(await editor,0);
+ const programDownload=page.waitForEvent('download'),programCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-program-ui.json'));
+ const programFile=await programDownload,programPath=new URL('program-ui.json',output).pathname;await programFile.saveAs(programPath);assert.equal(await programCommand,0);
+ const programs=JSON.parse(await readFile(programPath,'utf8'));assert.equal(programs.length,2);assert.ok(programs[1].steps>180&&programs[1].sea&&programs[1].up>.8&&programs[1].sensors.y>-2&&programs[1].distance>.2,'saved boat controller runs through the UI without Pi and moves through actual water');
  const magnetDownload=page.waitForEvent('download'),magnetCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-magnet-ui.json'));
  const magnetFile=await magnetDownload,magnetPath=new URL('magnet-ui.json',output).pathname;await magnetFile.saveAs(magnetPath);assert.equal(await magnetCommand,0);
  const magnets=JSON.parse(await readFile(magnetPath,'utf8'));assert.ok(magnets.some(m=>m.power===1&&m.attached&&m.maxY>1.7),'UI cargo button and latched magnet key lift the crate');assert.ok(magnets.at(-1).power===0&&!magnets.at(-1).attached&&magnets.at(-1).minY<.6,'UI Off key drops the crate');

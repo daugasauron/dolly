@@ -19,6 +19,7 @@ static int brush_material,brush_finish=FINISH_PANEL,practice_sea;
 static float mouse_x,mouse_y,last_x,last_y,fps;
 static unsigned char keys[128],agent_keys[128];
 static int agent_control,practice_steps,agent_panel,agent_enabled,prompt_focus,world_view,camera_fast,world_list;
+static int library_open,library_page;
 static double world_accumulator,last_save;
 static char agent_log[8192],prompt_input[1024],pending_prompt[1024];
 static double last_frame,updated,accumulator;
@@ -114,7 +115,25 @@ static void import_character(void){
     }else say("No valid blueprint imported. Your current build is unchanged.");
     remove("/tmp/blockwalker-import.character");
 }
+static JSValue open_design(JSContext *ctx,int index){
+    Character next={0};JSValue result=world_open_design(ctx,index,&next);if(JS_IsException(result))return result;
+    world_trial_stop();program_trial=0;physics_stop(&physics);set_world_view(0);practice_steps=0;remember();character_copy(&design,&next);character_clear(&next);
+    SavedDesign *saved=&world.designs[index];practice_sea=terrain_height(saved->x,saved->z)<WATER_LEVEL;
+    library_open=0;selected=0;binding=-1;home_camera();changed();world_save(ctx);say("Design and controller restored. Test it, then Play program.");return result;
+}
+static void toggle_control(void){world_trial_stop();program_trial=0;agent_control=!agent_control;agent_enabled=agent_control;practice_steps=0;memset(keys,0,128);dirty=1;}
 static void click(void){
+    if(inside(24,51,194,22)){library_open=!library_open;prompt_focus=0;memset(keys,0,128);dirty=1;return;}
+    if(library_open){
+        if(inside(932,156,44,32))library_open=0;
+        if(inside(274,558,68,34))library_page=(int)fmaxf(0,library_page-8);
+        if(inside(908,558,68,34))library_page=(int)fminf((world.design_count?((world.design_count-1)/8)*8:0),library_page+8);
+        for(int i=0;i<8&&library_page+i<world.design_count;i++)if(inside(882,206+i*42,94,32)){
+            JSValue result=open_design(embedded_context,library_page+i);
+            if(JS_IsException(result)){JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Could not open this design.");}
+            else{agent_enabled=agent_control=0;memset(agent_keys,0,128);}JS_FreeValue(embedded_context,result);break;
+        }dirty=1;return;
+    }
     if(inside(712,22,80,36)){agent_panel=!agent_panel;prompt_focus=0;dirty=1;return;}
     if(inside(352,22,104,36)){set_world_view(!world_view);return;}
     if(!world_view&&inside(472,54,208,20)){practice_sea=!practice_sea;if(physics.running)start_test();dirty=1;return;}
@@ -124,7 +143,7 @@ static void click(void){
         if(inside(1036,142,220,36)){agent_enabled=0;int result=system("upload /workspace/blockwalker-agent/models.json");say(result==0?"Proxy configuration imported. Press Start in the Pi panel.":"Proxy import cancelled.");}
         if(inside(1036,188,104,36)){agent_enabled=1;agent_control=1;log_text("\nStarting Pi...\n");}
         if(inside(1152,188,104,36)){agent_enabled=0;practice_steps=0;memset(agent_keys,0,128);log_text("\nPaused.\n");}
-        if(inside(1036,235,220,36)){agent_control=!agent_control;agent_enabled=agent_control;practice_steps=0;memset(keys,0,128);}
+        if(inside(1036,235,220,36))toggle_control();
         dirty=1;return;
     }
     prompt_focus=0;
@@ -152,6 +171,10 @@ static void click(void){
         if(inside(24,154,194,42))start_test();
         if(inside(24,212,194,42))home_camera();
         if(inside(24,264,194,30))drop_cargo();
+        if(inside(24,350,194,36)){
+            if(program_trial==2){toggle_control();say("Program stopped. Your keys control the joints.");}
+            else{agent_enabled=0;start_test();if(world_trial_begin()){program_trial=2;agent_control=1;memset(agent_keys,0,128);say("Playing the saved controller. Stop program or ` takes manual control.");}else say("Open a saved design or ask Pi to install a controller first.");}
+        }
         return;
     }
     if(inside(808,22,104,36)){export_character();return;}
@@ -225,6 +248,7 @@ static void events(void){
         }
         if(prompt_focus&&e.type==DOLLY_INPUT_EVENT_TEXT){append_prompt(e.data+e.key_length+e.code_length,e.text_length);continue;}
         if(e.type!=DOLLY_INPUT_EVENT_KEY)continue;
+        if(library_open){if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Escape")){library_open=0;dirty=1;}continue;}
         camera_fast=(e.modifiers&DOLLY_INPUT_MOD_SHIFT)!=0;
         if(prompt_focus){
             if(e.action==DOLLY_KEY_ACTION_RELEASE)continue;
@@ -234,7 +258,7 @@ static void events(void){
             if(e.key_length==1&&!(e.modifiers&(DOLLY_INPUT_MOD_CONTROL|DOLLY_INPUT_MOD_META|DOLLY_INPUT_MOD_ALT)))append_prompt(e.data,e.key_length);
             continue;
         }
-        if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Backquote")){agent_control=!agent_control;agent_enabled=agent_control;practice_steps=0;memset(keys,0,128);dirty=1;continue;}
+        if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Backquote")){toggle_control();continue;}
         if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Tab")){agent_panel=!agent_panel;dirty=1;continue;}
         int k=event_letter(&e);if(k>0&&k<128){int down=e.action!=DOLLY_KEY_ACTION_RELEASE;if(physics.running&&keys[k]!=down)dirty=1;keys[k]=down;}
         if(e.action!=DOLLY_KEY_ACTION_PRESS)continue;
@@ -268,7 +292,7 @@ static void draw_ui(void){
     DrawRectangle(0,0,SCREEN_WIDTH,VIEW_Y,paper);DrawRectangle(0,VIEW_Y,VIEW_X,VIEW_H,paper);
     DrawRectangle(VIEW_X+VIEW_W,VIEW_Y,SCREEN_WIDTH-VIEW_X-VIEW_W,VIEW_H,paper);DrawRectangle(0,674,SCREEN_WIDTH,46,paper);
     DrawLine(0,79,1280,79,line);DrawLine(241,80,241,674,line);DrawLine(998,80,998,674,line);DrawLine(0,674,1280,674,line);
-    label(24,15,"BLOCKWALKER",28,ink);label(24,47,"Build something that might walk.",15,muted);
+    label(24,15,"BLOCKWALKER",28,ink);button(24,51,194,22,"Design library",library_open);
     char text[120];int joints=0;for(int i=0;i<design.count;i++)joints+=design.blocks[i].joint!=0;
     snprintf(text,sizeof(text),"%d PARTS / %d JOINTS",design.count,joints);label(472,32,text,15,muted);
     if(!world_view)button(472,54,208,20,practice_sea?"Test surface: water":"Test surface: ground",practice_sea);
@@ -323,7 +347,7 @@ static void draw_ui(void){
         }
     }else {
         label(24,108,practice_sea?"SEA TRIAL":"TEST GROUND",17,muted);button(24,154,194,42,"Reset drop",0);button(24,212,194,42,"Center camera",0);button(24,264,194,30,"Drop cargo",0);
-        label(24,300,"No training wheels.",18,ink);label(24,335,"Balance, fall, rebuild.",15,muted);
+        label(24,308,"Balance, fall, rebuild.",15,muted);button(24,350,194,36,program_trial==2?"Stop program":"Play program",program_trial==2);
         label(1036,108,"HOLD KEYS TO TURN",17,muted);int row=0;
         for(int i=0;i<design.count&&row<7;i++)if(design.blocks[i].joint){Block b=design.blocks[i];int y=152+row*66;
             snprintf(text,sizeof(text),"%02d",i+1);label(1036,y+12,text,16,muted);char a[2]={b.negative?b.negative:'-',0},z[2]={b.positive?b.positive:'-',0};button(1072,y,72,42,a,(agent_control?agent_keys:keys)[b.negative]);button(1156,y,72,42,z,(agent_control?agent_keys:keys)[b.positive]);
@@ -334,6 +358,15 @@ static void draw_ui(void){
             else snprintf(text,sizeof(text),"%+.0f deg",part->angle*RAD2DEG);
             label(1072,y+44,text,14,muted);row++;}
         if(joints>7){snprintf(text,sizeof(text),"+ %d more active joints",joints-7);label(1036,622,text,15,muted);}
+    }
+    if(library_open){
+        DrawRectangle(254,142,742,470,paper);DrawRectangleLinesEx((Rectangle){254,142,742,470},2,line);
+        label(274,164,"DESIGN LIBRARY",22,ink);button(932,156,44,32,"X",0);
+        library_page=(int)Clamp(library_page,0,world.design_count?((world.design_count-1)/8)*8:0);
+        for(int i=0;i<8&&library_page+i<world.design_count;i++){SavedDesign *d=&world.designs[library_page+i];int y=206+i*42;
+            snprintf(text,sizeof(text),"%.34s",d->name);label(274,y+8,text,16,ink);
+            snprintf(text,sizeof(text),"%d parts / %d Hz",d->design.count,d->hz);label(696,y+8,text,14,muted);button(882,y,94,32,"Open",0);
+        }button(274,558,68,34,"<",0);button(908,558,68,34,">",0);snprintf(text,sizeof(text),"%d-%d of %d designs",world.design_count?library_page+1:0,(int)fminf(library_page+8,world.design_count),world.design_count);label(498,568,text,15,muted);
     }
     if(agent_panel){
         DrawRectangle(999,80,281,594,paper);label(1036,106,"PI / ASTRA / XHIGH",16,ink);
@@ -364,6 +397,7 @@ static JSValue state(JSContext *ctx) {
     JS_SetPropertyStr(ctx,result,"steps",JS_NewInt32(ctx,physics.steps));
     JS_SetPropertyStr(ctx,result,"remaining",JS_NewInt32(ctx,practice_steps));
     JS_SetPropertyStr(ctx,result,"agentControl",JS_NewBool(ctx,agent_control));
+    JS_SetPropertyStr(ctx,result,"programPlaying",JS_NewBool(ctx,program_trial==2&&agent_control));
     JS_SetPropertyStr(ctx,result,"anchored",JS_NewBool(ctx,design.anchored));JS_SetPropertyStr(ctx,result,"sea",JS_NewBool(ctx,practice_sea));
     JS_SetPropertyStr(ctx,result,"maxSeparation",JS_NewFloat64(ctx,physics.max_separation));
     JSValue camera=JS_NewObject(ctx);const char *camera_keys[]={"x","y","z","yaw","pitch","distance"};
@@ -415,6 +449,11 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     JSValueConst args=argc>1?argv[1]:JS_UNDEFINED;JSValue result=JS_UNDEFINED;
     if(!strcmp(op,"state"))result=state(ctx);
     else if(!strcmp(op,"world"))result=world_state(ctx);
+    else if(!strcmp(op,"designs"))result=world_designs(ctx,0);
+    else if(!strcmp(op,"open_design")){
+        int index=number(ctx,args,"id",0)-1;result=open_design(ctx,index);
+        if(!JS_IsException(result)){result=state(ctx);JS_SetPropertyStr(ctx,result,"source",JS_NewString(ctx,world.designs[index].source));}
+    }
     else if(!strcmp(op,"install")){result=world_install(ctx,args);if(!JS_IsException(result))world_save(ctx);}
     else if(!strcmp(op,"spawn")){result=world_release(ctx,&design,args);if(!JS_IsException(result)){world_save(ctx);dirty=1;}}
     else if(!strcmp(op,"cargo")){
@@ -435,7 +474,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
         if(!character_from_json(ctx,list,&next))result=JS_ThrowTypeError(ctx,"Invalid blueprint: connected adjacent tree, unique cells and keys, root box, positive speed/limits required");
         else {JSValue anchored=JS_GetPropertyStr(ctx,args,"anchored");next.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);world_trial_stop();program_trial=0;physics_stop(&physics);set_world_view(0);practice_steps=0;remember();character_copy(&design,&next);selected=0;home_camera();changed();result=state(ctx);}
         character_clear(&next);JS_FreeValue(ctx,list);
-    }else if(!strcmp(op,"reset")){practice_sea=number(ctx,args,"sea",0)!=0;start_test();agent_control=1;practice_steps=0;memset(agent_keys,0,128);result=state(ctx);}
+    }else if(!strcmp(op,"reset")){practice_sea=number(ctx,args,"sea",practice_sea)!=0;start_test();agent_control=1;practice_steps=0;memset(agent_keys,0,128);result=state(ctx);}
     else if(!strcmp(op,"advance")) {
         int steps=number(ctx,args,"steps",0);JSValue v=JS_GetPropertyStr(ctx,args,"keys");const char *pressed=JS_ToCString(ctx,v);
         if(!physics.running||!agent_control||steps<1||steps>600)result=JS_ThrowRangeError(ctx,"Reset practice first; take agent control; advance 1..600 physics steps");
@@ -471,14 +510,14 @@ static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst
     double now=seconds(),dt=fmin(now-last_frame,.1);last_frame=now;events();if(stopping)return JS_FALSE;move_camera(dt);
     world_accumulator+=dt;for(int i=0;i<6&&world_accumulator>=1./60;i++){world_step();world_accumulator-=1./60;}
     if(world.age-last_save>10){world_save(ctx);last_save=world.age;}
-    if(physics.running&&(!world_view||agent_control)&&(!agent_control||practice_steps>0)){
+    if(physics.running&&(!world_view||agent_control)&&(!agent_control||practice_steps>0||program_trial==2)){
         accumulator+=dt;for(int i=0;i<6&&accumulator>=1./60;i++){
-            if(agent_control&&practice_steps<=0){accumulator=0;break;}
+            if(agent_control&&practice_steps<=0&&program_trial!=2){accumulator=0;break;}
             if(program_trial&&agent_control){
-                if(!world_trial_step(&physics,&design)){log_text("\nController failed during practice.\n");practice_steps=0;world_trial_stop();program_trial=0;break;}
+                if(!world_trial_step(&physics,&design)){log_text("\nController failed during practice.\n");say("Controller failed. Edit its program or take manual control.");practice_steps=0;world_trial_stop();program_trial=0;break;}
                 memset(agent_keys,0,128);for(int j=1;j<design.count;j++){Block b=design.blocks[j];agent_keys[b.positive]=physics.parts[j].command>0;agent_keys[b.negative]=physics.parts[j].command<0;}
             }else physics_step(&physics,&design,agent_control?agent_keys:keys);
-            if(agent_control)practice_steps--;accumulator-=1./60;
+            if(agent_control&&practice_steps>0)practice_steps--;accumulator-=1./60;
         }
         if(design.count&&!world_view){Vector3 p;Quaternion q;physics_pose(&physics,&design,0,&p,&q);orbit.target=Vector3Add(orbit.target,Vector3Subtract(p,follow_position));follow_position=p;orbit_update(&orbit);}
     }else accumulator=0;
