@@ -1,0 +1,135 @@
+{
+  "date": "2026-09-14",
+  "branch": "main",
+  "implementationCommit": "c42bb9a497d3541338cfac7721422bb87802fde7",
+  "checkpointTag": "gpu-checkpoint-full-20260914",
+  "domain": {
+    "url": "https://daugasauron.com/",
+    "source": "b0f02f0e515535cb1d5c3dab24b465face8638e7",
+    "release": "12b9aaf40169f9c18f168a875164abef536508eda1095e43f6d97f628d97e106",
+    "imageRows": 39,
+    "localImages": 39,
+    "linksChecked": 117,
+    "redirects": 0,
+    "defaultBoot": true,
+    "ripgrepFd": true,
+    "sessionRestore": true,
+    "rebuildStartCancel": true,
+    "pageErrors": [],
+    "decodedHashChecks": [
+      "src/browser.mjs",
+      "src/gpu-worker.mjs",
+      "src/gpu-bridge.mjs",
+      "dist/dolly-images.mjs",
+      "dist/dolly.wasm",
+      "dist/dolly.data",
+      "Dollyfile",
+      "Dollyfile-gpu-fluid",
+      "release/source.commit",
+      "Dollyfile-pi-local",
+      "agents/index.html"
+    ],
+    "retainedReleases": [
+      "cc12357df54072629ee0438caa10bad22883bb0721450ed8f7dcc3a46ee7a251",
+      "bf5a5a2cc8d9720712525c67fe85e8f16d2634bfc3d41bbb69b76a1d257003a0",
+      "abf018b9b77dc6d908049e148d0d6618ae347863f1b076355af186819d29663b"
+    ],
+    "fluid": {
+      "browser": "151.0.7922.71",
+      "adapter": "nvidia blackwell",
+      "render": true,
+      "compute": true,
+      "readbackBytes": 0
+    },
+    "deploymentId": "f04b6b14-db66-4626-9ed4-86da11591bda",
+    "deploymentUrl": "https://f04b6b14.dolly-9dk.pages.dev",
+    "archiveSha256": "cc29651c9e27d8757b04b4ae5d8a753ddc8a251b1ee084eb49975d779dc8f535",
+    "archiveBytes": 2093275841,
+    "inventoryChecks": 39,
+    "llm": {
+      "browser": "151.0.7922.71",
+      "inference": {
+        "model": "Qwen3.5-0.8B",
+        "reuse": true,
+        "cancel": true,
+        "restart": true,
+        "results": [
+          {
+            "text": "Hello! How can I help you today?",
+            "done": true,
+            "generation_ms": 325.335,
+            "input_tokens": 19,
+            "output_tokens": 9,
+            "prefill_ms": 927.615,
+            "reason": "stop",
+            "tokens_per_second": 27.66379270597999
+          },
+          {
+            "text": "4",
+            "done": true,
+            "generation_ms": 14.2,
+            "input_tokens": 21,
+            "output_tokens": 1,
+            "prefill_ms": 118.36,
+            "reason": "stop",
+            "tokens_per_second": 70.4225352112676
+          },
+          {
+            "text": "Hello! How can I help you today?",
+            "done": true,
+            "generation_ms": 160.4,
+            "input_tokens": 20,
+            "output_tokens": 9,
+            "prefill_ms": 120.15,
+            "reason": "stop",
+            "tokens_per_second": 56.109725685785534
+          }
+        ]
+      },
+      "refreshPartDownloads": 0,
+      "partRequests": 27,
+      "externalRequests": 0
+    }
+  },
+  "github": {
+    "url": "https://daugasauron.github.io/dolly/",
+    "source": "c42bb9a497d3541338cfac7721422bb87802fde7",
+    "release": "4745abd4657930e47e405867282f7a7003c34a1a0000c8efb6cafb54915a1ac3",
+    "imageRows": 34,
+    "localImages": 32,
+    "linksChecked": 102,
+    "redirects": 6,
+    "defaultBoot": true,
+    "ripgrepFd": true,
+    "sessionRestore": true,
+    "rebuildStartCancel": true,
+    "pageErrors": [],
+    "decodedHashChecks": [
+      "src/browser.mjs",
+      "src/gpu-worker.mjs",
+      "src/gpu-bridge.mjs",
+      "dist/dolly-images.mjs",
+      "dist/dolly.wasm",
+      "dist/dolly.data",
+      "Dollyfile",
+      "Dollyfile-gpu-fluid",
+      "release/source.commit"
+    ],
+    "retainedReleases": [],
+    "fluid": {
+      "browser": "151.0.7922.71",
+      "adapter": "nvidia blackwell",
+      "render": true,
+      "compute": true,
+      "readbackBytes": 0
+    },
+    "workflow": "https://github.com/daugasauron/dolly/actions/runs/34828401705",
+    "workflowConclusion": "success",
+    "releaseUrl": "https://github.com/daugasauron/dolly/releases/tag/pages-c42bb9a-r1",
+    "archiveSha256": "8c195d1dd7366f83c8a5ace425be1d9aa2620d3b91ee93f42e20da38495f9395",
+    "archiveBytes": 521412195,
+    "exportBytes": 866674400,
+    "inventoryChecks": 32,
+    "showcaseFiles": false
+  }
+}
