@@ -19,20 +19,33 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 06:52 JST
+## Current checkpoint — 2026-09-15 07:30 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
 Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
-Fresh images contain **45 objects/1211 parts**. The latest completed live backup,
-21:48:35 UTC, has **52 survivors/1410 parts**, six older removals of unknown cause,
-and one new diagnosed controller failure. Marrowstep ID 48 exceeded its controller
-deadline while upright; Pi released a replacement as ID 59. See the
-[controller-limit investigation](../20260915-065100-codex-01/TASK.md). Read
-`build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
-for newer state; do not infer a stopped process from an old snapshot or timeout.
+Fresh images contain **45 objects/1211 parts**. The controller-update backup at
+22:15 UTC has **52 survivors/1361 parts** and nine removals: six older causes
+unknown, and three diagnosed elapsed controller deadlines while upright
+(Marrowstep 48, Northline 36, Vesper 40). Marrowstep has a replacement, ID 59.
+The [controller fix](../20260915-065100-codex-01/TASK.md) passed finite-controller
+pause, runaway, native and browser checks. The live C binary was compiled and
+updated inside Dolly with all five selected workspace files byte-identical.
+All 52 objects restore with zero pose error, unchanged memory and step counts,
+and three magnetic attachments. Pi resumed actual Astra/xhigh requests and successful tools. At 22:29:48 UTC,
+world time reached 25733.5167 s with all 52 survivors and no new removals;
+requests reached 381/380 completed.
+
+The latest user priority is [a two-legged walker](../20260915-070100-codex-01/TASK.md).
+The 33-part Sidelight III has two five-joint legs and articulated feet; an
+independent replay confirmed sliding, not lift. Pi has rebuilt the prototype as
+taller Sidelight IV with more joint clearance, and is retesting standing before
+weight transfer. No biped is bundled or claimed to walk yet. Preserve all existing
+creations while developing single support, alternating steps and travel.
+Read `build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
+for newer state; an old snapshot or startup timeout does not prove process exit.
 
 **Cairnwing**, **Vesper** and **Rime** are now bundled after measured fresh-start
 takeoff, 3.8–5.4 m excursions, return/landing and seeded route variation. Rime's
@@ -107,7 +120,7 @@ and 16 ms waits at 32 ms. No host scheduling or GPU ABI change was made.
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; allows origins 9099 and 19199 |
 | Live browser runner | 17317 | CDP `http://127.0.0.1:9231`, `build/blockwalker-water-live.mjs` |
-| Five-minute backup monitor | 216911 | `build/blockwalker-performance-monitor.mjs --watch` |
+| Five-minute backup monitor | 248825 | `build/blockwalker-performance-monitor.mjs --watch` |
 
 The session is **`blockwalker-basin`**, with persistent browser profile
 `.cache/blockwalker-browser-20260915`. Run scripts under the `build` symlink with
@@ -122,18 +135,19 @@ script; never print or commit it.
 The monitor mirrors selected files under
 `build/blockwalker-walking/current-state/`: the world, working blueprint, Pi
 config/events and full native session JSONL. It excludes models/auth. The native
-conversation reached **274,387,780 bytes** before the renderer update. Its exact
-complete SHA-256 and complete world file matched across compilation. Evidence:
-`build/blockwalker-walking/performance-updated-proof.json`, `performance-live.png`
-and `build/blockwalker-performance-update.log`. The first resumed mirror had
-279,433,079 bytes with successful new tool calls and a native compaction entry
-appended. The 21:48 mirror has **293,370,361 bytes** and retains the exact complete
-274,387,780-byte pre-update prefix.
+conversation reached **309,962,807 bytes** before the controller update, with
+1,481 valid JSONL entries. Its complete SHA-256, world, blueprint, config and
+events all matched across compilation. Evidence: `controller-updated-proof.json`
+and `controller-restore-proof.json` in the walking folder. The first continued mirror is 312,153,420 bytes, retaining that full 310 MB
+pre-update prefix. See `controller-continuation-proof.json`. The complete earlier
+274,387,780-byte history prefix is also verified. Startup reads the entire native
+history and can pause game frames for several minutes; do not restart it merely
+because that loading period is slow.
 
-Latest recovery files are `performance-state.tar` (276,039,680 bytes),
-`performance-state.tar.gz` (204,649,967 bytes) and five `performance-state-XX.part`
-files of at most 48 MiB. They preserve 47 creatures/1,214 parts at world age
-22797.4000 s. The manifest/hash are in `performance-restore-proof.json` under the
+Latest recovery files are `controller-state.tar` (312,115,200 bytes),
+`controller-state.tar.gz` (231,109,184 bytes) and five `controller-state-XX.part`
+files of at most 48 MiB. They preserve 52 creatures/1361 parts at world age
+25482.8167 s. The manifest/hash are in `controller-restore-proof.json` under the
 walking folder. All older recovery archives remain available.
 
 The old monolithic monitor exceeded Playwright's 256 MiB WebSocket message limit;
@@ -143,9 +157,9 @@ The current performance monitor returns file metadata first, then transfers
 avoid overlap. It still uses the normal saved-session interface.
 
 For app-only C/JS changes, update in place after pausing Pi and backing up:
-`build/blockwalker-performance-update.mjs` uploads the prepared source archive,
+`build/blockwalker-controller-update.mjs` uploads the prepared source archive,
 compiles to a temporary binary inside the existing Dolly filesystem, checks it,
-then replaces the app binary. Compilation took **1.535 s**, checks **5.361 s**.
+then replaces the app binary. Compilation took **1.539 s**, checks **5.552 s**.
 No image reload or history/credential reimport was needed. Use new temporary
 binary/archive names on repetition. Host/runtime changes still require migration.
 

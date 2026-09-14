@@ -8,9 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
-struct Controller {JSRuntime *runtime;JSContext *ctx;JSValue function,memory,random;char *source;uint32_t seed;int hz,timed_out;double deadline;char error[160];};
+struct Controller {JSRuntime *runtime;JSContext *ctx;JSValue function,memory,random;char *source;uint32_t seed;int hz,exhausted,remaining;char error[160];};
 enum {REMOVAL_CONTROLLER,REMOVAL_POSTURE,REMOVAL_SUNK,REMOVAL_NONFINITE,REMOVAL_TERRAIN,REMOVAL_CAUSES};
 static const char *removal_causes[]={"controller","posture","sunk","nonfinite","terrain"};
 World world;
@@ -23,8 +22,8 @@ static void remember_design(const Character *design,const char *source,const cha
     if(world.design_count==world.design_capacity){world.design_capacity=world.design_capacity?world.design_capacity*2:16;world.designs=array_resize(world.designs,world.design_capacity,sizeof(SavedDesign));}
     SavedDesign *d=&world.designs[world.design_count++];memset(d,0,sizeof(*d));character_copy(&d->design,design);d->source=strdup(source);d->hz=hz;d->x=x;d->z=z;snprintf(d->name,sizeof(d->name),"%s",name);
 }
-static double seconds(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec/1e9;}
-static int interrupt(JSRuntime *rt,void *opaque){Controller *c=opaque;c->timed_out=seconds()>c->deadline;return c->timed_out;}
+static int interrupt(JSRuntime *rt,void *opaque){Controller *c=opaque;c->exhausted=c->remaining==0;if(!c->exhausted)c->remaining--;return c->exhausted;}
+static void controller_budget(Controller *c){c->remaining=2;c->exhausted=0;c->error[0]=0;}
 static JSValue random_number(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv){
     Controller *c=JS_GetContextOpaque(ctx);c->seed^=c->seed<<13;c->seed^=c->seed>>17;c->seed^=c->seed<<5;
     return JS_NewFloat64(ctx,c->seed/4294967296.0);
@@ -34,7 +33,7 @@ static Controller *controller_new(const char *source,uint32_t seed,int hz){
     Controller *c=calloc(1,sizeof(*c));if(!c)return NULL;
     c->source=strdup(source);c->seed=seed?seed:1;c->hz=hz;c->runtime=JS_NewRuntime();JS_SetMemoryLimit(c->runtime,4*1024*1024);JS_SetMaxStackSize(c->runtime,128*1024);
     JS_SetInterruptHandler(c->runtime,interrupt,c);c->ctx=JS_NewContext(c->runtime);JS_SetContextOpaque(c->ctx,c);
-    c->memory=JS_NewObject(c->ctx);c->random=JS_NewCFunction(c->ctx,random_number,"random",0);c->deadline=seconds()+.05;
+    c->memory=JS_NewObject(c->ctx);c->random=JS_NewCFunction(c->ctx,random_number,"random",0);controller_budget(c);
     char *wrapped=array_resize(NULL,strlen(source)+4,1);sprintf(wrapped,"(%s)",source);
     c->function=JS_Eval(c->ctx,wrapped,strlen(wrapped),"creature-controller",JS_EVAL_TYPE_GLOBAL);free(wrapped);
     if(!JS_IsFunction(c->ctx,c->function)){controller_free(c);return NULL;}return c;
@@ -105,7 +104,7 @@ static int assigned(const Character *design,int key){
     for(int i=1;i<design->count;i++)if(design->blocks[i].joint&&(design->blocks[i].negative==key||design->blocks[i].positive==key))return 1;return 0;
 }
 static int controller_step(Controller *controller,const Physics *p,const Character *design,float controls[128]){
-    JSContext *ctx=controller->ctx;controller->timed_out=0;controller->error[0]=0;controller->deadline=seconds()+.004;
+    JSContext *ctx=controller->ctx;controller_budget(controller);
     JSValue args[]={JS_NewFloat64(ctx,p->steps/60.0),physics_sensors(ctx,p,design,1.0/controller->hz),JS_DupValue(ctx,controller->memory),JS_DupValue(ctx,controller->random)};
     JSValue result=JS_Call(ctx,controller->function,JS_UNDEFINED,4,args);for(int i=0;i<4;i++)JS_FreeValue(ctx,args[i]);
     memset(controls,0,128*sizeof(float));int valid=1;
@@ -124,8 +123,8 @@ static int controller_step(Controller *controller,const Physics *p,const Charact
         }js_free(ctx,properties);
     }else valid=0;
     if(!valid){
-        snprintf(controller->error,sizeof(controller->error),"%s",controller->timed_out?"Controller deadline exceeded":"Invalid controller output");
-        if(JS_IsException(result)){JSValue error=JS_GetException(ctx);const char *text=JS_ToCString(ctx,error);if(text&&!controller->timed_out)snprintf(controller->error,sizeof(controller->error),"%s",text);JS_FreeCString(ctx,text);JS_FreeValue(ctx,error);}
+        snprintf(controller->error,sizeof(controller->error),"%s",controller->exhausted?"Controller execution budget exceeded":"Invalid controller output");
+        if(JS_IsException(result)){JSValue error=JS_GetException(ctx);const char *text=JS_ToCString(ctx,error);if(text&&!controller->exhausted)snprintf(controller->error,sizeof(controller->error),"%s",text);JS_FreeCString(ctx,text);JS_FreeValue(ctx,error);}
     }
     JS_FreeValue(ctx,result);return valid;
 }
@@ -267,7 +266,7 @@ void world_save(JSContext *ctx){
         Creature *c=&world.creatures[i];JSValue item=JS_GetPropertyUint32(ctx,list,i),poses=JS_NewArray(ctx);
         JS_SetPropertyStr(ctx,item,"blueprint",character_json(ctx,&c->design));JS_SetPropertyStr(ctx,item,"source",JS_NewString(ctx,c->controller->source));
         put_number(ctx,item,"hz",c->controller->hz);put_number(ctx,item,"seed",c->controller->seed);put_number(ctx,item,"rootHeight",c->root_height);put_number(ctx,item,"startX",c->physics.start.x);put_number(ctx,item,"startZ",c->physics.start.z);
-        c->controller->deadline=seconds()+.004;JSValue memory=JS_JSONStringify(c->controller->ctx,c->controller->memory,JS_UNDEFINED,JS_UNDEFINED);
+        controller_budget(c->controller);JSValue memory=JS_JSONStringify(c->controller->ctx,c->controller->memory,JS_UNDEFINED,JS_UNDEFINED);
         const char *m=JS_ToCString(c->controller->ctx,memory);if(m)JS_SetPropertyStr(ctx,item,"memory",JS_NewString(ctx,m));JS_FreeCString(c->controller->ctx,m);JS_FreeValue(c->controller->ctx,memory);
         for(int j=0;j<c->design.count;j++){
             Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,j,&p,&q);b3Vec3 v=b3Body_GetLinearVelocity(c->physics.parts[j].body),a=b3Body_GetAngularVelocity(c->physics.parts[j].body);
@@ -343,9 +342,9 @@ void world_load(JSContext *ctx){
             int hz=get_number(ctx,item,"hz",10);if(hz!=10&&hz!=20&&hz!=30&&hz!=60)hz=10;
             Creature *creature=s?spawn(&c,s,name?name:"Creature",get_number(ctx,item,"seed",1),hz,0,0):NULL;
             if(creature){
-                creature->id=get_number(ctx,item,"id",creature->id);creature->physics.steps=get_number(ctx,item,"seconds",0)*60;creature->root_height=get_number(ctx,item,"rootHeight",1);creature->fallen=get_number(ctx,item,"fallenSeconds",0);creature->physics.start.x=get_number(ctx,item,"startX",creature->physics.start.x);creature->physics.start.z=get_number(ctx,item,"startZ",creature->physics.start.z);
+                creature->id=get_number(ctx,item,"id",creature->id);creature->physics.steps=llround(get_number(ctx,item,"seconds",0)*60);creature->root_height=get_number(ctx,item,"rootHeight",1);creature->fallen=get_number(ctx,item,"fallenSeconds",0);creature->physics.start.x=get_number(ctx,item,"startX",creature->physics.start.x);creature->physics.start.z=get_number(ctx,item,"startZ",creature->physics.start.z);
                 JSValue memory=JS_GetPropertyStr(ctx,item,"memory");const char *m=JS_ToCString(ctx,memory);
-                if(m){creature->controller->deadline=seconds()+.004;JSValue value=JS_ParseJSON(creature->controller->ctx,m,strlen(m),"controller-memory");if(!JS_IsException(value)){JS_FreeValue(creature->controller->ctx,creature->controller->memory);creature->controller->memory=value;}}
+                if(m){controller_budget(creature->controller);JSValue value=JS_ParseJSON(creature->controller->ctx,m,strlen(m),"controller-memory");if(!JS_IsException(value)){JS_FreeValue(creature->controller->ctx,creature->controller->memory);creature->controller->memory=value;}}
                 JS_FreeCString(ctx,m);JS_FreeValue(ctx,memory);
                 JSValue poses=JS_GetPropertyStr(ctx,item,"poses");
                 for(int j=0;j<c.count;j++){JSValue pose=JS_GetPropertyUint32(ctx,poses,j);double p[13]={0};p[6]=1;int valid=1;
