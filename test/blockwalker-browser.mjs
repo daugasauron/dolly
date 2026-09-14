@@ -61,6 +61,13 @@ try {
   await shot('camera');await page.mouse.click(646,109);await page.mouse.move(100,80);await frames();assert.deepEqual(await view(),initialView);
  }
  assert.equal((await exportBlueprint('after-camera')).source,blueprint.source);
+ await page.mouse.click(404,40);await page.mouse.move(100,80);await frames();const worldView=await view();
+ await page.keyboard.down('W');await page.keyboard.down('E');await page.waitForTimeout(500);await page.keyboard.up('W');await page.keyboard.up('E');await frames();
+ const travelled=await view();assert.notDeepEqual(travelled,worldView);await shot('world-camera');
+ await page.mouse.click(404,40);await frames();await page.mouse.click(404,40);await frames();assert.deepEqual(await view(),travelled);
+ await page.keyboard.press('Tab');await page.mouse.click(1120,627);await page.keyboard.type('WASDQE');await frames();assert.deepEqual(await view(),travelled);
+ await page.keyboard.press('Escape');await page.keyboard.press('Tab');await page.keyboard.press('H');await frames();assert.deepEqual(await view(),worldView);
+ await page.keyboard.press('Escape');await frames();assert.equal((await exportBlueprint('after-world-camera')).source,blueprint.source);
  await page.mouse.click(119,352);await page.mouse.click(706,352);await frames();await shot('joint');
  await page.mouse.click(1085,354);await page.keyboard.press('Q');await page.keyboard.press('Z');await frames();
  blueprint=await exportBlueprint('remapped');assert.equal(blueprint.blocks[3].negative,'Z'.charCodeAt(0));
@@ -105,7 +112,7 @@ try {
  assert.equal((await exportBlueprint('reopened')).source,blueprint.source);
  await page.keyboard.press('Escape');assert.equal(await restarted,0);
  assert.deepEqual(errors,[]);
- const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,undersideAttachment:true,spherePlacement:true,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
+ const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,undersideAttachment:true,spherePlacement:true,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,worldCameraTravel:true,promptDoesNotMoveCamera:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
  await writeFile(new URL('results.json',output),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
 }catch(error){await shot('failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
 finally{await browser.close();await site.close();}

@@ -16,17 +16,18 @@ static Character design,undo[32];
 static int undo_count,selected=-1,hover=-1,tool=ADD,brush_joint,brush_color,dirty=1,stopping,binding=-1,orbit_drag;
 static float mouse_x,mouse_y,last_x,last_y,fps;
 static unsigned char keys[128],agent_keys[128];
-static int agent_control,practice_steps,agent_panel,agent_enabled,prompt_focus,world_view;
+static int agent_control,practice_steps,agent_panel,agent_enabled,prompt_focus,world_view,camera_fast;
 static double world_accumulator,last_save;
 static char agent_log[8192],prompt_input[1024],pending_prompt[1024];
 static double last_frame,updated,accumulator;
 static unsigned frame_count;
 static Physics physics;
 static Orbit orbit={.target={0,2.5f,0},.yaw=.52f,.pitch=.28f,.distance=10};
+static Orbit workshop_orbit,world_orbit={.target={0,1,0},.yaw=.52f,.pitch=.45f,.distance=24};
 static dolly_display_surface surface;
 static JSContext *embedded_context;
 static char message[160]="Click a box face to add. Right-drag to orbit. Scroll to zoom.";
-static const Color ink={41,57,51,255},muted={110,122,115,255},paper={248,248,241,255},line={219,225,214,255},accent={51,111,85,255};
+static const Color ink={216,235,232,255},muted={127,157,166,255},paper={11,17,27,255},line={37,58,73,255},accent={99,235,171,255},panel={25,38,51,255};
 static void report(void);
 static void log_text(const char *text);
 
@@ -34,7 +35,8 @@ static double seconds(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);
 static void say(const char *text){snprintf(message,sizeof(message),"%s",text);dirty=1;}
 static void label(int x,int y,const char *s,float size,Color color){DrawTextEx(editor_font,s,(Vector2){x,y},size,0,color);}
 static void button(int x,int y,int w,int h,const char *s,int active){
-    DrawRectangleRounded((Rectangle){x,y,w,h},.18f,6,active?accent:(Color){233,237,227,255});
+    DrawRectangleRec((Rectangle){x,y,w,h},active?accent:panel);
+    DrawRectangleLinesEx((Rectangle){x,y,w,h},1,active?accent:line);
     Vector2 size=MeasureTextEx(editor_font,s,18,0);label(x+(w-size.x)/2,y+(h-20)/2,s,18,active?paper:ink);
 }
 static int inside(int x,int y,int w,int h){return mouse_x>=x&&mouse_y>=y&&mouse_x<x+w&&mouse_y<y+h;}
@@ -43,14 +45,29 @@ static void remember(void){if(undo_count==32){character_clear(&undo[0]);memmove(
 static void changed(void){dirty=1;if(!character_save(&design,"/workspace/blockwalker.character"))say("Could not save the working blueprint. Use Export to keep a copy.");}
 static void undo_edit(void){if(undo_count){character_clear(&design);design=undo[--undo_count];undo[undo_count]=(Character){0};selected=design.count?design.count-1:-1;binding=-1;changed();say("Undid the last edit.");}}
 static void home_camera(void){
+    if(world_view){orbit=(Orbit){.target={0,1,0},.yaw=.52f,.pitch=.45f,.distance=24};orbit_update(&orbit);return;}
     Vector3 target={0,0,0};for(int i=0;i<design.count;i++)target=Vector3Add(target,block_position(design.blocks[i]));
     orbit.target=design.count?Vector3Scale(target,1.f/design.count):(Vector3){0,1,0};
     float extent=1;for(int i=0;i<design.count;i++)extent=fmaxf(extent,Vector3Distance(orbit.target,block_position(design.blocks[i])));
     orbit.distance=fmaxf(8,extent*3.5f);orbit.yaw=.52f;orbit.pitch=.28f;orbit_update(&orbit);
 }
+static void set_world_view(int enabled){
+    enabled=enabled!=0;if(enabled==world_view)return;
+    if(world_view){world_orbit=orbit;orbit=workshop_orbit;}else{workshop_orbit=orbit;orbit=world_orbit;}
+    world_view=enabled;orbit_update(&orbit);memset(keys,0,sizeof(keys));dirty=1;
+}
+static void move_camera(float dt){
+    if(!world_view||prompt_focus)return;
+    float forward=keys['W']-keys['S'],right=keys['D']-keys['A'],up=keys['E']-keys['Q'];
+    Vector3 delta={cosf(orbit.yaw)*right-sinf(orbit.yaw)*forward,up,-sinf(orbit.yaw)*right-cosf(orbit.yaw)*forward};
+    if(Vector3LengthSqr(delta)==0)return;
+    orbit.target=Vector3Add(orbit.target,Vector3Scale(Vector3Normalize(delta),dt*(camera_fast?80:20)));
+    orbit.target.x=Clamp(orbit.target.x,-512,512);orbit.target.z=Clamp(orbit.target.z,-512,512);orbit.target.y=Clamp(orbit.target.y,-64,128);
+    orbit_update(&orbit);
+}
 static int program_trial;
-static void start_test(void){world_trial_stop();program_trial=0;world_view=0;if(!design.count){say("Add a box before testing your character.");return;}binding=-1;memset(keys,0,sizeof(keys));physics_start(&physics,&design);say("Hold the joint keys to move. Can you keep it standing?");}
-static void back_to_builder(void){world_trial_stop();program_trial=0;world_view=0;report();physics_stop(&physics);memset(keys,0,sizeof(keys));home_camera();say("Back in the workshop. Your original build is unchanged.");}
+static void start_test(void){world_trial_stop();program_trial=0;set_world_view(0);if(!design.count){say("Add a box before testing your character.");return;}binding=-1;memset(keys,0,sizeof(keys));physics_start(&physics,&design);say("Hold the joint keys to move. Can you keep it standing?");}
+static void back_to_builder(void){world_trial_stop();program_trial=0;set_world_view(0);report();physics_stop(&physics);memset(keys,0,sizeof(keys));home_camera();say("Back in the workshop. Your original build is unchanged.");}
 static void preset(int walker){remember();character_preset(&design,walker);selected=0;tool=SELECT;binding=-1;home_camera();changed();say(walker?"Four hinges. Eight keys. Walking is up to you.":"A three-block chain with two powered hinges.");}
 static int candidate(Block *block){
     Vector3 normal={0};int parent=render_pick(&design,&orbit,mouse_x,mouse_y,&normal),x,y,z;
@@ -74,9 +91,10 @@ static void import_character(void){
 }
 static void click(void){
     if(inside(712,22,80,36)){agent_panel=!agent_panel;prompt_focus=0;dirty=1;return;}
-    if(inside(352,22,104,36)){world_view=!world_view;if(world_view){orbit.target=(Vector3){0,1,0};orbit.distance=24;orbit.pitch=.45f;orbit_update(&orbit);}else home_camera();dirty=1;return;}
+    if(inside(352,22,104,36)){set_world_view(!world_view);return;}
     if(agent_panel&&mouse_x>998){
         prompt_focus=inside(1024,608,240,54);
+        if(prompt_focus)memset(keys,0,sizeof(keys));
         if(inside(1036,142,220,36)){agent_enabled=0;int result=system("upload /workspace/blockwalker-agent/models.json");say(result==0?"Proxy configuration imported. Press Start in the Pi panel.":"Proxy import cancelled.");}
         if(inside(1036,188,104,36)){agent_enabled=1;agent_control=1;log_text("\nStarting Pi...\n");}
         if(inside(1152,188,104,36)){agent_enabled=0;practice_steps=0;memset(agent_keys,0,128);log_text("\nPaused.\n");}
@@ -90,8 +108,12 @@ static void click(void){
         if(i==3)orbit.pitch=Clamp(orbit.pitch-.2f,-1.5f,1.5f);
         if(i==4)home_camera();orbit_update(&orbit);return;
     }
-    if(inside(1052,18,204,44)){if(world_view){world_view=0;home_camera();dirty=1;return;}if(physics.running)back_to_builder();else start_test();return;}
+    if(inside(1052,18,204,44)){if(world_view){set_world_view(0);return;}if(physics.running)back_to_builder();else start_test();return;}
     if(world_view){
+        for(int i=0;i<world.count&&i<11;i++)if(inside(24,286+i*26,194,25)){
+            Creature *c=&world.creatures[i];Quaternion q;physics_pose(&c->physics,&c->design,0,&orbit.target,&q);
+            orbit.distance=12;orbit_update(&orbit);dirty=1;return;
+        }
         if(inside(24,598,194,36)){world_save(embedded_context);int result=system("download /workspace/blockwalker-world.json");say(result==0?"World exported with programs and physics state.":"World export failed.");}
         return;
     }
@@ -152,8 +174,8 @@ static void append_prompt(const unsigned char *text,size_t n){
 static void events(void){
     dolly_input_event e;
     while(dolly_display_next_event(surface.generation,&e,0)>0){
-        if(e.type==DOLLY_INPUT_EVENT_FOCUS&&e.action==0){memset(keys,0,sizeof(keys));orbit_drag=0;dirty=1;}
-        if(e.type==DOLLY_INPUT_EVENT_SCROLL){orbit.distance=Clamp(orbit.distance+(int32_t)e.action*.00065f,3,45);orbit_update(&orbit);}
+        if(e.type==DOLLY_INPUT_EVENT_FOCUS&&e.action==0){memset(keys,0,sizeof(keys));orbit_drag=camera_fast=0;dirty=1;}
+        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&in_view()){orbit.distance=Clamp(orbit.distance+(int32_t)e.action*.00065f*fmaxf(1,orbit.distance/20),3,512);orbit_update(&orbit);}
         if(e.type==DOLLY_INPUT_EVENT_POINTER){
             mouse_x=e.width_css_px;mouse_y=e.height_css_px;
             if(e.action==DOLLY_POINTER_ACTION_PRESS){
@@ -165,6 +187,7 @@ static void events(void){
         }
         if(prompt_focus&&e.type==DOLLY_INPUT_EVENT_TEXT){append_prompt(e.data+e.key_length+e.code_length,e.text_length);continue;}
         if(e.type!=DOLLY_INPUT_EVENT_KEY)continue;
+        camera_fast=(e.modifiers&DOLLY_INPUT_MOD_SHIFT)!=0;
         if(prompt_focus){
             if(e.action==DOLLY_KEY_ACTION_RELEASE)continue;
             if(dolly_raylib_code_is(&e,"Escape")){prompt_focus=0;dirty=1;continue;}
@@ -179,8 +202,9 @@ static void events(void){
         if(e.action!=DOLLY_KEY_ACTION_PRESS)continue;
         if(dolly_raylib_code_is(&e,"Escape")){
             if(binding>=0){binding=-1;say("Key assignment cancelled.");}
-            else if(world_view){world_view=0;home_camera();dirty=1;}else if(physics.running)back_to_builder();else stopping=1;continue;
+            else if(world_view)set_world_view(0);else if(physics.running)back_to_builder();else stopping=1;continue;
         }
+        if(world_view){if(k=='H')home_camera();continue;}
         if(binding>=0&&selected>=0){
             if(!((k>='A'&&k<='Z')||(k>='0'&&k<='9'))){say("Choose a letter or number.");continue;}
             Character next={0};character_copy(&next,&design);Block *b=&next.blocks[selected];if(binding==0)b->negative=k;else b->positive=k;
@@ -209,10 +233,10 @@ static void draw_ui(void){
     const char *views[]={"< Left","Right >","Up","Down","Home"};
     for(int i=0;i<5;i++)button(254+i*88,92,80,34,views[i],0);
     DrawRectangle(254,643,600,23,paper);
-    label(262,647,"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
+    label(262,647,world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"SURVIVAL WORLD",17,muted);snprintf(text,sizeof(text),"%d living / %d fallen",world.count,world.deaths);label(24,154,text,16,ink);
-        label(24,205,"Programmed creatures",15,muted);label(24,230,"share this 3D world.",15,muted);
+        label(24,205,"Click a name to visit.",15,muted);snprintf(text,sizeof(text),"%.0f / %.0f / %.0f m",orbit.target.x,orbit.target.y,orbit.target.z);label(24,230,text,15,muted);
         button(24,598,194,36,"Export world",0);
         for(int i=0;i<world.count&&i<11;i++){snprintf(text,sizeof(text),"%d  %.19s",world.creatures[i].id,world.creatures[i].name);label(24,286+i*26,text,14,ink);}
     }else if(!physics.running){
@@ -263,7 +287,7 @@ static void draw_ui(void){
             rows[row][col++]=*p;rows[row][col]=0;
         }
         for(int i=0;i<18;i++)label(1024,286+i*17,rows[(row+1+i)%18],13,ink);
-        DrawRectangleRounded((Rectangle){1024,608,240,54},.1f,4,(Color){232,236,225,255});
+        DrawRectangleRec((Rectangle){1024,608,240,54},panel);
         if(prompt_focus)DrawRectangleLinesEx((Rectangle){1024,608,240,54},2,accent);
         size_t length=strlen(prompt_input);label(1032,618,length?prompt_input+(length>27?length-27:0):"Message Pi...",14,ink);label(1032,642,"Enter to send / steer",12,muted);
     }
@@ -283,6 +307,9 @@ static JSValue state(JSContext *ctx) {
     JS_SetPropertyStr(ctx,result,"remaining",JS_NewInt32(ctx,practice_steps));
     JS_SetPropertyStr(ctx,result,"agentControl",JS_NewBool(ctx,agent_control));
     JS_SetPropertyStr(ctx,result,"maxSeparation",JS_NewFloat64(ctx,physics.max_separation));
+    JSValue camera=JS_NewObject(ctx);const char *camera_keys[]={"x","y","z","yaw","pitch","distance"};
+    double camera_values[]={orbit.target.x,orbit.target.y,orbit.target.z,orbit.yaw,orbit.pitch,orbit.distance};
+    for(int i=0;i<6;i++)JS_SetPropertyStr(ctx,camera,camera_keys[i],JS_NewFloat64(ctx,camera_values[i]));JS_SetPropertyStr(ctx,result,"camera",camera);
     if(physics.running&&design.count){
         JS_SetPropertyStr(ctx,result,"sensors",physics_sensors(ctx,&physics,&design,1./60));
         Vector3 position;Quaternion rotation;physics_pose(&physics,&design,0,&position,&rotation);
@@ -326,7 +353,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     else if(!strcmp(op,"world"))result=world_state(ctx);
     else if(!strcmp(op,"install")){result=world_install(ctx,args);if(!JS_IsException(result))world_save(ctx);}
     else if(!strcmp(op,"spawn")){result=world_release(ctx,&design,args);if(!JS_IsException(result)){world_save(ctx);dirty=1;}}
-    else if(!strcmp(op,"watch")){world_view=JS_ToBool(ctx,args);if(world_view){orbit.target=(Vector3){0,1,0};orbit.distance=24;orbit.pitch=.45f;orbit_update(&orbit);}else home_camera();dirty=1;}
+    else if(!strcmp(op,"watch"))set_world_view(JS_ToBool(ctx,args));
     else if(!strcmp(op,"save"))world_save(ctx);
     else if(!strcmp(op,"snapshot")) {
         if(dirty)draw_ui();int bytes;unsigned char *png=world_view?render_capture_world(&orbit,&bytes):render_capture(&design,&physics,&orbit,&bytes);
@@ -334,7 +361,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     }else if(!strcmp(op,"build")) {
         JSValue list=JS_GetPropertyStr(ctx,args,"parts");Character next={0};
         if(!character_from_json(ctx,list,&next))result=JS_ThrowTypeError(ctx,"Invalid blueprint: connected adjacent tree, unique cells and keys, root box, positive speed/limits required");
-        else {world_trial_stop();program_trial=0;physics_stop(&physics);world_view=0;practice_steps=0;remember();character_copy(&design,&next);selected=0;home_camera();changed();result=state(ctx);}
+        else {world_trial_stop();program_trial=0;physics_stop(&physics);set_world_view(0);practice_steps=0;remember();character_copy(&design,&next);selected=0;home_camera();changed();result=state(ctx);}
         character_clear(&next);JS_FreeValue(ctx,list);
     }else if(!strcmp(op,"reset")){start_test();agent_control=1;practice_steps=0;memset(agent_keys,0,128);result=state(ctx);}
     else if(!strcmp(op,"advance")) {
@@ -356,8 +383,10 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
         else{start_test();if(!world_trial_begin())result=JS_ThrowTypeError(ctx,"Install a valid controller first");else{agent_control=1;program_trial=1;practice_steps=steps;memset(agent_keys,0,128);dirty=1;}}
     }else if(!strcmp(op,"release")){memset(agent_keys,0,128);practice_steps=0;dirty=1;}
     else if(!strcmp(op,"camera")) {
-        orbit.yaw=real(ctx,args,"yaw",orbit.yaw);orbit.pitch=Clamp(real(ctx,args,"pitch",orbit.pitch),-1.5f,1.5f);
-        orbit.distance=Clamp(real(ctx,args,"distance",orbit.distance),3,100);orbit_update(&orbit);
+        double yaw=real(ctx,args,"yaw",orbit.yaw),pitch=real(ctx,args,"pitch",orbit.pitch),distance=real(ctx,args,"distance",orbit.distance);
+        double x=real(ctx,args,"x",orbit.target.x),y=real(ctx,args,"y",orbit.target.y),z=real(ctx,args,"z",orbit.target.z);
+        if(!isfinite(yaw)||!isfinite(pitch)||!isfinite(distance)||!isfinite(x)||!isfinite(y)||!isfinite(z))result=JS_ThrowRangeError(ctx,"Camera coordinates must be finite");
+        else {orbit.yaw=yaw;orbit.pitch=Clamp(pitch,-1.5f,1.5f);orbit.distance=Clamp(distance,3,512);orbit.target=(Vector3){Clamp(x,-512,512),Clamp(y,-64,128),Clamp(z,-512,512)};orbit_update(&orbit);dirty=1;}
     }else if(!strcmp(op,"log")) {const char *s=JS_ToCString(ctx,args);if(s){log_text(s);JS_FreeCString(ctx,s);}}
     else if(!strcmp(op,"enabled")){result=JS_NewBool(ctx,agent_enabled);}
     else if(!strcmp(op,"enable")){agent_enabled=JS_ToBool(ctx,args);agent_control=agent_enabled;if(agent_enabled)agent_panel=1;dirty=1;}
@@ -367,7 +396,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     JS_FreeCString(ctx,op);return result;
 }
 static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv) {
-    double now=seconds(),dt=fmin(now-last_frame,.1);last_frame=now;events();if(stopping)return JS_FALSE;
+    double now=seconds(),dt=fmin(now-last_frame,.1);last_frame=now;events();if(stopping)return JS_FALSE;move_camera(dt);
     world_accumulator+=dt;for(int i=0;i<6&&world_accumulator>=1./60;i++){world_step();world_accumulator-=1./60;}
     if(world.age-last_save>10){world_save(ctx);last_save=world.age;}
     if(physics.running&&(!world_view||agent_control)&&(!agent_control||practice_steps>0)){

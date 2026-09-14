@@ -110,7 +110,7 @@ static void draw_scene(const Orbit *o,size_t count,int running,int population){
     Vector3 f=Vector3Normalize(Vector3Subtract(o->target,o->eye)),r=Vector3Normalize(Vector3CrossProduct(f,(Vector3){0,1,0})),u=Vector3CrossProduct(r,f);
     Scene scene={{o->eye.x,o->eye.y,o->eye.z,count},
         {f.x,f.y,f.z,tanf(21*DEG2RAD)},{r.x,r.y,r.z,(float)VIEW_W/VIEW_H},
-        {u.x,u.y,u.z,running},{VIEW_X,VIEW_Y,VIEW_W,VIEW_H},{world.age,population,0,0}};
+        {u.x,u.y,u.z,running},{VIEW_X,VIEW_Y,VIEW_W,VIEW_H},{world.age,population,GetTime(),0}};
     node_count=0;if(count)make_tree(0,count);
     dolly_gpu_write(&gpu,1,&scene,sizeof(scene));
     if(count){upload_buffer(box_buffer,boxes,count*sizeof(BoxDraw));upload_buffer(node_buffer,nodes,node_count*sizeof(Node));}
@@ -135,6 +135,15 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
             boxes[at].half[0]=boxes[at].half[2]=.13f;boxes[at++].half[1]=length*.5f;
             box_draw(metal,Vector3Add(start,Vector3Scale(direction,.12f)),rod,0,0,0,at);
             boxes[at].half[0]=boxes[at].half[2]=.24f;boxes[at++].half[1]=.24f;
+        }
+        if(b.joint==BLOCK_THRUSTER&&p->running&&fabsf(p->parts[i].command)>.001f){
+            float strength=fabsf(p->parts[i].command),length=.4f+1.8f*strength;
+            Vector3 direction={0};((float *)&direction)[b.axis]=-copysignf(1,p->parts[i].command);
+            direction=Vector3RotateByQuaternion(direction,q);
+            Quaternion rotation=QuaternionFromVector3ToVector3((Vector3){0,1,0},direction);
+            box_draw(b,Vector3Add(v,Vector3Scale(direction,.47f+length*.45f)),rotation,0,0,0,at);
+            boxes[at].flags[0]=5;boxes[at].center[3]=strength;
+            boxes[at].half[0]=boxes[at].half[2]=.12f+.13f*strength;boxes[at++].half[1]=length*.5f;
         }
     }return at;
 }

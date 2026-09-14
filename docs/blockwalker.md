@@ -37,11 +37,18 @@ Boxes and balls weigh about 0.91 kg. Gravity is 4 m/s² and the character starts
 the floor, giving time to try the controls. Hold a joint's keys to turn it;
 release them to brake. Highlighted keys and joint angles show the response.
 
+In the world, WASD moves the camera horizontally, Q/E lowers/raises it, and
+Shift moves faster. Right-drag or Alt-drag orbits; scroll zooms; H returns home.
+Click a creature's name to visit it. World and workshop cameras retain separate
+positions when switching views. Typing a Pi prompt does not move the camera.
+Pi's camera tool can also target explicit x/y/z coordinates.
+
 The part palette also has telescoping pistons, reversible thrusters and wheels.
 Pistons move their attached branch along the selected axis and sign; the palette
 starts them pointing outward, and the inspector can reverse that sign; their travel limit
 is in metres. Thrusters apply force along their own rotating local axis and
-coast when released. Wheels have centered cylindrical collision shapes, a 0.7 m
+coast when released. Their exhaust follows the actual thrust direction and
+strength. Wheels have centered cylindrical collision shapes, a 0.7 m
 radius, 0.7 m width and unlimited motor rotation. The larger radius keeps a
 same-height chassis off the ground. Attach wheels as leaves: anything beyond them rotates too.
 Each actuator uses a pair of assignable keys. The inspector shows speed, stroke

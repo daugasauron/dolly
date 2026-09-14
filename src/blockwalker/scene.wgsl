@@ -34,6 +34,11 @@ fn hit_part(origin:vec3f,direction:vec3f,b:Box)->f32 {
         let t=select(far,near,near>.001);return select(10000.0,t,t>.001);
     }
     let o=local(b.rotation,origin-b.center.xyz);let d=local(b.rotation,direction);
+    if(b.flags.x==5){
+        let v=o/b.extent.xyz;let r=d/b.extent.xyz;let a=dot(r,r);let projection=dot(v,r);let disc=projection*projection-a*(dot(v,v)-1);
+        if(disc<0){return 10000.0;}let near=(-projection-sqrt(disc))/a;let far=(-projection+sqrt(disc))/a;
+        let t=select(far,near,near>.001);return select(10000.0,t,t>.001);
+    }
     if(b.flags.x==4){return hit_wheel(wheel_space(o,b.flags.y),wheel_space(d,b.flags.y));}
     let safe=select(d,vec3f(0.000001),abs(d)<vec3f(0.000001));
     let a=(-b.extent.xyz-o)/safe;let z=(b.extent.xyz-o)/safe;
@@ -51,7 +56,7 @@ fn trace(origin:vec3f,direction:vec3f,limit:f32,shadow:bool)->vec2f {
     while(depth>0u){depth--;let node=nodes[stack[depth]];
         if(!hits_bounds(origin,inverse,node,hit.x)){continue;}
         if(node.right==0xffffffffu){
-            let b=boxes[node.left];if(shadow&&b.flags.z==2){continue;}
+            let b=boxes[node.left];if(shadow&&(b.flags.z==2||b.flags.x==5)){continue;}
             let t=hit_part(origin,direction,b);if(t<hit.x){hit=vec2f(t,f32(node.left));if(shadow){return hit;}}
         }else{stack[depth]=node.left;stack[depth+1u]=node.right;depth+=2u;}
     }return hit;
@@ -62,6 +67,22 @@ fn noise(p:vec2f)->f32 {
     return mix(mix(hash(i),hash(i+vec2f(1,0)),u.x),mix(hash(i+vec2f(0,1)),hash(i+vec2f(1,1)),u.x),u.y);
 }
 fn unpack(v:u32)->vec4f {return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)&255u),f32(v>>24u))/255;}
+fn sky(ray:vec3f)->vec3f {
+    let horizon=pow(clamp(1-abs(ray.y),0,1),5);
+    var color=mix(vec3f(.008,.013,.035),vec3f(.075,.10,.16),horizon);
+    let sphere=vec2f(atan2(ray.z,ray.x),asin(clamp(ray.y,-1,1)));
+    let cell=floor(sphere*180);let point=fract(sphere*180)-.5;
+    let star=pow(max(0,1-length(point)*3),5)*step(.976,hash(cell));
+    color+=mix(vec3f(.45,.75,1),vec3f(1,.72,.4),hash(cell+2))*star;
+    let nebula=noise(sphere*3+2)*noise(sphere*8);
+    color+=vec3f(.045,.015,.085)*pow(nebula,2)*max(0,ray.y);
+    let moon=normalize(vec3f(-.65,.45,-.4));let separation=distance(ray,moon);
+    if(separation<.105){
+        let face=normalize(ray-moon*.99);let texture=noise(sphere*90);
+        color=vec3f(.38,.47,.57)*(.45+.55*texture)*(.3+.7*max(0,dot(face,normalize(vec3f(-.8,.4,.5)))));
+    }
+    return color;
+}
 @fragment fn fragment_main(@builtin(position) pixel:vec4f)->@location(0) vec4f {
     let overlay=unpack(ui[u32(pixel.y)*1280u+u32(pixel.x)]);
     if(overlay.a>0.998){return vec4f(overlay.rgb,1);}
@@ -69,17 +90,7 @@ fn unpack(v:u32)->vec4f {return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)
     let xy=(uv*2-1)*vec2f(scene.right.w,-1)*scene.forward.w;
     let ray=normalize(scene.forward.xyz+scene.right.xyz*xy.x+scene.up.xyz*xy.y);
     let sun=normalize(vec3f(-.55,1,.7));
-    var color=mix(vec3f(.77,.83,.81),vec3f(.93,.95,.92),clamp(1-uv.y,0,1));
-    if(scene.world.y>0){
-        let horizon=pow(clamp(1-abs(ray.y),0,1),4);
-        color=mix(vec3f(.24,.38,.49),vec3f(.93,.71,.48),horizon);
-        if(ray.y>.01){let sky=ray.xz/(ray.y+.25);let clouds=noise(sky*1.4+vec2f(scene.world.x*.005,0));
-            color=mix(color,vec3f(.93,.88,.77),smoothstep(.52,.85,clouds)*.45);
-            let ribbon=sin(sky.x*.8+sin(sky.y*.7+scene.world.x*.03));
-            color+=vec3f(.12,.27,.20)*pow(max(0,1-abs(ribbon)*2.5),3)*max(0,ray.y)*.35;
-        }
-        color+=vec3f(.9,.55,.25)*pow(max(0,dot(ray,normalize(vec3f(-.8,.2,.6)))),160);
-    }
+    var color=sky(ray);
     var distance=10000.0;var object=-1;
     // The builder floor is visible only from above, so it never hides undersides.
     if(scene.eye.y>0&&ray.y<-.0001){let t=-scene.eye.y/ray.y;if(t>0){distance=t;object=-2;}}
@@ -90,22 +101,26 @@ fn unpack(v:u32)->vec4f {return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)
         let fade=clamp(1-distance/28,0,1);
         let line=select(1.0,1-.14*fade,min(grid.x,grid.y)<.016);
         let checker=f32((i32(floor(position.x+.5))+i32(floor(position.z+.5)))&1);
-        color=mix(vec3f(.81,.85,.805),mix(vec3f(.79,.84,.79),vec3f(.83,.87,.82),checker),fade)*line;
+        color=mix(vec3f(.045,.067,.086),mix(vec3f(.058,.083,.10),vec3f(.067,.092,.11),checker),fade)*line;
+        color+=vec3f(.06,.19,.18)*fade*select(0.0,1.0,min(grid.x,grid.y)<.016);
         var shadow=1.0;
         if(trace(position+vec3f(0,.01,0),sun,10000,true).y>=0){shadow=.73;}
         if(scene.world.y>0){
-            let terrain=noise(position.xz*.18);let blades=noise(position.xz*8+sin(scene.world.x*.8+position.z)*.1);
-            color=mix(vec3f(.29,.42,.28),vec3f(.61,.64,.37),terrain)*(.86+.14*blades);
-            let contour=abs(fract(terrain*13-scene.world.x*.02)-.5);
-            color+=vec3f(.17,.26,.14)*(1-smoothstep(.01,.04,contour))*.3;
-            let cell=floor(position.xz*3);let flower=hash(cell);
-            if(flower>.97&&length(fract(position.xz*3)-.5)<.08){color=mix(vec3f(.96,.78,.39),vec3f(.66,.67,.89),hash(cell+1));}
+            let terrain=noise(position.xz*.18);let grain=noise(position.xz*8);
+            color=mix(vec3f(.065,.08,.105),vec3f(.15,.16,.19),terrain)*(.85+.15*grain);
+            let seam=min(abs(fract(position.x/8+.5)-.5),abs(fract(position.z/8+.5)-.5));
+            color+=vec3f(.03,.19,.19)*(1-smoothstep(.003,.014,seam));
         }
         color*=shadow;
-        color=mix(color,vec3f(.86,.9,.86),clamp(distance/85,0,.85));
+        color=mix(color,vec3f(.025,.045,.075),clamp(distance/300,0,.85));
     }else if(object>=0){
         let b=boxes[u32(object)];let p=local(b.rotation,position-b.center.xyz);
-        if(b.flags.x==1){
+        if(b.flags.x==5){
+            let normalized=p/b.extent.xyz;let along=clamp(normalized.y*.5+.5,0,1);
+            let pulse=.85+.15*sin(scene.world.z*43+along*20+b.center.x*7);
+            color=mix(vec3f(.52,.91,1),vec3f(.13,.35,.95),smoothstep(.15,.8,along))*pulse;
+            color=mix(color,vec3f(1,.44,.075),smoothstep(.65,1,along));
+        }else if(b.flags.x==1){
             let normal=normalize(p);let world_normal=rotate(b.rotation,normal);
             let pole=normal[u32(b.flags.y)];
             color=b.color.rgb*(.70+.30*max(0,dot(world_normal,sun)));

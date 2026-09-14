@@ -4,6 +4,13 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const timer=setInterval(()=>Game.frame(),16);
 try {
  const before=Game.call('state');assert(before.parts.length>0,'builder has parts');
+ Game.call('watch',true);Game.call('camera',{x:140,y:12,z:-70,distance:60,yaw:1.2,pitch:.4});
+ const worldCamera=Game.call('state').camera;Game.call('watch',true);
+ assert(JSON.stringify(Game.call('state').camera)===JSON.stringify(worldCamera),'watch preserves a travelled world camera');
+ Game.call('watch',false);assert(JSON.stringify(Game.call('state').camera)===JSON.stringify(before.camera),'workshop camera restored');
+ Game.call('watch',true);assert(JSON.stringify(Game.call('state').camera)===JSON.stringify(worldCamera),'world camera restored');
+ let invalidCamera=false;try{Game.call('camera',{x:NaN});}catch{invalidCamera=true;}assert(invalidCamera&&Game.call('state').camera.x===140,'nonfinite camera rejected without mutation');
+ Game.call('camera',{x:0,y:1,z:0,distance:24,yaw:.52,pitch:.45});Game.call('watch',false);
  Game.call('enable',true);Game.call('reset');
  const png=Buffer.from(Game.call('snapshot'));assert(png.subarray(1,4).toString()==='PNG','actual GPU PNG');
  fs.writeFileSync('/workspace/blockwalker-observation.png',png);
