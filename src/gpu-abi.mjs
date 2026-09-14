@@ -1,0 +1,25 @@
+// Generated from abi/dolly-gpu-0.wat.
+export const DOLLY_GPU_VERSION = 0;
+export const DOLLY_GPU_PROCESS_OP = 128;
+export const DOLLY_GPU_SLOTS = 8;
+export const DOLLY_GPU_REPLY_BYTES = 65536;
+export const DOLLY_GPU_PACKET_BYTES = 1048576;
+export const DOLLY_GPU_HEADER_BYTES = 32;
+export const DOLLY_GPU_OPEN = 1;
+export const DOLLY_GPU_BATCH = 2;
+export const DOLLY_GPU_WAIT = 3;
+export const DOLLY_GPU_READ = 4;
+export const DOLLY_GPU_CLOSE = 5;
+export const DOLLY_GPU_CREATE_BUFFER = 1;
+export const DOLLY_GPU_WRITE_BUFFER = 2;
+export const DOLLY_GPU_CREATE_SHADER = 3;
+export const DOLLY_GPU_RENDER_PIPELINE = 4;
+export const DOLLY_GPU_COMPUTE_PIPELINE = 5;
+export const DOLLY_GPU_BIND_GROUP = 6;
+export const DOLLY_GPU_RENDER = 7;
+export const DOLLY_GPU_COMPUTE = 8;
+export const DOLLY_GPU_COPY_BUFFER = 9;
+export const DOLLY_GPU_MAP_READ = 10;
+export const DOLLY_GPU_UNMAP = 11;
+export const DOLLY_GPU_RELEASE = 12;
+export const DOLLY_GPU_SUBMIT = 13;

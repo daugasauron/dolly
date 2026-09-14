@@ -1,5 +1,7 @@
 #include "process-kernel.h"
 #include "upload.h"
+#include "gpu-kernel.h"
+#include <dolly/gpu-abi.h>
 
 #include <dolly/http.h>
 #include <dolly/process.h>
@@ -256,6 +258,7 @@ static void mark_process_exited(dolly_kernel_process *process, int status,
     mark_process_exited(child, status, signal_number);
   }
   dolly_kernel_display_release_owner(process->pid);
+  dolly_gpu_release_owner(process->pid);
   release_process_resources(process);
   process->status = status >= 0 && status <= 255 ? status : 126;
   process->exit_signal = signal_number;
@@ -1567,6 +1570,8 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       operation != DOLLY_PROCESS_EXIT) return -EINTR;
 
   switch (operation) {
+    case DOLLY_GPU_PROCESS_OP:
+      return dolly_gpu_process_call(pid, process_mailbox, request_size, response_capacity);
     case DOLLY_PROCESS_ARGUMENT_SIZES:
       if (request_size != 0) return -EINVAL;
       return vector_sizes(process->arguments, process->argument_count,

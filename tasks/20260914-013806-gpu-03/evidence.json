@@ -1,0 +1,70 @@
+{
+  "baseline": "1a57397",
+  "branch": "codex/gpu-shaders-20260914",
+  "originalRecipesAndSnapshotsChecked": 72,
+  "originalRecipesAndSnapshotsChanged": [],
+  "snapshotBytes": 154462635,
+  "browserTests": [
+    {
+      "browser": "chromium",
+      "version": "151.0.7922.71",
+      "adapter": "amd rdna-2",
+      "renderReadbackBytes": 0,
+      "renderBatchMicroseconds": [
+        260.725,
+        255.1,
+        313.25
+      ],
+      "directWebGpuMicroseconds": [
+        209.07499998807907,
+        227.97499984502792,
+        136.3500002026558
+      ],
+      "computeAndShellRecovery": true,
+      "boundary": {
+        "malformedPacket": true,
+        "copiedPacket": true,
+        "staleHandle": true,
+        "allocationQuota": true,
+        "closedScope": true
+      }
+    },
+    {
+      "browser": "firefox",
+      "version": "155.0",
+      "unavailable": "This browser did not provide a GPU adapter",
+      "shellRecovered": true
+    }
+  ],
+  "installedFirefox": {
+    "version": "155.0.1",
+    "check": 0,
+    "terminal": "GPU adapter: WebGPU adapter\nGPU: 206 frames; mean command round trip 3.905 ms.\n\nEdit shaders in /usr/src/dolly/gpu; run gpu-demo to reload.\ndolly:/workspace$ gpu-demo --check\nGPU adapter: WebGPU adapter\nGPU empty batch round trip: 49.100 us (200 calls)\nGPU compute PASS: 3 5 7 9; /workspace/gpu-proof.txt\ndolly:/workspace$",
+    "state": {
+      "type": "gpu-status",
+      "active": false,
+      "adapter": "WebGPU adapter",
+      "stats": {
+        "packets": 208,
+        "packetBytes": 52016,
+        "frames": 206,
+        "dispatches": 61,
+        "readbackBytes": 0,
+        "batchWallMilliseconds": 763.8600000000013,
+        "allocatedBytes": 131104
+      }
+    },
+    "presentationVerified": false,
+    "presentationLimitation": "Blank canvas in BiDi and X11 screenshots; reproduced with standalone main-thread WebGPU and single Worker transfer outside Dolly"
+  },
+  "nvidia": {
+    "availableForBenchmark": false,
+    "reason": "NVML driver/library version mismatch",
+    "kernel": "580.173.02",
+    "userspace": "580.178"
+  },
+  "benchmarkMedianMicroseconds": {
+    "dolly": 260.725,
+    "directWorker": 209.07499998807907
+  }
+}

@@ -4,6 +4,9 @@
   ;; This is the current Emscripten bootstrap profile, not a stable libc ABI.
   (import "env" "memory" (memory i64 1024 131072 shared))
 
+  ;; Bounded GPU device commands only; no URL, DOM selector or host pointer.
+  (import "env" "dolly_gpu_dispatch" (func (param i64 i64) (result i32)))
+
   ;; The only Wasm-selected network edge. Null method means cancellation.
   ;; Implementation: src/dolly.c supplies spans; src/http-broker.mjs applies
   ;; src/http-policy.mjs BEFORE making the request. No other import loads URLs.

@@ -23,6 +23,8 @@ export const mimeTypes = new Map([
 ]);
 export const browserSources = new Set([
   "test/fixtures/browser-boundary.mjs",
+  "test/fixtures/gpu-boundary.mjs",
+  "test/fixtures/gpu-direct.mjs",
   "test/fixtures/http-admission-worker.mjs",
   "test/fixtures/browser-process-abi.mjs",
   "coi-serviceworker.js",
@@ -62,9 +64,12 @@ export const browserSources = new Set([
   "src/custom-dollyfile.mjs",
   "src/sessions.mjs",
   "src/runtime-worker.mjs",
+  "src/gpu-worker.mjs",
+  "src/gpu-bridge.mjs",
+  "src/gpu-abi.mjs",
 ]);
 
-export async function startBrowserServer(projectDir, image = "default") {
+export async function startBrowserServer(projectDir, image = "default", port = 0) {
   await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", `dolly-${image}-system.snapshot`]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
       throw new Error(`Core browser checks need a built runtime and ${image} image. Run npm run build:runtime once, then npm run image -- ${image}.`, { cause: error });
@@ -173,7 +178,7 @@ export async function startBrowserServer(projectDir, image = "default") {
   });
   await new Promise((resolveListen, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolveListen);
+    server.listen(port, "127.0.0.1", resolveListen);
   });
   return { origin: `http://127.0.0.1:${server.address().port}`, requests,
     get cancelledRequests() { return cancelledRequests; },

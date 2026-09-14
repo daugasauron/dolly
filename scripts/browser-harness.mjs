@@ -3441,7 +3441,7 @@ int main(int argc, char **argv) {
       const fixture = `${localOrigin}${browserBase}test/fixtures/browser-boundary.mjs`;
       const result = await evaluate(debuggerClient.send,
         `import(${JSON.stringify(fixture)}).then(module => module.runBrowserBoundaryChecks(new URL('../', document.baseURI).href))`);
-      assert.equal(result.imports, 28);
+      assert.equal(result.imports, 29);
       assert.equal(result.pluginRejections, 3);
       assert.equal(result.policyDeniedBeforeFetch, true);
       assert.equal(result.nonConsumingDeadline, true);

@@ -68,6 +68,15 @@ before constructors. GOT entries encode pointer types, not C prototypes:
 `GOT.func` must resolve to a function and `GOT.mem` to an i64 address global,
 but callers of `dlsym`/FFI still supply their own function declarations.
 
+## Experimental GPU extension
+
+`dolly-gpu-0.wat` separately versions process-call operation 128 and the GPU
+provider mailbox. It is an additive extension: the base `process.h` bytes and
+process digest do not change. Old kernels return `ENOSYS`; old images run on
+the extended kernel. Its exported constant globals generate C/JS constants,
+while only function exports become Emscripten retention entries. See
+[GPU protocol and demo](../docs/gpu.md).
+
 ## Resident kernel plugin
 
 `dolly-kernel-plugin-0.wat` is a separate internal contract for the one module

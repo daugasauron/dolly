@@ -39,6 +39,8 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
 - Mutable userspace state lives in WebAssembly memory. This includes filesystem
   contents and metadata, file descriptors, working directories, environments,
   and process bookkeeping.
+- Experimental GPU buffers/textures are explicit external device resources,
+  brokered through the versioned GPU interface; CPU userspace state remains in Wasm.
 - The browser host is not Dolly's filesystem and cannot provide native
   subprocesses.
 - Network access crosses one explicit, restrictable browser broker. Programs do

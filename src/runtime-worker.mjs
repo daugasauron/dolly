@@ -10,6 +10,7 @@ import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { DollyProcessSupervisor } from "./process-supervisor.mjs";
 import { instantiateKernelPlugin } from "./kernel-plugin.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
+import { createGpuBridge } from "./gpu-bridge.mjs";
 import { createHttpAdmission } from "./http-broker.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 
@@ -176,6 +177,7 @@ try {
   // Fixed deployment input, never a filename or URL supplied by Wasm.
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   let kernelExports;
+  let gpuDispatch;
   const dollyOptions = {
     noInitialRun: true,
     wasmMemory: memory,
@@ -188,6 +190,7 @@ try {
     },
     bootstrapWriteBytes: (bytes) => self.postMessage({ type: "bootstrap-bytes", bytes }),
     httpDispatch: httpAdmission.dispatch,
+    gpuDispatch: request => gpuDispatch ? gpuDispatch(request) : -DOLLY_ERRNO.ENOSYS,
     downloadDispatch: ({ name, bytes }) => {
       if (bootConfig.buildOnly) return -DOLLY_ERRNO.ENOSYS;
       if (typeof name !== "string" || name.length === 0 || name.length > 255 ||
@@ -444,6 +447,11 @@ try {
     httpSlots: dolly._dolly_http_slot_count(),
     httpVersion: dolly._dolly_http_mailbox_version(),
   });
+  if (bootConfig.gpuCanvas && dolly._dolly_gpu_mailbox_address) {
+    gpuDispatch = createGpuBridge(memory, Number(dolly._dolly_gpu_mailbox_address()), bootConfig.gpuCanvas,
+      () => processSupervisor.serviceDeferred(),
+      status => self.postMessage({...status, type: "gpu-status"}));
+  }
   await displayReady;
 
   const status = await runImageEntry(dolly, processSupervisor);

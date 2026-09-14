@@ -24,6 +24,7 @@ add_executable(dolly
   ../src/process-kernel.c
   ../src/session-snapshot.c
   ../src/upload.c
+  ../src/gpu-kernel.c
   ../src/system-snapshot.c
 )
 

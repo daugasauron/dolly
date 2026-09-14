@@ -1040,6 +1040,13 @@ async function boot() {
   const artifacts = bootMode === "rebuild"
     ? await prepareImageArtifacts(image, customSource, buildDependency, text => appendBootstrap(`${text}\n`)) : [];
 
+  const gpuCanvas = document.createElement("canvas");
+  gpuCanvas.id = "gpu-display";
+  gpuCanvas.hidden = true;
+  gpuCanvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
+  mount.append(gpuCanvas);
+  const gpuSurface = gpuCanvas.transferControlToOffscreen();
+  let gpuStatus = {};
   const workerUrl = new URL("./runtime-worker.mjs", import.meta.url);
   runtimeWorker = new Worker(workerUrl, {
     type: "module",
@@ -1047,7 +1054,12 @@ async function boot() {
   });
   runtimeWorker.addEventListener("message", (event) => {
     const message = event.data;
-    if (message.type === "bootstrap") {
+    if (message.type === "gpu-status") {
+      gpuStatus = {...gpuStatus, ...message};
+      if (message.active) delete gpuStatus.error;
+      if (message.active !== undefined) gpuCanvas.hidden = !message.active;
+      if (message.error) console.warn("Dolly GPU:", message.error);
+    } else if (message.type === "bootstrap") {
       appendBootstrap(message.text);
     } else if (message.type === "bootstrap-bytes") {
       appendBootstrap(bootstrapDecoder.decode(message.bytes, { stream: true }));
@@ -1101,6 +1113,7 @@ async function boot() {
     type: "configure",
     image,
     mode: bootMode,
+    gpuCanvas: gpuSurface,
     artifacts,
     ...(customSource === undefined ? {} : { customSource }),
     ...(customArtifact === undefined ? {} : { customArtifact }),
@@ -1109,7 +1122,7 @@ async function boot() {
   };
   runtimeWorker.postMessage(
     workerConfiguration,
-    [...artifacts.map(artifact => artifact.bytes), ...(sessionSnapshot === undefined ? [] : [sessionSnapshot]),
+    [gpuSurface, ...artifacts.map(artifact => artifact.bytes), ...(sessionSnapshot === undefined ? [] : [sessionSnapshot]),
       ...(customArtifact === undefined ? [] : [customArtifact.bytes])],
   );
 
@@ -1210,6 +1223,7 @@ async function boot() {
 
   window.__dolly = {
     worker: runtimeWorker,
+    get gpu() { return gpuStatus; },
     display: presenter,
     transport,
     get foregroundPid() {

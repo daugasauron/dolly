@@ -329,7 +329,9 @@ export async function emitEmscriptenExports(
 
   for (const runtimeContractPath of runtimeContractPaths) {
     const runtimeContract = await readWasmInterface(runtimeContractPath);
-    for (const entry of runtimeContract.exports) exports.add(`_${entry.name}`);
+    for (const entry of runtimeContract.exports) {
+      if (entry.type.kind === "func") exports.add(`_${entry.name}`);
+    }
   }
 
   await writeFile(outputPath, `${JSON.stringify([...exports].sort(), null, 2)}\n`);

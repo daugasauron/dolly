@@ -63,6 +63,20 @@ embedding policy and registry bootstrap grants. It calls the existing
 [build worker](../src/image-builder.mjs) with that restricted transport; it adds
 no host imports or local services. Cancelling closes the worker and broker.
 
+## Experimental GPU provider
+
+[`dolly-gpu-0.wat`](../abi/dolly-gpu-0.wat) adds exactly one typed outer
+`env.dolly_gpu_dispatch` import for bounded command packets. Follow
+[`gpu-kernel.c`](../src/gpu-kernel.c) for process lifecycle and reply matching,
+[`gpu-bridge.mjs`](../src/gpu-bridge.mjs) for the private admission handshake,
+and [`gpu-worker.mjs`](../src/gpu-worker.mjs) for copied packet validation,
+private handles/quotas, queue completion, and revocation. GPU buffers and
+textures are explicit external device resources; CPU userspace state remains
+in Wasm. Guest bytes cannot choose URLs, DOM nodes or JavaScript operations.
+The main thread transfers one embedding-created canvas; normal frames reach
+the compositor directly. [GPU details](gpu.md) lists the prototype limits and
+its real-browser checks. Existing CPU framebuffer and network paths remain.
+
 ## Local services
 
 [src/local-services.mjs](../src/local-services.mjs) is the explicit admission
