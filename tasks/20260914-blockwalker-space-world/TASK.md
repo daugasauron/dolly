@@ -95,4 +95,25 @@ population list, and camera fitting for larger creations are implemented.
 browser command. Twelve physical anchored test creations prove paging to the
 last creature, fitting its 12-part span, and scrolling back to earlier entries.
 Actual camera coordinates verify all five destination shortcuts. The live
-browser still runs the water checkpoint until its next safe migration.
+browser was subsequently migrated to `blockwalker-islands`, preserving all
+12 survivors, the 19-part boat under development and the full conversation.
+
+## Population measurement, 2026-09-15 01:04 JST
+
+In a separate browser, copied the saved world and added sixteen 11-part boats
+and eight 27-part cranes with motorized slewing and telescoping hoists. The
+36-creature, 546-part scene advanced 12.017 simulation seconds in 12.022 wall
+seconds, with 38.10 FPS and no removals during that measured interval. Mean
+embedded frame-call time rose from 7.13 ms for the original 12 creatures/154
+parts to 9.87 ms for the expanded scene. The separate live Pi browser was also
+running; these are short, concurrent-scene measurements, not an isolated GPU
+benchmark or long-term stability proof.
+
+Saved poses showed at most 0.00318 m attachment separation for the cranes and
+0.00012 m for the boats (excluding intended piston travel). The eight cranes
+were still anchored and the boats afloat. Evidence and replayable world:
+`build/blockwalker-population-browser.log`,
+`build/blockwalker-population/blockwalker-population.json` and
+`build/blockwalker-population/blockwalker-world.json`; image:
+`build/blockwalker-population/population-expanded-1.png`. These benchmark
+creatures were not added to the ongoing Pi world.

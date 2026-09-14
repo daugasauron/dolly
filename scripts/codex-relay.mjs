@@ -26,7 +26,7 @@ export function piModel(model) {
   return { id: model.slug, name: model.slug, input: ["text", "image"], reasoning: levels.length > 0,
     thinkingLevelMap: Object.fromEntries(["off", "minimal", "low", "medium", "high", "xhigh", "max"]
       .map(level => [level, levels.includes(level) ? level : null])),
-    contextWindow: Math.min(model.context_window, 65536), maxTokens: 16384,
+    contextWindow: model.context_window, maxTokens: 16384,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };
 }
 

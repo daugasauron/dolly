@@ -99,8 +99,11 @@ try{
         };
         session.subscribe(event=>{
           const delta=event.assistantMessageEvent;
-          if(event.type==='auto_compaction_start')log('\nSummarizing the conversation...\n');
-          if(event.type==='auto_compaction_end')log(event.aborted?'\nSummary cancelled.\n':'\nConversation summary finished.\n');
+          if(event.type==='compaction_start'){record({event:event.type,reason:event.reason});log('\nSummarizing the conversation...\n');}
+          if(event.type==='compaction_end'){
+            record({event:event.type,reason:event.reason,aborted:event.aborted,error:event.errorMessage,tokensBefore:event.result?.tokensBefore});
+            log(event.aborted?'\nSummary cancelled.\n':event.errorMessage?`\nSummary failed: ${event.errorMessage}\n`:'\nConversation summary finished.\n');
+          }
           if(event.type==='message_update'&&(delta?.type==='thinking_delta'||delta?.type==='text_delta'))log(delta.delta??'');
           if(event.type==='tool_execution_start')log(`\n→ ${event.toolName}\n`);
           if(event.type==='tool_execution_end')log(event.isError?'Tool failed\n':'');

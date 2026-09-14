@@ -31,7 +31,7 @@ test("relay model metadata preserves supported reasoning levels instead of silen
     supported_reasoning_levels: levels.map(effort => ({ effort })) });
   assert.deepEqual(getSupportedThinkingLevels(model), levels);
   for (const level of levels) assert.equal(clampThinkingLevel(model, level), level);
-  assert.equal(model.contextWindow, 65536);
+  assert.equal(model.contextWindow, 272000);
   assert.equal(model.thinkingLevelMap.minimal, null, "do not advertise an unsupported effort");
 });
 
