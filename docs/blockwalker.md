@@ -7,7 +7,7 @@ automatic gait or balance system.
 
 The C program uses the same raylib and Box3D libraries as the gamedev image.
 Box3D runs fully 3D physics in Wasm on the CPU, with the existing serial,
-non-SIMD build. A WGSL shader renders oriented boxes, glossy joint balls, lighting
+non-SIMD build. A WGSL shader renders oriented boxes, matte joint balls, lighting
 and shadows on WebGPU. Raylib draws the editor panels in Wasm; those pixels
 are uploaded when the controls change. World frames have no GPU readback.
 This is a renderer for this box game, not a general GPU backend for raylib.

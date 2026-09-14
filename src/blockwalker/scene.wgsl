@@ -54,13 +54,9 @@ fn unpack(v:u32)->vec4f {return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)
         if(b.flags.x==1){
             let normal=normalize(p);let world_normal=rotate(b.rotation,normal);
             let pole=normal[u32(b.flags.y)];
-            let metal=mix(vec3f(.19,.24,.26),vec3f(.86,.91,.94),smoothstep(-.4,.7,world_normal.y));
-            let paint=select(vec3f(.84,.88,.9),b.color.rgb,pole>0);
-            color=mix(metal,paint*(.38+.62*max(0,dot(world_normal,sun))),smoothstep(.5,.56,abs(pole)));
-            if(abs(pole)<.025){color*=.4;}
-            let reflected=reflect(ray,world_normal);
-            color+=vec3f(1,.98,.9)*pow(max(0,dot(reflected,sun)),64)*.8;
-            let rim=1-max(0,dot(world_normal,-ray));color+=vec3f(.15,.19,.21)*pow(rim,4);
+            color=b.color.rgb*(.70+.30*max(0,dot(world_normal,sun)));
+            if(abs(pole)<.025){color*=.78;}
+            let rim=1-max(0,dot(world_normal,-ray));
             if(b.flags.z==1&&rim>.8){color=vec3f(.98,1,.86);}
         }else{
             let face=abs(abs(p)-vec3f(b.center.w));var normal=vec3f(sign(p.x),0,0);

@@ -33,3 +33,7 @@ Verified on `codex/blockwalker-20260914`:
 
 Screenshots and detailed results: `build/blockwalker-proof/`, especially
 `under-floor-attached.png`, `builder.png`, `physics-check.log` and `results.json`.
+
+Visual follow-up: replaced the glossy finish with uniform matte colors, soft
+diffuse shading and a subtle seam. Rebuilt the image and inspected the front
+and underside in Chrome; screenshots are `balls.png` and `under-floor.png`.
