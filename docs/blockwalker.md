@@ -31,7 +31,8 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 A regular block attaches rigidly to its parent. A joint block hinges at its
 parent attachment and carries the attached branch with it. Two keys drive
 opposite directions. Deleting a block removes its branch; Undo restores it.
-Blueprint storage and GPU buffers grow with the design; there is no 64-part ceiling. Test mode leaves the build pose unchanged.
+Blueprint storage and GPU buffers grow with the design; there is no 64-part ceiling. Test mode leaves the build pose unchanged. Its camera follows root movement while
+keeping the chosen offset, so a tall crane stays framed above its base.
 The camera can orbit almost directly above or below the character. The floor
 is hidden from below so you can attach parts underneath. Ball surfaces snap
 attachments to the closest grid direction. Balls have spherical collision

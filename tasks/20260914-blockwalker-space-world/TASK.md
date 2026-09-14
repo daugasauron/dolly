@@ -117,3 +117,21 @@ were still anchored and the boats afloat. Evidence and replayable world:
 `build/blockwalker-population/blockwalker-world.json`; image:
 `build/blockwalker-population/population-expanded-1.png`. These benchmark
 creatures were not added to the ongoing Pi world.
+
+## Magnet and camera checkpoint, 2026-09-15 01:44 JST
+
+Powered magnets and cargo landed in 03a1f05; see task
+`20260915-012000-codex-01` for finite-force physics and browser evidence. The
+live Astra/xhigh session was migrated with 14 current survivors and its full
+46 MB conversation. It is experimenting with an 18-part cargo crane.
+
+That crane exposed practice-camera framing drift: every simulation frame pulled
+the camera toward the root, cropping tall mechanisms and overriding explicit
+agent camera targets. Follow root displacement while preserving the chosen
+camera offset instead. The focused browser integration passed, including a
+moving thruster body's measured camera/root offset, loaded magnet restoration,
+boat buoyancy, anchored bridge and PID flight. The magnet image now shows the
+whole hoist and suspended crate. Evidence:
+`build/blockwalker-camera-follow-integration.log` and
+`build/blockwalker-proof/blockwalker-magnet.png`. The camera fix is built and
+verified; keep the live experiment running until its next migration checkpoint.

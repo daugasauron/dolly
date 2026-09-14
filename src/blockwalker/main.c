@@ -24,6 +24,7 @@ static char agent_log[8192],prompt_input[1024],pending_prompt[1024];
 static double last_frame,updated,accumulator;
 static unsigned frame_count;
 static Physics physics;
+static Vector3 follow_position;
 static Orbit orbit={.target={0,2.5f,0},.yaw=.52f,.pitch=.28f,.distance=10};
 static Orbit workshop_orbit,world_orbit={.target={0,1,0},.yaw=.52f,.pitch=.45f,.distance=24};
 static dolly_display_surface surface;
@@ -79,6 +80,7 @@ static void start_test(void){
     int count=physics.cargo_count,old_sea=physics.landscape;Cargo *cargo=array_resize(NULL,count,sizeof(Cargo));if(count)memcpy(cargo,physics.cargo,count*sizeof(Cargo));
     if(practice_sea)physics_start_sea(&physics,&design);else physics_start(&physics,&design);
     for(int i=0;i<count;i++){Vector3 p=cargo[i].start;p.x+=(practice_sea-old_sea)*125;p.z+=(practice_sea-old_sea)*10;physics_add_cargo(&physics,p,cargo[i].block.material);}free(cargo);
+    Quaternion rotation;physics_pose(&physics,&design,0,&follow_position,&rotation);
     home_camera();say(practice_sea?"Sea trial: hulls float, ballast sinks. Use the joint keys to sail.":"Hold the joint keys to move. Can you keep it standing?");
 }
 static void drop_cargo(void){
@@ -478,7 +480,7 @@ static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst
             }else physics_step(&physics,&design,agent_control?agent_keys:keys);
             if(agent_control)practice_steps--;accumulator-=1./60;
         }
-        if(design.count&&!world_view){Vector3 p;Quaternion q;physics_pose(&physics,&design,0,&p,&q);orbit.target=Vector3Lerp(orbit.target,p,.035f);orbit_update(&orbit);}
+        if(design.count&&!world_view){Vector3 p;Quaternion q;physics_pose(&physics,&design,0,&p,&q);orbit.target=Vector3Add(orbit.target,Vector3Subtract(p,follow_position));follow_position=p;orbit_update(&orbit);}
     }else accumulator=0;
     if(now-updated>1){fps=frame_count/(now-updated);updated=now;frame_count=0;dirty=1;}frame_count++;
     if(dirty)draw_ui();Block ghost,*preview=NULL;if(!physics.running&&tool==ADD&&in_view()&&candidate(&ghost))preview=&ghost;

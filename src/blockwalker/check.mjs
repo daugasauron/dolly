@@ -19,8 +19,10 @@ try {
  assert(after.parts.some((p,i)=>p.pose.some((v,j)=>Math.abs(v-before.parts[i].pose[j])>.01)),'keys and gravity change poses');
  Game.call('release');await sleep(200);assert(Game.call('state').steps===60,'practice pauses while reasoning');
  Game.call('build',{parts:[{x:0,y:2,z:0,parent:-1,joint:0},{x:1,y:2,z:0,parent:0,joint:4,axis:0,negative:81,positive:65},{x:0,y:3,z:0,parent:0,joint:2,axis:1,negative:87,positive:83},{x:0,y:4,z:0,parent:2,joint:0},{x:-1,y:2,z:0,parent:0,joint:3,axis:0,negative:79,positive:75}]});
- Game.call('reset');Game.call('advance',{keys:'ASK',steps:60});while(Game.call('state').remaining)await sleep(20);
+ Game.call('reset');Game.call('camera',{x:4,y:7,z:2,distance:14});const practiceCamera=Game.call('state');
+ Game.call('advance',{keys:'ASK',steps:60});while(Game.call('state').remaining)await sleep(20);
  const actuators=Game.call('state');assert(actuators.parts[2].angle>.7,'piston extends under load');assert(actuators.distance>.1,'thruster moves the body');
+ for(const [axis,index] of [['x',0],['y',1],['z',2]])assert(Math.abs((actuators.camera[axis]-actuators.parts[0].pose[index])-(practiceCamera.camera[axis]-practiceCamera.parts[0].pose[index]))<.001,'practice camera preserves its offset while following actual movement');
  fs.writeFileSync('/workspace/blockwalker-actuators.png',Buffer.from(Game.call('snapshot')));Game.call('release');
  const hoist=[{x:0,y:0,z:0,parent:-1,joint:0},{x:0,y:1,z:0,parent:0,joint:0},{x:0,y:2,z:0,parent:1,joint:0},{x:1,y:2,z:0,parent:2,joint:0},{x:2,y:2,z:0,parent:3,joint:2,axis:1,direction:1,negative:81,positive:65},{x:2,y:1,z:0,parent:4,joint:5,axis:1,direction:-1,negative:83,positive:87,force:24}];
  Game.call('build',{parts:hoist,anchored:true});Game.call('reset');Game.call('cargo',{x:2,y:.5,z:0});
