@@ -19,16 +19,18 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 06:35 JST
+## Current checkpoint — 2026-09-15 06:52 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
 Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
-Fresh images contain **42 objects/1095 parts**. The latest completed live backup,
-21:33:36 UTC, has **49 survivors/1281 parts**, six older removals and no removals since cause
-diagnostics were added. Those older causes remain unknown. Read
+Fresh images contain **45 objects/1211 parts**. The latest completed live backup,
+21:48:35 UTC, has **52 survivors/1410 parts**, six older removals of unknown cause,
+and one new diagnosed controller failure. Marrowstep ID 48 exceeded its controller
+deadline while upright; Pi released a replacement as ID 59. See the
+[controller-limit investigation](../20260915-065100-codex-01/TASK.md). Read
 `build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
 for newer state; do not infer a stopped process from an old snapshot or timeout.
 
@@ -73,14 +75,20 @@ magnet-off settling. Both cranes also passed independent fresh-start trials.
 placement on lifts/boats. Transfer between Quayfin and Tidelock remains unproven.
 Their live cargo and all older creations remain intact.
 
-**Obsidian Kite — basin survey circuit**, ID 52, is the latest unbundled creation:
-49 parts, start x46,z48. At age 473 s its controller recorded six completed
-circuits/landings; independently verify the actual poses and fresh behavior.
-Its 12×18 m route and 14 m cruise height explore the basin. **Amberback**, ID 53,
-is a 43-part hydraulic-shouldered walker. Pi has released **Underpass**, ID 54,
-a 66-part submerged handling crane trial, with new cargo 55. Independently verify
-these fresh before bundling. Preserve every existing creation and the complete
-native conversation.
+The [expedition replay](../20260915-064000-codex-01/TASK.md) verified Obsidian Kite
+and Underpass with separate submerged cargo across 330 simulation seconds.
+All 46 test objects survived. The flyer completed four actual flight/landing
+circuits with 21.72 m excursion and 0.700 m gear travel. The crane lifted its
+crate 5.40 m, carried it 1.013 m sideways and released it onto a tray; final
+30-second drift was under 0.1 mm. These two unchanged Pi designs and the crate
+are bundled; the first 42 catalog entries remain intact. The guarded fresh-world
+and save/reopen integration passed. No live migration was needed.
+
+**Amberback**, live ID 53, passed the fresh 330-second seed but stalled in the
+long-lived world at age 253 s. Keep it unbundled while Pi's **Amberstride** 57 and
+**Amberguard** 58 recovery revisions are independently verified. The original
+remains alive. **Longwake** 56 is a new 43-part channel survey boat, also unverified
+for the fresh catalog. Preserve existing creations and the complete conversation.
 
 [Population profiling](../20260915-060200-codex-01/TASK.md) reduced C render-tree
 construction from 1.31 to 0.47 ms using median partitioning, with unchanged GPU
@@ -89,7 +97,8 @@ was established. Guarded editor/native checks passed. Live app sources/binary
 were updated in place with full world/history hashes unchanged. Pi resumed real
 Astra/xhigh calls and successful tools; world time and population are advancing.
 The [timer task](../20260915-062600-codex-01/TASK.md) tracks remaining frame-pacing
-measurements. No host scheduling or GPU ABI change was made.
+measurements. Its real browser probe reproduced 1–12 ms waits waking at 16 ms,
+and 16 ms waits at 32 ms. No host scheduling or GPU ABI change was made.
 
 ### Owned services — recheck PIDs before stopping anything
 
@@ -116,9 +125,10 @@ config/events and full native session JSONL. It excludes models/auth. The native
 conversation reached **274,387,780 bytes** before the renderer update. Its exact
 complete SHA-256 and complete world file matched across compilation. Evidence:
 `build/blockwalker-walking/performance-updated-proof.json`, `performance-live.png`
-and `build/blockwalker-performance-update.log`. The first resumed mirror has
-279,433,079 bytes and retains that exact complete prefix, with successful new
-tool calls and a native compaction entry appended.
+and `build/blockwalker-performance-update.log`. The first resumed mirror had
+279,433,079 bytes with successful new tool calls and a native compaction entry
+appended. The 21:48 mirror has **293,370,361 bytes** and retains the exact complete
+274,387,780-byte pre-update prefix.
 
 Latest recovery files are `performance-state.tar` (276,039,680 bytes),
 `performance-state.tar.gz` (204,649,967 bytes) and five `performance-state-XX.part`
