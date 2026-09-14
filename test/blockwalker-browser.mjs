@@ -23,6 +23,18 @@ try {
  await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>30,null,{timeout:60000});
  await shot('builder');let blueprint=await exportBlueprint('starter');
  assert.equal(blueprint.count,5);assert.equal(blueprint.blocks.filter(b=>b.joint).length,4);
+ await page.mouse.click(119,352);await page.mouse.move(100,80);await frames();
+ const view=()=>page.screenshot({clip:{x:242,y:80,width:756,height:594}}),initialView=await view();
+ for(const action of [
+  ()=>page.mouse.click(294,109),()=>page.mouse.click(470,109),
+  async()=>{await page.mouse.move(850,430);await page.mouse.down({button:'right'});await page.mouse.move(650,500,{steps:12});await page.mouse.up({button:'right'});},
+  async()=>{await page.keyboard.down('Alt');await page.mouse.move(850,430);await page.mouse.down();await page.mouse.move(650,350,{steps:12});await page.mouse.up();await page.keyboard.up('Alt');},
+  async()=>{await page.mouse.move(850,430);await page.mouse.wheel(0,240);}
+ ]){
+  await action();await page.mouse.move(100,80);await frames();assert.notDeepEqual(await view(),initialView);
+  await shot('camera');await page.mouse.click(646,109);await page.mouse.move(100,80);await frames();assert.deepEqual(await view(),initialView);
+ }
+ assert.equal((await exportBlueprint('after-camera')).source,blueprint.source);
  await page.mouse.click(119,352);await page.mouse.click(706,352);await frames();await shot('joint');
  await page.mouse.click(1085,354);await page.keyboard.press('Q');await page.keyboard.press('Z');await frames();
  blueprint=await exportBlueprint('remapped');assert.equal(blueprint.blocks[3].negative,'Z'.charCodeAt(0));
@@ -43,7 +55,9 @@ try {
  assert.equal((await exportBlueprint('imported')).source,blueprint.source);await shot('imported');
  await page.mouse.click(1156,40);await frames(90);await shot('test-ground');
  const still=await page.screenshot({clip:{x:242,y:80,width:756,height:594}});
- await page.keyboard.down('Z');await frames(45);await page.keyboard.up('Z');
+ const keyCap=()=>page.screenshot({clip:{x:1080,y:294,width:6,height:6}}),releasedKey=await keyCap();
+ await page.keyboard.down('Z');await frames(45);assert.notDeepEqual(await keyCap(),releasedKey);await shot('key-held');await page.keyboard.up('Z');
+ await frames();assert.deepEqual(await keyCap(),releasedKey);
  await page.keyboard.down('K');await frames(20);await page.keyboard.up('K');
  await page.keyboard.down('A');await frames(30);await page.keyboard.up('A');await frames();
  assert.notDeepEqual(await page.screenshot({clip:{x:242,y:80,width:756,height:594}}),still);await shot('moving');
@@ -57,12 +71,16 @@ try {
  assert.equal(physics.blocks,5);assert.ok(physics.physicsSteps>120);
  assert.ok(physics.joints[2].motorSteps>20);assert.equal(physics.joints[2].negative,'Z');assert.ok(physics.joints[2].peakAngle>.15);
  assert.ok(physics.joints[0].motorSteps>10);
+ assert.ok(physics.joints[2].drivenRadians>.5);assert.ok(physics.joints[0].drivenRadians>.3);
+ assert.ok(physics.maxSeparation<.025);
+ assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --check')),0);
+ await writeFile(new URL('physics-check.log',output),await page.evaluate(()=>__dolly.visibleTerminalText()));
  const restarted=page.evaluate(()=>__dolly.submit('blockwalker'));
  await page.waitForFunction(()=>__dolly.gpu?.active&&__dolly.gpu.stats.frames>20,null,{timeout:30000});
  assert.equal((await exportBlueprint('reopened')).source,blueprint.source);
  await page.keyboard.press('Escape');assert.equal(await restarted,0);
  assert.deepEqual(errors,[]);
- const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,exportImport:true,originalBuildPreserved:true,reopen:true,readbackBytes:0,physics,errors};
+ const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
  await writeFile(new URL('results.json',output),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
 }catch(error){await shot('failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
 finally{await browser.close();await site.close();}

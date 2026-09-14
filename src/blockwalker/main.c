@@ -63,6 +63,12 @@ static void import_character(void){
     remove("/tmp/blockwalker-import.character");
 }
 static void click(void){
+    for(int i=0;i<5;i++)if(inside(254+i*88,92,80,34)){
+        if(i==0)orbit.yaw-=.3f;if(i==1)orbit.yaw+=.3f;
+        if(i==2)orbit.pitch=Clamp(orbit.pitch+.2f,-.1f,1.35f);
+        if(i==3)orbit.pitch=Clamp(orbit.pitch-.2f,-.1f,1.35f);
+        if(i==4)home_camera();orbit_update(&orbit);return;
+    }
     if(inside(1052,18,204,44)){if(physics.running)back_to_builder();else start_test();return;}
     if(physics.running){
         if(inside(24,154,194,42))start_test();
@@ -120,7 +126,7 @@ static void events(void){
         if(e.type==DOLLY_INPUT_EVENT_POINTER){
             mouse_x=e.width_css_px;mouse_y=e.height_css_px;
             if(e.action==DOLLY_POINTER_ACTION_PRESS){
-                if((e.flags>>8)==2||((e.modifiers&DOLLY_INPUT_MOD_ALT)&&in_view())){orbit_drag=1;last_x=mouse_x;last_y=mouse_y;}
+                if(in_view()&&((e.flags>>8)==2||(e.modifiers&DOLLY_INPUT_MOD_ALT))){orbit_drag=1;last_x=mouse_x;last_y=mouse_y;}
                 else if((e.flags>>8)==0)click();
             }else if(e.action==DOLLY_POINTER_ACTION_RELEASE)orbit_drag=0;
             else if(orbit_drag){orbit.yaw-=(mouse_x-last_x)*.009f;orbit.pitch=Clamp(orbit.pitch+(mouse_y-last_y)*.008f,-.1f,1.35f);last_x=mouse_x;last_y=mouse_y;orbit_update(&orbit);}
@@ -156,6 +162,10 @@ static void draw_ui(void){
     char text[120];int joints=0;for(int i=0;i<design.count;i++)joints+=design.blocks[i].joint;
     snprintf(text,sizeof(text),"%02d BOXES  /  %02d JOINTS",design.count,joints);label(472,30,text,18,muted);
     button(1052,18,204,44,physics.running?"Back to builder":"Test character  >",1);
+    const char *views[]={"< Left","Right >","Up","Down","Home"};
+    for(int i=0;i<5;i++)button(254+i*88,92,80,34,views[i],0);
+    DrawRectangle(254,643,600,23,paper);
+    label(262,647,"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(!physics.running){
         button(808,22,104,36,"Export",0);button(924,22,104,36,"Import",0);
         label(24,106,"PARTS",17,muted);
@@ -183,9 +193,10 @@ static void draw_ui(void){
     }else {
         label(24,108,"TEST GROUND",17,muted);button(24,154,194,42,"Reset drop",0);button(24,212,194,42,"Center camera",0);
         label(24,300,"No training wheels.",18,ink);label(24,335,"Balance, fall, rebuild.",15,muted);
-        label(1036,108,"YOUR JOINTS",17,muted);int row=0;
+        label(1036,108,"HOLD KEYS TO TURN",17,muted);int row=0;
         for(int i=0;i<design.count&&row<7;i++)if(design.blocks[i].joint){Block b=design.blocks[i];int y=152+row*66;
-            snprintf(text,sizeof(text),"%02d",i+1);label(1036,y+12,text,16,muted);char a[2]={b.negative,0},z[2]={b.positive,0};button(1072,y,72,42,a,keys[b.negative]);button(1156,y,72,42,z,keys[b.positive]);row++;}
+            snprintf(text,sizeof(text),"%02d",i+1);label(1036,y+12,text,16,muted);char a[2]={b.negative,0},z[2]={b.positive,0};button(1072,y,72,42,a,keys[b.negative]);button(1156,y,72,42,z,keys[b.positive]);
+            snprintf(text,sizeof(text),"%+.0f deg",physics.angles[i]*RAD2DEG);label(1072,y+44,text,14,muted);row++;}
         if(joints>7){snprintf(text,sizeof(text),"+ %d more active joints",joints-7);label(1036,622,text,15,muted);}
     }
     label(24,692,message,15,ink);snprintf(text,sizeof(text),"%.0f FPS  |  Esc %s",fps,physics.running?"edit":"exit");label(1050,692,text,14,muted);
@@ -193,8 +204,8 @@ static void draw_ui(void){
 }
 static void report(void){
     FILE *f=fopen("/workspace/blockwalker-last-run.json","w");if(!f)return;
-    fprintf(f,"{\"blocks\":%d,\"physicsSteps\":%d,\"joints\":[",design.count,physics.steps);int n=0;
-    for(int i=0;i<design.count;i++)if(design.blocks[i].joint){Block b=design.blocks[i];fprintf(f,"%s{\"block\":%d,\"negative\":\"%c\",\"positive\":\"%c\",\"axis\":%d,\"motorSteps\":%d,\"peakAngle\":%.6f}",n++?",":"",i,b.negative,b.positive,b.axis,physics.motor_steps[i],physics.angle_peak[i]);}
+    fprintf(f,"{\"blocks\":%d,\"physicsSteps\":%d,\"maxSeparation\":%.6f,\"joints\":[",design.count,physics.steps,physics.max_separation);int n=0;
+    for(int i=0;i<design.count;i++)if(design.blocks[i].joint){Block b=design.blocks[i];fprintf(f,"%s{\"block\":%d,\"negative\":\"%c\",\"positive\":\"%c\",\"axis\":%d,\"motorSteps\":%d,\"peakAngle\":%.6f,\"drivenRadians\":%.6f}",n++?",":"",i,b.negative,b.positive,b.axis,physics.motor_steps[i],physics.angle_peak[i],physics.driven_radians[i]);}
     fputs("]}\n",f);fclose(f);
 }
 int main(int argc,char **argv){

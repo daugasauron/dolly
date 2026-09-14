@@ -15,7 +15,7 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | --- | --- |
 | Place a box or joint | Choose the part, then click an empty box face |
 | Select / erase | Pick or Erase tool; V / X |
-| Orbit / zoom / recenter | Right-drag / scroll / H |
+| Orbit / zoom / recenter | Camera buttons, right-drag or Alt + left-drag / scroll / H |
 | Edit a joint | Pick it, choose X/Y/Z, click each key to rebind |
 | Test / return to editor | Test character or Enter / Escape |
 | Undo | Undo button or Ctrl-Z |
@@ -25,6 +25,9 @@ A regular block attaches rigidly to its parent. A joint block hinges at its
 parent attachment and carries the attached branch with it. Two keys drive
 opposite directions. Deleting a block removes its branch; Undo restores it.
 Blueprints contain up to 64 boxes. Test mode leaves their build pose unchanged.
+Blocks weigh about 0.91 kg. Gravity is 4 m/s² and the character starts just above
+the floor, giving time to try the controls. Hold a joint's keys to turn it;
+release them to brake. Highlighted keys and joint angles show the response.
 
 The working blueprint is `/workspace/blockwalker.character`, reloaded when
 the program restarts. Export downloads a copy; Import restores it into a fresh
@@ -39,7 +42,9 @@ node scripts/serve-gpu.mjs 9099 blockwalker
 
 The separate [Dollyfile](../Dollyfile-blockwalker) reuses `gamedev-sdk`, compiles
 the C sources inside Dolly, and runs `blockwalker --check` against actual
-Box3D motors, welds and floor collision. `test/blockwalker-browser.mjs` drives
-the editor, key assignment, export/import, physics and restart in Chrome.
+Box3D motors in both directions on all three axes, braking under gravity,
+and 40 seconds of joint/weld/floor stability. `test/blockwalker-browser.mjs`
+drives camera controls, the editor, key assignment, export/import, physics
+and restart in Chrome.
 On this Linux machine it can run under `xvfb-run -a` with the NVIDIA Vulkan
 adapter, without opening a window on the desktop.

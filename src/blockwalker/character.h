@@ -13,7 +13,7 @@ typedef struct {
     b3BodyId bodies[BLOCK_LIMIT];
     b3JointId joints[BLOCK_LIMIT];
     int running,steps,motor_steps[BLOCK_LIMIT];
-    float angle_peak[BLOCK_LIMIT];
+    float angle_peak[BLOCK_LIMIT],angles[BLOCK_LIMIT],driven_radians[BLOCK_LIMIT],max_separation;
 } Physics;
 
 extern const Color block_colors[COLOR_COUNT];

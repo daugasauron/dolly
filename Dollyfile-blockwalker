@@ -2,7 +2,7 @@ DOLLY 3
 IMAGE blockwalker
 
 FROM HOST /Dollyfile-gamedev-sdk b8ff7e86caf1d2f54569a7f2bb6c0d2d15a3a41d7c26d3c126fdf59adca7cd5c
-USE HOST /modules/blockwalker.dm b7d2932a1ee9b66468717d300236681edef30d76c1fed311acfcafae0ceef9de
+USE HOST /modules/blockwalker.dm 0197821aab24d2631e463292be45309df534bf4dd5fe7bae62745d57bbe81599
 
 FILE /etc/dolly/blockwalker.slop
     /bin/foreground /usr/bin/blockwalker

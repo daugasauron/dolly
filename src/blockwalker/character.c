@@ -79,16 +79,16 @@ int character_load(Character *c,const char *path) {
 }
 void physics_stop(Physics *p) { if(p->running)b3DestroyWorld(p->world);memset(p,0,sizeof(*p)); }
 void physics_start(Physics *p,const Character *c) {
-    physics_stop(p);b3WorldDef w=b3DefaultWorldDef();w.workerCount=1;w.gravity=(b3Vec3){0,-9.81f,0};
+    physics_stop(p);b3WorldDef w=b3DefaultWorldDef();w.workerCount=1;w.gravity=(b3Vec3){0,-4,0};
     p->world=b3CreateWorld(&w);p->running=1;
     b3BodyDef floor=b3DefaultBodyDef();floor.position=(b3Pos){0,-.5f,0};
     b3BodyId ground=b3CreateBody(p->world,&floor);b3BoxHull slab=b3MakeBoxHull(100,.5f,100);
-    b3ShapeDef shape=b3DefaultShapeDef();shape.baseMaterial.friction=.85f;b3CreateHullShape(ground,&shape,&slab.base);
+    b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;shape.baseMaterial.friction=.85f;b3CreateHullShape(ground,&shape,&slab.base);
     int minimum=20;for(int i=0;i<c->count;i++)if(c->blocks[i].y<minimum)minimum=c->blocks[i].y;
     b3BoxHull cube=b3MakeBoxHull(.485f,.485f,.485f);
     for(int i=0;i<c->count;i++){
         Vector3 v=block_position(c->blocks[i]);b3BodyDef b=b3DefaultBodyDef();b.type=b3_dynamicBody;
-        b.position=(b3Pos){v.x,v.y-minimum+2,v.z};b.angularDamping=.08f;b.enableSleep=false;
+        b.position=(b3Pos){v.x,v.y-minimum+.15f,v.z};b.angularDamping=.08f;b.enableSleep=false;
         p->bodies[i]=b3CreateBody(p->world,&b);b3CreateHullShape(p->bodies[i],&shape,&cube.base);
     }
     for(int i=1;i<c->count;i++){
@@ -111,25 +111,61 @@ void physics_start(Physics *p,const Character *c) {
 }
 void physics_step(Physics *p,const Character *c,const unsigned char keys[128]) {
     for(int i=1;i<c->count;i++)if(c->blocks[i].joint){Block b=c->blocks[i];int direction=(keys[b.positive]!=0)-(keys[b.negative]!=0);b3RevoluteJoint_SetMotorSpeed(p->joints[i],direction*b.speed);if(direction)p->motor_steps[i]++;}
-    b3World_Step(p->world,1.f/60,4);p->steps++;
-    for(int i=1;i<c->count;i++)if(c->blocks[i].joint){float a=fabsf(b3RevoluteJoint_GetAngle(p->joints[i]));if(a>p->angle_peak[i])p->angle_peak[i]=a;}
+    b3World_Step(p->world,1.f/60,8);p->steps++;
+    for(int i=1;i<c->count;i++){
+        p->max_separation=fmaxf(p->max_separation,b3Joint_GetLinearSeparation(p->joints[i]));
+        if(c->blocks[i].joint){
+            Block b=c->blocks[i];float angle=b3RevoluteJoint_GetAngle(p->joints[i]);
+            int direction=(keys[b.positive]!=0)-(keys[b.negative]!=0);
+            p->driven_radians[i]+=(angle-p->angles[i])*direction;p->angles[i]=angle;
+            p->angle_peak[i]=fmaxf(p->angle_peak[i],fabsf(angle));
+        }
+    }
 }
 void physics_pose(const Physics *p,const Character *c,int i,Vector3 *position,Quaternion *rotation) {
     if(p->running){b3WorldTransform t=b3Body_GetTransform(p->bodies[i]);*position=(Vector3){t.p.x,t.p.y,t.p.z};*rotation=(Quaternion){t.q.v.x,t.q.v.y,t.q.v.z,t.q.s};}
     else {*position=block_position(c->blocks[i]);*rotation=(Quaternion){0,0,0,1};}
 }
+static void motor_check(int axis) {
+    Character c={0};Physics p={0};unsigned char keys[128]={0};
+    character_add(&c,-1,0,3,0,0,0);character_add(&c,0,1,3,0,1,1);c.blocks[1].axis=axis;
+    physics_start(&p,&c);
+    // Suspend one hinge from a fixed test fixture, with gravity still enabled.
+    for(int i=0;i<2;i++){b3Pos pos=b3Body_GetPosition(p.bodies[i]);pos.y+=3;b3Body_SetTransform(p.bodies[i],pos,(b3Quat){{0,0,0},1});}
+    b3Body_SetType(p.bodies[0],b3_staticBody);
+    for(int i=0;i<120;i++)physics_step(&p,&c,keys);
+    float idle=p.angles[1];keys['A']=1;
+    for(int i=0;i<30;i++)physics_step(&p,&c,keys);
+    float forward=p.angles[1];keys['A']=0;keys['Q']=1;
+    for(int i=0;i<60;i++)physics_step(&p,&c,keys);
+    float reverse=p.angles[1];keys['Q']=0;
+    for(int i=0;i<60;i++)physics_step(&p,&c,keys);
+    printf("MOTOR %c: mass %.3f kg, idle %.3f, forward %.3f, reverse %.3f, released %.3f rad, separation %.5f m\n",
+        'X'+axis,b3Body_GetMass(p.bodies[1]),idle,forward,reverse,p.angles[1],p.max_separation);
+    assert(fabsf(idle)<.04f&&forward>.7f&&reverse<-.7f&&fabsf(p.angles[1]-reverse)<.08f);
+    float stopped=p.angles[1];for(int i=0;i<60;i++)physics_step(&p,&c,keys);
+    assert(fabsf(p.angles[1]-stopped)<.01f);
+    assert(p.max_separation<.025f);physics_stop(&p);
+}
 int character_check(void) {
+    for(int axis=0;axis<3;axis++)motor_check(axis);
     Character c={0},loaded={0};Physics p={0};unsigned char keys[128]={0};character_preset(&c,1);
     assert(c.count==5&&character_validate(&c));assert(character_save(&c,"/tmp/blockwalker-check.txt"));
     assert(character_load(&loaded,"/tmp/blockwalker-check.txt")&&memcmp(&c,&loaded,sizeof(c))==0);
     assert(character_add(&c,0,0,3,0,0,0)<0);assert(character_add(&c,0,8,3,0,0,0)<0);
     assert(character_add(&c,2,-1,1,0,0,0)==5);physics_start(&p,&c);
-    for(int n=0;n<240;n++){keys['A']=n<90;keys['S']=n>=90&&n<180;physics_step(&p,&c,keys);}
+    for(int n=0;n<2400;n++){
+        keys['A']=n<90;keys['S']=n>=90&&n<180;
+        keys['O']=n>=240&&(n/90)%2==0;keys['K']=n>=240&&!keys['O'];
+        keys['P']=n>=240&&(n/120)%2==0;keys['L']=n>=240&&!keys['P'];
+        physics_step(&p,&c,keys);
+    }
     assert(p.motor_steps[1]==90&&p.motor_steps[2]==90);
     assert(p.angle_peak[1]>.15f&&p.angle_peak[2]>.15f);
     Vector3 a,b;Quaternion q;physics_pose(&p,&c,2,&a,&q);physics_pose(&p,&c,5,&b,&q);
     float distance=sqrtf((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.z-b.z)*(a.z-b.z));assert(fabsf(distance-1)<.08f);
     for(int i=0;i<c.count;i++){physics_pose(&p,&c,i,&a,&q);assert(isfinite(a.x)&&isfinite(a.y)&&isfinite(a.z)&&a.y>-.1f);}
-    printf("BLOCKWALKER CHECK PASS: four 3D hinges, motors %.3f/%.3f rad, welded distance %.4f, floor collision, save/load\n",p.angle_peak[1],p.angle_peak[2],distance);
+    printf("BLOCKWALKER CHECK: 40 seconds, four 3D hinges, motors %.3f/%.3f rad, welded distance %.4f, peak separation %.5f m, floor collision, save/load\n",p.angle_peak[1],p.angle_peak[2],distance,p.max_separation);
+    assert(p.max_separation<.025f);
     physics_stop(&p);character_remove(&c,1);assert(c.count==3&&character_validate(&c));remove("/tmp/blockwalker-check.txt");return 0;
 }
