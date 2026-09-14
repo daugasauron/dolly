@@ -18,6 +18,10 @@ async function digest(path,signal) {
 export async function modelFile(id,{signal,progress=()=>{}}={}) {
   const model=models.find(model=>model.id===id);
   if(!model)throw Error(`Unknown local model: ${id}`);
+  if(model.path) {
+    if(statSync(model.path).size!==model.bytes)throw Error('Bundled model has the wrong size; rebuild this image');
+    return model.path;
+  }
   mkdirSync(directory,{recursive:true});
   const path=`${directory}/${model.id}-${model.sha256}.gguf`;
   try {if(statSync(path).size===model.bytes)return path;} catch {}

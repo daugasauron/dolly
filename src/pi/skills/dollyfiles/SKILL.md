@@ -100,9 +100,9 @@ For interactive Neovim, syntax highlighting, linting and headless editing, read
 [neovim.md](neovim.md). Interactive nvim needs the shell, not Pi's captured tool.
 
 Pi's `/model` picker selects a local or remote provider. Studio defaults to
-Qwen3.5-2B, compiled inside Dolly using the GPU ABI. The first prompt checks
-WebGPU and downloads verified weights into volatile `/run/dolly-llm` files;
-refreshing or restoring a session downloads them again. `/local-unload` releases
+Qwen3.5-0.8B, compiled inside Dolly using the GPU ABI. Its verified weights
+are included in the image. Optional larger models download into volatile
+`/run/dolly-llm` files and need downloading again after refresh. `/local-unload` releases
 the GPU model. `/login` supports remote providers. `/dolly-hello`, `/dolly-tool`
 and `/dolly-fix` are small starting prompts.
 

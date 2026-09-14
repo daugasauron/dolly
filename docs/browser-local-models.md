@@ -7,20 +7,20 @@ scheduling. Only generic buffers, WGSL pipelines and command packets cross the
 [Dolly GPU ABI](gpu.md); the browser has no model engine or local inference HTTP
 service. No native server or remote inference fallback is involved.
 
-Open `/pi-local/` and use Pi's `/model` picker. Qwen3.5-2B is the default.
-The first prompt checks the GPU, downloads the selected GGUF through Dolly's
-normal network broker, verifies its SHA-256, and starts inference. Pi's status
-line shows download progress and generation speed. Escape interrupts a turn;
+Open `/pi-local/` and use Pi's `/model` picker. Qwen3.5-0.8B is the default;
+its verified weights are included in Pi-local and Studio. The first prompt
+checks the GPU and loads the model from `/usr/share/dolly/llm` without a model
+download. Pi's status line shows generation speed. Escape interrupts a turn;
 the next turn reloads the model. `/local-unload` releases its process and GPU
 resources. Pi executes complete validated tool calls using ordinary Dolly tools.
 
-| Model | Q4_K_M download | Context / maximum output |
+| Model | Q4_K_M weights | Context / maximum output |
 | --- | ---: | ---: |
-| Qwen3.5-0.8B | 580 MB | 8,192 / 2,048 tokens |
+| Qwen3.5-0.8B (included) | 580 MB | 8,192 / 2,048 tokens |
 | Qwen3.5-2B | 1.40 GB | 8,192 / 2,048 tokens |
 | Qwen3.5-4B | 3.01 GB | 8,192 / 2,048 tokens |
 
-These are download sizes, not total RAM or VRAM requirements. Each tab holds
+These are file sizes, not total RAM or VRAM requirements. Each tab holds
 weights in the Wasm filesystem, the inference process and GPU allocations.
 Small Qwen models can use tools but are not dependable autonomous coding models.
 Thinking and image input are disabled in this first adapter.
@@ -52,12 +52,15 @@ google-chrome --user-data-dir=/tmp/dolly-local-llm \
 ```
 
 
-Verified weights live in `/run/dolly-llm` in the shared Wasm filesystem. They
-survive model unload/restart in the same tab, but **refreshing or restoring a
-session downloads them again**. `/run` is volatile and excluded from session
-saves; settings, conversation logs and workspace files are saved normally.
-This avoids putting multi-gigabyte weights into the bounded session format.
-There is no browser IndexedDB model cache in this checkpoint.
+The default weights arrive with the image and use its existing IndexedDB image
+cache. Refresh and session restore recover them from that base; unchanged model
+bytes are excluded from saved filesystem deltas. Pi-local is 822 MB and Studio
+858 MB before compression. The initial image load includes the weights.
+
+Optional 2B/4B weights download through Dolly's normal network broker, verify
+SHA-256, and live in volatile `/run/dolly-llm`. They survive model unload/restart
+in the same tab, but need downloading again after refresh or session restore.
+Settings, conversation logs and workspace files are saved normally.
 Engine diagnostics are in `~/.cache/dolly-llm/engine.log`.
 
 ## Build and interface
@@ -67,9 +70,10 @@ llama.cpp sources and WGSL inside Dolly with its C/C++ compiler and CMake.
 [`Dollyfile-local-llm-build`](../Dollyfile-local-llm-build) links the small Dolly
 WebGPU C adapter and command against those cached libraries.
 [`Dollyfile-pi-local`](../Dollyfile-pi-local) copies the executable into Pi and
-installs the provider. Editing the adapter or provider reuses the compiler and
-upstream-library images. The core build took 159 seconds here; rebuilding the
-command and Pi leaf took 13 and 9 seconds respectively.
+installs the provider and pinned 0.8B weights. Editing the adapter or provider
+reuses the compiler and upstream-library images. The core build took 159 seconds
+here; rebuilding the command took 13 seconds. Including the weights took 27
+seconds for Pi-local and 16 seconds for Studio.
 
 `scripts/prepare-local-llm.sh` only fetches verified source archives and official
 Dawn C/C++ headers, then packages them. It compiles no native inference code.
@@ -81,7 +85,7 @@ include Dawn's JavaScript runtime or provide ambient browser capabilities.
 `dolly-llama --check` reports GPU availability. For direct use:
 
 ```sh
-dolly-llama /run/dolly-llm/MODEL.gguf 8192
+dolly-llama /usr/share/dolly/llm/Qwen3.5-0.8B.gguf 8192
 ```
 
 Stdin accepts one JSON object per line with `prompt`, `max_tokens`,
@@ -99,4 +103,5 @@ weights are loaded.
 Build with `npm run image -- pi-local`; run the opt-in real-model check with
 `node test/local-llm-browser.mjs`. Real browser evidence, measurements and
 remaining limitations are recorded in the
-[checkpoint task](../tasks/20260914-llm-in-image/TASK.md).
+[inference checkpoint](../tasks/20260914-llm-in-image/TASK.md) and
+[bundled model task](../tasks/20260914-llm-bundled-weights/TASK.md).

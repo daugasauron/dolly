@@ -46,6 +46,9 @@ siblings of the original URL, fetched without guest headers, credentials or
 redirects, under the original deadline and byte bound. An ordinary remote
 response cannot activate this path. Inherited policies must all identify the
 request as a bootstrap grant; sibling URLs gain no independent guest grant.
+Image snapshots and static multipart assets are bounded at 1 GiB to accommodate
+the bundled 580 MB model. The decoder also enforces the caller's byte limit;
+ordinary HTTP responses remain bounded at 64 MiB and session deltas at 512 MiB.
 The Dollyfile viewer's `src/source-download.mjs` uses the same decoder after a
 user clicks a large, registry-listed source link, verifying its pinned hash
 before offering the original archive as a download.
@@ -92,7 +95,7 @@ buffer allocations across the provider. The browser owns these bounds; guest dec
 cannot raise them. Optional f16/subgroup features change shader validation only.
 
 Local llama.cpp inference runs inside an ordinary private process. Its C adapter
-uses this same generic provider; model downloads use the remote HTTP broker.
+uses this same generic provider; optional model downloads use the remote HTTP broker.
 There is no browser model loader, inference service, URL allowlist exception or
 model-specific outer import. See [local models](browser-local-models.md).
 
@@ -137,7 +140,9 @@ reading it with curl still crosses the broker.
 
 [image-artifact.mjs](../src/image-artifact.mjs) binds cached bytes to seed/image ABI identity,
 root recipe, snapshot hash and direct input digests. Descriptors and payloads
-publish atomically. [image-build.mjs](../src/image-build.mjs) resolves release
+publish atomically. Precompiled boots reuse this cache only when the payload
+matches the published image digest and current inputs; missing or corrupt bytes
+reload from the published artifact. [image-build.mjs](../src/image-build.mjs) resolves release
 image identities and a static-source allowlist, not arbitrary checkout paths.
 Unused published modules do not implicitly stage their dependencies.
 Restoration and filesystem mutations remain in Wasm. Explicit save recovery

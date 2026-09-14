@@ -39,8 +39,12 @@ The in-Wasm kernel fingerprints the base filesystem at boot. Mailbox format 2
 transfers only changed/new records and deletion records, not another copy of the
 compiler and runtimes. SHA-256 comparisons and all filesystem encoding/restoring
 stay in Wasm. `/dev` and `/seed` remain runtime-owned. Volatile `/run` files, including
-local model weights, are excluded from saves. The uncompressed **delta**
+optional downloaded model weights, are excluded from saves. The default model
+is part of the image base and is restored with it; unchanged weights add no
+records to a saved session. The uncompressed **delta**
 limit is 512 MiB; browser quota and available memory can impose lower limits.
+Fingerprinting streams larger base files without adding them to the delta;
+changing a file beyond the delta limit makes the save fail visibly.
 
 The browser copies bounded opaque chunks, optionally compresses them with gzip,
 and atomically replaces one IndexedDB record. A failed save leaves the previous

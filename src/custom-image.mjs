@@ -1,3 +1,4 @@
+import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { describeImageArtifact, loadImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
@@ -14,7 +15,7 @@ export async function loadCustomImage(source, descriptor) {
 
 export async function checkedCustomArtifact(source, candidate) {
   if (inspectDollyfile(source).kind !== "image" || candidate?.buildId !== DOLLY_IMAGE_BUILD_ID ||
-      !(candidate.bytes instanceof ArrayBuffer) || candidate.bytes.byteLength > 512 * 1024 * 1024 ||
+      !(candidate.bytes instanceof ArrayBuffer) || candidate.bytes.byteLength > MAX_SNAPSHOT_BYTES ||
       candidate.recipeSha256 !== await sha256(new TextEncoder().encode(source))) {
     throw new Error("Invalid completed custom image");
   }

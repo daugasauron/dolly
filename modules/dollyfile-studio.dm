@@ -10,7 +10,7 @@ REQUIRES TOOL slop
 REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 
-SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar 25b2f066313fb6000bc319b64f76f1d0ea0b08f295950d86635b1799617ff07a
+SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar f933ad580b66e69363671a2a7bf20e92af1ba7a62c89920c4c7ac00ad924a2ae
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello
@@ -32,7 +32,7 @@ FILE /home/dolly/.pi/agent/settings.json
       "shellPath": "/bin/slop",
       "theme": "dolly",
       "defaultProvider": "webgpu",
-      "defaultModel": "Qwen3.5-2B"
+      "defaultModel": "Qwen3.5-0.8B"
     }
 
 FILE /home/dolly/.dollyrc

@@ -1,0 +1,119 @@
+{
+  "runtime": "sha256:6c5933e88079941f708fa40f67ecb26b84deeefcc5d7b57fa520d25388f596d1",
+  "seed": "sha256:0ace6dd93c15c06b50230755bc138b64374783d5f3ef54c7d14ab54a5676656a",
+  "model": {
+    "id": "Qwen3.5-0.8B",
+    "url": "https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/f36b1ea49a332ede8fe5f389bbf5b3575ef71f48/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf",
+    "bytes": 579615840,
+    "sha256": "fb044e93939a70469c905781334f5de1e6c8b608ced6cbc8c9249bd4127d9526",
+    "path": "/usr/share/dolly/llm/Qwen3.5-0.8B.gguf"
+  },
+  "images": {
+    "pi-local": {
+      "bytes": 821902873,
+      "sha256": "029aee881015bc16758e03ffe0f93e1c0f214ac6f7e5e32162a3ab5dbb2134f7"
+    },
+    "dollyfile-studio": {
+      "bytes": 858174709,
+      "sha256": "e2c7c9500fda05eadec6bdb79c0bf0768f5681a0cb3c2a980d378a0414419b15"
+    }
+  },
+  "browsers": [
+    {
+      "model": "Qwen3.5-0.8B",
+      "reuse": true,
+      "cancel": true,
+      "restart": true,
+      "results": [
+        {
+          "text": "Hello! How can I help you today?",
+          "done": true,
+          "generation_ms": 285.925,
+          "input_tokens": 19,
+          "output_tokens": 9,
+          "prefill_ms": 848.51,
+          "reason": "stop",
+          "tokens_per_second": 31.476785870420564
+        },
+        {
+          "text": "4",
+          "done": true,
+          "generation_ms": 12.805,
+          "input_tokens": 21,
+          "output_tokens": 1,
+          "prefill_ms": 106.965,
+          "reason": "stop",
+          "tokens_per_second": 78.09449433814916
+        },
+        {
+          "text": "Hello! How can I help you today?",
+          "done": true,
+          "generation_ms": 136.325,
+          "input_tokens": 20,
+          "output_tokens": 9,
+          "prefill_ms": 93.565,
+          "reason": "stop",
+          "tokens_per_second": 66.01870529983495
+        }
+      ],
+      "browser": "chromium",
+      "version": "151.0.7922.71",
+      "externalRequests": 0,
+      "imageDownloads": 1,
+      "savedBytes": 136748,
+      "restored": true,
+      "freshBoot": true
+    },
+    {
+      "model": "Qwen3.5-0.8B",
+      "reuse": true,
+      "cancel": true,
+      "restart": true,
+      "results": [
+        {
+          "text": "Hello! How can I help you today?",
+          "done": true,
+          "generation_ms": 17935.06,
+          "input_tokens": 19,
+          "output_tokens": 9,
+          "prefill_ms": 1659.4,
+          "reason": "stop",
+          "tokens_per_second": 0.5018104204836783
+        },
+        {
+          "text": "4",
+          "done": true,
+          "generation_ms": 2301.18,
+          "input_tokens": 21,
+          "output_tokens": 1,
+          "prefill_ms": 1675.24,
+          "reason": "stop",
+          "tokens_per_second": 0.4345596606958169
+        },
+        {
+          "text": "Hello! How can I help you today?",
+          "done": true,
+          "generation_ms": 17915.4,
+          "input_tokens": 20,
+          "output_tokens": 9,
+          "prefill_ms": 1664.92,
+          "reason": "stop",
+          "tokens_per_second": 0.5023610971566362
+        }
+      ],
+      "browser": "firefox",
+      "version": "155.0",
+      "externalRequests": 0,
+      "imageDownloads": 1,
+      "savedBytes": 136332,
+      "restored": true,
+      "freshBoot": true
+    }
+  ],
+  "studio": {
+    "browser": "Chrome 151.0.7922.71",
+    "defaultModel": "Qwen3.5-0.8B",
+    "answer": "Hello!",
+    "externalRequests": 0
+  }
+}

@@ -7,7 +7,7 @@ import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writ
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
-import { mergeSnapshotRecords, validateSnapshotPacks } from "../src/snapshot-records.mjs";
+import { mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { contractDigest, validateBrowserImports } from "./dolly-abi.mjs";
 import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
@@ -109,7 +109,7 @@ export async function verifySite(site) {
     if (metadata.image !== image || metadata.buildId !== imageBuildId ||
         metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
         !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength < 16 ||
-        metadata.byteLength > 512 * 1024 * 1024 ||
+        metadata.byteLength > MAX_SNAPSHOT_BYTES ||
         ![undefined, "gzip", "packs"].includes(metadata.encoding)) throw new Error(`${image}: release snapshot identity mismatch`);
     let bytes;
     if (metadata.encoding === "packs") {

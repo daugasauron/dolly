@@ -11,6 +11,15 @@ import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, val
 
 const digest = value => createHash("sha256").update(value).digest("hex");
 const file = text => ({ kind: 2, data: new TextEncoder().encode(text) });
+test("large image packs fit the image bound, including aggregate-size enforcement", () => {
+  const gib = 1024 * 1024 * 1024;
+  const pack = size => ({ sha256: "a".repeat(64), byteLength: size, encodedByteLength: size });
+  assert.equal(validateSnapshotPacks({ byteLength: gib, packs: [pack(gib)] }).length, 1);
+  assert.throws(() => validateSnapshotPacks({ byteLength: gib + 1, packs: [pack(gib + 1)] }), /descriptor/);
+  assert.throws(() => validateSnapshotPacks({ byteLength: gib + 1,
+    packs: [pack(gib), { ...pack(17), sha256: "b".repeat(64) }] }), /size limit/);
+});
+
 async function packImages(directory, inputs) {
   const snapshots = resolve(directory, "inputs");
   await mkdir(snapshots, { recursive: true });

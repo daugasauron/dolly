@@ -178,6 +178,15 @@ if has_module pi; then
   copy_static "${project_dir}/src/pi/dolly-theme.json" default/pi/dolly-theme.json
   copy_static "${project_dir}/src/pi/skills/dolly/SKILL.md" default/pi/dolly-skill.md
 fi
+if has_module dollyfile; then
+  node scripts/build-source-tar.mjs "${static_dir}/default/dollyfile-source.tar" \
+    src/dollyfile.c /usr/src/dolly/dollyfile.c \
+    src/sha256.h /usr/src/dolly/sha256.h \
+    src/fs-record.h /usr/src/dolly/fs-record.h
+fi
+if has_module local-llm-weights; then
+  node scripts/prepare-local-llm-weights.mjs "${static_dir}/llama"
+fi
 if has_module llama-core; then
   bash scripts/prepare-local-llm.sh "${static_dir}/llama/source.tar"
 fi
@@ -195,6 +204,7 @@ if has_module local-llm; then
     src/local-llm/model.mjs /usr/lib/dolly-llm/model.mjs \
     src/local-llm/qwen.mjs /usr/lib/dolly-llm/qwen.mjs \
     src/local-llm/models.json /usr/share/dolly/llm/models.json \
+    src/local-llm/Qwen-LICENSE /usr/share/licenses/dolly-llm/Qwen-LICENSE \
     src/pi/local-model-provider.js /home/dolly/.pi/agent/extensions/local-model-provider.js
 fi
 if has_module dollyfile-studio; then

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "../src/snapshot-records.mjs";
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -225,7 +226,6 @@ FILE /usr/share/iteration-entry.slop
 EXPORTS FILE iteration-entry /usr/share/iteration-entry.slop
 ENTRY /bin/slop /usr/share/iteration-entry.slop '\uFEFFargument'
 ` : null;
-const snapshotSizeLimit = 512 * 1024 * 1024;
 const codexFixtureAuthorizationCode = "dolly-browser-authorization-code";
 const codexFixtureAccountId = "acct_dolly_browser_fixture";
 const codexFixtureAccessToken = [

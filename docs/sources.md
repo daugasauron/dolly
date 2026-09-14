@@ -236,6 +236,17 @@ llama.cpp sources and WGSL inside Dolly. Host preparation packages its source
 and official Dawn headers; it does not compile model code or import Dawn's JS
 runtime. A small in-image C API adapter targets the [GPU ABI](gpu.md).
 The separate [command build](../Dollyfile-local-llm-build) reuses those libraries;
-Pi copies only the executable, provider and licenses. Source and header pins are
+Pi copies the executable, provider and licenses. Source and header pins are
 in `config/source-pins.sh`, and GGUF weight pins are in
-`src/local-llm/models.json`. Weights download through ordinary sandbox HTTP.
+`src/local-llm/models.json`. `prepare-local-llm-weights.mjs` fetches the verified
+0.8B GGUF and splits it into pinned 256 MiB inputs. The weights module assembles
+and SHA-256 checks the complete file inside Dolly. The included Qwen license is
+from upstream revision `2fc06364715b967f1860aea9cf38778875588b17`.
+Optional larger models download through ordinary sandbox HTTP.
+
+Pi-local also rebuilds the canonical `src/dollyfile.c` through
+`modules/dollyfile.dm`, using the existing in-image compiler. Its 1 GiB image
+input bound allows Studio and custom images to inherit the larger Pi base.
+The pinned weight chunks remain readable by the running original 512 MiB
+bootstrap executor. This updates the tool without replacing the compiler seed
+or invalidating its cached descendants; future seed builds use the same source.

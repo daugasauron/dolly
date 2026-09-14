@@ -150,7 +150,7 @@ static int collect_tree(const char *path, dolly_session_records *records) {
   if (lstat(path, &metadata) != 0) return -1;
   if (S_ISREG(metadata.st_mode)) {
     if (metadata.st_size < 0 ||
-        (uint64_t)metadata.st_size > DOLLY_SESSION_MAX_SIZE) {
+        (uint64_t)metadata.st_size > UINTPTR_MAX) {
       errno = EFBIG;
       return -1;
     }

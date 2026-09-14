@@ -1,5 +1,5 @@
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-export const MAX_SNAPSHOT_BYTES = 512 * 1024 * 1024;
+export const MAX_SNAPSHOT_BYTES = 1024 * 1024 * 1024;
 
 function compareBytes(left, right) {
   for (let index = 0; index < Math.min(left.length, right.length); index += 1) {

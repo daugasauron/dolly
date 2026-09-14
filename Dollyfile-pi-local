@@ -5,6 +5,8 @@ FROM HOST /Dollyfile-pi 0cc039893fb5dbf7dc9b963748367caee86c05ea2b1219e3c0e3934e
 COPY FROM HOST /Dollyfile-local-llm-build 0e9d9cb6faa68e8a531a8209eb0353b91bac7cfb0764fcc5b553b148d6c32450 /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY FROM HOST /Dollyfile-llama-build 3ac7a2b1e1cfee4e9c8da8a2ee39f23902a6f43aeaba79c877796508c532cba8 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-USE HOST /modules/local-llm.dm 58e006fd1098b9e07aed499ccc25510199e3a446228c1c6ccb86420db761e073
+USE HOST /modules/dollyfile.dm 92eb822219776bdd0dc20924c8bceb8ee17d49ab887fe291d4e12ecf3e729709
+USE HOST /modules/local-llm-weights.dm 9c51878f606036f30b015ca6a4565c462e948cc93719d6fec323818ced1fb7bb
+USE HOST /modules/local-llm.dm 62b154dd12460e05ccf91fcc2eac9203d50b97a051e4ab048a444f8d0acae89f
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

@@ -1,9 +1,10 @@
+import { MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
-import { validSessionName } from "./session-store.mjs";
-import { describeImageArtifact, saveImageArtifact, sha256,
+import { validSessionName, DOLLY_SESSION_MAX_BYTES } from "./session-store.mjs";
+import { describeImageArtifact, loadImageArtifact, saveImageArtifact, sha256,
   loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
@@ -15,7 +16,6 @@ import { createHttpAdmission } from "./http-broker.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
-const snapshotSizeLimit = 512 * 1024 * 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
 
@@ -48,7 +48,7 @@ if ((configuredImage === "custom" || bootConfig.customSource !== undefined) &&
 if (bootConfig.sessionSnapshot !== undefined &&
     (!(bootConfig.sessionSnapshot instanceof ArrayBuffer) ||
      bootConfig.sessionSnapshot.byteLength < 16 ||
-     bootConfig.sessionSnapshot.byteLength > snapshotSizeLimit ||
+     bootConfig.sessionSnapshot.byteLength > DOLLY_SESSION_MAX_BYTES ||
      bootMode !== "snapshot")) {
   throw new Error("invalid Dolly session snapshot");
 }
@@ -327,8 +327,17 @@ try {
     }
   } else {
     bootstrapStage("loading precompiled userspace snapshot...");
-    const snapshot = configuredImage === "custom" ? snapshotMetadata.bytes
-      : await loadPackagedSystemSnapshot(configuredImage, snapshotMetadata);
+    let snapshot;
+    if (configuredImage === "custom") snapshot = snapshotMetadata.bytes;
+    else {
+      const cached = await loadImageArtifact({ ...snapshotMetadata, recipeSha256 });
+      snapshot = cached?.bytes ?? await loadPackagedSystemSnapshot(configuredImage, snapshotMetadata);
+      if (!cached) {
+        const saved = await saveImageArtifact(await describeImageArtifact(snapshot, recipeSha256, snapshotMetadata.inputs),
+          `/${definition.dollyfile}`);
+        bootstrapStage(saved ? "cached precompiled image" : "local image cache unavailable");
+      } else bootstrapStage("reusing cached precompiled image");
+    }
     const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
     const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
     new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));

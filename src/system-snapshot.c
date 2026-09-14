@@ -19,7 +19,7 @@ enum {
   DOLLY_SNAPSHOT_MAX_MANIFEST_SIZE = 8 * 1024 * 1024,
 };
 
-static const uintptr_t DOLLY_SNAPSHOT_MAX_SIZE = (uintptr_t)512 * 1024 * 1024;
+static const uintptr_t DOLLY_SNAPSHOT_MAX_SIZE = (uintptr_t)1024 * 1024 * 1024;
 static const unsigned char DOLLY_SNAPSHOT_MAGIC[8] = {
     'D', 'O', 'L', 'L', 'Y', 'S', 'N', 'P',
 };
