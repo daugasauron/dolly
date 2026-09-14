@@ -1,0 +1,376 @@
+{
+  "collectedDate": "2026-09-14",
+  "sourceBaseline": "1a57397",
+  "scope": "Browser capability probes and existing Dolly process call timing; no Dolly GPU implementation, game GPU benchmark, or LLM inference test.",
+  "gpuMethod": {
+    "environment": "Secure localhost with COOP same-origin and COEP require-corp; fresh disposable profiles; main thread and dedicated module worker.",
+    "memory": "Shared WebAssembly.Memory with address i64, initial 1n, maximum 2n; imported by a Wasm module that checks memory.size.",
+    "compute": "Upload four u32 values [1,2,3,4] from Wasm memory; compute 2*x+1; map/read [3,5,7,9].",
+    "render": "Submit a clear pass to a 16x16 OffscreenCanvas webgpu context and await queue completion; no visual/pixel correctness assertion.",
+    "limits": "Recorded limits are adapter-advertised; requestDevice used default limits and only tiny allocations.",
+    "chromeHarness": "Playwright Chrome channel under xvfb-run; --no-sandbox in all configurations, plus the args recorded below.",
+    "firefoxHarness": "Installed /usr/bin/firefox 155.0.1 through WebDriver BiDi; --headless --no-remote and a fresh profile. Opt-in profile set dom.webgpu.enabled=true.",
+    "sources": [
+      "build/gpu-investigation/probe-webgpu.mjs",
+      "build/gpu-investigation/probe-chrome.mjs",
+      "build/gpu-investigation/probe-firefox.mjs"
+    ]
+  },
+  "chrome": [
+    {
+      "configuration": {
+        "name": "headless-default",
+        "headless": true,
+        "args": []
+      },
+      "version": "151.0.7922.71",
+      "main": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+        "secure": true,
+        "isolated": true,
+        "webgpu": true,
+        "offscreen": true,
+        "adapter": false
+      },
+      "worker": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+        "secure": true,
+        "isolated": true,
+        "webgpu": true,
+        "offscreen": true,
+        "adapter": false
+      }
+    },
+    {
+      "configuration": {
+        "name": "x11-default",
+        "headless": false,
+        "args": [
+          "--ozone-platform=x11"
+        ]
+      },
+      "version": "151.0.7922.71",
+      "main": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+        "secure": true,
+        "isolated": true,
+        "webgpu": true,
+        "offscreen": true,
+        "adapter": false
+      },
+      "worker": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+        "secure": true,
+        "isolated": true,
+        "webgpu": true,
+        "offscreen": true,
+        "adapter": false
+      }
+    },
+    {
+      "configuration": {
+        "name": "x11-vulkan-opt-in",
+        "headless": false,
+        "args": [
+          "--ozone-platform=x11",
+          "--enable-unsafe-webgpu",
+          "--use-angle=vulkan",
+          "--enable-features=Vulkan,VulkanFromANGLE"
+        ]
+      },
+      "version": "151.0.7922.71",
+      "main": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+        "secure": true,
+        "isolated": true,
+        "webgpu": true,
+        "offscreen": true,
+        "adapter": true,
+        "info": {
+          "vendor": "amd",
+          "architecture": "rdna-2",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false,
+          "subgroupMinSize": 32,
+          "subgroupMaxSize": 64
+        },
+        "features": [
+          "depth32float-stencil8",
+          "rg11b10ufloat-renderable",
+          "texture-formats-tier1",
+          "bgra8unorm-storage",
+          "chromium-experimental-multi-draw-indirect",
+          "texture-compression-bc",
+          "dual-source-blending",
+          "core-features-and-limits",
+          "chromium-experimental-timestamp-query-inside-passes",
+          "float32-filterable",
+          "indirect-first-instance",
+          "float32-blendable",
+          "subgroup-size-control",
+          "depth-clip-control",
+          "texture-compression-bc-sliced-3d",
+          "texture-formats-tier2",
+          "shader-f16",
+          "timestamp-query",
+          "clip-distances",
+          "primitive-index",
+          "texture-component-swizzle",
+          "subgroups"
+        ],
+        "limits": {
+          "maxBufferSize": 4294967292,
+          "maxStorageBufferBindingSize": 4294967292,
+          "maxComputeWorkgroupStorageSize": 65536,
+          "maxComputeInvocationsPerWorkgroup": 1024,
+          "maxTextureDimension2D": 16384,
+          "maxBindGroups": 4
+        },
+        "memory64": true,
+        "compute": [
+          3,
+          5,
+          7,
+          9
+        ],
+        "mappedBufferIsWasm": false,
+        "offscreenWebGPU": true,
+        "renderClear": true,
+        "deviceCreated": true
+      },
+      "worker": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+        "secure": true,
+        "isolated": true,
+        "webgpu": true,
+        "offscreen": true,
+        "adapter": true,
+        "info": {
+          "vendor": "amd",
+          "architecture": "rdna-2",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false,
+          "subgroupMinSize": 32,
+          "subgroupMaxSize": 64
+        },
+        "features": [
+          "depth32float-stencil8",
+          "rg11b10ufloat-renderable",
+          "texture-formats-tier1",
+          "bgra8unorm-storage",
+          "chromium-experimental-multi-draw-indirect",
+          "texture-compression-bc",
+          "dual-source-blending",
+          "core-features-and-limits",
+          "chromium-experimental-timestamp-query-inside-passes",
+          "float32-filterable",
+          "indirect-first-instance",
+          "float32-blendable",
+          "subgroup-size-control",
+          "depth-clip-control",
+          "texture-compression-bc-sliced-3d",
+          "timestamp-query",
+          "texture-formats-tier2",
+          "clip-distances",
+          "shader-f16",
+          "primitive-index",
+          "texture-component-swizzle",
+          "subgroups"
+        ],
+        "limits": {
+          "maxBufferSize": 4294967292,
+          "maxStorageBufferBindingSize": 4294967292,
+          "maxComputeWorkgroupStorageSize": 65536,
+          "maxComputeInvocationsPerWorkgroup": 1024,
+          "maxTextureDimension2D": 16384,
+          "maxBindGroups": 4
+        },
+        "memory64": true,
+        "compute": [
+          3,
+          5,
+          7,
+          9
+        ],
+        "mappedBufferIsWasm": false,
+        "offscreenWebGPU": true,
+        "renderClear": true,
+        "deviceCreated": true
+      }
+    }
+  ],
+  "firefox": [
+    {
+      "configuration": "headless-default",
+      "version": "155.0.1",
+      "main": {
+        "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0",
+        "secure": true,
+        "isolated": true,
+        "webgpu": false,
+        "offscreen": true
+      },
+      "worker": {
+        "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0",
+        "secure": true,
+        "isolated": true,
+        "webgpu": false,
+        "offscreen": true
+      }
+    },
+    {
+      "configuration": "headless-webgpu-pref-opt-in",
+      "version": "155.0.1",
+      "main": {
+        "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0",
+        "secure": true,
+        "isolated": true,
+        "webgpu": true,
+        "offscreen": true,
+        "adapter": true,
+        "info": {
+          "vendor": "",
+          "architecture": "",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false,
+          "subgroupMinSize": 4,
+          "subgroupMaxSize": 128
+        },
+        "features": [
+          "depth-clip-control",
+          "depth32float-stencil8",
+          "texture-compression-bc",
+          "texture-compression-bc-sliced-3d",
+          "timestamp-query",
+          "indirect-first-instance",
+          "shader-f16",
+          "rg11b10ufloat-renderable",
+          "bgra8unorm-storage",
+          "float32-filterable",
+          "dual-source-blending",
+          "core-features-and-limits"
+        ],
+        "limits": {
+          "maxBufferSize": 2147483644,
+          "maxStorageBufferBindingSize": 2147483644,
+          "maxComputeWorkgroupStorageSize": 65536,
+          "maxComputeInvocationsPerWorkgroup": 1024,
+          "maxTextureDimension2D": 16384,
+          "maxBindGroups": 8
+        },
+        "memory64": true,
+        "compute": [
+          3,
+          5,
+          7,
+          9
+        ],
+        "mappedBufferIsWasm": false,
+        "offscreenWebGPU": true,
+        "renderClear": true,
+        "deviceCreated": true
+      },
+      "worker": {
+        "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0",
+        "secure": true,
+        "isolated": true,
+        "webgpu": true,
+        "offscreen": true,
+        "adapter": true,
+        "info": {
+          "vendor": "",
+          "architecture": "",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false,
+          "subgroupMinSize": 4,
+          "subgroupMaxSize": 128
+        },
+        "features": [
+          "depth-clip-control",
+          "depth32float-stencil8",
+          "texture-compression-bc",
+          "texture-compression-bc-sliced-3d",
+          "timestamp-query",
+          "indirect-first-instance",
+          "shader-f16",
+          "rg11b10ufloat-renderable",
+          "bgra8unorm-storage",
+          "float32-filterable",
+          "dual-source-blending",
+          "core-features-and-limits"
+        ],
+        "limits": {
+          "maxBufferSize": 2147483644,
+          "maxStorageBufferBindingSize": 2147483644,
+          "maxComputeWorkgroupStorageSize": 65536,
+          "maxComputeInvocationsPerWorkgroup": 1024,
+          "maxTextureDimension2D": 16384,
+          "maxBindGroups": 8
+        },
+        "memory64": true,
+        "compute": [
+          3,
+          5,
+          7,
+          9
+        ],
+        "mappedBufferIsWasm": false,
+        "offscreenWebGPU": true,
+        "renderClear": true,
+        "deviceCreated": true
+      }
+    }
+  ],
+  "processRoundTripMethod": {
+    "operation": "DOLLY_PROCESS_INFO",
+    "build": "C compiled inside the current Dolly default image using cc -O0; no native executable substituted.",
+    "timing": "CLOCK_MONOTONIC around 1024 calls; one warm-up sample discarded, five recorded.",
+    "browsers": "Headless Playwright Chrome 151.0.7922.71 with --disable-gpu and Playwright Firefox 155.0; Firefox differs from the installed 155.0.1 used for GPU probes.",
+    "limitation": "Existing minimal process gate, not GPU transport overhead, GPU execution latency, or tail-latency statistics.",
+    "sources": [
+      "build/gpu-investigation/process-roundtrip.c",
+      "build/gpu-investigation/probe-process-roundtrip.mjs"
+    ]
+  },
+  "processRoundTrip": [
+    {
+      "browser": "chromium",
+      "version": "151.0.7922.71",
+      "callsPerSample": 1024,
+      "samplesMicrosecondsPerCall": [
+        12.695,
+        9.697,
+        15.42,
+        5.977,
+        7.852
+      ],
+      "medianMicrosecondsPerCall": 9.697
+    },
+    {
+      "browser": "firefox",
+      "version": "155.0",
+      "callsPerSample": 1024,
+      "samplesMicrosecondsPerCall": [
+        9.004,
+        9.902,
+        20.801,
+        9.863,
+        14.98
+      ],
+      "medianMicrosecondsPerCall": 9.902
+    }
+  ],
+  "nvidiaDiagnostic": {
+    "gpu": "NVIDIA GeForce RTX 5070",
+    "loadedKernelModule": "580.173.02",
+    "nvmlLibrary": "580.178",
+    "result": "nvidia-smi failed with driver/library mismatch; no NVIDIA WebGPU execution verified."
+  },
+  "runtimeBuildId": "sha256:cf7fb16004c7477a088c0dd90c0ef1fa69164edfbd19b6e07aa12eed58aa1583",
+  "imageBuildId": "sha256:0ace6dd93c15c06b50230755bc138b64374783d5f3ef54c7d14ab54a5676656a",
+  "runtimeWasmSha256": "5b9fb8b24fc1879b69376c6a5258711fddfb43ed410e6e40dab028b100a353c0"
+}
