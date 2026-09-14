@@ -22,3 +22,13 @@ Current recovery workaround: gzip compressed this archive to 63,057,451 bytes,
 which fits the existing upload limit; decompress through ordinary Dolly tools.
 Larger future archives may need chunks. The original complete archive remains
 in `build/blockwalker-walking/outposts-state.tar`.
+
+The later focus-view migration verified the chunk workaround: a 143,513,600-byte
+USTAR archive compressed to 104,211,289 bytes and was uploaded as three files
+of at most 48 MiB through the ordinary file picker. Inside Dolly,
+`cat /tmp/focus-restore-0.part /tmp/focus-restore-1.part /tmp/focus-restore-2.part | gzip -dc - | tar -xf - -C /workspace`
+restored all 32 creations and the complete 141,563,139-byte native conversation.
+Its original SHA-256 prefix matched after restoration. This gzip requires the
+explicit `-` stdin argument. Temporary imported chunks were then removed.
+Evidence: `build/blockwalker-walking/focus-restored-proof.json`. This manual
+workaround does not complete the streaming upload/download work above.

@@ -287,3 +287,37 @@ survivors; the latest complete monitor backup still had 28 at 18:38 UTC.
 
 No build or test browser remains running. Continue the timed goal until
 2026-09-15 22:00 JST, preserving the successful world and complete conversation.
+
+## Focus view and follow camera, 2026-09-15 04:06 JST
+
+Commit f3f8546 adds Shift+Tab focus view, independent Tab Pi panel, expanded
+mouse picking/captures and physical follow-camera tracking from the population
+list. WASD releases following; removed targets leave the camera safely in place.
+The new focused browser test and both existing editor/physics suites passed
+under separate 4 GiB/no-swap scopes. See closed task 035700 for evidence.
+
+Migrated the live session to `blockwalker-focus`, preserving 32 creations at
+world age 15475.3333 s and the complete 141,563,139-byte native conversation.
+Recovery archive `build/blockwalker-walking/focus-state.tar` is 143,513,600 bytes;
+its gzip is 104,211,289 bytes. Three chunks of at most 48 MiB restored through
+the ordinary file picker and `cat ... | gzip -dc - | tar -xf - -C /workspace`.
+The initial attempt omitted gzip's required stdin `-` and was corrected on the
+same page with the already-uploaded chunks; no backup or history was lost.
+All original IDs and exact history-prefix SHA-256 matched after restore. Loaded
+attachments included Loadrunner/cargo 25, Postbird/cargo 31 and Northline/cargo 35.
+
+Own preview remains PID 104549 on 9099, relay 17316 on 9010 and browser runner
+17317 on CDP 9231. New monitor PID 137939 saves `blockwalker-focus` every five
+minutes. Scripts: `build/blockwalker-focus-restore.mjs` (corrected complete flow),
+`build/blockwalker-focus-resume-restore.mjs` (used for this recovery), and
+`build/blockwalker-focus-monitor.mjs`. Evidence is in the focus restore logs,
+`build/blockwalker-walking/focus-restored-proof.json` and current-state backup.
+
+Newest live designs are Northline (27 parts), Quayfin (42) and Tidelock, a
+63-part two-stage service pier at x166.5,z0. These are not yet bundled in the
+26-object fresh world. Inspect actual docking/gantry results before promotion.
+Pi resumed into normal context compaction; request 1 is currently in flight,
+not a failed process. The shared world continues advancing. Its latest steering
+is to finish pier/tender docking, then create a larger feedback survey lander
+with bounded randomized patrol and actual takeoff/landing. Preserve all older
+designs and cargo. No build or test browser remains running.
