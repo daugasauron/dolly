@@ -2,12 +2,14 @@
 #include "world.h"
 #include "terrain.h"
 #include <raymath.h>
+#include <errno.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 struct Controller {JSRuntime *runtime;JSContext *ctx;JSValue function,memory,random;char *source;uint32_t seed;int hz,timed_out;double deadline;char error[160];};
 enum {REMOVAL_CONTROLLER,REMOVAL_POSTURE,REMOVAL_SUNK,REMOVAL_NONFINITE,REMOVAL_TERRAIN,REMOVAL_CAUSES};
 static const char *removal_causes[]={"controller","posture","sunk","nonfinite","terrain"};
@@ -310,9 +312,14 @@ static void load_removals(JSContext *ctx,JSValueConst list){
     }
 }
 void world_load(JSContext *ctx){
+    int fresh=access("/workspace/blockwalker-world.json",F_OK)<0&&errno==ENOENT;
     JSValue save=read_json(ctx,"/workspace/blockwalker-world.json");
     if(JS_IsObject(save)){JSValue designs=JS_GetPropertyStr(ctx,save,"designs");load_designs(ctx,designs);JS_FreeValue(ctx,designs);}
     JSValue examples=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");load_designs(ctx,examples);JS_FreeValue(ctx,examples);
+    if(fresh){
+        for(int i=0;i<world.design_count;i++){SavedDesign *d=&world.designs[i];spawn(&d->design,d->source,d->name,i+1,d->hz,d->x,d->z);}
+        world_save(ctx);
+    }
     if(!JS_IsObject(save)){JS_FreeValue(ctx,save);return;}
     if(get_number(ctx,save,"version",0)!=1){JS_FreeValue(ctx,save);return;}
     JSValue removals=JS_GetPropertyStr(ctx,save,"removals");load_removals(ctx,removals);JS_FreeValue(ctx,removals);

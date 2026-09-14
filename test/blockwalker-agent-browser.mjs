@@ -24,7 +24,20 @@ try {
   assert.ok(events.some(e=>e.event==='tool_end'&&e.tool==='release_creature'));
   console.log(JSON.stringify({astra:true,realProxy:true,threeTimedFrames:true,learnedProgramReleased:true}));
  }else{
-  await page.keyboard.press('Escape');await shell();
+  const examples=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8')),samples=[];
+  await page.mouse.click(404,40);await page.mouse.click(170,204);
+  for(let i=0;i<6;i++){
+   await page.waitForTimeout(3000);const event=page.waitForEvent('download');await page.mouse.click(120,630);
+   const file=await event,path=new URL('fresh-world-'+i+'.json',output).pathname;await file.saveAs(path);samples.push(JSON.parse(await readFile(path,'utf8')));
+  }
+  await shot('fresh-harbor');const fresh=samples.at(-1);
+  assert.equal(fresh.creatures.length,examples.length);assert.equal(fresh.deaths,0);
+  assert.ok(fresh.creatures.filter(c=>c.distance>1).length>=5,'bundled controllers move several creations without Pi');
+  assert.ok(fresh.creatures.some(c=>!c.anchored&&c.y>4&&c.up>.95),'bundled feedback flyer takes off');
+  assert.ok(fresh.creatures.some(c=>c.startX===125&&c.y>-2&&c.up>.8&&c.distance>1),'bundled boat floats and travels');
+  assert.ok(samples.some(w=>w.creatures.some(c=>c.magnets.some(m=>m?.attached)&&w.creatures.some(b=>b.name==='Cargo'&&b.y>1.5))),'bundled crane picks up and lifts the loose cargo');
+  await page.keyboard.press('Escape');await page.keyboard.press('Escape');await shell();
+  assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.json')),0);
   assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --integration-check')),0);
   const result=JSON.parse(await readFile(await download('blockwalker-integration.json'),'utf8'));
   assert.equal(result.embedded,true);assert.equal(result.steps,60);assert.equal(result.population.creatures.length,7);assert.equal(result.population.deaths,2);

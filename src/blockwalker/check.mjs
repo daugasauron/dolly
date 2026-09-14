@@ -4,6 +4,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const timer=setInterval(()=>Game.frame(),16);
 try {
  const before=Game.call('state');assert(before.parts.length>0,'builder has parts');
+ assert(Game.call('world').creatures.length===0,'explicit empty saved world remains empty');
  const examples=Game.call('designs');assert(examples.some(d=>d.parts>50&&d.anchored)&&examples.some(d=>d.sea),'fresh image includes larger learned mechanisms and water designs');
  Game.call('watch',true);Game.call('camera',{x:140,y:12,z:-70,distance:60,yaw:1.2,pitch:.4});
  const worldCamera=Game.call('state').camera;Game.call('watch',true);

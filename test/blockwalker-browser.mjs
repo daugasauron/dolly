@@ -26,6 +26,7 @@ try {
  await page.goto(site.origin+'/blockwalker/');
  await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>30,null,{timeout:60000});
  await page.keyboard.press('Escape');await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
+ assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.json')),0);
  const upload=page.evaluate(()=>__dolly.submit('upload /tmp/blockwalker-camera.mjs'));
  await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(new URL('./fixtures/blockwalker-camera.mjs',import.meta.url).pathname);assert.equal(await upload,0);
  assert.equal(await page.evaluate(()=>__dolly.submit('cp /tmp/blockwalker-camera.mjs /usr/src/dolly/blockwalker/check.mjs')),0);

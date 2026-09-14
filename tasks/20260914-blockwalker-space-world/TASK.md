@@ -184,3 +184,39 @@ summary-runtime failure in new task `20260915-021300-codex-01`. The full state
 was freshly saved to current-state (see blockwalker-compaction-finish.log).
 The library image remains built/verified and not yet migrated into the live
 browser. Keep both library migration and failure diagnostics in the next work.
+
+## Live recovery checkpoint, 2026-09-15 02:37 JST
+
+Commit b7c84cb adds concise compaction, current-controller inspection and saved
+removal causes. Both concrete issues are verified and closed: a copied full
+session summarized through actual Astra/xhigh in 98 seconds, then called the
+real observation tool; the browser physics suite distinguished controller
+timeout from a toppling body and retained both records across restart.
+
+Migrated the live browser to `blockwalker-library`, preserving 17 creatures at
+world age 10954.30 s and the complete conversation. Recovery archive:
+`build/blockwalker-walking/library-state.tar` (66,713,600 bytes, no credentials).
+Dockhand restored its powered attachment to cargo ID 20 with 4.2948 N load.
+The live automatic threshold summary then completed in 100,439 ms, producing
+7,339 characters. Pi used design_library, inspect_program and watch_world,
+ran another real trial and released its eighteenth surviving creature. All
+observed requests retain Astra/xhigh. Full history is preserved; existing six
+removals predate diagnostics and still have unknown causes.
+
+Current own preview PID 87492 on 9099; relay 17316 on 9010; browser runner 17317
+on CDP 9231; monitor 87941 saves `blockwalker-library` every five minutes.
+The restoration and monitor scripts are now `build/blockwalker-library-restore.mjs`
+and `build/blockwalker-library-monitor.mjs`. Evidence:
+`build/blockwalker-library-live-proof.log`, latest current-state events and
+`build/blockwalker-walking/requests.jsonl`. No test browser remains from the
+previous probes. Fresh-image population is the next task, 023600; its focused
+integration is running separately under the memory guard.
+
+Fresh population verification finished at 02:41 JST. Both focused browser
+suites passed; task 023600 is closed with measured crane carry/release, boat and
+flight evidence. New browser sessions receive 15 moving starter objects from
+the bundled design library; existing saves are unchanged. The live Pi browser
+continues on the library/diagnostics image, with 18 survivors as of 02:39 JST;
+no migration is needed for a change that only initializes absent world files.
+The preview serves the newly built starter-world image to fresh page loads.
+No browser tests remain running. Continue the timed goal until 22:00 JST.

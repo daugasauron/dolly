@@ -106,9 +106,11 @@ fallen creature remains available to reopen. Existing world saves populate the
 library on first load. Library data lives in `blockwalker-world.json` alongside
 the population, so exporting the world also preserves its designs.
 
-A fresh image includes 13 examples learned by the actual Astra/xhigh Pi: walking
+A fresh image includes examples learned by the actual Astra/xhigh Pi: walking
 and wheeled creatures, feedback flyers, a catamaran, cranes and the opening
-bridge. These are starting designs, not automatically spawned replacements.
+bridge. On first launch these populate the world, with loose cargo for the
+magnetic crane; click World to visit. Their controllers run without Pi or model
+access. Existing saves keep their population, including an empty world.
 Opening one restores both its body and program; water examples select sea trials.
 Play program runs the controller continuously without starting Pi. Stop program
 or backtick returns the joints to your keys. Pi can use `design_library` and
