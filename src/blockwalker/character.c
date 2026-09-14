@@ -10,7 +10,7 @@
 #include <string.h>
 
 const Color block_colors[COLOR_COUNT]={{110,197,171,255},{238,168,83,255},{105,157,221,255},{221,114,108,255},{166,139,211,255},{224,217,193,255}};
-const char *block_names[BLOCK_KINDS]={"BOX","BALL JOINT","PISTON","THRUSTER","WHEEL"};
+const char *block_names[BLOCK_KINDS]={"BOX","BALL JOINT","PISTON","THRUSTER","WHEEL","MAGNET"};
 Vector3 block_position(Block b) { return (Vector3){b.x,b.y+.5f,b.z}; }
 float block_density(Block b){return (b.joint==BLOCK_HINGE?6/PI:b.joint==BLOCK_WHEEL?2:1)*(b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1);}
 void *array_resize(void *memory,size_t count,size_t size) {
@@ -49,7 +49,7 @@ int character_candidate(const Character *c,int parent,int x,int y,int z,int join
     if(parent>=0){Block a=c->blocks[parent];if(llabs((long long)a.x-x)+llabs((long long)a.y-y)+llabs((long long)a.z-z)!=1)return 0;}
     for(int i=0;i<c->count;i++){Block a=c->blocks[i];if(a.x==x&&a.y==y&&a.z==z)return 0;}
     Block b={.x=x,.y=y,.z=z,.parent=parent,.joint=joint,.color=color,.axis=2,.speed=2.5f,.limit=75,.travel=1.5f,.force=24,.direction=1};
-    if(joint>=BLOCK_PISTON&&parent>=0){Block a=c->blocks[parent];b.axis=x!=a.x?0:y!=a.y?1:2;if(joint==BLOCK_PISTON)b.direction=(b.axis==0?x-a.x:b.axis==1?y-a.y:z-a.z)<0?-1:1;}
+    if(joint>=BLOCK_PISTON&&parent>=0){Block a=c->blocks[parent];b.axis=x!=a.x?0:y!=a.y?1:2;if(joint==BLOCK_PISTON||joint==BLOCK_MAGNET)b.direction=(b.axis==0?x-a.x:b.axis==1?y-a.y:z-a.z)<0?-1:1;}
     if(joint){
         const char *choices="QAWSOKPLERDTFGYHUJIZXCVBNM1234567890";int found=0;
         for(const char *k=choices;*k&&found<2;k++) {
@@ -97,7 +97,7 @@ int character_save(const Character *c,const char *path) {
     if(!character_validate(c))return 0;
     char tmp[256];if(snprintf(tmp,sizeof(tmp),"%s.tmp",path)>=(int)sizeof(tmp))return 0;
     FILE *f=fopen(tmp,"w");if(!f)return 0;
-    fprintf(f,"BLOCKWALKER 4\n%d %d\n",c->count,c->anchored);
+    fprintf(f,"BLOCKWALKER 5\n%d %d\n",c->count,c->anchored);
     for(int i=0;i<c->count;i++){Block b=c->blocks[i];fprintf(f,"%d %d %d %d %d %d %d %d %d %.3f %.3f %.3f %.3f %d %d %d\n",b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish);}
     int good=!ferror(f);if(fclose(f)!=0)good=0;
     if(!good||rename(tmp,path)!=0){remove(tmp);return 0;}return 1;
@@ -105,7 +105,7 @@ int character_save(const Character *c,const char *path) {
 int character_load(Character *c,const char *path) {
     FILE *f=fopen(path,"r");if(!f)return 0;
     Character next={0};char magic[32];int version=0,good=1;
-    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>4)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
+    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>5)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
     if(good&&version>=4&&fscanf(f,"%d",&next.anchored)!=1)good=0;
     if(good){next.capacity=next.count;next.blocks=array_resize(NULL,next.count,sizeof(Block));}
     for(int i=0;good&&i<next.count;i++){Block *b=&next.blocks[i];*b=(Block){.travel=1.5f,.force=24,.direction=1};if(fscanf(f,"%d%d%d%d%d%d%d%d%d%f%f",&b->x,&b->y,&b->z,&b->parent,&b->joint,&b->color,&b->axis,&b->negative,&b->positive,&b->speed,&b->limit)!=11)good=0;if(version>=2&&fscanf(f,"%f%f",&b->travel,&b->force)!=2)good=0;if(version>=3&&fscanf(f,"%d",&b->direction)!=1)good=0;if(version>=4&&fscanf(f,"%d%d",&b->material,&b->finish)!=2)good=0;}
@@ -113,8 +113,8 @@ int character_load(Character *c,const char *path) {
     fclose(f);if(!good||!character_validate(&next)){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
 }
 void physics_stop(Physics *p) {
-    if(p->running){if(p->owns_world)b3DestroyWorld(p->world);else for(int i=0;i<p->count;i++)b3DestroyBody(p->parts[i].body);}
-    free(p->parts);memset(p,0,sizeof(*p));
+    if(p->running){if(p->owns_world)b3DestroyWorld(p->world);else {for(int i=0;i<p->count;i++)b3DestroyBody(p->parts[i].body);for(int i=0;i<p->cargo_count;i++)b3DestroyBody(p->cargo[i].body);}}
+    free(p->parts);free(p->cargo);memset(p,0,sizeof(*p));
 }
 b3WorldId physics_world(int landscape) {
     b3WorldDef w=b3DefaultWorldDef();w.workerCount=1;w.gravity=(b3Vec3){0,-4,0};b3WorldId world=b3CreateWorld(&w);
@@ -133,7 +133,7 @@ void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float 
     b3Sphere ball={{0,0,0},.485f};
     float ground=landscape?(c->anchored?terrain_height(x,z):fmaxf(terrain_height(x,z),WATER_LEVEL)):0;
     for(int i=0;i<c->count;i++){
-        Vector3 v=block_position(c->blocks[i]);b3BodyDef b=b3DefaultBodyDef();b.type=c->anchored&&i==0?b3_staticBody:b3_dynamicBody;
+        Vector3 v=block_position(c->blocks[i]);b3BodyDef b=b3DefaultBodyDef();b.type=c->anchored&&i==0?b3_staticBody:b3_dynamicBody;b.userData=p->parts;
         b.position=(b3Pos){v.x+x,v.y-minimum+(c->anchored?-.015f:.15f)+ground,v.z+z};b.angularDamping=.08f;b.enableSleep=false;
         p->parts[i].body=b3CreateBody(p->world,&b);
         // Keep equal part mass when exchanging a cube for a ball of the same width.
@@ -191,7 +191,8 @@ void physics_drive(Physics *p,const Character *c,const float controls[128]) {
     for(int i=1;i<c->count;i++)if(c->blocks[i].joint){
         Block b=c->blocks[i];float direction=controls[b.positive]-controls[b.negative];
         p->parts[i].command=direction;
-        if(b.joint==BLOCK_PISTON)b3PrismaticJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
+        if(b.joint==BLOCK_MAGNET)magnet_drive(p,i,b,controls[b.positive],controls[b.negative]);
+        else if(b.joint==BLOCK_PISTON)b3PrismaticJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
         else if(b.joint==BLOCK_THRUSTER){
             b3WorldTransform t=b3Body_GetTransform(p->parts[i].body);Vector3 axis={0};((float *)&axis)[b.axis]=direction*b.force;
             axis=Vector3RotateByQuaternion(axis,(Quaternion){t.q.v.x,t.q.v.y,t.q.v.z,t.q.s});
@@ -217,12 +218,12 @@ void physics_sample(Physics *p,const Character *c) {
         p->max_separation=fmaxf(p->max_separation,separation);
         if(b.joint){
             float angle=b.joint==BLOCK_PISTON?b3PrismaticJoint_GetTranslation(p->parts[i].joint):
-                b.joint==BLOCK_THRUSTER?0:b3RevoluteJoint_GetAngle(p->parts[i].joint);
+                (b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)?0:b3RevoluteJoint_GetAngle(p->parts[i].joint);
             float direction=p->parts[i].command;
             float delta=angle-p->parts[i].angle;
             if(b.joint==BLOCK_WHEEL){while(delta>PI)delta-=2*PI;while(delta< -PI)delta+=2*PI;}
             if(b.joint==BLOCK_PISTON)p->parts[i].rate=b3PrismaticJoint_GetSpeed(p->parts[i].joint);
-            else if(b.joint==BLOCK_THRUSTER)p->parts[i].rate=0;
+            else if(b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)p->parts[i].rate=0;
             else{
                 b3WorldTransform parent=b3Body_GetTransform(p->parts[b.parent].body);
                 b3Vec3 axis=b3RotateVector(parent.q,b3RotateVector(b3Joint_GetLocalFrameA(p->parts[i].joint).q,b3Vec3_axisZ));
@@ -349,7 +350,35 @@ static void water_check(void){
     assert(Vector3Distance(anchor,turned)<.0001f&&p.parts[hinge].angle< -1&&p.max_separation<.04f);
     physics_stop(&p);character_clear(&c);
 }
+static void magnet_check(void){
+    Character c={0};Physics p={0};unsigned char keys[128]={0};
+    character_add(&c,-1,0,0,0,BLOCK_BOX,0);character_add(&c,0,0,1,0,BLOCK_BOX,0);character_add(&c,1,0,2,0,BLOCK_BOX,0);character_add(&c,2,1,2,0,BLOCK_BOX,0);
+    int piston=character_add(&c,3,2,2,0,BLOCK_PISTON,1),magnet=character_add(&c,piston,2,1,0,BLOCK_MAGNET,2);
+    c.anchored=1;c.blocks[piston].axis=1;c.blocks[magnet].axis=1;c.blocks[magnet].direction=-1;
+    physics_start(&p,&c);keys[c.blocks[magnet].positive]=1;
+    for(int i=0;i<30;i++)physics_step(&p,&c,keys);assert(!b3Body_IsValid(p.parts[magnet].magnet_target));
+    physics_add_cargo(&p,(Vector3){2,.5f,0},MATERIAL_ALLOY);
+    for(int i=0;i<30;i++)physics_step(&p,&c,keys);assert(b3Body_IsValid(p.parts[magnet].magnet_target));
+    keys[c.blocks[magnet].positive]=0;keys[c.blocks[piston].positive]=1;
+    for(int i=0;i<180;i++)physics_step(&p,&c,keys);
+    b3Pos lifted=b3Body_GetPosition(p.cargo[0].body);
+    printf("MAGNET LIFT: cargo %.3f m, power %.1f, load %.3f N, separation %.5f\n",lifted.y,p.parts[magnet].magnet_power,p.parts[magnet].magnet_load,p.max_separation);
+    assert(lifted.y>1.7f&&b3Body_IsValid(p.parts[magnet].magnet_target)&&p.parts[magnet].magnet_power==1&&p.parts[magnet].magnet_load<=24&&p.max_separation<.04f);
+    keys[c.blocks[piston].positive]=0;keys[c.blocks[magnet].negative]=1;
+    for(int i=0;i<180;i++)physics_step(&p,&c,keys);
+    assert(!b3Body_IsValid(p.parts[magnet].magnet_target)&&b3Body_GetPosition(p.cargo[0].body).y<.6f);
+    physics_stop(&p);c.blocks[magnet].force=2;physics_start(&p,&c);physics_add_cargo(&p,(Vector3){2,.5f,0},MATERIAL_ALLOY);
+    memset(keys,0,128);keys[c.blocks[magnet].positive]=1;for(int i=0;i<30;i++)physics_step(&p,&c,keys);keys[c.blocks[piston].positive]=1;
+    for(int i=0;i<180;i++)physics_step(&p,&c,keys);
+    assert(!b3Body_IsValid(p.parts[magnet].magnet_target)&&b3Body_GetPosition(p.cargo[0].body).y<.6f);
+    physics_stop(&p);c.blocks[magnet].force=24;physics_start(&p,&c);physics_add_cargo(&p,(Vector3){2,.5f,0},MATERIAL_ALLOY);
+    keys[c.blocks[piston].positive]=0;for(int i=0;i<30;i++)physics_step(&p,&c,keys);assert(b3Body_IsValid(p.parts[magnet].magnet_target));
+    b3DestroyBody(p.cargo[0].body);p.cargo_count=0;physics_step(&p,&c,keys);assert(!b3Body_IsValid(p.parts[magnet].magnet_target));
+    printf("MAGNET: pickup, latched power, lift, release, overload, self-exclusion and removed target passed\n");
+    physics_stop(&p);character_clear(&c);
+}
 int character_check(void) {
+    magnet_check();
     water_check();
     wheel_cart_check();
     for(int axis=0;axis<3;axis++){

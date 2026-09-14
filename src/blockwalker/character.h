@@ -3,7 +3,7 @@
 #include <box3d/box3d.h>
 
 enum { COLOR_COUNT=6 };
-enum { BLOCK_BOX, BLOCK_HINGE, BLOCK_PISTON, BLOCK_THRUSTER, BLOCK_WHEEL, BLOCK_KINDS };
+enum { BLOCK_BOX, BLOCK_HINGE, BLOCK_PISTON, BLOCK_THRUSTER, BLOCK_WHEEL, BLOCK_MAGNET, BLOCK_KINDS };
 enum { MATERIAL_ALLOY,MATERIAL_HULL,MATERIAL_BALLAST,MATERIAL_COUNT };
 enum { FINISH_PLAIN,FINISH_PANEL,FINISH_GLOW,FINISH_STRIPE,FINISH_COUNT };
 typedef struct {
@@ -17,7 +17,11 @@ typedef struct {
     b3JointId joint;
     int motor_steps;
     float angle_peak,angle,rate,command,driven_radians,submerged;
+    b3BodyId magnet_target;
+    b3Vec3 magnet_local;
+    float magnet_power,magnet_load;
 } PhysicsPart;
+typedef struct {b3BodyId body;Block block;Vector3 start;} Cargo;
 typedef struct {
     b3WorldId world;
     PhysicsPart *parts;
@@ -25,6 +29,8 @@ typedef struct {
     double time;
     float max_separation;
     Vector3 start;
+    Cargo *cargo;
+    int cargo_count;
 } Physics;
 
 extern const Color block_colors[COLOR_COUNT];
@@ -51,4 +57,6 @@ void physics_sample(Physics *p,const Character *c);
 void physics_stop(Physics *p);
 void physics_step(Physics *p,const Character *c,const unsigned char keys[128]);
 void physics_pose(const Physics *p,const Character *c,int i,Vector3 *position,Quaternion *rotation);
+void physics_add_cargo(Physics *p,Vector3 position,int material);
+void magnet_drive(Physics *p,int index,Block block,float on,float off);
 int character_check(void);

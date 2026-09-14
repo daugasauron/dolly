@@ -49,7 +49,7 @@ The world sidebar jumps to the harbor, three islands or the whole map. Page
 buttons or scrolling the creature list reach the full population; visiting a
 larger creation fits the camera to its current physical bounds.
 
-The part palette also has telescoping pistons, reversible thrusters and wheels.
+The part palette also has telescoping pistons, reversible thrusters, wheels and magnets.
 Pistons move their attached branch along the selected axis and sign; the palette
 starts them pointing outward, and the inspector can reverse that sign; their travel limit
 is in metres. Thrusters apply force along their own rotating local axis and
@@ -58,10 +58,24 @@ strength. Wheels have centered cylindrical collision shapes, a 0.7 m
 radius, 0.7 m width and unlimited motor rotation. The larger radius keeps a
 same-height chassis off the ground. Attach wheels as leaves: anything beyond them rotates too.
 Each actuator uses a pair of assignable keys. The inspector shows speed, stroke
-or force in the relevant units. Version 4 blueprints also save anchoring,
-materials and finishes. Versions 1–3 still load with their original mass and
+or force in the relevant units. Version 5 blueprints save magnets, anchoring,
+materials and finishes. Versions 1–4 still load with their original mass and
 appearance; old pistons retain their positive-axis motion. The agent JSON API
 defaults to direction +1 and accepts -1.
+
+Magnet blocks attach rigidly and attract other dynamic bodies within 0.65 m of
+one face. Choose that face with the axis and sign controls. The On key latches
+power; the Off key releases it. Cyan means powered, amber means holding cargo.
+Holding force is adjustable from 2 to 100 N. A spring and damper pull at the
+contact point with an equal reaction on the crane; overloads can pull free.
+Magnets ignore their own character and static terrain. All three block materials
+are magnet-compatible in this game.
+
+In practice, Drop cargo puts a loose crate beneath the first magnet. Reset
+restores these crates to their starting positions for repeatable trials. In the
+world, Drop cargo or C places a persistent crate at the camera target. Pi can
+use `drop_cargo({x,z,world:true})` for world cargo or omit `world` and specify an
+optional `y` in practice. Power and attachment references survive world saves.
 
 Material 0 is alloy, 1 is a sealed hull with one-quarter density, and 2 is ballast
 with triple density. Eight volume samples per body apply buoyancy and drag at
@@ -142,6 +156,7 @@ pauses after the trial. The same controller implementation runs released creatur
 | `angles`, `rates` | Joint position/speed, radians and rad/s; pistons use metres and m/s |
 | `touching` | Per-part contact booleans; includes other bodies and the floor |
 | `ground`, `waterHeight` | Terrain height and wave surface under the root; water height is available in sea trials and the shared world |
+| `magnets` | Per-magnet `{power, attached, load}` by part index; power is 0–1, load is newtons |
 | `submerged` | Per-part fraction in water, from 0 to 1 |
 
 Vectors are three-element arrays. Initial body axes are +X right, +Y up, +Z
@@ -159,7 +174,7 @@ removes its creature without stopping the world. Shared Box3D physics allows
 creatures to collide. After a three-second settling period, a sideways torso
 (uprightness < 0.15) or collapsed raised torso (height < 0.65 m above land) is
 removed if it stays fallen for two seconds. At sea, sinking more than three
-metres below the surface also fails. Anchored structures skip posture checks;
+metres below the surface also fails. Anchored structures and single loose blocks skip posture checks;
 their controllers still have the same execution limit.
 
 The world autosaves to `/workspace/blockwalker-world.json`, including blueprints,
@@ -177,7 +192,8 @@ node scripts/serve-gpu.mjs 9099 blockwalker
 The single game [Dollyfile](../Dollyfile-blockwalker) reuses `gamedev-sdk` and Pi/JavaScript build outputs, compiles
 the C sources inside Dolly, and runs `blockwalker --check` against actual
 Box3D motors in both directions on all three axes, braking under gravity,
-four-wheel driving and reversing on the floor, and 40 seconds of joint/weld/floor stability. `test/blockwalker-browser.mjs`
+four-wheel driving and reversing on the floor, finite magnet pickup/lift/release,
+overload, removed targets, and 40 seconds of joint/weld/floor stability. `test/blockwalker-browser.mjs`
 drives camera controls, the editor, key assignment, export/import, physics
 and restart in Chrome, including a 160-part design.
 `test/blockwalker-agent-browser.mjs` checks direct C calls, actual GPU PNGs,

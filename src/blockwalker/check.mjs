@@ -22,6 +22,18 @@ try {
  Game.call('reset');Game.call('advance',{keys:'ASK',steps:60});while(Game.call('state').remaining)await sleep(20);
  const actuators=Game.call('state');assert(actuators.parts[2].angle>.7,'piston extends under load');assert(actuators.distance>.1,'thruster moves the body');
  fs.writeFileSync('/workspace/blockwalker-actuators.png',Buffer.from(Game.call('snapshot')));Game.call('release');
+ const hoist=[{x:0,y:0,z:0,parent:-1,joint:0},{x:0,y:1,z:0,parent:0,joint:0},{x:0,y:2,z:0,parent:1,joint:0},{x:1,y:2,z:0,parent:2,joint:0},{x:2,y:2,z:0,parent:3,joint:2,axis:1,direction:1,negative:81,positive:65},{x:2,y:1,z:0,parent:4,joint:5,axis:1,direction:-1,negative:83,positive:87,force:24}];
+ Game.call('build',{parts:hoist,anchored:true});Game.call('reset');Game.call('cargo',{x:2,y:.5,z:0});
+ const advance=async(keys,steps)=>{Game.call('advance',{keys,steps});while(Game.call('state').remaining)await sleep(20);return Game.call('state');};
+ const captured=await advance('W',30);assert(captured.sensors.magnets[5].attached,'magnet captures a foreign cargo body');
+ const lifted=await advance('A',180);assert(lifted.cargo[0].y>1.7&&lifted.sensors.magnets[5].power===1&&lifted.sensors.magnets[5].load<=24,'latched finite magnet force lifts cargo');
+ fs.writeFileSync('/workspace/blockwalker-magnet.png',Buffer.from(Game.call('snapshot')));
+ const released=await advance('S',180);assert(released.cargo[0].y<.6&&!released.sensors.magnets[5].attached&&released.sensors.magnets[5].power===0,'Off drops the cargo');
+ Game.call('install',{name:'Cargo hoist',source:'function(t){return t<0.5?"W":t<3.5?"A":""}'});Game.call('program_trial',{steps:300});
+ while(Game.call('state').remaining)await sleep(20);
+ const repeated=Game.call('state');assert(repeated.cargo.length===1&&repeated.cargo[0].y>1.7&&repeated.sensors.magnets[5].attached,'program trial restores cargo and repeats pickup');
+ fs.writeFileSync('/workspace/blockwalker-magnet.json',JSON.stringify({captured:captured.sensors.magnets[5],lifted:lifted.cargo[0],load:lifted.sensors.magnets[5].load,released:released.cargo[0],repeated:repeated.cargo[0]}));
+ Game.call('spawn',{x:20,z:0});const cargoId=Game.call('cargo',{world:true,x:22,z:0});
  const boat=[{x:0,y:1,z:0,parent:-1,joint:0,material:1,finish:1}];
  for(let side=0;side<2;side++){
    const x=side?1:-1,deck=boat.push({x,y:1,z:0,parent:0,joint:0,material:1,finish:1,color:side+1})-1;
@@ -66,12 +78,14 @@ try {
  Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});
  Game.call('watch',true);const started=Game.call('world').seconds;
  while(Game.call('world').seconds-started<10)await sleep(40);
- const population=Game.call('world');assert(population.creatures.length===5&&population.deaths===2,'shared physics keeps a boat, anchored bridge and land/air creatures, removes failed controllers and fallen torsos');
- const harbor=population.creatures.find(c=>c.name==='Harbor boat'),anchored=population.creatures.find(c=>c.anchored);assert(harbor.y>-2&&harbor.up>.8&&anchored.x===96,'boat remains afloat and structure stays anchored');
+ const population=Game.call('world');assert(population.creatures.length===7&&population.deaths===2,'shared physics keeps cargo, hoist, boat, bridge and land/air creatures, removes failed controllers and fallen torsos');
+ const crane=population.creatures.find(c=>c.name==='Cargo hoist'),cargo=population.creatures.find(c=>c.id===cargoId);assert(crane.magnets[5].attached&&crane.magnets[5].power===1&&cargo.y>1.7,'world crane carries a separate cargo creature');
+ const harbor=population.creatures.find(c=>c.name==='Harbor boat'),anchored=population.creatures.find(c=>c.name==='Harbor bridge');assert(harbor.y>-2&&harbor.up>.8&&anchored.x===96,'boat remains afloat and structure stays anchored');
  Game.call('camera',{x:116,y:-1,z:20,distance:50,pitch:.5});
  const worldPng=Buffer.from(Game.call('snapshot'));fs.writeFileSync('/workspace/blockwalker-world.png',worldPng);Game.call('save');
  const saved=JSON.parse(fs.readFileSync('/workspace/blockwalker-world.json','utf8'));
- assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===3,'feedback and legacy controller rates persist');
+ assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===5,'feedback and legacy controller rates persist');
+ assert(saved.creatures.find(c=>c.name==='Cargo hoist').magnets[5].creature===cargoId,'magnet attachment saves the stable target identity');
  assert(saved.creatures.some(c=>c.anchored)&&saved.creatures.find(c=>c.name==='Harbor boat').blueprint.every(p=>p.material===1),'anchoring and hull materials persist');
  fs.writeFileSync('/workspace/blockwalker-integration.json',JSON.stringify({embedded:true,pngBytes:png.length,steps:after.steps,parts:after.parts,population}));
  console.log('BLOCKWALKER EMBED CHECK: direct C calls, GPU PNG, timed keyboard, paused inference, shared world, controller timeout, survivors, persistence');

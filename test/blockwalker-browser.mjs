@@ -15,7 +15,7 @@ const exportBlueprint=async name=>{
  const download=page.waitForEvent('download');await page.mouse.click(860,40);const file=await download;
  const path=new URL(name+'.character',output).pathname;await file.saveAs(path);await frames();
  const source=await readFile(path,'utf8'),rows=source.trim().split('\n');
- const count=Number(rows[1].split(/\s+/)[0]),blocks=rows.slice(2).map(row=>{const [x,y,z,parent,joint,color,axis,negative,positive,speed,limit,travel,force,direction,material,finish]=row.split(/\s+/).map(Number);return {x,y,z,parent,joint,color,axis,negative,positive,speed,limit,material,finish};});
+ const count=Number(rows[1].split(/\s+/)[0]),blocks=rows.slice(2).map(row=>{const [x,y,z,parent,joint,color,axis,negative,positive,speed,limit,travel,force,direction,material,finish]=row.split(/\s+/).map(Number);return {x,y,z,parent,joint,color,axis,negative,positive,speed,limit,travel,force,direction,material,finish};});
  assert.equal(blocks.length,count);return {path,source,count,anchored:Number(rows[1].split(/\s+/)[1]??0),blocks};
 };
 const importBlueprint=async path=>{
@@ -94,10 +94,21 @@ try {
  await page.mouse.click(710,311);await frames();
  let added=await exportBlueprint('added');assert.equal(added.count,6);assert.equal(added.blocks[5].joint,1);assert.equal(added.blocks[5].parent,3);assert.equal(added.blocks[5].y,4);
  await page.mouse.click(70,630);await frames();assert.equal((await exportBlueprint('undo')).source,blueprint.source);
+ await page.mouse.click(120,315);await page.mouse.click(710,311);await frames();
+ const magnetAdded=await exportBlueprint('magnet-added');assert.equal(magnetAdded.blocks[5].joint,5);
+ await page.mouse.click(1230,230);await page.mouse.click(1220,263);await page.mouse.click(1233,452);await page.mouse.click(1190,354);await page.keyboard.press('B');await frames();
+ const magnetConfigured=await exportBlueprint('magnet-configured');assert.equal(magnetConfigured.blocks[5].direction,-magnetAdded.blocks[5].direction);assert.equal(magnetConfigured.blocks[5].axis,2);assert.equal(magnetConfigured.blocks[5].force,26);assert.equal(magnetConfigured.blocks[5].positive,66);
+ await importBlueprint(magnetConfigured.path);assert.equal((await exportBlueprint('magnet-restored')).source,magnetConfigured.source);await shot('magnet-inspector');await importBlueprint(blueprint.path);
  await page.mouse.click(119,352);await page.mouse.click(706,352);await page.mouse.click(1140,630);await frames();
  assert.equal((await exportBlueprint('removed-branch')).count,3);
  await page.mouse.click(70,630);await frames();assert.equal((await exportBlueprint('restored-branch')).source,blueprint.source);
  await page.mouse.click(172,630);await frames();assert.equal((await exportBlueprint('empty')).count,0);
+ const hoistPath=new URL('magnet-hoist.character',output).pathname;
+ await writeFile(hoistPath,'BLOCKWALKER 5\n6 1\n'+[
+ '0 0 0 -1 0 0 2 0 0 2.5 75 1.5 24 1 0 1','0 1 0 0 0 0 2 0 0 2.5 75 1.5 24 1 0 1','0 2 0 1 0 0 2 0 0 2.5 75 1.5 24 1 0 1','1 2 0 2 0 0 2 0 0 2.5 75 1.5 24 1 0 1','2 2 0 3 2 1 1 81 65 2.5 75 1.5 24 1 0 1','2 1 0 4 5 2 1 83 87 2.5 75 1.5 24 -1 0 1'
+ ].join('\n')+'\n');await importBlueprint(hoistPath);await page.mouse.click(1156,40);await frames();await page.mouse.click(120,280);
+ await page.keyboard.down('W');await page.waitForTimeout(600);await page.keyboard.up('W');await page.keyboard.down('A');await page.waitForTimeout(3000);await page.keyboard.up('A');await frames();await shot('magnet-ui-lift');
+ await page.keyboard.press('S');await page.waitForTimeout(2000);await shot('magnet-ui-release');await page.keyboard.press('Escape');await frames();
  await importBlueprint(blueprint.path);
  assert.equal((await exportBlueprint('imported')).source,blueprint.source);await shot('imported');
  await page.mouse.click(1156,40);await frames(90);await shot('test-ground');
@@ -113,6 +124,9 @@ try {
  await page.keyboard.press('Escape');
  await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
  assert.equal(await editor,0);
+ const magnetDownload=page.waitForEvent('download'),magnetCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-magnet-ui.json'));
+ const magnetFile=await magnetDownload,magnetPath=new URL('magnet-ui.json',output).pathname;await magnetFile.saveAs(magnetPath);assert.equal(await magnetCommand,0);
+ const magnets=JSON.parse(await readFile(magnetPath,'utf8'));assert.ok(magnets.some(m=>m.power===1&&m.attached&&m.maxY>1.7),'UI cargo button and latched magnet key lift the crate');assert.ok(magnets.at(-1).power===0&&!magnets.at(-1).attached&&magnets.at(-1).minY<.6,'UI Off key drops the crate');
  const cameraDownload=page.waitForEvent('download'),cameraCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-camera.json'));
  const cameraFile=await cameraDownload,cameraPath=new URL('camera.json',output).pathname;await cameraFile.saveAs(cameraPath);assert.equal(await cameraCommand,0);
  const trace=JSON.parse(await readFile(cameraPath,'utf8')),visits=[];

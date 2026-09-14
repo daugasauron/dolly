@@ -108,7 +108,7 @@ static void box_draw(Block b,Vector3 v,Quaternion q,int selected,int hover,int p
     Color color=block_colors[b.color];
     boxes[index]=(BoxDraw){{v.x,v.y,v.z,.485f},{q.x,q.y,q.z,q.w},
         {color.r/255.f,color.g/255.f,color.b/255.f,preview?.35f:1},
-        {b.joint,b.axis,preview?2:selected,hover},{.485f,.485f,.485f,0},{b.material,b.finish,0,0}};
+        {b.joint,b.axis,preview?2:selected,hover},{.485f,.485f,.485f,0},{b.material,b.finish,b.direction,0}};
     if(b.joint==BLOCK_WHEEL){for(int i=0;i<3;i++)boxes[index].half[i]=i==b.axis?.35f:.7f;}
 }
 static void draw_scene(const Orbit *o,size_t count,int running,int landscape,double time){
@@ -130,6 +130,7 @@ static void draw_scene(const Orbit *o,size_t count,int running,int landscape,dou
 static size_t character_draw(const Character *c,const Physics *p,int selected,int hover,size_t at){
     for(int i=0;i<c->count;i++){
         Block b=c->blocks[i];Vector3 v;Quaternion q;physics_pose(p,c,i,&v,&q);box_draw(b,v,q,i==selected,i==hover,0,at++);
+        if(b.joint==BLOCK_MAGNET&&p->running){boxes[at-1].style[3]=p->parts[i].magnet_power;boxes[at-1].half[3]=b3Body_IsValid(p->parts[i].magnet_target);}
         if(b.joint==BLOCK_PISTON&&b.parent>=0){
             Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);Block a=c->blocks[b.parent];
             Vector3 offset=Vector3Scale((Vector3){b.x-a.x,b.y-a.y,b.z-a.z},.5f);
@@ -147,22 +148,24 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
             direction=Vector3RotateByQuaternion(direction,q);
             Quaternion rotation=QuaternionFromVector3ToVector3((Vector3){0,1,0},direction);
             box_draw(b,Vector3Add(v,Vector3Scale(direction,.47f+length*.45f)),rotation,0,0,0,at);
-            boxes[at].flags[0]=5;boxes[at].center[3]=strength;
+            boxes[at].flags[0]=100;boxes[at].center[3]=strength;
             boxes[at].half[0]=boxes[at].half[2]=.12f+.13f*strength;boxes[at++].half[1]=length*.5f;
         }
-    }return at;
+    }
+    for(int i=0;i<p->cargo_count;i++){b3WorldTransform t=b3Body_GetTransform(p->cargo[i].body);box_draw(p->cargo[i].block,(Vector3){t.p.x,t.p.y,t.p.z},(Quaternion){t.q.v.x,t.q.v.y,t.q.v.z,t.q.s},0,0,0,at++);}
+    return at;
 }
 static size_t draw_terrain(size_t at){
     const Color colors[]={{38,48,65,255},{76,60,86,255},{43,76,76,255},{67,70,88,255},{53,72,81,255}};
     for(int i=0;i<terrain_count;i++){
         TerrainBox b=terrain_boxes[i];box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
         Color color=colors[b.color];boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at].color[2]=color.b/255.f;
-        boxes[at].flags[0]=6;boxes[at].style[1]=b.color==4?FINISH_PANEL:FINISH_PLAIN;
+        boxes[at].flags[0]=101;boxes[at].style[1]=b.color==4?FINISH_PANEL:FINISH_PLAIN;
         boxes[at].half[0]=b.half.x;boxes[at].half[1]=b.half.y;boxes[at++].half[2]=b.half.z;
     }return at;
 }
 void render_frame(const Character *c,const Physics *p,const Orbit *o,int selected,int hover,const Block *ghost){
-    reserve_boxes((size_t)c->count*3+(ghost!=NULL)+(p->landscape?terrain_count:0));
+    reserve_boxes((size_t)c->count*3+p->cargo_count+(ghost!=NULL)+(p->landscape?terrain_count:0));
     size_t count=character_draw(c,p,selected,hover,p->landscape?draw_terrain(0):0);
     if(ghost)box_draw(*ghost,block_position(*ghost),QuaternionIdentity(),0,0,1,count++);
     draw_scene(o,count,p->running,p->landscape,p->time);

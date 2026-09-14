@@ -34,7 +34,7 @@ fn hit_part(origin:vec3f,direction:vec3f,b:Box)->f32 {
         let t=select(far,near,near>.001);return select(10000.0,t,t>.001);
     }
     let o=local(b.rotation,origin-b.center.xyz);let d=local(b.rotation,direction);
-    if(b.flags.x==5){
+    if(b.flags.x==100){
         let v=o/b.extent.xyz;let r=d/b.extent.xyz;let a=dot(r,r);let projection=dot(v,r);let disc=projection*projection-a*(dot(v,v)-1);
         if(disc<0){return 10000.0;}let near=(-projection-sqrt(disc))/a;let far=(-projection+sqrt(disc))/a;
         let t=select(far,near,near>.001);return select(10000.0,t,t>.001);
@@ -56,7 +56,7 @@ fn trace(origin:vec3f,direction:vec3f,limit:f32,shadow:bool)->vec2f {
     while(depth>0u){depth--;let node=nodes[stack[depth]];
         if(!hits_bounds(origin,inverse,node,hit.x)){continue;}
         if(node.right==0xffffffffu){
-            let b=boxes[node.left];if(shadow&&(b.flags.z==2||b.flags.x==5)){continue;}
+            let b=boxes[node.left];if(shadow&&(b.flags.z==2||b.flags.x==100)){continue;}
             let t=hit_part(origin,direction,b);if(t<hit.x){hit=vec2f(t,f32(node.left));if(shadow){return hit;}}
         }else{stack[depth]=node.left;stack[depth+1u]=node.right;depth+=2u;}
     }return hit;
@@ -116,7 +116,7 @@ fn water_normal(p:vec2f)->vec3f {
         color=mix(color,vec3f(.025,.045,.075),clamp(distance/300,0,.85));
     }else if(object>=0){
         let b=boxes[u32(object)];let p=local(b.rotation,position-b.center.xyz);
-        if(b.flags.x==5){
+        if(b.flags.x==100){
             let normalized=p/b.extent.xyz;let along=clamp(normalized.y*.5+.5,0,1);
             let pulse=.85+.15*sin(scene.world.z*43+along*20+b.center.x*7);
             color=mix(vec3f(.52,.91,1),vec3f(.13,.35,.95),smoothstep(.15,.8,along))*pulse;
@@ -142,7 +142,7 @@ fn water_normal(p:vec2f)->vec3f {
             if(face.y<face.x&&face.y<face.z){normal=vec3f(0,sign(p.y),0);}else if(face.z<face.x){normal=vec3f(0,0,sign(p.z));}
             color=b.color.rgb*(.69+.31*max(0,dot(rotate(b.rotation,normal),sun)));
             var face_uv=p.yz;if(abs(normal.y)>.5){face_uv=p.xz;}else if(abs(normal.z)>.5){face_uv=p.xy;}
-            if(b.flags.x==6){
+            if(b.flags.x==101){
                 color*=.82+.18*noise(position.xz*2+position.y);
                 if(normal.y>.5){
                     let seam=min(abs(fract(position.x/8+.5)-.5),abs(fract(position.z/8+.5)-.5));
@@ -159,6 +159,14 @@ fn water_normal(p:vec2f)->vec3f {
                 if(b.style.y==3&&abs(face_uv.y)>.28){color=select(vec3f(.055,.065,.07),vec3f(.92,.62,.12),sin((face_uv.x+face_uv.y)*28)>0);}
                 if(b.style.x==1&&abs(p.y)<.19&&abs(normal.y)<.5){color=mix(color,vec3f(.04,.10,.15),.75);}
                 if(b.style.x==2&&abs(face_uv.y)<.065){color*=.3;}
+                if(b.flags.x==5){
+                    let powered=b.style.w>0;let light=select(vec3f(.18,.30,.34),select(vec3f(.15,.95,.9),vec3f(1,.66,.18),b.extent.w>0),powered);
+                    if(normal[u32(b.flags.y)]*b.style.z>.5){
+                        color=vec3f(.10,.14,.18);let ring=max(abs(face_uv.x),abs(face_uv.y));
+                        if(ring>.28&&ring<.39){color=light;}
+                        if(abs(face_uv.x)<.06&&abs(face_uv.y)<.18){color=light;}
+                    }else if(abs(face_uv.y)<.045){color=light;}
+                }
             }
             if(b.flags.x==3){
                 let w=wheel_space(p,b.flags.y);

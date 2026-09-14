@@ -57,6 +57,13 @@ int character_from_json(JSContext *ctx,JSValueConst list,Character *c){
 static JSValue vector(JSContext *ctx,Vector3 v){
     JSValue a=JS_NewArray(ctx);JS_SetPropertyUint32(ctx,a,0,JS_NewFloat64(ctx,v.x));JS_SetPropertyUint32(ctx,a,1,JS_NewFloat64(ctx,v.y));JS_SetPropertyUint32(ctx,a,2,JS_NewFloat64(ctx,v.z));return a;
 }
+static JSValue magnet_state(JSContext *ctx,const Physics *p,const Character *c){
+    JSValue list=JS_NewArray(ctx);
+    for(int i=0;i<c->count;i++)if(c->blocks[i].joint==BLOCK_MAGNET){
+        PhysicsPart *part=&p->parts[i];JSValue item=JS_NewObject(ctx);put_number(ctx,item,"power",part->magnet_power);put_number(ctx,item,"load",part->magnet_load);
+        JS_SetPropertyStr(ctx,item,"attached",JS_NewBool(ctx,b3Body_IsValid(part->magnet_target)));JS_SetPropertyUint32(ctx,list,i,item);
+    }return list;
+}
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt){
     JSValue s=JS_NewObject(ctx),angles=JS_NewArray(ctx),rates=JS_NewArray(ctx),touching=JS_NewArray(ctx),positions=JS_NewArray(ctx),submerged=JS_NewArray(ctx);
     Vector3 position;Quaternion q;physics_pose(p,c,0,&position,&q);Quaternion inverse=QuaternionInvert(q);
@@ -80,7 +87,7 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
         b3ContactData contact;JS_SetPropertyUint32(ctx,touching,i,JS_NewBool(ctx,b3Body_GetContactData(body,&contact,1)>0));
     }
     put_number(ctx,s,"mass",mass);JS_SetPropertyStr(ctx,s,"centerOfMass",vector(ctx,Vector3Scale(center,mass>0?1/mass:0)));
-    JS_SetPropertyStr(ctx,s,"angles",angles);JS_SetPropertyStr(ctx,s,"rates",rates);JS_SetPropertyStr(ctx,s,"touching",touching);JS_SetPropertyStr(ctx,s,"positions",positions);JS_SetPropertyStr(ctx,s,"submerged",submerged);return s;
+    JS_SetPropertyStr(ctx,s,"angles",angles);JS_SetPropertyStr(ctx,s,"rates",rates);JS_SetPropertyStr(ctx,s,"touching",touching);JS_SetPropertyStr(ctx,s,"positions",positions);JS_SetPropertyStr(ctx,s,"submerged",submerged);JS_SetPropertyStr(ctx,s,"magnets",magnet_state(ctx,p,c));return s;
 }
 static int assigned(const Character *design,int key){
     if(key<=0||key>=128)return 0;
@@ -130,6 +137,10 @@ static Creature *spawn(const Character *design,const char *source,const char *na
     character_copy(&c->design,design);physics_attach(&c->physics,&c->design,world.physics,x,z,1);c->physics.time=world.age;
     Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);c->root_height=p.y-fmaxf(terrain_height(x,z),WATER_LEVEL);return c;
 }
+int world_drop_cargo(float x,float z,int material){
+    Character box={0};character_add(&box,-1,0,0,0,BLOCK_BOX,1);box.blocks[0].material=material;box.blocks[0].finish=FINISH_STRIPE;
+    Creature *cargo=spawn(&box,"function(){return ''}","Cargo",1,10,x,z);character_clear(&box);return cargo?cargo->id:0;
+}
 JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args){
     if(!installed||!design->count)return JS_ThrowTypeError(ctx,"Build a character and install a learned controller first");
     int index=world.next_id?world.next_id-1:0,plot=index%256;float angle=plot*2.399963f,radius=5*sqrtf(plot);
@@ -148,6 +159,7 @@ JSValue world_state(JSContext *ctx){
         Creature *c=&world.creatures[i];JSValue item=JS_NewObject(ctx);Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);
         put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));put_number(ctx,item,"parts",c->design.count);
         JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));
+        JS_SetPropertyStr(ctx,item,"magnets",magnet_state(ctx,&c->physics,&c->design));
         put_number(ctx,item,"seconds",c->physics.steps/60.0);put_number(ctx,item,"x",p.x);put_number(ctx,item,"y",p.y);put_number(ctx,item,"z",p.z);
         put_number(ctx,item,"distance",hypot(p.x-c->physics.start.x,p.z-c->physics.start.z));
         b3Vec3 velocity=b3Body_GetLinearVelocity(c->physics.parts[0].body);put_number(ctx,item,"speed",hypot(velocity.x,velocity.z));
@@ -167,7 +179,7 @@ void world_step(void){
         Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);float up=Vector3RotateByQuaternion((Vector3){0,1,0},q).y;
         float ground=terrain_height(p.x,p.z);int sea=ground<WATER_LEVEL;
         int fallen=!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z)||(!c->design.anchored&&
-            (p.y<(sea?WATER_LEVEL-3:ground-.5f)||up<.15f||(!sea&&c->root_height>1.2f&&p.y<ground+.65f)));
+            (p.y<(sea?WATER_LEVEL-3:ground-.5f)||(c->design.count>1&&up<.15f)||(!sea&&c->root_height>1.2f&&p.y<ground+.65f)));
         if(c->physics.steps>180&&fallen)c->fallen+=1.f/60;else if(c->fallen<100)c->fallen=0;
         if(c->fallen>2){printf("CREATURE %d removed: %s after %.1fs\n",c->id,c->name,c->physics.steps/60.0);
             physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);world.creatures[i]=world.creatures[--world.count];world.deaths++;
@@ -198,7 +210,15 @@ void world_save(JSContext *ctx){
             Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,j,&p,&q);b3Vec3 v=b3Body_GetLinearVelocity(c->physics.parts[j].body),a=b3Body_GetAngularVelocity(c->physics.parts[j].body);
             double values[]={p.x,p.y,p.z,q.x,q.y,q.z,q.w,v.x,v.y,v.z,a.x,a.y,a.z};JSValue pose=JS_NewArray(ctx);
             for(int k=0;k<13;k++)JS_SetPropertyUint32(ctx,pose,k,JS_NewFloat64(ctx,values[k]));JS_SetPropertyUint32(ctx,poses,j,pose);
-        }JS_SetPropertyStr(ctx,item,"poses",poses);JS_FreeValue(ctx,item);
+        }JS_SetPropertyStr(ctx,item,"poses",poses);
+        JSValue magnets=JS_GetPropertyStr(ctx,item,"magnets");
+        for(int j=0;j<c->design.count;j++)if(c->design.blocks[j].joint==BLOCK_MAGNET){
+            PhysicsPart *part=&c->physics.parts[j];JSValue magnet=JS_GetPropertyUint32(ctx,magnets,j);
+            for(int k=0;k<world.count;k++)for(int l=0;l<world.creatures[k].design.count;l++)if(B3_ID_EQUALS(part->magnet_target,world.creatures[k].physics.parts[l].body)){
+                put_number(ctx,magnet,"creature",world.creatures[k].id);put_number(ctx,magnet,"part",l);
+                JS_SetPropertyStr(ctx,magnet,"local",vector(ctx,(Vector3){part->magnet_local.x,part->magnet_local.y,part->magnet_local.z}));
+            }JS_FreeValue(ctx,magnet);
+        }JS_FreeValue(ctx,magnets);JS_FreeValue(ctx,item);
     }save_json(ctx,save,"/workspace/blockwalker-world.json");JS_FreeValue(ctx,list);JS_FreeValue(ctx,save);
 }
 void world_load(JSContext *ctx){
@@ -229,6 +249,22 @@ void world_load(JSContext *ctx){
                 }JS_FreeValue(ctx,poses);
             }JS_FreeCString(ctx,s);JS_FreeCString(ctx,name);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
         }character_clear(&c);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,item);
+    }
+    for(int i=0;i<count;i++){
+        JSValue item=JS_GetPropertyUint32(ctx,list,i),magnets=JS_GetPropertyStr(ctx,item,"magnets");int id=get_number(ctx,item,"id",0);
+        if(!JS_IsArray(magnets)){JS_FreeValue(ctx,magnets);JS_FreeValue(ctx,item);continue;}
+        for(int j=0;j<world.count;j++)if(world.creatures[j].id==id){
+            Creature *creature=&world.creatures[j];
+            for(int k=0;k<creature->design.count;k++)if(creature->design.blocks[k].joint==BLOCK_MAGNET){
+                PhysicsPart *part=&creature->physics.parts[k];JSValue magnet=JS_GetPropertyUint32(ctx,magnets,k);if(!JS_IsObject(magnet)){JS_FreeValue(ctx,magnet);continue;}double power=get_number(ctx,magnet,"power",0);
+                part->magnet_power=isfinite(power)?Clamp(power,0,1):0;int target=get_number(ctx,magnet,"creature",0),index=get_number(ctx,magnet,"part",-1);
+                JSValue local=JS_GetPropertyStr(ctx,magnet,"local");double p[3];int valid=target>0&&index>=0&&JS_IsArray(local);
+                for(int n=0;valid&&n<3;n++){JSValue v=JS_GetPropertyUint32(ctx,local,n);if(JS_ToFloat64(ctx,&p[n],v)<0||!isfinite(p[n]))valid=0;JS_FreeValue(ctx,v);}
+                if(valid)for(int n=0;n<world.count;n++)if(world.creatures[n].id==target&&index>=0&&index<world.creatures[n].design.count&&n!=j){
+                    part->magnet_target=world.creatures[n].physics.parts[index].body;part->magnet_local=(b3Vec3){p[0],p[1],p[2]};
+                }JS_FreeValue(ctx,local);JS_FreeValue(ctx,magnet);
+            }
+        }JS_FreeValue(ctx,magnets);JS_FreeValue(ctx,item);
     }
     world.deaths=get_number(ctx,save,"deaths",0);world.age=get_number(ctx,save,"seconds",0);int next_id=get_number(ctx,save,"nextId",0);if(next_id>0&&!world.next_id)world.physics=physics_world(1);world.next_id=fmax(world.next_id,next_id);
     JS_FreeValue(ctx,list);JS_FreeValue(ctx,save);

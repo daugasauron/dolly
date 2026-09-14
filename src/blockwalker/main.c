@@ -74,7 +74,21 @@ static void visit_creature(const Creature *c){
 }
 static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-8));dirty=1;}
 static int program_trial;
-static void start_test(void){world_trial_stop();program_trial=0;set_world_view(0);if(!design.count){say("Add a box before testing your character.");return;}binding=-1;memset(keys,0,sizeof(keys));if(practice_sea)physics_start_sea(&physics,&design);else physics_start(&physics,&design);home_camera();say(practice_sea?"Sea trial: hulls float, ballast sinks. Use the joint keys to sail.":"Hold the joint keys to move. Can you keep it standing?");}
+static void start_test(void){
+    world_trial_stop();program_trial=0;set_world_view(0);if(!design.count){say("Add a box before testing your character.");return;}binding=-1;memset(keys,0,sizeof(keys));
+    int count=physics.cargo_count,old_sea=physics.landscape;Cargo *cargo=array_resize(NULL,count,sizeof(Cargo));if(count)memcpy(cargo,physics.cargo,count*sizeof(Cargo));
+    if(practice_sea)physics_start_sea(&physics,&design);else physics_start(&physics,&design);
+    for(int i=0;i<count;i++){Vector3 p=cargo[i].start;p.x+=(practice_sea-old_sea)*125;p.z+=(practice_sea-old_sea)*10;physics_add_cargo(&physics,p,cargo[i].block.material);}free(cargo);
+    home_camera();say(practice_sea?"Sea trial: hulls float, ballast sinks. Use the joint keys to sail.":"Hold the joint keys to move. Can you keep it standing?");
+}
+static void drop_cargo(void){
+    if(world_view){world_drop_cargo(Clamp(orbit.target.x,-248,248),Clamp(orbit.target.z,-248,248),MATERIAL_ALLOY);world_save(embedded_context);}
+    else if(physics.running){
+        Vector3 p=physics.start;for(int i=0;i<design.count;i++)if(design.blocks[i].joint==BLOCK_MAGNET){Quaternion q;physics_pose(&physics,&design,i,&p,&q);break;}
+        p.y=(physics.landscape?fmaxf(terrain_height(p.x,p.z),WATER_LEVEL):0)+.65f;physics_add_cargo(&physics,p,MATERIAL_ALLOY);
+    }
+    dirty=1;say("Loose cargo dropped. Power the magnet to pick it up; switch it off to release.");
+}
 static void back_to_builder(void){world_trial_stop();program_trial=0;set_world_view(0);report();physics_stop(&physics);memset(keys,0,sizeof(keys));home_camera();say("Back in the workshop. Your original build is unchanged.");}
 static void preset(int walker){remember();character_preset(&design,walker);selected=0;tool=SELECT;binding=-1;home_camera();changed();say(walker?"Four hinges. Eight keys. Walking is up to you.":"A three-block chain with two powered hinges.");}
 static int candidate(Block *block){
@@ -120,6 +134,7 @@ static void click(void){
     }
     if(inside(1052,18,204,44)){if(world_view){set_world_view(0);return;}if(physics.running)back_to_builder();else start_test();return;}
     if(world_view){
+        if(!agent_panel&&inside(1036,188,220,36)){drop_cargo();return;}
         for(int i=0;i<6;i++)if(inside(24+(i%2)*102,188+(i/2)*38,92,32)){
             const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0}};
             const float distances[]={24,50,100,110,150,512};
@@ -134,6 +149,7 @@ static void click(void){
     if(physics.running){
         if(inside(24,154,194,42))start_test();
         if(inside(24,212,194,42))home_camera();
+        if(inside(24,264,194,30))drop_cargo();
         return;
     }
     if(inside(808,22,104,36)){export_character();return;}
@@ -165,10 +181,10 @@ static void click(void){
     if(selected==0&&inside(1036,328,220,36)){remember();design.anchored=!design.anchored;changed();return;}
     if(inside(1036,608,220,40)){remove_selected();return;}
     if(b->joint){
-        if(b->joint==BLOCK_PISTON&&inside(1200,218,56,24)){remember();b->direction=-b->direction;changed();return;}
+        if((b->joint==BLOCK_PISTON||b->joint==BLOCK_MAGNET)&&inside(1200,218,56,24)){remember();b->direction=-b->direction;changed();return;}
         for(int axis=0;axis<3;axis++)if(inside(1036+axis*76,248,68,36)){remember();b->axis=axis;changed();say("Joint axis changed.");return;}
         for(int key=0;key<2;key++)if(inside(1036+key*116,336,104,44)){binding=key;dirty=1;say("Press a letter or number for this direction. Esc cancels.");return;}
-        if(inside(1036,436,40,36)||inside(1216,436,40,36)){remember();if(b->joint==BLOCK_THRUSTER)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);else b->speed=Clamp(b->speed+(mouse_x<1100?-.5f:.5f),.5f,6);changed();return;}
+        if(inside(1036,436,40,36)||inside(1216,436,40,36)){remember();if(b->joint==BLOCK_THRUSTER||b->joint==BLOCK_MAGNET)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);else b->speed=Clamp(b->speed+(mouse_x<1100?-.5f:.5f),.5f,6);changed();return;}
         if(inside(1036,532,40,36)||inside(1216,532,40,36)){remember();if(b->joint==BLOCK_PISTON)b->travel=Clamp(b->travel+(mouse_x<1100?-.25f:.25f),.25f,3);else if(b->joint==BLOCK_HINGE)b->limit=Clamp(b->limit+(mouse_x<1100?-15:15),15,150);else if(b->joint==BLOCK_WHEEL)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);changed();return;}
     }else if(selected>0&&inside(1036,248,220,42)){
         Character copy={0};character_copy(&copy,&design);Block old=copy.blocks[selected];
@@ -224,7 +240,7 @@ static void events(void){
             if(binding>=0){binding=-1;say("Key assignment cancelled.");}
             else if(world_view)set_world_view(0);else if(physics.running)back_to_builder();else stopping=1;continue;
         }
-        if(world_view){if(k=='H')home_camera();continue;}
+        if(world_view){if(k=='H')home_camera();if(k=='C')drop_cargo();continue;}
         if(binding>=0&&selected>=0){
             if(!((k>='A'&&k<='Z')||(k>='0'&&k<='9'))){say("Choose a letter or number.");continue;}
             Character next={0};character_copy(&next,&design);Block *b=&next.blocks[selected];if(binding==0)b->negative=k;else b->positive=k;
@@ -232,7 +248,12 @@ static void events(void){
             character_clear(&next);
             continue;
         }
-        if(physics.running){dirty=1;continue;}
+        if(physics.running){
+            if(!agent_control)for(int i=0;i<design.count;i++)if(design.blocks[i].joint==BLOCK_MAGNET){
+                if(k==design.blocks[i].positive)physics.parts[i].magnet_power=1;
+                if(k==design.blocks[i].negative)physics.parts[i].magnet_power=0;
+            }dirty=1;continue;
+        }
         if((e.modifiers&DOLLY_INPUT_MOD_CONTROL)&&k=='Z'){undo_edit();continue;}
         if(dolly_raylib_code_is(&e,"Enter")){start_test();continue;}
         if(dolly_raylib_code_is(&e,"Delete")||dolly_raylib_code_is(&e,"Backspace")){remove_selected();continue;}
@@ -265,11 +286,12 @@ static void draw_ui(void){
         button(24,564,40,30,"<",0);button(178,564,40,30,">",0);
         snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+8,world.count),world.count);label(74,572,text,14,muted);
         button(24,612,194,36,"Export world",0);
+        if(!agent_panel){label(1036,108,"LOOSE CARGO",17,muted);label(1036,149,"Drops at the camera target.",14,muted);button(1036,188,220,36,"Drop cargo [C]",0);}
     }else if(!physics.running){
         button(808,22,104,36,"Export",0);button(924,22,104,36,"Import",0);
         label(24,106,"PARTS",17,muted);
         for(int i=0;i<BLOCK_KINDS;i++)button(24,142+i*32,194,28,block_names[i],tool==ADD&&brush_joint==i);
-        label(24,310,"EDIT TOOL",15,muted);button(24,336,62,36,"Add",tool==ADD);button(90,336,62,36,"Pick",tool==SELECT);button(156,336,62,36,"Erase",tool==ERASE);
+        button(24,336,62,36,"Add",tool==ADD);button(90,336,62,36,"Pick",tool==SELECT);button(156,336,62,36,"Erase",tool==ERASE);
         label(24,390,tool==SELECT?"SELECTED COLOR":"BLOCK COLOR",15,muted);
         for(int i=0;i<COLOR_COUNT;i++){DrawRectangleRounded((Rectangle){24+i*32,416,26,30},.12f,4,block_colors[i]);if(i==brush_color)DrawRectangleLinesEx((Rectangle){22+i*32,414,30,34},2,ink);}
         const char *finishes[]={"Plain","Panel","Glow","Stripe"};for(int i=0;i<FINISH_COUNT;i++)button(24+i*49,452,46,24,finishes[i],(tool==SELECT&&selected>=0?design.blocks[selected].finish:brush_finish)==i);
@@ -281,28 +303,34 @@ static void draw_ui(void){
             Block b=design.blocks[selected];snprintf(text,sizeof(text),"%s %02d",block_names[b.joint],selected+1);label(1036,151,text,24,ink);
             snprintf(text,sizeof(text),"Grid  %d, %d, %d",b.x,b.y,b.z);label(1036,190,text,16,muted);
             if(b.joint){
-                label(1036,224,"CONTROL AXIS",15,muted);if(b.joint==BLOCK_PISTON)button(1200,218,56,24,b.direction>0?"+":"-",0);for(int i=0;i<3;i++){char name[2]={'X'+i,0};button(1036+i*76,248,68,36,name,b.axis==i);}
-                label(1036,310,b.joint==BLOCK_PISTON?"RETRACT -":"REVERSE -",15,muted);label(1152,310,b.joint==BLOCK_PISTON?"EXTEND +":"FORWARD +",15,muted);
+                label(1036,224,b.joint==BLOCK_MAGNET?"MAGNET FACE":"CONTROL AXIS",15,muted);if(b.joint==BLOCK_PISTON||b.joint==BLOCK_MAGNET)button(1200,218,56,24,b.direction>0?"+":"-",0);for(int i=0;i<3;i++){char name[2]={'X'+i,0};button(1036+i*76,248,68,36,name,b.axis==i);}
+                label(1036,310,b.joint==BLOCK_MAGNET?"SWITCH OFF":b.joint==BLOCK_PISTON?"RETRACT -":"REVERSE -",15,muted);label(1152,310,b.joint==BLOCK_MAGNET?"SWITCH ON":b.joint==BLOCK_PISTON?"EXTEND +":"FORWARD +",15,muted);
                 char negative[2]={b.negative?b.negative:'-',0},positive[2]={b.positive?b.positive:'-',0};button(1036,336,104,44,binding==0?"Press key":negative,binding==0);button(1152,336,104,44,binding==1?"Press key":positive,binding==1);
-                label(1036,407,b.joint==BLOCK_THRUSTER?"PUSH FORCE":"MOTOR SPEED",15,muted);button(1036,436,40,36,"-",0);button(1216,436,40,36,"+",0);snprintf(text,sizeof(text),b.joint==BLOCK_THRUSTER?"%.0f N":b.joint==BLOCK_PISTON?"%.1f m/s":"%.1f rad/s",b.joint==BLOCK_THRUSTER?b.force:b.speed);label(1090,444,text,17,ink);
-                if(b.joint!=BLOCK_THRUSTER){
+                int force_control=b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET;
+                label(1036,407,b.joint==BLOCK_MAGNET?"HOLDING FORCE":force_control?"PUSH FORCE":"MOTOR SPEED",15,muted);button(1036,436,40,36,"-",0);button(1216,436,40,36,"+",0);snprintf(text,sizeof(text),force_control?"%.0f N":b.joint==BLOCK_PISTON?"%.1f m/s":"%.1f rad/s",force_control?b.force:b.speed);label(1090,444,text,17,ink);
+                if(!force_control){
                     label(1036,503,b.joint==BLOCK_WHEEL?"MOTOR TORQUE":"TRAVEL LIMIT",15,muted);button(1036,532,40,36,"-",0);button(1216,532,40,36,"+",0);
                     if(b.joint==BLOCK_PISTON)snprintf(text,sizeof(text),"0 - %.2f m",b.travel);
                     else if(b.joint==BLOCK_WHEEL)snprintf(text,sizeof(text),"%.0f Nm",b.force);
                     else snprintf(text,sizeof(text),"+/- %.0f deg",b.limit);label(1088,540,text,17,ink);
-                }else {label(1036,503,"Push follows the block.",15,muted);label(1036,532,"Release keys to coast.",15,muted);}
+                }else {label(1036,503,b.joint==BLOCK_MAGNET?"Stays powered until Off.":"Push follows the block.",15,muted);label(1036,532,b.joint==BLOCK_MAGNET?"Cyan: on / amber: holding.":"Release keys to coast.",15,muted);}
             }else if(selected>0){label(1036,225,"Rigid attachment",17,muted);button(1036,248,220,42,"Make this a joint",0);}
             else {label(1036,226,"The starting block.",17,muted);label(1036,258,"Add a joint to one of",16,muted);label(1036,282,"its faces to articulate.",16,muted);button(1036,328,220,36,design.anchored?"Root anchored":"Root free",design.anchored);label(1036,386,"Anchor cranes / bridges.",15,muted);}
             label(1036,582,"Mass",13,muted);const char *materials[]={"Alloy","Hull","Heavy"};for(int i=0;i<MATERIAL_COUNT;i++)button(1074+i*62,574,58,28,materials[i],b.material==i);
             button(1036,608,220,40,"Remove branch",0);
         }
     }else {
-        label(24,108,practice_sea?"SEA TRIAL":"TEST GROUND",17,muted);button(24,154,194,42,"Reset drop",0);button(24,212,194,42,"Center camera",0);
+        label(24,108,practice_sea?"SEA TRIAL":"TEST GROUND",17,muted);button(24,154,194,42,"Reset drop",0);button(24,212,194,42,"Center camera",0);button(24,264,194,30,"Drop cargo",0);
         label(24,300,"No training wheels.",18,ink);label(24,335,"Balance, fall, rebuild.",15,muted);
         label(1036,108,"HOLD KEYS TO TURN",17,muted);int row=0;
         for(int i=0;i<design.count&&row<7;i++)if(design.blocks[i].joint){Block b=design.blocks[i];int y=152+row*66;
             snprintf(text,sizeof(text),"%02d",i+1);label(1036,y+12,text,16,muted);char a[2]={b.negative?b.negative:'-',0},z[2]={b.positive?b.positive:'-',0};button(1072,y,72,42,a,(agent_control?agent_keys:keys)[b.negative]);button(1156,y,72,42,z,(agent_control?agent_keys:keys)[b.positive]);
-            snprintf(text,sizeof(text),"%+.0f deg",physics.parts[i].angle*RAD2DEG);label(1072,y+44,text,14,muted);row++;}
+            PhysicsPart *part=&physics.parts[i];
+            if(b.joint==BLOCK_MAGNET)snprintf(text,sizeof(text),part->magnet_power?b3Body_IsValid(part->magnet_target)?"Holding %.1f N":"On %.1f N":"Off",part->magnet_load);
+            else if(b.joint==BLOCK_PISTON)snprintf(text,sizeof(text),"%.2f m",part->angle);
+            else if(b.joint==BLOCK_THRUSTER)snprintf(text,sizeof(text),"%+.1f N",part->command*b.force);
+            else snprintf(text,sizeof(text),"%+.0f deg",part->angle*RAD2DEG);
+            label(1072,y+44,text,14,muted);row++;}
         if(joints>7){snprintf(text,sizeof(text),"+ %d more active joints",joints-7);label(1036,622,text,15,muted);}
     }
     if(agent_panel){
@@ -360,7 +388,11 @@ static JSValue state(JSContext *ctx) {
         if(physics.running){JS_SetPropertyStr(ctx,part,"angle",JS_NewFloat64(ctx,physics.parts[i].angle));JS_SetPropertyStr(ctx,part,"command",JS_NewFloat64(ctx,physics.parts[i].command));}
         JS_SetPropertyUint32(ctx,parts,i,part);
     }
-    JS_SetPropertyStr(ctx,result,"parts",parts);return result;
+    JSValue cargo=JS_NewArray(ctx);
+    for(int i=0;i<physics.cargo_count;i++){
+        b3Pos p=b3Body_GetPosition(physics.cargo[i].body);JSValue item=JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx,item,"x",JS_NewFloat64(ctx,p.x));JS_SetPropertyStr(ctx,item,"y",JS_NewFloat64(ctx,p.y));JS_SetPropertyStr(ctx,item,"z",JS_NewFloat64(ctx,p.z));JS_SetPropertyStr(ctx,item,"material",JS_NewInt32(ctx,physics.cargo[i].block.material));JS_SetPropertyUint32(ctx,cargo,i,item);
+    }JS_SetPropertyStr(ctx,result,"cargo",cargo);JS_SetPropertyStr(ctx,result,"parts",parts);return result;
 }
 static int number(JSContext *ctx,JSValueConst object,const char *name,int fallback) {
     JSValue v=JS_GetPropertyStr(ctx,object,name);int result=fallback;
@@ -383,6 +415,14 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     else if(!strcmp(op,"world"))result=world_state(ctx);
     else if(!strcmp(op,"install")){result=world_install(ctx,args);if(!JS_IsException(result))world_save(ctx);}
     else if(!strcmp(op,"spawn")){result=world_release(ctx,&design,args);if(!JS_IsException(result)){world_save(ctx);dirty=1;}}
+    else if(!strcmp(op,"cargo")){
+        int shared=number(ctx,args,"world",0),material=number(ctx,args,"material",MATERIAL_ALLOY);double x=real(ctx,args,"x",0),z=real(ctx,args,"z",0);
+        double y=real(ctx,args,"y",(physics.landscape?fmaxf(terrain_height(x,z),WATER_LEVEL):0)+.65f);
+        if(!isfinite(x)||!isfinite(y)||!isfinite(z)||fabs(x)>248||fabs(z)>248||y< -12||y>128||material<0||material>=MATERIAL_COUNT)result=JS_ThrowRangeError(ctx,"Cargo requires finite coordinates inside the world and a valid material");
+        else if(shared){int id=world_drop_cargo(x,z,material);world_save(ctx);result=JS_NewInt32(ctx,id);dirty=1;}
+        else if(!physics.running)result=JS_ThrowTypeError(ctx,"Reset practice before dropping cargo, or use world:true");
+        else{physics_add_cargo(&physics,(Vector3){x,y,z},material);result=state(ctx);dirty=1;}
+    }
     else if(!strcmp(op,"watch"))set_world_view(JS_ToBool(ctx,args));
     else if(!strcmp(op,"save"))world_save(ctx);
     else if(!strcmp(op,"snapshot")) {

@@ -14,6 +14,7 @@ int character_from_json(JSContext *ctx,JSValueConst list,Character *c);
 JSValue world_state(JSContext *ctx);
 JSValue world_install(JSContext *ctx,JSValueConst args);
 JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args);
+int world_drop_cargo(float x,float z,int material);
 void world_step(void);
 void world_close(void);
 void world_save(JSContext *ctx);
