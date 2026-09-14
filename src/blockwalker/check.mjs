@@ -22,6 +22,19 @@ try {
  Game.call('reset');Game.call('advance',{keys:'ASK',steps:60});while(Game.call('state').remaining)await sleep(20);
  const actuators=Game.call('state');assert(actuators.parts[2].angle>.7,'piston extends under load');assert(actuators.distance>.1,'thruster moves the body');
  fs.writeFileSync('/workspace/blockwalker-actuators.png',Buffer.from(Game.call('snapshot')));Game.call('release');
+ const boat=[{x:0,y:1,z:0,parent:-1,joint:0,material:1,finish:1}];
+ for(let side=0;side<2;side++){
+   const x=side?1:-1,deck=boat.push({x,y:1,z:0,parent:0,joint:0,material:1,finish:1,color:side+1})-1;
+   const hull=boat.push({x,y:0,z:0,parent:deck,joint:0,material:1,finish:1,color:side+1})-1;
+   boat.push({x,y:0,z:1,parent:hull,joint:0,material:1,finish:1,color:side+1});
+   const stern=boat.push({x,y:0,z:-1,parent:hull,joint:0,material:1,finish:1,color:side+1})-1;
+   boat.push({x,y:0,z:-2,parent:stern,joint:3,axis:2,material:1,finish:2,force:4,negative:side?87:81,positive:side?83:65});
+ }
+ Game.call('build',{parts:boat});Game.call('install',{name:'Harbor boat',source:'function(){return {A:0.3,S:0.3}}',hz:20});Game.call('program_trial',{steps:360,sea:true});
+ while(Game.call('state').remaining)await sleep(40);
+ const sailing=Game.call('state');assert(sailing.steps===360&&sailing.sensors.y>-2&&sailing.up>.8&&sailing.distance>1,'boat floats and propels through actual water');
+ assert(sailing.sensors.submerged.some(v=>v>0&&v<1)&&sailing.sensors.ground===-12,'water feedback senses partial submersion above the seabed');
+ fs.writeFileSync('/workspace/blockwalker-water.png',Buffer.from(Game.call('snapshot')));Game.call('spawn',{x:125,z:10});
  const drone=[{x:0,y:1,z:0,parent:-1,joint:0}];
  for(let i=0;i<4;i++)drone.push({x:i<2?(i?1:-1):0,y:1,z:i>=2?(i===2?1:-1):0,parent:0,joint:3,axis:1,negative:'QWOP'.charCodeAt(i),positive:'ASKL'.charCodeAt(i),force:24,color:i+1});
  Game.call('build',{parts:drone});
@@ -32,7 +45,7 @@ try {
    const tx=-10*s.gravity[2]/4-6*s.gyroscope[0],tz=10*s.gravity[0]/4-6*s.gyroscope[2];
    return {A:clamp((base-tz/2)/24,0,1),S:clamp((base+tz/2)/24+(t>3&&t<3.15?.35:0),0,1),K:clamp((base-tx/2)/24,0,1),L:clamp((base+tx/2)/24,0,1)};
  };
- Game.call('install',{name:'Feedback hover',source:hover.toString(),hz:60});Game.call('program_trial',{steps:900});
+ Game.call('install',{name:'Feedback hover',source:hover.toString(),hz:60});Game.call('program_trial',{steps:900,sea:false});
  let peakTilt=0,peakHeight=0;while(Game.call('state').remaining){const state=Game.call('state');peakTilt=Math.max(peakTilt,1-state.up);peakHeight=Math.max(peakHeight,state.sensors.y);await sleep(40);}
  const flight=Game.call('state');assert(flight.steps===900,'feedback controller completes at 60 Hz');
  assert(Math.abs(flight.sensors.y-4.5)<.3&&Math.abs(flight.sensors.vy)<.15&&flight.up>.995,'PID changes altitude and recovers from asymmetric thrust');
@@ -42,6 +55,9 @@ try {
  fs.writeFileSync('/workspace/blockwalker-feedback.json',JSON.stringify({peakTilt,peakHeight,final:flight.sensors,commands:flight.parts.map(p=>p.command)}));
  Game.call('spawn',{x:0,z:8});
  Game.call('release');
+ const bridge=[];for(let y=0;y<=3;y++)bridge.push({x:0,y,z:0,parent:y-1,joint:0,finish:1});
+ bridge.push({x:1,y:3,z:0,parent:3,joint:0,finish:1},{x:2,y:3,z:0,parent:4,joint:1,negative:81,positive:65,force:60,finish:2},{x:3,y:3,z:0,parent:5,joint:0,material:1,finish:3},{x:4,y:3,z:0,parent:6,joint:0,material:1,finish:3});
+ Game.call('build',{parts:bridge,anchored:true});Game.call('install',{name:'Harbor bridge',source:'function(t){return Math.sin(t)>0?"A":"Q"}'});Game.call('spawn',{x:96,z:20});
  const platform=[{x:0,y:0,z:0,parent:-1,joint:0},{x:1,y:0,z:0,parent:0,joint:0},{x:0,y:0,z:1,parent:0,joint:0},{x:1,y:0,z:1,parent:1,joint:0},{x:0,y:1,z:0,parent:0,joint:1,negative:81,positive:65,axis:1}];
  Game.call('build',{parts:platform});Game.call('install',{name:'Spinner',source:'function(t,s,m,random){m.turns=(m.turns||0)+1;return t%2<1?"A":"Q"}'});
  Game.call('spawn',{x:-4,z:0,seed:17});Game.call('spawn',{x:4,z:0,seed:19});
@@ -50,10 +66,13 @@ try {
  Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});
  Game.call('watch',true);const started=Game.call('world').seconds;
  while(Game.call('world').seconds-started<10)await sleep(40);
- const population=Game.call('world');assert(population.creatures.length===3&&population.deaths===2,'shared physics survives a stalled controller and removes a fallen torso');
+ const population=Game.call('world');assert(population.creatures.length===5&&population.deaths===2,'shared physics keeps a boat, anchored bridge and land/air creatures, removes failed controllers and fallen torsos');
+ const harbor=population.creatures.find(c=>c.name==='Harbor boat'),anchored=population.creatures.find(c=>c.anchored);assert(harbor.y>-2&&harbor.up>.8&&anchored.x===96,'boat remains afloat and structure stays anchored');
+ Game.call('camera',{x:116,y:-1,z:20,distance:50,pitch:.5});
  const worldPng=Buffer.from(Game.call('snapshot'));fs.writeFileSync('/workspace/blockwalker-world.png',worldPng);Game.call('save');
  const saved=JSON.parse(fs.readFileSync('/workspace/blockwalker-world.json','utf8'));
- assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===2,'feedback and legacy controller rates persist');
+ assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===3,'feedback and legacy controller rates persist');
+ assert(saved.creatures.some(c=>c.anchored)&&saved.creatures.find(c=>c.name==='Harbor boat').blueprint.every(p=>p.material===1),'anchoring and hull materials persist');
  fs.writeFileSync('/workspace/blockwalker-integration.json',JSON.stringify({embedded:true,pngBytes:png.length,steps:after.steps,parts:after.parts,population}));
  console.log('BLOCKWALKER EMBED CHECK: direct C calls, GPU PNG, timed keyboard, paused inference, shared world, controller timeout, survivors, persistence');
 }finally{clearInterval(timer);Game.call('exit');}

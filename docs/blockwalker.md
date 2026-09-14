@@ -1,7 +1,7 @@
 # Blockwalker
 
-Build a character from boxes and magnetic-looking balls with powered hinges,
-then try to walk it across a plain floor. The starter has five parts and four
+Build walkers, boats, flying machines and anchored structures from boxes and
+magnetic-looking balls with powered hinges. The starter has five parts and four
 joints; a three-part chain, an eight-joint quadruped and an empty grid are also available. There is no
 automatic gait or balance system.
 
@@ -19,6 +19,9 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Orbit / zoom / recenter | Camera buttons, right-drag or Alt + left-drag / scroll / H |
 | Edit a joint | Pick it, choose X/Y/Z, click each key to rebind |
 | Test / return to editor | Test character or Enter / Escape |
+| Ground / water trial | Test surface button in the header |
+| Anchor a structure | Select the starting block and toggle Root anchored |
+| Density / appearance | Inspector Mass buttons / finish buttons beneath the palette |
 | Undo | Undo button or Ctrl-Z |
 | World / workshop | World button |
 | Pi panel | Pi button or Tab |
@@ -52,9 +55,26 @@ strength. Wheels have centered cylindrical collision shapes, a 0.7 m
 radius, 0.7 m width and unlimited motor rotation. The larger radius keeps a
 same-height chassis off the ground. Attach wheels as leaves: anything beyond them rotates too.
 Each actuator uses a pair of assignable keys. The inspector shows speed, stroke
-or force in the relevant units. Version 3 blueprints save stroke, force and piston direction. Versions 1 and 2
-still load; old pistons retain their positive-axis motion so saved programs keep
-working. The agent JSON API defaults to direction +1 and accepts -1.
+or force in the relevant units. Version 4 blueprints also save anchoring,
+materials and finishes. Versions 1–3 still load with their original mass and
+appearance; old pistons retain their positive-axis motion. The agent JSON API
+defaults to direction +1 and accepts -1.
+
+Material 0 is alloy, 1 is a sealed hull with one-quarter density, and 2 is ballast
+with triple density. Eight volume samples per body apply buoyancy and drag at
+their actual positions; hull placement and centre of mass determine stability.
+The sea and GPU surface use the same waves. This is sampled rigid-body buoyancy,
+not a particle-fluid simulation. In the initial catamaran, low stern thrusters
+gave substantially steadier propulsion than high-mounted engines.
+
+The shared world spans 512 metres. Its original 200-metre ground is surrounded
+by sea, stepped islands and docks; rendered solids share the collision geometry.
+The harbour is near x=112,z=20, open-water trials at x=125,z=10, and the eastern
+island at x=170,z=30. `reset_practice({sea:true})` chooses water; `program_trial`
+keeps the selected surface unless `sea` is supplied. Anchored blueprints pin the
+root to the terrain and leave the remaining bodies and joints physical.
+Finishes 0–3 select plain, panelled, glowing trim or hazard stripes without
+changing the physics.
 
 Pi receives horizontal distance, speed and torso orientation as well as timed
 GPU images. Its goal is actual legged walking before exploring other moving
@@ -118,6 +138,8 @@ pauses after the trial. The same controller implementation runs released creatur
 | `positions` | World centre of mass of each part, indexed by part |
 | `angles`, `rates` | Joint position/speed, radians and rad/s; pistons use metres and m/s |
 | `touching` | Per-part contact booleans; includes other bodies and the floor |
+| `ground`, `waterHeight` | Terrain height and wave surface under the root; water height is available in sea trials and the shared world |
+| `submerged` | Per-part fraction in water, from 0 to 1 |
 
 Vectors are three-element arrays. Initial body axes are +X right, +Y up, +Z
 forward. For a two-wheel vehicle facing +Z with axles along X,
@@ -132,13 +154,15 @@ thrust, and verifies recovery and saved-world continuation.
 Each controller has a seeded random function, 4 MiB memory and a 4 ms execution allowance. A failed controller
 removes its creature without stopping the world. Shared Box3D physics allows
 creatures to collide. After a three-second settling period, a sideways torso
-(uprightness < 0.15) or collapsed raised torso (height < 0.65 m) is removed if it
-stays fallen for two seconds. There is still no automatic balance assistance.
+(uprightness < 0.15) or collapsed raised torso (height < 0.65 m above land) is
+removed if it stays fallen for two seconds. At sea, sinking more than three
+metres below the surface also fails. Anchored structures skip posture checks;
+their controllers still have the same execution limit.
 
 The world autosaves to `/workspace/blockwalker-world.json`, including blueprints,
 programs, controller memory/seeds, ages, poses and velocities. Restarting the game
 restores it. Export world downloads this file; Dolly saved sessions also retain
-it. The world shader adds animated terrain contours, grass, flowers and sky.
+it. WebGPU renders the islands, moving water, stars, moon and thruster exhaust.
 
 ```sh
 node scripts/prepare-blockwalker.mjs

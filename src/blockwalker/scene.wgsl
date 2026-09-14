@@ -1,5 +1,5 @@
 struct Scene { eye:vec4f, forward:vec4f, right:vec4f, up:vec4f, viewport:vec4f, world:vec4f }
-struct Box { center:vec4f, rotation:vec4f, color:vec4f, flags:vec4f, extent:vec4f }
+struct Box { center:vec4f, rotation:vec4f, color:vec4f, flags:vec4f, extent:vec4f, style:vec4f }
 @group(0) @binding(0) var<uniform> scene:Scene;
 @group(0) @binding(1) var<storage,read> boxes:array<Box>;
 @group(0) @binding(2) var<storage,read> ui:array<u32>;
@@ -83,6 +83,13 @@ fn sky(ray:vec3f)->vec3f {
     }
     return color;
 }
+fn water_height(p:vec2f)->f32 {
+    return scene.world.w+.10*sin(p.x*.22+p.y*.13-scene.world.x*1.3)+.06*sin(p.y*.31-p.x*.09+scene.world.x*.9);
+}
+fn water_normal(p:vec2f)->vec3f {
+    let a=cos(p.x*.22+p.y*.13-scene.world.x*1.3);let b=cos(p.y*.31-p.x*.09+scene.world.x*.9);
+    return normalize(vec3f(-.022*a+.0054*b,1,-.013*a-.0186*b));
+}
 @fragment fn fragment_main(@builtin(position) pixel:vec4f)->@location(0) vec4f {
     let overlay=unpack(ui[u32(pixel.y)*1280u+u32(pixel.x)]);
     if(overlay.a>0.998){return vec4f(overlay.rgb,1);}
@@ -93,7 +100,7 @@ fn sky(ray:vec3f)->vec3f {
     var color=sky(ray);
     var distance=10000.0;var object=-1;
     // The builder floor is visible only from above, so it never hides undersides.
-    if(scene.eye.y>0&&ray.y<-.0001){let t=-scene.eye.y/ray.y;if(t>0){distance=t;object=-2;}}
+    if(scene.world.y==0&&scene.eye.y>0&&ray.y<-.0001){let t=-scene.eye.y/ray.y;if(t>0){distance=t;object=-2;}}
     let hit=trace(scene.eye.xyz,ray,distance,false);if(hit.y>=0){distance=hit.x;object=i32(hit.y);}
     let position=scene.eye.xyz+ray*distance;
     if(object==-2){
@@ -105,12 +112,6 @@ fn sky(ray:vec3f)->vec3f {
         color+=vec3f(.06,.19,.18)*fade*select(0.0,1.0,min(grid.x,grid.y)<.016);
         var shadow=1.0;
         if(trace(position+vec3f(0,.01,0),sun,10000,true).y>=0){shadow=.73;}
-        if(scene.world.y>0){
-            let terrain=noise(position.xz*.18);let grain=noise(position.xz*8);
-            color=mix(vec3f(.065,.08,.105),vec3f(.15,.16,.19),terrain)*(.85+.15*grain);
-            let seam=min(abs(fract(position.x/8+.5)-.5),abs(fract(position.z/8+.5)-.5));
-            color+=vec3f(.03,.19,.19)*(1-smoothstep(.003,.014,seam));
-        }
         color*=shadow;
         color=mix(color,vec3f(.025,.045,.075),clamp(distance/300,0,.85));
     }else if(object>=0){
@@ -140,6 +141,25 @@ fn sky(ray:vec3f)->vec3f {
             let face=abs(abs(p)-b.extent.xyz);var normal=vec3f(sign(p.x),0,0);
             if(face.y<face.x&&face.y<face.z){normal=vec3f(0,sign(p.y),0);}else if(face.z<face.x){normal=vec3f(0,0,sign(p.z));}
             color=b.color.rgb*(.69+.31*max(0,dot(rotate(b.rotation,normal),sun)));
+            var face_uv=p.yz;if(abs(normal.y)>.5){face_uv=p.xz;}else if(abs(normal.z)>.5){face_uv=p.xy;}
+            if(b.flags.x==6){
+                color*=.82+.18*noise(position.xz*2+position.y);
+                if(normal.y>.5){
+                    let seam=min(abs(fract(position.x/8+.5)-.5),abs(fract(position.z/8+.5)-.5));
+                    color+=vec3f(.02,.12,.13)*(1-smoothstep(.003,.01,seam));
+                }else{color*=.82+.18*sin(position.y*3+noise(position.xz*.3)*2);}
+                if(trace(position+normal*.02,sun,512,true).y>=0){color*=.65;}
+            }else{
+                let inset=abs(face_uv);
+                if(b.style.y==1){
+                    if(max(inset.x,inset.y)>.395){color*=.48;}
+                    if(length(inset-vec2f(.34))<.026){color=vec3f(.55,.64,.66);}
+                }
+                if(b.style.y==2&&max(inset.x,inset.y)>.39){color=b.color.rgb*1.35+vec3f(.05,.14,.12);}
+                if(b.style.y==3&&abs(face_uv.y)>.28){color=select(vec3f(.055,.065,.07),vec3f(.92,.62,.12),sin((face_uv.x+face_uv.y)*28)>0);}
+                if(b.style.x==1&&abs(p.y)<.19&&abs(normal.y)<.5){color=mix(color,vec3f(.04,.10,.15),.75);}
+                if(b.style.x==2&&abs(face_uv.y)<.065){color*=.3;}
+            }
             if(b.flags.x==3){
                 let w=wheel_space(p,b.flags.y);
                 if(abs(normal[u32(b.flags.y)])>.5&&max(abs(w.x),abs(w.z))<.36){
@@ -152,6 +172,27 @@ fn sky(ray:vec3f)->vec3f {
         }
         if(b.flags.w==1&&b.flags.z==0){color=mix(color,vec3f(1),.13);}
         if(b.flags.z==2){color=mix(color,vec3f(.8,.92,.82),.5);}
+    }
+    if(scene.world.y>0&&abs(ray.y)>.005){
+        var t=(scene.world.w-scene.eye.y)/ray.y;
+        for(var i=0;i<4;i++){let p=scene.eye.xyz+ray*t;t=(water_height(p.xz)-scene.eye.y)/ray.y;}
+        let water=scene.eye.xyz+ray*t;
+        if(t>0&&t<distance&&max(abs(water.x),abs(water.z))<256){
+            let detail=vec3f(.035*sin(water.z*2.6+scene.world.x*2.1),0,.025*sin(water.x*2.1-scene.world.x*1.7));
+            let normal=normalize(water_normal(water.xz)+detail);let depth=max(0,distance-t);
+            let fresnel=.035+.80*pow(1-abs(dot(normal,-ray)),5);
+            let reflection=sky(reflect(ray,normal));
+            let swell=.5+.5*sin(water.x*.22+water.z*.13-scene.world.x*1.3);
+            let deep=mix(vec3f(.018,.105,.16),vec3f(.027,.18,.23),swell);
+            let transmitted=mix(deep,color,exp(-depth*.20));
+            color=mix(transmitted,reflection,fresnel);
+            let gleam=pow(max(0,dot(reflect(-sun,normal),-ray)),180);
+            color+=vec3f(.42,.70,.88)*gleam*.5;
+            let ripples=pow(.5+.5*sin(water.x*1.9+water.z*2.6+scene.world.x*2.3),12);
+            color+=vec3f(.015,.055,.07)*ripples*(.35+.65*fresnel);
+            let foam=(1-smoothstep(.02,.4,depth))*(.5+.5*noise(water.xz*9+scene.world.x*.3));
+            color=mix(color,vec3f(.35,.67,.69),foam*.55);
+        }
     }
     return vec4f(mix(color,overlay.rgb,overlay.a),1);
 }

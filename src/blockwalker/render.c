@@ -1,4 +1,5 @@
 #include "render.h"
+#include "terrain.h"
 #include <dolly/gpu.h>
 #include <raymath.h>
 #include <rlgl.h>
@@ -11,7 +12,7 @@
 Font editor_font;
 static dolly_gpu gpu;
 static unsigned char *ui_pixels;
-typedef struct { float center[4],rotation[4],color[4],flags[4],half[4]; } BoxDraw;
+typedef struct { float center[4],rotation[4],color[4],flags[4],half[4],style[4]; } BoxDraw;
 static BoxDraw *boxes;
 static size_t box_capacity;
 static uint64_t box_buffer,box_group,node_buffer,next_resource;
@@ -90,9 +91,13 @@ static int compare_box(const void *a,const void *b){float x=((const BoxDraw *)a)
 static uint32_t make_tree(uint32_t start,uint32_t count){
     uint32_t id=node_count++;Node *n=&nodes[id];
     for(int axis=0;axis<3;axis++){n->lo[axis]=1e30f;n->hi[axis]=-1e30f;}
-    for(uint32_t i=start;i<start+count;i++)for(int axis=0;axis<3;axis++){
-        // Rotated unit cubes fit in a sphere of radius sqrt(3)/2.
-        float h=boxes[i].flags[0]==BLOCK_HINGE?.485f:sqrtf(boxes[i].half[0]*boxes[i].half[0]+boxes[i].half[1]*boxes[i].half[1]+boxes[i].half[2]*boxes[i].half[2]);n->lo[axis]=fminf(n->lo[axis],boxes[i].center[axis]-h);n->hi[axis]=fmaxf(n->hi[axis],boxes[i].center[axis]+h);
+    for(uint32_t i=start;i<start+count;i++){
+        BoxDraw b=boxes[i];Quaternion q={b.rotation[0],b.rotation[1],b.rotation[2],b.rotation[3]};
+        Vector3 x=Vector3RotateByQuaternion((Vector3){b.half[0],0,0},q),y=Vector3RotateByQuaternion((Vector3){0,b.half[1],0},q),z=Vector3RotateByQuaternion((Vector3){0,0,b.half[2]},q);
+        for(int axis=0;axis<3;axis++){
+            float h=b.flags[0]==BLOCK_HINGE?.485f:fabsf(((float *)&x)[axis])+fabsf(((float *)&y)[axis])+fabsf(((float *)&z)[axis]);
+            n->lo[axis]=fminf(n->lo[axis],b.center[axis]-h);n->hi[axis]=fmaxf(n->hi[axis],b.center[axis]+h);
+        }
     }
     if(count==1){n->left=start;n->right=UINT32_MAX;return id;}
     sort_axis=0;for(int axis=1;axis<3;axis++)if(n->hi[axis]-n->lo[axis]>n->hi[sort_axis]-n->lo[sort_axis])sort_axis=axis;
@@ -103,14 +108,14 @@ static void box_draw(Block b,Vector3 v,Quaternion q,int selected,int hover,int p
     Color color=block_colors[b.color];
     boxes[index]=(BoxDraw){{v.x,v.y,v.z,.485f},{q.x,q.y,q.z,q.w},
         {color.r/255.f,color.g/255.f,color.b/255.f,preview?.35f:1},
-        {b.joint,b.axis,preview?2:selected,hover},{.485f,.485f,.485f,0}};
+        {b.joint,b.axis,preview?2:selected,hover},{.485f,.485f,.485f,0},{b.material,b.finish,0,0}};
     if(b.joint==BLOCK_WHEEL){for(int i=0;i<3;i++)boxes[index].half[i]=i==b.axis?.35f:.7f;}
 }
-static void draw_scene(const Orbit *o,size_t count,int running,int population){
+static void draw_scene(const Orbit *o,size_t count,int running,int landscape,double time){
     Vector3 f=Vector3Normalize(Vector3Subtract(o->target,o->eye)),r=Vector3Normalize(Vector3CrossProduct(f,(Vector3){0,1,0})),u=Vector3CrossProduct(r,f);
     Scene scene={{o->eye.x,o->eye.y,o->eye.z,count},
         {f.x,f.y,f.z,tanf(21*DEG2RAD)},{r.x,r.y,r.z,(float)VIEW_W/VIEW_H},
-        {u.x,u.y,u.z,running},{VIEW_X,VIEW_Y,VIEW_W,VIEW_H},{world.age,population,GetTime(),0}};
+        {u.x,u.y,u.z,running},{VIEW_X,VIEW_Y,VIEW_W,VIEW_H},{time,landscape,GetTime(),WATER_LEVEL}};
     node_count=0;if(count)make_tree(0,count);
     dolly_gpu_write(&gpu,1,&scene,sizeof(scene));
     if(count){upload_buffer(box_buffer,boxes,count*sizeof(BoxDraw));upload_buffer(node_buffer,nodes,node_count*sizeof(Node));}
@@ -147,16 +152,25 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
         }
     }return at;
 }
+static size_t draw_terrain(size_t at){
+    const Color colors[]={{38,48,65,255},{76,60,86,255},{43,76,76,255},{67,70,88,255},{53,72,81,255}};
+    for(int i=0;i<terrain_count;i++){
+        TerrainBox b=terrain_boxes[i];box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
+        Color color=colors[b.color];boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at].color[2]=color.b/255.f;
+        boxes[at].flags[0]=6;boxes[at].style[1]=b.color==4?FINISH_PANEL:FINISH_PLAIN;
+        boxes[at].half[0]=b.half.x;boxes[at].half[1]=b.half.y;boxes[at++].half[2]=b.half.z;
+    }return at;
+}
 void render_frame(const Character *c,const Physics *p,const Orbit *o,int selected,int hover,const Block *ghost){
-    reserve_boxes((size_t)c->count*3+(ghost!=NULL));
-    size_t count=character_draw(c,p,selected,hover,0);
+    reserve_boxes((size_t)c->count*3+(ghost!=NULL)+(p->landscape?terrain_count:0));
+    size_t count=character_draw(c,p,selected,hover,p->landscape?draw_terrain(0):0);
     if(ghost)box_draw(*ghost,block_position(*ghost),QuaternionIdentity(),0,0,1,count++);
-    draw_scene(o,count,p->running,0);
+    draw_scene(o,count,p->running,p->landscape,p->time);
 }
 void render_world(const Orbit *o){
-    size_t count=0;for(int i=0;i<world.count;i++)count+=(size_t)world.creatures[i].design.count*3;reserve_boxes(count);
-    size_t at=0;for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];at=character_draw(&c->design,&c->physics,-1,-1,at);}
-    draw_scene(o,at,1,1);
+    size_t count=terrain_count;for(int i=0;i<world.count;i++)count+=(size_t)world.creatures[i].design.count*3;reserve_boxes(count);
+    size_t at=draw_terrain(0);for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];at=character_draw(&c->design,&c->physics,-1,-1,at);}
+    draw_scene(o,at,1,1,world.age);
 }
 static unsigned char *capture(const Character *c,const Physics *p,const Orbit *o,int *bytes) {
     *bytes=0;check(dolly_gpu_capabilities(&gpu));uint32_t features;memcpy(&features,gpu.reply,4);dolly_gpu_begin(&gpu);

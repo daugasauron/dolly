@@ -11,7 +11,7 @@ EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
 USE HOST /modules/pi.dm 423ae4a3ccf5759d59d47147cf437beb2238a0376609c75d9bda6f9dcef66a19
-USE HOST /modules/blockwalker.dm b95e7309f0851d9281c5c8cc5beb385e5c9c11849f373d1c0363fb6d090c3c63
+USE HOST /modules/blockwalker.dm 8f0edce23dc968dfa4e9dc56f26834479973593d92dda699074a76a7f93e6ae1
 
 FILE /etc/dolly/blockwalker.slop
     /bin/foreground /usr/bin/blockwalker

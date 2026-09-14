@@ -53,3 +53,38 @@ session `blockwalker-space`. Migrated all 11 survivors and the full 28 MB Pi
 conversation from `build/blockwalker-walking/space-camera-state.tar`, retaining
 the backup. Pi's own five-part flyer had remained upright at y=3.31 m after
 485 simulation seconds before the migration. Continue the larger-world work.
+
+## Water checkpoint, 2026-09-15 00:52 JST
+
+Added a 512 m island world with physical docks, matching GPU waves and sampled
+buoyancy/drag. Hull and ballast materials affect mass and flotation; four
+finishes change appearance. Anchored roots support moving bridges and cranes.
+Version 4 blueprints preserve these settings while versions 1–3 still load.
+Ground/water trials and physics water sensors are available directly to Pi.
+
+The image compiled entirely inside Dolly and passed the native checks. The
+11-part catamaran floated at root y=-0.883 m, up=0.996, hull submersion=0.360;
+it drove 14.093 m in six seconds and turned 1.274 rad with minimum up=0.992.
+Maximum separation was 0.00032 m. The anchored mechanism's root moved 0 m,
+with hinge motion in both directions and 0.00835 m maximum separation.
+Evidence: `build/blockwalker-proof/physics-check.log`.
+
+Both focused browser suites passed on Chrome/NVIDIA under separate 4 GiB,
+no-swap process-tree limits and 180-second timeouts. Logs:
+`build/blockwalker-water-editor-guarded.log` (38 seconds) and
+`build/blockwalker-water-agent-guarded.log` (40 seconds). Integration retained
+five land/air/sea/anchored survivors across restart. Camera checks use actual
+C coordinates, independent of animated water; the host-memory assertion issue
+is recorded and closed in `tasks/20260915-004300-codex-01/TASK.md`.
+Visual evidence: `build/blockwalker-proof/blockwalker-water.png` and
+`build/blockwalker-proof/blockwalker-world.png`.
+
+After the host restart, restored all 12 saved creatures at world age 5333 s
+and the full 28 MB saved Pi conversation checkpoint. Later world/controllers
+were preserved even though the later full conversation was lost with the old
+temporary browser profile. Recovery archive:
+`build/blockwalker-walking/water-state.tar`; session: `blockwalker-water`.
+The new browser profile lives under `.cache/blockwalker-browser-20260915`.
+Pi's request at 15:51:29 UTC used `gpt-6-astra`, effort `xhigh`, verified in
+`build/blockwalker-walking/requests.jsonl`. Continue populating the sea and
+harbor, improve navigation and larger mechanisms, and measure the fuller world.

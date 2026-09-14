@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "world.h"
+#include "terrain.h"
 #include <raymath.h>
 #include <math.h>
 #include <stdint.h>
@@ -35,9 +36,9 @@ JSValue character_json(JSContext *ctx,const Character *c){
     JSValue list=JS_NewArray(ctx);
     for(int i=0;i<c->count;i++){
         Block b=c->blocks[i];JSValue part=JS_NewObject(ctx);
-        const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive","speed","limit","travel","force","direction"};
-        double values[]={b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction};
-        for(int j=0;j<14;j++)put_number(ctx,part,names[j],values[j]);JS_SetPropertyUint32(ctx,list,i,part);
+        const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive","speed","limit","travel","force","direction","material","finish"};
+        double values[]={b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish};
+        for(int j=0;j<16;j++)put_number(ctx,part,names[j],values[j]);JS_SetPropertyUint32(ctx,list,i,part);
     }return list;
 }
 int character_from_json(JSContext *ctx,JSValueConst list,Character *c){
@@ -45,11 +46,11 @@ int character_from_json(JSContext *ctx,JSValueConst list,Character *c){
     Character next={.count=(int)length,.capacity=(int)length};next.blocks=array_resize(NULL,next.count,sizeof(Block));
     for(int i=0;i<next.count;i++){
         JSValue v=JS_GetPropertyUint32(ctx,list,i);Block *b=&next.blocks[i];
-        const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive","speed","limit","travel","force","direction"};
-        double defaults[]={0,0,0,i-1,0,i%COLOR_COUNT,2,0,0,2.5,75,1.5,24,1},n[14];int valid=1;
-        for(int j=0;j<14;j++){n[j]=get_number(ctx,v,names[j],defaults[j]);if(!isfinite(n[j])||((j<9||j==13)&&(n[j]!=floor(n[j])||n[j]<INT32_MIN||n[j]>INT32_MAX)))valid=0;}
+        const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive","speed","limit","travel","force","direction","material","finish"};
+        double defaults[]={0,0,0,i-1,0,i%COLOR_COUNT,2,0,0,2.5,75,1.5,24,1,0,0},n[16];int valid=1;
+        for(int j=0;j<16;j++){n[j]=get_number(ctx,v,names[j],defaults[j]);if(!isfinite(n[j])||((j<9||j>=13)&&(n[j]!=floor(n[j])||n[j]<INT32_MIN||n[j]>INT32_MAX)))valid=0;}
         JS_FreeValue(ctx,v);if(!valid){character_clear(&next);return 0;}
-        *b=(Block){.x=n[0],.y=n[1],.z=n[2],.parent=n[3],.joint=n[4],.color=n[5],.axis=n[6],.negative=n[7],.positive=n[8],.speed=n[9],.limit=n[10],.travel=n[11],.force=n[12],.direction=n[13]};
+        *b=(Block){.x=n[0],.y=n[1],.z=n[2],.parent=n[3],.joint=n[4],.color=n[5],.axis=n[6],.negative=n[7],.positive=n[8],.speed=n[9],.limit=n[10],.travel=n[11],.force=n[12],.direction=n[13],.material=n[14],.finish=n[15]};
     }
     if(!character_validate(&next)){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
 }
@@ -57,9 +58,11 @@ static JSValue vector(JSContext *ctx,Vector3 v){
     JSValue a=JS_NewArray(ctx);JS_SetPropertyUint32(ctx,a,0,JS_NewFloat64(ctx,v.x));JS_SetPropertyUint32(ctx,a,1,JS_NewFloat64(ctx,v.y));JS_SetPropertyUint32(ctx,a,2,JS_NewFloat64(ctx,v.z));return a;
 }
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt){
-    JSValue s=JS_NewObject(ctx),angles=JS_NewArray(ctx),rates=JS_NewArray(ctx),touching=JS_NewArray(ctx),positions=JS_NewArray(ctx);
+    JSValue s=JS_NewObject(ctx),angles=JS_NewArray(ctx),rates=JS_NewArray(ctx),touching=JS_NewArray(ctx),positions=JS_NewArray(ctx),submerged=JS_NewArray(ctx);
     Vector3 position;Quaternion q;physics_pose(p,c,0,&position,&q);Quaternion inverse=QuaternionInvert(q);
     put_number(ctx,s,"x",position.x);put_number(ctx,s,"y",position.y);put_number(ctx,s,"z",position.z);put_number(ctx,s,"dt",dt);
+    put_number(ctx,s,"ground",p->landscape?terrain_height(position.x,position.z):0);
+    if(p->landscape)put_number(ctx,s,"waterHeight",water_height(position.x,position.z,p->time));
     Vector3 up=Vector3RotateByQuaternion((Vector3){0,1,0},q);put_number(ctx,s,"up",up.y);
     b3Vec3 v=b3Body_GetLinearVelocity(p->parts[0].body),w=b3Body_GetAngularVelocity(p->parts[0].body),gravity=b3World_GetGravity(p->world);
     put_number(ctx,s,"vx",v.x);put_number(ctx,s,"vy",v.y);put_number(ctx,s,"vz",v.z);
@@ -72,11 +75,12 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
     for(int i=0;i<c->count;i++){
         b3BodyId body=p->parts[i].body;b3Pos pos=b3Body_GetWorldCenterOfMass(body);float m=b3Body_GetMass(body);mass+=m;center=Vector3Add(center,Vector3Scale((Vector3){pos.x,pos.y,pos.z},m));
         JS_SetPropertyUint32(ctx,positions,i,vector(ctx,(Vector3){pos.x,pos.y,pos.z}));
+        JS_SetPropertyUint32(ctx,submerged,i,JS_NewFloat64(ctx,p->parts[i].submerged));
         JS_SetPropertyUint32(ctx,angles,i,JS_NewFloat64(ctx,p->parts[i].angle));JS_SetPropertyUint32(ctx,rates,i,JS_NewFloat64(ctx,p->parts[i].rate));
         b3ContactData contact;JS_SetPropertyUint32(ctx,touching,i,JS_NewBool(ctx,b3Body_GetContactData(body,&contact,1)>0));
     }
     put_number(ctx,s,"mass",mass);JS_SetPropertyStr(ctx,s,"centerOfMass",vector(ctx,Vector3Scale(center,mass>0?1/mass:0)));
-    JS_SetPropertyStr(ctx,s,"angles",angles);JS_SetPropertyStr(ctx,s,"rates",rates);JS_SetPropertyStr(ctx,s,"touching",touching);JS_SetPropertyStr(ctx,s,"positions",positions);return s;
+    JS_SetPropertyStr(ctx,s,"angles",angles);JS_SetPropertyStr(ctx,s,"rates",rates);JS_SetPropertyStr(ctx,s,"touching",touching);JS_SetPropertyStr(ctx,s,"positions",positions);JS_SetPropertyStr(ctx,s,"submerged",submerged);return s;
 }
 static int assigned(const Character *design,int key){
     if(key<=0||key>=128)return 0;
@@ -120,26 +124,30 @@ JSValue world_install(JSContext *ctx,JSValueConst args){
 }
 static Creature *spawn(const Character *design,const char *source,const char *name,uint32_t seed,int hz,float x,float z){
     Controller *controller=controller_new(source,seed,hz);if(!controller)return NULL;
-    if(!world.next_id){world.next_id=1;world.physics=physics_world();}
+    if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
     if(world.count==world.capacity){world.capacity=world.capacity?world.capacity*2:16;world.creatures=array_resize(world.creatures,world.capacity,sizeof(Creature));}
     Creature *c=&world.creatures[world.count++];memset(c,0,sizeof(*c));c->id=world.next_id++;snprintf(c->name,sizeof(c->name),"%s",name);c->controller=controller;
-    character_copy(&c->design,design);physics_attach(&c->physics,&c->design,world.physics,x,z);
-    Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);c->root_height=p.y;return c;
+    character_copy(&c->design,design);physics_attach(&c->physics,&c->design,world.physics,x,z,1);c->physics.time=world.age;
+    Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);c->root_height=p.y-fmaxf(terrain_height(x,z),WATER_LEVEL);return c;
 }
 JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args){
     if(!installed||!design->count)return JS_ThrowTypeError(ctx,"Build a character and install a learned controller first");
     int index=world.next_id?world.next_id-1:0,plot=index%256;float angle=plot*2.399963f,radius=5*sqrtf(plot);
     float x=get_number(ctx,args,"x",cosf(angle)*radius),z=get_number(ctx,args,"z",sinf(angle)*radius);
-    if(!isfinite(x)||!isfinite(z)||fabsf(x)>90||fabsf(z)>90)return JS_ThrowRangeError(ctx,"Spawn must be within the 200 m ground");
+    if(!isfinite(x)||!isfinite(z)||fabsf(x)>WORLD_RADIUS-8||fabsf(z)>WORLD_RADIUS-8)return JS_ThrowRangeError(ctx,"Spawn must be inside the 512 m world; the sea surrounds the central 200 m ground");
     Creature *c=spawn(design,installed,installed_name,(uint32_t)get_number(ctx,args,"seed",index+1),installed_hz,x,z);
     if(!c)return JS_ThrowInternalError(ctx,"Controller failed to initialize");
     printf("CREATURE %d born: %s, %d parts\n",c->id,c->name,c->design.count);return JS_NewInt32(ctx,c->id);
 }
 JSValue world_state(JSContext *ctx){
     JSValue result=JS_NewObject(ctx),list=JS_NewArray(ctx);put_number(ctx,result,"deaths",world.deaths);put_number(ctx,result,"seconds",world.age);
+    JSValue terrain=JS_NewObject(ctx);put_number(ctx,terrain,"radius",WORLD_RADIUS);put_number(ctx,terrain,"waterLevel",WATER_LEVEL);
+    JS_SetPropertyStr(ctx,terrain,"harbor",vector(ctx,(Vector3){112,0,20}));JS_SetPropertyStr(ctx,terrain,"seaTrial",vector(ctx,(Vector3){125,-2,10}));
+    JS_SetPropertyStr(ctx,terrain,"eastIsland",vector(ctx,(Vector3){170,4,30}));JS_SetPropertyStr(ctx,terrain,"westIsland",vector(ctx,(Vector3){-174,2,-35}));JS_SetPropertyStr(ctx,terrain,"northRidge",vector(ctx,(Vector3){15,6,-175}));JS_SetPropertyStr(ctx,result,"terrain",terrain);
     for(int i=0;i<world.count;i++){
         Creature *c=&world.creatures[i];JSValue item=JS_NewObject(ctx);Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);
         put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));put_number(ctx,item,"parts",c->design.count);
+        JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));
         put_number(ctx,item,"seconds",c->physics.steps/60.0);put_number(ctx,item,"x",p.x);put_number(ctx,item,"y",p.y);put_number(ctx,item,"z",p.z);
         put_number(ctx,item,"distance",hypot(p.x-c->physics.start.x,p.z-c->physics.start.z));
         b3Vec3 velocity=b3Body_GetLinearVelocity(c->physics.parts[0].body);put_number(ctx,item,"speed",hypot(velocity.x,velocity.z));
@@ -148,15 +156,18 @@ JSValue world_state(JSContext *ctx){
     }JS_SetPropertyStr(ctx,result,"creatures",list);return result;
 }
 void world_step(void){
-    if(!world.next_id)return;
+    if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
     for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];
+        c->physics.time=world.age;
         if(c->physics.steps%(60/c->controller->hz)==0&&!controller_step(c->controller,&c->physics,&c->design,c->controls))c->fallen=100;
         physics_drive(&c->physics,&c->design,c->controls);
     }
     b3World_Step(world.physics,1.f/60,8);world.age+=1./60;
     for(int i=0;i<world.count;){Creature *c=&world.creatures[i];physics_sample(&c->physics,&c->design);
         Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);float up=Vector3RotateByQuaternion((Vector3){0,1,0},q).y;
-        int fallen=!isfinite(p.y)||p.y<-.5f||up<.15f||(c->root_height>1.2f&&p.y<.65f);
+        float ground=terrain_height(p.x,p.z);int sea=ground<WATER_LEVEL;
+        int fallen=!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z)||(!c->design.anchored&&
+            (p.y<(sea?WATER_LEVEL-3:ground-.5f)||up<.15f||(!sea&&c->root_height>1.2f&&p.y<ground+.65f)));
         if(c->physics.steps>180&&fallen)c->fallen+=1.f/60;else if(c->fallen<100)c->fallen=0;
         if(c->fallen>2){printf("CREATURE %d removed: %s after %.1fs\n",c->id,c->name,c->physics.steps/60.0);
             physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);world.creatures[i]=world.creatures[--world.count];world.deaths++;
@@ -202,6 +213,7 @@ void world_load(JSContext *ctx){
     for(int i=0;i<count;i++){
         JSValue item=JS_GetPropertyUint32(ctx,list,i),blueprint=JS_GetPropertyStr(ctx,item,"blueprint");Character c={0};
         if(character_from_json(ctx,blueprint,&c)){
+            JSValue anchored=JS_GetPropertyStr(ctx,item,"anchored");c.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);
             JSValue code=JS_GetPropertyStr(ctx,item,"source"),label=JS_GetPropertyStr(ctx,item,"name");const char *s=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);
             int hz=get_number(ctx,item,"hz",10);if(hz!=10&&hz!=20&&hz!=30&&hz!=60)hz=10;
             Creature *creature=s?spawn(&c,s,name?name:"Creature",get_number(ctx,item,"seed",1),hz,0,0):NULL;
@@ -218,6 +230,6 @@ void world_load(JSContext *ctx){
             }JS_FreeCString(ctx,s);JS_FreeCString(ctx,name);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
         }character_clear(&c);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,item);
     }
-    world.deaths=get_number(ctx,save,"deaths",0);world.age=get_number(ctx,save,"seconds",0);int next_id=get_number(ctx,save,"nextId",0);if(next_id>0&&!world.next_id)world.physics=physics_world();world.next_id=fmax(world.next_id,next_id);
+    world.deaths=get_number(ctx,save,"deaths",0);world.age=get_number(ctx,save,"seconds",0);int next_id=get_number(ctx,save,"nextId",0);if(next_id>0&&!world.next_id)world.physics=physics_world(1);world.next_id=fmax(world.next_id,next_id);
     JS_FreeValue(ctx,list);JS_FreeValue(ctx,save);
 }

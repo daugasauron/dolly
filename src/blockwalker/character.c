@@ -1,4 +1,5 @@
 #include "character.h"
+#include "terrain.h"
 #include <assert.h>
 #include <raymath.h>
 #include <math.h>
@@ -11,6 +12,7 @@
 const Color block_colors[COLOR_COUNT]={{110,197,171,255},{238,168,83,255},{105,157,221,255},{221,114,108,255},{166,139,211,255},{224,217,193,255}};
 const char *block_names[BLOCK_KINDS]={"BOX","BALL JOINT","PISTON","THRUSTER","WHEEL"};
 Vector3 block_position(Block b) { return (Vector3){b.x,b.y+.5f,b.z}; }
+float block_density(Block b){return (b.joint==BLOCK_HINGE?6/PI:b.joint==BLOCK_WHEEL?2:1)*(b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1);}
 void *array_resize(void *memory,size_t count,size_t size) {
     if(count>SIZE_MAX/size){fputs("Character allocation overflow\n",stderr);exit(1);}
     void *grown=realloc(memory,count*size);
@@ -20,16 +22,16 @@ void character_clear(Character *c) {free(c->blocks);memset(c,0,sizeof(*c));}
 void character_copy(Character *to,const Character *from) {
     if(to==from)return;
     if(to->capacity<from->count){to->blocks=array_resize(to->blocks,from->count,sizeof(Block));to->capacity=from->count;}
-    to->count=from->count;if(from->count)memcpy(to->blocks,from->blocks,from->count*sizeof(Block));
+    to->count=from->count;to->anchored=from->anchored;if(from->count)memcpy(to->blocks,from->blocks,from->count*sizeof(Block));
 }
 static int key_valid(int k) {return k==0||(k>='A'&&k<='Z')||(k>='0'&&k<='9');}
 int character_validate(const Character *c) {
-    if(c->count<0||c->count>c->capacity||(c->count&&!c->blocks))return 0;
+    if(c->count<0||c->count>c->capacity||(c->count&&!c->blocks)||(c->anchored!=0&&c->anchored!=1))return 0;
     unsigned char used[128]={0};
     for(int i=0;i<c->count;i++) {
         Block b=c->blocks[i];
         if(b.y<0||b.parent>=i||b.parent< -1||(i==0?b.parent!=-1:b.parent<0)||
-           b.color<0||b.color>=COLOR_COUNT||b.joint<0||b.joint>=BLOCK_KINDS||b.axis<0||b.axis>2||
+           b.color<0||b.color>=COLOR_COUNT||b.joint<0||b.joint>=BLOCK_KINDS||b.axis<0||b.axis>2||b.material<0||b.material>=MATERIAL_COUNT||b.finish<0||b.finish>=FINISH_COUNT||
            !isfinite(b.speed)||b.speed<.5f||b.speed>6||!isfinite(b.limit)||b.limit<15||b.limit>150||!isfinite(b.travel)||b.travel<.25f||b.travel>3||!isfinite(b.force)||b.force<2||b.force>100||(b.direction!=1&&b.direction!=-1))return 0;
         if(b.parent>=0){Block a=c->blocks[b.parent];if(llabs((long long)a.x-b.x)+llabs((long long)a.y-b.y)+llabs((long long)a.z-b.z)!=1)return 0;}
         for(int j=0;j<i;j++){Block a=c->blocks[j];if(a.x==b.x&&a.y==b.y&&a.z==b.z)return 0;}
@@ -74,7 +76,7 @@ void character_remove(Character *c,int index) {
     c->count=count;free(map);
 }
 void character_preset(Character *c,int walker) {
-    c->count=0;
+    c->count=0;c->anchored=0;
     character_add(c,-1,0,3,0,0,0);
     if(walker==2){
         int front=character_add(c,0,0,3,1,BLOCK_BOX,0),back=character_add(c,0,0,3,-1,BLOCK_BOX,0);
@@ -95,17 +97,18 @@ int character_save(const Character *c,const char *path) {
     if(!character_validate(c))return 0;
     char tmp[256];if(snprintf(tmp,sizeof(tmp),"%s.tmp",path)>=(int)sizeof(tmp))return 0;
     FILE *f=fopen(tmp,"w");if(!f)return 0;
-    fprintf(f,"BLOCKWALKER 3\n%d\n",c->count);
-    for(int i=0;i<c->count;i++){Block b=c->blocks[i];fprintf(f,"%d %d %d %d %d %d %d %d %d %.3f %.3f %.3f %.3f %d\n",b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction);}
+    fprintf(f,"BLOCKWALKER 4\n%d %d\n",c->count,c->anchored);
+    for(int i=0;i<c->count;i++){Block b=c->blocks[i];fprintf(f,"%d %d %d %d %d %d %d %d %d %.3f %.3f %.3f %.3f %d %d %d\n",b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish);}
     int good=!ferror(f);if(fclose(f)!=0)good=0;
     if(!good||rename(tmp,path)!=0){remove(tmp);return 0;}return 1;
 }
 int character_load(Character *c,const char *path) {
     FILE *f=fopen(path,"r");if(!f)return 0;
     Character next={0};char magic[32];int version=0,good=1;
-    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>3)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
+    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>4)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
+    if(good&&version>=4&&fscanf(f,"%d",&next.anchored)!=1)good=0;
     if(good){next.capacity=next.count;next.blocks=array_resize(NULL,next.count,sizeof(Block));}
-    for(int i=0;good&&i<next.count;i++){Block *b=&next.blocks[i];b->travel=1.5f;b->force=24;b->direction=1;if(fscanf(f,"%d%d%d%d%d%d%d%d%d%f%f",&b->x,&b->y,&b->z,&b->parent,&b->joint,&b->color,&b->axis,&b->negative,&b->positive,&b->speed,&b->limit)!=11)good=0;if(version>=2&&fscanf(f,"%f%f",&b->travel,&b->force)!=2)good=0;if(version>=3&&fscanf(f,"%d",&b->direction)!=1)good=0;}
+    for(int i=0;good&&i<next.count;i++){Block *b=&next.blocks[i];*b=(Block){.travel=1.5f,.force=24,.direction=1};if(fscanf(f,"%d%d%d%d%d%d%d%d%d%f%f",&b->x,&b->y,&b->z,&b->parent,&b->joint,&b->color,&b->axis,&b->negative,&b->positive,&b->speed,&b->limit)!=11)good=0;if(version>=2&&fscanf(f,"%f%f",&b->travel,&b->force)!=2)good=0;if(version>=3&&fscanf(f,"%d",&b->direction)!=1)good=0;if(version>=4&&fscanf(f,"%d%d",&b->material,&b->finish)!=2)good=0;}
     int ch;while((ch=fgetc(f))!=EOF)if(ch!=' '&&ch!='\n'&&ch!='\t'&&ch!='\r')good=0;
     fclose(f);if(!good||!character_validate(&next)){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
 }
@@ -113,26 +116,28 @@ void physics_stop(Physics *p) {
     if(p->running){if(p->owns_world)b3DestroyWorld(p->world);else for(int i=0;i<p->count;i++)b3DestroyBody(p->parts[i].body);}
     free(p->parts);memset(p,0,sizeof(*p));
 }
-b3WorldId physics_world(void) {
+b3WorldId physics_world(int landscape) {
     b3WorldDef w=b3DefaultWorldDef();w.workerCount=1;w.gravity=(b3Vec3){0,-4,0};b3WorldId world=b3CreateWorld(&w);
+    if(landscape){terrain_build(world);return world;}
     b3BodyDef floor=b3DefaultBodyDef();floor.position=(b3Pos){0,-.5f,0};
     b3BodyId ground=b3CreateBody(world,&floor);b3BoxHull slab=b3MakeBoxHull(100,.5f,100);
     b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;shape.baseMaterial.friction=.85f;b3CreateHullShape(ground,&shape,&slab.base);
     return world;
 }
-void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float z) {
-    physics_stop(p);p->world=world;p->running=1;p->count=c->count;
+void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape) {
+    physics_stop(p);p->world=world;p->running=1;p->count=c->count;p->landscape=landscape;
     p->parts=array_resize(NULL,c->count,sizeof(PhysicsPart));if(c->count)memset(p->parts,0,c->count*sizeof(PhysicsPart));
     b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;shape.baseMaterial.friction=.85f;
     int minimum=INT_MAX;for(int i=0;i<c->count;i++)if(c->blocks[i].y<minimum)minimum=c->blocks[i].y;
     b3BoxHull cube=b3MakeBoxHull(.485f,.485f,.485f);
     b3Sphere ball={{0,0,0},.485f};
+    float ground=landscape?(c->anchored?terrain_height(x,z):fmaxf(terrain_height(x,z),WATER_LEVEL)):0;
     for(int i=0;i<c->count;i++){
-        Vector3 v=block_position(c->blocks[i]);b3BodyDef b=b3DefaultBodyDef();b.type=b3_dynamicBody;
-        b.position=(b3Pos){v.x+x,v.y-minimum+.15f,v.z+z};b.angularDamping=.08f;b.enableSleep=false;
+        Vector3 v=block_position(c->blocks[i]);b3BodyDef b=b3DefaultBodyDef();b.type=c->anchored&&i==0?b3_staticBody:b3_dynamicBody;
+        b.position=(b3Pos){v.x+x,v.y-minimum+(c->anchored?-.015f:.15f)+ground,v.z+z};b.angularDamping=.08f;b.enableSleep=false;
         p->parts[i].body=b3CreateBody(p->world,&b);
         // Keep equal part mass when exchanging a cube for a ball of the same width.
-        Block part=c->blocks[i];shape.density=part.joint==BLOCK_HINGE?6/PI:1;
+        Block part=c->blocks[i];shape.density=block_density(part);
         if(part.joint==BLOCK_HINGE)b3CreateSphereShape(p->parts[i].body,&shape,&ball);
         else if(part.joint==BLOCK_WHEEL){
             b3HullData *wheel=b3CreateCylinder(.7f,.7f,-.35f,24);
@@ -140,7 +145,7 @@ void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float 
             if(part.axis==0)rotation=(b3Quat){{0,0,-.70710678f},.70710678f};
             if(part.axis==2)rotation=(b3Quat){{.70710678f,0,0},.70710678f};
             b3HullData *rotated=b3CloneAndTransformHull(wheel,(b3Transform){{0,0,0},rotation},(b3Vec3){1,1,1});
-            shape.density=2;shape.baseMaterial.friction=1.3f;
+            shape.baseMaterial.friction=1.3f;
             b3CreateHullShape(p->parts[i].body,&shape,rotated);b3DestroyHull(rotated);b3DestroyHull(wheel);
             shape.baseMaterial.friction=.85f;
         }else b3CreateHullShape(p->parts[i].body,&shape,&cube.base);
@@ -175,8 +180,9 @@ void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float 
     if(c->count){b3Pos root=b3Body_GetPosition(p->parts[0].body);p->start=(Vector3){root.x,root.y,root.z};}
 }
 void physics_start(Physics *p,const Character *c) {
-    physics_stop(p);physics_attach(p,c,physics_world(),0,0);p->owns_world=1;
+    physics_stop(p);physics_attach(p,c,physics_world(0),0,0,0);p->owns_world=1;
 }
+void physics_start_sea(Physics *p,const Character *c){physics_stop(p);physics_attach(p,c,physics_world(1),125,10,1);p->owns_world=1;}
 void physics_motor(Physics *p,const Character *c,const unsigned char keys[128]) {
     float controls[128];for(int i=0;i<128;i++)controls[i]=keys[i]!=0;
     physics_drive(p,c,controls);
@@ -193,9 +199,10 @@ void physics_drive(Physics *p,const Character *c,const float controls[128]) {
         }else b3RevoluteJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
         if(direction)p->parts[i].motor_steps++;
     }
+    water_forces(p,c);
 }
 void physics_sample(Physics *p,const Character *c) {
-    p->steps++;
+    p->steps++;p->time+=1./60;
     for(int i=1;i<c->count;i++){
         Block b=c->blocks[i];
         float separation;
@@ -296,7 +303,54 @@ static void wheel_cart_check(void) {
     printf("WHEEL CART: forward %.3f m, reverse %.3f m, chassis %.3f m above ground\n",forward.z,reverse.z,forward.y);
     physics_stop(&p);character_clear(&c);
 }
+static void water_check(void){
+    Character c={0};Physics p={0};unsigned char keys[128]={0};
+    character_add(&c,-1,0,1,0,BLOCK_BOX,0);
+    int jets[2];
+    for(int side=0;side<2;side++){
+        int x=side?1:-1,deck=character_add(&c,0,x,1,0,BLOCK_BOX,side+1);
+        int hull=character_add(&c,deck,x,0,0,BLOCK_BOX,side+1);
+        character_add(&c,hull,x,0,1,BLOCK_BOX,side+1);int stern=character_add(&c,hull,x,0,-1,BLOCK_BOX,side+1);
+        jets[side]=character_add(&c,stern,x,0,-2,BLOCK_THRUSTER,side+1);c.blocks[jets[side]].axis=2;c.blocks[jets[side]].force=4;
+    }
+    for(int i=0;i<c.count;i++){c.blocks[i].material=MATERIAL_HULL;c.blocks[i].finish=FINISH_PANEL;}
+    physics_start_sea(&p,&c);for(int i=0;i<1200;i++)physics_step(&p,&c,keys);
+    Vector3 floating,forward;Quaternion rotation;physics_pose(&p,&c,0,&floating,&rotation);
+    printf("BOAT FLOAT: height %.3f, up %.4f, submerged hull %.3f\n",floating.y,Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y,p.parts[2].submerged);
+    assert(floating.y>WATER_LEVEL&&floating.y<WATER_LEVEL+1.5f&&Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y>.9f);
+    for(int i=0;i<2;i++)keys[c.blocks[jets[i]].positive]=1;
+    for(int i=0;i<360;i++)physics_step(&p,&c,keys);physics_pose(&p,&c,0,&forward,&rotation);
+    assert(forward.z-floating.z>2&&Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y>.8f);
+    Vector3 heading=Vector3RotateByQuaternion((Vector3){0,0,1},rotation);float previous=atan2f(heading.x,heading.z),turn=0,minimum_up=1;
+    keys[c.blocks[jets[1]].positive]=0;for(int i=0;i<180;i++){
+        physics_step(&p,&c,keys);Vector3 position;physics_pose(&p,&c,0,&position,&rotation);heading=Vector3RotateByQuaternion((Vector3){0,0,1},rotation);
+        float yaw=atan2f(heading.x,heading.z),delta=yaw-previous;while(delta>PI)delta-=2*PI;while(delta< -PI)delta+=2*PI;turn+=delta;previous=yaw;
+        minimum_up=fminf(minimum_up,Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y);
+    }
+    Vector3 turned;physics_pose(&p,&c,0,&turned,&rotation);
+    printf("BOAT DRIVE: %.3f m, turn %.3f rad, minimum up %.3f, separation %.5f\n",forward.z-floating.z,turn,minimum_up,p.max_separation);
+    assert(fabsf(turn)>.5f&&minimum_up>.75f&&p.max_separation<.06f);
+    physics_stop(&p);character_clear(&c);
+    character_add(&c,-1,0,0,0,BLOCK_BOX,0);c.blocks[0].material=MATERIAL_BALLAST;
+    physics_start_sea(&p,&c);for(int i=0;i<600;i++)physics_step(&p,&c,keys);
+    physics_pose(&p,&c,0,&turned,&rotation);assert(turned.y<WATER_LEVEL-5);physics_stop(&p);character_clear(&c);
+    character_add(&c,-1,0,0,0,BLOCK_BOX,0);
+    for(int y=1;y<=3;y++)character_add(&c,y-1,0,y,0,BLOCK_BOX,0);
+    int support=character_add(&c,3,1,3,0,BLOCK_BOX,0);
+    int hinge=character_add(&c,support,2,3,0,BLOCK_HINGE,1);character_add(&c,hinge,3,3,0,BLOCK_BOX,1);character_add(&c,6,4,3,0,BLOCK_BOX,1);
+    c.anchored=1;c.blocks[hinge].force=60;c.blocks[6].material=MATERIAL_HULL;c.blocks[6].finish=FINISH_GLOW;
+    Character saved={0};assert(character_save(&c,"/tmp/blockwalker-anchor.character")&&character_load(&saved,"/tmp/blockwalker-anchor.character")&&saved.anchored&&saved.blocks[6].material==MATERIAL_HULL&&saved.blocks[6].finish==FINISH_GLOW);
+    character_clear(&saved);remove("/tmp/blockwalker-anchor.character");
+    memset(keys,0,sizeof(keys));physics_start(&p,&c);Vector3 anchor;physics_pose(&p,&c,0,&anchor,&rotation);keys['A']=1;
+    for(int i=0;i<120;i++)physics_step(&p,&c,keys);assert(p.parts[hinge].angle>1);
+    keys['A']=0;keys['Q']=1;for(int i=0;i<120;i++)physics_step(&p,&c,keys);
+    physics_pose(&p,&c,0,&turned,&rotation);
+    printf("ANCHORED BRIDGE: root travel %.6f, hinge %.3f rad, separation %.5f\n",Vector3Distance(anchor,turned),p.parts[hinge].angle,p.max_separation);
+    assert(Vector3Distance(anchor,turned)<.0001f&&p.parts[hinge].angle< -1&&p.max_separation<.04f);
+    physics_stop(&p);character_clear(&c);
+}
 int character_check(void) {
+    water_check();
     wheel_cart_check();
     for(int axis=0;axis<3;axis++){
         motor_check(axis);

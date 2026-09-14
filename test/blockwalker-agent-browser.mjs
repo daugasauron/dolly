@@ -27,14 +27,15 @@ try {
   await page.keyboard.press('Escape');await shell();
   assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --integration-check')),0);
   const result=JSON.parse(await readFile(await download('blockwalker-integration.json'),'utf8'));
-  assert.equal(result.embedded,true);assert.equal(result.steps,60);assert.equal(result.population.creatures.length,3);assert.equal(result.population.deaths,2);
+  assert.equal(result.embedded,true);assert.equal(result.steps,60);assert.equal(result.population.creatures.length,5);assert.equal(result.population.deaths,2);
   await download('blockwalker-feedback.png');await download('blockwalker-feedback.json');
-  await download('blockwalker-observation.png');await download('blockwalker-actuators.png');await download('blockwalker-world.png');await download('blockwalker-world.json');
+  await download('blockwalker-observation.png');await download('blockwalker-actuators.png');await download('blockwalker-water.png');await download('blockwalker-world.png');await download('blockwalker-world.json');
   const restarted=page.evaluate(()=>__dolly.submit('blockwalker'));await page.waitForFunction(()=>__dolly.gpu?.active,null,{timeout:30000});
   await page.mouse.click(404,40);await page.waitForTimeout(2000);await shot('restored-world');await page.keyboard.press('Escape');await page.keyboard.press('Escape');assert.equal(await restarted,0);
-  const restored=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));assert.equal(restored.creatures.length,3);assert.ok(restored.creatures.every(c=>c.seconds>10));
+  const restored=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));assert.equal(restored.creatures.length,5);assert.ok(restored.creatures.every(c=>c.seconds>10));
+  const boat=restored.creatures.find(c=>c.name==='Harbor boat'),bridge=restored.creatures.find(c=>c.anchored);assert.ok(boat&&boat.y>-2&&boat.up>.8&&bridge&&bridge.x===96);
   const flyer=restored.creatures.find(c=>c.hz===60);assert.ok(flyer&&Math.abs(flyer.y-4.5)<.3&&flyer.up>.995);
-  console.log(JSON.stringify({embedded:true,timedCapture:true,controllerTimeout:true,feedbackHover:true,survivors:3,worldRestored:true,pngBytes:result.pngBytes}));
+  console.log(JSON.stringify({embedded:true,timedCapture:true,controllerTimeout:true,feedbackHover:true,waterBuoyancy:true,anchoredBridge:true,survivors:5,worldRestored:true,pngBytes:result.pngBytes}));
  }
 }catch(error){await shot('agent-failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
 finally{await browser.close();await site.close();}
