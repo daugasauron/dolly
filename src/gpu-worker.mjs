@@ -122,6 +122,7 @@ function retire(scope) {
     }
     scope.objects.clear();
     if (slots[scope.index] === scope) slots[scope.index] = null;
+    postMessage({ type: "complete" });
   })();
   return scope.retiring;
 }

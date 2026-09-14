@@ -73,6 +73,10 @@ int64_t dolly_gpu_process_call(int pid, unsigned char *packet, size_t size, size
     atomic_store(&reply->state, 0);
     int status = dolly_gpu_dispatch(packet, size);
     if (status < 0) {
+      /* A cancelled process can still occupy this provider slot until its
+         submitted GPU work settles. Keep the new lease and retry admission. */
+      if (h.operation == DOLLY_GPU_OPEN && status == -EBUSY)
+        return DOLLY_PROCESS_DISPATCH_DEFERRED;
       if (h.operation == DOLLY_GPU_OPEN) lease->pid = 0;
       return status;
     }

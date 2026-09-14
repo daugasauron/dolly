@@ -1,8 +1,8 @@
 // Same 64x64 uniform upload + triangle as gpu-demo --bench, without Dolly RPC.
-async function directGpuBenchmark() {
+async function directGpuBenchmark(canvas) {
   const adapter=await navigator.gpu.requestAdapter({powerPreference:"high-performance"});
   const device=await adapter.requestDevice();
-  const canvas=new OffscreenCanvas(64,64),context=canvas.getContext("webgpu");
+  const context=canvas.getContext("webgpu");
   const format=navigator.gpu.getPreferredCanvasFormat();context.configure({device,format,alphaMode:"opaque"});
   const module=device.createShaderModule({code:"@group(0) @binding(0) var<uniform> color:vec4f; @vertex fn vs(@builtin(vertex_index) i:u32)->@builtin(position) vec4f{return vec4f(f32((i<<1u)&2u)*2.-1.,f32(i&2u)*2.-1.,0,1);} @fragment fn fs()->@location(0) vec4f{return color;}"});
   const pipeline=await device.createRenderPipelineAsync({layout:"auto",vertex:{module,entryPoint:"vs"},fragment:{module,entryPoint:"fs",targets:[{format}]},primitive:{topology:"triangle-list"}});
@@ -28,4 +28,5 @@ async function directGpuBenchmark() {
   } finally {buffer.destroy();device.destroy();}
 }
 
-directGpuBenchmark().then(result=>postMessage({result}),error=>postMessage({error:String(error)}));
+self.onmessage=({data})=>directGpuBenchmark(data.canvas)
+  .then(result=>postMessage({result}),error=>postMessage({error:String(error)}));

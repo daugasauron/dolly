@@ -35,8 +35,9 @@ one visible surface, at most 128 live objects per scope, 1 MiB packets with at
 most 256 records, 128 KiB shader source, 64 MiB individual buffers and 256 MiB
 aggregate buffer allocations. These are experimental GPU quotas, unrelated to
 the HTTP response limit. Released allocation credits wait for queue completion.
-Cancellation retains a provider slot until outstanding work settles. Limits
-bound admitted resources, not exact driver memory consumption or shader time.
+Cancellation retains a provider slot until outstanding work settles. An immediate
+restart defers its open until the provider retires the old scope and wakes it.
+Limits bound admitted resources, not exact driver memory consumption or shader time.
 GPU submission cannot preempt an already running shader; device loss depends
 on browser/driver recovery. Worker failure wakes pending process calls with I/O
 errors. No GPU request can name a URL, DOM element, host pointer or native process.
@@ -50,23 +51,25 @@ most 64 KiB per call; `gpu-demo --check` computes `[3,5,7,9]` on the GPU and
 writes the result to `/workspace/gpu-proof.txt` inside Wasm.
 
 `gpu-demo --bench` measures a 64×64 uniform upload and triangle submission.
-`xvfb-run -a node test/gpu-browser.mjs` compares that with the same direct
-WebGPU sequence, including validation scopes and queue backpressure. These are
-wall-clock operation latencies, not GPU timestamps or a universal percentage
-slowdown. The test also exercises real rendering, pause, compute readback,
-Ctrl-C/shell recovery, malformed packets, copied input, stale handles and quotas.
+Run `node test/gpu-browser.mjs` on the desktop display to compare that with the
+same direct WebGPU sequence. Both use a DOM-connected OffscreenCanvas, validation
+scopes and queue backpressure. An unattached canvas is not an equivalent baseline.
+These are wall-clock operation latencies, not GPU timestamps or a universal
+percentage slowdown. Provider timings include asynchronous waits; their difference
+from client timings is only an approximate measure of transport and scheduling.
+The test also exercises visible scene changes, pause, compute readback,
+repeated Ctrl-C/restart, malformed packets, copied input, stale handles and quotas.
 Results and screenshots go to `build/gpu-proof/`.
 
 For this Linux experiment the Chrome test uses an isolated profile with Vulkan
-and WebGPU enabled; its Firefox profile enables WebGPU and requests a WebGPU blocklist override.
-The bundled Firefox still returned no adapter here; the test records that
-limitation and verifies shell recovery. Installed Firefox 155.0.1 passed compute in a separate BiDi check with only
-`dom.webgpu.enabled` enabled, but canvas presentation remained blank. The same
-blank result occurred with a standalone main-thread WebGPU clear and a single
-Worker transfer, outside Dolly. Chrome presentation is visually verified;
-Firefox presentation remains a limitation of this experiment on this machine.
-The installed browser may need different configuration. These test
-options do not modify personal profiles. Browser-controlled adapter selection
+and WebGPU enabled; its Firefox profile enables WebGPU and requests a blocklist
+override. Installed Firefox 155.0.1 also renders all three scenes on the actual
+X11 desktop in a temporary profile with only `dom.webgpu.enabled` enabled.
+Firefox presentation is still blank in the tested headless/Xvfb configurations,
+including standalone WebGPU controls outside Dolly. Compute success alone does
+not prove visible rendering. See [desktop evidence](../tasks/20260914-021950-gpu-04/TASK.md)
+and [measurements](../tasks/20260914-013806-gpu-03/TASK.md). Test options do not
+modify personal profiles. Browser-controlled adapter selection
 uses `powerPreference: "high-performance"`; WebGPU does not provide a portable
 vendor-selection API. NVIDIA and AMD use the same shader and command path.
 

@@ -1,70 +1,130 @@
 {
   "baseline": "1a57397",
   "branch": "codex/gpu-shaders-20260914",
+  "display": "Actual X11 desktop; both Playwright browsers use visible windows",
   "originalRecipesAndSnapshotsChecked": 72,
   "originalRecipesAndSnapshotsChanged": [],
   "snapshotBytes": 154462635,
+  "snapshotSha256": "c129e936083ba4fd3ecd87a13856e9b26316a13d8baec77e36558c7e1bb89439",
+  "imageBuildId": "sha256:0ace6dd93c15c06b50230755bc138b64374783d5f3ef54c7d14ab54a5676656a",
+  "runtimeBuildId": "sha256:f0645d163f2e06cd7559819a9dc9b3c4e12e1733d0d09ad74135ed47e104c241",
+  "nvidia": {
+    "gpu": "GeForce RTX 5070",
+    "driver": "580.178.04",
+    "availableForBenchmark": true,
+    "chromeAdapter": "nvidia blackwell"
+  },
   "browserTests": [
     {
       "browser": "chromium",
       "version": "151.0.7922.71",
-      "adapter": "amd rdna-2",
+      "adapter": "nvidia blackwell",
       "renderReadbackBytes": 0,
       "renderBatchMicroseconds": [
-        260.725,
-        255.1,
-        313.25
+        777.025,
+        837.25,
+        834
+      ],
+      "providerBatchMicroseconds": [
+        729.4999999960419,
+        779.0249999950174,
+        784.8750000062864
+      ],
+      "estimatedOutsideProviderMicroseconds": [
+        47.5250000039581,
+        58.225000004982576,
+        49.12499999371357
       ],
       "directWebGpuMicroseconds": [
-        209.07499998807907,
-        227.97499984502792,
-        136.3500002026558
+        744.5250000001397,
+        754.5999999996275,
+        767.6000000000931
       ],
+      "directPresentation": "DOM-linked OffscreenCanvas",
       "computeAndShellRecovery": true,
+      "interruptRestarts": 3,
       "boundary": {
         "malformedPacket": true,
         "copiedPacket": true,
         "staleHandle": true,
         "allocationQuota": true,
         "closedScope": true
+      },
+      "presentationVerified": true,
+      "medianMicroseconds": {
+        "dolly": 834,
+        "direct": 754.5999999996275,
+        "difference": 79.4
       }
     },
     {
       "browser": "firefox",
       "version": "155.0",
-      "unavailable": "This browser did not provide a GPU adapter",
-      "shellRecovered": true
+      "adapter": "WebGPU adapter",
+      "renderReadbackBytes": 0,
+      "renderBatchMicroseconds": [
+        1008.9,
+        999.8,
+        1001.1
+      ],
+      "providerBatchMicroseconds": [
+        487.5999999999977,
+        484.80000000001155,
+        511.7000000000007
+      ],
+      "estimatedOutsideProviderMicroseconds": [
+        521.3000000000022,
+        514.9999999999884,
+        489.3999999999993
+      ],
+      "directWebGpuMicroseconds": [
+        516.1000000000001,
+        500.0999999999999,
+        500.1999999999999
+      ],
+      "directPresentation": "DOM-linked OffscreenCanvas",
+      "computeAndShellRecovery": true,
+      "interruptRestarts": 3,
+      "boundary": {
+        "malformedPacket": true,
+        "copiedPacket": true,
+        "staleHandle": true,
+        "allocationQuota": true,
+        "closedScope": true
+      },
+      "presentationVerified": true,
+      "medianMicroseconds": {
+        "dolly": 1001.1,
+        "direct": 500.1999999999999,
+        "difference": 500.9
+      }
     }
   ],
   "installedFirefox": {
     "version": "155.0.1",
-    "check": 0,
-    "terminal": "GPU adapter: WebGPU adapter\nGPU: 206 frames; mean command round trip 3.905 ms.\n\nEdit shaders in /usr/src/dolly/gpu; run gpu-demo to reload.\ndolly:/workspace$ gpu-demo --check\nGPU adapter: WebGPU adapter\nGPU empty batch round trip: 49.100 us (200 calls)\nGPU compute PASS: 3 5 7 9; /workspace/gpu-proof.txt\ndolly:/workspace$",
-    "state": {
-      "type": "gpu-status",
-      "active": false,
-      "adapter": "WebGPU adapter",
-      "stats": {
-        "packets": 208,
-        "packetBytes": 52016,
-        "frames": 206,
-        "dispatches": 61,
-        "readbackBytes": 0,
-        "batchWallMilliseconds": 763.8600000000013,
-        "allocatedBytes": 131104
-      }
+    "preferences": {
+      "dom.webgpu.enabled": true
     },
-    "presentationVerified": false,
-    "presentationLimitation": "Blank canvas in BiDi and X11 screenshots; reproduced with standalone main-thread WebGPU and single Worker transfer outside Dolly"
+    "computeExitStatus": 0,
+    "terminal": "GPU adapter: WebGPU adapter\nGPU: 226 frames; mean command round trip 1.384 ms.\n\nEdit shaders in /usr/src/dolly/gpu; run gpu-demo to reload.\ndolly:/workspace$ gpu-demo --check\nGPU adapter: WebGPU adapter\nGPU empty batch round trip: 91.700 us (200 calls)\nGPU compute PASS: 3 5 7 9; /workspace/gpu-proof.txt\ndolly:/workspace$",
+    "presentationVerified": true,
+    "scenes": [
+      "aurora",
+      "prism",
+      "garden"
+    ],
+    "renderReadbackBytes": 0,
+    "adapterVendor": "not exposed"
   },
-  "nvidia": {
-    "availableForBenchmark": false,
-    "reason": "NVML driver/library version mismatch",
-    "kernel": "580.173.02",
-    "userspace": "580.178"
+  "limitations": [
+    "Firefox headless/Xvfb presentation remains blank in tested configurations; desktop screenshots show all three scenes.",
+    "The initial AMD baseline used an unattached OffscreenCanvas, so its reported 52 us difference did not isolate ABI overhead. Both current paths present to DOM-connected canvases.",
+    "Sequential wall-clock samples of a tiny 64x64 render batch; not GPU timestamps or game/LLM predictions.",
+    "Provider counters include asynchronous waits. Sampling cumulative counters at frame-status boundaries makes client-minus-provider estimates approximate."
+  ],
+  "browserBoundary": {
+    "typedImports": 29,
+    "passed": true
   },
-  "benchmarkMedianMicroseconds": {
-    "dolly": 260.725,
-    "directWorker": 209.07499998807907
-  }
+  "focusedAbiAndReleaseTestsPassed": 17
 }

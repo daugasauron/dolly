@@ -22,32 +22,40 @@ See [implementation and limitations](../../docs/gpu.md).
 
 ## Evidence
 
-[Measured results](evidence.json):
+[Measured results](evidence.json), repeated after reboot with NVIDIA kernel and
+userspace driver 580.178.04 matching:
 
-- Chrome 151 on AMD RDNA2: all three scenes, pause, compute returning `[3,5,7,9]`
-  to the Wasm filesystem, Ctrl-C/shell recovery and another GPU session pass.
+- Chrome 151 on NVIDIA Blackwell (RTX 5070), and desktop Firefox 155.0: visible
+  scene changes, pause, compute returning `[3,5,7,9]` to the Wasm filesystem,
+  and three immediate Ctrl-C/restart cycles pass. AMD RDNA2 passed the initial run.
 - Real provider checks reject malformed spans, unknown operations, stale objects,
   closed scopes and oversized allocations. An admitted packet survives mutation
   of the original shared bytes; a structurally rejected batch has no earlier
   allocation side effect.
 - Installed Firefox 155.0.1, in a temporary profile with `dom.webgpu.enabled`,
-  executes compute and returns to the shell, but visual presentation is blank.
-  Both BiDi and X11 screenshots show this; a standalone main-thread WebGPU
-  clear and a single Worker canvas transfer also fail to present. This is
-  tracked separately as gpu-04. Playwright Firefox 155.0 is blocked by its GPU
-  configuration; its denial path returns to a working shell. No personal
+  also visibly renders all three scenes on the actual X11 display and passes
+  compute. Headless/Xvfb presentation still fails; see gpu-04. No personal
   browser profile was changed.
 - Rendering transfers zero pixel bytes through the GPU readback ABI. Screenshots
   were captured separately for visual inspection in `build/gpu-proof/`.
-- Three 200-frame samples of a tiny 64×64 render batch: Dolly 255–313 us,
-  direct WebGPU in a Worker 136–228 us. Medians: 261 vs 209 us (about 52 us extra).
-  Both include uniform upload, encoding, error scopes and queue backpressure.
-  Sequential, noisy wall-clock measurements; not GPU execution timings, NVIDIA
-  measurements, or a prediction for a game/LLM workload.
-- NVIDIA is present but unavailable to this measurement: loaded kernel driver
-  580.173.02 and NVML 580.178 report a driver/library mismatch. No driver changes.
+- Three 200-frame samples of a tiny 64×64 render batch on the actual display:
+  Chrome medians 834 us through Dolly vs 755 us directly; Firefox 1001 vs 500 us.
+  Both paths include uniform upload, encoding, error scopes, queue backpressure
+  and a DOM-connected OffscreenCanvas. Chrome's client-minus-provider times are
+  roughly 48–58 us; Firefox's are 489–521 us. These approximate scheduling/transport
+  costs include no GPU timestamp measurement and predict neither games nor LLMs.
+- The initial AMD comparison used an unattached canvas for the direct baseline.
+  Its reported 52 us difference did not isolate ABI overhead and is superseded.
+  Sequential wall-clock timings remain noisy and sensitive to display setup.
 - Exact typed browser import validation, the existing browser boundary proof
   against the unchanged system snapshot, and 17 focused ABI/release checks pass.
+
+The desktop run exposed an immediate-restart race: the kernel could reuse a
+lease while its provider slot was still retiring submitted work. Open admission
+now defers until retirement completes; resource credits remain reserved. The
+regression exercises three immediate interruptions/reopens in each browser.
+Only the kernel was rebuilt; all original snapshots and the demo snapshot are
+unchanged.
 
 Local demo: `node scripts/serve-gpu-demo.mjs 9093`, then
 `http://127.0.0.1:9093/gpu-demo/` in a browser exposing WebGPU.
