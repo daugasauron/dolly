@@ -321,3 +321,10 @@ not a failed process. The shared world continues advancing. Its latest steering
 is to finish pier/tender docking, then create a larger feedback survey lander
 with bounded randomized patrol and actual takeoff/landing. Preserve all older
 designs and cargo. No build or test browser remains running.
+
+At 19:06 UTC the summary had completed and the restored Pi was making real
+observe, inspect_program, camera and watch_world calls. Browser counters showed
+6 requests/5 completed; monitor request metadata confirms Astra/xhigh. Pi
+recognized Tidelock as existing world ID 38 and continued checking Quayfin beside
+it instead of releasing a duplicate. The wider live world and real Pi traces
+are visible in `build/blockwalker-walking/focus-live-world.png`.
