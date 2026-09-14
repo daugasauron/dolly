@@ -12,6 +12,9 @@
   "download": [
     "env.dolly_download_dispatch"
   ],
+  "gpu": [
+    "env.dolly_gpu_dispatch"
+  ],
   "clock": [
     "wasi_snapshot_preview1.clock_res_get",
     "wasi_snapshot_preview1.clock_time_get"

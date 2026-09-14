@@ -134,6 +134,7 @@ inherited browser restrictions; recipe bytes cannot set browser policy.
 | [Download contract](download.md) | Copied bounded file and checked basename, never a host path |
 | [Sessions](sessions.md), `src/session-file.mjs` | Opaque bounded deltas; exact base for restore; custom recipe/artifact digests checked and saved HTTP restrictions intersect current policy; recovery copies only workspace/home regular files in Wasm; bounded import decompression |
 | [Kernel plugin loader](../src/kernel-plugin.mjs) | WasmFS bytes only; explicit real-kernel export map, no URL/dependency fetch or JS evaluation |
+| [Process supervisor](../src/process-supervisor.mjs), [typed contract](../abi/dolly-supervisor-0.wat) | Short deferred waits use a kernel-provided timer hint; every wakeup retries the validated syscall in Wasm. Signals, completion and retirement cancel pending wakeups |
 
 The Wasm kernel owns upload destination and temporary files and refuses
 overwrite. Rebuild-only workers have no picker. Uploaded bytes become ordinary

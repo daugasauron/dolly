@@ -1,6 +1,6 @@
 # Measure deferred timer wakeups during game rendering
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: runtime,performance,timers
 
@@ -47,3 +47,42 @@ program imports and the browser's network/GPU capabilities need not change.
 This is an implementation candidate, not yet built or verified. Check real
 clock sleep, fd readiness, signals and process retirement in addition to the
 same idle/populated timing probe before closing.
+
+## Implemented and verified, 2026-09-15 07:44 JST
+
+The kernel now returns a typed `dolly_process_deferred_milliseconds` hint from
+the last dispatch. Valid finite poll, terminal, display and sleep requests set
+it; each dispatch resets it. The supervisor schedules one cancellable wakeup
+only for the last 16 ms of a wait. Every wakeup replays the original request
+through kernel validation; signals, completion and retirement clear it. The
+ordinary 16 ms service interval remains. No public process ABI or outer import
+changed; all 29 browser imports retain identical names and types.
+The canonical internal WAT has the added `func()->f64` export.
+
+Two before/after pairs used the same fresh 45-object/1211-part image, unchanged
+C game and 16 ms frame timer, with the separate live Pi world active. Mean
+1 ms polls fell from 15.66 to 1.40 ms; 2 ms from 15.90 to 2.79 ms; 16 ms from
+31.15 to 17.24 ms. The 12 ms waits still average 15.66 ms, so wakeups are not
+universally precise. Across four populated 16 ms timer windows, mean gaps were
+26.75–28.92 ms before (34.6–37.4 FPS), and 17.24–18.32 ms after (54.6–58.0 FPS).
+Simulation followed wall time and all 45 objects survived each replay. These
+are shared-host measurements, not isolated GPU benchmarks. Evidence:
+`build/blockwalker-timer-comparison.json`, `blockwalker-timers-{before,after}/`
+and `blockwalker-timers-recheck-{before,after}/`.
+
+The existing core browser suite passed in Chromium (20.6 s) and Firefox
+(28.3 s), including compiled C/C++, readiness, pipes, interruption, descendants
+and HTTP cancellation. The C poll probe now checks that short absolute sleeps
+on both monotonic and real-time clocks do not return early. All userspace C was
+compiled inside Dolly. The focused game editor browser passed joint keys,
+cameras, underside placement, remapping, materials, anchoring and import/export.
+Logs: `build/blockwalker-timer-{core,editor,abi}.log`. Typed supervisor exports
+and exact browser imports passed; the import-review JSON and export test also
+now include the already-existing GPU boundary that their old expectations missed.
+
+Only the bootstrap kernel was rebuilt with the pinned external toolchain.
+The image-input identity stayed unchanged, so existing images were reused.
+The running saved Pi browser still uses its earlier loaded supervisor; defer
+its refresh until the current long Astra request completes, preserving the
+full world and native history before migration. Fresh preview loads use this
+verified runtime.

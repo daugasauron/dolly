@@ -1079,6 +1079,10 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
   return sizeof(response);
 }
 
+static double deferred_milliseconds = -1;
+
+static int monotonic_deadline_pending(uint64_t deadline_nanoseconds);
+
 static int64_t terminal_packet(dolly_kernel_process *process,
                                uintptr_t request_size,
                                uintptr_t response_capacity) {
@@ -1095,14 +1099,8 @@ static int64_t terminal_packet(dolly_kernel_process *process,
       (void)descriptor;
       if (!process->terminal_descriptors[request.descriptor]) return -ENOTTY;
       const int byte = dolly_terminal_read_raw_timeout(0);
-      if (byte < 0 && request.deadline_nanoseconds != 0) {
-        struct timespec now;
-        if (request.deadline_nanoseconds == UINT64_MAX ||
-            (clock_gettime(CLOCK_MONOTONIC, &now) == 0 &&
-             (uint64_t)now.tv_sec * 1000000000u + (uint64_t)now.tv_nsec <
-                 request.deadline_nanoseconds)) {
-          return DOLLY_PROCESS_DISPATCH_DEFERRED;
-        }
+      if (byte < 0 && monotonic_deadline_pending(request.deadline_nanoseconds)) {
+        return DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
       response.value = byte;
       break;
@@ -1173,6 +1171,9 @@ static int monotonic_deadline_pending(uint64_t deadline_nanoseconds) {
   if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return 0;
   const uint64_t current =
       (uint64_t)now.tv_sec * UINT64_C(1000000000) + (uint64_t)now.tv_nsec;
+  if (current < deadline_nanoseconds) {
+    deferred_milliseconds = (double)(deadline_nanoseconds - current) / 1000000.0;
+  }
   return current < deadline_nanoseconds;
 }
 
@@ -1587,6 +1588,11 @@ uintptr_t dolly_process_mailbox_capacity(void) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+double dolly_process_deferred_milliseconds(void) {
+  return deferred_milliseconds;
+}
+
+EMSCRIPTEN_KEEPALIVE
 int dolly_process_spawn_serialized(uintptr_t request_size) {
   return spawn_packet(0, (size_t)request_size);
 }
@@ -1595,6 +1601,7 @@ EMSCRIPTEN_KEEPALIVE
 int64_t dolly_process_dispatch(int pid, uint32_t operation,
                                uintptr_t request_size,
                                uintptr_t response_capacity) {
+  deferred_milliseconds = -1;
   if (request_size > sizeof(process_mailbox) ||
       response_capacity > sizeof(process_mailbox)) return -E2BIG;
   dolly_kernel_process *process = find_process(pid);
@@ -2230,8 +2237,9 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       if (clock_gettime(clock, &value) != 0) return -errno;
       const uint64_t now =
           (uint64_t)value.tv_sec * 1000000000u + (uint64_t)value.tv_nsec;
-      return now >= request.deadline_nanoseconds
-          ? 0 : DOLLY_PROCESS_DISPATCH_DEFERRED;
+      if (now >= request.deadline_nanoseconds) return 0;
+      deferred_milliseconds = (double)(request.deadline_nanoseconds - now) / 1000000.0;
+      return DOLLY_PROCESS_DISPATCH_DEFERRED;
     }
     case DOLLY_PROCESS_FD_POLL:
       return fd_poll_packet(process, request_size, response_capacity);

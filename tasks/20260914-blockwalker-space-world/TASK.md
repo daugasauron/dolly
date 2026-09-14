@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 07:30 JST
+## Current checkpoint — 2026-09-15 07:47 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -39,13 +39,15 @@ world time reached 25733.5167 s with all 52 survivors and no new removals;
 requests reached 381/380 completed.
 
 The latest user priority is [a two-legged walker](../20260915-070100-codex-01/TASK.md).
-The 33-part Sidelight III has two five-joint legs and articulated feet; an
-independent replay confirmed sliding, not lift. Pi has rebuilt the prototype as
-taller Sidelight IV with more joint clearance, and is retesting standing before
-weight transfer. No biped is bundled or claimed to walk yet. Preserve all existing
-creations while developing single support, alternating steps and travel.
-Read `build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
-for newer state; an old snapshot or startup timeout does not prove process exit.
+An independent replay of the 37-part Sidelight VI verified right-foot clearance
+of 0.76955 m, nine planted left-foot contacts and torso up=0.997513 at 20 s.
+Every sampled state over the final 1.2833 s qualified as single support. Pi has
+moved on to Sidelight VII for landing and mirrored support. No biped is bundled
+or claimed to walk yet. At 22:44:46 UTC the live world had 52 survivors, nine
+removals, world time 26625.4333 s and 314,577,847 bytes of native history.
+Astra request 389 remains active (388 completed); frames and simulation advance.
+Do not restart solely because inference is long. Read `progress.json` and the
+current-state mirror for newer evidence.
 
 **Cairnwing**, **Vesper** and **Rime** are now bundled after measured fresh-start
 takeoff, 3.8–5.4 m excursions, return/landing and seeded route variation. Rime's
@@ -109,9 +111,15 @@ work and eight byte-identical frozen views/world state. No consistent FPS boost
 was established. Guarded editor/native checks passed. Live app sources/binary
 were updated in place with full world/history hashes unchanged. Pi resumed real
 Astra/xhigh calls and successful tools; world time and population are advancing.
-The [timer task](../20260915-062600-codex-01/TASK.md) tracks remaining frame-pacing
-measurements. Its real browser probe reproduced 1–12 ms waits waking at 16 ms,
-and 16 ms waits at 32 ms. No host scheduling or GPU ABI change was made.
+The [timer fix](../20260915-062600-codex-01/TASK.md) is now verified in fresh
+loads: a typed kernel hint schedules cancellable short wakeups, with all
+readiness/lifecycle decisions still in Wasm. Two paired 45-object runs measured
+34.6–37.4 FPS before and 54.6–58.0 after at the unchanged 16 ms game timer.
+Chrome and Firefox core checks and the game editor browser passed. No outer
+imports or image-input identity changed; no image rebuild was required.
+The existing live browser still has its older loaded supervisor. Defer its
+refresh until the active Astra request completes, backing up all state first.
+The old runtime artifacts are in `build/blockwalker-timer-before/`.
 
 ### Owned services — recheck PIDs before stopping anything
 

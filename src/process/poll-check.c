@@ -1,5 +1,7 @@
+#define _POSIX_C_SOURCE 200809L
 #include <poll.h>
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 
 static int expect(int condition, int status, const char *message) {
@@ -9,6 +11,17 @@ static int expect(int condition, int status, const char *message) {
 }
 
 int main(void) {
+  const clockid_t clocks[] = {CLOCK_MONOTONIC, CLOCK_REALTIME};
+  for (unsigned i = 0; i < sizeof(clocks) / sizeof(clocks[0]); ++i) {
+    struct timespec deadline, after;
+    if (clock_gettime(clocks[i], &deadline) != 0) return 50;
+    deadline.tv_nsec += 3000000;
+    if (deadline.tv_nsec >= 1000000000) { deadline.tv_sec++; deadline.tv_nsec -= 1000000000; }
+    if (clock_nanosleep(clocks[i], TIMER_ABSTIME, &deadline, NULL) != 0 ||
+        clock_gettime(clocks[i], &after) != 0) return 51;
+    if (after.tv_sec < deadline.tv_sec ||
+        (after.tv_sec == deadline.tv_sec && after.tv_nsec < deadline.tv_nsec)) return 52;
+  }
   struct pollfd ignored = {.fd = -1, .events = POLLIN, .revents = -1};
   int result = poll(&ignored, 1, 0);
   int status = expect(result == 0 && ignored.revents == 0, 40,

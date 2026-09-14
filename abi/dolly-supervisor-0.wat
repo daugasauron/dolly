@@ -7,6 +7,9 @@
   (func $mailbox_capacity (result i64) i64.const 0)
   (func $spawn_serialized (param i64) (result i32) i32.const 0)
   (func $dispatch (param i32 i32 i64 i64) (result i64) i64.const 0)
+  ;; Remaining wait from the last dispatch, or -1 for no finite timer.
+  ;; This is a wakeup hint; retry dispatch to decide readiness in Wasm.
+  (func $deferred_milliseconds (result f64) f64.const -1)
   (func $next_launch (result i32) i32.const 0)
   (func $image_address (param i32) (result i64) i64.const 0)
   (func $image_size (param i32) (result i64) i64.const 0)
@@ -27,6 +30,7 @@
   (export "dolly_process_mailbox_capacity" (func $mailbox_capacity))
   (export "dolly_process_spawn_serialized" (func $spawn_serialized))
   (export "dolly_process_dispatch" (func $dispatch))
+  (export "dolly_process_deferred_milliseconds" (func $deferred_milliseconds))
   (export "dolly_process_next_launch" (func $next_launch))
   (export "dolly_process_image_address" (func $image_address))
   (export "dolly_process_image_size" (func $image_size))

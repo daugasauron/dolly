@@ -263,7 +263,7 @@ export class DollyProcessSupervisor {
     }
     const deferred = this.deferred.get(process.pid);
     if (deferred) {
-      this.deferred.delete(process.pid);
+      this.#clearDeferred(process.pid);
       this.#signal(process, deferred.message.sequence, interruptedSystemCall);
     }
     if (signalNumber !== sigwinch && process.interruptTimer === null) {
@@ -445,7 +445,15 @@ export class DollyProcessSupervisor {
     process.retirementTimer = null;
   }
 
+  #clearDeferred(pid) {
+    const pending = this.deferred.get(pid);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    this.deferred.delete(pid);
+  }
+
   #syscall(process, message, retry = false) {
+    this.#clearDeferred(process.pid);
     const values = [
       message.sequence,
       message.operation,
@@ -479,7 +487,14 @@ export class DollyProcessSupervisor {
         BigInt(message.responseCapacity),
       ]);
       if (result === deferredResult) {
-        this.deferred.set(process.pid, { process, message });
+        const deferred = { process, message, timer: null };
+        this.deferred.set(process.pid, deferred);
+        const remaining = this.dolly._dolly_process_deferred_milliseconds();
+        if (remaining >= 0 && remaining <= 16) {
+          deferred.timer = setTimeout(() => {
+            if (this.deferred.get(process.pid) === deferred) this.#syscall(process, message, true);
+          }, Math.ceil(remaining));
+        }
         if (message.operation === 5 && process.interruptTimer !== null) {
           // The parent has finished cleanup; signalled children retain their
           // own deadlines while the kernel waits for them to finish theirs.
@@ -520,7 +535,6 @@ export class DollyProcessSupervisor {
       this.#fail(process, error);
       return;
     }
-    this.deferred.delete(process.pid);
     this.#signal(process, message.sequence, result);
     if (message.operation === signalAcknowledge && result === 4n &&
         new DataView(this.kernelMemory.buffer, this.mailboxAddress, 4).getInt32(0, true) === 0 &&
@@ -571,7 +585,7 @@ export class DollyProcessSupervisor {
     );
     this.#clearTimers(process);
     this.#disposeWorker(process);
-    this.deferred.delete(process.pid);
+    this.#clearDeferred(process.pid);
     const retired = () => {
       process.retirementTimer = null;
       if (this.processes.get(process.pid) !== process) return;
@@ -651,7 +665,7 @@ export class DollyProcessSupervisor {
       reclamationDeadline = Math.max(reclamationDeadline, this.#reclamationDeadline(process));
       this.#clearTimers(process);
       this.#disposeWorker(process);
-      this.deferred.delete(process.pid);
+      this.#clearDeferred(process.pid);
     }
     return { descendants, reclamationDeadline };
   }
@@ -683,7 +697,7 @@ export class DollyProcessSupervisor {
     for (const { process, message } of [...this.deferred.values()]) {
       if (this.processes.get(process.pid) === process && !process.retiring) {
         this.#syscall(process, message, true);
-      } else this.deferred.delete(process.pid);
+      } else this.#clearDeferred(process.pid);
     }
   }
 }

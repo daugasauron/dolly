@@ -13,6 +13,7 @@ int dolly_process_spawn_serialized(uintptr_t request_size);
 int64_t dolly_process_dispatch(int pid, uint32_t operation,
                                uintptr_t request_size,
                                uintptr_t response_capacity);
+double dolly_process_deferred_milliseconds(void);
 int dolly_process_next_launch(void);
 uintptr_t dolly_process_image_address(int pid);
 uintptr_t dolly_process_image_size(int pid);

@@ -163,6 +163,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
   const supervisorContract = await readWasmInterface(
     artifact("dolly-supervisor-0.wasm"),
   );
+  const gpuContract = await readWasmInterface(artifact("dolly-gpu-0.wasm"));
 
   for (const entry of contract.imports) {
     if (!moduleInfrastructure.has(entry.name) && !loaderBackedFunctions.has(entry.name)) {
@@ -174,6 +175,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
   for (const entry of httpContract.exports) expected.add(`_${entry.name}`);
   for (const entry of snapshotContract.exports) expected.add(`_${entry.name}`);
   for (const entry of supervisorContract.exports) expected.add(`_${entry.name}`);
+  for (const entry of gpuContract.exports) if (entry.type.kind === "func") expected.add(`_${entry.name}`);
 
   assert.deepEqual(actual, [...expected].sort());
 });
@@ -184,6 +186,12 @@ test("the runtime implements the resident kernel plugin contract", async () => {
 
 test("the runtime exposes typed bootstrap and process-supervisor boundaries", async () => {
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
+  const supervisor = await readWasmInterface(artifact("dolly-supervisor-0.wasm"));
+  for (const required of supervisor.exports) {
+    const actual = runtime.exports.find(entry => entry.name === required.name);
+    assert.ok(actual, `runtime is missing ${required.name}`);
+    assert.equal(sameWasmType(actual.type, required.type), true);
+  }
   const bootstrap = runtime.exports.find((entry) => entry.name === "dolly_bootstrap_finish");
   const spawn = runtime.exports.find((entry) => entry.name === "dolly_process_spawn_serialized");
   const mailbox = runtime.exports.find(
@@ -511,6 +519,7 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
   assert.deepEqual(actual, expected);
   assert.deepEqual(policy.network, ["env.dolly_http_dispatch"]);
   assert.deepEqual(policy.download, ["env.dolly_download_dispatch"]);
+  assert.deepEqual(policy.gpu, ["env.dolly_gpu_dispatch"]);
   assert.equal(
     actual.some((name) => /nodefs|opfs|fetch|socket|spawn|process|pthread|thread_/.test(name)),
     false,
