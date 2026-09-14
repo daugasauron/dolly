@@ -26,22 +26,27 @@ try {
  }else{
   const examples=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8')),samples=[];
   await page.mouse.click(404,40);await page.mouse.click(170,204);
-  for(let i=0;i<6;i++){
+  for(let i=0;i<10;i++){
    await page.waitForTimeout(3000);const event=page.waitForEvent('download');await page.mouse.click(120,630);
    const file=await event,path=new URL('fresh-world-'+i+'.json',output).pathname;await file.saveAs(path);samples.push(JSON.parse(await readFile(path,'utf8')));
   }
   await shot('fresh-harbor');const fresh=samples.at(-1);
   assert.equal(fresh.creatures.length,examples.length);assert.equal(fresh.deaths,0);
-  assert.equal(fresh.creatures.filter(c=>c.name==='Cargo').length,2);assert.equal(fresh.designs.filter(d=>d.name==='Cargo').length,1,'separate cargo placements share one reusable design');
+  assert.equal(fresh.creatures.filter(c=>c.name==='Cargo').length,3);assert.equal(fresh.designs.filter(d=>d.name==='Cargo').length,1,'separate cargo placements share one reusable design');
   assert.ok(fresh.creatures.filter(c=>c.distance>1).length>=5,'bundled controllers move several creations without Pi');
   assert.ok(fresh.creatures.some(c=>!c.anchored&&c.y>4&&c.up>.95),'bundled feedback flyer takes off');
   assert.ok(fresh.creatures.some(c=>c.startX===125&&c.y>-2&&c.up>.8&&c.distance>1),'bundled boat floats and travels');
-  const carriers=fresh.creatures.filter(c=>c.blueprint.some(p=>p.joint===5)),held=new Set();assert.equal(carriers.length,2);
+  const carriers=fresh.creatures.filter(c=>c.blueprint.some(p=>p.joint===5)),held=new Set();assert.equal(carriers.length,3);
   for(const carrier of carriers){
    assert.ok(samples.some(w=>w.creatures.find(c=>c.id===carrier.id).magnets.some(m=>{const cargo=m?.attached&&w.creatures.find(c=>c.id===m.creature);if(cargo?.y>1.2){held.add(cargo.id);return true;}return false;})),'each programmed cargo machine lifts its own crate');
   }
-  assert.equal(held.size,2,'the two machines handle distinct world bodies');
-  assert.ok(fresh.creatures.some(c=>c.parts>=40&&!c.anchored&&c.blueprint.every(p=>p.joint!==3&&p.joint!==4)&&c.distance>2&&c.up>.95),'the larger legged machine advances without wheels or jets');
+  assert.equal(held.size,3,'the three machines handle distinct world bodies');
+  const courier=carriers.find(c=>c.blueprint.some(p=>p.joint===3)),crate=fresh.creatures.find(c=>c.name==='Cargo'&&c.startX===courier.startX&&c.startZ===courier.startZ);
+  assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m?.attached&&m.creature===crate.id)&&box.y>6&&box.distance>2;}),'the flying courier carries its own crate above the island');
+  assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m&&!m.attached&&m.power===0)&&box.y<4.6&&box.distance>3;}),'the courier releases its cargo at the other end of its route');
+  const beacon=fresh.creatures.find(c=>c.anchored&&c.startX<-100),firstBeacon=samples[0].creatures.find(c=>c.id===beacon.id),head=beacon.blueprint.findIndex(p=>p.joint===1),rotationDot=beacon.poses[head].slice(3,7).reduce((sum,v,i)=>sum+v*firstBeacon.poses[head][i+3],0);
+  assert.equal(beacon.distance,0,'the island beacon base remains anchored');assert.ok(Math.abs(rotationDot)<.98,'the beacon head actually rotates');
+  assert.ok(samples.some(w=>w.creatures.some(c=>c.parts>=40&&!c.anchored&&c.blueprint.every(p=>p.joint!==3&&p.joint!==4)&&c.distance>2&&c.up>.95)),'the larger legged machine advances without wheels or jets');
   assert.ok(fresh.creatures.some(c=>c.parts>=30&&c.startX>100&&!c.anchored&&c.y>-2&&c.y<0&&c.distance>2&&c.up>.9),'the larger boat floats and moves');
   assert.equal(await page.evaluate(()=>__dolly.httpRequestCount),0,'the programmed population runs without network or model requests');
   await page.keyboard.press('Escape');await page.keyboard.press('Escape');await shell();

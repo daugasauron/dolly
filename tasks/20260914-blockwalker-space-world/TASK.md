@@ -267,3 +267,23 @@ Postbird and an approximately 85-degree sweep for Westwatch; inspect the current
 full state and measured tool results before promoting these to the starter data.
 It is working on a boat route near the island docks. Preserve these newer live
 creations and all prior designs. No browser tests remain running.
+
+## Working island population, 2026-09-15 03:43 JST
+
+Task 035000 is verified and closed: fresh worlds now contain 26 objects/546
+parts, including Postbird and its third distinct cargo box, Westwatch, Twinspire
+and Mooncalf. The browser measured actual airborne cargo delivery/reacquisition,
+beacon sweep, walking and boat patrol. Five GPU views passed at 34–43 FPS with
+real-time simulation and no new removals. Source C still compiles inside Dolly.
+
+The live Pi browser remains `blockwalker-outposts`, with its existing preview,
+relay, runner and monitor PIDs unchanged. No migration was needed. Its full
+native conversation backup reached 120,155,762 bytes at 18:38 UTC; preserve it
+with split archives if another migration exceeds the upload limit even after
+gzip. Latest request metadata still confirms Astra/xhigh. Pi has since built
+Northline, a rolling gantry at the North station, with a fourth crate; inspect
+its actual saved-world results before distributing it. The screen showed 30
+survivors; the latest complete monitor backup still had 28 at 18:38 UTC.
+
+No build or test browser remains running. Continue the timed goal until
+2026-09-15 22:00 JST, preserving the successful world and complete conversation.
