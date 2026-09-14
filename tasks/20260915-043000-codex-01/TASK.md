@@ -1,6 +1,6 @@
 # Place loose cargo on boats and elevated world mechanisms
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: game,physics,agent
 
@@ -54,5 +54,16 @@ SHA-256. Pi resumed on the same filesystem with instructions to try loading the
 existing Tidelock and Quayfin. Evidence: `build/blockwalker-cargo-update.log` and
 `build/blockwalker-walking/cargo-updated-proof.json`.
 
-Pending: observe Pi using the updated tool. Cargo transfer between machines
-remains unproven.
+The resumed Astra/xhigh Pi used the actual `drop_cargo` tool with world y, creating
+crate 43 above the live Tidelock at x163.5,y6.2,z-6. Timed `watch_world` results
+show that crate on the lift at y=-0.022, then y=5.048, with under 5 cm horizontal
+drift. It also tried two moving-boat placements; those crates ended in the water,
+so these trials do not establish a boat load or inter-machine transfer. The
+separate fresh-start browser experiment above verifies boat-deck support.
+Pi's next placement succeeded: crate 46, created at x158,y0.2,z-13.7, was still
+on Quayfin's deck 279 seconds later after travelling 9.36 m. Its center was
+0.127 m horizontally from deck block 39, with 0.982 m vertical separation.
+This establishes live deck carriage; inter-machine transfer remains unproven.
+Actual Pi tool arguments/results are preserved in
+`build/blockwalker-walking/cargo-pi-proof.json`. Implemented in 1abd0bd; further
+cargo-transfer design work belongs to the ongoing larger-world task.

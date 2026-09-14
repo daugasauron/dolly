@@ -4,6 +4,7 @@ import {chromium} from 'playwright-core';
 import {startBrowserServer} from './browser-server.mjs';
 
 const output=new URL('../build/blockwalker-focus/',import.meta.url);await mkdir(output,{recursive:true});
+const population=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8')).length;
 const site=await startBrowserServer(new URL('..',import.meta.url).pathname,'blockwalker');
 const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1280,height:720}});
@@ -26,8 +27,8 @@ try{
  await page.keyboard.press('Shift+Tab');await frames();await page.mouse.click(900,698);await frames();await page.keyboard.press('Tab');await frames();
  await page.keyboard.down('W');await page.waitForTimeout(350);await page.keyboard.up('W');await frames();
  await page.keyboard.press('Escape');await frames();
- for(let i=0;i<3;i++)await page.mouse.click(198,580);
- await page.mouse.click(100,536);await page.waitForTimeout(5000);await frames();
+ for(let i=0;i<Math.ceil((population-7)/8);i++)await page.mouse.click(198,580);
+ await page.mouse.click(100,356+26*Math.min(population,7));await page.waitForTimeout(5000);await frames();
  await page.keyboard.press('Escape');await frames();
  await page.mouse.click(172,630);await frames();await page.keyboard.press('Shift+Tab');await frames();
  await page.mouse.click(640,360);await frames();await shot('full-builder-placement');

@@ -19,32 +19,38 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 04:49 JST
+## Current checkpoint — 2026-09-15 05:04 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
 Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
-Fresh images contain **30 objects/679 parts**. The latest completed live backup,
-19:46 UTC, has **35 survivors**, six older removals and no removals since cause
+Fresh images contain **35 objects/880 parts**. The latest completed live backup,
+19:59:41 UTC, has **40 survivors/937 parts**, six older removals and no removals since cause
 diagnostics were added. Those older causes remain unknown. Read
 `build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
 for newer state; do not infer a stopped process from an old snapshot or timeout.
 
-Live additions awaiting independent fresh-start verification/bundling:
-**Cairnwing** ID 39 (62-part lander, x184,z40 on the 10 m plateau), **Vesper**
-ID 40 (70-part lander, x-155,z-22 on the 2 m shelf), and **Rime** ID 41
-(67-part hydraulic rover, x22,z-161). They have survived 1553, 929 and 366 seconds
-respectively. Inspect actual movement and landing poses; controller cycle counters
-alone do not prove successful flights. Northline, Quayfin and Tidelock are bundled.
+**Cairnwing**, **Vesper** and **Rime** are now bundled after measured fresh-start
+takeoff, 3.8–5.4 m excursions, return/landing and seeded route variation. Rime's
+hydraulic landing legs travel 0.78 m. The larger default world runs at 53–57 FPS
+in six full-screen views, alongside the live Pi browser. Physics, save/reload and
+focus/camera/prompt checks passed. See the closed
+[lander task](../20260915-045200-codex-01/TASK.md) for measurements and GPU images.
+Existing first 30 placements remain intact; new initial loads ride Tidelock and
+Quayfin. The live world already contains these learned machines and its own cargo,
+so it was not reset for this data-only catalog update.
 
 [World cargo height](../20260915-043000-codex-01/TASK.md) is implemented and browser
 verified: a loose crate rides Tidelock through 5.699 m travel and return, another
-travels 12.506 m on Quayfin's deck. Save/reload preserves both. The live Pi now has
-this tool and is instructed to finish its workshop experiment, then load the
-existing pier/tender. Transfer between them remains unproven. Preserve all designs
-and cargo while growing the world with varied feedback-controlled machines.
+travels 12.506 m on Quayfin's deck. Save/reload preserves both. The actual Pi also
+loaded the live pier (crate 43) and, after two missed deck placements, Quayfin
+(crate 46, carried 9.36 m and still on deck at age 279 s). Transfer between them
+remains unproven. It also released **Sundial**, a 29-part telescoping two-wheel
+surveyor, ID 42 at x-46,z58; independently verify its balancing/travel before
+bundling it. Continue with longer routes, varied walkers and distinctive world
+structures while preserving all existing creations and cargo.
 
 ### Owned services — recheck PIDs before stopping anything
 
@@ -72,6 +78,9 @@ conversation reached **192,426,340 bytes** at 19:46 UTC. The cargo update preser
 its exact complete SHA-256, all 35 objects and magnetic attachments. Evidence:
 `build/blockwalker-walking/cargo-updated-proof.json`, `cargo-live.png` and
 `build/blockwalker-cargo-update.log`.
+At 19:59 UTC the native history reached **208,588,492 bytes**; the complete
+192,426,340-byte pre-update prefix still matches SHA-256. Evidence:
+`build/blockwalker-walking/cargo-continuation-proof.json`.
 
 Latest recovery files are `cargo-state.tar` (195,112,960 bytes),
 `cargo-state.tar.gz` (144,400,380 bytes) and three `cargo-state-XX.part` files of
