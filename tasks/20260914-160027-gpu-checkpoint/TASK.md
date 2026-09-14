@@ -49,7 +49,7 @@ Use HTTPS or localhost. Local inference requires `shader-f16`; this NVIDIA/Linux
 Chrome setup needs the isolated-profile flags in
 [local models](../../docs/browser-local-models.md#browser-and-storage-requirements).
 Firefox renders the fluid correctly but Qwen generation remains around 0.5
-tokens/s, [tracked separately](../20260914-llm-firefox-performance/TASK.md).
+tokens/s, [tracked separately](../20260914-150636-llm-firefox-performance/TASK.md).
 The 0.8B model is small and its coding/tool reliability is limited. Context is
 8,192 tokens; thinking and image input are disabled. Optional larger models
 still download into volatile files.
@@ -60,8 +60,8 @@ compiler seed identity are preserved; the browser GPU boundary and image-size
 changes require review before merging. Detailed contracts and measurements:
 [GPU](../../docs/gpu.md), [browser boundary](../../docs/browser-boundary.md),
 [fluid evidence](../20260914-070000-gpu-05/TASK.md),
-[inference evidence](../20260914-llm-in-image/TASK.md), and
-[bundled weights](../20260914-llm-bundled-weights/TASK.md).
+[inference evidence](../20260914-150636-llm-in-image/TASK.md), and
+[bundled weights](../20260914-153257-llm-bundled-weights/TASK.md).
 
 ## Checkpoint verification
 
@@ -82,7 +82,7 @@ changes require review before merging. Detailed contracts and measurements:
   full catalog retains all 40 entries. Build-output symlinks are now ignored.
 - 274 source tests passed; 249 HOST inputs and 40 recipe pins verified; the
   kernel has exactly the typed outer imports in the browser contract. Packaging
-  documentation now admits dated tatr task IDs and their evidence.json files,
+  documentation now includes linked tatr evidence.json and GPU kernel source,
   with tests retaining rejection of private files and paths outside the site.
   GPU release inventories run in the existing headless Wasm build worker;
   desktop browser checks separately prove rendering and input.
@@ -94,3 +94,7 @@ with `DOLLY_BUILD_IMAGES=gpu-demo,gpu-fluid,pi-local,dollyfile-studio bash
 scripts/package-pages.sh build/gpu-checkpoint-20260914.tar.gz
 build/gpu-checkpoint-releases`. This preserves the main distribution and its
 existing catalog. Main remains unmerged.
+
+The model/checkpoint task IDs now include tatr's required timestamp field;
+`tatr ls -c :checkpoint` and `tatr ls :llm` list the closed checkpoints and
+open Firefox performance issue. Links and evidence moved with the task files.

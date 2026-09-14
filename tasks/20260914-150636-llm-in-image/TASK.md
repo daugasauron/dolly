@@ -97,7 +97,7 @@ still need to load; this does not claim the entire website boots offline.
 `vulkan_enable_f16_on_nvidia` testing toggle; personal profiles are untouched.
 Firefox exposes f16 without that Chrome option, but its first measured 0.8B
 run was only about 0.5 tokens/s. Its adapter identity is redacted and the cause
-of the performance gap is [tracked separately](../20260914-llm-firefox-performance/TASK.md).
+of the performance gap is [tracked separately](../20260914-150636-llm-firefox-performance/TASK.md).
 4B is catalogued but not verified.
 Context is 8,192 tokens; image input and thinking are disabled. Persistent model
 caching across refresh is outside this checkpoint.

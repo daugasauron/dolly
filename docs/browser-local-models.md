@@ -103,5 +103,5 @@ weights are loaded.
 Build with `npm run image -- pi-local`; run the opt-in real-model check with
 `node test/local-llm-browser.mjs`. Real browser evidence, measurements and
 remaining limitations are recorded in the
-[inference checkpoint](../tasks/20260914-llm-in-image/TASK.md) and
-[bundled model task](../tasks/20260914-llm-bundled-weights/TASK.md).
+[inference checkpoint](../tasks/20260914-150636-llm-in-image/TASK.md) and
+[bundled model task](../tasks/20260914-153257-llm-bundled-weights/TASK.md).

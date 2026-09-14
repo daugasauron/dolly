@@ -1,6 +1,6 @@
 # Experimental GPU interface
 
-The [combined checkpoint](../tasks/20260914-gpu-checkpoint/TASK.md) records the
+The [combined checkpoint](../tasks/20260914-160027-gpu-checkpoint/TASK.md) records the
 fluid image, in-sandbox local inference, verified artifacts and browser limits.
 
 `Dollyfile-gpu-demo` adds a C shader playground without changing any existing

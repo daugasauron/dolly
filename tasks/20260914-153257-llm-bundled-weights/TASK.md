@@ -45,6 +45,6 @@ module; pinned weight chunks work with the original seed executor too.
 [Structured results](evidence.json). Local logs: `build/llm-baked-*.log`,
 `build/llm-proof/`. Preview: `http://127.0.0.1:9097/pi-local/`.
 Firefox inference remains around 0.5 tokens/s, tracked in
-[the existing performance issue](../20260914-llm-firefox-performance/TASK.md).
+[the existing performance issue](../20260914-150636-llm-firefox-performance/TASK.md).
 The first image load still transfers the weights; subsequent boots reuse local
 image storage while it remains available. Optional larger models remain volatile.
