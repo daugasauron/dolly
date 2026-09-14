@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 07:47 JST
+## Current checkpoint — 2026-09-15 07:52 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -41,11 +41,14 @@ requests reached 381/380 completed.
 The latest user priority is [a two-legged walker](../20260915-070100-codex-01/TASK.md).
 An independent replay of the 37-part Sidelight VI verified right-foot clearance
 of 0.76955 m, nine planted left-foot contacts and torso up=0.997513 at 20 s.
-Every sampled state over the final 1.2833 s qualified as single support. Pi has
-moved on to Sidelight VII for landing and mirrored support. No biped is bundled
-or claimed to walk yet. At 22:44:46 UTC the live world had 52 survivors, nine
-removals, world time 26625.4333 s and 314,577,847 bytes of native history.
-Astra request 389 remains active (388 completed); frames and simulation advance.
+Every sampled state over the final 1.2833 s qualified as single support. The 90 s Sidelight VII replay then found a stalled landing after the mirrored
+lift: the supporting sole rolled onto three contacts. All 46 test objects
+survived; it did not walk forward. These findings were queued for Pi, which is
+now testing Sidelight VIII with narrower hips. No biped is bundled or claimed
+to walk yet. At 22:49:47 UTC the live world had 52 survivors, nine removals,
+world time 26916.1000 s and 315,183,322 bytes of native history. Request 389 ended
+with `Browser HTTP transport failed`; Pi's existing retry continued without a
+restart. Requests reached 393/392 completed, and frames/simulation advance.
 Do not restart solely because inference is long. Read `progress.json` and the
 current-state mirror for newer evidence.
 
@@ -117,8 +120,8 @@ readiness/lifecycle decisions still in Wasm. Two paired 45-object runs measured
 34.6–37.4 FPS before and 54.6–58.0 after at the unchanged 16 ms game timer.
 Chrome and Firefox core checks and the game editor browser passed. No outer
 imports or image-input identity changed; no image rebuild was required.
-The existing live browser still has its older loaded supervisor. Defer its
-refresh until the active Astra request completes, backing up all state first.
+The existing live browser still has its older loaded supervisor. Refresh it at a suitable experiment checkpoint, backing up all state first.
+The already verified short-wait change does not require rebuilding images.
 The old runtime artifacts are in `build/blockwalker-timer-before/`.
 
 ### Owned services — recheck PIDs before stopping anything

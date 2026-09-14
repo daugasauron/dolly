@@ -44,3 +44,19 @@ the earlier torque limitation. Three actual GPU frames and poses are in
 walking remain unproven; Pi is developing Sidelight VII. Its request 389 was
 still active at 22:43 UTC, with request 388 completed and world frames advancing.
 Do not abort/restart solely because inference is long.
+
+The separate 90-second Sidelight VII replay kept all 46 objects/1248 parts alive.
+The first support qualified for 1.567 s and landed. During the mirrored lift,
+the left sole cleared 0.896 m at 30.82 s, but the right sole rolled 0.254 rad
+onto three contacts, with COM 1.45 m left of its center. It aborted at 31.47 s
+and stalled in landing phase 4 through 90 s. Final sole rolls were 0.215/0.395
+rad, three contacts each; right correction saturated at +0.4. One completed
+transfer is not sustained walking. Poses, controller memory, three GPU frames
+and proof are in `build/blockwalker-biped-support/`. The instrumented run took
+130 wall seconds; do not treat it as normal rendering performance. The findings
+were queued through Pi's normal steering input without aborting inference.
+
+Request 389 eventually ended with `Browser HTTP transport failed`; the existing
+retry resumed normal tools without a browser restart. By the 22:49 UTC mirror,
+Pi was testing Sidelight VIII with narrower hips. The full history remains saved
+(315,183,322 bytes); this single transport failure's cause is not established.
