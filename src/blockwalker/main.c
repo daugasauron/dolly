@@ -18,7 +18,7 @@ static int undo_count,selected=-1,hover=-1,tool=ADD,brush_joint,brush_color,dirt
 static int brush_material,brush_finish=FINISH_PANEL,practice_sea;
 static float mouse_x,mouse_y,last_x,last_y,fps;
 static unsigned char keys[128],agent_keys[128];
-static int agent_control,practice_steps,agent_panel,agent_enabled,prompt_focus,world_view,camera_fast;
+static int agent_control,practice_steps,agent_panel,agent_enabled,prompt_focus,world_view,camera_fast,world_list;
 static double world_accumulator,last_save;
 static char agent_log[8192],prompt_input[1024],pending_prompt[1024];
 static double last_frame,updated,accumulator;
@@ -67,6 +67,12 @@ static void move_camera(float dt){
     orbit.target.x=Clamp(orbit.target.x,-512,512);orbit.target.z=Clamp(orbit.target.z,-512,512);orbit.target.y=Clamp(orbit.target.y,-64,128);
     orbit_update(&orbit);
 }
+static void visit_creature(const Creature *c){
+    Vector3 low={INFINITY,INFINITY,INFINITY},high={-INFINITY,-INFINITY,-INFINITY};
+    for(int i=0;i<c->design.count;i++){Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,i,&p,&q);low=Vector3Min(low,p);high=Vector3Max(high,p);}
+    orbit.target=Vector3Scale(Vector3Add(low,high),.5f);orbit.distance=fmaxf(12,Vector3Distance(low,high)*1.8f);orbit_update(&orbit);dirty=1;
+}
+static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-8));dirty=1;}
 static int program_trial;
 static void start_test(void){world_trial_stop();program_trial=0;set_world_view(0);if(!design.count){say("Add a box before testing your character.");return;}binding=-1;memset(keys,0,sizeof(keys));if(practice_sea)physics_start_sea(&physics,&design);else physics_start(&physics,&design);home_camera();say(practice_sea?"Sea trial: hulls float, ballast sinks. Use the joint keys to sail.":"Hold the joint keys to move. Can you keep it standing?");}
 static void back_to_builder(void){world_trial_stop();program_trial=0;set_world_view(0);report();physics_stop(&physics);memset(keys,0,sizeof(keys));home_camera();say("Back in the workshop. Your original build is unchanged.");}
@@ -114,11 +120,15 @@ static void click(void){
     }
     if(inside(1052,18,204,44)){if(world_view){set_world_view(0);return;}if(physics.running)back_to_builder();else start_test();return;}
     if(world_view){
-        for(int i=0;i<world.count&&i<11;i++)if(inside(24,286+i*26,194,25)){
-            Creature *c=&world.creatures[i];Quaternion q;physics_pose(&c->physics,&c->design,0,&orbit.target,&q);
-            orbit.distance=12;orbit_update(&orbit);dirty=1;return;
+        for(int i=0;i<6;i++)if(inside(24+(i%2)*102,188+(i/2)*38,92,32)){
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0}};
+            const float distances[]={24,50,100,110,150,512};
+            if(i==0)home_camera();else{orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;orbit_update(&orbit);dirty=1;}return;
         }
-        if(inside(24,598,194,36)){world_save(embedded_context);int result=system("download /workspace/blockwalker-world.json");say(result==0?"World exported with programs and physics state.":"World export failed.");}
+        world_page(0);
+        for(int i=0;i<8&&world_list+i<world.count;i++)if(inside(24,344+i*26,194,25)){visit_creature(&world.creatures[world_list+i]);return;}
+        if(inside(24,564,40,30)){world_page(-8);return;}if(inside(178,564,40,30)){world_page(8);return;}
+        if(inside(24,612,194,36)){world_save(embedded_context);int result=system("download /workspace/blockwalker-world.json");say(result==0?"World exported with programs and physics state.":"World export failed.");}
         return;
     }
     if(physics.running){
@@ -185,6 +195,7 @@ static void events(void){
     while(dolly_display_next_event(surface.generation,&e,0)>0){
         if(e.type==DOLLY_INPUT_EVENT_FOCUS&&e.action==0){memset(keys,0,sizeof(keys));orbit_drag=camera_fast=0;dirty=1;}
         if(e.type==DOLLY_INPUT_EVENT_SCROLL&&in_view()){orbit.distance=Clamp(orbit.distance+(int32_t)e.action*.00065f*fmaxf(1,orbit.distance/20),3,512);orbit_update(&orbit);}
+        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&world_view&&inside(24,344,194,250))world_page((int32_t)e.action>0?3:-3);
         if(e.type==DOLLY_INPUT_EVENT_POINTER){
             mouse_x=e.width_css_px;mouse_y=e.height_css_px;
             if(e.action==DOLLY_POINTER_ACTION_PRESS){
@@ -246,9 +257,14 @@ static void draw_ui(void){
     label(262,647,world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"ISLAND WORLD",17,muted);snprintf(text,sizeof(text),"%d living / %d fallen",world.count,world.deaths);label(24,154,text,16,ink);
-        label(24,205,"Click a name to visit.",15,muted);snprintf(text,sizeof(text),"%.0f / %.0f / %.0f m",orbit.target.x,orbit.target.y,orbit.target.z);label(24,230,text,15,muted);
-        button(24,598,194,36,"Export world",0);
-        for(int i=0;i<world.count&&i<11;i++){snprintf(text,sizeof(text),"%d  %.19s",world.creatures[i].id,world.creatures[i].name);label(24,286+i*26,text,14,ink);}
+        const char *places[]={"Home","Harbor","East","West","North","Overview"};
+        for(int i=0;i<6;i++)button(24+(i%2)*102,188+(i/2)*38,92,32,places[i],0);
+        label(24,316,"CREATURES / click to visit",14,muted);
+        world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-8));
+        for(int i=0;i<8&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.19s",c->id,c->name);label(24,344+i*26,text,14,ink);}
+        button(24,564,40,30,"<",0);button(178,564,40,30,">",0);
+        snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+8,world.count),world.count);label(74,572,text,14,muted);
+        button(24,612,194,36,"Export world",0);
     }else if(!physics.running){
         button(808,22,104,36,"Export",0);button(924,22,104,36,"Import",0);
         label(24,106,"PARTS",17,muted);

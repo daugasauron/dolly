@@ -88,3 +88,11 @@ The new browser profile lives under `.cache/blockwalker-browser-20260915`.
 Pi's request at 15:51:29 UTC used `gpt-6-astra`, effort `xhigh`, verified in
 `build/blockwalker-walking/requests.jsonl`. Continue populating the sea and
 harbor, improve navigation and larger mechanisms, and measure the fuller world.
+
+Navigation follow-up: harbor/island/overview shortcuts, paged and scrollable
+population list, and camera fitting for larger creations are implemented.
+`build/blockwalker-world-navigation-browser.log` passed under the same guarded
+browser command. Twelve physical anchored test creations prove paging to the
+last creature, fitting its 12-part span, and scrolling back to earlier entries.
+Actual camera coordinates verify all five destination shortcuts. The live
+browser still runs the water checkpoint until its next safe migration.

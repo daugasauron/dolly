@@ -78,6 +78,11 @@ try {
  await page.keyboard.down('W');await page.keyboard.down('E');await page.waitForTimeout(500);await page.keyboard.up('W');await page.keyboard.up('E');await frames();
  await page.keyboard.press('Escape');await page.keyboard.press('Tab');await page.keyboard.press('H');await frames();
  await page.keyboard.press('Escape');await frames();assert.equal((await exportBlueprint('after-world-camera')).source,blueprint.source);
+ await page.mouse.click(404,40);await frames();
+ for(const [x,y] of [[170,204],[68,242],[170,242],[68,280],[170,280]]){await page.mouse.click(x,y);await frames();}
+ await shot('world-overview');await page.mouse.click(198,580);await page.mouse.click(100,536);await frames();await shot('world-last-creature');
+ await page.mouse.move(100,390);await page.mouse.wheel(0,-100);await frames();await page.mouse.click(100,355);await frames();
+ await page.keyboard.press('Escape');await frames();
  await page.mouse.click(119,352);await page.mouse.click(706,352);await frames();await shot('joint');
  await page.mouse.click(1085,354);await page.keyboard.press('Q');await page.keyboard.press('Z');await frames();
  blueprint=await exportBlueprint('remapped');assert.equal(blueprint.blocks[3].negative,'Z'.charCodeAt(0));
@@ -115,11 +120,14 @@ try {
   if(i===0||trace[i-1].mode!=='world')visits.push([]);
   visits.at(-1).push(trace[i].camera);
  }
- assert.equal(visits.length,2);const [travel,returned]=visits;
+ assert.equal(visits.length,3);const [travel,returned,navigation]=visits;
  assert.ok(travel.at(-1).y>travel[0].y+1&&Math.hypot(travel.at(-1).x-travel[0].x,travel.at(-1).z-travel[0].z)>1,'World keyboard input moves the camera horizontally and vertically');
  assert.deepEqual(returned[0],travel.at(-1),'Switching views preserves the world camera');
  assert.equal(returned.length,2,'Prompt typing leaves the camera unchanged until Home');
  assert.deepEqual(returned[1],travel[0],'Home restores the world camera');
+ assert.deepEqual(navigation.slice(1,6).map(({x,y,z,distance})=>[x,y,z,distance]),[[116,-1,20,50],[170,4,30,100],[-174,2,-35,110],[15,6,-175,150],[0,0,0,512]],'Place buttons visit the harbor, islands and overview');
+ assert.equal(navigation[6].x,68.5,'Paging reaches the last of twelve creatures');assert.ok(navigation[6].distance>19,'A large creature fits its physical bounds');
+ assert.equal(navigation[7].x,33,'Scrolling the population list reaches earlier creatures');
  const download=page.waitForEvent('download'),command=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-last-run.json'));
  const file=await download,path=new URL('physics.json',output).pathname;await file.saveAs(path);assert.equal(await command,0);
  const physics=JSON.parse(await readFile(path,'utf8'));
@@ -135,7 +143,7 @@ try {
  assert.equal((await exportBlueprint('reopened')).source,blueprint.source);
  await page.keyboard.press('Escape');assert.equal(await restarted,0);
  assert.deepEqual(errors,[]);
- const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,undersideAttachment:true,spherePlacement:true,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,materialsAndAnchor:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,worldCameraTravel:true,promptDoesNotMoveCamera:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
+ const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,undersideAttachment:true,spherePlacement:true,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,materialsAndAnchor:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,worldCameraTravel:true,worldPlacesAndPopulation:true,promptDoesNotMoveCamera:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
  await writeFile(new URL('results.json',output),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
 }catch(error){await shot('failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
 finally{await browser.close();await site.close();}

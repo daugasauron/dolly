@@ -45,6 +45,9 @@ Shift moves faster. Right-drag or Alt-drag orbits; scroll zooms; H returns home.
 Click a creature's name to visit it. World and workshop cameras retain separate
 positions when switching views. Typing a Pi prompt does not move the camera.
 Pi's camera tool can also target explicit x/y/z coordinates.
+The world sidebar jumps to the harbor, three islands or the whole map. Page
+buttons or scrolling the creature list reach the full population; visiting a
+larger creation fits the camera to its current physical bounds.
 
 The part palette also has telescoping pistons, reversible thrusters and wheels.
 Pistons move their attached branch along the selected axis and sign; the palette
