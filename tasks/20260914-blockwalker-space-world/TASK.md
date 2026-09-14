@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 06:00 JST
+## Current checkpoint — 2026-09-15 06:35 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -27,7 +27,7 @@ Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
 Fresh images contain **42 objects/1095 parts**. The latest completed live backup,
-20:57:55 UTC, has **46 survivors/1171 parts**, six older removals and no removals since cause
+21:33:36 UTC, has **49 survivors/1281 parts**, six older removals and no removals since cause
 diagnostics were added. Those older causes remain unknown. Read
 `build/blockwalker-walking/progress.json` and `current-state/blockwalker-world.json`
 for newer state; do not infer a stopped process from an old snapshot or timeout.
@@ -76,10 +76,20 @@ Their live cargo and all older creations remain intact.
 **Obsidian Kite — basin survey circuit**, ID 52, is the latest unbundled creation:
 49 parts, start x46,z48. At age 473 s its controller recorded six completed
 circuits/landings; independently verify the actual poses and fresh behavior.
-Its 12×18 m route and 14 m cruise height explore the basin. Pi is working on a
-broader four-legged walker, Amberback. Continue larger routes, varied structures
-and performance work while preserving the complete live world/history. No live
-migration or C update was needed for this catalog-only checkpoint.
+Its 12×18 m route and 14 m cruise height explore the basin. **Amberback**, ID 53,
+is a 43-part hydraulic-shouldered walker. Pi has released **Underpass**, ID 54,
+a 66-part submerged handling crane trial, with new cargo 55. Independently verify
+these fresh before bundling. Preserve every existing creation and the complete
+native conversation.
+
+[Population profiling](../20260915-060200-codex-01/TASK.md) reduced C render-tree
+construction from 1.31 to 0.47 ms using median partitioning, with unchanged GPU
+work and eight byte-identical frozen views/world state. No consistent FPS boost
+was established. Guarded editor/native checks passed. Live app sources/binary
+were updated in place with full world/history hashes unchanged. Pi resumed real
+Astra/xhigh calls and successful tools; world time and population are advancing.
+The [timer task](../20260915-062600-codex-01/TASK.md) tracks remaining frame-pacing
+measurements. No host scheduling or GPU ABI change was made.
 
 ### Owned services — recheck PIDs before stopping anything
 
@@ -88,7 +98,7 @@ migration or C update was needed for this catalog-only checkpoint.
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; allows origins 9099 and 19199 |
 | Live browser runner | 17317 | CDP `http://127.0.0.1:9231`, `build/blockwalker-water-live.mjs` |
-| Five-minute backup monitor | 187845 | `build/blockwalker-basin-monitor.mjs --watch` |
+| Five-minute backup monitor | 216911 | `build/blockwalker-performance-monitor.mjs --watch` |
 
 The session is **`blockwalker-basin`**, with persistent browser profile
 `.cache/blockwalker-browser-20260915`. Run scripts under the `build` symlink with
@@ -103,23 +113,31 @@ script; never print or commit it.
 The monitor mirrors selected files under
 `build/blockwalker-walking/current-state/`: the world, working blueprint, Pi
 config/events and full native session JSONL. It excludes models/auth. The native
-conversation reached **235,645,401 bytes** before the basin update. Its exact
-complete SHA-256, all 44 objects, magnetic attachments and world age matched
-after compilation. Evidence: `build/blockwalker-walking/basin-updated-proof.json`,
-`basin-live.png` and `build/blockwalker-basin-update.log`. Earlier full-history
-prefix checks are retained in the cargo/focus proofs and linked feature tasks.
+conversation reached **274,387,780 bytes** before the renderer update. Its exact
+complete SHA-256 and complete world file matched across compilation. Evidence:
+`build/blockwalker-walking/performance-updated-proof.json`, `performance-live.png`
+and `build/blockwalker-performance-update.log`. The first resumed mirror has
+279,433,079 bytes and retains that exact complete prefix, with successful new
+tool calls and a native compaction entry appended.
 
-Latest recovery files are `basin-state.tar` (238,510,080 bytes),
-`basin-state.tar.gz` (176,689,885 bytes) and four `basin-state-XX.part` files of
-at most 48 MiB. They preserve 44 creatures at world age 20331.9000 s. The manifest
-and history hash are in `basin-restore-proof.json` under the walking folder.
+Latest recovery files are `performance-state.tar` (276,039,680 bytes),
+`performance-state.tar.gz` (204,649,967 bytes) and five `performance-state-XX.part`
+files of at most 48 MiB. They preserve 47 creatures/1,214 parts at world age
+22797.4000 s. The manifest/hash are in `performance-restore-proof.json` under the
+walking folder. All older recovery archives remain available.
+
+The old monolithic monitor exceeded Playwright's 256 MiB WebSocket message limit;
+the live browser and Wasm filesystem survived. **Do not restart monitor 187845.**
+The current performance monitor returns file metadata first, then transfers
+8 MiB binary chunks; a full backup succeeded. Stop it before manual exports to
+avoid overlap. It still uses the normal saved-session interface.
 
 For app-only C/JS changes, update in place after pausing Pi and backing up:
-`build/blockwalker-basin-update.mjs` uploads the small prepared source archive,
-uses the module's cc command inside the existing Dolly filesystem, checks the
-new binary, then replaces it. Compilation took **1.57 s**, checks **5.37 s**.
-No image reload or history/credential reimport was needed. Use a new temporary
-binary/archive name on repetition. Host/runtime changes still require migration.
+`build/blockwalker-performance-update.mjs` uploads the prepared source archive,
+compiles to a temporary binary inside the existing Dolly filesystem, checks it,
+then replaces the app binary. Compilation took **1.535 s**, checks **5.361 s**.
+No image reload or history/credential reimport was needed. Use new temporary
+binary/archive names on repetition. Host/runtime changes still require migration.
 
 Before an update or migration, stop only the verified monitor, use
 `build/blockwalker-magnet-pause.mjs` to pause Pi/exit to Slop, then run the current
@@ -127,8 +145,8 @@ monitor once to capture final files. Preserve a credential-free USTAR archive,
 gzip/split as needed, and restore through the real browser file picker. The
 full-restore template is `build/blockwalker-basin-restore.mjs`; it uses CDP's
 file-input setter because Playwright's remote helper rejects files over 50 MB.
-It adapts the previously verified focus restore; the basin checkpoint used an
-in-place update, so the new archive has not been reimported into a fresh browser.
+It adapts the previously verified focus restore; the latest checkpoints used
+in-place updates, so the new archive has not been reimported into a fresh browser.
 Use a fresh session name and restart its monitor after restoring. Verify IDs,
 attachments, the full history prefix and actual Astra/xhigh continuation.
 
@@ -139,7 +157,7 @@ after success. Do not truncate history or add a host filesystem bypass. See
 [streaming transfers](../20260915-030600-codex-01/TASK.md).
 
 Older `*-state.tar` archives remain in the walking folder: checkpoint,
-space-camera, water, navigation, magnet, magnet-carry, library, outposts, focus, cargo and the
+space-camera, water, navigation, magnet, magnet-carry, library, outposts, focus, cargo, basin and the
 compaction probe. The water recovery used a saved 28 MB conversation; an interval
 after that earlier checkpoint was lost with the old temporary browser profile
 during the desktop freeze. Do not claim that interval was recovered. Later

@@ -87,8 +87,18 @@ void render_ui_upload(void) {
     EndDrawing();rlCopyFramebuffer(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,ui_pixels);
     upload_buffer(3,ui_pixels,SCREEN_WIDTH*SCREEN_HEIGHT*4);
 }
-static int sort_axis;
-static int compare_box(const void *a,const void *b){float x=((const BoxDraw *)a)->center[sort_axis],y=((const BoxDraw *)b)->center[sort_axis];return (x>y)-(x<y);}
+static void partition_boxes(uint32_t start,uint32_t count,int axis){
+    int low=start,high=start+count-1,mid=start+count/2;
+    while(low<high){
+        int i=low,j=high;float pivot=boxes[(low+high)/2].center[axis];
+        while(i<=j){
+            while(i<=j&&boxes[i].center[axis]<pivot)i++;
+            while(i<=j&&boxes[j].center[axis]>pivot)j--;
+            if(i<=j){BoxDraw swap=boxes[i];boxes[i++]=boxes[j];boxes[j--]=swap;}
+        }
+        if(mid<=j)high=j;else if(mid>=i)low=i;else break;
+    }
+}
 static uint32_t make_tree(uint32_t start,uint32_t count){
     uint32_t id=node_count++;Node *n=&nodes[id];
     for(int axis=0;axis<3;axis++){n->lo[axis]=1e30f;n->hi[axis]=-1e30f;}
@@ -101,8 +111,8 @@ static uint32_t make_tree(uint32_t start,uint32_t count){
         }
     }
     if(count==1){n->left=start;n->right=UINT32_MAX;return id;}
-    sort_axis=0;for(int axis=1;axis<3;axis++)if(n->hi[axis]-n->lo[axis]>n->hi[sort_axis]-n->lo[sort_axis])sort_axis=axis;
-    qsort(boxes+start,count,sizeof(BoxDraw),compare_box);uint32_t mid=count/2;
+    int sort_axis=0;for(int axis=1;axis<3;axis++)if(n->hi[axis]-n->lo[axis]>n->hi[sort_axis]-n->lo[sort_axis])sort_axis=axis;
+    partition_boxes(start,count,sort_axis);uint32_t mid=count/2;
     n->left=make_tree(start,mid);n->right=make_tree(start+mid,count-mid);return id;
 }
 static void box_draw(Block b,Vector3 v,Quaternion q,int selected,int hover,int preview,size_t index){
