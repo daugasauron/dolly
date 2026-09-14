@@ -94,6 +94,10 @@ if has_module session-recovery; then
   done
 fi
 
+if has_module blockwalker; then
+  node scripts/prepare-blockwalker.mjs "${static_dir}/blockwalker/source.tar"
+fi
+
 if has_module curl; then
   copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
