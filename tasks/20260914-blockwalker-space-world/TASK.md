@@ -133,5 +133,20 @@ moving thruster body's measured camera/root offset, loaded magnet restoration,
 boat buoyancy, anchored bridge and PID flight. The magnet image now shows the
 whole hoist and suspended crate. Evidence:
 `build/blockwalker-camera-follow-integration.log` and
-`build/blockwalker-proof/blockwalker-magnet.png`. The camera fix is built and
-verified; keep the live experiment running until its next migration checkpoint.
+`build/blockwalker-proof/blockwalker-magnet.png`. The camera fix is built,
+verified and running in the live `blockwalker-cranes` session as of 01:49 JST.
+Restored all 15 current survivors at world age 8360.45 s, including Dockhand and
+its latched cargo, plus the complete 53 MB Pi conversation. Both original
+tripods eventually fell naturally; their designs remain in earlier backups.
+The first saved frame after restore retained cargo attachment ID 20 at
+6.2375 N load. Pi resumed through Astra/xhigh and is inspecting the crane before
+continuing the larger-world experiments.
+
+Current recovery archive: `build/blockwalker-walking/magnet-carry-state.tar`;
+latest full filesystem/conversation copies: `build/blockwalker-walking/current-state`.
+Own preview PID 61655 serves 9099; relay PID 17316 serves 9010; browser runner
+PID 17317 exposes CDP 9231; monitor PID 62613 saves `blockwalker-cranes` every
+five minutes. Stop only that monitor when migrating. The latest restoration
+script is `build/blockwalker-cranes-restore.mjs`; it uses CDP's file input setter
+because Playwright's remote upload helper rejects the now-over-50 MB archive.
+No history was truncated. Continue the timed goal until 22:00 JST.

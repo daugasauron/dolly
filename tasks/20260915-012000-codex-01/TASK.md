@@ -63,3 +63,10 @@ Pi then installed a 60 Hz feedback controller that gates pickup, lift, slew,
 lowering and release on attachment, load and joint sensors; its autonomous
 shuttle experiment continues in the live world session. This completes the
 magnet task; ongoing population work remains in the larger-world task.
+
+The agent subsequently released Dockhand and a separate crate into the shared
+world. At the next image migration (01:49 JST), the 76.6-second-old crane
+restored its live attachment to cargo ID 20 and applied 6.2375 N load, with the
+crate still at y=2.1637 m. The full conversation and 15 current survivors were
+preserved in session `blockwalker-cranes`. Real-agent evidence is retained in
+`build/blockwalker-cranes-monitor.log` and the full current-state archive.
