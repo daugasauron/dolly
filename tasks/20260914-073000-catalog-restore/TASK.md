@@ -1,6 +1,6 @@
 # Preserve the complete deployed image catalog and rebuild links
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: images,bug,checkpoint
 
@@ -31,5 +31,12 @@ verified checkpoint snapshot hashes.
 
 Local logs: `build/full-catalog-build.log`, `build/catalog-final-plan.log`,
 `build/catalog-browser.json`, `build/catalog-restored.png`, and
-`build/fluid-proof/results.json`. Complete distribution verification and
-publication to the local preview remain before closing this task.
+`build/fluid-proof/results.json`.
+
+All 39 packaged image inventories passed. Published local release `12b9aaf4`
+from source `b0f02f0`, tagged `gpu-checkpoint-full-20260914`. The published
+menu passed the same 117-link and rebuild start/cancel check. Agents at play
+is present, and all three retired demo routes plus its recipe, module and
+snapshot metadata return 404 in the current release. Refresh
+[the local preview](http://127.0.0.1:9098/). The original 21-image release is
+retained as an immutable historical artifact; it is no longer current.

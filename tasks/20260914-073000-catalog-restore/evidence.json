@@ -226,5 +226,19 @@
         "closedScope": true
       }
     }
-  ]
+  ],
+  "publication": {
+    "release": "12b9aaf40169f9c18f168a875164abef536508eda1095e43f6d97f628d97e106",
+    "source": "b0f02f0e515535cb1d5c3dab24b465face8638e7",
+    "preview": "http://127.0.0.1:9098/",
+    "variant": "daugasauron.com",
+    "imageInventoriesPassed": 39,
+    "publishedMenuAndRebuildPassed": true,
+    "agentsPagePresent": true,
+    "removedDemoRoutes404": 3,
+    "removedDemoAssets404": 3,
+    "archive": "build/gpu-checkpoint-all-20260914.tar.gz",
+    "archiveBytes": 2093275841,
+    "archiveSha256": "cc29651c9e27d8757b04b4ae5d8a753ddc8a251b1ee084eb49975d779dc8f535"
+  }
 }
