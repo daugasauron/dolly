@@ -10,6 +10,7 @@
 #include <string.h>
 
 Font editor_font;
+Viewport render_view={VIEW_X,VIEW_Y,VIEW_W,VIEW_H};
 static dolly_gpu gpu;
 static unsigned char *ui_pixels;
 typedef struct { float center[4],rotation[4],color[4],flags[4],half[4],style[4]; } BoxDraw;
@@ -26,7 +27,7 @@ static void flush(void) {check(dolly_gpu_batch(&gpu));dolly_gpu_begin(&gpu);}
 void orbit_update(Orbit *o) {o->eye=Vector3Add(o->target,(Vector3){sinf(o->yaw)*cosf(o->pitch)*o->distance,sinf(o->pitch)*o->distance,cosf(o->yaw)*cosf(o->pitch)*o->distance});}
 Camera3D orbit_camera(const Orbit *o) {return (Camera3D){o->eye,o->target,{0,1,0},42,CAMERA_PERSPECTIVE};}
 int render_pick(const Character *c,const Orbit *o,float x,float y,Vector3 *normal) {
-    Ray ray=GetScreenToWorldRayEx((Vector2){x-VIEW_X,y-VIEW_Y},orbit_camera(o),VIEW_W,VIEW_H);
+    Ray ray=GetScreenToWorldRayEx((Vector2){x-render_view.x,y-render_view.y},orbit_camera(o),render_view.width,render_view.height);
     float distance=1e30f;int selected=-1;
     for(int i=0;i<c->count;i++) {
         Vector3 p=block_position(c->blocks[i]),h={.5f,.5f,.5f};
@@ -114,15 +115,15 @@ static void box_draw(Block b,Vector3 v,Quaternion q,int selected,int hover,int p
 static void draw_scene(const Orbit *o,size_t count,int running,int landscape,double time){
     Vector3 f=Vector3Normalize(Vector3Subtract(o->target,o->eye)),r=Vector3Normalize(Vector3CrossProduct(f,(Vector3){0,1,0})),u=Vector3CrossProduct(r,f);
     Scene scene={{o->eye.x,o->eye.y,o->eye.z,count},
-        {f.x,f.y,f.z,tanf(21*DEG2RAD)},{r.x,r.y,r.z,(float)VIEW_W/VIEW_H},
-        {u.x,u.y,u.z,running},{VIEW_X,VIEW_Y,VIEW_W,VIEW_H},{time,landscape,GetTime(),WATER_LEVEL}};
+        {f.x,f.y,f.z,tanf(21*DEG2RAD)},{r.x,r.y,r.z,(float)render_view.width/render_view.height},
+        {u.x,u.y,u.z,running},{render_view.x,render_view.y,render_view.width,render_view.height},{time,landscape,GetTime(),WATER_LEVEL}};
     node_count=0;if(count)make_tree(0,count);
     dolly_gpu_write(&gpu,1,&scene,sizeof(scene));
     if(count){upload_buffer(box_buffer,boxes,count*sizeof(BoxDraw));upload_buffer(node_buffer,nodes,node_count*sizeof(Node));}
     dolly_gpu_draw(&gpu,5,box_group,3,1,SCREEN_WIDTH,SCREEN_HEIGHT,1);
     if(capture_requested){
         unsigned char *record=dolly_gpu_record(&gpu,DOLLY_GPU_CAPTURE_FRAME,32);
-        uint32_t rectangle[]={VIEW_X,VIEW_Y,VIEW_W,VIEW_H};
+        uint32_t rectangle[]={render_view.x,render_view.y,render_view.width,render_view.height};
         memcpy(record+8,&capture_buffer,8);memcpy(record+16,rectangle,sizeof(rectangle));
     }
     dolly_gpu_submit(&gpu);flush();
@@ -178,8 +179,9 @@ void render_world(const Orbit *o){
 static unsigned char *capture(const Character *c,const Physics *p,const Orbit *o,int *bytes) {
     *bytes=0;check(dolly_gpu_capabilities(&gpu));uint32_t features;memcpy(&features,gpu.reply,4);dolly_gpu_begin(&gpu);
     if(!(features&DOLLY_GPU_FEATURE_CAPTURE_FRAME))return NULL;
-    size_t stride=(VIEW_W*4+255)&~255,total=stride*VIEW_H;
-    if(!capture_buffer){capture_buffer=next_resource++;dolly_gpu_buffer(&gpu,capture_buffer,total,1|8);flush();}
+    int width=render_view.width,height=render_view.height;
+    size_t stride=(width*4+255)&~255,total=stride*height;
+    if(!capture_buffer){capture_buffer=next_resource++;dolly_gpu_buffer(&gpu,capture_buffer,((SCREEN_WIDTH*4+255)&~255)*SCREEN_HEIGHT,1|8);flush();}
     capture_requested=1;if(c)render_frame(c,p,o,-1,-1,NULL);else render_world(o);capture_requested=0;
     dolly_gpu_map(&gpu,capture_buffer,total);flush();
     unsigned char *pixels=array_resize(NULL,total,1);
@@ -188,13 +190,13 @@ static unsigned char *capture(const Character *c,const Physics *p,const Orbit *o
         memcpy(pixels+offset,gpu.reply,n);offset+=n;
     }
     dolly_gpu_begin(&gpu);void *record=dolly_gpu_record(&gpu,DOLLY_GPU_UNMAP,16);memcpy((char *)record+8,&capture_buffer,8);flush();
-    for(int y=0;y<VIEW_H;y++){
-        memmove(pixels+(size_t)y*VIEW_W*4,pixels+(size_t)y*stride,VIEW_W*4);
-        if(features&DOLLY_GPU_FEATURE_SURFACE_BGRA)for(int x=0;x<VIEW_W;x++){
-            unsigned char *pixel=pixels+((size_t)y*VIEW_W+x)*4,temp=pixel[0];pixel[0]=pixel[2];pixel[2]=temp;
+    for(int y=0;y<height;y++){
+        memmove(pixels+(size_t)y*width*4,pixels+(size_t)y*stride,width*4);
+        if(features&DOLLY_GPU_FEATURE_SURFACE_BGRA)for(int x=0;x<width;x++){
+            unsigned char *pixel=pixels+((size_t)y*width+x)*4,temp=pixel[0];pixel[0]=pixel[2];pixel[2]=temp;
         }
     }
-    Image image={pixels,VIEW_W,VIEW_H,1,PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};ImageResize(&image,640,VIEW_H*640/VIEW_W);
+    Image image={pixels,width,height,1,PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};ImageResize(&image,640,height*640/width);
     unsigned char *png=ExportImageToMemory(image,".png",bytes);UnloadImage(image);return png;
 }
 unsigned char *render_capture(const Character *c,const Physics *p,const Orbit *o,int *bytes){return capture(c,p,o,bytes);}

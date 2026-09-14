@@ -4,6 +4,8 @@
 
 enum { SCREEN_WIDTH=1280, SCREEN_HEIGHT=720, VIEW_X=242, VIEW_Y=80, VIEW_W=756, VIEW_H=594 };
 typedef struct { Vector3 eye,target; float yaw,pitch,distance; } Orbit;
+typedef struct { int x,y,width,height; } Viewport;
+extern Viewport render_view;
 extern Font editor_font;
 int render_open(dolly_display_surface *surface);
 void render_close(void);
