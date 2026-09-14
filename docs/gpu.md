@@ -1,5 +1,8 @@
 # Experimental GPU interface
 
+The [combined checkpoint](../tasks/20260914-gpu-checkpoint/TASK.md) records the
+fluid image, in-sandbox local inference, verified artifacts and browser limits.
+
 `Dollyfile-gpu-demo` adds a C shader playground without changing any existing
 image. `cc` compiles its program and client inside Dolly. WGSL files remain in
 `/usr/src/dolly/gpu`; edit them and rerun `gpu-demo`. Keys 1/2/3 select aurora,

@@ -40,7 +40,7 @@ export async function packageDocumentation(project, site, roots) {
     }
     if (!alreadyPublished && !linkedSources.has(path) && !recipePath.test(path) &&
         !/^modules\/[a-z0-9-]+\.dm$/.test(path) &&
-        !/^tasks\/(?:README\.md|[0-9]{8}-[0-9]{6}-[a-z0-9-]+\/TASK\.md)$/.test(path) &&
+        !/^tasks\/(?:README\.md|[0-9]{8}-[a-z0-9-]+\/(?:TASK\.md|evidence\.json))$/.test(path) &&
         !/^docs\/[a-z0-9-]+\.md$/.test(path) && path !== "abi/README.md") {
       throw new Error(`documentation links to an unpublished source: ${path}`);
     }

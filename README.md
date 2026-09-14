@@ -28,6 +28,10 @@ Requires shared WebAssembly memory64/table64; there is no wasm32 fallback.
 WebGPU with `shader-f16`. Select a model with Pi's `/model` picker; inference
 runs inside the image.
 
+The [GPU checkpoint](tasks/20260914-gpu-checkpoint/TASK.md) combines the
+interactive liquid/smoke image and in-sandbox Qwen inference, with local preview
+commands, verified image identities and current browser limitations.
+
 ## Boundary
 
 Assume all Wasm userspace is compromised. The trusted browser providers remain

@@ -1,0 +1,62 @@
+{
+  "runtime": "sha256:6c5933e88079941f708fa40f67ecb26b84deeefcc5d7b57fa520d25388f596d1",
+  "seed": "sha256:0ace6dd93c15c06b50230755bc138b64374783d5f3ef54c7d14ab54a5676656a",
+  "images": [
+    {
+      "image": "gpu-fluid",
+      "bytes": 155056420,
+      "sha256": "25f0d6b206b559a9e74eba200d04ee3bacaafe8131fed982d170ec899b7a9d4c",
+      "inputs": [
+        {
+          "recipeSha256": "265be7c0a304e97626ba33e552dea3122e79a55ee211d342421667da0153b1bc",
+          "sha256": "34b9e59e4e0cd35b396d131fcf058f935aa3a3f7d124f55c96da012c1935b401"
+        }
+      ]
+    },
+    {
+      "image": "pi-local",
+      "bytes": 821902873,
+      "sha256": "029aee881015bc16758e03ffe0f93e1c0f214ac6f7e5e32162a3ab5dbb2134f7",
+      "inputs": [
+        {
+          "recipeSha256": "0cc039893fb5dbf7dc9b963748367caee86c05ea2b1219e3c0e3934e52b7df67",
+          "sha256": "7d1764d6589187aee2b5df02789f4f74b34672e9531c87dcc3c2d087b1a0ed19"
+        },
+        {
+          "recipeSha256": "0e9d9cb6faa68e8a531a8209eb0353b91bac7cfb0764fcc5b553b148d6c32450",
+          "sha256": "c82b8b3d34909b1bf59435c148ce7c208e44d62ace6644c813e1c81a67b72cd0"
+        },
+        {
+          "recipeSha256": "3ac7a2b1e1cfee4e9c8da8a2ee39f23902a6f43aeaba79c877796508c532cba8",
+          "sha256": "b4344633a79444dba13e789cc1ad61dbee8fe1d2fa083d03e04398880720a9c5"
+        }
+      ]
+    },
+    {
+      "image": "dollyfile-studio",
+      "bytes": 858174709,
+      "sha256": "e2c7c9500fda05eadec6bdb79c0bf0768f5681a0cb3c2a980d378a0414419b15",
+      "inputs": [
+        {
+          "recipeSha256": "682d091960ed2360ac34bdc38d931c65952dbb8e8da516a0a8911db725dfbd19",
+          "sha256": "774d176427e3cda349e0c4f301ca1d69ca663d2e22a494cade8a3215f3ab1841"
+        },
+        {
+          "recipeSha256": "e6fb7f5e959e5e74916c4dc2f9e48a320c371cfc0efac2ba0253e5242e07a576",
+          "sha256": "029aee881015bc16758e03ffe0f93e1c0f214ac6f7e5e32162a3ab5dbb2134f7"
+        }
+      ]
+    },
+    {
+      "image": "gpu-demo",
+      "bytes": 154462635,
+      "sha256": "c129e936083ba4fd3ecd87a13856e9b26316a13d8baec77e36558c7e1bb89439",
+      "inputs": [
+        {
+          "recipeSha256": "265be7c0a304e97626ba33e552dea3122e79a55ee211d342421667da0153b1bc",
+          "sha256": "34b9e59e4e0cd35b396d131fcf058f935aa3a3f7d124f55c96da012c1935b401"
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
-build/
-dist/
+build
+dist
 .cache/
-node_modules/
+node_modules
 __pycache__/
 
 # Local agent workflow, sessions, reports, and dated work notebooks.
