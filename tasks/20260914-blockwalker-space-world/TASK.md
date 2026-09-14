@@ -37,6 +37,12 @@ Its practice trial landed after 20 seconds with every foot touching, jets off an
 5 mm displacement from home. Verify its actual island takeoff/patrol/return before
 bundling it. Northline, Quayfin and Tidelock are now in the fresh population.
 Quayfin approaches beside Tidelock; boarding and cargo transfer remain unproven.
+The 19:24:27 UTC backup has 33 survivors, including Cairnwing ID 39 (62 parts)
+at x184,z40 on the 10 m plateau. It has run for 272 seconds with no new removals;
+its saved controller counter reports 14 cycles. Inspect actual poses/phase
+conditions before treating that counter as proof of completed landings.
+Next address [world cargo height](../20260915-043000-codex-01/TASK.md), so the loaded
+lift experiment can be reproduced in the shared world, then test real transfer.
 Preserve existing designs/cargo while adding varied larger flyers, walkers and
 working island structures with bounded randomized feedback controllers.
 
