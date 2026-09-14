@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 07:52 JST
+## Current checkpoint — 2026-09-15 08:08 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -120,9 +120,24 @@ readiness/lifecycle decisions still in Wasm. Two paired 45-object runs measured
 34.6–37.4 FPS before and 54.6–58.0 after at the unchanged 16 ms game timer.
 Chrome and Firefox core checks and the game editor browser passed. No outer
 imports or image-input identity changed; no image rebuild was required.
-The existing live browser still has its older loaded supervisor. Refresh it at a suitable experiment checkpoint, backing up all state first.
-The already verified short-wait change does not require rebuilding images.
-The old runtime artifacts are in `build/blockwalker-timer-before/`.
+The live world has now migrated to the new runtime through the ordinary file
+picker and a chunked archive. All five selected files matched byte-for-byte;
+world and full history also matched `sha256sum` inside Dolly after compilation.
+The new named session passed the actual session compatibility check. Pi resumed
+Astra/xhigh requests at 23:02 UTC. At 23:07:27 UTC, world time reached
+27465.3500 s with all 52 saved IDs/controllers still present, 1361 parts and no
+new removals. The full 315,243,596-byte history prefix is preserved in the growing
+316,072,399-byte file. `wakeup-continuation-proof.json` records the evidence.
+Pi actually completed a 90 s trial through its new tool and is testing Sidelight X.
+Old runtime artifacts remain in
+`build/blockwalker-timer-before/`.
+
+[Longer practice trials](../20260915-080300-codex-01/TASK.md) now accept 90 s in
+the live session, verified by a full source-only in-Dolly replay. Fresh packages
+still have the old cap; bundle this with the next app update. Sidelight IX's
+29-part trial remained upright at 20 s but fell at 55–59 s, so it stays unbundled.
+[Controller diagnostics](../20260915-080400-codex-01/TASK.md) is the next tool
+improvement: Pi cannot currently read its own practice memory/phase counters.
 
 ### Owned services — recheck PIDs before stopping anything
 
@@ -131,9 +146,9 @@ The old runtime artifacts are in `build/blockwalker-timer-before/`.
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; allows origins 9099 and 19199 |
 | Live browser runner | 17317 | CDP `http://127.0.0.1:9231`, `build/blockwalker-water-live.mjs` |
-| Five-minute backup monitor | 248825 | `build/blockwalker-performance-monitor.mjs --watch` |
+| Five-minute backup monitor | 277273 | `build/blockwalker-wakeup-monitor.mjs --watch` |
 
-The session is **`blockwalker-basin`**, with persistent browser profile
+The session is **`blockwalker-biped`**, with persistent browser profile
 `.cache/blockwalker-browser-20260915`. Run scripts under the `build` symlink with
 `node --preserve-symlinks-main`. Logs use the matching script names under `build`.
 Current screenshots/status: `build/blockwalker-walking/latest.png`, `status.json`.
@@ -146,31 +161,35 @@ script; never print or commit it.
 The monitor mirrors selected files under
 `build/blockwalker-walking/current-state/`: the world, working blueprint, Pi
 config/events and full native session JSONL. It excludes models/auth. The native
-conversation reached **309,962,807 bytes** before the controller update, with
-1,481 valid JSONL entries. Its complete SHA-256, world, blueprint, config and
-events all matched across compilation. Evidence: `controller-updated-proof.json`
-and `controller-restore-proof.json` in the walking folder. The first continued mirror is 312,153,420 bytes, retaining that full 310 MB
-pre-update prefix. See `controller-continuation-proof.json`. The complete earlier
-274,387,780-byte history prefix is also verified. Startup reads the entire native
-history and can pause game frames for several minutes; do not restart it merely
-because that loading period is slow.
+conversation reached **315,243,596 bytes** before the runtime migration, with
+1,534 valid JSONL entries. Its complete SHA-256 is
+`f9505d0902fb4528cc1a179b95e017ec1600e74ac27bff2cdb1141a93152c342`.
+All five selected files matched the archive after ordinary file-picker import;
+the complete world/history hashes matched again inside Dolly after the small
+C update. The earlier 309,962,807-byte history prefix was verified too. Evidence:
+`wakeup-{restore,restored,updated}-proof.json` in the walking folder. Startup reads
+the full native history and can pause frames for minutes; do not restart merely
+because loading is slow.
 
-Latest recovery files are `controller-state.tar` (312,115,200 bytes),
-`controller-state.tar.gz` (231,109,184 bytes) and five `controller-state-XX.part`
-files of at most 48 MiB. They preserve 52 creatures/1361 parts at world age
-25482.8167 s. The manifest/hash are in `controller-restore-proof.json` under the
-walking folder. All older recovery archives remain available.
+Latest recovery files are `wakeup-state.tar` (318,085,120 bytes),
+`wakeup-state.tar.gz` (235,118,897 bytes) and five `wakeup-state-XX.part` files of
+at most 48 MiB. They preserve 52 creatures/1361 parts at world age 27184.7667 s,
+with nine prior removals. The manifest is `wakeup-restore-proof.json`; all older
+archives remain available. `build/blockwalker-wakeup-restore.mjs` imports these
+files and the owned relay config into a fresh image, then saves the compatible
+`blockwalker-biped` session. `blockwalker-long-trial-update.mjs` compiles the current
+source overlay inside Dolly; `blockwalker-wakeup-resume.mjs` starts Pi again.
 
 The old monolithic monitor exceeded Playwright's 256 MiB WebSocket message limit;
 the live browser and Wasm filesystem survived. **Do not restart monitor 187845.**
-The current performance monitor returns file metadata first, then transfers
+The current wakeup monitor returns file metadata first, then transfers
 8 MiB binary chunks; a full backup succeeded. Stop it before manual exports to
 avoid overlap. It still uses the normal saved-session interface.
 
 For app-only C/JS changes, update in place after pausing Pi and backing up:
-`build/blockwalker-controller-update.mjs` uploads the prepared source archive,
+`build/blockwalker-long-trial-update.mjs` uploads the prepared source archive,
 compiles to a temporary binary inside the existing Dolly filesystem, checks it,
-then replaces the app binary. Compilation took **1.539 s**, checks **5.552 s**.
+then replaces the app binary. Compilation took **3.297 s**, checks **5.535 s**.
 No image reload or history/credential reimport was needed. Use new temporary
 binary/archive names on repetition. Host/runtime changes still require migration.
 

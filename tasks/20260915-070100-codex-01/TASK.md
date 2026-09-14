@@ -60,3 +60,10 @@ Request 389 eventually ended with `Browser HTTP transport failed`; the existing
 retry resumed normal tools without a browser restart. By the 22:49 UTC mirror,
 Pi was testing Sidelight VIII with narrower hips. The full history remains saved
 (315,183,322 bytes); this single transport failure's cause is not established.
+
+The new 90-second practice replay exposed Sidelight IX's later fall: up=0.99944
+at 20 s, below 0.9 at 55.12 s, and below zero at 58.73 s. Joint separation
+stayed under 0.0182 m. After the fully preserved runtime migration, actual Pi
+repeated the 90 s trial and independently reported the same failure. It is now
+testing Sidelight X with direct torso-attitude feedback. The source-only trial
+extension and missing practice-memory diagnostics have tasks 080300/080400.

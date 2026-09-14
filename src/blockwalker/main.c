@@ -530,7 +530,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
         JS_FreeCString(ctx,pressed);JS_FreeValue(ctx,v);
     }else if(!strcmp(op,"program_trial")){
         int steps=number(ctx,args,"steps",0);
-        if(!design.count||steps<1||steps>1200)result=JS_ThrowRangeError(ctx,"Build a character; program trial requires 1..1200 steps");
+        if(!design.count||steps<1||steps>5400)result=JS_ThrowRangeError(ctx,"Build a character; program trial requires 1..5400 steps");
         else{practice_sea=number(ctx,args,"sea",practice_sea)!=0;start_test();if(!world_trial_begin())result=JS_ThrowTypeError(ctx,"Install a valid controller first");else{agent_control=1;program_trial=1;practice_steps=steps;memset(agent_keys,0,128);dirty=1;}}
     }else if(!strcmp(op,"release")){memset(agent_keys,0,128);practice_steps=0;dirty=1;}
     else if(!strcmp(op,"camera")) {
