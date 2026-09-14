@@ -2,6 +2,15 @@
 
 Dolly separates the common machine seed from image inputs.
 
+The experimental `Dollyfile-gpu-fluid` fetches the SHA-256-pinned, unmodified
+`fluid_simulation.c` from webgpu-native-examples at
+`9a7c30753d6f44630564a8316eb9c44211ff0ecc` and compiles it with Dolly's `cc`.
+Its official WebGPU header and the needed cglm headers are individually pinned
+URL inputs; individual raw files avoid the unavailable archive endpoint.
+The recipe installs upstream licenses. `scripts/prepare-gpu-fluid.mjs` packages
+only the local platform adapter, GPU client and replacement controls; it does
+not compile native code or patch the downloaded solver/shaders.
+
 `scripts/prepare-image-sources.sh` prepares the selected catalog's inputs without
 compiling the kernel. `npm run image -- IMAGE` invokes it before refreshing the
 image: edits to a staged command or runtime become new `SOURCE HOST` pins, not

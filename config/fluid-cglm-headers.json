@@ -1,0 +1,50 @@
+[
+  {
+    "path": "cglm/common.h",
+    "sha256": "6dca9a56594272b7431bcb005b222796931e3ecf49a85526d8dfd7597c66f80e"
+  },
+  {
+    "path": "cglm/simd/arm.h",
+    "sha256": "54f7b7be2b95dd885e197cd0a8d3932c20afc415b3211b5439db9067db5ee468"
+  },
+  {
+    "path": "cglm/simd/intrin.h",
+    "sha256": "6b81197052a63251719575ca7bb17997ec9a7d158f89b20cfede182cc93bb4dd"
+  },
+  {
+    "path": "cglm/simd/wasm.h",
+    "sha256": "bec0bedc8aa072a853cf4524f2e9f83800cb716316144f63b471ef7bed29da3d"
+  },
+  {
+    "path": "cglm/simd/x86.h",
+    "sha256": "a8eec2f4b00f625760a9abcd66c5b3aead61145d184d439eda5fde579e9eb15a"
+  },
+  {
+    "path": "cglm/types.h",
+    "sha256": "793d8a8cb0a425da50a2bfcc20dbd55e212ee86c3606991f84d5c9512a95b97f"
+  },
+  {
+    "path": "cglm/util.h",
+    "sha256": "c325e6f2137bbe82a843844bee102cd41ae81ca902ce9b9107d5d0cf25db4c3f"
+  },
+  {
+    "path": "cglm/vec2-ext.h",
+    "sha256": "3224e072a872c8a1e5b9b17b2e7bb0deceb662d94e15d23c4382ed064bc2815f"
+  },
+  {
+    "path": "cglm/vec2.h",
+    "sha256": "01116926ac02f1da2feb711ebff2ee44f1ce8bd76f7df89b5ee3bc5f57a0a51a"
+  },
+  {
+    "path": "cglm/vec3-ext.h",
+    "sha256": "6f7667d62e219c2eaf65725d0ed62d06798df84cfb2cee1340b07c2cc10deddb"
+  },
+  {
+    "path": "cglm/vec4-ext.h",
+    "sha256": "09374f28cf188e9ef70874e5fdaad45fbf1107cd877df7ef640912ef2b58dd64"
+  },
+  {
+    "path": "cglm/vec4.h",
+    "sha256": "6ce2c9a52a7ed727a147693d9049a4f9febb549bbe9389e1a0d815cdca7a6584"
+  }
+]

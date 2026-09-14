@@ -33,7 +33,9 @@ never recycled; scope generations distinguish process lifetimes.
 The provider owns eight private scope slots, with one pending request per slot,
 one visible surface, at most 128 live objects per scope, 1 MiB packets with at
 most 256 records, 128 KiB shader source, 64 MiB individual buffers and 256 MiB
-aggregate buffer allocations. These are experimental GPU quotas, unrelated to
+aggregate buffer allocations. A bind group accepts at most sixteen buffers;
+vertex input accepts one buffer with up to eight float32x2/x3/x4 attributes.
+These are experimental GPU quotas, unrelated to
 the HTTP response limit. Released allocation credits wait for queue completion.
 Cancellation retains a provider slot until outstanding work settles. An immediate
 restart defers its open until the provider retires the old scope and wakes it.
@@ -49,6 +51,50 @@ transfer. This does not promise that every browser/driver compositor is
 internally copy-free. Explicit readback maps a staging buffer and returns at
 most 64 KiB per call; `gpu-demo --check` computes `[3,5,7,9]` on the GPU and
 writes the result to `/workspace/gpu-proof.txt` inside Wasm.
+
+`Dollyfile-gpu-fluid` compiles the unchanged upstream
+[fluid simulation](https://github.com/samdauwe/webgpu-native-examples/blob/9a7c30753d6f44630564a8316eb9c44211ff0ecc/src/examples/fluid_simulation.c)
+inside Dolly. It retains the solver and WGSL, with a scoped C adapter for the
+WebGPU functions it uses and Dolly input/timing in place of its window library.
+The ImGui panel is disabled and replaced by a C/GPU control panel. The pinned
+official `webgpu.h` supplies types; the adapter is not a complete WebGPU C API.
+Fourteen bindings and per-vertex input are exercised by the actual program.
+Consecutive dispatch records share a compute pass; other records end that pass.
+
+Move the pointer to stir. Controls select output size, solver grid height,
+pressure iterations, ink, volumetric smoke or smoke with shadows. H toggles
+controls, Space pauses, R resets, A toggles automatic stirring, and Q/Escape
+returns to Slop. F11 remains the browser's fullscreen key. Grid widths follow
+the image aspect ratio; the dye field has its own upstream resolution.
+
+The optional INFO reply reports GPU pass timestamps asynchronously, with three
+fixed query/readback slots. Busy slots skip samples. These times sum compute
+and render passes, excluding copies between passes, transport and CPU work;
+they are not complete frame latency. Frames still reach the compositor without
+pixel readback. `fluid --check` explicitly reads dye back into Wasm and verifies
+finite, nonzero evolution. `fluid --bench 512 1080 120` measures 120 steps after
+20 warmups, without frame pacing or the panel; initialization is excluded.
+Append `smoke` or `shaded` to benchmark the volumetric rendering modes.
+
+`node test/fluid-browser.mjs` exercises Chrome and Firefox on the desktop and
+replays captured upstream shaders, buffers and dispatches in a direct browser
+worker. That comparison retains decoding, WebGPU validation, queue backpressure
+and a DOM-connected canvas, but omits the C program, Dolly transport and host
+admission checks. It is not a native C benchmark or an isolated ABI-overhead
+measurement. The readback case compares the solver output as well as timings.
+Results and screenshots go to `build/fluid-proof/`.
+
+```sh
+node scripts/prepare-gpu-fluid.mjs
+node scripts/generate-routes.mjs
+DOLLY_BUILD_IMAGES=gpu-fluid DOLLY_SNAPSHOT_IMAGE=gpu-fluid node scripts/build-system-snapshot.mjs
+node scripts/serve-gpu-demo.mjs 9094 gpu-fluid
+```
+
+The image retains the source, headers and licenses, so its Dollyfile `cc` command
+can also be repeated from the running sandbox. The cached system image supplies
+the compiler. Only the new fluid image rebuilds;
+existing recipes and snapshots, including the shader playground, remain intact.
 
 `gpu-demo --bench` measures a 64×64 uniform upload and triangle submission.
 Run `node test/gpu-browser.mjs` on the desktop display to compare that with the

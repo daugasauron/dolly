@@ -77,6 +77,14 @@ The main thread transfers one embedding-created canvas; normal frames reach
 the compositor directly. [GPU details](gpu.md) lists the prototype limits and
 its real-browser checks. Existing CPU framebuffer and network paths remain.
 
+The fluid workload adds bounded vertex layouts (one buffer, eight attributes)
+and at most sixteen buffer bindings. Structural validation precedes allocation;
+WebGPU still checks shader compatibility and device limits. Optional timestamp
+queries use three private 512-query sets and 24 KiB of fixed staging buffers per
+visible scope, retired with its other resources. Presented dimensions also drive
+browser pointer scaling, independently of the dormant CPU framebuffer. INFO returns limits and counters,
+not browser objects. These additions introduce no further outer imports.
+
 ## Local services
 
 [src/local-services.mjs](../src/local-services.mjs) is the explicit admission

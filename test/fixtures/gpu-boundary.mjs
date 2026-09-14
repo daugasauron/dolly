@@ -34,11 +34,20 @@ export async function gpuBoundaryProof() {
   }
   try {
     check(await send(packet(1,new Uint8Array(8)))===0,"GPU open failed");
+    check(await send(packet(6))===0,"GPU info failed");
+    const limits=new DataView(memory,mailbox+64,80);
+    check(limits.getUint32(0,true)===0 && limits.getUint32(4,true)===16 && limits.getBigUint64(8,true)===67108864n,"GPU limits differ from the admitted contract");
     check(await send(packet(99))===E.ENOTSUP,"Unknown GPU operation accepted");
     // All records must have valid byte spans before earlier records can allocate.
     const first=record(1,32,1);first.v.setBigUint64(16,16n,true);first.v.setUint32(24,8,true);
     const malformed=record(2,32,1);malformed.v.setUint32(24,32,true);malformed.v.setUint32(28,0xffffffff,true);
     check(await send(batch([first,malformed]))===E.EINVAL,"Malformed upload accepted");
+    const vertex=record(14,72,2);vertex.v.setUint32(32,1,true);vertex.v.setUint32(36,1,true);
+    vertex.v.setUint32(40,16,true);vertex.v.setUint32(44,1,true);vertex.v.setUint32(52,4,true);vertex.v.setUint32(56,4,true);
+    vertex.bytes[64]=118;vertex.bytes[65]=102;
+    check(await send(batch([first,vertex]))===E.EINVAL,"Vertex attribute beyond stride accepted");
+    const group=record(6,32+17*24,2);group.v.setUint32(24,17,true);
+    check(await send(batch([first,group]))===E.EINVAL,"Binding count limit bypassed");
     check(await send(batch([first]))===0,"Rejected batch had allocation side effects");
     // Mutable Wasm bytes must not change an admitted command's handle.
     const release=record(12,16,1);
@@ -50,6 +59,6 @@ export async function gpuBoundaryProof() {
     check(await send(batch([huge]))===0,"Allocation refusal poisoned the scope");
     check(await send(packet(5))===0,"GPU close failed");
     check(await send(packet(3))===E.ESTALE,"Closed GPU scope accepted");
-    return {malformedPacket:true,copiedPacket:true,staleHandle:true,allocationQuota:true,closedScope:true};
+    return {malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,closedScope:true};
   } finally {worker.terminate();}
 }

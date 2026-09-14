@@ -16,6 +16,8 @@
   (global (export "DOLLY_GPU_WAIT") i32 (i32.const 3))
   (global (export "DOLLY_GPU_READ") i32 (i32.const 4))
   (global (export "DOLLY_GPU_CLOSE") i32 (i32.const 5))
+  (global (export "DOLLY_GPU_INFO") i32 (i32.const 6))
+  (global (export "DOLLY_GPU_MAX_BINDINGS") i32 (i32.const 16))
   (global (export "DOLLY_GPU_CREATE_BUFFER") i32 (i32.const 1))
   (global (export "DOLLY_GPU_WRITE_BUFFER") i32 (i32.const 2))
   (global (export "DOLLY_GPU_CREATE_SHADER") i32 (i32.const 3))
@@ -29,6 +31,8 @@
   (global (export "DOLLY_GPU_UNMAP") i32 (i32.const 11))
   (global (export "DOLLY_GPU_RELEASE") i32 (i32.const 12))
   (global (export "DOLLY_GPU_SUBMIT") i32 (i32.const 13))
+  (global (export "DOLLY_GPU_VERTEX_PIPELINE") i32 (i32.const 14))
+  (global (export "DOLLY_GPU_RENDER_VERTEX") i32 (i32.const 15))
 
   ;; All fields LE. Header: u32 version/op, u64 scope/sequence, u32 body/reserved.
   ;; Scope is a non-reused u32 lease, slot=(scope-1)%8; upper bits are zero.
@@ -45,16 +49,27 @@
   ;; UTF-8 entry names. topology:0 triangle-list,1 triangle-strip; blend:0 opaque,
   ;; 1 premultiplied alpha,2 additive. Native descriptors/extension chains absent.
   ;; COMPUTE_PIPELINE[32+n]: u64 id,shader; u32 entry_bytes,reserved; UTF-8 entry.
+  ;; VERTEX_PIPELINE[48+16*a+n]: RENDER_PIPELINE prefix through fs_bytes, then
+  ;; u32 stride,attribute_count<=8; attributes: u32 location,components,offset,
+  ;; reserved. Components 2/3/4 mean float32x2/x3/x4; one per-vertex buffer.
+  ;; Vertex/fragment entry names follow the attributes. Stride <=2048, multiple 4.
   ;; BIND_GROUP[32+24*n]: u64 id,pipeline; u32 count,reserved; consecutive bindings
   ;; contain u64 buffer,offset,size. Group zero; pipeline supplies the layout.
+  ;; At most DOLLY_GPU_MAX_BINDINGS entries; WebGPU device limits also apply.
   ;; RENDER[64]: u64 pipeline,group; u32 vertices,instances,width,height;
   ;; f32 clear_rgba[4]; u32 clear,reserved. Target is the designated Dolly surface.
+  ;; RENDER_VERTEX[88]: RENDER followed by u64 vertex_buffer,offset,size.
   ;; COMPUTE[40]: u64 pipeline,group; u32 x,y,z,reserved.
   ;; COPY[48]: u64 source,dest,source_offset,dest_offset,bytes.
   ;; MAP_READ[32]: u64 buffer,offset,bytes. Completes only after mapping is ready.
   ;; UNMAP/RELEASE[16]: u64 object. SUBMIT[8]: finish/submit this batch's encoder.
   ;; WAIT body empty: queue completion, not packet admission. READ body: u64
   ;; mapped_buffer,relative_offset,bytes<=65536. CLOSE body empty.
+  ;; INFO body empty, 80-byte reply: u32 timestamp_available,max_bindings;
+  ;; u64 max_buffer_bytes,max_total_bytes; f64 last_gpu_ms,total_gpu_ms;
+  ;; u64 gpu_samples; f64 total_provider_ms; u64 frames,dispatches,allocated_bytes.
+  ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
+  ;; zero samples means unavailable/pending. They include passes, not CPU work.
   ;; One encoder per batch, explicit SUBMIT, at most 256 records. No replay or
   ;; rollback: structural rejection precedes execution; later GPU errors can
   ;; leave earlier writes/resources alive. Returned diagnostics are bounded.

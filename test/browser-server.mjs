@@ -25,6 +25,7 @@ export const browserSources = new Set([
   "test/fixtures/browser-boundary.mjs",
   "test/fixtures/gpu-boundary.mjs",
   "test/fixtures/gpu-direct.mjs",
+  "test/fixtures/fluid-direct.mjs",
   "test/fixtures/http-admission-worker.mjs",
   "test/fixtures/browser-process-abi.mjs",
   "coi-serviceworker.js",
@@ -69,7 +70,7 @@ export const browserSources = new Set([
   "src/gpu-abi.mjs",
 ]);
 
-export async function startBrowserServer(projectDir, image = "default", port = 0) {
+export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map()) {
   await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", `dolly-${image}-system.snapshot`]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
       throw new Error(`Core browser checks need a built runtime and ${image} image. Run npm run build:runtime once, then npm run image -- ${image}.`, { cause: error });
@@ -164,6 +165,11 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
       const relative = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(path)
         ? "build/routes/session/open.html" : files.get(path);
       if (!relative) throw new Error("not a test asset");
+      if (sourceOverrides.has(path)) {
+        response.writeHead(200, {...headers,"content-type":mimeTypes.get(extname(relative))});
+        response.end(request.method === "HEAD" ? undefined : sourceOverrides.get(path));
+        return;
+      }
       const filename = resolve(projectDir, relative);
       const stream = createReadStream(filename);
       stream.once("error", () => { if (!response.headersSent) response.writeHead(404, headers); response.end(); });

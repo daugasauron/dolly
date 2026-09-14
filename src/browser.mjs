@@ -790,12 +790,14 @@ window.addEventListener("keydown", handleKeyboardEvent, { capture: true });
 window.addEventListener("keyup", handleKeyboardEvent, { capture: true });
 
 let selecting = false;
+let gpuSurfaceSize;
 
 function pointerPosition(event) {
   const bounds = canvas.getBoundingClientRect();
+  const {width,height} = gpuSurfaceSize ?? canvas;
   return {
-    x: bounds.width === 0 ? 0 : (event.clientX - bounds.left) * canvas.width / bounds.width,
-    y: bounds.height === 0 ? 0 : (event.clientY - bounds.top) * canvas.height / bounds.height,
+    x: bounds.width === 0 ? 0 : (event.clientX - bounds.left) * width / bounds.width,
+    y: bounds.height === 0 ? 0 : (event.clientY - bounds.top) * height / bounds.height,
   };
 }
 
@@ -1058,6 +1060,8 @@ async function boot() {
       gpuStatus = {...gpuStatus, ...message};
       if (message.active) delete gpuStatus.error;
       if (message.active !== undefined) gpuCanvas.hidden = !message.active;
+      if (message.active && message.width && message.height) gpuSurfaceSize = {width:message.width,height:message.height};
+      else if (message.active === false) gpuSurfaceSize = undefined;
       if (message.error) console.warn("Dolly GPU:", message.error);
     } else if (message.type === "bootstrap") {
       appendBootstrap(message.text);

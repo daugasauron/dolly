@@ -1,0 +1,33 @@
+DOLLY 3
+IMAGE gpu-fluid
+
+FROM HOST /Dollyfile-system 265be7c0a304e97626ba33e552dea3122e79a55ee211d342421667da0153b1bc
+USE HOST /modules/gpu-fluid.dm 1891eea806c37bf2518d28c6f9448c5278739b34218bf5244f5364809a7323c2
+
+SOURCE URL https://raw.githubusercontent.com/samdauwe/webgpu-native-examples/9a7c30753d6f44630564a8316eb9c44211ff0ecc/src/examples/fluid_simulation.c /usr/src/dolly/fluid/fluid_simulation.c 74d7a9fa5b0c23988016589cf57554028c38a1cd49916d03d9aeead85a045c40
+SOURCE URL https://raw.githubusercontent.com/samdauwe/webgpu-native-examples/9a7c30753d6f44630564a8316eb9c44211ff0ecc/LICENSE /usr/share/licenses/webgpu-native-examples/LICENSE b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1
+SOURCE URL https://raw.githubusercontent.com/webgpu-native/webgpu-headers/b5ff182caa90e53293f47939716281342c0812ba/webgpu.h /usr/src/dolly/fluid/webgpu/webgpu.h 33f7b7f9a8e3cba0c397ca27894b1dd71ec9a7970016e163b2c3c0bba5223ef4
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/LICENSE /usr/share/licenses/cglm/LICENSE 431610a1607c117bc161f37d99a321da977deb27e4f1df367365a9ca422d9c1e
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/common.h /usr/src/dolly/fluid/cglm/common.h 6dca9a56594272b7431bcb005b222796931e3ecf49a85526d8dfd7597c66f80e
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/simd/arm.h /usr/src/dolly/fluid/cglm/simd/arm.h 54f7b7be2b95dd885e197cd0a8d3932c20afc415b3211b5439db9067db5ee468
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/simd/intrin.h /usr/src/dolly/fluid/cglm/simd/intrin.h 6b81197052a63251719575ca7bb17997ec9a7d158f89b20cfede182cc93bb4dd
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/simd/wasm.h /usr/src/dolly/fluid/cglm/simd/wasm.h bec0bedc8aa072a853cf4524f2e9f83800cb716316144f63b471ef7bed29da3d
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/simd/x86.h /usr/src/dolly/fluid/cglm/simd/x86.h a8eec2f4b00f625760a9abcd66c5b3aead61145d184d439eda5fde579e9eb15a
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/types.h /usr/src/dolly/fluid/cglm/types.h 793d8a8cb0a425da50a2bfcc20dbd55e212ee86c3606991f84d5c9512a95b97f
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/util.h /usr/src/dolly/fluid/cglm/util.h c325e6f2137bbe82a843844bee102cd41ae81ca902ce9b9107d5d0cf25db4c3f
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/vec2-ext.h /usr/src/dolly/fluid/cglm/vec2-ext.h 3224e072a872c8a1e5b9b17b2e7bb0deceb662d94e15d23c4382ed064bc2815f
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/vec2.h /usr/src/dolly/fluid/cglm/vec2.h 01116926ac02f1da2feb711ebff2ee44f1ce8bd76f7df89b5ee3bc5f57a0a51a
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/vec3-ext.h /usr/src/dolly/fluid/cglm/vec3-ext.h 6f7667d62e219c2eaf65725d0ed62d06798df84cfb2cee1340b07c2cc10deddb
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/vec4-ext.h /usr/src/dolly/fluid/cglm/vec4-ext.h 09374f28cf188e9ef70874e5fdaad45fbf1107cd877df7ef640912ef2b58dd64
+SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/cglm/vec4.h /usr/src/dolly/fluid/cglm/vec4.h 6ce2c9a52a7ed727a147693d9049a4f9febb549bbe9389e1a0d815cdca7a6584
+SLOP cc -std=gnu11 -O2 -I/usr/src/dolly/fluid /usr/src/dolly/fluid/app.c /usr/src/dolly/fluid/webgpu.c /usr/src/dolly/fluid/client.c -lm -o /usr/bin/fluid
+EXPORTS TOOL fluid
+EXPORTS FOLDER fluid-sources /usr/src/dolly/fluid
+EXPORTS FOLDER fluid-upstream-license /usr/share/licenses/webgpu-native-examples
+EXPORTS FOLDER fluid-cglm-license /usr/share/licenses/cglm
+
+FILE /etc/dolly/gpu-fluid.slop
+    /bin/foreground /usr/bin/fluid
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/gpu-fluid.slop
