@@ -37,7 +37,7 @@ for (const image of headless) {
     <td class="description">${description}</td><td><div class="image-links"><a href="./${image}/">open →</a><a href="./${image}/rebuild/">rebuild</a>
     <a href="./view/${image}/">Dollyfile</a></div></td></tr>`);
 }
-const isBuild = image => /-(build|sdk|runtime)$/.test(image) ||
+const isBuild = image => headless.has(image) || /-(build|sdk|runtime)$/.test(image) ||
   ["system", "ripgrep", "rust-tools"].includes(image);
 const ordered = [...definitions].sort((a, b) =>
   Number(b.image === "default") - Number(a.image === "default") ||
