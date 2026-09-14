@@ -47,7 +47,8 @@ static inline int dolly_session_take_u64(const unsigned char **cursor, const uns
 }
 
 static inline int dolly_session_excluded_path(const char *path) {
-  return strcmp(path, "/dev") == 0 || strncmp(path, "/dev/", 5) == 0 ||
+  return strcmp(path, "/run") == 0 || strncmp(path, "/run/", 5) == 0 ||
+         strcmp(path, "/dev") == 0 || strncmp(path, "/dev/", 5) == 0 ||
          strcmp(path, "/seed") == 0 || strncmp(path, "/seed/", 6) == 0;
 }
 

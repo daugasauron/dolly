@@ -25,7 +25,8 @@ processes and do not yet support custom images. `upload DESTINATION` and
 
 Requires shared WebAssembly memory64/table64; there is no wasm32 fallback.
 [Local Qwen models](docs/browser-local-models.md) additionally need hardware
-WebGPU. `Ctrl+Shift+L` opens the model picker.
+WebGPU with `shader-f16`. Select a model with Pi's `/model` picker; inference
+runs inside the image.
 
 ## Boundary
 

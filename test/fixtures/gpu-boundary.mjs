@@ -36,7 +36,12 @@ export async function gpuBoundaryProof() {
     check(await send(packet(1,new Uint8Array(8)))===0,"GPU open failed");
     check(await send(packet(6))===0,"GPU info failed");
     const limits=new DataView(memory,mailbox+64,80);
-    check(limits.getUint32(0,true)===0 && limits.getUint32(4,true)===16 && limits.getBigUint64(8,true)===67108864n,"GPU limits differ from the admitted contract");
+    const maxBuffer=limits.getBigUint64(8,true);
+    check(limits.getUint32(0,true)<=1 && limits.getUint32(4,true)===16 && maxBuffer>0n && maxBuffer<=1073741824n,"GPU limits differ from the admitted contract");
+    check(await send(packet(7))===0,"GPU capabilities failed");
+    const capabilities=new DataView(memory,mailbox+64,128);
+    check(capabilities.getBigUint64(8,true)===maxBuffer && capabilities.getUint32(4,true)===4096 && capabilities.getBigUint64(16,true)===4294967296n,"GPU capability quotas differ");
+    check(new Uint8Array(memory,mailbox+64+96,32).every(n=>n===0),"Nonzero reserved capabilities");
     check(await send(packet(99))===E.ENOTSUP,"Unknown GPU operation accepted");
     // All records must have valid byte spans before earlier records can allocate.
     const first=record(1,32,1);first.v.setBigUint64(16,16n,true);first.v.setUint32(24,8,true);
@@ -53,12 +58,29 @@ export async function gpuBoundaryProof() {
     const release=record(12,16,1);
     check(await send(batch([release]),()=>new Uint8Array(memory,address,1024).fill(255))===0,"Provider retained guest packet bytes");
     check(await send(batch([release]))===E.EBADF,"Stale resource handle accepted");
-    const huge=record(1,32,2);huge.v.setBigUint64(16,67108865n,true);huge.v.setUint32(24,8,true);
+    const huge=record(1,32,2);huge.v.setBigUint64(16,maxBuffer+1n,true);huge.v.setUint32(24,8,true);
     check(await send(batch([huge]))===E.ENOMEM,"GPU buffer quota bypassed");
     huge.v.setBigUint64(16,16n,true);
     check(await send(batch([huge]))===0,"Allocation refusal poisoned the scope");
+    const storage=record(1,32,3);storage.v.setBigUint64(16,16n,true);storage.v.setUint32(24,140,true);
+    const readback=record(1,32,4);readback.v.setBigUint64(16,16n,true);readback.v.setUint32(24,9,true);
+    const code=new TextEncoder().encode('@group(0) @binding(0) var<storage,read_write> out:array<f32>; override scale:f32; @compute @workgroup_size(1) fn main(@builtin(global_invocation_id)i:vec3u){out[i.x]=f32(i.x)*scale+1.0;}');
+    const shader=record(3,(24+code.length+7)&~7,5);shader.v.setUint32(16,code.length,true);shader.bytes.set(code,24);
+    const pipeline=record(16,64,6);pipeline.v.setBigUint64(16,5n,true);pipeline.v.setUint32(24,4,true);pipeline.v.setUint32(28,1,true);
+    pipeline.bytes.set(new TextEncoder().encode('main'),32);pipeline.v.setUint32(40,5,true);pipeline.v.setFloat64(48,NaN,true);pipeline.bytes.set(new TextEncoder().encode('scale'),56);
+    check(await send(batch([storage,readback,shader,pipeline]))===E.EINVAL,"Nonfinite shader constant accepted");
+    pipeline.v.setFloat64(48,3,true);
+    const bindings=record(6,56,7);bindings.v.setBigUint64(16,6n,true);bindings.v.setUint32(24,1,true);bindings.v.setBigUint64(32,3n,true);bindings.v.setBigUint64(48,16n,true);
+    const compute=record(8,40,6);compute.v.setBigUint64(16,7n,true);[4,1,1].forEach((n,i)=>compute.v.setUint32(24+i*4,n,true));
+    const copy=record(9,48,3);copy.v.setBigUint64(16,4n,true);copy.v.setBigUint64(40,16n,true);
+    const submit={bytes:new Uint8Array(8)};new DataView(submit.bytes.buffer).setUint32(0,13,true);new DataView(submit.bytes.buffer).setUint32(4,8,true);
+    const map=record(10,32,4);map.v.setBigUint64(24,16n,true);
+    check(await send(batch([storage,readback,shader,pipeline,bindings,compute,copy,submit,map]))===0,"Compute with override constants failed");
+    const body=new Uint8Array(24),readView=new DataView(body.buffer);readView.setBigUint64(0,4n,true);readView.setBigUint64(16,16n,true);
+    check(await send(packet(4,body))===0,"Compute readback failed");
+    check([...new Float32Array(memory,mailbox+64,4)].join(',')==='1,4,7,10',"Wrong compute override result");
     check(await send(packet(5))===0,"GPU close failed");
     check(await send(packet(3))===E.ESTALE,"Closed GPU scope accepted");
-    return {malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,closedScope:true};
+    return {malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true};
   } finally {worker.terminate();}
 }

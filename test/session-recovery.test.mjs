@@ -41,7 +41,7 @@ test("file recovery preserves the source, excludes live configuration, and rejec
   const wrongVersion = Buffer.from(saved); wrongVersion.writeUInt32LE(3, 8);
   const invalid = [saved.subarray(0, 8), saved.subarray(0, saved.length - 1), wrongVersion,
     delta([[0, "/workspace/file"]]), delta([[1, "/workspace/directory", "invalid data"]]),
-    delta([[2, "/workspace/../../sentinel", "overwrite"]]), delta([[2, "/dev/file"]]),
+    delta([[2, "/workspace/../../sentinel", "overwrite"]]), delta([[2, "/dev/file"]]), delta([[2, "/run/file"]]),
     delta([[2, "/workspace/file"], [2, "/workspace/file"]]),
     delta([[2, "/workspace/file"], [2, "/workspace/file/child"]]),
     delta([[3, "/workspace/link", "bad\0target"]]),

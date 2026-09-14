@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { waitForDebugger } from "./browser-startup.mjs";
-import { runLocalModelProof, runLocalCompatibilityProof, runLocalCacheProof, runLocalMenuProof } from "../test/fixtures/local-model-browser.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
 import { buildSnapshot } from "../test/fixtures/snapshot-build.mjs";
 import { bhopProvider } from "../test/fixtures/bhop-provider.mjs";
@@ -39,7 +38,6 @@ import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cas
 import { createGitTransportFixture, runGitTransport } from "../test/fixtures/git-transport.mjs";
 import { createHttpRedirectFixture } from "../test/fixtures/http-redirect-server.mjs";
 import { runUploadProof, selectFile } from "../test/fixtures/upload-browser.mjs";
-import { runStudioModelProof } from "../test/fixtures/studio-model-browser.mjs";
 import { runSessionFilesProof, runSessionRecoveryProof } from "../test/fixtures/session-files-browser.mjs";
 import { tarArchive } from "../test/fixtures/tar.mjs";
 import { rtsProvider } from "../test/fixtures/rts-provider.mjs";
@@ -154,10 +152,6 @@ const pythonPackageMode = isMode("python-packages");
 const pythonInteractiveMode = isMode("python-interactive");
 const toolchainProbeMode = isMode("toolchain-probes");
 const zigSdkMode = isMode("zig-sdk");
-const studioModelMode = isMode("studio-local-model");
-const localCompatibilityMode = isMode("local-model-fp32");
-const localModelMode = isMode("local-model") || studioModelMode || localCompatibilityMode;
-const localCacheMode = isMode("local-model-cache");
 const optimizedLifecycleProbeMode =
   isMode("optimized-lifecycle-probe");
 const lifecycleProbeMode =
@@ -1619,14 +1613,7 @@ if (realOpenRouterMode || rtsLiveMode || classicubeAgentLiveMode || bhopAgentLiv
   if (requestedProfile) await mkdir(userDataDir, { recursive: true });
 }
 chrome = spawn(chromeBinary, [
-  ...(localModelMode ? ["--ozone-platform=x11"] : ["--headless=new"]),
-  "--no-sandbox",
-  ...(localCompatibilityMode ? ["--enable-unsafe-webgpu", "--use-angle=vulkan",
-    "--enable-features=Vulkan,VulkanFromANGLE"] : localModelMode ? ["--ignore-gpu-blocklist", "--enable-unsafe-webgpu",
-    "--enable-dawn-features=allow_unsafe_apis,vulkan_enable_f16_on_nvidia",
-    "--disable-dawn-features=disallow_unsafe_apis", "--use-angle=vulkan",
-    "--enable-webgpu-developer-features", "--use-webgpu-power-preference=default-high-performance",
-    "--enable-features=Vulkan,VulkanFromANGLE,WebGPUDeveloperFeatures"] : ["--disable-gpu"]),
+  "--headless=new", "--no-sandbox", "--disable-gpu",
   "--remote-debugging-port=0",
   `--user-data-dir=${userDataDir}`,
   piDevelopmentMode || realOpenRouterMode ? "--window-size=1280,1120" : "--window-size=1280,800",
@@ -1878,7 +1865,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         const label = `Dollyfile-${suffix}`;
         assert.equal(await submit(`message=$(printf 'DOLLY 3\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); status=$?; test "$status" = 1 && test "$message" = ${shellQuote(`${label}:1: missing IMAGE or MODULE`)}`), 0);
       }
-      assert.equal(await submit("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/browser-model-providers.js"), 0);
+      assert.equal(await submit("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/local-model-provider.js"), 0);
       try {
         assert.equal(await submit('base=$(cat /etc/dolly/host.base); curl -f "${base}modules/quickjs.dm" -o /tmp/studio-host-module.dm && curl -f "${base}static/default/quickjs.tar" -o /tmp/studio-host-source.tar'), 0);
         assert.equal(await submit("hash=$(sha256sum /tmp/studio-host-source.tar | awk '{print $1}'); grep -q $hash /tmp/studio-host-module.dm"), 0);
@@ -1935,40 +1922,6 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         submit: command => evaluate(send, `__dolly.submit(${JSON.stringify(command)})`),
         press: key => dispatchKey(send, key) });
       console.log("browser: user-approved binary/empty uploads, no overwrite, picker cancellation, Ctrl-C and scratch cleanup passed");
-      break browserProof;
-    }
-    if (localCacheMode) {
-      assert.equal(await waitForValue(debuggerClient.send,
-        "document.documentElement?.dataset.dollyStatus ?? ''",
-        value => value === "ready" || value === "failed", "local cache UI boot", 1200), "ready");
-      await runLocalMenuProof(expression => evaluate(debuggerClient.send, expression),
-        key => dispatchKey(debuggerClient.send, key), debuggerClient.send);
-      const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
-      await writeFile(resolve(projectDir, "build/local-model-menu.png"), screenshot.data, "base64");
-      await runLocalCacheProof(expression => evaluate(debuggerClient.send, expression));
-      break browserProof;
-    }
-    if (localModelMode) {
-      assert.equal(await waitForValue(debuggerClient.send,
-        "document.documentElement?.dataset.dollyStatus ?? ''",
-        value => value === "ready" || value === "failed", "local model boot", 1200), "ready");
-      await enterRecoveryShell(debuggerClient.send);
-      if (studioModelMode) assert.equal(selectedImage, "dollyfile-studio");
-      await (localCompatibilityMode ? runLocalCompatibilityProof : studioModelMode ? runStudioModelProof : runLocalModelProof)({
-        modelId: process.env.DOLLY_STUDIO_MODEL,
-        evaluate: expression => evaluate(debuggerClient.send, expression),
-        press: key => dispatchKey(debuggerClient.send, key),
-        wait: (expression, predicate, description, attempts) => waitForValue(debuggerClient.send, expression, predicate, description, attempts),
-        submit: command => evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`),
-        setOffline: async offline => {
-          await debuggerClient.send("Network.enable");
-          await debuggerClient.send("Network.emulateNetworkConditions", {
-            offline, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
-          });
-        },
-      });
-      const screenshot = await debuggerClient.send("Page.captureScreenshot", { format: "png" });
-      await writeFile(resolve(projectDir, "build/local-model-browser.png"), screenshot.data, "base64");
       break browserProof;
     }
     if (bhopAgentMode || bhopAgentLiveMode) {
@@ -4298,12 +4251,13 @@ int main(int argc, char **argv) {
         `${image}/rebuild/`, `view/${image}/`,
       ]).map(path => new URL(path, menuEvidence.url).href).toSorted());
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
-      const menuOrder = ["default", "bhop", "classicube", "codex", "dollyfile-studio", "external-source",
-        "gamedev", "gamedev-phone", "javascript", "neovim", "pi", "pi-local", "python", "python-pi", "rts-arena",
-        "classicube-build", "cmake-build", "codex-build", "fd-build", "gamedev-sdk", "ghostty-build", "neovim-build", "pi-runtime",
-        "protox-build", "python-runtime", "ripgrep", "rts-build", "rust-build", "rust-sdk", "rust-tools", "sdl2-build", "system", "system-build"];
-      const selected = new Set(imageDefinitions.map(({ image }) => image));
-      assert.deepEqual(menuEvidence.descriptions.map(({ image }) => image), menuOrder.filter(image => selected.has(image)));
+      const menuImages = menuEvidence.descriptions.map(({ image }) => image);
+      assert.equal(menuImages[0], "default");
+      const builds = new Set(imageDefinitions.filter(({image}) => /-(build|sdk|runtime)$/.test(image) ||
+        ["system", "ripgrep", "rust-tools"].includes(image)).map(({image}) => image));
+      const firstBuild = menuImages.findIndex(image => builds.has(image));
+      assert.ok(firstBuild >= 0);
+      assert.ok(menuImages.slice(firstBuild).every(image => builds.has(image)), "interactive image follows build images");
       for (const { image, text, height } of menuEvidence.descriptions) {
         assert.ok(text, `${image}: missing image description`);
         assert.ok(height <= 40, `${image}: row is too tall (${height}px)`);

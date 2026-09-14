@@ -1,6 +1,5 @@
 // Qwen 3.5 uses function/parameter tags, not Qwen 3's JSON tool envelopes.
-// Keep its template at the model boundary; Dolly/Pi speak OpenAI completions.
-const encoder = new TextEncoder();
+// Pi conversation and tool formatting runs inside Janis.
 function toolText(call) {
   return `<tool_call>\n<function=${call.function.name}>\n` +
     Object.entries(JSON.parse(call.function.arguments)).map(([name, value]) =>
@@ -32,8 +31,7 @@ export function qwenRequest(request) {
     } else if (message.tool_calls?.length) {
       content += (content ? "\n\n" : "") + message.tool_calls.map(toolText).join("\n");
     }
-    // Qwen retains an empty reasoning block in the current tool round even
-    // with thinking disabled; WebLLM adds it only to the new reply header.
+    // Qwen retains an empty reasoning block in the current tool round.
     if (role === "assistant" && index > lastQuery) content = "<think>\n\n</think>\n\n" + content;
     if (messages.at(-1)?.role === role) messages.at(-1).content += "\n" + content;
     else messages.push({ role, content });
@@ -78,54 +76,4 @@ export function qwenToolCalls(output, tools) {
     remaining = remaining.slice(call[0].length).trimStart();
   }
   return calls;
-}
-
-export async function* qwenCompletions(engine, request) {
-  const nativeRequest = qwenRequest(request);
-  const tools = request.tool_choice === "none" ? [] : request.tools ?? [];
-  // A new request carries the entire authoritative conversation from Dolly.
-  await engine.resetChat();
-  let output = "", outputBytes = 0, terminal = null, usage, prefix = "", prefixDone = false;
-  for await (const chunk of await engine.chat.completions.create(nativeRequest)) {
-    const choice = chunk.choices?.[0];
-    if (chunk.usage) usage = chunk.usage;
-    if (choice?.finish_reason) terminal = choice.finish_reason;
-    let content = choice?.delta?.content ?? "";
-    if (!prefixDone) {
-      prefix += content;
-      // WebLLM emits Qwen's empty thinking block even with thinking disabled.
-      const stripped = prefix.replace(/^\s*<think>\s*<\/think>\s*/, "");
-      if (stripped !== prefix) { content = stripped; prefixDone = true; }
-      else if (prefix.trim() && !"<think>".startsWith(prefix.trimStart()) && !prefix.trimStart().startsWith("<think>")) {
-        content = prefix; prefixDone = true;
-      } else {
-        if (prefix.length > 128) throw new Error("Model emitted thinking despite thinking being disabled");
-        content = "";
-      }
-    }
-    if (tools.length) {
-      output += content;
-      outputBytes += encoder.encode(content).byteLength;
-      if (outputBytes > 128 * 1024) throw new Error("Model output exceeds the tool adapter limit");
-      // A bounded progress chunk yields to cancellation and downstream demand.
-      yield { choices: [] };
-    } else if (choice) yield { choices: [{ ...choice, delta: { ...choice.delta, content }, finish_reason: null }] };
-  }
-  if (!terminal) throw new Error("Model stream ended without a finish reason");
-  if (!prefixDone && prefix.trim()) throw new Error("Model emitted an incomplete thinking prefix");
-  let delta = {};
-  if (tools.length) {
-    const toolStart = output.indexOf("<tool_call>");
-    if (toolStart !== -1 || output.trimStart().startsWith("<tool")) {
-      if (terminal !== "stop") throw new Error(`Structured model response ended with ${terminal}; no tool was executed`);
-      if (toolStart > 0) delta.content = output.slice(0, toolStart).trimEnd();
-      delta.tool_calls = qwenToolCalls(output.slice(Math.max(0, toolStart)), tools);
-      terminal = "tool_calls";
-    } else {
-      if (!output.trim() || request.tool_choice === "required") throw new Error("Model returned no usable answer or tool call");
-      delta.content = output;
-    }
-  }
-  yield { choices: [{ index: 0, delta, finish_reason: terminal }] };
-  if (request.stream_options?.include_usage && usage) yield { choices: [], usage };
 }

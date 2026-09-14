@@ -1,0 +1,129 @@
+{
+  "date": "2026-09-14",
+  "source": "093a2f86c3e37c54fa3e1f9efb17b304f3433abd",
+  "qwen_0_8b": {
+    "chromium": {
+      "model": "Qwen3.5-0.8B",
+      "reuse": true,
+      "cancel": true,
+      "restart": true,
+      "results": [
+        {
+          "text": "Hello! How can I help you today?",
+          "done": true,
+          "generation_ms": 185.245,
+          "input_tokens": 19,
+          "output_tokens": 9,
+          "prefill_ms": 219.825,
+          "reason": "stop",
+          "tokens_per_second": 48.58430726875219
+        },
+        {
+          "text": "4",
+          "done": true,
+          "generation_ms": 20.235,
+          "input_tokens": 21,
+          "output_tokens": 1,
+          "prefill_ms": 93.84,
+          "reason": "stop",
+          "tokens_per_second": 49.41932295527551
+        },
+        {
+          "text": "Hello! How can I help you today?",
+          "done": true,
+          "generation_ms": 181.02,
+          "input_tokens": 20,
+          "output_tokens": 9,
+          "prefill_ms": 117.1,
+          "reason": "stop",
+          "tokens_per_second": 49.71826317533974
+        }
+      ],
+      "browser": "chromium",
+      "version": "151.0.7922.71",
+      "externalNetworkDenied": true,
+      "savedBytes": 256296,
+      "restored": true
+    },
+    "firefox": {
+      "model": "Qwen3.5-0.8B",
+      "reuse": true,
+      "cancel": true,
+      "restart": true,
+      "results": [
+        {
+          "text": "Hello! How can I help you today?",
+          "done": true,
+          "generation_ms": 16716.92,
+          "input_tokens": 19,
+          "output_tokens": 9,
+          "prefill_ms": 1667.06,
+          "reason": "stop",
+          "tokens_per_second": 0.5383766866145199
+        },
+        {
+          "text": "4",
+          "done": true,
+          "generation_ms": 2300.34,
+          "input_tokens": 21,
+          "output_tokens": 1,
+          "prefill_ms": 1672.48,
+          "reason": "stop",
+          "tokens_per_second": 0.4347183459836372
+        },
+        {
+          "text": "Hello! How can I help you today?",
+          "done": true,
+          "generation_ms": 16713.16,
+          "input_tokens": 20,
+          "output_tokens": 9,
+          "prefill_ms": 1666.36,
+          "reason": "stop",
+          "tokens_per_second": 0.5384978065189348
+        }
+      ],
+      "browser": "firefox",
+      "version": "155.0",
+      "externalNetworkDenied": true,
+      "savedBytes": 255460,
+      "restored": true
+    }
+  },
+  "qwen_2b": {
+    "browser": "Chrome 151.0.7922.71",
+    "adapter": "NVIDIA RTX 5070",
+    "driver": "580.178.04",
+    "context": 8192,
+    "completion": "A serene forest unfolds with tall, ancient trees stretching their branches toward a soft, golden sky. Gentle breezes rustle through the leaves, creating a rhythmic sound that soothes the quiet air. Sunlight filters through the canopy in dappled patterns, illuminating mossy stones and wildflowers on the forest floor. Birds chirp softly in the distance, blending harmoniously with the rustling leaves to create a perfect, tranquil symphony.",
+    "done": true,
+    "generation_ms": 1762.87,
+    "input_tokens": 21,
+    "output_tokens": 90,
+    "prefill_ms": 171.315,
+    "reason": "stop",
+    "tokens_per_second": 51.05311225444871
+  },
+  "pi_tools": {
+    "version": "0.84.4",
+    "model": "Qwen3.5-2B",
+    "write": true,
+    "read": true,
+    "exact_content_first_case": "HELLO FROM INSIDE DOLLY",
+    "second_case": "Successfully used write/read but added prose beyond requested content."
+  },
+  "gpu_preflight": {
+    "missing_shader_f16_rejected": true,
+    "hugging_face_requests": 0
+  },
+  "images": {
+    "library_build_seconds": 158.6,
+    "command_build_seconds": 12.5,
+    "provider_edit_pi_seconds": 7.1,
+    "provider_edit_studio_seconds": 11.9
+  },
+  "source_tests": {
+    "passed": 273,
+    "failed": 0
+  },
+  "pinned_recipes": 40
+}

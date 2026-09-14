@@ -10,7 +10,7 @@ REQUIRES TOOL slop
 REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 
-SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar 938f8defaae8f33a7f0d27196d388b9f16afdaf8832c7304f66b079ea30dd549
+SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar 25b2f066313fb6000bc319b64f76f1d0ea0b08f295950d86635b1799617ff07a
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello
@@ -41,6 +41,6 @@ FILE /home/dolly/.dollyrc
     fi
     printf '\033[33mDOLLY / DOLLYFILE STUDIO\033[0m\n'
     printf 'Start with /dolly-hello, /dolly-tool or /dolly-fix in Pi.\n'
-    printf 'Ctrl+Shift+L: load local Qwen; /model: select it or a remote provider.\n'
+    printf '/model: select local Qwen or a remote provider. The first prompt loads local weights.\n'
     printf 'Leave Pi with Ctrl+D on an empty prompt, then: nvim /workspace/Dollyfile\n'
     printf 'dollyfile-build streams a test build; click Open image when finished.\n\n'

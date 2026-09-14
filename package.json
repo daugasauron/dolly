@@ -23,7 +23,6 @@
     "export:static": "node scripts/export-static.mjs",
     "export:pages": "node scripts/export-cloudflare-pages.mjs",
     "serve": "node scripts/serve.mjs",
-    "build:webgpu": "node scripts/build-webgpu-assets.mjs",
     "test:core": "node test/core-browser.mjs",
     "test:custom-sessions": "node test/custom-session-browser.mjs",
     "test:artifacts": "node --test test/*.artifacts.mjs",
@@ -32,8 +31,7 @@
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.4",
     "@earendil-works/pi-ai": "0.84.4",
-    "@earendil-works/pi-coding-agent": "0.84.4",
-    "@mlc-ai/web-llm": "0.2.84"
+    "@earendil-works/pi-coding-agent": "0.84.4"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

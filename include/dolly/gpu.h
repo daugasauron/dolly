@@ -16,6 +16,7 @@ int dolly_gpu_open(dolly_gpu *g, uint32_t width, uint32_t height);
 int dolly_gpu_close(dolly_gpu *g);
 int dolly_gpu_wait(dolly_gpu *g);
 int dolly_gpu_info(dolly_gpu *g);
+int dolly_gpu_capabilities(dolly_gpu *g);
 int dolly_gpu_read(dolly_gpu *g, uint64_t buffer, uint64_t offset, uint64_t length);
 void dolly_gpu_begin(dolly_gpu *g);
 void *dolly_gpu_record(dolly_gpu *g, uint32_t opcode, size_t bytes);

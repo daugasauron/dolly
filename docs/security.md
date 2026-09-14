@@ -50,10 +50,10 @@ See [HTTP](http.md) for the configuration and transport contract.
 | Clocks, entropy, startup data | Inputs to the sandbox |
 | Exit, abort, memory/CPU use | Availability effects |
 
-Local inference and image building use separately admitted reserved URLs through
-the existing HTTP mailbox. Model loading requires a user action; the accelerator
-worker receives no Dolly memory or tool callback. Builds start immediately in
-independent Wasm workers with inherited remote policy and no local services.
+Local inference runs in Wasm using the bounded generic GPU provider. Model
+files and scheduling stay in the sandbox; downloads cross the ordinary HTTP
+broker. Image building uses a separately admitted reserved HTTP URL and starts
+an independent Wasm worker with inherited remote policy and no local services.
 Only **Open image** launches a result. See
 [local models](browser-local-models.md) and [Studio builds](image-build-service.md).
 

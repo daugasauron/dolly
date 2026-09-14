@@ -17,6 +17,7 @@
   (global (export "DOLLY_GPU_READ") i32 (i32.const 4))
   (global (export "DOLLY_GPU_CLOSE") i32 (i32.const 5))
   (global (export "DOLLY_GPU_INFO") i32 (i32.const 6))
+  (global (export "DOLLY_GPU_CAPABILITIES") i32 (i32.const 7))
   (global (export "DOLLY_GPU_MAX_BINDINGS") i32 (i32.const 16))
   (global (export "DOLLY_GPU_CREATE_BUFFER") i32 (i32.const 1))
   (global (export "DOLLY_GPU_WRITE_BUFFER") i32 (i32.const 2))
@@ -34,6 +35,8 @@
   (global (export "DOLLY_GPU_VERTEX_PIPELINE") i32 (i32.const 14))
   (global (export "DOLLY_GPU_RENDER_VERTEX") i32 (i32.const 15))
 
+  (global (export "DOLLY_GPU_COMPUTE_CONSTANTS") i32 (i32.const 16))
+
   ;; All fields LE. Header: u32 version/op, u64 scope/sequence, u32 body/reserved.
   ;; Scope is a non-reused u32 lease, slot=(scope-1)%8; upper bits are zero.
   ;; OPEN starts with scope=0; kernel binds a process-owned lease before dispatch.
@@ -49,6 +52,9 @@
   ;; UTF-8 entry names. topology:0 triangle-list,1 triangle-strip; blend:0 opaque,
   ;; 1 premultiplied alpha,2 additive. Native descriptors/extension chains absent.
   ;; COMPUTE_PIPELINE[32+n]: u64 id,shader; u32 entry_bytes,reserved; UTF-8 entry.
+  ;; COMPUTE_CONSTANTS[32+n]: COMPUTE_PIPELINE prefix, count replaces reserved.
+  ;; Entry UTF-8 padded to 8, then <=16 constants: u32 name_bytes,reserved;
+  ;; f64 finite_value; UTF-8 name padded to 8. Names <=64 bytes, unique.
   ;; VERTEX_PIPELINE[48+16*a+n]: RENDER_PIPELINE prefix through fs_bytes, then
   ;; u32 stride,attribute_count<=8; attributes: u32 location,components,offset,
   ;; reserved. Components 2/3/4 mean float32x2/x3/x4; one per-vertex buffer.
@@ -68,6 +74,14 @@
   ;; INFO body empty, 80-byte reply: u32 timestamp_available,max_bindings;
   ;; u64 max_buffer_bytes,max_total_bytes; f64 last_gpu_ms,total_gpu_ms;
   ;; u64 gpu_samples; f64 total_provider_ms; u64 frames,dispatches,allocated_bytes.
+  ;; CAPABILITIES body empty, 128-byte reply: u32 features,max_objects;
+  ;; u64 max_buffer_bytes,max_total_bytes,max_storage_binding_bytes;
+  ;; u32 min_uniform_alignment,min_storage_alignment,max_workgroup_storage,
+  ;; max_invocations,max_workgroup_x/y/z,max_workgroups_per_dimension,
+  ;; max_bindings,max_storage_buffers,max_uniform_buffers,max_bind_groups;
+  ;; u64 max_uniform_binding_bytes; u32 subgroup_min/max; 32 reserved zero bytes.
+  ;; Feature bits: 1 shader-f16, 2 subgroups, 4 packed_4x8_integer_dot_product,
+  ;; 8 timestamp-query. Limits describe the admitted device, not native pointers.
   ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
   ;; zero samples means unavailable/pending. They include passes, not CPU work.
   ;; One encoder per batch, explicit SUBMIT, at most 256 records. No replay or

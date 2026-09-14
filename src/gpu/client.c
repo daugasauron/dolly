@@ -25,6 +25,7 @@ int dolly_gpu_open(dolly_gpu *g, uint32_t width, uint32_t height) {
 int dolly_gpu_close(dolly_gpu *g) {return call(g,DOLLY_GPU_CLOSE,32);}
 int dolly_gpu_wait(dolly_gpu *g) {return call(g,DOLLY_GPU_WAIT,32);}
 int dolly_gpu_info(dolly_gpu *g) {return call(g,DOLLY_GPU_INFO,32);}
+int dolly_gpu_capabilities(dolly_gpu *g) {return call(g,DOLLY_GPU_CAPABILITIES,32);}
 int dolly_gpu_read(dolly_gpu *g, uint64_t buffer, uint64_t offset, uint64_t length) {
   u64(g->packet,32,buffer);u64(g->packet,40,offset);u64(g->packet,48,length);
   return call(g,DOLLY_GPU_READ,56);

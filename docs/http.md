@@ -2,9 +2,10 @@
 
 ## One outer capability
 
-Reserved `*.dolly.invalid` addresses use separately admitted browser-local
-[model](browser-local-models.md) and [build](image-build-service.md) services
-through this same broker. They never reach Fetch. The policy below governs
+Reserved `*.dolly.invalid` addresses admit only the browser-local
+[build service](image-build-service.md) through this same broker. They never
+reach Fetch. Local inference uses process pipes; its weight downloads use
+ordinary remote HTTP. The policy below governs
 ordinary remote HTTP destinations.
 
 Programs do not import Fetch, sockets, DNS, or TLS. They call an in-Wasm C API,

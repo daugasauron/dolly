@@ -178,8 +178,24 @@ if has_module pi; then
   copy_static "${project_dir}/src/pi/dolly-theme.json" default/pi/dolly-theme.json
   copy_static "${project_dir}/src/pi/skills/dolly/SKILL.md" default/pi/dolly-skill.md
 fi
-if has_module browser-model-providers; then
-  copy_static "${project_dir}/src/pi/browser-model-providers.js" default/pi/browser-model-providers.js
+if has_module llama-core; then
+  bash scripts/prepare-local-llm.sh "${static_dir}/llama/source.tar"
+fi
+if has_module local-llm-engine; then
+  node scripts/build-source-tar.mjs "${static_dir}/llama/engine.tar" \
+    src/local-llm/main.cpp /usr/src/dolly-llm/main.cpp \
+    src/local-llm/webgpu.cpp /usr/src/dolly-llm/webgpu.cpp \
+    src/gpu/client.c /usr/src/dolly-llm/client.c \
+    include/dolly/gpu.h /usr/src/dolly-llm/include/dolly/gpu.h \
+    include/dolly/gpu-abi.h /usr/src/dolly-llm/include/dolly/gpu-abi.h
+fi
+if has_module local-llm; then
+  node scripts/build-source-tar.mjs "${static_dir}/llama/provider.tar" \
+    src/local-llm/client.mjs /usr/lib/dolly-llm/client.mjs \
+    src/local-llm/model.mjs /usr/lib/dolly-llm/model.mjs \
+    src/local-llm/qwen.mjs /usr/lib/dolly-llm/qwen.mjs \
+    src/local-llm/models.json /usr/share/dolly/llm/models.json \
+    src/pi/local-model-provider.js /home/dolly/.pi/agent/extensions/local-model-provider.js
 fi
 if has_module dollyfile-studio; then
   node scripts/build-source-tar.mjs "${static_dir}/studio/studio.tar" \

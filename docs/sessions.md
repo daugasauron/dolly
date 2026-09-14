@@ -38,7 +38,8 @@ Hard links and file timestamps/mode metadata are not preserved.
 The in-Wasm kernel fingerprints the base filesystem at boot. Mailbox format 2
 transfers only changed/new records and deletion records, not another copy of the
 compiler and runtimes. SHA-256 comparisons and all filesystem encoding/restoring
-stay in Wasm. `/dev` and `/seed` remain runtime-owned. The uncompressed **delta**
+stay in Wasm. `/dev` and `/seed` remain runtime-owned. Volatile `/run` files, including
+local model weights, are excluded from saves. The uncompressed **delta**
 limit is 512 MiB; browser quota and available memory can impose lower limits.
 
 The browser copies bounded opaque chunks, optionally compresses them with gzip,

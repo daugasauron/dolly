@@ -20,7 +20,6 @@ staging="$(mktemp -d)"
 mkdir -p "$(dirname -- "${output}")"
 temporary_output="$(mktemp "$(dirname -- "${output}")/.dolly-pages.XXXXXX")"
 
-node "${project_dir}/scripts/build-webgpu-assets.mjs"
 node "${project_dir}/scripts/generate-routes.mjs"
 
 mapfile -t image_rows < <(node "${project_dir}/scripts/list-images.mjs")
@@ -139,11 +138,6 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/custom-dollyfile.mjs" \
   "${project_dir}/src/sessions.mjs" \
   "${project_dir}/src/runtime-worker.mjs" \
-  "${project_dir}/src/local-model-contract.mjs" \
-  "${project_dir}/src/local-model-service.mjs" \
-  "${project_dir}/src/local-model-ui.mjs" \
-  "${project_dir}/src/qwen-completions.mjs" \
-  "${project_dir}/src/webgpu-worker.mjs" \
   "${project_dir}/src/gpu-worker.mjs" \
   "${project_dir}/src/gpu-bridge.mjs" \
   "${project_dir}/src/gpu-abi.mjs" \
@@ -163,7 +157,6 @@ cp -R "${project_dir}/build/routes/view" "${staging}/site/"
 if [[ -n "${site}" ]]; then
   node "${project_dir}/scripts/package-domain.mjs" "${staging}/site"
 fi
-cp -R "${project_dir}/dist/webgpu" "${staging}/site/dist/webgpu"
 source_rows="$(node "${project_dir}/scripts/list-images.mjs" --sources)"
 while IFS=$'\t' read -r source_path source_metadata; do
   case "${source_path}" in

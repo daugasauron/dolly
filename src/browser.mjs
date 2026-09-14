@@ -6,7 +6,6 @@ import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./http-policy.mjs";
 import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "./http-broker.mjs";
 import { localServicesTransport } from "./local-services.mjs";
-import { mountLocalModel, toggleLocalModel } from "./local-model-ui.mjs";
 import { SessionTransport } from "./session-transport.mjs";
 import { UploadTransport, chooseUploadFile } from "./upload-transport.mjs";
 import {
@@ -719,14 +718,8 @@ function handleKeyboardEvent(event) {
     }
     return;
   }
-  if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyL") {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (event.type === "keydown" && !event.repeat) toggleLocalModel();
-    return;
-  }
   if (!transport) return;
-  if (event.target.closest?.("#local-model, #image-build")) return;
+  if (event.target.closest?.("#image-build")) return;
   if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {
     document.exitPointerLock();
     event.preventDefault();
@@ -1004,10 +997,9 @@ async function boot() {
       JSON.parse(sessionStorage.getItem("dolly-custom-policy")),
       trustedBootstrapSources, applicationBase);
   }
-  const localModel = mountLocalModel();
   const buildNetwork = localServicesTransport(httpPolicy);
   const imageBuild = mountImageBuild(buildNetwork, httpPolicyConfigurations(httpPolicy));
-  const applicationNetwork = localServicesTransport(httpPolicy, { model: localModel, build: imageBuild });
+  const applicationNetwork = localServicesTransport(httpPolicy, { build: imageBuild });
   const customSource = image === "custom"
     ? restoredSession?.customImage.source ?? sessionStorage.getItem("dolly-custom-source")
     : undefined;

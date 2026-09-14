@@ -81,28 +81,33 @@ The fluid workload adds bounded vertex layouts (one buffer, eight attributes)
 and at most sixteen buffer bindings. Structural validation precedes allocation;
 WebGPU still checks shader compatibility and device limits. Optional timestamp
 queries use three private 512-query sets and 24 KiB of fixed staging buffers per
-visible scope, retired with its other resources. Presented dimensions also drive
+scope, retired with its other resources. Presented dimensions also drive
 browser pointer scaling, independently of the dormant CPU framebuffer. INFO returns limits and counters,
 not browser objects. These additions introduce no further outer imports.
+
+CAPABILITIES returns a fixed typed feature/limit record. Compute pipelines may
+carry at most sixteen named finite numeric specialization constants. Limits are
+clamped to the device: at most 4,096 objects, 1 GiB per buffer and 4 GiB aggregate
+buffer allocations across the provider. The browser owns these bounds; guest declarations
+cannot raise them. Optional f16/subgroup features change shader validation only.
+
+Local llama.cpp inference runs inside an ordinary private process. Its C adapter
+uses this same generic provider; model downloads use the remote HTTP broker.
+There is no browser model loader, inference service, URL allowlist exception or
+model-specific outer import. See [local models](browser-local-models.md).
 
 ## Local services
 
 [src/local-services.mjs](../src/local-services.mjs) is the explicit admission
 table for reserved URLs. These never reach Fetch; redirects cannot enter them.
 
-- **Models:** [local-model-service.mjs](../src/local-model-service.mjs) owns
-  bounded inference, idle deadlines and cancellation.
-  [local-model-contract.mjs](../src/local-model-contract.mjs) validates requests;
-  [webgpu-worker.mjs](../src/webgpu-worker.mjs) loads only the selected pinned
-  asset graph from `config/webgpu-assets.json`. It receives no Dolly memory or
-  tool callbacks. Guest requests cannot load or select models.
 - **Builds:** [image-build-service.md](image-build-service.md) identifies the
   implementation of `POST https://build.dolly.invalid/v1/builds`.
   One bounded build starts immediately in an independent Wasm worker, inheriting
-  remote policy but neither local service. Cancellation/deadline terminates it.
+  remote policy but no local services. Cancellation/deadline terminates it.
   No request opens a tab: only the user's **Open image** click launches ENTRY.
 
-A remote HTTP rule does not grant either local capability. Result tabs retain
+A remote HTTP rule does not grant the local build capability. Result tabs retain
 inherited browser restrictions; recipe bytes cannot set browser policy.
 
 ## Other authority to inspect

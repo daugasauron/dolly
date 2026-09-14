@@ -230,3 +230,12 @@ byte-identical Rust seeds across different host checkout paths are not claimed.
 
 The [Codex port](codex.md) builds on these stages and keeps its runtime setup
 separate from the compiler seed and reusable Rust library adaptations.
+
+The [local LLM build](../Dollyfile-llama-build) compiles pinned, unchanged
+llama.cpp sources and WGSL inside Dolly. Host preparation packages its source
+and official Dawn headers; it does not compile model code or import Dawn's JS
+runtime. A small in-image C API adapter targets the [GPU ABI](gpu.md).
+The separate [command build](../Dollyfile-local-llm-build) reuses those libraries;
+Pi copies only the executable, provider and licenses. Source and header pins are
+in `config/source-pins.sh`, and GGUF weight pins are in
+`src/local-llm/models.json`. Weights download through ordinary sandbox HTTP.

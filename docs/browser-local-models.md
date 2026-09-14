@@ -1,185 +1,102 @@
-# Browser-local models
+# Local models inside Dolly
 
-The `pi-local` experiment adds Qwen3.5 through WebLLM 0.2.84. Open
-`/pi-local/` and press **Ctrl+Shift+L** to open the hidden Local model menu.
-Click a model row, or use arrow keys and Enter, to load that size.
-Escape or Ctrl+Shift+L closes the menu and returns focus to the terminal.
-Select the same size under `webgpu` in Pi's normal model picker.
-Panel text is selectable; Ctrl+C or Ctrl+Shift+C copies the selection without
-sending input to the terminal.
+`pi-local` and Dollyfile Studio run upstream llama.cpp as an ordinary Wasm64
+process. Janis runs Pi's provider, conversation formatting and model downloader.
+The executable owns tokenization, model loading, sampling and inference
+scheduling. Only generic buffers, WGSL pipelines and command packets cross the
+[Dolly GPU ABI](gpu.md); the browser has no model engine or local inference HTTP
+service. No native server or remote inference fallback is involved.
 
-## Chrome setup
+Open `/pi-local/` and use Pi's `/model` picker. Qwen3.5-2B is the default.
+The first prompt checks the GPU, downloads the selected GGUF through Dolly's
+normal network broker, verifies its SHA-256, and starts inference. Pi's status
+line shows download progress and generation speed. Escape interrupts a turn;
+the next turn reloads the model. `/local-unload` releases its process and GPU
+resources. Pi executes complete validated tool calls using ordinary Dolly tools.
 
-If the picker cannot find a hardware GPU, expand **GPU setup**:
+| Model | Q4_K_M download | Context / maximum output |
+| --- | ---: | ---: |
+| Qwen3.5-0.8B | 580 MB | 8,192 / 2,048 tokens |
+| Qwen3.5-2B | 1.40 GB | 8,192 / 2,048 tokens |
+| Qwen3.5-4B | 3.01 GB | 8,192 / 2,048 tokens |
 
-1. In `chrome://settings/system`, enable graphics acceleration and relaunch.
-2. Check `chrome://gpu`: WebGPU should say hardware accelerated, not software
-   only. Update Chrome and the GPU driver if necessary.
-3. Linux support may require `chrome://flags/#enable-unsafe-webgpu` and
-   `chrome://flags/#enable-vulkan`, followed by a restart. These are experimental
-   settings; reset them if unstable. Flags cannot supply missing GPU features.
-4. Use HTTPS or localhost. Dolly automatically selects FP16 when the hardware
-   adapter exposes `shader-f16`, otherwise FP32. All three sizes have both pinned
-   variants. The model ID is the same in either browser, e.g. `Qwen3.5-2B`.
+These are download sizes, not total RAM or VRAM requirements. Each tab holds
+weights in the Wasm filesystem, the inference process and GPU allocations.
+Small Qwen models can use tools but are not dependable autonomous coding models.
+Thinking and image input are disabled in this first adapter.
 
-In Firefox, update the browser and GPU driver and check WebGPU in `about:support`.
-On Linux, WebGPU may require the experimental `dom.webgpu.enabled` preference in
-`about:config` and a restart. Reset it if unstable; Dolly cannot enable it for you.
-[Firefox experimental WebGPU support](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Experimental_features#webgpu_api).
-The ready message reports the selected arithmetic. Missing `shader-f16` alone is
-not an error and does not require a different model selection in Pi.
+## Browser and storage requirements
 
-For blocklisted hardware or multi-GPU laptops, consult
-[Chrome's troubleshooting guide](https://developer.chrome.com/docs/web-platform/webgpu/troubleshooting-tips?hl=en)
-before overriding driver safeguards. Dolly never changes these settings, asks
-you to disable browser security, or silently sends local prompts to a server.
+Use HTTPS or localhost and a WebGPU adapter exposing `shader-f16`. Missing GPU
+support fails before downloading weights. Optional subgroups are used when
+available. This backend requires f16 and does not select CPU-only inference when the GPU
+is unavailable. Upstream scheduling can still assign unsupported operations to
+the Wasm CPU backend.
 
-## Model sizes
+On the tested Linux desktop Firefox exposes `shader-f16` with WebGPU enabled.
+The isolated Chrome test uses Vulkan and
+`--enable-dawn-features=vulkan_enable_f16_on_nvidia`; Chrome otherwise hides f16
+on this NVIDIA adapter. This is an experimental Dawn testing option, not a
+portable requirement or a setting changed in personal browser profiles.
+See [Dawn's toggle definitions](https://dawn.googlesource.com/dawn/+/refs/heads/main/src/dawn/native/Toggles.cpp).
 
-| Size | First weight download | Role |
-| --- | --- | --- |
-| 0.8B | 0.42 GB | Quick experiments; weak at tool use |
-| 2B (default) | 1.06 GB | Initial Pi integration default |
-| 4B | 2.37 GB | Larger model; needs more GPU memory |
-
-Moving keyboard focus does not download anything. Activating a model row
-replaces the idle model; only one worker/model is active per tab. Cached weights
-are kept for switching back. GPU memory also includes working buffers and the
-16,384-token context; download size is not a GPU memory estimate.
-FP16 requires `shader-f16`; FP32 does not, but uses larger working buffers
-and can be slower. Both require a hardware WebGPU adapter. There is no CPU or
-cloud fallback. **Stop generation** cancels generation, **Unload** releases its worker,
-and **Clear cached models** clears this origin's WebLLM model databases without
-network access. Loading reports download progress; two minutes without progress
-unloads a stalled worker with a retry message. Unload also cancels loading.
-Dolly files and saved sessions have separate storage and survive these operations.
-
-The provider extension is an ordinary JavaScript file installed by
-[`browser-model-providers.dm`](../modules/browser-model-providers.dm).
-[`Dollyfile-pi-local`](../Dollyfile-pi-local) starts from the completed Pi image.
-Extension changes rebuild this small leaf; they do not compile Pi or Janis.
-Pi discovers all sizes through the provider catalog. Adding a host model or
-switching sizes requires no image rebuild.
-
-## Service contract
-
-The browser exposes an OpenAI-compatible subset through Dolly's existing HTTP
-broker. These are logical local addresses; they have no DNS or HTTP server:
-
-| Request | Result |
-| --- | --- |
-| `GET https://webgpu.dolly.invalid/v1/models` | Model IDs and actual configured context/output limits; never loads weights |
-| `POST https://webgpu.dolly.invalid/v1/chat/completions` | SSE text, tool calls, finish reason, optional usage, and `[DONE]` |
-
-The protocol accepts one streamed choice, text messages, function tools,
-`max_tokens`, `temperature`, `top_p`, and `tool_choice` (`auto`, `none`, or
-`required`). Unknown fields and modalities fail explicitly. Input is capped
-at 1 MiB, tool schemas at 64 KiB/32 tools, response at 8 MiB, context at 16,384
-tokens, and output at 2,048 tokens. WebLLM rejects prompts beyond the configured
-context. Local inference stops after two minutes without a worker result;
-each completion chunk renews that idle deadline. The browser broker also
-enforces a ten-minute total request cap, including downstream stalls. Remote
-HTTP keeps its existing limits. Model preparation is a separate user action.
-
-An unloaded or busy model returns HTTP 409 with an actionable message. This
-includes requesting a different size from the loaded model: guest requests
-never trigger a download or implicitly switch the browser's selection. Invalid
-requests return HTTP 400. Engine failures in an established stream produce an
-OpenAI error event; an incomplete tool response never executes a partial tool.
-The shared HTTP broker permits concurrent transfers, but this local model
-service still admits one inference at a time and returns HTTP 409 when busy.
-It has no inference queue. Remote model streams can overlap independently.
-Pi normally finishes inference before executing tools.
-
-The independent model worker receives copied JSON and returns completion
-chunks. Each worker `next` operation follows downstream demand. This WebLLM
-release does not provide Qwen's native tool API. The adapter follows
-[Qwen 3.5's function/parameter template](https://huggingface.co/Qwen/Qwen3.5-2B/blob/15852e8c16360a2fea060d615a32b45270f8a8fc/chat_template.jinja),
-including tool-response history and empty reasoning markers on assistant turns
-after the latest user query; it does not force Qwen 3's JSON envelopes.
-String parameters preserve literal shell quotes and code rather than requiring
-JSON escaping. Complete native calls become ordinary OpenAI tool calls.
-An explanation before a tool envelope is preserved as assistant text alongside
-the call; it does not turn a valid tool call into a plain-text answer.
-It buffers at most 128 KiB of tool-enabled output and shows the answer/tool call
-after that response finishes; ordinary text streams incrementally. It does not
-repair malformed output or guess missing calls. Pi executes the resulting
-tools in Dolly, using Dolly's filesystem and shell.
-
-The pinned MLC chat configs still carry Qwen 2's stop-token IDs. The worker
-overrides them with Qwen 3.5's IDs, checked against all three pinned tokenizers;
-otherwise ordinary Korean text can incorrectly end a reply.
-
-## Browser authority and assets
-
-[`local-services.mjs`](../src/local-services.mjs) composes local and
-remote policy independently. All `dolly.invalid` destinations are reserved,
-including unknown services, HTTP variants, trailing dots and disabled routes.
-They cannot fall through to browser Fetch. Image builders get no local service.
-Local requests discard every header, including credentials. The extension's
-`dolly-local` API key is a non-secret client placeholder.
-
-[`webgpu-worker.mjs`](../src/webgpu-worker.mjs) owns the accelerator and permits
-only the selected model's asset URLs in `config/webgpu-assets.json`, during
-loading only. That manifest pins model revisions, model-library revisions,
-lengths and SHA-256 digests. Small metadata, tokenizer and model Wasm files ship
-as browser assets; identical bundled files are shared by content hash. Weight
-shards download from the pinned Hugging Face revision when the user loads the
-model. Those asset requests omit credentials and may follow the
-model host's CDN redirects; their complete bytes must match the manifest.
-Guest requests cannot select URLs, executable code, or engine options.
-
-WebLLM's existing IndexedDB cache retains model assets at revision-stable keys,
-independent of Dolly image recipes and release URLs. Model weights and GPU
-state are outside `dolly.data` and userspace/session snapshots. Each request
-supplies its complete conversation and resets the model's chat state.
-Cancellation interrupts WebLLM, waits for it to settle, and terminates the
-private worker after two seconds if necessary. Termination also rejects all
-pending host promises. Failed GPU cleanup unloads the model and permits reloading.
-Idle models survive Pi restarts; leaving the page
-disposes the worker. There is no cross-tab scheduler or service worker model.
-
-The browser bundle fixes WebLLM 0.2.84's prefill tensor leak and prompt
-substitution: intermediate tensors are released, and message text is inserted
-literally after expanding template placeholders. Source code containing `$&`,
-`$'` or `{function_string}` must not be rewritten before reaching the model.
-The build checks the upstream source hash before applying these corrections;
-dependency updates must recheck them. Weights stay loaded between requests.
-
-The canonical Wasm ABI and its 28 imports are unchanged. The added browser
-capability is bounded inference, exposed through `dolly_http_dispatch`, not
-ambient Fetch, WebGPU, filesystem access or tool execution in Janis.
-
-## Building and testing
-
-After the normal runtime/image bootstrap:
+For a separate Chrome profile on this Linux desktop, with the preview server
+running on port 9097:
 
 ```sh
-npm ci
-npm run build:webgpu
-npm run image -- pi-local
-node --test test/local-model.test.mjs test/http-broker.test.mjs
-DOLLY_IMAGE=pi-local DOLLY_BROWSER_MODE=local-model ./scripts/test-browser.sh
-DOLLY_IMAGE=pi-local DOLLY_BROWSER_MODE=local-model-fp32 ./scripts/test-browser.sh
-npm run publish
-npm run serve
+google-chrome --user-data-dir=/tmp/dolly-local-llm \
+  --ozone-platform=x11 --enable-unsafe-webgpu --use-angle=vulkan \
+  --enable-features=Vulkan,VulkanFromANGLE \
+  --enable-dawn-features=vulkan_enable_f16_on_nvidia \
+  http://127.0.0.1:9097/pi-local/
 ```
 
-The real-model browser test opens its own Chrome profile and window. On this
-Linux setup it uses X11/Vulkan and explicit WebGPU flags; ordinary headless
-Chrome did not expose the NVIDIA adapter. It never disables web security or
-uses a native inference server. A GPU is required for this opt-in test.
-It also exercises fourteen growing prompts to catch GPU memory accumulation.
-The `local-model-fp32` proof requires an adapter without `shader-f16` and omits
-the f16 override. It selects the ordinary 2B row, verifies automatic FP32 selection,
-and runs a Pi file-reading turn using the same public model ID.
 
-Experimental browser GPU implementations can still fail outside Worker-level
-recovery. The tensor-leak regression is not a guarantee against native crashes.
+Verified weights live in `/run/dolly-llm` in the shared Wasm filesystem. They
+survive model unload/restart in the same tab, but **refreshing or restoring a
+session downloads them again**. `/run` is volatile and excluded from session
+saves; settings, conversation logs and workspace files are saved normally.
+This avoids putting multi-gigabyte weights into the bounded session format.
+There is no browser IndexedDB model cache in this checkpoint.
+Engine diagnostics are in `~/.cache/dolly-llm/engine.log`.
 
-Qwen 2B is a small integration default, not evidence of reliable autonomous
-coding. wllama remains a later adapter, outside this first experiment.
+## Build and interface
 
-References: [WebLLM worker support](https://webllm.mlc.ai/docs/user/advanced_usage.html),
-[pinned WebLLM model catalog](https://github.com/mlc-ai/web-llm/blob/9e572d6ed95e248f29634996cd32cc8f3023d89d/src/config.ts),
-[pinned Qwen model](https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f16_1-MLC/tree/dd74e9c8a20c4546df85c844103bff87b6dcacad).
+[`Dollyfile-llama-build`](../Dollyfile-llama-build) builds unchanged pinned
+llama.cpp sources and WGSL inside Dolly with its C/C++ compiler and CMake.
+[`Dollyfile-local-llm-build`](../Dollyfile-local-llm-build) links the small Dolly
+WebGPU C adapter and command against those cached libraries.
+[`Dollyfile-pi-local`](../Dollyfile-pi-local) copies the executable into Pi and
+installs the provider. Editing the adapter or provider reuses the compiler and
+upstream-library images. The core build took 159 seconds here; rebuilding the
+command and Pi leaf took 13 and 9 seconds respectively.
+
+`scripts/prepare-local-llm.sh` only fetches verified source archives and official
+Dawn C/C++ headers, then packages them. It compiles no native inference code.
+Source revisions and hashes are in `config/source-pins.sh`; model revisions,
+lengths and hashes are in `src/local-llm/models.json`. The C adapter implements
+only the WebGPU functions exercised by this upstream backend. It does not
+include Dawn's JavaScript runtime or provide ambient browser capabilities.
+
+`dolly-llama --check` reports GPU availability. For direct use:
+
+```sh
+dolly-llama /run/dolly-llm/MODEL.gguf 8192
+```
+
+Stdin accepts one JSON object per line with `prompt`, `max_tokens`,
+`temperature`, `top_p` and `seed`. Stdout emits a ready record, token byte arrays
+and completion timing/usage, or an error. Stderr holds diagnostics. The process
+keeps weights loaded between requests and resets inference state for each full
+conversation. Pi uses pipes, not HTTP, and only admits one turn at a time.
+Cancellation terminates that private process; the kernel retires its GPU scope.
+
+Weight downloads use verified 32 MiB HTTP ranges, within the existing per-request
+response bound. They remain subject to the embedding's normal destination,
+redirect and quota policy. Local inference makes no network requests once its
+weights are loaded.
+
+Build with `npm run image -- pi-local`; run the opt-in real-model check with
+`node test/local-llm-browser.mjs`. Real browser evidence, measurements and
+remaining limitations are recorded in the
+[checkpoint task](../tasks/20260914-llm-in-image/TASK.md).

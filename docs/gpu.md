@@ -13,7 +13,8 @@ GPU extension. Its canonical wire declarations are in
 from that WAT. Existing process headers, identity digests, compiler seed and
 image inputs remain unchanged. An older kernel returns `ENOSYS` for this
 extension. This is a deliberately small experimental C client, not a complete
-implementation of `webgpu.h`, OpenGL, Vulkan, or an LLM runtime backend.
+implementation of `webgpu.h`, OpenGL or Vulkan. The local llama.cpp adapter
+compiles above this interface; see [local models](browser-local-models.md).
 
 ```text
 C program + WGSL files in Wasm
@@ -31,8 +32,8 @@ an accepted batch on error. Creation IDs increase within each scope and are
 never recycled; scope generations distinguish process lifetimes.
 
 The provider owns eight private scope slots, with one pending request per slot,
-one visible surface, at most 128 live objects per scope, 1 MiB packets with at
-most 256 records, 128 KiB shader source, 64 MiB individual buffers and 256 MiB
+one visible surface, at most 4,096 live objects per scope, 1 MiB packets with at
+most 256 records, 128 KiB shader source, 1 GiB individual buffers and 4 GiB
 aggregate buffer allocations. A bind group accepts at most sixteen buffers;
 vertex input accepts one buffer with up to eight float32x2/x3/x4 attributes.
 These are experimental GPU quotas, unrelated to
@@ -136,8 +137,13 @@ google-chrome --user-data-dir=/tmp/dolly-gpu-preview \
   --enable-features=Vulkan,VulkanFromANGLE http://127.0.0.1:9093/gpu-demo/
 ```
 
-This prototype omits textures, depth attachments, dynamic bindings, feature/
-limit negotiation and asynchronous error records. Shader diagnostics currently
+CAPABILITIES reports admitted feature bits and device-clamped limits in a fixed
+128-byte record. COMPUTE_CONSTANTS adds up to sixteen named finite numeric
+pipeline constants. Existing packets remain compatible. These additions support
+unchanged llama.cpp WGSL and introduce no additional outer imports.
+
+This prototype omits textures, depth attachments, dynamic bindings and
+asynchronous error records. Shader diagnostics currently
 appear in the browser console, while the C caller receives errno. It establishes
 the command, compute, presentation and lifecycle path; it does not yet accelerate
-existing games or run llama.cpp.
+existing game renderers.

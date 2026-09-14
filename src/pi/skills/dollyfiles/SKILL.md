@@ -99,10 +99,12 @@ draft rather than repeatedly trying equivalent download endpoints.
 For interactive Neovim, syntax highlighting, linting and headless editing, read
 [neovim.md](neovim.md). Interactive nvim needs the shell, not Pi's captured tool.
 
-Ctrl+Shift+L opens the browser model picker; the user must explicitly load a model.
-Pi's `/model` selection must match that loaded model. Studio defaults to Qwen 2B;
-`/login` also supports configured remote providers. Pi cannot load GPU weights
-itself. `/dolly-hello`, `/dolly-tool` and `/dolly-fix` are small starting prompts.
+Pi's `/model` picker selects a local or remote provider. Studio defaults to
+Qwen3.5-2B, compiled inside Dolly using the GPU ABI. The first prompt checks
+WebGPU and downloads verified weights into volatile `/run/dolly-llm` files;
+refreshing or restoring a session downloads them again. `/local-unload` releases
+the GPU model. `/login` supports remote providers. `/dolly-hello`, `/dolly-tool`
+and `/dolly-fix` are small starting prompts.
 
 `download RECIPE` exports the draft; the site's **Run a Dollyfile** page accepts
 text/file uploads. `upload /workspace/input` asks the user to choose one PC file,

@@ -61,7 +61,7 @@ OpenRouter and fixture tool-use flows have browser coverage. Manual PKCE OAuth
 has fixture coverage, but real-provider login still depends on browser CORS and
 supported callback flows; there is no native listener.
 See [HTTP](http.md), [CORS](cors.md) and [local models](browser-local-models.md).
-Local model loading requires the user's explicit browser action.
+Pi's local provider downloads and loads its model inside Dolly on the first prompt.
 
 ## Limits and verification
 

@@ -47,9 +47,9 @@ pins must match images and modules published by that site. The recipe remains
 in this tab; named-session saving is not yet supported for custom images.
 
 `/dollyfile-studio/` starts Pi with Neovim, local WebGPU models, a Dollyfile
-skill and `/dolly-hello`, `/dolly-tool`, `/dolly-fix` prompt templates. Load Qwen
-using Ctrl+Shift+L before using the default local provider, or select a remote
-provider with `/model`. Exit Pi to Slop and run `nvim /workspace/Dollyfile` to
+skill and `/dolly-hello`, `/dolly-tool`, `/dolly-fix` prompt templates. Select a
+local or remote provider with `/model`; the first local prompt downloads weights
+and starts inference inside Dolly. Exit Pi to Slop and run `nvim /workspace/Dollyfile` to
 edit. Directives are yellow; inline lint errors refresh on open, save and after
 edits (leaving insert mode). `:DollyLint` checks immediately. The standalone
 `dollyfile-lint FILE` uses the browser's inspection parser inside QuickJS.

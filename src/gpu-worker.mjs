@@ -5,7 +5,8 @@ const decode = new TextDecoder("utf-8", { fatal: true });
 const encode = new TextEncoder();
 const fail = (code, message) => { throw Object.assign(new Error(message), { errno: code }); };
 const ensure = (condition, message, code = E.EINVAL) => { if (!condition) fail(code, message); };
-const maxBytes = 256 * 1024 * 1024, maxBuffer = 64 * 1024 * 1024;
+const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
+let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
 let memory, mailbox, control, canvas, context, device, format, adapterName = "WebGPU";
 let usedBytes = 0, serial = Promise.resolve(), initializing;
@@ -19,7 +20,32 @@ async function getDevice() {
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     ensure(adapter, "This browser did not provide a GPU adapter", E.ENODEV);
     adapterName = [adapter.info?.vendor, adapter.info?.architecture, adapter.info?.description].filter(Boolean).join(" ") || "WebGPU adapter";
-    const created = await adapter.requestDevice({requiredFeatures: adapter.features.has("timestamp-query") ? ["timestamp-query"] : []});
+    const requiredFeatures = ["timestamp-query", "shader-f16", "subgroups"].filter(name => adapter.features.has(name));
+    const requiredLimits = {};
+    for (const [name, ceiling] of Object.entries({maxBufferSize: bufferCeiling,
+      maxStorageBufferBindingSize: bufferCeiling, maxStorageBuffersPerShaderStage: A.DOLLY_GPU_MAX_BINDINGS,
+      maxComputeWorkgroupStorageSize: 65536, maxComputeInvocationsPerWorkgroup: 1024,
+      maxComputeWorkgroupSizeX: 1024, maxComputeWorkgroupSizeY: 1024})) {
+      requiredLimits[name] = Math.min(adapter.limits[name], ceiling);
+    }
+    const created = await adapter.requestDevice({requiredFeatures, requiredLimits});
+    maxBuffer = created.limits.maxBufferSize;
+    const l = created.limits;
+    capabilities = new Uint8Array(128);
+    const v = new DataView(capabilities.buffer);
+    v.setUint32(0, (created.features.has("shader-f16") ? 1 : 0) | (created.features.has("subgroups") ? 2 : 0) |
+      (navigator.gpu.wgslLanguageFeatures?.has("packed_4x8_integer_dot_product") ? 4 : 0) |
+      (created.features.has("timestamp-query") ? 8 : 0), true);
+    v.setUint32(4, maxObjects, true);
+    [maxBuffer, maxBytes, l.maxStorageBufferBindingSize].forEach((n,i) => v.setBigUint64(8+i*8, BigInt(n), true));
+    [l.minUniformBufferOffsetAlignment, l.minStorageBufferOffsetAlignment, l.maxComputeWorkgroupStorageSize,
+      l.maxComputeInvocationsPerWorkgroup, l.maxComputeWorkgroupSizeX, l.maxComputeWorkgroupSizeY,
+      l.maxComputeWorkgroupSizeZ, l.maxComputeWorkgroupsPerDimension, A.DOLLY_GPU_MAX_BINDINGS,
+      l.maxStorageBuffersPerShaderStage, l.maxUniformBuffersPerShaderStage, l.maxBindGroups]
+      .forEach((n,i) => v.setUint32(32+i*4,n,true));
+    v.setBigUint64(80,BigInt(l.maxUniformBufferBindingSize),true);
+    v.setUint32(88,adapter.info?.subgroupMinSize ?? 4,true);
+    v.setUint32(92,adapter.info?.subgroupMaxSize ?? 128,true);
     device = created;
     format = navigator.gpu.getPreferredCanvasFormat();
     context = canvas.getContext("webgpu");
@@ -70,7 +96,7 @@ function records(request) {
     const fixed = { 1: 32, 7: 64, 8: 40, 9: 48, 10: 32, 11: 16, 12: 16, 13: 8, 15: 88 }[opcode];
     if (fixed) ensure(size === fixed, "Wrong GPU command layout");
     else {
-      const minimum = { 2: 32, 3: 24, 4: 40, 5: 32, 6: 32, 14: 48 }[opcode];
+      const minimum = { 2: 32, 3: 24, 4: 40, 5: 32, 6: 32, 14: 48, 16: 32 }[opcode];
       ensure(minimum && size >= minimum, "Unsupported GPU command", E.ENOTSUP);
     }
     // Validate every variable-length span before any command has side effects.
@@ -99,6 +125,21 @@ function records(request) {
     } else if (opcode === 5) {
       ensure(w.getUint32(28, true) === 0 && w.getUint32(24, true) <= 64, "Compute entry name");
       text(b, 32, w.getUint32(24, true));
+    } else if (opcode === 16) {
+      const entryBytes = w.getUint32(24,true), count = w.getUint32(28,true);
+      ensure(entryBytes <= 64 && count <= 16, "Compute constants layout");
+      text(b,32,entryBytes);
+      let at = (32+entryBytes+7)&~7;
+      const names = new Set();
+      for (let i=0;i<count;i++) {
+        ensure(at<=size-16,"Truncated compute constant");
+        const n=w.getUint32(at,true);
+        ensure(n<=64 && w.getUint32(at+4,true)===0 && Number.isFinite(w.getFloat64(at+8,true)),"Invalid compute constant");
+        const name=text(b,at+16,n);
+        ensure(!names.has(name),"Duplicate compute constant");names.add(name);
+        at=(at+16+n+7)&~7;
+      }
+      ensure(at===size,"Trailing compute constant bytes");
     } else if (opcode === 6) {
       const n = w.getUint32(24, true);
       ensure(n <= A.DOLLY_GPU_MAX_BINDINGS && size === 32 + n * 24 && w.getUint32(28, true) === 0, "Bind group layout");
@@ -115,7 +156,7 @@ function object(scope, id, kind) {
   return result;
 }
 function insert(scope, id, kind, value, size = 0) {
-  ensure(id > scope.high && id <= 0xffffffff && scope.objects.size < 128, "Invalid or exhausted GPU object IDs", E.ENOSPC);
+  ensure(id > scope.high && id <= 0xffffffff && scope.objects.size < maxObjects, "Invalid or exhausted GPU object IDs", E.ENOSPC);
   scope.high = id;
   scope.objects.set(id, { kind, value, size, mapped: null });
 }
@@ -159,12 +200,12 @@ async function batch(scope, commands) {
     for (const { opcode: op, b, w } of commands) {
       const id = b.length >= 16 ? integer(w, 8) : 0;
       if (op !== A.DOLLY_GPU_COMPUTE) endCompute();
-      if ([1,3,4,5,6,14].includes(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size < 128, "GPU object quota", E.ENOSPC);
+      if ([1,3,4,5,6,14,16].includes(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size < maxObjects, "GPU object quota", E.ENOSPC);
       if (op === A.DOLLY_GPU_CREATE_BUFFER) {
         const size = integer(w, 16), usage = w.getUint32(24, true);
         ensure(size > 0 && size <= maxBuffer && size <= maxBytes - usedBytes, "GPU allocation quota", E.ENOMEM);
         ensure(w.getUint32(28, true) === 0 && usage > 0 && (usage & ~1023) === 0, "Buffer usage");
-        ensure(id > scope.high && scope.objects.size < 128, "GPU resource quota", E.ENOSPC);
+        ensure(id > scope.high && scope.objects.size < maxObjects, "GPU resource quota", E.ENOSPC);
         const buffer = device.createBuffer({ size, usage });
         insert(scope, id, "buffer", buffer, size); usedBytes += size;
       } else if (op === A.DOLLY_GPU_WRITE_BUFFER) {
@@ -198,9 +239,16 @@ async function batch(scope, commands) {
           fragment: { module: shader, entryPoint: text(b,at+vs,fs), targets: [{ format, ...(blend ? { blend: { color: component, alpha: component } } : {}) }] },
           primitive: { topology: topology ? "triangle-strip" : "triangle-list" } });
         insert(scope, id, "render", pipeline);
-      } else if (op === A.DOLLY_GPU_COMPUTE_PIPELINE) {
+      } else if (op === A.DOLLY_GPU_COMPUTE_PIPELINE || op === A.DOLLY_GPU_COMPUTE_CONSTANTS) {
+        const constants=Object.create(null);
+        if(op===A.DOLLY_GPU_COMPUTE_CONSTANTS) {
+          let at=(32+w.getUint32(24,true)+7)&~7;
+          for(let i=0;i<w.getUint32(28,true);i++) {
+            const n=w.getUint32(at,true);constants[text(b,at+16,n)]=w.getFloat64(at+8,true);at=(at+16+n+7)&~7;
+          }
+        }
         const pipeline = await device.createComputePipelineAsync({ layout: "auto", compute: {
-          module: object(scope,integer(w,16),"shader").value, entryPoint: text(b,32,w.getUint32(24,true)) } });
+          module: object(scope,integer(w,16),"shader").value, entryPoint: text(b,32,w.getUint32(24,true)), constants } });
         insert(scope,id,"compute",pipeline);
       } else if (op === A.DOLLY_GPU_BIND_GROUP) {
         const pipeline = object(scope,integer(w,16));
@@ -300,7 +348,7 @@ async function execute(request, scope, parsed) {
       ensure(!width || !slots.some(s=>s && s!==scope && s.surface),"GPU surface is busy",E.EBUSY);
       scope.surface=width>0;
       scope.gpuMs=0;scope.gpuTotalMs=0;scope.gpuSamples=0;
-      if(scope.surface && device.features.has("timestamp-query")) scope.timers=Array.from({length:3},()=>({
+      if(device.features.has("timestamp-query")) scope.timers=Array.from({length:3},()=>({
         query:device.createQuerySet({type:"timestamp",count:512}),
         resolve:device.createBuffer({size:4096,usage:GPUBufferUsage.QUERY_RESOLVE|GPUBufferUsage.COPY_SRC}),
         read:device.createBuffer({size:4096,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST}),busy:false}));
@@ -316,6 +364,7 @@ async function execute(request, scope, parsed) {
         ensure(r.mapped && size<=A.DOLLY_GPU_REPLY_BYTES && offset<=r.mapped.byteLength-size,"Invalid readback");
         output=new Uint8Array(r.mapped,offset,size).slice();stats.readbackBytes+=size;
       } else if(request.op===A.DOLLY_GPU_CLOSE)await retire(scope);
+      else if(request.op===A.DOLLY_GPU_CAPABILITIES)output=capabilities;
       else if(request.op===A.DOLLY_GPU_INFO) {
         output=new Uint8Array(80);const v=new DataView(output.buffer);
         v.setUint32(0,scope.timers?1:0,true);v.setUint32(4,A.DOLLY_GPU_MAX_BINDINGS,true);
@@ -355,8 +404,8 @@ self.onmessage = event => {
     } else {
       ensure(Number.isSafeInteger(address)&&Number.isSafeInteger(size)&&address>0&&size>=32&&size<=A.DOLLY_GPU_PACKET_BYTES&&address<=memory.byteLength-size,"Invalid GPU request span",E.EFAULT);
       const request=header(new Uint8Array(memory,address,size).slice());
-      ensure(request.op>=1&&request.op<=6,"Unknown GPU operation",E.ENOTSUP);
-      ensure((request.op!==1||size===40)&&(![3,5,6].includes(request.op)||size===32)&&(request.op!==4||size===56),"GPU operation layout");
+      ensure(request.op>=1&&request.op<=7,"Unknown GPU operation",E.ENOTSUP);
+      ensure((request.op!==1||size===40)&&(![3,5,6,7].includes(request.op)||size===32)&&(request.op!==4||size===56),"GPU operation layout");
       const parsed=request.op===2?records(request):null;
       let scope=slots[request.index];
       if(request.op===1) {

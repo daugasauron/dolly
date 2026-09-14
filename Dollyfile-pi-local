@@ -2,6 +2,9 @@ DOLLY 3
 IMAGE pi-local
 
 FROM HOST /Dollyfile-pi 0cc039893fb5dbf7dc9b963748367caee86c05ea2b1219e3c0e3934e52b7df67
-USE HOST /modules/browser-model-providers.dm bc379c5fd71b1e5c7b3d7b9f677995100f0f860068187c14ee1a0a3056303169
+COPY FROM HOST /Dollyfile-local-llm-build 0e9d9cb6faa68e8a531a8209eb0353b91bac7cfb0764fcc5b553b148d6c32450 /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY FROM HOST /Dollyfile-llama-build 3ac7a2b1e1cfee4e9c8da8a2ee39f23902a6f43aeaba79c877796508c532cba8 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+EXPORTS TOOL dolly-llama
+USE HOST /modules/local-llm.dm 58e006fd1098b9e07aed499ccc25510199e3a446228c1c6ccb86420db761e073
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
