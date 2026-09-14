@@ -45,7 +45,7 @@ static void preset(int walker){remember();character_preset(&design,walker);selec
 static int candidate(Block *block){
     Vector3 normal={0};int parent=render_pick(&design,&orbit,mouse_x,mouse_y,&normal),x,y,z;
     if(parent>=0){Block b=design.blocks[parent];x=b.x+(int)roundf(normal.x);y=b.y+(int)roundf(normal.y);z=b.z+(int)roundf(normal.z);}
-    else if(!design.count){Ray ray=GetScreenToWorldRayEx((Vector2){mouse_x-VIEW_X,mouse_y-VIEW_Y},orbit_camera(&orbit),VIEW_W,VIEW_H);if(ray.direction.y>=0)return 0;float t=-ray.position.y/ray.direction.y;x=(int)roundf(ray.position.x+t*ray.direction.x);y=0;z=(int)roundf(ray.position.z+t*ray.direction.z);}
+    else if(!design.count){Ray ray=GetScreenToWorldRayEx((Vector2){mouse_x-VIEW_X,mouse_y-VIEW_Y},orbit_camera(&orbit),VIEW_W,VIEW_H);if(fabsf(ray.direction.y)<.0001f)return 0;float t=-ray.position.y/ray.direction.y;if(t<=0)return 0;x=(int)roundf(ray.position.x+t*ray.direction.x);y=0;z=(int)roundf(ray.position.z+t*ray.direction.z);}
     else return 0;
     Character next=design;int id=character_add(&next,parent,x,y,z,brush_joint,brush_color);if(id<0)return 0;*block=next.blocks[id];return 1;
 }
@@ -65,8 +65,8 @@ static void import_character(void){
 static void click(void){
     for(int i=0;i<5;i++)if(inside(254+i*88,92,80,34)){
         if(i==0)orbit.yaw-=.3f;if(i==1)orbit.yaw+=.3f;
-        if(i==2)orbit.pitch=Clamp(orbit.pitch+.2f,-.1f,1.35f);
-        if(i==3)orbit.pitch=Clamp(orbit.pitch-.2f,-.1f,1.35f);
+        if(i==2)orbit.pitch=Clamp(orbit.pitch+.2f,-1.5f,1.5f);
+        if(i==3)orbit.pitch=Clamp(orbit.pitch-.2f,-1.5f,1.5f);
         if(i==4)home_camera();orbit_update(&orbit);return;
     }
     if(inside(1052,18,204,44)){if(physics.running)back_to_builder();else start_test();return;}
@@ -92,7 +92,7 @@ static void click(void){
         if(tool==SELECT){selected=hit;binding=-1;dirty=1;return;}
         if(tool==ERASE){selected=hit;remove_selected();return;}
         Block b;if(candidate(&b)){remember();selected=character_add(&design,b.parent,b.x,b.y,b.z,b.joint,b.color);changed();say(b.joint?"Joint added. Select its two keys in the inspector.":"Box attached. It moves rigidly with its parent.");}
-        else say(design.count?"Place on an empty adjacent face. Up to 64 boxes, within the grid.":"Start with a regular box on the grid.");
+        else say(design.count?"Place on an empty adjacent side. Up to 64 parts, within the grid.":"Start with a regular box on the grid.");
         return;
     }
     if(selected<0)return;
@@ -129,7 +129,7 @@ static void events(void){
                 if(in_view()&&((e.flags>>8)==2||(e.modifiers&DOLLY_INPUT_MOD_ALT))){orbit_drag=1;last_x=mouse_x;last_y=mouse_y;}
                 else if((e.flags>>8)==0)click();
             }else if(e.action==DOLLY_POINTER_ACTION_RELEASE)orbit_drag=0;
-            else if(orbit_drag){orbit.yaw-=(mouse_x-last_x)*.009f;orbit.pitch=Clamp(orbit.pitch+(mouse_y-last_y)*.008f,-.1f,1.35f);last_x=mouse_x;last_y=mouse_y;orbit_update(&orbit);}
+            else if(orbit_drag){orbit.yaw-=(mouse_x-last_x)*.009f;orbit.pitch=Clamp(orbit.pitch+(mouse_y-last_y)*.008f,-1.5f,1.5f);last_x=mouse_x;last_y=mouse_y;orbit_update(&orbit);}
             Vector3 normal;hover=in_view()&&!physics.running?render_pick(&design,&orbit,mouse_x,mouse_y,&normal):-1;
         }
         if(e.type!=DOLLY_INPUT_EVENT_KEY)continue;
@@ -160,7 +160,7 @@ static void draw_ui(void){
     DrawLine(0,79,1280,79,line);DrawLine(241,80,241,674,line);DrawLine(998,80,998,674,line);DrawLine(0,674,1280,674,line);
     label(24,15,"BLOCKWALKER",28,ink);label(24,47,"Build something that might walk.",15,muted);
     char text[120];int joints=0;for(int i=0;i<design.count;i++)joints+=design.blocks[i].joint;
-    snprintf(text,sizeof(text),"%02d BOXES  /  %02d JOINTS",design.count,joints);label(472,30,text,18,muted);
+    snprintf(text,sizeof(text),"%02d PARTS  /  %02d JOINTS",design.count,joints);label(472,30,text,18,muted);
     button(1052,18,204,44,physics.running?"Back to builder":"Test character  >",1);
     const char *views[]={"< Left","Right >","Up","Down","Home"};
     for(int i=0;i<5;i++)button(254+i*88,92,80,34,views[i],0);
@@ -169,7 +169,7 @@ static void draw_ui(void){
     if(!physics.running){
         button(808,22,104,36,"Export",0);button(924,22,104,36,"Import",0);
         label(24,106,"PARTS",17,muted);
-        button(24,142,194,64,"BOX     [B]",tool==ADD&&!brush_joint);button(24,218,194,64,"JOINT   [J]",tool==ADD&&brush_joint);
+        button(24,142,194,64,"BOX     [B]",tool==ADD&&!brush_joint);button(24,218,194,64,"BALL JOINT [J]",tool==ADD&&brush_joint);
         label(24,310,"EDIT TOOL",15,muted);button(24,336,62,36,"Add",tool==ADD);button(90,336,62,36,"Pick",tool==SELECT);button(156,336,62,36,"Erase",tool==ERASE);
         label(24,390,tool==SELECT?"SELECTED COLOR":"BLOCK COLOR",15,muted);
         for(int i=0;i<COLOR_COUNT;i++){DrawRectangleRounded((Rectangle){24+i*32,416,26,30},.12f,4,block_colors[i]);if(i==brush_color)DrawRectangleLinesEx((Rectangle){22+i*32,414,30,34},2,ink);}

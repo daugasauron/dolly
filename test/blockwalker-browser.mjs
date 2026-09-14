@@ -18,11 +18,26 @@ const exportBlueprint=async name=>{
  const count=Number(rows[1]),blocks=rows.slice(2).map(row=>{const [x,y,z,parent,joint,color,axis,negative,positive,speed,limit]=row.split(/\s+/).map(Number);return {x,y,z,parent,joint,color,axis,negative,positive,speed,limit};});
  assert.equal(blocks.length,count);return {path,source,count,blocks};
 };
+const importBlueprint=async path=>{
+ await page.mouse.click(974,40);await page.waitForSelector('#file-upload[open]');
+ await page.locator('#file-upload input').setInputFiles(path);await page.waitForSelector('#file-upload[open]',{state:'hidden'});await frames();
+};
 try {
  await page.goto(site.origin+'/blockwalker/');
  await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>30,null,{timeout:60000});
  await shot('builder');let blueprint=await exportBlueprint('starter');
  assert.equal(blueprint.count,5);assert.equal(blueprint.blocks.filter(b=>b.joint).length,4);
+ const lowPath=new URL('low-joint.character',output).pathname;
+ const lowSource='BLOCKWALKER 1\n3\n0 1 0 -1 0 0 2 0 0 2.5 75\n0 0 0 0 1 1 2 81 65 2.5 75\n1 1 0 0 1 2 2 87 83 2.5 75\n';
+ await writeFile(lowPath,lowSource);await importBlueprint(lowPath);
+ for(let i=0;i<7;i++)await page.mouse.click(558,109);
+ await page.mouse.click(90,170);await page.mouse.move(678,354);await frames();await shot('under-floor-preview');
+ await page.mouse.click(678,354);await frames();await shot('under-floor-attached');
+ const underside=await exportBlueprint('underside');assert.equal(underside.count,4);
+ const attached=underside.blocks[3];assert.deepEqual([attached.x,attached.y,attached.z,attached.parent,attached.joint],[1,0,0,2,0]);
+ await page.mouse.click(70,630);assert.equal((await exportBlueprint('underside-undo')).count,3);
+ await importBlueprint(underside.path);assert.equal((await exportBlueprint('underside-reloaded')).source,underside.source);
+ await importBlueprint(blueprint.path);
  await page.mouse.click(119,352);await page.mouse.move(100,80);await frames();
  const view=()=>page.screenshot({clip:{x:242,y:80,width:756,height:594}}),initialView=await view();
  for(const action of [
@@ -42,16 +57,15 @@ try {
  blueprint=await exportBlueprint('axis');assert.equal(blueprint.blocks[3].axis,0);
  await page.mouse.click(1220,263);await page.mouse.click(1233,452);await page.mouse.click(1054,548);await frames();
  blueprint=await exportBlueprint('configured');assert.equal(blueprint.blocks[3].axis,2);assert.equal(blueprint.blocks[3].speed,3);assert.equal(blueprint.blocks[3].limit,60);
- await page.mouse.click(120,247);await page.mouse.move(707,300);await frames();await shot('placement-preview');
- await page.mouse.click(707,300);await frames();
+ await page.mouse.click(120,247);await page.mouse.move(710,311);await frames();await shot('placement-preview');
+ await page.mouse.click(710,311);await frames();
  let added=await exportBlueprint('added');assert.equal(added.count,6);assert.equal(added.blocks[5].joint,1);assert.equal(added.blocks[5].parent,3);assert.equal(added.blocks[5].y,4);
  await page.mouse.click(70,630);await frames();assert.equal((await exportBlueprint('undo')).source,blueprint.source);
  await page.mouse.click(119,352);await page.mouse.click(706,352);await page.mouse.click(1140,630);await frames();
  assert.equal((await exportBlueprint('removed-branch')).count,3);
  await page.mouse.click(70,630);await frames();assert.equal((await exportBlueprint('restored-branch')).source,blueprint.source);
  await page.mouse.click(172,630);await frames();assert.equal((await exportBlueprint('empty')).count,0);
- await page.mouse.click(974,40);await page.waitForSelector('#file-upload[open]');
- await page.locator('#file-upload input').setInputFiles(blueprint.path);await page.waitForSelector('#file-upload[open]',{state:'hidden'});await frames();
+ await importBlueprint(blueprint.path);
  assert.equal((await exportBlueprint('imported')).source,blueprint.source);await shot('imported');
  await page.mouse.click(1156,40);await frames(90);await shot('test-ground');
  const still=await page.screenshot({clip:{x:242,y:80,width:756,height:594}});
@@ -80,7 +94,7 @@ try {
  assert.equal((await exportBlueprint('reopened')).source,blueprint.source);
  await page.keyboard.press('Escape');assert.equal(await restarted,0);
  assert.deepEqual(errors,[]);
- const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
+ const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,undersideAttachment:true,spherePlacement:true,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
  await writeFile(new URL('results.json',output),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
 }catch(error){await shot('failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
 finally{await browser.close();await site.close();}

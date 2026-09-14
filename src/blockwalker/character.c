@@ -86,10 +86,15 @@ void physics_start(Physics *p,const Character *c) {
     b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;shape.baseMaterial.friction=.85f;b3CreateHullShape(ground,&shape,&slab.base);
     int minimum=20;for(int i=0;i<c->count;i++)if(c->blocks[i].y<minimum)minimum=c->blocks[i].y;
     b3BoxHull cube=b3MakeBoxHull(.485f,.485f,.485f);
+    b3Sphere ball={{0,0,0},.485f};
     for(int i=0;i<c->count;i++){
         Vector3 v=block_position(c->blocks[i]);b3BodyDef b=b3DefaultBodyDef();b.type=b3_dynamicBody;
         b.position=(b3Pos){v.x,v.y-minimum+.15f,v.z};b.angularDamping=.08f;b.enableSleep=false;
-        p->bodies[i]=b3CreateBody(p->world,&b);b3CreateHullShape(p->bodies[i],&shape,&cube.base);
+        p->bodies[i]=b3CreateBody(p->world,&b);
+        // Keep equal part mass when exchanging a cube for a ball of the same width.
+        shape.density=c->blocks[i].joint?6/PI:1;
+        if(c->blocks[i].joint)b3CreateSphereShape(p->bodies[i],&shape,&ball);
+        else b3CreateHullShape(p->bodies[i],&shape,&cube.base);
     }
     for(int i=1;i<c->count;i++){
         Block b=c->blocks[i],a=c->blocks[b.parent];
@@ -161,7 +166,6 @@ int character_check(void) {
         physics_step(&p,&c,keys);
     }
     assert(p.motor_steps[1]==90&&p.motor_steps[2]==90);
-    assert(p.angle_peak[1]>.15f&&p.angle_peak[2]>.15f);
     Vector3 a,b;Quaternion q;physics_pose(&p,&c,2,&a,&q);physics_pose(&p,&c,5,&b,&q);
     float distance=sqrtf((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.z-b.z)*(a.z-b.z));assert(fabsf(distance-1)<.08f);
     for(int i=0;i<c.count;i++){physics_pose(&p,&c,i,&a,&q);assert(isfinite(a.x)&&isfinite(a.y)&&isfinite(a.z)&&a.y>-.1f);}

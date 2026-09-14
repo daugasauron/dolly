@@ -8,7 +8,14 @@ struct Box { center:vec4f, rotation:vec4f, color:vec4f, flags:vec4f }
 }
 fn rotate(q:vec4f,p:vec3f)->vec3f {return p+2*cross(q.xyz,cross(q.xyz,p)+q.w*p);}
 fn local(q:vec4f,p:vec3f)->vec3f {return rotate(vec4f(-q.xyz,q.w),p);}
-fn hit_box(origin:vec3f,direction:vec3f,b:Box)->f32 {
+fn hit_part(origin:vec3f,direction:vec3f,b:Box)->f32 {
+    if(b.flags.x==1){
+        let offset=origin-b.center.xyz;let projection=dot(offset,direction);
+        let discriminant=projection*projection-dot(offset,offset)+b.center.w*b.center.w;
+        if(discriminant<0){return 10000.0;}
+        let root=sqrt(discriminant);let near=-projection-root;let far=-projection+root;
+        let t=select(far,near,near>.001);return select(10000.0,t,t>.001);
+    }
     let o=local(b.rotation,origin-b.center.xyz);let d=local(b.rotation,direction);
     let safe=select(d,vec3f(0.000001),abs(d)<vec3f(0.000001));
     let a=(-vec3f(b.center.w)-o)/safe;let z=(vec3f(b.center.w)-o)/safe;
@@ -25,8 +32,9 @@ fn unpack(v:u32)->vec4f {return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)
     let sun=normalize(vec3f(-.55,1,.7));
     var color=mix(vec3f(.77,.83,.81),vec3f(.93,.95,.92),clamp(1-uv.y,0,1));
     var distance=10000.0;var object=-1;
-    if(ray.y<-.0001){let t=-scene.eye.y/ray.y;if(t>0){distance=t;object=-2;}}
-    for(var i=0u;i<u32(scene.eye.w);i++) {let t=hit_box(scene.eye.xyz,ray,boxes[i]);if(t<distance){distance=t;object=i32(i);}}
+    // The builder floor is visible only from above, so it never hides undersides.
+    if(scene.eye.y>0&&ray.y<-.0001){let t=-scene.eye.y/ray.y;if(t>0){distance=t;object=-2;}}
+    for(var i=0u;i<u32(scene.eye.w);i++) {let t=hit_part(scene.eye.xyz,ray,boxes[i]);if(t<distance){distance=t;object=i32(i);}}
     let position=scene.eye.xyz+ray*distance;
     if(object==-2){
         let grid=abs(fract(position.xz+vec2f(.5))-.5);
@@ -37,20 +45,29 @@ fn unpack(v:u32)->vec4f {return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)
         var shadow=1.0;
         for(var i=0u;i<u32(scene.eye.w);i++){
             if(boxes[i].flags.z==2){continue;}
-            if(hit_box(position+vec3f(0,.01,0),sun,boxes[i])<10000){shadow=.73;break;}
+            if(hit_part(position+vec3f(0,.01,0),sun,boxes[i])<10000){shadow=.73;break;}
         }
         color*=shadow;
         color=mix(color,vec3f(.86,.9,.86),clamp(distance/85,0,.85));
     }else if(object>=0){
         let b=boxes[u32(object)];let p=local(b.rotation,position-b.center.xyz);
-        let face=abs(abs(p)-vec3f(b.center.w));var normal=vec3f(sign(p.x),0,0);
-        if(face.y<face.x&&face.y<face.z){normal=vec3f(0,sign(p.y),0);}else if(face.z<face.x){normal=vec3f(0,0,sign(p.z));}
-        color=b.color.rgb*(.69+.31*max(0,dot(rotate(b.rotation,normal),sun)));
-        let edges=u32(abs(p.x)>.458)+u32(abs(p.y)>.458)+u32(abs(p.z)>.458);
-        if(edges>=2u){color*=.68;if(b.flags.z==1){color=vec3f(.98,1,.86);}if(b.flags.z==2){color=vec3f(.18,.66,.46);}}
         if(b.flags.x==1){
-            let axis=u32(b.flags.y);var face_uv=p.xy;if(axis==0u){face_uv=p.yz;}else if(axis==1u){face_uv=p.xz;}
-            if(abs(normal[axis])>.9){let radius=length(face_uv);if(abs(radius-.22)<.048){color=vec3f(.22,.27,.25);}if(radius<.07){color=vec3f(.98,.96,.84);}}
+            let normal=normalize(p);let world_normal=rotate(b.rotation,normal);
+            let pole=normal[u32(b.flags.y)];
+            let metal=mix(vec3f(.19,.24,.26),vec3f(.86,.91,.94),smoothstep(-.4,.7,world_normal.y));
+            let paint=select(vec3f(.84,.88,.9),b.color.rgb,pole>0);
+            color=mix(metal,paint*(.38+.62*max(0,dot(world_normal,sun))),smoothstep(.5,.56,abs(pole)));
+            if(abs(pole)<.025){color*=.4;}
+            let reflected=reflect(ray,world_normal);
+            color+=vec3f(1,.98,.9)*pow(max(0,dot(reflected,sun)),64)*.8;
+            let rim=1-max(0,dot(world_normal,-ray));color+=vec3f(.15,.19,.21)*pow(rim,4);
+            if(b.flags.z==1&&rim>.8){color=vec3f(.98,1,.86);}
+        }else{
+            let face=abs(abs(p)-vec3f(b.center.w));var normal=vec3f(sign(p.x),0,0);
+            if(face.y<face.x&&face.y<face.z){normal=vec3f(0,sign(p.y),0);}else if(face.z<face.x){normal=vec3f(0,0,sign(p.z));}
+            color=b.color.rgb*(.69+.31*max(0,dot(rotate(b.rotation,normal),sun)));
+            let edges=u32(abs(p.x)>.458)+u32(abs(p.y)>.458)+u32(abs(p.z)>.458);
+            if(edges>=2u){color*=.68;if(b.flags.z==1){color=vec3f(.98,1,.86);}if(b.flags.z==2){color=vec3f(.18,.66,.46);}}
         }
         if(b.flags.w==1&&b.flags.z==0){color=mix(color,vec3f(1),.13);}
         if(b.flags.z==2){color=mix(color,vec3f(.8,.92,.82),.5);}

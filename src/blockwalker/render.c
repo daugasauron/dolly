@@ -3,6 +3,7 @@
 #include <raymath.h>
 #include <rlgl.h>
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +22,14 @@ int render_pick(const Character *c,const Orbit *o,float x,float y,Vector3 *norma
     float distance=1e30f;int selected=-1;
     for(int i=0;i<c->count;i++) {
         Vector3 p=block_position(c->blocks[i]),h={.5f,.5f,.5f};
-        RayCollision hit=GetRayCollisionBox(ray,(BoundingBox){Vector3Subtract(p,h),Vector3Add(p,h)});
-        if(hit.hit&&hit.distance<distance){selected=i;distance=hit.distance;*normal=hit.normal;}
+        RayCollision hit=c->blocks[i].joint?GetRayCollisionSphere(ray,p,.485f):
+            GetRayCollisionBox(ray,(BoundingBox){Vector3Subtract(p,h),Vector3Add(p,h)});
+        if(hit.hit&&hit.distance<distance){
+            selected=i;distance=hit.distance;Vector3 n=hit.normal;
+            if(fabsf(n.x)>=fabsf(n.y)&&fabsf(n.x)>=fabsf(n.z))*normal=(Vector3){copysignf(1,n.x),0,0};
+            else if(fabsf(n.y)>=fabsf(n.z))*normal=(Vector3){0,copysignf(1,n.y),0};
+            else *normal=(Vector3){0,0,copysignf(1,n.z)};
+        }
     }
     return selected;
 }

@@ -1,19 +1,20 @@
 # Blockwalker
 
-Build a character from boxes and powered hinges, then try to walk it across a
-plain floor. The starter has five boxes and four joints; a three-box chain and
-an empty grid are also available. There is no automatic gait or balance system.
+Build a character from boxes and magnetic-looking balls with powered hinges,
+then try to walk it across a plain floor. The starter has five parts and four
+joints; a three-part chain and an empty grid are also available. There is no
+automatic gait or balance system.
 
 The C program uses the same raylib and Box3D libraries as the gamedev image.
 Box3D runs fully 3D physics in Wasm on the CPU, with the existing serial,
-non-SIMD build. A WGSL shader renders oriented boxes, joint markings, lighting
+non-SIMD build. A WGSL shader renders oriented boxes, glossy joint balls, lighting
 and shadows on WebGPU. Raylib draws the editor panels in Wasm; those pixels
 are uploaded when the controls change. World frames have no GPU readback.
 This is a renderer for this box game, not a general GPU backend for raylib.
 
 | Action | Control |
 | --- | --- |
-| Place a box or joint | Choose the part, then click an empty box face |
+| Place a box or joint | Choose the part, then click a face or a side of a ball |
 | Select / erase | Pick or Erase tool; V / X |
 | Orbit / zoom / recenter | Camera buttons, right-drag or Alt + left-drag / scroll / H |
 | Edit a joint | Pick it, choose X/Y/Z, click each key to rebind |
@@ -24,8 +25,12 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 A regular block attaches rigidly to its parent. A joint block hinges at its
 parent attachment and carries the attached branch with it. Two keys drive
 opposite directions. Deleting a block removes its branch; Undo restores it.
-Blueprints contain up to 64 boxes. Test mode leaves their build pose unchanged.
-Blocks weigh about 0.91 kg. Gravity is 4 m/s² and the character starts just above
+Blueprints contain up to 64 parts. Test mode leaves their build pose unchanged.
+The camera can orbit almost directly above or below the character. The floor
+is hidden from below so you can attach parts underneath. Ball surfaces snap
+attachments to the closest grid direction. Balls have spherical collision
+shapes and use the same mass and assignable hinge controls as the boxes.
+Parts weigh about 0.91 kg. Gravity is 4 m/s² and the character starts just above
 the floor, giving time to try the controls. Hold a joint's keys to turn it;
 release them to brake. Highlighted keys and joint angles show the response.
 
