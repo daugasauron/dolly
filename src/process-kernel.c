@@ -70,6 +70,8 @@ typedef struct {
   size_t image_size;
   uint64_t deadline_nanoseconds;
   uint32_t http_sequences[DOLLY_HTTP_SLOT_COUNT];
+  unsigned char *http_body;
+  size_t http_body_size, http_body_written;
   uint32_t pending_signals;
   int handling_signal;
 } dolly_kernel_process;
@@ -201,6 +203,9 @@ static void release_descriptor(dolly_kernel_process *process,
 
 static void release_process_resources(dolly_kernel_process *process) {
   dolly_upload_cancel_process(process->pid);
+  free(process->http_body);
+  process->http_body = NULL;
+  process->http_body_size = process->http_body_written = 0;
   for (size_t index = 0; index < DOLLY_HTTP_SLOT_COUNT; ++index) {
     if (process->http_sequences[index] != 0) {
       (void)dolly_http_cancel(process->http_sequences[index]);
@@ -1437,6 +1442,35 @@ static int64_t display_release_packet(dolly_kernel_process *process,
   return dolly_kernel_display_release(process->pid, request.generation);
 }
 
+static void http_body_discard(dolly_kernel_process *process) {
+  free(process->http_body);
+  process->http_body = NULL;
+  process->http_body_size = process->http_body_written = 0;
+}
+
+static int64_t http_body_write_packet(dolly_kernel_process *process,
+                                     uintptr_t request_size) {
+  if (request_size == 0) { http_body_discard(process); return 0; }
+  if (request_size <= sizeof(dolly_process_http_body_write_request)) return -EINVAL;
+  dolly_process_http_body_write_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  const size_t length = request_size - sizeof(request);
+  if (request.total_size > SIZE_MAX || request.offset > request.total_size ||
+      length > request.total_size - request.offset) return -EINVAL;
+  if (request.offset == 0) {
+    http_body_discard(process);
+    process->http_body = malloc((size_t)request.total_size);
+    if (process->http_body == NULL) return -ENOMEM;
+    process->http_body_size = (size_t)request.total_size;
+  }
+  if (process->http_body == NULL || request.total_size != process->http_body_size ||
+      request.offset != process->http_body_written) return -EINVAL;
+  memcpy(process->http_body + process->http_body_written,
+         process_mailbox + sizeof(request), length);
+  process->http_body_written += length;
+  return 0;
+}
+
 static int64_t http_start_packet(dolly_kernel_process *process,
                                  uintptr_t request_size,
                                  uintptr_t response_capacity) {
@@ -1459,7 +1493,9 @@ static int64_t http_start_packet(dolly_kernel_process *process,
   remaining -= url_size;
   if (headers_size > remaining) return -EINVAL;
   remaining -= headers_size;
-  if (body_size != remaining ||
+  const int staged = body_size != 0 && remaining == 0;
+  if ((staged ? (body_size != process->http_body_size ||
+                 body_size != process->http_body_written) : body_size != remaining) ||
       method_size > SIZE_MAX - url_size - headers_size - 3) return -EINVAL;
 
   const unsigned char *cursor = process_mailbox + sizeof(request);
@@ -1485,7 +1521,8 @@ static int64_t http_start_packet(dolly_kernel_process *process,
 
   unsigned int sequence = 0;
   const int result = dolly_http_start(
-      method, url, headers, cursor, body_size, request.flags, &sequence);
+      method, url, headers, staged ? process->http_body : cursor,
+      body_size, request.flags, &sequence);
   free(strings);
   if (result != 0) return result;
   process->http_sequences[(sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = sequence;
@@ -2227,8 +2264,13 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       return display_next_event_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_DISPLAY_RELEASE:
       return display_release_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_HTTP_START:
-      return http_start_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_HTTP_START: {
+      const int64_t result = http_start_packet(process, request_size, response_capacity);
+      http_body_discard(process);
+      return result;
+    }
+    case DOLLY_PROCESS_HTTP_BODY_WRITE:
+      return http_body_write_packet(process, request_size);
     case DOLLY_PROCESS_HTTP_POLL:
       return http_poll_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_HTTP_CANCEL:

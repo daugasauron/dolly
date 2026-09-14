@@ -1,9 +1,9 @@
 DOLLY 3
 IMAGE pi-local
 
-FROM HOST /Dollyfile-pi 0cc039893fb5dbf7dc9b963748367caee86c05ea2b1219e3c0e3934e52b7df67
-COPY FROM HOST /Dollyfile-local-llm-build 0e9d9cb6faa68e8a531a8209eb0353b91bac7cfb0764fcc5b553b148d6c32450 /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY FROM HOST /Dollyfile-llama-build 3ac7a2b1e1cfee4e9c8da8a2ee39f23902a6f43aeaba79c877796508c532cba8 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM HOST /Dollyfile-pi 685ebb033d1c1eb77fa2f3e1764562e2b1f4c8f60504b72f8fe61c030346b1cc
+COPY FROM HOST /Dollyfile-local-llm-build 3c6552b6f722bd0d59c7062f887de22ddc1b426d87bfdbbbb83b33f1c719e93f /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY FROM HOST /Dollyfile-llama-build c5f5b4c3852eea4dc224a38e7f5f92862941dbc1b6b6aa2f8a0b231691d071af /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
 USE HOST /modules/dollyfile.dm 92eb822219776bdd0dc20924c8bceb8ee17d49ab887fe291d4e12ecf3e729709
 USE HOST /modules/local-llm-weights.dm 9c51878f606036f30b015ca6a4565c462e948cc93719d6fec323818ced1fb7bb

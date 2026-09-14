@@ -81,7 +81,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
     ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
     "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build"],
-    "external-source": ["system"], "gpu-fluid": ["system"], blockwalker: ["gamedev-sdk"],
+    "external-source": ["system"], "gpu-fluid": ["system"], blockwalker: ["gamedev-sdk", "javascript", "pi-build"],
     "llama-build": ["cmake-build"], "local-llm-build": ["llama-build"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system-tools"], "neovim-build": ["cmake-build"],

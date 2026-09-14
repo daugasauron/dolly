@@ -239,6 +239,8 @@ class HttpTransfer {
       await this.publish(encoder.encode("\r\n"), status, false, 2);
       let responseBytes = 0;
       const publishBody = async bytes => {
+        if (bytes.length > Number.MAX_SAFE_INTEGER - responseBytes)
+          throw new HttpError(errno.E2BIG, "HTTP response byte counter overflow");
         responseBytes += bytes.length;
         if (responseBytes > rule.maxResponseBytes)
           throw new HttpError(errno.E2BIG, "HTTP response exceeds its size limit");

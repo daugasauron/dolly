@@ -59,7 +59,7 @@ export function createCodexRelay({ token, origins, credentials, models, fetch: u
     if (Number(request.headers["content-length"]) > limit) return fail(413, "Request too large");
     const controller = new AbortController();
     active.add(controller);
-    const timeout = setTimeout(() => controller.abort(), 120000);
+    const timeout = setTimeout(() => controller.abort(), 600000);
     controller.signal.addEventListener("abort", () => { request.destroy(); response.destroy(); }, { once: true });
     request.on("aborted", () => controller.abort());
     response.on("close", () => controller.abort());

@@ -29,13 +29,15 @@ async function getDevice() {
       requiredLimits[name] = Math.min(adapter.limits[name], ceiling);
     }
     const created = await adapter.requestDevice({requiredFeatures, requiredLimits});
+    format = navigator.gpu.getPreferredCanvasFormat();
     maxBuffer = created.limits.maxBufferSize;
     const l = created.limits;
     capabilities = new Uint8Array(128);
     const v = new DataView(capabilities.buffer);
     v.setUint32(0, (created.features.has("shader-f16") ? 1 : 0) | (created.features.has("subgroups") ? 2 : 0) |
       (navigator.gpu.wgslLanguageFeatures?.has("packed_4x8_integer_dot_product") ? 4 : 0) |
-      (created.features.has("timestamp-query") ? 8 : 0), true);
+      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME |
+      (format === "bgra8unorm" ? A.DOLLY_GPU_FEATURE_SURFACE_BGRA : 0), true);
     v.setUint32(4, maxObjects, true);
     [maxBuffer, maxBytes, l.maxStorageBufferBindingSize].forEach((n,i) => v.setBigUint64(8+i*8, BigInt(n), true));
     [l.minUniformBufferOffsetAlignment, l.minStorageBufferOffsetAlignment, l.maxComputeWorkgroupStorageSize,
@@ -47,10 +49,9 @@ async function getDevice() {
     v.setUint32(88,adapter.info?.subgroupMinSize ?? 4,true);
     v.setUint32(92,adapter.info?.subgroupMaxSize ?? 128,true);
     device = created;
-    format = navigator.gpu.getPreferredCanvasFormat();
     context = canvas.getContext("webgpu");
     ensure(context, "WebGPU canvas unavailable", E.ENOSYS);
-    context.configure({ device, format, alphaMode: "opaque" });
+    context.configure({ device, format, alphaMode: "opaque", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
     created.lost.then(info => {
       if (device !== created) return;
       device = null;
@@ -93,7 +94,7 @@ function records(request) {
     const opcode = v.getUint32(offset, true), size = v.getUint32(offset + 4, true);
     ensure(size >= 8 && size % 8 === 0 && size <= bytes.length - offset, "Invalid GPU command length");
     const b = bytes.subarray(offset, offset + size), w = new DataView(b.buffer, b.byteOffset, b.byteLength);
-    const fixed = { 1: 32, 7: 64, 8: 40, 9: 48, 10: 32, 11: 16, 12: 16, 13: 8, 15: 88 }[opcode];
+    const fixed = { 1: 32, 7: 64, 8: 40, 9: 48, 10: 32, 11: 16, 12: 16, 13: 8, 15: 88, 17: 32 }[opcode];
     if (fixed) ensure(size === fixed, "Wrong GPU command layout");
     else {
       const minimum = { 2: 32, 3: 24, 4: 40, 5: 32, 6: 32, 14: 48, 16: 32 }[opcode];
@@ -289,6 +290,14 @@ async function batch(scope, commands) {
       } else if (op === A.DOLLY_GPU_COPY_BUFFER) {
         const src=object(scope,id,"buffer"), dst=object(scope,integer(w,16),"buffer"), so=integer(w,24), to=integer(w,32), n=integer(w,40);
         range(src,so,n);range(dst,to,n);getEncoder().copyBufferToBuffer(src.value,so,dst.value,to,n);
+      } else if (op === A.DOLLY_GPU_CAPTURE_FRAME) {
+        ensure(scope.surface && texture, "Capture requires a rendered surface in this batch");
+        const x=w.getUint32(16,true), y=w.getUint32(20,true), width=w.getUint32(24,true), height=w.getUint32(28,true);
+        ensure(width>0 && height>0 && x<=texture.width-width && y<=texture.height-height, "Capture rectangle outside surface");
+        const dst=object(scope,id,"buffer"), bytesPerRow=Math.ceil(width*4/256)*256;
+        range(dst,0,bytesPerRow*(height-1)+width*4);
+        ensure(!dst.mapped && (dst.value.usage & GPUBufferUsage.COPY_DST), "Capture destination is mapped or not writable");
+        getEncoder().copyTextureToBuffer({texture,origin:{x,y}}, {buffer:dst.value,bytesPerRow}, {width,height});
       } else if (op === A.DOLLY_GPU_SUBMIT) {
         ensure(encoder,"No GPU commands to submit");
         if (scope.inflight >= 3) await device.queue.onSubmittedWorkDone();

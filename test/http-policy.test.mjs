@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consumeDollyHttpPolicy, DollyHttpPolicy, isDollyCredentialHeader } from "../src/http-policy.mjs";
+import { consumeDollyHttpPolicy, DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../src/http-policy.mjs";
+
+test("response quotas are optional and finite inherited quotas cannot be widened", () => {
+  const target = new URL("https://models.example/weights");
+  const unlimited = new DollyHttpPolicy({ rules: [{ origin: target.origin }] });
+  const finite = new DollyHttpPolicy({ rules: [{ origin: target.origin, maxResponseBytes: 1234 }] });
+  const authorize = policy => policy.authorize(target, "GET", new Headers(), 0).maxResponseBytes;
+  assert.equal(authorize(new DollyHttpPolicy()), Infinity);
+  assert.equal(authorize(unlimited), Infinity);
+  const restored = JSON.parse(JSON.stringify(httpPolicyConfigurations(unlimited)));
+  assert.equal(authorize(restrictDollyHttpPolicy(new DollyHttpPolicy(), restored)), Infinity);
+  for (const [parent, child] of [[finite, unlimited], [unlimited, finite]]) {
+    assert.equal(authorize(restrictDollyHttpPolicy(child, httpPolicyConfigurations(parent))), 1234);
+  }
+  for (const maxResponseBytes of [0, -1, 1.5, Infinity, NaN, "unlimited"]) {
+    assert.throws(() => new DollyHttpPolicy({ rules: [{ origin: target.origin, maxResponseBytes }] }), TypeError);
+  }
+});
 
 test("the browser HTTP policy owns destination authority while credentials stay in Wasm", () => {
   const policy = new DollyHttpPolicy({
@@ -139,4 +156,3 @@ test("bootstrap sources are exact read-only broker capabilities", () => {
     /denied/,
   );
 });
-

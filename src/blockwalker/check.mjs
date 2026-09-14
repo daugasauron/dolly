@@ -1,0 +1,52 @@
+import fs from 'node:fs';
+const assert=(value,message)=>{if(!value)throw Error(message);};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const timer=setInterval(()=>Game.frame(),16);
+try {
+ const before=Game.call('state');assert(before.parts.length>0,'builder has parts');
+ Game.call('enable',true);Game.call('reset');
+ const png=Buffer.from(Game.call('snapshot'));assert(png.subarray(1,4).toString()==='PNG','actual GPU PNG');
+ fs.writeFileSync('/workspace/blockwalker-observation.png',png);
+ Game.call('advance',{keys:'A',steps:60});Game.call('watch',true);while(Game.call('state').remaining)await sleep(20);
+ Game.call('watch',false);const after=Game.call('state');assert(after.steps===60,'exact physics timing');
+ assert(after.parts.some((p,i)=>p.pose.some((v,j)=>Math.abs(v-before.parts[i].pose[j])>.01)),'keys and gravity change poses');
+ Game.call('release');await sleep(200);assert(Game.call('state').steps===60,'practice pauses while reasoning');
+ Game.call('build',{parts:[{x:0,y:2,z:0,parent:-1,joint:0},{x:1,y:2,z:0,parent:0,joint:4,axis:0,negative:81,positive:65},{x:0,y:3,z:0,parent:0,joint:2,axis:1,negative:87,positive:83},{x:0,y:4,z:0,parent:2,joint:0},{x:-1,y:2,z:0,parent:0,joint:3,axis:0,negative:79,positive:75}]});
+ Game.call('reset');Game.call('advance',{keys:'ASK',steps:60});while(Game.call('state').remaining)await sleep(20);
+ const actuators=Game.call('state');assert(actuators.parts[2].angle>.7,'piston extends under load');assert(actuators.distance>.1,'thruster moves the body');
+ fs.writeFileSync('/workspace/blockwalker-actuators.png',Buffer.from(Game.call('snapshot')));Game.call('release');
+ const drone=[{x:0,y:1,z:0,parent:-1,joint:0}];
+ for(let i=0;i<4;i++)drone.push({x:i<2?(i?1:-1):0,y:1,z:i>=2?(i===2?1:-1):0,parent:0,joint:3,axis:1,negative:'QWOP'.charCodeAt(i),positive:'ASKL'.charCodeAt(i),force:24,color:i+1});
+ Game.call('build',{parts:drone});
+ const hover=function(t,s,m,r){
+   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),target=t<7?3.5:4.5,e=target-s.y;
+   m.i=clamp((m.i||0)+e*s.dt,-2,2);
+   const base=(s.mass*4+9*e+2*m.i-9*s.vy)/4;
+   const tx=-10*s.gravity[2]/4-6*s.gyroscope[0],tz=10*s.gravity[0]/4-6*s.gyroscope[2];
+   return {A:clamp((base-tz/2)/24,0,1),S:clamp((base+tz/2)/24+(t>3&&t<3.15?.35:0),0,1),K:clamp((base-tx/2)/24,0,1),L:clamp((base+tx/2)/24,0,1)};
+ };
+ Game.call('install',{name:'Feedback hover',source:hover.toString(),hz:60});Game.call('program_trial',{steps:900});
+ let peakTilt=0,peakHeight=0;while(Game.call('state').remaining){const state=Game.call('state');peakTilt=Math.max(peakTilt,1-state.up);peakHeight=Math.max(peakHeight,state.sensors.y);await sleep(40);}
+ const flight=Game.call('state');assert(flight.steps===900,'feedback controller completes at 60 Hz');
+ assert(Math.abs(flight.sensors.y-4.5)<.3&&Math.abs(flight.sensors.vy)<.15&&flight.up>.995,'PID changes altitude and recovers from asymmetric thrust');
+ assert(peakTilt>.0001&&peakHeight>3,'real flight and attitude disturbance');
+ assert(flight.sensors.touching.every(t=>!t),'airborne contact sensors');
+ fs.writeFileSync('/workspace/blockwalker-feedback.png',Buffer.from(Game.call('snapshot')));
+ fs.writeFileSync('/workspace/blockwalker-feedback.json',JSON.stringify({peakTilt,peakHeight,final:flight.sensors,commands:flight.parts.map(p=>p.command)}));
+ Game.call('spawn',{x:0,z:8});
+ Game.call('release');
+ const platform=[{x:0,y:0,z:0,parent:-1,joint:0},{x:1,y:0,z:0,parent:0,joint:0},{x:0,y:0,z:1,parent:0,joint:0},{x:1,y:0,z:1,parent:1,joint:0},{x:0,y:1,z:0,parent:0,joint:1,negative:81,positive:65,axis:1}];
+ Game.call('build',{parts:platform});Game.call('install',{name:'Spinner',source:'function(t,s,m,random){m.turns=(m.turns||0)+1;return t%2<1?"A":"Q"}'});
+ Game.call('spawn',{x:-4,z:0,seed:17});Game.call('spawn',{x:4,z:0,seed:19});
+ Game.call('install',{name:'Bad loop',source:'function(){while(true){}}'});Game.call('spawn',{x:0,z:5});
+ Game.call('build',{parts:[{x:0,y:3,z:0,parent:-1,joint:0},{x:0,y:2,z:0,parent:0,joint:1,negative:81,positive:65,speed:3,axis:2},{x:0,y:1,z:0,parent:1,joint:0},{x:0,y:0,z:0,parent:2,joint:0}]});
+ Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});
+ Game.call('watch',true);const started=Game.call('world').seconds;
+ while(Game.call('world').seconds-started<10)await sleep(40);
+ const population=Game.call('world');assert(population.creatures.length===3&&population.deaths===2,'shared physics survives a stalled controller and removes a fallen torso');
+ const worldPng=Buffer.from(Game.call('snapshot'));fs.writeFileSync('/workspace/blockwalker-world.png',worldPng);Game.call('save');
+ const saved=JSON.parse(fs.readFileSync('/workspace/blockwalker-world.json','utf8'));
+ assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===2,'feedback and legacy controller rates persist');
+ fs.writeFileSync('/workspace/blockwalker-integration.json',JSON.stringify({embedded:true,pngBytes:png.length,steps:after.steps,parts:after.parts,population}));
+ console.log('BLOCKWALKER EMBED CHECK: direct C calls, GPU PNG, timed keyboard, paused inference, shared world, controller timeout, survivors, persistence');
+}finally{clearInterval(timer);Game.call('exit');}

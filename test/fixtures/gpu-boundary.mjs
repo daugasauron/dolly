@@ -6,10 +6,10 @@ export async function gpuBoundaryProof() {
   const worker=new Worker(new URL("../../src/gpu-worker.mjs",import.meta.url),{type:"module"});
   const canvas=new OffscreenCanvas(64,64);
   worker.postMessage({type:"configure",memory,mailbox,control:control.buffer,canvas},[canvas]);
-  let sequence=0;
+  let sequence=0,scope=1;
   function packet(op,body=[]) {
     const bytes=new Uint8Array(32+body.length),v=new DataView(bytes.buffer);
-    v.setUint32(4,op,true);v.setBigUint64(8,1n,true);v.setBigUint64(16,BigInt(++sequence),true);
+    v.setUint32(4,op,true);v.setBigUint64(8,BigInt(scope),true);v.setBigUint64(16,BigInt(++sequence),true);
     v.setUint32(24,body.length,true);bytes.set(body,32);return bytes;
   }
   function record(op,size,id) {
@@ -79,8 +79,40 @@ export async function gpuBoundaryProof() {
     const body=new Uint8Array(24),readView=new DataView(body.buffer);readView.setBigUint64(0,4n,true);readView.setBigUint64(16,16n,true);
     check(await send(packet(4,body))===0,"Compute readback failed");
     check([...new Float32Array(memory,mailbox+64,4)].join(',')==='1,4,7,10',"Wrong compute override result");
+    const capture=record(17,32,4);capture.v.setUint32(24,2,true);capture.v.setUint32(28,2,true);
+    check(await send(batch([capture]))===E.EINVAL,"Compute-only scope captured a surface");
     check(await send(packet(5))===0,"GPU close failed");
     check(await send(packet(3))===E.ESTALE,"Closed GPU scope accepted");
-    return {malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true};
+    scope=9;
+    const surface=new Uint8Array(8);new DataView(surface.buffer).setUint32(0,64,true);new DataView(surface.buffer).setUint32(4,64,true);
+    check(await send(packet(1,surface))===0,"Surface scope open failed");
+    check(await send(packet(7))===0,"Capture capabilities failed");
+    const features=new DataView(memory,mailbox+64,128).getUint32(0,true);
+    check(features&16,"Capture capability missing");
+    const frame=record(1,32,1);frame.v.setBigUint64(16,512n,true);frame.v.setUint32(24,9,true);
+    const renderCode=new TextEncoder().encode('@vertex fn v(@builtin(vertex_index)i:u32)->@builtin(position)vec4f {let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1);} @fragment fn f()->@location(0)vec4f{return vec4f(1,.25,0,1);}');
+    const rs=record(3,(24+renderCode.length+7)&~7,2);rs.v.setUint32(16,renderCode.length,true);rs.bytes.set(renderCode,24);
+    const rp=record(4,48,3);rp.v.setBigUint64(16,2n,true);rp.v.setUint32(32,1,true);rp.v.setUint32(36,1,true);rp.bytes.set([118,102],40);
+    check(await send(batch([frame,rs,rp]))===0,"Capture resources failed");
+    capture.v.setBigUint64(8,1n,true);
+    check(await send(batch([capture]))===E.EINVAL,"Capture without render accepted");
+    const draw=record(7,64,3);[3,1,64,64].forEach((n,i)=>draw.v.setUint32(24+i*4,n,true));draw.v.setUint32(56,1,true);
+    capture.v.setUint32(16,63,true);
+    check(await send(batch([draw,capture,submit]))===E.EINVAL,"Out-of-bounds capture accepted");
+    capture.v.setUint32(16,5,true);capture.v.setUint32(20,7,true);
+    capture.v.setUint32(28,4,true);
+    check(await send(batch([draw,capture,submit]))===E.EINVAL,"Undersized capture buffer accepted");
+    capture.v.setUint32(28,2,true);
+    capture.v.setBigUint64(8,4n,true);
+    check(await send(batch([draw,capture,submit]))===E.EBADF,"Foreign capture buffer accepted");
+    capture.v.setBigUint64(8,1n,true);
+    const fm=record(10,32,1);fm.v.setBigUint64(24,512n,true);
+    check(await send(batch([draw,capture,submit,fm]))===0,"Rendered frame capture failed");
+    readView.setBigUint64(0,1n,true);readView.setBigUint64(16,512n,true);
+    check(await send(packet(4,body))===0,"Captured pixels readback failed");
+    const pixels=new Uint8Array(memory,mailbox+64,512),expected=features&32?[0,64,255,255]:[255,64,0,255];
+    for(const at of [0,4,256,260])check(expected.every((n,i)=>Math.abs(pixels[at+i]-n)<=1),"Wrong captured colors or row stride");
+    check(await send(packet(5))===0,"Capture scope close failed");
+    return {surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true};
   } finally {worker.terminate();}
 }

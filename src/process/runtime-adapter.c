@@ -62,14 +62,31 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
       url_size > DOLLY_PROCESS_PACKET_LIMIT -
           sizeof(dolly_process_http_start_request) - method_size ||
       headers_size > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_start_request) - method_size - url_size ||
-      body_size > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_start_request) - method_size - url_size -
-          headers_size) return -E2BIG;
-  const size_t packet_size = sizeof(dolly_process_http_start_request) +
-      method_size + url_size + headers_size + body_size;
-  unsigned char *packet = malloc(packet_size);
+          sizeof(dolly_process_http_start_request) - method_size - url_size) return -E2BIG;
+  const size_t metadata_size = sizeof(dolly_process_http_start_request) +
+      method_size + url_size + headers_size;
+  const int staged = body_size > DOLLY_PROCESS_PACKET_LIMIT - metadata_size;
+  const size_t packet_size = metadata_size + (staged ? 0 : body_size);
+  unsigned char *packet = malloc(staged ? DOLLY_PROCESS_PACKET_LIMIT : packet_size);
   if (packet == NULL) return -ENOMEM;
+  if (staged) {
+    const size_t capacity = DOLLY_PROCESS_PACKET_LIMIT -
+        sizeof(dolly_process_http_body_write_request);
+    for (size_t offset = 0; offset < body_size;) {
+      const size_t length = body_size - offset > capacity ? capacity : body_size - offset;
+      const dolly_process_http_body_write_request write = {offset, body_size};
+      memcpy(packet, &write, sizeof(write));
+      memcpy(packet + sizeof(write), (const unsigned char *)body + offset, length);
+      const int64_t result = dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE,
+          packet, sizeof(write) + length, NULL, 0);
+      if (result != 0) {
+        (void)dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE, NULL, 0, NULL, 0);
+        free(packet);
+        return result < 0 ? (int)result : -EIO;
+      }
+      offset += length;
+    }
+  }
   const dolly_process_http_start_request request = {
       flags, (uint32_t)method_size, (uint32_t)url_size,
       (uint32_t)headers_size, body_size,
@@ -82,7 +99,7 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
   offset += url_size;
   memcpy(packet + offset, headers, headers_size);
   offset += headers_size;
-  if (body_size != 0) memcpy(packet + offset, body, body_size);
+  if (!staged && body_size != 0) memcpy(packet + offset, body, body_size);
   dolly_process_http_start_response response = {0};
   const int64_t result = dolly_process_call(
       DOLLY_PROCESS_HTTP_START, packet, packet_size,

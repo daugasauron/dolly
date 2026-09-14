@@ -199,6 +199,14 @@ in `modules/rust-sdk.dm`; it never starts an external Rust/LLVM build. A missing
 or corrupt seed fails before fetching image sources. The image loader still
 checks the compiler against the current process ABI.
 
+The HTTP body staging addition (operation 83) preserves every earlier operation,
+packet layout, constant and import type. For this additive transition, the pinned
+Rust compiler seed's process stamp was migrated after validating it against the
+old contract and comparing the complete earlier C layout. Only that custom
+section changed; executable bytes remained identical. The migrated compiler is
+validated against the new contract and exercised by the ripgrep/fd source builds.
+A fresh compiler seed build writes the current stamp directly.
+
 The [Rust SDK image](../Dollyfile-rust-sdk) imports that seed and compiles its
 C linker adapter in Dolly. [Rust build](../Dollyfile-rust-build) adds curl and C Patti;
 [Rust tools](../Dollyfile-rust-tools) combines these artifacts with the interactive system.

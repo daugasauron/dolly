@@ -48,7 +48,10 @@ response cannot activate this path. Inherited policies must all identify the
 request as a bootstrap grant; sibling URLs gain no independent guest grant.
 Image snapshots and static multipart assets are bounded at 1 GiB to accommodate
 the bundled 580 MB model. The decoder also enforces the caller's byte limit;
-ordinary HTTP responses remain bounded at 64 MiB and session deltas at 512 MiB.
+ordinary HTTP responses have no default total byte ceiling. Explicit finite
+response quotas still apply, including inherited restrictions and exact source
+bounds. Delivery remains in bounded mailbox chunks with backpressure and checked
+byte counts. Session deltas remain bounded at 512 MiB.
 The Dollyfile viewer's `src/source-download.mjs` uses the same decoder after a
 user clicks a large, registry-listed source link, verifying its pinned hash
 before offering the original archive as a download.
@@ -58,7 +61,7 @@ a request alive indefinitely. Atomic terminal failure cannot be erased by a late
 acknowledgement. Errors expose target errno, not request contents or credentials.
 
 The default permits arbitrary HTTP(S) and has no lifetime request quota.
-Byte/time bounds remain, but this is **not an exfiltration-safe policy**.
+Request-byte bounds and deadlines remain, but this is **not an exfiltration-safe policy**.
 Allowlists also do not prevent allowed destinations from relaying data.
 
 The headless [image-build page](../src/image-build-page.mjs) consumes the same
@@ -87,6 +90,12 @@ queries use three private 512-query sets and 24 KiB of fixed staging buffers per
 scope, retired with its other resources. Presented dimensions also drive
 browser pointer scaling, independently of the dormant CPU framebuffer. INFO returns limits and counters,
 not browser objects. These additions introduce no further outer imports.
+
+CAPTURE_FRAME copies a rectangle from the calling scope's current batch render
+texture to its own buffer. It requires the exclusive surface lease, an earlier
+render in that batch, in-bounds coordinates and sufficient writable buffer space.
+It cannot capture another scope, canvas, DOM content or browser chrome. Mapping
+and chunked readback use the existing buffer operations and quotas.
 
 CAPABILITIES returns a fixed typed feature/limit record. Compute pipelines may
 carry at most sixteen named finite numeric specialization constants. Limits are

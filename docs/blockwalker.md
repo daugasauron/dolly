@@ -2,14 +2,14 @@
 
 Build a character from boxes and magnetic-looking balls with powered hinges,
 then try to walk it across a plain floor. The starter has five parts and four
-joints; a three-part chain and an empty grid are also available. There is no
+joints; a three-part chain, an eight-joint quadruped and an empty grid are also available. There is no
 automatic gait or balance system.
 
 The C program uses the same raylib and Box3D libraries as the gamedev image.
 Box3D runs fully 3D physics in Wasm on the CPU, with the existing serial,
 non-SIMD build. A WGSL shader renders oriented boxes, matte joint balls, lighting
-and shadows on WebGPU. Raylib draws the editor panels in Wasm; those pixels
-are uploaded when the controls change. World frames have no GPU readback.
+and shadows on WebGPU. A bounding-volume tree accelerates ray intersections. Raylib draws the editor panels in Wasm; those pixels
+are uploaded when the controls change. Ordinary frames have no GPU readback; agent observations explicitly capture a cropped PNG.
 This is a renderer for this box game, not a general GPU backend for raylib.
 
 | Action | Control |
@@ -20,23 +20,118 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Edit a joint | Pick it, choose X/Y/Z, click each key to rebind |
 | Test / return to editor | Test character or Enter / Escape |
 | Undo | Undo button or Ctrl-Z |
+| World / workshop | World button |
+| Pi panel | Pi button or Tab |
+| Agent / player joint controls | Backtick key; taking control pauses Pi |
 | Leave the editor | Escape, returning to Slop |
 
 A regular block attaches rigidly to its parent. A joint block hinges at its
 parent attachment and carries the attached branch with it. Two keys drive
 opposite directions. Deleting a block removes its branch; Undo restores it.
-Blueprints contain up to 64 parts. Test mode leaves their build pose unchanged.
+Blueprint storage and GPU buffers grow with the design; there is no 64-part ceiling. Test mode leaves the build pose unchanged.
 The camera can orbit almost directly above or below the character. The floor
 is hidden from below so you can attach parts underneath. Ball surfaces snap
 attachments to the closest grid direction. Balls have spherical collision
 shapes and use the same mass and assignable hinge controls as the boxes.
-Parts weigh about 0.91 kg. Gravity is 4 m/s² and the character starts just above
+Boxes and balls weigh about 0.91 kg. Gravity is 4 m/s² and the character starts just above
 the floor, giving time to try the controls. Hold a joint's keys to turn it;
 release them to brake. Highlighted keys and joint angles show the response.
 
+The part palette also has telescoping pistons, reversible thrusters and wheels.
+Pistons move their attached branch along the selected axis and sign; the palette
+starts them pointing outward, and the inspector can reverse that sign; their travel limit
+is in metres. Thrusters apply force along their own rotating local axis and
+coast when released. Wheels have centered cylindrical collision shapes, a 0.7 m
+radius, 0.7 m width and unlimited motor rotation. The larger radius keeps a
+same-height chassis off the ground. Attach wheels as leaves: anything beyond them rotates too.
+Each actuator uses a pair of assignable keys. The inspector shows speed, stroke
+or force in the relevant units. Version 3 blueprints save stroke, force and piston direction. Versions 1 and 2
+still load; old pistons retain their positive-axis motion so saved programs keep
+working. The agent JSON API defaults to direction +1 and accepts -1.
+
+Pi receives horizontal distance, speed and torso orientation as well as timed
+GPU images. Its goal is actual legged walking before exploring other moving
+creatures; surviving in place or driving on wheels does not count as walking.
+
 The working blueprint is `/workspace/blockwalker.character`, reloaded when
-the program restarts. Export downloads a copy; Import restores it into a fresh
+the program restarts. Pi resumes its saved conversation as well as the world. Export downloads a copy; Import restores it into a fresh
 image or browser session. Dolly's normal saved sessions also retain the file.
+
+Pi is embedded in the game process through the QuickJS userspace library.
+Its tools call C functions directly: build, observe, reset, hold/release joint
+keys, install a controller and release a creature. A practice trial returns
+three GPU framebuffer images at start, midpoint and end, with measured poses.
+Only the three latest images remain in model requests; older measured states remain.
+Practice pauses while the model thinks; the populated world keeps simulating.
+
+Open Pi, import the private `models.json` printed by the local relay, then Start:
+
+```sh
+node scripts/codex-relay.mjs 9010 http://127.0.0.1:9099 http://localhost:9099
+```
+
+The model is `codex-local/gpt-6-astra`, xhigh effort, using the subscription
+proxy. The Pi panel shows streaming traces and accepts messages with Enter;
+a message steers a running turn. Pause aborts inference. Idle turns receive a
+continuation prompt. Configuration and Pi sessions live under
+`/workspace/blockwalker-agent`; credentials are never baked into the image.
+Pi's main module is loaded before its SDK to avoid a QuickJS cyclic re-export
+resolution failure; no upstream Pi source is changed.
+
+After experimenting with the keys, Pi installs a JavaScript controller:
+
+```js
+function(t, sensors, memory, random) {
+  if (memory.phase === undefined) memory.phase = random();
+  return (t + memory.phase) % 1.2 < 0.6 ? "AW" : "QS";
+}
+```
+
+Controllers default to 10 Hz; `program` can choose `hz: 20`, `30` or `60` for
+feedback control. Existing saved programs retain 10 Hz. They run in separate
+bare QuickJS contexts with no I/O or game API. A string holds keys at full
+strength; an object such as `{A: 0.35, S: 0.6}` applies proportional output.
+Opposite key strengths subtract. Values must be finite numbers from zero to one,
+and every key must be assigned. Output scales motor target speed or thruster
+force, within the part's configured limits. The C physics still runs at 60 Hz.
+
+`program_trial` tests the installed program from a fresh practice drop, at its
+chosen rate, with fresh memory and up to three timed GPU pictures. Simulation
+pauses after the trial. The same controller implementation runs released creatures.
+
+| Sensor | Meaning |
+| --- | --- |
+| `dt` | Seconds between controller calls; use it for integration |
+| `x,y,z`, `vx,vy,vz` | Root world position and velocity, metres and m/s |
+| `rotation` | Root quaternion `[x,y,z,w]` |
+| `angularVelocity`, `gyroscope` | World and body-local XYZ angular velocity, rad/s |
+| `gravity`, `localVelocity` | Body-local XYZ gravity (m/s²) and velocity (m/s) |
+| `up` | World Y component of the body's up direction |
+| `mass`, `centerOfMass` | Total mass in kg and world XYZ centre of mass |
+| `positions` | World centre of mass of each part, indexed by part |
+| `angles`, `rates` | Joint position/speed, radians and rad/s; pistons use metres and m/s |
+| `touching` | Per-part contact booleans; includes other bodies and the floor |
+
+Vectors are three-element arrays. Initial body axes are +X right, +Y up, +Z
+forward. For a two-wheel vehicle facing +Z with axles along X,
+`Math.atan2(s.gravity[2], -s.gravity[1])` measures signed pitch and
+`s.gyroscope[0]` gives pitch rate. Controller memory can hold an integral term;
+there is no built-in stabilizer. A browser experiment with three vertical boxes
+and two wheels recovered from a drive pulse using pitch, pitch rate and velocity
+feedback; the same body with feedback disabled fell. The integration check also
+runs a four-thruster PID platform, changes its target altitude, applies asymmetric
+thrust, and verifies recovery and saved-world continuation.
+
+Each controller has a seeded random function, 4 MiB memory and a 4 ms execution allowance. A failed controller
+removes its creature without stopping the world. Shared Box3D physics allows
+creatures to collide. After a three-second settling period, a sideways torso
+(uprightness < 0.15) or collapsed raised torso (height < 0.65 m) is removed if it
+stays fallen for two seconds. There is still no automatic balance assistance.
+
+The world autosaves to `/workspace/blockwalker-world.json`, including blueprints,
+programs, controller memory/seeds, ages, poses and velocities. Restarting the game
+restores it. Export world downloads this file; Dolly saved sessions also retain
+it. The world shader adds animated terrain contours, grass, flowers and sky.
 
 ```sh
 node scripts/prepare-blockwalker.mjs
@@ -45,11 +140,16 @@ DOLLY_BUILD_IMAGES=blockwalker DOLLY_SNAPSHOT_IMAGE=blockwalker node scripts/bui
 node scripts/serve-gpu.mjs 9099 blockwalker
 ```
 
-The separate [Dollyfile](../Dollyfile-blockwalker) reuses `gamedev-sdk`, compiles
+The single game [Dollyfile](../Dollyfile-blockwalker) reuses `gamedev-sdk` and Pi/JavaScript build outputs, compiles
 the C sources inside Dolly, and runs `blockwalker --check` against actual
 Box3D motors in both directions on all three axes, braking under gravity,
-and 40 seconds of joint/weld/floor stability. `test/blockwalker-browser.mjs`
+four-wheel driving and reversing on the floor, and 40 seconds of joint/weld/floor stability. `test/blockwalker-browser.mjs`
 drives camera controls, the editor, key assignment, export/import, physics
-and restart in Chrome.
+and restart in Chrome, including a 160-part design.
+`test/blockwalker-agent-browser.mjs` checks direct C calls, actual GPU PNGs,
+exact trial timing, controller timeout containment, surviving creatures and
+world restoration. Set `BLOCKWALKER_RELAY_CONFIG` to a private relay config path
+to exercise real Astra inference instead. That optional run uses port 19199;
+include `http://127.0.0.1:19199` in the relay's exact allowed origins.
 On this Linux machine it can run under `xvfb-run -a` with the NVIDIA Vulkan
 adapter, without opening a window on the desktop.

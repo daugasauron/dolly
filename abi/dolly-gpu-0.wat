@@ -36,6 +36,9 @@
   (global (export "DOLLY_GPU_RENDER_VERTEX") i32 (i32.const 15))
 
   (global (export "DOLLY_GPU_COMPUTE_CONSTANTS") i32 (i32.const 16))
+  (global (export "DOLLY_GPU_CAPTURE_FRAME") i32 (i32.const 17))
+  (global (export "DOLLY_GPU_FEATURE_CAPTURE_FRAME") i32 (i32.const 16))
+  (global (export "DOLLY_GPU_FEATURE_SURFACE_BGRA") i32 (i32.const 32))
 
   ;; All fields LE. Header: u32 version/op, u64 scope/sequence, u32 body/reserved.
   ;; Scope is a non-reused u32 lease, slot=(scope-1)%8; upper bits are zero.
@@ -67,6 +70,10 @@
   ;; RENDER_VERTEX[88]: RENDER followed by u64 vertex_buffer,offset,size.
   ;; COMPUTE[40]: u64 pipeline,group; u32 x,y,z,reserved.
   ;; COPY[48]: u64 source,dest,source_offset,dest_offset,bytes.
+  ;; CAPTURE_FRAME[32]: u64 destination_buffer; u32 x,y,width,height.
+  ;; Copies the current batch's rendered surface rectangle, before SUBMIT, to
+  ;; buffer offset zero. Four bytes/pixel, row stride ceil(width*4/256)*256.
+  ;; Surface lease required; no other surfaces or browser content are accessible.
   ;; MAP_READ[32]: u64 buffer,offset,bytes. Completes only after mapping is ready.
   ;; UNMAP/RELEASE[16]: u64 object. SUBMIT[8]: finish/submit this batch's encoder.
   ;; WAIT body empty: queue completion, not packet admission. READ body: u64
@@ -81,7 +88,8 @@
   ;; max_bindings,max_storage_buffers,max_uniform_buffers,max_bind_groups;
   ;; u64 max_uniform_binding_bytes; u32 subgroup_min/max; 32 reserved zero bytes.
   ;; Feature bits: 1 shader-f16, 2 subgroups, 4 packed_4x8_integer_dot_product,
-  ;; 8 timestamp-query. Limits describe the admitted device, not native pointers.
+  ;; 8 timestamp-query, 16 frame capture, 32 surface bytes BGRA8 (else RGBA8).
+  ;; Limits describe the admitted device, not native pointers.
   ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
   ;; zero samples means unavailable/pending. They include passes, not CPU work.
   ;; One encoder per batch, explicit SUBMIT, at most 256 records. No replay or

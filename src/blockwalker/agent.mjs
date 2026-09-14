@@ -1,0 +1,116 @@
+import fs from 'node:fs';
+const directory='/workspace/blockwalker-agent';
+fs.mkdirSync(directory,{recursive:true});
+const call=(op,args)=>Game.call(op,args),sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const log=text=>{call('log',text);};
+const configPath=directory+'/config.json';
+let config={enabled:false,prompt:'',model:'gpt-6-astra',effort:'xhigh'};try{config={...config,...JSON.parse(fs.readFileSync(configPath,'utf8'))};}catch{}
+config.model='gpt-6-astra';config.effort='xhigh';
+const events=directory+'/events.jsonl';let eventBytes=fs.existsSync(events)?fs.statSync(events).size:0;
+function record(event){const row=JSON.stringify({time:Date.now(),...event})+'\n';if(eventBytes+row.length>2*1024*1024){fs.renameSync(events,events+'.previous');eventBytes=0;}fs.appendFileSync(events,row);eventBytes+=row.length;}
+let running=true,session,abortRequested=false,requestError=null,failures=0;
+function abort(){session?.abortCompaction();session?.abortBranchSummary();return session?.abort();}
+call('enable',Boolean(config.enabled));
+const timer=setInterval(()=>{
+  if(!Game.frame()){running=false;clearInterval(timer);abort();return;}
+  const enabled=call('enabled');if(enabled!==config.enabled){config.enabled=enabled;fs.writeFileSync(configPath,JSON.stringify({...config,model:'gpt-6-astra',effort:'xhigh'}));}
+  if(session&&!call('enabled')&&!abortRequested){abortRequested=true;abort();}
+  const prompt=call('prompt');if(prompt){config.prompt=prompt;fs.writeFileSync(configPath,JSON.stringify(config));log(`\nYou: ${prompt}\n`);if(session?.isStreaming)session.steer(prompt);else pending=prompt;}
+},16);
+let pending=config.prompt||'Make a creature that actually walks. Learn a repeatable gait with timed keyboard trials and framebuffer observations. Measure travel and stability, embed the gait, then release it. Keep making varied moving creatures; stationary platforms are not success.';
+const snapshot=()=>({type:'image',mimeType:'image/png',data:Buffer.from(call('snapshot')).toString('base64')});
+const text=value=>({type:'text',text:typeof value==='string'?value:JSON.stringify(value)});
+const object=properties=>({type:'object',properties,additionalProperties:false});
+const integer={type:'integer'},num={type:'number'},str={type:'string'};
+const part=object({x:integer,y:integer,z:integer,parent:integer,joint:{type:'integer',minimum:0,maximum:4},color:{type:'integer',minimum:0,maximum:5},axis:{type:'integer',minimum:0,maximum:2},negative:integer,positive:integer,speed:{type:'number',minimum:.5,maximum:6},limit:{type:'number',minimum:15,maximum:150},travel:{type:'number',minimum:.25,maximum:3},force:{type:'number',minimum:2,maximum:100},direction:{type:'integer',enum:[-1,1]}});
+part.required=['x','y','z','parent','joint'];
+const tools=[];
+function tool(name,description,parameters,execute){tools.push({name,label:name,description,parameters,executionMode:'sequential',execute:async(id,args,signal)=>{
+  if(signal?.aborted)throw Error('Interrupted');
+  record({event:'tool_start',tool:name,args});const content=await execute(args,signal);record({event:'tool_end',tool:name,text:content.filter(c=>c.type==='text'),images:content.filter(c=>c.type==='image').map(c=>({mimeType:c.mimeType,bytes:c.data.length}))});return {content,details:{}};
+}});}
+tool('observe','Inspect the current builder or practice state and one actual GPU framebuffer image.',object({}),async()=>[text({workshop:call('state'),world:call('world')}),snapshot()]);
+tool('build','Replace the workshop blueprint with an adjacent 3D tree. First part is a box, parent=-1. Every other parent precedes its child and is one grid cell away. y>=0. joint=0 rigid box; 1 matte ball hinge with angular limit; 2 telescoping piston with travel 0..travel metres; 3 reversible thruster fixed to its parent, pushing along its own local axis; 4 cylindrical motor wheel with unlimited rotation. axis 0/1/2 = X/Y/Z, relative to the parent at creation (thruster axis rotates with its own body). A piston extends along direction times its selected axis (direction defaults +1, may be -1) and carries descendants; a wheel rotates descendants, so attach wheels as leaves. negative/positive are unique ASCII letter/digit codes (Q=81,A=65,W=87,S=83,O=79,K=75,P=80,L=76); 0 means unbound. Motors hold when no key is pressed. Defaults speed=2.5 rad/s (piston m/s), limit=75 degrees (hinge only), travel=1.5 m (piston), force=24 N (piston/thruster) or Nm (hinge/wheel). Zero keys brake hinge/piston/wheel; thrusters coast. Fully 3D gravity; no balance assistance.',{...object({parts:{type:'array',items:part,minItems:1}}),required:['parts']},async args=>[text(call('build',args))]);
+tool('reset_practice','Drop the workshop character onto the practice ground. Simulation pauses between keyboard trials so thinking time cannot destroy the experiment.',object({}),async()=>[text(call('reset')),snapshot()]);
+tool('keyboard_trial','Learn movement by holding joint keyboard keys through a timed sequence. Each item replaces held keys; empty string releases all. Returns at most three actual framebuffer images at start, midpoint and end, with measured poses, distance from reset, horizontal speed and torso up. Compare start/end positions; a stable stationary design has not walked. Total duration <=20 seconds, each item <=10 seconds. These are physics seconds; inference time is excluded.',{...object({sequence:{type:'array',minItems:1,maxItems:20,items:{...object({keys:str,seconds:{type:'number',minimum:1/60,maximum:10}}),required:['keys','seconds']}}}),required:['sequence']},async(args,signal)=>{
+  const segments=args.sequence.map(s=>({keys:s.keys,steps:Math.max(1,Math.round(s.seconds*60))}));
+  const total=segments.reduce((sum,s)=>sum+s.steps,0);if(total>1200)throw Error('Trial exceeds 20 simulation seconds');
+  const content=[text({sample:'start',state:call('state')}),snapshot()];let elapsed=0,midpoint=Math.floor(total/2),sampled=false;
+  try{
+    for(const segment of segments){let remaining=segment.steps;
+      while(remaining){const n=!sampled&&elapsed<midpoint?Math.min(remaining,midpoint-elapsed):remaining;
+        call('advance',{keys:segment.keys,steps:n});
+        while(call('state').remaining>0){if(!running||signal?.aborted||!call('enabled')||!call('state').agentControl)throw Error('Trial interrupted');await sleep(40);}
+        elapsed+=n;remaining-=n;
+        if(!sampled&&elapsed>=midpoint){content.push(text({sample:'midpoint',seconds:elapsed/60,state:call('state')}),snapshot());sampled=true;}
+      }
+    }
+    content.push(text({sample:'end',seconds:elapsed/60,state:call('state')}),snapshot());return content;
+  }finally{call('release');}
+});
+tool('camera','Orbit the actual game camera before observing. yaw/pitch in radians; pitch may be negative to look from below the floor.',object({yaw:num,pitch:num,distance:{type:'number',minimum:3,maximum:100}}),async args=>{call('camera',args);return [snapshot()];});
+tool('program','Embed a JavaScript function(t,sensors,memory,random). Return held UPPERCASE key letters (full strength), or an object mapping assigned key letters to strengths 0..1, e.g. {A:0.35,S:0.6}. Opposite keys subtract. A hinge/wheel command scales target angular speed; piston scales target linear speed; thruster scales force. Motors brake at zero; jets coast. hz may be 10 (default), 20, 30 or 60; use 60 for feedback/PID. t and sensors.dt are simulation seconds. Sensors: root x,y,z,vx,vy,vz and up; rotation quaternion [x,y,z,w]; angularVelocity world XYZ rad/s; gyroscope body-local XYZ rad/s; gravity body-local XYZ m/s²; localVelocity body-local XYZ m/s; total mass kg; centerOfMass world XYZ; angles and rates indexed by part (radians and rad/s, piston metres and m/s); positions gives each part world center of mass; touching gives per-part contact booleans (any body/world contact). Initial body axes are +X right, +Y up, +Z forward. All vectors are arrays. Memory persists and random() is seeded. No I/O or physics mutation, 4 MiB heap, 4 ms per call, 16 KiB source. Learn key behavior first, then test feedback with program_trial before release. Balance must come from your controller.',{...object({name:str,source:str,hz:{type:'integer',enum:[10,20,30,60]}}),required:['name','source']},async args=>{call('install',args);return [text('Controller installed. Test it with program_trial, then release a copy into the shared world.')];});
+tool('program_trial','Run the installed controller in practice from a fresh drop with fresh controller memory. It reads real physics sensors at its chosen rate, and applies proportional joint/jet commands. Returns at most three timed GPU images and measured state. Physics pauses afterwards. Failed or unstable feedback stays in practice; no creature is released.',{...object({seconds:{type:'number',minimum:.1,maximum:20}}),required:['seconds']},async(args,signal)=>{
+  const steps=Math.round(args.seconds*60);call('program_trial',{steps});
+  const content=[text({sample:'start',state:call('state')}),snapshot()];let sampled=false;
+  try{
+    while(call('state').remaining>0){
+      if(!running||signal?.aborted||!call('enabled')||!call('state').agentControl)throw Error('Trial interrupted');
+      const state=call('state');if(!sampled&&state.steps>=steps/2){content.push(text({sample:'midpoint',state}),snapshot());sampled=true;}await sleep(40);
+    }
+    const state=call('state');if(state.steps!==steps)throw Error('Controller failed during practice');
+    content.push(text({sample:'end',state}),snapshot());return content;
+  }finally{call('release');}
+});
+tool('release_creature','Release a copy of the workshop character with its installed controller into the shared survival world. First demonstrate useful locomotion in keyboard trials; stationary broad bases are not successful walkers. Existing creatures stay active and collide. Optional seed changes its random sequence; optional x/z choose the spawn position. Tilted-over or collapsed torsos are removed after 3 seconds initial grace plus 2 seconds fallen; no automatic balance assistance.',object({seed:integer,x:num,z:num}),async args=>[text({id:call('spawn',args),world:call('world')})]);
+tool('watch_world','Watch the programmed population running together for up to 20 simulation seconds. Returns an actual GPU snapshot before and after, plus survivor positions and deaths. Workshop blueprint is preserved.',{...object({seconds:{type:'number',minimum:0,maximum:20}}),required:['seconds']},async(args,signal)=>{
+  call('watch',true);const before=call('world'),content=[text(before),snapshot()];
+  while(call('world').seconds-before.seconds<args.seconds){if(signal?.aborted||!running||!call('enabled'))throw Error('Interrupted');await sleep(100);}
+  content.push(text(call('world')),snapshot());return content;
+});
+const system=`You are Pi, embodied in Blockwalker. This is a C game with raylib UI, fully 3D Box3D physics and WebGPU graphics. Your tools call the game directly in the same Wasm process. There is no shell or control-file workflow.\nDesign strange connected creatures in the workshop. Practice by pressing joint keys. Inspect the few timed framebuffer pictures and quantitative poses, improve the structure or keyboard pattern, then embed a small controller program and release it into the survival world. Walking and balance are supposed to be hard like QWOP. Do not fake observations or silently remove gravity. Try diverse bodies, wide feet, asymmetric limbs and controlled randomness. Keep going after each experiment; create a varied moving world. Your first priority is a legged walker that advances at least two block widths over ten simulation seconds without falling. A flat base with wiggling appendages does not count; neither do wheels or jets as walking. Start with a quadruped, four grounded feet and alternating support, then improve gait timing from actual trials. Also explore wheeled and hydraulic creatures as separate experiments. Only release designs with measured movement. The user disliked stationary crabs and platforms. Movement programs now have physics feedback and analog key strengths. Explore a self-balancing two-wheel Segway using your own PID controller, contact-aware walkers, and flying thruster creatures. Use program_trial at 60 Hz for feedback experiments. There is no automatic stabilizer. Explain discoveries briefly. Images are actual GPU renders, never every frame.`;
+try{
+  log('Pi inside the game. Import proxy models.json, then Start.\nAstra · xhigh · timed GPU observations\n');
+  while(running){
+    if(!call('enabled')){await sleep(200);continue;}
+    try{
+      if(!session){
+        // Match Pi CLI's module order before resolving its cyclic SDK re-exports in QuickJS.
+        await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/main.js');
+        const {createAgentSession,ModelRuntime,DefaultResourceLoader}=await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js');
+
+        if(!fs.existsSync(directory+'/models.json'))throw Error('Import the local Codex proxy models.json first.');
+        const {SessionManager,getDefaultSessionDir}=await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/session-manager.js');
+        const sessionManager=SessionManager.continueRecent('/workspace',getDefaultSessionDir('/workspace',directory));
+        if(sessionManager.getLeafId()){pending='Resume the saved experiment. Practice restarts from the saved blueprint; keep what you learned. '+pending;log('Restored Pi session.\n');}
+        const modelRuntime=await ModelRuntime.create({modelsPath:directory+'/models.json',authPath:directory+'/auth.json'});
+        const model=modelRuntime.getModel('codex-local','gpt-6-astra');if(!model)throw Error('Proxy configuration has no gpt-6-astra model.');
+        const resourceLoader=new DefaultResourceLoader({cwd:'/workspace',agentDir:directory,noExtensions:true,noSkills:true,noPromptTemplates:true,noThemes:true,noContextFiles:true,systemPrompt:system});
+        await resourceLoader.reload();
+        ({session}=await createAgentSession({cwd:'/workspace',agentDir:directory,sessionManager,modelRuntime,model,thinkingLevel:'xhigh',resourceLoader,noTools:'builtin',tools:tools.map(t=>t.name),customTools:tools}));
+        const convert=session.agent.convertToLlm;
+        session.agent.convertToLlm=async messages=>{
+          const context=await convert(messages);let remaining=3;
+          return context.slice().reverse().map(message=>{
+            if(!Array.isArray(message.content))return message;
+            const content=message.content.slice().reverse().map(item=>item.type!=='image'||remaining-->0?item:{type:'text',text:'[Earlier framebuffer omitted; the measured state remains above.]'}).reverse();
+            return {...message,content};
+          }).reverse();
+        };
+        session.subscribe(event=>{
+          const delta=event.assistantMessageEvent;
+          if(event.type==='auto_compaction_start')log('\nSummarizing the conversation...\n');
+          if(event.type==='auto_compaction_end')log(event.aborted?'\nSummary cancelled.\n':'\nConversation summary finished.\n');
+          if(event.type==='message_update'&&(delta?.type==='thinking_delta'||delta?.type==='text_delta'))log(delta.delta??'');
+          if(event.type==='tool_execution_start')log(`\n→ ${event.toolName}\n`);
+          if(event.type==='tool_execution_end')log(event.isError?'Tool failed\n':'');
+          if(event.type==='message_end'&&event.message?.role==='assistant')record({event:'assistant',message:event.message});
+          if(event.type==='message_end'&&event.message?.role==='assistant'&&event.message.errorMessage){requestError=event.message.errorMessage;log(`\n${requestError}\n`);}
+        });
+        log('Connected: codex-local / gpt-6-astra / xhigh\n');
+      }
+      abortRequested=false;const prompt=pending;pending='Continue learning actual walking. Check horizontal displacement and stability, improve the gait or body, and release moving creatures. Do not wait for more input or settle for stationary designs.';
+      requestError=null;await session.prompt(prompt);if(requestError)throw Error(requestError);failures=0;if(running&&call('enabled'))await sleep(2000);
+    }catch(error){record({event:'error',error:String(error.message??error)});log(`\nPi: ${error.message??error}\n`);const until=Date.now()+Math.min(60000,5000*2**Math.min(failures++,4));while(running&&call('enabled')&&Date.now()<until)await sleep(200);}
+  }
+}finally{clearInterval(timer);call('save');await abort();}

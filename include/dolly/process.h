@@ -83,6 +83,7 @@ enum dolly_process_operation {
   DOLLY_PROCESS_HTTP_START = 80,
   DOLLY_PROCESS_HTTP_POLL = 81,
   DOLLY_PROCESS_HTTP_CANCEL = 82,
+  DOLLY_PROCESS_HTTP_BODY_WRITE = 83,
 
   DOLLY_PROCESS_DISPLAY_ACQUIRE = 96,
   DOLLY_PROCESS_DISPLAY_SET_SIZE = 97,
@@ -418,8 +419,10 @@ typedef struct {
 /*
  * HTTP requests remain byte-oriented at the process boundary. Strings are
  * UTF-8 byte sequences without trailing NULs in the packet. The body follows
- * the three strings. Their combined byte count plus this 24-byte header must
- * fit DOLLY_PROCESS_PACKET_LIMIT; larger requests fail E2BIG before dispatch.
+ * the three strings. For a body larger than the packet, HTTP_BODY_WRITE stages
+ * it in kernel Wasm memory and HTTP_START contains only the strings. START
+ * consumes the staged body on success or failure. Browser policy still owns
+ * admission and byte quotas; staging does not start a network request.
  */
 typedef struct {
   uint32_t flags;
@@ -428,6 +431,15 @@ typedef struct {
   uint32_t headers_size;
   uint64_t body_size;
 } dolly_process_http_start_request;
+
+/* One staged body per process. Writes are sequential; offset=0 replaces any
+ * previous body. A zero-byte packet discards it. Exit also discards it.
+ * Nonempty writes contain this header followed by bytes; every write must
+ * agree on total_size and continue at the exact next offset. */
+typedef struct {
+  uint64_t offset;
+  uint64_t total_size;
+} dolly_process_http_body_write_request;
 
 typedef struct {
   uint32_t sequence;

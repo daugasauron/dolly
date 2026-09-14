@@ -39,8 +39,8 @@ export function stripDollyBrowserOwnedHeaders(headers) {
 const defaultLimits = Object.freeze({
   maxRequests: 256,
   maxRequestBytes: 8 * 1024 * 1024,
-  maxResponseBytes: 64 * 1024 * 1024,
-  timeoutMilliseconds: 120_000,
+  maxResponseBytes: Infinity,
+  timeoutMilliseconds: 600_000,
 });
 
 function positiveInteger(value, fallback, name) {
@@ -99,11 +99,8 @@ function normalizeRule(rule) {
       defaultLimits.maxRequestBytes,
       "maxRequestBytes",
     ),
-    maxResponseBytes: positiveInteger(
-      rule.maxResponseBytes,
-      defaultLimits.maxResponseBytes,
-      "maxResponseBytes",
-    ),
+    maxResponseBytes: rule.maxResponseBytes == null ? Infinity :
+      positiveInteger(rule.maxResponseBytes, undefined, "maxResponseBytes"),
     timeoutMilliseconds: positiveInteger(
       rule.timeoutMilliseconds,
       defaultLimits.timeoutMilliseconds,
@@ -223,7 +220,8 @@ export function httpPolicyConfigurations(policy) {
   return [policy.hardened ? { maxRequests: policy.maxRequests, rules: policy.rules.map(rule => ({
     origin: rule.origin, ...(rule.path === null ? { pathPrefix: rule.pathPrefix } : { path: rule.path }),
     methods: [...rule.methods], credentialHeaders: [...rule.credentialHeaders],
-    maxRequestBytes: rule.maxRequestBytes, maxResponseBytes: rule.maxResponseBytes,
+    maxRequestBytes: rule.maxRequestBytes,
+    ...(Number.isFinite(rule.maxResponseBytes) ? { maxResponseBytes: rule.maxResponseBytes } : {}),
     timeoutMilliseconds: rule.timeoutMilliseconds,
   })) } : null];
 }

@@ -90,8 +90,9 @@ the value. Explicit policies default to 256 authorization attempts, including
 denied attempts; exact trusted bootstrap downloads are exempt. With no policy
 object, including in the public Pages demo, it
 preserves those headers and permits generic HTTP(S), including caller-requested
-redirects, without a lifetime request-count limit. Request/response byte caps
-and deadlines still apply. It is therefore
+redirects, without a lifetime request-count limit. Request byte caps, explicit response quotas
+and deadlines still apply. The default deadline is ten minutes so reasoning
+and conversation summaries can finish; explicit policy values take precedence. It is therefore
 useful but not safe against exfiltration. Embeddings that need containment
 should supply an explicit destination rule set and list only the
 credential-header names each destination needs. This policy remains effective
@@ -131,13 +132,12 @@ invocation with their exact byte offset and length. Queued requests therefore
 cannot observe later caller mutations. The native bridge accepts only byte
 arrays or null; there is no duplicate synchronous `Dolly.http()` adapter.
 
-Process clients (Janis, Python, curl, Git) have a stricter upload limit than
-the outer broker: method, URL, serialized headers, and body must fit in the
-1 MiB process packet **including its 24-byte header**. Thus the maximum body
-is `1048576 - 24 - methodBytes - urlBytes - headerBytes`. Metadata counts UTF-8
-bytes without trailing NULs. Oversized packets fail `E2BIG` before network
-dispatch (Janis `requestId: 0`). The broker's independent 8 MiB body cap also
-covers direct kernel callers; neither cap overrides a smaller host policy.
+Process clients (Janis, Python, curl, Git) copy large bodies through sequential
+`HTTP_BODY_WRITE` packets into kernel Wasm memory before `HTTP_START`. Each
+packet remains bounded at 1 MiB. The browser's independent 8 MiB body cap and
+any smaller embedding-selected request quota still apply to the complete body.
+One pending body belongs to each process; replacement, failed start, explicit
+discard or process exit frees it. Staging grants no browser capability.
 
 Its `fetch()` returns a `Response` as soon as response headers arrive and
 enqueues each body record into an in-Wasm `ReadableStream`. Janis calls the HTTP
@@ -248,3 +248,9 @@ an HTTP exchange does not undo a ref update already accepted by the remote.
 The test's native Git is only a remote HTTP reference server. Every client
 command runs in browser Wasm. Real remotes must permit Fetch/CORS and satisfy
 the embedding's HTTP policy; there is no hidden proxy or socket fallback.
+
+Response bodies have no default total size ceiling. Set a finite positive
+`maxResponseBytes` on a destination rule to impose one; omission or null means
+no response quota. Inherited policies intersect quotas and exact bootstrap
+sources retain their pinned byte bounds. Streams use bounded chunks, checked
+counters, backpressure, cancellation and the existing deadline.

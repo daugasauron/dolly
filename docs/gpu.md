@@ -52,6 +52,12 @@ transfer. This does not promise that every browser/driver compositor is
 internally copy-free. Explicit readback maps a staging buffer and returns at
 most 64 KiB per call; `fluid --check` reads the dye field back into Wasm.
 
+`CAPTURE_FRAME` records an optional surface-to-buffer copy after a render and
+before its submit. It copies only the owned surface rectangle, with four bytes
+per pixel and row stride rounded up to 256 bytes. CAPABILITIES bits 16 and 32
+report capture support and BGRA8 byte order (otherwise RGBA8). Blockwalker uses
+this for selected agent observations; normal frames do not read pixels back.
+
 `Dollyfile-gpu-fluid` compiles the unchanged upstream
 [fluid simulation](https://github.com/samdauwe/webgpu-native-examples/blob/9a7c30753d6f44630564a8316eb9c44211ff0ecc/src/examples/fluid_simulation.c)
 inside Dolly. It retains the solver and WGSL, with a scoped C adapter for the

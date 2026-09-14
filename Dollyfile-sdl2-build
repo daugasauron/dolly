@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE sdl2-build
 
-FROM HOST /Dollyfile-cmake-build 722384d15998e18e73c69566ddebc383569e85d796bd5edd86457fbeea58a2cd
+FROM HOST /Dollyfile-cmake-build ea4f4fabffd41f9c5c88d914c058ff59708aead1ef0288d22e3b23859b8bc6a8
 USE HOST /modules/sdl2.dm d1f648964de1bfb33f19e4198c8b0304d8e6ccfc9c25c7a26bfb6f9ad5047846
 
 ENTRY /bin/slop

@@ -1,10 +1,10 @@
 DOLLY 3
 IMAGE bhop
 
-FROM HOST /Dollyfile-gamedev e7938cc543c31d1867c145c330e7f55f4467863f164c25b1f60e4de429ab9c1f
-COPY FROM HOST /Dollyfile-sdl2-build 37966013b44b3bf2a513d768e5fc7b2db69650888a0e9bc663db2e1e74815f08 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM HOST /Dollyfile-sdl2-build 37966013b44b3bf2a513d768e5fc7b2db69650888a0e9bc663db2e1e74815f08 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
-COPY FROM HOST /Dollyfile-sdl2-build 37966013b44b3bf2a513d768e5fc7b2db69650888a0e9bc663db2e1e74815f08 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM HOST /Dollyfile-gamedev 14e9d68a66bf502ba330005357cb446ed3c7ac856348aee70a20c81fdf8781e3
+COPY FROM HOST /Dollyfile-sdl2-build c4c901195f5e33a4a5bfcead9c9a2bda22c34a83c002791fdae002df78c0816c /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-sdl2-build c4c901195f5e33a4a5bfcead9c9a2bda22c34a83c002791fdae002df78c0816c /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM HOST /Dollyfile-sdl2-build c4c901195f5e33a4a5bfcead9c9a2bda22c34a83c002791fdae002df78c0816c /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 USE HOST /modules/bhop.dm f59c9e6813b9cf3c2970ad11aec391f726b2ebaf16a4ac65d6bc1b1f86a965a1

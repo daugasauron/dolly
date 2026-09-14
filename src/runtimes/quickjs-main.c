@@ -1754,7 +1754,8 @@ static int evaluate(JSContext *context, const char *source, size_t length,
   return process_exit_code(context);
 }
 
-int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
+int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
+                       int (*initialize)(JSContext *context)) {
   const char *source = NULL;
   const char *name = NULL;
   char *owned_source = NULL;
@@ -1839,7 +1840,8 @@ int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
       install_globals(context, argv[0], strcmp(name, "<eval>") == 0 ? NULL : name,
                       argc - argument_index, argv + argument_index) != 0 ||
       install_dolly_backend(context) != 0 ||
-      load_dolly_prelude(context) != 0) {
+      load_dolly_prelude(context) != 0 ||
+      (initialize && initialize(context) != 0)) {
     fputs("qjs: could not create context\n", stderr);
     if (context != NULL) JS_FreeContext(context);
     JS_FreeRuntime(runtime);
@@ -1859,4 +1861,8 @@ int dolly_quickjs_run(int argc, char **argv, const char *default_module) {
   free(owned_source);
   if (janis_interrupted) dolly_exit_signal(SIGINT);
   return status;
+}
+
+int dolly_quickjs_run(int argc,char **argv,const char *default_module) {
+  return dolly_quickjs_embed(argc,argv,default_module,NULL);
 }

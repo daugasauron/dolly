@@ -27,11 +27,22 @@ try {
  await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>30,null,{timeout:60000});
  await shot('builder');let blueprint=await exportBlueprint('starter');
  assert.equal(blueprint.count,5);assert.equal(blueprint.blocks.filter(b=>b.joint).length,4);
+ let largeSource='BLOCKWALKER 1\n160\n';
+ for(let z=0;z<4;z++)for(let y=0;y<4;y++)for(let x=0;x<10;x++){
+  const i=z*40+y*10+x,parent=x?i-1:y?i-10:z?i-40:-1;
+  largeSource+=`${x-5} ${y} ${z-2} ${parent} 0 ${(x+y+z)%6} 2 0 0 2.5 75\n`;
+ }
+ const largePath=new URL('160-parts.character',output).pathname;await writeFile(largePath,largeSource);await importBlueprint(largePath);
+ const large=await exportBlueprint('160-parts-reloaded');assert.equal(large.count,160);await shot('160-parts');
+ await page.mouse.click(172,630);await frames();assert.equal((await exportBlueprint('160-cleared')).count,0);
+ await page.mouse.click(70,630);await frames();assert.equal((await exportBlueprint('160-restored')).source,large.source);
+ await page.mouse.click(110,597);await frames();const quadruped=await exportBlueprint('quadruped');assert.equal(quadruped.count,15);assert.equal(quadruped.blocks.filter(b=>b.joint===1).length,8);
+ await importBlueprint(blueprint.path);
  const lowPath=new URL('low-joint.character',output).pathname;
  const lowSource='BLOCKWALKER 1\n3\n0 1 0 -1 0 0 2 0 0 2.5 75\n0 0 0 0 1 1 2 81 65 2.5 75\n1 1 0 0 1 2 2 87 83 2.5 75\n';
  await writeFile(lowPath,lowSource);await importBlueprint(lowPath);
  for(let i=0;i<7;i++)await page.mouse.click(558,109);
- await page.mouse.click(90,170);await page.mouse.move(678,354);await frames();await shot('under-floor-preview');
+ await page.mouse.click(90,156);await page.mouse.move(678,354);await frames();await shot('under-floor-preview');
  await page.mouse.click(678,354);await frames();await shot('under-floor-attached');
  const underside=await exportBlueprint('underside');assert.equal(underside.count,4);
  const attached=underside.blocks[3];assert.deepEqual([attached.x,attached.y,attached.z,attached.parent,attached.joint],[1,0,0,2,0]);
@@ -57,7 +68,7 @@ try {
  blueprint=await exportBlueprint('axis');assert.equal(blueprint.blocks[3].axis,0);
  await page.mouse.click(1220,263);await page.mouse.click(1233,452);await page.mouse.click(1054,548);await frames();
  blueprint=await exportBlueprint('configured');assert.equal(blueprint.blocks[3].axis,2);assert.equal(blueprint.blocks[3].speed,3);assert.equal(blueprint.blocks[3].limit,60);
- await page.mouse.click(120,247);await page.mouse.move(710,311);await frames();await shot('placement-preview');
+ await page.mouse.click(120,188);await page.mouse.move(710,311);await frames();await shot('placement-preview');
  await page.mouse.click(710,311);await frames();
  let added=await exportBlueprint('added');assert.equal(added.count,6);assert.equal(added.blocks[5].joint,1);assert.equal(added.blocks[5].parent,3);assert.equal(added.blocks[5].y,4);
  await page.mouse.click(70,630);await frames();assert.equal((await exportBlueprint('undo')).source,blueprint.source);
@@ -70,10 +81,10 @@ try {
  await page.mouse.click(1156,40);await frames(90);await shot('test-ground');
  const still=await page.screenshot({clip:{x:242,y:80,width:756,height:594}});
  const keyCap=()=>page.screenshot({clip:{x:1080,y:294,width:6,height:6}}),releasedKey=await keyCap();
- await page.keyboard.down('Z');await frames(45);assert.notDeepEqual(await keyCap(),releasedKey);await shot('key-held');await page.keyboard.up('Z');
+ await page.keyboard.down('Z');await page.waitForTimeout(900);assert.notDeepEqual(await keyCap(),releasedKey);await shot('key-held');await page.keyboard.up('Z');
  await frames();assert.deepEqual(await keyCap(),releasedKey);
- await page.keyboard.down('K');await frames(20);await page.keyboard.up('K');
- await page.keyboard.down('A');await frames(30);await page.keyboard.up('A');await frames();
+ await page.keyboard.down('K');await page.waitForTimeout(500);await page.keyboard.up('K');
+ await page.keyboard.down('A');await page.waitForTimeout(900);await page.keyboard.up('A');await frames();
  assert.notDeepEqual(await page.screenshot({clip:{x:242,y:80,width:756,height:594}}),still);await shot('moving');
  await page.keyboard.press('Escape');await frames();assert.equal((await exportBlueprint('after-test')).source,blueprint.source);await shot('back-in-builder');
  const gpu=await page.evaluate(()=>__dolly.gpu);assert.equal(gpu.stats.readbackBytes,0);

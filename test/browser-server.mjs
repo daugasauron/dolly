@@ -136,10 +136,30 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
     try {
       const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname).replace(/\/+$/, "");
       requests.add(path);
+      if (path === "/fixture/echo" && request.method === "POST") {
+        response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
+        request.pipe(response);
+        return;
+      }
       if (!["GET", "HEAD"].includes(request.method)) throw new Error("unsupported method");
       if (path === "/fixture/http.txt") {
         response.writeHead(200, { ...headers, "content-type": "text/plain" });
         response.end(request.method === "HEAD" ? undefined : "FETCHED-THROUGH-BROWSER\n");
+        return;
+      }
+      if (path === "/fixture/large") {
+        response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
+        let remaining = 65 * 1024 * 1024 + 17;
+        const chunk = Buffer.from(Uint8Array.from({ length: 65536 }, (_, i) => i & 255));
+        const send = () => {
+          while (remaining > 0 && !response.destroyed) {
+            const length = Math.min(remaining, chunk.length);
+            remaining -= length;
+            if (!response.write(chunk.subarray(0, length))) { response.once("drain", send); return; }
+          }
+          if (!response.destroyed) response.end();
+        };
+        if (request.method === "HEAD") response.end(); else send();
         return;
       }
       if (path === "/fixture/slow") {
