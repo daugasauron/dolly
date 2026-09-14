@@ -67,3 +67,13 @@ stayed under 0.0182 m. After the fully preserved runtime migration, actual Pi
 repeated the 90 s trial and independently reported the same failure. It is now
 testing Sidelight X with direct torso-attitude feedback. The source-only trial
 extension and missing practice-memory diagnostics have tasks 080300/080400.
+
+The packaged 90 s Sidelight XI replay stayed upright (minimum up=0.91824,
+final=0.99709), with maximum joint separation 0.01026 m. New practice-memory
+inspection exposed the failure directly: only 0.383 s qualified support,
+zero completed cycles, lift aborted at 15.933 s, landing timed out at 22.95 s,
+then terminal recovery phase 6 from 34.95 s. Maximum forward excursion was
+0.194 m; the 1.147 m final displacement is mainly lateral. This is not walking.
+Evidence: `build/blockwalker-memory-trial/` contains unchanged source, full
+poses, 89 bounded memory snapshots and three actual GPU frames. Live Pi reached
+Sidelight XII before the tool-update checkpoint; no biped is bundled yet.

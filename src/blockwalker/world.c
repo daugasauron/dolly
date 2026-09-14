@@ -42,6 +42,11 @@ static double get_number(JSContext *ctx,JSValueConst obj,const char *key,double 
     JSValue v=JS_GetPropertyStr(ctx,obj,key);double n=fallback;if(!JS_IsUndefined(v)&&JS_ToFloat64(ctx,&n,v)<0)n=fallback;JS_FreeValue(ctx,v);return n;
 }
 static void put_number(JSContext *ctx,JSValue obj,const char *key,double n){JS_SetPropertyStr(ctx,obj,key,JS_NewFloat64(ctx,n));}
+static const char *controller_memory_json(Controller *c,size_t *length){
+    controller_budget(c);JSValue value=JS_JSONStringify(c->ctx,c->memory,JS_UNDEFINED,JS_UNDEFINED);
+    const char *json=JS_IsString(value)?JS_ToCStringLen(c->ctx,length,value):NULL;
+    JS_FreeValue(c->ctx,value);if(!json)JS_FreeValue(c->ctx,JS_GetException(c->ctx));return json;
+}
 JSValue character_json(JSContext *ctx,const Character *c){
     JSValue list=JS_NewArray(ctx);
     for(int i=0;i<c->count;i++){
@@ -136,7 +141,16 @@ int world_trial_step(Physics *p,const Character *c){
 }
 JSValue world_program(JSContext *ctx){
     if(!installed)return JS_NULL;JSValue result=JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx,result,"name",JS_NewString(ctx,installed_name));JS_SetPropertyStr(ctx,result,"source",JS_NewString(ctx,installed));put_number(ctx,result,"hz",installed_hz);return result;
+    JS_SetPropertyStr(ctx,result,"name",JS_NewString(ctx,installed_name));JS_SetPropertyStr(ctx,result,"source",JS_NewString(ctx,installed));put_number(ctx,result,"hz",installed_hz);
+    JSValue memory=JS_NULL;const char *error=NULL;
+    if(trial){
+        size_t length=0;const char *json=controller_memory_json(trial,&length);
+        if(!json)error="Controller memory could not be serialized within its execution and heap limits";
+        else if(length>8192)error="Controller memory exceeds the 8 KiB inspection limit";
+        else {memory=JS_ParseJSON(ctx,json,length,"controller-memory");if(JS_IsException(memory)){JS_FreeValue(ctx,JS_GetException(ctx));memory=JS_NULL;error="Controller memory could not be copied";}}
+        JS_FreeCString(trial->ctx,json);
+    }
+    JS_SetPropertyStr(ctx,result,"memory",memory);if(error)JS_SetPropertyStr(ctx,result,"memoryError",JS_NewString(ctx,error));return result;
 }
 JSValue world_install(JSContext *ctx,JSValueConst args){
     JSValue code=JS_GetPropertyStr(ctx,args,"source"),name=JS_GetPropertyStr(ctx,args,"name");
@@ -266,8 +280,7 @@ void world_save(JSContext *ctx){
         Creature *c=&world.creatures[i];JSValue item=JS_GetPropertyUint32(ctx,list,i),poses=JS_NewArray(ctx);
         JS_SetPropertyStr(ctx,item,"blueprint",character_json(ctx,&c->design));JS_SetPropertyStr(ctx,item,"source",JS_NewString(ctx,c->controller->source));
         put_number(ctx,item,"hz",c->controller->hz);put_number(ctx,item,"seed",c->controller->seed);put_number(ctx,item,"rootHeight",c->root_height);put_number(ctx,item,"startX",c->physics.start.x);put_number(ctx,item,"startZ",c->physics.start.z);
-        controller_budget(c->controller);JSValue memory=JS_JSONStringify(c->controller->ctx,c->controller->memory,JS_UNDEFINED,JS_UNDEFINED);
-        const char *m=JS_ToCString(c->controller->ctx,memory);if(m)JS_SetPropertyStr(ctx,item,"memory",JS_NewString(ctx,m));JS_FreeCString(c->controller->ctx,m);JS_FreeValue(c->controller->ctx,memory);
+        size_t length=0;const char *m=controller_memory_json(c->controller,&length);if(m)JS_SetPropertyStr(ctx,item,"memory",JS_NewStringLen(ctx,m,length));JS_FreeCString(c->controller->ctx,m);
         for(int j=0;j<c->design.count;j++){
             Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,j,&p,&q);b3Vec3 v=b3Body_GetLinearVelocity(c->physics.parts[j].body),a=b3Body_GetAngularVelocity(c->physics.parts[j].body);
             double values[]={p.x,p.y,p.z,q.x,q.y,q.z,q.w,v.x,v.y,v.z,a.x,a.y,a.z};JSValue pose=JS_NewArray(ctx);

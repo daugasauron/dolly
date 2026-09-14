@@ -1,6 +1,6 @@
 # Let Pi test complete feedback cycles in practice
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: game,agent,iteration
 
@@ -29,7 +29,8 @@ The actual resumed Astra/xhigh Pi also called `program_trial` with 90 seconds,
 completed it and reported the same Sidelight IX fall before testing Sidelight X.
 Evidence: the 23:07 UTC native-history mirror and wakeup continuation proof.
 
-Fresh packaged images still have the 20-second cap. Bundle this small source
-change with the next app checkpoint using the normal prepare/pin/build workflow,
-verify the packaged trial limit, then close. Avoid another live history reload
-solely to publish an already-installed source update.
+Bundled with practice-memory inspection. The fresh packaged image accepted
+5400 ticks and rejected 5401 in the guarded Sidelight XI replay; it completed
+90 seconds in 90.016 wall seconds with three GPU captures. Evidence:
+`build/blockwalker-memory-trial.log` and `blockwalker-memory-trial/proof.json`.
+Only the app module rebuilt; cached dependencies were reused (20.4 s package).

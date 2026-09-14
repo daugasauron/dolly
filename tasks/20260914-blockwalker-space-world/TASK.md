@@ -19,38 +19,36 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 08:08 JST
+## Current checkpoint — 2026-09-15 08:24 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
 Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
-Fresh images contain **45 objects/1211 parts**. The controller-update backup at
-22:15 UTC has **52 survivors/1361 parts** and nine removals: six older causes
-unknown, and three diagnosed elapsed controller deadlines while upright
-(Marrowstep 48, Northline 36, Vesper 40). Marrowstep has a replacement, ID 59.
+Fresh images contain **45 objects/1211 parts**. The live world has **52
+survivors/1361 parts** and nine earlier removals: six causes unknown and three
+elapsed controller deadlines while upright (Marrowstep 48, Northline 36, Vesper
+40). Marrowstep has replacement ID 59; Northline/Vesper designs remain saved.
 The [controller fix](../20260915-065100-codex-01/TASK.md) passed finite-controller
-pause, runaway, native and browser checks. The live C binary was compiled and
-updated inside Dolly with all five selected workspace files byte-identical.
-All 52 objects restore with zero pose error, unchanged memory and step counts,
-and three magnetic attachments. Pi resumed actual Astra/xhigh requests and successful tools. At 22:29:48 UTC,
-world time reached 25733.5167 s with all 52 survivors and no new removals;
-requests reached 381/380 completed.
+pause, runaway, native and browser checks. Full-world restore preserved every
+pose, controller memory, tick count and three magnetic attachments.
 
 The latest user priority is [a two-legged walker](../20260915-070100-codex-01/TASK.md).
-An independent replay of the 37-part Sidelight VI verified right-foot clearance
-of 0.76955 m, nine planted left-foot contacts and torso up=0.997513 at 20 s.
-Every sampled state over the final 1.2833 s qualified as single support. The 90 s Sidelight VII replay then found a stalled landing after the mirrored
-lift: the supporting sole rolled onto three contacts. All 46 test objects
-survived; it did not walk forward. These findings were queued for Pi, which is
-now testing Sidelight VIII with narrower hips. No biped is bundled or claimed
-to walk yet. At 22:49:47 UTC the live world had 52 survivors, nine removals,
-world time 26916.1000 s and 315,183,322 bytes of native history. Request 389 ended
-with `Browser HTTP transport failed`; Pi's existing retry continued without a
-restart. Requests reached 393/392 completed, and frames/simulation advance.
-Do not restart solely because inference is long. Read `progress.json` and the
-current-state mirror for newer evidence.
+Pi's live workshop is **Sidelight XII — damped support and landing audit**.
+Independent trials verified a lifted foot and planted support for 1.2833 s in
+Sidelight VI, but later designs still struggle to land and repeat. VII stalled
+at 31.47 s; IX fell after 55 s; XI stayed upright for 90 s but stopped its cycle
+at 34.95 s. No biped is bundled or claimed to walk. Fresh tools now expose bounded
+practice memory and accept 90 s trials so Pi can inspect the actual transitions.
+
+The 23:19 UTC checkpoint preserves the full 318,417,097-byte native history and
+all 52 objects. After the verified tool-image restore, world time advanced from
+28158.9667 to 28159.0667 s and the entire history prefix matched. See the current
+service/recovery section below and `progress.json` for newer observations.
+Do not restart merely because history loading or Astra inference is slow. An
+earlier long request ended with `Browser HTTP transport failed`; Pi's normal
+retry continued without restart, and that single failure's cause is unknown.
 
 **Cairnwing**, **Vesper** and **Rime** are now bundled after measured fresh-start
 takeoff, 3.8–5.4 m excursions, return/landing and seeded route variation. Rime's
@@ -132,12 +130,25 @@ Pi actually completed a 90 s trial through its new tool and is testing Sidelight
 Old runtime artifacts remain in
 `build/blockwalker-timer-before/`.
 
-[Longer practice trials](../20260915-080300-codex-01/TASK.md) now accept 90 s in
-the live session, verified by a full source-only in-Dolly replay. Fresh packages
-still have the old cap; bundle this with the next app update. Sidelight IX's
-29-part trial remained upright at 20 s but fell at 55–59 s, so it stays unbundled.
-[Controller diagnostics](../20260915-080400-codex-01/TASK.md) is the next tool
-improvement: Pi cannot currently read its own practice memory/phase counters.
+[Longer practice trials](../20260915-080300-codex-01/TASK.md) and
+[controller-memory inspection](../20260915-080400-codex-01/TASK.md) are now bundled.
+The focused C test passed inside Dolly, including bounded failed snapshots and
+continued controller execution. A fresh-image 90 s Sidelight XI replay reproduced
+Pi's physical result and captured 89 practice-memory snapshots. It stayed upright
+but stalled in terminal recovery at 34.95 s, completing zero support cycles;
+maximum forward excursion was only 0.194 m. No biped is bundled or claimed to walk.
+The preserved workshop reached **Sidelight XII — damped support and landing audit**.
+
+The tool-update migration preserved all 52 objects/1361 parts and the entire
+318,417,097-byte native history. All five selected files matched byte-for-byte
+after import; world/history SHA-256 also matched inside Dolly. The new session
+`blockwalker-feedback` passes the actual compatibility check. The initial save
+under the existing `blockwalker-biped` name hit a Playwright dialog-handler race;
+file import had already completed. Saving under the new name succeeded without
+reimporting or altering the preserved files. The old named session remains intact.
+Pi resumed actual Astra/xhigh requests at 23:24:58 and 23:25:02 UTC with the new
+diagnostics and numerical Sidelight XI findings. `feedback-continuation-proof.json`
+records the first advancing-world checkpoint and matching saved IDs/sources.
 
 ### Owned services — recheck PIDs before stopping anything
 
@@ -146,9 +157,9 @@ improvement: Pi cannot currently read its own practice memory/phase counters.
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; allows origins 9099 and 19199 |
 | Live browser runner | 17317 | CDP `http://127.0.0.1:9231`, `build/blockwalker-water-live.mjs` |
-| Five-minute backup monitor | 277273 | `build/blockwalker-wakeup-monitor.mjs --watch` |
+| Five-minute backup monitor | 289618 | `build/blockwalker-feedback-monitor.mjs --watch` |
 
-The session is **`blockwalker-biped`**, with persistent browser profile
+The session is **`blockwalker-feedback`**, with persistent browser profile
 `.cache/blockwalker-browser-20260915`. Run scripts under the `build` symlink with
 `node --preserve-symlinks-main`. Logs use the matching script names under `build`.
 Current screenshots/status: `build/blockwalker-walking/latest.png`, `status.json`.
@@ -161,28 +172,28 @@ script; never print or commit it.
 The monitor mirrors selected files under
 `build/blockwalker-walking/current-state/`: the world, working blueprint, Pi
 config/events and full native session JSONL. It excludes models/auth. The native
-conversation reached **315,243,596 bytes** before the runtime migration, with
-1,534 valid JSONL entries. Its complete SHA-256 is
-`f9505d0902fb4528cc1a179b95e017ec1600e74ac27bff2cdb1141a93152c342`.
-All five selected files matched the archive after ordinary file-picker import;
-the complete world/history hashes matched again inside Dolly after the small
-C update. The earlier 309,962,807-byte history prefix was verified too. Evidence:
-`wakeup-{restore,restored,updated}-proof.json` in the walking folder. Startup reads
-the full native history and can pause frames for minutes; do not restart merely
-because loading is slow.
+conversation reached **318,417,097 bytes** before the tool update, with
+1,562 valid JSONL entries. Its complete SHA-256 is
+`0a0a56acc6613406f647fc83a92c82e516665b8a0e2c0911bd497fc874ed1989`.
+All five selected files matched the archive after file-picker import, and the
+world/history hashes matched inside Dolly. The earlier 315,243,596-byte prefix
+was verified too. Evidence: `feedback-{restore,restored,updated}-proof.json`.
+Startup reads the full native history and can pause frames for minutes; do not
+restart merely because loading is slow.
 
-Latest recovery files are `wakeup-state.tar` (318,085,120 bytes),
-`wakeup-state.tar.gz` (235,118,897 bytes) and five `wakeup-state-XX.part` files of
-at most 48 MiB. They preserve 52 creatures/1361 parts at world age 27184.7667 s,
-with nine prior removals. The manifest is `wakeup-restore-proof.json`; all older
-archives remain available. `build/blockwalker-wakeup-restore.mjs` imports these
-files and the owned relay config into a fresh image, then saves the compatible
-`blockwalker-biped` session. `blockwalker-long-trial-update.mjs` compiles the current
-source overlay inside Dolly; `blockwalker-wakeup-resume.mjs` starts Pi again.
+Latest recovery files are `feedback-state.tar` (319,590,400 bytes),
+`feedback-state.tar.gz` (236,875,656 bytes) and five `feedback-state-XX.part` files
+of at most 48 MiB. They preserve 52 objects/1361 parts at world age 28158.9667 s,
+with nine prior removals. The manifest is `feedback-restore-proof.json`; older
+archives remain available. `build/blockwalker-feedback-restore.mjs` imports the
+files and owned relay config into a fresh image, then saves `blockwalker-feedback`.
+Use a new session name if restoring another checkpoint; saving over a different
+existing name prompts a browser confirmation. `blockwalker-feedback-resume.mjs`
+starts Pi again. The new binary and tools are already in the packaged image.
 
 The old monolithic monitor exceeded Playwright's 256 MiB WebSocket message limit;
 the live browser and Wasm filesystem survived. **Do not restart monitor 187845.**
-The current wakeup monitor returns file metadata first, then transfers
+The current feedback monitor returns file metadata first, then transfers
 8 MiB binary chunks; a full backup succeeded. Stop it before manual exports to
 avoid overlap. It still uses the normal saved-session interface.
 
