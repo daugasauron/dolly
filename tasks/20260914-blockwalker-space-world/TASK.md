@@ -137,7 +137,8 @@ whole hoist and suspended crate. Evidence:
 verified and running in the live `blockwalker-cranes` session as of 01:49 JST.
 Restored all 15 current survivors at world age 8360.45 s, including Dockhand and
 its latched cargo, plus the complete 53 MB Pi conversation. Both original
-tripods eventually fell naturally; their designs remain in earlier backups.
+tripods were eventually removed by the survival/controller checks; the old log
+does not identify which check failed. Their designs remain in earlier backups.
 The first saved frame after restore retained cargo attachment ID 20 at
 6.2375 N load. Pi resumed through Astra/xhigh and is inspecting the crane before
 continuing the larger-world experiments.

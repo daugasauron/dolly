@@ -48,7 +48,8 @@ Logs: `build/blockwalker-magnet-integration.log`,
 Migrated the live browser to session `blockwalker-magnets`, preserving all 14
 current survivors at world age 7989.65 s and the 46,359,844-byte full Pi
 conversation. The recovery archive is `build/blockwalker-walking/magnet-state.tar`.
-The earlier second tripod fell naturally at age 6667.4 s before this migration;
+The earlier second tripod was removed at age 6667.4 s before this migration;
+the old log does not identify the cause;
 its design remains in previous recovery archives. The newer boat, 28-part crane
 and 72-part bridge were preserved. Submitted the magnet crane experiment to
 Astra/xhigh. The real agent pickup/carry experiment is verified below.
