@@ -54,3 +54,44 @@ objects and history were not migrated or replaced for this data-only update.
 Amberstride is still being evaluated; Pi also released **Amberguard**, live ID 58,
 a bounded sequential-replant controller. The original stalled Amberback remains
 in the live world. This issue stays open for verification of the recovery design.
+
+## Recovery and service-machine replay, 08:52 JST
+
+The new guarded 360 s replay kept all **51 objects/1431 parts** alive. It took
+482.76 wall seconds while saving detailed state once per simulated second;
+this is an instrumented verification run, not ordinary rendering performance.
+`build/blockwalker-recovery/` contains the full trace, eight GPU images and proof.
+
+Longwake completed two full five-leg routes, traversing z=-120..-59.21 and
+x=-118.26..-108.89, minimum up=0.997988, no stall retries. Its maximum sampled
+physical-radius estimate was 5.944 m. Lattice completed 20 hydraulic transfer
+cycles with zero faults. Its independent crate moved across 4.918 m in X while
+remaining within 4 cm of the tray's local center horizontally after the initial
+drop; local vertical separation stayed 0.9657..0.9806 m. Tray tilt reached
+0.25073 rad. Normal Amberguard completed 272 gait cycles and 16 reversals,
+minimum up=0.99461 and z=62.06..73.66. Amberstride also kept moving; retain both
+live originals, but the proposed catalog selects Amberguard's tested recovery.
+
+The first fault clone at (18,64) inadvertently straddled the western basin
+ledge: terrain height under its root is 2 m and the body extends onto the lower
+floor. It took 224.117 s to replant before the deliberate lift interruption was
+reached. That run cannot isolate flat-ground recovery and does not prove a
+terrain-capable walker. Its actual GPU image and event trace retain the finding.
+
+The separate flat-ground comparison uses the same seed (48) for the unchanged
+controller and its existing forced-failure variant, at clear plots (-55,-70)
+and (-75,-70). All 47 objects/1297 parts survived 120 s. The injected lift failed
+at 4.4 s; its watchdog fired at 7.2 s, sequential replant ran from 9.217 to
+12.567 s, and the next completed step was at 13.967 s. It then reached 83 cycles,
+five reversals and minimum up=0.994916. The normal copy completed 91 cycles with
+no resets. `build/blockwalker-flat-recovery/{flat-recovery,proof}.json` and four
+GPU frames provide the evidence; the instrumented run took 195.304 wall seconds.
+
+`build/blockwalker-recovery-catalog.json` prepares **49 objects/1345 parts**:
+the original 45 unchanged, plus Longwake, Amberguard, Lattice and its crate at
+(-30.92,6.3,-74). This candidate is verified but **not yet bundled**. Batch it
+with the next app/image checkpoint rather than interrupting the live biped
+experiment solely for a data update. A changed image recipe also changes saved-
+session compatibility; preserve the whole live history/world through the normal
+verified import workflow when updating that session. The issue stays open until
+the catalog package and its fresh-load behavior are verified.

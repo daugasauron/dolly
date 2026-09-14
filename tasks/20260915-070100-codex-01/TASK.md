@@ -77,3 +77,27 @@ then terminal recovery phase 6 from 34.95 s. Maximum forward excursion was
 Evidence: `build/blockwalker-memory-trial/` contains unchanged source, full
 poses, 89 bounded memory snapshots and three actual GPU frames. Live Pi reached
 Sidelight XII before the tool-update checkpoint; no biped is bundled yet.
+
+A separate 90 s Sidelight XII replay reproduced its exact final pose metrics:
+up=0.9986781, displacement=4.48666 m, maximum joint separation 0.007437 m.
+Maximum forward excursion was only 0.511 m. By 10 s both soles had rolled onto
+three contacts. At 20 s right sole roll was -0.07784 rad while root roll was
+-0.01449; the knees had never entered the programmed swing. Pi independently
+trimmed only its diagnostic logs and reproduced the same motion. Its actual
+new tool result exposed transfer timeout at 23.85 s and terminal recovery at
+45.867 s, with zero support/lift cycles. Numerical findings were queued without
+aborting inference; next focus is loaded sole leveling during weight transfer.
+`build/blockwalker-damped-trial/` contains poses, memory samples, three GPU images,
+`proof.json` and the actual Pi tool result in `pi-trial-proof.json`. The original
+large logs exceeded the 8 KiB snapshot after 9.32 s; Pi's compact version fits.
+
+Actual Pi trials then reached transfer at 6.817 s in XIV and 0.50 s qualified
+support. XV's measured sole-orientation feedback restored quiet standing after
+failed lifts, instead of persistent edge rocking. XVI reached 0.517 s support
+in a targeted 32 s run. XVII reached 0.867 s support but fell during landing
+(final up=-0.697 at 32 s). None completed a qualified cycle. The actual tool
+results are in the 23:49 UTC native/event mirror; Pi is continuing its next
+revision. The independent XII poses also measured up to 1.88 degrees of finite
+angular deflection at a nominally rigid sole/ankle weld. This and guidance to
+use shorter transfer comparisons before longer gait verification were queued
+through the normal prompt without interrupting inference.

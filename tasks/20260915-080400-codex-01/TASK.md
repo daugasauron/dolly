@@ -41,3 +41,7 @@ Final poses match Pi's earlier result (up=0.9970898, distance=1.1472713). Its me
 reveals zero completed cycles, lift abort at 15.933 s, landing timeout at 22.95 s,
 and recovery timeout at 34.95 s. Remaining upright did not establish walking.
 Evidence: `build/blockwalker-memory-trial/{memory-trial,proof}.json` and PNGs.
+
+The actual resumed Astra/xhigh Pi used the new result: its compact XII audit
+returned 2961 JSON bytes, identifying transfer/recovery timeouts
+without changing the physical result. See `build/blockwalker-damped-trial/pi-trial-proof.json`.

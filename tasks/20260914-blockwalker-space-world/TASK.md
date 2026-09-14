@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 08:24 JST
+## Current checkpoint — 2026-09-15 08:52 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -35,11 +35,13 @@ pause, runaway, native and browser checks. Full-world restore preserved every
 pose, controller memory, tick count and three magnetic attachments.
 
 The latest user priority is [a two-legged walker](../20260915-070100-codex-01/TASK.md).
-Pi's live workshop is **Sidelight XII — damped support and landing audit**.
+Pi's 23:49 UTC workshop is **Sidelight XVII — world-fixed swing placement**.
 Independent trials verified a lifted foot and planted support for 1.2833 s in
 Sidelight VI, but later designs still struggle to land and repeat. VII stalled
 at 31.47 s; IX fell after 55 s; XI stayed upright for 90 s but stopped its cycle
-at 34.95 s. No biped is bundled or claimed to walk. Fresh tools now expose bounded
+at 34.95 s. XIV reached transfer at 6.82 s; XV recovered quiet standing with sole feedback;
+XVII held qualified support for 0.867 s but fell during landing. No biped is
+bundled or claimed to walk. Fresh tools now expose bounded
 practice memory and accept 90 s trials so Pi can inspect the actual transitions.
 
 The 23:19 UTC checkpoint preserves the full 318,417,097-byte native history and
@@ -100,11 +102,21 @@ crate 5.40 m, carried it 1.013 m sideways and released it onto a tray; final
 are bundled; the first 42 catalog entries remain intact. The guarded fresh-world
 and save/reopen integration passed. No live migration was needed.
 
-**Amberback**, live ID 53, passed the fresh 330-second seed but stalled in the
-long-lived world at age 253 s. Keep it unbundled while Pi's **Amberstride** 57 and
-**Amberguard** 58 recovery revisions are independently verified. The original
-remains alive. **Longwake** 56 is a new 43-part channel survey boat, also unverified
-for the fresh catalog. Preserve existing creations and the complete conversation.
+**Amberback**, live ID 53, remains preserved but stalled. **Amberguard** 58
+now passed both the populated 360 s replay and a clean forced-lift recovery
+comparison: 83 cycles after a single induced failure, five reversals, minimum
+up=0.994916. **Longwake** 56 completed two full routes. **Lattice** 60 carried its
+separate crate through 20 hydraulic cycles, keeping it within 4 cm horizontally
+of the tray center. All 51 test objects survived. A misplaced recovery clone on
+the basin ledge is recorded separately; that run does not establish reliable
+rough-terrain walking. The [expedition issue](../20260915-064000-codex-01/TASK.md)
+has the measurements and original-source evidence.
+
+The prepared `build/blockwalker-recovery-catalog.json` has 49 objects/1345 parts,
+retaining the first 45. It is **not yet bundled**; batch it with the next app
+checkpoint. Changing the recipe changes session compatibility, so use the normal
+full-file import when updating the live session. All original live creations
+and the complete conversation remain intact. No test browser is still running.
 
 [Population profiling](../20260915-060200-codex-01/TASK.md) reduced C render-tree
 construction from 1.31 to 0.47 ms using median partitioning, with unchanged GPU
