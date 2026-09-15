@@ -1,6 +1,6 @@
 # Give the two-legged walker a reversible patrol gait
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: game,agent,physics
 
@@ -78,12 +78,30 @@ build/blockwalker-patrol-analysis.py.
 
 Source catalog now includes exact verified #62 as Sidelight IV - patrolling
 biped, at(55,-85);53 objects/1461 parts, with all52 older entries preserved.
-Pi has been instructed to release one unchanged copy (seed6701) after checking
-clearance, then restore its latest private experiment. Release/package checks
-remain outstanding.
+Actual Pi checked clearance and released one unchanged copy as world#67
+(seed6701), then restored its latest private experiment. The package and live
+continuation checks below are complete.
 
 Pi's #64/Patrol VI keeps the same body and active yaw feedback but triggers
 stable reversals earlier. Its300s private run stayed within[-1.469,1.443]m,
 with10 forward and10 backward placements, four reversals, no aborts and
 .01811m maximum root-foot slip. It is saved separately; it has not passed a
 populated-world test and does not replace verified #62.
+
+The new image is built and verified:53 bundled objects/1461 parts, including
+all older entries, Sidelight III/IV and the early failed-trial stopping change.
+Fresh20s browser check matched all bundled controller sources and the exact
+patrol body; no removals or model requests. Evidence:
+build/blockwalker-patrol-packaged/proof.json; image build log and retry log.
+
+The live session was migrated via normal chunked browser uploads and restored
+as blockwalker-patrol. All workspace hashes and session compatibility matched.
+Post-resume proof preserves all53 live objects/1390 parts, all65 older library
+designs (now67 with the bundled aliases),14 removals, and the full374481137-byte
+native history prefix; native history is now374504337bytes. Actual Astra/xhigh
+requests resumed, and the834-character continuation prompt arrived intact.
+Live#67 was upright at376.183s with25 scored placements, three reversals,
+zero aborts and .018086m maximum stance slip. These runtime counters do not
+replace the independent600s physical audit. Evidence:
+build/blockwalker-walking/patrol-{image-restore,continuation}-proof.json.
+Continue the separately tracked tighter-bound/contact work,20260915-153500-codex-01.

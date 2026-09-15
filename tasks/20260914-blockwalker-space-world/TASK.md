@@ -19,218 +19,112 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 14:26 JST
+## Current checkpoint — 2026-09-15 15:40 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
-`codex/blockwalker-20260914`. No push/deploy/merge authorization; continue until
-22:00 JST. The latest packaged checkpoint is39e1971, containing the faster
-biped, direct experiment saving and readable Pi traces. The live session also
-has the source-only practice-failure update described below; bundle that in
-the next image checkpoint.
+`codex/blockwalker-20260914`. No push/deploy/merge authorization. Continue until
+22:00 JST (13:00 UTC). User's latest priority is a real two-legged walker.
 
-The image now contains **51 objects/1403 parts**, adding **Sidelight II - balanced
-biped** alongside all 50 unchanged earlier entries. Its exact XXXVI-R source
-passed a populated 300 s test: 18 alternating physical placements, 7.2081 m
-forward versus original 5.7034 m (+26.4%), minimum up .9872, maximum stance slip
-.02104 m, no removals, and exact 51-object reload. Both feet sometimes rub;
-temporary C contact diagnostics found no external contact during ground-clear
-intervals. See [faster gait](../20260915-102900-codex-01/TASK.md) and the separate
-[cleaner-stride follow-up](../20260915-131400-codex-01/TASK.md).
+Source checkpoint0dd742c adds **Sidelight IV - patrolling biped**, exact saved
+Pi design#62, alongside Sidelight III and all older creations. The new image
+contains53 objects/1461 parts and5a24f9c's early failed-practice stopping.
+Dollyfile/module pins are updated and the fresh packaged image is verified.
+C compiled inside Dolly in the20.3s app image build. Snapshot231950864bytes,
+SHAc77091ad2f8d03d2f202e430eebcbcfec9c615f98a21b514c0e8c1362b328402;
+source tar5ab2e55984f08910dac022fbd7dff4ff82e1b7cb633c89c84096d4645a7a077d.
+Kernel unchanged:d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72.
 
-The image build and updated `test/blockwalker-agent-browser.mjs` passed. Snapshot
-231908622 bytes, SHA prefix f150fffbc7cd4ef3; source tar e4cc5df9d3a4d15e012c42b5dea0864b714e193a48008d6f4346f690aa89401e.
-Kernel remains d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72.
-C compiled inside Dolly; no host C build or authority change. App-only build
-20.9 s. The new [save_design tool/library button](../20260915-122000-codex-01/TASK.md)
-and [word-wrapped trace panel](../20260915-122100-codex-01/TASK.md) are packaged.
-Actual Pi already saved XL as library #45 before opening Sidelight II #44.
+Exact#62 completed600.05s in the populated world:41 alternating physical foot
+placements, six direction reversals, no aborts/deaths, minup=.985948 and
+maximum measured support-centroid movement=.018311m. Every placement had signed
+airborne advance>.4125m while the other foot carried ground impulses. Root Z
+range[-1.9644,2.0762]m. Contacts were sampled about.1s, not every tick; some
+opposite-leg rubbing remains (peak1.1658Ns), no dynamic external impulses.
+All sources/bodies and full saved-world poses/velocities/memory reopened exactly.
+Evidence: `build/blockwalker-patrol-clear-world/` has proof/report/restored JSON,
+three GPU frames and30s video `patrol-world.webm`. Handle40793 terminal0.
 
-At the previous packaged checkpoint, the live world had **54 objects/1419 parts** and eleven removals. Actual Pi
-saved current XLI as library #46, opened verified Sidelight II #44 and released
-exactly one copy as **#65**, seed6501, at (75,-85). At the 04:22 UTC snapshot,
-#65 was upright at age65.983 s, with1.1308 m forward travel, three scored steps
-and no aborts. Source and blueprint match the verified bundled design exactly.
-All 53 prior IDs/sources/blueprints and all 52 library entries remain. Original
-#64 reached age3837.1 s (64 minutes), x86.293,z-3.492,up=.999903. Its earlier
-54.6-minute checkpoint had69.5323 m forward and185 controller-scored placements;
-do not claim every later placement was geometrically rechecked. #62's late fall
-is strongly linked to contact with #22; #63's initiating cause remains unknown.
-Keep both records ([late-fall issue](../20260915-110000-codex-01/TASK.md)).
+The new packaged image passed a fresh20s browser check:53/1461, no removals,
+exact bundled source and biped body, advancing upright, zero model requests.
+Evidence: `build/blockwalker-patrol-packaged/`; handle80249 terminal0. The first
+helper failed before startup by reading an undefined global; it was fixed and
+its leftover owned scope stopped. Image-build handle83278 terminal0. No
+ephemeral test/build browser remains. Do not repeat these tests without a change.
 
-### Live continuation and next work
+### Live session and next work
 
-Session **blockwalker-bipeds** is running actual **gpt-6-astra/xhigh** through the
-owned relay. `build/blockwalker-walking/bipeds-release-proof.json` and
-`bipeds-image-continuation-proof.json` verify the new release, all older designs,
-the complete 966-character steering prompt, ten real Astra/xhigh requests and
-**358980658 bytes of native history**, retaining its entire355431228-byte earlier
-prefix. Status: `python3 build/blockwalker-biped-status.py`. Screenshots:
-`build/blockwalker-walking/{latest,bipeds-release}.png`.
+Actual Astra/xhigh Pi released exactly one unchanged#62 as world **#67**, at
+(55,-85), seed6701, preserving all52 prior live objects and14 removal records.
+At the paused checkpoint it was upright at146.067s. The live world is53 objects/
+1390 parts; all65 prior library designs remain (67 including bundled aliases). Latest workshop is **Patrol VII**,
+library#65: a backward-first variation whose complete300s practice rerun is active.
+Patrol VI/library#64 privately passed300s with20 placements, four reversals,
+no aborts and root range[-1.469,1.443]m; it still needs independent world checking.
+Keep all experiments. [Patrol issue](../20260915-141200-codex-01/TASK.md).
 
-Saving experiments and trace wrapping are closed and verified. Six historical
-sources are recovered as library #47-52, current XLI is #46, XL #45, and the
-public successor #44. The same-pose recovery kept all53 creature states, all
-older library entries and the workshop exact. These sources and complete history
-are in the bipeds archive below. Pi continues cleaner-foot-clearance practice; keep new experiments separately
-saved. [Early physical-failure completion](../20260915-122200-codex-01/TASK.md)
-is now verified and closed: source-only browser checks plus real Astra/xhigh Pi.
-The new C binary and tools were compiled inside the existing live filesystem;
-all five workspace hashes stayed exact through the update. The real300s Toppler
-probe returned posture failure at301ticks/5.016667s,retained memory.last=5 and
-two pictures. Saved as library#56,not released; Pi reopened#55 afterwards.
-The healthy Sidelight II still passes all300s/18000ticks with18 scored steps,
-7.212mforward and minUp .98721045. No world-removal or gravity rule changed.
+Straight live walkers#64/#65/#66 fell naturally after144.07/77.54/32.34 minutes.
+#64 reached the sea; #65/#66 initiating causes remain unknown. Designs and
+removal records remain, without rewinding. Earlier#62's collision with foreign
+#22 was independently reproduced/controlled; don't attribute later falls to
+that cause. See [late-fall issue](../20260915-110000-codex-01/TASK.md).
 
-At05:01UTC,the live session contains54 objects/1419parts,eleven historical
-removals and363582174bytes of full native history. Its entire362960038-byte
-pre-update prefix and all54 earlier creations were verified. New proofs:
-`practice-stop-{before,after,updated,live}-proof.json` in the walking directory.
-The backup monitor is now497976. Its live app overrides persist in the named
-session; public image/dollyfile pins still point to39e1971.
+The game and Pi resumed as **blockwalker-patrol** on the new image. Old
+**blockwalker-bipeds** remains. Restore67073 and hash/compatibility verifier66319
+are terminal0: all archived workspace hashes match and the new session is
+compatible. Real Astra/xhigh requests resumed at06:34:54UTC. The
+post-resume proof verifies its entire374481137-byte native prefix; history is
+now374504337bytes. All53 live creations and65 older designs remain, with14
+removals. #67 reached376.183s,25 scored placements,3 reversals, no aborts and
+.018086m maximum stance slip. Pi received the complete834-character prompt
+in patrol-continuation-prompt.txt; patrol-continuation-proof.json records it. Continue
+[the tighter bounds/contact task](../20260915-153500-codex-01/TASK.md); its
+600s independent #64 browser is prepared but not running.
 
-The cleaner-stride task is now closed. Source catalog adds **Sidelight III -
-long-step biped**, the exact measured XLIV/library#55 controller and body at
-(80,-85). All51 older catalog entries are unchanged: source now52/1432 parts,
-packaged image still51/1403 at39e1971. **Do not claim the new source is packaged.**
-Next image checkpoint must regenerate source/module/image pins and build the
-image, including5a24f9c's practice update and the new biped.
+### Owned services and recovery
 
-The corrected world test finished300s:9.312mforward versus Sidelight II7.208m,
-18 physical alternating placements,no deaths,and exact52-object reopen.
-Each placement had supported airborne forward travel in sampled zero-impulse
-windows. Contacts were sampled about every.1s,not every physics tick.
-The comparable90s opposite-leg impulse sample counts are9/91 versus II76/135;
-some rubbing remains. Source/body,old creations and all restored states match.
-Evidence:build/blockwalker-longreach-clear-world/{proof,contact-comparison}.json,
-15MiB report and three GPU images. The guarded browser86127 is terminal0;
-no test browser remains. Instrumented runtime319.974s.
+Recheck PIDs before stopping anything; other worktrees/previews belong to others.
+Preview104549: `node scripts/serve-gpu.mjs 9099 blockwalker`.
+Relay17316: port9010, permits origins9099 and19199.
+Live browser440769: CDP9231, `build/blockwalker-bipeds-live.mjs`, DISPLAY=:1,
+profile `.cache/blockwalker-browser-20260915`. Its restart URL now points to
+blockwalker-patrol. Monitor519049 runs `blockwalker-patrol-monitor.mjs --watch`;
+497976 is stopped. It exports complete native history in8MiB binary chunks,
+plus immutable five-minute world snapshots under `world-snapshots/`.
+Stop watch monitors before manual exports; they share a browser scratch buffer.
 
-First attempt27789 is terminal1: the fixture accidentally reused Sidelight II's
-(80,-50) spawn,entangling the bodies (forward-.009m); its raw contact export
-also exceeded the64MiB file cap. Corrected test uses(80,-85),initial clearance
-assertion,compact real impulses and48MiB output chunks. Original failed log
-and picture remain under blockwalker-longreach-world*. Source tar for that
-diagnostic test contains the older51-entry catalog plus one explicit test spawn;
-do not accidentally spawn another body on the new source catalog's reserved
-(80,-85) location when adapting tests.
+Latest complete archive: `build/blockwalker-walking/patrol-state.tar`,
+376268800bytes; gzip277748061bytes; six48MiB `patrol-state-XX.part` chunks.
+It contains53 live objects,65 designs,14 removals at world49849.05000308718,
+plus374481137bytes/2039 entries of complete native Pi history. History SHA:
+ed5cede13df8e3c14035b64ba5e266a0cd664720f3d5dbc80e1ae15b8f9dc1b6;
+its whole373235451-byte preceding prefix was verified. Manifest:
+`patrol-restore-proof.json`; restore/verify helpers `blockwalker-patrol-*.mjs`.
+Archives exclude models/auth. Private relay config remains
+`/tmp/dolly-codex-relay-Bez6Lp/models.json`; never print or commit it.
 
-Actual Pi released exactly one unchanged#55 copy as **#66**,seed6601 at(55,-85),
-then restored#58. The saved observation at age134.63s shows eight scored steps,
-3.468mforward,up .999994 and no aborts. Current live population **55/1448 parts**,
-eleven historical removals; all54 older creations retained. Native history
-366490493bytes retains the whole362960038-byte pre-update prefix. Proof:
-build/blockwalker-walking/longreach-release-proof.json.
+Current-state mirror/progress/screenshots remain in `build/blockwalker-walking/`.
+Status helper: `python3 build/blockwalker-biped-status.py`. Old bipeds-state,
+biped-checkpoint-state and endurance-state archives remain. Old package files
+are in `build/blockwalker-pre-patrol-package/`. Named sessions are browser-profile
+local; another browser cannot load this session just from its URL. Reassemble
+archive chunks inside Dolly: `cat /tmp/PARTS... | gzip -dc - | tar -xf - -C /workspace`.
+Always use explicit gzip stdin `-`. Don't truncate history or bypass file uploads.
 
-Pi has the next [reversible patrol task](../20260915-141200-codex-01/TASK.md).
-The871-character patrol prompt and727-character validated-release instruction
-were sent through the visible Pi panel. A final precision note clarifies contact
-sampling and requests no more releases; verify later config against the actual
-sent note rather than an older prompt.
-#57 XLV achieved10.250m/300s,21 landings but more transfer-foot displacement.
-#58 XLVI achieved10.262m/300s,20 landings,only14 with its clean-forward criterion.
-Both are saved; Pi plans to branch patrol from#57's slower outward adjustment.
-Patrol I is now saved as#59 (13568bytes,same body as#57). Its300s trial made
-three reversals,12forward and8backward scored placements,then dragged the stance
-foot .30146m during an unfinished final backward attempt. No release: Pi is
-capping swing distance after reversal. Exact seed/result are
-build/blockwalker-patrol-{seed,first-result}.json. New patrol event rows add
-direction at index3 and use "stable signed landing". The patrol task has the
-measured details. No independent patrol browser is running yet.
-Exact host seeds:build/blockwalker-{longreach,faster-transfer}-seed.json.
-The original#64 was still upright at6511.12s (138.88mforward,371 scored,one abort);
-#65 at2740s (71.42mforward,166 scored,no aborts),at the05:11UTC snapshot.
-These ongoing controller counts are not a fresh geometry audit of every step.
+Scripts importing relatives through build need
+`node --preserve-symlinks-main build/NAME.mjs`. Resume only after GPU is active
+AND frame count advances past the pre-start counter. Enabled Pi sessions can
+take minutes to read native history; don't repeat the old60s startup timeout.
+Ensure the Pi panel is visibly open before typing. Do not add a global download
+handler alongside explicit consumers; duplicate handlers previously killed the
+browser. Save the named session before downloading verification files.
 
-A helper's duplicate download consumers closed an earlier browser with an
-unhandled ENOENT. The recovery was repeated, saving BEFORE the proof download
-with one explicit consumer. The current browser helper has no automatic download
-handler. Saved enabled Pi sessions can spend minutes synchronously loading their
-full history before frames/input advance. A60-second GPU-start timeout killed
-one attempted restart; do not repeat it. For a restart, wait for active GPU and
-frame count advancing beyond its previous value, then verify the Pi panel is
-visible before typing. Old frame counters can survive a process exit. The final
-966-character prompt was verified intact after following those UI steps.
-
-At06:04UTC, all three straight walkers #64/#65/#66 have fallen naturally;
-52 objects and14 removals remain. #64 reached the shore after144.07 minutes;
-#65 fell inland after77.54 minutes, #66 after32.34 minutes. Their initiating
-causes remain uncertain except the shore-position evidence; see the late-fall
-issue. All saved designs/history remain. Monitor497976 now archives every
-exported world under world-snapshots/; its first archive is after these falls.
-The latest complete native mirror is369913589bytes, snapshot378403213bytes.
-
-Patrol IV/library#62 uses powered hip-yaw joints on the same29-part layout.
-Its300s private trial reduced worst stance-block motion to2.01cm with20 scored
-placements and3 reversals. Pi tests yaw braking as a comparison. Independent
-600s populated verification is running as handle40793, 4GiB/no swap, timeout780s;
-prepared scripts are build/blockwalker-patrol-{browser,check,reopen}.mjs and
--analysis.py, results under blockwalker-patrol-clear-world/. Exact seed:
-blockwalker-patrol-current-seed.json. No patrol has been released or promoted.
-
-### Owned services — verify PIDs before stopping anything
-
-| Service | PID | Address / script |
-| --- | --- | --- |
-| Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
-| Relay | 17316 | port 9010; permits origins 9099 and 19199 |
-| Live browser | 440769 | CDP 9231, `build/blockwalker-bipeds-live.mjs` |
-| Five-minute monitor | 497976 | `build/blockwalker-bipeds-monitor.mjs --watch` |
-
-Persistent Chrome profile: `.cache/blockwalker-browser-20260915`, DISPLAY=:1.
-The old live runners17317/439890 and monitors387963/443288/446330 are stopped. Scripts
-under the build symlink require `node --preserve-symlinks-main build/NAME.mjs`.
-The private relay config is `/tmp/dolly-codex-relay-Bez6Lp/models.json`; never
-print or commit it. Request logs record only model/effort/timing/size.
-
-### Recovery files and verification
-
-`build/blockwalker-walking/current-state/` mirrors world, workshop, Pi config,
-events and the COMPLETE native session JSONL. Models/auth are excluded from
-host archives. The monitor exports in 8 MiB binary chunks; never revive the old
-monolithic monitor (256 MiB WebSocket failure). Stop a watch monitor before any
-manual full export. `progress.json` updates only after all files finish.
-
-Latest complete archive: `bipeds-state.tar` (357171200 bytes), gzip263893321 bytes,
-six48MiB `bipeds-state-XX.part` files, mode600. It contains all52 library entries,
-53 objects at world42513.416668 and **355431228 bytes/1853 native JSONL entries**,
-SHA256 `9bff929b019a74a2b4d57fe41fb550d0aa6c941c2afa244327cf134fa3918454`.
-It predates #65; the rolling mirror/named session are newer and include that
-release. `bipeds-restore-proof.json` records all file hashes and the verified
-354579335-byte preceding history prefix. Earlier `biped-checkpoint-state.*` and
-`endurance-state.*` archives remain unchanged.
-
-Restore/verify scripts are `build/blockwalker-bipeds-{restore,verify}.mjs`; they
-use a fresh `blockwalker-bipeds-recovered` name. Adapt the name on a later reuse.
-Reassemble inside Dolly with `cat /tmp/PARTS... | gzip -dc - | tar -xf - -C /workspace`.
-Do not truncate history or bypass the browser file picker. Source-only app
-updates can compile in place (`blockwalker-endurance-update.mjs`). Avoid another
-full image/history migration for a small source-only iteration.
-
-All older archives/named sessions remain. An interval lost during the earlier
-desktop freeze after the old water checkpoint was never recovered; later full
-input histories have been preserved. No GPU/driver fault was established for
-that freeze; read [the crash handoff](../../docs/crash-handoff.md).
-
-Only one ephemeral browser at a time, entire tree under 4 GiB/no swap:
-
-```sh
-systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 \
-  timeout --signal=TERM --kill-after=5s 180s \
-  xvfb-run -a node test/blockwalker-browser.mjs
-```
-
-Use meaningful checks for the changed behavior; do not repeat unrelated suites.
-Never deep-assert binary Buffers; use `.equals()` boolean comparisons. All current
-ephemeral tests are finished. [Early failed-trial completion](../20260915-122200-codex-01/TASK.md)
-is implemented and verified in5a24f9c; the public image still needs rebuilding. Keep the current 60 Hz constraints: the
-120 Hz comparison reduced flex but regressed boat navigation ([issue](../20260915-093700-codex-01/TASK.md)).
-
-Other verified additions: [landers](../20260915-045200-codex-01/TASK.md),
-[basalt basin](../20260915-051000-codex-01/TASK.md), [survey/salvage](../20260915-055500-codex-01/TASK.md),
-[expeditions/recovery](../20260915-064000-codex-01/TASK.md), [controller budget](../20260915-065100-codex-01/TASK.md),
-[render profiling](../20260915-060200-codex-01/TASK.md), [timer scheduling](../20260915-062600-codex-01/TASK.md),
-[bounded memory inspection](../20260915-080400-codex-01/TASK.md).
-Older checkpoint narratives are in repository history at b87089f and 47468d1.
+Only one ephemeral browser at a time, entire process tree under4GiB/no swap:
+`systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 timeout --signal=TERM --kill-after=5s 180s xvfb-run -a node test/blockwalker-browser.mjs`.
+Never deep-assert image/binary Buffers; use `.equals()` boolean. Keep60Hz physics:
+120Hz reduced flex but regressed boats. No host C builds or new host authority.
+Read [crash handoff](../../docs/crash-handoff.md). An earlier desktop-freeze
+interval was lost; later migrations preserve all provided history. No GPU or
+driver fault was established. Older narratives remain in repository history.
 
 ## Verified features and evidence
 
