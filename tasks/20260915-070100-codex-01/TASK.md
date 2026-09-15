@@ -1,187 +1,95 @@
 # Build a two-legged walking creature
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: game,agent,physics
 
 User priority: "Looks cool, I really want something thats on 2 legs!"
 
-Have the actual Astra/xhigh Pi design and learn a fully 3D biped with two leg
-chains and distinct feet. Balance and stepping must emerge from joint controls,
-physics feedback and foot contact. Preserve existing creations and history.
-Use timed real GPU observations. Measure standing, weight transfer/single-foot
-support, alternating steps and sustained forward travel before bundling it.
-Wheels, jets or external anchoring do not establish walking. Arms, counterweights
-and articulated broad feet are legitimate mechanisms.
+Have actual Astra/xhigh Pi learn a fully 3D biped with two leg chains and distinct
+feet. Balance and stepping must emerge from joint controls and physics feedback.
+Require repeated actual airborne forward foot placements, stable weight transfer
+and sustained travel. Preserve existing creations and full native Pi history.
+Use a few timed real GPU observations. Wheels, jets and anchoring are not walking;
+arms, counterweights and articulated broad feet are legitimate mechanisms.
 
-The request was delivered through the live game's prompt input. The controller
-limit investigation continues independently so host pauses do not defeat a
-working gait. Replay the successful actual Pi design from a fresh start in the
-populated world, including persistence, before closing this issue.
+## Verified original
 
-Independent guarded replay of Pi's saved 33-part Sidelight III completed 20 s
-under the corrected controller budget. Final up=0.9969, torso displacement
-2.154 m. After settling, neither foot lost all terrain contacts: both retained
-nine contacts at 15–20 s and center height 0.485 m. The swing knee reached
-1.5 rad, but that foot slid inward from x2.006 to x1.415 instead of lifting.
-This is not walking. Actual poses/contact traces and three GPU images are in
-`build/blockwalker-biped/`, with runner `build/blockwalker-biped-browser.mjs`.
-The measurements were sent through the real Pi prompt; it is continuing the
-biped experiment after the preserved-history runtime update.
+**Sidelight XXVIII — measured-motion landing damper** has 29 parts and ten
+powered hinges. Actual Pi developed it through standing, single support, swing,
+landing and alternating-transfer experiments. The first successful compact
+source is 10460 characters, preserved in `build/blockwalker-repeat-seed.json`.
+The local default image now includes it as **Sidelight - two-legged walker**
+at (60,-50), with all prior 49 catalog entries unchanged.
 
-At 22:29 UTC Pi had built taller Sidelight IV with greater shoulder/ankle
-clearance. Released-key standing passed; its first active COM loop rocked, so
-it is testing quiet standing before applying weight transfer. No biped has been
-released or bundled yet.
+| Check | Measured result |
+| --- | --- |
+| Independent unchanged 90 s practice | L–R–L–R landings at 19.550, 42.600, 63.817 and 85.067 s; torso travel 0.79589 m, COM travel 1.06428 m |
+| Actual physical foot placement | 1.400–2.083 s supported airborne spans; 0.315–1.119 m maximum clearance; 0.355–1.052 m forward foot advance; all landings up>0.98 |
+| 240 s populated world | 13 lifts, 12 alternating upright landings, torso travel 4.29367 m, minimum up=0.983106, maximum stance slip 0.15846 m |
+| Populated persistence | All 50 objects/1374 parts survived; IDs, poses, controller sources and memory restored exactly before the next frame |
+| Fresh packaged image | 50 objects/1374 parts, zero removals/model requests, original source/blueprint, all 50 identities retained on reopen |
 
-Independent Sidelight VI replay verified actual single support: at 20 seconds,
-left foot nine contacts, right foot zero, right sole minimum clearance 0.76955 m,
-root up=0.997513. All sampled states from 18.7167 through 20 s had planted left
-support, right clearance over 0.15 m and up over 0.99 (1.2833 s sampled span).
-The unchanged Pi blueprint has 37 parts; lighter articulated segments overcame
-the earlier torque limitation. Three actual GPU frames and poses are in
-`build/blockwalker-biped-lift/`, including `proof.json`. Alternating support and
-walking remain unproven; Pi is developing Sidelight VII. Its request 389 was
-still active at 22:43 UTC, with request 388 completed and world frames advancing.
-Do not abort/restart solely because inference is long.
+Rotated box-corner poses establish actual clearance independently of the
+controller's own score. The first physical landing is valid despite its stricter
+internal rejection. Source is unchanged; blueprint equality accounts for C
+float32 storage. No physics tuning, hidden balance assistance or anchoring was
+introduced. The gait is slow: later placements settle near 17.5 s apart.
 
-The separate 90-second Sidelight VII replay kept all 46 objects/1248 parts alive.
-The first support qualified for 1.567 s and landed. During the mirrored lift,
-the left sole cleared 0.896 m at 30.82 s, but the right sole rolled 0.254 rad
-onto three contacts, with COM 1.45 m left of its center. It aborted at 31.47 s
-and stalled in landing phase 4 through 90 s. Final sole rolls were 0.215/0.395
-rad, three contacts each; right correction saturated at +0.4. One completed
-transfer is not sustained walking. Poses, controller memory, three GPU frames
-and proof are in `build/blockwalker-biped-support/`. The instrumented run took
-130 wall seconds; do not treat it as normal rendering performance. The findings
-were queued through Pi's normal steering input without aborting inference.
+Evidence and three timed GPU images per physics replay:
+`build/blockwalker-repeat-trial/`, `build/blockwalker-biped-world/` and
+`build/blockwalker-biped-checkpoint/`. Their matching browser/check scripts and
+logs reproduce the runs inside Dolly. The image build took 20.8 s and produced
+231885791 bytes (SHA prefix 29aec82041b76b9c). Current source pins are in the
+Dollyfile/module. Guard the complete test tree with 4 GiB/no swap.
 
-Request 389 eventually ended with `Browser HTTP transport failed`; the existing
-retry resumed normal tools without a browser restart. By the 22:49 UTC mirror,
-Pi was testing Sidelight VIII with narrower hips. The full history remains saved
-(315,183,322 bytes); this single transport failure's cause is not established.
+Pi released exact original source/blueprint as live ID 62 at (60,-50). It
+walked 4.09964 m over 226.717 s before the checkpoint, staying upright, with all
+52 earlier objects unchanged. The updated `blockwalker-sidelight` session
+preserves 53 objects/1390 parts and the full 337,244,715-byte native history.
+All five files matched after import; world/history hashes matched inside Dolly,
+and the real session compatibility check passed. Actual Astra/xhigh continuation
+and the advancing-world backup preserve every old ID/source and the entire
+history prefix. Evidence: `build/blockwalker-walking/sidelight-*-proof.json`.
 
-The new 90-second practice replay exposed Sidelight IX's later fall: up=0.99944
-at 20 s, below 0.9 at 55.12 s, and below zero at 58.73 s. Joint separation
-stayed under 0.0182 m. After the fully preserved runtime migration, actual Pi
-repeated the 90 s trial and independently reported the same failure. It is now
-testing Sidelight X with direct torso-attitude feedback. The source-only trial
-extension and missing practice-memory diagnostics have tasks 080300/080400.
+The first biped checkpoint is complete. Faster sustained walking continues in
+[its separate issue](../20260915-102900-codex-01/TASK.md); the broader timed goal
+remains active until 22:00 JST.
 
-The packaged 90 s Sidelight XI replay stayed upright (minimum up=0.91824,
-final=0.99709), with maximum joint separation 0.01026 m. New practice-memory
-inspection exposed the failure directly: only 0.383 s qualified support,
-zero completed cycles, lift aborted at 15.933 s, landing timed out at 22.95 s,
-then terminal recovery phase 6 from 34.95 s. Maximum forward excursion was
-0.194 m; the 1.147 m final displacement is mainly lateral. This is not walking.
-Evidence: `build/blockwalker-memory-trial/` contains unchanged source, full
-poses, 89 bounded memory snapshots and three actual GPU frames. Live Pi reached
-Sidelight XII before the tool-update checkpoint; no biped is bundled yet.
+## Faster candidate, still separate
 
-A separate 90 s Sidelight XII replay reproduced its exact final pose metrics:
-up=0.9986781, displacement=4.48666 m, maximum joint separation 0.007437 m.
-Maximum forward excursion was only 0.511 m. By 10 s both soles had rolled onto
-three contacts. At 20 s right sole roll was -0.07784 rad while root roll was
--0.01449; the knees had never entered the programmed swing. Pi independently
-trimmed only its diagnostic logs and reproduced the same motion. Its actual
-new tool result exposed transfer timeout at 23.85 s and terminal recovery at
-45.867 s, with zero support/lift cycles. Numerical findings were queued without
-aborting inference; next focus is loaded sole leveling during weight transfer.
-`build/blockwalker-damped-trial/` contains poses, memory samples, three GPU images,
-`proof.json` and the actual Pi tool result in `pi-trial-proof.json`. The original
-large logs exceeded the 8 KiB snapshot after 9.32 s; Pi's compact version fits.
+Independent unchanged **XXXI — moderated forward transfer** completed five
+L–R–L–R–L placements in 90 s at 19.550, 37.933, 54.483, 69.583 and 84.083 s.
+Supported airborne spans were 0.867–1.467 s, maximum clearances 0.207–1.119 m,
+and foot advances 0.440–0.942 m, all upright. Minimum up=0.980949, final
+up=0.999921, maximum stance slip=0.127904 m. Torso travel was 1.68232 m versus
+XXVIII's 0.79589 m. Source and blueprint are unchanged.
 
-Actual Pi trials then reached transfer at 6.817 s in XIV and 0.50 s qualified
-support. XV's measured sole-orientation feedback restored quiet standing after
-failed lifts, instead of persistent edge rocking. XVI reached 0.517 s support
-in a targeted 32 s run. XVII reached 0.867 s support but fell during landing
-(final up=-0.697 at 32 s). None completed a qualified cycle. The actual tool
-results are in the 23:49 UTC native/event mirror; Pi is continuing its next
-revision. The independent XII poses also measured up to 1.88 degrees of finite
-angular deflection at a nominally rigid sole/ankle weld. This and guidance to
-use shorter transfer comparisons before longer gait verification were queued
-through the normal prompt without interrupting inference.
+The longer populated replay **failed**. At (80,-50), XXXI first aborted a swing
+at 95.2 s, fell below up=0.9 at 142.317 s and was removed for posture at 172.0 s.
+Maximum stance slip reached 0.66795 m; it scored four steps, then lost progress
+through unscored transfers. The original alongside remained upright with nine
+physical landings and 2.84939 m forward travel at 172 s. The 50 other objects
+survived. Do not promote the faster candidate. This run measures survival and
+motion, not ordinary rendering performance (dense world saves took 270 wall s).
 
+`build/blockwalker-fast-world/failure-proof.json`, poses and two pre-failure GPU
+images retain the failure. The browser assertion correctly rejected removal
+before 240 s; no persistence claim is made for the failed candidate. The 90 s
+practice evidence and three images remain in `build/blockwalker-fast-trial/`.
+Late-failure findings are included in the resumed Pi prompt.
 
-## Landing comparison, 09:21 JST
+## Earlier findings
 
-XX/XXI reached actual touchdown at 10.583 s after 0.367 s qualified single-foot
-support. XXI held a stationary edge-supported pose (up=0.988819 at 28 s), but
-completed no gait cycles. XXII's differential hip correction instead lifted the
-landed foot again and tipped the torso. The independent unchanged 32 s replay
-and actual resumed Pi tool produced the same final up=-0.554680, displacement
-5.495 m and zero cycles. Its first failure is catch timeout at 22.6 s. Dense
-poses show hip targets continuing to integrate toward their limits.
+Quiet standing, foot sliding and one successful transfer did not establish
+walking. Earlier versions fell during touchdown or stalled in recovery. Actual
+finite angular flex along the loaded chain displaced the sole by up to 0.849 m
+relative to ideal measured-angle kinematics. A temporary 120 Hz constraint
+comparison reduced flex but regressed boat navigation; the
+[stiffness issue](../20260915-093700-codex-01/TASK.md) retains the evidence and
+unchanged 60 Hz defaults. Successful landing instead came from measured-motion
+feedback and coordinated leg geometry.
 
-A controlled comparison changes only the caught-phase hip-feedback direction.
-Identical sampled initial physics is verified; final up improves to 0.557595,
-but it still completes zero cycles and saturates hip targets at +0.734/-1.05 rad.
-Thus reversing the sign alone does not fix landing. The actual Astra/xhigh Pi
-received these measurements through normal steering input and is developing
-coordinated leg geometry for touchdown and subsequent weight transfer. Contact
-counts remain diagnostics; stable heel/toe support is valid, but repeated actual
-foot lifts and forward steps are still required. No biped is bundled.
-
-Evidence: `build/blockwalker-landing-{trial,reverse}/` contains unchanged source,
-full poses, bounded memory snapshots and three timed GPU images per run. The
-baseline physics completed all 1920 steps; its initial harness incorrectly
-expected 315 memory samples. Frame batching produced 300, with a measured maximum
-gap of nine steps. Coverage and source equality verified on the saved artifact;
-the revised bounded-gap check passed in the reversal browser run. This harness
-correction changes no physics or walking criteria.
-
-
-XXIII stayed upright for 32 s but dragged the advancing foot, so Pi counted no
-steps. XXIV's measured-hip reach calculation then produced an actual airborne
-forward swing. The independent unchanged 90 s replay completed all 5400 steps
-in 90.022 wall seconds. Exact rotated box-corner bounds confirm left clearance
-above 0.15 m, right ground contact and up>0.98 from 13.183 to 14.633 s, with
-maximum clearance 0.910 m. Foot advance at touchdown (16.75 s) is 0.654 m.
-
-Landing still fails: maximum stance slip grows from 0.057 m near 15.98 s to
-0.747 m at touchdown. Up falls below 0.9 at 19.517 s; terminal recovery starts at
-34.783 s and final up is -0.708962. Zero completed steps. At touchdown desired
-root X was 3.035 versus actual 2.508; thereafter actual X moves right while the
-target retreats left. The measured transition failure was queued to Pi without
-aborting inference. `build/blockwalker-reach-trial/` preserves poses, 175 memory
-snapshots, three GPU frames and proof. Focus short next comparisons on landing;
-repeat longer trials after the transition improves.
-
-
-XXV's independent 32 s replay now lands stably: final up=0.999997, minimum
-up=0.97750 and stance slip 0.09583 m. The advancing foot scrapes for 0.383 s and
-ends 0.0396 m behind its start, so it completes no step. `build/blockwalker-replant-trial/`
-contains poses, three GPU frames and proof. Ideal commanded-angle kinematics
-usually reaches the swing target within 2–6 cm, but actual angular deflection
-accumulates along the loaded chain; findings were delivered to Pi. The
-[stiffness comparison](../20260915-093700-codex-01/TASK.md) retains the current
-solver after finding a regression in the survey boat.
-
-Pi's XXVII and XXVIII improve the landing handoff, reduce stance slip and begin
-the opposite transfer even when the stricter score rejects a stable landing.
-The actual XXVIII 90 s tool reports four alternating lifts and settled landings,
-three scored steps, minimum up=0.97366, forward torso travel 0.796 m and COM travel
-1.064 m. Maximum stance slip is 0.154 m. This is the first repeating biped candidate;
-its independent unchanged replay now confirms the motion. It remains slow and unreleased.
-Preserve this successful source while improving whole-cycle travel, and check
-the physical poses independently of its own score.
-
-
-The independent XXVIII 90 s replay exactly matches Pi's final pose metrics:
-up=0.99999356, forward torso travel 0.79589 m, COM travel 1.06428 m and maximum
-joint separation 0.007586 m. Actual rotated box-corner poses verify L–R–L–R
-placements at 19.550, 42.600, 63.817 and 85.067 s. Each foot was fully clear by
-at least 0.15 m while the other contacted terrain and root up exceeded 0.98;
-longest sampled support spans were 1.467, 1.600, 1.400 and 2.083 s. Actual foot
-centroid advances were 0.440, 0.355, 0.551 and 1.052 m, with upright landings.
-The first placement is physically real despite its stricter internal rejection.
-`build/blockwalker-repeat-trial/proof.json`, poses and three GPU frames retain
-the evidence. The source is `build/blockwalker-repeat-seed.json`.
-
-Pi's XXVIII-R adds only a repetition ledger and reproduces the same motion. It
-reports 56 s spent in weight transfer and is testing XXIX with the forward
-balance target following the incoming stance foot. Preserve the verified XXVIII
-source while improving speed. A 240 s shared-world replay at (60,-50), followed
-by exact save/reopen checks, is currently running through
-`build/blockwalker-biped-world-browser.mjs` (log and artifact directory of the
-same name). Fresh 49 objects plus the biped; the live world is unchanged.
+The detailed experiment chronology and artifact names remain at
+`d4371a1:tasks/20260915-070100-codex-01/TASK.md`. Keep failed variants and full Pi
+history; improve the successful gait as a separate version.
