@@ -109,5 +109,28 @@ try {
  assert(saved.creatures.some(c=>c.anchored)&&saved.creatures.find(c=>c.name==='Harbor boat').blueprint.every(p=>p.material===1),'anchoring and hull materials persist');
  fs.writeFileSync('/workspace/blockwalker-integration.json',JSON.stringify({embedded:true,pngBytes:png.length,steps:after.steps,parts:after.parts,population}));
  Game.call('open_design',{id:examples.find(d=>d.sea&&!d.anchored).id});Game.call('reset');assert(Game.call('state').sea,'reset keeps the water surface selected by a saved boat');
+ await checkContactForces();
  console.log('BLOCKWALKER EMBED CHECK: direct C calls, GPU PNG, timed keyboard, paused inference, shared world, controller timeout, survivors, persistence');
 }finally{clearInterval(timer);Game.call('exit');}
+
+async function checkContactForces(){
+ const sum=a=>a.reduce((s,x)=>s+x,0),advance=async(keys,steps)=>{Game.call('advance',{keys,steps});while(Game.call('state').remaining)await sleep(20);return Game.call('state');};
+ Game.call('enable',true);Game.call('build',{parts:[{x:0,y:0,z:0,parent:-1,joint:0}]});Game.call('reset',{sea:false});
+ const falling=await advance('',6);assert(sum(falling.sensors.supportForce)===0&&sum(falling.sensors.selfContactForce)===0,'free fall has no collision force');
+ const weight=falling.sensors.mass*4,readings=[];
+ for(const hz of [10,60]){
+  Game.call('install',{name:'Contact sensor check',hz,source:'function(t,s,m){if(t>.5){m.force=(m.force||0)+s.supportForce[0];m.samples=(m.samples||0)+1;}return "";}'});
+  Game.call('program_trial',{steps:120,sea:false});while(Game.call('state').remaining)await sleep(20);
+  const memory=Game.call('installed_program').memory,force=memory.force/memory.samples;readings.push({hz,force,weight});
+  assert(Math.abs(force-weight)<weight*.05,'settled support equals weight at either controller frequency: '+JSON.stringify(readings));
+ }
+ const arm=[{x:0,y:0,z:0,parent:-1,joint:0},{x:0,y:1,z:0,parent:0,joint:0},{x:0,y:2,z:0,parent:1,joint:1,axis:2,negative:81,positive:65,force:30},{x:1,y:2,z:0,parent:2,joint:0},{x:1,y:1,z:0,parent:3,joint:0}];
+ Game.call('build',{parts:arm,anchored:true});Game.call('reset',{sea:false});let selfPeak=0,supportAtPeak=0;
+ for(let i=0;i<12;i++){const s=(await advance('Q',10)).sensors,force=Math.max(...s.selfContactForce);if(force>selfPeak){selfPeak=force;supportAtPeak=sum(s.supportForce);}}
+ assert(selfPeak>1&&supportAtPeak<.01,'anchored arm pressing its own blocks reports self force without outside support');
+ const beam=[{x:-2,y:1,z:0,parent:-1,joint:0},{x:-1,y:1,z:0,parent:0,joint:0},{x:0,y:1,z:0,parent:1,joint:0},{x:0,y:0,z:0,parent:2,joint:0}];
+ Game.call('build',{parts:beam});Game.call('reset',{sea:false});Game.call('cargo',{x:-2,y:.5,z:0});const supported=await advance('',180);
+ assert(supported.sensors.supportForce[0]>.1&&sum(supported.sensors.selfContactForce)<.01,'a separate dynamic crate supports the cantilever without self force');
+ const result={readings,selfPeak,supportAtPeak,dynamicSupport:supported.sensors.supportForce,beamMass:supported.sensors.mass};
+ fs.writeFileSync('/workspace/blockwalker-contact-sensors.json',JSON.stringify(result));console.log(JSON.stringify(result));
+}

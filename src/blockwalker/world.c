@@ -98,6 +98,7 @@ static JSValue magnet_state(JSContext *ctx,const Physics *p,const Character *c){
 }
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt){
     JSValue s=JS_NewObject(ctx),angles=JS_NewArray(ctx),rates=JS_NewArray(ctx),touching=JS_NewArray(ctx),positions=JS_NewArray(ctx),submerged=JS_NewArray(ctx);
+    JSValue support=JS_NewArray(ctx),self_contact=JS_NewArray(ctx);b3ContactData *contacts=NULL;int contact_capacity=0;
     Vector3 position;Quaternion q;physics_pose(p,c,0,&position,&q);Quaternion inverse=QuaternionInvert(q);
     put_number(ctx,s,"x",position.x);put_number(ctx,s,"y",position.y);put_number(ctx,s,"z",position.z);put_number(ctx,s,"dt",dt);
     put_number(ctx,s,"ground",p->landscape?terrain_height(position.x,position.z):0);
@@ -116,8 +117,22 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
         JS_SetPropertyUint32(ctx,positions,i,vector(ctx,(Vector3){pos.x,pos.y,pos.z}));
         JS_SetPropertyUint32(ctx,submerged,i,JS_NewFloat64(ctx,p->parts[i].submerged));
         JS_SetPropertyUint32(ctx,angles,i,JS_NewFloat64(ctx,p->parts[i].angle));JS_SetPropertyUint32(ctx,rates,i,JS_NewFloat64(ctx,p->parts[i].rate));
-        b3ContactData contact;JS_SetPropertyUint32(ctx,touching,i,JS_NewBool(ctx,b3Body_GetContactData(body,&contact,1)>0));
+        int required=b3Body_GetContactCapacity(body);
+        if(required>contact_capacity){contact_capacity=required;contacts=array_resize(contacts,contact_capacity,sizeof(*contacts));}
+        int count=required?b3Body_GetContactData(body,contacts,contact_capacity):0;double support_force=0,self_force=0;
+        for(int j=0;j<count;j++){
+            b3ContactData *contact=&contacts[j];b3BodyId a=b3Shape_GetBody(contact->shapeIdA),b=b3Shape_GetBody(contact->shapeIdB);
+            int is_a=B3_ID_EQUALS(a,body),own=b3Body_GetUserData(is_a?b:a)==p->parts;
+            for(int k=0;k<contact->manifoldCount;k++){
+                const b3Manifold *manifold=&contact->manifolds[k];double force=0;
+                for(int n=0;n<manifold->pointCount;n++)force+=480*manifold->points[n].normalImpulse;
+                if(own)self_force+=force;else support_force+=fmax(0,(is_a?-1:1)*manifold->normal.y)*force;
+            }
+        }
+        JS_SetPropertyUint32(ctx,touching,i,JS_NewBool(ctx,count>0));
+        JS_SetPropertyUint32(ctx,support,i,JS_NewFloat64(ctx,support_force));JS_SetPropertyUint32(ctx,self_contact,i,JS_NewFloat64(ctx,self_force));
     }
+    free(contacts);JS_SetPropertyStr(ctx,s,"supportForce",support);JS_SetPropertyStr(ctx,s,"selfContactForce",self_contact);
     put_number(ctx,s,"mass",mass);JS_SetPropertyStr(ctx,s,"centerOfMass",vector(ctx,Vector3Scale(center,mass>0?1/mass:0)));
     JS_SetPropertyStr(ctx,s,"angles",angles);JS_SetPropertyStr(ctx,s,"rates",rates);JS_SetPropertyStr(ctx,s,"touching",touching);JS_SetPropertyStr(ctx,s,"positions",positions);JS_SetPropertyStr(ctx,s,"submerged",submerged);JS_SetPropertyStr(ctx,s,"magnets",magnet_state(ctx,p,c));return s;
 }

@@ -64,3 +64,27 @@ entire374481137-byte native history prefix (now381693874 bytes). Live#67 was
 upright at3346.483 s with232 scored placements,31 reversals and no aborts.
 `build/blockwalker-walking/arms-progress-proof.json` verifies preservation,
 actual Astra/xhigh requests and receipt of the complete contact report prompt.
+
+## Spacer and attitude experiments
+
+Symmetric spacers added two light boxes (.456 kg), yielding37 parts/16 joints.
+Standing#74 passed5 s with no arm contact flags and conservative arm-floor
+clearance above4.57 m. Walking#75 failed for posture at230.35 s after13
+alternating landings, seven scored steps and eight aborts. Its first arm contact
+flag appeared at228.8 s during the fall; this supports, but does not independently
+prove, the clearance fix. The added supporting-hip attitude term in#76 made
+things worse: posture failure at81.25 s after two scored steps. All exact saved
+bodies/controllers and complete results remain in `build/blockwalker-arms-*`.
+
+Pi's next matched experiment holds the arms neutral on#75. A verified C update
+now also exposes per-part support/self-contact force estimates; see the
+[sensor issue](../20260915-163200-codex-01/TASK.md). Earlier contact reports use
+Box3D's raw `totalNormalImpulse` solver accumulator. It establishes nonzero
+contact, but its value is not net momentum change integrated over a tick.
+
+The new live session `blockwalker-forces` preserves all53 live creations and76
+designs, with full384715559-byte native history verified before resuming. At
+the saved checkpoint live#67 was upright at4452.4 s (74.2 min),308 scored
+placements,41 reversals and zero aborts. The948-character continuation prompt
+resumes the quiet-arm comparison, then force-informed tuning; actual Astra/xhigh
+requests resumed at07:53:38 UTC. No arm body has been released or promoted.
