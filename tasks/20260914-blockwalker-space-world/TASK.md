@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 16:07 JST
+## Current checkpoint — 2026-09-15 16:28 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. No push/deploy/merge authorization. Continue until
@@ -56,13 +56,18 @@ ephemeral test/build browser remains. Do not repeat these tests without a change
 Actual Astra/xhigh Pi released exactly one unchanged#62 as world **#67**, at
 (55,-85), seed6701, preserving all52 prior live objects and14 removal records.
 At the paused checkpoint it was upright at146.067s. The live world is53 objects/
-1390 parts; all65 prior library designs remain (67 including bundled aliases). Latest exported workshop is **Patrol VIIIb**, library#69. The backward-first
-#65 completed300s with two rejected steps and worse bounds. VIIIb reshapes the
-feet but recorded six rejected steps and1.47m foot-centroid drift; keep both
-experimental. Sources/results are in the tighter bounds/contact issue.
-Patrol VI/library#64 privately passed300s with20 placements, four reversals,
-no aborts and root range[-1.469,1.443]m; it still needs independent world checking.
-Keep all experiments. [Patrol issue](../20260915-141200-codex-01/TASK.md).
+1390 parts. All65 archived designs remain, with73 saved variants at the07:23
+export. Live#67 reached3046.483s (50.8 min), upright,211 controller-scored
+placements,28 reversals and no aborts. These later counters are not a new
+independent geometry audit. Latest experiments extend exact#62 with articulated
+arms; see the [arms issue](../20260915-160000-codex-01/TASK.md).
+
+The tighter-patrol experiments remain unpromoted. Library#64 passed its private
+300s run but independently exceeded the requested bound at+1.6307m over600s.
+Its41 physical placements/seven reversals had no aborts or falls. Library#65's
+backward-first start worsened bounds; reshaped-foot#69 completed300s with six
+abort-counter events and1.47m centroid drift. All are saved. See the
+[bounds/contact issue](../20260915-153500-codex-01/TASK.md).
 
 Straight live walkers#64/#65/#66 fell naturally after144.07/77.54/32.34 minutes.
 #64 reached the sea; #65/#66 initiating causes remain unknown. Designs and
@@ -87,13 +92,24 @@ Pi received those results and the next [arms task](../20260915-160000-codex-01/T
 starting from verified#62 and preserving the failed foot experiments. Current
 steering scripts are blockwalker-{reserved-results,arms}-steer.mjs; do not rerun
 the old834-character-prompt equality check against later configuration.
-At the07:03 export, live#67 was upright at1866.333s (31.1 minutes),129
-controller-scored placements,17 reversals and no aborted steps. All53 archived
-creations and65 prior designs remain. Native history377366077bytes preserves
-the full374481137-byte prefix; arms-start-proof.json verifies this and receipt
-of the complete878-character arms request. Pi had restored library#64 after
-VIIIb; the arm request is queued as its next creative milestone. No arm body
-was verified at this checkpoint. No new physics sensor or engine change was made.
+Pi's first arm body#71 passed a5s standing check. Walking version#72 stayed
+upright for300s but had three aborts and .462m maximum controller stance drift.
+A separate90s C diagnostic confirmed hand/hip contacts up to2.995Ns; no sampled
+arm-ground or dynamic external impulses. Handle3259 is terminal0 and its4GiB
+scope inactive; evidence is in blockwalker-arms-collision-world/. Raised
+forward/aft variant#73 tipped in practice. No arm body has been released.
+Pi received737characters of measured contact data and is now building symmetric
+outward shoulder spacers (37 parts/16 joints). Prepared helpers
+blockwalker-arms-{browser,check,reopen}.mjs and arms-analysis.py are for the
+required300s independent successor check; they have NOT been run and need an
+exact normalized seed in blockwalker-arms-current-seed.json. All original
+foot indices10..15/23..28 must remain unchanged for that analysis.
+
+No new production physics sensor, engine change or image rebuild occurred in
+this arm iteration. Do not use __dolly.visibleTerminalText() as a periodic
+observer during graphical apps: it synthesizes mouse input. Use screenshots.
+The executed old tighter-patrol helper is preserved separately with the
+-terminal-poll suffix; future helpers have no such timer.
 
 ### Owned services and recovery
 
