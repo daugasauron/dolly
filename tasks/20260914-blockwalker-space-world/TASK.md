@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 09:21 JST
+## Current checkpoint — 2026-09-15 09:29 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -35,16 +35,17 @@ pause, runaway, native and browser checks. Full-world restore preserved every
 pose, controller memory, tick count and three magnetic attachments.
 
 The latest user priority is [a two-legged walker](../20260915-070100-codex-01/TASK.md).
-Pi's preserved workshop is **Sidelight XXII — differential-hip landing balance**.
+Pi's latest inspected workshop is **Sidelight XXIV — measured-hip lift before swing**.
 Independent trials verified a lifted foot and planted support for 1.2833 s in
 Sidelight VI, but later designs still struggle to land and repeat. VII stalled
 at 31.47 s; IX fell after 55 s; XI stayed upright for 90 s but stopped its cycle
 at 34.95 s. XIV reached transfer at 6.82 s; XV recovered quiet standing with sole feedback;
-XVII held qualified support for 0.867 s but fell during landing. XXII replayed
-identically in Pi and independently, then fell after touchdown. Reversing only
-its hip-feedback direction also failed; Pi is working on coordinated leg
-geometry. No biped is
-bundled or claimed to walk. Fresh tools now expose bounded
+XVII held qualified support for 0.867 s but fell during landing. XXIV now lifts
+and advances a foot 0.654 m before touchdown, with 1.45 s of independently
+verified support and clearance above 0.15 m. Stance slip increases to 0.747 m
+at touchdown; the torso falls and no steps complete. Pi has the measured
+transition failure for its next revision. No biped is bundled or claimed to walk.
+Fresh tools now expose bounded
 practice memory and accept 90 s trials so Pi can inspect the actual transitions.
 
 The 00:05 UTC checkpoint preserves the full 324,538,688-byte native history and

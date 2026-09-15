@@ -129,3 +129,20 @@ expected 315 memory samples. Frame batching produced 300, with a measured maximu
 gap of nine steps. Coverage and source equality verified on the saved artifact;
 the revised bounded-gap check passed in the reversal browser run. This harness
 correction changes no physics or walking criteria.
+
+
+XXIII stayed upright for 32 s but dragged the advancing foot, so Pi counted no
+steps. XXIV's measured-hip reach calculation then produced an actual airborne
+forward swing. The independent unchanged 90 s replay completed all 5400 steps
+in 90.022 wall seconds. Exact rotated box-corner bounds confirm left clearance
+above 0.15 m, right ground contact and up>0.98 from 13.183 to 14.633 s, with
+maximum clearance 0.910 m. Foot advance at touchdown (16.75 s) is 0.654 m.
+
+Landing still fails: maximum stance slip grows from 0.057 m near 15.98 s to
+0.747 m at touchdown. Up falls below 0.9 at 19.517 s; terminal recovery starts at
+34.783 s and final up is -0.708962. Zero completed steps. At touchdown desired
+root X was 3.035 versus actual 2.508; thereafter actual X moves right while the
+target retreats left. The measured transition failure was queued to Pi without
+aborting inference. `build/blockwalker-reach-trial/` preserves poses, 175 memory
+snapshots, three GPU frames and proof. Focus short next comparisons on landing;
+repeat longer trials after the transition improves.
