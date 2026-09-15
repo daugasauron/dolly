@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 14:04 JST
+## Current checkpoint — 2026-09-15 14:26 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. No push/deploy/merge authorization; continue until
@@ -45,7 +45,7 @@ C compiled inside Dolly; no host C build or authority change. App-only build
 and [word-wrapped trace panel](../20260915-122100-codex-01/TASK.md) are packaged.
 Actual Pi already saved XL as library #45 before opening Sidelight II #44.
 
-The live world has **54 objects/1419 parts** and eleven removals. Actual Pi
+At the previous packaged checkpoint, the live world had **54 objects/1419 parts** and eleven removals. Actual Pi
 saved current XLI as library #46, opened verified Sidelight II #44 and released
 exactly one copy as **#65**, seed6501, at (75,-85). At the 04:22 UTC snapshot,
 #65 was upright at age65.983 s, with1.1308 m forward travel, three scored steps
@@ -88,17 +88,51 @@ pre-update prefix and all54 earlier creations were verified. New proofs:
 The backup monitor is now467108. Its live app overrides persist in the named
 session; public image/dollyfile pins still point to39e1971.
 
-Actual Pi's#55 XLIV longer-reach biped completed300s:9.278mforward,18 alternating
-scored landings,no aborts,minUp .98721004. Its saved source is exact in
-`build/blockwalker-longreach-seed.json`. A separate guarded browser is testing
-300s in a52-object world with temporary C contact/pose diagnostics; runner
-`build/blockwalker-longreach-browser.mjs`,handle27789,scope
-run-r239753e14f9b46be902e024edf35b616.scope,510s timeout. Do not start another
-test browser while it runs. Analysis is`build/blockwalker-longreach-analysis.py`.
-Pi has saved#57 XLV,testing quicker weight transfer; wait for measured results.
-At the pre-update snapshot,original#64 remained upright at5650.9s,120.48m
-forward;#65 at1879.78s,48.74mforward,no aborts. These are continued simulation
-observations,not a claim that every later foot placement was remeasured.
+The cleaner-stride task is now closed. Source catalog adds **Sidelight III -
+long-step biped**, the exact measured XLIV/library#55 controller and body at
+(80,-85). All51 older catalog entries are unchanged: source now52/1432 parts,
+packaged image still51/1403 at39e1971. **Do not claim the new source is packaged.**
+Next image checkpoint must regenerate source/module/image pins and build the
+image, including5a24f9c's practice update and the new biped.
+
+The corrected world test finished300s:9.312mforward versus Sidelight II7.208m,
+18 physical alternating placements,no deaths,and exact52-object reopen.
+Each placement had supported airborne forward travel in sampled zero-impulse
+windows. Contacts were sampled about every.1s,not every physics tick.
+The comparable90s opposite-leg impulse sample counts are9/91 versus II76/135;
+some rubbing remains. Source/body,old creations and all restored states match.
+Evidence:build/blockwalker-longreach-clear-world/{proof,contact-comparison}.json,
+15MiB report and three GPU images. The guarded browser86127 is terminal0;
+no test browser remains. Instrumented runtime319.974s.
+
+First attempt27789 is terminal1: the fixture accidentally reused Sidelight II's
+(80,-50) spawn,entangling the bodies (forward-.009m); its raw contact export
+also exceeded the64MiB file cap. Corrected test uses(80,-85),initial clearance
+assertion,compact real impulses and48MiB output chunks. Original failed log
+and picture remain under blockwalker-longreach-world*. Source tar for that
+diagnostic test contains the older51-entry catalog plus one explicit test spawn;
+do not accidentally spawn another body on the new source catalog's reserved
+(80,-85) location when adapting tests.
+
+Actual Pi released exactly one unchanged#55 copy as **#66**,seed6601 at(55,-85),
+then restored#58. The saved observation at age134.63s shows eight scored steps,
+3.468mforward,up .999994 and no aborts. Current live population **55/1448 parts**,
+eleven historical removals; all54 older creations retained. Native history
+366490493bytes retains the whole362960038-byte pre-update prefix. Proof:
+build/blockwalker-walking/longreach-release-proof.json.
+
+Pi has the next [reversible patrol task](../20260915-141200-codex-01/TASK.md).
+The871-character patrol prompt and727-character validated-release instruction
+were sent through the visible Pi panel. A final precision note clarifies contact
+sampling and requests no more releases; verify later config against the actual
+sent note rather than an older prompt.
+#57 XLV achieved10.250m/300s,21 landings but more transfer-foot displacement.
+#58 XLVI achieved10.262m/300s,20 landings,only14 with its clean-forward criterion.
+Both are saved; Pi plans to branch patrol from#57's slower outward adjustment.
+Exact host seeds:build/blockwalker-{longreach,faster-transfer}-seed.json.
+The original#64 was still upright at6511.12s (138.88mforward,371 scored,one abort);
+#65 at2740s (71.42mforward,166 scored,no aborts),at the05:11UTC snapshot.
+These ongoing controller counts are not a fresh geometry audit of every step.
 
 A helper's duplicate download consumers closed an earlier browser with an
 unhandled ENOENT. The recovery was repeated, saving BEFORE the proof download
