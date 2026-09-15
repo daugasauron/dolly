@@ -31,5 +31,30 @@ only the first step or accept a controller's own score as physical proof. A
 short practice pass must be followed by at least 300 s in the populated world,
 with repeating airborne forward placements, stable torso attitude, bounded
 stance slip and useful cumulative travel. Preserve exact controller source and
-state through save/reopen before bundling a faster successor. The current
-practice tool stops at 90 s, so longer verification presently uses the world.
+state through save/reopen before bundling a faster successor. The practice tool now supports 300 s; see
+[the verified extension](../20260915-103400-codex-01/TASK.md).
+
+
+XXXIII's bounded-reach/sole-spacing controller passed an independent unchanged
+180 s practice run: nine alternating physical placements, 2.91687 m torso and
+3.19105 m COM travel, minimum up=0.979819, final up=0.999988 and maximum stance
+slip=0.119806 m. No recorded abort. The original at the same 180 s has 2.88395 m
+travel, so this is not an established speed improvement. Spacing between the inner foot-box centers along X
+still reaches 0.95612 m; the outward correction does not preserve the initial
+2 m gap. The final two placements have 2.833/1.700 s actual supported airborne
+spans and 0.714/0.641 m foot advances. Evidence: `build/blockwalker-spacing/`.
+The findings were delivered through Pi's prompt without interrupting it.
+
+The 300 s populated-world run and exact reopen passed with 51 objects/1403 parts,
+zero removals and 16 actual alternating placements. XXXIII travelled 4.74551 m,
+minimum up=0.972636, maximum stance slip=0.148518 m. The original alongside
+travelled 5.70929 m. IDs, all poses/velocities, sources and controller memories
+restored exactly. The instrumented run took 489.356 wall seconds; do not treat
+this as ordinary FPS. Evidence: `build/blockwalker-spacing-world/proof.json`.
+
+Actual Pi also completed the 300 s tool with three GPU images and readable
+memory. It then tested reach-cap-only XXXII-L for 300 s: 16 landings, no aborts,
+5.372 m forward and 0.119806 m maximum stance slip. It found no demonstrated
+endurance benefit from the outward spacing correction. Neither is a proven
+speed improvement, so keep both out of the default catalog. The original's
+[later live fall](../20260915-110000-codex-01/TASK.md) is a separate investigation.
