@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 15:40 JST
+## Current checkpoint — 2026-09-15 16:07 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. No push/deploy/merge authorization. Continue until
@@ -56,8 +56,10 @@ ephemeral test/build browser remains. Do not repeat these tests without a change
 Actual Astra/xhigh Pi released exactly one unchanged#62 as world **#67**, at
 (55,-85), seed6701, preserving all52 prior live objects and14 removal records.
 At the paused checkpoint it was upright at146.067s. The live world is53 objects/
-1390 parts; all65 prior library designs remain (67 including bundled aliases). Latest workshop is **Patrol VII**,
-library#65: a backward-first variation whose complete300s practice rerun is active.
+1390 parts; all65 prior library designs remain (67 including bundled aliases). Latest exported workshop is **Patrol VIIIb**, library#69. The backward-first
+#65 completed300s with two rejected steps and worse bounds. VIIIb reshapes the
+feet but recorded six rejected steps and1.47m foot-centroid drift; keep both
+experimental. Sources/results are in the tighter bounds/contact issue.
 Patrol VI/library#64 privately passed300s with20 placements, four reversals,
 no aborts and root range[-1.469,1.443]m; it still needs independent world checking.
 Keep all experiments. [Patrol issue](../20260915-141200-codex-01/TASK.md).
@@ -78,7 +80,20 @@ removals. #67 reached376.183s,25 scored placements,3 reversals, no aborts and
 .018086m maximum stance slip. Pi received the complete834-character prompt
 in patrol-continuation-prompt.txt; patrol-continuation-proof.json records it. Continue
 [the tighter bounds/contact task](../20260915-153500-codex-01/TASK.md); its
-600s independent #64 browser is prepared but not running.
+600s independent #64 browser has finished (95710 terminal0), with41 physical
+placements/seven reversals/no falls but a FAILED bound check (+1.6307m). All
+evidence is in blockwalker-reserved-clear-world/. No test browser remains.
+Pi received those results and the next [arms task](../20260915-160000-codex-01/TASK.md),
+starting from verified#62 and preserving the failed foot experiments. Current
+steering scripts are blockwalker-{reserved-results,arms}-steer.mjs; do not rerun
+the old834-character-prompt equality check against later configuration.
+At the07:03 export, live#67 was upright at1866.333s (31.1 minutes),129
+controller-scored placements,17 reversals and no aborted steps. All53 archived
+creations and65 prior designs remain. Native history377366077bytes preserves
+the full374481137-byte prefix; arms-start-proof.json verifies this and receipt
+of the complete878-character arms request. Pi had restored library#64 after
+VIIIb; the arm request is queued as its next creative milestone. No arm body
+was verified at this checkpoint. No new physics sensor or engine change was made.
 
 ### Owned services and recovery
 
@@ -120,6 +135,8 @@ browser. Save the named session before downloading verification files.
 
 Only one ephemeral browser at a time, entire process tree under4GiB/no swap:
 `systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 timeout --signal=TERM --kill-after=5s 180s xvfb-run -a node test/blockwalker-browser.mjs`.
+Do not call visibleTerminalText during GPU mode: it selects text via pointer
+events and can toggle the game UI. Use screenshots for live observation.
 Never deep-assert image/binary Buffers; use `.equals()` boolean. Keep60Hz physics:
 120Hz reduced flex but regressed boats. No host C builds or new host authority.
 Read [crash handoff](../../docs/crash-handoff.md). An earlier desktop-freeze
