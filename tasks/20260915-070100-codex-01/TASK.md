@@ -101,3 +101,31 @@ revision. The independent XII poses also measured up to 1.88 degrees of finite
 angular deflection at a nominally rigid sole/ankle weld. This and guidance to
 use shorter transfer comparisons before longer gait verification were queued
 through the normal prompt without interrupting inference.
+
+
+## Landing comparison, 09:21 JST
+
+XX/XXI reached actual touchdown at 10.583 s after 0.367 s qualified single-foot
+support. XXI held a stationary edge-supported pose (up=0.988819 at 28 s), but
+completed no gait cycles. XXII's differential hip correction instead lifted the
+landed foot again and tipped the torso. The independent unchanged 32 s replay
+and actual resumed Pi tool produced the same final up=-0.554680, displacement
+5.495 m and zero cycles. Its first failure is catch timeout at 22.6 s. Dense
+poses show hip targets continuing to integrate toward their limits.
+
+A controlled comparison changes only the caught-phase hip-feedback direction.
+Identical sampled initial physics is verified; final up improves to 0.557595,
+but it still completes zero cycles and saturates hip targets at +0.734/-1.05 rad.
+Thus reversing the sign alone does not fix landing. The actual Astra/xhigh Pi
+received these measurements through normal steering input and is developing
+coordinated leg geometry for touchdown and subsequent weight transfer. Contact
+counts remain diagnostics; stable heel/toe support is valid, but repeated actual
+foot lifts and forward steps are still required. No biped is bundled.
+
+Evidence: `build/blockwalker-landing-{trial,reverse}/` contains unchanged source,
+full poses, bounded memory snapshots and three timed GPU images per run. The
+baseline physics completed all 1920 steps; its initial harness incorrectly
+expected 315 memory samples. Frame batching produced 300, with a measured maximum
+gap of nine steps. Coverage and source equality verified on the saved artifact;
+the revised bounded-gap check passed in the reversal browser run. This harness
+correction changes no physics or walking criteria.

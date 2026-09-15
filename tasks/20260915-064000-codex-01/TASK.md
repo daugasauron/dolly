@@ -1,6 +1,6 @@
 # Verify larger survey, walking and submerged cargo machines
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: game,agent,physics
 
@@ -95,3 +95,27 @@ experiment solely for a data update. A changed image recipe also changes saved-
 session compatibility; preserve the whole live history/world through the normal
 verified import workflow when updating that session. The issue stays open until
 the catalog package and its fresh-load behavior are verified.
+
+## Packaged checkpoint, 09:15 JST
+
+The catalog now contains **49 objects/1345 parts**; all original 45 entries
+compare unchanged. The app compiled inside Dolly and packaged in 21.0 s.
+Source archive SHA-256:
+`620e218c4cf98fee3d51bfee71bf98a23a3260606490d9ff170e17ee8b453278`.
+`build/blockwalker-survey-final-build.log` records the build.
+
+The guarded fresh-image browser replay passed with zero removals and all 49
+objects restored after reopening, including separate cargo and its attachments.
+The old 3-second sampler missed Postbird's 2-second release interval: its
+neighboring samples were at 11.4 and 14.05 simulation seconds. Using 30 one-second
+samples keeps the same deliberate wait time and unchanged assertions. The actual
+release is now observed at 11.55, 12.18, 12.68 and 13.27 s. Evidence is retained in
+`build/blockwalker-survey/`, `blockwalker-survey-check-final.log` and the earlier
+`blockwalker-survey-missed-release/` trace. This changes observation frequency,
+not the controller or physics.
+
+The live session was imported into the updated image through the ordinary file
+picker. All five selected workspace files match the archive byte-for-byte;
+world and full native history also match SHA-256 inside Dolly. The compatible
+`blockwalker-survey` session retains all 52 live objects/1361 parts and the entire
+324,538,688-byte conversation. The biped remains an independent open task.

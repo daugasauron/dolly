@@ -19,14 +19,14 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 08:52 JST
+## Current checkpoint — 2026-09-15 09:21 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
 Do not push, deploy or merge this branch without a new request. Continue the
 full goal until 22:00 JST; the checkpoints below do not end the timed work.
 
-Fresh images contain **45 objects/1211 parts**. The live world has **52
+Fresh images contain **49 objects/1345 parts**. The live world has **52
 survivors/1361 parts** and nine earlier removals: six causes unknown and three
 elapsed controller deadlines while upright (Marrowstep 48, Northline 36, Vesper
 40). Marrowstep has replacement ID 59; Northline/Vesper designs remain saved.
@@ -35,22 +35,29 @@ pause, runaway, native and browser checks. Full-world restore preserved every
 pose, controller memory, tick count and three magnetic attachments.
 
 The latest user priority is [a two-legged walker](../20260915-070100-codex-01/TASK.md).
-Pi's 23:49 UTC workshop is **Sidelight XVII — world-fixed swing placement**.
+Pi's preserved workshop is **Sidelight XXII — differential-hip landing balance**.
 Independent trials verified a lifted foot and planted support for 1.2833 s in
 Sidelight VI, but later designs still struggle to land and repeat. VII stalled
 at 31.47 s; IX fell after 55 s; XI stayed upright for 90 s but stopped its cycle
 at 34.95 s. XIV reached transfer at 6.82 s; XV recovered quiet standing with sole feedback;
-XVII held qualified support for 0.867 s but fell during landing. No biped is
+XVII held qualified support for 0.867 s but fell during landing. XXII replayed
+identically in Pi and independently, then fell after touchdown. Reversing only
+its hip-feedback direction also failed; Pi is working on coordinated leg
+geometry. No biped is
 bundled or claimed to walk. Fresh tools now expose bounded
 practice memory and accept 90 s trials so Pi can inspect the actual transitions.
 
-The 23:19 UTC checkpoint preserves the full 318,417,097-byte native history and
-all 52 objects. After the verified tool-image restore, world time advanced from
-28158.9667 to 28159.0667 s and the entire history prefix matched. See the current
-service/recovery section below and `progress.json` for newer observations.
-Do not restart merely because history loading or Astra inference is slow. An
-earlier long request ended with `Browser HTTP transport failed`; Pi's normal
-retry continued without restart, and that single failure's cause is unknown.
+The 00:05 UTC checkpoint preserves the full 324,538,688-byte native history and
+all 52 objects. All five selected files matched after normal file-picker import
+into the new catalog image; world/history hashes also matched inside Dolly, and
+`blockwalker-survey` passed the actual session compatibility check. Pi resumed
+actual Astra/xhigh requests. The 00:19:26 UTC mirror reached world time
+30700.6333 s with all saved IDs/sources intact and no new removals. The entire
+324,538,688-byte history prefix remains unchanged in the growing 325,354,666-byte
+file (`survey-continuation-proof.json`). See the service/recovery section and `progress.json`
+for newer observations. Do not restart merely because history loading or Astra
+inference is slow. An earlier long request ended with `Browser HTTP transport
+failed`; Pi's normal retry continued without restart, and its cause is unknown.
 
 **Cairnwing**, **Vesper** and **Rime** are now bundled after measured fresh-start
 takeoff, 3.8–5.4 m excursions, return/landing and seeded route variation. Rime's
@@ -112,11 +119,13 @@ the basin ledge is recorded separately; that run does not establish reliable
 rough-terrain walking. The [expedition issue](../20260915-064000-codex-01/TASK.md)
 has the measurements and original-source evidence.
 
-The prepared `build/blockwalker-recovery-catalog.json` has 49 objects/1345 parts,
-retaining the first 45. It is **not yet bundled**; batch it with the next app
-checkpoint. Changing the recipe changes session compatibility, so use the normal
-full-file import when updating the live session. All original live creations
-and the complete conversation remain intact. No test browser is still running.
+The **49-object/1345-part catalog is now bundled**, retaining the first 45
+entries unchanged. The guarded fresh-image check passed with zero removals and
+all 49 objects restored on reopen. Its sampler now observes Postbird's brief
+magnet-off delivery interval instead of skipping over it; assertions are
+unchanged. Evidence is in `build/blockwalker-survey/` and the final build/check
+logs. The live world's 52 objects and full conversation were preserved through
+the normal verified import into the new image. The biped is not bundled.
 
 [Population profiling](../20260915-060200-codex-01/TASK.md) reduced C render-tree
 construction from 1.31 to 0.47 ms using median partitioning, with unchanged GPU
@@ -169,9 +178,9 @@ records the first advancing-world checkpoint and matching saved IDs/sources.
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; allows origins 9099 and 19199 |
 | Live browser runner | 17317 | CDP `http://127.0.0.1:9231`, `build/blockwalker-water-live.mjs` |
-| Five-minute backup monitor | 289618 | `build/blockwalker-feedback-monitor.mjs --watch` |
+| Five-minute backup monitor | 316212 | `build/blockwalker-survey-monitor.mjs --watch` |
 
-The session is **`blockwalker-feedback`**, with persistent browser profile
+The session is **`blockwalker-survey`**, with persistent browser profile
 `.cache/blockwalker-browser-20260915`. Run scripts under the `build` symlink with
 `node --preserve-symlinks-main`. Logs use the matching script names under `build`.
 Current screenshots/status: `build/blockwalker-walking/latest.png`, `status.json`.
@@ -184,30 +193,31 @@ script; never print or commit it.
 The monitor mirrors selected files under
 `build/blockwalker-walking/current-state/`: the world, working blueprint, Pi
 config/events and full native session JSONL. It excludes models/auth. The native
-conversation reached **318,417,097 bytes** before the tool update, with
-1,562 valid JSONL entries. Its complete SHA-256 is
-`0a0a56acc6613406f647fc83a92c82e516665b8a0e2c0911bd497fc874ed1989`.
+conversation reached **324,538,688 bytes** before the catalog update, with
+1,619 valid JSONL entries. Its complete SHA-256 is
+`129d4f60c6f57683bf554edf131b82d58e1df747d1827f43f771091dae61bc85`.
 All five selected files matched the archive after file-picker import, and the
-world/history hashes matched inside Dolly. The earlier 315,243,596-byte prefix
-was verified too. Evidence: `feedback-{restore,restored,updated}-proof.json`.
+world/history hashes matched inside Dolly. The earlier 318,417,097-byte prefix
+was verified too. Evidence: `survey-{restore,restored,updated}-proof.json`.
 Startup reads the full native history and can pause frames for minutes; do not
 restart merely because loading is slow.
 
-Latest recovery files are `feedback-state.tar` (319,590,400 bytes),
-`feedback-state.tar.gz` (236,875,656 bytes) and five `feedback-state-XX.part` files
-of at most 48 MiB. They preserve 52 objects/1361 parts at world age 28158.9667 s,
-with nine prior removals. The manifest is `feedback-restore-proof.json`; older
-archives remain available. `build/blockwalker-feedback-restore.mjs` imports the
-files and owned relay config into a fresh image, then saves `blockwalker-feedback`.
+Latest recovery files are `survey-state.tar` (326,553,600 bytes),
+`survey-state.tar.gz` (241,588,041 bytes) and five `survey-state-XX.part` files
+of at most 48 MiB. They preserve 52 objects/1361 parts at world age 30460.0667 s,
+with nine prior removals. The manifest is `survey-restore-proof.json`; older
+archives remain available. `build/blockwalker-survey-restore.mjs` imports the
+files and owned relay config into a fresh image, then saves `blockwalker-survey`.
 Use a new session name if restoring another checkpoint; saving over a different
-existing name prompts a browser confirmation. `blockwalker-feedback-resume.mjs`
-starts Pi again. The new binary and tools are already in the packaged image.
+existing name prompts a browser confirmation. `blockwalker-survey-resume.mjs`
+starts Pi again. The new binary, tools and catalog are in the packaged image.
 
 The old monolithic monitor exceeded Playwright's 256 MiB WebSocket message limit;
 the live browser and Wasm filesystem survived. **Do not restart monitor 187845.**
-The current feedback monitor returns file metadata first, then transfers
+The current survey monitor returns file metadata first, then transfers
 8 MiB binary chunks; a full backup succeeded. Stop it before manual exports to
-avoid overlap. It still uses the normal saved-session interface.
+avoid overlap. It still uses the normal saved-session interface. `progress.json` also records
+full snapshot and history byte counts to monitor session capacity.
 
 For app-only C/JS changes, update in place after pausing Pi and backing up:
 `build/blockwalker-long-trial-update.mjs` uploads the prepared source archive,
@@ -222,8 +232,8 @@ monitor once to capture final files. Preserve a credential-free USTAR archive,
 gzip/split as needed, and restore through the real browser file picker. The
 full-restore template is `build/blockwalker-basin-restore.mjs`; it uses CDP's
 file-input setter because Playwright's remote helper rejects files over 50 MB.
-It adapts the previously verified focus restore; the latest checkpoints used
-in-place updates, so the new archive has not been reimported into a fresh browser.
+It adapts the previously verified focus restore; the current survey archive
+has been verified after import into the fresh image.
 Use a fresh session name and restart its monitor after restoring. Verify IDs,
 attachments, the full history prefix and actual Astra/xhigh continuation.
 

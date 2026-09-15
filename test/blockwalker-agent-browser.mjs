@@ -26,8 +26,8 @@ try {
  }else{
   const examples=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8')),samples=[];
   await page.mouse.click(404,40);await page.mouse.click(170,204);
-  for(let i=0;i<10;i++){
-   await page.waitForTimeout(3000);const event=page.waitForEvent('download');await page.mouse.click(120,630);
+  for(let i=0;i<30;i++){
+   await page.waitForTimeout(1000);const event=page.waitForEvent('download');await page.mouse.click(120,630);
    const file=await event,path=new URL('fresh-world-'+i+'.json',output).pathname;await file.saveAs(path);samples.push(JSON.parse(await readFile(path,'utf8')));
   }
   await shot('fresh-harbor');const fresh=samples.at(-1);
