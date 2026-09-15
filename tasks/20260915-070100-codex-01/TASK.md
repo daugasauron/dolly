@@ -146,3 +146,42 @@ target retreats left. The measured transition failure was queued to Pi without
 aborting inference. `build/blockwalker-reach-trial/` preserves poses, 175 memory
 snapshots, three GPU frames and proof. Focus short next comparisons on landing;
 repeat longer trials after the transition improves.
+
+
+XXV's independent 32 s replay now lands stably: final up=0.999997, minimum
+up=0.97750 and stance slip 0.09583 m. The advancing foot scrapes for 0.383 s and
+ends 0.0396 m behind its start, so it completes no step. `build/blockwalker-replant-trial/`
+contains poses, three GPU frames and proof. Ideal commanded-angle kinematics
+usually reaches the swing target within 2–6 cm, but actual angular deflection
+accumulates along the loaded chain; findings were delivered to Pi. The
+[stiffness comparison](../20260915-093700-codex-01/TASK.md) retains the current
+solver after finding a regression in the survey boat.
+
+Pi's XXVII and XXVIII improve the landing handoff, reduce stance slip and begin
+the opposite transfer even when the stricter score rejects a stable landing.
+The actual XXVIII 90 s tool reports four alternating lifts and settled landings,
+three scored steps, minimum up=0.97366, forward torso travel 0.796 m and COM travel
+1.064 m. Maximum stance slip is 0.154 m. This is the first repeating biped candidate;
+its independent unchanged replay now confirms the motion. It remains slow and unreleased.
+Preserve this successful source while improving whole-cycle travel, and check
+the physical poses independently of its own score.
+
+
+The independent XXVIII 90 s replay exactly matches Pi's final pose metrics:
+up=0.99999356, forward torso travel 0.79589 m, COM travel 1.06428 m and maximum
+joint separation 0.007586 m. Actual rotated box-corner poses verify L–R–L–R
+placements at 19.550, 42.600, 63.817 and 85.067 s. Each foot was fully clear by
+at least 0.15 m while the other contacted terrain and root up exceeded 0.98;
+longest sampled support spans were 1.467, 1.600, 1.400 and 2.083 s. Actual foot
+centroid advances were 0.440, 0.355, 0.551 and 1.052 m, with upright landings.
+The first placement is physically real despite its stricter internal rejection.
+`build/blockwalker-repeat-trial/proof.json`, poses and three GPU frames retain
+the evidence. The source is `build/blockwalker-repeat-seed.json`.
+
+Pi's XXVIII-R adds only a repetition ledger and reproduces the same motion. It
+reports 56 s spent in weight transfer and is testing XXIX with the forward
+balance target following the incoming stance foot. Preserve the verified XXVIII
+source while improving speed. A 240 s shared-world replay at (60,-50), followed
+by exact save/reopen checks, is currently running through
+`build/blockwalker-biped-world-browser.mjs` (log and artifact directory of the
+same name). Fresh 49 objects plus the biped; the live world is unchanged.
