@@ -69,6 +69,7 @@ try {
   const restored=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));assert.equal(restored.creatures.length,8);assert.ok(restored.creatures.every(c=>c.seconds>10));
   assert.deepEqual(restored.removals,result.population.recentRemovals,'removal causes, errors and final physical state survive restart');
   assert.equal(restored.designs.filter(d=>d.name==='Spinner').length,1);assert.ok(restored.designs.some(d=>d.name==='Toppler'&&d.blueprint.length===4&&d.source==='function(){return "A"}'),'fallen design and controller survive game restart');
+  assert.ok(restored.designs.some(d=>d.name==='Unreleased experiment'&&d.blueprint.length===5&&d.source==='function(t,s,m){m.ticks=(m.ticks||0)+1;return "Q"}')&&!restored.creatures.some(c=>c.name==='Unreleased experiment'),'unreleased blueprint and controller survive game restart');
   const crane=restored.creatures.find(c=>c.name==='Cargo hoist'),cargo=restored.creatures.find(c=>c.id===crane.magnets[5].creature);
   assert.ok(crane.magnets[5].attached&&crane.magnets[5].power===1&&cargo?.y>1.7,'restored latched magnet keeps holding the saved body without pressing On again');
   const boat=restored.creatures.find(c=>c.name==='Harbor boat'),bridge=restored.creatures.find(c=>c.name==='Harbor bridge');assert.ok(boat&&boat.y>-2&&boat.up>.8&&bridge&&bridge.x===96);

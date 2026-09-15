@@ -79,6 +79,11 @@ try {
  Game.call('spawn',{x:-4,z:0,seed:17});Game.call('spawn',{x:4,z:0,seed:19});
  const archCargo=Game.call('cargo',{world:true,x:164,z:40});
  assert(Game.call('designs').filter(d=>d.name==='Spinner').length===1,'identical releases share one saved design');
+ const draftSource='function(t,s,m){m.ticks=(m.ticks||0)+1;return "Q"}';
+ Game.call('install',{name:'Unreleased experiment',source:draftSource});Game.call('program_trial',{steps:1});while(Game.call('state').remaining)await sleep(20);
+ const draftState=JSON.stringify(Game.call('state')),draftMemory=JSON.stringify(Game.call('installed_program').memory),draftWorld=JSON.stringify(Game.call('world'));
+ const draftId=Game.call('save_design');assert(Game.call('save_design')===draftId,'saving the same experiment reuses its library entry');
+ assert(JSON.stringify(Game.call('state'))===draftState&&JSON.stringify(Game.call('installed_program').memory)===draftMemory&&JSON.stringify(Game.call('world'))===draftWorld,'saving preserves practice and existing world state without releasing a creature');
  Game.call('install',{name:'Bad loop',source:'function(){while(true){}}'});Game.call('spawn',{x:0,z:5});
  Game.call('build',{parts:[{x:0,y:3,z:0,parent:-1,joint:0},{x:0,y:2,z:0,parent:0,joint:1,negative:81,positive:65,speed:3,axis:2},{x:0,y:1,z:0,parent:1,joint:0},{x:0,y:0,z:0,parent:2,joint:0}]});
  Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});

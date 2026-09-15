@@ -15,12 +15,13 @@ static const char *removal_causes[]={"controller","posture","sunk","nonfinite","
 World world;
 static char *installed;static char installed_name[64]="Creature";static int installed_hz=10;
 static Controller *trial;static float trial_controls[128];
-static void remember_design(const Character *design,const char *source,const char *name,int hz,float x,float z){
+static int remember_design(const Character *design,const char *source,const char *name,int hz,float x,float z){
     for(int i=0;i<world.design_count;i++){SavedDesign *d=&world.designs[i];
-        if(d->hz==hz&&d->design.count==design->count&&d->design.anchored==design->anchored&&!strcmp(d->name,name)&&!strcmp(d->source,source)&&!memcmp(d->design.blocks,design->blocks,design->count*sizeof(Block)))return;
+        if(d->hz==hz&&d->design.count==design->count&&d->design.anchored==design->anchored&&!strcmp(d->name,name)&&!strcmp(d->source,source)&&!memcmp(d->design.blocks,design->blocks,design->count*sizeof(Block)))return i+1;
     }
     if(world.design_count==world.design_capacity){world.design_capacity=world.design_capacity?world.design_capacity*2:16;world.designs=array_resize(world.designs,world.design_capacity,sizeof(SavedDesign));}
     SavedDesign *d=&world.designs[world.design_count++];memset(d,0,sizeof(*d));character_copy(&d->design,design);d->source=strdup(source);d->hz=hz;d->x=x;d->z=z;snprintf(d->name,sizeof(d->name),"%s",name);
+    return world.design_count;
 }
 static int interrupt(JSRuntime *rt,void *opaque){Controller *c=opaque;c->exhausted=c->remaining==0;if(!c->exhausted)c->remaining--;return c->exhausted;}
 static void controller_budget(Controller *c){c->remaining=2;c->exhausted=0;c->error[0]=0;}
@@ -176,6 +177,10 @@ JSValue world_open_design(JSContext *ctx,int index,Character *design){
     SavedDesign *d=&world.designs[index];JSValue args=JS_NewObject(ctx);
     JS_SetPropertyStr(ctx,args,"source",JS_NewString(ctx,d->source));JS_SetPropertyStr(ctx,args,"name",JS_NewString(ctx,d->name));put_number(ctx,args,"hz",d->hz);
     JSValue result=world_install(ctx,args);JS_FreeValue(ctx,args);if(!JS_IsException(result))character_copy(design,&d->design);return result;
+}
+JSValue world_save_design(JSContext *ctx,const Character *design,int sea){
+    if(!installed||!design->count)return JS_ThrowTypeError(ctx,"Build a character and install its controller before saving a design");
+    return JS_NewInt32(ctx,remember_design(design,installed,installed_name,installed_hz,sea?125:0,sea?10:0));
 }
 static Creature *spawn(const Character *design,const char *source,const char *name,uint32_t seed,int hz,float x,float z){
     Controller *controller=controller_new(source,seed,hz);if(!controller)return NULL;

@@ -1,6 +1,6 @@
 # Make faster biped walking survive repeated transfers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: game,agent,physics
 
@@ -73,10 +73,60 @@ XXXV keeps the alloy pelvis but stops lateral integration from increasing an
 already-large target/actual torso error during swing. The preceding failed
 swing had a 2.43 m lateral mismatch and target height 5.80 m versus actual
 6.78 m. Actual Pi's 90 s XXXV check passed five scored landings, 2.013 m forward,
-minimum up=0.98682 and maximum stance slip=0.03014 m; no aborts. Its own 300 s
-trial is running. The independent populated 300 s/save-reopen comparison also
-started, using unchanged `build/blockwalker-antiwindup-seed.json` (29 parts,
-11891 source characters). Runner `build/blockwalker-antiwindup-world-browser.mjs`,
-PID 399533, exec handle 83124, 4 GiB/no swap and 650 s timeout; artifacts use
-`build/blockwalker-antiwindup-world/`. Run its analysis script after completion.
-Do not restart a healthy test because this checkpoint ends or observation yields.
+minimum up=0.98682 and maximum stance slip=0.03014 m; no aborts. The actual 300 s trial failed at the seventh lift: abort at 115.967 s,
+collapsed at the 123.383 s settle timeout. Lateral integration alone was not
+the initiating cause. Its independent populated run lasted longer but also
+failed: 16 landings (14 scored), first swing abort 264.117 s, up<0.9 at 264.683 s
+and posture removal at 289.267 s. Last good landing at 252.533 s had 6.051 m
+forward travel; later falling displacement is not walking. The original
+alongside and all 49 other objects survived. The 289.6 simulated seconds took
+470.5 instrumented wall seconds; no reopen was claimed for the failed candidate.
+`build/blockwalker-antiwindup-world/failure-proof.json` preserves this result.
+
+## Damping through weight transfer and lift
+
+Exact original XXXVI source (12888 characters) was recovered from its recorded
+program call as `build/blockwalker-damped-seed.json`. Pi reconstructed the
+same documented control changes as separately labelled XXXVI-R (11879 chars),
+kept at `build/blockwalker-damped-reconstructed-seed.json`; do not call those
+sources identical. Its rebuilt 29-part blueprint matches the recorded current
+body exactly. The short trial matched the reported original XXXVI metrics.
+
+Actual XXXVI-R completed 300 s with three GPU images, 18 alternating scored
+landings, 7.212 m forward, no aborts or recorded support loss, minimum up about
+0.9872, maximum stance slip 0.020971 m. Roughly 173 s were weight transfers.
+The independent 300 s populated/reopen comparison passed with unchanged source
+and blueprint: 18 physically verified alternating placements, 7.208103 m forward
+versus 5.703442 m for the original alongside (+26.38%). Minimum up=0.987204,
+maximum stance slip=0.021042 m. All 51 objects/1403 parts survived and restored
+with exact IDs, poses/velocities, source and controller memory. The final saved
+state includes the eighteenth landing at 299.917 s, after the last periodic
+sample. Each placement has >0.15 m ground clearance while the opposite foot
+is grounded and the torso is upright, followed by >0.15 m forward foot advance.
+Evidence: `build/blockwalker-damped-world/proof.json`, dense poses/memory and
+three GPU images. Instrumented wall time 492.285 s is not normal rendering FPS.
+
+A temporary C diagnostic collected actual Box3D contact pairs and manifold
+impulses in independent 90 s practice runs, without changing physics. In the
+faster design, 76/135 sampled supported-airborne states have a nonzero impulse
+between opposite feet/legs (maximum summed normal impulse 0.345698 N s per
+sampled step). The original has 11/128 such samples. Neither has any external
+contact during those ground-clear intervals. Thus these are real alternating
+ground-free placements, with cross-foot rubbing; do not claim completely
+contact-free swings or dismiss the flags as only within-foot contacts. Some
+within-foot flags in the original have zero impulse, confirming that a contact
+flag alone does not establish load. Evidence: `build/blockwalker-contact/`
+(`proof.json`, contact-report.json and six GPU images). Diagnostic C is confined
+to build artifacts and is not part of the production API.
+
+The verified exact XXXVI-R source/body is appended as **Sidelight II - balanced
+biped** at (80,-50), keeping all 50 earlier catalog entries unchanged. The image
+build and updated browser integration/reopen checks passed. The live migration
+preserved all 53 existing objects and full native history; six historical
+experiments are recovered as library #47-52, with the public biped at #44.
+Fresh worlds include the successor automatically. Actual Pi also released exact
+source/body #65 at (75,-85), seed6501; its first65.98 s remained upright with
+three scored placements,1.1308 m forward and no aborts. All53 prior objects, all
+52 designs and the complete355431228-byte history prefix remain. Live proof:
+`build/blockwalker-walking/bipeds-release-proof.json`. Cleaner/faster stepping continues
+in [the follow-up](../20260915-131400-codex-01/TASK.md).

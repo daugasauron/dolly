@@ -1,6 +1,6 @@
-# Diagnose the original biped's late live fall
+# Diagnose the biped's late live falls
 
-- STATUS: CLOSED
+- STATUS: OPEN
 - PRIORITY: 250
 - TAGS: game,physics,agent
 
@@ -71,3 +71,32 @@ Evidence: `build/blockwalker-no-pistonboot/` contains the full replay, three GPU
 images, `proof.json`, `landings.json` and `common-tick-comparison.json`. Analysis:
 `build/blockwalker-no-pistonboot-analysis.py`. Actual Pi received these findings
 through a normal steering prompt while its separate XXXV trial continued.
+
+
+## Second live fall and a clearer starting corridor
+
+Reopened for unchanged replacement #63: posture removal at world time
+38081.81666735654, age 1526.316667 s, root (64.55521,1.11669,-24.54125),
+up=-0.158100. `build/blockwalker-walking/sidelight-second-late-fall.json` preserves
+it. The first encounter diagnosis does not establish this second initiating
+cause. No other object was removed or changed.
+
+Actual Pi released exact original library design #43 as NEW #64, seed 4303,
+at (85,-85). The main island is flat within +/-100 m; the forward corridor to
+z=5 was over 17 m from other body centers horizontally at the checked snapshot.
+The 03:16 UTC proof retained all 52 earlier surviving IDs/sources/blueprints,
+53 objects/1390 parts, eleven removals, and the full 341,646,263-byte native
+history prefix. #64 was upright at age 539.117 s, with 29 scored steps and about
+10.78 m forward travel. Continue observing beyond the earlier fall ages before
+claiming longer reliability. Proof: `sidelight-clear-corridor-proof.json` under
+the walking folder. Do not rewind the population or erase either removal.
+
+At the 03:59 UTC checkpoint, unchanged #64 reached 3278.567 simulated seconds
+(54.6 minutes), 69.5323 m forward travel, 185 controller-scored placements,
+up=0.999918 and only its original single initial unscored landing. All 53 objects
+remain, with the same eleven removal records. This exceeds both earlier fall
+ages in the clearer corridor, but does not establish collision robustness or
+identify #63's initiating cause. The per-step geometry was not independently
+rechecked for all 185 scored placements. Durable state and summary:
+`build/blockwalker-walking/biped-checkpoint-before-world.json` and
+`sidelight-long-corridor-proof.json`.

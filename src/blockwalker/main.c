@@ -45,6 +45,24 @@ static void button(int x,int y,int w,int h,const char *s,int active){
     DrawRectangleLinesEx((Rectangle){x,y,w,h},1,active?accent:line);
     Vector2 size=MeasureTextEx(editor_font,s,18,0);label(x+(w-size.x)/2,y+(h-20)/2,s,18,active?paper:ink);
 }
+static void draw_agent_log(void){
+    char rows[18][256];int count=0;
+    for(const char *p=agent_log;*p;count++){
+        char *row=rows[count%18];const char *rest=NULL;int length=0,split=0;float width=0;
+        while(*p&&*p!='\n'){
+            int bytes;GetCodepointNext(p,&bytes);char glyph[5]={0};memcpy(glyph,p,bytes);
+            float advance=MeasureTextEx(editor_font,glyph,15,0).x;
+            if(length&&(width+advance>240||length+bytes>=(int)sizeof(rows[0])))break;
+            if(*p==' '){split=length;rest=p+bytes;}
+            memcpy(row+length,p,bytes);length+=bytes;width+=advance;p+=bytes;
+        }
+        if(*p&&*p!='\n'&&rest){length=split;p=rest;}
+        row[length]=0;
+        if(*p=='\n')p++;else while(*p==' ')p++;
+    }
+    int first=count>18?count-18:0;
+    for(int i=first;i<count;i++)label(1024,286+(18-count+i)*17,rows[i%18],15,ink);
+}
 static int inside(int x,int y,int w,int h){return mouse_x>=x&&mouse_y>=y&&mouse_x<x+w&&mouse_y<y+h;}
 static int in_view(void){return inside(render_view.x,render_view.y,render_view.width,render_view.height);}
 static void layout(void){
@@ -137,6 +155,11 @@ static JSValue open_design(JSContext *ctx,int index){
     SavedDesign *saved=&world.designs[index];practice_sea=terrain_height(saved->x,saved->z)<WATER_LEVEL;
     library_open=0;selected=0;binding=-1;home_camera();changed();world_save(ctx);say("Design and controller restored. Test it, then Play program.");return result;
 }
+static JSValue save_design(JSContext *ctx){
+    JSValue result=world_save_design(ctx,&design,practice_sea);
+    if(!JS_IsException(result)){int id;JS_ToInt32(ctx,&id,result);library_page=(id-1)/8*8;world_save(ctx);dirty=1;say("Blueprint and controller saved in the design library.");}
+    return result;
+}
 static void toggle_control(void){world_trial_stop();program_trial=0;agent_control=!agent_control;agent_enabled=agent_control;practice_steps=0;memset(keys,0,128);dirty=1;}
 static void click(void){
     if(focus_view){
@@ -151,6 +174,11 @@ static void click(void){
     if(inside(24,51,194,22)){library_open=!library_open;prompt_focus=0;memset(keys,0,128);dirty=1;return;}
     if(library_open){
         if(inside(932,156,44,32))library_open=0;
+        if(inside(748,156,164,32)){
+            JSValue result=save_design(embedded_context);
+            if(JS_IsException(result)){JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Build a character and install its controller before saving a design.");}
+            JS_FreeValue(embedded_context,result);
+        }
         if(inside(274,558,68,34))library_page=(int)fmaxf(0,library_page-8);
         if(inside(908,558,68,34))library_page=(int)fminf((world.design_count?((world.design_count-1)/8)*8:0),library_page+8);
         for(int i=0;i<8&&library_page+i<world.design_count;i++)if(inside(882,206+i*42,94,32)){
@@ -394,7 +422,7 @@ static void draw_ui(void){
     }
     if(library_open){
         DrawRectangle(254,142,742,470,paper);DrawRectangleLinesEx((Rectangle){254,142,742,470},2,line);
-        label(274,164,"DESIGN LIBRARY",22,ink);button(932,156,44,32,"X",0);
+        label(274,164,"DESIGN LIBRARY",22,ink);button(748,156,164,32,"Save current",0);button(932,156,44,32,"X",0);
         library_page=(int)Clamp(library_page,0,world.design_count?((world.design_count-1)/8)*8:0);
         for(int i=0;i<8&&library_page+i<world.design_count;i++){SavedDesign *d=&world.designs[library_page+i];int y=206+i*42;
             snprintf(text,sizeof(text),"%.34s",d->name);label(274,y+8,text,16,ink);
@@ -406,12 +434,7 @@ agent_overlay:
         DrawRectangle(998,focus_view?0:80,282,focus_view?SCREEN_HEIGHT:594,paper);label(1036,106,"PI / ASTRA / XHIGH",16,ink);
         button(1036,142,220,36,"Import proxy config",0);button(1036,188,104,36,"Start",agent_enabled);button(1152,188,104,36,"Pause",!agent_enabled);
         button(1036,235,220,36,agent_control?"Agent keys [`]":"Your keys [`]",agent_control);
-        char rows[18][31]={{0}};int row=0,col=0;
-        for(const unsigned char *p=(unsigned char *)agent_log;*p;p++){
-            if(*p=='\n'||col==29){row=(row+1)%18;rows[row][0]=0;col=0;if(*p=='\n')continue;}
-            rows[row][col++]=*p;rows[row][col]=0;
-        }
-        for(int i=0;i<18;i++)label(1024,286+i*17,rows[(row+1+i)%18],13,ink);
+        draw_agent_log();
         DrawRectangleRec((Rectangle){1024,608,240,54},panel);
         if(prompt_focus)DrawRectangleLinesEx((Rectangle){1024,608,240,54},2,accent);
         size_t length=strlen(prompt_input);label(1032,618,length?prompt_input+(length>27?length-27:0):"Message Pi...",14,ink);label(1032,642,"Enter to send / steer",12,muted);
@@ -489,6 +512,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     if(!strcmp(op,"state"))result=state(ctx);
     else if(!strcmp(op,"world"))result=world_state(ctx);
     else if(!strcmp(op,"designs"))result=world_designs(ctx,0);
+    else if(!strcmp(op,"save_design"))result=save_design(ctx);
     else if(!strcmp(op,"installed_program"))result=world_program(ctx);
     else if(!strcmp(op,"open_design")){
         int index=number(ctx,args,"id",0)-1;result=open_design(ctx,index);
