@@ -1,6 +1,6 @@
 # Diagnose the original biped's late live fall
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: game,physics,agent
 
@@ -43,10 +43,31 @@ transfer timeout follows near 378.45 s. Contact impulses were not recorded, so
 these geometric contacts alone do not establish the complete cause. Analysis:
 `build/blockwalker-late-fall/contact-analysis.json` and its Python script.
 
-A controlled comparison now omits **only #22** from the copied initial world,
-retaining every other pose, velocity, source, memory and random state. It runs
-for up to 600 simulation seconds via `build/blockwalker-no-pistonboot-browser.mjs`
-under 4 GiB/no swap and a 1200 s timeout. Compare common pre-contact samples with
-the original replay and the later outcome before concluding. The live world is
+A controlled comparison omitted **only #22** from the copied initial world,
+retaining every other pose, velocity, source, memory and random state. It ran
+for 600 simulation seconds via `build/blockwalker-no-pistonboot-browser.mjs`
+under 4 GiB/no swap and a 1200 s timeout. Common samples and the later outcome were compared below. The live world is
 unchanged. Its original was replaced as exact-source #63 with the #62 death
 record retained (`build/blockwalker-walking/sidelight-replacement-proof.json`).
+
+
+The comparison survived all 600 simulation seconds (988.398 instrumented wall
+seconds), reaching biped age 1549.517 s. It made 34 further alternating physical
+forward placements and travelled 12.7403 m, with minimum sampled up=0.991956,
+no new aborts and no removals among its 52 objects. Rotated box corners verified
+all 34 swings above 0.15 m clearance with the other foot near the flat ground,
+forward foot advance above 0.15 m and upright landing. All other initial states
+matched exactly; the live world was not changed.
+
+There were 31 common exact simulation-tick samples: nine had byte-identical
+poses/velocities and equal memory through elapsed 67.167 s. Matched pre-300 s
+positions differed by at most 2.205 mm; divergence reached 0.447 m at 347.35 s,
+where the original replay records overlapping foot boxes. This strongly
+implicates the interaction with #22 in the late fall. It is not proof of general
+collision robustness or a direct measurement of contact impulses. Diagnosis is
+complete; controller improvements remain in the faster-biped issue.
+
+Evidence: `build/blockwalker-no-pistonboot/` contains the full replay, three GPU
+images, `proof.json`, `landings.json` and `common-tick-comparison.json`. Analysis:
+`build/blockwalker-no-pistonboot-analysis.py`. Actual Pi received these findings
+through a normal steering prompt while its separate XXXV trial continued.

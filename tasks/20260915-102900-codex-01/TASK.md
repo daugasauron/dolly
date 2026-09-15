@@ -58,3 +58,25 @@ memory. It then tested reach-cap-only XXXII-L for 300 s: 16 landings, no aborts,
 endurance benefit from the outward spacing correction. Neither is a proven
 speed improvement, so keep both out of the default catalog. The original's
 [later live fall](../20260915-110000-codex-01/TASK.md) is a separate investigation.
+
+XXXIV's alloy-pelvis mass-only comparison passed its actual 90 s Pi trial with
+five scored landings and 1.758 m forward travel, but the 300 s tool rejected it.
+After seven scored landings its eighth swing aborted at 132.933 s with support
+loss/scraping; transfer/recovery timed out at 159.050/171.067 s, ending tipped
+(up=-0.685629). The 8.503 m final displacement includes falling and is not walking
+progress. Pi left it in practice and is examining the failing swing. Exact
+source/29-part blueprint: `build/blockwalker-alloy-pelvis-seed.json`; actual tool
+result/memory: `build/blockwalker-alloy-pelvis/pi-failure-proof.json`.
+
+
+XXXV keeps the alloy pelvis but stops lateral integration from increasing an
+already-large target/actual torso error during swing. The preceding failed
+swing had a 2.43 m lateral mismatch and target height 5.80 m versus actual
+6.78 m. Actual Pi's 90 s XXXV check passed five scored landings, 2.013 m forward,
+minimum up=0.98682 and maximum stance slip=0.03014 m; no aborts. Its own 300 s
+trial is running. The independent populated 300 s/save-reopen comparison also
+started, using unchanged `build/blockwalker-antiwindup-seed.json` (29 parts,
+11891 source characters). Runner `build/blockwalker-antiwindup-world-browser.mjs`,
+PID 399533, exec handle 83124, 4 GiB/no swap and 650 s timeout; artifacts use
+`build/blockwalker-antiwindup-world/`. Run its analysis script after completion.
+Do not restart a healthy test because this checkpoint ends or observation yields.

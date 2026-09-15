@@ -19,7 +19,7 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 11:35 JST
+## Current checkpoint — 2026-09-15 11:51 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. Other worktrees/previews belong to other agents.
@@ -34,17 +34,15 @@ Live #62 later tipped over at age 1375.55 s after about 34.89 m forward travel;
 its removal record is preserved. Pi released exact original source/blueprint as
 new #63 at (60,-50). All 52 older surviving objects remain intact.
 
-The [late-fall replay](../20260915-110000-codex-01/TASK.md) reproduced the removal
-exactly, including time, position and up. All 53 initial poses/velocities,
-controller memory and random states matched. It ran 426.0667 simulation seconds
-in 693.129 instrumented wall seconds. Transfer timed out at age 1327.967 s,
-recovery at 1339.983 s; the fall followed in phase 9. Nearby-body/transition
-analysis found walker #22's foot boxes overlapping its feet before the failed
-transfer. This does not establish the cause without a controlled comparison.
-The guarded `build/blockwalker-no-pistonboot-browser.mjs` replay is running
-(runner PID 389727), omitting only #22 from the copied initial world. No live
-objects were removed. Exact replay artifacts are in `build/blockwalker-late-fall/`;
-the comparison writes to `build/blockwalker-no-pistonboot/`.
+The [late-fall diagnosis](../20260915-110000-codex-01/TASK.md) is complete.
+The exact saved-world replay reproduced #62's fall at every recorded field.
+Omitting only neighbor #22 let it survive another 600 s with 34 independently
+verified alternating foot placements, 12.7403 m forward travel, minimum sampled
+up=0.991956 and no new aborts/removals. Recorded overlapping foot boxes and the
+controlled comparison strongly implicate the encounter. Direct contact impulses
+were not recorded; this does not establish general collision robustness. The
+live world is unchanged. Evidence: `build/blockwalker-late-fall/` and
+`build/blockwalker-no-pistonboot/`. Both diagnostic browsers finished.
 
 The [300 s practice extension](../20260915-103400-codex-01/TASK.md) passed:
 18000 ticks, rejection of 18001, three timed GPU images and stopped practice
@@ -73,15 +71,27 @@ versus the original alongside at 5.70929 m. Both survived, with all 51 test
 objects/1403 parts restored exactly. XXXIII's inner foot-box spacing still narrows
 to about 0.96 m; it spends 109/180 s transferring weight. Actual Pi's 300 s
 reach-cap-only comparison found no demonstrated benefit from the outward spacing
-correction. Keep these variants out of the default catalog; continue the new
-mass-distribution experiment separately. Bounded status:
-`python3 build/blockwalker-biped-status.py`.
+correction. Keep these variants out of the default catalog. The heavier-pelvis
+XXXIV also failed its actual 300 s practice check after seven good landings;
+the eighth swing aborted at 132.933 s. Its source/blueprint and actual tool
+failure are saved under the `blockwalker-alloy-pelvis` prefix in build.
+
+Pi is testing XXXV, which prevents lateral target integration from worsening a
+large torso tracking error during swing. Its 90 s check passed five scored
+landings and 2.013 m forward travel, with no aborts and 0.03014 m stance slip.
+Its own 300 s check and an independent populated-world comparison are running;
+neither result is established yet. The sole test browser is
+`build/blockwalker-antiwindup-world-browser.mjs` (PID 399533, exec handle 83124),
+under 4 GiB/no swap and a 650 s timeout. Seed, runner/check/reopen/analysis and
+artifacts use `blockwalker-antiwindup` names under build. Do not restart while it
+is healthy. Pi received the collision findings without interrupting its trial.
+Bounded live status: `python3 build/blockwalker-biped-status.py`.
 
 Keep the current 60 Hz joint constraints. A temporary 120 Hz comparison reduced
 angular flex but regressed boat navigation; see the
 [stiffness issue](../20260915-093700-codex-01/TASK.md).
 Earlier verified features are linked below; detailed checkpoint narratives are
-in repository history at `ea7561a:tasks/20260914-blockwalker-space-world/TASK.md`.
+in repository history at `b87089f:tasks/20260914-blockwalker-space-world/TASK.md`.
 
 - [Landers](../20260915-045200-codex-01/TASK.md): feedback takeoff, routes, return,
   hydraulic gear and seeded variation.
@@ -217,7 +227,7 @@ inside Dolly using `prepare-blockwalker.mjs`, `update-module-pins.mjs`, route
 generation and the blockwalker snapshot builder. Dependencies are cached; the
 last app build took 20.6 seconds. No host C compilation is permitted.
 
-The guarded no-pistonboot comparison browser is running; the live Pi world
+The guarded antiwindup comparison browser is running; the live Pi world
 continues independently. Source-only starter updates do not require migrating
 an existing saved world.
 
