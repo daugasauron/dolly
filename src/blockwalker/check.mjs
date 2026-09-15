@@ -84,11 +84,14 @@ try {
  const draftState=JSON.stringify(Game.call('state')),draftMemory=JSON.stringify(Game.call('installed_program').memory),draftWorld=JSON.stringify(Game.call('world'));
  const draftId=Game.call('save_design');assert(Game.call('save_design')===draftId,'saving the same experiment reuses its library entry');
  assert(JSON.stringify(Game.call('state'))===draftState&&JSON.stringify(Game.call('installed_program').memory)===draftMemory&&JSON.stringify(Game.call('world'))===draftWorld,'saving preserves practice and existing world state without releasing a creature');
- Game.call('install',{name:'Bad loop',source:'function(){while(true){}}'});Game.call('spawn',{x:0,z:5});
+ Game.call('install',{name:'Bad loop',source:'function(t,s,m){m.entered=true;while(true){}}'});Game.call('spawn',{x:0,z:5});
+ Game.call('program_trial',{steps:600});while(Game.call('state').remaining)await sleep(20);
+ const broken=Game.call('installed_program');assert(broken.failure.cause==='controller'&&broken.memory.entered&&Game.call('state').steps===0,'controller failure stops immediately and retains its diagnostic memory');
  Game.call('build',{parts:[{x:0,y:3,z:0,parent:-1,joint:0},{x:0,y:2,z:0,parent:0,joint:1,negative:81,positive:65,speed:3,axis:2},{x:0,y:1,z:0,parent:1,joint:0},{x:0,y:0,z:0,parent:2,joint:0}]});
- Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});
+ Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});Game.call('program_trial',{steps:600});
  Game.call('watch',true);const started=Game.call('world').seconds;
  while(Game.call('world').seconds-started<10)await sleep(40);
+ const practiceFailure=Game.call('installed_program').failure;assert(practiceFailure.cause==='posture'&&practiceFailure.seconds>3&&Game.call('state').steps<600&&Game.call('state').remaining===0,'sustained collapse stops practice before its requested end');
  const population=Game.call('world');assert(population.creatures.length===8&&population.deaths===2,'shared physics keeps cargo, hoist, boat, bridge and land/air creatures, removes failed controllers and fallen torsos');
  assert(Math.abs(population.creatures.find(c=>c.id===archCargo).y-4.485)<.01,'a body under the island arch survives on the actual floor');
  const failed=population.recentRemovals.find(r=>r.name==='Bad loop'),toppled=population.recentRemovals.find(r=>r.name==='Toppler');

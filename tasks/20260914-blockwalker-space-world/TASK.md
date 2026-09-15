@@ -19,12 +19,14 @@ Verify real browser controls, physics and persistence. Measure boat floatation,
 propulsion and steering; anchored mechanisms; controlled flight; and performance
 with a populated world. Record evidence here before closing.
 
-## Current checkpoint — 2026-09-15 13:24 JST
+## Current checkpoint — 2026-09-15 14:04 JST
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-20260914`. No push/deploy/merge authorization; continue until
-22:00 JST. Prior checkpoint is 47468d1; this checkpoint adds the verified faster
-biped, direct experiment saving and readable Pi traces.
+22:00 JST. The latest packaged checkpoint is39e1971, containing the faster
+biped, direct experiment saving and readable Pi traces. The live session also
+has the source-only practice-failure update described below; bundle that in
+the next image checkpoint.
 
 The image now contains **51 objects/1403 parts**, adding **Sidelight II - balanced
 biped** alongside all 50 unchanged earlier entries. Its exact XXXVI-R source
@@ -69,10 +71,34 @@ Saving experiments and trace wrapping are closed and verified. Six historical
 sources are recovered as library #47-52, current XLI is #46, XL #45, and the
 public successor #44. The same-pose recovery kept all53 creature states, all
 older library entries and the workshop exact. These sources and complete history
-are in the bipeds archive below. Pi continues XLI/cleaner-foot-clearance practice;
-keep new experiments separately saved. Next local improvement is
-[early physical-failure completion](../20260915-122200-codex-01/TASK.md), still
-unimplemented. Keep successful300s trials and world failure rules unchanged.
+are in the bipeds archive below. Pi continues cleaner-foot-clearance practice; keep new experiments separately
+saved. [Early physical-failure completion](../20260915-122200-codex-01/TASK.md)
+is now verified and closed: source-only browser checks plus real Astra/xhigh Pi.
+The new C binary and tools were compiled inside the existing live filesystem;
+all five workspace hashes stayed exact through the update. The real300s Toppler
+probe returned posture failure at301ticks/5.016667s,retained memory.last=5 and
+two pictures. Saved as library#56,not released; Pi reopened#55 afterwards.
+The healthy Sidelight II still passes all300s/18000ticks with18 scored steps,
+7.212mforward and minUp .98721045. No world-removal or gravity rule changed.
+
+At05:01UTC,the live session contains54 objects/1419parts,eleven historical
+removals and363582174bytes of full native history. Its entire362960038-byte
+pre-update prefix and all54 earlier creations were verified. New proofs:
+`practice-stop-{before,after,updated,live}-proof.json` in the walking directory.
+The backup monitor is now467108. Its live app overrides persist in the named
+session; public image/dollyfile pins still point to39e1971.
+
+Actual Pi's#55 XLIV longer-reach biped completed300s:9.278mforward,18 alternating
+scored landings,no aborts,minUp .98721004. Its saved source is exact in
+`build/blockwalker-longreach-seed.json`. A separate guarded browser is testing
+300s in a52-object world with temporary C contact/pose diagnostics; runner
+`build/blockwalker-longreach-browser.mjs`,handle27789,scope
+run-r239753e14f9b46be902e024edf35b616.scope,510s timeout. Do not start another
+test browser while it runs. Analysis is`build/blockwalker-longreach-analysis.py`.
+Pi has saved#57 XLV,testing quicker weight transfer; wait for measured results.
+At the pre-update snapshot,original#64 remained upright at5650.9s,120.48m
+forward;#65 at1879.78s,48.74mforward,no aborts. These are continued simulation
+observations,not a claim that every later foot placement was remeasured.
 
 A helper's duplicate download consumers closed an earlier browser with an
 unhandled ENOENT. The recovery was repeated, saving BEFORE the proof download
@@ -91,10 +117,10 @@ visible before typing. Old frame counters can survive a process exit. The final
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; permits origins 9099 and 19199 |
 | Live browser | 440769 | CDP 9231, `build/blockwalker-bipeds-live.mjs` |
-| Five-minute monitor | 446330 | `build/blockwalker-bipeds-monitor.mjs --watch` |
+| Five-minute monitor | 467108 | `build/blockwalker-bipeds-monitor.mjs --watch` |
 
 Persistent Chrome profile: `.cache/blockwalker-browser-20260915`, DISPLAY=:1.
-The old live runners17317/439890 and monitors387963/443288 are stopped. Scripts
+The old live runners17317/439890 and monitors387963/443288/446330 are stopped. Scripts
 under the build symlink require `node --preserve-symlinks-main build/NAME.mjs`.
 The private relay config is `/tmp/dolly-codex-relay-Bez6Lp/models.json`; never
 print or commit it. Request logs record only model/effort/timing/size.

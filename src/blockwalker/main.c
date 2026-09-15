@@ -226,7 +226,7 @@ static void click(void){
         if(inside(24,264,194,30))drop_cargo();
         if(inside(24,350,194,36)){
             if(program_trial==2){toggle_control();say("Program stopped. Your keys control the joints.");}
-            else{agent_enabled=0;start_test();if(world_trial_begin()){program_trial=2;agent_control=1;memset(agent_keys,0,128);say("Playing the saved controller. Stop program or ` takes manual control.");}else say("Open a saved design or ask Pi to install a controller first.");}
+            else{agent_enabled=0;start_test();if(world_trial_begin(&physics)){program_trial=2;agent_control=1;memset(agent_keys,0,128);say("Playing the saved controller. Stop program or ` takes manual control.");}else say("Open a saved design or ask Pi to install a controller first.");}
         }
         return;
     }
@@ -555,7 +555,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     }else if(!strcmp(op,"program_trial")){
         int steps=number(ctx,args,"steps",0);
         if(!design.count||steps<1||steps>18000)result=JS_ThrowRangeError(ctx,"Build a character; program trial requires 1..18000 steps");
-        else{practice_sea=number(ctx,args,"sea",practice_sea)!=0;start_test();if(!world_trial_begin())result=JS_ThrowTypeError(ctx,"Install a valid controller first");else{agent_control=1;program_trial=1;practice_steps=steps;memset(agent_keys,0,128);dirty=1;}}
+        else{practice_sea=number(ctx,args,"sea",practice_sea)!=0;start_test();if(!world_trial_begin(&physics))result=JS_ThrowTypeError(ctx,"Install a valid controller first");else{agent_control=1;program_trial=1;practice_steps=steps;memset(agent_keys,0,128);dirty=1;}}
     }else if(!strcmp(op,"release")){memset(agent_keys,0,128);practice_steps=0;dirty=1;}
     else if(!strcmp(op,"camera")) {
         double yaw=real(ctx,args,"yaw",orbit.yaw),pitch=real(ctx,args,"pitch",orbit.pitch),distance=real(ctx,args,"distance",orbit.distance);
@@ -579,7 +579,7 @@ static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst
         accumulator+=dt;for(int i=0;i<6&&accumulator>=1./60;i++){
             if(agent_control&&practice_steps<=0&&program_trial!=2){accumulator=0;break;}
             if(program_trial&&agent_control){
-                if(!world_trial_step(&physics,&design)){log_text("\nController failed during practice.\n");say("Controller failed. Edit its program or take manual control.");practice_steps=0;world_trial_stop();program_trial=0;break;}
+                if(!world_trial_step(&physics,&design)){log_text("\nPractice stopped: ");log_text(world_trial_error());log_text("\n");say(world_trial_error());practice_steps=program_trial=0;memset(agent_keys,0,128);accumulator=0;break;}
                 memset(agent_keys,0,128);for(int j=1;j<design.count;j++){Block b=design.blocks[j];agent_keys[b.positive]=physics.parts[j].command>0;agent_keys[b.negative]=physics.parts[j].command<0;}
             }else physics_step(&physics,&design,agent_control?agent_keys:keys);
             if(agent_control&&practice_steps>0)practice_steps--;accumulator-=1./60;

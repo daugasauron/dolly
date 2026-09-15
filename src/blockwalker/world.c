@@ -15,6 +15,22 @@ static const char *removal_causes[]={"controller","posture","sunk","nonfinite","
 World world;
 static char *installed;static char installed_name[64]="Creature";static int installed_hz=10;
 static Controller *trial;static float trial_controls[128];
+static struct {float fallen,height;int cause,steps;char detail[160];} trial_status={.cause=-1};
+static int physical_failure(const Character *design,Vector3 position,float up,float root_height,float ground){
+    int sea=ground<WATER_LEVEL;
+    if(!isfinite(position.x)||!isfinite(position.y)||!isfinite(position.z))return REMOVAL_NONFINITE;
+    if(design->anchored)return -1;
+    if(position.y<(sea?WATER_LEVEL-3:ground-.5f))return sea?REMOVAL_SUNK:REMOVAL_TERRAIN;
+    if((design->count>1&&up<.15f)||(!sea&&root_height>1.2f&&position.y<ground+.65f))return REMOVAL_POSTURE;
+    return -1;
+}
+static int sustained_failure(float *fallen,int steps,int cause){
+    if(steps>180&&cause>=0)*fallen+=1.f/60;else if(*fallen<100)*fallen=0;
+    return *fallen>2;
+}
+static const char *failure_detail(int cause,float up,const char *error){
+    return cause==REMOVAL_CONTROLLER?error:cause==REMOVAL_POSTURE?(up<.15f?"Root tipped over":"Raised torso collapsed"):removal_causes[cause];
+}
 static int remember_design(const Character *design,const char *source,const char *name,int hz,float x,float z){
     for(int i=0;i<world.design_count;i++){SavedDesign *d=&world.designs[i];
         if(d->hz==hz&&d->design.count==design->count&&d->design.anchored==design->anchored&&!strcmp(d->name,name)&&!strcmp(d->source,source)&&!memcmp(d->design.blocks,design->blocks,design->count*sizeof(Block)))return i+1;
@@ -134,11 +150,24 @@ static int controller_step(Controller *controller,const Physics *p,const Charact
     }
     JS_FreeValue(ctx,result);return valid;
 }
-void world_trial_stop(void){controller_free(trial);trial=NULL;memset(trial_controls,0,sizeof(trial_controls));}
-int world_trial_begin(void){world_trial_stop();if(installed)trial=controller_new(installed,1,installed_hz);return trial!=NULL;}
+void world_trial_stop(void){controller_free(trial);trial=NULL;memset(trial_controls,0,sizeof(trial_controls));memset(&trial_status,0,sizeof(trial_status));trial_status.cause=-1;}
+int world_trial_begin(const Physics *p){
+    world_trial_stop();if(installed)trial=controller_new(installed,1,installed_hz);
+    trial_status.height=p->start.y-fmaxf(p->landscape?terrain_height(p->start.x,p->start.z):0,WATER_LEVEL);return trial!=NULL;
+}
+const char *world_trial_error(void){return trial_status.cause>=0?trial_status.detail:"Controller unavailable";}
 int world_trial_step(Physics *p,const Character *c){
-    if(!trial||(p->steps%(60/trial->hz)==0&&!controller_step(trial,p,c,trial_controls)))return 0;
-    physics_drive(p,c,trial_controls);b3World_Step(p->world,1.f/60,8);physics_sample(p,c);return 1;
+    if(!trial||trial_status.cause>=0)return 0;
+    int cause=-1;float up=1;
+    if(p->steps%(60/trial->hz)==0&&!controller_step(trial,p,c,trial_controls))cause=REMOVAL_CONTROLLER;
+    else{
+        physics_drive(p,c,trial_controls);b3World_Step(p->world,1.f/60,8);physics_sample(p,c);
+        Vector3 position;Quaternion rotation;physics_pose(p,c,0,&position,&rotation);up=Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y;
+        cause=physical_failure(c,position,up,trial_status.height,p->landscape?terrain_height(position.x,position.z):0);
+        if(!sustained_failure(&trial_status.fallen,p->steps,cause))return 1;
+    }
+    trial_status.cause=cause;trial_status.steps=p->steps;snprintf(trial_status.detail,sizeof(trial_status.detail),"%s",failure_detail(cause,up,trial->error));
+    memset(trial_controls,0,sizeof(trial_controls));return 0;
 }
 JSValue world_program(JSContext *ctx){
     if(!installed)return JS_NULL;JSValue result=JS_NewObject(ctx);
@@ -151,7 +180,11 @@ JSValue world_program(JSContext *ctx){
         else {memory=JS_ParseJSON(ctx,json,length,"controller-memory");if(JS_IsException(memory)){JS_FreeValue(ctx,JS_GetException(ctx));memory=JS_NULL;error="Controller memory could not be copied";}}
         JS_FreeCString(trial->ctx,json);
     }
-    JS_SetPropertyStr(ctx,result,"memory",memory);if(error)JS_SetPropertyStr(ctx,result,"memoryError",JS_NewString(ctx,error));return result;
+    JS_SetPropertyStr(ctx,result,"memory",memory);if(error)JS_SetPropertyStr(ctx,result,"memoryError",JS_NewString(ctx,error));
+    if(trial_status.cause>=0){
+        JSValue failure=JS_NewObject(ctx);put_number(ctx,failure,"seconds",trial_status.steps/60.0);
+        JS_SetPropertyStr(ctx,failure,"cause",JS_NewString(ctx,removal_causes[trial_status.cause]));JS_SetPropertyStr(ctx,failure,"detail",JS_NewString(ctx,trial_status.detail));JS_SetPropertyStr(ctx,result,"failure",failure);
+    }return result;
 }
 JSValue world_install(JSContext *ctx,JSValueConst args){
     JSValue code=JS_GetPropertyStr(ctx,args,"source"),name=JS_GetPropertyStr(ctx,args,"name");
@@ -251,14 +284,11 @@ void world_step(void){
     b3World_Step(world.physics,1.f/60,8);world.age+=1./60;
     for(int i=0;i<world.count;){Creature *c=&world.creatures[i];physics_sample(&c->physics,&c->design);
         Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);float up=Vector3RotateByQuaternion((Vector3){0,1,0},q).y;
-        float ground=terrain_height(p.x,p.z);int sea=ground<WATER_LEVEL;
-        int fallen=!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z)||(!c->design.anchored&&
-            (p.y<(sea?WATER_LEVEL-3:ground-.5f)||(c->design.count>1&&up<.15f)||(!sea&&c->root_height>1.2f&&p.y<ground+.65f)));
-        if(c->physics.steps>180&&fallen)c->fallen+=1.f/60;else if(c->fallen<100)c->fallen=0;
-        if(c->fallen>2){
+        int cause=physical_failure(&c->design,p,up,c->root_height,terrain_height(p.x,p.z));
+        if(sustained_failure(&c->fallen,c->physics.steps,cause)){
             Removal *r=new_removal();r->id=c->id;r->time=world.age;r->seconds=c->physics.steps/60.0;r->position=p;r->up=up;snprintf(r->name,sizeof(r->name),"%s",c->name);
-            r->cause=c->fallen>=100?REMOVAL_CONTROLLER:!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z)?REMOVAL_NONFINITE:sea&&p.y<WATER_LEVEL-3?REMOVAL_SUNK:p.y<ground-.5f?REMOVAL_TERRAIN:REMOVAL_POSTURE;
-            snprintf(r->detail,sizeof(r->detail),"%s",r->cause==REMOVAL_CONTROLLER?c->controller->error:r->cause==REMOVAL_POSTURE?(up<.15f?"Root tipped over":"Raised torso collapsed"):removal_causes[r->cause]);
+            r->cause=c->fallen>=100?REMOVAL_CONTROLLER:cause;
+            snprintf(r->detail,sizeof(r->detail),"%s",failure_detail(r->cause,up,c->controller->error));
             printf("CREATURE %d removed: %s after %.1fs (%s: %s; xyz %.3f %.3f %.3f, up %.3f)\n",c->id,c->name,r->seconds,removal_causes[r->cause],r->detail,p.x,p.y,p.z,up);
             physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);world.creatures[i]=world.creatures[--world.count];world.deaths++;
         }else i++;

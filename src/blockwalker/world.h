@@ -25,6 +25,7 @@ void world_step(void);
 void world_close(void);
 void world_save(JSContext *ctx);
 void world_load(JSContext *ctx);
-int world_trial_begin(void);
+int world_trial_begin(const Physics *p);
 int world_trial_step(Physics *p,const Character *c);
+const char *world_trial_error(void);
 void world_trial_stop(void);
