@@ -129,6 +129,13 @@ sent note rather than an older prompt.
 #57 XLV achieved10.250m/300s,21 landings but more transfer-foot displacement.
 #58 XLVI achieved10.262m/300s,20 landings,only14 with its clean-forward criterion.
 Both are saved; Pi plans to branch patrol from#57's slower outward adjustment.
+Patrol I is now saved as#59 (13568bytes,same body as#57). Its300s trial made
+three reversals,12forward and8backward scored placements,then dragged the stance
+foot .30146m during an unfinished final backward attempt. No release: Pi is
+capping swing distance after reversal. Exact seed/result are
+build/blockwalker-patrol-{seed,first-result}.json. New patrol event rows add
+direction at index3 and use "stable signed landing". The patrol task has the
+measured details. No independent patrol browser is running yet.
 Exact host seeds:build/blockwalker-{longreach,faster-transfer}-seed.json.
 The original#64 was still upright at6511.12s (138.88mforward,371 scored,one abort);
 #65 at2740s (71.42mforward,166 scored,no aborts),at the05:11UTC snapshot.
