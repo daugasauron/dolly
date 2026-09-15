@@ -100,3 +100,21 @@ identify #63's initiating cause. The per-step geometry was not independently
 rechecked for all 185 scored placements. Durable state and summary:
 `build/blockwalker-walking/biped-checkpoint-before-world.json` and
 `sidelight-long-corridor-proof.json`.
+
+The three later straight walkers have now fallen naturally; preserve their
+designs and removals. #64 reached age8643.967s (144.07 minutes), world47550.4,
+root(82.996,-2.101,108.367), up=-.3481. Its earlier upright observation was
+at z98.565; the final position is consistent with walking off the central
+island into the sea. The exact initiating contact dynamics were not recorded.
+#65/Sidelight II fell at age4652.35s (77.54 minutes), world47329.9,
+root(82.343,1.810,30.771), up=-.5447. #66/long-step fell at age1940.583s
+(32.34 minutes), world47813.533, root(45.198,1.681,-25.428), up=-.5158.
+The initiating causes for #65/#66 remain unknown; do not attribute them to
+#62's diagnosed collision. No controller errors were reported. Records:
+build/blockwalker-walking/sidelight-{64,65,66}-late-fall.json.
+
+The live population is now52 objects with14 historical removals. The monitor
+archives each five-minute world snapshot under world-snapshots/, alongside
+its complete native-history mirror. Its first archive, 1789451657404.json at
+world47937.783, is after these falls; it cannot establish their pre-fall causes.
+Patrol development addresses reaching the shore; collision robustness remains open.

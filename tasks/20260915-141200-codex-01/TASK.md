@@ -30,3 +30,32 @@ Exact source/body:build/blockwalker-patrol-seed.json; result:
 build/blockwalker-patrol-first-result.json. Patrol event rows include direction
 at index3 and use the label "stable signed landing"; adapt physical analysis
 accordingly rather than reusing the forward-only event layout unchanged.
+
+Actual support-block geometry confirms Patrol I's late slip was planar
+translation/yaw: six-block centroid moved .21980m and rotated -8.323 degrees
+while all centers remained near y=.485. Evidence:
+build/blockwalker-patrol-stance-slip.json. Reach-capped #60 still slipped
+.2629m; slower-backward #61 reduced root-foot slip to .1551m but individual
+support-block displacement remained .281m. Neither was released.
+
+Pi's separate #62/Patrol IV turns fixed hip parts4/17 into powered yaw hinges;
+the remaining part indices and six-block feet are unchanged. Its300s practice
+trial scored12 forward and8 backward placements with three reversals and no
+aborts. Maximum root-foot stance slip was .01811m, worst support-block
+displacement .02010m. Root range[-1.74365,2.22679] overshoots the +/-1.5 targets.
+Exact body/source: build/blockwalker-patrol-library-62.json; full returned
+practice state/memory: build/blockwalker-patrol-yaw-practice-result.json.
+Pi is comparing zero yaw commands on the same body before refining bounds.
+
+An independent600s populated-world test of exact #62 is running in one browser
+under4GiB/no swap, handle40793. It adds a copy at(55,-85), separate from all52
+catalog entries, records actual contact impulses/poses about every.1s and three
+timed GPU frames, and checks exact world restoration. No test result yet;
+do not release or promote solely from the practice counters.
+
+The actual Pi comparison #63/Patrol V failed for posture at285.9667s
+(tick17158), with4 aborted placements and3.535m maximum stance slip. Source
+comparison confirms the exact same body and controller except a comment and
+multiplying the hip-yaw command by zero. This supports active yaw feedback for
+this gait; it does not establish general stability. Full result and source:
+build/blockwalker-patrol-yaw-braking-result.json and -library-63.json.

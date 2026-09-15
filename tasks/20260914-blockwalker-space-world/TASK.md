@@ -85,7 +85,7 @@ At05:01UTC,the live session contains54 objects/1419parts,eleven historical
 removals and363582174bytes of full native history. Its entire362960038-byte
 pre-update prefix and all54 earlier creations were verified. New proofs:
 `practice-stop-{before,after,updated,live}-proof.json` in the walking directory.
-The backup monitor is now467108. Its live app overrides persist in the named
+The backup monitor is now497976. Its live app overrides persist in the named
 session; public image/dollyfile pins still point to39e1971.
 
 The cleaner-stride task is now closed. Source catalog adds **Sidelight III -
@@ -151,6 +151,22 @@ frame count advancing beyond its previous value, then verify the Pi panel is
 visible before typing. Old frame counters can survive a process exit. The final
 966-character prompt was verified intact after following those UI steps.
 
+At06:04UTC, all three straight walkers #64/#65/#66 have fallen naturally;
+52 objects and14 removals remain. #64 reached the shore after144.07 minutes;
+#65 fell inland after77.54 minutes, #66 after32.34 minutes. Their initiating
+causes remain uncertain except the shore-position evidence; see the late-fall
+issue. All saved designs/history remain. Monitor497976 now archives every
+exported world under world-snapshots/; its first archive is after these falls.
+The latest complete native mirror is369913589bytes, snapshot378403213bytes.
+
+Patrol IV/library#62 uses powered hip-yaw joints on the same29-part layout.
+Its300s private trial reduced worst stance-block motion to2.01cm with20 scored
+placements and3 reversals. Pi tests yaw braking as a comparison. Independent
+600s populated verification is running as handle40793, 4GiB/no swap, timeout780s;
+prepared scripts are build/blockwalker-patrol-{browser,check,reopen}.mjs and
+-analysis.py, results under blockwalker-patrol-clear-world/. Exact seed:
+blockwalker-patrol-current-seed.json. No patrol has been released or promoted.
+
 ### Owned services — verify PIDs before stopping anything
 
 | Service | PID | Address / script |
@@ -158,7 +174,7 @@ visible before typing. Old frame counters can survive a process exit. The final
 | Preview | 104549 | `http://127.0.0.1:9099/blockwalker/`, `scripts/serve-gpu.mjs 9099 blockwalker` |
 | Relay | 17316 | port 9010; permits origins 9099 and 19199 |
 | Live browser | 440769 | CDP 9231, `build/blockwalker-bipeds-live.mjs` |
-| Five-minute monitor | 467108 | `build/blockwalker-bipeds-monitor.mjs --watch` |
+| Five-minute monitor | 497976 | `build/blockwalker-bipeds-monitor.mjs --watch` |
 
 Persistent Chrome profile: `.cache/blockwalker-browser-20260915`, DISPLAY=:1.
 The old live runners17317/439890 and monitors387963/443288/446330 are stopped. Scripts
@@ -206,7 +222,7 @@ systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 \
 Use meaningful checks for the changed behavior; do not repeat unrelated suites.
 Never deep-assert binary Buffers; use `.equals()` boolean comparisons. All current
 ephemeral tests are finished. [Early failed-trial completion](../20260915-122200-codex-01/TASK.md)
-is investigated but not implemented. Keep the current 60 Hz constraints: the
+is implemented and verified in5a24f9c; the public image still needs rebuilding. Keep the current 60 Hz constraints: the
 120 Hz comparison reduced flex but regressed boat navigation ([issue](../20260915-093700-codex-01/TASK.md)).
 
 Other verified additions: [landers](../20260915-045200-codex-01/TASK.md),
