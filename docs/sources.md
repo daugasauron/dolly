@@ -219,6 +219,21 @@ interruption/recovery, plus house construction, training, gathering and Petra AI
 Graphical content is available separately; audio and multiplayer remain under development in
 [`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
 
+OpenAL Soft 1.24.3 is checksum-pinned in `dependencies.tsv`. Its loopback mixer
+runs serially: `openal.patch` polls its event queue after rendering and replaces
+its internal semaphore with a counter. It does not enable Dolly thread creation
+or POSIX semaphores. `openal.sh` builds the library and mixer fixture; link the
+latter with `bash toolchain/0ad/link.sh build/0ad/openal-check.wasm
+.cache/0ad/openal-check.o .cache/0ad/sysroot/lib/libopenal.a`, then run
+`node test/0ad-openal-browser.mjs`. Two fresh processes each exercise two contexts,
+stereo positioning and playback completion. Game mixer integration is pending.
+
+`node test/audio-browser.mjs` compiles a PCM client inside Dolly and verifies
+real Web Audio output, bounded queues, fresh processes and Ctrl-C cleanup.
+Chrome runs with GPU disabled and muted speaker output; an analyser measures
+the rendered signal. The typed `dolly-audio-0` contract and authority limits are
+documented in [the browser review map](browser-boundary.md#experimental-audio-provider).
+
 After preparing those official archives, `bash toolchain/0ad/prepare-shaders.sh`
 builds checksum-pinned Naga 30.0.1 with its locked dependencies and the same
 native Rust bootstrap. It translates the release's SPIR-V graphics variants to

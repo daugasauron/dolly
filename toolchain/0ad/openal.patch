@@ -1,0 +1,123 @@
+--- a/al/event.cpp
++++ b/al/event.cpp
+@@ -53,6 +53,10 @@
+         auto evt_data = ring->getReadVector()[0];
+         if(evt_data.len == 0)
+         {
++#ifdef DOLLY
++            while(context->mEventSem.try_wait()) { }
++            return 0;
++#endif
+             context->mEventSem.wait();
+             continue;
+         }
+@@ -149,6 +153,9 @@
+ 
+ void StartEventThrd(ALCcontext *ctx)
+ {
++#ifdef DOLLY
++    return;
++#endif
+     try {
+         ctx->mEventThread = std::thread{EventThread, ctx};
+     }
+@@ -162,6 +169,10 @@
+ 
+ void StopEventThrd(ALCcontext *ctx)
+ {
++#ifdef DOLLY
++    EventThread(ctx);
++    return;
++#endif
+     RingBuffer *ring{ctx->mAsyncEvents.get()};
+     auto evt_data = ring->getWriteVector()[0];
+     if(evt_data.len == 0)
+@@ -243,3 +254,7 @@
+ catch(std::exception &e) {
+     ERR("Caught exception: {}", e.what());
+ }
++
++#ifdef DOLLY
++void ProcessEvents(ALCcontext *ctx) { EventThread(ctx); }
++#endif
+--- a/al/event.h
++++ b/al/event.h
+@@ -5,5 +5,8 @@
+ 
+ void StartEventThrd(ALCcontext *ctx);
+ void StopEventThrd(ALCcontext *ctx);
++#ifdef DOLLY
++void ProcessEvents(ALCcontext *ctx);
++#endif
+ 
+ #endif
+--- a/alc/alc.cpp
++++ b/alc/alc.cpp
+@@ -19,6 +19,7 @@
+  */
+ 
+ #include "config.h"
++#include "al/event.h"
+ #include "config_backends.h"
+ #include "config_simd.h"
+ 
+@@ -3421,7 +3422,13 @@
+     else if(samples < 0 || (samples > 0 && buffer == nullptr)) UNLIKELY
+         alcSetError(aldev, ALC_INVALID_VALUE);
+     else
++    {
+         aldev->renderSamples(buffer, static_cast<uint>(samples), aldev->channelsFromFmt());
++#ifdef DOLLY
++        for(ContextBase *ctx : *aldev->mContexts.load())
++            ProcessEvents(static_cast<ALCcontext*>(ctx));
++#endif
++    }
+ }
+ 
+ 
+--- a/common/alsem.cpp
++++ b/common/alsem.cpp
+@@ -23,9 +23,29 @@
+ #include "alsem.h"
+ 
+ #include <system_error>
++#include <cstdlib>
++#include <limits>
+ 
+ 
+-#ifdef _WIN32
++#ifdef DOLLY
++namespace al {
++semaphore::semaphore(unsigned int initial) : mSem{initial} { }
++semaphore::~semaphore() = default;
++void semaphore::post()
++{
++    if(mSem == std::numeric_limits<unsigned>::max())
++        throw std::system_error(std::make_error_code(std::errc::value_too_large));
++    ++mSem;
++}
++bool semaphore::try_wait() noexcept
++{
++    if(!mSem) return false;
++    --mSem;
++    return true;
++}
++void semaphore::wait() noexcept { if(!try_wait()) std::abort(); }
++}
++#elif defined(_WIN32)
+ #define WIN32_LEAN_AND_MEAN
+ #include <windows.h>
+ 
+--- a/common/alsem.h
++++ b/common/alsem.h
+@@ -17,7 +17,9 @@
+ namespace al {
+ 
+ class semaphore {
+-#ifdef _WIN32
++#ifdef DOLLY
++    using native_type = unsigned;
++#elif defined(_WIN32)
+     using native_type = void*;
+ #elif defined(AL_APPLE_HAVE_DISPATCH)
+     using native_type = dispatch_semaphore_t;

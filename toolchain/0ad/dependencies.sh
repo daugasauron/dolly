@@ -31,6 +31,8 @@ cmake -S .cache/emscripten/ports/freetype/freetype-VER-2-14-3 -B .cache/0ad/buil
 cmake --build .cache/0ad/build-freetype -j2
 cmake --install .cache/0ad/build-freetype
 
+bash toolchain/0ad/openal.sh
+
 unset EMSCRIPTEN
 cd /src/.cache/0ad/libsodium-1.0.20
 export CC=emcc AR=emar RANLIB=emranlib

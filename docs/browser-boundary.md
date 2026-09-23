@@ -69,6 +69,23 @@ embedding policy and registry bootstrap grants. It calls the existing
 [build worker](../src/image-builder.mjs) with that restricted transport; it adds
 no host imports or local services. Cancelling closes the worker and broker.
 
+## Experimental audio provider
+
+[`dolly-audio-0.wat`](../abi/dolly-audio-0.wat) defines one typed outer
+`env.dolly_audio_dispatch` import for stereo PCM playback. Review
+[`audio-kernel.c`](../src/audio-kernel.c) for process leases/revocation,
+[`audio-bridge.mjs`](../src/audio-bridge.mjs) for bounded copies and admission,
+and [`audio-provider.mjs`](../src/audio-provider.mjs) for validation and device
+quotas. [`browser.mjs`](../src/browser.mjs) connects this provider to its Worker
+and resumes suspended audio after browser interaction. Mixing, decoded source
+buffers and game state remain in Wasm; the browser owns only queued device output.
+
+Four leases can each queue at most one second of 48 kHz stereo output and 64
+buffers. Each write is 128–4096 frames, has finite f32 samples, and is clamped to
+the output range. One outstanding request per slot bounds admission even if
+Wasm fabricates mailbox completions. Reaping revokes queued sound. This interface
+grants no audio capture, microphone, file, URL, DOM or network access.
+
 ## Experimental GPU provider
 
 [`dolly-gpu-0.wat`](../abi/dolly-gpu-0.wat) adds exactly one typed outer

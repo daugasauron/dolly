@@ -8,6 +8,7 @@ import { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } f
 import { localServicesTransport } from "./local-services.mjs";
 import { SessionTransport } from "./session-transport.mjs";
 import { UploadTransport, chooseUploadFile } from "./upload-transport.mjs";
+import { createAudioProvider } from "./audio-provider.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   decodeSessionSnapshot,
@@ -1041,14 +1042,31 @@ async function boot() {
   mount.append(gpuCanvas);
   const gpuSurface = gpuCanvas.transferControlToOffscreen();
   let gpuStatus = {};
+  const audioProvider = createAudioProvider();
+  const resumeAudio = event => { if (event.isTrusted) audioProvider.resume(); };
+  window.addEventListener("keydown", resumeAudio, {capture: true});
+  window.addEventListener("pointerdown", resumeAudio, {capture: true});
+  const closeAudio = () => {
+    window.removeEventListener("keydown", resumeAudio, {capture: true});
+    window.removeEventListener("pointerdown", resumeAudio, {capture: true});
+    void audioProvider.close();
+  };
   const workerUrl = new URL("./runtime-worker.mjs", import.meta.url);
   runtimeWorker = new Worker(workerUrl, {
     type: "module",
     name: "dolly-runtime",
   });
+  runtimeWorker.addEventListener("error", closeAudio);
   runtimeWorker.addEventListener("message", (event) => {
     const message = event.data;
-    if (message.type === "gpu-status") {
+    if (message.type === "audio-request") {
+      const result = audioProvider.dispatch(message.packet);
+      runtimeWorker.postMessage({type: "audio-complete", scope: message.scope,
+        sequence: message.sequence, ...result}, [result.bytes.buffer]);
+    } else if (message.type === "audio-revoke") {
+      audioProvider.release(message.scope);
+      runtimeWorker.postMessage({type: "audio-complete", scope: message.scope, revoked: true});
+    } else if (message.type === "gpu-status") {
       gpuStatus = {...gpuStatus, ...message};
       if (message.active) delete gpuStatus.error;
       if (message.active !== undefined) gpuCanvas.hidden = !message.active;
@@ -1082,6 +1100,7 @@ async function boot() {
         displayFatal(error instanceof Error ? error.message : String(error));
       }
     } else if (message.type === "exited") {
+      closeAudio();
       clearInterval(uploadTimer);
       uploadTransport?.close();
       networkTransport?.close();
@@ -1099,6 +1118,7 @@ async function boot() {
         displayFatal(error instanceof Error ? error.message : String(error));
       }
     } else if (message.type === "error" && runtimeReady) {
+      closeAudio();
       const detail = message.stack ? `${message.message}\n${message.stack}` : message.message;
       for (const reject of runtimeFailureRejectors) reject(new Error(detail));
       runtimeFailureRejectors.clear();
@@ -1220,6 +1240,7 @@ async function boot() {
   window.__dolly = {
     worker: runtimeWorker,
     get gpu() { return gpuStatus; },
+    get audio() { return audioProvider.status(); },
     display: presenter,
     transport,
     get foregroundPid() {

@@ -15,6 +15,9 @@
   "gpu": [
     "env.dolly_gpu_dispatch"
   ],
+  "audio": [
+    "env.dolly_audio_dispatch"
+  ],
   "clock": [
     "wasi_snapshot_preview1.clock_res_get",
     "wasi_snapshot_preview1.clock_time_get"

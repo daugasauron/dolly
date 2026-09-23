@@ -24,6 +24,7 @@ export const mimeTypes = new Map([
 export const browserSources = new Set([
   "test/fixtures/browser-boundary.mjs",
   "test/fixtures/gpu-boundary.mjs",
+  "test/fixtures/audio-boundary.mjs",
   "test/fixtures/fluid-direct.mjs",
   "test/fixtures/http-admission-worker.mjs",
   "test/fixtures/browser-process-abi.mjs",
@@ -62,6 +63,9 @@ export const browserSources = new Set([
   "src/gpu-worker.mjs",
   "src/gpu-bridge.mjs",
   "src/gpu-abi.mjs",
+  "src/audio-abi.mjs",
+  "src/audio-bridge.mjs",
+  "src/audio-provider.mjs",
 ]);
 
 export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map(), fixtures = {}) {

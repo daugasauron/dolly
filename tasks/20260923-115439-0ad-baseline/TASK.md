@@ -229,3 +229,21 @@ the 333,486,080-byte graphics pack has
 `414ccbf9b7e3e65f6e39b7545c2d452a55e4aadfac30ac53e83c868d40a5c10b`.
 Pristine reconstruction of all 33 engine files and source syntax checks pass.
 Next: audio, restricted multiplayer and final packaging; keep this task open.
+
+2026-09-24: OpenAL Soft 1.24.3 builds as a wasm64 loopback mixer. The port polls
+events serially and uses a local counter for its internal event semaphore;
+Dolly's unsupported POSIX semaphore/thread contract is unchanged. Two fresh
+processes each create/destroy two contexts, render a positioned 440 Hz source
+and reach AL_STOPPED (29 ms/17 ms). Evidence: `browser-openal-test.log`.
+
+Added the typed `dolly-audio-0` PCM device, process-owned leases and one exact
+outer import. Four leases each admit at most 48,000 frames and 64 queued buffers;
+packets are copied and independently bounded outside compromised Wasm memory.
+The real Chrome 151 browser test compiles its client inside Dolly, measures
+left/right RMS peaks 0/0.3546, exercises three completed fresh processes and
+Ctrl-C revocation, and returns to the shell with zero scopes/queued buffers.
+Direct boundary probes verify frame/buffer/lease quotas, malformed PCM, stale
+sequences/revocations, memory growth and forged guest completion denial.
+Speaker output is muted during testing. Exact browser-import validation passes.
+Evidence: `.cache/0ad/browser-audio-test.log`. Game audio integration and
+restricted multiplayer remain next; this task remains open.

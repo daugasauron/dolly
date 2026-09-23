@@ -12,6 +12,7 @@ import { DollyProcessSupervisor } from "./process-supervisor.mjs";
 import { instantiateKernelPlugin } from "./kernel-plugin.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { createGpuBridge } from "./gpu-bridge.mjs";
+import { createAudioBridge } from "./audio-bridge.mjs";
 import { createHttpAdmission } from "./http-broker.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 
@@ -178,6 +179,7 @@ try {
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   let kernelExports;
   let gpuDispatch;
+  let audioBridge;
   const dollyOptions = {
     noInitialRun: true,
     wasmMemory: memory,
@@ -191,6 +193,7 @@ try {
     bootstrapWriteBytes: (bytes) => self.postMessage({ type: "bootstrap-bytes", bytes }),
     httpDispatch: httpAdmission.dispatch,
     gpuDispatch: request => gpuDispatch ? gpuDispatch(request) : -DOLLY_ERRNO.ENOSYS,
+    audioDispatch: request => audioBridge ? audioBridge.dispatch(request) : -DOLLY_ERRNO.ENOSYS,
     downloadDispatch: ({ name, bytes }) => {
       if (bootConfig.buildOnly) return -DOLLY_ERRNO.ENOSYS;
       if (typeof name !== "string" || name.length === 0 || name.length > 255 ||
@@ -460,6 +463,14 @@ try {
     gpuDispatch = createGpuBridge(memory, Number(dolly._dolly_gpu_mailbox_address()), bootConfig.gpuCanvas,
       () => processSupervisor.serviceDeferred(),
       status => self.postMessage({...status, type: "gpu-status"}));
+  }
+  if (!bootConfig.buildOnly && dolly._dolly_audio_mailbox_address) {
+    audioBridge = createAudioBridge(memory, Number(dolly._dolly_audio_mailbox_address()),
+      (message, transfer) => self.postMessage(message, transfer ?? []),
+      () => processSupervisor.serviceDeferred());
+    self.addEventListener("message", ({data}) => {
+      if (data.type === "audio-complete") audioBridge.acknowledge(data);
+    });
   }
   await displayReady;
 

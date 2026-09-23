@@ -313,6 +313,8 @@ native_zig_object="$("${project_dir}/scripts/build-native-zig.sh")"
 
 node scripts/generate-gpu-abi.mjs
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-gpu-0.wat --enable-memory64 --enable-threads --disable-compact-imports -o build/dolly-gpu-0.wasm
+node scripts/generate-audio-abi.mjs
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-audio-0.wat --enable-memory64 --enable-threads --disable-compact-imports -o build/dolly-audio-0.wasm
 
 node scripts/dolly-abi.mjs emit-emscripten-exports \
   build/dolly-kernel-plugin-0.wasm \
@@ -322,6 +324,7 @@ node scripts/dolly-abi.mjs emit-emscripten-exports \
   build/dolly-snapshot-0.wasm \
   build/dolly-supervisor-0.wasm \
   build/dolly-gpu-0.wasm \
+  build/dolly-audio-0.wasm \
   build/runtime-exports.json
 node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-kernel-plugin-0.wasm \
@@ -369,6 +372,7 @@ node scripts/dolly-abi.mjs validate-browser build/dolly-browser-0.wasm dist/doll
 
 cp build/dolly-browser-0.wasm dist/dolly-browser-0.wasm
 cp build/dolly-gpu-0.wasm dist/dolly-gpu-0.wasm
+cp build/dolly-audio-0.wasm dist/dolly-audio-0.wasm
 cp build/dolly-kernel-plugin-0.wasm dist/dolly-kernel-plugin-0.wasm
 cp build/dolly-process-0.wasm dist/dolly-process-0.wasm
 cp build/dolly-process-gate-0.wasm dist/dolly-process-gate-0.wasm

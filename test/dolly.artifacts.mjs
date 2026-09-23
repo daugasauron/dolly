@@ -164,6 +164,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
     artifact("dolly-supervisor-0.wasm"),
   );
   const gpuContract = await readWasmInterface(artifact("dolly-gpu-0.wasm"));
+  const audioContract = await readWasmInterface(artifact("dolly-audio-0.wasm"));
 
   for (const entry of contract.imports) {
     if (!moduleInfrastructure.has(entry.name) && !loaderBackedFunctions.has(entry.name)) {
@@ -176,6 +177,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
   for (const entry of snapshotContract.exports) expected.add(`_${entry.name}`);
   for (const entry of supervisorContract.exports) expected.add(`_${entry.name}`);
   for (const entry of gpuContract.exports) if (entry.type.kind === "func") expected.add(`_${entry.name}`);
+  for (const entry of audioContract.exports) if (entry.type.kind === "func") expected.add(`_${entry.name}`);
 
   assert.deepEqual(actual, [...expected].sort());
 });
@@ -520,6 +522,7 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
   assert.deepEqual(policy.network, ["env.dolly_http_dispatch"]);
   assert.deepEqual(policy.download, ["env.dolly_download_dispatch"]);
   assert.deepEqual(policy.gpu, ["env.dolly_gpu_dispatch"]);
+  assert.deepEqual(policy.audio, ["env.dolly_audio_dispatch"]);
   assert.equal(
     actual.some((name) => /nodefs|opfs|fetch|socket|spawn|process|pthread|thread_/.test(name)),
     false,
