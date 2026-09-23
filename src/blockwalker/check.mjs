@@ -110,6 +110,7 @@ try {
  fs.writeFileSync('/workspace/blockwalker-integration.json',JSON.stringify({embedded:true,pngBytes:png.length,steps:after.steps,parts:after.parts,population}));
  Game.call('open_design',{id:examples.find(d=>d.sea&&!d.anchored).id});Game.call('reset');assert(Game.call('state').sea,'reset keeps the water surface selected by a saved boat');
  await checkContactForces();
+ await checkLargeController();
  console.log('BLOCKWALKER EMBED CHECK: direct C calls, GPU PNG, timed keyboard, paused inference, shared world, controller timeout, survivors, persistence');
 }finally{clearInterval(timer);Game.call('exit');}
 
@@ -133,4 +134,17 @@ async function checkContactForces(){
  assert(supported.sensors.supportForce[0]>.1&&sum(supported.sensors.selfContactForce)<.01,'a separate dynamic crate supports the cantilever without self force');
  const result={readings,selfPeak,supportAtPeak,dynamicSupport:supported.sensors.supportForce,beamMass:supported.sensors.mass};
  fs.writeFileSync('/workspace/blockwalker-contact-sensors.json',JSON.stringify(result));console.log(JSON.stringify(result));
+}
+
+async function checkLargeController(){
+ const trajectory=Array.from({length:2048},(_,i)=>(.6*Math.sin(i*2*Math.PI/600)).toFixed(8));
+ const source='(()=>{const trajectory=['+trajectory.join(',')+'];return function(t,s,m){m.target=trajectory[Math.floor(t*60)%trajectory.length];const u=Math.max(-1,Math.min(1,3*(m.target-s.angles[1])-.3*s.rates[1]));return {A:Math.max(0,u),Q:Math.max(0,-u)};};})()';
+ Game.call('build',{parts:[{x:0,y:0,z:0,parent:-1,joint:0},{x:1,y:0,z:0,parent:0,joint:1,axis:2,negative:81,positive:65}],anchored:true});
+ Game.call('install',{name:'Recorded trajectory',source,hz:60});const id=Game.call('save_design');
+ Game.call('program_trial',{steps:120,sea:false});while(Game.call('state').remaining)await sleep(20);
+ const state=Game.call('state'),program=Game.call('installed_program');assert(state.steps===120&&state.parts[1].angle>.3&&Math.abs(state.parts[1].angle-program.memory.target)<.12,'large trajectory controller drives a real motor');
+ let rejected=false;try{Game.call('install',{name:'Oversized literal',source:'(()=>{const data="'+'x'.repeat(5*1024*1024)+'";return function(){return data;};})()'});}catch{rejected=true;}
+ assert(rejected&&Game.call('installed_program').source===source,'compiler heap rejection preserves the installed controller');
+ Game.call('save');fs.writeFileSync('/workspace/blockwalker-large-controller.json',JSON.stringify({id,sourceBytes:source.length,angle:state.parts[1].angle,target:program.memory.target,heapRejected:rejected}));
+ const restored=Game.call('open_design',{id});assert(restored.source===source,'saved large controller reopens exactly');
 }

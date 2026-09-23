@@ -88,3 +88,34 @@ the saved checkpoint live#67 was upright at4452.4 s (74.2 min),308 scored
 placements,41 reversals and zero aborts. The948-character continuation prompt
 resumes the quiet-arm comparison, then force-informed tuning; actual Astra/xhigh
 requests resumed at07:53:38 UTC. No arm body has been released or promoted.
+
+Quiet-arm #77 fell at 99.067 s with five alternating landings, two scored.
+Across 621 elevated-foot samples, the opposite foot carried above 9.13 N and
+the raised foot had zero sampled external support. There were 32 self-contact
+samples, peaking at 36.69 N; arm force first appeared during the fall at 97.85 s.
+Exact records #77/#78 and the quiet-arm result are in `build/blockwalker-arms-*`.
+The neutral blueprint comparison gives 25% more mass and a .619 m higher COM
+than #62; rigidly locked roll inertia rises 37%. This is a geometric calculation,
+not measured articulated response (`blockwalker-arms-mass-comparison.json`).
+
+Saved #78 uses slower, better-damped transfers and recent external-force
+evidence for support. Its trial was interrupted for a sandbox update; Pi was
+explicitly told to rerun it. The update removes the arbitrary controller source
+cap and preserves cached magnet load on restart. All 53 live creations, 78
+designs and the entire 385650233-byte native history survived exactly. The
+923-character continuation was submitted through the normal prompt box.
+Initial relay errors recovered; Pi resumed inspection and trials at 08:44 UTC.
+
+The recovered native history confirms #78 completed its rerun, falling at
+185.1 s / 11106 ticks. It was not released. All 78 saved designs remain in the
+September 23 recovery archive. The full 923-character prompt was received after
+resending at a slower typing rate; the first submission lost text during a
+background save. Native history preserves both submissions and all results.
+The existing unmodified patrol #67 reached 53590.3 simulation seconds (14.9 h),
+3713 scored steps, 485 reversals, two aborted transfers and maximum recorded
+stance drift .052154 m. These are controller counters, not independent geometry
+checks of all 3713 steps. It remained upright in the final saved world.
+
+This arms extension remains experimental and OPEN. The broader living-world
+checkpoint includes the independently verified two-legged patrol body, while
+all arm attempts remain available in the recovered design library.

@@ -1,153 +1,113 @@
 # Build a larger living world with water, boats and machines
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: game,agent,gpu
 
-Continue development until 2026-09-15 22:00 JST. Extend the existing embedded
-Pi playground on `codex/blockwalker-20260914`; preserve its learned controllers,
-conversation and saved world. Keep the game in C, built inside its one Dollyfile.
+The original development window ended 2026-09-15 22:00 JST. The user requested
+a stable checkpoint on September 23. The living-world checkpoint is verified,
+with the learned world and complete Pi history preserved. Work is on
+`work/gpu-shaders`, branch `codex/blockwalker-20260914`; no push, deployment or
+merge is authorized. Feature work and autonomous Pi are paused.
 
-Add camera travel, larger terrain, water and physically floating boats. Support
-anchored constructions such as cranes and opening bridges alongside larger
-walkers, wheeled machines and flying creatures. Give the world a space theme,
-dark GUI, visible thrust flames and customizable block designs/effects. Populate
-it with varied, moving creations, including randomized feedback controllers.
-Use the actual Astra/xhigh Pi agent and timed GPU framebuffer observations.
+## Requirement audit — September 23
 
-Verify real browser controls, physics and persistence. Measure boat floatation,
-propulsion and steering; anchored mechanisms; controlled flight; and performance
-with a populated world. Record evidence here before closing.
+| Requirement | Implementation and evidence |
+| --- | --- |
+| Bigger, varied moving population | Fresh image: 53 objects, 1461 parts, walkers, rovers, cranes, boats and aircraft. `src/blockwalker/designs.json` retains the exact learned controllers. Packaged browser integration verifies movement, zero initial removals and zero model requests. |
+| Larger structures and opening bridges | Tidegate has 72 parts; Tidelock has 63. Moving bridge, lift, rotating beacon and separate cargo bodies are exercised by `test/blockwalker-agent-browser.mjs`. |
+| Camera travel and a larger world | 512 m sea, islands, docks, towers and a stepped basalt basin. The editor test verifies horizontal/vertical travel, orbit, zoom, named places, saved cameras and under-floor placement. |
+| Terrain and shaders | Shared terrain geometry drives collisions, height queries and GPU rendering. Basin resting heights and entrance passage are checked by the C physics checks. `scene.wgsl` implements matte rock, crystal, water and space sky. |
+| Space theme and customizable blocks | Dark UI, colored panel/glow/stripe finishes, adjustable materials and anchoring. Editor export/import checks preserve these choices; actual GPU captures are under `build/blockwalker-checkpoint-gallery/`. |
+| Visible thrust and more flying things | Thruster commands render animated exhaust. The flyer capture shows Skybarge airborne with exhaust; the integration test verifies hover. The unchanged lander designs have measured takeoff, return and touchdown evidence in `build/blockwalker-landers/proof.json`. |
+| Randomness and movement | Seeded route variation exists in the released controllers. Landers selected three measured route offsets each; boats propel and return, and walking bodies advance under ordinary physics. |
+| A real two-legged walker | Exact library #62 is bundled as Sidelight IV. Its independent 600.05 s populated-world test verified 41 alternating physical placements, six reversals, zero falls and at most .018311 m stance-centroid motion. `build/blockwalker-patrol-clear-world/` includes poses, contact samples, images and video. |
+| C, Box3D and GPU rendering | The one Dollyfile compiles the C game inside Dolly, using fully 3D Box3D physics, raylib UI and WebGPU rendering. Kernel and browser authority are unchanged in this checkpoint. |
+| Direct Pi playground and preservation | Embedded Astra/xhigh uses direct game tools and at most three timed GPU images per trial. The recovered 387804845-byte native conversation has 3717 valid entries and retains the complete earlier 385650233-byte prefix. All 78 saved designs survive. |
 
-## Current checkpoint — 2026-09-15 16:56 JST
+The packaged image rebuilt inside Dolly in 20.7 s, reusing dependencies.
+Image size 231958423 bytes, SHA256
+`65e99be9e04e3a0e1741230f1707372ffc381bbcaa7529085ed5ae8851a15735`.
+Source tar SHA256
+`d3976c3f8c2300fedc8ecbe2d11893fd24b62be5edbbb88657dc44813831f7d3`.
+All 15 game source files match the packaged bytes. Executable size 2393894,
+SHA256 `af6f4a8bda96cef89773c15c420db860607ab9a85afb6282f450ac8ece20bca7`.
+Kernel remains `d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72`.
 
-Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
-`codex/blockwalker-20260914`. Continue until22:00 JST (13:00 UTC).
-No push/deploy/merge authorization. The latest priority is a real two-legged
-walker; next work adds articulated arms, then magnetic hands.
+Packaged integration and editor suites passed in Chrome 151 on NVIDIA WebGPU,
+each under a 4 GiB/no-swap limit: handles 65383 and 80464, terminal 0.
+Logs: `build/blockwalker-september-{integration,editor}.log`.
+The controller-size and magnetic-load fixes are complete in tasks
+[170500](../20260915-170500-codex-01/TASK.md) and
+[172000](../20260915-172000-codex-01/TASK.md).
+The gallery initially compared decimal JSON against C floats exactly; its
+comparison now explicitly uses float32 representation. No game tuning changed.
+Final gallery verification passed (41880 terminal 0): all 53 catalog bodies,
+controllers and placements matched; all seven views retained 53 objects / 1461
+parts with zero removals and no model requests. Simulation ran at real time;
+the short shared-host captures measured approximately 40–46 FPS, not an isolated
+GPU benchmark. Biped and airborne-thruster captures were visually inspected.
+Evidence: `build/blockwalker-checkpoint-gallery/proof.json` and
+`build/blockwalker-september-gallery-final.log`.
 
-The packaged image retains all53 catalog objects/1461 parts, including exact
-Pi library#62 as **Sidelight IV - patrolling biped**. It now adds verified
-`supportForce` and `selfContactForce` controller sensors. These estimate normal
-forces in the final1/480 s solver substep, not a full-tick average. See the
-[closed sensor issue](../20260915-163200-codex-01/TASK.md) for semantics, weight
-checks, overhead and source. No physics parameters or browser authority changed.
-The matched sensor benchmark produced byte-identical complete saved worlds;
-added cost was .1207 ms across all53 characters at the same physics state.
+## Learned state and remaining experiments
 
-C compiled inside Dolly; the image build reused dependencies and took20.7 s.
-Snapshot231956389 bytes, SHA
-`d43f7c3247c94951db7295ec558255feb9108cf1e142a4110b9bd9efeb08b3a3`;
-source tar597504 bytes, SHA
-`0caf048a0f61d33c36bdc5cd1c6493a4f3a06f33b74d465cdcad9d8703c32721`.
-Kernel unchanged:
-`d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72`.
-Fresh packaged checks preserved53 objects, all bundled sources, the exact biped,
-zero removals and zero model requests; all force checks passed again.
-Evidence: `build/blockwalker-forces-packaged/`. Build80400, focused force
-check10704, matched benchmark72984 and packaged check61037 are terminal0.
-No ephemeral test/build browser remains.
+The last September 15 save has 51 surviving objects / 1352 parts, 78 designs
+and 16 total deaths. Pistonboot #8 and Strideglass #29 fell naturally after the
+earlier 53-object checkpoint; their designs and saved removal records remain.
+Do not rewind those deaths or silently replace the creatures.
 
-### Walking and arm experiments
+Unchanged patrol #67 remains upright at age 53590.3 simulation seconds (14.9 h).
+Its controller records 3713 scored steps, 485 reversals, two aborted transfers
+and maximum stance drift .052154 m. These counters do not independently verify
+every later step; the 600 s geometry/contact audit remains the stronger walking
+measurement. Contact samples are approximately .1 s apart, not every tick.
 
-Verified#62 completed600.05 s in the populated world:41 alternating physical
-placements, six reversals, no aborts/deaths, minimum up .985948 and maximum
-support-centroid movement .018311 m. Every placement had signed airborne
-advance above .4125 m with opposite-foot support. Root Z range[-1.9644,2.0762] m.
-Evidence: `build/blockwalker-patrol-clear-world/`, including three GPU frames
-and30 s video `patrol-world.webm`. Contacts were sampled about .1 s, not every
-tick. Its raw Box3D `totalNormalImpulse` values establish contact but are solver
-accumulators, not net momentum change; the force investigation clarified this.
+[Articulated arms and magnetic hands](../20260915-160000-codex-01/TASK.md)
+remain a separate experimental extension. #78 fell at 185.1 s and was never
+released. All arm variants remain saved. The bounded-patrol/contact and late-fall
+investigations retain their original evidence and limits; do not claim general
+collision robustness.
 
-The unchanged live#67, spawned at(55,-85), seed6701, reached4452.4 s (74.2 min)
-at the migration checkpoint: upright,308 controller-scored steps,41 reversals,
-zero aborts. These later counters are not an independent audit of every step.
-All52 older live objects,76 saved designs and14 removal records remain.
+## Recovery and local preview
 
-The [arms task](../20260915-160000-codex-01/TASK.md) is OPEN. Hanging-arm#72
-survived300 s but slipped excessively; a90 s independent C diagnostic confirmed
-hand/hip interference. Raised/staggered#73 fell at131.517 s. Symmetric shoulder
-spacers gave37 parts/16 joints: standing#74 passed, walking#75 fell at230.35 s,
-and supporting-hip attitude feedback#76 fell at81.25 s. Every body/source/result
-is saved under `build/blockwalker-arms-*`; none has been released or promoted.
-Actual Pi resumed the planned quiet-arm comparison based on#75, with passive
-force and geometric diagnostics. Continue that experiment and then tune balance.
+Fresh image: http://127.0.0.1:9099/blockwalker/ (World opens the population).
+Owned preview PID 104549 and relay PID 17316 were confirmed running on September
+23; recheck before stopping either. Browser PID 440769 was gone and CDP 9231
+refused connections. Stale monitor 581575 was stopped after confirming it only
+reported a closed browser and retained 2.3 GiB.
 
-The prepared300 s independent helpers `blockwalker-arms-{browser,check,reopen}.mjs`
-and `blockwalker-arms-analysis.py` have NOT run. They require an exact normalized
-successful seed in `blockwalker-arms-current-seed.json` (parts must be an array).
-Original foot indices10..15/23..28 must remain for this analysis. Their staging
-source was updated to the new force-enabled C build plus contact diagnostics:
-`build/blockwalker-arms-source.tar`,601088 bytes,
-SHA`ed44664bcd221a6089e36a54a88dc4f3dc48d076fb7e7f35ab12393e48e55610`.
-Do not use the old reserved-source tar for controllers that read new sensors.
-Inspect each candidate's source/body and diagnostics before using this harness.
+Read-only recovery from the owned browser profile preserved the original
+`blockwalker-forces` IndexedDB save. Exported files, hashes and USTAR chunks are
+under `build/blockwalker-recovery-20260923/`; native history SHA256 is
+`42877acd66e131a97f868bcaa959a6ee4b4488ef46f08cefdfebb38f6485a287`.
+The full 923-character continuation prompt is present in native history after
+the slower resend. Earlier forces/patrol/biped archives remain in
+`build/blockwalker-walking/`. Archives exclude credentials.
 
-The [bounds/contact issue](../20260915-153500-codex-01/TASK.md) remains OPEN:
-library#64 privately passed300 s but exceeded the requested bound at+1.6307 m
-in600 s;#65 and reshaped-foot#69 were worse. The independent#64 run had41
-placements/seven reversals and no falls; its failure was not waived.
-Straight live#64/#65/#66 fell naturally after144.07/77.54/32.34 min. #64 reached
-the sea; the initiating causes for#65/#66 remain unknown. Keep their designs and
-removal records; see the [late-fall issue](../20260915-110000-codex-01/TASK.md).
+Recovered session `blockwalker-checkpoint` now opens on the rebuilt image, with
+Pi paused. The normal session importer accepted the migrated file; every
+archived state hash matches except the intentional `enabled=false` config
+change. Actual GPU execution preserved all 51 bodies/controllers, all 78 designs
+and removals; patrol #67 advanced to 53592.8 s with up .995721. No HTTP requests
+were made. `restored-session-proof.json` and `running-proof.json` in the recovery
+directory record this check (73516 terminal 0). The named session belongs to the
+owned browser profile, not other browsers visiting the same URL.
 
-### Live session and recovery
+Migration used the normal session-file exporter/importer, with an offline
+filesystem comparison: all 9586 other paths matched exactly; five build metadata
+files changed only verified source/module/recipe hashes. Full session envelopes
+containing credentials remain private outside the served tree; their directory
+is recorded in `private-migration-directory.txt`. The original
+`blockwalker-forces` IndexedDB record remains untouched.
 
-The live session is now **blockwalker-forces**, at
-`http://127.0.0.1:9099/session/blockwalker-forces`. The ordinary fresh image is
-`http://127.0.0.1:9099/blockwalker/`. Named sessions are browser-profile local;
-another browser cannot load one just from its URL. Older blockwalker-patrol and
-blockwalker-bipeds sessions remain. Restore75530 and verifier87245 are terminal0:
-every archived workspace hash, new packaged C/agent/catalog source and session
-compatibility matched. Real Astra/xhigh requests resumed at07:53:38 UTC.
-Pi received the948-character `forces-continuation-prompt.txt` through the normal
-prompt box. Use the new forces continuation verifier, not older prompt checks.
-`forces-continuation-proof.json` verifies the entire384715559-byte prefix in
-the384966544-byte post-resume history, all53 creatures/76 designs, real
-Astra/xhigh requests and the complete prompt. At the07:57 export live#67 was
-upright at4692.517 s,325 scored steps,43 reversals and no aborts.
+Ordinary upload restoration also passed exact pre-tick world comparison, but
+saving that large imported session exceeded 4 GiB, including with explicit
+garbage collection and without compression. This remains an OPEN
+[memory issue](../20260923-200000-codex-01/TASK.md); successful offline migration
+does not fix production save memory usage.
 
-Recheck PIDs before stopping anything; other previews/worktrees belong to others.
-Preview104549: `node scripts/serve-gpu.mjs 9099 blockwalker`.
-Relay17316: port9010; allows origins9099 and19199.
-Owned browser440769: CDP9231, DISPLAY=:1, persistent profile
-`.cache/blockwalker-browser-20260915`. Runner `build/blockwalker-bipeds-live.mjs`
-now uses blockwalker-forces in BOTH its restart URL and expected session name.
-Monitor561617: `blockwalker-forces-monitor.mjs --watch`, exec90281 intentionally
-active. Prior monitors519049/497976 are stopped. It exports full native history
-in8 MiB chunks and immutable five-minute world snapshots under `world-snapshots/`.
-Stop the watch monitor before a manual export; both use the same scratch buffer.
-
-Latest full archive: `build/blockwalker-walking/forces-state.tar`,388003840 bytes;
-gzip285593240 bytes, six48 MiB `forces-state-XX.part` files. It contains53 live
-objects/1390 parts,76 designs and14 removals at world54155.383337297826, plus
-384715559 bytes/2155 entries of native Pi history. Entire pre-pause prefix matched:
-SHA`c4b82504ce037eea7e334f8a62eabd899bc63418d9d181513f73209e555a54cd`.
-Manifest `forces-restore-proof.json`; helpers `blockwalker-forces-*.mjs/.py`.
-Archives exclude models/auth. Private relay file remains
-`/tmp/dolly-codex-relay-Bez6Lp/models.json`; never print or commit it.
-Reassemble through normal Dolly uploads:
-`cat /tmp/PARTS... | gzip -dc - | tar -xf - -C /workspace`.
-Use explicit gzip stdin `-`; never truncate history or bypass uploads.
-
-Mirrors, progress and screenshots: `build/blockwalker-walking/`.
-Status: `python3 build/blockwalker-biped-status.py`. Older patrol-state,
-bipeds-state, biped-checkpoint-state and endurance-state archives remain.
-Old image files are in `build/blockwalker-pre-forces-package/` and
-`build/blockwalker-pre-patrol-package/`.
-
-Scripts importing relatives through build need
-`node --preserve-symlinks-main build/NAME.mjs`. Resume only after GPU is active
-AND frames pass the pre-start counter. Pi may take minutes to read the complete
-native history. Ensure its panel is visibly open before typing. Never add a
-global download handler alongside explicit consumers; that previously killed
-this browser. Save the named session before downloading verification files.
-
-One ephemeral browser at a time, entire process tree under4 GiB/no swap:
-`systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 timeout --signal=TERM --kill-after=5s 180s xvfb-run -a node test/blockwalker-browser.mjs`.
-Do not call visibleTerminalText during GPU mode: it synthesizes pointer events.
-Use screenshots. Never deep-assert image/binary Buffers; use `.equals()` boolean.
-Keep60 Hz physics;120 Hz regressed boats. No host C compilation or new authority.
-Read [crash handoff](../../docs/crash-handoff.md). An earlier desktop-freeze
-interval was lost; later migrations preserve all provided history. No GPU/driver
-fault was established. Older narratives remain in repository history.
+Keep C compilation inside Dolly and one test browser at a time under 4 GiB/no
+swap. Never deep-assert binary Buffers; use `.equals()`. Do not inspect terminal
+text during GPU mode because that helper synthesizes pointer input.
+Read [the crash handoff](../../docs/crash-handoff.md) before browser work.

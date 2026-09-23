@@ -64,6 +64,10 @@ try {
   await download('blockwalker-magnet.png');await download('blockwalker-magnet.json');
   await download('blockwalker-feedback.png');await download('blockwalker-feedback.json');
   await download('blockwalker-observation.png');await download('blockwalker-actuators.png');await download('blockwalker-water.png');await download('blockwalker-world.png');await download('blockwalker-world.json');
+  const upload=page.evaluate(()=>__dolly.submit('upload /tmp/blockwalker-reopen.mjs'));await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(new URL('fixtures/blockwalker-reopen.mjs',import.meta.url).pathname);assert.equal(await upload,0);
+  assert.equal(await page.evaluate(()=>__dolly.submit('cp /usr/src/dolly/blockwalker/check.mjs /tmp/blockwalker-check.mjs && cp /tmp/blockwalker-reopen.mjs /usr/src/dolly/blockwalker/check.mjs')),0);
+  assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --integration-check')),0,'restart preserves every pose, velocity, program, memory and magnet load before physics resumes');
+  assert.equal(await page.evaluate(()=>__dolly.submit('cp /tmp/blockwalker-check.mjs /usr/src/dolly/blockwalker/check.mjs')),0);
   const restarted=page.evaluate(()=>__dolly.submit('blockwalker'));await page.waitForFunction(()=>__dolly.gpu?.active,null,{timeout:30000});
   await page.mouse.click(404,40);await page.waitForTimeout(2000);await shot('restored-world');await page.keyboard.press('Escape');await page.keyboard.press('Escape');assert.equal(await restarted,0);
   const restored=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));assert.equal(restored.creatures.length,8);assert.ok(restored.creatures.every(c=>c.seconds>10));

@@ -205,8 +205,8 @@ JSValue world_install(JSContext *ctx,JSValueConst args){
     JSValue code=JS_GetPropertyStr(ctx,args,"source"),name=JS_GetPropertyStr(ctx,args,"name");
     const char *source=JS_ToCString(ctx,code),*label=JS_ToCString(ctx,name);JSValue result=JS_UNDEFINED;
     double hz=get_number(ctx,args,"hz",10);
-    Controller *probe=source&&strlen(source)<=16384&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
-    if(!probe)result=JS_ThrowTypeError(ctx,"Controller must be a JavaScript function(t, sensors, memory, random) returning key letters or key strengths 0..1; up to 16 KiB, hz 10/20/30/60");
+    Controller *probe=source&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
+    if(!probe)result=JS_ThrowTypeError(ctx,"Controller must compile to a JavaScript function within its heap and execution limits; return key letters or key strengths 0..1, hz 10/20/30/60");
     else {world_trial_stop();installed_hz=hz;free(installed);installed=strdup(source);snprintf(installed_name,sizeof(installed_name),"%s",label?label:"Creature");controller_free(probe);}
     JS_FreeCString(ctx,source);JS_FreeCString(ctx,label);JS_FreeValue(ctx,code);JS_FreeValue(ctx,name);return result;
 }
@@ -360,7 +360,7 @@ static void load_designs(JSContext *ctx,JSValueConst list,int populate){
             JSValue anchored=JS_GetPropertyStr(ctx,item,"anchored");c.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);
             const char *source=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);int hz=get_number(ctx,item,"hz",10);float x=get_number(ctx,item,"x",0),z=get_number(ctx,item,"z",0);
             JSValue height=JS_GetPropertyStr(ctx,item,"y");int elevated=!JS_IsUndefined(height);float y=get_number(ctx,item,"y",NAN);JS_FreeValue(ctx,height);
-            Controller *probe=strlen(source)<=16384&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
+            Controller *probe=source&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
             if(probe&&isfinite(x)&&isfinite(z)&&(!elevated||(isfinite(y)&&y>=-12&&y<=128))){
                 x=Clamp(x,-248,248);z=Clamp(z,-248,248);remember_design(&c,source,name,hz,x,z);
                 if(populate){Creature *born=spawn(&c,source,name,i+1,hz,x,z);if(born&&elevated)set_spawn_height(born,y);}
@@ -430,6 +430,7 @@ void world_load(JSContext *ctx){
                 for(int n=0;valid&&n<3;n++){JSValue v=JS_GetPropertyUint32(ctx,local,n);if(JS_ToFloat64(ctx,&p[n],v)<0||!isfinite(p[n]))valid=0;JS_FreeValue(ctx,v);}
                 if(valid)for(int n=0;n<world.count;n++)if(world.creatures[n].id==target&&index>=0&&index<world.creatures[n].design.count&&n!=j){
                     part->magnet_target=world.creatures[n].physics.parts[index].body;part->magnet_local=(b3Vec3){p[0],p[1],p[2]};
+                    double load=get_number(ctx,magnet,"load",0);part->magnet_load=isfinite(load)?Clamp(load,0,creature->design.blocks[k].force*part->magnet_power):0;
                 }JS_FreeValue(ctx,local);JS_FreeValue(ctx,magnet);
             }
         }JS_FreeValue(ctx,magnets);JS_FreeValue(ctx,item);
