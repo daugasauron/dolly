@@ -140,3 +140,24 @@ boot's restore allocations also failed. The renderer was killed at 05:42:46 JST,
 before the first replacement-boot publication; sampled peak 4294848512 bytes.
 Log: `build/session-lifecycle-boot-accounted.log`. This second source override
 was not promoted either.
+
+A smaller native-Chrome reproduction now removes Dolly, the filesystem and GPU
+entirely: a Worker commits 2800 MiB of shared memory64, publishes it to the page,
+and is terminated before same-origin navigation creates a 1400 MiB replacement.
+Publishing only the shared buffer reproduces the renderer OOM. Publishing the
+grown `WebAssembly.Memory` passes (3168940032-byte sampled tree peak). Publishing
+the memory before growth fails; updating its main-isolate accounting after growth
+passes. Nested Workers and module scripts also pass when publishing the grown
+memory. Evidence: `build/wasm-refresh-native.mjs` and
+`build/wasm-refresh-{buffer,memory,memory-early,memory-early-account,memory-nested,memory-module}/`.
+This demonstrates an accounting-sensitive lifetime problem in the reduced case,
+not a fix for Dolly.
+
+In the full synthetic Dolly reproduction, publishing the memory object after
+every observed growth still fails. The 2376335360-byte size reaches the main
+page before Save. Keeping that wrapper in an observable global also fails, as
+does starting only the shell without ever initializing WebGPU. Each experiment
+recorded `oom_kill 1` and a 4294967296-byte cgroup peak. Logs:
+`build/session-lifecycle-{growth-publish,public-owner,no-gpu-use}.log`; matching
+`build/session-lifecycle-native-*/` directories contain memory samples and cgroup
+events. These are test source overrides; production remains unchanged.
