@@ -1,5 +1,7 @@
-"""Package the official combat scenario and its visual dependency closure."""
+"""Package selected official maps and their visual dependency closures."""
 from pathlib import Path
+import fnmatch
+import re
 import shutil
 import struct
 import sys
@@ -8,7 +10,7 @@ import xml.etree.ElementTree as ET
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
 
-def scenario_assets(archive, scenario):
+def scenario_assets(archive, scenario, civ=None):
     names = set(archive.namelist())
     selected, visited = set(), set()
 
@@ -20,6 +22,14 @@ def scenario_assets(archive, scenario):
         selected.add(actual)
 
     def actor(path):
+        if '{' in path:
+            pattern = re.sub(r'\{[^}]+\}', '*', path)
+            matches = sorted(fnmatch.filter(names, pattern))
+            if not matches:
+                raise ValueError('Missing actor variants: ' + path)
+            for match in matches:
+                actor(match)
+            return
         if path in visited:
             return
         visited.add(path)
@@ -56,9 +66,17 @@ def scenario_assets(archive, scenario):
         for node in root.findall('.//Actor') + root.findall('.//FoundationActor'):
             if node.text:
                 actor('art/actors/' + node.text)
+        for node in root.findall('.//SpawnEntityOnDeath'):
+            if node.text:
+                template(node.text)
 
     for node in ET.fromstring(archive.read(scenario + '.xml')).findall('.//Template'):
         template(node.text)
+    selected.update(path for path in names if path.startswith(scenario + '.'))
+    if civ:
+        for path in sorted(names):
+            if path.startswith((f'simulation/templates/units/{civ}/', f'simulation/templates/structures/{civ}/')) and path.endswith('.xml'):
+                template(path.removeprefix('simulation/templates/').removesuffix('.xml'))
     for name in ('special/target_marker.xml', 'props/units/standards/formation.xml'):
         actor('art/actors/' + name)
     # Release 28 PMP: 12-byte header, u32 patch count, u16 height grid,
@@ -91,6 +109,8 @@ for mod in ('mod', 'public'):
         output / f'data/mods/{mod}/{mod}.zip', 'a', compression=ZIP_DEFLATED, compresslevel=6
     ) as archive:
         selected = scenario_assets(upstream, 'maps/scenarios/combat_demo') if mod == 'public' else set()
+        if mod == 'public':
+            selected.update(scenario_assets(upstream, 'maps/skirmishes/temperate_roadway_2p', 'athen'))
         prefixes = ('fonts/', 'art/textures/') if mod == 'mod' else (
             'art/skeletons/', 'art/particles/', 'art/textures/ui/', 'art/textures/misc/',
             'art/textures/particles/', 'art/textures/skies/', 'art/textures/terrain/alphamaps/',
@@ -114,6 +134,7 @@ cursorbackend = "system"
 windowed = true
 xres = 1024
 yres = 768
+textures.quality = 0
 shadows = false
 silhouettes = false
 watereffects = false

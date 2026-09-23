@@ -14,7 +14,7 @@ let browser, deadline, page;
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true,
     args: ["--no-sandbox", "--disable-gpu"] });
-  deadline = setTimeout(() => void browser.close(), 120000);
+  deadline = setTimeout(() => void browser.close(), 180000);
   page = await browser.newPage();
   page.on("pageerror", error => console.error(error.message));
   await page.addInitScript(origin => {
@@ -77,13 +77,12 @@ try {
   }
   assert.equal(hashes[0], hashes[1]);
   const quote = text => "'" + text.replaceAll("'", "'\\''") + "'";
-  const control = async (requests, pipes = false) => {
+  const control = async (requests, {pipes = false, map = "scenarios/combat_demo", options = "", label = pipes ? "pipes" : "files"} = {}) => {
     assert.equal(await submit("printf '%s\\n' " + requests.map(value => quote(JSON.stringify(value))).join(" ") + " > /tmp/control.jsonl"), 0);
-    const command = `${engine} -mod=public -autostart=scenarios/combat_demo -autostart-nonvisual -nosound -dolly-control`;
+    const command = `${engine} -mod=public -autostart=${map} ${options} -autostart-nonvisual -nosound -dolly-control`;
     assert.equal(await submit(pipes
       ? `cat /tmp/control.jsonl | ${command} 2> /tmp/control.log | cat > /tmp/control-output.jsonl`
       : `${command} < /tmp/control.jsonl > /tmp/control-output.jsonl 2> /tmp/control.log`), 0);
-    const label = pipes ? "pipes" : "files";
     assert.doesNotMatch(await download("/tmp/control.log", `control-${label}.log`), /ERROR:|Assertion failed/);
     const text = await download("/tmp/control-output.jsonl", `control-${label}.jsonl`);
     const replies = text.trim().split("\n").map(line => JSON.parse(line));
@@ -109,7 +108,7 @@ try {
     }}]},
     {id: 4, op: "reset", attributes: JSON.parse(replay.split("\n")[0].slice(6))},
     {id: 5, op: "hash"},
-  ], true);
+  ], {pipes: true});
   assert.ok(movement.every(reply => reply.ok));
   assert.equal(movement[1].result, responses[1].result, "a fresh process loads the kernel-owned save");
   assert.equal(movement[3].result.timeElapsed, 0, "reset starts a new simulation");
@@ -118,6 +117,52 @@ try {
   assert.ok(Math.hypot(moved.position[0] - unit.position[0], moved.position[1] - unit.position[1]) > 1,
     "a command received over a guest pipe moves the unit in the real simulation");
   console.log(`Control protocol: ${units.length} entities, save/load hash ${responses[1].result}, unit ${unit.id} moved`);
+  const economyOptions = {map: "skirmishes/temperate_roadway_2p",
+    options: "-autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1",
+    label: "economy"};
+  const initial = await control([{id: 1, op: "hash"}, {id: 2, op: "observe"},
+    {id: 3, op: "hash"}], economyOptions);
+  assert.ok(initial.every(reply => reply.ok));
+  assert.equal(initial[0].result, initial[2].result, "observation preserves simulation and AI state");
+  const entities = Object.values(initial[1].result.entities);
+  const center = entities.find(entity => entity.owner === 1 && entity.template === "structures/athen/civil_centre");
+  const citizens = entities.filter(entity => entity.owner === 1 && entity.template.startsWith("units/athen/support_civilian"));
+  const soldiers = entities.filter(entity => entity.owner === 1 && entity.template.startsWith("units/athen/infantry_spearman"));
+  assert.ok(center && citizens.length && soldiers.length);
+  const tree = entities.filter(entity => entity.template.startsWith("gaia/tree/")).sort((a, b) =>
+    Math.hypot(a.position[0] - center.position[0], a.position[1] - center.position[1]) -
+    Math.hypot(b.position[0] - center.position[0], b.position[1] - center.position[1]))[0];
+  assert.ok(tree);
+  const economyStarted = performance.now();
+  const economy = await control([
+    {id: 1, op: "step", turns: 300, commands: [
+      {player: 1, command: {type: "construct", entities: citizens.map(entity => entity.id),
+        template: "structures/athen/house", x: 580, z: 510, angle: 0, autorepair: true, autocontinue: false, queued: false}},
+      {player: 1, command: {type: "train", entities: [center.id], template: "units/athen/support_civilian",
+        count: 2, metadata: {}, pushFront: false}},
+      {player: 1, command: {type: "gather", entities: soldiers.map(entity => entity.id), target: tree.id, queued: false}},
+    ]},
+    {id: 2, op: "hash"}, {id: 3, op: "observe"}, {id: 4, op: "hash"},
+    {id: 5, op: "save", name: "economy"}, {id: 6, op: "step", turns: 20},
+    {id: 7, op: "load", name: "economy"}, {id: 8, op: "hash"},
+    {id: 9, op: "step", turns: 100}, {id: 10, op: "hash"},
+  ], economyOptions);
+  assert.ok(economy.every(reply => reply.ok));
+  assert.equal(economy[1].result, economy[3].result, "observing active AI does not consume its pending events");
+  assert.equal(economy[1].result, economy[7].result, "save/load restores the economy and serialized Petra state");
+  const built = economy[0].result;
+  assert.ok(Object.values(built.entities).some(entity => entity.owner === 1 && entity.template === "structures/athen/house"));
+  assert.equal(built.players[1].popCount, initial[1].result.players[1].popCount + 2);
+  assert.equal(built.players[1].popLimit, initial[1].result.players[1].popLimit + 10);
+  assert.ok(built.players[1].resourceCounts.wood > 200, "soldiers gather wood after paying for the house");
+  assert.ok(built.players[2].popCount > initial[1].result.players[2].popCount, "Petra trains its own units");
+  assert.equal(economy[8].result.timeElapsed, 80000, "restored AI game resumes for 100 turns");
+  const restored = await control([{id: 1, op: "load", name: "economy"}, {id: 2, op: "hash"},
+    {id: 3, op: "step", turns: 100}, {id: 4, op: "hash"}], {...economyOptions, label: "economy-restored"});
+  assert.ok(restored.every(reply => reply.ok));
+  assert.equal(restored[1].result, economy[1].result, "a fresh engine loads the economy save");
+  assert.equal(restored[3].result, economy[9].result, "fresh loads of the same AI save produce the same continuation");
+  console.log(`Economy: house, training, gathering, Petra and fresh-process save/load passed in ${Math.round(performance.now() - economyStarted)} ms`);
   assert.equal(await submit("printf 'shell survived\\n' > /tmp/0ad-result && test -s /tmp/0ad-result"), 0);
   console.log("0 A.D. browser simulation, replay, control, save/load, pipes and interruption checks passed");
 } catch (error) {

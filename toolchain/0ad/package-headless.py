@@ -1,8 +1,10 @@
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import shutil
+import subprocess
 import sys
 import tarfile
+from tempfile import TemporaryDirectory
 
 source = Path(sys.argv[1])
 data = source / 'binaries/data'
@@ -24,10 +26,18 @@ for mod in ('mod', 'public'):
                 keep = name.startswith((
                     'simulation/', 'globalscripts/', 'gamesettings/', 'autostart/',
                     'gui/', 'art/terrains/', 'art/materials/', 'maps/scripts/',
-                    'maps/scenarios/combat_demo.'
+                    'maps/scenarios/combat_demo.', 'maps/skirmishes/temperate_roadway_2p.'
                 )) or name in ('mod.json', 'art/LICENSE.txt', 'audio/LICENSE.txt')
             if keep:
                 content = upstream.read(name)
+                if mod == 'public' and name == 'simulation/ai/petra/_petrabot.js':
+                    with TemporaryDirectory() as directory:
+                        patched = Path(directory) / name
+                        patched.parent.mkdir(parents=True)
+                        patched.write_bytes(content)
+                        subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', directory],
+                                       input=Path('toolchain/0ad/data.patch').read_bytes(), check=True)
+                        content = patched.read_bytes()
                 entry.compress_type = ZIP_DEFLATED
                 archive.writestr(entry, content)
 

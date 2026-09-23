@@ -849,7 +849,7 @@
 +Status dir_watch_Poll(DirWatchNotifications&) { return ERR::NOT_SUPPORTED; }
 --- /dev/null
 +++ b/source/ps/DollyControl.cpp
-@@ -0,0 +1,194 @@
+@@ -0,0 +1,204 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "precompiled.h"
 +
@@ -867,7 +867,6 @@
 +#include "scriptinterface/ScriptRequest.h"
 +#include "scriptinterface/StructuredClone.h"
 +#include "simulation2/Simulation2.h"
-+#include "simulation2/components/ICmpAIInterface.h"
 +#include "simulation2/system/Component.h"
 +#include "simulation2/system/LocalTurnManager.h"
 +#include <js/Array.h>
@@ -891,9 +890,20 @@
 +{
 +	CSimulation2& simulation = *g_Game->GetSimulation2();
 +	ScriptRequest rq(simulation.GetScriptInterface());
-+	CmpPtr<ICmpAIInterface> ai(simulation.GetSimContext().GetSystemEntity());
 +	JS::RootedValue state(rq.cx);
-+	ai->GetFullRepresentation(&state, true);
++	if (!simulation.GetScriptInterface().Eval(R"JS((() => {
++		const state = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).GetSimulationState();
++		state.entities = {};
++		for (const id of Engine.GetEntitiesWithInterface(IID_AIProxy))
++		{
++			const proxy = Engine.QueryInterface(id, IID_AIProxy);
++			const needsFullGet = proxy.needsFullGet;
++			try { state.entities[id] = proxy.GetFullRepresentation(); }
++			finally { proxy.needsFullGet = needsFullGet; }
++		}
++		return state;
++	})())JS", &state))
++		throw std::runtime_error("Observation failed");
 +	return Script::StringifyJSON(rq, &state, false);
 +}
 +

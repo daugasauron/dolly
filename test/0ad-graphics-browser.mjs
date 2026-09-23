@@ -14,7 +14,7 @@ try {
   // A virtual X display allows Chrome's software Vulkan surface to composite.
   browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--enable-unsafe-webgpu',
     '--use-angle=vulkan','--use-vulkan=swiftshader','--use-webgpu-adapter=swiftshader','--enable-features=Vulkan','--disable-vulkan-surface']});
-  deadline=setTimeout(()=>void browser.close(),180000);
+  deadline=setTimeout(()=>void browser.close(),240000);
   page=await browser.newPage({viewport:{width:1024,height:768}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(origin=>{globalThis.DOLLY_HTTP_POLICY={maxRequests:2,
@@ -38,17 +38,17 @@ try {
   const frames=()=>page.evaluate(()=>__dolly.gpu.stats?.frames??0);
   const advance=async count=>{
     const target=await frames()+count;
-    await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.error || __dolly.gpu.stats?.frames>=target,target,{timeout:30000});
+    await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.error || __dolly.gpu.stats?.frames>=target,target,{timeout:90000});
     assert.equal(await page.evaluate(()=>gameStatus),null,JSON.stringify(await page.evaluate(()=>__dolly.gpu)));
     assert.equal(await page.evaluate(()=>__dolly.gpu.error),undefined);
   };
-  const start=async()=>{
+  const start=async(options='-autostart=scenarios/combat_demo')=>{
     const baseline=await frames(),time=performance.now();
-    await page.evaluate(()=>{
+    await page.evaluate(options=>{
       globalThis.gameStatus=null;
-      void __dolly.submit('ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound -autostart=scenarios/combat_demo')
+      void __dolly.submit('ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound '+options)
         .then(status=>{globalThis.gameStatus=status;});
-    });
+    },options);
     await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.stats?.frames>=target,baseline+22,{timeout:30000});
     assert.equal(await page.evaluate(()=>gameStatus),null);
     return Math.round(performance.now()-time);
@@ -81,14 +81,35 @@ try {
   assert.ok(commands.some(command=>command.type==='walk' && command.entities.length),'drag selection and right-click must issue a real walk command');
   const turns=[...replay.matchAll(/^turn (\d+) /gm)].map(match=>Number(match[1]));
   assert.ok(turns.some((turn,index)=>index>0 && turn<turns[index-1]),'quickload must restore an earlier simulation turn');
-  const restartMilliseconds=await start();await stop();
+  const restartMilliseconds=await start('-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1');
+  await page.mouse.click(520,360);await advance(3);
+  await page.mouse.click(648,627);await advance(3);
+  await page.mouse.click(648,627);await advance(3);
+  await page.mouse.move(330,385);await page.mouse.down();
+  await page.mouse.move(457,475,{steps:5});await page.mouse.up();await advance(3);
+  await page.mouse.click(687,626);await advance(3);
+  await page.mouse.click(238,423);await advance(130);
+  await page.screenshot({path:new URL('graphics-economy.png',output).pathname});
+  const economyGpu=await page.evaluate(()=>__dolly.gpu);
+  await stop();
+  assert.doesNotMatch(await download('/opt/0ad/logs/interestinglog.html','graphics-economy-warnings.html'),/class="error"|class="warning"/);
+  assert.equal(await submit("find /opt/0ad/data/replays -name commands.txt | sort | tail -n1 > /tmp/economy-replay-path; cat $(cat /tmp/economy-replay-path) > /tmp/economy-replay.txt; cat $(dirname $(cat /tmp/economy-replay-path))/metadata.json > /tmp/economy-metadata.json"),0);
+  const economyReplay=await download('/tmp/economy-replay.txt','graphics-economy-replay.txt');
+  const economyCommands=economyReplay.split('\n').filter(line=>line.startsWith('cmd 1 ')).map(line=>JSON.parse(line.slice(6)));
+  assert.ok(economyCommands.some(command=>command.type==='train' && command.template==='units/athen/support_civilian'));
+  assert.ok(economyCommands.some(command=>command.type==='construct' && command.template==='structures/athen/house'));
+  const economyMetadata=JSON.parse(await download('/tmp/economy-metadata.json','graphics-economy-metadata.json'));
+  assert.equal(economyMetadata.playerStates[1].popCount,13,'two civilians trained through the UI');
+  assert.equal(economyMetadata.playerStates[1].popLimit,30,'the house placed through the UI finished construction');
+  assert.ok(economyMetadata.playerStates[2].popCount>11,'Petra progressed in the visual game');
   assert.equal(await submit('echo GRAPHICS_RECOVERED > /tmp/graphics-recovered && cat /tmp/graphics-recovered'),0);
   assert.deepEqual(errors,[]);
   const cgroup=(await readFile('/proc/self/cgroup','utf8')).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes=cgroup?Number(await readFile('/sys/fs/cgroup'+cgroup+'/memory.peak','utf8')):undefined;
   console.log(JSON.stringify({browser:browser.version(),adapter:gpu.adapter,stagingMilliseconds,startupMilliseconds,
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),allocatedBytes:gpu.stats.allocatedBytes,
-    processTreePeakBytes,visualInput:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true}));
+    economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
+    economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true}));
 } catch(error) {
   if(page && !page.isClosed()) {
     console.error(await page.evaluate(()=>({status:globalThis.gameStatus,gpu:__dolly?.gpu})).catch(()=>null));

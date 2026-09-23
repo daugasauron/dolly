@@ -194,3 +194,38 @@ graphics-warnings.html,combat-metadata.json,headed-selection.png}`. The latter
 summary screenshot belongs to the exploratory full battle. Next: an economy
 match with building/training, broader recovery/performance work, audio and the
 broker-constrained multiplayer baseline. This issue remains open.
+
+2026-09-24: Added the official Temperate Roadway (2) map, Athens' buildable and
+trainable visual dependencies, and low texture quality. The expanded browser
+graphics check passes: UI clicks train two civilians, five selected builders
+complete a house (population 13, capacity 30), Petra reaches population 14, and
+the real replay records those commands. Both combat and economy processes return
+to the shell with zero engine warnings/errors. Evidence:
+`.cache/0ad/browser-graphics-economy-test.log` and
+`browser/graphics-economy{.png,-replay.txt,-metadata.json,-warnings.html}`.
+
+Chrome 151/SwiftShader: staging 65,294 ms, combat startup 5,854 ms, fresh economy
+startup 11,023 ms, combat frame sample 316 ms, economy device credits 154,925,208
+bytes. Peak process-tree memory was 3,154,923,520 bytes under the 3 GiB limit;
+this leaves little headroom for a larger distribution or more retained processes.
+
+The headless check also builds, trains, gathers, runs Petra and restores a save
+in fresh processes. Observation now reads entity state without consuming the AI's
+pending events or altering proxy caches. Hashes before/after observation and
+immediately after save/load match. Petra's upstream `Serialize` previously failed
+before deferred restoration created its queue manager; `data.patch` returns its
+already saved data during that interval. Two loads produce matching continuations.
+An uninterrupted AI run can still diverge from a loaded run: upstream cache
+reconstruction consumes RNG and reissues dropsite commands. This remains a known
+AI save/rejoin limitation; deterministic recorded-command replay passes separately.
+Evidence: `.cache/0ad/browser-engine-economy-test.log`,
+`browser/control-economy{,-restored}.{jsonl,log}` and exploratory state dumps.
+
+The 21,696,452-byte module has SHA-256
+`0cbc20e68e0506c694617f863d2c89400fced42056be504f826782312a53fa77`;
+the 33,843,200-byte headless pack has
+`43e47236c5374f8db34facd4dae4d701e64f8b7eafaa181d07286be300c47808`;
+the 333,486,080-byte graphics pack has
+`414ccbf9b7e3e65f6e39b7545c2d452a55e4aadfac30ac53e83c868d40a5c10b`.
+Pristine reconstruction of all 33 engine files and source syntax checks pass.
+Next: audio, restricted multiplayer and final packaging; keep this task open.

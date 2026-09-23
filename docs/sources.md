@@ -209,13 +209,14 @@ For engine-only iterations run `toolchain/0ad/engine.sh` inside the pinned SDK
 container, then `bash toolchain/0ad/link-engine.sh`. Logs and downloaded browser
 evidence live under `.cache/0ad/`; generated Wasm/content under `build/0ad/`.
 
-The initial bundle selects official combat-demo content and ICU data. It runs
+The headless bundle selects the official combat demo, Temperate Roadway (2),
+simulation scripts and ICU data. It runs
 headlessly with serial tasks, shared JS contexts and separate realms, no native
 JIT, and heap-backed fixed-address pools. SDL uses Dolly's existing backend;
 curl uses its restrictable HTTP broker. Browser checks exercise real simulation,
 serialization, deterministic replay, save/load, guest pipes and process
-interruption/recovery. The graphical combat scenario is now available separately;
-economy matches, audio and multiplayer remain under development in
+interruption/recovery, plus house construction, training, gathering and Petra AI.
+Graphical content is available separately; audio and multiplayer remain under development in
 [`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
 
 After preparing those official archives, `bash toolchain/0ad/prepare-shaders.sh`
@@ -241,17 +242,19 @@ python3 toolchain/0ad/package-graphics.py .cache/0ad/0ad-0.28.0
 systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 xvfb-run -a node test/0ad-graphics-browser.mjs
 ```
 
-The separate `build/0ad/graphics-data.tar` selects the official combat scenario's
-actors, variants, meshes, animation and textures, plus shared GUI content. The
+The separate `build/0ad/graphics-data.tar` selects the combat scenario, Temperate
+Roadway and Athens' buildings/trainable units, with their actors, variants,
+meshes, animation and textures, plus shared GUI content. The
 Wasm device backend uses the bounded GPU packets, an offscreen backbuffer,
 indexed meshes, reflected uniforms and translated upstream shaders. SDL retains
-input ownership. The bundle selects system cursors and disables shadows,
+input ownership. The bundle selects system cursors, low texture quality and disables shadows,
 silhouettes, advanced water, postprocessing and antialiasing. Rendering and all
 CPU state stay within Dolly's existing process/GPU contracts.
 
 The browser check uses SwiftShader throughout; it exercises drag selection,
 movement recorded in the upstream replay, graphical quick-save/load, fresh
-processes and shell recovery. Quick-save is upstream's in-memory snapshot;
+processes, training and completed house construction through the economy UI,
+Petra progress and shell recovery. Quick-save is upstream's in-memory snapshot;
 ordinary `.0adsave` persistence has its separate headless test below. Chrome's
 headless software Vulkan compositor did not display the submitted surface in
 this environment, so this check uses Xvfb and verifies visible presentation.
@@ -265,6 +268,10 @@ In Dolly, unpack the graphics tar under `/opt/0ad` and place
 ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound -autostart=scenarios/combat_demo
 ```
 
+For the economy map, replace the final option with
+`-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1`.
+Only Athens' complete visual dependencies are included in this selected pack.
+
 `pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
 adds a line-oriented guest JSON protocol to the ordinary autostart options.
 Each request contains `id` and `op`; each response echoes `id` and contains
@@ -274,7 +281,7 @@ ends the process normally. Use `-quickstart -writableRoot -mod=public` and set
 
 | Operation | Additional properties / result |
 | --- | --- |
-| `observe` | Full upstream AI representation: players, entities, positions, health and simulation time |
+| `observe` | Players, full entity representations, positions, health and simulation time; preserves AI events/caches |
 | `step` | `turns` (1–1000, default 1), optional `commands: [{player, command}]`; returns state after stepping |
 | `hash` | Full deterministic simulation state hash |
 | `save`, `load` | `name`: 1–100 letters, digits, `_` or `-`; uses ordinary `.0adsave` archives in the guest filesystem |
@@ -286,6 +293,14 @@ Commands are upstream simulation command objects, such as
 The control mode currently requires an offline headless game. Requests are
 limited to 1 MiB and 1000 commands per step. It is a guest program protocol;
 it adds no browser imports or network listeners.
+
+Observations expose all entities and are intended for diagnostics/control, not
+fog-of-war competition. `data.patch` lets Petra serialize its saved data while
+its deferred restoration is pending. Browser checks prove exact saved-state
+hash restoration, fresh-process loading and matching continuations from the same
+save. Petra's upstream reconstruction consumes RNG and reissues dropsite commands;
+continuation after loading can differ from an uninterrupted AI run. Deterministic
+recorded-command replay is checked separately.
 
 For the smaller SpiderMonkey-only build/check, use
 `bash toolchain/0ad/build-spidermonkey.sh` and
