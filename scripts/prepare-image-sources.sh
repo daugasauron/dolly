@@ -98,6 +98,10 @@ if has_module blockwalker; then
   node scripts/prepare-blockwalker.mjs "${static_dir}/blockwalker/source.tar"
 fi
 
+if has_module zero-ad; then
+  node toolchain/0ad/prepare-distribution.mjs "${static_dir}/zero-ad"
+fi
+
 if has_module curl; then
   copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c

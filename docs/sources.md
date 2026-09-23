@@ -184,7 +184,7 @@ browser and that the resulting retained files can be serialized.
 
 ## 0 A.D. bootstrap
 
-The experimental Release 28 port in [`toolchain/0ad`](../toolchain/0ad)
+The experimental Release 28 port in `toolchain/0ad`
 cross-compiles the engine and its C/C++/Rust dependencies outside Dolly. This is
 an explicit bootstrap exception. Source/data archives are pinned in
 `config/source-pins.sh`, additional dependency archives in
@@ -333,6 +333,35 @@ ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public
 For the economy map, replace the final option with
 `-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1`.
 Only Athens' complete visual dependencies are included in this selected pack.
+
+To package those tested assets as the `zero-ad` image, after building the engine,
+headless bundle, shaders and graphics bundle above:
+
+```sh
+node toolchain/0ad/prepare-distribution.mjs
+systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=0 npm run image -- zero-ad
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 xvfb-run -a node test/0ad-graphics-browser.mjs zero-ad
+DOLLY_BUILD_IMAGES=zero-ad npm run publish
+npm run serve
+```
+
+Open `/zero-ad/` and run `zero-ad` for the economy match, or
+`zero-ad -autostart=scenarios/combat_demo`. The shell wrapper sets ICU's data path
+and forwards explicit engine arguments. F10 exits cleanly to the shell and writes
+replay metadata. Ctrl-C interrupts the process; forced termination may leave
+incomplete replay metadata. Saves and
+replays live under `/opt/0ad/data` in the guest filesystem; use Dolly's session
+save/download commands to retain them outside the current tab. `-version` and
+`-dolly-control` are also available through the wrapper.
+
+`prepare-distribution.mjs` copies the built engine/content and generates their
+SHA-256 pins in `modules/zero-ad.dm` and `Dollyfile-zero-ad`. Image assembly runs
+the normal guest tar tool, verifies the wrapper and exports the result using
+Dolly's normal snapshot pipeline. It inherits the default image and adds no
+host filesystem shortcut. The external engine build remains the explicit
+bootstrap exception described above. The pack retains upstream engine/content
+license notices and ICU/OpenAL licenses. The image deliberately starts in the
+shell, so opening its page alone does not start a graphics workload.
 
 `pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
 adds a line-oriented guest JSON protocol to the ordinary autostart options.

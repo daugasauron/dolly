@@ -1,5 +1,9 @@
 # Running 0 A.D. on Dolly
 
+This is the pre-port investigation. The subsequent implementation, browser
+evidence and remaining limits are in the [baseline task](../tasks/20260923-115439-0ad-baseline/TASK.md)
+and [build/run instructions](sources.md#0-ad-bootstrap).
+
 Investigation: 2026-09-23. **Plausible, but a substantial port; current Dolly cannot run the game.**
 The best first result is an offline, nonvisual match using the real engine and
 simulation scripts. A playable graphical match additionally needs a new renderer

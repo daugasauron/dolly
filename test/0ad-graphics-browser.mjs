@@ -4,9 +4,11 @@ import {chromium} from 'playwright-core';
 import {startBrowserServer} from './browser-server.mjs';
 
 const root=new URL('..',import.meta.url), output=new URL('../.cache/0ad/browser/',import.meta.url);
+const image=process.argv[2]??'default';
+assert.ok(['default','zero-ad'].includes(image),'usage: node test/0ad-graphics-browser.mjs [default|zero-ad]');
 await mkdir(output,{recursive:true});
 const provider=await readFile(new URL('src/gpu-worker.mjs',root),'utf8');
-const server=await startBrowserServer(root.pathname,'default',0,new Map([
+const server=await startBrowserServer(root.pathname,image,0,new Map([
   ['/src/gpu-worker.mjs',provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true')]
 ]),{'pyrogenesis.wasm':'build/0ad/pyrogenesis.wasm','0ad-graphics.tar':'build/0ad/graphics-data.tar'});
 let browser,deadline,page;
@@ -34,10 +36,12 @@ try {
       source.connect(meter);return source;
     };
   },server.origin);
-  await page.goto(server.origin+'/default/');
-  await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus));
+  const bootStart=performance.now();
+  await page.goto(server.origin+'/'+image+'/');
+  await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:90000});
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready');
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
+  const bootMilliseconds=Math.round(performance.now()-bootStart);
   await page.mouse.click(10,10);
   const submit=command=>page.evaluate(text=>__dolly.submit(text),command);
   const download=async(path,name)=>{
@@ -46,9 +50,11 @@ try {
     return readFile(new URL(name,output),'utf8');
   };
   const stagingStart=performance.now();
-  assert.equal(await submit('mkdir -p /opt/0ad/system'),0);
-  assert.equal(await submit(`curl -fsS ${server.origin}/fixture/pyrogenesis.wasm -o /opt/0ad/system/pyrogenesis`),0);
-  assert.equal(await submit(`curl -fsS ${server.origin}/fixture/0ad-graphics.tar -o /tmp/0ad.tar && tar -xf /tmp/0ad.tar -C /opt/0ad && rm /tmp/0ad.tar`),0);
+  if(image==='default') {
+    assert.equal(await submit('mkdir -p /opt/0ad/system'),0);
+    assert.equal(await submit(`curl -fsS ${server.origin}/fixture/pyrogenesis.wasm -o /opt/0ad/system/pyrogenesis`),0);
+    assert.equal(await submit(`curl -fsS ${server.origin}/fixture/0ad-graphics.tar -o /tmp/0ad.tar && tar -xf /tmp/0ad.tar -C /opt/0ad && rm /tmp/0ad.tar`),0);
+  }
   const stagingMilliseconds=Math.round(performance.now()-stagingStart);
   console.log(`Graphical content staged in ${stagingMilliseconds} ms`);
   const frames=()=>page.evaluate(()=>__dolly.gpu.stats?.frames??0);
@@ -60,18 +66,20 @@ try {
   };
   const start=async(options='-autostart=scenarios/combat_demo')=>{
     const baseline=await frames(),time=performance.now();
-    await page.evaluate(options=>{
+    await page.evaluate(({options,image})=>{
       globalThis.gameStatus=null;globalThis.audioPeak=0;
-      void __dolly.submit('ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public '+options)
+      const launch=image==='zero-ad'?'zero-ad':'ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public -conf=hotkey.exit:F10';
+      void __dolly.submit(launch+' '+options)
         .then(status=>{globalThis.gameStatus=status;});
-    },options);
+    },{options,image});
     await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.stats?.frames>=target,baseline+22,{timeout:30000});
     assert.equal(await page.evaluate(()=>gameStatus),null);
     return Math.round(performance.now()-time);
   };
-  const stop=async()=>{
-    await page.keyboard.press('Control+c');await page.waitForFunction(()=>gameStatus!==null);
-    assert.ok([0,130].includes(await page.evaluate(()=>gameStatus)));
+  const stop=async(graceful=false)=>{
+    await page.keyboard.press(graceful?'F10':'Control+c');await page.waitForFunction(()=>gameStatus!==null);
+    const status=await page.evaluate(()=>gameStatus);
+    if(graceful) assert.equal(status,0); else assert.ok([0,130].includes(status));
     await page.waitForFunction(()=>!__dolly.graphicsActive);
     await page.waitForFunction(()=>__dolly.audio.activeScopes===0 && __dolly.audio.buffers===0);
   };
@@ -100,7 +108,7 @@ try {
   assert.ok(commands.some(command=>command.type==='walk' && command.entities.length),'drag selection and right-click must issue a real walk command');
   const turns=[...replay.matchAll(/^turn (\d+) /gm)].map(match=>Number(match[1]));
   assert.ok(turns.some((turn,index)=>index>0 && turn<turns[index-1]),'quickload must restore an earlier simulation turn');
-  const restartMilliseconds=await start('-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1');
+  const restartMilliseconds=await start(image==='zero-ad'?'':'-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1');
   await page.mouse.click(520,360);await advance(3);
   await page.mouse.click(648,627);await advance(3);
   await page.mouse.click(648,627);await advance(3);
@@ -112,7 +120,7 @@ try {
   const economyGpu=await page.evaluate(()=>__dolly.gpu);
   const economyAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
   assert.ok(economyAudio.peak>1e-4,'Economy audio must reach the browser audio graph');
-  await stop();
+  await stop(true);
   assert.doesNotMatch(await download('/opt/0ad/logs/interestinglog.html','graphics-economy-warnings.html'),/class="error"|class="warning"/);
   assert.equal(await submit("find /opt/0ad/data/replays -name commands.txt | sort | tail -n1 > /tmp/economy-replay-path; cat $(cat /tmp/economy-replay-path) > /tmp/economy-replay.txt; cat $(dirname $(cat /tmp/economy-replay-path))/metadata.json > /tmp/economy-metadata.json"),0);
   const economyReplay=await download('/tmp/economy-replay.txt','graphics-economy-replay.txt');
@@ -127,7 +135,7 @@ try {
   assert.deepEqual(errors,[]);
   const cgroup=(await readFile('/proc/self/cgroup','utf8')).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes=cgroup?Number(await readFile('/sys/fs/cgroup'+cgroup+'/memory.peak','utf8')):undefined;
-  console.log(JSON.stringify({browser:browser.version(),adapter:gpu.adapter,stagingMilliseconds,startupMilliseconds,
+  console.log(JSON.stringify({image,browser:browser.version(),adapter:gpu.adapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
     economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,

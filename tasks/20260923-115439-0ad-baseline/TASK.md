@@ -308,3 +308,26 @@ Engine: 22,985,836 bytes, SHA-256
 `1b0c7735c10b418adffe807feb810179583c05d548b0a745a21461243d259d9e`.
 Content hashes remain those of the audio milestone. Final image packaging and
 verification remain outstanding.
+
+2026-09-24: Added `Dollyfile-zero-ad`, checksum-pinned engine/content sources,
+and the `zero-ad` guest shell wrapper. The image opens an ordinary shell;
+`zero-ad` starts the tested Athens/Petra economy map and forwards explicit
+arguments for combat, control or network games. F10 cleanly exits and records
+replay metadata. Ctrl-C preserves the shell and revokes device resources, but
+can interrupt the nested engine before metadata is flushed.
+
+The normal image builder reuses the verified checkpoint artifacts and exports
+581,810,536 bytes, SHA-256
+`4eaf23e1d756b75da33b797801e66e8764f4a1874eb2ab1c403d1877909e4d40`.
+An initial 4 GiB export hit its scope limit (one renderer OOM kill); the bounded
+6 GiB export passed in 16.5 seconds. No hardware GPU workload was used.
+`test/0ad-graphics-browser.mjs zero-ad` passes from that image, including its
+no-argument wrapper, with training, completed construction, Petra, replayed input,
+quick-save/load, audible-graph samples, Ctrl-C and clean F10 exit. Chrome
+151/SwiftShader: image boot 3,714 ms, combat startup 5,981 ms, economy 10,811 ms,
+sampled frames 324 ms, peak process-tree memory 3,391,311,872 bytes under 4 GiB.
+Audio peaks were 0.3309/0.0782; cumulative underruns 4; both exits left zero
+queued buffers/scopes. Evidence: `.cache/0ad/browser-distribution-test.log`.
+Exact process/browser ABI checks and 13 focused ABI/relay/documentation tests
+pass. The ABI tests initially lacked their generated fixtures; rebuilding those
+fixtures through the pinned SDK resolves all seven missing-file failures.
