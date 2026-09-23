@@ -332,7 +332,7 @@ required). For Firefox on the desktop, use
 memory scope. Results identify the backend, adapter and fallback status alongside
 frame time, allocation credits and peak cgroup memory.
 
-Before the [merge-polish performance fixes](../tasks/20260924-0ad-merge-polish/TASK.md),
+Before the [merge-polish performance fixes](../tasks/20260924-080029-0ad-merge-polish/TASK.md),
 Chrome 151/SwiftShader measured 78.5 s staging, 6.1 s combat
 startup, 10.9 s economy startup, 331 ms sampled combat frames and 3.59 GB peak
 process-tree memory. A 32,768-frame audio cushion reduced cumulative underruns
