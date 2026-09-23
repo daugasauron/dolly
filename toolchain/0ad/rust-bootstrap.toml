@@ -1,0 +1,12 @@
+[package]
+name = "dolly-sm-bootstrap"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib"]
+
+[profile.release]
+opt-level = 1
+debug = false
+panic = "abort"

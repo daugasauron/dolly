@@ -64,7 +64,7 @@ export const browserSources = new Set([
   "src/gpu-abi.mjs",
 ]);
 
-export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map()) {
+export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map(), fixtures = {}) {
   await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", `dolly-${image}-system.snapshot`]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
       throw new Error(`Core browser checks need a built runtime and ${image} image. Run npm run build:runtime once, then npm run image -- ${image}.`, { cause: error });
@@ -120,6 +120,7 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
     }
   }
   for (const [name, path] of Object.entries(processSmokeSources)) files.set(`/fixture/${name}`, path);
+  for (const [name, path] of Object.entries(fixtures)) files.set(`/fixture/${name}`, path);
   for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
     files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }

@@ -57,6 +57,12 @@ DOLLY_ZLIB_VERSION=1.3.2
 DOLLY_ZLIB_COMMIT=da607da739fa6047df13e66a2af6b8bec7c2a498
 DOLLY_ZLIB_URL='https://github.com/madler/zlib.git'
 
+DOLLY_0AD_VERSION=0.28.0
+DOLLY_0AD_SOURCE_URL='https://releases.wildfiregames.com/0ad-0.28.0-unix-build.tar.xz'
+DOLLY_0AD_SOURCE_SHA256=27e217755ef76a922fe58dbf593d96e54b6ed2375d23f548c35619aa6bd5a42a
+DOLLY_0AD_DATA_URL='https://releases.wildfiregames.com/0ad-0.28.0-unix-data.tar.xz'
+DOLLY_0AD_DATA_SHA256=e844b30ae2102c47e0a4fff2f0e0ef05ba0cebb1890aa72276fa12457c39526f
+
 DOLLY_LIBFFI_VERSION=3.5.2
 DOLLY_LIBFFI_URL='https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz'
 DOLLY_LIBFFI_SHA256=f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc

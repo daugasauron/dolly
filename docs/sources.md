@@ -182,6 +182,31 @@ browser and that the resulting retained files can be serialized.
 - The common seed is still large because it includes current Clang/LLVM and
   complete compiler headers.
 
+## 0 A.D. dependency bootstrap
+
+The experimental 0 A.D. bootstrap is tracked separately in
+[`toolchain/0ad`](../toolchain/0ad). Its Release 28 source and data archives are
+pinned in `config/source-pins.sh`. For now it cross-compiles SpiderMonkey outside
+Dolly using the pinned Emscripten container and the same Rust bootstrap, standard
+library and libc patches as the compiler seed. This is an explicit bootstrap
+exception; the embedding runs as an ordinary Dolly process with the exact
+`dolly-process-0` imports. No Emscripten JavaScript loader accompanies it.
+
+On Linux x86_64 with the existing Dolly process sysroot, Podman, systemd user
+scopes, Python 3, make, m4 and pkg-config, run
+`bash toolchain/0ad/build-spidermonkey.sh`. Set `DOLLY_PROCESS_SYSROOT` to the
+project-relative process sysroot directory when it is not
+`.cache/process-sysroot`. Builds use two jobs, a 4 GiB limit and no swap. With the
+default runtime/image built, verify using
+`systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 node test/0ad-spidermonkey-browser.mjs`.
+
+The patch selects SpiderMonkey's existing serial Wasm paths, extends CPU
+detection and GC allocation to wasm64, uses the process entropy implementation,
+and includes the static embedding dependencies. Native JIT compilation is
+disabled. This verifies the JavaScript dependency; it does not yet run the game.
+The remaining baseline is recorded in
+[`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
+
 ## Rust compiler seed and source-built tools
 
 `npm run build:rust-seed` explicitly builds the external Rust 1.98.1 / LLVM
