@@ -1,7 +1,7 @@
 # Reduce peak memory when saving a large restored session
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 300
 - TAGS: runtime,persistence,memory
 
 Restoring the 387804845-byte native Pi history and its 51-object world through
@@ -37,3 +37,10 @@ resumed upright with no HTTP requests. Evidence:
 `build/blockwalker-recovery-20260923/{offline-migration,restored-session,running}-proof.json`
 and `build/blockwalker-september-import-diagnostic.log` (73516 terminal 0).
 The original named save remains untouched; this does not exercise live capture.
+
+Checkpoint audit: the 387804845-byte native history contains 1217 images with
+361869408 bytes of base64 payload (93.3% of the whole file). All 3717 JSONL
+entries parse. Limiting model context to three images does not limit retained
+history. Keep that complete history while reducing copy/serialization peaks;
+do not solve this by truncating the user's experiments. Aggregate evidence:
+`build/blockwalker-audit-20260923/history-size.json`. No new OOM run was needed.
