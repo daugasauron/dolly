@@ -436,5 +436,10 @@ The corrected Skybarge controller passed the original quarry failure replay,
 an isolated crossing and a fresh 1200 s population with six reloads, all 49
 objects and eight deliveries. The actual 9099 follow/Eyes check passed.
 Current package SHA-256:
-`00bc3963154a3d2eae5f85f224134dd3a13717498c83077dd9f8e4acdbf69048`.
-See `20260924-051500-codex-01` for the controller evidence and package details.
+`742a7d247d68e8db626045f0f573f54ad46fdd319d42834a01ff3c886127f9b1`.
+Marrowstep also now replants after a blocked gait phase. Both failure replays,
+a short physical regression and a fresh 1200 s population passed, including
+398 supported airborne foot placements in the final five minutes. The actual
+9099 follow/Eyes check and packaged driving/pickup suite passed. See
+`20260924-051500-codex-01` and `20260924-054500-codex-01` for the controller
+evidence and current package details.

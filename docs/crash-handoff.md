@@ -60,6 +60,13 @@ fresh-catalog, follow and Eyes checks passed there. The closed
 [aircraft issue](../tasks/20260924-051500-codex-01/TASK.md) records the replay,
 regression, longer run and package hashes.
 
+Activity checks also caught Marrowstep remaining upright but stuck in a lift.
+It now plants all four feet before retrying a blocked phase. Both captured stalls,
+a short regression and a fresh 1200 s run passed; all 49 objects and eight cargo
+deliveries survive, with continued physical foot placements. The corrected image
+is served on 9099 and passed driving, pickup, follow and Eyes checks. See the
+closed [walker issue](../tasks/20260924-054500-codex-01/TASK.md).
+
 The visible browser Save button keeps the latest written checkpoint and links
 to named sessions. Manual/programmed design and complete world import/export
 remain available. Recovery-world import preserved all 51 creatures and 78
