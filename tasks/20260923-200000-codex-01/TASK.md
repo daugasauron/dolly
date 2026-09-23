@@ -134,3 +134,9 @@ RSS); sampled tree peak was 4042342400 bytes. Evidence:
 `build/session-lifecycle-native-accounted-memory/memory.json`. This was a test
 source override only; production contains neither the retained wrapper nor the
 zero-page grow.
+
+Adding acknowledged memory-object publication immediately after the replacement
+boot's restore allocations also failed. The renderer was killed at 05:42:46 JST,
+before the first replacement-boot publication; sampled peak 4294848512 bytes.
+Log: `build/session-lifecycle-boot-accounted.log`. This second source override
+was not promoted either.
