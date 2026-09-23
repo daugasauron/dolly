@@ -100,6 +100,9 @@ let it settle for a second. Each crate scores once after transport from outside
 that depot; simply spawning cargo there earns nothing. Delivered crates turn
 green and remain physical. Magnet pickup and riding on a deck both identify the
 carrier. The delivery record and your total survive saves and rebuilding your car.
+Cargo can settle on the depot floor or stack on previously delivered crates.
+Postbird picks up available island cargo, delivers it to a depot, then searches
+for another load. It ignores cargo already delivered or held by another machine.
 
 Material 0 is alloy, 1 is a sealed hull with one-quarter density, and 2 is ballast
 with triple density. Eight volume samples per body apply buoyancy and drag at
@@ -143,7 +146,8 @@ the world, with loose cargo for the cranes; click World to visit. The balancing
 surveyor, aircraft and two survey boats choose varied destinations and respond
 to nearby bodies. The heavy walker reverses and replants its feet to yield to
 traffic, the bridge opens for approaching boats, and the beacon tracks nearby
-machines. Controllers run without Pi or model access. Existing saves keep their population, including an empty world.
+machines. Sidelight uses longer, varied patrol distances and reverses at a stable
+stance when traffic or a terrain edge blocks its next step. Controllers run without Pi or model access. Existing saves keep their population, including an empty world.
 The East landing site, West reactor and North signal station have matching
 physics and GPU geometry, with matte panels, lit markers and solar-cell surfaces.
 Overhead structures collide with bodies while leaving the ground beneath them

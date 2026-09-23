@@ -312,7 +312,8 @@ static Creature *body_owner(b3BodyId body){
     void *parts=b3Body_GetUserData(body);if(!parts)return NULL;
     for(int i=0;i<world.count;i++)if(world.creatures[i].physics.parts==parts)return &world.creatures[i];return NULL;
 }
-static Creature *cargo_carrier(const Creature *cargo){
+static Creature *cargo_carrier(const Creature *cargo,int *supported){
+    if(supported)*supported=0;
     b3BodyId body=cargo->physics.parts[0].body;
     for(int i=0;i<world.count;i++){
         Creature *c=&world.creatures[i];if(c->cargo)continue;
@@ -322,8 +323,10 @@ static Creature *cargo_carrier(const Creature *cargo){
     b3ContactData *contacts=array_resize(NULL,capacity,sizeof(*contacts));int count=b3Body_GetContactData(body,contacts,capacity);Creature *carrier=NULL;
     for(int i=0;i<count&&!carrier;i++){
         b3ContactData *contact=&contacts[i];b3BodyId a=b3Shape_GetBody(contact->shapeIdA),b=b3Shape_GetBody(contact->shapeIdB);int is_a=B3_ID_EQUALS(a,body);
-        Creature *owner=body_owner(is_a?b:a);if(!owner||owner->cargo)continue;
-        for(int j=0;j<contact->manifoldCount;j++)if((is_a?-1:1)*contact->manifolds[j].normal.y>.5f){carrier=owner;break;}
+        Creature *owner=body_owner(is_a?b:a);
+        for(int j=0;j<contact->manifoldCount;j++)if((is_a?-1:1)*contact->manifolds[j].normal.y>.5f){
+            if(supported)*supported=1;if(owner&&!owner->cargo)carrier=owner;break;
+        }
     }free(contacts);return carrier;
 }
 int world_cargo_score(int id){
@@ -336,9 +339,10 @@ static Delivery *new_delivery(void){
 }
 static void cargo_step(void){
     for(int i=0;i<world.count;i++){
-        Creature *cargo=&world.creatures[i];if(!cargo->cargo||cargo->delivered)continue;
-        b3BodyId body=cargo->physics.parts[0].body;b3Pos p=b3Body_GetPosition(body);Creature *owner=cargo_carrier(cargo);
+        Creature *cargo=&world.creatures[i];if(!cargo->cargo)continue;
+        int supported=0;b3BodyId body=cargo->physics.parts[0].body;b3Pos p=b3Body_GetPosition(body);Creature *owner=cargo_carrier(cargo,&supported);
         cargo->held_by=owner?owner->id:0;
+        if(cargo->delivered)continue;
         if(owner){
             if(!cargo->carrier)cargo->pickup=(Vector3){p.x,p.y,p.z};
             cargo->carrier=owner->id==world.player?-1:owner->id;cargo->settled=0;continue;
@@ -346,7 +350,7 @@ static void cargo_step(void){
         int depot=-1;
         for(int j=0;j<depot_count;j++){Depot d=depots[j];
             if(hypotf(p.x-d.x,p.z-d.z)<d.radius-.5f&&hypotf(cargo->pickup.x-d.x,cargo->pickup.z-d.z)>d.radius+1&&
-               fabsf(p.y-terrain_height(p.x,p.z)-.485f)<.2f&&hypotf(p.x-cargo->pickup.x,p.z-cargo->pickup.z)>3){depot=j;break;}
+               supported&&hypotf(p.x-cargo->pickup.x,p.z-cargo->pickup.z)>3){depot=j;break;}
         }
         if(!cargo->carrier||depot<0||b3LengthSquared(b3Body_GetLinearVelocity(body))>.16f){cargo->settled=0;continue;}
         cargo->settled+=1.f/60;if(cargo->settled<1)continue;
@@ -585,7 +589,7 @@ void world_load(JSContext *ctx){
     int player=get_number(ctx,save,"playerId",0);world.player=world_find(player)?player:0;
     for(int i=0;i<world.count;i++)world.creatures[i].physics.time=world.age;
     for(int i=0;i<world.count;i++)if(world.creatures[i].cargo){
-        Creature *cargo=&world.creatures[i],*owner=cargo_carrier(cargo);
+        Creature *cargo=&world.creatures[i],*owner=cargo_carrier(cargo,NULL);
         if(owner)cargo->held_by=owner->id;else if(!world_find(cargo->held_by))cargo->held_by=0;
     }
     JS_FreeValue(ctx,list);JS_FreeValue(ctx,save);

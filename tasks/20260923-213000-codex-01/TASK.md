@@ -130,3 +130,45 @@ the superseded periodic sweep: maximum observed bearing error 0.03605 rad,
 head travel 0.13186 rad after initial acquisition. The restored-sensor issue is
 closed with both first-input and integration evidence. Longer combined runs
 across repeated restarts remain in progress; this playground task stays open.
+
+Checkpoint `845164d` then survived 1800 simulation seconds with a fresh process
+and world reload every 300 seconds: all 33 objects alive, zero removals. Sidelight
+completed 124 steps (62 per foot), zero aborts, minimum sampled up 0.9868 and
+zero external character contacts across all six segments. Sundial travelled
+843.95 m / 26 arrivals / four meetings; Skybarge 2219.17 m / 80 arrivals / eleven
+meetings; Kelpglass 1543.61 m / 97 arrivals; Longwake 717.08 m / 22 arrivals.
+Evidence: `build/blockwalker-long-resume1.log` (exit 0), all six saved worlds,
+contact records and traces plus `result.json` in `build/blockwalker-long-resume-0/`.
+Separate prototypes now test a longer traffic-aware biped patrol and a courier
+that delivers to the depot instead of recycling the same cargo between two
+points. Neither prototype is part of this verified image yet.
+
+The next full-population 600-second trial kept all 34 objects alive, including a
+second crate added at 90 s. The courier delivered crates 11 and 34 to the Island
+depot at 24.23 and 121.90 s. It then returned to searching for available cargo.
+The first trial exposed a blocked descent above an existing crate; the corrected
+controller senses the stack height, and scoring now requires physical upward
+support rather than bare-floor height. Delivered cargo still reports its current
+carrier when picked up again, without awarding duplicate credit.
+
+The longer biped patrol covered a 9.49 m range and yielded seven times. It made
+38 qualifying steps; two landings missed the strict slip/support criteria but
+the body continued walking (minimum up 0.98208, zero external contacts). Its
+isolated 600-second trial had 41 steps, no aborts and 10.86 m range. Evidence:
+`build/blockwalker-candidates{1,2,3}.log`, all exit 0, and matching
+`build/blockwalker-candidate{,2,3}-proof/` traces and worlds. Both programs are now
+in the source catalog; the gait mechanics and all character geometry are retained.
+
+The expanded driver check passed with current sources compiled inside Dolly:
+`build/blockwalker-cargo-stack1.log` (exit 0). It includes two physical courier
+deliveries with a restart between them, a 0.970 m crate stack, persistent score,
+real reacquisition without duplicate credit, all four first-resumed-feedback
+cases, driving 10.31 m, 75 Eyes samples and the tilted turntable.
+The local image was rebuilt in 23.4 s (`build/blockwalker-playground-image3.log`):
+232018606 bytes, SHA-256
+`2ac27037d81a8179a138fbcd78558d8237c684f8843122d85e4f56eaa073be6d`.
+Source SHA-256: `30d4578fed5aec88e658fda1b9bc7c42c37b0a0b1f4aba1f4d32e69c7194be90`.
+The packaged integration/reopen check also passed:
+`build/blockwalker-playground-integration4.log` exited 0. Continue longer trials
+with other random seeds and gameplay polish through the requested deadline;
+the main task remains open.

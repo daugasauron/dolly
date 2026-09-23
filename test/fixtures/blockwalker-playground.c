@@ -27,6 +27,28 @@ static void check_resume(JSContext *ctx){
         }assert(ran);world_close();
     }character_clear(&rig);
 }
+static void check_courier(JSContext *ctx){
+    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        if(name&&!strncmp(name,"Postbird /",10))JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));
+        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+    }
+    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);
+    int carrier=world.creatures[0].id;Vector3 home=world.creatures[0].physics.start;
+    int first=world_drop_cargo(home.x,NAN,home.z,MATERIAL_ALLOY),second=0;
+    for(int i=0;i<180*60;i++){
+        if(i==60*60){world_save(ctx);world_close();world_load(ctx);}
+        if(i==90*60)second=world_drop_cargo(home.x,NAN,home.z,MATERIAL_ALLOY);
+        world_step();
+    }
+    assert(world.count==3&&world.deaths==0&&world.delivery_count==2&&world_cargo_score(carrier)==2);
+    Creature *a=world_find(first),*b=world_find(second);assert(a->delivered&&b->delivered&&!a->held_by&&!b->held_by);
+    b3Pos pa=b3Body_GetPosition(a->physics.parts[0].body),pb=b3Body_GetPosition(b->physics.parts[0].body);
+    assert(pb.y-pa.y>.8f&&hypotf(pa.x-pb.x,pa.z-pb.z)<.9f);
+    printf("COURIER: two physical deliveries, stacked height difference %.3f m, score %d after controller restart\n",pb.y-pa.y,world_cargo_score(carrier));
+    world_save(ctx);world_close();world_load(ctx);ticks(120);assert(world.delivery_count==2&&world_cargo_score(carrier)==2);world_close();
+}
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);Character car={0};character_car(&car);
     Creature *driver=spawn(&car,"function(){return ''}","Your character",1,60,0,12);int id=driver->id;world.player=id;
@@ -48,7 +70,7 @@ int main(void){
     printf("DELIVERY RELEASE: cargo %.3f, settled %.3f, delivered %d, score %d\n",cargo_z(cargo),world_find(cargo)->settled,world_find(cargo)->delivered,world_cargo_score(-1));
     assert(world.delivery_count==1&&world_find(cargo)->delivered&&world_cargo_score(id)==1&&world_cargo_score(-1)==1);
     Delivery first=world.deliveries[0];assert(first.cargo==cargo&&first.carrier==-1&&first.depot==0&&!strcmp(first.name,"You"));
-    magnet(id,1);ticks(60);magnet(id,0);ticks(180);assert(world.delivery_count==1);
+    magnet(id,1);ticks(60);assert(world_find(cargo)->held_by==id);magnet(id,0);ticks(180);assert(world.delivery_count==1);
     world_save(ctx);world_close();world_load(ctx);assert(world.delivery_count==1&&world_find(cargo)->delivered&&world_cargo_score(-1)==1);
     assert(!memcmp(&first,&world.deliveries[0],sizeof(first)));assert(!world_find(unearned)->delivered);ticks(120);assert(world.delivery_count==1);
     int next=world_enter(&car,0);assert(next!=id&&world_cargo_score(next)==1&&world.delivery_count==1);
@@ -62,5 +84,5 @@ int main(void){
     assert(cargo_z(cargo)>start+4&&world_find(cargo)->carrier==-1&&world.delivery_count==0);
     assert(world_find(cargo)->held_by==id);world_save(ctx);world_close();world_load(ctx);
     assert(world_find(cargo)->held_by==id&&world_find(cargo)->carrier==-1);ticks(30);assert(world_find(cargo)->held_by==id);
-    world_close();character_clear(&car);check_resume(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_resume(ctx);check_courier(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

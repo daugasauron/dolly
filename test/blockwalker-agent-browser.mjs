@@ -43,7 +43,7 @@ try {
   assert.equal(held.size,carriers.length,'the machines handle distinct world bodies');
   const courier=carriers.find(c=>c.blueprint.some(p=>p.joint===3)),crate=fresh.creatures.find(c=>c.name==='Cargo'&&c.startX===courier.startX&&c.startZ===courier.startZ);
   assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m?.attached&&m.creature===crate.id)&&box.y>6&&box.distance>2;}),'the flying courier carries its own crate above the island');
-  assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m&&!m.attached&&m.power===0)&&box.y<4.6&&box.distance>3;}),'the courier releases its cargo at the other end of its route');
+  assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m&&!m.attached&&m.power===0)&&box.delivered&&w.deliveries.some(d=>d.cargoId===box.id&&d.carrierId===bird.id);}),'the courier releases its cargo at a depot and earns delivery credit');
   const beacon=fresh.creatures.find(c=>c.name.startsWith('Westwatch')),head=beacon.blueprint.findIndex(p=>p.joint===1),bearings=[];
   for(const w of samples){
    const c=w.creatures.find(c=>c.id===beacon.id);if(c.seconds<6)continue;
