@@ -167,6 +167,14 @@ A fresh actual-9099 visit repeated the delivery with ordinary browser controls,
 credited the player once and retained all 51 objects including the car and test
 crate (`build/blockwalker-cargo-ui-packaged.log`, exit 0).
 
+Leaving the car parked near the depot also recovers without controller changes:
+the exact 130.88 s playtest world resumed for 180 s, retained all 51 objects and
+let Mochi deliver its remaining two crates at 142.55 and 281.85 s. It then resumed
+searching. Evidence: `build/blockwalker-porter-occupied-baseline.log` and the saved
+world, physical trace and controller memories in
+`build/blockwalker-porter-occupied-baseline/`. Crowding delayed the jobs but did
+not leave the porter circling indefinitely; no speculative replanning fix was added.
+
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate
 requested issue; do not silently expand this goal into rewriting Pi.
