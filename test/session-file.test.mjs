@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { exportSessionFile, importSessionFile } from "../src/session-file.mjs";
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES,
-  customSessionIdentity, sessionCompatible, encodeSessionSnapshot, decodeSessionSnapshot } from "../src/session-store.mjs";
-import { createHash } from "node:crypto";
+  customSessionIdentity, sessionCompatible, encodeSessionSnapshot, encodeSessionStream, decodeSessionSnapshot } from "../src/session-store.mjs";
+import { createHash, randomBytes } from "node:crypto";
 
 const bytes = new TextEncoder().encode("DOLLYSES-opaque-\uFEFF日本語-credential").buffer;
 const record = { name: "work.1", formatVersion: 2, buildId: "fixture-build",
@@ -27,6 +27,36 @@ test("session files round-trip identity and gzip bytes and literal metadata", as
     assert.deepEqual(restored, saved);
     assert.deepEqual(await decodeSessionSnapshot(restored), bytes);
   }
+});
+
+test("streamed compression preserves bytes across chunks and rejects an incomplete producer", async () => {
+  const encoded = await encodeSessionStream(async write => {
+    for (let at = 0; at < bytes.byteLength; at += 7) await write(new Uint8Array(bytes.slice(at, at + 7)));
+  });
+  assert.deepEqual(await decodeSessionSnapshot(encoded), bytes);
+  await assert.rejects(encodeSessionStream(async write => {
+    await write(new Uint8Array(bytes));
+    throw Error("producer stopped");
+  }), /producer stopped/);
+});
+
+test("an allocation failure cancels compression instead of stranding its producer", async () => {
+  const resize = ArrayBuffer.prototype.resize;
+  ArrayBuffer.prototype.resize = () => { throw Error("allocation failed"); };
+  try {
+    await assert.rejects(encodeSessionStream(async write => {
+      await write(new Uint8Array(bytes));
+    }), /allocation failed/);
+  } finally {
+    ArrayBuffer.prototype.resize = resize;
+  }
+});
+
+test("compression and decompression retain data across buffer growth", async () => {
+  const input = randomBytes(256 * 1024 + 19);
+  const encoded = await encodeSessionSnapshot(new Uint8Array(input).buffer);
+  const decoded = await decodeSessionSnapshot(encoded);
+  assert.ok(Buffer.from(decoded).equals(input));
 });
 
 test("reject corrupt, truncated, oversized and unsupported session envelopes", async () => {

@@ -32,8 +32,9 @@ export class SessionTransport {
     this.displayTransport = displayTransport;
   }
 
-  async capture(name, { signal, timeoutMilliseconds = 30000 } = {}) {
+  async capture(name, { signal, timeoutMilliseconds = 30000, onChunk } = {}) {
     if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
+    if (onChunk !== undefined && typeof onChunk !== "function") throw new TypeError("invalid session consumer");
     signal?.throwIfAborted();
     const words = this.words;
     const published = Atomics.load(words, SessionTransport.requestSequence);
@@ -92,9 +93,11 @@ export class SessionTransport {
         }
         if (declaredTotal === undefined) {
           declaredTotal = total;
-          snapshot = new Uint8Array(total);
+          if (!onChunk) snapshot = new Uint8Array(total);
         }
-        snapshot.set(this.bytes.subarray(this.transferAddress, this.transferAddress + length), offset);
+        const bytes = this.bytes.subarray(this.transferAddress, this.transferAddress + length);
+        if (onChunk) await onChunk(bytes.slice());
+        else snapshot.set(bytes, offset);
         offset += length;
         Atomics.store(words, SessionTransport.chunkConsumedSequence, chunk);
         Atomics.notify(words, SessionTransport.chunkConsumedSequence);
@@ -105,9 +108,9 @@ export class SessionTransport {
       await wait(SessionTransport.completedSequence, (value) => value === requested);
       const status = Atomics.load(words, SessionTransport.status);
       if (status !== 0) throw new Error(`Dolly session capture failed with status ${status}`);
-      if (offset < 16 || offset !== snapshot.byteLength) throw new Error("Dolly session snapshot was incomplete");
+      if (offset < 16 || offset !== declaredTotal) throw new Error("Dolly session snapshot was incomplete");
       complete = true;
-      return snapshot.buffer;
+      return onChunk ? offset : snapshot.buffer;
     } finally {
       if (!complete) cancel();
       signal?.removeEventListener("abort", cancel);

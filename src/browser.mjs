@@ -11,7 +11,7 @@ import { UploadTransport, chooseUploadFile } from "./upload-transport.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   decodeSessionSnapshot,
-  encodeSessionSnapshot,
+  encodeSessionStream,
   loadStoredSession,
   saveStoredSession,
   sessionImageIdentity,
@@ -709,26 +709,33 @@ async function saveCurrentSession(requestedName) {
     updateSessionControls(`Saving ${name}…`);
     sessionButton.disabled = sessionName.disabled = document.querySelector("#session-save").disabled = true;
     sessionSaveController = new AbortController();
-    const snapshot = await sessionTransport.capture(name, { signal: sessionSaveController.signal });
-    document.documentElement.dataset.sessionUncompressedBytes = String(snapshot.byteLength);
-    document.documentElement.dataset.sessionStatus = "compressing";
-    const encoded = await encodeSessionSnapshot(snapshot);
+    const capture = async onChunk => {
+      const result = await sessionTransport.capture(name, { signal: sessionSaveController.signal, onChunk });
+      document.documentElement.dataset.sessionUncompressedBytes = String(onChunk ? result : result.byteLength);
+      document.documentElement.dataset.sessionStatus = "compressing";
+      return result;
+    };
+    const encoded = typeof CompressionStream === "function"
+      ? await encodeSessionStream(capture) : { encoding: "identity", bytes: await capture() };
     document.documentElement.dataset.sessionStatus = "storing";
-    await saveStoredSession({
-      name,
-      formatVersion: DOLLY_SESSION_FORMAT_VERSION,
-      buildId: DOLLY_BUILD_ID,
-      image: activeImage,
-      imageIdentity: activeImageIdentity,
-      ...(activeCustomImage ? { customImage: activeCustomImage } : {}),
-      updatedAt: Date.now(),
-      encoding: encoded.encoding,
-      bytes: encoded.bytes,
-    });
+    const encodedSize = encoded.bytes.byteLength;
+    try {
+      await saveStoredSession({
+        name,
+        formatVersion: DOLLY_SESSION_FORMAT_VERSION,
+        buildId: DOLLY_BUILD_ID,
+        image: activeImage,
+        imageIdentity: activeImageIdentity,
+        ...(activeCustomImage ? { customImage: activeCustomImage } : {}),
+        updatedAt: Date.now(),
+        encoding: encoded.encoding,
+        bytes: encoded.bytes,
+      });
+    } finally { encoded.bytes.transfer(0); }
     currentSessionName = name;
     lastSessionSave = new Date();
     document.documentElement.dataset.session = name;
-    document.documentElement.dataset.sessionBytes = String(encoded.bytes.byteLength);
+    document.documentElement.dataset.sessionBytes = String(encodedSize);
     document.documentElement.dataset.sessionStatus = "saved";
     history.replaceState(null, "", sessionLoadUrl(name, new URL("../", import.meta.url)));
     showSessionStatus(`Saved ${name} locally · /session lists your saves`);
@@ -1038,6 +1045,8 @@ async function boot() {
     }
     if (!recovering) { image = restoredSession.image; currentSessionName = name; }
     sessionSnapshot = await decodeSessionSnapshot(restoredSession);
+    restoredSession.bytes.transfer(0);
+    restoredSession.bytes = undefined;
   }
   const applicationBase = new URL("../", import.meta.url);
   const trustedBootstrapSources = [

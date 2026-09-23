@@ -48,13 +48,20 @@ limit is 512 MiB; browser quota and available memory can impose lower limits.
 Fingerprinting streams larger base files without adding them to the delta;
 changing a file beyond the delta limit makes the save fail visibly.
 
-The browser copies bounded opaque chunks, optionally compresses them with gzip,
-and atomically replaces one IndexedDB record. A failed save leaves the previous
-record intact. Both mailbox participants compare and wait on the same observed
-sequence, with bounded waits and cancellation. The kernel services requests
-independently of foreground stdin, including while a child sleeps. Capture
-temporarily pauses filesystem service; programs can run again while the browser
-compresses and stores the result. Transfer and restore staging buffers are freed.
+The browser copies one bounded opaque chunk at a time into gzip, acknowledging
+it after the compressor accepts it, then atomically replaces one IndexedDB
+record. IndexedDB stores the encoded bytes as a Blob, avoiding large record
+serialization copies; older ArrayBuffer records still load. This avoids a full
+raw browser copy; the kernel still stages the delta.
+Decompression grows one buffer and transfers it into the runtime without a final
+concatenation copy. Boot releases consumed inputs after copying them into Wasm.
+Browsers without streaming compression collect an uncompressed snapshot instead.
+A failed save leaves the previous record intact. Both mailbox participants
+compare and wait on the same observed sequence, with bounded waits and
+cancellation. The kernel services requests independently of foreground stdin,
+including while a child sleeps. Capture and transfer temporarily pause filesystem
+service; programs can run again while the browser finishes compression and stores
+the result. Transfer and restore staging buffers are freed.
 
 ## Limits and privacy
 

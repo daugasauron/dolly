@@ -55,6 +55,13 @@ correctly across restart. The actual 9099 preview passed visible Save, refresh,
 modal typing/F11, held-key release and failed-save-retention checks. The live
 learned session and recovery archive were not modified.
 
+The complete learned history now survives a normal live Save followed by closing
+and reopening the copied session: all archived hashes preserved except pausing
+Pi, all 51 creatures retained, 3.08 GiB peak under the 4 GiB/no-swap test limit.
+Immediate same-tab refresh still fails at replacement runtime boot; details and
+proofs remain in the open `20260923-200000-codex-01` memory issue. The original
+named saves and recovery archive remain untouched.
+
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate
 requested issue; do not silently expand this goal into rewriting Pi.

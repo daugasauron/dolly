@@ -255,6 +255,7 @@ try {
   const releaseInput = artifact => {
     if (bootConfig.buildOnly) self.postMessage({ type: "build-input", recipeSha256: artifact.recipeSha256,
       bytes: artifact.bytes }, [artifact.bytes]);
+    else artifact.bytes.transfer(0);
     artifact.bytes = null;
   };
   for (const artifact of artifacts.values()) {
@@ -341,6 +342,7 @@ try {
     const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
     const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
     new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
+    snapshot.transfer(0);
     bootstrapStatus = dolly._dolly_bootstrap_snapshot(BigInt(range.size));
     snapshotBytes = range.size;
     if (configuredImage === "custom") {
@@ -376,6 +378,7 @@ try {
     const destination = `/workspace/recovered-${bootConfig.recoverSession}`;
     bootstrapStage(`recovering saved files into ${destination}...`);
     replaceFile(path, new Uint8Array(bootConfig.sessionSnapshot));
+    bootConfig.sessionSnapshot.transfer(0);
     bootConfig.sessionSnapshot = undefined;
     try {
       const program = "/usr/bin/session-recover";
@@ -390,6 +393,7 @@ try {
     const range = checkedMemoryRange(memory, address, size);
     new Uint8Array(memory.buffer, range.address, range.size)
       .set(new Uint8Array(bootConfig.sessionSnapshot));
+    bootConfig.sessionSnapshot.transfer(0);
     bootConfig.sessionSnapshot = undefined;
     if (dolly._dolly_session_restore(BigInt(size)) !== 0) {
       throw new Error("Dolly session filesystem restore failed; the saved copy is unchanged");

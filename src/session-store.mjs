@@ -66,7 +66,7 @@ export async function listStoredSessions() {
         const cursor = request.result;
         if (!cursor) return;
         const { bytes, ...metadata } = cursor.value;
-        sessions.push({ ...metadata, byteLength: bytes?.byteLength ?? 0 });
+        sessions.push({ ...metadata, byteLength: bytes?.byteLength ?? bytes?.size ?? 0 });
         cursor.continue();
       });
       request.addEventListener("error", () => reject(request.error));
@@ -82,25 +82,28 @@ export async function listStoredSessions() {
 
 async function collectStream(stream, maximum) {
   const reader = stream.getReader();
-  const chunks = [];
-  let length = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    length += value.byteLength;
-    if (length > maximum) {
-      await reader.cancel();
-      throw new Error("Dolly session exceeds its size limit");
+  try {
+    const buffer = new ArrayBuffer(0, { maxByteLength: maximum });
+    const bytes = new Uint8Array(buffer);
+    let length = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const end = length + value.byteLength;
+      if (end > maximum) throw new Error("Dolly session exceeds its size limit");
+      if (end > buffer.byteLength) buffer.resize(Math.min(maximum,
+        Math.max(end, buffer.byteLength * 2, 65536)));
+      bytes.set(value, length);
+      length = end;
     }
-    chunks.push(value);
+    buffer.resize(length);
+    return buffer;
+  } catch (error) {
+    await reader.cancel(error).catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
   }
-  const result = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return result.buffer;
 }
 
 export async function encodeSessionSnapshot(bytes) {
@@ -111,11 +114,28 @@ export async function encodeSessionSnapshot(bytes) {
   if (typeof CompressionStream !== "function") {
     return { encoding: "identity", bytes };
   }
-  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
-  return {
-    encoding: "gzip",
-    bytes: await collectStream(stream, DOLLY_SESSION_MAX_BYTES),
-  };
+  return encodeSessionStream(async write => {
+    for (let offset = 0; offset < bytes.byteLength; offset += 65536) {
+      await write(new Uint8Array(bytes, offset, Math.min(65536, bytes.byteLength - offset)));
+    }
+  });
+}
+
+export async function encodeSessionStream(produce) {
+  const stream = new CompressionStream("gzip"), writer = stream.writable.getWriter();
+  const encoded = collectStream(stream.readable, DOLLY_SESSION_MAX_BYTES);
+  // The reader can fail while the producer is awaiting its next mailbox chunk.
+  encoded.catch(() => {});
+  try {
+    await produce(bytes => writer.write(bytes));
+    await writer.close();
+    // Blob storage needs fixed buffers; decoded buffers transfer directly to Wasm.
+    return { encoding: "gzip", bytes: (await encoded).transferToFixedLength() };
+  } catch (error) {
+    await writer.abort(error).catch(() => {});
+    await encoded.catch(() => {});
+    throw error;
+  }
 }
 
 export async function decodeSessionSnapshot(record) {
@@ -129,8 +149,15 @@ export async function decodeSessionSnapshot(record) {
   if (typeof DecompressionStream !== "function") {
     throw new Error("This browser cannot decompress the stored Dolly session");
   }
-  const stream = new Blob([record.bytes]).stream()
-    .pipeThrough(new DecompressionStream("gzip"));
+  let offset = 0;
+  const stream = new ReadableStream({
+    pull(controller) {
+      if (offset === record.bytes.byteLength) { controller.close(); return; }
+      const length = Math.min(65536, record.bytes.byteLength - offset);
+      controller.enqueue(new Uint8Array(record.bytes, offset, length));
+      offset += length;
+    },
+  }).pipeThrough(new DecompressionStream("gzip"));
   return collectStream(stream, DOLLY_SESSION_MAX_BYTES);
 }
 
@@ -166,7 +193,14 @@ async function transaction(mode, operation) {
 
 export async function loadStoredSession(name) {
   if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
-  return (await transaction("readonly", (store) => store.get(name))) ?? null;
+  const record = (await transaction("readonly", (store) => store.get(name))) ?? null;
+  if (record?.bytes instanceof Blob) {
+    if (record.bytes.size === 0 || record.bytes.size > DOLLY_SESSION_MAX_BYTES) {
+      throw new Error("Stored Dolly session is invalid");
+    }
+    record.bytes = await record.bytes.arrayBuffer();
+  }
+  return record;
 }
 
 export function validateSessionRecord(record) {
@@ -188,7 +222,8 @@ export function validateSessionRecord(record) {
 
 export async function saveStoredSession(record, { overwrite = true } = {}) {
   validateSessionRecord(record);
-  await transaction("readwrite", (store) => overwrite ? store.put(record) : store.add(record));
+  const stored = { ...record, bytes: new Blob([record.bytes]) };
+  await transaction("readwrite", (store) => overwrite ? store.put(stored) : store.add(stored));
 }
 
 export async function deleteStoredSession(name) {

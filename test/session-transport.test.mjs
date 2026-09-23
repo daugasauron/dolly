@@ -76,6 +76,39 @@ test("invalid chunk cancels the producer; a subsequent request can save", async 
   assert.deepEqual(new Uint8Array(await f.transport.capture("proof")), f.payload);
 });
 
+test("streamed capture copies the mailbox and waits for its consumer before acknowledgement", async () => {
+  const f = fixture();
+  let received, release, started;
+  const reading = new Promise(resolve => { started = resolve; });
+  const consuming = new Promise(resolve => { release = resolve; });
+  f.transport.displayTransport.wake = () => f.publish();
+  const capture = f.transport.capture("proof", { onChunk: async bytes => {
+    received = bytes;
+    started();
+    await consuming;
+  } });
+  await reading;
+  assert.equal(Atomics.load(f.words, Mailbox.chunkConsumedSequence), 0);
+  f.transport.bytes.fill(0, 1024, 1024 + f.payload.length);
+  assert.deepEqual(received, f.payload, "consumer owns bytes independently of the mailbox");
+  release();
+  f.complete();
+  assert.equal(await capture, f.payload.length);
+  assert.equal(Atomics.load(f.words, Mailbox.chunkConsumedSequence), 1);
+
+  f.transport.displayTransport.wake = () => f.publish();
+  await assert.rejects(f.transport.capture("proof", { onChunk() { throw Error("consumer failed"); } }), /consumer failed/);
+  assert.equal(Atomics.load(f.words, Mailbox.cancelledSequence), 2);
+
+  f.complete();
+  f.transport.displayTransport.wake = () => {
+    f.publish();
+    Atomics.store(f.words, Mailbox.status, 5);
+    f.complete();
+  };
+  await assert.rejects(f.transport.capture("proof", { onChunk() {} }), /capture failed with status 5/);
+});
+
 test("a missing producer times out, and explicit cancellation wakes a pending save", async () => {
   const f = fixture();
   const keepalive = setInterval(() => {}, 100);

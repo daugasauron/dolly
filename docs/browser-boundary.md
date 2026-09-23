@@ -132,7 +132,7 @@ inherited browser restrictions; recipe bytes cannot set browser policy.
 | Pointer-lock handlers in `src/browser.mjs` | Capture only on a trusted canvas press; Escape/lease release undo it. Graphics button/hover forwarding grants no capture; terminal selection remains left-button only |
 | [Upload transport](../src/upload-transport.mjs), [C command](../src/upload.c) | Visible user picker, at most 64 MiB in 64 KiB chunks; bytes only, no host name/path/handle |
 | [Download contract](download.md) | Copied bounded file and checked basename, never a host path |
-| [Sessions](sessions.md), `src/session-file.mjs`, Save dialog in `src/browser.mjs` | User-selected checkpoint names; opaque bounded deltas; exact base for restore; custom recipe/artifact digests checked and saved HTTP restrictions intersect current policy; recovery copies only workspace/home regular files in Wasm; bounded import decompression |
+| [Sessions](sessions.md), `src/session-file.mjs`, `src/session-transport.mjs`, Save dialog in `src/browser.mjs` | User-selected checkpoint names; opaque bounded deltas streamed into compression through copied chunks before acknowledgement; exact base for restore; custom recipe/artifact digests checked and saved HTTP restrictions intersect current policy; recovery copies only workspace/home regular files in Wasm; bounded import decompression |
 | [Kernel plugin loader](../src/kernel-plugin.mjs) | WasmFS bytes only; explicit real-kernel export map, no URL/dependency fetch or JS evaluation |
 | [Process supervisor](../src/process-supervisor.mjs), [typed contract](../abi/dolly-supervisor-0.wat) | Short deferred waits use a kernel-provided timer hint; every wakeup retries the validated syscall in Wasm. Signals, completion and retirement cancel pending wakeups |
 
@@ -150,12 +150,16 @@ reading it with curl still crosses the broker.
 
 [image-artifact.mjs](../src/image-artifact.mjs) binds cached bytes to seed/image ABI identity,
 root recipe, snapshot hash and direct input digests. Descriptors and payloads
-publish atomically. Precompiled boots reuse this cache only when the payload
-matches the published image digest and current inputs; missing or corrupt bytes
+publish atomically. Payloads use opaque Blobs; older ArrayBuffer payloads still
+load and receive the same size, recipe and digest checks. Precompiled boots reuse
+this cache only when the payload matches the published image digest and current
+inputs; missing or corrupt bytes
 reload from the published artifact. [image-build.mjs](../src/image-build.mjs) resolves release
 image identities and a static-source allowlist, not arbitrary checkout paths.
 Unused published modules do not implicitly stage their dependencies.
-Restoration and filesystem mutations remain in Wasm. Explicit save recovery
+Restoration and filesystem mutations remain in Wasm. Boot detaches consumed
+image/session input buffers after copying them into Wasm; reusable build inputs
+are transferred back to their caller. Explicit save recovery
 stages one bounded opaque delta and runs `/usr/bin/session-recover` in a fresh
 `system` image. It copies into a new folder; the browser does not parse file records
 or apply old startup files, and the original IndexedDB record is unchanged.

@@ -236,7 +236,11 @@ export async function loadImageArtifactDescriptor(recipeSha256, inputs = []) {
 export async function loadImageArtifact(descriptor) {
   try {
     const id = `${DOLLY_IMAGE_BUILD_ID}:${descriptor.recipeSha256}`;
-    const bytes = await databaseOperation("readonly", (_store, payloads) => payloads.get(id));
+    let bytes = await databaseOperation("readonly", (_store, payloads) => payloads.get(id));
+    if (bytes instanceof Blob) {
+      if (bytes.size !== descriptor.byteLength || bytes.size > snapshotSizeLimit) return null;
+      bytes = await bytes.arrayBuffer();
+    }
     if (!(bytes instanceof ArrayBuffer) || bytes.byteLength !== descriptor.byteLength ||
         bytes.byteLength > snapshotSizeLimit) return null;
     const artifact = await describeImageArtifact(bytes, descriptor.recipeSha256, descriptor.inputs);
@@ -252,7 +256,7 @@ export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) 
     const id = `${DOLLY_IMAGE_BUILD_ID}:${artifact.recipeSha256}`;
     const { buildId, recipeSha256, sha256, inputs } = artifact;
     await databaseOperation("readwrite", (store, payloads) => {
-      payloads.put(artifact.bytes, id);
+      payloads.put(new Blob([artifact.bytes]), id);
       const published = store.put({ buildId, recipeSha256, sha256, inputs, byteLength: artifact.bytes.byteLength, slot, id });
       // Publish and prune atomically: failed writes preserve the previous pair,
       // and concurrent writers cannot prune each other's newly published data.

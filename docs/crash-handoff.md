@@ -24,9 +24,12 @@ browser checks passed, including actual 9099 refreshes and failed-save retention
 The visible browser Save button keeps the latest written checkpoint and links
 to named sessions. Manual/programmed design and complete world import/export
 remain available. Recovery-world import preserved all 51 creatures and 78
-programs from the original learned session; its archive is unchanged. The large
-history capture memory issue remains open. Do not begin the separate Lua/YAML
-migration here.
+programs from the original learned session; its archive is unchanged. Streaming
+capture now saves that complete history, and closing/reopening the copied session
+restores every archived file hash except the intentional Pi pause setting. Peak
+test-tree memory was 3.08 GiB. Immediate same-tab refresh still exceeds the 4 GiB
+bound during boot, so the [memory issue](../tasks/20260923-200000-codex-01/TASK.md)
+remains open. Do not begin the separate Lua/YAML migration here.
 
 The two earlier desktop freezes most likely involved host RAM exhaustion while
 Node 22 formatted a failed PNG assertion. That mechanism was reproduced, but

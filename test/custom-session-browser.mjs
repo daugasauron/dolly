@@ -8,7 +8,7 @@ import { startBrowserServer } from "./browser-server.mjs";
 const names = process.argv.slice(2);
 if (!names.length) names.push("chromium", "firefox");
 if (names.some((name) => !["chromium", "firefox"].includes(name))) throw new Error("usage: node test/custom-session-browser.mjs [chromium|firefox ...]");
-const server = await startBrowserServer(new URL("..", import.meta.url).pathname);
+const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "system");
 const scratch = await mkdtemp(join(tmpdir(), "dolly-custom-session-"));
 try {
   for (const name of names) {
@@ -69,8 +69,9 @@ ENTRY /bin/foreground -i /bin/slop
       await boot();
       assert.equal(await submit('test "$(session-hello)" = CUSTOM-SOURCE-BUILT'), 0);
       assert.equal(await submit("mkdir -p /workspace/project; session-hello > /workspace/project/result; printf CHANGED-NOTE > /usr/share/session-note; rm /usr/share/session-delete; ln -s /workspace/project/result /workspace/result-link"), 0);
-      page.once("dialog", (dialog) => dialog.accept("custom-proof"));
       await page.keyboard.press("Control+Shift+s");
+      await page.locator("#session-name").fill("custom-proof");
+      await page.locator("#session-save").click();
       await page.waitForFunction(() => document.documentElement.dataset.sessionStatus === "saved");
       assert.equal(new URL(page.url()).pathname, "/session/custom-proof");
       const store = async (target = "custom-proof") => page.evaluate(async (sessionName) => {
@@ -80,6 +81,29 @@ ENTRY /bin/foreground -i /bin/slop
       const saved = await store();
       assert.equal(saved.image, "custom");
       assert.equal(saved.customImage.source, source);
+      // Existing sessions and cached images stored ArrayBuffers directly.
+      await page.evaluate(async () => {
+        const record = await (await import("/src/session-store.mjs")).loadStoredSession("custom-proof");
+        async function replace(database, version, store, write) {
+          const db = await new Promise((resolve, reject) => {
+            const request = indexedDB.open(database, version);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          try {
+            await new Promise((resolve, reject) => {
+              const tx = db.transaction(store, "readwrite");
+              write(tx.objectStore(store));
+              tx.oncomplete = resolve;
+              tx.onabort = () => reject(tx.error);
+            });
+          } finally { db.close(); }
+        }
+        await replace("dolly-sessions-v1", 1, "sessions", store => store.put(record));
+        const artifact = await (await import("/src/image-artifact.mjs")).loadImageArtifact(record.customImage.artifact);
+        await replace("dolly-image-artifacts-v3", 3, "payloads", store =>
+          store.put(artifact.bytes, artifact.buildId + ":" + artifact.recipeSha256));
+      });
       const rebuildPage = page;
       const popupPromise = page.waitForEvent("popup");
       await page.evaluate(async (custom) => {

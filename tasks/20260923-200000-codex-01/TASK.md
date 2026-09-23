@@ -44,3 +44,37 @@ entries parse. Limiting model context to three images does not limit retained
 history. Keep that complete history while reducing copy/serialization peaks;
 do not solve this by truncating the user's experiments. Aggregate evidence:
 `build/blockwalker-audit-20260923/history-size.json`. No new OOM run was needed.
+
+September 24: capture now streams copied mailbox chunks into gzip with
+backpressure. Session and image-cache records store opaque Blobs while retaining
+legacy ArrayBuffer reads. Decompression grows one bounded buffer; boot detaches
+consumed inputs after copying them into Wasm. The ABI and snapshot formats are
+unchanged. No history truncation, forced GC or larger memory limit is needed.
+
+Normal save followed by closing/reopening the tab passed under 4 GiB/no swap:
+392381512 raw bytes, 278357296 compressed, sampled whole-tree peak 3307249664
+bytes (3.08 GiB). All archived file hashes match except the intentional Pi pause
+setting. The 387804845-byte history retains its original SHA-256
+`42877acd66e131a97f868bcaa959a6ee4b4488ef46f08cefdfebb38f6485a287`.
+Actual GPU execution restored 51 creatures and the original removals, with no
+HTTP requests. The library retains its original 78 designs and appends the 29
+current catalog designs. Evidence: `build/blockwalker-memory-reopen2.log` (exit
+0), `build/blockwalker-memory-profile/reopen-proof-{result,memory,saved-files,restored-world}.json`
+and `reopen-proof-restored-world.png`. The original profile/archive is untouched.
+
+The remaining failure is immediate same-tab refresh: capture and storage finish,
+then decoding and cached-image verification finish, but replacement runtime boot
+exceeds the bound. `build/blockwalker-memory-release-save.log` records the latest
+contained renderer OOM, sampled peak 4260159488 bytes. Upload/extraction already
+raises the old kernel's Wasm memory to 2367881216 bytes; process and compiled-code
+measurements do not account for that retained size. Fresh-tab restoration uses
+1269039104 kernel bytes. Keep this issue open until same-tab refresh also passes;
+do not present the successful reopen as a complete fix.
+
+Final source checks passed: 12 session codec/transport tests; Chrome and Firefox
+custom build/save/restore/export/import, legacy-record compatibility, exact-base
+recovery and policy intersection; actual 9099 game Save/refresh, typing/F11,
+held-key release, repeated quicksave and failed-save retention. Browser logs:
+`build/session-stream-custom-browsers-final.log` and
+`build/blockwalker-session-memory-final.log` (both exit 0). These ordinary-size
+refresh checks do not substitute for the remaining large-session reproduction.
