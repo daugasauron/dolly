@@ -25,7 +25,9 @@ const importBlueprint=async path=>{
 try {
  await page.goto(site.origin+'/blockwalker/');
  await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>30,null,{timeout:60000});
- const hero=await exportBlueprint('fresh-biped');assert.equal(hero.blocks.filter(b=>b.joint).length,12);
+ const car=await exportBlueprint('fresh-car');assert.equal(car.count,9);assert.equal(car.blocks.filter(b=>b.joint===4).length,4);assert.equal(car.blocks.filter(b=>b.joint===6).length,1);
+ await page.mouse.click(120,62);await frames();await page.mouse.click(928,222);await frames();
+ const hero=await exportBlueprint('library-biped');assert.equal(hero.blocks.filter(b=>b.joint).length,12);
  await page.mouse.click(1156,40);await frames();
  const controls=()=>page.screenshot({clip:{x:1028,y:142,width:230,height:470}}),firstControls=await controls();
  await page.mouse.click(1230,630);await frames();assert.ok(!(await controls()).equals(firstControls),'next page exposes remaining controls');
@@ -113,11 +115,11 @@ try {
  blueprint=await exportBlueprint('axis');assert.equal(blueprint.blocks[3].axis,0);
  await page.mouse.click(1220,263);await page.mouse.click(1233,452);await page.mouse.click(1054,548);await frames();
  blueprint=await exportBlueprint('configured');assert.equal(blueprint.blocks[3].axis,2);assert.equal(blueprint.blocks[3].speed,3);assert.equal(blueprint.blocks[3].limit,60);
- await page.mouse.click(120,188);await page.mouse.move(710,311);await frames();await shot('placement-preview');
+ await page.mouse.click(170,156);await page.mouse.move(710,311);await frames();await shot('placement-preview');
  await page.mouse.click(710,311);await frames();
  let added=await exportBlueprint('added');assert.equal(added.count,6);assert.equal(added.blocks[5].joint,1);assert.equal(added.blocks[5].parent,3);assert.equal(added.blocks[5].y,4);
  await page.mouse.click(70,630);await frames();assert.equal((await exportBlueprint('undo')).source,blueprint.source);
- await page.mouse.click(120,315);await page.mouse.click(710,311);await frames();
+ await page.mouse.click(170,220);await page.mouse.click(710,311);await frames();
  const magnetAdded=await exportBlueprint('magnet-added');assert.equal(magnetAdded.blocks[5].joint,5);
  await page.mouse.click(1230,230);await page.mouse.click(1220,263);await page.mouse.click(1233,452);await page.mouse.click(1190,354);await page.keyboard.press('B');await frames();
  const magnetConfigured=await exportBlueprint('magnet-configured');assert.equal(magnetConfigured.blocks[5].direction,-magnetAdded.blocks[5].direction);assert.equal(magnetConfigured.blocks[5].axis,2);assert.equal(magnetConfigured.blocks[5].force,26);assert.equal(magnetConfigured.blocks[5].positive,66);

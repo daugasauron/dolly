@@ -16,7 +16,8 @@ try {
  Game.call('enable',true);Game.call('reset');
  const png=Buffer.from(Game.call('snapshot'));assert(png.subarray(1,4).toString()==='PNG','actual GPU PNG');
  fs.writeFileSync('/workspace/blockwalker-observation.png',png);
- Game.call('advance',{keys:'A',steps:60});Game.call('watch',true);while(Game.call('state').remaining)await sleep(20);
+ const boundKey=before.parts.find(p=>p.joint&&p.joint!==6&&p.positive).positive;
+ Game.call('advance',{keys:String.fromCharCode(boundKey),steps:60});Game.call('watch',true);while(Game.call('state').remaining)await sleep(20);
  Game.call('watch',false);const after=Game.call('state');assert(after.steps===60,'exact physics timing');
  assert(after.parts.some((p,i)=>p.pose.some((v,j)=>Math.abs(v-before.parts[i].pose[j])>.01)),'keys and gravity change poses');
  Game.call('release');await sleep(200);assert(Game.call('state').steps===60,'practice pauses while reasoning');

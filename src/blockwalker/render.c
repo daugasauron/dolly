@@ -24,17 +24,14 @@ static int capture_requested;
 typedef struct { float eye[4],forward[4],right[4],up[4],viewport[4],world[4]; } Scene;
 static void check(int status) { if(status<0){perror("blockwalker GPU");exit(1);} }
 static void flush(void) {check(dolly_gpu_batch(&gpu));dolly_gpu_begin(&gpu);}
-void orbit_update(Orbit *o) {o->eye=Vector3Add(o->target,(Vector3){sinf(o->yaw)*cosf(o->pitch)*o->distance,sinf(o->pitch)*o->distance,cosf(o->yaw)*cosf(o->pitch)*o->distance});}
-Camera3D orbit_camera(const Orbit *o) {return (Camera3D){o->eye,o->target,{0,1,0},42,CAMERA_PERSPECTIVE};}
+void orbit_update(Orbit *o) {o->up=(Vector3){0,1,0};o->fov=42;o->eye=Vector3Add(o->target,(Vector3){sinf(o->yaw)*cosf(o->pitch)*o->distance,sinf(o->pitch)*o->distance,cosf(o->yaw)*cosf(o->pitch)*o->distance});}
+Camera3D orbit_camera(const Orbit *o) {return (Camera3D){o->eye,o->target,o->up,o->fov,CAMERA_PERSPECTIVE};}
 int render_pick(const Character *c,const Orbit *o,float x,float y,Vector3 *normal) {
     Ray ray=GetScreenToWorldRayEx((Vector2){x-render_view.x,y-render_view.y},orbit_camera(o),render_view.width,render_view.height);
     float distance=1e30f;int selected=-1;
     for(int i=0;i<c->count;i++) {
         Vector3 p=block_position(c->blocks[i]),h={.5f,.5f,.5f};
-        if(c->blocks[i].joint==BLOCK_WHEEL||c->blocks[i].joint==BLOCK_HINGE){
-            float radius=c->blocks[i].joint==BLOCK_HINGE?HINGE_RADIUS:.7f;h=(Vector3){radius,radius,radius};
-            ((float *)&h)[c->blocks[i].axis]=c->blocks[i].joint==BLOCK_HINGE?HINGE_HALF:.35f;
-        }
+        if(block_cylinder(c->blocks[i]))h=block_half(c->blocks[i]);
         RayCollision hit=GetRayCollisionBox(ray,(BoundingBox){Vector3Subtract(p,h),Vector3Add(p,h)});
         if(hit.hit&&hit.distance<distance){
             selected=i;distance=hit.distance;Vector3 n=hit.normal;
@@ -122,13 +119,13 @@ static void box_draw(Block b,Vector3 v,Quaternion q,int selected,int hover,int p
     boxes[index]=(BoxDraw){{v.x,v.y,v.z,.485f},{q.x,q.y,q.z,q.w},
         {color.r/255.f,color.g/255.f,color.b/255.f,preview?.35f:1},
         {b.joint,b.axis,preview?2:selected,hover},{.485f,.485f,.485f,0},{b.material,b.finish,b.direction,0}};
-    if(b.joint==BLOCK_WHEEL){for(int i=0;i<3;i++)boxes[index].half[i]=i==b.axis?.35f:.7f;}
-    if(b.joint==BLOCK_HINGE){for(int i=0;i<3;i++)boxes[index].half[i]=i==b.axis?HINGE_HALF:HINGE_RADIUS;boxes[index].center[3]=b.limit*DEG2RAD;}
+    Vector3 half=block_half(b);memcpy(boxes[index].half,&half,sizeof(half));
+    if(b.joint==BLOCK_HINGE)boxes[index].center[3]=b.limit*DEG2RAD;
 }
 static void draw_scene(const Orbit *o,size_t count,int running,int landscape,double time){
-    Vector3 f=Vector3Normalize(Vector3Subtract(o->target,o->eye)),r=Vector3Normalize(Vector3CrossProduct(f,(Vector3){0,1,0})),u=Vector3CrossProduct(r,f);
+    Vector3 f=Vector3Normalize(Vector3Subtract(o->target,o->eye)),r=Vector3Normalize(Vector3CrossProduct(f,o->up)),u=Vector3CrossProduct(r,f);
     Scene scene={{o->eye.x,o->eye.y,o->eye.z,count},
-        {f.x,f.y,f.z,tanf(21*DEG2RAD)},{r.x,r.y,r.z,(float)render_view.width/render_view.height},
+        {f.x,f.y,f.z,tanf(o->fov*.5f*DEG2RAD)},{r.x,r.y,r.z,(float)render_view.width/render_view.height},
         {u.x,u.y,u.z,running},{render_view.x,render_view.y,render_view.width,render_view.height},{time,landscape,GetTime(),WATER_LEVEL}};
     node_count=0;if(count)make_tree(0,count);
     dolly_gpu_write(&gpu,1,&scene,sizeof(scene));
@@ -152,10 +149,13 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
         Block b=c->blocks[i];Vector3 v;Quaternion q;physics_pose(p,c,i,&v,&q);box_draw(b,v,q,i==selected,i==hover,0,at++);
         if(b.joint==BLOCK_HINGE&&p->running)boxes[at-1].style[3]=p->parts[i].angle;
         if(b.joint==BLOCK_MAGNET&&p->running){boxes[at-1].style[3]=p->parts[i].magnet_power;boxes[at-1].half[3]=b3Body_IsValid(p->parts[i].magnet_target);}
-        if(b.joint==BLOCK_HINGE&&b.parent>=0){
+        if((b.joint==BLOCK_HINGE||b.joint==BLOCK_TURNTABLE)&&b.parent>=0){
             Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);Block a=c->blocks[b.parent];
             Vector3 pivot=Vector3Add(parent,Vector3RotateByQuaternion((Vector3){(b.x-a.x)*.5f,(b.y-a.y)*.5f,(b.z-a.z)*.5f},rotation));
             bracket_draw(parent,pivot,at++);bracket_draw(pivot,v,at++);
+        }
+        if(b.parent>=0&&c->blocks[b.parent].joint==BLOCK_TURNTABLE&&!block_cylinder(b)&&b.joint!=BLOCK_PISTON&&b.joint!=BLOCK_THRUSTER){
+            Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);bracket_draw(parent,v,at++);
         }
         if(b.joint==BLOCK_PISTON&&b.parent>=0){
             Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);Block a=c->blocks[b.parent];
@@ -197,8 +197,18 @@ void render_frame(const Character *c,const Physics *p,const Orbit *o,int selecte
     draw_scene(o,count,p->running,p->landscape,p->time);
 }
 void render_world(const Orbit *o){
-    size_t count=terrain_count;for(int i=0;i<world.count;i++)count+=(size_t)world.creatures[i].design.count*3;reserve_boxes(count);
-    size_t at=draw_terrain(0);for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];at=character_draw(&c->design,&c->physics,-1,-1,at);}
+    size_t count=terrain_count+depot_count*8;for(int i=0;i<world.count;i++)count+=(size_t)world.creatures[i].design.count*3;reserve_boxes(count);
+    size_t at=draw_terrain(0);
+    for(int i=0;i<depot_count;i++){Depot d=depots[i];float y=terrain_height(d.x,d.z);
+        for(int side=0;side<4;side++){
+            int axis=side/2;float sign=side%2?1:-1;
+            box_draw((Block){.color=1,.finish=FINISH_STRIPE},(Vector3){d.x+(axis?0:sign*d.radius),y+.025f,d.z+(axis?sign*d.radius:0)},QuaternionIdentity(),0,0,0,at);
+            boxes[at].half[0]=axis?d.radius:.12f;boxes[at].half[1]=.025f;boxes[at++].half[2]=axis?.12f:d.radius;
+            box_draw((Block){.color=0,.finish=FINISH_PANEL},(Vector3){d.x+(side&1?1:-1)*(d.radius+.3f),y+.7f,d.z+(side&2?1:-1)*(d.radius+.3f)},QuaternionIdentity(),0,0,0,at);
+            boxes[at].half[0]=boxes[at].half[2]=.16f;boxes[at++].half[1]=.7f;
+        }
+    }
+    for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];at=character_draw(&c->design,&c->physics,-1,-1,at);}
     draw_scene(o,at,1,1,world.age);
 }
 static unsigned char *capture(const Character *c,const Physics *p,const Orbit *o,int *bytes) {

@@ -2,6 +2,8 @@
 #include <raymath.h>
 #include <math.h>
 
+const Depot depots[]={{"Works yard",0,34,4},{"Harbor",106,10,2.8f},{"Island",163,18,3.5f}};
+const int depot_count=sizeof(depots)/sizeof(*depots);
 const TerrainBox terrain_boxes[]={
     {{0,-13,0},{256,1,256},0},
     {{0,-6,0},{100,6,100},0},
@@ -99,8 +101,7 @@ static void water_body(PhysicsPart *part,Block block,double time){
     b3WorldTransform transform=b3Body_GetTransform(part->body);
     if(transform.p.y>WATER_LEVEL+1.5f||fabsf(transform.p.x)>WORLD_RADIUS||fabsf(transform.p.z)>WORLD_RADIUS)return;
     float mass=b3Body_GetMass(part->body),volume=mass/block_density(block);
-    b3Vec3 half={.485f,.485f,.485f};
-    if(block.joint==BLOCK_WHEEL||block.joint==BLOCK_HINGE){float radius=block.joint==BLOCK_HINGE?HINGE_RADIUS:.7f;half=(b3Vec3){radius,radius,radius};((float *)&half)[block.axis]=block.joint==BLOCK_HINGE?HINGE_HALF:.35f;}
+    Vector3 extent=block_half(block);b3Vec3 half={extent.x,extent.y,extent.z};
     b3Vec3 a=b3RotateVector(transform.q,(b3Vec3){half.x,0,0}),b=b3RotateVector(transform.q,(b3Vec3){0,half.y,0}),d=b3RotateVector(transform.q,(b3Vec3){0,0,half.z});
     float slice_height=fabsf(a.y)+fabsf(b.y)+fabsf(d.y);
     for(int sample=0;sample<8;sample++){

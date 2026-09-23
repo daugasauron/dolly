@@ -1,8 +1,8 @@
 # Blockwalker
 
 Build walkers, boats, flying machines and anchored structures from boxes and
-mechanical servo joints. The workshop opens with the Sidelight patrol biped;
-a four-joint starter, a three-part chain, an eight-joint quadruped and an empty grid are also available. There is no
+mechanical servo joints. The workshop opens with a small four-wheel car with an
+Eyes block and front magnet. A four-joint starter, an eight-joint quadruped and an empty grid are also available. There is no
 automatic gait or balance system.
 
 The C program uses the same raylib and Box3D libraries as the gamedev image.
@@ -24,6 +24,9 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Density / appearance | Inspector Mass buttons / finish buttons beneath the palette |
 | Undo | Undo button or Ctrl-Z |
 | World / workshop | World button |
+| Enter your character | Drive in world; Escape returns to the workshop |
+| Drive the starter car | WASD; E powers its magnet, Q releases cargo |
+| Eyes / outside camera | Backslash while driving |
 | Reuse a programmed design | Design library, then Open |
 | Browse earlier experiments | Design library, then Older prototypes |
 | View every actuator while testing | Arrows beneath the joint controls |
@@ -33,7 +36,7 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Leave the editor | Escape, returning to Slop |
 
 A regular block welds to every face-adjacent rigid block, including thrusters
-and magnets. Hinges, pistons and wheels keep explicit parent/child attachments;
+and magnets or Eyes. Hinges, pistons, wheels and turntables keep explicit parent/child attachments;
 leave clearance between their moving rigid assemblies to avoid welding them
 together. A joint block carries its attached branch. Two keys drive
 opposite directions. Deleting a block removes its branch; Undo restores it.
@@ -47,7 +50,7 @@ Standard alloy boxes and servos weigh about 0.91 kg. Gravity is 4 m/s² and the 
 the floor, giving time to try the controls. Hold a joint's keys to turn it;
 release them to brake. Highlighted keys and joint angles show the response.
 
-In the world, WASD moves the camera horizontally, Q/E lowers/raises it, and
+When viewing the world, WASD moves the camera horizontally, Q/E lowers/raises it, and
 Shift moves faster. Right-drag or Alt-drag orbits; scroll zooms; H returns home.
 Click a creature's name to visit it. World and workshop cameras retain separate
 positions when switching views. Typing a Pi prompt does not move the camera.
@@ -56,7 +59,13 @@ The world sidebar jumps to the harbor, three islands or the whole map. Page
 buttons or scrolling the creature list reach the full population; visiting a
 larger creation fits the camera to its current physical bounds.
 
-The part palette also has telescoping pistons, reversible thrusters, wheels and magnets.
+Eyes provide a first-person camera at the block's outward face. Its axis and sign
+set the view direction; the camera follows the block's actual rotation. Entering
+the world adds a manually controlled copy alongside the existing machines.
+Wheel driving uses physical differential motors. Other actuators retain their
+assigned keys. Without Eyes, entering a character uses the follow camera.
+
+The part palette also has telescoping pistons, reversible thrusters, wheels, magnets and turntables.
 Pistons move their attached branch along the selected axis and sign; the palette
 starts them pointing outward, and the inspector can reverse that sign; their travel limit
 is in metres. Thrusters apply force along their own rotating local axis and
@@ -64,9 +73,11 @@ coast when released. Their exhaust follows the actual thrust direction and
 strength. Wheels have centered cylindrical collision shapes, a 0.7 m
 radius, 0.7 m width and unlimited motor rotation. The larger radius keeps a
 same-height chassis off the ground. Attach wheels as leaves: anything beyond them rotates too.
+Turntables are thin motorized discs with continuous rotation. Attach a branch
+to the disc and mount it on a servo hinge to tilt the spinning assembly.
 Each actuator uses a pair of assignable keys. The inspector shows speed, stroke
-or force in the relevant units. Version 5 blueprints save magnets, anchoring,
-materials and finishes. Versions 1–4 still load using the current rendering and
+or force in the relevant units. Version 6 blueprints include Eyes and turntables.
+Versions 1–5 still load using the current rendering and
 connection rules; old pistons retain their positive-axis motion. The agent JSON API
 defaults to direction +1 and accepts -1.
 
@@ -83,6 +94,12 @@ restores these crates to their starting positions for repeatable trials. In the
 world, Drop cargo or C places a persistent crate at the camera target. Pi can
 use `drop_cargo({x,z,world:true})` for world cargo or omit `world` and specify an
 optional `y` in practice. Power and attachment references survive world saves.
+While driving, C drops the crate ahead of the Eyes camera. Carry it to a striped
+depot at the Works yard (0,34), Harbor (106,10), or Island (163,18), release it and
+let it settle for a second. Each crate scores once after transport from outside
+that depot; simply spawning cargo there earns nothing. Delivered crates turn
+green and remain physical. Magnet pickup and riding on a deck both identify the
+carrier. The delivery record and your total survive saves and rebuilding your car.
 
 Material 0 is alloy, 1 is a sealed hull with one-quarter density, and 2 is ballast
 with triple density. Eight volume samples per body apply buoyancy and drag at
@@ -199,6 +216,10 @@ pauses after the trial. The same controller implementation runs released creatur
 | `ground`, `waterHeight` | Terrain height and wave surface under the root; water height is available in sea trials and the shared world |
 | `magnets` | Per-magnet `{power, attached, load}` by part index; power is 0–1, load is newtons |
 | `submerged` | Per-part fraction in water, from 0 to 1 |
+| `id`, `cargoDelivered` | Shared-world identity and lifetime delivery count |
+| `nearby` | Up to 12 nearest objects within 48 m, including position, velocity, bounds, anchoring and cargo state; empty in practice |
+| `groundSamples` | World XYZ terrain samples, eight compass directions at 6 m then 16 m, beginning at +Z |
+| `depots` | Delivery areas with name, x/z and radius |
 
 Vectors are three-element arrays. Initial body axes are +X right, +Y up, +Z
 forward. For a two-wheel vehicle facing +Z with axles along X,
@@ -240,6 +261,9 @@ four-wheel driving and reversing on the floor, finite magnet pickup/lift/release
 overload, removed targets, and 40 seconds of joint/weld/floor stability. `test/blockwalker-browser.mjs`
 drives camera controls, the editor, key assignment, export/import, physics
 and restart in Chrome, including a 160-part design.
+`test/blockwalker-driver-browser.mjs` verifies driving, the Eyes camera, a tilted
+turntable and physical cargo delivery with save/reload and one-time credit. Pass
+a source tar path to compile an edited source tree inside the existing image.
 `test/blockwalker-agent-browser.mjs` checks direct C calls, actual GPU PNGs,
 exact trial timing, controller timeout containment, surviving creatures and
 world restoration. Set `BLOCKWALKER_RELAY_CONFIG` to a private relay config path

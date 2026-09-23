@@ -96,10 +96,43 @@ static JSValue magnet_state(JSContext *ctx,const Physics *p,const Character *c){
         JS_SetPropertyStr(ctx,item,"attached",JS_NewBool(ctx,b3Body_IsValid(part->magnet_target)));JS_SetPropertyUint32(ctx,list,i,item);
     }return list;
 }
+static JSValue depot_state(JSContext *ctx){
+    JSValue list=JS_NewArray(ctx);
+    for(int i=0;i<depot_count;i++){Depot d=depots[i];JSValue item=JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,d.name));put_number(ctx,item,"x",d.x);put_number(ctx,item,"z",d.z);put_number(ctx,item,"radius",d.radius);JS_SetPropertyUint32(ctx,list,i,item);
+    }return list;
+}
+static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origin){
+    JSValue nearby=JS_NewArray(ctx),ground=JS_NewArray(ctx);int self=0,indices[12],count=0;float distances[12];
+    if(world.next_id&&b3StoreWorldId(p->world)==b3StoreWorldId(world.physics)){
+        for(int i=0;i<world.count;i++){
+            Creature *c=&world.creatures[i];if(c->physics.parts==p->parts){self=c->id;continue;}
+            b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);float d=hypotf(v.x-origin.x,v.z-origin.z);if(d>48)continue;
+            int at=0;while(at<count&&distances[at]<=d)at++;if(at==12)continue;
+            if(count<12)count++;for(int j=count-1;j>at;j--){indices[j]=indices[j-1];distances[j]=distances[j-1];}indices[at]=i;distances[at]=d;
+        }
+        for(int i=0;i<count;i++){
+            Creature *c=&world.creatures[indices[i]];b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);b3Vec3 velocity=b3Body_GetLinearVelocity(c->physics.parts[0].body);float radius=.7f,low=v.y,high=v.y;
+            for(int j=0;j<c->design.count;j++){b3Pos b=b3Body_GetPosition(c->physics.parts[j].body);radius=fmaxf(radius,hypotf(b.x-v.x,b.z-v.z)+.7f);low=fminf(low,b.y-.7f);high=fmaxf(high,b.y+.7f);}
+            JSValue item=JS_NewObject(ctx);put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));
+            put_number(ctx,item,"x",v.x);put_number(ctx,item,"y",v.y);put_number(ctx,item,"z",v.z);put_number(ctx,item,"vx",velocity.x);put_number(ctx,item,"vz",velocity.z);
+            put_number(ctx,item,"radius",radius);put_number(ctx,item,"low",low);put_number(ctx,item,"high",high);
+            JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));JS_SetPropertyStr(ctx,item,"cargo",JS_NewBool(ctx,c->cargo));JS_SetPropertyStr(ctx,item,"delivered",JS_NewBool(ctx,c->delivered));put_number(ctx,item,"carriedBy",c->held_by);
+            JS_SetPropertyUint32(ctx,nearby,i,item);
+        }
+    }
+    for(int i=0;i<16;i++){
+        float angle=(i%8)*PI/4,radius=i<8?6:16,x=origin.x+sinf(angle)*radius,z=origin.z+cosf(angle)*radius;
+        JS_SetPropertyUint32(ctx,ground,i,vector(ctx,(Vector3){x,p->landscape?terrain_height(x,z):0,z}));
+    }
+    put_number(ctx,s,"id",self);put_number(ctx,s,"cargoDelivered",self?world_cargo_score(self):0);
+    JS_SetPropertyStr(ctx,s,"nearby",nearby);JS_SetPropertyStr(ctx,s,"groundSamples",ground);JS_SetPropertyStr(ctx,s,"depots",depot_state(ctx));
+}
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt){
     JSValue s=JS_NewObject(ctx),angles=JS_NewArray(ctx),rates=JS_NewArray(ctx),touching=JS_NewArray(ctx),positions=JS_NewArray(ctx),submerged=JS_NewArray(ctx);
     JSValue support=JS_NewArray(ctx),self_contact=JS_NewArray(ctx);b3ContactData *contacts=NULL;int contact_capacity=0;
     Vector3 position;Quaternion q;physics_pose(p,c,0,&position,&q);Quaternion inverse=QuaternionInvert(q);
+    surroundings(ctx,s,p,position);
     put_number(ctx,s,"x",position.x);put_number(ctx,s,"y",position.y);put_number(ctx,s,"z",position.z);put_number(ctx,s,"dt",dt);
     put_number(ctx,s,"ground",p->landscape?terrain_height(position.x,position.z):0);
     if(p->landscape)put_number(ctx,s,"waterHeight",water_height(position.x,position.z,p->time));
@@ -138,7 +171,7 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
 }
 static int assigned(const Character *design,int key){
     if(key<=0||key>=128)return 0;
-    for(int i=1;i<design->count;i++)if(design->blocks[i].joint&&(design->blocks[i].negative==key||design->blocks[i].positive==key))return 1;return 0;
+    for(int i=1;i<design->count;i++)if(block_controlled(design->blocks[i])&&(design->blocks[i].negative==key||design->blocks[i].positive==key))return 1;return 0;
 }
 static int controller_step(Controller *controller,const Physics *p,const Character *design,float controls[128]){
     JSContext *ctx=controller->ctx;controller_budget(controller);
@@ -235,6 +268,7 @@ static Creature *spawn(const Character *design,const char *source,const char *na
     if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
     if(world.count==world.capacity){world.capacity=world.capacity?world.capacity*2:16;world.creatures=array_resize(world.creatures,world.capacity,sizeof(Creature));}
     Creature *c=&world.creatures[world.count++];memset(c,0,sizeof(*c));c->id=world.next_id++;snprintf(c->name,sizeof(c->name),"%s",name);c->controller=controller;
+    c->cargo=design->count==1&&!strcmp(name,"Cargo");
     character_copy(&c->design,design);physics_attach(&c->physics,&c->design,world.physics,x,z,1);c->physics.time=world.age;
     Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);c->root_height=p.y-fmaxf(terrain_height(x,z),WATER_LEVEL);return c;
 }
@@ -244,9 +278,82 @@ static void set_spawn_height(Creature *c,float y){
         b3BodyId body=c->physics.parts[i].body;b3WorldTransform t=b3Body_GetTransform(body);t.p.y+=offset;b3Body_SetTransform(body,t.p,t.q);
     }c->physics.start.y=y;
 }
+Creature *world_find(int id){for(int i=0;i<world.count;i++)if(world.creatures[i].id==id)return &world.creatures[i];return NULL;}
+int world_enter(const Character *design,int sea){
+    if(!design->count||design->anchored)return 0;
+    float radius=1,x=0,z=0;int clear=0;
+    for(int i=0;i<design->count;i++)radius=fmaxf(radius,hypotf(design->blocks[i].x,design->blocks[i].z)+1);
+    for(int plot=0;plot<64&&!clear;plot++){
+        float distance=plot?(radius+2)*sqrtf(plot):0,angle=plot*2.399963f;
+        x=(sea?125:0)+cosf(angle)*distance;z=(sea?10:12)+sinf(angle)*distance;
+        if(fabsf(x)>240-radius||fabsf(z)>240-radius||(terrain_height(x,z)<WATER_LEVEL)!=sea)continue;
+        clear=1;
+        for(int i=0;i<world.count&&clear;i++)if(world.creatures[i].id!=world.player){
+            Physics *p=&world.creatures[i].physics;for(int j=0;j<p->count;j++){
+                b3Pos v=b3Body_GetPosition(p->parts[j].body);if(hypotf(v.x-x,v.z-z)<radius+1){clear=0;break;}
+            }
+        }
+    }
+    if(!clear)return 0;
+    for(int i=0;i<world.count;i++)if(world.creatures[i].id==world.player){
+        Creature *old=&world.creatures[i];physics_stop(&old->physics);character_clear(&old->design);controller_free(old->controller);
+        world.creatures[i]=world.creatures[--world.count];break;
+    }
+    world.player=0;Creature *player=spawn(design,"function(){return ''}","Your character",1,10,x,z);
+    if(player)world.player=player->id;return world.player;
+}
 int world_drop_cargo(float x,float y,float z,int material){
     Character box={0};character_add(&box,-1,0,0,0,BLOCK_BOX,1);box.blocks[0].material=material;box.blocks[0].finish=FINISH_STRIPE;
     Creature *cargo=spawn(&box,"function(){return ''}","Cargo",1,10,x,z);character_clear(&box);if(cargo&&isfinite(y))set_spawn_height(cargo,y);return cargo?cargo->id:0;
+}
+static Creature *body_owner(b3BodyId body){
+    void *parts=b3Body_GetUserData(body);if(!parts)return NULL;
+    for(int i=0;i<world.count;i++)if(world.creatures[i].physics.parts==parts)return &world.creatures[i];return NULL;
+}
+static Creature *cargo_carrier(const Creature *cargo){
+    b3BodyId body=cargo->physics.parts[0].body;
+    for(int i=0;i<world.count;i++){
+        Creature *c=&world.creatures[i];if(c->cargo)continue;
+        for(int j=0;j<c->design.count;j++)if(B3_ID_EQUALS(c->physics.parts[j].magnet_target,body))return c;
+    }
+    int capacity=b3Body_GetContactCapacity(body);if(!capacity)return NULL;
+    b3ContactData *contacts=array_resize(NULL,capacity,sizeof(*contacts));int count=b3Body_GetContactData(body,contacts,capacity);Creature *carrier=NULL;
+    for(int i=0;i<count&&!carrier;i++){
+        b3ContactData *contact=&contacts[i];b3BodyId a=b3Shape_GetBody(contact->shapeIdA),b=b3Shape_GetBody(contact->shapeIdB);int is_a=B3_ID_EQUALS(a,body);
+        Creature *owner=body_owner(is_a?b:a);if(!owner||owner->cargo)continue;
+        for(int j=0;j<contact->manifoldCount;j++)if((is_a?-1:1)*contact->manifolds[j].normal.y>.5f){carrier=owner;break;}
+    }free(contacts);return carrier;
+}
+int world_cargo_score(int id){
+    if(id==world.player)id=-1;int score=0;
+    for(int i=0;i<world.delivery_count;i++)score+=world.deliveries[i].carrier==id;return score;
+}
+static Delivery *new_delivery(void){
+    if(world.delivery_count==world.delivery_capacity){world.delivery_capacity=world.delivery_capacity?world.delivery_capacity*2:16;world.deliveries=array_resize(world.deliveries,world.delivery_capacity,sizeof(Delivery));}
+    Delivery *d=&world.deliveries[world.delivery_count++];memset(d,0,sizeof(*d));return d;
+}
+static void cargo_step(void){
+    for(int i=0;i<world.count;i++){
+        Creature *cargo=&world.creatures[i];if(!cargo->cargo||cargo->delivered)continue;
+        b3BodyId body=cargo->physics.parts[0].body;b3Pos p=b3Body_GetPosition(body);Creature *owner=cargo_carrier(cargo);
+        cargo->held_by=owner?owner->id:0;
+        if(owner){
+            if(!cargo->carrier)cargo->pickup=(Vector3){p.x,p.y,p.z};
+            cargo->carrier=owner->id==world.player?-1:owner->id;cargo->settled=0;continue;
+        }
+        int depot=-1;
+        for(int j=0;j<depot_count;j++){Depot d=depots[j];
+            if(hypotf(p.x-d.x,p.z-d.z)<d.radius-.5f&&hypotf(cargo->pickup.x-d.x,cargo->pickup.z-d.z)>d.radius+1&&
+               fabsf(p.y-terrain_height(p.x,p.z)-.485f)<.2f&&hypotf(p.x-cargo->pickup.x,p.z-cargo->pickup.z)>3){depot=j;break;}
+        }
+        if(!cargo->carrier||depot<0||b3LengthSquared(b3Body_GetLinearVelocity(body))>.16f){cargo->settled=0;continue;}
+        cargo->settled+=1.f/60;if(cargo->settled<1)continue;
+        Delivery *d=new_delivery();d->cargo=cargo->id;d->carrier=cargo->carrier;d->depot=depot;d->time=world.age;
+        Creature *carrier=world_find(cargo->carrier);snprintf(d->name,sizeof(d->name),"%s",cargo->carrier==-1?"You":carrier?carrier->name:"Removed carrier");
+        if(!carrier&&cargo->carrier>0)for(int j=0;j<world.removal_count;j++)if(world.removals[j].id==cargo->carrier)snprintf(d->name,sizeof(d->name),"%s",world.removals[j].name);
+        cargo->delivered=1;cargo->design.blocks[0].color=0;
+        printf("CARGO %d delivered by %s to %s / total %d\n",cargo->id,d->name,depots[depot].name,world.delivery_count);
+    }
 }
 JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args){
     if(!installed||!design->count)return JS_ThrowTypeError(ctx,"Build a character and install a learned controller first");
@@ -270,8 +377,19 @@ static Removal *new_removal(void){
     if(world.removal_count==world.removal_capacity){world.removal_capacity=world.removal_capacity?world.removal_capacity*2:16;world.removals=array_resize(world.removals,world.removal_capacity,sizeof(Removal));}
     Removal *r=&world.removals[world.removal_count++];memset(r,0,sizeof(*r));return r;
 }
+static JSValue delivery_state(JSContext *ctx){
+    JSValue list=JS_NewArray(ctx);
+    for(int i=0;i<world.delivery_count;i++){Delivery *d=&world.deliveries[i];JSValue item=JS_NewObject(ctx);
+        put_number(ctx,item,"cargoId",d->cargo);put_number(ctx,item,"carrierId",d->carrier);put_number(ctx,item,"depot",d->depot);put_number(ctx,item,"time",d->time);
+        JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,d->name));JS_SetPropertyUint32(ctx,list,i,item);
+    }return list;
+}
 JSValue world_state(JSContext *ctx){
     JSValue result=JS_NewObject(ctx),list=JS_NewArray(ctx);put_number(ctx,result,"deaths",world.deaths);put_number(ctx,result,"seconds",world.age);
+    put_number(ctx,result,"playerId",world.player);
+    put_number(ctx,result,"cargoDelivered",world.delivery_count);put_number(ctx,result,"playerDelivered",world_cargo_score(-1));
+    JS_SetPropertyStr(ctx,result,"deliveries",delivery_state(ctx));
+    JS_SetPropertyStr(ctx,result,"depots",depot_state(ctx));
     JS_SetPropertyStr(ctx,result,"recentRemovals",removal_state(ctx,0));
     JSValue terrain=JS_NewObject(ctx);put_number(ctx,terrain,"radius",WORLD_RADIUS);put_number(ctx,terrain,"waterLevel",WATER_LEVEL);
     JS_SetPropertyStr(ctx,terrain,"harbor",vector(ctx,(Vector3){112,0,20}));JS_SetPropertyStr(ctx,terrain,"seaTrial",vector(ctx,(Vector3){125,-2,10}));
@@ -281,6 +399,8 @@ JSValue world_state(JSContext *ctx){
         Creature *c=&world.creatures[i];JSValue item=JS_NewObject(ctx);Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);
         put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));put_number(ctx,item,"parts",c->design.count);
         JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));
+        JS_SetPropertyStr(ctx,item,"cargo",JS_NewBool(ctx,c->cargo));JS_SetPropertyStr(ctx,item,"delivered",JS_NewBool(ctx,c->delivered));put_number(ctx,item,"carrierId",c->carrier);put_number(ctx,item,"carriedBy",c->held_by);put_number(ctx,item,"cargoDelivered",world_cargo_score(c->id));
+        if(c->cargo){JS_SetPropertyStr(ctx,item,"pickup",vector(ctx,c->pickup));put_number(ctx,item,"settled",c->settled);}
         JS_SetPropertyStr(ctx,item,"magnets",magnet_state(ctx,&c->physics,&c->design));
         put_number(ctx,item,"seconds",c->physics.steps/60.0);put_number(ctx,item,"x",p.x);put_number(ctx,item,"y",p.y);put_number(ctx,item,"z",p.z);
         put_number(ctx,item,"distance",hypot(p.x-c->physics.start.x,p.z-c->physics.start.z));
@@ -293,10 +413,10 @@ void world_step(void){
     if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
     for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];
         c->physics.time=world.age;
-        if(c->physics.steps%(60/c->controller->hz)==0&&!controller_step(c->controller,&c->physics,&c->design,c->controls))c->fallen=100;
+        if(c->id!=world.player&&c->physics.steps%(60/c->controller->hz)==0&&!controller_step(c->controller,&c->physics,&c->design,c->controls))c->fallen=100;
         physics_drive(&c->physics,&c->design,c->controls);
     }
-    b3World_Step(world.physics,1.f/60,8);world.age+=1./60;
+    b3World_Step(world.physics,1.f/60,8);world.age+=1./60;cargo_step();
     for(int i=0;i<world.count;){Creature *c=&world.creatures[i];physics_sample(&c->physics,&c->design);
         Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);float up=Vector3RotateByQuaternion((Vector3){0,1,0},q).y;
         int cause=physical_failure(&c->design,p,up,c->root_height,terrain_height(p.x,p.z));
@@ -305,6 +425,7 @@ void world_step(void){
             r->cause=c->fallen>=100?REMOVAL_CONTROLLER:cause;
             snprintf(r->detail,sizeof(r->detail),"%s",failure_detail(r->cause,up,c->controller->error));
             printf("CREATURE %d removed: %s after %.1fs (%s: %s; xyz %.3f %.3f %.3f, up %.3f)\n",c->id,c->name,r->seconds,removal_causes[r->cause],r->detail,p.x,p.y,p.z,up);
+            if(c->id==world.player)world.player=0;
             physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);world.creatures[i]=world.creatures[--world.count];world.deaths++;
         }else i++;
     }
@@ -313,7 +434,7 @@ void world_close(void){
     world_trial_stop();
     for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);}
     for(int i=0;i<world.design_count;i++){character_clear(&world.designs[i].design);free(world.designs[i].source);}free(world.designs);
-    if(world.next_id)b3DestroyWorld(world.physics);free(world.creatures);free(world.removals);memset(&world,0,sizeof(world));free(installed);installed=NULL;
+    if(world.next_id)b3DestroyWorld(world.physics);free(world.creatures);free(world.removals);free(world.deliveries);memset(&world,0,sizeof(world));free(installed);installed=NULL;
 }
 static void save_json(JSContext *ctx,JSValueConst value,const char *path){
     JSValue json=JS_JSONStringify(ctx,value,JS_UNDEFINED,JS_UNDEFINED);const char *source=JS_ToCString(ctx,json);
@@ -396,6 +517,15 @@ void world_load(JSContext *ctx){
     if(!JS_IsObject(save)){JS_FreeValue(ctx,save);return;}
     if(get_number(ctx,save,"version",0)!=1){JS_FreeValue(ctx,save);return;}
     JSValue removals=JS_GetPropertyStr(ctx,save,"removals");load_removals(ctx,removals);JS_FreeValue(ctx,removals);
+    JSValue deliveries=JS_GetPropertyStr(ctx,save,"deliveries");
+    for(int i=0;JS_IsArray(deliveries)&&i<get_number(ctx,deliveries,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,deliveries,i),label=JS_GetPropertyStr(ctx,item,"name");
+        int cargo=get_number(ctx,item,"cargoId",0),carrier=get_number(ctx,item,"carrierId",0),depot=get_number(ctx,item,"depot",-1);double time=get_number(ctx,item,"time",NAN);
+        if(cargo>0&&(carrier>0||carrier==-1)&&depot>=0&&depot<depot_count&&isfinite(time)&&JS_IsString(label)){
+            int duplicate=0;for(int j=0;j<world.delivery_count;j++)duplicate|=world.deliveries[j].cargo==cargo;
+            if(!duplicate){const char *name=JS_ToCString(ctx,label);Delivery *d=new_delivery();*d=(Delivery){.cargo=cargo,.carrier=carrier,.depot=depot,.time=time};snprintf(d->name,sizeof(d->name),"%s",name);JS_FreeCString(ctx,name);}
+        }JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+    }JS_FreeValue(ctx,deliveries);
     int hz=get_number(ctx,save,"installedHz",10);installed_hz=(hz==10||hz==20||hz==30||hz==60)?hz:10;
     JSValue code=JS_GetPropertyStr(ctx,save,"installed"),label=JS_GetPropertyStr(ctx,save,"name");
     if(JS_IsString(code)){const char *s=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);installed=strdup(s);snprintf(installed_name,sizeof(installed_name),"%s",name);JS_FreeCString(ctx,s);JS_FreeCString(ctx,name);}
@@ -409,6 +539,10 @@ void world_load(JSContext *ctx){
             Creature *creature=s?spawn(&c,s,name?name:"Creature",get_number(ctx,item,"seed",1),hz,0,0):NULL;
             if(creature){
                 creature->id=get_number(ctx,item,"id",creature->id);creature->physics.steps=llround(get_number(ctx,item,"seconds",0)*60);creature->root_height=get_number(ctx,item,"rootHeight",1);creature->fallen=get_number(ctx,item,"fallenSeconds",0);creature->physics.start.x=get_number(ctx,item,"startX",creature->physics.start.x);creature->physics.start.z=get_number(ctx,item,"startZ",creature->physics.start.z);
+                creature->carrier=get_number(ctx,item,"carrierId",0);creature->settled=get_number(ctx,item,"settled",0);
+                JSValue pickup=JS_GetPropertyStr(ctx,item,"pickup");
+                if(JS_IsArray(pickup))for(int j=0;j<3;j++){JSValue value=JS_GetPropertyUint32(ctx,pickup,j);double v=0;JS_ToFloat64(ctx,&v,value);((float *)&creature->pickup)[j]=isfinite(v)?v:0;JS_FreeValue(ctx,value);}JS_FreeValue(ctx,pickup);
+                for(int j=0;j<world.delivery_count;j++)if(world.deliveries[j].cargo==creature->id){creature->delivered=1;creature->design.blocks[0].color=0;}
                 JSValue memory=JS_GetPropertyStr(ctx,item,"memory");const char *m=JS_ToCString(ctx,memory);
                 if(m){controller_budget(creature->controller);JSValue value=JS_ParseJSON(creature->controller->ctx,m,strlen(m),"controller-memory");if(!JS_IsException(value)){JS_FreeValue(creature->controller->ctx,creature->controller->memory);creature->controller->memory=value;}}
                 JS_FreeCString(ctx,m);JS_FreeValue(ctx,memory);
@@ -439,5 +573,7 @@ void world_load(JSContext *ctx){
         }JS_FreeValue(ctx,magnets);JS_FreeValue(ctx,item);
     }
     world.deaths=get_number(ctx,save,"deaths",0);world.age=get_number(ctx,save,"seconds",0);int next_id=get_number(ctx,save,"nextId",0);if(next_id>0&&!world.next_id)world.physics=physics_world(1);world.next_id=fmax(world.next_id,next_id);
+    int player=get_number(ctx,save,"playerId",0);world.player=world_find(player)?player:0;
+    for(int i=0;i<world.count;i++)if(world.creatures[i].cargo){Creature *owner=cargo_carrier(&world.creatures[i]);world.creatures[i].held_by=owner?owner->id:0;}
     JS_FreeValue(ctx,list);JS_FreeValue(ctx,save);
 }

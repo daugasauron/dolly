@@ -32,7 +32,7 @@ fn hit_part(origin:vec3f,direction:vec3f,b:Box)->f32 {
         if(disc<0){return 10000.0;}let near=(-projection-sqrt(disc))/a;let far=(-projection+sqrt(disc))/a;
         let t=select(far,near,near>.001);return select(10000.0,t,t>.001);
     }
-    if(b.flags.x==4||b.flags.x==1){let size=wheel_space(b.extent.xyz,b.flags.y);return hit_cylinder(wheel_space(o,b.flags.y),wheel_space(d,b.flags.y),size.x,size.y);}
+    if(b.flags.x==4||b.flags.x==1||b.flags.x==7){let size=wheel_space(b.extent.xyz,b.flags.y);return hit_cylinder(wheel_space(o,b.flags.y),wheel_space(d,b.flags.y),size.x,size.y);}
     let safe=select(d,vec3f(0.000001),abs(d)<vec3f(0.000001));
     let a=(-b.extent.xyz-o)/safe;let z=(b.extent.xyz-o)/safe;
     let n=min(a,z);let f=max(a,z);let near=max(n.x,max(n.y,n.z));let far=min(f.x,min(f.y,f.z));
@@ -127,6 +127,16 @@ fn water_normal(p:vec2f)->vec3f {
             }
             color*=.72+.28*max(0,dot(rotate(b.rotation,normal),sun));
             if(b.flags.z==1&&cap&&radius>.92){color=vec3f(1,.73,.3);}
+        }else if(b.flags.x==7){
+            let w=wheel_space(p,b.flags.y);let size=wheel_space(b.extent.xyz,b.flags.y);let cap=abs(w.y)>size.y-.001;
+            let normal=wheel_space(select(normalize(vec3f(w.x,0,w.z)),vec3f(0,sign(w.y),0),cap),b.flags.y);
+            let radius=length(w.xz)/size.x;
+            color=select(vec3f(.16,.19,.19),b.color.rgb,cap);
+            if(cap&&radius>.72){color=select(vec3f(.18,.20,.20),vec3f(.67,.53,.28),sin(atan2(w.z,w.x)*12)>0);}
+            if(cap&&radius<.26){color=vec3f(.32,.35,.34);}
+            if(cap&&radius>.37&&radius<.58&&abs(sin(atan2(w.z,w.x)*4))<.15){color=vec3f(.12,.15,.15);}
+            color*=.65+.35*max(0,dot(rotate(b.rotation,normal),sun));
+            if(b.flags.z==1&&radius>.92){color=vec3f(1,.73,.3);}
         }else if(b.flags.x==4){
             let w=wheel_space(p,b.flags.y);let cap=abs(w.y)>.349;
             let wn=select(normalize(vec3f(w.x,0,w.z)),vec3f(0,sign(w.y),0),cap);
@@ -181,6 +191,13 @@ fn water_normal(p:vec2f)->vec3f {
                 if(b.style.y==3&&abs(face_uv.y)>.28){color=select(vec3f(.14,.17,.17),vec3f(.66,.51,.23),sin((texel.x+texel.y)*28)>0);}
                 if(b.style.x==1&&abs(p.y)<.19&&abs(normal.y)<.5){color=mix(color,vec3f(.04,.10,.15),.75);}
                 if(b.style.x==2&&abs(face_uv.y)<.065){color*=.3;}
+                if(b.flags.x==6&&normal[u32(b.flags.y)]*b.style.z>.5){
+                    color=vec3f(.16,.20,.21);let lens=abs(vec2f(abs(face_uv.x)-.19,face_uv.y));
+                    if(max(lens.x,lens.y)<.15){color=vec3f(.49,.52,.48);}
+                    if(max(lens.x,lens.y)<.115){color=vec3f(.08,.18,.20);}
+                    if(max(lens.x,lens.y)<.05){color=vec3f(.46,.66,.60);}
+                    if(face_uv.y>.27&&face_uv.x>.27){color=vec3f(.7,.25,.13);}
+                }
                 if(b.flags.x==5){
                     let powered=b.style.w>0;let light=select(vec3f(.18,.30,.34),select(vec3f(.15,.95,.9),vec3f(1,.66,.18),b.extent.w>0),powered);
                     if(normal[u32(b.flags.y)]*b.style.z>.5){

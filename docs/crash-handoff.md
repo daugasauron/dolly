@@ -1,8 +1,10 @@
 # Host freeze handoff — 2026-09-15
 
 Work in `/home/daug/dev/dolly/work/gpu-shaders`, on
-`codex/blockwalker-retro-20260923`; the earlier `codex/blockwalker-20260914`
-checkpoint remains preserved. The [retro reconciliation](../tasks/20260923-211500-codex-02/TASK.md)
+`codex/blockwalker-playground-20260923`; the earlier `codex/blockwalker-retro-20260923`
+and `codex/blockwalker-20260914` checkpoints remain preserved. The ongoing
+[playground task](../tasks/20260923-213000-codex-01/TASK.md) records driving, Eyes,
+turntables, cargo deliveries and pending social navigation. The [retro reconciliation](../tasks/20260923-211500-codex-02/TASK.md)
 records the current image and checks. Preserve the live world and full Pi conversation.
 Current work, recovery archives and owned service processes are recorded in
 [tasks/20260914-blockwalker-space-world/TASK.md](../tasks/20260914-blockwalker-space-world/TASK.md).

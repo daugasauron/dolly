@@ -4,11 +4,13 @@
 typedef struct Controller Controller;
 typedef struct {Character design;char name[64];char *source;int hz;float x,z;} SavedDesign;
 typedef struct {int id,cause;char name[64],detail[160];double time,seconds;Vector3 position;float up;} Removal;
+typedef struct {int cargo,carrier,depot;char name[64];double time;} Delivery;
 typedef struct {
     int id;char name[64];Character design;Physics physics;Controller *controller;
     float fallen,root_height;float controls[128];
+    int cargo,carrier,held_by,delivered;float settled;Vector3 pickup;
 } Creature;
-typedef struct {Creature *creatures;int count,capacity,next_id,deaths;double age;b3WorldId physics;SavedDesign *designs;int design_count,design_capacity;Removal *removals;int removal_count,removal_capacity;} World;
+typedef struct {Creature *creatures;int count,capacity,next_id,deaths,player;double age;b3WorldId physics;SavedDesign *designs;int design_count,design_capacity;Removal *removals;int removal_count,removal_capacity;Delivery *deliveries;int delivery_count,delivery_capacity;} World;
 extern World world;
 JSValue character_json(JSContext *ctx,const Character *c);
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt);
@@ -21,6 +23,9 @@ JSValue world_designs(JSContext *ctx,int full);
 JSValue world_open_design(JSContext *ctx,int index,Character *design);
 JSValue world_save_design(JSContext *ctx,const Character *design,int sea);
 int world_drop_cargo(float x,float y,float z,int material);
+Creature *world_find(int id);
+int world_enter(const Character *design,int sea);
+int world_cargo_score(int id);
 void world_step(void);
 void world_close(void);
 void world_save(JSContext *ctx);
