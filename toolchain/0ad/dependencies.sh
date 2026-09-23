@@ -17,7 +17,7 @@ cmake --build .cache/0ad/build-xml2 -j2
 cmake --install .cache/0ad/build-xml2
 bash toolchain/0ad/enet.sh
 sdl_source="/src/$(cat .cache/0ad/sdl2-source.path)"
-cmake -S "$sdl_source" -B .cache/0ad/build-sdl2 "${common[@]}" '-DCMAKE_C_FLAGS=-m64 -matomics -mbulk-memory -DDOLLY -U__EMSCRIPTEN__ -I/src/include' -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL_AUDIO=OFF -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF -DSDL_THREADS=OFF -DSDL_LOADSO=OFF -DSDL_POWER=OFF -DSDL_HIDAPI=OFF -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF
+cmake --fresh -S "$sdl_source" -B .cache/0ad/build-sdl2 "${common[@]}" '-DCMAKE_C_FLAGS=-m64 -matomics -mbulk-memory -DDOLLY -U__EMSCRIPTEN__ -I/src/include' -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL_AUDIO=OFF -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF -DSDL_THREADS=OFF -DSDL_LOADSO=OFF -DSDL_POWER=OFF -DSDL_HIDAPI=OFF -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF
 cmake --build .cache/0ad/build-sdl2 -j2
 cmake --install .cache/0ad/build-sdl2
 

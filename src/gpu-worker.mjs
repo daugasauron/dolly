@@ -15,7 +15,8 @@ const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8];
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
 let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
-let memory, mailbox, control, canvas, context, device, format, adapterName = "WebGPU";
+let memory, mailbox, control, canvas, context, device, format, adapterName = "WebGPU", isFallbackAdapter;
+let queueProgress = {queued: 0, completed: 0};
 let usedBytes = 0, serial = Promise.resolve(), initializing;
 const stats = { packets: 0, packetBytes: 0, frames: 0, dispatches: 0, readbackBytes: 0, batchWallMilliseconds: 0 };
 
@@ -27,6 +28,7 @@ async function getDevice() {
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     ensure(adapter, "This browser did not provide a GPU adapter", E.ENODEV);
     adapterName = [adapter.info?.vendor, adapter.info?.architecture, adapter.info?.description].filter(Boolean).join(" ") || "WebGPU adapter";
+    isFallbackAdapter = adapter.info?.isFallbackAdapter;
     const requiredFeatures = ["timestamp-query", "shader-f16", "subgroups"].filter(name => adapter.features.has(name));
     const requiredLimits = {};
     for (const [name, ceiling] of Object.entries({maxBufferSize: bufferCeiling,
@@ -56,6 +58,7 @@ async function getDevice() {
     v.setUint32(88,adapter.info?.subgroupMinSize ?? 4,true);
     v.setUint32(92,adapter.info?.subgroupMaxSize ?? 128,true);
     device = created;
+    queueProgress = {queued: 0, completed: 0};
     context = canvas.getContext("webgpu");
     ensure(context, "WebGPU canvas unavailable", E.ENOSYS);
     context.configure({ device, format, alphaMode: "opaque", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
@@ -223,6 +226,7 @@ function retire(scope) {
 
 async function batch(scope, commands) {
   const device = scope.device;
+  const progress = queueProgress;
   if (scope.inflight >= 3) await device.queue.onSubmittedWorkDone();
   let encoder, texture, computePass, renderPass, passWidth, passHeight, timer, queries = 0;
   const getEncoder = () => encoder ??= device.createCommandEncoder();
@@ -254,6 +258,7 @@ async function batch(scope, commands) {
         const r = object(scope, id, "buffer"), offset = integer(w, 16), n = w.getUint32(28, true);
         range(r, offset, n); ensure(offset % 4 === 0 && !r.mapped, "Unaligned or mapped GPU upload");
         device.queue.writeBuffer(r.value, offset, b.subarray(w.getUint32(24, true), w.getUint32(24, true) + n));
+        progress.queued++;
       } else if (op === A.DOLLY_GPU_CREATE_SHADER) {
         const shader = device.createShaderModule({ code: text(b, 24, w.getUint32(16, true)) });
         const info = await shader.getCompilationInfo();
@@ -344,6 +349,7 @@ async function batch(scope, commands) {
           n===width*height*texelBytes[r.type], "Texture upload range");
         device.queue.writeTexture({texture:r.value,mipLevel:mip,origin:{x,y,z:layer}},b.subarray(48,48+n),
           {bytesPerRow:width*texelBytes[r.type],rowsPerImage:height},{width,height});
+        progress.queued++;
       } else if (op === A.DOLLY_GPU_CREATE_SAMPLER) {
         const filters=[16,20,24].map(at=>w.getUint32(at,true)), address=[28,32,36].map(at=>w.getUint32(at,true)),
           compare=w.getUint32(40,true), maxAnisotropy=w.getUint32(44,true);
@@ -494,6 +500,7 @@ async function batch(scope, commands) {
           measured.busy = true;
         }
         device.queue.submit([encoder.finish()]);encoder=null;scope.inflight++;
+        const submittedWork = ++progress.queued;
         if (measured) measured.read.mapAsync(GPUMapMode.READ,0,count*8).then(() => {
           const values=new BigUint64Array(measured.read.getMappedRange(0,count*8));
           let ns=0n;for(let i=0;i<count;i+=2)if(values[i+1]>=values[i])ns+=values[i+1]-values[i];
@@ -501,8 +508,10 @@ async function batch(scope, commands) {
           measured.read.unmap();
         }).catch(()=>{}).finally(()=>{measured.busy=false;});
         timer=null;queries=0;
-        device.queue.onSubmittedWorkDone().catch(()=>{}).finally(()=>scope.inflight--);
-        if(texture){stats.frames++;postMessage({type:"status",active:true,width:canvas.width,height:canvas.height,adapter:adapterName,stats:{...stats,allocatedBytes:usedBytes}});texture=null;}
+        device.queue.onSubmittedWorkDone().then(()=>{
+          progress.completed=Math.max(progress.completed,submittedWork);
+        }).catch(()=>{}).finally(()=>scope.inflight--);
+        if(texture){stats.frames++;postMessage({type:"status",active:true,width:canvas.width,height:canvas.height,adapter:adapterName,isFallbackAdapter,stats:{...stats,allocatedBytes:usedBytes}});texture=null;}
       } else if (op === A.DOLLY_GPU_MAP_READ) {
         ensure(!encoder,"Submit before mapping");
         const r=object(scope,id,"buffer"), offset=integer(w,16), size=integer(w,24);range(r,offset,size);
@@ -513,7 +522,13 @@ async function batch(scope, commands) {
       } else if (op === A.DOLLY_GPU_RELEASE) {
         ensure(!encoder,"Submit before releasing GPU resources");
         const r=object(scope,id);
-        if(r.size) await device.queue.onSubmittedWorkDone();
+        // Keep released bytes charged until their work completes. Further
+        // releases need no additional fence until new work enters the queue.
+        if(r.size && progress.completed<progress.queued) {
+          const pendingWork=progress.queued;
+          await device.queue.onSubmittedWorkDone();
+          progress.completed=Math.max(progress.completed,pendingWork);
+        }
         r.value.destroy?.();usedBytes-=r.size;scope.objects.delete(id);
       }
     }

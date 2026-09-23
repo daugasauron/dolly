@@ -36,6 +36,9 @@ These additive semantics keep mailbox v5's record size and offsets unchanged.
 Graphics leases receive hover and button events, including while captured;
 terminal selection still receives only left-button drags. SDL2 translates these
 records and captured movement into ordinary SDL mouse events.
+Pointer presence is event 10 (action 1 enter, 0 leave); window keyboard focus is
+event 4 (action 1 gain, 0 loss). SDL forwards enter/leave so edge scrolling stops
+outside the canvas, and clears held keys/buttons when the browser loses focus.
 
 ## Lifecycle and terminal
 

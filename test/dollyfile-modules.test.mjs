@@ -524,7 +524,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
   assert.deepEqual(exportedHeaders("zlib"), ["zlib", "zconf"]);
   assert.deepEqual(exportedHeaders("libffi"), ["ffi", "ffitarget"]);
   assert.deepEqual(exportedHeaders("curl"), ["curl"]);
-  assert.deepEqual(exportedHeaders("quickjs"), ["quickjs-runner"]);
+  assert.deepEqual(exportedHeaders("quickjs"), ["quickjs-runner", "quickjs"]);
   assert.deepEqual(exportedHeaders("ghostty"), ["ghostty-vt"]);
   assert.deepEqual(exportedHeaders("gamedev-sdk"), ["raylib", "box3d", "dolly-raylib"]);
 

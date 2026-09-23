@@ -113,6 +113,9 @@ from the original prototype. Test options do not
 modify personal profiles. Browser-controlled adapter selection
 uses `powerPreference: "high-performance"`; WebGPU does not provide a portable
 vendor-selection API. NVIDIA and AMD use the same shader and command path.
+Runtime status includes the browser's `isFallbackAdapter` value. The 0 A.D.
+graphics check defaults to hardware and rejects software fallback; its explicit
+`software` mode remains available for correctness checks on SwiftShader.
 
 For an isolated Chrome window on this machine's X11 desktop:
 

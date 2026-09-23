@@ -1526,7 +1526,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,824 @@
+@@ -0,0 +1,886 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -1579,8 +1579,12 @@
 +    std::unique_ptr<dolly_gpu> gpu = std::make_unique<dolly_gpu>();
 +    Handle next = 0;
 +    uint64_t submission = 1;
++    uint64_t frame = 1;
 +    bool encoded = false;
 +    std::vector<Handle> retired;
++    std::vector<Handle> uniformBuffers;
++    size_t uniformPosition = 0;
++    uint32_t uniformAlignment = 0;
 +    std::function<void()> beforeFlush, afterFlush;
 +    Handle New() { return ++next; }
 +    void RawBatch()
@@ -1630,6 +1634,22 @@
 +            std::memcpy(static_cast<char*>(p)+32,source,count);
 +            source += count; offset += count; bytes -= count;
 +        }
++    }
++    std::pair<Handle,size_t> Uniform(const void* data,size_t bytes)
++    {
++        // Distinct aligned ranges survive every intermediate submission. Reuse
++        // starts only after Present submits all draws from the previous frame.
++        constexpr size_t chunkBytes = 1024*1024;
++        Require(uniformAlignment && bytes && bytes<=chunkBytes,"uniform allocation size");
++        uniformPosition=Align(uniformPosition,uniformAlignment);
++        if(uniformPosition%chunkBytes+bytes>chunkBytes)
++            uniformPosition=Align(uniformPosition,chunkBytes);
++        size_t chunk=uniformPosition/chunkBytes,offset=uniformPosition%chunkBytes;
++        if(chunk==uniformBuffers.size())uniformBuffers.push_back(Buffer(chunkBytes,72));
++        Handle handle=uniformBuffers[chunk];
++        Write(handle,offset,data,bytes);
++        uniformPosition+=bytes;
++        return {handle,offset};
 +    }
 +    Handle Shader(const std::string& code)
 +    {
@@ -1809,6 +1829,8 @@
 +    }
 +    std::vector<Binding> bindings;
 +    std::array<std::vector<uint8_t>,3> uniforms;
++    struct UniformSlice { Handle handle=0;size_t offset=0;uint64_t frame=0; };
++    std::array<UniformSlice,3> uniformSlices;
 +    std::vector<VfsPath> files;
 +    std::map<VertexAttributeStream,uint32_t> streams;
 +    Handle vertex=0,fragment=0;
@@ -1818,11 +1840,21 @@
 +{
 +public:
 +    Pipeline(Device* device,const SGraphicsPipelineStateDesc& desc) : Owned(device),desc(desc) {}
-+    ~Pipeline() override { for(auto& [key,handle]:handles)device->queue.retired.push_back(handle); }
++    ~Pipeline() override
++    {
++        for(auto& [key,group]:groups)device->queue.retired.push_back(group.handle);
++        for(auto& [key,handle]:handles)device->queue.retired.push_back(handle);
++    }
 +    IShaderProgram* GetShaderProgram() const override { return desc.shaderProgram; }
 +    Handle Get(VertexLayout*,Framebuffer*);
 +    SGraphicsPipelineStateDesc desc;
 +    std::map<std::tuple<uint64_t,uint32_t,uint32_t>,Handle> handles;
++    struct Entry {
++        unsigned binding,kind;Handle resource;size_t size,offset=0;
++        bool operator==(const Entry&) const = default;
++    };
++    struct Group { Handle handle=0;std::vector<Entry> entries; };
++    std::map<std::pair<Handle,unsigned>,Group> groups;
 +};
 +
 +std::unique_ptr<IShaderProgram> Device::CreateShaderProgram(const CStr& input,const CShaderDefines& defines)
@@ -2065,10 +2097,13 @@
 +    Framebuffer* framebuffer=nullptr;
 +    struct VertexBinding { Buffer* buffer=nullptr;uint32_t offset=0; };
 +    std::array<VertexBinding,8> vertices;
-+    std::array<std::unique_ptr<Buffer>,8> uploadedVertices;
-+    std::unique_ptr<Buffer> uploadedIndices,dummy;
++    std::vector<std::unique_ptr<Buffer>> uploadedVertices,uploadedIndices;
++    size_t nextUploadedVertex=0,nextUploadedIndex=0;
++    std::unique_ptr<Buffer> dummy;
 +    Buffer* indices=nullptr;
 +    std::map<std::pair<Program*,int32_t>,Texture*> textures;
++    std::array<uint32_t,32> borderUniform{};
++    Program::UniformSlice borderSlice;
 +    Rect viewport{},scissor{};
 +    bool passOpen=false,resumeEnabled=true;
 +};
@@ -2083,7 +2118,7 @@
 +{
 +    EndFramebufferPass();
 +    for(auto& buffer:uploadedVertices)buffer.reset();
-+    uploadedIndices.reset();dummy.reset();
++    uploadedIndices.clear();dummy.reset();
 +    device->queue.Flush();device->queue.beforeFlush={};device->queue.afterFlush={};device->context=nullptr;
 +}
 +void Context::Pause()
@@ -2139,19 +2174,23 @@
 +}
 +void Context::SetVertexBuffer(uint32_t slot,IBuffer* buffer,uint32_t offset)
 +{
-+    Require(slot<8,"vertex slot");uploadedVertices[slot].reset();vertices[slot]={buffer->As<Buffer>(),offset};
++    Require(slot<8,"vertex slot");vertices[slot]={buffer->As<Buffer>(),offset};
 +}
 +void Context::SetVertexBufferData(uint32_t slot,const void* data,uint32_t size)
 +{
 +    Require(slot<8,"vertex slot");
-+    auto buffer=std::make_unique<Buffer>(device,IBuffer::Type::VERTEX,size,0);buffer->Upload(data,0,size);
-+    vertices[slot]={buffer.get(),0};uploadedVertices[slot]=std::move(buffer);
++    if(nextUploadedVertex==uploadedVertices.size())uploadedVertices.emplace_back();
++    auto& buffer=uploadedVertices[nextUploadedVertex++];
++    if(!buffer || buffer->size<size)buffer=std::make_unique<Buffer>(device,IBuffer::Type::VERTEX,size,0);
++    buffer->Upload(data,0,size);vertices[slot]={buffer.get(),0};
 +}
-+void Context::SetIndexBuffer(IBuffer* buffer) { uploadedIndices.reset();indices=buffer->As<Buffer>(); }
++void Context::SetIndexBuffer(IBuffer* buffer) { indices=buffer->As<Buffer>(); }
 +void Context::SetIndexBufferData(const void* data,uint32_t size)
 +{
-+    auto buffer=std::make_unique<Buffer>(device,IBuffer::Type::INDEX,size,0);buffer->Upload(data,0,size);
-+    indices=buffer.get();uploadedIndices=std::move(buffer);
++    if(nextUploadedIndex==uploadedIndices.size())uploadedIndices.emplace_back();
++    auto& buffer=uploadedIndices[nextUploadedIndex++];
++    if(!buffer || buffer->size<size)buffer=std::make_unique<Buffer>(device,IBuffer::Type::INDEX,size,0);
++    buffer->Upload(data,0,size);indices=buffer.get();
 +}
 +void Context::SetTexture(int32_t slot,ITexture* value)
 +{
@@ -2167,7 +2206,13 @@
 +    Require(pipeline!=nullptr,"uniform without pipeline");auto* program=pipeline->desc.shaderProgram->As<Program>();
 +    Require(size_t(slot)<program->bindings.size(),"uniform slot");const auto& binding=program->bindings[slot];
 +    Require(binding.group!=1,"uniform bounds");
-+    std::memcpy(program->uniforms[binding.group].data()+binding.offset,values.data(),std::min(values.size_bytes(),size_t(binding.size)));
++    auto* target=program->uniforms[binding.group].data()+binding.offset;
++    size_t bytes=std::min(values.size_bytes(),size_t(binding.size));
++    if(std::memcmp(target,values.data(),bytes))
++    {
++        std::memcpy(target,values.data(),bytes);
++        program->uniformSlices[binding.group].frame=0;
++    }
 +}
 +
 +void Context::DrawMesh(bool indexed,uint32_t first,uint32_t count,uint32_t firstInstance,uint32_t instances,int32_t base)
@@ -2183,8 +2228,7 @@
 +    std::vector<Handle> groups;
 +    if(!program->bindings.empty())for(unsigned group=0;group<=lastGroup;group++)
 +    {
-+        struct Entry { unsigned binding,kind;Handle resource;size_t size; };
-+        std::vector<Entry> entries;
++        std::vector<Pipeline::Entry> entries;
 +        if(group==1)
 +        {
 +            for(size_t i=0;i<program->bindings.size();i++)
@@ -2200,24 +2244,38 @@
 +        }
 +        else if(group==3)
 +        {
-+            Handle handle=device->queue.Buffer(sizeof(borderParameters),72);
-+            device->queue.Write(handle,0,borderParameters.data(),sizeof(borderParameters));device->queue.retired.push_back(handle);
-+            entries.push_back({0,0,handle,sizeof(borderParameters)});
++            if(borderSlice.frame!=device->queue.frame || borderUniform!=borderParameters)
++            {
++                borderUniform=borderParameters;
++                auto [handle,offset]=device->queue.Uniform(borderParameters.data(),sizeof(borderParameters));
++                borderSlice={handle,offset,device->queue.frame};
++            }
++            entries.push_back({0,0,borderSlice.handle,sizeof(borderParameters),borderSlice.offset});
 +        }
 +        else if(!program->uniforms[group].empty())
 +        {
-+            auto& bytes=program->uniforms[group];Handle handle=device->queue.Buffer(bytes.size(),72);
-+            device->queue.Write(handle,0,bytes.data(),bytes.size());device->queue.retired.push_back(handle);
-+            entries.push_back({0,0,handle,bytes.size()});
++            auto& bytes=program->uniforms[group];auto& slice=program->uniformSlices[group];
++            if(slice.frame!=device->queue.frame)
++            {
++                auto [handle,offset]=device->queue.Uniform(bytes.data(),bytes.size());
++                slice={handle,offset,device->queue.frame};
++            }
++            entries.push_back({0,0,slice.handle,bytes.size(),slice.offset});
 +        }
-+        Handle handle=device->queue.New();void* p=device->queue.Record(DOLLY_GPU_RESOURCE_GROUP,32+32*entries.size());
-+        U64(p,8,handle);U64(p,16,gpuPipeline);U32(p,24,group);U32(p,28,entries.size());
-+        for(size_t i=0;i<entries.size();i++)
++        auto& cached=pipeline->groups[{gpuPipeline,group}];
++        if(!cached.handle || cached.entries!=entries)
 +        {
-+            auto& entry=entries[i];size_t at=32+i*32;
-+            U32(p,at,entry.binding);U32(p,at+4,entry.kind);U64(p,at+8,entry.resource);U64(p,at+24,entry.size);
++            if(cached.handle)device->queue.retired.push_back(cached.handle);
++            cached.handle=device->queue.New();cached.entries=std::move(entries);
++            void* p=device->queue.Record(DOLLY_GPU_RESOURCE_GROUP,32+32*cached.entries.size());
++            U64(p,8,cached.handle);U64(p,16,gpuPipeline);U32(p,24,group);U32(p,28,cached.entries.size());
++            for(size_t i=0;i<cached.entries.size();i++)
++            {
++                auto& entry=cached.entries[i];size_t at=32+i*32;
++                U32(p,at,entry.binding);U32(p,at+4,entry.kind);U64(p,at+8,entry.resource);U64(p,at+16,entry.offset);U64(p,at+24,entry.size);
++            }
 +        }
-+        groups.push_back(handle);device->queue.retired.push_back(handle);
++        groups.push_back(cached.handle);
 +    }
 +    unsigned buffers=0;
 +    for(const auto& attribute:layout->attributes)if(program->streams.contains(attribute.stream))buffers=std::max(buffers,attribute.bindingSlot+1);
@@ -2280,6 +2338,8 @@
 +    Require(dolly_gpu_capabilities(queue.gpu.get())==128,"GPU capabilities");
 +    uint32_t features;std::memcpy(&features,queue.gpu->reply,4);
 +    Require(features&DOLLY_GPU_FEATURE_TEXTURE_RENDER,"texture rendering capability");
++    std::memcpy(&queue.uniformAlignment,queue.gpu->reply+32,4);
++    Require(queue.uniformAlignment && 1024*1024%queue.uniformAlignment==0,"uniform alignment");
 +    surfaceBGRA=features&DOLLY_GPU_FEATURE_SURFACE_BGRA;
 +    dolly_gpu_begin(queue.gpu.get());
 +    capabilities.maxTextureSize=8192;capabilities.maxSampleCount=1;capabilities.maxAnisotropy=1;capabilities.instancing=true;
@@ -2292,7 +2352,8 @@
 +Device::~Device()
 +{
 +    Require(context==nullptr,"context outlived device");
-+    backbuffer.reset();backColor.reset();backDepth.reset();queue.Flush();
++    backbuffer.reset();backColor.reset();backDepth.reset();
++    queue.retired.insert(queue.retired.end(),queue.uniformBuffers.begin(),queue.uniformBuffers.end());queue.Flush();
 +    Require(dolly_gpu_close(queue.gpu.get())==0,"close GPU");
 +}
 +std::unique_ptr<IDeviceCommandContext> Device::CreateCommandContext() { return std::make_unique<Context>(this); }
@@ -2323,7 +2384,8 @@
 +void Device::Present()
 +{
 +    Require(!context || !context->framebuffer,"present inside framebuffer pass");
-+    PresentCommands();queue.Flush();
++    PresentCommands();queue.Flush();queue.uniformPosition=0;++queue.frame;
++    if(context)context->nextUploadedVertex=context->nextUploadedIndex=0;
 +}
 +void Context::ReadbackFramebufferSync(uint32_t x,uint32_t y,uint32_t width,uint32_t height,void* output)
 +{

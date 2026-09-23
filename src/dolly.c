@@ -881,7 +881,8 @@ int dolly_terminal_present_pending(void) {
     dolly_input_event *event = &display_mailbox.events[
         cursor & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
     if (event->type == DOLLY_INPUT_EVENT_POINTER_MOTION ||
-        event->type == DOLLY_INPUT_EVENT_POINTER_CAPTURE) {
+        event->type == DOLLY_INPUT_EVENT_POINTER_CAPTURE ||
+        event->type == DOLLY_INPUT_EVENT_POINTER_PRESENCE) {
       event->type = 0;
       continue;
     }

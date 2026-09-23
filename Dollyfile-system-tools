@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE system-tools
 
-FROM HOST /Dollyfile-system-build 2183a5dd20dc85dca90db7f545085883102e00212de0191eda8cf639aeddd6b9
-USE HOST /modules/default.dm 94a440c9f899bd5d878ab54254809baae385fb7525fc14d14e5c3c409357562c
+FROM HOST /Dollyfile-system-build 0d308be5b579c7774c64e0829f7273d9b3ea9a1e31f3d07cfed427c49d2c8bde
+USE HOST /modules/default.dm 24bb486c9b9efddb90308404f57b8a6beead86ad4b45fcfbaa9324639121a7a0
 
 ENTRY /bin/slop

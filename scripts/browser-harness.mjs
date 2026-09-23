@@ -2444,6 +2444,15 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 input completion"), 0);
         assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
         assert.equal(await submit("test -s /tmp/dolly-sdl2/probe.c"), 0);
+        await evaluate(send, `window.__sdlResult = null; void __dolly.submit('/tmp/dolly-sdl2/probe presence').then(status => window.__sdlResult = status); true`);
+        await waitForValue(send, "__dolly.transport.graphicsActive()", Boolean, "SDL2 pointer presence");
+        for (const x of [100, -10, 100])
+          await send("Input.dispatchMouseEvent", {type:"mouseMoved",x,y:100});
+        await send("Input.dispatchKeyEvent", {type:"keyDown",key:"ArrowRight",code:"ArrowRight"});
+        await send("Input.dispatchMouseEvent", {type:"mousePressed",button:"left",buttons:1,clickCount:1,x:100,y:100});
+        await evaluate(send, `window.dispatchEvent(new Event('blur')); true`);
+        await dispatchKey(send, {key:"Escape",code:"Escape",windowsVirtualKeyCode:27});
+        assert.equal(await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 focus recovery"), 0);
         for (const name of ["input.cpp", "input.h", "arena.h", "rts-input-probe.cpp"])
           assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/${name} -o /tmp/dolly-sdl2/${name}`), 0);
         assert.equal(await submit("mkdir /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 /tmp/dolly-sdl2/input.cpp /tmp/dolly-sdl2/rts-input-probe.cpp -o /tmp/dolly-sdl2/rts-input-probe -lSDL2 -lz -lm && /tmp/dolly-sdl2/rts-input-probe"), 0);

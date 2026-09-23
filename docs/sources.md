@@ -300,11 +300,11 @@ it does not by itself establish a playable renderer. The GPU packet path has
 its separate guest-compiled check in `test/gpu-render-browser.mjs`.
 
 After the headless bundle and shaders exist, prepare the graphical content and
-check it on a virtual X display (requires Xvfb and xauth):
+check it on the real desktop with a hardware WebGPU adapter:
 
 ```sh
 python3 toolchain/0ad/package-graphics.py .cache/0ad/0ad-0.28.0
-systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 xvfb-run -a node test/0ad-graphics-browser.mjs
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node test/0ad-graphics-browser.mjs default hardware
 ```
 
 The separate `build/0ad/graphics-data.tar` selects the combat scenario, Temperate
@@ -318,22 +318,34 @@ input ownership. The bundle selects system cursors, low texture quality and disa
 silhouettes, advanced water, postprocessing and antialiasing. Rendering and all
 CPU state stay within Dolly's existing process/GPU contracts.
 
-The browser check uses SwiftShader throughout; it exercises drag selection,
+The browser check rejects fallback adapters by default. It exercises drag selection,
 movement recorded in the upstream replay, graphical quick-save/load, fresh
 processes, training and completed house construction through the economy UI,
-Petra progress, nonzero game audio in Chrome's audio graph, and shell recovery
+Petra progress, nonzero game audio in the browser audio graph, and shell recovery
 with no queued sound. Speaker output is muted during the test. Quick-save is upstream's in-memory snapshot;
 ordinary `.0adsave` persistence has its separate headless test below. Chrome's
 headless software Vulkan compositor did not display the submitted surface in
-this environment, so this check uses Xvfb and verifies visible presentation.
-It reports software frame time, allocation credits and peak cgroup memory;
-these are not physical-GPU performance claims.
+this environment. For a software correctness check, use
+`xvfb-run -a node test/0ad-graphics-browser.mjs default software` (Xvfb and xauth
+required). For Firefox on the desktop, use
+`node test/0ad-graphics-browser.mjs default hardware firefox` under the same
+memory scope. Results identify the backend, adapter and fallback status alongside
+frame time, allocation credits and peak cgroup memory.
 
-With audio enabled, Chrome 151/SwiftShader measured 78.5 s staging, 6.1 s combat
+Before the [merge-polish performance fixes](../tasks/20260924-0ad-merge-polish/TASK.md),
+Chrome 151/SwiftShader measured 78.5 s staging, 6.1 s combat
 startup, 10.9 s economy startup, 331 ms sampled combat frames and 3.59 GB peak
 process-tree memory. A 32,768-frame audio cushion reduced cumulative underruns
 from 165 to 4 across these two runs; its added latency and occasional gaps remain
 baseline limitations.
+
+The hardware renderer now retains streamed buffers, allocates aligned uniform
+ranges and reuses unchanged resource groups; the provider avoids duplicate
+completion fences. Packaged gameplay measured 19 ms/frame in Chrome 151 on
+NVIDIA Blackwell and 59 ms/frame in Firefox 155 (non-fallback WebGPU adapter).
+Both passed the input, save/load, economy, sound and restart checks under 4 GiB.
+These are sampled combat-scene timings, not a guarantee for larger matches.
+Pointer exit now stops camera edge-scrolling, and focus loss clears held input.
 
 In Dolly, unpack the graphics tar under `/opt/0ad` and place
 `pyrogenesis.wasm` at `/opt/0ad/system/pyrogenesis`, then run:
@@ -352,7 +364,7 @@ headless bundle, shaders and graphics bundle above:
 ```sh
 node toolchain/0ad/prepare-distribution.mjs
 systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=0 npm run image -- zero-ad
-systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 xvfb-run -a node test/0ad-graphics-browser.mjs zero-ad
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node test/0ad-graphics-browser.mjs zero-ad hardware
 DOLLY_BUILD_IMAGES=zero-ad npm run publish
 npm run serve
 ```
@@ -374,11 +386,14 @@ host filesystem shortcut. The external engine build remains the explicit
 bootstrap exception described above. The pack retains upstream engine/content
 license notices and ICU/OpenAL licenses. The image deliberately starts in the
 shell, so opening its page alone does not start a graphics workload.
-The 581,810,815-byte snapshot exported identically in an independent browser
+The earlier 581,810,815-byte snapshot exported identically in an independent browser
 profile (SHA-256 `5787e3ad038151b9968f488430d61aa51448cb3f5d00c8ef9974895cc6a99ab6`).
 Image export needs a 6 GiB process-tree allowance; its 4 GiB attempt exhausted
 that scope. The packaged image reached its shell in 3.7 seconds and passed the
-offline gameplay/audio check under 4 GiB with a 3.39 GB peak.
+offline gameplay/audio check under 4 GiB with a 3.39 GB peak. The hardware fixes
+produce a 581,815,363-byte snapshot (SHA-256
+`6fc7ea630f90a4c8031f0ead4e9b90622bbdf88143be85de607e8e45f0751029`);
+packaged gameplay peaked at 3.19 GB in Chrome and 4.02 GB in Firefox.
 
 `pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
 adds a line-oriented guest JSON protocol to the ordinary autostart options.

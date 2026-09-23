@@ -1,21 +1,27 @@
 import assert from 'node:assert/strict';
 import {readFile,mkdir} from 'node:fs/promises';
-import {chromium} from 'playwright-core';
+import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from './browser-server.mjs';
 
 const root=new URL('..',import.meta.url), output=new URL('../.cache/0ad/browser/',import.meta.url);
-const image=process.argv[2]??'default';
-assert.ok(['default','zero-ad'].includes(image),'usage: node test/0ad-graphics-browser.mjs [default|zero-ad]');
+const image=process.argv[2]??'default', backend=process.argv[3]??'hardware';
+const browserName=process.argv[4]??'chromium';
+assert.ok(['default','zero-ad'].includes(image) && ['hardware','software'].includes(backend),
+  'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox]');
+assert.ok(['chromium','firefox'].includes(browserName) && (browserName==='chromium'||backend==='hardware'));
 await mkdir(output,{recursive:true});
 const provider=await readFile(new URL('src/gpu-worker.mjs',root),'utf8');
-const server=await startBrowserServer(root.pathname,image,0,new Map([
+const server=await startBrowserServer(root.pathname,image,0,new Map(backend==='software'?[
   ['/src/gpu-worker.mjs',provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true')]
-]),{'pyrogenesis.wasm':'build/0ad/pyrogenesis.wasm','0ad-graphics.tar':'build/0ad/graphics-data.tar'});
+]:[]),{'pyrogenesis.wasm':'build/0ad/pyrogenesis.wasm','0ad-graphics.tar':'build/0ad/graphics-data.tar'});
 let browser,deadline,page;
 try {
-  // A virtual X display allows Chrome's software Vulkan surface to composite.
-  browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--mute-audio','--enable-unsafe-webgpu',
-    '--use-angle=vulkan','--use-vulkan=swiftshader','--use-webgpu-adapter=swiftshader','--enable-features=Vulkan','--disable-vulkan-surface']});
+  browser=browserName==='firefox'
+    ? await firefox.launch({headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true}})
+    : await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--mute-audio','--enable-unsafe-webgpu',
+    '--use-angle=vulkan',...(backend==='hardware'
+      ? ['--ozone-platform=x11','--enable-features=Vulkan,VulkanFromANGLE']
+      : ['--use-vulkan=swiftshader','--use-webgpu-adapter=swiftshader','--enable-features=Vulkan','--disable-vulkan-surface'])]});
   deadline=setTimeout(()=>void browser.close(),240000);
   page=await browser.newPage({viewport:{width:1024,height:768}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
@@ -33,7 +39,10 @@ try {
         setInterval(()=>{meter.getFloatTimeDomainData(samples);
           audioPeak=Math.max(audioPeak,Math.sqrt(samples.reduce((sum,x)=>sum+x*x,0)/samples.length));},20);
       }
-      source.connect(meter);return source;
+      source.connect(meter);
+      const connect=source.connect;
+      source.connect=function(target,...args){return connect.call(this,target===this.context.destination?meter:target,...args);};
+      return source;
     };
   },server.origin);
   const bootStart=performance.now();
@@ -59,10 +68,16 @@ try {
   console.log(`Graphical content staged in ${stagingMilliseconds} ms`);
   const frames=()=>page.evaluate(()=>__dolly.gpu.stats?.frames??0);
   const advance=async count=>{
+    // GPU reports can arrive before the game consumes newly posted input.
+    await page.waitForFunction(()=>gameStatus!==null || __dolly.transport.inputIdle());
     const target=await frames()+count;
     await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.error || __dolly.gpu.stats?.frames>=target,target,{timeout:90000});
     assert.equal(await page.evaluate(()=>gameStatus),null,JSON.stringify(await page.evaluate(()=>__dolly.gpu)));
     assert.equal(await page.evaluate(()=>__dolly.gpu.error),undefined);
+  };
+  const advanceFor=async milliseconds=>{
+    const start=performance.now();
+    do {await advance(2);} while(performance.now()-start<milliseconds);
   };
   const start=async(options='-autostart=scenarios/combat_demo')=>{
     const baseline=await frames(),time=performance.now();
@@ -85,16 +100,23 @@ try {
   };
   const startupMilliseconds=await start();
   console.log(`Combat scene reached 22 frames in ${startupMilliseconds} ms`);
-  assert.match(await page.evaluate(()=>__dolly.gpu.adapter),/swiftshader/i);
+  const adapter=await page.evaluate(()=>__dolly.gpu);
+  console.log(JSON.stringify({adapter:adapter.adapter,isFallbackAdapter:adapter.isFallbackAdapter}));
+  if(backend==='software') assert.match(adapter.adapter,/swiftshader/i);
+  else {
+    assert.equal(adapter.isFallbackAdapter,false,'Hardware verification must not use a fallback adapter');
+    assert.doesNotMatch(adapter.adapter,/swiftshader|llvmpipe|software/i);
+  }
+  await page.screenshot({path:new URL('graphics-initial.png',output).pathname});
   await page.mouse.move(535,350);await page.mouse.down();
   await page.mouse.move(595,610,{steps:5});await page.mouse.up();await advance(2);
   await page.screenshot({path:new URL('graphics-selection.png',output).pathname});
   await page.mouse.click(360,390,{button:'right'});
   await advance(8);
-  await page.keyboard.press('Shift+F5');await advance(2);
+  await page.keyboard.press('Shift+F5');await advanceFor(600);
   await page.keyboard.press('Shift+F8');await advance(4);
   await page.screenshot({path:new URL('graphics-game.png',output).pathname});
-  const before=await frames(),time=performance.now();await advance(10);
+  const before=await frames(),time=performance.now();await advance(60);
   const frameMilliseconds=(performance.now()-time)/((await frames())-before);
   const gpu=await page.evaluate(()=>__dolly.gpu);
   const combatAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
@@ -115,7 +137,9 @@ try {
   await page.mouse.move(330,385);await page.mouse.down();
   await page.mouse.move(457,475,{steps:5});await page.mouse.up();await advance(3);
   await page.mouse.click(687,626);await advance(3);
-  await page.mouse.click(238,423);await advance(130);
+  await page.mouse.click(238,423);
+  // Training and construction follow simulation time, independently of GPU speed.
+  await advanceFor(40000);
   await page.screenshot({path:new URL('graphics-economy.png',output).pathname});
   const economyGpu=await page.evaluate(()=>__dolly.gpu);
   const economyAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
@@ -135,13 +159,14 @@ try {
   assert.deepEqual(errors,[]);
   const cgroup=(await readFile('/proc/self/cgroup','utf8')).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes=cgroup?Number(await readFile('/sys/fs/cgroup'+cgroup+'/memory.peak','utf8')):undefined;
-  console.log(JSON.stringify({image,browser:browser.version(),adapter:gpu.adapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
+  console.log(JSON.stringify({image,backend,browserName,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
     economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,
     combatAudio,economyAudio}));
 } catch(error) {
   if(page && !page.isClosed()) {
+    await page.screenshot({path:new URL('graphics-failure.png',output).pathname}).catch(()=>{});
     console.error(await page.evaluate(()=>({status:globalThis.gameStatus,gpu:__dolly?.gpu,audio:__dolly?.audio})).catch(()=>null));
     if(await page.evaluate(()=>!__dolly.graphicsActive).catch(()=>false))
       console.error(await page.evaluate(()=>__dolly.visibleTerminalText()).catch(()=>''));

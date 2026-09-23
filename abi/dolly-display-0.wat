@@ -20,6 +20,9 @@
   ;; Relative motion/capture events share the fixed 128-byte input records
   ;; beginning at byte 128. The browser copies ordinary DOM event data without
   ;; terminal encoding; the in-Wasm Ghostty driver owns encoding.
+  ;; Additive event 10 reports pointer presence (action 1 enter, 0 leave).
+  ;; Event 4 reports window keyboard focus (action 1 gain, 0 loss).
+  ;; Neither event grants pointer capture or changes record layout.
   (func (export "dolly_display_mailbox_address") (result i64)
     i64.const 0)
   (func (export "dolly_display_mailbox_version") (result i32)

@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE protox-build
 
-FROM HOST /Dollyfile-rust-build b5bc7f8e0f915fd2f2ae14af3dfa15b50fa2ae2004d9eb6d08bcdb29ca272fe9
+FROM HOST /Dollyfile-rust-build b9db652504f59ba33889cd897920d63f01fca627e6fc8babdab396614adf04c9
 USE HOST /modules/protox.dm 01063277f04a4fa090235e9fcf89c5d0fb4846d6396e7bf517e895e20a6de07f
 
 ENTRY /bin/slop

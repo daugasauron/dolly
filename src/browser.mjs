@@ -803,6 +803,28 @@ function pushPointer(event, action) {
   }
 }
 
+function pushPointerPresence(inside) {
+  if (transport?.graphicsActive() &&
+      !transport.pushRecord({ type: 10, action: inside ? 1 : 0 })) {
+    document.documentElement.dataset.inputOverflow = "true";
+  }
+}
+canvas.addEventListener("pointerenter", () => pushPointerPresence(true));
+canvas.addEventListener("pointerleave", () => pushPointerPresence(false));
+window.addEventListener("blur", () => {
+  selecting = false;
+  pushPointerPresence(false);
+  if (transport && !transport.pushRecord({ type: DisplayTransport.focusEvent, action: 0 })) {
+    document.documentElement.dataset.inputOverflow = "true";
+  }
+});
+window.addEventListener("focus", () => {
+  if (transport && !transport.pushRecord({ type: DisplayTransport.focusEvent, action: 1 })) {
+    document.documentElement.dataset.inputOverflow = "true";
+  }
+  pushPointerPresence(canvas.matches(":hover"));
+});
+
 canvas.addEventListener("pointerdown", (event) => {
   if (!transport || (event.button !== 0 && !transport.graphicsActive())) return;
   if (transport.relativePointerRequested()) {
