@@ -50,6 +50,7 @@ shutil.copy2(icu / 'source/data/in/icudt68l.dat', output / 'data/icu/icudt68l.da
 for name in ('LICENSE.md', 'license_gpl-2.0.txt', 'license_lgpl-2.1.txt', 'license_mit.txt'):
     shutil.copy2(source / name, output / 'licenses' / name)
 shutil.copy2(icu / 'LICENSE', output / 'licenses/ICU-LICENSE')
+shutil.copy2('.cache/0ad/openal-soft-1.24.3/COPYING', output / 'licenses/OpenAL-Soft-COPYING')
 
 with tarfile.open('build/0ad/headless-data.tar', 'w', format=tarfile.USTAR_FORMAT) as archive:
     for path in sorted(output.rglob('*')):

@@ -1,6 +1,7 @@
-"""Package selected official maps and their visual dependency closures."""
+"""Package selected official maps and their visual/audio dependency closures."""
 from pathlib import Path
 import fnmatch
+import json
 import re
 import shutil
 import struct
@@ -48,6 +49,23 @@ def scenario_assets(archive, scenario, civ=None):
             elif node.tag == 'actor' and node.get('file'):
                 actor('art/actors/' + node.attrib['file'])
 
+    def sound(path):
+        if '{' in path:
+            pattern = re.sub(r'\{[^}]+\}', '*', path)
+            matches = sorted(fnmatch.filter(names, pattern))
+            if not matches:
+                raise ValueError('Missing sound variants: ' + path)
+            for match in matches:
+                sound(match)
+            return
+        if path in visited:
+            return
+        visited.add(path)
+        add(path)
+        group = ET.fromstring(archive.read(path))
+        for node in group.findall('Sound'):
+            add(str(Path(group.findtext('Path', '')) / node.text))
+
     def template(name):
         if name.startswith('actor|'):
             actor('art/actors/' + name[6:])
@@ -69,6 +87,9 @@ def scenario_assets(archive, scenario, civ=None):
         for node in root.findall('.//SpawnEntityOnDeath'):
             if node.text:
                 template(node.text)
+        for node in root.findall('.//SoundGroups/*'):
+            if node.text:
+                sound('audio/' + node.text)
 
     for node in ET.fromstring(archive.read(scenario + '.xml')).findall('.//Template'):
         template(node.text)
@@ -111,10 +132,19 @@ for mod in ('mod', 'public'):
         selected = scenario_assets(upstream, 'maps/scenarios/combat_demo') if mod == 'public' else set()
         if mod == 'public':
             selected.update(scenario_assets(upstream, 'maps/skirmishes/temperate_roadway_2p', 'athen'))
-        prefixes = ('fonts/', 'art/textures/') if mod == 'mod' else (
+            music = json.loads(upstream.read('simulation/data/civs/athen.json'))['Music']
+            selected.update('audio/music/' + track['File'] for track in music)
+            selected.update('audio/music/' + name for name in re.findall(
+                r'"([^"/]+\.ogg)"', upstream.read('gui/common/music.js').decode()))
+            for path in upstream.namelist():
+                if path.startswith('gui/') and path.endswith('.js'):
+                    selected.update(re.findall(r'["\'](audio/[^"\']+\.ogg)["\']', upstream.read(path).decode()))
+            assert selected <= set(upstream.namelist()), selected - set(upstream.namelist())
+        prefixes = ('fonts/', 'art/textures/', 'audio/') if mod == 'mod' else (
             'art/skeletons/', 'art/particles/', 'art/textures/ui/', 'art/textures/misc/',
             'art/textures/particles/', 'art/textures/skies/', 'art/textures/terrain/alphamaps/',
-            'art/textures/cursors/', 'art/textures/selection/', 'art/textures/animated/', 'shaders/effects/')
+            'art/textures/cursors/', 'art/textures/selection/', 'art/textures/animated/', 'shaders/effects/',
+            'audio/interface/')
         existing = set(archive.namelist())
         for entry in upstream.infolist():
             if entry.filename not in existing and (entry.filename in selected or entry.filename.startswith(prefixes)):

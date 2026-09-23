@@ -247,3 +247,35 @@ sequences/revocations, memory growth and forged guest completion denial.
 Speaker output is muted during testing. Exact browser-import validation passes.
 Evidence: `.cache/0ad/browser-audio-test.log`. Game audio integration and
 restricted multiplayer remain next; this task remains open.
+
+2026-09-24: Both graphical scenarios now use the real sound manager, OpenAL
+loopback mixer and Vorbis decoder in Wasm. Sound items and mixer events are
+polled serially. Packaging follows sound-group references and includes 15 music
+tracks (Athens plus shared defaults), GUI audio and the ambient track. Normal
+startup enables sound; upstream `-quickstart` disables it. The Dolly port skips
+the unsupported telemetry worker directly. OpenAL's license is bundled.
+
+`test/0ad-graphics-browser.mjs` passes with music/effects enabled, nonzero audio
+analyser RMS peaks 0.2016/0.1078, all prior selection/movement/quick-save/load and
+economy checks, zero engine warnings/errors, and complete output revocation on
+both exits. Chrome 151/SwiftShader: staging 78,466 ms, combat startup 6,061 ms,
+economy startup 10,919 ms, sampled frame 331 ms, peak memory 3,587,620,864 bytes
+under 4 GiB. Increasing the queued audio cushion from 16,384 to 32,768 frames
+reduced cumulative underruns from 165 to 4. That cushion adds up to 683 ms of
+output latency; longer render stalls can still produce gaps. These measurements
+use software rendering and muted speaker output, not a physical GPU.
+
+Engine: 22,988,565 bytes, SHA-256
+`b970ded5ad07a39b1d4d5d182eac8560ab5bfc0a03632f32931cc9d7d6dc3f4b`.
+Headless pack: 33,863,680 bytes,
+`a3891173e72412fe85029f3d6d768c89e090e29b57c7deccdbecfee9c16bf5be`.
+Graphics/audio pack: 404,510,720 bytes,
+`d9f94e4c0225454f7f93fab6246d76692dd470f3a01d8d0cc038aa98c3730be4`.
+All 35 patched engine files reconstruct from the pristine archive; packaged ZIP
+CRC checks pass. Evidence: `.cache/0ad/browser-graphics-audio-test.log` and the
+prior 16,384-frame comparison in `browser-graphics-audio-16k.log`.
+The headless regression also passes: replay hashes remain
+`be99497b21b9cb86d3a1478d2e2e09a6`, control snapshot restoration remains exact,
+and the AI economy/fresh-process save test takes 19,999 ms. Evidence:
+`.cache/0ad/browser-engine-audio-test.log`.
+Restricted multiplayer and final distribution remain outstanding.

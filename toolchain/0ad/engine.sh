@@ -25,14 +25,18 @@ write_pc icu-uc 68.2 '-DU_STATIC_IMPLEMENTATION' "-L$sdk/lib/wasm64-emscripten -
 write_pc icu-i18n 68.2 '-DU_STATIC_IMPLEMENTATION' "-L$sdk/lib/wasm64-emscripten -licu_i18n-mt -licu_common-mt -licu_stubdata-mt"
 write_pc mozjs-128 128.13.0 "-I$sm/dist/include" "-L$sm/js/src/build -ljs_static -L$sm/wasm64-emscripten-probe/release -ljsrust"
 write_pc libcurl "$DOLLY_CURL_VERSION" "-I$curl_source/include" "-L$prefix/lib -lcurl"
+write_pc vorbis 1.3.7 '' "-L$sdk/lib/wasm64-emscripten -lvorbis -logg"
+write_pc vorbisfile 1.3.7 '' "-L$sdk/lib/wasm64-emscripten -lvorbis -logg"
 emcc -m64 -O1 -matomics -mbulk-memory -Iinclude -I"$curl_source/include" \
   -c src/libcurl-fetch.c -o .cache/0ad/libcurl-fetch.o
 emar crs "$prefix/lib/libcurl.a" .cache/0ad/libcurl-fetch.o
 emcc -m64 -O1 -matomics -mbulk-memory -Iinclude -c src/gpu/client.c -o .cache/0ad/gpu-client.o
 emar crs "$prefix/lib/libdollygpu.a" .cache/0ad/gpu-client.o
+emcc -m64 -O1 -matomics -mbulk-memory -Iinclude -c src/audio/client.c -o .cache/0ad/audio-client.o
+emar crs "$prefix/lib/libdollyaudio.a" .cache/0ad/audio-client.o
 cd "$root/build/premake"
 /src/.cache/0ad/premake-core-5.0.0-beta7/bin/release/premake5 --os=emscripten \
-  --without-atlas --without-audio --without-nvtt --without-lobby --without-miniupnpc \
+  --without-atlas --without-nvtt --without-lobby --without-miniupnpc \
   --without-pch --without-tests --without-dap-interface --with-system-mozjs \
   --minimal-flags --outpath=../workspaces/dolly gmake
 cd ../workspaces/dolly

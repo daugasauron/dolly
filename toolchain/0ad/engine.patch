@@ -423,6 +423,17 @@
  	{
  		LOGERROR("SDL library initialization failed: %s", SDL_GetError());
  		throw PSERROR_System_SDLInitFailed();
+@@ -627,8 +627,10 @@
+ 	// system already inits those)
+ 	curl_global_init(CURL_GLOBAL_ALL & ~CURL_GLOBAL_WIN32);
+ 
++#ifndef DOLLY
+ 	if (!g_Quickstart)
+ 		g_UserReporter.Initialize(); // after config
++#endif
+ 
+ 	PROFILE2_EVENT("Init finished");
+ 	return true;
 --- a/source/ps/GameSetup/HWDetect.cpp
 +++ b/source/ps/GameSetup/HWDetect.cpp
 @@ -23,7 +23,9 @@
@@ -659,6 +670,192 @@
  }
  
  ScriptContext::ScriptContext(int contextSize, uint32_t heapGrowthBytesGCTrigger):
+--- a/source/soundmanager/SoundManager.cpp
++++ b/source/soundmanager/SoundManager.cpp
+@@ -40,6 +40,11 @@
+ #include "soundmanager/items/ISoundItem.h"
+ #include "soundmanager/scripting/SoundGroup.h"
+ 
++#ifdef DOLLY
++#define AL_ALEXT_PROTOTYPES
++#include <AL/alext.h>
++#include <cerrno>
++#endif
+ #include <SDL_timer.h>
+ #include <algorithm>
+ #include <cstring>
+@@ -63,7 +68,9 @@
+ 		m_DeadItems = new ItemsList;
+ 		m_Shutdown = false;
+ 
++#ifndef DOLLY
+ 		m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
++#endif
+ 	}
+ 
+ 	~CSoundManagerWorker()
+@@ -89,7 +96,9 @@
+ 
+ 		}
+ 
++#ifndef DOLLY
+ 		m_WorkerThread.join();
++#endif
+ 
+ 		return true;
+ 	}
+@@ -99,6 +108,20 @@
+ 		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+ 		m_Items->push_back(anItem);
+ 	}
++
++#ifdef DOLLY
++	void Poll()
++	{
++		for (auto it = m_Items->begin(); it != m_Items->end();)
++			if ((*it)->IdleTask())
++				++it;
++			else
++			{
++				m_DeadItems->push_back(*it);
++				it = m_Items->erase(it);
++			}
++	}
++#endif
+ 
+ 	void CleanupItems()
+ 	{
+@@ -198,7 +221,11 @@
+ 	if (g_SoundManager)
+ 		return;
+ 
++#ifdef DOLLY
++	ALCdevice* device = alcLoopbackOpenDeviceSOFT(nullptr);
++#else
+ 	ALCdevice* device = alcOpenDevice(nullptr);
++#endif
+ 	if (!device)
+ 	{
+ 		LOGWARNING("No audio device was found.");
+@@ -280,6 +307,10 @@
+ CSoundManager::~CSoundManager()
+ {
+ 	UnregisterFileReloadFunc(ReloadChangedFileCB, this);
++#ifdef DOLLY
++	if (m_Audio.scope)
++		dolly_audio_close(&m_Audio);
++#endif
+ 
+ 	if (m_Worker)
+ 	{
+@@ -321,11 +352,20 @@
+ 	Status ret = INFO::OK;
+ 
+ 	if(!m_Device)
++#ifdef DOLLY
++		m_Device = alcLoopbackOpenDeviceSOFT(nullptr);
++#else
+ 		m_Device = alcOpenDevice(nullptr);
++#endif
+ 
+ 	if (m_Device)
+ 	{
++#ifdef DOLLY
++		ALCint attribs[] = {ALC_STEREO_SOURCES, 16, ALC_FORMAT_CHANNELS_SOFT, ALC_STEREO_SOFT,
++			ALC_FORMAT_TYPE_SOFT, ALC_FLOAT_SOFT, ALC_FREQUENCY, DOLLY_AUDIO_RATE, 0};
++#else
+ 		ALCint attribs[] = {ALC_STEREO_SOURCES, 16, 0};
++#endif
+ 		m_Context = alcCreateContext(m_Device, &attribs[0]);
+ 
+ 		if (m_Context)
+@@ -374,6 +414,14 @@
+ #endif // !OS_UNIX
+ 	}
+ 
++#ifdef DOLLY
++	if (m_Enabled && dolly_audio_open(&m_Audio) < 0)
++	{
++		LOGERROR("Dolly PCM device open failed: %d", errno);
++		m_Enabled = false;
++		ret = ERR::FAIL;
++	}
++#endif
+ 	return ret;
+ }
+ 
+@@ -599,6 +647,36 @@
+ 
+ 		if (m_Worker)
+ 			m_Worker->CleanupItems();
++#ifdef DOLLY
++		if (m_Worker)
++			m_Worker->Poll();
++		dolly_audio_status status;
++		if (dolly_audio_get_status(&m_Audio, &status) < 0)
++		{
++			LOGERROR("Dolly PCM status failed: %d", errno);
++			m_Enabled = false;
++			return;
++		}
++		// Keep a bounded cushion across render frames. Suspended browser audio
++		// must not advance the mixer or accumulate stale effects.
++		if (status.state != 1)
++			return;
++		float pcm[DOLLY_AUDIO_MAX_FRAMES * DOLLY_AUDIO_CHANNELS];
++		while (status.queued_frames + DOLLY_AUDIO_MIN_FRAMES <= 32768)
++		{
++			const uint32_t frames = std::min(DOLLY_AUDIO_MAX_FRAMES, 32768u - status.queued_frames);
++			alcRenderSamplesSOFT(m_Device, pcm, frames);
++			if (dolly_audio_write(&m_Audio, pcm, frames) != static_cast<int>(frames))
++			{
++				LOGERROR("Dolly PCM write failed: %d", errno);
++				m_Enabled = false;
++				return;
++			}
++			status.queued_frames += frames;
++			if (m_Worker)
++				m_Worker->Poll();
++		}
++#endif
+ 	}
+ }
+ 
+@@ -819,6 +897,12 @@
+ 
+ void CSoundManager::RunHardwareDetection()
+ {
++#ifdef DOLLY
++	m_SoundCardNames = "Dolly stereo PCM";
++	if (const char* version = alGetString(AL_VERSION))
++		m_OpenALVersion = version;
++	return;
++#endif
+ 	// OpenAL alGetString might not return anything interesting on certain platforms
+ 	// (see https://stackoverflow.com/questions/28960638 for an example).
+ 	// However our previous code supported only Windows, and alGetString does work on
+--- a/source/soundmanager/SoundManager.h
++++ b/source/soundmanager/SoundManager.h
+@@ -31,6 +31,9 @@
+ #include "scripting/SoundGroup.h"
+ #include "simulation2/system/Entity.h"
+ 
++#ifdef DOLLY
++#include <dolly/audio.h>
++#endif
+ #include <AL/al.h>
+ #include <AL/alc.h>
+ #include <map>
+@@ -61,6 +64,9 @@
+ 
+ protected:
+ 
++#ifdef DOLLY
++	dolly_audio m_Audio{};
++#endif
+ 	ALCcontext* m_Context;
+ 	ALCdevice* m_Device;
+ 	ALSourceHolder* m_ALSourceBuffer;
 --- a/source/third_party/mongoose/mongoose.cpp
 +++ b/source/third_party/mongoose/mongoose.cpp
 @@ -4230,6 +4230,11 @@

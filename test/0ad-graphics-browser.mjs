@@ -12,17 +12,33 @@ const server=await startBrowserServer(root.pathname,'default',0,new Map([
 let browser,deadline,page;
 try {
   // A virtual X display allows Chrome's software Vulkan surface to composite.
-  browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--enable-unsafe-webgpu',
+  browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--mute-audio','--enable-unsafe-webgpu',
     '--use-angle=vulkan','--use-vulkan=swiftshader','--use-webgpu-adapter=swiftshader','--enable-features=Vulkan','--disable-vulkan-surface']});
   deadline=setTimeout(()=>void browser.close(),240000);
   page=await browser.newPage({viewport:{width:1024,height:768}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(origin=>{globalThis.DOLLY_HTTP_POLICY={maxRequests:2,
-    rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};},server.origin);
+    rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
+    globalThis.audioPeak=0;
+    const nativeSource=AudioContext.prototype.createBufferSource, meters=new WeakMap();
+    AudioContext.prototype.createBufferSource=function(){
+      const source=nativeSource.call(this);
+      let meter=meters.get(this);
+      if(!meter){
+        meter=this.createAnalyser();meters.set(this,meter);
+        const mute=this.createGain();mute.gain.value=0;meter.connect(mute);mute.connect(this.destination);
+        const samples=new Float32Array(2048);
+        setInterval(()=>{meter.getFloatTimeDomainData(samples);
+          audioPeak=Math.max(audioPeak,Math.sqrt(samples.reduce((sum,x)=>sum+x*x,0)/samples.length));},20);
+      }
+      source.connect(meter);return source;
+    };
+  },server.origin);
   await page.goto(server.origin+'/default/');
   await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus));
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready');
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
+  await page.mouse.click(10,10);
   const submit=command=>page.evaluate(text=>__dolly.submit(text),command);
   const download=async(path,name)=>{
     const event=page.waitForEvent('download'),running=submit('download '+path);
@@ -45,8 +61,8 @@ try {
   const start=async(options='-autostart=scenarios/combat_demo')=>{
     const baseline=await frames(),time=performance.now();
     await page.evaluate(options=>{
-      globalThis.gameStatus=null;
-      void __dolly.submit('ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound '+options)
+      globalThis.gameStatus=null;globalThis.audioPeak=0;
+      void __dolly.submit('ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public '+options)
         .then(status=>{globalThis.gameStatus=status;});
     },options);
     await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.stats?.frames>=target,baseline+22,{timeout:30000});
@@ -57,6 +73,7 @@ try {
     await page.keyboard.press('Control+c');await page.waitForFunction(()=>gameStatus!==null);
     assert.ok([0,130].includes(await page.evaluate(()=>gameStatus)));
     await page.waitForFunction(()=>!__dolly.graphicsActive);
+    await page.waitForFunction(()=>__dolly.audio.activeScopes===0 && __dolly.audio.buffers===0);
   };
   const startupMilliseconds=await start();
   console.log(`Combat scene reached 22 frames in ${startupMilliseconds} ms`);
@@ -72,9 +89,11 @@ try {
   const before=await frames(),time=performance.now();await advance(10);
   const frameMilliseconds=(performance.now()-time)/((await frames())-before);
   const gpu=await page.evaluate(()=>__dolly.gpu);
+  const combatAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
   await stop();
   const warnings=await download('/opt/0ad/logs/interestinglog.html','graphics-warnings.html');
   assert.doesNotMatch(warnings,/class="error"|class="warning"/);
+  assert.ok(combatAudio.peak>1e-4,'Combat audio must reach the browser audio graph: '+JSON.stringify(combatAudio));
   assert.equal(await submit("cat $(find /opt/0ad/data/replays -name commands.txt) > /tmp/graphics-replay.txt"),0);
   const replay=await download('/tmp/graphics-replay.txt','graphics-replay.txt');
   const commands=replay.split('\n').filter(line=>line.startsWith('cmd 1 ')).map(line=>JSON.parse(line.slice(6)));
@@ -91,6 +110,8 @@ try {
   await page.mouse.click(238,423);await advance(130);
   await page.screenshot({path:new URL('graphics-economy.png',output).pathname});
   const economyGpu=await page.evaluate(()=>__dolly.gpu);
+  const economyAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
+  assert.ok(economyAudio.peak>1e-4,'Economy audio must reach the browser audio graph');
   await stop();
   assert.doesNotMatch(await download('/opt/0ad/logs/interestinglog.html','graphics-economy-warnings.html'),/class="error"|class="warning"/);
   assert.equal(await submit("find /opt/0ad/data/replays -name commands.txt | sort | tail -n1 > /tmp/economy-replay-path; cat $(cat /tmp/economy-replay-path) > /tmp/economy-replay.txt; cat $(dirname $(cat /tmp/economy-replay-path))/metadata.json > /tmp/economy-metadata.json"),0);
@@ -109,10 +130,11 @@ try {
   console.log(JSON.stringify({browser:browser.version(),adapter:gpu.adapter,stagingMilliseconds,startupMilliseconds,
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
-    economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true}));
+    economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,
+    combatAudio,economyAudio}));
 } catch(error) {
   if(page && !page.isClosed()) {
-    console.error(await page.evaluate(()=>({status:globalThis.gameStatus,gpu:__dolly?.gpu})).catch(()=>null));
+    console.error(await page.evaluate(()=>({status:globalThis.gameStatus,gpu:__dolly?.gpu,audio:__dolly?.audio})).catch(()=>null));
     if(await page.evaluate(()=>!__dolly.graphicsActive).catch(()=>false))
       console.error(await page.evaluate(()=>__dolly.visibleTerminalText()).catch(()=>''));
   }

@@ -216,7 +216,7 @@ JIT, and heap-backed fixed-address pools. SDL uses Dolly's existing backend;
 curl uses its restrictable HTTP broker. Browser checks exercise real simulation,
 serialization, deterministic replay, save/load, guest pipes and process
 interruption/recovery, plus house construction, training, gathering and Petra AI.
-Graphical content is available separately; audio and multiplayer remain under development in
+Graphical content is available separately; multiplayer remains under development in
 [`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
 
 OpenAL Soft 1.24.3 is checksum-pinned in `dependencies.tsv`. Its loopback mixer
@@ -226,7 +226,12 @@ or POSIX semaphores. `openal.sh` builds the library and mixer fixture; link the
 latter with `bash toolchain/0ad/link.sh build/0ad/openal-check.wasm
 .cache/0ad/openal-check.o .cache/0ad/sysroot/lib/libopenal.a`, then run
 `node test/0ad-openal-browser.mjs`. Two fresh processes each exercise two contexts,
-stereo positioning and playback completion. Game mixer integration is pending.
+stereo positioning and playback completion. The game uses that mixer, decodes
+Vorbis in Wasm and polls sound items between PCM chunks. It keeps up to 32,768
+frames (683 ms) queued to tolerate slow render frames. This adds output latency;
+frames longer than the cushion can still cause audible gaps. Dolly skips the
+unsupported telemetry worker, so sound-enabled launches need no `-quickstart`
+option (upstream quickstart also disables sound).
 
 `node test/audio-browser.mjs` compiles a PCM client inside Dolly and verifies
 real Web Audio output, bounded queues, fresh processes and Ctrl-C cleanup.
@@ -254,12 +259,14 @@ check it on a virtual X display (requires Xvfb and xauth):
 
 ```sh
 python3 toolchain/0ad/package-graphics.py .cache/0ad/0ad-0.28.0
-systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 xvfb-run -a node test/0ad-graphics-browser.mjs
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 xvfb-run -a node test/0ad-graphics-browser.mjs
 ```
 
 The separate `build/0ad/graphics-data.tar` selects the combat scenario, Temperate
 Roadway and Athens' buildings/trainable units, with their actors, variants,
-meshes, animation and textures, plus shared GUI content. The
+meshes, animation and textures, plus shared GUI content. Sound groups select
+their referenced effects; the pack also includes Athens' music and shared
+menu/battle/victory/defeat tracks. The
 Wasm device backend uses the bounded GPU packets, an offscreen backbuffer,
 indexed meshes, reflected uniforms and translated upstream shaders. SDL retains
 input ownership. The bundle selects system cursors, low texture quality and disables shadows,
@@ -269,18 +276,25 @@ CPU state stay within Dolly's existing process/GPU contracts.
 The browser check uses SwiftShader throughout; it exercises drag selection,
 movement recorded in the upstream replay, graphical quick-save/load, fresh
 processes, training and completed house construction through the economy UI,
-Petra progress and shell recovery. Quick-save is upstream's in-memory snapshot;
+Petra progress, nonzero game audio in Chrome's audio graph, and shell recovery
+with no queued sound. Speaker output is muted during the test. Quick-save is upstream's in-memory snapshot;
 ordinary `.0adsave` persistence has its separate headless test below. Chrome's
 headless software Vulkan compositor did not display the submitted surface in
 this environment, so this check uses Xvfb and verifies visible presentation.
 It reports software frame time, allocation credits and peak cgroup memory;
 these are not physical-GPU performance claims.
 
+With audio enabled, Chrome 151/SwiftShader measured 78.5 s staging, 6.1 s combat
+startup, 10.9 s economy startup, 331 ms sampled combat frames and 3.59 GB peak
+process-tree memory. A 32,768-frame audio cushion reduced cumulative underruns
+from 165 to 4 across these two runs; its added latency and occasional gaps remain
+baseline limitations.
+
 In Dolly, unpack the graphics tar under `/opt/0ad` and place
 `pyrogenesis.wasm` at `/opt/0ad/system/pyrogenesis`, then run:
 
 ```sh
-ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound -autostart=scenarios/combat_demo
+ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public -autostart=scenarios/combat_demo
 ```
 
 For the economy map, replace the final option with

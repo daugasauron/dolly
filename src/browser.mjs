@@ -44,6 +44,7 @@ const bootstrapDecoder = new TextDecoder();
 const runtimeFailureRejectors = new Set();
 
 let runtimeWorker;
+let closeAudio;
 let transport;
 let sessionTransport;
 let uploadTransport;
@@ -1046,7 +1047,7 @@ async function boot() {
   const resumeAudio = event => { if (event.isTrusted) audioProvider.resume(); };
   window.addEventListener("keydown", resumeAudio, {capture: true});
   window.addEventListener("pointerdown", resumeAudio, {capture: true});
-  const closeAudio = () => {
+  closeAudio = () => {
     window.removeEventListener("keydown", resumeAudio, {capture: true});
     window.removeEventListener("pointerdown", resumeAudio, {capture: true});
     void audioProvider.close();
@@ -1300,5 +1301,6 @@ boot().catch((error) => {
   presenter?.stop();
   resizeObserver?.disconnect();
   runtimeWorker?.terminate();
+  closeAudio?.();
   displayFatal(error instanceof Error ? error.message : String(error));
 });
