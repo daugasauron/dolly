@@ -102,5 +102,5 @@ for library in libraries:
     shutil.copy2(library, destination / library.name)
 PY
 if [[ ! -d "$cache/zlib" ]]; then
-  cp -a "$(bash scripts/fetch-pinned-source.sh zlib)" "$cache/zlib"
+  cp -a "$(bash scripts/fetch-pinned-checkout.sh zlib)" "$cache/zlib"
 fi
