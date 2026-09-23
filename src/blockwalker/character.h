@@ -29,7 +29,7 @@ typedef struct {b3BodyId body;Block block;Vector3 start;} Cargo;
 typedef struct {
     b3WorldId world;
     PhysicsPart *parts;
-    int running,steps,owns_world,count,landscape;
+    int running,steps,owns_world,count,landscape,sampled;
     double time;
     float max_separation;
     Vector3 start;
@@ -62,6 +62,7 @@ void physics_start_sea(Physics *p,const Character *c);
 void physics_motor(Physics *p,const Character *c,const unsigned char keys[128]);
 void physics_drive(Physics *p,const Character *c,const float controls[128]);
 void physics_sample(Physics *p,const Character *c);
+void physics_refresh(Physics *p,const Character *c);
 void physics_stop(Physics *p);
 void physics_step(Physics *p,const Character *c,const unsigned char keys[128]);
 void physics_pose(const Physics *p,const Character *c,int i,Vector3 *position,Quaternion *rotation);

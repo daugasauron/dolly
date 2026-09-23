@@ -5,6 +5,28 @@ static void ticks(int n){for(int i=0;i<n;i++)world_step();}
 static float cargo_z(int id){return b3Body_GetPosition(world_find(id)->physics.parts[0].body).z;}
 static void motor(int id,float throttle){Creature *c=world_find(id);vehicle_controls(&c->design,c->controls,throttle,0);}
 static void magnet(int id,int powered){Creature *c=world_find(id);c->physics.parts[8].magnet_power=powered;}
+static void check_resume(JSContext *ctx){
+    Character rig={0};character_add(&rig,-1,0,0,0,BLOCK_BOX,0);character_add(&rig,0,0,1,0,BLOCK_HINGE,1);rig.blocks[1].axis=1;rig.anchored=1;
+    const char *source="function(t,s,m){m.calls=(m.calls||0)+1;m.angle=s.angles[1];m.rate=s.rates[1];m.time=t;m.dt=s.dt;m.ready=s.contactsReady;return {A:.3};}";
+    for(int hz=10;hz<=60;hz+=50)for(int steps=72;steps<=73;steps++){
+        world_close();Creature *c=spawn(&rig,source,"Resume probe",1,hz,-40,0);int id=c->id;ticks(steps);c=world_find(id);
+        float angle=c->physics.parts[1].angle,rate=c->physics.parts[1].rate,command=c->controls['A'];int previous=c->controller->last_step,calls=get_number(c->controller->ctx,c->controller->memory,"calls",0);double age=world.age;
+        assert(angle>.8f&&rate>.7f&&command>.29f);world_save(ctx);world_close();world_load(ctx);c=world_find(id);
+        assert(world.age==age&&c->physics.steps==steps&&c->controller->last_step==previous&&c->controls['A']==command&&!c->physics.sampled);
+        assert(fabsf(c->physics.parts[1].angle-angle)<.0001f&&fabsf(c->physics.parts[1].rate-rate)<.0001f);
+        ticks(1);c=world_find(id);assert(get_number(c->controller->ctx,c->controller->memory,"calls",0)==calls&&c->physics.parts[1].command==command&&c->physics.sampled);
+        int ran=0;
+        for(int i=0;i<7&&!ran;i++){
+            angle=c->physics.parts[1].angle;rate=c->physics.parts[1].rate;double time=c->physics.steps/60.;ticks(1);
+            ran=get_number(c->controller->ctx,c->controller->memory,"calls",0)>calls;
+            if(ran){
+                assert(fabs(get_number(c->controller->ctx,c->controller->memory,"angle",0)-angle)<.0001&&fabs(get_number(c->controller->ctx,c->controller->memory,"rate",0)-rate)<.0001);
+                assert(get_number(c->controller->ctx,c->controller->memory,"ready",0)==1&&fabs(get_number(c->controller->ctx,c->controller->memory,"dt",0)-(time-previous/60.))<1e-9);
+                printf("RESUME: %d Hz at step %d, first input angle %.6f, rate %.6f, dt %.6f, held command %.3f\n",hz,steps,angle,rate,time-previous/60.,command);
+            }
+        }assert(ran);world_close();
+    }character_clear(&rig);
+}
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);Character car={0};character_car(&car);
     Creature *driver=spawn(&car,"function(){return ''}","Your character",1,60,0,12);int id=driver->id;world.player=id;
@@ -16,6 +38,7 @@ int main(void){
     assert(steps<1200&&world_find(cargo)->carrier==-1&&world.delivery_count==0&&b3Body_IsValid(world_find(id)->physics.parts[8].magnet_target));
     world_save(ctx);world_close();world_load(ctx);
     assert(world.player==id&&world_find(cargo)->carrier==-1&&world.delivery_count==0&&b3Body_IsValid(world_find(id)->physics.parts[8].magnet_target));
+    for(int i=0;i<world.design_count;i++)assert(strcmp(world.designs[i].name,"Your character"));
     JSValue sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60),nearby=JS_GetPropertyStr(ctx,sensors,"nearby"),sample=JS_GetPropertyUint32(ctx,nearby,0),ground=JS_GetPropertyStr(ctx,sensors,"groundSamples");
     assert(get_number(ctx,sensors,"id",0)==id&&get_number(ctx,ground,"length",0)==16&&get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id);
     double sensed=get_number(ctx,sample,"z",0);assert(fabs(sensed-cargo_z(cargo))<.001);
@@ -37,5 +60,7 @@ int main(void){
     assert(world_find(cargo)->carrier==-1);float start=cargo_z(cargo);motor(id,.5f);ticks(300);motor(id,0);ticks(60);
     printf("DECK CARGO: transported %.3f m, carrier %d\n",cargo_z(cargo)-start,world_find(cargo)->carrier);
     assert(cargo_z(cargo)>start+4&&world_find(cargo)->carrier==-1&&world.delivery_count==0);
-    world_close();character_clear(&car);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    assert(world_find(cargo)->held_by==id);world_save(ctx);world_close();world_load(ctx);
+    assert(world_find(cargo)->held_by==id&&world_find(cargo)->carrier==-1);ticks(30);assert(world_find(cargo)->held_by==id);
+    world_close();character_clear(&car);check_resume(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

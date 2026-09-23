@@ -1,6 +1,6 @@
 # Restore controller sensor and actuator state before the first resumed tick
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: audit,game,physics,persistence
 
@@ -26,3 +26,23 @@ including a deliberate policy for contacts unavailable before a solver step.
 Extend the existing reopen regression to observe the first controller inputs and
 commands at 60 Hz and a slower frequency. JSON equality alone does not cover
 this: the current fixture compares only fields already present in the save.
+
+2026-09-23 implementation now reconstructs angles/rates without advancing time,
+restores held commands and the last control step, and holds those commands for
+one actual solver step before resuming feedback. That step rebuilds contacts;
+`contactsReady` distinguishes unavailable fresh contact data. Controller `dt`
+measures elapsed simulation time, including any gap across reload. Legacy saves
+without held commands use neutral inputs for that first step.
+
+The expanded C/browser playground check passed all four resumed cases:
+10 Hz at steps 72/73 read angles 0.912141 / 0.974631 rad, rate 0.75 rad/s,
+dt 0.116667 / 0.100000 s; 60 Hz at steps 72/73 read 0.912141 / 0.924639 rad,
+rate 0.75 rad/s, dt 0.033333 s. Held command remained 0.300 before the first
+feedback call. Checks also assert no hidden time advance while loading, contact
+readiness, restored scheduler state, deck attribution, and absence of the manual
+car in the learned library. `build/blockwalker-resume1.log` exited 0;
+`build/blockwalker-driver/cargo-physics.log` records the measurements.
+The rebuilt image passed the integration/reopen check as well:
+`build/blockwalker-playground-integration3.log` exited 0, including exact saved
+state comparison, subsequent PID flight and the restored loaded magnet.
+Image SHA-256: `6cff6a40ea28bd635208437131542928e7213c6590cc0a537bd7bdc023e62ce9`.

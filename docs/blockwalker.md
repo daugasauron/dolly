@@ -139,8 +139,11 @@ actual Astra/xhigh Pi: the latest patrol biped, larger walkers, a balance
 surveyor, aircraft, boats and cargo machinery. Eighteen earlier prototypes are
 kept separately and added to the library only on request. The drawbridge leaves
 have clearance for the current weld rule. On first launch the catalog populates
-the world, with loose cargo for the cranes; click World to visit. Controllers run without Pi or model
-access. Existing saves keep their population, including an empty world.
+the world, with loose cargo for the cranes; click World to visit. The balancing
+surveyor, aircraft and two survey boats choose varied destinations and respond
+to nearby bodies. The heavy walker reverses and replants its feet to yield to
+traffic, the bridge opens for approaching boats, and the beacon tracks nearby
+machines. Controllers run without Pi or model access. Existing saves keep their population, including an empty world.
 The East landing site, West reactor and North signal station have matching
 physics and GPU geometry, with matte panels, lit markers and solar-cell surfaces.
 Overhead structures collide with bodies while leaving the ground beneath them
@@ -213,6 +216,7 @@ pauses after the trial. The same controller implementation runs released creatur
 | `positions` | World centre of mass of each part, indexed by part |
 | `angles`, `rates` | Joint position/speed, radians and rad/s; pistons use metres and m/s |
 | `touching` | Per-part contact booleans; includes other bodies and the floor |
+| `contactsReady` | Whether a solver step has populated contact readings |
 | `ground`, `waterHeight` | Terrain height and wave surface under the root; water height is available in sea trials and the shared world |
 | `magnets` | Per-magnet `{power, attached, load}` by part index; power is 0–1, load is newtons |
 | `submerged` | Per-part fraction in water, from 0 to 1 |
@@ -243,8 +247,11 @@ last position/orientation. The world file retains the complete removal history.
 Older removals without those records have an unknown cause.
 
 The world autosaves to `/workspace/blockwalker-world.json`, including blueprints,
-programs, controller memory/seeds, ages, poses and velocities. Restarting the game
-restores it. Export world downloads this file; Dolly saved sessions also retain
+programs, controller memory/seeds, held commands, ages, poses and velocities.
+Restarting restores joint readings immediately. The first real physics step
+holds saved commands to rebuild contacts; subsequent controller calls receive
+the actual elapsed simulation time in `dt`. Older saves without stored commands
+start that step with neutral inputs. Export world downloads this file; Dolly saved sessions also retain
 it. WebGPU renders the islands, moving water, stars, moon and thruster exhaust.
 
 ```sh

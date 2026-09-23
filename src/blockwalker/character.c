@@ -243,8 +243,8 @@ void physics_drive(Physics *p,const Character *c,const float controls[128]) {
     }
     water_forces(p,c);
 }
-void physics_sample(Physics *p,const Character *c) {
-    p->steps++;p->time+=1./60;
+static void physics_read(Physics *p,const Character *c,int advanced) {
+    if(advanced){p->steps++;p->time+=1./60;p->sampled=1;}
     for(int i=1;i<c->count;i++){
         Block b=c->blocks[i];
         float separation;
@@ -270,11 +270,13 @@ void physics_sample(Physics *p,const Character *c) {
                 b3Vec3 axis=b3RotateVector(parent.q,b3RotateVector(b3Joint_GetLocalFrameA(p->parts[i].joint).q,b3Vec3_axisZ));
                 p->parts[i].rate=b3Dot(b3Sub(b3Body_GetAngularVelocity(p->parts[i].body),b3Body_GetAngularVelocity(p->parts[b.parent].body)),axis);
             }
-            p->parts[i].driven_radians+=delta*direction;p->parts[i].angle=angle;
+            if(advanced)p->parts[i].driven_radians+=delta*direction;p->parts[i].angle=angle;
             p->parts[i].angle_peak=fmaxf(p->parts[i].angle_peak,fabsf(angle));
         }
     }
 }
+void physics_sample(Physics *p,const Character *c){physics_read(p,c,1);}
+void physics_refresh(Physics *p,const Character *c){physics_read(p,c,0);}
 void physics_step(Physics *p,const Character *c,const unsigned char keys[128]) {
     physics_motor(p,c,keys);b3World_Step(p->world,1.f/60,8);physics_sample(p,c);
 }

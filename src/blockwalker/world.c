@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-struct Controller {JSRuntime *runtime;JSContext *ctx;JSValue function,memory,random;char *source;uint32_t seed;int hz,exhausted,remaining;char error[160];};
+struct Controller {JSRuntime *runtime;JSContext *ctx;JSValue function,memory,random;char *source;uint32_t seed;int hz,last_step,exhausted,remaining;char error[160];};
 enum {REMOVAL_CONTROLLER,REMOVAL_POSTURE,REMOVAL_SUNK,REMOVAL_NONFINITE,REMOVAL_TERRAIN,REMOVAL_CAUSES};
 static const char *removal_causes[]={"controller","posture","sunk","nonfinite","terrain"};
 World world;
@@ -48,7 +48,7 @@ static JSValue random_number(JSContext *ctx,JSValueConst self,int argc,JSValueCo
 static void controller_free(Controller *c){if(!c)return;JS_FreeValue(c->ctx,c->function);JS_FreeValue(c->ctx,c->memory);JS_FreeValue(c->ctx,c->random);JS_FreeContext(c->ctx);JS_FreeRuntime(c->runtime);free(c->source);free(c);}
 static Controller *controller_new(const char *source,uint32_t seed,int hz){
     Controller *c=calloc(1,sizeof(*c));if(!c)return NULL;
-    c->source=strdup(source);c->seed=seed?seed:1;c->hz=hz;c->runtime=JS_NewRuntime();JS_SetMemoryLimit(c->runtime,4*1024*1024);JS_SetMaxStackSize(c->runtime,128*1024);
+    c->source=strdup(source);c->seed=seed?seed:1;c->hz=hz;c->last_step=-1;c->runtime=JS_NewRuntime();JS_SetMemoryLimit(c->runtime,4*1024*1024);JS_SetMaxStackSize(c->runtime,128*1024);
     JS_SetInterruptHandler(c->runtime,interrupt,c);c->ctx=JS_NewContext(c->runtime);JS_SetContextOpaque(c->ctx,c);
     c->memory=JS_NewObject(c->ctx);c->random=JS_NewCFunction(c->ctx,random_number,"random",0);controller_budget(c);
     char *wrapped=array_resize(NULL,strlen(source)+4,1);sprintf(wrapped,"(%s)",source);
@@ -133,6 +133,7 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
     JSValue support=JS_NewArray(ctx),self_contact=JS_NewArray(ctx);b3ContactData *contacts=NULL;int contact_capacity=0;
     Vector3 position;Quaternion q;physics_pose(p,c,0,&position,&q);Quaternion inverse=QuaternionInvert(q);
     surroundings(ctx,s,p,position);
+    JS_SetPropertyStr(ctx,s,"contactsReady",JS_NewBool(ctx,p->sampled));
     put_number(ctx,s,"x",position.x);put_number(ctx,s,"y",position.y);put_number(ctx,s,"z",position.z);put_number(ctx,s,"dt",dt);
     put_number(ctx,s,"ground",p->landscape?terrain_height(position.x,position.z):0);
     if(p->landscape)put_number(ctx,s,"waterHeight",water_height(position.x,position.z,p->time));
@@ -175,7 +176,8 @@ static int assigned(const Character *design,int key){
 }
 static int controller_step(Controller *controller,const Physics *p,const Character *design,float controls[128]){
     JSContext *ctx=controller->ctx;controller_budget(controller);
-    JSValue args[]={JS_NewFloat64(ctx,p->steps/60.0),physics_sensors(ctx,p,design,1.0/controller->hz),JS_DupValue(ctx,controller->memory),JS_DupValue(ctx,controller->random)};
+    double dt=controller->last_step<0?1.0/controller->hz:(p->steps-controller->last_step)/60.0;controller->last_step=p->steps;
+    JSValue args[]={JS_NewFloat64(ctx,p->steps/60.0),physics_sensors(ctx,p,design,dt),JS_DupValue(ctx,controller->memory),JS_DupValue(ctx,controller->random)};
     JSValue result=JS_Call(ctx,controller->function,JS_UNDEFINED,4,args);for(int i=0;i<4;i++)JS_FreeValue(ctx,args[i]);
     memset(controls,0,128*sizeof(float));int valid=1;
     if(JS_IsString(result)){
@@ -413,7 +415,8 @@ void world_step(void){
     if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
     for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];
         c->physics.time=world.age;
-        if(c->id!=world.player&&c->physics.steps%(60/c->controller->hz)==0&&!controller_step(c->controller,&c->physics,&c->design,c->controls))c->fallen=100;
+        int due=c->controller->last_step<0||c->physics.steps-c->controller->last_step>=60/c->controller->hz;
+        if(c->id!=world.player&&(c->physics.sampled||c->physics.steps==0)&&due&&!controller_step(c->controller,&c->physics,&c->design,c->controls))c->fallen=100;
         physics_drive(&c->physics,&c->design,c->controls);
     }
     b3World_Step(world.physics,1.f/60,8);world.age+=1./60;cargo_step();
@@ -450,7 +453,8 @@ void world_save(JSContext *ctx){
     for(int i=0;i<world.count;i++){
         Creature *c=&world.creatures[i];JSValue item=JS_GetPropertyUint32(ctx,list,i),poses=JS_NewArray(ctx);
         JS_SetPropertyStr(ctx,item,"blueprint",character_json(ctx,&c->design));JS_SetPropertyStr(ctx,item,"source",JS_NewString(ctx,c->controller->source));
-        put_number(ctx,item,"hz",c->controller->hz);put_number(ctx,item,"seed",c->controller->seed);put_number(ctx,item,"rootHeight",c->root_height);put_number(ctx,item,"startX",c->physics.start.x);put_number(ctx,item,"startZ",c->physics.start.z);
+        JSValue controls=JS_NewObject(ctx);for(int j=1;j<128;j++)if(c->controls[j]){char key[2]={j,0};put_number(ctx,controls,key,c->controls[j]);}JS_SetPropertyStr(ctx,item,"controls",controls);
+        put_number(ctx,item,"hz",c->controller->hz);put_number(ctx,item,"controlStep",c->controller->last_step);put_number(ctx,item,"seed",c->controller->seed);put_number(ctx,item,"rootHeight",c->root_height);put_number(ctx,item,"startX",c->physics.start.x);put_number(ctx,item,"startZ",c->physics.start.z);
         size_t length=0;const char *m=controller_memory_json(c->controller,&length);if(m)JS_SetPropertyStr(ctx,item,"memory",JS_NewStringLen(ctx,m,length));JS_FreeCString(c->controller->ctx,m);
         for(int j=0;j<c->design.count;j++){
             Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,j,&p,&q);b3Vec3 v=b3Body_GetLinearVelocity(c->physics.parts[j].body),a=b3Body_GetAngularVelocity(c->physics.parts[j].body);
@@ -539,7 +543,10 @@ void world_load(JSContext *ctx){
             Creature *creature=s?spawn(&c,s,name?name:"Creature",get_number(ctx,item,"seed",1),hz,0,0):NULL;
             if(creature){
                 creature->id=get_number(ctx,item,"id",creature->id);creature->physics.steps=llround(get_number(ctx,item,"seconds",0)*60);creature->root_height=get_number(ctx,item,"rootHeight",1);creature->fallen=get_number(ctx,item,"fallenSeconds",0);creature->physics.start.x=get_number(ctx,item,"startX",creature->physics.start.x);creature->physics.start.z=get_number(ctx,item,"startZ",creature->physics.start.z);
-                creature->carrier=get_number(ctx,item,"carrierId",0);creature->settled=get_number(ctx,item,"settled",0);
+                int period=60/hz,last=creature->physics.steps?(creature->physics.steps-1)/period*period:-1;
+                creature->controller->last_step=get_number(ctx,item,"controlStep",last);
+                if(creature->controller->last_step< -1||creature->controller->last_step>=creature->physics.steps)creature->controller->last_step=last;
+                creature->carrier=get_number(ctx,item,"carrierId",0);creature->held_by=get_number(ctx,item,"carriedBy",0);creature->settled=get_number(ctx,item,"settled",0);
                 JSValue pickup=JS_GetPropertyStr(ctx,item,"pickup");
                 if(JS_IsArray(pickup))for(int j=0;j<3;j++){JSValue value=JS_GetPropertyUint32(ctx,pickup,j);double v=0;JS_ToFloat64(ctx,&v,value);((float *)&creature->pickup)[j]=isfinite(v)?v:0;JS_FreeValue(ctx,value);}JS_FreeValue(ctx,pickup);
                 for(int j=0;j<world.delivery_count;j++)if(world.deliveries[j].cargo==creature->id){creature->delivered=1;creature->design.blocks[0].color=0;}
@@ -550,8 +557,10 @@ void world_load(JSContext *ctx){
                 for(int j=0;j<c.count;j++){JSValue pose=JS_GetPropertyUint32(ctx,poses,j);double p[13]={0};p[6]=1;int valid=1;
                     for(int k=0;k<13;k++){JSValue v=JS_GetPropertyUint32(ctx,pose,k);if(JS_ToFloat64(ctx,&p[k],v)<0||!isfinite(p[k]))valid=0;JS_FreeValue(ctx,v);}JS_FreeValue(ctx,pose);
                     if(valid){b3BodyId b=creature->physics.parts[j].body;b3Body_SetTransform(b,(b3Pos){p[0],p[1],p[2]},(b3Quat){{p[3],p[4],p[5]},p[6]});b3Body_SetLinearVelocity(b,(b3Vec3){p[7],p[8],p[9]});b3Body_SetAngularVelocity(b,(b3Vec3){p[10],p[11],p[12]});}
-                }JS_FreeValue(ctx,poses);
-                if(strcmp(creature->name,"Cargo"))remember_design(&c,s,creature->name,hz,creature->physics.start.x,creature->physics.start.z);
+                }JS_FreeValue(ctx,poses);physics_refresh(&creature->physics,&creature->design);
+                JSValue controls=JS_GetPropertyStr(ctx,item,"controls");
+                if(JS_IsObject(controls))for(int j=1;j<128;j++)if(assigned(&creature->design,j)){char key[2]={j,0};double value=get_number(ctx,controls,key,0);creature->controls[j]=isfinite(value)?Clamp(value,0,1):0;}JS_FreeValue(ctx,controls);
+                if(!creature->cargo&&creature->id!=get_number(ctx,save,"playerId",0))remember_design(&c,s,creature->name,hz,creature->physics.start.x,creature->physics.start.z);
             }JS_FreeCString(ctx,s);JS_FreeCString(ctx,name);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
         }character_clear(&c);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,item);
     }
@@ -574,6 +583,10 @@ void world_load(JSContext *ctx){
     }
     world.deaths=get_number(ctx,save,"deaths",0);world.age=get_number(ctx,save,"seconds",0);int next_id=get_number(ctx,save,"nextId",0);if(next_id>0&&!world.next_id)world.physics=physics_world(1);world.next_id=fmax(world.next_id,next_id);
     int player=get_number(ctx,save,"playerId",0);world.player=world_find(player)?player:0;
-    for(int i=0;i<world.count;i++)if(world.creatures[i].cargo){Creature *owner=cargo_carrier(&world.creatures[i]);world.creatures[i].held_by=owner?owner->id:0;}
+    for(int i=0;i<world.count;i++)world.creatures[i].physics.time=world.age;
+    for(int i=0;i<world.count;i++)if(world.creatures[i].cargo){
+        Creature *cargo=&world.creatures[i],*owner=cargo_carrier(cargo);
+        if(owner)cargo->held_by=owner->id;else if(!world_find(cargo->held_by))cargo->held_by=0;
+    }
     JS_FreeValue(ctx,list);JS_FreeValue(ctx,save);
 }

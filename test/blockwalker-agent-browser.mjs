@@ -44,8 +44,14 @@ try {
   const courier=carriers.find(c=>c.blueprint.some(p=>p.joint===3)),crate=fresh.creatures.find(c=>c.name==='Cargo'&&c.startX===courier.startX&&c.startZ===courier.startZ);
   assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m?.attached&&m.creature===crate.id)&&box.y>6&&box.distance>2;}),'the flying courier carries its own crate above the island');
   assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m&&!m.attached&&m.power===0)&&box.y<4.6&&box.distance>3;}),'the courier releases its cargo at the other end of its route');
-  const beacon=fresh.creatures.find(c=>c.name.startsWith('Westwatch')),firstBeacon=samples[0].creatures.find(c=>c.id===beacon.id),head=beacon.blueprint.findIndex(p=>p.joint===1),rotationDot=beacon.poses[head].slice(3,7).reduce((sum,v,i)=>sum+v*firstBeacon.poses[head][i+3],0);
-  assert.equal(beacon.distance,0,'the island beacon base remains anchored');assert.ok(Math.abs(rotationDot)<.98,'the beacon head actually rotates');
+  const beacon=fresh.creatures.find(c=>c.name.startsWith('Westwatch')),head=beacon.blueprint.findIndex(p=>p.joint===1),bearings=[];
+  for(const w of samples){
+   const c=w.creatures.find(c=>c.id===beacon.id);if(c.seconds<6)continue;
+   const target=w.creatures.find(p=>p.id===JSON.parse(c.memory).tracked[0]);assert.ok(target,'the beacon observes a real moving character');
+   const h=c.poses[head],q=h.slice(3,7),yaw=Math.atan2(2*(q[0]*q[2]+q[3]*q[1]),1-2*(q[0]*q[0]+q[1]*q[1])),bearing=Math.atan2(target.x-h[0],target.z-h[2]);
+   assert.ok(Math.abs(Math.atan2(Math.sin(yaw-bearing),Math.cos(yaw-bearing)))<.1,'the physical beacon head follows the aircraft bearing');bearings.push(yaw);
+  }
+  assert.equal(beacon.distance,0,'the island beacon base remains anchored');assert.ok(Math.max(...bearings)-Math.min(...bearings)>.08,'the head turns with the moving aircraft');
   const lift=fresh.creatures.find(c=>c.name.startsWith('Tidelock')),stage=lift.blueprint.findLastIndex(p=>p.joint===2),heights=samples.map(w=>w.creatures.find(c=>c.id===lift.id).poses[stage][1]);
   assert.equal(lift.distance,0);assert.ok(Math.max(...heights)-Math.min(...heights)>5,'the two-stage pier lift travels between the sea and island levels');
   const tender=samples.map(w=>w.creatures.find(c=>c.startX===160&&c.startZ===-18));assert.ok(Math.max(...tender.map(c=>c.z))-Math.min(...tender.map(c=>c.z))>10&&tender.every(c=>Math.abs(c.x-160)<.5&&c.up>.95&&c.y>-2),'the island tender approaches and returns on its narrow lane beside the pier');
