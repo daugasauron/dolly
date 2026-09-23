@@ -134,3 +134,21 @@ failed with an incomplete Chrome launch configuration; enabling software Vulkan
 presentation fixed it. No physical GPU workload was used. This is the rendering
 substrate milestone; the 0 A.D. device backend and playable graphical match are
 still pending, followed by audio, multiplayer and complete packaging.
+
+2026-09-23: Added a pinned native Naga 30.0.1 shader preparation stage. It
+translates 1,190 release graphics variants into 314 distinct WGSL files, retaining
+upstream define indexes and reflection metadata. Descriptor indexing, compute
+and shadow variants are explicitly excluded. Combined image samplers split into
+texture/sampler pairs; Vulkan push constants become group-2 uniform buffers.
+Chrome found derivative-uniformity errors after upstream alpha-test discards;
+the converter now carries WGSL's derivative diagnostic setting for that existing
+shader behavior. Naga validates every converted module.
+
+`node test/0ad-shaders-browser.mjs` passes with 314 compiled modules and 324 linked
+vertex/fragment pairs. It also renders the real upstream canvas shader and reads
+four expected colors with correct orientation, then checks its grayscale uniform
+using upstream reflection offsets. Chrome 151/SwiftShader took 1,744 ms for this
+shader test (compilation/linking included). This is a direct WebGPU shader test,
+separate from the guest GPU packet proof; the game device backend remains next.
+Evidence: `.cache/0ad/shaders-build.log`, `.cache/0ad/browser-shaders.log` and the
+generated hash manifest in `build/0ad/shaders/manifest.json`.

@@ -169,3 +169,7 @@ DOLLY_LLAMACPP_URL='https://codeload.github.com/ggml-org/llama.cpp/tar.gz/093a2f
 DOLLY_LLAMACPP_SHA256=f2091fce4f21fa35d207b3c94b889c6f70379666d244eb989e987f9fbcc5d6ed
 DOLLY_DAWN_WEBGPU_URL='https://github.com/google/dawn/releases/download/v20260908.214631/emdawnwebgpu_pkg-v20260908.214631.zip'
 DOLLY_DAWN_WEBGPU_SHA256=9c36eb46ada070b9cc0de2bdfd04c1fa1a1fd852cc1ebb371e96e68e1efe6c3c
+
+# Native shader translator used by the 0 A.D. asset preparation step.
+DOLLY_0AD_NAGA_VERSION=30.0.1
+DOLLY_0AD_NAGA_SHA256=45283c11b8b1da1936214eefc9caf9c1bc74ae5c090023eaea84ba317a194c8c

@@ -218,6 +218,19 @@ interruption/recovery. This checkpoint does not yet provide the graphical game,
 audio or multiplayer; the remaining baseline is tracked in
 [`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
 
+After preparing those official archives, `bash toolchain/0ad/prepare-shaders.sh`
+builds checksum-pinned Naga 30.0.1 with its locked dependencies and the same
+native Rust bootstrap. It translates the release's SPIR-V graphics variants to
+`build/0ad/shaders`, retaining their define indexes, streams and uniform offsets.
+Combined samplers become texture/sampler pairs in group 1; push constants become
+a uniform buffer in group 2. Group 0 retains material uniforms. Bindless,
+compute and shadow variants are excluded from this renderer baseline.
+`node test/0ad-shaders-browser.mjs` compiles and links every converted shader in
+Chrome's software WebGPU adapter and checks the real upstream canvas shader's
+colors, orientation and grayscale uniform. This validates shader conversion;
+it does not by itself establish a playable renderer. The GPU packet path has
+its separate guest-compiled check in `test/gpu-render-browser.mjs`.
+
 `pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
 adds a line-oriented guest JSON protocol to the ordinary autostart options.
 Each request contains `id` and `op`; each response echoes `id` and contains
