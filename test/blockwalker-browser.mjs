@@ -13,10 +13,9 @@ const shot=name=>page.screenshot({path:new URL(name+'.png',output).pathname});
 const frames=async(n=8)=>{const previous=await page.evaluate(()=>__dolly.gpu.stats.frames);await page.waitForFunction(({previous,n})=>__dolly.gpu.stats.frames>previous+n,{previous,n},{timeout:30000});};
 const exportBlueprint=async name=>{
  const download=page.waitForEvent('download');await page.mouse.click(860,40);const file=await download;
- const path=new URL(name+'.character',output).pathname;await file.saveAs(path);await frames();
- const source=await readFile(path,'utf8'),rows=source.trim().split('\n');
- const count=Number(rows[1].split(/\s+/)[0]),blocks=rows.slice(2).map(row=>{const [x,y,z,parent,joint,color,axis,negative,positive,speed,limit,travel,force,direction,material,finish]=row.split(/\s+/).map(Number);return {x,y,z,parent,joint,color,axis,negative,positive,speed,limit,travel,force,direction,material,finish};});
- assert.equal(blocks.length,count);return {path,source,count,anchored:Number(rows[1].split(/\s+/)[1]??0),blocks};
+ const path=new URL(name+'.json',output).pathname;await file.saveAs(path);await frames();
+ const design=JSON.parse(await readFile(path,'utf8')),blocks=design.blueprint;
+ return {path,source:JSON.stringify({blueprint:blocks,anchored:design.anchored}),count:blocks.length,anchored:Number(design.anchored),blocks};
 };
 const importBlueprint=async path=>{
  await page.mouse.click(974,40);await page.waitForSelector('#file-upload[open]');
@@ -25,6 +24,14 @@ const importBlueprint=async path=>{
 try {
  await page.goto(site.origin+'/blockwalker/');
  await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>30,null,{timeout:60000});
+ if(process.argv[2]){
+  await page.keyboard.press('Escape');await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
+  const command=s=>page.evaluate(s=>__dolly.submit(s),s),upload=command('upload /tmp/editor-source.tar');
+  await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(process.argv[2]);assert.equal(await upload,0);assert.equal(await command('tar -xf /tmp/editor-source.tar -C /'),0);
+  const sources=['main','character','render','world','terrain','magnet','gpu-client'].map(s=>'/usr/src/dolly/blockwalker/'+s+'.c').join(' ');
+  assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ '+sources+' -ldolly-js -ldolly-raylib -lraylib -lbox3d -lm -o /usr/bin/blockwalker'),0);
+  command('blockwalker').catch(()=>{});await page.waitForFunction(()=>__dolly.gpu.active);await frames();
+ }
  const car=await exportBlueprint('fresh-car');assert.equal(car.count,9);assert.equal(car.blocks.filter(b=>b.joint===4).length,4);assert.equal(car.blocks.filter(b=>b.joint===6).length,1);
  await page.mouse.click(120,62);await frames();await page.mouse.click(928,222);await frames();
  const hero=await exportBlueprint('library-biped');assert.equal(hero.blocks.filter(b=>b.joint).length,12);

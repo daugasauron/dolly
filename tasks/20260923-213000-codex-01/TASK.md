@@ -23,6 +23,9 @@ Completion requires:
   and move around substantially more. Demonstrate actual behavior, including
   safe handling of nearby actors/obstacles, rather than just random parameters
   on the same repeating path. Preserve demanding walkers as walkers.
+- Remove the useless bridge from the starting population; add varied characters
+  and activity throughout the world, as requested on September 24. Measure the
+  resulting population's performance and interactions.
 
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate
@@ -217,3 +220,15 @@ connection test against local SSE fixtures; the conversation survives changing
 the endpoint. Continue with the open durable-save and library round-trip issues
 `20260923-203200-codex-02` / `-03`, and cargo/interaction polish. The playground
 goal remains open through the requested deadline.
+
+Library/design/world import is now verified and packaged (issue `-03` closed):
+232062718 bytes, SHA-256
+`1e51db003869043ea3f9ff37dc3204b7106dac432fc0af1d011d4aad78d90cf9`;
+source SHA-256 `05f4c6da1154a9bfd34d9eee76655d90ad101b57bdd69d395c900c7fe58450f4`.
+`build/blockwalker-import-integration2.log` passed the packaged population and
+embedded integration/reopen checks. The first test sampled only 18.73 simulation
+seconds in 30 wall seconds and missed the courier's initial lift. Sampling now
+runs to 35 simulation seconds and compares against its recorded pickup height.
+Actual pickup was y=4.646, first sampled cargo y=6.356, peak y=7.015; no physics
+change was needed. The next content pass prototypes small roaming characters
+and retires Tidegate while retaining demanding walkers and working machinery.

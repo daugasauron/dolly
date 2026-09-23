@@ -27,7 +27,9 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Enter your character | Drive in world; Escape returns to the workshop |
 | Drive the starter car | WASD; E powers its magnet, Q releases cargo |
 | Eyes / outside camera | Backslash while driving |
-| Reuse a programmed design | Design library, then Open |
+| Keep / reopen a design | Design library → Save current / Open; a controller is optional |
+| Share a design | Workshop Export / Import, including its controller |
+| Restore a population | World → Export world / Import world |
 | Browse earlier experiments | Design library, then Older prototypes |
 | View every actuator while testing | Arrows beneath the joint controls |
 | Play a saved controller | Test character, then Play program; Stop program or backtick returns manual control |
@@ -129,8 +131,9 @@ Pi receives horizontal distance, speed and torso orientation as well as timed
 GPU images. Its goal is actual legged walking before exploring other moving
 creatures; surviving in place or driving on wheels does not count as walking.
 
-The design library keeps each released blueprint together with its controller,
-anchor and materials. Releasing identical copies keeps one library entry; a
+The design library keeps blueprints with their optional controller, anchor,
+materials and bindings. Save current also works for unprogrammed hand-built
+characters; those entries are marked manual. Releasing identical copies keeps one library entry; a
 fallen creature remains available to reopen. Existing world saves populate the
 library on first load. Library data lives in `blockwalker-world.json` alongside
 the population, so exporting the world also preserves its designs.
@@ -158,8 +161,11 @@ or backtick returns the joints to your keys. Pi can use `design_library` and
 `open_design` to reuse and improve earlier work instead of reconstructing it.
 
 The working blueprint is `/workspace/blockwalker.character`, reloaded when
-the program restarts. Pi resumes its saved conversation as well as the world. Export downloads a copy; Import restores it into a fresh
-image or browser session. Dolly's normal saved sessions also retain the file.
+the program restarts. Workshop Export downloads `blockwalker-design.json`,
+containing the blueprint, optional program, frequency and test surface. Import
+restores those together and also accepts older `.character` blueprints. Invalid
+files leave the current design and program intact. The design format is
+`blockwalker-design`, version 1, with `source: null` for a manual design.
 
 Pi is embedded in the game process through the QuickJS userspace library.
 Its tools call C functions directly: build, observe, reset, hold/release joint
@@ -259,8 +265,17 @@ programs, controller memory/seeds, held commands, ages, poses and velocities.
 Restarting restores joint readings immediately. The first real physics step
 holds saved commands to rebuild contacts; subsequent controller calls receive
 the actual elapsed simulation time in `dt`. Older saves without stored commands
-start that step with neutral inputs. Export world downloads this file; Dolly saved sessions also retain
-it. WebGPU renders the islands, moving water, stars, moon and thruster exhaust.
+start that step with neutral inputs. Export world downloads this file. Import
+world validates and replaces the population and library while keeping the
+workshop design and controller. It preserves cargo credit and magnetic loads;
+invalid files or failed writes keep the previous world. The last replaced world
+is backed up at `/workspace/blockwalker-world.previous.json`. Both tagged
+`blockwalker-world` version 1 and older untagged version 1 exports are accepted.
+
+These working files and the library live in the current Dolly session. Downloads
+survive a fresh start. Ctrl+Shift+S saves a Dolly browser session, including Pi's
+settings and conversation; `/session` lists those saves. WebGPU renders the
+islands, moving water, stars, moon and thruster exhaust.
 
 ```sh
 node scripts/prepare-blockwalker.mjs
@@ -276,6 +291,10 @@ four-wheel driving and reversing on the floor, finite magnet pickup/lift/release
 overload, removed targets, and 40 seconds of joint/weld/floor stability. `test/blockwalker-browser.mjs`
 drives camera controls, the editor, key assignment, export/import, physics
 and restart in Chrome, including a 160-part design.
+`test/blockwalker-import-browser.mjs` checks manual/programmed/legacy design
+round trips, restored magnetic loads and cargo credit, corrupt inputs and failed
+writes. Both checks accept a source tar path for compilation inside an existing
+image. The import check optionally accepts an older world file as a third argument.
 `test/blockwalker-driver-browser.mjs` verifies driving, the Eyes camera, a tilted
 turntable and physical cargo delivery with save/reload and one-time credit. Pass
 a source tar path to compile an edited source tree inside the existing image.

@@ -1,6 +1,6 @@
 # Complete the game library and export/import workflow
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: audit,game,ui,persistence
 
@@ -24,3 +24,27 @@ a clear round-trip format/action for programmed designs and worlds; preserve
 controller source/frequency, materials, bindings and anchoring, and distinguish
 editing a design from replacing the live population. Verify round trips from
 a fresh game and rejection of invalid imports without losing existing work.
+
+Implemented manual library entries (`source: null`), versioned design export
+with program/frequency/surface/materials/bindings, and legacy `.character`
+import. A separate Import world validates the complete saved population and
+constructs its replacement before discarding the old world. It preserves the
+workshop and keeps the previous world in `blockwalker-world.previous.json`.
+Backup or final-write failure rolls back; invalid input never replaces work.
+
+Verified with C compiled inside Dolly and actual Chrome UI:
+`test/blockwalker-import-browser.mjs build/blockwalker-import-source.tar`.
+`build/blockwalker-import2.log` exited 0: manual library use, programmed and
+legacy designs, exact world round trips with a loaded magnet and with delivered
+cargo, persistent credit, eight corrupt-world rejections, and backup/write
+failure rollback. The editor regression check passed, including 160 parts,
+under-floor placement, controls and reopening (`build/blockwalker-import-editor1.log`,
+exit 0). It now accepts a source tar to avoid rebuilding images for edits.
+
+The same import check against the preserved recovery world's JSON also passed:
+all 51 original creatures and 78 saved programs retained, including poses,
+velocities, controller memory, seeds and three magnetic attachments.
+`build/blockwalker-import-legacy1.log` exited 0; its detailed C evidence and UI
+screenshots are in `build/blockwalker-import/`. The live learned session and
+recovery files were not modified. Durable browser-save visibility remains the
+separate open issue `20260923-203200-codex-02`.

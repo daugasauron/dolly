@@ -163,27 +163,45 @@ static int candidate(Block *block){
 }
 static void remove_selected(void){if(selected>=0){remember();character_remove(&design,selected);selected=design.count?0:-1;binding=-1;changed();say("Removed the block and its attached branch. Undo brings it back.");}}
 static void export_character(void){
-    if(character_save(&design,"/workspace/blockwalker.character")){
-        int result=system("download /workspace/blockwalker.character");say(result==0?"Blueprint exported. Import it to continue in a fresh session.":"Export failed. The working blueprint is still in /workspace.");
-    }else say("Could not write the blueprint.");
+    if(world_export_design(embedded_context,&design,practice_sea,"/workspace/blockwalker-design.json")){
+        int result=system("download /workspace/blockwalker-design.json");say(result==0?"Design exported with its controller, materials and bindings.":"Design download failed.");
+    }else say("Could not export the design. Build a character first.");
 }
 static void import_character(void){
-    remove("/tmp/blockwalker-import.character");Character imported={0};
-    if(system("upload /tmp/blockwalker-import.character")==0&&character_load(&imported,"/tmp/blockwalker-import.character")){
-        remember();character_clear(&design);design=imported;selected=design.count?0:-1;binding=-1;home_camera();changed();say("Blueprint imported.");
-    }else say("No valid blueprint imported. Your current build is unchanged.");
-    remove("/tmp/blockwalker-import.character");
+    remove("/tmp/blockwalker-import.design");Character imported={0};int sea=0;
+    if(system("upload /tmp/blockwalker-import.design")==0){
+        JSValue result=world_import_design(embedded_context,&imported,&sea,"/tmp/blockwalker-import.design");
+        if(!JS_IsException(result)){
+            agent_enabled=agent_control=practice_steps=program_trial=0;physics_stop(&physics);memset(agent_keys,0,128);
+            remember();character_clear(&design);design=imported;practice_sea=sea;selected=design.count?0:-1;binding=-1;home_camera();changed();world_save(embedded_context);say("Design imported. The world population is unchanged.");
+        }else{JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Invalid design file. Current build and program kept; world files use Import world.");}
+        JS_FreeValue(embedded_context,result);
+    }else say("No design imported. Current build and program kept.");
+    remove("/tmp/blockwalker-import.design");
 }
 static JSValue open_design(JSContext *ctx,int index){
     Character next={0};JSValue result=world_open_design(ctx,index,&next);if(JS_IsException(result))return result;
     world_trial_stop();program_trial=0;physics_stop(&physics);set_world_view(0);practice_steps=0;remember();character_copy(&design,&next);character_clear(&next);
     SavedDesign *saved=&world.designs[index];practice_sea=terrain_height(saved->x,saved->z)<WATER_LEVEL;
-    library_open=0;selected=0;binding=-1;home_camera();changed();world_save(ctx);say("Design and controller restored. Test it, then Play program.");return result;
+    library_open=0;selected=0;binding=-1;home_camera();changed();world_save(ctx);say(saved->source?"Design and controller restored. Test it, then Play program.":"Blueprint restored. Drive it yourself, or teach it a program with Pi.");return result;
 }
 static JSValue save_design(JSContext *ctx){
     JSValue result=world_save_design(ctx,&design,practice_sea);
-    if(!JS_IsException(result)){int id;JS_ToInt32(ctx,&id,result);library_page=(id-1)/8*8;world_save(ctx);dirty=1;say("Blueprint and controller saved in the design library.");}
+    if(!JS_IsException(result)){int id;JS_ToInt32(ctx,&id,result);library_page=(id-1)/8*8;world_save(ctx);dirty=1;say("Design kept in this session. Export a copy to keep it after a fresh start.");}
     return result;
+}
+static void import_world(void){
+    agent_enabled=0;remove("/tmp/blockwalker-import.world");
+    if(system("upload /tmp/blockwalker-import.world")==0){
+        JSValue result=world_import(embedded_context,"/tmp/blockwalker-import.world");
+        if(JS_IsException(result)){
+            JSValue error=JS_GetException(embedded_context);const char *text=JS_ToCString(embedded_context,error);say(text?text:"World import failed; current world kept.");JS_FreeCString(embedded_context,text);JS_FreeValue(embedded_context,error);
+        }else{
+            piloting=eye_view=world_follow=world_list=0;world_accumulator=0;last_save=world.age;memset(keys,0,sizeof(keys));home_camera();
+            say("World restored; workshop kept. Previous world backed up in /workspace/blockwalker-world.previous.json.");
+        }JS_FreeValue(embedded_context,result);
+    }else say("No world imported. Current population kept.");
+    remove("/tmp/blockwalker-import.world");
 }
 static void toggle_control(void){if(proxy_pending)return;world_trial_stop();program_trial=0;agent_control=!agent_control;agent_enabled=agent_control;practice_steps=0;memset(keys,0,128);dirty=1;}
 static void click(void){
@@ -202,7 +220,7 @@ static void click(void){
         if(inside(520,156,210,32)){world_load_archive(embedded_context);say("Older prototypes added to the library. The starting world is unchanged.");}
         if(inside(748,156,164,32)){
             JSValue result=save_design(embedded_context);
-            if(JS_IsException(result)){JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Build a character and install its controller before saving a design.");}
+            if(JS_IsException(result)){JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Build a character before saving a design.");}
             JS_FreeValue(embedded_context,result);
         }
         if(inside(274,558,68,34))library_page=(int)fmaxf(0,library_page-8);
@@ -254,7 +272,8 @@ static void click(void){
         world_page(0);
         for(int i=0;i<8&&world_list+i<world.count;i++)if(inside(24,344+i*26,194,25)){piloting=eye_view=0;visit_creature(&world.creatures[world_list+i]);return;}
         if(inside(24,564,40,30)){world_page(-8);return;}if(inside(178,564,40,30)){world_page(8);return;}
-        if(inside(24,612,194,36)){world_save(embedded_context);int result=system("download /workspace/blockwalker-world.json");say(result==0?"World exported with programs and physics state.":"World export failed.");}
+        if(inside(24,612,194,28)){int result=world_save(embedded_context)?system("download /workspace/blockwalker-world.json"):-1;say(result==0?"World exported with programs and physics state.":"World export failed.");}
+        if(inside(24,642,194,28))import_world();
         return;
     }
     if(physics.running){
@@ -423,7 +442,7 @@ static void draw_ui(void){
         for(int i=0;i<8&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.19s",c->id,c->name);label(24,344+i*26,text,14,c->id==world_follow?accent:ink);}
         button(24,564,40,30,"<",0);button(178,564,40,30,">",0);
         snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+8,world.count),world.count);label(74,572,text,14,muted);
-        button(24,612,194,36,"Export world",0);
+        button(24,612,194,28,"Export world",0);button(24,642,194,28,"Import world",0);
         if(!agent_panel){
             label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?"WASD drive / E on / Q off":"Drops at the camera target.",14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
             if(piloting)button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);
@@ -492,7 +511,7 @@ static void draw_ui(void){
         library_page=(int)Clamp(library_page,0,world.design_count?((world.design_count-1)/8)*8:0);
         for(int i=0;i<8&&library_page+i<world.design_count;i++){SavedDesign *d=&world.designs[library_page+i];int y=206+i*42;
             snprintf(text,sizeof(text),"%.34s",d->name);label(274,y+8,text,16,ink);
-            snprintf(text,sizeof(text),"%d parts / %d Hz",d->design.count,d->hz);label(696,y+8,text,14,muted);button(882,y,94,32,"Open",0);
+            if(d->source)snprintf(text,sizeof(text),"%d parts / %d Hz",d->design.count,d->hz);else snprintf(text,sizeof(text),"%d parts / manual",d->design.count);label(696,y+8,text,14,muted);button(882,y,94,32,"Open",0);
         }button(274,558,68,34,"<",0);button(908,558,68,34,">",0);snprintf(text,sizeof(text),"%d-%d of %d designs",world.design_count?library_page+1:0,(int)fminf(library_page+8,world.design_count),world.design_count);label(498,568,text,15,muted);
     }
 agent_overlay:
@@ -585,7 +604,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     else if(!strcmp(op,"installed_program"))result=world_program(ctx);
     else if(!strcmp(op,"open_design")){
         int index=number(ctx,args,"id",0)-1;result=open_design(ctx,index);
-        if(!JS_IsException(result)){result=state(ctx);JS_SetPropertyStr(ctx,result,"source",JS_NewString(ctx,world.designs[index].source));}
+        if(!JS_IsException(result)){result=state(ctx);const char *source=world.designs[index].source;JS_SetPropertyStr(ctx,result,"source",source?JS_NewString(ctx,source):JS_NULL);}
     }
     else if(!strcmp(op,"install")){result=world_install(ctx,args);if(!JS_IsException(result))world_save(ctx);}
     else if(!strcmp(op,"spawn")){result=world_release(ctx,&design,args);if(!JS_IsException(result)){world_save(ctx);dirty=1;}}

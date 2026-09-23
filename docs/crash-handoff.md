@@ -11,12 +11,14 @@ Current work, recovery archives and owned service processes are recorded in
 Recheck processes before stopping anything; other worktrees and previews belong
 to other agents.
 
-The 9099 preview now includes the biped reversal fix and replaceable Pi proxy
-settings (`a2651f0`, `8a52b5c`). The seed-42 population passed 1800 simulation
-seconds with reloads every 300 seconds: all 33 alive, 118 biped steps, zero
-aborts. The playground task records the current image identity and evidence;
-durable saves and library round trips remain open. Do not begin the separate
-Lua/YAML migration as part of this playground goal.
+The 9099 preview includes the biped reversal fix, replaceable Pi proxy settings,
+manual library entries and complete design/world import/export. Recovery-world
+import preserved all 51 creatures and 78 saved programs. The packaged integration
+and editor checks passed. The seed-42 population passed 1800 simulation seconds
+with reloads every 300 seconds: all 33 alive, 118 biped steps, zero aborts.
+Durable browser-save visibility remains open. Current content work removes
+Tidegate from the starting world and adds small moving characters across the
+yard, harbor and islands. Do not begin the separate Lua/YAML migration here.
 
 The two earlier desktop freezes most likely involved host RAM exhaustion while
 Node 22 formatted a failed PNG assertion. That mechanism was reproduced, but

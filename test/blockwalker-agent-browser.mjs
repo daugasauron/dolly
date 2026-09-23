@@ -26,7 +26,9 @@ try {
  }else{
   const examples=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8')),samples=[];
   await page.mouse.click(404,40);await page.mouse.click(170,204);
-  for(let i=0;i<30;i++){
+  const samplingDeadline=Date.now()+120000;
+  for(let i=0;!samples.length||samples.at(-1).seconds<35;i++){
+   assert.ok(Date.now()<samplingDeadline,'the populated simulation reaches 35 seconds');
    await page.waitForTimeout(1000);const event=page.waitForEvent('download');await page.mouse.click(120,630);
    const file=await event,path=new URL('fresh-world-'+i+'.json',output).pathname;await file.saveAs(path);samples.push(JSON.parse(await readFile(path,'utf8')));
   }
@@ -36,9 +38,9 @@ try {
   assert.ok(fresh.creatures.filter(c=>c.distance>1).length>=5,'bundled controllers move several creations without Pi');
   assert.ok(fresh.creatures.some(c=>!c.anchored&&c.y>4&&c.up>.95),'bundled feedback flyer takes off');
   assert.ok(fresh.creatures.some(c=>!c.anchored&&Math.abs(c.startX)>100&&c.y>-2&&c.y<0&&c.up>.8&&c.distance>1),'bundled boat floats and travels');
-  const carriers=fresh.creatures.filter(c=>c.blueprint.some(p=>p.joint===5)),held=new Set(),cargoLow=new Map(fresh.creatures.filter(c=>c.name==='Cargo').map(c=>[c.id,Math.min(...samples.map(w=>w.creatures.find(b=>b.id===c.id).y))]));assert.equal(carriers.length,examples.filter(d=>d.blueprint.some(p=>p.joint===5)).length);
+  const carriers=fresh.creatures.filter(c=>c.blueprint.some(p=>p.joint===5)),held=new Set(),cargoLow=new Map(fresh.creatures.filter(c=>c.name==='Cargo').map(c=>[c.id,Math.min(c.pickup[1],...samples.map(w=>w.creatures.find(b=>b.id===c.id).y))]));assert.equal(carriers.length,examples.filter(d=>d.blueprint.some(p=>p.joint===5)).length);
   for(const carrier of carriers){
-   assert.ok(samples.some(w=>w.creatures.find(c=>c.id===carrier.id).magnets.some(m=>{const cargo=m?.attached&&w.creatures.find(c=>c.id===m.creature);if(cargo&&cargo.y>cargoLow.get(cargo.id)+.7){held.add(cargo.id);return true;}return false;})),'each programmed cargo machine lifts its own crate relative to its local floor');
+   assert.ok(samples.some(w=>w.creatures.find(c=>c.id===carrier.id).magnets.some(m=>{const cargo=m?.attached&&w.creatures.find(c=>c.id===m.creature);if(cargo&&cargo.y>cargoLow.get(cargo.id)+.7){held.add(cargo.id);return true;}return false;})),carrier.name+' lifts its crate above its pickup height');
   }
   assert.equal(held.size,carriers.length,'the machines handle distinct world bodies');
   const courier=carriers.find(c=>c.blueprint.some(p=>p.joint===3)),crate=fresh.creatures.find(c=>c.name==='Cargo'&&c.startX===courier.startX&&c.startZ===courier.startZ);
