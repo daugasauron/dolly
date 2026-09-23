@@ -199,3 +199,21 @@ Evidence: `build/blockwalker-replant-long1.log` (exit 0), the six saved worlds,
 traces, memories, contact records and `result.json` in
 `build/blockwalker-replant-long-42/`. The source-only run used
 `build/blockwalker-replant-long.mjs 42` and compiled its physics probe in Dolly.
+
+Local preview rebuilt after the gait and proxy-import fixes:
+232021463 bytes, SHA-256
+`a084b626715df04b82ead199bce093e5226f08d38f7eb4c277cb14efab9d730e`;
+source SHA-256 `836a280be968b9019636ee91dd855afc95e8df6448933126e6529aa709b12978`.
+Build took 24.5 s with the unchanged runtime (`build/blockwalker-playground-image4.log`,
+exit 0). A fresh Chrome visit to the actual 9099 preview verified the packaged
+catalog, starter car, driving, Eyes/follow switching and saved player: 159 frames,
+34 objects, no browser errors (`build/blockwalker-checkpoint-preview2.log`, exit 0,
+screenshots/world in `build/blockwalker-checkpoint-preview/`). The first check
+used the wrong saved-field name, `player` instead of `playerId`; correcting the
+check resolved it without a game change.
+
+The proxy replacement issue `20260923-203200-codex-04` is closed with a real Pi
+connection test against local SSE fixtures; the conversation survives changing
+the endpoint. Continue with the open durable-save and library round-trip issues
+`20260923-203200-codex-02` / `-03`, and cargo/interaction polish. The playground
+goal remains open through the requested deadline.
