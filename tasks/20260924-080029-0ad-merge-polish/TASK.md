@@ -52,7 +52,12 @@ Peak process-tree memory was 3.19 GB in Chrome and 4.02 GB in Firefox, within
 their 4 GiB limits. Evidence: `.cache/0ad/browser-{chrome,firefox}-polish-test.log`.
 Frame-based input checks now wait for the game to consume the input mailbox;
 queued GPU reports alone could let the test click before selection was handled.
-Local release packaging and acceptance remain pending.
+Local release `f0346673d3f567db386c3adb58a4e34df2ac20692c1a239d674d5ad7b44815dc`
+passed all ten image inventories and is served at `http://127.0.0.1:42727/zero-ad/`.
+A fresh Firefox 155 session verified the packaged engine hash, launched bare
+`zero-ad` on a non-fallback adapter, retained the visible town after eight seconds
+outside the canvas, and exited cleanly. Evidence: `.cache/0ad/release-firefox-hardware.log`
+and `.cache/0ad/browser/release-firefox-pointer-outside.png`.
 
 The GPU texture/depth/indexed-rendering and hostile-packet checks pass in Chrome
 151/SwiftShader, including quotas, stale handles, copied packets, close and forced
@@ -60,3 +65,21 @@ termination. All 277 source tests pass. The updated engine patch reconstructs
 all 40 modified files from the pristine pinned archive. The canonical zero-ad
 image build rebuilt all ten dependent images and produced a 581,815,363-byte
 snapshot, SHA-256 `6fc7ea630f90a4c8031f0ead4e9b90622bbdf88143be85de607e8e45f0751029`.
+
+Sound now has a documented process/outer ABI, an in-Dolly `audio-sdk` library
+build, and a C client that preserves active handles, validates replies and
+reserves sequence space for close/reopen. The provider bounds resume requests
+without blocking the first trusted interaction. Chrome 151 and Firefox 155 pass
+the installed SDK playback checks, malformed-reply mock, stereo measurement,
+sequence exhaustion, quotas, hostile mailbox and process-termination checks.
+Evidence: `.cache/0ad/audio-sdk-browser-{chrome,firefox}.log`.
+
+`gpu-sdk` similarly builds the reusable GPU client inside Dolly; `gpu-fluid`
+now links that library instead of embedding a second client and header copy.
+Both SDKs and the fluid application compile through normal image recipes. The
+installed GPU SDK passes texture/depth/indexed rendering, quotas, invalid packets,
+fresh processes and forced interruption in Chrome/SwiftShader
+(`.cache/0ad/gpu-sdk-browser.log`). All 277 source tests pass.
+The remaining port work includes 0 A.D. component build
+boundaries, sound latency, multiplayer host completion, AI save/load semantics,
+and final build/release reproducibility.

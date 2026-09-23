@@ -5,10 +5,9 @@ import {startBrowserServer} from "./browser-server.mjs";
 
 // Force a software adapter inside the worker for this bounded correctness test.
 const provider=await readFile(new URL('../src/gpu-worker.mjs',import.meta.url),'utf8');
-const server=await startBrowserServer(new URL('..',import.meta.url).pathname,'default',0,
+const server=await startBrowserServer(new URL('..',import.meta.url).pathname,'gpu-sdk',0,
   new Map([['/src/gpu-worker.mjs',provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true')]]),
-  {'gpu-render.c':'test/fixtures/gpu-render.c','gpu-client.c':'src/gpu/client.c',
-   'gpu.h':'include/dolly/gpu.h','gpu-abi.h':'include/dolly/gpu-abi.h'});
+  {'gpu-render.c':'test/fixtures/gpu-render.c'});
 let browser,deadline;
 try {
   browser=await chromium.launch({channel:'chrome',headless:true,
@@ -17,19 +16,15 @@ try {
   const page=await browser.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(origin=>{
-    globalThis.DOLLY_HTTP_POLICY={maxRequests:4,rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
+    globalThis.DOLLY_HTTP_POLICY={maxRequests:1,rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
   },server.origin);
-  await page.goto(`${server.origin}/default/`);
+  await page.goto(`${server.origin}/gpu-sdk/`);
   await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus));
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready');
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
   const submit=command=>page.evaluate(text=>__dolly.submit(text),command);
-  assert.equal(await submit('mkdir -p /tmp/include/dolly'),0);
-  for(const file of ['gpu-render.c','gpu-client.c','gpu.h','gpu-abi.h']) {
-    const destination=file.endsWith('.h')?`/tmp/include/dolly/${file}`:`/tmp/${file}`;
-    assert.equal(await submit(`curl -fsS ${server.origin}/fixture/${file} -o ${destination}`),0);
-  }
-  assert.equal(await submit('cc -I/tmp/include /tmp/gpu-render.c /tmp/gpu-client.c -o /tmp/gpu-render'),0,
+  assert.equal(await submit(`curl -fsS ${server.origin}/fixture/gpu-render.c -o /tmp/gpu-render.c`),0);
+  assert.equal(await submit('cc /tmp/gpu-render.c -ldolly-gpu -o /tmp/gpu-render'),0,
     await page.evaluate(()=>__dolly.visibleTerminalText()));
   for(let run=0;run<2;run++) {
     const status=await submit('/tmp/gpu-render');

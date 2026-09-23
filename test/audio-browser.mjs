@@ -1,21 +1,24 @@
 import assert from "node:assert/strict";
-import {chromium} from "playwright-core";
+import {chromium, firefox} from "playwright-core";
 import {startBrowserServer} from "./browser-server.mjs";
 
-const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "default", 0,
-  new Map(), {"audio.c": "test/fixtures/audio.c", "audio-client.c": "src/audio/client.c",
-    "audio.h": "include/dolly/audio.h", "audio-abi.h": "include/dolly/audio-abi.h"});
+const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "audio-sdk", 0,
+  new Map(), {"audio.c": "test/fixtures/audio.c", "audio-client-contract.c": "test/fixtures/audio-client-contract.c"});
 let browser, deadline, page;
 try {
-  browser = await chromium.launch({channel: "chrome", headless: true,
-    args: ["--no-sandbox", "--disable-gpu", "--mute-audio"]});
+  const browserName = process.argv[2] ?? "chromium";
+  assert.ok(["chromium", "firefox"].includes(browserName));
+  browser = browserName === "firefox" ? await firefox.launch({headless: true})
+    : await chromium.launch({channel: "chrome", headless: true,
+      args: ["--no-sandbox", "--disable-gpu", "--mute-audio", "--autoplay-policy=user-gesture-required"]});
   deadline = setTimeout(() => void browser.close(), 120000);
   page = await browser.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (["warning", "error"].includes(message.type())) console.error(message.text()); });
   await page.addInitScript(origin => {
-    globalThis.DOLLY_HTTP_POLICY = {maxRequests: 4,
+    if (location.origin !== origin) return;
+    globalThis.DOLLY_HTTP_POLICY = {maxRequests: 2,
       rules: [{origin, pathPrefix: "/fixture/", methods: ["GET"]}]};
     globalThis.audioMeters = [];
     globalThis.audioContexts = [];
@@ -34,22 +37,48 @@ try {
       source.addEventListener("ended", () => { clearInterval(timer); splitter.disconnect(); meters.forEach(meter => meter.disconnect()); mute.disconnect(); });
       audioMeters.push(peak);
       if (!audioContexts.includes(this)) audioContexts.push(this);
+      const connect = source.connect;
+      source.connect = function(target, ...args) {
+        return connect.call(this, target === this.context.destination ? mute : target, ...args);
+      };
       return source;
     };
+    globalThis.autoplayReady = (async () => {
+      const {createAudioProvider} = await import("/src/audio-provider.mjs");
+      globalThis.autoplayProvider = createAudioProvider();
+      globalThis.autoplayResumeCalls = 0;
+      const resume = AudioContext.prototype.resume;
+      AudioContext.prototype.resume = function() { ++autoplayResumeCalls; return resume.call(this); };
+      globalThis.resumeAutoplay = event => { if (event.isTrusted) autoplayProvider.resume(); };
+      globalThis.closeAutoplay = async () => {
+        window.removeEventListener("pointerdown", resumeAutoplay);
+        AudioContext.prototype.resume = resume;
+        await autoplayProvider.close();
+      };
+      window.addEventListener("pointerdown", resumeAutoplay);
+      const packet = new Uint8Array(32), view = new DataView(packet.buffer);
+      view.setUint32(4, 1, true); view.setUint32(8, 1, true); view.setUint32(16, 1, true);
+      return {error: autoplayProvider.dispatch(packet).error, activated: navigator.userActivation.hasBeenActive,
+        resumeCalls: autoplayResumeCalls};
+    })();
   }, server.origin);
-  await page.goto(`${server.origin}/default/`);
+  await page.goto(`${server.origin}/audio-sdk/`);
   await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
   assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
     await page.locator("#bootstrap-log").textContent());
   await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
+  const autoplay = await page.evaluate(() => autoplayReady);
+  assert.deepEqual(autoplay, {error: 0, activated: false, resumeCalls: 0});
   await page.mouse.click(10, 10);
+  await page.waitForFunction(() => autoplayProvider.status().state === "running");
+  await page.evaluate(() => closeAutoplay());
   const submit = command => page.evaluate(text => __dolly.submit(text), command);
-  assert.equal(await submit("mkdir -p /tmp/include/dolly"), 0);
-  for (const file of ["audio.c", "audio-client.c", "audio.h", "audio-abi.h"]) {
-    const destination = file.endsWith(".h") ? `/tmp/include/dolly/${file}` : `/tmp/${file}`;
-    assert.equal(await submit(`curl -fsS ${server.origin}/fixture/${file} -o ${destination}`), 0);
+  for (const file of ["audio.c", "audio-client-contract.c"]) {
+    assert.equal(await submit(`curl -fsS ${server.origin}/fixture/${file} -o /tmp/${file}`), 0);
   }
-  assert.equal(await submit("cc -I/tmp/include /tmp/audio.c /tmp/audio-client.c -lm -o /tmp/audio"), 0,
+  assert.equal(await submit("cc /tmp/audio.c -ldolly-audio -lm -o /tmp/audio"), 0,
+    await page.evaluate(() => __dolly.visibleTerminalText()));
+  assert.equal(await submit("cc -Ddolly_process_call=audio_test_call /tmp/audio-client-contract.c /usr/src/dolly/audio/client.c -o /tmp/audio-client-contract && /tmp/audio-client-contract"), 0,
     await page.evaluate(() => __dolly.visibleTerminalText()));
   for (let run = 0; run < 2; ++run) {
     assert.equal(await submit("/tmp/audio"), 0, await page.evaluate(() => __dolly.visibleTerminalText()));
@@ -66,7 +95,7 @@ try {
   const boundary = await page.evaluate(async () => (await import("/test/fixtures/audio-boundary.mjs")).audioBoundaryProof());
   assert.equal(await submit("echo AUDIO_SHELL_RECOVERY > /tmp/audio-result && cat /tmp/audio-result"), 0);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({browser: browser.version(), guestCompiled: true, measured, boundary,
+  console.log(JSON.stringify({browser: browser.version(), sdkLinked: true, guestCompiled: true, clientContract: true, autoplayResume: true, measured, boundary,
     interruptRecovery: true, device: await page.evaluate(() => __dolly.audio)}));
 } catch (error) {
   if (page && !page.isClosed()) console.error(await page.evaluate(() => __dolly.visibleTerminalText()).catch(() => ""));

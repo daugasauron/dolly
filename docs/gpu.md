@@ -5,6 +5,11 @@ fluid image, in-sandbox local inference, verified artifacts and browser limits.
 
 `Dollyfile-gpu-fluid` provides the GPU demonstration: an upstream C fluid solver
 compiled inside Dolly, with interactive liquid ink and volumetric smoke.
+It inherits [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), whose reusable
+[`gpu` module](../modules/gpu.dm) compiles the client library inside Dolly.
+Programs include `<dolly/gpu.h>` and link with `-ldolly-gpu`; the fluid recipe
+contains only its application adapter and upstream sources. The texture/depth/
+indexed-rendering browser test links against this installed SDK.
 
 The compile target remains a private memory64 process with its single
 `dolly_process_0.call` import. Operation 128 selects the separately versioned

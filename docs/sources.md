@@ -278,11 +278,13 @@ frames longer than the cushion can still cause audible gaps. Dolly skips the
 unsupported telemetry worker, so sound-enabled launches need no `-quickstart`
 option (upstream quickstart also disables sound).
 
-`node test/audio-browser.mjs` compiles a PCM client inside Dolly and verifies
+`Dollyfile-audio-sdk` builds the reusable PCM library inside Dolly.
+`node test/audio-browser.mjs` links a client against that SDK and verifies
 real Web Audio output, bounded queues, fresh processes and Ctrl-C cleanup.
 Chrome runs with GPU disabled and muted speaker output; an analyser measures
 the rendered signal. The typed `dolly-audio-0` contract and authority limits are
-documented in [the browser review map](browser-boundary.md#experimental-audio-provider).
+documented in [the sound interface](audio.md) and
+[the browser review map](browser-boundary.md#experimental-audio-provider).
 
 After preparing those official archives, `bash toolchain/0ad/prepare-shaders.sh`
 builds checksum-pinned Naga 30.0.1 with its locked dependencies and the same

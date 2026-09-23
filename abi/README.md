@@ -77,6 +77,14 @@ the extended kernel. Its exported constant globals generate C/JS constants,
 while only function exports become Emscripten retention entries. See
 [GPU protocol and demo](../docs/gpu.md).
 
+## PCM sound extension
+
+`dolly-audio-0.wat` separately versions process-call operation 129 and the sound
+provider mailbox. It adds bounded stereo PCM playback without changing the base
+process digest. WAT globals generate the C/JavaScript constants. Decoding and
+mixing remain in Wasm; queued playback is an external device resource, revoked
+when its process exits. See [the protocol and C SDK](../docs/audio.md).
+
 ## Resident kernel plugin
 
 `dolly-kernel-plugin-0.wat` is a separate internal contract for the one module

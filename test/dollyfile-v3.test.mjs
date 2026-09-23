@@ -81,7 +81,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
     ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
     "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build"],
-    "external-source": ["system"], "gpu-fluid": ["system"], blockwalker: ["gamedev-sdk", "javascript", "pi-build"],
+    "external-source": ["system"], "gpu-fluid": ["gpu-sdk"], "gpu-sdk": ["system"], blockwalker: ["gamedev-sdk", "javascript", "pi-build"],
     "llama-build": ["cmake-build"], "local-llm-build": ["llama-build"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system-tools"], "neovim-build": ["cmake-build"],
@@ -94,7 +94,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
     "gamedev-phone": ["gamedev"],
     bhop: ["gamedev", "sdl2-build"],
-    "python-pi": ["pi-runtime", "python"], "zero-ad": ["default"],
+    "python-pi": ["pi-runtime", "python"], "zero-ad": ["default"], "audio-sdk": ["system"],
   };
   for (const definition of await discoverImageDefinitions(project)) {
     const graph = await loadDollyfileGraph(project, definition.filename);
@@ -145,7 +145,7 @@ test("images separate reusable runtimes from applications and configuration", as
   const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
   const selected = await selectImageDefinitions(definitions, githubImages.join(","));
   assert.deepEqual(selected.map(item => item.image), definitions
-    .filter(item => !["codex", "codex-build", "protox-build", "pi-local", "dollyfile-studio", "llama-build", "local-llm-build", "blockwalker", "zero-ad"].includes(item.image)).map(item => item.image));
+    .filter(item => !["codex", "codex-build", "protox-build", "pi-local", "dollyfile-studio", "llama-build", "local-llm-build", "blockwalker", "zero-ad", "audio-sdk"].includes(item.image)).map(item => item.image));
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

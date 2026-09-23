@@ -12,6 +12,9 @@ typedef struct {
   uint32_t queued_frames, state;
   uint64_t played_frames;
 } dolly_audio_status;
+/* Zero-initialize before first use; one stream per process, called serially.
+   Functions return -1 and set errno on failure. A successful write accepts all
+   frames. EAGAIN accepts none. On sequence EOVERFLOW, close and reopen. */
 int dolly_audio_open(dolly_audio *audio);
 int dolly_audio_close(dolly_audio *audio);
 int dolly_audio_write(dolly_audio *audio, const float *stereo, uint32_t frames);

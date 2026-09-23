@@ -98,6 +98,17 @@ if has_module blockwalker; then
   node scripts/prepare-blockwalker.mjs "${static_dir}/blockwalker/source.tar"
 fi
 
+if has_module audio; then
+  copy_static src/audio/client.c audio/client.c
+fi
+
+if has_module gpu; then
+  copy_static src/gpu/client.c gpu/client.c
+fi
+if has_module gpu-fluid; then
+  node scripts/prepare-gpu-fluid.mjs
+fi
+
 if has_module zero-ad; then
   node toolchain/0ad/prepare-distribution.mjs "${static_dir}/zero-ad"
 fi

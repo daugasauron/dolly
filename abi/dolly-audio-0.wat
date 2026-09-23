@@ -20,7 +20,9 @@
   ;; LE header [32]: u32 version,operation; u64 scope,sequence; u32 body,reserved.
   ;; Scope is a non-reused u32 lease; slot=(scope-1)%4. OPEN begins with scope=0;
   ;; the kernel binds its process-owned lease before dispatch. Sequence is a
-  ;; nonzero, increasing u32. All reserved fields and upper u64 bits are zero.
+  ;; nonzero, increasing u32; it must not wrap. Close/reopen before exhaustion.
+  ;; Each process owns at most one lease. All reserved fields and upper u64 bits
+  ;; are zero.
   ;; OPEN [32] reply [16]: u64 scope; u32 sample_rate,channels.
   ;; WRITE [40+frames*8]: u32 frames,reserved; interleaved stereo f32 PCM.
   ;; Frames are 128..4096 at 48 kHz. Nonfinite samples fail EINVAL; finite samples

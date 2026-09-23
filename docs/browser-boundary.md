@@ -85,6 +85,8 @@ buffers. Each write is 128–4096 frames, has finite f32 samples, and is clamped
 the output range. One outstanding request per slot bounds admission even if
 Wasm fabricates mailbox completions. Reaping revokes queued sound. This interface
 grants no audio capture, microphone, file, URL, DOM or network access.
+Repeated interaction events share one pending resume request. The
+[sound protocol and SDK](audio.md) specify packet layouts and client semantics.
 
 ## Experimental GPU provider
 

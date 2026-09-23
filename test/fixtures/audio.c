@@ -21,6 +21,9 @@ int main(int argc, char **argv) {
   const int hold = argc > 1 && !strcmp(argv[1], "--hold");
   for (unsigned i = 0; i < 4096; ++i) pcm[i * 2 + 1] = .5f * sinf(i * 440.f * 6.283185307f / 48000.f);
   check(dolly_audio_open(&audio) == 0, "audio open");
+  uint64_t scope = audio.scope;
+  check(dolly_audio_open(&audio) == -1 && errno == EBUSY && audio.scope == scope,
+        "reopening an active client lost its lease");
   static dolly_audio duplicate;
   check(dolly_audio_open(&duplicate) == -1 && errno == EBUSY, "duplicate audio open");
   pcm[0] = NAN;
@@ -46,6 +49,9 @@ int main(int argc, char **argv) {
     check(now() < deadline, "audio playback timeout"); usleep(10000);
   } while (status.queued_frames);
   check(status.played_frames == accepted, "played frame accounting");
+  audio.sequence = UINT32_MAX - 2;
+  check(dolly_audio_get_status(&audio, &status) == 0, "last ordinary sequence");
+  check(dolly_audio_get_status(&audio, &status) == -1 && errno == EOVERFLOW, "sequence wrapped");
   check(dolly_audio_close(&audio) == 0, "audio close");
   check(dolly_audio_write(&audio, pcm, 4096) == -1 && errno == EBADF, "closed audio accepted");
   check(dolly_audio_open(&audio) == 0 && dolly_audio_write(&audio, pcm, 4096) == 4096, "audio reopen");

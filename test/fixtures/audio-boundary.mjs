@@ -23,6 +23,13 @@ export async function audioBoundaryProof() {
     check(provider.dispatch(packet(1, 5)).error === E.EBUSY, "Audio slot quota bypassed");
     check(provider.dispatch(packet(1)).error === E.ESTALE, "Audio lease reused");
     await context.resume(); await context.suspend();
+    const nativeResume = context.resume;
+    let resumeCalls = 0, settleResume;
+    context.resume = () => { ++resumeCalls; return new Promise(resolve => { settleResume = resolve; }); };
+    provider.resume(); provider.resume(); provider.resume();
+    check(resumeCalls === 1, "Repeated gestures queued unbounded resume requests");
+    settleResume(); await Promise.resolve();
+    context.resume = nativeResume;
     const invalid = packet(2, 1, 128);
     new DataView(invalid.buffer).setFloat32(40, NaN, true);
     check(provider.dispatch(invalid).error === E.EINVAL, "Nonfinite PCM accepted");

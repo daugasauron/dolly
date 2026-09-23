@@ -33,7 +33,8 @@ export function createAudioProvider(report = () => {}) {
   }
   function publish() { report(status()); }
   function resume() {
-    if (context?.state === "suspended" && streams.size) {
+    if (!resumePending && context?.state === "suspended" && streams.size &&
+        navigator.userActivation?.hasBeenActive) {
       resumePending = true;
       const settled = () => { resumePending = false; publish(); };
       void context.resume().then(settled, settled);
@@ -72,7 +73,7 @@ export function createAudioProvider(report = () => {}) {
         const output = new DataView(result.buffer);
         output.setBigUint64(0, BigInt(scope), true);
         output.setUint32(8, A.DOLLY_AUDIO_RATE, true); output.setUint32(12, A.DOLLY_AUDIO_CHANNELS, true);
-        if (!resumePending) resume();
+        resume();
       } else {
         if (!stream) fail(E.EBADF);
         if (sequence <= stream.sequence) fail(E.ESTALE);
