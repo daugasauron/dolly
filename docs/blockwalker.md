@@ -174,6 +174,10 @@ Open Pi, import the private `models.json` printed by the local relay, then Start
 node scripts/codex-relay.mjs 9010 http://127.0.0.1:9099 http://localhost:9099
 ```
 
+Import again to replace the proxy settings. The game pauses Pi, validates the
+file and reports the result; cancellation or invalid input keeps the existing
+settings. Start reconnects with the saved conversation.
+
 The model is `codex-local/gpt-6-astra`, xhigh effort, using the subscription
 proxy. The Pi panel shows streaming traces and accepts messages with Enter;
 a message steers a running turn. Pause aborts inference. Idle turns receive a

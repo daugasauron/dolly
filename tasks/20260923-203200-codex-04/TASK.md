@@ -1,6 +1,6 @@
 # Allow replacing an imported Pi proxy configuration
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: audit,game,agent,ui
 
@@ -20,3 +20,20 @@ Import to a temporary path, validate and replace only after success. Retain the
 old configuration on cancellation/invalid input. Apply an updated configuration
 to the next connection, including an already-created agent session, and report
 actual errors. Verify two imports and cancellation without a live model call.
+
+Fixed by uploading to a temporary file and validating with Pi's actual model
+runtime, with network refresh disabled. A successful import atomically replaces
+the configuration and disposes the old connection; the next Start restores the
+same conversation with the new model runtime. Import pauses inference and
+practice. Invalid JSON, a missing Astra model and cancellation keep the old file
+and session. The panel reports the validation result and stays paused.
+
+Verified in Chrome with all compilation inside Dolly:
+`test/blockwalker-proxy-browser.mjs build/blockwalker-proxy-source.tar`, under
+the 4 GiB/no-swap browser limit. Two local endpoints held real Pi SSE requests;
+four requests reached the original endpoint across failed/cancelled imports,
+then the replacement reached the second endpoint with the same session ID,
+`gpt-6-astra` and `xhigh`. Import aborted the active request, and validation made
+zero network requests. No upstream model calls. Log:
+`build/blockwalker-proxy1.log` (exit 0); observations, request metadata and UI
+screenshots: `build/blockwalker-proxy/`.

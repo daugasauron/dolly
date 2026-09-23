@@ -19,6 +19,8 @@ static int brush_material,brush_finish=FINISH_PANEL,practice_sea;
 static float mouse_x,mouse_y,last_x,last_y,fps;
 static unsigned char keys[128],agent_keys[128];
 static int agent_control,practice_steps,agent_panel,agent_enabled,prompt_focus,world_view,camera_fast,world_list;
+static int proxy_pending;
+static const char *proxy_import_path="/tmp/blockwalker-proxy-models.json";
 static int library_open,library_page,control_page,piloting,eye_view;
 static int focus_view,world_follow;
 static Vector3 world_follow_position;
@@ -183,7 +185,7 @@ static JSValue save_design(JSContext *ctx){
     if(!JS_IsException(result)){int id;JS_ToInt32(ctx,&id,result);library_page=(id-1)/8*8;world_save(ctx);dirty=1;say("Blueprint and controller saved in the design library.");}
     return result;
 }
-static void toggle_control(void){world_trial_stop();program_trial=0;agent_control=!agent_control;agent_enabled=agent_control;practice_steps=0;memset(keys,0,128);dirty=1;}
+static void toggle_control(void){if(proxy_pending)return;world_trial_stop();program_trial=0;agent_control=!agent_control;agent_enabled=agent_control;practice_steps=0;memset(keys,0,128);dirty=1;}
 static void click(void){
     if(focus_view){
         if(inside(render_view.width-232,12,220,34)){toggle_focus();return;}
@@ -221,8 +223,13 @@ static void click(void){
     if(agent_panel&&mouse_x>998){
         prompt_focus=inside(1024,608,240,54);
         if(prompt_focus)memset(keys,0,sizeof(keys));
-        if(inside(1036,142,220,36)){agent_enabled=0;int result=system("upload /workspace/blockwalker-agent/models.json");say(result==0?"Proxy configuration imported. Press Start in the Pi panel.":"Proxy import cancelled.");}
-        if(inside(1036,188,104,36)){agent_enabled=1;agent_control=1;log_text("\nStarting Pi...\n");}
+        if(inside(1036,142,220,36)&&!proxy_pending){
+            agent_enabled=0;practice_steps=0;world_trial_stop();program_trial=0;memset(agent_keys,0,128);
+            remove(proxy_import_path);
+            if(system("upload /tmp/blockwalker-proxy-models.json")==0){proxy_pending=1;say("Checking proxy configuration...");}
+            else{say("No configuration imported. Existing settings kept; see terminal for upload errors.");log_text("\nNo configuration imported; existing settings kept.\n");}
+        }
+        if(inside(1036,188,104,36)&&!proxy_pending){agent_enabled=1;agent_control=1;log_text("\nStarting Pi...\n");}
         if(inside(1152,188,104,36)){agent_enabled=0;practice_steps=0;memset(agent_keys,0,128);log_text("\nPaused.\n");}
         if(inside(1036,235,220,36))toggle_control();
         dirty=1;return;
@@ -343,7 +350,7 @@ static void events(void){
         if(prompt_focus){
             if(e.action==DOLLY_KEY_ACTION_RELEASE)continue;
             if(dolly_raylib_code_is(&e,"Escape")){prompt_focus=0;dirty=1;continue;}
-            if(dolly_raylib_code_is(&e,"Enter")){snprintf(pending_prompt,sizeof(pending_prompt),"%s",prompt_input);prompt_input[0]=0;agent_enabled=agent_control=1;dirty=1;continue;}
+            if(dolly_raylib_code_is(&e,"Enter")){if(!proxy_pending){snprintf(pending_prompt,sizeof(pending_prompt),"%s",prompt_input);prompt_input[0]=0;agent_enabled=agent_control=1;}dirty=1;continue;}
             if(dolly_raylib_code_is(&e,"Backspace")){size_t n=strlen(prompt_input);if(n){do{n--;}while(n&&(prompt_input[n]&0xc0)==0x80);prompt_input[n]=0;}dirty=1;continue;}
             if(e.key_length==1&&!(e.modifiers&(DOLLY_INPUT_MOD_CONTROL|DOLLY_INPUT_MOD_META|DOLLY_INPUT_MOD_ALT)))append_prompt(e.data,e.key_length);
             continue;
@@ -491,7 +498,7 @@ static void draw_ui(void){
 agent_overlay:
     if(agent_panel){
         DrawRectangle(998,focus_view?0:80,282,focus_view?SCREEN_HEIGHT:594,paper);label(1036,106,"PI / ASTRA / XHIGH",16,ink);
-        button(1036,142,220,36,"Import proxy config",0);button(1036,188,104,36,"Start",agent_enabled);button(1152,188,104,36,"Pause",!agent_enabled);
+        button(1036,142,220,36,proxy_pending?"Checking config...":"Import proxy config",0);button(1036,188,104,36,"Start",agent_enabled);button(1152,188,104,36,"Pause",!agent_enabled);
         button(1036,235,220,36,agent_control?"Agent keys [`]":"Your keys [`]",agent_control);
         draw_agent_log();
         DrawRectangleRec((Rectangle){1024,608,240,54},panel);
@@ -626,7 +633,9 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
         else {world_follow=0;orbit.yaw=yaw;orbit.pitch=Clamp(pitch,-1.5f,1.5f);orbit.distance=Clamp(distance,3,512);orbit.target=(Vector3){Clamp(x,-512,512),Clamp(y,-64,128),Clamp(z,-512,512)};orbit_update(&orbit);dirty=1;}
     }else if(!strcmp(op,"log")) {const char *s=JS_ToCString(ctx,args);if(s){log_text(s);JS_FreeCString(ctx,s);}}
     else if(!strcmp(op,"enabled")){result=JS_NewBool(ctx,agent_enabled);}
-    else if(!strcmp(op,"enable")){agent_enabled=JS_ToBool(ctx,args);agent_control=agent_enabled;if(agent_enabled)agent_panel=1;layout();}
+    else if(!strcmp(op,"enable")){agent_enabled=!proxy_pending&&JS_ToBool(ctx,args);agent_control=agent_enabled;if(agent_enabled)agent_panel=1;layout();}
+    else if(!strcmp(op,"proxy_import")){result=proxy_pending?JS_NewString(ctx,proxy_import_path):JS_NULL;}
+    else if(!strcmp(op,"proxy_import_done")){proxy_pending=0;const char *s=JS_ToCString(ctx,args);if(s){say(s);log_text("\n");log_text(s);log_text("\n");JS_FreeCString(ctx,s);}}
     else if(!strcmp(op,"prompt")){result=JS_NewString(ctx,pending_prompt);pending_prompt[0]=0;}
     else if(!strcmp(op,"exit")){stopping=1;}
     else result=JS_ThrowTypeError(ctx,"Unknown Game operation: %s",op);

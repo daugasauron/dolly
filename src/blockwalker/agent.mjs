@@ -3,6 +3,11 @@ const directory='/workspace/blockwalker-agent';
 fs.mkdirSync(directory,{recursive:true});
 const call=(op,args)=>Game.call(op,args),sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const log=text=>{call('log',text);};
+async function piSdk(){
+  // Match Pi CLI's module order before resolving its cyclic SDK re-exports in QuickJS.
+  await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/main.js');
+  return import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js');
+}
 const configPath=directory+'/config.json';
 let config={enabled:false,prompt:'',model:'gpt-6-astra',effort:'xhigh'};try{config={...config,...JSON.parse(fs.readFileSync(configPath,'utf8'))};}catch{}
 config.model='gpt-6-astra';config.effort='xhigh';
@@ -78,12 +83,25 @@ const system=`You are Pi, embodied in Blockwalker. This is a C game with raylib 
 try{
   log('Pi inside the game. Import proxy models.json, then Start.\nAstra · xhigh · timed GPU observations\n');
   while(running){
+    const imported=call('proxy_import');
+    if(imported){
+      let message;
+      try{
+        await abort();
+        const {ModelRuntime}=await piSdk();
+        const candidate=await ModelRuntime.create({modelsPath:imported,authPath:directory+'/auth.json',allowModelNetwork:false,refreshOnCreate:false});
+        if(candidate.getError())throw Error(candidate.getError());
+        if(!candidate.getModel('codex-local','gpt-6-astra'))throw Error('Proxy configuration has no codex-local / gpt-6-astra model.');
+        fs.renameSync(imported,directory+'/models.json');
+        session?.dispose();session=null;failures=0;abortRequested=false;
+        message='Proxy configuration saved. Press Start to connect.';
+      }catch(error){message=`Configuration unchanged: ${error.message??error}`;}
+      finally{if(fs.existsSync(imported))fs.unlinkSync(imported);call('proxy_import_done',message);}
+    }
     if(!call('enabled')){await sleep(200);continue;}
     try{
       if(!session){
-        // Match Pi CLI's module order before resolving its cyclic SDK re-exports in QuickJS.
-        await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/main.js');
-        const {createAgentSession,ModelRuntime,DefaultResourceLoader}=await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js');
+        const {createAgentSession,ModelRuntime,DefaultResourceLoader}=await piSdk();
 
         if(!fs.existsSync(directory+'/models.json'))throw Error('Import the local Codex proxy models.json first.');
         const {SessionManager,getDefaultSessionDir}=await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/session-manager.js');
@@ -119,6 +137,7 @@ try{
         });
         log('Connected: codex-local / gpt-6-astra / xhigh\n');
       }
+      if(!running||!call('enabled'))continue;
       abortRequested=false;const prompt=pending||`Continue the latest request and current experiment. Preserve successful designs and use measured physics and a few timed pictures. Keep the world varied and moving; explore its islands when choosing new locations. Do not wait for more input. Latest request: ${config.prompt}`;pending='';
       requestError=null;await session.prompt(prompt);if(requestError)throw Error(requestError);failures=0;if(running&&call('enabled'))await sleep(2000);
     }catch(error){record({event:'error',error:String(error.message??error)});log(`\nPi: ${error.message??error}\n`);const until=Date.now()+Math.min(60000,5000*2**Math.min(failures++,4));while(running&&call('enabled')&&Date.now()<until)await sleep(200);}
