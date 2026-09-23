@@ -162,6 +162,7 @@ to the crane, releases them within reach and backs away for the handoff.
 Three small Minamo skiffs and the larger patrol boats choose water routes around
 the coasts. Twinspire steers around loose cargo to leave it available for salvage.
 All 34 characters have Eyes; loose cargo uses the outside camera.
+Skybarge samples nearby ground height to climb before crossing quarry ledges.
 Controllers run without Pi or model access.
 Existing saves keep their population, including an empty world.
 The East landing site, West reactor and North signal station have matching

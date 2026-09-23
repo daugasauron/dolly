@@ -4,7 +4,7 @@ Work in `/home/daug/dev/dolly/work/gpu-shaders`, on
 `codex/blockwalker-playground-20260923`; the earlier `codex/blockwalker-retro-20260923`
 and `codex/blockwalker-20260914` checkpoints remain preserved. The ongoing
 [playground task](../tasks/20260923-213000-codex-01/TASK.md) records driving, Eyes,
-turntables, cargo deliveries and pending social navigation. The [retro reconciliation](../tasks/20260923-211500-codex-02/TASK.md)
+turntables, cargo deliveries and social navigation. The [retro reconciliation](../tasks/20260923-211500-codex-02/TASK.md)
 records the current image and checks. Preserve the live world and full Pi conversation.
 Current work, recovery archives and owned service processes are recorded in
 [tasks/20260914-blockwalker-space-world/TASK.md](../tasks/20260914-blockwalker-space-world/TASK.md).
@@ -50,6 +50,15 @@ The current image also shows magnet/cargo status in the sidebar and focus HUD,
 with a player delivery confirmation. Source and actual-9099 keyboard playtests
 completed pickup, transport and scoring; the original learned session is unchanged.
 See `build/blockwalker-cargo-ui-packaged.log` and `build/blockwalker-playtest/`.
+
+A longer 49-object run found Skybarge hitting the quarry at 987.62 s. The exact
+replay identifies terrain contact, not another creature. Its controller now uses
+nearby ground samples to climb earlier; the short replay and isolated crossing
+pass without contacts. The fresh population passed 1200 s and six reloads, with
+all 49 objects and eight deliveries. The corrected image is served on 9099;
+fresh-catalog, follow and Eyes checks passed there. The closed
+[aircraft issue](../tasks/20260924-051500-codex-01/TASK.md) records the replay,
+regression, longer run and package hashes.
 
 The visible browser Save button keeps the latest written checkpoint and links
 to named sessions. Manual/programmed design and complete world import/export

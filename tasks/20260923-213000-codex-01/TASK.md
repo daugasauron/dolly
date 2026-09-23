@@ -428,3 +428,13 @@ local measurements, not a cross-device performance claim. No browser errors;
 46 objects including the test player's car. Screenshots, saved world and the
 measurements are in `build/blockwalker-neighbors-preview/`. The learned session
 and its Pi conversation remain untouched; no model requests were made.
+
+The current served population has 49 objects / 1191 parts and 30 designs,
+including the harbor tug and floating cargo. All 34 characters have a working
+Eyes view; the player HUD reports magnet/pickup state and confirms deliveries.
+The corrected Skybarge controller passed the original quarry failure replay,
+an isolated crossing and a fresh 1200 s population with six reloads, all 49
+objects and eight deliveries. The actual 9099 follow/Eyes check passed.
+Current package SHA-256:
+`00bc3963154a3d2eae5f85f224134dd3a13717498c83077dd9f8e4acdbf69048`.
+See `20260924-051500-codex-01` for the controller evidence and package details.

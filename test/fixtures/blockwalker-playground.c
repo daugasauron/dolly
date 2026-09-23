@@ -68,6 +68,36 @@ static void check_air_traffic(JSContext *ctx){
     assert(peak>8&&travel>10&&displacement<.1f);
     printf("AIR TRAFFIC: courier crossed %.3f m at peak %.3f m; stationary lookout displaced %.4f m\n",travel,peak,displacement);world_close();
 }
+static void check_air_clearance(JSContext *ctx){
+    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        if(name&&!strncmp(name,"Skybarge /",10)){put_number(ctx,item,"x",58);put_number(ctx,item,"z",35);JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));}
+        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+    }
+    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);int id=world.creatures[0].id;
+    Controller *controller=world.creatures[0].controller;
+    const char *state="{\"nav\":{\"goal\":[58,72],\"next\":1000,\"visits\":0,\"choices\":1,\"meetings\":0,\"yieldTime\":0,\"path\":0,\"previous\":[58,35],\"goals\":[],\"visiting\":0}}";
+    JS_FreeValue(controller->ctx,controller->memory);controller->memory=JS_ParseJSON(controller->ctx,state,strlen(state),"quarry-approach");
+    int contacts=0;float low=1,peak=0,furthest=35;
+    for(int tick=0;tick<45*60&&world.count;tick++){
+        world_step();Creature *c=world_find(id);if(!c)break;
+        b3Pos root=b3Body_GetPosition(c->physics.parts[0].body);b3Quat rotation=b3Body_GetRotation(c->physics.parts[0].body);low=fminf(low,b3RotateVector(rotation,b3Vec3_axisY).y);peak=fmaxf(peak,root.y);furthest=fmaxf(furthest,root.z);
+        for(int part=0;part<c->design.count;part++){
+            b3BodyId body=c->physics.parts[part].body;int capacity=b3Body_GetContactCapacity(body);if(!capacity)continue;
+            b3ContactData *data=array_resize(NULL,capacity,sizeof(*data));int count=b3Body_GetContactData(body,data,capacity);
+            for(int k=0;k<count;k++){
+                b3BodyId a=b3Shape_GetBody(data[k].shapeIdA),b=b3Shape_GetBody(data[k].shapeIdB),other=B3_ID_EQUALS(a,body)?b:a;
+                if(body_owner(other)||b3Body_GetPosition(other).y<=0)continue;
+                float force=0;for(int m=0;m<data[k].manifoldCount;m++)for(int n=0;n<data[k].manifolds[m].pointCount;n++)force+=480*data[k].manifolds[m].points[n].normalImpulse;
+                contacts+=force>.01f;
+            }free(data);
+        }
+    }
+    printf("QUARRY: %d survived, %d contacts, up %.5f, peak %.3f, furthest z %.3f\n",world.count,contacts,low,peak,furthest);
+    assert(world.count==1&&world.deaths==0&&contacts==0&&low>.9f&&peak>12&&furthest>62);
+    world_close();
+}
 static void check_courier(JSContext *ctx){
     JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
@@ -172,5 +202,5 @@ int main(void){
     assert(cargo_z(cargo)>start+4&&world_find(cargo)->carrier==-1&&world.delivery_count==0);
     assert(world_find(cargo)->held_by==id);world_save(ctx);world_close();world_load(ctx);
     assert(world_find(cargo)->held_by==id&&world_find(cargo)->carrier==-1);ticks(30);assert(world_find(cargo)->held_by==id);
-    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_gantry(ctx);check_harbor_tug(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_gantry(ctx);check_harbor_tug(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }
