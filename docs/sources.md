@@ -213,10 +213,32 @@ The initial bundle selects official combat-demo content and ICU data. It runs
 headlessly with serial tasks, shared JS contexts and separate realms, no native
 JIT, and heap-backed fixed-address pools. SDL uses Dolly's existing backend;
 curl uses its restrictable HTTP broker. Browser checks exercise real simulation,
-serialization, deterministic replay and process interruption/recovery. This
-checkpoint does not yet provide the graphical game, audio or multiplayer.
-Those and the agent command interface remain tracked in
+serialization, deterministic replay, save/load, guest pipes and process
+interruption/recovery. This checkpoint does not yet provide the graphical game,
+audio or multiplayer; the remaining baseline is tracked in
 [`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
+
+`pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
+adds a line-oriented guest JSON protocol to the ordinary autostart options.
+Each request contains `id` and `op`; each response echoes `id` and contains
+`ok` plus `result` or `error`. Engine diagnostics go to stderr. EOF or `quit`
+ends the process normally. Use `-quickstart -writableRoot -mod=public` and set
+`ICU_DATA` to the bundle's `data/icu` directory, as in the browser check.
+
+| Operation | Additional properties / result |
+| --- | --- |
+| `observe` | Full upstream AI representation: players, entities, positions, health and simulation time |
+| `step` | `turns` (1–1000, default 1), optional `commands: [{player, command}]`; returns state after stepping |
+| `hash` | Full deterministic simulation state hash |
+| `save`, `load` | `name`: 1–100 letters, digits, `_` or `-`; uses ordinary `.0adsave` archives in the guest filesystem |
+| `reset` | Upstream game `attributes`, optional `player` (default 1); returns initial state |
+| `quit` | Clean shutdown |
+
+Commands are upstream simulation command objects, such as
+`{"type":"walk","entities":[11],"x":65,"z":140,"queued":false}`.
+The control mode currently requires an offline headless game. Requests are
+limited to 1 MiB and 1000 commands per step. It is a guest program protocol;
+it adds no browser imports or network listeners.
 
 For the smaller SpiderMonkey-only build/check, use
 `bash toolchain/0ad/build-spidermonkey.sh` and

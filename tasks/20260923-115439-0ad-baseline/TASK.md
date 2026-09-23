@@ -94,3 +94,23 @@ FreeType with Dolly's modern Wasm exception/longjmp flags. All tracked engine
 preparation/dependency/compile/link stages have run successfully. Shell/Node
 syntax checks and patch reconstruction pass. Next: a guest stdin/stdout control
 interface, save/load, then the graphical renderer/content, audio and multiplayer.
+
+2026-09-23: Added `-dolly-control` with JSON requests/responses over ordinary
+guest stdin/stdout; diagnostics use stderr. It exposes observe, step/actions,
+hash, save/load, reset and quit. The real combat scenario reports 69 entities.
+Browser verification submitted a walk action through `cat | pyrogenesis | cat`
+and measured unit 11 moving. It saved state hash
+`ff2fbc7d000708ab8b70ed0eaec257df`, advanced the simulation to a different hash,
+restored the exact original hash, and loaded that save in a fresh process.
+Reset reproduced the initial map hash; invalid operations/turn bounds returned
+structured errors followed by successful requests. Both explicit quit and EOF
+completed normally. Upstream save metadata now omits camera data when no view
+exists, enabling real headless `.0adsave` files.
+
+The updated module is 21,621,318 bytes, SHA-256
+`3df9e670795360414fffcad8405f33768a9dd46bbe08e6a4b2c489bdd2281193`.
+The expanded browser suite also rechecked replay/serialization and interruption;
+it passes under the same 3 GiB scope. Evidence includes
+`.cache/0ad/browser/control-{files,pipes}.{jsonl,log}`. Pristine-source patch
+reconstruction and the updated prepare stage pass. Next: graphics, selected
+visual assets and UI, followed by audio/multiplayer and complete packaging.

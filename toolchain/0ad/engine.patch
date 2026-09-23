@@ -235,7 +235,61 @@
  #endif
 --- a/source/main.cpp
 +++ b/source/main.cpp
-@@ -805,7 +805,7 @@
+@@ -524,6 +524,10 @@
+ 	in_reset_handlers();
+ }
+ 
++#if OS_DOLLY
++void DollyControl_Run(FILE* output);
++#endif
++
+ static std::optional<RL::Interface> CreateRLInterface(const CmdLineArgs& args)
+ {
+ 	if (!args.Has("rl-interface"))
+@@ -558,6 +562,28 @@
+ static void RunGameOrAtlas(const std::span<const char* const> argv)
+ {
+ 	const CmdLineArgs args(argv);
++#if OS_DOLLY
++	std::unique_ptr<FILE, decltype(&fclose)> controlOutput(nullptr, fclose);
++	if (args.Has("dolly-control"))
++	{
++		if (!args.Has("autostart-nonvisual") || args.Has("autostart-client") || args.Has("autostart-host") || args.Has("rl-interface"))
++		{
++			fprintf(stderr, "-dolly-control requires an offline, nonvisual autostart game\n");
++			g_ExitStatus = EXIT_FAILURE;
++			return;
++		}
++		const int descriptor = dup(STDOUT_FILENO);
++		if (descriptor >= 0)
++			controlOutput.reset(fdopen(descriptor, "w"));
++		if (!controlOutput || dup2(STDERR_FILENO, STDOUT_FILENO) < 0)
++		{
++			if (!controlOutput && descriptor >= 0) close(descriptor);
++			perror("Dolly control output");
++			g_ExitStatus = EXIT_FAILURE;
++			return;
++		}
++	}
++#endif
+ 
+ 	g_CmdLineArgs = args;
+ 
+@@ -761,6 +787,13 @@
+ #else
+ 					Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency);
+ #endif
++#if OS_DOLLY
++				else if (controlOutput)
++				{
++					DollyControl_Run(controlOutput.get());
++					QuitEngine(EXIT_SUCCESS);
++				}
++#endif
+ 				else if(rlInterface)
+ 					rlInterface->TryApplyMessage();
+ 				else
+@@ -805,7 +838,7 @@
  int main(int argc, char* argv[])
  #endif
  {
@@ -277,6 +331,53 @@
  	appendLibrary(LibraryReporter{rq, "libicu"}.Add("version", U_ICU_VERSION).MakeReport());
  	appendLibrary(LibraryReporter{rq, "libcurl"}.Add("version", std::string(curl_version())).MakeReport());
  #if CONFIG2_AUDIO
+--- a/source/ps/SavedGame.cpp
++++ b/source/ps/SavedGame.cpp
+@@ -122,23 +122,27 @@
+ 	JS::RootedValue guiMetadata(rq.cx);
+ 	Script::ReadStructuredClone(rq, guiMetadataClone, &guiMetadata);
+ 
+-	// get some camera data
+-	const CVector3D cameraPosition = g_Game->GetView()->GetCameraPosition();
+-	const CVector3D cameraRotation = g_Game->GetView()->GetCameraRotation();
+-
+-	JS::RootedValue cameraMetadata(rq.cx);
+-
+-	Script::CreateObject(
+-		rq,
+-		&cameraMetadata,
+-		"PosX", cameraPosition.X,
+-		"PosY", cameraPosition.Y,
+-		"PosZ", cameraPosition.Z,
+-		"RotX", cameraRotation.X,
+-		"RotY", cameraRotation.Y,
+-		"Zoom", g_Game->GetView()->GetCameraZoom());
+-
+-	Script::SetProperty(rq, guiMetadata, "camera", cameraMetadata);
++	if (g_Game->GetView())
++	{
++		// get some camera data
++		const CVector3D cameraPosition = g_Game->GetView()->GetCameraPosition();
++		const CVector3D cameraRotation = g_Game->GetView()->GetCameraRotation();
++
++		JS::RootedValue cameraMetadata(rq.cx);
++
++		Script::CreateObject(
++			rq,
++			&cameraMetadata,
++			"PosX", cameraPosition.X,
++			"PosY", cameraPosition.Y,
++			"PosZ", cameraPosition.Z,
++			"RotX", cameraRotation.X,
++			"RotY", cameraRotation.Y,
++			"Zoom", g_Game->GetView()->GetCameraZoom());
++
++		Script::SetProperty(rq, guiMetadata, "camera", cameraMetadata);
++
++	}
+ 
+ 	Script::SetProperty(rq, metadata, "gui", guiMetadata);
+ 	Script::SetProperty(rq, metadata, "description", description);
 --- a/source/ps/TaskManager.cpp
 +++ b/source/ps/TaskManager.cpp
 @@ -35,6 +35,15 @@
@@ -517,3 +618,200 @@
 +void debug_SetThreadName(const char*) {}
 +Status dir_watch_Add(const OsPath&, PDirWatch&) { return ERR::NOT_SUPPORTED; }
 +Status dir_watch_Poll(DirWatchNotifications&) { return ERR::NOT_SUPPORTED; }
+--- /dev/null
++++ b/source/ps/DollyControl.cpp
+@@ -0,0 +1,194 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "precompiled.h"
++
++#if OS_DOLLY
++#include "ps/CStr.h"
++#include "ps/Game.h"
++#include "ps/GameSetup/GameSetup.h"
++#include "ps/Loader.h"
++#include "ps/SavedGame.h"
++#include "ps/Util.h"
++#include "scriptinterface/JSON.h"
++#include "scriptinterface/Object.h"
++#include "scriptinterface/ScriptContext.h"
++#include "scriptinterface/ScriptInterface.h"
++#include "scriptinterface/ScriptRequest.h"
++#include "scriptinterface/StructuredClone.h"
++#include "simulation2/Simulation2.h"
++#include "simulation2/components/ICmpAIInterface.h"
++#include "simulation2/system/Component.h"
++#include "simulation2/system/LocalTurnManager.h"
++#include <js/Array.h>
++#include <js/Exception.h>
++#include <cstdio>
++#include <stdexcept>
++#include <string>
++
++namespace
++{
++template<typename T>
++T Property(const ScriptRequest& rq, JS::HandleValue request, const char* name)
++{
++	T value{};
++	if (!Script::HasProperty(rq, request, name) || !Script::GetProperty(rq, request, name, value))
++		throw std::runtime_error(std::string("Missing or invalid property: ") + name);
++	return value;
++}
++
++std::string State()
++{
++	CSimulation2& simulation = *g_Game->GetSimulation2();
++	ScriptRequest rq(simulation.GetScriptInterface());
++	CmpPtr<ICmpAIInterface> ai(simulation.GetSimContext().GetSystemEntity());
++	JS::RootedValue state(rq.cx);
++	ai->GetFullRepresentation(&state, true);
++	return Script::StringifyJSON(rq, &state, false);
++}
++
++void Start(const ScriptInterface& control, JS::HandleValue attributes,
++	int player, const std::string& savedState)
++{
++	EndGame();
++	g_Game = new CGame(true);
++	const ScriptInterface& script = g_Game->GetSimulation2()->GetScriptInterface();
++	ScriptRequest rq(script);
++	JS::RootedValue copy(rq.cx, Script::CloneValueFromOtherCompartment(script, control, attributes));
++	g_Game->SetPlayerID(player);
++	g_Game->StartGame(&copy, savedState);
++	LDR_NonprogressiveLoad();
++	if (g_Game->ReallyStartGame() != PSRETURN_OK)
++		throw std::runtime_error("Game loading failed");
++}
++
++std::string Execute(const ScriptInterface& control, const ScriptRequest& rq,
++	JS::HandleValue request, const std::string& operation)
++{
++	if (operation == "observe")
++		return State();
++	if (operation == "hash")
++	{
++		std::string hash;
++		if (!g_Game->GetSimulation2()->ComputeStateHash(hash, false))
++			throw std::runtime_error("State hashing failed");
++		return "\"" + Hexify(hash) + "\"";
++	}
++	if (operation == "step")
++	{
++		const int turns = Script::HasProperty(rq, request, "turns") ? Property<int>(rq, request, "turns") : 1;
++		if (turns < 1 || turns > 1000)
++			throw std::runtime_error("turns must be between 1 and 1000");
++		std::vector<std::pair<int, std::string>> commands;
++		if (Script::HasProperty(rq, request, "commands"))
++		{
++			JS::RootedValue array(rq.cx);
++			Script::GetProperty(rq, request, "commands", &array);
++			bool isArray = false;
++			if (!JS::IsArrayObject(rq.cx, array, &isArray) || !isArray)
++				throw std::runtime_error("commands must be an array");
++			JS::RootedObject object(rq.cx, &array.toObject());
++			uint32_t length;
++			if (!JS::GetArrayLength(rq.cx, object, &length) || length > 1000)
++				throw std::runtime_error("At most 1000 commands are allowed per step");
++			for (uint32_t i = 0; i < length; ++i)
++			{
++				JS::RootedValue entry(rq.cx), command(rq.cx);
++				if (!JS_GetElement(rq.cx, object, i, &entry) || !entry.isObject() ||
++					!Script::GetProperty(rq, entry, "command", &command) || !command.isObject())
++					throw std::runtime_error("Each command needs player and command properties");
++				commands.emplace_back(Property<int>(rq, entry, "player"), Script::StringifyJSON(rq, &command, false));
++			}
++		}
++		const ScriptInterface& script = g_Game->GetSimulation2()->GetScriptInterface();
++		ScriptRequest gameRequest(script);
++		auto* turnManager = static_cast<CLocalTurnManager*>(g_Game->GetTurnManager());
++		for (const auto& [player, json] : commands)
++		{
++			JS::RootedValue command(gameRequest.cx);
++			if (!Script::ParseJSON(gameRequest, json, &command))
++				throw std::runtime_error("Invalid game command");
++			turnManager->PostCommand(player, command);
++		}
++		for (int i = 0; i < turns; ++i)
++			turnManager->Update(DEFAULT_TURN_LENGTH, 1);
++		return State();
++	}
++	if (operation == "save" || operation == "load")
++	{
++		const std::string name = Property<std::string>(rq, request, "name");
++		if (name.empty() || name.size() > 100 || name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != std::string::npos)
++			throw std::runtime_error("Save name must contain 1 to 100 letters, digits, underscores or hyphens");
++		if (operation == "save")
++		{
++			JS::RootedValue metadata(rq.cx);
++			Script::CreateObject(rq, &metadata);
++			if (SavedGames::Save(CStr(name).FromUTF8(), L"Dolly control", *g_Game->GetSimulation2(),
++				Script::WriteStructuredClone(rq, metadata)) < 0)
++				throw std::runtime_error("Saving failed");
++		}
++		else
++		{
++			auto saved = SavedGames::Load(control, CStr(name).FromUTF8());
++			if (!saved)
++				throw std::runtime_error("Loading failed");
++			JS::RootedValue metadata(rq.cx, saved->metadata), attributes(rq.cx);
++			if (!Script::GetProperty(rq, metadata, "initAttributes", &attributes))
++				throw std::runtime_error("Save has no initAttributes");
++			Start(control, attributes, Property<int>(rq, metadata, "playerID"), saved->savedState);
++		}
++		return "null";
++	}
++	if (operation == "reset")
++	{
++		JS::RootedValue attributes(rq.cx);
++		if (!Script::GetProperty(rq, request, "attributes", &attributes) || !attributes.isObject())
++			throw std::runtime_error("reset needs game attributes");
++		const int player = Script::HasProperty(rq, request, "player") ? Property<int>(rq, request, "player") : 1;
++		Start(control, attributes, player, "");
++		return State();
++	}
++	throw std::runtime_error("Unknown operation: " + operation);
++}
++}
++
++void DollyControl_Run(FILE* output)
++{
++	ScriptInterface control("Engine", "Dolly control", g_ScriptContext);
++	ScriptRequest rq(control);
++	for (;;)
++	{
++		std::string line;
++		bool oversized = false;
++		int c;
++		while ((c = fgetc(stdin)) != EOF && c != '\n')
++		{
++			if (line.size() < 1024 * 1024) line += static_cast<char>(c);
++			else oversized = true;
++		}
++		if (c == EOF && line.empty()) break;
++		JS::RootedValue request(rq.cx), id(rq.cx, JS::NullValue());
++		std::string result;
++		bool ok = true, quit = false;
++		try
++		{
++			if (oversized || !Script::ParseJSON(rq, line, &request) || !request.isObject())
++				throw std::runtime_error("Expected a JSON object of at most 1 MiB");
++			if (Script::HasProperty(rq, request, "id")) Script::GetProperty(rq, request, "id", &id);
++			const std::string operation = Property<std::string>(rq, request, "op");
++			quit = operation == "quit";
++			result = quit ? "null" : Execute(control, rq, request, operation);
++		}
++		catch (const std::exception& error)
++		{
++			JS_ClearPendingException(rq.cx);
++			JS::RootedValue message(rq.cx);
++			Script::ToJSVal(rq, &message, std::string(error.what()));
++			result = Script::StringifyJSON(rq, &message, false);
++			ok = false;
++		}
++		const std::string responseId = Script::StringifyJSON(rq, &id, false);
++		fprintf(output, "{\"id\":%s,\"ok\":%s,\"%s\":%s}\n", responseId.c_str(),
++			ok ? "true" : "false", ok ? "result" : "error", result.c_str());
++		if (fflush(output) || quit) break;
++	}
++}
++#endif

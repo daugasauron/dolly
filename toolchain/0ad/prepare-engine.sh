@@ -16,15 +16,15 @@ done < toolchain/0ad/dependencies.tsv
 apply_patch() {
   local directory="$1" patch_file="$2" key
   key="$(sha256sum "$patch_file" | cut -d' ' -f1)"
-  if [[ ! -f "$directory/.dolly-engine-patch" ]]; then
+  if [[ ! -f "$directory/.dolly-engine-patch" || "$(cat "$directory/.dolly-engine-patch")" != "$key" ]]; then
     if patch --reverse --dry-run --batch --fuzz=0 -d "$directory" -p1 < "$patch_file" >/dev/null 2>&1; then
       : # Adopt an already patched development checkout after verifying every hunk.
+    elif [[ -f "$directory/.dolly-engine-patch" ]]; then
+      echo "Patch changed; prepare a fresh $directory directory." >&2
+      exit 1
     else
       patch --batch --fuzz=0 -d "$directory" -p1 < "$patch_file"
     fi
-  elif [[ "$(cat "$directory/.dolly-engine-patch")" != "$key" ]]; then
-    echo "Patch changed; prepare a fresh $directory directory." >&2
-    exit 1
   fi
   printf '%s\n' "$key" > "$directory/.dolly-engine-patch"
 }

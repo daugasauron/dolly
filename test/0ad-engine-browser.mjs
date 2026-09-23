@@ -76,8 +76,50 @@ try {
     console.log(`Replay ${run + 1}: ${Math.round(performance.now() - time)} ms, state ${hash}`);
   }
   assert.equal(hashes[0], hashes[1]);
+  const quote = text => "'" + text.replaceAll("'", "'\\''") + "'";
+  const control = async (requests, pipes = false) => {
+    assert.equal(await submit("printf '%s\\n' " + requests.map(value => quote(JSON.stringify(value))).join(" ") + " > /tmp/control.jsonl"), 0);
+    const command = `${engine} -mod=public -autostart=scenarios/combat_demo -autostart-nonvisual -nosound -dolly-control`;
+    assert.equal(await submit(pipes
+      ? `cat /tmp/control.jsonl | ${command} 2> /tmp/control.log | cat > /tmp/control-output.jsonl`
+      : `${command} < /tmp/control.jsonl > /tmp/control-output.jsonl 2> /tmp/control.log`), 0);
+    const label = pipes ? "pipes" : "files";
+    assert.doesNotMatch(await download("/tmp/control.log", `control-${label}.log`), /ERROR:|Assertion failed/);
+    const text = await download("/tmp/control-output.jsonl", `control-${label}.jsonl`);
+    const replies = text.trim().split("\n").map(line => JSON.parse(line));
+    assert.deepEqual(replies.map(reply => reply.id), requests.map(request => request.id));
+    return replies;
+  };
+  const responses = await control([
+    {id: 1, op: "observe"}, {id: 2, op: "hash"}, {id: 3, op: "save", name: "baseline"},
+    {id: 4, op: "step", turns: 5}, {id: 5, op: "hash"}, {id: 6, op: "load", name: "baseline"},
+    {id: 7, op: "hash"}, {id: 8, op: "invalid"}, {id: 9, op: "step", turns: 0},
+    {id: 10, op: "observe"}, {id: 11, op: "quit"},
+  ]);
+  assert.deepEqual(responses.map(reply => reply.ok), [true, true, true, true, true, true, true, false, false, true, true]);
+  assert.notEqual(responses[1].result, responses[4].result);
+  assert.equal(responses[1].result, responses[6].result, "save/load restores the exact simulation state");
+  const units = Object.values(responses[0].result.entities);
+  const unit = units.find(entity => entity.owner === 1 && entity.unitAIState && entity.position);
+  assert.ok(unit, "the scenario exposes a real player unit");
+  const movement = await control([
+    {id: 1, op: "load", name: "baseline"}, {id: 2, op: "hash"},
+    {id: 3, op: "step", turns: 10, commands: [{player: 1, command: {
+      type: "walk", entities: [unit.id], x: unit.position[0] - 20, z: unit.position[1], queued: false,
+    }}]},
+    {id: 4, op: "reset", attributes: JSON.parse(replay.split("\n")[0].slice(6))},
+    {id: 5, op: "hash"},
+  ], true);
+  assert.ok(movement.every(reply => reply.ok));
+  assert.equal(movement[1].result, responses[1].result, "a fresh process loads the kernel-owned save");
+  assert.equal(movement[3].result.timeElapsed, 0, "reset starts a new simulation");
+  assert.equal(movement[4].result, responses[1].result, "reset restores the initial map state");
+  const moved = movement[2].result.entities[unit.id];
+  assert.ok(Math.hypot(moved.position[0] - unit.position[0], moved.position[1] - unit.position[1]) > 1,
+    "a command received over a guest pipe moves the unit in the real simulation");
+  console.log(`Control protocol: ${units.length} entities, save/load hash ${responses[1].result}, unit ${unit.id} moved`);
   assert.equal(await submit("printf 'shell survived\\n' > /tmp/0ad-result && test -s /tmp/0ad-result"), 0);
-  console.log("0 A.D. browser simulation, serialization, deterministic replay and interruption checks passed");
+  console.log("0 A.D. browser simulation, replay, control, save/load, pipes and interruption checks passed");
 } catch (error) {
   if (page && !page.isClosed()) {
     console.error(await page.locator("#bootstrap-log").textContent().catch(() => ""));
