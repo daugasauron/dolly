@@ -50,8 +50,10 @@ movement, quick-save/load, two trained civilians, completed house construction,
 Petra progress, audible signal, two fresh processes and sound-free shell recovery.
 Peak process-tree memory was 3.19 GB in Chrome and 4.02 GB in Firefox, within
 their 4 GiB limits. Evidence: `.cache/0ad/browser-{chrome,firefox}-polish-test.log`.
-Frame-based input checks now wait for the game to consume the input mailbox;
-queued GPU reports alone could let the test click before selection was handled.
+Input checks wait for the game to consume the input mailbox. A later screenshot
+trace found the intermittent training test was clicking on the loading screen:
+loading frames counted toward its 22-frame threshold. Startup now waits for
+visible HUD pixels before sending gameplay input.
 Local release `f0346673d3f567db386c3adb58a4e34df2ac20692c1a239d674d5ad7b44815dc`
 passed all ten image inventories and is served at `http://127.0.0.1:42727/zero-ad/`.
 A fresh Firefox 155 session verified the packaged engine hash, launched bare
@@ -83,3 +85,15 @@ fresh processes and forced interruption in Chrome/SwiftShader
 The remaining port work includes 0 A.D. component build
 boundaries, sound latency, multiplayer host completion, AI save/load semantics,
 and final build/release reproducibility.
+
+Measured the game's audio cushion: 8192 frames produced 31 Firefox underruns;
+16384 produced 13, versus 5 with 32768 in the final full gameplay check. Retain
+the 32768-frame cushion rather than trade known gaps for lower latency. Writes
+now use whole 2048-frame chunks, bounding queued buffers to 16 even at high FPS
+(previously tiny per-frame writes could hit the 64-buffer quota). Firefox passes
+the complete gameplay check with HUD-based readiness and the hardened PCM client
+at 48 ms/frame. Chrome also passes at 20 ms/frame and two cumulative underruns.
+Evidence: `.cache/0ad/audio-chunks-{firefox,chrome}.log`. The patch reconstructs
+40 upstream files exactly. Engine SHA-256 is
+`a1656f8513d7cc94e0118268e43c65696cba7e318581c51bd2f5c0461ad81462`;
+snapshot SHA-256 is `9ce263d27fd7ea4a2cc8f11ff64e9e203a30114c5b66e907c2d3a6341f746855`.

@@ -2,7 +2,7 @@ DOLLY 3
 IMAGE zero-ad
 
 FROM HOST /Dollyfile 9e97dcdc44d6fd63fe8b0c182509068ac487e6c5eb3fa4d9fcb3f400dd568e1e
-USE HOST /modules/zero-ad.dm 780ef043a63d2089ef45bc5c449bd88f4d405f2f77602f6f864cb160927319f4
+USE HOST /modules/zero-ad.dm f5b187b89d9ad084319dde9b68e37e2b7b163daa08f3361e77fb6c0be8ff08a0
 
 FILE /home/dolly/.dollyrc
     printf '0 A.D. Release 28 / Dolly baseline\n'

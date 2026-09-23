@@ -1057,7 +1057,7 @@
  	return ret;
  }
  
-@@ -599,6 +647,36 @@
+@@ -599,6 +647,37 @@
  
  		if (m_Worker)
  			m_Worker->CleanupItems();
@@ -1075,18 +1075,19 @@
 +		// must not advance the mixer or accumulate stale effects.
 +		if (status.state != 1)
 +			return;
-+		float pcm[DOLLY_AUDIO_MAX_FRAMES * DOLLY_AUDIO_CHANNELS];
-+		while (status.queued_frames + DOLLY_AUDIO_MIN_FRAMES <= 32768)
++		// Whole chunks bound the number of browser buffers even at high FPS.
++		constexpr uint32_t chunkFrames = 2048, queueFrames = 32768;
++		float pcm[chunkFrames * DOLLY_AUDIO_CHANNELS];
++		while (status.queued_frames + chunkFrames <= queueFrames)
 +		{
-+			const uint32_t frames = std::min(DOLLY_AUDIO_MAX_FRAMES, 32768u - status.queued_frames);
-+			alcRenderSamplesSOFT(m_Device, pcm, frames);
-+			if (dolly_audio_write(&m_Audio, pcm, frames) != static_cast<int>(frames))
++			alcRenderSamplesSOFT(m_Device, pcm, chunkFrames);
++			if (dolly_audio_write(&m_Audio, pcm, chunkFrames) != static_cast<int>(chunkFrames))
 +			{
 +				LOGERROR("Dolly PCM write failed: %d", errno);
 +				m_Enabled = false;
 +				return;
 +			}
-+			status.queued_frames += frames;
++			status.queued_frames += chunkFrames;
 +			if (m_Worker)
 +				m_Worker->Poll();
 +		}
@@ -1094,7 +1095,7 @@
  	}
  }
  
-@@ -819,6 +897,12 @@
+@@ -819,6 +898,12 @@
  
  void CSoundManager::RunHardwareDetection()
  {
