@@ -40,6 +40,18 @@
   (global (export "DOLLY_GPU_FEATURE_CAPTURE_FRAME") i32 (i32.const 16))
   (global (export "DOLLY_GPU_FEATURE_SURFACE_BGRA") i32 (i32.const 32))
 
+  ;; Additive graphics records. Clients must test FEATURE_TEXTURE_RENDER first.
+  (global (export "DOLLY_GPU_FEATURE_TEXTURE_RENDER") i32 (i32.const 64))
+  (global (export "DOLLY_GPU_CREATE_TEXTURE") i32 (i32.const 18))
+  (global (export "DOLLY_GPU_WRITE_TEXTURE") i32 (i32.const 19))
+  (global (export "DOLLY_GPU_CREATE_SAMPLER") i32 (i32.const 20))
+  (global (export "DOLLY_GPU_GRAPHICS_PIPELINE") i32 (i32.const 21))
+  (global (export "DOLLY_GPU_RESOURCE_GROUP") i32 (i32.const 22))
+  (global (export "DOLLY_GPU_BEGIN_RENDER_PASS") i32 (i32.const 23))
+  (global (export "DOLLY_GPU_END_RENDER_PASS") i32 (i32.const 24))
+  (global (export "DOLLY_GPU_DRAW_MESH") i32 (i32.const 25))
+  (global (export "DOLLY_GPU_VIEWPORT") i32 (i32.const 26))
+
   ;; All fields LE. Header: u32 version/op, u64 scope/sequence, u32 body/reserved.
   ;; Scope is a non-reused u32 lease, slot=(scope-1)%8; upper bits are zero.
   ;; OPEN starts with scope=0; kernel binds a process-owned lease before dispatch.
@@ -76,6 +88,51 @@
   ;; Surface lease required; no other surfaces or browser content are accessible.
   ;; MAP_READ[32]: u64 buffer,offset,bytes. Completes only after mapping is ready.
   ;; UNMAP/RELEASE[16]: u64 object. SUBMIT[8]: finish/submit this batch's encoder.
+  ;; TEXTURE[48]: u64 id; u32 width,height,layers,mips,format,usage; u64 reserved.
+  ;; Layers 1 or 6; cube faces must be square. Dimensions <=8192 and device limit.
+  ;; Formats: 1 RGBA8unorm,2 RGBA8unorm-sRGB,3 R8unorm,4 RG8unorm,
+  ;; 5 depth24plus-stencil8,6 depth32float. Texture usage is WebGPU usage bits
+  ;; COPY_SRC=1,COPY_DST=2,TEXTURE_BINDING=4,RENDER_ATTACHMENT=16; storage absent.
+  ;; Each texture <=1 GiB; all mip/layer bytes count against the shared 4 GiB
+  ;; allocation quota (depth formats charged 4 bytes/pixel). Samples always 1.
+  ;; WRITE_TEXTURE[48+n]: u64 id; u32 mip,layer,x,y,width,height,data_bytes,
+  ;; reserved; tightly packed rows of native format bytes. Depth uploads absent.
+  ;; SAMPLER[48]: u64 id; u32 min,mag,mip,address_u/v/w,compare,anisotropy.
+  ;; Filters 0 nearest/1 linear; addresses 0 clamp/1 repeat/2 mirror-repeat;
+  ;; compare 0 absent,1 never,2 less,3 equal,4 less-equal,5 greater,6 not-equal,
+  ;; 7 greater-equal,8 always. Anisotropy 1..16; >1 requires all filters linear.
+  ;; GRAPHICS_PIPELINE[112+16*(b+a)]: u64 id,vertex_shader,fragment_shader;
+  ;; u32 color_format(0 surface),depth_format(0 absent),topology,cull,front_face,
+  ;; depth_compare,depth_write; i32 depth_bias; f32 depth_slope,depth_clamp;
+  ;; u32 color_mask,blend_enabled,color_op,src_color,dst_color,alpha_op,src_alpha,
+  ;; dst_alpha,buffer_count<=8,attribute_count<=16. Entry points are "main".
+  ;; Topology 0 triangles/1 triangle-strip(uint16 indices)/2 lines/3 points;
+  ;; cull 0 none/1 front/2 back; front 0 CCW/1 CW. Compare as SAMPLER except 0.
+  ;; Blend ops 0 add/1 subtract/2 reverse-subtract/3 min/4 max. Factors 0 zero,
+  ;; 1 one,2 src,3 one-minus-src,4 dst,5 one-minus-dst,6 src-alpha,
+  ;; 7 one-minus-src-alpha,8 dst-alpha,9 one-minus-dst-alpha,10 src-alpha-saturated.
+  ;; Buffers: u32 stride<=2048,step(0 vertex/1 instance),reserved[2].
+  ;; Attributes: u32 buffer_slot,location,format,offset. Formats 1..4 float32x1..4,
+  ;; 5 unorm8x4,6 snorm8x4,7 uint8x4,8 sint8x4,9 unorm16x2,10 unorm16x4,
+  ;; 11 uint16x2,12 uint16x4. Layout and locations must be unique/in bounds.
+  ;; RESOURCE_GROUP[32+32*n]: u64 id,pipeline; u32 group_index<4,count<=16;
+  ;; entries: u32 binding,kind; u64 resource,offset,size. Kind 0 buffer (range),
+  ;; 1 texture2d,2 textureCube,3 sampler (offset/size zero). No host handles.
+  ;; BEGIN_RENDER_PASS[64]: u64 color_texture(0 surface),depth_texture(0 absent);
+  ;; u32 width,height,color_clear,depth_clear; f32 clear_rgba[4],clear_depth;
+  ;; u32 clear_stencil. Exact attachment dimensions; clear flags 0 load/1 clear.
+  ;; One color attachment, optional depth/stencil, store all; samples always 1.
+  ;; END_RENDER_PASS[8]. Passes cannot nest or cross a packet/submit boundary.
+  ;; DRAW_MESH[80+8*g+24*b]: u64 pipeline,index_buffer,index_offset,index_size;
+  ;; u32 count,instances,first; i32 base_vertex; u32 first_instance,index_format,
+  ;; group_count<=4,buffer_count<=8; u64 reserved. Index format 0 absent/1 u16/2 u32.
+  ;; Followed by group handles (distinct group indices), then vertex buffers:
+  ;; u64 buffer,offset,size. Count*instances <=4M; only within a render pass.
+  ;; VIEWPORT[48]: f32 x,y,width,height,min_depth,max_depth; u32 scissor_x/y/w/h.
+  ;; Top-left origin, within current attachment; viewport/scissor reset on BEGIN.
+  ;; Queue writes occur before submitted encoders; use distinct uniform ranges
+  ;; or submit before overwriting data consumed by earlier draws. Release only
+  ;; after submit. No shader-selected network, host images or canvas handles.
   ;; WAIT body empty: queue completion, not packet admission. READ body: u64
   ;; mapped_buffer,relative_offset,bytes<=65536. CLOSE body empty.
   ;; INFO body empty, 80-byte reply: u32 timestamp_available,max_bindings;
@@ -88,7 +145,8 @@
   ;; max_bindings,max_storage_buffers,max_uniform_buffers,max_bind_groups;
   ;; u64 max_uniform_binding_bytes; u32 subgroup_min/max; 32 reserved zero bytes.
   ;; Feature bits: 1 shader-f16, 2 subgroups, 4 packed_4x8_integer_dot_product,
-  ;; 8 timestamp-query, 16 frame capture, 32 surface bytes BGRA8 (else RGBA8).
+  ;; 8 timestamp-query, 16 frame capture, 32 surface bytes BGRA8 (else RGBA8),
+  ;; 64 texture/depth/indexed rendering records 18..26.
   ;; Limits describe the admitted device, not native pointers.
   ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
   ;; zero samples means unavailable/pending. They include passes, not CPU work.

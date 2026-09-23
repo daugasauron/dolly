@@ -100,7 +100,7 @@ and chunked readback use the existing buffer operations and quotas.
 CAPABILITIES returns a fixed typed feature/limit record. Compute pipelines may
 carry at most sixteen named finite numeric specialization constants. Limits are
 clamped to the device: at most 4,096 objects, 1 GiB per buffer and 4 GiB aggregate
-buffer allocations across the provider. The browser owns these bounds; guest declarations
+buffer/texture allocations across the provider. The browser owns these bounds; guest declarations
 cannot raise them. Optional f16/subgroup features change shader validation only.
 
 Local llama.cpp inference runs inside an ordinary private process. Its C adapter
@@ -197,3 +197,14 @@ node --test test/http-broker.test.mjs
 For provider changes, run the corresponding modes in `scripts/test-browser.sh`
 against real browser imports, not only injected test providers. Review new
 imports and local services as authority changes; update this map with them.
+
+Texture rendering (CAPABILITIES bit 64) adds records 18–26 without changing
+existing layouts or outer imports. Texture dimensions, mip/layer counts and
+format-derived bytes are checked against private allocation quotas. Uploads
+contain copied pixel bytes only. Bindings and framebuffer attachments resolve
+scope-owned typed handles; only the surface owner can select attachment zero.
+Render passes remain inside one submitted packet. Indexed draws, vertex streams,
+viewport/scissor bounds and group counts are bounded before WebGPU validation.
+The guest-compiled [render test](../test/gpu-render-browser.mjs) checks pixels,
+depth occlusion, offscreen sampling, malformed spans, quotas and cleanup after
+both close and forced process termination using Chrome's software adapter.

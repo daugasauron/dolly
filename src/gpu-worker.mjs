@@ -5,6 +5,13 @@ const decode = new TextDecoder("utf-8", { fatal: true });
 const encode = new TextEncoder();
 const fail = (code, message) => { throw Object.assign(new Error(message), { errno: code }); };
 const ensure = (condition, message, code = E.EINVAL) => { if (!condition) fail(code, message); };
+const textureFormats = [null, "rgba8unorm", "rgba8unorm-srgb", "r8unorm", "rg8unorm", "depth24plus-stencil8", "depth32float"];
+const texelBytes = [0, 4, 4, 1, 2, 4, 4];
+const compareOps = [undefined, "never", "less", "equal", "less-equal", "greater", "not-equal", "greater-equal", "always"];
+const blendOps = ["add", "subtract", "reverse-subtract", "min", "max"];
+const blendFactors = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-dst", "src-alpha", "one-minus-src-alpha", "dst-alpha", "one-minus-dst-alpha", "src-alpha-saturated"];
+const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "unorm8x4", "snorm8x4", "uint8x4", "sint8x4", "unorm16x2", "unorm16x4", "uint16x2", "uint16x4"];
+const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8];
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
 let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
@@ -36,7 +43,7 @@ async function getDevice() {
     const v = new DataView(capabilities.buffer);
     v.setUint32(0, (created.features.has("shader-f16") ? 1 : 0) | (created.features.has("subgroups") ? 2 : 0) |
       (navigator.gpu.wgslLanguageFeatures?.has("packed_4x8_integer_dot_product") ? 4 : 0) |
-      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME |
+      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME | A.DOLLY_GPU_FEATURE_TEXTURE_RENDER |
       (format === "bgra8unorm" ? A.DOLLY_GPU_FEATURE_SURFACE_BGRA : 0), true);
     v.setUint32(4, maxObjects, true);
     [maxBuffer, maxBytes, l.maxStorageBufferBindingSize].forEach((n,i) => v.setBigUint64(8+i*8, BigInt(n), true));
@@ -94,10 +101,10 @@ function records(request) {
     const opcode = v.getUint32(offset, true), size = v.getUint32(offset + 4, true);
     ensure(size >= 8 && size % 8 === 0 && size <= bytes.length - offset, "Invalid GPU command length");
     const b = bytes.subarray(offset, offset + size), w = new DataView(b.buffer, b.byteOffset, b.byteLength);
-    const fixed = { 1: 32, 7: 64, 8: 40, 9: 48, 10: 32, 11: 16, 12: 16, 13: 8, 15: 88, 17: 32 }[opcode];
+    const fixed = { 1: 32, 7: 64, 8: 40, 9: 48, 10: 32, 11: 16, 12: 16, 13: 8, 15: 88, 17: 32, 18: 48, 20: 48, 23: 64, 24: 8, 26: 48 }[opcode];
     if (fixed) ensure(size === fixed, "Wrong GPU command layout");
     else {
-      const minimum = { 2: 32, 3: 24, 4: 40, 5: 32, 6: 32, 14: 48, 16: 32 }[opcode];
+      const minimum = { 2: 32, 3: 24, 4: 40, 5: 32, 6: 32, 14: 48, 16: 32, 19: 48, 21: 112, 22: 32, 25: 80 }[opcode];
       ensure(minimum && size >= minimum, "Unsupported GPU command", E.ENOTSUP);
     }
     // Validate every variable-length span before any command has side effects.
@@ -145,6 +152,38 @@ function records(request) {
       const n = w.getUint32(24, true);
       ensure(n <= A.DOLLY_GPU_MAX_BINDINGS && size === 32 + n * 24 && w.getUint32(28, true) === 0, "Bind group layout");
     }
+    if (opcode === A.DOLLY_GPU_WRITE_TEXTURE) {
+      ensure(w.getUint32(44,true) === 0 && w.getUint32(40,true) > 0 &&
+        Math.ceil((48+w.getUint32(40,true))/8)*8 === size, "Texture upload span");
+    } else if (opcode === A.DOLLY_GPU_GRAPHICS_PIPELINE) {
+      const buffers=w.getUint32(104,true), attributes=w.getUint32(108,true);
+      ensure(buffers<=8 && attributes<=16 && size===112+16*(buffers+attributes), "Graphics vertex layout");
+      const locations=new Set();
+      for(let i=0;i<buffers;i++) {
+        const at=112+i*16, stride=w.getUint32(at,true);
+        ensure(stride>0 && stride<=2048 && stride%4===0 && w.getUint32(at+4,true)<=1 &&
+          w.getBigUint64(at+8,true)===0n, "Graphics vertex stride");
+      }
+      for(let i=0;i<attributes;i++) {
+        const at=112+(buffers+i)*16, slot=w.getUint32(at,true), location=w.getUint32(at+4,true),
+          type=w.getUint32(at+8,true), offset=w.getUint32(at+12,true);
+        ensure(slot<buffers && location<16 && !locations.has(location) && type>0 && type<vertexFormats.length &&
+          offset%Math.min(4,vertexBytes[type])===0 && offset<=w.getUint32(112+slot*16,true)-vertexBytes[type], "Graphics vertex attribute");
+        locations.add(location);
+      }
+    } else if (opcode === A.DOLLY_GPU_RESOURCE_GROUP) {
+      ensure(w.getUint32(24,true)<4 && w.getUint32(28,true)<=16 && size===32+32*w.getUint32(28,true), "Resource group layout");
+      const bindings=new Set();
+      for(let i=0;i<w.getUint32(28,true);i++) {
+        const at=32+i*32, binding=w.getUint32(at,true), kind=w.getUint32(at+4,true);
+        ensure(binding<32 && !bindings.has(binding) && kind<=3 && (kind===0 ||
+          (w.getBigUint64(at+16,true)===0n && w.getBigUint64(at+24,true)===0n)), "Resource binding");
+        bindings.add(binding);
+      }
+    } else if (opcode === A.DOLLY_GPU_DRAW_MESH) {
+      const groups=w.getUint32(64,true), buffers=w.getUint32(68,true);
+      ensure(groups<=4 && buffers<=8 && size===80+8*groups+24*buffers && w.getBigUint64(72,true)===0n, "Mesh layout");
+    }
     result.push({ opcode, b, w });
     offset += size;
   }
@@ -185,9 +224,10 @@ function retire(scope) {
 async function batch(scope, commands) {
   const device = scope.device;
   if (scope.inflight >= 3) await device.queue.onSubmittedWorkDone();
-  let encoder, texture, computePass, timer, queries = 0;
+  let encoder, texture, computePass, renderPass, passWidth, passHeight, timer, queries = 0;
   const getEncoder = () => encoder ??= device.createCommandEncoder();
   const endCompute = () => { computePass?.end(); computePass = null; };
+  const endRender = () => { renderPass?.end(); renderPass = null; };
   const timestamps = () => {
     timer ??= scope.timers?.find(t => !t.busy);
     if (!timer) return {};
@@ -199,9 +239,10 @@ async function batch(scope, commands) {
   device.pushErrorScope("out-of-memory");
   try {
     for (const { opcode: op, b, w } of commands) {
-      const id = b.length >= 16 ? integer(w, 8) : 0;
+      const id = b.length >= 16 && op !== A.DOLLY_GPU_VIEWPORT ? integer(w, 8) : 0;
       if (op !== A.DOLLY_GPU_COMPUTE) endCompute();
-      if ([1,3,4,5,6,14,16].includes(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size < maxObjects, "GPU object quota", E.ENOSPC);
+      if (renderPass) ensure([1,2,3,18,20,21,22,24,25,26].includes(op), "Command is invalid inside a render pass");
+      if ([1,3,4,5,6,14,16,18,20,21,22].includes(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size < maxObjects, "GPU object quota", E.ENOSPC);
       if (op === A.DOLLY_GPU_CREATE_BUFFER) {
         const size = integer(w, 16), usage = w.getUint32(24, true);
         ensure(size > 0 && size <= maxBuffer && size <= maxBytes - usedBytes, "GPU allocation quota", E.ENOMEM);
@@ -281,6 +322,151 @@ async function batch(scope, commands) {
           range(r,offset,size);pass.setVertexBuffer(0,r.value,offset,size);
         }
         pass.draw(vertices,instances); pass.end();
+      } else if (op === A.DOLLY_GPU_CREATE_TEXTURE) {
+        const width=w.getUint32(16,true), height=w.getUint32(20,true), layers=w.getUint32(24,true),
+          mips=w.getUint32(28,true), type=w.getUint32(32,true), usage=w.getUint32(36,true);
+        ensure(width>0 && height>0 && width<=Math.min(8192,device.limits.maxTextureDimension2D) &&
+          height<=Math.min(8192,device.limits.maxTextureDimension2D) && (layers===1 || (layers===6 && width===height)) &&
+          mips>0 && mips<=1+Math.floor(Math.log2(Math.max(width,height))) &&
+          type>0 && type<textureFormats.length && usage>0 && (usage&~23)===0 && w.getBigUint64(40,true)===0n, "Texture descriptor");
+        let size=0;
+        for(let i=0;i<mips;i++)size+=Math.max(1,width>>i)*Math.max(1,height>>i)*layers*texelBytes[type];
+        ensure(size<=bufferCeiling && size<=maxBytes-usedBytes, "Texture allocation quota", E.ENOMEM);
+        const value=device.createTexture({size:{width,height,depthOrArrayLayers:layers},mipLevelCount:mips,
+          format:textureFormats[type],usage});
+        insert(scope,id,"texture",value,size);usedBytes+=size;
+        Object.assign(object(scope,id),{width,height,layers,mips,type});
+      } else if (op === A.DOLLY_GPU_WRITE_TEXTURE) {
+        const r=object(scope,id,"texture"), mip=w.getUint32(16,true), layer=w.getUint32(20,true),
+          x=w.getUint32(24,true), y=w.getUint32(28,true), width=w.getUint32(32,true), height=w.getUint32(36,true), n=w.getUint32(40,true);
+        ensure(r.type<=4 && mip<r.mips && layer<r.layers && width>0 && height>0 &&
+          x<=Math.max(1,r.width>>mip)-width && y<=Math.max(1,r.height>>mip)-height &&
+          n===width*height*texelBytes[r.type], "Texture upload range");
+        device.queue.writeTexture({texture:r.value,mipLevel:mip,origin:{x,y,z:layer}},b.subarray(48,48+n),
+          {bytesPerRow:width*texelBytes[r.type],rowsPerImage:height},{width,height});
+      } else if (op === A.DOLLY_GPU_CREATE_SAMPLER) {
+        const filters=[16,20,24].map(at=>w.getUint32(at,true)), address=[28,32,36].map(at=>w.getUint32(at,true)),
+          compare=w.getUint32(40,true), maxAnisotropy=w.getUint32(44,true);
+        ensure(filters.every(n=>n<=1) && address.every(n=>n<=2) && compare<=8 && maxAnisotropy>=1 &&
+          maxAnisotropy<=16 && (maxAnisotropy===1 || filters.every(n=>n===1)), "Sampler descriptor");
+        const addresses=["clamp-to-edge","repeat","mirror-repeat"], modes=["nearest","linear"];
+        insert(scope,id,"sampler",device.createSampler({minFilter:modes[filters[0]],magFilter:modes[filters[1]],
+          mipmapFilter:modes[filters[2]],addressModeU:addresses[address[0]],addressModeV:addresses[address[1]],
+          addressModeW:addresses[address[2]],compare:compareOps[compare],maxAnisotropy}));
+      } else if (op === A.DOLLY_GPU_GRAPHICS_PIPELINE) {
+        const color=w.getUint32(32,true), depth=w.getUint32(36,true), topology=w.getUint32(40,true),
+          cull=w.getUint32(44,true), front=w.getUint32(48,true), compare=w.getUint32(52,true), write=w.getUint32(56,true),
+          slope=w.getFloat32(64,true), clamp=w.getFloat32(68,true), mask=w.getUint32(72,true), blend=w.getUint32(76,true);
+        ensure(color<=4 && (depth===0 || depth===5 || depth===6) && topology<=3 && cull<=2 && front<=1 &&
+          compare>=1 && compare<=8 && write<=1 && Number.isFinite(slope) && Number.isFinite(clamp) && mask<=15 && blend<=1,
+          "Graphics pipeline state");
+        const component=at=>{
+          const op=w.getUint32(at,true), src=w.getUint32(at+4,true), dst=w.getUint32(at+8,true);
+          ensure(op<blendOps.length && src<blendFactors.length && dst<blendFactors.length,"Blend state");
+          return {operation:blendOps[op],srcFactor:blendFactors[src],dstFactor:blendFactors[dst]};
+        };
+        const colorBlend=component(80), alphaBlend=component(92), count=w.getUint32(104,true), buffers=[];
+        for(let i=0;i<count;i++)buffers.push({arrayStride:w.getUint32(112+i*16,true),
+          stepMode:w.getUint32(116+i*16,true)?"instance":"vertex",attributes:[]});
+        for(let i=0;i<w.getUint32(108,true);i++) {
+          const at=112+(count+i)*16;
+          buffers[w.getUint32(at,true)].attributes.push({shaderLocation:w.getUint32(at+4,true),
+            format:vertexFormats[w.getUint32(at+8,true)],offset:w.getUint32(at+12,true)});
+        }
+        const value=await device.createRenderPipelineAsync({layout:"auto",
+          vertex:{module:object(scope,integer(w,16),"shader").value,entryPoint:"main",buffers},
+          fragment:{module:object(scope,integer(w,24),"shader").value,entryPoint:"main",
+            targets:[{format:color?textureFormats[color]:format,writeMask:mask,...(blend?{blend:{color:colorBlend,alpha:alphaBlend}}:{})}]},
+          primitive:{topology:["triangle-list","triangle-strip","line-list","point-list"][topology],
+            ...(topology===1?{stripIndexFormat:"uint16"}:{}),cullMode:["none","front","back"][cull],frontFace:front?"cw":"ccw"},
+          ...(depth?{depthStencil:{format:textureFormats[depth],depthWriteEnabled:!!write,depthCompare:compareOps[compare],
+            depthBias:w.getInt32(60,true),depthBiasSlopeScale:slope,depthBiasClamp:clamp}}:{})});
+        insert(scope,id,"graphics",value);
+      } else if (op === A.DOLLY_GPU_RESOURCE_GROUP) {
+        const pipeline=object(scope,integer(w,16),"graphics"), index=w.getUint32(24,true), entries=[];
+        for(let i=0;i<w.getUint32(28,true);i++) {
+          const at=32+i*32, binding=w.getUint32(at,true), kind=w.getUint32(at+4,true),
+            r=object(scope,integer(w,at+8),["buffer","texture","texture","sampler"][kind]);
+          let resource;
+          if(kind===0) {
+            const offset=integer(w,at+16), size=integer(w,at+24);range(r,offset,size);
+            ensure(size>0 && !r.mapped,"Invalid bound buffer");resource={buffer:r.value,offset,size};
+          } else if(kind===3)resource=r.value;
+          else {
+            ensure(kind!==2 || r.layers===6,"Cube binding requires six layers");
+            resource=r.value.createView({dimension:kind===2?"cube":"2d",arrayLayerCount:kind===2?6:1,
+              aspect:r.type===5?"depth-only":"all"});
+          }
+          entries.push({binding,resource});
+        }
+        insert(scope,id,"resource-group",device.createBindGroup({layout:pipeline.value.getBindGroupLayout(index),entries}));
+        object(scope,id).index=index;
+      } else if (op === A.DOLLY_GPU_BEGIN_RENDER_PASS) {
+        const depth=integer(w,16), width=w.getUint32(24,true), height=w.getUint32(28,true),
+          colorClear=w.getUint32(32,true), depthClear=w.getUint32(36,true), clearValue=[40,44,48,52].map(at=>w.getFloat32(at,true)),
+          depthClearValue=w.getFloat32(56,true), stencilClearValue=w.getUint32(60,true);
+        ensure(width>0 && height>0 && colorClear<=1 && depthClear<=1 && clearValue.every(Number.isFinite) &&
+          depthClearValue>=0 && depthClearValue<=1 && stencilClearValue<=255,"Render pass descriptor");
+        let colorTexture;
+        if(id) {
+          const r=object(scope,id,"texture");
+          ensure(r.width===width && r.height===height && r.type<=4 && r.layers===1,"Color attachment dimensions/format");
+          colorTexture=r.value;
+        } else {
+          ensure(scope.surface && width<=4096 && height<=2304,"Surface attachment dimensions/ownership");
+          if(!texture) {
+            if(canvas.width!==width || canvas.height!==height){canvas.width=width;canvas.height=height;}
+            texture=context.getCurrentTexture();
+          } else ensure(canvas.width===width && canvas.height===height,"Surface resized within batch");
+          colorTexture=texture;
+        }
+        let depthStencilAttachment;
+        if(depth) {
+          const r=object(scope,depth,"texture");
+          ensure(r.width===width && r.height===height && r.type>=5 && r.layers===1,"Depth attachment dimensions/format");
+          depthStencilAttachment={view:r.value.createView({mipLevelCount:1}),depthLoadOp:depthClear?"clear":"load",depthStoreOp:"store",depthClearValue,
+            ...(r.type===5?{stencilLoadOp:depthClear?"clear":"load",stencilStoreOp:"store",stencilClearValue}:{})};
+        }
+        renderPass=getEncoder().beginRenderPass({...timestamps(),colorAttachments:[{view:colorTexture.createView({mipLevelCount:1}),
+          loadOp:colorClear?"clear":"load",storeOp:"store",clearValue}],depthStencilAttachment});
+        passWidth=width;passHeight=height;
+      } else if (op === A.DOLLY_GPU_END_RENDER_PASS) {
+        ensure(renderPass,"No active render pass");endRender();
+      } else if (op === A.DOLLY_GPU_VIEWPORT) {
+        ensure(renderPass,"Viewport outside render pass");
+        const [x,y,width,height,min,max]=[8,12,16,20,24,28].map(at=>w.getFloat32(at,true)),
+          scissor=[32,36,40,44].map(at=>w.getUint32(at,true));
+        ensure([x,y,width,height,min,max].every(Number.isFinite) && x>=0 && y>=0 && width>0 && height>0 &&
+          x<=passWidth-width && y<=passHeight-height && min>=0 && max<=1 && min<=max &&
+          scissor[0]<=passWidth-scissor[2] && scissor[1]<=passHeight-scissor[3],"Viewport/scissor bounds");
+        renderPass.setViewport(x,y,width,height,min,max);renderPass.setScissorRect(...scissor);
+      } else if (op === A.DOLLY_GPU_DRAW_MESH) {
+        ensure(renderPass,"Draw outside render pass");
+        const count=w.getUint32(40,true), instances=w.getUint32(44,true), first=w.getUint32(48,true),
+          base=w.getInt32(52,true), firstInstance=w.getUint32(56,true), indexType=w.getUint32(60,true),
+          groupCount=w.getUint32(64,true), bufferCount=w.getUint32(68,true);
+        ensure(count>0 && instances>0 && count*instances<=4*1024*1024 && first+count<=0xffffffff &&
+          firstInstance+instances<=0xffffffff && indexType<=2,"Mesh draw limit",E.E2BIG);
+        renderPass.setPipeline(object(scope,id,"graphics").value);
+        const groups=new Set();
+        for(let i=0;i<groupCount;i++) {
+          const r=object(scope,integer(w,80+i*8),"resource-group");
+          ensure(!groups.has(r.index),"Duplicate mesh group");groups.add(r.index);renderPass.setBindGroup(r.index,r.value);
+        }
+        for(let i=0;i<bufferCount;i++) {
+          const at=80+8*groupCount+24*i, r=object(scope,integer(w,at),"buffer"), offset=integer(w,at+8), size=integer(w,at+16);
+          range(r,offset,size);ensure(!r.mapped && size>0,"Invalid vertex buffer");renderPass.setVertexBuffer(i,r.value,offset,size);
+        }
+        if(indexType) {
+          const r=object(scope,integer(w,16),"buffer"), offset=integer(w,24), size=integer(w,32), stride=indexType===1?2:4;
+          range(r,offset,size);ensure(!r.mapped && (first+count)*stride<=size,"Index buffer range");
+          renderPass.setIndexBuffer(r.value,indexType===1?"uint16":"uint32",offset,size);
+          renderPass.drawIndexed(count,instances,first,base,firstInstance);
+        } else {
+          ensure(w.getBigUint64(16,true)===0n && w.getBigUint64(24,true)===0n && w.getBigUint64(32,true)===0n && base===0,
+            "Unexpected nonindexed draw arguments");
+          renderPass.draw(count,instances,first,firstInstance);
+        }
       } else if (op === A.DOLLY_GPU_COMPUTE) {
         const xyz=[24,28,32].map(o=>w.getUint32(o,true));
         ensure(w.getUint32(36,true)===0 && xyz.every(n=>n>0 && n<=65535) && xyz.reduce((a,n)=>a*n,1)<=1048576, "Dispatch limit",E.E2BIG);
@@ -325,6 +511,7 @@ async function batch(scope, commands) {
       } else if (op === A.DOLLY_GPU_UNMAP) {
         const r=object(scope,id,"buffer");r.value.unmap();r.mapped=null;
       } else if (op === A.DOLLY_GPU_RELEASE) {
+        ensure(!encoder,"Submit before releasing GPU resources");
         const r=object(scope,id);
         if(r.size) await device.queue.onSubmittedWorkDone();
         r.value.destroy?.();usedBytes-=r.size;scope.objects.delete(id);
@@ -332,7 +519,7 @@ async function batch(scope, commands) {
     }
     ensure(!encoder,"GPU batch has an unsubmitted encoder");
   } finally {
-    endCompute();
+    endCompute();endRender();
     const oom=await device.popErrorScope(), validation=await device.popErrorScope();
     stats.batchWallMilliseconds += performance.now()-started;
     if(oom)fail(E.ENOMEM,oom.message);if(validation)fail(E.EINVAL,validation.message);

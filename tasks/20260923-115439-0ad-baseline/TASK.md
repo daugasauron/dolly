@@ -114,3 +114,23 @@ it passes under the same 3 GiB scope. Evidence includes
 `.cache/0ad/browser/control-{files,pipes}.{jsonl,log}`. Pristine-source patch
 reconstruction and the updated prepare stage pass. Next: graphics, selected
 visual assets and UI, followed by audio/multiplayer and complete packaging.
+
+2026-09-23: The GPU contract now has additive texture/depth/indexed rendering
+records, advertised by capability bit 64. The existing record layouts and outer
+imports are unchanged. New resources remain scope owned, quota counted and
+explicitly retired. The browser review map and WAT wire specification are updated.
+`node test/gpu-render-browser.mjs` passes in Chrome 151.0.7922.71 using SwiftShader
+under a 3 GiB process-tree limit. It compiles the C fixture inside Dolly, verifies
+four texture colors after offscreen rendering, near/far depth occlusion, indexed
+meshes, two vertex streams, three shader groups, mip uploads and viewport bounds.
+It checks malformed upload spans, allocation refusal, invalid pass sequencing,
+three fresh executions and Ctrl-C/restart with allocation credits returned to zero.
+The original compute/capture/boundary proof also passes. Evidence:
+`.cache/0ad/browser-gpu-render.log`.
+
+The test caught and fixed overflow in the new upload-length rounding before
+allocation. Initial software shader compilation succeeded but canvas creation
+failed with an incomplete Chrome launch configuration; enabling software Vulkan
+presentation fixed it. No physical GPU workload was used. This is the rendering
+substrate milestone; the 0 A.D. device backend and playable graphical match are
+still pending, followed by audio, multiplayer and complete packaging.
