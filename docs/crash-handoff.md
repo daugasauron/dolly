@@ -46,6 +46,10 @@ poses for the biped, lookout and tug, camera switching and the no-Eyes fallback.
 Driving/cargo regression also passed. Evidence:
 `build/blockwalker-spectator-{packaged1,driver1}.log` and
 `build/blockwalker-tug-cargo-avoidance-42/result.json`.
+The current image also shows magnet/cargo status in the sidebar and focus HUD,
+with a player delivery confirmation. Source and actual-9099 keyboard playtests
+completed pickup, transport and scoring; the original learned session is unchanged.
+See `build/blockwalker-cargo-ui-packaged.log` and `build/blockwalker-playtest/`.
 
 The visible browser Save button keeps the latest written checkpoint and links
 to named sessions. Manual/programmed design and complete world import/export

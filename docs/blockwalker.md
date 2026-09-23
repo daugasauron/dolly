@@ -103,6 +103,8 @@ let it settle for a second. Each crate scores once after transport from outside
 that depot; simply spawning cargo there earns nothing. Delivered crates turn
 green and remain physical. Magnet pickup and riding on a deck both identify the
 carrier. The delivery record and your total survive saves and rebuilding your car.
+The sidebar and focus HUD show whether the magnet is powered or carrying cargo.
+Your deliveries also show a confirmation naming the depot and updated total.
 Cargo can settle on the depot floor or stack on previously delivered crates.
 Postbird picks up available island cargo, delivers it to a depot, then searches
 for another load. It ignores cargo already delivered or held by another machine.

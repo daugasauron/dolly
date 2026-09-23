@@ -413,13 +413,22 @@ static void events(void){
         if(k=='V'){tool=SELECT;dirty=1;}if(k=='X'){tool=ERASE;dirty=1;}if(k=='H')home_camera();
     }
 }
+static void cargo_status(char *text,size_t size){
+    Creature *c=world_find(piloting?world.player:world_follow);int carried=0,magnets=0,powered=0;
+    if(!c){text[0]=0;return;}
+    if(c->cargo){snprintf(text,size,c->delivered?"Cargo delivered":c->held_by?"Cargo being carried":"Loose cargo");return;}
+    for(int i=0;i<world.count;i++)carried+=world.creatures[i].cargo&&world.creatures[i].held_by==c->id;
+    for(int i=0;i<c->design.count;i++)if(c->design.blocks[i].joint==BLOCK_MAGNET){magnets++;powered+=c->physics.parts[i].magnet_power>0;}
+    if(carried)snprintf(text,size,"Carrying %d crate%s",carried,carried==1?"":"s");
+    else snprintf(text,size,magnets?(powered?"Magnet on / no cargo":"Magnet off"):"No cargo aboard");
+}
 static void draw_ui(void){
     BeginDrawing();ClearBackground(BLANK);
     char text[120];int joints=0;for(int i=0;i<design.count;i++)joints+=block_controlled(design.blocks[i]);
     if(focus_view){
         button(render_view.width-232,12,220,34,"Controls [Shift Tab]",0);button(12,12,80,34,"Pi [Tab]",agent_panel);
         if(world_view&&world_follow){snprintf(text,sizeof(text),piloting?"WASD drive / E pickup / Q release":"Following %d / \\ camera / WASD to leave",world_follow);label(110,22,text,16,ink);}
-        if(world_view){snprintf(text,sizeof(text),"CARGO DELIVERED  %d / YOU %d",world.delivery_count,world_cargo_score(-1));label(16,render_view.height-30,text,16,ink);}
+        if(world_view){char cargo[48];cargo_status(cargo,sizeof(cargo));snprintf(text,sizeof(text),"CARGO DELIVERED  %d / YOU %d%s%s",world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);label(16,render_view.height-30,text,16,ink);}
         goto agent_overlay;
     }
     DrawRectangle(0,0,SCREEN_WIDTH,VIEW_Y,paper);DrawRectangle(0,VIEW_Y,VIEW_X,VIEW_H,paper);
@@ -448,6 +457,7 @@ static void draw_ui(void){
         if(!agent_panel){
             label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?"WASD drive / E on / Q off":"Drops at the camera target.",14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
             if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
+            cargo_status(text,sizeof(text));label(1036,328,text,14,accent);
             label(1036,354,"CARGO DELIVERED",17,muted);snprintf(text,sizeof(text),"%d total / %d by you",world.delivery_count,world_cargo_score(-1));label(1036,385,text,17,ink);
             label(1036,428,"Carry to a striped depot.",14,muted);label(1036,449,"Release and let it settle.",14,muted);label(1036,470,"Each crate counts once.",14,muted);
             int nearest=0;float distance=INFINITY;for(int i=0;i<depot_count;i++){float d=hypotf(orbit.target.x-depots[i].x,orbit.target.z-depots[i].z);if(d<distance){distance=d;nearest=i;}}
@@ -668,7 +678,9 @@ static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst
         memset(player->controls,0,sizeof(player->controls));
         if(piloting&&!prompt_focus){for(int i=1;i<128;i++)player->controls[i]=keys[i];vehicle_controls(&player->design,player->controls,keys['W']-keys['S'],keys['D']-keys['A']);}
     }
+    int previous_deliveries=world.delivery_count;
     world_accumulator+=dt;for(int i=0;i<6&&world_accumulator>=1./60;i++){world_step();world_accumulator-=1./60;}
+    for(int i=previous_deliveries;i<world.delivery_count;i++)if(world.deliveries[i].carrier==-1){char text[160];snprintf(text,sizeof(text),"Cargo delivered at %s. Your total: %d.",depots[world.deliveries[i].depot].name,world_cargo_score(-1));say(text);}
     follow_creature();character_camera();
     if(world.age-last_save>10){world_save(ctx);last_save=world.age;}
     if(physics.running&&(!world_view||agent_control)&&(!agent_control||practice_steps>0||program_trial==2)){

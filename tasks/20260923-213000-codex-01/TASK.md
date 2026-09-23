@@ -130,7 +130,7 @@ pushed away by Twinspire, so that prototype was discarded. Evidence:
 `build/blockwalker-tug-cargo-avoidance-42/` and matching log. Distances are measured
 from physical poses, not controller counters.
 
-Current local package: 232135241 bytes, SHA-256
+Previous local package: 232135241 bytes, SHA-256
 `5684ed4bcd2303127143c7280bc6a523bf5a2cc9727b656da58bb61c6073d31c`;
 source SHA-256 `50cd82151643ef0bfcf01ca535c5b335ce681db92db103a95118e0e2be378ccc`.
 Build time was 23.5 s with the unchanged runtime
@@ -147,6 +147,25 @@ order. Evidence: `build/blockwalker-tug-cargo-avoidance-7/` and matching log.
 The anchored shuttles are also active: seed-42 Lattice completed 35 cycles with
 zero faults, and Dockhand continued its pickup/transfer/release cycle through
 the final minute. Their stationary roots do not imply stalled programs.
+
+The sidebar and existing focus HUD line now report magnet power and actual
+carried cargo. A player delivery confirms the depot and updated total. A manual
+Chrome playtest used only the normal C/E/W/Q controls in the full population:
+crate 51 was picked up, driven to the Works yard, released and credited once.
+Picking it up again did not add credit. Screenshots show off/on/loaded states,
+the focus HUD, green delivered cargo and the confirmation. Evidence:
+`build/blockwalker-playtest/{result.json,ui-*.png}` and exported worlds.
+The porter also recovered after the player cleared its approach, delivering
+its waiting crate at 101.03 s in the saved-scene replay
+(`build/blockwalker-porter-player-depot.log`).
+
+Current local package: 232138066 bytes, SHA-256
+`f3208ed47099347f619fe0c445da30a7e90c31cad17620f4136d1e25cba11ea4`;
+source SHA-256 `29fc0bd1a7bb8d22ebf65ac73135175243540ab73c94ca022e9eb95625233b61`.
+The unchanged-runtime build took 23.1 s (`build/blockwalker-playground-image13.log`).
+A fresh actual-9099 visit repeated the delivery with ordinary browser controls,
+credited the player once and retained all 51 objects including the car and test
+crate (`build/blockwalker-cargo-ui-packaged.log`, exit 0).
 
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate
