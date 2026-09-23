@@ -1,8 +1,10 @@
 # Sessions
 
-`Ctrl+Shift+S` saves files in the current image. The first save asks for
-a name; later saves update it. A small notification reports progress, success,
-or failure.
+The **Save** button opens a named checkpoint dialog and a link to saved sessions.
+It shows whether this tab is new, restored, last saved, or failed to save.
+`Ctrl+Shift+S` opens the dialog for a new session and updates an existing one.
+The checkpoint contains files already written by the running program; later
+changes need another save. A notification reports progress, success, or failure.
 Names use 1–64 ASCII letters, digits, dots, underscores, or hyphens;
 `.`, `..`, and the static listing document `index.html` are reserved.
 

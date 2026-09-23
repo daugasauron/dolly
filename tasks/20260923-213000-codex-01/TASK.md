@@ -27,6 +27,34 @@ Completion requires:
   and activity throughout the world, as requested on September 24. Measure the
   resulting population's performance and interactions.
 
+September 24 follow-up to `c3e7416`: the seed-42 run reached 720 s with all 45
+objects, then lost the eastern lookout at 749.18 s. Replaying the saved segment
+with contact logging identified Postbird's low flight pressing on its head;
+steering away from the cliff alone did not fix it. Postbird now raises its
+clearance around predicted nearby ground traffic. The same 720–780 s scene
+retained all 45; contact ended at 721.42 s, compared with continuing until the
+fall in the old controller. Evidence: `build/blockwalker-air-traffic-proof/`
+and `build/blockwalker-air-traffic1.log`. No permanent collision exemptions or
+pose correction were added.
+
+The full seed-42 trial passed 1800 simulation seconds with nine reloads: all 45
+alive, five deliveries, 117 biped steps, zero aborts and zero external biped
+contacts. Lookouts travelled 988–2122 m with 28–76 arrivals; the porter delivered
+three crates and continued searching, and skiffs travelled 1422–1576 m.
+Evidence: `build/blockwalker-air-traffic-long1.log` (exit 0), all ten worlds,
+traces/contact records and `result.json` in `build/blockwalker-air-traffic-long-42/`.
+
+Packaged locally in 24.9 s (`build/blockwalker-playground-image8.log`),
+232121889 bytes, SHA-256
+`9626beb11dd3f669afe845e8a02fd5151d69ab9647f7401bfa07be612dbc6150`;
+runtime unchanged. Driving/cargo and focus-view browser checks passed
+(`build/blockwalker-air-traffic-driver1.log`, `build/blockwalker-save-focus1.log`).
+The short overflight regression crossed 12.172 m at a peak altitude of 8.508 m,
+displacing the stationary lookout only 0.0039 m. Courier deliveries still stack
+correctly across restart. The actual 9099 preview passed visible Save, refresh,
+modal typing/F11, held-key release and failed-save-retention checks. The live
+learned session and recovery archive were not modified.
+
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate
 requested issue; do not silently expand this goal into rewriting Pi.

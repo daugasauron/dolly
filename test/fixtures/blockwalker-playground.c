@@ -27,6 +27,27 @@ static void check_resume(JSContext *ctx){
         }assert(ran);world_close();
     }character_clear(&rig);
 }
+static void check_air_traffic(JSContext *ctx){
+    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);int lookout=0;
+    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        int bird=name&&!strncmp(name,"Postbird /",10),scout=!lookout&&name&&!strncmp(name,"Komame /",8);
+        if(bird||scout){put_number(ctx,item,"x",0);put_number(ctx,item,"z",scout?12:0);if(scout){lookout=1;JS_SetPropertyStr(ctx,item,"source",JS_NewString(ctx,"function(){return {}}"));}JS_SetPropertyUint32(ctx,selected,scout?1:0,JS_DupValue(ctx,item));}
+        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+    }
+    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==2);
+    Creature *bird=&world.creatures[0],*scout=&world.creatures[1];Controller *controller=bird->controller;
+    const char *memory="{\"phase\":\"return\",\"home\":[0,12],\"goal\":[0,12],\"ts\":0,\"hi\":0,\"pi\":0,\"ri\":0,\"job\":0,\"deliveries\":0,\"cruise\":5.2}";
+    JS_FreeValue(controller->ctx,controller->memory);controller->memory=JS_ParseJSON(controller->ctx,memory,strlen(memory),"traffic-trial");
+    float peak=0,travel=0,displacement=0;
+    for(int i=0;i<20*60;i++){
+        world_step();assert(world.count==2&&world.deaths==0);
+        b3Pos a=b3Body_GetPosition(bird->physics.parts[0].body),b=b3Body_GetPosition(scout->physics.parts[0].body);
+        peak=fmaxf(peak,a.y);travel=fmaxf(travel,a.z);displacement=fmaxf(displacement,hypotf(b.x,b.z-12));
+    }
+    assert(peak>8&&travel>10&&displacement<.1f);
+    printf("AIR TRAFFIC: courier crossed %.3f m at peak %.3f m; stationary lookout displaced %.4f m\n",travel,peak,displacement);world_close();
+}
 static void check_courier(JSContext *ctx){
     JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
@@ -84,5 +105,5 @@ int main(void){
     assert(cargo_z(cargo)>start+4&&world_find(cargo)->carrier==-1&&world.delivery_count==0);
     assert(world_find(cargo)->held_by==id);world_save(ctx);world_close();world_load(ctx);
     assert(world_find(cargo)->held_by==id&&world_find(cargo)->carrier==-1);ticks(30);assert(world_find(cargo)->held_by==id);
-    world_close();character_clear(&car);check_resume(ctx);check_courier(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

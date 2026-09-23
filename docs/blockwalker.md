@@ -281,8 +281,11 @@ is backed up at `/workspace/blockwalker-world.previous.json`. Both tagged
 `blockwalker-world` version 1 and older untagged version 1 exports are accepted.
 
 These working files and the library live in the current Dolly session. Downloads
-survive a fresh start. Ctrl+Shift+S saves a Dolly browser session, including Pi's
-settings and conversation; `/session` lists those saves. WebGPU renders the
+survive a fresh start. **Save** at the bottom right keeps the latest file checkpoint,
+including Pi's settings and conversation, in this browser. World checkpoints
+update every ten simulation seconds and after edits, cargo drops or exports.
+Save again to keep later progress; the dialog links to saved sessions. Ctrl+Shift+S
+updates the named save. A failed save preserves the previous one. WebGPU renders the
 islands, moving water, stars, moon and thruster exhaust.
 
 ```sh
@@ -306,6 +309,8 @@ image. The import check optionally accepts an older world file as a third argume
 `test/blockwalker-driver-browser.mjs` verifies driving, the Eyes camera, a tilted
 turntable and physical cargo delivery with save/reload and one-time credit. Pass
 a source tar path to compile an edited source tree inside the existing image.
+`test/blockwalker-session-browser.mjs` checks the visible browser save workflow,
+real refresh restoration, modal input isolation and retention after storage failure.
 `test/blockwalker-agent-browser.mjs` checks direct C calls, actual GPU PNGs,
 exact trial timing, controller timeout containment, surviving creatures and
 world restoration. Set `BLOCKWALKER_RELAY_CONFIG` to a private relay config path

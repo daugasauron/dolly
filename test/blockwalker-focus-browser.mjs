@@ -48,5 +48,5 @@ try{
  const widths=new Set();for(const capture of captures){const png=await download(capture.name);assert.equal(png.readUInt32BE(16),640);assert.equal(png.readUInt32BE(20),Math.floor(capture.view.height*640/capture.view.width));widths.add(capture.view.width);}
  assert.deepEqual([...widths].sort((a,b)=>a-b),[756,998,1280]);assert.equal(await page.evaluate(()=>__dolly.httpRequestCount),0);
  console.log(JSON.stringify({followedBody:first.camera.follow,followedFrames:following.length,focusView:true,piPrompt:true,expandedPicking:true,captures:captures.length,modelRequests:0}));
-}catch(error){await shot('failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
+}catch(error){await shot('failure');if(!await page.evaluate(()=>__dolly.gpu?.active))console.error(await page.evaluate(()=>__dolly.visibleTerminalText()).catch(()=>''));throw error;}
 finally{await browser.close();await site.close();}

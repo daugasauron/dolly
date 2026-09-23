@@ -28,6 +28,10 @@ const mount = document.querySelector("#terminal");
 const canvas = document.querySelector("#display");
 const keyboard = document.querySelector("#keyboard");
 const bootstrapLog = document.querySelector("#bootstrap-log");
+const sessionButton = document.querySelector("#session-open");
+const sessionDialog = document.querySelector("#session-dialog");
+const sessionName = document.querySelector("#session-name");
+const sessionDetail = document.querySelector("#session-detail");
 bootstrapLog.replaceChildren();
 
 const defaultFontSizeMilli = 20000;
@@ -64,6 +68,8 @@ let currentSessionName = null;
 let sessionSavePromise = null;
 let sessionSaveController = null;
 let sessionStatusTimer;
+let lastSessionSave = null;
+const heldKeys = new Map();
 
 function startBrowserDownload(message) {
   if (typeof message.name !== "string" || message.name.length === 0 ||
@@ -625,6 +631,48 @@ function showSessionStatus(message, persistent = false) {
   if (!persistent) sessionStatusTimer = setTimeout(() => { status.hidden = true; }, 6000);
 }
 
+function updateSessionControls(message) {
+  const failed = document.documentElement.dataset.sessionStatus === "failed";
+  sessionButton.toggleAttribute("data-failed", failed);
+  sessionButton.textContent = failed ? "Save failed" : lastSessionSave
+    ? `Save · ${lastSessionSave.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`
+    : currentSessionName ? "Save · restored" : "Save · not saved";
+  sessionButton.title = message ?? (lastSessionSave
+    ? `Last saved ${lastSessionSave.toLocaleTimeString()} · Ctrl+Shift+S saves again`
+    : currentSessionName ? `Restored ${currentSessionName} · Ctrl+Shift+S saves changes`
+    : "Not saved yet · Ctrl+Shift+S saves this session");
+  sessionDetail.textContent = message ?? (lastSessionSave
+    ? `${currentSessionName} · Last saved ${lastSessionSave.toLocaleTimeString()}.`
+    : currentSessionName ? `Restored ${currentSessionName}. Later changes need another save.`
+    : "Not saved yet. Refreshing or closing this tab loses its changes.");
+}
+
+function releaseHeldKeys() {
+  for (const key of heldKeys.values()) transport?.pushKey({ ...key, type: "keyup",
+    ctrlKey: false, shiftKey: false, altKey: false, metaKey: false });
+  heldKeys.clear();
+}
+
+function openSessionDialog() {
+  releaseHeldKeys();
+  if (document.pointerLockElement) document.exitPointerLock();
+  sessionName.value = currentSessionName ?? activeImage ?? "session";
+  updateSessionControls(document.documentElement.dataset.sessionStatus === "failed"
+    ? `Save failed: ${document.documentElement.dataset.sessionError}` : undefined);
+  sessionDialog.showModal();
+  sessionName.focus();
+  sessionName.select();
+}
+
+sessionButton.addEventListener("click", openSessionDialog);
+document.querySelector("#session-close").addEventListener("click", () => sessionDialog.close());
+sessionDialog.addEventListener("close", () => keyboard.focus({ preventScroll: true }));
+document.querySelector("#session-list").href = new URL(".", sessionLoadUrl("index", new URL("../", import.meta.url))).href;
+document.querySelector("#session-form").addEventListener("submit", event => {
+  event.preventDefault();
+  void saveCurrentSession(sessionName.value.trim()).catch(() => {});
+});
+
 async function saveCurrentSession(requestedName) {
   if (sessionSavePromise) return sessionSavePromise;
   sessionSavePromise = (async () => {
@@ -658,6 +706,8 @@ async function saveCurrentSession(requestedName) {
     delete document.documentElement.dataset.sessionError;
     showSessionStatus(`Saving ${name}…`, true);
     document.documentElement.dataset.sessionStatus = "capturing";
+    updateSessionControls(`Saving ${name}…`);
+    sessionButton.disabled = sessionName.disabled = document.querySelector("#session-save").disabled = true;
     sessionSaveController = new AbortController();
     const snapshot = await sessionTransport.capture(name, { signal: sessionSaveController.signal });
     document.documentElement.dataset.sessionUncompressedBytes = String(snapshot.byteLength);
@@ -676,21 +726,25 @@ async function saveCurrentSession(requestedName) {
       bytes: encoded.bytes,
     });
     currentSessionName = name;
+    lastSessionSave = new Date();
     document.documentElement.dataset.session = name;
     document.documentElement.dataset.sessionBytes = String(encoded.bytes.byteLength);
     document.documentElement.dataset.sessionStatus = "saved";
     history.replaceState(null, "", sessionLoadUrl(name, new URL("../", import.meta.url)));
     showSessionStatus(`Saved ${name} locally · /session lists your saves`);
+    updateSessionControls();
     return name;
   })().catch((error) => {
     document.documentElement.dataset.sessionStatus = "failed";
     document.documentElement.dataset.sessionError =
       error instanceof Error ? error.message : String(error);
     showSessionStatus(`Save failed: ${document.documentElement.dataset.sessionError}`, true);
+    updateSessionControls(`Save failed: ${document.documentElement.dataset.sessionError}`);
     throw error;
   }).finally(() => {
     sessionSavePromise = null;
     sessionSaveController = null;
+    sessionButton.disabled = sessionName.disabled = document.querySelector("#session-save").disabled = false;
   });
   return sessionSavePromise;
 }
@@ -710,6 +764,7 @@ function handleKeyboardEvent(event) {
     if (event.type === "keydown" && !event.repeat) void toggleFullscreen(event);
     return;
   }
+  if (sessionDialog.open || event.target.closest?.("#session-open")) return;
   if (document.querySelector("#file-upload[open]")) {
     if (event.type === "keydown" && event.ctrlKey && !event.shiftKey &&
         !event.altKey && !event.metaKey && event.code === "KeyC") {
@@ -731,7 +786,9 @@ function handleKeyboardEvent(event) {
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.type === "keydown" && !event.repeat) {
-      void saveCurrentSession().catch(() => {});
+      releaseHeldKeys();
+      if (currentSessionName === null) openSessionDialog();
+      else void saveCurrentSession().catch(() => {});
     }
     return;
   }
@@ -775,6 +832,9 @@ function handleKeyboardEvent(event) {
   if (!transport.pushKey(event)) {
     document.documentElement.dataset.inputOverflow = "true";
   }
+  if (event.type === "keyup") heldKeys.delete(event.code);
+  else heldKeys.set(event.code, {key:event.key,code:event.code,type:"keydown",repeat:false,
+    ctrlKey:event.ctrlKey,shiftKey:event.shiftKey,altKey:event.altKey,metaKey:event.metaKey});
   event.preventDefault();
   event.stopImmediatePropagation();
 }
@@ -878,7 +938,7 @@ canvas.addEventListener("wheel", (event) => {
 document.addEventListener("fullscreenchange", () => {
   document.documentElement.dataset.fullscreen = document.fullscreenElement ? "on" : "off";
   requestAnimationFrame(sendResize);
-  keyboard.focus({ preventScroll: true });
+  if (!sessionDialog.open) keyboard.focus({ preventScroll: true });
 });
 
 async function submitInput(command, input = `${command}\r`) {
@@ -1196,6 +1256,8 @@ async function boot() {
     document.documentElement.dataset.session = restoredSession.name;
     document.documentElement.dataset.sessionStatus = "restored";
   }
+  sessionButton.hidden = false;
+  updateSessionControls();
   presenter = new FramebufferPresenter(
     canvas,
     ready.memory,

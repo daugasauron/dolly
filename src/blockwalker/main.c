@@ -213,7 +213,7 @@ static void click(void){
             if(!world_view&&!physics.running&&in_view())goto edit_view;
             return;
         }
-    }else if(inside(794,683,230,30)){toggle_focus();return;}
+    }else if(inside(728,683,212,30)){toggle_focus();return;}
     if(inside(24,54,194,20)){library_open=!library_open;prompt_focus=0;memset(keys,0,128);dirty=1;return;}
     if(library_open){
         if(inside(932,156,44,32))library_open=0;
@@ -524,7 +524,7 @@ agent_overlay:
         if(prompt_focus)DrawRectangleLinesEx((Rectangle){1024,608,240,54},2,accent);
         size_t length=strlen(prompt_input);label(1032,618,length?prompt_input+(length>27?length-27:0):"Message Pi...",14,ink);label(1032,642,"Enter to send / steer",12,muted);
     }
-    if(!focus_view){label(24,692,message,15,ink);button(794,683,230,30,"Focus [Shift Tab]",0);snprintf(text,sizeof(text),"%.0f FPS  |  Esc %s",fps,physics.running?"edit":"exit");label(1050,692,text,14,muted);}
+    if(!focus_view){label(24,692,message,15,ink);button(728,683,212,30,"Focus [Shift Tab]",0);snprintf(text,sizeof(text),"%.0f FPS  |  Esc %s",fps,physics.running?"edit":"exit");label(958,692,text,14,muted);}
     render_ui_upload();dirty=0;
 }
 static void report(void){
