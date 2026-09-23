@@ -163,12 +163,12 @@ static void check_courier(JSContext *ctx){
         if(i==90*60)second=world_drop_cargo(home.x,NAN,home.z,MATERIAL_ALLOY);
         world_step();
     }
-    assert(world.count==3&&world.deaths==0&&world.delivery_count==2&&world_cargo_score(carrier)==2);
+    assert(world.count==3&&world.deaths==0&&world.delivery_count==2&&world_cargo_score(carrier)==2&&world_team_score(1)==2&&world_team_score(2)==0);
     Creature *a=world_find(first),*b=world_find(second);assert(a->delivered&&b->delivered&&!a->held_by&&!b->held_by);
     b3Pos pa=b3Body_GetPosition(a->physics.parts[0].body),pb=b3Body_GetPosition(b->physics.parts[0].body);
     assert(pb.y-pa.y>.8f&&hypotf(pa.x-pb.x,pa.z-pb.z)<.9f);
     printf("COURIER: two physical deliveries, stacked height difference %.3f m, score %d after controller restart\n",pb.y-pa.y,world_cargo_score(carrier));
-    world_save(ctx);world_close();world_load(ctx);ticks(120);assert(world.delivery_count==2&&world_cargo_score(carrier)==2);world_close();
+    world_save(ctx);world_close();world_load(ctx);ticks(120);assert(world.delivery_count==2&&world_cargo_score(carrier)==2&&world_team_score(1)==2&&world_team_score(2)==0);world_close();
 }
 static void check_gantry(JSContext *ctx){
     JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
@@ -303,6 +303,32 @@ static void check_industry(JSContext *ctx){
     result=world_import(ctx,"/workspace/unknown-map.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));assert(terrain_version==1&&world_find(id));
     puts("INDUSTRY: physical shaft, roof, passage and broken roof; old/new map import; non-root cargo support and restored identity; future-map rejection passed");world_close();
 }
+static void check_radio(JSContext *ctx){
+    terrain_select(1);Character car={0};character_car(&car);
+    const char *scout="function(t,s,m){return {radio:{kind:'sight',cargo:3}}}";
+    const char *receiver="function(t,s,m){const report=s.radio.find(p=>p.kind==='sight');if(!report)return {};m.job=report.cargo;m.goal=[report.x,report.z];return {'2':.3,'4':.3,'6':.3,'8':.3,radio:{kind:'claim',cargo:m.job}}}";
+    Creature *c=spawn(&car,scout,"East lookout",1,10,-30,40);c->team=1;
+    c=spawn(&car,receiver,"East carrier",1,10,20,20);c->team=1;
+    assert(world_drop_cargo(-30,.65f,50,MATERIAL_ALLOY)==3);
+    c=spawn(&car,receiver,"West carrier",1,10,50,20);c->team=2;
+    ticks(120);assert(world.radio_count==0&&!cargo_visible(world_find(1),world_find(3)));
+    c=spawn(&car,"function(t){return t<.1?{radio:{kind:'sight',cargo:3}}:{}}","East inside scout",1,10,-30,55);c->team=1;
+    ticks(60);assert(world.radio_count>=2&&cargo_visible(world_find(5),world_find(3)));
+    c=world_find(2);assert(get_number(c->controller->ctx,c->controller->memory,"job",0)==3);
+    assert(b3Body_GetPosition(c->physics.parts[0].body).z>20.4);
+    c=world_find(4);assert(get_number(c->controller->ctx,c->controller->memory,"job",0)==0);
+    JSValue sensors=physics_sensors(ctx,&c->physics,&c->design,.1),radio=JS_GetPropertyStr(ctx,sensors,"radio");assert(get_number(ctx,radio,"length",-1)==0);JS_FreeValue(ctx,radio);JS_FreeValue(ctx,sensors);
+    RadioMessage report=world.radio[0];b3BodyId body=world_find(3)->physics.parts[0].body;b3Pos p=b3Body_GetPosition(body);p.x+=3;b3Body_SetTransform(body,p,b3Body_GetRotation(body));
+    ticks(210);RadioMessage claim=world.radio[world.radio_count-1];assert(claim.kind==RADIO_CLAIM&&claim.from==2&&fabsf(claim.position.x-report.position.x)<.001f);
+    int count=world.radio_count;assert(world_save(ctx));world_close();world_load(ctx);
+    assert(world.radio_count==count&&world_find(2)->team==1&&world_find(4)->team==2);
+    claim=world.radio[world.radio_count-1];assert(claim.cargo==3&&claim.from==2&&fabsf(claim.position.x-report.position.x)<.001f);
+    c=world_find(2);assert(get_number(c->controller->ctx,c->controller->memory,"job",0)==3);
+    JSValue invalid=read_json(ctx,"/workspace/blockwalker-world.json");radio=JS_GetPropertyStr(ctx,invalid,"radio");JSValue message=JS_GetPropertyUint32(ctx,radio,0);put_number(ctx,message,"team",3);JS_FreeValue(ctx,message);JS_FreeValue(ctx,radio);
+    assert(save_json(ctx,invalid,"/workspace/invalid-radio.json"));JS_FreeValue(ctx,invalid);JSValue result=world_import(ctx,"/workspace/invalid-radio.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));assert(world.radio_count==count&&world_find(2)->team==1);
+    Controller *bad=controller_new("function(){return {radio:{kind:'teleport',cargo:3}}}",1,10);float keys[128];assert(bad&&!controller_step(bad,&c->physics,&c->design,keys));controller_free(bad);
+    assert(!world.deaths);puts("RADIO: roof/wall occlusion, scout discovery starts remote carrier, team isolation, unseen claim retains reported coordinates, saved jobs/radio and invalid import/output passed");character_clear(&car);world_close();
+}
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);Character car={0};character_car(&car);
     Creature *driver=spawn(&car,"function(){return ''}","Your character",1,60,0,12);int id=driver->id;world.player=id;
@@ -343,5 +369,5 @@ int main(void){
     sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60);nearby=JS_GetPropertyStr(ctx,sensors,"nearby");sample=JS_GetPropertyUint32(ctx,nearby,0);
     assert(get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",-1)==0);
     JS_FreeValue(ctx,sample);JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
-    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);check_radio(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

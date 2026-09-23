@@ -265,10 +265,10 @@ static void click(void){
     if(world_view){
         if(!agent_panel&&inside(1036,188,220,36)){drop_cargo();return;}
         if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
-        for(int i=0;i<7;i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
+        for(int i=0;i<(terrain_version?8:7);i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
             piloting=eye_view=0;
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72}};
-            const float distances[]={24,50,100,110,150,512,72};
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70}};
+            const float distances[]={24,50,100,110,150,512,72,76};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;orbit_update(&orbit);dirty=1;}return;
         }
         world_page(0);
@@ -446,11 +446,11 @@ static void draw_ui(void){
     label(262,647,piloting?"WASD drive / E on / Q release / Backslash camera":world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d living / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={"Home","Harbor","East","West","North","Overview","Basin"};
-        for(int i=0;i<7;i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
+        const char *places[]={"Home","Harbor","East","West","North","Overview","Basin","Foundry"};
+        for(int i=0;i<(terrain_version?8:7);i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,316,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-8));
-        for(int i=0;i<8&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,344+i*26,text,14,c->id==world_follow?accent:ink);}
+        for(int i=0;i<8&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,344+i*26,text,14,c->id==world_follow?accent:c->team?block_colors[c->team==1?0:1]:ink);}
         button(24,564,40,30,"<",0);button(178,564,40,30,">",0);
         snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+8,world.count),world.count);label(74,572,text,14,muted);
         button(24,612,194,28,"Export world",0);button(24,642,194,28,"Import world",0);
@@ -458,11 +458,24 @@ static void draw_ui(void){
             label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?"WASD drive / E on / Q off":"Drops at the camera target.",14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
             if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
             cargo_status(text,sizeof(text));label(1036,328,text,14,accent);
+            if(terrain_version){
+                label(1036,354,"ISLAND CARGO CUP",17,muted);snprintf(text,sizeof(text),"East %d   West %d",world_team_score(1),world_team_score(2));label(1036,385,text,18,ink);
+                Creature *follow=world_find(world_follow);int team=follow?follow->team:0;
+                label(1036,428,team==1?"EAST RADIO":team==2?"WEST RADIO":"TEAM RADIO",17,muted);
+                const char *messages[]={"Spotted","Claimed","Ready","Released"};int shown=0;
+                for(int i=world.radio_count-1;i>=0&&shown<4;i--){RadioMessage *message=&world.radio[i];if(team&&message->team!=team)continue;int y=459+shown++*42;
+                    snprintf(text,sizeof(text),"%c / %.20s",message->team==1?'E':'W',message->name);label(1036,y,text,12,block_colors[message->team==1?0:1]);
+                    snprintf(text,sizeof(text),"%s #%d / %.0fs",messages[message->kind],message->cargo,world.age-message->time);label(1036,y+17,text,13,ink);
+                }
+                if(!shown)label(1036,459,"No reports yet.",14,muted);
+                label(1036,641,"Heavy 8 pts / light 1 pt",13,muted);
+            }else{
             label(1036,354,"CARGO DELIVERED",17,muted);snprintf(text,sizeof(text),"%d total / %d by you",world.delivery_count,world_cargo_score(-1));label(1036,385,text,17,ink);
             label(1036,428,"Carry to a striped depot.",14,muted);label(1036,449,"Release and let it settle.",14,muted);label(1036,470,"Each crate counts once.",14,muted);
             int nearest=0;float distance=INFINITY;for(int i=0;i<depot_count;i++){float d=hypotf(orbit.target.x-depots[i].x,orbit.target.z-depots[i].z);if(d<distance){distance=d;nearest=i;}}
             snprintf(text,sizeof(text),"%s / %.0f m",depots[nearest].name,distance);label(1036,520,text,16,accent);
             if(world.delivery_count){Delivery *d=&world.deliveries[world.delivery_count-1];snprintf(text,sizeof(text),"Last: %.22s",d->name);label(1036,555,text,14,muted);label(1036,576,depots[d->depot].name,14,muted);}
+            }
         }
     }else if(!physics.running){
         button(808,22,104,36,"Export",0);button(924,22,104,36,"Import",0);

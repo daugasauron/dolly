@@ -74,3 +74,20 @@ pass with the new source (`build/blockwalker-industry-driver3.log`, exit 0):
 11.503 m driven, 73 camera samples, real magnet pickup, 53 world objects and no
 browser errors. The new regression checks collisions, legacy map compatibility,
 non-root cargo support, saved multi-block cargo identity and unknown-map rejection.
+
+Team-radio source checkpoint: controller key objects may include a typed cargo
+report/claim/readiness/release. Eyes/root line of sight is tested against actual
+terrain boxes; messages are team-local and carry observed coordinates rather
+than live remote positions. Team membership, bounded radio history and existing
+controller jobs round-trip through world files. Island depots award 1 point for
+light cargo and 8 for cargo above 8 kg; scoring uses the island receiving it.
+The world HUD shows team scores and recent radio messages, and has a Foundry view.
+Multi-block magnet cargo also exposes support across its whole assembly,
+excluding contacts against itself and its holder.
+
+`build/blockwalker-radio-driver.log` passes the complete existing source/browser
+check plus real scout-to-distant-carrier, blocked sight, team isolation, stale
+coordinates, restored radio/jobs, and invalid radio import/output cases:
+10.948 m driven, 77 camera samples, actual pickup, 53 objects, no browser errors.
+`build/blockwalker-driver/car-follow.png` was inspected. The default catalog has
+not yet been assigned teams; supply and the full shipping chain remain pending.

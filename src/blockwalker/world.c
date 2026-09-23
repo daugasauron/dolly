@@ -128,6 +128,68 @@ static int magnet_holds(const Creature *carrier,const Creature *cargo){
 static float creature_mass(const Creature *c){
     float mass=0;for(int i=0;i<c->design.count;i++)mass+=b3Body_GetMass(c->physics.parts[i].body);return mass;
 }
+static float cargo_support_force(const Creature *cargo,const Physics *holder){
+    float force=0;b3ContactData *contacts=NULL;int capacity=0;
+    for(int i=0;i<cargo->design.count;i++){
+        b3BodyId body=cargo->physics.parts[i].body;int required=b3Body_GetContactCapacity(body);
+        if(required>capacity){capacity=required;contacts=array_resize(contacts,capacity,sizeof(*contacts));}
+        int count=required?b3Body_GetContactData(body,contacts,capacity):0;
+        for(int j=0;j<count;j++){
+            b3ContactData *contact=&contacts[j];b3BodyId a=b3Shape_GetBody(contact->shapeIdA),b=b3Shape_GetBody(contact->shapeIdB);int is_a=B3_ID_EQUALS(a,body);
+            void *other=b3Body_GetUserData(is_a?b:a);if(other==cargo->physics.parts||other==holder->parts)continue;
+            for(int k=0;k<contact->manifoldCount;k++){
+                b3Manifold *manifold=&contact->manifolds[k];float up=fmaxf(0,(is_a?-1:1)*manifold->normal.y);
+                for(int n=0;n<manifold->pointCount;n++)force+=up*480*manifold->points[n].normalImpulse;
+            }
+        }
+    }free(contacts);return force;
+}
+static const char *radio_kinds[]={"sight","claim","ready","release"};
+static int cargo_visible(const Creature *observer,const Creature *cargo){
+    Vector3 eye,forward,up;Quaternion rotation;physics_pose(&observer->physics,&observer->design,0,&eye,&rotation);
+    physics_eyes(&observer->physics,&observer->design,&eye,&forward,&up);
+    b3Pos position=b3Body_GetPosition(cargo->physics.parts[0].body);Vector3 target={position.x,position.y,position.z};
+    Vector3 delta=Vector3Subtract(target,eye);float distance=Vector3Length(delta);if(distance>48)return 0;
+    Ray ray={eye,Vector3Scale(delta,1/fmaxf(.001f,distance))};
+    for(int i=0;i<terrain_count;i++){
+        TerrainBox b=terrain_box(i);RayCollision hit=GetRayCollisionBox(ray,(BoundingBox){Vector3Subtract(b.center,b.half),Vector3Add(b.center,b.half)});
+        if(hit.hit&&hit.distance<distance-.1f)return 0;
+    }return 1;
+}
+static JSValue radio_state(JSContext *ctx,int team){
+    JSValue list=JS_NewArray(ctx);int count=0;
+    for(int i=0;i<world.radio_count;i++){
+        RadioMessage *message=&world.radio[i];if(team>=0&&message->team!=team)continue;
+        JSValue item=JS_NewObject(ctx);put_number(ctx,item,"team",message->team);put_number(ctx,item,"from",message->from);put_number(ctx,item,"cargo",message->cargo);put_number(ctx,item,"time",message->time);
+        JS_SetPropertyStr(ctx,item,"kind",JS_NewString(ctx,radio_kinds[message->kind]));JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,message->name));
+        put_number(ctx,item,"x",message->position.x);put_number(ctx,item,"y",message->position.y);put_number(ctx,item,"z",message->position.z);put_number(ctx,item,"mass",message->mass);JS_SetPropertyUint32(ctx,list,count++,item);
+    }return list;
+}
+static int radio_output(JSContext *ctx,JSValueConst value,int *kind,int *cargo){
+    if(!JS_IsObject(value)||JS_IsArray(value))return 0;
+    JSValue label=JS_GetPropertyStr(ctx,value,"kind");const char *text=JS_IsString(label)?JS_ToCString(ctx,label):NULL;
+    *kind=0;while(*kind<RADIO_KINDS&&(!text||strcmp(text,radio_kinds[*kind])))++*kind;
+    double id=get_number(ctx,value,"cargo",NAN);JS_FreeCString(ctx,text);JS_FreeValue(ctx,label);
+    if(*kind==RADIO_KINDS||!isfinite(id)||id<1||id>INT32_MAX||id!=floor(id))return 0;*cargo=id;return 1;
+}
+static void radio_send(const Physics *physics,int kind,int id){
+    Creature *sender=NULL,*cargo=world_find(id);
+    for(int i=0;i<world.count;i++)if(world.creatures[i].physics.parts==physics->parts)sender=&world.creatures[i];
+    if(!sender||!sender->team||!cargo||!cargo->cargo)return;
+    int known=0;RadioMessage report={0};
+    for(int i=world.radio_count-1;i>=0;i--){
+        RadioMessage *message=&world.radio[i];
+        if(message->from==sender->id&&world.age-message->time<3)return;
+        if(!known&&message->team==sender->team&&message->cargo==id&&world.age-message->time<120){known=1;report=*message;}
+    }
+    int visible=cargo_visible(sender,cargo);
+    if((kind==RADIO_SIGHT||kind==RADIO_READY)?!visible:!visible&&!known)return;
+    if(world.radio_count==RADIO_CAPACITY){memmove(world.radio,world.radio+1,(RADIO_CAPACITY-1)*sizeof(*world.radio));world.radio_count--;}
+    RadioMessage *message=&world.radio[world.radio_count++];b3Pos p=b3Body_GetPosition(cargo->physics.parts[0].body);
+    *message=(RadioMessage){.team=sender->team,.from=sender->id,.cargo=id,.kind=kind,.time=world.age,.position={p.x,p.y,p.z},.mass=creature_mass(cargo)};
+    if(!visible){message->position=report.position;message->mass=report.mass;}
+    snprintf(message->name,sizeof(message->name),"%s",sender->name);
+}
 static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origin){
     JSValue nearby=JS_NewArray(ctx),ground=JS_NewArray(ctx),obstacles=JS_NewArray(ctx);int self=0,indices[12],count=0;float distances[12];
     if(world.next_id&&b3StoreWorldId(p->world)==b3StoreWorldId(world.physics)){
@@ -144,6 +206,8 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
             put_number(ctx,item,"x",v.x);put_number(ctx,item,"y",v.y);put_number(ctx,item,"z",v.z);put_number(ctx,item,"vx",velocity.x);put_number(ctx,item,"vz",velocity.z);
             put_number(ctx,item,"radius",radius);put_number(ctx,item,"low",low);put_number(ctx,item,"high",high);
             put_number(ctx,item,"mass",creature_mass(c));
+            put_number(ctx,item,"team",c->team);
+            Creature *observer=world_find(self);if(c->cargo)JS_SetPropertyStr(ctx,item,"visible",JS_NewBool(ctx,observer&&cargo_visible(observer,c)));
             JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));JS_SetPropertyStr(ctx,item,"cargo",JS_NewBool(ctx,c->cargo));JS_SetPropertyStr(ctx,item,"delivered",JS_NewBool(ctx,c->delivered));put_number(ctx,item,"carriedBy",c->held_by);
             JS_SetPropertyStr(ctx,item,"magnetHeld",JS_NewBool(ctx,c->cargo&&magnet_holds(world_find(c->held_by),c)));
             JS_SetPropertyUint32(ctx,nearby,i,item);
@@ -160,6 +224,7 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
         put_number(ctx,item,"halfX",b.half.x);put_number(ctx,item,"halfZ",b.half.z);put_number(ctx,item,"low",b.center.y-b.half.y);put_number(ctx,item,"high",b.center.y+b.half.y);JS_SetPropertyUint32(ctx,obstacles,n++,item);
     }
     put_number(ctx,s,"id",self);put_number(ctx,s,"cargoDelivered",self?world_cargo_score(self):0);
+    Creature *observer=world_find(self);int team=observer?observer->team:0;put_number(ctx,s,"team",team);put_number(ctx,s,"worldTime",world.age);JS_SetPropertyStr(ctx,s,"radio",radio_state(ctx,team));
     JS_SetPropertyStr(ctx,s,"nearby",nearby);JS_SetPropertyStr(ctx,s,"groundSamples",ground);JS_SetPropertyStr(ctx,s,"obstacles",obstacles);JS_SetPropertyStr(ctx,s,"depots",depot_state(ctx));
 }
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt){
@@ -197,7 +262,9 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
                 count=required?b3Body_GetContactData(target,contacts,contact_capacity):0;
                 target_support=contact_forces(target,b3Body_GetUserData(target),contacts,count).support;
             }
-            JSValue magnet=JS_GetPropertyUint32(ctx,magnets,i);put_number(ctx,magnet,"targetSupportForce",target_support);JS_FreeValue(ctx,magnet);
+            float cargo_support=0;
+            if(b3Body_IsValid(target))for(int j=0;j<world.count;j++)if(world.creatures[j].cargo&&world.creatures[j].physics.parts==b3Body_GetUserData(target)){cargo_support=cargo_support_force(&world.creatures[j],p);break;}
+            JSValue magnet=JS_GetPropertyUint32(ctx,magnets,i);put_number(ctx,magnet,"targetSupportForce",target_support);put_number(ctx,magnet,"cargoSupportForce",cargo_support);JS_FreeValue(ctx,magnet);
         }
     }
     free(contacts);JS_SetPropertyStr(ctx,s,"supportForce",support);JS_SetPropertyStr(ctx,s,"selfContactForce",self_contact);
@@ -213,7 +280,7 @@ static int controller_step(Controller *controller,const Physics *p,const Charact
     double dt=controller->last_step<0?1.0/controller->hz:(p->steps-controller->last_step)/60.0;controller->last_step=p->steps;
     JSValue args[]={JS_NewFloat64(ctx,p->steps/60.0),physics_sensors(ctx,p,design,dt),JS_DupValue(ctx,controller->memory),JS_DupValue(ctx,controller->random)};
     JSValue result=JS_Call(ctx,controller->function,JS_UNDEFINED,4,args);for(int i=0;i<4;i++)JS_FreeValue(ctx,args[i]);
-    memset(controls,0,128*sizeof(float));int valid=1;
+    memset(controls,0,128*sizeof(float));int valid=1,radio_kind=-1,radio_cargo=0;
     if(JS_IsString(result)){
         const char *keys=JS_ToCString(ctx,result);if(!keys)valid=0;
         else for(const unsigned char *k=(const unsigned char *)keys;*k;k++){if(!assigned(design,*k)){valid=0;break;}controls[*k]=1;}
@@ -223,7 +290,8 @@ static int controller_step(Controller *controller,const Physics *p,const Charact
         if(JS_GetOwnPropertyNames(ctx,&properties,&count,result,JS_GPN_STRING_MASK|JS_GPN_ENUM_ONLY)<0)valid=0;
         for(uint32_t i=0;i<count;i++){
             const char *key=JS_AtomToCString(ctx,properties[i].atom);JSValue value=JS_GetProperty(ctx,result,properties[i].atom);double level;
-            if(!key||strlen(key)!=1||!assigned(design,(unsigned char)key[0])||!JS_IsNumber(value)||JS_ToFloat64(ctx,&level,value)<0||!isfinite(level)||level<0||level>1)valid=0;
+            if(key&&!strcmp(key,"radio")){if(!radio_output(ctx,value,&radio_kind,&radio_cargo))valid=0;}
+            else if(!key||strlen(key)!=1||!assigned(design,(unsigned char)key[0])||!JS_IsNumber(value)||JS_ToFloat64(ctx,&level,value)<0||!isfinite(level)||level<0||level>1)valid=0;
             else controls[(unsigned char)key[0]]=level;
             JS_FreeCString(ctx,key);JS_FreeValue(ctx,value);JS_FreeAtom(ctx,properties[i].atom);
         }js_free(ctx,properties);
@@ -232,6 +300,7 @@ static int controller_step(Controller *controller,const Physics *p,const Charact
         snprintf(controller->error,sizeof(controller->error),"%s",controller->exhausted?"Controller execution budget exceeded":"Invalid controller output");
         if(JS_IsException(result)){JSValue error=JS_GetException(ctx);const char *text=JS_ToCString(ctx,error);if(text&&!controller->exhausted)snprintf(controller->error,sizeof(controller->error),"%s",text);JS_FreeCString(ctx,text);JS_FreeValue(ctx,error);}
     }
+    if(valid&&radio_kind>=0)radio_send(p,radio_kind,radio_cargo);
     JS_FreeValue(ctx,result);return valid;
 }
 void world_trial_stop(void){controller_free(trial);trial=NULL;memset(trial_controls,0,sizeof(trial_controls));memset(&trial_status,0,sizeof(trial_status));trial_status.cause=-1;}
@@ -372,6 +441,11 @@ int world_cargo_score(int id){
     if(id==world.player)id=-1;int score=0;
     for(int i=0;i<world.delivery_count;i++)score+=world.deliveries[i].carrier==id;return score;
 }
+int world_team_score(int team){
+    int score=0,depot=team==1?2:team==2?3:-1;
+    for(int i=0;i<world.delivery_count;i++)if(world.deliveries[i].depot==depot)score+=world.deliveries[i].points;
+    return score;
+}
 static Delivery *new_delivery(void){
     if(world.delivery_count==world.delivery_capacity){world.delivery_capacity=world.delivery_capacity?world.delivery_capacity*2:16;world.deliveries=array_resize(world.deliveries,world.delivery_capacity,sizeof(Delivery));}
     Delivery *d=&world.deliveries[world.delivery_count++];memset(d,0,sizeof(*d));return d;
@@ -394,6 +468,7 @@ static void cargo_step(void){
         if(!cargo->carrier||depot<0||b3LengthSquared(b3Body_GetLinearVelocity(body))>.16f){cargo->settled=0;continue;}
         cargo->settled+=1.f/60;if(cargo->settled<1)continue;
         Delivery *d=new_delivery();d->cargo=cargo->id;d->carrier=cargo->carrier;d->depot=depot;d->time=world.age;
+        d->points=creature_mass(cargo)>8?8:1;
         Creature *carrier=world_find(cargo->carrier);snprintf(d->name,sizeof(d->name),"%s",cargo->carrier==-1?"You":carrier?carrier->name:"Removed carrier");
         if(!carrier&&cargo->carrier>0)for(int j=0;j<world.removal_count;j++)if(world.removals[j].id==cargo->carrier)snprintf(d->name,sizeof(d->name),"%s",world.removals[j].name);
         cargo->delivered=1;for(int j=0;j<cargo->design.count;j++)cargo->design.blocks[j].color=0;
@@ -405,8 +480,10 @@ JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args){
     int index=world.next_id?world.next_id-1:0,plot=index%256;float angle=plot*2.399963f,radius=5*sqrtf(plot);
     float x=get_number(ctx,args,"x",cosf(angle)*radius),z=get_number(ctx,args,"z",sinf(angle)*radius);
     if(!isfinite(x)||!isfinite(z)||fabsf(x)>WORLD_RADIUS-8||fabsf(z)>WORLD_RADIUS-8)return JS_ThrowRangeError(ctx,"Spawn must be inside the 512 m world; the sea surrounds the central 200 m ground");
+    double team=get_number(ctx,args,"team",0);if(!isfinite(team)||team<0||team>2||team!=floor(team))return JS_ThrowRangeError(ctx,"Team must be 0 (neutral), 1 (East) or 2 (West)");
     Creature *c=spawn(design,installed,installed_name,(uint32_t)get_number(ctx,args,"seed",index+1),installed_hz,x,z);
     if(!c)return JS_ThrowInternalError(ctx,"Controller failed to initialize");
+    c->team=team;
     remember_design(design,installed,installed_name,installed_hz,x,z);
     printf("CREATURE %d born: %s, %d parts\n",c->id,c->name,c->design.count);return JS_NewInt32(ctx,c->id);
 }
@@ -426,6 +503,7 @@ static JSValue delivery_state(JSContext *ctx){
     JSValue list=JS_NewArray(ctx);
     for(int i=0;i<world.delivery_count;i++){Delivery *d=&world.deliveries[i];JSValue item=JS_NewObject(ctx);
         put_number(ctx,item,"cargoId",d->cargo);put_number(ctx,item,"carrierId",d->carrier);put_number(ctx,item,"depot",d->depot);put_number(ctx,item,"time",d->time);
+        put_number(ctx,item,"points",d->points);
         JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,d->name));JS_SetPropertyUint32(ctx,list,i,item);
     }return list;
 }
@@ -433,9 +511,11 @@ JSValue world_state(JSContext *ctx){
     JSValue result=JS_NewObject(ctx),list=JS_NewArray(ctx);put_number(ctx,result,"deaths",world.deaths);put_number(ctx,result,"seconds",world.age);
     put_number(ctx,result,"playerId",world.player);
     put_number(ctx,result,"cargoDelivered",world.delivery_count);put_number(ctx,result,"playerDelivered",world_cargo_score(-1));
+    JSValue scores=JS_NewArray(ctx);for(int team=1;team<=2;team++)JS_SetPropertyUint32(ctx,scores,team-1,JS_NewInt32(ctx,world_team_score(team)));JS_SetPropertyStr(ctx,result,"teamScores",scores);
     JS_SetPropertyStr(ctx,result,"deliveries",delivery_state(ctx));
     JS_SetPropertyStr(ctx,result,"depots",depot_state(ctx));
     JS_SetPropertyStr(ctx,result,"recentRemovals",removal_state(ctx,0));
+    JS_SetPropertyStr(ctx,result,"radio",radio_state(ctx,-1));
     put_number(ctx,result,"terrainVersion",terrain_version);
     JSValue terrain=JS_NewObject(ctx);put_number(ctx,terrain,"radius",WORLD_RADIUS);put_number(ctx,terrain,"waterLevel",WATER_LEVEL);
     JS_SetPropertyStr(ctx,terrain,"harbor",vector(ctx,(Vector3){112,0,20}));JS_SetPropertyStr(ctx,terrain,"seaTrial",vector(ctx,(Vector3){125,-2,10}));
@@ -446,6 +526,7 @@ JSValue world_state(JSContext *ctx){
         put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));put_number(ctx,item,"parts",c->design.count);
         JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));
         put_number(ctx,item,"mass",creature_mass(c));
+        put_number(ctx,item,"team",c->team);
         JS_SetPropertyStr(ctx,item,"cargo",JS_NewBool(ctx,c->cargo));JS_SetPropertyStr(ctx,item,"delivered",JS_NewBool(ctx,c->delivered));put_number(ctx,item,"carrierId",c->carrier);put_number(ctx,item,"carriedBy",c->held_by);put_number(ctx,item,"cargoDelivered",world_cargo_score(c->id));
         if(c->cargo){JS_SetPropertyStr(ctx,item,"pickup",vector(ctx,c->pickup));put_number(ctx,item,"settled",c->settled);}
         JS_SetPropertyStr(ctx,item,"magnets",magnet_state(ctx,&c->physics,&c->design));
@@ -577,7 +658,7 @@ static void load_designs(JSContext *ctx,JSValueConst list,int populate){
             Controller *probe=source&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
             if((probe||(!populate&&!source))&&isfinite(x)&&isfinite(z)&&(!elevated||(isfinite(y)&&y>=-12&&y<=128))){
                 x=Clamp(x,-248,248);z=Clamp(z,-248,248);remember_design(&c,source,name,hz,x,z);
-                if(populate){Creature *born=spawn(&c,source,name,i+1,hz,x,z);if(born&&elevated)set_spawn_height(born,y);}
+                if(populate){Creature *born=spawn(&c,source,name,i+1,hz,x,z);if(born){int team=get_number(ctx,item,"team",0);born->team=team==1||team==2?team:0;if(elevated)set_spawn_height(born,y);}}
             }controller_free(probe);JS_FreeCString(ctx,source);JS_FreeCString(ctx,name);
         }character_clear(&c);JS_FreeValue(ctx,item);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
     }
@@ -615,7 +696,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
         int cargo=get_number(ctx,item,"cargoId",0),carrier=get_number(ctx,item,"carrierId",0),depot=get_number(ctx,item,"depot",-1);double time=get_number(ctx,item,"time",NAN);
         if(cargo>0&&(carrier>0||carrier==-1)&&depot>=0&&depot<depot_count&&isfinite(time)&&JS_IsString(label)){
             int duplicate=0;for(int j=0;j<world.delivery_count;j++)duplicate|=world.deliveries[j].cargo==cargo;
-            if(!duplicate){const char *name=JS_ToCString(ctx,label);Delivery *d=new_delivery();*d=(Delivery){.cargo=cargo,.carrier=carrier,.depot=depot,.time=time};snprintf(d->name,sizeof(d->name),"%s",name);JS_FreeCString(ctx,name);}
+            if(!duplicate){const char *name=JS_ToCString(ctx,label);Delivery *d=new_delivery();*d=(Delivery){.cargo=cargo,.carrier=carrier,.depot=depot,.time=time,.points=get_number(ctx,item,"points",1)};snprintf(d->name,sizeof(d->name),"%s",name);JS_FreeCString(ctx,name);}
         }JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
     }JS_FreeValue(ctx,deliveries);
     int hz=get_number(ctx,save,"installedHz",10);installed_hz=(hz==10||hz==20||hz==30||hz==60)?hz:10;
@@ -630,6 +711,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
             int hz=get_number(ctx,item,"hz",10);if(hz!=10&&hz!=20&&hz!=30&&hz!=60)hz=10;
             Creature *creature=s?spawn(&c,s,name?name:"Creature",get_number(ctx,item,"seed",1),hz,0,0):NULL;
             if(creature){
+                int team=get_number(ctx,item,"team",0);creature->team=team==1||team==2?team:0;
                 JSValue cargo=JS_GetPropertyStr(ctx,item,"cargo");if(JS_IsBool(cargo))creature->cargo=JS_ToBool(ctx,cargo);JS_FreeValue(ctx,cargo);
                 creature->id=get_number(ctx,item,"id",creature->id);creature->physics.steps=llround(get_number(ctx,item,"seconds",0)*60);creature->root_height=get_number(ctx,item,"rootHeight",1);creature->fallen=get_number(ctx,item,"fallenSeconds",0);creature->physics.start.x=get_number(ctx,item,"startX",creature->physics.start.x);creature->physics.start.z=get_number(ctx,item,"startZ",creature->physics.start.z);
                 int period=60/hz,last=creature->physics.steps?(creature->physics.steps-1)/period*period:-1;
@@ -671,6 +753,17 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
         }JS_FreeValue(ctx,magnets);JS_FreeValue(ctx,item);
     }
     world.deaths=get_number(ctx,save,"deaths",0);world.age=get_number(ctx,save,"seconds",0);int next_id=get_number(ctx,save,"nextId",0);if(next_id>0&&!world.next_id)world.physics=physics_world(1);world.next_id=fmax(world.next_id,next_id);
+    JSValue radio=JS_GetPropertyStr(ctx,save,"radio");
+    for(int i=0;JS_IsArray(radio)&&i<get_number(ctx,radio,"length",0)&&world.radio_count<RADIO_CAPACITY;i++){
+        JSValue item=JS_GetPropertyUint32(ctx,radio,i),label=JS_GetPropertyStr(ctx,item,"name");RadioMessage message={0};
+        if(radio_output(ctx,item,&message.kind,&message.cargo)&&JS_IsString(label)){
+            message.team=get_number(ctx,item,"team",0);message.from=get_number(ctx,item,"from",0);message.time=get_number(ctx,item,"time",NAN);message.mass=get_number(ctx,item,"mass",NAN);
+            message.position=(Vector3){get_number(ctx,item,"x",NAN),get_number(ctx,item,"y",NAN),get_number(ctx,item,"z",NAN)};
+            if((message.team==1||message.team==2)&&message.from>0&&isfinite(message.time)&&isfinite(message.mass)&&isfinite(message.position.x)&&isfinite(message.position.y)&&isfinite(message.position.z)){
+                const char *name=JS_ToCString(ctx,label);snprintf(message.name,sizeof(message.name),"%s",name);JS_FreeCString(ctx,name);world.radio[world.radio_count++]=message;
+            }
+        }JS_FreeValue(ctx,item);JS_FreeValue(ctx,label);
+    }JS_FreeValue(ctx,radio);
     int player=get_number(ctx,save,"playerId",0);world.player=world_find(player)?player:0;
     for(int i=0;i<world.count;i++)world.creatures[i].physics.time=world.age;
     for(int i=0;i<world.count;i++)if(world.creatures[i].cargo){
@@ -717,7 +810,7 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
         for(int k=0;k<5;k++)valid=valid&&import_number(ctx,item,fields[k],-FLT_MAX,FLT_MAX,IMPORT_OPTIONAL);
         valid=valid&&import_number(ctx,item,"carrierId",-1,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL)&&import_number(ctx,item,"carriedBy",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL)&&import_number(ctx,item,"controlStep",-1,fmax(-1,round(get_number(ctx,item,"seconds",0)*60)-1),IMPORT_INTEGER|IMPORT_OPTIONAL);
         JSValue poses=JS_GetPropertyStr(ctx,item,"poses"),memory=JS_GetPropertyStr(ctx,item,"memory"),controls=JS_GetPropertyStr(ctx,item,"controls"),pickup=JS_GetPropertyStr(ctx,item,"pickup"),cargo=JS_GetPropertyStr(ctx,item,"cargo");
-        valid=valid&&(JS_IsUndefined(cargo)||JS_IsBool(cargo));JS_FreeValue(ctx,cargo);
+        valid=valid&&(JS_IsUndefined(cargo)||JS_IsBool(cargo))&&import_number(ctx,item,"team",0,2,IMPORT_INTEGER|IMPORT_OPTIONAL);JS_FreeValue(ctx,cargo);
         valid=valid&&JS_IsArray(poses)&&get_number(ctx,poses,"length",0)==c.count&&JS_IsString(memory)&&(JS_IsUndefined(controls)||JS_IsObject(controls))&&(JS_IsUndefined(pickup)||import_vector(ctx,pickup,3,0));
         for(int k=0;valid&&k<c.count;k++){JSValue p=JS_GetPropertyUint32(ctx,poses,k);valid=import_vector(ctx,p,13,1);JS_FreeValue(ctx,p);}
         for(int k=1;valid&&k<128&&!JS_IsUndefined(controls);k++){char key[2]={k,0};valid=import_number(ctx,controls,key,0,1,IMPORT_OPTIONAL);}
@@ -748,9 +841,16 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
         JS_FreeCString(ctx,kind);JS_FreeValue(ctx,cause);JS_FreeValue(ctx,item);
     }
     for(int i=0;valid&&JS_IsArray(deliveries)&&i<get_number(ctx,deliveries,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,deliveries,i);valid=import_string(ctx,item,"name",64)&&import_number(ctx,item,"cargoId",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"carrierId",-1,INT32_MAX-1,IMPORT_INTEGER)&&get_number(ctx,item,"carrierId",0)!=0&&import_number(ctx,item,"depot",0,terrain_depot_count(get_number(ctx,save,"terrainVersion",0))-1,IMPORT_INTEGER)&&import_number(ctx,item,"time",0,DBL_MAX,0);
+        JSValue item=JS_GetPropertyUint32(ctx,deliveries,i);valid=import_string(ctx,item,"name",64)&&import_number(ctx,item,"cargoId",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"carrierId",-1,INT32_MAX-1,IMPORT_INTEGER)&&get_number(ctx,item,"carrierId",0)!=0&&import_number(ctx,item,"depot",0,terrain_depot_count(get_number(ctx,save,"terrainVersion",0))-1,IMPORT_INTEGER)&&import_number(ctx,item,"time",0,DBL_MAX,0)&&import_number(ctx,item,"points",1,8,IMPORT_INTEGER|IMPORT_OPTIONAL);
         int id=valid?get_number(ctx,item,"cargoId",0):0;JSValue prior=JS_GetPropertyUint32(ctx,delivered,id);valid=valid&&JS_IsUndefined(prior);JS_FreeValue(ctx,prior);if(valid){JS_SetPropertyUint32(ctx,delivered,id,JS_TRUE);if(id>greatest)greatest=id;}JS_FreeValue(ctx,item);
     }
+    JSValue radio=JS_GetPropertyStr(ctx,save,"radio");
+    valid=valid&&(JS_IsUndefined(radio)||(JS_IsArray(radio)&&get_number(ctx,radio,"length",0)<=RADIO_CAPACITY));
+    for(int i=0;valid&&JS_IsArray(radio)&&i<get_number(ctx,radio,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,radio,i);int kind,cargo;
+        valid=radio_output(ctx,item,&kind,&cargo)&&import_number(ctx,item,"cargo",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"team",1,2,IMPORT_INTEGER)&&import_number(ctx,item,"from",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"time",0,get_number(ctx,save,"seconds",0),0)&&import_number(ctx,item,"mass",0,FLT_MAX,0)&&import_string(ctx,item,"name",64);
+        const char *coordinates[]={"x","y","z"};for(int j=0;j<3;j++)valid=valid&&import_number(ctx,item,coordinates[j],-FLT_MAX,FLT_MAX,0);JS_FreeValue(ctx,item);
+    }JS_FreeValue(ctx,radio);
     int player=valid?get_number(ctx,save,"playerId",0):0;JSValue found=JS_GetPropertyUint32(ctx,ids,player);valid=valid&&(!player||!JS_IsUndefined(found))&&get_number(ctx,save,"nextId",0)>=greatest+(greatest>0);JS_FreeValue(ctx,found);
     JS_FreeValue(ctx,list);JS_FreeValue(ctx,designs);JS_FreeValue(ctx,removals);JS_FreeValue(ctx,deliveries);JS_FreeValue(ctx,ids);JS_FreeValue(ctx,delivered);return valid;
 }
