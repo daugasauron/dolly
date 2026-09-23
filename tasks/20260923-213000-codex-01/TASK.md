@@ -172,3 +172,30 @@ The packaged integration/reopen check also passed:
 `build/blockwalker-playground-integration4.log` exited 0. Continue longer trials
 with other random seeds and gameplay polish through the requested deadline;
 the main task remains open.
+
+A second random seed (offset 42) contradicted the longer patrol's stability:
+Sidelight fell at 648.75 s after two save/reloads, with zero external character
+contacts. The trace showed a reversal advancing the already leading foot until
+the stance exceeded the gait's reach. Replaying the saved 600-second world
+reproduced the fall at the same time. Changing only the controller to transfer
+weight onto that foot and swing the trailing foot kept all 33 objects alive to
+900 s, with 18 additional qualifying steps, zero aborts, minimum up 0.98467 and
+six replants. Physics, geometry, motor limits and step criteria are unchanged.
+Evidence: `build/blockwalker-replant1.log` and
+`build/blockwalker-replant-proof/{baseline,replant}-{world.json,trace.csv,roam-memory.jsonl,roam-contacts.csv}`.
+The change is in the source catalog; fresh-world and repeated-restart trials
+are still in progress. Same-foot steps during a reversal are intentional;
+alternation diagnostics must not be misreported as uninterrupted alternation.
+
+The fresh seed-42 world now passed 1800 simulation seconds with a new process
+and world reload every 300 seconds: all 33 objects alive, zero removals, 118
+qualifying biped steps (59 per foot), zero aborts, minimum up 0.98497, 18.36 m
+patrol range, twelve replants and nine traffic yields. There were zero external
+biped contacts. Sundial travelled 863.26 m with 21 arrivals/two meetings;
+Skybarge travelled 2324.87 m with 89 arrivals/thirteen meetings. The boats
+travelled 1587.92 and 1695.92 m with minimum up 0.9978 and 0.9972. These are
+distances from one-second physical samples, not claimed progress from the scripts.
+Evidence: `build/blockwalker-replant-long1.log` (exit 0), the six saved worlds,
+traces, memories, contact records and `result.json` in
+`build/blockwalker-replant-long-42/`. The source-only run used
+`build/blockwalker-replant-long.mjs 42` and compiled its physics probe in Dolly.
