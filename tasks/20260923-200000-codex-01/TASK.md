@@ -124,3 +124,13 @@ peak: 3309383680 bytes. `build/blockwalker-memory-restored-hashes.log` exited 0;
 `build/blockwalker-memory-restored-hashes/{restored-files,saved-files,result}.json`
 records both the restored-filesystem and stored-archive checks. Original saves
 and recovery files remain unchanged.
+
+Retaining the cloned `WebAssembly.Memory` object and calling zero-page `grow`
+at pagehide also failed. This experiment refreshed the main isolate's external
+size accounting to 2376335360 bytes without growing the memory. The native
+Chrome reproduction still hit renderer OOM at 05:35:52 JST (3939600 KiB anonymous
+RSS); sampled tree peak was 4042342400 bytes. Evidence:
+`build/session-lifecycle-accounted-memory.log` and
+`build/session-lifecycle-native-accounted-memory/memory.json`. This was a test
+source override only; production contains neither the retained wrapper nor the
+zero-page grow.
