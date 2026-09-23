@@ -155,7 +155,7 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
     surroundings(ctx,s,p,position);
     JS_SetPropertyStr(ctx,s,"contactsReady",JS_NewBool(ctx,p->sampled));
     put_number(ctx,s,"x",position.x);put_number(ctx,s,"y",position.y);put_number(ctx,s,"z",position.z);put_number(ctx,s,"dt",dt);
-    put_number(ctx,s,"ground",p->landscape?terrain_height(position.x,position.z):0);
+    put_number(ctx,s,"ground",p->landscape?terrain_floor(position):0);
     if(p->landscape)put_number(ctx,s,"waterHeight",water_height(position.x,position.z,p->time));
     Vector3 up=Vector3RotateByQuaternion((Vector3){0,1,0},q);put_number(ctx,s,"up",up.y);
     b3Vec3 v=b3Body_GetLinearVelocity(p->parts[0].body),w=b3Body_GetAngularVelocity(p->parts[0].body),gravity=b3World_GetGravity(p->world);
@@ -233,7 +233,7 @@ int world_trial_step(Physics *p,const Character *c){
     else{
         physics_drive(p,c,trial_controls);b3World_Step(p->world,1.f/60,8);physics_sample(p,c);
         Vector3 position;Quaternion rotation;physics_pose(p,c,0,&position,&rotation);up=Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y;
-        cause=physical_failure(c,position,up,trial_status.height,p->landscape?terrain_height(position.x,position.z):0);
+        cause=physical_failure(c,position,up,trial_status.height,p->landscape?terrain_floor(position):0);
         if(!sustained_failure(&trial_status.fallen,p->steps,cause))return 1;
     }
     trial_status.cause=cause;trial_status.steps=p->steps;snprintf(trial_status.detail,sizeof(trial_status.detail),"%s",failure_detail(cause,up,trial->error));
@@ -448,7 +448,7 @@ void world_step(void){
     b3World_Step(world.physics,1.f/60,8);world.age+=1./60;cargo_step();
     for(int i=0;i<world.count;){Creature *c=&world.creatures[i];physics_sample(&c->physics,&c->design);
         Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);float up=Vector3RotateByQuaternion((Vector3){0,1,0},q).y;
-        int cause=physical_failure(&c->design,p,up,c->root_height,terrain_height(p.x,p.z));
+        int cause=physical_failure(&c->design,p,up,c->root_height,terrain_floor(p));
         if(sustained_failure(&c->fallen,c->physics.steps,cause)){
             Removal *r=new_removal();r->id=c->id;r->time=world.age;r->seconds=c->physics.steps/60.0;r->position=p;r->up=up;snprintf(r->name,sizeof(r->name),"%s",c->name);
             r->cause=c->fallen>=100?REMOVAL_CONTROLLER:cause;

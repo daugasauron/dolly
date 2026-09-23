@@ -84,6 +84,12 @@ float terrain_height(float x,float z){
         if(!b.overhang&&fabsf(x-b.center.x)<=b.half.x&&fabsf(z-b.center.z)<=b.half.z)height=fmaxf(height,b.center.y+b.half.y);
     }return height;
 }
+float terrain_floor(Vector3 position){
+    float height=-100;
+    for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_boxes[i];
+        if(b.center.y-b.half.y<=position.y&&fabsf(position.x-b.center.x)<=b.half.x&&fabsf(position.z-b.center.z)<=b.half.z)height=fmaxf(height,b.center.y+b.half.y);
+    }return height;
+}
 float water_height(float x,float z,double time){
     return WATER_LEVEL+.10f*sinf(x*.22f+z*.13f-time*1.3)+.06f*sinf(z*.31f-x*.09f+time*.9);
 }
@@ -107,7 +113,7 @@ static void water_body(PhysicsPart *part,Block block,double time){
     for(int sample=0;sample<8;sample++){
         b3Vec3 local={(sample&1?.5f:-.5f)*half.x,(sample&2?.5f:-.5f)*half.y,(sample&4?.5f:-.5f)*half.z};
         b3Pos point=b3TransformWorldPoint(transform,local);float surface=water_height(point.x,point.z,time);
-        if(terrain_height(point.x,point.z)>=surface)continue;
+        if(terrain_floor((Vector3){point.x,surface,point.z})>=surface)continue;
         float submerged=Clamp(.5f+(surface-point.y)/slice_height,0,1),displaced=volume*submerged/8;
         part->submerged+=submerged/8;if(displaced==0)continue;
         b3Vec3 velocity=b3Body_GetWorldPointVelocity(part->body,point);

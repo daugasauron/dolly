@@ -11,7 +11,7 @@ Current work, recovery archives and owned service processes are recorded in
 Recheck processes before stopping anything; other worktrees and previews belong
 to other agents.
 
-The 9099 preview has 45 objects: Tidegate is archived, five lookouts roam the
+The 9099 preview has 49 objects: Tidegate is archived, five lookouts roam the
 yard/islands, a hydraulic porter delivers crates, three small skiffs explore the
 coasts, and Harbor Atlas salvages floating cargo. A low-flying courier pushed an
 eastern lookout off the island in the first longer trial. Postbird now climbs
@@ -28,13 +28,22 @@ resumed within 0.417 s, and a fresh 600 s run completed 40 transfers across a
 restart. This fix is packaged on 9099; driving and embedded exact-restore checks
 passed. See the closed [gantry issue](../tasks/20260924-030000-codex-01/TASK.md).
 
+Tsubame, a 19-part harbor tug, now tows floating crates to Harbor Atlas for
+physical handoffs. Its isolated trial delivered three; the full 49-object world
+survived 600 s and three reloads, with two handoffs and seven total deliveries.
+Twinspire carried the third new crate beyond the tug's search area; it remains
+afloat. Cargo beneath piers now stays buoyant, with deck/roof support and actual
+burial still checked. See the closed [water issue](../tasks/20260924-035500-codex-01/TASK.md).
+The packaged integration and actual 9099 preview checks passed; six view samples
+measured 50.57–52.35 FPS locally. Evidence: `build/blockwalker-tug-{integration1,preview1}.log`.
+
 The visible browser Save button keeps the latest written checkpoint and links
 to named sessions. Manual/programmed design and complete world import/export
 remain available. Recovery-world import preserved all 51 creatures and 78
 programs from the original learned session; its archive is unchanged. Streaming
-capture now saves that complete history, and closing/reopening the copied session
-restores every archived file hash except the intentional Pi pause setting. Peak
-test-tree memory was 3.08 GiB. Immediate same-tab refresh still exceeds the 4 GiB
+capture now saves that complete history with matching archived file hashes except
+the intentional Pi pause setting. Closing/reopening the copied session restores
+the 51-object world; peak test-tree memory was 3.08 GiB. Immediate same-tab refresh still exceeds the 4 GiB
 bound during boot, so the [memory issue](../tasks/20260923-200000-codex-01/TASK.md)
 remains open. Do not begin the separate Lua/YAML migration here.
 

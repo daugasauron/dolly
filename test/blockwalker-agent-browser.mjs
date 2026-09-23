@@ -41,7 +41,7 @@ try {
   assert.ok(fresh.creatures.some(c=>!c.anchored&&Math.abs(c.startX)>100&&c.y>-2&&c.y<0&&c.up>.8&&c.distance>1),'bundled boat floats and travels');
   const carriers=fresh.creatures.filter(c=>c.blueprint.some(p=>p.joint===5)),held=new Set(),cargoLow=new Map(fresh.creatures.filter(c=>c.name==='Cargo').map(c=>[c.id,Math.min(c.pickup[1],...samples.map(w=>w.creatures.find(b=>b.id===c.id).y))]));assert.equal(carriers.length,examples.filter(d=>d.blueprint.some(p=>p.joint===5)).length);
   for(const carrier of carriers){
-   assert.ok(samples.some(w=>w.creatures.find(c=>c.id===carrier.id).magnets.some(m=>{const cargo=m?.attached&&w.creatures.find(c=>c.id===m.creature);if(cargo&&cargo.y>cargoLow.get(cargo.id)+.7){held.add(cargo.id);return true;}return false;})),carrier.name+' lifts its crate above its pickup height');
+   assert.ok(samples.some(w=>w.creatures.find(c=>c.id===carrier.id).magnets.some(m=>{const cargo=m?.attached&&w.creatures.find(c=>c.id===m.creature);if(cargo&&(cargo.y>cargoLow.get(cargo.id)+.7||cargo.distance>2)){held.add(cargo.id);return true;}return false;})),carrier.name+' physically carries its crate');
   }
   assert.equal(held.size,carriers.length,'the machines handle distinct world bodies');
   const courier=carriers.find(c=>c.blueprint.some(p=>p.joint===3)),crate=fresh.creatures.find(c=>c.name==='Cargo'&&c.startX===courier.startX&&c.startZ===courier.startZ);

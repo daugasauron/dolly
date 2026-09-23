@@ -5,6 +5,26 @@ static void ticks(int n){for(int i=0;i<n;i++)world_step();}
 static float cargo_z(int id){return b3Body_GetPosition(world_find(id)->physics.parts[0].body).z;}
 static void motor(int id,float throttle){Creature *c=world_find(id);vehicle_controls(&c->design,c->controls,throttle,0);}
 static void magnet(int id,int powered){Creature *c=world_find(id);c->physics.parts[8].magnet_power=powered;}
+static void check_pier_water(JSContext *ctx){
+    int ids[]={world_drop_cargo(106,-1.75f,10,MATERIAL_HULL),world_drop_cargo(125,-1.75f,10,MATERIAL_HULL),world_drop_cargo(106,.65f,10,MATERIAL_ALLOY),world_drop_cargo(164,4.65f,40,MATERIAL_ALLOY),world_drop_cargo(164,22,40,MATERIAL_ALLOY)};
+    const char *names[]={"covered","open","deck","under beam","roof"};float floors[]={-12,-12,0,4,19};
+    for(int step=0;step<3600;step++){
+        if(step==1800){world_save(ctx);world_close();world_load(ctx);}
+        world_step();assert(world.count==5&&world.deaths==0);
+    }
+    for(int i=0;i<5;i++){
+        Creature *c=world_find(ids[i]);b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);JSValue sensors=physics_sensors(ctx,&c->physics,&c->design,.1);
+        double ground=get_number(ctx,sensors,"ground",NAN);JS_FreeValue(ctx,sensors);
+        assert(ground==floors[i]);
+        if(i>=2){assert(fabsf(p.y-floors[i]-.485f)<.02f);}
+        else{assert(p.y>WATER_LEVEL-.4f&&p.y<WATER_LEVEL+.6f);}
+        printf("PIER WATER: %s cargo y %.4f, ground %.1f after 60 s and restart\n",names[i],p.y,ground);
+    }
+    Character *box=&world_find(ids[0])->design;Vector3 buried={0,-1,0},sunk={125,-6,10};
+    assert(physical_failure(box,buried,1,.5f,terrain_floor(buried))==REMOVAL_TERRAIN);
+    assert(physical_failure(box,sunk,1,.5f,terrain_floor(sunk))==REMOVAL_SUNK);
+    world_close();
+}
 static void check_resume(JSContext *ctx){
     Character rig={0};character_add(&rig,-1,0,0,0,BLOCK_BOX,0);character_add(&rig,0,0,1,0,BLOCK_HINGE,1);rig.blocks[1].axis=1;rig.anchored=1;
     const char *source="function(t,s,m){m.calls=(m.calls||0)+1;m.angle=s.angles[1];m.rate=s.rates[1];m.time=t;m.dt=s.dt;m.ready=s.contactsReady;return {A:.3};}";
@@ -98,6 +118,25 @@ static void check_gantry(JSContext *ctx){
     printf("GANTRY: %d set-downs, %d airborne / %d supported samples, last release %.3f seconds before end, across restart\n",releases,airborne,supported,world.age-last);
     assert(releases>15&&airborne>100&&supported>40&&world.age-last<40);world_close();
 }
+static void check_harbor_tug(JSContext *ctx){
+    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        if(name&&!strncmp(name,"Harbor Atlas /",14))JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));
+        if(name&&!strncmp(name,"Tsubame /",9))JS_SetPropertyUint32(ctx,selected,1,JS_DupValue(ctx,item));
+        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+    }
+    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==2);
+    int crane=world.creatures[0].id,tug=world.creatures[1].id,cargo=world_drop_cargo(121,-1,53,MATERIAL_HULL),towed=0,lifted=0;
+    for(int tick=0;tick<140*60&&!world.delivery_count;tick++){
+        if(tick==30*60){assert(world_find(cargo)->held_by==tug);world_save(ctx);world_close();world_load(ctx);assert(world_find(cargo)->held_by==tug);}
+        world_step();assert(world.count==3&&world.deaths==0);Creature *box=world_find(cargo);
+        if(box->held_by==tug)towed=1;if(box->held_by==crane){assert(towed);lifted=1;}
+    }
+    assert(towed&&lifted&&world.delivery_count==1&&world_find(cargo)->delivered&&world_cargo_score(crane)==1);
+    assert(world.deliveries[0].cargo==cargo&&world.deliveries[0].depot==1);
+    printf("HARBOR: tug carried cargo across restart, crane accepted and delivered it at %.3f s\n",world.age);world_close();
+}
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);Character car={0};character_car(&car);
     Creature *driver=spawn(&car,"function(){return ''}","Your character",1,60,0,12);int id=driver->id;world.player=id;
@@ -133,5 +172,5 @@ int main(void){
     assert(cargo_z(cargo)>start+4&&world_find(cargo)->carrier==-1&&world.delivery_count==0);
     assert(world_find(cargo)->held_by==id);world_save(ctx);world_close();world_load(ctx);
     assert(world_find(cargo)->held_by==id&&world_find(cargo)->carrier==-1);ticks(30);assert(world_find(cargo)->held_by==id);
-    world_close();character_clear(&car);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_gantry(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_gantry(ctx);check_harbor_tug(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

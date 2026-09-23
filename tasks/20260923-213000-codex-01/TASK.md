@@ -74,7 +74,7 @@ of the stuck world resumed in 0.417 s and completed nine set-downs in 120 s;
 the fresh regression completed 40 in 600 s across a restart. All original world
 objects survived the replay.
 
-Current package: 232123849 bytes, SHA-256
+Previous package: 232123849 bytes, SHA-256
 `428c9b2e84af3213bd10df32616684d5409f6792214babe4a8b592c0b6dd2160`;
 source SHA-256 `ed6a354d9e8a70269692b355005e28c8d4f153f1e87646a0d0aacf0b475586a7`.
 The runtime is unchanged, build time 23.6 s
@@ -82,6 +82,33 @@ The runtime is unchanged, build time 23.6 s
 embedded/restore checks passed in `build/blockwalker-gantry-driver2.log` and
 `build/blockwalker-gantry-integration2.log`. The 9099 metadata matches the built
 image. The learned world and its history remain untouched.
+
+The catalog now has 49 objects / 1191 parts / 30 designs. Tsubame is a small
+19-part harbor tug with differential jets, Eyes and a bow magnet. It finds
+floating cargo, tows it to Harbor Atlas, releases it within the crane's reach
+and backs away for the handoff. Three new floating crates provide real jobs.
+An isolated 600 s trial delivered all three (90.917, 251.017 and 418.017 s);
+the tug travelled 346.89 m with minimum up 0.98981. In the full population,
+600 s and three reloads retained all 49 objects, with seven total deliveries
+and two tug-to-crane handoffs. Twinspire carried the third crate farther out
+on its deck; it remains afloat beyond the tug's current search area.
+Evidence: `build/blockwalker-tug-{4,full-42}/` and matching logs. The pier-water
+bug exposed by this work is fixed in `20260924-035500-codex-01`.
+
+Current package: 232133388 bytes, SHA-256
+`43d624adadf24b7752d360e6c9ab02df210f55f778ab4b7bc0a0c1061db9ede4`;
+source SHA-256 `1cfab38eb64673f14b6ebb57c6cbe76f73740fb8c545859a5b2af76ca18b7196`.
+The runtime is unchanged; rebuilding took 23.4 s
+(`build/blockwalker-playground-image11.log`). Source driving/physics checks
+passed in `build/blockwalker-tug-driver1.log`, including a loaded tug restart,
+actual crane takeover and credited delivery at 91.417 s.
+The packaged population/embedded/restore check passed in
+`build/blockwalker-tug-integration1.log`. A fresh visit to the actual 9099 preview
+confirmed all catalog controllers, driving, Eyes/follow and zero browser errors
+(`build/blockwalker-tug-preview1.log`). Six five-second view samples measured
+50.57–52.35 FPS on this machine; these are local samples, not a cross-device
+performance claim. Screenshots and the 50-object world (including the player)
+are in `build/blockwalker-tug-preview/`.
 
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate
