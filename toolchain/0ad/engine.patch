@@ -392,6 +392,194 @@
  	// Don't allow people to run the game with root permissions,
  	//	because bad things can happen, check before we do anything
  	if (geteuid() == 0)
+--- a/source/network/NetClient.cpp
++++ b/source/network/NetClient.cpp
+@@ -31,6 +31,9 @@
+ #include "network/NetMessage.h"
+ #include "network/NetProtocol.h"
+ #include "network/NetSession.h"
++#ifdef DOLLY
++#include "network/NetServer.h"
++#endif
+ #include "network/StunClient.h"
+ #include "ps/CLogger.h"
+ #include "ps/CStr.h"
+@@ -184,8 +187,10 @@
+ 	CNetClientSession* session = new CNetClientSession(*this);
+ 	bool ok = session->Connect(m_ServerAddress, m_ServerPort, enetClient);
+ 	SetAndOwnSession(session);
++#ifndef DOLLY
+ 	if (ok)
+ 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
++#endif
+ 	return ok;
+ }
+ 
+@@ -324,10 +329,14 @@
+ 	if (m_Session)
+ 		m_Session->Shutdown();
+ 
++#ifdef DOLLY
++	delete m_Session;
++#else
+ 	if (m_PollingThread.joinable())
+ 		// Use detach() over join() because we don't want to wait for the session
+ 		// (which may be polling or trying to send messages).
+ 		m_PollingThread.detach();
++#endif
+ 
+ 	// The polling thread will cleanup the session on its own,
+ 	// mark it as nullptr here so we know we're done using it.
+@@ -336,6 +345,12 @@
+ 
+ void CNetClient::Poll()
+ {
++#ifdef DOLLY
++	if (g_NetServer)
++		g_NetServer->Poll();
++	if (m_Session)
++		m_Session->PollOnce();
++#endif
+ 	if (!m_Session)
+ 		return;
+ 
+--- a/source/network/NetServer.cpp
++++ b/source/network/NetServer.cpp
+@@ -87,7 +87,11 @@
+  * Smaller numbers may hurt performance; larger numbers will
+  * hurt latency responding to messages from game thread.
+  */
++#ifdef DOLLY
++static const int HOST_SERVICE_TIMEOUT = 0;
++#else
+ static const int HOST_SERVICE_TIMEOUT = 50;
++#endif
+ 
+ /**
+  * Once ping goes above turn length * command delay,
+@@ -139,7 +143,12 @@
+ 		}
+ 
+ 		// Wait for it to shut down cleanly
++#ifdef DOLLY
++		m_SavedCommands.clear();
++		SAFE_DELETE(m_ScriptInterface);
++#else
+ 		m_WorkerThread.join();
++#endif
+ 	}
+ 
+ #if CONFIG2_MINIUPNPC
+@@ -206,7 +215,13 @@
+ 	m_State = SERVER_STATE_PREGAME;
+ 
+ 	// Launch the worker thread
++#ifdef DOLLY
++	auto context = ScriptContext::CreateContext();
++	m_ScriptInterface = new ScriptInterface("Engine", "Net server", context);
++	m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
++#else
+ 	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
++#endif
+ 
+ #if CONFIG2_MINIUPNPC
+ 	// Launch the UPnP thread
+@@ -402,6 +417,18 @@
+ 	return ok;
+ }
+ 
++#ifdef DOLLY
++void CNetServerWorker::Poll()
++{
++	if (m_Shutdown || !m_ScriptInterface)
++		return;
++	if (RunStep())
++		m_Stats->LatchHostState(m_Host);
++	else
++		m_Shutdown = true;
++}
++#endif
++
+ void CNetServerWorker::RunThread(CNetServerWorker* data)
+ {
+ 	debug_SetThreadName("NetServer");
+@@ -1714,6 +1741,10 @@
+ 	delete m_Worker;
+ }
+ 
++#ifdef DOLLY
++void CNetServer::Poll() { m_Worker->Poll(); }
++#endif
++
+ bool CNetServer::UseLobbyAuth() const
+ {
+ 	return m_LobbyAuth;
+--- a/source/network/NetServer.h
++++ b/source/network/NetServer.h
+@@ -121,6 +121,9 @@
+ 	 * @return true on success, false on error (e.g. port already in use)
+ 	 */
+ 	bool SetupConnection(const u16 port);
++#ifdef DOLLY
++	void Poll();
++#endif
+ 
+ 	/**
+ 	 * Call from the GUI to asynchronously notify all clients that they should start loading the game.
+@@ -244,6 +247,9 @@
+ 	 * @return true on success, false on error (e.g. port already in use)
+ 	 */
+ 	bool SetupConnection(const u16 port);
++#ifdef DOLLY
++	void Poll();
++#endif
+ 
+ 	/**
+ 	 * The given GUID will be (re)assigned to the given player ID.
+--- a/source/network/NetSession.cpp
++++ b/source/network/NetSession.cpp
+@@ -31,7 +31,11 @@
+ 
+ #include <cstddef>
+ 
++#ifdef DOLLY
++constexpr int NETCLIENT_POLL_TIMEOUT = 0;
++#else
+ constexpr int NETCLIENT_POLL_TIMEOUT = 50;
++#endif
+ 
+ constexpr int CHANNEL_COUNT = 1;
+ 
+@@ -91,6 +95,17 @@
+ 
+ 	return true;
+ }
++
++#ifdef DOLLY
++void CNetClientSession::PollOnce()
++{
++	m_FileTransferer.Poll();
++	Poll();
++	Flush();
++	m_LastReceivedTime = enet_time_get() - m_Server->lastReceiveTime;
++	m_MeanRTT = m_Server->roundTripTime;
++}
++#endif
+ 
+ void CNetClientSession::RunNetLoop(CNetClientSession* session)
+ {
+--- a/source/network/NetSession.h
++++ b/source/network/NetSession.h
+@@ -90,6 +90,9 @@
+ 	 * Processes pending messages.
+ 	 */
+ 	void ProcessPolledMessages();
++#ifdef DOLLY
++	void PollOnce();
++#endif
+ 
+ 	/**
+ 	 * Queue up a message to send to the server on the next Loop() call.
 --- a/source/ps/CLogger.cpp
 +++ b/source/ps/CLogger.cpp
 @@ -213,7 +213,7 @@

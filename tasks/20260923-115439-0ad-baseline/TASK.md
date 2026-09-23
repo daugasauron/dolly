@@ -279,3 +279,32 @@ The headless regression also passes: replay hashes remain
 and the AI economy/fresh-process save test takes 19,999 ms. Evidence:
 `.cache/0ad/browser-engine-audio-test.log`.
 Restricted multiplayer and final distribution remain outstanding.
+
+2026-09-24: Upstream ENet now runs through a bounded room relay using Dolly's
+existing HTTP broker. Its Wasm platform backend replaces native sockets while
+retaining reliable packets and fragmentation. The real game server/client pump
+serially; no network worker threads or browser imports were added. The relay
+assigns participant addresses and confines routes to its pre-created room, with
+fixed datagram/queue/socket/request bounds and idle lease expiry.
+
+`test/0ad-enet-browser.mjs` passes two fresh 10 KB fragmented reliable echoes
+and rejects another participant's capability at the browser boundary. Relay
+source tests verify routing, stale/cross-participant leases, FIFO data copies,
+queue/socket/request quotas and abandoned-lease expiry. Two real headless game
+instances finish the official combat scenario: statuses `[0,0]`, 149 identical
+turn hashes, final `f3dd66c38dd8ab65aafdbdfe020a56d9`, matching winner metadata,
+zero engine warnings/errors, zero remaining sockets and working shells.
+The 29.8-second simulation took 72,290 ms; peak browser process-tree memory was
+1,852,792,832 bytes under the 4 GiB limit. Synchronous HTTP polling remains a
+performance limitation. One intermediate run exceeded the original 90-second
+test deadline near turn 142; the checked test now allows 150 seconds.
+
+Evidence: `.cache/0ad/browser-{enet,multiplayer}-test.log` and
+`browser/multiplayer-{1,2}{.log,.html,-replay.txt,-metadata.json}`.
+`docs/sources.md` covers explicit endpoint setup and baseline limits: no lobby,
+STUN/LAN discovery, native-peer transport or verified rejoin. All 40 patched
+engine files reconstruct exactly from the verified pristine release archive.
+Engine: 22,985,836 bytes, SHA-256
+`1b0c7735c10b418adffe807feb810179583c05d548b0a745a21461243d259d9e`.
+Content hashes remain those of the audio milestone. Final image packaging and
+verification remain outstanding.

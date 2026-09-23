@@ -198,6 +198,20 @@ requests, and forwards only the fixed Codex inference endpoint without redirects
 Only this relay reads the local subscription login; it exposes no filesystem or
 process operations. Granting its capability permits spending that account's quota.
 
+The experimental 0 A.D. relay (`toolchain/0ad/relay.mjs`) is an explicit HTTP
+destination through the existing broker. It routes datagrams only between 2–8
+pre-created participant capabilities; it cannot contact external UDP/TCP hosts.
+Each participant has eight socket leases, each with at most 64 datagrams and
+65,536 queued bytes; datagrams are at most 4,096 bytes, requests at most 4,120
+bytes, and admission is capped at 1,000 requests/second/participant. The relay
+assigns sender addresses, scopes leases to the participant, never reuses lease
+IDs and prunes 60-second idle leases on the next request. Its CLI binds loopback
+and grants CORS to one configured browser origin. Capability URLs authorize room
+participation; restrict the browser's POST policy to each participant's exact
+URL. The Wasm ENet adapter adds no browser import, socket or ambient fetch.
+Game code, simulation and files remain in Wasm; this separate service stores
+only bounded transport queues and lease metadata.
+
 ClassiCube's shared room (`src/classicube/agent/room.mjs`) and clients exchange
 Classic packets through private files in the Wasm filesystem. The socket wrapper
 in `src/classicube/platform.c` recognizes only its local room marker and has no

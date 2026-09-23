@@ -216,8 +216,41 @@ JIT, and heap-backed fixed-address pools. SDL uses Dolly's existing backend;
 curl uses its restrictable HTTP broker. Browser checks exercise real simulation,
 serialization, deterministic replay, save/load, guest pipes and process
 interruption/recovery, plus house construction, training, gathering and Petra AI.
-Graphical content is available separately; multiplayer remains under development in
+Graphical content and restricted multiplayer are covered below; measurements are in
 [`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
+
+Multiplayer retains upstream ENet 1.3.18 reliability/fragmentation and replaces
+its native socket backend with `enet-dolly.c`, above the existing HTTP ABI.
+The guest supplies `DOLLY_ENET_RELAY`; the browser policy must allow POST to that
+exact capability URL. `node toolchain/0ad/relay.mjs 8090 BROWSER_ORIGIN` starts a
+loopback relay and prints two participant URLs and logical addresses. Each
+participant gets only its own URL. Start the host with
+`-autostart=scenarios/combat_demo -autostart-host -autostart-host-players=2`
+and the other participant with `-autostart-client=10.0.0.1`; give them distinct
+`-autostart-playername` values. Add `-autostart-nonvisual -nosound -quickstart`
+for the verified headless match. These are normal upstream network game paths;
+`-dolly-control` remains an offline interface.
+
+The server and client pumps run serially in Wasm. The relay routes only bounded
+datagrams within its pre-created room, with no native UDP/TCP forwarding or
+arbitrary destination access. Ports and sender addresses are assigned by the
+relay; eight socket leases per participant expire after 60 seconds idle, pruned
+on the next request. A room supports 2–8 participants; two are browser-tested.
+Lobby, STUN, LAN discovery, native-client interoperability and network rejoin
+are outside this baseline. Remote deployment requires an explicitly configured
+HTTPS relay endpoint; the supplied CLI binds loopback only. Synchronous HTTP
+polling is slow: the 29.8-second combat match took 72.3 seconds on the test host.
+Both peers recorded all 149 identical turn hashes and the same winner, exited
+normally with no engine warnings/errors, and released every relay socket.
+
+`node --test test/0ad-relay.test.mjs` checks routing and quotas.
+`test/0ad-enet-browser.mjs` checks reliable fragmented 10 KB echoes, fresh socket
+reuse and browser denial of another participant's URL. Link its fixture after
+`enet.sh` using `bash toolchain/0ad/link.sh build/0ad/enet-check.wasm
+.cache/0ad/enet-check.o .cache/0ad/sysroot/lib/static/libenet.a`.
+`systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node
+test/0ad-multiplayer-browser.mjs` exercises the two real engines with the GPU
+disabled. The measured process-tree peak was 1,852,792,832 bytes.
 
 OpenAL Soft 1.24.3 is checksum-pinned in `dependencies.tsv`. Its loopback mixer
 runs serially: `openal.patch` polls its event queue after rendering and replaces
