@@ -91,11 +91,11 @@ An isolated 600 s trial delivered all three (90.917, 251.017 and 418.017 s);
 the tug travelled 346.89 m with minimum up 0.98981. In the full population,
 600 s and three reloads retained all 49 objects, with seven total deliveries
 and two tug-to-crane handoffs. Twinspire carried the third crate farther out
-on its deck; it remains afloat beyond the tug's current search area.
+by contact; it remains afloat beyond the tug's current search area.
 Evidence: `build/blockwalker-tug-{4,full-42}/` and matching logs. The pier-water
 bug exposed by this work is fixed in `20260924-035500-codex-01`.
 
-Current package: 232133388 bytes, SHA-256
+Previous package: 232133388 bytes, SHA-256
 `43d624adadf24b7752d360e6c9ab02df210f55f778ab4b7bc0a0c1061db9ede4`;
 source SHA-256 `1cfab38eb64673f14b6ebb57c6cbe76f73740fb8c545859a5b2af76ca18b7196`.
 The runtime is unchanged; rebuilding took 23.4 s
@@ -109,6 +109,36 @@ confirmed all catalog controllers, driving, Eyes/follow and zero browser errors
 50.57–52.35 FPS on this machine; these are local samples, not a cross-device
 performance claim. Screenshots and the 50-object world (including the player)
 are in `build/blockwalker-tug-preview/`.
+
+All 34 characters now have Eyes, converted from existing ordinary blocks with
+unchanged geometry and material. The population remains 49 objects / 1191 parts.
+Click a character and press Backslash to watch from its physical Eyes while its
+program keeps running; WASD leaves the view. The packaged Chrome check measured
+13 body-relative camera samples across Sidelight, Komame and Tsubame, verified
+continuing simulation and movement, and exercised switching and no-Eyes fallback.
+Evidence: `build/blockwalker-spectator-packaged1.log` and
+`build/blockwalker-spectator/`. Driving/physics regression also passed:
+10.677 m of keyboard driving, 74 Eyes samples and actual pickup, plus the
+existing physical scoring, turntable, restart, water and crane checks
+(`build/blockwalker-spectator-driver1.log`).
+
+Twinspire's avoidance now includes loose cargo. In a fresh seed-42 run, all 49
+objects survived 600 simulation seconds and three reloads, with eight deliveries
+and all three tug-to-crane handoffs. The tug travelled 328.14 m with minimum up
+0.98981. Merely widening the tug's search rectangle did not recover a crate being
+pushed away by Twinspire, so that prototype was discarded. Evidence:
+`build/blockwalker-tug-cargo-avoidance-42/` and matching log. Distances are measured
+from physical poses, not controller counters.
+
+Current local package: 232135241 bytes, SHA-256
+`5684ed4bcd2303127143c7280bc6a523bf5a2cc9727b656da58bb61c6073d31c`;
+source SHA-256 `50cd82151643ef0bfcf01ca535c5b335ce681db92db103a95118e0e2be378ccc`.
+Build time was 23.5 s with the unchanged runtime
+(`build/blockwalker-playground-image12.log`). Actual 9099 preview verification
+passed controller/catalog comparison, driving and six world views, with no
+browser errors. Five-second view samples measured 50.15–55.77 FPS on this machine
+(`build/blockwalker-spectator-preview1.log`); no cross-device performance claim.
+The original learned session remains untouched.
 
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate

@@ -26,7 +26,7 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | World / workshop | World button |
 | Enter your character | Drive in world; Escape returns to the workshop |
 | Drive the starter car | WASD; E powers its magnet, Q releases cargo |
-| Eyes / outside camera | Backslash while driving |
+| Eyes / outside camera | Backslash while driving or following a character |
 | Keep / reopen a design | Design library → Save current / Open; a controller is optional |
 | Share a design | Workshop Export / Import, including its controller |
 | Restore a population | World → Export world / Import world |
@@ -54,7 +54,8 @@ release them to brake. Highlighted keys and joint angles show the response.
 
 When viewing the world, WASD moves the camera horizontally, Q/E lowers/raises it, and
 Shift moves faster. Right-drag or Alt-drag orbits; scroll zooms; H returns home.
-Click a creature's name to visit it. World and workshop cameras retain separate
+Click a creature's name to visit it; Backslash switches to its Eyes while its
+program keeps running. WASD leaves the ride-along view. World and workshop cameras retain separate
 positions when switching views. Typing a Pi prompt does not move the camera.
 Pi's camera tool can also target explicit x/y/z coordinates.
 The world sidebar jumps to the harbor, three islands or the whole map. Page
@@ -140,7 +141,7 @@ the population, so exporting the world also preserves its designs.
 The initial layout can place several copies of one design. Each has its own
 world identity, physics and controller state while sharing one library entry.
 
-A fresh image has 45 objects / 1169 parts from 29 designs: the learned patrol
+A fresh image has 49 objects / 1191 parts from 30 designs: the learned patrol
 biped, larger walkers, balance surveyor, aircraft and cargo machinery, plus
 small roaming lookouts, a hydraulic yard porter and channel skiffs. Nineteen
 earlier experiments, including the retired drawbridge, are available only through
@@ -154,14 +155,18 @@ stance when traffic or a terrain edge blocks its next step. Five Komame lookouts
 roam the yard and three islands, turning their physical Eyes heads toward other
 characters. Mochi lifts loose crates with its piston and magnet, drives them to
 the Works yard depot, then searches for more. Harbor Atlas salvages floating
-cargo into the harbor depot with its magnetic head. Three small Minamo skiffs
-and the larger patrol boats choose water routes around the coasts.
+cargo into the harbor depot with its magnetic head. Tsubame tows floating crates
+to the crane, releases them within reach and backs away for the handoff.
+Three small Minamo skiffs and the larger patrol boats choose water routes around
+the coasts. Twinspire steers around loose cargo to leave it available for salvage.
+All 34 characters have Eyes; loose cargo uses the outside camera.
 Controllers run without Pi or model access.
 Existing saves keep their population, including an empty world.
 The East landing site, West reactor and North signal station have matching
 physics and GPU geometry, with matte panels, lit markers and solar-cell surfaces.
 Overhead structures collide with bodies while leaving the ground beneath them
-available for walking; the `ground` sensor reports the base terrain there.
+available for walking; the `ground` sensor reports the highest surface below
+the character, ignoring overhead boxes. Cargo stays buoyant under piers.
 Opening one restores both its body and program; water examples select sea trials.
 Play program runs the controller continuously without starting Pi. Stop program
 or backtick returns the joints to your keys. Pi can use `design_library` and
@@ -309,6 +314,9 @@ image. The import check optionally accepts an older world file as a third argume
 `test/blockwalker-driver-browser.mjs` verifies driving, the Eyes camera, a tilted
 turntable and physical cargo delivery with save/reload and one-time credit. Pass
 a source tar path to compile an edited source tree inside the existing image.
+`test/blockwalker-spectator-browser.mjs` checks ride-along Eyes against actual
+block poses while character programs continue, camera switching and leaving
+the view with WASD. It also accepts a source tar for compilation in Dolly.
 `test/blockwalker-session-browser.mjs` checks the visible browser save workflow,
 real refresh restoration, modal input isolation and retention after storage failure.
 `test/blockwalker-agent-browser.mjs` checks direct C calls, actual GPU PNGs,

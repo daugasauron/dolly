@@ -79,7 +79,7 @@ static void remember(void){if(undo_count==32){character_clear(&undo[0]);memmove(
 static void changed(void){dirty=1;if(!character_save(&design,"/workspace/blockwalker.character"))say("Could not save the working blueprint. Use Export to keep a copy.");}
 static void undo_edit(void){if(undo_count){character_clear(&design);design=undo[--undo_count];undo[undo_count]=(Character){0};selected=design.count?design.count-1:-1;binding=-1;changed();say("Undid the last edit.");}}
 static void home_camera(void){
-    if(world_view){world_follow=0;orbit=(Orbit){.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=30};orbit_update(&orbit);return;}
+    if(world_view){world_follow=eye_view=0;orbit=(Orbit){.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=30};orbit_update(&orbit);return;}
     Vector3 target={0,0,0};for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);target=Vector3Add(target,p);}
     orbit.target=design.count?Vector3Scale(target,1.f/design.count):(Vector3){0,1,0};
     float extent=1;for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);extent=fmaxf(extent,Vector3Distance(orbit.target,p));}
@@ -90,13 +90,14 @@ static void set_world_view(int enabled){
     if(!enabled){piloting=eye_view=0;world_follow=0;}
     if(world_view){world_orbit=orbit;orbit=workshop_orbit;}else{workshop_orbit=orbit;orbit=world_orbit;}
     world_view=enabled;orbit_update(&orbit);memset(keys,0,sizeof(keys));dirty=1;
+    if(enabled)say("Click a character to follow. Backslash switches to its Eyes. WASD leaves the view.");
 }
 static void move_camera(float dt){
     if(!world_view||prompt_focus||piloting)return;
     float forward=keys['W']-keys['S'],right=keys['D']-keys['A'],up=keys['E']-keys['Q'];
     Vector3 delta={cosf(orbit.yaw)*right-sinf(orbit.yaw)*forward,up,-sinf(orbit.yaw)*right-cosf(orbit.yaw)*forward};
     if(Vector3LengthSqr(delta)==0)return;
-    if(world_follow){world_follow=0;dirty=1;}
+    if(world_follow){world_follow=eye_view=0;dirty=1;}
     orbit.target=Vector3Add(orbit.target,Vector3Scale(Vector3Normalize(delta),dt*(camera_fast?80:20)));
     orbit.target.x=Clamp(orbit.target.x,-512,512);orbit.target.z=Clamp(orbit.target.z,-512,512);orbit.target.y=Clamp(orbit.target.y,-64,128);
     orbit_update(&orbit);
@@ -122,10 +123,11 @@ static void enter_world(void){
     set_world_view(1);piloting=1;eye_view=1;visit_creature(world_find(id));memset(keys,0,sizeof(keys));
     world_save(embedded_context);say("WASD drive / E magnet on / Q off / Backslash camera / Esc workshop");
 }
-static void toggle_eyes(void){Creature *c=world_find(world.player);if(piloting&&c){eye_view=!eye_view;visit_creature(c);dirty=1;}}
-static void player_camera(void){
-    if(!piloting)return;Creature *c=world_find(world.player);
-    if(!c){piloting=eye_view=0;home_camera();say("Your character stopped. Return to the workshop to rebuild.");return;}
+static void toggle_eyes(void){Creature *c=world_find(piloting?world.player:world_follow);if(world_view&&c){eye_view=!eye_view;visit_creature(c);dirty=1;}}
+static void character_camera(void){
+    if(!world_view)return;Creature *c=world_find(piloting?world.player:world_follow);
+    if(!c){if(eye_view){eye_view=0;orbit_update(&orbit);dirty=1;}if(piloting){piloting=0;home_camera();say("Your character stopped. Return to the workshop to rebuild.");}return;}
+    if(piloting&&!world_follow)visit_creature(c);
     if(eye_view){
         Vector3 forward;
         if(physics_eyes(&c->physics,&c->design,&orbit.eye,&forward,&orbit.up)>=0){orbit.target=Vector3Add(orbit.eye,forward);orbit.fov=72;return;}
@@ -262,7 +264,7 @@ static void click(void){
     if(inside(1052,18,204,44)){if(world_view){set_world_view(0);return;}if(physics.running)back_to_builder();else start_test();return;}
     if(world_view){
         if(!agent_panel&&inside(1036,188,220,36)){drop_cargo();return;}
-        if(!agent_panel&&piloting&&inside(1036,280,220,36)){toggle_eyes();return;}
+        if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
         for(int i=0;i<7;i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
             piloting=eye_view=0;
             const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72}};
@@ -383,7 +385,7 @@ static void events(void){
             else if(world_view)set_world_view(0);else if(physics.running)back_to_builder();else stopping=1;continue;
         }
         if(world_view){
-            if(piloting&&dolly_raylib_code_is(&e,"Backslash"))toggle_eyes();
+            if(dolly_raylib_code_is(&e,"Backslash"))toggle_eyes();
             Creature *c=piloting?world_find(world.player):NULL;
             if(c)for(int i=0;i<c->design.count;i++)if(c->design.blocks[i].joint==BLOCK_MAGNET){
                 if(k==c->design.blocks[i].positive)c->physics.parts[i].magnet_power=1;
@@ -416,7 +418,7 @@ static void draw_ui(void){
     char text[120];int joints=0;for(int i=0;i<design.count;i++)joints+=block_controlled(design.blocks[i]);
     if(focus_view){
         button(render_view.width-232,12,220,34,"Controls [Shift Tab]",0);button(12,12,80,34,"Pi [Tab]",agent_panel);
-        if(world_view&&world_follow){snprintf(text,sizeof(text),piloting?"WASD drive / E pickup / Q release":"Following %d / WASD to leave",world_follow);label(110,22,text,16,ink);}
+        if(world_view&&world_follow){snprintf(text,sizeof(text),piloting?"WASD drive / E pickup / Q release":"Following %d / \\ camera / WASD to leave",world_follow);label(110,22,text,16,ink);}
         if(world_view){snprintf(text,sizeof(text),"CARGO DELIVERED  %d / YOU %d",world.delivery_count,world_cargo_score(-1));label(16,render_view.height-30,text,16,ink);}
         goto agent_overlay;
     }
@@ -432,20 +434,20 @@ static void draw_ui(void){
     const char *views[]={"< Left","Right >","Up","Down","Home"};
     for(int i=0;i<5;i++)button(254+i*88,92,80,34,views[i],0);
     DrawRectangle(254,643,600,23,paper);
-    label(262,647,piloting?"WASD drive / E on / Q release / Backslash camera":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
+    label(262,647,piloting?"WASD drive / E on / Q release / Backslash camera":world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d living / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
         const char *places[]={"Home","Harbor","East","West","North","Overview","Basin"};
         for(int i=0;i<7;i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,316,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-8));
-        for(int i=0;i<8&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.19s",c->id,c->name);label(24,344+i*26,text,14,c->id==world_follow?accent:ink);}
+        for(int i=0;i<8&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,344+i*26,text,14,c->id==world_follow?accent:ink);}
         button(24,564,40,30,"<",0);button(178,564,40,30,">",0);
         snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+8,world.count),world.count);label(74,572,text,14,muted);
         button(24,612,194,28,"Export world",0);button(24,642,194,28,"Import world",0);
         if(!agent_panel){
             label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?"WASD drive / E on / Q off":"Drops at the camera target.",14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
-            if(piloting)button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);
+            if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
             label(1036,354,"CARGO DELIVERED",17,muted);snprintf(text,sizeof(text),"%d total / %d by you",world.delivery_count,world_cargo_score(-1));label(1036,385,text,17,ink);
             label(1036,428,"Carry to a striped depot.",14,muted);label(1036,449,"Release and let it settle.",14,muted);label(1036,470,"Each crate counts once.",14,muted);
             int nearest=0;float distance=INFINITY;for(int i=0;i<depot_count;i++){float d=hypotf(orbit.target.x-depots[i].x,orbit.target.z-depots[i].z);if(d<distance){distance=d;nearest=i;}}
@@ -649,7 +651,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
         double yaw=real(ctx,args,"yaw",orbit.yaw),pitch=real(ctx,args,"pitch",orbit.pitch),distance=real(ctx,args,"distance",orbit.distance);
         double x=real(ctx,args,"x",orbit.target.x),y=real(ctx,args,"y",orbit.target.y),z=real(ctx,args,"z",orbit.target.z);
         if(!isfinite(yaw)||!isfinite(pitch)||!isfinite(distance)||!isfinite(x)||!isfinite(y)||!isfinite(z))result=JS_ThrowRangeError(ctx,"Camera coordinates must be finite");
-        else {world_follow=0;orbit.yaw=yaw;orbit.pitch=Clamp(pitch,-1.5f,1.5f);orbit.distance=Clamp(distance,3,512);orbit.target=(Vector3){Clamp(x,-512,512),Clamp(y,-64,128),Clamp(z,-512,512)};orbit_update(&orbit);dirty=1;}
+        else {world_follow=eye_view=0;orbit.yaw=yaw;orbit.pitch=Clamp(pitch,-1.5f,1.5f);orbit.distance=Clamp(distance,3,512);orbit.target=(Vector3){Clamp(x,-512,512),Clamp(y,-64,128),Clamp(z,-512,512)};orbit_update(&orbit);dirty=1;}
     }else if(!strcmp(op,"log")) {const char *s=JS_ToCString(ctx,args);if(s){log_text(s);JS_FreeCString(ctx,s);}}
     else if(!strcmp(op,"enabled")){result=JS_NewBool(ctx,agent_enabled);}
     else if(!strcmp(op,"enable")){agent_enabled=!proxy_pending&&JS_ToBool(ctx,args);agent_control=agent_enabled;if(agent_enabled)agent_panel=1;layout();}
@@ -667,7 +669,7 @@ static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst
         if(piloting&&!prompt_focus){for(int i=1;i<128;i++)player->controls[i]=keys[i];vehicle_controls(&player->design,player->controls,keys['W']-keys['S'],keys['D']-keys['A']);}
     }
     world_accumulator+=dt;for(int i=0;i<6&&world_accumulator>=1./60;i++){world_step();world_accumulator-=1./60;}
-    follow_creature();player_camera();
+    follow_creature();character_camera();
     if(world.age-last_save>10){world_save(ctx);last_save=world.age;}
     if(physics.running&&(!world_view||agent_control)&&(!agent_control||practice_steps>0||program_trial==2)){
         accumulator+=dt;for(int i=0;i<6&&accumulator>=1./60;i++){

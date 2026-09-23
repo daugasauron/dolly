@@ -31,11 +31,21 @@ passed. See the closed [gantry issue](../tasks/20260924-030000-codex-01/TASK.md)
 Tsubame, a 19-part harbor tug, now tows floating crates to Harbor Atlas for
 physical handoffs. Its isolated trial delivered three; the full 49-object world
 survived 600 s and three reloads, with two handoffs and seven total deliveries.
-Twinspire carried the third new crate beyond the tug's search area; it remains
-afloat. Cargo beneath piers now stays buoyant, with deck/roof support and actual
+Twinspire initially pushed the third crate beyond the tug's search area. Its
+route avoidance now includes loose cargo: the full 600 s replay retained all 49
+objects and completed all three tug handoffs, with eight total deliveries.
+Cargo beneath piers now stays buoyant, with deck/roof support and actual
 burial still checked. See the closed [water issue](../tasks/20260924-035500-codex-01/TASK.md).
 The packaged integration and actual 9099 preview checks passed; six view samples
 measured 50.57–52.35 FPS locally. Evidence: `build/blockwalker-tug-{integration1,preview1}.log`.
+
+All 34 characters now have Eyes using existing blocks, with no added parts.
+Click a character and press Backslash to ride along while its program continues;
+WASD leaves the view. The packaged browser check verified actual block-relative
+poses for the biped, lookout and tug, camera switching and the no-Eyes fallback.
+Driving/cargo regression also passed. Evidence:
+`build/blockwalker-spectator-{packaged1,driver1}.log` and
+`build/blockwalker-tug-cargo-avoidance-42/result.json`.
 
 The visible browser Save button keeps the latest written checkpoint and links
 to named sessions. Manual/programmed design and complete world import/export
