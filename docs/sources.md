@@ -214,8 +214,8 @@ headlessly with serial tasks, shared JS contexts and separate realms, no native
 JIT, and heap-backed fixed-address pools. SDL uses Dolly's existing backend;
 curl uses its restrictable HTTP broker. Browser checks exercise real simulation,
 serialization, deterministic replay, save/load, guest pipes and process
-interruption/recovery. This checkpoint does not yet provide the graphical game,
-audio or multiplayer; the remaining baseline is tracked in
+interruption/recovery. The graphical combat scenario is now available separately;
+economy matches, audio and multiplayer remain under development in
 [`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
 
 After preparing those official archives, `bash toolchain/0ad/prepare-shaders.sh`
@@ -223,13 +223,47 @@ builds checksum-pinned Naga 30.0.1 with its locked dependencies and the same
 native Rust bootstrap. It translates the release's SPIR-V graphics variants to
 `build/0ad/shaders`, retaining their define indexes, streams and uniform offsets.
 Combined samplers become texture/sampler pairs in group 1; push constants become
-a uniform buffer in group 2. Group 0 retains material uniforms. Bindless,
+a uniform buffer in group 2. Group 0 retains material uniforms. Group 3 carries
+guest sampler descriptors for clamp-to-border emulation, including filtered
+edges and mip levels; this adds no browser capability. Bindless,
 compute and shadow variants are excluded from this renderer baseline.
 `node test/0ad-shaders-browser.mjs` compiles and links every converted shader in
 Chrome's software WebGPU adapter and checks the real upstream canvas shader's
-colors, orientation and grayscale uniform. This validates shader conversion;
+colors, orientation, grayscale uniform and border/mip filtering. This validates shader conversion;
 it does not by itself establish a playable renderer. The GPU packet path has
 its separate guest-compiled check in `test/gpu-render-browser.mjs`.
+
+After the headless bundle and shaders exist, prepare the graphical content and
+check it on a virtual X display (requires Xvfb and xauth):
+
+```sh
+python3 toolchain/0ad/package-graphics.py .cache/0ad/0ad-0.28.0
+systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 xvfb-run -a node test/0ad-graphics-browser.mjs
+```
+
+The separate `build/0ad/graphics-data.tar` selects the official combat scenario's
+actors, variants, meshes, animation and textures, plus shared GUI content. The
+Wasm device backend uses the bounded GPU packets, an offscreen backbuffer,
+indexed meshes, reflected uniforms and translated upstream shaders. SDL retains
+input ownership. The bundle selects system cursors and disables shadows,
+silhouettes, advanced water, postprocessing and antialiasing. Rendering and all
+CPU state stay within Dolly's existing process/GPU contracts.
+
+The browser check uses SwiftShader throughout; it exercises drag selection,
+movement recorded in the upstream replay, graphical quick-save/load, fresh
+processes and shell recovery. Quick-save is upstream's in-memory snapshot;
+ordinary `.0adsave` persistence has its separate headless test below. Chrome's
+headless software Vulkan compositor did not display the submitted surface in
+this environment, so this check uses Xvfb and verifies visible presentation.
+It reports software frame time, allocation credits and peak cgroup memory;
+these are not physical-GPU performance claims.
+
+In Dolly, unpack the graphics tar under `/opt/0ad` and place
+`pyrogenesis.wasm` at `/opt/0ad/system/pyrogenesis`, then run:
+
+```sh
+ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound -autostart=scenarios/combat_demo
+```
 
 `pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
 adds a line-oriented guest JSON protocol to the ordinary autostart options.

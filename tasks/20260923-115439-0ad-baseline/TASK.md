@@ -152,3 +152,45 @@ shader test (compilation/linking included). This is a direct WebGPU shader test,
 separate from the guest GPU packet proof; the game device backend remains next.
 Evidence: `.cache/0ad/shaders-build.log`, `.cache/0ad/browser-shaders.log` and the
 generated hash manifest in `build/0ad/shaders/manifest.json`.
+
+2026-09-24: The real graphical combat scenario runs through Dolly's new guest
+renderer, including animated units, water, GUI, minimap and selection overlays.
+A complete unattended battle reached the upstream defeat/summary screen at
+30 seconds of simulation time; replay metadata records player 2 as the winner.
+The checked input run selected 15 units by dragging and issued a real walk
+command to `(65.961, 137.708)`, retained in the upstream replay. Graphical
+quick-save/load restored an earlier turn, and a second fresh engine process
+started and returned to the shell. `test/0ad-graphics-browser.mjs` passes with
+zero logged warnings/errors under a 3 GiB process-tree limit.
+
+Chrome 151/SwiftShader at 1024×768: content/engine staging 43,713 ms, first 22
+frames 5,973 ms, fresh restart 5,466 ms, sampled frame time 320 ms, device
+allocation credits 256,352,728 bytes and peak process-tree memory 2,339,061,760
+bytes. These software-rendering measurements establish correctness and a
+performance baseline, not a physical-GPU frame-rate claim. A longer exploratory
+browser session with repeated large asset replacements/reloads exhausted its
+3 GiB limit; the reproducible two-process check with the reduced pack passes.
+
+The 21,695,906-byte engine has SHA-256
+`42f523b193e72fa0b5a9b21b396b7fe39667d8d5c67679af68ece6db74162a41`.
+The 215,910,400-byte graphics pack has SHA-256
+`16b767516ae687f5f1207cff222c01e1c38522b7cbf29d0c63acded0616815d9`.
+Packaging follows actor/variant/mesh/animation/texture dependencies and retains
+shared UI assets. Native ZIP integrity and pristine reconstruction of all 33
+patched engine files pass. Build/run instructions are in `docs/sources.md`.
+
+The renderer uses reflected upstream shaders and existing bounded GPU records;
+there are no new browser imports. Guest shader helpers emulate clamp-to-border
+with nearest/linear edges, border colors and mip filtering; all 314 shaders and
+324 stage pairs pass Chrome checks, including actual border/mip pixel tests.
+Real startup exposed short POSIX reads in large ZIP directories, unnecessary
+SDL timer-thread initialization, nonportable wide formatting, recursive missing
+alphamap fallback and a freed cursor pointer; the port now handles those paths.
+WebGPU offscreen texture orientation and browser-sized windows are accounted for.
+
+Evidence: `.cache/0ad/browser-graphics-test.log`, `browser-shaders-border.log`
+and `browser/{graphics-game.png,graphics-selection.png,graphics-replay.txt,
+graphics-warnings.html,combat-metadata.json,headed-selection.png}`. The latter
+summary screenshot belongs to the exploratory full battle. Next: an economy
+match with building/training, broader recovery/performance work, audio and the
+broker-constrained multiplayer baseline. This issue remains open.

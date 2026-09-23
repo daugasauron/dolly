@@ -2,6 +2,7 @@
 """Translate the pinned release's non-bindless, non-shadow graphics shaders."""
 import hashlib
 import json
+import re
 from pathlib import Path, PurePosixPath
 import shutil
 import struct
@@ -86,6 +87,22 @@ def split_samplers(data):
     return struct.pack(f"<{len(header)+len(output)}I", *(header + output))
 
 
+def border_sampling(text):
+    textures = dict(re.findall(
+        r"@group\(1\) @binding\((\d+)\)\s+var (\w+): texture_2d<f32>;", text))
+    changed = False
+    for binding, name in textures.items():
+        if int(binding) % 2 or int(binding) >= 16:
+            raise ValueError("Unexpected texture binding " + binding)
+        for builtin, replacement in (("textureSample", "dolly_sample"), ("textureSampleLevel", "dolly_sample_level")):
+            text, count = re.subn(r"\b" + builtin + r"\(" + name + r",",
+                f"{replacement}(dolly_samplers[{int(binding)//2}], {name},", text)
+            changed |= count > 0
+    if changed:
+        text = Path(__file__).with_name("border-sampler.wgsl").read_text() + "\n" + text
+    return text, changed
+
+
 def main(source, naga, output):
     if output.exists():
         shutil.rmtree(output)
@@ -97,7 +114,7 @@ def main(source, naga, output):
         for mod in ("mod", "public"):
             destination = output / mod / "shaders/wgsl"
             destination.mkdir(parents=True)
-            converted, variants = {}, 0
+            converted, borders, variants = {}, {}, 0
             with ZipFile(source / f"binaries/data/mods/{mod}/{mod}.zip") as archive:
                 for name in sorted(archive.namelist()):
                     if not name.startswith("shaders/spirv/") or not name.endswith(".xml"):
@@ -124,6 +141,7 @@ def main(source, naga, output):
                                 if result.returncode:
                                     raise RuntimeError(f"{mod}/{original}: {result.stderr}")
                                 text = target.read_text().replace("var<immediate>", "@group(2) @binding(0) var<uniform>")
+                                text, borders[original] = border_sampling(text)
                                 # Upstream SPIR-V permits implicit derivatives after alpha-test discard.
                                 text = "diagnostic(off, derivative_uniformity);\n" + text
                                 target.write_text(text)
@@ -132,6 +150,8 @@ def main(source, naga, output):
                                     raise RuntimeError(f"{target}: {result.stderr}")
                                 converted[original] = hashlib.sha256(target.read_bytes()).hexdigest()
                             stage.set("file", "wgsl/" + filename)
+                            if borders[original]:
+                                stage.set("dolly_border", "true")
                             for binding in stage.findall("descriptor_sets/descriptor_set/binding"):
                                 if binding.attrib["type"].startswith("sampler"):
                                     number = int(binding.attrib["binding"]) * 2

@@ -5,7 +5,7 @@ source config/source-pins.sh
 export PATH="/src/.cache/0ad/bin:$PATH"
 export CC='emcc -m64' CXX=em++ PKG_CONFIG=/src/.cache/0ad/bin/pkg-config
 export CFLAGS='-isystem /src/.cache/0ad/sysroot/include'
-export CXXFLAGS="$CFLAGS"
+export CXXFLAGS="$CFLAGS -I/src/include"
 root="/src/.cache/0ad/0ad-$DOLLY_0AD_VERSION"
 prefix=/src/.cache/0ad/sysroot
 sm="$root/libraries/source/spidermonkey/mozjs-128.13.0/obj-dolly"
@@ -28,6 +28,8 @@ write_pc libcurl "$DOLLY_CURL_VERSION" "-I$curl_source/include" "-L$prefix/lib -
 emcc -m64 -O1 -matomics -mbulk-memory -Iinclude -I"$curl_source/include" \
   -c src/libcurl-fetch.c -o .cache/0ad/libcurl-fetch.o
 emar crs "$prefix/lib/libcurl.a" .cache/0ad/libcurl-fetch.o
+emcc -m64 -O1 -matomics -mbulk-memory -Iinclude -c src/gpu/client.c -o .cache/0ad/gpu-client.o
+emar crs "$prefix/lib/libdollygpu.a" .cache/0ad/gpu-client.o
 cd "$root/build/premake"
 /src/.cache/0ad/premake-core-5.0.0-beta7/bin/release/premake5 --os=emscripten \
   --without-atlas --without-audio --without-nvtt --without-lobby --without-miniupnpc \
