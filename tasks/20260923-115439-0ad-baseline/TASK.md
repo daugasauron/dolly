@@ -1,6 +1,6 @@
 # Implement the 0 A.D. baseline in Dolly
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: wasm64,gpu,gamedev,port
 
@@ -360,3 +360,32 @@ Latest image: 581,810,815 bytes, SHA-256
 An independent browser profile exported a byte-identical image; evidence:
 `.cache/0ad/image-repeat.log`. Documentation packaging closes all 89 linked
 files, with explicit source allowlist additions for the new review references.
+
+Completion verified 2026-09-24 on implementation commit `5ae3d2b`:
+
+- Final headless regression passes: 20 combat turns in 819 ms; replay checks in
+  5,306/519 ms retain `be99497b21b9cb86d3a1478d2e2e09a6`; control restores
+  `ff2fbc7d000708ab8b70ed0eaec257df`; economy, Petra and fresh-process saves pass
+  in 20,957 ms. Evidence: `.cache/0ad/browser-engine-final-test.log`.
+- The final two-headless-peer test passes all 149 command/hash records, winner
+  metadata, exit statuses and cleanup checks. It took 140,716 ms with concurrent
+  release acceptance running, and peaked at 1,882,583,040 bytes. Evidence:
+  `.cache/0ad/browser-multiplayer-final-test.log`. Earlier isolated measurements
+  and the graphical-host measurement above are separate runs.
+- The final 40-file engine patch reconstructs exactly from pristine sources;
+  the exact process/browser ABIs pass, as do the 13 focused source tests.
+- Local release `81d411d97896c1929c43025ea3643aa9c4ec6982638fe911b217d096dda6ca7b`
+  passes real-browser inventory acceptance for `zero-ad` and all nine dependency
+  images. Its 88 shared snapshot packs total 516,449,384 compressed bytes;
+  the complete site, including rebuild inputs, is 1,331,813,904 bytes.
+  Archive: `build/0ad/dolly-zero-ad-pages.tar.gz`, SHA-256
+  `4f4b3854717fcb1898ed058a0b01017cfcb3ddcd1e715acde8b10521eb0a6907`.
+  Evidence: `.cache/0ad/release-package.log` and the release's `acceptance.txt`.
+
+The requested first baseline is complete; this is not the full upstream game
+content/performance envelope. Remaining limits are explicit in `docs/sources.md`:
+selected scenarios/Athens assets, software-rendering measurements only, audio
+latency/gaps, slow HTTP room transport without lobby/native-peer/rejoin support,
+headless-host departure timing, and AI save continuation differences from an
+uninterrupted run. No physical GPU workload or changes to other worktrees were
+needed. The release was built from `5ae3d2b`; this closing entry records its audit.
