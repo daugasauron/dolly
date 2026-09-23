@@ -78,3 +78,27 @@ held-key release, repeated quicksave and failed-save retention. Browser logs:
 `build/session-stream-custom-browsers-final.log` and
 `build/blockwalker-session-memory-final.log` (both exit 0). These ordinary-size
 refresh checks do not substitute for the remaining large-session reproduction.
+
+A credential-free lifecycle probe reproduces the remaining failure in seconds:
+compile `build/session-lifecycle.c` inside Dolly, temporarily grow a file to
+1800 MiB, unlink it, write a deterministic 256 MiB file, Save, then refresh.
+The synthetic high-water mark isolates memory lifetime from the private history.
+Kernel memory reaches 2376269824 bytes. Waiting two seconds for the old workers
+to close still fails; diagnostic forced garbage collection drops the browser
+tree from 3769479168 to 721170432 bytes and allows restoration. That is evidence
+of reclaimable old allocations, not a production fix. An ordinary Chrome launch
+without Playwright or a debugger also exhausted the cgroup after Save/reload
+(sampled peak 4264382464 bytes, renderer OOM confirmed). Logs:
+`build/session-lifecycle-{pause,gc}.log`, `build/session-lifecycle-native2.log`;
+numeric memory and worker-lifetime records are in the matching build directories.
+No diagnostic delay or explicit garbage collection was added to the application.
+
+A candidate transferred compressed saves to the runtime Worker and decoded
+directly into the existing Wasm staging allocation, using an optional checked
+decoded-length field. Codec/consumer/error checks passed, but both the native
+synthetic test and full learned-session refresh still exhausted the limit.
+The latter peaked at 4284022784 bytes (`build/blockwalker-memory-direct-decode.log`).
+The candidate was reverted; its patch remains in
+`build/session-direct-decode-candidate.patch` for investigation. It is not part of
+the preview, and does not justify changing the filesystem format or adding a
+forced-GC workaround.
