@@ -16,9 +16,13 @@ manual library entries and complete design/world import/export. Recovery-world
 import preserved all 51 creatures and 78 saved programs. The packaged integration
 and editor checks passed. The seed-42 population passed 1800 simulation seconds
 with reloads every 300 seconds: all 33 alive, 118 biped steps, zero aborts.
-Durable browser-save visibility remains open. Current content work removes
-Tidegate from the starting world and adds small moving characters across the
-yard, harbor and islands. Do not begin the separate Lua/YAML migration here.
+The current content checkpoint has 45 objects: Tidegate is archived, five
+lookouts roam the yard/islands, a hydraulic porter delivers crates, three small
+skiffs explore the coasts, and Harbor Atlas salvages floating cargo. The combined
+540-second trial retained all 45 through reloads, with five deliveries and no
+biped contacts from other actors. Packaged integration and driving checks passed.
+Durable browser-save visibility and longer population trials remain open. Do not
+begin the separate Lua/YAML migration here.
 
 The two earlier desktop freezes most likely involved host RAM exhaustion while
 Node 22 formatted a failed PNG assertion. That mechanism was reproduced, but

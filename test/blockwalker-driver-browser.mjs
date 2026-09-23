@@ -33,7 +33,8 @@ try{
  await page.keyboard.press('Backslash');await frames();await page.screenshot({path:output+'/car-follow.png'});await page.keyboard.press('Q');await frames();
  await page.keyboard.press('Backslash');await frames();await page.keyboard.press('Escape');await frames();await page.keyboard.press('Escape');assert.equal(await run,0);await shell();
  const trace=await download('driver-trace.json'),world=await download('blockwalker-world.json'),views=trace.filter(s=>s.eyes),first=views[0],last=views.at(-1);
- assert.ok(trace.length>30&&views.length>20);assert.equal(world.creatures.length,35);assert.equal(world.deaths,0);
+ const initial=JSON.parse(await fs.readFile('src/blockwalker/designs.json','utf8'));
+ assert.ok(trace.length>30&&views.length>20);assert.equal(world.creatures.length,initial.length+2);assert.equal(world.deaths,0);
  const moved=Math.hypot(last.sensors.x-first.sensors.x,last.sensors.z-first.sensors.z);assert.ok(moved>5,'keyboard drives a physical world vehicle');
  for(const s of views){const {camera:c,sensors:p}=s,eye=[c.eyeX,c.eyeY,c.eyeZ],f=[c.x-c.eyeX,c.y-c.eyeY,c.z-c.eyeZ];assert.equal(c.fov,72);assert.ok(Math.abs(Math.hypot(...eye.map((v,i)=>v-p.positions[7][i]))-.52)<.002,'camera stays at the Eyes face');assert.ok(Math.abs(f[0]*c.upX+f[1]*c.upY+f[2]*c.upZ)<.001);}
  assert.ok(trace.some(s=>!s.eyes&&s.camera.fov===42),'outside camera toggle');assert.ok(trace.some(s=>s.sensors.magnets[8]?.power===1),'magnet switches on');assert.ok(trace.some(s=>s.sensors.magnets[8]?.attached),'vehicle picks up real world cargo');assert.equal(trace.at(-1).sensors.magnets[8].power,0);

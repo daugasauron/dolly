@@ -34,7 +34,8 @@ try {
   }
   await shot('fresh-harbor');const fresh=samples.at(-1);
   assert.equal(fresh.creatures.length,examples.length);assert.equal(fresh.deaths,0);
-  assert.equal(fresh.creatures.filter(c=>c.name==='Cargo').length,examples.filter(d=>d.name==='Cargo').length);assert.equal(fresh.designs.filter(d=>d.name==='Cargo').length,1,'separate cargo placements share one reusable design');
+  const cargoDesigns=new Set(examples.filter(d=>d.name==='Cargo').map(d=>JSON.stringify([d.blueprint,d.source,d.hz,d.anchored]))).size;
+  assert.equal(fresh.creatures.filter(c=>c.name==='Cargo').length,examples.filter(d=>d.name==='Cargo').length);assert.equal(fresh.designs.filter(d=>d.name==='Cargo').length,cargoDesigns,'cargo placements share reusable designs while preserving their materials');
   assert.ok(fresh.creatures.filter(c=>c.distance>1).length>=5,'bundled controllers move several creations without Pi');
   assert.ok(fresh.creatures.some(c=>!c.anchored&&c.y>4&&c.up>.95),'bundled feedback flyer takes off');
   assert.ok(fresh.creatures.some(c=>!c.anchored&&Math.abs(c.startX)>100&&c.y>-2&&c.y<0&&c.up>.8&&c.distance>1),'bundled boat floats and travels');
@@ -48,12 +49,12 @@ try {
   assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m&&!m.attached&&m.power===0)&&box.delivered&&w.deliveries.some(d=>d.cargoId===box.id&&d.carrierId===bird.id);}),'the courier releases its cargo at a depot and earns delivery credit');
   const beacon=fresh.creatures.find(c=>c.name.startsWith('Westwatch')),head=beacon.blueprint.findIndex(p=>p.joint===1),bearings=[];
   for(const w of samples){
-   const c=w.creatures.find(c=>c.id===beacon.id);if(c.seconds<6)continue;
-   const target=w.creatures.find(p=>p.id===JSON.parse(c.memory).tracked[0]);assert.ok(target,'the beacon observes a real moving character');
+   const c=w.creatures.find(c=>c.id===beacon.id),memory=JSON.parse(c.memory);if(c.seconds<6||c.seconds-memory.acquired<3)continue;
+   const target=w.creatures.find(p=>p.id===memory.target);assert.ok(target,'the beacon observes a real moving character');
    const h=c.poses[head],q=h.slice(3,7),yaw=Math.atan2(2*(q[0]*q[2]+q[3]*q[1]),1-2*(q[0]*q[0]+q[1]*q[1])),bearing=Math.atan2(target.x-h[0],target.z-h[2]);
-   assert.ok(Math.abs(Math.atan2(Math.sin(yaw-bearing),Math.cos(yaw-bearing)))<.1,'the physical beacon head follows the aircraft bearing');bearings.push(yaw);
+   assert.ok(Math.abs(Math.atan2(Math.sin(yaw-bearing),Math.cos(yaw-bearing)))<.1,'the physical beacon head follows its current target bearing');bearings.push(yaw);
   }
-  assert.equal(beacon.distance,0,'the island beacon base remains anchored');assert.ok(Math.max(...bearings)-Math.min(...bearings)>.08,'the head turns with the moving aircraft');
+  assert.equal(beacon.distance,0,'the island beacon base remains anchored');assert.ok(bearings.length>=5&&Math.max(...bearings)-Math.min(...bearings)>.08,'the head follows a moving character across several observations');
   const lift=fresh.creatures.find(c=>c.name.startsWith('Tidelock')),stage=lift.blueprint.findLastIndex(p=>p.joint===2),heights=samples.map(w=>w.creatures.find(c=>c.id===lift.id).poses[stage][1]);
   assert.equal(lift.distance,0);assert.ok(Math.max(...heights)-Math.min(...heights)>5,'the two-stage pier lift travels between the sea and island levels');
   const tender=samples.map(w=>w.creatures.find(c=>c.startX===160&&c.startZ===-18));assert.ok(Math.max(...tender.map(c=>c.z))-Math.min(...tender.map(c=>c.z))>10&&tender.every(c=>Math.abs(c.x-160)<.5&&c.up>.95&&c.y>-2),'the island tender approaches and returns on its narrow lane beside the pier');
@@ -64,7 +65,7 @@ try {
   const freshRestart=page.evaluate(()=>__dolly.submit('blockwalker'));await page.waitForFunction(()=>__dolly.gpu?.active,null,{timeout:30000});await page.waitForTimeout(500);await page.keyboard.press('Escape');assert.equal(await freshRestart,0);
   const reopened=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));
   assert.deepEqual(reopened.creatures.map(c=>[c.id,c.name]),fresh.creatures.map(c=>[c.id,c.name]),'reopening retains all world identities without duplicating initial placements');
-  assert.equal(reopened.designs.filter(d=>d.name==='Cargo').length,1);
+  assert.equal(reopened.designs.filter(d=>d.name==='Cargo').length,cargoDesigns);
   assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.json')),0);
   assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --integration-check')),0);
   const result=JSON.parse(await readFile(await download('blockwalker-integration.json'),'utf8'));

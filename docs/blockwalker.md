@@ -140,17 +140,24 @@ the population, so exporting the world also preserves its designs.
 The initial layout can place several copies of one design. Each has its own
 world identity, physics and controller state while sharing one library entry.
 
-A fresh image curates 33 objects / 1109 parts from 26 designs learned by the
-actual Astra/xhigh Pi: the latest patrol biped, larger walkers, a balance
-surveyor, aircraft, boats and cargo machinery. Eighteen earlier prototypes are
-kept separately and added to the library only on request. The drawbridge leaves
-have clearance for the current weld rule. On first launch the catalog populates
+A fresh image has 45 objects / 1169 parts from 29 designs: the learned patrol
+biped, larger walkers, balance surveyor, aircraft and cargo machinery, plus
+small roaming lookouts, a hydraulic yard porter and channel skiffs. Nineteen
+earlier experiments, including the retired drawbridge, are available only through
+Older prototypes. On first launch the catalog populates
 the world, with loose cargo for the cranes; click World to visit. The balancing
 surveyor, aircraft and two survey boats choose varied destinations and respond
 to nearby bodies. The heavy walker reverses and replants its feet to yield to
-traffic, the bridge opens for approaching boats, and the beacon tracks nearby
+traffic, and the beacon tracks nearby
 machines. Sidelight uses longer, varied patrol distances and reverses at a stable
-stance when traffic or a terrain edge blocks its next step. Controllers run without Pi or model access. Existing saves keep their population, including an empty world.
+stance when traffic or a terrain edge blocks its next step. Five Komame lookouts
+roam the yard and three islands, turning their physical Eyes heads toward other
+characters. Mochi lifts loose crates with its piston and magnet, drives them to
+the Works yard depot, then searches for more. Harbor Atlas salvages floating
+cargo into the harbor depot with its magnetic head. Three small Minamo skiffs
+and the larger patrol boats choose water routes around the coasts.
+Controllers run without Pi or model access.
+Existing saves keep their population, including an empty world.
 The East landing site, West reactor and North signal station have matching
 physics and GPU geometry, with matte panels, lit markers and solar-cell surfaces.
 Overhead structures collide with bodies while leaving the ground beneath them
@@ -237,6 +244,7 @@ pauses after the trial. The same controller implementation runs released creatur
 | `id`, `cargoDelivered` | Shared-world identity and lifetime delivery count |
 | `nearby` | Up to 12 nearest objects within 48 m, including position, velocity, bounds, anchoring and cargo state; empty in practice |
 | `groundSamples` | World XYZ terrain samples, eight compass directions at 6 m then 16 m, beginning at +Z |
+| `obstacles` | Terrain bounds within 24 m rising above the root floor: `x/z`, `halfX/halfZ`, `low/high`; check vertical clearance under roofs |
 | `depots` | Delivery areas with name, x/z and radius |
 
 Vectors are three-element arrays. Initial body axes are +X right, +Y up, +Z

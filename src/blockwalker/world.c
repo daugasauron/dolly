@@ -104,7 +104,7 @@ static JSValue depot_state(JSContext *ctx){
     }return list;
 }
 static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origin){
-    JSValue nearby=JS_NewArray(ctx),ground=JS_NewArray(ctx);int self=0,indices[12],count=0;float distances[12];
+    JSValue nearby=JS_NewArray(ctx),ground=JS_NewArray(ctx),obstacles=JS_NewArray(ctx);int self=0,indices[12],count=0;float distances[12];
     if(world.next_id&&b3StoreWorldId(p->world)==b3StoreWorldId(world.physics)){
         for(int i=0;i<world.count;i++){
             Creature *c=&world.creatures[i];if(c->physics.parts==p->parts){self=c->id;continue;}
@@ -126,8 +126,14 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
         float angle=(i%8)*PI/4,radius=i<8?6:16,x=origin.x+sinf(angle)*radius,z=origin.z+cosf(angle)*radius;
         JS_SetPropertyUint32(ctx,ground,i,vector(ctx,(Vector3){x,p->landscape?terrain_height(x,z):0,z}));
     }
+    for(int i=0,n=0;p->landscape&&i<terrain_count;i++){
+        TerrainBox b=terrain_boxes[i];float dx=fmaxf(0,fabsf(origin.x-b.center.x)-b.half.x),dz=fmaxf(0,fabsf(origin.z-b.center.z)-b.half.z);
+        if(b.center.y+b.half.y<origin.y-.2f||hypotf(dx,dz)>24)continue;
+        JSValue item=JS_NewObject(ctx);put_number(ctx,item,"x",b.center.x);put_number(ctx,item,"z",b.center.z);
+        put_number(ctx,item,"halfX",b.half.x);put_number(ctx,item,"halfZ",b.half.z);put_number(ctx,item,"low",b.center.y-b.half.y);put_number(ctx,item,"high",b.center.y+b.half.y);JS_SetPropertyUint32(ctx,obstacles,n++,item);
+    }
     put_number(ctx,s,"id",self);put_number(ctx,s,"cargoDelivered",self?world_cargo_score(self):0);
-    JS_SetPropertyStr(ctx,s,"nearby",nearby);JS_SetPropertyStr(ctx,s,"groundSamples",ground);JS_SetPropertyStr(ctx,s,"depots",depot_state(ctx));
+    JS_SetPropertyStr(ctx,s,"nearby",nearby);JS_SetPropertyStr(ctx,s,"groundSamples",ground);JS_SetPropertyStr(ctx,s,"obstacles",obstacles);JS_SetPropertyStr(ctx,s,"depots",depot_state(ctx));
 }
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt){
     JSValue s=JS_NewObject(ctx),angles=JS_NewArray(ctx),rates=JS_NewArray(ctx),touching=JS_NewArray(ctx),positions=JS_NewArray(ctx),submerged=JS_NewArray(ctx);

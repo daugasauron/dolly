@@ -232,3 +232,51 @@ runs to 35 simulation seconds and compares against its recorded pickup height.
 Actual pickup was y=4.646, first sampled cargo y=6.356, peak y=7.015; no physics
 change was needed. The next content pass prototypes small roaming characters
 and retires Tidegate while retaining demanding walkers and working machinery.
+
+2026-09-24 population reconciliation:
+
+The starting world now has 45 objects / 1169 parts from 29 designs. Tidegate is
+in the optional archive. Five 12-part Komame lookouts roam the yard and islands
+with physical turning Eyes heads. Mochi uses a piston and magnet to lift crates,
+deliver them to the Works yard and search for more. Three 17-part Minamo skiffs
+fill quieter coastlines; Threewake and Twinspire now choose water routes rather
+than repeat the former bridge approaches. Harbor Atlas has a lighter, longer
+magnetic head and actually salvages a floating crate into the Harbor depot.
+
+The first lookout trial hit a northern shed post and tipped over. Controllers
+now receive nearby terrain bounds from the in-Wasm geometry, so posts and roofs
+can be considered alongside sparse ground samples. The eastern lookout also
+needed reachable destinations in the open area below the landing shelf. These
+are ordinary userspace sensors; the browser ABI and authority are unchanged.
+
+`build/blockwalker-neighbors6.log` passed 540 simulation seconds with reloads
+every 180 seconds: all 45 alive, five credited deliveries, biped 35 qualifying
+steps / zero aborts / zero external character contacts. Lookouts travelled
+268–621 m with 7–21 arrivals each; the porter delivered three crates and resumed
+searching. The small skiffs travelled 385–478 m. Traces, saved worlds and
+`result.json` are in `build/blockwalker-neighbors6-42/`. The boats were renamed
+from the prototype label Mizumushi to Minamo after this run.
+
+The packaged check caught Westwatch selecting the closer new rover beyond its
+joint range. It now chooses reachable targets with hysteresis. The check follows
+its current target after acquisition, rather than the first historic target.
+`build/blockwalker-neighbors-integration2.log` passed the complete packaged
+population, physics and restore checks. `build/blockwalker-neighbors-driver1.log`
+passed driving (11.18 m), 74 Eyes samples, actual pickup/release, the tilted
+turntable, persistent cargo scoring, courier stacking and resumed sensors.
+
+Current local package: 232121639 bytes, SHA-256
+`bb20c84838a4cbe510301a3f456abf65e7bb6d9aaa022bf1b22dc4844109d913`;
+source SHA-256 `96fb4b5211401aa1e9f4d3d352ecfcac54bc6a66a771f89143158c2998c7cd37`.
+The runtime is unchanged; rebuilding took 32.1 s
+(`build/blockwalker-playground-image7.log`). Longer population trials and the
+remaining durable-save workflow are still pending under the active goal.
+
+The actual 9099 preview passed a fresh Chrome visit, catalog/source comparison,
+driving and six world views (`build/blockwalker-neighbors-preview1.log`, exit 0).
+Five-second samples on this NVIDIA browser measured 52.18 FPS in the yard,
+39.14 harbor, 39.77 east, 35.77 west, 32.96 north and 33.76 overview. These are
+local measurements, not a cross-device performance claim. No browser errors;
+46 objects including the test player's car. Screenshots, saved world and the
+measurements are in `build/blockwalker-neighbors-preview/`. The learned session
+and its Pi conversation remain untouched; no model requests were made.
