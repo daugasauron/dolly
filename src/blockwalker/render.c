@@ -31,9 +31,11 @@ int render_pick(const Character *c,const Orbit *o,float x,float y,Vector3 *norma
     float distance=1e30f;int selected=-1;
     for(int i=0;i<c->count;i++) {
         Vector3 p=block_position(c->blocks[i]),h={.5f,.5f,.5f};
-        if(c->blocks[i].joint==BLOCK_WHEEL){h=(Vector3){.7f,.7f,.7f};((float *)&h)[c->blocks[i].axis]=.35f;}
-        RayCollision hit=c->blocks[i].joint==BLOCK_HINGE?GetRayCollisionSphere(ray,p,.485f):
-            GetRayCollisionBox(ray,(BoundingBox){Vector3Subtract(p,h),Vector3Add(p,h)});
+        if(c->blocks[i].joint==BLOCK_WHEEL||c->blocks[i].joint==BLOCK_HINGE){
+            float radius=c->blocks[i].joint==BLOCK_HINGE?HINGE_RADIUS:.7f;h=(Vector3){radius,radius,radius};
+            ((float *)&h)[c->blocks[i].axis]=c->blocks[i].joint==BLOCK_HINGE?HINGE_HALF:.35f;
+        }
+        RayCollision hit=GetRayCollisionBox(ray,(BoundingBox){Vector3Subtract(p,h),Vector3Add(p,h)});
         if(hit.hit&&hit.distance<distance){
             selected=i;distance=hit.distance;Vector3 n=hit.normal;
             if(fabsf(n.x)>=fabsf(n.y)&&fabsf(n.x)>=fabsf(n.z))*normal=(Vector3){copysignf(1,n.x),0,0};
@@ -106,7 +108,7 @@ static uint32_t make_tree(uint32_t start,uint32_t count){
         BoxDraw b=boxes[i];Quaternion q={b.rotation[0],b.rotation[1],b.rotation[2],b.rotation[3]};
         Vector3 x=Vector3RotateByQuaternion((Vector3){b.half[0],0,0},q),y=Vector3RotateByQuaternion((Vector3){0,b.half[1],0},q),z=Vector3RotateByQuaternion((Vector3){0,0,b.half[2]},q);
         for(int axis=0;axis<3;axis++){
-            float h=b.flags[0]==BLOCK_HINGE?.485f:fabsf(((float *)&x)[axis])+fabsf(((float *)&y)[axis])+fabsf(((float *)&z)[axis]);
+            float h=fabsf(((float *)&x)[axis])+fabsf(((float *)&y)[axis])+fabsf(((float *)&z)[axis]);
             n->lo[axis]=fminf(n->lo[axis],b.center[axis]-h);n->hi[axis]=fmaxf(n->hi[axis],b.center[axis]+h);
         }
     }
@@ -121,6 +123,7 @@ static void box_draw(Block b,Vector3 v,Quaternion q,int selected,int hover,int p
         {color.r/255.f,color.g/255.f,color.b/255.f,preview?.35f:1},
         {b.joint,b.axis,preview?2:selected,hover},{.485f,.485f,.485f,0},{b.material,b.finish,b.direction,0}};
     if(b.joint==BLOCK_WHEEL){for(int i=0;i<3;i++)boxes[index].half[i]=i==b.axis?.35f:.7f;}
+    if(b.joint==BLOCK_HINGE){for(int i=0;i<3;i++)boxes[index].half[i]=i==b.axis?HINGE_HALF:HINGE_RADIUS;boxes[index].center[3]=b.limit*DEG2RAD;}
 }
 static void draw_scene(const Orbit *o,size_t count,int running,int landscape,double time){
     Vector3 f=Vector3Normalize(Vector3Subtract(o->target,o->eye)),r=Vector3Normalize(Vector3CrossProduct(f,(Vector3){0,1,0})),u=Vector3CrossProduct(r,f);
@@ -138,10 +141,22 @@ static void draw_scene(const Orbit *o,size_t count,int running,int landscape,dou
     }
     dolly_gpu_submit(&gpu);flush();
 }
+static void bracket_draw(Vector3 from,Vector3 to,size_t at){
+    Vector3 delta=Vector3Subtract(to,from);float length=Vector3Length(delta);
+    Quaternion rotation=length>.001f?QuaternionFromVector3ToVector3((Vector3){0,1,0},Vector3Scale(delta,1/length)):QuaternionIdentity();
+    box_draw((Block){.color=4,.finish=FINISH_PANEL},Vector3Scale(Vector3Add(from,to),.5f),rotation,0,0,0,at);
+    boxes[at].half[0]=boxes[at].half[2]=.14f;boxes[at].half[1]=fmaxf(.001f,length*.5f);
+}
 static size_t character_draw(const Character *c,const Physics *p,int selected,int hover,size_t at){
     for(int i=0;i<c->count;i++){
         Block b=c->blocks[i];Vector3 v;Quaternion q;physics_pose(p,c,i,&v,&q);box_draw(b,v,q,i==selected,i==hover,0,at++);
+        if(b.joint==BLOCK_HINGE&&p->running)boxes[at-1].style[3]=p->parts[i].angle;
         if(b.joint==BLOCK_MAGNET&&p->running){boxes[at-1].style[3]=p->parts[i].magnet_power;boxes[at-1].half[3]=b3Body_IsValid(p->parts[i].magnet_target);}
+        if(b.joint==BLOCK_HINGE&&b.parent>=0){
+            Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);Block a=c->blocks[b.parent];
+            Vector3 pivot=Vector3Add(parent,Vector3RotateByQuaternion((Vector3){(b.x-a.x)*.5f,(b.y-a.y)*.5f,(b.z-a.z)*.5f},rotation));
+            bracket_draw(parent,pivot,at++);bracket_draw(pivot,v,at++);
+        }
         if(b.joint==BLOCK_PISTON&&b.parent>=0){
             Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);Block a=c->blocks[b.parent];
             Vector3 offset=Vector3Scale((Vector3){b.x-a.x,b.y-a.y,b.z-a.z},.5f);
@@ -167,7 +182,7 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
     return at;
 }
 static size_t draw_terrain(size_t at){
-    const Color colors[]={{38,48,65,255},{76,60,86,255},{43,76,76,255},{67,70,88,255},{53,72,81,255},{40,64,86,255},{45,191,178,255},{20,38,64,255},{49,55,64,255},{76,174,148,255}};
+    const Color colors[]={{108,115,103,255},{125,119,103,255},{98,112,99,255},{127,128,113,255},{126,125,107,255},{83,98,98,255},{191,143,66,255},{49,70,82,255},{100,106,97,255},{123,150,137,255}};
     for(int i=0;i<terrain_count;i++){
         TerrainBox b=terrain_boxes[i];box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
         Color color=colors[b.color];boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at].color[2]=color.b/255.f;

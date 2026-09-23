@@ -9,10 +9,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-const Color block_colors[COLOR_COUNT]={{110,197,171,255},{238,168,83,255},{105,157,221,255},{221,114,108,255},{166,139,211,255},{224,217,193,255}};
-const char *block_names[BLOCK_KINDS]={"BOX","BALL JOINT","PISTON","THRUSTER","WHEEL","MAGNET"};
+const Color block_colors[COLOR_COUNT]={{89,119,112,255},{172,139,76,255},{83,101,129,255},{155,83,65,255},{65,73,79,255},{182,177,154,255}};
+const char *block_names[BLOCK_KINDS]={"BOX","SERVO HINGE","PISTON","THRUSTER","WHEEL","MAGNET"};
 Vector3 block_position(Block b) { return (Vector3){b.x,b.y+.5f,b.z}; }
-float block_density(Block b){return (b.joint==BLOCK_HINGE?6/PI:b.joint==BLOCK_WHEEL?2:1)*(b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1);}
+float block_density(Block b){
+    float density=b.joint==BLOCK_HINGE?(.97f*.97f*.97f)/(24*sinf(PI/12)*HINGE_RADIUS*HINGE_RADIUS*HINGE_HALF):b.joint==BLOCK_WHEEL?2:1;
+    return density*(b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1);
+}
+static int blocks_adjacent(Block a,Block b){return llabs((long long)a.x-b.x)+llabs((long long)a.y-b.y)+llabs((long long)a.z-b.z)==1;}
+static int articulates(Block b){return b.joint==BLOCK_HINGE||b.joint==BLOCK_PISTON||b.joint==BLOCK_WHEEL;}
 void *array_resize(void *memory,size_t count,size_t size) {
     if(count>SIZE_MAX/size){fputs("Character allocation overflow\n",stderr);exit(1);}
     void *grown=realloc(memory,count*size);
@@ -33,7 +38,7 @@ int character_validate(const Character *c) {
         if(b.y<0||b.parent>=i||b.parent< -1||(i==0?b.parent!=-1:b.parent<0)||
            b.color<0||b.color>=COLOR_COUNT||b.joint<0||b.joint>=BLOCK_KINDS||b.axis<0||b.axis>2||b.material<0||b.material>=MATERIAL_COUNT||b.finish<0||b.finish>=FINISH_COUNT||
            !isfinite(b.speed)||b.speed<.5f||b.speed>6||!isfinite(b.limit)||b.limit<15||b.limit>150||!isfinite(b.travel)||b.travel<.25f||b.travel>3||!isfinite(b.force)||b.force<2||b.force>100||(b.direction!=1&&b.direction!=-1))return 0;
-        if(b.parent>=0){Block a=c->blocks[b.parent];if(llabs((long long)a.x-b.x)+llabs((long long)a.y-b.y)+llabs((long long)a.z-b.z)!=1)return 0;}
+        if(b.parent>=0&&!blocks_adjacent(c->blocks[b.parent],b))return 0;
         for(int j=0;j<i;j++){Block a=c->blocks[j];if(a.x==b.x&&a.y==b.y&&a.z==b.z)return 0;}
         if(b.joint){
             if(i==0||!key_valid(b.negative)||!key_valid(b.positive)||
@@ -130,22 +135,21 @@ void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float 
     b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;shape.baseMaterial.friction=.85f;
     int minimum=INT_MAX;for(int i=0;i<c->count;i++)if(c->blocks[i].y<minimum)minimum=c->blocks[i].y;
     b3BoxHull cube=b3MakeBoxHull(.485f,.485f,.485f);
-    b3Sphere ball={{0,0,0},.485f};
     float ground=landscape?(c->anchored?terrain_height(x,z):fmaxf(terrain_height(x,z),WATER_LEVEL)):0;
     for(int i=0;i<c->count;i++){
         Vector3 v=block_position(c->blocks[i]);b3BodyDef b=b3DefaultBodyDef();b.type=c->anchored&&i==0?b3_staticBody:b3_dynamicBody;b.userData=p->parts;
         b.position=(b3Pos){v.x+x,v.y-minimum+(c->anchored?-.015f:.15f)+ground,v.z+z};b.angularDamping=.08f;b.enableSleep=false;
         p->parts[i].body=b3CreateBody(p->world,&b);
-        // Keep equal part mass when exchanging a cube for a ball of the same width.
+        // Servo housings retain the standard block mass.
         Block part=c->blocks[i];shape.density=block_density(part);
-        if(part.joint==BLOCK_HINGE)b3CreateSphereShape(p->parts[i].body,&shape,&ball);
-        else if(part.joint==BLOCK_WHEEL){
-            b3HullData *wheel=b3CreateCylinder(.7f,.7f,-.35f,24);
+        if(part.joint==BLOCK_HINGE||part.joint==BLOCK_WHEEL){
+            float radius=part.joint==BLOCK_HINGE?HINGE_RADIUS:.7f,half=part.joint==BLOCK_HINGE?HINGE_HALF:.35f;
+            b3HullData *wheel=b3CreateCylinder(2*half,radius,-half,24);
             b3Quat rotation={{0,0,0},1};
             if(part.axis==0)rotation=(b3Quat){{0,0,-.70710678f},.70710678f};
             if(part.axis==2)rotation=(b3Quat){{.70710678f,0,0},.70710678f};
             b3HullData *rotated=b3CloneAndTransformHull(wheel,(b3Transform){{0,0,0},rotation},(b3Vec3){1,1,1});
-            shape.baseMaterial.friction=1.3f;
+            shape.baseMaterial.friction=part.joint==BLOCK_WHEEL?1.3f:.85f;
             b3CreateHullShape(p->parts[i].body,&shape,rotated);b3DestroyHull(rotated);b3DestroyHull(wheel);
             shape.baseMaterial.friction=.85f;
         }else b3CreateHullShape(p->parts[i].body,&shape,&cube.base);
@@ -176,6 +180,14 @@ void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float 
             b3WeldJointDef j=b3DefaultWeldJointDef();j.base.bodyIdA=p->parts[b.parent].body;j.base.bodyIdB=p->parts[i].body;
             j.base.localFrameA=fa;j.base.localFrameB=fb;p->parts[i].joint=b3CreateWeldJoint(p->world,&j);
         }
+    }
+    for(int i=1;i<c->count;i++)for(int j=0;j<i;j++){
+        Block a=c->blocks[j],b=c->blocks[i];
+        if(b.parent==j||articulates(a)||articulates(b)||!blocks_adjacent(a,b))continue;
+        b3WeldJointDef weld=b3DefaultWeldJointDef();weld.base.bodyIdA=p->parts[j].body;weld.base.bodyIdB=p->parts[i].body;
+        weld.base.localFrameA=(b3Transform){{(b.x-a.x)*.5f,(b.y-a.y)*.5f,(b.z-a.z)*.5f},{{0,0,0},1}};
+        weld.base.localFrameB=(b3Transform){{(a.x-b.x)*.5f,(a.y-b.y)*.5f,(a.z-b.z)*.5f},{{0,0,0},1}};
+        b3CreateWeldJoint(p->world,&weld);
     }
     if(c->count){b3Pos root=b3Body_GetPosition(p->parts[0].body);p->start=(Vector3){root.x,root.y,root.z};}
 }
@@ -285,6 +297,24 @@ static void actuator_check(int kind,int axis,int sign) {
     if(kind==BLOCK_PISTON)assert(fabsf(p.parts[1].angle)<.03f);
     assert(p.max_separation<.03f);
     printf("ACTUATOR %s %c: forward %.3f, reverse %.3f, driven %.3f\n",block_names[kind],'X'+axis,forward,p.parts[1].angle,p.parts[1].driven_radians);
+    physics_stop(&p);character_clear(&c);
+}
+static void adjacency_check(void){
+    Character c={0};Physics p={0};unsigned char keys[128]={0};
+    character_add(&c,-1,0,4,0,BLOCK_BOX,0);character_add(&c,0,1,4,0,BLOCK_BOX,0);
+    character_add(&c,1,1,5,0,BLOCK_BOX,0);character_add(&c,2,0,5,0,BLOCK_BOX,0);c.anchored=1;
+    physics_start(&p,&c);assert(b3Body_GetJointCount(p.parts[3].body)==2);
+    b3DestroyJoint(p.parts[3].joint,true);b3World_SetGravity(p.world,(b3Vec3){0,-4,0});
+    b3Pos initial=b3Body_GetPosition(p.parts[3].body);
+    b3Body_ApplyLinearImpulseToCenter(p.parts[3].body,(b3Vec3){8,0,4},true);
+    for(int i=0;i<240;i++)b3World_Step(p.world,1.f/60,8);
+    b3Pos held=b3Body_GetPosition(p.parts[3].body);assert(fabs(held.x-initial.x)+fabs(held.y-initial.y)+fabs(held.z-initial.z)<.01);
+    physics_stop(&p);c.blocks[3].joint=BLOCK_HINGE;c.blocks[3].negative='Q';c.blocks[3].positive='A';
+    physics_start(&p,&c);assert(b3Body_GetJointCount(p.parts[3].body)==1);
+    b3World_SetGravity(p.world,(b3Vec3){0,0,0});keys['Q']=1;
+    for(int i=0;i<120;i++)physics_step(&p,&c,keys);
+    assert(p.parts[3].angle<-.9f);
+    printf("ADJACENCY: closing face holds after parent weld removal; adjacent servo remains free, angle %.3f rad\n",p.parts[3].angle);
     physics_stop(&p);character_clear(&c);
 }
 static void wheel_cart_check(void) {
@@ -407,6 +437,7 @@ int character_check(void) {
     magnet_check();
     water_check();
     wheel_cart_check();
+    adjacency_check();
     for(int axis=0;axis<3;axis++){
         motor_check(axis);
         actuator_check(BLOCK_PISTON,axis,1);actuator_check(BLOCK_PISTON,axis,-1);actuator_check(BLOCK_THRUSTER,axis,1);actuator_check(BLOCK_WHEEL,axis,1);

@@ -125,7 +125,9 @@ async function checkContactForces(){
   const memory=Game.call('installed_program').memory,force=memory.force/memory.samples;readings.push({hz,force,weight});
   assert(Math.abs(force-weight)<weight*.05,'settled support equals weight at either controller frequency: '+JSON.stringify(readings));
  }
- const arm=[{x:0,y:0,z:0,parent:-1,joint:0},{x:0,y:1,z:0,parent:0,joint:0},{x:0,y:2,z:0,parent:1,joint:1,axis:2,negative:81,positive:65,force:30},{x:1,y:2,z:0,parent:2,joint:0},{x:1,y:1,z:0,parent:3,joint:0}];
+ const arm=Array.from({length:5},(_,y)=>({x:0,y,z:0,parent:y-1,joint:0}));
+ arm.push({x:0,y:5,z:0,parent:4,joint:1,axis:2,negative:81,positive:65,force:30},
+  {x:1,y:5,z:0,parent:5,joint:0},{x:2,y:5,z:0,parent:6,joint:0},{x:2,y:4,z:0,parent:7,joint:0});
  Game.call('build',{parts:arm,anchored:true});Game.call('reset',{sea:false});let selfPeak=0,supportAtPeak=0;
  for(let i=0;i<12;i++){const s=(await advance('Q',10)).sensors,force=Math.max(...s.selfContactForce);if(force>selfPeak){selfPeak=force;supportAtPeak=sum(s.supportForce);}}
  assert(selfPeak>1&&supportAtPeak<.01,'anchored arm pressing its own blocks reports self force without outside support');

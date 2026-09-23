@@ -1,20 +1,20 @@
 # Blockwalker
 
 Build walkers, boats, flying machines and anchored structures from boxes and
-magnetic-looking balls with powered hinges. The starter has five parts and four
-joints; a three-part chain, an eight-joint quadruped and an empty grid are also available. There is no
+mechanical servo joints. The workshop opens with the Sidelight patrol biped;
+a four-joint starter, a three-part chain, an eight-joint quadruped and an empty grid are also available. There is no
 automatic gait or balance system.
 
 The C program uses the same raylib and Box3D libraries as the gamedev image.
 Box3D runs fully 3D physics in Wasm on the CPU, with the existing serial,
-non-SIMD build. A WGSL shader renders oriented boxes, matte joint balls, lighting
+non-SIMD build. A WGSL shader renders oriented boxes, faceted servo housings, lighting
 and shadows on WebGPU. A bounding-volume tree accelerates ray intersections. Raylib draws the editor panels in Wasm; those pixels
 are uploaded when the controls change. Ordinary frames have no GPU readback; agent observations explicitly capture a cropped PNG.
 This is a renderer for this box game, not a general GPU backend for raylib.
 
 | Action | Control |
 | --- | --- |
-| Place a box or joint | Choose the part, then click a face or a side of a ball |
+| Place a box or joint | Choose the part, then click a face or side of a joint |
 | Select / erase | Pick or Erase tool; V / X |
 | Orbit / zoom / recenter | Camera buttons, right-drag or Alt + left-drag / scroll / H |
 | Edit a joint | Pick it, choose X/Y/Z, click each key to rebind |
@@ -25,21 +25,25 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Undo | Undo button or Ctrl-Z |
 | World / workshop | World button |
 | Reuse a programmed design | Design library, then Open |
+| Browse earlier experiments | Design library, then Older prototypes |
+| View every actuator while testing | Arrows beneath the joint controls |
 | Play a saved controller | Test character, then Play program; Stop program or backtick returns manual control |
 | Pi panel | Pi button or Tab |
 | Agent / player joint controls | Backtick key; taking control pauses Pi |
 | Leave the editor | Escape, returning to Slop |
 
-A regular block attaches rigidly to its parent. A joint block hinges at its
-parent attachment and carries the attached branch with it. Two keys drive
+A regular block welds to every face-adjacent rigid block, including thrusters
+and magnets. Hinges, pistons and wheels keep explicit parent/child attachments;
+leave clearance between their moving rigid assemblies to avoid welding them
+together. A joint block carries its attached branch. Two keys drive
 opposite directions. Deleting a block removes its branch; Undo restores it.
 Blueprint storage and GPU buffers grow with the design; there is no 64-part ceiling. Test mode leaves the build pose unchanged. Its camera follows root movement while
 keeping the chosen offset, so a tall crane stays framed above its base.
 The camera can orbit almost directly above or below the character. The floor
-is hidden from below so you can attach parts underneath. Ball surfaces snap
-attachments to the closest grid direction. Balls have spherical collision
-shapes and use the same mass and assignable hinge controls as the boxes.
-Boxes and balls weigh about 0.91 kg. Gravity is 4 m/s² and the character starts just above
+is hidden from below so you can attach parts underneath. Servo joints use
+24-sided cylindrical collision shapes and the same nominal mass as boxes.
+Their rotating pointers, fixed scales and red travel-limit arcs show the angle.
+Standard alloy boxes and servos weigh about 0.91 kg. Gravity is 4 m/s² and the character starts just above
 the floor, giving time to try the controls. Hold a joint's keys to turn it;
 release them to brake. Highlighted keys and joint angles show the response.
 
@@ -62,8 +66,8 @@ radius, 0.7 m width and unlimited motor rotation. The larger radius keeps a
 same-height chassis off the ground. Attach wheels as leaves: anything beyond them rotates too.
 Each actuator uses a pair of assignable keys. The inspector shows speed, stroke
 or force in the relevant units. Version 5 blueprints save magnets, anchoring,
-materials and finishes. Versions 1–4 still load with their original mass and
-appearance; old pistons retain their positive-axis motion. The agent JSON API
+materials and finishes. Versions 1–4 still load using the current rendering and
+connection rules; old pistons retain their positive-axis motion. The agent JSON API
 defaults to direction +1 and accepts -1.
 
 Magnet blocks attach rigidly and attract other dynamic bodies within 0.65 m of
@@ -93,8 +97,13 @@ The harbour is near x=112,z=20, open-water trials at x=125,z=10, and the eastern
 island at x=170,z=30. `reset_practice({sea:true})` chooses water; `program_trial`
 keeps the selected surface unless `sea` is supplied. Anchored blueprints pin the
 root to the terrain and leave the remaining bodies and joints physical.
-Finishes 0–3 select plain, panelled, glowing trim or hazard stripes without
+Finishes 0–3 select plain, panelled, indicator trim or hazard stripes without
 changing the physics.
+
+The late-1990s PlayStation art direction uses muted industrial paint, coarse
+surface detail, a 640×360 scene raster, 5-bit color dithering and coastal haze.
+Editor controls retain their full resolution. The dock, quarry and island
+machinery share the same material palette.
 
 Pi receives horizontal distance, speed and torso orientation as well as timed
 GPU images. Its goal is actual legged walking before exploring other moving
@@ -108,10 +117,12 @@ the population, so exporting the world also preserves its designs.
 The initial layout can place several copies of one design. Each has its own
 world identity, physics and controller state while sharing one library entry.
 
-A fresh image includes examples learned by the actual Astra/xhigh Pi: walking
-and wheeled creatures, feedback flyers, a catamaran, cranes and the opening
-bridge. On first launch these populate the world, with loose cargo for the
-magnetic crane; click World to visit. Their controllers run without Pi or model
+A fresh image curates 33 objects / 1109 parts from 26 designs learned by the
+actual Astra/xhigh Pi: the latest patrol biped, larger walkers, a balance
+surveyor, aircraft, boats and cargo machinery. Eighteen earlier prototypes are
+kept separately and added to the library only on request. The drawbridge leaves
+have clearance for the current weld rule. On first launch the catalog populates
+the world, with loose cargo for the cranes; click World to visit. Controllers run without Pi or model
 access. Existing saves keep their population, including an empty world.
 The East landing site, West reactor and North signal station have matching
 physics and GPU geometry, with matte panels, lit markers and solar-cell surfaces.
@@ -199,7 +210,7 @@ feedback; the same body with feedback disabled fell. The integration check also
 runs a four-thruster PID platform, changes its target altitude, applies asymmetric
 thrust, and verifies recovery and saved-world continuation.
 
-Each controller has a seeded random function, 4 MiB memory and a 4 ms execution allowance. A failed controller
+Each controller has a seeded random function, 4 MiB memory and an interpreter execution budget. A failed controller
 removes its creature without stopping the world. Shared Box3D physics allows
 creatures to collide. After a three-second settling period, a sideways torso
 (uprightness < 0.15) or collapsed raised torso (height < 0.65 m above land) is

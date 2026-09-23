@@ -25,6 +25,19 @@ const importBlueprint=async path=>{
 try {
  await page.goto(site.origin+'/blockwalker/');
  await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>30,null,{timeout:60000});
+ const hero=await exportBlueprint('fresh-biped');assert.equal(hero.blocks.filter(b=>b.joint).length,12);
+ await page.mouse.click(1156,40);await frames();
+ const controls=()=>page.screenshot({clip:{x:1028,y:142,width:230,height:470}}),firstControls=await controls();
+ await page.mouse.click(1230,630);await frames();assert.ok(!(await controls()).equals(firstControls),'next page exposes remaining controls');
+ const lastKey=String.fromCharCode(hero.blocks.filter(b=>b.joint).at(-1).positive),lastCap=()=>page.screenshot({clip:{x:1164,y:422,width:6,height:6}}),keyUp=await lastCap();
+ await page.keyboard.down(lastKey);await page.waitForTimeout(300);assert.ok(!(await lastCap()).equals(keyUp),'last actuator key is visible and responds');await shot('biped-controls-page-2');await page.keyboard.up(lastKey);await frames();assert.ok((await lastCap()).equals(keyUp));
+ await page.keyboard.press('Escape');await frames();
+ await page.mouse.click(120,62);await frames();await page.mouse.click(620,172);await frames();await shot('archived-prototypes');await page.mouse.click(954,172);
+ await page.mouse.click(404,40);await frames();const archiveDownload=page.waitForEvent('download');await page.mouse.click(120,630);
+ const archivePath=new URL('archive-world.json',output).pathname;await(await archiveDownload).saveAs(archivePath);
+ const archived=JSON.parse(await readFile(archivePath,'utf8')),prototypes=JSON.parse(await readFile(new URL('../src/blockwalker/archive-designs.json',import.meta.url),'utf8'));
+ assert.ok(prototypes.every(p=>archived.designs.some(d=>d.name===p.name&&d.source===p.source)),'archive restores actual blueprints and programs');
+ assert.ok(prototypes.every(p=>!archived.creatures.some(c=>c.name===p.name)),'opening archive does not populate the world');await page.keyboard.press('Escape');await frames();
  await page.keyboard.press('Escape');await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
  assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.json')),0);
  const upload=page.evaluate(()=>__dolly.submit('upload /tmp/blockwalker-camera.mjs'));
@@ -32,13 +45,14 @@ try {
  assert.equal(await page.evaluate(()=>__dolly.submit('cp /tmp/blockwalker-camera.mjs /usr/src/dolly/blockwalker/check.mjs')),0);
  const editor=page.evaluate(()=>__dolly.submit('blockwalker --integration-check'));editor.catch(()=>{});
  await page.waitForFunction(()=>__dolly.gpu?.active&&__dolly.gpu.stats.frames>20,null,{timeout:30000});
- await shot('builder');let blueprint=await exportBlueprint('starter');
+ await shot('builder');await page.mouse.click(110,520);await frames();let blueprint=await exportBlueprint('starter');
  assert.equal(blueprint.count,5);assert.equal(blueprint.blocks.filter(b=>b.joint).length,4);
  const examples=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8'));
- const boatIndex=examples.findIndex(d=>!d.anchored&&d.blueprint.filter(b=>b.material===1).length>8);assert.ok(boatIndex>=0);
+ const catalog=examples.filter((d,i)=>examples.findIndex(other=>other.name===d.name)===i);
+ const boatIndex=catalog.findIndex(d=>!d.anchored&&Math.abs(d.x)>100&&d.blueprint.filter(b=>b.material===1).length>8&&d.blueprint.filter(b=>b.joint===3).every(b=>b.axis===2));assert.ok(boatIndex>=0);
  await page.mouse.click(120,62);await frames();await shot('design-library');let libraryPage=0;
  while(boatIndex>=libraryPage+8){await page.mouse.click(940,575);await frames();libraryPage+=8;}
- await page.mouse.click(928,222+(boatIndex-libraryPage)*42);await frames();const libraryBoat=await exportBlueprint('library-boat');assert.equal(libraryBoat.count,examples[boatIndex].blueprint.length);assert.deepEqual(libraryBoat.blocks.map(b=>b.material),examples[boatIndex].blueprint.map(b=>b.material));
+ await page.mouse.click(928,222+(boatIndex-libraryPage)*42);await frames();const libraryBoat=await exportBlueprint('library-boat');assert.equal(libraryBoat.count,catalog[boatIndex].blueprint.length);assert.deepEqual(libraryBoat.blocks.map(b=>b.material),catalog[boatIndex].blueprint.map(b=>b.material));
  await page.mouse.click(1156,40);await frames();await page.mouse.click(120,370);await page.waitForTimeout(4000);await shot('library-program-playing');
  await page.keyboard.press('Backquote');await frames();await page.keyboard.press('Escape');await frames();await page.mouse.click(560,64);await importBlueprint(blueprint.path);
  await page.mouse.click(1140,346);await page.mouse.click(1160,588);await page.mouse.click(120,352);await page.mouse.click(145,464);await frames();
@@ -170,7 +184,7 @@ try {
  assert.equal((await exportBlueprint('reopened')).source,blueprint.source);
  await page.keyboard.press('Escape');assert.equal(await restarted,0);
  assert.deepEqual(errors,[]);
- const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,undersideAttachment:true,spherePlacement:true,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,materialsAndAnchor:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,worldCameraTravel:true,worldPlacesAndPopulation:true,promptDoesNotMoveCamera:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
+ const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,undersideAttachment:true,servoPlacement:true,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,materialsAndAnchor:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,worldCameraTravel:true,worldPlacesAndPopulation:true,promptDoesNotMoveCamera:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
  await writeFile(new URL('results.json',output),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
-}catch(error){await shot('failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
+}catch(error){await shot('failure');if(!await page.evaluate(()=>__dolly.gpu?.active))console.error(await page.evaluate(()=>__dolly.visibleTerminalText()));throw error;}
 finally{await browser.close();await site.close();}

@@ -35,7 +35,7 @@ try {
   assert.equal(fresh.creatures.filter(c=>c.name==='Cargo').length,examples.filter(d=>d.name==='Cargo').length);assert.equal(fresh.designs.filter(d=>d.name==='Cargo').length,1,'separate cargo placements share one reusable design');
   assert.ok(fresh.creatures.filter(c=>c.distance>1).length>=5,'bundled controllers move several creations without Pi');
   assert.ok(fresh.creatures.some(c=>!c.anchored&&c.y>4&&c.up>.95),'bundled feedback flyer takes off');
-  assert.ok(fresh.creatures.some(c=>c.startX===125&&c.y>-2&&c.up>.8&&c.distance>1),'bundled boat floats and travels');
+  assert.ok(fresh.creatures.some(c=>!c.anchored&&Math.abs(c.startX)>100&&c.y>-2&&c.y<0&&c.up>.8&&c.distance>1),'bundled boat floats and travels');
   const carriers=fresh.creatures.filter(c=>c.blueprint.some(p=>p.joint===5)),held=new Set(),cargoLow=new Map(fresh.creatures.filter(c=>c.name==='Cargo').map(c=>[c.id,Math.min(...samples.map(w=>w.creatures.find(b=>b.id===c.id).y))]));assert.equal(carriers.length,examples.filter(d=>d.blueprint.some(p=>p.joint===5)).length);
   for(const carrier of carriers){
    assert.ok(samples.some(w=>w.creatures.find(c=>c.id===carrier.id).magnets.some(m=>{const cargo=m?.attached&&w.creatures.find(c=>c.id===m.creature);if(cargo&&cargo.y>cargoLow.get(cargo.id)+.7){held.add(cargo.id);return true;}return false;})),'each programmed cargo machine lifts its own crate relative to its local floor');
@@ -44,9 +44,9 @@ try {
   const courier=carriers.find(c=>c.blueprint.some(p=>p.joint===3)),crate=fresh.creatures.find(c=>c.name==='Cargo'&&c.startX===courier.startX&&c.startZ===courier.startZ);
   assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m?.attached&&m.creature===crate.id)&&box.y>6&&box.distance>2;}),'the flying courier carries its own crate above the island');
   assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m&&!m.attached&&m.power===0)&&box.y<4.6&&box.distance>3;}),'the courier releases its cargo at the other end of its route');
-  const beacon=fresh.creatures.find(c=>c.anchored&&c.startX<-100),firstBeacon=samples[0].creatures.find(c=>c.id===beacon.id),head=beacon.blueprint.findIndex(p=>p.joint===1),rotationDot=beacon.poses[head].slice(3,7).reduce((sum,v,i)=>sum+v*firstBeacon.poses[head][i+3],0);
+  const beacon=fresh.creatures.find(c=>c.name.startsWith('Westwatch')),firstBeacon=samples[0].creatures.find(c=>c.id===beacon.id),head=beacon.blueprint.findIndex(p=>p.joint===1),rotationDot=beacon.poses[head].slice(3,7).reduce((sum,v,i)=>sum+v*firstBeacon.poses[head][i+3],0);
   assert.equal(beacon.distance,0,'the island beacon base remains anchored');assert.ok(Math.abs(rotationDot)<.98,'the beacon head actually rotates');
-  const lift=fresh.creatures.find(c=>c.anchored&&c.blueprint.filter(p=>p.joint===2).length===2),stage=lift.blueprint.findLastIndex(p=>p.joint===2),heights=samples.map(w=>w.creatures.find(c=>c.id===lift.id).poses[stage][1]);
+  const lift=fresh.creatures.find(c=>c.name.startsWith('Tidelock')),stage=lift.blueprint.findLastIndex(p=>p.joint===2),heights=samples.map(w=>w.creatures.find(c=>c.id===lift.id).poses[stage][1]);
   assert.equal(lift.distance,0);assert.ok(Math.max(...heights)-Math.min(...heights)>5,'the two-stage pier lift travels between the sea and island levels');
   const tender=samples.map(w=>w.creatures.find(c=>c.startX===160&&c.startZ===-18));assert.ok(Math.max(...tender.map(c=>c.z))-Math.min(...tender.map(c=>c.z))>10&&tender.every(c=>Math.abs(c.x-160)<.5&&c.up>.95&&c.y>-2),'the island tender approaches and returns on its narrow lane beside the pier');
   assert.ok(samples.some(w=>w.creatures.some(c=>c.parts>=40&&!c.anchored&&c.blueprint.every(p=>p.joint!==3&&p.joint!==4)&&c.distance>2&&c.up>.95)),'the larger legged machine advances without wheels or jets');
@@ -80,5 +80,5 @@ try {
   const flyer=restored.creatures.find(c=>c.hz===60);assert.ok(flyer&&Math.abs(flyer.y-4.5)<.3&&flyer.up>.995);
   console.log(JSON.stringify({embedded:true,timedCapture:true,controllerTimeout:true,feedbackHover:true,waterBuoyancy:true,anchoredBridge:true,magnetPickupLiftRelease:true,magnetRestored:true,overheadPassage:true,survivors:8,worldRestored:true,pngBytes:result.pngBytes}));
  }
-}catch(error){await shot('agent-failure');console.error(await page.evaluate(()=>globalThis.__dolly?.visibleTerminalText()).catch(()=>''));throw error;}
+}catch(error){await shot('agent-failure');if(!await page.evaluate(()=>__dolly.gpu?.active))console.error(await page.evaluate(()=>__dolly.visibleTerminalText()));throw error;}
 finally{await browser.close();await site.close();}

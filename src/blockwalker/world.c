@@ -368,6 +368,9 @@ static void load_designs(JSContext *ctx,JSValueConst list,int populate){
         }character_clear(&c);JS_FreeValue(ctx,item);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
     }
 }
+void world_load_archive(JSContext *ctx){
+    JSValue archive=read_json(ctx,"/usr/src/dolly/blockwalker/archive-designs.json");load_designs(ctx,archive,0);JS_FreeValue(ctx,archive);
+}
 static void load_removals(JSContext *ctx,JSValueConst list){
     if(!JS_IsArray(list))return;
     for(int i=0;i<get_number(ctx,list,"length",0);i++){

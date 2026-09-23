@@ -6,6 +6,8 @@ enum { COLOR_COUNT=6 };
 enum { BLOCK_BOX, BLOCK_HINGE, BLOCK_PISTON, BLOCK_THRUSTER, BLOCK_WHEEL, BLOCK_MAGNET, BLOCK_KINDS };
 enum { MATERIAL_ALLOY,MATERIAL_HULL,MATERIAL_BALLAST,MATERIAL_COUNT };
 enum { FINISH_PLAIN,FINISH_PANEL,FINISH_GLOW,FINISH_STRIPE,FINISH_COUNT };
+#define HINGE_RADIUS .434f
+#define HINGE_HALF .376f
 typedef struct {
     int x,y,z,parent,joint,color,axis,negative,positive;
     float speed,limit,travel,force;

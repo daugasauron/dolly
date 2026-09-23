@@ -13,33 +13,26 @@ fn local(q:vec4f,p:vec3f)->vec3f {return rotate(vec4f(-q.xyz,q.w),p);}
 fn wheel_space(p:vec3f,axis:f32)->vec3f {
     if(axis==0){return p.yxz;}if(axis==2){return p.xzy;}return p;
 }
-fn hit_wheel(o:vec3f,d:vec3f)->f32 {
-    var hit=10000.0;let a=dot(d.xz,d.xz);let b=dot(o.xz,d.xz);let c=dot(o.xz,o.xz)-.7*.7;
+fn hit_cylinder(o:vec3f,d:vec3f,radius:f32,half:f32)->f32 {
+    var hit=10000.0;let a=dot(d.xz,d.xz);let b=dot(o.xz,d.xz);let c=dot(o.xz,o.xz)-radius*radius;
     let disc=b*b-a*c;
     if(a>.000001&&disc>=0){
         let roots=vec2f(-b-sqrt(disc),-b+sqrt(disc))/a;
-        for(var i=0;i<2;i++){let t=roots[i];if(t>.001&&abs(o.y+t*d.y)<=.35){hit=min(hit,t);}}
+        for(var i=0;i<2;i++){let t=roots[i];if(t>.001&&abs(o.y+t*d.y)<=half){hit=min(hit,t);}}
     }
     if(abs(d.y)>.000001){for(var i=0;i<2;i++){
-        let t=(select(-.35,.35,i==1)-o.y)/d.y;
-        if(t>.001&&dot(o.xz+d.xz*t,o.xz+d.xz*t)<=.7*.7){hit=min(hit,t);}
+        let t=(select(-half,half,i==1)-o.y)/d.y;
+        if(t>.001&&dot(o.xz+d.xz*t,o.xz+d.xz*t)<=radius*radius){hit=min(hit,t);}
     }}return hit;
 }
 fn hit_part(origin:vec3f,direction:vec3f,b:Box)->f32 {
-    if(b.flags.x==1){
-        let offset=origin-b.center.xyz;let projection=dot(offset,direction);
-        let discriminant=projection*projection-dot(offset,offset)+b.center.w*b.center.w;
-        if(discriminant<0){return 10000.0;}
-        let root=sqrt(discriminant);let near=-projection-root;let far=-projection+root;
-        let t=select(far,near,near>.001);return select(10000.0,t,t>.001);
-    }
     let o=local(b.rotation,origin-b.center.xyz);let d=local(b.rotation,direction);
     if(b.flags.x==100){
         let v=o/b.extent.xyz;let r=d/b.extent.xyz;let a=dot(r,r);let projection=dot(v,r);let disc=projection*projection-a*(dot(v,v)-1);
         if(disc<0){return 10000.0;}let near=(-projection-sqrt(disc))/a;let far=(-projection+sqrt(disc))/a;
         let t=select(far,near,near>.001);return select(10000.0,t,t>.001);
     }
-    if(b.flags.x==4){return hit_wheel(wheel_space(o,b.flags.y),wheel_space(d,b.flags.y));}
+    if(b.flags.x==4||b.flags.x==1){let size=wheel_space(b.extent.xyz,b.flags.y);return hit_cylinder(wheel_space(o,b.flags.y),wheel_space(d,b.flags.y),size.x,size.y);}
     let safe=select(d,vec3f(0.000001),abs(d)<vec3f(0.000001));
     let a=(-b.extent.xyz-o)/safe;let z=(b.extent.xyz-o)/safe;
     let n=min(a,z);let f=max(a,z);let near=max(n.x,max(n.y,n.z));let far=min(f.x,min(f.y,f.z));
@@ -68,19 +61,12 @@ fn noise(p:vec2f)->f32 {
 }
 fn unpack(v:u32)->vec4f {return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)&255u),f32(v>>24u))/255;}
 fn sky(ray:vec3f)->vec3f {
-    let horizon=pow(clamp(1-abs(ray.y),0,1),5);
-    var color=mix(vec3f(.008,.013,.035),vec3f(.075,.10,.16),horizon);
-    let sphere=vec2f(atan2(ray.z,ray.x),asin(clamp(ray.y,-1,1)));
-    let cell=floor(sphere*180);let point=fract(sphere*180)-.5;
-    let star=pow(max(0,1-length(point)*3),5)*step(.976,hash(cell));
-    color+=mix(vec3f(.45,.75,1),vec3f(1,.72,.4),hash(cell+2))*star;
-    let nebula=noise(sphere*3+2)*noise(sphere*8);
-    color+=vec3f(.045,.015,.085)*pow(nebula,2)*max(0,ray.y);
-    let moon=normalize(vec3f(-.65,.45,-.4));let separation=distance(ray,moon);
-    if(separation<.105){
-        let face=normalize(ray-moon*.99);let texture=noise(sphere*90);
-        color=vec3f(.38,.47,.57)*(.45+.55*texture)*(.3+.7*max(0,dot(face,normalize(vec3f(-.8,.4,.5)))));
-    }
+    let horizon=pow(clamp(1-abs(ray.y),0,1),3);
+    var color=mix(vec3f(.24,.33,.38),vec3f(.57,.59,.51),horizon);
+    let angle=atan2(ray.z,ray.x);let ridge=.025+.035*abs(sin(angle*4))+.023*abs(sin(angle*11));
+    if(ray.y<ridge&&ray.y>-.05){color=mix(vec3f(.30,.38,.36),vec3f(.47,.52,.46),horizon*.6);}
+    let clouds=floor(noise(floor(ray.xz/max(.08,ray.y)*8)/8)*5)/5;
+    color+=vec3f(.12,.11,.075)*smoothstep(.48,.8,clouds)*smoothstep(.07,.25,ray.y);
     return color;
 }
 fn water_height(p:vec2f)->f32 {
@@ -93,7 +79,8 @@ fn water_normal(p:vec2f)->vec3f {
 @fragment fn fragment_main(@builtin(position) pixel:vec4f)->@location(0) vec4f {
     let overlay=unpack(ui[u32(pixel.y)*1280u+u32(pixel.x)]);
     if(overlay.a>0.998){return vec4f(overlay.rgb,1);}
-    let uv=(pixel.xy-scene.viewport.xy)/scene.viewport.zw;
+    let raster=(floor(pixel.xy/2)+.5)*2;
+    let uv=(raster-scene.viewport.xy)/scene.viewport.zw;
     let xy=(uv*2-1)*vec2f(scene.right.w,-1)*scene.forward.w;
     let ray=normalize(scene.forward.xyz+scene.right.xyz*xy.x+scene.up.xyz*xy.y);
     let sun=normalize(vec3f(-.55,1,.7));
@@ -108,26 +95,38 @@ fn water_normal(p:vec2f)->vec3f {
         let fade=clamp(1-distance/28,0,1);
         let line=select(1.0,1-.14*fade,min(grid.x,grid.y)<.016);
         let checker=f32((i32(floor(position.x+.5))+i32(floor(position.z+.5)))&1);
-        color=mix(vec3f(.045,.067,.086),mix(vec3f(.058,.083,.10),vec3f(.067,.092,.11),checker),fade)*line;
-        color+=vec3f(.06,.19,.18)*fade*select(0.0,1.0,min(grid.x,grid.y)<.016);
+        color=mix(vec3f(.20,.25,.25),mix(vec3f(.26,.31,.30),vec3f(.28,.33,.31),checker),fade)*line;
+        color+=vec3f(.14,.13,.08)*fade*select(0.0,1.0,min(grid.x,grid.y)<.016);
         var shadow=1.0;
         if(trace(position+vec3f(0,.01,0),sun,10000,true).y>=0){shadow=.73;}
         color*=shadow;
-        color=mix(color,vec3f(.025,.045,.075),clamp(distance/300,0,.85));
+        color=mix(color,vec3f(.43,.49,.45),clamp(distance/250,0,.85));
     }else if(object>=0){
         let b=boxes[u32(object)];let p=local(b.rotation,position-b.center.xyz);
         if(b.flags.x==100){
             let normalized=p/b.extent.xyz;let along=clamp(normalized.y*.5+.5,0,1);
             let pulse=.85+.15*sin(scene.world.z*43+along*20+b.center.x*7);
-            color=mix(vec3f(.52,.91,1),vec3f(.13,.35,.95),smoothstep(.15,.8,along))*pulse;
-            color=mix(color,vec3f(1,.44,.075),smoothstep(.65,1,along));
+            color=mix(vec3f(.88,.82,.48),vec3f(.83,.41,.15),floor(smoothstep(.1,.85,along)*4)/4)*pulse;
+            color=mix(color,vec3f(.32,.29,.25),smoothstep(.7,1,along));
         }else if(b.flags.x==1){
-            let normal=normalize(p);let world_normal=rotate(b.rotation,normal);
-            let pole=normal[u32(b.flags.y)];
-            color=b.color.rgb*(.70+.30*max(0,dot(world_normal,sun)));
-            if(abs(pole)<.025){color*=.78;}
-            let rim=1-max(0,dot(world_normal,-ray));
-            if(b.flags.z==1&&rim>.8){color=vec3f(.98,1,.86);}
+            let w=wheel_space(p,b.flags.y);let size=wheel_space(b.extent.xyz,b.flags.y);let cap=abs(w.y)>size.y-.001;
+            let facet=floor(atan2(w.z,w.x)*24/6.283185+.5)*6.283185/24;
+            let normal=wheel_space(select(vec3f(cos(facet),0,sin(facet)),vec3f(0,sign(w.y),0),cap),b.flags.y);
+            let radius=length(w.xz)/size.x;let angle=atan2(w.z,w.x);let reference=angle+select(b.style.w,-b.style.w,b.flags.y==1);
+            color=vec3f(.16,.19,.22);
+            if(cap){
+                color=select(b.color.rgb,vec3f(.72,.70,.59),radius>.67);
+                if(radius>.9||radius<.15){color=vec3f(.13,.16,.19);}
+                if(radius>.71&&radius<.87&&abs(sin(reference*12))<.16){color=vec3f(.16,.19,.22);}
+                if(radius>.67&&radius<.91&&abs(atan2(sin(reference),cos(reference)))>b.center.w){color=vec3f(.72,.19,.12);}
+                if(radius>.18&&radius<.63&&abs(w.z)<.033&&w.x>0){color=vec3f(.98,.92,.73);}
+                if(radius<.10&&abs(w.z)<.015){color=vec3f(.68,.67,.60);}
+            }else{
+                color=mix(vec3f(.17,.19,.22),b.color.rgb,.6);
+                if(abs(w.y)<.055||abs(w.y)>size.y-.075){color=vec3f(.12,.15,.18);}
+            }
+            color*=.72+.28*max(0,dot(rotate(b.rotation,normal),sun));
+            if(b.flags.z==1&&cap&&radius>.92){color=vec3f(1,.73,.3);}
         }else if(b.flags.x==4){
             let w=wheel_space(p,b.flags.y);let cap=abs(w.y)>.349;
             let wn=select(normalize(vec3f(w.x,0,w.z)),vec3f(0,sign(w.y),0),cap);
@@ -144,18 +143,16 @@ fn water_normal(p:vec2f)->vec3f {
             var face_uv=p.yz;if(abs(normal.y)>.5){face_uv=p.xz;}else if(abs(normal.z)>.5){face_uv=p.xy;}
             if(b.flags.x==101){
                 if(b.style.x==8){
-                    let strata=.5+.5*sin(position.y*5+noise(position.xz*.22)*5);
-                    color*=.58+.25*noise(face_uv*3)+.17*strata;
+                    let strata=.5+.5*sin(position.y*5+noise(floor(position.xz*2)*.11)*5);
+                    color*=.65+.18*noise(floor(face_uv*8)/3)+.17*strata;
                     let vein=abs(sin(face_uv.x*.35+face_uv.y*.11+noise(face_uv*.3)*3));
-                    color=mix(color,vec3f(.08,.29,.30),.32*(1-smoothstep(.03,.07,vein)));
+                    color=mix(color,vec3f(.27,.34,.29),.32*(1-smoothstep(.03,.07,vein)));
                 }else if(b.style.x==9){
-                    let facet=noise(floor(face_uv*3));
-                    color*=.55+.45*facet;
-                    let band=abs(fract(face_uv.y*.9+facet*.12)-.5);
-                    color+=vec3f(.035,.16,.12)*(1-smoothstep(.42,.48,band))*(.8+.2*sin(scene.world.x*.6+b.center.x));
-                    if(band>.47){color*=.45;}
+                    let vent=abs(fract(face_uv.y*3)-.5);
+                    color*=select(.48,.92,vent<.32);
+                    if(abs(fract(face_uv.x*2)-.5)>.46){color=vec3f(.64,.51,.26);}
                 }else if(b.style.x==6){
-                    color=b.color.rgb*(.9+.1*sin(scene.world.x*.8+position.y*.4));
+                    color=b.color.rgb*(.8+.1*sin(scene.world.x*.8+position.y*.4));
                     let bars=abs(fract(face_uv.y*.8)-.5);if(bars>.42){color*=.18;}
                 }else if(b.style.x==7){
                     let cell=abs(fract(face_uv*vec2f(.8,1.2))-.5);
@@ -169,17 +166,19 @@ fn water_normal(p:vec2f)->vec3f {
                 }else{color*=.82+.18*noise(position.xz*2+position.y);}
                 if(normal.y>.5&&b.style.x<6){
                     let seam=min(abs(fract(position.x/8+.5)-.5),abs(fract(position.z/8+.5)-.5));
-                    color+=vec3f(.02,.12,.13)*(1-smoothstep(.003,.01,seam));
+                    color+=vec3f(.10,.09,.06)*(1-smoothstep(.003,.01,seam));
                 }else if(b.style.x<4){color*=.82+.18*sin(position.y*3+noise(position.xz*.3)*2);}
                 if(b.style.x!=6&&trace(position+normal*.02,sun,512,true).y>=0){color*=.65;}
             }else{
-                let inset=abs(face_uv);
+                let texel=floor(face_uv*24)/24;let inset=abs(face_uv);
+                color*=.9+.1*hash(texel+vec2f(b.center.x,b.center.z));
                 if(b.style.y==1){
-                    if(max(inset.x,inset.y)>.395){color*=.48;}
-                    if(length(inset-vec2f(.34))<.026){color=vec3f(.55,.64,.66);}
+                    if(max(inset.x,inset.y)>.405){color*=.55;}
+                    if(length(inset-vec2f(.34))<.03){color=vec3f(.39,.42,.40);}
+                    if(texel.y>.16&&texel.y<.29&&abs(texel.x)<.20){color*=.58+step(.018,abs(fract(texel.x*9)-.5))*.18;}
                 }
-                if(b.style.y==2&&max(inset.x,inset.y)>.39){color=b.color.rgb*1.35+vec3f(.05,.14,.12);}
-                if(b.style.y==3&&abs(face_uv.y)>.28){color=select(vec3f(.055,.065,.07),vec3f(.92,.62,.12),sin((face_uv.x+face_uv.y)*28)>0);}
+                if(b.style.y==2&&max(inset.x,inset.y)>.39){color=mix(b.color.rgb,vec3f(.76,.71,.43),.55);}
+                if(b.style.y==3&&abs(face_uv.y)>.28){color=select(vec3f(.14,.17,.17),vec3f(.66,.51,.23),sin((texel.x+texel.y)*28)>0);}
                 if(b.style.x==1&&abs(p.y)<.19&&abs(normal.y)<.5){color=mix(color,vec3f(.04,.10,.15),.75);}
                 if(b.style.x==2&&abs(face_uv.y)<.065){color*=.3;}
                 if(b.flags.x==5){
@@ -214,16 +213,20 @@ fn water_normal(p:vec2f)->vec3f {
             let fresnel=.035+.80*pow(1-abs(dot(normal,-ray)),5);
             let reflection=sky(reflect(ray,normal));
             let swell=.5+.5*sin(water.x*.22+water.z*.13-scene.world.x*1.3);
-            let deep=mix(vec3f(.018,.105,.16),vec3f(.027,.18,.23),swell);
+            let deep=mix(vec3f(.14,.25,.26),vec3f(.20,.34,.33),floor(swell*4)/4);
             let transmitted=mix(deep,color,exp(-depth*.20));
             color=mix(transmitted,reflection,fresnel);
-            let gleam=pow(max(0,dot(reflect(-sun,normal),-ray)),180);
-            color+=vec3f(.42,.70,.88)*gleam*.5;
+            let gleam=step(.992,dot(reflect(-sun,normal),-ray));
+            color+=vec3f(.25,.27,.20)*gleam*.2;
             let ripples=pow(.5+.5*sin(water.x*1.9+water.z*2.6+scene.world.x*2.3),12);
             color+=vec3f(.015,.055,.07)*ripples*(.35+.65*fresnel);
             let foam=(1-smoothstep(.02,.4,depth))*(.5+.5*noise(water.xz*9+scene.world.x*.3));
             color=mix(color,vec3f(.35,.67,.69),foam*.55);
         }
     }
+    if(distance<10000){color=mix(color,vec3f(.49,.54,.48),clamp(1-exp(-distance*.0035),0,.8));}
+    let dither=array<f32,16>(0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5);
+    let cell=vec2u(raster/2)%4u;let bias=(dither[cell.y*4u+cell.x]/16-.5)/31;
+    color=floor(clamp(color+bias,vec3f(0),vec3f(1))*31+.5)/31;
     return vec4f(mix(color,overlay.rgb,overlay.a),1);
 }

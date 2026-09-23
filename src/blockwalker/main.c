@@ -19,7 +19,7 @@ static int brush_material,brush_finish=FINISH_PANEL,practice_sea;
 static float mouse_x,mouse_y,last_x,last_y,fps;
 static unsigned char keys[128],agent_keys[128];
 static int agent_control,practice_steps,agent_panel,agent_enabled,prompt_focus,world_view,camera_fast,world_list;
-static int library_open,library_page;
+static int library_open,library_page,control_page,initial_design;
 static int focus_view,world_follow;
 static Vector3 world_follow_position;
 static double world_accumulator,last_save;
@@ -29,11 +29,11 @@ static unsigned frame_count;
 static Physics physics;
 static Vector3 follow_position;
 static Orbit orbit={.target={0,2.5f,0},.yaw=.52f,.pitch=.28f,.distance=10};
-static Orbit workshop_orbit,world_orbit={.target={0,1,0},.yaw=.52f,.pitch=.45f,.distance=24};
+static Orbit workshop_orbit,world_orbit={.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=30};
 static dolly_display_surface surface;
 static JSContext *embedded_context;
 static char message[160]="Click a box face to add. Right-drag to orbit. Scroll to zoom.";
-static const Color ink={216,235,232,255},muted={127,157,166,255},paper={11,17,27,255},line={37,58,73,255},accent={99,235,171,255},panel={25,38,51,255};
+static const Color ink={216,211,188,255},muted={143,151,140,255},paper={25,31,35,255},line={75,84,83,255},accent={180,144,78,255},panel={45,54,58,255};
 static void report(void);
 static void log_text(const char *text);
 
@@ -43,6 +43,8 @@ static void label(int x,int y,const char *s,float size,Color color){DrawTextEx(e
 static void button(int x,int y,int w,int h,const char *s,int active){
     DrawRectangleRec((Rectangle){x,y,w,h},active?accent:panel);
     DrawRectangleLinesEx((Rectangle){x,y,w,h},1,active?accent:line);
+    DrawLine(x+1,y+1,x+w-2,y+1,active?(Color){216,183,117,255}:(Color){95,104,100,255});
+    DrawLine(x+1,y+h-2,x+w-2,y+h-2,(Color){17,23,27,255});
     Vector2 size=MeasureTextEx(editor_font,s,18,0);label(x+(w-size.x)/2,y+(h-20)/2,s,18,active?paper:ink);
 }
 static void draw_agent_log(void){
@@ -74,7 +76,7 @@ static void remember(void){if(undo_count==32){character_clear(&undo[0]);memmove(
 static void changed(void){dirty=1;if(!character_save(&design,"/workspace/blockwalker.character"))say("Could not save the working blueprint. Use Export to keep a copy.");}
 static void undo_edit(void){if(undo_count){character_clear(&design);design=undo[--undo_count];undo[undo_count]=(Character){0};selected=design.count?design.count-1:-1;binding=-1;changed();say("Undid the last edit.");}}
 static void home_camera(void){
-    if(world_view){world_follow=0;orbit=(Orbit){.target={0,1,0},.yaw=.52f,.pitch=.45f,.distance=24};orbit_update(&orbit);return;}
+    if(world_view){world_follow=0;orbit=(Orbit){.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=30};orbit_update(&orbit);return;}
     Vector3 target={0,0,0};for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);target=Vector3Add(target,p);}
     orbit.target=design.count?Vector3Scale(target,1.f/design.count):(Vector3){0,1,0};
     float extent=1;for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);extent=fmaxf(extent,Vector3Distance(orbit.target,p));}
@@ -171,9 +173,10 @@ static void click(void){
             return;
         }
     }else if(inside(794,683,230,30)){toggle_focus();return;}
-    if(inside(24,51,194,22)){library_open=!library_open;prompt_focus=0;memset(keys,0,128);dirty=1;return;}
+    if(inside(24,54,194,20)){library_open=!library_open;prompt_focus=0;memset(keys,0,128);dirty=1;return;}
     if(library_open){
         if(inside(932,156,44,32))library_open=0;
+        if(inside(520,156,210,32)){world_load_archive(embedded_context);say("Older prototypes added to the library. The starting world is unchanged.");}
         if(inside(748,156,164,32)){
             JSValue result=save_design(embedded_context);
             if(JS_IsException(result)){JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Build a character and install its controller before saving a design.");}
@@ -186,6 +189,10 @@ static void click(void){
             if(JS_IsException(result)){JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Could not open this design.");}
             else{agent_enabled=agent_control=0;memset(agent_keys,0,128);}JS_FreeValue(embedded_context,result);break;
         }dirty=1;return;
+    }
+    if(physics.running&&!agent_panel){
+        if(inside(1036,616,56,32)){control_page=(int)fmaxf(0,control_page-7);dirty=1;return;}
+        if(inside(1200,616,56,32)){control_page+=7;dirty=1;return;}
     }
     if(inside(712,22,80,36)){agent_panel=!agent_panel;layout();return;}
     if(inside(352,22,104,36)){set_world_view(!world_view);return;}
@@ -250,7 +257,7 @@ edit_view:
         Vector3 normal;int hit=render_pick(&design,&orbit,mouse_x,mouse_y,&normal);
         if(tool==SELECT){selected=hit;binding=-1;dirty=1;return;}
         if(tool==ERASE){selected=hit;remove_selected();return;}
-        Block b;if(candidate(&b)){remember();selected=character_add(&design,b.parent,b.x,b.y,b.z,b.joint,b.color);design.blocks[selected].material=b.material;design.blocks[selected].finish=b.finish;changed();say(b.joint?"Joint added. Select its two keys in the inspector.":"Box attached. It moves rigidly with its parent.");}
+        Block b;if(candidate(&b)){remember();selected=character_add(&design,b.parent,b.x,b.y,b.z,b.joint,b.color);design.blocks[selected].material=b.material;design.blocks[selected].finish=b.finish;changed();say(b.joint?"Joint added. Select its two keys in the inspector.":"Box attached to every touching rigid block.");}
         else say(design.count?"Place on an empty adjacent side, above the grid.":"Start with a regular box on the grid.");
         return;
     }
@@ -353,7 +360,7 @@ static void draw_ui(void){
     DrawRectangle(0,0,SCREEN_WIDTH,VIEW_Y,paper);DrawRectangle(0,VIEW_Y,VIEW_X,VIEW_H,paper);
     DrawRectangle(VIEW_X+VIEW_W,VIEW_Y,SCREEN_WIDTH-VIEW_X-VIEW_W,VIEW_H,paper);DrawRectangle(0,674,SCREEN_WIDTH,46,paper);
     DrawLine(0,79,1280,79,line);DrawLine(241,80,241,674,line);DrawLine(998,80,998,674,line);DrawLine(0,674,1280,674,line);
-    label(24,15,"BLOCKWALKER",28,ink);button(24,51,194,22,"Design library",library_open);
+    label(24,12,"BLOCKWALKER",26,ink);label(26,38,"MECHANICAL WORKS / 96",11,muted);button(24,54,194,20,"Design library",library_open);
     if(world_view){int parts=0;for(int i=0;i<world.count;i++)parts+=world.creatures[i].design.count;snprintf(text,sizeof(text),"%d OBJECTS / %d PARTS",world.count,parts);}
     else snprintf(text,sizeof(text),"%d PARTS / %d JOINTS",design.count,joints);label(472,32,text,15,muted);
     if(!world_view)button(472,54,208,20,practice_sea?"Test surface: water":"Test surface: ground",practice_sea);
@@ -364,7 +371,7 @@ static void draw_ui(void){
     DrawRectangle(254,643,600,23,paper);
     label(262,647,world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
-        label(24,108,"ISLAND WORLD",17,muted);snprintf(text,sizeof(text),"%d living / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
+        label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d living / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
         const char *places[]={"Home","Harbor","East","West","North","Overview","Basin"};
         for(int i=0;i<7;i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,316,"CREATURES / click to follow",14,muted);
@@ -381,7 +388,7 @@ static void draw_ui(void){
         button(24,336,62,36,"Add",tool==ADD);button(90,336,62,36,"Pick",tool==SELECT);button(156,336,62,36,"Erase",tool==ERASE);
         label(24,390,tool==SELECT?"SELECTED COLOR":"BLOCK COLOR",15,muted);
         for(int i=0;i<COLOR_COUNT;i++){DrawRectangleRounded((Rectangle){24+i*32,416,26,30},.12f,4,block_colors[i]);if(i==brush_color)DrawRectangleLinesEx((Rectangle){22+i*32,414,30,34},2,ink);}
-        const char *finishes[]={"Plain","Panel","Glow","Stripe"};for(int i=0;i<FINISH_COUNT;i++)button(24+i*49,452,46,24,finishes[i],(tool==SELECT&&selected>=0?design.blocks[selected].finish:brush_finish)==i);
+        const char *finishes[]={"Plain","Panel","Trim","Stripe"};for(int i=0;i<FINISH_COUNT;i++)button(24+i*49,452,46,24,finishes[i],(tool==SELECT&&selected>=0?design.blocks[selected].finish:brush_finish)==i);
         label(24,482,"STARTING POINTS",15,muted);button(24,502,194,36,"4-joint walker",0);button(24,548,194,32,"3-block chain",0);button(24,586,194,22,"Quadruped",0);
         button(24,612,92,36,"Undo",0);button(126,612,92,36,"Clear",0);
         label(1036,106,"INSPECTOR",17,muted);
@@ -409,8 +416,9 @@ static void draw_ui(void){
     }else {
         label(24,108,practice_sea?"SEA TRIAL":"TEST GROUND",17,muted);button(24,154,194,42,"Reset drop",0);button(24,212,194,42,"Center camera",0);button(24,264,194,30,"Drop cargo",0);
         label(24,308,"Balance, fall, rebuild.",15,muted);button(24,350,194,36,program_trial==2?"Stop program":"Play program",program_trial==2);
-        label(1036,108,"HOLD KEYS TO TURN",17,muted);int row=0;
-        for(int i=0;i<design.count&&row<7;i++)if(design.blocks[i].joint){Block b=design.blocks[i];int y=152+row*66;
+        label(1036,108,"HOLD KEYS TO TURN",17,muted);int row=0,actuator=0;
+        control_page=(int)Clamp(control_page,0,joints?((joints-1)/7)*7:0);
+        for(int i=0;i<design.count&&row<7;i++)if(design.blocks[i].joint){if(actuator++<control_page)continue;Block b=design.blocks[i];int y=152+row*66;
             snprintf(text,sizeof(text),"%02d",i+1);label(1036,y+12,text,16,muted);char a[2]={b.negative?b.negative:'-',0},z[2]={b.positive?b.positive:'-',0};button(1072,y,72,42,a,(agent_control?agent_keys:keys)[b.negative]);button(1156,y,72,42,z,(agent_control?agent_keys:keys)[b.positive]);
             PhysicsPart *part=&physics.parts[i];
             if(b.joint==BLOCK_MAGNET)snprintf(text,sizeof(text),part->magnet_power?b3Body_IsValid(part->magnet_target)?"Holding %.1f N":"On %.1f N":"Off",part->magnet_load);
@@ -418,11 +426,11 @@ static void draw_ui(void){
             else if(b.joint==BLOCK_THRUSTER)snprintf(text,sizeof(text),"%+.1f N",part->command*b.force);
             else snprintf(text,sizeof(text),"%+.0f deg",part->angle*RAD2DEG);
             label(1072,y+44,text,14,muted);row++;}
-        if(joints>7){snprintf(text,sizeof(text),"+ %d more active joints",joints-7);label(1036,622,text,15,muted);}
+        if(joints>7){button(1036,616,56,32,"<",0);button(1200,616,56,32,">",0);snprintf(text,sizeof(text),"%d-%d / %d",control_page+1,(int)fminf(control_page+7,joints),joints);label(1100,626,text,14,muted);}
     }
     if(library_open){
         DrawRectangle(254,142,742,470,paper);DrawRectangleLinesEx((Rectangle){254,142,742,470},2,line);
-        label(274,164,"DESIGN LIBRARY",22,ink);button(748,156,164,32,"Save current",0);button(932,156,44,32,"X",0);
+        label(274,164,"DESIGN LIBRARY",22,ink);button(520,156,210,32,"Older prototypes",0);button(748,156,164,32,"Save current",0);button(932,156,44,32,"X",0);
         library_page=(int)Clamp(library_page,0,world.design_count?((world.design_count-1)/8)*8:0);
         for(int i=0;i<8&&library_page+i<world.design_count;i++){SavedDesign *d=&world.designs[library_page+i];int y=206+i*42;
             snprintf(text,sizeof(text),"%.34s",d->name);label(274,y+8,text,16,ink);
@@ -592,6 +600,7 @@ static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst
 }
 static int game_initialize(JSContext *ctx) {
     embedded_context=ctx;world_load(ctx);
+    if(initial_design&&world.design_count){JSValue opened=open_design(ctx,0);JS_FreeValue(ctx,opened);}
     JSValue global=JS_GetGlobalObject(ctx),game=JS_NewObject(ctx);
     JS_SetPropertyStr(ctx,game,"call",JS_NewCFunction(ctx,game_call,"call",2));
     JS_SetPropertyStr(ctx,game,"frame",JS_NewCFunction(ctx,game_frame,"frame",0));
@@ -601,7 +610,7 @@ int main(int argc,char **argv){
     if(argc==2&&!strcmp(argv[1],"--check"))return character_check();
     int integration=argc==2&&!strcmp(argv[1],"--integration-check");
     if(argc!=1&&!integration){fputs("usage: blockwalker [--check | --integration-check]\n",stderr);return 1;}
-    if(!character_load(&design,"/workspace/blockwalker.character"))character_preset(&design,1);
+    initial_design=!character_load(&design,"/workspace/blockwalker.character");if(initial_design)character_preset(&design,1);
     selected=design.count?0:-1;home_camera();if(render_open(&surface)<0)return 1;
     printf("Blockwalker: C game, raylib UI, Box3D physics, WebGPU rendering, embedded Pi.\n");
     last_frame=updated=seconds();
