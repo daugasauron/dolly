@@ -61,3 +61,36 @@ Both official archives are checksum verified. `public.zip` contains 52,829 files
 3,508,827,314 bytes stored and 3,497,330,785 bytes expanded, including DDS textures,
 PMD/PSA models/animations, XMB documents and SPIR-V shaders. Asset conversion and
 resident memory still need verification; this is not yet a playable game.
+
+2026-09-23: The complete engine compiles and links as a 21,603,191-byte wasm64
+process. SHA-256: `40a1b2faf7fd8585a31108f34b06ae935a47c8b3700aea9f4f26c22b7acb2a56`.
+Its exact process ABI passes, and Chrome executes two fresh `-version` runs.
+The bounded browser check then loaded the official combat demo, reached 20 turns
+in 684 ms, interrupted it with status 130 and retained its replay in the kernel
+filesystem. Replaying those 20 turns with upstream serialization checks took
+4,800 ms; a second fresh replay took 463 ms. Both produced state hash
+`be99497b21b9cb86d3a1478d2e2e09a6`, with no replay errors and a working shell.
+Evidence: `.cache/0ad/browser-engine-test.log` and `.cache/0ad/browser/`.
+These timings include command submission/download and are not renderer benchmarks.
+
+The 33,699,840-byte headless content bundle has SHA-256
+`003d3492dda541f57818df1ec246dba323456ee1f1c555cd7480deec0f882d9a`.
+Its initial missing victory-condition scripts were found in engine logs and
+added before the passing test. It is a selected official scenario distribution,
+not the complete graphical asset pack.
+
+`engine.patch` reproduces every changed engine source from the verified release
+archive (checked by applying it to pristine files and comparing their digests).
+Platform changes cover wasm64 identification, serial tasks and JS context
+sharing, heap-backed fixed-address pools, POSIX helper selection and explicit
+failure for unsupported native HTTP listeners/desktop operations. Cached
+PMD/PSA assets avoid building the native Collada conversion DLL. Audio remains
+disabled at this checkpoint. Libsodium uses process getrandom, and curl version
+reporting now identifies the Dolly Fetch adapter.
+
+A real browser caught legacy EH instructions in the SDK's libpng port despite a
+successful Wasm link. The tracked dependency build now recompiles libpng and
+FreeType with Dolly's modern Wasm exception/longjmp flags. All tracked engine
+preparation/dependency/compile/link stages have run successfully. Shell/Node
+syntax checks and patch reconstruction pass. Next: a guest stdin/stdout control
+interface, save/load, then the graphical renderer/content, audio and multiplayer.

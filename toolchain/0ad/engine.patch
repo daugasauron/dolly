@@ -1,0 +1,519 @@
+--- a/source/graphics/MapGenerator.cpp
++++ b/source/graphics/MapGenerator.cpp
+@@ -86,8 +86,10 @@
+ 		m_ScriptInterface.SetCallbackData(static_cast<void*>(this));
+ 
+ 		// Enable the script to be aborted
++#if !defined(DOLLY)
+ 		JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(),
+ 			&MapGenerationInterruptCallback);
++#endif
+ 
+ 		// Set initial seed, callback data.
+ 		// Expose functions, globals and classes relevant to the map scripts.
+@@ -130,7 +132,9 @@
+ 
+ 	~CMapGenerationCallbacks()
+ 	{
++#if !defined(DOLLY)
+ 		JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(), nullptr);
++#endif
+ 		m_ScriptInterface.SetCallbackData(nullptr);
+ 	}
+ 
+--- a/source/lib/allocators/dynarray.cpp
++++ b/source/lib/allocators/dynarray.cpp
+@@ -36,6 +36,7 @@
+ #include <algorithm>
+ #include <cstdint>
+ #include <cstring>
++#include <cstdlib>
+ 
+ static Status validate_da(DynArray* da)
+ {
+@@ -69,7 +70,15 @@
+ 	ENSURE(max_size != 0);
+ 	const size_t max_size_pa = Align<g_PageSize>(max_size);
+ 
++#if OS_DOLLY
++	// Linear memory cannot reserve inaccessible pages. Keep the fixed buffer
++	// address required by Pool, allocating its bounded capacity up front.
++	u8* p = nullptr;
++	if (posix_memalign(reinterpret_cast<void**>(&p), g_PageSize, max_size_pa))
++		return ERR::NO_MEM;
++#else
+ 	u8* p = (u8*)vm::ReserveAddressSpace(max_size_pa);
++#endif
+ 	if(!p)
+ 		return ERR::NO_MEM;	// NOWARN (already done in vm)
+ 
+@@ -87,7 +96,11 @@
+ {
+ 	CHECK_DA(da);
+ 
++#if OS_DOLLY
++	free(da->base);
++#else
+ 	vm::ReleaseAddressSpace(da->base, da->max_size_pa);
++#endif
+ 
+ 	// wipe out the DynArray for safety
+ 	memset(da, 0, sizeof(*da));
+@@ -116,13 +129,19 @@
+ 	// expanding
+ 	if(size_delta_pa > 0)
+ 	{
++#if OS_DOLLY
++		memset(end, 0, size_delta_pa);
++#else
+ 		ok = vm::Commit(uintptr_t(end), size_delta_pa);
++#endif
+ 		if(!ok)
+ 			debug_printf("Commit failed (%p %lld)\n", (void *)end, (long long)size_delta_pa);
+ 	}
+ 	// shrinking
++#if !OS_DOLLY
+ 	else if(size_delta_pa < 0)
+ 		ok = vm::Decommit(uintptr_t(end+size_delta_pa), -size_delta_pa);
++#endif
+ 	// else: no change in page count, e.g. if going from size=1 to 2
+ 	// (we don't want mem_* to have to handle size=0)
+ 
+--- a/source/lib/byte_order.h
++++ b/source/lib/byte_order.h
+@@ -36,7 +36,7 @@
+ #ifndef BYTE_ORDER
+ # define LITTLE_ENDIAN 0x4321
+ # define BIG_ENDIAN    0x1234
+-# if ARCH_IA32 || ARCH_IA64 || ARCH_AMD64 || ARCH_ALPHA || ARCH_ARM || ARCH_AARCH64 || ARCH_MIPS || ARCH_E2K || ARCH_PPC64 || defined(__LITTLE_ENDIAN__)
++# if ARCH_IA32 || ARCH_IA64 || ARCH_AMD64 || ARCH_ALPHA || ARCH_ARM || ARCH_AARCH64 || ARCH_MIPS || ARCH_E2K || ARCH_PPC64 || ARCH_WASM64 || defined(__LITTLE_ENDIAN__)
+ #  define BYTE_ORDER LITTLE_ENDIAN
+ # else
+ #  define BYTE_ORDER BIG_ENDIAN
+--- a/source/lib/ogl.cpp
++++ b/source/lib/ogl.cpp
+@@ -34,7 +34,7 @@
+ #if !CONFIG2_GLES
+ # if OS_WIN
+ #  include <glad/wgl.h>
+-# elif !OS_MACOSX
++# elif !OS_MACOSX && !OS_DOLLY
+ #  include <SDL_config.h>
+ #  include <SDL_syswm.h>
+ #  if defined(SDL_VIDEO_DRIVER_X11)
+@@ -216,7 +216,7 @@
+ static int GLVersion;
+ #if OS_WIN
+ static int WGLVersion;
+-#elif !CONFIG2_GLES && !OS_MACOSX
++#elif !CONFIG2_GLES && !OS_MACOSX && !OS_DOLLY
+ #if defined(SDL_VIDEO_DRIVER_X11)
+ static int GLXVersion;
+ #endif
+@@ -424,7 +424,7 @@
+ 
+ #if OS_WIN
+ bool ogl_Init(void* (load)(const char*), void* hdc)
+-#elif !CONFIG2_GLES && !OS_MACOSX
++#elif !CONFIG2_GLES && !OS_MACOSX && !OS_DOLLY
+ bool ogl_Init(void* (load)(const char*), void* display, int subsystem)
+ #else
+ bool ogl_Init(void* (load)(const char*))
+@@ -454,7 +454,7 @@
+ 		LOAD_ERROR("Failed to load WGL functions.");
+ 		return false;
+ 	}
+-# elif !OS_MACOSX
++# elif !OS_MACOSX && !OS_DOLLY
+ 	const SDL_SYSWM_TYPE sysWMType = static_cast<SDL_SYSWM_TYPE>(subsystem);
+ #  if defined(SDL_VIDEO_DRIVER_X11)
+ 	if (sysWMType == SDL_SYSWM_X11)
+@@ -518,7 +518,7 @@
+ #if !CONFIG2_GLES && OS_WIN
+ 	if (ogl_HaveExtension("WGL_EXT_swap_control"))
+ 		wglSwapIntervalEXT(interval);
+-#elif !CONFIG2_GLES && !OS_MACOSX
++#elif !CONFIG2_GLES && !OS_MACOSX && !OS_DOLLY
+ #if defined(SDL_VIDEO_DRIVER_X11)
+ 	if (GLXVersion && ogl_HaveExtension("GLX_SGI_swap_control"))
+ 		glXSwapIntervalSGI(interval);
+--- a/source/lib/ogl.h
++++ b/source/lib/ogl.h
+@@ -46,7 +46,7 @@
+  **/
+ #if OS_WIN
+ extern bool ogl_Init(void* (load)(const char*), void* hdc);
+-#elif !OS_MACOSX && !CONFIG2_GLES
++#elif !OS_MACOSX && !OS_DOLLY && !CONFIG2_GLES
+ extern bool ogl_Init(void* (load)(const char*), void* display, int subsystem);
+ #else
+ extern bool ogl_Init(void* (load)(const char*));
+--- a/source/lib/posix/posix_aio.h
++++ b/source/lib/posix/posix_aio.h
+@@ -27,10 +27,11 @@
+ // POSIX declarations, this one is harmless (no incompatible declarations)
+ // and can safely be used on Windows as well.
+ #include <fcntl.h>
++#include <signal.h>
+ 
+ #if OS_WIN
+ # include "lib/sysdep/os/win/wposix/waio.h"
+-#elif OS_ANDROID || OS_OPENBSD
++#elif OS_ANDROID || OS_OPENBSD || OS_DOLLY
+ // Android doesn't provide aio.h. We don't actually use aio on Linuxes (see
+ // CONFIG2_FILE_ENABLE_AIO) but we use its symbols and structs, so define
+ // them here
+--- a/source/lib/sysdep/arch.h
++++ b/source/lib/sysdep/arch.h
+@@ -83,8 +83,14 @@
+ # define ARCH_E2K 0
+ #endif
+ 
++#if defined(__wasm64__)
++# define ARCH_WASM64 1
++#else
++# define ARCH_WASM64 0
++#endif
++
+ // ensure exactly one architecture has been detected
+-#if (ARCH_IA32+ARCH_IA64+ARCH_AMD64+ARCH_ALPHA+ARCH_ARM+ARCH_AARCH64+ARCH_MIPS+ARCH_E2K+ARCH_PPC64) != 1
++#if (ARCH_IA32+ARCH_IA64+ARCH_AMD64+ARCH_ALPHA+ARCH_ARM+ARCH_AARCH64+ARCH_MIPS+ARCH_E2K+ARCH_PPC64+ARCH_WASM64) != 1
+ # error "architecture not correctly detected (either none or multiple ARCH_* defined)"
+ #endif
+ 
+--- a/source/lib/sysdep/os/unix/unix.cpp
++++ b/source/lib/sysdep/os/unix/unix.cpp
+@@ -69,7 +69,7 @@
+ 	fprintf(stderr, "%ls: %ls\n", caption, msg); // must not use fwprintf, since stderr is byte-oriented
+ }
+ 
+-#if OS_MACOSX || OS_ANDROID
++#if OS_MACOSX || OS_ANDROID || OS_DOLLY
+ static ErrorReactionInternal try_gui_display_error(const wchar_t* /*text*/, bool /*manual_break*/,
+ 	bool /*allow_suppress*/, bool /*no_continue*/)
+ {
+@@ -353,6 +353,9 @@
+ 
+ Status sys_open_url(const std::string& url)
+ {
++#if OS_DOLLY
++	return ERR::NOT_SUPPORTED;
++#else
+ 	pid_t pid = fork();
+ 	if (pid < 0)
+ 	{
+@@ -379,6 +382,7 @@
+ 
+ 		return INFO::OK;
+ 	}
++#endif
+ }
+ 
+ FILE* sys_OpenFile(const OsPath& pathname, const char* mode)
+--- a/source/lib/sysdep/os.h
++++ b/source/lib/sysdep/os.h
+@@ -97,6 +97,11 @@
+ #else
+ # define OS_AMIGA 0
+ #endif
++#if defined(DOLLY)
++# define OS_DOLLY 1
++#else
++# define OS_DOLLY 0
++#endif
+ // Unix-based
+ #if defined(unix) || defined(__unix) || defined(__unix__) || defined(_XOPEN_SOURCE) || defined(_POSIX_SOURCE)
+ # define OS_UNIX 1
+@@ -107,7 +112,7 @@
+ // convenience: additionally set OS_UNIX for Unix-based OSes
+ // note: doing this in an separate section instead of adding the extra define
+ // to all affected OSes saves a few undefs or macro redefinition warnings.
+-#if OS_LINUX || OS_MACOSX || OS_BSD || OS_SOLARIS
++#if OS_LINUX || OS_MACOSX || OS_BSD || OS_SOLARIS || OS_DOLLY
+ # undef OS_UNIX
+ # define OS_UNIX 1
+ #endif
+--- a/source/main.cpp
++++ b/source/main.cpp
+@@ -805,7 +805,7 @@
+ int main(int argc, char* argv[])
+ #endif
+ {
+-#if OS_UNIX
++#if OS_UNIX && !OS_DOLLY
+ 	// Don't allow people to run the game with root permissions,
+ 	//	because bad things can happen, check before we do anything
+ 	if (geteuid() == 0)
+--- a/source/ps/GameSetup/GameSetup.cpp
++++ b/source/ps/GameSetup/GameSetup.cpp
+@@ -122,7 +122,7 @@
+ #include <utility>
+ 
+ 
+-#if !(OS_WIN || OS_MACOSX || OS_ANDROID) // assume all other platforms use X11 for wxWidgets
++#if !(OS_WIN || OS_MACOSX || OS_ANDROID || OS_DOLLY) // assume all other platforms use X11 for wxWidgets
+ #define MUST_INIT_X11 1
+ #include <X11/Xlib.h>
+ #else
+--- a/source/ps/GameSetup/HWDetect.cpp
++++ b/source/ps/GameSetup/HWDetect.cpp
+@@ -23,7 +23,9 @@
+ #include "lib/debug.h"
+ #include "lib/external_libraries/curl.h"
+ #include "lib/external_libraries/enet.h"
++#if CONFIG2_LOBBY
+ #include "lib/external_libraries/gloox.h"
++#endif
+ #include "lib/external_libraries/png.h"
+ #include "lib/external_libraries/libsdl.h"
+ #include "lib/path.h"
+@@ -209,7 +211,9 @@
+ 	appendLibrary(LibraryReporter{rq, "boost"}.Add("version", BOOST_VERSION).MakeReport());
+ 	appendLibrary(LibraryReporter{rq, "enet"}.Add("version", std::to_string(ENET_VERSION)).MakeReport());
+ 	appendLibrary(LibraryReporter{rq, "fmt"}.Add("version", FMT_VERSION).MakeReport());
++#if CONFIG2_LOBBY
+ 	appendLibrary(LibraryReporter{rq, "gloox"}.Add("version", gloox_version()).MakeReport());
++#endif
+ 	appendLibrary(LibraryReporter{rq, "libicu"}.Add("version", U_ICU_VERSION).MakeReport());
+ 	appendLibrary(LibraryReporter{rq, "libcurl"}.Add("version", std::string(curl_version())).MakeReport());
+ #if CONFIG2_AUDIO
+--- a/source/ps/TaskManager.cpp
++++ b/source/ps/TaskManager.cpp
+@@ -35,6 +35,15 @@
+ 
+ namespace Threading
+ {
++#if defined(DOLLY)
++class TaskManager::Impl {};
++TaskManager::TaskManager() : m{std::make_unique<Impl>()} {}
++TaskManager::TaskManager(size_t) : TaskManager() {}
++TaskManager::~TaskManager() = default;
++size_t TaskManager::GetNumberOfWorkers() const { return 0; }
++void TaskManager::PushTask(std::function<void()> task, TaskPriority) { task(); }
++#else
++
+ 
+ namespace
+ {
+@@ -284,4 +293,5 @@
+ 	std::invoke(callable, object);
+ }
+ 
++#endif
+ } // namespace Threading
+--- a/source/ps/strings/StringBuilder.h
++++ b/source/ps/strings/StringBuilder.h
+@@ -29,7 +29,7 @@
+ #if defined(__cpp_lib_to_chars)
+ #include <charconv>
+ #else
+-#include <fmt/core.h>
++#include <fmt/format.h>
+ #endif
+ 
+ namespace PS
+--- a/source/scriptinterface/ScriptContext.cpp
++++ b/source/scriptinterface/ScriptContext.cpp
+@@ -104,7 +104,24 @@
+ 
+ std::shared_ptr<ScriptContext> ScriptContext::CreateContext(int contextSize, uint32_t heapGrowthBytesGCTrigger)
+ {
++#if defined(DOLLY)
++	// Serial tasks share one context and retain their separate realms.
++	static std::weak_ptr<ScriptContext> current;
++	if (std::shared_ptr<ScriptContext> context = current.lock())
++	{
++		if (contextSize > context->m_ContextSize)
++		{
++			context->m_ContextSize = contextSize;
++			JS_SetGCParameter(context->m_cx, JSGC_MAX_BYTES, contextSize);
++		}
++		return context;
++	}
++	auto context = std::make_shared<ScriptContext>(contextSize, heapGrowthBytesGCTrigger);
++	current = context;
++	return context;
++#else
+ 	return std::make_shared<ScriptContext>(contextSize, heapGrowthBytesGCTrigger);
++#endif
+ }
+ 
+ ScriptContext::ScriptContext(int contextSize, uint32_t heapGrowthBytesGCTrigger):
+--- a/source/third_party/mongoose/mongoose.cpp
++++ b/source/third_party/mongoose/mongoose.cpp
+@@ -4230,6 +4230,11 @@
+ 
+ struct mg_context *mg_start(mg_callback_t user_callback, void *user_data,
+                             const char **options) {
++#if defined(DOLLY)
++  fprintf(stderr, "Dolly does not support listening HTTP servers.\n");
++  errno = ENOTSUP;
++  return NULL;
++#else
+   struct mg_context *ctx;
+   const char *name, *value, *default_value;
+   int i;
+@@ -4311,4 +4316,5 @@
+   }
+ 
+   return ctx;
+-}
++#endif
++}
+--- a/build/premake/premake5.lua
++++ b/build/premake/premake5.lua
+@@ -90,7 +90,9 @@
+ arch = "x86"
+ macos_arch = "x86_64"
+ 
+-if _OPTIONS["android"] then
++if os.istarget("emscripten") then
++	arch = "wasm64"
++elseif _OPTIONS["android"] then
+ 	arch = "arm"
+ elseif os.istarget("windows") then
+ 	if os.getenv("HOSTTYPE") then
+@@ -165,7 +167,7 @@
+ -- The pc file doesn't specify the required -DDEBUG needed in that case
+ local mozjs_is_debug_build = false
+ if _OPTIONS["with-system-mozjs"] then
+-	local _, errorCode = os.outputof(cc .. " $(pkg-config mozjs-128 --cflags) ./tests/mozdebug.c -o /dev/null")
++	local _, errorCode = os.outputof(cc .. " $(pkg-config mozjs-128 --cflags) -c ./tests/mozdebug.c -o /dev/null")
+ 	if errorCode ~= 0 then
+ 		mozjs_is_debug_build = true
+ 	end
+@@ -178,6 +180,11 @@
+ location(_OPTIONS["outpath"])
+ configurations { "Release", "Debug" }
+ startproject "pyrogenesis"
++if os.istarget("emscripten") then
++	architecture "wasm64"
++	defines { "DOLLY", "CONFIG2_FILE_ENABLE_AIO=0", "CONFIG2_TIMER_ALLOW_RDTSC=0" }
++	buildoptions { "-m64", "-matomics", "-mbulk-memory", "-fwasm-exceptions", "-sWASM_LEGACY_EXCEPTIONS=0", "-sSUPPORT_LONGJMP=wasm", "-O1" }
++end
+ 
+ source_root = rootdir.."/source/" -- default for most projects - overridden by local in others
+ 
+@@ -1005,6 +1012,7 @@
+ 
+ 	-- OS-specific
+ 	sysdep_dirs = {
++		emscripten = { "lib/sysdep/os/unix", "lib/sysdep/os/dolly", "lib/sysdep/arch/wasm64" },
+ 		linux = { "lib/sysdep/os/linux", "lib/sysdep/os/unix" },
+ 		-- note: RC file must be added to main_exe project.
+ 		-- note: don't add "lib/sysdep/os/win/aken.cpp" because that must be compiled with the DDK.
+@@ -1040,10 +1048,13 @@
+ 	end
+ 
+ 	setup_static_lib_project("lowlevel", source_dirs, extern_libs, extra_params)
++	if os.istarget("emscripten") then
++		removefiles { source_root.."lib/sysdep/os/unix/unix_executable_pathname.cpp" }
++	end
+ 
+ 
+ 	extern_libs = { "glad" }
+-	if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") then
++	if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") and not os.istarget("emscripten") then
+ 		table.insert(extern_libs, "x11")
+ 	end
+ 	setup_static_lib_project("gladwrapper", {}, extern_libs, { no_pch = 1 })
+@@ -1123,7 +1134,7 @@
+ 	"oleaut32",
+ }
+ 
+-if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") then
++if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") and not os.istarget("emscripten") then
+ 	-- X11 should only be linked on *nix
+ 	table.insert(used_extern_libs, "x11")
+ end
+@@ -1164,7 +1175,9 @@
+ 	project_add_contents(source_root, {}, {}, extra_params)
+ 	project_add_extern_libs(used_extern_libs, target_type)
+ 
+-	dependson { "Collada" }
++	if not os.istarget("emscripten") then
++		dependson { "Collada" }
++	end
+ 
+ 	rtti "off"
+ 
+@@ -1578,7 +1591,9 @@
+ 	project_add_contents(source_root, {}, {}, extra_params)
+ 	project_add_extern_libs(used_extern_libs, target_type)
+ 
+-	dependson { "Collada" }
++	if not os.istarget("emscripten") then
++		dependson { "Collada" }
++	end
+ 
+ 	rtti "off"
+ 
+@@ -1670,7 +1685,9 @@
+ 	setup_atlas_frontends()
+ end
+ 
+-setup_collada_projects()
++if not os.istarget("emscripten") then
++	setup_collada_projects()
++end
+ 
+ if not _OPTIONS["without-tests"] then
+ 	setup_tests()
+--- /dev/null
++++ b/source/lib/sysdep/arch/wasm64/wasm64.cpp
+@@ -0,0 +1,4 @@
++#include "precompiled.h"
++#include "lib/sysdep/cpu.h"
++
++const char* cpu_IdentifierString() { return "WebAssembly64"; }
+--- /dev/null
++++ b/source/lib/sysdep/os/dolly/dolly.cpp
+@@ -0,0 +1,48 @@
++#include "precompiled.h"
++#include "lib/debug.h"
++#include "lib/sysdep/dir_watch.h"
++#include "lib/sysdep/os_cpu.h"
++#include "lib/sysdep/sysdep.h"
++#include <climits>
++#include <unistd.h>
++
++size_t os_cpu_NumProcessors() { return 1; }
++uintptr_t os_cpu_ProcessorMask() { return 1; }
++size_t os_cpu_PageSize() { return 65536; }
++size_t os_cpu_LargePageSize() { return 0; }
++// Host physical memory is not exposed to the guest.
++size_t os_cpu_QueryMemorySize() { return 0; }
++size_t os_cpu_MemoryAvailable() { return 0; }
++uintptr_t os_cpu_SetThreadAffinityMask(uintptr_t mask) { return mask == 1 ? 1 : 0; }
++Status os_cpu_CallByEachCPU(OsCpuCallback cb, uintptr_t data)
++{
++	cb(0, data);
++	return INFO::OK;
++}
++
++OsPath sys_ExecutablePathname()
++{
++	char path[PATH_MAX];
++	const ssize_t size = readlink("/proc/self/exe", path, sizeof(path) - 1);
++	if (size < 0 || size == sizeof(path) - 1)
++		return OsPath();
++	path[size] = 0;
++	return OsPath(path);
++}
++
++void* debug_GetCaller(void*, const wchar_t*) { return nullptr; }
++Status debug_DumpStack(wchar_t* buf, size_t size, void*, const wchar_t*)
++{
++	if (size) buf[0] = 0;
++	return ERR::NOT_SUPPORTED;
++}
++Status debug_ResolveSymbol(void*, wchar_t* symbol, wchar_t* file, int* line)
++{
++	if (symbol) *symbol = 0;
++	if (file) *file = 0;
++	if (line) *line = 0;
++	return ERR::NOT_SUPPORTED;
++}
++void debug_SetThreadName(const char*) {}
++Status dir_watch_Add(const OsPath&, PDirWatch&) { return ERR::NOT_SUPPORTED; }
++Status dir_watch_Poll(DirWatchNotifications&) { return ERR::NOT_SUPPORTED; }

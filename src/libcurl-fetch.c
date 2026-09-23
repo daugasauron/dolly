@@ -951,6 +951,11 @@ const char *curl_multi_strerror(CURLMcode error) {
   }
 }
 
+char *curl_version(void) {
+  static char version[] = "libcurl/" LIBCURL_VERSION " Dolly Fetch";
+  return version;
+}
+
 curl_version_info_data *curl_version_info(CURLversion age) {
   static const char *protocols[] = {"http", "https", NULL};
   static const char *features[] = {"SSL", NULL};

@@ -1,0 +1,65 @@
+--- a/src/libsodium/randombytes/randombytes.c
++++ b/src/libsodium/randombytes/randombytes.c
+@@ -6,7 +6,7 @@
+ 
+ #include <sys/types.h>
+ 
+-#ifdef __EMSCRIPTEN__
++#if defined(__EMSCRIPTEN__) && !defined(DOLLY)
+ # include <emscripten.h>
+ #endif
+ 
+@@ -27,7 +27,7 @@
+ static const randombytes_implementation *implementation;
+ 
+ #ifndef RANDOMBYTES_DEFAULT_IMPLEMENTATION
+-# ifdef __EMSCRIPTEN__
++# if defined(__EMSCRIPTEN__) && !defined(DOLLY)
+ #  define RANDOMBYTES_DEFAULT_IMPLEMENTATION NULL
+ # else
+ #  define RANDOMBYTES_DEFAULT_IMPLEMENTATION &randombytes_sysrandom_implementation;
+@@ -54,7 +54,7 @@
+ const char *
+ randombytes_implementation_name(void)
+ {
+-#ifndef __EMSCRIPTEN__
++#if !defined(__EMSCRIPTEN__) || defined(DOLLY)
+     randombytes_init_if_needed();
+     return implementation->implementation_name();
+ #else
+@@ -65,7 +65,7 @@
+ uint32_t
+ randombytes_random(void)
+ {
+-#ifndef __EMSCRIPTEN__
++#if !defined(__EMSCRIPTEN__) || defined(DOLLY)
+     randombytes_init_if_needed();
+     return implementation->random();
+ #else
+@@ -78,7 +78,7 @@
+ void
+ randombytes_stir(void)
+ {
+-#ifndef __EMSCRIPTEN__
++#if !defined(__EMSCRIPTEN__) || defined(DOLLY)
+     randombytes_init_if_needed();
+     if (implementation->stir != NULL) {
+         implementation->stir();
+@@ -120,7 +120,7 @@
+     uint32_t min;
+     uint32_t r;
+ 
+-#ifndef __EMSCRIPTEN__
++#if !defined(__EMSCRIPTEN__) || defined(DOLLY)
+     randombytes_init_if_needed();
+     if (implementation->uniform != NULL) {
+         return implementation->uniform(upper_bound);
+@@ -142,7 +142,7 @@
+ void
+ randombytes_buf(void * const buf, const size_t size)
+ {
+-#ifndef __EMSCRIPTEN__
++#if !defined(__EMSCRIPTEN__) || defined(DOLLY)
+     randombytes_init_if_needed();
+     if (size > (size_t) 0U) {
+         implementation->buf(buf, size);
