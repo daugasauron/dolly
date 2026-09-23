@@ -1,0 +1,30 @@
+{
+  "browser": "151.0.7922.71",
+  "gpuDisabled": true,
+  "wasmBytes": 521,
+  "cases": 18694,
+  "pointerBytes": 8,
+  "imports": [],
+  "exports": [
+    {
+      "name": "memory",
+      "kind": "memory"
+    },
+    {
+      "name": "pointer_bytes",
+      "kind": "function"
+    },
+    {
+      "name": "fixed_mul",
+      "kind": "function"
+    },
+    {
+      "name": "fixed_fraction",
+      "kind": "function"
+    },
+    {
+      "name": "fixed_round",
+      "kind": "function"
+    }
+  ]
+}

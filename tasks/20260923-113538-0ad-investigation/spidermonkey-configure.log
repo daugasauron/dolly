@@ -1,0 +1,11 @@
+Using Python 3.10.12 from /usr/bin/python3
+Created Python 3 virtualenv
+Adding configure options from /home/daug/dev/dolly/work/0ad-investigation/.cache/0ad-investigation/0ad-0.28.0/mozjs-source/mozjs-128.13.0/mozconfig
+  --enable-debug
+  --enable-optimize
+checking for vcs source checkout... no
+checking for a shell... /usr/bin/sh
+checking for host system type... x86_64-pc-linux-gnu
+checking for target system type...
+DEBUG: Executing: `/usr/bin/sh /home/daug/dev/dolly/work/0ad-investigation/.cache/0ad-investigation/0ad-0.28.0/mozjs-source/mozjs-128.13.0/build/moz.configure/../autoconf/config.sub wasm64-unknown-wasi`
+ERROR: Unknown CPU type: wasm64
