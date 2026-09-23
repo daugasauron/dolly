@@ -143,7 +143,7 @@ the population, so exporting the world also preserves its designs.
 The initial layout can place several copies of one design. Each has its own
 world identity, physics and controller state while sharing one library entry.
 
-A fresh image has 49 objects / 1191 parts from 30 designs: the learned patrol
+A fresh image has 51 objects / 1204 parts from 31 designs: the learned patrol
 biped, larger walkers, balance surveyor, aircraft and cargo machinery, plus
 small roaming lookouts, a hydraulic yard porter and channel skiffs. Nineteen
 earlier experiments, including the retired drawbridge, are available only through
@@ -159,9 +159,12 @@ characters. Mochi lifts loose crates with its piston and magnet, drives them to
 the Works yard depot, then searches for more. Harbor Atlas salvages floating
 cargo into the harbor depot with its magnetic head. Tsubame tows floating crates
 to the crane, releases them within reach and backs away for the handoff.
+Brinehook raises submerged cargo onto its tray; Kawasemi collects the released
+crate and flies it to the Island depot. The gantry then collects its next crate
+while the courier is away. The small lookouts steer around loose and delivered cargo.
 Three small Minamo skiffs and the larger patrol boats choose water routes around
 the coasts. Twinspire steers around loose cargo to leave it available for salvage.
-All 34 characters have Eyes; loose cargo uses the outside camera.
+All 35 characters have Eyes; loose cargo uses the outside camera.
 Skybarge samples nearby ground height to climb before crossing quarry ledges.
 Controllers run without Pi or model access.
 Existing saves keep their population, including an empty world.
@@ -247,10 +250,10 @@ pauses after the trial. The same controller implementation runs released creatur
 | `touching` | Per-part contact booleans; includes other bodies and the floor |
 | `contactsReady` | Whether a solver step has populated contact readings |
 | `ground`, `waterHeight` | Terrain height and wave surface under the root; water height is available in sea trials and the shared world |
-| `magnets` | Per-magnet `{power, attached, load}` by part index; power is 0–1, load is newtons |
+| `magnets` | Per-magnet `{power, attached, load, targetMass, targetSupportForce}`; power is 0–1, target mass is the attached body’s kg, load/support are newtons; target readings are zero when detached |
 | `submerged` | Per-part fraction in water, from 0 to 1 |
 | `id`, `cargoDelivered` | Shared-world identity and lifetime delivery count |
-| `nearby` | Up to 12 nearest objects within 48 m, including position, velocity, bounds, anchoring and cargo state; empty in practice |
+| `nearby` | Up to 12 nearest objects within 48 m, including position, velocity, bounds, anchoring and cargo state; `carriedBy` identifies the current carrier and `magnetHeld` distinguishes magnetic grip from riding on a deck; empty in practice |
 | `groundSamples` | World XYZ terrain samples, eight compass directions at 6 m then 16 m, beginning at +Z |
 | `obstacles` | Terrain bounds within 24 m rising above the root floor: `x/z`, `halfX/halfZ`, `low/high`; check vertical clearance under roofs |
 | `depots` | Delivery areas with name, x/z and radius |

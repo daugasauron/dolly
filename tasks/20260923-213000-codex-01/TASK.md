@@ -429,17 +429,23 @@ local measurements, not a cross-device performance claim. No browser errors;
 measurements are in `build/blockwalker-neighbors-preview/`. The learned session
 and its Pi conversation remain untouched; no model requests were made.
 
-The current served population has 49 objects / 1191 parts and 30 designs,
-including the harbor tug and floating cargo. All 34 characters have a working
+The current served population has 51 objects / 1204 parts and 31 designs,
+including the harbor tug and dock courier. All 35 characters have a working
 Eyes view; the player HUD reports magnet/pickup state and confirms deliveries.
 The corrected Skybarge controller passed the original quarry failure replay,
 an isolated crossing and a fresh 1200 s population with six reloads, all 49
 objects and eight deliveries. The actual 9099 follow/Eyes check passed.
 Current package SHA-256:
-`742a7d247d68e8db626045f0f573f54ad46fdd319d42834a01ff3c886127f9b1`.
+`a01ebdb9e7d33fa2a3deaa462b21a4861b143c754b0f2e09aea5aa3c57f965c1`.
 Marrowstep also now replants after a blocked gait phase. Both failure replays,
 a short physical regression and a fresh 1200 s population passed, including
 398 supported airborne foot placements in the final five minutes. The actual
 9099 follow/Eyes check and packaged driving/pickup suite passed. See
 `20260924-051500-codex-01` and `20260924-054500-codex-01` for the controller
-evidence and current package details.
+evidence. Kawasemi now accepts released Brinehook cargo and delivers it to the
+Island depot; the gantry repeats collection after the handoff. Komame treats
+cargo as a physical obstacle while retaining social targeting. The combined
+1200 s population passed six reloads with all 51 objects and ten deliveries;
+the packaged physics/driving and actual 9099 follow/Eyes checks passed. Current
+package details: `20260924-062500-codex-01`; lookout regression:
+`20260924-065600-codex-01`.

@@ -217,6 +217,58 @@ static void check_harbor_tug(JSContext *ctx){
     assert(world.deliveries[0].cargo==cargo&&world.deliveries[0].depot==1);
     printf("HARBOR: tug carried cargo across restart, crane accepted and delivered it at %.3f s\n",world.age);world_close();
 }
+static void check_lookout_cargo(JSContext *ctx){
+    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        if(name&&!strncmp(name,"Komame /",8)){put_number(ctx,item,"x",0);put_number(ctx,item,"z",20);JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));}
+        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+    }
+    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);
+    int id=world.creatures[0].id;Controller *c=world.creatures[0].controller;
+    const char *memory="{\"home\":[0,20],\"goal\":[0,44],\"arrivals\":0,\"visits\":0,\"choices\":0,\"wait\":0,\"stuck\":0,\"back\":0,\"next\":1000,\"tracked\":0,\"yielded\":0}";
+    JS_FreeValue(c->ctx,c->memory);c->memory=JS_ParseJSON(c->ctx,memory,strlen(memory),"memory");
+    for(int i=-1;i<=1;i++)world_drop_cargo(i,0.485f,34,MATERIAL_ALLOY);
+    float upright=1,farthest=20;int collisions=0;
+    for(int tick=0;tick<35*60;tick++){
+        world_step();Creature *scout=world_find(id);if(!scout)break;
+        b3Quat q=b3Body_GetRotation(scout->physics.parts[0].body);upright=fminf(upright,b3RotateVector(q,b3Vec3_axisY).y);
+        farthest=fmaxf(farthest,b3Body_GetPosition(scout->physics.parts[0].body).z);
+        for(int part=0;part<scout->design.count;part++){
+            b3BodyId body=scout->physics.parts[part].body;int capacity=b3Body_GetContactCapacity(body);if(!capacity)continue;
+            b3ContactData *data=array_resize(NULL,capacity,sizeof(*data));int count=b3Body_GetContactData(body,data,capacity);
+            for(int k=0;k<count;k++){b3BodyId a=b3Shape_GetBody(data[k].shapeIdA),b=b3Shape_GetBody(data[k].shapeIdB);Creature *other=body_owner(B3_ID_EQUALS(a,body)?b:a);if(other&&other->cargo)collisions++;}free(data);
+        }
+    }
+    printf("LOOKOUT: cargo contacts %d, minimum up %.5f, farthest z %.3f, objects %d\n",collisions,upright,farthest,world.count);fflush(stdout);
+    assert(world.count==4&&world.deaths==0&&collisions==0&&upright>.95f&&farthest>40);world_close();
+}
+static void check_dock_courier(JSContext *ctx){
+    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        if(name&&!strncmp(name,"Brinehook /",11)){JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));JS_SetPropertyUint32(ctx,selected,1,JS_GetPropertyUint32(ctx,catalog,i+1));}
+        if(name&&!strncmp(name,"Kawasemi /",10))JS_SetPropertyUint32(ctx,selected,2,JS_DupValue(ctx,item));
+        if(name&&!strcmp(name,"Cargo")&&fabs(get_number(ctx,item,"x",0)-209.6)<.01)JS_SetPropertyUint32(ctx,selected,3,JS_DupValue(ctx,item));
+        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+    }
+    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==4);
+    int crane=world.creatures[0].id,courier=world.creatures[2].id,cargo[]={world.creatures[1].id,world.creatures[3].id},stages[2]={0};float upright=1;
+    for(int tick=0;tick<300*60&&world.delivery_count<2;tick++){
+        if(tick&&tick%(67*60)==0){world_save(ctx);world_close();world_load(ctx);}
+        world_step();assert(world.count==4&&world.deaths==0);Creature *gantry=world_find(crane),*aircraft=world_find(courier);
+        b3Quat q=b3Body_GetRotation(aircraft->physics.parts[0].body);upright=fminf(upright,b3RotateVector(q,b3Vec3_axisY).y);
+        for(int i=0;i<2;i++){
+            Creature *box=world_find(cargo[i]);int lifting=magnet_holds(gantry,box),flying=magnet_holds(aircraft,box);assert(!lifting||!flying);
+            if(lifting)stages[i]|=1;
+            if(box->held_by==crane&&!lifting)stages[i]|=2;
+            if(flying){assert((stages[i]&3)==3);stages[i]|=4;}
+        }
+    }
+    assert(world.delivery_count==2&&world_cargo_score(courier)==2&&upright>.95f);
+    for(int i=0;i<2;i++)assert(stages[i]==7&&world_find(cargo[i])->delivered);
+    printf("DOCK: two gantry / tray / courier / depot deliveries across reloads, minimum up %.5f, completed %.3f s\n",upright,world.age);world_close();
+}
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);Character car={0};character_car(&car);
     Creature *driver=spawn(&car,"function(){return ''}","Your character",1,60,0,12);int id=driver->id;world.player=id;
@@ -230,7 +282,9 @@ int main(void){
     assert(world.player==id&&world_find(cargo)->carrier==-1&&world.delivery_count==0&&b3Body_IsValid(world_find(id)->physics.parts[8].magnet_target));
     for(int i=0;i<world.design_count;i++)assert(strcmp(world.designs[i].name,"Your character"));
     JSValue sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60),nearby=JS_GetPropertyStr(ctx,sensors,"nearby"),sample=JS_GetPropertyUint32(ctx,nearby,0),ground=JS_GetPropertyStr(ctx,sensors,"groundSamples");
-    assert(get_number(ctx,sensors,"id",0)==id&&get_number(ctx,ground,"length",0)==16&&get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id);
+    assert(get_number(ctx,sensors,"id",0)==id&&get_number(ctx,ground,"length",0)==16&&get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",0)==1);
+    JSValue magnets=JS_GetPropertyStr(ctx,sensors,"magnets"),head=JS_GetPropertyUint32(ctx,magnets,8);
+    assert(fabs(get_number(ctx,head,"targetMass",0)-b3Body_GetMass(world_find(cargo)->physics.parts[0].body))<1e-6);JS_FreeValue(ctx,head);JS_FreeValue(ctx,magnets);
     double sensed=get_number(ctx,sample,"z",0);assert(fabs(sensed-cargo_z(cargo))<.001);
     JS_FreeValue(ctx,ground);JS_FreeValue(ctx,sample);JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
     motor(id,.65f);steps=0;while(cargo_z(cargo)<33.7f&&steps++<600)world_step();motor(id,0);ticks(120);
@@ -252,5 +306,8 @@ int main(void){
     assert(cargo_z(cargo)>start+4&&world_find(cargo)->carrier==-1&&world.delivery_count==0);
     assert(world_find(cargo)->held_by==id);world_save(ctx);world_close();world_load(ctx);
     assert(world_find(cargo)->held_by==id&&world_find(cargo)->carrier==-1);ticks(30);assert(world_find(cargo)->held_by==id);
-    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60);nearby=JS_GetPropertyStr(ctx,sensors,"nearby");sample=JS_GetPropertyUint32(ctx,nearby,0);
+    assert(get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",-1)==0);
+    JS_FreeValue(ctx,sample);JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
+    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

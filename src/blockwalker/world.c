@@ -107,7 +107,8 @@ static JSValue magnet_state(JSContext *ctx,const Physics *p,const Character *c){
     JSValue list=JS_NewArray(ctx);
     for(int i=0;i<c->count;i++)if(c->blocks[i].joint==BLOCK_MAGNET){
         PhysicsPart *part=&p->parts[i];JSValue item=JS_NewObject(ctx);put_number(ctx,item,"power",part->magnet_power);put_number(ctx,item,"load",part->magnet_load);
-        JS_SetPropertyStr(ctx,item,"attached",JS_NewBool(ctx,b3Body_IsValid(part->magnet_target)));JS_SetPropertyUint32(ctx,list,i,item);
+        int attached=b3Body_IsValid(part->magnet_target);JS_SetPropertyStr(ctx,item,"attached",JS_NewBool(ctx,attached));
+        put_number(ctx,item,"targetMass",attached?b3Body_GetMass(part->magnet_target):0);JS_SetPropertyUint32(ctx,list,i,item);
     }return list;
 }
 static JSValue depot_state(JSContext *ctx){
@@ -115,6 +116,11 @@ static JSValue depot_state(JSContext *ctx){
     for(int i=0;i<depot_count;i++){Depot d=depots[i];JSValue item=JS_NewObject(ctx);
         JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,d.name));put_number(ctx,item,"x",d.x);put_number(ctx,item,"z",d.z);put_number(ctx,item,"radius",d.radius);JS_SetPropertyUint32(ctx,list,i,item);
     }return list;
+}
+static int magnet_holds(const Creature *carrier,const Creature *cargo){
+    if(!carrier)return 0;b3BodyId body=cargo->physics.parts[0].body;
+    for(int i=0;i<carrier->design.count;i++)if(B3_ID_EQUALS(carrier->physics.parts[i].magnet_target,body))return 1;
+    return 0;
 }
 static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origin){
     JSValue nearby=JS_NewArray(ctx),ground=JS_NewArray(ctx),obstacles=JS_NewArray(ctx);int self=0,indices[12],count=0;float distances[12];
@@ -132,6 +138,7 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
             put_number(ctx,item,"x",v.x);put_number(ctx,item,"y",v.y);put_number(ctx,item,"z",v.z);put_number(ctx,item,"vx",velocity.x);put_number(ctx,item,"vz",velocity.z);
             put_number(ctx,item,"radius",radius);put_number(ctx,item,"low",low);put_number(ctx,item,"high",high);
             JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));JS_SetPropertyStr(ctx,item,"cargo",JS_NewBool(ctx,c->cargo));JS_SetPropertyStr(ctx,item,"delivered",JS_NewBool(ctx,c->delivered));put_number(ctx,item,"carriedBy",c->held_by);
+            JS_SetPropertyStr(ctx,item,"magnetHeld",JS_NewBool(ctx,c->cargo&&magnet_holds(world_find(c->held_by),c)));
             JS_SetPropertyUint32(ctx,nearby,i,item);
         }
     }
@@ -339,7 +346,7 @@ static Creature *cargo_carrier(const Creature *cargo,int *supported){
     b3BodyId body=cargo->physics.parts[0].body;
     for(int i=0;i<world.count;i++){
         Creature *c=&world.creatures[i];if(c->cargo)continue;
-        for(int j=0;j<c->design.count;j++)if(B3_ID_EQUALS(c->physics.parts[j].magnet_target,body))return c;
+        if(magnet_holds(c,cargo))return c;
     }
     int capacity=b3Body_GetContactCapacity(body);if(!capacity)return NULL;
     b3ContactData *contacts=array_resize(NULL,capacity,sizeof(*contacts));int count=b3Body_GetContactData(body,contacts,capacity);Creature *carrier=NULL;
