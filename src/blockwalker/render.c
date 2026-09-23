@@ -184,7 +184,7 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
 static size_t draw_terrain(size_t at){
     const Color colors[]={{108,115,103,255},{125,119,103,255},{98,112,99,255},{127,128,113,255},{126,125,107,255},{83,98,98,255},{191,143,66,255},{49,70,82,255},{100,106,97,255},{123,150,137,255}};
     for(int i=0;i<terrain_count;i++){
-        TerrainBox b=terrain_boxes[i];box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
+        TerrainBox b=terrain_box(i);box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
         Color color=colors[b.color];boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at].color[2]=color.b/255.f;
         boxes[at].flags[0]=101;boxes[at].style[0]=b.color;
         boxes[at].half[0]=b.half.x;boxes[at].half[1]=b.half.y;boxes[at++].half[2]=b.half.z;

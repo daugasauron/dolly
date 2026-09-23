@@ -2,9 +2,8 @@
 #include <raymath.h>
 #include <math.h>
 
-const Depot depots[]={{"Works yard",0,34,4},{"Harbor",106,10,2.8f},{"Island",163,18,3.5f}};
-const int depot_count=sizeof(depots)/sizeof(*depots);
-const TerrainBox terrain_boxes[]={
+const Depot depots[]={{"Works yard",0,34,4},{"Harbor",106,10,2.8f},{"Island",163,18,3.5f},{"West island",-157,-49,4}};
+static const TerrainBox original_boxes[]={
     {{0,-13,0},{256,1,256},0},
     {{0,-6,0},{100,6,100},0},
     {{170,-4,30},{24,8,26},1},
@@ -77,16 +76,95 @@ const TerrainBox terrain_boxes[]={
     {{53.2f,3.8f,81},{.65f,1.8f,.65f},9},
     {{49.5f,3.4f,82.5f},{.7f,1.4f,.7f},9},
 };
-const int terrain_count=sizeof(terrain_boxes)/sizeof(*terrain_boxes);
+static const TerrainBox industrial_boxes[]={
+    /* The main slab is split around the flooded ore shaft, x=-54..-40/z=59..71. */
+    {{30,-6,0},{70,6,100},0},
+    {{-47,-6,-20.5f},{7,6,79.5f},0},
+    {{-47,-6,85.5f},{7,6,14.5f},0},
+    /* Foundry shell and its two open loading doors. */
+    {{-65,6.5f,63},{1,6.5f,19},5},
+    {{-21,3.5f,63},{1,3.5f,19},5},
+    {{-21,11,63},{1,2,19},5},
+    {{-21,8,46},{.8f,1,.3f},4},
+    {{-21,8,54},{.8f,1,.3f},4},
+    {{-21,8,62},{.8f,1,.3f},4},
+    {{-21,8,70},{.8f,1,.3f},4},
+    {{-21,8,78},{.8f,1,.3f},4},
+    {{-56,6.5f,44},{10,6.5f,1},5},
+    {{-30,6.5f,44},{10,6.5f,1},5},
+    {{-56,6.5f,82},{10,6.5f,1},5},
+    {{-30,6.5f,82},{10,6.5f,1},5},
+    {{-43,11,44},{3,2,1},5,1},
+    {{-43,11,82},{3,2,1},5,1},
+    {{-60.5f,13.5f,63},{5.5f,.5f,20},5,1},
+    {{-29.5f,13.5f,63},{9.5f,.5f,20},5,1},
+    {{-47,13.5f,65},{8,.5f,8},5,1},
+    {{-47,13.5f,47},{8,.5f,4},5,1},
+    {{-47,13.5f,80},{8,.5f,3},5,1},
+    /* Roof ribs, a broken chimney and the old observation gallery. */
+    {{-43,14.2f,47},{23,.2f,.35f},4,1},
+    {{-43,14.2f,63},{23,.2f,.35f},4,1},
+    {{-43,14.2f,79},{23,.2f,.35f},4,1},
+    {{-62,19,78},{2,5,2},8,1},
+    {{-63.5f,25,78},{.5f,1,2},8,1},
+    {{-62,25,79.5f},{1,1,.5f},8,1},
+    {{-25,7.5f,63},{3,.5f,15},4,1},
+    {{-27.8f,8.4f,63},{.2f,.4f,15},4,1},
+    {{-25,3.5f,51},{.5f,3.5f,.5f},4},
+    {{-25,3.5f,75},{.5f,3.5f,.5f},4},
+    {{-46,4.5f,83.03f},{.18f,4.5f,.03f},6},
+    {{-40,4.5f,83.03f},{.18f,4.5f,.03f},6},
+    {{-46,4.5f,42.97f},{.18f,4.5f,.03f},6},
+    {{-40,4.5f,42.97f},{.18f,4.5f,.03f},6},
+    {{-54.3f,.6f,58.7f},{.18f,.6f,.18f},6},
+    {{-39.7f,.6f,58.7f},{.18f,.6f,.18f},6},
+    {{-54.3f,.6f,71.3f},{.18f,.6f,.18f},6},
+    {{-39.7f,.6f,71.3f},{.18f,.6f,.18f},6},
+    {{-50,.25f,57.5f},{1.6f,.25f,1.5f},4},
+    /* A low freight passage links the hall to the southern loading yard. */
+    {{-47,2.5f,94},{.75f,2.5f,11},8},
+    {{-39,2.5f,94},{.75f,2.5f,11},8},
+    {{-43,5.25f,94},{4.75f,.25f,11},8,1},
+    {{-43,-.4f,106},{7,.4f,8},4},
+    {{-49.5f,-6,110},{.5f,6,.5f},4},
+    {{-36.5f,-6,110},{.5f,6,.5f},4},
+    /* Open turbine ruins east of the foundry; cargo can be spotted through gaps. */
+    {{-1,3.5f,68},{.75f,3.5f,12},5},
+    {{17,3.5f,68},{.75f,3.5f,12},5},
+    {{8,3.5f,80},{9.75f,3.5f,.75f},5},
+    {{3,8,68},{5,.5f,12},5,1},
+    {{13,8,76},{5,.5f,4},5,1},
+    {{8,1,76},{3,1,3},8},
+    {{8,3.5f,76},{2,1.5f,2},8},
+    {{8,5.5f,76},{1.25f,.5f,1.25f},4},
+    /* Rusted pipe crossing with an accessible underpass. */
+    {{-8,3.5f,51},{.5f,3.5f,.5f},4},
+    {{15,3.5f,51},{.5f,3.5f,.5f},4},
+    {{3.5f,7,51},{12.5f,.8f,.8f},8,1},
+    /* A small receiving quay below the western team's island. */
+    {{-147,1.7f,-49},{10,.3f,5},4},
+    {{-138,-5,-53},{.5f,7,.5f},4},
+    {{-138,-5,-45},{.5f,7,.5f},4},
+};
+enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes) };
+int terrain_version=1,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
+int terrain_depot_count(int version){return version==1?sizeof(depots)/sizeof(*depots):3;}
+void terrain_select(int version){
+    terrain_version=version==1;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0);depot_count=terrain_depot_count(version);
+}
+TerrainBox terrain_box(int index){
+    if(terrain_version&&index==1)return (TerrainBox){{-77,-6,0},{23,6,100},0};
+    return index<ORIGINAL_BOX_COUNT?original_boxes[index]:industrial_boxes[index-ORIGINAL_BOX_COUNT];
+}
 float terrain_height(float x,float z){
     float height=-100;
-    for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_boxes[i];
+    for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);
         if(!b.overhang&&fabsf(x-b.center.x)<=b.half.x&&fabsf(z-b.center.z)<=b.half.z)height=fmaxf(height,b.center.y+b.half.y);
     }return height;
 }
 float terrain_floor(Vector3 position){
     float height=-100;
-    for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_boxes[i];
+    for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);
         if(b.center.y-b.half.y<=position.y&&fabsf(position.x-b.center.x)<=b.half.x&&fabsf(position.z-b.center.z)<=b.half.z)height=fmaxf(height,b.center.y+b.half.y);
     }return height;
 }
@@ -96,7 +174,7 @@ float water_height(float x,float z,double time){
 void terrain_build(b3WorldId world){
     b3ShapeDef shape=b3DefaultShapeDef();shape.baseMaterial.friction=.85f;
     for(int i=0;i<terrain_count;i++){
-        TerrainBox b=terrain_boxes[i];b3BodyDef def=b3DefaultBodyDef();def.position=(b3Pos){b.center.x,b.center.y,b.center.z};
+        TerrainBox b=terrain_box(i);b3BodyDef def=b3DefaultBodyDef();def.position=(b3Pos){b.center.x,b.center.y,b.center.z};
         b3BodyId body=b3CreateBody(world,&def);b3BoxHull box=b3MakeBoxHull(b.half.x,b.half.y,b.half.z);
         b3CreateHullShape(body,&shape,&box.base);
     }

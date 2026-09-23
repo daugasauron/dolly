@@ -269,6 +269,40 @@ static void check_dock_courier(JSContext *ctx){
     for(int i=0;i<2;i++)assert(stages[i]==7&&world_find(cargo[i])->delivered);
     printf("DOCK: two gantry / tray / courier / depot deliveries across reloads, minimum up %.5f, completed %.3f s\n",upright,world.age);world_close();
 }
+static float terrain_drop(float x,float y,float z){
+    b3WorldId physics=physics_world(1);b3BodyDef def=b3DefaultBodyDef();def.type=b3_dynamicBody;def.position=(b3Pos){x,y,z};
+    b3BodyId body=b3CreateBody(physics,&def);b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;
+    b3BoxHull box=b3MakeBoxHull(.5f,.5f,.5f);b3CreateHullShape(body,&shape,&box.base);
+    for(int i=0;i<300;i++)b3World_Step(physics,1.f/60,8);
+    float height=b3Body_GetPosition(body).y;b3DestroyWorld(physics);return height;
+}
+static void check_industry(JSContext *ctx){
+    terrain_select(0);assert(fabsf(terrain_drop(-47,3,65)-.5f)<.03f);
+    terrain_select(1);
+    assert(fabsf(terrain_drop(-47,0,65)+11.5f)<.03f);
+    assert(fabsf(terrain_drop(-43,20,50)-14.5f)<.03f);
+    assert(fabsf(terrain_drop(-43,3,50)-.5f)<.03f);
+    assert(fabsf(terrain_drop(-43,2,94)-.5f)<.03f);
+    assert(fabsf(terrain_drop(-47,18,54)-.5f)<.03f);
+    assert(terrain_floor((Vector3){-43,2,94})==0&&terrain_height(-47,65)==-12);
+    Character crate={0};
+    for(int i=0;i<3;i++){character_add(&crate,i-1,i,0,0,BLOCK_BOX,1);crate.blocks[i].material=MATERIAL_BALLAST;}
+    Creature *cargo=spawn(&crate,"function(){return ''}","Ore crate",1,10,-40.6f,65);cargo->cargo=1;int id=cargo->id;character_clear(&crate);
+    set_spawn_height(cargo,.65f);ticks(180);cargo=world_find(id);assert(cargo&&cargo->cargo);
+    int supported=0;assert(!cargo_carrier(cargo,&supported)&&supported);
+    b3BodyId root=cargo->physics.parts[0].body;int capacity=b3Body_GetContactCapacity(root);
+    b3ContactData *contacts=array_resize(NULL,capacity,sizeof(*contacts));int count=capacity?b3Body_GetContactData(root,contacts,capacity):0;
+    assert(contact_forces(root,cargo->physics.parts,contacts,count).support<.01);free(contacts);
+    assert(save_world(ctx,"/workspace/industrial-map.json"));
+    JSValue old=read_json(ctx,"/workspace/industrial-map.json");JS_SetPropertyStr(ctx,old,"terrainVersion",JS_UNDEFINED);assert(save_json(ctx,old,"/workspace/original-map.json"));JS_FreeValue(ctx,old);
+    JSValue result=world_import(ctx,"/workspace/original-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    assert(terrain_version==0&&depot_count==3&&terrain_height(-47,65)==0);
+    result=world_import(ctx,"/workspace/industrial-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    assert(terrain_version==1&&depot_count==4&&terrain_height(-47,65)==-12&&world_find(id)->cargo&&world_find(id)->design.count==3);
+    JSValue invalid=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,invalid,"terrainVersion",2);assert(save_json(ctx,invalid,"/workspace/unknown-map.json"));JS_FreeValue(ctx,invalid);
+    result=world_import(ctx,"/workspace/unknown-map.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));assert(terrain_version==1&&world_find(id));
+    puts("INDUSTRY: physical shaft, roof, passage and broken roof; old/new map import; non-root cargo support and restored identity; future-map rejection passed");world_close();
+}
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);Character car={0};character_car(&car);
     Creature *driver=spawn(&car,"function(){return ''}","Your character",1,60,0,12);int id=driver->id;world.player=id;
@@ -309,5 +343,5 @@ int main(void){
     sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60);nearby=JS_GetPropertyStr(ctx,sensors,"nearby");sample=JS_GetPropertyUint32(ctx,nearby,0);
     assert(get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",-1)==0);
     JS_FreeValue(ctx,sample);JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
-    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

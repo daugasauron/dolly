@@ -73,6 +73,11 @@ Verification:
   independently measured supported airborne foot placements, including 385 in
   the last five minutes; minimum up 0.99285. Traces and saved worlds:
   `build/blockwalker-dock-population-cargo-42/`.
+- The same 51-object package also passed 1200 s with route seed 7 and six
+  reloads: no removals, ten deliveries, and both dock handoffs. Sidelight's
+  controller reported 74 qualifying steps and zero aborts; these are its
+  diagnostics, not a separate foot-contact audit. Evidence:
+  `build/blockwalker-dock-population-varied-7/` and its matching log (exit 0).
 - The current packaged driving/physics suite passed in
   `build/blockwalker-dock-driver.log`: 11.9455 m driven with real keys, 73
   body-relative Eyes samples, real pickup, repeated courier deliveries,

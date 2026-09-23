@@ -118,9 +118,15 @@ static JSValue depot_state(JSContext *ctx){
     }return list;
 }
 static int magnet_holds(const Creature *carrier,const Creature *cargo){
-    if(!carrier)return 0;b3BodyId body=cargo->physics.parts[0].body;
-    for(int i=0;i<carrier->design.count;i++)if(B3_ID_EQUALS(carrier->physics.parts[i].magnet_target,body))return 1;
+    if(!carrier)return 0;
+    for(int i=0;i<carrier->design.count;i++){
+        b3BodyId target=carrier->physics.parts[i].magnet_target;
+        if(b3Body_IsValid(target)&&b3Body_GetUserData(target)==cargo->physics.parts)return 1;
+    }
     return 0;
+}
+static float creature_mass(const Creature *c){
+    float mass=0;for(int i=0;i<c->design.count;i++)mass+=b3Body_GetMass(c->physics.parts[i].body);return mass;
 }
 static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origin){
     JSValue nearby=JS_NewArray(ctx),ground=JS_NewArray(ctx),obstacles=JS_NewArray(ctx);int self=0,indices[12],count=0;float distances[12];
@@ -137,6 +143,7 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
             JSValue item=JS_NewObject(ctx);put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));
             put_number(ctx,item,"x",v.x);put_number(ctx,item,"y",v.y);put_number(ctx,item,"z",v.z);put_number(ctx,item,"vx",velocity.x);put_number(ctx,item,"vz",velocity.z);
             put_number(ctx,item,"radius",radius);put_number(ctx,item,"low",low);put_number(ctx,item,"high",high);
+            put_number(ctx,item,"mass",creature_mass(c));
             JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));JS_SetPropertyStr(ctx,item,"cargo",JS_NewBool(ctx,c->cargo));JS_SetPropertyStr(ctx,item,"delivered",JS_NewBool(ctx,c->delivered));put_number(ctx,item,"carriedBy",c->held_by);
             JS_SetPropertyStr(ctx,item,"magnetHeld",JS_NewBool(ctx,c->cargo&&magnet_holds(world_find(c->held_by),c)));
             JS_SetPropertyUint32(ctx,nearby,i,item);
@@ -147,7 +154,7 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
         JS_SetPropertyUint32(ctx,ground,i,vector(ctx,(Vector3){x,p->landscape?terrain_height(x,z):0,z}));
     }
     for(int i=0,n=0;p->landscape&&i<terrain_count;i++){
-        TerrainBox b=terrain_boxes[i];float dx=fmaxf(0,fabsf(origin.x-b.center.x)-b.half.x),dz=fmaxf(0,fabsf(origin.z-b.center.z)-b.half.z);
+        TerrainBox b=terrain_box(i);float dx=fmaxf(0,fabsf(origin.x-b.center.x)-b.half.x),dz=fmaxf(0,fabsf(origin.z-b.center.z)-b.half.z);
         if(b.center.y+b.half.y<origin.y-.2f||hypotf(dx,dz)>24)continue;
         JSValue item=JS_NewObject(ctx);put_number(ctx,item,"x",b.center.x);put_number(ctx,item,"z",b.center.z);
         put_number(ctx,item,"halfX",b.half.x);put_number(ctx,item,"halfZ",b.half.z);put_number(ctx,item,"low",b.center.y-b.half.y);put_number(ctx,item,"high",b.center.y+b.half.y);JS_SetPropertyUint32(ctx,obstacles,n++,item);
@@ -343,18 +350,21 @@ static Creature *body_owner(b3BodyId body){
 }
 static Creature *cargo_carrier(const Creature *cargo,int *supported){
     if(supported)*supported=0;
-    b3BodyId body=cargo->physics.parts[0].body;
     for(int i=0;i<world.count;i++){
         Creature *c=&world.creatures[i];if(c->cargo)continue;
         if(magnet_holds(c,cargo))return c;
     }
-    int capacity=b3Body_GetContactCapacity(body);if(!capacity)return NULL;
-    b3ContactData *contacts=array_resize(NULL,capacity,sizeof(*contacts));int count=b3Body_GetContactData(body,contacts,capacity);Creature *carrier=NULL;
-    for(int i=0;i<count&&!carrier;i++){
-        b3ContactData *contact=&contacts[i];b3BodyId a=b3Shape_GetBody(contact->shapeIdA),b=b3Shape_GetBody(contact->shapeIdB);int is_a=B3_ID_EQUALS(a,body);
-        Creature *owner=body_owner(is_a?b:a);
-        for(int j=0;j<contact->manifoldCount;j++)if((is_a?-1:1)*contact->manifolds[j].normal.y>.5f){
-            if(supported)*supported=1;if(owner&&!owner->cargo)carrier=owner;break;
+    b3ContactData *contacts=NULL;int capacity=0;Creature *carrier=NULL;
+    for(int part=0;part<cargo->design.count&&!carrier;part++){
+        b3BodyId body=cargo->physics.parts[part].body;int required=b3Body_GetContactCapacity(body);
+        if(required>capacity){capacity=required;contacts=array_resize(contacts,capacity,sizeof(*contacts));}
+        int count=required?b3Body_GetContactData(body,contacts,capacity):0;
+        for(int i=0;i<count&&!carrier;i++){
+            b3ContactData *contact=&contacts[i];b3BodyId a=b3Shape_GetBody(contact->shapeIdA),b=b3Shape_GetBody(contact->shapeIdB);int is_a=B3_ID_EQUALS(a,body);
+            Creature *owner=body_owner(is_a?b:a);if(owner==cargo)continue;
+            for(int j=0;j<contact->manifoldCount;j++)if((is_a?-1:1)*contact->manifolds[j].normal.y>.5f){
+                if(supported)*supported=1;if(owner&&!owner->cargo)carrier=owner;break;
+            }
         }
     }free(contacts);return carrier;
 }
@@ -386,7 +396,7 @@ static void cargo_step(void){
         Delivery *d=new_delivery();d->cargo=cargo->id;d->carrier=cargo->carrier;d->depot=depot;d->time=world.age;
         Creature *carrier=world_find(cargo->carrier);snprintf(d->name,sizeof(d->name),"%s",cargo->carrier==-1?"You":carrier?carrier->name:"Removed carrier");
         if(!carrier&&cargo->carrier>0)for(int j=0;j<world.removal_count;j++)if(world.removals[j].id==cargo->carrier)snprintf(d->name,sizeof(d->name),"%s",world.removals[j].name);
-        cargo->delivered=1;cargo->design.blocks[0].color=0;
+        cargo->delivered=1;for(int j=0;j<cargo->design.count;j++)cargo->design.blocks[j].color=0;
         printf("CARGO %d delivered by %s to %s / total %d\n",cargo->id,d->name,depots[depot].name,world.delivery_count);
     }
 }
@@ -426,6 +436,7 @@ JSValue world_state(JSContext *ctx){
     JS_SetPropertyStr(ctx,result,"deliveries",delivery_state(ctx));
     JS_SetPropertyStr(ctx,result,"depots",depot_state(ctx));
     JS_SetPropertyStr(ctx,result,"recentRemovals",removal_state(ctx,0));
+    put_number(ctx,result,"terrainVersion",terrain_version);
     JSValue terrain=JS_NewObject(ctx);put_number(ctx,terrain,"radius",WORLD_RADIUS);put_number(ctx,terrain,"waterLevel",WATER_LEVEL);
     JS_SetPropertyStr(ctx,terrain,"harbor",vector(ctx,(Vector3){112,0,20}));JS_SetPropertyStr(ctx,terrain,"seaTrial",vector(ctx,(Vector3){125,-2,10}));
     JS_SetPropertyStr(ctx,terrain,"basin",vector(ctx,(Vector3){46,0,72}));
@@ -434,6 +445,7 @@ JSValue world_state(JSContext *ctx){
         Creature *c=&world.creatures[i];JSValue item=JS_NewObject(ctx);Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);
         put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));put_number(ctx,item,"parts",c->design.count);
         JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));
+        put_number(ctx,item,"mass",creature_mass(c));
         JS_SetPropertyStr(ctx,item,"cargo",JS_NewBool(ctx,c->cargo));JS_SetPropertyStr(ctx,item,"delivered",JS_NewBool(ctx,c->delivered));put_number(ctx,item,"carrierId",c->carrier);put_number(ctx,item,"carriedBy",c->held_by);put_number(ctx,item,"cargoDelivered",world_cargo_score(c->id));
         if(c->cargo){JS_SetPropertyStr(ctx,item,"pickup",vector(ctx,c->pickup));put_number(ctx,item,"settled",c->settled);}
         JS_SetPropertyStr(ctx,item,"magnets",magnet_state(ctx,&c->physics,&c->design));
@@ -456,6 +468,7 @@ void world_step(void){
     for(int i=0;i<world.count;){Creature *c=&world.creatures[i];physics_sample(&c->physics,&c->design);
         Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);float up=Vector3RotateByQuaternion((Vector3){0,1,0},q).y;
         int cause=physical_failure(&c->design,p,up,c->root_height,terrain_floor(p));
+        if(c->cargo&&(cause==REMOVAL_SUNK||cause==REMOVAL_POSTURE))cause=-1;
         if(sustained_failure(&c->fallen,c->physics.steps,cause)){
             Removal *r=new_removal();r->id=c->id;r->time=world.age;r->seconds=c->physics.steps/60.0;r->position=p;r->up=up;snprintf(r->name,sizeof(r->name),"%s",c->name);
             r->cause=c->fallen>=100?REMOVAL_CONTROLLER:cause;
@@ -589,6 +602,7 @@ static void load_removals(JSContext *ctx,JSValueConst list){
     }
 }
 static void restore_world(JSContext *ctx,JSValue save,int fresh){
+    terrain_select(JS_IsObject(save)?get_number(ctx,save,"terrainVersion",0):fresh?1:0);
     if(JS_IsObject(save)){JSValue designs=JS_GetPropertyStr(ctx,save,"designs");load_designs(ctx,designs,0);JS_FreeValue(ctx,designs);}
     JSValue examples=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");load_designs(ctx,examples,fresh);JS_FreeValue(ctx,examples);
     if(fresh)world_save(ctx);
@@ -616,6 +630,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
             int hz=get_number(ctx,item,"hz",10);if(hz!=10&&hz!=20&&hz!=30&&hz!=60)hz=10;
             Creature *creature=s?spawn(&c,s,name?name:"Creature",get_number(ctx,item,"seed",1),hz,0,0):NULL;
             if(creature){
+                JSValue cargo=JS_GetPropertyStr(ctx,item,"cargo");if(JS_IsBool(cargo))creature->cargo=JS_ToBool(ctx,cargo);JS_FreeValue(ctx,cargo);
                 creature->id=get_number(ctx,item,"id",creature->id);creature->physics.steps=llround(get_number(ctx,item,"seconds",0)*60);creature->root_height=get_number(ctx,item,"rootHeight",1);creature->fallen=get_number(ctx,item,"fallenSeconds",0);creature->physics.start.x=get_number(ctx,item,"startX",creature->physics.start.x);creature->physics.start.z=get_number(ctx,item,"startZ",creature->physics.start.z);
                 int period=60/hz,last=creature->physics.steps?(creature->physics.steps-1)/period*period:-1;
                 creature->controller->last_step=get_number(ctx,item,"controlStep",last);
@@ -623,7 +638,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
                 creature->carrier=get_number(ctx,item,"carrierId",0);creature->held_by=get_number(ctx,item,"carriedBy",0);creature->settled=get_number(ctx,item,"settled",0);
                 JSValue pickup=JS_GetPropertyStr(ctx,item,"pickup");
                 if(JS_IsArray(pickup))for(int j=0;j<3;j++){JSValue value=JS_GetPropertyUint32(ctx,pickup,j);double v=0;JS_ToFloat64(ctx,&v,value);((float *)&creature->pickup)[j]=isfinite(v)?v:0;JS_FreeValue(ctx,value);}JS_FreeValue(ctx,pickup);
-                for(int j=0;j<world.delivery_count;j++)if(world.deliveries[j].cargo==creature->id){creature->delivered=1;creature->design.blocks[0].color=0;}
+                for(int j=0;j<world.delivery_count;j++)if(world.deliveries[j].cargo==creature->id){creature->delivered=1;for(int k=0;k<creature->design.count;k++)creature->design.blocks[k].color=0;}
                 JSValue memory=JS_GetPropertyStr(ctx,item,"memory");const char *m=JS_ToCString(ctx,memory);
                 if(m){controller_budget(creature->controller);JSValue value=JS_ParseJSON(creature->controller->ctx,m,strlen(m),"controller-memory");if(!JS_IsException(value)){JS_FreeValue(creature->controller->ctx,creature->controller->memory);creature->controller->memory=value;}}
                 JS_FreeCString(ctx,m);JS_FreeValue(ctx,memory);
@@ -689,7 +704,7 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
     if(!JS_IsObject(save)||JS_IsArray(save))return 0;
     JSValue list=JS_GetPropertyStr(ctx,save,"creatures"),designs=JS_GetPropertyStr(ctx,save,"designs"),removals=JS_GetPropertyStr(ctx,save,"removals"),deliveries=JS_GetPropertyStr(ctx,save,"deliveries"),ids=JS_NewObject(ctx),delivered=JS_NewObject(ctx),format=JS_GetPropertyStr(ctx,save,"format");
     const char *kind=JS_IsString(format)?JS_ToCString(ctx,format):NULL;
-    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,1,IMPORT_INTEGER)&&
+    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,1,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,1,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (JS_IsUndefined(format)||(kind&&!strcmp(kind,"blockwalker-world")))&&JS_IsArray(list)&&JS_IsArray(designs)&&JS_IsArray(removals)&&(JS_IsUndefined(deliveries)||JS_IsArray(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     JS_FreeCString(ctx,kind);JS_FreeValue(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);
@@ -701,7 +716,8 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
         const char *fields[]={"rootHeight","fallenSeconds","startX","startZ","settled"};
         for(int k=0;k<5;k++)valid=valid&&import_number(ctx,item,fields[k],-FLT_MAX,FLT_MAX,IMPORT_OPTIONAL);
         valid=valid&&import_number(ctx,item,"carrierId",-1,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL)&&import_number(ctx,item,"carriedBy",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL)&&import_number(ctx,item,"controlStep",-1,fmax(-1,round(get_number(ctx,item,"seconds",0)*60)-1),IMPORT_INTEGER|IMPORT_OPTIONAL);
-        JSValue poses=JS_GetPropertyStr(ctx,item,"poses"),memory=JS_GetPropertyStr(ctx,item,"memory"),controls=JS_GetPropertyStr(ctx,item,"controls"),pickup=JS_GetPropertyStr(ctx,item,"pickup");
+        JSValue poses=JS_GetPropertyStr(ctx,item,"poses"),memory=JS_GetPropertyStr(ctx,item,"memory"),controls=JS_GetPropertyStr(ctx,item,"controls"),pickup=JS_GetPropertyStr(ctx,item,"pickup"),cargo=JS_GetPropertyStr(ctx,item,"cargo");
+        valid=valid&&(JS_IsUndefined(cargo)||JS_IsBool(cargo));JS_FreeValue(ctx,cargo);
         valid=valid&&JS_IsArray(poses)&&get_number(ctx,poses,"length",0)==c.count&&JS_IsString(memory)&&(JS_IsUndefined(controls)||JS_IsObject(controls))&&(JS_IsUndefined(pickup)||import_vector(ctx,pickup,3,0));
         for(int k=0;valid&&k<c.count;k++){JSValue p=JS_GetPropertyUint32(ctx,poses,k);valid=import_vector(ctx,p,13,1);JS_FreeValue(ctx,p);}
         for(int k=1;valid&&k<128&&!JS_IsUndefined(controls);k++){char key[2]={k,0};valid=import_number(ctx,controls,key,0,1,IMPORT_OPTIONAL);}
@@ -732,7 +748,7 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
         JS_FreeCString(ctx,kind);JS_FreeValue(ctx,cause);JS_FreeValue(ctx,item);
     }
     for(int i=0;valid&&JS_IsArray(deliveries)&&i<get_number(ctx,deliveries,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,deliveries,i);valid=import_string(ctx,item,"name",64)&&import_number(ctx,item,"cargoId",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"carrierId",-1,INT32_MAX-1,IMPORT_INTEGER)&&get_number(ctx,item,"carrierId",0)!=0&&import_number(ctx,item,"depot",0,depot_count-1,IMPORT_INTEGER)&&import_number(ctx,item,"time",0,DBL_MAX,0);
+        JSValue item=JS_GetPropertyUint32(ctx,deliveries,i);valid=import_string(ctx,item,"name",64)&&import_number(ctx,item,"cargoId",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"carrierId",-1,INT32_MAX-1,IMPORT_INTEGER)&&get_number(ctx,item,"carrierId",0)!=0&&import_number(ctx,item,"depot",0,terrain_depot_count(get_number(ctx,save,"terrainVersion",0))-1,IMPORT_INTEGER)&&import_number(ctx,item,"time",0,DBL_MAX,0);
         int id=valid?get_number(ctx,item,"cargoId",0):0;JSValue prior=JS_GetPropertyUint32(ctx,delivered,id);valid=valid&&JS_IsUndefined(prior);JS_FreeValue(ctx,prior);if(valid){JS_SetPropertyUint32(ctx,delivered,id,JS_TRUE);if(id>greatest)greatest=id;}JS_FreeValue(ctx,item);
     }
     int player=valid?get_number(ctx,save,"playerId",0):0;JSValue found=JS_GetPropertyUint32(ctx,ids,player);valid=valid&&(!player||!JS_IsUndefined(found))&&get_number(ctx,save,"nextId",0)>=greatest+(greatest>0);JS_FreeValue(ctx,found);
@@ -743,8 +759,8 @@ JSValue world_import(JSContext *ctx,const char *path){
     if(!import_world_valid(ctx,save)){JS_FreeValue(ctx,save);return JS_ThrowTypeError(ctx,"Invalid world file; current world kept.");}
     if(!save_world(ctx,"/workspace/blockwalker-world.previous.json")){JS_FreeValue(ctx,save);return JS_ThrowInternalError(ctx,"Could not back up the current world; import cancelled.");}
     JSValue list=JS_GetPropertyStr(ctx,save,"creatures");int count=get_number(ctx,list,"length",0);JS_FreeValue(ctx,list);
-    World previous=world;char *program=installed,name[64];int hz=installed_hz;memcpy(name,installed_name,sizeof(name));world=(World){0};installed=NULL;
+    World previous=world;char *program=installed,name[64];int hz=installed_hz,previous_terrain=terrain_version;memcpy(name,installed_name,sizeof(name));world=(World){0};installed=NULL;
     restore_world(ctx,save,0);free(installed);installed=program;installed_hz=hz;memcpy(installed_name,name,sizeof(name));
-    if(world.count!=count||!world_save(ctx)){destroy_world(&world);world=previous;return JS_ThrowInternalError(ctx,"World restore failed; current world kept.");}
+    if(world.count!=count||!world_save(ctx)){destroy_world(&world);world=previous;terrain_select(previous_terrain);return JS_ThrowInternalError(ctx,"World restore failed; current world kept.");}
     destroy_world(&previous);return JS_UNDEFINED;
 }
