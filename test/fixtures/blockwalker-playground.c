@@ -70,6 +70,34 @@ static void check_courier(JSContext *ctx){
     printf("COURIER: two physical deliveries, stacked height difference %.3f m, score %d after controller restart\n",pb.y-pa.y,world_cargo_score(carrier));
     world_save(ctx);world_close();world_load(ctx);ticks(120);assert(world.delivery_count==2&&world_cargo_score(carrier)==2);world_close();
 }
+static void check_gantry(JSContext *ctx){
+    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
+        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        if(name&&!strncmp(name,"Northline /",11)){
+            JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));JS_SetPropertyUint32(ctx,selected,1,JS_GetPropertyUint32(ctx,catalog,i+1));
+        }
+        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+    }
+    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==2);
+    int id=world.creatures[0].id,previous=-1,releases=0,airborne=0,supported=0;double last=0;
+    for(int tick=0;tick<600*60;tick++){
+        if(tick==311*60){world_save(ctx);world_close();world_load(ctx);}
+        world_step();assert(world.count==2&&world.deaths==0);Creature *c=world_find(id);
+        int phase=get_number(c->controller->ctx,c->controller->memory,"p",-1);
+        if(phase==4&&previous==3){releases++;last=world.age;}
+        if(tick%6==0){
+            JSValue sensors=physics_sensors(ctx,&c->physics,&c->design,.1),state=JS_GetPropertyStr(ctx,sensors,"magnets"),head=JS_GetPropertyUint32(ctx,state,22);
+            double force=get_number(ctx,head,"targetSupportForce",-1);assert(isfinite(force)&&force>=0);
+            if(phase==2&&b3Body_IsValid(c->physics.parts[22].magnet_target)&&force==0)airborne++;
+            if(phase==3&&force>1)supported++;
+            JS_FreeValue(ctx,head);JS_FreeValue(ctx,state);JS_FreeValue(ctx,sensors);
+        }
+        previous=phase;
+    }
+    printf("GANTRY: %d set-downs, %d airborne / %d supported samples, last release %.3f seconds before end, across restart\n",releases,airborne,supported,world.age-last);
+    assert(releases>15&&airborne>100&&supported>40&&world.age-last<40);world_close();
+}
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);Character car={0};character_car(&car);
     Creature *driver=spawn(&car,"function(){return ''}","Your character",1,60,0,12);int id=driver->id;world.player=id;
@@ -105,5 +133,5 @@ int main(void){
     assert(cargo_z(cargo)>start+4&&world_find(cargo)->carrier==-1&&world.delivery_count==0);
     assert(world_find(cargo)->held_by==id);world_save(ctx);world_close();world_load(ctx);
     assert(world_find(cargo)->held_by==id&&world_find(cargo)->carrier==-1);ticks(30);assert(world_find(cargo)->held_by==id);
-    world_close();character_clear(&car);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_gantry(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

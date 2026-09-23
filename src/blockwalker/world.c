@@ -90,6 +90,19 @@ int character_from_json(JSContext *ctx,JSValueConst list,Character *c){
 static JSValue vector(JSContext *ctx,Vector3 v){
     JSValue a=JS_NewArray(ctx);JS_SetPropertyUint32(ctx,a,0,JS_NewFloat64(ctx,v.x));JS_SetPropertyUint32(ctx,a,1,JS_NewFloat64(ctx,v.y));JS_SetPropertyUint32(ctx,a,2,JS_NewFloat64(ctx,v.z));return a;
 }
+typedef struct {double support,self;} ContactForces;
+static ContactForces contact_forces(b3BodyId body,const void *own_parts,const b3ContactData *contacts,int count){
+    ContactForces result={0};
+    for(int j=0;j<count;j++){
+        const b3ContactData *contact=&contacts[j];b3BodyId a=b3Shape_GetBody(contact->shapeIdA),b=b3Shape_GetBody(contact->shapeIdB);
+        int is_a=B3_ID_EQUALS(a,body),own=own_parts&&b3Body_GetUserData(is_a?b:a)==own_parts;
+        for(int k=0;k<contact->manifoldCount;k++){
+            const b3Manifold *manifold=&contact->manifolds[k];double force=0;
+            for(int n=0;n<manifold->pointCount;n++)force+=480*manifold->points[n].normalImpulse;
+            if(own)result.self+=force;else result.support+=fmax(0,(is_a?-1:1)*manifold->normal.y)*force;
+        }
+    }return result;
+}
 static JSValue magnet_state(JSContext *ctx,const Physics *p,const Character *c){
     JSValue list=JS_NewArray(ctx);
     for(int i=0;i<c->count;i++)if(c->blocks[i].joint==BLOCK_MAGNET){
@@ -137,7 +150,7 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
 }
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt){
     JSValue s=JS_NewObject(ctx),angles=JS_NewArray(ctx),rates=JS_NewArray(ctx),touching=JS_NewArray(ctx),positions=JS_NewArray(ctx),submerged=JS_NewArray(ctx);
-    JSValue support=JS_NewArray(ctx),self_contact=JS_NewArray(ctx);b3ContactData *contacts=NULL;int contact_capacity=0;
+    JSValue support=JS_NewArray(ctx),self_contact=JS_NewArray(ctx),magnets=magnet_state(ctx,p,c);b3ContactData *contacts=NULL;int contact_capacity=0;
     Vector3 position;Quaternion q;physics_pose(p,c,0,&position,&q);Quaternion inverse=QuaternionInvert(q);
     surroundings(ctx,s,p,position);
     JS_SetPropertyStr(ctx,s,"contactsReady",JS_NewBool(ctx,p->sampled));
@@ -160,22 +173,22 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
         JS_SetPropertyUint32(ctx,angles,i,JS_NewFloat64(ctx,p->parts[i].angle));JS_SetPropertyUint32(ctx,rates,i,JS_NewFloat64(ctx,p->parts[i].rate));
         int required=b3Body_GetContactCapacity(body);
         if(required>contact_capacity){contact_capacity=required;contacts=array_resize(contacts,contact_capacity,sizeof(*contacts));}
-        int count=required?b3Body_GetContactData(body,contacts,contact_capacity):0;double support_force=0,self_force=0;
-        for(int j=0;j<count;j++){
-            b3ContactData *contact=&contacts[j];b3BodyId a=b3Shape_GetBody(contact->shapeIdA),b=b3Shape_GetBody(contact->shapeIdB);
-            int is_a=B3_ID_EQUALS(a,body),own=b3Body_GetUserData(is_a?b:a)==p->parts;
-            for(int k=0;k<contact->manifoldCount;k++){
-                const b3Manifold *manifold=&contact->manifolds[k];double force=0;
-                for(int n=0;n<manifold->pointCount;n++)force+=480*manifold->points[n].normalImpulse;
-                if(own)self_force+=force;else support_force+=fmax(0,(is_a?-1:1)*manifold->normal.y)*force;
-            }
-        }
+        int count=required?b3Body_GetContactData(body,contacts,contact_capacity):0;ContactForces forces=contact_forces(body,p->parts,contacts,count);
         JS_SetPropertyUint32(ctx,touching,i,JS_NewBool(ctx,count>0));
-        JS_SetPropertyUint32(ctx,support,i,JS_NewFloat64(ctx,support_force));JS_SetPropertyUint32(ctx,self_contact,i,JS_NewFloat64(ctx,self_force));
+        JS_SetPropertyUint32(ctx,support,i,JS_NewFloat64(ctx,forces.support));JS_SetPropertyUint32(ctx,self_contact,i,JS_NewFloat64(ctx,forces.self));
+        if(c->blocks[i].joint==BLOCK_MAGNET){
+            b3BodyId target=p->parts[i].magnet_target;double target_support=0;
+            if(b3Body_IsValid(target)){
+                required=b3Body_GetContactCapacity(target);if(required>contact_capacity){contact_capacity=required;contacts=array_resize(contacts,contact_capacity,sizeof(*contacts));}
+                count=required?b3Body_GetContactData(target,contacts,contact_capacity):0;
+                target_support=contact_forces(target,b3Body_GetUserData(target),contacts,count).support;
+            }
+            JSValue magnet=JS_GetPropertyUint32(ctx,magnets,i);put_number(ctx,magnet,"targetSupportForce",target_support);JS_FreeValue(ctx,magnet);
+        }
     }
     free(contacts);JS_SetPropertyStr(ctx,s,"supportForce",support);JS_SetPropertyStr(ctx,s,"selfContactForce",self_contact);
     put_number(ctx,s,"mass",mass);JS_SetPropertyStr(ctx,s,"centerOfMass",vector(ctx,Vector3Scale(center,mass>0?1/mass:0)));
-    JS_SetPropertyStr(ctx,s,"angles",angles);JS_SetPropertyStr(ctx,s,"rates",rates);JS_SetPropertyStr(ctx,s,"touching",touching);JS_SetPropertyStr(ctx,s,"positions",positions);JS_SetPropertyStr(ctx,s,"submerged",submerged);JS_SetPropertyStr(ctx,s,"magnets",magnet_state(ctx,p,c));return s;
+    JS_SetPropertyStr(ctx,s,"angles",angles);JS_SetPropertyStr(ctx,s,"rates",rates);JS_SetPropertyStr(ctx,s,"touching",touching);JS_SetPropertyStr(ctx,s,"positions",positions);JS_SetPropertyStr(ctx,s,"submerged",submerged);JS_SetPropertyStr(ctx,s,"magnets",magnets);return s;
 }
 static int assigned(const Character *design,int key){
     if(key<=0||key>=128)return 0;

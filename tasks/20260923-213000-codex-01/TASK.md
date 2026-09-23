@@ -62,6 +62,27 @@ Immediate same-tab refresh still fails at replacement runtime boot; details and
 proofs remain in the open `20260923-200000-codex-01` memory issue. The original
 named saves and recovery archive remain untouched.
 
+An additional seed-7 trial passed 1080 simulation seconds and five reloads:
+all 45 alive, five deliveries, 45 qualifying biped steps, no aborts or external
+biped contacts. Lookouts travelled 545–1261 m; skiffs 861–927 m. Evidence:
+`build/blockwalker-air-traffic-seed7.log` (exit 0) and
+`build/blockwalker-air-traffic-long-7/result.json`. Inspection beyond survival
+found Northline stalling while lowering a tilted crate in both seeds; follow
+`20260924-030000-codex-01` for the now-verified physical-feedback fix. The held
+crate's real support force replaces a fixed-height release condition. A replay
+of the stuck world resumed in 0.417 s and completed nine set-downs in 120 s;
+the fresh regression completed 40 in 600 s across a restart. All original world
+objects survived the replay.
+
+Current package: 232123849 bytes, SHA-256
+`428c9b2e84af3213bd10df32616684d5409f6792214babe4a8b592c0b6dd2160`;
+source SHA-256 `ed6a354d9e8a70269692b355005e28c8d4f153f1e87646a0d0aacf0b475586a7`.
+The runtime is unchanged, build time 23.6 s
+(`build/blockwalker-playground-image10.log`). Driving/physics and packaged
+embedded/restore checks passed in `build/blockwalker-gantry-driver2.log` and
+`build/blockwalker-gantry-integration2.log`. The 9099 metadata matches the built
+image. The learned world and its history remain untouched.
+
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate
 requested issue; do not silently expand this goal into rewriting Pi.

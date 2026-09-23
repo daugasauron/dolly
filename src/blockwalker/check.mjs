@@ -28,10 +28,12 @@ try {
  for(const [axis,index] of [['x',0],['y',1],['z',2]])assert(Math.abs((actuators.camera[axis]-actuators.parts[0].pose[index])-(practiceCamera.camera[axis]-practiceCamera.parts[0].pose[index]))<.001,'practice camera preserves its offset while following actual movement');
  fs.writeFileSync('/workspace/blockwalker-actuators.png',Buffer.from(Game.call('snapshot')));Game.call('release');
  const hoist=[{x:0,y:0,z:0,parent:-1,joint:0},{x:0,y:1,z:0,parent:0,joint:0},{x:0,y:2,z:0,parent:1,joint:0},{x:1,y:2,z:0,parent:2,joint:0},{x:2,y:2,z:0,parent:3,joint:2,axis:1,direction:1,negative:81,positive:65},{x:2,y:1,z:0,parent:4,joint:5,axis:1,direction:-1,negative:83,positive:87,force:24}];
- Game.call('build',{parts:hoist,anchored:true});Game.call('reset');Game.call('cargo',{x:2,y:.5,z:0});
+ Game.call('build',{parts:hoist,anchored:true});Game.call('reset');Game.call('cargo',{x:2,y:.5,z:0,material:2});
  const advance=async(keys,steps)=>{Game.call('advance',{keys,steps});while(Game.call('state').remaining)await sleep(20);return Game.call('state');};
  const captured=await advance('W',30);assert(captured.sensors.magnets[5].attached,'magnet captures a foreign cargo body');
+ assert(captured.sensors.magnets[5].targetSupportForce>0,'magnet senses support under its grounded practice cargo');
  const lifted=await advance('A',180);assert(lifted.cargo[0].y>1.7&&lifted.sensors.magnets[5].power===1&&lifted.sensors.magnets[5].load<=24,'latched finite magnet force lifts cargo');
+ assert(lifted.sensors.magnets[5].targetSupportForce===0,'magnetic lift is not reported as surface support');
  fs.writeFileSync('/workspace/blockwalker-magnet.png',Buffer.from(Game.call('snapshot')));
  const released=await advance('S',180);assert(released.cargo[0].y<.6&&!released.sensors.magnets[5].attached&&released.sensors.magnets[5].power===0,'Off drops the cargo');
  Game.call('install',{name:'Cargo hoist',source:'function(t){return t<0.5?"W":t<3.5?"A":""}'});Game.call('program_trial',{steps:300});

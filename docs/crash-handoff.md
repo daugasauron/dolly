@@ -21,6 +21,13 @@ steps, zero aborts and zero external biped contacts. The packaged driving/cargo
 check includes a short physical overflight regression. Save and focus-view
 browser checks passed, including actual 9099 refreshes and failed-save retention.
 
+An alternate route seed passed 1080 s with all 45 objects and five deliveries.
+Inspecting activity also found Northline holding a tilted crate indefinitely.
+It now senses contact support under the attached cargo: the stuck-state replay
+resumed within 0.417 s, and a fresh 600 s run completed 40 transfers across a
+restart. This fix is packaged on 9099; driving and embedded exact-restore checks
+passed. See the closed [gantry issue](../tasks/20260924-030000-codex-01/TASK.md).
+
 The visible browser Save button keeps the latest written checkpoint and links
 to named sessions. Manual/programmed design and complete world import/export
 remain available. Recovery-world import preserved all 51 creatures and 78
