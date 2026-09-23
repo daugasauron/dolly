@@ -140,6 +140,14 @@ browser errors. Five-second view samples measured 50.15–55.77 FPS on this mach
 (`build/blockwalker-spectator-preview1.log`); no cross-device performance claim.
 The original learned session remains untouched.
 
+The same catalog passed another 600 s with route seed 7 and three reloads:
+49 objects, zero removals, eight deliveries and all three tug handoffs. The
+harbor deliveries finished at 205.45, 367.28 and 534.38 s, in a different cargo
+order. Evidence: `build/blockwalker-tug-cargo-avoidance-7/` and matching log.
+The anchored shuttles are also active: seed-42 Lattice completed 35 cycles with
+zero faults, and Dockhand continued its pickup/transfer/release cycle through
+the final minute. Their stationary roots do not imply stalled programs.
+
 Keep the game implementation in C, compile it inside Dolly and verify in one
 bounded browser at a time (4 GiB, no swap). Lua/YAML migration remains the separate
 requested issue; do not silently expand this goal into rewriting Pi.
