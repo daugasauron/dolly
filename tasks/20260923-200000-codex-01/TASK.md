@@ -102,3 +102,25 @@ The candidate was reverted; its patch remains in
 `build/session-direct-decode-candidate.patch` for investigation. It is not part of
 the preview, and does not justify changing the filesystem format or adding a
 forced-GC workaround.
+
+Additional isolation on Chrome 151.0.7922.71: explicit `pagehide` shutdown
+(stop workers/presenter, close transports, clear the page's runtime references)
+still caused a renderer cgroup OOM at 04:17:36 JST. Passing `WebAssembly.Memory`
+objects instead of bare shared buffers in the boot handshakes also failed at
+04:22:11. Logs: `build/session-lifecycle-{cleanup,owned-memory}.log`; neither
+experiment changed production. V8's pinned
+[backing-store accounting](https://chromium.googlesource.com/v8/v8/+/792d9716fea48312ad7ce4413c538e00628b1d50/src/objects/backing-store.h)
+excludes shared buffers, while its
+[Wasm deserializer](https://chromium.googlesource.com/v8/v8/+/792d9716fea48312ad7ce4413c538e00628b1d50/src/objects/value-serializer.cc)
+accounts for memory objects. That distinction motivated the second experiment;
+it did not establish the cause or a fix for this refresh failure.
+
+The successful close/reopen proof now independently hashes the actual restored
+files with Dolly's `sha256sum`, before game entry can update them. All six files
+match the archive except the intentionally paused configuration, including the
+complete native history, world and character. The game then resumes 51 creatures
+and 108 designs (78 original plus 30 catalog), without HTTP requests. Whole-tree
+peak: 3309383680 bytes. `build/blockwalker-memory-restored-hashes.log` exited 0;
+`build/blockwalker-memory-restored-hashes/{restored-files,saved-files,result}.json`
+records both the restored-filesystem and stored-archive checks. Original saves
+and recovery files remain unchanged.

@@ -41,9 +41,10 @@ The visible browser Save button keeps the latest written checkpoint and links
 to named sessions. Manual/programmed design and complete world import/export
 remain available. Recovery-world import preserved all 51 creatures and 78
 programs from the original learned session; its archive is unchanged. Streaming
-capture now saves that complete history with matching archived file hashes except
-the intentional Pi pause setting. Closing/reopening the copied session restores
-the 51-object world; peak test-tree memory was 3.08 GiB. Immediate same-tab refresh still exceeds the 4 GiB
+capture now saves that complete history. Closing/reopening the copied session
+restores all archived file hashes except the intentional Pi pause setting,
+verified with in-Dolly hashing before game entry, then resumes the 51-object
+world. Peak test-tree memory was 3.09 GiB. Immediate same-tab refresh still exceeds the 4 GiB
 bound during boot, so the [memory issue](../tasks/20260923-200000-codex-01/TASK.md)
 remains open. Do not begin the separate Lua/YAML migration here.
 
