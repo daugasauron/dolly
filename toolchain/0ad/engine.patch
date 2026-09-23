@@ -484,7 +484,19 @@
  
  #if CONFIG2_MINIUPNPC
  	// Launch the UPnP thread
-@@ -402,6 +417,18 @@
+@@ -366,6 +381,11 @@
+ bool CNetServerWorker::SendMessage(ENetPeer* peer, const CNetMessage* message)
+ {
+ 	ENSURE(m_Host);
++#ifdef DOLLY
++	// ENet can mark a closing peer before its disconnect event is dispatched.
++	if (peer->state != ENET_PEER_STATE_CONNECTED)
++		return false;
++#endif
+ 
+ 	CNetServerSession* session = static_cast<CNetServerSession*>(peer->data);
+ 
+@@ -402,6 +422,26 @@
  	return ok;
  }
  
@@ -493,17 +505,46 @@
 +{
 +	if (m_Shutdown || !m_ScriptInterface)
 +		return;
-+	if (RunStep())
-+		m_Stats->LatchHostState(m_Host);
-+	else
-+		m_Shutdown = true;
++	for (unsigned i = 0; i < 64; ++i)
++	{
++		bool hadEvent = false;
++		if (!RunStep(&hadEvent))
++		{
++			m_Shutdown = true;
++			break;
++		}
++		if (!hadEvent)
++			break;
++	}
++	m_Stats->LatchHostState(m_Host);
 +}
 +#endif
 +
  void CNetServerWorker::RunThread(CNetServerWorker* data)
  {
  	debug_SetThreadName("NetServer");
-@@ -1714,6 +1741,10 @@
+@@ -434,8 +474,9 @@
+ 	SAFE_DELETE(m_ScriptInterface);
+ }
+ 
+-bool CNetServerWorker::RunStep()
+-{
++bool CNetServerWorker::RunStep(bool* hadEvent)
++{
++	if (hadEvent) *hadEvent = false;
+ 	// Check for messages from the game thread.
+ 	// (Do as little work as possible while the mutex is held open,
+ 	// to avoid performance problems and deadlocks.)
+@@ -505,6 +546,8 @@
+ 		// Reached timeout with no events - try again
+ 		return true;
+ 	}
++
++	if (hadEvent) *hadEvent = true;
+ 
+ 	// Process the event:
+ 
+@@ -1714,6 +1757,10 @@
  	delete m_Worker;
  }
  
@@ -536,6 +577,15 @@
  
  	/**
  	 * The given GUID will be (re)assigned to the given player ID.
+@@ -436,7 +442,7 @@
+ 
+ 	static void RunThread(CNetServerWorker* data);
+ 	void Run();
+-	bool RunStep();
++	bool RunStep(bool* hadEvent = nullptr);
+ 
+ 	std::thread m_WorkerThread;
+ 	std::mutex m_WorkerMutex;
 --- a/source/network/NetSession.cpp
 +++ b/source/network/NetSession.cpp
 @@ -31,7 +31,11 @@
@@ -550,24 +600,50 @@
  
  constexpr int CHANNEL_COUNT = 1;
  
-@@ -91,6 +95,17 @@
- 
+@@ -92,6 +96,24 @@
  	return true;
  }
-+
+ 
 +#ifdef DOLLY
 +void CNetClientSession::PollOnce()
 +{
 +	m_FileTransferer.Poll();
-+	Poll();
++	Flush();
++	for (unsigned i = 0; i < 64; ++i)
++	{
++		bool hadEvent = false;
++		Poll(&hadEvent);
++		if (!hadEvent)
++			break;
++	}
 +	Flush();
 +	m_LastReceivedTime = enet_time_get() - m_Server->lastReceiveTime;
 +	m_MeanRTT = m_Server->roundTripTime;
 +}
 +#endif
- 
++
  void CNetClientSession::RunNetLoop(CNetClientSession* session)
  {
+ 	ENSURE(!session->m_LoopRunning);
+@@ -122,13 +144,16 @@
+ 	m_ShouldShutdown = true;
+ }
+ 
+-void CNetClientSession::Poll()
+-{
++void CNetClientSession::Poll(bool* hadEvent)
++{
++	if (hadEvent) *hadEvent = false;
+ 	ENetEvent event;
+ 
+ 	// Use the timeout to make the thread wait and save CPU time.
+ 	if (enet_host_service(m_Host, &event, NETCLIENT_POLL_TIMEOUT) <= 0)
+ 		return;
++
++	if (hadEvent) *hadEvent = true;
+ 
+ 	if (event.type == ENET_EVENT_TYPE_CONNECT)
+ 	{
 --- a/source/network/NetSession.h
 +++ b/source/network/NetSession.h
 @@ -90,6 +90,9 @@
@@ -580,6 +656,15 @@
  
  	/**
  	 * Queue up a message to send to the server on the next Loop() call.
+@@ -111,7 +114,7 @@
+ 	/**
+ 	 * Process queued incoming messages.
+ 	 */
+-	void Poll();
++	void Poll(bool* hadEvent = nullptr);
+ 
+ 	/**
+ 	 * Flush queued outgoing network messages.
 --- a/source/ps/CLogger.cpp
 +++ b/source/ps/CLogger.cpp
 @@ -213,7 +213,7 @@

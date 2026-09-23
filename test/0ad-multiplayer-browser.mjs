@@ -6,8 +6,14 @@ import {startBrowserServer} from "./browser-server.mjs";
 import {createRelayRoom} from "../toolchain/0ad/relay.mjs";
 
 const output = new URL("../.cache/0ad/browser/", import.meta.url);
+assert.ok(process.argv.length===2 || (process.argv.length===3 && process.argv[2]==="visual"),
+  "usage: node test/0ad-multiplayer-browser.mjs [visual]");
+const visual = process.argv[2]==="visual", image=visual?"zero-ad":"default";
+const provider = await readFile(new URL("../src/gpu-worker.mjs", import.meta.url), "utf8");
 await mkdir(output, {recursive: true});
-const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "default", 0, new Map(), {
+const server = await startBrowserServer(new URL("..", import.meta.url).pathname, image, 0, new Map(visual ? [
+  ["/src/gpu-worker.mjs", provider.replace('powerPreference: "high-performance"', 'forceFallbackAdapter: true')]
+] : []), {
   "pyrogenesis.wasm": "build/0ad/pyrogenesis.wasm", "0ad-data.tar": "build/0ad/headless-data.tar"
 });
 const room = createRelayRoom();
@@ -15,13 +21,16 @@ const relay = createServer((request, response) => void room.handle(request, resp
 relay.maxConnections = 32; relay.requestTimeout = 10000;
 await new Promise(resolve => relay.listen(0, "127.0.0.1", resolve));
 const relayOrigin = `http://127.0.0.1:${relay.address().port}`, pages = [];
-const replays = [], metadata = [];
+const replays = [], metadata = [], logs = [];
 let browser, deadline;
 try {
-  browser = await chromium.launch({channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu"]});
-  deadline = setTimeout(() => void browser.close(), 240000);
+  browser = await chromium.launch({channel: "chrome", headless: !visual, args: visual ? [
+    "--no-sandbox", "--mute-audio", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--use-vulkan=swiftshader",
+    "--use-webgpu-adapter=swiftshader", "--enable-features=Vulkan", "--disable-vulkan-surface"
+  ] : ["--no-sandbox", "--disable-gpu"]});
+  deadline = setTimeout(() => void browser.close(), visual?420000:240000);
   for (const endpoint of room.endpoints) {
-    const page = await browser.newPage(); pages.push(page);
+    const page = await browser.newPage({viewport:{width:1024,height:768}}); pages.push(page);
     page.on("pageerror", error => console.error(error.message));
     await page.addInitScript(({origin, relayOrigin, path}) => {
       globalThis.DOLLY_HTTP_POLICY = {maxRequests: 50000, rules: [
@@ -29,11 +38,11 @@ try {
         {origin: relayOrigin, pathPrefix: path, methods: ["POST"]}
       ]};
     }, {origin: server.origin, relayOrigin, path: endpoint.path});
-    await page.goto(`${server.origin}/default/`);
-    await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+    await page.goto(`${server.origin}/${image}/`);
+    await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus),null,{timeout:90000});
     assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready");
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
-    for (const command of ["mkdir -p /opt/0ad/system",
+    if (!visual) for (const command of ["mkdir -p /opt/0ad/system",
       `curl -fsS ${server.origin}/fixture/pyrogenesis.wasm -o /opt/0ad/system/pyrogenesis`,
       `curl -fsS ${server.origin}/fixture/0ad-data.tar -o /tmp/0ad.tar && tar -xf /tmp/0ad.tar -C /opt/0ad && rm /tmp/0ad.tar`])
       assert.equal(await page.evaluate(command => __dolly.submit(command), command), 0);
@@ -42,7 +51,7 @@ try {
     globalThis.gameStatus = null;
     void __dolly.submit(command).then(status => { gameStatus = status; });
   }, `DOLLY_ENET_RELAY=${relayOrigin}${room.endpoints[index].path} ICU_DATA=/opt/0ad/data/icu ` +
-    `/opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound -autostart-nonvisual ` +
+    `/opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound -conf=hotkey.exit:F10 ${!visual || index===1?"-autostart-nonvisual":""} ` +
     `-autostart-playername=Player${index + 1} ${options} > /tmp/network.log 2>&1`);
   const time = performance.now();
   await start(0, "-autostart=scenarios/combat_demo -autostart-host -autostart-host-players=2");
@@ -50,7 +59,24 @@ try {
   while (room.status().sockets < 1 && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 20));
   assert.ok(room.status().sockets >= 1, "The actual game server did not bind its relay port");
   await start(1, "-autostart-client=10.0.0.1");
-  await Promise.all(pages.map(page => page.waitForFunction(() => gameStatus !== null, null, {timeout: 150000})));
+  if (visual) {
+    const hostPage=pages[0];
+    await hostPage.waitForFunction(()=>gameStatus!==null || __dolly.gpu.stats?.frames>=22,null,{timeout:60000});
+    assert.equal(await hostPage.evaluate(()=>gameStatus),null);
+    assert.match(await hostPage.evaluate(()=>__dolly.gpu.adapter),/swiftshader/i);
+    await hostPage.bringToFront();
+    await hostPage.mouse.move(480,240); await hostPage.mouse.down();
+    await hostPage.mouse.move(720,550,{steps:5}); await hostPage.mouse.up();
+    const selectedFrame=await hostPage.evaluate(()=>__dolly.gpu.stats.frames);
+    await hostPage.waitForFunction(frame=>__dolly.gpu.stats.frames>=frame+3,selectedFrame);
+    await hostPage.mouse.click(224,742); // Upstream's violent-stance button.
+    await hostPage.screenshot({path:new URL("multiplayer-visual.png",output).pathname});
+    await pages[1].waitForFunction(()=>gameStatus!==null,null,{timeout:300000});
+    const endedFrame=await hostPage.evaluate(()=>__dolly.gpu.stats.frames);
+    await hostPage.waitForFunction(frame=>gameStatus!==null || __dolly.gpu.stats.frames>=frame+4,endedFrame);
+    if (await hostPage.evaluate(()=>gameStatus===null)) await hostPage.keyboard.press("F10");
+  }
+  await Promise.all(pages.map(page => page.waitForFunction(() => gameStatus !== null, null, {timeout: 210000})));
   const statuses = await Promise.all(pages.map(page => page.evaluate(() => gameStatus)));
   const milliseconds = Math.round(performance.now() - time);
   for (const [index, page] of pages.entries()) {
@@ -61,25 +87,43 @@ try {
       assert.equal(await running, 0); return readFile(new URL(name, output), "utf8");
     };
     const log = await download("/tmp/network.log", `multiplayer-${index + 1}.log`);
-    assert.doesNotMatch(log, /ERROR:|Assertion failed|out.of.sync|mismatch/i);
-    assert.match(log, /Turn [1-9][0-9]+ /);
-    assert.doesNotMatch(await download("/opt/0ad/logs/interestinglog.html", `multiplayer-${index + 1}.html`), /class="error"|class="warning"/);
+    logs.push({log,html:await download("/opt/0ad/logs/interestinglog.html", `multiplayer-${index + 1}.html`)});
     assert.equal(await submit('replay=$(find /opt/0ad/data/replays -name commands.txt | head -n1); cat "$replay" > /tmp/network-replay.txt; cat "$(dirname "$replay")/metadata.json" > /tmp/network-metadata.json'), 0);
     replays.push(await download("/tmp/network-replay.txt", `multiplayer-${index + 1}-replay.txt`));
     metadata.push(JSON.parse(await download("/tmp/network-metadata.json", `multiplayer-${index + 1}-metadata.json`)));
     assert.equal(await submit("echo MULTIPLAYER_SHELL_RECOVERY > /tmp/network-result"), 0);
   }
+  for (const [index,{log,html}] of logs.entries()) {
+    assert.doesNotMatch(log, /ERROR:|Assertion failed|out.of.sync|mismatch/i);
+    if (!visual || index===1) assert.match(log, /Turn [1-9][0-9]+ /);
+    assert.doesNotMatch(html, /class="error"|class="warning"/);
+  }
   assert.deepEqual(statuses, [0, 0]);
   assert.equal(room.status().sockets, 0);
-  assert.equal(replays[0], replays[1], "Both peers must record identical commands and every turn's state hash");
-  const hashes = replays[0].match(/^hash(?:-quick)? .+$/gm);
+  const parsed=replays.map(replay=>{
+    const start=JSON.parse(replay.slice(6,replay.indexOf("\n"))); delete start.timestamp;
+    return {start,turns:replay.slice(replay.indexOf("\n")+1).trimEnd().split(/\n(?=turn )/)};
+  });
+  assert.deepEqual(parsed[0].start,parsed[1].start);
+  const sharedTurns=Math.min(parsed[0].turns.length,parsed[1].turns.length);
+  assert.deepEqual(parsed[0].turns.slice(0,sharedTurns),parsed[1].turns.slice(0,sharedTurns),
+    "Both peers must record identical commands and state hashes for every shared turn");
+  if (!visual) assert.equal(parsed[0].turns.length,parsed[1].turns.length);
+  const hashes = parsed[0].turns.slice(0,sharedTurns).join("\n").match(/^hash(?:-quick)? .+$/gm);
   assert.ok(hashes.length >= 100);
-  assert.deepEqual(metadata[0].playerStates, metadata[1].playerStates);
+  if (visual) {
+    const orders=replays[0].split("\n").filter(line=>/^cmd [12] /.test(line)).map(line=>JSON.parse(line.slice(6)));
+    assert.ok(orders.some(order=>order.type==="stance" && order.name==="violent" && order.entities.length>0),
+      "The graphical host's order to selected units must reach both synchronized replays");
+  }
+  if (!visual) assert.deepEqual(metadata[0].playerStates, metadata[1].playerStates);
+  assert.deepEqual(metadata[0].playerStates.map(player=>[player.name,player.state]),
+    metadata[1].playerStates.map(player=>[player.name,player.state]));
   assert.ok(metadata[0].playerStates.some(player => player.state === "won"));
   const cgroup = (await readFile("/proc/self/cgroup", "utf8")).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes = cgroup ? Number(await readFile(`/sys/fs/cgroup${cgroup}/memory.peak`, "utf8")) : undefined;
-  console.log(JSON.stringify({statuses, milliseconds, synchronizedTurns: hashes.length,
-    finalHash: hashes.at(-1), processTreePeakBytes, relay: room.status()}));
+  console.log(JSON.stringify({visualInput:visual, statuses, milliseconds, synchronizedTurns: hashes.length,
+    peerTurns:parsed.map(peer=>peer.turns.length), finalSharedHash: hashes.at(-1), processTreePeakBytes, relay: room.status()}));
 } catch (error) {
   console.error("Relay:", room.status());
   for (const [index, page] of pages.entries()) if (!page.isClosed()) {

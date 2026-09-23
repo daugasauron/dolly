@@ -8,6 +8,7 @@ const linkedSources = new Set([
   "src/dolly.c", "src/dollyfile.c", "src/upload.c", "src/gpu-kernel.c", "src/audio-kernel.c", "config/source-pins.sh", "config/zig-sdk-files.txt",
   "config/github-pages-images.txt",
   "src/process/mmap.c", "src/libcurl-fetch.c",
+  "test/gpu-render-browser.mjs",
   ...["architecture-probe.log", "spidermonkey-configure.log", "fixed-browser.json", "architecture.patch"]
     .map(name => `tasks/20260923-113538-0ad-investigation/${name}`),
 ]);

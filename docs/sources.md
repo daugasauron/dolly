@@ -231,7 +231,9 @@ and the other participant with `-autostart-client=10.0.0.1`; give them distinct
 for the verified headless match. These are normal upstream network game paths;
 `-dolly-control` remains an offline interface.
 
-The server and client pumps run serially in Wasm. The relay routes only bounded
+The server and client pumps run serially in Wasm, draining at most 64 available
+events per frame. Sends to peers already marked disconnected fail before packet
+creation. The relay routes only bounded
 datagrams within its pre-created room, with no native UDP/TCP forwarding or
 arbitrary destination access. Ports and sender addresses are assigned by the
 relay; eight socket leases per participant expire after 60 seconds idle, pruned
@@ -251,6 +253,16 @@ reuse and browser denial of another participant's URL. Link its fixture after
 `systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node
 test/0ad-multiplayer-browser.mjs` exercises the two real engines with the GPU
 disabled. The measured process-tree peak was 1,852,792,832 bytes.
+The optional `visual` argument uses the packaged `zero-ad` image, a SwiftShader
+graphical host and a headless peer; run it under Xvfb with a 6 GiB scope. It sends
+a real order to selected units and compares every shared turn's command/hash
+records plus winner metadata. Per-process replay timestamps are excluded from
+that comparison. The checked stance order reached both peers; all 149 shared
+turns matched, both recorded the winner and exited cleanly in 174.6 seconds,
+with a 5.14 GB process-tree peak. The graphical host recorded two additional
+turns before F10 exit. A headless autostart host exits immediately on victory and can
+close before a slower visual peer's last turn; keep the graphical host open
+through match completion when mixing visual and nonvisual peers.
 
 OpenAL Soft 1.24.3 is checksum-pinned in `dependencies.tsv`. Its loopback mixer
 runs serially: `openal.patch` polls its event queue after rendering and replaces
@@ -362,6 +374,11 @@ host filesystem shortcut. The external engine build remains the explicit
 bootstrap exception described above. The pack retains upstream engine/content
 license notices and ICU/OpenAL licenses. The image deliberately starts in the
 shell, so opening its page alone does not start a graphics workload.
+The 581,810,815-byte snapshot exported identically in an independent browser
+profile (SHA-256 `5787e3ad038151b9968f488430d61aa51448cb3f5d00c8ef9974895cc6a99ab6`).
+Image export needs a 6 GiB process-tree allowance; its 4 GiB attempt exhausted
+that scope. The packaged image reached its shell in 3.7 seconds and passed the
+offline gameplay/audio check under 4 GiB with a 3.39 GB peak.
 
 `pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
 adds a line-oriented guest JSON protocol to the ordinary autostart options.

@@ -331,3 +331,32 @@ queued buffers/scopes. Evidence: `.cache/0ad/browser-distribution-test.log`.
 Exact process/browser ABI checks and 13 focused ABI/relay/documentation tests
 pass. The ABI tests initially lacked their generated fixtures; rebuilding those
 fixtures through the pinned SDK resolves all seven missing-file failures.
+
+2026-09-24: The graphical-host multiplayer check now passes from the packaged
+image. It selects real units and clicks the upstream violent-stance button;
+both replays contain the same nonempty entity order, and every shared command
+and hash matches for 149 turns. Both record the same winner and exit with status
+0, no engine warnings/errors and no remaining relay sockets. The graphical host
+records two additional turns before F10 exit. Per-process header timestamps are
+compared separately from simulation data. Chrome/SwiftShader: 174,637 ms and
+5,140,058,112 bytes peak under 6 GiB. Evidence:
+`.cache/0ad/browser-multiplayer-visual-test.log`, `browser/multiplayer-visual.png`
+and the two downloaded replay/metadata/log sets.
+
+This test exposed two serial-pump issues: one event per rendered frame caused a
+backlog, and a peer marked disconnected could still be in the server's session
+list pending event delivery. Pumps now drain at most 64 available events per
+frame and fail sends to closing peers before creating a packet. Exact process
+ABI and pristine reconstruction of the patched engine pass. A mixed game with
+an automatically exiting headless host can close one turn before a slow visual
+peer finishes; the documented mixed-mode setup keeps the graphical host alive
+through victory. The test uses a stance command because stopping an army can
+change or stall the scenario's automatic battle.
+
+Latest engine: 22,986,115 bytes, SHA-256
+`489da8f26c659b234399239cad9cab9ce77ff5bb4203e9a08cdebdd3aa8019a9`.
+Latest image: 581,810,815 bytes, SHA-256
+`5787e3ad038151b9968f488430d61aa51448cb3f5d00c8ef9974895cc6a99ab6`.
+An independent browser profile exported a byte-identical image; evidence:
+`.cache/0ad/image-repeat.log`. Documentation packaging closes all 89 linked
+files, with explicit source allowlist additions for the new review references.
