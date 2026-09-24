@@ -20,15 +20,79 @@ machines that remain and can recover. Every character's behavior must be a
 visible embedded program using common sensors and actuators; no per-character
 engine helpers. Start from this tested checkpoint. Lua/YAML remains separate.
 
-The [retention/recovery changes](../tasks/20260924-213500-codex-01/TASK.md) pass
-source-only physics and Chrome/Firefox checks. Cargo and fallen bodies persist;
-stopped programs retain their errors. Teams have red/blue panels. Shared sensors
-include all objects within 48 m and identify the actual magnet attachment.
-The [receiving yards](../tasks/20260924-220500-codex-01/TASK.md) now need physical
-storage: retained pallets block later crane swings. The exact 1800 s failure
-state is in `build/blockwalker-retained-population-first/`. Forklift and rivalry
-prototypes under `build/blockwalker-storage/` and `build/blockwalker-rivalry/`
-remain experimental; do not mistake them for the canonical catalog or image 27.
+Source commits `08fc6e3`, `249bcd2` and `737c350` retain cargo/fallen bodies,
+expose all neighbors within 48 m and actual magnet targets, add solid quarry
+terraces (terrain 3), and support 1 Hz inert controllers. Physics remains 60 Hz.
+The source has passed in-Dolly physics and Chrome/Firefox checks; image 27 is
+still served. New tasks are committed in `5764481`.
+
+The [one-way thruster change](../tasks/20260925-035000-codex-01/TASK.md) is in
+commits `a20925f` and `5502cd8`. Physics and Firefox builder checks pass. Import/startup migration
+preserves all 51 original creatures, 78 programs, original poses/velocities,
+memory and magnets; it backs up the version-1 world before upgrading to version
+2. Old reverse keys get real opposing jets. Blocked engines get clear mounts.
+Equal-distance mount choices now preserve radial symmetry. The original
+recovery files remain untouched. Postbird
+now uses a geometry-derived motor mixer and retuned attitude feedback. Its
+180 s trial completes a real delivery at 29.883 s. The canonical 70 designs
+now contain the converted jets and this program. A fresh 1800 s run then found
+two transport regressions: wider engines blocked the freighter's berth and
+team couriers circled without settling. Freighter mounts now fit their original
+footprint, and ordinary courier attitude feedback is retuned. Both receiving
+berths and a complete aerial delivery pass isolated tests. The delayed recovery
+fixture also passes with actual opposing jets. The 21 new crew/battery placements
+remain candidate-only. Current candidate source is
+`build/blockwalker-teams-tuned-source.tar`, with catalog
+`build/blockwalker-thrusters/catalog91-flight-tune.json`.
+
+The [cargo launcher](../tasks/20260925-032000-codex-01/TASK.md) now completes
+three real crane reloads and deliberate shots in 240 s. Two hit a moving
+opposing aircraft, which recovers; this is not a demonstrated shootdown.
+`build/blockwalker-launcher-safe-spin/` records the contacts and full state.
+The editable program limits spin from magnet strength, mass and arm radius.
+No C launch impulse was added; nearby sensors now include vertical velocity.
+Sources in `build/blockwalker-launcher/` are experimental. The rendered Firefox
+trial passes. The first populated 1800 s world records a shot contacting aircraft
+8, but also reveals unwanted releases when a target leaves sensor range.
+`retain-ammo.js` is an untested program candidate for holding that load instead.
+Save/reopen and final combined-world checks remain. The existing bearing supports
+the braced arm; a rope/winch has its own open task, `20260925-041500-codex-01`.
+
+The [receiving-yard task](../tasks/20260924-220500-codex-01/TASK.md) still blocks
+content promotion. Its fresh 1800 s test stored only one East and two West
+pallets. The 1200 s replay recovered the world but gzip could not compress the
+trace; the new harness splits traces into 300 s files and downloads the world
+first. `route-arrival.js` fixes the blocked rounded BFS destination beside the
+East landing pad. A saved 180 s continuation stores all three delivered loads
+on actual support, clear of the depots. Fresh multiple-load proof is pending.
+Use `build/blockwalker-rivalry/arrival-crew.json`, not older route variants.
+The first one-way-engine world saved successfully at 1800 s but failed the
+multiple-storage assertion because freight never left the loading quay. Its
+evidence is `build/blockwalker-rivalry-one-way-teams42/`. The revised full-world
+run uses label `compact-tuned42`; its output is
+`build/blockwalker-rivalry-compact-tuned42/`.
+
+At 04:50 JST the owned 1800 s run is still active (exec session `17955`, scope
+`run-r46b1353cbbde44fea77be5a7973db9bd.scope`), with 840 s elapsed, 108 objects
+and 15 deliveries. Do not start another browser until it exits. Its log is
+`build/blockwalker-compact-tuned42.log`; the saved state downloads before the
+final assertion. Analyze it with `build/blockwalker-combined-report.py`.
+Next, test `build/blockwalker-launcher/intermittent-target.json` using the
+sparse `blockwalker-courier-trial-browser.mjs` harness for 360 s. Then repeat
+Chrome's one-key UI, both browsers' world camera/source workflow, and the
+crowded Firefox warm render. Current UI edits are uncommitted and require a
+new source archive. Promote proven crew/roof/programs, package once, restart
+only the owned preview, and verify the protected files and other image entries.
+
+The candidate crew adds six competing lifter/guard robots, two warehouse
+handlers, and the [quarry runner](../tasks/20260925-012600-codex-01/TASK.md) with
+two authored heavy cores. Both quarry runner/courier handoffs succeed in a
+1200 s combined run; guards and lifters physically tip and right machines.
+The candidate roof is `build/blockwalker-terrace/terrain.c`. The 90 s warm
+Firefox check with 103 bodies measures 42.70 FPS and real-time simulation;
+`build/blockwalker-rivalry-view-firefox-crowded-fresh1200/` has images and
+measurements. This predates extra thruster bodies: repeat the crowded check
+before closing the [performance task](../tasks/20260925-010000-codex-01/TASK.md).
 
 The September 24 [playground checkpoint](../tasks/20260923-213000-codex-01/TASK.md)
 records the packaged image, source revision and measured limits. Its

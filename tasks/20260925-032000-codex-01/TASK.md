@@ -49,3 +49,12 @@ Team battery placements and a fresh 1800 s combined-world trial are pending.
 Rope/winch follow-up has its own [open task](../20260925-041500-codex-01/TASK.md).
 The first slinger can use the existing bearing: the braced assembly completes
 the measured cycles without adding a larger part.
+
+The first populated 1800 s trial retains all 102 objects and records East cargo
+86 contacting aircraft 8 at 778.183 s, after its deliberate release at 775.85 s.
+Two earlier loads were released when the target left sensor range: the program
+entered `return` and disabled its magnet. This is an aiming-state bug, not a
+demonstrated magnet overload. `build/blockwalker-launcher/retain-ammo.js` is an
+untested candidate that holds the load and brakes while waiting for a target.
+The intermittent-target fixture must verify retention, re-engagement and reload
+before that program is promoted. Evidence: `build/blockwalker-rivalry-one-way-teams42/`.

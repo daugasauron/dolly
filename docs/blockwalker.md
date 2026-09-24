@@ -329,8 +329,8 @@ start that step with neutral inputs. Export world downloads this file. Import
 world validates and replaces the population and library while keeping the
 workshop design and controller. It preserves cargo credit and magnetic loads;
 invalid files or failed writes keep the previous world. The last replaced world
-is backed up at `/workspace/blockwalker-world.previous.json`. Both tagged
-`blockwalker-world` version 1 and older untagged version 1 exports are accepted.
+is backed up at `/workspace/blockwalker-world.previous.json`. Tagged `blockwalker-world` version 2 exports and older version 1 exports
+are accepted; old thrusters are upgraded during import.
 
 These working files and the library live in the current Dolly session. Downloads
 survive a fresh start. **Save** at the bottom right keeps the latest file checkpoint,
