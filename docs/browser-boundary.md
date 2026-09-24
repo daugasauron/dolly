@@ -98,6 +98,9 @@ and [`gpu-worker.mjs`](../src/gpu-worker.mjs) for copied packet validation,
 private handles/quotas, queue completion, and revocation. GPU buffers and
 textures are explicit external device resources; CPU userspace state remains
 in Wasm. Guest bytes cannot choose URLs, DOM nodes or JavaScript operations.
+Resource release revokes its handle immediately; deferred destruction retains
+both allocation and object-slot charges until queue completion. Scope retirement
+collects outstanding releases before allowing reuse.
 The main thread transfers one embedding-created canvas; normal frames reach
 the compositor directly. [GPU details](gpu.md) lists the prototype limits and
 its real-browser checks. Existing CPU framebuffer and network paths remain.

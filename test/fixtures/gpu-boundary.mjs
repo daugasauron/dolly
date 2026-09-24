@@ -1,9 +1,9 @@
-export async function gpuBoundaryProof() {
-  const {DOLLY_ERRNO:E}=await import("../../dist/dolly-errno.mjs");
-  const check=(value,message)=>{if(!value)throw Error(message);};
+const check=(value,message)=>{if(!value)throw Error(message);};
+
+function gpuFixture(workerUrl=new URL("../../src/gpu-worker.mjs",import.meta.url)) {
   const memory=new SharedArrayBuffer(2*1024*1024), control=new Int32Array(new SharedArrayBuffer(8));
   const mailbox=64, address=1024*1024, reply=new Int32Array(memory,mailbox,16);
-  const worker=new Worker(new URL("../../src/gpu-worker.mjs",import.meta.url),{type:"module"});
+  const worker=new Worker(workerUrl,{type:"module"});
   const canvas=new OffscreenCanvas(64,64);
   worker.postMessage({type:"configure",memory,mailbox,control:control.buffer,canvas},[canvas]);
   let sequence=0,scope=1;
@@ -32,6 +32,12 @@ export async function gpuBoundaryProof() {
     while(!Atomics.load(reply,0) && performance.now()<end)await new Promise(r=>setTimeout(r,1));
     check(Atomics.load(reply,0)===1,"GPU completion timed out");return Atomics.load(reply,3);
   }
+  return {worker,memory,mailbox,address,packet,record,batch,send,setScope:id=>{scope=id;}};
+}
+
+export async function gpuBoundaryProof() {
+  const {DOLLY_ERRNO:E}=await import("../../dist/dolly-errno.mjs");
+  const {worker,memory,mailbox,address,packet,record,batch,send,setScope}=gpuFixture();
   try {
     check(await send(packet(1,new Uint8Array(8)))===0,"GPU open failed");
     check(await send(packet(6))===0,"GPU info failed");
@@ -86,7 +92,7 @@ export async function gpuBoundaryProof() {
     check(await send(batch([capture]))===E.EINVAL,"Compute-only scope captured a surface");
     check(await send(packet(5))===0,"GPU close failed");
     check(await send(packet(3))===E.ESTALE,"Closed GPU scope accepted");
-    scope=9;
+    setScope(9);
     const surface=new Uint8Array(8);new DataView(surface.buffer).setUint32(0,64,true);new DataView(surface.buffer).setUint32(4,64,true);
     check(await send(packet(1,surface))===0,"Surface scope open failed");
     check(await send(packet(7))===0,"Capture capabilities failed");
@@ -118,5 +124,58 @@ export async function gpuBoundaryProof() {
     for(const at of [0,4,256,260])check(expected.every((n,i)=>Math.abs(pixels[at+i]-n)<=1),"Wrong captured colors or row stride");
     check(await send(packet(5))===0,"Capture scope close failed");
     return {largeBatch:true,commandQuota:true,surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true};
+  } finally {worker.terminate();}
+}
+
+export async function gpuRetirementProof() {
+  const {DOLLY_ERRNO:E}=await import("../../dist/dolly-errno.mjs");
+  const {worker,memory,mailbox,packet,record,batch,send,setScope}=gpuFixture(
+    new URL("./gpu-retirement-worker.mjs",import.meta.url));
+  const create=id=>{
+    const r=record(1,32,id);r.v.setBigUint64(16,16n,true);r.v.setUint32(24,8,true);return r;
+  };
+  const upload=id=>{
+    const r=record(2,40,id);r.v.setUint32(24,32,true);r.v.setUint32(28,4,true);return r;
+  };
+  const allocated=async()=>{
+    check(await send(packet(6))===0,"Retirement info failed");
+    return new DataView(memory,mailbox+64,80).getBigUint64(72,true);
+  };
+  try {
+    check(await send(packet(1,new Uint8Array(8)))===0,"Retirement scope open failed");
+    check(await send(packet(7))===0,"Retirement capabilities failed");
+    const limit=new DataView(memory,mailbox+64,128).getUint32(4,true);
+    for(let base=0;base<limit;base+=1024)
+      check(await send(batch(Array.from({length:Math.min(1024,limit-base)},(_,i)=>create(base+i+1))))===0,"Object quota setup failed");
+    check(await send(batch([upload(1)]))===0,"Retirement upload failed");
+    for(let base=0;base<limit;base+=1024)
+      check(await send(batch(Array.from({length:Math.min(1024,limit-base)},(_,i)=>record(12,16,base+i+1))))===0,"Release waited for held queue completion");
+    check(await send(batch([upload(1)]))===E.EBADF,"Released buffer handle remained usable");
+    check(await allocated()===BigInt(limit*16),"Released allocations stopped counting before completion");
+    check(await send(batch([create(limit+1)]))===E.ENOSPC,"Pending retirement bypassed object quota");
+    worker.postMessage({type:"test-completion",hold:false});
+    const end=performance.now()+10000;
+    while(await allocated()!==0n) {
+      check(performance.now()<end,"Completed allocations were never reclaimed");
+      await new Promise(resolve=>setTimeout(resolve,10));
+    }
+    check(await send(batch([create(limit+1)]))===0,"Retired object slot was not reusable");
+    worker.postMessage({type:"test-completion",hold:true});
+    check(await send(batch([upload(limit+1),record(12,16,limit+1)]))===0,"Second retirement failed");
+    const fenced=new Promise(resolve=>worker.addEventListener("message",function listener({data}) {
+      if(data.type!=="test-fence")return;
+      worker.removeEventListener("message",listener);resolve();
+    }));
+    let closed=false;
+    const closing=send(packet(5)).then(status=>{closed=true;return status;});
+    await fenced;
+    check(!closed,"Close released the scope before outstanding work settled");
+    worker.postMessage({type:"test-completion",hold:false});
+    check(await closing===0,"Retirement close failed");
+    setScope(9);
+    check(await send(packet(1,new Uint8Array(8)))===0,"Retirement scope restart failed");
+    check(await allocated()===0n,"Close and fence completion charged allocations twice");
+    check(await send(packet(5))===0,"Restarted scope close failed");
+    return {nonblockingRelease:true,staleHandles:true,retiredBytesCharged:true,retiredObjectsCharged:true,closeAndRestart:true};
   } finally {worker.terminate();}
 }

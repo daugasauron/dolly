@@ -200,12 +200,40 @@ function object(scope, id, kind) {
   return result;
 }
 function insert(scope, id, kind, value, size = 0) {
-  ensure(id > scope.high && id <= 0xffffffff && scope.objects.size < maxObjects, "Invalid or exhausted GPU object IDs", E.ENOSPC);
+  ensure(id > scope.high && id <= 0xffffffff && scope.objects.size + scope.retired.size < maxObjects, "Invalid or exhausted GPU object IDs", E.ENOSPC);
   scope.high = id;
   scope.objects.set(id, { kind, value, size, mapped: null });
 }
 function range(resource, offset, length) {
   ensure(offset >= 0 && length >= 0 && offset <= resource.size - length, "GPU buffer range");
+}
+function collectReleased(scope, completed) {
+  for (const [id, resource] of scope.retired) {
+    if (resource.submission > completed) continue;
+    resource.value.destroy?.();
+    usedBytes -= resource.size;
+    scope.retired.delete(id);
+  }
+}
+function release(scope, id, progress) {
+  const resource = object(scope, id);
+  scope.objects.delete(id);
+  if (!resource.size || progress.completed >= progress.queued) {
+    resource.value.destroy?.();
+    usedBytes -= resource.size;
+    return;
+  }
+  resource.submission = progress.queued;
+  scope.retired.set(id, resource);
+  if (scope.releaseFence !== resource.submission) {
+    const submitted = scope.releaseFence = resource.submission;
+    // Invalid handles disappear immediately; allocations and object slots remain
+    // charged until the queue releases them. One fence covers a release cohort.
+    scope.device.queue.onSubmittedWorkDone().catch(() => {}).then(() => {
+      progress.completed = Math.max(progress.completed, submitted);
+      collectReleased(scope, progress.completed);
+    });
+  }
 }
 function retire(scope) {
   if (scope.retiring) return scope.retiring;
@@ -218,6 +246,7 @@ function retire(scope) {
       usedBytes -= r.size;
     }
     scope.objects.clear();
+    collectReleased(scope, Infinity);
     for (const t of scope.timers ?? []) { t.query.destroy(); t.resolve.destroy(); t.read.destroy(); }
     if (slots[scope.index] === scope) slots[scope.index] = null;
     postMessage({ type: "complete" });
@@ -247,12 +276,12 @@ async function batch(scope, commands) {
       const id = b.length >= 16 && op !== A.DOLLY_GPU_VIEWPORT ? integer(w, 8) : 0;
       if (op !== A.DOLLY_GPU_COMPUTE) endCompute();
       if (renderPass) ensure([1,2,3,18,20,21,22,24,25,26].includes(op), "Command is invalid inside a render pass");
-      if ([1,3,4,5,6,14,16,18,20,21,22].includes(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size < maxObjects, "GPU object quota", E.ENOSPC);
+      if ([1,3,4,5,6,14,16,18,20,21,22].includes(op)) ensure(id > scope.high && id <= 0xffffffff && scope.objects.size + scope.retired.size < maxObjects, "GPU object quota", E.ENOSPC);
       if (op === A.DOLLY_GPU_CREATE_BUFFER) {
         const size = integer(w, 16), usage = w.getUint32(24, true);
         ensure(size > 0 && size <= maxBuffer && size <= maxBytes - usedBytes, "GPU allocation quota", E.ENOMEM);
         ensure(w.getUint32(28, true) === 0 && usage > 0 && (usage & ~1023) === 0, "Buffer usage");
-        ensure(id > scope.high && scope.objects.size < maxObjects, "GPU resource quota", E.ENOSPC);
+        ensure(id > scope.high && scope.objects.size + scope.retired.size < maxObjects, "GPU resource quota", E.ENOSPC);
         const buffer = device.createBuffer({ size, usage });
         insert(scope, id, "buffer", buffer, size); usedBytes += size;
       } else if (op === A.DOLLY_GPU_WRITE_BUFFER) {
@@ -522,15 +551,7 @@ async function batch(scope, commands) {
         const r=object(scope,id,"buffer");r.value.unmap();r.mapped=null;
       } else if (op === A.DOLLY_GPU_RELEASE) {
         ensure(!encoder,"Submit before releasing GPU resources");
-        const r=object(scope,id);
-        // Keep released bytes charged until their work completes. Further
-        // releases need no additional fence until new work enters the queue.
-        if(r.size && progress.completed<progress.queued) {
-          const pendingWork=progress.queued;
-          await device.queue.onSubmittedWorkDone();
-          progress.completed=Math.max(progress.completed,pendingWork);
-        }
-        r.value.destroy?.();usedBytes-=r.size;scope.objects.delete(id);
+        release(scope, id, progress);
       }
     }
     ensure(!encoder,"GPU batch has an unsubmitted encoder");
@@ -570,7 +591,12 @@ async function execute(request, scope, parsed) {
     } else {
       ensure(!scope.lost && device,"GPU scope lost",E.EIO);
       if(request.op===A.DOLLY_GPU_BATCH)await batch(scope,parsed);
-      else if(request.op===A.DOLLY_GPU_WAIT)await device.queue.onSubmittedWorkDone();
+      else if(request.op===A.DOLLY_GPU_WAIT) {
+        const submitted=queueProgress.queued;
+        await device.queue.onSubmittedWorkDone();
+        queueProgress.completed=Math.max(queueProgress.completed,submitted);
+        collectReleased(scope,queueProgress.completed);
+      }
       else if(request.op===A.DOLLY_GPU_READ) {
         const r=object(scope,integer(request.v,32),"buffer"),offset=integer(request.v,40),size=integer(request.v,48);
         ensure(r.mapped && size<=A.DOLLY_GPU_REPLY_BYTES && offset<=r.mapped.byteLength-size,"Invalid readback");
@@ -622,7 +648,7 @@ self.onmessage = event => {
       let scope=slots[request.index];
       if(request.op===1) {
         ensure(!scope&&request.scope>generations[request.index],"GPU scope slot is busy",E.EBUSY);
-        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),high:0,inflight:0,lost:false,surface:false};
+        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,inflight:0,lost:false,surface:false};
         generations[request.index]=scope.id;slots[request.index]=scope;
       }
       ensure(scope?.id===request.scope,"Stale GPU scope",E.ESTALE);

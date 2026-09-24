@@ -24,6 +24,7 @@ export const mimeTypes = new Map([
 export const browserSources = new Set([
   "test/fixtures/browser-boundary.mjs",
   "test/fixtures/gpu-boundary.mjs",
+  "test/fixtures/gpu-retirement-worker.mjs",
   "test/fixtures/audio-boundary.mjs",
   "test/fixtures/fluid-direct.mjs",
   "test/fixtures/http-admission-worker.mjs",

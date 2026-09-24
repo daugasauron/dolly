@@ -43,7 +43,9 @@ aggregate buffer/texture allocations. Legacy commands accept sixteen buffer
 bindings and one vertex stream with eight float32x2/x3/x4 attributes.
 Clients check CAPABILITIES bit 128 before exceeding the legacy 256-record limit.
 These are experimental GPU quotas, unrelated to
-the HTTP response limit. Released allocation credits wait for queue completion.
+the HTTP response limit. Release invalidates a handle immediately without waiting
+for the GPU. Pending allocations and object slots remain charged until queue
+completion; explicit WAIT and CLOSE also collect completed releases.
 Cancellation retains a provider slot until outstanding work settles. An immediate
 restart defers its open until the provider retires the old scope and wakes it.
 Limits bound admitted resources, not exact driver memory consumption or shader time.
