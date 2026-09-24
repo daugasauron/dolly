@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE gpu-fluid
 
-FROM HOST /Dollyfile-gpu-sdk 62353b8015352918f73da8ae5938b999fcacfba618650d4610bae310872cac09
+FROM HOST /Dollyfile-gpu-sdk f22d5eae97fb4491fc71b36db8708c59d957971a01217240dd11be9719b374ea
 USE HOST /modules/gpu-fluid.dm ac99b497c97789389c4d7e924958b98ad06a6c5d8c338fabe0560c9452b77c4d
 
 SOURCE URL https://raw.githubusercontent.com/samdauwe/webgpu-native-examples/9a7c30753d6f44630564a8316eb9c44211ff0ecc/src/examples/fluid_simulation.c /usr/src/dolly/fluid/fluid_simulation.c 74d7a9fa5b0c23988016589cf57554028c38a1cd49916d03d9aeead85a045c40

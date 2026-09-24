@@ -38,9 +38,10 @@ never recycled; scope generations distinguish process lifetimes.
 
 The provider owns eight private scope slots, with one pending request per slot,
 one visible surface, at most 4,096 live objects per scope, 1 MiB packets with at
-most 256 records, 128 KiB shader source, 1 GiB individual buffers and 4 GiB
+most 1,024 records, 128 KiB shader source, 1 GiB individual buffers and 4 GiB
 aggregate buffer/texture allocations. Legacy commands accept sixteen buffer
 bindings and one vertex stream with eight float32x2/x3/x4 attributes.
+Clients check CAPABILITIES bit 128 before exceeding the legacy 256-record limit.
 These are experimental GPU quotas, unrelated to
 the HTTP response limit. Released allocation credits wait for queue completion.
 Cancellation retains a provider slot until outstanding work settles. An immediate

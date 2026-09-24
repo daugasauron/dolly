@@ -13,6 +13,7 @@ const blendFactors = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-d
 const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "unorm8x4", "snorm8x4", "uint8x4", "sint8x4", "unorm16x2", "unorm16x4", "uint16x2", "uint16x4"];
 const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8];
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
+const timestampQueries = A.DOLLY_GPU_MAX_COMMANDS * 2;
 let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
 let memory, mailbox, control, canvas, context, device, format, adapterName = "WebGPU", isFallbackAdapter;
@@ -45,7 +46,7 @@ async function getDevice() {
     const v = new DataView(capabilities.buffer);
     v.setUint32(0, (created.features.has("shader-f16") ? 1 : 0) | (created.features.has("subgroups") ? 2 : 0) |
       (navigator.gpu.wgslLanguageFeatures?.has("packed_4x8_integer_dot_product") ? 4 : 0) |
-      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME | A.DOLLY_GPU_FEATURE_TEXTURE_RENDER |
+      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME | A.DOLLY_GPU_FEATURE_TEXTURE_RENDER | A.DOLLY_GPU_FEATURE_LARGE_BATCH |
       (format === "bgra8unorm" ? A.DOLLY_GPU_FEATURE_SURFACE_BGRA : 0), true);
     v.setUint32(4, maxObjects, true);
     [maxBuffer, maxBytes, l.maxStorageBufferBindingSize].forEach((n,i) => v.setBigUint64(8+i*8, BigInt(n), true));
@@ -97,7 +98,7 @@ function records(request) {
   const { bytes, v } = request;
   ensure(bytes.length >= 40 && v.getUint32(36, true) === 0, "Invalid GPU batch");
   const count = v.getUint32(32, true), result = [];
-  ensure(count <= 256, "Too many GPU commands", E.E2BIG);
+  ensure(count <= A.DOLLY_GPU_MAX_COMMANDS, "Too many GPU commands", E.E2BIG);
   let offset = 40;
   for (let i = 0; i < count; ++i) {
     ensure(offset <= bytes.length - 8, "Truncated GPU command");
@@ -535,7 +536,7 @@ async function batch(scope, commands) {
     ensure(!encoder,"GPU batch has an unsubmitted encoder");
   } finally {
     endCompute();endRender();
-    const oom=await device.popErrorScope(), validation=await device.popErrorScope();
+    const [oom, validation] = await Promise.all([device.popErrorScope(), device.popErrorScope()]);
     stats.batchWallMilliseconds += performance.now()-started;
     if(oom)fail(E.ENOMEM,oom.message);if(validation)fail(E.EINVAL,validation.message);
   }
@@ -560,9 +561,9 @@ async function execute(request, scope, parsed) {
       scope.surface=width>0;
       scope.gpuMs=0;scope.gpuTotalMs=0;scope.gpuSamples=0;
       if(device.features.has("timestamp-query")) scope.timers=Array.from({length:3},()=>({
-        query:device.createQuerySet({type:"timestamp",count:512}),
-        resolve:device.createBuffer({size:4096,usage:GPUBufferUsage.QUERY_RESOLVE|GPUBufferUsage.COPY_SRC}),
-        read:device.createBuffer({size:4096,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST}),busy:false}));
+        query:device.createQuerySet({type:"timestamp",count:timestampQueries}),
+        resolve:device.createBuffer({size:timestampQueries*8,usage:GPUBufferUsage.QUERY_RESOLVE|GPUBufferUsage.COPY_SRC}),
+        read:device.createBuffer({size:timestampQueries*8,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST}),busy:false}));
       output=new Uint8Array(16+Math.min(240,encode.encode(adapterName).length));
       const v=new DataView(output.buffer);v.setBigUint64(0,BigInt(scope.id),true);v.setUint32(8,width,true);v.setUint32(12,height,true);
       output.set(encode.encode(adapterName).subarray(0,240),16);

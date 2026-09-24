@@ -2,6 +2,6 @@ DOLLY 3
 IMAGE gpu-sdk
 
 FROM HOST /Dollyfile-system ab4fb884aed862269ab86c1537fbcb90ed8762d8263579cb76afa6d01d748c13
-USE HOST /modules/gpu.dm 5ff04ef27573954e2fa8199ed749c8ba90246cece50978ee058eec9b8f585259
+USE HOST /modules/gpu.dm ef320427513c4027c31a2c7dcfd9432d195204f19cb260b91e060f01a8c0e438
 
 ENTRY /bin/foreground -i /bin/slop

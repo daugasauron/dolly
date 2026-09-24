@@ -164,6 +164,7 @@ cursorbackend = "system"
 windowed = true
 xres = 1024
 yres = 768
+adaptivefps.session = 120
 textures.quality = 0
 shadows = false
 silhouettes = false

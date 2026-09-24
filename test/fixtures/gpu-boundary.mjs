@@ -40,6 +40,7 @@ export async function gpuBoundaryProof() {
     check(limits.getUint32(0,true)<=1 && limits.getUint32(4,true)===16 && maxBuffer>0n && maxBuffer<=1073741824n,"GPU limits differ from the admitted contract");
     check(await send(packet(7))===0,"GPU capabilities failed");
     const capabilities=new DataView(memory,mailbox+64,128);
+    check(capabilities.getUint32(0,true)&128,"Large batch capability missing");
     check(capabilities.getBigUint64(8,true)===maxBuffer && capabilities.getUint32(4,true)===4096 && capabilities.getBigUint64(16,true)===4294967296n,"GPU capability quotas differ");
     check(new Uint8Array(memory,mailbox+64+96,32).every(n=>n===0),"Nonzero reserved capabilities");
     check(await send(packet(99))===E.ENOTSUP,"Unknown GPU operation accepted");
@@ -47,6 +48,8 @@ export async function gpuBoundaryProof() {
     const first=record(1,32,1);first.v.setBigUint64(16,16n,true);first.v.setUint32(24,8,true);
     const malformed=record(2,32,1);malformed.v.setUint32(24,32,true);malformed.v.setUint32(28,0xffffffff,true);
     check(await send(batch([first,malformed]))===E.EINVAL,"Malformed upload accepted");
+    check(await send(batch([...Array(1023).fill(first),malformed]))===E.EINVAL,"Late malformed record in large batch accepted");
+    check(await send(batch(Array(1025).fill(first)))===E.E2BIG,"GPU command quota bypassed");
     const vertex=record(14,72,2);vertex.v.setUint32(32,1,true);vertex.v.setUint32(36,1,true);
     vertex.v.setUint32(40,16,true);vertex.v.setUint32(44,1,true);vertex.v.setUint32(52,4,true);vertex.v.setUint32(56,4,true);
     vertex.bytes[64]=118;vertex.bytes[65]=102;
@@ -107,12 +110,13 @@ export async function gpuBoundaryProof() {
     check(await send(batch([draw,capture,submit]))===E.EBADF,"Foreign capture buffer accepted");
     capture.v.setBigUint64(8,1n,true);
     const fm=record(10,32,1);fm.v.setBigUint64(24,512n,true);
-    check(await send(batch([draw,capture,submit,fm]))===0,"Rendered frame capture failed");
+    // Exercise the full command and timestamp capacity, then verify the pixels.
+    check(await send(batch([...Array(1021).fill(draw),capture,submit,fm]))===0,"Maximum render batch failed");
     readView.setBigUint64(0,1n,true);readView.setBigUint64(16,512n,true);
     check(await send(packet(4,body))===0,"Captured pixels readback failed");
     const pixels=new Uint8Array(memory,mailbox+64,512),expected=features&32?[0,64,255,255]:[255,64,0,255];
     for(const at of [0,4,256,260])check(expected.every((n,i)=>Math.abs(pixels[at+i]-n)<=1),"Wrong captured colors or row stride");
     check(await send(packet(5))===0,"Capture scope close failed");
-    return {surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true};
+    return {largeBatch:true,commandQuota:true,surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true};
   } finally {worker.terminate();}
 }

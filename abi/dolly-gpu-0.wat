@@ -19,6 +19,8 @@
   (global (export "DOLLY_GPU_INFO") i32 (i32.const 6))
   (global (export "DOLLY_GPU_CAPABILITIES") i32 (i32.const 7))
   (global (export "DOLLY_GPU_MAX_BINDINGS") i32 (i32.const 16))
+  (global (export "DOLLY_GPU_MAX_COMMANDS") i32 (i32.const 1024))
+  (global (export "DOLLY_GPU_FEATURE_LARGE_BATCH") i32 (i32.const 128))
   (global (export "DOLLY_GPU_CREATE_BUFFER") i32 (i32.const 1))
   (global (export "DOLLY_GPU_WRITE_BUFFER") i32 (i32.const 2))
   (global (export "DOLLY_GPU_CREATE_SHADER") i32 (i32.const 3))
@@ -146,11 +148,12 @@
   ;; u64 max_uniform_binding_bytes; u32 subgroup_min/max; 32 reserved zero bytes.
   ;; Feature bits: 1 shader-f16, 2 subgroups, 4 packed_4x8_integer_dot_product,
   ;; 8 timestamp-query, 16 frame capture, 32 surface bytes BGRA8 (else RGBA8),
-  ;; 64 texture/depth/indexed rendering records 18..26.
+  ;; 64 texture/depth/indexed rendering records 18..26, 128 batches up to
+  ;; DOLLY_GPU_MAX_COMMANDS records (otherwise at most 256). Packet bytes unchanged.
   ;; Limits describe the admitted device, not native pointers.
   ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
   ;; zero samples means unavailable/pending. They include passes, not CPU work.
-  ;; One encoder per batch, explicit SUBMIT, at most 256 records. No replay or
+  ;; One encoder per batch, explicit SUBMIT. No replay or
   ;; rollback: structural rejection precedes execution; later GPU errors can
   ;; leave earlier writes/resources alive. Returned diagnostics are bounded.
   ;;

@@ -98,6 +98,12 @@ int main(int argc,char **argv) {
     source_group=texture_group(offscreen,source,sampler),near=uniform_group(offscreen,2,uniform,512),far=uniform_group(offscreen,2,uniform,768),
     surface_white=uniform_group(surface,0,uniform,0),target_group=texture_group(surface,target,sampler),surface_near=uniform_group(surface,2,uniform,512);
   batch();
+  assert(features&DOLLY_GPU_FEATURE_LARGE_BATCH);
+  for(unsigned i=0;i<DOLLY_GPU_MAX_COMMANDS;i++) {
+    const float tint[4]={i+1==DOLLY_GPU_MAX_COMMANDS?1:0,1,1,1};
+    dolly_gpu_write(&gpu,uniform,tint,sizeof(tint));
+  }
+  batch();
   draw(offscreen,pos,uv,index,white,source_group,near);rejected(EINVAL);
   begin(target,depth);begin(target,depth);rejected(EINVAL);
   begin(target,depth);draw(offscreen,pos,uv,index,white,source_group,near);draw(offscreen,pos,uv,index,red,source_group,far);end();

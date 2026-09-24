@@ -1256,7 +1256,7 @@
 +if os.istarget("emscripten") then
 +	architecture "wasm64"
 +	defines { "DOLLY", "CONFIG2_FILE_ENABLE_AIO=0", "CONFIG2_TIMER_ALLOW_RDTSC=0" }
-+	buildoptions { "-m64", "-matomics", "-mbulk-memory", "-fwasm-exceptions", "-sWASM_LEGACY_EXCEPTIONS=0", "-sSUPPORT_LONGJMP=wasm", "-O1" }
++	buildoptions { "-m64", "-matomics", "-mbulk-memory", "-fwasm-exceptions", "-sWASM_LEGACY_EXCEPTIONS=0", "-sSUPPORT_LONGJMP=wasm", "-O2", "-msimd128" }
 +end
  
  source_root = rootdir.."/source/" -- default for most projects - overridden by local in others
@@ -1603,7 +1603,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,886 @@
+@@ -0,0 +1,915 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -1660,8 +1660,10 @@
 +    bool encoded = false;
 +    std::vector<Handle> retired;
 +    std::vector<Handle> uniformBuffers;
-+    size_t uniformPosition = 0;
-+    uint32_t uniformAlignment = 0;
++    static constexpr size_t uniformChunkBytes = 512*1024;
++    std::vector<uint8_t> uniformData = std::vector<uint8_t>(uniformChunkBytes);
++    size_t uniformPosition = 0, uniformUploadStart = 0;
++    uint32_t uniformAlignment = 0, commandLimit = 240;
 +    std::function<void()> beforeFlush, afterFlush;
 +    Handle New() { return ++next; }
 +    void RawBatch()
@@ -1672,10 +1674,18 @@
 +    void Flush()
 +    {
 +        if (beforeFlush) beforeFlush();
++        if (uniformPosition != uniformUploadStart)
++        {
++            size_t offset=uniformUploadStart%uniformChunkBytes,bytes=uniformPosition-uniformUploadStart;
++            void* p=dolly_gpu_record(gpu.get(),DOLLY_GPU_WRITE_BUFFER,32+bytes);
++            U64(p,8,uniformBuffers[uniformUploadStart/uniformChunkBytes]);U64(p,16,offset);
++            U32(p,24,32);U32(p,28,bytes);std::memcpy(static_cast<char*>(p)+32,uniformData.data()+offset,bytes);
++            uniformUploadStart=uniformPosition;
++        }
 +        if (encoded) { dolly_gpu_submit(gpu.get()); encoded = false; ++submission; }
 +        for (Handle handle : retired)
 +        {
-+            if (gpu->count >= 240 || gpu->length+16 > sizeof(gpu->packet)) RawBatch();
++            if (gpu->count >= commandLimit || gpu->length+16 > sizeof(gpu->packet)) RawBatch();
 +            U64(dolly_gpu_record(gpu.get(), DOLLY_GPU_RELEASE, 16), 8, handle);
 +        }
 +        retired.clear();
@@ -1684,8 +1694,10 @@
 +    }
 +    void Reserve(size_t bytes, unsigned records = 1)
 +    {
-+        Require(bytes <= DOLLY_GPU_PACKET_BYTES-128 && records <= 240, "command capacity");
-+        if (gpu->count+records > 240 || gpu->length+bytes > DOLLY_GPU_PACKET_BYTES-64) Flush();
++        Require(bytes <= DOLLY_GPU_PACKET_BYTES-128 && records <= commandLimit, "command capacity");
++        size_t pending=uniformPosition-uniformUploadStart;
++        if (gpu->count+records+(pending?1:0) > commandLimit ||
++            gpu->length+bytes+(pending?32+Align(pending,8):0) > DOLLY_GPU_PACKET_BYTES-64) Flush();
 +    }
 +    void* Record(unsigned op, size_t bytes)
 +    {
@@ -1716,16 +1728,20 @@
 +    {
 +        // Distinct aligned ranges survive every intermediate submission. Reuse
 +        // starts only after Present submits all draws from the previous frame.
-+        constexpr size_t chunkBytes = 1024*1024;
-+        Require(uniformAlignment && bytes && bytes<=chunkBytes,"uniform allocation size");
-+        uniformPosition=Align(uniformPosition,uniformAlignment);
-+        if(uniformPosition%chunkBytes+bytes>chunkBytes)
-+            uniformPosition=Align(uniformPosition,chunkBytes);
-+        size_t chunk=uniformPosition/chunkBytes,offset=uniformPosition%chunkBytes;
-+        if(chunk==uniformBuffers.size())uniformBuffers.push_back(Buffer(chunkBytes,72));
++        Require(uniformAlignment && bytes && bytes<=uniformChunkBytes,"uniform allocation size");
++        size_t position=Align(uniformPosition,uniformAlignment);
++        if(position%uniformChunkBytes+bytes>uniformChunkBytes)position=Align(position,uniformChunkBytes);
++        if(position/uniformChunkBytes!=uniformUploadStart/uniformChunkBytes)
++        {
++            Flush();uniformPosition=uniformUploadStart=position;
++        }
++        size_t chunk=position/uniformChunkBytes,offset=position%uniformChunkBytes;
++        if(chunk==uniformBuffers.size())uniformBuffers.push_back(Buffer(uniformChunkBytes,72));
 +        Handle handle=uniformBuffers[chunk];
-+        Write(handle,offset,data,bytes);
-+        uniformPosition+=bytes;
++        bool pending=uniformPosition!=uniformUploadStart;
++        Reserve(Align(position+bytes-uniformPosition,8)+(pending?0:32),pending?0:1);
++        std::memcpy(uniformData.data()+offset,data,bytes);
++        uniformPosition=position+bytes;
 +        return {handle,offset};
 +    }
 +    Handle Shader(const std::string& code)
@@ -1814,8 +1830,15 @@
 +    void Upload(const void* data,uint32_t offset,uint32_t count)
 +    {
 +        Require(offset<=size && count<=size-offset,"buffer upload bounds");
++        if(!count || std::memcmp(bytes.data()+offset,data,count)==0)return;
++        const auto* source=static_cast<const uint8_t*>(data);
++        constexpr uint32_t compareBlockBytes=4096;
++        while(count>=compareBlockBytes && !std::memcmp(bytes.data()+offset+count-compareBlockBytes,source+count-compareBlockBytes,compareBlockBytes))
++            count-=compareBlockBytes;
++        while(count>=compareBlockBytes && !std::memcmp(bytes.data()+offset,source,compareBlockBytes))
++        { offset+=compareBlockBytes;source+=compareBlockBytes;count-=compareBlockBytes; }
 +        if(lastUsed==device->queue.submission)device->queue.Flush();
-+        std::memcpy(bytes.data()+offset,data,count);
++        std::memcpy(bytes.data()+offset,source,count);
 +        size_t start=offset&~size_t(3),end=Align(offset+count,4);
 +        device->queue.Write(handle,start,bytes.data()+start,end-start);
 +    }
@@ -1919,7 +1942,6 @@
 +    Pipeline(Device* device,const SGraphicsPipelineStateDesc& desc) : Owned(device),desc(desc) {}
 +    ~Pipeline() override
 +    {
-+        for(auto& [key,group]:groups)device->queue.retired.push_back(group.handle);
 +        for(auto& [key,handle]:handles)device->queue.retired.push_back(handle);
 +    }
 +    IShaderProgram* GetShaderProgram() const override { return desc.shaderProgram; }
@@ -1928,10 +1950,8 @@
 +    std::map<std::tuple<uint64_t,uint32_t,uint32_t>,Handle> handles;
 +    struct Entry {
 +        unsigned binding,kind;Handle resource;size_t size,offset=0;
-+        bool operator==(const Entry&) const = default;
++        auto operator<=>(const Entry&) const = default;
 +    };
-+    struct Group { Handle handle=0;std::vector<Entry> entries; };
-+    std::map<std::pair<Handle,unsigned>,Group> groups;
 +};
 +
 +std::unique_ptr<IShaderProgram> Device::CreateShaderProgram(const CStr& input,const CShaderDefines& defines)
@@ -2179,6 +2199,8 @@
 +    std::unique_ptr<Buffer> dummy;
 +    Buffer* indices=nullptr;
 +    std::map<std::pair<Program*,int32_t>,Texture*> textures;
++    struct ResourceGroup { Handle handle=0;uint64_t frame=0; };
++    std::map<std::tuple<Handle,unsigned,std::vector<Pipeline::Entry>>,ResourceGroup> resourceGroups;
 +    std::array<uint32_t,32> borderUniform{};
 +    Program::UniformSlice borderSlice;
 +    Rect viewport{},scissor{};
@@ -2196,6 +2218,7 @@
 +    EndFramebufferPass();
 +    for(auto& buffer:uploadedVertices)buffer.reset();
 +    uploadedIndices.clear();dummy.reset();
++    for(auto& [key,group]:resourceGroups)device->queue.retired.push_back(group.handle);
 +    device->queue.Flush();device->queue.beforeFlush={};device->queue.afterFlush={};device->context=nullptr;
 +}
 +void Context::Pause()
@@ -2339,16 +2362,16 @@
 +            }
 +            entries.push_back({0,0,slice.handle,bytes.size(),slice.offset});
 +        }
-+        auto& cached=pipeline->groups[{gpuPipeline,group}];
-+        if(!cached.handle || cached.entries!=entries)
++        auto& cached=resourceGroups[{gpuPipeline,group,entries}];
++        cached.frame=device->queue.frame;
++        if(!cached.handle)
 +        {
-+            if(cached.handle)device->queue.retired.push_back(cached.handle);
-+            cached.handle=device->queue.New();cached.entries=std::move(entries);
-+            void* p=device->queue.Record(DOLLY_GPU_RESOURCE_GROUP,32+32*cached.entries.size());
-+            U64(p,8,cached.handle);U64(p,16,gpuPipeline);U32(p,24,group);U32(p,28,cached.entries.size());
-+            for(size_t i=0;i<cached.entries.size();i++)
++            cached.handle=device->queue.New();
++            void* p=device->queue.Record(DOLLY_GPU_RESOURCE_GROUP,32+32*entries.size());
++            U64(p,8,cached.handle);U64(p,16,gpuPipeline);U32(p,24,group);U32(p,28,entries.size());
++            for(size_t i=0;i<entries.size();i++)
 +            {
-+                auto& entry=cached.entries[i];size_t at=32+i*32;
++                auto& entry=entries[i];size_t at=32+i*32;
 +                U32(p,at,entry.binding);U32(p,at+4,entry.kind);U64(p,at+8,entry.resource);U64(p,at+16,entry.offset);U64(p,at+24,entry.size);
 +            }
 +        }
@@ -2415,8 +2438,9 @@
 +    Require(dolly_gpu_capabilities(queue.gpu.get())==128,"GPU capabilities");
 +    uint32_t features;std::memcpy(&features,queue.gpu->reply,4);
 +    Require(features&DOLLY_GPU_FEATURE_TEXTURE_RENDER,"texture rendering capability");
++    queue.commandLimit=(features&DOLLY_GPU_FEATURE_LARGE_BATCH?DOLLY_GPU_MAX_COMMANDS:256)-16;
 +    std::memcpy(&queue.uniformAlignment,queue.gpu->reply+32,4);
-+    Require(queue.uniformAlignment && 1024*1024%queue.uniformAlignment==0,"uniform alignment");
++    Require(queue.uniformAlignment && Queue::uniformChunkBytes%queue.uniformAlignment==0,"uniform alignment");
 +    surfaceBGRA=features&DOLLY_GPU_FEATURE_SURFACE_BGRA;
 +    dolly_gpu_begin(queue.gpu.get());
 +    capabilities.maxTextureSize=8192;capabilities.maxSampleCount=1;capabilities.maxAnisotropy=1;capabilities.instancing=true;
@@ -2461,7 +2485,12 @@
 +void Device::Present()
 +{
 +    Require(!context || !context->framebuffer,"present inside framebuffer pass");
-+    PresentCommands();queue.Flush();queue.uniformPosition=0;++queue.frame;
++    if(context)for(auto it=context->resourceGroups.begin();it!=context->resourceGroups.end();)
++    {
++        if(it->second.frame==queue.frame){++it;continue;}
++        queue.retired.push_back(it->second.handle);it=context->resourceGroups.erase(it);
++    }
++    PresentCommands();queue.Flush();queue.uniformPosition=queue.uniformUploadStart=0;++queue.frame;
 +    if(context)context->nextUploadedVertex=context->nextUploadedIndex=0;
 +}
 +void Context::ReadbackFramebufferSync(uint32_t x,uint32_t y,uint32_t width,uint32_t height,void* output)

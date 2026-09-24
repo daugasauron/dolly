@@ -5,8 +5,8 @@ REQUIRES TOOL slop
 REQUIRES TOOL tar
 
 # External wasm64 bootstrap; pinned sources and port instructions: docs/sources.md.
-SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis 44b8b1cc4c493242279b6bd7c1307f9956ca4b4ddbfe75e4bce1ca2942e3e039
-SOURCE HOST /static/zero-ad/data.tar /tmp/0ad-data.tar 106447835d6f15012d3048b0f0a2533ffbd8f714b781327d6f5b69691e09fb7b
+SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis 3ce68297878a1bbb2f2cf19dc37ef0afa38ad5011a639574c17e034af2a8b7d1
+SOURCE HOST /static/zero-ad/data.tar /tmp/0ad-data.tar d82bdc1bf4237242596a6b82b8b37069fa786511dd1f3c277fae11aba79986aa
 SLOP tar -xf /tmp/0ad-data.tar -C /opt/0ad && rm /tmp/0ad-data.tar
 
 FILE /usr/bin/zero-ad

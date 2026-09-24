@@ -105,7 +105,7 @@ its real-browser checks. Existing CPU framebuffer and network paths remain.
 The fluid workload adds bounded vertex layouts (one buffer, eight attributes)
 and at most sixteen buffer bindings. Structural validation precedes allocation;
 WebGPU still checks shader compatibility and device limits. Optional timestamp
-queries use three private 512-query sets and 24 KiB of fixed staging buffers per
+queries use three private 2,048-query sets and 96 KiB of fixed staging buffers per
 scope, retired with its other resources. Presented dimensions also drive
 browser pointer scaling, independently of the dormant CPU framebuffer. INFO returns limits and counters,
 not browser objects. These additions introduce no further outer imports.
@@ -121,6 +121,10 @@ carry at most sixteen named finite numeric specialization constants. Limits are
 clamped to the device: at most 4,096 objects, 1 GiB per buffer and 4 GiB aggregate
 buffer/texture allocations across the provider. The browser owns these bounds; guest declarations
 cannot raise them. Optional f16/subgroup features change shader validation only.
+LARGE_BATCH advertises up to 1,024 records per packet, retaining the 1 MiB byte
+limit and one outstanding operation per lease. Older providers accept 256;
+clients must check the capability. Timestamp capacity covers every pass in a
+maximum-size batch, and structural validation still precedes execution.
 
 Local llama.cpp inference runs inside an ordinary private process. Its C adapter
 uses this same generic provider; optional model downloads use the remote HTTP broker.

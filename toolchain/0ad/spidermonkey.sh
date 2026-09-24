@@ -24,7 +24,7 @@ mkdir -p obj-dolly
 cd obj-dolly
 /usr/bin/python3 ../configure.py --enable-project=js --target=wasm64-unknown-wasi \
   --disable-jit --disable-shared-js --without-intl-api --disable-tests \
-  --disable-js-shell --disable-jemalloc --disable-debug --enable-optimize=-O1 \
+  --disable-js-shell --disable-jemalloc --disable-debug '--enable-optimize=-O2 -msimd128' \
   --disable-bootstrap --disable-warnings-as-errors
 make -j2
 em++ -m64 -matomics -mbulk-memory -fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=0 \

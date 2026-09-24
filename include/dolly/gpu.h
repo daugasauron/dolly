@@ -3,7 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Experimental client of dolly-gpu-0.wat; not the WebGPU C API. */
+/* Experimental client of dolly-gpu-0.wat; not the WebGPU C API.
+ * Test FEATURE_LARGE_BATCH before recording more than 256 commands. */
 typedef struct {
   uint64_t scope;
   uint32_t sequence, count;

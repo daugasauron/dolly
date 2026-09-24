@@ -11,10 +11,12 @@ assert.ok(['default','zero-ad'].includes(image) && ['hardware','software'].inclu
   'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox]');
 assert.ok(['chromium','firefox'].includes(browserName) && (browserName==='chromium'||backend==='hardware'));
 await mkdir(output,{recursive:true});
-const provider=await readFile(new URL('src/gpu-worker.mjs',root),'utf8');
-const server=await startBrowserServer(root.pathname,image,0,new Map(backend==='software'?[
-  ['/src/gpu-worker.mjs',provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true')]
-]:[]),{'pyrogenesis.wasm':'build/0ad/pyrogenesis.wasm','0ad-graphics.tar':'build/0ad/graphics-data.tar'});
+let provider=(await readFile(new URL('src/gpu-worker.mjs',root),'utf8'))
+  .replace('stats:{...stats,allocatedBytes:usedBytes}',
+    'stats:{...stats,allocatedBytes:usedBytes,frameTime:performance.now(),gpuTotalMs:scope.gpuTotalMs}');
+if(backend==='software')provider=provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true');
+const server=await startBrowserServer(root.pathname,image,0,new Map([['/src/gpu-worker.mjs',provider]]),
+  {'pyrogenesis.wasm':'build/0ad/pyrogenesis.wasm','0ad-graphics.tar':'build/0ad/graphics-data.tar'});
 let browser,deadline,page;
 try {
   browser=browserName==='firefox'
@@ -29,6 +31,17 @@ try {
   await page.addInitScript(origin=>{globalThis.DOLLY_HTTP_POLICY={maxRequests:2,
     rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
     globalThis.audioPeak=0;
+    globalThis.frameSamples=[];
+    const NativeWorker=Worker;
+    globalThis.Worker=class extends NativeWorker {
+      constructor(...args) {
+        super(...args);
+        this.addEventListener('message',({data})=>{
+          if(data.type==='gpu-status' && data.active && data.stats?.frameTime)
+            frameSamples.push({time:data.stats.frameTime,gpu:data.stats.gpuTotalMs,packets:data.stats.packets,bytes:data.stats.packetBytes,provider:data.stats.batchWallMilliseconds});
+        });
+      }
+    };
     const nativeSource=AudioContext.prototype.createBufferSource, meters=new WeakMap();
     AudioContext.prototype.createBufferSource=function(){
       const source=nativeSource.call(this);
@@ -68,6 +81,15 @@ try {
   const stagingMilliseconds=Math.round(performance.now()-stagingStart);
   console.log(`Graphical content staged in ${stagingMilliseconds} ms`);
   const frames=()=>page.evaluate(()=>__dolly.gpu.stats?.frames??0);
+  const frameTimings=()=>page.evaluate(()=>{
+    const intervals=frameSamples.slice(1).map((sample,i)=>sample.time-frameSamples[i].time).sort((a,b)=>a-b);
+    const first=frameSamples[0],last=frameSamples.at(-1),count=intervals.length;
+    return {frames:count,mean:(last.time-first.time)/count,median:intervals[Math.floor(count*.5)],
+      p95:intervals[Math.floor(count*.95)],p99:intervals[Math.floor(count*.99)],max:intervals.at(-1),
+      over33Milliseconds:intervals.filter(time=>time>1000/30).length,gpuMilliseconds:(last.gpu-first.gpu)/count,
+      packetsPerFrame:(last.packets-first.packets)/count,bytesPerFrame:(last.bytes-first.bytes)/count,
+      providerMilliseconds:(last.provider-first.provider)/count};
+  });
   const advance=async count=>{
     // GPU reports can arrive before the game consumes newly posted input.
     await page.waitForFunction(()=>gameStatus!==null || __dolly.transport.inputIdle());
@@ -124,8 +146,11 @@ try {
   await page.keyboard.press('Shift+F5');await advanceFor(600);
   await page.keyboard.press('Shift+F8');await advance(4);
   await page.screenshot({path:new URL('graphics-game.png',output).pathname});
-  const before=await frames(),time=performance.now();await advance(60);
+  await advanceFor(5000);
+  await page.evaluate(()=>{frameSamples=[];});
+  const before=await frames(),time=performance.now();await advance(120);
   const frameMilliseconds=(performance.now()-time)/((await frames())-before);
+  const combatFrameTimings=await frameTimings();
   const gpu=await page.evaluate(()=>__dolly.gpu);
   const combatAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
   await stop();
@@ -139,15 +164,18 @@ try {
   const turns=[...replay.matchAll(/^turn (\d+) /gm)].map(match=>Number(match[1]));
   assert.ok(turns.some((turn,index)=>index>0 && turn<turns[index-1]),'quickload must restore an earlier simulation turn');
   const restartMilliseconds=await start(image==='zero-ad'?'':'-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1');
-  await page.mouse.click(520,360);await advance(3);
+  // Let the selection panel finish updating before clicking its controls.
+  await page.mouse.click(520,360);await advanceFor(300);
   await page.mouse.click(648,627);await advance(3);
   await page.mouse.click(648,627);await advance(3);
   await page.mouse.move(330,385);await page.mouse.down();
-  await page.mouse.move(457,475,{steps:5});await page.mouse.up();await advance(3);
+  await page.mouse.move(457,475,{steps:5});await page.mouse.up();await advanceFor(300);
   await page.mouse.click(687,626);await advance(3);
   await page.mouse.click(238,423);
   // Training and construction follow simulation time, independently of GPU speed.
+  await page.evaluate(()=>{frameSamples=[];});
   await advanceFor(40000);
+  const economyFrameTimings=await frameTimings();
   await page.screenshot({path:new URL('graphics-economy.png',output).pathname});
   const economyGpu=await page.evaluate(()=>__dolly.gpu);
   const economyAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
@@ -168,7 +196,7 @@ try {
   const cgroup=(await readFile('/proc/self/cgroup','utf8')).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes=cgroup?Number(await readFile('/sys/fs/cgroup'+cgroup+'/memory.peak','utf8')):undefined;
   console.log(JSON.stringify({image,backend,browserName,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
-    restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),allocatedBytes:gpu.stats.allocatedBytes,
+    restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),combatFrameTimings,economyFrameTimings,allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
     economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,
     combatAudio,economyAudio}));
