@@ -171,3 +171,14 @@ for longer-run auditing; these repeats do not establish its cause. Evidence:
 `.cache/0ad/bc-stall-audit{-80,}.log`, `bc-production-audit.log`, and
 `browser/bc-stall-profile2.jsonp`. All 278 source checks and pristine reconstruction
 of the 42-file engine patch pass. Profiling edits are absent from the engine.
+
+Verified SOURCE publication now sizes the destination before chunked copying.
+Four files of 64 MiB + 1 KiB grew kernel memory by 609,746,944 bytes without
+preallocation and 254,803,968 with it; the browser-compiled probe rereads every
+byte and checks exact lengths: `.cache/0ad/preallocate-{before,after}.log`.
+Native and browser Dollyfile checks pass, including ordered SOURCE replacement.
+All twelve images rebuild; the 2,068,928,154-byte game image exports in 50.5 s
+under the existing 10 GiB scope. An 8 GiB attempt failed with a confirmed cgroup
+OOM kill during game-image building; preallocation alone does not establish an
+8 GiB build requirement. Evidence: `.cache/0ad/source-preallocate-{parser,
+parser-browser,image,image-10g}.log`, `source-preallocate-10g-memory.json`.

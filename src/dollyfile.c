@@ -164,7 +164,7 @@ static size_t write_download(const void *bytes, size_t length, void *context) {
 // different internal backends, and its rename wrapper is not reliable across
 // that boundary. Verification has already completed and recipe execution is
 // synchronous, so publish by copying only within Dolly's in-Wasm filesystem.
-static int publish_download(const char *temporary, const char *destination) {
+static int publish_download(const char *temporary, const char *destination, size_t length) {
   int input = open(temporary, O_RDONLY);
   if (input < 0) return -errno;
   int output = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -174,8 +174,8 @@ static int publish_download(const char *temporary, const char *destination) {
     return error;
   }
   unsigned char bytes[64 * 1024];
-  int status = 0;
-  for (;;) {
+  int status = ftruncate(output, (off_t)length) == 0 ? 0 : -errno;
+  while (status == 0) {
     const ssize_t count = read(input, bytes, sizeof(bytes));
     if (count < 0) {
       status = -errno;
@@ -520,7 +520,7 @@ static int fetch_source(Engine *engine, const char *kind, const char *location,
     }
   }
   if (status == 0) {
-    status = publish_download(temporary, destination);
+    status = publish_download(temporary, destination, download.length);
     if (status != 0) {
       fprintf(stderr, "dollyfile: could not publish %s: %s (%d)\n",
               destination, strerror(-status), status);
