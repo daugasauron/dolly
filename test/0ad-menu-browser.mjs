@@ -9,7 +9,10 @@ const browserName=process.argv[2]??'firefox',url=process.argv[3];
 assert.ok(['chromium','firefox'].includes(browserName),'usage: node test/0ad-menu-browser.mjs [chromium|firefox] [page URL]');
 const output=root+'/.cache/0ad/browser';
 await mkdir(output,{recursive:true});
-const server=url?null:await startBrowserServer(root,'zero-ad');
+const provider=(await readFile(root+'/src/gpu-worker.mjs','utf8')).replace(
+  'insert(scope,id,"sampler",device.createSampler({',
+  'stats.maxAnisotropy=Math.max(stats.maxAnisotropy??1,maxAnisotropy);insert(scope,id,"sampler",device.createSampler({');
+const server=url?null:await startBrowserServer(root,'zero-ad',0,new Map([['/src/gpu-worker.mjs',provider]]));
 let browser,page,deadline;
 try {
   browser=browserName==='firefox'
@@ -45,6 +48,12 @@ try {
   const screenshot=name=>page.screenshot({path:`${output}/menu-${browserName}-${name}.png`});
   await screenshot('main');
   await click(363,578); // Upstream first-run welcome.
+  await click(180,286);await click(410,285); // Settings, Options.
+  await click(200,123); // Advanced graphics.
+  await click(800,184);await page.keyboard.press('End');await page.keyboard.press('Enter');
+  await click(800,212);await page.keyboard.press('End');await page.keyboard.press('Enter');
+  await click(598,728);await screenshot('quality-options'); // Save high textures and 16x filtering.
+  await click(770,728);
   const setup=async()=>{await click(180,222);await click(412,221);};
   const launch=async name=>{
     await screenshot(name+'-setup');
@@ -71,6 +80,7 @@ try {
   await click(430,92);await click(399,294); // Han.
   await click(254,439);await click(238,525); // Alpine Lakes.
   await launch('alpine');
+  if(server)assert.equal(await page.evaluate(()=>__dolly.gpu.stats.maxAnisotropy),16);
   await page.keyboard.press('Control+F10');
   await page.waitForFunction(()=>!__dolly.graphicsActive);
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'menu check shell'));
@@ -81,6 +91,9 @@ try {
     return readFile(`${output}/${name}`,'utf8');
   };
   assert.doesNotMatch(await download('/opt/0ad/logs/interestinglog.html',`menu-${browserName}-warnings.html`),/class="error"|class="warning"/);
+  const config=await download('/opt/0ad/data/config/user.cfg',`menu-${browserName}-user.cfg`);
+  assert.match(config,/^textures\.quality = "2"$/m);
+  assert.match(config,/^textures\.maxanisotropy = "16"$/m);
   assert.equal(await submit('cat $(find /opt/0ad/data/replays -name commands.txt) > /tmp/menu-replays.txt'),0);
   const replays=await download('/tmp/menu-replays.txt',`menu-${browserName}-replays.txt`);
   const matches=replays.split('\n').filter(line=>line.startsWith('start ')).map(line=>JSON.parse(line.slice(6)));

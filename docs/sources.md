@@ -356,8 +356,10 @@ which sets ICU's data path.
 The Wasm renderer uses bounded GPU packets, an offscreen backbuffer with opaque presentation,
 indexed meshes, reflected uniforms and translated upstream shaders. SDL owns
 input. Defaults select system cursors and low texture quality, with shadows,
-silhouettes, advanced water, postprocessing and antialiasing disabled. Streamed
-buffers, aligned uniform ranges and unchanged resource groups are reused;
+silhouettes, advanced water, postprocessing and antialiasing disabled.
+The graphics menu exposes supported controls, including texture quality and
+up to 16× anisotropic filtering. Streamed buffers, aligned uniform ranges and
+unchanged resource groups are reused;
 released resources retain their allocation charges until GPU work completes.
 The binding cache reclaims entries at the admitted object limit, submitting
 pending draws and waiting for allocation retirement before reusing that capacity.

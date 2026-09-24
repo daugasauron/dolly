@@ -327,3 +327,20 @@ logs. Means are 13.75/11.40 ms, peak 4,036,902,912 bytes. Software Chrome also
 passes the native screenshot and gameplay checks (87.82/191.31 ms, peak
 3,626,532,864 bytes). Evidence: `.cache/0ad/frame-tail-production-{firefox,software}.log`.
 The 46-file native patch reconstructs pristine upstream.
+
+The graphics options now expose supported rendering controls and hide native
+window/presentation controls plus unavailable effect paths. Native texture
+samplers admit up to 16× anisotropic filtering through the existing bounded
+sampler contract; low-quality defaults are unchanged. Both browsers set High
+texture quality and 16× filtering through the actual options menu, save the
+configuration, then launch Britons/Acropolis and Han/Alpine Lakes with clean
+engine logs. The provider records real 16× sampler creation. Menu-to-match
+times are 10.94/19.97 seconds in Chrome and 9.81/18.74 seconds in Firefox;
+process-tree peaks are 3,483,811,840 and 3,740,110,848 bytes. Evidence:
+`.cache/0ad/options-final-menu-{chromium,firefox}.log`.
+
+The new 2,068,963,995-byte image contains all 39,703 public and 896 engine-mod
+files. CRC/size comparison against pinned upstream identifies only the nine
+declared data-patch files, the generated options menu, and added WGSL shaders.
+The 46-file native patch reconstructs pristine upstream. Evidence:
+`.cache/0ad/options-{content-verify,image}.log`.

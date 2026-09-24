@@ -2688,7 +2688,7 @@
 +    capabilities.S3TC=features&DOLLY_GPU_FEATURE_TEXTURE_BC;
 +    capabilities.computeShaders=capabilities.storage=features&DOLLY_GPU_FEATURE_VERTEX_F16;
 +    dolly_gpu_begin(queue.gpu.get());
-+    capabilities.maxTextureSize=8192;capabilities.maxSampleCount=1;capabilities.maxAnisotropy=1;capabilities.instancing=true;
++    capabilities.maxTextureSize=8192;capabilities.maxSampleCount=1;capabilities.maxAnisotropy=16;capabilities.instancing=true;capabilities.anisotropicFiltering=true;
 +    presentVS=queue.Shader("@vertex fn main(@builtin(vertex_index) i:u32)->@builtin(position) vec4f {let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1);}");
 +    presentFS=queue.Shader("@group(0) @binding(0) var image:texture_2d<f32>; @fragment fn main(@builtin(position) p:vec4f)->@location(0) vec4f {return vec4f(textureLoad(image,vec2i(p.xy),0).rgb,1);}");
 +    presentPipeline=queue.New();void* p=queue.Record(DOLLY_GPU_GRAPHICS_PIPELINE,112);

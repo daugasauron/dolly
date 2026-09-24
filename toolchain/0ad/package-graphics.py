@@ -1,5 +1,6 @@
 """Package complete upstream content in bounded, independently cached archives."""
 from pathlib import Path
+import json
 import shutil
 import sys
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
@@ -9,6 +10,16 @@ output = Path('build/0ad/graphics')
 if output.exists():
     shutil.rmtree(output)
 shutil.copytree('build/0ad/headless', output)
+
+renderer_defaults = {
+    'rendererbackend': 'dolly', 'cursorbackend': 'system', 'windowed': True,
+    'shadows': False, 'silhouettes': False, 'watereffects': False,
+    'waterfancyeffects': False, 'waterrealdepth': False, 'waterrefraction': False,
+    'waterreflection': False, 'postproc': False, 'antialiasing': 'disabled',
+}
+unavailable_options = renderer_defaults.keys() | {
+    'vsync', 'window.mousegrabinfullscreen', 'window.mousegrabinwindowmode',
+}
 
 for mod in ('mod', 'public'):
     destination = output / f'data/mods/{mod}'
@@ -31,6 +42,14 @@ for mod in ('mod', 'public'):
                     index += 1
                 content = generated[name].read_bytes() if name in generated else (
                     headless.read(name) if name in patched else upstream.read(name))
+                if mod == 'public' and name == 'gui/options/options.json':
+                    categories = json.loads(content)
+                    for category in categories:
+                        category['options'] = [option for option in category['options']
+                            if option['config'] not in unavailable_options and not any(
+                                isinstance(dependency, str) and renderer_defaults.get(dependency) is False
+                                for dependency in option.get('dependencies', []))]
+                    content = (json.dumps(categories, ensure_ascii=False, indent='\t') + '\n').encode()
                 entry = ZipInfo(name, (1980, 1, 1, 0, 0, 0))
                 entry.compress_type = ZIP_DEFLATED
                 entry.external_attr = 0o100644 << 16
@@ -40,21 +59,7 @@ for mod in ('mod', 'public'):
                 archive.close()
         print(f'{mod}: {len(names)} files in {index} archives', flush=True)
 
-(output / 'data/config/local.cfg').write_text('''rendererbackend = "dolly"
-cursorbackend = "system"
-windowed = true
-xres = 1024
-yres = 768
-adaptivefps.session = 120
-textures.quality = 0
-shadows = false
-silhouettes = false
-watereffects = false
-waterfancyeffects = false
-waterrealdepth = false
-waterrefraction = false
-waterreflection = false
-postproc = false
-antialiasing = "disabled"
-''')
+defaults = renderer_defaults | {'xres': 1024, 'yres': 768, 'adaptivefps.session': 120, 'textures.quality': 0}
+(output / 'data/config/local.cfg').write_text(''.join(
+    f'{name} = {json.dumps(value)}\n' for name, value in defaults.items()))
 print(sum(path.stat().st_size for path in output.rglob('*') if path.is_file()))
