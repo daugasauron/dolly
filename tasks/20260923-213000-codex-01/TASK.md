@@ -71,6 +71,13 @@ competition evidence, freight reloads, physics/controller checks and actual
 preview measurements are recorded in the
 [competition task](../20260924-074500-codex-01/TASK.md).
 
+Independent corner/contact analysis of the 60-object seed-7 trial records 1573
+Marrowstep foot placements after airborne advance, 387 after 900 s, minimum up
+0.99225 and no phase stalled longer than 3.5 s. There are 24 loaded swing-foot
+samples out of 4660; occasional scuffing remains. Evidence:
+`build/blockwalker-competition-population-repaired-7/{result,placements}.json`.
+The other 1200 s route records 1575 placements, including 398 after 900 s.
+
 Earlier verification:
 
 - `build/blockwalker-dock-population-cargo-42.log` passed 1200 simulation seconds
