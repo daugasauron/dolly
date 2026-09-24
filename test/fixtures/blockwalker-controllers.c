@@ -28,15 +28,15 @@ static JSValue memory_snapshot(JSContext *ctx,int failed){
 static void check_memory(JSContext *ctx,Character *design){
     Physics p={0};physics_start(&p,design);
     install(ctx,"function(t,s,m){m.ticks=(m.ticks||0)+1;m.phase=t<1?'shift':'lift';m.last=t;return {}}");
-    JSValue memory=memory_snapshot(ctx,0);assert(JS_IsNull(memory));JS_FreeValue(ctx,memory);assert(world_trial_begin());
+    JSValue memory=memory_snapshot(ctx,0);assert(JS_IsNull(memory));JS_FreeValue(ctx,memory);assert(world_trial_begin(&p));
     for(int i=0;i<120;i++)assert(world_trial_step(&p,design));
     memory=memory_snapshot(ctx,0);assert(get_number(ctx,memory,"ticks",-1)==120);assert(fabs(get_number(ctx,memory,"last",-1)-119./60)<1e-9);
     JSValue phase=JS_GetPropertyStr(ctx,memory,"phase");const char *name=JS_ToCString(ctx,phase);assert(name&&!strcmp(name,"lift"));JS_FreeCString(ctx,name);JS_FreeValue(ctx,phase);
     put_number(ctx,memory,"ticks",999);JS_FreeValue(ctx,memory);memory=memory_snapshot(ctx,0);assert(get_number(ctx,memory,"ticks",-1)==120);JS_FreeValue(ctx,memory);
-    assert(world_trial_begin());memory=memory_snapshot(ctx,0);assert(get_number(ctx,memory,"ticks",-1)==-1);JS_FreeValue(ctx,memory);
+    assert(world_trial_begin(&p));memory=memory_snapshot(ctx,0);assert(get_number(ctx,memory,"ticks",-1)==-1);JS_FreeValue(ctx,memory);
     const char *bad[]={"m.self=m", "m.data='x'.repeat(8192)", "m.big=1n", "m.toJSON=()=>undefined", "Object.defineProperty(m,'bad',{enumerable:true,get(){throw Error('oops')}})", "Object.defineProperty(m,'bad',{enumerable:true,get(){while(true){}}})", "m.toJSON=()=>{while(true){}}"};
     for(int i=0;i<sizeof(bad)/sizeof(*bad);i++){
-        char source[512];snprintf(source,sizeof(source),"function(t,s,m){if(!m.ticks){%s};m.ticks=(m.ticks||0)+1;return {}}",bad[i]);install(ctx,source);assert(world_trial_begin());assert(world_trial_step(&p,design));
+        char source[512];snprintf(source,sizeof(source),"function(t,s,m){if(!m.ticks){%s};m.ticks=(m.ticks||0)+1;return {}}",bad[i]);install(ctx,source);assert(world_trial_begin(&p));assert(world_trial_step(&p,design));
         memory=memory_snapshot(ctx,1);assert(JS_IsNull(memory));JS_FreeValue(ctx,memory);assert(world_trial_step(&p,design));assert(get_number(trial->ctx,trial->memory,"ticks",-1)==2);
     }
     world_trial_stop();memory=memory_snapshot(ctx,0);assert(JS_IsNull(memory));JS_FreeValue(ctx,memory);physics_stop(&p);

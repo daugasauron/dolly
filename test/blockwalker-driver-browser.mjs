@@ -15,7 +15,7 @@ try{
  if(process.argv[2]){await upload(process.argv[2],'/tmp/playground.tar');assert.equal(await command('tar -xf /tmp/playground.tar -C /'),0);}
  const sources=['main','character','render','world','terrain','magnet','gpu-client'].map(s=>'/usr/src/dolly/blockwalker/'+s+'.c').join(' ');
  assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ '+sources+' -ldolly-js -ldolly-raylib -lraylib -lbox3d -lm -o /usr/bin/blockwalker'),0);
- await upload('test/fixtures/blockwalker-playground.c','/tmp/playground.c');
+ await upload(process.argv[3]||'test/fixtures/blockwalker-playground.c','/tmp/playground.c');
  assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker /tmp/playground.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lbox3d -lm -o /tmp/playground-check'),0);
  assert.equal(await command('/tmp/playground-check'),0);await fs.writeFile(output+'/cargo-physics.log',await page.evaluate(()=>__dolly.visibleTerminalText()));
  await download('blockwalker-world.json');
@@ -34,7 +34,7 @@ try{
  await page.keyboard.press('Backslash');await frames();await page.keyboard.press('Escape');await frames();await page.keyboard.press('Escape');assert.equal(await run,0);await shell();
  const trace=await download('driver-trace.json'),world=await download('blockwalker-world.json'),views=trace.filter(s=>s.eyes),first=views[0],last=views.at(-1);
  const initial=JSON.parse(await fs.readFile('src/blockwalker/designs.json','utf8'));
- assert.ok(trace.length>30&&views.length>20);assert.equal(world.creatures.length,initial.length+2);assert.equal(world.deaths,0);
+ assert.ok(trace.length>30&&views.length>20);assert.equal(world.creatures.filter(c=>!c.supply).length,initial.length+2);assert.equal(world.deaths,0);
  const moved=Math.hypot(last.sensors.x-first.sensors.x,last.sensors.z-first.sensors.z);assert.ok(moved>5,'keyboard drives a physical world vehicle');
  for(const s of views){const {camera:c,sensors:p}=s,eye=[c.eyeX,c.eyeY,c.eyeZ],f=[c.x-c.eyeX,c.y-c.eyeY,c.z-c.eyeZ];assert.equal(c.fov,72);assert.ok(Math.abs(Math.hypot(...eye.map((v,i)=>v-p.positions[7][i]))-.52)<.002,'camera stays at the Eyes face');assert.ok(Math.abs(f[0]*c.upX+f[1]*c.upY+f[2]*c.upZ)<.001);}
  assert.ok(trace.some(s=>!s.eyes&&s.camera.fov===42),'outside camera toggle');assert.ok(trace.some(s=>s.sensors.magnets[8]?.power===1),'magnet switches on');assert.ok(trace.some(s=>s.sensors.magnets[8]?.attached),'vehicle picks up real world cargo');assert.equal(trace.at(-1).sensors.magnets[8].power,0);

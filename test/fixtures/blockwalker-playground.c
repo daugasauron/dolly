@@ -303,7 +303,13 @@ static void check_industry(JSContext *ctx){
     assert(terrain_version==1&&depot_count==6&&terrain_height(-47,65)==-12&&world_find(id)->cargo&&world_find(id)->design.count==3);
     JSValue invalid=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,invalid,"terrainVersion",2);assert(save_json(ctx,invalid,"/workspace/unknown-map.json"));JS_FreeValue(ctx,invalid);
     result=world_import(ctx,"/workspace/unknown-map.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));assert(terrain_version==1&&world_find(id));
-    puts("INDUSTRY: physical shaft, roof, passage and broken roof; old/new map import; non-root cargo support and restored identity; future-map rejection passed");world_close();
+    cargo=world_find(id);set_spawn_height(cargo,32);
+    JSValue sensors=physics_sensors(ctx,&cargo->physics,&cargo->design,.1),bounds=JS_GetPropertyStr(ctx,sensors,"terrain"),obstacles=JS_GetPropertyStr(ctx,sensors,"obstacles");int roof=0;
+    for(int i=0;i<get_number(ctx,bounds,"length",0);i++){
+        JSValue box=JS_GetPropertyUint32(ctx,bounds,i);roof+=get_number(ctx,box,"low",0)==13&&get_number(ctx,box,"high",0)==14;JS_FreeValue(ctx,box);
+    }
+    assert(roof&&get_number(ctx,obstacles,"length",-1)==0);JS_FreeValue(ctx,bounds);JS_FreeValue(ctx,obstacles);JS_FreeValue(ctx,sensors);
+    puts("INDUSTRY: physical shaft, roof, passage and broken roof; old/new map import; non-root cargo support and restored identity; future-map rejection; aircraft sees terrain below itself");world_close();
 }
 static void check_supply(JSContext *ctx){
  terrain_select(1);world.supply_seed=1;world.next_ore=100000;

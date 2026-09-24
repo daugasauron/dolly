@@ -269,7 +269,10 @@ static void click(void){
             piloting=eye_view=0;
             const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70}};
             const float distances[]={24,50,100,110,150,512,72,76};
-            if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;orbit_update(&orbit);dirty=1;}return;
+            if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;
+                if(terrain_version&&i==6){orbit.target=(Vector3){-47,1,64};orbit.distance=12;orbit.yaw=PI;orbit.pitch=.12f;}
+                if(terrain_version&&i==7){orbit.target=(Vector3){-44,2,110};orbit.distance=35;orbit.yaw=.7f;orbit.pitch=.45f;}
+                orbit_update(&orbit);dirty=1;}return;
         }
         world_page(0);
         for(int i=0;i<8&&world_list+i<world.count;i++)if(inside(24,344+i*26,194,25)){piloting=eye_view=0;visit_creature(&world.creatures[world_list+i]);return;}
@@ -414,12 +417,13 @@ static void events(void){
     }
 }
 static void cargo_status(char *text,size_t size){
-    Creature *c=world_find(piloting?world.player:world_follow);int carried=0,magnets=0,powered=0;
+    Creature *c=world_find(piloting?world.player:world_follow);int carried=0,magnets=0,powered=0;float mass=0;
     if(!c){text[0]=0;return;}
-    if(c->cargo){snprintf(text,size,c->delivered?"Cargo delivered":c->held_by?"Cargo being carried":"Loose cargo");return;}
-    for(int i=0;i<world.count;i++)carried+=world.creatures[i].cargo&&world.creatures[i].held_by==c->id;
+    for(int i=0;i<world.count;i++){Creature *cargo=&world.creatures[i];if(!cargo->cargo||(cargo!=c&&cargo->held_by!=c->id))continue;
+        carried++;for(int j=0;j<cargo->design.count;j++)mass+=b3Body_GetMass(cargo->physics.parts[j].body);}
+    if(c->cargo){snprintf(text,size,"%s / %.1f kg",c->delivered?"Delivered":c->parachute?"Parachuting":c->held_by?"Aboard":"Loose cargo",mass);return;}
     for(int i=0;i<c->design.count;i++)if(c->design.blocks[i].joint==BLOCK_MAGNET){magnets++;powered+=c->physics.parts[i].magnet_power>0;}
-    if(carried)snprintf(text,size,"Carrying %d crate%s",carried,carried==1?"":"s");
+    if(carried)snprintf(text,size,"Cargo %d / %.1f kg",carried,mass);
     else snprintf(text,size,magnets?(powered?"Magnet on / no cargo":"Magnet off"):"No cargo aboard");
 }
 static void draw_ui(void){
@@ -428,7 +432,9 @@ static void draw_ui(void){
     if(focus_view){
         button(render_view.width-232,12,220,34,"Controls [Shift Tab]",0);button(12,12,80,34,"Pi [Tab]",agent_panel);
         if(world_view&&world_follow){snprintf(text,sizeof(text),piloting?"WASD drive / E pickup / Q release":"Following %d / \\ camera / WASD to leave",world_follow);label(110,22,text,16,ink);}
-        if(world_view){char cargo[48];cargo_status(cargo,sizeof(cargo));snprintf(text,sizeof(text),"CARGO DELIVERED  %d / YOU %d%s%s",world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);label(16,render_view.height-30,text,16,ink);}
+        if(world_view){char cargo[48];cargo_status(cargo,sizeof(cargo));
+            if(terrain_version)snprintf(text,sizeof(text),"EAST %d / WEST %d   CARGO %d / YOU %d%s%s",world_team_score(1),world_team_score(2),world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);
+            else snprintf(text,sizeof(text),"CARGO DELIVERED  %d / YOU %d%s%s",world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);label(16,render_view.height-30,text,16,ink);}
         goto agent_overlay;
     }
     DrawRectangle(0,0,SCREEN_WIDTH,VIEW_Y,paper);DrawRectangle(0,VIEW_Y,VIEW_X,VIEW_H,paper);
@@ -445,8 +451,8 @@ static void draw_ui(void){
     DrawRectangle(254,643,600,23,paper);
     label(262,647,piloting?"WASD drive / E on / Q release / Backslash camera":world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
-        label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d living / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={"Home","Harbor","East","West","North","Overview","Basin","Foundry"};
+        label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
+        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay"};
         for(int i=0;i<(terrain_version?8:7);i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,316,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-8));
@@ -462,10 +468,12 @@ static void draw_ui(void){
                 label(1036,354,"ISLAND CARGO CUP",17,muted);snprintf(text,sizeof(text),"East %d   West %d",world_team_score(1),world_team_score(2));label(1036,385,text,18,ink);
                 Creature *follow=world_find(world_follow);int team=follow?follow->team:0;
                 label(1036,428,team==1?"EAST RADIO":team==2?"WEST RADIO":"TEAM RADIO",17,muted);
-                const char *messages[]={"Spotted","Claimed","Ready","Released"};int shown=0;
-                for(int i=world.radio_count-1;i>=0&&shown<4;i--){RadioMessage *message=&world.radio[i];if(team&&message->team!=team)continue;int y=459+shown++*42;
-                    snprintf(text,sizeof(text),"%c / %.20s",message->team==1?'E':'W',message->name);label(1036,y,text,12,block_colors[message->team==1?0:1]);
-                    snprintf(text,sizeof(text),"%s #%d / %.0fs",messages[message->kind],message->cargo,world.age-message->time);label(1036,y+17,text,13,ink);
+                const char *messages[]={"Spotted","Claimed","Ready","Released"};int shown=0,senders[4];
+                for(int i=world.radio_count-1;i>=0&&shown<4;i--){RadioMessage *message=&world.radio[i];if(team&&message->team!=team)continue;
+                    int duplicate=0;for(int j=0;j<shown;j++)duplicate|=senders[j]==message->from;if(duplicate)continue;
+                    senders[shown]=message->from;int y=459+shown++*42;
+                    snprintf(text,sizeof(text),"%c / %.17s / %.0fs",message->team==1?'E':'W',message->name,world.age-message->time);label(1036,y,text,12,block_colors[message->team==1?0:1]);
+                    snprintf(text,sizeof(text),"%s #%d / %.1f kg",messages[message->kind],message->cargo,message->mass);label(1036,y+17,text,13,ink);
                 }
                 if(!shown)label(1036,459,"No reports yet.",14,muted);
                 label(1036,641,"Heavy 8 pts / light 1 pt",13,muted);

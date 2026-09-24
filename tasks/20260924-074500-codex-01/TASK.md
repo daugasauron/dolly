@@ -34,83 +34,98 @@ The current 51-object world remains served on port 9099 while prototypes run in
 disposable browsers. The earlier playground task is
 [20260923-213000-codex-01](../20260923-213000-codex-01/TASK.md).
 
-First source prototype: a roofed foundry, broken roof panels, viewing gallery,
-flooded shaft, low loading passage, turbine ruins and western receiving quay.
-World files now identify their map revision; unversioned saves select the
-original terrain. A real Box3D drop probe measured old ground at y=0.500, shaft
-bottom at -11.500, roof at 14.500, interior/passage/open roof at 0.500. Old/new
-world imports and rejection of an unknown map revision passed. C was compiled
-inside Dolly; Chrome GPU views are in `build/blockwalker-industrial-3/`, log
-`build/blockwalker-industrial3.log` (exit 0). This is not packaged on 9099 yet.
+Implemented source checkpoints: `4c574c9` (industrial map and multi-block cargo),
+`d2d3f71` (team radio and scoring), `04fe033` (bounded supplies and receiving yards).
+The mainland has a flooded shaft, roofed foundry with broken panels, low freight
+passage, turbine ruins and quay. Old unversioned worlds retain map 0; new worlds
+use map 1. Imports reject unknown map revisions without replacing the current
+world. Aircraft need terrain bounds below their current altitude to check a
+whole landing column; the existing ground-obstacle subset remains compatible.
 
-The first hydraulic platform bent upward under its own buoyancy, so the pallet
-missed it. An alloy platform, shorter arm, bracing and raised foundation fixed
-the physical design without changing global solver settings. The 34-part lift
-uses three ordinary pistons within the existing 3 m per-piston stroke limit.
-It raises a four-block ballast pallet (10.952 kg) from -7.195 m to 0.698 m;
-final height 0.659, maximum joint separation 0.0132 m. A process/world reload at
-16 s preserves the loaded lift and its controller; the 45 s trial has zero
-removals. Cargo identity is now explicitly restored, support/magnet ownership
-works across its parts, and sunken cargo stays salvageable. Evidence:
-`build/blockwalker-ore-lift-pedestal.log` (exit 0) and
-`build/blockwalker-ore-lift-pedestal/{physics.log,lift-trace.csv,blockwalker-world.json,ore-lift.png}`.
-The lift/catalog and its cargo creation are still isolated prototype inputs in
-`build/blockwalker-ore-lift-designs.json` and `build/blockwalker-ore-lift.c`;
-automatic production, teams, radios and the shipping chain remain to implement.
+Supplies are seeded and saved: 0.913 kg parachute parcels (maximum six loose),
+and 10.952 kg four-block ballast pallets (maximum three). Ore appears only over
+a lowered, stationary physical lift platform. Delivered supplies clear after
+45 seconds; scores remain. No cargo is teleported between machines. A 47-part
+twin-ram lift, 17-part telescopic magnet hauler, loading crane, two deck-magnet
+barges and two receiving cranes form the heavy chain. Barges announce readiness
+only after stopping and releasing the deck magnet; receiving cranes wait for it.
+Light couriers respond to their own team's scouts. Claims retain observed
+coordinates when the sender cannot see the cargo. Visibility uses Eyes/root
+range and the actual terrain boxes. Each island awards 1 point for light cargo
+and 8 points above 8 kg; physical release and settling are required.
 
-The factory-to-quay trial now physically completes in 221.2 simulated seconds.
-The 37-part elevator hands the same pallet to a 17-part overhead magnet hauler;
-it drives around the shaft, through the low passage, and releases it at
-(-42.520, 0.485, 110.022). Reload at 16 s; zero removals; maximum measured
-lift/cargo joint separation 0.0156 m. A side pickup scraped the load during
-turns, so the successful design grips near the pallet centre and uses stronger
-wheel motors (60 Nm). Evidence: `build/blockwalker-foundry-chain-overhead.log`
-and its artifact directory, including `loading-passage.png`. Prototype source
-and blueprints remain under `build/blockwalker-foundry-chain*`; cranes, boats,
-teams and supply are not integrated into the default catalog yet.
+Prototype catalog: `build/blockwalker-competition-catalog.json`, 60 objects /
+1604 parts. It preserves the 51-object cast, moves two old crates away from new
+walls, assigns island teams, equips existing lookouts/aircraft with supply radio,
+and adds nine machines. The canonical catalog and served image remain unchanged
+until the full candidate passes. Generator inputs and intermediate designs are
+ignored experiments; only the final designs belong in the source catalog.
 
-The permanent industrial regression and existing physical/browser driver checks
-pass with the new source (`build/blockwalker-industry-driver3.log`, exit 0):
-11.503 m driven, 73 camera samples, real magnet pickup, 53 world objects and no
-browser errors. The new regression checks collisions, legacy map compatibility,
-non-root cargo support, saved multi-block cargo identity and unknown-map rejection.
+Measured evidence (all C compiled inside Dolly, disposable Chrome, 4 GiB/no swap):
 
-Team-radio source checkpoint: controller key objects may include a typed cargo
-report/claim/readiness/release. Eyes/root line of sight is tested against actual
-terrain boxes; messages are team-local and carry observed coordinates rather
-than live remote positions. Team membership, bounded radio history and existing
-controller jobs round-trip through world files. Island depots award 1 point for
-light cargo and 8 for cargo above 8 kg; scoring uses the island receiving it.
-The world HUD shows team scores and recent radio messages, and has a Foundry view.
-Multi-block magnet cargo also exposes support across its whole assembly,
-excluding contacts against itself and its holder.
+- `build/blockwalker-supply-driver.log`: permanent physical/browser checks pass;
+  9.992 m driven, 71 Eyes camera samples, actual pickup, no browser errors.
+  These include old/new map imports, terrain collisions, multi-block support,
+  team isolation, occluded sight, remote scout dispatch, saved radio/jobs and
+  invalid radio output/import. The newer descent-bound sensor check is pending.
+- `build/blockwalker-supply-view.log`: parcel descent 1.667 m/s, saved midair chute
+  and timing, six-parcel bound after 800 s; zero removals. GPU canopy inspected.
+- `build/blockwalker-competition-population-fleet900.log`: all original 60 objects
+  survive 900 simulated seconds and four process/world reloads. East 12 / West 8,
+  13 total deliveries. Both ore pallets pass through lift, hauler, loading crane,
+  their team's barge and receiving crane; both barges return. Third load departs.
+  Minimum barge up: East 0.94653 / West 0.96450. Segment saves, controller memories,
+  physical carrier traces and foot traces are in the matching artifact directory.
+  The west courier wedged a rotor under a lintel: this run is not a full pass.
+- `build/blockwalker-courier-clearance-descent.log`: the revised courier rejects
+  the exact blocked landing column, then accepts another scout report and makes
+  a real delivery. Both teams score; remote dispatch, three reloads, zero removals,
+  minimum up 0.97921, maximum joint separation 0.04596 m over 485.150 s.
+- `build/blockwalker-receive-ready.log`: replay of two docked loaded barges verifies
+  both receiving cranes score eight points, including a reload during unloading;
+  39.867 s, zero removals, minimum barge up 0.98946.
 
-`build/blockwalker-radio-driver.log` passes the complete existing source/browser
-check plus real scout-to-distant-carrier, blocked sight, team isolation, stale
-coordinates, restored radio/jobs, and invalid radio import/output cases:
-10.948 m driven, 77 camera samples, actual pickup, 53 objects, no browser errors.
-`build/blockwalker-driver/car-follow.png` was inspected. The default catalog has
-not yet been assigned teams; supply and the full shipping chain remain pending.
+- `build/blockwalker-competition-population-clearance1200.log`: revised descent
+  checks survive 1200 s and six reloads with all 60 original objects present,
+  East 21 / West 9, 16 deliveries, both scout-driven air couriers scoring and
+  three complete heavy chains. The fourth pallet exposed a loading-crane jam,
+  repaired and verified below. Minimum barge up 0.93811.
+- `build/blockwalker-payload-force.log`: identical aircraft and flight command
+  lift a 0.913 kg parcel to 9.639 m; the 10.952 kg pallet stays at 0.485 m while
+  the magnet saturates at 30 N. Both trials acquire the load and have no removals.
+- `build/blockwalker-crane-inspect-fourth/`: actual contacts show the stalled
+  magnet head pressing against pallet 72 with 87.4 N, while its radial piston
+  is at the 1.5 m limit. A staged alignment attempt oscillated and was rejected.
+  Greater pickup clearance and a 2 m radial stroke free that exact saved load
+  in 25.550 s, including a reload. The next fresh run exposed premature magnet
+  pickup of the departing hauler, then undamped pallet swing over the boat.
+  The crane now waits for vehicle clearance, powers its magnet near the cargo,
+  and damps centering against measured cargo velocity.
 
-Supply prototype: 0.913 kg parcels descend at a measured 1.667 m/s under visible
-low-poly parachutes; a saved airborne parcel retains its chute and supply timing.
-An 800 s trial reaches the six-parcel bound without removals. Heavy ore appears
-only over the lowered physical platform, and the automatic first pallet reaches
-the quay after 213.283 s across a reload (zero removals). Evidence:
-`build/blockwalker-supply-view.log`, `build/blockwalker-foundry-supply-emitter.log`
-and their artifact directories. Collected supplied cargo clears after 45 s while
-delivery records remain. Fresh worlds enable supply; existing saves retain their
-previous behavior. The complete permanent driver/physics/browser checks pass in
-`build/blockwalker-supply-driver.log`: 9.992 m driven, 71 camera samples, actual
-pickup, 53 objects and no browser errors.
+- `build/blockwalker-freight-regression-damped.log`: four consecutive heavy
+  deliveries, two per team, in 1358.417 s across six reloads. Each pallet passes
+  through all five physical carriers in order. East 16 / West 16; zero removals,
+  minimum barge up 0.94919, maximum joint separation 0.02891 m. The final
+  regression lives in `test/fixtures/blockwalker-competition.c` and can run
+  through the existing driver browser harness's optional fixture argument.
+- `build/blockwalker-competition-ui-checkpoint.log`: actual Foundry/Quay/East/West
+  buttons, lift follow/Eyes and fullscreen focus, score/radio/mass HUD, no browser
+  errors. Instrumented 68-object sample: 18.58 FPS, zero GPU readback bytes.
+  This harness samples world state every frame; normal gameplay is still to be
+  measured. Screenshots and proof are in the matching artifact directory.
+- `build/blockwalker-competition-driver2.log`: current permanent physics and
+  keyboard/browser checks pass, including aircraft descent bounds. 10.875 m
+  driven, 76 Eyes samples, actual pickup, zero removals/browser errors. The
+  object-count assertion now excludes replenished supplies while still checking
+  the original cast, player and manually dropped cargo.
 
-The loading crane now transfers the 10.952 kg pallet onto a real floating barge:
-`build/blockwalker-shipping-midship.log` passes 100 s and a reload with no removals,
-minimum barge up 0.99756 and maximum joint separation 0.0191 m. A longer voyage
-initially capsized under high-mounted propellers. Moving their thrust down to
-the hull completes the East crossing and receiving-crane pickup across four
-reloads, minimum up 0.96069. Unloading still catches the raised shoreline in
-`build/blockwalker-island-lowjets.log`; a raised hook is under test. New receiving
-depots and a physical docking inlet are included in the terrain regression.
-The catalog, repeated complete chains and both-team competition remain pending;
-port 9099 still serves the prior playable image.
+- `build/blockwalker-competition-controllers2.log`: all 60 catalog controllers
+  complete 1000 calls each; a finite controller survives an injected 50 ms wait;
+  five runaway cases stop. Trial-memory validation and long-running controller
+  clocks round-trip. The older dock courier needed a water-height fallback for
+  dry practice; its shared-world inputs and behavior are unchanged.
+
+The earned 60-object candidate is now the canonical catalog. Remaining:
+package and verify normal gameplay on the served image, then
+run the repaired full population with varied routes. Preserve the original
+learned session and complete native Pi history. Port 9099 still serves image 16.
