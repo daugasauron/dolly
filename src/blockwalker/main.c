@@ -22,6 +22,7 @@ static int agent_control,practice_steps,agent_panel,agent_enabled,prompt_focus,w
 static int proxy_pending;
 static const char *proxy_import_path="/tmp/blockwalker-proxy-models.json";
 static int library_open,library_page,control_page,piloting,eye_view;
+static int program_open,program_line,program_lines;
 static int focus_view,world_follow;
 static Vector3 world_follow_position;
 static double world_accumulator,last_save;
@@ -115,16 +116,17 @@ static void follow_creature(void){
         orbit.target=Vector3Add(orbit.target,Vector3Subtract(p,world_follow_position));world_follow_position=p;orbit_update(&orbit);return;
     }world_follow=0;dirty=1;
 }
-static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-8));dirty=1;}
+static void program_page(int delta){program_line=(int)Clamp(program_line+delta,0,fmaxf(0,program_lines-20));dirty=1;}
+static int world_rows(void){return terrain_version>=2?7:8;}
+static int world_list_top(void){return terrain_version>=2?376:344;}
+static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-world_rows()));dirty=1;}
 static void pilot_help(char movement[48],char magnets[48]){
-    Creature *c=world_find(world.player);int wheels=0,joints=0,on=0,off=0,mixed=0,found=0;
+    Creature *c=world_find(world.player);int on=0,off=0,mixed=0,found=0;
     if(c)for(int i=0;i<c->design.count;i++){
         Block b=c->design.blocks[i];
         if(b.joint==BLOCK_MAGNET){if(found&&(on!=b.positive||off!=b.negative))mixed=1;on=b.positive;off=b.negative;found=1;}
-        else if(b.joint==BLOCK_WHEEL&&b.axis==0)wheels++;
-        else if(block_controlled(b))joints++;
     }
-    snprintf(movement,48,"%s",wheels?(joints?"WASD drive + joint keys":"WASD drive"):joints?"Use assigned joint keys":"No movement controls");
+    snprintf(movement,48,"%s","Embedded program + keys");
     magnets[0]=0;
     if(found){if(!mixed&&isalnum(on)&&isalnum(off))snprintf(magnets,48,"%c on / %c off",on,off);else snprintf(magnets,48,"Magnet: assigned keys");}
 }
@@ -167,7 +169,13 @@ static void drop_cargo(void){
     dirty=1;say("Loose cargo dropped. Power the magnet to pick it up; switch it off to release.");
 }
 static void back_to_builder(void){world_trial_stop();program_trial=0;set_world_view(0);report();physics_stop(&physics);memset(keys,0,sizeof(keys));home_camera();say("Back in the workshop. Your original build is unchanged.");}
-static void preset(int walker){remember();if(walker==3)character_car(&design);else character_preset(&design,walker);selected=0;tool=SELECT;binding=-1;home_camera();changed();say(walker==3?"Starter car: Drive in world, then WASD. E picks cargo up; Q releases it.":"Walking is up to you. Test the joints, or ask Pi to learn a gait.");}
+static int install_program_file(const char *path,const char *name){
+    char *source=LoadFileText(path);if(!source){say("Could not read the program.");return 0;}
+    JSValue args=JS_NewObject(embedded_context);JS_SetPropertyStr(embedded_context,args,"source",JS_NewString(embedded_context,source));JS_SetPropertyStr(embedded_context,args,"name",JS_NewString(embedded_context,name));JS_SetPropertyStr(embedded_context,args,"hz",JS_NewInt32(embedded_context,60));UnloadFileText(source);
+    JSValue result=world_install(embedded_context,args);int good=!JS_IsException(result);JS_FreeValue(embedded_context,args);JS_FreeValue(embedded_context,result);
+    if(!good){JSValue error=JS_GetException(embedded_context);const char *text=JS_ToCString(embedded_context,error);say(text?text:"Invalid program; previous program kept.");JS_FreeCString(embedded_context,text);JS_FreeValue(embedded_context,error);}return good;
+}
+static void preset(int walker){remember();if(walker==3)character_car(&design);else character_preset(&design,walker);install_program_file("/usr/src/dolly/blockwalker/driver.js","Keyboard driver");selected=0;tool=SELECT;binding=-1;home_camera();changed();say(walker==3?"Starter car: Program shows its keyboard controls. Drive in world to use them.":"Walking is up to you. Test the joints, or ask Pi to learn a gait.");}
 static int candidate(Block *block){
     Vector3 normal={0};int parent=render_pick(&design,&orbit,mouse_x,mouse_y,&normal),x,y,z;
     if(parent>=0){Block b=design.blocks[parent];x=b.x+(int)roundf(normal.x);y=b.y+(int)roundf(normal.y);z=b.z+(int)roundf(normal.z);}
@@ -229,6 +237,23 @@ static void click(void){
             return;
         }
     }else if(inside(728,683,212,30)){toggle_focus();return;}
+    if(inside(254,22,90,36)){program_open=!program_open;program_line=0;library_open=prompt_focus=0;memset(keys,0,128);dirty=1;return;}
+    if(program_open){
+        if(inside(932,156,44,32))program_open=0;
+        if(inside(274,558,68,34))program_page(-20);
+        if(inside(908,558,68,34))program_page(20);
+        if(inside(650,156,124,32)){
+            JSValue program=world_view&&world_follow?world_creature_program(embedded_context,world_follow):world_program(embedded_context),value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"source"):JS_UNDEFINED;const char *source=JS_IsString(value)?JS_ToCString(embedded_context,value):NULL;
+            if(source&&SaveFileText("/workspace/character-program.js",(char *)source))system("download /workspace/character-program.js");
+            JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);JS_FreeValue(embedded_context,program);
+        }
+        if(!world_view&&inside(786,156,132,32)){
+            remove("/tmp/character-program.js");
+            if(system("upload /tmp/character-program.js")==0&&install_program_file("/tmp/character-program.js","Imported program")){world_save(embedded_context);program_line=0;say("Program imported. Drive in world to run it.");}
+            remove("/tmp/character-program.js");
+        }
+        dirty=1;return;
+    }
     if(inside(24,54,194,20)){library_open=!library_open;prompt_focus=0;memset(keys,0,128);dirty=1;return;}
     if(library_open){
         if(inside(932,156,44,32))library_open=0;
@@ -278,18 +303,21 @@ static void click(void){
     if(world_view){
         if(!agent_panel&&inside(1036,188,220,36)){drop_cargo();return;}
         if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
-        for(int i=0;i<(terrain_version?8:7);i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
+        for(int i=0;i<(terrain_version>=2?10:terrain_version?8:7);i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
             piloting=eye_view=0;
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70}};
-            const float distances[]={24,50,100,110,150,512,72,76};
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20}};
+            const float distances[]={24,50,100,110,150,512,72,76,40,38};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;
                 if(terrain_version&&i==6){orbit.target=(Vector3){-47,1,64};orbit.distance=12;orbit.yaw=PI;orbit.pitch=.12f;}
                 if(terrain_version&&i==7){orbit.target=(Vector3){-44,2,110};orbit.distance=35;orbit.yaw=.7f;orbit.pitch=.45f;}
+                if(i==8){orbit.yaw=0;orbit.pitch=.04f;}
+                if(i==9){orbit.yaw=.8f;orbit.pitch=.4f;}
+                if(i>=8)for(int j=0;j<world.count;j++){Creature *c=&world.creatures[j];if(!c->cargo&&Vector3Distance(c->physics.start,orbit.target)<30){world_list=j;world_page(0);break;}}
                 orbit_update(&orbit);dirty=1;}return;
         }
         world_page(0);
-        for(int i=0;i<8&&world_list+i<world.count;i++)if(inside(24,344+i*26,194,25)){piloting=eye_view=0;visit_creature(&world.creatures[world_list+i]);return;}
-        if(inside(24,564,40,30)){world_page(-8);return;}if(inside(178,564,40,30)){world_page(8);return;}
+        for(int i=0;i<world_rows()&&world_list+i<world.count;i++)if(inside(24,world_list_top()+i*26,194,25)){piloting=eye_view=0;visit_creature(&world.creatures[world_list+i]);return;}
+        if(inside(24,564,40,30)){world_page(-world_rows());return;}if(inside(178,564,40,30)){world_page(world_rows());return;}
         if(inside(24,612,194,28)){int result=world_save(embedded_context)?system("download /workspace/blockwalker-world.json"):-1;say(result==0?"World exported with programs and physics state.":"World export failed.");}
         if(inside(24,642,194,28))import_world();
         return;
@@ -367,13 +395,14 @@ static void append_prompt(const unsigned char *text,size_t n){
 static void events(void){
     dolly_input_event e;
     while(dolly_display_next_event(surface.generation,&e,0)>0){
-        if(e.type==DOLLY_INPUT_EVENT_FOCUS&&e.action==0){memset(keys,0,sizeof(keys));orbit_drag=camera_fast=0;dirty=1;}
+        if(e.type==DOLLY_INPUT_EVENT_FOCUS&&e.action==0){memset(keys,0,sizeof(keys));memset(world.pressed,0,sizeof(world.pressed));orbit_drag=camera_fast=0;dirty=1;}
+        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&program_open){program_page((int32_t)e.action>0?3:-3);continue;}
         if(e.type==DOLLY_INPUT_EVENT_SCROLL&&in_view()){orbit.distance=Clamp(orbit.distance+(int32_t)e.action*.00065f*fmaxf(1,orbit.distance/20),3,512);orbit_update(&orbit);}
-        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&!focus_view&&world_view&&inside(24,344,194,250))world_page((int32_t)e.action>0?3:-3);
+        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&!focus_view&&world_view&&inside(24,world_list_top(),194,594-world_list_top()))world_page((int32_t)e.action>0?3:-3);
         if(e.type==DOLLY_INPUT_EVENT_POINTER){
             mouse_x=e.width_css_px;mouse_y=e.height_css_px;
             if(e.action==DOLLY_POINTER_ACTION_PRESS){
-                if(in_view()&&((e.flags>>8)==2||(e.modifiers&DOLLY_INPUT_MOD_ALT))){orbit_drag=1;last_x=mouse_x;last_y=mouse_y;}
+                if(!program_open&&in_view()&&((e.flags>>8)==2||(e.modifiers&DOLLY_INPUT_MOD_ALT))){orbit_drag=1;last_x=mouse_x;last_y=mouse_y;}
                 else if((e.flags>>8)==0)click();
             }else if(e.action==DOLLY_POINTER_ACTION_RELEASE)orbit_drag=0;
             else if(orbit_drag){orbit.yaw-=(mouse_x-last_x)*.009f;orbit.pitch=Clamp(orbit.pitch+(mouse_y-last_y)*.008f,-1.5f,1.5f);last_x=mouse_x;last_y=mouse_y;orbit_update(&orbit);}
@@ -382,7 +411,7 @@ static void events(void){
         if(prompt_focus&&e.type==DOLLY_INPUT_EVENT_TEXT){append_prompt(e.data+e.key_length+e.code_length,e.text_length);continue;}
         if(e.type!=DOLLY_INPUT_EVENT_KEY)continue;
         if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Tab")){if(e.modifiers&DOLLY_INPUT_MOD_SHIFT)toggle_focus();else{agent_panel=!agent_panel;layout();}continue;}
-        if(library_open){if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Escape")){library_open=0;dirty=1;}continue;}
+        if(library_open||program_open){if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Escape")){library_open=program_open=0;dirty=1;}continue;}
         camera_fast=(e.modifiers&DOLLY_INPUT_MOD_SHIFT)!=0;
         if(prompt_focus){
             if(e.action==DOLLY_KEY_ACTION_RELEASE)continue;
@@ -393,7 +422,7 @@ static void events(void){
             continue;
         }
         if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Backquote")){toggle_control();continue;}
-        int k=event_letter(&e);if(k>0&&k<128){int down=e.action!=DOLLY_KEY_ACTION_RELEASE;if(physics.running&&keys[k]!=down)dirty=1;keys[k]=down;}
+        int k=event_letter(&e);if(k>0&&k<128){int down=e.action!=DOLLY_KEY_ACTION_RELEASE;if(physics.running&&keys[k]!=down)dirty=1;if(down&&!keys[k]&&(piloting||program_trial==2))world.pressed[k]=1;keys[k]=down;}
         if(e.action!=DOLLY_KEY_ACTION_PRESS)continue;
         if(dolly_raylib_code_is(&e,"Escape")){
             if(focus_view){toggle_focus();}
@@ -402,11 +431,6 @@ static void events(void){
         }
         if(world_view){
             if(dolly_raylib_code_is(&e,"Backslash"))toggle_eyes();
-            Creature *c=piloting?world_find(world.player):NULL;
-            if(c)for(int i=0;i<c->design.count;i++)if(c->design.blocks[i].joint==BLOCK_MAGNET){
-                if(k==c->design.blocks[i].positive)c->physics.parts[i].magnet_power=1;
-                if(k==c->design.blocks[i].negative)c->physics.parts[i].magnet_power=0;
-            }
             if(!piloting&&k=='H')home_camera();if(k=='C')drop_cargo();continue;
         }
         if(binding>=0&&selected>=0){
@@ -458,6 +482,7 @@ static void draw_ui(void){
     else snprintf(text,sizeof(text),"%d PARTS / %d JOINTS",design.count,joints);label(472,32,text,15,muted);
     if(!world_view)button(472,54,208,20,practice_sea?"Test surface: water":"Test surface: ground",practice_sea);
     button(352,22,104,36,world_view?"Workshop":"World",world_view);button(712,22,80,36,"Pi [Tab]",agent_panel);
+    button(254,22,90,36,"Program",program_open);
     button(1052,18,204,44,(physics.running||world_view)?"Back to builder":"Test character  >",1);
     const char *views[]={"< Left","Right >","Up","Down","Home"};
     for(int i=0;i<5;i++)button(254+i*88,92,80,34,views[i],0);
@@ -466,13 +491,13 @@ static void draw_ui(void){
     label(262,647,piloting?text:world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay"};
-        for(int i=0;i<(terrain_version?8:7);i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
-        label(24,316,"CREATURES / click to follow",14,muted);
-        world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-8));
-        for(int i=0;i<8&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,344+i*26,text,14,c->id==world_follow?accent:c->team?block_colors[c->team==1?0:1]:ink);}
+        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch"};
+        for(int i=0;i<(terrain_version>=2?10:terrain_version?8:7);i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
+        label(24,world_list_top()-28,"CREATURES / click to follow",14,muted);
+        world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-world_rows()));
+        for(int i=0;i<world_rows()&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,world_list_top()+i*26,text,14,c->id==world_follow?accent:c->team?block_colors[c->team==1?0:1]:ink);}
         button(24,564,40,30,"<",0);button(178,564,40,30,">",0);
-        snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+8,world.count),world.count);label(74,572,text,14,muted);
+        snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+world_rows(),world.count),world.count);label(74,572,text,14,muted);
         button(24,612,194,28,"Export world",0);button(24,642,194,28,"Import world",0);
         if(!agent_panel){
             label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?movement:"Drops at the camera target.",14,muted);if(piloting)label(1036,168,magnets,14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
@@ -551,6 +576,17 @@ static void draw_ui(void){
             else snprintf(text,sizeof(text),"%+.0f deg",part->angle*RAD2DEG);
             label(1072,y+44,text,14,muted);row++;}
         if(joints>7){button(1036,616,56,32,"<",0);button(1200,616,56,32,">",0);snprintf(text,sizeof(text),"%d-%d / %d",control_page+1,(int)fminf(control_page+7,joints),joints);label(1100,626,text,14,muted);}
+    }
+    if(program_open){
+        DrawRectangle(254,142,742,470,paper);DrawRectangleLinesEx((Rectangle){254,142,742,470},2,line);
+        label(274,164,"EMBEDDED PROGRAM",19,ink);button(650,156,124,32,"Export source",0);if(!world_view)button(786,156,132,32,"Import source",0);button(932,156,44,32,"X",0);
+        JSValue program=world_view&&world_follow?world_creature_program(embedded_context,world_follow):world_program(embedded_context),value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"source"):JS_UNDEFINED;const char *source=JS_IsString(value)?JS_ToCString(embedded_context,value):NULL;int row=0;
+        if(source)for(const char *p=source;*p;row++){
+            char text[87];int n=0;while(*p&&*p!='\n'&&n<86)text[n++]=*p++;text[n]=0;if(*p=='\n')p++;
+            if(row>=program_line&&row<program_line+20)label(274,202+(row-program_line)*17,text,14,ink);
+        }
+        program_lines=row;if(!source)label(274,202,"No embedded program.",16,muted);JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);JS_FreeValue(embedded_context,program);
+        button(274,558,68,34,"<",0);button(908,558,68,34,">",0);label(366,568,"Saved with the design / import edited source",14,muted);
     }
     if(library_open){
         DrawRectangle(254,142,742,470,paper);DrawRectangleLinesEx((Rectangle){254,142,742,470},2,line);
@@ -709,10 +745,10 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
 }
 static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv) {
     double now=seconds(),dt=fmin(now-last_frame,.1);last_frame=now;events();if(stopping)return JS_FALSE;move_camera(dt);
-    Creature *player=world_find(world.player);if(player){
-        memset(player->controls,0,sizeof(player->controls));
-        if(piloting&&!prompt_focus){for(int i=1;i<128;i++)player->controls[i]=keys[i];vehicle_controls(&player->design,player->controls,keys['W']-keys['S'],keys['D']-keys['A']);}
-    }
+    world.driving=piloting;memset(world.input,0,sizeof(world.input));
+    if((!piloting&&program_trial!=2)||prompt_focus||program_open||library_open)memset(world.pressed,0,sizeof(world.pressed));
+    if((piloting||(program_trial==2&&agent_control))&&!prompt_focus&&!program_open&&!library_open)memcpy(world.input,keys,sizeof(keys));
+    Creature *player=world_find(world.player);if(player&&!piloting)memset(player->controls,0,sizeof(player->controls));
     int previous_deliveries=world.delivery_count;
     world_accumulator+=dt;for(int i=0;i<6&&world_accumulator>=1./60;i++){world_step();world_accumulator-=1./60;}
     for(int i=previous_deliveries;i<world.delivery_count;i++)if(world.deliveries[i].carrier==-1){char text[160];snprintf(text,sizeof(text),"Cargo delivered at %s. Your total: %d.",depots[world.deliveries[i].depot].name,world_cargo_score(-1));say(text);}
@@ -735,6 +771,7 @@ static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst
 }
 static int game_initialize(JSContext *ctx) {
     embedded_context=ctx;world_load(ctx);
+    JSValue program=world_program(ctx);if(JS_IsNull(program))install_program_file("/usr/src/dolly/blockwalker/driver.js","Keyboard driver");JS_FreeValue(ctx,program);
     JSValue global=JS_GetGlobalObject(ctx),game=JS_NewObject(ctx);
     JS_SetPropertyStr(ctx,game,"call",JS_NewCFunction(ctx,game_call,"call",2));
     JS_SetPropertyStr(ctx,game,"frame",JS_NewCFunction(ctx,game_frame,"frame",0));

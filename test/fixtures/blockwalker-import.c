@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <sys/stat.h>
 
+static void drive(const Character *c,float controls[128],float throttle){for(int i=0;i<c->count;i++){Block b=c->blocks[i];if(b.joint==BLOCK_WHEEL){controls[b.positive]=fmaxf(0,throttle);controls[b.negative]=fmaxf(0,-throttle);}}}
 static void ok(JSContext *ctx,JSValue result){
     if(JS_IsException(result)){JSValue error=JS_GetException(ctx);const char *text=JS_ToCString(ctx,error);fprintf(stderr,"IMPORT CHECK: %s\n",text);JS_FreeCString(ctx,text);JS_FreeValue(ctx,error);assert(0);}JS_FreeValue(ctx,result);
 }
@@ -34,8 +35,8 @@ int main(int argc,char **argv){
     ok(ctx,world_import_design(ctx,&copy,&sea,"/workspace/manual-design.json"));assert(!installed&&!sea);install(ctx);assert(character_save(&car,"/workspace/legacy.character"));ok(ctx,world_import_design(ctx,&copy,&sea,"/workspace/legacy.character"));assert(!installed&&copy.count==car.count);
     character_clear(&copy);install(ctx);
     Creature *driver=spawn(&car,"function(t,s,m){m.calls=(m.calls||0)+1;return ''}","Carrier",2,60,0,12);int id=driver->id;world.player=id;
-    int cargo=world_drop_cargo(0,NAN,16.5f,MATERIAL_ALLOY);ticks(90);driver=world_find(id);driver->physics.parts[8].magnet_power=1;vehicle_controls(&car,driver->controls,1,0);
-    int steps=0;while(b3Body_GetPosition(world_find(cargo)->physics.parts[0].body).z<30&&steps++<1200)world_step();assert(steps<1200);vehicle_controls(&car,world_find(id)->controls,0,0);ticks(120);
+    int cargo=world_drop_cargo(0,NAN,16.5f,MATERIAL_ALLOY);ticks(90);driver=world_find(id);driver->physics.parts[8].magnet_power=1;drive(&car,driver->controls,1);
+    int steps=0;while(b3Body_GetPosition(world_find(cargo)->physics.parts[0].body).z<30&&steps++<1200)world_step();assert(steps<1200);drive(&car,world_find(id)->controls,0);ticks(120);
     assert(world_find(cargo)->held_by==id);roundtrip(ctx,"/workspace/loaded-world.json");assert(world_find(cargo)->held_by==id&&b3Body_IsValid(world_find(id)->physics.parts[8].magnet_target));
     for(int fault=0;fault<7;fault++){
         JSValue bad=read_json(ctx,"/workspace/loaded-world.json"),list=JS_GetPropertyStr(ctx,bad,"creatures"),first=JS_GetPropertyUint32(ctx,list,0),second=JS_GetPropertyUint32(ctx,list,1);
@@ -54,8 +55,8 @@ int main(int argc,char **argv){
         JSValue result=world_import(ctx,"/workspace/loaded-world.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));JS_FreeValue(ctx,result);
         assert(world.creatures==before.creatures&&world.count==before.count&&world.age==before.age&&world_find(cargo)->held_by==id);remove(blocked[i]);
     }
-    driver=world_find(id);vehicle_controls(&car,driver->controls,.65f,0);steps=0;while(b3Body_GetPosition(world_find(cargo)->physics.parts[0].body).z<33.7f&&steps++<600)world_step();assert(steps<600);
-    vehicle_controls(&car,world_find(id)->controls,0,0);ticks(120);world_find(id)->physics.parts[8].magnet_power=0;ticks(180);assert(world.delivery_count==1&&world_cargo_score(-1)==1);
+    driver=world_find(id);drive(&car,driver->controls,.65f);steps=0;while(b3Body_GetPosition(world_find(cargo)->physics.parts[0].body).z<33.7f&&steps++<600)world_step();assert(steps<600);
+    drive(&car,world_find(id)->controls,0);ticks(120);world_find(id)->physics.parts[8].magnet_power=0;ticks(180);assert(world.delivery_count==1&&world_cargo_score(-1)==1);
     roundtrip(ctx,"/workspace/delivered-world.json");assert(world.delivery_count==1&&world_cargo_score(-1)==1);ticks(120);assert(world.delivery_count==1);
     JSValue duplicate=read_json(ctx,"/workspace/delivered-world.json"),deliveries=JS_GetPropertyStr(ctx,duplicate,"deliveries"),delivery=JS_GetPropertyUint32(ctx,deliveries,0);JS_SetPropertyUint32(ctx,deliveries,1,delivery);JS_FreeValue(ctx,deliveries);reject_world(ctx,duplicate);
     if(argc==2){

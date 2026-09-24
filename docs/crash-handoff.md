@@ -5,6 +5,21 @@ Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 checkpoint branches remain preserved. Do not modify the parent worktree or
 other agents' previews.
 
+The [cave/embedded-driver checkpoint](../tasks/20260924-185000-codex-01/TASK.md)
+is complete: 70 original objects, 51 designs, terrain 2, and a visible generic
+keyboard program instead of the C driver helper. Image 27 is 232415220 bytes,
+SHA-256 `6aded83091091923b17fc999832c82fe4157f16f6d21b9e3fdb8f4ca9a6ad82c`;
+source archive `0f9289f5e3efdf2ead04633759effaaf048759cce7578385b40eb33684800a84`.
+Chrome/Firefox, physical driver input/edit/restore, long population runs and
+controller budget evidence are linked from that task.
+
+The active [overnight goal](../tasks/20260924-211600-codex-01/TASK.md) continues
+through September 25, 2026, 07:00 JST (September 24, 22:00 UTC): retained cargo,
+more physical handoffs/terrain, red/blue teams, sabotage and defense, and fallen
+machines that remain and can recover. Every character's behavior must be a
+visible embedded program using common sensors and actuators; no per-character
+engine helpers. Start from this tested checkpoint. Lua/YAML remains separate.
+
 The September 24 [playground checkpoint](../tasks/20260923-213000-codex-01/TASK.md)
 records the packaged image, source revision and measured limits. Its
 [island competition](../tasks/20260924-074500-codex-01/TASK.md) adds

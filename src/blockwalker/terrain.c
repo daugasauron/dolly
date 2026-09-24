@@ -150,16 +150,79 @@ static const TerrainBox industrial_boxes[]={
     {{143,-5,41.5f},{3,7,14.5f},1},
     {{138,-6,41.5f},{2,6,14.5f},1},
 };
-enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes) };
-int terrain_version=1,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
-int terrain_depot_count(int version){return version==1?sizeof(depots)/sizeof(*depots):3;}
+static const TerrainBox mine_boxes[]={
+    /* Keep a flooded sump beside the dry haul road. */
+    {{-55,-6,0},{1,6,100},0},
+    {{-60,-6,-91},{4,6,9},0},
+    {{-60,-6,18},{4,6,82},0},
+    /* Stepped rock shell, with a broad southern entrance. */
+    {{-74,7,-90},{23,7,3},8},
+    {{-96,7,-66},{3,7,24},8},
+    {{-52,7,-66},{3,7,24},8},
+    {{-89,7,-42},{7,7,3},8},
+    {{-59,7,-42},{7,7,3},8},
+    {{-74,11,-68},{19,2,19},8,1},
+    {{-76,14,-70},{16,1,15},8,1},
+    {{-80,16,-73},{11,1,10},8,1},
+    {{-85,18,-78},{5,1,5},8,1},
+    {{-90,3,-84},{1.4f,3,1.5f},8},
+    {{-90,7,-84},{2,1.5f,2},8},
+    {{-87,8,-68},{1.3f,1.2f,1.5f},8,1},
+    {{-81,8.2f,-84},{1.5f,.8f,1.2f},8,1},
+    {{-57,8.3f,-61},{1.2f,.7f,1.5f},8,1},
+    {{-91,1,-72},{1.5f,1,2},8},
+    {{-83,5,-36},{2,5,6},8},
+    {{-65,5,-36},{2,5,6},8},
+    {{-74,7,-36},{7,1,7},8,1},
+    /* Worn portal, steel ribs, pipes and a side workshop. */
+    {{-81,3,-32},{.35f,3,.4f},4},
+    {{-67,3,-32},{.35f,3,.4f},4},
+    {{-74,6,-32},{7.35f,.35f,.4f},4,1},
+    {{-74,5.5f,-31.55f},{2.5f,.25f,.08f},6,1},
+    {{-91,4.5f,-53},{.3f,4.5f,.4f},4},
+    {{-57,4.5f,-53},{.3f,4.5f,.4f},4},
+    {{-74,8.7f,-53},{17,.3f,.4f},4,1},
+    {{-91,4.5f,-76},{.3f,4.5f,.4f},4},
+    {{-57,4.5f,-76},{.3f,4.5f,.4f},4},
+    {{-74,8.7f,-76},{17,.3f,.4f},4,1},
+    {{-90,7.5f,-68},{.45f,.45f,17},4,1},
+    {{-89,7.5f,-51},{1.4f,.45f,.45f},4,1},
+    {{-88,1.5f,-57},{4,1.5f,2},5},
+    {{-89,4,-57},{1,.8f,1},4},
+    {{-85,3.5f,-57},{1,.5f,1},6},
+    {{-90,4.5f,-65},{.12f,.8f,1.2f},9},
+    {{-58,4.5f,-59},{.12f,.8f,1.2f},9},
+    {{-81,4.5f,-35},{.12f,.65f,.8f},6},
+    {{-67,4.5f,-35},{.12f,.65f,.8f},6},
+    {{-85,2,-83.9f},{2.5f,2,.5f},9},
+    /* Sump edges leave room for the inspection float and salvage tools. */
+    {{-64.4f,.35f,-73},{.25f,.35f,8},6},
+    {{-55.6f,.35f,-73},{.25f,.35f,8},6},
+    {{-60,.35f,-82.4f},{4,.35f,.25f},6},
+    {{-60,.35f,-63.6f},{4,.35f,.25f},6},
+    {{-60,-8,-78},{3.5f,4,1.8f},8},
+    /* The open dispatch court is visible to both teams' scouts. */
+    {{-79,.4f,-25},{.3f,.4f,.3f},6},
+    {{-69,.4f,-25},{.3f,.4f,.3f},6},
+    {{-79,.4f,-15},{.3f,.4f,.3f},6},
+    {{-69,.4f,-15},{.3f,.4f,.3f},6},
+    {{-89,2.5f,-23},{3,2.5f,5},5},
+    {{-88,5.3f,-23},{4,.3f,6},4,1},
+    {{-85.95f,3,-21},{.04f,.8f,1.5f},6},
+    {{-87,7,-25},{.4f,1.4f,.4f},4},
+};
+enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes) };
+int terrain_version=2,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
+int terrain_depot_count(int version){return version?sizeof(depots)/sizeof(*depots):3;}
 void terrain_select(int version){
-    terrain_version=version==1;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0);depot_count=terrain_depot_count(version);
+    terrain_version=version>=0&&version<=2?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
 }
 TerrainBox terrain_box(int index){
+    if(terrain_version>=2&&index==1)return (TerrainBox){{-82,-6,0},{18,6,100},0};
     if(terrain_version&&index==1)return (TerrainBox){{-77,-6,0},{23,6,100},0};
     if(terrain_version&&(index==8||index==9))return (TerrainBox){{index==8?143:138,index==8?-5:-6,12.5f},{index==8?3:2,index==8?7:6,8.5f},1};
-    return index<ORIGINAL_BOX_COUNT?original_boxes[index]:industrial_boxes[index-ORIGINAL_BOX_COUNT];
+    if(index<ORIGINAL_BOX_COUNT)return original_boxes[index];
+    index-=ORIGINAL_BOX_COUNT;return index<INDUSTRIAL_BOX_COUNT?industrial_boxes[index]:mine_boxes[index-INDUSTRIAL_BOX_COUNT];
 }
 float terrain_height(float x,float z){
     float height=-100;
@@ -175,6 +238,15 @@ float terrain_floor(Vector3 position){
 }
 float water_height(float x,float z,double time){
     return WATER_LEVEL+.10f*sinf(x*.22f+z*.13f-time*1.3)+.06f*sinf(z*.31f-x*.09f+time*.9);
+}
+static int water_blocked(b3Pos point){
+    static TerrainBox barriers[ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT];static int version=-1,count;
+    if(version!=terrain_version){
+        version=terrain_version;count=0;
+        for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);if(b.center.y-b.half.y<=WATER_LEVEL+.2f&&b.center.y+b.half.y>=WATER_LEVEL-.2f)barriers[count++]=b;}
+    }
+    for(int i=0;i<count;i++){TerrainBox b=barriers[i];if(fabsf(point.x-b.center.x)<=b.half.x&&fabsf(point.z-b.center.z)<=b.half.z&&point.y>=b.center.y-b.half.y&&point.y<=b.center.y+b.half.y)return 1;}
+    return 0;
 }
 void terrain_build(b3WorldId world){
     b3ShapeDef shape=b3DefaultShapeDef();shape.baseMaterial.friction=.85f;
@@ -196,7 +268,7 @@ static void water_body(PhysicsPart *part,Block block,double time){
     for(int sample=0;sample<8;sample++){
         b3Vec3 local={(sample&1?.5f:-.5f)*half.x,(sample&2?.5f:-.5f)*half.y,(sample&4?.5f:-.5f)*half.z};
         b3Pos point=b3TransformWorldPoint(transform,local);float surface=water_height(point.x,point.z,time);
-        if(terrain_floor((Vector3){point.x,surface,point.z})>=surface)continue;
+        if(water_blocked((b3Pos){point.x,surface,point.z}))continue;
         float submerged=Clamp(.5f+(surface-point.y)/slice_height,0,1),displaced=volume*submerged/8;
         part->submerged+=submerged/8;if(displaced==0)continue;
         b3Vec3 velocity=b3Body_GetWorldPointVelocity(part->body,point);

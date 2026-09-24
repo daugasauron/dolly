@@ -67,7 +67,6 @@ void physics_stop(Physics *p);
 void physics_step(Physics *p,const Character *c,const unsigned char keys[128]);
 void physics_pose(const Physics *p,const Character *c,int i,Vector3 *position,Quaternion *rotation);
 int physics_eyes(const Physics *p,const Character *c,Vector3 *position,Vector3 *forward,Vector3 *up);
-void vehicle_controls(const Character *c,float controls[128],float throttle,float steering);
 void physics_add_cargo(Physics *p,Vector3 position,int material);
 void magnet_drive(Physics *p,int index,Block block,float on,float off);
 int character_check(void);

@@ -13,7 +13,7 @@ typedef struct {
     int team;
     int cargo,carrier,held_by,delivered,supply,parachute;float settled;Vector3 pickup;
 } Creature;
-typedef struct {Creature *creatures;int count,capacity,next_id,deaths,player;double age;b3WorldId physics;SavedDesign *designs;int design_count,design_capacity;Removal *removals;int removal_count,removal_capacity;Delivery *deliveries;int delivery_count,delivery_capacity;RadioMessage radio[RADIO_CAPACITY];int radio_count;unsigned supply_seed;double next_parcel,next_ore;} World;
+typedef struct {Creature *creatures;int count,capacity,next_id,deaths,player,driving;unsigned char input[128],pressed[128];double age;b3WorldId physics;SavedDesign *designs;int design_count,design_capacity;Removal *removals;int removal_count,removal_capacity;Delivery *deliveries;int delivery_count,delivery_capacity;RadioMessage radio[RADIO_CAPACITY];int radio_count;unsigned supply_seed;double next_parcel,next_ore,next_mine;} World;
 extern World world;
 JSValue character_json(JSContext *ctx,const Character *c);
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt);
@@ -21,6 +21,7 @@ int character_from_json(JSContext *ctx,JSValueConst list,Character *c);
 JSValue world_state(JSContext *ctx);
 JSValue world_install(JSContext *ctx,JSValueConst args);
 JSValue world_program(JSContext *ctx);
+JSValue world_creature_program(JSContext *ctx,int id);
 JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args);
 JSValue world_designs(JSContext *ctx,int full);
 JSValue world_open_design(JSContext *ctx,int index,Character *design);

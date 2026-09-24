@@ -121,12 +121,6 @@ void character_car(Character *c){
     int magnet=character_add(c,front,0,1,2,BLOCK_MAGNET,1);c->blocks[magnet].negative='Q';c->blocks[magnet].positive='E';
     for(int i=0;i<c->count;i++)c->blocks[i].finish=i==magnet?FINISH_STRIPE:FINISH_PANEL;
 }
-void vehicle_controls(const Character *c,float controls[128],float throttle,float steering){
-    for(int i=0;i<c->count;i++)if(c->blocks[i].joint==BLOCK_WHEEL&&c->blocks[i].axis==0){
-        Block b=c->blocks[i];float side=b.x<c->blocks[0].x?-1:1,value=Clamp(throttle-steering*side,-1,1);
-        if(b.negative)controls[b.negative]=fmaxf(0,-value);if(b.positive)controls[b.positive]=fmaxf(0,value);
-    }
-}
 int character_save(const Character *c,const char *path) {
     if(!character_validate(c))return 0;
     char tmp[256];if(snprintf(tmp,sizeof(tmp),"%s.tmp",path)>=(int)sizeof(tmp))return 0;
@@ -379,11 +373,11 @@ static void playground_check(void){
     assert(c.count==9&&character_validate(&c));assert(character_save(&c,"/tmp/blockwalker-car.character"));
     assert(character_load(&loaded,"/tmp/blockwalker-car.character")&&loaded.count==9&&loaded.blocks[7].joint==BLOCK_EYES);
     character_clear(&loaded);remove("/tmp/blockwalker-car.character");physics_start(&p,&c);
-    vehicle_controls(&c,controls,1,0);
+    for(int i=3;i<7;i++)controls[c.blocks[i].positive]=1;
     for(int i=0;i<180;i++){physics_drive(&p,&c,controls);b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);}
     Vector3 straight,turned,eye,forward,up;Quaternion q;physics_pose(&p,&c,0,&straight,&q);
     assert(straight.z>5&&Vector3RotateByQuaternion((Vector3){0,1,0},q).y>.9f);
-    vehicle_controls(&c,controls,.55f,.7f);
+    memset(controls,0,sizeof(controls));for(int i=3;i<7;i++){Block b=c.blocks[i];controls[b.x<0?b.positive:b.negative]=b.x<0?1:.15f;}
     for(int i=0;i<180;i++){physics_drive(&p,&c,controls);b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);}
     physics_pose(&p,&c,0,&turned,&q);assert(physics_eyes(&p,&c,&eye,&forward,&up)==7);
     Vector3 mount;Quaternion eye_rotation;physics_pose(&p,&c,7,&mount,&eye_rotation);
