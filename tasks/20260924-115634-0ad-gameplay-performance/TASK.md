@@ -120,3 +120,16 @@ Both processes have clean engine logs and pass selection/movement, economy,
 Petra, quick-save/load, sound, opaque presentation and shell recovery. Evidence:
 `.cache/0ad/full-content-gameplay-firefox.log`. Cold selection UI still needs
 profiling; none of these changes has been published to the user preview yet.
+
+Release acceptance initially failed because the inventory harness exited the
+interactive shell that the new game launcher already supplies. The harness now
+handles the game's exit shortcut and existing launcher shell; the real in-Wasm
+inventory check passes: `.cache/0ad/zero-ad-inventory-recovery.log`.
+
+Native profiler captures found a cold selection frame at 118.9 ms: GUI update
+57.5 ms and GUI rendering 47.7 ms. A separate 105 ms pause in audio status was
+caused by transferring accumulated browser telemetry between measured stages;
+deferring those transfers removed that pause. Native audio mixing/refill did
+not account for it. Selection measurement now includes time after mouse release;
+profiling continues before changing engine behavior. Evidence:
+`.cache/0ad/selection-deep-{audio,quiet}-firefox-profile2.jsonp`.

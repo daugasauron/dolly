@@ -1282,6 +1282,16 @@ async function runGraphicsProof(send, phone = false) {
 }
 
 async function enterRecoveryShell(send) {
+  if (selectedImage === "zero-ad") {
+    const state = await waitForValue(send, `(async () => window.__dolly?.graphicsActive ? "game" :
+      /(?:^|\\n)dolly:[^\\n]*\\$\\s*$/.test(await window.__dolly?.visibleTerminalText() ?? "") ? "shell" : "")()`,
+      Boolean, "0 A.D. game or launcher shell", 1200);
+    if (state === "game") {
+      await dispatchKey(send, { key: "F10", code: "F10", modifiers: 2, windowsVirtualKeyCode: 121 });
+    }
+    return evaluate(send,
+      `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "0 A.D. launcher shell")`);
+  }
   if (selectedImage === "rts-arena") {
     await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Type to search/, "RTS launcher")`);
     await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
