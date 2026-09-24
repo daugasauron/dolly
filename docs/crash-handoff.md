@@ -10,6 +10,10 @@ September 24, 2026, 18:00 JST. The current content direction and latest measured
 checkpoint are in the [island competition task](../tasks/20260924-074500-codex-01/TASK.md):
 industrial terrain, team scouts, replenished cargo, cranes and boats. Keep the
 working walkers. The Lua/YAML migration is a separate task.
+Long-run follow-ups are the [loading quay](../tasks/20260924-132300-codex-01/TASK.md)
+and [Amberguard navigation](../tasks/20260924-132700-codex-01/TASK.md). Their issues
+record saved failure states and verification; experimental controllers under
+`build/` are not automatically the packaged catalog.
 
 The owned preview is `http://127.0.0.1:9099/blockwalker/`, managed by user service
 `dolly-blockwalker-preview-20260924.service`. The owned relay listens on 9010.
