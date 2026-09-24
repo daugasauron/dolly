@@ -1,6 +1,37 @@
 #include "world.c"
 #include <assert.h>
 
+static int crowded_cranes;
+static int crowd_crane(JSContext *ctx,int tick){
+    static int active,start,mask,cargo,clutter[13];
+    if(!active)for(int i=0;i<3;i++){
+        Creature *c=world_find(i?i+5:3);assert(c);
+        JSValue label=JS_GetPropertyStr(c->controller->ctx,c->controller->memory,"phase");const char *phase=JS_ToCString(c->controller->ctx,label);
+        int ready=!(crowded_cranes&(1<<i))&&phase&&!strcmp(phase,"settle");JS_FreeCString(c->controller->ctx,phase);JS_FreeValue(c->controller->ctx,label);
+        if(!ready)continue;
+        active=c->id;start=tick;mask=1<<i;cargo=get_number(c->controller->ctx,c->controller->memory,"job",0);assert(magnet_holds(c,world_find(cargo)));
+        b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);
+        for(int j=0;j<13;j++)clutter[j]=world_drop_cargo(p.x+.2f,80+j*2,p.z+.2f,MATERIAL_ALLOY);
+        break;
+    }
+    if(!active)return 0;
+    Creature *c=world_find(active);assert(c&&magnet_holds(c,world_find(cargo)));
+    if(tick>start+2){
+        JSValue sensors=physics_sensors(ctx,&c->physics,&c->design,1./30),nearby=JS_GetPropertyStr(ctx,sensors,"nearby");
+        for(int i=0;i<get_number(ctx,nearby,"length",0);i++){JSValue item=JS_GetPropertyUint32(ctx,nearby,i);assert(get_number(ctx,item,"id",0)!=cargo);JS_FreeValue(ctx,item);}
+        JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
+        for(int i=1;i<c->design.count;i++)if(block_controlled(c->design.blocks[i])&&c->design.blocks[i].joint!=BLOCK_MAGNET)assert(fabsf(c->physics.parts[i].command)<.00001f);
+    }
+    if(tick==start+60){assert(world_save(ctx));world_close();world_load(ctx);return 1;}
+    if(tick==start+120){
+        for(int j=0;j<13;j++)for(int i=0;i<world.count;i++)if(world.creatures[i].id==clutter[j]){
+            Creature *c=&world.creatures[i];physics_stop(&c->physics);character_clear(&c->design);controller_free(c->controller);world.creatures[i]=world.creatures[--world.count];break;
+        }
+        printf("CRANE %d retained pallet %d through missing observations and reload\n",active,cargo);crowded_cranes|=mask;active=0;
+    }
+    return 0;
+}
+
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);terrain_select(1);
     const char *names[]={"Foundry / twin-ram ore lift","Foundry / telescopic hauler","Quay / loading crane","Freighter East / island barge","Freighter West / island barge","East / receiving crane","West / receiving crane"};
@@ -15,10 +46,11 @@ int main(void){
     int stages[128]={0},teams[128]={0},restarts=0;float minimum_up=1,separation=0;double progress=0;
     for(int tick=0;tick<1800*60;tick++){
         world_step();if(world.deaths)break;
+        restarts+=crowd_crane(ctx,tick);
         for(int i=0;i<world.count;i++){
             Creature *c=&world.creatures[i];separation=fmaxf(separation,c->physics.max_separation);
             if(c->id==4||c->id==5)minimum_up=fminf(minimum_up,b3RotateVector(b3Body_GetRotation(c->physics.parts[0].body),b3Vec3_axisY).y);
-            if(!c->cargo)continue;assert(c->id<128);int id=c->id,carrier=c->held_by,previous=stages[id];
+            if(c->supply!=2)continue;assert(c->id<128);int id=c->id,carrier=c->held_by,previous=stages[id];
             if(carrier==1)stages[id]|=1;
             if(carrier==2){assert(stages[id]&1);stages[id]|=2;}
             if(carrier==3){assert(stages[id]&2);stages[id]|=4;}
@@ -31,7 +63,7 @@ int main(void){
     }
     assert(world_save(ctx));
     printf("FREIGHT: %.3f seconds, East %d / West %d, %d reloads, %d removals, minimum barge up %.5f, maximum joint separation %.5f\n",world.age,world_team_score(1),world_team_score(2),restarts,world.deaths,minimum_up,separation);fflush(stdout);
-    assert(world_team_score(1)>=16&&world_team_score(2)>=16&&restarts&&!world.deaths&&minimum_up>.9f&&separation<.12f);
+    assert(world_team_score(1)>=16&&world_team_score(2)>=16&&restarts&&!world.deaths&&minimum_up>.9f&&separation<.12f&&crowded_cranes==7);
     for(int i=0;i<world.delivery_count;i++){
         Delivery *d=&world.deliveries[i];assert(d->cargo<128&&stages[d->cargo]==31&&d->points==8&&depots[d->depot].team==teams[d->cargo]);
         printf("PALLET %d: lift / hauler / loading crane / team %d barge / receiving crane / scored at %.3f seconds\n",d->cargo,teams[d->cargo],d->time);

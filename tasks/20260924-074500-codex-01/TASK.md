@@ -148,5 +148,14 @@ one-line GPU-provider change improves that virtual-display case to 55 FPS while
 preserving normal desktop performance and GPU validation. See the closed
 [GPU wait task](../20260924-113600-codex-01/TASK.md).
 
-Remaining: run the repaired full population with varied routes. Preserve the original learned session and complete native Pi
-history. This task stays open until the combined trial passes.
+`build/blockwalker-competition-population-repaired-7.log` passes the combined
+trial with a different route seed: 1200 simulated seconds, six process/world
+reloads, all 60 original objects intact, zero removals, 22 deliveries, East 21 /
+West 10. Three heavy pallets traverse all five carriers in order and score;
+the fourth is aboard the west barge. Both air couriers deliver scout-reported
+parcels. Minimum barge up is 0.94939 East / 0.95706 West.
+
+A targeted crowded-sensor check then exposed a loading-crane controller error;
+the [recovery task](../20260924-120900-codex-01/TASK.md) records the reproduction.
+Keep this task open until that confirmed failure is repaired and packaged.
+Preserve the original learned session and complete native Pi history.
