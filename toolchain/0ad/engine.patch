@@ -2445,7 +2445,7 @@
 +    dolly_gpu_begin(queue.gpu.get());
 +    capabilities.maxTextureSize=8192;capabilities.maxSampleCount=1;capabilities.maxAnisotropy=1;capabilities.instancing=true;
 +    presentVS=queue.Shader("@vertex fn main(@builtin(vertex_index) i:u32)->@builtin(position) vec4f {let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1);}");
-+    presentFS=queue.Shader("@group(0) @binding(0) var image:texture_2d<f32>; @fragment fn main(@builtin(position) p:vec4f)->@location(0) vec4f {return textureLoad(image,vec2i(p.xy),0);}");
++    presentFS=queue.Shader("@group(0) @binding(0) var image:texture_2d<f32>; @fragment fn main(@builtin(position) p:vec4f)->@location(0) vec4f {return vec4f(textureLoad(image,vec2i(p.xy),0).rgb,1);}");
 +    presentPipeline=queue.New();void* p=queue.Record(DOLLY_GPU_GRAPHICS_PIPELINE,112);
 +    U64(p,8,presentPipeline);U64(p,16,presentVS);U64(p,24,presentFS);U32(p,52,8);U32(p,72,15);U32(p,84,1);U32(p,96,1);
 +    OnWindowResize(w,h);

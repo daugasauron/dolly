@@ -11,7 +11,7 @@ assert.ok(['default','zero-ad'].includes(image) && ['hardware','software'].inclu
   'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox]');
 assert.ok(['chromium','firefox'].includes(browserName) && (browserName==='chromium'||backend==='hardware'));
 await mkdir(output,{recursive:true});
-let provider=(await readFile(new URL('src/gpu-worker.mjs',root),'utf8'))
+let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFile(new URL('src/gpu-worker.mjs',root),'utf8'))
   .replace('stats:{...stats,allocatedBytes:usedBytes}',
     'stats:{...stats,allocatedBytes:usedBytes,frameTime:performance.now(),gpuTotalMs:scope.gpuTotalMs}');
 if(backend==='software')provider=provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true');
@@ -152,6 +152,8 @@ try {
   const frameMilliseconds=(performance.now()-time)/((await frames())-before);
   const combatFrameTimings=await frameTimings();
   const gpu=await page.evaluate(()=>__dolly.gpu);
+  assert.ok(gpu.surfaceAlpha?.width>0,'Presented frame alpha was not observed');
+  assert.equal(gpu.surfaceAlpha.nonOpaquePixels,0,'The game window must not expose the terminal through scene alpha');
   const combatAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
   await stop();
   const warnings=await download('/opt/0ad/logs/interestinglog.html','graphics-warnings.html');
@@ -198,7 +200,7 @@ try {
   console.log(JSON.stringify({image,backend,browserName,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),combatFrameTimings,economyFrameTimings,allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
-    economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,
+    economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,opaquePresentation:gpu.surfaceAlpha,
     combatAudio,economyAudio}));
 } catch(error) {
   if(page && !page.isClosed()) {

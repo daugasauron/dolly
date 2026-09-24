@@ -43,9 +43,17 @@ and close/restart without duplicate credits. Existing texture/depth/indexed,
 Chrome/SwiftShader and Firefox hardware. Evidence:
 `.cache/0ad/retirement-gpu{,-firefox}-proof.log`.
 
-The user confirms text shows through during normal play. Initial 1024x768
-Firefox screenshots over a magenta underlay show no visible leakage; investigate
-the installed Firefox 155.0.1 and different display sizes/scales next.
+The user confirms text shows through during normal play. Browser screenshots
+hide the problem, but X11 captures of installed Firefox 155.0.1 show the striped
+test background blending through terrain. The final presentation shader now
+writes alpha 1. The checked actual-window region changes from 25,828 magenta
+pixels to zero. A real-GPU readback before browser compositing detects 421,479
+non-opaque pixels in the old engine and zero in the fixed engine. Evidence:
+`.cache/0ad/browser/native-firefox{,-opaque}-window.png`,
+`.cache/0ad/opacity-baseline.log`, `.cache/0ad/opaque-gameplay-firefox.log`.
+The complete Firefox gameplay test passes: combat mean/p99/max 12.5/31.4/41.5 ms,
+economy 10.1/34.9/178.5 ms; input, AI, training, construction, audio, save/load,
+fresh processes and shell recovery pass. Cold UI loading still needs work.
 The content package contains only two map closures and Athens, while the menu
 exposes broader choices. All upstream assets recompress losslessly to about
 1.79 GB, above the current 1 GiB snapshot limit; measure packaging/memory options
