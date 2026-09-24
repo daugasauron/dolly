@@ -456,6 +456,8 @@ static void events(void){
 static void cargo_status(char *text,size_t size){
     Creature *c=world_find(piloting?world.player:world_follow);int carried=0,magnets=0,powered=0;float mass=0;
     if(!c){text[0]=0;return;}
+    if(c->error[0]){snprintf(text,size,"Program stopped");return;}
+    if(c->fallen>2){snprintf(text,size,"Down / program running");return;}
     for(int i=0;i<world.count;i++){Creature *cargo=&world.creatures[i];if(!cargo->cargo||(cargo!=c&&cargo->held_by!=c->id))continue;
         carried++;for(int j=0;j<cargo->design.count;j++)mass+=b3Body_GetMass(cargo->physics.parts[j].body);}
     if(c->cargo){snprintf(text,size,"%s / %.1f kg",c->delivered?"Delivered":c->parachute?"Parachuting":c->held_by?"Aboard":"Loose cargo",mass);return;}
@@ -495,7 +497,7 @@ static void draw_ui(void){
         for(int i=0;i<(terrain_version>=2?10:terrain_version?8:7);i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,world_list_top()-28,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-world_rows()));
-        for(int i=0;i<world_rows()&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,world_list_top()+i*26,text,14,c->id==world_follow?accent:c->team?block_colors[c->team==1?0:1]:ink);}
+        for(int i=0;i<world_rows()&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,world_list_top()+i*26,text,14,c->id==world_follow?accent:c->team?block_colors[world_team_color(c->team)]:ink);}
         button(24,564,40,30,"<",0);button(178,564,40,30,">",0);
         snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+world_rows(),world.count),world.count);label(74,572,text,14,muted);
         button(24,612,194,28,"Export world",0);button(24,642,194,28,"Import world",0);
@@ -504,14 +506,14 @@ static void draw_ui(void){
             if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
             cargo_status(text,sizeof(text));label(1036,328,text,14,accent);
             if(terrain_version){
-                label(1036,354,"ISLAND CARGO CUP",17,muted);snprintf(text,sizeof(text),"East %d   West %d",world_team_score(1),world_team_score(2));label(1036,385,text,18,ink);
+                label(1036,354,"ISLAND CARGO CUP",17,muted);snprintf(text,sizeof(text),"East %d",world_team_score(1));label(1036,385,text,18,block_colors[world_team_color(1)]);snprintf(text,sizeof(text),"West %d",world_team_score(2));label(1152,385,text,18,block_colors[world_team_color(2)]);
                 Creature *follow=world_find(world_follow);int team=follow?follow->team:0;
                 label(1036,428,team==1?"EAST RADIO":team==2?"WEST RADIO":"TEAM RADIO",17,muted);
                 const char *messages[]={"Spotted","Claimed","Ready","Released"};int shown=0,senders[4];
                 for(int i=world.radio_count-1;i>=0&&shown<4;i--){RadioMessage *message=&world.radio[i];if(team&&message->team!=team)continue;
                     int duplicate=0;for(int j=0;j<shown;j++)duplicate|=senders[j]==message->from;if(duplicate)continue;
                     senders[shown]=message->from;int y=459+shown++*42;
-                    snprintf(text,sizeof(text),"%c / %.17s / %.0fs",message->team==1?'E':'W',message->name,world.age-message->time);label(1036,y,text,12,block_colors[message->team==1?0:1]);
+                    snprintf(text,sizeof(text),"%c / %.17s / %.0fs",message->team==1?'E':'W',message->name,world.age-message->time);label(1036,y,text,12,block_colors[world_team_color(message->team)]);
                     snprintf(text,sizeof(text),"%s #%d / %.1f kg",messages[message->kind],message->cargo,message->mass);label(1036,y+17,text,13,ink);
                 }
                 if(!shown)label(1036,459,"No reports yet.",14,muted);
@@ -585,8 +587,11 @@ static void draw_ui(void){
             char text[87];int n=0;while(*p&&*p!='\n'&&n<86)text[n++]=*p++;text[n]=0;if(*p=='\n')p++;
             if(row>=program_line&&row<program_line+20)label(274,202+(row-program_line)*17,text,14,ink);
         }
-        program_lines=row;if(!source)label(274,202,"No embedded program.",16,muted);JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);JS_FreeValue(embedded_context,program);
-        button(274,558,68,34,"<",0);button(908,558,68,34,">",0);label(366,568,"Saved with the design / import edited source",14,muted);
+        program_lines=row;if(!source)label(274,202,"No embedded program.",16,muted);JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);
+        button(274,558,68,34,"<",0);button(908,558,68,34,">",0);
+        value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"error"):JS_UNDEFINED;source=JS_IsString(value)?JS_ToCString(embedded_context,value):NULL;
+        snprintf(text,sizeof(text),"%.63s",source?source:"Saved with the design / import edited source");label(350,568,text,14,source?accent:muted);
+        JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);JS_FreeValue(embedded_context,program);
     }
     if(library_open){
         DrawRectangle(254,142,742,470,paper);DrawRectangleLinesEx((Rectangle){254,142,742,470},2,line);

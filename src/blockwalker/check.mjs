@@ -94,12 +94,12 @@ try {
  Game.call('install',{name:'Toppler',source:'function(){return "A"}'});Game.call('spawn',{x:0,z:-5});Game.call('program_trial',{steps:600});
  Game.call('watch',true);const started=Game.call('world').seconds;
  while(Game.call('world').seconds-started<10)await sleep(40);
- const practiceFailure=Game.call('installed_program').failure;assert(practiceFailure.cause==='posture'&&practiceFailure.seconds>3&&Game.call('state').steps<600&&Game.call('state').remaining===0,'sustained collapse stops practice before its requested end');
- const population=Game.call('world');assert(population.creatures.length===8&&population.deaths===2,'shared physics keeps cargo, hoist, boat, bridge and land/air creatures, removes failed controllers and fallen torsos');
+ const practiceFailure=Game.call('installed_program').failure;assert(!practiceFailure&&Game.call('state').steps===600&&Game.call('state').remaining===0,'collapse leaves practice running for its requested duration');
+ const population=Game.call('world');assert(population.creatures.length===10&&population.deaths===0,'shared physics keeps cargo, working machines, stopped programs and fallen bodies');
  assert(Math.abs(population.creatures.find(c=>c.id===archCargo).y-4.485)<.01,'a body under the island arch survives on the actual floor');
- const failed=population.recentRemovals.find(r=>r.name==='Bad loop'),toppled=population.recentRemovals.find(r=>r.name==='Toppler');
- assert(failed.cause==='controller'&&failed.detail&&failed.seconds<1&&toppled.cause==='posture'&&toppled.seconds>3,'controller failure and physical collapse record distinct causes and final state');
- const fallen=Game.call('designs').find(d=>d.name==='Toppler');assert(fallen&&!population.creatures.some(c=>c.name==='Toppler'),'fallen creature retains its programmed design');
+ const failed=population.creatures.find(r=>r.name==='Bad loop'),toppled=population.creatures.find(r=>r.name==='Toppler');
+ assert(failed.controllerError&&failed.seconds>10&&toppled.fallenSeconds>2&&!toppled.controllerError,'a stopped program retains its body while a fallen character keeps running');
+ const fallen=Game.call('designs').find(d=>d.name==='Toppler');assert(fallen&&toppled,'fallen creature and its programmed design remain available');
  const reopened=Game.call('open_design',{id:fallen.id});assert(reopened.parts.length===4&&reopened.source==='function(){return "A"}','reopening restores the body and controller');
  Game.call('program_trial',{steps:60});while(Game.call('state').remaining)await sleep(20);assert(Game.call('state').parts[1].angle>.1,'saved controller actually drives its restored hinge');Game.call('watch',true);
  const crane=population.creatures.find(c=>c.name==='Cargo hoist'),cargo=population.creatures.find(c=>c.id===cargoId);assert(crane.magnets[5].attached&&crane.magnets[5].power===1&&cargo.y>1.7,'world crane carries a separate cargo creature');
@@ -107,7 +107,7 @@ try {
  Game.call('camera',{x:116,y:-1,z:20,distance:50,pitch:.5});
  const worldPng=Buffer.from(Game.call('snapshot'));fs.writeFileSync('/workspace/blockwalker-world.png',worldPng);Game.call('save');
  const saved=JSON.parse(fs.readFileSync('/workspace/blockwalker-world.json','utf8'));
- assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===6,'feedback and legacy controller rates persist');
+ assert(saved.creatures.filter(c=>c.hz===60).length===1&&saved.creatures.filter(c=>c.hz===10).length===8,'feedback and legacy controller rates persist');
  assert(saved.creatures.find(c=>c.name==='Cargo hoist').magnets[5].creature===cargoId,'magnet attachment saves the stable target identity');
  assert(saved.creatures.some(c=>c.anchored)&&saved.creatures.find(c=>c.name==='Harbor boat').blueprint.every(p=>p.material===1),'anchoring and hull materials persist');
  fs.writeFileSync('/workspace/blockwalker-integration.json',JSON.stringify({embedded:true,pngBytes:png.length,steps:after.steps,parts:after.parts,population}));

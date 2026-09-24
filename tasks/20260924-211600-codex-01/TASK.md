@@ -38,3 +38,12 @@ saved world and complete Pi history, compile C inside Dolly, and run only one
 4 GiB/no-swap disposable browser tree at a time. Use exact saved failure states,
 long uninterrupted physics runs, and real Chrome/Firefox checks to validate
 changes. Keep the owned 9099 preview at tested checkpoints; do not push or deploy.
+
+September 24 late-evening experiments: a 16-block wheeled lifter with two
+ordinary piston stages and a magnet overturns a real scout in a 120 s trial;
+the body remains overturned for 94 s. Evidence:
+`build/blockwalker-rivalry-double/`. A first guard trial failed: the magnet can
+catch a bystander while its program is targeting another robot. Test programs
+must verify the actual gripped object and use normal mechanics to defend or
+recover. Prototypes under `build/blockwalker-rivalry/` are not yet canonical
+content; defense, navigation, live-world interaction and rendering remain.

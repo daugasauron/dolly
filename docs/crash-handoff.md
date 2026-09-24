@@ -20,6 +20,16 @@ machines that remain and can recover. Every character's behavior must be a
 visible embedded program using common sensors and actuators; no per-character
 engine helpers. Start from this tested checkpoint. Lua/YAML remains separate.
 
+The [retention/recovery changes](../tasks/20260924-213500-codex-01/TASK.md) pass
+source-only physics and Chrome/Firefox checks. Cargo and fallen bodies persist;
+stopped programs retain their errors. Teams have red/blue panels. Shared sensors
+include all objects within 48 m and identify the actual magnet attachment.
+The [receiving yards](../tasks/20260924-220500-codex-01/TASK.md) now need physical
+storage: retained pallets block later crane swings. The exact 1800 s failure
+state is in `build/blockwalker-retained-population-first/`. Forklift and rivalry
+prototypes under `build/blockwalker-storage/` and `build/blockwalker-rivalry/`
+remain experimental; do not mistake them for the canonical catalog or image 27.
+
 The September 24 [playground checkpoint](../tasks/20260923-213000-codex-01/TASK.md)
 records the packaged image, source revision and measured limits. Its
 [island competition](../tasks/20260924-074500-codex-01/TASK.md) adds

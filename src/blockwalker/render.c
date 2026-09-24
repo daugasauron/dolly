@@ -202,7 +202,7 @@ void render_world(const Orbit *o){
     for(int i=0;i<depot_count;i++){Depot d=depots[i];float y=terrain_height(d.x,d.z);
         for(int side=0;side<4;side++){
             int axis=side/2;float sign=side%2?1:-1;
-            box_draw((Block){.color=d.team==1?0:1,.finish=FINISH_STRIPE},(Vector3){d.x+(axis?0:sign*d.radius),y+.025f,d.z+(axis?sign*d.radius:0)},QuaternionIdentity(),0,0,0,at);
+            box_draw((Block){.color=d.team?world_team_color(d.team):1,.finish=FINISH_STRIPE},(Vector3){d.x+(axis?0:sign*d.radius),y+.025f,d.z+(axis?sign*d.radius:0)},QuaternionIdentity(),0,0,0,at);
             boxes[at].half[0]=axis?d.radius:.12f;boxes[at].half[1]=.025f;boxes[at++].half[2]=axis?.12f:d.radius;
             box_draw((Block){.color=0,.finish=FINISH_PANEL},(Vector3){d.x+(side&1?1:-1)*(d.radius+.3f),y+.7f,d.z+(side&2?1:-1)*(d.radius+.3f)},QuaternionIdentity(),0,0,0,at);
             boxes[at].half[0]=boxes[at].half[2]=.16f;boxes[at++].half[1]=.7f;

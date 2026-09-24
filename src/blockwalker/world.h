@@ -8,7 +8,7 @@ typedef struct {int cargo,carrier,depot,points;char name[64];double time;} Deliv
 enum {RADIO_SIGHT,RADIO_CLAIM,RADIO_READY,RADIO_RELEASE,RADIO_KINDS,RADIO_CAPACITY=32};
 typedef struct {int team,from,cargo,kind;char name[64];double time;Vector3 position;float mass;} RadioMessage;
 typedef struct {
-    int id;char name[64];Character design;Physics physics;Controller *controller;
+    int id;char name[64],error[160];Character design;Physics physics;Controller *controller;
     float fallen,root_height;float controls[128];
     int team;
     int cargo,carrier,held_by,delivered,supply,parachute;float settled;Vector3 pickup;
@@ -33,6 +33,7 @@ Creature *world_find(int id);
 int world_enter(const Character *design,int sea);
 int world_cargo_score(int id);
 int world_team_score(int team);
+int world_team_color(int team);
 void world_step(void);
 void world_close(void);
 int world_save(JSContext *ctx);
