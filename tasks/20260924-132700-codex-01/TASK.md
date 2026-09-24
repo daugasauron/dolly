@@ -42,3 +42,9 @@ into the water and becomes stuck (minimum up 0.09263), despite no removal.
 
 Remaining: packaged browser verification. The hour also exposes separate
 [freight/supply stalls](../20260924-144000-codex-01/TASK.md).
+
+The uninterrupted 90-minute default-seed population also retains Amberguard:
+6,687 supported airborne foot placements, 1,652 in the final quarter, minimum
+up 0.97791, and no phase longer than 2.4 s. Its controller makes 131 destination
+choices, with two resets and no replants. Evidence:
+`build/blockwalker-continuous-population-fresh0-90m/summary.json`.

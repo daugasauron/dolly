@@ -44,3 +44,10 @@ checks, continuous fresh population and packaged browser verification.
 The current 60-controller catalog passes 60,000 actual in-Wasm calls, an
 additional 1,000-call paused-controller case and all five runaway checks.
 Evidence: `build/blockwalker-final-controller.log` (exit 0).
+
+All five lookouts survive the uninterrupted 90-minute default-seed population.
+Minimum up ranges from 0.98431 to 0.99668; final-quarter root ranges are 144.37,
+175.26, 19.55, 71.14 and 60.69 m. Their controllers record 94–171 arrivals,
+including continued island patrols and team reports. All 60 originals survive.
+Evidence: `build/blockwalker-continuous-population-fresh0-90m/summary.json`.
+Remaining: packaged browser verification.

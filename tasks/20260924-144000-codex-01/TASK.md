@@ -51,3 +51,12 @@ observation loss at all three cranes. `build/blockwalker-quay-delay-parcel/`.
 The general game/controls check also passes: 10.748 m driven through real keys,
 74 Eyes samples, actual magnetic pickup, and no browser errors.
 `build/blockwalker-final-driver.log` and its `cargo-physics.log`.
+
+The uninterrupted default-seed 90-minute trial finishes with all 60 originals,
+zero removals, 68 deliveries and a 91–91 score. All 18 heavy deliveries have
+independently traced lift → hauler → loading crane → team barge → receiving
+crane handoffs. Each team receives two heavy and three light deliveries in
+the last fifteen minutes. This verifies freight continuity; a separate
+[Marrowstep controller stall](../20260924-162500-codex-01/TASK.md) remains.
+Evidence: `build/blockwalker-continuous-population-fresh0-90m/summary.json`.
+Remaining: packaged browser verification.

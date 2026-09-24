@@ -66,7 +66,8 @@ Eyes provide a first-person camera at the block's outward face. Its axis and sig
 set the view direction; the camera follows the block's actual rotation. Entering
 the world adds a manually controlled copy alongside the existing machines.
 Wheel driving uses physical differential motors. Other actuators retain their
-assigned keys. Without Eyes, entering a character uses the follow camera.
+assigned keys. Driving hints show the character's movement mode and magnet
+bindings. Without Eyes, entering a character uses the follow camera.
 
 The part palette also has telescoping pistons, reversible thrusters, wheels, magnets and turntables.
 Pistons move their attached branch along the selected axis and sign; the palette
@@ -172,8 +173,8 @@ earlier experiments, including the retired drawbridge, are available only throug
 Older prototypes. On first launch the catalog populates
 the world, with loose cargo for the cranes; click World to visit. The balancing
 surveyor, aircraft and two survey boats choose varied destinations and respond
-to nearby bodies. Amberguard chooses flat destinations around its home, slows
-to turn and replans around nearby bodies. The beacon tracks nearby machines. Sidelight uses longer, varied patrol distances and reverses at a stable
+to nearby bodies. Amberguard and Marrowstep choose flat destinations around home, slow
+to turn and replan around nearby bodies. The beacon tracks nearby machines. Sidelight uses longer, varied patrol distances and reverses at a stable
 stance when traffic or a terrain edge blocks its next step. Five Komame lookouts
 roam the yard and three islands, turning their physical Eyes heads toward other
 characters. Mochi lifts loose crates with its piston and magnet, drives them to

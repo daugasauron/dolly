@@ -116,12 +116,25 @@ static void follow_creature(void){
     }world_follow=0;dirty=1;
 }
 static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-8));dirty=1;}
+static void pilot_help(char movement[48],char magnets[48]){
+    Creature *c=world_find(world.player);int wheels=0,joints=0,on=0,off=0,mixed=0,found=0;
+    if(c)for(int i=0;i<c->design.count;i++){
+        Block b=c->design.blocks[i];
+        if(b.joint==BLOCK_MAGNET){if(found&&(on!=b.positive||off!=b.negative))mixed=1;on=b.positive;off=b.negative;found=1;}
+        else if(b.joint==BLOCK_WHEEL&&b.axis==0)wheels++;
+        else if(block_controlled(b))joints++;
+    }
+    snprintf(movement,48,"%s",wheels?(joints?"WASD drive + joint keys":"WASD drive"):joints?"Use assigned joint keys":"No movement controls");
+    magnets[0]=0;
+    if(found){if(!mixed&&isalnum(on)&&isalnum(off))snprintf(magnets,48,"%c on / %c off",on,off);else snprintf(magnets,48,"Magnet: assigned keys");}
+}
 static int program_trial;
 static void enter_world(void){
     int id=world_enter(&design,practice_sea);if(!id){say("Use an unanchored character with room to spawn.");return;}
     world_trial_stop();program_trial=practice_steps=agent_enabled=agent_control=0;physics_stop(&physics);
     set_world_view(1);piloting=1;eye_view=1;visit_creature(world_find(id));memset(keys,0,sizeof(keys));
-    world_save(embedded_context);say("WASD drive / E magnet on / Q off / Backslash camera / Esc workshop");
+    char movement[48],magnets[48],help[160];pilot_help(movement,magnets);
+    snprintf(help,sizeof(help),"%s%s%s / Backslash camera / Esc workshop",movement,magnets[0]?" / ":"",magnets);world_save(embedded_context);say(help);
 }
 static void toggle_eyes(void){Creature *c=world_find(piloting?world.player:world_follow);if(world_view&&c){eye_view=!eye_view;visit_creature(c);dirty=1;}}
 static void character_camera(void){
@@ -428,10 +441,10 @@ static void cargo_status(char *text,size_t size){
 }
 static void draw_ui(void){
     BeginDrawing();ClearBackground(BLANK);
-    char text[120];int joints=0;for(int i=0;i<design.count;i++)joints+=block_controlled(design.blocks[i]);
+    char text[160],movement[48],magnets[48];pilot_help(movement,magnets);int joints=0;for(int i=0;i<design.count;i++)joints+=block_controlled(design.blocks[i]);
     if(focus_view){
         button(render_view.width-232,12,220,34,"Controls [Shift Tab]",0);button(12,12,80,34,"Pi [Tab]",agent_panel);
-        if(world_view&&world_follow){snprintf(text,sizeof(text),piloting?"WASD drive / E pickup / Q release":"Following %d / \\ camera / WASD to leave",world_follow);label(110,22,text,16,ink);}
+        if(world_view&&world_follow){if(piloting)snprintf(text,sizeof(text),"%s%s%s",movement,magnets[0]?" / ":"",magnets);else snprintf(text,sizeof(text),"Following %d / \\ camera / WASD to leave",world_follow);label(110,22,text,16,ink);}
         if(world_view){char cargo[48];cargo_status(cargo,sizeof(cargo));
             if(terrain_version)snprintf(text,sizeof(text),"EAST %d / WEST %d   CARGO %d / YOU %d%s%s",world_team_score(1),world_team_score(2),world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);
             else snprintf(text,sizeof(text),"CARGO DELIVERED  %d / YOU %d%s%s",world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);label(16,render_view.height-30,text,16,ink);}
@@ -449,7 +462,8 @@ static void draw_ui(void){
     const char *views[]={"< Left","Right >","Up","Down","Home"};
     for(int i=0;i<5;i++)button(254+i*88,92,80,34,views[i],0);
     DrawRectangle(254,643,600,23,paper);
-    label(262,647,piloting?"WASD drive / E on / Q release / Backslash camera":world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
+    snprintf(text,sizeof(text),"%s%s%s / Backslash camera",movement,magnets[0]?" / ":"",magnets);
+    label(262,647,piloting?text:world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
         const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay"};
@@ -461,7 +475,7 @@ static void draw_ui(void){
         snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+8,world.count),world.count);label(74,572,text,14,muted);
         button(24,612,194,28,"Export world",0);button(24,642,194,28,"Import world",0);
         if(!agent_panel){
-            label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?"WASD drive / E on / Q off":"Drops at the camera target.",14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
+            label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?movement:"Drops at the camera target.",14,muted);if(piloting)label(1036,168,magnets,14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
             if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
             cargo_status(text,sizeof(text));label(1036,328,text,14,accent);
             if(terrain_version){
