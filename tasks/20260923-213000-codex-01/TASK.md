@@ -26,13 +26,13 @@ Completion requires:
 - Two island teams compete through scouts/radio, parachute parcels, heavy ore,
   hydraulic lift, hauler, cranes and boats. Verify continuing physical handoffs.
 
-Source checkpoint: `6e42fcc`. Preview:
+Source checkpoint: `ccb0c5c`. Preview:
 `http://127.0.0.1:9099/blockwalker/`, owned service
-`dolly-blockwalker-preview-20260924.service`. Image 21 is 232317921 bytes,
-SHA-256 `7a6e8d0aa859757b12d08c016e47099b90637ee61ee0900820bb73867a928623`.
+`dolly-blockwalker-preview-20260924.service`. Image 22 is 232318027 bytes,
+SHA-256 `cc69110290afcd4b64f6bbbf80e44411b4335ac61f94b5fc190c6dfd7dbd4853`.
 Source tar SHA-256:
-`822ab3c2d01e83ab6e5acd9a469835166580d161a847cf97f0065d2c7c8cfc0c`.
-The rebuild took 23.6 s using unchanged runtime
+`d55c22627fd12ae4b46ac4953a6921ac7ed7cc66d773417871351212d05ec221`.
+The rebuild took 26.1 s using unchanged runtime
 `d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72`.
 All other twelve local preview/dependency catalog entries compare unchanged
 against `build/blockwalker-before-image20-catalog.json`. This is the local

@@ -179,7 +179,7 @@ to turn and replan around nearby bodies. The beacon tracks nearby machines. Side
 stance when traffic or a terrain edge blocks its next step. Five Komame lookouts
 roam the yard and three islands, turning their physical Eyes heads toward other
 characters. Mochi lifts loose crates with its piston and magnet, drives them to
-the Works yard depot, then searches for more. Harbor Atlas salvages floating
+the Works yard depot, then searches for more, steering around deposited cargo. Harbor Atlas salvages floating
 cargo into the harbor depot with its magnetic head. Tsubame tows floating crates
 to the crane, releases them within reach and backs away for the handoff.
 Brinehook raises submerged cargo onto its tray; Kawasemi collects the released
