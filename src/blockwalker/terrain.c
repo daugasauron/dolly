@@ -211,18 +211,67 @@ static const TerrainBox mine_boxes[]={
     {{-85.95f,3,-21},{.04f,.8f,1.5f},6},
     {{-87,7,-25},{.4f,1.4f,.4f},4},
 };
-enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes) };
-int terrain_version=2,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
+static const TerrainBox ridge_boxes[]={
+    /* A lower machine passage runs beside the terraced quarry road. */
+    {{59,5.5f,-71},{3,5.5f,13.5f},8},
+    {{90,6,-65},{8,6,27},8},
+    {{72,7,-88},{16,7,6},8},
+    {{73,8,-67.5f},{11,1,8.5f},8,1},
+    {{71,10,-71},{9,1,6},8,1},
+    {{75,12,-74},{5,1,3},8,1},
+    {{58,2,-49},{3,2,5},8},
+    {{94,1.5f,-34},{5,1.5f,4},8},
+    {{78,2,-53},{6,2,4},5},
+    {{78,0.125f,-33.5f},{4,0.125f,.5f},4},
+    {{78,0.25f,-34.5f},{4,0.25f,.5f},4},
+    {{78,0.375f,-35.5f},{4,0.375f,.5f},4},
+    {{78,0.5f,-36.5f},{4,0.5f,.5f},4},
+    {{78,0.625f,-37.5f},{4,0.625f,.5f},4},
+    {{78,0.75f,-38.5f},{4,0.75f,.5f},4},
+    {{78,0.875f,-39.5f},{4,0.875f,.5f},4},
+    {{78,1.0f,-40.5f},{4,1.0f,.5f},4},
+    {{78,1.125f,-41.5f},{4,1.125f,.5f},4},
+    {{78,1.25f,-42.5f},{4,1.25f,.5f},4},
+    {{78,1.375f,-43.5f},{4,1.375f,.5f},4},
+    {{78,1.5f,-44.5f},{4,1.5f,.5f},4},
+    {{78,1.625f,-45.5f},{4,1.625f,.5f},4},
+    {{78,1.75f,-46.5f},{4,1.75f,.5f},4},
+    {{78,1.875f,-47.5f},{4,1.875f,.5f},4},
+    {{78,2.0f,-48.5f},{4,2.0f,.5f},4},
+    /* Steel ribs, a viewing gallery and the abandoned extraction pier. */
+    {{63,3.5f,-59},{.3f,3.5f,.4f},4},
+    {{81,3.5f,-59},{.3f,3.5f,.4f},4},
+    {{72,7,-59},{9.3f,.3f,.4f},4,1},
+    {{69,6.4f,-58.55f},{2,.25f,.06f},6,1},
+    {{67,1,-79},{3,1,1},5},
+    {{67,2.4f,-79},{2,.4f,.7f},4},
+    {{67,3,-79},{.5f,.2f,.5f},6},
+    {{78,4.4f,-56.8f},{5.8f,.4f,.2f},4},
+    {{83.8f,4.4f,-53},{.2f,.4f,3.6f},4},
+    {{86,15,-76},{1,3,1},4,1},
+    {{86,18.2f,-76},{1.4f,.2f,1.4f},5,1},
+    {{94,13,-49},{2,1,4},5,1},
+    {{94,14.4f,-49},{2.5f,.4f,4.5f},4,1},
+    {{106,-.4f,-65},{8,.4f,4},4},
+    {{112,-6,-68},{.5f,6,.5f},4},
+    {{112,-6,-62},{.5f,6,.5f},4},
+    {{105,3.5f,-68},{.5f,3.5f,.5f},4},
+    {{105,3.5f,-62},{.5f,3.5f,.5f},4},
+    {{105,7,-65},{.7f,.7f,3.5f},8,1},
+};
+enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes),RIDGE_BOX_COUNT=sizeof(ridge_boxes)/sizeof(*ridge_boxes) };
+int terrain_version=3,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
 int terrain_depot_count(int version){return version?sizeof(depots)/sizeof(*depots):3;}
 void terrain_select(int version){
-    terrain_version=version>=0&&version<=2?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
+    terrain_version=version>=0&&version<=3?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
 }
 TerrainBox terrain_box(int index){
     if(terrain_version>=2&&index==1)return (TerrainBox){{-82,-6,0},{18,6,100},0};
     if(terrain_version&&index==1)return (TerrainBox){{-77,-6,0},{23,6,100},0};
     if(terrain_version&&(index==8||index==9))return (TerrainBox){{index==8?143:138,index==8?-5:-6,12.5f},{index==8?3:2,index==8?7:6,8.5f},1};
     if(index<ORIGINAL_BOX_COUNT)return original_boxes[index];
-    index-=ORIGINAL_BOX_COUNT;return index<INDUSTRIAL_BOX_COUNT?industrial_boxes[index]:mine_boxes[index-INDUSTRIAL_BOX_COUNT];
+    index-=ORIGINAL_BOX_COUNT;if(index<INDUSTRIAL_BOX_COUNT)return industrial_boxes[index];
+    index-=INDUSTRIAL_BOX_COUNT;return index<MINE_BOX_COUNT?mine_boxes[index]:ridge_boxes[index-MINE_BOX_COUNT];
 }
 float terrain_height(float x,float z){
     float height=-100;
@@ -240,7 +289,7 @@ float water_height(float x,float z,double time){
     return WATER_LEVEL+.10f*sinf(x*.22f+z*.13f-time*1.3)+.06f*sinf(z*.31f-x*.09f+time*.9);
 }
 static int water_blocked(b3Pos point){
-    static TerrainBox barriers[ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT];static int version=-1,count;
+    static TerrainBox barriers[ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT];static int version=-1,count;
     if(version!=terrain_version){
         version=terrain_version;count=0;
         for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);if(b.center.y-b.half.y<=WATER_LEVEL+.2f&&b.center.y+b.half.y>=WATER_LEVEL-.2f)barriers[count++]=b;}

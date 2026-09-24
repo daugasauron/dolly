@@ -778,7 +778,7 @@ static void load_removals(JSContext *ctx,JSValueConst list){
     }
 }
 static void restore_world(JSContext *ctx,JSValue save,int fresh){
-    terrain_select(JS_IsObject(save)?get_number(ctx,save,"terrainVersion",0):fresh?2:0);
+    terrain_select(JS_IsObject(save)?get_number(ctx,save,"terrainVersion",0):fresh?3:0);
     if(JS_IsObject(save)){JSValue designs=JS_GetPropertyStr(ctx,save,"designs");load_designs(ctx,designs,0);JS_FreeValue(ctx,designs);}
     JSValue examples=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");load_designs(ctx,examples,fresh);JS_FreeValue(ctx,examples);
     if(fresh){world.supply_seed=0x243f6a88;world.next_parcel=45;world.next_ore=5;world.next_mine=10;}
@@ -897,7 +897,7 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
     if(!JS_IsObject(save)||JS_IsArray(save))return 0;
     JSValue list=JS_GetPropertyStr(ctx,save,"creatures"),designs=JS_GetPropertyStr(ctx,save,"designs"),removals=JS_GetPropertyStr(ctx,save,"removals"),deliveries=JS_GetPropertyStr(ctx,save,"deliveries"),ids=JS_NewObject(ctx),delivered=JS_NewObject(ctx),format=JS_GetPropertyStr(ctx,save,"format");
     const char *kind=JS_IsString(format)?JS_ToCString(ctx,format):NULL;
-    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,1,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,2,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
+    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,1,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,3,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (JS_IsUndefined(format)||(kind&&!strcmp(kind,"blockwalker-world")))&&JS_IsArray(list)&&JS_IsArray(designs)&&JS_IsArray(removals)&&(JS_IsUndefined(deliveries)||JS_IsArray(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     JS_FreeCString(ctx,kind);JS_FreeValue(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);
