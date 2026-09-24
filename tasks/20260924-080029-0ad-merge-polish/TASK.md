@@ -1,6 +1,6 @@
 # Make the 0 A.D. port ready for merge
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: wasm64,gpu,audio,gamedev,port
 
@@ -176,5 +176,31 @@ audio SDK checks; the rebuilt GPU SDK passes rendering, quotas, malformed/copy
 checks and forced termination using SwiftShader. The complete selected artifact
 suite passes 26 checks, with the unrelated CPython check skipped. Evidence:
 `.cache/0ad/final-core-browser.log`, `final-audio-{chrome,firefox}.log`,
-`final-gpu-sdk.log`, and `final-artifacts.log`. Package acceptance and the full
-two-cold/one-cached build reproducibility check are the remaining gates.
+`final-gpu-sdk.log`, and `final-artifacts.log`.
+
+Completed against implementation commit `8d8778e` on September 24, 2026.
+Two complete builds in independent browser profiles and a cached build produce
+the exact released 581,165,340-byte image, SHA-256
+`59959b83080b5ae6befa96c4b7b7ff0798aa36ed2ceb3c058b7a9c8ef7f6572a`.
+Evidence: `.cache/0ad/final-image-reproducible.log`.
+
+Release `e7545fde96afe53b4380893cc80a4e2c66294a8cb90e1f036827af4fcdf26db9`
+passes real-browser inventory acceptance for all twelve selected images,
+including `zero-ad`, `audio-sdk` and `gpu-sdk`. Its 90 shared packs total
+516,386,675 compressed bytes; the complete site is 1,332,464,815 bytes.
+Archive: `build/0ad/dolly-zero-ad-pages.tar.gz`, SHA-256
+`ddc33a909a443c517ebccc22a5ce58fcd9de2834bbcd7150a04eedcb38467363`.
+Evidence: `.cache/0ad/final-release-package.log` and the release's
+`release/acceptance.txt`.
+
+The release is served at `http://127.0.0.1:42727/zero-ad/`. A fresh Firefox 155
+session verifies its engine hash, launches bare `zero-ad` on a non-fallback
+adapter, keeps the town visible after eight seconds outside the canvas, and
+exits cleanly with Ctrl-F10. The resulting screenshot was inspected.
+Evidence: `.cache/0ad/final-release-firefox.log` and
+`.cache/0ad/browser/release-firefox-pointer-outside.png`.
+
+The branch is ready for merge. The documented baseline limits remain selected
+Athens/scenario content, an external engine bootstrap, buffered audio latency,
+and HTTP multiplayer without lobby/native-peer/network-rejoin support. These
+gameplay checks do not establish the cause of the earlier whole-PC freezes.
