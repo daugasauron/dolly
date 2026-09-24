@@ -10,10 +10,12 @@ September 24, 2026, 18:00 JST. The current content direction and latest measured
 checkpoint are in the [island competition task](../tasks/20260924-074500-codex-01/TASK.md):
 industrial terrain, team scouts, replenished cargo, cranes and boats. Keep the
 working walkers. The Lua/YAML migration is a separate task.
-Long-run follow-ups are the [loading quay](../tasks/20260924-132300-codex-01/TASK.md)
+Long-run follow-ups are the [loading quay](../tasks/20260924-132300-codex-01/TASK.md),
 [Amberguard navigation](../tasks/20260924-132700-codex-01/TASK.md), and
-[continuous freight/supplies](../tasks/20260924-144000-codex-01/TASK.md), and
-[lookout traffic](../tasks/20260924-145000-codex-01/TASK.md). Their issues
+[continuous freight/supplies](../tasks/20260924-144000-codex-01/TASK.md),
+[lookout traffic](../tasks/20260924-145000-codex-01/TASK.md),
+[Marrowstep recovery](../tasks/20260924-162500-codex-01/TASK.md), and
+[Postbird deliveries](../tasks/20260924-162800-codex-01/TASK.md). Their issues
 record saved failure states and verification; experimental controllers under
 `build/` are not automatically the packaged catalog.
 
