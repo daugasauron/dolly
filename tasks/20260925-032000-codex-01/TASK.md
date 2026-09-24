@@ -37,3 +37,15 @@ The existing bearing supports the tested arm with mast bracing. A wider bearing
 and a slack rope remain design investigations, not implemented parts. Record
 an explicit decision about each before closing this task. Candidate sources
 are in `build/blockwalker-launcher/`; nothing is in the default world yet.
+
+The `safe-spin` trial fixes stale handoff readiness and caps spin using the
+magnet's available centripetal force. It completes three crane handoffs and
+three deliberate releases in 240 s without slipping. Cargo 3 contacts the
+moving aircraft at 54.333 s, and cargo 5 at 163.767 s; shot 2 misses. The
+small world renders at 60.71 warm FPS in Firefox, with physical loading and
+spinning views in `build/blockwalker-rivalry-view-firefox-crowded-slinger/`.
+Team battery placements and a fresh 1800 s combined-world trial are pending.
+
+Rope/winch follow-up has its own [open task](../20260925-041500-codex-01/TASK.md).
+The first slinger can use the existing bearing: the braced assembly completes
+the measured cycles without adding a larger part.
