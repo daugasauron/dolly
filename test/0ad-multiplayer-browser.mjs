@@ -46,6 +46,11 @@ try {
     await page.goto(`${server.origin}/${image}/`);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus),null,{timeout:90000});
     assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready");
+    if(visual) {
+      await page.waitForFunction(()=>__dolly.gpu.stats?.frames>=90,null,{timeout:60000});
+      await page.keyboard.press("Control+F10");
+      await page.waitForFunction(()=>!__dolly.graphicsActive);
+    }
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
     if (!visual) for (const command of ["mkdir -p /opt/0ad/system",
       `curl -fsS ${server.origin}/fixture/pyrogenesis.wasm -o /opt/0ad/system/pyrogenesis`,

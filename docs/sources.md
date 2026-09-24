@@ -312,94 +312,66 @@ colors, orientation, grayscale uniform and border/mip filtering. This validates 
 it does not by itself establish a playable renderer. The GPU packet path has
 its separate guest-compiled check in `test/gpu-render-browser.mjs`.
 
-After the headless bundle and shaders exist, prepare the graphical content and
-check it on the real desktop with a hardware WebGPU adapter:
+After the headless bundle and shaders exist, package the complete upstream
+content and build the `zero-ad` image:
 
 ```sh
 python3 toolchain/0ad/package-graphics.py .cache/0ad/0ad-0.28.0
-systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node test/0ad-graphics-browser.mjs default hardware
-```
-
-The separate `build/0ad/graphics-data.tar` selects the combat scenario, Temperate
-Roadway and Athens' buildings/trainable units, with their actors, variants,
-meshes, animation and textures, plus shared GUI content. Sound groups select
-their referenced effects; the pack also includes Athens' music and shared
-menu/battle/victory/defeat tracks. The
-Wasm device backend uses the bounded GPU packets, an offscreen backbuffer,
-indexed meshes, reflected uniforms and translated upstream shaders. SDL retains
-input ownership. The bundle selects system cursors, low texture quality and disables shadows,
-silhouettes, advanced water, postprocessing and antialiasing. Rendering and all
-CPU state stay within Dolly's existing process/GPU contracts.
-
-The browser check rejects fallback adapters by default. It exercises drag selection,
-movement recorded in the upstream replay, graphical quick-save/load, fresh
-processes, training and completed house construction through the economy UI,
-Petra progress, nonzero game audio in the browser audio graph, and shell recovery
-with no queued sound. Speaker output is muted during the test. Quick-save is upstream's in-memory snapshot;
-ordinary `.0adsave` persistence has its separate headless test below. Chrome's
-headless software Vulkan compositor did not display the submitted surface in
-this environment. For a software correctness check, use
-`xvfb-run -a node test/0ad-graphics-browser.mjs default software` (Xvfb and xauth
-required). For Firefox on the desktop, use
-`node test/0ad-graphics-browser.mjs default hardware firefox` under the same
-memory scope. Results identify the backend, adapter and fallback status alongside
-frame time, allocation credits and peak cgroup memory.
-
-The hardware renderer now retains streamed buffers, allocates aligned uniform
-ranges and reuses unchanged resource groups; the provider avoids duplicate
-completion fences. Packaged gameplay measured 24 ms/frame in Chrome 151 on
-NVIDIA Blackwell and 47 ms/frame in Firefox 155 (non-fallback WebGPU adapter).
-Both passed the input, save/load, economy, sound and restart checks under 4 GiB.
-These are sampled combat-scene timings, not a guarantee for larger matches.
-Pointer exit now stops camera edge-scrolling, and focus loss clears held input.
-Measurements and earlier comparisons are recorded in the
-[merge-polish task](../tasks/20260924-080029-0ad-merge-polish/TASK.md).
-
-In Dolly, unpack the graphics tar under `/opt/0ad` and place
-`pyrogenesis.wasm` at `/opt/0ad/system/pyrogenesis`, then run:
-
-```sh
-ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public -autostart=scenarios/combat_demo
-```
-
-For the economy map, replace the final option with
-`-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1`.
-Only Athens' complete visual dependencies are included in this selected pack.
-
-To package those tested assets as the `zero-ad` image, after building the engine,
-headless bundle, shaders and graphics bundle above:
-
-```sh
 node toolchain/0ad/prepare-distribution.mjs
-systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 npm run image -- zero-ad
-systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node test/0ad-graphics-browser.mjs zero-ad hardware
+systemd-run --user --scope -p MemoryMax=10G -p MemorySwapMax=0 npm run image -- zero-ad
+systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=0 node test/0ad-graphics-browser.mjs zero-ad hardware
 DOLLY_BUILD_IMAGES=zero-ad npm run publish
 npm run serve
 ```
 
-Open `/zero-ad/` and run `zero-ad` for the economy match, or
-`zero-ad -autostart=scenarios/combat_demo`. The shell wrapper sets ICU's data path
-and forwards explicit engine arguments. F10 opens the game menu; Ctrl-F10 exits
-cleanly to the shell and writes replay metadata. Ctrl-C interrupts the process;
-forced termination may leave incomplete replay metadata. Saves and replays live
-under `/opt/0ad/data` in the guest filesystem; use Dolly's session
-save/download commands to retain them outside the current tab. `-version` and
-`-dolly-control` are also available through the wrapper.
+The graphics package contains every upstream map, civilization, texture, model,
+animation, sound and music track. Native SPIR-V is omitted; translated WGSL serves
+the supported rendering paths. Content stays compressed in bounded ZIP archives, which the upstream VFS
+mounts normally. `prepare-distribution.mjs` copies the engine/content and generates
+SHA-256-pinned `SOURCE HOST` entries in `modules/zero-ad.dm` and `Dollyfile-zero-ad`.
+Assembly inherits the default image and uses Dolly's normal source-download and
+snapshot pipeline. The external engine build remains the explicit bootstrap
+exception described above; there is no host filesystem shortcut. Upstream
+engine/content notices and ICU/OpenAL licenses are retained.
 
-`prepare-distribution.mjs` copies the built engine/content and generates their
-SHA-256 pins in `modules/zero-ad.dm` and `Dollyfile-zero-ad`. Image assembly runs
-the normal guest tar tool, verifies the wrapper and exports the result using
-Dolly's normal snapshot pipeline. It inherits the default image and adds no
-host filesystem shortcut. The external engine build remains the explicit
-bootstrap exception described above. The pack retains upstream engine/content
-license notices and ICU/OpenAL licenses. The image deliberately starts in the
-shell, so opening its page alone does not start a graphics workload.
-Allow 8 GiB for a complete image rebuild: rebuilding the Rust tools exceeded
-the earlier 6 GiB scope. Exporting only the game image previously fit in 6 GiB.
-The final 581,165,340-byte snapshot has SHA-256
-`59959b83080b5ae6befa96c4b7b7ff0798aa36ed2ceb3c058b7a9c8ef7f6572a`.
-It reached the shell in 3.8 seconds in Chrome and 7.0 in Firefox; full gameplay
-checks peaked at 3.16 GB and 3.97 GB, respectively.
+Opening `/zero-ad/` starts the upstream main menu. The `zero-ad` shell command
+also opens that menu and forwards explicit engine arguments, for example:
+
+```sh
+zero-ad -autostart=scenarios/combat_demo
+zero-ad -autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1
+```
+
+F10 opens the game menu; Ctrl-F10 exits cleanly to the shell and writes replay
+metadata. Ctrl-C interrupts the process; forced termination may leave incomplete
+replay metadata. Saves and replays live under `/opt/0ad/data` in the guest
+filesystem. Use Dolly's session save/download commands to retain them outside
+the current tab. `-version` and `-dolly-control` also work through the wrapper,
+which sets ICU's data path.
+
+The Wasm renderer uses bounded GPU packets, an offscreen backbuffer with opaque presentation,
+indexed meshes, reflected uniforms and translated upstream shaders. SDL owns
+input. Defaults select system cursors and low texture quality, with shadows,
+silhouettes, advanced water, postprocessing and antialiasing disabled. Streamed
+buffers, aligned uniform ranges and unchanged resource groups are reused;
+released resources retain their allocation charges until GPU work completes.
+
+The browser check rejects fallback adapters by default. It exercises drag
+selection, movement recorded in the upstream replay, graphical quick-save/load,
+training and completed house construction through the economy UI, Petra progress,
+audible data in the browser audio graph, fresh processes and shell recovery.
+Speaker output is muted during the test. Quick-save uses upstream's in-memory
+snapshot; ordinary `.0adsave` persistence has its separate headless test below.
+For Firefox on the desktop, append `firefox` to the browser-check command. For
+software correctness, use `xvfb-run -a node test/0ad-graphics-browser.mjs zero-ad
+software` (Xvfb and xauth required). Run hardware checks serially.
+
+The full installed image is about 2.07 GB. Browser boot streams independently
+verified snapshot packs into Wasm memory; it does not retain a second complete
+JavaScript copy. Full-content menu, gameplay and resource measurements are kept
+in the [gameplay performance task](../tasks/20260924-115634-0ad-gameplay-performance/TASK.md).
+Memory caps above are measured test bounds, not requirements for every map or
+a guarantee of performance on another machine.
 
 `pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
 adds a line-oriented guest JSON protocol to the ordinary autostart options.

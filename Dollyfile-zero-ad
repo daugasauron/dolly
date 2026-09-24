@@ -2,12 +2,10 @@ DOLLY 3
 IMAGE zero-ad
 
 FROM HOST /Dollyfile 9e97dcdc44d6fd63fe8b0c182509068ac487e6c5eb3fa4d9fcb3f400dd568e1e
-USE HOST /modules/zero-ad.dm 31304e326f27429ffc2ac623dbb1d3a3cda3aff4a31ae6c6f63cf65c86240e40
+USE HOST /modules/zero-ad.dm 0a223454566df241e18f2b6fc1f659c83073d779340fb3b4be97562744213978
 
-FILE /home/dolly/.dollyrc
-    printf '0 A.D. Release 28 / Dolly baseline\n'
-    printf 'Run zero-ad to play Athens against Petra on Temperate Roadway (2).\n'
-    printf 'Run zero-ad -autostart=scenarios/combat_demo for the combat scenario.\n'
-    printf 'F10 opens the menu; Ctrl-F10 exits; Ctrl-C interrupts. Saves and replays: /opt/0ad/data.\n\n'
+FILE /etc/dolly/zero-ad.slop
+    /bin/foreground /usr/bin/zero-ad
+    /bin/foreground -i /bin/slop
 
-ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/zero-ad.slop

@@ -5,7 +5,7 @@ const currentTexture=GPUCanvasContext.prototype.getCurrentTexture;
 const submit=GPUQueue.prototype.submit;
 let device,surface,frames=0;
 GPUCanvasContext.prototype.configure=function(options) {
-  device=options.device;
+  device=options.device;frames=0;surface=null;
   return configure.call(this,options);
 };
 GPUCanvasContext.prototype.getCurrentTexture=function() {

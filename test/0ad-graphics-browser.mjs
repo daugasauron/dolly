@@ -3,6 +3,7 @@ import {readFile,mkdir} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from './browser-server.mjs';
 import {hasGameHud} from './fixtures/0ad-hud.mjs';
+import {inspectDollyfile} from '../src/dollyfile-view.mjs';
 
 const root=new URL('..',import.meta.url), output=new URL('../.cache/0ad/browser/',import.meta.url);
 const image=process.argv[2]??'default', backend=process.argv[3]??'hardware';
@@ -11,12 +12,15 @@ assert.ok(['default','zero-ad'].includes(image) && ['hardware','software'].inclu
   'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox]');
 assert.ok(['chromium','firefox'].includes(browserName) && (browserName==='chromium'||backend==='hardware'));
 await mkdir(output,{recursive:true});
+const sources=inspectDollyfile(await readFile(new URL('modules/zero-ad.dm',root),'utf8')).sources;
+const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice('/static/zero-ad/'.length),'dist'+source.location]));
+fixtures['pyrogenesis.wasm']='build/0ad/pyrogenesis.wasm';
 let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFile(new URL('src/gpu-worker.mjs',root),'utf8'))
   .replace('stats:{...stats,allocatedBytes:usedBytes}',
     'stats:{...stats,allocatedBytes:usedBytes,frameTime:performance.now(),gpuTotalMs:scope.gpuTotalMs}');
 if(backend==='software')provider=provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true');
 const server=await startBrowserServer(root.pathname,image,0,new Map([['/src/gpu-worker.mjs',provider]]),
-  {'pyrogenesis.wasm':'build/0ad/pyrogenesis.wasm','0ad-graphics.tar':'build/0ad/graphics-data.tar'});
+  fixtures);
 let browser,deadline,page;
 try {
   browser=browserName==='firefox'
@@ -28,7 +32,7 @@ try {
   deadline=setTimeout(()=>void browser.close(),240000);
   page=await browser.newPage({viewport:{width:1024,height:768}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.addInitScript(origin=>{globalThis.DOLLY_HTTP_POLICY={maxRequests:2,
+  await page.addInitScript(({origin,requests})=>{globalThis.DOLLY_HTTP_POLICY={maxRequests:requests,
     rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
     globalThis.audioPeak=0;
     globalThis.frameSamples=[];
@@ -58,11 +62,17 @@ try {
       source.connect=function(target,...args){return connect.call(this,target===this.context.destination?meter:target,...args);};
       return source;
     };
-  },server.origin);
+  },{origin:server.origin,requests:sources.length});
   const bootStart=performance.now();
   await page.goto(server.origin+'/'+image+'/');
   await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:90000});
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready');
+  if(image==='zero-ad') {
+    await page.waitForFunction(()=>__dolly.gpu.stats?.frames>=90,null,{timeout:60000});
+    await page.screenshot({path:new URL('graphics-main-menu.png',output).pathname});
+    await page.keyboard.press('Control+F10');
+    await page.waitForFunction(()=>!__dolly.graphicsActive);
+  }
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
   const bootMilliseconds=Math.round(performance.now()-bootStart);
   await page.mouse.click(10,10);
@@ -74,9 +84,11 @@ try {
   };
   const stagingStart=performance.now();
   if(image==='default') {
-    assert.equal(await submit('mkdir -p /opt/0ad/system'),0);
-    assert.equal(await submit(`curl -fsS ${server.origin}/fixture/pyrogenesis.wasm -o /opt/0ad/system/pyrogenesis`),0);
-    assert.equal(await submit(`curl -fsS ${server.origin}/fixture/0ad-graphics.tar -o /tmp/0ad.tar && tar -xf /tmp/0ad.tar -C /opt/0ad && rm /tmp/0ad.tar`),0);
+    for(const source of sources) {
+      const name=source.location.slice('/static/zero-ad/'.length);
+      const directory=source.destination.slice(0,source.destination.lastIndexOf('/'));
+      assert.equal(await submit(`mkdir -p ${directory} && curl -fsS ${server.origin}/fixture/${name} -o ${source.destination}`),0);
+    }
   }
   const stagingMilliseconds=Math.round(performance.now()-stagingStart);
   console.log(`Graphical content staged in ${stagingMilliseconds} ms`);
@@ -165,7 +177,7 @@ try {
   assert.ok(commands.some(command=>command.type==='walk' && command.entities.length),'drag selection and right-click must issue a real walk command');
   const turns=[...replay.matchAll(/^turn (\d+) /gm)].map(match=>Number(match[1]));
   assert.ok(turns.some((turn,index)=>index>0 && turn<turns[index-1]),'quickload must restore an earlier simulation turn');
-  const restartMilliseconds=await start(image==='zero-ad'?'':'-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1');
+  const restartMilliseconds=await start('-autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1');
   // Let the selection panel finish updating before clicking its controls.
   await page.mouse.click(520,360);await advanceFor(300);
   await page.mouse.click(648,627);await advance(3);

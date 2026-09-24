@@ -58,3 +58,65 @@ The content package contains only two map closures and Athens, while the menu
 exposes broader choices. All upstream assets recompress losslessly to about
 1.79 GB, above the current 1 GiB snapshot limit; measure packaging/memory options
 before choosing a complete-content approach. `.cache/0ad/content-sizes.log`.
+
+Complete graphical content now totals 1,892,581,392 bytes in 28 bounded ZIP
+archives plus config/licenses. A CRC/size audit checks all 40,594 packaged files
+against upstream: the only changed original files are the eight declared
+gameplay patches; additions are translated WGSL. Evidence:
+`.cache/0ad/full-content-{package,verify}.log`. The wrapper and image recipe now
+start the upstream main menu; full menu-to-match verification is still pending.
+
+Packaged restoration now streams into a 1 MiB Wasm staging range and verifies
+parts, exact manifest membership, ordering and the final canonical image hash
+before launching userspace. Image bound is 2 GiB; static multipart inputs remain
+1 GiB. Chrome/Firefox core checks, in-Wasm restore checks (all split boundaries,
+reverse/interleaved packs, truncation, duplicate paths and bad hashes), and real
+browser compressed-pack success/rejection checks pass. Evidence:
+`.cache/0ad/streaming-{core,retention,packs}-browser.log`.
+Normal packaged boots use the immutable HTTP pack cache; rebuild/custom image
+artifacts retain their identity-checked IndexedDB cache.
+
+The old 580,774,695-byte image reached the Firefox menu in 8.67 s, with
+1,276,313,600 kernel memory bytes and 3,318,194,176 peak cgroup bytes:
+`.cache/0ad/menu-baseline.log`. Full-image export's first attempt reached its
+12 GiB cgroup bound and crashed the Chrome renderer (confirmed through CDP),
+without an OS OOM kill. Artifact caching now uses Blob payloads rather than
+structured-cloning multi-gigabyte ArrayBuffers; the host export streams to its
+output file. The browser harness now rejects a crashed renderer promptly.
+The full 2,068,906,450-byte image now builds/exports under a 10 GiB scope.
+The builder releases its Worker before hashing/caching, IndexedDB stores Blob
+payloads, and export uploads a Blob to a streamed host output file. Chrome and
+Firefox custom-session build/save/restore/export checks still pass. Evidence:
+`.cache/0ad/full-menu-image-blob-export.log`,
+`.cache/0ad/streaming-custom-session-browser.log`.
+
+A raw 2 GB Firefox download hit the 5 GiB scope limit and was OOM-killed before
+boot. The same image delivered in 59 packs reached its menu in 25.9 s, with
+2,231,631,872 kernel bytes and 3,890,806,784 peak cgroup bytes. Development
+builds now emit/reuse packs too, repairing missing delivery files from verified
+snapshots. Source checks pass 278/278; real-browser reversed/interleaved packs
+and bad-hash/truncation rejection pass with the packed source build.
+Evidence: `.cache/0ad/source-{packs-build,stream-packs-browser}.log`.
+
+The menu created Acropolis Bay with a random civilization, then generated
+Alpine Lakes with Han. Both rendered successfully; the complete process exited
+with 0 errors and 0 warnings. Random-map generation took 11.38 s. The two-match
+session peaked at 4,484,526,080 bytes without touching the 5 GiB cap. Evidence:
+`.cache/0ad/full-packed-menu.log`, `.cache/0ad/browser/full-{acropolis-match,
+alpine-match-later}.png`.
+
+`test/0ad-menu-browser.mjs` now creates Acropolis Bay with Britons and generates
+Alpine Lakes with Han through normal menus, verifies both replay identities and
+clean engine logs, then returns to the shell. It passes in Firefox 155 and
+Chrome 151: menu boot 25.9/23.7 s, map load 10.4/10.4 s, random-map load
+18.9/19.2 s, peak cgroup bytes 4,140,834,816/3,778,322,432. Evidence:
+`.cache/0ad/full-menu-{firefox,chromium}.log` and matching `menu-*` captures.
+Both browsers also build, cache, reopen and run the same C-compiled custom image
+through the disposable builder: `.cache/0ad/disposable-builder-proof.log`.
+
+Full-content Firefox gameplay checks pass under 5 GiB: combat mean/p99/max
+11.72/23.58/35.04 ms, economy 9.80/33.28/147.84 ms; peak 4,041,228,288 bytes.
+Both processes have clean engine logs and pass selection/movement, economy,
+Petra, quick-save/load, sound, opaque presentation and shell recovery. Evidence:
+`.cache/0ad/full-content-gameplay-firefox.log`. Cold selection UI still needs
+profiling; none of these changes has been published to the user preview yet.
