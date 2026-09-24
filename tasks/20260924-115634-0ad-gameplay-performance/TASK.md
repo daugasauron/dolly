@@ -285,3 +285,11 @@ Chrome at device scale 2 also passes gameplay, explicit combat/economy alpha
 captures, browser viewport changes, and a second replayed movement command
 issued through the resized canvas: `.cache/0ad/gpu-skinning-hidpi-chromium.log`.
 The game retains its 1024×768 render surface while the browser scales it.
+
+Local release `8a01dd68c765917be9f43aee5326ac690d51c4a6388e07da06136934c215adb8`
+is built from `9a33c0c`. All twelve image inventories pass acceptance, and
+Firefox opens both menu-created matches from the published preview with clean
+engine logs (peak 3,806,277,632 bytes). Evidence:
+`.cache/0ad/gpu-skinning-{release,published-menu-firefox}.log`.
+Archive: `build/0ad/dolly-zero-ad-pages.tar.gz`, SHA-256
+`1618c90993f28aed27533215c35f06748a115e9ac45e6d12827f91ca7e9b19f5`.
