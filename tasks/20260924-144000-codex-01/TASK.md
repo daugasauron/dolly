@@ -48,9 +48,10 @@ The physical freight regression with a distracting light parcel passes at
 carriers in order. The light parcel remains loose and uncollected. The same
 trial includes an occupied loading pad, simultaneous boat arrivals and brief
 observation loss at all three cranes. `build/blockwalker-quay-delay-parcel/`.
-The general game/controls check also passes: 10.748 m driven through real keys,
-74 Eyes samples, actual magnetic pickup, and no browser errors.
-`build/blockwalker-final-driver.log` and its `cargo-physics.log`.
+The general game/controls check also passes: 11.684 m driven through real keys,
+75 Eyes samples, actual magnetic pickup, and no browser errors.
+`build/blockwalker-reconciled-driver.log` and
+`build/blockwalker-reconciled-driver/cargo-physics.log`.
 
 The uninterrupted default-seed 90-minute trial finishes with all 60 originals,
 zero removals, 68 deliveries and a 91–91 score. All 18 heavy deliveries have

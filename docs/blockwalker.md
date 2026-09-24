@@ -108,8 +108,9 @@ carrier. The delivery record and your total survive saves and rebuilding your ca
 The sidebar and focus HUD show whether the magnet is powered or carrying cargo.
 Your deliveries also show a confirmation naming the depot and updated total.
 Cargo can settle on the depot floor or stack on previously delivered crates.
-Postbird picks up available island cargo, delivers it to a depot, then searches
-for another load. It ignores cargo already delivered or held by another machine.
+Postbird picks up accessible island cargo, delivers it to a clear compatible
+depot, then searches for another load. It avoids the receiving crane's working
+area and cargo already delivered or held by another machine.
 
 Material 0 is alloy, 1 is a sealed hull with one-quarter density, and 2 is ballast
 with triple density. Eight volume samples per body apply buoyancy and drag at

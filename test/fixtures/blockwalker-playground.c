@@ -148,27 +148,32 @@ static void check_air_clearance(JSContext *ctx){
     assert(world.count==1&&world.deaths==0&&contacts==0&&low>.9f&&peak>12&&furthest>62);
     world_close();
 }
-static void check_courier(JSContext *ctx){
+static void check_courier(JSContext *ctx,int industrial){
     JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
         JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
         if(name&&!strncmp(name,"Postbird /",10))JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));
+        if(industrial&&name&&!strcmp(name,"East / receiving crane"))JS_SetPropertyUint32(ctx,selected,1,JS_DupValue(ctx,item));
         JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
     }
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);
+    terrain_select(industrial);load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1+industrial);world.next_parcel=world.next_ore=100000;
     int carrier=world.creatures[0].id;Vector3 home=world.creatures[0].physics.start;
-    int first=world_drop_cargo(home.x,NAN,home.z,MATERIAL_ALLOY),second=0;
+    float x=home.x-(industrial?15:0),z=home.z+(industrial?13:0);
+    int first=world_drop_cargo(x,NAN,z,MATERIAL_ALLOY),second=0,obstructed=0;
     for(int i=0;i<180*60;i++){
         if(i==60*60){world_save(ctx);world_close();world_load(ctx);}
-        if(i==90*60)second=world_drop_cargo(home.x,NAN,home.z,MATERIAL_ALLOY);
+        if(i==90*60){if(industrial)obstructed=world_drop_cargo(156,NAN,27,MATERIAL_ALLOY);second=world_drop_cargo(x,NAN,z,MATERIAL_ALLOY);}
         world_step();
     }
-    assert(world.count==3&&world.deaths==0&&world.delivery_count==2&&world_cargo_score(carrier)==2&&world_team_score(1)==2&&world_team_score(2)==0);
+    assert(world_save(ctx));
+    assert(world.count==3+2*industrial&&world.deaths==0&&world.delivery_count==2&&world_cargo_score(carrier)==2&&world_team_score(1)==2&&world_team_score(2)==0);
+    if(industrial)assert(!world_find(obstructed)->delivered&&!world_find(obstructed)->held_by);
     Creature *a=world_find(first),*b=world_find(second);assert(a->delivered&&b->delivered&&!a->held_by&&!b->held_by);
     b3Pos pa=b3Body_GetPosition(a->physics.parts[0].body),pb=b3Body_GetPosition(b->physics.parts[0].body);
     assert(pb.y-pa.y>.8f&&hypotf(pa.x-pb.x,pa.z-pb.z)<.9f);
-    printf("COURIER: two physical deliveries, stacked height difference %.3f m, score %d after controller restart\n",pb.y-pa.y,world_cargo_score(carrier));
+    printf("COURIER: industrial %d, two physical deliveries, stacked height difference %.3f m, score %d after controller restart\n",industrial,pb.y-pa.y,world_cargo_score(carrier));
     world_save(ctx);world_close();world_load(ctx);ticks(120);assert(world.delivery_count==2&&world_cargo_score(carrier)==2&&world_team_score(1)==2&&world_team_score(2)==0);world_close();
+    terrain_select(0);
 }
 static void check_gantry(JSContext *ctx){
     JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
@@ -393,5 +398,5 @@ int main(void){
     sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60);nearby=JS_GetPropertyStr(ctx,sensors,"nearby");sample=JS_GetPropertyUint32(ctx,nearby,0);
     assert(get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",-1)==0);
     JS_FreeValue(ctx,sample);JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
-    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);check_radio(ctx);check_supply(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx,0);check_courier(ctx,1);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);check_radio(ctx);check_supply(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }
