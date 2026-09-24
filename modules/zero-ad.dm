@@ -4,7 +4,7 @@ MODULE zero-ad
 REQUIRES TOOL slop
 
 # External wasm64 bootstrap; pinned sources and port instructions: docs/sources.md.
-SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis f290eeee65fa679f70568d8a2ce67f9941edbaf3337994e5ea971fa590ec3a87
+SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis f2e93413b1e5c272865f72bd05e8cd936392486e2b2bccb053ac80becabd454a
 SOURCE HOST /static/zero-ad/data/config/default.cfg /opt/0ad/data/config/default.cfg 96fe2f626983f3a9b2392095c11f04b3a8a318531408ce9aea0f4bd5c2a60f5a
 SOURCE HOST /static/zero-ad/data/config/keys.txt /opt/0ad/data/config/keys.txt 469f8fa2807838de81d53dda3a78b1676013e4fd18bd696d53693f09a21b9410
 SOURCE HOST /static/zero-ad/data/config/local.cfg /opt/0ad/data/config/local.cfg 1621faf65a3bb653b42401500e179f4b02d334646cd274ae1228ac6197407b12

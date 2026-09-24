@@ -133,3 +133,16 @@ deferring those transfers removed that pause. Native audio mixing/refill did
 not account for it. Selection measurement now includes time after mouse release;
 profiling continues before changing engine behavior. Evidence:
 `.cache/0ad/selection-deep-{audio,quiet}-firefox-profile2.jsonp`.
+
+Published `8503567699b375dc092c844db0b0dded45baa02f8e98584cae9b72312475326e`
+to the existing loopback preview. Its Firefox menu test creates both maps with
+clean engine logs, peak 4,231,766,016 bytes: `.cache/0ad/published-menu-firefox.log`.
+
+Texture uploads now pause the render pass and submit only if pending draws or
+attachments already use that texture. New selection icons batch into 12 packets
+instead of 59. A paired Firefox run measured cold selection at 132.9→109.3 ms;
+UI preparation remains a separate cost. Evidence: `.cache/0ad/selection-{batch-before,
+texture-batch-after}-firefox-*`. The final engine passes combat/economy, movement,
+training/construction, save/load, sound, opaque pixels and shell recovery in
+Firefox and Chrome: `.cache/0ad/texture-batch-gameplay-{firefox,chromium}.log`.
+Source checks pass 278/278; the 41-file patch reconstructs pristine upstream.

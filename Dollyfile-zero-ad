@@ -2,7 +2,7 @@ DOLLY 3
 IMAGE zero-ad
 
 FROM HOST /Dollyfile 9e97dcdc44d6fd63fe8b0c182509068ac487e6c5eb3fa4d9fcb3f400dd568e1e
-USE HOST /modules/zero-ad.dm 0a223454566df241e18f2b6fc1f659c83073d779340fb3b4be97562744213978
+USE HOST /modules/zero-ad.dm c0807d3c9957deabbbd3c70821610ff5ce1014b655e442b1d1c28a395ece89be
 
 FILE /etc/dolly/zero-ad.slop
     /bin/foreground /usr/bin/zero-ad

@@ -1603,7 +1603,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,915 @@
+@@ -0,0 +1,921 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -1889,6 +1889,7 @@
 +    Type type;
 +    Format format;
 +    uint32_t usage,width,height,mips;
++    uint64_t lastUsed=0;
 +    Handle handle,sampler;
 +    std::array<uint32_t,4> borderParameters;
 +};
@@ -2231,6 +2232,8 @@
 +    if(!framebuffer || passOpen)return;
 +    bool resume=resumeEnabled;resumeEnabled=false;device->queue.Reserve(112,2);resumeEnabled=resume;
 +    void* p=dolly_gpu_record(device->queue.gpu.get(),DOLLY_GPU_BEGIN_RENDER_PASS,64);
++    framebuffer->color.texture->As<Texture>()->lastUsed=device->queue.submission;
++    if(framebuffer->depth.texture)framebuffer->depth.texture->As<Texture>()->lastUsed=device->queue.submission;
 +    U64(p,8,framebuffer->color.texture->As<Texture>()->handle);
 +    U64(p,16,framebuffer->depth.texture?framebuffer->depth.texture->As<Texture>()->handle:0);
 +    U32(p,24,framebuffer->GetWidth());U32(p,28,framebuffer->GetHeight());U32(p,32,clearColor);U32(p,36,clearDepth);
@@ -2380,6 +2383,8 @@
 +    unsigned buffers=0;
 +    for(const auto& attribute:layout->attributes)if(program->streams.contains(attribute.stream))buffers=std::max(buffers,attribute.bindingSlot+1);
 +    void* p=device->queue.Record(DOLLY_GPU_DRAW_MESH,80+8*groups.size()+24*buffers);
++    for(size_t i=0;i<program->bindings.size();i++)
++        if(program->bindings[i].group==1)textures.at({program,i})->lastUsed=device->queue.submission;
 +    U64(p,8,gpuPipeline);
 +    if(indexed){Require(indices!=nullptr,"missing index buffer");indices->lastUsed=device->queue.submission;U64(p,16,indices->handle);U64(p,32,indices->size);U32(p,60,1);}
 +    U32(p,40,count);U32(p,44,instances);U32(p,48,first);U32(p,52,base);U32(p,56,firstInstance);U32(p,64,groups.size());U32(p,68,buffers);
@@ -2408,7 +2413,8 @@
 +    unsigned targetBytes=TextureFormat(texture->format)==3?1:TextureFormat(texture->format)==4?2:4;
 +    Require(bytes==size_t(width)*height*sourceBytes,"texture upload byte count");
 +    Require(targetBytes==4 || dataFormat==texture->format,"texture conversion format");
-+    resumeEnabled=false;device->queue.Flush();
++    resumeEnabled=false;Pause();
++    if(texture->lastUsed==device->queue.submission)device->queue.Flush();
 +    const auto* source=static_cast<const uint8_t*>(data);
 +    uint32_t rows=std::max(1u,512*1024/(width*targetBytes));
 +    for(uint32_t row=0;row<height;row+=rows)
