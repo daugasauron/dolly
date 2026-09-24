@@ -1,6 +1,6 @@
 # Recover loaded freighters from traffic jams
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,game,physics
 
@@ -67,4 +67,11 @@ all catalog sources match, 69 live objects, zero removals/errors/model requests,
 30.2 simulated seconds in 30.02 wall seconds, zero render readbacks. Chrome on
 Xvfb measures 52.03 / 56.12 FPS at Quay/focus.
 
-Remaining: resume the populated world beyond the original traffic failure.
+The populated continuation reaches 3030 simulated seconds with all 60 originals
+alive, zero removals, and further airborne deliveries. East completes the recovered
+heavy delivery and returns to the loading berth; West completes pallet 83 and
+returns too. The East barge retains exactly one back-off. The later heavy-chain
+stall is a separate [occupied loading quay issue](../20260924-132300-codex-01/TASK.md),
+not recurrence of the boat traffic jam. Evidence:
+`build/blockwalker-competition-after-traffic-hour-7/` (intentionally stopped after
+capturing that new failure).
