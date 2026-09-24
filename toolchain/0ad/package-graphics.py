@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import shutil
 import sys
+import zlib
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
 source = Path(sys.argv[1]) / 'binaries/data'
@@ -33,13 +34,10 @@ for mod in ('mod', 'public'):
         names = sorted({name for name in upstream.namelist() if not name.startswith('shaders/spirv/')} | generated.keys())
         archive = None
         index = 0
+        archive_size = 22
+        archive_limit = 24 * 1024 * 1024
         try:
             for name in names:
-                if archive is None or archive.fp.tell() >= 64 * 1024 * 1024:
-                    if archive is not None:
-                        archive.close()
-                    archive = ZipFile(destination / f'{mod}-{index:03}.zip', 'w', compression=ZIP_DEFLATED, compresslevel=6)
-                    index += 1
                 content = generated[name].read_bytes() if name in generated else (
                     headless.read(name) if name in patched else upstream.read(name))
                 if mod == 'public' and name == 'gui/options/options.json':
@@ -50,6 +48,18 @@ for mod in ('mod', 'public'):
                                 isinstance(dependency, str) and renderer_defaults.get(dependency) is False
                                 for dependency in option.get('dependencies', []))]
                     content = (json.dumps(categories, ensure_ascii=False, indent='\t') + '\n').encode()
+                # Include local and central headers; leave room below Pages' 25 MiB
+                # limit for the snapshot record and gzip wrapper around each ZIP.
+                entry_size = len(zlib.compress(content, 6)) + 76 + 2 * len(name.encode('utf-8'))
+                if entry_size + 22 > archive_limit:
+                    raise ValueError(f'content file exceeds archive limit: {name}')
+                if archive is None or archive_size + entry_size > archive_limit:
+                    if archive is not None:
+                        archive.close()
+                    archive = ZipFile(destination / f'{mod}-{index:03}.zip', 'w', compression=ZIP_DEFLATED, compresslevel=6)
+                    index += 1
+                    archive_size = 22
+                archive_size += entry_size
                 entry = ZipInfo(name, (1980, 1, 1, 0, 0, 0))
                 entry.compress_type = ZIP_DEFLATED
                 entry.external_attr = 0o100644 << 16

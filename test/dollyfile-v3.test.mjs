@@ -146,6 +146,9 @@ test("images separate reusable runtimes from applications and configuration", as
   const selected = await selectImageDefinitions(definitions, githubImages.join(","));
   assert.deepEqual(selected.map(item => item.image), definitions
     .filter(item => !["codex", "codex-build", "protox-build", "pi-local", "dollyfile-studio", "llama-build", "local-llm-build", "blockwalker", "zero-ad", "audio-sdk", "openal-build"].includes(item.image)).map(item => item.image));
+  const domainImages = (await readFile(resolve(project, "config/domain-pages-images.txt"), "utf8")).trim().split("\n");
+  assert.deepEqual((await selectImageDefinitions(definitions, domainImages.join(","))).map(item => item.image),
+    definitions.filter(item => item.image !== "blockwalker").map(item => item.image));
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

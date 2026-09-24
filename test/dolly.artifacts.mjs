@@ -340,6 +340,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const expectedPrograms = new Map([
     ["audio-sdk", "/usr/lib/libdolly-audio.a"],
     ["bhop", "/usr/bin/bhop"],
+    ["blockwalker", "/usr/bin/blockwalker"],
     ["classicube", "/usr/bin/classicube-agent"],
     ["classicube-build", "/usr/bin/classicube"],
     ["codex", "/usr/bin/codex"],
@@ -363,6 +364,8 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["rust-tools", "/usr/bin/patti"],
     ["protox-build", "/usr/bin/protox"],
     ["javascript", "/usr/bin/tsc"],
+    ["llama-build", "/usr/lib/dolly-llm/libllama.a"],
+    ["local-llm-build", "/usr/bin/dolly-llama"],
     ["typescript-build", "/usr/bin/tsc"],
     ["pi-build", "/usr/bin/pi"],
     ["pi-runtime", "/usr/bin/pi"],

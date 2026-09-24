@@ -8,7 +8,7 @@ export async function packageGithubPages(site) {
   const index = resolve(site, "index.html");
   let menu = await readFile(index, "utf8");
   const rows = [];
-  for (const image of ["dollyfile-studio", "pi-local"]) {
+  for (const image of ["dollyfile-studio", "pi-local", "zero-ad"]) {
     if (menu.includes(`data-image="${image}"`)) throw Error(`${image} is already packaged locally`);
     const row = template.match(new RegExp(`<tr class="image" data-image="${image}">[\\s\\S]*?<\\/tr>`))?.[0];
     if (!row) throw Error(`missing menu row for ${image}`);
