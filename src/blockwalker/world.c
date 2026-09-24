@@ -47,6 +47,7 @@ static JSValue random_number(JSContext *ctx,JSValueConst self,int argc,JSValueCo
     return JS_NewFloat64(ctx,c->seed/4294967296.0);
 }
 static void controller_free(Controller *c){if(!c)return;JS_FreeValue(c->ctx,c->function);JS_FreeValue(c->ctx,c->memory);JS_FreeValue(c->ctx,c->random);JS_FreeValue(c->ctx,c->blueprint);JS_FreeContext(c->ctx);JS_FreeRuntime(c->runtime);free(c->source);free(c);}
+static int valid_controller_hz(double hz){return hz==1||hz==10||hz==20||hz==30||hz==60;}
 static Controller *controller_new(const char *source,uint32_t seed,int hz){
     Controller *c=calloc(1,sizeof(*c));if(!c)return NULL;
     c->source=strdup(source);c->seed=seed?seed:1;c->hz=hz;c->last_step=-1;c->runtime=JS_NewRuntime();JS_SetMemoryLimit(c->runtime,4*1024*1024);JS_SetMaxStackSize(c->runtime,128*1024);
@@ -380,8 +381,8 @@ JSValue world_install(JSContext *ctx,JSValueConst args){
     JSValue code=JS_GetPropertyStr(ctx,args,"source"),name=JS_GetPropertyStr(ctx,args,"name");
     const char *source=JS_ToCString(ctx,code),*label=JS_ToCString(ctx,name);JSValue result=JS_UNDEFINED;
     double hz=get_number(ctx,args,"hz",10);
-    Controller *probe=source&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
-    if(!probe)result=JS_ThrowTypeError(ctx,"Controller must compile to a JavaScript function within its heap and execution limits; return key letters or key strengths 0..1, hz 10/20/30/60");
+    Controller *probe=source&&valid_controller_hz(hz)?controller_new(source,1,hz):NULL;
+    if(!probe)result=JS_ThrowTypeError(ctx,"Controller must compile to a JavaScript function within its heap and execution limits; return key letters or key strengths 0..1, hz 1/10/20/30/60");
     else {world_trial_stop();installed_hz=hz;free(installed);installed=strdup(source);snprintf(installed_name,sizeof(installed_name),"%s",label?label:"Creature");controller_free(probe);}
     JS_FreeCString(ctx,source);JS_FreeCString(ctx,label);JS_FreeValue(ctx,code);JS_FreeValue(ctx,name);return result;
 }
@@ -449,7 +450,7 @@ int world_enter(const Character *design,int sea){
 }
 int world_drop_cargo(float x,float y,float z,int material){
     Character box={0};character_add(&box,-1,0,0,0,BLOCK_BOX,1);box.blocks[0].material=material;box.blocks[0].finish=FINISH_STRIPE;
-    Creature *cargo=spawn(&box,"function(){return ''}","Cargo",1,10,x,z);character_clear(&box);if(cargo&&isfinite(y))set_spawn_height(cargo,y);return cargo?cargo->id:0;
+    Creature *cargo=spawn(&box,"function(){return ''}","Cargo",1,1,x,z);character_clear(&box);if(cargo&&isfinite(y))set_spawn_height(cargo,y);return cargo?cargo->id:0;
 }
 static Creature *cargo_carrier(const Creature *cargo,int *supported){
     if(supported)*supported=0;
@@ -545,7 +546,7 @@ static void supply_step(void){
     if(world.age>=world.next_ore&&ore<3&&!blocked&&platform){
         Character crate={0};character_add(&crate,-1,0,0,0,BLOCK_BOX,1);character_add(&crate,0,1,0,0,BLOCK_BOX,1);character_add(&crate,0,0,0,1,BLOCK_BOX,1);character_add(&crate,1,1,0,1,BLOCK_BOX,1);
         for(int i=0;i<crate.count;i++){crate.blocks[i].material=MATERIAL_BALLAST;crate.blocks[i].finish=FINISH_STRIPE;}
-        Creature *cargo=spawn(&crate,"function(){return ''}","Ore pallet",1,10,-47,60.5f);character_clear(&crate);
+        Creature *cargo=spawn(&crate,"function(){return ''}","Ore pallet",1,1,-47,60.5f);character_clear(&crate);
         if(cargo){cargo->cargo=1;cargo->supply=2;set_spawn_height(cargo,-6.9f);}
         world.next_ore=world.age+60+30*supply_random();
     }
@@ -708,7 +709,7 @@ static int read_design(JSContext *ctx,JSValueConst item,Character *design,int re
     int empty=!require_program&&JS_IsArray(blueprint)&&get_number(ctx,blueprint,"length",-1)==0;
     int valid=JS_IsArray(blueprint)&&(empty||character_from_json(ctx,blueprint,design))&&JS_IsString(name)&&JS_IsBool(anchored);
     if(valid)design->anchored=JS_ToBool(ctx,anchored);
-    double hz=get_number(ctx,item,"hz",0);valid=valid&&(hz==10||hz==20||hz==30||hz==60);
+    double hz=get_number(ctx,item,"hz",0);valid=valid&&valid_controller_hz(hz);
     size_t bytes=0;const char *label=JS_IsString(name)?JS_ToCStringLen(ctx,&bytes,name):NULL;
     valid=valid&&label&&bytes>0&&bytes<64&&strlen(label)==bytes;JS_FreeCString(ctx,label);
     if(JS_IsString(code)){
@@ -750,7 +751,7 @@ static void load_designs(JSContext *ctx,JSValueConst list,int populate){
             JSValue anchored=JS_GetPropertyStr(ctx,item,"anchored");c.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);
             const char *source=JS_IsString(code)?JS_ToCString(ctx,code):NULL,*name=JS_ToCString(ctx,label);int hz=get_number(ctx,item,"hz",10);float x=get_number(ctx,item,"x",0),z=get_number(ctx,item,"z",0);
             JSValue height=JS_GetPropertyStr(ctx,item,"y");int elevated=!JS_IsUndefined(height);float y=get_number(ctx,item,"y",NAN);JS_FreeValue(ctx,height);
-            Controller *probe=source&&(hz==10||hz==20||hz==30||hz==60)?controller_new(source,1,hz):NULL;
+            Controller *probe=source&&valid_controller_hz(hz)?controller_new(source,1,hz):NULL;
             if((probe||(!populate&&!source))&&isfinite(x)&&isfinite(z)&&(!elevated||(isfinite(y)&&y>=-12&&y<=128))){
                 x=Clamp(x,-248,248);z=Clamp(z,-248,248);remember_design(&c,source,name,hz,x,z);
                 if(populate){Creature *born=spawn(&c,source,name,i+1,hz,x,z);if(born){int team=get_number(ctx,item,"team",0);born->team=team==1||team==2?team:0;if(elevated)set_spawn_height(born,y);}}
@@ -795,7 +796,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
             if(!duplicate){const char *name=JS_ToCString(ctx,label);Delivery *d=new_delivery();*d=(Delivery){.cargo=cargo,.carrier=carrier,.depot=depot,.time=time,.points=get_number(ctx,item,"points",1)};snprintf(d->name,sizeof(d->name),"%s",name);JS_FreeCString(ctx,name);}
         }JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
     }JS_FreeValue(ctx,deliveries);
-    int hz=get_number(ctx,save,"installedHz",10);installed_hz=(hz==10||hz==20||hz==30||hz==60)?hz:10;
+    int hz=get_number(ctx,save,"installedHz",10);installed_hz=valid_controller_hz(hz)?hz:10;
     JSValue code=JS_GetPropertyStr(ctx,save,"installed"),label=JS_GetPropertyStr(ctx,save,"name");
     if(JS_IsString(code)){const char *s=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);installed=strdup(s);snprintf(installed_name,sizeof(installed_name),"%s",name);JS_FreeCString(ctx,s);JS_FreeCString(ctx,name);}
     JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);JSValue list=JS_GetPropertyStr(ctx,save,"creatures");int count=get_number(ctx,list,"length",0);
@@ -804,7 +805,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
         if(character_from_json(ctx,blueprint,&c)){
             JSValue anchored=JS_GetPropertyStr(ctx,item,"anchored");c.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);
             JSValue code=JS_GetPropertyStr(ctx,item,"source"),label=JS_GetPropertyStr(ctx,item,"name");const char *s=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);
-            int hz=get_number(ctx,item,"hz",10);if(hz!=10&&hz!=20&&hz!=30&&hz!=60)hz=10;
+            int hz=get_number(ctx,item,"hz",10);if(!valid_controller_hz(hz))hz=10;
             Creature *creature=s?spawn(&c,s,name?name:"Creature",get_number(ctx,item,"seed",1),hz,0,0):NULL;
             if(creature){
                 int team=get_number(ctx,item,"team",0);creature->team=team==1||team==2?team:0;

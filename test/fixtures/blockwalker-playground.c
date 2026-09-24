@@ -28,15 +28,16 @@ static void check_pier_water(JSContext *ctx){
 static void check_resume(JSContext *ctx){
     Character rig={0};character_add(&rig,-1,0,0,0,BLOCK_BOX,0);character_add(&rig,0,0,1,0,BLOCK_HINGE,1);rig.blocks[1].axis=1;rig.anchored=1;
     const char *source="function(t,s,m){m.calls=(m.calls||0)+1;m.angle=s.angles[1];m.rate=s.rates[1];m.time=t;m.dt=s.dt;m.ready=s.contactsReady;return {A:.3};}";
-    for(int hz=10;hz<=60;hz+=50)for(int steps=72;steps<=73;steps++){
+    const int rates[]={1,10,60};
+    for(int rate_index=0;rate_index<3;rate_index++)for(int steps=72;steps<=73;steps++){int hz=rates[rate_index];
         world_close();Creature *c=spawn(&rig,source,"Resume probe",1,hz,-40,0);int id=c->id;ticks(steps);c=world_find(id);
         float angle=c->physics.parts[1].angle,rate=c->physics.parts[1].rate,command=c->controls['A'];int previous=c->controller->last_step,calls=get_number(c->controller->ctx,c->controller->memory,"calls",0);double age=world.age;
-        assert(angle>.8f&&rate>.7f&&command>.29f);world_save(ctx);world_close();world_load(ctx);c=world_find(id);
-        assert(world.age==age&&c->physics.steps==steps&&c->controller->last_step==previous&&c->controls['A']==command&&!c->physics.sampled);
+        assert(angle>.8f&&rate>.7f&&command>.29f);world_save(ctx);world_close();if(hz==1){JSValue restored=world_import(ctx,"/workspace/blockwalker-world.json");assert(!JS_IsException(restored));JS_FreeValue(ctx,restored);}else world_load(ctx);c=world_find(id);
+        assert(world.age==age&&c->controller->hz==hz&&c->physics.steps==steps&&c->controller->last_step==previous&&c->controls['A']==command&&!c->physics.sampled);
         assert(fabsf(c->physics.parts[1].angle-angle)<.0001f&&fabsf(c->physics.parts[1].rate-rate)<.0001f);
         ticks(1);c=world_find(id);assert(get_number(c->controller->ctx,c->controller->memory,"calls",0)==calls&&c->physics.parts[1].command==command&&c->physics.sampled);
         int ran=0;
-        for(int i=0;i<7&&!ran;i++){
+        for(int i=0;i<61&&!ran;i++){
             angle=c->physics.parts[1].angle;rate=c->physics.parts[1].rate;double time=c->physics.steps/60.;ticks(1);
             ran=get_number(c->controller->ctx,c->controller->memory,"calls",0)>calls;
             if(ran){

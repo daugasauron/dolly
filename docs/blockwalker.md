@@ -66,8 +66,9 @@ Eyes provide a first-person camera at the block's outward face. Its axis and sig
 set the view direction; the camera follows the block's actual rotation. Entering
 the world adds a manually controlled copy alongside the existing machines.
 Wheel driving uses physical differential motors. Other actuators retain their
-assigned keys. Driving hints show the character's movement mode and magnet
-bindings. Without Eyes, entering a character uses the follow camera.
+assigned keys. The starter's editable embedded program translates WASD into
+those motor commands; Program displays and exports its source. Driving hints show
+the character's movement mode and magnet bindings. Without Eyes, entering a character uses the follow camera.
 
 The part palette also has telescoping pistons, reversible thrusters, wheels, magnets and turntables.
 Pistons move their attached branch along the selected axis and sign; the palette
@@ -102,8 +103,8 @@ While driving, C drops the crate ahead of the Eyes camera. Carry it to a striped
 depot, release it and
 let it settle for a second. Each crate scores once after transport from outside
 that depot; simply spawning cargo there earns nothing. Delivered crates turn
-green. Manual cargo remains physical; delivered replenished supplies clear after
-45 seconds when unheld. Magnet pickup and riding on a deck both identify the
+green. All delivered cargo remains physical and can be moved into storage.
+Magnet pickup and riding on a deck both identify the
 carrier. The delivery record and your total survive saves and rebuilding your car.
 The sidebar and focus HUD show whether the magnet is powered or carrying cargo.
 Your deliveries also show a confirmation naming the depot and updated total.
@@ -129,8 +130,8 @@ Finishes 0–3 select plain, panelled, indicator trim or hazard stripes without
 changing the physics.
 
 New worlds use an industrial mainland with a flooded ore shaft, roofed foundry,
-low freight passage, turbine ruins and shipping quay. East's teal crew and
-West's amber crew compete to deliver cargo to their islands. Light parcels
+low freight passage, turbine ruins and shipping quay. East's red crew and
+West's blue crew compete to deliver cargo to their islands. Light parcels
 descend under parachutes; dense ore appears on the lowered factory lift. The
 provided aircraft can carry a 0.91 kg parcel but cannot lift an 11 kg pallet
 with their 30 N magnets. Stronger player-built machines remain possible.
@@ -166,7 +167,7 @@ the population, so exporting the world also preserves its designs.
 The initial layout can place several copies of one design. Each has its own
 world identity, physics and controller state while sharing one library entry.
 
-A fresh image has 60 objects / 1604 parts from 41 library designs: the learned patrol
+The catalog preserves the learned patrol
 biped, larger walkers, balance surveyor, aircraft and cargo machinery, plus
 small roaming lookouts, a hydraulic yard porter, channel skiffs and the island
 freight fleet. Nineteen
@@ -188,7 +189,6 @@ while the courier is away. The small lookouts steer around loose and delivered c
 nearby machinery rather than waiting in its path.
 Three small Minamo skiffs and the larger patrol boats choose water routes around
 the coasts. Twinspire steers around loose cargo to leave it available for salvage.
-All 44 characters have Eyes; loose cargo uses the outside camera.
 Skybarge samples nearby ground height to climb before crossing quarry ledges.
 Controllers run without Pi or model access.
 Existing saves keep their population, including an empty world.
@@ -247,9 +247,9 @@ function(t, sensors, memory, random) {
 }
 ```
 
-Controllers default to 10 Hz; `program` can choose `hz: 20`, `30` or `60` for
-feedback control. Existing saved programs retain 10 Hz. They run in separate
-bare QuickJS contexts with no I/O or game API. A string holds keys at full
+Controllers default to 10 Hz; `program` can choose `hz: 1` for inert or slowly
+changing programs, or `20`, `30` and `60` for feedback control. Saved programs
+retain their configured rates. They run in separate bare QuickJS contexts with no I/O or game API. A string holds keys at full
 strength; an object such as `{A: 0.35, S: 0.6}` applies proportional output.
 Opposite key strengths subtract. Values must be finite numbers from zero to one,
 and every key must be assigned. Output scales motor target speed or thruster
@@ -282,10 +282,10 @@ pauses after the trial. The same controller implementation runs released creatur
 | `touching` | Per-part contact booleans; includes other bodies and the floor |
 | `contactsReady` | Whether a solver step has populated contact readings |
 | `ground`, `waterHeight` | Terrain height and wave surface under the root; water height is available in sea trials and the shared world |
-| `magnets` | Per-magnet `power` (0–1), `attached`, `load` (N), `targetMass` (kg), `targetSupportForce` (N) and `cargoSupportForce` (N); the latter sums external upward support over all cargo parts, excluding its own parts and holder |
+| `magnets` | Per-magnet `power` (0–1), `attached`, target `creature`/`part`, `load` (N), `targetMass` (kg), `targetSupportForce` (N) and `cargoSupportForce` (N); the latter sums external upward support over all cargo parts, excluding its own parts and holder |
 | `submerged` | Per-part fraction in water, from 0 to 1 |
 | `id`, `cargoDelivered` | Shared-world identity and lifetime delivery count |
-| `nearby` | Up to 12 nearest objects within 48 m, with pose, bounds, mass, team and cargo state; `carriedBy` identifies the carrier, `magnetHeld` distinguishes grip from riding a deck, and `visible` reports terrain-clear sight; `supply` is 0 (manual), 1 (parcel) or 2 (ore); empty in practice |
+| `nearby` | All objects within 48 m, nearest first, with pose, bounds, mass, team, `up`, `fallenSeconds`, `controllerStopped` and cargo state; `carriedBy` identifies the carrier, `magnetHeld` distinguishes grip from riding a deck, and `visible` reports terrain-clear sight; `supply` is 0 (manual), 1 (parcel), 2 (ore) or 3 (mine sample); empty in practice |
 | `groundSamples` | World XYZ terrain samples, eight compass directions at 6 m then 16 m, beginning at +Z |
 | `terrain` | Terrain bounds within 24 m horizontally: `x/z`, `halfX/halfZ`, `low/high`, including below an aircraft; check the whole landing column |
 | `obstacles` | The terrain subset whose top is at least root Y minus 0.2 m |
@@ -302,17 +302,16 @@ feedback; the same body with feedback disabled fell. The integration check also
 runs a four-thruster PID platform, changes its target altitude, applies asymmetric
 thrust, and verifies recovery and saved-world continuation.
 
-An object can disappear from `nearby` when closer objects fill the list, even
-while a magnet retains it. Check for missing observations before using a saved
-object ID; missing observations do not imply that attached cargo was released.
+Check for missing observations before using a saved object ID: objects beyond
+the observation radius leave `nearby`. Use the actual magnet attachment when
+deciding whether a pickup succeeded.
 
-Each controller has a seeded random function, 4 MiB memory and an interpreter execution budget. A failed controller
-removes its creature without stopping the world. Shared Box3D physics allows
-creatures to collide. After a three-second settling period, a sideways torso
-(uprightness < 0.15) or collapsed raised torso (height < 0.65 m above land) is
-removed if it stays fallen for two seconds. At sea, sinking more than three
-metres below the surface also fails. Anchored structures and single loose blocks skip posture checks;
-their controllers still have the same execution limit. World observations include
+Each controller has a seeded random function, 4 MiB memory and an interpreter
+execution budget. A failed controller stops its commands and retains the body,
+source and error. Shared Box3D physics allows creatures to collide. Fallen or
+sunk machines remain, with their programs running; recovery requires actual
+actuator forces or help from another machine. Only nonfinite poses or escape
+below the physical world remove a body. World observations include
 the latest eight `recentRemovals`, with cause, controller error, lifetime and
 last position/orientation. The world file retains the complete removal history.
 Older removals without those records have an unknown cause.
