@@ -1,6 +1,6 @@
 # Build an island cargo competition through the industrial mainland
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: game,physics,world,teams
 
@@ -125,8 +125,8 @@ Measured evidence (all C compiled inside Dolly, disposable Chrome, 4 GiB/no swap
   clocks round-trip. The older dock courier needed a water-height fallback for
   dry practice; its shared-world inputs and behavior are unchanged.
 
-The earned 60-object candidate is the canonical catalog in `8b34788`. Image 17
-is served on 9099: 232306971 bytes, SHA-256
+The earned 60-object candidate became the canonical catalog in `8b34788`. Image 17
+was the first packaged competition checkpoint: 232306971 bytes, SHA-256
 `525859b01b59aa20c6171f8ee5b2cf2dfc7c26632e525dab220afdd88ee3ef9e`.
 The build took 24.4 s, with unchanged runtime and reused dependency images
 (`build/blockwalker-playground-image17.log`). Image 16 files remain under
@@ -155,7 +155,21 @@ West 10. Three heavy pallets traverse all five carriers in order and score;
 the fourth is aboard the west barge. Both air couriers deliver scout-reported
 parcels. Minimum barge up is 0.94939 East / 0.95706 West.
 
-A targeted crowded-sensor check then exposed a loading-crane controller error;
-the [recovery task](../20260924-120900-codex-01/TASK.md) records the reproduction.
-Keep this task open until that confirmed failure is repaired and packaged.
-Preserve the original learned session and complete native Pi history.
+A targeted crowded-sensor check then exposed a loading-crane controller error.
+The [closed recovery task](../20260924-120900-codex-01/TASK.md) records its repair
+in `f2c1d9d`: all three cranes retain suspended pallets through crowded sensors
+and reloads, then finish two heavy deliveries per team. The permanent freight
+fixture passes 1353.117 seconds, nine reloads and zero removals. All 60 catalog
+controllers also pass 1000 calls each in
+`build/blockwalker-competition-controllers-guarded.log`.
+
+Image 18 includes that repair and is served on 9099: 232307762 bytes, SHA-256
+`dba39efa290c5578f5c3038bcd568f085ae4a2ba61bfd0b2e40c5628b176a375`.
+Source tar: `925b6514a29c6d8f7384866ce6088c59a6e346033a47ff0624a5380f729a53f5`.
+The unchanged-runtime rebuild took 23.8 seconds
+(`build/blockwalker-playground-image18.log`). The actual served image passes
+`build/blockwalker-competition-preview-image18-desktop.log` in Firefox:
+all catalog controllers match, 69 live objects, zero errors/removals/model
+requests, 56.35 / 58.32 FPS at Quay/focus and 30.2 simulated seconds per 30.02
+wall seconds. Original learned sessions and complete native Pi history remain
+preserved. The continuing playground task retains the user's 18:00 JST deadline.
