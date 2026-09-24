@@ -1,12 +1,18 @@
 # Audit 0 A.D. gameplay and performance across browser hardware
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: performance,wasm64,gpu,0ad
 
 Continue on the Blockwalker-based `codex/0ad-baseline-20260923` branch through
 2026-09-25 07:00 JST (2026-09-24 22:00 UTC). Starting release: `bc908afa`,
 implementation `ad9af62`. LAN hosting was cancelled before any service changes.
+
+The user requested a stable checkpoint at 06:44 JST, ending the timed audit
+before its original deadline. The verified implementation is `532a3c0` on
+`codex/0ad-baseline-20260923`; the root checkout was not changed. The local
+preview serves that implementation. Large-match simulation stalls remain open
+in [the follow-up task](../20260925-064500-0ad-large-match-stalls/TASK.md).
 
 Requirements:
 
@@ -512,3 +518,50 @@ identity. No browser-specific fallback was added. Kernel logs show no new GPU
 reset or OOM entry during this minimal check. This does not establish the cause
 of the user's earlier whole-PC freezes. Evidence:
 `.cache/0ad/device-loss-{minimal-firefox,queries-firefox,queries-chromium}.log`.
+
+Release `f480445150b903411c5a9d1989b9eb0a254ee4f151bb1d0d08b995c9aa545639`
+is published locally from implementation `532a3c0`; all ten images in the selected
+dependency closure pass inventory acceptance. The existing preview remains at
+`http://127.0.0.1:42727/zero-ad/`. Its actual served bytes pass the full menu,
+ordinary save/load and two-map flow in Firefox and Chrome/AMD, with clean engine
+logs. Boot takes 29.56/26.40 seconds; process-tree peaks are 4,502,863,872 and
+3,773,517,824 bytes. Evidence: `.cache/0ad/state-release-{images,package}.log`,
+`state-published-menu-{firefox,amd-chromium}.log`.
+Archive `build/0ad/dolly-zero-ad-pages.tar.gz` is 4,033,867,590 bytes; SHA-256
+`cd68fdd8dc12acaefec0978ddcf6993c51f5ec96715528baac55a33e76256d1b`.
+
+Installed Firefox 155.0.1 also opens this release in an isolated native profile,
+creates a Ptolemaic match through the main menu and box-selects ten units. An
+actual X11 window capture contains zero bright magenta pixels in the game region
+despite a striped test background directly behind the canvas. Selection works
+again after changing the browser viewport from 1024×768 at DPR 1 to 800×600 at
+DPR 2; the game's render surface remains 1024×768. Exit restores the shell and
+leaves zero audio scopes. Evidence: `.cache/0ad/state-native-results.json` and
+`browser/state-native-{window,selection,hidpi-selection}.png`. The test profile
+was closed; personal browser profiles were not modified.
+
+The final thirty-minute Chrome/AMD run completes successfully under two CPU
+cores and a 6 GiB scope. Four medium Petra AIs on revealed 256-tile mainland
+reach populations 295/286/262/248 after 1,576.6 simulation seconds, with all
+players active. Repeated box selections and camera changes produce 132,654
+measured intervals: mean 13.58 ms, maximum 868.06 ms and 8,837 above 33.34 ms.
+Some developed views average 27–29 ms over thirty seconds. Final screenshot
+and HUD checks pass; the engine exits with zero warnings/errors. Peak cgroup
+memory is 6,207,926,272 bytes; a mid-run breakdown includes about 2.0 GB of file
+cache, so this is not a minimum browser RAM requirement.
+The retained native profile contains a 577.52 ms frame with 497.65 ms in Petra,
+including 151.70 ms in building construction. Other long frames include
+simulation and transparent-model rendering; the 868 ms maximum is outside the
+retained native profile and is not attributed conclusively. The first 322.65 ms
+stall adds only 2.49 ms to provider batch time. This demonstrates substantial
+remaining large-match CPU work despite the renderer improvements. Evidence:
+`.cache/0ad/large-state-amd-chromium.log`, its frame/metadata/warnings/memory
+files and PNG, and `large-state-profile-summary.txt`. The profiling fixture
+changes only the export hook in the final native renderer; the published
+production bytes have the separate menu/gameplay/native-window checks above.
+
+All test browser processes have exited. The additional final Firefox soak was
+not started after the checkpoint request; its retained-cache gameplay and GPU
+checks passed, and the earlier ten-minute soak predates that last provider
+optimization. The playable preview remains running. Archive/source identity,
+remaining browser limitations and reproduction evidence are recorded above.
