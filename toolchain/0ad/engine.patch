@@ -67,6 +67,27 @@
  				return LoadAlphaMap(standard);
  			return m_TerrainAlphas.end();
  		}
+--- a/source/graphics/TextureManager.cpp
++++ b/source/graphics/TextureManager.cpp
+@@ -37,6 +37,7 @@
+ #include "ps/Filesystem.h"
+ #include "ps/Profiler2.h"
+ #include "ps/Util.h"
++#include "renderer/backend/Backend.h"
+ #include "renderer/backend/IDevice.h"
+ #include "renderer/backend/IDeviceCommandContext.h"
+ #include "renderer/backend/ITexture.h"
+@@ -76,7 +77,9 @@
+ 
+ 	if (dxt)
+ 	{
+-		if (hasS3TC)
++		// WebGPU requires compressed base dimensions to contain whole 4x4 blocks.
++		if (hasS3TC && (device->GetBackend() != Renderer::Backend::Backend::WEBGPU ||
++			(textureData.m_Width % 4 == 0 && textureData.m_Height % 4 == 0)))
+ 		{
+ 			switch (dxt)
+ 			{
 --- a/source/lib/allocators/dynarray.cpp
 +++ b/source/lib/allocators/dynarray.cpp
 @@ -36,6 +36,7 @@
@@ -1603,7 +1624,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,921 @@
+@@ -0,0 +1,933 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -1858,6 +1879,9 @@
 +    case Format::R8G8_UNORM: return 4;
 +    case Format::D24_UNORM_S8_UINT: return 5;
 +    case Format::D32_SFLOAT: return 6;
++    case Format::BC1_RGB_UNORM: case Format::BC1_RGBA_UNORM: return 7;
++    case Format::BC2_UNORM: return 8;
++    case Format::BC3_UNORM: return 9;
 +    default: return 0;
 +    }
 +}
@@ -1867,16 +1891,17 @@
 +    Texture(Device* device,Type type,uint32_t usage,Format format,uint32_t w,uint32_t h,const Sampler::Desc& desc,uint32_t mips)
 +        : Owned(device),type(type),format(format),usage(usage),width(w),height(h),mips(mips)
 +    {
-+        Require(TextureFormat(format)!=0 && type!=Type::TEXTURE_2D_MULTISAMPLE,"texture format/type");
++        Require(device->IsTextureFormatSupported(format) && type!=Type::TEXTURE_2D_MULTISAMPLE,"texture format/type");
 +        handle=device->queue.New();
 +        void* p=device->queue.Record(DOLLY_GPU_CREATE_TEXTURE,48);
 +        U64(p,8,handle);U32(p,16,w);U32(p,20,h);U32(p,24,type==Type::TEXTURE_CUBE?6:1);U32(p,28,mips);U32(p,32,TextureFormat(format));
 +        U32(p,36,(usage&7)|((usage&(Usage::COLOR_ATTACHMENT|Usage::DEPTH_STENCIL_ATTACHMENT))?16:0));
 +        sampler=device->SamplerHandle(desc);
 +        borderParameters={unsigned(desc.addressModeU==Sampler::AddressMode::CLAMP_TO_BORDER) |
-+            (unsigned(desc.addressModeV==Sampler::AddressMode::CLAMP_TO_BORDER)<<1),
++            (unsigned(desc.addressModeV==Sampler::AddressMode::CLAMP_TO_BORDER)<<1) |
++            (unsigned(format==Format::BC1_RGB_UNORM)<<2),
 +            unsigned(desc.minFilter),unsigned(desc.mipFilter),unsigned(desc.borderColor)};
-+        Require(!borderParameters[0] || (type==Type::TEXTURE_2D && desc.minFilter==desc.magFilter),
++        Require(!(borderParameters[0]&3) || (type==Type::TEXTURE_2D && desc.minFilter==desc.magFilter),
 +            "border sampling requires 2D textures with matching min/mag filters");
 +    }
 +    ~Texture() override { device->queue.retired.push_back(handle); }
@@ -2126,7 +2151,8 @@
 +    Require(color && color->texture,"depth-only framebuffer unsupported");
 +    return std::make_unique<Framebuffer>(this,*color,depth?*depth:SDepthStencilAttachment{});
 +}
-+bool Device::IsTextureFormatSupported(Format format) const { return TextureFormat(format)!=0; }
++bool Device::IsTextureFormatSupported(Format format) const
++{ const auto type=TextureFormat(format);return type && (type<7 || capabilities.S3TC); }
 +bool Device::IsFramebufferFormatSupported(Format format) const
 +{ return format==Format::R8G8B8A8_UNORM || format==Format::D32_SFLOAT || format==Format::D24_UNORM_S8_UINT; }
 +Format Device::GetPreferredDepthStencilFormat(uint32_t,bool depth,bool stencil) const
@@ -2408,26 +2434,32 @@
 +    case Format::R8G8_UNORM:sourceBytes=2;break;
 +    case Format::R8G8B8_UNORM:sourceBytes=3;break;
 +    case Format::R8G8B8A8_UNORM:case Format::B8G8R8A8_UNORM:sourceBytes=4;break;
++    case Format::BC1_RGB_UNORM:case Format::BC1_RGBA_UNORM:sourceBytes=8;break;
++    case Format::BC2_UNORM:case Format::BC3_UNORM:sourceBytes=16;break;
 +    default:Require(false,"texture upload format unsupported");
 +    }
-+    unsigned targetBytes=TextureFormat(texture->format)==3?1:TextureFormat(texture->format)==4?2:4;
-+    Require(bytes==size_t(width)*height*sourceBytes,"texture upload byte count");
++    const auto format=TextureFormat(texture->format);
++    const unsigned block=format>=7?4:1;
++    const unsigned columns=(width+block-1)/block, blockRows=(height+block-1)/block;
++    unsigned targetBytes=format==3?1:format==4?2:format==7?8:format>=8?16:4;
++    Require(bytes==size_t(columns)*blockRows*sourceBytes,"texture upload byte count");
++    Require(x%block==0 && y%block==0,"texture upload block alignment");
 +    Require(targetBytes==4 || dataFormat==texture->format,"texture conversion format");
 +    resumeEnabled=false;Pause();
 +    if(texture->lastUsed==device->queue.submission)device->queue.Flush();
 +    const auto* source=static_cast<const uint8_t*>(data);
-+    uint32_t rows=std::max(1u,512*1024/(width*targetBytes));
-+    for(uint32_t row=0;row<height;row+=rows)
++    uint32_t rows=std::max(1u,512*1024/(columns*targetBytes));
++    for(uint32_t row=0;row<blockRows;row+=rows)
 +    {
-+        uint32_t count=std::min(rows,height-row);size_t length=size_t(width)*count*targetBytes;
++        uint32_t count=std::min(rows,blockRows-row);size_t length=size_t(columns)*count*targetBytes;
 +        void* p=device->queue.Record(DOLLY_GPU_WRITE_TEXTURE,48+length);
-+        U64(p,8,texture->handle);U32(p,16,mip);U32(p,20,layer);U32(p,24,x);U32(p,28,y+row);
-+        U32(p,32,width);U32(p,36,count);U32(p,40,length);
++        U64(p,8,texture->handle);U32(p,16,mip);U32(p,20,layer);U32(p,24,x);U32(p,28,y+row*block);
++        U32(p,32,columns*block);U32(p,36,count*block);U32(p,40,length);
 +        auto* target=static_cast<uint8_t*>(p)+48;
-+        if(sourceBytes==targetBytes && dataFormat!=Format::B8G8R8A8_UNORM)std::memcpy(target,source+size_t(row)*width*sourceBytes,length);
-+        else for(size_t i=0;i<size_t(width)*count;i++)
++        if(sourceBytes==targetBytes && dataFormat!=Format::B8G8R8A8_UNORM)std::memcpy(target,source+size_t(row)*columns*sourceBytes,length);
++        else for(size_t i=0;i<size_t(columns)*count;i++)
 +        {
-+            const auto* pixel=source+(size_t(row)*width+i)*sourceBytes;auto* out=target+i*4;
++            const auto* pixel=source+(size_t(row)*columns+i)*sourceBytes;auto* out=target+i*4;
 +            if(dataFormat==Format::A8_UNORM){out[0]=out[1]=out[2]=255;out[3]=pixel[0];}
 +            else if(dataFormat==Format::L8_UNORM){out[0]=out[1]=out[2]=pixel[0];out[3]=255;}
 +            else if(dataFormat==Format::B8G8R8A8_UNORM){out[0]=pixel[2];out[1]=pixel[1];out[2]=pixel[0];out[3]=pixel[3];}
@@ -2448,6 +2480,7 @@
 +    std::memcpy(&queue.uniformAlignment,queue.gpu->reply+32,4);
 +    Require(queue.uniformAlignment && Queue::uniformChunkBytes%queue.uniformAlignment==0,"uniform alignment");
 +    surfaceBGRA=features&DOLLY_GPU_FEATURE_SURFACE_BGRA;
++    capabilities.S3TC=features&DOLLY_GPU_FEATURE_TEXTURE_BC;
 +    dolly_gpu_begin(queue.gpu.get());
 +    capabilities.maxTextureSize=8192;capabilities.maxSampleCount=1;capabilities.maxAnisotropy=1;capabilities.instancing=true;
 +    presentVS=queue.Shader("@vertex fn main(@builtin(vertex_index) i:u32)->@builtin(position) vec4f {let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1);}");

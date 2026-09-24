@@ -40,10 +40,10 @@ static unsigned uniform_group(unsigned pipeline,unsigned index,unsigned buf,unsi
   u64(p,8,n);u64(p,16,pipeline);u32(p,24,index);u32(p,28,1);
   u64(p,40,buf);u64(p,48,offset);u64(p,56,16);return n;
 }
-static unsigned texture_group(unsigned pipeline,unsigned texture,unsigned sampler) {
+static unsigned texture_group(unsigned pipeline,unsigned texture,unsigned sampler,unsigned kind) {
   unsigned n=id();void *p=dolly_gpu_record(&gpu,DOLLY_GPU_RESOURCE_GROUP,96);
   u64(p,8,n);u64(p,16,pipeline);u32(p,24,1);u32(p,28,2);
-  u32(p,36,1);u64(p,40,texture);u32(p,64,1);u32(p,68,3);u64(p,72,sampler);return n;
+  u32(p,36,kind);u64(p,40,texture);u32(p,64,1);u32(p,68,3);u64(p,72,sampler);return n;
 }
 static void begin(unsigned color,unsigned depth) {
   void *p=dolly_gpu_record(&gpu,DOLLY_GPU_BEGIN_RENDER_PASS,64);
@@ -61,6 +61,14 @@ static void rejected(int expected) { assert(dolly_gpu_batch(&gpu)==-1);assert(er
 static void pixel(unsigned x,unsigned y,unsigned r,unsigned g,unsigned b) {
   unsigned char *p=gpu.reply+(y*64+x)*4;
   assert(abs(p[bgra?2:0]-(int)r)<=1 && abs(p[1]-(int)g)<=1 && abs(p[bgra?0:2]-(int)b)<=1 && p[3]==255);
+}
+static void capture(unsigned readback) {
+  static int mapped;
+  if(mapped)u64(dolly_gpu_record(&gpu,DOLLY_GPU_UNMAP,16),8,readback);
+  void *p=dolly_gpu_record(&gpu,DOLLY_GPU_CAPTURE_FRAME,32);u64(p,8,readback);u32(p,24,64);u32(p,28,64);
+  dolly_gpu_submit(&gpu);dolly_gpu_map(&gpu,readback,64*64*4);batch();
+  assert(dolly_gpu_read(&gpu,readback,0,64*64*4)==64*64*4);
+  mapped=1;
 }
 int main(int argc,char **argv) {
   (void)argv;
@@ -95,8 +103,8 @@ int main(int argc,char **argv) {
   unsigned fs=shader("@group(0) @binding(0) var<uniform> tint:vec4f; @group(1) @binding(0) var image:texture_2d<f32>; @group(1) @binding(1) var filtering:sampler; @fragment fn main(@location(0) uv:vec2f)->@location(0) vec4f {return textureSample(image,filtering,uv)*tint;}");
   unsigned offscreen=pipeline(vs,fs,1,6),surface=pipeline(vs,fs,0,0);
   unsigned white=uniform_group(offscreen,0,uniform,0),red=uniform_group(offscreen,0,uniform,256),
-    source_group=texture_group(offscreen,source,sampler),near=uniform_group(offscreen,2,uniform,512),far=uniform_group(offscreen,2,uniform,768),
-    surface_white=uniform_group(surface,0,uniform,0),target_group=texture_group(surface,target,sampler),surface_near=uniform_group(surface,2,uniform,512);
+    source_group=texture_group(offscreen,source,sampler,1),near=uniform_group(offscreen,2,uniform,512),far=uniform_group(offscreen,2,uniform,768),
+    surface_white=uniform_group(surface,0,uniform,0),target_group=texture_group(surface,target,sampler,1),surface_near=uniform_group(surface,2,uniform,512);
   batch();
   assert(features&DOLLY_GPU_FEATURE_LARGE_BATCH);
   for(unsigned i=0;i<DOLLY_GPU_MAX_COMMANDS;i++) {
@@ -111,10 +119,50 @@ int main(int argc,char **argv) {
   p=dolly_gpu_record(&gpu,DOLLY_GPU_VIEWPORT,48);f32(p,8,8);f32(p,12,8);f32(p,16,48);f32(p,20,48);f32(p,28,1);
   u32(p,32,8);u32(p,36,8);u32(p,40,48);u32(p,44,48);
   draw(surface,pos,uv,index,surface_white,target_group,surface_near);end();
-  p=dolly_gpu_record(&gpu,DOLLY_GPU_CAPTURE_FRAME,32);u64(p,8,readback);u32(p,24,64);u32(p,28,64);
-  dolly_gpu_submit(&gpu);dolly_gpu_map(&gpu,readback,64*64*4);batch();
-  assert(dolly_gpu_read(&gpu,readback,0,64*64*4)==64*64*4);
+  capture(readback);
   pixel(0,0,0,0,0);pixel(16,16,255,0,0);pixel(48,16,0,255,0);pixel(16,48,0,0,255);pixel(48,48,255,255,0);pixel(63,63,0,0,0);
+  assert(dolly_gpu_info(&gpu)==80);uint64_t before;memcpy(&before,gpu.reply+72,8);
+  for(unsigned format=7;format<=9;format++) {
+    if(!(features&DOLLY_GPU_FEATURE_TEXTURE_BC)) {
+      texture(4,4,1,1,format,6);rejected(ENOSYS);continue;
+    }
+    texture(6,4,1,1,format,6);rejected(EINVAL);
+    texture(4,4,1,1,format,20);rejected(EINVAL);
+    unsigned bc=texture(12,12,6,4,format,6),block_bytes=format==7?8:16;
+    batch();
+    unsigned char data[144]={0};
+    upload(bc,0,0,1,0,4,4,data,block_bytes);rejected(EINVAL);
+    upload(bc,0,0,0,0,3,4,data,block_bytes);rejected(EINVAL);
+    upload(bc,0,0,0,0,4,4,data,block_bytes-1);rejected(EINVAL);
+    upload(bc,0,6,0,0,4,4,data,block_bytes);rejected(EINVAL);
+    upload(bc,4,0,0,0,4,4,data,block_bytes);rejected(EINVAL);
+    upload(bc,3,0,0,0,2,2,data,block_bytes);rejected(EINVAL);
+    const unsigned short rgb565[]={0xf800,0x07e0,0x001f,0xffe0};
+    const unsigned rgb[][3]={{255,0,0},{0,255,0},{0,0,255},{255,255,0}};
+    for(unsigned face=0;face<6;face++)for(unsigned mip=0;mip<4;mip++) {
+      unsigned width=((12u>>mip)+3)/4*4,blocks=width*width/16;
+      memset(data,0,sizeof(data));
+      for(unsigned block=0;block<blocks;block++) {
+        unsigned char *bytes=data+block*block_bytes;
+        if(format==8)memset(bytes,255,8);
+        if(format==9)bytes[0]=255;
+        memcpy(bytes+(format==7?0:8),&rgb565[(mip+face)%4],2);
+      }
+      upload(bc,mip,face,0,0,width,width,data,blocks*block_bytes);
+    }
+    unsigned bc_fs=shader("@group(0) @binding(0) var<uniform> settings:vec4f; @group(1) @binding(0) var image:texture_cube<f32>; @group(1) @binding(1) var sampling:sampler; @fragment fn main()->@location(0) vec4f {let directions=array<vec3f,6>(vec3f(1,0,0),vec3f(-1,0,0),vec3f(0,1,0),vec3f(0,-1,0),vec3f(0,0,1),vec3f(0,0,-1));return textureSampleLevel(image,sampling,directions[u32(settings.y)],settings.x);}");
+    unsigned bc_pipeline=pipeline(vs,bc_fs,0,0),bc_settings=uniform_group(bc_pipeline,0,uniform,0),
+      bc_group=texture_group(bc_pipeline,bc,sampler,2),bc_near=uniform_group(bc_pipeline,2,uniform,512);
+    batch();
+    for(unsigned face=0;face<6;face++)for(unsigned mip=0;mip<4;mip++) {
+      float settings[]={mip,face,0,0};dolly_gpu_write(&gpu,uniform,settings,sizeof(settings));
+      begin(0,0);draw(bc_pipeline,pos,uv,index,bc_settings,bc_group,bc_near);end();capture(readback);
+      const unsigned *color=rgb[(mip+face)%4];pixel(32,32,color[0],color[1],color[2]);
+    }
+    before+=90*block_bytes;
+    assert(dolly_gpu_info(&gpu)==80);uint64_t after;memcpy(&after,gpu.reply+72,8);assert(after==before);
+  }
+  printf("GPU BC texture checks: %s\n",features&DOLLY_GPU_FEATURE_TEXTURE_BC?"pixels, mips, cube faces, bounds, allocation bytes":"unsupported formats rejected");
   assert(dolly_gpu_info(&gpu)==80);uint64_t allocated;memcpy(&allocated,gpu.reply+72,8);assert(allocated>0);
   if(argc>1){puts("GPU_RENDER_HOLD");fflush(stdout);for(;;)sleep(1);}
   assert(dolly_gpu_close(&gpu)==0);

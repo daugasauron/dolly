@@ -4,9 +4,12 @@ import {chromium,firefox} from "playwright-core";
 import {startBrowserServer} from "./browser-server.mjs";
 
 const browserName=process.argv[2]??"chromium";
+const compression=process.argv[3]??"auto";
 assert.ok(["chromium","firefox"].includes(browserName));
+assert.ok(["auto","uncompressed"].includes(compression));
 // The default correctness run uses SwiftShader; Firefox exercises the real GPU.
-const provider=await readFile(new URL('../src/gpu-worker.mjs',import.meta.url),'utf8');
+const provider=(compression==='uncompressed'?'import "/test/fixtures/gpu-no-bc.mjs";\n':'')+
+  await readFile(new URL('../src/gpu-worker.mjs',import.meta.url),'utf8');
 const server=await startBrowserServer(new URL('..',import.meta.url).pathname,'gpu-sdk',0,
   new Map([['/src/gpu-worker.mjs',browserName==='chromium'?provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true'):provider]]),
   {'gpu-render.c':'test/fixtures/gpu-render.c'});
@@ -35,6 +38,7 @@ try {
     const terminal=await page.evaluate(()=>__dolly.visibleTerminalText());
     assert.equal(status,0,terminal+'\n'+JSON.stringify(await page.evaluate(()=>__dolly.gpu)));
     assert.match(terminal,/GPU texture\/depth\/indexed rendering PASS/);
+    if(run===0)console.log(terminal.match(/GPU BC texture checks: [^\n]*/)?.[0]);
   }
   await page.evaluate(()=>{globalThis.gpuHoldStatus=null;void __dolly.submit('/tmp/gpu-render --hold').then(status=>{globalThis.gpuHoldStatus=status;});});
   let held=false;
@@ -58,7 +62,7 @@ try {
   const adapter=await page.evaluate(()=>__dolly.gpu.adapter);
   if(browserName==='chromium')assert.match(adapter,/swiftshader/i);
   else assert.equal(await page.evaluate(()=>__dolly.gpu.isFallbackAdapter),false);
-  console.log(JSON.stringify({browser:browser.version(),adapter,guestCompiled:true,freshProcesses:3,interruptRecovery:true,textureDepthIndexed:true,boundary,retirement}));
+  console.log(JSON.stringify({browser:browser.version(),adapter,compression,guestCompiled:true,freshProcesses:3,interruptRecovery:true,textureDepthIndexed:true,boundary,retirement}));
 } finally {
   clearTimeout(deadline);await browser?.close();await server.close();
 }

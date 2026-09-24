@@ -8,9 +8,11 @@ import {inspectDollyfile} from '../src/dollyfile-view.mjs';
 const root=new URL('..',import.meta.url), output=new URL('../.cache/0ad/browser/',import.meta.url);
 const image=process.argv[2]??'default', backend=process.argv[3]??'hardware';
 const browserName=process.argv[4]??'chromium';
+const compression=process.argv[5]??'auto';
 assert.ok(['default','zero-ad'].includes(image) && ['hardware','software'].includes(backend),
-  'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox]');
+  'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox] [auto|uncompressed]');
 assert.ok(['chromium','firefox'].includes(browserName) && (browserName==='chromium'||backend==='hardware'));
+assert.ok(['auto','uncompressed'].includes(compression));
 await mkdir(output,{recursive:true});
 const sources=inspectDollyfile(await readFile(new URL('modules/zero-ad.dm',root),'utf8')).sources;
 const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice('/static/zero-ad/'.length),'dist'+source.location]));
@@ -19,6 +21,7 @@ let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFi
   .replace('stats:{...stats,allocatedBytes:usedBytes}',
     'stats:{...stats,allocatedBytes:usedBytes,frameTime:performance.now(),gpuTotalMs:scope.gpuTotalMs}');
 if(backend==='software')provider=provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true');
+if(compression==='uncompressed')provider='import "/test/fixtures/gpu-no-bc.mjs";\n'+provider;
 const server=await startBrowserServer(root.pathname,image,0,new Map([['/src/gpu-worker.mjs',provider]]),
   fixtures);
 let browser,deadline,page;
@@ -209,7 +212,7 @@ try {
   assert.deepEqual(errors,[]);
   const cgroup=(await readFile('/proc/self/cgroup','utf8')).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes=cgroup?Number(await readFile('/sys/fs/cgroup'+cgroup+'/memory.peak','utf8')):undefined;
-  console.log(JSON.stringify({image,backend,browserName,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
+  console.log(JSON.stringify({image,backend,browserName,compression,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),combatFrameTimings,economyFrameTimings,allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
     economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,opaquePresentation:gpu.surfaceAlpha,

@@ -88,13 +88,14 @@ def split_samplers(data):
 
 
 def border_sampling(text):
-    textures = dict(re.findall(
-        r"@group\(1\) @binding\((\d+)\)\s+var (\w+): texture_2d<f32>;", text))
+    textures = re.findall(
+        r"@group\(1\) @binding\((\d+)\)\s+var (\w+): texture_(2d|cube)<f32>;", text)
     changed = False
-    for binding, name in textures.items():
+    for binding, name, dimension in textures:
         if int(binding) % 2 or int(binding) >= 16:
             raise ValueError("Unexpected texture binding " + binding)
-        for builtin, replacement in (("textureSample", "dolly_sample"), ("textureSampleLevel", "dolly_sample_level")):
+        sample = "dolly_sample_cube" if dimension == "cube" else "dolly_sample"
+        for builtin, replacement in (("textureSample", sample), ("textureSampleLevel", sample + "_level")):
             text, count = re.subn(r"\b" + builtin + r"\(" + name + r",",
                 f"{replacement}(dolly_samplers[{int(binding)//2}], {name},", text)
             changed |= count > 0

@@ -44,6 +44,7 @@
 
   ;; Additive graphics records. Clients must test FEATURE_TEXTURE_RENDER first.
   (global (export "DOLLY_GPU_FEATURE_TEXTURE_RENDER") i32 (i32.const 64))
+  (global (export "DOLLY_GPU_FEATURE_TEXTURE_BC") i32 (i32.const 256))
   (global (export "DOLLY_GPU_CREATE_TEXTURE") i32 (i32.const 18))
   (global (export "DOLLY_GPU_WRITE_TEXTURE") i32 (i32.const 19))
   (global (export "DOLLY_GPU_CREATE_SAMPLER") i32 (i32.const 20))
@@ -93,12 +94,18 @@
   ;; TEXTURE[48]: u64 id; u32 width,height,layers,mips,format,usage; u64 reserved.
   ;; Layers 1 or 6; cube faces must be square. Dimensions <=8192 and device limit.
   ;; Formats: 1 RGBA8unorm,2 RGBA8unorm-sRGB,3 R8unorm,4 RG8unorm,
-  ;; 5 depth24plus-stencil8,6 depth32float. Texture usage is WebGPU usage bits
+  ;; 5 depth24plus-stencil8,6 depth32float; FEATURE_TEXTURE_BC adds
+  ;; 7 BC1-RGBAunorm,8 BC2-RGBAunorm,9 BC3-RGBAunorm (4x4 blocks,8/16/16 bytes).
+  ;; BC base dimensions must be multiples of 4; render attachments are absent.
+  ;; Texture usage is WebGPU usage bits
   ;; COPY_SRC=1,COPY_DST=2,TEXTURE_BINDING=4,RENDER_ATTACHMENT=16; storage absent.
   ;; Each texture <=1 GiB; all mip/layer bytes count against the shared 4 GiB
-  ;; allocation quota (depth formats charged 4 bytes/pixel). Samples always 1.
+  ;; allocation quota (depth 4 bytes/pixel; BC mip dimensions rounded to blocks).
+  ;; Samples always 1.
   ;; WRITE_TEXTURE[48+n]: u64 id; u32 mip,layer,x,y,width,height,data_bytes,
   ;; reserved; tightly packed rows of native format bytes. Depth uploads absent.
+  ;; BC coordinates/extents are multiples of 4 physical texels, including the
+  ;; rounded extent of sub-4x4 mips. Rows contain compressed blocks.
   ;; SAMPLER[48]: u64 id; u32 min,mag,mip,address_u/v/w,compare,anisotropy.
   ;; Filters 0 nearest/1 linear; addresses 0 clamp/1 repeat/2 mirror-repeat;
   ;; compare 0 absent,1 never,2 less,3 equal,4 less-equal,5 greater,6 not-equal,
@@ -150,6 +157,7 @@
   ;; 8 timestamp-query, 16 frame capture, 32 surface bytes BGRA8 (else RGBA8),
   ;; 64 texture/depth/indexed rendering records 18..26, 128 batches up to
   ;; DOLLY_GPU_MAX_COMMANDS records (otherwise at most 256). Packet bytes unchanged.
+  ;; 256 admits BC1/BC2/BC3 compressed texture formats 7..9.
   ;; Limits describe the admitted device, not native pointers.
   ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
   ;; zero samples means unavailable/pending. They include passes, not CPU work.

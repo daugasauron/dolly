@@ -146,6 +146,11 @@ Existing record layouts remain unchanged. Texture formats and all packed layouts
 are specified in the WAT contract. Textures count against the same allocation
 quota as buffers; the provider exposes no external image or URL import.
 
+Bit 256 admits BC1/BC2/BC3 compressed textures when the adapter supports them.
+Their base dimensions and upload extents contain whole 4×4 blocks, including
+the smallest mip levels. Allocation accounting includes every padded block.
+Clients retain an uncompressed path for adapters without this feature.
+
 Passes must end before submit and cannot cross packets. Queue uploads execute
 before submitted draws: use separate aligned uniform ranges for different draws
 or submit before overwriting a consumed range. Bind groups use fixed offsets;

@@ -4,7 +4,7 @@ MODULE zero-ad
 REQUIRES TOOL slop
 
 # External wasm64 bootstrap; pinned sources and port instructions: docs/sources.md.
-SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis f2e93413b1e5c272865f72bd05e8cd936392486e2b2bccb053ac80becabd454a
+SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis 65da99e24ba10159c5151af0d1720d4e0f4520a37d255e935e5b4638725df5fe
 SOURCE HOST /static/zero-ad/data/config/default.cfg /opt/0ad/data/config/default.cfg 96fe2f626983f3a9b2392095c11f04b3a8a318531408ce9aea0f4bd5c2a60f5a
 SOURCE HOST /static/zero-ad/data/config/keys.txt /opt/0ad/data/config/keys.txt 469f8fa2807838de81d53dda3a78b1676013e4fd18bd696d53693f09a21b9410
 SOURCE HOST /static/zero-ad/data/config/local.cfg /opt/0ad/data/config/local.cfg 1621faf65a3bb653b42401500e179f4b02d334646cd274ae1228ac6197407b12
@@ -39,7 +39,7 @@ SOURCE HOST /static/zero-ad/data/l10n/uk.engine.po /opt/0ad/data/l10n/uk.engine.
 SOURCE HOST /static/zero-ad/data/l10n/vi.engine.po /opt/0ad/data/l10n/vi.engine.po d78db32075c6f14986fb7dd15aef9c16bb403218cad2fac4d4d2a93d26573feb
 SOURCE HOST /static/zero-ad/data/l10n/zh.engine.po /opt/0ad/data/l10n/zh.engine.po 83ba33b05a7de119d01d05792fb8d83065713c113c523fc4c9c6042619600f90
 SOURCE HOST /static/zero-ad/data/l10n/zh_TW.engine.po /opt/0ad/data/l10n/zh_TW.engine.po 39d9eb57dd0295f4a019c9b6a3143043a9e484accc5d2b1c7a896c6fd17b7f79
-SOURCE HOST /static/zero-ad/data/mods/mod/mod-000.zip /opt/0ad/data/mods/mod/mod-000.zip a541510927b759545c917e2acd72b7db246e15f280666cb426d18821f5ccb263
+SOURCE HOST /static/zero-ad/data/mods/mod/mod-000.zip /opt/0ad/data/mods/mod/mod-000.zip 3ef617a7648862af1c8b3e2d3b70904c5a8afb88a342bb8f77b791ac809437b5
 SOURCE HOST /static/zero-ad/data/mods/public/public-000.zip /opt/0ad/data/mods/public/public-000.zip fc4bc48ee7a68505a3fc172e0d6c9e8ffb3a5f671d757c8186d60058e8918964
 SOURCE HOST /static/zero-ad/data/mods/public/public-001.zip /opt/0ad/data/mods/public/public-001.zip e0612417d231a9304a55ca502c7890bb7a9302764d648ffa4313a940ce7c71c5
 SOURCE HOST /static/zero-ad/data/mods/public/public-002.zip /opt/0ad/data/mods/public/public-002.zip 34e3cec277ee1f08c38423302e366e54bbd325f5f19f9791e6f7d65c2da4667c
@@ -66,7 +66,7 @@ SOURCE HOST /static/zero-ad/data/mods/public/public-022.zip /opt/0ad/data/mods/p
 SOURCE HOST /static/zero-ad/data/mods/public/public-023.zip /opt/0ad/data/mods/public/public-023.zip 6efacaf47524ab01dda4a6501c1ffe6c48c89f57823462a16002e2ee6ba8420e
 SOURCE HOST /static/zero-ad/data/mods/public/public-024.zip /opt/0ad/data/mods/public/public-024.zip 26844880b6d5673361fd46c1b08e5c157e159959ce55b628bd10ead2e605f15b
 SOURCE HOST /static/zero-ad/data/mods/public/public-025.zip /opt/0ad/data/mods/public/public-025.zip dfff42003e1a1f3fa6e3233e0701e202a291cc8f5e71c9ed147501c281f81666
-SOURCE HOST /static/zero-ad/data/mods/public/public-026.zip /opt/0ad/data/mods/public/public-026.zip 5b2ee801d47b88f4801eaac76c56b197668bfe59f5ce21b31e1d03bec7b2b5bc
+SOURCE HOST /static/zero-ad/data/mods/public/public-026.zip /opt/0ad/data/mods/public/public-026.zip db0af640b6154beab7f2376ad87adab9bd22ddb58c66a8c5f48128b7490ae273
 SOURCE HOST /static/zero-ad/licenses/ICU-LICENSE /opt/0ad/licenses/ICU-LICENSE f155f8f66833bdc8e0479656256bfac1d66a9ec9df4aa56292308f522b4e3fa7
 SOURCE HOST /static/zero-ad/licenses/LICENSE.md /opt/0ad/licenses/LICENSE.md 956637a06a3cbddb79b0ea87b987cf9938c533412a71cfd74f261a399eb153eb
 SOURCE HOST /static/zero-ad/licenses/OpenAL-Soft-COPYING /opt/0ad/licenses/OpenAL-Soft-COPYING d808ce217e5b611854da622b57ec29fe545584c48bc5352fae72a4b6e5074a15

@@ -116,8 +116,10 @@ try {
     values[16]=0;device.queue.writeBuffer(uniforms,0,values);
     device.queue.writeBuffer(vertices,0,new Float32Array([-1,-1,-.5,1.5,1,-1,1.5,1.5,-1,1,-.5,-.5,1,1,1.5,-.5]));
     const texels=[[255,0,0,255],[0,255,0,255],[0,0,255,255],[255,255,0,255]];
-    for(const [axes,linear,color] of [[3,0,0],[3,1,0],[1,1,1],[2,1,2]]) {
-      const parameters=new Uint32Array(32);parameters.set([axes,linear,0,color]);device.queue.writeBuffer(samplerUniforms,0,parameters);
+    for(const [axes,linear,color,alpha,opaque] of [[3,0,0,255,0],[3,1,0,255,0],[1,1,1,255,0],[2,1,2,255,0],
+      [0,0,0,0,0],[0,1,0,0,1],[3,1,0,0,1],[1,1,1,0,1]]) {
+      device.queue.writeTexture({texture:source},new Uint8Array(texels.flatMap(pixel=>[...pixel.slice(0,3),alpha])),{bytesPerRow:8},[2,2]);
+      const parameters=new Uint32Array(32);parameters.set([axes|(opaque?4:0),linear,0,color]);device.queue.writeBuffer(samplerUniforms,0,parameters);
       groups[1]=device.createBindGroup({layout:pipeline.getBindGroupLayout(1),entries:[
         {binding:0,resource:source.createView()},
         {binding:1,resource:device.createSampler({magFilter:linear?'linear':'nearest',minFilter:linear?'linear':'nearest'})}]});
@@ -127,7 +129,7 @@ try {
       await readback.mapAsync(GPUMapMode.READ);const pixels=new Uint8Array(readback.getMappedRange());
       const border=color===2?[255,255,255,255]:[0,0,0,color===1?255:0];
       const texel=(x,y)=>((axes&1)&&(x<0||x>=2))||((axes&2)&&(y<0||y>=2))?border:
-        texels[Math.max(0,Math.min(1,y))*2+Math.max(0,Math.min(1,x))];
+        [...texels[Math.max(0,Math.min(1,y))*2+Math.max(0,Math.min(1,x))].slice(0,3),opaque?255:alpha];
       for(let y=0;y<64;y++)for(let x=0;x<64;x++) {
         const u=((x+.5)/64*2-.5)*2, v=((y+.5)/64*2-.5)*2;
         let expected;
@@ -144,7 +146,7 @@ try {
     }
     device.destroy();
     return {adapter:adapterName.trim(),compiledShaders:modules.size,linkedPrograms:pairs.length,
-      upstreamCanvasPixels:true,reflectionOffsets:true,grayscaleUniform:true,borderFiltering:true,borderMipFiltering:true,milliseconds:Math.round(performance.now()-start)};
+      upstreamCanvasPixels:true,reflectionOffsets:true,grayscaleUniform:true,borderFiltering:true,borderMipFiltering:true,opaqueRGB:true,milliseconds:Math.round(performance.now()-start)};
   },{shaders,pairs:[...pairs.values()],canvas,borderHelper});
   console.log(JSON.stringify({browser:browser.version(),...result}));
 } finally {clearTimeout(deadline);await browser?.close();await new Promise(resolve=>server.close(resolve));}

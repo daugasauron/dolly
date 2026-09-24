@@ -250,7 +250,10 @@ imports and local services as authority changes; update this map with them.
 Texture rendering (CAPABILITIES bit 64) adds records 18–26 without changing
 existing layouts or outer imports. Texture dimensions, mip/layer counts and
 format-derived bytes are checked against private allocation quotas. Uploads
-contain copied pixel bytes only. Bindings and framebuffer attachments resolve
+contain copied pixel bytes only. Optional BC1/BC2/BC3 compression (bit 256)
+requires an admitted device feature; base dimensions and upload extents align
+to 4×4 blocks, all mip blocks count toward quotas, and BC render attachments
+are rejected. Bindings and framebuffer attachments resolve
 scope-owned typed handles; only the surface owner can select attachment zero.
 Render passes remain inside one submitted packet. Indexed draws, vertex streams,
 viewport/scissor bounds and group counts are bounded before WebGPU validation.

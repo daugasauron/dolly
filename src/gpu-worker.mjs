@@ -5,8 +5,9 @@ const decode = new TextDecoder("utf-8", { fatal: true });
 const encode = new TextEncoder();
 const fail = (code, message) => { throw Object.assign(new Error(message), { errno: code }); };
 const ensure = (condition, message, code = E.EINVAL) => { if (!condition) fail(code, message); };
-const textureFormats = [null, "rgba8unorm", "rgba8unorm-srgb", "r8unorm", "rg8unorm", "depth24plus-stencil8", "depth32float"];
-const texelBytes = [0, 4, 4, 1, 2, 4, 4];
+const textureFormats = [null, "rgba8unorm", "rgba8unorm-srgb", "r8unorm", "rg8unorm", "depth24plus-stencil8", "depth32float",
+  "bc1-rgba-unorm", "bc2-rgba-unorm", "bc3-rgba-unorm"];
+const blockBytes = [0, 4, 4, 1, 2, 4, 4, 8, 16, 16];
 const compareOps = [undefined, "never", "less", "equal", "less-equal", "greater", "not-equal", "greater-equal", "always"];
 const blendOps = ["add", "subtract", "reverse-subtract", "min", "max"];
 const blendFactors = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-dst", "src-alpha", "one-minus-src-alpha", "dst-alpha", "one-minus-dst-alpha", "src-alpha-saturated"];
@@ -30,7 +31,7 @@ async function getDevice() {
     ensure(adapter, "This browser did not provide a GPU adapter", E.ENODEV);
     adapterName = [adapter.info?.vendor, adapter.info?.architecture, adapter.info?.description].filter(Boolean).join(" ") || "WebGPU adapter";
     isFallbackAdapter = adapter.info?.isFallbackAdapter;
-    const requiredFeatures = ["timestamp-query", "shader-f16", "subgroups"].filter(name => adapter.features.has(name));
+    const requiredFeatures = ["timestamp-query", "shader-f16", "subgroups", "texture-compression-bc"].filter(name => adapter.features.has(name));
     const requiredLimits = {};
     for (const [name, ceiling] of Object.entries({maxBufferSize: bufferCeiling,
       maxStorageBufferBindingSize: bufferCeiling, maxStorageBuffersPerShaderStage: A.DOLLY_GPU_MAX_BINDINGS,
@@ -47,6 +48,7 @@ async function getDevice() {
     v.setUint32(0, (created.features.has("shader-f16") ? 1 : 0) | (created.features.has("subgroups") ? 2 : 0) |
       (navigator.gpu.wgslLanguageFeatures?.has("packed_4x8_integer_dot_product") ? 4 : 0) |
       (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME | A.DOLLY_GPU_FEATURE_TEXTURE_RENDER | A.DOLLY_GPU_FEATURE_LARGE_BATCH |
+      (created.features.has("texture-compression-bc") ? A.DOLLY_GPU_FEATURE_TEXTURE_BC : 0) |
       (format === "bgra8unorm" ? A.DOLLY_GPU_FEATURE_SURFACE_BGRA : 0), true);
     v.setUint32(4, maxObjects, true);
     [maxBuffer, maxBytes, l.maxStorageBufferBindingSize].forEach((n,i) => v.setBigUint64(8+i*8, BigInt(n), true));
@@ -365,7 +367,12 @@ async function batch(scope, commands) {
           mips>0 && mips<=1+Math.floor(Math.log2(Math.max(width,height))) &&
           type>0 && type<textureFormats.length && usage>0 && (usage&~23)===0 && w.getBigUint64(40,true)===0n, "Texture descriptor");
         let size=0;
-        for(let i=0;i<mips;i++)size+=Math.max(1,width>>i)*Math.max(1,height>>i)*layers*texelBytes[type];
+        const block=type>=7?4:1;
+        if(block===4) {
+          ensure(device.features.has("texture-compression-bc"), "BC texture compression unavailable", E.ENOSYS);
+          ensure(width%block===0 && height%block===0 && !(usage&16), "BC texture descriptor");
+        }
+        for(let i=0;i<mips;i++)size+=Math.ceil(Math.max(1,width>>i)/block)*Math.ceil(Math.max(1,height>>i)/block)*layers*blockBytes[type];
         ensure(size<=bufferCeiling && size<=maxBytes-usedBytes, "Texture allocation quota", E.ENOMEM);
         const value=device.createTexture({size:{width,height,depthOrArrayLayers:layers},mipLevelCount:mips,
           format:textureFormats[type],usage});
@@ -374,11 +381,14 @@ async function batch(scope, commands) {
       } else if (op === A.DOLLY_GPU_WRITE_TEXTURE) {
         const r=object(scope,id,"texture"), mip=w.getUint32(16,true), layer=w.getUint32(20,true),
           x=w.getUint32(24,true), y=w.getUint32(28,true), width=w.getUint32(32,true), height=w.getUint32(36,true), n=w.getUint32(40,true);
-        ensure(r.type<=4 && mip<r.mips && layer<r.layers && width>0 && height>0 &&
-          x<=Math.max(1,r.width>>mip)-width && y<=Math.max(1,r.height>>mip)-height &&
-          n===width*height*texelBytes[r.type], "Texture upload range");
+        const block=r.type>=7?4:1;
+        ensure(r.type!==5 && r.type!==6 && mip<r.mips && layer<r.layers && width>0 && height>0 &&
+          x%block===0 && y%block===0 && width%block===0 && height%block===0 &&
+          x<=Math.ceil(Math.max(1,r.width>>mip)/block)*block-width &&
+          y<=Math.ceil(Math.max(1,r.height>>mip)/block)*block-height &&
+          n===(width/block)*(height/block)*blockBytes[r.type], "Texture upload range");
         device.queue.writeTexture({texture:r.value,mipLevel:mip,origin:{x,y,z:layer}},b.subarray(48,48+n),
-          {bytesPerRow:width*texelBytes[r.type],rowsPerImage:height},{width,height});
+          {bytesPerRow:width/block*blockBytes[r.type],rowsPerImage:height/block},{width,height});
         progress.queued++;
       } else if (op === A.DOLLY_GPU_CREATE_SAMPLER) {
         const filters=[16,20,24].map(at=>w.getUint32(at,true)), address=[28,32,36].map(at=>w.getUint32(at,true)),

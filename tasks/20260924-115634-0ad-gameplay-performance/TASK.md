@@ -146,3 +146,28 @@ texture-batch-after}-firefox-*`. The final engine passes combat/economy, movemen
 training/construction, save/load, sound, opaque pixels and shell recovery in
 Firefox and Chrome: `.cache/0ad/texture-batch-gameplay-{firefox,chromium}.log`.
 Source checks pass 278/278; the 41-file patch reconstructs pristine upstream.
+
+Optional BC1/BC2/BC3 texture formats now cross the existing GPU packet interface.
+The provider admits the device feature explicitly, validates physical block
+bounds and charges all padded mip/layer blocks. The engine retains decompression
+when compression is unavailable or an upstream texture's base size is unaligned.
+Sampler translation preserves RGB-only BC1 alpha, including cube maps and border
+filtering. The 314 translated shaders and 324 linked programs pass software
+WebGPU checks. Hardware Firefox and software Chrome verify compressed pixels,
+all cube faces, non-power-of-two mip dimensions, bounds and exact byte charges;
+the denied-feature run verifies the fallback. Evidence: `.cache/0ad/bc-shaders-browser.log`,
+`bc-render-{nonpower-firefox,nonpower-chromium,uncompressed}.log`.
+
+Full gameplay passes in Firefox (compressed and forced-uncompressed) and Chrome:
+`.cache/0ad/bc-gameplay-{firefox,firefox-uncompressed,chromium}.log`. Firefox economy
+graphics allocations fall from 142,989,672 to 107,959,104 bytes. A paired cold
+selection audit measures 107.3→94.7 ms, with similar ordinary frame times:
+`.cache/0ad/bc-selection-{uncompressed-firefox,firefox}-*.json`. Two initial
+compressed runs contained a 260–270 ms economy outlier. It did not reproduce in
+two native-profiled runs or a production repeat (worst 73.8 ms); native profiles
+attribute the ordinary 65–68 ms maximum mainly to Petra AI. Pipeline creation
+peaked at 3.2 ms in the second instrumented run. Keep the earlier outlier open
+for longer-run auditing; these repeats do not establish its cause. Evidence:
+`.cache/0ad/bc-stall-audit{-80,}.log`, `bc-production-audit.log`, and
+`browser/bc-stall-profile2.jsonp`. All 278 source checks and pristine reconstruction
+of the 42-file engine patch pass. Profiling edits are absent from the engine.
