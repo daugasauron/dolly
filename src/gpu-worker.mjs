@@ -77,9 +77,9 @@ async function getDevice() {
 }
 
 function integer(v, o) {
-  const n = v.getBigUint64(o, true);
-  ensure(n <= BigInt(Number.MAX_SAFE_INTEGER), "GPU integer exceeds host range");
-  return Number(n);
+  const high = v.getUint32(o + 4, true);
+  ensure(high <= 0x1fffff, "GPU integer exceeds host range");
+  return high * 0x100000000 + v.getUint32(o, true);
 }
 function header(bytes) {
   ensure(bytes.length >= 32, "Short GPU packet");

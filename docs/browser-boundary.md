@@ -101,6 +101,8 @@ and [`gpu-worker.mjs`](../src/gpu-worker.mjs) for copied packet validation,
 private handles/quotas, queue completion, and revocation. GPU buffers and
 textures are explicit external device resources; CPU userspace state remains
 in Wasm. Guest bytes cannot choose URLs, DOM nodes or JavaScript operations.
+Wire integers above JavaScript's exact 53-bit range are rejected before use;
+object IDs and request counters retain their 32-bit limits.
 Resource release revokes its handle immediately; deferred destruction retains
 both allocation and object-slot charges until queue completion. Scope retirement
 collects outstanding releases before allowing reuse.

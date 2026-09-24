@@ -71,8 +71,19 @@ export async function gpuBoundaryProof() {
     check(await send(batch([release]))===E.EBADF,"Stale resource handle accepted");
     const huge=record(1,32,2);huge.v.setBigUint64(16,maxBuffer+1n,true);huge.v.setUint32(24,8,true);
     check(await send(batch([huge]))===E.ENOMEM,"GPU buffer quota bypassed");
+    huge.v.setBigUint64(16,0x1fffffffffffffn,true);
+    check(await send(batch([huge]))===E.ENOMEM,"Largest exact GPU integer was misdecoded");
+    for(const size of [0x20000000000000n,0xffffffffffffffffn]) {
+      huge.v.setBigUint64(16,size,true);
+      check(await send(batch([huge]))===E.EINVAL,"Inexact GPU integer reached allocation");
+    }
     huge.v.setBigUint64(16,16n,true);
     check(await send(batch([huge]))===0,"Allocation refusal poisoned the scope");
+    const wideWrite=record(2,40,2);wideWrite.v.setUint32(28,4,true);
+    for(const offset of [0x100000000n,0x1fffffffffffffn,0x20000000000000n,0xffffffffffffffffn]) {
+      wideWrite.v.setBigUint64(16,offset,true);
+      check(await send(batch([wideWrite]))===E.EINVAL,"Wide GPU offset escaped its buffer range");
+    }
     const storage=record(1,32,3);storage.v.setBigUint64(16,16n,true);storage.v.setUint32(24,140,true);
     const readback=record(1,32,4);readback.v.setBigUint64(16,16n,true);readback.v.setUint32(24,9,true);
     const code=new TextEncoder().encode('@group(0) @binding(0) var<storage,read_write> out:array<f32>; override scale:f32; @compute @workgroup_size(1) fn main(@builtin(global_invocation_id)i:vec3u){out[i.x]=f32(i.x)*scale+1.0;}');
@@ -125,7 +136,7 @@ export async function gpuBoundaryProof() {
     const pixels=new Uint8Array(memory,mailbox+64,512),expected=features&32?[0,64,255,255]:[255,64,0,255];
     for(const at of [0,4,256,260])check(expected.every((n,i)=>Math.abs(pixels[at+i]-n)<=1),"Wrong captured colors or row stride");
     check(await send(packet(5))===0,"Capture scope close failed");
-    return {largeBatch:true,commandQuota:true,surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true};
+    return {largeBatch:true,commandQuota:true,surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,integerRanges:true,capabilities:true,computeConstants:true,closedScope:true};
   } finally {worker.terminate();}
 }
 

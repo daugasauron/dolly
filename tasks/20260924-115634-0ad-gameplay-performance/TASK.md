@@ -397,3 +397,19 @@ the fixture verifies the actual device limits/features. Evidence:
 The same image passes the software-rendered gameplay/readback path, with clean
 logs and a 3,560,488,960-byte peak. Means are 78.90/183.17 ms; this is correctness
 coverage, not playable software performance. `.cache/0ad/binding-final-software.log`.
+
+CPU sampling identifies GPU packet integer decoding as about 15% of the provider's
+active CPU time. Reading checked high/low 32-bit words preserves the exact 53-bit
+range without per-field BigInts. Two-core, 30-second A/B/B/A samples improve mean
+frame intervals by 3.7% in Chrome (4.87/4.97 → 4.65/4.83 ms) and 7.1% in Firefox
+(6.40/6.20 → 5.77/5.94 ms). Provider wall time improves 7.6% and 11.8% respectively;
+this is an uncapped paused scene, not a universal gameplay gain. Evidence:
+`.cache/0ad/integer-pair-{chromium,firefox}.log`, `gpu-bridge-{before,after}.cpuprofile`.
+The old and new decoder agree on 100,000 generated aligned/unaligned inputs.
+Real-browser checks cover the largest exact integer, values above that range,
+and offsets above 32 bits. Both implementations pass; a deliberate truncation
+fails the new boundary check. Existing allocation, retirement, capture and
+interruption checks still pass in software Chrome. Source checks pass 279/279.
+Evidence: `.cache/0ad/integer-{equivalence,boundary-before,boundary-after,boundary-negative,source}.log`.
+The permanent GPU suite also passes in Firefox with the Radeon ICD, including
+the new integer-range checks. `.cache/0ad/integer-final-gpu-amd-firefox.log`.
