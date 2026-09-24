@@ -293,3 +293,12 @@ engine logs (peak 3,806,277,632 bytes). Evidence:
 `.cache/0ad/gpu-skinning-{release,published-menu-firefox}.log`.
 Archive: `build/0ad/dolly-zero-ad-pages.tar.gz`, SHA-256
 `1618c90993f28aed27533215c35f06748a115e9ac45e6d12827f91ca7e9b19f5`.
+
+Selection and Command panels were initialized directly and again through the
+ordered panel loop. Removing them from that loop halves their setup calls.
+The paired cold-selection totals vary too much to claim a frame-time gain.
+Firefox passes the actual gameplay path with the override, including training,
+construction, save/load and opaque combat/economy pixels; means are 10.25/9.64 ms
+and peak process-tree memory 4,175,126,528 bytes. Evidence:
+`.cache/0ad/selection-current-{gui,panels}-firefox.log`,
+`panels-gameplay-firefox.log`.

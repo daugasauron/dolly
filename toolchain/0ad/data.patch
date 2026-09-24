@@ -123,3 +123,22 @@
  
  						return true;
  					},
+--- a/gui/session/selection_panels.js
++++ b/gui/session/selection_panels.js
+@@ -1283,7 +1283,7 @@
+  * If two panels need the same space, so they collide,
+  * the one appearing first in the order is rendered.
+  *
+- * Note that the panel needs to appear in the list to get rendered.
++ * Selection and Command panels are initialized separately.
+  */
+ const g_PanelsOrder = [
+ 	// LEFT PANE
+@@ -1302,7 +1302,5 @@
+ 	"Research", // Normal together with training
+ 
+ 	// UNIQUE PANES (importance doesn't matter)
+-	"Command",
+ 	"Queue",
+-	"Selection",
+ ];
