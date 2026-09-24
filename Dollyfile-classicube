@@ -2,13 +2,13 @@ DOLLY 3
 IMAGE classicube
 
 FROM HOST /Dollyfile-pi-runtime ef3354e0d0063409bc8b4376b2dddf61ad07b0c319e1069e4ed762f47751d13e
-COPY FROM HOST /Dollyfile-classicube-build 1b94493ff8f16d6009cd9eeb054ee1ec6f8e89e7ad799e745298f35af2ceba65 /usr/bin/classicube /usr/bin/classicube
-COPY FROM HOST /Dollyfile-classicube-build 1b94493ff8f16d6009cd9eeb054ee1ec6f8e89e7ad799e745298f35af2ceba65 /usr/share/classicube /home/dolly/classicube
-COPY FROM HOST /Dollyfile-classicube-build 1b94493ff8f16d6009cd9eeb054ee1ec6f8e89e7ad799e745298f35af2ceba65 /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY FROM HOST /Dollyfile-sdl2-build 7acffc0f1b902d14b7c5b4902bf05f9c7d614691f9c157007c18b43433f5e402 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY FROM HOST /Dollyfile-classicube-build b453446d1aa3c24d1568ab7d2785068f7300561d13955d866d13a66ffb95d2f7 /usr/bin/classicube /usr/bin/classicube
+COPY FROM HOST /Dollyfile-classicube-build b453446d1aa3c24d1568ab7d2785068f7300561d13955d866d13a66ffb95d2f7 /usr/share/classicube /home/dolly/classicube
+COPY FROM HOST /Dollyfile-classicube-build b453446d1aa3c24d1568ab7d2785068f7300561d13955d866d13a66ffb95d2f7 /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY FROM HOST /Dollyfile-sdl2-build 7512b1ae074e332be59b6dc2b502543c87e2a88d1d70d72c9e61909f246cfeb8 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 
-COPY FROM HOST /Dollyfile-sdl2-build 7acffc0f1b902d14b7c5b4902bf05f9c7d614691f9c157007c18b43433f5e402 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM HOST /Dollyfile-sdl2-build 7acffc0f1b902d14b7c5b4902bf05f9c7d614691f9c157007c18b43433f5e402 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM HOST /Dollyfile-sdl2-build 7512b1ae074e332be59b6dc2b502543c87e2a88d1d70d72c9e61909f246cfeb8 /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-sdl2-build 7512b1ae074e332be59b6dc2b502543c87e2a88d1d70d72c9e61909f246cfeb8 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a

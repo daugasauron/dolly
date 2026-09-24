@@ -109,3 +109,10 @@ in 1213 seconds; the standalone OpenAL build and checks took 124 seconds.
 The external engine bootstrap consumes the same pinned, patched OpenAL source;
 the engine itself remains an explicit external bootstrap exception.
 All 277 source tests pass (`.cache/0ad/openal-polish-source-tests.log`).
+
+The canonical `sdl2-build` recipe rebuilt the pointer-presence changes inside
+Dolly in 179 seconds. Its normal browser suite passes source compilation,
+RGB565 presentation, Unicode/composition/paste, pointer entry/exit, held-input
+clearing on blur, ordered drawing, screenshots and shell/display recovery.
+Evidence: `.cache/0ad/sdl2-polish-{image,browser}.log`. SDL source and downstream
+recipe pins now identify that verified source bundle.
