@@ -30,8 +30,8 @@ rebuilds until a source prototype earns packaging.
 
 Baseline: `d935654`, image SHA-256
 `a01ebdb9e7d33fa2a3deaa462b21a4861b143c754b0f2e09aea5aa3c57f965c1`.
-The current 51-object world remains served on port 9099 while prototypes run in
-disposable browsers. The earlier playground task is
+The initial 51-object image was preserved while prototypes ran in disposable
+browsers; the current package is recorded below. The earlier playground task is
 [20260923-213000-codex-01](../20260923-213000-codex-01/TASK.md).
 
 Implemented source checkpoints: `4c574c9` (industrial map and multi-block cargo),
@@ -57,8 +57,8 @@ and 8 points above 8 kg; physical release and settling are required.
 Prototype catalog: `build/blockwalker-competition-catalog.json`, 60 objects /
 1604 parts. It preserves the 51-object cast, moves two old crates away from new
 walls, assigns island teams, equips existing lookouts/aircraft with supply radio,
-and adds nine machines. The canonical catalog and served image remain unchanged
-until the full candidate passes. Generator inputs and intermediate designs are
+and adds nine machines. It was integrated after the physical handoff and
+controller checks below passed. Generator inputs and intermediate designs are
 ignored experiments; only the final designs belong in the source catalog.
 
 Measured evidence (all C compiled inside Dolly, disposable Chrome, 4 GiB/no swap):
@@ -111,8 +111,8 @@ Measured evidence (all C compiled inside Dolly, disposable Chrome, 4 GiB/no swap
 - `build/blockwalker-competition-ui-checkpoint.log`: actual Foundry/Quay/East/West
   buttons, lift follow/Eyes and fullscreen focus, score/radio/mass HUD, no browser
   errors. Instrumented 68-object sample: 18.58 FPS, zero GPU readback bytes.
-  This harness samples world state every frame; normal gameplay is still to be
-  measured. Screenshots and proof are in the matching artifact directory.
+  This harness samples world state every frame; normal gameplay is measured
+  separately below. Screenshots and proof are in the matching artifact directory.
 - `build/blockwalker-competition-driver2.log`: current permanent physics and
   keyboard/browser checks pass, including aircraft descent bounds. 10.875 m
   driven, 76 Eyes samples, actual pickup, zero removals/browser errors. The
@@ -125,7 +125,22 @@ Measured evidence (all C compiled inside Dolly, disposable Chrome, 4 GiB/no swap
   clocks round-trip. The older dock courier needed a water-height fallback for
   dry practice; its shared-world inputs and behavior are unchanged.
 
-The earned 60-object candidate is now the canonical catalog. Remaining:
-package and verify normal gameplay on the served image, then
-run the repaired full population with varied routes. Preserve the original
-learned session and complete native Pi history. Port 9099 still serves image 16.
+The earned 60-object candidate is the canonical catalog in `8b34788`. Image 17
+is served on 9099: 232306971 bytes, SHA-256
+`525859b01b59aa20c6171f8ee5b2cf2dfc7c26632e525dab220afdd88ee3ef9e`.
+The build took 24.4 s, with unchanged runtime and reused dependency images
+(`build/blockwalker-playground-image17.log`). Image 16 files remain under
+`build/blockwalker-image16-preserved/`; original learned sessions/history and
+recovery archives are unchanged.
+
+`build/blockwalker-competition-preview-image17.log` checks the actual 9099 image:
+all 60 catalog controllers match, 41 library designs, all original objects remain,
+zero removals, no browser errors or model requests. The imported 68-object live
+world replenishes to 69 objects and advances 30.083 simulated seconds during
+30.024 measured wall seconds. Normal gameplay measures 21.38 FPS at Quay and
+21.85 FPS in focus view on NVIDIA Blackwell, with zero GPU readbacks. These are
+local measurements, not cross-device performance claims.
+
+Remaining: profile the frame cost and run the repaired full population with
+varied routes. Preserve the original learned session and complete native Pi
+history. This task stays open until the combined trial passes.

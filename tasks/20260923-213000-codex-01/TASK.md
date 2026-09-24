@@ -32,21 +32,22 @@ Keep the game in C and compile it inside Dolly. Browser verification uses one
 and complete native Pi history. Lua/YAML migration is the separate
 [requested task](../20260923-211500-codex-01/TASK.md).
 
-Current local checkpoint: `d935654`, served at `http://127.0.0.1:9099/blockwalker/`.
-Image: 232147096 bytes, SHA-256
-`a01ebdb9e7d33fa2a3deaa462b21a4861b143c754b0f2e09aea5aa3c57f965c1`.
+Current source checkpoint: `8b34788`, served at
+`http://127.0.0.1:9099/blockwalker/`. Image 17: 232306971 bytes, SHA-256
+`525859b01b59aa20c6171f8ee5b2cf2dfc7c26632e525dab220afdd88ee3ef9e`.
 Source tar SHA-256:
-`146000ccf4caca3849609d897fa33b9a1324eed328778ab98853ac6999528c7f`.
-The unchanged-runtime rebuild took 26.3 s
-(`build/blockwalker-playground-image16.log`). Earlier checkpoint measurements
-remain in Git history and their individual issues; this entry describes the
-current package.
+`9c7886b146fc90fb86c18bd0faa26e8016d350b8df3608e0bd3db5fa16ddd38c`.
+The unchanged-runtime rebuild took 24.4 s
+(`build/blockwalker-playground-image17.log`). Image 16 is preserved under
+`build/blockwalker-image16-preserved/`; earlier branches and recovery archives
+remain unchanged.
 
-The fresh world has 51 objects / 1204 parts / 31 library designs: 35 characters
-and 16 cargo objects. Tidegate and eighteen earlier prototypes are optional
-archive entries. Existing named worlds and their controllers are preserved.
+The fresh world has 60 objects / 1604 parts / 41 library designs: 44 characters
+and 16 original cargo objects, plus bounded replenished supplies. New worlds use
+the industrial map and island competition; saved worlds retain their map version.
+Tidegate and eighteen earlier prototypes remain optional archive entries.
 The starter is a nine-part magnetic car; WASD drives physical wheel motors,
-E/Q powers/releases its magnet, and Backslash switches Eyes/follow. All 35
+E/Q powers/releases its magnet, and Backslash switches Eyes/follow. All 44
 characters have Eyes; following one keeps its program running. Eyes (6) and
 Turntable (7) preserve earlier block IDs; blueprint v6 reads versions 1–5.
 
@@ -65,7 +66,12 @@ player totals persist across restarts and replacing the player's character.
 The HUD shows powered/loaded magnets and delivery confirmation. Delivered
 crates remain physical, so controllers must avoid them and account for stacks.
 
-Verification:
+Verification of the earlier 51-object checkpoint follows. Current 60-object
+competition evidence, freight reloads, physics/controller checks and actual
+preview measurements are recorded in the
+[competition task](../20260924-074500-codex-01/TASK.md).
+
+Earlier verification:
 
 - `build/blockwalker-dock-population-cargo-42.log` passed 1200 simulation seconds
   and six separate process/world reloads: all 51 alive, zero removals and ten
