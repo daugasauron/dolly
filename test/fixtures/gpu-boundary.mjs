@@ -162,8 +162,9 @@ export async function gpuRetirementProof() {
     check(await send(batch([create(limit+1)]))===0,"Retired object slot was not reusable");
     worker.postMessage({type:"test-completion",hold:true});
     check(await send(batch([upload(limit+1),record(12,16,limit+1)]))===0,"Second retirement failed");
+    worker.postMessage({type:"test-phase",phase:"close"});
     const fenced=new Promise(resolve=>worker.addEventListener("message",function listener({data}) {
-      if(data.type!=="test-fence")return;
+      if(data.type!=="test-fence"||data.phase!=="close")return;
       worker.removeEventListener("message",listener);resolve();
     }));
     let closed=false;
