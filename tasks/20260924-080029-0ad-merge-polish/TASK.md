@@ -116,3 +116,48 @@ RGB565 presentation, Unicode/composition/paste, pointer entry/exit, held-input
 clearing on blur, ordered drawing, screenshots and shell/display recovery.
 Evidence: `.cache/0ad/sdl2-polish-{image,browser}.log`. SDL source and downstream
 recipe pins now identify that verified source bundle.
+
+The headless multiplayer host now freezes its finished simulation while polling
+until every connected peer has simulated the winning turn. Two headless peers,
+a graphical client/headless host, and a graphical host/headless client all pass
+149 matching command/hash records, winner metadata, clean exits and relay cleanup.
+Hardware graphical-client/host runs took 112/137 seconds with 4.83/5.19 GB peaks.
+Evidence: `.cache/0ad/multiplayer-polish-{headless,visual-client,visual-host}.log`.
+The complete 41-file engine patch reconstructs from the pristine pinned archive.
+All 277 source tests pass (`.cache/0ad/engine-polish-source-tests.log`).
+
+The stronger AI check now compares 100 turns after saving at turn 300 with
+uninterrupted play, then repeats the continuation from a fresh engine process.
+It passes after removing restoration-time RNG draws and repeated dropsite commands,
+consuming stale AI deltas on a full refresh, and notifying the AI when gathering
+orders switch between a resource and its dropsite. Observation preserves pending
+AI changes. Evidence: `.cache/0ad/ai-order-update-browser.log` (23-second economy
+check). Upstream's stricter per-turn rejoin diagnostic exposed a missing builders
+list in full foundation observations. After correcting it, the diagnostic passes
+every comparison from turns 300 through 400 (`.cache/0ad/ai-foundation-rejoin-final.log`).
+The normal regression also checks the pending construction event at turn 361,
+then continues through turn 400 in the same and fresh processes
+(`.cache/0ad/ai-foundation-browser.log`). The earlier assertion verified that
+noninteractive failures exit with status 1 without consuming control input or
+damaging the shell.
+
+The canonical `scripts/build.sh` completes with the pinned compiler cache and
+unchanged process sysroot, including exact outer-import and process ABI validation.
+Runtime identity is `7e699dd3ff5b68204c0ec623493ef98bbbde220d1d128ae5a09b6ce240fbe6ce`;
+image-input identity is `8e94a9e8bd663a5f42298a24e403537224cc9e5a8698ff7189b415418c05263d`.
+The engine rebuild reproduces SHA-256
+`44b8b1cc4c493242279b6bd7c1307f9956ca4b4ddbfe75e4bce1ca2942e3e039`.
+Evidence: `.cache/0ad/canonical-runtime-polish.log` and
+`.cache/0ad/engine-canonical-polish-{build,link}.log`. A full image rebuild exceeded
+its 6 GiB scope during the Rust tools build; the bounded retry uses 8 GiB.
+
+That rebuild exposed SDK-cache contamination: 0 A.D.'s Boost and other port
+headers enlarged the base seed from 109 MiB to 258 MiB and the game image to
+740,740,617 bytes. Seed packaging now installs fresh headers from the pinned SDK
+in an isolated temporary cache. Two runs produce identical loader/data bytes;
+the seed is 112,656,253 bytes and artifact checks reject leaked Boost, PNG and ICU
+headers. All 22 non-snapshot artifact checks and all 277 source tests pass.
+Evidence: `.cache/0ad/clean-seed-{reproducible,artifacts}.log` and
+`.cache/0ad/seed-polish-source-tests.log`. Final runtime identity is
+`66cb0420eb7882c2f43736dc698d91edf1d25871a7ea8a340d46c060ff6a1dd0`;
+image-input identity is `1694666dacf60e72d4cd729e9e935cd096a1a6093be868dc45cce63790d91b70`.

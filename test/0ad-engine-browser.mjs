@@ -143,25 +143,32 @@ try {
       {player: 1, command: {type: "gather", entities: soldiers.map(entity => entity.id), target: tree.id, queued: false}},
     ]},
     {id: 2, op: "hash"}, {id: 3, op: "observe"}, {id: 4, op: "hash"},
-    {id: 5, op: "save", name: "economy"}, {id: 6, op: "step", turns: 20},
-    {id: 7, op: "load", name: "economy"}, {id: 8, op: "hash"},
-    {id: 9, op: "step", turns: 100}, {id: 10, op: "hash"},
+    {id: 5, op: "save", name: "economy"}, {id: 6, op: "step", turns: 61}, {id: 7, op: "hash"},
+    {id: 8, op: "step", turns: 39}, {id: 9, op: "hash"},
+    {id: 10, op: "load", name: "economy"}, {id: 11, op: "hash"},
+    {id: 12, op: "step", turns: 61}, {id: 13, op: "hash"},
+    {id: 14, op: "step", turns: 39}, {id: 15, op: "hash"},
   ], economyOptions);
   assert.ok(economy.every(reply => reply.ok));
   assert.equal(economy[1].result, economy[3].result, "observing active AI does not consume its pending events");
-  assert.equal(economy[1].result, economy[7].result, "save/load restores the economy and serialized Petra state");
+  assert.equal(economy[1].result, economy[10].result, "save/load restores the economy and serialized Petra state");
   const built = economy[0].result;
   assert.ok(Object.values(built.entities).some(entity => entity.owner === 1 && entity.template === "structures/athen/house"));
   assert.equal(built.players[1].popCount, initial[1].result.players[1].popCount + 2);
   assert.equal(built.players[1].popLimit, initial[1].result.players[1].popLimit + 10);
   assert.ok(built.players[1].resourceCounts.wood > 200, "soldiers gather wood after paying for the house");
   assert.ok(built.players[2].popCount > initial[1].result.players[2].popCount, "Petra trains its own units");
-  assert.equal(economy[8].result.timeElapsed, 80000, "restored AI game resumes for 100 turns");
+  assert.equal(economy[12].result, economy[6].result,
+    "restored Petra retains foundation builders in pending construction events");
+  assert.equal(economy[13].result.timeElapsed, 80000, "restored AI game resumes for 100 turns");
+  assert.equal(economy[14].result, economy[8].result, "restored Petra follows the uninterrupted simulation for 100 turns");
   const restored = await control([{id: 1, op: "load", name: "economy"}, {id: 2, op: "hash"},
-    {id: 3, op: "step", turns: 100}, {id: 4, op: "hash"}], {...economyOptions, label: "economy-restored"});
+    {id: 3, op: "step", turns: 61}, {id: 4, op: "hash"},
+    {id: 5, op: "step", turns: 39}, {id: 6, op: "hash"}], {...economyOptions, label: "economy-restored"});
   assert.ok(restored.every(reply => reply.ok));
   assert.equal(restored[1].result, economy[1].result, "a fresh engine loads the economy save");
-  assert.equal(restored[3].result, economy[9].result, "fresh loads of the same AI save produce the same continuation");
+  assert.equal(restored[3].result, economy[6].result, "a fresh engine preserves pending AI events");
+  assert.equal(restored[5].result, economy[8].result, "a fresh engine follows the uninterrupted AI continuation");
   console.log(`Economy: house, training, gathering, Petra and fresh-process save/load passed in ${Math.round(performance.now() - economyStarted)} ms`);
   assert.equal(await submit("printf 'shell survived\\n' > /tmp/0ad-result && test -s /tmp/0ad-result"), 0);
   console.log("0 A.D. browser simulation, replay, control, save/load, pipes and interruption checks passed");

@@ -1,5 +1,18 @@
 --- a/simulation/ai/petra/_petrabot.js
 +++ b/simulation/ai/petra/_petrabot.js
+@@ -64,11 +64,11 @@
+ 		this.HQ.Deserialize(gameState, this.data.HQ);
+ 
+ 		this.uniqueIDs = this.data.uniqueIDs;
+-		this.isDeserialized = false;
+ 		this.data = undefined;
+ 
+ 		// initialisation needed after the completion of the deserialization
+ 		this.HQ.postinit(gameState);
++		this.isDeserialized = false;
+ 	}
+ 	else
+ 	{
 @@ -134,6 +134,9 @@
  
  PetraBot.prototype.Serialize = function()
@@ -10,3 +23,103 @@
  	const savedEvents = {};
  	for (const key in this.savedEvents)
  	{
+--- a/simulation/ai/petra/attackPlan.js
++++ b/simulation/ai/petra/attackPlan.js
+@@ -178,7 +178,8 @@
+ 	}
+ 
+ 	// Put some randomness on the attack size
+-	let variation = randFloat(0.8, 1.2);
++	// Deserialization replaces these defaults with saved stats without advancing the RNG.
++	let variation = gameState.ai.isDeserialized ? 1 : randFloat(0.8, 1.2);
+ 	// and lower priority and smaller sizes for easier difficulty levels
+ 	if (this.Config.difficulty < difficulty.EASY)
+ 	{
+--- a/simulation/ai/petra/baseManager.js
++++ b/simulation/ai/petra/baseManager.js
+@@ -242,6 +242,9 @@
+ 		}
+ 		*/
+ 	}
++
++	if (gameState.ai.isDeserialized)
++		return;
+ 
+ 	// Allows all allies to use this dropsite except if base anchor to be sure to keep
+ 	// a minimum of resources for this base
+--- a/simulation/ai/petra/diplomacyManager.js
++++ b/simulation/ai/petra/diplomacyManager.js
+@@ -34,7 +34,6 @@
+ 	this.betrayWeighting = 150;
+ 	this.receivedDiplomacyRequests = new Map();
+ 	this.sentDiplomacyRequests = new Map();
+-	this.sentDiplomacyRequestLapseTime = 120 + randFloat(10, 100);
+ }
+ 
+ /**
+@@ -43,6 +42,8 @@
+  */
+ DiplomacyManager.prototype.init = function(gameState)
+ {
++	this.sentDiplomacyRequestLapseTime = 120 + randFloat(10, 100);
++
+ 	this.lastManStandingCheck(gameState);
+ 
+ 	for (let i = 1; i < gameState.sharedScript.playersData.length; ++i)
+--- a/simulation/ai/petra/headquarters.js
++++ b/simulation/ai/petra/headquarters.js
+@@ -2423,7 +2423,6 @@
+ 	this.navalManager.Deserialize(gameState, data.navalManager);
+ 
+ 	this.attackManager = new AttackManager(this.Config);
+-	this.attackManager.Deserialize(gameState, data.attackManager);
+ 	this.attackManager.init(gameState);
+ 	this.attackManager.Deserialize(gameState, data.attackManager);
+ 
+--- a/simulation/components/AIInterface.js
++++ b/simulation/components/AIInterface.js
+@@ -148,6 +148,7 @@
+ 	// all entities are changed in the initial state.
+ 	for (const id of Engine.GetEntitiesWithInterface(IID_AIProxy))
+ 		state.entities[id] = Engine.QueryInterface(id, IID_AIProxy).GetFullRepresentation();
++	this.changedEntities = {};
+ 	Engine.ProfileStop();
+ 
+ 	state.changedTemplateInfo = this.changedTemplateInfo;
+--- a/simulation/components/AIProxy.js
++++ b/simulation/components/AIProxy.js
+@@ -212,6 +212,7 @@
+ 
+ AIProxy.prototype.GetFullRepresentation = function()
+ {
++	this.changes = null;
+ 	this.needsFullGet = false;
+ 	const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+ 
+@@ -282,6 +283,8 @@
+ 	{
+ 		// Updated by OnFoundationProgressChanged
+ 		ret.foundationProgress = cmpFoundation.GetBuildPercentage();
++		// Updated by OnFoundationBuildersChanged
++		ret.foundationBuilders = cmpFoundation.GetBuilders();
+ 	}
+ 
+ 	const cmpResourceDropsite = Engine.QueryInterface(this.entity, IID_ResourceDropsite);
+--- a/simulation/components/UnitAI.js
++++ b/simulation/components/UnitAI.js
+@@ -2686,6 +2686,7 @@
+ 					}
+ 					this.order.data.formerTarget = this.order.data.target;
+ 					this.order.data.target = nearestDropsite;
++					Engine.PostMessage(this.entity, MT_UnitAIOrderDataChanged, { "to": this.GetOrderData() });
+ 					if (this.CheckTargetRange(this.order.data.target, IID_ResourceGatherer))
+ 					{
+ 						this.SetNextState("DROPPINGRESOURCES");
+@@ -2714,6 +2715,7 @@
+ 						else
+ 							this.SetNextState("RETURNINGRESOURCE");
+ 						this.order.data.target = this.order.data.formerTarget;
++						Engine.PostMessage(this.entity, MT_UnitAIOrderDataChanged, { "to": this.GetOrderData() });
+ 
+ 						return true;
+ 					},

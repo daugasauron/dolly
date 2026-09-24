@@ -286,7 +286,19 @@
  static ErrorReactionInternal try_gui_display_error(const wchar_t* /*text*/, bool /*manual_break*/,
  	bool /*allow_suppress*/, bool /*no_continue*/)
  {
-@@ -353,6 +353,9 @@
+@@ -214,6 +214,11 @@
+ ErrorReactionInternal sys_display_error(const wchar_t* text, size_t flags)
+ {
+ 	debug_printf("%s\n\n", utf8_from_wstring(text).c_str());
++
++#if OS_DOLLY
++	if (!isatty(STDIN_FILENO))
++		return ERI_EXIT;
++#endif
+ 
+ 	const bool manual_break   = (flags & DE_MANUAL_BREAK  ) != 0;
+ 	const bool allow_suppress = (flags & DE_ALLOW_SUPPRESS) != 0;
+@@ -353,6 +358,9 @@
  
  Status sys_open_url(const std::string& url)
  {
@@ -296,7 +308,7 @@
  	pid_t pid = fork();
  	if (pid < 0)
  	{
-@@ -379,6 +382,7 @@
+@@ -379,6 +387,7 @@
  
  		return INFO::OK;
  	}
@@ -329,18 +341,57 @@
  #endif
 --- a/source/main.cpp
 +++ b/source/main.cpp
-@@ -524,6 +524,10 @@
- 	in_reset_handlers();
+@@ -53,6 +53,9 @@
+ #include "lib/types.h"
+ #include "lobby/IXmppClient.h"
+ #include "network/NetClient.h"
++#if OS_DOLLY
++#include "network/NetServer.h"
++#endif
+ #include "ps/ArchiveBuilder.h"
+ #include "ps/CConsole.h"
+ #include "ps/CLogger.h"
+@@ -500,6 +503,17 @@
+ 	if (g_NetClient)
+ 		g_NetClient->Poll();
+ 
++#if OS_DOLLY
++	// Keep serving the winning turn until every connected peer has simulated it.
++	if (g_Game && g_Game->IsGameFinished())
++	{
++		if (!g_NetServer || g_NetServer->HaveAllClientsSimulated(g_Game->GetTurnManager()->GetCurrentTurn()))
++			QuitEngine(EXIT_SUCCESS);
++		g_Profiler.Frame();
++		return;
++	}
++#endif
++
+ 	static u32 turn = 0;
+ 	if (g_Game && g_Game->IsGameStarted() && g_Game->GetTurnManager())
+ 		if (g_Game->GetTurnManager()->Update(DEFAULT_TURN_LENGTH, 1))
+@@ -507,8 +521,10 @@
+ 
+ 	g_Profiler.Frame();
+ 
++#if !OS_DOLLY
+ 	if (g_Game->IsGameFinished())
+ 		QuitEngine(EXIT_SUCCESS);
++#endif
  }
  
+ static void MainControllerInit()
+@@ -523,6 +539,10 @@
+ {
+ 	in_reset_handlers();
+ }
++
 +#if OS_DOLLY
 +void DollyControl_Run(FILE* output);
 +#endif
-+
+ 
  static std::optional<RL::Interface> CreateRLInterface(const CmdLineArgs& args)
  {
- 	if (!args.Has("rl-interface"))
-@@ -558,6 +562,28 @@
+@@ -558,6 +578,28 @@
  static void RunGameOrAtlas(const std::span<const char* const> argv)
  {
  	const CmdLineArgs args(argv);
@@ -369,7 +420,7 @@
  
  	g_CmdLineArgs = args;
  
-@@ -761,6 +787,13 @@
+@@ -761,6 +803,13 @@
  #else
  					Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency);
  #endif
@@ -383,7 +434,7 @@
  				else if(rlInterface)
  					rlInterface->TryApplyMessage();
  				else
-@@ -805,7 +838,7 @@
+@@ -805,7 +854,7 @@
  int main(int argc, char* argv[])
  #endif
  {
@@ -544,12 +595,17 @@
  
  	// Process the event:
  
-@@ -1714,6 +1757,10 @@
+@@ -1714,6 +1757,15 @@
  	delete m_Worker;
  }
  
 +#ifdef DOLLY
 +void CNetServer::Poll() { m_Worker->Poll(); }
++
++bool CNetServer::HaveAllClientsSimulated(u32 turn) const
++{
++	return !m_Worker->m_ServerTurnManager || m_Worker->m_ServerTurnManager->HaveAllClientsSimulated(turn);
++}
 +#endif
 +
  bool CNetServer::UseLobbyAuth() const
@@ -557,17 +613,18 @@
  	return m_LobbyAuth;
 --- a/source/network/NetServer.h
 +++ b/source/network/NetServer.h
-@@ -121,6 +121,9 @@
+@@ -121,6 +121,10 @@
  	 * @return true on success, false on error (e.g. port already in use)
  	 */
  	bool SetupConnection(const u16 port);
 +#ifdef DOLLY
 +	void Poll();
++	bool HaveAllClientsSimulated(u32 turn) const;
 +#endif
  
  	/**
  	 * Call from the GUI to asynchronously notify all clients that they should start loading the game.
-@@ -244,6 +247,9 @@
+@@ -244,6 +248,9 @@
  	 * @return true on success, false on error (e.g. port already in use)
  	 */
  	bool SetupConnection(const u16 port);
@@ -577,7 +634,7 @@
  
  	/**
  	 * The given GUID will be (re)assigned to the given player ID.
-@@ -436,7 +442,7 @@
+@@ -436,7 +443,7 @@
  
  	static void RunThread(CNetServerWorker* data);
  	void Run();
@@ -586,6 +643,25 @@
  
  	std::thread m_WorkerThread;
  	std::mutex m_WorkerMutex;
+--- a/source/network/NetServerTurnManager.h
++++ b/source/network/NetServerTurnManager.h
+@@ -67,6 +67,16 @@
+ 	 */
+ 	u32 GetReadyTurn() { return m_ReadyTurn; }
+ 
++#ifdef DOLLY
++	bool HaveAllClientsSimulated(u32 turn) const
++	{
++		for (const auto& [id, client] : m_ClientsData)
++			if (client.simulatedTurn < turn)
++				return false;
++		return true;
++	}
++#endif
++
+ 	/**
+ 	 * Returns the turn length that was used for the given turn.
+ 	 * Requires turn <= GetReadyTurn().
 --- a/source/network/NetSession.cpp
 +++ b/source/network/NetSession.cpp
 @@ -31,7 +31,11 @@
@@ -1368,9 +1444,9 @@
 +		for (const id of Engine.GetEntitiesWithInterface(IID_AIProxy))
 +		{
 +			const proxy = Engine.QueryInterface(id, IID_AIProxy);
-+			const needsFullGet = proxy.needsFullGet;
++			const needsFullGet = proxy.needsFullGet, changes = proxy.changes;
 +			try { state.entities[id] = proxy.GetFullRepresentation(); }
-+			finally { proxy.needsFullGet = needsFullGet; }
++			finally { proxy.needsFullGet = needsFullGet; proxy.changes = changes; }
 +		}
 +		return state;
 +	})())JS", &state))
