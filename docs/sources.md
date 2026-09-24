@@ -264,10 +264,14 @@ turns before F10 exit. A headless autostart host exits immediately on victory an
 close before a slower visual peer's last turn; keep the graphical host open
 through match completion when mixing visual and nonvisual peers.
 
-OpenAL Soft 1.24.3 is checksum-pinned in `dependencies.tsv`. Its loopback mixer
-runs serially: `openal.patch` polls its event queue after rendering and replaces
+OpenAL Soft 1.24.3 is checksum-pinned in `config/source-pins.sh`.
+`npm run image -- openal-build` builds and installs its static library, headers,
+CMake package and licenses inside Dolly, then compiles and runs the stereo
+loopback check against that installation. Its loopback mixer runs serially:
+`config/openal-dolly.patch` polls its event queue after rendering and replaces
 its internal semaphore with a counter. It does not enable Dolly thread creation
-or POSIX semaphores. `openal.sh` builds the library and mixer fixture; link the
+or POSIX semaphores. The external 0 A.D. bootstrap consumes the same prepared
+source; `openal.sh` builds its library and mixer fixture. Link the
 latter with `bash toolchain/0ad/link.sh build/0ad/openal-check.wasm
 .cache/0ad/openal-check.o .cache/0ad/sysroot/lib/libopenal.a`, then run
 `node test/0ad-openal-browser.mjs`. Two fresh processes each exercise two contexts,

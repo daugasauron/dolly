@@ -85,7 +85,7 @@ test("images separate reusable runtimes from applications and configuration", as
     "llama-build": ["cmake-build"], "local-llm-build": ["llama-build"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system-tools"], "neovim-build": ["cmake-build"],
-    "sdl2-build": ["cmake-build"], "rts-build": ["sdl2-build"],
+    "sdl2-build": ["cmake-build"], "openal-build": ["cmake-build"], "rts-build": ["sdl2-build"],
     "classicube-build": ["sdl2-build"], classicube: ["pi-runtime", "classicube-build", "sdl2-build"],
     "rts-arena": ["pi-runtime", "rts-build"],
     neovim: ["system", "neovim-build"],
@@ -104,7 +104,7 @@ test("images separate reusable runtimes from applications and configuration", as
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
       assert.equal(graph.records.some(record => ["git", "ghostty", "startup-default"].includes(record.name)), false);
     }
-    if (["system-tools", "cmake-build", "neovim-build", "sdl2-build", "classicube-build", "rts-build", "typescript-build", "pi-build", "llama-build", "local-llm-build"].includes(definition.image)) {
+    if (["system-tools", "cmake-build", "neovim-build", "sdl2-build", "openal-build", "classicube-build", "rts-build", "typescript-build", "pi-build", "llama-build", "local-llm-build"].includes(definition.image)) {
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
       assert.equal(recipeRecords(graph).some(record => ["ghostty-build", "rust-sdk", "rust-build"].includes(record.name)), false);
     }
@@ -145,7 +145,7 @@ test("images separate reusable runtimes from applications and configuration", as
   const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
   const selected = await selectImageDefinitions(definitions, githubImages.join(","));
   assert.deepEqual(selected.map(item => item.image), definitions
-    .filter(item => !["codex", "codex-build", "protox-build", "pi-local", "dollyfile-studio", "llama-build", "local-llm-build", "blockwalker", "zero-ad", "audio-sdk"].includes(item.image)).map(item => item.image));
+    .filter(item => !["codex", "codex-build", "protox-build", "pi-local", "dollyfile-studio", "llama-build", "local-llm-build", "blockwalker", "zero-ad", "audio-sdk", "openal-build"].includes(item.image)).map(item => item.image));
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

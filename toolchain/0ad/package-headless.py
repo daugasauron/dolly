@@ -12,6 +12,16 @@ output = Path('build/0ad/headless')
 if output.exists():
     shutil.rmtree(output)
 
+patch = Path('toolchain/0ad/data.patch').read_text()
+patch_paths = [line[6:] for line in patch.splitlines() if line.startswith('+++ b/')]
+with TemporaryDirectory() as directory, ZipFile(data / 'mods/public/public.zip') as upstream:
+    for name in patch_paths:
+        target = Path(directory) / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(upstream.read(name))
+    subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', directory], input=patch.encode(), check=True)
+    patched = {name: (Path(directory) / name).read_bytes() for name in patch_paths}
+
 for mod in ('mod', 'public'):
     destination = output / 'data/mods' / mod
     destination.mkdir(parents=True)
@@ -29,15 +39,7 @@ for mod in ('mod', 'public'):
                     'maps/scenarios/combat_demo.', 'maps/skirmishes/temperate_roadway_2p.'
                 )) or name in ('mod.json', 'art/LICENSE.txt', 'audio/LICENSE.txt')
             if keep:
-                content = upstream.read(name)
-                if mod == 'public' and name == 'simulation/ai/petra/_petrabot.js':
-                    with TemporaryDirectory() as directory:
-                        patched = Path(directory) / name
-                        patched.parent.mkdir(parents=True)
-                        patched.write_bytes(content)
-                        subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', directory],
-                                       input=Path('toolchain/0ad/data.patch').read_bytes(), check=True)
-                        content = patched.read_bytes()
+                content = patched[name] if mod == 'public' and name in patched else upstream.read(name)
                 entry.compress_type = ZIP_DEFLATED
                 archive.writestr(entry, content)
 
@@ -50,7 +52,7 @@ shutil.copy2(icu / 'source/data/in/icudt68l.dat', output / 'data/icu/icudt68l.da
 for name in ('LICENSE.md', 'license_gpl-2.0.txt', 'license_lgpl-2.1.txt', 'license_mit.txt'):
     shutil.copy2(source / name, output / 'licenses' / name)
 shutil.copy2(icu / 'LICENSE', output / 'licenses/ICU-LICENSE')
-shutil.copy2('.cache/0ad/openal-soft-1.24.3/COPYING', output / 'licenses/OpenAL-Soft-COPYING')
+shutil.copy2(Path('.cache/0ad/openal-source.path').read_text().strip() + '/COPYING', output / 'licenses/OpenAL-Soft-COPYING')
 
 with tarfile.open('build/0ad/headless-data.tar', 'w', format=tarfile.USTAR_FORMAT) as archive:
     for path in sorted(output.rglob('*')):

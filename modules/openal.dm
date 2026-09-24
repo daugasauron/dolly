@@ -1,0 +1,41 @@
+DOLLY 3
+MODULE openal
+
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES LIB c++
+REQUIRES LIB c++abi
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL ar
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+
+SOURCE HOST /static/openal/source.tar /tmp/openal/source.tar 716be269a99ccde5220f790e281cd1a4660152d7952eb09ba9619eab1f8c7bec
+SLOP tar -xf /tmp/openal/source.tar -C /
+SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS_RELEASE=-O1 '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DDOLLY -D__STDC_NO_THREADS__=1 -include cstdlib' \
+  -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF -DALSOFT_TESTS=OFF \
+  -DALSOFT_DLOPEN=OFF -DALSOFT_EAX=OFF -DALSOFT_BACKEND_PIPEWIRE=OFF \
+  -DALSOFT_BACKEND_PULSEAUDIO=OFF -DALSOFT_BACKEND_ALSA=OFF -DALSOFT_BACKEND_OSS=OFF \
+  -DALSOFT_BACKEND_SOLARIS=OFF -DALSOFT_BACKEND_SNDIO=OFF -DALSOFT_BACKEND_JACK=OFF \
+  -DALSOFT_BACKEND_PORTAUDIO=OFF -DALSOFT_BACKEND_SDL2=OFF -DALSOFT_BACKEND_SDL3=OFF \
+  -DALSOFT_BACKEND_WAVE=OFF -DALSOFT_INSTALL_HRTF_DATA=OFF -DALSOFT_INSTALL_AMBDEC_PRESETS=OFF \
+  -DALSOFT_INSTALL_CONFIG=OFF -DALSOFT_UPDATE_BUILD_VERSION=OFF
+SLOP cmake --build /tmp/openal/build
+# Replace bootstrap headers even when normalized source timestamps match.
+SLOP rm -rf /usr/include/AL
+SLOP cmake --install /tmp/openal/build
+SLOP c++ -std=c++17 -O1 /tmp/openal/check.cpp -lopenal -lm -o /tmp/openal/check
+SLOP /tmp/openal/check
+SLOP rm -rf /tmp/openal
+
+EXPORTS HEADER openal /usr/include/AL
+EXPORTS LIB openal /usr/lib/libopenal.a
+EXPORTS FOLDER openal-cmake /usr/lib/cmake/OpenAL
+EXPORTS FILE openal-pkgconfig /usr/lib/pkgconfig/openal.pc
+EXPORTS FOLDER openal-license /usr/share/licenses/OpenAL

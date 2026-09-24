@@ -30,7 +30,8 @@ apply_patch() {
 }
 apply_patch "$source_dir" toolchain/0ad/engine.patch
 apply_patch "$cache/libsodium-1.0.20" toolchain/0ad/sodium.patch
-apply_patch "$cache/openal-soft-1.24.3" toolchain/0ad/openal.patch
+openal_source="$(bash scripts/prepare-openal.sh)"
+printf '%s\n' "${openal_source#"$PWD/"}" > "$cache/openal-source.path"
 premake="$cache/premake-core-5.0.0-beta7"
 if [[ ! -d "$premake" ]]; then
   tar -xf "$source_dir/libraries/source/premake/premake-core-5.0.0-beta7.tar.gz" -C "$cache"

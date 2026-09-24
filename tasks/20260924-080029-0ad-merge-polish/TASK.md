@@ -97,3 +97,15 @@ Evidence: `.cache/0ad/audio-chunks-{firefox,chrome}.log`. The patch reconstructs
 40 upstream files exactly. Engine SHA-256 is
 `a1656f8513d7cc94e0118268e43c65696cba7e318581c51bd2f5c0461ad81462`;
 snapshot SHA-256 is `9ce263d27fd7ea4a2cc8f11ff64e9e203a30114c5b66e907c2d3a6341f746855`.
+
+`openal-build` now compiles OpenAL Soft 1.24.3 inside Dolly using the source-built
+CMake/Clang toolchain and runs the numerical loopback fixture against its installed
+SDK. The first build caught CMake retaining bootstrap OpenAL headers with the
+same normalized timestamp; installation now replaces that header directory.
+The completed image is 228,704,819 bytes, SHA-256
+`f6ad0a2bcaa65def00a10a76b5ad4409ceffc6e9964705dce73c9854fe817fc3`.
+Evidence: `.cache/0ad/openal-image-build-headers.log`. CMake rebuilt from source
+in 1213 seconds; the standalone OpenAL build and checks took 124 seconds.
+The external engine bootstrap consumes the same pinned, patched OpenAL source;
+the engine itself remains an explicit external bootstrap exception.
+All 277 source tests pass (`.cache/0ad/openal-polish-source-tests.log`).

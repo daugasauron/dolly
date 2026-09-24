@@ -2,7 +2,7 @@
 set -euo pipefail
 cd /src
 export EMCC_CORES=2
-cmake -S .cache/0ad/openal-soft-1.24.3 -B .cache/0ad/build-openal \
+cmake --fresh -S "$(cat .cache/0ad/openal-source.path)" -B .cache/0ad/build-openal \
  -DCMAKE_TOOLCHAIN_FILE=/src/toolchain/0ad/wasm64.cmake \
  -DCMAKE_INSTALL_PREFIX=/src/.cache/0ad/sysroot -DCMAKE_INSTALL_LIBDIR=lib \
  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-O1 '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DDOLLY -D__STDC_NO_THREADS__=1 -include cstdlib' \

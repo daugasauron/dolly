@@ -62,6 +62,7 @@ has_module lua && lua_archive="$(bash "${project_dir}/scripts/fetch-pinned-archi
 has_module lpeg && lpeg_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lpeg)"
 has_module cmake && cmake_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" cmake)"
 has_module sdl2 && sdl2_dir="$(bash "${project_dir}/scripts/prepare-sdl2.sh")"
+has_module openal && openal_dir="$(bash "${project_dir}/scripts/prepare-openal.sh")"
 has_module classicube && classicube_dir="$(bash "${project_dir}/scripts/prepare-classicube.sh")"
 has_module seven-kingdoms && seven_kingdoms_dir="$(bash "${project_dir}/scripts/prepare-seven-kingdoms.sh")"
 if has_module neovim || has_module neovim-parsers; then
@@ -316,6 +317,15 @@ if has_module sdl2; then
   node scripts/build-source-tar.mjs "${static_dir}/sdl2/source.tar" \
     "${sdl2_inputs[@]}" \
     "${sdl2_dir}/LICENSE.txt" /usr/share/licenses/SDL2/LICENSE.txt
+fi
+if has_module openal; then
+  node scripts/build-source-tar.mjs "${static_dir}/openal/source.tar" \
+    "${openal_dir}" /tmp/openal/source \
+    test/fixtures/0ad-openal.cpp /tmp/openal/check.cpp \
+    "${openal_dir}/COPYING" /usr/share/licenses/OpenAL/COPYING \
+    "${openal_dir}/BSD-3Clause" /usr/share/licenses/OpenAL/BSD-3Clause \
+    "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
+    "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
 if has_module classicube; then
   classicube_port_inputs=()
