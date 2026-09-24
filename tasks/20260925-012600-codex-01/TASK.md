@@ -1,6 +1,6 @@
 # Add a physical quarry-to-courier handoff
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: game,content,physics
 
@@ -32,3 +32,11 @@ The 1800 s one-way-engine repeat also delivers both cores, with 28 total
 deliveries and all 121 objects retained (`build/blockwalker-rivalry-compact-tuned42/`).
 The runner, stock and longer roof are now in the branch catalog. The served
 image is still 27; final storage, camera/source and crowded-browser checks remain.
+
+Closed at the image 28 checkpoint. The fresh 2400 s world repeats both physical
+runner/courier handoffs with unique credit and all objects retained
+(`build/blockwalker-rivalry-checkpoint42/checkpoint-proof.json`). Quarry camera
+views and source export pass in Chrome and Firefox. Both browsers launch the
+packaged terrain-3 catalog and restore all 125 objects from the populated save
+(`build/blockwalker-image28-preview/` and `-firefox/`). Warehouse endurance and
+crowded-world performance remain separate open issues.

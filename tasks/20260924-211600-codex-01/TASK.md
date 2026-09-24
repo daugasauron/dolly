@@ -45,3 +45,10 @@ checkpoint work is tracked separately:
 
 Lua/YAML remains a separate issue. Candidate content under `build/` is not the
 packaged catalog until its combined-world and browser checks pass.
+
+The user subsequently requested a stable checkpoint and local launch. Further
+feature experiments are stopped. Packaging and launch are tracked in
+[the September 25 checkpoint](../20260925-064800-codex-01/TASK.md). The catalog
+has 91 placements; the populated recovery reaches 125 retained objects and
+37 deliveries. Fresh uninterrupted freight verification and crowded Firefox
+performance remain open, rather than being claimed complete at the cutoff.

@@ -1,6 +1,6 @@
 # Make thrusters one-way and keep their exhaust faces open
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 210
 - TAGS: game,physics,compatibility
 
@@ -72,3 +72,18 @@ deliveries before conversion but now circles its pickup. Its 16-part airframe
 matches the already tuned team couriers exactly apart from paint. The same
 feedback gains are prepared in `build/blockwalker-thrusters/kawasemi-tuned.js`;
 the gantry/courier handoff and saved-world replay must pass before promotion.
+
+Kawasemi's retuned program now passes: the isolated original gantry/courier
+handoff scores at 93.083 s and remains stable through 360 s. Replaying the
+populated 2400 s failure with only program updates delivers its waiting crate
+at 2463.300 s, preserving all objects. The canonical source now uses those
+gains. Evidence: `build/blockwalker-launcher-kawasemi-tuned/` and
+`build/blockwalker-forklift-pole-pickup/`. Final UI and packaging remain.
+
+Closed at the image 28 checkpoint. Chrome also passes firing/release, rebinding,
+blocked nozzle placement/orientation and legal side attachment/undo
+(`build/blockwalker-thruster-ui-chrome/`). Both browsers launch the actual
+packaged image, verify all 91 blueprints/programs and restore the 125-object
+save with no browser errors (`build/blockwalker-image28-preview/` and its
+`-firefox/` counterpart). The previously documented force, migration, aircraft,
+barge and recovery tests pass. Freight endurance remains tracked separately.

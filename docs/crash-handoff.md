@@ -1,131 +1,86 @@
 # Blockwalker handoff
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
-`codex/blockwalker-playground-20260923`. The earlier retro and September 14
-checkpoint branches remain preserved. Do not modify the parent worktree or
-other agents' previews.
+`codex/blockwalker-playground-20260923`. Do not modify the parent worktree or
+other agents' previews. The latest user requested a stable checkpoint and local
+launch; feature development is stopped. No push or deployment is authorized.
 
-The [cave/embedded-driver checkpoint](../tasks/20260924-185000-codex-01/TASK.md)
-is complete: 70 original objects, 51 designs, terrain 2, and a visible generic
-keyboard program instead of the C driver helper. Image 27 is 232415220 bytes,
-SHA-256 `6aded83091091923b17fc999832c82fe4157f16f6d21b9e3fdb8f4ca9a6ad82c`;
-source archive `0f9289f5e3efdf2ead04633759effaaf048759cce7578385b40eb33684800a84`.
-Chrome/Firefox, physical driver input/edit/restore, long population runs and
-controller budget evidence are linked from that task.
+The [September 25 checkpoint](../tasks/20260925-064800-codex-01/TASK.md) packages
+91 placements: the original 70, red/blue rival and guard vehicles, warehouse
+handlers, a quarry runner and two cores, and two cargo-slinger crews. Cargo and
+fallen machines remain physical. All behavior is visible ordinary character
+programs using common sensors, actuator keys and radio. No per-character engine
+motion helpers. Physics stays at 60 Hz; the later experimental controller rates
+and observation caches are excluded.
 
-The active [overnight goal](../tasks/20260924-211600-codex-01/TASK.md) continues
-through September 25, 2026, 07:00 JST (September 24, 22:00 UTC): retained cargo,
-more physical handoffs/terrain, red/blue teams, sabotage and defense, and fallen
-machines that remain and can recover. Every character's behavior must be a
-visible embedded program using common sensors and actuators; no per-character
-engine helpers. Start from this tested checkpoint. Lua/YAML remains separate.
-
-Source commits `08fc6e3`, `249bcd2` and `737c350` retain cargo/fallen bodies,
-expose all neighbors within 48 m and actual magnet targets, add solid quarry
-terraces (terrain 3), and support 1 Hz inert controllers. Physics remains 60 Hz.
-The source has passed in-Dolly physics and Chrome/Firefox checks; image 27 is
-still served. New tasks are committed in `5764481`.
-
-The current branch catalog has 91 placements in `020e1c1`: the original 70,
-six red/blue rival and guard vehicles, two warehouse handlers, a quarry runner
-and two cores, and two cargo-slinger crews with three light crates each. The
-quarry roof is extended and the world sidebar has shortcuts to both batteries.
-These are source changes; the owned preview still serves image 27.
-
-The [thruster task](../tasks/20260925-035000-codex-01/TASK.md) has passed all-axis
-force, blocked-nozzle, original-world migration/backup and Firefox builder
-checks. Saved poses, keys, programs, memory and magnet attachments survive
-conversion to physical opposing jets. Postbird, compact freighter mounts and
-team-courier feedback now pass real delivery tests. The 1800 s combined repeat
-retains 121 objects and makes 28 deliveries, including five heavy barge loads
-and both quarry cores (`build/blockwalker-rivalry-compact-tuned42/`).
-
-One remaining conversion regression affects Kawasemi (ID 50): its old program
-circles its pickup. Its airframe matches the tuned team couriers. The same
-feedback gains are prepared in `build/blockwalker-thrusters/kawasemi-tuned.js`,
-with `kawasemi-delivery.json` (original gantry, courier and cargo) and
-`kawasemi-replay.json` (source-only update for saved IDs 50/51). Test the isolated
-handoff and a populated saved continuation before changing the canonical source.
-
-The [warehouse program](../tasks/20260924-220500-codex-01/TASK.md) now separates
-travel and alignment deadlines, returns empty trucks to staging and checks
-clear diagonal routes around retained pallets. The saved 360 s repeat stores
-five of six heavy loads and physically extracts East's next pallet from its
-previous jam (`build/blockwalker-forklift-storage-diagonal/`). The new source
-is in the catalog; uninterrupted multiple-load storage is still being checked.
-
-The [cargo slinger](../tasks/20260925-032000-codex-01/TASK.md) uses normal 100 Nm
-bearings, a braced mast, loading ram and magnetic tip. Its separate feeder loads
-ordinary alloy crates. All aiming and handoff logic is editable program code.
-The lost-target trial holds the same crate through 127 sampled seconds without
-a target, then completes three reloads/shots; two hit the moving aircraft,
-which recovers (`build/blockwalker-launcher-lost-target-ammo/`). A save/reopen
-while holding the crate preserves it and resumes firing twice. A later load
-slips and is recovered by the feeder; do not claim perfect shot reliability
-(`build/blockwalker-launcher-loaded-reopen/`). Existing bearings suffice for this
-prototype; the [rope/winch task](../tasks/20260925-041500-codex-01/TASK.md) remains
-an optional separate investigation.
-
-At 05:35 JST the fresh 2400 s `checkpoint42` run is active (exec session `61327`,
-scope `run-rcfa122fc634646d1b50051d2c61ff430.scope`). Do not start another browser
-until it exits. Its log is `build/blockwalker-checkpoint42.log`; evidence goes
-to `build/blockwalker-rivalry-checkpoint42/`. It uses canonical source `020e1c1`
-in `build/blockwalker-checkpoint-candidate-source.tar`, with seed 42. Every step
-checks zero removals/controller errors; final storage requires at least two
-distinct supported, unheld heavy pallets clear of each team's receiving pad.
-World state downloads before trace chunks and the final assertion. Analyze it
-with `build/blockwalker-combined-report.py`.
-
-After this run: verify and promote Kawasemi's program if successful; repeat
-Chrome's one-key builder test, both browsers' camera/source workflow and the
-crowded Firefox warm render on the final saved world. The prior 103-object warm
-Firefox result was 42.70 FPS; it predates the extra jet bodies and batteries and
-does not prove current performance. Keep the performance issue open until measured.
-Package once with `node scripts/prepare-blockwalker.mjs` and `npm run image --
-blockwalker`, restart only the owned preview, and check original files plus all
-12 other catalog entries with `build/blockwalker-checkpoint-preservation.mjs`.
-Do not push or deploy.
-
-The September 24 [playground checkpoint](../tasks/20260923-213000-codex-01/TASK.md)
-records the packaged image, source revision and measured limits. Its
-[island competition](../tasks/20260924-074500-codex-01/TASK.md) adds
-industrial terrain, team scouts, replenished cargo, cranes and boats. Keep the
-working walkers. The Lua/YAML migration is a separate task.
-Long-run fixes and their evidence are in the [loading quay](../tasks/20260924-132300-codex-01/TASK.md),
-[Amberguard navigation](../tasks/20260924-132700-codex-01/TASK.md),
-[continuous freight/supplies](../tasks/20260924-144000-codex-01/TASK.md),
-[lookout traffic](../tasks/20260924-145000-codex-01/TASK.md),
-[Marrowstep recovery](../tasks/20260924-162500-codex-01/TASK.md),
-[Postbird deliveries](../tasks/20260924-162800-codex-01/TASK.md), and
-[Mochi cargo avoidance](../tasks/20260924-170000-codex-01/TASK.md). Their issues
-record saved failure states and verification; experimental controllers under
-`build/` are not automatically the packaged catalog.
-
-The owned preview is `http://127.0.0.1:9099/blockwalker/`, managed by user service
+Image 28 is served at `http://127.0.0.1:9099/blockwalker/` by user service
 `dolly-blockwalker-preview-20260924.service`. The owned relay listens on 9010.
-Recheck process ownership before stopping anything. New image routes start fresh;
-saved worlds retain their map revision. Preserve the original named sessions,
-`.cache/blockwalker-browser-20260915` and `build/blockwalker-recovery-20260923/`.
-The complete native Pi history must not be truncated. Its save/restore evidence
-and remaining same-tab refresh problem are in the
-[large-session memory task](../tasks/20260923-200000-codex-01/TASK.md).
+The image is 232579323 bytes, SHA-256
+`7e751b852bf0b121c4f0ad57f7a6d9206177a44a32f38078bb56b483704a7f58`.
+Its source archive SHA-256 is
+`175799137f2a148854b34fc739fa5e6b69a3a6e2e264f5a01778a8ec70bb146a`.
+The checkpoint task records browser launch/save-restore verification. Existing
+saved worlds retain their own programs and terrain; loading a save does not
+silently replace them with the fresh catalog.
 
-Compile C inside Dolly. Run one disposable browser at a time, with a 4 GiB,
-no-swap limit covering its entire process tree:
+The fresh 2400 s `build/blockwalker-rivalry-checkpoint42/` run retains 122
+objects with 33 unique deliveries and no controller errors. Both quarry cores
+complete runner-to-courier handoffs, and raiders tip and recover. Its final
+warehouse assertion fails (East 1 / West 2), so do not call it a full pass.
+`checkpoint-proof.json` records retention, credit and physical cargo-owner chains.
 
-```sh
-systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 \
-  timeout --signal=TERM --kill-after=5s 480s \
-  xvfb-run -a node test/blockwalker-browser.mjs
-```
+The final warehouse programs steer using the actual magnet pole, try alternate
+pickup routes and avoid previously stored pallets. Kawasemi's flight gains
+settle its pickup. A replay of the exact failed world stores all four delivered
+heavy loads and delivers Kawasemi's waiting crate:
+`build/blockwalker-forklift-pole-pickup/`.
+The ore hauler now powers its magnet within sensed cargo bounds, using the
+unchanged physical capture query, and rejects the wrong attached target.
+`build/blockwalker-forklift-foundry-contact/` continues to 2760 simulated seconds,
+125 objects and 37 deliveries. The fifth heavy load reaches the quay; all four
+previous heavy deliveries remain stored. All four corrected programs are in the
+packaged catalog. This proves saved-failure recovery, not fresh endurance.
 
-Use a suitable timeout for long physical trials. Scripts under the symlinked
-`build/` directory need Node's `--preserve-symlinks-main`. Upload USTAR archives.
-Do not request terminal screenshots while the game owns the GPU display.
+Chrome and Firefox builder/world controls pass, including one-way jets,
+blocked-nozzle edits, camera shortcuts, following, source export and hiding UI.
+Evidence: `build/blockwalker-thruster-ui-{chrome,firefox}/` and
+`build/blockwalker-world-ui-{chrome,firefox}/`.
+One-way migration preserves original poses, programs, memory and magnets and
+backs up the old world; see the [thruster task](../tasks/20260925-035000-codex-01/TASK.md).
+The [cargo slinger](../tasks/20260925-032000-codex-01/TASK.md) physically reloads
+and hits moving aircraft with ordinary light crates. Aircraft can recover, and
+loads can slip; there is no guaranteed shootdown. Existing bearings suffice.
+[Rope/winch links](../tasks/20260925-041500-codex-01/TASK.md) remain separate.
 
-Never deep-assert large binary buffers: Node's failed PNG diff previously
-exhausted memory. Use `assert.ok(actual.equals(expected))`. Animated water makes
-whole-frame equality unsuitable for camera checks; inspect actual camera poses.
-The original desktop-freeze attribution remains an inference, not an established
-GPU-driver fault. The [closed crash issue](../tasks/20260915-004300-codex-01/TASK.md)
-records the reproduction; archives remain in `/home/daug/.cache/dolly-crash-20260915/`.
+Outstanding work:
+
+- Repeat a fresh uninterrupted cargo run with the final programs. The
+  [warehouse](../tasks/20260924-220500-codex-01/TASK.md) and
+  [freight](../tasks/20260924-144000-codex-01/TASK.md) issues stay open.
+- [Crowded Firefox performance](../tasks/20260925-010000-codex-01/TASK.md) remains
+  below target: 14.66 warm FPS with 125 objects; Chrome views reach 22.65–26.48.
+  CPU simulation dominates, with GPU work about 0.35 ms/frame. A transport-rate
+  experiment reaches 24.51 warm FPS but lacks complete cargo/flight validation
+  and is not bundled. Do not quote older 103-object results for this population.
+- Lua/YAML migration, ropes, existing walker limitations and the large-session
+  refresh issue are separate tasks, not completed by this checkpoint.
+
+The [overnight issue](../tasks/20260924-211600-codex-01/TASK.md) links feature
+and verification tasks. Local experiment artifacts under `build/` are not the
+packaged catalog automatically. To rebuild, use `node scripts/prepare-blockwalker.mjs`
+and `npm run image -- blockwalker`; restart only the owned preview service.
+
+Preserve `.cache/blockwalker-browser-20260915` and
+`build/blockwalker-recovery-20260923/`. The complete native Pi history must not
+be truncated. `build/blockwalker-checkpoint-preservation.mjs` checks all six
+protected files (392379755 bytes) and the other twelve image entries. The
+[large-session task](../tasks/20260923-200000-codex-01/TASK.md) records the
+remaining same-tab refresh problem. Recheck ownership before stopping processes.
+
+Compile C inside Dolly. Run one disposable browser tree at a time under
+`systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0`, with a bounded
+`timeout`. Use `DISPLAY=:1` for Firefox and Xvfb for Chrome. Scripts under the
+symlinked `build/` directory need Node's `--preserve-symlinks-main`. Upload USTAR
+archives. Never request terminal screenshots while the game owns the GPU.
+Do not deep-assert large buffers; use `assert.ok(actual.equals(expected))`.
+Animated water invalidates whole-frame equality for camera checks.

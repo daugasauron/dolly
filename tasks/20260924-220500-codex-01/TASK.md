@@ -68,3 +68,22 @@ pad. All 124 bodies remain without program errors. Evidence:
 `build/blockwalker-forklift-storage-diagonal/`. These programs are now in the
 branch catalog; the fresh 2400 s `checkpoint42` trial is checking the full chain
 before packaging.
+
+The 2400 s fresh repeat retains all 122 objects and 33 scored crates, with no
+controller errors, but stores only East 1 / West 2. East pushes its second
+pallet sideways during pickup, then repeatedly selects the same unreachable
+approach. The candidate uses the actual magnet-pole position for final approach
+and tries alternative clear approaches when routing fails. It also clears the
+completed job so deposited cargo becomes an obstacle for the empty return.
+`build/blockwalker-storage/pole-pickup.js` is being replayed against the exact
+saved failure; it is not yet canonical.
+
+The exact 180 s replay succeeds: the displaced East pallet is retrieved and
+stored, giving four of four supported, unheld heavy loads clear of the pads.
+All 123 objects remain; the trucks are returning to staging or seeking work.
+Evidence: `build/blockwalker-forklift-pole-pickup/`. Fresh repeated cycles
+still need verification, along with the independently stalled ore hauler.
+
+The follow-on 180 s replay keeps all four loads stored and both trucks return
+to their staging areas. The corrected pickup program is now in the branch
+catalog; the next fresh combined run must verify repeated delivery and storage.

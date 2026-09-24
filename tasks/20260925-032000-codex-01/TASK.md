@@ -1,6 +1,6 @@
 # Add cargo-fed anti-air machinery
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: game,content,physics
 
@@ -42,3 +42,12 @@ camera/source checks and image packaging remain pending.
 
 [Rope and winch links](../20260925-041500-codex-01/TASK.md) are a separate open
 investigation. The first motor-driven slinger does not require them.
+
+Closed at the image 28 checkpoint. The 2400 s populated run retains all cargo
+and machines while both slinger crews operate
+(`build/blockwalker-rivalry-checkpoint42/`). Chrome/Firefox camera, following
+and exact program export pass in `build/blockwalker-world-ui-{chrome,firefox}/`.
+Both browsers then launch the packaged crews and restore the populated save:
+`build/blockwalker-image28-preview/` and `-firefox/`. Sidebar names now distinguish
+Tengu launchers from Koban feeders. The observed slipping/recovery limitation
+remains; this does not promise reliable shootdowns or implement ropes.

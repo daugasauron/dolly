@@ -86,3 +86,27 @@ simulation stays near real time. The warmer second baseline matters: do not
 attribute the initial twofold difference entirely to the rate changes. Evidence:
 `build/blockwalker-rivalry-view-firefox-crowded-controls30/`. A fresh 1800 s
 combined cargo/fight workload is now checking those rates and the new handlers.
+
+The final 125-object, 2327-part save regresses substantially: Chrome's six UI
+views give 22.65–26.48 FPS; Firefox gives 8.99–9.49. A separate 90 s warm Firefox
+run averages 14.66 FPS after warmup, with simulation still near real time.
+Evidence: `build/blockwalker-world-ui-{chrome,firefox}/` and
+`build/blockwalker-rivalry-view-firefox-crowded-final-pickup/`.
+
+The current frame profile measures GPU work at 0.350 ms/frame and CPU world
+updates at 100.954 ms/frame (about six physics ticks). Per tick: controllers
+and force application 9.524 ms, Box3D 7.016, cargo 0.391, sampling 0.196.
+`build/blockwalker-rivalry-view-firefox-crowded-current-profile/`.
+Lower stationary/battery/barge rates reach only 17.81 warm FPS. Caching radio
+and depot observations preserves the exact 1800-tick world but saves only
+about 0.29 ms of sensor work per tick; it remains an unpromoted experiment.
+The next cadence trial also uses 20 Hz for transport programs, retaining all
+walking/balance programs at 60 Hz and physical simulation at 60 Hz. Physical
+cargo, flight and firing behavior must pass before any rate changes are bundled.
+
+Checkpoint decision: the 35-controller transport-rate candidate reaches 24.51
+warm FPS on the same 125-object save and retains all bodies with near-real-time
+simulation (`build/blockwalker-rivalry-view-firefox-crowded-transport20/`). It
+still misses the target and lacks full cargo/flight verification. It is excluded
+from image 28; the final packaged catalog retains the previously tested rates.
+The observation-cache experiment is also excluded. Keep this task open.

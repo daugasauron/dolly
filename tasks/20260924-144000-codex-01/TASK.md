@@ -1,6 +1,6 @@
 # Keep industrial freight and air supplies moving in long sessions
 
-- STATUS: CLOSED
+- STATUS: OPEN
 - PRIORITY: 250
 - TAGS: bug,game,physics
 
@@ -67,3 +67,20 @@ deliveries and West one heavy/two light.
 
 Verified in packaged source `c092744`; the
 [checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.
+
+Reopened for the 91-placement checkpoint. The fresh seed-42 2400 s run stops
+heavy freight after four loads: the fifth pallet rests on the lift while the
+hauler repeatedly approaches it with its magnet off. In the saved state the
+pole is near the pallet's corner, but the program requires a horizontal gap
+below 0.22 m to the whole pallet's center before powering it. This rejects a
+physically reachable surface. Evidence: `build/blockwalker-rivalry-checkpoint42/`.
+The candidate powers the magnet within the cargo's sensed bounds, leaving
+actual capture to the unchanged 0.65 m contact query and rejecting wrong targets.
+Verify saved recovery and uninterrupted fresh freight before closing again.
+
+The 180 s contact-pickup replay recovers pallet 110 from the lift and carries
+it to the quay; the hauler returns for the next pallet while the crane begins
+pickup. All 125 objects remain, with 37 deliveries and no errors. The same
+continuation preserves all four stored heavy loads and Kawasemi completes its
+second delivery. The candidate is now canonical; fresh continuity remains
+pending. Evidence: `build/blockwalker-forklift-foundry-contact/`.
