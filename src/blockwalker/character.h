@@ -13,7 +13,7 @@ enum { FINISH_PLAIN,FINISH_PANEL,FINISH_GLOW,FINISH_STRIPE,FINISH_COUNT };
 typedef struct {
     int x,y,z,parent,joint,color,axis,negative,positive;
     float speed,limit,travel,force;
-    int direction,material,finish;
+    int direction,material,finish,size;
 } Block;
 typedef struct { int count,capacity,anchored; Block *blocks; } Character;
 typedef struct {
@@ -40,6 +40,9 @@ typedef struct {
 extern const Color block_colors[COLOR_COUNT];
 extern const char *block_names[BLOCK_KINDS];
 Vector3 block_position(Block b);
+int block_size(Block b);
+float block_force_max(Block b);
+int turntable_face(Block table,Block other);
 float block_density(Block b);
 int block_controlled(Block b);
 int block_cylinder(Block b);
@@ -49,6 +52,7 @@ void character_clear(Character *c);
 void character_copy(Character *to,const Character *from);
 int character_candidate(const Character *c,int parent,int x,int y,int z,int joint,int color,Block *block);
 int character_validate(const Character *c);
+int block_parent(const Character *c,int index);
 int character_upgrade_thrusters(Character *c);
 int character_add(Character *c,int parent,int x,int y,int z,int joint,int color);
 void character_remove(Character *c,int index);

@@ -70,9 +70,9 @@ JSValue character_json(JSContext *ctx,const Character *c){
     JSValue list=JS_NewArray(ctx);
     for(int i=0;i<c->count;i++){
         Block b=c->blocks[i];JSValue part=JS_NewObject(ctx);
-        const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive","speed","limit","travel","force","direction","material","finish"};
-        double values[]={b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish};
-        for(int j=0;j<16;j++)put_number(ctx,part,names[j],values[j]);JS_SetPropertyUint32(ctx,list,i,part);
+        const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive","speed","limit","travel","force","direction","material","finish","size"};
+        double values[]={b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish,block_size(b)};
+        for(int j=0;j<17;j++)put_number(ctx,part,names[j],values[j]);JS_SetPropertyUint32(ctx,list,i,part);
     }return list;
 }
 static int read_character(JSContext *ctx,JSValueConst list,Character *c,int legacy){
@@ -80,11 +80,11 @@ static int read_character(JSContext *ctx,JSValueConst list,Character *c,int lega
     Character next={.count=(int)length,.capacity=(int)length};next.blocks=array_resize(NULL,next.count,sizeof(Block));
     for(int i=0;i<next.count;i++){
         JSValue v=JS_GetPropertyUint32(ctx,list,i);Block *b=&next.blocks[i];
-        const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive","speed","limit","travel","force","direction","material","finish"};
-        double defaults[]={0,0,0,i-1,0,i%COLOR_COUNT,2,0,0,2.5,75,1.5,24,1,0,0},n[16];int valid=1;
-        for(int j=0;j<16;j++){n[j]=get_number(ctx,v,names[j],defaults[j]);if(!isfinite(n[j])||((j<9||j>=13)&&(n[j]!=floor(n[j])||n[j]<INT32_MIN||n[j]>INT32_MAX)))valid=0;}
+        const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive","speed","limit","travel","force","direction","material","finish","size"};
+        double defaults[]={0,0,0,i-1,0,i%COLOR_COUNT,2,0,0,2.5,75,1.5,24,1,0,0,1},n[17];int valid=1;
+        for(int j=0;j<17;j++){n[j]=get_number(ctx,v,names[j],defaults[j]);if(!isfinite(n[j])||((j<9||j>=13)&&(n[j]!=floor(n[j])||n[j]<INT32_MIN||n[j]>INT32_MAX)))valid=0;}
         JS_FreeValue(ctx,v);if(!valid){character_clear(&next);return 0;}
-        *b=(Block){.x=n[0],.y=n[1],.z=n[2],.parent=n[3],.joint=n[4],.color=n[5],.axis=n[6],.negative=n[7],.positive=n[8],.speed=n[9],.limit=n[10],.travel=n[11],.force=n[12],.direction=n[13],.material=n[14],.finish=n[15]};
+        *b=(Block){.x=n[0],.y=n[1],.z=n[2],.parent=n[3],.joint=n[4],.color=n[5],.axis=n[6],.negative=n[7],.positive=n[8],.speed=n[9],.limit=n[10],.travel=n[11],.force=n[12],.direction=n[13],.material=n[14],.finish=n[15],.size=n[16]};
     }
     if(!(legacy?character_upgrade_thrusters(&next):character_validate(&next))){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
 }
@@ -219,7 +219,8 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
             Creature *c=&world.creatures[neighbors[i].index];b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);b3Vec3 velocity=b3Body_GetLinearVelocity(c->physics.parts[0].body);float radius=.7f,low=v.y,high=v.y,mass=0;Vector3 center={0};
             for(int j=0;j<c->design.count;j++){
                 b3BodyId body=c->physics.parts[j].body;b3Pos b=b3Body_GetPosition(body),com=b3Body_GetWorldCenterOfMass(body);float weight=b3Body_GetMass(body);
-                radius=fmaxf(radius,hypotf(b.x-v.x,b.z-v.z)+.7f);low=fminf(low,b.y-.7f);high=fmaxf(high,b.y+.7f);
+                float bound=block_size(c->design.blocks[j])>1?block_size(c->design.blocks[j])*.75f:.7f;
+                radius=fmaxf(radius,hypotf(b.x-v.x,b.z-v.z)+bound);low=fminf(low,b.y-bound);high=fmaxf(high,b.y+bound);
                 mass+=weight;center=Vector3Add(center,Vector3Scale((Vector3){com.x,com.y,com.z},weight));
             }
             JSValue item=JS_NewObject(ctx);put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));
@@ -428,7 +429,7 @@ Creature *world_find(int id){for(int i=0;i<world.count;i++)if(world.creatures[i]
 int world_enter(const Character *design,int sea){
     if(!design->count||design->anchored)return 0;
     float radius=1,x=0,z=0;int clear=0;
-    for(int i=0;i<design->count;i++)radius=fmaxf(radius,hypotf(design->blocks[i].x,design->blocks[i].z)+1);
+    for(int i=0;i<design->count;i++){Block b=design->blocks[i];Vector3 p=block_position(b);radius=fmaxf(radius,hypotf(p.x,p.z)+(block_size(b)>1?block_size(b)*.75f:1));}
     for(int plot=0;plot<64&&!clear;plot++){
         float distance=plot?(radius+2)*sqrtf(plot):0,angle=plot*2.399963f;
         x=(sea?125:0)+cosf(angle)*distance;z=(sea?10:12)+sinf(angle)*distance;
@@ -436,7 +437,7 @@ int world_enter(const Character *design,int sea){
         clear=1;
         for(int i=0;i<world.count&&clear;i++)if(world.creatures[i].id!=world.player){
             Physics *p=&world.creatures[i].physics;for(int j=0;j<p->count;j++){
-                b3Pos v=b3Body_GetPosition(p->parts[j].body);if(hypotf(v.x-x,v.z-z)<radius+1){clear=0;break;}
+                b3Pos v=b3Body_GetPosition(p->parts[j].body);if(hypotf(v.x-x,v.z-z)<radius+(block_size(world.creatures[i].design.blocks[j])>1?block_size(world.creatures[i].design.blocks[j])*.75f:1)){clear=0;break;}
             }
         }
     }
@@ -673,7 +674,7 @@ static int save_json(JSContext *ctx,JSValueConst value,const char *path){
     if(!good)remove(temp);JS_FreeCString(ctx,source);JS_FreeValue(ctx,json);return good;
 }
 static int save_world(JSContext *ctx,const char *path){
-    JSValue save=world_state(ctx),list=JS_GetPropertyStr(ctx,save,"creatures");put_number(ctx,save,"version",2);put_number(ctx,save,"nextId",world.next_id);put_number(ctx,save,"installedHz",installed_hz);
+    JSValue save=world_state(ctx),list=JS_GetPropertyStr(ctx,save,"creatures");put_number(ctx,save,"version",3);put_number(ctx,save,"nextId",world.next_id);put_number(ctx,save,"installedHz",installed_hz);
     JS_SetPropertyStr(ctx,save,"format",JS_NewString(ctx,"blockwalker-world"));
     JS_SetPropertyStr(ctx,save,"designs",world_designs(ctx,1));
     JS_SetPropertyStr(ctx,save,"removals",removal_state(ctx,1));
@@ -720,7 +721,7 @@ static int read_design(JSContext *ctx,JSValueConst item,Character *design,int re
     JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,code);JS_FreeValue(ctx,name);JS_FreeValue(ctx,anchored);return valid;
 }
 int world_export_design(JSContext *ctx,const Character *design,int sea,const char *path){
-    JSValue item=JS_NewObject(ctx);JS_SetPropertyStr(ctx,item,"format",JS_NewString(ctx,"blockwalker-design"));put_number(ctx,item,"version",2);
+    JSValue item=JS_NewObject(ctx);JS_SetPropertyStr(ctx,item,"format",JS_NewString(ctx,"blockwalker-design"));put_number(ctx,item,"version",3);
     JS_SetPropertyStr(ctx,item,"blueprint",character_json(ctx,design));JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,design->anchored));
     JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,installed?installed_name:"Workshop build"));
     JS_SetPropertyStr(ctx,item,"source",installed?JS_NewString(ctx,installed):JS_NULL);put_number(ctx,item,"hz",installed_hz);JS_SetPropertyStr(ctx,item,"sea",JS_NewBool(ctx,sea));
@@ -731,7 +732,7 @@ JSValue world_import_design(JSContext *ctx,Character *design,int *sea,const char
     if(JS_IsUndefined(item))valid=character_load(&next,path);
     else{
         JSValue format=JS_GetPropertyStr(ctx,item,"format"),surface=JS_GetPropertyStr(ctx,item,"sea");const char *kind=JS_ToCString(ctx,format);
-        valid=kind&&!strcmp(kind,"blockwalker-design")&&(get_number(ctx,item,"version",0)==1||get_number(ctx,item,"version",0)==2)&&JS_IsBool(surface)&&read_design(ctx,item,&next,0,get_number(ctx,item,"version",0)==1);
+        valid=kind&&!strcmp(kind,"blockwalker-design")&&(get_number(ctx,item,"version",0)>=1&&get_number(ctx,item,"version",0)<=3&&floor(get_number(ctx,item,"version",0))==get_number(ctx,item,"version",0))&&JS_IsBool(surface)&&read_design(ctx,item,&next,0,get_number(ctx,item,"version",0)==1);
         water=JS_ToBool(ctx,surface);JS_FreeCString(ctx,kind);JS_FreeValue(ctx,format);JS_FreeValue(ctx,surface);
     }
     if(!valid)result=JS_ThrowTypeError(ctx,"Invalid design file. Import an exported design or a legacy .character blueprint.");
@@ -788,7 +789,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
     if(fresh){world.supply_seed=0x243f6a88;world.next_parcel=45;world.next_ore=5;world.next_mine=10;}
     if(fresh)world_save(ctx);
     if(!JS_IsObject(save)){JS_FreeValue(ctx,save);return;}
-    if(!legacy&&get_number(ctx,save,"version",0)!=2){JS_FreeValue(ctx,save);return;}
+    if(!legacy&&get_number(ctx,save,"version",0)!=2&&get_number(ctx,save,"version",0)!=3){JS_FreeValue(ctx,save);return;}
     JSValue removals=JS_GetPropertyStr(ctx,save,"removals");load_removals(ctx,removals);JS_FreeValue(ctx,removals);
     JSValue deliveries=JS_GetPropertyStr(ctx,save,"deliveries");
     for(int i=0;JS_IsArray(deliveries)&&i<get_number(ctx,deliveries,"length",0);i++){
@@ -914,7 +915,7 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
     JSValue list=JS_GetPropertyStr(ctx,save,"creatures"),designs=JS_GetPropertyStr(ctx,save,"designs"),removals=JS_GetPropertyStr(ctx,save,"removals"),deliveries=JS_GetPropertyStr(ctx,save,"deliveries"),ids=JS_NewObject(ctx),delivered=JS_NewObject(ctx),format=JS_GetPropertyStr(ctx,save,"format");
     const char *kind=JS_IsString(format)?JS_ToCString(ctx,format):NULL;
     int legacy=get_number(ctx,save,"version",0)==1;
-    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,2,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,3,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
+    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,3,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,3,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (JS_IsUndefined(format)||(kind&&!strcmp(kind,"blockwalker-world")))&&JS_IsArray(list)&&JS_IsArray(designs)&&JS_IsArray(removals)&&(JS_IsUndefined(deliveries)||JS_IsArray(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     JS_FreeCString(ctx,kind);JS_FreeValue(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);

@@ -12,24 +12,50 @@
 
 const Color block_colors[COLOR_COUNT]={{89,119,112,255},{172,139,76,255},{83,101,129,255},{155,83,65,255},{65,73,79,255},{182,177,154,255}};
 const char *block_names[BLOCK_KINDS]={"BOX","SERVO HINGE","PISTON","THRUSTER","WHEEL","MAGNET","EYES","TURNTABLE"};
-Vector3 block_position(Block b) { return (Vector3){b.x,b.y+.5f,b.z}; }
+int block_size(Block b){return b.joint==BLOCK_TURNTABLE&&b.size>1?b.size:1;}
+float block_force_max(Block b){int n=block_size(b);return 100*n*n;}
+Vector3 block_position(Block b) {
+    Vector3 p={b.x,b.y+.5f,b.z};
+    if(block_size(b)%2==0)for(int axis=0;axis<3;axis++)if(axis!=b.axis)((float *)&p)[axis]+=.5f;
+    return p;
+}
 int block_controlled(Block b){return b.joint!=BLOCK_BOX&&b.joint!=BLOCK_EYES;}
 int block_cylinder(Block b){return b.joint==BLOCK_HINGE||b.joint==BLOCK_WHEEL||b.joint==BLOCK_TURNTABLE;}
 Vector3 block_half(Block b){
     Vector3 half={.485f,.485f,.485f};
     if(block_cylinder(b)){
-        float radius=b.joint==BLOCK_HINGE?HINGE_RADIUS:b.joint==BLOCK_TURNTABLE?TURNTABLE_RADIUS:.7f;
+        float radius=b.joint==BLOCK_HINGE?HINGE_RADIUS:b.joint==BLOCK_TURNTABLE?block_size(b)*.5f-.015f:.7f;
         half=(Vector3){radius,radius,radius};((float *)&half)[b.axis]=b.joint==BLOCK_HINGE?HINGE_HALF:b.joint==BLOCK_TURNTABLE?TURNTABLE_HALF:.35f;
     }return half;
 }
 float block_density(Block b){
     Vector3 h=block_half(b);float density=b.joint==BLOCK_HINGE||b.joint==BLOCK_TURNTABLE?(.97f*.97f*.97f)/(24*sinf(PI/12)*h.x*h.y*h.z):b.joint==BLOCK_WHEEL?2:1;
-    return density*(b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1);
+    return density*block_size(b)*block_size(b)*(b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1);
 }
 static int blocks_adjacent(Block a,Block b){return llabs((long long)a.x-b.x)+llabs((long long)a.y-b.y)+llabs((long long)a.z-b.z)==1;}
+static void block_cells(Block b,long long lo[3],long long hi[3]){
+    int v[]={b.x,b.y,b.z},n=block_size(b);
+    for(int axis=0;axis<3;axis++){lo[axis]=(long long)v[axis]-(axis==b.axis?0:(n-1)/2);hi[axis]=(long long)v[axis]+(axis==b.axis?0:n/2);}
+}
+static int blocks_overlap(Block a,Block b){
+    long long al[3],ah[3],bl[3],bh[3];block_cells(a,al,ah);block_cells(b,bl,bh);
+    for(int axis=0;axis<3;axis++)if(ah[axis]<bl[axis]||bh[axis]<al[axis])return 0;return 1;
+}
+int turntable_face(Block table,Block other){
+    if(block_size(table)==1)return 0;
+    long long lo[3],hi[3];block_cells(table,lo,hi);int v[]={other.x,other.y,other.z};
+    for(int axis=0;axis<3;axis++)if(axis!=table.axis&&(v[axis]<lo[axis]||v[axis]>hi[axis]))return 0;
+    long long d=(long long)v[table.axis]-lo[table.axis];return d==1?1:d==-1?-1:0;
+}
+static int blocks_connected(Block parent,Block child){
+    if(block_size(child)>1)return turntable_face(child,parent)==-child.direction;
+    if(block_size(parent)>1)return turntable_face(parent,child)!=0;
+    return blocks_adjacent(parent,child);
+}
 static int blocks_exhaust(Block a,Block b){
-    long long d[]={ (long long)b.x-a.x,(long long)b.y-a.y,(long long)b.z-a.z };
-    return a.joint==BLOCK_THRUSTER&&a.axis>=0&&a.axis<3&&d[a.axis]==a.direction&&d[(a.axis+1)%3]==0&&d[(a.axis+2)%3]==0;
+    if(a.joint!=BLOCK_THRUSTER||a.axis<0||a.axis>2)return 0;
+    long long v[]={a.x,a.y,a.z},lo[3],hi[3];v[a.axis]+=a.direction;block_cells(b,lo,hi);
+    for(int axis=0;axis<3;axis++)if(v[axis]<lo[axis]||v[axis]>hi[axis])return 0;return 1;
 }
 static int exhaust_clear(const Character *c,Block b){
     for(int i=0;i<c->count;i++)if(blocks_exhaust(b,c->blocks[i])||blocks_exhaust(c->blocks[i],b))return 0;return 1;
@@ -54,9 +80,11 @@ static int character_valid(const Character *c,int legacy) {
         Block b=c->blocks[i];
         if(b.y<0||b.parent>=i||b.parent< -1||(i==0?b.parent!=-1:b.parent<0)||
            b.color<0||b.color>=COLOR_COUNT||b.joint<0||b.joint>=BLOCK_KINDS||b.axis<0||b.axis>2||b.material<0||b.material>=MATERIAL_COUNT||b.finish<0||b.finish>=FINISH_COUNT||
-           !isfinite(b.speed)||b.speed<.5f||b.speed>6||!isfinite(b.limit)||b.limit<15||b.limit>150||!isfinite(b.travel)||b.travel<.25f||b.travel>3||!isfinite(b.force)||b.force<2||b.force>100||(b.direction!=1&&b.direction!=-1))return 0;
-        if(b.parent>=0&&!blocks_adjacent(c->blocks[b.parent],b))return 0;
-        for(int j=0;j<i;j++){Block a=c->blocks[j];if(a.x==b.x&&a.y==b.y&&a.z==b.z)return 0;}
+           b.size<0||b.size>4||(b.joint!=BLOCK_TURNTABLE&&b.size>1)||
+           !isfinite(b.speed)||b.speed<.5f||b.speed>6||!isfinite(b.limit)||b.limit<15||b.limit>150||!isfinite(b.travel)||b.travel<.25f||b.travel>3||!isfinite(b.force)||b.force<2||b.force>block_force_max(b)||(b.direction!=1&&b.direction!=-1))return 0;
+        long long lo[3],hi[3];block_cells(b,lo,hi);if(lo[1]<0)return 0;
+        if(b.parent>=0&&!blocks_connected(c->blocks[b.parent],b))return 0;
+        for(int j=0;j<i;j++)if(blocks_overlap(c->blocks[j],b))return 0;
         if(i==0&&b.joint)return 0;
         if(!legacy&&b.joint==BLOCK_THRUSTER&&(b.negative||!exhaust_clear(c,b)))return 0;
         if(block_controlled(b)){
@@ -71,10 +99,10 @@ int character_validate(const Character *c){return character_valid(c,0);}
 int character_candidate(const Character *c,int parent,int x,int y,int z,int joint,int color,Block *block) {
     if(c->count==INT_MAX||y<0||parent< -1||parent>=c->count||
         (c->count==0?parent!=-1||joint:parent<0)||joint<0||joint>=BLOCK_KINDS||color<0||color>=COLOR_COUNT)return 0;
-    if(parent>=0){Block a=c->blocks[parent];if(llabs((long long)a.x-x)+llabs((long long)a.y-y)+llabs((long long)a.z-z)!=1)return 0;}
-    for(int i=0;i<c->count;i++){Block a=c->blocks[i];if(a.x==x&&a.y==y&&a.z==z)return 0;}
-    Block b={.x=x,.y=y,.z=z,.parent=parent,.joint=joint,.color=color,.axis=2,.speed=2.5f,.limit=75,.travel=1.5f,.force=24,.direction=1};
-    if(joint>=BLOCK_PISTON&&parent>=0){Block a=c->blocks[parent];b.axis=x!=a.x?0:y!=a.y?1:2;if(joint==BLOCK_PISTON||joint==BLOCK_THRUSTER||joint==BLOCK_MAGNET||joint==BLOCK_EYES)b.direction=(b.axis==0?x-a.x:b.axis==1?y-a.y:z-a.z)<0?-1:1;}
+    Block b={.x=x,.y=y,.z=z,.parent=parent,.joint=joint,.color=color,.axis=2,.speed=2.5f,.limit=75,.travel=1.5f,.force=24,.direction=1,.size=1};
+    if(parent>=0&&!blocks_connected(c->blocks[parent],b))return 0;
+    for(int i=0;i<c->count;i++)if(blocks_overlap(c->blocks[i],b))return 0;
+    if(joint>=BLOCK_PISTON&&parent>=0){Block a=c->blocks[parent];b.axis=block_size(a)>1?a.axis:x!=a.x?0:y!=a.y?1:2;if(joint==BLOCK_PISTON||joint==BLOCK_THRUSTER||joint==BLOCK_MAGNET||joint==BLOCK_EYES||joint==BLOCK_TURNTABLE)b.direction=(b.axis==0?x-a.x:b.axis==1?y-a.y:z-a.z)<0?-1:1;}
     if(!exhaust_clear(c,b))return 0;
     if(block_controlled(b)){
         const char *choices="QAWSOKPLERDTFGYHUJIZXCVBNM1234567890";int found=0;
@@ -164,18 +192,18 @@ int character_save(const Character *c,const char *path) {
     if(!character_validate(c))return 0;
     char tmp[256];if(snprintf(tmp,sizeof(tmp),"%s.tmp",path)>=(int)sizeof(tmp))return 0;
     FILE *f=fopen(tmp,"w");if(!f)return 0;
-    fprintf(f,"BLOCKWALKER 7\n%d %d\n",c->count,c->anchored);
-    for(int i=0;i<c->count;i++){Block b=c->blocks[i];fprintf(f,"%d %d %d %d %d %d %d %d %d %.3f %.3f %.3f %.3f %d %d %d\n",b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish);}
+    fprintf(f,"BLOCKWALKER 8\n%d %d\n",c->count,c->anchored);
+    for(int i=0;i<c->count;i++){Block b=c->blocks[i];fprintf(f,"%d %d %d %d %d %d %d %d %d %.3f %.3f %.3f %.3f %d %d %d %d\n",b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish,block_size(b));}
     int good=!ferror(f);if(fclose(f)!=0)good=0;
     if(!good||rename(tmp,path)!=0){remove(tmp);return 0;}return 1;
 }
 int character_load(Character *c,const char *path) {
     FILE *f=fopen(path,"r");if(!f)return 0;
     Character next={0};char magic[32];int version=0,good=1;
-    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>7)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
+    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>8)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
     if(good&&version>=4&&fscanf(f,"%d",&next.anchored)!=1)good=0;
     if(good){next.capacity=next.count;next.blocks=array_resize(NULL,next.count,sizeof(Block));}
-    for(int i=0;good&&i<next.count;i++){Block *b=&next.blocks[i];*b=(Block){.travel=1.5f,.force=24,.direction=1};if(fscanf(f,"%d%d%d%d%d%d%d%d%d%f%f",&b->x,&b->y,&b->z,&b->parent,&b->joint,&b->color,&b->axis,&b->negative,&b->positive,&b->speed,&b->limit)!=11)good=0;if(version>=2&&fscanf(f,"%f%f",&b->travel,&b->force)!=2)good=0;if(version>=3&&fscanf(f,"%d",&b->direction)!=1)good=0;if(version>=4&&fscanf(f,"%d%d",&b->material,&b->finish)!=2)good=0;}
+    for(int i=0;good&&i<next.count;i++){Block *b=&next.blocks[i];*b=(Block){.travel=1.5f,.force=24,.direction=1,.size=1};if(fscanf(f,"%d%d%d%d%d%d%d%d%d%f%f",&b->x,&b->y,&b->z,&b->parent,&b->joint,&b->color,&b->axis,&b->negative,&b->positive,&b->speed,&b->limit)!=11)good=0;if(version>=2&&fscanf(f,"%f%f",&b->travel,&b->force)!=2)good=0;if(version>=3&&fscanf(f,"%d",&b->direction)!=1)good=0;if(version>=4&&fscanf(f,"%d%d",&b->material,&b->finish)!=2)good=0;if(version>=8&&fscanf(f,"%d",&b->size)!=1)good=0;}
     int ch;while((ch=fgetc(f))!=EOF)if(ch!=' '&&ch!='\n'&&ch!='\t'&&ch!='\r')good=0;
     fclose(f);if(!good||!(version<7?character_upgrade_thrusters(&next):character_validate(&next))){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
 }
@@ -191,11 +219,22 @@ b3WorldId physics_world(int landscape) {
     b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;shape.baseMaterial.friction=.85f;b3CreateHullShape(ground,&shape,&slab.base);
     return world;
 }
+int block_parent(const Character *c,int index){
+    Block b=c->blocks[index],a=c->blocks[b.parent];
+    return block_size(a)>1&&turntable_face(a,b)==-a.direction?block_parent(c,b.parent):b.parent;
+}
+static b3JointId weld_parts(Physics *p,const Character *c,int a,int b){
+    Vector3 offset=Vector3Scale(Vector3Subtract(block_position(c->blocks[b]),block_position(c->blocks[a])),.5f);
+    b3WeldJointDef weld=b3DefaultWeldJointDef();weld.base.bodyIdA=p->parts[a].body;weld.base.bodyIdB=p->parts[b].body;
+    weld.base.localFrameA=(b3Transform){{offset.x,offset.y,offset.z},{{0,0,0},1}};
+    weld.base.localFrameB=(b3Transform){{-offset.x,-offset.y,-offset.z},{{0,0,0},1}};
+    return b3CreateWeldJoint(p->world,&weld);
+}
 void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape) {
     physics_stop(p);p->world=world;p->running=1;p->count=c->count;p->landscape=landscape;
     p->parts=array_resize(NULL,c->count,sizeof(PhysicsPart));if(c->count)memset(p->parts,0,c->count*sizeof(PhysicsPart));
     b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;shape.baseMaterial.friction=.85f;
-    int minimum=INT_MAX;for(int i=0;i<c->count;i++)if(c->blocks[i].y<minimum)minimum=c->blocks[i].y;
+    int minimum=INT_MAX;for(int i=0;i<c->count;i++){long long lo[3],hi[3];block_cells(c->blocks[i],lo,hi);if(lo[1]<minimum)minimum=lo[1];}
     b3BoxHull cube=b3MakeBoxHull(.485f,.485f,.485f);
     float ground=landscape?(c->anchored?terrain_height(x,z):fmaxf(terrain_height(x,z),WATER_LEVEL)):0;
     for(int i=0;i<c->count;i++){
@@ -216,17 +255,28 @@ void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float 
             shape.baseMaterial.friction=.85f;
         }else b3CreateHullShape(p->parts[i].body,&shape,&cube.base);
     }
+    for(int i=1;i<c->count;i++)if(block_size(c->blocks[i])>1){
+        Block b=c->blocks[i];int parent=block_parent(c,i);Vector3 offset=Vector3Subtract(block_position(b),block_position(c->blocks[parent]));
+        ((float *)&offset)[b.axis]-=b.direction*.33f;
+        Vector3 half=block_half(b);((float *)&half)[b.axis]=.14f;
+        b3BoxHull plate=b3MakeBoxHull(half.x,half.y,half.z);
+        b3HullData *mounted=b3CloneAndTransformHull(&plate.base,(b3Transform){{offset.x,offset.y,offset.z},{{0,0,0},1}},(b3Vec3){1,1,1});
+        shape.density=b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1;
+        b3CreateHullShape(p->parts[parent].body,&shape,mounted);b3DestroyHull(mounted);
+    }
     for(int i=1;i<c->count;i++){
-        Block b=c->blocks[i],a=c->blocks[b.parent];
-        b3Transform fa={.p={(b.x-a.x)*.5f,(b.y-a.y)*.5f,(b.z-a.z)*.5f},.q={{0,0,0},1}};
+        Block b=c->blocks[i];int parent=block_parent(c,i);
+        Vector3 delta=Vector3Subtract(block_position(b),block_position(c->blocks[parent]));
+        b3Transform fa={.p={delta.x*.5f,delta.y*.5f,delta.z*.5f},.q={{0,0,0},1}};
         b3Transform fb={.p={-fa.p.x,-fa.p.y,-fa.p.z},.q=fa.q};
+        if(block_size(b)>1){fa.p=(b3Vec3){delta.x,delta.y,delta.z};fb.p=b3Vec3_zero;}
         if(b.joint==BLOCK_PISTON){
             // Prismatic translation uses local X, unlike the hinge's local Z.
             int sign=b.direction;
             if(b.axis==0&&sign<0)fa.q=(b3Quat){{0,0,1},0};
             if(b.axis==1)fa.q=(b3Quat){{0,0,sign*.70710678f},.70710678f};
             if(b.axis==2)fa.q=(b3Quat){{0,-sign*.70710678f,0},.70710678f};fb.q=fa.q;
-            b3PrismaticJointDef j=b3DefaultPrismaticJointDef();j.base.bodyIdA=p->parts[b.parent].body;j.base.bodyIdB=p->parts[i].body;
+            b3PrismaticJointDef j=b3DefaultPrismaticJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;
             j.base.localFrameA=fa;j.base.localFrameB=fb;j.enableMotor=true;j.maxMotorForce=b.force;
             j.enableLimit=true;j.lowerTranslation=0;j.upperTranslation=b.travel;
             p->parts[i].joint=b3CreatePrismaticJoint(p->world,&j);
@@ -234,22 +284,28 @@ void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float 
             // Box3D's hinge axis is local Z. Both frames share the chosen world axis.
             if(b.axis==0)fa.q=(b3Quat){{0,.70710678f,0},.70710678f};
             if(b.axis==1)fa.q=(b3Quat){{-.70710678f,0,0},.70710678f};fb.q=fa.q;
-            b3RevoluteJointDef j=b3DefaultRevoluteJointDef();j.base.bodyIdA=p->parts[b.parent].body;j.base.bodyIdB=p->parts[i].body;
+            b3RevoluteJointDef j=b3DefaultRevoluteJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;
             j.base.localFrameA=fa;j.base.localFrameB=fb;j.enableMotor=true;j.maxMotorTorque=b.force;
             j.enableLimit=b.joint==BLOCK_HINGE;j.lowerAngle=-b.limit*DEG2RAD;j.upperAngle=b.limit*DEG2RAD;
             p->parts[i].joint=b3CreateRevoluteJoint(p->world,&j);
         }else{
-            b3WeldJointDef j=b3DefaultWeldJointDef();j.base.bodyIdA=p->parts[b.parent].body;j.base.bodyIdB=p->parts[i].body;
+            b3WeldJointDef j=b3DefaultWeldJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;
             j.base.localFrameA=fa;j.base.localFrameB=fb;p->parts[i].joint=b3CreateWeldJoint(p->world,&j);
         }
     }
     for(int i=1;i<c->count;i++)for(int j=0;j<i;j++){
         Block a=c->blocks[j],b=c->blocks[i];
-        if(b.parent==j||articulates(a)||articulates(b)||!blocks_adjacent(a,b))continue;
-        b3WeldJointDef weld=b3DefaultWeldJointDef();weld.base.bodyIdA=p->parts[j].body;weld.base.bodyIdB=p->parts[i].body;
-        weld.base.localFrameA=(b3Transform){{(b.x-a.x)*.5f,(b.y-a.y)*.5f,(b.z-a.z)*.5f},{{0,0,0},1}};
-        weld.base.localFrameB=(b3Transform){{(a.x-b.x)*.5f,(a.y-b.y)*.5f,(a.z-b.z)*.5f},{{0,0,0},1}};
-        b3CreateWeldJoint(p->world,&weld);
+        if(block_parent(c,i)==j||articulates(a)||articulates(b)||!blocks_adjacent(a,b))continue;
+        weld_parts(p,c,j,i);
+    }
+    for(int i=1;i<c->count;i++)if(block_size(c->blocks[i])>1){
+        Block table=c->blocks[i];
+        for(int j=0;j<c->count;j++){
+            int face=turntable_face(table,c->blocks[j]);if(!face||articulates(c->blocks[j]))continue;
+            int mount=face==table.direction?i:block_parent(c,i);
+            if(j==mount||(j>0&&block_parent(c,j)==mount))continue;
+            weld_parts(p,c,mount,j);
+        }
     }
     if(c->count){b3Pos root=b3Body_GetPosition(p->parts[0].body);p->start=(Vector3){root.x,root.y,root.z};}
 }
@@ -282,7 +338,7 @@ static void physics_read(Physics *p,const Character *c,int advanced) {
         Block b=c->blocks[i];
         float separation;
         if(b.joint==BLOCK_PISTON){
-            b3WorldTransform a=b3Body_GetTransform(p->parts[b.parent].body),child=b3Body_GetTransform(p->parts[i].body);
+            b3WorldTransform a=b3Body_GetTransform(b3Joint_GetBodyA(p->parts[i].joint)),child=b3Body_GetTransform(p->parts[i].body);
             b3Transform fa=b3Joint_GetLocalFrameA(p->parts[i].joint),fb=b3Joint_GetLocalFrameB(p->parts[i].joint);
             b3Vec3 delta=b3SubPos(b3TransformWorldPoint(child,fb.p),b3TransformWorldPoint(a,fa.p));
             b3Vec3 axis=b3RotateVector(a.q,b3RotateVector(fa.q,b3Vec3_axisX));
@@ -299,9 +355,9 @@ static void physics_read(Physics *p,const Character *c,int advanced) {
             if(b.joint==BLOCK_PISTON)p->parts[i].rate=b3PrismaticJoint_GetSpeed(p->parts[i].joint);
             else if(b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)p->parts[i].rate=0;
             else{
-                b3WorldTransform parent=b3Body_GetTransform(p->parts[b.parent].body);
+                b3WorldTransform parent=b3Body_GetTransform(b3Joint_GetBodyA(p->parts[i].joint));
                 b3Vec3 axis=b3RotateVector(parent.q,b3RotateVector(b3Joint_GetLocalFrameA(p->parts[i].joint).q,b3Vec3_axisZ));
-                p->parts[i].rate=b3Dot(b3Sub(b3Body_GetAngularVelocity(p->parts[i].body),b3Body_GetAngularVelocity(p->parts[b.parent].body)),axis);
+                p->parts[i].rate=b3Dot(b3Sub(b3Body_GetAngularVelocity(p->parts[i].body),b3Body_GetAngularVelocity(b3Joint_GetBodyA(p->parts[i].joint))),axis);
             }
             if(advanced)p->parts[i].driven_radians+=delta*direction;p->parts[i].angle=angle;
             p->parts[i].angle_peak=fmaxf(p->parts[i].angle_peak,fabsf(angle));
@@ -511,7 +567,12 @@ static void magnet_check(void){
     b3Pos lifted=b3Body_GetPosition(p.cargo[0].body);
     printf("MAGNET LIFT: cargo %.3f m, power %.1f, load %.3f N, separation %.5f\n",lifted.y,p.parts[magnet].magnet_power,p.parts[magnet].magnet_load,p.max_separation);
     assert(lifted.y>1.7f&&b3Body_IsValid(p.parts[magnet].magnet_target)&&p.parts[magnet].magnet_power==1&&p.parts[magnet].magnet_load<=24&&p.max_separation<.04f);
-    keys[c.blocks[piston].positive]=0;keys[c.blocks[magnet].negative]=1;
+    keys[c.blocks[piston].positive]=0;c.blocks[magnet].force=100;
+    for(int i=0;i<240;i++)physics_step(&p,&c,keys);
+    float holding=p.parts[magnet].magnet_load,weight=b3Body_GetMass(p.cargo[0].body)*4;
+    printf("MAGNET HOLD: force %.3f N, weight %.3f N, speed %.5f m/s\n",holding,weight,b3Length(b3Body_GetLinearVelocity(p.cargo[0].body)));
+    assert(b3Body_IsValid(p.parts[magnet].magnet_target)&&fabsf(holding-weight)<1&&b3Length(b3Body_GetLinearVelocity(p.cargo[0].body))<.05f);
+    keys[c.blocks[magnet].negative]=1;
     for(int i=0;i<180;i++)physics_step(&p,&c,keys);
     assert(!b3Body_IsValid(p.parts[magnet].magnet_target)&&b3Body_GetPosition(p.cargo[0].body).y<.6f);
     physics_stop(&p);c.blocks[magnet].force=2;physics_start(&p,&c);physics_add_cargo(&p,(Vector3){2,.5f,0},MATERIAL_ALLOY);

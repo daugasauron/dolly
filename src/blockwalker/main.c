@@ -83,7 +83,7 @@ static void home_camera(void){
     if(world_view){world_follow=eye_view=0;orbit=(Orbit){.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=30};orbit_update(&orbit);return;}
     Vector3 target={0,0,0};for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);target=Vector3Add(target,p);}
     orbit.target=design.count?Vector3Scale(target,1.f/design.count):(Vector3){0,1,0};
-    float extent=1;for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);extent=fmaxf(extent,Vector3Distance(orbit.target,p));}
+    float extent=1;for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);extent=fmaxf(extent,Vector3Distance(orbit.target,p)+(block_size(design.blocks[i])>1?block_size(design.blocks[i])*.75f:0));}
     orbit.distance=fmaxf(8,extent*3.5f);orbit.yaw=.52f;orbit.pitch=.28f;orbit_update(&orbit);
 }
 static void set_world_view(int enabled){
@@ -178,8 +178,14 @@ static int install_program_file(const char *path,const char *name){
 }
 static void preset(int walker){remember();if(walker==3)character_car(&design);else character_preset(&design,walker);install_program_file("/usr/src/dolly/blockwalker/driver.js","Keyboard driver");selected=0;tool=SELECT;binding=-1;home_camera();changed();say(walker==3?"Starter car: Program shows its keyboard controls. Drive in world to use them.":"Walking is up to you. Test the joints, or ask Pi to learn a gait.");}
 static int candidate(Block *block){
-    Vector3 normal={0};int parent=render_pick(&design,&orbit,mouse_x,mouse_y,&normal),x,y,z;
-    if(parent>=0){Block b=design.blocks[parent];x=b.x+(int)roundf(normal.x);y=b.y+(int)roundf(normal.y);z=b.z+(int)roundf(normal.z);}
+    Vector3 normal={0},point={0};int parent=render_pick(&design,&orbit,mouse_x,mouse_y,&normal,&point),x,y,z;
+    if(parent>=0){Block b=design.blocks[parent];
+        if(block_size(b)>1){
+            if(fabsf(((float *)&normal)[b.axis])<.5f)return 0;
+            int cell[]={(int)roundf(point.x),(int)roundf(point.y-.5f),(int)roundf(point.z)},base[]={b.x,b.y,b.z};
+            cell[b.axis]=base[b.axis]+(int)roundf(((float *)&normal)[b.axis]);x=cell[0];y=cell[1];z=cell[2];
+        }else{x=b.x+(int)roundf(normal.x);y=b.y+(int)roundf(normal.y);z=b.z+(int)roundf(normal.z);}
+    }
     else if(!design.count){Ray ray=GetScreenToWorldRayEx((Vector2){mouse_x-render_view.x,mouse_y-render_view.y},orbit_camera(&orbit),render_view.width,render_view.height);if(fabsf(ray.direction.y)<.0001f)return 0;float t=-ray.position.y/ray.direction.y;if(t<=0)return 0;x=(int)roundf(ray.position.x+t*ray.direction.x);y=0;z=(int)roundf(ray.position.z+t*ray.direction.z);}
     else return 0;
     if(!character_candidate(&design,parent,x,y,z,brush_joint,brush_color,block))return 0;
@@ -306,8 +312,8 @@ static void click(void){
         if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
         for(int i=0;i<world_places();i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
             piloting=eye_view=0;
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{78,3,-48},{57,1,-13},{-14,5,-26},{88,5,-4}};
-            const float distances[]={24,50,100,110,150,512,72,76,40,38,55,38,35,35};
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{78,3,-48},{57,1,-13},{-10,5,-26},{84,5,-4}};
+            const float distances[]={24,50,100,110,150,512,72,76,40,38,55,38,42,42};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;
                 if(terrain_version&&i==6){orbit.target=(Vector3){-47,1,64};orbit.distance=12;orbit.yaw=PI;orbit.pitch=.12f;}
                 if(terrain_version&&i==7){orbit.target=(Vector3){-44,2,110};orbit.distance=35;orbit.yaw=.7f;orbit.pitch=.45f;}
@@ -352,7 +358,7 @@ static void click(void){
     if(inside(126,612,92,36)){remember();character_clear(&design);selected=-1;brush_joint=0;tool=ADD;binding=-1;home_camera();changed();say("Start with a box on the grid.");return;}
 edit_view:
     if(in_view()){
-        Vector3 normal;int hit=render_pick(&design,&orbit,mouse_x,mouse_y,&normal);
+        Vector3 normal;int hit=render_pick(&design,&orbit,mouse_x,mouse_y,&normal,NULL);
         if(tool==SELECT){selected=hit;binding=-1;dirty=1;return;}
         if(tool==ERASE){selected=hit;remove_selected();return;}
         Block b;if(candidate(&b)){remember();selected=character_add(&design,b.parent,b.x,b.y,b.z,b.joint,b.color);design.blocks[selected].material=b.material;design.blocks[selected].finish=b.finish;changed();say(b.joint==BLOCK_THRUSTER?"Thruster added. Set its firing key and exhaust face.":b.joint?"Joint added. Select its two keys in the inspector.":"Box attached to every touching rigid block.");}
@@ -364,6 +370,13 @@ edit_view:
     for(int i=0;i<MATERIAL_COUNT;i++)if(inside(1074+i*62,574,58,28)){remember();b->material=brush_material=i;changed();return;}
     if(selected==0&&inside(1036,328,220,36)){remember();design.anchored=!design.anchored;changed();return;}
     if(inside(1036,608,220,40)){remove_selected();return;}
+    if(b->joint==BLOCK_TURNTABLE)for(int size=1;size<=4;size++)if(inside(1036+(size-1)*56,180,52,28)){
+        Block next=*b,old=*b;next.size=size;Block parent=design.blocks[b->parent];
+        int d[]={b->x-parent.x,b->y-parent.y,b->z-parent.z};next.direction=d[b->axis]<0?-1:1;next.force=fminf(next.force,block_force_max(next));
+        *b=next;int valid=character_validate(&design);*b=old;
+        if(valid){remember();*b=next;changed();say("Turntable resized. Base and rotating faces mount across the footprint.");}
+        else say("Turntable needs a clear footprint and a base on its mounting face.");return;
+    }
     if(b->joint==BLOCK_EYES){
         if(inside(1200,218,56,24)){remember();b->direction=-b->direction;changed();}
         for(int axis=0;axis<3;axis++)if(inside(1036+axis*76,248,68,36)){remember();b->axis=axis;changed();}return;
@@ -375,11 +388,11 @@ edit_view:
         }
         for(int axis=0;axis<3;axis++)if(inside(1036+axis*76,248,68,36)){
             Block next=*b;next.axis=axis;Block old=*b;*b=next;int valid=character_validate(&design);*b=old;
-            if(valid){remember();*b=next;changed();}else say("Leave the thruster's exhaust face open.");return;
+            if(valid){remember();*b=next;changed();}else say(b->joint==BLOCK_TURNTABLE?"Turntable needs a clear footprint and a base on its mounting face.":"Leave the thruster's exhaust face open.");return;
         }
         for(int key=b->joint==BLOCK_THRUSTER?1:0;key<2;key++)if(inside(b->joint==BLOCK_THRUSTER?1036:1036+key*116,336,b->joint==BLOCK_THRUSTER?220:104,44)){binding=key;dirty=1;say("Press a letter or number for this direction. Esc cancels.");return;}
         if(inside(1036,436,40,36)||inside(1216,436,40,36)){remember();if(b->joint==BLOCK_THRUSTER||b->joint==BLOCK_MAGNET)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);else b->speed=Clamp(b->speed+(mouse_x<1100?-.5f:.5f),.5f,6);changed();return;}
-        if(inside(1036,532,40,36)||inside(1216,532,40,36)){remember();if(b->joint==BLOCK_PISTON)b->travel=Clamp(b->travel+(mouse_x<1100?-.25f:.25f),.25f,3);else if(b->joint==BLOCK_HINGE)b->limit=Clamp(b->limit+(mouse_x<1100?-15:15),15,150);else if(b->joint==BLOCK_WHEEL||b->joint==BLOCK_TURNTABLE)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);changed();return;}
+        if(inside(1036,532,40,36)||inside(1216,532,40,36)){remember();if(b->joint==BLOCK_PISTON)b->travel=Clamp(b->travel+(mouse_x<1100?-.25f:.25f),.25f,3);else if(b->joint==BLOCK_HINGE)b->limit=Clamp(b->limit+(mouse_x<1100?-15:15),15,150);else if(b->joint==BLOCK_WHEEL||b->joint==BLOCK_TURNTABLE)b->force=Clamp(b->force+(mouse_x<1100?-2:2)*block_size(*b)*block_size(*b),2,block_force_max(*b));changed();return;}
     }else if(selected>0&&inside(1036,248,220,42)){
         Character copy={0};character_copy(&copy,&design);Block old=copy.blocks[selected];
         // Obtain an unused pair without changing the character's attachment tree.
@@ -414,7 +427,7 @@ static void events(void){
                 else if((e.flags>>8)==0)click();
             }else if(e.action==DOLLY_POINTER_ACTION_RELEASE)orbit_drag=0;
             else if(orbit_drag){orbit.yaw-=(mouse_x-last_x)*.009f;orbit.pitch=Clamp(orbit.pitch+(mouse_y-last_y)*.008f,-1.5f,1.5f);last_x=mouse_x;last_y=mouse_y;orbit_update(&orbit);}
-            Vector3 normal;hover=in_view()&&!physics.running?render_pick(&design,&orbit,mouse_x,mouse_y,&normal):-1;
+            Vector3 normal;hover=in_view()&&!physics.running?render_pick(&design,&orbit,mouse_x,mouse_y,&normal,NULL):-1;
         }
         if(prompt_focus&&e.type==DOLLY_INPUT_EVENT_TEXT){append_prompt(e.data+e.key_length+e.code_length,e.text_length);continue;}
         if(e.type!=DOLLY_INPUT_EVENT_KEY)continue;
@@ -549,7 +562,8 @@ static void draw_ui(void){
         if(selected<0){label(1036,162,"Pick a block",22,ink);label(1036,199,"to edit its attachment.",16,muted);label(1036,258,"A joint turns the blocks",15,muted);label(1036,282,"attached beyond it.",15,muted);}
         else {
             Block b=design.blocks[selected];snprintf(text,sizeof(text),"%s %02d",block_names[b.joint],selected+1);label(1036,151,text,24,ink);
-            snprintf(text,sizeof(text),"Grid  %d, %d, %d",b.x,b.y,b.z);label(1036,190,text,16,muted);
+            if(b.joint==BLOCK_TURNTABLE){for(int n=1;n<=4;n++){snprintf(text,sizeof(text),"%dx%d",n,n);button(1036+(n-1)*56,180,52,28,text,block_size(b)==n);}}
+            else{snprintf(text,sizeof(text),"Grid  %d, %d, %d",b.x,b.y,b.z);label(1036,190,text,16,muted);}
             if(b.joint==BLOCK_EYES){
                 label(1036,224,"LOOK DIRECTION",15,muted);button(1200,218,56,24,b.direction>0?"+":"-",0);
                 for(int i=0;i<3;i++){char name[2]={'X'+i,0};button(1036+i*76,248,68,36,name,b.axis==i);}
@@ -668,7 +682,7 @@ static JSValue state(JSContext *ctx) {
         const int values[]={b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive};
         for(int j=0;j<9;j++)JS_SetPropertyStr(ctx,part,names[j],JS_NewInt32(ctx,values[j]));
         JS_SetPropertyStr(ctx,part,"speed",JS_NewFloat64(ctx,b.speed));JS_SetPropertyStr(ctx,part,"limit",JS_NewFloat64(ctx,b.limit));JS_SetPropertyStr(ctx,part,"travel",JS_NewFloat64(ctx,b.travel));JS_SetPropertyStr(ctx,part,"force",JS_NewFloat64(ctx,b.force));JS_SetPropertyStr(ctx,part,"direction",JS_NewInt32(ctx,b.direction));
-        JS_SetPropertyStr(ctx,part,"material",JS_NewInt32(ctx,b.material));JS_SetPropertyStr(ctx,part,"finish",JS_NewInt32(ctx,b.finish));
+        JS_SetPropertyStr(ctx,part,"size",JS_NewInt32(ctx,block_size(b)));JS_SetPropertyStr(ctx,part,"material",JS_NewInt32(ctx,b.material));JS_SetPropertyStr(ctx,part,"finish",JS_NewInt32(ctx,b.finish));
         JSValue pose=JS_NewArray(ctx);float values3[]={v.x,v.y,v.z,q.x,q.y,q.z,q.w};
         for(int j=0;j<7;j++)JS_SetPropertyUint32(ctx,pose,j,JS_NewFloat64(ctx,values3[j]));
         JS_SetPropertyStr(ctx,part,"pose",pose);

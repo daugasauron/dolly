@@ -29,7 +29,9 @@ void magnet_drive(Physics *physics,int index,Block block,float on,float off){
     float strength=block.force*part->magnet_power,stiffness=strength*10;
     float a=b3Body_GetMass(part->body),b=b3Body_GetMass(part->magnet_target),mass=a*b/(a+b);
     b3Vec3 velocity=b3Sub(b3Body_GetWorldPointVelocity(part->body,pole),b3Body_GetWorldPointVelocity(part->magnet_target,point));
-    b3Vec3 force=b3Add(b3MulSV(stiffness,delta),b3MulSV(2*sqrtf(stiffness*mass),velocity));
+    // Implicit damping keeps the force-limited spring stable at the 60 Hz control rate.
+    float damping=2*sqrtf(stiffness*mass),dt=1.f/60;
+    b3Vec3 force=b3MulSV(1/(1+damping*dt/mass+stiffness*dt*dt/mass),b3Add(b3MulSV(stiffness,delta),b3MulSV(damping,velocity)));
     float load=b3Length(force);if(load>strength)force=b3MulSV(strength/load,force);part->magnet_load=fminf(load,strength);
     b3Body_ApplyForce(part->magnet_target,force,point,true);b3Body_ApplyForce(part->body,b3MulSV(-1,force),pole,true);
 }

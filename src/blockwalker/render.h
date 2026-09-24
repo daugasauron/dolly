@@ -16,4 +16,4 @@ unsigned char *render_capture_world(const Orbit *orbit,int *bytes);
 unsigned char *render_capture(const Character *c,const Physics *p,const Orbit *orbit,int *bytes);
 Camera3D orbit_camera(const Orbit *orbit);
 void orbit_update(Orbit *orbit);
-int render_pick(const Character *c,const Orbit *orbit,float x,float y,Vector3 *normal);
+int render_pick(const Character *c,const Orbit *orbit,float x,float y,Vector3 *normal,Vector3 *point);

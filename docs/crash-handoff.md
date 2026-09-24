@@ -2,10 +2,10 @@
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-playground-20260923`. Do not modify the parent worktree or
-other agents' previews. The latest user requested a stable checkpoint and local
-launch; feature development is stopped. No push or deployment is authorized.
+other agents' previews. The latest user requested broad turntables and more stable, better-designed
+cargo-slinger crews. No push or deployment is authorized.
 
-The [September 25 checkpoint](../tasks/20260925-064800-codex-01/TASK.md) packages
+The baseline [September 25 checkpoint](../tasks/20260925-064800-codex-01/TASK.md) packages
 91 placements: the original 70, red/blue rival and guard vehicles, warehouse
 handlers, a quarry runner and two cores, and two cargo-slinger crews. Cargo and
 fallen machines remain physical. All behavior is visible ordinary character
@@ -13,15 +13,20 @@ programs using common sensors, actuator keys and radio. No per-character engine
 motion helpers. Physics stays at 60 Hz; the later experimental controller rates
 and observation caches are excluded.
 
-Image 28 is served at `http://127.0.0.1:9099/blockwalker/` by user service
+Image 29 is served at `http://127.0.0.1:9099/blockwalker/` by user service
 `dolly-blockwalker-preview-20260924.service`. The owned relay listens on 9010.
-The image is 232579323 bytes, SHA-256
-`7e751b852bf0b121c4f0ad57f7a6d9206177a44a32f38078bb56b483704a7f58`.
+The image is 232599131 bytes, SHA-256
+`d0ec8d9091babaa91a832b21e7353d1354037e1fd88708972c931df97f3408e1`.
 Its source archive SHA-256 is
-`175799137f2a148854b34fc739fa5e6b69a3a6e2e264f5a01778a8ec70bb146a`.
-The checkpoint task records browser launch/save-restore verification. Existing
+`185eea1b190b0ba8b21badfe41c922a196c3cfd154a5161477485c8cc670541f`.
+The [bearing task](../tasks/20260925-080000-codex-01/TASK.md) records current verification. Existing
 saved worlds retain their own programs and terrain; loading a save does not
-silently replace them with the fresh catalog.
+silently replace them with the fresh catalog. Chrome and Firefox both verify
+all 91 bundled designs and restore all 125 objects from the populated save,
+with no browser errors or model requests. Evidence:
+`build/blockwalker-image29-preview{,-firefox}/proof.json`.
+Protected originals and all twelve other images pass
+`build/blockwalker-image29-preservation.json`.
 
 The fresh 2400 s `build/blockwalker-rivalry-checkpoint42/` run retains 122
 objects with 33 unique deliveries and no controller errors. Both quarry cores
@@ -47,9 +52,22 @@ Evidence: `build/blockwalker-thruster-ui-{chrome,firefox}/` and
 `build/blockwalker-world-ui-{chrome,firefox}/`.
 One-way migration preserves original poses, programs, memory and magnets and
 backs up the old world; see the [thruster task](../tasks/20260925-035000-codex-01/TASK.md).
-The [cargo slinger](../tasks/20260925-032000-codex-01/TASK.md) physically reloads
-and hits moving aircraft with ordinary light crates. Aircraft can recover, and
-loads can slip; there is no guaranteed shootdown. Existing bearings suffice.
+The [slinger revision](../tasks/20260925-080000-codex-01/TASK.md) supersedes the
+narrow-bearing crews. Turntables offer 1x1 through 4x4 footprints with actual
+mounting across both faces; both slingers use two 3x3 bearings. Open-frame masts,
+exposed rotors, counterweights and retracting loading pedestals work with compact
+shuttles 16 metres away. Only the ten crew/cargo entries changed; the other 81
+placements are retained. Magnet damping prevents stationary force-limit jitter.
+All controller logic remains ordinary programs; ammo selection excludes heavy
+cargo and motor commands stay bounded after disturbances.
+
+The final crew completes three reloads and three physical hits in 360 simulated
+seconds, including loaded save/reopen and target loss, with zero crew collisions.
+Evidence: `build/blockwalker-launcher-wide-light-only2/`. The final-geometry
+populated run retains 96 objects, completes four deliveries, and both crews
+reload/fire without controller errors or crew collisions over 180 s:
+`build/blockwalker-launcher-wide-final-populated/`. This does not close the
+separate freight endurance or crowded-performance issues.
 [Rope/winch links](../tasks/20260925-041500-codex-01/TASK.md) remain separate.
 
 Outstanding work:

@@ -26,15 +26,15 @@ static void check(int status) { if(status<0){perror("blockwalker GPU");exit(1);}
 static void flush(void) {check(dolly_gpu_batch(&gpu));dolly_gpu_begin(&gpu);}
 void orbit_update(Orbit *o) {o->up=(Vector3){0,1,0};o->fov=42;o->eye=Vector3Add(o->target,(Vector3){sinf(o->yaw)*cosf(o->pitch)*o->distance,sinf(o->pitch)*o->distance,cosf(o->yaw)*cosf(o->pitch)*o->distance});}
 Camera3D orbit_camera(const Orbit *o) {return (Camera3D){o->eye,o->target,o->up,o->fov,CAMERA_PERSPECTIVE};}
-int render_pick(const Character *c,const Orbit *o,float x,float y,Vector3 *normal) {
+int render_pick(const Character *c,const Orbit *o,float x,float y,Vector3 *normal,Vector3 *point) {
     Ray ray=GetScreenToWorldRayEx((Vector2){x-render_view.x,y-render_view.y},orbit_camera(o),render_view.width,render_view.height);
     float distance=1e30f;int selected=-1;
     for(int i=0;i<c->count;i++) {
         Vector3 p=block_position(c->blocks[i]),h={.5f,.5f,.5f};
-        if(block_cylinder(c->blocks[i]))h=block_half(c->blocks[i]);
+        if(block_cylinder(c->blocks[i]))h=block_half(c->blocks[i]);if(block_size(c->blocks[i])>1)((float *)&h)[c->blocks[i].axis]=.5f;
         RayCollision hit=GetRayCollisionBox(ray,(BoundingBox){Vector3Subtract(p,h),Vector3Add(p,h)});
         if(hit.hit&&hit.distance<distance){
-            selected=i;distance=hit.distance;Vector3 n=hit.normal;
+            selected=i;distance=hit.distance;if(point)*point=hit.point;Vector3 n=hit.normal;
             if(fabsf(n.x)>=fabsf(n.y)&&fabsf(n.x)>=fabsf(n.z))*normal=(Vector3){copysignf(1,n.x),0,0};
             else if(fabsf(n.y)>=fabsf(n.z))*normal=(Vector3){0,copysignf(1,n.y),0};
             else *normal=(Vector3){0,0,copysignf(1,n.z)};
@@ -149,16 +149,31 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
         Block b=c->blocks[i];Vector3 v;Quaternion q;physics_pose(p,c,i,&v,&q);box_draw(b,v,q,i==selected,i==hover,0,at++);
         if(b.joint==BLOCK_HINGE&&p->running)boxes[at-1].style[3]=p->parts[i].angle;
         if(b.joint==BLOCK_MAGNET&&p->running){boxes[at-1].style[3]=p->parts[i].magnet_power;boxes[at-1].half[3]=b3Body_IsValid(p->parts[i].magnet_target);}
-        if((b.joint==BLOCK_HINGE||b.joint==BLOCK_TURNTABLE)&&b.parent>=0){
-            Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);Block a=c->blocks[b.parent];
-            Vector3 pivot=Vector3Add(parent,Vector3RotateByQuaternion((Vector3){(b.x-a.x)*.5f,(b.y-a.y)*.5f,(b.z-a.z)*.5f},rotation));
+        if(block_size(b)>1){
+            Vector3 parent;Quaternion rotation;physics_pose(p,c,block_parent(c,i),&parent,&rotation);
+            Vector3 offset=Vector3Subtract(block_position(b),block_position(c->blocks[block_parent(c,i)]));((float *)&offset)[b.axis]-=b.direction*.33f;
+            Block plate=b;plate.joint=BLOCK_BOX;plate.size=1;plate.color=4;
+            box_draw(plate,Vector3Add(parent,Vector3RotateByQuaternion(offset,rotation)),rotation,i==selected,i==hover,0,at);
+            Vector3 half=block_half(b);((float *)&half)[b.axis]=.14f;memcpy(boxes[at++].half,&half,sizeof(half));
+            for(int j=0;j<c->count;j++){
+                int face=turntable_face(b,c->blocks[j]);if(!face)continue;
+                Vector3 to;Quaternion unused;physics_pose(p,c,j,&to,&unused);
+                Vector3 delta=Vector3Subtract(block_position(c->blocks[j]),block_position(b));((float *)&delta)[b.axis]=face*.16f;
+                Vector3 from;
+                if(face==b.direction)from=Vector3Add(v,Vector3RotateByQuaternion(delta,q));
+                else{delta=Vector3Add(delta,Vector3Subtract(block_position(b),block_position(c->blocks[block_parent(c,i)])));from=Vector3Add(parent,Vector3RotateByQuaternion(delta,rotation));}
+                bracket_draw(from,to,at++);
+            }
+        }else if((b.joint==BLOCK_HINGE||b.joint==BLOCK_TURNTABLE)&&b.parent>=0){
+            Vector3 parent;Quaternion rotation;physics_pose(p,c,block_parent(c,i),&parent,&rotation);Block a=c->blocks[block_parent(c,i)];
+            Vector3 pivot=Vector3Add(parent,Vector3RotateByQuaternion(Vector3Scale(Vector3Subtract(block_position(b),block_position(a)),.5f),rotation));
             bracket_draw(parent,pivot,at++);bracket_draw(pivot,v,at++);
         }
-        if(b.parent>=0&&c->blocks[b.parent].joint==BLOCK_TURNTABLE&&!block_cylinder(b)&&b.joint!=BLOCK_PISTON&&b.joint!=BLOCK_THRUSTER){
-            Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);bracket_draw(parent,v,at++);
+        if(b.parent>=0&&c->blocks[b.parent].joint==BLOCK_TURNTABLE&&block_size(c->blocks[b.parent])==1&&!block_cylinder(b)&&b.joint!=BLOCK_PISTON&&b.joint!=BLOCK_THRUSTER){
+            Vector3 parent;Quaternion rotation;physics_pose(p,c,block_parent(c,i),&parent,&rotation);bracket_draw(parent,v,at++);
         }
         if(b.joint==BLOCK_PISTON&&b.parent>=0){
-            Vector3 parent;Quaternion rotation;physics_pose(p,c,b.parent,&parent,&rotation);Block a=c->blocks[b.parent];
+            Vector3 parent;Quaternion rotation;physics_pose(p,c,block_parent(c,i),&parent,&rotation);Block a=c->blocks[block_parent(c,i)];
             Vector3 offset=Vector3Scale((Vector3){b.x-a.x,b.y-a.y,b.z-a.z},.5f);
             Vector3 start=Vector3Add(parent,Vector3RotateByQuaternion(offset,rotation)),delta=Vector3Subtract(v,start);
             float length=Vector3Length(delta);Vector3 direction=length>.001f?Vector3Scale(delta,1/length):(Vector3){0,1,0};
@@ -190,14 +205,17 @@ static size_t draw_terrain(size_t at){
         boxes[at].half[0]=b.half.x;boxes[at].half[1]=b.half.y;boxes[at++].half[2]=b.half.z;
     }return at;
 }
+static size_t character_draw_capacity(const Character *c){
+    size_t n=(size_t)c->count*3;for(int i=0;i<c->count;i++)if(block_size(c->blocks[i])>1)n+=1+2*block_size(c->blocks[i])*block_size(c->blocks[i]);return n;
+}
 void render_frame(const Character *c,const Physics *p,const Orbit *o,int selected,int hover,const Block *ghost){
-    reserve_boxes((size_t)c->count*3+p->cargo_count+(ghost!=NULL)+(p->landscape?terrain_count:0));
+    reserve_boxes(character_draw_capacity(c)+p->cargo_count+(ghost!=NULL)+(p->landscape?terrain_count:0));
     size_t count=character_draw(c,p,selected,hover,p->landscape?draw_terrain(0):0);
     if(ghost)box_draw(*ghost,block_position(*ghost),QuaternionIdentity(),0,0,1,count++);
     draw_scene(o,count,p->running,p->landscape,p->time);
 }
 void render_world(const Orbit *o){
-    size_t count=terrain_count+depot_count*8;for(int i=0;i<world.count;i++)count+=(size_t)world.creatures[i].design.count*3+(world.creatures[i].parachute?7:0);reserve_boxes(count);
+    size_t count=terrain_count+depot_count*8;for(int i=0;i<world.count;i++)count+=character_draw_capacity(&world.creatures[i].design)+(world.creatures[i].parachute?7:0);reserve_boxes(count);
     size_t at=draw_terrain(0);
     for(int i=0;i<depot_count;i++){Depot d=depots[i];float y=terrain_height(d.x,d.z);
         for(int side=0;side<4;side++){

@@ -51,3 +51,8 @@ Both browsers then launch the packaged crews and restore the populated save:
 `build/blockwalker-image28-preview/` and `-firefox/`. Sidebar names now distinguish
 Tengu launchers from Koban feeders. The observed slipping/recovery limitation
 remains; this does not promise reliable shootdowns or implement ropes.
+
+The user's subsequent live report found unstable bearings and repeated loader
+collisions. The narrow-bearing prototype is being replaced under
+[the broad-turntable redesign](../20260925-080000-codex-01/TASK.md). The earlier
+isolated successes did not establish robust operation of the original crews.

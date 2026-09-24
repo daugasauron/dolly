@@ -129,12 +129,17 @@ fn water_normal(p:vec2f)->vec3f {
             if(b.flags.z==1&&cap&&radius>.92){color=vec3f(1,.73,.3);}
         }else if(b.flags.x==7){
             let w=wheel_space(p,b.flags.y);let size=wheel_space(b.extent.xyz,b.flags.y);let cap=abs(w.y)>size.y-.001;
-            let normal=wheel_space(select(normalize(vec3f(w.x,0,w.z)),vec3f(0,sign(w.y),0),cap),b.flags.y);
+            let angle=atan2(w.z,w.x);let facet=floor(angle*24/6.283185+.5)*6.283185/24;
+            let normal=wheel_space(select(vec3f(cos(facet),0,sin(facet)),vec3f(0,sign(w.y),0),cap),b.flags.y);
             let radius=length(w.xz)/size.x;
             color=select(vec3f(.16,.19,.19),b.color.rgb,cap);
-            if(cap&&radius>.72){color=select(vec3f(.18,.20,.20),vec3f(.67,.53,.28),sin(atan2(w.z,w.x)*12)>0);}
-            if(cap&&radius<.26){color=vec3f(.32,.35,.34);}
-            if(cap&&radius>.37&&radius<.58&&abs(sin(atan2(w.z,w.x)*4))<.15){color=vec3f(.12,.15,.15);}
+            if(cap&&radius>.70){color=vec3f(.29,.32,.31);}
+            if(cap&&(radius>.95||(radius>.61&&radius<.68))){color=vec3f(.11,.14,.15);}
+            if(cap&&radius<.25){color=vec3f(.18,.21,.22);}
+            let bolt=vec2f(radius-.83,atan2(sin(angle*12),cos(angle*12))/12);
+            if(cap&&length(bolt)<.045){color=vec3f(.12,.15,.16);}
+            if(cap&&radius>.28&&radius<.60&&abs(w.z)<size.x*.045&&w.x>0){color=vec3f(.68,.55,.31);}
+            if(!cap&&abs(w.y)<.04){color=vec3f(.09,.12,.13);}
             color*=.65+.35*max(0,dot(rotate(b.rotation,normal),sun));
             if(b.flags.z==1&&radius>.92){color=vec3f(1,.73,.3);}
         }else if(b.flags.x==4){
