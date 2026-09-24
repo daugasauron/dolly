@@ -133,9 +133,12 @@ descend under parachutes; dense ore appears on the lowered factory lift. The
 provided aircraft can carry a 0.91 kg parcel but cannot lift an 11 kg pallet
 with their 30 N magnets. Stronger player-built machines remain possible.
 The heavy chain uses the lift, a telescopic hauler, loading crane, deck-magnet
-barge and island receiving crane. Cargo travels through actual physical handoffs.
+barge and island receiving crane. The hauler takes ore, waits for a clear loading pad, and
+barges take turns at the berth. Cargo travels through physical handoffs.
 An island delivery earns one point, or eight above 8 kg. At most six undelivered
-parcels and three ore pallets remain active. Scores and supply timing survive
+parcels and three ore pallets remain active. New drops use distinct sites until
+their earlier parcels are collected, keeping difficult salvage from crowding out
+all exposed deliveries. Scores and supply timing survive
 saves. Older worlds retain their original terrain instead of gaining walls
 around existing machines.
 
@@ -169,9 +172,8 @@ earlier experiments, including the retired drawbridge, are available only throug
 Older prototypes. On first launch the catalog populates
 the world, with loose cargo for the cranes; click World to visit. The balancing
 surveyor, aircraft and two survey boats choose varied destinations and respond
-to nearby bodies. The heavy walker reverses and replants its feet to yield to
-traffic, and the beacon tracks nearby
-machines. Sidelight uses longer, varied patrol distances and reverses at a stable
+to nearby bodies. Amberguard chooses flat destinations around its home, slows
+to turn and replans around nearby bodies. The beacon tracks nearby machines. Sidelight uses longer, varied patrol distances and reverses at a stable
 stance when traffic or a terrain edge blocks its next step. Five Komame lookouts
 roam the yard and three islands, turning their physical Eyes heads toward other
 characters. Mochi lifts loose crates with its piston and magnet, drives them to
@@ -180,7 +182,8 @@ cargo into the harbor depot with its magnetic head. Tsubame tows floating crates
 to the crane, releases them within reach and backs away for the handoff.
 Brinehook raises submerged cargo onto its tray; Kawasemi collects the released
 crate and flies it to the Island depot. The gantry then collects its next crate
-while the courier is away. The small lookouts steer around loose and delivered cargo.
+while the courier is away. The small lookouts steer around loose and delivered cargo, and move clear of
+nearby machinery rather than waiting in its path.
 Three small Minamo skiffs and the larger patrol boats choose water routes around
 the coasts. Twinspire steers around loose cargo to leave it available for salvage.
 All 44 characters have Eyes; loose cargo uses the outside camera.

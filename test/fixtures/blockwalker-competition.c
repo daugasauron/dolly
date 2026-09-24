@@ -70,6 +70,7 @@ int main(void){
     }
     for(int j=3;j<=4;j++){JSValue item=JS_GetPropertyUint32(ctx,selected,j);delay_freight(ctx,item,j-2);JS_FreeValue(ctx,item);}
     load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==7);
+    int parcel=world_drop_cargo(-49.79f,.5f,51.17f,MATERIAL_ALLOY);assert(parcel);world_find(parcel)->supply=1;
     world.supply_seed=42;world.next_parcel=100000;
     int stages[128]={0},teams[128]={0},restarts=0;float minimum_up=1,separation=0;double progress=0;
     for(int tick=0;tick<2400*60;tick++){
@@ -90,6 +91,7 @@ int main(void){
         if(tick&&tick%(197*60)==0){assert(world_save(ctx));world_close();world_load(ctx);restarts++;}
     }
     assert(world_save(ctx));
+    assert(world_find(parcel)&&!world_find(parcel)->delivered&&!magnet_holds(world_find(2),world_find(parcel)));
     printf("FREIGHT: %.3f seconds, East %d / West %d, %d reloads, %d removals, minimum barge up %.5f, maximum joint separation %.5f\n",world.age,world_team_score(1),world_team_score(2),restarts,world.deaths,minimum_up,separation);fflush(stdout);
     assert(world_team_score(1)>=16&&world_team_score(2)>=16&&restarts&&!world.deaths&&minimum_up>.9f&&separation<.12f&&crowded_cranes==7&&quay_waited);
     for(int i=0;i<world.delivery_count;i++){

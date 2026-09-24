@@ -11,7 +11,9 @@ checkpoint are in the [island competition task](../tasks/20260924-074500-codex-0
 industrial terrain, team scouts, replenished cargo, cranes and boats. Keep the
 working walkers. The Lua/YAML migration is a separate task.
 Long-run follow-ups are the [loading quay](../tasks/20260924-132300-codex-01/TASK.md)
-and [Amberguard navigation](../tasks/20260924-132700-codex-01/TASK.md). Their issues
+[Amberguard navigation](../tasks/20260924-132700-codex-01/TASK.md), and
+[continuous freight/supplies](../tasks/20260924-144000-codex-01/TASK.md), and
+[lookout traffic](../tasks/20260924-145000-codex-01/TASK.md). Their issues
 record saved failure states and verification; experimental controllers under
 `build/` are not automatically the packaged catalog.
 

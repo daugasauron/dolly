@@ -505,7 +505,16 @@ static void supply_step(void){
     }
     if(world.age>=world.next_parcel&&parcels<6){
         const Vector2 sites[]={{-60,-25},{-15,-45},{45,-30},{65,20},{-43,47},{8,66},{-72,72},{38,32}};
-        Vector2 site=sites[(int)(supply_random()*8)];float x=site.x+(supply_random()-.5f)*6,z=site.y+(supply_random()-.5f)*6;
+        int first=(int)(supply_random()*8);Vector2 site=sites[first];
+        for(int offset=0;offset<8;offset++){
+            site=sites[(first+offset)%8];int occupied=0;
+            for(int i=0;i<world.count;i++){
+                Creature *c=&world.creatures[i];
+                if(c->supply==1&&!c->delivered&&hypotf(c->physics.start.x-site.x,c->physics.start.z-site.y)<5)occupied=1;
+            }
+            if(!occupied)break;
+        }
+        float x=site.x+(supply_random()-.5f)*6,z=site.y+(supply_random()-.5f)*6;
         int id=world_drop_cargo(x,42+10*supply_random(),z,MATERIAL_ALLOY);Creature *cargo=world_find(id);
         if(cargo){cargo->supply=1;cargo->parachute=1;snprintf(cargo->name,sizeof(cargo->name),"Air parcel");}
         world.next_parcel=world.age+45+45*supply_random();

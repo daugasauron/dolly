@@ -320,6 +320,9 @@ static void check_supply(JSContext *ctx){
  unsigned seed=world.supply_seed;double next=world.next_parcel;assert(save_world(ctx,"/workspace/parachute-midair.json")&&world_save(ctx));world_close();world_load(ctx);
  assert(world.supply_seed==seed&&world.next_parcel==next&&world_find(id)->parachute&&world_find(id)->supply==1);
  for(int i=0;i<800*60;i++)world_step();int active=0,chutes=0;for(int i=0;i<world.count;i++){active+=world.creatures[i].supply==1;chutes+=world.creatures[i].parachute;}
+ for(int i=0;i<world.count;i++)if(world.creatures[i].supply==1)for(int j=0;j<i;j++)if(world.creatures[j].supply==1){
+  Vector3 a=world.creatures[i].physics.start,b=world.creatures[j].physics.start;assert(hypotf(a.x-b.x,a.z-b.z)>20);
+ }
  printf("SUPPLY: parcel mass %.3f, start %.3f, five-second height %.3f velocity %.3f; reload preserved seed/timing/chute; active=%d chutes=%d objects=%d removals=%d\n",creature_mass(world_find(id)),start,height,velocity,active,chutes,world.count,world.deaths);fflush(stdout);
  assert(active==6&&!chutes&&world.count==7&&!world.deaths);assert(world_save(ctx));world_close();
 }
