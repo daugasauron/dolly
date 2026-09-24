@@ -1692,7 +1692,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,1075 @@
+@@ -0,0 +1,1076 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -2037,7 +2037,7 @@
 +class Program final : public Owned<IShaderProgram>
 +{
 +public:
-+    struct Binding { CStrIntern name; unsigned group,offset,size; bool cube=false; };
++    struct Binding { CStrIntern name; unsigned group,offset,size; bool cube=false; Texture* texture=nullptr; Buffer* buffer=nullptr; };
 +    explicit Program(Device* device) : Owned(device) {}
 +    ~Program() override { for(Handle handle:{vertex,fragment,compute})if(handle)device->queue.retired.push_back(handle); }
 +    int32_t GetBindingSlot(CStrIntern name) const override
@@ -2366,10 +2366,10 @@
 +    size_t nextUploadedVertex=0,nextUploadedIndex=0;
 +    std::unique_ptr<Buffer> dummy;
 +    Buffer* indices=nullptr;
-+    std::map<std::pair<Program*,int32_t>,Texture*> textures;
-+    std::map<std::pair<Program*,int32_t>,Buffer*> storageBuffers;
 +    struct ResourceGroup { Handle handle=0;uint64_t frame=0; };
-+    std::map<std::tuple<Handle,unsigned,std::vector<Pipeline::Entry>>,ResourceGroup> resourceGroups;
++    std::map<std::tuple<Handle,unsigned,std::vector<Pipeline::Entry>>,ResourceGroup,std::less<>> resourceGroups;
++    std::vector<Pipeline::Entry> bindingEntries;
++    std::vector<Handle> bindingGroups;
 +    std::map<std::array<uint32_t,32>,std::pair<Handle,size_t>> borderUniforms;
 +    Rect viewport{},scissor{};
 +    bool passOpen=false,resumeEnabled=true,computePass=false;
@@ -2487,7 +2487,7 @@
 +    Require(pipeline && value,"texture without shader/resource");
 +    auto* program=pipeline->desc.shaderProgram->As<Program>();
 +    Require(size_t(slot)<program->bindings.size() && program->bindings[slot].group==1,"texture slot");
-+    textures[{program,slot}]=value->As<Texture>();
++    program->bindings[slot].texture=value->As<Texture>();
 +}
 +void Context::SetUniform(int32_t slot,std::span<const float> values)
 +{
@@ -2516,7 +2516,10 @@
 +}
 +Handle Context::BindResources(Handle gpuPipeline,unsigned group,const std::vector<Pipeline::Entry>& entries,bool compute)
 +{
-+    auto& cached=resourceGroups[{gpuPipeline,group,entries}];
++    auto found=resourceGroups.find(std::tie(gpuPipeline,group,entries));
++    if(found==resourceGroups.end())
++        found=resourceGroups.emplace(std::make_tuple(gpuPipeline,group,entries),ResourceGroup{}).first;
++    auto& cached=found->second;
 +    cached.frame=device->queue.frame;
 +    if(!cached.handle)
 +    {
@@ -2542,7 +2545,7 @@
 +    auto* program=computePipeline->program;
 +    Require(size_t(slot)<program->bindings.size() && program->bindings[slot].group==1,"storage slot");
 +    Require(value->GetUsage()&IBuffer::Usage::STORAGE,"buffer is not storage");
-+    storageBuffers[{program,slot}]=value->As<Buffer>();
++    program->bindings[slot].buffer=value->As<Buffer>();
 +}
 +void Context::Dispatch(uint32_t x,uint32_t y,uint32_t z)
 +{
@@ -2550,13 +2553,12 @@
 +    ReclaimObjects(24);
 +    auto* program=computePipeline->program;
 +    device->queue.Reserve(4352+program->uniforms[0].size()+program->uniforms[2].size(),24);
-+    std::vector<Pipeline::Entry> entries;
++    auto& entries=bindingEntries;entries.clear();
 +    if(!program->uniforms[0].empty())entries.push_back(UniformEntry(program,0,0));
 +    for(size_t i=0;i<program->bindings.size();i++)
 +    {
 +        const auto& binding=program->bindings[i];if(binding.group!=1)continue;
-+        auto found=storageBuffers.find({program,i});Require(found!=storageBuffers.end(),"unbound storage buffer");
-+        auto* buffer=found->second;
++        auto* buffer=binding.buffer;Require(buffer,"unbound storage buffer");
 +        entries.push_back({binding.offset+1,0,buffer->handle,buffer->size});
 +    }
 +    if(!program->uniforms[2].empty())entries.push_back(UniformEntry(program,2,program->storageBindings+1));
@@ -2565,7 +2567,7 @@
 +    void* p=device->queue.Record(DOLLY_GPU_COMPUTE,40);
 +    U64(p,8,computePipeline->handle);U64(p,16,group);U32(p,24,x);U32(p,28,y);U32(p,32,z);
 +    for(size_t i=0;i<program->bindings.size();i++)
-+        if(program->bindings[i].group==1)storageBuffers.at({program,i})->lastUsed=device->queue.submission;
++        if(program->bindings[i].group==1)program->bindings[i].buffer->lastUsed=device->queue.submission;
 +    device->queue.encoded=true;
 +}
 +
@@ -2580,17 +2582,16 @@
 +    unsigned lastGroup=program->borderSampling?3:0;
 +    std::array<uint32_t,32> borderParameters{};
 +    for(const auto& binding:program->bindings)lastGroup=std::max(lastGroup,binding.group);
-+    std::vector<Handle> groups;
++    auto& groups=bindingGroups;groups.clear();
 +    if(!program->bindings.empty())for(unsigned group=0;group<=lastGroup;group++)
 +    {
-+        std::vector<Pipeline::Entry> entries;
++        auto& entries=bindingEntries;entries.clear();
 +        if(group==1)
 +        {
 +            for(size_t i=0;i<program->bindings.size();i++)
 +            {
 +                const auto& binding=program->bindings[i];if(binding.group!=1)continue;
-+                auto found=textures.find({program,i});Require(found!=textures.end() && found->second,"unbound texture");
-+                Texture* texture=found->second;
++                Texture* texture=binding.texture;Require(texture,"unbound texture");
 +                Require(binding.offset<16,"texture binding limit");
 +                std::copy(texture->borderParameters.begin(),texture->borderParameters.end(),borderParameters.begin()+binding.offset*2);
 +                entries.push_back({binding.offset,binding.cube?2u:1u,texture->handle,0});
@@ -2614,7 +2615,7 @@
 +    for(const auto& attribute:layout->attributes)if(program->streams.contains(attribute.stream))buffers=std::max(buffers,attribute.bindingSlot+1);
 +    void* p=device->queue.Record(DOLLY_GPU_DRAW_MESH,80+8*groups.size()+24*buffers);
 +    for(size_t i=0;i<program->bindings.size();i++)
-+        if(program->bindings[i].group==1)textures.at({program,i})->lastUsed=device->queue.submission;
++        if(program->bindings[i].group==1)program->bindings[i].texture->lastUsed=device->queue.submission;
 +    U64(p,8,gpuPipeline);
 +    if(indexed){Require(indices!=nullptr,"missing index buffer");indices->lastUsed=device->queue.submission;U64(p,16,indices->handle);U64(p,32,indices->size);U32(p,60,1);}
 +    U32(p,40,count);U32(p,44,instances);U32(p,48,first);U32(p,52,base);U32(p,56,firstInstance);U32(p,64,groups.size());U32(p,68,buffers);

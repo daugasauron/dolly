@@ -359,8 +359,8 @@ input. Defaults select system cursors and low texture quality, with shadows,
 silhouettes, advanced water, postprocessing and antialiasing disabled.
 The graphics menu exposes supported controls, including texture quality and
 up to 16× anisotropic filtering. Streamed buffers, aligned uniform ranges and
-unchanged resource groups are reused;
-released resources retain their allocation charges until GPU work completes.
+unchanged resource groups are reused. Released resources retain their allocation
+charges until GPU work completes.
 The binding cache reclaims entries at the admitted object limit, submitting
 pending draws and waiting for allocation retirement before reusing that capacity.
 Upstream GPU skinning keeps animation outputs on the device, using distinct
@@ -371,10 +371,13 @@ switch paths during a match; `-conf=gpuskinning:false` selects CPU explicitly.
 The browser check rejects fallback adapters by default. It exercises drag
 selection, movement recorded in the upstream replay, graphical quick-save/load,
 training and completed house construction through the economy UI, Petra progress,
-audible data in the browser audio graph, live skinning changes, fresh processes
-and shell recovery. Append `auto cpu` after the browser name to check CPU skinning.
-Speaker output is muted during the test. Quick-save uses upstream's in-memory
-snapshot; ordinary `.0adsave` persistence has its separate headless test below.
+audible data in the browser audio graph, live skinning and texture-quality changes,
+fresh processes and shell recovery. Append `auto cpu` after the browser name
+to check CPU skinning, or `core` for core WebGPU limits with optional features
+disabled. Speaker output is muted during the test. Quick-save uses upstream's
+in-memory snapshot. `test/0ad-menu-browser.mjs` exercises graphics options,
+ordinary menu save/load across fresh processes, and menu-created matches;
+ordinary `.0adsave` persistence also has its headless test below.
 For Firefox on the desktop, append `firefox` to the browser-check command. For
 software correctness, use `xvfb-run -a node test/0ad-graphics-browser.mjs zero-ad
 software` (Xvfb and xauth required). Run hardware checks serially.

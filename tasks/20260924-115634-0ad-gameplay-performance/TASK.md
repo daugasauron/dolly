@@ -355,3 +355,45 @@ restores the match; its downloaded `.0adsave` contains the entered description,
 2,000 ms simulation time and a 5,151,409-byte serialized simulation. Its final
 reporting assumed the new-match PlayerData layout; the permanent check now
 handles the saved replay's null Gaia entry.
+
+A Firefox asset/input sweep starts all 15 playable civilizations in fresh game
+processes, performs repeated box selections, and checks every engine log. All
+pass: 30,753 measured gameplay frames, civilization means 9.87–11.03 ms, maximum
+129.16 ms, peak process-tree memory 4,039,098,368 bytes under a 5 GiB limit.
+Evidence: `.cache/0ad/civilizations-firefox.log` and the per-civilization captures
+and logs in `.cache/0ad/civilizations-firefox/`.
+
+A ten-minute Firefox production-engine run records 59,216 frames with mean
+10.15 ms and maximum 95.38 ms while repeating box selections. It exits with
+status zero, but the harness then requests the wrong profiler file and times
+out before downloading the final engine log. Its gameplay timing is valid;
+the export/log acceptance is incomplete. Evidence:
+`.cache/0ad/stall-binding-fields-firefox{-frames.json,.log}`.
+
+Shader bindings now live with their program, removing the context's two maps
+and their stale program keys. Draw/dispatch reuse temporary binding vectors;
+cache hits compare borrowed entries without allocating an owned key. A two-core
+Chrome A/B/B/A comparison of the latter change gives 30-second paused-scene means
+6.52/4.53 ms before and 6.24/4.34 ms after (about 4% in each adjacent pair).
+The hardware timings vary, so this does not establish a gameplay-wide gain.
+Firefox gameplay passes five live texture-quality changes, CPU/GPU skinning,
+training, construction, quick-save/load and native screenshots; presented frames
+are opaque and engine logs clean. Combat/economy means are 8.95/9.11 ms, peak
+process-tree memory 4,113,264,640 bytes. Source checks pass 279/279 and the native
+patch reconstructs all 46 files from pristine upstream. Evidence:
+`.cache/0ad/binding-scratch-{long-chromium,gameplay-firefox}.log`,
+`binding-source.log`.
+
+The second physical GPU also passes: Chrome identifies `amd rdna-2` with only
+the Radeon Vulkan ICD enabled. Under two CPU cores and a 5 GiB scope, the full
+gameplay check averages 9.24/8.96 ms in combat/economy, peaks at 3,351,990,272 bytes,
+and completes five live texture-quality changes with clean logs and opaque
+frames. Evidence: `.cache/0ad/binding-scratch-gameplay-amd-stable-chromium.log`.
+The newly packaged 2,068,959,388-byte image then passes on that GPU with core
+WebGPU limits and no optional features: 9.06/9.11 ms means, 3,591,618,560-byte peak.
+This exercises GPU skinning without shader-f16 and uncompressed texture fallback;
+the fixture verifies the actual device limits/features. Evidence:
+`.cache/0ad/binding-final-core-amd-chromium.log`.
+The same image passes the software-rendered gameplay/readback path, with clean
+logs and a 3,560,488,960-byte peak. Means are 78.90/183.17 ms; this is correctness
+coverage, not playable software performance. `.cache/0ad/binding-final-software.log`.

@@ -24,10 +24,12 @@ try {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   // Keep the audio graph active without playing test audio through speakers.
   await page.addInitScript(()=>{
-    const connect=AudioNode.prototype.connect;
+    const connect=AudioNode.prototype.connect, muted=new WeakMap();
     AudioNode.prototype.connect=function(target,...args){
-      if(target===this.context.destination){const gain=this.context.createGain();gain.gain.value=0;
-        connect.call(gain,target);return connect.call(this,gain,...args);}
+      if(target===this.context.destination){
+        let gain=muted.get(this.context);
+        if(!gain){gain=this.context.createGain();gain.gain.value=0;connect.call(gain,target);muted.set(this.context,gain);}
+        return connect.call(this,gain,...args);}
       return connect.call(this,target,...args);
     };
   });

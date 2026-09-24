@@ -27,6 +27,7 @@ export const browserSources = new Set([
   "test/fixtures/gpu-retirement-worker.mjs",
   "test/fixtures/gpu-surface-observer.mjs",
   "test/fixtures/gpu-no-bc.mjs",
+  "test/fixtures/gpu-core-limits.mjs",
   "test/fixtures/audio-boundary.mjs",
   "test/fixtures/fluid-direct.mjs",
   "test/fixtures/http-admission-worker.mjs",

@@ -11,9 +11,9 @@ const browserName=process.argv[4]??'chromium';
 const compression=process.argv[5]??'auto';
 const animation=process.argv[6]??'gpu';
 assert.ok(['default','zero-ad'].includes(image) && ['hardware','software'].includes(backend),
-  'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox] [auto|uncompressed] [gpu|cpu]');
+  'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox] [auto|uncompressed|core] [gpu|cpu]');
 assert.ok(['chromium','firefox'].includes(browserName) && (browserName==='chromium'||backend==='hardware'));
-assert.ok(['auto','uncompressed'].includes(compression));
+assert.ok(['auto','uncompressed','core'].includes(compression));
 assert.ok(['gpu','cpu'].includes(animation));
 await mkdir(output,{recursive:true});
 const sources=inspectDollyfile(await readFile(new URL('modules/zero-ad.dm',root),'utf8')).sources;
@@ -24,6 +24,7 @@ let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFi
     'stats:{...stats,allocatedBytes:usedBytes,frameTime:performance.now(),gpuTotalMs:scope.gpuTotalMs}');
 if(backend==='software')provider=provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true');
 if(compression==='uncompressed')provider='import "/test/fixtures/gpu-no-bc.mjs";\n'+provider;
+if(compression==='core')provider='import "/test/fixtures/gpu-core-limits.mjs";\n'+provider;
 const server=await startBrowserServer(root.pathname,image,0,new Map([['/src/gpu-worker.mjs',provider]]),
   fixtures);
 let browser,deadline,page;
@@ -193,6 +194,14 @@ try {
     assert.equal(await page.evaluate(first=>__dolly.gpu.stats.dispatches>first,first),enabled,
       'Changing GPU skinning during a match must change compute activity');
   }
+  await page.keyboard.press('Shift+Space');await advance(2);
+  for(const quality of [2,0]) {
+    await page.keyboard.press('F9');await advanceFor(250);
+    await page.keyboard.type(`Engine.ConfigDB_CreateValue("user", "textures.quality", "${quality}")`);
+    await page.keyboard.press('Enter');await advanceFor(250);
+    await page.keyboard.press('F9');await advance(90);
+  }
+  await page.keyboard.press('Shift+Space');await advance(2);
   await page.keyboard.press('F2');await advance(4);
   await stop();
   const screenshot=await download('/opt/0ad/data/screenshots/screenshot0001.png','graphics-readback.png',null);
