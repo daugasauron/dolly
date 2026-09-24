@@ -2228,8 +2228,7 @@
 +    std::map<std::pair<Program*,int32_t>,Texture*> textures;
 +    struct ResourceGroup { Handle handle=0;uint64_t frame=0; };
 +    std::map<std::tuple<Handle,unsigned,std::vector<Pipeline::Entry>>,ResourceGroup> resourceGroups;
-+    std::array<uint32_t,32> borderUniform{};
-+    Program::UniformSlice borderSlice;
++    std::map<std::array<uint32_t,32>,std::pair<Handle,size_t>> borderUniforms;
 +    Rect viewport{},scissor{};
 +    bool passOpen=false,resumeEnabled=true;
 +};
@@ -2373,13 +2372,10 @@
 +        }
 +        else if(group==3)
 +        {
-+            if(borderSlice.frame!=device->queue.frame || borderUniform!=borderParameters)
-+            {
-+                borderUniform=borderParameters;
-+                auto [handle,offset]=device->queue.Uniform(borderParameters.data(),sizeof(borderParameters));
-+                borderSlice={handle,offset,device->queue.frame};
-+            }
-+            entries.push_back({0,0,borderSlice.handle,sizeof(borderParameters),borderSlice.offset});
++            auto [it,inserted]=borderUniforms.try_emplace(borderParameters);
++            if(inserted)it->second=device->queue.Uniform(borderParameters.data(),sizeof(borderParameters));
++            const auto [handle,offset]=it->second;
++            entries.push_back({0,0,handle,sizeof(borderParameters),offset});
 +        }
 +        else if(!program->uniforms[group].empty())
 +        {
@@ -2530,7 +2526,11 @@
 +        queue.retired.push_back(it->second.handle);it=context->resourceGroups.erase(it);
 +    }
 +    PresentCommands();queue.Flush();queue.uniformPosition=queue.uniformUploadStart=0;++queue.frame;
-+    if(context)context->nextUploadedVertex=context->nextUploadedIndex=0;
++    if(context)
++    {
++        context->nextUploadedVertex=context->nextUploadedIndex=0;
++        context->borderUniforms.clear();
++    }
 +}
 +void Context::ReadbackFramebufferSync(uint32_t x,uint32_t y,uint32_t width,uint32_t height,void* output)
 +{

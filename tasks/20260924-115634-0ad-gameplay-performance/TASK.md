@@ -198,7 +198,7 @@ harness: its single raw 2 GB transfer was killed at the 8 GiB cap before FROM.
 Chrome additionally verifies repeated COPY reuse, directory merging and both
 file/directory type changes. SOURCE/parser browser checks still pass. Evidence:
 `.cache/0ad/artifact-stream-{all-source,parser-browser,browser-direct,
-browser-firefox-parts,browser-copy}.log`. Seed/image rebuild is pending.
+browser-firefox-parts,browser-copy}.log`.
 
 The artifact audit also exposed fixed per-record waiting in the libcurl adapter:
 curl's raw transfer timed out after four minutes, while the existing direct
@@ -219,3 +219,22 @@ library passes authentication, protocol/policy rejection, concurrent transfers
 and callback cancellation, and both browsers pass core process/HTTP interruption
 checks. Evidence: `.cache/0ad/curl-bulk-{chromium,firefox}.log`,
 `curl-ready-{contract,core,source}.log` (279 source checks).
+
+Sampler parameters now reuse a uniform slice for each distinct value within the
+frame, then discard that index at presentation. Paired Firefox selection runs
+reduce uniform uploads 93,323→66,751 bytes/frame and resource groups 12.49→9.87
+per frame. Mean frame time is 9.47→9.07 ms and cold selection 95.0→86.5 ms;
+these timings are one pair, not a cross-machine performance guarantee. Evidence:
+`.cache/0ad/sampler-{before-firefox-complete,after-firefox}.log` and
+`bc-sampler-{before,after}-firefox-frames.json`.
+
+The rebuilt engine passes full hardware Firefox gameplay (peak 3,940,442,112
+bytes), including opaque pixels, inputs, construction/training, save/load,
+audio and shell recovery. The same checks pass on Chrome SwiftShader (peak
+3,502,047,232 bytes), but software combat/economy means are 73.3/178.4 ms;
+software correctness does not imply playable performance. Source checks pass
+279/279 and the 42-file engine patch reconstructs pristine upstream. Evidence:
+`.cache/0ad/sampler-cache-{gameplay-firefox,gameplay-software,source,image}.log`.
+An initial selection probe was launched before image packing finished and
+hit its 5 GiB cap while Firefox received the raw 2 GB image. The completed
+packed image passes; that interrupted probe is excluded from the comparison.
