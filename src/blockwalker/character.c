@@ -4,6 +4,7 @@
 #include <raymath.h>
 #include <math.h>
 #include <limits.h>
+#include <float.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +27,13 @@ float block_density(Block b){
     return density*(b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1);
 }
 static int blocks_adjacent(Block a,Block b){return llabs((long long)a.x-b.x)+llabs((long long)a.y-b.y)+llabs((long long)a.z-b.z)==1;}
+static int blocks_exhaust(Block a,Block b){
+    long long d[]={ (long long)b.x-a.x,(long long)b.y-a.y,(long long)b.z-a.z };
+    return a.joint==BLOCK_THRUSTER&&a.axis>=0&&a.axis<3&&d[a.axis]==a.direction&&d[(a.axis+1)%3]==0&&d[(a.axis+2)%3]==0;
+}
+static int exhaust_clear(const Character *c,Block b){
+    for(int i=0;i<c->count;i++)if(blocks_exhaust(b,c->blocks[i])||blocks_exhaust(c->blocks[i],b))return 0;return 1;
+}
 static int articulates(Block b){return block_cylinder(b)||b.joint==BLOCK_PISTON;}
 void *array_resize(void *memory,size_t count,size_t size) {
     if(count>SIZE_MAX/size){fputs("Character allocation overflow\n",stderr);exit(1);}
@@ -39,7 +47,7 @@ void character_copy(Character *to,const Character *from) {
     to->count=from->count;to->anchored=from->anchored;if(from->count)memcpy(to->blocks,from->blocks,from->count*sizeof(Block));
 }
 static int key_valid(int k) {return k==0||(k>='A'&&k<='Z')||(k>='0'&&k<='9');}
-int character_validate(const Character *c) {
+static int character_valid(const Character *c,int legacy) {
     if(c->count<0||c->count>c->capacity||(c->count&&!c->blocks)||(c->anchored!=0&&c->anchored!=1))return 0;
     unsigned char used[128]={0};
     for(int i=0;i<c->count;i++) {
@@ -50,6 +58,7 @@ int character_validate(const Character *c) {
         if(b.parent>=0&&!blocks_adjacent(c->blocks[b.parent],b))return 0;
         for(int j=0;j<i;j++){Block a=c->blocks[j];if(a.x==b.x&&a.y==b.y&&a.z==b.z)return 0;}
         if(i==0&&b.joint)return 0;
+        if(!legacy&&b.joint==BLOCK_THRUSTER&&(b.negative||!exhaust_clear(c,b)))return 0;
         if(block_controlled(b)){
             if(i==0||!key_valid(b.negative)||!key_valid(b.positive)||
                 (b.negative&&(b.negative==b.positive||used[b.negative]))||(b.positive&&used[b.positive]))return 0;
@@ -58,18 +67,20 @@ int character_validate(const Character *c) {
     }
     return 1;
 }
+int character_validate(const Character *c){return character_valid(c,0);}
 int character_candidate(const Character *c,int parent,int x,int y,int z,int joint,int color,Block *block) {
     if(c->count==INT_MAX||y<0||parent< -1||parent>=c->count||
         (c->count==0?parent!=-1||joint:parent<0)||joint<0||joint>=BLOCK_KINDS||color<0||color>=COLOR_COUNT)return 0;
     if(parent>=0){Block a=c->blocks[parent];if(llabs((long long)a.x-x)+llabs((long long)a.y-y)+llabs((long long)a.z-z)!=1)return 0;}
     for(int i=0;i<c->count;i++){Block a=c->blocks[i];if(a.x==x&&a.y==y&&a.z==z)return 0;}
     Block b={.x=x,.y=y,.z=z,.parent=parent,.joint=joint,.color=color,.axis=2,.speed=2.5f,.limit=75,.travel=1.5f,.force=24,.direction=1};
-    if(joint>=BLOCK_PISTON&&parent>=0){Block a=c->blocks[parent];b.axis=x!=a.x?0:y!=a.y?1:2;if(joint==BLOCK_PISTON||joint==BLOCK_MAGNET||joint==BLOCK_EYES)b.direction=(b.axis==0?x-a.x:b.axis==1?y-a.y:z-a.z)<0?-1:1;}
+    if(joint>=BLOCK_PISTON&&parent>=0){Block a=c->blocks[parent];b.axis=x!=a.x?0:y!=a.y?1:2;if(joint==BLOCK_PISTON||joint==BLOCK_THRUSTER||joint==BLOCK_MAGNET||joint==BLOCK_EYES)b.direction=(b.axis==0?x-a.x:b.axis==1?y-a.y:z-a.z)<0?-1:1;}
+    if(!exhaust_clear(c,b))return 0;
     if(block_controlled(b)){
         const char *choices="QAWSOKPLERDTFGYHUJIZXCVBNM1234567890";int found=0;
-        for(const char *k=choices;*k&&found<2;k++) {
+        for(const char *k=choices;*k&&found<(joint==BLOCK_THRUSTER?1:2);k++) {
             int used=0;for(int i=0;i<c->count;i++)if(block_controlled(c->blocks[i])&&(c->blocks[i].negative==*k||c->blocks[i].positive==*k))used=1;
-            if(!used){if(found++==0)b.negative=*k;else b.positive=*k;}
+            if(!used){if(found++==0&&joint!=BLOCK_THRUSTER)b.negative=*k;else b.positive=*k;}
         }
     }
     *block=b;return 1;
@@ -79,6 +90,34 @@ int character_add(Character *c,int parent,int x,int y,int z,int joint,int color)
     if(c->count==c->capacity){int next=c->capacity>INT_MAX/2?INT_MAX:c->capacity?c->capacity*2:16;
         c->blocks=array_resize(c->blocks,next,sizeof(Block));c->capacity=next;}
     c->blocks[c->count]=b;return c->count++;
+}
+static int append_thruster(Character *c,Block engine,int key,int nozzle){
+    Block best={0},root=c->blocks[0];double score=DBL_MAX,outward=-DBL_MAX;int found=0;
+    for(int i=0;i<c->count;i++)for(int axis=0;axis<3;axis++)for(int sign=-1;sign<=1;sign+=2){
+        Block b=engine,a=c->blocks[i];long long v[]={a.x,a.y,a.z};v[axis]+=sign;
+        if(v[0]<INT_MIN||v[0]>INT_MAX||v[1]<0||v[1]>INT_MAX||v[2]<INT_MIN||v[2]>INT_MAX)continue;
+        b.x=v[0];b.y=v[1];b.z=v[2];b.parent=i;b.negative=0;b.positive=key;b.direction=nozzle;
+        int occupied=0;for(int j=0;j<c->count;j++)occupied|=c->blocks[j].x==b.x&&c->blocks[j].y==b.y&&c->blocks[j].z==b.z;
+        if(occupied||!exhaust_clear(c,b))continue;
+        double d[]={ (double)b.x-engine.x,(double)b.y-engine.y,(double)b.z-engine.z },cost=0;
+        for(int j=0;j<3;j++)cost+=d[j]*d[j]*(j==engine.axis?1:5);
+        double radial=d[0]*((double)engine.x-root.x)+d[1]*((double)engine.y-root.y)+d[2]*((double)engine.z-root.z);
+        if(cost<score||(cost==score&&radial>outward)){score=cost;outward=radial;best=b;found=1;}
+    }
+    if(!found)return 0;
+    int index=character_add(c,best.parent,best.x,best.y,best.z,BLOCK_BOX,best.color);if(index<0)return 0;c->blocks[index]=best;return 1;
+}
+int character_upgrade_thrusters(Character *c){
+    if(!character_valid(c,1))return 0;
+    int count=c->count;Block *old=array_resize(NULL,count,sizeof(Block));if(count)memcpy(old,c->blocks,count*sizeof(Block));
+    for(int i=0;i<count;i++)if(c->blocks[i].joint==BLOCK_THRUSTER){c->blocks[i].negative=0;c->blocks[i].direction=-1;}
+    for(int i=0;i<count;i++)if(c->blocks[i].joint==BLOCK_THRUSTER&&!exhaust_clear(c,c->blocks[i])){c->blocks[i].joint=BLOCK_BOX;c->blocks[i].positive=0;}
+    int good=1;
+    for(int i=0;good&&i<count;i++)if(old[i].joint==BLOCK_THRUSTER){
+        if(c->blocks[i].joint!=BLOCK_THRUSTER)good=append_thruster(c,old[i],old[i].positive,-1);
+        if(good&&old[i].negative)good=append_thruster(c,old[i],old[i].negative,1);
+    }
+    free(old);return good&&character_validate(c);
 }
 void character_remove(Character *c,int index) {
     if(index<0||index>=c->count)return;
@@ -125,7 +164,7 @@ int character_save(const Character *c,const char *path) {
     if(!character_validate(c))return 0;
     char tmp[256];if(snprintf(tmp,sizeof(tmp),"%s.tmp",path)>=(int)sizeof(tmp))return 0;
     FILE *f=fopen(tmp,"w");if(!f)return 0;
-    fprintf(f,"BLOCKWALKER 6\n%d %d\n",c->count,c->anchored);
+    fprintf(f,"BLOCKWALKER 7\n%d %d\n",c->count,c->anchored);
     for(int i=0;i<c->count;i++){Block b=c->blocks[i];fprintf(f,"%d %d %d %d %d %d %d %d %d %.3f %.3f %.3f %.3f %d %d %d\n",b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish);}
     int good=!ferror(f);if(fclose(f)!=0)good=0;
     if(!good||rename(tmp,path)!=0){remove(tmp);return 0;}return 1;
@@ -133,12 +172,12 @@ int character_save(const Character *c,const char *path) {
 int character_load(Character *c,const char *path) {
     FILE *f=fopen(path,"r");if(!f)return 0;
     Character next={0};char magic[32];int version=0,good=1;
-    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>6)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
+    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>7)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
     if(good&&version>=4&&fscanf(f,"%d",&next.anchored)!=1)good=0;
     if(good){next.capacity=next.count;next.blocks=array_resize(NULL,next.count,sizeof(Block));}
     for(int i=0;good&&i<next.count;i++){Block *b=&next.blocks[i];*b=(Block){.travel=1.5f,.force=24,.direction=1};if(fscanf(f,"%d%d%d%d%d%d%d%d%d%f%f",&b->x,&b->y,&b->z,&b->parent,&b->joint,&b->color,&b->axis,&b->negative,&b->positive,&b->speed,&b->limit)!=11)good=0;if(version>=2&&fscanf(f,"%f%f",&b->travel,&b->force)!=2)good=0;if(version>=3&&fscanf(f,"%d",&b->direction)!=1)good=0;if(version>=4&&fscanf(f,"%d%d",&b->material,&b->finish)!=2)good=0;}
     int ch;while((ch=fgetc(f))!=EOF)if(ch!=' '&&ch!='\n'&&ch!='\t'&&ch!='\r')good=0;
-    fclose(f);if(!good||!character_validate(&next)){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
+    fclose(f);if(!good||!(version<7?character_upgrade_thrusters(&next):character_validate(&next))){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
 }
 void physics_stop(Physics *p) {
     if(p->running){if(p->owns_world)b3DestroyWorld(p->world);else {for(int i=0;i<p->count;i++)b3DestroyBody(p->parts[i].body);for(int i=0;i<p->cargo_count;i++)b3DestroyBody(p->cargo[i].body);}}
@@ -224,12 +263,12 @@ void physics_motor(Physics *p,const Character *c,const unsigned char keys[128]) 
 }
 void physics_drive(Physics *p,const Character *c,const float controls[128]) {
     for(int i=1;i<c->count;i++)if(block_controlled(c->blocks[i])){
-        Block b=c->blocks[i];float direction=controls[b.positive]-controls[b.negative];
+        Block b=c->blocks[i];float direction=b.joint==BLOCK_THRUSTER?(b.positive?Clamp(controls[b.positive],0,1):0):controls[b.positive]-controls[b.negative];
         p->parts[i].command=direction;
         if(b.joint==BLOCK_MAGNET)magnet_drive(p,i,b,controls[b.positive],controls[b.negative]);
         else if(b.joint==BLOCK_PISTON)b3PrismaticJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
         else if(b.joint==BLOCK_THRUSTER){
-            b3WorldTransform t=b3Body_GetTransform(p->parts[i].body);Vector3 axis={0};((float *)&axis)[b.axis]=direction*b.force;
+            b3WorldTransform t=b3Body_GetTransform(p->parts[i].body);Vector3 axis={0};((float *)&axis)[b.axis]=-b.direction*direction*b.force;
             axis=Vector3RotateByQuaternion(axis,(Quaternion){t.q.v.x,t.q.v.y,t.q.v.z,t.q.s});
             b3Body_ApplyForceToCenter(p->parts[i].body,(b3Vec3){axis.x,axis.y,axis.z},true);
         }else b3RevoluteJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
@@ -312,11 +351,17 @@ static void actuator_check(int kind,int axis,int sign) {
     Character c={0};Physics p={0};unsigned char keys[128]={0};
     character_add(&c,-1,0,3,0,BLOCK_BOX,0);
     character_add(&c,0,sign*(axis==0),3+sign*(axis==1),sign*(axis==2),kind,1);c.blocks[1].axis=axis;c.blocks[1].speed=1;
+    if(kind==BLOCK_THRUSTER){
+        Block b=c.blocks[1],candidate;int v[]={b.x,b.y,b.z};v[axis]+=sign;
+        assert(b.direction==sign&&!b.negative&&b.positive);
+        assert(!character_candidate(&c,1,v[0],v[1],v[2],BLOCK_BOX,0,&candidate));
+        c.blocks[1].direction=-sign;assert(!character_validate(&c));c.blocks[1]=b;c.blocks[1].positive='A';
+    }
     physics_start(&p,&c);b3World_SetGravity(p.world,(b3Vec3){0,0,0});
     for(int i=0;i<2;i++){b3Pos pos=b3Body_GetPosition(p.parts[i].body);pos.y+=5;b3Body_SetTransform(p.parts[i].body,pos,(b3Quat){{0,0,0},1});}
     if(kind!=BLOCK_THRUSTER)b3Body_SetType(p.parts[0].body,b3_staticBody);
     b3Pos initial=b3Body_GetPosition(p.parts[1].body);
-    keys['A']=1;for(int i=0;i<(kind==BLOCK_WHEEL?600:60);i++)physics_step(&p,&c,keys);
+    keys['A']=1;for(int i=0;i<(kind==BLOCK_WHEEL?600:kind==BLOCK_THRUSTER?12:60);i++)physics_step(&p,&c,keys);
     float forward=p.parts[1].angle;keys['A']=0;
     if(kind==BLOCK_WHEEL)assert(p.parts[1].driven_radians>9.5f);
     else if(kind==BLOCK_PISTON){
@@ -324,11 +369,15 @@ static void actuator_check(int kind,int axis,int sign) {
         float displacement=axis==0?position.x-initial.x:axis==1?position.y-initial.y:position.z-initial.z;
         assert(forward>.8f&&forward<1.1f&&displacement*sign>.8f);
     }
-    else {b3Vec3 v=b3Body_GetLinearVelocity(p.parts[0].body);float along=axis==0?v.x:axis==1?v.y:v.z;assert(along>10);}
+    else {
+        b3Vec3 momentum={0};for(int i=0;i<p.count;i++){b3BodyId body=p.parts[i].body;momentum=b3Add(momentum,b3MulSV(b3Body_GetMass(body),b3Body_GetLinearVelocity(body)));}
+        assert(fabsf(((float *)&momentum)[axis]+sign*c.blocks[1].force*.2f)<.02f);
+    }
     for(int i=0;i<60;i++)physics_step(&p,&c,keys);
     if(kind==BLOCK_PISTON||kind==BLOCK_WHEEL)assert(fabsf(p.parts[1].angle-forward)<.03f);
     keys['Q']=1;for(int i=0;i<150;i++)physics_step(&p,&c,keys);
     if(kind==BLOCK_PISTON)assert(fabsf(p.parts[1].angle)<.03f);
+    if(kind==BLOCK_THRUSTER)assert(p.parts[1].command==0);
     assert(p.max_separation<.03f);
     printf("ACTUATOR %s %c: forward %.3f, reverse %.3f, driven %.3f\n",block_names[kind],'X'+axis,forward,p.parts[1].angle,p.parts[1].driven_radians);
     physics_stop(&p);character_clear(&c);
@@ -509,7 +558,7 @@ int character_check(void) {
     playground_check();
     for(int axis=0;axis<3;axis++){
         motor_check(axis);
-        actuator_check(BLOCK_PISTON,axis,1);actuator_check(BLOCK_PISTON,axis,-1);actuator_check(BLOCK_THRUSTER,axis,1);actuator_check(BLOCK_WHEEL,axis,1);
+        actuator_check(BLOCK_PISTON,axis,1);actuator_check(BLOCK_PISTON,axis,-1);actuator_check(BLOCK_THRUSTER,axis,1);actuator_check(BLOCK_THRUSTER,axis,-1);actuator_check(BLOCK_WHEEL,axis,1);
     }
     Character c={0},loaded={0};Physics p={0};unsigned char keys[128]={0};character_preset(&c,1);
     assert(c.count==5&&character_validate(&c));assert(character_save(&c,"/tmp/blockwalker-check.txt"));

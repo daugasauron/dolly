@@ -33,3 +33,13 @@ The first fresh-world run revealed asymmetric relocation of engines whose
 old exhaust faces were blocked by landing legs. Mount selection now preserves
 radial symmetry in equal-distance choices. Aircraft/boat verification, the
 single-key builder UI, final catalog promotion and image packaging remain.
+
+Firefox's rendered builder workflow passes firing/release, rebinding, blocked
+orientation changes, blocked nozzle placement, legal side attachment and undo
+(`build/blockwalker-thruster-ui-firefox/`). The 180 s populated symmetric-mount
+run keeps the boats afloat and aircraft upright. Postbird's old controller
+oscillated with its wider mounts and added mass; the canonical editable program
+now derives its four motor arms from the blueprint and uses retuned attitude
+feedback. It physically delivers its starting crate at 29.883 s and remains
+stable for 180 s (`build/blockwalker-launcher-postbird-tuned/`). Other bundled
+program sources are unchanged. Combined-world and packaged-image checks remain.

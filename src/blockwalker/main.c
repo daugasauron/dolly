@@ -117,8 +117,9 @@ static void follow_creature(void){
     }world_follow=0;dirty=1;
 }
 static void program_page(int delta){program_line=(int)Clamp(program_line+delta,0,fmaxf(0,program_lines-20));dirty=1;}
-static int world_rows(void){return terrain_version>=2?7:8;}
-static int world_list_top(void){return terrain_version>=2?376:344;}
+static int world_rows(void){return terrain_version>=3?6:terrain_version>=2?7:8;}
+static int world_list_top(void){return terrain_version>=3?408:terrain_version>=2?376:344;}
+static int world_places(void){return terrain_version>=3?12:terrain_version>=2?10:terrain_version?8:7;}
 static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-world_rows()));dirty=1;}
 static void pilot_help(char movement[48],char magnets[48]){
     Creature *c=world_find(world.player);int on=0,off=0,mixed=0,found=0;
@@ -303,16 +304,17 @@ static void click(void){
     if(world_view){
         if(!agent_panel&&inside(1036,188,220,36)){drop_cargo();return;}
         if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
-        for(int i=0;i<(terrain_version>=2?10:terrain_version?8:7);i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
+        for(int i=0;i<world_places();i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
             piloting=eye_view=0;
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20}};
-            const float distances[]={24,50,100,110,150,512,72,76,40,38};
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{78,3,-48},{57,1,-13}};
+            const float distances[]={24,50,100,110,150,512,72,76,40,38,55,38};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;
                 if(terrain_version&&i==6){orbit.target=(Vector3){-47,1,64};orbit.distance=12;orbit.yaw=PI;orbit.pitch=.12f;}
                 if(terrain_version&&i==7){orbit.target=(Vector3){-44,2,110};orbit.distance=35;orbit.yaw=.7f;orbit.pitch=.45f;}
                 if(i==8){orbit.yaw=0;orbit.pitch=.04f;}
                 if(i==9){orbit.yaw=.8f;orbit.pitch=.4f;}
-                if(i>=8)for(int j=0;j<world.count;j++){Creature *c=&world.creatures[j];if(!c->cargo&&Vector3Distance(c->physics.start,orbit.target)<30){world_list=j;world_page(0);break;}}
+                if(i>=10){orbit.yaw=.6f;orbit.pitch=.4f;}
+                if(i>=8){float nearest=30;for(int j=0;j<world.count;j++){Creature *c=&world.creatures[j];float distance=Vector3Distance(c->physics.start,orbit.target);if(!c->cargo&&distance<nearest){nearest=distance;world_list=j;}}world_page(0);}
                 orbit_update(&orbit);dirty=1;}return;
         }
         world_page(0);
@@ -353,7 +355,7 @@ edit_view:
         Vector3 normal;int hit=render_pick(&design,&orbit,mouse_x,mouse_y,&normal);
         if(tool==SELECT){selected=hit;binding=-1;dirty=1;return;}
         if(tool==ERASE){selected=hit;remove_selected();return;}
-        Block b;if(candidate(&b)){remember();selected=character_add(&design,b.parent,b.x,b.y,b.z,b.joint,b.color);design.blocks[selected].material=b.material;design.blocks[selected].finish=b.finish;changed();say(b.joint?"Joint added. Select its two keys in the inspector.":"Box attached to every touching rigid block.");}
+        Block b;if(candidate(&b)){remember();selected=character_add(&design,b.parent,b.x,b.y,b.z,b.joint,b.color);design.blocks[selected].material=b.material;design.blocks[selected].finish=b.finish;changed();say(b.joint==BLOCK_THRUSTER?"Thruster added. Set its firing key and exhaust face.":b.joint?"Joint added. Select its two keys in the inspector.":"Box attached to every touching rigid block.");}
         else say(design.count?"Place on an empty adjacent side, above the grid.":"Start with a regular box on the grid.");
         return;
     }
@@ -367,9 +369,15 @@ edit_view:
         for(int axis=0;axis<3;axis++)if(inside(1036+axis*76,248,68,36)){remember();b->axis=axis;changed();}return;
     }
     if(block_controlled(*b)){
-        if((b->joint==BLOCK_PISTON||b->joint==BLOCK_MAGNET)&&inside(1200,218,56,24)){remember();b->direction=-b->direction;changed();return;}
-        for(int axis=0;axis<3;axis++)if(inside(1036+axis*76,248,68,36)){remember();b->axis=axis;changed();say("Joint axis changed.");return;}
-        for(int key=0;key<2;key++)if(inside(1036+key*116,336,104,44)){binding=key;dirty=1;say("Press a letter or number for this direction. Esc cancels.");return;}
+        if((b->joint==BLOCK_PISTON||b->joint==BLOCK_THRUSTER||b->joint==BLOCK_MAGNET)&&inside(1200,218,56,24)){
+            Block next=*b;next.direction=-next.direction;Block old=*b;*b=next;int valid=character_validate(&design);*b=old;
+            if(valid){remember();*b=next;changed();}else say("Leave the thruster's exhaust face open.");return;
+        }
+        for(int axis=0;axis<3;axis++)if(inside(1036+axis*76,248,68,36)){
+            Block next=*b;next.axis=axis;Block old=*b;*b=next;int valid=character_validate(&design);*b=old;
+            if(valid){remember();*b=next;changed();}else say("Leave the thruster's exhaust face open.");return;
+        }
+        for(int key=b->joint==BLOCK_THRUSTER?1:0;key<2;key++)if(inside(b->joint==BLOCK_THRUSTER?1036:1036+key*116,336,b->joint==BLOCK_THRUSTER?220:104,44)){binding=key;dirty=1;say("Press a letter or number for this direction. Esc cancels.");return;}
         if(inside(1036,436,40,36)||inside(1216,436,40,36)){remember();if(b->joint==BLOCK_THRUSTER||b->joint==BLOCK_MAGNET)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);else b->speed=Clamp(b->speed+(mouse_x<1100?-.5f:.5f),.5f,6);changed();return;}
         if(inside(1036,532,40,36)||inside(1216,532,40,36)){remember();if(b->joint==BLOCK_PISTON)b->travel=Clamp(b->travel+(mouse_x<1100?-.25f:.25f),.25f,3);else if(b->joint==BLOCK_HINGE)b->limit=Clamp(b->limit+(mouse_x<1100?-15:15),15,150);else if(b->joint==BLOCK_WHEEL||b->joint==BLOCK_TURNTABLE)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);changed();return;}
     }else if(selected>0&&inside(1036,248,220,42)){
@@ -493,8 +501,8 @@ static void draw_ui(void){
     label(262,647,piloting?text:world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch"};
-        for(int i=0;i<(terrain_version>=2?10:terrain_version?8:7);i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
+        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry","Rivals"};
+        for(int i=0;i<world_places();i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,world_list_top()-28,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-world_rows()));
         for(int i=0;i<world_rows()&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,world_list_top()+i*26,text,14,c->id==world_follow?accent:c->team?block_colors[world_team_color(c->team)]:ink);}
@@ -548,9 +556,13 @@ static void draw_ui(void){
                 label(1036,322,"View follows this block.",15,muted);label(1036,350,"Backslash: switch camera",15,muted);
                 label(1036,392,"Aim the lenses outward.",15,muted);
             }else if(block_controlled(b)){
-                label(1036,224,b.joint==BLOCK_MAGNET?"MAGNET FACE":"CONTROL AXIS",15,muted);if(b.joint==BLOCK_PISTON||b.joint==BLOCK_MAGNET)button(1200,218,56,24,b.direction>0?"+":"-",0);for(int i=0;i<3;i++){char name[2]={'X'+i,0};button(1036+i*76,248,68,36,name,b.axis==i);}
-                label(1036,310,b.joint==BLOCK_MAGNET?"SWITCH OFF":b.joint==BLOCK_PISTON?"RETRACT -":"REVERSE -",15,muted);label(1152,310,b.joint==BLOCK_MAGNET?"SWITCH ON":b.joint==BLOCK_PISTON?"EXTEND +":"FORWARD +",15,muted);
-                char negative[2]={b.negative?b.negative:'-',0},positive[2]={b.positive?b.positive:'-',0};button(1036,336,104,44,binding==0?"Press key":negative,binding==0);button(1152,336,104,44,binding==1?"Press key":positive,binding==1);
+                label(1036,224,b.joint==BLOCK_MAGNET?"MAGNET FACE":b.joint==BLOCK_THRUSTER?"EXHAUST FACE":"CONTROL AXIS",15,muted);if(b.joint==BLOCK_PISTON||b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)button(1200,218,56,24,b.direction>0?"+":"-",0);for(int i=0;i<3;i++){char name[2]={'X'+i,0};button(1036+i*76,248,68,36,name,b.axis==i);}
+                char negative[2]={b.negative?b.negative:'-',0},positive[2]={b.positive?b.positive:'-',0};
+                if(b.joint==BLOCK_THRUSTER){label(1036,310,"FIRE",15,muted);button(1036,336,220,44,binding==1?"Press key":positive,binding==1);}
+                else{
+                    label(1036,310,b.joint==BLOCK_MAGNET?"SWITCH OFF":b.joint==BLOCK_PISTON?"RETRACT -":"REVERSE -",15,muted);label(1152,310,b.joint==BLOCK_MAGNET?"SWITCH ON":b.joint==BLOCK_PISTON?"EXTEND +":"FORWARD +",15,muted);
+                    button(1036,336,104,44,binding==0?"Press key":negative,binding==0);button(1152,336,104,44,binding==1?"Press key":positive,binding==1);
+                }
                 int force_control=b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET;
                 label(1036,407,b.joint==BLOCK_MAGNET?"HOLDING FORCE":force_control?"PUSH FORCE":"MOTOR SPEED",15,muted);button(1036,436,40,36,"-",0);button(1216,436,40,36,"+",0);snprintf(text,sizeof(text),force_control?"%.0f N":b.joint==BLOCK_PISTON?"%.1f m/s":"%.1f rad/s",force_control?b.force:b.speed);label(1090,444,text,17,ink);
                 if(!force_control){
@@ -570,7 +582,7 @@ static void draw_ui(void){
         label(1036,108,"HOLD KEYS TO TURN",17,muted);int row=0,actuator=0;
         control_page=(int)Clamp(control_page,0,joints?((joints-1)/7)*7:0);
         for(int i=0;i<design.count&&row<7;i++)if(block_controlled(design.blocks[i])){if(actuator++<control_page)continue;Block b=design.blocks[i];int y=152+row*66;
-            snprintf(text,sizeof(text),"%02d",i+1);label(1036,y+12,text,16,muted);char a[2]={b.negative?b.negative:'-',0},z[2]={b.positive?b.positive:'-',0};button(1072,y,72,42,a,(agent_control?agent_keys:keys)[b.negative]);button(1156,y,72,42,z,(agent_control?agent_keys:keys)[b.positive]);
+            snprintf(text,sizeof(text),"%02d",i+1);label(1036,y+12,text,16,muted);char a[2]={b.negative?b.negative:'-',0},z[2]={b.positive?b.positive:'-',0};if(b.joint==BLOCK_THRUSTER)button(1072,y,156,42,z,(agent_control?agent_keys:keys)[b.positive]);else{button(1072,y,72,42,a,(agent_control?agent_keys:keys)[b.negative]);button(1156,y,72,42,z,(agent_control?agent_keys:keys)[b.positive]);}
             PhysicsPart *part=&physics.parts[i];
             if(b.joint==BLOCK_MAGNET)snprintf(text,sizeof(text),part->magnet_power?b3Body_IsValid(part->magnet_target)?"Holding %.1f N":"On %.1f N":"Off",part->magnet_load);
             else if(b.joint==BLOCK_PISTON)snprintf(text,sizeof(text),"%.2f m",part->angle);
@@ -588,6 +600,8 @@ static void draw_ui(void){
             if(row>=program_line&&row<program_line+20)label(274,202+(row-program_line)*17,text,14,ink);
         }
         program_lines=row;if(!source)label(274,202,"No embedded program.",16,muted);JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);
+        value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"hz"):JS_UNDEFINED;
+        if(JS_IsNumber(value)){int hz;JS_ToInt32(embedded_context,&hz,value);snprintf(text,sizeof(text),"%d Hz",hz);label(552,168,text,14,muted);}JS_FreeValue(embedded_context,value);
         button(274,558,68,34,"<",0);button(908,558,68,34,">",0);
         value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"error"):JS_UNDEFINED;source=JS_IsString(value)?JS_ToCString(embedded_context,value):NULL;
         snprintf(text,sizeof(text),"%.63s",source?source:"Saved with the design / import edited source");label(350,568,text,14,source?accent:muted);
@@ -711,7 +725,7 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
         result=png?JS_NewArrayBufferCopy(ctx,png,bytes):JS_ThrowInternalError(ctx,"GPU frame capture failed");MemFree(png);
     }else if(!strcmp(op,"build")) {
         JSValue list=JS_GetPropertyStr(ctx,args,"parts");Character next={0};
-        if(!character_from_json(ctx,list,&next))result=JS_ThrowTypeError(ctx,"Invalid blueprint: connected adjacent tree, unique cells and keys, root box, positive speed/limits required");
+        if(!character_from_json(ctx,list,&next))result=JS_ThrowTypeError(ctx,"Invalid blueprint: connect adjacent blocks, keep keys and cells unique, and leave thruster exhausts open");
         else {JSValue anchored=JS_GetPropertyStr(ctx,args,"anchored");next.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);world_trial_stop();program_trial=0;physics_stop(&physics);set_world_view(0);practice_steps=0;remember();character_copy(&design,&next);selected=0;home_camera();changed();result=state(ctx);}
         character_clear(&next);JS_FreeValue(ctx,list);
     }else if(!strcmp(op,"reset")){practice_sea=number(ctx,args,"sea",practice_sea)!=0;start_test();agent_control=1;practice_steps=0;memset(agent_keys,0,128);result=state(ctx);}

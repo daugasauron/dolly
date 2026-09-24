@@ -70,20 +70,22 @@ assigned keys. The starter's editable embedded program translates WASD into
 those motor commands; Program displays and exports its source. Driving hints show
 the character's movement mode and magnet bindings. Without Eyes, entering a character uses the follow camera.
 
-The part palette also has telescoping pistons, reversible thrusters, wheels, magnets and turntables.
+The part palette also has telescoping pistons, one-way thrusters, wheels, magnets and turntables.
 Pistons move their attached branch along the selected axis and sign; the palette
 starts them pointing outward, and the inspector can reverse that sign; their travel limit
-is in metres. Thrusters apply force along their own rotating local axis and
-coast when released. Their exhaust follows the actual thrust direction and
-strength. Wheels have centered cylindrical collision shapes, a 0.7 m
+is in metres. Thrusters have one firing key and coast when released. Axis and sign select
+the nozzle face; force acts in the opposite direction. That face must stay clear
+of adjacent blocks. Reverse thrust needs a separate opposed jet. Wheels have centered cylindrical collision shapes, a 0.7 m
 radius, 0.7 m width and unlimited motor rotation. The larger radius keeps a
 same-height chassis off the ground. Attach wheels as leaves: anything beyond them rotates too.
 Turntables are thin motorized discs with continuous rotation. Attach a branch
 to the disc and mount it on a servo hinge to tilt the spinning assembly.
-Each actuator uses a pair of assignable keys. The inspector shows speed, stroke
-or force in the relevant units. Version 6 blueprints include Eyes and turntables.
-Versions 1–5 still load using the current rendering and
-connection rules; old pistons retain their positive-axis motion. The agent JSON API
+Thrusters have one firing key; other actuators use a pair of assignable keys. The inspector shows speed, stroke
+or force in the relevant units. Version 7 blueprints enforce one-way jets and exhaust clearance. Older builds
+upgrade to real opposed jets while retaining their keys and original body indices.
+Blocked engines become structural mounts with a new adjacent engine in a clear
+position. World format 2 records these parts; automatic upgrades back up the old
+world first. Added engines have mass and can change a controller’s tuning. The agent JSON API
 defaults to direction +1 and accepts -1.
 
 Magnet blocks attach rigidly and attract other dynamic bodies within 0.65 m of
@@ -270,6 +272,8 @@ pauses after the trial. The same controller implementation runs released creatur
 
 | Sensor | Meaning |
 | --- | --- |
+| `blueprint` | The character's part properties, axes, geometry and assigned keys |
+| `input`, `pressed` | Held and newly pressed pilot keys; empty for autonomous characters |
 | `dt` | Seconds between controller calls; use it for integration |
 | `x,y,z`, `vx,vy,vz` | Root world position and velocity, metres and m/s |
 | `rotation` | Root quaternion `[x,y,z,w]` |
@@ -285,7 +289,7 @@ pauses after the trial. The same controller implementation runs released creatur
 | `magnets` | Per-magnet `power` (0–1), `attached`, target `creature`/`part`, `load` (N), `targetMass` (kg), `targetSupportForce` (N) and `cargoSupportForce` (N); the latter sums external upward support over all cargo parts, excluding its own parts and holder |
 | `submerged` | Per-part fraction in water, from 0 to 1 |
 | `id`, `cargoDelivered` | Shared-world identity and lifetime delivery count |
-| `nearby` | All objects within 48 m, nearest first, with pose, bounds, mass, team, `up`, `fallenSeconds`, `controllerStopped` and cargo state; `carriedBy` identifies the carrier, `magnetHeld` distinguishes grip from riding a deck, and `visible` reports terrain-clear sight; `supply` is 0 (manual), 1 (parcel), 2 (ore) or 3 (mine sample); empty in practice |
+| `nearby` | All objects within 48 m, nearest first, with pose, root velocity (`vx`, `vy`, `vz`), bounds, mass, team, `up`, `fallenSeconds`, `controllerStopped` and cargo state; `carriedBy` identifies the carrier, `magnetHeld` distinguishes grip from riding a deck, and `visible` reports terrain-clear sight; `supply` is 0 (manual), 1 (parcel), 2 (ore) or 3 (mine sample); empty in practice |
 | `groundSamples` | World XYZ terrain samples, eight compass directions at 6 m then 16 m, beginning at +Z |
 | `terrain` | Terrain bounds within 24 m horizontally: `x/z`, `halfX/halfZ`, `low/high`, including below an aircraft; check the whole landing column |
 | `obstacles` | The terrain subset whose top is at least root Y minus 0.2 m |

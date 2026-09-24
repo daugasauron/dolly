@@ -170,7 +170,7 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
         }
         if(b.joint==BLOCK_THRUSTER&&p->running&&fabsf(p->parts[i].command)>.001f){
             float strength=fabsf(p->parts[i].command),length=.4f+1.8f*strength;
-            Vector3 direction={0};((float *)&direction)[b.axis]=-copysignf(1,p->parts[i].command);
+            Vector3 direction={0};((float *)&direction)[b.axis]=b.direction;
             direction=Vector3RotateByQuaternion(direction,q);
             Quaternion rotation=QuaternionFromVector3ToVector3((Vector3){0,1,0},direction);
             box_draw(b,Vector3Add(v,Vector3Scale(direction,.47f+length*.45f)),rotation,0,0,0,at);

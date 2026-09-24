@@ -49,6 +49,7 @@ void character_clear(Character *c);
 void character_copy(Character *to,const Character *from);
 int character_candidate(const Character *c,int parent,int x,int y,int z,int joint,int color,Block *block);
 int character_validate(const Character *c);
+int character_upgrade_thrusters(Character *c);
 int character_add(Character *c,int parent,int x,int y,int z,int joint,int color);
 void character_remove(Character *c,int index);
 void character_preset(Character *c,int walker);

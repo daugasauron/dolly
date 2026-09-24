@@ -31,7 +31,7 @@ static void program_fault(JSContext *ctx){
 }
 static void recover(JSContext *ctx){
  Character rig={0};character_add(&rig,-1,0,0,0,BLOCK_BOX,0);int left=character_add(&rig,0,-1,0,0,BLOCK_THRUSTER,1),right=character_add(&rig,0,1,0,0,BLOCK_THRUSTER,1);
- rig.blocks[left].axis=rig.blocks[right].axis=1;rig.blocks[left].force=rig.blocks[right].force=24;rig.blocks[left].negative='Q';rig.blocks[left].positive='A';rig.blocks[right].negative='W';rig.blocks[right].positive='S';
+ rig.blocks[left].axis=rig.blocks[right].axis=1;rig.blocks[left].force=rig.blocks[right].force=24;rig.blocks[left].direction=rig.blocks[right].direction=-1;rig.blocks[left].negative=0;rig.blocks[left].positive='A';rig.blocks[right].negative=0;rig.blocks[right].positive='S';
  const char *source="function(t,s,m){m.calls=(m.calls||0)+1;if(t<110)return {};const angle=Math.atan2(-s.gravity[0],-s.gravity[1]);const u=Math.max(-1,Math.min(1,-angle*.65-s.gyroscope[2]*.25));return {Q:Math.max(0,u),A:Math.max(0,-u),W:Math.max(0,-u),S:Math.max(0,u)}}";
  Creature *c=spawn(&rig,source,"Recovery jets",1,60,0,0);int id=c->id;
  Quaternion q=QuaternionFromAxisAngle((Vector3){0,0,1},PI);for(int i=0;i<rig.count;i++){Vector3 p=Vector3RotateByQuaternion(block_position(rig.blocks[i]),q);b3Body_SetTransform(c->physics.parts[i].body,(b3Pos){p.x,p.y+1,p.z},(b3Quat){{q.x,q.y,q.z},q.w});}physics_refresh(&c->physics,&c->design);

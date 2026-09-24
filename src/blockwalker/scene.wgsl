@@ -209,7 +209,7 @@ fn water_normal(p:vec2f)->vec3f {
             }
             if(b.flags.x==3){
                 let w=wheel_space(p,b.flags.y);
-                if(abs(normal[u32(b.flags.y)])>.5&&max(abs(w.x),abs(w.z))<.36){
+                if(normal[u32(b.flags.y)]*b.style.z>.5&&max(abs(w.x),abs(w.z))<.36){
                     color=vec3f(.14,.16,.17);if(abs(sin(w.x*34))<.3){color=vec3f(.34,.37,.37);}
                 }
             }

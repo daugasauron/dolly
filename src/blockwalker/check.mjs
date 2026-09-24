@@ -21,7 +21,7 @@ try {
  Game.call('watch',false);const after=Game.call('state');assert(after.steps===60,'exact physics timing');
  assert(after.parts.some((p,i)=>p.pose.some((v,j)=>Math.abs(v-before.parts[i].pose[j])>.01)),'keys and gravity change poses');
  Game.call('release');await sleep(200);assert(Game.call('state').steps===60,'practice pauses while reasoning');
- Game.call('build',{parts:[{x:0,y:2,z:0,parent:-1,joint:0},{x:1,y:2,z:0,parent:0,joint:4,axis:0,negative:81,positive:65},{x:0,y:3,z:0,parent:0,joint:2,axis:1,negative:87,positive:83},{x:0,y:4,z:0,parent:2,joint:0},{x:-1,y:2,z:0,parent:0,joint:3,axis:0,negative:79,positive:75}]});
+ Game.call('build',{parts:[{x:0,y:2,z:0,parent:-1,joint:0},{x:1,y:2,z:0,parent:0,joint:4,axis:0,negative:81,positive:65},{x:0,y:3,z:0,parent:0,joint:2,axis:1,negative:87,positive:83},{x:0,y:4,z:0,parent:2,joint:0},{x:-1,y:2,z:0,parent:0,joint:3,axis:0,direction:-1,negative:0,positive:75}]});
  Game.call('reset');Game.call('camera',{x:4,y:7,z:2,distance:14});const practiceCamera=Game.call('state');
  Game.call('advance',{keys:'ASK',steps:60});while(Game.call('state').remaining)await sleep(20);
  const actuators=Game.call('state');assert(actuators.parts[2].angle>.7,'piston extends under load');assert(actuators.distance>.1,'thruster moves the body');
@@ -47,7 +47,7 @@ try {
    const hull=boat.push({x,y:0,z:0,parent:deck,joint:0,material:1,finish:1,color:side+1})-1;
    boat.push({x,y:0,z:1,parent:hull,joint:0,material:1,finish:1,color:side+1});
    const stern=boat.push({x,y:0,z:-1,parent:hull,joint:0,material:1,finish:1,color:side+1})-1;
-   boat.push({x,y:0,z:-2,parent:stern,joint:3,axis:2,material:1,finish:2,force:4,negative:side?87:81,positive:side?83:65});
+   boat.push({x,y:0,z:-2,parent:stern,joint:3,axis:2,material:1,finish:2,force:4,direction:-1,negative:0,positive:side?83:65});
  }
  Game.call('build',{parts:boat});Game.call('install',{name:'Harbor boat',source:'function(){return {A:0.3,S:0.3}}',hz:20});Game.call('program_trial',{steps:360,sea:true});
  while(Game.call('state').remaining)await sleep(40);
@@ -55,7 +55,7 @@ try {
  assert(sailing.sensors.submerged.some(v=>v>0&&v<1)&&sailing.sensors.ground===-12,'water feedback senses partial submersion above the seabed');
  fs.writeFileSync('/workspace/blockwalker-water.png',Buffer.from(Game.call('snapshot')));Game.call('spawn',{x:125,z:10});
  const drone=[{x:0,y:1,z:0,parent:-1,joint:0}];
- for(let i=0;i<4;i++)drone.push({x:i<2?(i?1:-1):0,y:1,z:i>=2?(i===2?1:-1):0,parent:0,joint:3,axis:1,negative:'QWOP'.charCodeAt(i),positive:'ASKL'.charCodeAt(i),force:24,color:i+1});
+ for(let i=0;i<4;i++)drone.push({x:i<2?(i?1:-1):0,y:1,z:i>=2?(i===2?1:-1):0,parent:0,joint:3,axis:1,direction:-1,negative:0,positive:'ASKL'.charCodeAt(i),force:24,color:i+1});
  Game.call('build',{parts:drone});
  const hover=function(t,s,m,r){
    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),target=t<7?3.5:4.5,e=target-s.y;
