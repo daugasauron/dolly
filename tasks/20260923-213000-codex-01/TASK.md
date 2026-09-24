@@ -32,13 +32,13 @@ Keep the game in C and compile it inside Dolly. Browser verification uses one
 and complete native Pi history. Lua/YAML migration is the separate
 [requested task](../20260923-211500-codex-01/TASK.md).
 
-Current source checkpoint: `f2c1d9d`, served at
-`http://127.0.0.1:9099/blockwalker/`. Image 18: 232307762 bytes, SHA-256
-`dba39efa290c5578f5c3038bcd568f085ae4a2ba61bfd0b2e40c5628b176a375`.
+Current source checkpoint: `2dc0946`, served at
+`http://127.0.0.1:9099/blockwalker/`. Image 19: 232309004 bytes, SHA-256
+`5a544a6db7b370fc38d78437e8cd08bb8e130de085bc0a18b64cae8c61d229e7`.
 Source tar SHA-256:
-`925b6514a29c6d8f7384866ce6088c59a6e346033a47ff0624a5380f729a53f5`.
-The unchanged-runtime rebuild took 23.8 s
-(`build/blockwalker-playground-image18.log`). Image 16 is preserved under
+`43239e1d11e44b11e1d214ffd4bdd46609a71341ec1be2a9396f111227b184d3`.
+The unchanged-runtime rebuild took 23.6 s
+(`build/blockwalker-playground-image19.log`). Image 16 is preserved under
 `build/blockwalker-image16-preserved/`; earlier branches and recovery archives
 remain unchanged.
 

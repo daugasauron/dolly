@@ -59,5 +59,12 @@ traffic recovery, 10.943 m of real keyboard driving, 77 Eyes samples, actual
 cargo pickup and no browser errors or removals. The captured regression is
 self-contained C data and uses current catalog controllers.
 
-Remaining: package the repair and resume the populated world beyond the original
-traffic failure.
+Source repair: `2dc0946`. Image 19 packages it in 23.6 seconds with the unchanged
+runtime (`build/blockwalker-playground-image19.log`): 232309004 bytes, SHA-256
+`5a544a6db7b370fc38d78437e8cd08bb8e130de085bc0a18b64cae8c61d229e7`.
+The actual 9099 preview passes `build/blockwalker-competition-preview-image19.log`:
+all catalog sources match, 69 live objects, zero removals/errors/model requests,
+30.2 simulated seconds in 30.02 wall seconds, zero render readbacks. Chrome on
+Xvfb measures 52.03 / 56.12 FPS at Quay/focus.
+
+Remaining: resume the populated world beyond the original traffic failure.

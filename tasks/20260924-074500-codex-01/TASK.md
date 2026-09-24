@@ -163,7 +163,7 @@ fixture passes 1353.117 seconds, nine reloads and zero removals. All 60 catalog
 controllers also pass 1000 calls each in
 `build/blockwalker-competition-controllers-guarded.log`.
 
-Image 18 includes that repair and is served on 9099: 232307762 bytes, SHA-256
+Image 18 was the packaged crane-recovery checkpoint: 232307762 bytes, SHA-256
 `dba39efa290c5578f5c3038bcd568f085ae4a2ba61bfd0b2e40c5628b176a375`.
 Source tar: `925b6514a29c6d8f7384866ce6088c59a6e346033a47ff0624a5380f729a53f5`.
 The unchanged-runtime rebuild took 23.8 seconds
@@ -173,3 +173,9 @@ all catalog controllers match, 69 live objects, zero errors/removals/model
 requests, 56.35 / 58.32 FPS at Quay/focus and 30.2 simulated seconds per 30.02
 wall seconds. Original learned sessions and complete native Pi history remain
 preserved. The continuing playground task retains the user's 18:00 JST deadline.
+
+The later populated-world continuation exposed a boat traffic jam. Image 19
+contains its measured back-off repair; the
+[traffic task](../20260924-123100-codex-01/TASK.md) records the exact replay,
+ordinary freight regression and served package. The continuing trial checks
+further trips after that recovery.
