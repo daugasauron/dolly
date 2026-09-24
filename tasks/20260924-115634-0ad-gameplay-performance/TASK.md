@@ -344,3 +344,14 @@ files. CRC/size comparison against pinned upstream identifies only the nine
 declared data-patch files, the generated options menu, and added WGSL shaders.
 The 46-file native patch reconstructs pristine upstream. Evidence:
 `.cache/0ad/options-{content-verify,image}.log`.
+
+The menu regression now saves through the ordinary Save dialog, exits the game
+process, starts a fresh process, and restores through Single-player → Load Game
+before starting the second map. Firefox passes with clean logs from both
+processes and three expected replay identities; saved-game loading takes
+7.69 seconds, peak memory 3,927,646,208 bytes. Evidence:
+`.cache/0ad/save-final-menu-firefox.log`. An independent Chrome scratch run also
+restores the match; its downloaded `.0adsave` contains the entered description,
+2,000 ms simulation time and a 5,151,409-byte serialized simulation. Its final
+reporting assumed the new-match PlayerData layout; the permanent check now
+handles the saved replay's null Gaia entry.

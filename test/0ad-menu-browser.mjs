@@ -55,9 +55,7 @@ try {
   await click(598,728);await screenshot('quality-options'); // Save high textures and 16x filtering.
   await click(770,728);
   const setup=async()=>{await click(180,222);await click(412,221);};
-  const launch=async name=>{
-    await screenshot(name+'-setup');
-    const started=performance.now();await click(929,730);
+  const waitForGame=async(name,started)=>{
     while(!await hasGameHud(page)) {
       assert.ok(performance.now()-started<90000,`${name} never reached its game HUD`);
       assert.equal(await page.evaluate(()=>__dolly.gpu.error),undefined);
@@ -65,11 +63,30 @@ try {
     }
     await page.waitForTimeout(1000);
     await screenshot(name);
-    console.log(`${name}: menu-to-match ${Math.round(performance.now()-started)} ms`);
+    console.log(`${name}: load ${Math.round(performance.now()-started)} ms`);
+  };
+  const launch=async name=>{
+    await screenshot(name+'-setup');
+    const started=performance.now();await click(929,730);await waitForGame(name,started);
   };
   await setup();
   await click(430,92);await click(408,178); // Britons, outside the original Athens-only bundle.
   await launch('acropolis');
+  await click(940,18);await page.waitForTimeout(400);await click(940,112);
+  await screenshot('save-dialog');
+  await click(367,625);await page.keyboard.type('Dolly menu save');
+  await click(560,663);await page.waitForTimeout(500);await screenshot('saved');
+  await page.keyboard.press('Control+F10');
+  await page.waitForFunction(()=>!__dolly.graphicsActive);
+  await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'saved-game shell'));
+  assert.equal(await page.evaluate(()=>__dolly.submit('cp /opt/0ad/logs/interestinglog.html /tmp/save-first-warnings.html')),0);
+  const restartFrames=await page.evaluate(()=>__dolly.gpu.stats.frames);
+  await page.evaluate(()=>{globalThis.saveRestart=null;void __dolly.submit('zero-ad').then(status=>saveRestart=status);});
+  await page.waitForFunction(target=>(__dolly.graphicsActive&&__dolly.gpu.stats?.frames>=target)||saveRestart!==null,restartFrames+90,{timeout:60000});
+  assert.equal(await page.evaluate(()=>saveRestart),null);
+  await screenshot('restart');await click(363,578);
+  await click(180,222);await click(410,253);await screenshot('load-dialog');
+  const loadStarted=performance.now();await click(560,663);await waitForGame('loaded-save',loadStarted);
   await click(940,18);
   await page.waitForTimeout(400); // The upstream menu slides about 350 pixels at 1.2 px/ms.
   await screenshot('game-menu');
@@ -91,18 +108,20 @@ try {
     return readFile(`${output}/${name}`,'utf8');
   };
   assert.doesNotMatch(await download('/opt/0ad/logs/interestinglog.html',`menu-${browserName}-warnings.html`),/class="error"|class="warning"/);
+  assert.doesNotMatch(await download('/tmp/save-first-warnings.html',`menu-${browserName}-first-warnings.html`),/class="error"|class="warning"/);
   const config=await download('/opt/0ad/data/config/user.cfg',`menu-${browserName}-user.cfg`);
   assert.match(config,/^textures\.quality = "2"$/m);
   assert.match(config,/^textures\.maxanisotropy = "16"$/m);
   assert.equal(await submit('cat $(find /opt/0ad/data/replays -name commands.txt) > /tmp/menu-replays.txt'),0);
   const replays=await download('/tmp/menu-replays.txt',`menu-${browserName}-replays.txt`);
   const matches=replays.split('\n').filter(line=>line.startsWith('start ')).map(line=>JSON.parse(line.slice(6)));
-  assert.equal(matches.length,2);
-  assert.ok(matches.some(match=>match.map==='maps/skirmishes/acropolis_bay_2p'&&match.settings.PlayerData[0].Civ==='brit'));
-  assert.ok(matches.some(match=>match.map==='maps/random/alpine_lakes'&&match.settings.PlayerData[0].Civ==='han'));
+  assert.equal(matches.length,3);
+  const player=match=>match.settings.PlayerData.find(Boolean);
+  assert.equal(matches.filter(match=>match.map==='maps/skirmishes/acropolis_bay_2p'&&player(match).Civ==='brit').length,2);
+  assert.ok(matches.some(match=>match.map==='maps/random/alpine_lakes'&&player(match).Civ==='han'));
   assert.deepEqual(errors,[]);
   const cgroup=(await readFile('/proc/self/cgroup','utf8')).match(/^0::(.*)$/m)[1];
-  console.log(JSON.stringify({browser:browser.version(),menuMilliseconds,menuMatches:matches.map(match=>({map:match.map,civ:match.settings.PlayerData[0].Civ})),
+  console.log(JSON.stringify({browser:browser.version(),menuMilliseconds,menuMatches:matches.map(match=>({map:match.map,civ:player(match).Civ})),
     peakBytes:Number(await readFile('/sys/fs/cgroup'+cgroup+'/memory.peak','utf8')),cleanEngineLog:true}));
 } catch(error) {
   await page?.screenshot({path:`${output}/menu-${browserName}-failure.png`}).catch(()=>{});
