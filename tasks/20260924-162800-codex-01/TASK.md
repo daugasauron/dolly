@@ -31,8 +31,17 @@ The compact industrial regression now reproduces the old lower-phase stall
 at (151,30). The new controller makes two real deliveries, stacking cargo
 0.970 m higher, while leaving an obstructed third parcel unheld. It survives
 a loaded-world restart and retains both credits. It excludes obstructed pickup
-columns and allows a 0.4 m / 0.45 m/s pickup approach; the previous 0.2/0.2 gate
+columns and allows a 0.4 m / 0.45 m/s pickup approach after twelve seconds; the previous 0.2/0.2 gate
 could keep a hovering aircraft circling just outside simultaneous tolerances.
 The saved failure is 0.096 m from its target at 0.441 m/s. The test checks
 physical attachment, release, scoring and the uncollected obstruction.
 Evidence: `build/blockwalker-postbird-regression-approach/` (old fails, new passes).
+
+The precise approach remains the first choice. Applying the larger tolerance
+immediately changed legacy deposits so the crates did not stack; the complete
+physics test caught that regression. With the bounded alignment fallback, both
+legacy and industrial two-delivery/stacking cases pass, including the obstructed
+parcel and loaded restart. The full game check also passes gait recovery,
+terrain/water, radio, parachutes, handoffs, manual driving and tilted Turntable:
+`build/blockwalker-approach-driver/{cargo-physics.log,driver-proof.json,turntable-proof.json}`.
+All sixty exported controller sources match the current catalog.
