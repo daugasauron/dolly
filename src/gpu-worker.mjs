@@ -259,7 +259,7 @@ function retire(scope) {
 async function batch(scope, commands) {
   const device = scope.device;
   const progress = queueProgress;
-  if (scope.inflight >= 3) await device.queue.onSubmittedWorkDone();
+  if (scope.submissions.length >= 3) await scope.submissions[0];
   let encoder, texture, computePass, renderPass, passWidth, passHeight, timer, queries = 0;
   const getEncoder = () => encoder ??= device.createCommandEncoder();
   const endCompute = () => { computePass?.end(); computePass = null; };
@@ -532,14 +532,14 @@ async function batch(scope, commands) {
         getEncoder().copyTextureToBuffer({texture,origin:{x,y}}, {buffer:dst.value,bytesPerRow}, {width,height});
       } else if (op === A.DOLLY_GPU_SUBMIT) {
         ensure(encoder,"No GPU commands to submit");
-        if (scope.inflight >= 3) await device.queue.onSubmittedWorkDone();
+        if (scope.submissions.length >= 3) await scope.submissions[0];
         const measured = queries ? timer : null, count = queries;
         if (measured) {
           encoder.resolveQuerySet(measured.query,0,count,measured.resolve,0);
           encoder.copyBufferToBuffer(measured.resolve,0,measured.read,0,count*8);
           measured.busy = true;
         }
-        device.queue.submit([encoder.finish()]);encoder=null;scope.inflight++;
+        device.queue.submit([encoder.finish()]);encoder=null;
         const submittedWork = ++progress.queued;
         if (measured) measured.read.mapAsync(GPUMapMode.READ,0,count*8).then(() => {
           const values=new BigUint64Array(measured.read.getMappedRange(0,count*8));
@@ -548,9 +548,11 @@ async function batch(scope, commands) {
           measured.read.unmap();
         }).catch(()=>{}).finally(()=>{measured.busy=false;});
         timer=null;queries=0;
-        device.queue.onSubmittedWorkDone().then(()=>{
+        const completed=device.queue.onSubmittedWorkDone().then(()=>{
           progress.completed=Math.max(progress.completed,submittedWork);
-        }).catch(()=>{}).finally(()=>scope.inflight--);
+        }).finally(()=>scope.submissions.splice(scope.submissions.indexOf(completed),1));
+        scope.submissions.push(completed);
+        completed.catch(()=>{});
         if(texture){stats.frames++;postMessage({type:"status",active:true,width:canvas.width,height:canvas.height,adapter:adapterName,isFallbackAdapter,stats:{...stats,allocatedBytes:usedBytes}});texture=null;}
       } else if (op === A.DOLLY_GPU_MAP_READ) {
         ensure(!encoder,"Submit before mapping");
@@ -658,7 +660,7 @@ self.onmessage = event => {
       let scope=slots[request.index];
       if(request.op===1) {
         ensure(!scope&&request.scope>generations[request.index],"GPU scope slot is busy",E.EBUSY);
-        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,inflight:0,lost:false,surface:false};
+        scope={id:request.scope,index:request.index,sequence:0,objects:new Map(),retired:new Map(),high:0,submissions:[],lost:false,surface:false};
         generations[request.index]=scope.id;slots[request.index]=scope;
       }
       ensure(scope?.id===request.scope,"Stale GPU scope",E.ESTALE);

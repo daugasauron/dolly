@@ -302,3 +302,28 @@ construction, save/load and opaque combat/economy pixels; means are 10.25/9.64 m
 and peak process-tree memory 4,175,126,528 bytes. Evidence:
 `.cache/0ad/selection-current-{gui,panels}-firefox.log`,
 `panels-gameplay-firefox.log`.
+
+Explicit frame-boundary profiling attributes the apparent post-render gap to
+GPU submission, not the profiler (0.013 ms/frame). The Dolly context now retains
+the final queued commands for Present, avoiding a separate packet. An A/B/B/A
+paused-scene comparison under two CPU cores gives mean 5.08/4.92 ms before and
+4.63/4.51 ms after in Chrome, with packets/frame 2.02→1.02. This is a controlled
+scene measurement, not a guarantee for active gameplay. Evidence:
+`.cache/0ad/frame-{boundary,tail}-firefox.log`, `frame-tail-pair-chromium.log`.
+
+The GPU provider now waits for its oldest outstanding submission at the same
+three-submission limit. A real-GPU test holds completions independently: the old
+provider remains blocked after the first completion, whereas the new provider
+submits the fourth item with the other completions still held. Both browsers
+pass quotas, retirement accounting and interruption recovery; source checks pass
+279/279. Evidence: `.cache/0ad/submission-{negative,gpu-software,gpu-firefox,source}.log`.
+The Firefox provider A/B/B/A comparison overlaps (old 7.44/7.94 ms, new 7.54/7.21 ms).
+Software rendering remains slow and uneven; its paired runs do not establish
+smooth presentation. `.cache/0ad/{submission-pair-firefox,frame-tail-oldest-pair-software}.log`.
+
+The production engine passes Firefox gameplay and native F2 screenshot readback,
+with opaque combat/economy frames, training, construction, save/load and clean
+logs. Means are 13.75/11.40 ms, peak 4,036,902,912 bytes. Software Chrome also
+passes the native screenshot and gameplay checks (87.82/191.31 ms, peak
+3,626,532,864 bytes). Evidence: `.cache/0ad/frame-tail-production-{firefox,software}.log`.
+The 46-file native patch reconstructs pristine upstream.

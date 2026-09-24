@@ -14,7 +14,9 @@ function gpuFixture(workerUrl=new URL("../../src/gpu-worker.mjs",import.meta.url
   }
   function record(op,size,id) {
     const bytes=new Uint8Array(size),v=new DataView(bytes.buffer);
-    v.setUint32(0,op,true);v.setUint32(4,size,true);v.setBigUint64(8,BigInt(id),true);return {bytes,v};
+    v.setUint32(0,op,true);v.setUint32(4,size,true);
+    if(size>=16)v.setBigUint64(8,BigInt(id),true);
+    return {bytes,v};
   }
   function batch(records) {
     const body=new Uint8Array(8+records.reduce((n,r)=>n+r.bytes.length,0));
@@ -178,5 +180,42 @@ export async function gpuRetirementProof() {
     check(await allocated()===0n,"Close and fence completion charged allocations twice");
     check(await send(packet(5))===0,"Restarted scope close failed");
     return {nonblockingRelease:true,staleHandles:true,retiredBytesCharged:true,retiredObjectsCharged:true,closeAndRestart:true};
+  } finally {worker.terminate();}
+}
+
+export async function gpuSubmissionProof() {
+  const {worker,packet,record,batch,send}=gpuFixture(
+    new URL("./gpu-retirement-worker.mjs",import.meta.url));
+  let submitted=0,held=0,finished=false;
+  worker.addEventListener("message",({data})=>{
+    if(data.type==="test-submit")submitted++;
+    if(data.type==="test-held")held++;
+  });
+  try {
+    check(await send(packet(1,new Uint8Array(8)))===0,"Submission scope open failed");
+    const buffers=[1,2].map(id=>{
+      const r=record(1,32,id);r.v.setBigUint64(16,16n,true);r.v.setUint32(24,12,true);return r;
+    });
+    check(await send(batch(buffers))===0,"Submission buffers failed");
+    const copy=record(9,48,1);copy.v.setBigUint64(16,2n,true);copy.v.setBigUint64(40,16n,true);
+    const submit=record(13,8);
+    const completion=send(batch(Array.from({length:4},()=>[copy,submit]).flat()))
+      .then(status=>{finished=true;return status;});
+    const deadline=performance.now()+10000;
+    while(held<3) {
+      check(performance.now()<deadline,"GPU submissions never reached the limit");
+      await new Promise(resolve=>setTimeout(resolve,1));
+    }
+    check(submitted===3&&!finished,"More than three submissions ran without completion");
+    worker.postMessage({type:"test-completion",count:1});
+    check(await completion===0,"The oldest completion did not admit the next submission");
+    while(held<4) {
+      check(performance.now()<deadline,"The fourth completion was never held");
+      await new Promise(resolve=>setTimeout(resolve,1));
+    }
+    check(submitted===4,"The fourth submission did not reach the GPU");
+    worker.postMessage({type:"test-completion",hold:false});
+    check(await send(packet(5))===0,"Submission scope close failed");
+    return {boundedSubmissions:true,oldestCompletionUnblocks:true};
   } finally {worker.terminate();}
 }

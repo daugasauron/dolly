@@ -1692,7 +1692,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,1074 @@
+@@ -0,0 +1,1075 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -2342,7 +2342,8 @@
 +    void InsertTimestampQuery(uint32_t,bool) override { Require(false,"timestamp queries unsupported"); }
 +    void BeginScopedLabel(const char*) override {}
 +    void EndScopedLabel() override {}
-+    void Flush() override { device->queue.Flush(); }
++    // Commands already belong to the device queue; Present submits the tail.
++    void Flush() override { Require(!framebuffer && !computePass,"flush inside pass"); }
 +    void Pause();
 +    void Resume(bool clearColor=false,bool clearDepth=false);
 +    void Viewport();

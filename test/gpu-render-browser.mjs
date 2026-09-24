@@ -57,12 +57,15 @@ try {
   const retirement=await page.evaluate(async()=>{
     const {gpuRetirementProof}=await import('/test/fixtures/gpu-boundary.mjs');return gpuRetirementProof();
   });
+  const submission=await page.evaluate(async()=>{
+    const {gpuSubmissionProof}=await import('/test/fixtures/gpu-boundary.mjs');return gpuSubmissionProof();
+  });
   assert.deepEqual(errors,[]);
   assert.equal(await submit('echo GPU_SHELL_RECOVERY > /tmp/gpu-recovery && cat /tmp/gpu-recovery'),0);
   const adapter=await page.evaluate(()=>__dolly.gpu.adapter);
   if(browserName==='chromium')assert.match(adapter,/swiftshader/i);
   else assert.equal(await page.evaluate(()=>__dolly.gpu.isFallbackAdapter),false);
-  console.log(JSON.stringify({browser:browser.version(),adapter,compression,guestCompiled:true,freshProcesses:3,interruptRecovery:true,textureDepthIndexed:true,boundary,retirement}));
+  console.log(JSON.stringify({browser:browser.version(),adapter,compression,guestCompiled:true,freshProcesses:3,interruptRecovery:true,textureDepthIndexed:true,boundary,retirement,submission}));
 } finally {
   clearTimeout(deadline);await browser?.close();await server.close();
 }

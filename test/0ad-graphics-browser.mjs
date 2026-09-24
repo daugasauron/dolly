@@ -82,10 +82,10 @@ try {
   const bootMilliseconds=Math.round(performance.now()-bootStart);
   await page.mouse.click(10,10);
   const submit=command=>page.evaluate(text=>__dolly.submit(text),command);
-  const download=async(path,name)=>{
+  const download=async(path,name,encoding='utf8')=>{
     const event=page.waitForEvent('download'),running=submit('download '+path);
     const file=await event;await file.saveAs(new URL(name,output).pathname);assert.equal(await running,0);
-    return readFile(new URL(name,output),'utf8');
+    return readFile(new URL(name,output),encoding);
   };
   const stagingStart=performance.now();
   if(image==='default') {
@@ -193,7 +193,10 @@ try {
     assert.equal(await page.evaluate(first=>__dolly.gpu.stats.dispatches>first,first),enabled,
       'Changing GPU skinning during a match must change compute activity');
   }
+  await page.keyboard.press('F2');await advance(4);
   await stop();
+  const screenshot=await download('/opt/0ad/data/screenshots/screenshot0001.png','graphics-readback.png',null);
+  assert.ok(await hasGameHud(page,screenshot),'Native screenshot readback must contain the game HUD');
   const warnings=await download('/opt/0ad/logs/interestinglog.html','graphics-warnings.html');
   assert.doesNotMatch(warnings,/class="error"|class="warning"/);
   assert.ok(combatAudio.peak>1e-4,'Combat audio must reach the browser audio graph: '+JSON.stringify(combatAudio));
