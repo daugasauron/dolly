@@ -43,3 +43,23 @@ now derives its four motor arms from the blueprint and uses retuned attitude
 feedback. It physically delivers its starting crate at 29.883 s and remains
 stable for 180 s (`build/blockwalker-launcher-postbird-tuned/`). Other bundled
 program sources are unchanged. Combined-world and packaged-image checks remain.
+
+The fresh 1800 s one-way-engine world retains 102 objects with zero controller
+errors but stalls at six deliveries. Save/trace:
+`build/blockwalker-rivalry-one-way-teams42/`. The wider freighter cannot reach
+its loading berth (117.54 versus requested 116.75 m); the two team aircraft
+orbit their destinations instead of settling within their arrival tolerance.
+An isolated 360 s courier reproduction also fails to settle. Keep this task
+open until revised physical mounts and visible flight feedback restore cargo
+cycles; buoyancy and upright flight alone are insufficient verification.
+
+The revised freighter layout keeps its original 7 by 5 metre footprint with
+all eight nozzle faces open. Both real receiving berths are reached within
+4 mm in `build/blockwalker-launcher-compact-berths/`. The team courier's
+visible attitude feedback now settles with the added jet mass: the paired
+360 s test delivers at 148.633 s and begins a second pickup, where the original
+program never reaches its first pickup. Evidence:
+`build/blockwalker-launcher-courier-{original,tuned}/`. The delayed upside-down
+recovery fixture also passes in world and practice modes with physical opposing
+jets (`build/blockwalker-retention-one-way-recovery/`). A fresh combined run
+is now checking the revised geometry and programs.

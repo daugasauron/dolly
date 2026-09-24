@@ -31,15 +31,15 @@ static void program_fault(JSContext *ctx){
 }
 static void recover(JSContext *ctx){
  Character rig={0};character_add(&rig,-1,0,0,0,BLOCK_BOX,0);int left=character_add(&rig,0,-1,0,0,BLOCK_THRUSTER,1),right=character_add(&rig,0,1,0,0,BLOCK_THRUSTER,1);
- rig.blocks[left].axis=rig.blocks[right].axis=1;rig.blocks[left].force=rig.blocks[right].force=24;rig.blocks[left].direction=rig.blocks[right].direction=-1;rig.blocks[left].negative=0;rig.blocks[left].positive='A';rig.blocks[right].negative=0;rig.blocks[right].positive='S';
+ rig.blocks[left].axis=rig.blocks[right].axis=1;rig.blocks[left].force=rig.blocks[right].force=24;rig.blocks[left].negative='Q';rig.blocks[left].positive='A';rig.blocks[right].negative='W';rig.blocks[right].positive='S';assert(character_upgrade_thrusters(&rig));
  const char *source="function(t,s,m){m.calls=(m.calls||0)+1;if(t<110)return {};const angle=Math.atan2(-s.gravity[0],-s.gravity[1]);const u=Math.max(-1,Math.min(1,-angle*.65-s.gyroscope[2]*.25));return {Q:Math.max(0,u),A:Math.max(0,-u),W:Math.max(0,-u),S:Math.max(0,u)}}";
  Creature *c=spawn(&rig,source,"Recovery jets",1,60,0,0);int id=c->id;
- Quaternion q=QuaternionFromAxisAngle((Vector3){0,0,1},PI);for(int i=0;i<rig.count;i++){Vector3 p=Vector3RotateByQuaternion(block_position(rig.blocks[i]),q);b3Body_SetTransform(c->physics.parts[i].body,(b3Pos){p.x,p.y+1,p.z},(b3Quat){{q.x,q.y,q.z},q.w});}physics_refresh(&c->physics,&c->design);
+ Quaternion q=QuaternionFromAxisAngle((Vector3){0,0,1},PI);for(int i=0;i<rig.count;i++){Vector3 p=Vector3RotateByQuaternion(block_position(rig.blocks[i]),q);b3Body_SetTransform(c->physics.parts[i].body,(b3Pos){p.x,p.y+2,p.z},(b3Quat){{q.x,q.y,q.z},q.w});}physics_refresh(&c->physics,&c->design);
  ticks(109*60);c=world_find(id);assert(c&&c->fallen>100);printf("TIPPED: retained %.3f seconds, up %.4f, %d objects\n",c->fallen,b3RotateVector(b3Body_GetRotation(c->physics.parts[0].body),b3Vec3_axisY).y,world.count);
  assert(world_save(ctx));world_close();world_load(ctx);ticks(20*60);c=world_find(id);float up=b3RotateVector(b3Body_GetRotation(c->physics.parts[0].body),b3Vec3_axisY).y;
  printf("RECOVERY: up %.5f, down %.5f, calls %.0f, separation %.5f\n",up,c->fallen,get_number(c->controller->ctx,c->controller->memory,"calls",0),c->physics.max_separation);assert(up>.9&&c->fallen==0&&c->physics.max_separation<.1f);assert(save_world(ctx,"/workspace/recovered-program.json"));world_close();
  Physics practice={0};physics_start(&practice,&rig);
- for(int i=0;i<rig.count;i++){Vector3 p=Vector3RotateByQuaternion(block_position(rig.blocks[i]),q);b3Body_SetTransform(practice.parts[i].body,(b3Pos){p.x,p.y+1,p.z},(b3Quat){{q.x,q.y,q.z},q.w});}physics_refresh(&practice,&rig);
+ for(int i=0;i<rig.count;i++){Vector3 p=Vector3RotateByQuaternion(block_position(rig.blocks[i]),q);b3Body_SetTransform(practice.parts[i].body,(b3Pos){p.x,p.y+2,p.z},(b3Quat){{q.x,q.y,q.z},q.w});}physics_refresh(&practice,&rig);
  installed=strdup(source);installed_hz=60;assert(world_trial_begin(&practice));for(int i=0;i<129*60;i++)assert(world_trial_step(&practice,&rig));up=b3RotateVector(b3Body_GetRotation(practice.parts[0].body),b3Vec3_axisY).y;assert(up>.9&&practice.steps==129*60);
  printf("PRACTICE RECOVERY: completed %d steps, up %.5f\n",practice.steps,up);world_close();physics_stop(&practice);character_clear(&rig);
 }
