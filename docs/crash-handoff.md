@@ -15,7 +15,8 @@ Long-run follow-ups are the [loading quay](../tasks/20260924-132300-codex-01/TAS
 [continuous freight/supplies](../tasks/20260924-144000-codex-01/TASK.md),
 [lookout traffic](../tasks/20260924-145000-codex-01/TASK.md),
 [Marrowstep recovery](../tasks/20260924-162500-codex-01/TASK.md), and
-[Postbird deliveries](../tasks/20260924-162800-codex-01/TASK.md). Their issues
+[Postbird deliveries](../tasks/20260924-162800-codex-01/TASK.md), and
+[Mochi cargo avoidance](../tasks/20260924-170000-codex-01/TASK.md). Their issues
 record saved failure states and verification; experimental controllers under
 `build/` are not automatically the packaged catalog.
 

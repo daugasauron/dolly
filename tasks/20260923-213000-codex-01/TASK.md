@@ -79,7 +79,10 @@ Verification already recorded:
   the tilted Turntable's maximum separation is 0.00376 m. All sixty exported
   controller sources match the catalog. `build/blockwalker-approach-driver/`.
 
-Final served-browser and uninterrupted one-hour population checks are in progress.
+The image-21 uninterrupted trial stopped at 875.567 s when Mochi tipped over
+near delivered cargo. It is a failed population check, despite the successful
+component checks. The [porter repair](../20260924-170000-codex-01/TASK.md) and
+final served-browser/continuous verification are in progress.
 The [competition task](../20260924-074500-codex-01/TASK.md) records the initial
 map/radio/supply implementation. Follow-up evidence is kept with the fixes:
 [loading quay](../20260924-132300-codex-01/TASK.md),
