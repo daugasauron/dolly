@@ -58,7 +58,7 @@ Click a creature's name to visit it; Backslash switches to its Eyes while its
 program keeps running. WASD leaves the ride-along view. World and workshop cameras retain separate
 positions when switching views. Typing a Pi prompt does not move the camera.
 Pi's camera tool can also target explicit x/y/z coordinates.
-The world sidebar jumps to the harbor, three islands or the whole map. Page
+The world sidebar jumps to the harbor, islands, foundry, shipping quay or whole map. Page
 buttons or scrolling the creature list reach the full population; visiting a
 larger creation fits the camera to its current physical bounds.
 
@@ -98,10 +98,11 @@ world, Drop cargo or C places a persistent crate at the camera target. Pi can
 use `drop_cargo({x,z,world:true})` for world cargo or omit `world` and specify an
 optional `y` in practice. Power and attachment references survive world saves.
 While driving, C drops the crate ahead of the Eyes camera. Carry it to a striped
-depot at the Works yard (0,34), Harbor (106,10), or Island (163,18), release it and
+depot, release it and
 let it settle for a second. Each crate scores once after transport from outside
 that depot; simply spawning cargo there earns nothing. Delivered crates turn
-green and remain physical. Magnet pickup and riding on a deck both identify the
+green. Manual cargo remains physical; delivered replenished supplies clear after
+45 seconds when unheld. Magnet pickup and riding on a deck both identify the
 carrier. The delivery record and your total survive saves and rebuilding your car.
 The sidebar and focus HUD show whether the magnet is powered or carrying cargo.
 Your deliveries also show a confirmation naming the depot and updated total.
@@ -125,6 +126,23 @@ root to the terrain and leave the remaining bodies and joints physical.
 Finishes 0–3 select plain, panelled, indicator trim or hazard stripes without
 changing the physics.
 
+New worlds use an industrial mainland with a flooded ore shaft, roofed foundry,
+low freight passage, turbine ruins and shipping quay. East's teal crew and
+West's amber crew compete to deliver cargo to their islands. Light parcels
+descend under parachutes; dense ore appears on the lowered factory lift. The
+provided aircraft can carry a 0.91 kg parcel but cannot lift an 11 kg pallet
+with their 30 N magnets. Stronger player-built machines remain possible.
+The heavy chain uses the lift, a telescopic hauler, loading crane, deck-magnet
+barge and island receiving crane. Cargo travels through actual physical handoffs.
+An island delivery earns one point, or eight above 8 kg. At most six undelivered
+parcels and three ore pallets remain active. Scores and supply timing survive
+saves. Older worlds retain their original terrain instead of gaining walls
+around existing machines.
+
+Team scouts report visible cargo; air couriers choose jobs from those reports.
+The sidebar shows scores and recent radio traffic, filtering to the followed
+character's team. Camera shortcuts visit the foundry and both receiving yards.
+
 The late-1990s PlayStation art direction uses muted industrial paint, coarse
 surface detail, a 640×360 scene raster, 5-bit color dithering and coastal haze.
 Editor controls retain their full resolution. The dock, quarry and island
@@ -143,9 +161,10 @@ the population, so exporting the world also preserves its designs.
 The initial layout can place several copies of one design. Each has its own
 world identity, physics and controller state while sharing one library entry.
 
-A fresh image has 51 objects / 1204 parts from 31 designs: the learned patrol
+A fresh image has 60 objects / 1604 parts from 41 library designs: the learned patrol
 biped, larger walkers, balance surveyor, aircraft and cargo machinery, plus
-small roaming lookouts, a hydraulic yard porter and channel skiffs. Nineteen
+small roaming lookouts, a hydraulic yard porter, channel skiffs and the island
+freight fleet. Nineteen
 earlier experiments, including the retired drawbridge, are available only through
 Older prototypes. On first launch the catalog populates
 the world, with loose cargo for the cranes; click World to visit. The balancing
@@ -164,7 +183,7 @@ crate and flies it to the Island depot. The gantry then collects its next crate
 while the courier is away. The small lookouts steer around loose and delivered cargo.
 Three small Minamo skiffs and the larger patrol boats choose water routes around
 the coasts. Twinspire steers around loose cargo to leave it available for salvage.
-All 35 characters have Eyes; loose cargo uses the outside camera.
+All 44 characters have Eyes; loose cargo uses the outside camera.
 Skybarge samples nearby ground height to climb before crossing quarry ledges.
 Controllers run without Pi or model access.
 Existing saves keep their population, including an empty world.
@@ -232,6 +251,14 @@ and every key must be assigned. Output scales motor target speed or thruster
 force, within the part's configured limits. The C physics still runs at 60 Hz.
 `inspect_program` reads the currently installed source and rate without changing it.
 
+`release_creature` accepts `team: 1` for East, `2` for West or `0` for neutral.
+Shared-world controllers may include `radio: {kind, cargo}` in an output object.
+Kinds are `sight`, `claim`, `ready` and `release`, limited to one message per
+sender every three simulation seconds. Sight and readiness require cargo within
+48 m with terrain-clear visibility. A claim or release may refer to a recent
+team report, retaining the reported coordinates when the cargo is unseen.
+Radio is team-local and bounded; neutral characters have no team channel.
+
 `program_trial` tests the installed program from a fresh practice drop, at its
 chosen rate, with fresh memory and up to three timed GPU pictures. Simulation
 pauses after the trial. The same controller implementation runs released creatures.
@@ -250,13 +277,15 @@ pauses after the trial. The same controller implementation runs released creatur
 | `touching` | Per-part contact booleans; includes other bodies and the floor |
 | `contactsReady` | Whether a solver step has populated contact readings |
 | `ground`, `waterHeight` | Terrain height and wave surface under the root; water height is available in sea trials and the shared world |
-| `magnets` | Per-magnet `{power, attached, load, targetMass, targetSupportForce}`; power is 0–1, target mass is the attached body’s kg, load/support are newtons; target readings are zero when detached |
+| `magnets` | Per-magnet `power` (0–1), `attached`, `load` (N), `targetMass` (kg), `targetSupportForce` (N) and `cargoSupportForce` (N); the latter sums external upward support over all cargo parts, excluding its own parts and holder |
 | `submerged` | Per-part fraction in water, from 0 to 1 |
 | `id`, `cargoDelivered` | Shared-world identity and lifetime delivery count |
-| `nearby` | Up to 12 nearest objects within 48 m, including position, velocity, bounds, anchoring and cargo state; `carriedBy` identifies the current carrier and `magnetHeld` distinguishes magnetic grip from riding on a deck; empty in practice |
+| `nearby` | Up to 12 nearest objects within 48 m, with pose, bounds, mass, team and cargo state; `carriedBy` identifies the carrier, `magnetHeld` distinguishes grip from riding a deck, and `visible` reports terrain-clear sight; `supply` is 0 (manual), 1 (parcel) or 2 (ore); empty in practice |
 | `groundSamples` | World XYZ terrain samples, eight compass directions at 6 m then 16 m, beginning at +Z |
-| `obstacles` | Terrain bounds within 24 m rising above the root floor: `x/z`, `halfX/halfZ`, `low/high`; check vertical clearance under roofs |
-| `depots` | Delivery areas with name, x/z and radius |
+| `terrain` | Terrain bounds within 24 m horizontally: `x/z`, `halfX/halfZ`, `low/high`, including below an aircraft; check the whole landing column |
+| `obstacles` | The terrain subset whose top is at least root Y minus 0.2 m |
+| `depots` | Delivery areas with name, x/z, radius and team |
+| `team`, `worldTime`, `radio` | Team identity, shared simulation clock and recent team messages; message times use `worldTime`, not a newly released controller's age |
 
 Vectors are three-element arrays. Initial body axes are +X right, +Y up, +Z
 forward. For a two-wheel vehicle facing +Z with axles along X,
@@ -267,6 +296,10 @@ and two wheels recovered from a drive pulse using pitch, pitch rate and velocity
 feedback; the same body with feedback disabled fell. The integration check also
 runs a four-thruster PID platform, changes its target altitude, applies asymmetric
 thrust, and verifies recovery and saved-world continuation.
+
+An object can disappear from `nearby` when closer objects fill the list, even
+while a magnet retains it. Check for missing observations before using a saved
+object ID; missing observations do not imply that attached cargo was released.
 
 Each controller has a seeded random function, 4 MiB memory and an interpreter execution budget. A failed controller
 removes its creature without stopping the world. Shared Box3D physics allows
@@ -320,6 +353,11 @@ image. The import check optionally accepts an older world file as a third argume
 `test/blockwalker-driver-browser.mjs` verifies driving, the Eyes camera, a tilted
 turntable and physical cargo delivery with save/reload and one-time credit. Pass
 a source tar path to compile an edited source tree inside the existing image.
+Its optional third argument selects a C fixture; use
+`test/fixtures/blockwalker-competition.c` for repeated freight handoffs,
+crowded-sensor recovery and reloads while carrying pallets.
+`test/fixtures/blockwalker-traffic.c` replays a loaded barge pinned against a
+patrol boat and requires physical escape and island delivery after a reload.
 `test/blockwalker-spectator-browser.mjs` checks ride-along Eyes against actual
 block poses while character programs continue, camera switching and leaving
 the view with WASD. It also accepts a source tar for compilation in Dolly.
