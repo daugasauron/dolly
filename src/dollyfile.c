@@ -64,7 +64,8 @@ typedef struct {
 } Scope;
 
 typedef struct {
-  Buffer bytes;
+  FILE *stream;
+  off_t *offsets;
   dolly_fs_record *records;
   uint32_t count;
   char recipe_sha256[65];
@@ -160,45 +161,43 @@ static size_t write_download(const void *bytes, size_t length, void *context) {
   return length;
 }
 
+static int read_stream(FILE *stream, void *bytes, size_t size) {
+  if (fread(bytes, 1, size, stream) == size) return 0;
+  return ferror(stream) ? -(errno ? errno : EIO) : -EINVAL;
+}
+
+static int copy_stream(FILE *input, const char *destination, size_t remaining) {
+  int output = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+  if (output < 0) return -errno;
+  int result = ftruncate(output, (off_t)remaining) == 0 ? 0 : -errno;
+  unsigned char bytes[64 * 1024];
+  while (result == 0 && remaining != 0) {
+    const size_t amount = remaining < sizeof(bytes) ? remaining : sizeof(bytes);
+    result = read_stream(input, bytes, amount);
+    size_t written = 0;
+    while (result == 0 && written < amount) {
+      const ssize_t count = write(output, bytes + written, amount - written);
+      if (count < 0 && errno == EINTR) continue;
+      if (count <= 0) result = count < 0 ? -errno : -EIO;
+      else written += (size_t)count;
+    }
+    remaining -= amount;
+  }
+  if (close(output) != 0 && result == 0) result = -errno;
+  return result;
+}
+
 // WasmFS can assign a preloaded directory and a newly created file to
 // different internal backends, and its rename wrapper is not reliable across
 // that boundary. Verification has already completed and recipe execution is
 // synchronous, so publish by copying only within Dolly's in-Wasm filesystem.
 static int publish_download(const char *temporary, const char *destination, size_t length) {
-  int input = open(temporary, O_RDONLY);
-  if (input < 0) return -errno;
-  int output = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  if (output < 0) {
-    const int error = -errno;
-    close(input);
-    return error;
-  }
-  unsigned char bytes[64 * 1024];
-  int status = ftruncate(output, (off_t)length) == 0 ? 0 : -errno;
-  while (status == 0) {
-    const ssize_t count = read(input, bytes, sizeof(bytes));
-    if (count < 0) {
-      status = -errno;
-      break;
-    }
-    if (count == 0) break;
-    const unsigned char *cursor = bytes;
-    size_t remaining = (size_t)count;
-    while (remaining != 0) {
-      const ssize_t written = write(output, cursor, remaining);
-      if (written <= 0) {
-        status = -errno;
-        break;
-      }
-      cursor += (size_t)written;
-      remaining -= (size_t)written;
-    }
-    if (status != 0) break;
-  }
-  if (close(input) != 0 && status == 0) status = -errno;
-  if (close(output) != 0 && status == 0) status = -errno;
+  FILE *input = fopen(temporary, "rb");
+  if (input == NULL) return -errno;
+  int status = copy_stream(input, destination, length);
+  if (fclose(input) != 0 && status == 0) status = -errno;
   if (status == 0) (void)unlink(temporary);
-  if (status != 0) unlink(destination);
+  else unlink(destination);
   return status;
 }
 
@@ -1106,11 +1105,13 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
 }
 
 static void dispose_artifact(Artifact *artifact) {
-  if (artifact->records != NULL) {
-    for (uint32_t index = 0; index < artifact->count; ++index) free(artifact->records[index].path);
+  for (uint32_t index = 0; artifact->records != NULL && index < artifact->count; ++index) {
+    free(artifact->records[index].path);
+    free((void *)artifact->records[index].data);
   }
   free(artifact->records);
-  free(artifact->bytes.data);
+  free(artifact->offsets);
+  if (artifact->stream != NULL) fclose(artifact->stream);
   memset(artifact, 0, sizeof(*artifact));
 }
 
@@ -1121,51 +1122,76 @@ static const dolly_fs_record *artifact_file(const Artifact *artifact, const char
   return NULL;
 }
 
-static int read_artifact(Artifact *artifact, const char *expected) {
+static int read_artifact(Artifact *artifact, const char *path, const char *expected) {
   if (strcmp(artifact->recipe_sha256, expected) == 0) return 0;
   dispose_artifact(artifact);
-  char path[128];
-  snprintf(path, sizeof(path), "/etc/dolly/artifacts/%s.snapshot", expected);
-  artifact->bytes.limit = MAX_SOURCE_BYTES;
-  int result = read_file_buffer(path, &artifact->bytes);
+  artifact->stream = fopen(path, "rb");
+  if (artifact->stream == NULL) return -errno;
+  struct stat metadata;
+  if (fstat(fileno(artifact->stream), &metadata) != 0) return -errno;
+  if (!S_ISREG(metadata.st_mode) || metadata.st_size < 16) return -EINVAL;
+  if ((uint64_t)metadata.st_size > UINT64_C(2) * 1024 * 1024 * 1024) return -EFBIG;
+  unsigned char header[16];
+  int result = read_stream(artifact->stream, header, sizeof(header));
   if (result != 0) return result;
-  const unsigned char *cursor = artifact->bytes.data;
-  const unsigned char *end = cursor + artifact->bytes.length, *magic;
+  const unsigned char *cursor = header, *end = header + sizeof(header), *magic;
   uint32_t version;
   if (take_layer_bytes(&cursor, end, 8, &magic) != 0 || memcmp(magic, "DOLLYSNP", 8) != 0 ||
       take_layer_u32(&cursor, end, &version) != 0 || version != 2 ||
       take_layer_u32(&cursor, end, &artifact->count) != 0 ||
       artifact->count == 0 || artifact->count > MAX_MANIFEST_FILES) return -EINVAL;
   artifact->records = calloc(artifact->count, sizeof(*artifact->records));
-  if (artifact->records == NULL) return -ENOMEM;
+  artifact->offsets = calloc(artifact->count, sizeof(*artifact->offsets));
+  if (artifact->records == NULL || artifact->offsets == NULL) return -ENOMEM;
   for (uint32_t index = 0; index < artifact->count; ++index) {
     dolly_fs_record *record = &artifact->records[index];
+    result = read_stream(artifact->stream, header, sizeof(header));
+    if (result != 0) return result;
+    cursor = header;
     uint32_t path_length;
     uint64_t size;
-    const unsigned char *path_bytes;
     if (take_layer_u32(&cursor, end, &record->kind) != 0 ||
         record->kind < DOLLY_FS_DIRECTORY || record->kind > DOLLY_FS_SYMLINK ||
         take_layer_u32(&cursor, end, &path_length) != 0 || path_length == 0 || path_length >= PATH_MAX ||
         take_layer_u64(&cursor, end, &size) != 0 || size > MAX_SOURCE_BYTES ||
-        take_layer_bytes(&cursor, end, path_length, &path_bytes) != 0 ||
-        take_layer_bytes(&cursor, end, (size_t)size, &record->data) != 0 ||
-        memchr(path_bytes, 0, path_length) != NULL) return -EINVAL;
-    record->path = strndup((const char *)path_bytes, path_length);
-    record->size = (uintptr_t)size;
+        (record->kind == DOLLY_FS_DIRECTORY && size != 0) ||
+        (record->kind == DOLLY_FS_SYMLINK && (size == 0 || size >= PATH_MAX))) return -EINVAL;
+    record->path = malloc(path_length + 1);
     if (record->path == NULL) return -ENOMEM;
-    if (!valid_absolute_path(record->path) || forbidden_keep(record->path) ||
-        (index != 0 && strcmp(artifact->records[index - 1].path, record->path) >= 0) ||
-        (record->kind == DOLLY_FS_DIRECTORY && record->size != 0) ||
-        (record->kind == DOLLY_FS_SYMLINK && (record->size == 0 || record->size >= PATH_MAX ||
-          memchr(record->data, 0, record->size) != NULL))) return -EINVAL;
+    result = read_stream(artifact->stream, record->path, path_length);
+    if (result != 0) return result;
+    record->path[path_length] = '\0';
+    record->size = (uintptr_t)size;
+    artifact->offsets[index] = ftello(artifact->stream);
+    if (artifact->offsets[index] < 0) return -errno;
+    if (artifact->offsets[index] > metadata.st_size ||
+        size > (uint64_t)(metadata.st_size - artifact->offsets[index]) ||
+        memchr(record->path, 0, path_length) != NULL ||
+        !valid_absolute_path(record->path) || forbidden_keep(record->path) ||
+        (index != 0 && strcmp(artifact->records[index - 1].path, record->path) >= 0)) return -EINVAL;
+    if (record->kind == DOLLY_FS_SYMLINK ||
+        strcmp(record->path, "/etc/dolly/Dollyfile") == 0 ||
+        strcmp(record->path, "/etc/dolly/artifact") == 0) {
+      unsigned char *data = malloc(size ? (size_t)size : 1);
+      if (data == NULL) return -ENOMEM;
+      record->data = data;
+      result = read_stream(artifact->stream, data, (size_t)size);
+      if (result != 0) return result;
+      if (record->kind == DOLLY_FS_SYMLINK && memchr(data, 0, (size_t)size) != NULL) return -EINVAL;
+    } else if (fseeko(artifact->stream, (off_t)size, SEEK_CUR) != 0) return -errno;
   }
   const dolly_fs_record *recipe = artifact_file(artifact, "/etc/dolly/Dollyfile");
-  if (cursor != end || recipe == NULL || recipe->kind != DOLLY_FS_FILE) return -EINVAL;
+  if (ftello(artifact->stream) != metadata.st_size || recipe == NULL || recipe->kind != DOLLY_FS_FILE) return -EINVAL;
   char actual[65];
   sha256_bytes(recipe->data, recipe->size, actual);
   if (strcmp(actual, expected) != 0) return -EBADMSG;
   memcpy(artifact->recipe_sha256, expected, sizeof(artifact->recipe_sha256));
   return 0;
+}
+
+static int copy_artifact_file(Artifact *artifact, uint32_t index, const char *destination) {
+  if (fseeko(artifact->stream, artifact->offsets[index], SEEK_SET) != 0) return -errno;
+  return copy_stream(artifact->stream, destination, artifact->records[index].size);
 }
 
 static int artifact_has_path(const Artifact *artifact, const char *path) {
@@ -1182,7 +1208,9 @@ static int artifact_has_path(const Artifact *artifact, const char *path) {
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
                          const char *source, const char *destination, Scope *visible) {
   Artifact *artifact = &engine->artifact;
-  int result = read_artifact(artifact, expected);
+  char artifact_path[128];
+  snprintf(artifact_path, sizeof(artifact_path), "/etc/dolly/artifacts/%s.snapshot", expected);
+  int result = read_artifact(artifact, artifact_path, expected);
   const dolly_fs_record *receipt = result == 0 ? artifact_file(artifact, "/etc/dolly/artifact") : NULL;
   if (result == 0 && (receipt == NULL || receipt->kind != DOLLY_FS_FILE)) result = -EINVAL;
   if (result == 0) result = read_artifact_receipt(engine, receipt->data, receipt->size,
@@ -1192,7 +1220,8 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   }
   size_t count = 0;
   dolly_fs_record *selected = result == 0 ? calloc(artifact->count, sizeof(*selected)) : NULL;
-  if (result == 0 && selected == NULL) result = -ENOMEM;
+  uint32_t *indices = result == 0 ? calloc(artifact->count, sizeof(*indices)) : NULL;
+  if (result == 0 && (selected == NULL || indices == NULL)) result = -ENOMEM;
   for (uint32_t index = 0; result == 0 && index < artifact->count; ++index) {
     const dolly_fs_record *record = &artifact->records[index];
     const char *suffix = record->path;
@@ -1210,11 +1239,14 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
     if (*path == '\0' && record->kind == DOLLY_FS_DIRECTORY) { free(path); continue; }
     if (!valid_absolute_path(path) || forbidden_keep(path)) { free(path); result = -EINVAL; break; }
     selected[count] = *record;
+    if (record->kind == DOLLY_FS_FILE) selected[count].size = 0;
+    indices[count] = index;
     selected[count++].path = path;
   }
   if (result == 0 && dolly_fs_restore(selected, count, 1) != 0) result = -errno;
   for (size_t index = 0; result == 0 && index < count; ++index) {
-    result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
+    if (selected[index].kind == DOLLY_FS_FILE) result = copy_artifact_file(artifact, indices[index], selected[index].path);
+    if (result == 0) result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
   }
   if (result == 0 && source == NULL) {
     for (size_t index = 0; result == 0 && index < visible->count; ++index) {
@@ -1230,6 +1262,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   if (result == 0) printf("dollyfile: %s %s (%zu paths)\n", source == NULL ? "FROM" : "COPY FROM", locator, count);
   else fprintf(stderr, "dollyfile: artifact %s: %s\n", locator, strerror(-result));
   for (size_t index = 0; index < count; ++index) free(selected[index].path);
+  free(indices);
   free(selected);
   return result;
 }

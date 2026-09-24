@@ -182,3 +182,25 @@ under the existing 10 GiB scope. An 8 GiB attempt failed with a confirmed cgroup
 OOM kill during game-image building; preallocation alone does not establish an
 8 GiB build requirement. Evidence: `.cache/0ad/source-preallocate-{parser,
 parser-browser,image,image-10g}.log`, `source-preallocate-10g-memory.json`.
+
+The recipe executor now indexes artifacts through an open in-Wasm file instead
+of materializing every payload in its private memory. It accepts snapshots up
+to 2 GiB, validates all selected path/type changes before restoring files, and
+shares bounded copying with SOURCE publication. Native checks read a sparse
+1.5 GiB artifact under a 64 MiB address-space limit and reject malformed sizes,
+paths, links, ordering, truncation and pins. Source checks pass 279/279.
+
+Browser-compiled execution successfully inherits the real 2,068,928,154-byte
+0 A.D. image, checks all 69 source hashes and runs the restored engine's version
+command. Chrome/Firefox FROM takes 1.86/2.74 s, with peak cgroup bytes
+5,013,012,480/6,315,053,056. Firefox requires bounded delivery pieces in this
+harness: its single raw 2 GB transfer was killed at the 8 GiB cap before FROM.
+Chrome additionally verifies repeated COPY reuse, directory merging and both
+file/directory type changes. SOURCE/parser browser checks still pass. Evidence:
+`.cache/0ad/artifact-stream-{all-source,parser-browser,browser-direct,
+browser-firefox-parts,browser-copy}.log`. Seed/image rebuild is pending.
+
+The artifact audit also exposed fixed per-record waiting in the libcurl adapter:
+curl's raw transfer timed out after four minutes, while the existing direct
+Dolly HTTP API transferred the same bytes in 13.5 s (Chrome). Audit ready-data
+waiting before treating it as a general network or artifact-reader cost.

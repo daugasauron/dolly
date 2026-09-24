@@ -94,6 +94,9 @@ exports. Every imported artifact contributes its original source provenance.
 The Python+Pi recipe demonstrates copying Python into an independently built
 Pi userspace.
 
+Artifacts may be up to 2 GiB. Their payloads stay in the shared filesystem;
+the builder reads metadata and copies selected files in bounded chunks.
+
 Modules share the current filesystem and environment. `REQUIRES TOOL cc`
 checks command availability on `PATH`; the command need not have a declared
 provider. `REQUIRES ENV NAME` checks the environment. Other named assertions

@@ -477,8 +477,9 @@ from upstream revision `2fc06364715b967f1860aea9cf38778875588b17`.
 Optional larger models download through ordinary sandbox HTTP.
 
 Pi-local also rebuilds the canonical `src/dollyfile.c` through
-`modules/dollyfile.dm`, using the existing in-image compiler. Its 1 GiB image
-input bound allows Studio and custom images to inherit the larger Pi base.
+`modules/dollyfile.dm`, using the existing in-image compiler. Its file-backed
+reader accepts image inputs up to 2 GiB without copying all payloads into the
+builder process, allowing Studio and custom images to inherit larger bases.
 The pinned weight chunks remain readable by the running original 512 MiB
 bootstrap executor. This updates the tool without replacing the compiler seed
 or invalidating its cached descendants; future seed builds use the same source.
