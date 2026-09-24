@@ -161,3 +161,20 @@ Evidence: `.cache/0ad/clean-seed-{reproducible,artifacts}.log` and
 `.cache/0ad/seed-polish-source-tests.log`. Final runtime identity is
 `66cb0420eb7882c2f43736dc698d91edf1d25871a7ea8a340d46c060ff6a1dd0`;
 image-input identity is `1694666dacf60e72d4cd729e9e935cd096a1a6093be868dc45cce63790d91b70`.
+
+The final game snapshot is 581,165,340 bytes, SHA-256
+`59959b83080b5ae6befa96c4b7b7ff0798aa36ed2ceb3c058b7a9c8ef7f6572a`.
+Both hardware gameplay suites pass: Firefox 155 at 47 ms/frame and 3.97 GB peak,
+Chrome 151/NVIDIA Blackwell at 24 ms/frame and 3.16 GB peak. These runs verify
+selection/movement, quick-save/load, training, completed construction, Petra,
+sound, two fresh processes and shell recovery. F10 now opens the upstream menu;
+Ctrl-F10 exits cleanly. The menu screenshot was inspected. Evidence:
+`.cache/0ad/final-{firefox,chrome}-gameplay.log` and `browser/graphics-menu.png`.
+
+Core browser checks pass in Chrome and Firefox. Both browsers pass the rebuilt
+audio SDK checks; the rebuilt GPU SDK passes rendering, quotas, malformed/copy
+checks and forced termination using SwiftShader. The complete selected artifact
+suite passes 26 checks, with the unrelated CPython check skipped. Evidence:
+`.cache/0ad/final-core-browser.log`, `final-audio-{chrome,firefox}.log`,
+`final-gpu-sdk.log`, and `final-artifacts.log`. Package acceptance and the full
+two-cold/one-cached build reproducibility check are the remaining gates.

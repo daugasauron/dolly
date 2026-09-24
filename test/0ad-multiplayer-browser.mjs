@@ -4,14 +4,18 @@ import {mkdir, readFile} from "node:fs/promises";
 import {chromium} from "playwright-core";
 import {startBrowserServer} from "./browser-server.mjs";
 import {createRelayRoom} from "../toolchain/0ad/relay.mjs";
+import {hasGameHud} from "./fixtures/0ad-hud.mjs";
 
 const output = new URL("../.cache/0ad/browser/", import.meta.url);
-assert.ok(process.argv.length===2 || (process.argv.length===3 && process.argv[2]==="visual"),
-  "usage: node test/0ad-multiplayer-browser.mjs [visual]");
-const visual = process.argv[2]==="visual", image=visual?"zero-ad":"default";
+const mode=process.argv[2]??"headless", backend=process.argv[3]??"hardware";
+assert.ok(process.argv.length<=4 && ["headless","visual","visual-client"].includes(mode) &&
+  ["hardware","software"].includes(backend),
+  "usage: node test/0ad-multiplayer-browser.mjs [headless|visual|visual-client] [hardware|software]");
+const visualIndex=mode==="visual"?0:mode==="visual-client"?1:-1;
+const visual = visualIndex!==-1, image=visual?"zero-ad":"default";
 const provider = await readFile(new URL("../src/gpu-worker.mjs", import.meta.url), "utf8");
 await mkdir(output, {recursive: true});
-const server = await startBrowserServer(new URL("..", import.meta.url).pathname, image, 0, new Map(visual ? [
+const server = await startBrowserServer(new URL("..", import.meta.url).pathname, image, 0, new Map(visual && backend==="software" ? [
   ["/src/gpu-worker.mjs", provider.replace('powerPreference: "high-performance"', 'forceFallbackAdapter: true')]
 ] : []), {
   "pyrogenesis.wasm": "build/0ad/pyrogenesis.wasm", "0ad-data.tar": "build/0ad/headless-data.tar"
@@ -25,8 +29,9 @@ const replays = [], metadata = [], logs = [];
 let browser, deadline;
 try {
   browser = await chromium.launch({channel: "chrome", headless: !visual, args: visual ? [
-    "--no-sandbox", "--mute-audio", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--use-vulkan=swiftshader",
-    "--use-webgpu-adapter=swiftshader", "--enable-features=Vulkan", "--disable-vulkan-surface"
+    "--no-sandbox", "--mute-audio", "--enable-unsafe-webgpu", "--use-angle=vulkan", ...(backend==="hardware"
+      ? ["--ozone-platform=x11", "--enable-features=Vulkan,VulkanFromANGLE"]
+      : ["--use-vulkan=swiftshader", "--use-webgpu-adapter=swiftshader", "--enable-features=Vulkan", "--disable-vulkan-surface"])
   ] : ["--no-sandbox", "--disable-gpu"]});
   deadline = setTimeout(() => void browser.close(), visual?420000:240000);
   for (const endpoint of room.endpoints) {
@@ -51,7 +56,7 @@ try {
     globalThis.gameStatus = null;
     void __dolly.submit(command).then(status => { gameStatus = status; });
   }, `DOLLY_ENET_RELAY=${relayOrigin}${room.endpoints[index].path} ICU_DATA=/opt/0ad/data/icu ` +
-    `/opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound -conf=hotkey.exit:F10 ${!visual || index===1?"-autostart-nonvisual":""} ` +
+    `/opt/0ad/system/pyrogenesis -quickstart -writableRoot -mod=public -nosound -conf=hotkey.exit:Ctrl+F10 ${index!==visualIndex?"-autostart-nonvisual":""} ` +
     `-autostart-playername=Player${index + 1} ${options} > /tmp/network.log 2>&1`);
   const time = performance.now();
   await start(0, "-autostart=scenarios/combat_demo -autostart-host -autostart-host-players=2");
@@ -60,21 +65,33 @@ try {
   assert.ok(room.status().sockets >= 1, "The actual game server did not bind its relay port");
   await start(1, "-autostart-client=10.0.0.1");
   if (visual) {
-    const hostPage=pages[0];
-    await hostPage.waitForFunction(()=>gameStatus!==null || __dolly.gpu.stats?.frames>=22,null,{timeout:60000});
-    assert.equal(await hostPage.evaluate(()=>gameStatus),null);
-    assert.match(await hostPage.evaluate(()=>__dolly.gpu.adapter),/swiftshader/i);
-    await hostPage.bringToFront();
-    await hostPage.mouse.move(480,240); await hostPage.mouse.down();
-    await hostPage.mouse.move(720,550,{steps:5}); await hostPage.mouse.up();
-    const selectedFrame=await hostPage.evaluate(()=>__dolly.gpu.stats.frames);
-    await hostPage.waitForFunction(frame=>__dolly.gpu.stats.frames>=frame+3,selectedFrame);
-    await hostPage.mouse.click(224,742); // Upstream's violent-stance button.
-    await hostPage.screenshot({path:new URL("multiplayer-visual.png",output).pathname});
-    await pages[1].waitForFunction(()=>gameStatus!==null,null,{timeout:300000});
-    const endedFrame=await hostPage.evaluate(()=>__dolly.gpu.stats.frames);
-    await hostPage.waitForFunction(frame=>gameStatus!==null || __dolly.gpu.stats.frames>=frame+4,endedFrame);
-    if (await hostPage.evaluate(()=>gameStatus===null)) await hostPage.keyboard.press("F10");
+    const gamePage=pages[visualIndex];
+    await gamePage.bringToFront();
+    const advance=async count=>{
+      await gamePage.waitForFunction(()=>gameStatus!==null || __dolly.transport.inputIdle());
+      const frame=await gamePage.evaluate(()=>__dolly.gpu.stats?.frames??0);
+      await gamePage.waitForFunction(target=>gameStatus!==null || __dolly.gpu.stats?.frames>=target,frame+count,{timeout:60000});
+      assert.equal(await gamePage.evaluate(()=>gameStatus),null);
+    };
+    await advance(22);
+    const readyDeadline=Date.now()+60000;
+    while(!await hasGameHud(gamePage)) {
+      assert.ok(Date.now()<readyDeadline,"The multiplayer HUD never appeared");
+      await advance(2);
+    }
+    const gpu=await gamePage.evaluate(()=>__dolly.gpu);
+    if(backend==="software") assert.match(gpu.adapter,/swiftshader/i);
+    else assert.equal(gpu.isFallbackAdapter,false);
+    await gamePage.mouse.move(480,240); await gamePage.mouse.down();
+    await gamePage.mouse.move(720,550,{steps:5}); await gamePage.mouse.up();
+    await advance(3);
+    await gamePage.mouse.click(224,742); // Upstream's violent-stance button.
+    await advance(3);
+    await gamePage.screenshot({path:new URL(`multiplayer-${mode}.png`,output).pathname});
+    await pages[1-visualIndex].waitForFunction(()=>gameStatus!==null,null,{timeout:300000});
+    await advance(4);
+    await gamePage.screenshot({path:new URL(`multiplayer-${mode}-finished.png`,output).pathname});
+    await gamePage.keyboard.press("Control+F10");
   }
   await Promise.all(pages.map(page => page.waitForFunction(() => gameStatus !== null, null, {timeout: 210000})));
   const statuses = await Promise.all(pages.map(page => page.evaluate(() => gameStatus)));
@@ -95,7 +112,7 @@ try {
   }
   for (const [index,{log,html}] of logs.entries()) {
     assert.doesNotMatch(log, /ERROR:|Assertion failed|out.of.sync|mismatch/i);
-    if (!visual || index===1) assert.match(log, /Turn [1-9][0-9]+ /);
+    if (index!==visualIndex) assert.match(log, /Turn [1-9][0-9]+ /);
     assert.doesNotMatch(html, /class="error"|class="warning"/);
   }
   assert.deepEqual(statuses, [0, 0]);
@@ -114,7 +131,7 @@ try {
   if (visual) {
     const orders=replays[0].split("\n").filter(line=>/^cmd [12] /.test(line)).map(line=>JSON.parse(line.slice(6)));
     assert.ok(orders.some(order=>order.type==="stance" && order.name==="violent" && order.entities.length>0),
-      "The graphical host's order to selected units must reach both synchronized replays");
+      "The graphical peer's order to selected units must reach both synchronized replays");
   }
   if (!visual) assert.deepEqual(metadata[0].playerStates, metadata[1].playerStates);
   assert.deepEqual(metadata[0].playerStates.map(player=>[player.name,player.state]),
@@ -122,7 +139,7 @@ try {
   assert.ok(metadata[0].playerStates.some(player => player.state === "won"));
   const cgroup = (await readFile("/proc/self/cgroup", "utf8")).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes = cgroup ? Number(await readFile(`/sys/fs/cgroup${cgroup}/memory.peak`, "utf8")) : undefined;
-  console.log(JSON.stringify({visualInput:visual, statuses, milliseconds, synchronizedTurns: hashes.length,
+  console.log(JSON.stringify({mode, backend:visual?backend:undefined, visualInput:visual, statuses, milliseconds, synchronizedTurns: hashes.length,
     peerTurns:parsed.map(peer=>peer.turns.length), finalSharedHash: hashes.at(-1), processTreePeakBytes, relay: room.status()}));
 } catch (error) {
   console.error("Relay:", room.status());

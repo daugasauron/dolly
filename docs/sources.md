@@ -48,7 +48,9 @@ Dollyfile/module rows --> browser broker --> exact SHA-256-checked files in Wasm
 
 The Emscripten data file contains the bootstrap seed: process sysroot and Clang
 headers, Dolly headers and ABI schemas, Slop/Dollyfile/core-command source, and
-the private compiler executable. Emscripten's standalone `dolly-seed.mjs` loader
+the private compiler executable. Base headers come from a fresh SDK sysroot;
+ports previously installed in the shared Emscripten cache are excluded.
+Emscripten's standalone `dolly-seed.mjs` loader
 mounts it at `/seed` only for a root rebuild without a `FROM` base;
 `src/dolly.c` installs those inputs into `/usr` before compilation. Prebuilt
 images and builds with a base already contain their compiler and do not fetch
@@ -216,6 +218,10 @@ JIT, and heap-backed fixed-address pools. SDL uses Dolly's existing backend;
 curl uses its restrictable HTTP broker. Browser checks exercise real simulation,
 serialization, deterministic replay, save/load, guest pipes and process
 interruption/recovery, plus house construction, training, gathering and Petra AI.
+The save/load check compares 100 subsequent turns against uninterrupted play,
+including loading in a fresh process. The small upstream data patch avoids RNG
+draws and commands during AI restoration and keeps full and incremental entity
+observations consistent.
 Graphical content and restricted multiplayer are covered below; measurements are in
 [`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
 
@@ -253,16 +259,17 @@ reuse and browser denial of another participant's URL. Link its fixture after
 `systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node
 test/0ad-multiplayer-browser.mjs` exercises the two real engines with the GPU
 disabled. The measured process-tree peak was 1,852,792,832 bytes.
-The optional `visual` argument uses the packaged `zero-ad` image, a SwiftShader
-graphical host and a headless peer; run it under Xvfb with a 6 GiB scope. It sends
-a real order to selected units and compares every shared turn's command/hash
-records plus winner metadata. Per-process replay timestamps are excluded from
-that comparison. The checked stance order reached both peers; all 149 shared
-turns matched, both recorded the winner and exited cleanly in 174.6 seconds,
-with a 5.14 GB process-tree peak. The graphical host recorded two additional
-turns before F10 exit. A headless autostart host exits immediately on victory and can
-close before a slower visual peer's last turn; keep the graphical host open
-through match completion when mixing visual and nonvisual peers.
+The optional `visual` or `visual-client` argument uses the packaged `zero-ad`
+image with a graphical host or client, respectively, and a headless peer. Run
+on the desktop with a 6 GiB scope; hardware mode rejects fallback adapters.
+An explicit second argument, `software`, selects SwiftShader for Xvfb checks.
+The test sends a real order to selected units and compares every shared turn's
+commands and hashes plus winner metadata. Per-process timestamps are excluded.
+Both arrangements passed all 149 shared turns on hardware: 112 seconds with a
+graphical client (4.83 GB peak), and 137 seconds with a graphical host (5.19 GB).
+The headless host now keeps polling after victory until all connected peers
+have simulated the winning turn. Both peers record the winner, exit cleanly
+and release their relay sockets.
 
 OpenAL Soft 1.24.3 is checksum-pinned in `config/source-pins.sh`.
 `npm run image -- openal-build` builds and installs its static library, headers,
@@ -338,20 +345,15 @@ required). For Firefox on the desktop, use
 memory scope. Results identify the backend, adapter and fallback status alongside
 frame time, allocation credits and peak cgroup memory.
 
-Before the [merge-polish performance fixes](../tasks/20260924-080029-0ad-merge-polish/TASK.md),
-Chrome 151/SwiftShader measured 78.5 s staging, 6.1 s combat
-startup, 10.9 s economy startup, 331 ms sampled combat frames and 3.59 GB peak
-process-tree memory. A 32,768-frame audio cushion reduced cumulative underruns
-from 165 to 4 across these two runs; its added latency and occasional gaps remain
-baseline limitations.
-
 The hardware renderer now retains streamed buffers, allocates aligned uniform
 ranges and reuses unchanged resource groups; the provider avoids duplicate
-completion fences. Packaged gameplay measured 19 ms/frame in Chrome 151 on
-NVIDIA Blackwell and 59 ms/frame in Firefox 155 (non-fallback WebGPU adapter).
+completion fences. Packaged gameplay measured 24 ms/frame in Chrome 151 on
+NVIDIA Blackwell and 47 ms/frame in Firefox 155 (non-fallback WebGPU adapter).
 Both passed the input, save/load, economy, sound and restart checks under 4 GiB.
 These are sampled combat-scene timings, not a guarantee for larger matches.
 Pointer exit now stops camera edge-scrolling, and focus loss clears held input.
+Measurements and earlier comparisons are recorded in the
+[merge-polish task](../tasks/20260924-080029-0ad-merge-polish/TASK.md).
 
 In Dolly, unpack the graphics tar under `/opt/0ad` and place
 `pyrogenesis.wasm` at `/opt/0ad/system/pyrogenesis`, then run:
@@ -369,7 +371,7 @@ headless bundle, shaders and graphics bundle above:
 
 ```sh
 node toolchain/0ad/prepare-distribution.mjs
-systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=0 npm run image -- zero-ad
+systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 npm run image -- zero-ad
 systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node test/0ad-graphics-browser.mjs zero-ad hardware
 DOLLY_BUILD_IMAGES=zero-ad npm run publish
 npm run serve
@@ -377,10 +379,10 @@ npm run serve
 
 Open `/zero-ad/` and run `zero-ad` for the economy match, or
 `zero-ad -autostart=scenarios/combat_demo`. The shell wrapper sets ICU's data path
-and forwards explicit engine arguments. F10 exits cleanly to the shell and writes
-replay metadata. Ctrl-C interrupts the process; forced termination may leave
-incomplete replay metadata. Saves and
-replays live under `/opt/0ad/data` in the guest filesystem; use Dolly's session
+and forwards explicit engine arguments. F10 opens the game menu; Ctrl-F10 exits
+cleanly to the shell and writes replay metadata. Ctrl-C interrupts the process;
+forced termination may leave incomplete replay metadata. Saves and replays live
+under `/opt/0ad/data` in the guest filesystem; use Dolly's session
 save/download commands to retain them outside the current tab. `-version` and
 `-dolly-control` are also available through the wrapper.
 
@@ -392,14 +394,12 @@ host filesystem shortcut. The external engine build remains the explicit
 bootstrap exception described above. The pack retains upstream engine/content
 license notices and ICU/OpenAL licenses. The image deliberately starts in the
 shell, so opening its page alone does not start a graphics workload.
-The earlier 581,810,815-byte snapshot exported identically in an independent browser
-profile (SHA-256 `5787e3ad038151b9968f488430d61aa51448cb3f5d00c8ef9974895cc6a99ab6`).
-Image export needs a 6 GiB process-tree allowance; its 4 GiB attempt exhausted
-that scope. The packaged image reached its shell in 3.7 seconds and passed the
-offline gameplay/audio check under 4 GiB with a 3.39 GB peak. The hardware fixes
-produce a 581,815,363-byte snapshot (SHA-256
-`6fc7ea630f90a4c8031f0ead4e9b90622bbdf88143be85de607e8e45f0751029`);
-packaged gameplay peaked at 3.19 GB in Chrome and 4.02 GB in Firefox.
+Allow 8 GiB for a complete image rebuild: rebuilding the Rust tools exceeded
+the earlier 6 GiB scope. Exporting only the game image previously fit in 6 GiB.
+The final 581,165,340-byte snapshot has SHA-256
+`59959b83080b5ae6befa96c4b7b7ff0798aa36ed2ceb3c058b7a9c8ef7f6572a`.
+It reached the shell in 3.8 seconds in Chrome and 7.0 in Firefox; full gameplay
+checks peaked at 3.16 GB and 3.97 GB, respectively.
 
 `pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
 adds a line-oriented guest JSON protocol to the ordinary autostart options.
@@ -425,11 +425,10 @@ it adds no browser imports or network listeners.
 
 Observations expose all entities and are intended for diagnostics/control, not
 fog-of-war competition. `data.patch` lets Petra serialize its saved data while
-its deferred restoration is pending. Browser checks prove exact saved-state
-hash restoration, fresh-process loading and matching continuations from the same
-save. Petra's upstream reconstruction consumes RNG and reissues dropsite commands;
-continuation after loading can differ from an uninterrupted AI run. Deterministic
-recorded-command replay is checked separately.
+its deferred restoration is pending and fixes reconstruction side effects and
+stale entity observations. Browser checks prove exact saved-state hash restoration,
+fresh-process loading, and 100-turn continuations matching uninterrupted play.
+Deterministic recorded-command replay is checked separately.
 
 For the smaller SpiderMonkey-only build/check, use
 `bash toolchain/0ad/build-spidermonkey.sh` and

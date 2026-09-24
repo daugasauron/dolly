@@ -36,7 +36,7 @@ FILE /usr/bin/zero-ad
     if test "$#" -eq 0; then
       set -- -autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1
     fi
-    /opt/0ad/system/pyrogenesis -writableRoot -mod=public -conf=hotkey.exit:F10 "$@"
+    /opt/0ad/system/pyrogenesis -writableRoot -mod=public -conf=hotkey.exit:Ctrl+F10 "$@"
 SLOP /usr/bin/zero-ad -version
 EXPORTS TOOL zero-ad
 EXPORTS FOLDER zero-ad /opt/0ad
@@ -52,7 +52,7 @@ FILE /home/dolly/.dollyrc
     printf '0 A.D. Release 28 / Dolly baseline\\n'
     printf 'Run zero-ad to play Athens against Petra on Temperate Roadway (2).\\n'
     printf 'Run zero-ad -autostart=scenarios/combat_demo for the combat scenario.\\n'
-    printf 'F10 exits cleanly; Ctrl-C interrupts. Saves and replays: /opt/0ad/data.\\n\\n'
+    printf 'F10 opens the menu; Ctrl-F10 exits; Ctrl-C interrupts. Saves and replays: /opt/0ad/data.\\n\\n'
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 `);

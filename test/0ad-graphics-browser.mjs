@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile,mkdir} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from './browser-server.mjs';
+import {hasGameHud} from './fixtures/0ad-hud.mjs';
 
 const root=new URL('..',import.meta.url), output=new URL('../.cache/0ad/browser/',import.meta.url);
 const image=process.argv[2]??'default', backend=process.argv[3]??'hardware';
@@ -79,39 +80,24 @@ try {
     const start=performance.now();
     do {await advance(2);} while(performance.now()-start<milliseconds);
   };
-  const hudReady=async()=>{
-    // The food icon has a light outline here; loading screens do not. Inspect
-    // actual presented pixels because loading also submits GPU frames.
-    const png=await page.screenshot({clip:{x:8,y:5,width:24,height:20}});
-    return page.evaluate(async encoded=>{
-      const bytes=Uint8Array.from(atob(encoded),letter=>letter.charCodeAt(0));
-      const bitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}));
-      const canvas=new OffscreenCanvas(bitmap.width,bitmap.height),context=canvas.getContext('2d');
-      context.drawImage(bitmap,0,0);bitmap.close();
-      const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;
-      let bright=0;
-      for(let i=0;i<pixels.length;i+=4) if(pixels[i]>170 && pixels[i+1]>170 && pixels[i+2]>170) bright++;
-      return bright>32;
-    },png.toString('base64'));
-  };
   const start=async(options='-autostart=scenarios/combat_demo')=>{
     const baseline=await frames(),time=performance.now();
     await page.evaluate(({options,image})=>{
       globalThis.gameStatus=null;globalThis.audioPeak=0;
-      const launch=image==='zero-ad'?'zero-ad':'ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public -conf=hotkey.exit:F10';
+      const launch=image==='zero-ad'?'zero-ad':'ICU_DATA=/opt/0ad/data/icu /opt/0ad/system/pyrogenesis -writableRoot -mod=public -conf=hotkey.exit:Ctrl+F10';
       void __dolly.submit(launch+' '+options)
         .then(status=>{globalThis.gameStatus=status;});
     },{options,image});
     await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.stats?.frames>=target,baseline+22,{timeout:30000});
     assert.equal(await page.evaluate(()=>gameStatus),null);
-    while(!await hudReady()) {
+    while(!await hasGameHud(page)) {
       assert.ok(performance.now()-time<60000,'The in-game HUD never appeared');
       await advance(2);
     }
     return Math.round(performance.now()-time);
   };
   const stop=async(graceful=false)=>{
-    await page.keyboard.press(graceful?'F10':'Control+c');await page.waitForFunction(()=>gameStatus!==null);
+    await page.keyboard.press(graceful?'Control+F10':'Control+c');await page.waitForFunction(()=>gameStatus!==null);
     const status=await page.evaluate(()=>gameStatus);
     if(graceful) assert.equal(status,0); else assert.ok([0,130].includes(status));
     await page.waitForFunction(()=>!__dolly.graphicsActive);
@@ -127,6 +113,9 @@ try {
     assert.doesNotMatch(adapter.adapter,/swiftshader|llvmpipe|software/i);
   }
   await page.screenshot({path:new URL('graphics-initial.png',output).pathname});
+  await page.keyboard.press('F10');await advanceFor(600);
+  await page.screenshot({path:new URL('graphics-menu.png',output).pathname});
+  await page.keyboard.press('F10');await advanceFor(600);
   await page.mouse.move(535,350);await page.mouse.down();
   await page.mouse.move(595,610,{steps:5});await page.mouse.up();await advance(2);
   await page.screenshot({path:new URL('graphics-selection.png',output).pathname});
