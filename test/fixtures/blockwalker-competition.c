@@ -1,7 +1,34 @@
 #include "world.c"
 #include <assert.h>
 
-static int crowded_cranes;
+static int crowded_cranes,quay_waited;
+static void delay_freight(JSContext *ctx,JSValue item,int team){
+    JSValue value=JS_GetPropertyStr(ctx,item,"source");const char *source=JS_ToCString(ctx,value);assert(source);
+    size_t size=strlen(source)+128;char *wrapped=malloc(size);assert(wrapped);
+    snprintf(wrapped,size,"function delayed(t,s,m,r){if(!m.released)return {};return (%s)(t,s,m,r);}",source);
+    JS_SetPropertyStr(ctx,item,"source",JS_NewString(ctx,wrapped));free(wrapped);JS_FreeCString(ctx,source);JS_FreeValue(ctx,value);
+    put_number(ctx,item,"x",team==1?-32:-64);put_number(ctx,item,"z",130);
+}
+static int wait_at_quay(JSContext *ctx){
+    static double held;
+    if(quay_waited)return 0;
+    Creature *hauler=world_find(2);assert(hauler);b3Pos p=b3Body_GetPosition(hauler->physics.parts[0].body);
+    int pad=0,carried=0;
+    for(int i=0;i<world.count;i++){
+        Creature *c=&world.creatures[i];if(c->supply!=2)continue;
+        if(magnet_holds(hauler,c))carried=c->id;
+        else{b3Pos box=b3Body_GetPosition(c->physics.parts[0].body);if(hypot(box.x+42,box.z-110.5)<3.5)pad++;}
+    }
+    assert(pad<=1);
+    b3Vec3 v=b3Body_GetLinearVelocity(hauler->physics.parts[0].body);
+    if(pad&&carried&&hypot(p.x+42,p.z-98)<.5&&hypot(v.x,v.z)<.1)held+=1./60;else held=0;
+    if(held<5)return 0;
+    assert(b3RotateVector(b3Body_GetRotation(hauler->physics.parts[0].body),b3Vec3_axisY).y>.95f);
+    assert(world_save(ctx));world_close();world_load(ctx);
+    for(int id=4;id<=5;id++){Controller *c=world_find(id)->controller;JS_SetPropertyStr(c->ctx,c->memory,"released",JS_NewBool(c->ctx,1));}
+    printf("QUAY: loaded hauler waited five seconds behind occupied pad; boats released after reload at %.3f seconds\n",world.age);
+    quay_waited=1;return 1;
+}
 static int crowd_crane(JSContext *ctx,int tick){
     static int active,start,mask,cargo,clutter[13];
     if(!active)for(int i=0;i<3;i++){
@@ -41,12 +68,13 @@ int main(void){
         for(int j=0;j<7;j++)if(name&&!strcmp(name,names[j]))JS_SetPropertyUint32(ctx,selected,j,JS_DupValue(ctx,item));
         JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
     }
+    for(int j=3;j<=4;j++){JSValue item=JS_GetPropertyUint32(ctx,selected,j);delay_freight(ctx,item,j-2);JS_FreeValue(ctx,item);}
     load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==7);
     world.supply_seed=42;world.next_parcel=100000;
     int stages[128]={0},teams[128]={0},restarts=0;float minimum_up=1,separation=0;double progress=0;
-    for(int tick=0;tick<1800*60;tick++){
+    for(int tick=0;tick<2400*60;tick++){
         world_step();if(world.deaths)break;
-        restarts+=crowd_crane(ctx,tick);
+        restarts+=wait_at_quay(ctx);restarts+=crowd_crane(ctx,tick);
         for(int i=0;i<world.count;i++){
             Creature *c=&world.creatures[i];separation=fmaxf(separation,c->physics.max_separation);
             if(c->id==4||c->id==5)minimum_up=fminf(minimum_up,b3RotateVector(b3Body_GetRotation(c->physics.parts[0].body),b3Vec3_axisY).y);
@@ -63,7 +91,7 @@ int main(void){
     }
     assert(world_save(ctx));
     printf("FREIGHT: %.3f seconds, East %d / West %d, %d reloads, %d removals, minimum barge up %.5f, maximum joint separation %.5f\n",world.age,world_team_score(1),world_team_score(2),restarts,world.deaths,minimum_up,separation);fflush(stdout);
-    assert(world_team_score(1)>=16&&world_team_score(2)>=16&&restarts&&!world.deaths&&minimum_up>.9f&&separation<.12f&&crowded_cranes==7);
+    assert(world_team_score(1)>=16&&world_team_score(2)>=16&&restarts&&!world.deaths&&minimum_up>.9f&&separation<.12f&&crowded_cranes==7&&quay_waited);
     for(int i=0;i<world.delivery_count;i++){
         Delivery *d=&world.deliveries[i];assert(d->cargo<128&&stages[d->cargo]==31&&d->points==8&&depots[d->depot].team==teams[d->cargo]);
         printf("PALLET %d: lift / hauler / loading crane / team %d barge / receiving crane / scored at %.3f seconds\n",d->cargo,teams[d->cargo],d->time);
