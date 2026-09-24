@@ -163,7 +163,8 @@ try {
     assert.equal(adapter.isFallbackAdapter,false,'Hardware verification must not use a fallback adapter');
     assert.doesNotMatch(adapter.adapter,/swiftshader|llvmpipe|software/i);
   }
-  await page.screenshot({path:new URL('graphics-initial.png',output).pathname});
+  assert.ok(await hasGameHud(page,await page.screenshot({path:new URL('graphics-initial.png',output).pathname})),
+    'Combat view must remain visible after loading');
   await page.keyboard.press('F10');await advanceFor(600);
   await page.screenshot({path:new URL('graphics-menu.png',output).pathname});
   await page.keyboard.press('F10');await advanceFor(600);
@@ -229,7 +230,8 @@ try {
   await advanceFor(40000);
   const economyFrameTimings=await frameTimings();
   await checkOpacity('economy');
-  await page.screenshot({path:new URL('graphics-economy.png',output).pathname});
+  assert.ok(await hasGameHud(page,await page.screenshot({path:new URL('graphics-economy.png',output).pathname})),
+    'Economy view must remain visible');
   const economyGpu=await page.evaluate(()=>__dolly.gpu);
   const economyAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
   assert.ok(economyAudio.peak>1e-4,'Economy audio must reach the browser audio graph');

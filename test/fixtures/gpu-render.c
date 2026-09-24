@@ -53,11 +53,11 @@ static void begin(unsigned color,unsigned depth) {
   u64(p,8,color);u64(p,16,depth);u32(p,24,64);u32(p,28,64);u32(p,32,1);u32(p,36,1);f32(p,52,1);f32(p,56,1);
 }
 static void end(void) { dolly_gpu_record(&gpu,DOLLY_GPU_END_RENDER_PASS,8); }
-static void draw(unsigned pipeline,unsigned position,unsigned uv,unsigned indices,unsigned material,unsigned textures,unsigned transform) {
+static void *draw(unsigned pipeline,unsigned position,unsigned uv,unsigned indices,unsigned material,unsigned textures,unsigned transform) {
   void *p=dolly_gpu_record(&gpu,DOLLY_GPU_DRAW_MESH,152);
   u64(p,8,pipeline);u64(p,16,indices);u64(p,32,12);u32(p,40,6);u32(p,44,1);u32(p,60,1);u32(p,64,3);u32(p,68,2);
   u64(p,80,material);u64(p,88,textures);u64(p,96,transform);
-  u64(p,104,position);u64(p,120,48);u64(p,128,uv);u64(p,144,32);
+  u64(p,104,position);u64(p,120,48);u64(p,128,uv);u64(p,144,32);return p;
 }
 static void batch(void) { if(dolly_gpu_batch(&gpu)<0){perror("GPU batch");abort();}dolly_gpu_begin(&gpu); }
 static void rejected(int expected) { assert(dolly_gpu_batch(&gpu)==-1);assert(errno==expected);dolly_gpu_begin(&gpu); }
@@ -124,6 +124,26 @@ int main(int argc,char **argv) {
   draw(surface,pos,uv,index,surface_white,target_group,surface_near);end();
   capture(readback);
   pixel(0,0,0,0,0);pixel(16,16,255,0,0);pixel(48,16,0,255,0);pixel(16,48,0,0,255);pixel(48,48,255,255,0);pixel(63,63,0,0,0);
+  // Consecutive meshes share buffers but use different vertex/index ranges.
+  const float halves[]={-1,-1,0,0,-1,0,-1,1,0,0,1,0, 0,-1,0,1,-1,0,0,1,0,1,1,0};
+  const unsigned short ranged_indices[]={0,0,0,0,0,0,0,1,2,2,1,3};
+  unsigned ranged_pos=buffer(halves,sizeof(halves),40),ranged_index=buffer(ranged_indices,sizeof(ranged_indices),24),
+    surface_source=texture_group(surface,source,sampler,1);
+  begin(0,0);
+  draw(surface,ranged_pos,uv,ranged_index,surface_white,surface_source,surface_near);
+  p=draw(surface,ranged_pos,uv,ranged_index,surface_white,surface_source,surface_near);u64(p,24,12);
+  p=draw(surface,ranged_pos,uv,ranged_index,surface_white,surface_source,surface_near);
+  u64(p,32,24);u32(p,48,6);u64(p,112,48);
+  end();capture(readback);
+  pixel(8,16,255,0,0);pixel(24,16,0,255,0);pixel(40,48,0,0,255);pixel(56,48,255,255,0);
+  // Changing only the index format must update an already-bound buffer.
+  const uint32_t wide_indices[]={0,1,2,2,1,3};
+  unsigned wide_index=buffer(wide_indices,sizeof(wide_indices),24);
+  begin(0,0);
+  p=draw(surface,pos,uv,wide_index,surface_white,surface_source,surface_near);u64(p,32,sizeof(wide_indices));
+  p=draw(surface,pos,uv,wide_index,surface_white,surface_source,surface_near);u64(p,32,sizeof(wide_indices));u32(p,60,2);
+  end();capture(readback);
+  pixel(16,16,255,0,0);pixel(48,16,0,255,0);pixel(16,48,0,0,255);pixel(48,48,255,255,0);
   assert(features&DOLLY_GPU_FEATURE_VERTEX_F16);
   // Half-float inputs convert to f32; the position shader ignores component four.
   const uint16_t half_positions[]={0xbc00,0xbc00,0,0x7c00,0,0, 0x3c00,0xbc00,0,0x7c00,0,0,

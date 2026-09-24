@@ -413,3 +413,102 @@ interruption checks still pass in software Chrome. Source checks pass 279/279.
 Evidence: `.cache/0ad/integer-{equivalence,boundary-before,boundary-after,boundary-negative,source}.log`.
 The permanent GPU suite also passes in Firefox with the Radeon ICD, including
 the new integer-range checks. `.cache/0ad/integer-final-gpu-amd-firefox.log`.
+
+Final menu flows complete in Chrome and Radeon-forced Firefox, including saved
+High/16× settings, ordinary save/load in a fresh process, and Acropolis/Alpine.
+Chrome loads them in 9.48/6.98/18.30 seconds with 3,787,132,928-byte peak memory;
+Firefox takes 14.27/8.87/20.99 seconds with 3,875,377,152-byte peak. Both logs are
+clean. However, the Firefox/Radeon result proves game execution, not reliable
+onscreen presentation: subsequent capture inspection finds mostly black windows.
+Evidence: `.cache/0ad/integer-final-menu-{chromium,amd-firefox}.log`.
+
+With only the Radeon Vulkan ICD enabled, Firefox 155 produces black canvases
+even in a standalone 128×128 WebGPU clear test, both on the main thread and in
+a Worker. Chrome presents the expected green/blue canvases. Native 0 A.D. F2
+readback contains the rendered HUD/units while the actual Firefox window is
+black. This is independent of Dolly and resembles Mozilla's
+[cross-GPU presentation issue](https://bugzilla.mozilla.org/show_bug.cgi?id=2028402);
+that issue is marked fixed, so it does not establish this build's exact cause.
+Setting `dom.webgpu.allow-present-without-readback=false` in an isolated test
+profile does not change the result. No browser preferences or fallback paths
+were added to Dolly. Evidence: `.cache/0ad/amd-canvas-{firefox,chromium}.log`,
+`amd-canvas-*.png`, `amd-presentation-audit-firefox.log`, and
+`browser/amd-firefox-{native,window}.png`.
+The graphical/menu tests now check the full game view after loading and during
+play, so engine progress alone cannot pass a black view. Six Radeon/Firefox map
+runs have clean logs, but their screenshots have this presentation problem;
+their timing is not evidence of playable Firefox/Radeon output.
+
+Chrome/Radeon renders all six maps with fog of war revealed: Aegean islands,
+Sahara, India, Polar Sea, Extinct Volcano and Deep Forest, with six different
+civilizations. Both full browser captures and native F2 readbacks contain the
+HUD and visible terrain; logs are clean. Peak memory is 3,824,308,224 bytes.
+The forest and rainy volcano scenes are slower than the other four; this run
+includes screenshot work, so its frame tails are not pure gameplay timings.
+Evidence: `.cache/0ad/map-revealed-amd-chromium.log`, `map-revealed-chromium/`.
+
+The final decoder/native renderer completes a ten-minute, two-core Firefox
+selection soak: 60,937 measured frames, 9.87 ms mean, 129.82 ms maximum,
+1,057 intervals above 33.34 ms, clean engine log and 3,851,485,184-byte peak.
+The retained native profile identifies some later pauses in Petra's building
+construction and GUI simulation updates. No measured interval crosses the
+150 ms stop threshold. Evidence: `.cache/0ad/stall-final-firefox.log`,
+`stall-final-firefox-frames.json`, `stall-final-profile-summary.txt`.
+
+The remaining provider CPU profile spends substantial time issuing redundant
+WebGPU bindings. Pass-local pipeline/group/vertex/index state now skips identical
+WebGPU calls while retaining every packet's object and range validation.
+Two-core, 30-second paused-scene Chrome A/B/B/A means are 4.64/4.71 ms before and
+3.64/4.29 ms after (15% average reduction); provider time falls 26%. A smaller
+pipeline/group-only candidate measures 4.23 ms and is not retained. Firefox's
+pair improves 5.97 to 5.48 ms (8.3%), with provider time down 17.5%. These measure
+uncapped rendering overhead, not AI-heavy match performance. Evidence:
+`.cache/0ad/state-pairs-{chromium,firefox}.log`.
+GPU pixel checks cover consecutive meshes sharing vertex/index buffers with
+different ranges and index formats, plus existing depth, compressed textures,
+fresh processes, interruption, bounds and retirement checks. The harness now
+waits for successful terminal output after process exit instead of racing the
+terminal publication. `.cache/0ad/gpu-render-state-formats.log`.
+Deliberately ignoring vertex offsets fails the pixel program with status 126;
+the correct cache passes. `.cache/0ad/gpu-render-state-negative-fast.log`.
+Source checks pass 279/279. `.cache/0ad/state-source.log`.
+
+An eight-minute wall-clock run on Chrome/AMD with two CPU cores, four Petra AIs
+(difficulty 2), a 256-tile mainland and repeated box selection completes 50,748
+measured frames: 9.48 ms mean, 133.02 ms maximum, 1,206 intervals above 33.34 ms.
+All players remain active with populations 50/48/50/48 after 449.2 simulation
+seconds. The full view is visible, logs are clean, and peak memory is
+3,629,699,072 bytes. Later profile samples show AI/GUI simulation work in the
+longer frames; this remains an early economy workload, not maximum population.
+Evidence: `.cache/0ad/late-state-amd-chromium.log`, its PNG/metadata/profile,
+and `late-state-profile-summary.txt`.
+
+The retained binding cache passes the permanent hardware GPU suite in Firefox,
+including the range/format pixel checks and every boundary/retirement check.
+Final packaged gameplay passes on Chrome/AMD under baseline WebGPU limits with
+optional features disabled, and on Firefox/default hardware. Combat/economy
+means are 8.98/8.92 ms and 11.28/10.33 ms respectively; economy maxima are
+63.70/69.72 ms. Both runs verify visible, opaque frames, live graphics changes,
+training/construction, quick-save/load, audio, fresh processes and clean logs.
+Peak memory is 3,457,515,520 / 3,933,380,608 bytes. Evidence:
+`.cache/0ad/state-final-{gpu-firefox,core-amd-chromium,gameplay-firefox}.log`.
+The final Firefox menu flow also passes the full-view checks, persisted High/16×
+settings, ordinary save/load in a fresh process and Briton/Han matches. Main-menu
+boot takes 28.11 seconds; Acropolis/save/Alpine load in 10.64/7.87/19.88 seconds.
+Peak memory is 4,244,107,264 bytes, logs clean. `state-final-menu-firefox.log`.
+
+Injected device destruction makes Chrome's game exit with status 126, preserves
+a guest-file sentinel and the shell, and retires all GPU scopes/bytes. A fresh
+game starts, renders and exits cleanly, again leaving zero resources. Evidence:
+`.cache/0ad/device-loss-gameplay-chromium.log`.
+Firefox 155 exits during the same gameplay check. An independent tiny Worker
+also closes Firefox when a device is destroyed with timestamp readback mapping
+pending; Chrome completes four destroy/recreate cycles. Without pending maps,
+Firefox completes four cycles too. The failing scope lasts about one second,
+so this is not the harness deadline. This is consistent with
+[Mozilla bug 1976766](https://bugzilla.mozilla.org/show_bug.cgi?id=1976766), marked
+fixed for Firefox 157/158; no native stack was captured to establish exact
+identity. No browser-specific fallback was added. Kernel logs show no new GPU
+reset or OOM entry during this minimal check. This does not establish the cause
+of the user's earlier whole-PC freezes. Evidence:
+`.cache/0ad/device-loss-{minimal-firefox,queries-firefox,queries-chromium}.log`.

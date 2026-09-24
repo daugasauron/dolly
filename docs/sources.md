@@ -381,6 +381,14 @@ ordinary `.0adsave` persistence also has its headless test below.
 For Firefox on the desktop, append `firefox` to the browser-check command. For
 software correctness, use `xvfb-run -a node test/0ad-graphics-browser.mjs zero-ad
 software` (Xvfb and xauth required). Run hardware checks serially.
+On this dual-GPU Linux machine, Firefox 155 presents a black WebGPU canvas when
+forced to the AMD Vulkan ICD, including in a standalone canvas test. Chrome on
+AMD and Firefox on the default NVIDIA adapter render correctly; details and
+reproduction evidence are in the gameplay task below.
+Firefox 155 also exits during a standalone device-destruction test with pending
+GPU readback, consistent with [Mozilla bug 1976766](https://bugzilla.mozilla.org/show_bug.cgi?id=1976766)
+(marked fixed for 157/158). Chrome's injected game-device-loss test preserves
+the shell/files and starts a fresh game successfully.
 
 The full installed image is about 2.07 GB. Browser boot streams independently
 verified snapshot packs into Wasm memory; it does not retain a second complete

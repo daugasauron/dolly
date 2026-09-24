@@ -35,8 +35,9 @@ try {
     await page.evaluate(()=>__dolly.visibleTerminalText()));
   for(let run=0;run<2;run++) {
     const status=await submit('/tmp/gpu-render');
+    assert.equal(status,0,JSON.stringify(await page.evaluate(()=>__dolly.gpu)));
+    await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/GPU texture\/depth\/indexed rendering PASS/,'GPU render result'));
     const terminal=await page.evaluate(()=>__dolly.visibleTerminalText());
-    assert.equal(status,0,terminal+'\n'+JSON.stringify(await page.evaluate(()=>__dolly.gpu)));
     assert.match(terminal,/GPU texture\/depth\/indexed rendering PASS/);
     if(run===0)console.log(terminal.match(/GPU BC texture checks: [^\n]*/)?.[0]);
   }

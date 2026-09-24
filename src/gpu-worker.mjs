@@ -261,6 +261,7 @@ async function batch(scope, commands) {
   const progress = queueProgress;
   if (scope.submissions.length >= 3) await scope.submissions[0];
   let encoder, texture, computePass, renderPass, passWidth, passHeight, timer, queries = 0;
+  let renderPipeline, renderGroups, renderBuffers, renderIndex;
   const getEncoder = () => encoder ??= device.createCommandEncoder();
   const endCompute = () => { computePass?.end(); computePass = null; };
   const endRender = () => { renderPass?.end(); renderPass = null; };
@@ -476,6 +477,7 @@ async function batch(scope, commands) {
         renderPass=getEncoder().beginRenderPass({...timestamps(),colorAttachments:[{view:colorTexture.createView({mipLevelCount:1}),
           loadOp:colorClear?"clear":"load",storeOp:"store",clearValue}],depthStencilAttachment});
         passWidth=width;passHeight=height;
+        renderPipeline=null;renderGroups=[];renderBuffers=[];renderIndex=null;
       } else if (op === A.DOLLY_GPU_END_RENDER_PASS) {
         ensure(renderPass,"No active render pass");endRender();
       } else if (op === A.DOLLY_GPU_VIEWPORT) {
@@ -493,20 +495,30 @@ async function batch(scope, commands) {
           groupCount=w.getUint32(64,true), bufferCount=w.getUint32(68,true);
         ensure(count>0 && instances>0 && count*instances<=4*1024*1024 && first+count<=0xffffffff &&
           firstInstance+instances<=0xffffffff && indexType<=2,"Mesh draw limit",E.E2BIG);
-        renderPass.setPipeline(object(scope,id,"graphics").value);
+        const pipeline=object(scope,id,"graphics").value;
+        if(renderPipeline!==pipeline){renderPass.setPipeline(pipeline);renderPipeline=pipeline;}
         const groups=new Set();
         for(let i=0;i<groupCount;i++) {
           const r=object(scope,integer(w,80+i*8),"resource-group");
-          ensure(!groups.has(r.index),"Duplicate mesh group");groups.add(r.index);renderPass.setBindGroup(r.index,r.value);
+          ensure(!groups.has(r.index),"Duplicate mesh group");groups.add(r.index);
+          if(renderGroups[r.index]!==r.value){renderPass.setBindGroup(r.index,r.value);renderGroups[r.index]=r.value;}
         }
         for(let i=0;i<bufferCount;i++) {
           const at=80+8*groupCount+24*i, r=object(scope,integer(w,at),"buffer"), offset=integer(w,at+8), size=integer(w,at+16);
-          range(r,offset,size);ensure(!r.mapped && size>0,"Invalid vertex buffer");renderPass.setVertexBuffer(i,r.value,offset,size);
+          range(r,offset,size);ensure(!r.mapped && size>0,"Invalid vertex buffer");
+          const slot=i*3;
+          if(renderBuffers[slot]!==r.value || renderBuffers[slot+1]!==offset || renderBuffers[slot+2]!==size){
+            renderPass.setVertexBuffer(i,r.value,offset,size);
+            renderBuffers[slot]=r.value;renderBuffers[slot+1]=offset;renderBuffers[slot+2]=size;
+          }
         }
         if(indexType) {
           const r=object(scope,integer(w,16),"buffer"), offset=integer(w,24), size=integer(w,32), stride=indexType===1?2:4;
           range(r,offset,size);ensure(!r.mapped && (first+count)*stride<=size,"Index buffer range");
-          renderPass.setIndexBuffer(r.value,indexType===1?"uint16":"uint32",offset,size);
+          if(!renderIndex || renderIndex[0]!==r.value || renderIndex[1]!==indexType || renderIndex[2]!==offset || renderIndex[3]!==size){
+            renderPass.setIndexBuffer(r.value,indexType===1?"uint16":"uint32",offset,size);
+            renderIndex=[r.value,indexType,offset,size];
+          }
           renderPass.drawIndexed(count,instances,first,base,firstInstance);
         } else {
           ensure(w.getBigUint64(16,true)===0n && w.getBigUint64(24,true)===0n && w.getBigUint64(32,true)===0n && base===0,

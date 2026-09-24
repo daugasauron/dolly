@@ -103,6 +103,8 @@ textures are explicit external device resources; CPU userspace state remains
 in Wasm. Guest bytes cannot choose URLs, DOM nodes or JavaScript operations.
 Wire integers above JavaScript's exact 53-bit range are rejected before use;
 object IDs and request counters retain their 32-bit limits.
+Render passes reuse unchanged pipeline/group/buffer bindings after validating
+each packet's handles and ranges; this state resets at every new pass.
 Resource release revokes its handle immediately; deferred destruction retains
 both allocation and object-slot charges until queue completion. Scope retirement
 collects outstanding releases before allowing reuse.

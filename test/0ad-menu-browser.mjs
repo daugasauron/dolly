@@ -64,7 +64,7 @@ try {
       await page.waitForTimeout(200);
     }
     await page.waitForTimeout(1000);
-    await screenshot(name);
+    assert.ok(await hasGameHud(page,await screenshot(name)),`${name} must remain visible after loading`);
     console.log(`${name}: load ${Math.round(performance.now()-started)} ms`);
   };
   const launch=async name=>{
