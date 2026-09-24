@@ -11,8 +11,8 @@ const blockBytes = [0, 4, 4, 1, 2, 4, 4, 8, 16, 16];
 const compareOps = [undefined, "never", "less", "equal", "less-equal", "greater", "not-equal", "greater-equal", "always"];
 const blendOps = ["add", "subtract", "reverse-subtract", "min", "max"];
 const blendFactors = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-dst", "src-alpha", "one-minus-src-alpha", "dst-alpha", "one-minus-dst-alpha", "src-alpha-saturated"];
-const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "unorm8x4", "snorm8x4", "uint8x4", "sint8x4", "unorm16x2", "unorm16x4", "uint16x2", "uint16x4"];
-const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8];
+const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "unorm8x4", "snorm8x4", "uint8x4", "sint8x4", "unorm16x2", "unorm16x4", "uint16x2", "uint16x4", "float16x2", "float16x4"];
+const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8, 4, 8];
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
 const timestampQueries = A.DOLLY_GPU_MAX_COMMANDS * 2;
 let maxBuffer = bufferCeiling, capabilities;
@@ -47,7 +47,7 @@ async function getDevice() {
     const v = new DataView(capabilities.buffer);
     v.setUint32(0, (created.features.has("shader-f16") ? 1 : 0) | (created.features.has("subgroups") ? 2 : 0) |
       (navigator.gpu.wgslLanguageFeatures?.has("packed_4x8_integer_dot_product") ? 4 : 0) |
-      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME | A.DOLLY_GPU_FEATURE_TEXTURE_RENDER | A.DOLLY_GPU_FEATURE_LARGE_BATCH |
+      (created.features.has("timestamp-query") ? 8 : 0) | A.DOLLY_GPU_FEATURE_CAPTURE_FRAME | A.DOLLY_GPU_FEATURE_TEXTURE_RENDER | A.DOLLY_GPU_FEATURE_LARGE_BATCH | A.DOLLY_GPU_FEATURE_VERTEX_F16 |
       (created.features.has("texture-compression-bc") ? A.DOLLY_GPU_FEATURE_TEXTURE_BC : 0) |
       (format === "bgra8unorm" ? A.DOLLY_GPU_FEATURE_SURFACE_BGRA : 0), true);
     v.setUint32(4, maxObjects, true);

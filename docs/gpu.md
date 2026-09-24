@@ -151,6 +151,9 @@ Their base dimensions and upload extents contain whole 4×4 blocks, including
 the smallest mip levels. Allocation accounting includes every padded block.
 Clients retain an uncompressed path for adapters without this feature.
 
+Bit 512 admits `float16x2` and `float16x4` vertex formats. Vertex fetch converts
+these to `f32` shader inputs without requiring the separate `shader-f16` feature.
+
 Passes must end before submit and cannot cross packets. Queue uploads execute
 before submitted draws: use separate aligned uniform ranges for different draws
 or submit before overwriting a consumed range. Bind groups use fixed offsets;

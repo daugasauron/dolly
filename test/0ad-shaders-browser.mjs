@@ -3,7 +3,7 @@ import {createServer} from 'node:http';
 import {readFile,readdir} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
 
-const root=new URL('../build/0ad/shaders/',import.meta.url), shaders={}, pairs=new Map();
+const root=new URL('../build/0ad/shaders/',import.meta.url), shaders={}, pairs=new Map(), computes=[];
 const borderHelper=await readFile(new URL('../toolchain/0ad/border-sampler.wgsl',import.meta.url),'utf8');
 let canvas;
 for(const mod of ['mod','public']) {
@@ -14,10 +14,12 @@ for(const mod of ['mod','public']) {
       const xml=await readFile(new URL(name,directory),'utf8');
       const stages=[...xml.matchAll(/<(vertex|fragment) file="wgsl\/([^"]+)"/g)].map(m=>`${mod}/${m[2]}`);
       if(stages.length===2){pairs.set(stages.join(','),stages);if(name.startsWith('canvas2d_'))canvas=stages;}
+      const compute=xml.match(/<compute file="wgsl\/([^"]+)"/);
+      if(compute)computes.push([`${mod}/${compute[1]}`,Number(xml.match(/<binding binding="0" size="(\d+)" type="uniform"/)[1])]);
     }
   }
 }
-assert.ok(canvas && pairs.size,'Run toolchain/0ad/prepare-shaders.sh first');
+assert.ok(canvas && pairs.size && computes.length,'Run toolchain/0ad/prepare-shaders.sh first');
 const server=createServer((request,response)=>{
   response.writeHead(200,{'content-type':'text/html','cross-origin-opener-policy':'same-origin','cross-origin-embedder-policy':'require-corp'});
   response.end('<!doctype html><title>0 A.D. translated shader proof</title>');
@@ -30,7 +32,7 @@ try {
   deadline=setTimeout(()=>void browser.close(),120000);
   const page=await browser.newPage();
   await page.goto(`http://127.0.0.1:${server.address().port}`);
-  const result=await page.evaluate(async({shaders,pairs,canvas,borderHelper})=>{
+  const result=await page.evaluate(async({shaders,pairs,computes,canvas,borderHelper})=>{
     const adapter=await navigator.gpu.requestAdapter({forceFallbackAdapter:true});
     const adapterName=adapter?[adapter.info.vendor,adapter.info.architecture,adapter.info.description].join(' '):'';
     if(!/swiftshader/i.test(adapterName))throw Error('Software adapter unavailable: '+JSON.stringify({adapterName,isNull:adapter===null,secure:isSecureContext,visibility:document.visibilityState}));
@@ -56,6 +58,43 @@ try {
           fragment:{module:modules.get(fs),entryPoint:'main',targets:[{format:'rgba8unorm'}]},
           primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less'}});
       } catch(error){throw Error(`${vs} + ${fs}: ${error.message}`);}
+    }
+    for(const [name,uniformBytes] of computes) {
+      const pipeline=await device.createComputePipelineAsync({layout:'auto',compute:{module:modules.get(name),entryPoint:'main'}});
+      const buffer=(data,usage)=>{
+        const result=device.createBuffer({size:data.byteLength,usage:usage|GPUBufferUsage.COPY_DST});
+        device.queue.writeBuffer(result,0,data);return result;
+      };
+      const count=67,matrices=new Float32Array(uniformBytes/4),vertices=new Float32Array((count+2)*16),skin=new Uint8Array((count+4)*8);
+      for(let i=0;i<2;i++)for(let j=0;j<4;j++)matrices[i*16+j*5]=1;
+      matrices[12]=2;matrices[16+13]=4;
+      for(let i=0;i<count;i++) {
+        vertices.set([1,0,0,1],(i+2)*16);vertices.set([0,0,1,0],(i+2)*16+4);vertices.set([i,i/2,-i,0],(i+2)*16+8);
+        skin.set([128,127,0,0,0,1,255,255],(i+4)*8);
+      }
+      const guard=0x12345678,positions=new Uint32Array((count+5)*4).fill(guard),normals=new Uint32Array((count+7)*4).fill(guard);
+      const buffers=[buffer(matrices,GPUBufferUsage.UNIFORM),buffer(vertices,GPUBufferUsage.STORAGE),buffer(skin,GPUBufferUsage.STORAGE),
+        buffer(positions,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC),buffer(normals,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC),
+        buffer(new Float32Array([count,0,0,0,2,4,3,5]),GPUBufferUsage.UNIFORM)];
+      const group=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:buffers.map((buffer,binding)=>({binding,resource:{buffer}}))});
+      const readback=device.createBuffer({size:positions.byteLength+normals.byteLength,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
+      device.pushErrorScope('validation');
+      const encoder=device.createCommandEncoder(),pass=encoder.beginComputePass();pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(2);pass.end();
+      encoder.copyBufferToBuffer(buffers[3],0,readback,0,positions.byteLength);
+      encoder.copyBufferToBuffer(buffers[4],0,readback,positions.byteLength,normals.byteLength);device.queue.submit([encoder.finish()]);
+      await readback.mapAsync(GPUMapMode.READ);
+      const error=await device.popErrorScope();if(error)throw Error(error.message);
+      const words=new Uint32Array(readback.getMappedRange()),floats=new Float32Array(words.buffer);
+      for(let i=0;i<positions.length/4;i++)for(let j=0;j<4;j++) {
+        const active=i>=3&&i<count+3,expected=active?[i-3+256/255,(i-3)/2+508/255,-(i-3),0][j]:guard;
+        if(active? !Number.isFinite(floats[i*4+j]) || Math.abs(floats[i*4+j]-expected)>1e-5 : words[i*4+j]!==guard)
+          throw Error(`${name}: skinned position ${i},${j}`);
+      }
+      for(let i=0;i<normals.length/4;i++)for(let j=0;j<4;j++) {
+        const expected=i>=5&&i<count+5?[0,0x3c00,0x3c00,0x3c000000][j]:guard;
+        if(words[positions.length+i*4+j]!==expected)throw Error(`${name}: packed normal/tangent ${i},${j}`);
+      }
+      readback.unmap();readback.destroy();buffers.forEach(buffer=>buffer.destroy());
     }
     // Exercise actual upstream canvas WGSL and the reflection-defined offsets.
     const pipeline=await device.createRenderPipelineAsync({layout:'auto',
@@ -145,8 +184,8 @@ try {
       readback.unmap();
     }
     device.destroy();
-    return {adapter:adapterName.trim(),compiledShaders:modules.size,linkedPrograms:pairs.length,
+    return {adapter:adapterName.trim(),compiledShaders:modules.size,linkedPrograms:pairs.length,skinningVariants:computes.length,
       upstreamCanvasPixels:true,reflectionOffsets:true,grayscaleUniform:true,borderFiltering:true,borderMipFiltering:true,opaqueRGB:true,milliseconds:Math.round(performance.now()-start)};
-  },{shaders,pairs:[...pairs.values()],canvas,borderHelper});
+  },{shaders,pairs:[...pairs.values()],computes,canvas,borderHelper});
   console.log(JSON.stringify({browser:browser.version(),...result}));
 } finally {clearTimeout(deadline);await browser?.close();await new Promise(resolve=>server.close(resolve));}

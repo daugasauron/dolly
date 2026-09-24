@@ -4,7 +4,7 @@ MODULE zero-ad
 REQUIRES TOOL slop
 
 # External wasm64 bootstrap; pinned sources and port instructions: docs/sources.md.
-SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis d6a44325af11c8e1f7fec17012b126900851e3cdf90eaaae53b3b4e07ebb070e
+SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis 7e36b9b2ab5c5a5e62ba656f288083b133b46f5a848ae5fe03643a1d372a2e7b
 SOURCE HOST /static/zero-ad/data/config/default.cfg /opt/0ad/data/config/default.cfg 96fe2f626983f3a9b2392095c11f04b3a8a318531408ce9aea0f4bd5c2a60f5a
 SOURCE HOST /static/zero-ad/data/config/keys.txt /opt/0ad/data/config/keys.txt 469f8fa2807838de81d53dda3a78b1676013e4fd18bd696d53693f09a21b9410
 SOURCE HOST /static/zero-ad/data/config/local.cfg /opt/0ad/data/config/local.cfg 1621faf65a3bb653b42401500e179f4b02d334646cd274ae1228ac6197407b12
@@ -39,7 +39,7 @@ SOURCE HOST /static/zero-ad/data/l10n/uk.engine.po /opt/0ad/data/l10n/uk.engine.
 SOURCE HOST /static/zero-ad/data/l10n/vi.engine.po /opt/0ad/data/l10n/vi.engine.po d78db32075c6f14986fb7dd15aef9c16bb403218cad2fac4d4d2a93d26573feb
 SOURCE HOST /static/zero-ad/data/l10n/zh.engine.po /opt/0ad/data/l10n/zh.engine.po 83ba33b05a7de119d01d05792fb8d83065713c113c523fc4c9c6042619600f90
 SOURCE HOST /static/zero-ad/data/l10n/zh_TW.engine.po /opt/0ad/data/l10n/zh_TW.engine.po 39d9eb57dd0295f4a019c9b6a3143043a9e484accc5d2b1c7a896c6fd17b7f79
-SOURCE HOST /static/zero-ad/data/mods/mod/mod-000.zip /opt/0ad/data/mods/mod/mod-000.zip 3ef617a7648862af1c8b3e2d3b70904c5a8afb88a342bb8f77b791ac809437b5
+SOURCE HOST /static/zero-ad/data/mods/mod/mod-000.zip /opt/0ad/data/mods/mod/mod-000.zip e23600212ae32103b233b60ef6fd9a50f8dbb3f613cd80e1ad8bf1b8cdc734e8
 SOURCE HOST /static/zero-ad/data/mods/public/public-000.zip /opt/0ad/data/mods/public/public-000.zip fc4bc48ee7a68505a3fc172e0d6c9e8ffb3a5f671d757c8186d60058e8918964
 SOURCE HOST /static/zero-ad/data/mods/public/public-001.zip /opt/0ad/data/mods/public/public-001.zip e0612417d231a9304a55ca502c7890bb7a9302764d648ffa4313a940ce7c71c5
 SOURCE HOST /static/zero-ad/data/mods/public/public-002.zip /opt/0ad/data/mods/public/public-002.zip 34e3cec277ee1f08c38423302e366e54bbd325f5f19f9791e6f7d65c2da4667c

@@ -45,6 +45,7 @@
   ;; Additive graphics records. Clients must test FEATURE_TEXTURE_RENDER first.
   (global (export "DOLLY_GPU_FEATURE_TEXTURE_RENDER") i32 (i32.const 64))
   (global (export "DOLLY_GPU_FEATURE_TEXTURE_BC") i32 (i32.const 256))
+  (global (export "DOLLY_GPU_FEATURE_VERTEX_F16") i32 (i32.const 512))
   (global (export "DOLLY_GPU_CREATE_TEXTURE") i32 (i32.const 18))
   (global (export "DOLLY_GPU_WRITE_TEXTURE") i32 (i32.const 19))
   (global (export "DOLLY_GPU_CREATE_SAMPLER") i32 (i32.const 20))
@@ -123,7 +124,8 @@
   ;; Buffers: u32 stride<=2048,step(0 vertex/1 instance),reserved[2].
   ;; Attributes: u32 buffer_slot,location,format,offset. Formats 1..4 float32x1..4,
   ;; 5 unorm8x4,6 snorm8x4,7 uint8x4,8 sint8x4,9 unorm16x2,10 unorm16x4,
-  ;; 11 uint16x2,12 uint16x4. Layout and locations must be unique/in bounds.
+  ;; 11 uint16x2,12 uint16x4. FEATURE_VERTEX_F16 adds 13 float16x2,14 float16x4.
+  ;; Layout and locations must be unique/in bounds.
   ;; RESOURCE_GROUP[32+32*n]: u64 id,pipeline; u32 group_index<4,count<=16;
   ;; entries: u32 binding,kind; u64 resource,offset,size. Kind 0 buffer (range),
   ;; 1 texture2d,2 textureCube,3 sampler (offset/size zero). No host handles.
@@ -158,6 +160,7 @@
   ;; 64 texture/depth/indexed rendering records 18..26, 128 batches up to
   ;; DOLLY_GPU_MAX_COMMANDS records (otherwise at most 256). Packet bytes unchanged.
   ;; 256 admits BC1/BC2/BC3 compressed texture formats 7..9.
+  ;; 512 admits float16 vertex formats 13..14, including conversion to f32.
   ;; Limits describe the admitted device, not native pointers.
   ;; GPU timestamps are optional, asynchronously sampled per submitted encoder;
   ;; zero samples means unavailable/pending. They include passes, not CPU work.

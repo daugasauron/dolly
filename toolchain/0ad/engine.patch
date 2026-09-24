@@ -981,6 +981,48 @@
  #endif
  
  namespace PS
+--- a/source/renderer/GPUSkinnedModelRenderer.cpp
++++ b/source/renderer/GPUSkinnedModelRenderer.cpp
+@@ -351,14 +351,15 @@
+ 	ModelRData* modelRData{new ModelRData(key)};
+ 
+ 	const size_t numberOfVertices{modelDefRData->m_Array.GetNumberOfVertices()};
++	// Distinct pools keep writable shader bindings from aliasing.
+ 	modelRData->m_PositionHandle = g_Renderer.GetVertexBufferManager().AllocateChunk(
+ 		OUTPUT_POSITION_STRIDE, numberOfVertices, Renderer::Backend::IBuffer::Type::VERTEX,
+ 		Renderer::Backend::IBuffer::Usage::STORAGE,
+-		nullptr, CVertexBufferManager::Group::WATER);
++		nullptr, CVertexBufferManager::Group::MODEL_POSITIONS);
+ 	modelRData->m_NormalTangentHandle = g_Renderer.GetVertexBufferManager().AllocateChunk(
+ 		OUTPUT_NORMAL_TANGENT_STRIDE, numberOfVertices, Renderer::Backend::IBuffer::Type::VERTEX,
+ 		Renderer::Backend::IBuffer::Usage::STORAGE,
+-		nullptr, CVertexBufferManager::Group::WATER);
++		nullptr, CVertexBufferManager::Group::MODEL_ATTRIBUTES);
+ 
+ 	return modelRData;
+ }
+--- a/source/renderer/RenderingOptions.cpp
++++ b/source/renderer/RenderingOptions.cpp
+@@ -245,16 +245,10 @@
+ 	m_ConfigHooks->Setup("gpuskinning", [this]() {
+ 		const Renderer::Backend::IDevice::Capabilities& capabilities{
+ 			g_VideoMode.GetBackendDevice()->GetCapabilities()};
+-		if (!g_ConfigDB.Get("gpuskinning", false))
+-			return;
+-
+-		if (capabilities.computeShaders && capabilities.storage)
+-			m_GPUSkinning = true;
+-		else
+-		{
+-			m_GPUSkinning = false;
++		const bool requested = g_ConfigDB.Get("gpuskinning", false);
++		m_GPUSkinning = requested && capabilities.computeShaders && capabilities.storage;
++		if (requested && !m_GPUSkinning)
+ 			LOGMESSAGE("GPU skinning isn't supported on the current hardware.");
+-		}
+ 
+ 		if (CRenderer::IsInitialised())
+ 			g_Renderer.MakeShadersDirty();
 --- a/source/renderer/SceneRenderer.cpp
 +++ b/source/renderer/SceneRenderer.cpp
 @@ -573,7 +573,8 @@
@@ -1003,6 +1045,32 @@
  	{
  		CMatrix3D flip;
  		flip.SetIdentity();
+--- a/source/renderer/VertexBufferManager.cpp
++++ b/source/renderer/VertexBufferManager.cpp
+@@ -65,6 +65,12 @@
+ 	case CVertexBufferManager::Group::WATER:
+ 		name = "Water";
+ 		break;
++	case CVertexBufferManager::Group::MODEL_POSITIONS:
++		name = "ModelPositions";
++		break;
++	case CVertexBufferManager::Group::MODEL_ATTRIBUTES:
++		name = "ModelAttributes";
++		break;
+ 	default:
+ 		debug_warn("Unknown buffer group");
+ 		break;
+--- a/source/renderer/VertexBufferManager.h
++++ b/source/renderer/VertexBufferManager.h
+@@ -46,6 +46,8 @@
+ 		DEFAULT,
+ 		TERRAIN,
+ 		WATER,
++		MODEL_POSITIONS,
++		MODEL_ATTRIBUTES,
+ 		COUNT
+ 	};
+ 
 --- a/source/renderer/backend/Backend.h
 +++ b/source/renderer/backend/Backend.h
 @@ -29,6 +29,7 @@
@@ -1624,7 +1692,7 @@
 +#endif
 --- /dev/null
 +++ b/source/renderer/backend/dolly/Device.cpp
-@@ -0,0 +1,933 @@
+@@ -0,0 +1,1074 @@
 +/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
 +#include "precompiled.h"
 +#include "graphics/ShaderDefines.h"
@@ -1650,6 +1718,7 @@
 +#include <cstring>
 +#include <functional>
 +#include <map>
++#include <set>
 +#include <tuple>
 +
 +namespace Renderer::Backend::Dolly
@@ -1680,13 +1749,23 @@
 +    uint64_t frame = 1;
 +    bool encoded = false;
 +    std::vector<Handle> retired;
++    std::set<Handle> allocations;
++    size_t objects=0, pendingRetired=0, objectLimit=0;
 +    std::vector<Handle> uniformBuffers;
 +    static constexpr size_t uniformChunkBytes = 512*1024;
 +    std::vector<uint8_t> uniformData = std::vector<uint8_t>(uniformChunkBytes);
 +    size_t uniformPosition = 0, uniformUploadStart = 0;
 +    uint32_t uniformAlignment = 0, commandLimit = 240;
 +    std::function<void()> beforeFlush, afterFlush;
-+    Handle New() { return ++next; }
++    std::function<void(size_t)> reclaimObjects;
++    Handle New(bool allocation=false)
++    {
++        if(objects==objectLimit && reclaimObjects)reclaimObjects(1);
++        Require(objects<objectLimit,"GPU object capacity");
++        ++objects;Handle handle=++next;
++        if(allocation)allocations.insert(handle);
++        return handle;
++    }
 +    void RawBatch()
 +    {
 +        if (gpu->count) Require(dolly_gpu_batch(gpu.get()) >= 0, "submit command packet");
@@ -1708,10 +1787,19 @@
 +        {
 +            if (gpu->count >= commandLimit || gpu->length+16 > sizeof(gpu->packet)) RawBatch();
 +            U64(dolly_gpu_record(gpu.get(), DOLLY_GPU_RELEASE, 16), 8, handle);
++            if(allocations.erase(handle))++pendingRetired;
++            else --objects;
 +        }
 +        retired.clear();
 +        RawBatch();
 +        if (afterFlush) afterFlush();
++    }
++    void Wait()
++    {
++        Flush();
++        if(!pendingRetired)return;
++        Require(dolly_gpu_wait(gpu.get())==0,"GPU resource retirement");
++        objects-=pendingRetired;pendingRetired=0;
 +    }
 +    void Reserve(size_t bytes, unsigned records = 1)
 +    {
@@ -1727,7 +1815,7 @@
 +    }
 +    Handle Buffer(size_t bytes, unsigned usage)
 +    {
-+        Handle handle = New();
++        Handle handle = New(true);
 +        void* p = Record(DOLLY_GPU_CREATE_BUFFER,32);
 +        U64(p,8,handle); U64(p,16,Align(bytes,4)); U32(p,24,usage);
 +        return handle;
@@ -1780,6 +1868,7 @@
 +class Framebuffer;
 +class Program;
 +class Pipeline;
++class ComputePipeline;
 +class VertexLayout;
 +
 +class Device final : public IDevice
@@ -1795,7 +1884,7 @@
 +    void Report(const ScriptRequest& rq, JS::HandleValue settings) override { Script::SetProperty(rq,settings,"name","Dolly WebGPU"); }
 +    std::unique_ptr<IDeviceCommandContext> CreateCommandContext() override;
 +    std::unique_ptr<IGraphicsPipelineState> CreateGraphicsPipelineState(const SGraphicsPipelineStateDesc&) override;
-+    std::unique_ptr<IComputePipelineState> CreateComputePipelineState(const SComputePipelineStateDesc&) override { Require(false,"compute pipelines unsupported"); return {}; }
++    std::unique_ptr<IComputePipelineState> CreateComputePipelineState(const SComputePipelineStateDesc&) override;
 +    std::unique_ptr<IVertexInputLayout> CreateVertexInputLayout(std::span<const SVertexAttributeFormat>) override;
 +    std::unique_ptr<ITexture> CreateTexture(const char*,ITexture::Type,uint32_t,Format,uint32_t,uint32_t,const Sampler::Desc&,uint32_t,uint32_t) override;
 +    std::unique_ptr<ITexture> CreateTexture2D(const char* label,uint32_t usage,Format format,uint32_t w,uint32_t h,const Sampler::Desc& sampler,uint32_t mips,uint32_t samples) override
@@ -1842,8 +1931,8 @@
 +{
 +public:
 +    Buffer(Device* device,Type type,uint32_t size,uint32_t usage)
-+        : Owned(device),type(type),usage(usage),size(size),bytes(Align(size,4))
-+    { handle=device->queue.Buffer(size,(type==Type::VERTEX?32:type==Type::INDEX?16:type==Type::UNIFORM?64:0)|12); }
++        : Owned(device),type(type),usage(usage),size(size),bytes(usage&Usage::STORAGE?0:Align(size,4))
++    { handle=device->queue.Buffer(size,(type==Type::VERTEX?32:type==Type::INDEX?16:type==Type::UNIFORM?64:0)|12|(usage&Usage::STORAGE?128:0)); }
 +    ~Buffer() override { device->queue.retired.push_back(handle); }
 +    Type GetType() const override { return type; }
 +    uint32_t GetSize() const override { return size; }
@@ -1851,7 +1940,15 @@
 +    void Upload(const void* data,uint32_t offset,uint32_t count)
 +    {
 +        Require(offset<=size && count<=size-offset,"buffer upload bounds");
-+        if(!count || std::memcmp(bytes.data()+offset,data,count)==0)return;
++        if(!count)return;
++        if(usage&Usage::STORAGE)
++        {
++            // GPU writes invalidate a CPU shadow, including any padding bytes.
++            Require(offset%4==0 && count%4==0,"storage upload alignment");
++            if(lastUsed==device->queue.submission)device->queue.Flush();
++            device->queue.Write(handle,offset,data,count);return;
++        }
++        if(std::memcmp(bytes.data()+offset,data,count)==0)return;
 +        const auto* source=static_cast<const uint8_t*>(data);
 +        constexpr uint32_t compareBlockBytes=4096;
 +        while(count>=compareBlockBytes && !std::memcmp(bytes.data()+offset+count-compareBlockBytes,source+count-compareBlockBytes,compareBlockBytes))
@@ -1892,7 +1989,7 @@
 +        : Owned(device),type(type),format(format),usage(usage),width(w),height(h),mips(mips)
 +    {
 +        Require(device->IsTextureFormatSupported(format) && type!=Type::TEXTURE_2D_MULTISAMPLE,"texture format/type");
-+        handle=device->queue.New();
++        handle=device->queue.New(true);
 +        void* p=device->queue.Record(DOLLY_GPU_CREATE_TEXTURE,48);
 +        U64(p,8,handle);U32(p,16,w);U32(p,20,h);U32(p,24,type==Type::TEXTURE_CUBE?6:1);U32(p,28,mips);U32(p,32,TextureFormat(format));
 +        U32(p,36,(usage&7)|((usage&(Usage::COLOR_ATTACHMENT|Usage::DEPTH_STENCIL_ATTACHMENT))?16:0));
@@ -1942,7 +2039,7 @@
 +public:
 +    struct Binding { CStrIntern name; unsigned group,offset,size; bool cube=false; };
 +    explicit Program(Device* device) : Owned(device) {}
-+    ~Program() override { if(vertex)device->queue.retired.push_back(vertex);if(fragment)device->queue.retired.push_back(fragment); }
++    ~Program() override { for(Handle handle:{vertex,fragment,compute})if(handle)device->queue.retired.push_back(handle); }
 +    int32_t GetBindingSlot(CStrIntern name) const override
 +    { for(size_t i=0;i<bindings.size();i++)if(bindings[i].name==name)return i;return -1; }
 +    std::vector<VfsPath> GetFileDependencies() const override { return files; }
@@ -1959,7 +2056,8 @@
 +    std::array<UniformSlice,3> uniformSlices;
 +    std::vector<VfsPath> files;
 +    std::map<VertexAttributeStream,uint32_t> streams;
-+    Handle vertex=0,fragment=0;
++    Handle vertex=0,fragment=0,compute=0;
++    unsigned storageBindings=0;
 +    bool borderSampling=false;
 +};
 +class Pipeline final : public Owned<IGraphicsPipelineState>
@@ -1979,6 +2077,24 @@
 +        auto operator<=>(const Entry&) const = default;
 +    };
 +};
++
++class ComputePipeline final : public Owned<IComputePipelineState>
++{
++public:
++    ComputePipeline(Device* device,Program* program) : Owned(device),program(program)
++    {
++        Require(program->compute && !program->vertex && !program->fragment,"compute shader stage");
++        handle=device->queue.New();void* p=device->queue.Record(DOLLY_GPU_COMPUTE_PIPELINE,36);
++        U64(p,8,handle);U64(p,16,program->compute);U32(p,24,4);std::memcpy(static_cast<char*>(p)+32,"main",4);
++    }
++    ~ComputePipeline() override { device->queue.retired.push_back(handle); }
++    IShaderProgram* GetShaderProgram() const override { return program; }
++    Program* program;
++    Handle handle;
++};
++
++std::unique_ptr<IComputePipelineState> Device::CreateComputePipelineState(const SComputePipelineStateDesc& desc)
++{ return std::make_unique<ComputePipeline>(this,desc.shaderProgram->As<Program>()); }
 +
 +std::unique_ptr<IShaderProgram> Device::CreateShaderProgram(const CStr& input,const CShaderDefines& defines)
 +{
@@ -2017,7 +2133,8 @@
 +        Handle handle=queue.Shader(Read(path));
 +        result->borderSampling|=attr(stage,"dolly_border")=="true";
 +        if(is(stage,"vertex"))result->vertex=handle;
-+        else { Require(is(stage,"fragment"),"graphics shader stage");result->fragment=handle; }
++        else if(is(stage,"compute"))result->compute=handle;
++        else { Require(is(stage,"fragment"),"shader stage");result->fragment=handle; }
 +        XERO_ITER_EL(stage,item)
 +        {
 +            if(is(item,"stream"))
@@ -2037,6 +2154,12 @@
 +                    Require(group==0 && index==0,"material uniform block");
 +                    result->uniforms[0].resize(Align(attr(binding,"size").ToUInt(),16));
 +                    XERO_ITER_EL(binding,member)result->Add(CStrIntern(attr(member,"name")),0,attr(member,"offset").ToUInt(),attr(member,"size").ToUInt());
++                }
++                else if(type=="storageBuffer")
++                {
++                    Require(result->compute && group==1,"compute storage binding");
++                    result->Add(CStrIntern(attr(binding,"name")),1,index,0);
++                    result->storageBindings=std::max(result->storageBindings,index+1);
 +                }
 +                else
 +                {
@@ -2083,6 +2206,8 @@
 +    case Format::R8G8B8A8_UINT:return 7;
 +    case Format::R16G16_UNORM:return 9;
 +    case Format::R16G16_UINT:return 11;
++    case Format::R16G16_SFLOAT:return 13;
++    case Format::R16G16B16_SFLOAT:case Format::R16G16B16A16_SFLOAT:return 14;
 +    default:Require(false,"vertex format unsupported");return 0;
 +    }
 +}
@@ -2139,7 +2264,7 @@
 +std::unique_ptr<IVertexInputLayout> Device::CreateVertexInputLayout(std::span<const SVertexAttributeFormat> attributes)
 +{ return std::make_unique<VertexLayout>(this,attributes); }
 +std::unique_ptr<IBuffer> Device::CreateBuffer(const char*,IBuffer::Type type,uint32_t size,uint32_t usage)
-+{ Require(!(usage&IBuffer::Usage::STORAGE),"storage buffers unsupported");return std::make_unique<Buffer>(this,type,size,usage); }
++{ return std::make_unique<Buffer>(this,type,size,usage); }
 +std::unique_ptr<ITexture> Device::CreateTexture(const char*,ITexture::Type type,uint32_t usage,Format format,uint32_t width,uint32_t height,
 +    const Sampler::Desc& sampler,uint32_t mips,uint32_t samples)
 +{
@@ -2163,8 +2288,10 @@
 +public:
 +    explicit Context(Device*);
 +    ~Context() override;
-+    void SetGraphicsPipelineState(IGraphicsPipelineState* state) override { pipeline=state->As<Pipeline>(); }
-+    void SetComputePipelineState(IComputePipelineState*) override { Require(false,"compute state unsupported"); }
++    void SetGraphicsPipelineState(IGraphicsPipelineState* state) override
++    { Require(!computePass,"graphics pipeline inside compute pass");pipeline=state->As<Pipeline>();computePipeline=nullptr; }
++    void SetComputePipelineState(IComputePipelineState* state) override
++    { Require(computePass,"compute pipeline outside compute pass");computePipeline=state->As<ComputePipeline>();pipeline=nullptr; }
 +    void BlitFramebuffer(IFramebuffer*,IFramebuffer*,const Rect&,const Rect&,Sampler::Filter) override { Require(false,"framebuffer blit unsupported"); }
 +    void ResolveFramebuffer(IFramebuffer*,IFramebuffer*) override { Require(false,"multisample resolve unsupported"); }
 +    void BeginFramebufferPass(IFramebuffer*) override;
@@ -2196,13 +2323,17 @@
 +    void DrawIndexedInstanced(uint32_t first,uint32_t count,uint32_t firstInstance,uint32_t instances,int32_t offset) override
 +    { DrawMesh(true,first,count,firstInstance,instances,offset); }
 +    void DrawIndexedInRange(uint32_t first,uint32_t count,uint32_t,uint32_t) override { DrawIndexed(first,count,0); }
-+    void BeginComputePass() override { Require(false,"compute pass unsupported"); }
-+    void EndComputePass() override { Require(false,"compute pass unsupported"); }
-+    void Dispatch(uint32_t,uint32_t,uint32_t) override { Require(false,"compute dispatch unsupported"); }
-+    void InsertMemoryBarrier(uint32_t,uint32_t,uint32_t,uint32_t) override { Require(false,"explicit storage barrier unsupported"); }
++    void BeginComputePass() override
++    { Require(!framebuffer && !computePass,"nested compute pass");computePass=true; }
++    void EndComputePass() override
++    { Require(computePass,"compute pass not open");computePass=false; }
++    void Dispatch(uint32_t,uint32_t,uint32_t) override;
++    // WebGPU provides visibility between compute dispatches and render passes.
++    void InsertMemoryBarrier(uint32_t,uint32_t,uint32_t,uint32_t) override
++    { Require(!framebuffer && !computePass,"memory barrier inside pass"); }
 +    void SetTexture(int32_t,ITexture*) override;
 +    void SetStorageTexture(int32_t,ITexture*) override { Require(false,"storage texture unsupported"); }
-+    void SetStorageBuffer(int32_t,IBuffer*) override { Require(false,"storage buffer unsupported"); }
++    void SetStorageBuffer(int32_t,IBuffer*) override;
 +    void SetUniform(int32_t slot,float x) override { SetUniform(slot,std::span(&x,1)); }
 +    void SetUniform(int32_t slot,float x,float y) override { const float v[]={x,y};SetUniform(slot,v); }
 +    void SetUniform(int32_t slot,float x,float y,float z) override { const float v[]={x,y,z};SetUniform(slot,v); }
@@ -2216,7 +2347,16 @@
 +    void Resume(bool clearColor=false,bool clearDepth=false);
 +    void Viewport();
 +    void DrawMesh(bool,uint32_t,uint32_t,uint32_t,uint32_t,int32_t);
++    Program* CurrentProgram() const
++    {
++        Require(pipeline || computePipeline,"binding without pipeline");
++        return pipeline?pipeline->desc.shaderProgram->As<Program>():computePipeline->program;
++    }
++    void ReclaimObjects(size_t needed);
++    Pipeline::Entry UniformEntry(Program*,unsigned,unsigned);
++    Handle BindResources(Handle,unsigned,const std::vector<Pipeline::Entry>&,bool compute=false);
 +    Pipeline* pipeline=nullptr;
++    ComputePipeline* computePipeline=nullptr;
 +    VertexLayout* layout=nullptr;
 +    Framebuffer* framebuffer=nullptr;
 +    struct VertexBinding { Buffer* buffer=nullptr;uint32_t offset=0; };
@@ -2226,11 +2366,12 @@
 +    std::unique_ptr<Buffer> dummy;
 +    Buffer* indices=nullptr;
 +    std::map<std::pair<Program*,int32_t>,Texture*> textures;
++    std::map<std::pair<Program*,int32_t>,Buffer*> storageBuffers;
 +    struct ResourceGroup { Handle handle=0;uint64_t frame=0; };
 +    std::map<std::tuple<Handle,unsigned,std::vector<Pipeline::Entry>>,ResourceGroup> resourceGroups;
 +    std::map<std::array<uint32_t,32>,std::pair<Handle,size_t>> borderUniforms;
 +    Rect viewport{},scissor{};
-+    bool passOpen=false,resumeEnabled=true;
++    bool passOpen=false,resumeEnabled=true,computePass=false;
 +};
 +Context::Context(Device* device) : Owned(device)
 +{
@@ -2238,6 +2379,7 @@
 +    dummy=std::make_unique<Buffer>(device,IBuffer::Type::VERTEX,16,0);
 +    device->queue.beforeFlush=[this]{Pause();};
 +    device->queue.afterFlush=[this]{if(resumeEnabled)Resume();};
++    device->queue.reclaimObjects=[this](size_t needed){ReclaimObjects(needed);};
 +}
 +Context::~Context()
 +{
@@ -2245,7 +2387,25 @@
 +    for(auto& buffer:uploadedVertices)buffer.reset();
 +    uploadedIndices.clear();dummy.reset();
 +    for(auto& [key,group]:resourceGroups)device->queue.retired.push_back(group.handle);
-+    device->queue.Flush();device->queue.beforeFlush={};device->queue.afterFlush={};device->context=nullptr;
++    device->queue.Flush();device->queue.beforeFlush={};device->queue.afterFlush={};device->queue.reclaimObjects={};device->context=nullptr;
++}
++void Context::ReclaimObjects(size_t needed)
++{
++    auto& queue=device->queue;
++    if(queue.objects+needed<=queue.objectLimit)return;
++    auto fits=[&]{return queue.objects-queue.pendingRetired-queue.retired.size()+needed<=queue.objectLimit;};
++    // Prune between draws: a binding being assembled must survive until its draw.
++    for(bool current:{false,true})
++    {
++        if(fits())break;
++        for(auto it=resourceGroups.begin();it!=resourceGroups.end();)
++        {
++            if(!current && it->second.frame==queue.frame){++it;continue;}
++            queue.retired.push_back(it->second.handle);it=resourceGroups.erase(it);
++        }
++    }
++    queue.Wait();
++    Require(queue.objects+needed<=queue.objectLimit,"GPU resident objects exceed capacity");
 +}
 +void Context::Pause()
 +{
@@ -2268,7 +2428,7 @@
 +}
 +void Context::BeginFramebufferPass(IFramebuffer* value)
 +{
-+    Require(!framebuffer,"nested framebuffer pass");framebuffer=value->As<Framebuffer>();
++    Require(!framebuffer && !computePass,"nested framebuffer pass");framebuffer=value->As<Framebuffer>();
 +    viewport=scissor={0,0,int32_t(framebuffer->GetWidth()),int32_t(framebuffer->GetHeight())};
 +    Resume(framebuffer->color.loadOp!=AttachmentLoadOp::LOAD,framebuffer->depth.loadOp!=AttachmentLoadOp::LOAD);
 +}
@@ -2331,7 +2491,7 @@
 +void Context::SetUniform(int32_t slot,std::span<const float> values)
 +{
 +    if(slot<0)return;
-+    Require(pipeline!=nullptr,"uniform without pipeline");auto* program=pipeline->desc.shaderProgram->As<Program>();
++    auto* program=CurrentProgram();
 +    Require(size_t(slot)<program->bindings.size(),"uniform slot");const auto& binding=program->bindings[slot];
 +    Require(binding.group!=1,"uniform bounds");
 +    auto* target=program->uniforms[binding.group].data()+binding.offset;
@@ -2343,10 +2503,76 @@
 +    }
 +}
 +
++Pipeline::Entry Context::UniformEntry(Program* program,unsigned group,unsigned binding)
++{
++    auto& bytes=program->uniforms[group];auto& slice=program->uniformSlices[group];
++    if(slice.frame!=device->queue.frame)
++    {
++        auto [handle,offset]=device->queue.Uniform(bytes.data(),bytes.size());
++        slice={handle,offset,device->queue.frame};
++    }
++    return {binding,0,slice.handle,bytes.size(),slice.offset};
++}
++Handle Context::BindResources(Handle gpuPipeline,unsigned group,const std::vector<Pipeline::Entry>& entries,bool compute)
++{
++    auto& cached=resourceGroups[{gpuPipeline,group,entries}];
++    cached.frame=device->queue.frame;
++    if(!cached.handle)
++    {
++        cached.handle=device->queue.New();
++        const size_t stride=compute?24:32;
++        void* p=device->queue.Record(compute?DOLLY_GPU_BIND_GROUP:DOLLY_GPU_RESOURCE_GROUP,32+stride*entries.size());
++        U64(p,8,cached.handle);U64(p,16,gpuPipeline);U32(p,24,compute?entries.size():group);
++        if(!compute)U32(p,28,entries.size());
++        for(size_t i=0;i<entries.size();i++)
++        {
++            const auto& entry=entries[i];size_t at=32+i*stride;
++            if(compute)Require(group==0 && entry.binding==i && entry.kind==0,"contiguous compute buffer bindings");
++            else {U32(p,at,entry.binding);U32(p,at+4,entry.kind);at+=8;}
++            U64(p,at,entry.resource);U64(p,at+8,entry.offset);U64(p,at+16,entry.size);
++        }
++    }
++    return cached.handle;
++}
++void Context::SetStorageBuffer(int32_t slot,IBuffer* value)
++{
++    if(slot<0)return;
++    Require(computePipeline && value,"storage binding without compute pipeline/resource");
++    auto* program=computePipeline->program;
++    Require(size_t(slot)<program->bindings.size() && program->bindings[slot].group==1,"storage slot");
++    Require(value->GetUsage()&IBuffer::Usage::STORAGE,"buffer is not storage");
++    storageBuffers[{program,slot}]=value->As<Buffer>();
++}
++void Context::Dispatch(uint32_t x,uint32_t y,uint32_t z)
++{
++    Require(computePass && computePipeline,"dispatch without compute pass/pipeline");
++    ReclaimObjects(24);
++    auto* program=computePipeline->program;
++    device->queue.Reserve(4352+program->uniforms[0].size()+program->uniforms[2].size(),24);
++    std::vector<Pipeline::Entry> entries;
++    if(!program->uniforms[0].empty())entries.push_back(UniformEntry(program,0,0));
++    for(size_t i=0;i<program->bindings.size();i++)
++    {
++        const auto& binding=program->bindings[i];if(binding.group!=1)continue;
++        auto found=storageBuffers.find({program,i});Require(found!=storageBuffers.end(),"unbound storage buffer");
++        auto* buffer=found->second;
++        entries.push_back({binding.offset+1,0,buffer->handle,buffer->size});
++    }
++    if(!program->uniforms[2].empty())entries.push_back(UniformEntry(program,2,program->storageBindings+1));
++    std::sort(entries.begin(),entries.end());
++    Handle group=BindResources(computePipeline->handle,0,entries,true);
++    void* p=device->queue.Record(DOLLY_GPU_COMPUTE,40);
++    U64(p,8,computePipeline->handle);U64(p,16,group);U32(p,24,x);U32(p,28,y);U32(p,32,z);
++    for(size_t i=0;i<program->bindings.size();i++)
++        if(program->bindings[i].group==1)storageBuffers.at({program,i})->lastUsed=device->queue.submission;
++    device->queue.encoded=true;
++}
++
 +void Context::DrawMesh(bool indexed,uint32_t first,uint32_t count,uint32_t firstInstance,uint32_t instances,int32_t base)
 +{
 +    if(!count || !instances)return;
 +    Require(framebuffer && pipeline && layout,"incomplete draw state");
++    ReclaimObjects(24);
 +    auto* program=pipeline->desc.shaderProgram->As<Program>();
 +    device->queue.Reserve(4352+program->uniforms[0].size()+program->uniforms[2].size(),24);
 +    Handle gpuPipeline=pipeline->Get(layout,framebuffer);
@@ -2379,28 +2605,9 @@
 +        }
 +        else if(!program->uniforms[group].empty())
 +        {
-+            auto& bytes=program->uniforms[group];auto& slice=program->uniformSlices[group];
-+            if(slice.frame!=device->queue.frame)
-+            {
-+                auto [handle,offset]=device->queue.Uniform(bytes.data(),bytes.size());
-+                slice={handle,offset,device->queue.frame};
-+            }
-+            entries.push_back({0,0,slice.handle,bytes.size(),slice.offset});
++            entries.push_back(UniformEntry(program,group,0));
 +        }
-+        auto& cached=resourceGroups[{gpuPipeline,group,entries}];
-+        cached.frame=device->queue.frame;
-+        if(!cached.handle)
-+        {
-+            cached.handle=device->queue.New();
-+            void* p=device->queue.Record(DOLLY_GPU_RESOURCE_GROUP,32+32*entries.size());
-+            U64(p,8,cached.handle);U64(p,16,gpuPipeline);U32(p,24,group);U32(p,28,entries.size());
-+            for(size_t i=0;i<entries.size();i++)
-+            {
-+                auto& entry=entries[i];size_t at=32+i*32;
-+                U32(p,at,entry.binding);U32(p,at+4,entry.kind);U64(p,at+8,entry.resource);U64(p,at+16,entry.offset);U64(p,at+24,entry.size);
-+            }
-+        }
-+        groups.push_back(cached.handle);
++        groups.push_back(BindResources(gpuPipeline,group,entries));
 +    }
 +    unsigned buffers=0;
 +    for(const auto& attribute:layout->attributes)if(program->streams.contains(attribute.stream))buffers=std::max(buffers,attribute.bindingSlot+1);
@@ -2471,12 +2678,14 @@
 +    name=std::string(reinterpret_cast<char*>(queue.gpu->reply)+16,size-16);
 +    Require(dolly_gpu_capabilities(queue.gpu.get())==128,"GPU capabilities");
 +    uint32_t features;std::memcpy(&features,queue.gpu->reply,4);
++    uint32_t objectLimit;std::memcpy(&objectLimit,queue.gpu->reply+4,4);queue.objectLimit=objectLimit;
 +    Require(features&DOLLY_GPU_FEATURE_TEXTURE_RENDER,"texture rendering capability");
 +    queue.commandLimit=(features&DOLLY_GPU_FEATURE_LARGE_BATCH?DOLLY_GPU_MAX_COMMANDS:256)-16;
 +    std::memcpy(&queue.uniformAlignment,queue.gpu->reply+32,4);
 +    Require(queue.uniformAlignment && Queue::uniformChunkBytes%queue.uniformAlignment==0,"uniform alignment");
 +    surfaceBGRA=features&DOLLY_GPU_FEATURE_SURFACE_BGRA;
 +    capabilities.S3TC=features&DOLLY_GPU_FEATURE_TEXTURE_BC;
++    capabilities.computeShaders=capabilities.storage=features&DOLLY_GPU_FEATURE_VERTEX_F16;
 +    dolly_gpu_begin(queue.gpu.get());
 +    capabilities.maxTextureSize=8192;capabilities.maxSampleCount=1;capabilities.maxAnisotropy=1;capabilities.instancing=true;
 +    presentVS=queue.Shader("@vertex fn main(@builtin(vertex_index) i:u32)->@builtin(position) vec4f {let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1);}");

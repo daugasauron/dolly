@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Translate the pinned release's non-bindless, non-shadow graphics shaders."""
+"""Translate non-bindless graphics and buffer-only compute shaders."""
 import hashlib
 import json
 import re
@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
 
-def split_samplers(data):
+def translate_spirv(data, storage_buffers=False):
     # SPIR-V combined image samplers have no WGSL counterpart. Preserve the
     # image at binding 2*n, add its sampler at 2*n+1, and rebuild each sampled load.
     if len(data) % 4 or len(data) < 20:
@@ -26,13 +26,20 @@ def split_samplers(data):
         count = words[at] >> 16
         if not count or at + count > len(words):
             raise ValueError("Invalid SPIR-V instruction")
-        instructions.append(words[at:at + count])
+        instruction = words[at:at + count]
+        # WGSL storage buffers permit read or read_write, not write-only.
+        if not (storage_buffers and (
+            count == 3 and instruction[0] & 65535 == 71 and instruction[2] == 25 or
+            count == 4 and instruction[0] & 65535 == 72 and instruction[3] == 25
+        )):
+            instructions.append(instruction)
         at += count
     sampled = {i[1]: i[2] for i in instructions if i[0] & 65535 == 27}  # OpTypeSampledImage
     pointers = {i[1]: i[3] for i in instructions if i[0] & 65535 == 32 and i[2] == 0 and i[3] in sampled}
     variables = {i[2]: i[1] for i in instructions if i[0] & 65535 == 59 and i[1] in pointers}
     if not variables:
-        return data
+        output = header + [word for instruction in instructions for word in instruction]
+        return struct.pack(f"<{len(output)}I", *output)
     next_id = header[3]
 
     def allocate():
@@ -104,6 +111,17 @@ def border_sampling(text):
     return text, changed
 
 
+def compute_bindings(stage):
+    bindings = [(int(group.attrib["set"]), int(binding.attrib["binding"]), binding.attrib["type"])
+        for group in stage.findall("descriptor_sets/descriptor_set") for binding in group]
+    if any(kind not in {"uniform", "storageBuffer"} for _, _, kind in bindings):
+        return None
+    storage = sorted(index for group, index, kind in bindings if kind == "storageBuffer")
+    if sorted(bindings) != [(0, 0, "uniform")] + [(1, index, "storageBuffer") for index in range(len(storage))]:
+        raise ValueError("Unsupported compute buffer layout")
+    return len(storage) + 1
+
+
 def main(source, naga, output):
     if output.exists():
         shutil.rmtree(output)
@@ -126,7 +144,9 @@ def main(source, naga, output):
                     for program in list(root):
                         defines = {d.attrib["name"] for d in program.find("defines")}
                         metadata = ET.fromstring(archive.read("shaders/" + program.attrib["file"]))
-                        if excluded & defines or metadata.find("compute") is not None:
+                        compute = metadata.find("compute")
+                        push_binding = compute_bindings(compute) if compute is not None and not excluded & defines else None
+                        if excluded & defines or compute is not None and push_binding is None:
                             root.remove(program)
                             continue
                         program.set("type", "wgsl")
@@ -136,12 +156,16 @@ def main(source, naga, output):
                             original = stage.attrib["file"]
                             filename = PurePosixPath(original).name.replace(".spv", ".wgsl")
                             if original not in converted:
-                                spv.write_bytes(split_samplers(archive.read("shaders/" + original)))
+                                spv.write_bytes(translate_spirv(archive.read("shaders/" + original), compute is not None))
                                 target = destination / filename
                                 result = subprocess.run([naga, str(spv), str(target)], capture_output=True, text=True)
                                 if result.returncode:
                                     raise RuntimeError(f"{mod}/{original}: {result.stderr}")
                                 text = target.read_text().replace("var<immediate>", "@group(2) @binding(0) var<uniform>")
+                                if compute is not None:
+                                    text = re.sub(r"@group\(1\) @binding\((\d+)\)",
+                                        lambda match: f"@group(0) @binding({int(match[1]) + 1})", text)
+                                    text = text.replace("@group(2) @binding(0)", f"@group(0) @binding({push_binding})")
                                 text, borders[original] = border_sampling(text)
                                 # Upstream SPIR-V permits implicit derivatives after alpha-test discard.
                                 text = "diagnostic(off, derivative_uniformity);\n" + text

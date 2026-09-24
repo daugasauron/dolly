@@ -299,16 +299,20 @@ documented in [the sound interface](audio.md) and
 
 After preparing those official archives, `bash toolchain/0ad/prepare-shaders.sh`
 builds checksum-pinned Naga 30.0.1 with its locked dependencies and the same
-native Rust bootstrap. It translates the release's SPIR-V graphics variants to
+native Rust bootstrap. It translates the release's SPIR-V graphics and buffer-compute variants to
 `build/0ad/shaders`, retaining their define indexes, streams and uniform offsets.
 Combined samplers become texture/sampler pairs in group 1; push constants become
 a uniform buffer in group 2. Group 0 retains material uniforms. Group 3 carries
 guest sampler descriptors for clamp-to-border emulation, including filtered
-edges and mip levels; this adds no browser capability. Bindless,
-compute and shadow variants are excluded from this renderer baseline.
+edges and mip levels; this adds no browser capability. Buffer-only compute
+shaders use the existing single buffer group, with write-only storage declarations
+lowered to WGSL read/write access. Bindless, shadow and texture-compute variants
+are excluded from this renderer baseline.
 `node test/0ad-shaders-browser.mjs` compiles and links every converted shader in
 Chrome's software WebGPU adapter and checks the real upstream canvas shader's
-colors, orientation, grayscale uniform and border/mip filtering. This validates shader conversion;
+colors, orientation, grayscale uniform and border/mip filtering. Both skinning
+variants also check weighted positions, packed normals/tangents and offset/bounds
+guards. This validates shader conversion;
 it does not by itself establish a playable renderer. The GPU packet path has
 its separate guest-compiled check in `test/gpu-render-browser.mjs`.
 
@@ -355,11 +359,18 @@ input. Defaults select system cursors and low texture quality, with shadows,
 silhouettes, advanced water, postprocessing and antialiasing disabled. Streamed
 buffers, aligned uniform ranges and unchanged resource groups are reused;
 released resources retain their allocation charges until GPU work completes.
+The binding cache reclaims entries at the admitted object limit, submitting
+pending draws and waiting for allocation retirement before reusing that capacity.
+Upstream GPU skinning keeps animation outputs on the device, using distinct
+storage pools for positions and packed half-float attributes. Providers without
+half-float vertex support retain CPU skinning. The normal graphics option can
+switch paths during a match; `-conf=gpuskinning:false` selects CPU explicitly.
 
 The browser check rejects fallback adapters by default. It exercises drag
 selection, movement recorded in the upstream replay, graphical quick-save/load,
 training and completed house construction through the economy UI, Petra progress,
-audible data in the browser audio graph, fresh processes and shell recovery.
+audible data in the browser audio graph, live skinning changes, fresh processes
+and shell recovery. Append `auto cpu` after the browser name to check CPU skinning.
 Speaker output is muted during the test. Quick-save uses upstream's in-memory
 snapshot; ordinary `.0adsave` persistence has its separate headless test below.
 For Firefox on the desktop, append `firefox` to the browser-check command. For

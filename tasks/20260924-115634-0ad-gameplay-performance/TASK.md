@@ -238,3 +238,50 @@ software correctness does not imply playable performance. Source checks pass
 An initial selection probe was launched before image packing finished and
 hit its 5 GiB cap while Firefox received the raw 2 GB image. The completed
 packed image passes; that interrupted probe is excluded from the comparison.
+
+Upstream GPU skinning now uses the existing compute/buffer packet operations.
+The additive half-float vertex capability converts packed attributes to f32;
+separate position/attribute pools satisfy WebGPU's writable-binding alias rules.
+CPU skinning remains available, and the upstream config hook now disables as
+well as enables GPU skinning during a match. The 316 shaders, 324 graphics
+programs and both compute variants pass software compilation and pixel/data
+checks. The installed GPU SDK passes hardware Firefox and software Chrome,
+including half-float vertices, bounds, quotas and process recovery. Evidence:
+`.cache/0ad/gpu-skinning-{shaders-final,sdk-firefox,sdk-chromium}.log`.
+
+A paired Firefox run reduces combat traffic 2,568,181→1,069,494 bytes/frame and
+mean frame time 13.59→11.79 ms. Economy means remain about 9.4 ms. These are
+single-machine paired measurements: `.cache/0ad/gpu-skinning-pair-{cpu,gpu}.log`.
+The CPU run reproduces a 226 ms outlier; a later Chrome run reaches 262 ms.
+The intermittent stall remains open.
+
+Software live switching exposed exhaustion of all 4,096 GPU object slots,
+including 2,632 cached graphics bindings, with no pending host retirements.
+The guest now tracks the admitted object budget, prunes bindings between draws,
+and waits only when retired buffers/textures still hold allocation credits.
+The provider's quota is unchanged. Full Firefox gameplay also passes with the
+provider restricted to 2,048 objects: `.cache/0ad/gpu-object-pressure-final-firefox.log`.
+An initial stress run waited unnecessarily for zero-byte bindings and reached
+the scenario's defeat screen before the final toggle; that wait was removed.
+
+The final 2,068,965,638-byte image passes software Chrome gameplay and hardware
+Chrome restricted to two physical CPU cores and a 4 GiB process-tree cap.
+The latter peaks at 3,466,854,400 bytes, with combat/economy means 10.95/9.99 ms.
+This constrains resources on the same fast hardware, not CPU/GPU clock speed.
+Software means remain 77.88/172.44 ms; software rendering is still slow.
+CPU animation with BC compression denied also passes Firefox. Evidence:
+`.cache/0ad/gpu-skinning-{final-image,final-software,two-core-chromium}.log`,
+`gpu-object-cache-cpu-firefox.log`. Source checks pass 279/279, and the 46-file
+engine patch reconstructs pristine upstream.
+
+Opacity capture now requests frames after each scene's measured gameplay;
+the previous fixed frame counter could sample loading after menu startup.
+Firefox's combat and economy captures both contain zero non-opaque pixels.
+Both browsers launch Britons/Acropolis and Han/Alpine Lakes through the actual
+menu with clean engine logs. Evidence: `.cache/0ad/gpu-skinning-final-opacity-firefox.log`
+and `gpu-skinning-final-menu-{firefox,chromium}.log`.
+
+Chrome at device scale 2 also passes gameplay, explicit combat/economy alpha
+captures, browser viewport changes, and a second replayed movement command
+issued through the resized canvas: `.cache/0ad/gpu-skinning-hidpi-chromium.log`.
+The game retains its 1024×768 render surface while the browser scales it.

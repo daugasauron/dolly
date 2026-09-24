@@ -26,14 +26,17 @@ static void upload(unsigned n,unsigned mip,unsigned layer,unsigned x,unsigned y,
   void *p=dolly_gpu_record(&gpu,DOLLY_GPU_WRITE_TEXTURE,48+bytes);
   u64(p,8,n);u32(p,16,mip);u32(p,20,layer);u32(p,24,x);u32(p,28,y);u32(p,32,w);u32(p,36,h);u32(p,40,bytes);memcpy((char*)p+48,data,bytes);
 }
-static unsigned pipeline(unsigned vs,unsigned fs,unsigned color,unsigned depth) {
+static unsigned pipeline_layout(unsigned vs,unsigned fs,unsigned color,unsigned depth,unsigned position_format,unsigned uv_format) {
   unsigned n=id();void *p=dolly_gpu_record(&gpu,DOLLY_GPU_GRAPHICS_PIPELINE,176);
   u64(p,8,n);u64(p,16,vs);u64(p,24,fs);u32(p,32,color);u32(p,36,depth);
   u32(p,52,2);u32(p,56,1);u32(p,72,15);u32(p,84,1);u32(p,96,1);u32(p,104,2);u32(p,108,2);
   u32(p,112,12);u32(p,128,8); // Two vertex streams: position and UV.
-  u32(p,152,3); // Attribute zero: slot 0, location 0, float32x3.
-  u32(p,160,1);u32(p,164,1);u32(p,168,2); // Slot 1, location 1, float32x2.
+  u32(p,152,position_format);
+  u32(p,160,1);u32(p,164,1);u32(p,168,uv_format);
   return n;
+}
+static unsigned pipeline(unsigned vs,unsigned fs,unsigned color,unsigned depth) {
+  return pipeline_layout(vs,fs,color,depth,3,2);
 }
 static unsigned uniform_group(unsigned pipeline,unsigned index,unsigned buf,unsigned offset) {
   unsigned n=id();void *p=dolly_gpu_record(&gpu,DOLLY_GPU_RESOURCE_GROUP,64);
@@ -121,6 +124,17 @@ int main(int argc,char **argv) {
   draw(surface,pos,uv,index,surface_white,target_group,surface_near);end();
   capture(readback);
   pixel(0,0,0,0,0);pixel(16,16,255,0,0);pixel(48,16,0,255,0);pixel(16,48,0,0,255);pixel(48,48,255,255,0);pixel(63,63,0,0,0);
+  assert(features&DOLLY_GPU_FEATURE_VERTEX_F16);
+  // Half-float inputs convert to f32; the position shader ignores component four.
+  const uint16_t half_positions[]={0xbc00,0xbc00,0,0x7c00,0,0, 0x3c00,0xbc00,0,0x7c00,0,0,
+    0xbc00,0x3c00,0,0x7c00,0,0, 0x3c00,0x3c00,0,0x7c00,0,0};
+  const uint16_t half_uvs[]={0,0x3c00,0,0, 0x3c00,0x3c00,0,0, 0,0,0,0, 0x3c00,0,0,0};
+  unsigned half_pos=buffer(half_positions,sizeof(half_positions),40),half_uv=buffer(half_uvs,sizeof(half_uvs),40);
+  batch();pipeline_layout(vs,fs,0,0,15,13);rejected(EINVAL);
+  unsigned half_pipeline=pipeline_layout(vs,fs,0,0,14,13),half_white=uniform_group(half_pipeline,0,uniform,0),
+    half_texture=texture_group(half_pipeline,source,sampler,1),half_shift=uniform_group(half_pipeline,2,uniform,512);
+  begin(0,0);draw(half_pipeline,half_pos,half_uv,index,half_white,half_texture,half_shift);end();capture(readback);
+  pixel(16,16,255,0,0);pixel(48,16,0,255,0);pixel(16,48,0,0,255);pixel(48,48,255,255,0);
   assert(dolly_gpu_info(&gpu)==80);uint64_t before;memcpy(&before,gpu.reply+72,8);
   for(unsigned format=7;format<=9;format++) {
     if(!(features&DOLLY_GPU_FEATURE_TEXTURE_BC)) {

@@ -9,10 +9,12 @@ const root=new URL('..',import.meta.url), output=new URL('../.cache/0ad/browser/
 const image=process.argv[2]??'default', backend=process.argv[3]??'hardware';
 const browserName=process.argv[4]??'chromium';
 const compression=process.argv[5]??'auto';
+const animation=process.argv[6]??'gpu';
 assert.ok(['default','zero-ad'].includes(image) && ['hardware','software'].includes(backend),
-  'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox] [auto|uncompressed]');
+  'usage: node test/0ad-graphics-browser.mjs [default|zero-ad] [hardware|software] [chromium|firefox] [auto|uncompressed] [gpu|cpu]');
 assert.ok(['chromium','firefox'].includes(browserName) && (browserName==='chromium'||backend==='hardware'));
 assert.ok(['auto','uncompressed'].includes(compression));
+assert.ok(['gpu','cpu'].includes(animation));
 await mkdir(output,{recursive:true});
 const sources=inspectDollyfile(await readFile(new URL('modules/zero-ad.dm',root),'utf8')).sources;
 const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice('/static/zero-ad/'.length),'dist'+source.location]));
@@ -117,7 +119,18 @@ try {
     const start=performance.now();
     do {await advance(2);} while(performance.now()-start<milliseconds);
   };
+  const checkOpacity=async label=>{
+    await page.evaluate(label=>{
+      const channel=new BroadcastChannel('dolly-test-surface-alpha');
+      channel.postMessage(label);channel.close();
+    },label);
+    await page.waitForFunction(label=>__dolly.gpu.surfaceAlpha?.label===label,label);
+    const alpha=await page.evaluate(()=>__dolly.gpu.surfaceAlpha);
+    assert.ok(alpha.width>0,'Presented frame alpha was not observed');
+    assert.equal(alpha.nonOpaquePixels,0,'The game window must not expose the terminal through scene alpha');
+  };
   const start=async(options='-autostart=scenarios/combat_demo')=>{
+    if(animation==='cpu')options+=' -conf=gpuskinning:false';
     const baseline=await frames(),time=performance.now();
     await page.evaluate(({options,image})=>{
       globalThis.gameStatus=null;globalThis.audioPeak=0;
@@ -166,10 +179,20 @@ try {
   const before=await frames(),time=performance.now();await advance(120);
   const frameMilliseconds=(performance.now()-time)/((await frames())-before);
   const combatFrameTimings=await frameTimings();
+  await checkOpacity('combat');
   const gpu=await page.evaluate(()=>__dolly.gpu);
-  assert.ok(gpu.surfaceAlpha?.width>0,'Presented frame alpha was not observed');
-  assert.equal(gpu.surfaceAlpha.nonOpaquePixels,0,'The game window must not expose the terminal through scene alpha');
+  assert.equal(gpu.stats.dispatches>0,animation==='gpu','Compute activity must match the selected animation mode');
   const combatAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
+  if(animation==='gpu')for(const enabled of [false,true]) {
+    await page.keyboard.press('F9');await advanceFor(400);
+    await page.keyboard.type('Engine.ConfigDB_CreateValue("user", "gpuskinning", "'+enabled+'")');
+    await advance(2);await page.keyboard.press('Enter');await advanceFor(400);
+    await page.keyboard.press('F9');await advance(30);
+    const first=await page.evaluate(()=>__dolly.gpu.stats.dispatches);
+    await advance(60);
+    assert.equal(await page.evaluate(first=>__dolly.gpu.stats.dispatches>first,first),enabled,
+      'Changing GPU skinning during a match must change compute activity');
+  }
   await stop();
   const warnings=await download('/opt/0ad/logs/interestinglog.html','graphics-warnings.html');
   assert.doesNotMatch(warnings,/class="error"|class="warning"/);
@@ -193,6 +216,7 @@ try {
   await page.evaluate(()=>{frameSamples=[];});
   await advanceFor(40000);
   const economyFrameTimings=await frameTimings();
+  await checkOpacity('economy');
   await page.screenshot({path:new URL('graphics-economy.png',output).pathname});
   const economyGpu=await page.evaluate(()=>__dolly.gpu);
   const economyAudio=await page.evaluate(()=>({peak:audioPeak,...__dolly.audio}));
@@ -212,10 +236,11 @@ try {
   assert.deepEqual(errors,[]);
   const cgroup=(await readFile('/proc/self/cgroup','utf8')).match(/^0::(.*)$/m)?.[1];
   const processTreePeakBytes=cgroup?Number(await readFile('/sys/fs/cgroup'+cgroup+'/memory.peak','utf8')):undefined;
-  console.log(JSON.stringify({image,backend,browserName,compression,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
+  console.log(JSON.stringify({image,backend,browserName,compression,animation,browser:browser.version(),adapter:gpu.adapter,isFallbackAdapter:gpu.isFallbackAdapter,bootMilliseconds,stagingMilliseconds,startupMilliseconds,
     restartMilliseconds,frameMilliseconds:Math.round(frameMilliseconds),combatFrameTimings,economyFrameTimings,allocatedBytes:gpu.stats.allocatedBytes,
     economyAllocatedBytes:economyGpu.stats.allocatedBytes,processTreePeakBytes,visualInput:true,
-    economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,opaquePresentation:gpu.surfaceAlpha,
+    economyConstruction:true,economyTraining:true,quickSaveLoad:true,freshProcesses:2,shellRecovery:true,
+    opaquePresentation:gpu.surfaceAlpha,economyOpaquePresentation:economyGpu.surfaceAlpha,
     combatAudio,economyAudio}));
 } catch(error) {
   if(page && !page.isClosed()) {

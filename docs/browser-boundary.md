@@ -257,6 +257,8 @@ are rejected. Bindings and framebuffer attachments resolve
 scope-owned typed handles; only the surface owner can select attachment zero.
 Render passes remain inside one submitted packet. Indexed draws, vertex streams,
 viewport/scissor bounds and group counts are bounded before WebGPU validation.
+Half-float vertex formats (bit 512) use the same stride, offset and byte-range
+checks; they add no resource type or shader authority.
 The guest-compiled [render test](../test/gpu-render-browser.mjs) checks pixels,
 depth occlusion, offscreen sampling, malformed spans, quotas and cleanup after
 both close and forced process termination using Chrome's software adapter.
