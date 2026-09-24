@@ -125,6 +125,12 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
       files.set(`/dist/${name}`, `dist/${name}`);
     }
   }
+  for (const name of await readdir(resolve(projectDir, "dist/packs")).catch(error => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  })) {
+    if (/^[0-9a-f]{64}\.snapshot\.gz$/.test(name)) files.set(`/dist/packs/${name}`, `dist/packs/${name}`);
+  }
   for (const [name, path] of Object.entries(processSmokeSources)) files.set(`/fixture/${name}`, path);
   for (const [name, path] of Object.entries(fixtures)) files.set(`/fixture/${name}`, path);
   for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {

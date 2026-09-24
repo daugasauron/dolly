@@ -5,19 +5,39 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import test from "node:test";
-import { shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
+import { ensureSnapshotPacks, shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
 import { parseGeneratedConstant } from "../scripts/site-release.mjs";
-import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks } from "../src/snapshot-records.mjs";
+import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
 const file = text => ({ kind: 2, data: new TextEncoder().encode(text) });
+test("development images reuse complete packs and repair missing delivery files", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-image-packs-"));
+  try {
+    const bytes = encodeSnapshotRecords(new Map([["/config", file("config")],
+      ["/large", { kind: 2, data: new Uint8Array(5 * 1024 * 1024).fill(42) }]]));
+    const metadata = { image: "fixture", byteLength: bytes.length, sha256: digest(bytes) };
+    await writeFile(resolve(directory, "dolly-fixture-system.snapshot"), bytes);
+    const packed = await ensureSnapshotPacks(directory, metadata);
+    assert.equal(packed.packs.length, 2);
+    assert.equal(await ensureSnapshotPacks(directory, packed), packed);
+    await rm(resolve(directory, "packs", `${packed.packs[0].sha256}.snapshot.gz`));
+    const repaired = await ensureSnapshotPacks(directory, packed);
+    assert.deepEqual(repaired, packed);
+    const parts = await Promise.all(repaired.packs.map(async pack =>
+      gunzipSync(await readFile(resolve(directory, "packs", `${pack.sha256}.snapshot.gz`)))));
+    assert.deepEqual(mergeSnapshotRecords(parts), bytes);
+    await assert.rejects(ensureSnapshotPacks(directory, { ...metadata, sha256: "0".repeat(64) }), /mismatch/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 test("large image packs fit the image bound, including aggregate-size enforcement", () => {
-  const gib = 1024 * 1024 * 1024;
+  const limit = MAX_SNAPSHOT_BYTES;
   const pack = size => ({ sha256: "a".repeat(64), byteLength: size, encodedByteLength: size });
-  assert.equal(validateSnapshotPacks({ byteLength: gib, packs: [pack(gib)] }).length, 1);
-  assert.throws(() => validateSnapshotPacks({ byteLength: gib + 1, packs: [pack(gib + 1)] }), /descriptor/);
-  assert.throws(() => validateSnapshotPacks({ byteLength: gib + 1,
-    packs: [pack(gib), { ...pack(17), sha256: "b".repeat(64) }] }), /size limit/);
+  assert.equal(validateSnapshotPacks({ byteLength: limit, packs: [pack(limit)] }).length, 1);
+  assert.throws(() => validateSnapshotPacks({ byteLength: limit + 1, packs: [pack(limit + 1)] }), /descriptor/);
+  assert.throws(() => validateSnapshotPacks({ byteLength: limit + 1,
+    packs: [pack(limit), { ...pack(17), sha256: "b".repeat(64) }] }), /size limit/);
 });
 
 async function packImages(directory, inputs) {

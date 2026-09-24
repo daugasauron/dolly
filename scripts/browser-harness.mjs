@@ -14,7 +14,7 @@ import { runClassiCubeAgentProof } from "../test/fixtures/classicube-agent-brows
 import { relayProvider } from "../src/rts/spectator/relay.mjs";
 import { runClassiCubeProof } from "../test/fixtures/classicube-browser.mjs";
 import { runRtsLauncherProof } from "../test/fixtures/rts-launcher-browser.mjs";
-import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, resolve, sep } from "node:path";
@@ -275,6 +275,10 @@ const libcurlContractRequests = [];
 const libcurlCancelledRequests = [];
 let curlCliRequest = null;
 let snapshotUpload = null;
+const snapshotOutput = process.env.DOLLY_SNAPSHOT_OUTPUT && resolve(process.env.DOLLY_SNAPSHOT_OUTPUT);
+if (snapshotExportMode && (!snapshotOutput || !snapshotOutput.startsWith(`${resolve(projectDir, "dist")}${sep}`))) {
+  throw new Error("snapshot export requires an output path inside Dolly's dist directory");
+}
 const staticRequestPaths = new Set();
 let corruptAssetPart = false;
 const assetPartRequests = [];
@@ -718,21 +722,26 @@ function startServer() {
           response.writeHead(413, isolatedHeaders).end("invalid snapshot size");
           return;
         }
-        const chunks = [];
         let received = 0;
-        for await (const chunk of request) {
-          received += chunk.length;
-          if (received > snapshotSizeLimit) {
-            response.writeHead(413, isolatedHeaders).end("snapshot too large");
-            return;
+        const file = await open(snapshotOutput, "wx");
+        let complete = false;
+        try {
+          for await (const chunk of request) {
+            received += chunk.length;
+            if (received > declaredLength) throw new Error("snapshot exceeds declared size");
+            for (let offset = 0; offset < chunk.length;) {
+              const { bytesWritten } = await file.write(chunk, offset, chunk.length - offset);
+              if (bytesWritten === 0) throw new Error("snapshot export write failed");
+              offset += bytesWritten;
+            }
           }
-          chunks.push(chunk);
+          if (received !== declaredLength) throw new Error("incomplete snapshot");
+          complete = true;
+        } finally {
+          await file.close();
+          if (!complete) await rm(snapshotOutput, { force: true });
         }
-        if (received !== declaredLength) {
-          response.writeHead(400, isolatedHeaders).end("incomplete snapshot");
-          return;
-        }
-        snapshotUpload = Buffer.concat(chunks, received);
+        snapshotUpload = received;
         response.writeHead(204, isolatedHeaders).end();
         return;
       }
@@ -874,6 +883,7 @@ async function connectDebugger({ debugPort, page, target }) {
   });
 
   let nextId = 1;
+  let failure;
   const pending = new Map();
   socket.addEventListener("close", () => {
     for (const handler of pending.values()) handler.reject(new Error("Chrome debugger disconnected"));
@@ -881,6 +891,13 @@ async function connectDebugger({ debugPort, page, target }) {
   });
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(String(event.data));
+    if (message.method === "Inspector.targetCrashed") {
+      failure = new Error("Chrome renderer crashed");
+      for (const handler of pending.values()) handler.reject(failure);
+      pending.clear();
+      socket.close();
+      return;
+    }
     if (!message.id) return;
     const handler = pending.get(message.id);
     if (!handler) return;
@@ -890,6 +907,7 @@ async function connectDebugger({ debugPort, page, target }) {
   });
 
   function send(method, params = {}) {
+    if (failure) return Promise.reject(failure);
     if (socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Chrome debugger disconnected"));
     const id = nextId++;
     return new Promise((resolveCommand, reject) => {
@@ -1628,6 +1646,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
     debugPort,
     page: "about:blank",
   });
+  await debuggerClient.send("Inspector.enable");
   await debuggerClient.send("Runtime.enable");
   await debuggerClient.send("Page.enable");
   await debuggerClient.send("Browser.setDownloadBehavior", {
@@ -1655,7 +1674,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
           const request = get.call(this, key), store = this.name;
           request.addEventListener('success', () => {
             const value = request.result;
-            globalThis.__artifactReads.push({ store, key, bytes: (value instanceof ArrayBuffer ? value : value?.bytes)?.byteLength ?? 0 });
+            globalThis.__artifactReads.push({ store, key, bytes: value instanceof Blob ? value.size : (value instanceof ArrayBuffer ? value : value?.bytes)?.byteLength ?? 0 });
           });
           return request;
         };
@@ -2096,6 +2115,12 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       break browserProof;
     }
     if (debuggerDisconnectMode) {
+      const crashed = await connectDebugger({ debugPort, page: "about:blank" });
+      await crashed.send("Inspector.enable");
+      const stranded = assert.rejects(evaluate(crashed.send, "new Promise(() => {})"), /Chrome renderer crashed/);
+      await assert.rejects(crashed.send("Page.crash"), /Chrome renderer crashed/);
+      await stranded;
+      await assert.rejects(evaluate(crashed.send, "true"), /Chrome renderer crashed/);
       const pending = evaluate(debuggerClient.send, "new Promise(() => {})");
       await evaluate(debuggerClient.send, "true");
       const rejected = assert.rejects(pending, /Chrome debugger disconnected/);
@@ -4168,11 +4193,10 @@ int main(int argc, char **argv) {
         `${browserBasePrefix}/${selectedImage}/`,
         `${browserBasePrefix}/Dollyfile${selectedImage === "default" ? "" : `-${selectedImage}`}`,
         `${browserBasePrefix}/dist/dolly-images.mjs`,
-        ...(!packagedSite ? [`${browserBasePrefix}/dist/dolly-${selectedImage}-system.snapshot`] : []),
       ]) {
         assert.ok(staticRequestPaths.has(required), `prefixed route did not request ${required}`);
       }
-      if (packagedSite) assert.ok([...staticRequestPaths].some(path => path.includes("/dist/packs/")), "packaged image did not load shared packs");
+      assert.ok([...staticRequestPaths].some(path => path.includes("/dist/packs/")), "image did not load snapshot packs");
       assert.equal([...staticRequestPaths].some((path) => path.includes("/static/")), false,
         "prebuilt route fetched rebuild-only source inputs");
       await debuggerClient.send("Page.navigate", {
@@ -4530,12 +4554,7 @@ int main(int argc, char **argv) {
       break browserProof;
     }
     if (snapshotExportMode) {
-      const output = resolve(process.env.DOLLY_SNAPSHOT_OUTPUT ?? "");
-      const distDirectory = resolve(projectDir, "dist");
-      if (!process.env.DOLLY_SNAPSHOT_OUTPUT ||
-          !output.startsWith(`${distDirectory}${sep}`)) {
-        throw new Error("snapshot export requires an output path inside Dolly's dist directory");
-      }
+      const output = snapshotOutput;
       await waitForValue(debuggerClient.send, "document.querySelector('#bootstrap-log') !== null",
         Boolean, "build page");
       await evaluate(debuggerClient.send,
@@ -4583,15 +4602,14 @@ int main(int argc, char **argv) {
         {
           method: "POST",
           headers: { "content-type": "application/octet-stream" },
-          body: window.__dolly.systemSnapshot,
+          body: new Blob([window.__dolly.systemSnapshot]),
         },
       ).then((response) => response.status)`);
       assert.equal(uploadStatus, 204);
-      assert.equal(snapshotUpload?.length, evidence.snapshotBytes);
-      await writeFile(output, snapshotUpload, { flag: "wx" });
+      assert.equal(snapshotUpload, evidence.snapshotBytes);
       await writeFile(`${output}.inputs.json`, JSON.stringify(evidence.inputs), { flag: "wx" });
       console.log(
-        `browser: exported ${snapshotUpload.length} byte ${selectedImage} snapshot ` +
+        `browser: exported ${snapshotUpload} byte ${selectedImage} snapshot ` +
         "without starting a display or image entry",
       );
       break browserProof;
@@ -6292,7 +6310,7 @@ int main(int argc, char **argv) {
   }
 } catch (error) {
   if (chrome && (chrome.exitCode !== null || chrome.signalCode !== null ||
-      debuggerClient?.socket.readyState === WebSocket.CLOSED)) {
+      debuggerClient?.socket.readyState === WebSocket.CLOSED || error.message === "Chrome renderer crashed")) {
     process.stderr.write(`browser process: exit ${chrome?.exitCode}, signal ${chrome?.signalCode}\n${chromeDiagnostics}\n`);
   }
   if (debuggerClient) {

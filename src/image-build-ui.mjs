@@ -1,7 +1,7 @@
 import { ImageBuildService } from "./image-build-service.mjs";
 import { buildImage } from "./image-builder.mjs";
 import { prepareImageArtifacts } from "./image-build.mjs";
-import { describeImageArtifact, loadImageArtifactDescriptor, sha256 } from "./image-artifact.mjs";
+import { loadImageArtifactDescriptor } from "./image-artifact.mjs";
 import { openCustomImage } from "./custom-image.mjs";
 
 export function mountImageBuild(network, policies) {
@@ -10,8 +10,7 @@ export function mountImageBuild(network, policies) {
       (image, artifacts) => buildImage(image, artifacts, network, report, { signal }),
       text => report(text + "\n"), signal);
     signal.throwIfAborted();
-    const result = await buildImage("custom", artifacts, network, report, { signal, customSource: source });
-    const artifact = await describeImageArtifact(result.bytes, await sha256(new TextEncoder().encode(source)), result.inputs);
+    const artifact = await buildImage("custom", artifacts, network, report, { signal, customSource: source });
     signal.throwIfAborted();
     const descriptor = await loadImageArtifactDescriptor(artifact.recipeSha256, artifact.inputs);
     if (!descriptor || descriptor.sha256 !== artifact.sha256) {

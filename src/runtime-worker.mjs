@@ -4,8 +4,8 @@ import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { validSessionName, DOLLY_SESSION_MAX_BYTES } from "./session-store.mjs";
-import { describeImageArtifact, loadImageArtifact, saveImageArtifact, sha256,
-  loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
+import { describeImageArtifact, saveImageArtifact, sha256,
+  loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { DollyProcessSupervisor } from "./process-supervisor.mjs";
@@ -311,44 +311,69 @@ try {
     for (const artifact of artifacts.values()) dolly.FS.unlink(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
     artifacts.clear();
     if (bootstrapStatus === 0) {
+      bootstrapStage("capturing userspace image...");
       if (dolly._dolly_snapshot_capture() !== 0) {
         throw new Error("Dolly system snapshot capture failed");
       }
       const range = checkedMemoryRange(
         memory, dolly._dolly_snapshot_address(), dolly._dolly_snapshot_size(),
       );
+      bootstrapStage("copying completed image...");
       const copy = new Uint8Array(range.size);
       copy.set(new Uint8Array(memory.buffer, range.address, range.size));
       snapshotBytes = range.size;
-      const artifact = await describeImageArtifact(copy.buffer, recipeSha256, inputs);
-      const cacheSlot = configuredImage === "custom"
-        ? `custom:${inspectDollyfile(bootConfig.customSource).image}` : `/${definition.dollyfile}`;
-      const saved = await saveImageArtifact(artifact, cacheSlot);
-      bootstrapStage(saved ? "saved completed image artifact" : "image built; local cache unavailable");
+      if (!bootConfig.buildOnly) {
+        const artifact = await describeImageArtifact(copy.buffer, recipeSha256, inputs);
+        const cacheSlot = configuredImage === "custom"
+          ? `custom:${inspectDollyfile(bootConfig.customSource).image}` : `/${definition.dollyfile}`;
+        const saved = await saveImageArtifact(artifact, cacheSlot);
+        bootstrapStage(saved ? "saved completed image artifact" : "image built; local cache unavailable");
+      }
       self.postMessage({ type: "system-snapshot", bytes: copy.buffer, inputs }, [copy.buffer]);
       finishRebuiltImage = true;
     }
   } else {
     bootstrapStage("loading precompiled userspace snapshot...");
-    let snapshot;
-    if (configuredImage === "custom") snapshot = snapshotMetadata.bytes;
-    else {
-      const cached = await loadImageArtifact({ ...snapshotMetadata, recipeSha256 });
-      snapshot = cached?.bytes ?? await loadPackagedSystemSnapshot(configuredImage, snapshotMetadata);
-      if (!cached) {
-        const saved = await saveImageArtifact(await describeImageArtifact(snapshot, recipeSha256, snapshotMetadata.inputs),
-          `/${definition.dollyfile}`);
-        bootstrapStage(saved ? "cached precompiled image" : "local image cache unavailable");
-      } else bootstrapStage("reusing cached precompiled image");
-    }
-    const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
-    const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
-    new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
-    bootstrapStatus = dolly._dolly_bootstrap_snapshot(BigInt(range.size));
-    snapshotBytes = range.size;
     if (configuredImage === "custom") {
+      const snapshot = snapshotMetadata.bytes;
+      const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
+      const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
+      new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
+      bootstrapStatus = dolly._dolly_bootstrap_snapshot(BigInt(range.size));
+      snapshotBytes = range.size;
       snapshotMetadata.bytes = undefined;
       bootConfig.customArtifact = undefined;
+    } else {
+      const capacity = 1024 * 1024;
+      const address = dolly._dolly_snapshot_restore_address(BigInt(capacity));
+      const staging = () => {
+        const range = checkedMemoryRange(memory, address, capacity);
+        return new Uint8Array(memory.buffer, range.address, range.size);
+      };
+      staging().set(Uint8Array.from(snapshotMetadata.sha256.match(/../g), byte => parseInt(byte, 16)));
+      if (dolly._dolly_bootstrap_snapshot_begin(BigInt(snapshotMetadata.byteLength)) !== 0)
+        throw new Error("Dolly snapshot stream initialization failed");
+      let loaded = 0, reported = 0;
+      await streamPackagedSystemSnapshot(configuredImage, snapshotMetadata, bytes => {
+        for (let offset = 0; offset < bytes.length; offset += capacity) {
+          const chunk = bytes.subarray(offset, offset + capacity);
+          staging().set(chunk);
+          if (dolly._dolly_snapshot_stream_write(BigInt(chunk.length), 0) !== 0)
+            throw new Error("Dolly rejected a snapshot stream record");
+        }
+        loaded += bytes.length;
+        if (performance.now() - reported >= 1000) {
+          const mib = 1024 * 1024;
+          bootstrapStage(`loading userspace: ${Math.min(Math.floor(loaded / mib), Math.ceil(snapshotMetadata.byteLength / mib))} / ${Math.ceil(snapshotMetadata.byteLength / mib)} MiB`);
+          reported = performance.now();
+        }
+      }, () => {
+        if (dolly._dolly_snapshot_stream_write(0n, 1) !== 0)
+          throw new Error("Dolly rejected an incomplete snapshot part");
+        return [...staging().subarray(0, 32)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+      });
+      bootstrapStatus = dolly._dolly_bootstrap_snapshot_end();
+      snapshotBytes = snapshotMetadata.byteLength;
     }
   }
   if (bootstrapStatus !== 0) throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
