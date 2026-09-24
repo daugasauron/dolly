@@ -58,3 +58,14 @@ demonstrated magnet overload. `build/blockwalker-launcher/retain-ammo.js` is an
 untested candidate that holds the load and brakes while waiting for a target.
 The intermittent-target fixture must verify retention, re-engagement and reload
 before that program is promoted. Evidence: `build/blockwalker-rivalry-one-way-teams42/`.
+
+The lost-target trial now passes: the same crate stays attached for 127 sampled
+seconds outside target range, then the launcher completes three physical
+reloads/shots. Two crates contact the aircraft at 182.350 and 217.450 s.
+Evidence: `build/blockwalker-launcher-lost-target-ammo/`. A separate save/reload
+at 90 s preserves that held load and resumes firing twice. Its third load later
+slips; the feeder recovers it and starts another delivery. This remains a
+physical limitation, not a guaranteed-shot demonstration
+(`build/blockwalker-launcher-loaded-reopen/`). The canonical branch catalog now
+contains the two crews, with red/blue paint, but image packaging and the final
+combined test are pending.

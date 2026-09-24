@@ -29,3 +29,8 @@ from runner 79 to courier 59, then settles on the East island with one delivery
 each. Runner minimum up is 0.9640; all 103 world bodies remain without errors.
 Evidence: `build/blockwalker-rivalry-combined42/{rivalry.jsonl,report.json}`.
 Both-yard storage and crowded Firefox performance still block promotion.
+
+The 1800 s one-way-engine repeat also delivers both cores, with 28 total
+deliveries and all 121 objects retained (`build/blockwalker-rivalry-compact-tuned42/`).
+The runner, stock and longer roof are now in the branch catalog. The served
+image is still 27; final storage, camera/source and crowded-browser checks remain.

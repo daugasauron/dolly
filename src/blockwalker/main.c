@@ -117,9 +117,9 @@ static void follow_creature(void){
     }world_follow=0;dirty=1;
 }
 static void program_page(int delta){program_line=(int)Clamp(program_line+delta,0,fmaxf(0,program_lines-20));dirty=1;}
-static int world_rows(void){return terrain_version>=3?6:terrain_version>=2?7:8;}
-static int world_list_top(void){return terrain_version>=3?408:terrain_version>=2?376:344;}
-static int world_places(void){return terrain_version>=3?12:terrain_version>=2?10:terrain_version?8:7;}
+static int world_rows(void){return terrain_version>=3?5:terrain_version>=2?7:8;}
+static int world_list_top(void){return terrain_version>=3?440:terrain_version>=2?376:344;}
+static int world_places(void){return terrain_version>=3?14:terrain_version>=2?10:terrain_version?8:7;}
 static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-world_rows()));dirty=1;}
 static void pilot_help(char movement[48],char magnets[48]){
     Creature *c=world_find(world.player);int on=0,off=0,mixed=0,found=0;
@@ -306,8 +306,8 @@ static void click(void){
         if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
         for(int i=0;i<world_places();i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
             piloting=eye_view=0;
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{78,3,-48},{57,1,-13}};
-            const float distances[]={24,50,100,110,150,512,72,76,40,38,55,38};
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{78,3,-48},{57,1,-13},{-14,5,-26},{88,5,-4}};
+            const float distances[]={24,50,100,110,150,512,72,76,40,38,55,38,35,35};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;
                 if(terrain_version&&i==6){orbit.target=(Vector3){-47,1,64};orbit.distance=12;orbit.yaw=PI;orbit.pitch=.12f;}
                 if(terrain_version&&i==7){orbit.target=(Vector3){-44,2,110};orbit.distance=35;orbit.yaw=.7f;orbit.pitch=.45f;}
@@ -318,7 +318,7 @@ static void click(void){
                 orbit_update(&orbit);dirty=1;}return;
         }
         world_page(0);
-        for(int i=0;i<world_rows()&&world_list+i<world.count;i++)if(inside(24,world_list_top()+i*26,194,25)){piloting=eye_view=0;visit_creature(&world.creatures[world_list+i]);return;}
+        for(int i=0;i<world_rows()&&world_list+i<world.count;i++)if(inside(24,world_list_top()+i*26,194,20)){piloting=eye_view=0;visit_creature(&world.creatures[world_list+i]);return;}
         if(inside(24,564,40,30)){world_page(-world_rows());return;}if(inside(178,564,40,30)){world_page(world_rows());return;}
         if(inside(24,612,194,28)){int result=world_save(embedded_context)?system("download /workspace/blockwalker-world.json"):-1;say(result==0?"World exported with programs and physics state.":"World export failed.");}
         if(inside(24,642,194,28))import_world();
@@ -501,7 +501,7 @@ static void draw_ui(void){
     label(262,647,piloting?text:world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry","Rivals"};
+        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry","Rivals","Red sling","Blue sling"};
         for(int i=0;i<world_places();i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,world_list_top()-28,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-world_rows()));

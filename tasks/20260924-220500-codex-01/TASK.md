@@ -51,3 +51,20 @@ its saved world is `build/blockwalker-rivalry-one-way-teams42/`. The separate
 thruster task tracks wider barge mounts and oscillating aircraft controllers.
 Those fixes pass isolated tests; `compact-tuned42` is repeating the full fresh
 1800 s workload. Keep this issue open until multiple storage cycles pass.
+
+That transport repeat makes 28 deliveries, including five heavy pallets, but
+stores only East 2 / West 1 (`build/blockwalker-rivalry-compact-tuned42/`). An
+unchanged 180 s continuation exposes a deadline bug: long travel consumes the
+storage alignment timeout, so the truck abandons destinations on arrival.
+Alignment now has its own phase, requires the planned heading and a closer
+arrival, and empty trucks return to their starting staging area.
+
+East also boxed itself beside its second stored pallet. Its four-neighbor grid
+rejects the actual diagonal exit. The candidate checks diagonal steps and their
+midpoint clearance. A 360 s replay physically escapes, picks up East's next load
+and stores West's second and third loads. Five of six delivered pallets are
+supported, unheld and clear; East still carries the sixth away from the receiving
+pad. All 124 bodies remain without program errors. Evidence:
+`build/blockwalker-forklift-storage-diagonal/`. These programs are now in the
+branch catalog; the fresh 2400 s `checkpoint42` trial is checking the full chain
+before packaging.

@@ -140,6 +140,9 @@ with their 30 N magnets. Stronger player-built machines remain possible.
 The heavy chain uses the lift, a telescopic hauler, loading crane, deck-magnet
 barge and island receiving crane. The hauler takes ore, waits for a clear loading pad, and
 barges take turns at the berth. Cargo travels through physical handoffs.
+Warehouse forklifts carry scored pallets into storage. A covered quarry gallery
+and stepped service road add another route: Suzu brings two cores down to a
+clearing and calls an air courier to collect them.
 An island delivery earns one point, or eight above 8 kg. At most six undelivered
 parcels and three ore pallets remain active. New drops use distinct sites until
 their earlier parcels are collected, keeping difficult salvage from crowding out
@@ -150,6 +153,14 @@ around existing machines.
 Team scouts report visible cargo; air couriers choose jobs from those reports.
 The sidebar shows scores and recent radio traffic, filtering to the followed
 character's team. Camera shortcuts visit the foundry and both receiving yards.
+
+Collected cargo and tipped machines remain in the world. Wheeled raiders try
+to overturn opponents; guards intercept them and try to right fallen teammates.
+Each team also has a magnetic cargo slinger and a separate loading crane.
+The crane feeds ordinary light crates from finite stock. Shots follow the
+physics, can miss, and leave their cargo where it lands. The slinger holds its
+load when a target leaves range. These machines use editable character programs;
+the Quarry, Rivals, Red sling and Blue sling cameras visit their work areas.
 
 The late-1990s PlayStation art direction uses muted industrial paint, coarse
 surface detail, a 640×360 scene raster, 5-bit color dithering and coastal haze.
