@@ -2,7 +2,7 @@ DOLLY 3
 IMAGE rust-build
 
 FROM HOST /Dollyfile-rust-sdk 667e3ce8636576289b6e89059831107ebd67ca891e59f1ab087c6eb302d313dc
-USE HOST /modules/curl.dm ea4661adf5ecb5d4cdfc502fc426d6c334091e6fbbe1e282da52368fef1d4826
+USE HOST /modules/curl.dm 7c193f1a1e738f3d2bcbce6d0bb0ace0f573e5077cbf6ad521c2d15697ebb0af
 USE HOST /modules/patti.dm 294b38b01bd77a94531ae36fdb1d245ba7265fb6de82b9703775744f93183780
 
 ENTRY /bin/slop

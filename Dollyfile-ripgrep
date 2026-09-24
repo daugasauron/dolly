@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE ripgrep
 
-FROM HOST /Dollyfile-rust-build b9db652504f59ba33889cd897920d63f01fca627e6fc8babdab396614adf04c9
+FROM HOST /Dollyfile-rust-build 1630d46af6391eb9076285bf7a6aa32a472bca7b1e7285ad0e7c76495b140189
 USE HOST /modules/ripgrep.dm 384e86b1c94ece793cc00434c71752f8bd2c428decebf186a5e83f965b88e77a
 
 ENTRY /bin/slop

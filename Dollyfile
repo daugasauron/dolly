@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE default
 
-FROM HOST /Dollyfile-system ab4fb884aed862269ab86c1537fbcb90ed8762d8263579cb76afa6d01d748c13
+FROM HOST /Dollyfile-system 24baa13acc054c61db912581b9c222c577d0b2915c0c35edb6dee4760c4cc135
 USE HOST /modules/startup-default.dm 2f161e509b1ffbb01b859703251cec4ebf4cfeaceb90e851bd91992a73740a32
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

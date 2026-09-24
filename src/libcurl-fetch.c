@@ -63,6 +63,7 @@ typedef struct {
   size_t body_size;
   unsigned int sequence;
   int prepared;
+  int progressed;
   dolly_http_response response;
   size_t url_length, url_capacity;
 } DollyTransfer;
@@ -681,6 +682,7 @@ static void dispose_transfer(DollyTransfer *transfer) {
 // At most one record per call. Easy and multi use the same transfer engine.
 static int poll_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *result) {
   int status = 0;
+  transfer->progressed = 0;
   if (!transfer->prepared) {
     *result = prepare_transfer(easy, transfer);
     if (*result != CURLE_OK) return 1;
@@ -699,6 +701,7 @@ static int poll_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *res
   status = dolly_http_poll(transfer->sequence, &chunk, bytes, sizeof(bytes));
   if (status == 0) return 0;
   if (status < 0) goto finished;
+  transfer->progressed = 1;
   status = -(int)chunk.error;
   if (chunk.status != 0) easy->response_code = transfer->response.status = chunk.status;
   CallbackContext callback = {.easy = easy, .response = &transfer->response};
@@ -728,7 +731,8 @@ finished:
 CURLcode curl_easy_perform(CURL *handle) {
   DollyTransfer transfer = {0};
   CURLcode result = CURLE_OK;
-  while (!poll_transfer((DollyEasy *)handle, &transfer, &result)) usleep(10000);
+  while (!poll_transfer((DollyEasy *)handle, &transfer, &result))
+    if (!transfer.progressed) usleep(10000);
   dispose_transfer(&transfer);
   return result;
 }
@@ -896,8 +900,11 @@ CURLMcode curl_multi_timeout(CURLM *multi_handle, long *milliseconds) {
   if (!valid_multi((DollyMulti *)multi_handle)) return CURLM_BAD_HANDLE;
   if (milliseconds == NULL) return CURLM_BAD_FUNCTION_ARGUMENT;
   *milliseconds = -1;
-  for (DollyMultiEntry *entry = ((DollyMulti *)multi_handle)->entries; entry != NULL; entry = entry->next)
-    if (!entry->complete) { *milliseconds = 10; break; }
+  for (DollyMultiEntry *entry = ((DollyMulti *)multi_handle)->entries; entry != NULL; entry = entry->next) {
+    if (entry->complete) continue;
+    *milliseconds = entry->transfer.progressed ? 0 : 10;
+    if (*milliseconds == 0) break;
+  }
   return CURLM_OK;
 }
 

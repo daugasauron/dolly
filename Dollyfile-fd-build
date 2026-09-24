@@ -1,7 +1,7 @@
 DOLLY 3
 IMAGE fd-build
 
-FROM HOST /Dollyfile-rust-build b9db652504f59ba33889cd897920d63f01fca627e6fc8babdab396614adf04c9
+FROM HOST /Dollyfile-rust-build 1630d46af6391eb9076285bf7a6aa32a472bca7b1e7285ad0e7c76495b140189
 USE HOST /modules/fd.dm 2ae6465c5950a5b086ed67b0968ee3ef296b96c5b9980ce0fd829001bf6c45c3
 
 ENTRY /bin/slop

@@ -204,3 +204,18 @@ The artifact audit also exposed fixed per-record waiting in the libcurl adapter:
 curl's raw transfer timed out after four minutes, while the existing direct
 Dolly HTTP API transferred the same bytes in 13.5 s (Chrome). Audit ready-data
 waiting before treating it as a general network or artifact-reader cost.
+
+The new artifact reader is now in the rebuilt seed and all twelve images.
+The 2,068,933,591-byte game image exports in 60.4 s. Chrome and Firefox both
+pass custom image construction, cache reuse, saved-session restoration,
+export/import and policy intersection with the rebuilt executor:
+`.cache/0ad/stream-curl-image.log`, `artifact-stream-custom-session.log`.
+
+Libcurl now waits only when polling produces no record; multi callers receive
+an immediate timeout while transfers progress. A 16 MiB, SHA-verified download
+measures easy/multi 2871/2871→162/184 ms in Chrome and 2986/2903→101/119 ms in
+Firefox. Each multi iteration still gives every transfer one poll. The rebuilt
+library passes authentication, protocol/policy rejection, concurrent transfers
+and callback cancellation, and both browsers pass core process/HTTP interruption
+checks. Evidence: `.cache/0ad/curl-bulk-{chromium,firefox}.log`,
+`curl-ready-{contract,core,source}.log` (279 source checks).
