@@ -1,6 +1,6 @@
 # Improve hardware gameplay performance in 0 A.D.
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: performance,wasm64,gpu,0ad
 
@@ -90,4 +90,16 @@ inside a bounded memory scope; run one physical GPU test at a time.
 The selected `zero-ad,audio-sdk,gpu-sdk` image union rebuilt in 37.2 s using the
 existing runtime. Final engine SHA256:
 `3ce68297878a1bbb2f2cf19dc37ef0afa38ad5011a639574c17e034af2a8b7d1`.
-Local release packaging and served-page verification remain to finish.
+Completed on implementation commit `ad9af62`. Local release
+`bc908afa2be65ad248c1b06f00fa2c976aec9c1d0db77a27e5d5de325c6624b8`
+passes browser inventory acceptance for all 12 selected images. Archive:
+`build/0ad/dolly-zero-ad-pages.tar.gz`, SHA256
+`c60aa5eb130ca1d22695164fed41c08585dd4c98ee08df99dcac79d13930a393`.
+Evidence: `.cache/0ad/performance-release-package.log` and release `acceptance.txt`.
+
+Fresh Firefox 155 at `http://127.0.0.1:42727/zero-ad/` verifies the packaged
+engine hash, bare `zero-ad`, a nonfallback hardware WebGPU adapter, selection,
+pointer exit without runaway scrolling, and clean shell/audio recovery with no
+page errors. Screenshot comparison confirms the town remains visible after eight
+seconds with the pointer outside. Evidence: `.cache/0ad/performance-release-firefox.log` and
+`.cache/0ad/browser/release-firefox-{selected,pointer-outside}.png`.
