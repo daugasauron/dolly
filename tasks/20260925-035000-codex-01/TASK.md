@@ -63,3 +63,12 @@ program never reaches its first pickup. Evidence:
 recovery fixture also passes in world and practice modes with physical opposing
 jets (`build/blockwalker-retention-one-way-recovery/`). A fresh combined run
 is now checking the revised geometry and programs.
+
+The revised 1800 s world makes 28 deliveries, including five heavy barge loads,
+and delivers both quarry cores, with all 121 objects retained. Evidence:
+`build/blockwalker-rivalry-compact-tuned42/`. A comparison against the older
+1200 s save finds one remaining precision-flight regression: Kawasemi made two
+deliveries before conversion but now circles its pickup. Its 16-part airframe
+matches the already tuned team couriers exactly apart from paint. The same
+feedback gains are prepared in `build/blockwalker-thrusters/kawasemi-tuned.js`;
+the gantry/courier handoff and saved-world replay must pass before promotion.

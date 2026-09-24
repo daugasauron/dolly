@@ -18,11 +18,9 @@ controller errors occur, and minimum runner uprightness is 0.9627. An earlier
 18 Nm version stalled on the second loaded climb; changing the actual motor
 specification fixes that mechanical limit. No pose or movement helper was added.
 
-The candidate extends the existing quarry roof over the pickup gallery.
-Sources and blueprints are under `build/blockwalker-terrace/`; they are not yet
-the canonical catalog. Verify the combined populated world, browser views,
-source export and both existing receiving chains before promoting. The two
-cores are authored stock, not a new replenishment mechanic.
+The extended quarry roof covers the pickup gallery. The two cores are authored
+stock, not a new replenishment mechanic. Verify the populated world, browser
+views, source export and both existing receiving chains before packaging.
 
 The combined 1200 s seed-42 run also completes both handoffs: cargo 80/81 moves
 from runner 79 to courier 59, then settles on the East island with one delivery

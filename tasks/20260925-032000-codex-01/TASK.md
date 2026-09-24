@@ -4,68 +4,41 @@
 - PRIORITY: 200
 - TAGS: game,content,physics
 
-Build a team-colored industrial throwing machine whose editable program aims
-at opposing aircraft and throws ordinary light cargo. A separate machine must
-physically reload it. Use ordinary motors, magnets and contact physics: no
-actor-specific C steering, launch impulse, guaranteed hit or cargo teleport.
-Keep thrown crates and fallen aircraft in the world.
+Build red/blue industrial throwing machines whose editable programs aim at
+opposing aircraft and throw ordinary light cargo. A separate machine must
+physically reload each launcher. Use normal motors, magnets and contact
+physics; no actor-specific steering, launch impulse, guaranteed hit or teleport.
+Keep thrown crates and fallen aircraft in the world. Verify repeated loading,
+release momentum, moving-aircraft engagement, save/restore, rendered appearance
+and interaction with the combined cargo world.
 
-Measure whether the current turntable supports the rotating assembly before
-adding a larger part. Box3D already supplies distance joints; a slack rope can
-use the upper distance limit with zero spring hertz and an inactive lower
-limit. A rope remains optional for the first motor-driven launcher.
+The branch catalog in `020e1c1` contains both crews and three 0.913 kg alloy
+crates per launcher. Braced masts, ordinary 100 Nm yaw/arm turntables, vertical
+loading rams and magnetic tips suffice for the tested assembly; a larger
+bearing is unnecessary for this prototype. All aiming, predicted ballistics,
+spin limits and radio handoffs are visible embedded programs. The only related
+engine observation change is generic nearby vertical velocity.
 
-Verify physical loading, release momentum, repeated shots, a moving-aircraft
-engagement, save/restore, rendered appearance and the combined cargo world.
-Record misses and limitations honestly.
+`build/blockwalker-launcher-safe-spin/` completes three physical handoffs and
+shots in 240 s. Two crates hit a moving aircraft at 54.333 and 163.767 s; the
+second shot misses. The aircraft recovers, so this is not proof of a shootdown.
+The small rendered world reaches 60.71 warm FPS in Firefox; appearance and
+loading views are in `build/blockwalker-rivalry-view-firefox-crowded-slinger/`.
+This small-world result does not prove crowded-world performance.
 
-The motor-driven prototype uses a braced mast, vertical loading ram, normal
-100 Nm yaw/arm turntables and a magnetic tip. A separate crane brings 0.913 kg
-alloy crates. All aiming, predicted ballistic flight, grip/release and radio
-handoff are editable character programs. Generic nearby sensing now includes
-vertical velocity; no launch-force operation was added.
+A populated 1800 s trial records cargo 86 contacting aircraft 8 at 778.183 s,
+after release at 775.85 s (`build/blockwalker-rivalry-one-way-teams42/`). That
+trial also exposed unwanted releases when targets left sensor range. The
+current program brakes while retaining its load. The lost-target trial holds
+the same crate for 127 sampled seconds and then completes three reloads/shots;
+two crates contact the aircraft at 182.350 and 217.450 s. Evidence:
+`build/blockwalker-launcher-lost-target-ammo/`.
 
-`build/blockwalker-launcher-moving-reload/` records a deliberate shot at
-46.133 s and actual contact with a moving aircraft at 48.650 s. The aircraft
-recovers; this does not demonstrate a shootdown. That prototype stalled on its
-second reload because the two overhead magnets interfered. The newer hoist
-prototype (`build/blockwalker-launcher-hoist-reload/`) completes four reloads
-in 240 s but deliberately releases only one shot; later loads slip from the
-magnet. Fix repeated firing and stale radio readiness before promotion.
+Saving and reopening at 90 s preserves the held load and resumes firing twice.
+A third load later slips; the feeder recovers it and begins another delivery.
+This is a remaining physical limitation, not a guaranteed-shot demonstration
+(`build/blockwalker-launcher-loaded-reopen/`). The fresh combined run, final
+camera/source checks and image packaging remain pending.
 
-The existing bearing supports the tested arm with mast bracing. A wider bearing
-and a slack rope remain design investigations, not implemented parts. Record
-an explicit decision about each before closing this task. Candidate sources
-are in `build/blockwalker-launcher/`; nothing is in the default world yet.
-
-The `safe-spin` trial fixes stale handoff readiness and caps spin using the
-magnet's available centripetal force. It completes three crane handoffs and
-three deliberate releases in 240 s without slipping. Cargo 3 contacts the
-moving aircraft at 54.333 s, and cargo 5 at 163.767 s; shot 2 misses. The
-small world renders at 60.71 warm FPS in Firefox, with physical loading and
-spinning views in `build/blockwalker-rivalry-view-firefox-crowded-slinger/`.
-Team battery placements and a fresh 1800 s combined-world trial are pending.
-
-Rope/winch follow-up has its own [open task](../20260925-041500-codex-01/TASK.md).
-The first slinger can use the existing bearing: the braced assembly completes
-the measured cycles without adding a larger part.
-
-The first populated 1800 s trial retains all 102 objects and records East cargo
-86 contacting aircraft 8 at 778.183 s, after its deliberate release at 775.85 s.
-Two earlier loads were released when the target left sensor range: the program
-entered `return` and disabled its magnet. This is an aiming-state bug, not a
-demonstrated magnet overload. `build/blockwalker-launcher/retain-ammo.js` is an
-untested candidate that holds the load and brakes while waiting for a target.
-The intermittent-target fixture must verify retention, re-engagement and reload
-before that program is promoted. Evidence: `build/blockwalker-rivalry-one-way-teams42/`.
-
-The lost-target trial now passes: the same crate stays attached for 127 sampled
-seconds outside target range, then the launcher completes three physical
-reloads/shots. Two crates contact the aircraft at 182.350 and 217.450 s.
-Evidence: `build/blockwalker-launcher-lost-target-ammo/`. A separate save/reload
-at 90 s preserves that held load and resumes firing twice. Its third load later
-slips; the feeder recovers it and starts another delivery. This remains a
-physical limitation, not a guaranteed-shot demonstration
-(`build/blockwalker-launcher-loaded-reopen/`). The canonical branch catalog now
-contains the two crews, with red/blue paint, but image packaging and the final
-combined test are pending.
+[Rope and winch links](../20260925-041500-codex-01/TASK.md) are a separate open
+investigation. The first motor-driven slinger does not require them.

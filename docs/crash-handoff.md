@@ -26,73 +26,65 @@ terraces (terrain 3), and support 1 Hz inert controllers. Physics remains 60 Hz.
 The source has passed in-Dolly physics and Chrome/Firefox checks; image 27 is
 still served. New tasks are committed in `5764481`.
 
-The [one-way thruster change](../tasks/20260925-035000-codex-01/TASK.md) is in
-commits `a20925f` and `5502cd8`. Physics and Firefox builder checks pass. Import/startup migration
-preserves all 51 original creatures, 78 programs, original poses/velocities,
-memory and magnets; it backs up the version-1 world before upgrading to version
-2. Old reverse keys get real opposing jets. Blocked engines get clear mounts.
-Equal-distance mount choices now preserve radial symmetry. The original
-recovery files remain untouched. Postbird
-now uses a geometry-derived motor mixer and retuned attitude feedback. Its
-180 s trial completes a real delivery at 29.883 s. The canonical 70 designs
-now contain the converted jets and this program. A fresh 1800 s run then found
-two transport regressions: wider engines blocked the freighter's berth and
-team couriers circled without settling. Freighter mounts now fit their original
-footprint, and ordinary courier attitude feedback is retuned. Both receiving
-berths and a complete aerial delivery pass isolated tests. The delayed recovery
-fixture also passes with actual opposing jets. The 21 new crew/battery placements
-remain candidate-only. Current candidate source is
-`build/blockwalker-teams-tuned-source.tar`, with catalog
-`build/blockwalker-thrusters/catalog91-flight-tune.json`.
+The current branch catalog has 91 placements in `020e1c1`: the original 70,
+six red/blue rival and guard vehicles, two warehouse handlers, a quarry runner
+and two cores, and two cargo-slinger crews with three light crates each. The
+quarry roof is extended and the world sidebar has shortcuts to both batteries.
+These are source changes; the owned preview still serves image 27.
 
-The [cargo launcher](../tasks/20260925-032000-codex-01/TASK.md) now completes
-three real crane reloads and deliberate shots in 240 s. Two hit a moving
-opposing aircraft, which recovers; this is not a demonstrated shootdown.
-`build/blockwalker-launcher-safe-spin/` records the contacts and full state.
-The editable program limits spin from magnet strength, mass and arm radius.
-No C launch impulse was added; nearby sensors now include vertical velocity.
-Sources in `build/blockwalker-launcher/` are experimental. The rendered Firefox
-trial passes. The first populated 1800 s world records a shot contacting aircraft
-8, but also reveals unwanted releases when a target leaves sensor range.
-`retain-ammo.js` is an untested program candidate for holding that load instead.
-Save/reopen and final combined-world checks remain. The existing bearing supports
-the braced arm; a rope/winch has its own open task, `20260925-041500-codex-01`.
+The [thruster task](../tasks/20260925-035000-codex-01/TASK.md) has passed all-axis
+force, blocked-nozzle, original-world migration/backup and Firefox builder
+checks. Saved poses, keys, programs, memory and magnet attachments survive
+conversion to physical opposing jets. Postbird, compact freighter mounts and
+team-courier feedback now pass real delivery tests. The 1800 s combined repeat
+retains 121 objects and makes 28 deliveries, including five heavy barge loads
+and both quarry cores (`build/blockwalker-rivalry-compact-tuned42/`).
 
-The [receiving-yard task](../tasks/20260924-220500-codex-01/TASK.md) still blocks
-content promotion. Its fresh 1800 s test stored only one East and two West
-pallets. The 1200 s replay recovered the world but gzip could not compress the
-trace; the new harness splits traces into 300 s files and downloads the world
-first. `route-arrival.js` fixes the blocked rounded BFS destination beside the
-East landing pad. A saved 180 s continuation stores all three delivered loads
-on actual support, clear of the depots. Fresh multiple-load proof is pending.
-Use `build/blockwalker-rivalry/arrival-crew.json`, not older route variants.
-The first one-way-engine world saved successfully at 1800 s but failed the
-multiple-storage assertion because freight never left the loading quay. Its
-evidence is `build/blockwalker-rivalry-one-way-teams42/`. The revised full-world
-run uses label `compact-tuned42`; its output is
-`build/blockwalker-rivalry-compact-tuned42/`.
+One remaining conversion regression affects Kawasemi (ID 50): its old program
+circles its pickup. Its airframe matches the tuned team couriers. The same
+feedback gains are prepared in `build/blockwalker-thrusters/kawasemi-tuned.js`,
+with `kawasemi-delivery.json` (original gantry, courier and cargo) and
+`kawasemi-replay.json` (source-only update for saved IDs 50/51). Test the isolated
+handoff and a populated saved continuation before changing the canonical source.
 
-At 04:50 JST the owned 1800 s run is still active (exec session `17955`, scope
-`run-r46b1353cbbde44fea77be5a7973db9bd.scope`), with 840 s elapsed, 108 objects
-and 15 deliveries. Do not start another browser until it exits. Its log is
-`build/blockwalker-compact-tuned42.log`; the saved state downloads before the
-final assertion. Analyze it with `build/blockwalker-combined-report.py`.
-Next, test `build/blockwalker-launcher/intermittent-target.json` using the
-sparse `blockwalker-courier-trial-browser.mjs` harness for 360 s. Then repeat
-Chrome's one-key UI, both browsers' world camera/source workflow, and the
-crowded Firefox warm render. Current UI edits are uncommitted and require a
-new source archive. Promote proven crew/roof/programs, package once, restart
-only the owned preview, and verify the protected files and other image entries.
+The [warehouse program](../tasks/20260924-220500-codex-01/TASK.md) now separates
+travel and alignment deadlines, returns empty trucks to staging and checks
+clear diagonal routes around retained pallets. The saved 360 s repeat stores
+five of six heavy loads and physically extracts East's next pallet from its
+previous jam (`build/blockwalker-forklift-storage-diagonal/`). The new source
+is in the catalog; uninterrupted multiple-load storage is still being checked.
 
-The candidate crew adds six competing lifter/guard robots, two warehouse
-handlers, and the [quarry runner](../tasks/20260925-012600-codex-01/TASK.md) with
-two authored heavy cores. Both quarry runner/courier handoffs succeed in a
-1200 s combined run; guards and lifters physically tip and right machines.
-The candidate roof is `build/blockwalker-terrace/terrain.c`. The 90 s warm
-Firefox check with 103 bodies measures 42.70 FPS and real-time simulation;
-`build/blockwalker-rivalry-view-firefox-crowded-fresh1200/` has images and
-measurements. This predates extra thruster bodies: repeat the crowded check
-before closing the [performance task](../tasks/20260925-010000-codex-01/TASK.md).
+The [cargo slinger](../tasks/20260925-032000-codex-01/TASK.md) uses normal 100 Nm
+bearings, a braced mast, loading ram and magnetic tip. Its separate feeder loads
+ordinary alloy crates. All aiming and handoff logic is editable program code.
+The lost-target trial holds the same crate through 127 sampled seconds without
+a target, then completes three reloads/shots; two hit the moving aircraft,
+which recovers (`build/blockwalker-launcher-lost-target-ammo/`). A save/reopen
+while holding the crate preserves it and resumes firing twice. A later load
+slips and is recovered by the feeder; do not claim perfect shot reliability
+(`build/blockwalker-launcher-loaded-reopen/`). Existing bearings suffice for this
+prototype; the [rope/winch task](../tasks/20260925-041500-codex-01/TASK.md) remains
+an optional separate investigation.
+
+At 05:35 JST the fresh 2400 s `checkpoint42` run is active (exec session `61327`,
+scope `run-rcfa122fc634646d1b50051d2c61ff430.scope`). Do not start another browser
+until it exits. Its log is `build/blockwalker-checkpoint42.log`; evidence goes
+to `build/blockwalker-rivalry-checkpoint42/`. It uses canonical source `020e1c1`
+in `build/blockwalker-checkpoint-candidate-source.tar`, with seed 42. Every step
+checks zero removals/controller errors; final storage requires at least two
+distinct supported, unheld heavy pallets clear of each team's receiving pad.
+World state downloads before trace chunks and the final assertion. Analyze it
+with `build/blockwalker-combined-report.py`.
+
+After this run: verify and promote Kawasemi's program if successful; repeat
+Chrome's one-key builder test, both browsers' camera/source workflow and the
+crowded Firefox warm render on the final saved world. The prior 103-object warm
+Firefox result was 42.70 FPS; it predates the extra jet bodies and batteries and
+does not prove current performance. Keep the performance issue open until measured.
+Package once with `node scripts/prepare-blockwalker.mjs` and `npm run image --
+blockwalker`, restart only the owned preview, and check original files plus all
+12 other catalog entries with `build/blockwalker-checkpoint-preservation.mjs`.
+Do not push or deploy.
 
 The September 24 [playground checkpoint](../tasks/20260923-213000-codex-01/TASK.md)
 records the packaged image, source revision and measured limits. Its
