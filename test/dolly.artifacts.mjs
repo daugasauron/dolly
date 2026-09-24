@@ -133,6 +133,8 @@ test("the production seed contains only bootstrap and compiler executables, not 
   }
   assert.ok(files.has("/seed/usr/include/stdio.h"));
   assert.ok(![...files.keys()].some(path => path.includes("/c++/v1/")));
+  for (const port of ["boost/version.hpp", "png.h", "unicode/utypes.h"])
+    assert.ok(!files.has("/seed/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
 });
 
 test("the process gate can only copy between one process and kernel memory", async () => {
@@ -336,6 +338,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const expectedPrograms = new Map([
+    ["audio-sdk", "/usr/lib/libdolly-audio.a"],
     ["bhop", "/usr/bin/bhop"],
     ["classicube", "/usr/bin/classicube-agent"],
     ["classicube-build", "/usr/bin/classicube"],
@@ -365,13 +368,17 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["pi-runtime", "/usr/bin/pi"],
     ["python-runtime", "/usr/bin/python"],
     ["gamedev-sdk", "/usr/lib/libbox3d.a"],
+    ["gpu-sdk", "/usr/lib/libdolly-gpu.a"],
+    ["gpu-fluid", "/usr/bin/fluid"],
     ["ghostty-build", "/usr/bin/zig"],
     ["cmake-build", "/usr/bin/cmake"],
     ["neovim-build", "/usr/bin/nvim"],
     ["neovim", "/usr/bin/nvim"],
     ["sdl2-build", "/usr/lib/libSDL2.a"],
+    ["openal-build", "/usr/lib/libopenal.a"],
     ["rts-build", "/usr/bin/seven-kingdoms"],
     ["rts-arena", "/usr/bin/rts-arena"],
+    ["zero-ad", "/usr/bin/zero-ad"],
   ]);
   for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
@@ -418,7 +425,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const shellStartup = ["default", "codex", "rts-arena", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "classicube", "neovim", "dollyfile-studio"].includes(image);
+    const shellStartup = ["default", "codex", "rts-arena", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "classicube", "neovim", "dollyfile-studio", "zero-ad"].includes(image);
     assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup, `${image}: shell startup`);
     assert.deepEqual(metadata.entry, graph.root.entry);
     assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);

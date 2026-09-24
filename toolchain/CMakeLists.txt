@@ -86,7 +86,6 @@ target_link_options(dolly PRIVATE
 # compiler and tools, so kernel instantiation must not preload the seed.
 add_custom_target(dolly-seed
   COMMAND bash /src/scripts/prepare-kernel-seed.sh
-    /src/.cache/emscripten/sysroot/include@/seed/usr/include
     /src/build/generated/libclang_rt.dolly.a@/seed/usr/lib/libclang_rt.builtins.a
     /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include
     /src/include/dolly/http.h@/seed/usr/include/dolly/http.h
