@@ -3,7 +3,7 @@
 enum { WORLD_RADIUS=256 };
 #define WATER_LEVEL (-2.0f)
 typedef struct {Vector3 center,half;int color,overhang;} TerrainBox;
-typedef struct {const char *name;float x,z,radius;} Depot;
+typedef struct {const char *name;float x,z,radius;int team;} Depot;
 extern const Depot depots[];
 extern int depot_count,terrain_count,terrain_version;
 TerrainBox terrain_box(int index);

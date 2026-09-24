@@ -11,9 +11,9 @@ typedef struct {
     int id;char name[64];Character design;Physics physics;Controller *controller;
     float fallen,root_height;float controls[128];
     int team;
-    int cargo,carrier,held_by,delivered;float settled;Vector3 pickup;
+    int cargo,carrier,held_by,delivered,supply,parachute;float settled;Vector3 pickup;
 } Creature;
-typedef struct {Creature *creatures;int count,capacity,next_id,deaths,player;double age;b3WorldId physics;SavedDesign *designs;int design_count,design_capacity;Removal *removals;int removal_count,removal_capacity;Delivery *deliveries;int delivery_count,delivery_capacity;RadioMessage radio[RADIO_CAPACITY];int radio_count;} World;
+typedef struct {Creature *creatures;int count,capacity,next_id,deaths,player;double age;b3WorldId physics;SavedDesign *designs;int design_count,design_capacity;Removal *removals;int removal_count,removal_capacity;Delivery *deliveries;int delivery_count,delivery_capacity;RadioMessage radio[RADIO_CAPACITY];int radio_count;unsigned supply_seed;double next_parcel,next_ore;} World;
 extern World world;
 JSValue character_json(JSContext *ctx,const Character *c);
 JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt);

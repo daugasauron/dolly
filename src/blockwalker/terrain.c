@@ -2,7 +2,7 @@
 #include <raymath.h>
 #include <math.h>
 
-const Depot depots[]={{"Works yard",0,34,4},{"Harbor",106,10,2.8f},{"Island",163,18,3.5f},{"West island",-157,-49,4}};
+const Depot depots[]={{"Works yard",0,34,4},{"Harbor",106,10,2.8f},{"East island",163,18,3.5f,1},{"West island",-157,-49,4,2},{"East receiving yard",151,30,3,1},{"West receiving yard",-144,-43,3.5f,2}};
 static const TerrainBox original_boxes[]={
     {{0,-13,0},{256,1,256},0},
     {{0,-6,0},{100,6,100},0},
@@ -128,6 +128,7 @@ static const TerrainBox industrial_boxes[]={
     {{-43,-.4f,106},{7,.4f,8},4},
     {{-49.5f,-6,110},{.5f,6,.5f},4},
     {{-36.5f,-6,110},{.5f,6,.5f},4},
+    {{-48,.5f,110.5f},{2.5f,.5f,2.5f},4},
     /* Open turbine ruins east of the foundry; cargo can be spotted through gaps. */
     {{-1,3.5f,68},{.75f,3.5f,12},5},
     {{17,3.5f,68},{.75f,3.5f,12},5},
@@ -145,6 +146,9 @@ static const TerrainBox industrial_boxes[]={
     {{-147,1.7f,-49},{10,.3f,5},4},
     {{-138,-5,-53},{.5f,7,.5f},4},
     {{-138,-5,-45},{.5f,7,.5f},4},
+    /* The island's stepped shore leaves a six-metre docking inlet below its pier. */
+    {{143,-5,41.5f},{3,7,14.5f},1},
+    {{138,-6,41.5f},{2,6,14.5f},1},
 };
 enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes) };
 int terrain_version=1,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
@@ -154,6 +158,7 @@ void terrain_select(int version){
 }
 TerrainBox terrain_box(int index){
     if(terrain_version&&index==1)return (TerrainBox){{-77,-6,0},{23,6,100},0};
+    if(terrain_version&&(index==8||index==9))return (TerrainBox){{index==8?143:138,index==8?-5:-6,12.5f},{index==8?3:2,index==8?7:6,8.5f},1};
     return index<ORIGINAL_BOX_COUNT?original_boxes[index]:industrial_boxes[index-ORIGINAL_BOX_COUNT];
 }
 float terrain_height(float x,float z){

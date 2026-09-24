@@ -91,3 +91,26 @@ coordinates, restored radio/jobs, and invalid radio import/output cases:
 10.948 m driven, 77 camera samples, actual pickup, 53 objects, no browser errors.
 `build/blockwalker-driver/car-follow.png` was inspected. The default catalog has
 not yet been assigned teams; supply and the full shipping chain remain pending.
+
+Supply prototype: 0.913 kg parcels descend at a measured 1.667 m/s under visible
+low-poly parachutes; a saved airborne parcel retains its chute and supply timing.
+An 800 s trial reaches the six-parcel bound without removals. Heavy ore appears
+only over the lowered physical platform, and the automatic first pallet reaches
+the quay after 213.283 s across a reload (zero removals). Evidence:
+`build/blockwalker-supply-view.log`, `build/blockwalker-foundry-supply-emitter.log`
+and their artifact directories. Collected supplied cargo clears after 45 s while
+delivery records remain. Fresh worlds enable supply; existing saves retain their
+previous behavior. The complete permanent driver/physics/browser checks pass in
+`build/blockwalker-supply-driver.log`: 9.992 m driven, 71 camera samples, actual
+pickup, 53 objects and no browser errors.
+
+The loading crane now transfers the 10.952 kg pallet onto a real floating barge:
+`build/blockwalker-shipping-midship.log` passes 100 s and a reload with no removals,
+minimum barge up 0.99756 and maximum joint separation 0.0191 m. A longer voyage
+initially capsized under high-mounted propellers. Moving their thrust down to
+the hull completes the East crossing and receiving-crane pickup across four
+reloads, minimum up 0.96069. Unloading still catches the raised shoreline in
+`build/blockwalker-island-lowjets.log`; a raised hook is under test. New receiving
+depots and a physical docking inlet are included in the terrain regression.
+The catalog, repeated complete chains and both-team competition remain pending;
+port 9099 still serves the prior playable image.

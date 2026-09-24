@@ -284,6 +284,8 @@ static void check_industry(JSContext *ctx){
     assert(fabsf(terrain_drop(-43,3,50)-.5f)<.03f);
     assert(fabsf(terrain_drop(-43,2,94)-.5f)<.03f);
     assert(fabsf(terrain_drop(-47,18,54)-.5f)<.03f);
+    assert(fabsf(terrain_drop(140,3,24)+11.5f)<.03f);
+    assert(fabsf(terrain_drop(-48,4,110.5f)-1.5f)<.03f);
     assert(terrain_floor((Vector3){-43,2,94})==0&&terrain_height(-47,65)==-12);
     Character crate={0};
     for(int i=0;i<3;i++){character_add(&crate,i-1,i,0,0,BLOCK_BOX,1);crate.blocks[i].material=MATERIAL_BALLAST;}
@@ -298,11 +300,24 @@ static void check_industry(JSContext *ctx){
     JSValue result=world_import(ctx,"/workspace/original-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
     assert(terrain_version==0&&depot_count==3&&terrain_height(-47,65)==0);
     result=world_import(ctx,"/workspace/industrial-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
-    assert(terrain_version==1&&depot_count==4&&terrain_height(-47,65)==-12&&world_find(id)->cargo&&world_find(id)->design.count==3);
+    assert(terrain_version==1&&depot_count==6&&terrain_height(-47,65)==-12&&world_find(id)->cargo&&world_find(id)->design.count==3);
     JSValue invalid=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,invalid,"terrainVersion",2);assert(save_json(ctx,invalid,"/workspace/unknown-map.json"));JS_FreeValue(ctx,invalid);
     result=world_import(ctx,"/workspace/unknown-map.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));assert(terrain_version==1&&world_find(id));
     puts("INDUSTRY: physical shaft, roof, passage and broken roof; old/new map import; non-root cargo support and restored identity; future-map rejection passed");world_close();
 }
+static void check_supply(JSContext *ctx){
+ terrain_select(1);world.supply_seed=1;world.next_ore=100000;
+ world_step();assert(world.count==1);int id=world.creatures[0].id;Creature *parcel=world_find(id);assert(parcel->supply==1&&parcel->parachute);float start=b3Body_GetPosition(parcel->physics.parts[0].body).y;
+ b3Pos p=b3Body_GetPosition(parcel->physics.parts[0].body);int freefall=world_drop_cargo(p.x+3,p.y,p.z,MATERIAL_ALLOY);
+ for(int i=0;i<300;i++)world_step();parcel=world_find(id);float velocity=b3Body_GetLinearVelocity(parcel->physics.parts[0].body).y,height=b3Body_GetPosition(parcel->physics.parts[0].body).y;
+ assert(parcel->parachute&&velocity< -1.5f&&velocity> -1.8f&&height>b3Body_GetPosition(world_find(freefall)->physics.parts[0].body).y+10);
+ unsigned seed=world.supply_seed;double next=world.next_parcel;assert(save_world(ctx,"/workspace/parachute-midair.json")&&world_save(ctx));world_close();world_load(ctx);
+ assert(world.supply_seed==seed&&world.next_parcel==next&&world_find(id)->parachute&&world_find(id)->supply==1);
+ for(int i=0;i<800*60;i++)world_step();int active=0,chutes=0;for(int i=0;i<world.count;i++){active+=world.creatures[i].supply==1;chutes+=world.creatures[i].parachute;}
+ printf("SUPPLY: parcel mass %.3f, start %.3f, five-second height %.3f velocity %.3f; reload preserved seed/timing/chute; active=%d chutes=%d objects=%d removals=%d\n",creature_mass(world_find(id)),start,height,velocity,active,chutes,world.count,world.deaths);fflush(stdout);
+ assert(active==6&&!chutes&&world.count==7&&!world.deaths);assert(world_save(ctx));world_close();
+}
+
 static void check_radio(JSContext *ctx){
     terrain_select(1);Character car={0};character_car(&car);
     const char *scout="function(t,s,m){return {radio:{kind:'sight',cargo:3}}}";
@@ -369,5 +384,5 @@ int main(void){
     sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60);nearby=JS_GetPropertyStr(ctx,sensors,"nearby");sample=JS_GetPropertyUint32(ctx,nearby,0);
     assert(get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",-1)==0);
     JS_FreeValue(ctx,sample);JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
-    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);check_radio(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);check_radio(ctx);check_supply(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
 }

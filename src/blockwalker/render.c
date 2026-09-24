@@ -197,18 +197,31 @@ void render_frame(const Character *c,const Physics *p,const Orbit *o,int selecte
     draw_scene(o,count,p->running,p->landscape,p->time);
 }
 void render_world(const Orbit *o){
-    size_t count=terrain_count+depot_count*8;for(int i=0;i<world.count;i++)count+=(size_t)world.creatures[i].design.count*3;reserve_boxes(count);
+    size_t count=terrain_count+depot_count*8;for(int i=0;i<world.count;i++)count+=(size_t)world.creatures[i].design.count*3+(world.creatures[i].parachute?7:0);reserve_boxes(count);
     size_t at=draw_terrain(0);
     for(int i=0;i<depot_count;i++){Depot d=depots[i];float y=terrain_height(d.x,d.z);
         for(int side=0;side<4;side++){
             int axis=side/2;float sign=side%2?1:-1;
-            box_draw((Block){.color=1,.finish=FINISH_STRIPE},(Vector3){d.x+(axis?0:sign*d.radius),y+.025f,d.z+(axis?sign*d.radius:0)},QuaternionIdentity(),0,0,0,at);
+            box_draw((Block){.color=d.team==1?0:1,.finish=FINISH_STRIPE},(Vector3){d.x+(axis?0:sign*d.radius),y+.025f,d.z+(axis?sign*d.radius:0)},QuaternionIdentity(),0,0,0,at);
             boxes[at].half[0]=axis?d.radius:.12f;boxes[at].half[1]=.025f;boxes[at++].half[2]=axis?.12f:d.radius;
             box_draw((Block){.color=0,.finish=FINISH_PANEL},(Vector3){d.x+(side&1?1:-1)*(d.radius+.3f),y+.7f,d.z+(side&2?1:-1)*(d.radius+.3f)},QuaternionIdentity(),0,0,0,at);
             boxes[at].half[0]=boxes[at].half[2]=.16f;boxes[at++].half[1]=.7f;
         }
     }
-    for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];at=character_draw(&c->design,&c->physics,-1,-1,at);}
+    for(int i=0;i<world.count;i++){
+        Creature *c=&world.creatures[i];at=character_draw(&c->design,&c->physics,-1,-1,at);
+        if(c->parachute){
+            b3Pos root=b3Body_GetPosition(c->physics.parts[0].body);Vector3 p={root.x,root.y,root.z};
+            for(int panel=-1;panel<=1;panel++){
+                box_draw((Block){.color=panel?1:5,.material=MATERIAL_HULL},Vector3Add(p,(Vector3){panel*1.25f,3-abs(panel)*.22f,0}),QuaternionFromAxisAngle((Vector3){0,0,1},-panel*.32f),0,0,0,at);
+                boxes[at].half[0]=.72f;boxes[at].half[1]=.035f;boxes[at++].half[2]=1.15f;
+            }
+            for(int line=0;line<4;line++){
+                float x=line&1?1:-1,z=line&2?1:-1;bracket_draw(Vector3Add(p,(Vector3){x*.35f,.48f,z*.35f}),Vector3Add(p,(Vector3){x*1.7f,2.65f,z}),at);
+                boxes[at].half[0]=boxes[at].half[2]=.012f;at++;
+            }
+        }
+    }
     draw_scene(o,at,1,1,world.age);
 }
 static unsigned char *capture(const Character *c,const Physics *p,const Orbit *o,int *bytes) {
