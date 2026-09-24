@@ -5,16 +5,16 @@ Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 checkpoint branches remain preserved. Do not modify the parent worktree or
 other agents' previews.
 
-The active [playground task](../tasks/20260923-213000-codex-01/TASK.md) runs through
-September 24, 2026, 18:00 JST. The current content direction and latest measured
-checkpoint are in the [island competition task](../tasks/20260924-074500-codex-01/TASK.md):
+The September 24 [playground checkpoint](../tasks/20260923-213000-codex-01/TASK.md)
+records the packaged image, source revision and measured limits. Its
+[island competition](../tasks/20260924-074500-codex-01/TASK.md) adds
 industrial terrain, team scouts, replenished cargo, cranes and boats. Keep the
 working walkers. The Lua/YAML migration is a separate task.
-Long-run follow-ups are the [loading quay](../tasks/20260924-132300-codex-01/TASK.md),
-[Amberguard navigation](../tasks/20260924-132700-codex-01/TASK.md), and
+Long-run fixes and their evidence are in the [loading quay](../tasks/20260924-132300-codex-01/TASK.md),
+[Amberguard navigation](../tasks/20260924-132700-codex-01/TASK.md),
 [continuous freight/supplies](../tasks/20260924-144000-codex-01/TASK.md),
 [lookout traffic](../tasks/20260924-145000-codex-01/TASK.md),
-[Marrowstep recovery](../tasks/20260924-162500-codex-01/TASK.md), and
+[Marrowstep recovery](../tasks/20260924-162500-codex-01/TASK.md),
 [Postbird deliveries](../tasks/20260924-162800-codex-01/TASK.md), and
 [Mochi cargo avoidance](../tasks/20260924-170000-codex-01/TASK.md). Their issues
 record saved failure states and verification; experimental controllers under

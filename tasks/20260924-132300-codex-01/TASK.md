@@ -1,6 +1,6 @@
 # Keep the loading quay clear between hauler deliveries
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,game,physics
 
@@ -35,4 +35,10 @@ Verification:
 
 The freight fixture now also includes a distracting light parcel by the lift;
 that follow-up belongs to [continuous supplies](../20260924-144000-codex-01/TASK.md).
-Remaining: package and verify the served checkpoint.
+The 2400 s uninterrupted image-22 population completes seven independently
+traced five-carrier deliveries, with heavy deliveries for each team in the
+final fifteen minutes. All original objects survive.
+`build/blockwalker-continuous-population-image22-0/summary.json`.
+
+Verified in packaged source `c092744`; the
+[checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.

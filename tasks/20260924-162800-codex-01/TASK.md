@@ -1,6 +1,6 @@
 # Keep Postbird from hovering forever over the receiving crane
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: bug,game,physics
 
@@ -24,8 +24,10 @@ originals survive the full 180 s. Evidence:
 `build/blockwalker-reconciled-recovery-retain-load/segment-0180/`.
 The earlier candidate released during its phase transition and failed this
 check; that is fixed by retaining magnet power through the reroute.
-Remaining: fresh industrial courier regression, continuous population and
-packaged browser verification.
+The fresh image-22 2400 s population makes two Postbird deliveries; it
+finishes in seek, entered 5.67 s earlier, with 14.05 m final-quarter root
+range. No original object is removed.
+`build/blockwalker-continuous-population-image22-0/summary.json`.
 
 The compact industrial regression now reproduces the old lower-phase stall
 at (151,30). The new controller makes two real deliveries, stacking cargo
@@ -45,3 +47,6 @@ parcel and loaded restart. The full game check also passes gait recovery,
 terrain/water, radio, parachutes, handoffs, manual driving and tilted Turntable:
 `build/blockwalker-approach-driver/{cargo-physics.log,driver-proof.json,turntable-proof.json}`.
 All sixty exported controller sources match the current catalog.
+
+Verified in packaged source `c092744`; the
+[checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.

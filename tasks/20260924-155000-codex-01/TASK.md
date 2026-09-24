@@ -1,6 +1,6 @@
 # Show the actual controls when piloting custom characters
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: bug,game,ui
 
@@ -22,4 +22,7 @@ A real M/N-bound car drove 10.506 m, picked up cargo with M and released it
 with N; 87 sampled Eyes poses tracked the physical block. Normal and focus
 HUD screenshots show M/N, and no browser errors occurred. Evidence:
 `build/blockwalker-custom-driver-bindings/{driver-proof.json,eyes-cargo.png,custom-focus.png}`.
-Remaining: packaged browser verification.
+The packaged image retains the verified C implementation.
+
+Verified in packaged source `c092744`; the
+[checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.

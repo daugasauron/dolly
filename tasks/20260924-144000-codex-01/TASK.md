@@ -1,6 +1,6 @@
 # Keep industrial freight and air supplies moving in long sessions
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,game,physics
 
@@ -60,4 +60,10 @@ crane handoffs. Each team receives two heavy and three light deliveries in
 the last fifteen minutes. This verifies freight continuity; a separate
 [Marrowstep controller stall](../20260924-162500-codex-01/TASK.md) remains.
 Evidence: `build/blockwalker-continuous-population-fresh0-90m/summary.json`.
-Remaining: packaged browser verification.
+The image-22 2400 s population also retains all originals, with seven heavy
+chains. In the final fifteen minutes East receives two heavy/three light
+deliveries and West one heavy/two light.
+`build/blockwalker-continuous-population-image22-0/summary.json`.
+
+Verified in packaged source `c092744`; the
+[checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.

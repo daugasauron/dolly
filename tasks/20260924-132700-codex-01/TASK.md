@@ -1,6 +1,6 @@
 # Keep Amberguard walking away from the mainland edge
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,game,physics
 
@@ -40,7 +40,9 @@ at the cliff; turning expands the footprint over the edge. That trial falls
 into the water and becomes stuck (minimum up 0.09263), despite no removal.
 `build/blockwalker-amber-edge-navigation/` is a failed recovery, not a pass.
 
-Remaining: packaged browser verification. The hour also exposes separate
+The image-22 2400 s population records 3008 supported airborne placements,
+740 in the final quarter, minimum up 0.97880 and no phase above 2.4 s.
+`build/blockwalker-continuous-population-image22-0/summary.json`. The hour also exposes separate
 [freight/supply stalls](../20260924-144000-codex-01/TASK.md).
 
 The uninterrupted 90-minute default-seed population also retains Amberguard:
@@ -48,3 +50,6 @@ The uninterrupted 90-minute default-seed population also retains Amberguard:
 up 0.97791, and no phase longer than 2.4 s. Its controller makes 131 destination
 choices, with two resets and no replants. Evidence:
 `build/blockwalker-continuous-population-fresh0-90m/summary.json`.
+
+Verified in packaged source `c092744`; the
+[checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.

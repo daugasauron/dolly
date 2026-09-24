@@ -1,6 +1,6 @@
 # Keep Mochi clear of delivered cargo
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,game,physics
 
@@ -35,7 +35,7 @@ removals. All sixty originals remain. Only its source changes; crate positions,
 physics, delivery records and all other controllers are preserved.
 It steers around cargo while excluding its pickup target and carried load.
 Evidence: `build/blockwalker-porter-recovery-avoid-cargo/`.
-Remaining: fresh continuous population and packaged browser verification.
+
 The repaired 2400 s fresh population preserves all 60 originals and records
 34 deliveries (East 42 / West 29), with continuing heavy and light deliveries
 for each team. Mochi reaches eight deliveries without tipping (minimum up
@@ -67,3 +67,6 @@ The program keeps deliveries near home, selects a clear unloading approach
 from observed cargo and slows during final alignment. No bodies, forces,
 saved poses or cargo are changed. Evidence:
 `build/blockwalker-porter-home-slow-approach/current-world.json` and its trace.
+
+Verified in packaged source `c092744`; the
+[checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.

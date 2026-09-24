@@ -1,6 +1,6 @@
 # Keep small lookouts clear of walking machinery
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,game,physics
 
@@ -38,8 +38,7 @@ at least 6.411 m away, has zero walker contact, minimum up 0.99542, and no
 removals. It uses its ordinary wheel motors, preserves terrain avoidance,
 reverses when appropriate and replans after giving way. All five small
 lookouts receive the same response. No walker or physics rules change.
-Evidence: `build/blockwalker-scout-escape-candidate/`. Remaining: controller
-checks, continuous fresh population and packaged browser verification.
+Evidence: `build/blockwalker-scout-escape-candidate/`.
 
 The current 60-controller catalog passes 60,000 actual in-Wasm calls, an
 additional 1,000-call paused-controller case and all five runaway checks.
@@ -50,4 +49,10 @@ Minimum up ranges from 0.98431 to 0.99668; final-quarter root ranges are 144.37,
 175.26, 19.55, 71.14 and 60.69 m. Their controllers record 94–171 arrivals,
 including continued island patrols and team reports. All 60 originals survive.
 Evidence: `build/blockwalker-continuous-population-fresh0-90m/summary.json`.
-Remaining: packaged browser verification.
+The image-22 2400 s population retains all five lookouts, minimum up
+0.98439–0.99762. Final-quarter root ranges are 112.81, 120.04, 19.45, 39.20
+and 59.22 m; the team scouts continue reporting.
+`build/blockwalker-continuous-population-image22-0/summary.json`.
+
+Verified in packaged source `c092744`; the
+[checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.
