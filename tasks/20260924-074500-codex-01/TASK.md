@@ -141,6 +141,12 @@ world replenishes to 69 objects and advances 30.083 simulated seconds during
 21.85 FPS in focus view on NVIDIA Blackwell, with zero GPU readbacks. These are
 local measurements, not cross-device performance claims.
 
-Remaining: profile the frame cost and run the repaired full population with
-varied routes. Preserve the original learned session and complete native Pi
+Actual X11 desktop checks subsequently measured 60.42 / 61.03 FPS in Chrome
+and 56.57 / 58.05 FPS in Firefox (Quay/focus), with visible scenes, real-time
+simulation and no errors. The 21–22 FPS figure above belongs to Xvfb. A verified
+one-line GPU-provider change improves that virtual-display case to 55 FPS while
+preserving normal desktop performance and GPU validation. See the closed
+[GPU wait task](../20260924-113600-codex-01/TASK.md).
+
+Remaining: run the repaired full population with varied routes. Preserve the original learned session and complete native Pi
 history. This task stays open until the combined trial passes.

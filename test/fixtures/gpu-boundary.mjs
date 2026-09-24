@@ -113,6 +113,13 @@ export async function gpuBoundaryProof() {
     const pixels=new Uint8Array(memory,mailbox+64,512),expected=features&32?[0,64,255,255]:[255,64,0,255];
     for(const at of [0,4,256,260])check(expected.every((n,i)=>Math.abs(pixels[at+i]-n)<=1),"Wrong captured colors or row stride");
     check(await send(packet(5))===0,"Capture scope close failed");
-    return {surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true};
+    scope=17;check(await send(packet(1,new Uint8Array(8)))===0,"Validation scope open failed");
+    const invalidUsage=record(1,32,1);invalidUsage.v.setBigUint64(16,16n,true);invalidUsage.v.setUint32(24,129,true);
+    // MAP_READ | STORAGE passes packet checks but WebGPU rejects the combination.
+    for(const id of [1,2]){invalidUsage.v.setBigUint64(8,BigInt(id),true);check(await send(batch([invalidUsage]))===E.EINVAL,"WebGPU validation error was not reported");}
+    invalidUsage.v.setBigUint64(8,3n,true);invalidUsage.v.setUint32(24,8,true);
+    check(await send(batch([invalidUsage]))===0,"Validation failure leaked into the next batch");
+    check(await send(packet(5))===0,"Validation scope close failed");
+    return {surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true,deviceValidation:true};
   } finally {worker.terminate();}
 }

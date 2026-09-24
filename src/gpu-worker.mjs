@@ -333,7 +333,7 @@ async function batch(scope, commands) {
     ensure(!encoder,"GPU batch has an unsubmitted encoder");
   } finally {
     endCompute();
-    const oom=await device.popErrorScope(), validation=await device.popErrorScope();
+    const [oom,validation]=await Promise.all([device.popErrorScope(),device.popErrorScope()]);
     stats.batchWallMilliseconds += performance.now()-started;
     if(oom)fail(E.ENOMEM,oom.message);if(validation)fail(E.EINVAL,validation.message);
   }
