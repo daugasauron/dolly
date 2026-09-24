@@ -1,4 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
+#include <dolly/process.h>
+#include <errno.h>
 #include <poll.h>
 #include <stdio.h>
 #include <time.h>
@@ -11,6 +13,25 @@ static int expect(int condition, int status, const char *message) {
 }
 
 int main(void) {
+  dolly_process_clock_request request = {.clock_id = 1};
+  dolly_process_clock_response response;
+  uint64_t previous = 0;
+  for (unsigned i = 0; i < 4096; ++i) {
+    if (dolly_process_call(DOLLY_PROCESS_CLOCK_TIME, &request, sizeof(request),
+        &response, sizeof(response)) != sizeof(response) || response.nanoseconds < previous) return 53;
+    previous = response.nanoseconds;
+  }
+  request.reserved = 1;
+  if (dolly_process_call(DOLLY_PROCESS_CLOCK_TIME, &request, sizeof(request),
+      &response, sizeof(response)) != -EINVAL) return 54;
+  request.reserved = 0; request.clock_id = 2;
+  if (dolly_process_call(DOLLY_PROCESS_CLOCK_TIME, &request, sizeof(request),
+      &response, sizeof(response)) != -EINVAL) return 55;
+  request.clock_id = 1;
+  if (dolly_process_call(DOLLY_PROCESS_CLOCK_TIME, &request, sizeof(request) - 1,
+      &response, sizeof(response)) != -EINVAL ||
+      dolly_process_call(DOLLY_PROCESS_CLOCK_TIME, &request, sizeof(request),
+      &response, sizeof(response) - 1) != -EINVAL) return 56;
   const clockid_t clocks[] = {CLOCK_MONOTONIC, CLOCK_REALTIME};
   for (unsigned i = 0; i < sizeof(clocks) / sizeof(clocks[0]); ++i) {
     struct timespec deadline, after;

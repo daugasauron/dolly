@@ -398,7 +398,7 @@ export class DollyProcessSupervisor {
         worker.addEventListener("error", process.errorHandler, { once: true });
         worker.addEventListener("messageerror", process.messageErrorHandler, { once: true });
         worker.postMessage({ type: "configure", pid, module, memory, control,
-          processInterface, dsoContract: this.dsoContract });
+          clockOrigin: performance.timeOrigin, processInterface, dsoContract: this.dsoContract });
       } catch (error) {
         this.#fail(process, error);
       }

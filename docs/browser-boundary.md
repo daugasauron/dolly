@@ -184,6 +184,10 @@ Ordinary processes import only private memory and a typed Wasm gate.
 `src/process-abi.mjs` validates the contract before execution.
 `src/process-worker.mjs` loads process-local DSOs with typed symbol checks;
 it receives no Fetch, filesystem or JavaScript-evaluation adapter.
+Validated clock-time operations can read the browser clock in the process
+Worker. The supervisor supplies the kernel's time origin so monotonic deadlines
+agree across Workers. Clock reads still enter the kernel at least once per
+millisecond to deliver pending signals, including in clock-only loops.
 Side-module data exports are offsets from their allocated memory base;
 `dlsym` and `GOT.mem` expose the corresponding absolute process addresses.
 Internal validation is defense in depth, not the host trust boundary.

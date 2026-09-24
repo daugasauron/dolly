@@ -33,7 +33,7 @@ static void handler(int number) {
     return;
   }
   if (!strcmp(mode, "spin")) for (;;) __asm__ volatile("");
-  if (!strcmp(mode, "return") || !strcmp(mode, "restart")) return;
+  if (!strcmp(mode, "return") || !strcmp(mode, "restart") || !strcmp(mode, "clock")) return;
   if (!strcmp(mode, "leaf")) usleep(100000);
   unlink(lock_path);
   if (!strcmp(mode, "exit")) exit(37);
@@ -107,7 +107,11 @@ int main(int argc, char **argv) {
       while (now() < deadline) usleep(10000);
       return 99;
     }
-    if (!strcmp(mode, "restart")) {
+    if (!strcmp(mode, "clock")) {
+      const double deadline = now() + 3;
+      while (!received && now() < deadline) {}
+      CHECK(received == 1);
+    } else if (!strcmp(mode, "restart")) {
       char byte;
       CHECK(read(0, &byte, 1) == 1 && byte == 'X' && received == 1);
     } else {
@@ -128,7 +132,7 @@ int main(int argc, char **argv) {
   }
 
   for (int number = SIGINT; number <= SIGTERM; number += SIGTERM - SIGINT) {
-    const char *modes[] = {"reraise", "exit", "spin", "return", "restart", "ignore"};
+    const char *modes[] = {"reraise", "exit", "spin", "return", "restart", "ignore", "clock"};
     for (unsigned index = 0; index < sizeof(modes) / sizeof(modes[0]); ++index) {
       mode = modes[index];
       unlink(lock_path);
