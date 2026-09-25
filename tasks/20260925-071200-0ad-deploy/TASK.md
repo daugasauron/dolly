@@ -1,6 +1,6 @@
 # Merge and deploy the verified 0 A.D. checkpoint
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: release,0ad
 
@@ -14,9 +14,9 @@ successful remote publication and public-browser verification. Retain deployed
 immutable assets and record source commits, archive/export hashes and deployment
 receipts. Keep the measured large-match performance limitations visible.
 
-The current domain release is `12b9aaf40169f9c18f168a875164abef536508eda1095e43f6d97f628d97e106`,
-Cloudflare deployment `f04b6b14-db66-4626-9ed4-86da11591bda`. It also retains
-`cc12357d`, `bf5a5a2c` and `abf018b9`. GitHub Pages currently serves release
+Before deployment, the domain release was `12b9aaf40169f9c18f168a875164abef536508eda1095e43f6d97f628d97e106`,
+Cloudflare deployment `f04b6b14-db66-4626-9ed4-86da11591bda`. It also retained
+`cc12357d`, `bf5a5a2c` and `abf018b9`. GitHub Pages served release
 `4745abd4657930e47e405867282f7a7003c34a1a0000c8efb6cafb54915a1ac3`.
 The prior release directories and exports remain in the GPU worktree for
 read-only retention inputs.
@@ -77,3 +77,69 @@ again. The test records download counts instead of promising cache persistence;
 its inference and session assertions remain intact. Runtime code is unchanged.
 Core and custom-session checks also pass again in both browsers after the test
 server changes (`deploy-core-custom-final.log`).
+
+Published application source is `7ffd9c952f75bf2888146675eb582507bed4f29e` on both hosts. Main was
+fast-forwarded and pushed without changing the dirty root checkout. Official
+packaging passed real-browser inventory acceptance for all 43 domain images and
+all 33 GitHub images. Both exports passed complete wire-hash verification; their
+sealed canonical inputs passed exact-source provenance verification.
+
+| Receipt | Domain | GitHub Pages |
+| --- | --- | --- |
+| Sealed release | `b526f65ff4d19f410479c4e97f4a54c8ceb5c195f62661565bed6bca344b5891` | `9b445bbc9b8b151215e50570b71db0b498b702a2449ed0396cfcc1f575e2c3eb` |
+| Export bytes | 10,026,048,297 | 857,512,945 |
+| Export manifest SHA-256 | `2dbd452e4ea51c48881a13ee537046e0c01602889e4fd5aaf8bad5fcbabb223d` | `2d529ff64a4001309f71dd61fbc0df0f82e08a11bc1209ba4186ea5bc0ef57f9` |
+| Archive bytes | 5,835,667,198 | 521,222,201 |
+| Archive SHA-256 | `3809655c2646253ef401933b7a47d197084c88a3ca27ead096c86afff450b774` | `1a29aa6d7d2b44c68de428c48cacd997e9a60abeac265ea3ddab02ae5ce45079` |
+
+Cloudflare production deployment is `98194787-9ac5-45e2-9040-07b4b95a8193`
+([deployment](https://98194787.dolly-9dk.pages.dev/),
+[public site](https://daugasauron.com/)); its preview was
+[6e710ebb](https://6e710ebb.dolly-9dk.pages.dev/). All four prior domain releases listed above remain
+accessible and passed delivered-hash checks. The export has 10,912 files,
+88 header rules and a 25,406,282-byte largest file.
+The duplicate domain archive was removed after durable canonical-seal verification;
+its hash receipt, canonical release, export manifest and headers remain under
+`build/domain-releases/` and `build/deployments/20260925/domain/`.
+
+GitHub [release `pages-7ffd9c9-r1`](https://github.com/daugasauron/dolly/releases/tag/pages-7ffd9c9-r1) supplies the verified
+archive to [successful Pages workflow 36132380812](https://github.com/daugasauron/dolly/actions/runs/36132380812).
+The [public site](https://daugasauron.github.io/dolly/) has 33 local images plus links to Pi Local,
+Studio and 0 A.D. on the domain. Its 3,018-file export fits the 1 GB limit.
+The archive remains at `build/github-20260925/dolly-pages.tar.gz`, with the
+canonical seal under `build/github-releases/`.
+
+Public Chromium checks passed on both primary sites: exact menu selection, all
+image links, default boot, rg/fd, named-session restoration, rebuild start/cancel,
+cross-origin isolation, missing-asset 404s, and Blockwalker absent with its route
+returning 404. Domain Codex boot/version passed; GitHub's nine domain redirects
+preserve query and fragment. No JavaScript errors occurred. Delivered code, Wasm,
+metadata and source provenance hashes match each seal; domain large multipart
+assets and all four retained releases passed delivery checks. Receipts are
+`build/deployments/20260925/{domain,github}/production-{browser,delivery}.json`.
+
+The first public Firefox 0 A.D. cold boot stopped before launching the game: a
+25,001,722-byte snapshot pack returned HTTP 524 after 125 seconds. Re-uploading
+the identical verified bytes on an isolated preview branch restored HTTP 200
+from the existing production URL in 5.78 seconds; production source and HTML
+were unchanged. The internal provider cause is undetermined. Exact before/after
+measurements and pack hash are retained in
+`build/deployments/20260925/domain/pack-delivery-repair.json`.
+
+Developed matches still have measured simulation/AI stalls. They remain open in
+[the large-match performance issue](../20260925-064500-0ad-large-match-stalls/TASK.md);
+this deployment does not claim to resolve them.
+
+The subsequent complete public Firefox 155 run passed with a non-fallback GPU:
+Britons/Acropolis, saving and loading through a new game process, Han/Alpine,
+high textures/16x filtering persisted, three matching replays, and no browser
+or engine warnings/errors. First uncached download plus menu startup took
+824,444 ms (13 min 44 s) on this connection; the encoded game payload is
+1,914,095,298 bytes. Match loads were 10,550 ms, 7,622 ms for the saved game,
+and 18,899 ms for Alpine. Peak test-scope memory was 4,561,408,000 bytes,
+including browser and file cache. This is not a minimum RAM requirement.
+The earlier HTTP 524 is preserved alongside the successful retry log,
+screenshots, configuration, engine logs and replays under
+`build/deployments/20260925/domain/public-0ad/`. All deployment gates passed.
+Both public source receipts were rechecked as `7ffd9c9`; this task closure is
+a later receipt-only commit and does not change the deployed application.
