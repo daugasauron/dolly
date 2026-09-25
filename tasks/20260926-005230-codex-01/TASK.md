@@ -1,6 +1,6 @@
 # Improve slinger accuracy against cargo aircraft
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: game,controllers,combat
 
@@ -64,3 +64,10 @@ prepared in `build/blockwalker-dense-ammunition/`: same force-limited program an
 attached-round save, with round101 changed from alloy to existing ballast. It
 has not run. The prototype derives its mass limit from magnet strength/gravity
 and retains the light-cargo ceiling; no engine forces or opponent changes.
+
+Packaged and verified in image40, tag `blockwalker-checkpoint-20260926-image40`.
+Chrome and Firefox match all111 bundled programs/blueprints and restore six
+saved worlds with physical attachments intact, no browser/controller errors.
+Evidence: `build/blockwalker-image40-preview{,-firefox}/proof.json`. The source
+change is de15bf9; this closes interception accuracy, not sustained resupply or
+shootdowns. The separate supply and world-competition tasks remain open.

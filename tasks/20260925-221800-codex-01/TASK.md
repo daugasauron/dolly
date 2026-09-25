@@ -4,9 +4,10 @@
 - PRIORITY: 280
 - TAGS: game,content,visuals
 
-Continue through 2026-09-26 13:00 JST. Checkpoint image39 is saved as
-`blockwalker-checkpoint-20260925-image39`; continue from that verified build. Keep this task open
-until the remaining cargo, defense, interaction and terrain work is verified.
+The latest user request is to reach a stable checkpoint. Image40 is saved as
+`blockwalker-checkpoint-20260926-image40`; further experiments are stopped for
+this checkpoint. Keep this task open until the remaining cargo, defense,
+interaction and terrain work is verified.
 The user likes the physical catapults;
 air retrieval is too easy and the terrain looks flat and gray. Improve cargo,
 interaction, combat/defense, terrain and visuals while retaining the late-90s
@@ -162,3 +163,12 @@ different rounds hit their intended aircraft in a fresh populated run, no friend
 airborne impacts. The same run fails freight/resupply; tasks195202 and000614 record
 the measured wall collision and misplaced ammunition. These source changes are
 not yet packaged. The playable image39 and protected user state remain intact.
+
+Image40 packages the verified interception and ground-material changes; all111
+designs remain and every blueprint is unchanged from image39. Chrome/Firefox
+pass catalog, six-save restoration and loaded-magnet checks. Protected state and
+other images are preserved;40 recipe lint checks pass. Build44.7s. Evidence:
+`build/blockwalker-image40-preview{,-firefox}/proof.json`, image40-preservation.json
+and image40-build.log. Tag `blockwalker-checkpoint-20260926-image40` records the
+checkpoint; image39 rollback artifacts are retained. Remaining controller
+experiments stay unbundled, including the failed final placement replay.

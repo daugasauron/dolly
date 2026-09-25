@@ -148,3 +148,10 @@ world to the first lowering phase, save the whole world, then compare120s of
 old/new programs from that same state. Only111 changes in the paired replay;
 require actual121→107→106 magnet handoffs, not just a delivery counter. Active
 trial `battery-placement-replay`; export `unload-before.json` and both outcomes.
+
+The matched placement replay finishes raw1. Baseline releases121 outside the
+shuttle's reach; candidate retains it for the entire120s. Neither branch achieves
+a shuttle or gun attachment. Both preserve all actors with no controller errors
+or deaths, minimum tender up0.992410/0.992503. Continuing alignment prevents the
+bad release but does not complete delivery. Keep this candidate unbundled.
+Evidence: `build/blockwalker-compound-regressions-chrome-battery-placement-replay/salvage/`.
