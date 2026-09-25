@@ -130,3 +130,20 @@ its first pallet against the foundry exit by 160 s. It remains upright and
 powered but cannot proceed. `build/blockwalker-rivalry-six-wheel-three-cranes/`.
 The new hauler and receiving cranes remain excluded from the source checkpoint;
 only the separately verified raised loading crane is promoted.
+
+Lookahead steering gets the six-wheel hauler through the factory and transfers
+the first pallet onto East's barge by 263 s, but its strict centered-pickup
+condition stalls the second load. East's receiving head stops 0.249 m off the
+cargo COM at its minimum reach. `build/blockwalker-rivalry-lookahead-three-cranes/`
+runs 1800 s with 17 retained objects and no errors, but still no deliveries.
+
+A third lowering stage provides enough travel to reach a barge, and a 0.4 m
+pickup tolerance is within the existing magnet query. The saved replay exposes
+the hanging column touching the quay edge (part 34 supports about 115 N), so
+more travel alone cannot fix it. Moving the boat's authored berth offshore and
+adding ordinary retract-on-obstruction behavior does not yet clear that already
+wedged state. The hauler also stalls lifting a corner-held second pallet;
+retracting its boom is insufficient. Preserve `build/blockwalker-forklift-
+{telescopic-receivers,safe-berth,retract-recover}/`. No cargo was relocated or
+removed. A 26-part twin-mast hauler with two parallel lifting rams and a wider
+ballasted chassis is the next fresh physical design test. These remain excluded.

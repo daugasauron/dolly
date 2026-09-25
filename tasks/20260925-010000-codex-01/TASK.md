@@ -130,3 +130,25 @@ The next structural investigation is [rigid compound assemblies](../20260925-100
 the current 2271-block catalog has only 351 fixed components. Measure the real
 benefit and resolve block-local sensors, contacts and saved-state compatibility
 before considering an engine change. No compound-body candidate is bundled.
+
+Image 30's two new recovery trucks add about 2.6% to Firefox simulation time
+in paired 1800-tick runs of the same 900 s saved world: 27.505/27.440 s with
+106 objects versus 28.198/28.177 s with 108. Other programs are unchanged and
+all runs finish without errors. `build/blockwalker-recovery-cost-firefox/`.
+The crowded rendered-FPS target remains unmet.
+
+The pinned Box3D already has an SSE2 path for WebAssembly. The ordinary Dolly
+compiler lacks `-msimd128`/`-msse2` driver options, but its LLVM backend supports
+the target. A source-only wrapper applies Clang's `target("simd128")` attribute
+to unchanged upstream translation units, with Emscripten's compatibility headers
+and explicit SSE macros. The probe and complete library compile and execute
+inside Dolly; the probe declares the Wasm SIMD128 target feature.
+
+Paired Firefox replays of the same 125-object save take 28.244/28.101 s with
+the current scalar library and 26.348/26.167 s with SIMD (1800 ticks each,
+all objects retained, zero controller/browser errors). This is about 6.8% less
+simulation time, not a rendered-FPS result. `build/blockwalker-simd-wrapper-
+firefox/proof.json`; recipe and probe in `build/blockwalker-simd/`. The prototype
+remains outside the image pending longer physical and save/restore validation.
+The first unmatched-header-pragma failure is retained in
+`build/blockwalker-simd-firefox/`; the working wrapper balances the pragma.

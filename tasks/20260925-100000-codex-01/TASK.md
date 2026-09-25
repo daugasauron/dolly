@@ -29,3 +29,18 @@ old weld strain. Verify current/legacy saves, joint controls, pickups, boats,
 walkers and slingers in real browsers. Compare the same crowded world in paired
 Firefox timing, then run the complete cargo/recovery workload. Compile inside
 Dolly and keep the served checkpoint unchanged until the candidate passes.
+
+Prototype plan: construct the same connected components as the existing fixed
+mount graph, with a block-local transform and shape ownership for each part.
+Keep all collision shapes, their density/friction, broad stationary bearing
+plates and articulated joints. Apply thruster force at its actual block center;
+use each shape's displacement for water and attribute contacts by shape.
+
+For restoration, reconstruct compound-local shapes from saved block world poses
+so old weld strain does not snap the world to blueprint positions. Preserve
+linear and angular momentum when combining dynamic parts, and translate saved
+magnet attachment points through the referenced block's frame. New saves should
+write block poses/velocities and a versioned attachment convention. Reconstruct
+joint frames from their original block-local frames. Anchored components remain
+static. This approach still needs an implementation and preservation tests;
+no speed or stability improvement is claimed yet.

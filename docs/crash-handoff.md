@@ -84,7 +84,10 @@ handoffs. Zero errors, crew contacts or truck rollovers. Evidence:
 `build/blockwalker-rivalry-restock-evade42/recovery-proof.json`. Chrome and Firefox
 restore this save and export both truck programs exactly; screenshots and short
 FPS samples are in `build/blockwalker-restock-view-{chrome,firefox}/`.
-The trucks and relocated Red Sling camera are now bundled in image 30.
+The trucks and relocated Red Sling camera are now bundled in image 30, commit
+`108b25d`. The recovery task is closed. Paired Firefox CPU simulation timing
+measures about 2.6% added cost for the trucks (106 versus 108 objects):
+`build/blockwalker-recovery-cost-firefox/proof.json`; this is not rendered FPS.
 
 The image 29 fresh 2400 s run retains 117 objects and makes 27 light deliveries
 but blocks all heavy freight at an upright quay pallet. A 67-part crane with a
@@ -96,14 +99,22 @@ Matching taller receiving cranes recover that exact saved failure: East's pallet
 reaches its pad and warehouse storage, making 2/2 delivered loads stored. The
 fresh six-wheel-hauler trial then wedges at the factory exit before any delivery.
 The receiving cranes and hauler remain excluded. Only the verified raised quay
-crane is bundled in image 30. A lookahead-steering candidate is under test.
+crane is bundled in image 30. Lookahead steering transfers the first load, but the next pickup and receiving
+crane still jam. The current fresh candidate has a 26-part twin-mast hauler,
+three-stage receiving cranes, a more offshore East berth and retract-on-obstruction
+programs. All remain excluded until fresh repeated freight succeeds.
 Recipes/results: `build/blockwalker-restock/README.md`. The recovery generator
 reads a frozen image-29 baseline; do not reapply its edits to the 93-entry catalog.
 
 Lazy-neighbor snapshots and default sleeping each gain only 1–2% in paired
 Firefox tests; both are excluded. [Rigid compound assemblies](../tasks/20260925-100000-codex-01/TASK.md)
 are a separate investigation: 2271 blocks form 351 fixed components. No compound
-implementation exists yet; saved-state and block-local behavior need careful work.
+implementation exists yet; its task now describes block-local saved-pose and
+momentum preservation. Separately, compiling unchanged Box3D with its existing
+Wasm SIMD path cuts paired Firefox simulation time about 6.8% on the 125-object
+save. `build/blockwalker-simd-wrapper-firefox/` contains results and the compiled
+library; `build/blockwalker-simd/` contains the recipe. This is unbundled and
+needs longer physical validation; the ordinary compiler lacks SIMD driver flags.
 
 Outstanding work:
 

@@ -1,6 +1,6 @@
 # Keep the cargo world active with recovery and restocking crews
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: game,content,physics
 
@@ -93,3 +93,16 @@ are not warmed performance benchmarks. The existing crowded-performance issue
 remains open. `build/blockwalker-restock-view-{chrome,firefox}/proof.json`.
 The verified 93-design catalog and relocated Red Sling camera are now canonical
 source; packaged-image verification remains before closing this task.
+
+Verified and packaged in `108b25d` (local image 30). Chrome and Firefox verify
+all 93 bundled sources/blueprints and restore the older 125-object world without
+errors or model requests. The revised Red Sling camera frames the relocated
+crew. `build/blockwalker-image30-preview{,-firefox}/proof.json`. Preservation
+checks retain all six protected files and the twelve other images.
+
+Paired Firefox timing on the same 900 s saved population measures 1800 ticks:
+27.50452 / 27.43956 s without the two trucks, 28.19842 / 28.17654 s with them
+(106 versus 108 objects, all other programs unchanged). Their measured added
+simulation cost is about 2.6%; all runs finish without errors. This is a CPU
+simulation comparison, not rendered FPS. Evidence:
+`build/blockwalker-recovery-cost-firefox/proof.json`.
