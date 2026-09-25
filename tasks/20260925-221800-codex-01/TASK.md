@@ -147,3 +147,18 @@ files/catalog are unchanged. Evidence: `build/blockwalker-checkpoint-20260926-`
 Supply experiments remain unbundled; task20260926-000614 records their failed
 sustained-supply checks and the first completed tender delivery. This broader
 gameplay task stays open.
+
+The next material pass is verified in Chrome and Firefox and is now in
+`scene.wgsl`: broader moss, patched concrete, broken seams and shore tide stains.
+Matched119-object300s save,14 fixed camera views,30s warmup/15s sample:
+Chrome30.40→30.73FPS; Firefox33.89→33.98FPS. Both retain121 final objects with no
+errors/deaths. These pairs show approximately unchanged performance. No collision
+geometry or physics changes. Evidence: `build/blockwalker-ground-materials/`
+`bundle2-{chrome,firefox}/`. The screenshot bundle is produced inside Dolly;
+earlier attempts hit a download timeout and the seed tar's extract-only interface.
+
+Catalog entry106 also now contains the verified interception program: three
+different rounds hit their intended aircraft in a fresh populated run, no friendly
+airborne impacts. The same run fails freight/resupply; tasks195202 and000614 record
+the measured wall collision and misplaced ammunition. These source changes are
+not yet packaged. The playable image39 and protected user state remain intact.

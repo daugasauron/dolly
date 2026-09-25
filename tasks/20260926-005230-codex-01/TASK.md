@@ -48,3 +48,19 @@ so do not attribute that decision solely to the hit. No missing actors/errors.
 Enabling hit events leaves both complete final worlds exactly identical to their
 uninstrumented versions. This verifies the observation without changing physics.
 Fresh multi-shot verification is still required before promotion.
+
+Fresh multi-shot verification now passes within `battery-freight-apron`: all
+three starting rounds hit their intended aircraft. Shots110→9 at77.767s,
+109→59 at149.050s,108→9 at218.283s; first impacts at79.050/151.350/219.550s,
+approach speeds12.113/13.947/12.371m/s. Buffered events record13 total intended
+impacts across those three rounds and zero friendly airborne impacts. The1800s
+run retains all131 actors with no deaths/controller errors. Its overall raw1 is
+the missing freight/resupply quotas, not an aiming pass for the whole world.
+
+The verified program is now in canonical catalog entry106. Packaging remains
+pending; the served image39 still has the old program. This establishes repeated
+hits, not shootdowns or balanced air retrieval. A separate mass comparison is
+prepared in `build/blockwalker-dense-ammunition/`: same force-limited program and
+attached-round save, with round101 changed from alloy to existing ballast. It
+has not run. The prototype derives its mass limit from magnet strength/gravity
+and retains the light-cargo ceiling; no engine forces or opponent changes.

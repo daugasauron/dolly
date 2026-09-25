@@ -100,3 +100,14 @@ tunnel route centered atx−43. No obstacle removal, mass change or special forc
 Fresh combined `battery-freight-apron` now runs with `fresh-apron-catalog.json`
 and `fresh-reload.c`:111 initial actors, at most1800s, both warehouse chains plus
 repeated ammunition supply and intended-aircraft impacts. Await terminal evidence.
+
+The apron trial fails at1800s: hauler53 is still on route1, root(-32.917,76.519),
+holding112; no crane/boat/warehouse handoff. A2s probe (`battery-apron-contacts`)
+confirms magnet head11 against the foundry wall centered(-29.5,6.5,82),120/120
+samples, maximum265N; cargo112 parts2/3 also contact that wall. Moving the square
+corner farther north made the front assembly reach the wall before turning.
+
+Next untested candidate `hauler-diagonal-route.js` approaches diagonally from
+(-33,71) to(-43,77), then through the tunnel; the return reverses that crossing.
+It retains the original vehicle and steering. Verify a short fresh pickup→crane
+handoff before another long combined run. Do not promote the failed apron route.

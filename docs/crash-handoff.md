@@ -3,14 +3,21 @@
 Worktree: `/home/daug/dev/dolly/work/gpu-shaders`.
 Branch: `codex/blockwalker-playground-20260923`.
 Checkpoint: image39, tag `blockwalker-stable-20260926`.
-Game implementation:07967f6 (`blockwalker-checkpoint-20260925-image39`).
+Served game implementation:07967f6 (`blockwalker-checkpoint-20260925-image39`).
 Local app: `http://127.0.0.1:9099/blockwalker/`, owned user service
 `dolly-blockwalker-preview-20260924.service`; relay 9010.
 No push/deploy requested. The user requested a stable checkpoint; image39 stays
-served. Active disposable browser: session54516, `battery-freight-apron`, scope
-`run-r44b5b6152cf44c42a2e70eeabd6cab6e.scope`. Poll before starting another browser.
-Log: `build/blockwalker-battery-supply/fresh-apron.log`;1800s wall timeout.
+served. Active disposable browser: session96908, `battery-placement-replay`, scope
+`run-r181e30c732f5404b98fe86ca2655be17.scope`. Poll before starting another browser.
+Log: `build/blockwalker-battery-supply/placement-replay.log`;1500s wall timeout.
 All earlier trials are terminal. The preview service remains running.
+
+Unpackaged source changes: only catalog entry106's verified interception program
+and `scene.wgsl` ground/shore materials. Other blueprints/programs are unchanged.
+Both material browser comparisons pass, with approximately unchanged FPS:
+Chrome30.40→30.73; Firefox33.89→33.98. Fourteen paired views use the identical
+119-object300s save;121 final objects, no errors/deaths. Evidence:
+`build/blockwalker-ground-materials/bundle2-{chrome,firefox}/`.
 
 The broader world/competition goal through 2026-09-26 13:00 JST remains open in
 `tasks/20260925-221800-codex-01/TASK.md`. Its remaining gameplay issues are not
@@ -122,14 +129,27 @@ The new route candidate keeps the original vehicle and steering program, moving
 its crossing fromz74.7 to78 and centering the tunnel route atx−43. This gives its
 rear assembly room to turn beyond the pit marker. No terrain/physics changes.
 
-Current fresh run uses `fresh-apron-catalog.json` and `fresh-reload.c` under the
-candidate directory. Only53,55,56,106,107,111 change. It combines the apron route,
-boat escape, refined aiming, shuttle reach check and tender clearance. Requirements:
-two supplied shots, a heavy delivery to each warehouse, hits from two distinct
-rounds on intended aircraft, no friendly airborne impacts/errors/missing actors.
-Buffered Box3D hit events observe impacts without adding forces. It runs at most
-1800 simulated seconds and exports `chain-1200.json`; earliest pass1200s.
-At120s:4 deliveries,1 shot, no deaths. No conclusion yet; all candidates unbundled.
+Fresh `battery-freight-apron` is terminal:1800s,131 objects,25 deliveries, no
+errors/deaths, three shots, zero supplied shots and warehouse jobs0/0. Its raw1
+is a real freight/resupply failure. All three shots do hit their intended aircraft:
+13 buffered impacts across110→9,109→59,108→9, no friendly airborne impacts.
+That source106 is now canonical; the other combined candidates remain local.
+
+Hauler53 stops on route1 at(-32.917,76.519). `battery-apron-contacts` proves head11
+against the foundry wall(-29.5,6.5,82),120 samples,265N; cargo112 also contacts it.
+The front assembly cannot reach the square corner atz78. Next untested program:
+`hauler-diagonal-route.js`, crossing(-33,71)→(-43,77), then the tunnel. Test a short
+fresh crane handoff before another1800s combined run.
+
+Tender111 releases121 at912.067s, but it settles at(73.213,.485,27.549), beyond
+shuttle107's z≈27.8 reach. It shifts backward while the truck lowers; placement
+ends on support/velocity without checking position. `recovery-align-lowering.js`
+keeps wheel alignment active and requires<.1m error/<.08m/s before release.
+The active `placement-replay.c` and `placement-replay-catalog.json` first recreate
+the fresh scene up to the first lowering phase (expected around909s, limit1000s),
+then compare120s of old/new111 from that full save. Require actual cargo→107→106
+magnet handoffs; export `unload-before.json`, `placement-baseline.json` and
+`placement-candidate.json`. Source inputs are frozen while it runs.
 
 Aiming task20260926-005230: `slinger-intercept.js` refines flight time and permits
 descending shots while retaining crew clearance. `fine-aim-events.c` compares
@@ -143,7 +163,14 @@ Both final worlds exactly match their uninstrumented trials.
 The earlier `battery-intercept` test had an inadequate predicate:347 sampled
 hostile contacts were ground unit72, not the intended aircraft59. The premature
 user-facing aircraft-hit claim was corrected. Use the buffered-event proof,
-and verify fresh multi-shot behavior before promotion.
+and use the fresh multi-shot evidence above for the canonical source change.
+
+Unrun ammunition comparison: `build/blockwalker-dense-ammunition/{impact.c,catalog.json}`,
+input `battery-external-round/salvage/external-gun.json`. It uses the same generic
+force-limited program in both branches, changing only cargo101's alloy→ballast
+material in the candidate. It measures buffered intended hits, target up and
+deliveries. Export `aim-baseline.json,aim-candidate.json,aim-candidate-hit.json`
+(the last exists only on a candidate hit). No promised shootdown; not bundled.
 
 Preserve captures and teammate rescues. Do not remove actors/cargo or weaken
 opponents to satisfy quotas. Improve sustained supply, ammunition recovery,

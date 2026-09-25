@@ -125,3 +125,26 @@ Exact1800→2100s replay changes only107 and passes (`battery-shuttle-recheck`):
 at1933.333s. Tender jobs1→2, loader4→5, gun4→5; all130 actors remain, no errors or
 deaths. At2100s the tender is aligning another load for delivery. This fixes the
 observed loader deadlock; fresh combined verification is still needed.
+
+Fresh `battery-freight-apron` ends raw1 at1800s:131 objects,25 deliveries, no
+losses/errors, three starting shots and no supplied shot. Tender111 collects121
+at851.767s and releases it at912.067s, but it settles at(73.213,.485,27.549).
+The idle shuttle's pickup workspace starts aroundz27.8; the crate lies outside
+its reach. The tender counts the job and excludes the misplaced crate because
+its `inBay` check accepts anything within2m. At1800s it carries101 while waiting
+for a free bay. The shuttle correctly remains idle instead of chasing121.
+
+Trace: at910s the crate is still atz27.967 while lowering; by915s the retreating
+truck has left it atz27.546. The program stops horizontal alignment during
+lowering, then releases on support/velocity alone. Moving the bay north1m is
+not enough: the existing circular clearance model rejects all three new approach
+positions between gun106 and shuttle107. Keep those geometry checks intact.
+
+`recovery-align-lowering.js` continues normal wheel alignment while lowering and
+requires position error<.1m, speed<.08m/s and ground support before release. Its
+bay classification also rejects misplaced stock outside the narrow handoff row.
+`placement-replay.c`/`placement-replay-catalog.json` now reconstruct the fresh
+world to the first lowering phase, save the whole world, then compare120s of
+old/new programs from that same state. Only111 changes in the paired replay;
+require actual121→107→106 magnet handoffs, not just a delivery counter. Active
+trial `battery-placement-replay`; export `unload-before.json` and both outcomes.

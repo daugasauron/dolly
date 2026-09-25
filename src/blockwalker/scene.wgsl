@@ -160,11 +160,19 @@ fn water_normal(p:vec2f)->vec3f {
                 if(b.style.x<4){
                     let grain=noise(floor(position.xz*3)/3);
                     if(normal.y>.5){
-                        let growth=noise(floor(position.xz*.4)*.11);
-                        color=mix(color,vec3f(.34,.43,.25),smoothstep(.46,.78,growth)*.65);
-                        color*=.86+.14*grain;
-                        let tile=abs(fract(position.xz/8+.5)-.5);
-                        color*=mix(.60,1.0,smoothstep(.003,.012,min(tile.x,tile.y)));
+                        let growth=noise(floor(position.xz*.5)*.10);
+                        let moss=smoothstep(.38,.73,growth);
+                        let cell=floor(position.xz/8+.5);let uv=fract(position.xz/8+.5)-.5;
+                        let weather=hash(cell+vec2f(19,7));
+                        color*=.80+.20*hash(cell);
+                        let repair=step(.89,weather)*(1-smoothstep(.28,.30,max(abs(uv.x),abs(uv.y)*.75)));
+                        color=mix(color,vec3f(.20,.25,.24),repair*.75);
+                        color=mix(color,vec3f(.28,.39,.21),moss*.80);
+                        color*=.84+.16*grain;
+                        let seam=1-smoothstep(.003,.010,.5-max(abs(uv.x),abs(uv.y)));
+                        color*=1-.30*seam*(1-moss*.85);
+                        let crack=abs(uv.x-uv.y*.35-.045*floor(uv.y*7));
+                        if(weather<.24&&crack<.006&&abs(uv.y)<.40){color*=.62;}
                     }else{
                         let layer=floor(position.y*1.7+noise(position.xz*.12)*2);
                         color*=.72+.28*hash(vec2f(layer,floor(face_uv.x*.5)));
@@ -200,6 +208,10 @@ fn water_normal(p:vec2f)->vec3f {
                     if(max(panel.x,panel.y)>.48){color*=.4;}
                     let corrosion=smoothstep(.6,.8,noise(floor(face_uv*3)*.13));
                     color=mix(color,vec3f(.42,.25,.13),corrosion*.65);
+                }
+                if(abs(normal.y)<.5&&(b.style.x<4||b.style.x==8)){
+                    let tide=1-smoothstep(scene.world.w+.25,scene.world.w+1.4+hash(floor(face_uv*2))*.4,position.y);
+                    color=mix(color,vec3f(.16,.27,.21),tide*.6);
                 }
                 if(b.style.x!=6&&trace(position+normal*.02,sun,512,true).y>=0){color*=.65;}
             }else{
