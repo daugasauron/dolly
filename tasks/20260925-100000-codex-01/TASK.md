@@ -44,3 +44,13 @@ write block poses/velocities and a versioned attachment convention. Reconstruct
 joint frames from their original block-local frames. Anchored components remain
 static. This approach still needs an implementation and preservation tests;
 no speed or stability improvement is claimed yet.
+
+The lab prototype's first Chrome test restores the 125-object, 2327-block legacy
+save as 383 bodies, with maximum initial block-position error 0.000002861 m.
+All IDs, blueprints, programs, memory and magnet ownership survive version-4
+save/reopen. A two-block momentum check, off-center thruster and 2x2 floating
+raft pass, as do 60 ticks with no deaths or controller errors. Evidence:
+`build/blockwalker-compound-chrome-raft/`; source and fixture are under
+`build/blockwalker-compound/`. The earlier thin two-block raft tipped and is
+preserved as a failed geometry test. No paired speed or endurance claim yet.
+Canonical engine and served image still use individual block bodies.

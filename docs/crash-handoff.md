@@ -14,20 +14,20 @@ programs using common sensors, actuator keys and radio. No per-character engine
 motion helpers. Physics stays at 60 Hz; the later experimental controller rates
 and observation caches are excluded.
 
-Image 30 is served at `http://127.0.0.1:9099/blockwalker/` by user service
+Image 31 is served at `http://127.0.0.1:9099/blockwalker/` by user service
 `dolly-blockwalker-preview-20260924.service`. The owned relay listens on 9010.
-The image is 232630067 bytes, SHA-256
-`0aa7cf8573942642ac4b73ecf099610fdd7f20fcbf13da67535bd96c7f123064`.
+The image is 234519771 bytes, SHA-256
+`e5f50b7b8d0a95969e718f64d5c6024c06fdb4ff4b15c99420e51e91af5a5a6e`.
 Its source archive SHA-256 is
-`22d0186492aa3611d077dd4febb875f68f6f33b386d25f5bb5af24b9e7dfc924`.
+`95bda49c25f255b078f2e11a982585fd15daa190528abce6585ce5db6dabdb0c`.
 The [bearing task](../tasks/20260925-080000-codex-01/TASK.md) records current verification. Existing
 saved worlds retain their own programs and terrain; loading a save does not
 silently replace them with the fresh catalog. Chrome and Firefox both verify
 all 93 bundled designs and restore all 125 objects from the populated save,
 with no browser errors or model requests. Evidence:
-`build/blockwalker-image30-preview{,-firefox}/proof.json`.
+`build/blockwalker-image31-preview{,-firefox}/proof.json`.
 Protected originals and all twelve other images pass
-`build/blockwalker-image30-preservation.json`.
+`build/blockwalker-image31-preservation.json`.
 
 The fresh 2400 s `build/blockwalker-rivalry-checkpoint42/` run retains 122
 objects with 33 unique deliveries and no controller errors. Both quarry cores
@@ -100,21 +100,32 @@ reaches its pad and warehouse storage, making 2/2 delivered loads stored. The
 fresh six-wheel-hauler trial then wedges at the factory exit before any delivery.
 The receiving cranes and hauler remain excluded. Only the verified raised quay
 crane is bundled in image 30. Lookahead steering transfers the first load, but the next pickup and receiving
-crane still jam. The current fresh candidate has a 26-part twin-mast hauler,
-three-stage receiving cranes, a more offshore East berth and retract-on-obstruction
-programs. All remain excluded until fresh repeated freight succeeds.
+crane still jam. The 26-part wider-front hauler stalls its first pickup with its head too high.
+The 22-part tandem-mast hauler with a 1.75 m lift and cargo-support check
+completes three trips in a fresh 900 s trial. The quay then cannot reach the
+second pallet, and the altered East berth hits the inlet wall. The next candidate
+shortens the quay boom and restores the berth to the inlet center. These freight
+changes remain excluded until repeated fresh deliveries work for both teams.
 Recipes/results: `build/blockwalker-restock/README.md`. The recovery generator
 reads a frozen image-29 baseline; do not reapply its edits to the 93-entry catalog.
 
 Lazy-neighbor snapshots and default sleeping each gain only 1–2% in paired
 Firefox tests; both are excluded. [Rigid compound assemblies](../tasks/20260925-100000-codex-01/TASK.md)
-are a separate investigation: 2271 blocks form 351 fixed components. No compound
-implementation exists yet; its task now describes block-local saved-pose and
-momentum preservation. Separately, compiling unchanged Box3D with its existing
-Wasm SIMD path cuts paired Firefox simulation time about 6.8% on the 125-object
-save. `build/blockwalker-simd-wrapper-firefox/` contains results and the compiled
-library; `build/blockwalker-simd/` contains the recipe. This is unbundled and
-needs longer physical validation; the ordinary compiler lacks SIMD driver flags.
+are a separate lab prototype under `build/blockwalker-compound/`. Its first
+Chrome pass restores 2327 blocks as 383 bodies with maximum position error
+0.000002861 m, retains all 125 objects through save/reopen and 60 ticks, and
+passes momentum, off-center thruster and buoyancy checks. This is not a
+performance or endurance result. No compound engine change is bundled.
+
+Compiling unchanged Box3D with its existing Wasm SIMD path cuts paired Firefox
+simulation time about 6.8% on the 125-object save. The 900 s full-world repeat
+retains 108 objects, makes 16 deliveries and four shots per crew, and produces
+an exactly identical final save to scalar. Evidence:
+`build/blockwalker-simd-wrapper-firefox/` and
+`build/blockwalker-rivalry-restock-simd42/`. Image 31 builds this private library
+inside Dolly through `src/blockwalker/box3d.mk` and its balanced target-attribute
+wrapper; the ordinary cc driver lacks SIMD flags. This does not meet the
+crowded rendered-FPS target by itself.
 
 Outstanding work:
 
@@ -148,3 +159,14 @@ symlinked `build/` directory need Node's `--preserve-symlinks-main`. Upload USTA
 archives. Never request terminal screenshots while the game owns the GPU.
 Do not deep-assert large buffers; use `assert.ok(actual.equals(expected))`.
 Animated water invalidates whole-frame equality for camera checks.
+
+Image 31 passed bundled Chrome and Firefox verification: all 93 designs match
+and both restore the 125-object world with no browser errors or model calls.
+The protected files and other twelve images are unchanged.
+
+Current owned test at 11:39 JST: the telescopic-quay/centered-berth saved-failure
+replay, log `build/blockwalker-telescopic-quay-center-berth.log`. Its modifier
+replaces the loaded barge's program only, preserving its cargo and pose. The
+quay blueprint is rebuilt at its original base, with its narrower reachable
+radius. Fresh freight candidate: `build/blockwalker-restock/freight-telescopic-quay.json`.
+No other owned browser or queued job remains.

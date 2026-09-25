@@ -152,3 +152,12 @@ firefox/proof.json`; recipe and probe in `build/blockwalker-simd/`. The prototyp
 remains outside the image pending longer physical and save/restore validation.
 The first unmatched-header-pragma failure is retained in
 `build/blockwalker-simd-firefox/`; the working wrapper balances the pragma.
+
+Long SIMD validation now passes: the 900 s complete recovery-world run retains
+108 objects, completes 16 deliveries and four shots per crew, with no controller
+errors, crew contacts or truck rollovers. Its final world file is byte-for-byte
+equal to the scalar run, including every pose and program memory. Evidence:
+`build/blockwalker-rivalry-restock-simd42/` against `restock-evade42/`.
+Image 31 packages the SIMD library, built inside Dolly from unchanged upstream
+source. Bundled Chrome/Firefox and preservation results are recorded in the
+handoff. This task remains open for the crowded rendered-FPS target.
