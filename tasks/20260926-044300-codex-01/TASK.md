@@ -89,3 +89,15 @@ Exports300s progress and the first armed light-payload encounter, so the next
 comparison can use a naturally occurring shot opportunity. Output:
 `build/blockwalker-compound-regressions-chrome-payload-couriers/salvage/`.
 Do not edit these frozen inputs while the trial runs; image41 stays playable.
+
+Early live checkpoint:119 actors, no deaths at300s. First loaded-target save
+exports at277.500s:87 is spinning with91 while59 lifts80. The candidate fires at
+285.633s with predicted miss1.022m, flight1.49s and velocity(3.012,13.709,−20.944);
+no payload hit is counted by300s. The expanded radius tolerance admitted this
+miss; do not promote it based on the geometric estimate.
+
+Prepared tighter comparison, not run: `precision-comparison-catalog.json` returns
+to the original target-radius tolerance while retaining full motor speed/95%
+force bound. Reuse `payload-comparison.c` on the actual277.500s
+progress-defense-target.json. Baseline remains the original70%-speed payload
+program. Await the active fresh trial before starting another browser.
