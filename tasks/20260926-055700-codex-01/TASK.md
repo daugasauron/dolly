@@ -54,4 +54,8 @@ The extended existing cargo browser regression also passes: loaded lift travel
 5.701m, boat travel12.509m,11 bodies restored with roles/poses intact, no model
 requests. `build/blockwalker-multipart-cargo/regression.log` records the result.
 This closes cargo classification, not the unsuccessful ammunition experiment.
-Source is verified; served image41 awaits the next packaging checkpoint.
+Packaged and locally deployed as image42. Chrome/Firefox restore seven saved
+worlds and all111 unchanged designs; the existing cargo browser regression also
+passes against the packaged executable. Evidence: `build/blockwalker-image42-`
+`preview{,-firefox}/proof.json`, `build/blockwalker-image42-cargo.log`, and
+`build/blockwalker-image42-artifacts.json`.

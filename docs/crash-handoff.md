@@ -2,24 +2,27 @@
 
 Worktree: `/home/daug/dev/dolly/work/gpu-shaders`.
 Branch: `codex/blockwalker-playground-20260923`.
-Verified checkpoint: `blockwalker-stable-20260926-image41`.
-Latest local deployment notes: `blockwalker-local-20260926-image41`.
+Local deployment: image42, built from6894b77 plus regenerated recipe pins.
 Local app: `http://127.0.0.1:9099/blockwalker/`.
 Owned service: `dolly-blockwalker-preview-20260924.service`; relay9010.
-Image41 is the local deployment and stable checkpoint requested by the user.
-The broader goal has resumed; served artifacts and user saves are unchanged.
-Canonical source now includes verified passive multi-box cargo classification
-(task055700); it awaits the next image build. Its prototype passes physical
-handoff, Chrome/Firefox rendering/restoration and the existing cargo regression.
+Image42 packages verified passive multi-box cargo classification (task055700),
+including the agent-tool description. All111 character designs/programs remain
+identical to image41. The broader goal continues; navigation, rescue and beam
+ammunition experiments remain unbundled.
 
-Active experiment: battery-shape-route, session35945,1300s wall timeout, paired
-900→1260s baseline/candidate runs. Log:
-`build/blockwalker-collision-sensors/route-trial.log`. Poll before another browser.
-Inputs there: `source.tar`, `catalog.json`; fixture:
-`build/blockwalker-battery-supply/pickup-replay.c`; saved input:
-`...-chrome-battery-incremental-fresh/salvage/progress-chain-0900.json`.
-The experimental C source exposes read-only collision bounds within48m; only
-tender111 uses the candidate program. These changes are not canonical or bundled.
+No experimental browser is active. The paired battery-shape-route and
+battery-shape-follow trials completed; query/steering improvements remain
+unbundled. Follow1260→1800s:138 objects in both branches; tender jobs2→4
+candidate versus2 baseline, but both4 shots and zero new full reload/fire cycles.
+No errors/losses/deaths/friendly impacts. Full traces and final worlds:
+`...-chrome-battery-shape-{route,follow}/salvage/`. The read-only collision query
+prototype is based on image41; merge only its query addition if promoted, since
+copying its world.c wholesale would discard canonical passive-cargo support.
+
+Prepared, unrun rescue variant: `build/blockwalker-rescue-dozer/rotary-shapes.js`
+and `rotary-shapes-catalog.json`, same47-part physical dozer, only route program
+changes. Use collision-sensors source.tar, existing rotary-route-replay.c and
+rescue-rotary progress-dozer-1620.json. No tether interceptor was implemented.
 
 The payload-beam trial completed its
 600s run with125 objects,14 deliveries and no actor losses/errors/deaths, but zero
@@ -32,6 +35,7 @@ browser processes and profiles were untouched.
 
 ## Included
 
+Image42 adds passive multi-box cargo to the image41 changes below.
 All111 designs and their blueprints remain. Compared with image40, only embedded
 programs53,54,55,56,107,111 change, plus eight previously verified shader lines:
 
@@ -49,6 +53,22 @@ retain their embedded programs; fresh worlds receive the updated catalog.
 Rescue-dozer and payload-defense prototypes are not bundled.
 
 ## Verification
+
+Image42 builds inside Dolly wasm64 in48.7s, reusing the runtime and12 dependencies.
+Chrome and Firefox each pass111 bundled-source/blueprint comparisons and seven
+saved-world restorations, including format1, existing magnetic attachments and
+the134-object1800s world. No new errors/deaths/model requests; rendered views
+inspected. Evidence: `build/blockwalker-image42-preview{,-firefox}/proof.json`.
+All22 archived source files match canonical source; HTTP source/snapshot/Wasm
+hashes match. Six protected save/history files and all39 other image snapshots
+remain unchanged; all13 catalog entries remain, with only blockwalker updated.
+Evidence: `build/blockwalker-image42-artifacts.json` and `image42-before.json`.
+The packaged executable also passes the existing cargo regression: passive beams
+are cargo, racks/actuators are not; loaded lift/boat movement and11 saved bodies
+restore correctly. Evidence: `build/blockwalker-image42-cargo.log`.
+Rerun browsers: `bash build/blockwalker-image42-verify.sh`.
+
+Earlier image41 evidence:
 
 Fresh1800s populated simulation:134 objects,31 deliveries, all111 original actors,
 zero controller errors/deaths. Both warehouses store two heavy loads. Actual
@@ -106,12 +126,16 @@ remain recorded in their task history and earlier checkpoint tags.
 
 ## Artifacts and rollback
 
-Source tar:1326080bytes, SHA256
-`27d9c483faf2063c1eaa57156bd5957f7fba86bc18f6072b01e31b7af6e831be`.
-Snapshot:234720943bytes, SHA256
-`1e6b215f5fdd3979ec84b3984065b6e8e9fa84035018f70bb9499631a5972c12`.
+Source tar:1326592bytes, SHA256
+`c7bc9064909bab3695078b2195c2c7d273a7b22f713f5835b8980e2e9bd6e186`.
+Snapshot:234721295bytes, SHA256
+`71e045f28f5e84099b5bb82f17fd8c10c9b3184dd75cdaf027fa9e7f2da8161b`.
 Runtime build identity (not raw Wasm hash), unchanged:
 `sha256:d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72`.
+
+Image41 source tar, snapshot, metadata and old recipe files are preserved under
+`build/blockwalker-image41-fallback/`. Previous checkpoint tag:
+`blockwalker-local-20260926-image41` (f4054a5).
 
 Previous image40 source tar, snapshot and metadata are preserved under
 `build/blockwalker-image40-fallback/`. Implementation tag:
@@ -163,15 +187,13 @@ Image38/39 fallbacks remain. Never replace the preserved user saves during rollb
   grouping,20 visible/108 out-of-range objects, unknown ID and six invalid inputs.
   Exact900s static sensor replay now finds a route through the machinery in34
   expansions/1.7s controller updates, versus223 nodes and no route with broad
-  circles. This is static evidence only; the active paired physical trial must
-  establish actual movement/handoffs and check controller budgets/performance.
+  circles. Physical movement is confirmed by the completed paired trials above, but
+  sustained reloading and controller performance still need verification.
   `build/blockwalker-collision-sensors/{query-body.log,route-900-space.json}`.
-- 20260926-044300: beam spin-up comparison prepared, unrun, under
-  `build/blockwalker-multipart-cargo/{spin-catalog.json,spin-comparison.c}`.
-  Use multipart source.tar and payload-beam's277s progress-defense-target.json.
-  Candidate aligns yaw before spinning and reserves more grip force for motion;
-  motors/magnet/opponent physics are unchanged. Both branches120s. The previous
-  beam's measured grip load hit100N while yawing/spinning before detaching.
+- 20260926-044300: beam spin-up comparison completed277→397s. Aligning before
+  spin delays grip loss280.217→289.417s, but both branches have zero shots/hits/
+  drops/friendly impacts and both deliver target80. Grip load still reaches100N.
+  Full trace: `...-chrome-payload-beam-spin/salvage/`. Raw fixture1; unbundled.
 - 20260925-195201: porter38 climbs carousel95's anchored base; candidate unsafe.
 - Biped20260915-110000 and transfer030600 remain open. The64MiB file download limit
   is unchanged; trace compression remains a diagnostic workaround.
@@ -184,7 +206,7 @@ Chrome uses Xvfb; Firefox DISPLAY=:1. Node needs `--preserve-symlinks-main` beca
 build is symlinked. Never call `__dolly.visibleTerminalText()` while GPU is active.
 
 Preserve `.cache/blockwalker-browser-20260915`, `build/blockwalker-recovery-20260923/`,
-native Pi history and other images. Disk has about4.4GiB free; no unrelated cleanup.
+native Pi history and other images. Disk has about3.8GiB free; no unrelated cleanup.
 The salvage harness accepts BLOCKWALKER_SOURCE/CATALOG/FIXTURE/WORLD/TRIAL_LABEL/
 ARTIFACTS. `build/blockwalker-progress-browser.mjs` exports periodic live saves.
 Source iteration uses build-source-tar without changing recipe pins. Package

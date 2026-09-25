@@ -42,3 +42,19 @@ expansions/1.7s of controller updates; the broad-circle search exhausted223 node
 Evidence: `...-chrome-collision-bounds-body/salvage/geometry.json` and
 `build/blockwalker-collision-sensors/route-900-space.json`. The paired physical
 replay is now running as `battery-shape-route`; no movement result yet.
+
+Completed paired900→1260s trial: both branches retain130 objects,2 jobs and4 shots,
+with zero new reload cycles/errors/losses/deaths/friendly impacts. The shape-query
+candidate physically crosses the machinery gap, reaching(61.487,45.669) from
+(73.739,19.800); minimum up0.999995. This proves movement, not resupply. Full trace:
+`...-chrome-battery-shape-route/salvage/`. A follow-up paired1260→1800s run changes
+only tender steering/lookahead; its inputs remain frozen under
+`build/blockwalker-collision-sensors/{follow-catalog.json,follow-replay.c}`.
+
+The1260→1800s follow-up also completes, raw1, with138 objects in both branches.
+Candidate tender jobs increase2→4; baseline remains2. Both still have4 gun shots
+and zero new full reload/fire cycles. Minimum up0.999995 candidate/0.999993
+baseline, zero friendly impacts/controller errors/missing actors/deaths. Both
+final saves and the14MB full trace are retained under
+`...-chrome-battery-shape-follow/salvage/`. Do not bundle this as a completed
+sustained-supply fix. The query/controller performance and browser checks remain.

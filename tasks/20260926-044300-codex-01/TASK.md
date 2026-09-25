@@ -154,3 +154,12 @@ The20Hz baseline in this fixture was an incorrect assumption, so this pair chang
 both rate and tolerance and is not a comparison against the previous precision
 baseline. The candidate's failed ejection and friendly impacts remain direct
 evidence. `center-60-comparison.c` corrects the rate for a future comparison; unrun.
+
+Beam spin-up comparison completed277→397s in both branches. Aligning yaw before
+spin and reserving20% magnet force delays grip loss280.217→289.417s, but both
+branches produce zero shots/hits/drops/friendly impacts. Both deliver target80.
+The candidate's best predicted miss0.713m exceeds its0.56m release gate; grip load
+still reaches100N. No errors/losses/deaths. Full trace:
+`...-chrome-payload-beam-spin/salvage/`. The C fixture exits1; the Xvfb wrapper
+exits5 after exporting all artifacts. Its sole leftover Xvfb process was stopped.
+Beam ammunition and these gun programs remain experimental and unbundled.
