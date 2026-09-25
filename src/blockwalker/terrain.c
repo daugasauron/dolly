@@ -259,29 +259,90 @@ static const TerrainBox ridge_boxes[]={
     {{105,3.5f,-62},{.5f,3.5f,.5f},4},
     {{105,7,-65},{.7f,.7f,3.5f},8,1},
 };
-enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes),RIDGE_BOX_COUNT=sizeof(ridge_boxes)/sizeof(*ridge_boxes) };
-int terrain_version=3,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
+static const TerrainBox renewal_boxes[]={
+    /* A northern inlet gives boats access beneath the quarry district. */
+    {{77.5f,-6,0},{22.5f,6,100},0},
+    {{30,-6,12.5f},{25,6,87.5f},0},
+    {{35,-.4f,-77.5f},{10,.4f,2.5f},4},
+    {{26,-6,-79},{.5f,6,.5f},4},
+    {{44,-6,-79},{.5f,6,.5f},4},
+    {{26,3.5f,-79},{.6f,3.5f,.6f},4},
+    {{44,3.5f,-79},{.6f,3.5f,.6f},4},
+    {{35,7,-79},{9.6f,.6f,.7f},4,1},
+    {{35,6.9f,-79.8f},{3,.35f,.08f},6,1},
+    {{4,-2.3f,-88},{2,1.7f,8},8},
+    {{54,-2.5f,-94},{2,1.5f,6},8},
+    /* Broken freight shed: open ground routes, covered transfer bays. */
+    {{26,6.5f,-37},{.65f,6.5f,.65f},4},
+    {{46,6.5f,-37},{.65f,6.5f,.65f},4},
+    {{26,6.5f,-18},{.65f,6.5f,.65f},4},
+    {{46,6.5f,-18},{.65f,6.5f,.65f},4},
+    {{36,13,-37},{10.7f,.65f,.7f},4,1},
+    {{36,13,-18},{10.7f,.65f,.7f},4,1},
+    {{26,13,-27.5f},{.7f,.65f,10.2f},4,1},
+    {{46,13,-27.5f},{.7f,.65f,10.2f},4,1},
+    {{31,13.8f,-27.5f},{5.6f,.3f,10.2f},7,1},
+    {{42,13.8f,-33.5f},{4.4f,.3f,4.2f},7,1},
+    {{42,13.8f,-19},{4.4f,.3f,1.8f},7,1},
+    {{36,10.5f,-37.75f},{4,.9f,.12f},6,1},
+    {{26,2.5f,-27.5f},{.5f,2.5f,7},5},
+    {{46,2.5f,-27.5f},{.5f,2.5f,7},5},
+    /* Low slag terraces leave broad routes around their edges. */
+    {{43,.25f,17},{12,.25f,10},8},
+    {{43,.5f,18},{10,.5f,8},8},
+    {{44,.75f,19},{8,.75f,6},8},
+    {{45,1,20},{6,1,4},8},
+    {{46,1.25f,21},{4,1.25f,2.5f},8},
+    {{47,1.5f,21.5f},{2.5f,1.5f,1.5f},8},
+    {{48,4.5f,22},{.65f,1.5f,.65f},4},
+    {{48,6.2f,22},{1.5f,.2f,1.5f},6,1},
+    /* Stepped shore breaks up the square slab without blocking its piers. */
+    {{103,-2.4f,82},{4,1.6f,13},8},
+    {{104,-3.2f,76},{5,.8f,7},8},
+    {{99,-.7f,91},{3,.7f,7},8},
+    {{-103,-2.4f,15},{4,1.6f,17},8},
+    {{-104,-3.2f,6},{5,.8f,8},8},
+    {{-100,-.8f,25},{3,.8f,7},8},
+    {{-81,-1.8f,103},{13,1.8f,4},8},
+    {{-75,-3.1f,106},{7,.8f,6},8},
+    {{80,-2.2f,-103},{15,1.5f,4},8},
+    {{71,-3.2f,-105},{8,.8f,6},8},
+    {{-180,1.5f,-67},{14,.5f,4},2},
+    {{-188,.2f,-70},{7,.8f,5},2},
+    {{179,3.3f,59},{13,.7f,4},1},
+    {{186,1.8f,62},{7,.8f,5},1},
+};
+enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes),RIDGE_BOX_COUNT=sizeof(ridge_boxes)/sizeof(*ridge_boxes),RENEWAL_BOX_COUNT=sizeof(renewal_boxes)/sizeof(*renewal_boxes) };
+int terrain_version=4,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
 int terrain_depot_count(int version){return version?sizeof(depots)/sizeof(*depots):3;}
 void terrain_select(int version){
-    terrain_version=version>=0&&version<=3?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
+    terrain_version=version>=0&&version<=4?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
 }
-TerrainBox terrain_box(int index){
+static TerrainBox source_box(int index){
+    if(terrain_version>=4&&index==ORIGINAL_BOX_COUNT)return (TerrainBox){{-17.5f,-6,0},{22.5f,6,100},0};
     if(terrain_version>=2&&index==1)return (TerrainBox){{-82,-6,0},{18,6,100},0};
     if(terrain_version&&index==1)return (TerrainBox){{-77,-6,0},{23,6,100},0};
     if(terrain_version&&(index==8||index==9))return (TerrainBox){{index==8?143:138,index==8?-5:-6,12.5f},{index==8?3:2,index==8?7:6,8.5f},1};
     if(index<ORIGINAL_BOX_COUNT)return original_boxes[index];
     index-=ORIGINAL_BOX_COUNT;if(index<INDUSTRIAL_BOX_COUNT)return industrial_boxes[index];
-    index-=INDUSTRIAL_BOX_COUNT;return index<MINE_BOX_COUNT?mine_boxes[index]:ridge_boxes[index-MINE_BOX_COUNT];
+    index-=INDUSTRIAL_BOX_COUNT;if(index<MINE_BOX_COUNT)return mine_boxes[index];
+    index-=MINE_BOX_COUNT;return index<RIDGE_BOX_COUNT?ridge_boxes[index]:renewal_boxes[index-RIDGE_BOX_COUNT];
 }
+static const TerrainBox *terrain_boxes(void){
+    static TerrainBox boxes[ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT];static int version=-1;
+    if(version!=terrain_version){for(int i=0;i<terrain_count;i++)boxes[i]=source_box(i);version=terrain_version;}
+    return boxes;
+}
+TerrainBox terrain_box(int index){return terrain_boxes()[index];}
 float terrain_height(float x,float z){
-    float height=-100;
-    for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);
+    float height=-100;const TerrainBox *boxes=terrain_boxes();
+    for(int i=0;i<terrain_count;i++){TerrainBox b=boxes[i];
         if(!b.overhang&&fabsf(x-b.center.x)<=b.half.x&&fabsf(z-b.center.z)<=b.half.z)height=fmaxf(height,b.center.y+b.half.y);
     }return height;
 }
 float terrain_floor(Vector3 position){
-    float height=-100;
-    for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);
+    float height=-100;const TerrainBox *boxes=terrain_boxes();
+    for(int i=0;i<terrain_count;i++){TerrainBox b=boxes[i];
         if(b.center.y-b.half.y<=position.y&&fabsf(position.x-b.center.x)<=b.half.x&&fabsf(position.z-b.center.z)<=b.half.z)height=fmaxf(height,b.center.y+b.half.y);
     }return height;
 }
@@ -289,7 +350,7 @@ float water_height(float x,float z,double time){
     return WATER_LEVEL+.10f*sinf(x*.22f+z*.13f-time*1.3)+.06f*sinf(z*.31f-x*.09f+time*.9);
 }
 static int water_blocked(b3Pos point){
-    static TerrainBox barriers[ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT];static int version=-1,count;
+    static TerrainBox barriers[ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT];static int version=-1,count;
     if(version!=terrain_version){
         version=terrain_version;count=0;
         for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);if(b.center.y-b.half.y<=WATER_LEVEL+.2f&&b.center.y+b.half.y>=WATER_LEVEL-.2f)barriers[count++]=b;}

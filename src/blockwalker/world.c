@@ -218,6 +218,18 @@ static void radio_send(const Physics *physics,int kind,int id){
     if(!visible){message->position=report.position;message->mass=report.mass;}
     snprintf(message->name,sizeof(message->name),"%s",sender->name);
 }
+typedef struct {float radius,low,high,mass;Vector3 center;int valid;} NeighborBounds;
+static NeighborBounds *neighbor_bounds;
+static NeighborBounds creature_bounds(const Creature *c,b3Pos root){
+    NeighborBounds b={.radius=.7f,.low=root.y,.high=root.y,.valid=1};
+    for(int j=0;j<c->design.count;j++){
+        const PhysicsPart *part=&c->physics.parts[j];b3Pos position=physics_position(part),com=physics_center(part);float weight=part->mass;
+        float bound=block_size(c->design.blocks[j])>1?block_size(c->design.blocks[j])*.75f:.7f;
+        b.radius=fmaxf(b.radius,hypotf(position.x-root.x,position.z-root.z)+bound);b.low=fminf(b.low,position.y-bound);b.high=fmaxf(b.high,position.y+bound);
+        b.mass+=weight;b.center=Vector3Add(b.center,Vector3Scale((Vector3){com.x,com.y,com.z},weight));
+    }
+    b.center=b.mass>0?Vector3Scale(b.center,1/b.mass):(Vector3){root.x,root.y,root.z};return b;
+}
 typedef struct {int index;float distance;} Nearby;
 static int nearby_distance(const void *a,const void *b){
     const Nearby *left=a,*right=b;return left->distance<right->distance?-1:left->distance>right->distance?1:left->index-right->index;
@@ -233,18 +245,14 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
         }
         qsort(neighbors,count,sizeof(*neighbors),nearby_distance);
         for(int i=0;i<count;i++){
-            Creature *c=&world.creatures[neighbors[i].index];b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);b3Vec3 velocity=physics_velocity(&c->physics.parts[0]);float radius=.7f,low=v.y,high=v.y,mass=0;Vector3 center={0};
-            for(int j=0;j<c->design.count;j++){
-                PhysicsPart *part=&c->physics.parts[j];b3Pos b=physics_position(part),com=physics_center(part);float weight=part->mass;
-                float bound=block_size(c->design.blocks[j])>1?block_size(c->design.blocks[j])*.75f:.7f;
-                radius=fmaxf(radius,hypotf(b.x-v.x,b.z-v.z)+bound);low=fminf(low,b.y-bound);high=fmaxf(high,b.y+bound);
-                mass+=weight;center=Vector3Add(center,Vector3Scale((Vector3){com.x,com.y,com.z},weight));
-            }
+            int index=neighbors[i].index;Creature *c=&world.creatures[index];b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);b3Vec3 velocity=physics_velocity(&c->physics.parts[0]);
+            NeighborBounds bounds;
+            if(neighbor_bounds){if(!neighbor_bounds[index].valid)neighbor_bounds[index]=creature_bounds(c,v);bounds=neighbor_bounds[index];}
+            else bounds=creature_bounds(c,v);
             JSValue item=JS_NewObject(ctx);put_number(ctx,item,"id",c->id);JS_SetPropertyStr(ctx,item,"name",JS_NewString(ctx,c->name));
             put_number(ctx,item,"x",v.x);put_number(ctx,item,"y",v.y);put_number(ctx,item,"z",v.z);put_number(ctx,item,"vx",velocity.x);put_number(ctx,item,"vy",velocity.y);put_number(ctx,item,"vz",velocity.z);
-            put_number(ctx,item,"radius",radius);put_number(ctx,item,"low",low);put_number(ctx,item,"high",high);
-            put_number(ctx,item,"mass",mass);
-            JS_SetPropertyStr(ctx,item,"centerOfMass",vector(ctx,mass>0?Vector3Scale(center,1/mass):(Vector3){v.x,v.y,v.z}));
+            put_number(ctx,item,"radius",bounds.radius);put_number(ctx,item,"low",bounds.low);put_number(ctx,item,"high",bounds.high);
+            put_number(ctx,item,"mass",bounds.mass);JS_SetPropertyStr(ctx,item,"centerOfMass",vector(ctx,bounds.center));
             put_number(ctx,item,"team",c->team);
             put_number(ctx,item,"supply",c->supply);JS_SetPropertyStr(ctx,item,"parachute",JS_NewBool(ctx,c->parachute));
             put_number(ctx,item,"up",b3RotateVector(b3Body_GetRotation(c->physics.parts[0].body),b3Vec3_axisY).y);put_number(ctx,item,"fallenSeconds",c->fallen);
@@ -658,6 +666,8 @@ JSValue world_state(JSContext *ctx){
 void world_step(void){
     if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
     if(world.supply_seed&&llround(world.age*60)%60==0)supply_step();
+    /* Poses stay fixed throughout the controller phase; actuator state does not. */
+    if(world.count){neighbor_bounds=calloc(world.count,sizeof(*neighbor_bounds));assert(neighbor_bounds);}
     for(int i=0;i<world.count;i++){Creature *c=&world.creatures[i];
         c->physics.time=world.age;
         int due=c->controller->last_step<0||c->physics.steps-c->controller->last_step>=60/c->controller->hz;
@@ -668,6 +678,7 @@ void world_step(void){
         physics_drive(&c->physics,&c->design,c->controls);
         parachute_force(c);
     }
+    free(neighbor_bounds);neighbor_bounds=NULL;
     b3World_Step(world.physics,1.f/60,8);world.age+=1./60;cargo_step();
     for(int i=0;i<world.count;){Creature *c=&world.creatures[i];physics_sample(&c->physics,&c->design);
         Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);float up=Vector3RotateByQuaternion((Vector3){0,1,0},q).y;
@@ -808,7 +819,7 @@ static void load_removals(JSContext *ctx,JSValueConst list){
 }
 static void restore_world(JSContext *ctx,JSValue save,int fresh){
     int legacy=JS_IsObject(save)&&get_number(ctx,save,"version",0)==1;
-    terrain_select(JS_IsObject(save)?get_number(ctx,save,"terrainVersion",0):fresh?3:0);
+    terrain_select(JS_IsObject(save)?get_number(ctx,save,"terrainVersion",0):fresh?4:0);
     if(JS_IsObject(save)){JSValue designs=JS_GetPropertyStr(ctx,save,"designs");load_designs_version(ctx,designs,0,legacy);JS_FreeValue(ctx,designs);}
     JSValue examples=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");load_designs(ctx,examples,fresh);JS_FreeValue(ctx,examples);
     if(fresh){world.supply_seed=0x243f6a88;world.next_parcel=45;world.next_ore=5;world.next_mine=10;}
@@ -953,7 +964,7 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
     JSValue list=JS_GetPropertyStr(ctx,save,"creatures"),designs=JS_GetPropertyStr(ctx,save,"designs"),removals=JS_GetPropertyStr(ctx,save,"removals"),deliveries=JS_GetPropertyStr(ctx,save,"deliveries"),ids=JS_NewObject(ctx),delivered=JS_NewObject(ctx),format=JS_GetPropertyStr(ctx,save,"format");
     const char *kind=JS_IsString(format)?JS_ToCString(ctx,format):NULL;
     int legacy=get_number(ctx,save,"version",0)==1;
-    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,5,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,3,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
+    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,5,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,4,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (JS_IsUndefined(format)||(kind&&!strcmp(kind,"blockwalker-world")))&&JS_IsArray(list)&&JS_IsArray(designs)&&JS_IsArray(removals)&&(JS_IsUndefined(deliveries)||JS_IsArray(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     JS_FreeCString(ctx,kind);JS_FreeValue(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);

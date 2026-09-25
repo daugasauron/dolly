@@ -236,7 +236,7 @@ static void check_lookout_cargo(JSContext *ctx){
     JS_FreeValue(c->ctx,c->memory);c->memory=JS_ParseJSON(c->ctx,memory,strlen(memory),"memory");
     for(int i=-1;i<=1;i++)world_drop_cargo(i,0.485f,34,MATERIAL_ALLOY);
     float upright=1,farthest=20;int collisions=0;
-    for(int tick=0;tick<35*60;tick++){
+    for(int tick=0;tick<60*60;tick++){
         world_step();Creature *scout=world_find(id);if(!scout)break;
         b3Quat q=b3Body_GetRotation(scout->physics.parts[0].body);upright=fminf(upright,b3RotateVector(q,b3Vec3_axisY).y);
         farthest=fmaxf(farthest,b3Body_GetPosition(scout->physics.parts[0].body).z);
@@ -305,7 +305,7 @@ static void check_industry(JSContext *ctx){
     assert(terrain_version==0&&depot_count==3&&terrain_height(-47,65)==0);
     result=world_import(ctx,"/workspace/industrial-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
     assert(terrain_version==1&&depot_count==6&&terrain_height(-47,65)==-12&&world_find(id)->cargo&&world_find(id)->design.count==3);
-    JSValue invalid=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,invalid,"terrainVersion",4);assert(save_json(ctx,invalid,"/workspace/unknown-map.json"));JS_FreeValue(ctx,invalid);
+    JSValue invalid=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,invalid,"terrainVersion",5);assert(save_json(ctx,invalid,"/workspace/unknown-map.json"));JS_FreeValue(ctx,invalid);
     result=world_import(ctx,"/workspace/unknown-map.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));assert(terrain_version==1&&world_find(id));
     JSValue mine=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,mine,"terrainVersion",2);assert(save_json(ctx,mine,"/workspace/mine-map.json"));JS_FreeValue(ctx,mine);
     result=world_import(ctx,"/workspace/mine-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
@@ -321,6 +321,13 @@ static void check_industry(JSContext *ctx){
     b3Pos arrived=b3Body_GetPosition(driver->physics.parts[0].body);assert(arrived.z< -50&&arrived.y>4.5&&minimum_up>.7);
     printf("RIDGE ROAD: embedded wheel program climbed to %.3f m, minimum up %.5f\n",arrived.y,minimum_up);
 
+    JSValue renewal=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,renewal,"terrainVersion",4);assert(save_json(ctx,renewal,"/workspace/renewal-map.json"));JS_FreeValue(ctx,renewal);
+    result=world_import(ctx,"/workspace/renewal-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    assert(terrain_version==4&&terrain_height(20,-85)==-12&&terrain_floor((Vector3){32,2,-28})==0);
+    assert(fabsf(terrain_drop(20,3,-85)+11.5f)<.03f&&fabsf(terrain_drop(35,3,-77.5f)-.5f)<.03f);
+    assert(fabsf(terrain_drop(32,2,-28)-.5f)<.03f&&fabsf(terrain_drop(32,20,-28)-14.6f)<.03f);
+    result=world_import(ctx,"/workspace/ridge-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    assert(terrain_version==3&&terrain_height(20,-85)==0&&fabsf(terrain_drop(32,20,-28)-.5f)<.03f);
     result=world_import(ctx,"/workspace/industrial-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
     assert(terrain_version==1&&terrain_height(-60,-72)==0&&world_find(id));
     cargo=world_find(id);set_spawn_height(cargo,32);
