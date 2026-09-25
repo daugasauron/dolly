@@ -6,14 +6,17 @@ Verified checkpoint: `blockwalker-stable-20260926-image41`.
 Latest verification and deferred-work notes: `blockwalker-checkpoint-20260926-image41`.
 Local app: `http://127.0.0.1:9099/blockwalker/`.
 Owned service: `dolly-blockwalker-preview-20260924.service`; relay9010.
-The latest checkpoint request retains verified image41. No experimental browser
-trial remains active. The fresh flight-defense trial was stopped deliberately
-after retaining its1200s save; it did not complete its1800s fixture or export a
-final full trace. Log: `build/blockwalker-payload-defense/courier-trial.log`.
-Its130-object save preserves all111 originals,23 deliveries and no controller
-errors/deaths. Three shots produced three payload-contact events but no powered
-magnet ejection. Experimental programs59/60/87 remain unbundled. Broader competition,
-ammunition and rescue tasks remain open; this checkpoint is not their completion.
+Image41 remains the verified checkpoint; the broader goal has resumed. Active
+experiment: payload-beam, session47432, scope
+`run-r6bbbed2aaf7546f896a84c230f910a34.scope`,1100s wall timeout,600s simulation.
+Log: `build/blockwalker-multipart-cargo/trial.log`. Poll before another browser.
+Inputs in that directory: `source.tar`, `catalog.json`, `defense.c`; output
+`build/blockwalker-compound-regressions-chrome-payload-beam/salvage/`.
+Only experimental world.c classifies passive multi-box assemblies as cargo;
+three stock rounds become1.369kg beams, still below the existing light limit.
+Gun body/forces stay unchanged. Initial in-Dolly mass/classification checks pass;
+pickup, handoff and combat outcomes remain unverified. Task20260926-055700 tracks it.
+Canonical source and served image41 are unchanged. No result is promoted yet.
 Eleven old Xvfb-only test scopes were stopped during checkpoint cleanup; user
 browser processes and profiles were untouched.
 
@@ -100,29 +103,27 @@ Image38/39 fallbacks remain. Never replace the preserved user saves during rollb
 
 ## Open follow-ups
 
+- 20260925-205300 latest trials: the serial-piston dozer cannot lift73 despite
+  three grips. A three-piston parallel crossbar initially collides with its own
+  front wheels; wider mounts remove sampled self-contact and rescue71 for278s,
+  but only tilt73. A47-part rotary head also rescues71, then gets blocked by72.
+  Matched1620→1800s detour programming still fails the heavy rescue; no actor
+  losses/errors/deaths/friendly projectile hits. Full traces:
+  `...-chrome-rescue-{held,parallel,parallel-wide,rotary,rotary-route}/salvage/`.
+  All prototypes remain unbundled. See task205300 for measured constraints.
+- 20260926-044300 latest trials: precise aiming and the longer existing channel
+  gun geometry hit cargo without breaking its grip. The central-hit60Hz candidate
+  hits at23.675m/s, reaches a sampled0.806m magnet gap (break distance1.2m), then
+  hits friendly loader107 twice. Reject it. The corresponding20Hz baseline was an
+  incorrect assumption: the original gun already runs60Hz. The candidate's failed
+  ejection/friendly hits are direct evidence, but this is not a fair tolerance-only
+  comparison. `center-60-comparison.c` is prepared, unrun. Full traces:
+  `...-chrome-payload-{precision,long-arm,center}/salvage/`.
 - 20260926-000614: sustained battery supply remains too slow after one reload.
-- 20260925-205300: target-preserving dozer program fails its120s rescue gate, but
-  gets all three magnets onto73 and begins lifting at1797.117s, only2.88s before
-  the trial ends. Both branches retain121 actors without errors/deaths/friendly
-  impacts; guard remains inverted and gun91 unfired. Evidence:
-  `build/blockwalker-compound-regressions-chrome-rescue-target/salvage/`.
-  Next prepared, not run: `build/blockwalker-rescue-dozer/held-continuation.c`,
-  using target-grip-catalog.json and that trial's guard-candidate.json. It runs60s
-  from1800, records dozer sensors each second and requires physical righting plus
-  firing91. Measure this actual lift before changing actuator forces or design.
-- 20260926-044300: payload-defense research. Channel900s diagnostic sees no loaded
-  enemy because59 stalls on traffic. Yard600s trial hits light121 at13.102m/s but
-  it stays attached and is delivered. Matched300→420s faster throw hits heavy80 at
-  19.246m/s but likewise does not detach it. Both branches normally release80 at
-  the depot with magnet power0. Matched420→540s light test gets no shot: tender111
-  collects121 before the aircraft. That is competing retrieval, not a deadlock.
-  Evidence: `...-chrome-payload-{yard,energy,light}/salvage/`; full traces retained.
-  The channel diagnostic and latest fresh trial were stopped without final full
-  traces; their progress saves remain. The latter's natural armed light-payload
-  save is `...-chrome-payload-couriers/salvage/progress-defense-light.json` at
-  466.017s. Prepared `precision-comparison-catalog.json`/`payload-comparison.c`
-  can replay it without placing cargo or altering opponents. Unrun.
-  Do not claim air denial from hits alone.
+- Natural armed light-payload replay input remains
+  `...-chrome-payload-couriers/salvage/progress-defense-light.json` at466.017s.
+  The interrupted channel/courier diagnostics retain progress saves but no final
+  full traces. Later completed precision/geometry comparisons retain full traces.
 - 20260925-195200: courier60 yielding already passes isolated replay; unbundled.
   Same traffic stall affects59 at900s in the channel diagnostic:122 lies at0.485m,
   while nearby111 holds the courier's clearance altitude at8.505m. Prepared exact

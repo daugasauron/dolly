@@ -110,3 +110,47 @@ pass/failure; no final full trace was exported. Saved progress and log remain.
 The natural armed light-payload save at466.017s is the better next comparison
 input: gun87 holds90 while courier59 lifts121. Precision comparison remains unrun;
 image41 and all physical blueprints are unchanged.
+
+Precision replay completes466.017→586.017s in both branches, raw failure1.
+Baseline fires90 at473.600s, misses121 and hits the aircraft instead. Candidate
+fires at472.867s and hits121 at474.150s, approach speed16.026m/s. Cargo maximum
+sampled speed rises2.619→6.467m/s, but its grip survives and both branches deliver.
+First releases561.833/558.833s both have magnet power0. Each branch retains125
+objects; no errors, missing originals, deaths or friendly impacts. Full trace and
+both final worlds: `...-chrome-payload-precision/salvage/`.
+
+Prepared next physical variant: yard87 uses the existing channel battery's
+87-part longer arm and taller mast, with unchanged700Nm motors and100N magnet.
+The longer geometry preserves the loading height. Existing courier backoff and
+precise payload aiming remain; all other bodies/programs match image41. Inputs:
+`long-arm-catalog.json`/`long-arm-defense.c`, maximum600s from a fresh world.
+Running as payload-long-arm; require a real powered-magnet cargo ejection, not
+merely another hit. Image41 remains unchanged.
+
+Long-arm trial completes600s, raw failure1:124 objects,16 deliveries, no errors,
+missing originals, deaths or friendly impacts.91 hits80 at299.300s at20.042m/s;
+90 hits81 at592.967s at20.605m/s, and the carrier at21.362m/s. Three payload-contact
+events, no powered grip loss.80 is still delivered at379.767s;81 remains held at
+the end. Courier59's own delivery-memory counter is0, but authoritative delivery
+events and cargoDelivered record its completed80 delivery. Do not mistake that
+controller statistic for denial. Full trace: `...-chrome-payload-long-arm/salvage/`.
+
+Central-hit replay uses `center-comparison-catalog.json` and
+`center-comparison.c`, using the natural466.017s light encounter. Baseline is the
+precise program forced to20Hz; candidate uses60Hz and0.17m center
+tolerance. Bodies/forces remain identical. New diagnostics record contact normals
+and the actual magnet-pole/attachment-point gap, to distinguish swinging from
+separation. A hit alone still fails the disruption gate.
+
+Both branches complete586.017s, raw failure1. Candidate hits121 at486.667s at
+23.675m/s with a nearly horizontal contact normal, but sampled grip gap peaks
+0.806m, below the existing1.2m break distance. It then hits friendly loader107
+twice while airborne (14.602/1.936m/s). Both branches deliver121;125 objects each,
+no missing actors/errors/deaths. This candidate is unsafe and remains unbundled.
+Evidence: `...-chrome-payload-center/salvage/`.
+
+Rate audit: the original gun and previous precision replay already run at60Hz.
+The20Hz baseline in this fixture was an incorrect assumption, so this pair changes
+both rate and tolerance and is not a comparison against the previous precision
+baseline. The candidate's failed ejection and friendly impacts remain direct
+evidence. `center-60-comparison.c` corrects the rate for a future comparison; unrun.

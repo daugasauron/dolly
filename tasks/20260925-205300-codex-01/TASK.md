@@ -97,3 +97,56 @@ guard-candidate.json with the unchanged target-grip program. It records the
 dozer's ram angles, magnet loads and controller state every second, and still
 requires physical righting plus91 fired without actor losses or friendly hits.
 Measure the lift before changing actuator strength or the vehicle design.
+
+The unchanged held continuation now completes1800→1860s, raw failure1. Guard73
+remains inverted (sampled up−1.000000 to−0.997176);91 is not fired.122 objects,
+no missing originals, controller errors, deaths or friendly impacts. During the
+first lift, the base100N piston stays near zero extension and the upper one near
+0.61m. A second lift reaches0.96m at the upper piston but again fails to tilt73.
+The42.45kg guard weighs about170N in this world's gravity; serial pistons do not
+add lifting force. All three magnetic grips alone are insufficient.
+Evidence: `build/blockwalker-compound-regressions-chrome-rescue-held/salvage/`.
+
+Prepared mechanical alternative: three parallel100N pistons drive one rigid
+magnetic crossbar. The first37-part prototype interferes with its front wheels
+and drives away from the rescue; its trial is still running. A41-part variant
+moves the existing wheels outward on ordinary box mounts, clearing that beam.
+`parallel-wide-catalog.json` uses the unchanged target-grip program, wheel torque,
+magnet forces and original opponents. It has not run; no prototype is bundled.
+
+Both parallel-piston variants now complete their300s trials. The narrow version
+rescues neither teammate; sampled wheel/beam self-contact reaches21kN and it
+overturns. The wide version records zero sampled self-contact, rights71 for278.11s
+after release, retains122 actors and stays upright (minimum0.978), with no errors,
+deaths, missing originals or friendly impacts.73 still only tilts to up−0.9308;
+the two grips are both on its wheel20 while all three pistons extend together.
+Gun87 still holds91. Evidence: `...-chrome-rescue-parallel{,-wide}/salvage/`.
+
+Next unrun variant:47-part rotary recovery truck, `rotary-catalog.json`/`rotary.js`.
+The same three parallel pistons raise a3×3 rotating head with five100N magnets.
+It requires a grip on a substantial body as well as enough total holding force,
+turns the attached teammate upright, then lowers it before releasing.700Nm bearing
+and all other configured forces are within existing part limits; no engine change.
+
+Rotary variant completes300s, raw failure1:122 objects, no sampled self-contact,
+errors/deaths/missing originals/friendly projectile impacts. Minimum wrecker up
+0.98364. It turns71 upright, lowers/releases it and records141.93s upright time.
+It never begins a lift on73: opposing guard72 obstructs the direct approach.
+Accidental grips are released without changing the rescue target, but the truck
+keeps pushing into that traffic.73 stays inverted and91 remains unfired.
+Evidence: `...-chrome-rescue-rotary/salvage/`.
+
+Matched1620→1800 replay now runs `rotary-route-replay.c`/`rotary-route-catalog.json`.
+Only118's program changes: choose a clear detour around an intervening machine,
+turn magnets off during the detour, then resume the same physical rescue. It uses
+body width for the travel corridor and full turning clearance at the waypoint.
+Recorded1620s sensors choose(63.759,−4.815) around72; this static decision is not
+movement proof. Await `...-chrome-rescue-rotary-route/salvage/` before promotion.
+
+The matched route replay completes with both branches still failing:122 actors,
+no errors/deaths/missing originals/friendly impacts,73 inverted and91 unfired.
+The candidate does release the wrong grips and drive toward detours, but fails
+to reach them before replanning; it later also routes around the loaded gun.
+At1800s it is upright at(70.64,−4.73), versus the earlier blocked approach. Nobody
+holds it magnetically in the1680/1800 saves. This does not establish a successful
+heavy rescue or ammunition release. Keep the prototype unbundled.
