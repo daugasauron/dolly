@@ -111,15 +111,23 @@ is inconclusive. Do not promote it based on hit counts alone.
 Current combined inputs: `build/blockwalker-battery-supply/`
 `fresh-diagonal-drop-catalog.json` and `fresh-reload-status.c`. Fresh111 actors,
 maximum1800s, earliest successful stop1200s; require repeated outside-ammunition
-chains, both warehouses, intended hits and no friendly hits/loss/errors. At480s
-the truck is on its second load and the tender has one job; warehouse jobs0/0.
+chains, both warehouses, intended hits and no friendly hits/loss/errors. At780s
+the truck waits with its second load behind an occupied quay bay; crane54 has
+no jobs and both warehouses remain0. Tender111 is lowering outside crate125,
+with one earlier job. Inspect the actual cargo/free-boat predicates when the
+final world and trace are exported; do not infer the cause from position alone.
 The earlier short route test passed, but that is not a combined-world pass.
 
 Next prepared test: `build/blockwalker-guard-recovery/{catalog.json,replay.c}`,
 input `...-chrome-checkpoint-combined/salvage/blockwalker-world.json` at1500s.
 Guard73 is inverted and disables its actuators. The candidate tries to right it
 using existing fork rams; require stable recovery and gun87 firing its loaded91.
-Exports `guard-baseline.json,guard-candidate.json`. Unrun. The optional
+Use `build/blockwalker-progress-browser.mjs` for this next test. It adds a
+listener for periodic `progress-*.json` downloads emitted by the fixture through
+the existing in-Dolly download command. The guard fixture exports each branch
+at1560s so snapshots can be inspected while simulation continues. This harness
+passes Node syntax checking but has not run in the browser yet. Final exports:
+`guard-baseline.json,guard-candidate.json`. The optional
 `build/blockwalker-dense-ammunition/impact-detail.c` is also unrun.
 Detailed successful and failed evidence paths are recorded in the corresponding
 issues. Do not remove actors/cargo or weaken opponents to satisfy quotas.
