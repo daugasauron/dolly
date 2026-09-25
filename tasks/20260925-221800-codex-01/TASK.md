@@ -137,3 +137,13 @@ remain unchanged. Evidence: `build/blockwalker-image39-preview{,-firefox}/`,
 Local preview9099 serves this image. The broader task remains open: sustained
 ammunition retrieval, cargo throughput, traffic coordination and balanced air
 defense still need work; two hits do not establish successful shootdowns.
+
+2026-09-26: user requested a stable checkpoint. Keep image39 at07967f6 as the
+playable build; tag `blockwalker-stable-20260926` also records the current handoff
+and follow-ups. Both browsers recheck all111 catalog entries, six saved worlds
+and physical magnet attachments with no errors. Image/source hashes and protected
+files/catalog are unchanged. Evidence: `build/blockwalker-checkpoint-20260926-`
+`preview{,-firefox}/proof.json` and corresponding preservation.json.
+Supply experiments remain unbundled; task20260926-000614 records their failed
+sustained-supply checks and the first completed tender delivery. This broader
+gameplay task stays open.

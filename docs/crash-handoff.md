@@ -2,13 +2,16 @@
 
 Worktree: `/home/daug/dev/dolly/work/gpu-shaders`.
 Branch: `codex/blockwalker-playground-20260923`.
-Checkpoint: image39, tag `blockwalker-checkpoint-20260925-image39`.
+Checkpoint: image39, tag `blockwalker-stable-20260926`.
+Game implementation:07967f6 (`blockwalker-checkpoint-20260925-image39`).
 Local app: `http://127.0.0.1:9099/blockwalker/`, owned user service
 `dolly-blockwalker-preview-20260924.service`; relay 9010.
-No push/deploy requested. No disposable verification browser remains.
+No push/deploy requested. The user requested a stable checkpoint; image39 stays
+served. All diagnostic and verification browsers have exited.
 
 The broader world/competition goal through 2026-09-26 13:00 JST remains open in
-`tasks/20260925-221800-codex-01/TASK.md`. This is a verified intermediate checkpoint.
+`tasks/20260925-221800-codex-01/TASK.md`. Its remaining gameplay issues are not
+closed by this checkpoint.
 
 ## Included
 
@@ -61,6 +64,13 @@ No browser/controller errors or model requests. Build45.0s, packaging38.0s.
 `build/blockwalker-image39-preservation.json`: six protected files (392,379,755 bytes),
 12 other images and13 catalog entries preserved. Dollyfile lint passes 40 recipes.
 
+2026-09-26 checkpoint recheck: Chrome and Firefox again pass all111 catalog
+entries, six saved worlds and both physical cargo attachments, with no browser
+or controller errors. Rendered views inspected. Evidence:
+`build/blockwalker-checkpoint-20260926-preview{,-firefox}/proof.json`.
+Source/snapshot hashes still match above; preservation check again passes in
+`build/blockwalker-checkpoint-20260926-preservation.json`. No rebuild was needed.
+
 Component evidence under `build/blockwalker-compound-regressions-chrome-`:
 - `renewal-inlet-boat/salvage/inlet-proof.json`: skiff drives 24m into the inlet and
   brakes using thrusters;75s, minimum up 0.975939, no loss/error.
@@ -73,6 +83,18 @@ Component evidence under `build/blockwalker-compound-regressions-chrome-`:
   Earlier northern placements fire no shots and remain failed experiments.
 
 ## Open follow-ups
+
+Supply investigation: `tasks/20260926-000614-codex-01/TASK.md`, with local candidates
+and fixtures in `build/blockwalker-battery-supply/`. None are bundled. The baseline
+stops after three starting rounds; the first pickup fix delays the gun by blocking
+its swing. Generic radio coordination removes that hold. Bay rechecking and full
+vehicle terrain clearance eventually let tender111 deliver scrap101, but at1500s
+the shuttle has not collected it and the gun still has only three shots. The raw
+test fails;134 objects,26 deliveries, no losses/errors. Continue from that saved
+world to investigate the tender→shuttle request/handoff before promoting changes.
+`terrain-contact.c` is prepared but unrun, so the suspected slag-terrace contact
+is not confirmed. A separate three-program freight-chain trial is prepared under
+`build/blockwalker-freight-chain/` but has not run.
 
 Preserve captures and teammate rescues. Do not remove actors/cargo or weaken
 opponents to satisfy quotas. Improve sustained supply, ammunition recovery,
