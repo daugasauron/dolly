@@ -189,3 +189,23 @@ Use `build/blockwalker-progress-browser.mjs`; its existing in-Dolly download
 command exports progress saves while the fixture runs, verified in the handoff
 and guard replays. Preserve the failed full run. Image40 bundles none of these
 supply/freight candidates; this issue stays open at the stable checkpoint.
+
+Latest fresh1800s run `battery-incremental-fresh` still fails sustained supply:
+four shots, one outside-supplied round125, two tender jobs (the other moves unused
+starter110). All four shots hit their intended aircraft:14 buffered impacts,
+zero friendly impacts.134 objects,31 deliveries, no controller errors/deaths or
+missing originals; both heavy warehouses now complete two jobs.
+
+125 attaches111 at740.383s,107 at829.450s, transfers to106 at868.517s, fires at
+883.167s and hits aircraft9 at884.567s. Gun ownership changes before its magnet
+attachment; the per-tick C chain records that later grip, while5s sensor samples
+miss it. The offline `supply-cycles.py` therefore reports zero cycles for this
+trace; that sampling limitation does not override the per-tick fixture's one.
+No second physical resupply cycle is established.
+
+The tender continues selecting and approaching pickups rather than permanently
+deadlocking, but is too slow. Latest evidence and raw failed result:
+`build/blockwalker-compound-regressions-chrome-battery-incremental-fresh/salvage/`.
+Image41 is packaged with the verified shuttle reach recheck and tender
+clearance/drop fixes, alongside the freight programs. Sustained supply remains
+open; neither the quota nor friendly-fire clearance has been weakened.

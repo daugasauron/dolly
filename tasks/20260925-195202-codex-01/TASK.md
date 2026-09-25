@@ -1,6 +1,6 @@
 # Unblock East heavy freight before the warehouse
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: game,content,bug
 
@@ -168,3 +168,31 @@ the boat already turned south along its authored coast route (route3). Baseline
 likewise reaches(131.927,96.812), minimum up0.963693. Preserve these raw failures;
 they do not indicate a lost load or navigation failure. Future departure checks
 must allow progress around the route instead of requiring the northern row.
+
+Fresh combined verification now completes both freight chains twice in1800s.
+`build/blockwalker-compound-regressions-chrome-battery-incremental-fresh/salvage/`
+contains the full trace,300s progress saves and `freight-proof.json`.
+Actual magnet attachments (seconds; boat pickup sampled):
+
+| Cargo | Hauler53 | Crane54 | Barge | Island crane | Warehouse |
+| --- | ---: | ---: | --- | --- | --- |
+|112|19.917|205.267|55 at250.017|57 at572.033|77 at716.433|
+|116|295.117|477.267|56 at510.017|58 at807.517|78 at883.800|
+|120|571.267|915.317|55 at950.017|57 at1407.050|77 at1509.617|
+|126|847.550|1126.717|56 at1160.017|58 at1519.717|78 at1580.983|
+
+All four finish delivered, released and stationary in island storage; each
+warehouse completes two jobs.134 final objects,31 deliveries, all111 originals
+present, zero controller errors/deaths. Minimum up: truck0.990412, boats
+0.926593/0.893361. The combined fixture still exits1 because it requires two
+outside ammunition reloads and gets only one; that separate task stays open.
+Do not call the combined fixture an overall pass.
+
+Promoted programs: diagonal hauler route, edge-reaching quay crane and incremental
+barge detours. The detour evaluates one candidate per control update, with the
+existing interpreter budget and normal thrusters. Image41 builds inside Dolly
+in46.0s. Chrome and Firefox each verify111 bundled designs and seven saved worlds,
+including this134-object final state, with preserved programs/blueprints and no
+new errors/deaths. Evidence: `build/blockwalker-image41-preview{,-firefox}/proof.json`.
+Served artifacts match local hashes; protected user state and12 other images are
+unchanged. Completed in tag `blockwalker-stable-20260926-image41`.

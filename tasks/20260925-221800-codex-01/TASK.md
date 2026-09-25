@@ -216,3 +216,37 @@ rates; they are not evidence of a performance improvement. Eight shader lines
 add muted yellow/charcoal edge paint only to broad, thin, horizontal steel decks.
 No geometry or physics changes. Source updated; served image40 remains unchanged.
 Evidence: `build/blockwalker-yard-markings/paired-{chrome,firefox}/`.
+
+Next air-defense experiment, prepared but unrun:
+`build/blockwalker-payload-defense/{catalog.json,slinger.js,defense.c}`. The existing
+channel gun waits for an enemy aircraft carrying cargo and aims at the payload.
+This tests whether a normal light projectile can break the magnetic cargo grip,
+which could interrupt deliveries even when the aircraft stabilizes after impact.
+No damage rule, forced detach, stronger magnet or special engine force is added.
+The fixture requires an actual projectile contact followed within3s by loss of
+that carrier's magnet attachment while the payload remains at least5m above the
+local floor, then observes30s more. It rejects friendly impacts and any actor
+loss/error; maximum1800s, periodic300s saves. Three early shots at quarry scout9
+currently hit without establishing a useful reduction in air retrieval.
+Do not claim this candidate works until the physical trial is run.
+
+Checkpoint preparation: fresh `battery-incremental-fresh` reaches1800s with
+134 objects,31 deliveries, all111 originals, no controller errors/deaths. Both
+heavy warehouses store two loads through actual truck/crane/barge/forklift
+attachments. Four shots produce14 intended-aircraft impacts and zero friendly
+impacts. Only one outside ammunition reload completes, so the combined fixture
+correctly remains failed and task000614 remains open. Task195202 records the
+individual freight stages. Image41 packages those six verified controller
+changes and the previously measured dock-edge paint; all blueprints are retained.
+Rescue-dozer and payload-defense experiments remain unbundled.
+
+Image41 checkpoint verified:46.0s in-Dolly build, Chrome/Firefox111-design checks
+and seven restored worlds pass, including the134-object1800s run. No new errors,
+deaths or model requests; original saved attachments and programs are preserved.
+Six protected files392379755bytes,12 other images and13 catalog entries remain
+unchanged. Served source/snapshot/runtime hashes match local artifacts; all40
+recipe lint checks pass. Evidence: `build/blockwalker-image41-`
+`{artifacts,preservation}.json` and `preview{,-firefox}/proof.json`.
+Tag `blockwalker-stable-20260926-image41`; local9099 preview remains available.
+All disposable browser trials ended;11 orphaned Xvfb-only test scopes were stopped.
+The broader competition goal and ammunition/rescue issues remain open.
