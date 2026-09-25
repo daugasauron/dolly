@@ -72,7 +72,7 @@ export const browserSources = new Set([
   "src/audio-provider.mjs",
 ]);
 
-export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map(), fixtures = {}) {
+export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map(), fixtures = {}, responseHeaders = {}) {
   await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", `dolly-${image}-system.snapshot`]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
       throw new Error(`Core browser checks need a built runtime and ${image} image. Run npm run build:runtime once, then npm run image -- ${image}.`, { cause: error });
@@ -143,14 +143,14 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
   files.set("/custom/rebuild", "build/routes/custom/rebuild/index.html");
   files.set("/custom/run", "build/routes/custom/run/index.html");
   files.set("/session", "build/routes/session/index.html");
-  const requests = new Set();
+  const requests = new Map();
   let cancelledRequests = 0;
   const server = createServer(async (request, response) => {
     const headers = { "cache-control": "no-store", "cross-origin-opener-policy": "same-origin",
-      "cross-origin-embedder-policy": "require-corp", "cross-origin-resource-policy": "same-origin" };
+      "cross-origin-embedder-policy": "require-corp", "cross-origin-resource-policy": "same-origin", ...responseHeaders };
     try {
       const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname).replace(/\/+$/, "");
-      requests.add(path);
+      requests.set(path, (requests.get(path) ?? 0) + 1);
       if (path === "/fixture/echo" && request.method === "POST") {
         response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
         request.pipe(response);
@@ -194,6 +194,7 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
       const relative = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(path)
         ? "build/routes/session/open.html" : files.get(path);
       if (!relative) throw new Error("not a test asset");
+      if (path.startsWith("/dist/packs/")) headers["cache-control"] = "public, max-age=31536000, immutable";
       if (sourceOverrides.has(path)) {
         response.writeHead(200, {...headers,"content-type":mimeTypes.get(extname(relative))});
         response.end(request.method === "HEAD" ? undefined : sourceOverrides.get(path));

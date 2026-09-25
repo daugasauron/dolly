@@ -59,3 +59,21 @@ confirmed that GitHub must publish the latest code from the same source commit
 as the domain, with the smaller image selection. Publish the current GitHub
 release only; older GitHub tabs may need reloading. This is the approved exception
 to predecessor retention. The domain retains all four deployed predecessors.
+
+All 43 selected snapshots are built. The full artifact gate passes 27/27 and
+source checks pass 279/279 (`deploy-artifacts-final.log`, `deploy-source-final.log`
+under `.cache/0ad`). The artifact check now recognizes the explicitly exported
+Dollyfile compiler source in Pi Local and Studio. Codex's TUI, shell tools,
+device-login cancellation, persisted authentication, refresh and restart pass
+against local fixtures (`deploy-codex-checks.log`).
+
+Local inference, engine reuse, cancellation/restart, bounded session saves,
+rejection of a modified large model, restoration and fresh boot pass in Chrome
+151 and Firefox 155 with external connections denied (`deploy-llm-final.log`).
+The test now uses immutable pack headers and CSP instead of Playwright routing,
+which disables the HTTP cache. Streaming boots leave cache retention to the
+browser: an isolated Chrome check reused 54 packs but fetched the two largest
+again. The test records download counts instead of promising cache persistence;
+its inference and session assertions remain intact. Runtime code is unchanged.
+Core and custom-session checks also pass again in both browsers after the test
+server changes (`deploy-core-custom-final.log`).
