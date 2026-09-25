@@ -27,11 +27,18 @@ Blockwalker from this release on both sites. The two committed selection files
 omit it; the domain retains the other images, complete 0 A.D. content and Agents
 at play.
 
-Release preparation rebuilds all 44 images against the current runtime and
-refreshes the Blockwalker, Dollyfile Studio and local LLM source pins. Source
+Release preparation rebuilds the 43 selected images against the current runtime and
+refreshes pinned build inputs. Source
 checks pass 279/279; core and custom-session checks pass in Chromium and Firefox,
 including ABI enforcement, denied host access, process recovery and restoration
 after closing a tab. Logs are `.cache/0ad/deploy-{source,core,custom-sessions}.log`.
+The streaming HTTP check passes a 65 MiB + 17-byte checksum, bounded uploads,
+response quotas and cancellation/reuse (`.cache/0ad/deploy-http-stream.log`).
+Fluid passes controls, pause/reset, 1080p rendering, GPU replay equivalence,
+interruption/restart and boundary checks in Chrome 151 and Firefox 155
+(`.cache/0ad/deploy-fluid.log`, `build/fluid-proof/results.json`). Its screenshot
+assertions now use bounded Buffer comparisons, avoiding the failure formatter
+identified in the host-freeze investigation.
 
 The 0 A.D. archives now have a 24 MiB bound, including ZIP headers, to fit Pages'
 25 MiB assets without adding a delivery rule for every source and snapshot pack.

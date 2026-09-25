@@ -31,7 +31,7 @@ The existing GPU timestamp queries measured only 0.33–0.42 ms for scene render
 Separating terrain/population trees increased CPU tree time from about 1.31 to
 1.52 ms and GPU time slightly; rejected (`build/blockwalker-tree-compare/`).
 Caching transformed bounds alone reduced tree time to about 1.17 ms, a small
-saving for the extra storage (`build/blockwalker-bounds-compare/`). 
+saving for the extra storage (`build/blockwalker-bounds-compare/`).
 
 ## Selected change and validation
 

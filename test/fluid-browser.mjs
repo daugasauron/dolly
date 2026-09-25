@@ -29,11 +29,11 @@ try {
    await shot('ink');
    // Hidden controls and paused simulation must produce stable pixels.
    await page.keyboard.press('Space');await page.keyboard.press('h');await frames();
-   const paused=await shot('paused');await frames();assert.deepEqual(await page.screenshot(),paused);
+   const paused=await shot('paused');await frames();assert.ok((await page.screenshot()).equals(paused),'Paused fluid changed pixels');
    await page.keyboard.press('h');await page.mouse.click(160,208);await frames();await shot('smoke-controls');await page.keyboard.press('h');await frames();
-   const smoke=await shot('smoke');assert.notDeepEqual(smoke,paused);
+   const smoke=await shot('smoke');assert.ok(!smoke.equals(paused),'Smoke mode did not change pixels');
    await page.keyboard.press('h');await page.mouse.click(280,208);await frames();await page.keyboard.press('h');await frames();
-   assert.notDeepEqual(await shot('shaded'),smoke);
+   assert.ok(!(await shot('shaded')).equals(smoke),'Shading did not change pixels');
    await page.keyboard.press('Space');await page.keyboard.press('h');await page.mouse.click(320,244); // automatic off
    await page.mouse.move(700,500);await page.mouse.move(1050,300,{steps:20});await frames();await shot('mouse');
    await page.mouse.click(290,100); // 1080p: subsequent buttons are scaled to the viewport.
@@ -49,7 +49,7 @@ try {
    assert.ok((after.dispatches-before.dispatches)/(after.frames-before.frames)>55,'Pressure button did not add solver iterations');
    await page.mouse.click(60*2/3,208*2/3);await page.mouse.move(600,400);await page.mouse.move(1100,550,{steps:30});await frames();
    await page.keyboard.press('Space');await page.keyboard.press('h');await frames();
-   const filled=await page.screenshot();await page.keyboard.press('r');await frames();assert.notDeepEqual(await shot('reset'),filled);
+   const filled=await page.screenshot();await page.keyboard.press('r');await frames();assert.ok(!(await shot('reset')).equals(filled),'Reset did not change pixels');
    const renderStatus=await page.evaluate(()=>__dolly.gpu);assert.equal(renderStatus.stats.readbackBytes,0);
    await page.keyboard.press('q');await page.waitForFunction(()=>!__dolly.graphicsActive&&!__dolly.gpu.active);
    const measurements=[];
