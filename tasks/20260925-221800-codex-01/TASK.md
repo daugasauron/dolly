@@ -262,3 +262,10 @@ Rescue205300's target-preserving dozer gains all three grips on73 near the end o
 its120s replay; the guard is still inverted. A60s continuation is prepared to
 measure that lift rather than declaring its just-started attempt ineffective.
 The served image41 and its verified checkpoint remain unchanged.
+
+Latest checkpoint request: stopped the fresh defense experiment after retaining
+its1200s save; no experimental browser remains active. Rechecked image41 in Chrome
+and Firefox, including rendered views and all111 exported designs. Served hashes,
+22 canonical source files and six preserved user files match. New checkpoint-notes
+tag: `blockwalker-checkpoint-20260926-image41`. Broader gameplay goals remain open;
+payload ejection, reliable rescues and sustained ammunition supply are unproven.

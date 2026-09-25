@@ -3,19 +3,17 @@
 Worktree: `/home/daug/dev/dolly/work/gpu-shaders`.
 Branch: `codex/blockwalker-playground-20260923`.
 Verified checkpoint: `blockwalker-stable-20260926-image41`.
+Latest verification and deferred-work notes: `blockwalker-checkpoint-20260926-image41`.
 Local app: `http://127.0.0.1:9099/blockwalker/`.
 Owned service: `dolly-blockwalker-preview-20260924.service`; relay9010.
-The checkpoint request is complete; the broader competition goal has resumed.
-Active fresh flight-defense trial: session34176, scope
-`run-rc1f89e3e42c945b7827eb044a1dc8b32.scope`,2400s wall timeout.
-Log: `build/blockwalker-payload-defense/courier-trial.log`. Poll before another browser.
-Inputs: `courier-defense-catalog.json` and `courier-defense.c` in that directory;
-output `build/blockwalker-compound-regressions-chrome-payload-couriers/salvage/`.
-Only experimental programs59/60 (existing traffic backoff) and87 (payload aim,
-full configured speed,95% magnet-force bound) change; all111 blueprints remain.
-Max1800s, stops60s after a powered-magnet cargo ejection. Saves300s progress plus
-first armed light-payload opportunity for a matched replay. Served image41 is
-unchanged. Goal remains active through2026-09-26 13:00 JST.
+The latest checkpoint request retains verified image41. No experimental browser
+trial remains active. The fresh flight-defense trial was stopped deliberately
+after retaining its1200s save; it did not complete its1800s fixture or export a
+final full trace. Log: `build/blockwalker-payload-defense/courier-trial.log`.
+Its130-object save preserves all111 originals,23 deliveries and no controller
+errors/deaths. Three shots produced three payload-contact events but no powered
+magnet ejection. Experimental programs59/60/87 remain unbundled. Broader competition,
+ammunition and rescue tasks remain open; this checkpoint is not their completion.
 Eleven old Xvfb-only test scopes were stopped during checkpoint cleanup; user
 browser processes and profiles were untouched.
 
@@ -72,6 +70,12 @@ All22 archived source files match canonical source; served source/snapshot/Wasm
 match local hashes and runtime identities recompute correctly. Evidence:
 `build/blockwalker-image41-artifacts.json`.
 
+Latest checkpoint recheck: Chrome and Firefox both boot, render four world views,
+and export all111 designs with matching programs/blueprints and zero errors/model
+requests. Evidence: `build/blockwalker-stable-checkpoint-preview{,-firefox}/`.
+Served hashes, all22 source files and six preserved user files were rechecked:
+`build/blockwalker-stable-checkpoint-artifacts.json`. No rebuild was needed.
+
 Dock paint uses14 paired fixed views of the same119-object save,30s warmup and15s
 sampling. Chrome30.38→29.94FPS; Firefox33.55→32.68FPS,121 final objects without
 errors/deaths. These samples show slightly lower FPS, not a performance gain.
@@ -113,8 +117,12 @@ Image38/39 fallbacks remain. Never replace the preserved user saves during rollb
   the depot with magnet power0. Matched420→540s light test gets no shot: tender111
   collects121 before the aircraft. That is competing retrieval, not a deadlock.
   Evidence: `...-chrome-payload-{yard,energy,light}/salvage/`; full traces retained.
-  Only the first channel diagnostic was stopped without a final full trace.
-  Active fresh trial is described above. Do not claim air denial from hits alone.
+  The channel diagnostic and latest fresh trial were stopped without final full
+  traces; their progress saves remain. The latter's natural armed light-payload
+  save is `...-chrome-payload-couriers/salvage/progress-defense-light.json` at
+  466.017s. Prepared `precision-comparison-catalog.json`/`payload-comparison.c`
+  can replay it without placing cargo or altering opponents. Unrun.
+  Do not claim air denial from hits alone.
 - 20260925-195200: courier60 yielding already passes isolated replay; unbundled.
   Same traffic stall affects59 at900s in the channel diagnostic:122 lies at0.485m,
   while nearby111 holds the courier's clearance altitude at8.505m. Prepared exact

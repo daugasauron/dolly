@@ -100,4 +100,13 @@ Prepared tighter comparison, not run: `precision-comparison-catalog.json` return
 to the original target-radius tolerance while retaining full motor speed/95%
 force bound. Reuse `payload-comparison.c` on the actual277.500s
 progress-defense-target.json. Baseline remains the original70%-speed payload
-program. Await the active fresh trial before starting another browser.
+program.
+
+Stopped the fresh trial for the user's stable-checkpoint request after retaining
+progress-payload-1200.json:130 objects, all111 originals,23 deliveries, no controller
+errors/deaths. Three shots and three payload-contact events, no forced grip loss
+or friendly impacts. This is an interrupted diagnostic, not a completed1800s
+pass/failure; no final full trace was exported. Saved progress and log remain.
+The natural armed light-payload save at466.017s is the better next comparison
+input: gun87 holds90 while courier59 lifts121. Precision comparison remains unrun;
+image41 and all physical blueprints are unchanged.

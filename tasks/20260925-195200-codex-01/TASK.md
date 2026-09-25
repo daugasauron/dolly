@@ -49,3 +49,11 @@ Prepared continuation, not run: `build/blockwalker-payload-defense/`
 change only59's program; preserve all actors. Require another courier delivery
 and independently measure projectile contact/cargo grip loss; no weaker opponent
 or automatic detachment. Maximum900s additional simulation.
+
+Latest fresh payload-couriers trial stopped for checkpointing after its1200s save.
+East59 has three deliveries and two blocked-pickup yields; West60 has five
+deliveries and is carrying129. All111 originals remain among130 objects, with no
+controller errors/deaths. This supports continued investigation, but the combined
+defense fixture is unfinished and these programs remain unbundled. Image41 is the
+served checkpoint. Evidence: `build/blockwalker-compound-regressions-chrome-`
+`payload-couriers/salvage/progress-payload-1200.json`.
