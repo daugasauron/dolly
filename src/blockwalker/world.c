@@ -446,7 +446,8 @@ static Creature *spawn(const Character *design,const char *source,const char *na
     if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
     if(world.count==world.capacity){world.capacity=world.capacity?world.capacity*2:16;world.creatures=array_resize(world.creatures,world.capacity,sizeof(Creature));}
     Creature *c=&world.creatures[world.count++];memset(c,0,sizeof(*c));c->id=world.next_id++;snprintf(c->name,sizeof(c->name),"%s",name);c->controller=controller;
-    c->cargo=design->count==1&&!design->anchored;
+    c->cargo=!design->anchored;
+    for(int i=0;i<design->count;i++)if(design->blocks[i].joint!=BLOCK_BOX)c->cargo=0;
     character_copy(&c->design,design);physics_attach(&c->physics,&c->design,world.physics,x,z,1);c->physics.time=world.age;
     Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);c->root_height=p.y-fmaxf(terrain_height(x,z),WATER_LEVEL);return c;
 }
@@ -580,7 +581,7 @@ static void supply_step(void){
         Character crate={0};character_add(&crate,-1,0,0,0,BLOCK_BOX,1);character_add(&crate,0,1,0,0,BLOCK_BOX,1);character_add(&crate,0,0,0,1,BLOCK_BOX,1);character_add(&crate,1,1,0,1,BLOCK_BOX,1);
         for(int i=0;i<crate.count;i++){crate.blocks[i].material=MATERIAL_BALLAST;crate.blocks[i].finish=FINISH_STRIPE;}
         Creature *cargo=spawn(&crate,"function(){return ''}","Ore pallet",1,1,-47,60.5f);character_clear(&crate);
-        if(cargo){cargo->cargo=1;cargo->supply=2;set_spawn_height(cargo,-6.9f);}
+        if(cargo){cargo->supply=2;set_spawn_height(cargo,-6.9f);}
         world.next_ore=world.age+60+30*supply_random();
     }
     if(terrain_version>=2&&world.age>=world.next_mine&&mine<2&&!mine_blocked&&drilling){

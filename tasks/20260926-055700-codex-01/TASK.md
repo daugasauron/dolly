@@ -1,6 +1,6 @@
 # Treat passive block assemblies as cargo
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: game,cargo,physics
 
@@ -15,7 +15,8 @@ passive multi-box assembly, so this does not reclassify existing bundled robots.
 
 Experimental source: `build/blockwalker-multipart-cargo/world.c` and `source.tar`.
 Two lines replace the single-block rule; the ore-specific assignment is removed.
-The served image41 and canonical source remain unchanged.
+The initial experiment left served image41 and canonical source unchanged; the
+verified classification is now in canonical source as recorded below.
 
 The payload-beam trial replaces three ammunition props with ordinary
 three-block beams: one alloy box and two hull boxes, about1.369kg total, below the
@@ -34,4 +35,23 @@ holds beam91; it loses that grip during spin-up around280.217s. The fixture exit
 and retains its full trace. This does not establish a usable ammunition design.
 `build/blockwalker-multipart-cargo/handoff.c` is a prepared, unrun focused handoff
 check. Browser rendering/save restoration of the experimental source remains
-unverified. Keep the feature and beam designs out of the deployed image41.
+unverified at that checkpoint. Keep the beam ammunition out of the deployed world.
+
+Verified and applied to canonical world.c: unanchored plain-box assemblies are
+cargo, and the ore spawner no longer needs its own override. The focused fresh
+physical run passes: beam91 attaches loader88 at6.650s, then gun87 at52.183s;
+57.2s final,114 objects, no losses/errors/deaths. Evidence:
+`...-chrome-cargo-handoff-fresh/salvage/{regression.log,salvage.jsonl}`.
+The first handoff fixture accidentally loaded the boot world's single-block
+stock; the corrected fixture explicitly creates its advertised fresh catalog.
+
+Chrome and Firefox compile/run the changed C app inside Dolly and pass fresh
+classification, builder-created cargo, anchored/actuated exclusions, restoration
+of119/134-object worlds and their actual magnet attachments, and an explicitly
+saved non-cargo override. Rendered images inspected. Evidence:
+`build/blockwalker-multipart-cargo/view-{chrome,firefox}/proof.json`.
+The extended existing cargo browser regression also passes: loaded lift travel
+5.701m, boat travel12.509m,11 bodies restored with roles/poses intact, no model
+requests. `build/blockwalker-multipart-cargo/regression.log` records the result.
+This closes cargo classification, not the unsuccessful ammunition experiment.
+Source is verified; served image41 awaits the next packaging checkpoint.

@@ -224,3 +224,13 @@ Prepared physical paired replay, not run: `build/blockwalker-battery-supply/`
 `{no-dead-end-catalog.json,pickup-replay.c}`, from battery-incremental-fresh's
 progress-chain-0900.json. Change only111, each branch360s; require a new actual
 111→107→106→shot cycle, upright tender, no losses/errors/friendly airborne hits.
+
+The paired900→1260s trial is now complete and fails: both branches finish with
+130 objects,2 tender jobs,4 total shots and zero new supply cycles. Minimum up is
+0.999996/0.999997; neither branch loses actors or produces controller errors,
+deaths or friendly impacts. The candidate selects different pickups, but remains
+near(71.738,19.987) while planning. Full traces and saves:
+`build/blockwalker-compound-regressions-chrome-battery-no-dead-end/salvage/`.
+The static planner's223 reachable nodes form an enclosed pocket among broad
+machine bounds; removing dead-end paths alone is insufficient. Task062400
+investigates actual collision-shape observations. Keep this candidate unbundled.

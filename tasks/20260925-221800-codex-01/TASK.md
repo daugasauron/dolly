@@ -6,7 +6,7 @@
 
 The user requested another stable checkpoint and local deployment. Image41 is
 the playable build; `blockwalker-local-20260926-image41` records the latest
-verification. No experimental simulation remains running. Further candidates
+verification. The broader goal has resumed after that deployment. Further candidates
 stay separate until their cargo, defense, interaction and terrain behavior is
 verified; the broader gameplay task remains open.
 The user likes the physical catapults;
@@ -278,3 +278,11 @@ artifacts,22 canonical source files and six protected user files match image41.
 Evidence: `build/blockwalker-local-deploy-20260926-preview{,-firefox}/proof.json`
 and `build/blockwalker-local-deploy-20260926-artifacts.json`. No rebuild was needed;
 the preview remains at http://127.0.0.1:9099/blockwalker/.
+
+Passive multi-block cargo classification now passes physical transfer, both
+browser render/save checks and the existing loaded-lift/boat regression; task
+055700 is closed with evidence. It is in canonical source awaiting packaging.
+The ammunition tender's dead-end fallback change fails its paired physical test.
+Task062400 tests collision-shape observations so generic programs can navigate
+between actual machine bases instead of treating raised arms as solid circles.
+The deployed image41 remains available while this experiment runs.

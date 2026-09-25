@@ -7,13 +7,26 @@ Latest local deployment notes: `blockwalker-local-20260926-image41`.
 Local app: `http://127.0.0.1:9099/blockwalker/`.
 Owned service: `dolly-blockwalker-preview-20260924.service`; relay9010.
 Image41 is the local deployment and stable checkpoint requested by the user.
-No experimental simulation remains running. The payload-beam trial completed its
+The broader goal has resumed; served artifacts and user saves are unchanged.
+Canonical source now includes verified passive multi-box cargo classification
+(task055700); it awaits the next image build. Its prototype passes physical
+handoff, Chrome/Firefox rendering/restoration and the existing cargo regression.
+
+Active experiment: battery-shape-route, session35945,1300s wall timeout, paired
+900→1260s baseline/candidate runs. Log:
+`build/blockwalker-collision-sensors/route-trial.log`. Poll before another browser.
+Inputs there: `source.tar`, `catalog.json`; fixture:
+`build/blockwalker-battery-supply/pickup-replay.c`; saved input:
+`...-chrome-battery-incremental-fresh/salvage/progress-chain-0900.json`.
+The experimental C source exposes read-only collision bounds within48m; only
+tender111 uses the candidate program. These changes are not canonical or bundled.
+
+The payload-beam trial completed its
 600s run with125 objects,14 deliveries and no actor losses/errors/deaths, but zero
 shots or payload drops. A beam reaches the gun and then loses its grip during
-spin-up. Its raw fixture status is1; task20260926-055700 remains open. Full trace:
+spin-up. Its raw fixture status is1; weapon effectiveness remains unproven. Full trace:
 `build/blockwalker-compound-regressions-chrome-payload-beam/salvage/`.
-Canonical source and served image41 are unchanged; experimental cargo, rescue and
-defense changes remain unbundled. Further gameplay work is tracked in tatr.
+Experimental beam ammunition, rescue and defense programs remain unbundled.
 Eleven old Xvfb-only test scopes were stopped during checkpoint cleanup; user
 browser processes and profiles were untouched.
 
@@ -142,7 +155,23 @@ Image38/39 fallbacks remain. Never replace the preserved user saves during rollb
   `pickup-replay.c` and no-dead-end-catalog.json are prepared under
   `build/blockwalker-battery-supply/`. Matched900→1260s baseline/candidate, only111,
   require a new physical111→107→106→shot cycle and no losses/errors/friendly hits.
-  Input: image41's battery-incremental-fresh progress-chain-0900.json. Unrun.
+  Input: image41's battery-incremental-fresh progress-chain-0900.json. Completed:
+  both branches130 objects,2 jobs,4 shots, zero new cycles/errors/losses/deaths/
+  friendly impacts. The candidate remains enclosed by broad crane/loader circles.
+  Full trace: `...-chrome-battery-no-dead-end/salvage/`.
+- 20260926-062400: collision-bounds queries pass inside Dolly, including body-owner
+  grouping,20 visible/108 out-of-range objects, unknown ID and six invalid inputs.
+  Exact900s static sensor replay now finds a route through the machinery in34
+  expansions/1.7s controller updates, versus223 nodes and no route with broad
+  circles. This is static evidence only; the active paired physical trial must
+  establish actual movement/handoffs and check controller budgets/performance.
+  `build/blockwalker-collision-sensors/{query-body.log,route-900-space.json}`.
+- 20260926-044300: beam spin-up comparison prepared, unrun, under
+  `build/blockwalker-multipart-cargo/{spin-catalog.json,spin-comparison.c}`.
+  Use multipart source.tar and payload-beam's277s progress-defense-target.json.
+  Candidate aligns yaw before spinning and reserves more grip force for motion;
+  motors/magnet/opponent physics are unchanged. Both branches120s. The previous
+  beam's measured grip load hit100N while yawing/spinning before detaching.
 - 20260925-195201: porter38 climbs carousel95's anchored base; candidate unsafe.
 - Biped20260915-110000 and transfer030600 remain open. The64MiB file download limit
   is unchanged; trace compression remains a diagnostic workaround.
@@ -155,7 +184,7 @@ Chrome uses Xvfb; Firefox DISPLAY=:1. Node needs `--preserve-symlinks-main` beca
 build is symlinked. Never call `__dolly.visibleTerminalText()` while GPU is active.
 
 Preserve `.cache/blockwalker-browser-20260915`, `build/blockwalker-recovery-20260923/`,
-native Pi history and other images. Disk has about4.8GiB free; no unrelated cleanup.
+native Pi history and other images. Disk has about4.4GiB free; no unrelated cleanup.
 The salvage harness accepts BLOCKWALKER_SOURCE/CATALOG/FIXTURE/WORLD/TRIAL_LABEL/
 ARTIFACTS. `build/blockwalker-progress-browser.mjs` exports periodic live saves.
 Source iteration uses build-source-tar without changing recipe pins. Package

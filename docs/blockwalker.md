@@ -115,6 +115,10 @@ depot, release it and
 let it settle for a second. Each crate scores once after transport from outside
 that depot; simply spawning cargo there earns nothing. Delivered crates turn
 green. All delivered cargo remains physical and can be moved into storage.
+
+Unanchored builds made entirely from ordinary boxes also count as cargo. Use
+these for beams or pallets; anchored structures and builds with actuators remain
+machines. Saved worlds preserve each object's recorded cargo role.
 Magnet pickup and riding on a deck both identify the
 carrier. The delivery record and your total survive saves and rebuilding your car.
 The sidebar and focus HUD show whether the magnet is powered or carrying cargo.
