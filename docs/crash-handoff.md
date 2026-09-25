@@ -7,8 +7,10 @@ Game implementation:07967f6 (`blockwalker-checkpoint-20260925-image39`).
 Local app: `http://127.0.0.1:9099/blockwalker/`, owned user service
 `dolly-blockwalker-preview-20260924.service`; relay 9010.
 No push/deploy requested. The user requested a stable checkpoint; image39 stays
-served. All disposable browser trials have ended, including session81018
-(`freight-curved-escape`, raw status1). The preview service remains running.
+served. Active disposable browser: session54516, `battery-freight-apron`, scope
+`run-r44b5b6152cf44c42a2e70eeabd6cab6e.scope`. Poll before starting another browser.
+Log: `build/blockwalker-battery-supply/fresh-apron.log`;1800s wall timeout.
+All earlier trials are terminal. The preview service remains running.
 
 The broader world/competition goal through 2026-09-26 13:00 JST remains open in
 `tasks/20260925-221800-codex-01/TASK.md`. Its remaining gameplay issues are not
@@ -112,6 +114,22 @@ replay fails (`freight-curved-escape`):130 objects, minimum up0.999981, no crane
 or boat handoff and only the first pickup. It repeatedly moves around the marker
 without escaping. Geometry alone did not prove executable movement. Keep this
 candidate out of the image; investigate steering/path tracking next.
+
+Further wheel probes show that fixed ordinary motor commands can move the truck,
+but position/heading recovery, wheel-offset correction, stronger heading feedback
+and an integral controller all fail the exact jam. Task195202 records the results.
+The new route candidate keeps the original vehicle and steering program, moving
+its crossing fromz74.7 to78 and centering the tunnel route atx−43. This gives its
+rear assembly room to turn beyond the pit marker. No terrain/physics changes.
+
+Current fresh run uses `fresh-apron-catalog.json` and `fresh-reload.c` under the
+candidate directory. Only53,55,56,106,107,111 change. It combines the apron route,
+boat escape, refined aiming, shuttle reach check and tender clearance. Requirements:
+two supplied shots, a heavy delivery to each warehouse, hits from two distinct
+rounds on intended aircraft, no friendly airborne impacts/errors/missing actors.
+Buffered Box3D hit events observe impacts without adding forces. It runs at most
+1800 simulated seconds and exports `chain-1200.json`; earliest pass1200s.
+At120s:4 deliveries,1 shot, no deaths. No conclusion yet; all candidates unbundled.
 
 Aiming task20260926-005230: `slinger-intercept.js` refines flight time and permits
 descending shots while retaining crew clearance. `fine-aim-events.c` compares

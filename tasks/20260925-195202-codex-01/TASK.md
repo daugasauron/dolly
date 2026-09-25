@@ -77,3 +77,26 @@ around the marker without escaping. Geometry did not prove the physical vehicle
 could follow the curve. Steering uses distance from the initial pivot to advance
 the desired heading, without correcting lateral error; inspect that execution
 before changing geometry. No obstacle or opponent changes. Candidate unbundled.
+
+The position/heading recovery also stalls (`freight-pose-escape`,120s). A matched
+eight-variant physical wheel probe (`freight-steering-grid-b`) shows that ordinary
+wheel commands can move the truck without overturning it. At throttle0.2/turn−0.3,
+12s ends at(-43.878,73.810), yaw−2.080; scaling turn by each wheel's lateral offset
+ends at(-44.985,73.261), yaw−2.452. Both minimum up0.999991. Throttle0.5/turn−0.6
+drives toward the pit and drops minimum up to0.869, so these are measurements,
+not safe movement programs. No engine forces or terrain changes.
+
+The rear wheels are mounted at±2 while the other wheels are at±1; the program
+previously used only the sign of that offset. Correcting the wheel commands alone
+still stalls under route following (`freight-wheel-offset`). Stronger heading
+feedback with forward creep also stalls (`freight-steering-torque`). Their120s
+replays retain130 objects with no errors/deaths; do not promote them. The bounded
+heading-integral candidate also fails120s, minimum up0.999998 and no handoff.
+
+The crossing atz74.7 leaves little turning clearance for the long rear assembly
+beside the marker at(-39.7,71.3) and the floor edge atz71. `hauler-apron-route.js`
+retains the original vehicle/program and moves that crossing toz78, with the
+tunnel route centered atx−43. No obstacle removal, mass change or special force.
+Fresh combined `battery-freight-apron` now runs with `fresh-apron-catalog.json`
+and `fresh-reload.c`:111 initial actors, at most1800s, both warehouse chains plus
+repeated ammunition supply and intended-aircraft impacts. Await terminal evidence.
