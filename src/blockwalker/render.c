@@ -144,6 +144,24 @@ static void bracket_draw(Vector3 from,Vector3 to,size_t at){
     box_draw((Block){.color=4,.finish=FINISH_PANEL},Vector3Scale(Vector3Add(from,to),.5f),rotation,0,0,0,at);
     boxes[at].half[0]=boxes[at].half[2]=.14f;boxes[at].half[1]=fmaxf(.001f,length*.5f);
 }
+static Vector3 cable_point(Vector3 from,Vector3 to,Vector3 down,float sag,float t){
+    return Vector3Add(Vector3Lerp(from,to,t),Vector3Scale(down,sag*4*t*(1-t)));
+}
+static size_t cable_draw(Vector3 from,Vector3 to,float paid,size_t at){
+    float distance=Vector3Distance(from,to),low=0,high=paid;int segments=paid-distance>.02f?8:1;
+    Vector3 down=fabsf(from.y-to.y)>distance*.95f?(Vector3){.8f,-1,0}:(Vector3){0,-1,0};
+    if(segments>1)for(int n=0;n<10;n++){
+        float sag=(low+high)*.5f,length=0;Vector3 previous=from;
+        for(int i=1;i<=segments;i++){Vector3 point=cable_point(from,to,down,sag,(float)i/segments);length+=Vector3Distance(previous,point);previous=point;}
+        if(length<paid)low=sag;else high=sag;
+    }
+    float sag=segments>1?(low+high)*.5f:0;Vector3 previous=from;
+    for(int i=1;i<=segments;i++){
+        Vector3 point=cable_point(from,to,down,sag,(float)i/segments);bracket_draw(previous,point,at);
+        boxes[at].half[0]=boxes[at].half[2]=.035f;boxes[at].style[1]=FINISH_PLAIN;
+        boxes[at].color[0]=.22f;boxes[at].color[1]=.25f;boxes[at++].color[2]=.24f;previous=point;
+    }return at;
+}
 static size_t character_draw(const Character *c,const Physics *p,int selected,int hover,size_t at){
     for(int i=0;i<c->count;i++){
         Block b=c->blocks[i];Vector3 v;Quaternion q;physics_pose(p,c,i,&v,&q);box_draw(b,v,q,i==selected,i==hover,0,at++);
@@ -171,6 +189,14 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
         }
         if(b.parent>=0&&c->blocks[b.parent].joint==BLOCK_TURNTABLE&&block_size(c->blocks[b.parent])==1&&!block_cylinder(b)&&b.joint!=BLOCK_PISTON&&b.joint!=BLOCK_THRUSTER){
             Vector3 parent;Quaternion rotation;physics_pose(p,c,block_parent(c,i),&parent,&rotation);bracket_draw(parent,v,at++);
+        }
+        if(b.joint==BLOCK_WINCH&&b.parent>=0){
+            Vector3 parent;Quaternion rotation;physics_pose(p,c,block_parent(c,i),&parent,&rotation);
+            float paid=p->running?p->parts[i].winch_length:Vector3Distance(parent,v);at=cable_draw(parent,v,paid,at);
+            Vector3 face=Vector3Normalize(Vector3Subtract(block_position(b),block_position(c->blocks[block_parent(c,i)])));
+            face=Vector3RotateByQuaternion(face,rotation);Quaternion drum=QuaternionFromVector3ToVector3((Vector3){0,1,0},face);
+            box_draw((Block){.joint=BLOCK_TURNTABLE,.axis=1,.color=5},Vector3Add(parent,Vector3Scale(face,.47f)),drum,0,0,0,at);
+            boxes[at].half[0]=boxes[at].half[2]=.29f;boxes[at++].half[1]=.065f;
         }
         if(b.joint==BLOCK_PISTON&&b.parent>=0){
             Vector3 parent;Quaternion rotation;physics_pose(p,c,block_parent(c,i),&parent,&rotation);Block a=c->blocks[block_parent(c,i)];
@@ -206,7 +232,7 @@ static size_t draw_terrain(size_t at){
     }return at;
 }
 static size_t character_draw_capacity(const Character *c){
-    size_t n=(size_t)c->count*3;for(int i=0;i<c->count;i++)if(block_size(c->blocks[i])>1)n+=1+2*block_size(c->blocks[i])*block_size(c->blocks[i]);return n;
+    size_t n=(size_t)c->count*3;for(int i=0;i<c->count;i++)if(block_size(c->blocks[i])>1)n+=1+2*block_size(c->blocks[i])*block_size(c->blocks[i]);else if(c->blocks[i].joint==BLOCK_WINCH)n+=9;return n;
 }
 void render_frame(const Character *c,const Physics *p,const Orbit *o,int selected,int hover,const Block *ghost){
     reserve_boxes(character_draw_capacity(c)+p->cargo_count+(ghost!=NULL)+(p->landscape?terrain_count:0));

@@ -126,7 +126,7 @@ try {
  await page.mouse.click(710,311);await frames();
  let added=await exportBlueprint('added');assert.equal(added.count,6);assert.equal(added.blocks[5].joint,1);assert.equal(added.blocks[5].parent,3);assert.equal(added.blocks[5].y,4);
  await page.mouse.click(70,630);await frames();assert.equal((await exportBlueprint('undo')).source,blueprint.source);
- await page.mouse.click(170,220);await page.mouse.click(710,311);await frames();
+ await page.mouse.click(170,206);await page.mouse.click(710,311);await frames();
  const magnetAdded=await exportBlueprint('magnet-added');assert.equal(magnetAdded.blocks[5].joint,5);
  await page.mouse.click(1230,230);await page.mouse.click(1220,263);await page.mouse.click(1233,452);await page.mouse.click(1190,354);await page.keyboard.press('B');await frames();
  const magnetConfigured=await exportBlueprint('magnet-configured');assert.equal(magnetConfigured.blocks[5].direction,-magnetAdded.blocks[5].direction);assert.equal(magnetConfigured.blocks[5].axis,2);assert.equal(magnetConfigured.blocks[5].force,26);assert.equal(magnetConfigured.blocks[5].positive,66);

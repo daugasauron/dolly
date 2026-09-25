@@ -1,0 +1,16 @@
+import fs from 'node:fs';
+const assert=(ok,message)=>{if(!ok)throw Error(message);};
+const parts=[];
+for(let y=0;y<=6;y++)parts.push({x:0,y,z:0,parent:y-1,joint:0,color:4,finish:1});
+for(let x=1;x<=3;x++)parts.push({x,y:6,z:0,parent:parts.length-1,joint:0,color:4,finish:1});
+parts.push({x:3,y:5,z:0,parent:9,joint:8,color:5,negative:81,positive:65,speed:.8,travel:8,force:24,finish:3});
+parts.push({x:3,y:4,z:0,parent:10,joint:5,color:2,axis:1,direction:-1,negative:87,positive:83,force:24,finish:3});
+Game.call('build',{parts,anchored:true});Game.call('camera',{x:1.5,y:3,z:0,yaw:.55,pitch:.32,distance:18});
+const source=`function(t,s,m){if(!m.phase)m.phase='lower';if(m.phase==='lower'&&s.magnets[11].attached)m.phase='hoist';if(m.phase==='hoist'&&s.winches[10].paidOut<1.6)m.phase='hold';return {S:1,A:m.phase==='lower'?1:0,Q:m.phase==='hoist'?1:0};}`;
+Game.call('install',{name:'Suspended cable hoist',source,hz:60});Game.call('program_trial',{steps:900});Game.call('cargo',{x:3,y:.5,z:0});
+while(Game.frame()&&Game.call('state').remaining)await new Promise(resolve=>setTimeout(resolve,16));
+const state=Game.call('state'),program=Game.call('installed_program');assert(program.memory.phase==='hold','ordinary program completes lower / capture / hoist');assert(state.sensors.magnets[11].attached&&state.cargo[0].y>2.5,'magnetic cargo actually lifted');
+fs.writeFileSync('/workspace/winch-view.json',JSON.stringify({state,program}));fs.writeFileSync('/workspace/winch-hoist.png',Buffer.from(Game.call('snapshot')));
+Game.call('advance',{keys:'A',steps:480});while(Game.frame()&&Game.call('state').remaining)await new Promise(resolve=>setTimeout(resolve,16));
+const slack=Game.call('state');assert(slack.sensors.winches[10].paidOut>7&&slack.sensors.angles[10]<5,'payout creates slack above a grounded load');fs.writeFileSync('/workspace/winch-slack.json',JSON.stringify(slack));fs.writeFileSync('/workspace/winch-slack.png',Buffer.from(Game.call('snapshot')));
+Game.call('exit');

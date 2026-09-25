@@ -6,8 +6,8 @@ Eyes block and front magnet. A four-joint starter, an eight-joint quadruped and 
 automatic gait or balance system.
 
 The C program uses the same raylib and Box3D libraries as the gamedev image.
-Box3D runs fully 3D physics in Wasm on the CPU, with the existing serial,
-non-SIMD build. A WGSL shader renders oriented boxes, faceted servo housings, lighting
+Box3D runs fully 3D physics in Wasm on the CPU. Its serial build uses
+Wasm SIMD and is compiled inside Dolly. A WGSL shader renders oriented boxes, faceted servo housings, lighting
 and shadows on WebGPU. A bounding-volume tree accelerates ray intersections. Raylib draws the editor panels in Wasm; those pixels
 are uploaded when the controls change. Ordinary frames have no GPU readback; agent observations explicitly capture a cropped PNG.
 This is a renderer for this box game, not a general GPU backend for raylib.
@@ -38,7 +38,7 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Leave the editor | Escape, returning to Slop |
 
 Face-adjacent regular blocks, thrusters, magnets and Eyes form one rigid physics
-body. Hinges, pistons, wheels and turntables connect separate moving assemblies;
+body. Hinges, pistons, wheels, turntables and winches connect separate moving assemblies;
 leave clearance between them to avoid joining their fixed blocks together. A joint block carries its attached branch. Two keys drive
 opposite directions. Deleting a block removes its branch; Undo restores it.
 Blueprint storage and GPU buffers grow with the design; there is no 64-part ceiling. Test mode leaves the build pose unchanged. Its camera follows root movement while
@@ -77,7 +77,9 @@ the nozzle face; force acts in the opposite direction. That face must stay clear
 of adjacent blocks. Reverse thrust needs a separate opposed jet. Wheels have centered cylindrical collision shapes, a 0.7 m
 radius, 0.7 m width and unlimited motor rotation. The larger radius keeps a
 same-height chassis off the ground. Attach wheels as leaves: anything beyond them rotates too.
-Turntables are thin motorized discs with continuous rotation. Attach a branch
+Turntables are thin motorized discs with continuous rotation and 1×1, 2×2,
+3×3 or 4×4 footprints. Blocks across each face form a rigid mounting plate,
+so broad bearings can carry an assembly on several supports. Attach a branch
 to the disc and mount it on a servo hinge to tilt the spinning assembly.
 Thrusters have one firing key; other actuators use a pair of assignable keys. The inspector shows speed, stroke
 or force in the relevant units. Version 7 blueprints enforce one-way jets and exhaust clearance. Older builds
@@ -86,6 +88,14 @@ Blocked engines become structural mounts with a new adjacent engine in a clear
 position. World format 2 records these parts; automatic upgrades back up the old
 world first. Added engines have mass and can change a controller’s tuning. The agent JSON API
 defaults to direction +1 and accepts -1.
+
+Winches connect their parent block to a freely swinging endpoint. Add a magnet
+or other blocks to that endpoint. One key reels in, the other pays out, and
+releasing both brakes. The inspector sets speed, maximum pull and cable capacity
+(up to 24 m, with a 1 m minimum reeled length). An underpowered motor cannot lift
+a heavy load; slack cable never pushes. Paid-out length survives saves separately
+from endpoint distance. The visible cable sags, but does not collide with or
+wrap around terrain.
 
 Magnet blocks attach rigidly and attract other dynamic bodies within 0.65 m of
 one face. Choose that face with the axis and sign controls. The On key latches
@@ -115,7 +125,7 @@ depot, then searches for another load. It avoids the receiving crane's working
 area and cargo already delivered or held by another machine.
 
 Material 0 is alloy, 1 is a sealed hull with one-quarter density, and 2 is ballast
-with triple density. Eight volume samples per body apply buoyancy and drag at
+with triple density. Eight volume samples per block shape apply buoyancy and drag at
 their actual positions; hull placement and centre of mass determine stability.
 The sea and GPU surface use the same waves. This is sampled rigid-body buoyancy,
 not a particle-fluid simulation. In the initial catamaran, low stern thrusters
@@ -292,7 +302,8 @@ pauses after the trial. The same controller implementation runs released creatur
 | `up` | World Y component of the body's up direction |
 | `mass`, `centerOfMass` | Total mass in kg and world XYZ centre of mass |
 | `positions` | World centre of each block, indexed by part |
-| `angles`, `rates` | Joint position/speed, radians and rad/s; pistons use metres and m/s |
+| `angles`, `rates` | Joint position/speed, radians and rad/s; pistons use metres and m/s; winches report endpoint distance and radial speed |
+| `winches` | Per-winch `paidOut` cable length (m) and `tension` (N) |
 | `touching` | Per-part contact booleans; includes other bodies and the floor |
 | `contactsReady` | Whether a solver step has populated contact readings |
 | `ground`, `waterHeight` | Terrain height and wave surface under the root; water height is available in sea trials and the shared world |
@@ -367,6 +378,8 @@ four-wheel driving and reversing on the floor, finite magnet pickup/lift/release
 overload, removed targets, and 40 seconds of joint/assembly/floor stability. `test/blockwalker-browser.mjs`
 drives camera controls, the editor, key assignment, export/import, physics
 and restart in Chrome, including a 160-part design.
+`test/blockwalker-bearings-browser.mjs` exercises every bearing size/axis,
+anchored piston loops, loaded winches, slack, builder controls and save/restore.
 `test/blockwalker-import-browser.mjs` checks manual/programmed/legacy design
 round trips, restored magnetic loads and cargo credit, corrupt inputs and failed
 writes. Both checks accept a source tar path for compilation inside an existing

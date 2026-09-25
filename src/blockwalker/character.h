@@ -3,7 +3,7 @@
 #include <box3d/box3d.h>
 
 enum { COLOR_COUNT=6 };
-enum { BLOCK_BOX, BLOCK_HINGE, BLOCK_PISTON, BLOCK_THRUSTER, BLOCK_WHEEL, BLOCK_MAGNET, BLOCK_EYES, BLOCK_TURNTABLE, BLOCK_KINDS };
+enum { BLOCK_BOX, BLOCK_HINGE, BLOCK_PISTON, BLOCK_THRUSTER, BLOCK_WHEEL, BLOCK_MAGNET, BLOCK_EYES, BLOCK_TURNTABLE, BLOCK_WINCH, BLOCK_KINDS };
 enum { MATERIAL_ALLOY,MATERIAL_HULL,MATERIAL_BALLAST,MATERIAL_COUNT };
 enum { FINISH_PLAIN,FINISH_PANEL,FINISH_GLOW,FINISH_STRIPE,FINISH_COUNT };
 #define HINGE_RADIUS .434f
@@ -31,6 +31,7 @@ typedef struct {
     b3BodyId magnet_target;
     b3Vec3 magnet_local;
     float magnet_power,magnet_load;
+    float winch_length,winch_pull;
 } PhysicsPart;
 typedef struct {b3BodyId body;Block block;Vector3 start;} Cargo;
 typedef struct {

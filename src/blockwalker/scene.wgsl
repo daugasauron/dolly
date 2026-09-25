@@ -203,6 +203,13 @@ fn water_normal(p:vec2f)->vec3f {
                     if(max(lens.x,lens.y)<.05){color=vec3f(.46,.66,.60);}
                     if(face_uv.y>.27&&face_uv.x>.27){color=vec3f(.7,.25,.13);}
                 }
+                if(b.flags.x==8){
+                    let ring=length(face_uv);color*=.72;
+                    if(ring<.34){color=vec3f(.15,.18,.18);}
+                    if(ring>.22&&ring<.30){color=vec3f(.54,.52,.43);}
+                    if(ring<.08){color=vec3f(.08,.11,.11);}
+                    if(abs(face_uv.y)>.36){color=select(vec3f(.15,.18,.18),vec3f(.62,.48,.22),sin((texel.x+texel.y)*28)>0);}
+                }
                 if(b.flags.x==5){
                     let powered=b.style.w>0;let light=select(vec3f(.18,.30,.34),select(vec3f(.15,.95,.9),vec3f(1,.66,.18),b.extent.w>0),powered);
                     if(normal[u32(b.flags.y)]*b.style.z>.5){

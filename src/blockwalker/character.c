@@ -11,7 +11,7 @@
 #include <string.h>
 
 const Color block_colors[COLOR_COUNT]={{89,119,112,255},{172,139,76,255},{83,101,129,255},{155,83,65,255},{65,73,79,255},{182,177,154,255}};
-const char *block_names[BLOCK_KINDS]={"BOX","SERVO HINGE","PISTON","THRUSTER","WHEEL","MAGNET","EYES","TURNTABLE"};
+const char *block_names[BLOCK_KINDS]={"BOX","SERVO HINGE","PISTON","THRUSTER","WHEEL","MAGNET","EYES","TURNTABLE","WINCH"};
 int block_size(Block b){return b.joint==BLOCK_TURNTABLE&&b.size>1?b.size:1;}
 float block_force_max(Block b){int n=block_size(b);return 100*n*n;}
 Vector3 block_position(Block b) {
@@ -60,7 +60,7 @@ static int blocks_exhaust(Block a,Block b){
 static int exhaust_clear(const Character *c,Block b){
     for(int i=0;i<c->count;i++)if(blocks_exhaust(b,c->blocks[i])||blocks_exhaust(c->blocks[i],b))return 0;return 1;
 }
-static int articulates(Block b){return block_cylinder(b)||b.joint==BLOCK_PISTON;}
+static int articulates(Block b){return block_cylinder(b)||b.joint==BLOCK_PISTON||b.joint==BLOCK_WINCH;}
 void *array_resize(void *memory,size_t count,size_t size) {
     if(count>SIZE_MAX/size){fputs("Character allocation overflow\n",stderr);exit(1);}
     void *grown=realloc(memory,count*size);
@@ -81,7 +81,7 @@ static int character_valid(const Character *c,int legacy) {
         if(b.y<0||b.parent>=i||b.parent< -1||(i==0?b.parent!=-1:b.parent<0)||
            b.color<0||b.color>=COLOR_COUNT||b.joint<0||b.joint>=BLOCK_KINDS||b.axis<0||b.axis>2||b.material<0||b.material>=MATERIAL_COUNT||b.finish<0||b.finish>=FINISH_COUNT||
            b.size<0||b.size>4||(b.joint!=BLOCK_TURNTABLE&&b.size>1)||
-           !isfinite(b.speed)||b.speed<.5f||b.speed>6||!isfinite(b.limit)||b.limit<15||b.limit>150||!isfinite(b.travel)||b.travel<.25f||b.travel>3||!isfinite(b.force)||b.force<2||b.force>block_force_max(b)||(b.direction!=1&&b.direction!=-1))return 0;
+           !isfinite(b.speed)||b.speed<.5f||b.speed>6||!isfinite(b.limit)||b.limit<15||b.limit>150||!isfinite(b.travel)||b.travel<(b.joint==BLOCK_WINCH?1:.25f)||b.travel>(b.joint==BLOCK_WINCH?24:3)||!isfinite(b.force)||b.force<2||b.force>block_force_max(b)||(b.direction!=1&&b.direction!=-1))return 0;
         long long lo[3],hi[3];block_cells(b,lo,hi);if(lo[1]<0)return 0;
         if(b.parent>=0&&!blocks_connected(c->blocks[b.parent],b))return 0;
         for(int j=0;j<i;j++)if(blocks_overlap(c->blocks[j],b))return 0;
@@ -100,6 +100,7 @@ int character_candidate(const Character *c,int parent,int x,int y,int z,int join
     if(c->count==INT_MAX||y<0||parent< -1||parent>=c->count||
         (c->count==0?parent!=-1||joint:parent<0)||joint<0||joint>=BLOCK_KINDS||color<0||color>=COLOR_COUNT)return 0;
     Block b={.x=x,.y=y,.z=z,.parent=parent,.joint=joint,.color=color,.axis=2,.speed=2.5f,.limit=75,.travel=1.5f,.force=24,.direction=1,.size=1};
+    if(joint==BLOCK_WINCH){b.travel=8;b.speed=.8f;}
     if(parent>=0&&!blocks_connected(c->blocks[parent],b))return 0;
     for(int i=0;i<c->count;i++)if(blocks_overlap(c->blocks[i],b))return 0;
     if(joint>=BLOCK_PISTON&&parent>=0){Block a=c->blocks[parent];b.axis=block_size(a)>1?a.axis:x!=a.x?0:y!=a.y?1:2;if(joint==BLOCK_PISTON||joint==BLOCK_THRUSTER||joint==BLOCK_MAGNET||joint==BLOCK_EYES||joint==BLOCK_TURNTABLE)b.direction=(b.axis==0?x-a.x:b.axis==1?y-a.y:z-a.z)<0?-1:1;}
@@ -192,7 +193,7 @@ int character_save(const Character *c,const char *path) {
     if(!character_validate(c))return 0;
     char tmp[256];if(snprintf(tmp,sizeof(tmp),"%s.tmp",path)>=(int)sizeof(tmp))return 0;
     FILE *f=fopen(tmp,"w");if(!f)return 0;
-    fprintf(f,"BLOCKWALKER 8\n%d %d\n",c->count,c->anchored);
+    fprintf(f,"BLOCKWALKER 9\n%d %d\n",c->count,c->anchored);
     for(int i=0;i<c->count;i++){Block b=c->blocks[i];fprintf(f,"%d %d %d %d %d %d %d %d %d %.3f %.3f %.3f %.3f %d %d %d %d\n",b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive,b.speed,b.limit,b.travel,b.force,b.direction,b.material,b.finish,block_size(b));}
     int good=!ferror(f);if(fclose(f)!=0)good=0;
     if(!good||rename(tmp,path)!=0){remove(tmp);return 0;}return 1;
@@ -200,7 +201,7 @@ int character_save(const Character *c,const char *path) {
 int character_load(Character *c,const char *path) {
     FILE *f=fopen(path,"r");if(!f)return 0;
     Character next={0};char magic[32];int version=0,good=1;
-    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>8)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
+    if(fscanf(f,"%31s %d %d",magic,&version,&next.count)!=3||strcmp(magic,"BLOCKWALKER")||(version<1||version>9)||next.count<0||next.count>INT_MAX/(int)sizeof(Block))good=0;
     if(good&&version>=4&&fscanf(f,"%d",&next.anchored)!=1)good=0;
     if(good){next.capacity=next.count;next.blocks=array_resize(NULL,next.count,sizeof(Block));}
     for(int i=0;good&&i<next.count;i++){Block *b=&next.blocks[i];*b=(Block){.travel=1.5f,.force=24,.direction=1,.size=1};if(fscanf(f,"%d%d%d%d%d%d%d%d%d%f%f",&b->x,&b->y,&b->z,&b->parent,&b->joint,&b->color,&b->axis,&b->negative,&b->positive,&b->speed,&b->limit)!=11)good=0;if(version>=2&&fscanf(f,"%f%f",&b->travel,&b->force)!=2)good=0;if(version>=3&&fscanf(f,"%d",&b->direction)!=1)good=0;if(version>=4&&fscanf(f,"%d%d",&b->material,&b->finish)!=2)good=0;if(version>=8&&fscanf(f,"%d",&b->size)!=1)good=0;}
@@ -272,7 +273,7 @@ void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,
     int minimum=INT_MAX;for(int i=0;i<c->count;i++){long long lo[3],hi[3];block_cells(c->blocks[i],lo,hi);if(lo[1]<minimum)minimum=lo[1];}
     float ground=landscape?(c->anchored?terrain_height(x,z):fmaxf(terrain_height(x,z),WATER_LEVEL)):0;
     for(int i=0;i<c->count;i++){
-        PhysicsPart *part=&p->parts[i];part->owner=component_root(components,i);part->mount=i&&articulates(c->blocks[i])?block_parent(c,i):-1;Vector3 v=block_position(c->blocks[i]);
+        PhysicsPart *part=&p->parts[i];part->winch_length=c->blocks[i].joint==BLOCK_WINCH?1:0;part->owner=component_root(components,i);part->mount=i&&articulates(c->blocks[i])&&c->blocks[i].joint!=BLOCK_WINCH?block_parent(c,i):-1;Vector3 v=block_position(c->blocks[i]);
         b3WorldTransform transform=poses?poses[i].transform:(b3WorldTransform){{v.x+x,v.y-minimum+(c->anchored?-.015f:.15f)+ground,v.z+z},{{0,0,0},1}};
         transform.q=b3NormalizeQuat(transform.q);
         if(part->owner==i){b3BodyDef body=b3DefaultBodyDef();body.type=c->anchored&&i==0?b3_staticBody:b3_dynamicBody;body.position=transform.p;body.rotation=transform.q;body.userData=p->parts;body.angularDamping=.08f;body.enableSleep=false;part->body=b3CreateBody(world,&body);}
@@ -301,9 +302,20 @@ void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,
         Vector3 delta=Vector3Subtract(block_position(b),block_position(c->blocks[parent]));
         b3Transform fa={.p={delta.x*.5f,delta.y*.5f,delta.z*.5f},.q={{0,0,0},1}},fb={.p={-delta.x*.5f,-delta.y*.5f,-delta.z*.5f},.q={{0,0,0},1}};
         if(block_size(b)>1){fa.p=(b3Vec3){delta.x,delta.y,delta.z};fb.p=b3Vec3_zero;}
-        if(b.joint==BLOCK_PISTON){
+        if(b.joint==BLOCK_WINCH){
+            PhysicsPart *part=&p->parts[i];part->winch_length=Clamp(b3Length(b3SubPos(physics_position(part),physics_position(&p->parts[parent]))),1,b.travel);
+            b3DistanceJointDef j=b3DefaultDistanceJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=part->body;j.base.collideConnected=true;
+            j.base.localFrameA=p->parts[parent].frame;j.base.localFrameB=part->frame;j.enableSpring=true;j.hertz=0;j.enableLimit=true;j.minLength=.005f;j.maxLength=part->winch_length;
+            part->joint=b3CreateDistanceJoint(world,&j);
+        }else if(b.joint==BLOCK_PISTON){
             int sign=b.direction;if(b.axis==0&&sign<0)fa.q=(b3Quat){{0,0,1},0};if(b.axis==1)fa.q=(b3Quat){{0,0,sign*.70710678f},.70710678f};if(b.axis==2)fa.q=(b3Quat){{0,-sign*.70710678f,0},.70710678f};fb.q=fa.q;
             b3PrismaticJointDef j=b3DefaultPrismaticJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;j.base.collideConnected=true;j.base.localFrameA=b3MulTransforms(p->parts[parent].frame,fa);j.base.localFrameB=b3MulTransforms(p->parts[i].frame,fb);
+            // Keep the awake body second; reverse both axes to preserve extension sign.
+            if(b3Body_GetType(j.base.bodyIdB)==b3_staticBody){
+                b3BodyId body=j.base.bodyIdA;j.base.bodyIdA=j.base.bodyIdB;j.base.bodyIdB=body;
+                b3Transform frame=j.base.localFrameA;j.base.localFrameA=j.base.localFrameB;j.base.localFrameB=frame;
+                b3Quat reverse={{0,0,1},0};j.base.localFrameA.q=b3MulQuat(j.base.localFrameA.q,reverse);j.base.localFrameB.q=b3MulQuat(j.base.localFrameB.q,reverse);
+            }
             j.enableMotor=true;j.maxMotorForce=b.force;j.enableLimit=true;j.lowerTranslation=0;j.upperTranslation=b.travel;p->parts[i].joint=b3CreatePrismaticJoint(world,&j);
         }else{
             if(b.axis==0)fa.q=(b3Quat){{0,.70710678f,0},.70710678f};if(b.axis==1)fa.q=(b3Quat){{-.70710678f,0,0},.70710678f};fb.q=fa.q;
@@ -323,11 +335,29 @@ void physics_motor(Physics *p,const Character *c,const unsigned char keys[128]) 
     float controls[128];for(int i=0;i<128;i++)controls[i]=keys[i]!=0;
     physics_drive(p,c,controls);
 }
+static void winch_drive(PhysicsPart *part,Block block,float control){
+    part->winch_pull=0;if(!b3Joint_IsValid(part->joint))return;
+    b3BodyId a=b3Joint_GetBodyA(part->joint),b=b3Joint_GetBodyB(part->joint);
+    b3Pos from=b3Body_GetWorldPoint(a,b3Joint_GetLocalFrameA(part->joint).p),to=b3Body_GetWorldPoint(b,b3Joint_GetLocalFrameB(part->joint).p);
+    b3Vec3 delta=b3SubPos(to,from);float distance=b3Length(delta),length=part->winch_length;
+    if(control>0)length=fminf(block.travel,length+control*block.speed/60);
+    if(control<0){
+        length=fminf(length,fmaxf(1,fmaxf(distance,length+control*block.speed/60)));
+        if(distance>length-.02f&&distance>.001f){
+            b3Vec3 axis=b3MulSV(1/distance,delta),velocity=b3Sub(b3Body_GetWorldPointVelocity(b,to),b3Body_GetWorldPointVelocity(a,from));
+            float ma=b3Body_GetMass(a),mb=b3Body_GetMass(b),mass=ma>0&&mb>0?ma*mb/(ma+mb):fmaxf(ma,mb);
+            part->winch_pull=fminf(block.force,fmaxf(0,mass*(b3Dot(velocity,axis)-control*block.speed)/(.05f+1.f/60)));
+            b3Vec3 force=b3MulSV(part->winch_pull,axis);b3Body_ApplyForce(a,force,from,true);b3Body_ApplyForce(b,b3Neg(force),to,true);
+        }
+    }
+    if(length!=part->winch_length){part->winch_length=length;b3DistanceJoint_SetLengthRange(part->joint,.005f,length);}
+}
 void physics_drive(Physics *p,const Character *c,const float controls[128]) {
     for(int i=1;i<c->count;i++)if(block_controlled(c->blocks[i])){
         Block b=c->blocks[i];float direction=b.joint==BLOCK_THRUSTER?(b.positive?Clamp(controls[b.positive],0,1):0):controls[b.positive]-controls[b.negative];
         p->parts[i].command=direction;
         if(b.joint==BLOCK_MAGNET)magnet_drive(p,i,b,controls[b.positive],controls[b.negative]);
+        else if(b.joint==BLOCK_WINCH)winch_drive(&p->parts[i],b,direction);
         else if(b.joint==BLOCK_PISTON&&b3Joint_IsValid(p->parts[i].joint))b3PrismaticJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
         else if(b.joint==BLOCK_THRUSTER){
             b3WorldTransform t=physics_transform(&p->parts[i]);Vector3 axis={0};((float *)&axis)[b.axis]=-b.direction*direction*b.force;
@@ -345,22 +375,26 @@ static void physics_read(Physics *p,const Character *c,int advanced) {
         if(!b3Joint_IsValid(p->parts[i].joint))continue;
         float separation;
         if(b.joint==BLOCK_PISTON){
-            b3WorldTransform a=b3Body_GetTransform(b3Joint_GetBodyA(p->parts[i].joint)),child=b3Body_GetTransform(p->parts[i].body);
+            b3WorldTransform a=b3Body_GetTransform(b3Joint_GetBodyA(p->parts[i].joint)),child=b3Body_GetTransform(b3Joint_GetBodyB(p->parts[i].joint));
             b3Transform fa=b3Joint_GetLocalFrameA(p->parts[i].joint),fb=b3Joint_GetLocalFrameB(p->parts[i].joint);
             b3Vec3 delta=b3SubPos(b3TransformWorldPoint(child,fb.p),b3TransformWorldPoint(a,fa.p));
             b3Vec3 axis=b3RotateVector(a.q,b3RotateVector(fa.q,b3Vec3_axisX));
             float along=b3Dot(delta,axis),bounded=Clamp(along,0,b.travel);
             separation=b3Length(b3Sub(delta,b3MulSV(bounded,axis)));
-        }else separation=b3Joint_GetLinearSeparation(p->parts[i].joint);
+        }else if(b.joint==BLOCK_WINCH)separation=fmaxf(0,b3DistanceJoint_GetCurrentLength(p->parts[i].joint)-p->parts[i].winch_length);
+        else separation=b3Joint_GetLinearSeparation(p->parts[i].joint);
         p->max_separation=fmaxf(p->max_separation,separation);
         if(block_controlled(b)){
-            float angle=b.joint==BLOCK_PISTON?b3PrismaticJoint_GetTranslation(p->parts[i].joint):
+            float angle=b.joint==BLOCK_WINCH?b3DistanceJoint_GetCurrentLength(p->parts[i].joint):b.joint==BLOCK_PISTON?b3PrismaticJoint_GetTranslation(p->parts[i].joint):
                 (b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)?0:b3RevoluteJoint_GetAngle(p->parts[i].joint);
             float direction=p->parts[i].command;
             float delta=angle-p->parts[i].angle;
             if(b.joint==BLOCK_WHEEL||b.joint==BLOCK_TURNTABLE){while(delta>PI)delta-=2*PI;while(delta< -PI)delta+=2*PI;}
             if(b.joint==BLOCK_PISTON)p->parts[i].rate=b3PrismaticJoint_GetSpeed(p->parts[i].joint);
-            else if(b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)p->parts[i].rate=0;
+            else if(b.joint==BLOCK_WINCH){
+                b3BodyId parent=b3Joint_GetBodyA(p->parts[i].joint);b3Pos from=b3Body_GetWorldPoint(parent,b3Joint_GetLocalFrameA(p->parts[i].joint).p),to=physics_position(&p->parts[i]);
+                b3Vec3 axis=b3Normalize(b3SubPos(to,from));p->parts[i].rate=b3Dot(b3Sub(b3Body_GetWorldPointVelocity(p->parts[i].body,to),b3Body_GetWorldPointVelocity(parent,from)),axis);
+            }else if(b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)p->parts[i].rate=0;
             else{
                 b3WorldTransform parent=b3Body_GetTransform(b3Joint_GetBodyA(p->parts[i].joint));
                 b3Vec3 axis=b3RotateVector(parent.q,b3RotateVector(b3Joint_GetLocalFrameA(p->parts[i].joint).q,b3Vec3_axisZ));

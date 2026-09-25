@@ -92,10 +92,34 @@ static void mechanics(void){
     b3Pos floating=physics_position(&p.parts[0]);printf("FLOAT %.6f / submerged %.6f %.6f\n",floating.y,p.parts[0].submerged,p.parts[1].submerged);assert(floating.y> -2.4f&&floating.y< -1);assert(b3RotateVector(physics_transform(&p.parts[0]).q,b3Vec3_axisY).y>.9f);
     physics_stop(&p);character_clear(&c);
 }
+static void reversed_pistons(void){
+ Character c={.anchored=1};Physics p={0};
+ character_add(&c,-1,0,0,0,BLOCK_BOX,0);
+ character_add(&c,0,0,1,0,BLOCK_PISTON,1);
+ character_add(&c,1,1,1,0,BLOCK_BOX,0);
+ character_add(&c,2,1,0,0,BLOCK_PISTON,1);
+ character_add(&c,3,2,0,0,BLOCK_BOX,0);
+ character_add(&c,4,2,0,1,BLOCK_BOX,0);
+ character_add(&c,5,1,0,1,BLOCK_BOX,0);
+ character_add(&c,6,0,0,1,BLOCK_BOX,0);
+ for(int i=1;i<=3;i+=2){c.blocks[i].speed=1;c.blocks[i].force=100;}
+ assert(character_validate(&c));physics_start(&p,&c);
+ printf("REVERSED PISTON: endpoint type %d, parent type %d\n",b3Body_GetType(p.parts[3].body),b3Body_GetType(p.parts[2].body));fflush(stdout);
+ assert(B3_ID_EQUALS(p.parts[0].body,p.parts[3].body)&&!B3_ID_EQUALS(p.parts[0].body,p.parts[2].body));
+ float controls[128]={0};controls[c.blocks[1].positive]=controls[c.blocks[3].positive]=1;
+ for(int i=0;i<120;i++){physics_drive(&p,&c,controls);b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);}
+ printf("EXTEND %.6f %.6f separation %.6f\n",p.parts[1].angle,p.parts[3].angle,p.max_separation);fflush(stdout);
+ assert(p.parts[1].angle>1.4f&&p.parts[3].angle>1.4f&&fabsf(p.parts[1].angle-p.parts[3].angle)<.01f&&p.max_separation<.03f);
+ controls[c.blocks[1].positive]=controls[c.blocks[3].positive]=0;controls[c.blocks[1].negative]=controls[c.blocks[3].negative]=1;
+ for(int i=0;i<120;i++){physics_drive(&p,&c,controls);b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);}
+ printf("RETRACT %.6f %.6f separation %.6f\n",p.parts[1].angle,p.parts[3].angle,p.max_separation);assert(fabsf(p.parts[1].angle)<.03f&&fabsf(p.parts[3].angle)<.03f&&p.max_separation<.03f);
+ physics_stop(&p);character_clear(&c);
+}
+
 int main(void){
  JSRuntime *rt=JS_NewRuntime();embedded_context=JS_NewContext(rt);assert(character_check()==0);
  for(int n=1;n<=4;n++)for(int axis=0;axis<3;axis++)bearing_trial(n,axis,1);
  for(int axis=0;axis<3;axis++)if(axis!=1)bearing_trial(3,axis,-1);
- base_controls();articulated_contacts();compound_contacts();mechanics();
+ base_controls();articulated_contacts();compound_contacts();mechanics();reversed_pistons();
  JS_FreeContext(embedded_context);JS_FreeRuntime(rt);puts("Wide bearing physical trials passed");return 0;
 }

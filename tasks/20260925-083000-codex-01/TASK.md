@@ -123,3 +123,29 @@ third rests near x=0, outside its home patrol. The truck attempts only cargo
 21 during brief releases from the existing gantry. Test broader terrain-safe
 patrol or crew placement with real cargo and guards still present, and avoid
 continually chasing another machine's transient handoff.
+
+The wider patrol alone does not fix recovery: continuing the exact 2400 s
+world to 3000 s completes no further restock on either team. A 60 s sensor replay
+shows East holding cargo 103 in wait_bay outside the bay's terrain observations;
+West's planner rejects every route because its reachable local area is smaller
+than its 24 m frontier requirement. Evidence: `build/blockwalker-rivalry-wide-
+patrol-continued/` and `build/blockwalker-forklift-trucks-stalled-sensors/`.
+
+A program-only return-route candidate continues that same 3000 s world, retaining
+all poses, memory, cargo and guards. Waiting trucks can navigate toward home;
+an exhausted local search can use a reachable point that makes real progress.
+At 3600 s East has returned its stranded load and another crate (five recoveries,
+eight shots total), with 137 objects retained, 45 deliveries, four heavy loads
+stored per island and zero crew contacts, controller failures or truck rollovers.
+West still completes no recovery: its conservative escape logic repeatedly
+reacts to nearby traffic. This candidate is not yet bundled. Evidence:
+`build/blockwalker-rivalry-return-route-continued/`. The next replay tests
+closing-speed avoidance and a short wait after another machine releases cargo.
+
+Closing-speed avoidance and wider tangent escapes still leave West without a
+recovery in the same 600 s continuation. Considering only an enemy's approach
+reduces West's escape loops but sends the loaded East truck into a blocked cave
+route; that version loses East's improvement. Neither traffic variant is
+promoted. Evidence: `build/blockwalker-rivalry-{traffic-route,incoming-route}-
+continued/`. Keep the proven return-home/local-frontier changes separate from
+these failed avoidance experiments.

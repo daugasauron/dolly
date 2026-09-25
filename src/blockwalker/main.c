@@ -343,7 +343,7 @@ static void click(void){
     if(inside(808,22,104,36)){export_character();return;}
     if(inside(924,22,104,36)){import_character();return;}
     if(inside(24,280,194,40)){enter_world();return;}
-    for(int i=0;i<BLOCK_KINDS;i++)if(inside(24+(i%2)*100,142+(i/2)*32,94,28)){brush_joint=i;tool=ADD;binding=-1;dirty=1;return;}
+    for(int i=0;i<BLOCK_KINDS;i++)if(inside(24+(i%2)*100,142+(i/2)*26,94,24)){brush_joint=i;tool=ADD;binding=-1;dirty=1;return;}
     for(int i=0;i<3;i++)if(inside(24+i*66,336,62,36)){tool=i;dirty=1;return;}
     for(int i=0;i<COLOR_COUNT;i++)if(inside(24+i*32,416,26,30)){
         brush_color=i;if(tool==SELECT&&selected>=0){remember();design.blocks[selected].color=i;changed();}dirty=1;return;
@@ -386,13 +386,14 @@ edit_view:
             Block next=*b;next.direction=-next.direction;Block old=*b;*b=next;int valid=character_validate(&design);*b=old;
             if(valid){remember();*b=next;changed();}else say("Leave the thruster's exhaust face open.");return;
         }
-        for(int axis=0;axis<3;axis++)if(inside(1036+axis*76,248,68,36)){
+        if(b->joint==BLOCK_WINCH&&(inside(1036,248,40,36)||inside(1216,248,40,36))){remember();b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,block_force_max(*b));changed();return;}
+        for(int axis=0;b->joint!=BLOCK_WINCH&&axis<3;axis++)if(inside(1036+axis*76,248,68,36)){
             Block next=*b;next.axis=axis;Block old=*b;*b=next;int valid=character_validate(&design);*b=old;
             if(valid){remember();*b=next;changed();}else say(b->joint==BLOCK_TURNTABLE?"Turntable needs a clear footprint and a base on its mounting face.":"Leave the thruster's exhaust face open.");return;
         }
         for(int key=b->joint==BLOCK_THRUSTER?1:0;key<2;key++)if(inside(b->joint==BLOCK_THRUSTER?1036:1036+key*116,336,b->joint==BLOCK_THRUSTER?220:104,44)){binding=key;dirty=1;say("Press a letter or number for this direction. Esc cancels.");return;}
         if(inside(1036,436,40,36)||inside(1216,436,40,36)){remember();if(b->joint==BLOCK_THRUSTER||b->joint==BLOCK_MAGNET)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);else b->speed=Clamp(b->speed+(mouse_x<1100?-.5f:.5f),.5f,6);changed();return;}
-        if(inside(1036,532,40,36)||inside(1216,532,40,36)){remember();if(b->joint==BLOCK_PISTON)b->travel=Clamp(b->travel+(mouse_x<1100?-.25f:.25f),.25f,3);else if(b->joint==BLOCK_HINGE)b->limit=Clamp(b->limit+(mouse_x<1100?-15:15),15,150);else if(b->joint==BLOCK_WHEEL||b->joint==BLOCK_TURNTABLE)b->force=Clamp(b->force+(mouse_x<1100?-2:2)*block_size(*b)*block_size(*b),2,block_force_max(*b));changed();return;}
+        if(inside(1036,532,40,36)||inside(1216,532,40,36)){remember();if(b->joint==BLOCK_WINCH)b->travel=Clamp(b->travel+(mouse_x<1100?-.5f:.5f),1,24);else if(b->joint==BLOCK_PISTON)b->travel=Clamp(b->travel+(mouse_x<1100?-.25f:.25f),.25f,3);else if(b->joint==BLOCK_HINGE)b->limit=Clamp(b->limit+(mouse_x<1100?-15:15),15,150);else if(b->joint==BLOCK_WHEEL||b->joint==BLOCK_TURNTABLE)b->force=Clamp(b->force+(mouse_x<1100?-2:2)*block_size(*b)*block_size(*b),2,block_force_max(*b));changed();return;}
     }else if(selected>0&&inside(1036,248,220,42)){
         Character copy={0};character_copy(&copy,&design);Block old=copy.blocks[selected];
         // Obtain an unused pair without changing the character's attachment tree.
@@ -550,7 +551,7 @@ static void draw_ui(void){
     }else if(!physics.running){
         button(808,22,104,36,"Export",0);button(924,22,104,36,"Import",0);
         label(24,106,"PARTS",17,muted);
-        for(int i=0;i<BLOCK_KINDS;i++)button(24+(i%2)*100,142+(i/2)*32,94,28,block_names[i],tool==ADD&&brush_joint==i);
+        for(int i=0;i<BLOCK_KINDS;i++)button(24+(i%2)*100,142+(i/2)*26,94,24,block_names[i],tool==ADD&&brush_joint==i);
         button(24,280,194,40,"Drive in world",1);
         button(24,336,62,36,"Add",tool==ADD);button(90,336,62,36,"Pick",tool==SELECT);button(156,336,62,36,"Erase",tool==ERASE);
         label(24,390,tool==SELECT?"SELECTED COLOR":"BLOCK COLOR",15,muted);
@@ -570,18 +571,20 @@ static void draw_ui(void){
                 label(1036,322,"View follows this block.",15,muted);label(1036,350,"Backslash: switch camera",15,muted);
                 label(1036,392,"Aim the lenses outward.",15,muted);
             }else if(block_controlled(b)){
-                label(1036,224,b.joint==BLOCK_MAGNET?"MAGNET FACE":b.joint==BLOCK_THRUSTER?"EXHAUST FACE":"CONTROL AXIS",15,muted);if(b.joint==BLOCK_PISTON||b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)button(1200,218,56,24,b.direction>0?"+":"-",0);for(int i=0;i<3;i++){char name[2]={'X'+i,0};button(1036+i*76,248,68,36,name,b.axis==i);}
+                if(b.joint==BLOCK_WINCH){label(1036,224,"MAX PULL",15,muted);button(1036,248,40,36,"-",0);button(1216,248,40,36,"+",0);snprintf(text,sizeof(text),"%.0f N",b.force);label(1090,256,text,17,ink);}
+                else{label(1036,224,b.joint==BLOCK_MAGNET?"MAGNET FACE":b.joint==BLOCK_THRUSTER?"EXHAUST FACE":"CONTROL AXIS",15,muted);if(b.joint==BLOCK_PISTON||b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET)button(1200,218,56,24,b.direction>0?"+":"-",0);for(int i=0;i<3;i++){char name[2]={'X'+i,0};button(1036+i*76,248,68,36,name,b.axis==i);}}
                 char negative[2]={b.negative?b.negative:'-',0},positive[2]={b.positive?b.positive:'-',0};
                 if(b.joint==BLOCK_THRUSTER){label(1036,310,"FIRE",15,muted);button(1036,336,220,44,binding==1?"Press key":positive,binding==1);}
                 else{
-                    label(1036,310,b.joint==BLOCK_MAGNET?"SWITCH OFF":b.joint==BLOCK_PISTON?"RETRACT -":"REVERSE -",15,muted);label(1152,310,b.joint==BLOCK_MAGNET?"SWITCH ON":b.joint==BLOCK_PISTON?"EXTEND +":"FORWARD +",15,muted);
+                    label(1036,310,b.joint==BLOCK_MAGNET?"SWITCH OFF":b.joint==BLOCK_WINCH?"REEL IN":b.joint==BLOCK_PISTON?"RETRACT -":"REVERSE -",15,muted);label(1152,310,b.joint==BLOCK_MAGNET?"SWITCH ON":b.joint==BLOCK_WINCH?"PAY OUT":b.joint==BLOCK_PISTON?"EXTEND +":"FORWARD +",15,muted);
                     button(1036,336,104,44,binding==0?"Press key":negative,binding==0);button(1152,336,104,44,binding==1?"Press key":positive,binding==1);
                 }
                 int force_control=b.joint==BLOCK_THRUSTER||b.joint==BLOCK_MAGNET;
-                label(1036,407,b.joint==BLOCK_MAGNET?"HOLDING FORCE":force_control?"PUSH FORCE":"MOTOR SPEED",15,muted);button(1036,436,40,36,"-",0);button(1216,436,40,36,"+",0);snprintf(text,sizeof(text),force_control?"%.0f N":b.joint==BLOCK_PISTON?"%.1f m/s":"%.1f rad/s",force_control?b.force:b.speed);label(1090,444,text,17,ink);
+                label(1036,407,b.joint==BLOCK_MAGNET?"HOLDING FORCE":force_control?"PUSH FORCE":"MOTOR SPEED",15,muted);button(1036,436,40,36,"-",0);button(1216,436,40,36,"+",0);snprintf(text,sizeof(text),force_control?"%.0f N":(b.joint==BLOCK_PISTON||b.joint==BLOCK_WINCH)?"%.1f m/s":"%.1f rad/s",force_control?b.force:b.speed);label(1090,444,text,17,ink);
                 if(!force_control){
-                    label(1036,503,b.joint==BLOCK_WHEEL||b.joint==BLOCK_TURNTABLE?"MOTOR TORQUE":"TRAVEL LIMIT",15,muted);button(1036,532,40,36,"-",0);button(1216,532,40,36,"+",0);
-                    if(b.joint==BLOCK_PISTON)snprintf(text,sizeof(text),"0 - %.2f m",b.travel);
+                    label(1036,503,b.joint==BLOCK_WHEEL||b.joint==BLOCK_TURNTABLE?"MOTOR TORQUE":b.joint==BLOCK_WINCH?"CABLE CAPACITY":"TRAVEL LIMIT",15,muted);button(1036,532,40,36,"-",0);button(1216,532,40,36,"+",0);
+                    if(b.joint==BLOCK_WINCH)snprintf(text,sizeof(text),"1 - %.1f m",b.travel);
+                    else if(b.joint==BLOCK_PISTON)snprintf(text,sizeof(text),"0 - %.2f m",b.travel);
                     else if(b.joint==BLOCK_WHEEL||b.joint==BLOCK_TURNTABLE)snprintf(text,sizeof(text),"%.0f Nm",b.force);
                     else snprintf(text,sizeof(text),"+/- %.0f deg",b.limit);label(1088,540,text,17,ink);
                 }else {label(1036,503,b.joint==BLOCK_MAGNET?"Stays powered until Off.":"Push follows the block.",15,muted);label(1036,532,b.joint==BLOCK_MAGNET?"Cyan: on / amber: holding.":"Release keys to coast.",15,muted);}
@@ -599,6 +602,7 @@ static void draw_ui(void){
             snprintf(text,sizeof(text),"%02d",i+1);label(1036,y+12,text,16,muted);char a[2]={b.negative?b.negative:'-',0},z[2]={b.positive?b.positive:'-',0};if(b.joint==BLOCK_THRUSTER)button(1072,y,156,42,z,(agent_control?agent_keys:keys)[b.positive]);else{button(1072,y,72,42,a,(agent_control?agent_keys:keys)[b.negative]);button(1156,y,72,42,z,(agent_control?agent_keys:keys)[b.positive]);}
             PhysicsPart *part=&physics.parts[i];
             if(b.joint==BLOCK_MAGNET)snprintf(text,sizeof(text),part->magnet_power?b3Body_IsValid(part->magnet_target)?"Holding %.1f N":"On %.1f N":"Off",part->magnet_load);
+            else if(b.joint==BLOCK_WINCH)snprintf(text,sizeof(text),"%.2f / %.2f m",part->angle,part->winch_length);
             else if(b.joint==BLOCK_PISTON)snprintf(text,sizeof(text),"%.2f m",part->angle);
             else if(b.joint==BLOCK_THRUSTER)snprintf(text,sizeof(text),"%+.1f N",part->command*b.force);
             else snprintf(text,sizeof(text),"%+.0f deg",part->angle*RAD2DEG);
