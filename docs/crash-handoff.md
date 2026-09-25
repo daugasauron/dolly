@@ -3,20 +3,17 @@
 Worktree: `/home/daug/dev/dolly/work/gpu-shaders`.
 Branch: `codex/blockwalker-playground-20260923`.
 Verified checkpoint: `blockwalker-stable-20260926-image41`.
-Latest verification and deferred-work notes: `blockwalker-checkpoint-20260926-image41`.
+Latest local deployment notes: `blockwalker-local-20260926-image41`.
 Local app: `http://127.0.0.1:9099/blockwalker/`.
 Owned service: `dolly-blockwalker-preview-20260924.service`; relay9010.
-Image41 remains the verified checkpoint; the broader goal has resumed. Active
-experiment: payload-beam, session47432, scope
-`run-r6bbbed2aaf7546f896a84c230f910a34.scope`,1100s wall timeout,600s simulation.
-Log: `build/blockwalker-multipart-cargo/trial.log`. Poll before another browser.
-Inputs in that directory: `source.tar`, `catalog.json`, `defense.c`; output
+Image41 is the local deployment and stable checkpoint requested by the user.
+No experimental simulation remains running. The payload-beam trial completed its
+600s run with125 objects,14 deliveries and no actor losses/errors/deaths, but zero
+shots or payload drops. A beam reaches the gun and then loses its grip during
+spin-up. Its raw fixture status is1; task20260926-055700 remains open. Full trace:
 `build/blockwalker-compound-regressions-chrome-payload-beam/salvage/`.
-Only experimental world.c classifies passive multi-box assemblies as cargo;
-three stock rounds become1.369kg beams, still below the existing light limit.
-Gun body/forces stay unchanged. Initial in-Dolly mass/classification checks pass;
-pickup, handoff and combat outcomes remain unverified. Task20260926-055700 tracks it.
-Canonical source and served image41 are unchanged. No result is promoted yet.
+Canonical source and served image41 are unchanged; experimental cargo, rescue and
+defense changes remain unbundled. Further gameplay work is tracked in tatr.
 Eleven old Xvfb-only test scopes were stopped during checkpoint cleanup; user
 browser processes and profiles were untouched.
 
@@ -78,6 +75,14 @@ and export all111 designs with matching programs/blueprints and zero errors/mode
 requests. Evidence: `build/blockwalker-stable-checkpoint-preview{,-firefox}/`.
 Served hashes, all22 source files and six preserved user files were rechecked:
 `build/blockwalker-stable-checkpoint-artifacts.json`. No rebuild was needed.
+
+Local deployment recheck also passes Chrome and Firefox:111 fresh designs match
+canonical programs/blueprints; the1800s world restores all134 objects with zero
+errors/deaths/model requests. Rendered views inspected. Evidence:
+`build/blockwalker-local-deploy-20260926-preview{,-firefox}/proof.json`.
+Served source/snapshot/Wasm, all22 canonical source files and six protected user
+files match the checkpoint: `build/blockwalker-local-deploy-20260926-artifacts.json`.
+The existing preview already serves these exact artifacts; no rebuild was needed.
 
 Dock paint uses14 paired fixed views of the same119-object save,30s warmup and15s
 sampling. Chrome30.38→29.94FPS; Firefox33.55→32.68FPS,121 final objects without

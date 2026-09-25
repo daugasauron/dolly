@@ -4,10 +4,11 @@
 - PRIORITY: 280
 - TAGS: game,content,visuals
 
-The stable checkpoint is complete. Work has resumed toward the broader goal
-through2026-09-26 13:00 JST. Image40 remains the playable build at
-`blockwalker-checkpoint-20260926-image40`; further candidates stay separate until
-their cargo, defense, interaction and terrain behavior is verified.
+The user requested another stable checkpoint and local deployment. Image41 is
+the playable build; `blockwalker-local-20260926-image41` records the latest
+verification. No experimental simulation remains running. Further candidates
+stay separate until their cargo, defense, interaction and terrain behavior is
+verified; the broader gameplay task remains open.
 The user likes the physical catapults;
 air retrieval is too easy and the terrain looks flat and gray. Improve cargo,
 interaction, combat/defense, terrain and visuals while retaining the late-90s
@@ -269,3 +270,11 @@ and Firefox, including rendered views and all111 exported designs. Served hashes
 22 canonical source files and six preserved user files match. New checkpoint-notes
 tag: `blockwalker-checkpoint-20260926-image41`. Broader gameplay goals remain open;
 payload ejection, reliable rescues and sustained ammunition supply are unproven.
+
+Local deployment confirmed again after the completed, failed multipart-ammunition
+trial. Chrome and Firefox each render the world, compare all111 fresh designs and
+restore the134-object1800s save with zero errors/deaths/model requests. Served
+artifacts,22 canonical source files and six protected user files match image41.
+Evidence: `build/blockwalker-local-deploy-20260926-preview{,-firefox}/proof.json`
+and `build/blockwalker-local-deploy-20260926-artifacts.json`. No rebuild was needed;
+the preview remains at http://127.0.0.1:9099/blockwalker/.
