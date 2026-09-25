@@ -118,3 +118,40 @@ archives each five-minute world snapshot under world-snapshots/, alongside
 its complete native-history mirror. Its first archive, 1789451657404.json at
 world47937.783, is after these falls; it cannot establish their pre-fall causes.
 Patrol development addresses reaching the shore; collision robustness remains open.
+
+## Current rigid-assembly catalog
+
+The image36 fresh-world continuation also contains a tipped original Sidelight
+(ID1). At t=1500 it is at (-1.067,1.271,-3.666), up=.000036, phase9 since
+809.75 s. Its first reported failure and controller counters do not establish
+the cause; this is a new population/body-assembly context, not proof of the
+previous encounter. Hibari (ID67) remains upright at up=.998826 in that same
+world. Preserve both sources and the complete save:
+`build/blockwalker-compound-regressions-chrome-salvage-warehouse-shed/salvage/blockwalker-world.json`.
+Reproduce from the current fresh catalog with real contact evidence before
+altering or replacing the patrol. No automatic removal concealed this fall.
+
+The matched replay repeats the original loaded reopen at 408.966667 s and the
+late fall (up<.8 at 791.833 s). Compact pose/support traces and foreign-body
+contact forces were exported successfully: `build/blockwalker-compound-
+regressions-chrome-biped-reopened/salvage/`. The only measured foreign contacts
+are with roaming lookout33, beginning781.05 s while the biped is upright and
+transferring weight. Peak last-substep normal force70.05 N acts on foot11 at
+784.883 s; the body tilts below .9 at787.017 s. The scout also contacts upper
+leg6 before the fall. This is a real rover encounter; the timeout is subsequent,
+not a controller exception. Uninterrupted900s current-catalog operation stayed
+upright; its oversized detailed trace could not export, so do not claim a full
+browser proof for that diagnostic. Full state/regression log remain available.
+
+Next: inspect the lookout's observed neighbors and actual drive commands from
+before the encounter. Preserve the biped, every other actor and original sources.
+Do not omit the rover or weaken its physics to claim a fix.
+
+The scout's nearest-neighbor evasion switches between raider74 and walker1,
+oscillating drive direction while moving into the feet. Dedicated issue
+20260925-173000 tracks a generic predictive traffic fix. A750s saved-state
+comparison reproduces410 unwanted contacts with unchanged code; the candidate
+runs200s with zero contacts, minup.980523 and six further biped steps, while the
+scout travels155.78m and reaches two further goals. Full browser proof and trace:
+`build/blockwalker-compound-regressions-chrome-scout-clear/`. This is evidence for
+that avoidance change, not a general solution to all historical biped falls.

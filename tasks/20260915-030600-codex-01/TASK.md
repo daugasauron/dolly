@@ -32,3 +32,13 @@ Its original SHA-256 prefix matched after restoration. This gzip requires the
 explicit `-` stdin argument. Temporary imported chunks were then removed.
 Evidence: `build/blockwalker-walking/focus-restored-proof.json`. This manual
 workaround does not complete the streaming upload/download work above.
+
+September25: two physics diagnostics completed but ordinary downloads of their
+large JSONL traces failed(-22): `build/blockwalker-biped-observe.log` and
+`build/blockwalker-warehouse-store-clear.log`. The latter retained its successful
+world/regression result; a48MiB reduced diagnostic trace exported successfully.
+The bundled gzip only supports decompression; the attempted compression helper
+therefore failed before the next trace could export. A small local diagnostic
+compressor using the existing zlib is now compiled inside Dolly and verifies its
+output against the original bytes. This remains a test-workflow workaround, not
+the requested streaming file interface. Core64MiB bounds remain unchanged.

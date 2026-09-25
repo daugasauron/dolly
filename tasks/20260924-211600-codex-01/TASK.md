@@ -1,6 +1,6 @@
 # Extend physical cargo competition through the morning
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: game,content,physics
 
@@ -52,3 +52,12 @@ feature experiments are stopped. Packaging and launch are tracked in
 has 91 placements; the populated recovery reaches 125 retained objects and
 37 deliveries. Fresh uninterrupted freight verification and crowded Firefox
 performance remain open, rather than being claimed complete at the cutoff.
+
+The morning checkpoint and all listed follow-ups are now verified and committed
+through `49a038a` (image36): retained physical cargo, freight/warehouse chains,
+quarry relay, both slinger crews, one-way jets, cable winches and salvage reuse.
+Chrome/Firefox packaged checks retain old worlds; the warmed 150-object Firefox
+sample sustains real-time simulation at 39.32 FPS. Detailed evidence remains in
+the linked issues and the image36 handoff. Saboteur/guard interactions are real
+physical tipping experiments; reliable strategic victory is not claimed.
+Later work is recorded in the September25 component tasks and stable-checkpoint handoff.
