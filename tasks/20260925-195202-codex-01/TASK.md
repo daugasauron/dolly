@@ -54,3 +54,9 @@ Evidence: `build/blockwalker-compound-regressions-chrome-renewal-hauler-transfer
 A previous replay failed an incorrect hauler depot-score assertion despite the
 handoff; the final fixture checks the physical intermediate transfer instead.
 Fresh combined verification remains required; image38 bundles neither candidate.
+
+Fresh image39 trial is now running with only53,55,56,106,111 changed:
+`build/blockwalker-battery-supply/fresh-chain-{catalog.json,c}`. The last two
+programs are battery resupply work tracked in20260926-000614. At1200s the scene
+has22 deliveries and no deaths, but neither warehouse has completed a job.
+Maximum1800s; do not treat the isolated sailing/hauler passes as a full-chain pass.

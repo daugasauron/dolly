@@ -7,7 +7,12 @@ Game implementation:07967f6 (`blockwalker-checkpoint-20260925-image39`).
 Local app: `http://127.0.0.1:9099/blockwalker/`, owned user service
 `dolly-blockwalker-preview-20260924.service`; relay 9010.
 No push/deploy requested. The user requested a stable checkpoint; image39 stays
-served. All diagnostic and verification browsers have exited.
+served. Active continuation: battery-freight-fresh session61252, fresh world with
+five candidate programs; poll before starting another disposable browser.
+Latest confirmed progress:1200 simulated seconds,4 shots (1 external chain),
+1 tender job,0/0 warehouse jobs,22 deliveries, no deaths. Scope
+`run-r1847ad960a934ac6b07d6a37ea61bdb7.scope` is active. Full run maximum1800s;
+log `build/blockwalker-battery-supply/fresh-chain.log`. This is not a passing run.
 
 The broader world/competition goal through 2026-09-26 13:00 JST remains open in
 `tasks/20260925-221800-codex-01/TASK.md`. Its remaining gameplay issues are not
@@ -92,8 +97,19 @@ vehicle terrain clearance eventually let tender111 deliver scrap101, but at1500s
 the shuttle has not collected it and the gun still has only three shots. The raw
 test fails;134 objects,26 deliveries, no losses/errors. Continue from that saved
 world to investigate the tender→shuttle request/handoff before promoting changes.
-`terrain-contact.c` is prepared but unrun, so the suspected slag-terrace contact
-is not confirmed. A separate three-program freight-chain trial is prepared under
+The next1500→1800s replay passes the first outside-ammo chain:101→107 at1510.8,
+→106 at1549.85, shot at1574.22. No hostile/friendly projectile contacts; nearest
+courier59 distance2.374m.136 objects,28 deliveries, no losses/errors; tender jobs2.
+Fresh combined validation now runs from `fresh-chain-{catalog.json,c}` with only
+actors53,55,56,106,111 changed. It requires two supplied shots and both warehouses
+receiving heavy cargo, with all original actors preserved. Fine-aim prototype is
+prepared separately but untested; do not mix it into this run. After this browser
+exits, the matched aiming comparison uses `fine-aim.c`, `intercept-catalog.json`
+and `...-chrome-battery-external-round/salvage/external-gun.json`; export
+`aim-baseline.json,aim-candidate.json`. It runs90s per variant. Task005230 tracks
+its release-direction/precision hypothesis; no verified hit yet.
+`terrain-contact.c` now confirms rear wheel17 against the slag terrace centered
+at(43,.25,17),113 samples and maximum677N. A separate three-program freight-chain trial is prepared under
 `build/blockwalker-freight-chain/` but has not run.
 
 Preserve captures and teammate rescues. Do not remove actors/cargo or weaken

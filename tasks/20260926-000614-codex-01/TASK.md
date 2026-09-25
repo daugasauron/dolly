@@ -79,6 +79,13 @@ in full-vehicle overlap cost, allowing paths that reduce an existing overlap.
 Its expected slag-terrace contact remains an inference until `terrain-contact.c`
 runs against the preceding1200s state. Do not report that contact as measured.
 
+Contact probe now passes: `...-chrome-battery-terrain-contact/salvage/` logs
+rear wheel17 contacting terrain body(43,.25,17) on113 of120 ticks, maximum677N;
+this is the first slag terrace. Rear wheel6 also contacts it twice, maximum970N.
+The full-envelope diagnosis is confirmed. A1500→1800s continuation with no new
+program edits checks101→shuttle107→gun106→shot. At1500s the tender's final claim
+on101 is only5s old, so the idle loader may simply be waiting for expiry.
+
 At the user's checkpoint request, the served image39 still contains none of
 these program experiments. Preserve the failed runs. Harness:
 `build/blockwalker-salvage-combined-browser.mjs` with BLOCKWALKER_WORLD,
@@ -86,3 +93,20 @@ BLOCKWALKER_CATALOG and BLOCKWALKER_FIXTURE pointing at the saved world, candida
 catalog and matching fixture in `build/blockwalker-battery-supply/`.
 It compiles and simulates inside Dolly; use the bounded browser scope described
 in `docs/crash-handoff.md`.
+
+1500→1800s replay passes: `...-chrome-battery-external-round/salvage/`, raw status0.
+Actual cargo101 ownership:107 at1510.800s,106 at1549.850s, released at1574.267s.
+The gun records the shot at1574.217s toward59; no hostile/friendly contacts,
+nearest root distance2.374m.136 final objects,28 deliveries, no losses/errors.
+Tender jobs1→2; loader jobs3→5. This proves one supplied shot, not sustained fire.
+
+Fresh-world combined validation uses `fresh-chain-catalog.json` and `fresh-chain.c`
+from the candidate directory. Only53,55,56,106,111 change, combining the isolated
+heavy-freight fixes with the resupply fixes. It requires two distinct outside
+crates to be magnetically held by111→107→106 and fired, plus a stored heavy load
+in each warehouse. It preserves all111 initial actors and rejects controller
+errors/deaths. Maximum1800s, earliest successful stop1200s. Still running.
+At1200s it has4 shots/1 external chain,1 tender job,0/0 warehouse jobs and22
+deliveries, with no deaths. First fresh supplied shot is verified; sustained
+operation and the combined candidate remain unproven. Await the terminal result
+and inspect the exported1200s state before making another program change.
