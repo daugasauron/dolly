@@ -16,8 +16,15 @@ typedef struct {
     int direction,material,finish,size;
 } Block;
 typedef struct { int count,capacity,anchored; Block *blocks; } Character;
+typedef struct {b3WorldTransform transform;b3Vec3 velocity,angular;} PhysicsPose;
+typedef struct {b3ShapeId id;int part;b3Transform local;b3Vec3 half;float volume,mass;} PhysicsShape;
 typedef struct {
     b3BodyId body;
+    int owner,mount;
+    b3Transform frame;
+    float mass,volume;
+    b3Vec3 center;
+    b3ShapeId shape,magnet_shape;
     b3JointId joint;
     int motor_steps;
     float angle_peak,angle,rate,command,driven_radians,submerged;
@@ -29,6 +36,8 @@ typedef struct {b3BodyId body;Block block;Vector3 start;} Cargo;
 typedef struct {
     b3WorldId world;
     PhysicsPart *parts;
+    PhysicsShape *shapes;
+    int shape_count;
     int running,steps,owns_world,count,landscape,sampled;
     double time;
     float max_separation;
@@ -62,6 +71,11 @@ int character_save(const Character *c,const char *path);
 int character_load(Character *c,const char *path);
 b3WorldId physics_world(int landscape);
 void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape);
+b3WorldTransform physics_transform(const PhysicsPart *part);
+b3Pos physics_position(const PhysicsPart *part);
+b3Pos physics_center(const PhysicsPart *part);
+b3Vec3 physics_velocity(const PhysicsPart *part);
+void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape,const PhysicsPose *poses,int legacy_velocity);
 void physics_start(Physics *p,const Character *c);
 void physics_start_sea(Physics *p,const Character *c);
 void physics_motor(Physics *p,const Character *c,const unsigned char keys[128]);

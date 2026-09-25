@@ -1,6 +1,6 @@
 # Keep industrial freight and air supplies moving in long sessions
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: bug,game,physics
 
@@ -179,3 +179,32 @@ receiver and warehouse by physical ownership; no cargo is moved by the fixture.
 rolls beyond the crane program's fixed 2 m pickup circle but remains within
 its physical boom reach. Expand selection to the reachable land-side annulus;
 verify that exact saved failure and then repeated fresh operation before bundling.
+
+With the compound-body candidate, a fresh isolated 2400 s trial of the revised
+hauler, quay, ballasted barges and longer-reach receivers makes six heavy
+deliveries and stores two loads per island. All 24 objects remain and controller
+errors are zero. The unchanged warehouse programs still have later loads in
+route/planning phases at the cutoff. Evidence:
+`build/blockwalker-rivalry-compound-reachable-freight/freight-proof.json`.
+The original nine-machine comparison stores zero loads; rigidity alone does
+not fix the reach/alignment failures. A fresh populated 2400 s run is underway;
+keep this issue open pending that result and packaged verification.
+
+The full 93-placement candidate passes 2400 uninterrupted seconds: 127 retained
+objects, 35 deliveries, six complete heavy freight chains and two supported,
+unheld heavy loads stored beyond each team's receiving pad. Both third loads
+are with warehouse handlers at the cutoff; the quay is loading the seventh.
+There are no controller errors, crew contacts or recovery-truck rollovers.
+`build/blockwalker-rivalry-compound-freight-populated42/{report,freight-proof}.json`.
+The six changed freight models/programs are now canonical; the ore lift and
+warehouse handlers are unchanged. Image 32 is building for bundled browser
+checks. West's missing ammunition recovery is reopened separately.
+
+Verified in packaged image 33. Chrome/Firefox load all 93 catalog entries,
+restore the older 125-object world and render the new freight machinery without
+errors. The full physics regressions pass, including distinct air supplies and
+mine production. The fresh 2400 s run physically delivers six heavy pallets
+and is loading the seventh, beyond the prior four-load jam. Evidence:
+`build/blockwalker-image33-preview{,-firefox}/`, `build/blockwalker-driver/`
+and `build/blockwalker-rivalry-view-firefox-crowded-image33-freight/`.
+Later warehouse routing remains a separate open issue; no cargo was removed.

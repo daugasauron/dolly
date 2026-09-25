@@ -105,3 +105,30 @@ recovers East's stranded heavy load and both delivered pallets are stored by
 the unchanged warehouse programs. The fresh six-wheel chain still fails
 upstream at the foundry exit (no heavy deliveries in 1800 s). These results
 do not establish uninterrupted warehouse continuity; keep this issue open.
+
+With the compound-body candidate, a fresh isolated 2400 s trial of the revised
+hauler, quay, ballasted barges and longer-reach receivers makes six heavy
+deliveries and stores two loads per island. All 24 objects remain and controller
+errors are zero. The unchanged warehouse programs still have later loads in
+route/planning phases at the cutoff. Evidence:
+`build/blockwalker-rivalry-compound-reachable-freight/freight-proof.json`.
+The original nine-machine comparison stores zero loads; rigidity alone does
+not fix the reach/alignment failures. A fresh populated 2400 s run is underway;
+keep this issue open pending that result and packaged verification.
+
+The full 93-placement candidate passes 2400 uninterrupted seconds: 127 retained
+objects, 35 deliveries, six complete heavy freight chains and two supported,
+unheld heavy loads stored beyond each team's receiving pad. Both third loads
+are with warehouse handlers at the cutoff; the quay is loading the seventh.
+There are no controller errors, crew contacts or recovery-truck rollovers.
+`build/blockwalker-rivalry-compound-freight-populated42/{report,freight-proof}.json`.
+The six changed freight models/programs are now canonical; the ore lift and
+warehouse handlers are unchanged. Image 32 is building for bundled browser
+checks. West's missing ammunition recovery is reopened separately.
+
+Image 33's Chrome/Firefox and rendered freight checks pass. The minimum repeated
+storage criterion now passes (two distinct heavy loads per island), but both
+third loads are still routing after a further 90 s. East repeatedly approaches
+its chosen storage point near (167,44); West tries alternative points. Keep
+this issue open while testing continued yard clearance beyond those first two
+loads. Exact continuation: `build/blockwalker-rivalry-view-firefox-crowded-image33-freight/blockwalker-world.json`.

@@ -1,6 +1,6 @@
 # Keep the cargo world active with recovery and restocking crews
 
-- STATUS: CLOSED
+- STATUS: OPEN
 - PRIORITY: 250
 - TAGS: game,content,physics
 
@@ -106,3 +106,20 @@ Paired Firefox timing on the same 900 s saved population measures 1800 ticks:
 simulation cost is about 2.6%; all runs finish without errors. This is a CPU
 simulation comparison, not rendered FPS. Evidence:
 `build/blockwalker-recovery-cost-firefox/proof.json`.
+
+Reopened after the rigid-assembly conversion. The 2400 s populated candidate
+retains 127 objects, makes 35 deliveries and has zero crew contacts or truck
+rollovers. East completes three recovery-to-loader-to-slinger chains and six
+shots; West fires its three initial crates but completes no recovery. Its
+truck remains upright, patrols and repeatedly evades enemies. Inspect its
+reachable cargo and actual route failures before changing its program or crew
+placement. Do not respawn ammo or weaken the opposing guard. Evidence:
+`build/blockwalker-rivalry-compound-freight-populated42/recovery-proof.json`.
+
+Trace diagnosis: two of West's three fired crates finish on the seabed; the
+third rests near x=0, outside its home patrol. The truck attempts only cargo
+21/100/104, with 67 escape episodes and no pickup. Parcel 116 stays at least
+48.78 m away, just beyond its 48 m observations. It repeatedly targets cargo
+21 during brief releases from the existing gantry. Test broader terrain-safe
+patrol or crew placement with real cargo and guards still present, and avoid
+continually chasing another machine's transient handoff.

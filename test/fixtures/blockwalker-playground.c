@@ -106,7 +106,7 @@ static void check_walker_recovery(JSContext *ctx){
     }
     load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);
     Creature *c=&world.creatures[0];assert(c->design.count==sizeof(poses)/sizeof(*poses));int id=c->id;
-    for(int i=0;i<c->design.count;i++){const float *p=poses[i];b3BodyId body=c->physics.parts[i].body;b3Body_SetTransform(body,(b3Pos){p[0],p[1],p[2]},(b3Quat){{p[3],p[4],p[5]},p[6]});b3Body_SetLinearVelocity(body,(b3Vec3){p[7],p[8],p[9]});b3Body_SetAngularVelocity(body,(b3Vec3){p[10],p[11],p[12]});}
+    PhysicsPose *restored=array_resize(NULL,c->design.count,sizeof(*restored));for(int i=0;i<c->design.count;i++){const float *p=poses[i];restored[i]=(PhysicsPose){.transform={{p[0],p[1],p[2]},{{p[3],p[4],p[5]},p[6]}},.velocity={p[7],p[8],p[9]},.angular={p[10],p[11],p[12]}};}physics_attach_poses(&c->physics,&c->design,world.physics,0,0,1,restored,1);free(restored);
     physics_refresh(&c->physics,&c->design);world.age=c->physics.time=1200;c->physics.steps=72000;c->controller->last_step=71999;
     c->controls['D']=0.00000229876673f;c->controls['H']=0.00000728595069f;c->controls['L']=0.00000563381627f;c->controls['O']=0.00000312659586f;c->controls['R']=0.00000867479321f;c->controls['W']=6.18295317e-8f;
     Controller *controller=c->controller;const char *state="{\"p\":0,\"a\":1,\"t\":830.0666666666667,\"hit\":0,\"st\":[-0.23466332992500433,0.17115926170718462,0.32450784143164163,-0.2696625503237696],\"x\":-75,\"z\":35,\"d\":1,\"turn\":827.7833333333333,\"reach\":0.28004066032939595}";
@@ -298,9 +298,7 @@ static void check_industry(JSContext *ctx){
     Creature *cargo=spawn(&crate,"function(){return ''}","Ore crate",1,10,-40.6f,65);cargo->cargo=1;int id=cargo->id;character_clear(&crate);
     set_spawn_height(cargo,.65f);ticks(180);cargo=world_find(id);assert(cargo&&cargo->cargo);
     int supported=0;assert(!cargo_carrier(cargo,&supported)&&supported);
-    b3BodyId root=cargo->physics.parts[0].body;int capacity=b3Body_GetContactCapacity(root);
-    b3ContactData *contacts=array_resize(NULL,capacity,sizeof(*contacts));int count=capacity?b3Body_GetContactData(root,contacts,capacity):0;
-    assert(contact_forces(root,cargo->physics.parts,contacts,count).support<.01);free(contacts);
+    ContactForces *forces=part_contacts(&cargo->physics);assert(forces[0].support<.01&&forces[1].support+forces[2].support>1);free(forces);
     assert(save_world(ctx,"/workspace/industrial-map.json"));
     JSValue old=read_json(ctx,"/workspace/industrial-map.json");JS_SetPropertyStr(ctx,old,"terrainVersion",JS_UNDEFINED);assert(save_json(ctx,old,"/workspace/original-map.json"));JS_FreeValue(ctx,old);
     JSValue result=world_import(ctx,"/workspace/original-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
@@ -367,7 +365,7 @@ static void check_mine_supply(JSContext *ctx){
 static void check_wrong_air_grip(JSContext *ctx){
     terrain_select(2);JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),chosen=JS_NewArray(ctx),row=JS_GetPropertyUint32(ctx,catalog,58);
     put_number(ctx,row,"x",0);put_number(ctx,row,"z",0);JS_SetPropertyUint32(ctx,chosen,0,row);load_designs(ctx,chosen,1);JS_FreeValue(ctx,chosen);JS_FreeValue(ctx,catalog);
-    Character beam={.anchored=1};character_add(&beam,-1,0,0,0,BLOCK_BOX,1);character_add(&beam,0,0,1,0,BLOCK_BOX,1);Creature *obstacle=spawn(&beam,"function(){return ''}","Gantry beam",1,10,0,0);set_spawn_height(obstacle,3.99f);character_clear(&beam);assert(!obstacle->cargo);
+    Character beam={.anchored=1};character_add(&beam,-1,0,0,0,BLOCK_BOX,1);character_add(&beam,0,0,1,0,BLOCK_HINGE,1);beam.blocks[1].axis=1;Creature *obstacle=spawn(&beam,"function(){return ''}","Gantry beam",1,10,0,0);set_spawn_height(obstacle,3.99f);character_clear(&beam);assert(!obstacle->cargo);
     int cargo=world_drop_cargo(0,.485f,0,MATERIAL_ALLOY);assert(cargo==3);Creature *air=world_find(1);Controller *controller=air->controller;
     const char *memory="{\"phase\":\"pickup\",\"home\":[20,0],\"goal\":[0,0],\"ts\":0,\"ri\":0,\"pi\":0,\"hi\":0,\"job\":3,\"cruise\":32,\"missed\":{},\"dispatches\":0}";
     JS_FreeValue(controller->ctx,controller->memory);controller->memory=JS_ParseJSON(controller->ctx,memory,strlen(memory),"blocked-pickup");int latched=0,released=0;

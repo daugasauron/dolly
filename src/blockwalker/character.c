@@ -208,11 +208,16 @@ int character_load(Character *c,const char *path) {
     fclose(f);if(!good||!(version<7?character_upgrade_thrusters(&next):character_validate(&next))){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
 }
 void physics_stop(Physics *p) {
-    if(p->running){if(p->owns_world)b3DestroyWorld(p->world);else {for(int i=0;i<p->count;i++)b3DestroyBody(p->parts[i].body);for(int i=0;i<p->cargo_count;i++)b3DestroyBody(p->cargo[i].body);}}
-    free(p->parts);free(p->cargo);memset(p,0,sizeof(*p));
+    if(p->running){if(p->owns_world)b3DestroyWorld(p->world);else {for(int i=0;i<p->count;i++)if(p->parts[i].owner==i)b3DestroyBody(p->parts[i].body);for(int i=0;i<p->cargo_count;i++)b3DestroyBody(p->cargo[i].body);}}
+    free(p->parts);free(p->shapes);free(p->cargo);memset(p,0,sizeof(*p));
+}
+static bool block_contact_filter(b3ShapeId a,b3ShapeId b,void *context){
+    (void)context;PhysicsPart *parts=b3Body_GetUserData(b3Shape_GetBody(a));if(!parts||parts!=b3Body_GetUserData(b3Shape_GetBody(b)))return true;
+    PhysicsPart *left=b3Shape_GetUserData(a),*right=b3Shape_GetUserData(b);assert(left&&right);
+    return !(left->mount>=0&&parts+left->mount==right)&&!(right->mount>=0&&parts+right->mount==left);
 }
 b3WorldId physics_world(int landscape) {
-    b3WorldDef w=b3DefaultWorldDef();w.workerCount=1;w.gravity=(b3Vec3){0,-4,0};b3WorldId world=b3CreateWorld(&w);
+    b3WorldDef w=b3DefaultWorldDef();w.workerCount=1;w.gravity=(b3Vec3){0,-4,0};b3WorldId world=b3CreateWorld(&w);b3World_SetCustomFilterCallback(world,block_contact_filter,NULL);
     if(landscape){terrain_build(world);return world;}
     b3BodyDef floor=b3DefaultBodyDef();floor.position=(b3Pos){0,-.5f,0};
     b3BodyId ground=b3CreateBody(world,&floor);b3BoxHull slab=b3MakeBoxHull(100,.5f,100);
@@ -223,92 +228,93 @@ int block_parent(const Character *c,int index){
     Block b=c->blocks[index],a=c->blocks[b.parent];
     return block_size(a)>1&&turntable_face(a,b)==-a.direction?block_parent(c,b.parent):b.parent;
 }
-static b3JointId weld_parts(Physics *p,const Character *c,int a,int b){
-    Vector3 offset=Vector3Scale(Vector3Subtract(block_position(c->blocks[b]),block_position(c->blocks[a])),.5f);
-    b3WeldJointDef weld=b3DefaultWeldJointDef();weld.base.bodyIdA=p->parts[a].body;weld.base.bodyIdB=p->parts[b].body;
-    weld.base.localFrameA=(b3Transform){{offset.x,offset.y,offset.z},{{0,0,0},1}};
-    weld.base.localFrameB=(b3Transform){{-offset.x,-offset.y,-offset.z},{{0,0,0},1}};
-    return b3CreateWeldJoint(p->world,&weld);
+b3WorldTransform physics_transform(const PhysicsPart *part){return b3MulWorldTransforms(b3Body_GetTransform(part->body),part->frame);}
+b3Pos physics_position(const PhysicsPart *part){return physics_transform(part).p;}
+b3Pos physics_center(const PhysicsPart *part){return b3TransformWorldPoint(physics_transform(part),part->center);}
+b3Vec3 physics_velocity(const PhysicsPart *part){return b3Body_GetWorldPointVelocity(part->body,physics_position(part));}
+static int component_root(int *components,int i){while(components[i]!=i){components[i]=components[components[i]];i=components[i];}return i;}
+static void component_join(int *components,int a,int b){a=component_root(components,a);b=component_root(components,b);components[a>b?a:b]=a<b?a:b;}
+static b3ShapeId attach_shape(Physics *p,int index,const b3HullData *hull,b3Transform local,b3Vec3 half,float density,float friction){
+    PhysicsPart *part=&p->parts[index];b3ShapeDef def=b3DefaultShapeDef();def.density=density;def.updateBodyMass=false;def.baseMaterial.friction=friction;def.userData=part;def.enableCustomFiltering=true;
+    b3ShapeId id=b3CreateTransformedHullShape(part->body,&def,hull,b3MulTransforms(part->frame,local),(b3Vec3){1,1,1});
+    b3MassData mass=b3Shape_ComputeMassData(id);b3Vec3 center=b3InvTransformPoint(part->frame,mass.center);
+    part->center=b3Add(part->center,b3MulSV(mass.mass,center));part->mass+=mass.mass;part->volume+=mass.mass/density;
+    p->shapes[p->shape_count++]=(PhysicsShape){id,index,local,half,mass.mass/density,mass.mass};return id;
 }
-void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape) {
+static void restore_momentum(Physics *p,const PhysicsPose *poses,int legacy_velocity){
+    b3Vec3 *momentum=calloc(p->count,sizeof(*momentum)),*angular=calloc(p->count,sizeof(*angular));assert(momentum&&angular);
+    for(int i=0;i<p->shape_count;i++){
+        PhysicsShape shape=p->shapes[i];PhysicsPart *part=&p->parts[shape.part];int owner=part->owner;
+        if(b3Body_GetType(part->body)!=b3_dynamicBody)continue;
+        b3MassData mass=b3Shape_ComputeMassData(shape.id);b3WorldTransform body=b3Body_GetTransform(part->body);b3Pos center=b3Body_GetWorldPoint(part->body,mass.center);
+        PhysicsPose pose=poses[shape.part];b3Vec3 velocity=pose.velocity;
+        if(legacy_velocity)velocity=b3Sub(velocity,b3Cross(pose.angular,b3RotateVector(pose.transform.q,part->center)));
+        velocity=b3Add(velocity,b3Cross(pose.angular,b3SubPos(center,pose.transform.p)));
+        b3Vec3 linear=b3MulSV(mass.mass,velocity);momentum[owner]=b3Add(momentum[owner],linear);
+        b3Matrix3 rotation=b3MakeMatrixFromQuat(body.q),inertia=b3MulMM(b3MulMM(rotation,mass.inertia),b3Transpose(rotation));
+        angular[owner]=b3Add(angular[owner],b3Add(b3MulMV(inertia,pose.angular),b3Cross(b3SubPos(center,b3Body_GetWorldCenterOfMass(part->body)),linear)));
+    }
+    for(int i=0;i<p->count;i++)if(p->parts[i].owner==i&&b3Body_GetType(p->parts[i].body)==b3_dynamicBody){
+        b3BodyId body=p->parts[i].body;float mass=b3Body_GetMass(body);b3Body_SetLinearVelocity(body,b3MulSV(1/mass,momentum[i]));
+        b3Body_SetAngularVelocity(body,b3MulMV(b3Body_GetWorldInverseRotationalInertia(body),angular[i]));
+    }free(momentum);free(angular);
+}
+void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape,const PhysicsPose *poses,int legacy_velocity){
     physics_stop(p);p->world=world;p->running=1;p->count=c->count;p->landscape=landscape;
     p->parts=array_resize(NULL,c->count,sizeof(PhysicsPart));if(c->count)memset(p->parts,0,c->count*sizeof(PhysicsPart));
-    b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;shape.baseMaterial.friction=.85f;
+    p->shapes=array_resize(NULL,(size_t)c->count*2,sizeof(PhysicsShape));int *components=array_resize(NULL,c->count,sizeof(int));
+    for(int i=0;i<c->count;i++)components[i]=i;
+    for(int i=1;i<c->count;i++)if(!articulates(c->blocks[i]))component_join(components,i,block_parent(c,i));
+    for(int i=1;i<c->count;i++)for(int j=0;j<i;j++)if(!articulates(c->blocks[i])&&!articulates(c->blocks[j])&&blocks_adjacent(c->blocks[i],c->blocks[j]))component_join(components,i,j);
+    for(int i=1;i<c->count;i++)if(block_size(c->blocks[i])>1)for(int j=0;j<c->count;j++){
+        int face=turntable_face(c->blocks[i],c->blocks[j]);if(face&&!articulates(c->blocks[j]))component_join(components,j,face==c->blocks[i].direction?i:block_parent(c,i));
+    }
     int minimum=INT_MAX;for(int i=0;i<c->count;i++){long long lo[3],hi[3];block_cells(c->blocks[i],lo,hi);if(lo[1]<minimum)minimum=lo[1];}
-    b3BoxHull cube=b3MakeBoxHull(.485f,.485f,.485f);
     float ground=landscape?(c->anchored?terrain_height(x,z):fmaxf(terrain_height(x,z),WATER_LEVEL)):0;
     for(int i=0;i<c->count;i++){
-        Vector3 v=block_position(c->blocks[i]);b3BodyDef b=b3DefaultBodyDef();b.type=c->anchored&&i==0?b3_staticBody:b3_dynamicBody;b.userData=p->parts;
-        b.position=(b3Pos){v.x+x,v.y-minimum+(c->anchored?-.015f:.15f)+ground,v.z+z};b.angularDamping=.08f;b.enableSleep=false;
-        p->parts[i].body=b3CreateBody(p->world,&b);
-        // Servo housings retain the standard block mass.
-        Block part=c->blocks[i];shape.density=block_density(part);
-        if(block_cylinder(part)){
-            Vector3 h=block_half(part);float radius=((float *)&h)[(part.axis+1)%3],half=((float *)&h)[part.axis];
-            b3HullData *wheel=b3CreateCylinder(2*half,radius,-half,24);
-            b3Quat rotation={{0,0,0},1};
-            if(part.axis==0)rotation=(b3Quat){{0,0,-.70710678f},.70710678f};
-            if(part.axis==2)rotation=(b3Quat){{.70710678f,0,0},.70710678f};
-            b3HullData *rotated=b3CloneAndTransformHull(wheel,(b3Transform){{0,0,0},rotation},(b3Vec3){1,1,1});
-            shape.baseMaterial.friction=part.joint==BLOCK_WHEEL?1.3f:.85f;
-            b3CreateHullShape(p->parts[i].body,&shape,rotated);b3DestroyHull(rotated);b3DestroyHull(wheel);
-            shape.baseMaterial.friction=.85f;
-        }else b3CreateHullShape(p->parts[i].body,&shape,&cube.base);
+        PhysicsPart *part=&p->parts[i];part->owner=component_root(components,i);part->mount=i&&articulates(c->blocks[i])?block_parent(c,i):-1;Vector3 v=block_position(c->blocks[i]);
+        b3WorldTransform transform=poses?poses[i].transform:(b3WorldTransform){{v.x+x,v.y-minimum+(c->anchored?-.015f:.15f)+ground,v.z+z},{{0,0,0},1}};
+        transform.q=b3NormalizeQuat(transform.q);
+        if(part->owner==i){b3BodyDef body=b3DefaultBodyDef();body.type=c->anchored&&i==0?b3_staticBody:b3_dynamicBody;body.position=transform.p;body.rotation=transform.q;body.userData=p->parts;body.angularDamping=.08f;body.enableSleep=false;part->body=b3CreateBody(world,&body);}
+        else part->body=p->parts[part->owner].body;
+        part->frame=part->owner==i?b3Transform_identity:b3InvMulWorldTransforms(b3Body_GetTransform(part->body),transform);part->frame.q=b3NormalizeQuat(part->frame.q);
+    }free(components);
+    b3BoxHull cube=b3MakeBoxHull(.485f,.485f,.485f);
+    for(int i=0;i<c->count;i++){
+        Block b=c->blocks[i];Vector3 h=block_half(b);b3Vec3 half={h.x,h.y,h.z};
+        if(block_cylinder(b)){
+            float radius=((float *)&h)[(b.axis+1)%3],extent=((float *)&h)[b.axis];b3HullData *cylinder=b3CreateCylinder(2*extent,radius,-extent,24);b3Quat q={{0,0,0},1};
+            if(b.axis==0)q=(b3Quat){{0,0,-.70710678f},.70710678f};if(b.axis==2)q=(b3Quat){{.70710678f,0,0},.70710678f};
+            b3HullData *rotated=b3CloneAndTransformHull(cylinder,(b3Transform){{0,0,0},q},(b3Vec3){1,1,1});
+            p->parts[i].shape=attach_shape(p,i,rotated,b3Transform_identity,half,block_density(b),b.joint==BLOCK_WHEEL?1.3f:.85f);b3DestroyHull(rotated);b3DestroyHull(cylinder);
+        }else p->parts[i].shape=attach_shape(p,i,&cube.base,b3Transform_identity,half,block_density(b),.85f);
     }
     for(int i=1;i<c->count;i++)if(block_size(c->blocks[i])>1){
-        Block b=c->blocks[i];int parent=block_parent(c,i);Vector3 offset=Vector3Subtract(block_position(b),block_position(c->blocks[parent]));
-        ((float *)&offset)[b.axis]-=b.direction*.33f;
-        Vector3 half=block_half(b);((float *)&half)[b.axis]=.14f;
-        b3BoxHull plate=b3MakeBoxHull(half.x,half.y,half.z);
-        b3HullData *mounted=b3CloneAndTransformHull(&plate.base,(b3Transform){{offset.x,offset.y,offset.z},{{0,0,0},1}},(b3Vec3){1,1,1});
-        shape.density=b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1;
-        b3CreateHullShape(p->parts[parent].body,&shape,mounted);b3DestroyHull(mounted);
+        Block b=c->blocks[i];int parent=block_parent(c,i);Vector3 offset=Vector3Subtract(block_position(b),block_position(c->blocks[parent]));((float *)&offset)[b.axis]-=b.direction*.33f;
+        Vector3 h=block_half(b);((float *)&h)[b.axis]=.14f;b3BoxHull plate=b3MakeBoxHull(h.x,h.y,h.z);
+        attach_shape(p,parent,&plate.base,(b3Transform){{offset.x,offset.y,offset.z},{{0,0,0},1}},(b3Vec3){h.x,h.y,h.z},b.material==MATERIAL_HULL?.25f:b.material==MATERIAL_BALLAST?3:1,.85f);
     }
+    for(int i=0;i<c->count;i++)if(p->parts[i].owner==i)b3Body_ApplyMassFromShapes(p->parts[i].body);
+    for(int i=0;i<c->count;i++)if(p->parts[i].mass>0)p->parts[i].center=b3MulSV(1/p->parts[i].mass,p->parts[i].center);
     for(int i=1;i<c->count;i++){
-        Block b=c->blocks[i];int parent=block_parent(c,i);
+        Block b=c->blocks[i];int parent=block_parent(c,i);if(!articulates(b)||p->parts[parent].owner==p->parts[i].owner)continue;
         Vector3 delta=Vector3Subtract(block_position(b),block_position(c->blocks[parent]));
-        b3Transform fa={.p={delta.x*.5f,delta.y*.5f,delta.z*.5f},.q={{0,0,0},1}};
-        b3Transform fb={.p={-fa.p.x,-fa.p.y,-fa.p.z},.q=fa.q};
+        b3Transform fa={.p={delta.x*.5f,delta.y*.5f,delta.z*.5f},.q={{0,0,0},1}},fb={.p={-delta.x*.5f,-delta.y*.5f,-delta.z*.5f},.q={{0,0,0},1}};
         if(block_size(b)>1){fa.p=(b3Vec3){delta.x,delta.y,delta.z};fb.p=b3Vec3_zero;}
         if(b.joint==BLOCK_PISTON){
-            // Prismatic translation uses local X, unlike the hinge's local Z.
-            int sign=b.direction;
-            if(b.axis==0&&sign<0)fa.q=(b3Quat){{0,0,1},0};
-            if(b.axis==1)fa.q=(b3Quat){{0,0,sign*.70710678f},.70710678f};
-            if(b.axis==2)fa.q=(b3Quat){{0,-sign*.70710678f,0},.70710678f};fb.q=fa.q;
-            b3PrismaticJointDef j=b3DefaultPrismaticJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;
-            j.base.localFrameA=fa;j.base.localFrameB=fb;j.enableMotor=true;j.maxMotorForce=b.force;
-            j.enableLimit=true;j.lowerTranslation=0;j.upperTranslation=b.travel;
-            p->parts[i].joint=b3CreatePrismaticJoint(p->world,&j);
-        }else if(block_cylinder(b)){
-            // Box3D's hinge axis is local Z. Both frames share the chosen world axis.
-            if(b.axis==0)fa.q=(b3Quat){{0,.70710678f,0},.70710678f};
-            if(b.axis==1)fa.q=(b3Quat){{-.70710678f,0,0},.70710678f};fb.q=fa.q;
-            b3RevoluteJointDef j=b3DefaultRevoluteJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;
-            j.base.localFrameA=fa;j.base.localFrameB=fb;j.enableMotor=true;j.maxMotorTorque=b.force;
-            j.enableLimit=b.joint==BLOCK_HINGE;j.lowerAngle=-b.limit*DEG2RAD;j.upperAngle=b.limit*DEG2RAD;
-            p->parts[i].joint=b3CreateRevoluteJoint(p->world,&j);
+            int sign=b.direction;if(b.axis==0&&sign<0)fa.q=(b3Quat){{0,0,1},0};if(b.axis==1)fa.q=(b3Quat){{0,0,sign*.70710678f},.70710678f};if(b.axis==2)fa.q=(b3Quat){{0,-sign*.70710678f,0},.70710678f};fb.q=fa.q;
+            b3PrismaticJointDef j=b3DefaultPrismaticJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;j.base.collideConnected=true;j.base.localFrameA=b3MulTransforms(p->parts[parent].frame,fa);j.base.localFrameB=b3MulTransforms(p->parts[i].frame,fb);
+            j.enableMotor=true;j.maxMotorForce=b.force;j.enableLimit=true;j.lowerTranslation=0;j.upperTranslation=b.travel;p->parts[i].joint=b3CreatePrismaticJoint(world,&j);
         }else{
-            b3WeldJointDef j=b3DefaultWeldJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;
-            j.base.localFrameA=fa;j.base.localFrameB=fb;p->parts[i].joint=b3CreateWeldJoint(p->world,&j);
+            if(b.axis==0)fa.q=(b3Quat){{0,.70710678f,0},.70710678f};if(b.axis==1)fa.q=(b3Quat){{-.70710678f,0,0},.70710678f};fb.q=fa.q;
+            b3RevoluteJointDef j=b3DefaultRevoluteJointDef();j.base.bodyIdA=p->parts[parent].body;j.base.bodyIdB=p->parts[i].body;j.base.collideConnected=true;j.base.localFrameA=b3MulTransforms(p->parts[parent].frame,fa);j.base.localFrameB=b3MulTransforms(p->parts[i].frame,fb);
+            j.enableMotor=true;j.maxMotorTorque=b.force;j.enableLimit=b.joint==BLOCK_HINGE;j.lowerAngle=-b.limit*DEG2RAD;j.upperAngle=b.limit*DEG2RAD;p->parts[i].joint=b3CreateRevoluteJoint(world,&j);
         }
     }
-    for(int i=1;i<c->count;i++)for(int j=0;j<i;j++){
-        Block a=c->blocks[j],b=c->blocks[i];
-        if(block_parent(c,i)==j||articulates(a)||articulates(b)||!blocks_adjacent(a,b))continue;
-        weld_parts(p,c,j,i);
-    }
-    for(int i=1;i<c->count;i++)if(block_size(c->blocks[i])>1){
-        Block table=c->blocks[i];
-        for(int j=0;j<c->count;j++){
-            int face=turntable_face(table,c->blocks[j]);if(!face||articulates(c->blocks[j]))continue;
-            int mount=face==table.direction?i:block_parent(c,i);
-            if(j==mount||(j>0&&block_parent(c,j)==mount))continue;
-            weld_parts(p,c,mount,j);
-        }
-    }
-    if(c->count){b3Pos root=b3Body_GetPosition(p->parts[0].body);p->start=(Vector3){root.x,root.y,root.z};}
+    if(poses&&c->count)restore_momentum(p,poses,legacy_velocity);
+    if(c->count){b3Pos root=physics_position(&p->parts[0]);p->start=(Vector3){root.x,root.y,root.z};}
 }
+void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape){physics_attach_poses(p,c,world,x,z,landscape,NULL,0);}
 void physics_start(Physics *p,const Character *c) {
     physics_stop(p);physics_attach(p,c,physics_world(0),0,0,0);p->owns_world=1;
 }
@@ -322,20 +328,21 @@ void physics_drive(Physics *p,const Character *c,const float controls[128]) {
         Block b=c->blocks[i];float direction=b.joint==BLOCK_THRUSTER?(b.positive?Clamp(controls[b.positive],0,1):0):controls[b.positive]-controls[b.negative];
         p->parts[i].command=direction;
         if(b.joint==BLOCK_MAGNET)magnet_drive(p,i,b,controls[b.positive],controls[b.negative]);
-        else if(b.joint==BLOCK_PISTON)b3PrismaticJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
+        else if(b.joint==BLOCK_PISTON&&b3Joint_IsValid(p->parts[i].joint))b3PrismaticJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
         else if(b.joint==BLOCK_THRUSTER){
-            b3WorldTransform t=b3Body_GetTransform(p->parts[i].body);Vector3 axis={0};((float *)&axis)[b.axis]=-b.direction*direction*b.force;
+            b3WorldTransform t=physics_transform(&p->parts[i]);Vector3 axis={0};((float *)&axis)[b.axis]=-b.direction*direction*b.force;
             axis=Vector3RotateByQuaternion(axis,(Quaternion){t.q.v.x,t.q.v.y,t.q.v.z,t.q.s});
-            b3Body_ApplyForceToCenter(p->parts[i].body,(b3Vec3){axis.x,axis.y,axis.z},true);
-        }else b3RevoluteJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
+            b3Body_ApplyForce(p->parts[i].body,(b3Vec3){axis.x,axis.y,axis.z},t.p,true);
+        }else if(b3Joint_IsValid(p->parts[i].joint))b3RevoluteJoint_SetMotorSpeed(p->parts[i].joint,direction*b.speed);
         if(direction)p->parts[i].motor_steps++;
     }
-    water_forces(p,c);
+    water_forces(p);
 }
 static void physics_read(Physics *p,const Character *c,int advanced) {
     if(advanced){p->steps++;p->time+=1./60;p->sampled=1;}
     for(int i=1;i<c->count;i++){
         Block b=c->blocks[i];
+        if(!b3Joint_IsValid(p->parts[i].joint))continue;
         float separation;
         if(b.joint==BLOCK_PISTON){
             b3WorldTransform a=b3Body_GetTransform(b3Joint_GetBodyA(p->parts[i].joint)),child=b3Body_GetTransform(p->parts[i].body);
@@ -370,7 +377,7 @@ void physics_step(Physics *p,const Character *c,const unsigned char keys[128]) {
     physics_motor(p,c,keys);b3World_Step(p->world,1.f/60,8);physics_sample(p,c);
 }
 void physics_pose(const Physics *p,const Character *c,int i,Vector3 *position,Quaternion *rotation) {
-    if(p->running){b3WorldTransform t=b3Body_GetTransform(p->parts[i].body);*position=(Vector3){t.p.x,t.p.y,t.p.z};*rotation=(Quaternion){t.q.v.x,t.q.v.y,t.q.v.z,t.q.s};}
+    if(p->running){b3WorldTransform t=physics_transform(&p->parts[i]);*position=(Vector3){t.p.x,t.p.y,t.p.z};*rotation=(Quaternion){t.q.v.x,t.q.v.y,t.q.v.z,t.q.s};}
     else {*position=block_position(c->blocks[i]);*rotation=(Quaternion){0,0,0,1};}
 }
 int physics_eyes(const Physics *p,const Character *c,Vector3 *position,Vector3 *forward,Vector3 *up){
@@ -387,7 +394,7 @@ static void motor_check(int axis) {
     character_add(&c,-1,0,3,0,0,0);character_add(&c,0,1,3,0,1,1);c.blocks[1].axis=axis;
     physics_start(&p,&c);
     // Suspend one hinge from a fixed test fixture, with gravity still enabled.
-    for(int i=0;i<2;i++){b3Pos pos=b3Body_GetPosition(p.parts[i].body);pos.y+=3;b3Body_SetTransform(p.parts[i].body,pos,(b3Quat){{0,0,0},1});}
+    for(int i=0;i<2;i++)if(p.parts[i].owner==i){b3Pos pos=b3Body_GetPosition(p.parts[i].body);pos.y+=3;b3Body_SetTransform(p.parts[i].body,pos,(b3Quat){{0,0,0},1});}
     b3Body_SetType(p.parts[0].body,b3_staticBody);
     for(int i=0;i<120;i++)physics_step(&p,&c,keys);
     float idle=p.parts[1].angle;keys['A']=1;
@@ -414,7 +421,7 @@ static void actuator_check(int kind,int axis,int sign) {
         c.blocks[1].direction=-sign;assert(!character_validate(&c));c.blocks[1]=b;c.blocks[1].positive='A';
     }
     physics_start(&p,&c);b3World_SetGravity(p.world,(b3Vec3){0,0,0});
-    for(int i=0;i<2;i++){b3Pos pos=b3Body_GetPosition(p.parts[i].body);pos.y+=5;b3Body_SetTransform(p.parts[i].body,pos,(b3Quat){{0,0,0},1});}
+    for(int i=0;i<2;i++)if(p.parts[i].owner==i){b3Pos pos=b3Body_GetPosition(p.parts[i].body);pos.y+=5;b3Body_SetTransform(p.parts[i].body,pos,(b3Quat){{0,0,0},1});}
     if(kind!=BLOCK_THRUSTER)b3Body_SetType(p.parts[0].body,b3_staticBody);
     b3Pos initial=b3Body_GetPosition(p.parts[1].body);
     keys['A']=1;for(int i=0;i<(kind==BLOCK_WHEEL?600:kind==BLOCK_THRUSTER?12:60);i++)physics_step(&p,&c,keys);
@@ -426,7 +433,7 @@ static void actuator_check(int kind,int axis,int sign) {
         assert(forward>.8f&&forward<1.1f&&displacement*sign>.8f);
     }
     else {
-        b3Vec3 momentum={0};for(int i=0;i<p.count;i++){b3BodyId body=p.parts[i].body;momentum=b3Add(momentum,b3MulSV(b3Body_GetMass(body),b3Body_GetLinearVelocity(body)));}
+        b3Vec3 momentum={0};for(int i=0;i<p.count;i++)if(p.parts[i].owner==i){b3BodyId body=p.parts[i].body;momentum=b3Add(momentum,b3MulSV(b3Body_GetMass(body),b3Body_GetLinearVelocity(body)));}
         assert(fabsf(((float *)&momentum)[axis]+sign*c.blocks[1].force*.2f)<.02f);
     }
     for(int i=0;i<60;i++)physics_step(&p,&c,keys);
@@ -442,18 +449,18 @@ static void adjacency_check(void){
     Character c={0};Physics p={0};unsigned char keys[128]={0};
     character_add(&c,-1,0,4,0,BLOCK_BOX,0);character_add(&c,0,1,4,0,BLOCK_BOX,0);
     character_add(&c,1,1,5,0,BLOCK_BOX,0);character_add(&c,2,0,5,0,BLOCK_BOX,0);c.anchored=1;
-    physics_start(&p,&c);assert(b3Body_GetJointCount(p.parts[3].body)==2);
-    b3DestroyJoint(p.parts[3].joint,true);b3World_SetGravity(p.world,(b3Vec3){0,-4,0});
-    b3Pos initial=b3Body_GetPosition(p.parts[3].body);
+    physics_start(&p,&c);assert(B3_ID_EQUALS(p.parts[3].body,p.parts[0].body));
+    b3World_SetGravity(p.world,(b3Vec3){0,-4,0});
+    b3Pos initial=physics_position(&p.parts[3]);
     b3Body_ApplyLinearImpulseToCenter(p.parts[3].body,(b3Vec3){8,0,4},true);
     for(int i=0;i<240;i++)b3World_Step(p.world,1.f/60,8);
-    b3Pos held=b3Body_GetPosition(p.parts[3].body);assert(fabs(held.x-initial.x)+fabs(held.y-initial.y)+fabs(held.z-initial.z)<.01);
+    b3Pos held=physics_position(&p.parts[3]);assert(fabs(held.x-initial.x)+fabs(held.y-initial.y)+fabs(held.z-initial.z)<.01);
     physics_stop(&p);c.blocks[3].joint=BLOCK_HINGE;c.blocks[3].negative='Q';c.blocks[3].positive='A';
     physics_start(&p,&c);assert(b3Body_GetJointCount(p.parts[3].body)==1);
     b3World_SetGravity(p.world,(b3Vec3){0,0,0});keys['Q']=1;
     for(int i=0;i<120;i++)physics_step(&p,&c,keys);
     assert(p.parts[3].angle<-.9f);
-    printf("ADJACENCY: closing face holds after parent weld removal; adjacent servo remains free, angle %.3f rad\n",p.parts[3].angle);
+    printf("ADJACENCY: touching boxes share a fixed assembly; adjacent servo remains free, angle %.3f rad\n",p.parts[3].angle);
     physics_stop(&p);character_clear(&c);
 }
 static void wheel_cart_check(void) {

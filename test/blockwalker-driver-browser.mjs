@@ -14,15 +14,15 @@ try{
  await page.goto(site.origin+'/blockwalker/');await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20,null,{timeout:60000});await page.keyboard.press('Escape');await shell();
  if(process.argv[2]){await upload(process.argv[2],'/tmp/playground.tar');assert.equal(await command('tar -xf /tmp/playground.tar -C /'),0);}
  const sources=['main','character','render','world','terrain','magnet','gpu-client'].map(s=>'/usr/src/dolly/blockwalker/'+s+'.c').join(' ');
- assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ '+sources+' -ldolly-js -ldolly-raylib -lraylib -lbox3d -lm -o /usr/bin/blockwalker'),0);
+ assert.equal(await command('cc -std=c17 -O2 -U__SIZEOF_INT128__ '+sources+' -ldolly-js -ldolly-raylib -lraylib -lblockwalker-box3d -lm -o /usr/bin/blockwalker'),0);
  await upload('test/fixtures/blockwalker-pilot.c','/tmp/pilot.c');
- assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker /tmp/pilot.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lbox3d -lm -o /tmp/pilot-check'),0);
+ assert.equal(await command('cc -std=c17 -O2 -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker /tmp/pilot.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lblockwalker-box3d -lm -o /tmp/pilot-check'),0);
  assert.equal(await command('/tmp/pilot-check'),0);await fs.writeFile(output+'/pilot-physics.log',await page.evaluate(()=>__dolly.visibleTerminalText()));
  await upload('test/fixtures/blockwalker-lifecycle.c','/tmp/lifecycle.c');
- assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker /tmp/lifecycle.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lbox3d -lm -o /tmp/lifecycle-check'),0);
+ assert.equal(await command('cc -std=c17 -O2 -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker /tmp/lifecycle.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lblockwalker-box3d -lm -o /tmp/lifecycle-check'),0);
  assert.equal(await command('/tmp/lifecycle-check'),0);await fs.writeFile(output+'/lifecycle.log',await page.evaluate(()=>__dolly.visibleTerminalText()));
  await upload(process.argv[3]||'test/fixtures/blockwalker-playground.c','/tmp/playground.c');
- assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker /tmp/playground.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lbox3d -lm -o /tmp/playground-check'),0);
+ assert.equal(await command('cc -std=c17 -O2 -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker /tmp/playground.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lblockwalker-box3d -lm -o /tmp/playground-check'),0);
  assert.equal(await command('/tmp/playground-check'),0);await fs.writeFile(output+'/cargo-physics.log',await page.evaluate(()=>__dolly.visibleTerminalText()));
  await download('blockwalker-world.json');
  assert.equal(await command('rm /workspace/blockwalker-world.json /workspace/blockwalker.character'),0);

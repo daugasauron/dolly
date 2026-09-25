@@ -480,7 +480,7 @@ static void cargo_status(char *text,size_t size){
     if(c->error[0]){snprintf(text,size,"Program stopped");return;}
     if(c->fallen>2){snprintf(text,size,"Down / program running");return;}
     for(int i=0;i<world.count;i++){Creature *cargo=&world.creatures[i];if(!cargo->cargo||(cargo!=c&&cargo->held_by!=c->id))continue;
-        carried++;for(int j=0;j<cargo->design.count;j++)mass+=b3Body_GetMass(cargo->physics.parts[j].body);}
+        carried++;for(int j=0;j<cargo->design.count;j++)mass+=cargo->physics.parts[j].mass;}
     if(c->cargo){snprintf(text,size,"%s / %.1f kg",c->delivered?"Delivered":c->parachute?"Parachuting":c->held_by?"Aboard":"Loose cargo",mass);return;}
     for(int i=0;i<c->design.count;i++)if(c->design.blocks[i].joint==BLOCK_MAGNET){magnets++;powered+=c->physics.parts[i].magnet_power>0;}
     if(carried)snprintf(text,size,"Cargo %d / %.1f kg",carried,mass);
@@ -671,7 +671,7 @@ static JSValue state(JSContext *ctx) {
     if(physics.running&&design.count){
         JS_SetPropertyStr(ctx,result,"sensors",physics_sensors(ctx,&physics,&design,1./60));
         Vector3 position;Quaternion rotation;physics_pose(&physics,&design,0,&position,&rotation);
-        b3Vec3 velocity=b3Body_GetLinearVelocity(physics.parts[0].body);
+        b3Vec3 velocity=physics_velocity(&physics.parts[0]);
         JS_SetPropertyStr(ctx,result,"distance",JS_NewFloat64(ctx,hypotf(position.x-physics.start.x,position.z-physics.start.z)));
         JS_SetPropertyStr(ctx,result,"speed",JS_NewFloat64(ctx,hypotf(velocity.x,velocity.z)));
         JS_SetPropertyStr(ctx,result,"up",JS_NewFloat64(ctx,Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y));

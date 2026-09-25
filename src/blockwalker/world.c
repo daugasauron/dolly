@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "world.h"
+#include <assert.h>
 #include "terrain.h"
 #include <raymath.h>
 #include <errno.h>
@@ -92,7 +93,7 @@ int character_from_json(JSContext *ctx,JSValueConst list,Character *c){return re
 static JSValue vector(JSContext *ctx,Vector3 v){
     JSValue a=JS_NewArray(ctx);JS_SetPropertyUint32(ctx,a,0,JS_NewFloat64(ctx,v.x));JS_SetPropertyUint32(ctx,a,1,JS_NewFloat64(ctx,v.y));JS_SetPropertyUint32(ctx,a,2,JS_NewFloat64(ctx,v.z));return a;
 }
-typedef struct {double support,self;} ContactForces;
+typedef struct {double support,self;int count;} ContactForces;
 static ContactForces contact_forces(b3BodyId body,const void *own_parts,const b3ContactData *contacts,int count){
     ContactForces result={0};
     for(int j=0;j<count;j++){
@@ -103,11 +104,28 @@ static ContactForces contact_forces(b3BodyId body,const void *own_parts,const b3
             for(int n=0;n<manifold->pointCount;n++)force+=480*manifold->points[n].normalImpulse;
             if(own)result.self+=force;else result.support+=fmax(0,(is_a?-1:1)*manifold->normal.y)*force;
         }
-    }return result;
+    }result.count=count;return result;
 }
 static Creature *body_owner(b3BodyId body){
     void *parts=b3Body_GetUserData(body);if(!parts)return NULL;
     for(int i=0;i<world.count;i++)if(world.creatures[i].physics.parts==parts)return &world.creatures[i];return NULL;
+}
+static ContactForces *part_contacts(const Physics *p){
+    ContactForces *forces=calloc(p->count,sizeof(*forces));assert(forces);b3ContactData *contacts=NULL;int capacity=0;
+    for(int i=0;i<p->count;i++)if(p->parts[i].owner==i){
+        b3BodyId body=p->parts[i].body;int required=b3Body_GetContactCapacity(body);
+        if(required>capacity){capacity=required;contacts=array_resize(contacts,capacity,sizeof(*contacts));}
+        int count=required?b3Body_GetContactData(body,contacts,capacity):0;
+        for(int j=0;j<count;j++){
+            b3ContactData *contact=&contacts[j];int is_a=B3_ID_EQUALS(b3Shape_GetBody(contact->shapeIdA),body);
+            PhysicsPart *part=b3Shape_GetUserData(is_a?contact->shapeIdA:contact->shapeIdB);assert(part);int index=part-p->parts;assert(index>=0&&index<p->count);
+            ContactForces value=contact_forces(body,p->parts,contact,1);forces[index].support+=value.support;forces[index].self+=value.self;forces[index].count+=value.count;
+        }
+    }free(contacts);return forces;
+}
+static int magnet_index(const PhysicsPart *part,const Creature *owner){
+    PhysicsPart *hit=b3Shape_IsValid(part->magnet_shape)?b3Shape_GetUserData(part->magnet_shape):NULL;
+    for(int i=0;owner&&i<owner->design.count;i++)if(B3_ID_EQUALS(part->magnet_target,owner->physics.parts[i].body)&&(!hit||hit==&owner->physics.parts[i]))return i;return -1;
 }
 static JSValue magnet_state(JSContext *ctx,const Physics *p,const Character *c){
     JSValue list=JS_NewArray(ctx);
@@ -116,9 +134,7 @@ static JSValue magnet_state(JSContext *ctx,const Physics *p,const Character *c){
         int attached=b3Body_IsValid(part->magnet_target);JS_SetPropertyStr(ctx,item,"attached",JS_NewBool(ctx,attached));
         put_number(ctx,item,"targetMass",attached?b3Body_GetMass(part->magnet_target):0);
         Creature *owner=attached?body_owner(part->magnet_target):NULL;
-        if(owner)for(int j=0;j<owner->design.count;j++)if(B3_ID_EQUALS(part->magnet_target,owner->physics.parts[j].body)){
-            put_number(ctx,item,"creature",owner->id);put_number(ctx,item,"part",j);break;
-        }
+        int index=magnet_index(part,owner);if(index>=0){put_number(ctx,item,"creature",owner->id);put_number(ctx,item,"part",index);}
         JS_SetPropertyUint32(ctx,list,i,item);
     }return list;
 }
@@ -137,11 +153,11 @@ static int magnet_holds(const Creature *carrier,const Creature *cargo){
     return 0;
 }
 static float creature_mass(const Creature *c){
-    float mass=0;for(int i=0;i<c->design.count;i++)mass+=b3Body_GetMass(c->physics.parts[i].body);return mass;
+    float mass=0;for(int i=0;i<c->design.count;i++)mass+=c->physics.parts[i].mass;return mass;
 }
 static float cargo_support_force(const Creature *cargo,const Physics *holder){
     float force=0;b3ContactData *contacts=NULL;int capacity=0;
-    for(int i=0;i<cargo->design.count;i++){
+    for(int i=0;i<cargo->design.count;i++)if(cargo->physics.parts[i].owner==i){
         b3BodyId body=cargo->physics.parts[i].body;int required=b3Body_GetContactCapacity(body);
         if(required>capacity){capacity=required;contacts=array_resize(contacts,capacity,sizeof(*contacts));}
         int count=required?b3Body_GetContactData(body,contacts,capacity):0;
@@ -216,9 +232,9 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
         }
         qsort(neighbors,count,sizeof(*neighbors),nearby_distance);
         for(int i=0;i<count;i++){
-            Creature *c=&world.creatures[neighbors[i].index];b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);b3Vec3 velocity=b3Body_GetLinearVelocity(c->physics.parts[0].body);float radius=.7f,low=v.y,high=v.y,mass=0;Vector3 center={0};
+            Creature *c=&world.creatures[neighbors[i].index];b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);b3Vec3 velocity=physics_velocity(&c->physics.parts[0]);float radius=.7f,low=v.y,high=v.y,mass=0;Vector3 center={0};
             for(int j=0;j<c->design.count;j++){
-                b3BodyId body=c->physics.parts[j].body;b3Pos b=b3Body_GetPosition(body),com=b3Body_GetWorldCenterOfMass(body);float weight=b3Body_GetMass(body);
+                PhysicsPart *part=&c->physics.parts[j];b3Pos b=physics_position(part),com=physics_center(part);float weight=part->mass;
                 float bound=block_size(c->design.blocks[j])>1?block_size(c->design.blocks[j])*.75f:.7f;
                 radius=fmaxf(radius,hypotf(b.x-v.x,b.z-v.z)+bound);low=fminf(low,b.y-bound);high=fmaxf(high,b.y+bound);
                 mass+=weight;center=Vector3Add(center,Vector3Scale((Vector3){com.x,com.y,com.z},weight));
@@ -265,24 +281,21 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
     put_number(ctx,s,"ground",p->landscape?terrain_floor(position):0);
     if(p->landscape)put_number(ctx,s,"waterHeight",water_height(position.x,position.z,p->time));
     Vector3 up=Vector3RotateByQuaternion((Vector3){0,1,0},q);put_number(ctx,s,"up",up.y);
-    b3Vec3 v=b3Body_GetLinearVelocity(p->parts[0].body),w=b3Body_GetAngularVelocity(p->parts[0].body),gravity=b3World_GetGravity(p->world);
+    b3Vec3 v=physics_velocity(&p->parts[0]),w=b3Body_GetAngularVelocity(p->parts[0].body),gravity=b3World_GetGravity(p->world);
     put_number(ctx,s,"vx",v.x);put_number(ctx,s,"vy",v.y);put_number(ctx,s,"vz",v.z);
     JSValue rotation=vector(ctx,(Vector3){q.x,q.y,q.z});JS_SetPropertyUint32(ctx,rotation,3,JS_NewFloat64(ctx,q.w));JS_SetPropertyStr(ctx,s,"rotation",rotation);
     JS_SetPropertyStr(ctx,s,"angularVelocity",vector(ctx,(Vector3){w.x,w.y,w.z}));
     JS_SetPropertyStr(ctx,s,"gyroscope",vector(ctx,Vector3RotateByQuaternion((Vector3){w.x,w.y,w.z},inverse)));
     JS_SetPropertyStr(ctx,s,"gravity",vector(ctx,Vector3RotateByQuaternion((Vector3){gravity.x,gravity.y,gravity.z},inverse)));
     JS_SetPropertyStr(ctx,s,"localVelocity",vector(ctx,Vector3RotateByQuaternion((Vector3){v.x,v.y,v.z},inverse)));
-    double mass=0;Vector3 center={0};
+    double mass=0;Vector3 center={0};ContactForces *forces=part_contacts(p);
     for(int i=0;i<c->count;i++){
-        b3BodyId body=p->parts[i].body;b3Pos pos=b3Body_GetWorldCenterOfMass(body);float m=b3Body_GetMass(body);mass+=m;center=Vector3Add(center,Vector3Scale((Vector3){pos.x,pos.y,pos.z},m));
-        JS_SetPropertyUint32(ctx,positions,i,vector(ctx,(Vector3){pos.x,pos.y,pos.z}));
+        b3Pos pos=physics_center(&p->parts[i]);float m=p->parts[i].mass;mass+=m;center=Vector3Add(center,Vector3Scale((Vector3){pos.x,pos.y,pos.z},m));
+        b3Pos origin=physics_position(&p->parts[i]);JS_SetPropertyUint32(ctx,positions,i,vector(ctx,(Vector3){origin.x,origin.y,origin.z}));
         JS_SetPropertyUint32(ctx,submerged,i,JS_NewFloat64(ctx,p->parts[i].submerged));
         JS_SetPropertyUint32(ctx,angles,i,JS_NewFloat64(ctx,p->parts[i].angle));JS_SetPropertyUint32(ctx,rates,i,JS_NewFloat64(ctx,p->parts[i].rate));
-        int required=b3Body_GetContactCapacity(body);
-        if(required>contact_capacity){contact_capacity=required;contacts=array_resize(contacts,contact_capacity,sizeof(*contacts));}
-        int count=required?b3Body_GetContactData(body,contacts,contact_capacity):0;ContactForces forces=contact_forces(body,p->parts,contacts,count);
-        JS_SetPropertyUint32(ctx,touching,i,JS_NewBool(ctx,count>0));
-        JS_SetPropertyUint32(ctx,support,i,JS_NewFloat64(ctx,forces.support));JS_SetPropertyUint32(ctx,self_contact,i,JS_NewFloat64(ctx,forces.self));
+        int required,count;JS_SetPropertyUint32(ctx,touching,i,JS_NewBool(ctx,forces[i].count>0));
+        JS_SetPropertyUint32(ctx,support,i,JS_NewFloat64(ctx,forces[i].support));JS_SetPropertyUint32(ctx,self_contact,i,JS_NewFloat64(ctx,forces[i].self));
         if(c->blocks[i].joint==BLOCK_MAGNET){
             b3BodyId target=p->parts[i].magnet_target;double target_support=0;
             if(b3Body_IsValid(target)){
@@ -295,7 +308,7 @@ JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,doubl
             JSValue magnet=JS_GetPropertyUint32(ctx,magnets,i);put_number(ctx,magnet,"targetSupportForce",target_support);put_number(ctx,magnet,"cargoSupportForce",cargo_support);JS_FreeValue(ctx,magnet);
         }
     }
-    free(contacts);JS_SetPropertyStr(ctx,s,"supportForce",support);JS_SetPropertyStr(ctx,s,"selfContactForce",self_contact);
+    free(forces);free(contacts);JS_SetPropertyStr(ctx,s,"supportForce",support);JS_SetPropertyStr(ctx,s,"selfContactForce",self_contact);
     put_number(ctx,s,"mass",mass);JS_SetPropertyStr(ctx,s,"centerOfMass",vector(ctx,Vector3Scale(center,mass>0?1/mass:0)));
     JS_SetPropertyStr(ctx,s,"angles",angles);JS_SetPropertyStr(ctx,s,"rates",rates);JS_SetPropertyStr(ctx,s,"touching",touching);JS_SetPropertyStr(ctx,s,"positions",positions);JS_SetPropertyStr(ctx,s,"submerged",submerged);JS_SetPropertyStr(ctx,s,"magnets",magnets);return s;
 }
@@ -421,7 +434,7 @@ static Creature *spawn(const Character *design,const char *source,const char *na
 }
 static void set_spawn_height(Creature *c,float y){
     float offset=y-c->physics.start.y;
-    for(int i=0;i<c->design.count;i++){
+    for(int i=0;i<c->design.count;i++)if(c->physics.parts[i].owner==i){
         b3BodyId body=c->physics.parts[i].body;b3WorldTransform t=b3Body_GetTransform(body);t.p.y+=offset;b3Body_SetTransform(body,t.p,t.q);
     }c->physics.start.y=y;
 }
@@ -437,7 +450,7 @@ int world_enter(const Character *design,int sea){
         clear=1;
         for(int i=0;i<world.count&&clear;i++)if(world.creatures[i].id!=world.player){
             Physics *p=&world.creatures[i].physics;for(int j=0;j<p->count;j++){
-                b3Pos v=b3Body_GetPosition(p->parts[j].body);if(hypotf(v.x-x,v.z-z)<radius+(block_size(world.creatures[i].design.blocks[j])>1?block_size(world.creatures[i].design.blocks[j])*.75f:1)){clear=0;break;}
+                b3Pos v=physics_position(&p->parts[j]);if(hypotf(v.x-x,v.z-z)<radius+(block_size(world.creatures[i].design.blocks[j])>1?block_size(world.creatures[i].design.blocks[j])*.75f:1)){clear=0;break;}
             }
         }
     }
@@ -461,7 +474,7 @@ static Creature *cargo_carrier(const Creature *cargo,int *supported){
         if(magnet_holds(c,cargo))return c;
     }
     b3ContactData *contacts=NULL;int capacity=0;Creature *carrier=NULL;
-    for(int part=0;part<cargo->design.count&&!carrier;part++){
+    for(int part=0;part<cargo->design.count&&!carrier;part++)if(cargo->physics.parts[part].owner==part){
         b3BodyId body=cargo->physics.parts[part].body;int required=b3Body_GetContactCapacity(body);
         if(required>capacity){capacity=required;contacts=array_resize(contacts,capacity,sizeof(*contacts));}
         int count=required?b3Body_GetContactData(body,contacts,capacity):0;
@@ -524,8 +537,8 @@ static void supply_step(void){
         if(c->cargo&&hypotf(p.x+47,p.z-61)<4)blocked=1;
         if(c->cargo&&hypotf(p.x+73,p.z+78)<3)mine_blocked=1;
         if(c->design.anchored)for(int j=0;j<c->design.count;j++){
-            b3BodyId body=c->physics.parts[j].body;b3Pos p=b3Body_GetPosition(body);
-            if(hypotf(p.x+47,p.z-61)<.65f&&p.y> -8.2f&&p.y< -7.6f&&b3LengthSquared(b3Body_GetLinearVelocity(body))<.01f)platform=1;
+            b3BodyId body=c->physics.parts[j].body;b3Pos p=physics_position(&c->physics.parts[j]);
+            if(hypotf(p.x+47,p.z-61)<.65f&&p.y> -8.2f&&p.y< -7.6f&&b3LengthSquared(physics_velocity(&c->physics.parts[j]))<.01f)platform=1;
             if(c->design.blocks[j].joint==BLOCK_TURNTABLE&&hypotf(p.x+85,p.z+81)<4&&b3LengthSquared(b3Body_GetAngularVelocity(body))>1)drilling=1;
         }
     }
@@ -625,7 +638,7 @@ JSValue world_state(JSContext *ctx){
         JS_SetPropertyStr(ctx,item,"magnets",magnet_state(ctx,&c->physics,&c->design));
         put_number(ctx,item,"seconds",c->physics.steps/60.0);put_number(ctx,item,"x",p.x);put_number(ctx,item,"y",p.y);put_number(ctx,item,"z",p.z);
         put_number(ctx,item,"distance",hypot(p.x-c->physics.start.x,p.z-c->physics.start.z));
-        b3Vec3 velocity=b3Body_GetLinearVelocity(c->physics.parts[0].body);put_number(ctx,item,"speed",hypot(velocity.x,velocity.z));
+        b3Vec3 velocity=physics_velocity(&c->physics.parts[0]);put_number(ctx,item,"speed",hypot(velocity.x,velocity.z));
         put_number(ctx,item,"up",Vector3RotateByQuaternion((Vector3){0,1,0},q).y);put_number(ctx,item,"fallenSeconds",c->fallen);
         if(c->error[0])JS_SetPropertyStr(ctx,item,"controllerError",JS_NewString(ctx,c->error));
         JS_SetPropertyUint32(ctx,list,i,item);
@@ -674,7 +687,7 @@ static int save_json(JSContext *ctx,JSValueConst value,const char *path){
     if(!good)remove(temp);JS_FreeCString(ctx,source);JS_FreeValue(ctx,json);return good;
 }
 static int save_world(JSContext *ctx,const char *path){
-    JSValue save=world_state(ctx),list=JS_GetPropertyStr(ctx,save,"creatures");put_number(ctx,save,"version",3);put_number(ctx,save,"nextId",world.next_id);put_number(ctx,save,"installedHz",installed_hz);
+    JSValue save=world_state(ctx),list=JS_GetPropertyStr(ctx,save,"creatures");put_number(ctx,save,"version",4);put_number(ctx,save,"nextId",world.next_id);put_number(ctx,save,"installedHz",installed_hz);
     JS_SetPropertyStr(ctx,save,"format",JS_NewString(ctx,"blockwalker-world"));
     JS_SetPropertyStr(ctx,save,"designs",world_designs(ctx,1));
     JS_SetPropertyStr(ctx,save,"removals",removal_state(ctx,1));
@@ -686,7 +699,7 @@ static int save_world(JSContext *ctx,const char *path){
         put_number(ctx,item,"hz",c->controller->hz);put_number(ctx,item,"controlStep",c->controller->last_step);put_number(ctx,item,"seed",c->controller->seed);put_number(ctx,item,"rootHeight",c->root_height);put_number(ctx,item,"startX",c->physics.start.x);put_number(ctx,item,"startZ",c->physics.start.z);
         size_t length=0;const char *m=controller_memory_json(c->controller,&length);if(m)JS_SetPropertyStr(ctx,item,"memory",JS_NewStringLen(ctx,m,length));JS_FreeCString(c->controller->ctx,m);
         for(int j=0;j<c->design.count;j++){
-            Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,j,&p,&q);b3Vec3 v=b3Body_GetLinearVelocity(c->physics.parts[j].body),a=b3Body_GetAngularVelocity(c->physics.parts[j].body);
+            Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,j,&p,&q);b3Vec3 v=physics_velocity(&c->physics.parts[j]),a=b3Body_GetAngularVelocity(c->physics.parts[j].body);
             double values[]={p.x,p.y,p.z,q.x,q.y,q.z,q.w,v.x,v.y,v.z,a.x,a.y,a.z};JSValue pose=JS_NewArray(ctx);
             for(int k=0;k<13;k++)JS_SetPropertyUint32(ctx,pose,k,JS_NewFloat64(ctx,values[k]));JS_SetPropertyUint32(ctx,poses,j,pose);
         }JS_SetPropertyStr(ctx,item,"poses",poses);
@@ -694,7 +707,8 @@ static int save_world(JSContext *ctx,const char *path){
         for(int j=0;j<c->design.count;j++)if(c->design.blocks[j].joint==BLOCK_MAGNET){
             PhysicsPart *part=&c->physics.parts[j];JSValue magnet=JS_GetPropertyUint32(ctx,magnets,j);
             if(get_number(ctx,magnet,"creature",0)){
-                JS_SetPropertyStr(ctx,magnet,"local",vector(ctx,(Vector3){part->magnet_local.x,part->magnet_local.y,part->magnet_local.z}));
+                Creature *owner=body_owner(part->magnet_target);int index=magnet_index(part,owner);assert(index>=0);b3Vec3 local=b3InvTransformPoint(owner->physics.parts[index].frame,part->magnet_local);
+                JS_SetPropertyStr(ctx,magnet,"local",vector(ctx,(Vector3){local.x,local.y,local.z}));
             }JS_FreeValue(ctx,magnet);
         }JS_FreeValue(ctx,magnets);JS_FreeValue(ctx,item);
     }int good=save_json(ctx,save,path);JS_FreeValue(ctx,list);JS_FreeValue(ctx,save);return good;
@@ -789,7 +803,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
     if(fresh){world.supply_seed=0x243f6a88;world.next_parcel=45;world.next_ore=5;world.next_mine=10;}
     if(fresh)world_save(ctx);
     if(!JS_IsObject(save)){JS_FreeValue(ctx,save);return;}
-    if(!legacy&&get_number(ctx,save,"version",0)!=2&&get_number(ctx,save,"version",0)!=3){JS_FreeValue(ctx,save);return;}
+    if(!legacy&&get_number(ctx,save,"version",0)!=2&&get_number(ctx,save,"version",0)!=3&&get_number(ctx,save,"version",0)!=4){JS_FreeValue(ctx,save);return;}
     JSValue removals=JS_GetPropertyStr(ctx,save,"removals");load_removals(ctx,removals);JS_FreeValue(ctx,removals);
     JSValue deliveries=JS_GetPropertyStr(ctx,save,"deliveries");
     for(int i=0;JS_IsArray(deliveries)&&i<get_number(ctx,deliveries,"length",0);i++){
@@ -829,14 +843,20 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
                 if(m){controller_budget(creature->controller);JSValue value=JS_ParseJSON(creature->controller->ctx,m,strlen(m),"controller-memory");if(!JS_IsException(value)){JS_FreeValue(creature->controller->ctx,creature->controller->memory);creature->controller->memory=value;}}
                 JS_FreeCString(ctx,m);JS_FreeValue(ctx,memory);
                 JSValue poses=JS_GetPropertyStr(ctx,item,"poses");int saved_count=legacy?get_number(ctx,blueprint,"length",0):c.count;
-                for(int j=0;j<saved_count;j++){JSValue pose=JS_GetPropertyUint32(ctx,poses,j);double p[13]={0};p[6]=1;int valid=1;
+                PhysicsPose *restored=array_resize(NULL,c.count,sizeof(*restored));
+                for(int j=0;j<c.count;j++)restored[j]=(PhysicsPose){.transform=physics_transform(&creature->physics.parts[j])};
+                for(int j=0;j<saved_count;j++){
+                    JSValue pose=JS_GetPropertyUint32(ctx,poses,j);double p[13]={0};p[6]=1;int valid=1;
                     for(int k=0;k<13;k++){JSValue v=JS_GetPropertyUint32(ctx,pose,k);if(JS_ToFloat64(ctx,&p[k],v)<0||!isfinite(p[k]))valid=0;JS_FreeValue(ctx,v);}JS_FreeValue(ctx,pose);
-                    if(valid){b3BodyId b=creature->physics.parts[j].body;b3Body_SetTransform(b,(b3Pos){p[0],p[1],p[2]},(b3Quat){{p[3],p[4],p[5]},p[6]});b3Body_SetLinearVelocity(b,(b3Vec3){p[7],p[8],p[9]});b3Body_SetAngularVelocity(b,(b3Vec3){p[10],p[11],p[12]});}
-                }if(legacy)for(int j=saved_count;j<c.count;j++){
-                    Block b=c.blocks[j],a=c.blocks[b.parent];b3BodyId parent=creature->physics.parts[b.parent].body,body=creature->physics.parts[j].body;
-                    b3Pos point=b3Body_GetWorldPoint(parent,(b3Vec3){b.x-a.x,b.y-a.y,b.z-a.z});b3Body_SetTransform(body,point,b3Body_GetRotation(parent));
-                    b3Body_SetLinearVelocity(body,b3Body_GetWorldPointVelocity(parent,point));b3Body_SetAngularVelocity(body,b3Body_GetAngularVelocity(parent));
-                }JS_FreeValue(ctx,poses);physics_refresh(&creature->physics,&creature->design);
+                    if(valid)restored[j]=(PhysicsPose){.transform={{p[0],p[1],p[2]},{{p[3],p[4],p[5]},p[6]}},.velocity={p[7],p[8],p[9]},.angular={p[10],p[11],p[12]}};
+                }
+                if(legacy)for(int j=saved_count;j<c.count;j++){
+                    Block block=c.blocks[j],parent=c.blocks[block.parent];PhysicsPose a=restored[block.parent];b3Vec3 offset={block.x-parent.x,block.y-parent.y,block.z-parent.z};
+                    restored[j]=a;restored[j].transform.p=b3TransformWorldPoint(a.transform,offset);restored[j].velocity=b3Add(a.velocity,b3Cross(a.angular,b3RotateVector(a.transform.q,offset)));
+                }
+                int steps=creature->physics.steps;Vector3 start=creature->physics.start;
+                physics_attach_poses(&creature->physics,&creature->design,world.physics,0,0,1,restored,get_number(ctx,save,"version",0)<4);
+                creature->physics.steps=steps;creature->physics.start=start;free(restored);JS_FreeValue(ctx,poses);physics_refresh(&creature->physics,&creature->design);
                 JSValue controls=JS_GetPropertyStr(ctx,item,"controls");
                 if(JS_IsObject(controls))for(int j=1;j<128;j++)if(assigned(&creature->design,j)){char key[2]={j,0};double value=get_number(ctx,controls,key,0);creature->controls[j]=isfinite(value)?Clamp(value,0,1):0;}JS_FreeValue(ctx,controls);if(creature->error[0])memset(creature->controls,0,sizeof(creature->controls));
                 if(!creature->cargo&&creature->id!=get_number(ctx,save,"playerId",0))remember_design(&c,s,creature->name,hz,creature->physics.start.x,creature->physics.start.z);
@@ -854,7 +874,7 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
                 JSValue local=JS_GetPropertyStr(ctx,magnet,"local");double p[3];int valid=target>0&&index>=0&&JS_IsArray(local);
                 for(int n=0;valid&&n<3;n++){JSValue v=JS_GetPropertyUint32(ctx,local,n);if(JS_ToFloat64(ctx,&p[n],v)<0||!isfinite(p[n]))valid=0;JS_FreeValue(ctx,v);}
                 if(valid)for(int n=0;n<world.count;n++)if(world.creatures[n].id==target&&index>=0&&index<world.creatures[n].design.count&&n!=j){
-                    part->magnet_target=world.creatures[n].physics.parts[index].body;part->magnet_local=(b3Vec3){p[0],p[1],p[2]};
+                    PhysicsPart *target_part=&world.creatures[n].physics.parts[index];part->magnet_target=target_part->body;part->magnet_shape=target_part->shape;part->magnet_local=b3TransformPoint(target_part->frame,(b3Vec3){p[0],p[1],p[2]});
                     double load=get_number(ctx,magnet,"load",0);part->magnet_load=isfinite(load)?Clamp(load,0,creature->design.blocks[k].force*part->magnet_power):0;
                 }JS_FreeValue(ctx,local);JS_FreeValue(ctx,magnet);
             }
@@ -883,15 +903,15 @@ static void restore_world(JSContext *ctx,JSValue save,int fresh){
 }
 void world_load(JSContext *ctx){
     int fresh=access("/workspace/blockwalker-world.json",F_OK)<0&&errno==ENOENT;
-    JSValue save=read_json(ctx,"/workspace/blockwalker-world.json");int legacy=JS_IsObject(save)&&get_number(ctx,save,"version",0)==1;
+    JSValue save=read_json(ctx,"/workspace/blockwalker-world.json");int version=JS_IsObject(save)?get_number(ctx,save,"version",0):0,migrate=version>=1&&version<4;
     JSValue creatures=JS_IsObject(save)?JS_GetPropertyStr(ctx,save,"creatures"):JS_UNDEFINED;int count=JS_IsArray(creatures)?get_number(ctx,creatures,"length",0):0;JS_FreeValue(ctx,creatures);
-    if(legacy){
-        char path[128];int index=0;do{snprintf(path,sizeof(path),"/workspace/blockwalker-world.before-thrusters-%03d.json",++index);}while(access(path,F_OK)==0&&index<INT32_MAX);
-        if(!save_json(ctx,save,path)){fputs("Could not back up the old world before upgrading thrusters.\n",stderr);exit(1);}
-        printf("Thruster upgrade: original world saved as %s\n",path);
+    if(migrate){
+        char path[128];int index=0;do{snprintf(path,sizeof(path),"/workspace/blockwalker-world.before-physics-%03d.json",++index);}while(access(path,F_OK)==0&&index<INT32_MAX);
+        if(!save_json(ctx,save,path)){fputs("Could not back up the old world before upgrading physics.\n",stderr);exit(1);}
+        printf("Physics upgrade: original world saved as %s\n",path);
     }
     restore_world(ctx,save,fresh);
-    if(legacy&&world.count!=count){fputs("Thruster upgrade could not restore every character; original world kept.\n",stderr);exit(1);}
+    if(migrate&&world.count!=count){fputs("Physics upgrade could not restore every character; original world kept.\n",stderr);exit(1);}
 }
 enum {IMPORT_INTEGER=1,IMPORT_OPTIONAL=2,IMPORT_NULLABLE=4};
 static int import_number(JSContext *ctx,JSValueConst object,const char *key,double low,double high,int flags){
@@ -915,7 +935,7 @@ static int import_world_valid(JSContext *ctx,JSValueConst save){
     JSValue list=JS_GetPropertyStr(ctx,save,"creatures"),designs=JS_GetPropertyStr(ctx,save,"designs"),removals=JS_GetPropertyStr(ctx,save,"removals"),deliveries=JS_GetPropertyStr(ctx,save,"deliveries"),ids=JS_NewObject(ctx),delivered=JS_NewObject(ctx),format=JS_GetPropertyStr(ctx,save,"format");
     const char *kind=JS_IsString(format)?JS_ToCString(ctx,format):NULL;
     int legacy=get_number(ctx,save,"version",0)==1;
-    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,3,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,3,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
+    int valid=JS_IsObject(save)&&import_number(ctx,save,"version",1,4,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,3,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (JS_IsUndefined(format)||(kind&&!strcmp(kind,"blockwalker-world")))&&JS_IsArray(list)&&JS_IsArray(designs)&&JS_IsArray(removals)&&(JS_IsUndefined(deliveries)||JS_IsArray(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     JS_FreeCString(ctx,kind);JS_FreeValue(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);

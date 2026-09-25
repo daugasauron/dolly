@@ -19,11 +19,11 @@ try{
  await page.goto(site.origin+'/blockwalker/');await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20,null,{timeout:60000});await page.keyboard.press('Escape');await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
  if(process.argv[2]){await upload(process.argv[2],'/tmp/source.tar');assert.equal(await command('tar -xf /tmp/source.tar -C /'),0);}
  await upload('test/fixtures/blockwalker-bearings.c','/tmp/bearing.c');
- const flags='cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker ';
- assert.equal(await command(flags+'/tmp/bearing.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lbox3d -lm -o /tmp/bearing'),0);
+ const flags='cc -std=c17 -O2 -U__SIZEOF_INT128__ -I/usr/src/dolly/blockwalker ';
+ assert.equal(await command(flags+'/tmp/bearing.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lblockwalker-box3d -lm -o /tmp/bearing'),0);
  const status=await command('/tmp/bearing > /workspace/bearings.log');const report=page.waitForEvent('download'),download=command('download /workspace/bearings.log');await(await report).saveAs(output+'/physics.log');assert.equal(await download,0);assert.equal(status,0);
  const sources=['main','character','render','world','terrain','magnet','gpu-client'].map(s=>'/usr/src/dolly/blockwalker/'+s+'.c').join(' ');
- assert.equal(await command(flags+sources+' -ldolly-js -ldolly-raylib -lraylib -lbox3d -lm -o /usr/bin/blockwalker'),0);
+ assert.equal(await command(flags+sources+' -ldolly-js -ldolly-raylib -lraylib -lblockwalker-box3d -lm -o /usr/bin/blockwalker'),0);
  await upload('test/fixtures/blockwalker-bearing-builder.mjs','/tmp/check.mjs');assert.equal(await command('cp /tmp/check.mjs /usr/src/dolly/blockwalker/check.mjs'),0);
  const run=command('blockwalker --integration-check');run.catch(()=>{});await Promise.race([page.waitForFunction(()=>__dolly.gpu.active),run.then(code=>{throw Error('Game exited before drawing: '+code);})]);await frames();
  await page.mouse.click(120,352);await page.mouse.click(...screen(0,1.66,0));await frames();

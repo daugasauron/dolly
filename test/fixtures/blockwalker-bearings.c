@@ -2,6 +2,7 @@
 #include <assert.h>
 static JSContext *embedded_context;
 static int linked(b3BodyId a,b3BodyId b){
+ if(B3_ID_EQUALS(a,b))return 1;
  int count=b3Body_GetJointCount(a);b3JointId *joints=array_resize(NULL,count,sizeof(*joints));count=b3Body_GetJoints(a,joints,count);int found=0;
  for(int i=0;i<count;i++)if(B3_ID_EQUALS(b3Joint_GetBodyA(joints[i]),b)||B3_ID_EQUALS(b3Joint_GetBodyB(joints[i]),b))found=1;
  free(joints);return found;
@@ -38,8 +39,10 @@ static void bearing_trial(int n,int axis,int sign){
  if(n==3&&axis==1&&sign==1){
   Creature *machine=spawn(&c,"function(){return {A:1}}","Wide bearing",42,60,0,0);assert(machine);int id=machine->id;
   for(int i=0;i<120;i++)world_step();b3WorldTransform before=b3Body_GetTransform(machine->physics.parts[rotor].body);float mass=b3Body_GetMass(machine->physics.parts[root].body);
-  assert(world_save(embedded_context));world_close();world_load(embedded_context);machine=world_find(id);assert(machine&&machine->design.blocks[rotor].size==3);
-  b3WorldTransform after=b3Body_GetTransform(machine->physics.parts[rotor].body);assert(b3Length(b3SubPos(before.p,after.p))<.00001f&&fabsf(before.q.s-after.q.s)<.00001f&&fabsf(b3Body_GetMass(machine->physics.parts[root].body)-mass)<.00001f);
+  for(int cycle=0;cycle<20;cycle++){
+   assert(world_save(embedded_context));world_close();world_load(embedded_context);machine=world_find(id);assert(machine&&machine->design.blocks[rotor].size==3);
+   b3WorldTransform after=b3Body_GetTransform(machine->physics.parts[rotor].body);assert(b3Length(b3SubPos(before.p,after.p))<.00001f&&fabsf(before.q.s-after.q.s)<.00001f&&fabsf(b3Body_GetMass(machine->physics.parts[root].body)-mass)<.00001f);
+  }
   for(int i=0;i<120;i++)world_step();assert(!machine->error[0]&&machine->physics.max_separation<.03f);world_close();
  }
  character_clear(&c);
@@ -56,10 +59,43 @@ static void base_controls(void){
  printf("BASE CONTROLS: spinning rotor, stationary hinge rate %.6f, piston %.3f, separation %.6f\n",p.parts[hinge].rate,p.parts[piston].angle,p.max_separation);
  physics_stop(&p);character_clear(&c);
 }
+static void articulated_contacts(void){
+ Character c={.anchored=1};Physics p={0};for(int y=0;y<4;y++)character_add(&c,y-1,0,y,0,BLOCK_BOX,0);
+ int hinge=character_add(&c,3,1,3,0,BLOCK_HINGE,1);c.blocks[hinge].axis=2;c.blocks[hinge].limit=150;c.blocks[hinge].force=100;character_add(&c,hinge,2,3,0,BLOCK_BOX,1);
+ physics_start(&p,&c);unsigned char keys[128]={0};keys[c.blocks[hinge].negative]=1;for(int i=0;i<600;i++)physics_step(&p,&c,keys);
+ ContactForces *forces=part_contacts(&p);double self=0;for(int i=0;i<c.count;i++)self+=forces[i].self;
+ printf("ARTICULATED CONTACT angle %.6f force %.3f separation %.6f\n",p.parts[hinge].angle,self,p.max_separation);
+ assert(p.parts[hinge].angle<-.5f&&p.parts[hinge].angle> -1.5f&&self>10&&p.max_separation<.03f);free(forces);physics_stop(&p);character_clear(&c);
+}
+static void compound_contacts(void){
+ Character c={0};Physics p={0};character_add(&c,-1,0,0,0,BLOCK_BOX,0);character_add(&c,0,0,1,0,BLOCK_BOX,0);physics_start(&p,&c);
+ for(int i=0;i<300;i++)physics_step(&p,&c,(unsigned char[128]){0});
+ ContactForces *forces=part_contacts(&p);float weight=4*b3Body_GetMass(p.parts[0].body);
+ printf("COMPOUND CONTACTS lower %.5f upper %.5f weight %.5f\n",forces[0].support,forces[1].support,weight);
+ assert(fabs(forces[0].support-weight)<.01f&&forces[1].support==0&&forces[1].count==0);free(forces);physics_stop(&p);character_clear(&c);
+}
+static void mechanics(void){
+    Character c={0};Physics p={0};character_add(&c,-1,0,2,0,BLOCK_BOX,0);character_add(&c,0,1,2,0,BLOCK_BOX,0);
+    PhysicsPose poses[2]={{{{-.5f,5,0},{{0,0,0},1}},{0,0,1},{0}},{{{.5f,5,0},{{0,0,0},1}},{0,0,-1},{0}}};
+    physics_attach_poses(&p,&c,physics_world(0),0,0,0,poses,1);p.owns_world=1;
+    assert(B3_ID_EQUALS(p.parts[0].body,p.parts[1].body));b3BodyId body=p.parts[0].body;
+    assert(b3Length( b3Body_GetLinearVelocity(body))<1e-5f);b3Matrix3 inertia=b3Body_GetLocalRotationalInertia(body);b3Vec3 omega=b3Body_GetAngularVelocity(body);
+    assert(fabsf(b3MulMV(inertia,omega).y-p.parts[0].mass)<1e-4f);
+    b3World_SetGravity(p.world,b3Vec3_zero);for(int i=0;i<300;i++)b3World_Step(p.world,1.f/60,8);
+    assert(fabsf(b3Length(b3SubPos(physics_position(&p.parts[1]),physics_position(&p.parts[0])))-1)<1e-4f);physics_stop(&p);
+    int jet=character_add(&c,1,2,2,0,BLOCK_THRUSTER,1);assert(jet>=0);c.blocks[jet].axis=2;c.blocks[jet].direction=1;
+    physics_start(&p,&c);body=p.parts[0].body;b3Body_SetTransform(body,(b3Pos){0,5,0},(b3Quat){{0,0,0},1});b3World_SetGravity(p.world,b3Vec3_zero);
+    float controls[128]={0};controls[c.blocks[jet].positive]=1;for(int i=0;i<30;i++){physics_drive(&p,&c,controls);b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);}
+    assert(fabsf(b3Body_GetAngularVelocity(body).y)>.2f);printf("OFFCENTER THRUSTER %.6f\n",b3Body_GetAngularVelocity(body).y);physics_stop(&p);character_clear(&c);
+    character_add(&c,-1,0,1,0,BLOCK_BOX,0);character_add(&c,0,1,1,0,BLOCK_BOX,0);character_add(&c,0,0,1,1,BLOCK_BOX,0);character_add(&c,1,1,1,1,BLOCK_BOX,0);for(int i=0;i<c.count;i++)c.blocks[i].material=MATERIAL_HULL;
+    physics_start_sea(&p,&c);for(int i=0;i<600;i++){physics_drive(&p,&c,(float[128]){0});b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);}
+    b3Pos floating=physics_position(&p.parts[0]);printf("FLOAT %.6f / submerged %.6f %.6f\n",floating.y,p.parts[0].submerged,p.parts[1].submerged);assert(floating.y> -2.4f&&floating.y< -1);assert(b3RotateVector(physics_transform(&p.parts[0]).q,b3Vec3_axisY).y>.9f);
+    physics_stop(&p);character_clear(&c);
+}
 int main(void){
  JSRuntime *rt=JS_NewRuntime();embedded_context=JS_NewContext(rt);assert(character_check()==0);
  for(int n=1;n<=4;n++)for(int axis=0;axis<3;axis++)bearing_trial(n,axis,1);
  for(int axis=0;axis<3;axis++)if(axis!=1)bearing_trial(3,axis,-1);
- base_controls();
+ base_controls();articulated_contacts();compound_contacts();mechanics();
  JS_FreeContext(embedded_context);JS_FreeRuntime(rt);puts("Wide bearing physical trials passed");return 0;
 }

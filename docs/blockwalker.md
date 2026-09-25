@@ -37,10 +37,9 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Agent / player joint controls | Backtick key; taking control pauses Pi |
 | Leave the editor | Escape, returning to Slop |
 
-A regular block welds to every face-adjacent rigid block, including thrusters
-and magnets or Eyes. Hinges, pistons, wheels and turntables keep explicit parent/child attachments;
-leave clearance between their moving rigid assemblies to avoid welding them
-together. A joint block carries its attached branch. Two keys drive
+Face-adjacent regular blocks, thrusters, magnets and Eyes form one rigid physics
+body. Hinges, pistons, wheels and turntables connect separate moving assemblies;
+leave clearance between them to avoid joining their fixed blocks together. A joint block carries its attached branch. Two keys drive
 opposite directions. Deleting a block removes its branch; Undo restores it.
 Blueprint storage and GPU buffers grow with the design; there is no 64-part ceiling. Test mode leaves the build pose unchanged. Its camera follows root movement while
 keeping the chosen offset, so a tall crane stays framed above its base.
@@ -137,7 +136,7 @@ West's blue crew compete to deliver cargo to their islands. Light parcels
 descend under parachutes; dense ore appears on the lowered factory lift. The
 provided aircraft can carry a 0.91 kg parcel but cannot lift an 11 kg pallet
 with their 30 N magnets. Stronger player-built machines remain possible.
-The heavy chain uses the lift, a telescopic hauler, loading crane, deck-magnet
+The heavy chain uses the lift, a hauler with twin lifting masts, loading crane, deck-magnet
 barge and island receiving crane. The hauler takes ore, waits for a clear loading pad, and
 barges take turns at the berth. Cargo travels through physical handoffs.
 Warehouse forklifts carry scored pallets into storage. A covered quarry gallery
@@ -292,7 +291,7 @@ pauses after the trial. The same controller implementation runs released creatur
 | `gravity`, `localVelocity` | Body-local XYZ gravity (m/s²) and velocity (m/s) |
 | `up` | World Y component of the body's up direction |
 | `mass`, `centerOfMass` | Total mass in kg and world XYZ centre of mass |
-| `positions` | World centre of mass of each part, indexed by part |
+| `positions` | World centre of each block, indexed by part |
 | `angles`, `rates` | Joint position/speed, radians and rad/s; pistons use metres and m/s |
 | `touching` | Per-part contact booleans; includes other bodies and the floor |
 | `contactsReady` | Whether a solver step has populated contact readings |
@@ -340,8 +339,11 @@ start that step with neutral inputs. Export world downloads this file. Import
 world validates and replaces the population and library while keeping the
 workshop design and controller. It preserves cargo credit and magnetic loads;
 invalid files or failed writes keep the previous world. The last replaced world
-is backed up at `/workspace/blockwalker-world.previous.json`. Tagged `blockwalker-world` version 2 exports and older version 1 exports
-are accepted; old thrusters are upgraded during import.
+is backed up at `/workspace/blockwalker-world.previous.json`. World format 4
+stores block-local magnet anchors and block-origin velocities. Versions 1–3
+remain readable: conversion preserves block poses and combines dynamic-part momentum, and
+backs up an existing session world as `blockwalker-world.before-physics-001.json`
+(or the next unused number). Version 1 thrusters are upgraded too.
 
 These working files and the library live in the current Dolly session. Downloads
 survive a fresh start. **Save** at the bottom right keeps the latest file checkpoint,
@@ -362,7 +364,7 @@ The single game [Dollyfile](../Dollyfile-blockwalker) reuses `gamedev-sdk` and P
 the C sources inside Dolly, and runs `blockwalker --check` against actual
 Box3D motors in both directions on all three axes, braking under gravity,
 four-wheel driving and reversing on the floor, finite magnet pickup/lift/release,
-overload, removed targets, and 40 seconds of joint/weld/floor stability. `test/blockwalker-browser.mjs`
+overload, removed targets, and 40 seconds of joint/assembly/floor stability. `test/blockwalker-browser.mjs`
 drives camera controls, the editor, key assignment, export/import, physics
 and restart in Chrome, including a 160-part design.
 `test/blockwalker-import-browser.mjs` checks manual/programmed/legacy design

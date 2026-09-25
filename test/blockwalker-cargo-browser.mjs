@@ -42,7 +42,11 @@ try{
  assert.ok(deckTrack.every((c,i)=>Math.hypot(c.x-boatTrack[i].poses[39][0],c.z-boatTrack[i].poses[39][2])<.3&&Math.abs(c.y-boatTrack[i].poses[39][1]-.97)<.12),'loose cargo travels on the boat deck under gravity and friction');
  assert.equal(await command('blockwalker --integration-check'),0);
  const restored=JSON.parse((await download('cargo-restored.json')).toString());await download('cargo-restored.png');
- assert.deepEqual(restored.initial.creatures.map(c=>[c.id,c.poses,c.rootHeight]),final.creatures.map(c=>[c.id,c.poses,c.rootHeight]),'save/reload preserves identities, velocities and spawn semantics');
+ assert.deepEqual(restored.initial.creatures.map(c=>[c.id,c.rootHeight]),final.creatures.map(c=>[c.id,c.rootHeight]),'save/reload preserves identities and spawn semantics');
+ for(const before of final.creatures){const after=body(restored.initial,before.id);assert.equal(after.poses.length,before.poses.length);for(let i=0;i<before.poses.length;i++){
+  assert.equal(after.poses[i].length,before.poses[i].length);
+  for(let j=0;j<before.poses[i].length;j++)assert.ok(Math.abs(after.poses[i][j]-before.poses[i][j])<2e-5,`Body ${before.id}, part ${i}, pose/velocity ${j} changed on reload`);
+ }}
  assert.equal(restored.final.creatures.length,8);assert.equal(restored.final.deaths,0);
  assert.ok(restored.trace.every(s=>Math.abs(body(s,liftId).y-body(s,pierId).poses[41][1]-.97)<.08),'loaded lift stays supported after restart');
  assert.equal(await page.evaluate(()=>__dolly.httpRequestCount),0);

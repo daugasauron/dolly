@@ -13,4 +13,4 @@ float terrain_height(float x,float z);
 float terrain_floor(Vector3 position);
 float water_height(float x,float z,double time);
 void terrain_build(b3WorldId world);
-void water_forces(Physics *p,const Character *c);
+void water_forces(Physics *p);

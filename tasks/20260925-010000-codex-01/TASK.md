@@ -1,6 +1,6 @@
 # Keep the crowded world responsive in Firefox
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: game,performance,browser
 
@@ -168,3 +168,13 @@ All 125 objects remain, simulation is near real time, and three 20 s views after
 30 s warmup have no errors. `build/blockwalker-compound-render-firefox-simd/`.
 This clears the performance target experimentally, but the compound task still
 requires long gameplay validation and remains outside the distributed image.
+
+Image 33 packages the verified rigid assemblies and their repeated-reload fix.
+The latest freight world starts with 127 objects and retains 129 by the end of
+three rendered views. Firefox averages 48.15 warm FPS (47.98 overall), with
+simulation near real time and no browser/controller/model errors. This meets
+the target without removing content or reducing the 60 Hz physics step.
+`build/blockwalker-rivalry-view-firefox-crowded-image33-freight/proof.json`.
+The same-world 125-object A/B/A evidence remains above; this final run also
+checks the revised hauler, cranes and barges. Chrome/Firefox packaged source
+and restoration pass in `build/blockwalker-image33-preview{,-firefox}/`.
