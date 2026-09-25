@@ -4,8 +4,30 @@
 - PRIORITY: 240
 - TAGS: game,content,bug
 
-The fresh competition-v5 West courier60 completes three deliveries, then stays in pickup for cargo104 from787.117s through1500s. Parcel104 is on the ground at(-77.056,0.485,-24.689); aircraft60 hovers at7.532m, magnet powered but unattached. Its traffic clearance overrides pickup altitude while the nearby mine porter remains in the approach. Add a bounded, observable retry/alternate job policy using ordinary controls. Preserve the successful bounded descent controller. Verify recovery in this exact populated save, without moving cargo or other machines.
+West courier 60 completes three deliveries, then waits over cargo 104 from
+787 through 1500 simulated seconds. Traffic clearance keeps the aircraft at
+7.53 m while the parcel is at 0.485 m. Mine porter 62 occupies the approach,
+waiting with 113 because parcel 112 blocks its receiving pad. The unchanged
+90-second continuation reproduces the wait.
 
-Evidence: `build/blockwalker-compound-regressions-chrome-competition-v5/salvage/`
-contains the exact final world, full trace and component proof. Kept separate
-from the stable checkpoint requested by the user; no further feature work here.
+Reproduce from `build/blockwalker-compound-regressions-chrome-competition-v5/`
+`salvage/blockwalker-world.json`. Preserve the bounded descent controller and
+all actors. Recovery must use ordinary controls and complete another delivery.
+
+An unbundled candidate adds a 20-second blocked-descent timeout and 180-second
+job backoff. In an exact 1500→1980-second replay, changing only courier 60, it
+abandons 104, picks up 112 and delivers it. Deliveries increase 3→4, minimum up
+is 0.981964, and mine porter handoffs increase 4→5 after its pad becomes clear.
+All 118 original actors, other programs and blueprints remain; 120 objects at
+the end, no controller errors or deaths. A second blocked wait also times out.
+
+Evidence: `build/blockwalker-compound-regressions-chrome-checkpoint-courier-traffic/`
+`salvage/traffic-proof.json`, final world and full trace. Candidate:
+`build/blockwalker-checkpoint-followup/courier-traffic.js`.
+The served checkpoint remains `ce3a392`; fresh combined verification and
+packaging are still required before closing this task.
+
+Fresh combined trial: courier 60 completes six deliveries, performs one blocked
+pickup yield and stays upright (sampled minimum up 0.930387). The overall trial
+fails storage/firing quotas and reveals another porter tip. Keep the
+candidate unbundled; this is component evidence, not a passing combined result.

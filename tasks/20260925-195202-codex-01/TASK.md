@@ -4,8 +4,38 @@
 - PRIORITY: 230
 - TAGS: game,content,bug
 
-At1500s in fresh competition-v5, heavy parcel99 remains carried by boat55 at about(115.3,0,65). East warehouse77 correctly remains seek: all750 sampled frames contain no delivered heavy cargo within its48m sensing range. West warehouse has completed storage; both programs separately pass the exact loaded-cargo regression. Inspect boat55, its occupied approach and receiving crew to explain the missing East input. Do not move/remove cargo or weaken opponents. Verify actual delivery followed by ordinary storage.
+In fresh competition-v5, parcel 99 remains aboard freighter 55 at 1500 simulated
+seconds. East warehouse 77 receives no delivered heavy cargo within its 48 m
+range in any of the 750 samples. Its loaded-cargo storage regression passes.
+Reproduce from `build/blockwalker-compound-regressions-chrome-competition-v5/`
+`salvage/blockwalker-world.json`; verify a real delivery followed by storage.
 
-Evidence: `build/blockwalker-compound-regressions-chrome-competition-v5/salvage/`
-contains the exact final world, full trace and component proof. Kept separate
-from the stable checkpoint requested by the user; no further feature work here.
+The unchanged continuation identifies a route bug: every reverse maneuver
+retreats one waypoint, leaving the boat trying to reach the original loading
+quay through the mainland. Shore contacts reach 2614 N. The first candidate
+retains route progress and uses observed shore clearance, but its 720-second
+replay still fails: the boat then jams against salvage boat 94 near (124, 30).
+Its reverse-only escape points into the harbor walkway.
+
+An unbundled second candidate chooses a clear escape direction from existing
+terrain and nearby sensors, then uses its normal side/fore-aft thrusters while
+holding heading. It preserves other controllers and all actors. The exact
+2220→2640-second jam replay passes: contact tracing confirms boat 94, freighter
+55 unloads 99, receiving crane 57 hands it off, and warehouse 77 lifts and stores
+that same parcel. Freighter deliveries and warehouse jobs both increase 0→1;
+minimum up is 0.959849, 123 final objects, no controller errors or deaths. All
+machine blueprints remain unchanged; delivered parcels receive normal recolors.
+
+Evidence: `build/blockwalker-compound-regressions-chrome-checkpoint-freighter-escape/`
+`salvage/freight-proof.json`, full contacts and final world. The failed first
+candidate remains under `...-chrome-checkpoint-freighter-shore/salvage/`.
+Candidate: `build/blockwalker-checkpoint-followup/freighter-escape.js`.
+Fresh combined verification and packaging are still required. The served
+checkpoint remains `ce3a392`.
+
+Fresh combined trial fails both warehouse quotas. Freight never reaches either
+boat: hauler 53 remains in carry with 99 near (-40.24, 74.30), quay crane 54 has
+no jobs, and 55 stays in load with no cargo for the entire run. Parcel 103 waits
+on the foundry lift. This does not exercise the sailing fix. Diagnose the hauler's
+actual contacts/route before treating its final pose as a cause. Exact saved
+world and trace: `...-chrome-checkpoint-combined/salvage/`.

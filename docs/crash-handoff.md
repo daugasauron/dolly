@@ -2,15 +2,16 @@
 
 Worktree: `/home/daug/dev/dolly/work/gpu-shaders`.
 Branch: `codex/blockwalker-playground-20260923`.
-The latest user request is a stable checkpoint. Feature work is stopped; keep the
-served build fixed. Earlier exploration was scheduled through September25,21:00JST.
-No push/deployment or subagents are authorized. Last check:19:58JST.
+The user requested a stable checkpoint. Product code is committed as `ce3a392`;
+keep its served source/image fixed. Follow-up experiments are unbundled. No push
+or deployment was performed. All disposable browsers have ended; no active test
+or build remains.
 
 ## Running app
 
 `http://127.0.0.1:9099/blockwalker/`, owned user service
 `dolly-blockwalker-preview-20260924.service`; relay9010. Image37 is built and
-verified. All disposable browser runs have ended. No active build or test.
+verified in Chrome and Firefox.
 
 The image preserves all94 existing blueprints/placements, updates15 editable
 programs (33–38,59/60,63/64,77/78,92–94), and adds the93-part Kaiten cargo carousel
@@ -78,11 +79,36 @@ Their exact findings and limitations are recorded in the closed tatr tasks.
 
 ## Remaining work
 
-Keep these separate from this checkpoint; no fixes have been started:
-- 195200: West courier60 waits above pickup104 because traffic prevents descent.
-- 195201: porter38 later tips near parcel41 after completing6 deliveries.
-- 195202: East heavy freight99 stays aboard55, leaving the warehouse without input.
-All reproduce in the final competition-v5 world and have tasks in this repo.
+Keep follow-ups separate from the served checkpoint. Candidates and fixtures are
+in `build/blockwalker-checkpoint-followup/`; reproduction/evidence live with tasks:
+
+- 195200: courier 60 abandons a blocked pickup and delivers another parcel in the
+  isolated 480s replay; mine porter handoffs recover 4→5. Fresh trial: 6 deliveries,
+  one bounded pickup yield, sampled minimum up 0.930387.
+- 195201: pickup ignores machine collisions. Retaining moving-machine avoidance
+  prevents climbing guard 76's fork in 750→930s, but the fresh trial drives onto
+  carousel 95's fixed base at 703s. Actual contacts identify base/cab parts 90–92,
+  peak 642 N. The anchored-machine exemption remains unsafe; do not promote it.
+- 195202: freighter's reverse recovery regresses waypoints, then it jams beside 94.
+  Generic lateral escape passes 2220→2640s: 55→57→77 transfers/stores 99. Fresh trial
+  never exercises sailing because hauler 53 is stuck upstream with 99; investigate
+  the hauler's actual contacts before inferring a cause from its final pose.
+- 205300: West gun 87 holds 91 but friendly guard 73 occupies its swing clearance
+  while rescuing 71. Keep the safety check and captures/rescues; coordinate traffic.
+
+`build/blockwalker-compound-regressions-chrome-checkpoint-combined/salvage/`:
+only 38/55/60 programs change; all 98 designs/placements remain. **Raw C status 1**:
+both storage quotas fail and West gun fires 3 rather than 4 times. 117 objects,
+20 deliveries, no controller errors/deaths/crew contacts/recovery-truck tips.
+All carousel parcels follow 95→38→delivery; separation 0.003654 m. Boat 2 pickups/
+2 handoffs, minimum up 0.989353; only 91 completes the crew chain, with no subsequent
+shot. Two sustained rescues verified. This is failed combined verification,
+not a passing checkpoint. `competition-proof.json` and `followup-proof.json`
+record component results; full trace and final world are retained.
+
+The final unchanged porter replay, `checkpoint-porter-combined-observe`, retains
+contact-proof.json and pre-incident/first-tip saves under the same run prefix.
+All candidates remain unbundled; no image rebuild or source promotion occurred.
 The broader biped issue20260915-110000 and large-file transfer issue030600 remain
 open. The64MiB file limit is unchanged; in-Dolly zlib compression was a diagnostic
 export workaround, not a product fix.
