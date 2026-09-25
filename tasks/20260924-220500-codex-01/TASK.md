@@ -87,3 +87,15 @@ still need verification, along with the independently stalled ore hauler.
 The follow-on 180 s replay keeps all four loads stored and both trucks return
 to their staging areas. The corrected pickup program is now in the branch
 catalog; the next fresh combined run must verify repeated delivery and storage.
+
+The image 29 fresh 2400 s repeat retains 117 objects and completes 27 light
+cargo deliveries without errors, but neither warehouse receives heavy cargo.
+The quay loading crane is blocked on pallet 92, so this run does not exercise
+the updated warehouse programs. Evidence and the saved upstream failure are in
+`build/blockwalker-rivalry-image29-fresh42/`; see the freight task. Keep this
+issue open until repeated fresh heavy deliveries actually reach both handlers.
+
+With the prototype raised quay crane, the fresh isolated 1800 s chain delivers
+and stores one West pallet. East's receiving crane gets stuck before releasing
+its load, so its warehouse still receives nothing. The warehouse issue remains
+open; `build/blockwalker-rivalry-crane-fresh-chain/` preserves this next failure.

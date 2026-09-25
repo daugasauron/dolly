@@ -84,3 +84,34 @@ pickup. All 125 objects remain, with 37 deliveries and no errors. The same
 continuation preserves all four stored heavy loads and Kawasemi completes its
 second delivery. The candidate is now canonical; fresh continuity remains
 pending. Evidence: `build/blockwalker-forklift-foundry-contact/`.
+
+Image 29 fresh seed-42 endurance (`build/blockwalker-rivalry-image29-fresh42/`)
+retains all 117 objects over 2400 s, with 27 deliveries and no controller errors,
+but no heavy pallet reaches either island. Pallet 92 reaches the quay standing
+on edge; the loading crane remains in `pickup` from 679.85 s to the end, with
+its head about 1.12 m horizontally off the pallet COM. The second pallet waits
+on the hauler behind it. The warehouse-storage assertion therefore fails
+upstream of the warehouse handlers (0/0 stored). Preserve this exact save.
+Raising the head before horizontal alignment and using the observed cargo top
+recovers pickup, but the maximum lift still leaves the upright pallet on the
+ground (37.7 N support) and against the crane (21.6 N contact). It cannot swing
+clear. Evidence: `build/blockwalker-forklift-quay-clearance/`. Improve physical
+lifting clearance as well as the pickup program; this is not a completed fix.
+
+A 67-part crane prototype adds a mast level, a 3x3 bearing and a second lowering
+ram. Directly chasing the head's yaw excites boom sway; slow joint-angle feedback
+settles it. Replaying the exact 117-object failure, it picks up upright pallet
+92 at about 8 s, lifts it clear, and releases onto East barge 55 at 30 s. The
+barge sails with that physical pallet, and the original hauler deposits pallet
+97 at the quay. No other design, cargo pose, mass or capture force was changed.
+`build/blockwalker-forklift-quay-high-lift-joint-feedback/`. The prototype is not
+bundled; fresh repeated freight and warehouse operation remain required.
+
+The fresh isolated nine-machine chain with only that quay replacement runs
+1800 s, retains 19 objects without program errors, and completes two physical
+quay-to-barge transfers. West receives and stores one heavy pallet; East's
+receiving crane wedges its pallet against the quay while swinging. The original
+hauler is also slow (first quay arrival at 899 s). Thus the two-per-team storage
+assertion fails; this is not an endurance pass. Evidence:
+`build/blockwalker-rivalry-crane-fresh-chain/`. Taller, broad-bearing receiving
+cranes with ordinary sensor-driven programs are the next source-only experiment.

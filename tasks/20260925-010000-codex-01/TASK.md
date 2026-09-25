@@ -110,3 +110,23 @@ simulation (`build/blockwalker-rivalry-view-firefox-crowded-transport20/`). It
 still misses the target and lacks full cargo/flight verification. It is excluded
 from image 28; the final packaged catalog retains the previously tested rates.
 The observation-cache experiment is also excluded. Keep this task open.
+
+A lazy-neighbor experiment keeps an immutable numeric snapshot in a
+QuickJS-managed buffer and creates JS neighbor objects only when read.
+Retained-observation and assignment checks pass, and the three resulting
+1800-tick saves are identical. On the 125-object save, Firefox takes
+28.153 / 27.659 / 27.983 s for baseline/candidate/baseline. This small difference
+does not justify promotion; canonical observation construction is unchanged.
+Evidence: `build/blockwalker-lazy-sensors-firefox/proof.json`.
+
+A separate default-sleep candidate lets stationary bodies sleep and wakes motors
+for nonzero commands. Firefox's paired 1800-tick replay takes
+28.131 / 27.677 / 28.049 s (baseline/candidate/baseline), with 125 objects
+retained throughout; awake bodies fall from 2309 to 1983. This roughly 1–2%
+gain is insufficient to justify a physics behavior change and its validation
+cost, so the candidate is excluded. `build/blockwalker-sleep-firefox/proof.json`.
+
+The next structural investigation is [rigid compound assemblies](../20260925-100000-codex-01/TASK.md):
+the current 2271-block catalog has only 351 fixed components. Measure the real
+benefit and resolve block-local sensors, contacts and saved-state compatibility
+before considering an engine change. No compound-body candidate is bundled.

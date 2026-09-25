@@ -2,8 +2,9 @@
 
 Work only in `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-playground-20260923`. Do not modify the parent worktree or
-other agents' previews. The latest user requested broad turntables and more stable, better-designed
-cargo-slinger crews. No push or deployment is authorized.
+other agents' previews. The broad-turntable/slinger request is complete in image 29. The active goal
+continues current issues and a more lively world through September 25, 21:00 JST.
+No push or deployment is authorized.
 
 The baseline [September 25 checkpoint](../tasks/20260925-064800-codex-01/TASK.md) packages
 91 placements: the original 70, red/blue rival and guard vehicles, warehouse
@@ -69,6 +70,29 @@ reload/fire without controller errors or crew collisions over 180 s:
 `build/blockwalker-launcher-wide-final-populated/`. This does not close the
 separate freight endurance or crowded-performance issues.
 [Rope/winch links](../tasks/20260925-041500-codex-01/TASK.md) remain separate.
+
+Current source-only continuation: the [recovery task](../tasks/20260925-083000-codex-01/TASK.md)
+adds two ordinary magnet trucks. The latest isolated 600 s run completes three
+recoveries/handoffs/shots, with two hits, loaded restoration and recovery from a
+manual magnet-off interruption. No crew contacts/errors occur. Evidence:
+`build/blockwalker-launcher-restock-interrupted-reachable/`.
+The full-world trial exposes an enemy guard tipping the truck; the current
+program adds escape steering. East's crew also moves 22 m west into the flight
+corridor. Both-team sustained restocking and browser visuals remain pending.
+
+The image 29 fresh 2400 s run retains 117 objects and makes 27 light deliveries
+but blocks all heavy freight at an upright quay pallet. A 67-part crane with a
+higher mast, 3x3 bearing and two lowering rams transfers that exact pallet to the
+East barge in 30 s. Slow joint-angle feedback works; head-yaw feedback excites
+sway. The fresh isolated 1800 s chain completes two quay handoffs and one West
+heavy delivery/storage, but East's receiving crane catches its load on the quay.
+Matching taller receiving cranes are an unverified prototype. All these designs
+remain outside the served catalog. Recipes/results: `build/blockwalker-restock/README.md`.
+
+Lazy-neighbor snapshots and default sleeping each gain only 1–2% in paired
+Firefox tests; both are excluded. [Rigid compound assemblies](../tasks/20260925-100000-codex-01/TASK.md)
+are a separate investigation: 2271 blocks form 351 fixed components. No compound
+implementation exists yet; saved-state and block-local behavior need careful work.
 
 Outstanding work:
 
