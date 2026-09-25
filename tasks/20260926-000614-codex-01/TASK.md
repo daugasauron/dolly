@@ -166,3 +166,26 @@ minimum tender up0.992507. Baseline still misses both handoffs. Evidence:
 `build/blockwalker-compound-regressions-chrome-battery-low-drop/salvage/`.
 This fixes the observed placement failure; sustained combined verification is
 running as `battery-diagonal-drop` with the diagonal freight route.
+
+The fresh `battery-diagonal-drop` run ends failed at1800s:134 objects,29 deliveries,
+four shots but only one outside-supplied shot, no controller errors/deaths and no
+warehouse jobs. Its first tender job moves unused starting round110; that is not
+recycling. External round125 fires at1361.433s. The four rounds produce19 intended
+aircraft impacts and no friendly airborne impacts; sustained supply still fails.
+Evidence: `build/blockwalker-compound-regressions-chrome-battery-diagonal-drop/salvage/`.
+
+125 is supported and nearly stationary while lowering, but a radial0.1m release
+tolerance delays it for hundreds of seconds. `recovery-bay-tolerance.js` uses
+|dx|<0.15m and |dz|<0.1m while preserving the low-drop, speed and ram-settling
+checks. Exact1200→1440s `handoff-recovery` passes:125 attaches107 at1219.367s,
+then106 and fires at1279.283s. Crane54's edge-grasp fix also passes in that replay;
+131 objects, no missing originals/errors/deaths. This fixture verifies handoffs
+and firing, not the new shot's impact. Evidence:
+`build/blockwalker-compound-regressions-chrome-handoff-recovery/salvage/`.
+
+Fresh combined validation is prepared but not run:
+`build/blockwalker-battery-supply/{handoff-recovery-catalog.json,fresh-handoff-progress.c}`.
+Use `build/blockwalker-progress-browser.mjs`; its existing in-Dolly download
+command exports progress saves while the fixture runs, verified in the handoff
+and guard replays. Preserve the failed full run. Image40 bundles none of these
+supply/freight candidates; this issue stays open at the stable checkpoint.

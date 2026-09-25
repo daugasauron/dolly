@@ -5,12 +5,11 @@ Branch: `codex/blockwalker-playground-20260923`.
 Checkpoint: image40, tag `blockwalker-checkpoint-20260926-image40`.
 Local app: `http://127.0.0.1:9099/blockwalker/`, owned user service
 `dolly-blockwalker-preview-20260924.service`; relay9010.
-No push/deploy requested. Image40 is the protected checkpoint. The broader goal
-has resumed through2026-09-26 13:00 JST; experiments remain outside the served image.
-Active browser: session21814, `battery-diagonal-drop`, scope
-`run-r691b5ff024d84172a31f3e66d6262996.scope`,2400s wall timeout.
-Log: `build/blockwalker-battery-supply/fresh-diagonal-drop.log`. Poll this handle
-before starting another browser. Do not edit its frozen catalog/fixture inputs.
+The latest user request is a stable checkpoint. Continuous experimental work is
+paused at that request; no disposable browser or simulation is running.
+Playable implementation tag: `blockwalker-checkpoint-20260926-image40` (300d656).
+Checkpoint notes tag: `blockwalker-stable-20260926-image40`.
+The source and image remain image40; newer experiments are retained under build.
 
 ## Included
 
@@ -30,7 +29,7 @@ Source:22 files,1,320,448 bytes,
 SHA `35ae1a694cd7902249ccc0e1e00cdd133a591c6bf0fee0140515e9d0092321c7`.
 Snapshot:234,714,979 bytes,
 SHA `03d86146979ee1261e941a93a5161137a61b74407b50bcf052e560d1ee174cfd`.
-Runtime unchanged:
+Runtime build identity (not the raw Wasm file hash), unchanged:
 `d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72`.
 
 Rollback: `build/blockwalker-image39-fallback/` contains the previous source tar,
@@ -76,61 +75,60 @@ physics stays60Hz/8 substeps. Evidence: `build/blockwalker-compound-regressions-
 The old35s lookout deadline failed equally before/after caching; the60s allowance
 retains its distance, stability and contact assertions.
 
+## Checkpoint confirmation
+
+Firefox boots all111 bundled designs and restores the newest1440s handoff replay
+with131 objects, unchanged programs/blueprints, no errors or deaths. Fresh and
+restored views inspected. Evidence:
+`build/blockwalker-stable-image40-preview-firefox/proof.json`.
+Source tar, snapshot and raw Wasm served at9099 match the local artifacts; both
+runtime build identities were recomputed. Evidence:
+`build/blockwalker-stable-image40-artifacts.json`.
+Protected user state and the other12 images still match the earlier baseline:
+`build/blockwalker-stable-image40-preservation.json`.
+
 ## Open follow-ups
 
-The broader world/competition task remains open at
-`tasks/20260925-221800-codex-01/TASK.md`. This checkpoint does not claim balanced
-competition or sustained freight/ammunition throughput.
+The broader world/competition task20260925-221800 remains open. Image40 does not
+establish balanced competition, shootdowns, sustained ammunition supply or heavy
+cargo reaching both island warehouses. Existing saves preserve their programs.
 
-- `20260925-195200`: courier60 blocked-pickup yielding passes isolated replay;
-  unbundled.
-- `20260925-195201`: porter38 climbs carousel95's anchored base; candidate unsafe.
-- `20260925-195202`: isolated hauler/boat recovery passes, but fresh heavy freight
-  fails. The original route wedges the rear chassis on a shaft marker; the wider
-  square route strikes the foundry wall with the front magnet. Diagonal route
-  passes fresh300s:112→truck→crane→barge, then pickup116; minimum up0.991456,
- 119 objects, no losses/errors. Island storage is under combined verification.
-- `20260925-205300`: guard73 blocks gun87 while rescuing71. Preserve rescue and
-  friendly-clearance behavior while fixing traffic coordination.
-- `20260926-000614`: one outside-cargo→tender→shuttle→gun→shot chain is proven;
-  repeat supply is not. The shuttle-reach fix passes its exact jam replay, but
-  the combined fresh run leaves ammunition outside shuttle reach. Final matched
-  placement test fails: baseline drops badly, candidate never releases in120s.
-  Neither reaches the shuttle/gun; no actor losses/errors. The subsequent low-drop
-  variant passes the same save:121→107→106,126 objects, no losses/errors.
-  All tender/shuttle candidates remain unbundled pending combined verification.
-- Biped task20260915-110000 and transfer task030600 remain open. The64MiB file
-  transfer limit is unchanged; in-Dolly trace compression is a diagnostic workaround.
+- 20260925-195200: courier60 yielding passes isolated replay; unbundled.
+- 20260925-195201: porter38 climbs carousel95's anchored base; candidate unsafe.
+- 20260925-195202: diagonal truck route passes300s, but combined freight fails.
+  The crane rejects a pallet whose center is too close, although its edge is reachable.
+  `crane-edge-grasp.js` passes the exact jam replay:112→54→55 and116→54. Fresh
+  sustained storage is still unverified.
+- 20260925-205300: inverted guard73 blocks loaded gun87. Existing forks lift it
+  but cannot right it. Wheel drive clears the gun, which fires91, without
+  recovering the guard. Neither candidate passes rescue requirements. Keep the
+  friendly clearance and teammate rescue behavior; prototype dozer is untested.
+- 20260926-000614: combined1800s `battery-diagonal-drop` fails:134 objects,
+  29 deliveries,4 shots/1 outside-supplied shot, zero warehouse jobs, no losses or
+  errors. Supported ammunition125 waits hundreds of seconds for overly narrow
+  drop alignment. Rectangular tolerance passes the exact1200→1440s replay:
+  125→107→106→shot, alongside the crane fix;131 objects, no losses/errors.
+  This proves those handoffs, not sustained operation or that new shot's impact.
+- Biped20260915-110000 and transfer030600 remain open. The64MiB file download
+  limit is unchanged; trace compression remains a diagnostic workaround.
 
-Experimental sources/fixtures are retained under `build/blockwalker-battery-supply/`,
-`build/blockwalker-checkpoint-followup/` and `build/blockwalker-world-renewal/`.
-The denser-ammunition comparison in `build/blockwalker-dense-ammunition/` is
-terminal raw0: both alloy/ballast hit twice, no friendly impacts, but effectiveness
-is inconclusive. Do not promote it based on hit counts alone.
+Latest physical evidence lives in `build/blockwalker-compound-regressions-`
+`chrome-{battery-diagonal-drop,handoff-recovery,guard-righting,guard-traction}/salvage/`.
+Full failed runs and progress saves are preserved. Each issue records the result.
+In guard-traction, progress files named1560 contain world.seconds1590; use the
+embedded time. The denser-ammunition test is inconclusive and remains unbundled.
 
-Current combined inputs: `build/blockwalker-battery-supply/`
-`fresh-diagonal-drop-catalog.json` and `fresh-reload-status.c`. Fresh111 actors,
-maximum1800s, earliest successful stop1200s; require repeated outside-ammunition
-chains, both warehouses, intended hits and no friendly hits/loss/errors. At780s
-the truck waits with its second load behind an occupied quay bay; crane54 has
-no jobs and both warehouses remain0. Tender111 is lowering outside crate125,
-with one earlier job. Inspect the actual cargo/free-boat predicates when the
-final world and trace are exported; do not infer the cause from position alone.
-The earlier short route test passed, but that is not a combined-world pass.
+The next fresh combined test is prepared, not run:
+`build/blockwalker-battery-supply/{handoff-recovery-catalog.json,fresh-handoff-progress.c}`.
+Use `build/blockwalker-progress-browser.mjs`; its progress downloads were verified
+in real Dolly runs. It exports300s saves during simulation rather than only at exit.
+The existing salvage harness and final artifact export remain available.
 
-Next prepared test: `build/blockwalker-guard-recovery/{catalog.json,replay.c}`,
-input `...-chrome-checkpoint-combined/salvage/blockwalker-world.json` at1500s.
-Guard73 is inverted and disables its actuators. The candidate tries to right it
-using existing fork rams; require stable recovery and gun87 firing its loaded91.
-Use `build/blockwalker-progress-browser.mjs` for this next test. It adds a
-listener for periodic `progress-*.json` downloads emitted by the fixture through
-the existing in-Dolly download command. The guard fixture exports each branch
-at1560s so snapshots can be inspected while simulation continues. This harness
-passes Node syntax checking but has not run in the browser yet. Final exports:
-`guard-baseline.json,guard-candidate.json`. The optional
-`build/blockwalker-dense-ammunition/impact-detail.c` is also unrun.
-Detailed successful and failed evidence paths are recorded in the corresponding
-issues. Do not remove actors/cargo or weaken opponents to satisfy quotas.
+Yard edge stripes finish Chrome comparison30.38→29.94FPS without errors, but need
+visual review and Firefox verification. They remain outside image40. Evidence:
+`build/blockwalker-yard-markings/paired-chrome/`. The rescue dozer under
+`build/blockwalker-rescue-dozer/` is untested; change the added ballast's finish2
+(glow) to finish3 (stripe) before testing. No new prototypes enter this checkpoint.
 
 ## Safeguards and iteration
 

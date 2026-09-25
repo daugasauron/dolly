@@ -31,3 +31,22 @@ existing hydraulic forks while overturned, then resume patrol after stabilizing
 upright. No added forces, moved actors or changed opponents. Require physical
 recovery, at least10s upright, the same loaded round91 fired, no friendly hits and
 no actor losses/errors. Test input remains the exact1500s combined save.
+
+The matched120s `guard-righting` replay fails: baseline final up−1.000000;
+existing fork rams lift the candidate to−0.708646, but neither becomes upright
+or lets the loaded gun fire. Rear wheels reach the ground while the vehicle
+leans on its extended forks. Both retain all actors, with no friendly hits or
+controller errors. Evidence:
+`build/blockwalker-compound-regressions-chrome-guard-righting/salvage/`.
+
+A second paired60s `guard-traction` replay starts from that tilted1560s save.
+Positive/negative wheel drive moves73 clear and gun87 fires91, but final up is
+−0.710745/−0.758045 with zero upright time. No friendly hits, missing actors,
+errors or deaths. Firing alone is not successful rescue; neither variant is
+promoted. Evidence: `build/blockwalker-compound-regressions-chrome-guard-traction/salvage/`.
+Its progress filenames end1560, but their embedded simulation time is1590.
+
+An untested heavier teammate rescue-dozer prototype is retained under
+`build/blockwalker-rescue-dozer/`. Its added ballast currently uses finish2
+(glow); change to finish3 (stripe) before testing. No prototype is bundled.
+Preserve captures and physical teammate rescue. Image40 remains the checkpoint.

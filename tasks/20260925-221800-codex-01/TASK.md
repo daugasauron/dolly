@@ -4,10 +4,10 @@
 - PRIORITY: 280
 - TAGS: game,content,visuals
 
-Continue through 2026-09-26 13:00 JST, as resumed after the checkpoint. Image40
-is saved as `blockwalker-checkpoint-20260926-image40` and remains the playable
-rollback point. Keep this task open until the remaining cargo, defense,
-interaction and terrain work is verified.
+The latest user request is to stop at a stable checkpoint. Image40 is saved as
+`blockwalker-checkpoint-20260926-image40` and remains the playable build. Keep
+this task open for the remaining cargo, defense, interaction and terrain work;
+the earlier continuous-work schedule is superseded by this checkpoint request.
 The user likes the physical catapults;
 air retrieval is too easy and the terrain looks flat and gray. Improve cargo,
 interaction, combat/defense, terrain and visuals while retaining the late-90s
@@ -183,3 +183,27 @@ impacts; do not attribute the entire excursion to the shot. Evidence:
 `build/blockwalker-compound-regressions-chrome-battery-dense-ammo/salvage/`.
 The ammunition change remains unbundled. A45s impact-detail fixture is prepared
 but unrun; it also records contacts while the round is still attached.
+
+Stable checkpoint follow-up: the latest combined supply/freight trial fails its
+quotas while preserving134 objects with29 deliveries and no errors/deaths.
+An exact saved-state replay fixes the crane edge reach and tender drop tolerance,
+but fresh sustained operation remains unverified (tasks195202 and000614).
+Fork-assisted self-righting and wheel-traction replays fail physical recovery;
+keep the friendly-fire clearance and rescue task205300 open.
+
+The yard edge-stripe shader comparison finishes in Chrome:30.38→29.94FPS on the
+same119-object save, ending121 objects with no errors. Evidence:
+`build/blockwalker-yard-markings/paired-chrome/`. Firefox and visual review are
+not complete, so it remains unbundled alongside the untested rescue dozer.
+No new gameplay or shader experiments enter this checkpoint.
+
+Final checkpoint confirmation: Firefox starts all111 bundled designs and reloads
+the newest1440s handoff save with131 objects, unchanged programs/blueprints and
+no errors/deaths. Rendered views inspected. Evidence:
+`build/blockwalker-stable-image40-preview-firefox/proof.json`.
+Served source/snapshot/Wasm match local files; runtime identities recompute
+correctly. Six protected files (392379755 bytes),12 other images and13 catalog
+entries remain unchanged. Evidence: `build/blockwalker-stable-image40-`
+`{artifacts,preservation}.json`. No disposable simulations remain active.
+Checkpoint notes tag: `blockwalker-stable-20260926-image40`; source stays at
+image40 implementation300d656. Local preview remains available on9099.

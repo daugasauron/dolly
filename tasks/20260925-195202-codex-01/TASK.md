@@ -121,3 +121,18 @@ missing originals. Raw0, `build/blockwalker-compound-regressions-chrome-`
 `freight-diagonal/salvage/regression.log` and full trace. This proves the outbound
 handoff and return for another pickup; island storage still needs the combined
 run. Candidate: `build/blockwalker-battery-supply/hauler-diagonal-route.js`.
+
+Checkpoint follow-up: the fresh `battery-diagonal-drop` run fails its combined
+quotas at1800s:134 objects,29 deliveries, no deaths/controller errors, zero jobs
+at either warehouse. The truck reaches the quay, but pallet112 settles with its
+center4.483m from crane54. Stock selection requires at least4.7m, so the crane
+rejects it although an edge is reachable. Truck53 waits with its second load116.
+
+`crane-edge-grasp.js` expands stock selection by the cargo radius (capped0.8m)
+and projects the pickup point onto the arm's reachable5–7m workspace. Exact
+1200→1440s replay `handoff-recovery` passes with actual magnet attachments:
+112→54→55, then116→54;131 objects, no errors, missing originals or deaths.
+Only54 and tender111 change in that replay. Evidence:
+`build/blockwalker-compound-regressions-chrome-handoff-recovery/salvage/`.
+This verifies the observed quay jam, not fresh sustained island deliveries.
+The served checkpoint remains image40; these programs are not bundled.
