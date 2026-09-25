@@ -62,9 +62,9 @@ fn noise(p:vec2f)->f32 {
 fn unpack(v:u32)->vec4f {return vec4f(f32(v&255u),f32((v>>8u)&255u),f32((v>>16u)&255u),f32(v>>24u))/255;}
 fn sky(ray:vec3f)->vec3f {
     let horizon=pow(clamp(1-abs(ray.y),0,1),3);
-    var color=mix(vec3f(.24,.33,.38),vec3f(.57,.59,.51),horizon);
+    var color=mix(vec3f(.23,.37,.51),vec3f(.73,.66,.50),horizon);
     let angle=atan2(ray.z,ray.x);let ridge=.025+.035*abs(sin(angle*4))+.023*abs(sin(angle*11));
-    if(ray.y<ridge&&ray.y>-.05){color=mix(vec3f(.30,.38,.36),vec3f(.47,.52,.46),horizon*.6);}
+    if(ray.y<ridge&&ray.y>-.05){color=mix(vec3f(.26,.37,.38),vec3f(.48,.54,.45),horizon*.6);}
     let clouds=floor(noise(floor(ray.xz/max(.08,ray.y)*8)/8)*5)/5;
     color+=vec3f(.12,.11,.075)*smoothstep(.48,.8,clouds)*smoothstep(.07,.25,ray.y);
     return color;
@@ -157,11 +157,24 @@ fn water_normal(p:vec2f)->vec3f {
             color=b.color.rgb*(.69+.31*max(0,dot(rotate(b.rotation,normal),sun)));
             var face_uv=p.yz;if(abs(normal.y)>.5){face_uv=p.xz;}else if(abs(normal.z)>.5){face_uv=p.xy;}
             if(b.flags.x==101){
-                if(b.style.x==8){
+                if(b.style.x<4){
+                    let grain=noise(floor(position.xz*3)/3);
+                    if(normal.y>.5){
+                        let growth=noise(floor(position.xz*.4)*.11);
+                        color=mix(color,vec3f(.34,.43,.25),smoothstep(.46,.78,growth)*.65);
+                        color*=.86+.14*grain;
+                        let tile=abs(fract(position.xz/8+.5)-.5);
+                        color*=mix(.60,1.0,smoothstep(.003,.012,min(tile.x,tile.y)));
+                    }else{
+                        let layer=floor(position.y*1.7+noise(position.xz*.12)*2);
+                        color*=.72+.28*hash(vec2f(layer,floor(face_uv.x*.5)));
+                        if(position.y<.7){color=mix(color,vec3f(.19,.30,.25),.38);}
+                    }
+                }else if(b.style.x==8){
                     let strata=.5+.5*sin(position.y*5+noise(floor(position.xz*2)*.11)*5);
                     color*=.65+.18*noise(floor(face_uv*8)/3)+.17*strata;
                     let vein=abs(sin(face_uv.x*.35+face_uv.y*.11+noise(face_uv*.3)*3));
-                    color=mix(color,vec3f(.27,.34,.29),.32*(1-smoothstep(.03,.07,vein)));
+                    color=mix(color,vec3f(.39,.28,.19),.5*(1-smoothstep(.03,.09,vein)));
                 }else if(b.style.x==9){
                     let vent=abs(fract(face_uv.y*3)-.5);
                     color*=select(.48,.92,vent<.32);
@@ -174,15 +187,20 @@ fn water_normal(p:vec2f)->vec3f {
                     color=b.color.rgb*(.8+.2*noise(floor(face_uv*vec2f(.8,1.2))));
                     if(max(cell.x,cell.y)>.47){color=vec3f(.16,.23,.29);}
                     if(abs(fract(face_uv.x*4)-.5)>.47){color+=vec3f(.025,.045,.065);}
+                }else if(b.style.x==5&&abs(normal.y)<.5){
+                    let row=floor(face_uv.y*1.4);
+                    let brick=vec2f(face_uv.x*.6+fract(row*.5)*.5,face_uv.y*1.4);
+                    let joint=abs(fract(brick)-.5);
+                    color*=.75+.25*hash(floor(brick));
+                    if(max(joint.x,joint.y)>.46){color=mix(color,vec3f(.30,.29,.23),.8);}
+                    let weather=noise(floor(face_uv*2)*.14);
+                    color=mix(color,vec3f(.24,.31,.25),smoothstep(.65,.85,weather)*.6);
                 }else if(b.style.x>=4){
                     let panel=abs(fract(face_uv*.25)-.5);
                     if(max(panel.x,panel.y)>.48){color*=.4;}
-                    if(b.style.x==5&&length(panel-vec2f(.4))<.018){color=vec3f(.35,.43,.46);}
-                }else{color*=.82+.18*noise(position.xz*2+position.y);}
-                if(normal.y>.5&&b.style.x<6){
-                    let seam=min(abs(fract(position.x/8+.5)-.5),abs(fract(position.z/8+.5)-.5));
-                    color+=vec3f(.10,.09,.06)*(1-smoothstep(.003,.01,seam));
-                }else if(b.style.x<4){color*=.82+.18*sin(position.y*3+noise(position.xz*.3)*2);}
+                    let corrosion=smoothstep(.6,.8,noise(floor(face_uv*3)*.13));
+                    color=mix(color,vec3f(.42,.25,.13),corrosion*.65);
+                }
                 if(b.style.x!=6&&trace(position+normal*.02,sun,512,true).y>=0){color*=.65;}
             }else{
                 let texel=floor(face_uv*24)/24;let inset=abs(face_uv);
@@ -242,7 +260,7 @@ fn water_normal(p:vec2f)->vec3f {
             let fresnel=.035+.80*pow(1-abs(dot(normal,-ray)),5);
             let reflection=sky(reflect(ray,normal));
             let swell=.5+.5*sin(water.x*.22+water.z*.13-scene.world.x*1.3);
-            let deep=mix(vec3f(.14,.25,.26),vec3f(.20,.34,.33),floor(swell*4)/4);
+            let deep=mix(vec3f(.10,.29,.32),vec3f(.13,.39,.40),floor(swell*4)/4);
             let transmitted=mix(deep,color,exp(-depth*.20));
             color=mix(transmitted,reflection,fresnel);
             let gleam=step(.992,dot(reflect(-sun,normal),-ray));
@@ -250,10 +268,10 @@ fn water_normal(p:vec2f)->vec3f {
             let ripples=pow(.5+.5*sin(water.x*1.9+water.z*2.6+scene.world.x*2.3),12);
             color+=vec3f(.015,.055,.07)*ripples*(.35+.65*fresnel);
             let foam=(1-smoothstep(.02,.4,depth))*(.5+.5*noise(water.xz*9+scene.world.x*.3));
-            color=mix(color,vec3f(.35,.67,.69),foam*.55);
+            color=mix(color,vec3f(.65,.73,.64),foam*.55);
         }
     }
-    if(distance<10000){color=mix(color,vec3f(.49,.54,.48),clamp(1-exp(-distance*.0035),0,.8));}
+    if(distance<10000){color=mix(color,vec3f(.66,.64,.53),clamp(1-exp(-distance*.0022),0,.8));}
     let dither=array<f32,16>(0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5);
     let cell=vec2u(raster/2)%4u;let bias=(dither[cell.y*4u+cell.x]/16-.5)/31;
     color=floor(clamp(color+bias,vec3f(0),vec3f(1))*31+.5)/31;

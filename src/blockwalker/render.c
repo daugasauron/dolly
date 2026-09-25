@@ -223,7 +223,7 @@ static size_t character_draw(const Character *c,const Physics *p,int selected,in
     return at;
 }
 static size_t draw_terrain(size_t at){
-    const Color colors[]={{108,115,103,255},{125,119,103,255},{98,112,99,255},{127,128,113,255},{126,125,107,255},{83,98,98,255},{191,143,66,255},{49,70,82,255},{100,106,97,255},{123,150,137,255}};
+    const Color colors[]={{133,126,101,255},{176,119,83,255},{98,133,130,255},{179,174,143,255},{70,112,119,255},{159,91,65,255},{218,165,67,255},{47,80,98,255},{153,135,101,255},{99,137,102,255}};
     for(int i=0;i<terrain_count;i++){
         TerrainBox b=terrain_box(i);box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
         Color color=colors[b.color];boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at].color[2]=color.b/255.f;

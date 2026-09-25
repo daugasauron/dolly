@@ -2,48 +2,51 @@
 
 Worktree: `/home/daug/dev/dolly/work/gpu-shaders`.
 Branch: `codex/blockwalker-playground-20260923`.
-The user requested a stable checkpoint. Product code is committed as `ce3a392`;
-keep its served source/image fixed. Follow-up experiments are unbundled. No push
-or deployment was performed. All disposable browsers have ended; no active test
-or build remains.
+The latest request is a stable checkpoint. Image38 packages the verified terrain
+materials and lighting over image37. No further gameplay candidates are promoted.
+The broader cargo/defense/terrain expansion remains open in task20260925-221800;
+its earlier overnight schedule is superseded by this checkpoint request.
+No disposable browsers remain running. No push/deploy is requested.
 
 ## Running app
 
 `http://127.0.0.1:9099/blockwalker/`, owned user service
-`dolly-blockwalker-preview-20260924.service`; relay9010. Image37 is built and
+`dolly-blockwalker-preview-20260924.service`; relay9010. Image38 is built and
 verified in Chrome and Firefox.
 
 The image preserves all94 existing blueprints/placements, updates15 editable
 programs (33–38,59/60,63/64,77/78,92–94), and adds the93-part Kaiten cargo carousel
-plus3 parcels:98 designs total. Fixes cover scout avoidance, warehouse clearance,
+plus3 parcels:98 designs total. Image38 preserves every image37 design/program
+and adds rust brick, teal steel/water, ochre rock, mossy ground and reduced haze.
+Earlier fixes cover scout avoidance, warehouse clearance,
 recovery-truck escape, boat hook clearance/navigation, porter departure and
 courier descent. There are no engine, ABI or physics-force changes.
 
-Snapshot:234645854bytes, SHA
-`31cc3ed395ba166db905b640de9bd0faa1245b7eac416b93600038bafe0d3177`.
-Source:22files,1250816bytes, SHA
-`8e38c7940494a50d36f0a23578712ff512634ab970eaa7c6509f1f8124b547bd`.
+Snapshot:234646867bytes, SHA
+`c1a43070d0619595e9f3d82930b16600dbdc3dd37ee997dbfaee1e08e70259cd`.
+Source:22files,1251840bytes, SHA
+`4857602f057791dea22b264f5dd478722e1fcf9fc5ae3b400ec2eb566a2d380e`.
 Runtime remains
 `d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72`.
-Build:43.0s using the existing runtime; snapshot packaging36.1s.
+Build:44.4s using the existing runtime; snapshot packaging37.2s.
 
 ## Verification
 
-`build/blockwalker-image37-preview{,-firefox}/proof.json`: Chrome/Firefox match
-all98 sources/blueprints and restore five saves:125-object format2, original
-51-object format1 (retaining16 historic deaths),125-object format5, loaded
-carousel and loaded boat. Attachments95→98 and94→91 remain after restoration.
+`build/blockwalker-image38-preview{,-firefox}/proof.json`: Chrome/Firefox match
+all98 sources/blueprints and restore five saves: two125-object format5 saves,
+original51-object format1 (retaining16 historic deaths), loaded carousel and
+loaded boat. `attachment-proof.json` verifies95→98 and94→91 after restoration.
 No browser/controller errors or model requests. Existing saves retain their own
 programs/designs; fresh worlds receive the new catalog.
 
-`build/blockwalker-image37-performance-firefox/`:118 objects,30s warmup, then
-682 frames/15.016s =45.42FPS and15.033 simulated seconds. No errors/deaths.
-This is a different population from image36's150-object39.32FPS measurement;
-do not claim a like-for-like performance improvement.
+`build/blockwalker-world-renewal/{chrome,firefox}/`: paired before/after views
+from the identical1500-second118-object save, six fixed cameras; inspected.
+After30s warmup,15s samples measure32.10→32.63FPS in Chrome and41.79→42.34FPS
+in Firefox, without errors/deaths. No observed slowdown; not a proven speedup.
 
 `build/blockwalker-carousel-final-view-{chrome,firefox}/`: focused front,
 bearing and overhead renders of the loaded93-part machine; inspected.
-`build/blockwalker-image37-preservation.json`:6 protected files,392379755bytes,
+`build/blockwalker-image38-preservation.json`:6 protected files,392379755bytes,
 12 other images and13 catalog entries preserved.
 
 Fresh combined evidence:
@@ -91,8 +94,10 @@ in `build/blockwalker-checkpoint-followup/`; reproduction/evidence live with tas
   peak 642 N. The anchored-machine exemption remains unsafe; do not promote it.
 - 195202: freighter's reverse recovery regresses waypoints, then it jams beside 94.
   Generic lateral escape passes 2220→2640s: 55→57→77 transfers/stores 99. Fresh trial
-  never exercises sailing because hauler 53 is stuck upstream with 99; investigate
-  the hauler's actual contacts before inferring a cause from its final pose.
+  stalls upstream: hauler53's rear wheel17 catches the shaft marker at(-39.7,71.3).
+  Checked reverse recovery passes the exact1500→1860s replay:99 moves53→54→55,
+  then53 collects103; minimum up.990627, no errors/deaths. Only53's program changes.
+  Both fixes still need fresh combined verification before promotion.
 - 205300: West gun 87 holds 91 but friendly guard 73 occupies its swing clearance
   while rescuing 71. Keep the safety check and captures/rescues; coordinate traffic.
 
@@ -108,7 +113,19 @@ record component results; full trace and final world are retained.
 
 The final unchanged porter replay, `checkpoint-porter-combined-observe`, retains
 contact-proof.json and pre-incident/first-tip saves under the same run prefix.
-All candidates remain unbundled; no image rebuild or source promotion occurred.
+All gameplay candidates remain unbundled. The latest hauler proof is in
+`build/blockwalker-compound-regressions-chrome-renewal-hauler-transfer/salvage/`
+`hauler-proof.json`; candidate and fixture live in `build/blockwalker-world-renewal/`
+as `hauler-recovery-budget.js` and `hauler-transfer.c`. Raw C status0.
+The first candidate exceeded the controller budget. A subsequent replay physically
+worked but failed an incorrect depot-score assertion; the final fixture verifies
+the actual intermediate handoff and second pickup instead.
+
+`build/blockwalker-world-renewal/terrain-v4-source/` and `terrain-v4.tar` contain an
+unverified freight shed, slag terraces, shore patches and six covered scrap loads.
+They are experiments only: the served image still uses terrain3 and98 designs.
+Geometry/save compatibility, populated traffic, defenses and cargo balance need
+verification before adoption. Ignored build artifacts are local, not in Git.
 The broader biped issue20260915-110000 and large-file transfer issue030600 remain
 open. The64MiB file limit is unchanged; in-Dolly zlib compression was a diagnostic
 export workaround, not a product fix.

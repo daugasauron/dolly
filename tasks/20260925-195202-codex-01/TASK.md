@@ -39,3 +39,18 @@ no jobs, and 55 stays in load with no cargo for the entire run. Parcel 103 waits
 on the foundry lift. This does not exercise the sailing fix. Diagnose the hauler's
 actual contacts/route before treating its final pose as a cause. Exact saved
 world and trace: `...-chrome-checkpoint-combined/salvage/`.
+
+Contact diagnosis confirms hauler53 rear wheel17 catches the shaft-edge marker
+at(-39.7,0.6,71.3). A generic reverse recovery checks a2m path against terrain,
+one part per controller tick, then uses the existing wheel keys. The initial
+all-parts check exceeded the controller budget and was rejected.
+
+The exact1500→1860s replay changes only53's program and passes: parcel99 moves
+53→54 at1639s→55 at1668s;53 returns and collects103, trips1→2. Minimum up.990627,
+122 final objects, no errors/deaths, all original actors/blueprints preserved.
+Evidence: `build/blockwalker-compound-regressions-chrome-renewal-hauler-transfer/`
+`salvage/hauler-proof.json`, raw C status0. Candidate:
+`build/blockwalker-world-renewal/hauler-recovery-budget.js`.
+A previous replay failed an incorrect hauler depot-score assertion despite the
+handoff; the final fixture checks the physical intermediate transfer instead.
+Fresh combined verification remains required; image38 bundles neither candidate.
