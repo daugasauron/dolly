@@ -4,9 +4,9 @@
 - PRIORITY: 280
 - TAGS: game,content,visuals
 
-The latest user request is to reach a stable checkpoint. Image40 is saved as
-`blockwalker-checkpoint-20260926-image40`; further experiments are stopped for
-this checkpoint. Keep this task open until the remaining cargo, defense,
+Continue through 2026-09-26 13:00 JST, as resumed after the checkpoint. Image40
+is saved as `blockwalker-checkpoint-20260926-image40` and remains the playable
+rollback point. Keep this task open until the remaining cargo, defense,
 interaction and terrain work is verified.
 The user likes the physical catapults;
 air retrieval is too easy and the terrain looks flat and gray. Improve cargo,
@@ -172,3 +172,14 @@ other images are preserved;40 recipe lint checks pass. Build44.7s. Evidence:
 and image40-build.log. Tag `blockwalker-checkpoint-20260926-image40` records the
 checkpoint; image39 rollback artifacts are retained. Remaining controller
 experiments stay unbundled, including the failed final placement replay.
+
+The denser-ammunition comparison passes hit detection but does not establish
+better air defense. The same1549.85s attached-round save and force-limited gun
+program use0.912673kg alloy versus2.738019kg ballast for101. Both fire once and
+hit59 twice, no friendly impacts, no actor losses/controller errors; neither
+courier delivers during90s. Minimum up is0.977654/0.984358. The heavier variant
+has a larger altitude excursion, but altitude already differs before the counted
+impacts; do not attribute the entire excursion to the shot. Evidence:
+`build/blockwalker-compound-regressions-chrome-battery-dense-ammo/salvage/`.
+The ammunition change remains unbundled. A45s impact-detail fixture is prepared
+but unrun; it also records contacts while the round is still attached.

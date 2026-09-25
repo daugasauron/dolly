@@ -5,8 +5,12 @@ Branch: `codex/blockwalker-playground-20260923`.
 Checkpoint: image40, tag `blockwalker-checkpoint-20260926-image40`.
 Local app: `http://127.0.0.1:9099/blockwalker/`, owned user service
 `dolly-blockwalker-preview-20260924.service`; relay9010.
-No push/deploy requested. The latest user request is a stable checkpoint.
-Experiments are stopped; the remaining gameplay work stays in tatr.
+No push/deploy requested. Image40 is the protected checkpoint. The broader goal
+has resumed through2026-09-26 13:00 JST; experiments remain outside the served image.
+Active browser: session21814, `battery-diagonal-drop`, scope
+`run-r691b5ff024d84172a31f3e66d6262996.scope`,2400s wall timeout.
+Log: `build/blockwalker-battery-supply/fresh-diagonal-drop.log`. Poll this handle
+before starting another browser. Do not edit its frozen catalog/fixture inputs.
 
 ## Included
 
@@ -84,21 +88,39 @@ competition or sustained freight/ammunition throughput.
 - `20260925-195202`: isolated hauler/boat recovery passes, but fresh heavy freight
   fails. The original route wedges the rear chassis on a shaft marker; the wider
   square route strikes the foundry wall with the front magnet. Diagonal route
-  candidate and short physical-handoff fixture are prepared but unrun.
+  passes fresh300s:112→truck→crane→barge, then pickup116; minimum up0.991456,
+ 119 objects, no losses/errors. Island storage is under combined verification.
 - `20260925-205300`: guard73 blocks gun87 while rescuing71. Preserve rescue and
   friendly-clearance behavior while fixing traffic coordination.
 - `20260926-000614`: one outside-cargo→tender→shuttle→gun→shot chain is proven;
   repeat supply is not. The shuttle-reach fix passes its exact jam replay, but
   the combined fresh run leaves ammunition outside shuttle reach. Final matched
   placement test fails: baseline drops badly, candidate never releases in120s.
-  Neither reaches the shuttle/gun; no actor losses/errors. All tender/shuttle
-  candidates remain unbundled.
+  Neither reaches the shuttle/gun; no actor losses/errors. The subsequent low-drop
+  variant passes the same save:121→107→106,126 objects, no losses/errors.
+  All tender/shuttle candidates remain unbundled pending combined verification.
 - Biped task20260915-110000 and transfer task030600 remain open. The64MiB file
   transfer limit is unchanged; in-Dolly trace compression is a diagnostic workaround.
 
 Experimental sources/fixtures are retained under `build/blockwalker-battery-supply/`,
 `build/blockwalker-checkpoint-followup/` and `build/blockwalker-world-renewal/`.
-The denser-ammunition comparison in `build/blockwalker-dense-ammunition/` is unrun.
+The denser-ammunition comparison in `build/blockwalker-dense-ammunition/` is
+terminal raw0: both alloy/ballast hit twice, no friendly impacts, but effectiveness
+is inconclusive. Do not promote it based on hit counts alone.
+
+Current combined inputs: `build/blockwalker-battery-supply/`
+`fresh-diagonal-drop-catalog.json` and `fresh-reload-status.c`. Fresh111 actors,
+maximum1800s, earliest successful stop1200s; require repeated outside-ammunition
+chains, both warehouses, intended hits and no friendly hits/loss/errors. At480s
+the truck is on its second load and the tender has one job; warehouse jobs0/0.
+The earlier short route test passed, but that is not a combined-world pass.
+
+Next prepared test: `build/blockwalker-guard-recovery/{catalog.json,replay.c}`,
+input `...-chrome-checkpoint-combined/salvage/blockwalker-world.json` at1500s.
+Guard73 is inverted and disables its actuators. The candidate tries to right it
+using existing fork rams; require stable recovery and gun87 firing its loaded91.
+Exports `guard-baseline.json,guard-candidate.json`. Unrun. The optional
+`build/blockwalker-dense-ammunition/impact-detail.c` is also unrun.
 Detailed successful and failed evidence paths are recorded in the corresponding
 issues. Do not remove actors/cargo or weaken opponents to satisfy quotas.
 

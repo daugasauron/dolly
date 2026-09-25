@@ -111,3 +111,13 @@ Next untested candidate `hauler-diagonal-route.js` approaches diagonally from
 (-33,71) to(-43,77), then through the tunnel; the return reverses that crossing.
 It retains the original vehicle and steering. Verify a short fresh pickup→crane
 handoff before another long combined run. Do not promote the failed apron route.
+
+The diagonal route passes its short fresh-world physical test. It crosses
+(-33,71)→(-43,77), avoiding both the pit marker and the foundry wall while keeping
+the original vehicle and motor controller. Cargo112 attaches53 at20.02s,54 at
+208.02s,55 at244.02s (sampled), then53 picks a different load116 at297.02s.
+At300s:119 objects, minimum hauler up0.991456, no controller errors/deaths or
+missing originals. Raw0, `build/blockwalker-compound-regressions-chrome-`
+`freight-diagonal/salvage/regression.log` and full trace. This proves the outbound
+handoff and return for another pickup; island storage still needs the combined
+run. Candidate: `build/blockwalker-battery-supply/hauler-diagonal-route.js`.

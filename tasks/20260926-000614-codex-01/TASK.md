@@ -155,3 +155,14 @@ a shuttle or gun attachment. Both preserve all actors with no controller errors
 or deaths, minimum tender up0.992410/0.992503. Continuing alignment prevents the
 bad release but does not complete delivery. Keep this candidate unbundled.
 Evidence: `build/blockwalker-compound-regressions-chrome-battery-placement-replay/salvage/`.
+
+The crate remains suspended with retracted rams: at959.53s its root is0.837m
+above the floor, conservative lower bound0.137m, speed≈0.017m/s, and no support
+force. `recovery-low-drop.js` permits a small drop only when the existing position,
+velocity and ram-settling checks pass and the lower bound is within0.2m of the
+floor. The matched909.52→1029.52s replay passes: release941.57s at(73.555,27.977),
+then actual121→107 at960.53s→106 at999.53s (sampled);126 objects, no deaths/errors,
+minimum tender up0.992507. Baseline still misses both handoffs. Evidence:
+`build/blockwalker-compound-regressions-chrome-battery-low-drop/salvage/`.
+This fixes the observed placement failure; sustained combined verification is
+running as `battery-diagonal-drop` with the diagonal freight route.

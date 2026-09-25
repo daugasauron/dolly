@@ -21,3 +21,13 @@ out of the sweep and lets the loaded gun resume. Preserve captures, rescues and
 the safety check; do not move actors by hand or weaken collision protection.
 Verify the same loaded parcel is subsequently fired, with no crew collisions.
 The served image remains the earlier stable checkpoint; this trial is unbundled.
+
+Further saved-state inspection: guard73 is fully inverted (up−1.000000), not
+merely standing in the way. Its program sets all wheel commands and lift to zero
+below up0.2, so route yielding alone cannot recover this state. Teammate71 is also
+fallen (up0.117727) but farther from the gun. `build/blockwalker-guard-recovery/`
+contains an unrun matched120s replay and a generic program candidate: extend the
+existing hydraulic forks while overturned, then resume patrol after stabilizing
+upright. No added forces, moved actors or changed opponents. Require physical
+recovery, at least10s upright, the same loaded round91 fired, no friendly hits and
+no actor losses/errors. Test input remains the exact1500s combined save.
