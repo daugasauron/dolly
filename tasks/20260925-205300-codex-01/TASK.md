@@ -50,3 +50,33 @@ An untested heavier teammate rescue-dozer prototype is retained under
 `build/blockwalker-rescue-dozer/`. Its added ballast currently uses finish2
 (glow); change to finish3 (stripe) before testing. No prototype is bundled.
 Preserve captures and physical teammate rescue. Image40 remains the checkpoint.
+
+The physical rescue-dozer trial runs300s from the same1500s populated save,
+adding one33-part,67.088kg teammate at(60,−28); all originals remain. It grips
+both fallen teammates and rights71, which ends with90.40 consecutive seconds
+upright after release. It cannot right73 or let gun87 fire91.122 final objects,
+no errors/deaths/missing originals/friendly impacts; dozer minimum up0.84836,
+final1.0. Evidence: `build/blockwalker-compound-regressions-chrome-rescue-dozer/salvage/`.
+This is partial physical rescue evidence, not a completed traffic fix.
+
+Trace shows73 is grabbed by only one100N magnet on wheel20 (body mass2.131kg),
+then the hydraulic lift loses it. A new program candidate in
+`build/blockwalker-rescue-dozer/grip-catalog.json` requires enough attached magnet
+force for the target's weight before lifting, approaches its center of mass more
+slowly once gripped, and ramps the existing hydraulic extension. Same blueprint
+and opponents, no engine changes. This variant is prepared, not yet verified.
+
+The grip/slow-lift variant also fails the heavy rescue at1800s:121 objects,
+71 upright for73.45s after release,73 never attached, gun91 not fired, no errors,
+losses or friendly impacts. Dozer minimum up improves to0.98439; final1.0.
+Evidence: `build/blockwalker-compound-regressions-chrome-rescue-grip/salvage/`.
+It repeatedly approaches73 then changes its job to opponent72 and retreats.
+The program adopts the first magnet's owner even during a teammate rescue;
+incidental grips can replace the intended target.
+
+`target-grip-catalog.json` retains the selected rescue target and releases each
+magnet that catches someone else. `target-replay.c` is prepared for a matched120s
+old/new program replay from that trial's progress-dozer-1680.json. Change only
+existing dozer118's program; require actual73 grip followed by10s upright after
+release, and the same loaded91 fired without friendly impacts. Preserve all
+actors and the opponents' controllers. This next test has not run yet.

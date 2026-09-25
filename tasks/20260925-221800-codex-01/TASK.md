@@ -4,10 +4,10 @@
 - PRIORITY: 280
 - TAGS: game,content,visuals
 
-The latest user request is to stop at a stable checkpoint. Image40 is saved as
-`blockwalker-checkpoint-20260926-image40` and remains the playable build. Keep
-this task open for the remaining cargo, defense, interaction and terrain work;
-the earlier continuous-work schedule is superseded by this checkpoint request.
+The stable checkpoint is complete. Work has resumed toward the broader goal
+through2026-09-26 13:00 JST. Image40 remains the playable build at
+`blockwalker-checkpoint-20260926-image40`; further candidates stay separate until
+their cargo, defense, interaction and terrain behavior is verified.
 The user likes the physical catapults;
 air retrieval is too easy and the terrain looks flat and gray. Improve cargo,
 interaction, combat/defense, terrain and visuals while retaining the late-90s
@@ -207,3 +207,12 @@ entries remain unchanged. Evidence: `build/blockwalker-stable-image40-`
 `{artifacts,preservation}.json`. No disposable simulations remain active.
 Checkpoint notes tag: `blockwalker-stable-20260926-image40`; source stays at
 image40 implementation300d656. Local preview remains available on9099.
+
+Worn dock/platform edge stripes now pass both browser comparisons and visual
+inspection of the harbor and inlet. Same119-object save and14 fixed views:
+Chrome30.38→29.94FPS, Firefox33.55→32.68FPS after30s warmup/15s sampling. Both end
+with121 objects and no errors/deaths. These samples show roughly0.4/0.9FPS lower
+rates; they are not evidence of a performance improvement. Eight shader lines
+add muted yellow/charcoal edge paint only to broad, thin, horizontal steel decks.
+No geometry or physics changes. Source updated; served image40 remains unchanged.
+Evidence: `build/blockwalker-yard-markings/paired-{chrome,firefox}/`.

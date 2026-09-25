@@ -209,6 +209,14 @@ fn water_normal(p:vec2f)->vec3f {
                     let corrosion=smoothstep(.6,.8,noise(floor(face_uv*3)*.13));
                     color=mix(color,vec3f(.42,.25,.13),corrosion*.65);
                 }
+                if(b.style.x==4&&normal.y>.5&&b.extent.y<.75&&min(b.extent.x,b.extent.z)>1){
+                    let edge=min(b.extent.x-abs(p.x),b.extent.z-abs(p.z));
+                    let band=smoothstep(.08,.12,edge)*(1-smoothstep(.40,.44,edge));
+                    let stripe=step(.5,fract((position.x+position.z)*1.4));
+                    let paint=mix(vec3f(.16,.19,.18),vec3f(.65,.50,.23),stripe);
+                    let worn=smoothstep(.23,.55,hash(floor(position.xz*5)));
+                    color=mix(color,paint,band*worn*.9);
+                }
                 if(abs(normal.y)<.5&&(b.style.x<4||b.style.x==8)){
                     let tide=1-smoothstep(scene.world.w+.25,scene.world.w+1.4+hash(floor(face_uv*2))*.4,position.y);
                     color=mix(color,vec3f(.16,.27,.21),tide*.6);

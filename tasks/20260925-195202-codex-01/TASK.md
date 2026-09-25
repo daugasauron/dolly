@@ -136,3 +136,35 @@ Only54 and tender111 change in that replay. Evidence:
 `build/blockwalker-compound-regressions-chrome-handoff-recovery/salvage/`.
 This verifies the observed quay jam, not fresh sustained island deliveries.
 The served checkpoint remains image40; these programs are not bundled.
+
+Fresh `battery-handoff-fresh` stops at266.283s with a new controller failure:
+barge55 exceeds its execution budget during detour search. The crane has handed
+112 to55, which retains an actual magnet attachment;119 objects,7 deliveries,
+no deaths or missing originals. Three fired rounds have13 intended impacts,
+no friendly impacts. The saved failure is under
+`build/blockwalker-compound-regressions-chrome-battery-handoff-fresh/salvage/`.
+
+The unbundled boat escape program tests48 paths with8 collision samples each in
+one control update. `freighter-incremental.js` evaluates one candidate per update,
+retaining the same collision/depth and cost predicates and existing thrusters.
+`freighter-budget.c` is running an exact saved-state comparison: explicitly retry
+both controllers from the stopped pose, require the old budget error to recur,
+and require the candidate to sail loaded beyondx10 without errors/losses/tipping.
+The interpreter budget and engine are unchanged. This is a departure check;
+whole island delivery still needs the fresh combined trial.
+
+The180s saved-state comparison finishes with both boats sailing successfully.
+The old controller does not repeat the budget error after restart, so the fixture
+correctly fails its reproduction assertion; do not call this an overall pass.
+The incremental candidate retains112 and clears the departure obstruction with
+no controller errors, missing originals or deaths. Final metrics are in
+`build/blockwalker-compound-regressions-chrome-freighter-budget/salvage/regression.log`.
+Fresh-world verification is necessary to check the previously observed budget
+failure and complete deliveries; restarting the old program is not a fix.
+
+Candidate final position(131.931,92.664), minimum up0.956567, actual112 attachment
+throughout180s. Its fixture also rejectsz<115, an incorrect departure assertion:
+the boat already turned south along its authored coast route (route3). Baseline
+likewise reaches(131.927,96.812), minimum up0.963693. Preserve these raw failures;
+they do not indicate a lost load or navigation failure. Future departure checks
+must allow progress around the route instead of requiring the northern row.
