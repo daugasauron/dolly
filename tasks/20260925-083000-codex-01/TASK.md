@@ -1,6 +1,6 @@
 # Keep the cargo world active with recovery and restocking crews
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: game,content,physics
 
@@ -149,3 +149,42 @@ route; that version loses East's improvement. Neither traffic variant is
 promoted. Evidence: `build/blockwalker-rivalry-{traffic-route,incoming-route}-
 continued/`. Keep the proven return-home/local-frontier changes separate from
 these failed avoidance experiments.
+
+A salvage boat now brings fired round 91 to shore and West truck 93 physically
+picks it up at 3268.617 s. The truck then alternates route_bay/evade: its route
+planner permits a path inside the escape routine's six-metre additional enemy
+margin. Suzu 79 stays roughly 14.4 m away at that threshold. A new unbundled
+candidate includes that margin (plus 0.5 m for waypoint following) in route
+clearance too. This preserves the original escape reaction and all guards.
+The replay also checks actual crew contact forces and sustained truck tipping.
+`build/blockwalker-salvage/guard-clearance.js` and `clearance-continued.c`.
+
+Matching route and escape clearance solves the loaded West truck's loop in the
+actual 3754.6 s population. In 600 s, both salvaged rounds pass through truck 93,
+loader 88 and slinger 87; West shots rise 3 -> 5 and East 6 -> 8. No crew contacts,
+truck tipping, program errors or deaths occur; 149 objects and 56 deliveries
+remain. `build/blockwalker-compound-regressions-chrome-salvage-safe-clearance/`
+preserves sensors, physical holder transitions and the final save. The guards
+and escape routine were unchanged. Fresh-world/packaged verification remains.
+
+Fresh-world verification now completes both crews' restocking over 1200 s:
+East four recoveries/seven shots; West two recoveries/five shots. The boat
+also completes a recovery/handoff; no controller errors, deaths, crew contacts
+or truck rollovers occur. `build/blockwalker-compound-regressions-chrome-
+salvage-fresh-slew/`. That run's separate warehouse assertion is resolved by
+20260925-070046 using an exact-save continuation.
+
+A warmed packaged Firefox sample of the populated world (150 objects) records
+591 frames in 15.032 s, 39.32 FPS and 15.017 simulated seconds, after 30 s warmup.
+No controller errors or deaths. This is one rendered sample, not a comparison
+against a previous build: `build/blockwalker-image36-performance-firefox/`.
+
+Verified in packaged image 36 on September 25, 2026. Chrome and Firefox match
+all 94 bundled blueprints/programs and restore the 125-object format-2 world,
+the original 51-object format-1 world (retaining its sixteen historic deaths),
+and the 125-object format-5 continuation without new errors or deaths.
+Evidence: `build/blockwalker-image36-preview{,-firefox}/proof.json`.
+Snapshot SHA-256:
+`aaa757c571d6f3234e0a52570f9ecc7d9f2c50f0a66f3349e08e75af3cc45c38`.
+All six protected files, twelve other images and thirteen catalog entries pass
+`build/blockwalker-image36-preservation.json`. No public deployment was made.
