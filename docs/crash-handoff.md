@@ -164,9 +164,37 @@ Image 31 passed bundled Chrome and Firefox verification: all 93 designs match
 and both restore the 125-object world with no browser errors or model calls.
 The protected files and other twelve images are unchanged.
 
-Current owned test at 11:39 JST: the telescopic-quay/centered-berth saved-failure
-replay, log `build/blockwalker-telescopic-quay-center-berth.log`. Its modifier
-replaces the loaded barge's program only, preserving its cargo and pose. The
-quay blueprint is rebuilt at its original base, with its narrower reachable
-radius. Fresh freight candidate: `build/blockwalker-restock/freight-telescopic-quay.json`.
-No other owned browser or queued job remains.
+Current owned test at 12:02 JST: fresh 900 s compound-engine full recovery world,
+exec session 92663, log `build/blockwalker-compound-recovery42.log`, output
+`build/blockwalker-rivalry-compound-recovery42/`. It uses the unchanged canonical
+93-design catalog and SIMD library. No other owned browser or queued job remains.
+After completion run the existing recovery analyzer and
+`build/blockwalker-compound/compare-world.py` against `restock-simd42`; inspect
+walkers, aircraft, boats, slingers and trucks before considering promotion.
+
+The ballasted-barge fresh 1200 s run completes/stores one heavy load per team,
+retains 20 objects and keeps both barges upright (minimum up .951/.798).
+Evidence: `build/blockwalker-rivalry-ballasted-barges/freight-proof.json`.
+The next pallet rolls outside the crane's fixed pickup circle but lies within
+reach. `freight-reachable-stock.json` widens selection to the physical reachable
+annulus. Its 420 s saved replay performs two further quay/barge handoffs; East's
+next load is in its receiver and West's is arriving, with 20 objects retained.
+`build/blockwalker-forklift-reachable-stock/`. Fresh 2400 s repeated verification
+remains before bundling. The fresh harness takes `build/blockwalker-launcher/empty.json`
+as its empty catalog; the earlier nonexistent restock/empty path caused a
+harness failure, not a game crash. Both freight harnesses now preflight uploads
+and link the packaged SIMD library.
+
+The compound prototype passes character checks, shape-specific support,
+articulated self-collision, 1x1..4x4 bearings on all axes, reversed 3x3 mounts and
+stationary underside controls in Chrome/Firefox. Old-world backup, import,
+save/reopen and 1800 ticks retain all 125 objects and six magnet contact points.
+Evidence: `build/blockwalker-compound-{chrome,firefox}-mechanics/`.
+Paired Firefox simulation is about 27% faster (26.288/26.274 s baseline versus
+19.282/19.144 s candidate). Rendered A/B/A gives 29.77 / 52.15 / 30.77 warm FPS,
+with all 125 objects and near-real-time simulation. Screenshots are in
+`build/blockwalker-compound-render-firefox-simd/`. The engine remains unbundled.
+Current archive hash:
+`8bbb75e7843bbc5d0bfee6c263eb31dacecee3770afc7e88661a63768c7e0690`.
+Recipes and failed attempts are in `build/blockwalker-compound/README.md`.
+Disk has about 7.5 GiB available; retain protected recovery files and Pi history.

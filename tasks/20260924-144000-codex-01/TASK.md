@@ -147,3 +147,35 @@ retracting its boom is insufficient. Preserve `build/blockwalker-forklift-
 {telescopic-receivers,safe-berth,retract-recover}/`. No cargo was relocated or
 removed. A 26-part twin-mast hauler with two parallel lifting rams and a wider
 ballasted chassis is the next fresh physical design test. These remain excluded.
+
+The 22-part tandem-mast hauler keeps narrow front wheels and adds a parallel
+lifting ram. It initially drags its pallet while turning. Giving both rams
+2 m travel, targeting 1.75 m lift and waiting for cargo support to disappear
+completes three trips in a fresh 900 s run, with 18 retained objects and no
+errors. The quay then cannot reach the second pallet; East's z=26 berth is
+blocked by the inlet wall. `build/blockwalker-rivalry-tandem-clearance/`.
+
+Shortening the quay boom by one block (65 parts) and restoring the berth to
+z=24 recovers that exact saved world: a 300 s replay transfers the waiting
+pallet to West, while East delivers and stores its original load. The hauler
+reaches four trips, 19 objects remain and no program errors occur. The replay
+changes the loaded barge's program only. Evidence:
+`build/blockwalker-forklift-telescopic-quay-center-berth/`. This is still excluded
+pending fresh repeated deliveries/storage on both teams.
+
+Fresh 1800 s verification of the short-boom/center-berth candidate retains 19
+objects with no errors and proves a complete East chain (lift, hauler, quay,
+barge, receiver, warehouse). It fails repeated storage: East 1 / West 0.
+West capsizes around 635 s while turning with an upright pallet, then blocks
+berth reuse. `build/blockwalker-rivalry-telescopic-quay-center-fresh/freight-proof.json`.
+The next physical candidate puts three ballast blocks along each barge's lower
+centerline and reduces turn commands while carrying. No masses are weakened.
+
+The ballasted-barge candidate completes and stores one heavy load on each team
+in a fresh 1200 s run, retains 20 objects and has no errors. Minimum boat up
+is 0.951 East / 0.798 West. Both loads pass through lift, hauler, quay, barge,
+receiver and warehouse by physical ownership; no cargo is moved by the fixture.
+`build/blockwalker-rivalry-ballasted-barges/freight-proof.json`. A third pallet
+rolls beyond the crane program's fixed 2 m pickup circle but remains within
+its physical boom reach. Expand selection to the reachable land-side annulus;
+verify that exact saved failure and then repeated fresh operation before bundling.

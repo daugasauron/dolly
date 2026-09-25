@@ -161,3 +161,10 @@ equal to the scalar run, including every pose and program memory. Evidence:
 Image 31 packages the SIMD library, built inside Dolly from unchanged upstream
 source. Bundled Chrome/Firefox and preservation results are recorded in the
 handoff. This task remains open for the crowded rendered-FPS target.
+
+The separate compound-body prototype reaches 52.15 warm FPS in a same-browser
+Firefox A/B/A comparison; the current SIMD engine gives 29.77 then 30.77 FPS.
+All 125 objects remain, simulation is near real time, and three 20 s views after
+30 s warmup have no errors. `build/blockwalker-compound-render-firefox-simd/`.
+This clears the performance target experimentally, but the compound task still
+requires long gameplay validation and remains outside the distributed image.

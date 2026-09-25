@@ -54,3 +54,44 @@ raft pass, as do 60 ticks with no deaths or controller errors. Evidence:
 `build/blockwalker-compound/`. The earlier thin two-block raft tipped and is
 preserved as a failed geometry test. No paired speed or endurance claim yet.
 Canonical engine and served image still use individual block bodies.
+
+Paired Firefox timing with image 31's SIMD library gives 26.288/26.274 s for
+the existing engine and 19.282/19.144 s for compounds over 1800 ticks of the
+same 125-object world (about 27% less simulation time). Both repeats retain all
+objects with zero controller/browser errors. This is a CPU replay, not FPS;
+`build/blockwalker-compound-paired-firefox-simd/proof.json`. The engine overlay
+used for this measurement has SHA-256
+`8ebcc7099dd5071e748d237bfb8b4b4b85cdaaffdd88c78dbfd78ffffaf429`.
+
+Legacy save conversion preserves six active magnet contact points within
+0.000000043 m; version-4 reopen stays within 0.000000084 m. Maximum reopened
+block-position error is 0.000010491 m. Models (including the explicit default
+size=1), sources and memory are unchanged. Evidence:
+`build/blockwalker-compound-chrome-raft/preservation.json`.
+Full actuator/bearing checks, long interactions and rendered performance remain.
+
+The expanded Chrome mechanics run passes the existing character checks after
+adapting obsolete per-body assumptions, plus shape-specific contact attribution
+and every bearing size (1x1 through 4x4) on all three axes. Fixed assemblies
+transfer the correct total weight through only the contacting lower block.
+The 3x3 bearing trials stay within 0.000147 m separation over eight seconds.
+An old-world open creates a verified original-JSON backup before version-4
+conversion, then import/save/reopen retains all 125 objects and six attachments.
+A further 1800 ticks complete without errors. Evidence:
+`build/blockwalker-compound-chrome-mechanics/`. Still an unbundled prototype.
+
+A same-browser Firefox baseline/candidate/baseline rendered comparison of the
+125-object save measures 29.77 / 52.15 / 30.77 warm FPS. Each phase includes
+30 s warmup and three 20 s views; all objects remain, simulation stays near
+real time and no browser/controller/model-request errors occur. Screenshots
+show the retained world. `build/blockwalker-compound-render-firefox-simd/`.
+This is a substantial measured improvement; long fresh gameplay remains required
+before replacing the served engine.
+
+Firefox passes the expanded mechanics fixture too, including two reversed 3x3
+mounts, controls attached to the stationary underside, and an articulated arm
+physically stopped by its own chassis. The latter reports 312.45 N contact,
+angle -0.730 rad and 0.002785 m separation; connected compound bodies do not
+silently lose all collisions. The 1800-tick replay and six-attachment preservation
+pass again. `build/blockwalker-compound-firefox-mechanics/`. The full fresh
+900 s recovery-world workload is now running with unchanged catalog programs.
