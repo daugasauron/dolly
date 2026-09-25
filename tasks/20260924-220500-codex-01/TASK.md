@@ -1,6 +1,6 @@
 # Physically store retained cargo so receiving yards stay usable
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: game,physics,content,bug
 
@@ -132,3 +132,14 @@ third loads are still routing after a further 90 s. East repeatedly approaches
 its chosen storage point near (167,44); West tries alternative points. Keep
 this issue open while testing continued yard clearance beyond those first two
 loads. Exact continuation: `build/blockwalker-rivalry-view-firefox-crowded-image33-freight/blockwalker-world.json`.
+
+The unchanged continuation resolves the concern. After 300 more simulated
+seconds, both handlers have stored their third load: West releases pallet 117
+at 2690 s, East releases 112 at 2774 s. All six delivered heavy pallets are
+supported, unheld and clear of receiving pads, with 130 objects retained and
+38 deliveries. East's fourth load is being lowered by its receiving crane;
+West's fourth is still on the approaching barge. The routing was slow, not a
+permanent jam. No warehouse program change is needed. Evidence:
+`build/blockwalker-forklift-image33-warehouse-baseline/{warehouse.jsonl,blockwalker-world.json,lifecycle.log}`
+and `build/blockwalker-image33-warehouse-baseline.log`. This completes repeated
+fresh storage, saved continuation and the already-passing rendered browser checks.
