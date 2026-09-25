@@ -115,3 +115,18 @@ hauler is also slow (first quay arrival at 899 s). Thus the two-per-team storage
 assertion fails; this is not an endurance pass. Evidence:
 `build/blockwalker-rivalry-crane-fresh-chain/`. Taller, broad-bearing receiving
 cranes with ordinary sensor-driven programs are the next source-only experiment.
+
+Matching 67-part receiving cranes recover the saved East failure when their
+program aims at a fixed receiving-pad position and waits for cargo to settle,
+rather than continuously chasing a swinging cargo COM. East pallet 10 reaches
+the pad at 1844.567 s and is stored by warehouse 8; both delivered heavy loads
+are now stored. `build/blockwalker-forklift-receiving-high-lift-settle/`.
+This proves saved-failure recovery, not repeated fresh operation on both sides.
+
+A fresh 1800 s trial of all three raised cranes plus a six-wheel hauler retains
+17 objects without program errors, but makes no deliveries. The hauler reaches
+its final route segment at 134 s, drifts sideways during its turn, and wedges
+its first pallet against the foundry exit by 160 s. It remains upright and
+powered but cannot proceed. `build/blockwalker-rivalry-six-wheel-three-cranes/`.
+The new hauler and receiving cranes remain excluded from the source checkpoint;
+only the separately verified raised loading crane is promoted.

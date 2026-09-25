@@ -78,3 +78,18 @@ not a terrain failure. The candidate adds ordinary sensor-based escape steering
 while keeping the guard and its physics intact. `build/blockwalker-rivalry-
 restock-quay-relocated42/` preserves the failure; the current `restock-evade42`
 run also fails explicitly if either truck stays tipped for ten seconds.
+
+The final 900 s populated run retains 108 objects and records 16 deliveries,
+with no controller errors, crew contacts or truck rollovers. Both crews fire
+four shots, including actual truck → loader → slinger handoffs: East cargo 104
+and West cargo 91 (previously fired ammunition). East is returning with another
+crate at the end; West is seeking its next one. Evidence:
+`build/blockwalker-rivalry-restock-evade42/recovery-proof.json`.
+
+Chrome and Firefox import that 108-object save, render both crews and trucks,
+and export both truck programs exactly. No browser errors or model requests
+occur. Short view samples are 28–32 FPS in Chrome and 12–16 in Firefox; these
+are not warmed performance benchmarks. The existing crowded-performance issue
+remains open. `build/blockwalker-restock-view-{chrome,firefox}/proof.json`.
+The verified 93-design catalog and relocated Red Sling camera are now canonical
+source; packaged-image verification remains before closing this task.

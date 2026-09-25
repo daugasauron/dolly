@@ -99,3 +99,9 @@ With the prototype raised quay crane, the fresh isolated 1800 s chain delivers
 and stores one West pallet. East's receiving crane gets stuck before releasing
 its load, so its warehouse still receives nothing. The warehouse issue remains
 open; `build/blockwalker-rivalry-crane-fresh-chain/` preserves this next failure.
+
+The receiving-crane replay `build/blockwalker-forklift-receiving-high-lift-settle/`
+recovers East's stranded heavy load and both delivered pallets are stored by
+the unchanged warehouse programs. The fresh six-wheel chain still fails
+upstream at the foundry exit (no heavy deliveries in 1800 s). These results
+do not establish uninterrupted warehouse continuity; keep this issue open.

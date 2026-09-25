@@ -312,7 +312,7 @@ static void click(void){
         if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
         for(int i=0;i<world_places();i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
             piloting=eye_view=0;
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{78,3,-48},{57,1,-13},{-10,5,-26},{84,5,-4}};
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{78,3,-48},{57,1,-13},{-32,5,-26},{84,5,-4}};
             const float distances[]={24,50,100,110,150,512,72,76,40,38,55,38,42,42};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;
                 if(terrain_version&&i==6){orbit.target=(Vector3){-47,1,64};orbit.distance=12;orbit.yaw=PI;orbit.pitch=.12f;}
