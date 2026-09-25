@@ -55,8 +55,25 @@ A previous replay failed an incorrect hauler depot-score assertion despite the
 handoff; the final fixture checks the physical intermediate transfer instead.
 Fresh combined verification remains required; image38 bundles neither candidate.
 
-Fresh image39 trial is now running with only53,55,56,106,111 changed:
+Fresh image39 trial used only53,55,56,106,111 changed:
 `build/blockwalker-battery-supply/fresh-chain-{catalog.json,c}`. The last two
 programs are battery resupply work tracked in20260926-000614. At1200s the scene
 has22 deliveries and no deaths, but neither warehouse has completed a job.
 Maximum1800s; do not treat the isolated sailing/hauler passes as a full-chain pass.
+
+The fresh run fails at1800s: no heavy deliveries. Hauler53 has held112 since the
+first pickup, wedged at(-40.589,73.784). Contact probe confirms chassis block15
+against the same shaft marker,120/120 samples, maximum302N. This pose differs
+from the earlier rear-wheel jam: reversing would sweep wheel5 into the marker;
+straight forward motion would move rear wheel17 over the shaft edge.
+
+`hauler-curved-escape.js` tests short curves one part per controller tick, including
+held cargo and wheel support. It admits paths that reduce aggregate terrain
+overlap, then uses the existing wheel controls. The geometric probe finds a
+forward1m/negative0.75rad curve with supported wheels and decreasing final overlap.
+Actual1800→2160s replay fails under `freight-curved-escape`:130 final objects,
+minimum up0.999981, no crane/boat handoff and trips remains1. It repeatedly moves
+around the marker without escaping. Geometry did not prove the physical vehicle
+could follow the curve. Steering uses distance from the initial pivot to advance
+the desired heading, without correcting lateral error; inspect that execution
+before changing geometry. No obstacle or opponent changes. Candidate unbundled.

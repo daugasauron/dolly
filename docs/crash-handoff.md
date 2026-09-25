@@ -7,12 +7,8 @@ Game implementation:07967f6 (`blockwalker-checkpoint-20260925-image39`).
 Local app: `http://127.0.0.1:9099/blockwalker/`, owned user service
 `dolly-blockwalker-preview-20260924.service`; relay 9010.
 No push/deploy requested. The user requested a stable checkpoint; image39 stays
-served. Active continuation: battery-freight-fresh session61252, fresh world with
-five candidate programs; poll before starting another disposable browser.
-Latest confirmed progress:1200 simulated seconds,4 shots (1 external chain),
-1 tender job,0/0 warehouse jobs,22 deliveries, no deaths. Scope
-`run-r1847ad960a934ac6b07d6a37ea61bdb7.scope` is active. Full run maximum1800s;
-log `build/blockwalker-battery-supply/fresh-chain.log`. This is not a passing run.
+served. All disposable browser trials have ended, including session81018
+(`freight-curved-escape`, raw status1). The preview service remains running.
 
 The broader world/competition goal through 2026-09-26 13:00 JST remains open in
 `tasks/20260925-221800-codex-01/TASK.md`. Its remaining gameplay issues are not
@@ -89,28 +85,47 @@ Component evidence under `build/blockwalker-compound-regressions-chrome-`:
 
 ## Open follow-ups
 
-Supply investigation: `tasks/20260926-000614-codex-01/TASK.md`, with local candidates
-and fixtures in `build/blockwalker-battery-supply/`. None are bundled. The baseline
-stops after three starting rounds; the first pickup fix delays the gun by blocking
-its swing. Generic radio coordination removes that hold. Bay rechecking and full
-vehicle terrain clearance eventually let tender111 deliver scrap101, but at1500s
-the shuttle has not collected it and the gun still has only three shots. The raw
-test fails;134 objects,26 deliveries, no losses/errors. Continue from that saved
-world to investigate the tender→shuttle request/handoff before promoting changes.
-The next1500→1800s replay passes the first outside-ammo chain:101→107 at1510.8,
-→106 at1549.85, shot at1574.22. No hostile/friendly projectile contacts; nearest
-courier59 distance2.374m.136 objects,28 deliveries, no losses/errors; tender jobs2.
-Fresh combined validation now runs from `fresh-chain-{catalog.json,c}` with only
-actors53,55,56,106,111 changed. It requires two supplied shots and both warehouses
-receiving heavy cargo, with all original actors preserved. Fine-aim prototype is
-prepared separately but untested; do not mix it into this run. After this browser
-exits, the matched aiming comparison uses `fine-aim.c`, `intercept-catalog.json`
-and `...-chrome-battery-external-round/salvage/external-gun.json`; export
-`aim-baseline.json,aim-candidate.json`. It runs90s per variant. Task005230 tracks
-its release-direction/precision hypothesis; no verified hit yet.
-`terrain-contact.c` now confirms rear wheel17 against the slag terrace centered
-at(43,.25,17),113 samples and maximum677N. A separate three-program freight-chain trial is prepared under
-`build/blockwalker-freight-chain/` but has not run.
+Candidates and fixtures are local under `build/blockwalker-battery-supply/`;
+none are bundled. Detailed reproduction and failed variants live in the tasks.
+Evidence directories below share `build/blockwalker-compound-regressions-chrome-`
+and contain `salvage/` with logs, complete saved worlds and compressed traces.
+
+Supply task20260926-000614: generic radio coordination, bay rechecking and full
+vehicle terrain clearance produce one physical outside-ammunition chain in
+`battery-external-round`:101→107 at1510.8s,→106 at1549.85s, fired1574.22s.
+136 objects,28 deliveries, no losses/errors; tender jobs2. `terrain-contact`
+confirms rear wheel17 against the slag terrace at(43,.25,17),113 samples,677N.
+
+Fresh combined `battery-freight-fresh` fails at1800s:130 objects,25 deliveries,
+no losses/errors;4 shots,1 outside-ammo chain,1 tender job,0/0 warehouse jobs.
+Only53,55,56,106,111 differ from image39. Shuttle107 chooses flying ammunition89
+then keeps reaching after it leaves its workspace. Its extended arm obstructs
+tender111. `shuttle-recheck.js` requires settled/reachable stock and rechecks
+pickup reach. Exact1800→2100s replay changes only107 and passes
+(`battery-shuttle-recheck`):101→107→106→shot5, tender jobs1→2, no loss/error.
+Fresh combined verification is still needed.
+
+Freight task20260925-195202: `battery-freight-contacts` confirms chassis block15
+wedged on the shaft marker,120/120 samples,302N. `hauler-curved-escape.js` checks
+short curves for terrain clearance and wheel support, but the actual1800→2160s
+replay fails (`freight-curved-escape`):130 objects, minimum up0.999981, no crane
+or boat handoff and only the first pickup. It repeatedly moves around the marker
+without escaping. Geometry alone did not prove executable movement. Keep this
+candidate out of the image; investigate steering/path tracking next.
+
+Aiming task20260926-005230: `slinger-intercept.js` refines flight time and permits
+descending shots while retaining crew clearance. `fine-aim-events.c` compares
+90s from the identical attached-round save (`battery-external-round`'s
+`external-gun.json`), using `intercept-catalog.json`. Buffered Box3D hit events in
+`battery-intercept-events/salvage/intercept-proof.json` confirm0 intended-aircraft hits
+for baseline and2 for candidate, at1568.583/1568.733s,11.09/8.17m/s. No friendly
+air hits or errors; minimum target up0.978 versus0.995. This is not a shootdown.
+Both final worlds exactly match their uninstrumented trials.
+
+The earlier `battery-intercept` test had an inadequate predicate:347 sampled
+hostile contacts were ground unit72, not the intended aircraft59. The premature
+user-facing aircraft-hit claim was corrected. Use the buffered-event proof,
+and verify fresh multi-shot behavior before promotion.
 
 Preserve captures and teammate rescues. Do not remove actors/cargo or weaken
 opponents to satisfy quotas. Improve sustained supply, ammunition recovery,
@@ -119,7 +134,7 @@ air-defense effectiveness and balanced competition next.
 - 195200: courier60 blocked-pickup yielding passes isolated replay; unbundled.
 - 195201: porter38 still climbs carousel95's anchored base; candidate not safe.
 - 195202: freighter55 lateral escape and hauler53 reverse recovery each pass
-  their exact jams; both need fresh combined verification before promotion.
+  their original jams; the fresh combined freight chain fails as described above.
 - 205300: guard73 blocks gun87 while rescuing71; coordinate traffic while keeping
   captures/rescues and the gun's friendly-fire clearance check.
 

@@ -13,8 +13,8 @@ The editable slinger program samples flight time at0.1s intervals and releases
 within min(2.5m,0.95×target radius). Candidate `slinger-fine-aim.js` under
 `build/blockwalker-battery-supply/` refines the best interval at0.01s and requires
 a1.15m miss. No engine forces, opponent changes or guaranteed collision.
-`fine-aim.c` is prepared to replay the same attached-round save with the original
-and candidate program for90s each; it is not yet run. Input `external-gun.json`
+`fine-aim.c` was prepared to replay the same attached-round save with the original
+and candidate program for90s each. Input `external-gun.json`
 from the above trial, candidate `fine-aim-catalog.json`.
 
 The shot save at1574.233s also shows a directional restriction: the projectile is
@@ -23,8 +23,28 @@ away horizontally. The current release gate requires upward velocity>2m/s even
 when a descending shot could intercept an airborne target. `slinger-intercept.js`
 and `intercept-catalog.json` remove that restriction, retaining predicted miss,
 positive flight time, motion toward the target and the existing crew-clearance
-gate. Use this candidate in the prepared matched replay; it remains untested.
+gate. This candidate is used in the matched replays below.
 
 Verify actual hostile contacts, controller budget, firing delay and friendly
 clearance in the matched replay and a populated run before promotion. A hit is
 not evidence of a shootdown; measure the aircraft's physical response separately.
+
+First matched trial `...-chrome-battery-intercept/salvage/` returns raw0, but its
+predicate is inadequate:347 hostile final-substep contacts belong to ground
+guard72, not target59. An early user-facing aircraft-hit claim was corrected.
+Do not use this pass as aircraft-hit proof. Cargo velocity changes sharply near
+the courier before those later contacts; the final-substep normal impulse can
+miss a brief earlier collision. `fine-aim-events.c` instead enables Box3D hit
+events on the round and reads buffered `b3World_GetContactEvents`, whose upstream
+solver requires a positive total normal impulse. It counts only the intended
+target before the projectile reaches the ground.
+
+Buffered replay passes: `...-chrome-battery-intercept-events/salvage/intercept-proof.json`.
+Original program:0 intended hits. Candidate:2 impacts on courier59 at1568.583s
+and1568.733s, approach speeds11.092/8.171m/s, no friendly airborne impacts.
+Minimum courier up is0.977654 versus0.994555; it remains flying. The candidate
+later returns rather than continuing pickup, but the whole cargo scene differs,
+so do not attribute that decision solely to the hit. No missing actors/errors.
+Enabling hit events leaves both complete final worlds exactly identical to their
+uninstrumented versions. This verifies the observation without changing physics.
+Fresh multi-shot verification is still required before promotion.

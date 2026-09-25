@@ -105,8 +105,23 @@ from the candidate directory. Only53,55,56,106,111 change, combining the isolate
 heavy-freight fixes with the resupply fixes. It requires two distinct outside
 crates to be magnetically held by111→107→106 and fired, plus a stored heavy load
 in each warehouse. It preserves all111 initial actors and rejects controller
-errors/deaths. Maximum1800s, earliest successful stop1200s. Still running.
+errors/deaths. Maximum1800s, earliest successful stop1200s.
 At1200s it has4 shots/1 external chain,1 tender job,0/0 warehouse jobs and22
 deliveries, with no deaths. First fresh supplied shot is verified; sustained
-operation and the combined candidate remain unproven. Await the terminal result
-and inspect the exported1200s state before making another program change.
+operation and the combined candidate remained unproven at that point.
+
+Fresh run ends raw1 at1800s:130 objects,25 deliveries, no losses/errors, one
+supplied shot and zero warehouse jobs. The first supplied round is air parcel121
+at648.250s. Shuttle107 then selects moving ammunition89 as it crosses the pickup
+area around907s; by910s it is already out of reach. The shuttle never rechecks
+reach and remains in pickup for893s. Its extended arm enlarges the clearance
+obstacle, preventing tender111 from reaching any unloading bay with scrap101.
+The contact probe shows no terrain obstruction for111 at1800s.
+
+`shuttle-recheck.js` shares a physical reach/height check between selection and
+pickup, selects only settled stock, and abandons a target that moves out of reach.
+Exact1800→2100s replay changes only107 and passes (`battery-shuttle-recheck`):
+101 leaves111 at1857.483s, attaches107 at1875.600s,106 at1915.633s, then is fired
+at1933.333s. Tender jobs1→2, loader4→5, gun4→5; all130 actors remain, no errors or
+deaths. At2100s the tender is aligning another load for delivery. This fixes the
+observed loader deadlock; fresh combined verification is still needed.
