@@ -31,3 +31,21 @@ Fresh combined trial: courier 60 completes six deliveries, performs one blocked
 pickup yield and stays upright (sampled minimum up 0.930387). The overall trial
 fails storage/firing quotas and reveals another porter tip. Keep the
 candidate unbundled; this is component evidence, not a passing combined result.
+
+The same pickup wait now reproduces on East courier59 during the channel
+payload-defense experiment. At900s, it has waited since598.1 over parcel122 at
+(66.822,0.485,16.720), holding altitude8.505 with its magnet powered but unattached.
+Tender111 is7.22m away, within its traffic exclusion distance; clearance raises
+the commanded height above the magnet's reach. Tender111 itself waits for a free
+ammunition bay. Gun106 has never seen a loaded enemy and remains holding its first
+round. The900s save is retained under `build/blockwalker-compound-regressions-`
+`chrome-payload-defense/salvage/progress-payload-0900.json`; the diagnostic was
+stopped after this save, not reported as a completed1800s test.
+
+Both current couriers have identical source. The existing20s traffic backoff
+adds only four lines to that source and preserves clearance and thrust limits.
+Prepared continuation, not run: `build/blockwalker-payload-defense/`
+`{channel-courier-catalog.json,channel-courier-defense.c}`. Load the900s save and
+change only59's program; preserve all actors. Require another courier delivery
+and independently measure projectile contact/cargo grip loss; no weaker opponent
+or automatic detachment. Maximum900s additional simulation.

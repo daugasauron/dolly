@@ -5,9 +5,19 @@ Branch: `codex/blockwalker-playground-20260923`.
 Verified checkpoint: `blockwalker-stable-20260926-image41`.
 Local app: `http://127.0.0.1:9099/blockwalker/`.
 Owned service: `dolly-blockwalker-preview-20260924.service`; relay9010.
-No disposable simulations remain active. Eleven orphaned Xvfb-only test scopes
-were stopped; user browser processes and profiles were untouched.
-The checkpoint request is complete. The broader competition goal remains open.
+The checkpoint request is complete; the broader competition goal has resumed.
+Active fresh flight-defense trial: session34176, scope
+`run-rc1f89e3e42c945b7827eb044a1dc8b32.scope`,2400s wall timeout.
+Log: `build/blockwalker-payload-defense/courier-trial.log`. Poll before another browser.
+Inputs: `courier-defense-catalog.json` and `courier-defense.c` in that directory;
+output `build/blockwalker-compound-regressions-chrome-payload-couriers/salvage/`.
+Only experimental programs59/60 (existing traffic backoff) and87 (payload aim,
+full configured speed,95% magnet-force bound) change; all111 blueprints remain.
+Max1800s, stops60s after a powered-magnet cargo ejection. Saves300s progress plus
+first armed light-payload opportunity for a matched replay. Served image41 is
+unchanged. Goal remains active through2026-09-26 13:00 JST.
+Eleven old Xvfb-only test scopes were stopped during checkpoint cleanup; user
+browser processes and profiles were untouched.
 
 ## Included
 
@@ -87,19 +97,38 @@ Image38/39 fallbacks remain. Never replace the preserved user saves during rollb
 ## Open follow-ups
 
 - 20260926-000614: sustained battery supply remains too slow after one reload.
-- 20260925-205300: inverted friendly73 can obstruct loaded gun87. Dozer prototypes
-  physically rescue71 but have not rescued73 or cleared the gun. Preserve opponents
-  and friendly clearance. Prepared target-preserving replay, not run:
-  `build/blockwalker-rescue-dozer/{target-grip-catalog.json,target-replay.c}` from
-  `build/blockwalker-compound-regressions-chrome-rescue-grip/salvage/`
-  `progress-dozer-1680.json`. It changes only dozer118's program in a paired120s
-  replay; requires actual73 attachment,10s upright after release and87 firing91.
-- 20260925-221800: useful air denial and competition balance remain unproven.
-  Prepared payload-targeting gun, not run:
-  `build/blockwalker-payload-defense/{catalog.json,slinger.js,defense.c}`.
-  Require real projectile contact followed by cargo grip loss aloft; no forced
-  detach, damage rule or special forces. Maximum1800s, periodic300s saves.
-- 20260925-195200: courier60 yielding passes isolated replay; unbundled.
+- 20260925-205300: target-preserving dozer program fails its120s rescue gate, but
+  gets all three magnets onto73 and begins lifting at1797.117s, only2.88s before
+  the trial ends. Both branches retain121 actors without errors/deaths/friendly
+  impacts; guard remains inverted and gun91 unfired. Evidence:
+  `build/blockwalker-compound-regressions-chrome-rescue-target/salvage/`.
+  Next prepared, not run: `build/blockwalker-rescue-dozer/held-continuation.c`,
+  using target-grip-catalog.json and that trial's guard-candidate.json. It runs60s
+  from1800, records dozer sensors each second and requires physical righting plus
+  firing91. Measure this actual lift before changing actuator forces or design.
+- 20260926-044300: payload-defense research. Channel900s diagnostic sees no loaded
+  enemy because59 stalls on traffic. Yard600s trial hits light121 at13.102m/s but
+  it stays attached and is delivered. Matched300→420s faster throw hits heavy80 at
+  19.246m/s but likewise does not detach it. Both branches normally release80 at
+  the depot with magnet power0. Matched420→540s light test gets no shot: tender111
+  collects121 before the aircraft. That is competing retrieval, not a deadlock.
+  Evidence: `...-chrome-payload-{yard,energy,light}/salvage/`; full traces retained.
+  Only the first channel diagnostic was stopped without a final full trace.
+  Active fresh trial is described above. Do not claim air denial from hits alone.
+- 20260925-195200: courier60 yielding already passes isolated replay; unbundled.
+  Same traffic stall affects59 at900s in the channel diagnostic:122 lies at0.485m,
+  while nearby111 holds the courier's clearance altitude at8.505m. Prepared exact
+  continuation: `build/blockwalker-payload-defense/channel-courier-defense.c`,
+  with channel-courier-catalog.json and channel progress-payload-0900.json; changes
+  only59 and requires another delivery as well as gun outcomes. Unrun.
+- 20260926-000614 pickup follow-up: tender111 spends1400/1800s routing. Recorded
+  900s sensor replay exhausts223 nodes and follows a three-point dead end; increasing
+  its grid65 versus45 gives the same result. This is static JavaScript evidence,
+  not physical simulation. `recovery-no-dead-end.js` rejects exhausted searches;
+  `pickup-replay.c` and no-dead-end-catalog.json are prepared under
+  `build/blockwalker-battery-supply/`. Matched900→1260s baseline/candidate, only111,
+  require a new physical111→107→106→shot cycle and no losses/errors/friendly hits.
+  Input: image41's battery-incremental-fresh progress-chain-0900.json. Unrun.
 - 20260925-195201: porter38 climbs carousel95's anchored base; candidate unsafe.
 - Biped20260915-110000 and transfer030600 remain open. The64MiB file download limit
   is unchanged; trace compression remains a diagnostic workaround.
@@ -112,7 +141,7 @@ Chrome uses Xvfb; Firefox DISPLAY=:1. Node needs `--preserve-symlinks-main` beca
 build is symlinked. Never call `__dolly.visibleTerminalText()` while GPU is active.
 
 Preserve `.cache/blockwalker-browser-20260915`, `build/blockwalker-recovery-20260923/`,
-native Pi history and other images. Disk has about1.7GiB free; no unrelated cleanup.
+native Pi history and other images. Disk has about4.8GiB free; no unrelated cleanup.
 The salvage harness accepts BLOCKWALKER_SOURCE/CATALOG/FIXTURE/WORLD/TRIAL_LABEL/
 ARTIFACTS. `build/blockwalker-progress-browser.mjs` exports periodic live saves.
 Source iteration uses build-source-tar without changing recipe pins. Package

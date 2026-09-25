@@ -209,3 +209,18 @@ deadlocking, but is too slow. Latest evidence and raw failed result:
 Image41 is packaged with the verified shuttle reach recheck and tender
 clearance/drop fixes, alongside the freight programs. Sustained supply remains
 open; neither the quota nor friendly-fire clearance has been weakened.
+
+Trace accounting: tender111 spends1400 of1800s in route_pick. In a static replay
+of its recorded900s sensor, the planner exhausts223 nodes and follows a three-point
+partial path into a dead end. Widening the grid45→65 cells yields the same path;
+the bounded search width is not established as the cause. No physical trial of
+that wider-grid candidate is warranted by this result.
+
+`recovery-no-dead-end.js` removes the exhausted-search partial fallback; ordinary
+progress toward the edge of the search area remains. On the same frozen sensor,
+it rejects the approach and selects the next after12.85s of simulated controller
+updates. This static result is not a movement or resupply pass.
+Prepared physical paired replay, not run: `build/blockwalker-battery-supply/`
+`{no-dead-end-catalog.json,pickup-replay.c}`, from battery-incremental-fresh's
+progress-chain-0900.json. Change only111, each branch360s; require a new actual
+111→107→106→shot cycle, upright tender, no losses/errors/friendly airborne hits.

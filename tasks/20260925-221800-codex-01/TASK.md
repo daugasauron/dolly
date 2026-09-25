@@ -250,3 +250,15 @@ recipe lint checks pass. Evidence: `build/blockwalker-image41-`
 Tag `blockwalker-stable-20260926-image41`; local9099 preview remains available.
 All disposable browser trials ended;11 orphaned Xvfb-only test scopes were stopped.
 The broader competition goal and ammunition/rescue issues remain open.
+
+Defense follow-up20260926-044300 now records actual light/heavy payload hits, but
+neither has broken the carrier's grip. A later paired light test gets no shot
+because the ground tender wins that pickup; preserve that competing retrieval.
+The channel trial also exposes the existing traffic-blocked pickup bug on59
+(195200). Fresh full-speed payload aiming plus both couriers' existing traffic
+backoff is running; no physics or opponent strength is changed.
+
+Rescue205300's target-preserving dozer gains all three grips on73 near the end of
+its120s replay; the guard is still inverted. A60s continuation is prepared to
+measure that lift rather than declaring its just-started attempt ineffective.
+The served image41 and its verified checkpoint remain unchanged.

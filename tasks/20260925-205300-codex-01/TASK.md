@@ -80,3 +80,20 @@ old/new program replay from that trial's progress-dozer-1680.json. Change only
 existing dozer118's program; require actual73 grip followed by10s upright after
 release, and the same loaded91 fired without friendly impacts. Preserve all
 actors and the opponents' controllers. This next test has not run yet.
+
+Target-preserving replay completes1680→1800s in both branches, raw1 (wrapper5
+from Xvfb cleanup). Both retain121 actors with no errors, deaths, missing originals
+or friendly impacts; guard73 remains inverted and gun87 does not fire91.
+Candidate does make physical progress: its fifth lift starts at1797.117s, and all
+three magnets hold73 at the final frame (parts20,18,20; loads19.94/100/100N).
+It no longer adopts opponent72 as its rescue target. The short test ends only
+2.88s into that lift; this is not yet a verified failed lifting maneuver.
+
+Evidence: `build/blockwalker-compound-regressions-chrome-rescue-target/salvage/`
+contains both worlds and1740s progress saves. Candidate final pose is
+(70.998,0.698,−17.683), guard(75.672,1.486,−10.945). Baseline has no73 attachment.
+Prepared, not run: `build/blockwalker-rescue-dozer/held-continuation.c`,60s from
+guard-candidate.json with the unchanged target-grip program. It records the
+dozer's ram angles, magnet loads and controller state every second, and still
+requires physical righting plus91 fired without actor losses or friendly hits.
+Measure the lift before changing actuator strength or the vehicle design.
