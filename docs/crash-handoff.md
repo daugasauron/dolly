@@ -2,14 +2,28 @@
 
 Worktree: `/home/daug/dev/dolly/work/gpu-shaders`.
 Branch: `codex/blockwalker-playground-20260923`.
-Local deployment: image43, with deferred environment sensors and a visible FPS badge.
+Local deployment: image44, with faster cargo visibility and the persistent FPS badge.
 Local app: `http://127.0.0.1:9099/blockwalker/`.
 Owned service: `dolly-blockwalker-preview-20260924.service`; relay9010.
-Image43 adds task073000 to image42. All111 character designs/programs remain
+Image44 adds task135200 to image43. All111 character designs/programs remain
 identical to image41. Navigation, rescue, beam ammunition, tether interception
 and quarry-material experiments remain unbundled.
 
-Performance verification uses `build/blockwalker-performance-20260926/`.
+The30-minute follow-up (task20260926-135200) skips terrain boxes outside a
+conservative sight-segment bound and computes observer eyes once per sensor.
+The existing raylib narrow-phase remains.26,344 ray comparisons and exact
+134-object/1800-step sensor, physics and saved-controller comparisons pass.
+Existing scout/radio behavior passes. Repeated stock/candidate/candidate/stock:
+Chrome41.96→49.81FPS (+18.7%); Firefox43.87→49.40 (+12.6%). Chrome median frame
+interval21–23→17ms; Firefox21→19ms. Evidence:
+`build/blockwalker-performance-30m-20260926/comparison.json`,
+`eyes-equivalence-chrome/proof.json`, `visibility-rays-chrome/probe.log`,
+`radio-chrome/probe.log`. All models, programs and physics timing are unchanged.
+Bulk object construction trapped and remains unbundled; a vector-only change
+showed no clear gain and is also excluded. Post-change profiling still points to
+sensor-object construction. The missing pinned Playwright Firefox was restored.
+
+Previous image43 performance verification uses `build/blockwalker-performance-20260926/`.
 The same134-object world produces identical complete saves/controller memories
 in baseline and candidate after1800 physics steps. Retained sensor values,
 terrain/obstacle aliases, assignment/deletion and repeated frozen reads pass;
@@ -73,6 +87,16 @@ retain their embedded programs; fresh worlds receive the updated catalog.
 Rescue-dozer and payload-defense prototypes are not bundled.
 
 ## Verification
+
+Image44 builds inside Dolly in41.8s with the existing runtime/dependencies.
+Chrome and Firefox pass111 bundled source/blueprint comparisons and seven saved
+world restorations, including format1, active magnet attachments and134 actors.
+No new errors/deaths/model requests; rendered FPS badges inspected. Evidence:
+`build/blockwalker-image44-preview{,-firefox}/proof.json`. All22 archived sources
+and served hashes match, six protected save/history files and39 other image
+snapshots are unchanged, all13 catalog entries remain, and40 recipe lint checks
+pass. `build/blockwalker-image44-artifacts.json`; browser recheck:
+`bash build/blockwalker-image44-verify.sh`.
 
 Image43 builds inside Dolly in51.5s with the existing runtime/12 dependencies.
 Chrome and Firefox pass111 bundled source/blueprint comparisons and seven saved
@@ -158,12 +182,15 @@ remain recorded in their task history and earlier checkpoint tags.
 
 ## Artifacts and rollback
 
-Source tar:1329664bytes, SHA256
-`c040677fec4b3389dfa02ac5f8d76ba3b397055898a927230a6dfb8f256fdbb1`.
-Snapshot:234726589bytes, SHA256
-`4c9ac28ce45b5f83499b081a3d4782834465ffaaa46d1337b32ee71ededa19ab`.
+Source tar:1330176bytes, SHA256
+`ae3b133559141ec8b6dd009943fa0fafed82069d5afc3934a7aa6cb16c6cb351`.
+Snapshot:234727446bytes, SHA256
+`2c5bacfa0821fcd7b59923aac515959c3f54e3f15e40667d948a8eaf0c58c457`.
 Runtime build identity (not raw Wasm hash), unchanged:
 `sha256:d39a823c5863d0b1c8508f0d78e61cfe2408144a9ddaa6ecd57919e320718d72`.
+
+Image43 artifacts are preserved under `build/blockwalker-image43-fallback/`.
+Previous checkpoint: `blockwalker-local-20260926-image43` (d5c32e1).
 
 Image42 source tar, snapshot, metadata, recipes and registry are preserved under
 `build/blockwalker-image42-fallback/`. Previous checkpoint tag:
@@ -242,7 +269,7 @@ Chrome uses Xvfb; Firefox DISPLAY=:1. Node needs `--preserve-symlinks-main` beca
 build is symlinked. Never call `__dolly.visibleTerminalText()` while GPU is active.
 
 Preserve `.cache/blockwalker-browser-20260915`, `build/blockwalker-recovery-20260923/`,
-native Pi history and other images. Disk has about2.9GiB free; no unrelated cleanup.
+native Pi history and other images. Disk has about58GiB free; no unrelated cleanup.
 The salvage harness accepts BLOCKWALKER_SOURCE/CATALOG/FIXTURE/WORLD/TRIAL_LABEL/
 ARTIFACTS. `build/blockwalker-progress-browser.mjs` exports periodic live saves.
 Source iteration uses build-source-tar without changing recipe pins. Package

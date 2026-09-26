@@ -12,7 +12,7 @@ REQUIRES LIB dolly-js
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
-SOURCE HOST /static/blockwalker/source.tar /tmp/blockwalker.tar c040677fec4b3389dfa02ac5f8d76ba3b397055898a927230a6dfb8f256fdbb1
+SOURCE HOST /static/blockwalker/source.tar /tmp/blockwalker.tar ae3b133559141ec8b6dd009943fa0fafed82069d5afc3934a7aa6cb16c6cb351
 SLOP tar -xf /tmp/blockwalker.tar -C / && rm /tmp/blockwalker.tar
 SLOP make -f /usr/src/dolly/blockwalker/box3d.mk
 SLOP cc -std=c17 -O2 -U__SIZEOF_INT128__ /usr/src/dolly/blockwalker/main.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/render.c /usr/src/dolly/blockwalker/world.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c /usr/src/dolly/blockwalker/gpu-client.c -ldolly-js -ldolly-raylib -lraylib -lblockwalker-box3d -lm -o /usr/bin/blockwalker

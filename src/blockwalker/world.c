@@ -173,17 +173,24 @@ static float cargo_support_force(const Creature *cargo,const Physics *holder){
     }free(contacts);return force;
 }
 static const char *radio_kinds[]={"sight","claim","ready","release"};
-static int cargo_visible(const Creature *observer,const Creature *cargo){
+static Vector3 creature_eye(const Creature *observer){
     Vector3 eye,forward,up;Quaternion rotation;physics_pose(&observer->physics,&observer->design,0,&eye,&rotation);
     physics_eyes(&observer->physics,&observer->design,&eye,&forward,&up);
+    return eye;
+}
+static int cargo_visible_from(Vector3 eye,const Creature *cargo){
     b3Pos position=b3Body_GetPosition(cargo->physics.parts[0].body);Vector3 target={position.x,position.y,position.z};
     Vector3 delta=Vector3Subtract(target,eye);float distance=Vector3Length(delta);if(distance>48)return 0;
     Ray ray={eye,Vector3Scale(delta,1/fmaxf(.001f,distance))};
+    Vector3 low=Vector3Subtract(Vector3Min(eye,target),(Vector3){.001f,.001f,.001f}),high=Vector3Add(Vector3Max(eye,target),(Vector3){.001f,.001f,.001f});
     for(int i=0;i<terrain_count;i++){
-        TerrainBox b=terrain_box(i);RayCollision hit=GetRayCollisionBox(ray,(BoundingBox){Vector3Subtract(b.center,b.half),Vector3Add(b.center,b.half)});
+        TerrainBox b=terrain_box(i);Vector3 min=Vector3Subtract(b.center,b.half),max=Vector3Add(b.center,b.half);
+        if(max.x<low.x||min.x>high.x||max.y<low.y||min.y>high.y||max.z<low.z||min.z>high.z)continue;
+        RayCollision hit=GetRayCollisionBox(ray,(BoundingBox){min,max});
         if(hit.hit&&hit.distance<distance-.1f)return 0;
     }return 1;
 }
+static int cargo_visible(const Creature *observer,const Creature *cargo){return cargo_visible_from(creature_eye(observer),cargo);}
 static JSValue radio_state(JSContext *ctx,int team){
     JSValue list=JS_NewArray(ctx);int count=0;
     for(int i=0;i<world.radio_count;i++){
@@ -287,6 +294,7 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
             neighbors[count++]=(Nearby){i,d};
         }
         qsort(neighbors,count,sizeof(*neighbors),nearby_distance);
+        Creature *observer=world_find(self);Vector3 eye=observer?creature_eye(observer):(Vector3){0};
         for(int i=0;i<count;i++){
             int index=neighbors[i].index;Creature *c=&world.creatures[index];b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);b3Vec3 velocity=physics_velocity(&c->physics.parts[0]);
             NeighborBounds bounds;
@@ -300,7 +308,7 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
             put_number(ctx,item,"supply",c->supply);JS_SetPropertyStr(ctx,item,"parachute",JS_NewBool(ctx,c->parachute));
             put_number(ctx,item,"up",b3RotateVector(b3Body_GetRotation(c->physics.parts[0].body),b3Vec3_axisY).y);put_number(ctx,item,"fallenSeconds",c->fallen);
             JS_SetPropertyStr(ctx,item,"controllerStopped",JS_NewBool(ctx,c->error[0]!=0));
-            Creature *observer=world_find(self);if(c->cargo)JS_SetPropertyStr(ctx,item,"visible",JS_NewBool(ctx,observer&&cargo_visible(observer,c)));
+            if(c->cargo)JS_SetPropertyStr(ctx,item,"visible",JS_NewBool(ctx,observer&&cargo_visible_from(eye,c)));
             JS_SetPropertyStr(ctx,item,"anchored",JS_NewBool(ctx,c->design.anchored));JS_SetPropertyStr(ctx,item,"cargo",JS_NewBool(ctx,c->cargo));JS_SetPropertyStr(ctx,item,"delivered",JS_NewBool(ctx,c->delivered));put_number(ctx,item,"carriedBy",c->held_by);
             JS_SetPropertyStr(ctx,item,"magnetHeld",JS_NewBool(ctx,c->cargo&&magnet_holds(world_find(c->held_by),c)));
             JS_SetPropertyUint32(ctx,nearby,i,item);
