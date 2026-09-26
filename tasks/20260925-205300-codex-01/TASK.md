@@ -150,3 +150,10 @@ to reach them before replanning; it later also routes around the loaded gun.
 At1800s it is upright at(70.64,−4.73), versus the earlier blocked approach. Nobody
 holds it magnetically in the1680/1800 saves. This does not establish a successful
 heavy rescue or ammunition release. Keep the prototype unbundled.
+
+Shape-query routing comparison completes1620→1800s in both branches, raw1.
+The heavy guard73 stays inverted (final up−1), gun87 does not fire91, and neither
+branch loses actors or reports errors/deaths/friendly projectile contacts. The
+candidate retreats away when no clear root-body approach is found; this does not satisfy
+the heavy-guard rescue gate. Full trace and final worlds:
+`...-chrome-rescue-rotary-shapes/salvage/`. All rescue prototypes remain unbundled.
