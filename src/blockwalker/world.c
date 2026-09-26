@@ -234,8 +234,51 @@ typedef struct {int index;float distance;} Nearby;
 static int nearby_distance(const void *a,const void *b){
     const Nearby *left=a,*right=b;return left->distance<right->distance?-1:left->distance>right->distance?1:left->index-right->index;
 }
+typedef struct {Vector3 origin;int landscape,count;TerrainBox boxes[];} EnvironmentSensors;
+static const char *environment_names[]={"groundSamples","obstacles","terrain"};
+static JSValue environment_replace(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv,int field,JSValue *data){
+    int result=JS_DefinePropertyValueStr(ctx,self,environment_names[field],argc?JS_DupValue(ctx,argv[0]):JS_UNDEFINED,JS_PROP_C_W_E|JS_PROP_THROW_STRICT);return result<0?JS_EXCEPTION:JS_UNDEFINED;
+}
+static JSValue environment_read(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv,int field,JSValue *data){
+    size_t size;const EnvironmentSensors *sample=(const EnvironmentSensors *)JS_GetArrayBuffer(ctx,&size,data[0]);if(!sample)return JS_EXCEPTION;
+    JSValue list=JS_GetPropertyStr(ctx,data[1],environment_names[field]);if(!JS_IsUndefined(list))return list;
+    list=JS_NewArray(ctx);
+    if(field==0){
+        for(int i=0;i<16;i++){
+            float angle=(i%8)*PI/4,radius=i<8?6:16,x=sample->origin.x+sinf(angle)*radius,z=sample->origin.z+cosf(angle)*radius,height=sample->landscape?-100:0;
+            for(int j=0;j<sample->count;j++){TerrainBox b=sample->boxes[j];if(!b.overhang&&fabsf(x-b.center.x)<=b.half.x&&fabsf(z-b.center.z)<=b.half.z)height=fmaxf(height,b.center.y+b.half.y);}
+            JS_SetPropertyUint32(ctx,list,i,vector(ctx,(Vector3){x,height,z}));
+        }
+    }else{
+        JSValue obstacles=JS_NewArray(ctx);
+        for(int i=0,n=0;i<sample->count;i++){
+            TerrainBox b=sample->boxes[i];
+            JSValue item=JS_NewObject(ctx);put_number(ctx,item,"x",b.center.x);put_number(ctx,item,"z",b.center.z);
+            put_number(ctx,item,"halfX",b.half.x);put_number(ctx,item,"halfZ",b.half.z);put_number(ctx,item,"low",b.center.y-b.half.y);put_number(ctx,item,"high",b.center.y+b.half.y);
+            if(b.center.y+b.half.y>=sample->origin.y-.2f)JS_SetPropertyUint32(ctx,obstacles,n++,JS_DupValue(ctx,item));
+            JS_SetPropertyUint32(ctx,list,i,item);
+        }
+        JS_SetPropertyStr(ctx,data[1],"terrain",list);JS_SetPropertyStr(ctx,data[1],"obstacles",obstacles);
+        list=JS_GetPropertyStr(ctx,data[1],environment_names[field]);
+    }
+    JS_SetPropertyStr(ctx,data[1],environment_names[field],JS_DupValue(ctx,list));
+    JS_DefinePropertyValueStr(ctx,self,environment_names[field],JS_DupValue(ctx,list),JS_PROP_C_W_E);return list;
+}
+static void environment_sensors(JSContext *ctx,JSValue s,const Physics *p,Vector3 origin){
+    EnvironmentSensors *sample=array_resize(NULL,sizeof(*sample)+(p->landscape?terrain_count:0)*sizeof(TerrainBox),1);sample->origin=origin;sample->landscape=p->landscape;sample->count=0;
+    for(int i=0;p->landscape&&i<terrain_count;i++){
+        TerrainBox b=terrain_box(i);float dx=fmaxf(0,fabsf(origin.x-b.center.x)-b.half.x),dz=fmaxf(0,fabsf(origin.z-b.center.z)-b.half.z);
+        if(hypotf(dx,dz)<=24)sample->boxes[sample->count++]=b;
+    }
+    JSValue data[]={JS_NewArrayBufferCopy(ctx,(const uint8_t *)sample,sizeof(*sample)+sample->count*sizeof(TerrainBox)),JS_NewObject(ctx)};free(sample);
+    for(int i=0;i<3;i++){
+        JSAtom key=JS_NewAtom(ctx,environment_names[i]);JSValue get=JS_NewCFunctionData(ctx,environment_read,0,i,2,data),set=JS_NewCFunctionData(ctx,environment_replace,1,i,0,NULL);
+        JS_DefinePropertyGetSet(ctx,s,key,get,set,JS_PROP_CONFIGURABLE|JS_PROP_ENUMERABLE);JS_FreeAtom(ctx,key);
+    }JS_FreeValue(ctx,data[0]);JS_FreeValue(ctx,data[1]);
+}
+
 static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origin){
-    JSValue nearby=JS_NewArray(ctx),ground=JS_NewArray(ctx),obstacles=JS_NewArray(ctx),terrain=JS_NewArray(ctx);int self=0;
+    JSValue nearby=JS_NewArray(ctx);int self=0;
     if(world.next_id&&b3StoreWorldId(p->world)==b3StoreWorldId(world.physics)){
         Nearby *neighbors=array_resize(NULL,world.count,sizeof(*neighbors));int count=0;
         for(int i=0;i<world.count;i++){
@@ -264,21 +307,9 @@ static void surroundings(JSContext *ctx,JSValue s,const Physics *p,Vector3 origi
         }
         free(neighbors);
     }
-    for(int i=0;i<16;i++){
-        float angle=(i%8)*PI/4,radius=i<8?6:16,x=origin.x+sinf(angle)*radius,z=origin.z+cosf(angle)*radius;
-        JS_SetPropertyUint32(ctx,ground,i,vector(ctx,(Vector3){x,p->landscape?terrain_height(x,z):0,z}));
-    }
-    for(int i=0,n=0,bounds=0;p->landscape&&i<terrain_count;i++){
-        TerrainBox b=terrain_box(i);float dx=fmaxf(0,fabsf(origin.x-b.center.x)-b.half.x),dz=fmaxf(0,fabsf(origin.z-b.center.z)-b.half.z);
-        if(hypotf(dx,dz)>24)continue;
-        JSValue item=JS_NewObject(ctx);put_number(ctx,item,"x",b.center.x);put_number(ctx,item,"z",b.center.z);
-        put_number(ctx,item,"halfX",b.half.x);put_number(ctx,item,"halfZ",b.half.z);put_number(ctx,item,"low",b.center.y-b.half.y);put_number(ctx,item,"high",b.center.y+b.half.y);
-        if(b.center.y+b.half.y>=origin.y-.2f)JS_SetPropertyUint32(ctx,obstacles,n++,JS_DupValue(ctx,item));
-        JS_SetPropertyUint32(ctx,terrain,bounds++,item);
-    }
     put_number(ctx,s,"id",self);put_number(ctx,s,"cargoDelivered",self?world_cargo_score(self):0);
     Creature *observer=world_find(self);int team=observer?observer->team:0;put_number(ctx,s,"team",team);put_number(ctx,s,"worldTime",world.age);JS_SetPropertyStr(ctx,s,"radio",radio_state(ctx,team));
-    JS_SetPropertyStr(ctx,s,"nearby",nearby);JS_SetPropertyStr(ctx,s,"groundSamples",ground);JS_SetPropertyStr(ctx,s,"obstacles",obstacles);JS_SetPropertyStr(ctx,s,"terrain",terrain);JS_SetPropertyStr(ctx,s,"depots",depot_state(ctx));
+    JS_SetPropertyStr(ctx,s,"nearby",nearby);environment_sensors(ctx,s,p,origin);JS_SetPropertyStr(ctx,s,"depots",depot_state(ctx));
 }
 static JSValue winch_state(JSContext *ctx,const Physics *p,const Character *c){
     JSValue list=JS_NewArray(ctx);

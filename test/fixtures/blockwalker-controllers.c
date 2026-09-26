@@ -41,8 +41,34 @@ static void check_memory(JSContext *ctx,Character *design){
     }
     world_trial_stop();memory=memory_snapshot(ctx,0);assert(JS_IsNull(memory));JS_FreeValue(ctx,memory);physics_stop(&p);
 }
+static JSValue environment_probe(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv){
+    Physics p={.landscape=1};JSValue s=JS_NewObject(ctx);surroundings(ctx,s,&p,(Vector3){87,4,-25});return s;
+}
+static void check_environment(JSContext *ctx){
+    JSValue global=JS_GetGlobalObject(ctx);JS_SetPropertyStr(ctx,global,"sense",JS_NewCFunction(ctx,environment_probe,"sense",0));
+    const char *checks=
+        "const check=(v)=>{if(!v)throw Error('Environment snapshot changed')};"
+        "let a=sense(),b=sense(),expected=JSON.stringify(a);Object.freeze(b);"
+        "check(JSON.stringify(b)===expected&&b.terrain===b.terrain&&b.groundSamples===b.groundSamples);"
+        "for(const first of ['terrain','obstacles']){a=sense();let rows=a[first];check(rows.length>0);"
+        "let item=first==='obstacles'?rows[0]:rows.find(x=>x.high>=3.8);check(item);item.mark=7;item.high=-999;"
+        "check(a.terrain.includes(item)&&a.obstacles.includes(item));check(a.terrain.some(x=>x.mark===7));}"
+        "a=sense();const terrain=JSON.stringify(a.terrain);b=sense();b.obstacles=['replacement'];"
+        "check(JSON.stringify(b.terrain)===terrain&&b.obstacles[0]==='replacement');"
+        "b=sense();delete b.terrain;check(b.terrain===undefined&&b.obstacles.length>0);"
+        "a=sense();globalThis.retained=sense();globalThis.expected=JSON.stringify(a);";
+    JSValue result=JS_Eval(ctx,checks,strlen(checks),"environment-snapshots",JS_EVAL_TYPE_GLOBAL);
+    if(JS_IsException(result)){JSValue e=JS_GetException(ctx);const char *s=JS_ToCString(ctx,e);fprintf(stderr,"%s\n",s);JS_FreeCString(ctx,s);JS_FreeValue(ctx,e);assert(0);}JS_FreeValue(ctx,result);
+    int version=terrain_version;terrain_select(0);
+    const char *retained="check(JSON.stringify(retained)===globalThis.expected);delete globalThis.retained;delete globalThis.expected;";
+    result=JS_Eval(ctx,retained,strlen(retained),"retained-environment",JS_EVAL_TYPE_GLOBAL);assert(!JS_IsException(result));JS_FreeValue(ctx,result);terrain_select(version);
+    Physics p={0};JSValue s=JS_NewObject(ctx);surroundings(ctx,s,&p,(Vector3){0});JSValue ground=JS_GetPropertyStr(ctx,s,"groundSamples");
+    for(int i=0;i<16;i++){JSValue point=JS_GetPropertyUint32(ctx,ground,i),y=JS_GetPropertyUint32(ctx,point,1);double height=NAN;JS_ToFloat64(ctx,&height,y);assert(height==0);JS_FreeValue(ctx,y);JS_FreeValue(ctx,point);}
+    JS_FreeValue(ctx,ground);JS_FreeValue(ctx,s);JS_FreeValue(ctx,global);
+}
 int main(void){
     JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);JSValue list=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");
+    check_environment(ctx);
     FILE *f=fopen("/workspace/controller-probe.csv","w");if(!f)return 1;fputs("kind,id,valid,steps,checks,peakChecks,pauseMs,wallMs,error\n",f);
     for(int i=0;i<get_number(ctx,list,"length",0);i++){
         JSValue item=JS_GetPropertyUint32(ctx,list,i),blueprint=JS_GetPropertyStr(ctx,item,"blueprint"),code=JS_GetPropertyStr(ctx,item,"source"),label=JS_GetPropertyStr(ctx,item,"name");

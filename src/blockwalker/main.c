@@ -644,7 +644,9 @@ agent_overlay:
         if(prompt_focus)DrawRectangleLinesEx((Rectangle){1024,608,240,54},2,accent);
         size_t length=strlen(prompt_input);label(1032,618,length?prompt_input+(length>27?length-27:0):"Message Pi...",14,ink);label(1032,642,"Enter to send / steer",12,muted);
     }
-    if(!focus_view){label(24,692,message,15,ink);button(728,683,212,30,"Focus [Shift Tab]",0);snprintf(text,sizeof(text),"%.0f FPS  |  Esc %s",fps,physics.running?"edit":"exit");label(958,692,text,14,muted);}
+    if(!focus_view){label(24,692,message,15,ink);button(728,683,212,30,"Focus [Shift Tab]",0);snprintf(text,sizeof(text),"Esc %s",physics.running?"edit":"exit");label(958,692,text,14,muted);}
+    int fps_x=render_view.x+render_view.width-104,fps_y=focus_view?54:render_view.y+12;
+    DrawRectangle(fps_x,fps_y,92,26,paper);snprintf(text,sizeof(text),"%.0f FPS",fps);label(fps_x+10,fps_y+6,text,15,ink);
     render_ui_upload();dirty=0;
 }
 static void report(void){
