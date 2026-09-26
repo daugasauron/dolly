@@ -1,6 +1,6 @@
 # Let controllers inspect nearby collision shapes
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 270
 - TAGS: game,physics,agents
 
@@ -58,3 +58,24 @@ baseline, zero friendly impacts/controller errors/missing actors/deaths. Both
 final saves and the14MB full trace are retained under
 `...-chrome-battery-shape-follow/salvage/`. Do not bundle this as a completed
 sustained-supply fix. The query/controller performance and browser checks remain.
+
+## Completion
+
+Final Lua implementation is packaged in the September 27 local image.
+`build/living-world-20260926/courier-ground-contact` verifies 25 nearby/74 distant
+queries, six invalid IDs, independent table copies and actual Box3D shape bounds
+with body owners. The query is installed only for a controller invocation and
+is absent from external serialized observations. Controllers cache results.
+
+`courier-clearance` physically releases the stalled courier and completes four
+deliveries over 600 s. `combined-fresh-v2` verifies repeated external ammunition
+handoffs/reloads/fire; `long-fresh` continues physical supply to 11 channel shots
+over 7,200 s, without controller faults/deaths or missing originals. This is
+navigation and resupply evidence, beyond a static planned path.
+
+`final-chrome`/`final-firefox` verify the packaged fresh and 151-object restored
+worlds: mean submitted FPS 90.32/70.93 and 287.14/195.94, simulation at real time,
+20 Hz programs, no new faults/deaths, zero GPU readback and clean shell recovery.
+Shape-query, physical outcome, restoration and populated performance criteria
+are met. Close this issue; general navigation and recovery improvements continue
+in their own tasks. Evidence root: `build/living-world-20260926/`.

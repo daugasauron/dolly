@@ -11,7 +11,7 @@ test("sysroot publication keys startup code and preserves previous versions", as
   t.after(() => rm(root, { recursive: true, force: true }));
   const run = promisify(execFile);
   const libraries = join(root, ".cache/emscripten/sysroot/lib/wasm64-emscripten");
-  for (const path of [libraries, "scripts", "config", "build", "bin", ".cache/llvm-native/bin"])
+  for (const path of [libraries, "scripts", "config", "build/process-threads", "bin", ".cache/llvm-native/bin"])
     await mkdir(path.startsWith(root) ? path : join(root, path), { recursive: true });
   await copyFile(new URL("../scripts/prepare-process-sysroot.sh", import.meta.url),
     join(root, "scripts/prepare-process-sysroot.sh"));
@@ -22,10 +22,17 @@ test("sysroot publication keys startup code and preserves previous versions", as
   await writeFile(join(root, "provider.c"), "int fixture(void) { return 0; }\n");
   await run("cc", ["-c", "provider.c", "-o", "provider.o"], { cwd: root });
   await run("ar", ["rcsD", "build/libdolly-process.a", "provider.o"], { cwd: root });
+  for (const name of ["runtime", "http", "display", "download", "upload", "gpu", "threads"])
+    await copyFile(join(root, "build/libdolly-process.a"), join(root, `build/libdolly-${name}.a`));
   for (const name of ["libstandalonewasm-ww-memgrow.a", "libstubs.a", "libc-ww.a",
     "libdlmalloc-ww.a", "libclang_rt.builtins-wasmsjlj-ww.a", "libunwind-ww-wasmexcept.a",
-    "libc++-ww-wasmexcept.a", "libc++abi-ww-wasmexcept.a"])
+    "libc++-ww-wasmexcept.a", "libc++abi-ww-wasmexcept.a", "libstandalonewasm-mt-memgrow.a",
+    "libdlmalloc-mt.a", "libclang_rt.builtins-wasmsjlj-mt.a", "libunwind-mt-wasmexcept.a",
+    "libc++-mt-wasmexcept.a", "libc++abi-mt-wasmexcept.a"])
     await copyFile(join(root, "build/libdolly-process.a"), join(libraries, name));
+  for (const name of ["libdolly-process.a", "libdolly-runtime.a", "libc-mt.a"])
+    await copyFile(join(root, "build/libdolly-process.a"), join(root, "build/process-threads", name));
+  await copyFile(join(root, "provider.o"), join(root, "build/process-threads/crt1.o"));
   await writeFile(join(root, "config/process-libc-provider.symbols"), "fixture\n");
   const startup = join(root, "build/process-crt1.o");
   const compileStartup = async value => {
@@ -46,6 +53,16 @@ test("sysroot publication keys startup code and preserves previous versions", as
   assert.deepEqual(await readFile(join(changed, "crt1.o")), await readFile(startup));
   assert.deepEqual(await readFile(join(original, "crt1.o")), originalBytes);
   assert.equal(await publish(), changed);
+  await writeFile(join(root, "client.c"), "int client(void) { return 7; }\n");
+  await run("cc", ["-c", "client.c", "-o", "client.o"], { cwd: root });
+  await run("ar", ["rcsD", "build/libdolly-gpu.a", "client.o"], { cwd: root });
+  const clientChanged = await publish();
+  assert.notEqual(clientChanged, changed, "client ABI libraries must participate in sysroot identity");
+  assert.deepEqual(await readFile(join(clientChanged, "libdolly-gpu.a")), await readFile(join(root, "build/libdolly-gpu.a")));
+  await copyFile(startup, join(root, "build/process-threads/crt1.o"));
+  const threadChanged = await publish();
+  assert.notEqual(threadChanged, clientChanged, "threaded startup must participate in sysroot identity");
+  assert.deepEqual(await readFile(join(threadChanged, "threads/crt1.o")), await readFile(startup));
   await rm(startup);
   await assert.rejects(publish());
   assert.deepEqual(await readFile(join(original, "crt1.o")), originalBytes);

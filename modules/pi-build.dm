@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE pi-build
 
 # Pi 0.84.4 is compiled from its pinned upstream TypeScript workspace inside

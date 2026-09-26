@@ -155,6 +155,7 @@ export function registrySource(definitions, staticSources = []) {
     ),
     recipes: parsed.recipes ?? [],
     artifacts: parsed.artifacts ?? [],
+    hostRequirements: parsed.hostRequirements ?? [],
   }));
   return "// Generated from source-visible Dollyfiles. Do not edit.\n" +
     `export const DOLLY_IMAGES = Object.freeze(${JSON.stringify(records, null, 2)});\n` +
@@ -171,6 +172,7 @@ export async function imageRegistrySource(projectDir, definitions, staticSources
         ...definition.parsed,
         artifacts: graph.artifacts,
         recipes: recipeRecords(graph),
+        hostRequirements: graph.root.hostRequirements,
       },
     };
   }));

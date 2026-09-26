@@ -1,16 +1,17 @@
-# Dollyfile version 3
+# Dollyfile version 4
 
 Dollyfiles are ordered recipes executed by `/bin/dollyfile` inside Wasm.
 Modules group useful steps. They can mix commands, files, child modules, and
 exports, depend on earlier state, and overwrite existing files. The source
 viewer describes this composition; it does not prove that the programs work.
 
-V3 reuses completed images through explicit `FROM` and `COPY FROM` references.
+V4 adds versioned host requirements. V3 recipes remain readable, but cannot use
+`REQUIRES HOST`. FROM and COPY FROM continue to reuse completed images.
 Modules within a stage execute normally. A cached image includes its retained
 filesystem, environment, exact exported objects, and recipe provenance.
 
 ```text
-DOLLY 3
+DOLLY 4
 IMAGE example
 
 FROM HOST /Dollyfile-pi <sha256>
@@ -70,9 +71,16 @@ destination; cancellation removes the partial upload. No PC path is exposed.
 
 ## Operations
 
+Threaded C/C++ programs compile and link with `-pthread`. An image whose entry
+needs them declares `REQUIRES HOST threads@0`; headers alone request no provider.
+This static profile supports pthreads and `std::thread`, with separate stacks/TLS
+and shared process files. It currently rejects dynamic libraries/runtime FFI,
+asynchronous cancellation, directed thread signals, scheduling hints and protected
+stack guards. Mutexes, semaphores and waits use Wasm atomics inside process memory.
+
 | Declaration | Behavior |
 | --- | --- |
-| `DOLLY 3` | First declaration; selects this language version. |
+| `DOLLY 4` | First declaration; selects this language version. |
 | `IMAGE name` / `MODULE name` | Recipe identity. |
 | `USE HOST /modules/name.dm HASH` | Verify and execute the module here. Repeated uses execute again. |
 | `FROM HOST /Dollyfile-name HASH` | Begin an image from a completed artifact; must be the image's first operation. |
@@ -84,7 +92,8 @@ destination; cancellation removes the partial upload. No PC path is exposed.
 | `FILE /path` | Retain a file, optionally writing the following indented body first. |
 | `FOLDER /path` | Retain the directory and its current members. |
 | `EXPORTS TYPE name [details]` | Offer an object when this module finishes. |
-| `REQUIRES TYPE name` | Check availability at this point during execution. |
+| `REQUIRES TYPE name` | Check userspace availability at this point during execution. |
+| `REQUIRES HOST module@abi` | Require a host provider when running the image. |
 | `ENTRY /program [arguments…]` | Final image declaration; chooses its own entry program. |
 
 `COPY FROM` maps the source itself to the destination. Directories merge;
@@ -100,6 +109,41 @@ provider. `REQUIRES ENV NAME` checks the environment. Other named assertions
 check an earlier object's path and basic kind. Assertions are optional and can
 appear wherever they are useful. A module can use undeclared tools; a command
 failure reports the responsible recipe and line.
+
+## Host modules
+
+```text
+DOLLY 4
+IMAGE gpu-app
+FROM HOST /Dollyfile-system <sha256>
+REQUIRES HOST gpu@0
+REQUIRES HOST display@0
+# Build or copy your program here.
+ENTRY /usr/bin/gpu-app
+```
+
+Host requirements propagate through `FROM` and `USE`. `COPY FROM` copies files
+without importing the donor's runtime requirements. Required providers and ABI
+revisions are recorded in artifact metadata and checked before ENTRY, including
+cached/custom images and restored sessions. An unknown, disabled or incompatible
+provider fails with its name and reason before the image starts. Runtime is the
+mandatory base. Host requirements cannot be exported or grant authority: the
+embedding chooses providers and the HTTP broker still controls network access.
+
+Build hosts supply their own providers. Compiling a GPU program needs no GPU;
+running a GPU program during the build does. Avoid executing graphics startup as
+a build check; use a separate pure-compute/physics check when appropriate.
+
+C programs include `<dolly/gpu.h>` and link `-ldolly-gpu`. Selected client archive
+members record `gpu@0` in the executable's `dolly.host` section. Headers alone or
+unused archives add no requirement. Commands and dynamic libraries are checked
+again for ABI compatibility at load time. Disabled providers keep typed denial
+bindings: linking an API does not mean every invocation uses it. For example,
+QuickJS can run a compiler with its download API disabled. Calling that API
+returns `ENOSYS`; an image that needs it declares `REQUIRES HOST download@0`.
+Unknown or incompatible linked ABIs fail at load time. These records describe
+compatibility, not permissions.
+See [the browser boundary](browser-boundary.md) for provider ownership.
 
 ## Outputs and environment
 

@@ -1,3 +1,4 @@
+import {compileCommand} from './blockwalker-data.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
@@ -41,8 +42,7 @@ async function download(name){const event=page.waitForEvent('download'),run=comm
 try{
  await page.goto(site.origin+'/blockwalker/');await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20,null,{timeout:60000});await page.keyboard.press('Escape');await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
  if(process.argv[2]){await upload(process.argv[2],'/tmp/proxy-source.tar');assert.equal(await command('tar -xf /tmp/proxy-source.tar -C /'),0);}
- const sources=['main','character','render','world','terrain','magnet','gpu-client'].map(s=>'/usr/src/dolly/blockwalker/'+s+'.c').join(' ');
- assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ '+sources+' -ldolly-js -ldolly-raylib -lraylib -lbox3d -lm -o /usr/bin/blockwalker'),0);
+  assert.equal(await command(await compileCommand()),0);
  await upload('test/fixtures/blockwalker-proxy.mjs','/tmp/proxy-check.mjs');assert.equal(await command('cp /tmp/proxy-check.mjs /usr/src/dolly/blockwalker/check.mjs'),0);
  const run=command('blockwalker --integration-check');run.catch(()=>{});await page.waitForFunction(()=>__dolly.gpu.active);await page.keyboard.press('Tab');
  const before=await page.evaluate(()=>__dolly.httpRequestCount);

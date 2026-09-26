@@ -1,3 +1,4 @@
+import { hostRequirements } from "../src/host/requirements.mjs";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -50,6 +51,7 @@ async function loadGraph(projectDir, rootFilename, recipes) {
     }
     const visible = new Map(available);
     const published = new Map();
+    const requiredHost = [...record.hostRequirements];
     const operations = [
       ...record.uses.map(value => ({ ...value, operation: "use" })),
       ...record.artifacts.map(value => ({ ...value, operation: "artifact" })),
@@ -62,6 +64,7 @@ async function loadGraph(projectDir, rootFilename, recipes) {
         record.artifactTargets.push({ reference: operation, target });
         if (stage) artifacts.push({ ...operation, image: target.image });
         if (!operation.copy) {
+          requiredHost.push(...target.hostRequirements);
           for (const [name, provider] of target.scopeExporters) {
             visible.set(name, provider);
             published.set(name, provider);
@@ -69,6 +72,7 @@ async function loadGraph(projectDir, rootFilename, recipes) {
         }
       } else if (operation.operation === "use") {
         const child = await load(operation.location.slice(1), operation.sha256, visible, false, stage);
+        requiredHost.push(...child.hostRequirements);
         child.selectedAt = operation.line;
         record.children.push(child);
         for (const [name, provider] of child.scopeExporters) {
@@ -100,6 +104,7 @@ async function loadGraph(projectDir, rootFilename, recipes) {
       }
       published.set(key(exported), { module: record, exported: resolved });
     }
+    record.hostRequirements = hostRequirements(requiredHost);
     record.scopeExporters = published;
     record.height = 1 + Math.max(0, ...record.children.map(child => child.height),
       ...record.artifactTargets.map(({ target }) => target.height));

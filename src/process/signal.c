@@ -4,13 +4,15 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdint.h>
+#include "lock.h"
 
 __attribute__((import_module("dolly_process_0"), import_name("call")))
 int64_t raw_process_call(uint32_t operation, const void *request,
                         uint64_t request_size, void *response, uint64_t capacity);
 
 static struct sigaction actions[_NSIG];
-static sigset_t blocked, pending;
+static _Thread_local sigset_t blocked, pending;
+static dolly_lock action_lock;
 
 static int valid_signal(int signal_number) {
   return signal_number > 0 && signal_number < _NSIG;
@@ -27,8 +29,10 @@ int __sigaction(int signal_number, const struct sigaction *restrict action,
     errno = ENOTSUP;
     return -1;
   }
+  dolly_lock_acquire(&action_lock);
   if (previous) *previous = actions[signal_number];
   if (action) actions[signal_number] = *action;
+  dolly_lock_release(&action_lock);
   return 0;
 }
 
@@ -43,7 +47,13 @@ static int deliver_pending(void) {
   for (int number = 1; number < _NSIG; ++number) {
     if (sigismember(&pending, number) != 1 || sigismember(&blocked, number) == 1) continue;
     sigdelset(&pending, number);
+    dolly_lock_acquire(&action_lock);
     const struct sigaction action = actions[number];
+    if (action.sa_flags & SA_RESETHAND) {
+      actions[number].sa_handler = SIG_DFL;
+      actions[number].sa_flags &= ~SA_SIGINFO;
+    }
+    dolly_lock_release(&action_lock);
     if (action.sa_handler == SIG_IGN) continue;
     if (action.sa_handler == SIG_DFL) {
       switch (number) {
@@ -60,10 +70,6 @@ static int deliver_pending(void) {
     if (!(action.sa_flags & SA_NODEFER)) sigaddset(&blocked, number);
     sigdelset(&blocked, SIGKILL);
     sigdelset(&blocked, SIGSTOP);
-    if (action.sa_flags & SA_RESETHAND) {
-      actions[number].sa_handler = SIG_DFL;
-      actions[number].sa_flags &= ~SA_SIGINFO;
-    }
     if (!(action.sa_flags & SA_RESTART)) restart = 0;
     else if (restart == 2) restart = 1;
     if (action.sa_flags & SA_SIGINFO) {

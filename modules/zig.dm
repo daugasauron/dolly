@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE zig
 
 REQUIRES TOOL rm
@@ -8,7 +8,7 @@ REQUIRES TOOL tar
 # and C++ separately; this is not Zig's distribution for every target OS.
 # Like Clang in the bootstrap seed, this compiler is built by the outer
 # toolchain and validated against dolly-process-0. It runs entirely in Wasm.
-SOURCE HOST /static/default/zig.wasm /usr/bin/zig 85efd1534cda2549625d5e6a9652e47ec9ba6063befc34bb8539de5f4d47fc7f
+SOURCE HOST /static/default/zig.wasm /usr/bin/zig 7eb95f68ec8c81d45e00a9686d10a119cfb108d2be5ce86d187166d7c5fbf5d5
 SOURCE HOST /static/default/zig-lib.tar    /tmp/zig-lib.tar 205fcde54b306ab68dcbbbbe45d1c1b314147b6dd9b3dcaf48a56eb8e70497e2
 SLOP tar \
   -xf /tmp/zig-lib.tar \

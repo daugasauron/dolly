@@ -2,8 +2,8 @@
 #include "render.h"
 #include "terrain.h"
 #include <dolly/raylib.h>
-#include <dolly/quickjs-runner.h>
-#include <quickjs.h>
+#include "pi.h"
+#include "data.h"
 #include <raymath.h>
 #include <ctype.h>
 #include <math.h>
@@ -34,7 +34,7 @@ static Vector3 follow_position;
 static Orbit orbit={.target={0,2.5f,0},.yaw=.52f,.pitch=.28f,.distance=10};
 static Orbit workshop_orbit,world_orbit={.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=30};
 static dolly_display_surface surface;
-static JSContext *embedded_context;
+static Data *embedded_context;
 static char message[160]="Click a box face to add. Right-drag to orbit. Scroll to zoom.";
 static const Color ink={216,211,188,255},muted={143,151,140,255},paper={25,31,35,255},line={75,84,83,255},accent={180,144,78,255},panel={45,54,58,255};
 static void report(void);
@@ -117,9 +117,9 @@ static void follow_creature(void){
     }world_follow=0;dirty=1;
 }
 static void program_page(int delta){program_line=(int)Clamp(program_line+delta,0,fmaxf(0,program_lines-20));dirty=1;}
-static int world_rows(void){return terrain_version>=3?5:terrain_version>=2?7:8;}
-static int world_list_top(void){return terrain_version>=3?440:terrain_version>=2?376:344;}
-static int world_places(void){return terrain_version>=3?14:terrain_version>=2?10:terrain_version?8:7;}
+static int world_rows(void){return terrain_version>=5?4:terrain_version>=3?5:terrain_version>=2?7:8;}
+static int world_list_top(void){return terrain_version>=5?472:terrain_version>=3?440:terrain_version>=2?376:344;}
+static int world_places(void){return terrain_version>=5?15:terrain_version>=3?14:terrain_version>=2?10:terrain_version?8:7;}
 static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-world_rows()));dirty=1;}
 static void pilot_help(char movement[48],char magnets[48]){
     Creature *c=world_find(world.player);int on=0,off=0,mixed=0,found=0;
@@ -172,11 +172,11 @@ static void drop_cargo(void){
 static void back_to_builder(void){world_trial_stop();program_trial=0;set_world_view(0);report();physics_stop(&physics);memset(keys,0,sizeof(keys));home_camera();say("Back in the workshop. Your original build is unchanged.");}
 static int install_program_file(const char *path,const char *name){
     char *source=LoadFileText(path);if(!source){say("Could not read the program.");return 0;}
-    JSValue args=JS_NewObject(embedded_context);JS_SetPropertyStr(embedded_context,args,"source",JS_NewString(embedded_context,source));JS_SetPropertyStr(embedded_context,args,"name",JS_NewString(embedded_context,name));JS_SetPropertyStr(embedded_context,args,"hz",JS_NewInt32(embedded_context,60));UnloadFileText(source);
-    JSValue result=world_install(embedded_context,args);int good=!JS_IsException(result);JS_FreeValue(embedded_context,args);JS_FreeValue(embedded_context,result);
-    if(!good){JSValue error=JS_GetException(embedded_context);const char *text=JS_ToCString(embedded_context,error);say(text?text:"Invalid program; previous program kept.");JS_FreeCString(embedded_context,text);JS_FreeValue(embedded_context,error);}return good;
+    Value args=value_table(embedded_context);value_set(embedded_context,args,"source",value_string(embedded_context,source));value_set(embedded_context,args,"name",value_string(embedded_context,name));value_set(embedded_context,args,"hz",value_number(embedded_context,CONTROLLER_DEFAULT_HZ));UnloadFileText(source);
+    Value result=world_install(embedded_context,args);int good=!value_is_error(result);value_free(embedded_context,args);value_free(embedded_context,result);
+    if(!good){Value error=value_exception(embedded_context);const char *text=value_text(embedded_context,error);say(text?text:"Invalid program; previous program kept.");value_text_free(embedded_context,text);value_free(embedded_context,error);}return good;
 }
-static void preset(int walker){remember();if(walker==3)character_car(&design);else character_preset(&design,walker);install_program_file("/usr/src/dolly/blockwalker/driver.js","Keyboard driver");selected=0;tool=SELECT;binding=-1;home_camera();changed();say(walker==3?"Starter car: Program shows its keyboard controls. Drive in world to use them.":"Walking is up to you. Test the joints, or ask Pi to learn a gait.");}
+static void preset(int walker){remember();if(walker==3)character_car(&design);else character_preset(&design,walker);install_program_file("/usr/src/dolly/blockwalker/driver.lua","Keyboard driver");selected=0;tool=SELECT;binding=-1;home_camera();changed();say(walker==3?"Starter car: Program shows its keyboard controls. Drive in world to use them.":"Walking is up to you. Test the joints, or ask Pi to learn a gait.");}
 static int candidate(Block *block){
     Vector3 normal={0},point={0};int parent=render_pick(&design,&orbit,mouse_x,mouse_y,&normal,&point),x,y,z;
     if(parent>=0){Block b=design.blocks[parent];
@@ -193,43 +193,43 @@ static int candidate(Block *block){
 }
 static void remove_selected(void){if(selected>=0){remember();character_remove(&design,selected);selected=design.count?0:-1;binding=-1;changed();say("Removed the block and its attached branch. Undo brings it back.");}}
 static void export_character(void){
-    if(world_export_design(embedded_context,&design,practice_sea,"/workspace/blockwalker-design.json")){
-        int result=system("download /workspace/blockwalker-design.json");say(result==0?"Design exported with its controller, materials and bindings.":"Design download failed.");
+    if(world_export_design(embedded_context,&design,practice_sea,"/workspace/blockwalker-design.lua")){
+        int result=system("download /workspace/blockwalker-design.lua");say(result==0?"Design exported with its controller, materials and bindings.":"Design download failed.");
     }else say("Could not export the design. Build a character first.");
 }
 static void import_character(void){
     remove("/tmp/blockwalker-import.design");Character imported={0};int sea=0;
     if(system("upload /tmp/blockwalker-import.design")==0){
-        JSValue result=world_import_design(embedded_context,&imported,&sea,"/tmp/blockwalker-import.design");
-        if(!JS_IsException(result)){
+        Value result=world_import_design(embedded_context,&imported,&sea,"/tmp/blockwalker-import.design");
+        if(!value_is_error(result)){
             agent_enabled=agent_control=practice_steps=program_trial=0;physics_stop(&physics);memset(agent_keys,0,128);
             remember();character_clear(&design);design=imported;practice_sea=sea;selected=design.count?0:-1;binding=-1;home_camera();changed();world_save(embedded_context);say("Design imported. The world population is unchanged.");
-        }else{JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Invalid design file. Current build and program kept; world files use Import world.");}
-        JS_FreeValue(embedded_context,result);
+        }else{value_free(embedded_context,value_exception(embedded_context));say("Invalid design file. Current build and program kept; world files use Import world.");}
+        value_free(embedded_context,result);
     }else say("No design imported. Current build and program kept.");
     remove("/tmp/blockwalker-import.design");
 }
-static JSValue open_design(JSContext *ctx,int index){
-    Character next={0};JSValue result=world_open_design(ctx,index,&next);if(JS_IsException(result))return result;
+static Value open_design(Data *ctx,int index){
+    Character next={0};Value result=world_open_design(ctx,index,&next);if(value_is_error(result))return result;
     world_trial_stop();program_trial=0;physics_stop(&physics);set_world_view(0);practice_steps=0;remember();character_copy(&design,&next);character_clear(&next);
     SavedDesign *saved=&world.designs[index];practice_sea=terrain_height(saved->x,saved->z)<WATER_LEVEL;
     library_open=0;selected=0;binding=-1;home_camera();changed();world_save(ctx);say(saved->source?"Design and controller restored. Test it, then Play program.":"Blueprint restored. Drive it yourself, or teach it a program with Pi.");return result;
 }
-static JSValue save_design(JSContext *ctx){
-    JSValue result=world_save_design(ctx,&design,practice_sea);
-    if(!JS_IsException(result)){int id;JS_ToInt32(ctx,&id,result);library_page=(id-1)/8*8;world_save(ctx);dirty=1;say("Design kept in this session. Export a copy to keep it after a fresh start.");}
+static Value save_design(Data *ctx){
+    Value result=world_save_design(ctx,&design,practice_sea);
+    if(!value_is_error(result)){int id;value_int(ctx,&id,result);library_page=(id-1)/8*8;world_save(ctx);dirty=1;say("Design kept in this session. Export a copy to keep it after a fresh start.");}
     return result;
 }
 static void import_world(void){
     agent_enabled=0;remove("/tmp/blockwalker-import.world");
     if(system("upload /tmp/blockwalker-import.world")==0){
-        JSValue result=world_import(embedded_context,"/tmp/blockwalker-import.world");
-        if(JS_IsException(result)){
-            JSValue error=JS_GetException(embedded_context);const char *text=JS_ToCString(embedded_context,error);say(text?text:"World import failed; current world kept.");JS_FreeCString(embedded_context,text);JS_FreeValue(embedded_context,error);
+        Value result=world_import(embedded_context,"/tmp/blockwalker-import.world");
+        if(value_is_error(result)){
+            Value error=value_exception(embedded_context);const char *text=value_text(embedded_context,error);say(text?text:"World import failed; current world kept.");value_text_free(embedded_context,text);value_free(embedded_context,error);
         }else{
             piloting=eye_view=world_follow=world_list=0;world_accumulator=0;last_save=world.age;memset(keys,0,sizeof(keys));home_camera();
-            say("World restored; workshop kept. Previous world backed up in /workspace/blockwalker-world.previous.json.");
-        }JS_FreeValue(embedded_context,result);
+            say("World restored; workshop kept. Previous world backed up in /workspace/blockwalker-world.previous.lua.");
+        }value_free(embedded_context,result);
     }else say("No world imported. Current population kept.");
     remove("/tmp/blockwalker-import.world");
 }
@@ -250,32 +250,31 @@ static void click(void){
         if(inside(274,558,68,34))program_page(-20);
         if(inside(908,558,68,34))program_page(20);
         if(inside(650,156,124,32)){
-            JSValue program=world_view&&world_follow?world_creature_program(embedded_context,world_follow):world_program(embedded_context),value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"source"):JS_UNDEFINED;const char *source=JS_IsString(value)?JS_ToCString(embedded_context,value):NULL;
-            if(source&&SaveFileText("/workspace/character-program.js",(char *)source))system("download /workspace/character-program.js");
-            JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);JS_FreeValue(embedded_context,program);
+            Value program=world_view&&world_follow?world_creature_program(embedded_context,world_follow):world_program(embedded_context),value=value_is_table(program)?value_get(embedded_context,program,"source"):VALUE_NIL;const char *source=value_is_string(value)?value_text(embedded_context,value):NULL;
+            if(source&&SaveFileText("/workspace/character-program.lua",(char *)source))system("download /workspace/character-program.lua");
+            value_text_free(embedded_context,source);value_free(embedded_context,value);value_free(embedded_context,program);
         }
         if(!world_view&&inside(786,156,132,32)){
-            remove("/tmp/character-program.js");
-            if(system("upload /tmp/character-program.js")==0&&install_program_file("/tmp/character-program.js","Imported program")){world_save(embedded_context);program_line=0;say("Program imported. Drive in world to run it.");}
-            remove("/tmp/character-program.js");
+            remove("/tmp/character-program.lua");
+            if(system("upload /tmp/character-program.lua")==0&&install_program_file("/tmp/character-program.lua","Imported program")){world_save(embedded_context);program_line=0;say("Program imported. Drive in world to run it.");}
+            remove("/tmp/character-program.lua");
         }
         dirty=1;return;
     }
     if(inside(24,54,194,20)){library_open=!library_open;prompt_focus=0;memset(keys,0,128);dirty=1;return;}
     if(library_open){
         if(inside(932,156,44,32))library_open=0;
-        if(inside(520,156,210,32)){world_load_archive(embedded_context);say("Older prototypes added to the library. The starting world is unchanged.");}
         if(inside(748,156,164,32)){
-            JSValue result=save_design(embedded_context);
-            if(JS_IsException(result)){JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Build a character before saving a design.");}
-            JS_FreeValue(embedded_context,result);
+            Value result=save_design(embedded_context);
+            if(value_is_error(result)){value_free(embedded_context,value_exception(embedded_context));say("Build a character before saving a design.");}
+            value_free(embedded_context,result);
         }
         if(inside(274,558,68,34))library_page=(int)fmaxf(0,library_page-8);
         if(inside(908,558,68,34))library_page=(int)fminf((world.design_count?((world.design_count-1)/8)*8:0),library_page+8);
         for(int i=0;i<8&&library_page+i<world.design_count;i++)if(inside(882,206+i*42,94,32)){
-            JSValue result=open_design(embedded_context,library_page+i);
-            if(JS_IsException(result)){JS_FreeValue(embedded_context,JS_GetException(embedded_context));say("Could not open this design.");}
-            else{agent_enabled=agent_control=0;memset(agent_keys,0,128);}JS_FreeValue(embedded_context,result);break;
+            Value result=open_design(embedded_context,library_page+i);
+            if(value_is_error(result)){value_free(embedded_context,value_exception(embedded_context));say("Could not open this design.");}
+            else{agent_enabled=agent_control=0;memset(agent_keys,0,128);}value_free(embedded_context,result);break;
         }dirty=1;return;
     }
     if(physics.running&&!agent_panel){
@@ -312,8 +311,8 @@ static void click(void){
         if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
         for(int i=0;i<world_places();i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
             piloting=eye_view=0;
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{78,3,-48},{57,1,-13},{-32,5,-26},{84,5,-4}};
-            const float distances[]={24,50,100,110,150,512,72,76,40,38,55,38,42,42};
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{94,15,-34},{57,1,-13},{-32,5,-26},{84,5,-4},{69,4,29}};
+            const float distances[]={24,50,100,110,150,512,72,76,40,38,62,38,42,42,44};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;
                 if(terrain_version&&i==6){orbit.target=(Vector3){-47,1,64};orbit.distance=12;orbit.yaw=PI;orbit.pitch=.12f;}
                 if(terrain_version&&i==7){orbit.target=(Vector3){-44,2,110};orbit.distance=35;orbit.yaw=.7f;orbit.pitch=.45f;}
@@ -326,7 +325,7 @@ static void click(void){
         world_page(0);
         for(int i=0;i<world_rows()&&world_list+i<world.count;i++)if(inside(24,world_list_top()+i*26,194,20)){piloting=eye_view=0;visit_creature(&world.creatures[world_list+i]);return;}
         if(inside(24,564,40,30)){world_page(-world_rows());return;}if(inside(178,564,40,30)){world_page(world_rows());return;}
-        if(inside(24,612,194,28)){int result=world_save(embedded_context)?system("download /workspace/blockwalker-world.json"):-1;say(result==0?"World exported with programs and physics state.":"World export failed.");}
+        if(inside(24,612,194,28)){int result=world_save(embedded_context)?system("download /workspace/blockwalker-world.lua"):-1;say(result==0?"World exported with programs and physics state.":"World export failed.");}
         if(inside(24,642,194,28))import_world();
         return;
     }
@@ -476,15 +475,17 @@ static void events(void){
     }
 }
 static void cargo_status(char *text,size_t size){
-    Creature *c=world_find(piloting?world.player:world_follow);int carried=0,magnets=0,powered=0;float mass=0;
+    Creature *c=world_find(piloting?world.player:world_follow);int carried=0,magnets=0,powered=0,grips=0;float mass=0;
     if(!c){text[0]=0;return;}
     if(c->error[0]){snprintf(text,size,"Program stopped");return;}
+    if(!c->cargo&&c->magnet_count){snprintf(text,size,"Held / %d magnet%s",c->magnet_count,c->magnet_count==1?"":"s");return;}
     if(c->fallen>2){snprintf(text,size,"Down / program running");return;}
     for(int i=0;i<world.count;i++){Creature *cargo=&world.creatures[i];if(!cargo->cargo||(cargo!=c&&cargo->held_by!=c->id))continue;
         carried++;for(int j=0;j<cargo->design.count;j++)mass+=cargo->physics.parts[j].mass;}
     if(c->cargo){snprintf(text,size,"%s / %.1f kg",c->delivered?"Delivered":c->parachute?"Parachuting":c->held_by?"Aboard":"Loose cargo",mass);return;}
-    for(int i=0;i<c->design.count;i++)if(c->design.blocks[i].joint==BLOCK_MAGNET){magnets++;powered+=c->physics.parts[i].magnet_power>0;}
+    for(int i=0;i<c->design.count;i++)if(c->design.blocks[i].joint==BLOCK_MAGNET){magnets++;powered+=c->physics.parts[i].magnet_power>0;grips+=b3Body_IsValid(c->physics.parts[i].magnet_target);}
     if(carried)snprintf(text,size,"Cargo %d / %.1f kg",carried,mass);
+    else if(grips)snprintf(text,size,"Holding / %d grip%s",grips,grips==1?"":"s");
     else snprintf(text,size,magnets?(powered?"Magnet on / no cargo":"Magnet off"):"No cargo aboard");
 }
 static void draw_ui(void){
@@ -515,7 +516,7 @@ static void draw_ui(void){
     label(262,647,piloting?text:world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry","Rivals","Red sling","Blue sling"};
+        const char *places[]={"Home","Harbor","East","West","North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry","Yard","Red sling","Blue sling","Channel"};
         for(int i=0;i<world_places();i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,world_list_top()-28,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-world_rows()));
@@ -531,12 +532,12 @@ static void draw_ui(void){
                 label(1036,354,"ISLAND CARGO CUP",17,muted);snprintf(text,sizeof(text),"East %d",world_team_score(1));label(1036,385,text,18,block_colors[world_team_color(1)]);snprintf(text,sizeof(text),"West %d",world_team_score(2));label(1152,385,text,18,block_colors[world_team_color(2)]);
                 Creature *follow=world_find(world_follow);int team=follow?follow->team:0;
                 label(1036,428,team==1?"EAST RADIO":team==2?"WEST RADIO":"TEAM RADIO",17,muted);
-                const char *messages[]={"Spotted","Claimed","Ready","Released"};int shown=0,senders[4];
+                const char *messages[]={"Spotted","Claimed","Ready","Released","Help","Threat"};int shown=0,senders[4];
                 for(int i=world.radio_count-1;i>=0&&shown<4;i--){RadioMessage *message=&world.radio[i];if(team&&message->team!=team)continue;
                     int duplicate=0;for(int j=0;j<shown;j++)duplicate|=senders[j]==message->from;if(duplicate)continue;
                     senders[shown]=message->from;int y=459+shown++*42;
                     snprintf(text,sizeof(text),"%c / %.17s / %.0fs",message->team==1?'E':'W',message->name,world.age-message->time);label(1036,y,text,12,block_colors[world_team_color(message->team)]);
-                    snprintf(text,sizeof(text),"%s #%d / %.1f kg",messages[message->kind],message->cargo,message->mass);label(1036,y+17,text,13,ink);
+                    snprintf(text,sizeof(text),"%s #%d / %.1f kg",messages[message->kind],message->target,message->mass);label(1036,y+17,text,13,ink);
                 }
                 if(!shown)label(1036,459,"No reports yet.",14,muted);
                 label(1036,641,"Heavy 8 pts / light 1 pt",13,muted);
@@ -612,22 +613,22 @@ static void draw_ui(void){
     if(program_open){
         DrawRectangle(254,142,742,470,paper);DrawRectangleLinesEx((Rectangle){254,142,742,470},2,line);
         label(274,164,"EMBEDDED PROGRAM",19,ink);button(650,156,124,32,"Export source",0);if(!world_view)button(786,156,132,32,"Import source",0);button(932,156,44,32,"X",0);
-        JSValue program=world_view&&world_follow?world_creature_program(embedded_context,world_follow):world_program(embedded_context),value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"source"):JS_UNDEFINED;const char *source=JS_IsString(value)?JS_ToCString(embedded_context,value):NULL;int row=0;
+        Value program=world_view&&world_follow?world_creature_program(embedded_context,world_follow):world_program(embedded_context),value=value_is_table(program)?value_get(embedded_context,program,"source"):VALUE_NIL;const char *source=value_is_string(value)?value_text(embedded_context,value):NULL;int row=0;
         if(source)for(const char *p=source;*p;row++){
             char text[87];int n=0;while(*p&&*p!='\n'&&n<86)text[n++]=*p++;text[n]=0;if(*p=='\n')p++;
             if(row>=program_line&&row<program_line+20)label(274,202+(row-program_line)*17,text,14,ink);
         }
-        program_lines=row;if(!source)label(274,202,"No embedded program.",16,muted);JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);
-        value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"hz"):JS_UNDEFINED;
-        if(JS_IsNumber(value)){int hz;JS_ToInt32(embedded_context,&hz,value);snprintf(text,sizeof(text),"%d Hz",hz);label(552,168,text,14,muted);}JS_FreeValue(embedded_context,value);
+        program_lines=row;if(!source)label(274,202,"No embedded program.",16,muted);value_text_free(embedded_context,source);value_free(embedded_context,value);
+        value=value_is_table(program)?value_get(embedded_context,program,"hz"):VALUE_NIL;
+        if(value_is_number(value)){int hz;value_int(embedded_context,&hz,value);snprintf(text,sizeof(text),"%d Hz",hz);label(552,168,text,14,muted);}value_free(embedded_context,value);
         button(274,558,68,34,"<",0);button(908,558,68,34,">",0);
-        value=JS_IsObject(program)?JS_GetPropertyStr(embedded_context,program,"error"):JS_UNDEFINED;source=JS_IsString(value)?JS_ToCString(embedded_context,value):NULL;
+        value=value_is_table(program)?value_get(embedded_context,program,"error"):VALUE_NIL;source=value_is_string(value)?value_text(embedded_context,value):NULL;
         snprintf(text,sizeof(text),"%.63s",source?source:"Saved with the design / import edited source");label(350,568,text,14,source?accent:muted);
-        JS_FreeCString(embedded_context,source);JS_FreeValue(embedded_context,value);JS_FreeValue(embedded_context,program);
+        value_text_free(embedded_context,source);value_free(embedded_context,value);value_free(embedded_context,program);
     }
     if(library_open){
         DrawRectangle(254,142,742,470,paper);DrawRectangleLinesEx((Rectangle){254,142,742,470},2,line);
-        label(274,164,"DESIGN LIBRARY",22,ink);button(520,156,210,32,"Older prototypes",0);button(748,156,164,32,"Save current",0);button(932,156,44,32,"X",0);
+        label(274,164,"DESIGN LIBRARY",22,ink);button(748,156,164,32,"Save current",0);button(932,156,44,32,"X",0);
         library_page=(int)Clamp(library_page,0,world.design_count?((world.design_count-1)/8)*8:0);
         for(int i=0;i<8&&library_page+i<world.design_count;i++){SavedDesign *d=&world.designs[library_page+i];int y=206+i*42;
             snprintf(text,sizeof(text),"%.34s",d->name);label(274,y+8,text,16,ink);
@@ -650,75 +651,81 @@ agent_overlay:
     render_ui_upload();dirty=0;
 }
 static void report(void){
-    FILE *f=fopen("/workspace/blockwalker-last-run.json","w");if(!f)return;
-    fprintf(f,"{\"blocks\":%d,\"physicsSteps\":%d,\"maxSeparation\":%.6f,\"joints\":[",design.count,physics.steps,physics.max_separation);int n=0;
-    for(int i=0;i<design.count;i++)if(block_controlled(design.blocks[i])){Block b=design.blocks[i];fprintf(f,"%s{\"block\":%d,\"negative\":\"%c\",\"positive\":\"%c\",\"axis\":%d,\"motorSteps\":%d,\"peakAngle\":%.6f,\"drivenRadians\":%.6f}",n++?",":"",i,b.negative?b.negative:'-',b.positive?b.positive:'-',b.axis,physics.parts[i].motor_steps,physics.parts[i].angle_peak,physics.parts[i].driven_radians);}
-    fputs("]}\n",f);fclose(f);
+    Data *ctx=data_new(8*1024*1024);if(!ctx)return;Value report=value_table(ctx),joints=value_array(ctx);
+    value_set(ctx,report,"blocks",value_number(ctx,design.count));value_set(ctx,report,"physicsSteps",value_number(ctx,physics.steps));value_set(ctx,report,"maxSeparation",value_number(ctx,physics.max_separation));
+    int n=0;for(int i=0;i<design.count;i++)if(block_controlled(design.blocks[i])){
+        Block b=design.blocks[i];PhysicsPart *p=&physics.parts[i];Value joint=value_table(ctx);
+        const char *keys[]={"block","negative","positive","axis","motorSteps","peakAngle","drivenRadians"};
+        double values[]={i,b.negative,b.positive,b.axis,p->motor_steps,p->angle_peak,p->driven_radians};
+        for(int j=0;j<7;j++)value_set(ctx,joint,keys[j],value_number(ctx,values[j]));value_set_at(ctx,joints,n++,joint);
+    }value_set(ctx,report,"joints",joints);data_write(ctx,report,"/workspace/blockwalker-last-run.lua");value_free(ctx,report);data_close(ctx);
 }
-static JSValue state(JSContext *ctx) {
-    JSValue result=JS_NewObject(ctx),parts=JS_NewArray(ctx);
-    JS_SetPropertyStr(ctx,result,"mode",JS_NewString(ctx,world_view?"world":physics.running?"practice":"builder"));
-    JS_SetPropertyStr(ctx,result,"playerId",JS_NewInt32(ctx,world.player));JS_SetPropertyStr(ctx,result,"piloting",JS_NewBool(ctx,piloting));JS_SetPropertyStr(ctx,result,"eyes",JS_NewBool(ctx,eye_view));
-    Creature *player=world_find(world.player);if(player&&piloting)JS_SetPropertyStr(ctx,result,"driverSensors",physics_sensors(ctx,&player->physics,&player->design,1./60));
-    JS_SetPropertyStr(ctx,result,"steps",JS_NewInt32(ctx,physics.steps));
-    JS_SetPropertyStr(ctx,result,"remaining",JS_NewInt32(ctx,practice_steps));
-    JS_SetPropertyStr(ctx,result,"agentControl",JS_NewBool(ctx,agent_control));
-    JS_SetPropertyStr(ctx,result,"programPlaying",JS_NewBool(ctx,program_trial==2&&agent_control));
-    JS_SetPropertyStr(ctx,result,"anchored",JS_NewBool(ctx,design.anchored));JS_SetPropertyStr(ctx,result,"sea",JS_NewBool(ctx,practice_sea));
-    JS_SetPropertyStr(ctx,result,"maxSeparation",JS_NewFloat64(ctx,physics.max_separation));
-    JSValue camera=JS_NewObject(ctx);const char *camera_keys[]={"x","y","z","yaw","pitch","distance","eyeX","eyeY","eyeZ","upX","upY","upZ","fov"};
+static Value state(Data *ctx) {
+    Value result=value_table(ctx),parts=value_array(ctx);
+    value_set(ctx,result,"mode",value_string(ctx,world_view?"world":physics.running?"practice":"builder"));
+    value_set(ctx,result,"playerId",value_number(ctx,world.player));value_set(ctx,result,"piloting",value_bool(ctx,piloting));value_set(ctx,result,"eyes",value_bool(ctx,eye_view));
+    Creature *player=world_find(world.player);if(player&&piloting)value_set(ctx,result,"driverSensors",physics_sensors(ctx,&player->physics,&player->design,1./60));
+    value_set(ctx,result,"steps",value_number(ctx,physics.steps));
+    value_set(ctx,result,"remaining",value_number(ctx,practice_steps));
+    value_set(ctx,result,"agentControl",value_bool(ctx,agent_control));
+    value_set(ctx,result,"programPlaying",value_bool(ctx,program_trial==2&&agent_control));
+    value_set(ctx,result,"anchored",value_bool(ctx,design.anchored));value_set(ctx,result,"sea",value_bool(ctx,practice_sea));
+    value_set(ctx,result,"maxSeparation",value_number(ctx,physics.max_separation));
+    Value camera=value_table(ctx);const char *camera_keys[]={"x","y","z","yaw","pitch","distance","eyeX","eyeY","eyeZ","upX","upY","upZ","fov"};
     double camera_values[]={orbit.target.x,orbit.target.y,orbit.target.z,orbit.yaw,orbit.pitch,orbit.distance,orbit.eye.x,orbit.eye.y,orbit.eye.z,orbit.up.x,orbit.up.y,orbit.up.z,orbit.fov};
-    for(int i=0;i<13;i++)JS_SetPropertyStr(ctx,camera,camera_keys[i],JS_NewFloat64(ctx,camera_values[i]));
-    JS_SetPropertyStr(ctx,camera,"follow",JS_NewInt32(ctx,world_view?world_follow:0));
-    JS_SetPropertyStr(ctx,result,"camera",camera);
-    JSValue view=JS_NewObject(ctx);const char *view_keys[]={"x","y","width","height","focused","agentPanel"};
+    for(int i=0;i<13;i++)value_set(ctx,camera,camera_keys[i],value_number(ctx,camera_values[i]));
+    value_set(ctx,camera,"follow",value_number(ctx,world_view?world_follow:0));
+    value_set(ctx,result,"camera",camera);
+    Value view=value_table(ctx);const char *view_keys[]={"x","y","width","height","focused","agentPanel"};
     int view_values[]={render_view.x,render_view.y,render_view.width,render_view.height,focus_view,agent_panel};
-    for(int i=0;i<6;i++)JS_SetPropertyStr(ctx,view,view_keys[i],JS_NewInt32(ctx,view_values[i]));JS_SetPropertyStr(ctx,result,"view",view);
+    for(int i=0;i<6;i++)value_set(ctx,view,view_keys[i],value_number(ctx,view_values[i]));value_set(ctx,result,"view",view);
     if(physics.running&&design.count){
-        JS_SetPropertyStr(ctx,result,"sensors",physics_sensors(ctx,&physics,&design,1./60));
+        value_set(ctx,result,"sensors",physics_sensors(ctx,&physics,&design,1./60));
         Vector3 position;Quaternion rotation;physics_pose(&physics,&design,0,&position,&rotation);
         b3Vec3 velocity=physics_velocity(&physics.parts[0]);
-        JS_SetPropertyStr(ctx,result,"distance",JS_NewFloat64(ctx,hypotf(position.x-physics.start.x,position.z-physics.start.z)));
-        JS_SetPropertyStr(ctx,result,"speed",JS_NewFloat64(ctx,hypotf(velocity.x,velocity.z)));
-        JS_SetPropertyStr(ctx,result,"up",JS_NewFloat64(ctx,Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y));
+        value_set(ctx,result,"distance",value_number(ctx,hypotf(position.x-physics.start.x,position.z-physics.start.z)));
+        value_set(ctx,result,"speed",value_number(ctx,hypotf(velocity.x,velocity.z)));
+        value_set(ctx,result,"up",value_number(ctx,Vector3RotateByQuaternion((Vector3){0,1,0},rotation).y));
     }
     for(int i=0;i<design.count;i++){
-        Block b=design.blocks[i];JSValue part=JS_NewObject(ctx);Vector3 v;Quaternion q;physics_pose(&physics,&design,i,&v,&q);
+        Block b=design.blocks[i];Value part=value_table(ctx);Vector3 v;Quaternion q;physics_pose(&physics,&design,i,&v,&q);
         const char *names[]={"x","y","z","parent","joint","color","axis","negative","positive"};
         const int values[]={b.x,b.y,b.z,b.parent,b.joint,b.color,b.axis,b.negative,b.positive};
-        for(int j=0;j<9;j++)JS_SetPropertyStr(ctx,part,names[j],JS_NewInt32(ctx,values[j]));
-        JS_SetPropertyStr(ctx,part,"speed",JS_NewFloat64(ctx,b.speed));JS_SetPropertyStr(ctx,part,"limit",JS_NewFloat64(ctx,b.limit));JS_SetPropertyStr(ctx,part,"travel",JS_NewFloat64(ctx,b.travel));JS_SetPropertyStr(ctx,part,"force",JS_NewFloat64(ctx,b.force));JS_SetPropertyStr(ctx,part,"direction",JS_NewInt32(ctx,b.direction));
-        JS_SetPropertyStr(ctx,part,"size",JS_NewInt32(ctx,block_size(b)));JS_SetPropertyStr(ctx,part,"material",JS_NewInt32(ctx,b.material));JS_SetPropertyStr(ctx,part,"finish",JS_NewInt32(ctx,b.finish));
-        JSValue pose=JS_NewArray(ctx);float values3[]={v.x,v.y,v.z,q.x,q.y,q.z,q.w};
-        for(int j=0;j<7;j++)JS_SetPropertyUint32(ctx,pose,j,JS_NewFloat64(ctx,values3[j]));
-        JS_SetPropertyStr(ctx,part,"pose",pose);
-        if(physics.running){JS_SetPropertyStr(ctx,part,"angle",JS_NewFloat64(ctx,physics.parts[i].angle));JS_SetPropertyStr(ctx,part,"command",JS_NewFloat64(ctx,physics.parts[i].command));}
-        JS_SetPropertyUint32(ctx,parts,i,part);
+        for(int j=0;j<9;j++)value_set(ctx,part,names[j],value_number(ctx,values[j]));
+        value_set(ctx,part,"speed",value_number(ctx,b.speed));value_set(ctx,part,"limit",value_number(ctx,b.limit));value_set(ctx,part,"travel",value_number(ctx,b.travel));value_set(ctx,part,"force",value_number(ctx,b.force));value_set(ctx,part,"direction",value_number(ctx,b.direction));
+        value_set(ctx,part,"size",value_number(ctx,block_size(b)));value_set(ctx,part,"material",value_number(ctx,b.material));value_set(ctx,part,"finish",value_number(ctx,b.finish));
+        Value pose=value_array(ctx);float values3[]={v.x,v.y,v.z,q.x,q.y,q.z,q.w};
+        for(int j=0;j<7;j++)value_set_at(ctx,pose,j,value_number(ctx,values3[j]));
+        value_set(ctx,part,"pose",pose);
+        if(physics.running){value_set(ctx,part,"angle",value_number(ctx,physics.parts[i].angle));value_set(ctx,part,"command",value_number(ctx,physics.parts[i].command));}
+        value_set_at(ctx,parts,i,part);
     }
-    JSValue cargo=JS_NewArray(ctx);
+    Value cargo=value_array(ctx);
     for(int i=0;i<physics.cargo_count;i++){
-        b3Pos p=b3Body_GetPosition(physics.cargo[i].body);JSValue item=JS_NewObject(ctx);
-        JS_SetPropertyStr(ctx,item,"x",JS_NewFloat64(ctx,p.x));JS_SetPropertyStr(ctx,item,"y",JS_NewFloat64(ctx,p.y));JS_SetPropertyStr(ctx,item,"z",JS_NewFloat64(ctx,p.z));JS_SetPropertyStr(ctx,item,"material",JS_NewInt32(ctx,physics.cargo[i].block.material));JS_SetPropertyUint32(ctx,cargo,i,item);
-    }JS_SetPropertyStr(ctx,result,"cargo",cargo);JS_SetPropertyStr(ctx,result,"parts",parts);return result;
+        b3Pos p=b3Body_GetPosition(physics.cargo[i].body);Value item=value_table(ctx);
+        value_set(ctx,item,"x",value_number(ctx,p.x));value_set(ctx,item,"y",value_number(ctx,p.y));value_set(ctx,item,"z",value_number(ctx,p.z));value_set(ctx,item,"material",value_number(ctx,physics.cargo[i].block.material));value_set_at(ctx,cargo,i,item);
+    }value_set(ctx,result,"cargo",cargo);value_set(ctx,result,"parts",parts);return result;
 }
-static int number(JSContext *ctx,JSValueConst object,const char *name,int fallback) {
-    JSValue v=JS_GetPropertyStr(ctx,object,name);int result=fallback;
-    if(!JS_IsUndefined(v)&&JS_ToInt32(ctx,&result,v)<0)result=fallback;JS_FreeValue(ctx,v);return result;
+static int number(Data *ctx,Value object,const char *name,int fallback) {
+    Value v=value_get(ctx,object,name);int result=fallback;
+    if(!value_is_nil(v)&&value_int(ctx,&result,v)<0)result=fallback;value_free(ctx,v);return result;
 }
-static double real(JSContext *ctx,JSValueConst object,const char *name,double fallback) {
-    JSValue v=JS_GetPropertyStr(ctx,object,name);double result=fallback;
-    if(!JS_IsUndefined(v)&&JS_ToFloat64(ctx,&result,v)<0)result=fallback;JS_FreeValue(ctx,v);return result;
+static double real(Data *ctx,Value object,const char *name,double fallback) {
+    Value v=value_get(ctx,object,name);double result=fallback;
+    if(!value_is_nil(v)&&value_double(ctx,&result,v)<0)result=fallback;value_free(ctx,v);return result;
 }
 static void log_text(const char *text) {
     size_t n=strlen(text),used=strlen(agent_log);if(n>=sizeof(agent_log)) {text+=n-sizeof(agent_log)+1;n=sizeof(agent_log)-1;}
     if(used+n>=sizeof(agent_log)){size_t drop=used+n-sizeof(agent_log)+1;memmove(agent_log,agent_log+drop,used-drop+1);used-=drop;}
     memcpy(agent_log+used,text,n+1);dirty=1;
 }
-static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv) {
-    if(!argc)return JS_ThrowTypeError(ctx,"Game operation required");
-    const char *op=JS_ToCString(ctx,argv[0]);if(!op)return JS_EXCEPTION;
-    JSValueConst args=argc>1?argv[1]:JS_UNDEFINED;JSValue result=JS_UNDEFINED;
+static Value game_call(Data *ctx,Value self,int argc,Value *argv) {
+    if(!argc)return value_error(ctx,"Game operation required");
+    const char *op=value_text(ctx,argv[0]);if(!op)return VALUE_ERROR;
+    Value args=argc>1?argv[1]:VALUE_NIL;Value result=VALUE_NIL;
     if(!strcmp(op,"state"))result=state(ctx);
+    else if(!strcmp(op,"encode_data")){size_t size;char *text=data_dump(ctx,args,&size);result=text?value_string_n(ctx,text,size):value_error(ctx,"Could not encode Lua data");free(text);}
+    else if(!strcmp(op,"decode_data")){size_t size;const char *text=value_text_n(ctx,&size,args);result=text?data_parse(ctx,text,size,"Pi data"):value_error(ctx,"Lua data must be text");value_text_free(ctx,text);}
     else if(!strcmp(op,"enter_world")){enter_world();result=state(ctx);}
     else if(!strcmp(op,"world"))result=world_state(ctx);
     else if(!strcmp(op,"designs"))result=world_designs(ctx,0);
@@ -726,64 +733,64 @@ static JSValue game_call(JSContext *ctx,JSValueConst self,int argc,JSValueConst 
     else if(!strcmp(op,"installed_program"))result=world_program(ctx);
     else if(!strcmp(op,"open_design")){
         int index=number(ctx,args,"id",0)-1;result=open_design(ctx,index);
-        if(!JS_IsException(result)){result=state(ctx);const char *source=world.designs[index].source;JS_SetPropertyStr(ctx,result,"source",source?JS_NewString(ctx,source):JS_NULL);}
+        if(!value_is_error(result)){result=state(ctx);const char *source=world.designs[index].source;value_set(ctx,result,"source",source?value_string(ctx,source):VALUE_NULL);}
     }
-    else if(!strcmp(op,"install")){result=world_install(ctx,args);if(!JS_IsException(result))world_save(ctx);}
-    else if(!strcmp(op,"spawn")){result=world_release(ctx,&design,args);if(!JS_IsException(result)){world_save(ctx);dirty=1;}}
+    else if(!strcmp(op,"install")){result=world_install(ctx,args);if(!value_is_error(result))world_save(ctx);}
+    else if(!strcmp(op,"spawn")){result=world_release(ctx,&design,args);if(!value_is_error(result)){world_save(ctx);dirty=1;}}
     else if(!strcmp(op,"cargo")){
         int shared=number(ctx,args,"world",0),material=number(ctx,args,"material",MATERIAL_ALLOY);double x=real(ctx,args,"x",0),z=real(ctx,args,"z",0);
         double y=real(ctx,args,"y",(shared||physics.landscape?fmaxf(terrain_height(x,z),WATER_LEVEL):0)+.65f);
-        if(!isfinite(x)||!isfinite(y)||!isfinite(z)||fabs(x)>248||fabs(z)>248||y< -12||y>128||material<0||material>=MATERIAL_COUNT)result=JS_ThrowRangeError(ctx,"Cargo requires finite coordinates inside the world and a valid material");
-        else if(shared){int id=world_drop_cargo(x,y,z,material);world_save(ctx);result=JS_NewInt32(ctx,id);dirty=1;}
-        else if(!physics.running)result=JS_ThrowTypeError(ctx,"Reset practice before dropping cargo, or use world:true");
+        if(!isfinite(x)||!isfinite(y)||!isfinite(z)||fabs(x)>248||fabs(z)>248||y< -12||y>128||material<0||material>=MATERIAL_COUNT)result=value_error(ctx,"Cargo requires finite coordinates inside the world and a valid material");
+        else if(shared){int id=world_drop_cargo(x,y,z,material);world_save(ctx);result=value_number(ctx,id);dirty=1;}
+        else if(!physics.running)result=value_error(ctx,"Reset practice before dropping cargo, or use world:true");
         else{physics_add_cargo(&physics,(Vector3){x,y,z},material);result=state(ctx);dirty=1;}
     }
-    else if(!strcmp(op,"watch"))set_world_view(JS_ToBool(ctx,args));
+    else if(!strcmp(op,"watch"))set_world_view(value_truth(ctx,args));
     else if(!strcmp(op,"save"))world_save(ctx);
     else if(!strcmp(op,"snapshot")) {
         if(dirty)draw_ui();int bytes;unsigned char *png=world_view?render_capture_world(&orbit,&bytes):render_capture(&design,&physics,&orbit,&bytes);
-        result=png?JS_NewArrayBufferCopy(ctx,png,bytes):JS_ThrowInternalError(ctx,"GPU frame capture failed");MemFree(png);
+        result=png?value_bytes(ctx,png,bytes):value_error(ctx,"GPU frame capture failed");MemFree(png);
     }else if(!strcmp(op,"build")) {
-        JSValue list=JS_GetPropertyStr(ctx,args,"parts");Character next={0};
-        if(!character_from_json(ctx,list,&next))result=JS_ThrowTypeError(ctx,"Invalid blueprint: connect adjacent blocks, keep keys and cells unique, and leave thruster exhausts open");
-        else {JSValue anchored=JS_GetPropertyStr(ctx,args,"anchored");next.anchored=JS_ToBool(ctx,anchored);JS_FreeValue(ctx,anchored);world_trial_stop();program_trial=0;physics_stop(&physics);set_world_view(0);practice_steps=0;remember();character_copy(&design,&next);selected=0;home_camera();changed();result=state(ctx);}
-        character_clear(&next);JS_FreeValue(ctx,list);
+        Value list=value_get(ctx,args,"parts");Character next={0};
+        if(!character_from_data(ctx,list,&next))result=value_error(ctx,"Invalid blueprint: connect adjacent blocks, keep keys and cells unique, and leave thruster exhausts open");
+        else {Value anchored=value_get(ctx,args,"anchored");next.anchored=value_truth(ctx,anchored);value_free(ctx,anchored);world_trial_stop();program_trial=0;physics_stop(&physics);set_world_view(0);practice_steps=0;remember();character_copy(&design,&next);selected=0;home_camera();changed();result=state(ctx);}
+        character_clear(&next);value_free(ctx,list);
     }else if(!strcmp(op,"reset")){practice_sea=number(ctx,args,"sea",practice_sea)!=0;start_test();agent_control=1;practice_steps=0;memset(agent_keys,0,128);result=state(ctx);}
     else if(!strcmp(op,"advance")) {
-        int steps=number(ctx,args,"steps",0);JSValue v=JS_GetPropertyStr(ctx,args,"keys");const char *pressed=JS_ToCString(ctx,v);
-        if(!physics.running||!agent_control||steps<1||steps>600)result=JS_ThrowRangeError(ctx,"Reset practice first; take agent control; advance 1..600 physics steps");
+        int steps=number(ctx,args,"steps",0);Value v=value_get(ctx,args,"keys");const char *pressed=value_text(ctx,v);
+        if(!physics.running||!agent_control||steps<1||steps>600)result=value_error(ctx,"Reset practice first; take agent control; advance 1..600 physics steps");
         else if(pressed){
             unsigned char next[128]={0};int valid=1;
             for(const char *s=pressed;*s;s++){int key=toupper((unsigned char)*s),bound=0;
                 for(int i=1;i<design.count;i++)if(block_controlled(design.blocks[i])&&(design.blocks[i].negative==key||design.blocks[i].positive==key))bound=1;
                 if(key>=128||!bound){valid=0;break;}next[key]=1;
             }
-            if(!valid)result=JS_ThrowTypeError(ctx,"Only assigned joint keys may be held");
+            if(!valid)result=value_error(ctx,"Only assigned joint keys may be held");
             else {world_trial_stop();program_trial=0;memcpy(agent_keys,next,128);practice_steps=steps;dirty=1;}
         }
-        JS_FreeCString(ctx,pressed);JS_FreeValue(ctx,v);
+        value_text_free(ctx,pressed);value_free(ctx,v);
     }else if(!strcmp(op,"program_trial")){
         int steps=number(ctx,args,"steps",0);
-        if(!design.count||steps<1||steps>18000)result=JS_ThrowRangeError(ctx,"Build a character; program trial requires 1..18000 steps");
-        else{practice_sea=number(ctx,args,"sea",practice_sea)!=0;start_test();if(!world_trial_begin(&physics))result=JS_ThrowTypeError(ctx,"Install a valid controller first");else{agent_control=1;program_trial=1;practice_steps=steps;memset(agent_keys,0,128);dirty=1;}}
+        if(!design.count||steps<1||steps>18000)result=value_error(ctx,"Build a character; program trial requires 1..18000 steps");
+        else{practice_sea=number(ctx,args,"sea",practice_sea)!=0;start_test();if(!world_trial_begin(&physics))result=value_error(ctx,"Install a valid controller first");else{agent_control=1;program_trial=1;practice_steps=steps;memset(agent_keys,0,128);dirty=1;}}
     }else if(!strcmp(op,"release")){memset(agent_keys,0,128);practice_steps=0;dirty=1;}
     else if(!strcmp(op,"camera")) {
         double yaw=real(ctx,args,"yaw",orbit.yaw),pitch=real(ctx,args,"pitch",orbit.pitch),distance=real(ctx,args,"distance",orbit.distance);
         double x=real(ctx,args,"x",orbit.target.x),y=real(ctx,args,"y",orbit.target.y),z=real(ctx,args,"z",orbit.target.z);
-        if(!isfinite(yaw)||!isfinite(pitch)||!isfinite(distance)||!isfinite(x)||!isfinite(y)||!isfinite(z))result=JS_ThrowRangeError(ctx,"Camera coordinates must be finite");
+        if(!isfinite(yaw)||!isfinite(pitch)||!isfinite(distance)||!isfinite(x)||!isfinite(y)||!isfinite(z))result=value_error(ctx,"Camera coordinates must be finite");
         else {world_follow=eye_view=0;orbit.yaw=yaw;orbit.pitch=Clamp(pitch,-1.5f,1.5f);orbit.distance=Clamp(distance,3,512);orbit.target=(Vector3){Clamp(x,-512,512),Clamp(y,-64,128),Clamp(z,-512,512)};orbit_update(&orbit);dirty=1;}
-    }else if(!strcmp(op,"log")) {const char *s=JS_ToCString(ctx,args);if(s){log_text(s);JS_FreeCString(ctx,s);}}
-    else if(!strcmp(op,"enabled")){result=JS_NewBool(ctx,agent_enabled);}
-    else if(!strcmp(op,"enable")){agent_enabled=!proxy_pending&&JS_ToBool(ctx,args);agent_control=agent_enabled;if(agent_enabled)agent_panel=1;layout();}
-    else if(!strcmp(op,"proxy_import")){result=proxy_pending?JS_NewString(ctx,proxy_import_path):JS_NULL;}
-    else if(!strcmp(op,"proxy_import_done")){proxy_pending=0;const char *s=JS_ToCString(ctx,args);if(s){say(s);log_text("\n");log_text(s);log_text("\n");JS_FreeCString(ctx,s);}}
-    else if(!strcmp(op,"prompt")){result=JS_NewString(ctx,pending_prompt);pending_prompt[0]=0;}
+    }else if(!strcmp(op,"log")) {const char *s=value_text(ctx,args);if(s){log_text(s);value_text_free(ctx,s);}}
+    else if(!strcmp(op,"enabled")){result=value_bool(ctx,agent_enabled);}
+    else if(!strcmp(op,"enable")){agent_enabled=!proxy_pending&&value_truth(ctx,args);agent_control=agent_enabled;if(agent_enabled)agent_panel=1;layout();}
+    else if(!strcmp(op,"proxy_import")){result=proxy_pending?value_string(ctx,proxy_import_path):VALUE_NULL;}
+    else if(!strcmp(op,"proxy_import_done")){proxy_pending=0;const char *s=value_text(ctx,args);if(s){say(s);log_text("\n");log_text(s);log_text("\n");value_text_free(ctx,s);}}
+    else if(!strcmp(op,"prompt")){result=value_string(ctx,pending_prompt);pending_prompt[0]=0;}
     else if(!strcmp(op,"exit")){stopping=1;}
-    else result=JS_ThrowTypeError(ctx,"Unknown Game operation: %s",op);
-    JS_FreeCString(ctx,op);return result;
+    else result=value_error(ctx,"Unknown Game operation: %s",op);
+    value_text_free(ctx,op);return result;
 }
-static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv) {
-    double now=seconds(),dt=fmin(now-last_frame,.1);last_frame=now;events();if(stopping)return JS_FALSE;move_camera(dt);
+static Value game_frame(Data *ctx,Value self,int argc,Value *argv) {
+    double now=seconds(),dt=fmin(now-last_frame,.1);last_frame=now;events();if(stopping)return VALUE_FALSE;move_camera(dt);
     world.driving=piloting;memset(world.input,0,sizeof(world.input));
     if((!piloting&&program_trial!=2)||prompt_focus||program_open||library_open)memset(world.pressed,0,sizeof(world.pressed));
     if((piloting||(program_trial==2&&agent_control))&&!prompt_focus&&!program_open&&!library_open)memcpy(world.input,keys,sizeof(keys));
@@ -806,16 +813,14 @@ static JSValue game_frame(JSContext *ctx,JSValueConst self,int argc,JSValueConst
     }else accumulator=0;
     if(now-updated>1){fps=frame_count/(now-updated);updated=now;frame_count=0;dirty=1;}frame_count++;
     if(dirty)draw_ui();Block ghost,*preview=NULL;if(!physics.running&&tool==ADD&&in_view()&&candidate(&ghost))preview=&ghost;
-    if(world_view)render_world(&orbit);else render_frame(&design,&physics,&orbit,selected,hover,preview);return JS_TRUE;
+    if(world_view)render_world(&orbit);else render_frame(&design,&physics,&orbit,selected,hover,preview);return VALUE_TRUE;
 }
-static int game_initialize(JSContext *ctx) {
+static int game_initialize(Data *ctx) {
     embedded_context=ctx;world_load(ctx);
-    JSValue program=world_program(ctx);if(JS_IsNull(program))install_program_file("/usr/src/dolly/blockwalker/driver.js","Keyboard driver");JS_FreeValue(ctx,program);
-    JSValue global=JS_GetGlobalObject(ctx),game=JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx,game,"call",JS_NewCFunction(ctx,game_call,"call",2));
-    JS_SetPropertyStr(ctx,game,"frame",JS_NewCFunction(ctx,game_frame,"frame",0));
-    int result=JS_SetPropertyStr(ctx,global,"Game",game);JS_FreeValue(ctx,global);return result<0?-1:0;
+    Value program=world_program(ctx);if(value_is_null(program))install_program_file("/usr/src/dolly/blockwalker/driver.lua","Keyboard driver");value_free(ctx,program);
+    return 0;
 }
+
 int main(int argc,char **argv){
     if(argc==2&&!strcmp(argv[1],"--check"))return character_check();
     int integration=argc==2&&!strcmp(argv[1],"--integration-check");
@@ -824,6 +829,6 @@ int main(int argc,char **argv){
     selected=design.count?0:-1;home_camera();if(render_open(&surface)<0)return 1;
     printf("Blockwalker: C game, raylib UI, Box3D physics, WebGPU rendering, embedded Pi.\n");
     last_frame=updated=seconds();
-    int result=dolly_quickjs_embed(1,argv,integration?"/usr/src/dolly/blockwalker/check.mjs":"/usr/src/dolly/blockwalker/agent.mjs",game_initialize);
+    int result=pi_run(1,argv,integration,game_initialize,game_call,game_frame);
     if(physics.running)report();character_save(&design,"/workspace/blockwalker.character");physics_stop(&physics);world_close();render_close();dolly_display_release(surface.generation);character_clear(&design);for(int i=0;i<undo_count;i++)character_clear(&undo[i]);return result;
 }

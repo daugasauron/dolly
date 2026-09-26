@@ -39,6 +39,7 @@
 
 #include "dolly-kernel-plugin-abi-digest.h"
 #include "dolly-process-abi-digest.h"
+#include "dolly-threads-abi-digest.h"
 
 LLD_HAS_DRIVER(wasm)
 
@@ -75,6 +76,7 @@ struct DriverOptions {
   bool link_cxx_runtime = false;
   bool standard_selected = false;
   bool unsigned_char = false;
+  bool pthread = false;
   DebugInfoKind debug_info = DebugInfoKind::None;
   std::string output;
   std::string forced_language;
@@ -334,9 +336,10 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       // Dolly has one fixed wasm64 target. CPython sysconfig retains these
       // ordinary Emscripten driver assertions; accepting them cannot switch
       // pointer width or enable a browser capability.
-    } else if (argument == "-fPIC" || argument == "-fpic" ||
-               argument == "-pthread" || argument == "-pipe") {
-      // Dolly objects are always PIC and the version-0 runtime is serialized.
+    } else if (argument == "-pthread") {
+      options.pthread = true;
+    } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-pipe") {
+      // Dolly objects are always PIC.
     } else if (argument == "-fdiagnostics-color=always") {
       options.frontend_options.push_back("-fcolor-diagnostics");
     } else if (argument == "-fdiagnostics-color=never") {
@@ -494,6 +497,9 @@ bool run_frontend(const std::string &source, const std::string &language,
         "-mconstructor-aliases",
     });
   }
+  if (options.pthread) arguments.insert(arguments.end(), {
+      "-pthread", "-D__EMSCRIPTEN_PTHREADS__=1", "-D__EMSCRIPTEN_SHARED_MEMORY__=1",
+  });
   arguments.insert(arguments.end(), {
       "-target-cpu", "generic",
       "-target-feature", "+mutable-globals",
@@ -679,7 +685,8 @@ bool link_process_executable(const std::string &output,
                              const std::vector<std::string> &linker_options,
                              bool needs_cxx_runtime,
                              bool export_dynamic,
-                             bool strip_debug) {
+                             bool strip_debug, bool pthread) {
+  const std::string sysroot = std::string(kProcessSysroot) + (pthread ? "/threads" : "");
   std::vector<std::string> arguments = {
       "wasm-ld",
       "-o", output,
@@ -706,6 +713,7 @@ bool link_process_executable(const std::string &output,
   };
   arguments.push_back(export_dynamic ? "--export-dynamic"
                                      : "--no-export-dynamic");
+  if (pthread) arguments.push_back("--export=dolly_thread_start");
   if (strip_debug) arguments.push_back("--strip-debug");
   if (export_dynamic) {
     auto symbols = llvm::MemoryBuffer::getFile(
@@ -735,12 +743,18 @@ bool link_process_executable(const std::string &output,
   arguments.insert(arguments.end(), inputs.begin(), inputs.end());
   arguments.insert(arguments.end(), {
       "--whole-archive",
-      std::string(kProcessSysroot) + "/libdolly-process.a",
+      sysroot + "/libdolly-process.a",
       "--no-whole-archive",
-      std::string(kProcessSysroot) + "/crt1.o",
+      sysroot + "/crt1.o",
+      "-L" + sysroot,
       "-L" + std::string(kProcessSysroot),
+      "-ldolly-runtime", "-ldolly-http", "-ldolly-display", "-ldolly-download", "-ldolly-upload",
   });
-  arguments.insert(arguments.end(), {
+  if (pthread) arguments.insert(arguments.end(), {
+      "-ldolly-threads", "-lstandalonewasm-mt-memgrow", "-lstubs", "-lc-mt",
+      "-ldlmalloc-mt", "-lclang_rt.builtins-wasmsjlj-mt",
+  });
+  else arguments.insert(arguments.end(), {
       "-lstandalonewasm-ww-memgrow",
       "-lstubs",
       "-lc-ww",
@@ -753,11 +767,11 @@ bool link_process_executable(const std::string &output,
     // archive definition an explicit export root even when the executable
     // itself is C (CPython is).
     arguments.insert(arguments.end(), {
-        "-lc++-ww-wasmexcept",
-        "-lc++abi-ww-wasmexcept",
+        pthread ? "-lc++-mt-wasmexcept" : "-lc++-ww-wasmexcept",
+        pthread ? "-lc++abi-mt-wasmexcept" : "-lc++abi-ww-wasmexcept",
     });
   }
-  arguments.push_back("-lunwind-ww-wasmexcept");
+  arguments.push_back(pthread ? "-lunwind-mt-wasmexcept" : "-lunwind-ww-wasmexcept");
   arguments.insert(arguments.end(), linker_options.begin(), linker_options.end());
   arguments.insert(arguments.end(), {
       "-mwasm64",
@@ -1832,6 +1846,10 @@ int compile_only(const DriverOptions &options, int default_language,
 
 int compile_and_link(const DriverOptions &options, int default_language,
                      unsigned long long job) {
+  if (options.pthread && (options.shared_library || options.kernel_plugin || options.export_dynamic)) {
+    std::fputs("dolly-cc: -pthread requires a static process; shared libraries and -rdynamic are unsupported\n", stderr);
+    return 64;
+  }
   if (options.kernel_plugin &&
       !options.shared_library) {
     std::fputs(
@@ -1890,7 +1908,7 @@ int compile_and_link(const DriverOptions &options, int default_language,
                                        options.linker_options,
                                        needs_cxx_runtime,
                                        options.export_dynamic,
-                                       options.debug_info == DebugInfoKind::None));
+                                       options.debug_info == DebugInfoKind::None, options.pthread));
   if (!linked_ok) {
     std::fprintf(stderr, "dolly-cc: link failed: %s\n", output.c_str());
     cleanup(temporary_objects);
@@ -1907,7 +1925,9 @@ int compile_and_link(const DriverOptions &options, int default_language,
       ? stamp_kernel_plugin(linked)
       : (options.shared_library ? stamp_process_shared_object(linked)
                                 : stamp_process_executable(linked)));
-  const bool published = stamped &&
+  const bool thread_stamped = !options.pthread || (stamped && append_custom_section(
+      linked, "dolly.threads", DOLLY_THREADS_ABI_DIGEST, sizeof(DOLLY_THREADS_ABI_DIGEST)));
+  const bool published = stamped && thread_stamped &&
       (options.kernel_plugin
            ? (validate_shared_object(linked, kKernelContractPath) &&
               has_kernel_plugin_stamp(linked))

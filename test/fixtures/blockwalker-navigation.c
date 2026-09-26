@@ -1,23 +1,23 @@
 #include "world.c"
 #include <assert.h>
 
-static void walker(JSContext *ctx,float x){
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+static void walker(Data *ctx,float x){
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
-        int match=name&&!strcmp(name,"Amberguard / heavy walker");JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);
-        if(match){put_number(ctx,item,"x",x);put_number(ctx,item,"z",-14);JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));}
-        JS_FreeValue(ctx,item);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
+        int match=name&&!strcmp(name,"Amberguard / heavy walker");value_text_free(ctx,name);value_free(ctx,label);
+        if(match){put_number(ctx,item,"x",x);put_number(ctx,item,"z",-14);value_set_at(ctx,selected,0,value_copy(ctx,item));}
+        value_free(ctx,item);
     }
-    terrain_select(1);load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);
+    terrain_select(1);load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1);
     world.next_parcel=world.next_ore=100000;
 }
 int main(void){
-    JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);
+    Data *ctx=data_new(256*1024*1024);
     for(int side=-1;side<=1;side+=2){
         walker(ctx,side*77);int flight[4]={0},planted[4]={0},steps[4]={0},reloads=0;b3Pos previous[4]={{0}},takeoff[4]={{0}};float min_up=1,separation=0;double distance=INFINITY;
         for(int tick=0;tick<300*60;tick++){
-            if(tick==60){Controller *c=world_find(1)->controller;put_number(c->ctx,c->memory,"x",side*17);put_number(c->ctx,c->memory,"z",-14);JS_SetPropertyStr(c->ctx,c->memory,"goal",JS_UNDEFINED);}
+            if(tick==60){Controller *c=world_find(1)->controller;put_number(c->ctx,c->memory,"x",side*17);put_number(c->ctx,c->memory,"z",-14);value_set(c->ctx,c->memory,"goal",VALUE_NIL);}
             world_step();Creature *c=world_find(1);if(!c)break;b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);distance=hypot(p.x-side*17,p.z+14);min_up=fminf(min_up,b3RotateVector(b3Body_GetRotation(c->physics.parts[0].body),b3Vec3_axisY).y);separation=fmaxf(separation,c->physics.max_separation);
             if(tick%6==0)for(int leg=0;leg<4;leg++){
                 const int tips[]={12,16,22,26};float bottom=INFINITY,support=0;b3Pos center={0};
@@ -35,5 +35,5 @@ int main(void){
         assert(distance<30&&min_up>.9f&&separation<.2f&&reloads==2&&!world.deaths);for(int leg=0;leg<4;leg++)assert(steps[leg]>10);
         world_close();
     }
-    JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    data_close(ctx);return 0;
 }

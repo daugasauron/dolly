@@ -224,7 +224,7 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   assert.equal(bootstrap.slops.length, 0);
   assert.deepEqual(
     bootstrap.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name),
-    ["libc", "toolchain", "runtime", "process", "http", "display", "download"],
+    ["libc", "toolchain", "runtime", "process", "http", "display", "download", "host", "host-abi", "gpu", "gpu-abi", "upload", "snapshot", "threads", "threads-abi"],
   );
   const tools = bootstrap.exports.filter(({ type }) => type === "TOOL");
   assert.deepEqual(
@@ -524,7 +524,7 @@ test("compiled modules declare their direct C header surfaces", async () => {
   assert.deepEqual(exportedHeaders("zlib"), ["zlib", "zconf"]);
   assert.deepEqual(exportedHeaders("libffi"), ["ffi", "ffitarget"]);
   assert.deepEqual(exportedHeaders("curl"), ["curl"]);
-  assert.deepEqual(exportedHeaders("quickjs"), ["quickjs-runner"]);
+  assert.deepEqual(exportedHeaders("quickjs"), ["quickjs-runner", "quickjs"]);
   assert.deepEqual(exportedHeaders("ghostty"), ["ghostty-vt"]);
   assert.deepEqual(exportedHeaders("gamedev-sdk"), ["raylib", "box3d", "dolly-raylib"]);
 

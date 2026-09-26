@@ -218,7 +218,7 @@ static bool block_contact_filter(b3ShapeId a,b3ShapeId b,void *context){
     return !(left->mount>=0&&parts+left->mount==right)&&!(right->mount>=0&&parts+right->mount==left);
 }
 b3WorldId physics_world(int landscape) {
-    b3WorldDef w=b3DefaultWorldDef();w.workerCount=1;w.gravity=(b3Vec3){0,-4,0};b3WorldId world=b3CreateWorld(&w);b3World_SetCustomFilterCallback(world,block_contact_filter,NULL);
+    b3WorldDef w=b3DefaultWorldDef();w.workerCount=landscape?4:1;w.gravity=(b3Vec3){0,-4,0};b3WorldId world=b3CreateWorld(&w);b3World_SetCustomFilterCallback(world,block_contact_filter,NULL);
     if(landscape){terrain_build(world);return world;}
     b3BodyDef floor=b3DefaultBodyDef();floor.position=(b3Pos){0,-.5f,0};
     b3BodyId ground=b3CreateBody(world,&floor);b3BoxHull slab=b3MakeBoxHull(100,.5f,100);

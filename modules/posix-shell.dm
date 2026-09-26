@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE posix-shell
 
 # Conventional pathname for upstream scripts; the implementation is Slop.

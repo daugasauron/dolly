@@ -1,3 +1,5 @@
+import { hostRequirement, hostRequirements } from "./host/requirements.mjs";
+
 export const MAX_DOLLYFILE_BYTES = 128 * 1024;
 
 const objectTypes = new Set([
@@ -141,7 +143,7 @@ function assertObject(tokens, label, item, directive) {
   }
 }
 
-function inspectVersion3(source, label, rows) {
+function inspectRecipe(source, label, rows, version) {
   let image = null;
   let moduleName = null;
   let entry = null;
@@ -207,7 +209,10 @@ function inspectVersion3(source, label, rows) {
         sources.push({ transport: tokens[0].toLowerCase(), location: tokens[1], destination: tokens[2], sha256: tokens[3], line: item.line });
         break;
       case "REQUIRES":
-        assertObject(tokens, label, item, "REQUIRES");
+        if (tokens[0] === "HOST") {
+          if (version < 4 || tokens.length !== 2) fail(label, item.line, "HOST requirements need DOLLY 4 and MODULE@ABI");
+          try { hostRequirement(tokens[1]); } catch (error) { fail(label, item.line, error.message); }
+        } else assertObject(tokens, label, item, "REQUIRES");
         if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES");
         requirements.push({ type: tokens[0], name: tokens[1], line: item.line });
         break;
@@ -267,14 +272,14 @@ function inspectVersion3(source, label, rows) {
         fail(label, item.line, "DOLLY may only appear on the first line");
         break;
       default:
-        fail(label, item.line, `unknown Dollyfile 3 directive ${item.directive}`);
+        fail(label, item.line, `unknown Dollyfile ${version} directive ${item.directive}`);
     }
   }
   if (!image && !moduleName) throw new Error(`${label}: missing IMAGE or MODULE`);
   if (moduleName && entry) throw new Error(`${label}: MODULE may not declare ENTRY`);
   if (image && !entry) throw new Error(`${label}: IMAGE is missing ENTRY`);
   return {
-    version: 3, kind: image ? "image" : "module", name: image ?? moduleName,
+    version, hostRequirements: hostRequirements(requirements.filter(item => item.type === "HOST").map(item => item.name)), kind: image ? "image" : "module", name: image ?? moduleName,
     image, module: moduleName, entry, uses, requirements, exports, artifacts, from,
     sources, slops, files, folders, rows, source,
   };
@@ -283,10 +288,10 @@ function inspectVersion3(source, label, rows) {
 export function inspectDollyfile(input, label = "Dollyfile") {
   const source = normalize(input, label);
   const rows = directives(source, label);
-  if (rows.length === 0 || rows[0].directive !== "DOLLY" || rows[0].args !== "3") {
-    throw new Error(`${label}:1: first declaration must be DOLLY 3`);
+  if (rows.length === 0 || rows[0].directive !== "DOLLY" || !["3", "4"].includes(rows[0].args)) {
+    throw new Error(`${label}:1: first declaration must be DOLLY 3 or DOLLY 4`);
   }
-  return inspectVersion3(source, label, rows);
+  return inspectRecipe(source, label, rows, Number(rows[0].args));
 }
 
 export function sourceLink(source, applicationBase) {

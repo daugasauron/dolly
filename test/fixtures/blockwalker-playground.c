@@ -5,7 +5,7 @@ static void ticks(int n){for(int i=0;i<n;i++)world_step();}
 static float cargo_z(int id){return b3Body_GetPosition(world_find(id)->physics.parts[0].body).z;}
 static void motor(int id,float throttle){Creature *c=world_find(id);for(int i=0;i<c->design.count;i++){Block b=c->design.blocks[i];if(b.joint==BLOCK_WHEEL){c->controls[b.positive]=fmaxf(0,throttle);c->controls[b.negative]=fmaxf(0,-throttle);}}}
 static void magnet(int id,int powered){Creature *c=world_find(id);c->physics.parts[8].magnet_power=powered;}
-static void check_pier_water(JSContext *ctx){
+static void check_pier_water(Data *ctx){
     int ids[]={world_drop_cargo(106,-1.75f,10,MATERIAL_HULL),world_drop_cargo(125,-1.75f,10,MATERIAL_HULL),world_drop_cargo(106,.65f,10,MATERIAL_ALLOY),world_drop_cargo(164,4.65f,40,MATERIAL_ALLOY),world_drop_cargo(164,22,40,MATERIAL_ALLOY)};
     const char *names[]={"covered","open","deck","under beam","roof"};float floors[]={-12,-12,0,4,19};
     for(int step=0;step<3600;step++){
@@ -13,8 +13,8 @@ static void check_pier_water(JSContext *ctx){
         world_step();assert(world.count==5&&world.deaths==0);
     }
     for(int i=0;i<5;i++){
-        Creature *c=world_find(ids[i]);b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);JSValue sensors=physics_sensors(ctx,&c->physics,&c->design,.1);
-        double ground=get_number(ctx,sensors,"ground",NAN);JS_FreeValue(ctx,sensors);
+        Creature *c=world_find(ids[i]);b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);Value sensors=physics_sensors(ctx,&c->physics,&c->design,.1);
+        double ground=get_number(ctx,sensors,"ground",NAN);value_free(ctx,sensors);
         assert(ground==floors[i]);
         if(i>=2){assert(fabsf(p.y-floors[i]-.485f)<.02f);}
         else{assert(p.y>WATER_LEVEL-.4f&&p.y<WATER_LEVEL+.6f);}
@@ -25,14 +25,14 @@ static void check_pier_water(JSContext *ctx){
     assert(physical_failure(box,sunk,1,.5f,terrain_floor(sunk))==REMOVAL_SUNK);
     world_close();
 }
-static void check_resume(JSContext *ctx){
+static void check_resume(Data *ctx){
     Character rig={0};character_add(&rig,-1,0,0,0,BLOCK_BOX,0);character_add(&rig,0,0,1,0,BLOCK_HINGE,1);rig.blocks[1].axis=1;rig.anchored=1;
-    const char *source="function(t,s,m){m.calls=(m.calls||0)+1;m.angle=s.angles[1];m.rate=s.rates[1];m.time=t;m.dt=s.dt;m.ready=s.contactsReady;return {A:.3};}";
+    const char *source="return function(t, s, m)\n  (m).calls = ((function() local value = (m).calls; if active(value) then return value else return 0 end end)() + 1);\n  (m).angle = at((s).angles, 1);\n  (m).rate = at((s).rates, 1);\n  (m).time = t;\n  (m).dt = (s).dt;\n  (m).ready = (s).contactsReady;\n  do return {A = 0.3} end\nend\n";
     const int rates[]={1,10,60};
     for(int rate_index=0;rate_index<3;rate_index++)for(int steps=72;steps<=73;steps++){int hz=rates[rate_index];
         world_close();Creature *c=spawn(&rig,source,"Resume probe",1,hz,-40,0);int id=c->id;ticks(steps);c=world_find(id);
         float angle=c->physics.parts[1].angle,rate=c->physics.parts[1].rate,command=c->controls['A'];int previous=c->controller->last_step,calls=get_number(c->controller->ctx,c->controller->memory,"calls",0);double age=world.age;
-        assert(angle>.8f&&rate>.7f&&command>.29f);world_save(ctx);world_close();if(hz==1){JSValue restored=world_import(ctx,"/workspace/blockwalker-world.json");assert(!JS_IsException(restored));JS_FreeValue(ctx,restored);}else world_load(ctx);c=world_find(id);
+        assert(angle>.8f&&rate>.7f&&command>.29f);world_save(ctx);world_close();if(hz==1){Value restored=world_import(ctx,"/workspace/blockwalker-world.lua");assert(!value_is_error(restored));value_free(ctx,restored);}else world_load(ctx);c=world_find(id);
         assert(world.age==age&&c->controller->hz==hz&&c->physics.steps==steps&&c->controller->last_step==previous&&c->controls['A']==command&&!c->physics.sampled);
         assert(fabsf(c->physics.parts[1].angle-angle)<.0001f&&fabsf(c->physics.parts[1].rate-rate)<.0001f);
         ticks(1);c=world_find(id);assert(get_number(c->controller->ctx,c->controller->memory,"calls",0)==calls&&c->physics.parts[1].command==command&&c->physics.sampled);
@@ -48,18 +48,18 @@ static void check_resume(JSContext *ctx){
         }assert(ran);world_close();
     }character_clear(&rig);
 }
-static void check_air_traffic(JSContext *ctx){
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);int lookout=0;
+static void check_air_traffic(Data *ctx){
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);int lookout=0;
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
         int bird=name&&!strncmp(name,"Postbird /",10),scout=!lookout&&name&&!strncmp(name,"Komame /",8);
-        if(bird||scout){put_number(ctx,item,"x",0);put_number(ctx,item,"z",scout?12:0);if(scout){lookout=1;JS_SetPropertyStr(ctx,item,"source",JS_NewString(ctx,"function(){return {}}"));}JS_SetPropertyUint32(ctx,selected,scout?1:0,JS_DupValue(ctx,item));}
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        if(bird||scout){put_number(ctx,item,"x",0);put_number(ctx,item,"z",scout?12:0);if(scout){lookout=1;value_set(ctx,item,"source",value_string(ctx,"return function()\n  do return {} end\nend\n"));}value_set_at(ctx,selected,scout?1:0,value_copy(ctx,item));}
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==2);
+    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==2);
     Creature *bird=&world.creatures[0],*scout=&world.creatures[1];Controller *controller=bird->controller;
-    const char *memory="{\"phase\":\"return\",\"home\":[0,12],\"goal\":[0,12],\"ts\":0,\"hi\":0,\"pi\":0,\"ri\":0,\"job\":0,\"deliveries\":0,\"cruise\":5.2}";
-    JS_FreeValue(controller->ctx,controller->memory);controller->memory=JS_ParseJSON(controller->ctx,memory,strlen(memory),"traffic-trial");
+    const char *memory="return {[\"phase\"]=\"return\",[\"home\"]=array{0,12},[\"goal\"]=array{0,12},[\"ts\"]=0,[\"hi\"]=0,[\"pi\"]=0,[\"ri\"]=0,[\"job\"]=0,[\"deliveries\"]=0,[\"cruise\"]=5.2}";
+    value_free(controller->ctx,controller->memory);controller->memory=data_parse(controller->ctx,memory,strlen(memory),"traffic-trial");
     float peak=0,travel=0,displacement=0;
     for(int i=0;i<20*60;i++){
         world_step();assert(world.count==2&&world.deaths==0);
@@ -69,7 +69,7 @@ static void check_air_traffic(JSContext *ctx){
     assert(peak>8&&travel>10&&displacement<.1f);
     printf("AIR TRAFFIC: courier crossed %.3f m at peak %.3f m; stationary lookout displaced %.4f m\n",travel,peak,displacement);world_close();
 }
-static void check_walker_recovery(JSContext *ctx){
+static void check_walker_recovery(Data *ctx){
     // Recorded Marrowstep lift stall at 1200 seconds.
     const float poses[][13]={
         {-79.6057739f,2.46544480f,34.5087395f,0.00821135659f,-0.104552686f,-0.00970508158f,0.994438112f,0.0000975672738f,0.00000156650867f,0.0000277990985f,0.00000290911180f,-0.00000565144546f,0.0000294476431f},
@@ -98,19 +98,19 @@ static void check_walker_recovery(JSContext *ctx){
         {-79.7910767f,3.45104051f,35.5064201f,0.00854492001f,-0.103461109f,-0.0129314866f,0.994512737f,0.0000261040477f,-0.00000362929723f,0.0000226693901f,-0.00000142730221f,-0.0000142928257f,0.0000414608876f},
         {-79.9960556f,3.43672299f,36.4852409f,0.00885528140f,-0.103246428f,-0.0142341601f,0.994514585f,0.0000493217667f,-0.00000375712443f,0.0000191165509f,-0.00000704564354f,0.00000712117662f,0.0000512845654f},
     };
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
-        if(name&&!strncmp(name,"Marrowstep /",11))JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
+        if(name&&!strncmp(name,"Marrowstep /",11))value_set_at(ctx,selected,0,value_copy(ctx,item));
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);
+    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1);
     Creature *c=&world.creatures[0];assert(c->design.count==sizeof(poses)/sizeof(*poses));int id=c->id;
     PhysicsPose *restored=array_resize(NULL,c->design.count,sizeof(*restored));for(int i=0;i<c->design.count;i++){const float *p=poses[i];restored[i]=(PhysicsPose){.transform={{p[0],p[1],p[2]},{{p[3],p[4],p[5]},p[6]}},.velocity={p[7],p[8],p[9]},.angular={p[10],p[11],p[12]}};}physics_attach_poses(&c->physics,&c->design,world.physics,0,0,1,restored,1);free(restored);
     physics_refresh(&c->physics,&c->design);world.age=c->physics.time=1200;c->physics.steps=72000;c->controller->last_step=71999;
     c->controls['D']=0.00000229876673f;c->controls['H']=0.00000728595069f;c->controls['L']=0.00000563381627f;c->controls['O']=0.00000312659586f;c->controls['R']=0.00000867479321f;c->controls['W']=6.18295317e-8f;
-    Controller *controller=c->controller;const char *state="{\"p\":0,\"a\":1,\"t\":830.0666666666667,\"hit\":0,\"st\":[-0.23466332992500433,0.17115926170718462,0.32450784143164163,-0.2696625503237696],\"x\":-75,\"z\":35,\"d\":1,\"turn\":827.7833333333333,\"reach\":0.28004066032939595}";
-    JS_FreeValue(controller->ctx,controller->memory);controller->memory=JS_ParseJSON(controller->ctx,state,strlen(state),"stalled-lift");
+    Controller *controller=c->controller;const char *state="return {[\"p\"]=0,[\"a\"]=1,[\"t\"]=830.0666666666667,[\"hit\"]=0,[\"st\"]=array{-0.23466332992500433,0.17115926170718462,0.32450784143164163,-0.2696625503237696},[\"x\"]=-75,[\"z\"]=35,[\"d\"]=1,[\"turn\"]=827.7833333333333,[\"reach\"]=0.28004066032939595}";
+    value_free(controller->ctx,controller->memory);controller->memory=data_parse(controller->ctx,state,strlen(state),"stalled-lift");
     b3Pos start=b3Body_GetPosition(c->physics.parts[0].body);float low=1,moved=0;
     for(int tick=0;tick<15*60&&world.count;tick++){
         world_step();c=world_find(id);if(!c)break;b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);
@@ -119,17 +119,17 @@ static void check_walker_recovery(JSContext *ctx){
     printf("WALKER RECOVERY: %d survived, up %.5f, movement %.3f m\n",world.count,low,moved);fflush(stdout);
     assert(world.count==1&&world.deaths==0&&low>.95f&&moved>4);world_close();
 }
-static void check_air_clearance(JSContext *ctx){
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+static void check_air_clearance(Data *ctx){
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
-        if(name&&!strncmp(name,"Skybarge /",10)){put_number(ctx,item,"x",58);put_number(ctx,item,"z",35);JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));}
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
+        if(name&&!strncmp(name,"Skybarge /",10)){put_number(ctx,item,"x",58);put_number(ctx,item,"z",35);value_set_at(ctx,selected,0,value_copy(ctx,item));}
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);int id=world.creatures[0].id;
+    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1);int id=world.creatures[0].id;
     Controller *controller=world.creatures[0].controller;
-    const char *state="{\"nav\":{\"goal\":[58,72],\"next\":1000,\"visits\":0,\"choices\":1,\"meetings\":0,\"yieldTime\":0,\"path\":0,\"previous\":[58,35],\"goals\":[],\"visiting\":0}}";
-    JS_FreeValue(controller->ctx,controller->memory);controller->memory=JS_ParseJSON(controller->ctx,state,strlen(state),"quarry-approach");
+    const char *state="return {[\"nav\"]={[\"goal\"]=array{58,72},[\"next\"]=1000,[\"visits\"]=0,[\"choices\"]=1,[\"meetings\"]=0,[\"yieldTime\"]=0,[\"path\"]=0,[\"previous\"]=array{58,35},[\"goals\"]=array{},[\"visiting\"]=0}}";
+    value_free(controller->ctx,controller->memory);controller->memory=data_parse(controller->ctx,state,strlen(state),"quarry-approach");
     int contacts=0;float low=1,peak=0,furthest=35;
     for(int tick=0;tick<45*60&&world.count;tick++){
         world_step();Creature *c=world_find(id);if(!c)break;
@@ -149,15 +149,15 @@ static void check_air_clearance(JSContext *ctx){
     assert(world.count==1&&world.deaths==0&&contacts==0&&low>.9f&&peak>12&&furthest>62);
     world_close();
 }
-static void check_courier(JSContext *ctx,int industrial){
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+static void check_courier(Data *ctx,int industrial){
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
-        if(name&&!strncmp(name,"Postbird /",10))JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));
-        if(industrial&&name&&!strcmp(name,"East / receiving crane"))JS_SetPropertyUint32(ctx,selected,1,JS_DupValue(ctx,item));
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
+        if(name&&!strncmp(name,"Postbird /",10))value_set_at(ctx,selected,0,value_copy(ctx,item));
+        if(industrial&&name&&!strcmp(name,"East / receiving crane"))value_set_at(ctx,selected,1,value_copy(ctx,item));
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    terrain_select(industrial);load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1+industrial);world.next_parcel=world.next_ore=100000;
+    terrain_select(industrial);load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1+industrial);world.next_parcel=world.next_ore=100000;
     int carrier=world.creatures[0].id;Vector3 home=world.creatures[0].physics.start;
     float x=home.x-(industrial?15:0),z=home.z+(industrial?13:0);
     int first=world_drop_cargo(x,NAN,z,MATERIAL_ALLOY),second=0,obstructed=0;
@@ -176,16 +176,16 @@ static void check_courier(JSContext *ctx,int industrial){
     world_save(ctx);world_close();world_load(ctx);ticks(120);assert(world.delivery_count==2&&world_cargo_score(carrier)==2&&world_team_score(1)==2&&world_team_score(2)==0);world_close();
     terrain_select(0);
 }
-static void check_gantry(JSContext *ctx){
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+static void check_gantry(Data *ctx){
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
         if(name&&!strncmp(name,"Northline /",11)){
-            JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));JS_SetPropertyUint32(ctx,selected,1,JS_GetPropertyUint32(ctx,catalog,i+1));
+            value_set_at(ctx,selected,0,value_copy(ctx,item));value_set_at(ctx,selected,1,value_at(ctx,catalog,i+1));
         }
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==2);
+    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==2);
     int id=world.creatures[0].id,previous=-1,releases=0,airborne=0,supported=0;double last=0;
     for(int tick=0;tick<600*60;tick++){
         if(tick==311*60){world_save(ctx);world_close();world_load(ctx);}
@@ -193,26 +193,26 @@ static void check_gantry(JSContext *ctx){
         int phase=get_number(c->controller->ctx,c->controller->memory,"p",-1);
         if(phase==4&&previous==3){releases++;last=world.age;}
         if(tick%6==0){
-            JSValue sensors=physics_sensors(ctx,&c->physics,&c->design,.1),state=JS_GetPropertyStr(ctx,sensors,"magnets"),head=JS_GetPropertyUint32(ctx,state,22);
+            Value sensors=physics_sensors(ctx,&c->physics,&c->design,.1),state=value_get(ctx,sensors,"magnets"),head=value_at(ctx,state,22);
             double force=get_number(ctx,head,"targetSupportForce",-1);assert(isfinite(force)&&force>=0);
             if(phase==2&&b3Body_IsValid(c->physics.parts[22].magnet_target)&&force==0)airborne++;
             if(phase==3&&force>1)supported++;
-            JS_FreeValue(ctx,head);JS_FreeValue(ctx,state);JS_FreeValue(ctx,sensors);
+            value_free(ctx,head);value_free(ctx,state);value_free(ctx,sensors);
         }
         previous=phase;
     }
     printf("GANTRY: %d set-downs, %d airborne / %d supported samples, last release %.3f seconds before end, across restart\n",releases,airborne,supported,world.age-last);
     assert(releases>15&&airborne>100&&supported>40&&world.age-last<40);world_close();
 }
-static void check_harbor_tug(JSContext *ctx){
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+static void check_harbor_tug(Data *ctx){
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
-        if(name&&!strncmp(name,"Harbor Atlas /",14))JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));
-        if(name&&!strncmp(name,"Tsubame /",9))JS_SetPropertyUint32(ctx,selected,1,JS_DupValue(ctx,item));
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
+        if(name&&!strncmp(name,"Harbor Atlas /",14))value_set_at(ctx,selected,0,value_copy(ctx,item));
+        if(name&&!strncmp(name,"Tsubame /",9))value_set_at(ctx,selected,1,value_copy(ctx,item));
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==2);
+    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==2);
     int crane=world.creatures[0].id,tug=world.creatures[1].id,cargo=world_drop_cargo(121,-1,53,MATERIAL_HULL),towed=0,lifted=0;
     for(int tick=0;tick<140*60&&!world.delivery_count;tick++){
         if(tick==30*60){assert(world_find(cargo)->held_by==tug);world_save(ctx);world_close();world_load(ctx);assert(world_find(cargo)->held_by==tug);}
@@ -223,17 +223,17 @@ static void check_harbor_tug(JSContext *ctx){
     assert(world.deliveries[0].cargo==cargo&&world.deliveries[0].depot==1);
     printf("HARBOR: tug carried cargo across restart, crane accepted and delivered it at %.3f s\n",world.age);world_close();
 }
-static void check_lookout_cargo(JSContext *ctx){
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+static void check_lookout_cargo(Data *ctx){
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
-        if(name&&!strncmp(name,"Komame /",8)){put_number(ctx,item,"x",0);put_number(ctx,item,"z",20);JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));}
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
+        if(name&&!strncmp(name,"Komame /",8)){put_number(ctx,item,"x",0);put_number(ctx,item,"z",20);value_set_at(ctx,selected,0,value_copy(ctx,item));}
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==1);
+    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1);
     int id=world.creatures[0].id;Controller *c=world.creatures[0].controller;
-    const char *memory="{\"home\":[0,20],\"goal\":[0,44],\"arrivals\":0,\"visits\":0,\"choices\":0,\"wait\":0,\"stuck\":0,\"back\":0,\"next\":1000,\"tracked\":0,\"yielded\":0}";
-    JS_FreeValue(c->ctx,c->memory);c->memory=JS_ParseJSON(c->ctx,memory,strlen(memory),"memory");
+    const char *memory="return {[\"home\"]=array{0,20},[\"goal\"]=array{0,44},[\"arrivals\"]=0,[\"visits\"]=0,[\"choices\"]=0,[\"wait\"]=0,[\"stuck\"]=0,[\"back\"]=0,[\"next\"]=1000,[\"tracked\"]=0,[\"yielded\"]=0}";
+    value_free(c->ctx,c->memory);c->memory=data_parse(c->ctx,memory,strlen(memory),"memory");
     for(int i=-1;i<=1;i++)world_drop_cargo(i,0.485f,34,MATERIAL_ALLOY);
     float upright=1,farthest=20;int collisions=0;
     for(int tick=0;tick<60*60;tick++){
@@ -249,16 +249,16 @@ static void check_lookout_cargo(JSContext *ctx){
     printf("LOOKOUT: cargo contacts %d, minimum up %.5f, farthest z %.3f, objects %d\n",collisions,upright,farthest,world.count);fflush(stdout);
     assert(world.count==4&&world.deaths==0&&collisions==0&&upright>.95f&&farthest>40);world_close();
 }
-static void check_dock_courier(JSContext *ctx){
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+static void check_dock_courier(Data *ctx){
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
-        if(name&&!strncmp(name,"Brinehook /",11)){JS_SetPropertyUint32(ctx,selected,0,JS_DupValue(ctx,item));JS_SetPropertyUint32(ctx,selected,1,JS_GetPropertyUint32(ctx,catalog,i+1));}
-        if(name&&!strncmp(name,"Kawasemi /",10))JS_SetPropertyUint32(ctx,selected,2,JS_DupValue(ctx,item));
-        if(name&&!strcmp(name,"Cargo")&&fabs(get_number(ctx,item,"x",0)-209.6)<.01)JS_SetPropertyUint32(ctx,selected,3,JS_DupValue(ctx,item));
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
+        if(name&&!strncmp(name,"Brinehook /",11)){value_set_at(ctx,selected,0,value_copy(ctx,item));value_set_at(ctx,selected,1,value_at(ctx,catalog,i+1));}
+        if(name&&!strncmp(name,"Kawasemi /",10))value_set_at(ctx,selected,2,value_copy(ctx,item));
+        if(name&&!strcmp(name,"Cargo")&&fabs(get_number(ctx,item,"x",0)-209.6)<.01)value_set_at(ctx,selected,3,value_copy(ctx,item));
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==4);
+    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==4);
     int crane=world.creatures[0].id,courier=world.creatures[2].id,cargo[]={world.creatures[1].id,world.creatures[3].id},stages[2]={0};float upright=1;
     for(int tick=0;tick<300*60&&world.delivery_count<2;tick++){
         if(tick&&tick%(67*60)==0){world_save(ctx);world_close();world_load(ctx);}
@@ -275,14 +275,15 @@ static void check_dock_courier(JSContext *ctx){
     for(int i=0;i<2;i++)assert(stages[i]==7&&world_find(cargo[i])->delivered);
     printf("DOCK: two gantry / tray / courier / depot deliveries across reloads, minimum up %.5f, completed %.3f s\n",upright,world.age);world_close();
 }
-static float terrain_drop(float x,float y,float z){
+static float terrain_probe(float x,float y,float z,float half){
     b3WorldId physics=physics_world(1);b3BodyDef def=b3DefaultBodyDef();def.type=b3_dynamicBody;def.position=(b3Pos){x,y,z};
     b3BodyId body=b3CreateBody(physics,&def);b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;
-    b3BoxHull box=b3MakeBoxHull(.5f,.5f,.5f);b3CreateHullShape(body,&shape,&box.base);
+    b3BoxHull box=b3MakeBoxHull(half,half,half);b3CreateHullShape(body,&shape,&box.base);
     for(int i=0;i<300;i++)b3World_Step(physics,1.f/60,8);
     float height=b3Body_GetPosition(body).y;b3DestroyWorld(physics);return height;
 }
-static void check_industry(JSContext *ctx){
+static float terrain_drop(float x,float y,float z){return terrain_probe(x,y,z,.5f);}
+static void check_industry(Data *ctx){
     terrain_select(0);assert(fabsf(terrain_drop(-47,3,65)-.5f)<.03f);
     terrain_select(1);
     assert(fabsf(terrain_drop(-47,0,65)+11.5f)<.03f);
@@ -295,56 +296,68 @@ static void check_industry(JSContext *ctx){
     assert(terrain_floor((Vector3){-43,2,94})==0&&terrain_height(-47,65)==-12);
     Character crate={0};
     for(int i=0;i<3;i++){character_add(&crate,i-1,i,0,0,BLOCK_BOX,1);crate.blocks[i].material=MATERIAL_BALLAST;}
-    Creature *cargo=spawn(&crate,"function(){return ''}","Ore crate",1,10,-40.6f,65);cargo->cargo=1;int id=cargo->id;character_clear(&crate);
+    Creature *cargo=spawn(&crate,"return function()\n  do return \"\" end\nend\n","Ore crate",1,10,-40.6f,65);cargo->cargo=1;int id=cargo->id;character_clear(&crate);
     set_spawn_height(cargo,.65f);ticks(180);cargo=world_find(id);assert(cargo&&cargo->cargo);
     int supported=0;assert(!cargo_carrier(cargo,&supported)&&supported);
     ContactForces *forces=part_contacts(&cargo->physics);assert(forces[0].support<.01&&forces[1].support+forces[2].support>1);free(forces);
-    assert(save_world(ctx,"/workspace/industrial-map.json"));
-    JSValue old=read_json(ctx,"/workspace/industrial-map.json");JS_SetPropertyStr(ctx,old,"terrainVersion",JS_UNDEFINED);assert(save_json(ctx,old,"/workspace/original-map.json"));JS_FreeValue(ctx,old);
-    JSValue result=world_import(ctx,"/workspace/original-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    assert(save_world(ctx,"/workspace/industrial-map.lua"));
+    Value old=read_data(ctx,"/workspace/industrial-map.lua");value_set(ctx,old,"terrainVersion",VALUE_NIL);assert(save_data(ctx,old,"/workspace/original-map.lua"));value_free(ctx,old);
+    Value result=world_import(ctx,"/workspace/original-map.lua");assert(!value_is_error(result));value_free(ctx,result);
     assert(terrain_version==0&&depot_count==3&&terrain_height(-47,65)==0);
-    result=world_import(ctx,"/workspace/industrial-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    result=world_import(ctx,"/workspace/industrial-map.lua");assert(!value_is_error(result));value_free(ctx,result);
     assert(terrain_version==1&&depot_count==6&&terrain_height(-47,65)==-12&&world_find(id)->cargo&&world_find(id)->design.count==3);
-    JSValue invalid=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,invalid,"terrainVersion",5);assert(save_json(ctx,invalid,"/workspace/unknown-map.json"));JS_FreeValue(ctx,invalid);
-    result=world_import(ctx,"/workspace/unknown-map.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));assert(terrain_version==1&&world_find(id));
-    JSValue mine=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,mine,"terrainVersion",2);assert(save_json(ctx,mine,"/workspace/mine-map.json"));JS_FreeValue(ctx,mine);
-    result=world_import(ctx,"/workspace/mine-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    Value invalid=read_data(ctx,"/workspace/industrial-map.lua");put_number(ctx,invalid,"terrainVersion",6);assert(save_data(ctx,invalid,"/workspace/unknown-map.lua"));value_free(ctx,invalid);
+    result=world_import(ctx,"/workspace/unknown-map.lua");assert(value_is_error(result));value_free(ctx,value_exception(ctx));assert(terrain_version==1&&world_find(id));
+    Value mine=read_data(ctx,"/workspace/industrial-map.lua");put_number(ctx,mine,"terrainVersion",2);assert(save_data(ctx,mine,"/workspace/mine-map.lua"));value_free(ctx,mine);
+    result=world_import(ctx,"/workspace/mine-map.lua");assert(!value_is_error(result));value_free(ctx,result);
     assert(terrain_version==2&&terrain_floor((Vector3){-74,2,-68})==0&&terrain_height(-60,-72)==-12);
     assert(fabsf(terrain_drop(-60,0,-70)+11.5f)<.03f&&fabsf(terrain_drop(-74,3,-68)-.5f)<.03f);
-    JSValue ridge=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,ridge,"terrainVersion",3);assert(save_json(ctx,ridge,"/workspace/ridge-map.json"));JS_FreeValue(ctx,ridge);
-    result=world_import(ctx,"/workspace/ridge-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    Value ridge=read_data(ctx,"/workspace/industrial-map.lua");put_number(ctx,ridge,"terrainVersion",3);assert(save_data(ctx,ridge,"/workspace/ridge-map.lua"));value_free(ctx,ridge);
+    result=world_import(ctx,"/workspace/ridge-map.lua");assert(!value_is_error(result));value_free(ctx,result);
     assert(terrain_version==3&&terrain_height(78,-53)==4&&terrain_floor((Vector3){67,2,-66})==0&&terrain_height(43,-62)==0);
     assert(fabsf(terrain_drop(67,2,-66)-.5f)<.03f&&fabsf(terrain_drop(78,6,-53)-4.5f)<.03f&&fabsf(terrain_drop(106,3,-65)-.5f)<.03f);
     Character road={0};character_car(&road);
-    Creature *driver=spawn(&road,"function(t,s){const out={},u=s.z>-53.5?-.7:0;for(const b of s.blueprint)if(b.joint===4){out[String.fromCharCode(b.negative)]=Math.max(0,-u);out[String.fromCharCode(b.positive)]=Math.max(0,u);}return out}","Quarry road trial",1,60,78,-30);int driver_id=driver->id;character_clear(&road);float minimum_up=1;
+    Creature *driver=spawn(&road,"return function(t, s)\n  local out = {};\n  local u = (((s).z > (-53.5)) and (-0.7) or 0);\n  for _, b in ipairs((s).blueprint) do\n    do\n      if ((b).joint == 4) then\n        (out)[index(string.char((b).negative))] = math.max(0, (-u));\n        (out)[index(string.char((b).positive))] = math.max(0, u);\n      end\n    end\n    ::continue_1::\n  end\n  do return out end\nend\n","Quarry road trial",1,60,78,-30);int driver_id=driver->id;character_clear(&road);float minimum_up=1;
     for(int tick=0;tick<60*60;tick++){world_step();driver=world_find(driver_id);assert(driver&&!driver->error[0]);minimum_up=fminf(minimum_up,b3RotateVector(b3Body_GetRotation(driver->physics.parts[0].body),b3Vec3_axisY).y);}
     b3Pos arrived=b3Body_GetPosition(driver->physics.parts[0].body);assert(arrived.z< -50&&arrived.y>4.5&&minimum_up>.7);
     printf("RIDGE ROAD: embedded wheel program climbed to %.3f m, minimum up %.5f\n",arrived.y,minimum_up);
 
-    JSValue renewal=read_json(ctx,"/workspace/industrial-map.json");put_number(ctx,renewal,"terrainVersion",4);assert(save_json(ctx,renewal,"/workspace/renewal-map.json"));JS_FreeValue(ctx,renewal);
-    result=world_import(ctx,"/workspace/renewal-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    Value renewal=read_data(ctx,"/workspace/industrial-map.lua");put_number(ctx,renewal,"terrainVersion",4);assert(save_data(ctx,renewal,"/workspace/renewal-map.lua"));value_free(ctx,renewal);
+    result=world_import(ctx,"/workspace/renewal-map.lua");assert(!value_is_error(result));value_free(ctx,result);
     assert(terrain_version==4&&terrain_height(20,-85)==-12&&terrain_floor((Vector3){32,2,-28})==0);
     assert(fabsf(terrain_drop(20,3,-85)+11.5f)<.03f&&fabsf(terrain_drop(35,3,-77.5f)-.5f)<.03f);
     assert(fabsf(terrain_drop(32,2,-28)-.5f)<.03f&&fabsf(terrain_drop(32,20,-28)-14.6f)<.03f);
-    result=world_import(ctx,"/workspace/ridge-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    assert(terrain_height(99,-20)==0&&terrain_height(142,38)==2);
+    Value quarry=read_data(ctx,"/workspace/renewal-map.lua");put_number(ctx,quarry,"terrainVersion",5);assert(save_data(ctx,quarry,"/workspace/quarry-map.lua"));value_free(ctx,quarry);
+    result=world_import(ctx,"/workspace/quarry-map.lua");assert(!value_is_error(result));value_free(ctx,result);
+    assert(terrain_version==5&&terrain_height(99,-20)==6.25f&&terrain_height(99,-40)==12);
+    assert(terrain_height(99,-45)==12&&fabsf(terrain_drop(99,15,-45)-12.5f)<.03f);
+    assert(fabsf(terrain_probe(99,10,-20.375f,.1f)-6.35f)<.03f&&fabsf(terrain_drop(99,15,-40)-12.5f)<.03f);
+    assert(fabsf(terrain_drop(99,3,3)-.5f)<.03f);
+    assert(terrain_height(142,38)==4&&fabsf(terrain_drop(142,8,38)-4.5f)<.03f);
+    assert(fabsf(terrain_probe(145,3,38,.1f)-2.1f)<.03f);
+    assert(world_save(ctx));world_close();world_load(ctx);assert(terrain_version==5&&world_find(id)&&terrain_height(99,-20)==6.25f);
+    result=world_import(ctx,"/workspace/renewal-map.lua");assert(!value_is_error(result));value_free(ctx,result);
+    assert(terrain_version==4&&terrain_height(99,-20)==0&&terrain_height(99,-45)==0&&terrain_height(142,38)==2);
+    result=world_import(ctx,"/workspace/ridge-map.lua");assert(!value_is_error(result));value_free(ctx,result);
     assert(terrain_version==3&&terrain_height(20,-85)==0&&fabsf(terrain_drop(32,20,-28)-.5f)<.03f);
-    result=world_import(ctx,"/workspace/industrial-map.json");assert(!JS_IsException(result));JS_FreeValue(ctx,result);
+    result=world_import(ctx,"/workspace/industrial-map.lua");assert(!value_is_error(result));value_free(ctx,result);
     assert(terrain_version==1&&terrain_height(-60,-72)==0&&world_find(id));
     cargo=world_find(id);set_spawn_height(cargo,32);
-    JSValue sensors=physics_sensors(ctx,&cargo->physics,&cargo->design,.1),bounds=JS_GetPropertyStr(ctx,sensors,"terrain"),obstacles=JS_GetPropertyStr(ctx,sensors,"obstacles");int roof=0;
+    Value sensors=physics_sensors(ctx,&cargo->physics,&cargo->design,.1),bounds=value_get(ctx,sensors,"terrain"),obstacles=value_get(ctx,sensors,"obstacles");int roof=0;
     for(int i=0;i<get_number(ctx,bounds,"length",0);i++){
-        JSValue box=JS_GetPropertyUint32(ctx,bounds,i);roof+=get_number(ctx,box,"low",0)==13&&get_number(ctx,box,"high",0)==14;JS_FreeValue(ctx,box);
+        Value box=value_at(ctx,bounds,i);roof+=get_number(ctx,box,"low",0)==13&&get_number(ctx,box,"high",0)==14;value_free(ctx,box);
     }
-    assert(roof&&get_number(ctx,obstacles,"length",-1)==0);JS_FreeValue(ctx,bounds);JS_FreeValue(ctx,obstacles);JS_FreeValue(ctx,sensors);
+    assert(roof&&get_number(ctx,obstacles,"length",-1)==0);value_free(ctx,bounds);value_free(ctx,obstacles);value_free(ctx,sensors);
     puts("INDUSTRY: physical shaft, roof, passage and broken roof; old/new map import; non-root cargo support and restored identity; future-map rejection; aircraft sees terrain below itself");world_close();
 }
-static void check_supply(JSContext *ctx){
+static void check_supply(Data *ctx){
  terrain_select(1);world.supply_seed=1;world.next_ore=100000;
  world_step();assert(world.count==1);int id=world.creatures[0].id;Creature *parcel=world_find(id);assert(parcel->supply==1&&parcel->parachute);float start=b3Body_GetPosition(parcel->physics.parts[0].body).y;
  b3Pos p=b3Body_GetPosition(parcel->physics.parts[0].body);int freefall=world_drop_cargo(p.x+3,p.y,p.z,MATERIAL_ALLOY);
  for(int i=0;i<300;i++)world_step();parcel=world_find(id);float velocity=b3Body_GetLinearVelocity(parcel->physics.parts[0].body).y,height=b3Body_GetPosition(parcel->physics.parts[0].body).y;
  assert(parcel->parachute&&velocity< -1.5f&&velocity> -1.8f&&height>b3Body_GetPosition(world_find(freefall)->physics.parts[0].body).y+10);
- unsigned seed=world.supply_seed;double next=world.next_parcel;assert(save_world(ctx,"/workspace/parachute-midair.json")&&world_save(ctx));world_close();world_load(ctx);
+ unsigned seed=world.supply_seed;double next=world.next_parcel;assert(save_world(ctx,"/workspace/parachute-midair.lua")&&world_save(ctx));world_close();world_load(ctx);
  assert(world.supply_seed==seed&&world.next_parcel==next&&world_find(id)->parachute&&world_find(id)->supply==1);
  for(int i=0;i<800*60;i++)world_step();int active=0,chutes=0;for(int i=0;i<world.count;i++){active+=world.creatures[i].supply==1;chutes+=world.creatures[i].parachute;}
  for(int i=0;i<world.count;i++)if(world.creatures[i].supply==1)for(int j=0;j<i;j++)if(world.creatures[j].supply==1){
@@ -353,12 +366,12 @@ static void check_supply(JSContext *ctx){
  printf("SUPPLY: parcel mass %.3f, start %.3f, five-second height %.3f velocity %.3f; reload preserved seed/timing/chute; active=%d chutes=%d objects=%d removals=%d\n",creature_mass(world_find(id)),start,height,velocity,active,chutes,world.count,world.deaths);fflush(stdout);
  assert(active==6&&!chutes&&world.count==7&&!world.deaths);assert(world_save(ctx));world_close();
 }
-static void check_mine_supply(JSContext *ctx){
-    terrain_select(2);JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),crew=JS_NewArray(ctx);
-    for(int i=0;i<2;i++)JS_SetPropertyUint32(ctx,crew,i,JS_GetPropertyUint32(ctx,catalog,60+i));
-    load_designs(ctx,crew,1);JS_FreeValue(ctx,crew);JS_FreeValue(ctx,catalog);assert(world.count==2);
+static void check_mine_supply(Data *ctx){
+    terrain_select(2);Value catalog=read_catalog(ctx),crew=value_array(ctx);
+    for(int i=0;i<2;i++)value_set_at(ctx,crew,i,value_at(ctx,catalog,60+i));
+    load_designs(ctx,crew,1);value_free(ctx,crew);value_free(ctx,catalog);assert(world.count==2);
     Creature *drill=world_find(1);char *source=strdup(drill->controller->source);int hz=drill->controller->hz;
-    controller_free(drill->controller);drill->controller=controller_new("function(){return {}}",1,hz);
+    controller_free(drill->controller);drill->controller=controller_new("return function()\n  do return {} end\nend\n",1,hz);
     world.supply_seed=1;world.next_parcel=world.next_ore=100000;world.next_mine=10;ticks(30*60);
     assert(world.count==2);drill=world_find(1);controller_free(drill->controller);drill->controller=controller_new(source,1,hz);free(source);
     ticks(270*60);int samples=0,outside=0;
@@ -369,13 +382,13 @@ static void check_mine_supply(JSContext *ctx){
     assert(samples==2&&world.count==4&&!world.deaths);
     puts("MINE: stopped drill produces nothing; rotating drill produces bounded samples; porter clears the tunnel; supply identity, timer and stock limit survive reload");world_close();
 }
-static void check_wrong_air_grip(JSContext *ctx){
-    terrain_select(2);JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),chosen=JS_NewArray(ctx),row=JS_GetPropertyUint32(ctx,catalog,58);
-    put_number(ctx,row,"x",0);put_number(ctx,row,"z",0);JS_SetPropertyUint32(ctx,chosen,0,row);load_designs(ctx,chosen,1);JS_FreeValue(ctx,chosen);JS_FreeValue(ctx,catalog);
-    Character beam={.anchored=1};character_add(&beam,-1,0,0,0,BLOCK_BOX,1);character_add(&beam,0,0,1,0,BLOCK_HINGE,1);beam.blocks[1].axis=1;Creature *obstacle=spawn(&beam,"function(){return ''}","Gantry beam",1,10,0,0);set_spawn_height(obstacle,3.99f);character_clear(&beam);assert(!obstacle->cargo);
+static void check_wrong_air_grip(Data *ctx){
+    terrain_select(2);Value catalog=read_catalog(ctx),chosen=value_array(ctx),row=value_at(ctx,catalog,58);
+    put_number(ctx,row,"x",0);put_number(ctx,row,"z",0);value_set_at(ctx,chosen,0,row);load_designs(ctx,chosen,1);value_free(ctx,chosen);value_free(ctx,catalog);
+    Character beam={.anchored=1};character_add(&beam,-1,0,0,0,BLOCK_BOX,1);character_add(&beam,0,0,1,0,BLOCK_HINGE,1);beam.blocks[1].axis=1;Creature *obstacle=spawn(&beam,"return function()\n  do return \"\" end\nend\n","Gantry beam",1,10,0,0);set_spawn_height(obstacle,3.99f);character_clear(&beam);assert(!obstacle->cargo);
     int cargo=world_drop_cargo(0,.485f,0,MATERIAL_ALLOY);assert(cargo==3);Creature *air=world_find(1);Controller *controller=air->controller;
-    const char *memory="{\"phase\":\"pickup\",\"home\":[20,0],\"goal\":[0,0],\"ts\":0,\"ri\":0,\"pi\":0,\"hi\":0,\"job\":3,\"cruise\":32,\"missed\":{},\"dispatches\":0}";
-    JS_FreeValue(controller->ctx,controller->memory);controller->memory=JS_ParseJSON(controller->ctx,memory,strlen(memory),"blocked-pickup");int latched=0,released=0;
+    const char *memory="return {[\"phase\"]=\"pickup\",[\"home\"]=array{20,0},[\"goal\"]=array{0,0},[\"ts\"]=0,[\"ri\"]=0,[\"pi\"]=0,[\"hi\"]=0,[\"job\"]=3,[\"cruise\"]=32,[\"missed\"]={},[\"dispatches\"]=0}";
+    value_free(controller->ctx,controller->memory);controller->memory=data_parse(controller->ctx,memory,strlen(memory),"blocked-pickup");int latched=0,released=0;
     for(int tick=0;tick<20*60;tick++){
         world_step();air=world_find(1);assert(air&&!world.deaths);b3BodyId target=air->physics.parts[10].magnet_target;
         if(b3Body_IsValid(target)){assert(B3_ID_EQUALS(target,world_find(2)->physics.parts[1].body));latched=1;}
@@ -384,46 +397,72 @@ static void check_wrong_air_grip(JSContext *ctx){
     assert(latched&&released&&b3Body_GetPosition(air->physics.parts[0].body).y>30&&!world_find(cargo)->delivered);
     puts("AIR GRIP: actual magnet catches an obstructing beam, controller releases it and climbs away without claiming the parcel");world_close();
 }
-static void check_mine_return(JSContext *ctx){
-    terrain_select(2);JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),chosen=JS_NewArray(ctx),row=JS_GetPropertyUint32(ctx,catalog,61);
-    put_number(ctx,row,"x",-74);put_number(ctx,row,"z",-29);JS_SetPropertyUint32(ctx,chosen,0,row);load_designs(ctx,chosen,1);JS_FreeValue(ctx,chosen);JS_FreeValue(ctx,catalog);
-    Controller *c=world_find(1)->controller;const char *memory="{\"home\":[-73,-68],\"phase\":\"search\",\"at\":0,\"wait\":0,\"trips\":0,\"job\":0}";
-    JS_FreeValue(c->ctx,c->memory);c->memory=JS_ParseJSON(c->ctx,memory,strlen(memory),"empty-porter");
+static void check_mine_return(Data *ctx){
+    terrain_select(2);Value catalog=read_catalog(ctx),chosen=value_array(ctx),row=value_at(ctx,catalog,61);
+    put_number(ctx,row,"x",-74);put_number(ctx,row,"z",-29);value_set_at(ctx,chosen,0,row);load_designs(ctx,chosen,1);value_free(ctx,chosen);value_free(ctx,catalog);
+    Controller *c=world_find(1)->controller;const char *memory="return {[\"home\"]=array{-73,-68},[\"phase\"]=\"search\",[\"at\"]=0,[\"wait\"]=0,[\"trips\"]=0,[\"job\"]=0}";
+    value_free(c->ctx,c->memory);c->memory=data_parse(c->ctx,memory,strlen(memory),"empty-porter");
     int id=world_drop_cargo(-73,.485f,-78,MATERIAL_BALLAST),outside=world_drop_cargo(-74,.485f,-20,MATERIAL_BALLAST);world_find(id)->supply=world_find(outside)->supply=3;ticks(240*60);
     Creature *porter=world_find(1),*cargo=world_find(id);assert(porter&&cargo&&!world.deaths);
     assert(get_number(porter->controller->ctx,porter->controller->memory,"trips",0)>0&&b3Body_GetPosition(cargo->physics.parts[0].body).z> -40&&!world_find(outside)->carrier);
     puts("MINE RETURN: empty porter returns from outside observation range, picks up the physical core and hauls it out of the tunnel");world_close();
 }
 
-static void check_radio(JSContext *ctx){
+static void check_radio(Data *ctx){
     terrain_select(1);Character car={0};character_car(&car);
-    const char *scout="function(t,s,m){return {radio:{kind:'sight',cargo:3}}}";
-    const char *receiver="function(t,s,m){const report=s.radio.find(p=>p.kind==='sight');if(!report)return {};m.job=report.cargo;m.goal=[report.x,report.z];return {'2':.3,'4':.3,'6':.3,'8':.3,radio:{kind:'claim',cargo:m.job}}}";
+    const char *scout="return function(t, s, m)\n  do return {radio = {kind = \"sight\", cargo = 3}} end\nend\n";
+    const char *receiver="return function(t, s, m)\n  local report = find((s).radio, function(p)\n    return ((p).kind == \"sight\")\n  end);\n  if (not active(report)) then\n    do return {} end\n  end\n  (m).job = (report).cargo;\n  (m).goal = {(report).x, (report).z};\n  do return {[\"2\"] = 0.3, [\"4\"] = 0.3, [\"6\"] = 0.3, [\"8\"] = 0.3, radio = {kind = \"claim\", cargo = (m).job}} end\nend\n";
     Creature *c=spawn(&car,scout,"East lookout",1,10,-30,40);c->team=1;
     c=spawn(&car,receiver,"East carrier",1,10,20,20);c->team=1;
     assert(world_drop_cargo(-30,.65f,50,MATERIAL_ALLOY)==3);
     c=spawn(&car,receiver,"West carrier",1,10,50,20);c->team=2;
     ticks(120);assert(world.radio_count==0&&!cargo_visible(world_find(1),world_find(3)));
-    c=spawn(&car,"function(t){return t<.1?{radio:{kind:'sight',cargo:3}}:{}}","East inside scout",1,10,-30,55);c->team=1;
+    c=spawn(&car,"return function(t)\n  do return ((t < 0.1) and {radio = {kind = \"sight\", cargo = 3}} or {}) end\nend\n","East inside scout",1,10,-30,55);c->team=1;
     ticks(60);assert(world.radio_count>=2&&cargo_visible(world_find(5),world_find(3)));
     c=world_find(2);assert(get_number(c->controller->ctx,c->controller->memory,"job",0)==3);
     assert(b3Body_GetPosition(c->physics.parts[0].body).z>20.4);
     c=world_find(4);assert(get_number(c->controller->ctx,c->controller->memory,"job",0)==0);
-    JSValue sensors=physics_sensors(ctx,&c->physics,&c->design,.1),radio=JS_GetPropertyStr(ctx,sensors,"radio");assert(get_number(ctx,radio,"length",-1)==0);JS_FreeValue(ctx,radio);JS_FreeValue(ctx,sensors);
+    Value sensors=physics_sensors(ctx,&c->physics,&c->design,.1),radio=value_get(ctx,sensors,"radio");assert(get_number(ctx,radio,"length",-1)==0);value_free(ctx,radio);value_free(ctx,sensors);
     RadioMessage report=world.radio[0];b3BodyId body=world_find(3)->physics.parts[0].body;b3Pos p=b3Body_GetPosition(body);p.x+=3;b3Body_SetTransform(body,p,b3Body_GetRotation(body));
     ticks(210);RadioMessage claim=world.radio[world.radio_count-1];assert(claim.kind==RADIO_CLAIM&&claim.from==2&&fabsf(claim.position.x-report.position.x)<.001f);
     int count=world.radio_count;assert(world_save(ctx));world_close();world_load(ctx);
     assert(world.radio_count==count&&world_find(2)->team==1&&world_find(4)->team==2);
-    claim=world.radio[world.radio_count-1];assert(claim.cargo==3&&claim.from==2&&fabsf(claim.position.x-report.position.x)<.001f);
+    claim=world.radio[world.radio_count-1];assert(claim.target==3&&claim.from==2&&fabsf(claim.position.x-report.position.x)<.001f);
     c=world_find(2);assert(get_number(c->controller->ctx,c->controller->memory,"job",0)==3);
-    JSValue invalid=read_json(ctx,"/workspace/blockwalker-world.json");radio=JS_GetPropertyStr(ctx,invalid,"radio");JSValue message=JS_GetPropertyUint32(ctx,radio,0);put_number(ctx,message,"team",3);JS_FreeValue(ctx,message);JS_FreeValue(ctx,radio);
-    assert(save_json(ctx,invalid,"/workspace/invalid-radio.json"));JS_FreeValue(ctx,invalid);JSValue result=world_import(ctx,"/workspace/invalid-radio.json");assert(JS_IsException(result));JS_FreeValue(ctx,JS_GetException(ctx));assert(world.radio_count==count&&world_find(2)->team==1);
-    Controller *bad=controller_new("function(){return {radio:{kind:'teleport',cargo:3}}}",1,10);float keys[128];assert(bad&&!controller_step(bad,&c->physics,&c->design,keys));controller_free(bad);
+    Value invalid=read_data(ctx,"/workspace/blockwalker-world.lua");radio=value_get(ctx,invalid,"radio");Value message=value_at(ctx,radio,0);put_number(ctx,message,"team",3);value_free(ctx,message);value_free(ctx,radio);
+    assert(save_data(ctx,invalid,"/workspace/invalid-radio.lua"));value_free(ctx,invalid);Value result=world_import(ctx,"/workspace/invalid-radio.lua");assert(value_is_error(result));value_free(ctx,value_exception(ctx));assert(world.radio_count==count&&world_find(2)->team==1);
+    Controller *bad=controller_new("return function()\n  do return {radio = {kind = \"teleport\", cargo = 3}} end\nend\n",1,10);float keys[128];assert(bad&&!controller_step(bad,&c->physics,&c->design,keys));controller_free(bad);
     assert(!world.deaths);puts("RADIO: roof/wall occlusion, scout discovery starts remote carrier, team isolation, unseen claim retains reported coordinates, saved jobs/radio and invalid import/output passed");character_clear(&car);world_close();
 }
+static void check_rescue_radio(Data *ctx){
+    terrain_select(1);Character car={0};character_car(&car);
+    const char *idle="return function() return {} end";
+    Creature *c=spawn(&car,idle,"Lookout",1,20,-30,40);c->team=1;
+    c=spawn(&car,idle,"Hidden teammate",1,20,-30,50);c->team=1;
+    c=spawn(&car,idle,"Opponent",1,20,-25,40);c->team=2;
+    c=spawn(&car,idle,"Neutral",1,20,-20,40);c->team=0;
+    assert(world.count==4);world.age=10;
+    radio_send(&world_find(1)->physics,RADIO_HELP,1);assert(world.radio_count==1&&world.radio[0].target==1);
+    radio_send(&world_find(1)->physics,RADIO_THREAT,3);assert(world.radio_count==1);
+    world.age+=3.1;assert(!cargo_visible(world_find(1),world_find(2)));
+    radio_send(&world_find(1)->physics,RADIO_HELP,2);assert(world.radio_count==1);
+    radio_send(&world_find(1)->physics,RADIO_THREAT,2);assert(world.radio_count==1);
+    radio_send(&world_find(1)->physics,RADIO_HELP,3);assert(world.radio_count==1);
+    radio_send(&world_find(1)->physics,RADIO_THREAT,3);assert(world.radio_count==2&&world.radio[1].target==3&&world.radio[1].kind==RADIO_THREAT);
+    radio_send(&world_find(4)->physics,RADIO_HELP,4);assert(world.radio_count==2);
+    Value report=radio_state(ctx,1);assert(value_length(ctx,report)==2);Value item=value_at(ctx,report,1),alias=value_get(ctx,item,"cargo");assert(value_is_nil(alias)&&get_number(ctx,item,"target",0)==3);value_free(ctx,alias);value_free(ctx,item);value_free(ctx,report);
+    report=radio_state(ctx,2);assert(value_length(ctx,report)==0);value_free(ctx,report);
+    for(int i=0;i<10;i++){world.age+=3.1;radio_send(&world_find(1)->physics,RADIO_HELP,1);assert(world.radio_count==2);}
+    assert(world.radio[1].time==world.age&&world.radio[1].target==1);
+    const char *bad[]={"return function() return {radio={kind='help',target='1',cargo=1}} end","return function() return {radio={kind='help',target=1,cargo=2}} end","return function() return {radio={kind='help',target=true}} end"};
+    for(int i=0;i<3;i++){Controller *controller=controller_new(bad[i],1,20);float keys[128]={0};assert(controller&&!controller_step(controller,&world_find(1)->physics,&car,keys));controller_free(controller);}
+    assert(world_save(ctx));world_close();world_load(ctx);assert(world.radio_count==2&&world.radio[0].kind==RADIO_THREAT&&world.radio[1].kind==RADIO_HELP&&world.radio[1].target==1);
+    Value saved=read_data(ctx,"/workspace/blockwalker-world.lua"),list=value_get(ctx,saved,"radio");item=value_at(ctx,list,1);put_number(ctx,item,"target",-1);value_free(ctx,item);value_free(ctx,list);assert(save_data(ctx,saved,"/tmp/invalid-help.lua"));value_free(ctx,saved);Value invalid=world_import(ctx,"/tmp/invalid-help.lua");assert(value_is_error(invalid)&&world.count==4&&world.radio_count==2);value_free(ctx,invalid);
+    puts("RADIO HELP: real visibility, friendly/enemy targets, sender rate, team isolation, coalescing, strict output, save/reload and rejected import passed");character_clear(&car);world_close();
+}
 int main(void){
-    JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);Character car={0};character_car(&car);
-    Creature *driver=spawn(&car,"function(){return ''}","Your character",1,60,0,12);int id=driver->id;world.player=id;
+    Data *ctx=data_new(256*1024*1024);Character car={0};character_car(&car);
+    Creature *driver=spawn(&car,"return function()\n  do return \"\" end\nend\n","Your character",1,60,0,12);int id=driver->id;world.player=id;
     int cargo=world_drop_cargo(0,NAN,16.5f,MATERIAL_ALLOY),unearned=world_drop_cargo(2,NAN,34,MATERIAL_ALLOY);
     ticks(90);assert(world.delivery_count==0&&!world_find(unearned)->carrier);
     magnet(id,1);motor(id,1);
@@ -433,12 +472,12 @@ int main(void){
     world_save(ctx);world_close();world_load(ctx);
     assert(world.player==id&&world_find(cargo)->carrier==-1&&world.delivery_count==0&&b3Body_IsValid(world_find(id)->physics.parts[8].magnet_target));
     for(int i=0;i<world.design_count;i++)assert(strcmp(world.designs[i].name,"Your character"));
-    JSValue sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60),nearby=JS_GetPropertyStr(ctx,sensors,"nearby"),sample=JS_GetPropertyUint32(ctx,nearby,0),ground=JS_GetPropertyStr(ctx,sensors,"groundSamples");
+    Value sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60),nearby=value_get(ctx,sensors,"nearby"),sample=value_at(ctx,nearby,0),ground=value_get(ctx,sensors,"groundSamples");
     assert(get_number(ctx,sensors,"id",0)==id&&get_number(ctx,ground,"length",0)==16&&get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",0)==1);
-    JSValue magnets=JS_GetPropertyStr(ctx,sensors,"magnets"),head=JS_GetPropertyUint32(ctx,magnets,8);
-    assert(fabs(get_number(ctx,head,"targetMass",0)-b3Body_GetMass(world_find(cargo)->physics.parts[0].body))<1e-6);JS_FreeValue(ctx,head);JS_FreeValue(ctx,magnets);
+    Value magnets=value_get(ctx,sensors,"magnets"),head=value_at(ctx,magnets,8);
+    assert(fabs(get_number(ctx,head,"targetMass",0)-b3Body_GetMass(world_find(cargo)->physics.parts[0].body))<1e-6);value_free(ctx,head);value_free(ctx,magnets);
     double sensed=get_number(ctx,sample,"z",0);assert(fabs(sensed-cargo_z(cargo))<.001);
-    JS_FreeValue(ctx,ground);JS_FreeValue(ctx,sample);JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
+    value_free(ctx,ground);value_free(ctx,sample);value_free(ctx,nearby);value_free(ctx,sensors);
     motor(id,.65f);steps=0;while(cargo_z(cargo)<33.7f&&steps++<600)world_step();motor(id,0);ticks(120);
     assert(steps<600&&world.delivery_count==0);magnet(id,0);ticks(180);
     printf("DELIVERY RELEASE: cargo %.3f, settled %.3f, delivered %d, score %d\n",cargo_z(cargo),world_find(cargo)->settled,world_find(cargo)->delivered,world_cargo_score(-1));
@@ -451,15 +490,15 @@ int main(void){
     world_save(ctx);puts("DELIVERY: physical pickup, loaded restart, transport, release, one-time score and persistent player attribution passed");
     world_close();
     character_remove(&car,7);character_remove(&car,7);assert(car.count==7);
-    driver=spawn(&car,"function(){return ''}","Deck carrier",1,60,0,12);id=driver->id;world.player=id;ticks(60);
+    driver=spawn(&car,"return function()\n  do return \"\" end\nend\n","Deck carrier",1,60,0,12);id=driver->id;world.player=id;ticks(60);
     b3Pos p=b3Body_GetPosition(world_find(id)->physics.parts[0].body);cargo=world_drop_cargo(p.x,p.y+1,p.z,MATERIAL_ALLOY);ticks(90);
     assert(world_find(cargo)->carrier==-1);float start=cargo_z(cargo);motor(id,.5f);ticks(300);motor(id,0);ticks(60);
     printf("DECK CARGO: transported %.3f m, carrier %d\n",cargo_z(cargo)-start,world_find(cargo)->carrier);
     assert(cargo_z(cargo)>start+4&&world_find(cargo)->carrier==-1&&world.delivery_count==0);
     assert(world_find(cargo)->held_by==id);world_save(ctx);world_close();world_load(ctx);
     assert(world_find(cargo)->held_by==id&&world_find(cargo)->carrier==-1);ticks(30);assert(world_find(cargo)->held_by==id);
-    sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60);nearby=JS_GetPropertyStr(ctx,sensors,"nearby");sample=JS_GetPropertyUint32(ctx,nearby,0);
+    sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60);nearby=value_get(ctx,sensors,"nearby");sample=value_at(ctx,nearby,0);
     assert(get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",-1)==0);
-    JS_FreeValue(ctx,sample);JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
-    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx,0);check_courier(ctx,1);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);check_radio(ctx);check_supply(ctx);check_mine_supply(ctx);check_wrong_air_grip(ctx);check_mine_return(ctx);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    value_free(ctx,sample);value_free(ctx,nearby);value_free(ctx,sensors);
+    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx,0);check_courier(ctx,1);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);check_radio(ctx);check_rescue_radio(ctx);check_supply(ctx);check_mine_supply(ctx);check_wrong_air_grip(ctx);check_mine_return(ctx);data_close(ctx);return 0;
 }

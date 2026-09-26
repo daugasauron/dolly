@@ -1,17 +1,18 @@
-DOLLY 3
+DOLLY 4
 IMAGE blockwalker
 
-FROM HOST /Dollyfile-gamedev-sdk be4910e825968c42020cfb8289f5275c8a757ce4b17ebbf9ad9d634db8c22f22
-COPY FROM HOST /Dollyfile-javascript fcd9e5b1aec51a8ee57aedd934b0bbcef31225c6b6946b9ad318e615fe28ba68 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM HOST /Dollyfile-javascript fcd9e5b1aec51a8ee57aedd934b0bbcef31225c6b6946b9ad318e615fe28ba68 /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM HOST /Dollyfile-javascript fcd9e5b1aec51a8ee57aedd934b0bbcef31225c6b6946b9ad318e615fe28ba68 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM HOST /Dollyfile-javascript fcd9e5b1aec51a8ee57aedd934b0bbcef31225c6b6946b9ad318e615fe28ba68 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM HOST /Dollyfile-javascript fcd9e5b1aec51a8ee57aedd934b0bbcef31225c6b6946b9ad318e615fe28ba68 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+FROM HOST /Dollyfile-gamedev-sdk a1e36f80ca08a16469bdbc3e3aff0bc955e5b045350875a1cc481dd8d39bb675
+COPY FROM HOST /Dollyfile-javascript ea9308b65bb4ae5fb63a75e283258c1eb57e2f8da9ef25adf8bacabd27aa9388 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM HOST /Dollyfile-javascript ea9308b65bb4ae5fb63a75e283258c1eb57e2f8da9ef25adf8bacabd27aa9388 /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM HOST /Dollyfile-javascript ea9308b65bb4ae5fb63a75e283258c1eb57e2f8da9ef25adf8bacabd27aa9388 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM HOST /Dollyfile-javascript ea9308b65bb4ae5fb63a75e283258c1eb57e2f8da9ef25adf8bacabd27aa9388 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM HOST /Dollyfile-javascript ea9308b65bb4ae5fb63a75e283258c1eb57e2f8da9ef25adf8bacabd27aa9388 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE HOST /modules/pi.dm 423ae4a3ccf5759d59d47147cf437beb2238a0376609c75d9bda6f9dcef66a19
-USE HOST /modules/blockwalker.dm 5f2a569ef27bc8f5bc546ede190920ff3655f1a469caa745174dcebe905ade08
+USE HOST /modules/pi.dm 2e3b52f7da889bbf3ac04a10f3f733d306a98a79957eb924bd25318b7644be7f
+USE HOST /modules/lua55.dm 5f214f13e7d54f27c9a91bb70e4079445413c58c61e0f47fea02b9c21b1c6ed1
+USE HOST /modules/blockwalker.dm 613f124878f97c208da5ed8ba601483396305ef302552475273540955783c2a6
 
 FILE /etc/dolly/blockwalker.slop
     /bin/foreground /usr/bin/blockwalker

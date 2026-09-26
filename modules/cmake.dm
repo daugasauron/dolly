@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE cmake
 
 # Bootstrap CMake from upstream source using the already source-built libuv.

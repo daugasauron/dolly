@@ -147,57 +147,18 @@ EM_JS(void, dolly_bootstrap_write_bytes,
   Module["bootstrapWriteBytes"]?.(HEAPU8.slice(start, start + Number(length)));
 });
 
-EM_JS(int, dolly_http_dispatch,
+// The trusted host registry supplies these typed imports. The generated
+// Emscripten binding fails closed if a host omits that step.
+#define DOLLY_EM_JS(...) EM_JS(__VA_ARGS__)
+DOLLY_EM_JS(int, dolly_http_dispatch,
       (const char *method, uintptr_t method_size,
        const char *url, uintptr_t url_size,
        const char *headers, uintptr_t headers_size,
        const void *body, uintptr_t body_size, uint32_t flags,
-       uint32_t sequence), {
-  return Module["httpDispatch"]({
-    memory: HEAPU8.buffer,
-    method, methodSize: method_size,
-    url, urlSize: url_size,
-    headers, headersSize: headers_size,
-    body, bodySize: body_size, flags, sequence,
-  });
-});
-
-// EM_JS stringifies its body. Expand target errno macros before that step.
-#define DOLLY_EM_JS(...) EM_JS(__VA_ARGS__)
+       uint32_t sequence), { return -ENOSYS; });
 DOLLY_EM_JS(int, dolly_download_dispatch,
       (const unsigned char *name, uintptr_t name_length,
-       const unsigned char *bytes, uintptr_t length), {
-  const nameStart = Number(name);
-  const nameSize = Number(name_length);
-  const dataStart = Number(bytes);
-  const dataSize = Number(length);
-  const maximum = 64 * 1024 * 1024;
-  if (!Number.isSafeInteger(nameStart) || !Number.isSafeInteger(nameSize) ||
-      !Number.isSafeInteger(dataStart) || !Number.isSafeInteger(dataSize) ||
-      nameStart < 0 || nameSize < 1 || nameSize > 255 ||
-      dataStart < 0 || dataSize < 0 || dataSize > maximum ||
-      nameStart + nameSize > HEAPU8.length ||
-      dataStart + dataSize > HEAPU8.length) return -EINVAL;
-  let decoded;
-  try {
-    decoded = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
-      HEAPU8.slice(nameStart, nameStart + nameSize),
-    );
-  } catch (_) {
-    return -EINVAL;
-  }
-  if (decoded === "." || decoded === "..") return -EINVAL;
-  for (let index = 0; index < decoded.length; index += 1) {
-    const code = decoded.charCodeAt(index);
-    if (code === 47 || code === 92 || code < 32 || code === 127) return -EINVAL;
-  }
-  const dispatch = Module["downloadDispatch"];
-  if (typeof dispatch !== "function") return -ENOSYS;
-  return dispatch({
-    name: decoded,
-    bytes: HEAPU8.slice(dataStart, dataStart + dataSize),
-  }) | 0;
-});
+       const unsigned char *bytes, uintptr_t length), { return -ENOSYS; });
 #undef DOLLY_EM_JS
 
 EMSCRIPTEN_KEEPALIVE
@@ -1058,7 +1019,8 @@ int dolly_download_file(const char *path) {
   return status;
 }
 
-static int prepare_display_driver(void) {
+EMSCRIPTEN_KEEPALIVE
+int dolly_display_prepare(void) {
   const char *driver_path = getenv("DISPLAY");
   if (driver_path == NULL || driver_path[0] != '/') {
     fputs("dolly: DISPLAY must name an absolute shared-library path\n", stderr);
@@ -1324,8 +1286,7 @@ int dolly_bootstrap_snapshot(uintptr_t size) {
   }
   puts("dolly: precompiled system restored");
   fflush(stdout);
-  if (dolly_snapshot_prune() != 0) return 1;
-  return prepare_display_driver();
+  return dolly_snapshot_prune() != 0;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -1335,8 +1296,7 @@ int dolly_bootstrap_finish(void) {
             strerror(errno));
     return 1;
   }
-  if (dolly_snapshot_prune() != 0) return 1;
-  return prepare_display_driver();
+  return dolly_snapshot_prune() != 0;
 }
 
 static uint32_t take_entry_u32(const unsigned char **cursor,

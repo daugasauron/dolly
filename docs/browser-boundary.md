@@ -10,6 +10,22 @@ and [HTTP](http.md) specifies the transport.
 allowlist. The build compares it with the finished kernel; capability-report
 JSON does not define it.
 
+The fixed registry in [src/host/modules.mjs](../src/host/modules.mjs) assigns
+every outer import to exactly one provider. Each public `src/host/NAME.mjs`
+pairs with `include/dolly/NAME.h` and its typed WAT contract. Providers own their
+handshake, mailbox/message handlers and resource cleanup; the registry handles
+dependencies and lifecycle. Kernel imports for disabled providers receive
+denial functions. No image can select a JavaScript source or Worker URL.
+
+`DOLLY 4` host requirements are compatibility demands, not grants. The embedding
+selects providers separately; HTTP policy still authorizes every request. Image
+requirements propagate through FROM and USE, not COPY, and are checked before
+ENTRY. Artifact requirements are derived from digest-checked retained recipes.
+Commands and DSOs can also carry the `dolly.host` records specified in
+[abi/dolly-host-0.wat](../abi/dolly-host-0.wat); these check ABI compatibility at load time. A disabled provider still has its
+typed denial binding; image declarations demand actual availability. Removing or forging records never enables a denied host provider. A headless
+builder supplies runtime and HTTP independently of the image it is compiling.
+
 ```text
 guest spans → env.dolly_http_dispatch → browser policy → Fetch
                                                    → bounded Wasm response
@@ -17,7 +33,7 @@ guest spans → env.dolly_http_dispatch → browser policy → Fetch
 
 Follow these pieces:
 
-1. [src/dolly.c](../src/dolly.c), `dolly_http_dispatch`: forwards span
+1. [src/host/http.mjs](../src/host/http.mjs), `env.dolly_http_dispatch`: forwards span
    descriptors and shared memory, without scanning or copying guest strings.
 2. [src/http-broker.mjs](../src/http-broker.mjs), `createHttpAdmission`:
    one private acknowledgement prevents an unbounded dispatch-message queue.
@@ -69,6 +85,27 @@ embedding policy and registry bootstrap grants. It calls the existing
 [build worker](../src/image-builder.mjs) with that restricted transport; it adds
 no host imports or local services. Cancelling closes the worker and broker.
 
+## Thread provider
+
+[`threads.mjs`](../src/host/threads.mjs) owns the optional `threads@0` Worker
+budget: at most 16 Workers per threaded process and 64 across the provider.
+It instantiates only the already admitted executable with that process's memory;
+guest packets select neither code nor Worker URLs. The two process imports and
+the outer browser import allowlist are unchanged. The separately stamped
+[`dolly-threads-0.wat`](../abi/dolly-threads-0.wat) fixes the child entry and
+packet operations; its internal supervisor exports have their own typed contract.
+
+[`process-supervisor.mjs`](../src/process-supervisor.mjs) binds each Worker context
+to PID/TID and an independent syscall acknowledgement. Thread IDs, join results,
+files, environments and per-thread HTTP staging remain in kernel Wasm. HTTP
+requests retain process-wide ownership and the existing broker policy/quotas.
+`process-worker.mjs` rejects DSO/FFI operations in the static thread profile.
+Normal thread completion unwinds Wasm before the trusted wrapper reports it;
+that wrapper never re-enters guest code. Only then can WAIT make its stack
+reclaimable. A trap or process exit terminates all the process's Workers.
+Kernel-queued signals go to the oldest live thread; a blocked receiver is woken,
+and unhandled terminating signals retain the existing process termination timer.
+
 ## Experimental GPU provider
 
 [`dolly-gpu-0.wat`](../abi/dolly-gpu-0.wat) adds exactly one typed outer
@@ -79,8 +116,11 @@ and [`gpu-worker.mjs`](../src/gpu-worker.mjs) for copied packet validation,
 private handles/quotas, queue completion, and revocation. GPU buffers and
 textures are explicit external device resources; CPU userspace state remains
 in Wasm. Guest bytes cannot choose URLs, DOM nodes or JavaScript operations.
-The main thread transfers one embedding-created canvas; normal frames reach
-the compositor directly. [GPU details](gpu.md) lists the prototype limits and
+Provider startup waits for its Worker to acknowledge configuration before guest
+calls can synchronously submit packets. The Worker receives the shared Wasm
+memory and refreshes its buffer after growth. The main thread may transfer one
+embedding-created canvas; compute needs none. Normal frames reach the compositor
+directly. [GPU details](gpu.md) lists the prototype limits and
 its real-browser checks. Existing CPU framebuffer and network paths remain.
 
 The fluid workload adds bounded vertex layouts (one buffer, eight attributes)

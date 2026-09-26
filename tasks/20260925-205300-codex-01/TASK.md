@@ -157,3 +157,13 @@ branch loses actors or reports errors/deaths/friendly projectile contacts. The
 candidate retreats away when no clear root-body approach is found; this does not satisfy
 the heavy-guard rescue gate. Full trace and final worlds:
 `...-chrome-rescue-rotary-shapes/salvage/`. All rescue prototypes remain unbundled.
+
+September 27 populated Lua checkpoint still leaves heavy rescue open.
+`build/living-world-20260926/long-fresh` preserves all actors for 7,200 s but guards
+43/44/46 end overturned. Guard 44 is upright while holding aircraft 31 around
+390–395 s, then approaches fallen teammate 49: up .841 at 405 s, .565 at 415 s,
+and inverted by 430 s. Do not attribute this roll to carrying the aircraft
+without further contact evidence. Guard 45 remains upright and approaches 43.
+The shared program's other successful settled rescues do not satisfy this
+issue's heavy-vehicle and gun-clearance criteria; no speculative anti-roll fix
+was added to the packaged image.

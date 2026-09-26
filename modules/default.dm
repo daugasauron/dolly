@@ -1,29 +1,29 @@
-DOLLY 3
+DOLLY 4
 MODULE default
 
 # Shared C/C++ build and system utilities, without a display or Rust tools.
-USE HOST /modules/download.dm       74b6c1c6a911150a593758806ee5939f52f42cdb93632f68406adcecb0ca03bf
-USE HOST /modules/upload.dm         71da809b012f0228082a39240075387b23a44d8ba24a3a641b0f85a899606ea0
-USE HOST /modules/ninja.dm          84b060b2ab700c37083cd698a619630d1f25663156320a0acae3fe07053777f7
-USE HOST /modules/zlib.dm           0d4994c6687385e288747ef53e621707c064cf8666239f7f6210480c72c57b35
-USE HOST /modules/gzip.dm 252ac923bb3addc1cb45ae75b5f31c47e6f1f4e308eb247a8cef54862c5633b8
-USE HOST /modules/curl.dm           78b6cf92c487e201ea69afec52cba18153d9ec46c4027f6c6bf4d07c8765e27a
-USE HOST /modules/git.dm            70c6691e9f126fa1c9168bc5c44568063de4163a96b6dd5d9c51a90724a8e6fa
-USE HOST /modules/awk.dm            b9ff535f661dd7e24b0136e3067d08b5880c16fae6abce38bd1677428ac72a65
-USE HOST /modules/sbase.dm          1c803f9d9d210c7d1fc6b1b56b6efc4e3e4c2976bbeed07f0699ecbe8724099f
-USE HOST /modules/sbase-tools-1.dm  d02a8f66c3c7f0b96ad161ac4cba46aa022ff2f52c7979891d074aa7889f8329
-USE HOST /modules/sbase-tools-2.dm  f484a24bd78808fee3c0c88cce66a24bf31134cf022149cdebd0c83b89218c2f
-USE HOST /modules/sbase-tools-3.dm  6a2bfd5547a3931fd1c0af510f6844a9088a361709fbd874ac9ac7011f32769a
-USE HOST /modules/sbase-tools-4.dm  ec9a92a547ff20e1ac919fc5c1534bae4eb90374fd9ba45708fa38aa62207f4a
-USE HOST /modules/sbase-tools-5.dm  91304d7f7074949b49700d622745315f49c9b31ed95aaf2625bf758f4f1370b9
-USE HOST /modules/sbase-tools-6.dm  9ac0983ae4628041abdf24d510de4b8a84b3588e34df7615d22b47f31313e5e5
-USE HOST /modules/sbase-tools-7.dm  e4b3c1010b9cfdbb21deb1f28429aab6a02f69483b182e73f7f88d9360568992
-USE HOST /modules/sbase-tools-8.dm  c216ed15fb014a9d387152a1dfae39b33792b907daeab964a70a3c9839e1c29f
-USE HOST /modules/sbase-tools-9.dm  eff5de6801c4d483b2853fa027f07beaed666239517255b3a9ed8d5dd4d249c8
-USE HOST /modules/sbase-tools-10.dm 5eb35e784f68afbf40e5509a047a386f689d90d69dd3dccaf535f39b4d18c999
-USE HOST /modules/sbase-tools-11.dm e8121cc66576e4641cb99bbfb5fe60c07749b725a0c3a7a3c6e6e677a42ccd9f
-USE HOST /modules/sbase-tools-12.dm 6f1a4fc873a037e749f9456711be8d1424decb454f4379e954239a6134847266
-USE HOST /modules/agent-tools.dm    f9eb4acb4d7a9f69b79c607cdd6ccbb21bf567cc720fcc806c5b68c4615da03a
+USE HOST /modules/download.dm       ba1ad3771193d58464d0ffe6a463f08102db9d72112d76230c771ac3f84c84b1
+USE HOST /modules/upload.dm         17c1f142a2568513d94f331962ace1e27fe4c03a06c342f615a3e5060a561fd8
+USE HOST /modules/ninja.dm          00e13c414b1e63bd373c1b8d0b54c6e079c138a808d428a0e5d9ab287040354c
+USE HOST /modules/zlib.dm           348b3b868f0dccd5a70d5f8b5d2e02b6b3c683284c32ebff821b40306a8853e3
+USE HOST /modules/gzip.dm f159cc4ed4c045f89a3ce1477c513e9ee00b4a949dc7903ac0ef059fbdb5227a
+USE HOST /modules/curl.dm           03a4d53e87b23cd786fbf1f7854c29bcac91518a6e902fec607cc83119a1b0e5
+USE HOST /modules/git.dm            549e11481b59c19e77aadcad3d9be2d1629387ac445f9d9477f3b0d1353d1976
+USE HOST /modules/awk.dm            45d33d625d8bfe1aae4fd850b7a45f38eca692e998e05c98577c3ac82c1068a3
+USE HOST /modules/sbase.dm          c0bb65bbab9228cf4e60c134c85c7cf5b5407b1f192c6ef4065b29ccdc035b3b
+USE HOST /modules/sbase-tools-1.dm  eaa8bbdfd69200cfebfd00fc94b0a8549cfe26eeff50be596d026feffb9130ec
+USE HOST /modules/sbase-tools-2.dm  713269ca6ea544b2c24270a965608290c18db417a0cafc49f0cf3f5c0002460a
+USE HOST /modules/sbase-tools-3.dm  5aeeb80f411228c88a9ebfdc534a2d1870c0b29f42c52fdcd9adf2f2cf00adee
+USE HOST /modules/sbase-tools-4.dm  a4260fba7adb1186260c02be1377435016406d046822f2bfaff96c91b2d52d98
+USE HOST /modules/sbase-tools-5.dm  ad1fb0e9af6100423e9548811b956598b0809b4be6390bc6a21befdae452d8e5
+USE HOST /modules/sbase-tools-6.dm  94839b4a27147efba9d2c7a10ad4c16b4335727885794c58ac41917b1e6416ea
+USE HOST /modules/sbase-tools-7.dm  d1a26b2997b330f38dd09647c94149b069608b1a2cd471eee2dacbccb0d7178a
+USE HOST /modules/sbase-tools-8.dm  608bbd0009a88444ee59c524d536482082b5fc2cd84c3329adb7aab0d8317098
+USE HOST /modules/sbase-tools-9.dm  4190002d0dc0e04a114534d20067604b6812b8214936abc8873e806aab48ee97
+USE HOST /modules/sbase-tools-10.dm 4e2f79cb416c2d08491551abf6040332df624f6a46a2ee539f083a2f554d7b6e
+USE HOST /modules/sbase-tools-11.dm 76a51baf5723016d658caabcef0ffc605a7413d7582de3204290ce5334428db5
+USE HOST /modules/sbase-tools-12.dm 44faf330d7551d7f370baada766c68a3334cfafc0ed3adc80d5dc07dc4bf4659
+USE HOST /modules/agent-tools.dm    340f372ea23a0c9c252fb9c6aec150c1a52a97642f34618d7a8ff238594e2c3e
 
 # Retain the runtime and SDK at these paths when the module finishes.
 EXPORTS HEADER zlib       /usr/include/zlib.h

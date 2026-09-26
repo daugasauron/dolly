@@ -1,7 +1,7 @@
-DOLLY 3
+DOLLY 4
 IMAGE classicube-build
 
-FROM HOST /Dollyfile-sdl2-build c4c901195f5e33a4a5bfcead9c9a2bda22c34a83c002791fdae002df78c0816c
-USE HOST /modules/classicube.dm a5a4d0865884848937e6652252706cc20e783349bfa90cb5e6e9a3308da2761b
+FROM HOST /Dollyfile-sdl2-build f0baee3b67b373cec2b7f1f9557f550276005999870b10c6a7aa21937060050d
+USE HOST /modules/classicube.dm 8b6e27ebf9541581abbc12894cf34e819c1afb4e23b8ff2201da8df18003c314
 
 ENTRY /bin/slop

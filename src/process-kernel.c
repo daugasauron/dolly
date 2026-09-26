@@ -5,6 +5,7 @@
 
 #include <dolly/http.h>
 #include <dolly/process.h>
+#include <dolly/threads.h>
 
 #include <emscripten/emscripten.h>
 
@@ -35,7 +36,19 @@ enum {
   DOLLY_KERNEL_PIPE_WRITE = 2,
   DOLLY_KERNEL_SHEBANG_LIMIT = 4096,
   DOLLY_KERNEL_SHEBANG_DEPTH = 4,
+  DOLLY_KERNEL_THREAD_LIMIT = 64,
 };
+
+typedef struct {
+  unsigned char *bytes;
+  size_t size, written;
+} dolly_http_body;
+
+typedef struct {
+  int tid, waiter, waiting_on, retired;
+  uint64_t result;
+  dolly_http_body body;
+} dolly_kernel_thread;
 
 typedef struct {
   size_t offset;
@@ -70,8 +83,9 @@ typedef struct {
   size_t image_size;
   uint64_t deadline_nanoseconds;
   uint32_t http_sequences[DOLLY_HTTP_SLOT_COUNT];
-  unsigned char *http_body;
-  size_t http_body_size, http_body_written;
+  dolly_http_body body;
+  dolly_kernel_thread threads[DOLLY_KERNEL_THREAD_LIMIT];
+  int signal_tid;
   uint32_t pending_signals;
   int handling_signal;
 } dolly_kernel_process;
@@ -80,6 +94,7 @@ _Alignas(64) static unsigned char
     process_mailbox[DOLLY_PROCESS_PACKET_LIMIT];
 static dolly_kernel_process process_table[DOLLY_KERNEL_PROCESS_LIMIT];
 static int next_process_pid = 100;
+static uint32_t next_thread_tid = 1;
 static uint32_t live_pipe_count;
 static int foreground_pid;
 
@@ -103,6 +118,28 @@ static dolly_kernel_process *find_process(int pid) {
     }
   }
   return NULL;
+}
+
+static void http_body_discard(dolly_http_body *body) {
+  free(body->bytes);
+  memset(body, 0, sizeof(*body));
+}
+
+static dolly_kernel_thread *find_thread(dolly_kernel_process *process, int tid) {
+  if (tid <= 0) return NULL;
+  for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i)
+    if (process->threads[i].tid == tid) return &process->threads[i];
+  return NULL;
+}
+
+static int allocate_thread(dolly_kernel_process *process) {
+  if (next_thread_tid > INT32_MAX) return -EAGAIN;
+  for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i) {
+    if (process->threads[i].tid) continue;
+    process->threads[i].tid = (int)next_thread_tid++;
+    return process->threads[i].tid;
+  }
+  return -EAGAIN;
 }
 
 int dolly_process_descends_from(int pid, int ancestor_pid) {
@@ -203,9 +240,10 @@ static void release_descriptor(dolly_kernel_process *process,
 
 static void release_process_resources(dolly_kernel_process *process) {
   dolly_upload_cancel_process(process->pid);
-  free(process->http_body);
-  process->http_body = NULL;
-  process->http_body_size = process->http_body_written = 0;
+  http_body_discard(&process->body);
+  for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i)
+    http_body_discard(&process->threads[i].body);
+  memset(process->threads, 0, sizeof(process->threads));
   for (size_t index = 0; index < DOLLY_HTTP_SLOT_COUNT; ++index) {
     if (process->http_sequences[index] != 0) {
       (void)dolly_http_cancel(process->http_sequences[index]);
@@ -1443,15 +1481,9 @@ static int64_t display_release_packet(dolly_kernel_process *process,
   return dolly_kernel_display_release(process->pid, request.generation);
 }
 
-static void http_body_discard(dolly_kernel_process *process) {
-  free(process->http_body);
-  process->http_body = NULL;
-  process->http_body_size = process->http_body_written = 0;
-}
-
-static int64_t http_body_write_packet(dolly_kernel_process *process,
+static int64_t http_body_write_packet(dolly_http_body *body,
                                      uintptr_t request_size) {
-  if (request_size == 0) { http_body_discard(process); return 0; }
+  if (request_size == 0) { http_body_discard(body); return 0; }
   if (request_size <= sizeof(dolly_process_http_body_write_request)) return -EINVAL;
   dolly_process_http_body_write_request request;
   memcpy(&request, process_mailbox, sizeof(request));
@@ -1459,20 +1491,20 @@ static int64_t http_body_write_packet(dolly_kernel_process *process,
   if (request.total_size > SIZE_MAX || request.offset > request.total_size ||
       length > request.total_size - request.offset) return -EINVAL;
   if (request.offset == 0) {
-    http_body_discard(process);
-    process->http_body = malloc((size_t)request.total_size);
-    if (process->http_body == NULL) return -ENOMEM;
-    process->http_body_size = (size_t)request.total_size;
+    http_body_discard(body);
+    body->bytes = malloc((size_t)request.total_size);
+    if (body->bytes == NULL) return -ENOMEM;
+    body->size = (size_t)request.total_size;
   }
-  if (process->http_body == NULL || request.total_size != process->http_body_size ||
-      request.offset != process->http_body_written) return -EINVAL;
-  memcpy(process->http_body + process->http_body_written,
+  if (body->bytes == NULL || request.total_size != body->size ||
+      request.offset != body->written) return -EINVAL;
+  memcpy(body->bytes + body->written,
          process_mailbox + sizeof(request), length);
-  process->http_body_written += length;
+  body->written += length;
   return 0;
 }
 
-static int64_t http_start_packet(dolly_kernel_process *process,
+static int64_t http_start_packet(dolly_kernel_process *process, dolly_http_body *body,
                                  uintptr_t request_size,
                                  uintptr_t response_capacity) {
   if (request_size < sizeof(dolly_process_http_start_request) ||
@@ -1495,8 +1527,8 @@ static int64_t http_start_packet(dolly_kernel_process *process,
   if (headers_size > remaining) return -EINVAL;
   remaining -= headers_size;
   const int staged = body_size != 0 && remaining == 0;
-  if ((staged ? (body_size != process->http_body_size ||
-                 body_size != process->http_body_written) : body_size != remaining) ||
+  if ((staged ? (body_size != body->size ||
+                 body_size != body->written) : body_size != remaining) ||
       method_size > SIZE_MAX - url_size - headers_size - 3) return -EINVAL;
 
   const unsigned char *cursor = process_mailbox + sizeof(request);
@@ -1522,7 +1554,7 @@ static int64_t http_start_packet(dolly_kernel_process *process,
 
   unsigned int sequence = 0;
   const int result = dolly_http_start(
-      method, url, headers, staged ? process->http_body : cursor,
+      method, url, headers, staged ? body->bytes : cursor,
       body_size, request.flags, &sequence);
   free(strings);
   if (result != 0) return result;
@@ -1597,8 +1629,7 @@ int dolly_process_spawn_serialized(uintptr_t request_size) {
   return spawn_packet(0, (size_t)request_size);
 }
 
-EMSCRIPTEN_KEEPALIVE
-int64_t dolly_process_dispatch(int pid, uint32_t operation,
+static int64_t process_dispatch(int pid, int tid, uint32_t operation,
                                uintptr_t request_size,
                                uintptr_t response_capacity) {
   deferred_milliseconds = -1;
@@ -1608,11 +1639,14 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
   if (process == NULL) return -ESRCH;
   if (process->state != DOLLY_KERNEL_PROCESS_RUNNING &&
       operation != DOLLY_PROCESS_EXIT) return -ESRCH;
-  if (process->pending_signals && !process->handling_signal &&
+  if ((!tid || tid == process->signal_tid) && process->pending_signals && !process->handling_signal &&
       operation != DOLLY_PROCESS_INTERRUPT_POLL &&
       operation != DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE &&
       operation != DOLLY_PROCESS_EXIT) return -EINTR;
 
+  dolly_kernel_thread *thread = find_thread(process, tid);
+  if (tid && (!thread || thread->retired)) return -ESRCH;
+  dolly_http_body *body = thread ? &thread->body : &process->body;
   switch (operation) {
     case DOLLY_GPU_PROCESS_OP:
       return dolly_gpu_process_call(pid, process_mailbox, request_size, response_capacity);
@@ -2148,7 +2182,7 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
     }
     case DOLLY_PROCESS_INTERRUPT_POLL: {
       if (request_size != 0 || response_capacity < sizeof(int32_t)) return -EINVAL;
-      const int32_t response = process->handling_signal ? 0 : next_signal(process);
+      const int32_t response = process->handling_signal || (tid && tid != process->signal_tid) ? 0 : next_signal(process);
       if (response) {
         process->pending_signals &= ~(1u << response);
         process->handling_signal = response;
@@ -2157,6 +2191,7 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
       return sizeof(response);
     }
     case DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE: {
+      if (tid && tid != process->signal_tid) return -EPERM;
       if (request_size != sizeof(int32_t) || response_capacity < sizeof(int32_t)) return -EINVAL;
       int32_t number;
       memcpy(&number, process_mailbox, sizeof(number));
@@ -2273,12 +2308,12 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
     case DOLLY_PROCESS_DISPLAY_RELEASE:
       return display_release_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_HTTP_START: {
-      const int64_t result = http_start_packet(process, request_size, response_capacity);
-      http_body_discard(process);
+      const int64_t result = http_start_packet(process, body, request_size, response_capacity);
+      http_body_discard(body);
       return result;
     }
     case DOLLY_PROCESS_HTTP_BODY_WRITE:
-      return http_body_write_packet(process, request_size);
+      return http_body_write_packet(body, request_size);
     case DOLLY_PROCESS_HTTP_POLL:
       return http_poll_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_HTTP_CANCEL:
@@ -2312,6 +2347,120 @@ int64_t dolly_process_dispatch(int pid, uint32_t operation,
     default:
       return -ENOSYS;
   }
+}
+
+EMSCRIPTEN_KEEPALIVE
+int64_t dolly_process_dispatch(int pid, uint32_t operation,
+                               uintptr_t request_size,
+                               uintptr_t response_capacity) {
+  return process_dispatch(pid, 0, operation, request_size, response_capacity);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_threads_attach(int pid) {
+  dolly_kernel_process *process = find_process(pid);
+  if (!process || process->state != DOLLY_KERNEL_PROCESS_PENDING) return -ESRCH;
+  if (process->signal_tid) return -EALREADY;
+  int tid = allocate_thread(process);
+  if (tid > 0) process->signal_tid = tid;
+  return tid;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_threads_unstarted(int pid, int tid) {
+  dolly_kernel_process *process = find_process(pid);
+  dolly_kernel_thread *thread = process ? find_thread(process, tid) : NULL;
+  if (!thread || tid == process->signal_tid) return -ESRCH;
+  http_body_discard(&thread->body);
+  memset(thread, 0, sizeof(*thread));
+  return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_threads_retired(int pid, int tid, uint64_t result) {
+  dolly_kernel_process *process = find_process(pid);
+  dolly_kernel_thread *thread = process ? find_thread(process, tid) : NULL;
+  if (!thread || thread->retired || process->state != DOLLY_KERNEL_PROCESS_RUNNING)
+    return -ESRCH;
+  thread->result = result;
+  thread->retired = 1;
+  http_body_discard(&thread->body);
+  int receiver = 0;
+  for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i) {
+    dolly_kernel_thread *other = &process->threads[i];
+    if (other->waiter == tid) other->waiter = 0;
+    if (other->tid && !other->retired && (!receiver || other->tid < receiver))
+      receiver = other->tid;
+  }
+  if (process->signal_tid == tid) process->signal_tid = receiver;
+  return receiver == 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int64_t dolly_threads_dispatch(int pid, int tid, uint32_t operation,
+                               uintptr_t request_size,
+                               uintptr_t response_capacity) {
+  deferred_milliseconds = -1;
+  dolly_kernel_process *process = find_process(pid);
+  dolly_kernel_thread *thread = process ? find_thread(process, tid) : NULL;
+  if (!thread || thread->retired || process->state != DOLLY_KERNEL_PROCESS_RUNNING)
+    return -ESRCH;
+  if (thread->waiting_on) {
+    dolly_thread_wait_request request = {0};
+    if (operation == DOLLY_THREAD_WAIT && request_size == 8 && response_capacity == 8)
+      memcpy(&request, process_mailbox, 8);
+    if (request.tid != (uint32_t)thread->waiting_on || request.flags) {
+      /* A different call abandons an interrupted wait, including signal polling. */
+      dolly_kernel_thread *target = find_thread(process, thread->waiting_on);
+      if (target && target->waiter == tid) target->waiter = 0;
+      thread->waiting_on = 0;
+    }
+  }
+  if (request_size > sizeof(process_mailbox) || response_capacity > sizeof(process_mailbox))
+    return -E2BIG;
+  if (operation < DOLLY_THREAD_SPAWN || operation > DOLLY_THREAD_WAIT)
+    return process_dispatch(pid, tid, operation, request_size, response_capacity);
+  switch (operation) {
+    case DOLLY_THREAD_SPAWN: {
+      if (request_size != 8 || response_capacity != 8) return -EINVAL;
+      int child = allocate_thread(process);
+      if (child < 0) return child;
+      dolly_thread_identity response = {(uint32_t)child, 0};
+      memcpy(process_mailbox, &response, 8);
+      return 8;
+    }
+    case DOLLY_THREAD_SELF: {
+      if (request_size || response_capacity != 8) return -EINVAL;
+      dolly_thread_identity response = {(uint32_t)tid, 0};
+      memcpy(process_mailbox, &response, 8);
+      return 8;
+    }
+    case DOLLY_THREAD_EXIT:
+      /* The Worker unwinds to its trusted JS entry wrapper first. The
+       * supervisor publishes retirement only after guest code has stopped. */
+      return request_size == 8 && !response_capacity ? 0 : -EINVAL;
+    case DOLLY_THREAD_WAIT: {
+      if (request_size != 8 || response_capacity != 8) return -EINVAL;
+      dolly_thread_wait_request request;
+      memcpy(&request, process_mailbox, 8);
+      if (request.flags & ~DOLLY_THREAD_WAIT_NONBLOCK) return -EINVAL;
+      if (request.tid == (uint32_t)tid) return -EDEADLK;
+      dolly_kernel_thread *target = find_thread(process, (int)request.tid);
+      if (!target) return -ESRCH;
+      if (target->waiter && target->waiter != tid) return -EINVAL;
+      if (!target->retired) {
+        if (request.flags & DOLLY_THREAD_WAIT_NONBLOCK) return -EAGAIN;
+        target->waiter = tid;
+        thread->waiting_on = target->tid;
+        return DOLLY_PROCESS_DISPATCH_DEFERRED;
+      }
+      memcpy(process_mailbox, &target->result, 8);
+      memset(target, 0, sizeof(*target));
+      thread->waiting_on = 0;
+      return 8;
+    }
+  }
+  return -ENOSYS;
 }
 
 EMSCRIPTEN_KEEPALIVE

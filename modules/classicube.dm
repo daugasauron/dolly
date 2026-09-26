@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE classicube
 
 REQUIRES HEADER sdl2

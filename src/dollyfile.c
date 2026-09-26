@@ -1239,6 +1239,23 @@ static int execute_recipe(Engine *engine, const char *locator,
                           const Scope *available, int root, int execute,
                           Scope *exports_out);
 
+static int valid_host_requirement(const char *value) {
+  const char *at = strchr(value, '@');
+  if (at == NULL || at == value || at - value > 31 || value[0] < 'a' || value[0] > 'z') return 0;
+  for (const char *p = value; p < at; ++p) {
+    if (!((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '-')) return 0;
+  }
+  const char *version = at + 1;
+  const size_t size = strlen(version);
+  if (size == 0 || size > 5 || (size > 1 && *version == '0')) return 0;
+  unsigned number = 0;
+  for (const char *p = version; *p; ++p) {
+    if (*p < '0' || *p > '9') return 0;
+    number = number * 10 + (unsigned)(*p - '0');
+  }
+  return number <= 65535;
+}
+
 static int valid_image_locator(const char *value) {
   return strcmp(value, "/Dollyfile") == 0 ||
          (strncmp(value, "/Dollyfile-", 11) == 0 && valid_name(value + 11));
@@ -1260,11 +1277,11 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
   // operation can mutate files or start a memory-intensive compiler process.
   if (strcmp(text, "COPY") != 0) dispose_artifact(&engine->artifact);
   if (!*header_seen) {
-    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "3") != 0) {
-      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 3\n", locator, line_number);
+    if (strcmp(text, "DOLLY") != 0 || (strcmp(arguments, "3") != 0 && strcmp(arguments, "4") != 0)) {
+      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 3 or DOLLY 4\n", locator, line_number);
       return 2;
     }
-    *header_seen = 1;
+    *header_seen = arguments[0] - '0';
     return 0;
   }
   if (*kind == NULL) {
@@ -1319,9 +1336,14 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
                                                        copy ? words[4] : NULL, copy ? words[5] : NULL, visible);
   } else if (strcmp(text, "REQUIRES") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 2 || !valid_object_type(words[0]) ||
+    const int host = result == 0 && count == 2 && strcmp(words[0], "HOST") == 0;
+    if (host) {
+      if (*header_seen < 4 || !valid_host_requirement(words[1])) result = 2;
+    } else if (result == 0 && (count != 2 || !valid_object_type(words[0]) ||
         (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
-    if (result == 0 && execute) {
+    // HOST describes the completed image. Its provider is checked by the host
+    // loader, not by the headless userspace that compiles this recipe.
+    if (result == 0 && execute && !host) {
       if (strcmp(words[0], "ENV") == 0) result = getenv(words[1]) == NULL ? -ENOENT : 0;
       else if (strcmp(words[0], "TOOL") == 0) {
         char *path = NULL;

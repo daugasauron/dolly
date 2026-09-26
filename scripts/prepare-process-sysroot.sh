@@ -50,7 +50,18 @@ for library in "${libraries[@]}"; do
 done
 cp -- "${project_dir}/build/process-crt1.o" "${staging}/crt1.o"
 cp -- "${process_runtime}" "${staging}/libdolly-process.a"
+host_libraries=(libdolly-runtime.a libdolly-http.a libdolly-display.a libdolly-download.a libdolly-upload.a libdolly-gpu.a libdolly-threads.a)
+for library in "${host_libraries[@]}"; do
+  cp -- "${project_dir}/build/${library}" "${staging}/${library}"
+done
 cp -- "${reserved_libc_symbols}" "${staging}/libc-provider.symbols"
+mkdir "${staging}/threads"
+cp -- "${project_dir}/build/process-threads/"{libdolly-process.a,libdolly-runtime.a,libc-mt.a,crt1.o} "${staging}/threads/"
+for library in libstandalonewasm-mt-memgrow.a libdlmalloc-mt.a \
+    libclang_rt.builtins-wasmsjlj-mt.a libunwind-mt-wasmexcept.a \
+    libc++-mt-wasmexcept.a libc++abi-mt-wasmexcept.a; do
+  cp -- "${emscripten_lib}/${library}" "${staging}/threads/"
+done
 
 # Dolly owns signal state. Keeping the replaced objects lets -rdynamic root
 # Emscripten's action_abort/action_terminate helpers and pull in a second owner.
@@ -96,6 +107,7 @@ done <"${staging}/libc-provider.symbols"
     "${staging}/libc-ww.a" \
     "${staging}/libstandalonewasm-ww-memgrow.a" \
     "${staging}/libdolly-process.a" \
+    "${staging}/libdolly-runtime.a" \
     "${staging}/libdlmalloc-ww.a" \
     2>/dev/null | awk \
       'NF && $0 !~ /:$/ && $0 !~ /^_/ && $0 !~ /^emscripten_/ { print }'
@@ -118,8 +130,9 @@ rm -- "${staging}/.libc-defined.symbols"
     "${libraries[@]}" \
     crt1.o \
     libdolly-process.a \
+    "${host_libraries[@]}" \
     libc-provider.symbols \
-    dynamic-provider.symbols
+    dynamic-provider.symbols threads/*
 ) >"${staging}/SHA256SUMS"
 
 key="$({

@@ -1,3 +1,4 @@
+import {compileCommand,parseLua} from './blockwalker-data.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
@@ -8,7 +9,7 @@ const page=await browser.newPage({viewport:{width:1280,height:720},acceptDownloa
 const command=async s=>{console.log('Running',s);const code=await page.evaluate(s=>__dolly.submit(s),s);console.log('Status',code);return code;};
 async function upload(file,to){const run=command('upload '+to);await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(file);assert.equal(await run,0);}
 async function frames(){const n=await page.evaluate(()=>__dolly.gpu.stats.frames);await page.waitForFunction(n=>__dolly.gpu.stats.frames>n+8,n);}
-async function exported(name){const event=page.waitForEvent('download');await page.mouse.click(860,40);await(await event).saveAs(output+'/'+name+'.json');return JSON.parse(await fs.readFile(output+'/'+name+'.json','utf8'));}
+async function exported(name){const event=page.waitForEvent('download');await page.mouse.click(860,40);await(await event).saveAs(output+'/'+name+'.lua');return parseLua(await fs.readFile(output+'/'+name+'.lua','utf8'));}
 function screen(x,y,z){
  const yaw=.55,pitch=.65,distance=10,t=[.5,1,.5],eye=[t[0]+Math.sin(yaw)*Math.cos(pitch)*distance,t[1]+Math.sin(pitch)*distance,t[2]+Math.cos(yaw)*Math.cos(pitch)*distance];
  const f=t.map((v,i)=>(v-eye[i])/distance),right=[-f[2],0,f[0]],len=Math.hypot(...right);for(let i=0;i<3;i++)right[i]/=len;
@@ -25,10 +26,9 @@ try{
  await upload('test/fixtures/blockwalker-winch.c','/tmp/winch.c');
  assert.equal(await command(flags+'/tmp/winch.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-js -lraylib -lblockwalker-box3d -lm -o /tmp/winch'),0);
  const winchStatus=await command('/tmp/winch > /workspace/winch-physics.log'),winchReport=page.waitForEvent('download'),winchDownload=command('download /workspace/winch-physics.log');await(await winchReport).saveAs(output+'/winch-physics.log');assert.equal(await winchDownload,0);assert.equal(winchStatus,0);
- const sources=['main','character','render','world','terrain','magnet','gpu-client'].map(s=>'/usr/src/dolly/blockwalker/'+s+'.c').join(' ');
- assert.equal(await command(flags+sources+' -ldolly-js -ldolly-raylib -lraylib -lblockwalker-box3d -lm -o /usr/bin/blockwalker'),0);
+  assert.equal(await command(flags+sources+' -ldolly-js -ldolly-raylib -lraylib -lblockwalker-box3d -lm -o /usr/bin/blockwalker'),0);
  await upload('test/fixtures/blockwalker-winch-view.mjs','/tmp/winch-check.mjs');assert.equal(await command('cp /tmp/winch-check.mjs /usr/src/dolly/blockwalker/check.mjs'),0);assert.equal(await command('blockwalker --integration-check'),0);
- for(const name of ['winch-view.json','winch-hoist.png','winch-slack.png','winch-slack.json']){const event=page.waitForEvent('download'),download=command('download /workspace/'+name);await(await event).saveAs(output+'/'+name);assert.equal(await download,0);}
+ for(const name of ['winch-view.lua','winch-hoist.png','winch-slack.png','winch-slack.lua']){const event=page.waitForEvent('download'),download=command('download /workspace/'+name);await(await event).saveAs(output+'/'+name);assert.equal(await download,0);}
  await upload('test/fixtures/blockwalker-bearing-builder.mjs','/tmp/builder-check.mjs');assert.equal(await command('cp /tmp/builder-check.mjs /usr/src/dolly/blockwalker/check.mjs'),0);
  const run=command('blockwalker --integration-check');run.catch(()=>{});await Promise.race([page.waitForFunction(()=>__dolly.gpu.active),run.then(code=>{throw Error('Game exited before drawing: '+code);})]);await frames();
  await page.mouse.click(120,352);await page.mouse.click(...screen(0,1.66,0));await frames();
@@ -39,7 +39,7 @@ try{
  await page.mouse.click(65,630);await frames();design=await exported('undo-resize');assert.equal(design.blueprint[16].size,3);await page.screenshot({path:output+'/builder.png'});
  await page.mouse.click(65,258);await page.mouse.click(...screen(0,1.66,1));await frames();design=await exported('winch-added');assert.equal(design.blueprint.length,19);assert.equal(design.blueprint.at(-1).joint,8);
  await page.mouse.click(1235,266);await page.mouse.click(1235,550);await page.mouse.click(1088,355);await page.keyboard.press('r');await page.mouse.click(1208,355);await page.keyboard.press('f');await frames();design=await exported('winch-configured');const winch=design.blueprint.at(-1);assert.equal(winch.force,26);assert.equal(winch.travel,8.5);assert.equal(winch.negative,82);assert.equal(winch.positive,70);await page.screenshot({path:output+'/winch-inspector.png'});
- await page.mouse.click(974,40);await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(output+'/winch-configured.json');await page.waitForSelector('#file-upload[open]',{state:'hidden'});await frames();assert.deepEqual(await exported('roundtrip'),design);
+ await page.mouse.click(974,40);await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(output+'/winch-configured.lua');await page.waitForSelector('#file-upload[open]',{state:'hidden'});await frames();assert.deepEqual(await exported('roundtrip'),design);
  await page.keyboard.press('Escape');assert.equal(await run,0);
  assert.deepEqual(errors,[]);console.log(JSON.stringify({sizes:[1,2,3,4],axes:[0,1,2],multipleMounts:true,loadedRotation:true,worldRestore:true,faceAttachment:true,resizeRejection:true,undo:true,designRoundtrip:true,winchBuilder:true,winchLoadedRestore:true,winchSlack:true,errors}));
 }catch(e){await page.screenshot({path:output+'/failure.png'});if(!await page.evaluate(()=>__dolly.gpu?.active))console.log(await page.evaluate(()=>__dolly.visibleTerminalText()));throw e;}finally{await browser.close();await site.close();}

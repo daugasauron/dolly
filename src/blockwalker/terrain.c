@@ -312,11 +312,18 @@ static const TerrainBox renewal_boxes[]={
     {{179,3.3f,59},{13,.7f,4},1},
     {{186,1.8f,62},{7,.8f,5},1},
 };
-enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes),RIDGE_BOX_COUNT=sizeof(ridge_boxes)/sizeof(*ridge_boxes),RENEWAL_BOX_COUNT=sizeof(renewal_boxes)/sizeof(*renewal_boxes) };
-int terrain_version=4,terrain_count=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
+static const TerrainBox quay_working_boxes[]={
+    {{145,3.7f,38},{5,.3f,8},4},
+    {{145,3.2f,31},{5,.2f,.25f},5},
+    {{145,3.2f,45},{5,.2f,.25f},5},
+    {{140.25f,4.6f,31},{.2f,.6f,.2f},6},
+    {{140.25f,4.6f,45},{.2f,.6f,.2f},6},
+};
+enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes),RIDGE_BOX_COUNT=sizeof(ridge_boxes)/sizeof(*ridge_boxes),RENEWAL_BOX_COUNT=sizeof(renewal_boxes)/sizeof(*renewal_boxes),QUARRY_STEPS=48,QUARRY_BOX_COUNT=QUARRY_STEPS+14+sizeof(quay_working_boxes)/sizeof(*quay_working_boxes),TERRAIN_BOX_COUNT=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT+QUARRY_BOX_COUNT };
+int terrain_version=5,terrain_count=TERRAIN_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
 int terrain_depot_count(int version){return version?sizeof(depots)/sizeof(*depots):3;}
 void terrain_select(int version){
-    terrain_version=version>=0&&version<=4?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
+    terrain_version=version>=0&&version<=5?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0)+(terrain_version>=5?QUARRY_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
 }
 static TerrainBox source_box(int index){
     if(terrain_version>=4&&index==ORIGINAL_BOX_COUNT)return (TerrainBox){{-17.5f,-6,0},{22.5f,6,100},0};
@@ -326,10 +333,17 @@ static TerrainBox source_box(int index){
     if(index<ORIGINAL_BOX_COUNT)return original_boxes[index];
     index-=ORIGINAL_BOX_COUNT;if(index<INDUSTRIAL_BOX_COUNT)return industrial_boxes[index];
     index-=INDUSTRIAL_BOX_COUNT;if(index<MINE_BOX_COUNT)return mine_boxes[index];
-    index-=MINE_BOX_COUNT;return index<RIDGE_BOX_COUNT?ridge_boxes[index]:renewal_boxes[index-RIDGE_BOX_COUNT];
+    index-=MINE_BOX_COUNT;if(index<RIDGE_BOX_COUNT)return ridge_boxes[index];
+    index-=RIDGE_BOX_COUNT;if(index<RENEWAL_BOX_COUNT)return renewal_boxes[index];
+    index-=RENEWAL_BOX_COUNT;
+    if(index<QUARRY_STEPS){float half=(index+1)*.125f;return (TerrainBox){{99,half,-2.375f-index*.75f},{4,half,.375f},8};}
+    index-=QUARRY_STEPS;
+    if(index<12)return (TerrainBox){{103.25f,index+1.75f,-4.625f-index*3},{.25f,.75f,.25f},4};
+    if(index>=14)return quay_working_boxes[index-14];
+    return index==12?(TerrainBox){{99,6,-42},{4,6,4},8}:(TerrainBox){{99,-.4f,2},{5,.4f,6},4};
 }
 static const TerrainBox *terrain_boxes(void){
-    static TerrainBox boxes[ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT];static int version=-1;
+    static TerrainBox boxes[TERRAIN_BOX_COUNT];static int version=-1;
     if(version!=terrain_version){for(int i=0;i<terrain_count;i++)boxes[i]=source_box(i);version=terrain_version;}
     return boxes;
 }
@@ -350,7 +364,7 @@ float water_height(float x,float z,double time){
     return WATER_LEVEL+.10f*sinf(x*.22f+z*.13f-time*1.3)+.06f*sinf(z*.31f-x*.09f+time*.9);
 }
 static int water_blocked(b3Pos point){
-    static TerrainBox barriers[ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT];static int version=-1,count;
+    static TerrainBox barriers[TERRAIN_BOX_COUNT];static int version=-1,count;
     if(version!=terrain_version){
         version=terrain_version;count=0;
         for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);if(b.center.y-b.half.y<=WATER_LEVEL+.2f&&b.center.y+b.half.y>=WATER_LEVEL-.2f)barriers[count++]=b;}

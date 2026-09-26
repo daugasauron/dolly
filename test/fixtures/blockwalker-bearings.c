@@ -1,6 +1,6 @@
 #include "world.c"
 #include <assert.h>
-static JSContext *embedded_context;
+static Data *embedded_context;
 static int linked(b3BodyId a,b3BodyId b){
  if(B3_ID_EQUALS(a,b))return 1;
  int count=b3Body_GetJointCount(a);b3JointId *joints=array_resize(NULL,count,sizeof(*joints));count=b3Body_GetJoints(a,joints,count);int found=0;
@@ -25,7 +25,7 @@ static void bearing_trial(int n,int axis,int sign){
  }
  int arm=top[hi-lo][-lo];for(int a=hi+1;a<=hi+3;a++){int xyz[3]={base[0],base[1],base[2]};xyz[axis]+=2*sign;xyz[u]+=a;arm=character_add(&c,arm,xyz[0],xyz[1],xyz[2],BLOCK_BOX,5);assert(arm>0);c.blocks[arm].material=MATERIAL_BALLAST;}
  assert(character_validate(&c));assert(character_save(&c,"/tmp/bearing.character"));assert(character_load(&loaded,"/tmp/bearing.character"));assert(loaded.blocks[rotor].size==n);character_clear(&loaded);
- JSValue json=character_json(embedded_context,&c);assert(character_from_json(embedded_context,json,&loaded));JS_FreeValue(embedded_context,json);assert(loaded.blocks[rotor].size==n);character_clear(&loaded);
+ Value json=character_data(embedded_context,&c);assert(character_from_data(embedded_context,json,&loaded));value_free(embedded_context,json);assert(loaded.blocks[rotor].size==n);character_clear(&loaded);
  Block invalid=c.blocks[rotor];c.blocks[rotor].size=5;assert(!character_validate(&c));c.blocks[rotor]=invalid;
  Block candidate;assert(!character_candidate(&c,rotor,center[0],center[1],center[2],BLOCK_BOX,0,&candidate));
  physics_start(&p,&c);
@@ -37,7 +37,7 @@ static void bearing_trial(int n,int axis,int sign){
  printf("BEARING %dx%d axis %d sign %d parts %d separation %.6f rotation %.4f\n",n,n,axis,sign,c.count,p.max_separation,p.parts[rotor].driven_radians);fflush(stdout);
  assert(p.max_separation<.03f&&p.parts[rotor].driven_radians>5);physics_stop(&p);
  if(n==3&&axis==1&&sign==1){
-  Creature *machine=spawn(&c,"function(){return {A:1}}","Wide bearing",42,60,0,0);assert(machine);int id=machine->id;
+  Creature *machine=spawn(&c,"return function()\n  do return {A = 1} end\nend\n","Wide bearing",42,60,0,0);assert(machine);int id=machine->id;
   for(int i=0;i<120;i++)world_step();b3WorldTransform before=b3Body_GetTransform(machine->physics.parts[rotor].body);float mass=b3Body_GetMass(machine->physics.parts[root].body);
   for(int cycle=0;cycle<20;cycle++){
    assert(world_save(embedded_context));world_close();world_load(embedded_context);machine=world_find(id);assert(machine&&machine->design.blocks[rotor].size==3);

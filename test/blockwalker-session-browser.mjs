@@ -1,16 +1,21 @@
+import {parseLua,readCatalog} from './blockwalker-data.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright-core';
+import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from './browser-server.mjs';
 
-const output='build/blockwalker-session';await fs.mkdir(output,{recursive:true});
+const kind=process.env.DOLLY_BROWSER??'chromium';
+assert.ok(['chromium','firefox'].includes(kind));
+const output=`build/blockwalker-session${kind==='firefox'?'-firefox':''}`;await fs.mkdir(output,{recursive:true});
 const site=process.argv[2]?{origin:new URL(process.argv[2]).origin,close:async()=>{}}:await startBrowserServer(process.cwd(),'blockwalker');
-const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
+const browser=await ({chromium,firefox})[kind].launch(kind==='firefox'
+ ? {headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true,'gfx.webgpu.ignore-blocklist':true}}
+ : {channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1280,height:720}}),errors=[];
 page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));
 const boot=()=>page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20);
 const frames=async()=>{const n=await page.evaluate(()=>__dolly.gpu.stats.frames);await page.waitForFunction(n=>__dolly.gpu.stats.frames>n+5,n);};
-async function exported(name,x=860,y=40){const event=page.waitForEvent('download');await page.mouse.click(x,y);await(await event).saveAs(output+'/'+name+'.json');await frames();return JSON.parse(await fs.readFile(output+'/'+name+'.json','utf8'));}
+async function exported(name,x=860,y=40){const event=page.waitForEvent('download');await page.mouse.click(x,y);await(await event).saveAs(output+'/'+name+'.lua');await frames();return parseLua(await fs.readFile(output+'/'+name+'.lua','utf8'));}
 const fingerprint=()=>page.evaluate(async()=>{
  const r=await(await import('/src/session-store.mjs')).loadStoredSession('game-proof');
  return {updatedAt:r.updatedAt,sha:[...new Uint8Array(await crypto.subtle.digest('SHA-256',r.bytes))].map(b=>b.toString(16).padStart(2,'0')).join(''),bytes:r.bytes.byteLength};
@@ -31,7 +36,7 @@ try{
  await page.keyboard.press('C');await frames();
  const changedWorld=await exported('changed-world',120,626),player=changedWorld.creatures.find(c=>c.id===changedWorld.playerId);
  assert.ok(player);assert.ok(Object.values(player.controls).every(v=>!v),'opening Save releases driving keys; modal typing stays out of the game');
- const count=JSON.parse(await fs.readFile('src/blockwalker/designs.json','utf8')).length+2;
+ const count=(await readCatalog()).length+2;
  assert.equal(changedWorld.creatures.length,count);assert.equal(changedWorld.deaths,0);
  await page.locator('#session-open').click();await page.locator('#session-name').fill('game-proof');
  assert.equal(await page.locator('#session-name').evaluate(e=>e.checkValidity()),true);

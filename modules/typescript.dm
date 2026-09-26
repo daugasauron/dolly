@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE typescript
 
 # The unchanged npm TypeScript distribution runs under Janis. Its launcher is

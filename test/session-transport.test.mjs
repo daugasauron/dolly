@@ -5,7 +5,7 @@ import { sessionLoadUrl } from "../src/session-store.mjs";
 
 function fixture() {
   const buffer = new SharedArrayBuffer(2 * 1024 * 1024);
-  const transport = new Mailbox(buffer, 64, 128, 128, 1024, 1024 * 1024, { wake() {} });
+  const transport = new Mailbox(buffer, 64, 128, 128, 1024, 1024 * 1024, () => {});
   const words = transport.words;
   const payload = new TextEncoder().encode("DOLLYSES-session-fixture");
   return {
@@ -36,7 +36,7 @@ test("publication and completion between observation and wait cannot lose a wake
   const f = fixture();
   const load = Atomics.load;
   let armed = false, published = false, completed = false;
-  f.transport.displayTransport.wake = () => { armed = true; };
+  f.transport.wake = () => { armed = true; };
   Atomics.load = (words, index) => {
     const observed = load(words, index);
     if (armed && words === f.words) {
@@ -65,14 +65,14 @@ test("publication and completion between observation and wait cannot lose a wake
 
 test("invalid chunk cancels the producer; a subsequent request can save", async () => {
   const f = fixture();
-  f.transport.displayTransport.wake = () => {
+  f.transport.wake = () => {
     f.publish();
     Atomics.store(f.words, Mailbox.chunkLength, 2 * 1024 * 1024);
   };
   await assert.rejects(f.transport.capture("proof"), /invalid session chunk/);
   assert.equal(Atomics.load(f.words, Mailbox.cancelledSequence), 1);
   f.complete();
-  f.transport.displayTransport.wake = () => { f.publish(); f.complete(); };
+  f.transport.wake = () => { f.publish(); f.complete(); };
   assert.deepEqual(new Uint8Array(await f.transport.capture("proof")), f.payload);
 });
 
@@ -81,7 +81,7 @@ test("streamed capture copies the mailbox and waits for its consumer before ackn
   let received, release, started;
   const reading = new Promise(resolve => { started = resolve; });
   const consuming = new Promise(resolve => { release = resolve; });
-  f.transport.displayTransport.wake = () => f.publish();
+  f.transport.wake = () => f.publish();
   const capture = f.transport.capture("proof", { onChunk: async bytes => {
     received = bytes;
     started();
@@ -96,12 +96,12 @@ test("streamed capture copies the mailbox and waits for its consumer before ackn
   assert.equal(await capture, f.payload.length);
   assert.equal(Atomics.load(f.words, Mailbox.chunkConsumedSequence), 1);
 
-  f.transport.displayTransport.wake = () => f.publish();
+  f.transport.wake = () => f.publish();
   await assert.rejects(f.transport.capture("proof", { onChunk() { throw Error("consumer failed"); } }), /consumer failed/);
   assert.equal(Atomics.load(f.words, Mailbox.cancelledSequence), 2);
 
   f.complete();
-  f.transport.displayTransport.wake = () => {
+  f.transport.wake = () => {
     f.publish();
     Atomics.store(f.words, Mailbox.status, 5);
     f.complete();

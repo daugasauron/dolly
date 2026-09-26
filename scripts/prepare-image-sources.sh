@@ -58,6 +58,7 @@ has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 has_module make && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
 has_module ninja && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
 has_module libuv && libuv_dir="$(bash "${project_dir}/scripts/prepare-libuv.sh")"
+has_module lua55 && lua55_archive="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" lua55)"
 has_module lua && lua_archive="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" lua)"
 has_module lpeg && lpeg_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lpeg)"
 has_module cmake && cmake_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" cmake)"
@@ -92,6 +93,10 @@ if has_module session-recovery; then
   for header in session-records.h fs-record.h; do
     copy_static "src/${header}" "session-recovery/${header}"
   done
+fi
+
+if has_module lua55; then
+  copy_static "${lua55_archive}" blockwalker/lua-5.5.1.tar.gz
 fi
 
 if has_module blockwalker; then
@@ -198,7 +203,6 @@ if has_module local-llm-engine; then
   node scripts/build-source-tar.mjs "${static_dir}/llama/engine.tar" \
     src/local-llm/main.cpp /usr/src/dolly-llm/main.cpp \
     src/local-llm/webgpu.cpp /usr/src/dolly-llm/webgpu.cpp \
-    src/gpu/client.c /usr/src/dolly-llm/client.c \
     include/dolly/gpu.h /usr/src/dolly-llm/include/dolly/gpu.h \
     include/dolly/gpu-abi.h /usr/src/dolly-llm/include/dolly/gpu-abi.h
 fi
@@ -218,6 +222,8 @@ if has_module dollyfile-studio; then
     "${project_dir}/src/studio/lint.mjs" /usr/share/dollyfile-studio/lint.mjs \
     "${project_dir}/src/studio/build.mjs" /usr/share/dollyfile-studio/build.mjs \
     "${project_dir}/src/dollyfile-view.mjs" /usr/share/dollyfile-studio/parser.mjs \
+    "${project_dir}/src/host/requirements.mjs" /usr/share/dollyfile-studio/host/requirements.mjs \
+    "${project_dir}/src/host/abi.mjs" /usr/share/dollyfile-studio/host/abi.mjs \
     "${project_dir}/docs/dollyfile.md" /usr/share/dollyfile-studio/dollyfile.md \
     "${project_dir}/docs/image-build-service.md" /usr/share/dollyfile-studio/build-service.md \
     "${project_dir}/src/studio/dollyfile-lint" /usr/bin/dollyfile-lint \

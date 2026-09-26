@@ -1,6 +1,6 @@
 # Keep the channel battery supplied after its starting ammunition
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: game,controllers,cargo
 
@@ -234,3 +234,41 @@ near(71.738,19.987) while planning. Full traces and saves:
 The static planner's223 reachable nodes form an enclosed pocket among broad
 machine bounds; removing dead-end paths alone is insufficient. Task062400
 investigates actual collision-shape observations. Keep this candidate unbundled.
+
+September26 current Lua roster: gun76/shuttle77/tender81. Detailed observations
+and actual shape-based routing remove the old broad-machine-bounds trap. The
+remaining1,800s stall was a rail-end pickup: crate61 sits atx75.331 while the
+head's maximumx is75.999. The loader rejected its nominalx+1 approach and later
+commanded a target beyond its stroke. Clamp both pickup axes to physical travel
+and permit the magnet's actual reach margin at that edge.
+
+`build/living-world-20260926/channel-edge` replays1,800→2,700s. Gun/shuttle3→6
+shots/jobs, tender2→5 jobs, no faults/losses/deaths. Crate61 passes77→76 and fires
+1868.733s. Recovered starter78 passes81→77→76 and fires2086.133s. New parcel93
+attaches81 at2129.417,77 at2196.883,76 at2252.333 and fires2254.683. At the end the
+tender carries another parcel86 toward its bay. Canonical Lua fix promoted;
+fresh combined run and final packaged checkpoint still pending.
+
+Fresh Lua validation `build/living-world-20260926/combined-fresh-v2` now completes
+1,800s with seven channel shots, seven shuttle jobs and five tender jobs;
+106 objects,17 deliveries,no controller faults/deaths/lost originals. Full
+per-tick attachments prove outside rounds61,93 and88 pass81→77→76 and fire at
+453.617,660.317 and1119.917s. The tender recovers the fired88 at1263.467s,
+passes it back through77→76 and fires it again1558.817s. This establishes
+sustained physical resupply and recycling in a fresh populated world. Final
+image/render confirmation remains before closing the issue.
+
+## Completion
+
+Final verification (September 27): the selected local image contains the Lua
+rail-end and routing fixes. `build/living-world-20260926/long-fresh` completes
+7,200 s with 11 channel shots, 11 shuttle jobs and 12 tender jobs. Per-tick
+`chains.txt` confirms outside cargo 61, 93 and 59 through 81→77→76 and repeated
+reuse of fired rounds 80, 93 and 59. All candidate originals remain, no controller
+errors/deaths. This run predates the unrelated final courier ceiling fix.
+
+`final-chrome` and `final-firefox` pass fresh/mature packaged rendering, real-time
+simulation, 20 Hz controllers, no new faults/deaths and clean shell recovery.
+The source archive matches canonical files and the image is served at 9097.
+Sustained physical supply and recycling are verified; close this issue. Broader
+team balance and overturned-vehicle recovery remain separate open tasks.

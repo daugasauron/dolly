@@ -1,7 +1,7 @@
-DOLLY 3
+DOLLY 4
 IMAGE rts-build
 
-FROM HOST /Dollyfile-sdl2-build c4c901195f5e33a4a5bfcead9c9a2bda22c34a83c002791fdae002df78c0816c
-USE HOST /modules/seven-kingdoms.dm ac4c5d81cd73d626b29d5e30b7b2645c6269501e248fce151ac36723b381bc74
+FROM HOST /Dollyfile-sdl2-build f0baee3b67b373cec2b7f1f9557f550276005999870b10c6a7aa21937060050d
+USE HOST /modules/seven-kingdoms.dm 90f7910d7166ddf2efb4c2e8ab1929ea60086699b12eeb52de503dcca8a5974f
 
 ENTRY /bin/slop

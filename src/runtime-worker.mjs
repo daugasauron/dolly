@@ -1,3 +1,5 @@
+import { createHost } from "./host/modules.mjs";
+import { installOutputDevices } from "./host/runtime.mjs";
 import { MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
@@ -8,11 +10,7 @@ import { describeImageArtifact, loadImageArtifact, saveImageArtifact, sha256,
   loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
-import { DollyProcessSupervisor } from "./process-supervisor.mjs";
-import { instantiateKernelPlugin } from "./kernel-plugin.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
-import { createGpuBridge } from "./gpu-bridge.mjs";
-import { createHttpAdmission } from "./http-broker.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 
 const MAX_DOLLYFILE_BYTES = 128 * 1024;
@@ -95,38 +93,6 @@ function bootstrapStage(text) {
   bootstrapOutput(`${text}\n`);
 }
 
-function createDollyMemory() {
-  try {
-    return new WebAssembly.Memory({
-      initial: 1024n, maximum: 131072n, shared: true, address: "i64",
-    });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      "Dolly requires shared WebAssembly memory64, but this browser rejected " +
-      `the memory64 JavaScript API (${detail}). Dolly intentionally has no wasm32 fallback.`,
-      { cause: error },
-    );
-  }
-}
-
-function installOutputDevice(dolly, path, deviceNumber) {
-  const device = dolly.FS.makedev(80, deviceNumber);
-  dolly.FS.registerDevice(device, {
-    read() { return 0; },
-    write(_stream, buffer, offset, length) {
-      if (buffer.length - offset < length) {
-        const error = new Error("invalid WasmFS device write range");
-        error.errno = DOLLY_ERRNO.EFAULT;
-        throw error;
-      }
-      dolly._dolly_terminal_write_bytes(BigInt(buffer.byteOffset + offset), BigInt(length));
-      return length;
-    },
-  });
-  dolly.FS.mkdev(path, 0o222, device);
-}
-
 async function waitForBrowserAcknowledgement(type, failure) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error(failure)), 10_000);
@@ -141,14 +107,26 @@ async function waitForBrowserAcknowledgement(type, failure) {
 
 let dolly = null;
 let processSupervisor = null;
-const httpAdmission = createHttpAdmission(request => self.postMessage({ type: "http-request", ...request }));
+let host;
+self.addEventListener("message", event => { void host?.handle(event.data).catch(error => {
+  host.dispose();
+  self.postMessage({ type: "error", message: error.message });
+}); });
 async function boot() {
 try {
+  host = await createHost("worker", bootConfig.hostModules, {
+    send: (message, transfers = []) => self.postMessage(message, transfers),
+    configuration: bootConfig.hostConfiguration,
+    resources: { runtime: { applicationBase } },
+  });
   const snapshotMetadata = bootMode === "snapshot"
     ? configuredImage === "custom" ? await checkedCustomArtifact(bootConfig.customSource, bootConfig.customArtifact)
       : await loadPackagedSnapshotMetadata(configuredImage)
     : null;
   const definition = imageDefinitions.get(configuredImage);
+  if (!bootConfig.buildOnly && bootMode === "snapshot") {
+    host.require(snapshotMetadata.hostRequirements ?? definition?.hostRequirements ?? []);
+  }
   const recipeSha256 = configuredImage === "custom"
     ? await sha256(encoder.encode(bootConfig.customSource)) : definition.sha256;
   const baseReference = configuredImage === "custom"
@@ -173,39 +151,22 @@ try {
   globalThis.TextDecoder = undefined;
   const { default: createDolly } = await import("../dist/dolly.mjs");
   bootstrapStage("creating wasm64 userspace kernel...");
-  const memory = createDollyMemory();
+  const memory = host.get("runtime").memory;
   // Fixed deployment input, never a filename or URL supplied by Wasm.
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   let kernelExports;
-  let gpuDispatch;
   const dollyOptions = {
     noInitialRun: true,
-    wasmMemory: memory,
+    ...host.options,
     locateFile: locateArtifact,
     instantiateWasm(imports, receive) {
+      host.bindImports(kernelModule, imports);
       const instance = new WebAssembly.Instance(kernelModule, imports);
       kernelExports = instance.exports;
       receive(instance, kernelModule);
       return instance.exports;
     },
-    bootstrapWriteBytes: (bytes) => self.postMessage({ type: "bootstrap-bytes", bytes }),
-    httpDispatch: httpAdmission.dispatch,
-    gpuDispatch: request => gpuDispatch ? gpuDispatch(request) : -DOLLY_ERRNO.ENOSYS,
-    downloadDispatch: ({ name, bytes }) => {
-      if (bootConfig.buildOnly) return -DOLLY_ERRNO.ENOSYS;
-      if (typeof name !== "string" || name.length === 0 || name.length > 255 ||
-          /[\/\\\u0000-\u001f\u007f]/u.test(name) ||
-          !(bytes instanceof Uint8Array) || bytes.byteLength > 64 * 1024 * 1024) {
-        return -DOLLY_ERRNO.EINVAL;
-      }
-      self.postMessage(
-        { type: "download", name, bytes: bytes.buffer },
-        [bytes.buffer],
-      );
-      return 0;
-    },
-    print: (text) => bootstrapOutput(`${text}\n`),
-    printErr: (text) => bootstrapOutput(`${text}\n`, true),
+
   };
   dolly = await createDolly(dollyOptions);
   globalThis.TextDecoder = nativeTextDecoder;
@@ -266,23 +227,9 @@ try {
   if (restoreMetadata) {
     replaceFile("/etc/dolly/image.manifest", `${restoreMetadata.manifest.join("\n")}\n`);
   }
-  installOutputDevice(dolly, "/dev/dolly-stdout", 1);
-  installOutputDevice(dolly, "/dev/dolly-stderr", 2);
+  installOutputDevices(dolly);
 
-  const brokerReady = waitForBrowserAcknowledgement(
-    "broker-ready-ack",
-    "browser HTTP broker did not acknowledge the runtime",
-  );
-  self.postMessage({
-    type: "broker-ready",
-    httpAdmission: httpAdmission.control.buffer,
-    memory: memory.buffer,
-    httpAddress: Number(dolly._dolly_http_mailbox_address()),
-    httpCapacity: dolly._dolly_http_chunk_capacity(),
-    httpSlots: dolly._dolly_http_slot_count(),
-    httpVersion: dolly._dolly_http_mailbox_version(),
-  });
-  await brokerReady;
+  await host.start("kernel", { dolly, memory, kernelExports });
 
   let bootstrapStatus;
   let snapshotBytes;
@@ -300,7 +247,7 @@ try {
       bootstrapStatus = dolly._dolly_process_bootstrap_prepare();
     }
     if (bootstrapStatus === 0) {
-      processSupervisor = await DollyProcessSupervisor.create(dolly, memory, applicationBase);
+      processSupervisor = await host.get("runtime").supervisor(dolly);
       const arguments_ = baseArtifact
         ? ["/bin/dollyfile", recipeLocator, applicationBase.href]
         : ["/usr/libexec/dolly/process-bin/bootstrap"];
@@ -319,6 +266,7 @@ try {
       copy.set(new Uint8Array(memory.buffer, range.address, range.size));
       snapshotBytes = range.size;
       const artifact = await describeImageArtifact(copy.buffer, recipeSha256, inputs);
+      if (!bootConfig.buildOnly) host.require(artifact.hostRequirements);
       const cacheSlot = configuredImage === "custom"
         ? `custom:${inspectDollyfile(bootConfig.customSource).image}` : `/${definition.dollyfile}`;
       const saved = await saveImageArtifact(artifact, cacheSlot);
@@ -356,10 +304,10 @@ try {
     self.close();
     return;
   }
-  processSupervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase);
+  processSupervisor ??= await host.get("runtime").supervisor(dolly);
 
   if (finishRebuiltImage) {
-    bootstrapStage("starting sandbox display...");
+    bootstrapStage("finishing image bootstrap...");
     bootstrapStatus = dolly._dolly_bootstrap_finish();
     if (bootstrapStatus !== 0) {
       throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
@@ -369,10 +317,8 @@ try {
   // Image pruning removes bootstrap inputs. Publish the current release URL
   // after artifact capture/restore so portable images never retain a build host.
   replaceFile("/etc/dolly/host.base", applicationBase.href);
-  bootstrapStage("indexing session baseline...");
-  if (dolly._dolly_session_base_capture() !== 0) {
-    throw new Error("Dolly could not index the base filesystem for sessions");
-  }
+  if (bootConfig.sessionSnapshot !== undefined) host.require(["snapshot@0"]);
+  host.get("snapshot")?.captureBase(dolly);
   if (bootConfig.recoverSession !== undefined) {
     const path = "/tmp/dolly-session-recovery.delta";
     const destination = `/workspace/recovered-${bootConfig.recoverSession}`;
@@ -388,44 +334,22 @@ try {
     } finally { dolly.FS.unlink(path); }
   } else if (bootConfig.sessionSnapshot !== undefined) {
     bootstrapStage("restoring named session filesystem...");
-    const size = bootConfig.sessionSnapshot.byteLength;
-    const address = dolly._dolly_session_restore_address(BigInt(size));
-    const range = checkedMemoryRange(memory, address, size);
-    new Uint8Array(memory.buffer, range.address, range.size)
-      .set(new Uint8Array(bootConfig.sessionSnapshot));
+    host.get("snapshot").restore(dolly, bootConfig.sessionSnapshot);
     bootConfig.sessionSnapshot.transfer(0);
     bootConfig.sessionSnapshot = undefined;
-    if (dolly._dolly_session_restore(BigInt(size)) !== 0) {
-      throw new Error("Dolly session filesystem restore failed; the saved copy is unchanged");
-    }
     bootstrapStage("named session filesystem restored");
   }
 
-  // The loader is called once by trusted boot code. There is no corresponding
-  // Wasm import, and its input is a bounded copy of bytes read by the kernel.
-  const displayRange = checkedMemoryRange(
-    memory, dolly._dolly_display_module_address(), dolly._dolly_display_module_size(),
-  );
-  if (displayRange.size > 64 * 1024 * 1024) {
-    throw new Error("resident display plugin exceeds its byte limit");
-  }
-  const display = instantiateKernelPlugin(
-    new Uint8Array(memory.buffer, displayRange.address, displayRange.size).slice(),
-    kernelExports, memory,
-  );
-  const getDriver = display.exports.dolly_display_driver_get_v3;
-  if (typeof getDriver !== "function" || dolly._dolly_display_install(getDriver()) !== 0) {
-    throw new Error("Dolly display installation failed");
-  }
+  await host.start("image", { dolly, memory, kernelExports });
 
   const runtimeImage = decoder.decode(dolly.FS.readFile("/etc/dolly/image"));
   if (configuredImage !== "custom" && runtimeImage !== configuredImage) {
     throw new Error(`Dollyfile selected image ${runtimeImage}, expected ${configuredImage}`);
   }
   bootstrapStage("starting image entry...");
-  const displayReady = waitForBrowserAcknowledgement(
-    "display-ready-ack",
-    "browser display did not acknowledge the runtime",
+  const entryReady = waitForBrowserAcknowledgement(
+    "entry-ready-ack",
+    "browser did not acknowledge image startup",
   );
   self.postMessage({
     type: "ready",
@@ -434,38 +358,9 @@ try {
     bootMode,
     snapshotBytes,
     buildId: DOLLY_BUILD_ID,
-    memory: memory.buffer,
-    address: Number(dolly._dolly_display_mailbox_address()),
-    eventSize: dolly._dolly_display_event_size(),
-    eventCapacity: dolly._dolly_display_event_capacity(),
-    version: dolly._dolly_display_mailbox_version(),
-    frameAddresses: [
-      Number(dolly._dolly_display_framebuffer_address(0)),
-      Number(dolly._dolly_display_framebuffer_address(1)),
-    ],
-    frameCapacity: Number(dolly._dolly_display_framebuffer_capacity()),
-    pasteAddress: Number(dolly._dolly_display_paste_buffer_address()),
-    copyAddress: Number(dolly._dolly_display_copy_buffer_address()),
-    clipboardCapacity: dolly._dolly_display_clipboard_capacity(),
-    sessionAddress: Number(dolly._dolly_session_mailbox_address()),
-    sessionVersion: dolly._dolly_session_mailbox_version(),
-    sessionNameAddress: Number(dolly._dolly_session_name_address()),
-    sessionNameCapacity: dolly._dolly_session_name_capacity(),
-    sessionTransferAddress: Number(dolly._dolly_session_transfer_address()),
-    sessionTransferCapacity: dolly._dolly_session_transfer_capacity(),
-    uploadAddress: Number(dolly._dolly_upload_mailbox_address()),
-    uploadVersion: dolly._dolly_upload_mailbox_version(),
-    httpAddress: Number(dolly._dolly_http_mailbox_address()),
-    httpCapacity: dolly._dolly_http_chunk_capacity(),
-    httpSlots: dolly._dolly_http_slot_count(),
-    httpVersion: dolly._dolly_http_mailbox_version(),
+    hostModules: host.enabled,
   });
-  if (bootConfig.gpuCanvas && dolly._dolly_gpu_mailbox_address) {
-    gpuDispatch = createGpuBridge(memory, Number(dolly._dolly_gpu_mailbox_address()), bootConfig.gpuCanvas,
-      () => processSupervisor.serviceDeferred(),
-      status => self.postMessage({...status, type: "gpu-status"}));
-  }
-  await displayReady;
+  await entryReady;
 
   const status = await runImageEntry(dolly, processSupervisor);
   self.postMessage({ type: "exited", status });
@@ -484,6 +379,8 @@ try {
     message: compilerTrace === "" ? message : `${message}\n${compilerTrace}`,
     stack: error instanceof Error ? error.stack ?? "" : "",
   });
+} finally {
+  host?.dispose();
 }
 }
 await boot();

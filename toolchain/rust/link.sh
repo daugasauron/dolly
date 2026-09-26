@@ -45,6 +45,7 @@ done < "${sysroot}/dynamic-provider.symbols"
   "${port_dir}"/package/rust-link/*.a \
   --whole-archive "${sysroot}/libdolly-process.a" --no-whole-archive \
   "${sysroot}/crt1.o" -L"${sysroot}" \
+  -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload \
   -lstandalonewasm-ww-memgrow -lstubs -lc-ww -ldlmalloc-ww \
   -lclang_rt.builtins-wasmsjlj-ww -lc++-ww-wasmexcept -lc++abi-ww-wasmexcept \
   -lunwind-ww-wasmexcept \

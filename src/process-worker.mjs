@@ -3,8 +3,12 @@ import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { createProcessFfi } from "./process-ffi.mjs";
 import { parseWasmInterface } from "./wasm-interface.mjs";
 import { requireDsoType, validateDsoHost, validateDsoInterface } from "./process-abi.mjs";
+import { executableHostRequirements, checkHostAbi } from "./host/requirements.mjs";
+
+import { DOLLY_THREAD_EXIT } from "./threads-abi.mjs";
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
+const THREAD_EXIT = Symbol("Dolly thread exit");
 const DSO_OPEN = 112;
 const DSO_SYMBOL = 113;
 const DSO_CLOSE = 114;
@@ -38,6 +42,7 @@ if (!(configuration.module instanceof WebAssembly.Module) ||
 
 const control = new Int32Array(configuration.control);
 let exited = false;
+let threadResult;
 let instance;
 let processTable;
 let processFfi;
@@ -228,9 +233,11 @@ function aligned(value, power) {
 function instantiateDso(bytes, flags) {
   // Parse and instantiate the same private copy, not a live shared-memory view.
   bytes = bytes.slice();
-  const module = new WebAssembly.Module(bytes);
   const contract = configuration.dsoContract;
-  const parsed = validateDsoInterface(contract, parseWasmInterface(bytes), DOLLY_PROCESS_ABI_DIGEST);
+  const source = parseWasmInterface(bytes);
+  const parsed = validateDsoInterface(contract, source, DOLLY_PROCESS_ABI_DIGEST);
+  checkHostAbi(executableHostRequirements(source), configuration.hostAbi);
+  const module = new WebAssembly.Module(bytes);
   const requirements = dylinkRequirements(module);
   if (requirements.needed.length !== 0) {
     throw new TypeError(
@@ -466,15 +473,21 @@ function call(operation, requestAddressValue, requestSizeValue,
   const request = checkedRange(requestAddressValue, requestSizeValue);
   const response = checkedRange(responseAddressValue, responseCapacityValue);
   if (operation === DSO_OPEN || operation === DSO_SYMBOL || operation === DSO_CLOSE) {
+    if (configuration.threaded) return writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP,
+      "dynamic linking is not supported by the static thread profile");
     return processDsoCall(operation, request, response);
   }
+  if (configuration.threaded && operation >= 120 && operation <= 123)
+    return -BigInt(DOLLY_ERRNO.ENOTSUP);
+  const exitingResult = operation === DOLLY_THREAD_EXIT && request.size === 8
+    ? new DataView(configuration.memory.buffer, request.address, 8).getBigUint64(0, true) : undefined;
   if (processFfi?.handles(operation)) {
     return processFfi.call(operation, request, response);
   }
   const sequence = (Atomics.add(control, 0, 1) + 1) | 0;
   self.postMessage({
     type: "syscall",
-    pid: configuration.pid,
+    pid: configuration.pid, tid: configuration.tid,
     sequence,
     operation,
     requestAddress: request.address,
@@ -491,6 +504,10 @@ function call(operation, requestAddressValue, requestSizeValue,
     Atomics.wait(control, 1, observed);
   }
   const result = decodeResult();
+  if (operation === DOLLY_THREAD_EXIT && result >= 0n) {
+    threadResult = exitingResult;
+    throw THREAD_EXIT;
+  }
   if (operation === 5 && result >= 0n) {
     exited = true;
     throw PROCESS_EXIT;
@@ -508,25 +525,36 @@ try {
   }
   processTable = instance.exports.__indirect_function_table;
   processSymbols = typedSymbols(configuration.processInterface.exports, instance.exports);
-  processFfi = createProcessFfi({
+  if (!configuration.threaded) processFfi = createProcessFfi({
     memory: configuration.memory,
     getInstance: () => instance,
     getTable: () => processTable,
     growTable,
     setTable,
   });
-  self.postMessage({ type: "started", pid: configuration.pid });
-  instance.exports._start();
-  self.postMessage({ type: "finished", pid: configuration.pid, status: 0 });
+  self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
+  if (configuration.argument !== undefined) {
+    threadResult = instance.exports.dolly_thread_start(configuration.tid, configuration.argument);
+    self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
+  } else {
+    instance.exports._start();
+    self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid, status: 0 });
+  }
 } catch (error) {
-  if (error === PROCESS_EXIT && exited) {
-    self.postMessage({ type: "finished", pid: configuration.pid });
+  if (error === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
+    self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
+  } else if (error === PROCESS_EXIT && exited) {
+    self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   } else {
     self.postMessage({
       type: "failed",
-      pid: configuration.pid,
+      pid: configuration.pid, tid: configuration.tid,
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack ?? "" : "",
     });
   }
+} finally {
+  // No guest callback/event loop exists. Completion means no future Wasm entry;
+  // join may reclaim this stack even before Worker.terminate releases resources.
+  self.close();
 }

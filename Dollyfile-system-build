@@ -1,10 +1,10 @@
-DOLLY 3
+DOLLY 4
 IMAGE system-build
 
-USE HOST /modules/bootstrap.dm 3d0d4b4c5942044f1cd805fdf076310ad0fc707c916ccd74735217c9c7cf76ea
-USE HOST /modules/core-tools.dm 42bc8954f5f995a05262752bac670967c3a5a13edcecca7e325dc814d28506b2
-USE HOST /modules/tar.dm 72b015745779b42a22f3ccc42941e9511eb35f1579c153f25e909c1a6732eef7
-USE HOST /modules/make.dm f97fe7ed3f4729a2196f860a317bb5081ba6ad2115b9fd0225dd8f05ea0e02a1
-USE HOST /modules/cpp.dm a7ede03621f9a6de44d4c2c9dbe64dce96c87b286aab6216a3390c64eb3eed52
+USE HOST /modules/bootstrap.dm 9b5e6b294e505b8fc1c963c7afe5fa7c929b62b1be519928c76ffb7c079af40e
+USE HOST /modules/core-tools.dm dacba7093371e19dba6ef09c46ed4a8976965d9fe2ebcac3a4965c7c77f7b350
+USE HOST /modules/tar.dm 2868ed138733f40f58640f260107d8bd0541af77414af7fb3929d568b9f2931e
+USE HOST /modules/make.dm 3d898f4189cd334b3f7120d67adf4bb1c75a43c2bee8d4b7f8d9015352449018
+USE HOST /modules/cpp.dm 4c0c70a0453498b138387708cf7d7f831a9eb636899576e5f36351cdfcb3af74
 
 ENTRY /bin/slop

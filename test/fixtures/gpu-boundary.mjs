@@ -1,11 +1,14 @@
-export async function gpuBoundaryProof() {
+export async function gpuBoundaryProof({ surface = true } = {}) {
   const {DOLLY_ERRNO:E}=await import("../../dist/dolly-errno.mjs");
   const check=(value,message)=>{if(!value)throw Error(message);};
-  const memory=new SharedArrayBuffer(2*1024*1024), control=new Int32Array(new SharedArrayBuffer(8));
-  const mailbox=64, address=1024*1024, reply=new Int32Array(memory,mailbox,16);
+  const heap=new WebAssembly.Memory({initial:32n,maximum:64n,shared:true,address:"i64"});
+  let memory=heap.buffer;
+  const control=new Int32Array(new SharedArrayBuffer(8));
+  const mailbox=64, reply=new Int32Array(memory,mailbox,16);
+  let address=1024*1024;
   const worker=new Worker(new URL("../../src/gpu-worker.mjs",import.meta.url),{type:"module"});
-  const canvas=new OffscreenCanvas(64,64);
-  worker.postMessage({type:"configure",memory,mailbox,control:control.buffer,canvas},[canvas]);
+  const canvas=surface?new OffscreenCanvas(64,64):undefined;
+  worker.postMessage({type:"configure",memory:heap,mailbox,control:control.buffer,canvas},canvas?[canvas]:[]);
   let sequence=0,scope=1;
   function packet(op,body=[]) {
     const bytes=new Uint8Array(32+body.length),v=new DataView(bytes.buffer);
@@ -34,6 +37,7 @@ export async function gpuBoundaryProof() {
   }
   try {
     check(await send(packet(1,new Uint8Array(8)))===0,"GPU open failed");
+    heap.grow(32n);memory=heap.buffer;address=3*1024*1024;
     check(await send(packet(6))===0,"GPU info failed");
     const limits=new DataView(memory,mailbox+64,80);
     const maxBuffer=limits.getBigUint64(8,true);
@@ -83,6 +87,7 @@ export async function gpuBoundaryProof() {
     check(await send(batch([capture]))===E.EINVAL,"Compute-only scope captured a surface");
     check(await send(packet(5))===0,"GPU close failed");
     check(await send(packet(3))===E.ESTALE,"Closed GPU scope accepted");
+    if (surface) {
     scope=9;
     const surface=new Uint8Array(8);new DataView(surface.buffer).setUint32(0,64,true);new DataView(surface.buffer).setUint32(4,64,true);
     check(await send(packet(1,surface))===0,"Surface scope open failed");
@@ -113,6 +118,10 @@ export async function gpuBoundaryProof() {
     const pixels=new Uint8Array(memory,mailbox+64,512),expected=features&32?[0,64,255,255]:[255,64,0,255];
     for(const at of [0,4,256,260])check(expected.every((n,i)=>Math.abs(pixels[at+i]-n)<=1),"Wrong captured colors or row stride");
     check(await send(packet(5))===0,"Capture scope close failed");
+    } else {
+      const size=new Uint8Array(8);new DataView(size.buffer).setUint32(0,64,true);new DataView(size.buffer).setUint32(4,64,true);
+      scope=9;check(await send(packet(1,size))===E.ENOSYS,"Headless GPU accepted a display surface");
+    }
     scope=17;check(await send(packet(1,new Uint8Array(8)))===0,"Validation scope open failed");
     const invalidUsage=record(1,32,1);invalidUsage.v.setBigUint64(16,16n,true);invalidUsage.v.setUint32(24,129,true);
     // MAP_READ | STORAGE passes packet checks but WebGPU rejects the combination.
@@ -120,6 +129,6 @@ export async function gpuBoundaryProof() {
     invalidUsage.v.setBigUint64(8,3n,true);invalidUsage.v.setUint32(24,8,true);
     check(await send(batch([invalidUsage]))===0,"Validation failure leaked into the next batch");
     check(await send(packet(5))===0,"Validation scope close failed");
-    return {surfaceCapture:true,captureBounds:true,captureOwnership:true,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true,deviceValidation:true};
+    return {memoryGrowth:true,surfaceCapture:surface,captureBounds:surface,captureOwnership:surface,headlessCompute:!surface,malformedPacket:true,vertexLayout:true,bindingLimit:true,info:true,copiedPacket:true,staleHandle:true,allocationQuota:true,capabilities:true,computeConstants:true,closedScope:true,deviceValidation:true};
   } finally {worker.terminate();}
 }

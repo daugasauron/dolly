@@ -5,10 +5,21 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 image="${DOLLY_EMSDK_IMAGE}"
 
+container_mounts=(-v "${project_dir}:/src" -v "${project_dir}:${project_dir}")
+for cached in "${project_dir}"/.cache/*; do
+  if [[ -L "${cached}" && -d "${cached}" ]]; then
+    resolved="$(readlink -f -- "${cached}")"
+    case "${resolved}" in
+      "${project_dir}"/*) ;;
+      *) container_mounts+=(-v "${resolved}:${resolved}:ro") ;;
+    esac
+  fi
+done
+
 if command -v podman >/dev/null 2>&1; then
-  container=(podman run --rm --userns=keep-id -v "${project_dir}:/src" -w /src "${image}")
+  container=(podman run --rm --userns=keep-id "${container_mounts[@]}" -w /src "${image}")
 elif command -v docker >/dev/null 2>&1; then
-  container=(docker run --rm -u "$(id -u):$(id -g)" -v "${project_dir}:/src" -w /src "${image}")
+  container=(docker run --rm -u "$(id -u):$(id -g)" "${container_mounts[@]}" -w /src "${image}")
 else
   echo "dolly: podman or docker is required to run the pinned Emscripten toolchain" >&2
   exit 1
@@ -40,12 +51,12 @@ web_font="${font_paths[0]}"
 
 if [[ "${container[0]}" == "podman" ]]; then
   container=(podman run --rm --userns=keep-id \
-    -v "${project_dir}:/src" \
+    "${container_mounts[@]}" \
     -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache" \
     -w /src "${image}")
 else
   container=(docker run --rm -u "$(id -u):$(id -g)" \
-    -v "${project_dir}:/src" \
+    "${container_mounts[@]}" \
     -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache" \
     -w /src "${image}")
 fi
@@ -82,6 +93,22 @@ rm -f \
   --enable-threads \
   --disable-compact-imports \
   -o build/dolly-kernel-plugin-0.wasm
+
+node scripts/generate-host-abi.mjs
+node scripts/generate-threads-abi.mjs
+for contract in dolly-threads-0 dolly-threads-supervisor-0; do
+  "${container[@]}" /emsdk/upstream/bin/wasm-as "abi/${contract}.wat" \
+    --enable-memory64 --disable-compact-imports -o "build/${contract}.wasm"
+done
+node scripts/generate-threads-abi.mjs build/dolly-threads-0.wasm
+node scripts/dolly-abi.mjs emit-digest-header build/dolly-threads-0.wasm \
+  build/generated/dolly-threads-abi-digest.h DOLLY_THREADS_ABI_DIGEST
+node scripts/dolly-abi.mjs emit-digest-module build/dolly-threads-0.wasm \
+  dist/dolly-threads-abi.mjs DOLLY_THREADS_ABI_DIGEST
+cp build/dolly-threads-0.wasm build/dolly-threads-supervisor-0.wasm dist/
+"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-host-0.wat \
+  --disable-compact-imports -o build/dolly-host-0.wasm
+cp build/dolly-host-0.wasm dist/dolly-host-0.wasm
 
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-browser-0.wat \
   --enable-memory64 --enable-threads --disable-compact-imports \
@@ -210,7 +237,6 @@ done
   trap 'rm -rf -- "${process_archive_staging}"' EXIT
   "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "${process_archive_staging}/libdolly-process.a" \
   build/process-libc-adapter.o \
-  build/process-runtime-adapter.o \
   build/process-mmap.o \
   build/process-time.o \
   build/process-poll.o \
@@ -226,6 +252,19 @@ done
   fi
 )
 
+for module in runtime http display download upload gpu threads; do
+  if [[ "${module}" == runtime ]]; then
+    object=build/process-runtime-adapter.o
+  else
+    source="src/process/${module}-client.c"
+    [[ "${module}" != gpu ]] || source=src/gpu/client.c
+    object="build/process-${module}-client.o"
+    "${container[@]}" /emsdk/upstream/emscripten/emcc \
+      "${process_compile_flags[@]}" -c "${source}" -o "${object}"
+  fi
+  "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "build/libdolly-${module}.a" "${object}"
+done
+
 build_process() {
   local output="$1"
   local staged="${output}.wasm"
@@ -233,6 +272,7 @@ build_process() {
   "${container[@]}" /emsdk/upstream/emscripten/emcc \
     "${process_compile_flags[@]}" "${process_link_flags[@]}" "$@" \
     -Wl,--whole-archive build/libdolly-process.a -Wl,--no-whole-archive \
+    -Lbuild -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload \
     -o "${staged}"
   mv -- "${staged}" "${output}"
 }
@@ -244,6 +284,7 @@ build_process_cxx() {
   "${container[@]}" /emsdk/upstream/emscripten/em++ \
     "${process_compile_flags[@]}" "${process_link_flags[@]}" "$@" \
     -Wl,--whole-archive build/libdolly-process.a -Wl,--no-whole-archive \
+    -Lbuild -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload \
     -o "${staged}"
   mv -- "${staged}" "${output}"
 }
@@ -258,6 +299,7 @@ build_process build/process-bin/bootstrap src/process/bootstrap.c
 # Building the C++ process probe materializes the exact wasm64/native-EH libc++
 # profile. Publish only that closed runtime set for the compiler running inside
 # Dolly; no Emscripten driver or JavaScript library enters the process sysroot.
+"${container[@]}" bash scripts/build-process-threads.sh
 process_sysroot_container_dir="$("${container[@]}" ./scripts/prepare-process-sysroot.sh)"
 
 node scripts/dolly-abi.mjs stamp-process \
@@ -321,6 +363,7 @@ node scripts/dolly-abi.mjs emit-emscripten-exports \
   build/dolly-upload-0.wasm \
   build/dolly-snapshot-0.wasm \
   build/dolly-supervisor-0.wasm \
+  build/dolly-threads-supervisor-0.wasm \
   build/dolly-gpu-0.wasm \
   build/runtime-exports.json
 node scripts/dolly-abi.mjs emit-digest-header \

@@ -1,6 +1,6 @@
 # Contest air retrieval with a physical tether interceptor
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 270
 - TAGS: game,combat,physics
 
@@ -46,3 +46,37 @@ The normal courier cruises at32m, above most of this placement's winch reach.
 `ridge-catalog.json` moves the same tower to(88,−55) atop the existing12m ridge;
 prepared, unrun. Full trace: `...-chrome-tether-intercept/salvage/`. Work now
 prioritizes the user's reported frame-rate regression (task073000).
+
+September26 Lua implementation: the short36-part tower at(88,-45) uses ordinary
+winch, magnets and eight opposed thrusters. Its head flies by observed part
+positions; target selection uses team, terrain clearance and physical cable
+reach. `build/living-world-20260926/tether-matched-{on,off}` resumes the identical
+240s populated save for600s, changing only the tower's enemy predicate. Both
+finish with98 actors, no faults/losses/deaths. Active tower captures31 at308.533s
+and holds it531.483s; no friendly grips. Courier travel149.98m versus905.24m,
+new deliveries0 versus1 (with another cargo being carried in the inactive run).
+Total deliveries13 versus14. This is one matched trial, not a general balance claim.
+
+`capture-reload-final` preserves the actual captured aircraft and cable length
+through ten reopens and ten subsequent simulation seconds. The existing focused
+crawler rescue `ridge-window-focused` frees the courier, which then flies701m;
+full traffic exposes a harder grounded capture and remains under active repair.
+Final Chrome/Firefox rendering and packaged-image confirmation remain due.
+
+## Completion
+
+Final September 27 checkpoint packages Shishi as object 82. The 7,200 s
+`long-fresh` run captures opposing courier 31 at 228.183 s and releases at
+233.683 s, with no friendly tower grips, controller errors or missing originals.
+The aircraft subsequently needs ground assistance; the new ground-recovery issue
+tracks that limitation. The matched throughput/capture trial above and successful
+focused release/rescue remain the basis for including this interceptor.
+
+`final-chrome` and `final-firefox` pass actual packaged rendering of fresh and
+captured-run saved worlds, save/export, real-time simulation and clean shell
+recovery. `multi-magnet-winch-v2` also verifies reordered holders and independent
+release after reload. Source/served-image hashes are in
+`build/living-world-20260926/package-proof.json`. Close the physical interception
+feature; do not infer universal rescue or competitive balance. The unproven
+ridge crawler is withheld and tracked separately in
+`20260927-071800-codex-ridge-rescuer`.

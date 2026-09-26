@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
 
-#include <dolly/display.h>
-#include <dolly/http.h>
-#include <dolly/download.h>
 #include <dolly/process.h>
 #include <dolly/runtime.h>
+#include <dolly/host.h>
+
+DOLLY_HOST_REQUIRE(runtime, 0);
 #include <dolly/toolchain.h>
 
 #include <dlfcn.h>
@@ -23,6 +23,7 @@
 #include <sys/random.h>
 #include <time.h>
 #include <unistd.h>
+#include "lock.h"
 
 extern char **environ;
 
@@ -30,418 +31,6 @@ static uint64_t monotonic_nanoseconds(void) {
   struct timespec value;
   return clock_gettime(CLOCK_MONOTONIC, &value) == 0
       ? (uint64_t)value.tv_sec * 1000000000u + (uint64_t)value.tv_nsec : 0;
-}
-
-static int append_http_text(char **target, size_t *length,
-                            const unsigned char *bytes, size_t count) {
-  if (count > SIZE_MAX - *length - 1) return -EOVERFLOW;
-  char *grown = realloc(*target, *length + count + 1);
-  if (grown == NULL) return -ENOMEM;
-  memcpy(grown + *length, bytes, count);
-  *length += count;
-  grown[*length] = 0;
-  *target = grown;
-  return 0;
-}
-
-int dolly_http_start(const char *method, const char *url, const char *headers,
-                     const void *body, size_t body_size, unsigned int flags,
-                     unsigned int *sequence) {
-  if (method == NULL || url == NULL || sequence == NULL ||
-      method[0] == 0 || url[0] == 0 || (body_size != 0 && body == NULL)) {
-    return -EINVAL;
-  }
-  if (headers == NULL) headers = "";
-  const size_t method_size = strlen(method);
-  const size_t url_size = strlen(url);
-  const size_t headers_size = strlen(headers);
-  if (method_size > UINT32_MAX || url_size > UINT32_MAX ||
-      headers_size > UINT32_MAX ||
-      method_size > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_start_request) ||
-      url_size > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_start_request) - method_size ||
-      headers_size > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_start_request) - method_size - url_size) return -E2BIG;
-  const size_t metadata_size = sizeof(dolly_process_http_start_request) +
-      method_size + url_size + headers_size;
-  const int staged = body_size > DOLLY_PROCESS_PACKET_LIMIT - metadata_size;
-  const size_t packet_size = metadata_size + (staged ? 0 : body_size);
-  unsigned char *packet = malloc(staged ? DOLLY_PROCESS_PACKET_LIMIT : packet_size);
-  if (packet == NULL) return -ENOMEM;
-  if (staged) {
-    const size_t capacity = DOLLY_PROCESS_PACKET_LIMIT -
-        sizeof(dolly_process_http_body_write_request);
-    for (size_t offset = 0; offset < body_size;) {
-      const size_t length = body_size - offset > capacity ? capacity : body_size - offset;
-      const dolly_process_http_body_write_request write = {offset, body_size};
-      memcpy(packet, &write, sizeof(write));
-      memcpy(packet + sizeof(write), (const unsigned char *)body + offset, length);
-      const int64_t result = dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE,
-          packet, sizeof(write) + length, NULL, 0);
-      if (result != 0) {
-        (void)dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE, NULL, 0, NULL, 0);
-        free(packet);
-        return result < 0 ? (int)result : -EIO;
-      }
-      offset += length;
-    }
-  }
-  const dolly_process_http_start_request request = {
-      flags, (uint32_t)method_size, (uint32_t)url_size,
-      (uint32_t)headers_size, body_size,
-  };
-  memcpy(packet, &request, sizeof(request));
-  size_t offset = sizeof(request);
-  memcpy(packet + offset, method, method_size);
-  offset += method_size;
-  memcpy(packet + offset, url, url_size);
-  offset += url_size;
-  memcpy(packet + offset, headers, headers_size);
-  offset += headers_size;
-  if (!staged && body_size != 0) memcpy(packet + offset, body, body_size);
-  dolly_process_http_start_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_HTTP_START, packet, packet_size,
-      &response, sizeof(response));
-  free(packet);
-  if (result < 0) return (int)result;
-  if ((uint64_t)result != sizeof(response) || response.sequence == 0 ||
-      response.reserved != 0) return -EIO;
-  *sequence = response.sequence;
-  return 0;
-}
-
-int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
-                    void *data, size_t capacity) {
-  if (sequence == 0 || chunk == NULL || (capacity != 0 && data == NULL) ||
-      capacity > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_poll_response)) return -EINVAL;
-  const dolly_process_http_poll_request request = {sequence, 0};
-  const size_t response_capacity =
-      sizeof(dolly_process_http_poll_response) + capacity;
-  unsigned char *packet = malloc(response_capacity);
-  if (packet == NULL) return -ENOMEM;
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_HTTP_POLL, &request, sizeof(request),
-      packet, response_capacity);
-  if (result < 0) {
-    free(packet);
-    return (int)result;
-  }
-  dolly_process_http_poll_response response;
-  if ((uint64_t)result < sizeof(response)) {
-    free(packet);
-    return -EIO;
-  }
-  memcpy(&response, packet, sizeof(response));
-  if (response.ready > 1 || response.reserved != 0 ||
-      response.length > capacity ||
-      (uint64_t)result != sizeof(response) + response.length ||
-      (response.ready == 0 && (response.status || response.kind || response.error || response.eof || response.length))) {
-    free(packet);
-    return -EIO;
-  }
-  chunk->status = response.status;
-  chunk->kind = response.kind;
-  chunk->error = response.error;
-  chunk->eof = response.eof;
-  chunk->length = response.length;
-  if (response.length != 0) {
-    memcpy(data, packet + sizeof(response), (size_t)response.length);
-  }
-  free(packet);
-  return (int)response.ready;
-}
-
-int dolly_http_cancel(unsigned int sequence) {
-  const dolly_process_http_cancel_request request = {sequence, 0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_HTTP_CANCEL, &request, sizeof(request), NULL, 0);
-  return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
-}
-
-int dolly_http_perform(const dolly_http_request *request,
-                       dolly_http_response *response) {
-  if (request == NULL || response == NULL) return -EINVAL;
-  response->status = 0;
-  response->effective_url = NULL;
-  size_t effective_url_length = 0;
-  unsigned char *data = malloc(DOLLY_HTTP_CHUNK_CAPACITY);
-  if (data == NULL) return -ENOMEM;
-  unsigned int sequence = 0;
-  int result;
-  do {
-    result = dolly_http_start(request->method, request->url, request->headers,
-        request->body, request->body_size, request->flags, &sequence);
-    if (result == -EBUSY) usleep(10000);
-  } while (result == -EBUSY);
-  if (result != 0) {
-    free(data);
-    return result;
-  }
-  for (;;) {
-    dolly_http_chunk chunk = {0};
-    const int polled = dolly_http_poll(
-        sequence, &chunk, data, DOLLY_HTTP_CHUNK_CAPACITY);
-    if (polled == 0) { usleep(10000); continue; }
-    if (polled < 0 && result == 0) result = polled;
-    if (polled < 0) {
-      (void)dolly_http_cancel(sequence);
-      break;
-    }
-    if (chunk.status != 0) response->status = chunk.status;
-    if (chunk.error != 0 && result == 0) {
-      result = -(int)chunk.error;
-    }
-    if ((request->flags & DOLLY_HTTP_FAIL_STATUS) != 0 &&
-        chunk.status >= 400 && result == 0) result = (int)chunk.status;
-    if (result == 0 && chunk.kind == 1) {
-      result = append_http_text(&response->effective_url,
-                                &effective_url_length,
-                                data, chunk.length);
-    } else if (result == 0 && chunk.kind == 2 && request->header != NULL) {
-      if (request->header(data, chunk.length,
-                          request->header_context) != chunk.length) {
-        result = -ECANCELED;
-      }
-    } else if (result == 0 && chunk.kind == 3 && request->write != NULL) {
-      if (request->write(data, chunk.length,
-                         request->write_context) != chunk.length) {
-        result = -ECANCELED;
-      }
-    }
-    if (chunk.eof) break;
-    if (result != 0) {
-      (void)dolly_http_cancel(sequence);
-      break;
-    }
-  }
-  free(data);
-  return result;
-}
-
-void dolly_http_response_dispose(dolly_http_response *response) {
-  if (response == NULL) return;
-  free(response->effective_url);
-  response->effective_url = NULL;
-  response->status = 0;
-}
-
-static unsigned char *display_pixels;
-static size_t display_pixels_capacity;
-static uint64_t display_frame_generation;
-static size_t display_frame_size;
-static uint32_t display_frame_index;
-
-static int decode_display_surface(
-    int64_t result, const dolly_process_display_surface_response *response,
-    dolly_display_surface *surface) {
-  if (result < 0) return (int)result;
-  if ((uint64_t)result != sizeof(*response) || response->reserved != 0 ||
-      response->generation == 0 || response->width == 0 ||
-      response->height == 0 || response->stride != response->width * 4u ||
-      response->pixel_format != DOLLY_DISPLAY_PIXEL_RGBA8 ||
-      response->width > DOLLY_DISPLAY_MAX_WIDTH ||
-      response->height > DOLLY_DISPLAY_MAX_HEIGHT ||
-      (uint64_t)response->stride * response->height >
-          (uint64_t)DOLLY_DISPLAY_MAX_WIDTH * DOLLY_DISPLAY_MAX_HEIGHT * 4u) {
-    return -EIO;
-  }
-  *surface = (dolly_display_surface){
-      .generation = response->generation,
-      .width = response->width,
-      .height = response->height,
-      .stride = response->stride,
-      .pixel_format = response->pixel_format,
-  };
-  return 0;
-}
-
-static int display_deadline(double timeout_milliseconds, uint64_t *deadline) {
-  if (deadline == NULL || timeout_milliseconds != timeout_milliseconds) {
-    return -EINVAL;
-  }
-  if (timeout_milliseconds < 0) {
-    *deadline = UINT64_MAX;
-    return 0;
-  }
-  if (timeout_milliseconds == 0) {
-    *deadline = 0;
-    return 0;
-  }
-  const uint64_t now = monotonic_nanoseconds();
-  const double delta = timeout_milliseconds * 1000000.0;
-  if (now == 0 || delta < 0 || delta > (double)(UINT64_MAX - now)) {
-    return -EINVAL;
-  }
-  *deadline = now + (uint64_t)delta;
-  return 0;
-}
-
-int dolly_display_acquire(dolly_display_surface *surface) {
-  if (surface == NULL) return -EINVAL;
-  memset(surface, 0, sizeof(*surface));
-  dolly_process_display_surface_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_ACQUIRE, NULL, 0, &response, sizeof(response));
-  return decode_display_surface(result, &response, surface);
-}
-
-int dolly_display_set_size(uint64_t generation, uint32_t width,
-                           uint32_t height, dolly_display_surface *surface) {
-  if (surface == NULL || generation == 0 || width == 0 || height == 0) {
-    return -EINVAL;
-  }
-  const dolly_process_display_size_request request = {
-      generation, width, height,
-  };
-  dolly_process_display_surface_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_SET_SIZE, &request, sizeof(request),
-      &response, sizeof(response));
-  return decode_display_surface(result, &response, surface);
-}
-
-int dolly_display_begin_frame(uint64_t generation, dolly_display_frame *frame) {
-  if (generation == 0 || frame == NULL) return -EINVAL;
-  memset(frame, 0, sizeof(*frame));
-  const dolly_process_display_generation_request request = {generation};
-  dolly_process_display_surface_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_BEGIN_FRAME, &request, sizeof(request),
-      &response, sizeof(response));
-  dolly_display_surface surface;
-  int status = decode_display_surface(result, &response, &surface);
-  if (status != 0) return status;
-  const uint64_t expected = (uint64_t)surface.stride * surface.height;
-  if (response.capacity != expected || response.capacity > SIZE_MAX ||
-      response.buffer_index >= DOLLY_DISPLAY_FRAME_COUNT) return -EIO;
-  if ((size_t)response.capacity > display_pixels_capacity) {
-    unsigned char *replacement = realloc(display_pixels, (size_t)response.capacity);
-    if (replacement == NULL) return -ENOMEM;
-    display_pixels = replacement;
-    display_pixels_capacity = (size_t)response.capacity;
-  }
-  display_frame_generation = generation;
-  display_frame_size = (size_t)response.capacity;
-  display_frame_index = response.buffer_index;
-  *frame = (dolly_display_frame){
-      .pixels = display_pixels,
-      .capacity = display_frame_size,
-      .buffer_index = response.buffer_index,
-      .width = surface.width,
-      .height = surface.height,
-      .stride = surface.stride,
-      .pixel_format = surface.pixel_format,
-  };
-  return 0;
-}
-
-int dolly_display_present(uint64_t generation, uint32_t buffer_index) {
-  if (generation == 0 || generation != display_frame_generation ||
-      buffer_index != display_frame_index || display_frame_size == 0 ||
-      display_pixels == NULL) return -EINVAL;
-  const size_t header_size = sizeof(dolly_process_display_write_request);
-  const size_t maximum_chunk = DOLLY_PROCESS_PACKET_LIMIT - header_size;
-  unsigned char *packet = malloc(DOLLY_PROCESS_PACKET_LIMIT);
-  if (packet == NULL) return -ENOMEM;
-  size_t offset = 0;
-  int status = 0;
-  while (offset < display_frame_size) {
-    const size_t chunk = display_frame_size - offset > maximum_chunk
-        ? maximum_chunk : display_frame_size - offset;
-    const dolly_process_display_write_request request = {
-        .generation = generation,
-        .offset = offset,
-        .size = chunk,
-        .buffer_index = buffer_index,
-    };
-    memcpy(packet, &request, sizeof(request));
-    memcpy(packet + header_size, display_pixels + offset, chunk);
-    const int64_t result = dolly_process_call(
-        DOLLY_PROCESS_DISPLAY_WRITE_FRAME, packet, header_size + chunk,
-        NULL, 0);
-    if (result < 0) {
-      status = (int)result;
-      break;
-    }
-    if (result != 0) {
-      status = -EIO;
-      break;
-    }
-    offset += chunk;
-  }
-  free(packet);
-  if (status != 0) return status;
-  const dolly_process_display_present_request request = {
-      generation, buffer_index, 0,
-  };
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_PRESENT, &request, sizeof(request), NULL, 0);
-  if (result < 0) return (int)result;
-  if (result != 0) return -EIO;
-  display_frame_generation = 0;
-  display_frame_size = 0;
-  return 0;
-}
-
-int dolly_display_wait_frame(uint64_t generation, uint32_t *sequence,
-                             double timeout_milliseconds) {
-  if (generation == 0 || sequence == NULL) return -EINVAL;
-  uint64_t deadline;
-  int status = display_deadline(timeout_milliseconds, &deadline);
-  if (status != 0) return status;
-  const dolly_process_display_wait_request request = {
-      generation, deadline, *sequence, 0,
-  };
-  dolly_process_display_wait_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_WAIT_FRAME, &request, sizeof(request),
-      &response, sizeof(response));
-  if (result < 0) return (int)result;
-  if ((uint64_t)result != sizeof(response) ||
-      (response.result != 0 && response.result != 1)) return -EIO;
-  *sequence = response.sequence;
-  return response.result;
-}
-
-int dolly_display_set_cursor(uint64_t generation, uint32_t cursor) {
-  const dolly_process_display_cursor_request request = {generation, cursor, 0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_SET_CURSOR, &request, sizeof(request), NULL, 0);
-  return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
-}
-
-int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
-                             double timeout_milliseconds) {
-  if (generation == 0 || event == NULL) return -EINVAL;
-  uint64_t deadline;
-  int status = display_deadline(timeout_milliseconds, &deadline);
-  if (status != 0) return status;
-  const dolly_process_display_event_request request = {generation, deadline};
-  dolly_process_display_event_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_NEXT_EVENT, &request, sizeof(request),
-      &response, sizeof(response));
-  if (result < 0) return (int)result;
-  if ((uint64_t)result != sizeof(response) || response.reserved != 0 ||
-      (response.result != 0 && response.result != 1)) return -EIO;
-  _Static_assert(sizeof(response.event) == sizeof(*event),
-                 "process/display event layouts diverged");
-  if (response.result == 1) memcpy(event, response.event, sizeof(*event));
-  return response.result;
-}
-
-int dolly_display_release(uint64_t generation) {
-  const dolly_process_display_generation_request request = {generation};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_RELEASE, &request, sizeof(request), NULL, 0);
-  if (result < 0) return (int)result;
-  if (result != 0) return -EIO;
-  display_frame_generation = 0;
-  display_frame_size = 0;
-  return 0;
 }
 
 static int spawn_mapped(const char *path, int argc, char **argv,
@@ -1089,28 +678,8 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
   return close(descriptor) == 0 ? 0 : -errno;
 }
 
-int dolly_download_file(const char *path) {
-  if (path == NULL) return -EFAULT;
-  const size_t path_size = strnlen(path, PATH_MAX + 1u);
-  if (path_size == 0) return -ENOENT;
-  if (path_size > PATH_MAX) return -ENAMETOOLONG;
-  const size_t packet_size = sizeof(dolly_process_path_request) + path_size;
-  unsigned char *packet = malloc(packet_size);
-  if (packet == NULL) return -ENOMEM;
-  const dolly_process_path_request request = {
-      .directory_descriptor = UINT32_MAX,
-      .path_size = (uint32_t)path_size,
-  };
-  memcpy(packet, &request, sizeof(request));
-  memcpy(packet + sizeof(request), path, path_size);
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DOWNLOAD_FILE, packet, packet_size, NULL, 0);
-  free(packet);
-  return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
-}
-
-static char dso_error[DOLLY_PROCESS_DSO_ERROR_CAPACITY + 1];
-static int dso_error_pending;
+static _Thread_local char dso_error[DOLLY_PROCESS_DSO_ERROR_CAPACITY + 1];
+static _Thread_local int dso_error_pending;
 
 static void clear_dso_error(void) {
   dso_error[0] = 0;
@@ -1320,6 +889,13 @@ typedef struct {
 } process_popen_entry;
 
 static process_popen_entry process_popen_entries[32];
+static dolly_lock popen_lock;
+
+static void popen_release(size_t slot) {
+  dolly_lock_acquire(&popen_lock);
+  process_popen_entries[slot] = (process_popen_entry){0};
+  dolly_lock_release(&popen_lock);
+}
 
 FILE *popen(const char *command, const char *mode) {
   if (command == NULL || mode == NULL ||
@@ -1328,17 +904,21 @@ FILE *popen(const char *command, const char *mode) {
     errno = EINVAL;
     return NULL;
   }
+  dolly_lock_acquire(&popen_lock);
   size_t slot = 0;
   while (slot < sizeof(process_popen_entries) /
                     sizeof(process_popen_entries[0]) &&
-         process_popen_entries[slot].stream != NULL) ++slot;
+         process_popen_entries[slot].pid != 0) ++slot;
   if (slot == sizeof(process_popen_entries) /
               sizeof(process_popen_entries[0])) {
     errno = EMFILE;
+    dolly_lock_release(&popen_lock);
     return NULL;
   }
+  process_popen_entries[slot].pid = -1;
+  dolly_lock_release(&popen_lock);
   int descriptors[2];
-  if (pipe(descriptors) != 0) return NULL;
+  if (pipe(descriptors) != 0) { popen_release(slot); return NULL; }
   const int reading = mode[0] == 'r';
   char *arguments[] = {"slop", "-c", (char *)command, NULL};
   const int pid = dolly_spawn(
@@ -1348,6 +928,7 @@ FILE *popen(const char *command, const char *mode) {
       STDERR_FILENO);
   close(reading ? descriptors[1] : descriptors[0]);
   if (pid < 0) {
+    popen_release(slot);
     close(reading ? descriptors[0] : descriptors[1]);
     errno = -pid;
     return NULL;
@@ -1355,12 +936,15 @@ FILE *popen(const char *command, const char *mode) {
   const int parent_descriptor = reading ? descriptors[0] : descriptors[1];
   FILE *stream = fdopen(parent_descriptor, reading ? "r" : "w");
   if (stream == NULL) {
+    popen_release(slot);
     close(parent_descriptor);
     int ignored = 0;
     (void)dolly_wait(pid, &ignored);
     return NULL;
   }
+  dolly_lock_acquire(&popen_lock);
   process_popen_entries[slot] = (process_popen_entry){stream, pid};
+  dolly_lock_release(&popen_lock);
   return stream;
 }
 
@@ -1373,6 +957,7 @@ int pclose(FILE *stream) {
     errno = EINVAL;
     return -1;
   }
+  dolly_lock_acquire(&popen_lock);
   size_t slot = 0;
   while (slot < sizeof(process_popen_entries) /
                     sizeof(process_popen_entries[0]) &&
@@ -1380,10 +965,12 @@ int pclose(FILE *stream) {
   if (slot == sizeof(process_popen_entries) /
               sizeof(process_popen_entries[0])) {
     errno = ECHILD;
+    dolly_lock_release(&popen_lock);
     return -1;
   }
   const int pid = process_popen_entries[slot].pid;
   process_popen_entries[slot] = (process_popen_entry){0};
+  dolly_lock_release(&popen_lock);
   const int close_result = fclose(stream);
   int status = 126;
   const int wait_result = dolly_wait(pid, &status);

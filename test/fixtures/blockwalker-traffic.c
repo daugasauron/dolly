@@ -118,18 +118,18 @@ static const double traffic_poses_77[][13]={
 };
 typedef struct {int id,count;const double (*poses)[13];unsigned seed;const char *memory;float controls[128];} TrafficStart;
 static const TrafficStart traffic_starts[]={
-    {19,42,traffic_poses_19,576741993u,"{\"roam\":{\"goal\":[151.48749961286885,57.27479888078277],\"next\":2130.5809148084527,\"visits\":57,\"choices\":111,\"path\":1012.2850774452818,\"previous\":[135.601806640625,58.47534942626953],\"yieldTime\":392.1000000000549,\"goals\":[[1983.5666666666666,124.81453087377945,70.33827998040726],[1993.5666666666666,134.96936921124342,42.475829674886945],[2003.5666666666666,119.63843129181565,57.29984586105674],[2013.5666666666666,151.5298371750088,58.33069373663586],[2023.5666666666666,135.8316569829121,74.46475584046117],[2033.5666666666666,123.59814731353525,47.819651188017964],[2043.5666666666666,134.43621832577787,42.489105817469365],[2053.5666666666666,151.5524678493254,57.56441531620166],[2063.5666666666666,123.9888996818446,69.47297895464672],[2073.5666666666666,151.4911994644164,57.17486276841065],[2083.5666666666666,123.84516174207633,69.30836979060463],[2093.5666666666666,151.48749961286885,57.27479888078277]],\"blocked\":6.449999999999985},\"iv\":1.2}",{['A']=0.3904847502708435,['S']=0.0024397927336394787}},
-    {55,63,traffic_poses_55,62u,"{\"phase\":\"sail\",\"route\":3,\"job\":77,\"deliveries\":2,\"at\":1434.55,\"loaded\":1426.5166666666667}",{['A']=0.8155689835548401,['S']=0.884431004524231,['X']=1}},
-    {77,4,traffic_poses_77,1u,"{}",{0}},
+    {19,42,traffic_poses_19,576741993u,"return {[\"roam\"]={[\"goal\"]=array{151.48749961286885,57.27479888078277},[\"next\"]=2130.5809148084527,[\"visits\"]=57,[\"choices\"]=111,[\"path\"]=1012.2850774452818,[\"previous\"]=array{135.601806640625,58.47534942626953},[\"yieldTime\"]=392.1000000000549,[\"goals\"]=array{array{1983.5666666666666,124.81453087377945,70.33827998040726},array{1993.5666666666666,134.96936921124342,42.475829674886945},array{2003.5666666666666,119.63843129181565,57.29984586105674},array{2013.5666666666666,151.5298371750088,58.33069373663586},array{2023.5666666666666,135.8316569829121,74.46475584046117},array{2033.5666666666666,123.59814731353525,47.819651188017964},array{2043.5666666666666,134.43621832577787,42.489105817469365},array{2053.5666666666666,151.5524678493254,57.56441531620166},array{2063.5666666666666,123.9888996818446,69.47297895464672},array{2073.5666666666666,151.4911994644164,57.17486276841065},array{2083.5666666666666,123.84516174207633,69.30836979060463},array{2093.5666666666666,151.48749961286885,57.27479888078277}},[\"blocked\"]=6.449999999999985},[\"iv\"]=1.2}",{['A']=0.3904847502708435,['S']=0.0024397927336394787}},
+    {55,63,traffic_poses_55,62u,"return {[\"phase\"]=\"sail\",[\"route\"]=3,[\"job\"]=77,[\"deliveries\"]=2,[\"at\"]=1434.55,[\"loaded\"]=1426.5166666666667}",{['A']=0.8155689835548401,['S']=0.884431004524231,['X']=1}},
+    {77,4,traffic_poses_77,1u,"return {}",{0}},
 };
 
-static Creature *catalog_creature(JSContext *ctx,JSValue catalog,const char *name,int id){
+static Creature *catalog_creature(Data *ctx,Value catalog,const char *name,int id){
  for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-  JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *text=JS_ToCString(ctx,label);int match=text&&!strcmp(text,name);JS_FreeCString(ctx,text);JS_FreeValue(ctx,label);
-  if(!match){JS_FreeValue(ctx,item);continue;}
-  Character design={0};JSValue parts=JS_GetPropertyStr(ctx,item,"blueprint"),anchored=JS_GetPropertyStr(ctx,item,"anchored"),code=JS_GetPropertyStr(ctx,item,"source");assert(character_from_json(ctx,parts,&design));design.anchored=JS_ToBool(ctx,anchored);const char *source=JS_ToCString(ctx,code);
+  Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *text=value_text(ctx,label);int match=text&&!strcmp(text,name);value_text_free(ctx,text);value_free(ctx,label);
+  if(!match){value_free(ctx,item);continue;}
+  Character design={0};Value parts=value_get(ctx,item,"blueprint"),anchored=value_get(ctx,item,"anchored"),code=value_get(ctx,item,"source");assert(character_from_data(ctx,parts,&design));design.anchored=value_truth(ctx,anchored);const char *source=value_text(ctx,code);
   Creature *c=spawn(&design,source,name,1,get_number(ctx,item,"hz",30),get_number(ctx,item,"x",0),get_number(ctx,item,"z",0));assert(c);c->id=id;c->team=get_number(ctx,item,"team",0);double y=get_number(ctx,item,"y",NAN);if(isfinite(y))set_spawn_height(c,y);
-  JS_FreeCString(ctx,source);character_clear(&design);JS_FreeValue(ctx,parts);JS_FreeValue(ctx,anchored);JS_FreeValue(ctx,code);JS_FreeValue(ctx,item);return c;
+  value_text_free(ctx,source);character_clear(&design);value_free(ctx,parts);value_free(ctx,anchored);value_free(ctx,code);value_free(ctx,item);return c;
  }assert(0);return NULL;
 }
 static void recorded_body(Creature *c,const TrafficStart *record){
@@ -139,19 +139,19 @@ static void recorded_body(Creature *c,const TrafficStart *record){
   b3Body_SetTransform(body,(b3Pos){p[0],p[1],p[2]},(b3Quat){{p[3],p[4],p[5]},p[6]});b3Body_SetLinearVelocity(body,(b3Vec3){p[7],p[8],p[9]});b3Body_SetAngularVelocity(body,(b3Vec3){p[10],p[11],p[12]});
  }
  physics_refresh(&c->physics,&c->design);c->physics.steps=126000;c->controller->last_step=125998;c->controller->seed=record->seed;
- const char *memory=record->memory;JS_FreeValue(c->controller->ctx,c->controller->memory);c->controller->memory=JS_ParseJSON(c->controller->ctx,memory,strlen(memory),"traffic-memory");assert(!JS_IsException(c->controller->memory));
+ const char *memory=record->memory;value_free(c->controller->ctx,c->controller->memory);c->controller->memory=data_parse(c->controller->ctx,memory,strlen(memory),"traffic-memory");assert(!value_is_error(c->controller->memory));
  memcpy(c->controls,record->controls,sizeof(c->controls));
 }
 int main(void){
- JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);terrain_select(1);
- JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");
+ Data *ctx=data_new(256*1024*1024);terrain_select(1);
+ Value catalog=read_catalog(ctx);
  catalog_creature(ctx,catalog,"Twinspire / approach patrol",19);catalog_creature(ctx,catalog,"Freighter East / island barge",55);catalog_creature(ctx,catalog,"East / receiving crane",57);
  Character design={0};for(int i=0;i<4;i++)character_add(&design,i==3?1:i?0:-1,i&1,0,i>>1,BLOCK_BOX,1);for(int i=0;i<4;i++)design.blocks[i].material=MATERIAL_BALLAST;
- Creature *cargo=spawn(&design,"function(){return {}}","Ore pallet",1,10,0,0);assert(cargo);cargo->id=77;cargo->cargo=1;cargo->supply=2;cargo->carrier=cargo->held_by=55;cargo->pickup=(Vector3){-47.117427825927734,-7.067736625671387,60.48384094238281};character_clear(&design);world.age=2100;world.next_id=78;
+ Creature *cargo=spawn(&design,"return function()\n  do return {} end\nend\n","Ore pallet",1,10,0,0);assert(cargo);cargo->id=77;cargo->cargo=1;cargo->supply=2;cargo->carrier=cargo->held_by=55;cargo->pickup=(Vector3){-47.117427825927734,-7.067736625671387,60.48384094238281};character_clear(&design);world.age=2100;world.next_id=78;
  for(int i=0;i<3;i++){Creature *c=world_find(traffic_starts[i].id);assert(c);recorded_body(c,traffic_starts+i);}
 
  Creature *barge=world_find(55);barge->physics.parts[35].magnet_power=1;barge->physics.parts[35].magnet_target=world_find(77)->physics.parts[1].body;barge->physics.parts[35].magnet_local=(b3Vec3){-.08471176f,-.48500013f,.48499691f};
- JS_FreeValue(ctx,catalog);
+ value_free(ctx,catalog);
  double start=world.age,back=-1;int reloads=0,delivered=0;float min_up=1;double start_x=b3Body_GetPosition(barge->physics.parts[0].body).x,start_z=b3Body_GetPosition(barge->physics.parts[0].body).z,distance=0;
  for(int tick=0;tick<300*60;tick++){
   world_step();assert(!world.deaths);barge=world_find(55);cargo=world_find(77);assert(barge&&cargo);b3Pos p=b3Body_GetPosition(barge->physics.parts[0].body);distance=fmax(distance,hypot(p.x-start_x,p.z-start_z));min_up=fminf(min_up,b3RotateVector(b3Body_GetRotation(barge->physics.parts[0].body),b3Vec3_axisY).y);
@@ -164,5 +164,5 @@ int main(void){
  assert(world_save(ctx));printf("TRAFFIC RECOVERY: %.3f s, maximum displacement %.3f m, delivered %d, recovery %.3f, reloads %d, minimum up %.5f, deaths %d\n",world.age-start,distance,delivered,back-start,reloads,min_up,world.deaths);fflush(stdout);
  assert(delivered&&reloads&&min_up>.9f&&!world.deaths&&world.count==4&&world_team_score(1)==8);
  assert(world.delivery_count==1&&world.deliveries[0].cargo==77&&world.deliveries[0].carrier==57);
- world_close();JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+ world_close();data_close(ctx);return 0;
 }

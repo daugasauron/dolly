@@ -22,6 +22,7 @@ export const mimeTypes = new Map([
   [".woff2", "font/woff2"],
 ]);
 export const browserSources = new Set([
+  ...["abi", "modules", "requirements", "runtime", "display", "gpu", "http", "download", "upload", "snapshot", "threads"].map(name => `src/host/${name}.mjs`),
   "test/fixtures/browser-boundary.mjs",
   "test/fixtures/gpu-boundary.mjs",
   "test/fixtures/fluid-direct.mjs",
@@ -35,6 +36,7 @@ export const browserSources = new Set([
   "src/http-broker.mjs",
   "src/kernel-plugin.mjs",
   "src/image-entry.mjs",
+  "src/image-requirements.mjs",
   "src/image-artifact.mjs",
   "src/image-build.mjs",
   "src/image-builder.mjs",
@@ -62,6 +64,7 @@ export const browserSources = new Set([
   "src/gpu-worker.mjs",
   "src/gpu-bridge.mjs",
   "src/gpu-abi.mjs",
+  "src/threads-abi.mjs",
 ]);
 
 export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map()) {
@@ -180,7 +183,7 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
         ? "build/routes/session/open.html" : files.get(path);
       if (!relative) throw new Error("not a test asset");
       if (sourceOverrides.has(path)) {
-        response.writeHead(200, {...headers,"content-type":mimeTypes.get(extname(relative))});
+        response.writeHead(200, {...headers,"content-type":mimeTypes.get(extname(relative)) ?? "application/octet-stream"});
         response.end(request.method === "HEAD" ? undefined : sourceOverrides.get(path));
         return;
       }

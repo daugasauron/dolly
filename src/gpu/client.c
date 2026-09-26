@@ -1,4 +1,7 @@
 #include <dolly/gpu.h>
+#include <dolly/host.h>
+
+DOLLY_HOST_REQUIRE(gpu, 0);
 #include <dolly/process.h>
 #include <errno.h>
 #include <stdio.h>

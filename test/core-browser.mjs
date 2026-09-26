@@ -9,7 +9,8 @@ if (names.some(name => !["chromium", "firefox"].includes(name))) {
   throw new Error("usage: node test/core-browser.mjs [chromium|firefox ...]");
 }
 const projectDir = new URL("..", import.meta.url).pathname;
-const server = await startBrowserServer(projectDir);
+const image = process.env.DOLLY_IMAGE ?? "default";
+const server = await startBrowserServer(projectDir, image);
 try {
   for (const name of names) {
     const started = performance.now();
@@ -26,7 +27,7 @@ try {
         globalThis.DOLLY_HTTP_POLICY = { maxRequests: 256,
           rules: [{ origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
       }, server.origin);
-      await page.goto(`${server.origin}/default/`);
+      await page.goto(`${server.origin}/${image}/`);
       await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
         await page.locator("#bootstrap-log").textContent());

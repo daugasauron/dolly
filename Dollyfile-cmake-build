@@ -1,10 +1,10 @@
-DOLLY 3
+DOLLY 4
 IMAGE cmake-build
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM HOST /Dollyfile-system-tools b428247fa6b4ef81e1c8157ef669c801b407f7a870375d101302004db17cc972
-USE HOST /modules/libuv.dm ae7585cb648d24e24296717ead2cac828326e0fbe5892899a15345834605bd61
-USE HOST /modules/posix-shell.dm 8b980e03bb4ee4402bb8eba064503859479298979694a968fa7f1563e94eac51
-USE HOST /modules/cmake.dm c3dd43fd9845b40e2da2aa001ef965246d6c7a1e3962c9fb7a5fbaa4519542f3
+FROM HOST /Dollyfile-system-tools 460845a3300d8f79d8c481436d53307ac906d4d760ff841e73c03af76f6d3e8a
+USE HOST /modules/libuv.dm fd3b00cb6bb0a8f04be63e98860f965ad19142212edcc275d5af392297ccba3f
+USE HOST /modules/posix-shell.dm f549dd966c59473892d2fc9f11a19a9b7eaf1c344b1b4a62c5dbf2fbedcc3753
+USE HOST /modules/cmake.dm 18615a2a9db885162d52eae2dbd86201d75a9256b2e31ba277b79e39052f4f67
 
 ENTRY /bin/slop

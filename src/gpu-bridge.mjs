@@ -1,13 +1,18 @@
 import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
 import { DOLLY_GPU_SLOTS, DOLLY_GPU_REPLY_BYTES } from "./gpu-abi.mjs";
 
-export function createGpuBridge(memory, mailbox, canvas, complete, status) {
+export async function createGpuBridge(memory, mailbox, canvas, complete, status) {
   const worker = new Worker(new URL("./gpu-worker.mjs", import.meta.url), { type: "module", name: "dolly-gpu" });
   const control = new Int32Array(new SharedArrayBuffer(8));
   let failed = false;
+  let ready, rejectReady;
+  const initialized = new Promise((resolve, reject) => { ready = resolve; rejectReady = reject; });
+  const timer = setTimeout(() => stop("GPU provider did not initialize"), 10000);
   function stop(message) {
     if (failed) return;
     failed = true;
+    clearTimeout(timer);
+    rejectReady(new Error(message));
     worker.terminate();
     // A failed provider must wake every admitted process, including a wait.
     for (let i=0; i<DOLLY_GPU_SLOTS; ++i) {
@@ -18,12 +23,14 @@ export function createGpuBridge(memory, mailbox, canvas, complete, status) {
     queueMicrotask(complete);
   }
   worker.onmessage = ({data}) => {
-    if (data.type === "complete") complete();
+    if (data.type === "ready") { clearTimeout(timer); ready(); }
+    else if (data.type === "complete") complete();
     else if (data.type === "status") status(data);
   };
   worker.onerror = () => stop("GPU provider worker failed");
-  worker.postMessage({type:"configure", memory:memory.buffer, mailbox, canvas, control:control.buffer}, [canvas]);
-  return ({address, bytes}) => {
+  worker.postMessage({type:"configure", memory, mailbox, canvas, control:control.buffer}, canvas ? [canvas] : []);
+  await initialized;
+  function dispatch({address, bytes}) {
     if (failed) return -E.EIO;
     Atomics.store(control,0,1);
     worker.postMessage({type:"request",address,bytes});
@@ -33,5 +40,6 @@ export function createGpuBridge(memory, mailbox, canvas, complete, status) {
       return -E.EIO;
     }
     return Atomics.load(control,1);
-  };
+  }
+  return { dispatch, dispose: () => stop("GPU provider closed") };
 }

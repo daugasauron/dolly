@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import vm from "node:vm";
+import { DisplayTransport as Display } from "../src/host/display.mjs";
 
 test("plain bootstrap logs strip color codes after assembling split lines", async () => {
   const source = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
@@ -25,13 +26,6 @@ test("plain bootstrap logs strip color codes after assembling split lines", asyn
 });
 
 test("display text packets and copied selections preserve literal UTF-8", async () => {
-  const source = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
-  const Display = vm.runInNewContext(`
-    const encoder = new TextEncoder();
-    ${source.match(/^const textDecoder = .*;$/m)[0]}
-    ${source.slice(source.indexOf("class DisplayTransport {"), source.indexOf("class FramebufferPresenter {"))}
-    DisplayTransport;
-  `, { TextEncoder, TextDecoder, SharedArrayBuffer });
   const buffer = new SharedArrayBuffer(4096);
   const transport = new Display(buffer, 0, 128, 8, 2048, 3072, 1024);
   for (const padding of [0, 1, 84, 85, 86, 87, 88, 89, 175]) {

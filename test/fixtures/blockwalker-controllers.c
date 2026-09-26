@@ -1,91 +1,50 @@
 #include "world.c"
 #include <assert.h>
 #include <time.h>
-typedef struct {Controller *controller;int checks,pause_ms;} Probe;
-static double wall(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec/1e9;}
-static int probe_interrupt(JSRuntime *rt,void *opaque){
-    Probe *p=opaque;p->checks++;
-    if(p->pause_ms){struct timespec delay={0,p->pause_ms*1000000};p->pause_ms=0;nanosleep(&delay,NULL);}
-    return interrupt(rt,p->controller);
+
+static void checked(Controller *c,const Physics *p,const Character *d,float keys[128]){
+    if(!controller_step(c,p,d,keys)){fprintf(stderr,"%s\n",c->error);assert(0);}
 }
-static void run(FILE *f,const char *kind,int id,const char *source,Character *design,int steps,int pause){
-    double start=wall();Controller *c=controller_new(source,1,60);
-    if(!c){fprintf(f,"%s,%d,0,0,0,0,%d,%.4f,initialization\n",kind,id,pause,(wall()-start)*1000);return;}
-    Physics p={0};physics_start(&p,design);Probe probe={c,0,pause};JS_SetInterruptHandler(c->runtime,probe_interrupt,&probe);
-    int completed=0,peak=0,valid=1;float keys[128];start=wall();
-    while(completed<steps){int before=probe.checks;valid=controller_step(c,&p,design,keys);int checks=probe.checks-before;if(checks>peak)peak=checks;if(!valid)break;completed++;p.steps++;}
-    fprintf(f,"%s,%d,%d,%d,%d,%d,%d,%.4f,%s\n",kind,id,valid,completed,probe.checks,peak,pause,(wall()-start)*1000,c->error);
-    physics_stop(&p);controller_free(c);
+static void memory_and_limits(Data *ctx,Character *box){
+    Physics p={0};physics_start(&p,box);float keys[128];
+    const char *source="return function(t,s,m,r) m.calls=(m.calls or 0)+1; m.random=r(); m.dt=s.dt; assert(not os and not io and not package and not debug and not load and not dofile and not pcall and not math.random); return '' end";
+    Controller *a=controller_new(source,17,60),*b=controller_new(source,17,60);assert(a&&b);
+    for(int i=0;i<120;i++){checked(a,&p,box,keys);checked(b,&p,box,keys);assert(get_number(a->ctx,a->memory,"random",-1)==get_number(b->ctx,b->memory,"random",-2));p.steps++;}
+    struct timespec pause={0,50000000};nanosleep(&pause,NULL);checked(a,&p,box,keys);assert(get_number(a->ctx,a->memory,"calls",0)==121);assert(fabs(get_number(a->ctx,a->memory,"dt",0)-1./60)<1e-12);
+    Value copied=data_clone(ctx,a->ctx,a->memory);assert(!value_is_error(copied));put_number(ctx,copied,"calls",999);assert(get_number(a->ctx,a->memory,"calls",0)==121);value_free(ctx,copied);controller_free(a);controller_free(b);
+    const char *bad[]={
+        "return function() while true do end end",
+        "local function f() return 1+f() end; return function() return f() end",
+        "return function() return string.rep('x',8*1024*1024) end",
+        "return function() return os.clock() end",
+        "return function() return load('return 1')() end",
+        "return function() return string.match(string.rep('a',200)..'!','^(a+)+$') end",
+        "return function() return {A=0/0} end",
+        "return function() return {unassigned=1} end",
+        "return function() return setmetatable({},{__index=function() while true do end end}).key end"
+    };
+    for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);i++){a=controller_new(bad[i],1,60);assert(a);assert(!controller_step(a,&p,box,keys)&&a->error[0]);for(int j=0;j<128;j++)assert(keys[j]==0);controller_free(a);}
+    assert(!controller_new("while true do end",1,60));assert(!controller_new("local t=string.rep('x',8*1024*1024);return function()return t end",1,60));
+    a=controller_new("return function(t,s,m) m.self=m;return '' end",1,60);checked(a,&p,box,keys);assert(!data_dump(a->ctx,a->memory,NULL));controller_free(a);
+    a=controller_new("return function(t,s,m) setmetatable(m,{__pairs=function()while true do end end});return '' end",1,60);checked(a,&p,box,keys);assert(!data_dump(a->ctx,a->memory,NULL));controller_free(a);
+    const char *invalid[]={"return os.execute('bad')","while true do end","local t={};t.t=t;return t","return function()end"};
+    for(unsigned i=0;i<sizeof(invalid)/sizeof(*invalid);i++)assert(value_is_error(data_parse(ctx,invalid[i],strlen(invalid[i]),"invalid save")));
+    const char *plain="return {text=[=[\nlong\ntext ]] ]=],numbers={1,2,3},positive=1/0,negative=-1/0,nan=0/0}";
+    Value value=data_parse(ctx,plain,strlen(plain),"data roundtrip");assert(!value_is_error(value));Value next=data_clone(ctx,ctx,value);assert(!value_is_error(next));assert(isinf(get_number(ctx,next,"positive",0))&&isnan(get_number(ctx,next,"nan",0)));value_free(ctx,next);value_free(ctx,value);physics_stop(&p);
+    puts("LUA LIMITS: deterministic memory, paused execution, runaway loops, recursion, heap, forbidden capabilities and bounded serialization passed");
 }
-static void install(JSContext *ctx,const char *source){
-    JSValue args=JS_NewObject(ctx);JS_SetPropertyStr(ctx,args,"source",JS_NewString(ctx,source));put_number(ctx,args,"hz",60);
-    JSValue result=world_install(ctx,args);assert(!JS_IsException(result));JS_FreeValue(ctx,result);JS_FreeValue(ctx,args);
-}
-static JSValue memory_snapshot(JSContext *ctx,int failed){
-    JSValue program=world_program(ctx),memory=JS_GetPropertyStr(ctx,program,"memory"),error=JS_GetPropertyStr(ctx,program,"memoryError");
-    assert(JS_IsString(error)==failed);JS_FreeValue(ctx,error);JS_FreeValue(ctx,program);return memory;
-}
-static void check_memory(JSContext *ctx,Character *design){
-    Physics p={0};physics_start(&p,design);
-    install(ctx,"function(t,s,m){m.ticks=(m.ticks||0)+1;m.phase=t<1?'shift':'lift';m.last=t;return {}}");
-    JSValue memory=memory_snapshot(ctx,0);assert(JS_IsNull(memory));JS_FreeValue(ctx,memory);assert(world_trial_begin(&p));
-    for(int i=0;i<120;i++)assert(world_trial_step(&p,design));
-    memory=memory_snapshot(ctx,0);assert(get_number(ctx,memory,"ticks",-1)==120);assert(fabs(get_number(ctx,memory,"last",-1)-119./60)<1e-9);
-    JSValue phase=JS_GetPropertyStr(ctx,memory,"phase");const char *name=JS_ToCString(ctx,phase);assert(name&&!strcmp(name,"lift"));JS_FreeCString(ctx,name);JS_FreeValue(ctx,phase);
-    put_number(ctx,memory,"ticks",999);JS_FreeValue(ctx,memory);memory=memory_snapshot(ctx,0);assert(get_number(ctx,memory,"ticks",-1)==120);JS_FreeValue(ctx,memory);
-    assert(world_trial_begin(&p));memory=memory_snapshot(ctx,0);assert(get_number(ctx,memory,"ticks",-1)==-1);JS_FreeValue(ctx,memory);
-    const char *bad[]={"m.self=m", "m.data='x'.repeat(8192)", "m.big=1n", "m.toJSON=()=>undefined", "Object.defineProperty(m,'bad',{enumerable:true,get(){throw Error('oops')}})", "Object.defineProperty(m,'bad',{enumerable:true,get(){while(true){}}})", "m.toJSON=()=>{while(true){}}"};
-    for(int i=0;i<sizeof(bad)/sizeof(*bad);i++){
-        char source[512];snprintf(source,sizeof(source),"function(t,s,m){if(!m.ticks){%s};m.ticks=(m.ticks||0)+1;return {}}",bad[i]);install(ctx,source);assert(world_trial_begin(&p));assert(world_trial_step(&p,design));
-        memory=memory_snapshot(ctx,1);assert(JS_IsNull(memory));JS_FreeValue(ctx,memory);assert(world_trial_step(&p,design));assert(get_number(trial->ctx,trial->memory,"ticks",-1)==2);
-    }
-    world_trial_stop();memory=memory_snapshot(ctx,0);assert(JS_IsNull(memory));JS_FreeValue(ctx,memory);physics_stop(&p);
-}
-static JSValue environment_probe(JSContext *ctx,JSValueConst self,int argc,JSValueConst *argv){
-    Physics p={.landscape=1};JSValue s=JS_NewObject(ctx);surroundings(ctx,s,&p,(Vector3){87,4,-25});return s;
-}
-static void check_environment(JSContext *ctx){
-    JSValue global=JS_GetGlobalObject(ctx);JS_SetPropertyStr(ctx,global,"sense",JS_NewCFunction(ctx,environment_probe,"sense",0));
-    const char *checks=
-        "const check=(v)=>{if(!v)throw Error('Environment snapshot changed')};"
-        "let a=sense(),b=sense(),expected=JSON.stringify(a);Object.freeze(b);"
-        "check(JSON.stringify(b)===expected&&b.terrain===b.terrain&&b.groundSamples===b.groundSamples);"
-        "for(const first of ['terrain','obstacles']){a=sense();let rows=a[first];check(rows.length>0);"
-        "let item=first==='obstacles'?rows[0]:rows.find(x=>x.high>=3.8);check(item);item.mark=7;item.high=-999;"
-        "check(a.terrain.includes(item)&&a.obstacles.includes(item));check(a.terrain.some(x=>x.mark===7));}"
-        "a=sense();const terrain=JSON.stringify(a.terrain);b=sense();b.obstacles=['replacement'];"
-        "check(JSON.stringify(b.terrain)===terrain&&b.obstacles[0]==='replacement');"
-        "b=sense();delete b.terrain;check(b.terrain===undefined&&b.obstacles.length>0);"
-        "a=sense();globalThis.retained=sense();globalThis.expected=JSON.stringify(a);";
-    JSValue result=JS_Eval(ctx,checks,strlen(checks),"environment-snapshots",JS_EVAL_TYPE_GLOBAL);
-    if(JS_IsException(result)){JSValue e=JS_GetException(ctx);const char *s=JS_ToCString(ctx,e);fprintf(stderr,"%s\n",s);JS_FreeCString(ctx,s);JS_FreeValue(ctx,e);assert(0);}JS_FreeValue(ctx,result);
-    int version=terrain_version;terrain_select(0);
-    const char *retained="check(JSON.stringify(retained)===globalThis.expected);delete globalThis.retained;delete globalThis.expected;";
-    result=JS_Eval(ctx,retained,strlen(retained),"retained-environment",JS_EVAL_TYPE_GLOBAL);assert(!JS_IsException(result));JS_FreeValue(ctx,result);terrain_select(version);
-    Physics p={0};JSValue s=JS_NewObject(ctx);surroundings(ctx,s,&p,(Vector3){0});JSValue ground=JS_GetPropertyStr(ctx,s,"groundSamples");
-    for(int i=0;i<16;i++){JSValue point=JS_GetPropertyUint32(ctx,ground,i),y=JS_GetPropertyUint32(ctx,point,1);double height=NAN;JS_ToFloat64(ctx,&height,y);assert(height==0);JS_FreeValue(ctx,y);JS_FreeValue(ctx,point);}
-    JS_FreeValue(ctx,ground);JS_FreeValue(ctx,s);JS_FreeValue(ctx,global);
+static void environment(Data *ctx){
+    terrain_select(4);Physics p={.landscape=1};Value snapshot=value_table(ctx);surroundings(ctx,snapshot,&p,(Vector3){87,4,-25});
+    Value expected=data_clone(ctx,ctx,snapshot);assert(!value_is_error(expected));terrain_select(0);Value retained=data_clone(ctx,ctx,snapshot);assert(!value_is_error(retained));
+    const char *fields[]={"terrain","obstacles","groundSamples"};for(int i=0;i<3;i++){
+        Value a=value_get(ctx,expected,fields[i]),b=value_get(ctx,retained,fields[i]);assert(value_length(ctx,a)==value_length(ctx,b)&&value_length(ctx,a)>0);char *x=data_dump(ctx,a,NULL),*y=data_dump(ctx,b,NULL);assert(x&&y&&!strcmp(x,y));free(x);free(y);value_free(ctx,a);value_free(ctx,b);
+    }value_free(ctx,expected);value_free(ctx,retained);value_free(ctx,snapshot);puts("LUA SENSORS: retained environment snapshot survives terrain replacement");
 }
 int main(void){
-    JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);JSValue list=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json");
-    check_environment(ctx);
-    FILE *f=fopen("/workspace/controller-probe.csv","w");if(!f)return 1;fputs("kind,id,valid,steps,checks,peakChecks,pauseMs,wallMs,error\n",f);
-    for(int i=0;i<get_number(ctx,list,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,list,i),blueprint=JS_GetPropertyStr(ctx,item,"blueprint"),code=JS_GetPropertyStr(ctx,item,"source"),label=JS_GetPropertyStr(ctx,item,"name");
-        Character design={0};if(!character_from_json(ctx,blueprint,&design))return 2;const char *source=JS_ToCString(ctx,code),*name=JS_ToCString(ctx,label);
-        run(f,"normal",i,source,&design,1000,0);
-        if(strstr(name,"Marrowstep"))run(f,"paused",i,source,&design,1000,50);
-        JS_FreeCString(ctx,name);JS_FreeCString(ctx,source);character_clear(&design);JS_FreeValue(ctx,item);JS_FreeValue(ctx,blueprint);JS_FreeValue(ctx,code);JS_FreeValue(ctx,label);
-    }
-    remove("/workspace/blockwalker-world.json");world_load(ctx);
-    world.creatures[0].physics.steps=1032202;world.creatures[1].physics.steps=261688;world_save(ctx);world_close();world_load(ctx);
-    if(world.creatures[0].physics.steps!=1032202||world.creatures[1].physics.steps!=261688)return 3;world_close();
-    Character box={0};character_add(&box,-1,0,0,0,BLOCK_BOX,0);
-    check_memory(ctx,&box);
-    run(f,"clock",-1,"function(){while(true){Date.now()}}",&box,1,0);
-    run(f,"loop",-1,"function(){while(true){}}",&box,1,0);
-    run(f,"regex",-1,"function(){/^(a+)+$/.test('a'.repeat(200)+'!');return {}}",&box,1,0);
-    run(f,"getter",-1,"function(){return {get A(){while(true){}}}}",&box,1,0);
-    run(f,"initialize",-1,"(function(){while(true){}})()",&box,1,0);
-    character_clear(&box);fclose(f);JS_FreeValue(ctx,list);JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    Data *ctx=data_new(256*1024*1024);Value list=read_catalog(ctx);assert(value_is_array(list));int calls=0;
+    for(int i=0;i<value_length(ctx,list);i++){
+        Value item=value_at(ctx,list,i),code=value_get(ctx,item,"source"),blueprint=value_get(ctx,item,"blueprint"),label=value_get(ctx,item,"name");const char *source=value_text(ctx,code),*name=value_text(ctx,label);Character d={0};assert(read_character(ctx,blueprint,&d,0));Controller *c=controller_new(source,1,60);assert(c);Physics p={0};physics_start(&p,&d);float keys[128];
+        for(int step=0;step<1000;step++){if(!controller_step(c,&p,&d,keys)){fprintf(stderr,"%s: %s\n",name,c->error);assert(0);}p.steps++;calls++;}
+        physics_stop(&p);controller_free(c);character_clear(&d);value_text_free(ctx,source);value_text_free(ctx,name);value_free(ctx,item);value_free(ctx,code);value_free(ctx,blueprint);value_free(ctx,label);
+    }value_free(ctx,list);Character box={0};character_add(&box,-1,0,0,0,BLOCK_BOX,0);memory_and_limits(ctx,&box);environment(ctx);character_clear(&box);data_close(ctx);printf("LUA CONTROLLERS: %d finite calls passed\n",calls);return 0;
 }

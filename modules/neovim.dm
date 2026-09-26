@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE neovim
 
 # Upstream generators and the editor itself execute inside Dolly.

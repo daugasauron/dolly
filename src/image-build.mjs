@@ -1,4 +1,5 @@
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
+import { imageHostRequirements } from "./image-requirements.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact,
@@ -90,4 +91,20 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
   const loaded = [];
   for (const node of selected.values()) loaded.push(await materialize(node));
   return loaded;
+}
+
+// Resolve compatibility from pinned recipes before materializing large artifacts.
+export async function loadImageHostRequirements(image, customSource) {
+  if (image !== "custom") return DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements ?? [];
+  const sources = new Map([...DOLLY_STATIC_SOURCES.map(source => [source.path, source]),
+    ...DOLLY_IMAGES.map(definition => [`/${definition.dollyfile}`, definition])]);
+  return imageHostRequirements(customSource, async reference => {
+    const admitted = sources.get(reference.location);
+    if (admitted?.sha256 !== reference.sha256) throw new Error(`${reference.location}: recipe pin is not in this release`);
+    const response = await fetch(new URL(`..${reference.location}`, import.meta.url), { credentials: "same-origin", redirect: "error" });
+    if (!response.ok) throw new Error(`${reference.location}: HTTP ${response.status}`);
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength !== admitted.byteLength || await sha256(bytes) !== reference.sha256) throw new Error(`${reference.location}: recipe pin mismatch`);
+    return new TextDecoder().decode(bytes);
+  });
 }

@@ -8,7 +8,7 @@ const ensure = (condition, message, code = E.EINVAL) => { if (!condition) fail(c
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
 let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
-let memory, mailbox, control, canvas, context, device, format, adapterName = "WebGPU";
+let heap, memory, mailbox, control, canvas, context, device, format, adapterName = "WebGPU";
 let usedBytes = 0, serial = Promise.resolve(), initializing;
 const stats = { packets: 0, packetBytes: 0, frames: 0, dispatches: 0, readbackBytes: 0, batchWallMilliseconds: 0 };
 
@@ -49,9 +49,11 @@ async function getDevice() {
     v.setUint32(88,adapter.info?.subgroupMinSize ?? 4,true);
     v.setUint32(92,adapter.info?.subgroupMaxSize ?? 128,true);
     device = created;
-    context = canvas.getContext("webgpu");
-    ensure(context, "WebGPU canvas unavailable", E.ENOSYS);
-    context.configure({ device, format, alphaMode: "opaque", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
+    if (canvas) {
+      context = canvas.getContext("webgpu");
+      ensure(context, "WebGPU canvas unavailable", E.ENOSYS);
+      context.configure({ device, format, alphaMode: "opaque", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
+    }
     created.lost.then(info => {
       if (device !== created) return;
       device = null;
@@ -355,6 +357,7 @@ async function execute(request, scope, parsed) {
       const width=request.v.getUint32(32,true),height=request.v.getUint32(36,true);
       ensure((width===0&&height===0)||(width>0&&height>0&&width<=4096&&height<=2304),"Invalid surface size");
       ensure(!width || !slots.some(s=>s && s!==scope && s.surface),"GPU surface is busy",E.EBUSY);
+      ensure(!width || context, "GPU presentation requires the display provider", E.ENOSYS);
       scope.surface=width>0;
       scope.gpuMs=0;scope.gpuTotalMs=0;scope.gpuSamples=0;
       if(device.features.has("timestamp-query")) scope.timers=Array.from({length:3},()=>({
@@ -386,20 +389,22 @@ async function execute(request, scope, parsed) {
     publish(request,0,output);
   } catch(error) {
     postMessage({type:"status",error:String(error.message??error).slice(0,2048)});
-    publish(request,error.errno??E.EIO);
     if(request.op===A.DOLLY_GPU_OPEN)await retire(scope);
+    publish(request,error.errno??E.EIO);
   } finally {scope.busy=false;}
 }
 
 self.onmessage = event => {
   const m=event.data;
   if(m.type==="configure") {
-    memory=m.memory;mailbox=m.mailbox;canvas=m.canvas;control=new Int32Array(m.control);
+    heap=m.memory;memory=heap.buffer;mailbox=m.mailbox;canvas=m.canvas;control=new Int32Array(m.control);
     ensure(memory instanceof SharedArrayBuffer && Number.isSafeInteger(mailbox) && mailbox>0 && mailbox%64===0 &&
       mailbox<=memory.byteLength-slots.length*(64+A.DOLLY_GPU_REPLY_BYTES),"Invalid GPU mailbox");
+    postMessage({type:"ready"});
     return;
   }
   if(m.type!=="request")return;
+  memory=heap.buffer;
   let status=0;
   try {
     const address=Number(m.address),size=Number(m.bytes);

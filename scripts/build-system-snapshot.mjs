@@ -111,6 +111,7 @@ async function inspectSnapshot(image, inputs) {
       return stale(changed ? `recipe changed: ${changed.sourcePath}` : "recipe graph changed");
     }
     if (JSON.stringify(metadata.modules) !== JSON.stringify(expectedModules(image))) return stale("module list changed");
+    if (JSON.stringify(metadata.hostRequirements ?? []) !== JSON.stringify(graphs.get(image).root.hostRequirements)) return stale("host requirements changed");
     if (inputs === null) return { action: "check", reason: "dependency output pending" };
     if (!imageInputsMatch(metadata.inputs, inputs)) {
       const changed = graphs.get(image).artifacts.filter(reference => {
@@ -164,6 +165,7 @@ async function buildImage(image, inputs) {
         inputs,
         recipes,
         modules: expectedModules(image),
+        hostRequirements: graphs.get(image).root.hostRequirements,
         entry,
         manifest: parsed.manifest,
         byteLength: snapshot.length,

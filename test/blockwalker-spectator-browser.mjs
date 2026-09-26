@@ -1,3 +1,4 @@
+import {compileCommand,parseLua,readCatalog} from './blockwalker-data.mjs';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
@@ -8,8 +9,8 @@ const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no
 const page=await browser.newPage({viewport:{width:1280,height:720},acceptDownloads:true}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 const command=s=>page.evaluate(s=>__dolly.submit(s),s),shell=()=>page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
 async function upload(path,dest){const run=command('upload '+dest);await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(path);assert.equal(await run,0);}
-async function download(name){const event=page.waitForEvent('download'),run=command('download /workspace/'+name);await(await event).saveAs(output+'/'+name);assert.equal(await run,0);return JSON.parse(await fs.readFile(output+'/'+name,'utf8'));}
-const catalog=JSON.parse(await fs.readFile('src/blockwalker/designs.json','utf8'));let first=0;
+async function download(name){const event=page.waitForEvent('download'),run=command('download /workspace/'+name);await(await event).saveAs(output+'/'+name);assert.equal(await run,0);return parseLua(await fs.readFile(output+'/'+name,'utf8'));}
+const catalog=await readCatalog();let first=0;
 async function select(name){
  const index=catalog.findIndex(c=>c.name.startsWith(name));assert.ok(index>=0);
  while(index<first){await page.mouse.click(44,580);first=Math.max(0,first-8);}
@@ -21,10 +22,9 @@ try{
  await page.goto(site.origin+'/blockwalker/');await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20,null,{timeout:60000});await page.keyboard.press('Escape');await shell();
  if(process.argv[2]){
   await upload(process.argv[2],'/tmp/spectator.tar');assert.equal(await command('tar -xf /tmp/spectator.tar -C /'),0);
-  const sources=['main','character','render','world','terrain','magnet','gpu-client'].map(s=>'/usr/src/dolly/blockwalker/'+s+'.c').join(' ');
-  assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ '+sources+' -ldolly-js -ldolly-raylib -lraylib -lbox3d -lm -o /usr/bin/blockwalker'),0);
+    assert.equal(await command(await compileCommand()),0);
  }
- await upload('test/fixtures/blockwalker-spectator.mjs','/tmp/spectator.mjs');assert.equal(await command('cp /tmp/spectator.mjs /usr/src/dolly/blockwalker/check.mjs && rm /workspace/blockwalker-world.json'),0);
+ await upload('test/fixtures/blockwalker-spectator.mjs','/tmp/spectator.mjs');assert.equal(await command('cp /tmp/spectator.mjs /usr/src/dolly/blockwalker/check.mjs && rm /workspace/blockwalker-world.lua'),0);
  const prior=await page.evaluate(()=>__dolly.gpu.stats.frames),run=command('blockwalker --integration-check');run.catch(()=>{});
  await page.waitForFunction(n=>__dolly.gpu?.active&&__dolly.gpu.stats.frames>n+10,prior);await page.mouse.click(404,40);
  for(const name of ['Sidelight','Komame','Tsubame']){
@@ -34,7 +34,7 @@ try{
  await page.keyboard.press('Backslash');await page.waitForTimeout(800);await page.keyboard.down('W');await page.waitForTimeout(800);await page.keyboard.up('W');await page.waitForTimeout(800);
  await select('Cargo');await page.keyboard.press('Backslash');await page.waitForTimeout(800);
  await page.keyboard.press('Escape');await page.keyboard.press('Escape');assert.equal(await run,0);await shell();
- const trace=await download('spectator-trace.json'),world=await download('blockwalker-world.json'),eyes=trace.filter(s=>s.eyes);
+ const trace=await download('spectator-trace.lua'),world=await download('blockwalker-world.lua'),eyes=trace.filter(s=>s.eyes);
  assert.ok(eyes.length>=9);assert.ok(trace.every(s=>!s.piloting),'watching does not take keyboard control from the character');
  for(const s of eyes){
   const axis=[0,0,0];axis[s.block.axis]=s.block.direction;
@@ -48,6 +48,6 @@ try{
  assert.ok(trace.some(s=>s.camera.follow===0&&!s.eyes),'moving the spectator camera leaves the character');
  assert.ok(trace.some(s=>s.camera.follow===catalog.findIndex(c=>c.name==='Cargo')+1&&!s.eyes&&s.camera.fov===42),'a character without Eyes falls back to the outside view');
  assert.equal(world.creatures.length,catalog.length);assert.equal(world.deaths,0);assert.equal(world.playerId,0);assert.deepEqual(errors,[]);
- const result={bodyRelativeSamples:eyes.length,characters:[...new Set(eyes.map(s=>s.actor.name))],programsContinue:true,errors};await fs.writeFile(output+'/result.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+ const result={bodyRelativeSamples:eyes.length,characters:[...new Set(eyes.map(s=>s.actor.name))],programsContinue:true,errors};await fs.writeFile(output+'/result.lua',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }catch(e){await page.screenshot({path:output+'/failure.png'});if(!await page.evaluate(()=>__dolly.gpu?.active))console.error(await page.evaluate(()=>__dolly.visibleTerminalText()));throw e;}
 finally{await browser.close();await site.close();}

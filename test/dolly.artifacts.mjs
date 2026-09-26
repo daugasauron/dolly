@@ -1,3 +1,4 @@
+import { hostContracts } from "../src/host/modules.mjs";
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
@@ -164,6 +165,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
     artifact("dolly-supervisor-0.wasm"),
   );
   const gpuContract = await readWasmInterface(artifact("dolly-gpu-0.wasm"));
+  const threadsContract = await readWasmInterface(artifact("dolly-threads-supervisor-0.wasm"));
 
   for (const entry of contract.imports) {
     if (!moduleInfrastructure.has(entry.name) && !loaderBackedFunctions.has(entry.name)) {
@@ -175,6 +177,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
   for (const entry of httpContract.exports) expected.add(`_${entry.name}`);
   for (const entry of snapshotContract.exports) expected.add(`_${entry.name}`);
   for (const entry of supervisorContract.exports) expected.add(`_${entry.name}`);
+  for (const entry of threadsContract.exports) expected.add(`_${entry.name}`);
   for (const entry of gpuContract.exports) if (entry.type.kind === "func") expected.add(`_${entry.name}`);
 
   assert.deepEqual(actual, [...expected].sort());
@@ -187,7 +190,8 @@ test("the runtime implements the resident kernel plugin contract", async () => {
 test("the runtime exposes typed bootstrap and process-supervisor boundaries", async () => {
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
   const supervisor = await readWasmInterface(artifact("dolly-supervisor-0.wasm"));
-  for (const required of supervisor.exports) {
+  const threads = await readWasmInterface(artifact("dolly-threads-supervisor-0.wasm"));
+  for (const required of [...supervisor.exports, ...threads.exports]) {
     const actual = runtime.exports.find(entry => entry.name === required.name);
     assert.ok(actual, `runtime is missing ${required.name}`);
     assert.equal(sameWasmType(actual.type, required.type), true);
@@ -508,16 +512,14 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
   const contract = await readWasmInterface(artifact("dolly-browser-0.wasm"));
   validateBrowserImports(contract.imports, runtime.imports);
-  const policy = JSON.parse(
-    await readFile(new URL("../config/browser-imports.json", import.meta.url), "utf8"),
-  );
+  const policy = Object.fromEntries(hostContracts.map(contract => [contract.name, contract.imports]));
   const actual = runtime.imports
     .map((entry) => `${entry.module}.${entry.name}`)
     .sort();
   const expected = Object.values(policy).flat().sort();
 
   assert.deepEqual(actual, expected);
-  assert.deepEqual(policy.network, ["env.dolly_http_dispatch"]);
+  assert.deepEqual(policy.http, ["env.dolly_http_dispatch"]);
   assert.deepEqual(policy.download, ["env.dolly_download_dispatch"]);
   assert.deepEqual(policy.gpu, ["env.dolly_gpu_dispatch"]);
   assert.equal(

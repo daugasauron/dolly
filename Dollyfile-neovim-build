@@ -1,14 +1,14 @@
-DOLLY 3
+DOLLY 4
 IMAGE neovim-build
 
 # Reusable Neovim build artifacts.
-FROM HOST /Dollyfile-cmake-build ea4f4fabffd41f9c5c88d914c058ff59708aead1ef0288d22e3b23859b8bc6a8
-USE HOST /modules/lua.dm 47d8ef115f40c2b963a821142af4647ac26ab6b310896d4e72d3ffd07bd5eee1
-USE HOST /modules/lpeg.dm 19fd6f2032d92363f9817883cac93df30d48f999a0388c264cace4940019b16b
-USE HOST /modules/luv.dm eaeb7757070a9058a93012936fc1b6ddf4397939d2bb018c2489824564c0fb17
-USE HOST /modules/utf8proc.dm 492fc34c4ff0c5b2df3e48305c9901ea8cd8a168bc2c8183187ce15ea2cc846f
-USE HOST /modules/treesitter.dm 48b7b0cb6b913dcb986c07d2985e249c0eb6cd412019305f6fd125037b7023cc
-USE HOST /modules/neovim.dm a7e771275db5d655595274010a7c5ecf10aac94098789ff0f8d0a063fe2e05ee
-USE HOST /modules/neovim-parsers.dm 9669260d87ddc3cb1128123cbb66fb9e3c67b389d032942d028a997cc43c0434
+FROM HOST /Dollyfile-cmake-build 3493103ae1581b42a54597c69799c17cdf4ed4eb6555e557b986cb7fbc33b7dc
+USE HOST /modules/lua.dm f1bdfa705764c6bdec88f3ee58861679104bc7c0a7d7a2a62857354e7db55d78
+USE HOST /modules/lpeg.dm c2adc63362b42fb79d6fde4cfccba289ec444ae45cbd92aedaea410e48fcf5c9
+USE HOST /modules/luv.dm ce1863a205af5ae5c340f8d4ea52cef80ff8340f9144828c7e8f001d7c87d65a
+USE HOST /modules/utf8proc.dm 0d09b224f12561a7501f17eae8301e2959861c5fc3e1753649530981502bd3ca
+USE HOST /modules/treesitter.dm f2b7f56b18b1354256f23acda315856315f4a599b311caa8073c74dabbb6025c
+USE HOST /modules/neovim.dm 1bd670eae5a9283d64a4346257eb08c7fa81825a19e15c1df0b49e18c28cbe1d
+USE HOST /modules/neovim-parsers.dm f9e703df21e7fa3d288c35b77325cf258c379234c3bbf1f2248720f1a0f5085d
 
 ENTRY /bin/slop

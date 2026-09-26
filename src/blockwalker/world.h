@@ -1,33 +1,34 @@
 #pragma once
 #include "character.h"
-#include <quickjs.h>
+#include "data.h"
+enum {CONTROLLER_DEFAULT_HZ=20};
 typedef struct Controller Controller;
 typedef struct {Character design;char name[64];char *source;int hz;float x,z;} SavedDesign;
 typedef struct {int id,cause;char name[64],detail[160];double time,seconds;Vector3 position;float up;} Removal;
 typedef struct {int cargo,carrier,depot,points;char name[64];double time;} Delivery;
-enum {RADIO_SIGHT,RADIO_CLAIM,RADIO_READY,RADIO_RELEASE,RADIO_KINDS,RADIO_CAPACITY=32};
-typedef struct {int team,from,cargo,kind;char name[64];double time;Vector3 position;float mass;} RadioMessage;
+enum {RADIO_SIGHT,RADIO_CLAIM,RADIO_READY,RADIO_RELEASE,RADIO_HELP,RADIO_THREAT,RADIO_KINDS,RADIO_CAPACITY=32};
+typedef struct {int team,from,target,kind;char name[64];double time;Vector3 position;float mass;} RadioMessage;
 typedef struct {
     int id;char name[64],error[160];Character design;Physics physics;Controller *controller;
     float fallen,root_height;float controls[128];
     int team;
-    int cargo,carrier,held_by,delivered,supply,parachute;float settled;Vector3 pickup;
+    int cargo,carrier,held_by,magnet_count,delivered,supply,parachute;float settled;Vector3 pickup;
 } Creature;
 typedef struct {Creature *creatures;int count,capacity,next_id,deaths,player,driving;unsigned char input[128],pressed[128];double age;b3WorldId physics;SavedDesign *designs;int design_count,design_capacity;Removal *removals;int removal_count,removal_capacity;Delivery *deliveries;int delivery_count,delivery_capacity;RadioMessage radio[RADIO_CAPACITY];int radio_count;unsigned supply_seed;double next_parcel,next_ore,next_mine;} World;
 extern World world;
-JSValue character_json(JSContext *ctx,const Character *c);
-JSValue physics_sensors(JSContext *ctx,const Physics *p,const Character *c,double dt);
-int character_from_json(JSContext *ctx,JSValueConst list,Character *c);
-JSValue world_state(JSContext *ctx);
-JSValue world_install(JSContext *ctx,JSValueConst args);
-JSValue world_program(JSContext *ctx);
-JSValue world_creature_program(JSContext *ctx,int id);
-JSValue world_release(JSContext *ctx,const Character *design,JSValueConst args);
-JSValue world_designs(JSContext *ctx,int full);
-JSValue world_open_design(JSContext *ctx,int index,Character *design);
-JSValue world_save_design(JSContext *ctx,const Character *design,int sea);
-int world_export_design(JSContext *ctx,const Character *design,int sea,const char *path);
-JSValue world_import_design(JSContext *ctx,Character *design,int *sea,const char *path);
+Value character_data(Data *ctx,const Character *c);
+Value physics_sensors(Data *ctx,const Physics *p,const Character *c,double dt);
+int character_from_data(Data *ctx,Value list,Character *c);
+Value world_state(Data *ctx);
+Value world_install(Data *ctx,Value args);
+Value world_program(Data *ctx);
+Value world_creature_program(Data *ctx,int id);
+Value world_release(Data *ctx,const Character *design,Value args);
+Value world_designs(Data *ctx,int full);
+Value world_open_design(Data *ctx,int index,Character *design);
+Value world_save_design(Data *ctx,const Character *design,int sea);
+int world_export_design(Data *ctx,const Character *design,int sea,const char *path);
+Value world_import_design(Data *ctx,Character *design,int *sea,const char *path);
 int world_drop_cargo(float x,float y,float z,int material);
 Creature *world_find(int id);
 int world_enter(const Character *design,int sea);
@@ -36,10 +37,9 @@ int world_team_score(int team);
 int world_team_color(int team);
 void world_step(void);
 void world_close(void);
-int world_save(JSContext *ctx);
-void world_load(JSContext *ctx);
-JSValue world_import(JSContext *ctx,const char *path);
-void world_load_archive(JSContext *ctx);
+int world_save(Data *ctx);
+void world_load(Data *ctx);
+Value world_import(Data *ctx,const char *path);
 int world_trial_begin(const Physics *p);
 int world_trial_step(Physics *p,const Character *c);
 const char *world_trial_error(void);

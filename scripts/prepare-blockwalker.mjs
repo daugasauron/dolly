@@ -6,12 +6,9 @@ import {resolve} from "node:path";
 const root=resolve(import.meta.dirname,"..");
 const output=process.argv[2]??resolve(root,"dist/static/blockwalker/source.tar");
 execFileSync(process.execPath,[resolve(root,"scripts/build-source-tar.mjs"),output,
-  "src/blockwalker","/usr/src/dolly/blockwalker",
-  "src/gpu/client.c","/usr/src/dolly/blockwalker/gpu-client.c",
-  "include/dolly/gpu.h","/usr/include/dolly/gpu.h",
-  "include/dolly/gpu-abi.h","/usr/include/dolly/gpu-abi.h"],{cwd:root,stdio:"inherit"});
+  "src/blockwalker","/usr/src/dolly/blockwalker"],{cwd:root,stdio:"inherit"});
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
-const module=`DOLLY 3
+const module=`DOLLY 4
 MODULE blockwalker
 
 REQUIRES TOOL cc
@@ -22,23 +19,27 @@ REQUIRES LIB raylib
 REQUIRES LIB box3d
 REQUIRES LIB dolly-raylib
 REQUIRES LIB dolly-js
+REQUIRES LIB lua55
+REQUIRES HEADER lua55
+REQUIRES HEADER gpu
+REQUIRES HOST gpu@0
+REQUIRES HOST display@0
+REQUIRES HOST threads@0
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
 SOURCE HOST /static/blockwalker/source.tar /tmp/blockwalker.tar ${hash(await readFile(output))}
 SLOP tar -xf /tmp/blockwalker.tar -C / && rm /tmp/blockwalker.tar
 SLOP make -f /usr/src/dolly/blockwalker/box3d.mk
-SLOP cc -std=c17 -O2 -U__SIZEOF_INT128__ /usr/src/dolly/blockwalker/main.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/render.c /usr/src/dolly/blockwalker/world.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c /usr/src/dolly/blockwalker/gpu-client.c -ldolly-js -ldolly-raylib -lraylib -lblockwalker-box3d -lm -o /usr/bin/blockwalker
+SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/blockwalker/main.c /usr/src/dolly/blockwalker/data.c /usr/src/dolly/blockwalker/pi.c /usr/src/dolly/blockwalker/character.c /usr/src/dolly/blockwalker/render.c /usr/src/dolly/blockwalker/world.c /usr/src/dolly/blockwalker/terrain.c /usr/src/dolly/blockwalker/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -ldolly-raylib -lraylib -lblockwalker-box3d -lm -o /usr/bin/blockwalker
 SLOP /usr/bin/blockwalker --check
 SLOP rm -rf /tmp/blockwalker-box3d
 EXPORTS TOOL blockwalker
 EXPORTS LIB blockwalker-box3d /usr/lib/libblockwalker-box3d.a
 EXPORTS FOLDER blockwalker-source /usr/src/dolly/blockwalker
-EXPORTS HEADER dolly-gpu /usr/include/dolly/gpu.h
-EXPORTS HEADER dolly-gpu-abi /usr/include/dolly/gpu-abi.h
 `;
 await writeFile(resolve(root,"modules/blockwalker.dm"),module);
-await writeFile(resolve(root,"Dollyfile-blockwalker"),`DOLLY 3
+await writeFile(resolve(root,"Dollyfile-blockwalker"),`DOLLY 4
 IMAGE blockwalker
 
 FROM HOST /Dollyfile-gamedev-sdk ${hash(await readFile(resolve(root,"Dollyfile-gamedev-sdk")))}
@@ -51,6 +52,7 @@ EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
 USE HOST /modules/pi.dm ${hash(await readFile(resolve(root,"modules/pi.dm")))}
+USE HOST /modules/lua55.dm ${hash(await readFile(resolve(root,"modules/lua55.dm")))}
 USE HOST /modules/blockwalker.dm ${hash(module)}
 
 FILE /etc/dolly/blockwalker.slop

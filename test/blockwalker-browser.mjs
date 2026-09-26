@@ -1,3 +1,4 @@
+import {compileCommand,parseLua,readCatalog} from './blockwalker-data.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
@@ -13,8 +14,8 @@ const shot=name=>page.screenshot({path:new URL(name+'.png',output).pathname});
 const frames=async(n=8)=>{const previous=await page.evaluate(()=>__dolly.gpu.stats.frames);await page.waitForFunction(({previous,n})=>__dolly.gpu.stats.frames>previous+n,{previous,n},{timeout:30000});};
 const exportBlueprint=async name=>{
  const download=page.waitForEvent('download');await page.mouse.click(860,40);const file=await download;
- const path=new URL(name+'.json',output).pathname;await file.saveAs(path);await frames();
- const design=JSON.parse(await readFile(path,'utf8')),blocks=design.blueprint;
+ const path=new URL(name+'.lua',output).pathname;await file.saveAs(path);await frames();
+ const design=parseLua(await readFile(path,'utf8')),blocks=design.blueprint;
  return {path,source:JSON.stringify({blueprint:blocks,anchored:design.anchored}),count:blocks.length,anchored:Number(design.anchored),blocks};
 };
 const importBlueprint=async path=>{
@@ -28,8 +29,7 @@ try {
   await page.keyboard.press('Escape');await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
   const command=s=>page.evaluate(s=>__dolly.submit(s),s),upload=command('upload /tmp/editor-source.tar');
   await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(process.argv[2]);assert.equal(await upload,0);assert.equal(await command('tar -xf /tmp/editor-source.tar -C /'),0);
-  const sources=['main','character','render','world','terrain','magnet','gpu-client'].map(s=>'/usr/src/dolly/blockwalker/'+s+'.c').join(' ');
-  assert.equal(await command('cc -std=c17 -O2 -DBOX3D_DISABLE_SIMD -U__SIZEOF_INT128__ '+sources+' -ldolly-js -ldolly-raylib -lraylib -lbox3d -lm -o /usr/bin/blockwalker'),0);
+    assert.equal(await command(await compileCommand()),0);
   command('blockwalker').catch(()=>{});await page.waitForFunction(()=>__dolly.gpu.active);await frames();
  }
  const car=await exportBlueprint('fresh-car');assert.equal(car.count,9);assert.equal(car.blocks.filter(b=>b.joint===4).length,4);assert.equal(car.blocks.filter(b=>b.joint===6).length,1);
@@ -43,12 +43,12 @@ try {
  await page.keyboard.press('Escape');await frames();
  await page.mouse.click(120,62);await frames();await page.mouse.click(620,172);await frames();await shot('archived-prototypes');await page.mouse.click(954,172);
  await page.mouse.click(404,40);await frames();const archiveDownload=page.waitForEvent('download');await page.mouse.click(120,630);
- const archivePath=new URL('archive-world.json',output).pathname;await(await archiveDownload).saveAs(archivePath);
- const archived=JSON.parse(await readFile(archivePath,'utf8')),prototypes=JSON.parse(await readFile(new URL('../src/blockwalker/archive-designs.json',import.meta.url),'utf8'));
+ const archivePath=new URL('archive-world.lua',output).pathname;await(await archiveDownload).saveAs(archivePath);
+ const archived=parseLua(await readFile(archivePath,'utf8')),prototypes=parseLua(await readFile(new URL('../src/blockwalker/archive-designs.lua',import.meta.url),'utf8'));
  assert.ok(prototypes.every(p=>archived.designs.some(d=>d.name===p.name&&d.source===p.source)),'archive restores actual blueprints and programs');
  assert.ok(prototypes.every(p=>!archived.creatures.some(c=>c.name===p.name)),'opening archive does not populate the world');await page.keyboard.press('Escape');await frames();
  await page.keyboard.press('Escape');await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
- assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.json')),0);
+ assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.lua')),0);
  const upload=page.evaluate(()=>__dolly.submit('upload /tmp/blockwalker-camera.mjs'));
  await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(new URL('./fixtures/blockwalker-camera.mjs',import.meta.url).pathname);assert.equal(await upload,0);
  assert.equal(await page.evaluate(()=>__dolly.submit('cp /tmp/blockwalker-camera.mjs /usr/src/dolly/blockwalker/check.mjs')),0);
@@ -56,7 +56,7 @@ try {
  await page.waitForFunction(()=>__dolly.gpu?.active&&__dolly.gpu.stats.frames>20,null,{timeout:30000});
  await shot('builder');await page.mouse.click(110,520);await frames();let blueprint=await exportBlueprint('starter');
  assert.equal(blueprint.count,5);assert.equal(blueprint.blocks.filter(b=>b.joint).length,4);
- const examples=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8'));
+ const examples=await readCatalog();
  const catalog=examples.filter((d,i)=>examples.findIndex(other=>other.name===d.name)===i);
  const boatIndex=catalog.findIndex(d=>!d.anchored&&Math.abs(d.x)>100&&d.blueprint.filter(b=>b.material===1).length>8&&d.blueprint.filter(b=>b.joint===3).every(b=>b.axis===2));assert.ok(boatIndex>=0);
  await page.mouse.click(120,62);await frames();await shot('design-library');let libraryPage=0;
@@ -156,15 +156,15 @@ try {
  await page.keyboard.press('Escape');
  await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
  assert.equal(await editor,0);
- const programDownload=page.waitForEvent('download'),programCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-program-ui.json'));
- const programFile=await programDownload,programPath=new URL('program-ui.json',output).pathname;await programFile.saveAs(programPath);assert.equal(await programCommand,0);
- const programs=JSON.parse(await readFile(programPath,'utf8'));assert.equal(programs.length,2);assert.ok(programs[1].steps>180&&programs[1].sea&&programs[1].up>.8&&programs[1].sensors.y>-2&&programs[1].distance>.2,'saved boat controller runs through the UI without Pi and moves through actual water');
- const magnetDownload=page.waitForEvent('download'),magnetCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-magnet-ui.json'));
- const magnetFile=await magnetDownload,magnetPath=new URL('magnet-ui.json',output).pathname;await magnetFile.saveAs(magnetPath);assert.equal(await magnetCommand,0);
- const magnets=JSON.parse(await readFile(magnetPath,'utf8'));assert.ok(magnets.some(m=>m.power===1&&m.attached&&m.maxY>1.7),'UI cargo button and latched magnet key lift the crate');assert.ok(magnets.at(-1).power===0&&!magnets.at(-1).attached&&magnets.at(-1).minY<.6,'UI Off key drops the crate');
- const cameraDownload=page.waitForEvent('download'),cameraCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-camera.json'));
- const cameraFile=await cameraDownload,cameraPath=new URL('camera.json',output).pathname;await cameraFile.saveAs(cameraPath);assert.equal(await cameraCommand,0);
- const trace=JSON.parse(await readFile(cameraPath,'utf8')),visits=[];
+ const programDownload=page.waitForEvent('download'),programCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-program-ui.lua'));
+ const programFile=await programDownload,programPath=new URL('program-ui.lua',output).pathname;await programFile.saveAs(programPath);assert.equal(await programCommand,0);
+ const programs=parseLua(await readFile(programPath,'utf8'));assert.equal(programs.length,2);assert.ok(programs[1].steps>180&&programs[1].sea&&programs[1].up>.8&&programs[1].sensors.y>-2&&programs[1].distance>.2,'saved boat controller runs through the UI without Pi and moves through actual water');
+ const magnetDownload=page.waitForEvent('download'),magnetCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-magnet-ui.lua'));
+ const magnetFile=await magnetDownload,magnetPath=new URL('magnet-ui.lua',output).pathname;await magnetFile.saveAs(magnetPath);assert.equal(await magnetCommand,0);
+ const magnets=parseLua(await readFile(magnetPath,'utf8'));assert.ok(magnets.some(m=>m.power===1&&m.attached&&m.maxY>1.7),'UI cargo button and latched magnet key lift the crate');assert.ok(magnets.at(-1).power===0&&!magnets.at(-1).attached&&magnets.at(-1).minY<.6,'UI Off key drops the crate');
+ const cameraDownload=page.waitForEvent('download'),cameraCommand=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-camera.lua'));
+ const cameraFile=await cameraDownload,cameraPath=new URL('camera.lua',output).pathname;await cameraFile.saveAs(cameraPath);assert.equal(await cameraCommand,0);
+ const trace=parseLua(await readFile(cameraPath,'utf8')),visits=[];
  for(let i=0;i<trace.length;i++)if(trace[i].mode==='world'){
   if(i===0||trace[i-1].mode!=='world')visits.push([]);
   visits.at(-1).push(trace[i].camera);
@@ -178,9 +178,9 @@ try {
  assert.deepEqual([navigation[6].x,navigation[6].y,navigation[6].z,navigation[6].distance],[46,2,72,72],'Basin button visits the physical terrain landmark');
  assert.equal(navigation[7].x,68.5,'Paging reaches the last of twelve creatures');assert.ok(navigation[7].distance>19,'A large creature fits its physical bounds');
  assert.equal(navigation[8].x,33,'Scrolling the population list reaches earlier creatures');
- const download=page.waitForEvent('download'),command=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-last-run.json'));
- const file=await download,path=new URL('physics.json',output).pathname;await file.saveAs(path);assert.equal(await command,0);
- const physics=JSON.parse(await readFile(path,'utf8'));
+ const download=page.waitForEvent('download'),command=page.evaluate(()=>__dolly.submit('download /workspace/blockwalker-last-run.lua'));
+ const file=await download,path=new URL('physics.lua',output).pathname;await file.saveAs(path);assert.equal(await command,0);
+ const physics=parseLua(await readFile(path,'utf8'));
  assert.equal(physics.blocks,5);assert.ok(physics.physicsSteps>120);
  assert.ok(physics.joints[2].motorSteps>20);assert.equal(physics.joints[2].negative,'Z');assert.ok(physics.joints[2].peakAngle>.15);
  assert.ok(physics.joints[0].motorSteps>10);
@@ -194,6 +194,6 @@ try {
  await page.keyboard.press('Escape');assert.equal(await restarted,0);
  assert.deepEqual(errors,[]);
  const result={browser:browser.version(),adapter:gpu.adapter,boxes:5,joints:4,undersideAttachment:true,servoPlacement:true,facePlacement:true,branchDeletionUndo:true,remap:true,axisSpeedLimit:true,materialsAndAnchor:true,exportImport:true,originalBuildPreserved:true,cameraButtonsDragZoom:true,worldCameraTravel:true,worldPlacesAndPopulation:true,promptDoesNotMoveCamera:true,keyFeedback:true,reopen:true,readbackBytes:0,physics,errors};
- await writeFile(new URL('results.json',output),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
+ await writeFile(new URL('results.lua',output),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
 }catch(error){await shot('failure');if(!await page.evaluate(()=>__dolly.gpu?.active))console.error(await page.evaluate(()=>__dolly.visibleTerminalText()));throw error;}
 finally{await browser.close();await site.close();}

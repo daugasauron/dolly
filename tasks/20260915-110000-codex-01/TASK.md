@@ -155,3 +155,14 @@ runs200s with zero contacts, minup.980523 and six further biped steps, while the
 scout travels155.78m and reaches two further goals. Full browser proof and trace:
 `build/blockwalker-compound-regressions-chrome-scout-clear/`. This is evidence for
 that avoidance change, not a general solution to all historical biped falls.
+
+September27 Lua world: removing the permanent three-recovery cap and allowing
+retry after two seconds of strict stable double support keeps the early600s
+replay active. It does not solve all late stalls. In
+`build/living-world-20260926/walker-grasp-height`, a normal guard physically
+raises fallen Hibari with two real grips; Hibari ends free at up0.887 but stays
+in recovery phase9 without new landings. Relaxing restart to up0.8 plus rebasing
+foot/root targets (`biped-rebase`) makes Sidelight fall and does not restart
+Hibari. Rejected. Preserve strict restart, and require new supported airborne
+placements after rescue before calling this fixed. Root-path accumulation from
+small physics jitter is not evidence of walking.

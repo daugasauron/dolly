@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE lua
 
 # Neovim supports PUC Lua 5.1. Build the upstream interpreter and C library;

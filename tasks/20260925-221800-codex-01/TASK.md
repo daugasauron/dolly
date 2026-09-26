@@ -286,3 +286,12 @@ The ammunition tender's dead-end fallback change fails its paired physical test.
 Task062400 tests collision-shape observations so generic programs can navigate
 between actual machine bases instead of treating raised arms as solid circles.
 The deployed image41 remains available while this experiment runs.
+
+September 27 local checkpoint evidence is summarized in
+`20260926-231500-codex-living-world`. The 7,200 s run retains every original and
+completes 67 deliveries/11 channel shots, but does not resolve broad balance.
+Some guards and Mochi overturn; both bipeds still have late recovery stalls.
+Upright loaded-bay incidents for Tonbi East and Nekote are now reproduced in
+`20260927-074100-codex-loaded-bays`. Ground aircraft recovery and the withheld
+ridge crawler have their own open tasks. The final catalog adds only the tested
+interceptor, preserving all 81 starting objects; keep this broader task open.

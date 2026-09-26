@@ -17,27 +17,8 @@
 #include <time.h>
 #include <unistd.h>
 
-enum {
-  DOLLY_SESSION_NAME_CAPACITY = 128,
-  DOLLY_SESSION_MAILBOX_HEADER_SIZE = 64,
-  DOLLY_SESSION_TRANSFER_CAPACITY = 1024 * 1024,
-};
-
-typedef struct {
-  _Atomic uint32_t request_sequence;
-  _Atomic uint32_t completed_sequence;
-  _Atomic uint32_t status;
-  _Atomic uint32_t name_length;
-  _Atomic uint32_t chunk_sequence;
-  _Atomic uint32_t chunk_consumed_sequence;
-  _Atomic uint32_t chunk_length;
-  _Atomic uint32_t chunk_eof;
-  _Atomic uint32_t total_size_low;
-  _Atomic uint32_t total_size_high;
-  _Atomic uint32_t cancelled_sequence;
-  unsigned char reserved[DOLLY_SESSION_MAILBOX_HEADER_SIZE -
-                         11 * sizeof(uint32_t)];
-} dolly_session_mailbox;
+#include <dolly/snapshot.h>
+_Static_assert(sizeof(dolly_session_mailbox) == 64, "session mailbox layout");
 
 typedef struct {
   char *path;

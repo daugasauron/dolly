@@ -1,10 +1,11 @@
+import {parseLua,readCatalog} from './blockwalker-data.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,readFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
 import {startBrowserServer} from './browser-server.mjs';
 
 const output=new URL('../build/blockwalker-focus/',import.meta.url);await mkdir(output,{recursive:true});
-const population=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8')).length;
+const population=await readCatalog().length;
 const site=await startBrowserServer(new URL('..',import.meta.url).pathname,'blockwalker');
 const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1280,height:720}});
@@ -33,7 +34,7 @@ try{
  await page.mouse.click(172,630);await frames();await page.keyboard.press('Shift+Tab');await frames();
  await page.mouse.click(640,360);await frames();await shot('full-builder-placement');
  await page.keyboard.press('Escape');await frames();await page.keyboard.press('Escape');assert.equal(await run,0);
- const result=JSON.parse((await download('blockwalker-focus.json')).toString()),{trace,captures}=result;
+ const result=parseLua((await download('blockwalker-focus.lua')).toString()),{trace,captures}=result;
  const following=trace.filter(s=>s.target&&s.camera.follow!==result.probe);assert.ok(following.length>20);assert.ok(following.every(s=>s.camera.follow===following[0].camera.follow),'hidden menus cannot select another creature');
  const first=following[0],last=following.at(-1),offset=first.target.map((v,i)=>first.camera[['x','y','z'][i]]-v);
  assert.ok(Math.hypot(...first.target.map((v,i)=>v-last.target[i]))>.2,'followed world body actually moves');

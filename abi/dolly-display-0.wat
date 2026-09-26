@@ -10,6 +10,7 @@
   ;; its own filesystem and exposes bytes; the browser instantiates those
   ;; bytes with Wasm-only imports, then returns the v3 driver structure address.
   ;; There is deliberately no guest-callable browser loader import.
+  (func (export "dolly_display_prepare") (result i32) i32.const 0)
   (func (export "dolly_display_module_address") (result i64) i64.const 0)
   (func (export "dolly_display_module_size") (result i64) i64.const 0)
   (func (export "dolly_display_install") (param i64) (result i32) i32.const 0)

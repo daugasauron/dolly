@@ -9,7 +9,7 @@ import test from "node:test";
 test("process archive publication preserves identical output and owns failed staging", async () => {
   const source = await readFile(new URL("../scripts/build.sh", import.meta.url), "utf8");
   const start = source.indexOf("(\n  process_archive_staging=");
-  const end = source.indexOf("\n\nbuild_process()", start);
+  const end = source.indexOf("\n)", start) + 2;
   assert.ok(start > 0 && end > start);
   const fragment = source.slice(start, end);
   const objects = [...new Set(fragment.match(/build\/process-[a-z_-]+\.o/g))];

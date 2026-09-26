@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <wasi/api.h>
+#include "lock.h"
 
 #define DOLLY_WASM_PAGE_SIZE 65536u
 #define DOLLY_MMAP2_OFFSET_UNIT 4096u
@@ -36,6 +37,7 @@ typedef struct dolly_mapping {
 } dolly_mapping;
 
 static dolly_mapping *mappings;
+static dolly_lock mapping_lock;
 
 static dolly_mapping *find_mapping(const void *address, size_t length) {
   const uintptr_t start = (uintptr_t)address;
@@ -104,7 +106,7 @@ static int write_mapping(const dolly_mapping *mapping,
   return 0;
 }
 
-intptr_t __syscall_mmap2(void *requested_address, size_t length,
+static intptr_t mmap2(void *requested_address, size_t length,
                          int protection, int flags, int descriptor,
                          off_t page_offset) {
   if (requested_address != NULL || length == 0) return -EINVAL;
@@ -176,7 +178,7 @@ intptr_t __syscall_mmap2(void *requested_address, size_t length,
   return (intptr_t)address;
 }
 
-int __syscall_msync(void *address, size_t length, int flags) {
+static int sync_mapping(void *address, size_t length, int flags) {
   if (length == 0 ||
       (flags & ~(MS_ASYNC | MS_SYNC | MS_INVALIDATE)) != 0 ||
       ((flags & MS_ASYNC) != 0) == ((flags & MS_SYNC) != 0)) {
@@ -186,7 +188,7 @@ int __syscall_msync(void *address, size_t length, int flags) {
   return mapping == NULL ? -ENOMEM : write_mapping(mapping, address, length);
 }
 
-int __syscall_munmap(void *address, size_t length) {
+static int unmap(void *address, size_t length) {
   dolly_mapping **link = &mappings;
   while (*link != NULL &&
          ((*link)->address != address || (*link)->length != length)) {
@@ -203,7 +205,7 @@ int __syscall_munmap(void *address, size_t length) {
   return 0;
 }
 
-int __syscall_madvise(void *address, size_t length, int advice) {
+static int advise(void *address, size_t length, int advice) {
   if (length == 0 || find_mapping(address, length) == NULL) return -ENOMEM;
   switch (advice) {
     case MADV_NORMAL:
@@ -218,4 +220,29 @@ int __syscall_madvise(void *address, size_t length, int advice) {
     default:
       return -EINVAL;
   }
+}
+
+intptr_t __syscall_mmap2(void *address, size_t size, int protection, int flags, int fd, off_t offset) {
+  dolly_lock_acquire(&mapping_lock);
+  intptr_t result = mmap2(address, size, protection, flags, fd, offset);
+  dolly_lock_release(&mapping_lock);
+  return result;
+}
+int __syscall_msync(void *address, size_t size, int flags) {
+  dolly_lock_acquire(&mapping_lock);
+  int result = sync_mapping(address, size, flags);
+  dolly_lock_release(&mapping_lock);
+  return result;
+}
+int __syscall_munmap(void *address, size_t size) {
+  dolly_lock_acquire(&mapping_lock);
+  int result = unmap(address, size);
+  dolly_lock_release(&mapping_lock);
+  return result;
+}
+int __syscall_madvise(void *address, size_t size, int advice) {
+  dolly_lock_acquire(&mapping_lock);
+  int result = advise(address, size, advice);
+  dolly_lock_release(&mapping_lock);
+  return result;
 }

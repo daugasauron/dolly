@@ -2,14 +2,14 @@
 #include <assert.h>
 
 static int crowded_cranes,quay_waited;
-static void delay_freight(JSContext *ctx,JSValue item,int team){
-    JSValue value=JS_GetPropertyStr(ctx,item,"source");const char *source=JS_ToCString(ctx,value);assert(source);
+static void delay_freight(Data *ctx,Value item,int team){
+    Value value=value_get(ctx,item,"source");const char *source=value_text(ctx,value);assert(source);
     size_t size=strlen(source)+128;char *wrapped=malloc(size);assert(wrapped);
-    snprintf(wrapped,size,"function delayed(t,s,m,r){if(!m.released)return {};return (%s)(t,s,m,r);}",source);
-    JS_SetPropertyStr(ctx,item,"source",JS_NewString(ctx,wrapped));free(wrapped);JS_FreeCString(ctx,source);JS_FreeValue(ctx,value);
+    snprintf(wrapped,size,"local run=(function() %s end)();return function(t,s,m,r) if not m.released then return {} end;return run(t,s,m,r) end",source);
+    value_set(ctx,item,"source",value_string(ctx,wrapped));free(wrapped);value_text_free(ctx,source);value_free(ctx,value);
     put_number(ctx,item,"x",team==1?-32:-64);put_number(ctx,item,"z",130);
 }
-static int wait_at_quay(JSContext *ctx){
+static int wait_at_quay(Data *ctx){
     static double held;
     if(quay_waited)return 0;
     Creature *hauler=world_find(2);assert(hauler);b3Pos p=b3Body_GetPosition(hauler->physics.parts[0].body);
@@ -25,16 +25,16 @@ static int wait_at_quay(JSContext *ctx){
     if(held<5)return 0;
     assert(b3RotateVector(b3Body_GetRotation(hauler->physics.parts[0].body),b3Vec3_axisY).y>.95f);
     assert(world_save(ctx));world_close();world_load(ctx);
-    for(int id=4;id<=5;id++){Controller *c=world_find(id)->controller;JS_SetPropertyStr(c->ctx,c->memory,"released",JS_NewBool(c->ctx,1));}
+    for(int id=4;id<=5;id++){Controller *c=world_find(id)->controller;value_set(c->ctx,c->memory,"released",value_bool(c->ctx,1));}
     printf("QUAY: loaded hauler waited five seconds behind occupied pad; boats released after reload at %.3f seconds\n",world.age);
     quay_waited=1;return 1;
 }
-static int crowd_crane(JSContext *ctx,int tick){
+static int crowd_crane(Data *ctx,int tick){
     static int active,start,mask,cargo,clutter[13];
     if(!active)for(int i=0;i<3;i++){
         Creature *c=world_find(i?i+5:3);assert(c);
-        JSValue label=JS_GetPropertyStr(c->controller->ctx,c->controller->memory,"phase");const char *phase=JS_ToCString(c->controller->ctx,label);
-        int ready=!(crowded_cranes&(1<<i))&&phase&&!strcmp(phase,"settle");JS_FreeCString(c->controller->ctx,phase);JS_FreeValue(c->controller->ctx,label);
+        Value label=value_get(c->controller->ctx,c->controller->memory,"phase");const char *phase=value_text(c->controller->ctx,label);
+        int ready=!(crowded_cranes&(1<<i))&&phase&&!strcmp(phase,"settle");value_text_free(c->controller->ctx,phase);value_free(c->controller->ctx,label);
         if(!ready)continue;
         active=c->id;start=tick;mask=1<<i;cargo=get_number(c->controller->ctx,c->controller->memory,"job",0);assert(magnet_holds(c,world_find(cargo)));
         b3Pos p=b3Body_GetPosition(c->physics.parts[0].body);
@@ -44,9 +44,9 @@ static int crowd_crane(JSContext *ctx,int tick){
     if(!active)return 0;
     Creature *c=world_find(active);assert(c&&magnet_holds(c,world_find(cargo)));
     if(tick>start+2){
-        JSValue sensors=physics_sensors(ctx,&c->physics,&c->design,1./30),nearby=JS_GetPropertyStr(ctx,sensors,"nearby");
-        for(int i=0;i<get_number(ctx,nearby,"length",0);i++){JSValue item=JS_GetPropertyUint32(ctx,nearby,i);assert(get_number(ctx,item,"id",0)!=cargo);JS_FreeValue(ctx,item);}
-        JS_FreeValue(ctx,nearby);JS_FreeValue(ctx,sensors);
+        Value sensors=physics_sensors(ctx,&c->physics,&c->design,1./30),nearby=value_get(ctx,sensors,"nearby");
+        for(int i=0;i<get_number(ctx,nearby,"length",0);i++){Value item=value_at(ctx,nearby,i);assert(get_number(ctx,item,"id",0)!=cargo);value_free(ctx,item);}
+        value_free(ctx,nearby);value_free(ctx,sensors);
         for(int i=1;i<c->design.count;i++)if(block_controlled(c->design.blocks[i])&&c->design.blocks[i].joint!=BLOCK_MAGNET)assert(fabsf(c->physics.parts[i].command)<.00001f);
     }
     if(tick==start+60){assert(world_save(ctx));world_close();world_load(ctx);return 1;}
@@ -60,16 +60,16 @@ static int crowd_crane(JSContext *ctx,int tick){
 }
 
 int main(void){
-    JSRuntime *rt=JS_NewRuntime();JSContext *ctx=JS_NewContext(rt);terrain_select(1);
+    Data *ctx=data_new(256*1024*1024);terrain_select(1);
     const char *names[]={"Foundry / twin-ram ore lift","Foundry / telescopic hauler","Quay / loading crane","Freighter East / island barge","Freighter West / island barge","East / receiving crane","West / receiving crane"};
-    JSValue catalog=read_json(ctx,"/usr/src/dolly/blockwalker/designs.json"),selected=JS_NewArray(ctx);
+    Value catalog=read_catalog(ctx),selected=value_array(ctx);
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        JSValue item=JS_GetPropertyUint32(ctx,catalog,i),label=JS_GetPropertyStr(ctx,item,"name");const char *name=JS_ToCString(ctx,label);
-        for(int j=0;j<7;j++)if(name&&!strcmp(name,names[j]))JS_SetPropertyUint32(ctx,selected,j,JS_DupValue(ctx,item));
-        JS_FreeCString(ctx,name);JS_FreeValue(ctx,label);JS_FreeValue(ctx,item);
+        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
+        for(int j=0;j<7;j++)if(name&&!strcmp(name,names[j]))value_set_at(ctx,selected,j,value_copy(ctx,item));
+        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
     }
-    for(int j=3;j<=4;j++){JSValue item=JS_GetPropertyUint32(ctx,selected,j);delay_freight(ctx,item,j-2);JS_FreeValue(ctx,item);}
-    load_designs(ctx,selected,1);JS_FreeValue(ctx,selected);JS_FreeValue(ctx,catalog);assert(world.count==7);
+    for(int j=3;j<=4;j++){Value item=value_at(ctx,selected,j);delay_freight(ctx,item,j-2);value_free(ctx,item);}
+    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==7);
     int parcel=world_drop_cargo(-49.79f,.5f,51.17f,MATERIAL_ALLOY);assert(parcel);world_find(parcel)->supply=1;
     world.supply_seed=42;world.next_parcel=100000;
     int stages[128]={0},teams[128]={0},restarts=0;float minimum_up=1,separation=0;double progress=0;
@@ -98,5 +98,5 @@ int main(void){
         Delivery *d=&world.deliveries[i];assert(d->cargo<128&&stages[d->cargo]==31&&d->points==8&&depots[d->depot].team==teams[d->cargo]);
         printf("PALLET %d: lift / hauler / loading crane / team %d barge / receiving crane / scored at %.3f seconds\n",d->cargo,teams[d->cargo],d->time);
     }
-    world_close();JS_FreeContext(ctx);JS_FreeRuntime(rt);return 0;
+    world_close();data_close(ctx);return 0;
 }

@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE python-pi-integration
 
 # This layer is meaningful only when both Python/Bonnie and Pi are present.

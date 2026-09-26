@@ -12,16 +12,10 @@
 #include "process-kernel.h"
 #include "upload.h"
 
-// upload mailbox v0; layout and authority are defined in abi/dolly-upload-0.wat.
-typedef struct {
-  _Atomic uint32_t request, cancelled, completed, chunk, consumed;
-  _Atomic uint32_t length, error, eof;
-  _Atomic uint32_t enabled;
-  unsigned char reserved[28];
-  unsigned char data[65536];
-} UploadMailbox;
-_Static_assert(offsetof(UploadMailbox, data) == 64, "upload mailbox layout");
-_Alignas(64) static UploadMailbox mailbox;
+#include <dolly/upload.h>
+
+_Static_assert(offsetof(dolly_upload_mailbox, data) == 64, "upload mailbox layout");
+_Alignas(64) static dolly_upload_mailbox mailbox;
 static int owner;
 static int descriptor = -1;
 static char *temporary;

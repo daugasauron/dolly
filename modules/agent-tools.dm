@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE agent-tools
 
 # Focused compatibility commands used by build systems and coding agents.

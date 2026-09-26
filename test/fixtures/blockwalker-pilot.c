@@ -19,7 +19,7 @@ int main(void){
     id=world_enter(&car,0);assert(id);pilot_keys("W");pilot_ticks(180);c=world_find(id);forward=b3Body_GetPosition(c->physics.parts[0].body);assert(forward.x-c->physics.start.x>5);
     pilot_keys("");pilot_ticks(90);pilot_keys("D");pilot_ticks(30);assert(b3Body_GetAngularVelocity(c->physics.parts[0].body).y<-.1f);
     printf("PILOT ROTATED: same program follows +X Eyes using Z-axis wheels, %.3f m\n",forward.x-c->physics.start.x);world_close();
-    installed=strdup("function(){return {}}");installed_hz=60;id=world_enter(&car,0);assert(id);pilot_keys("WDE");pilot_ticks(180);c=world_find(id);forward=b3Body_GetPosition(c->physics.parts[0].body);
+    installed=strdup("return function()\n  do return {} end\nend\n");installed_hz=60;id=world_enter(&car,0);assert(id);pilot_keys("WDE");pilot_ticks(180);c=world_find(id);forward=b3Body_GetPosition(c->physics.parts[0].body);
     assert(hypotf(forward.x-c->physics.start.x,forward.z-c->physics.start.z)<.1f);for(int j=0;j<128;j++)assert(c->controls[j]==0);
     puts("PILOT EMPTY: no movement helper overrides an empty program");
     world_close();character_clear(&car);return 0;

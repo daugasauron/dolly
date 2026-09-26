@@ -15,7 +15,7 @@ export class SessionTransport {
   static cancelledSequence = 10;
 
   constructor(buffer, address, nameAddress, nameCapacity,
-              transferAddress, transferCapacity, displayTransport) {
+              transferAddress, transferCapacity, wake) {
     const range = (start, size) => Number.isSafeInteger(start) && start > 0 &&
       Number.isSafeInteger(size) && size > 0 && start <= buffer.byteLength - size;
     if (!(buffer instanceof SharedArrayBuffer) || !range(address, 64) || address % 4 ||
@@ -29,13 +29,16 @@ export class SessionTransport {
     this.nameCapacity = nameCapacity;
     this.transferAddress = transferAddress;
     this.transferCapacity = transferCapacity;
-    this.displayTransport = displayTransport;
+    this.wake = wake;
+    this.closed = false;
+    this.cancel = null;
   }
 
   async capture(name, { signal, timeoutMilliseconds = 30000, onChunk } = {}) {
     if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
     if (onChunk !== undefined && typeof onChunk !== "function") throw new TypeError("invalid session consumer");
     signal?.throwIfAborted();
+    if (this.closed) throw new Error("Snapshot provider closed");
     const words = this.words;
     const published = Atomics.load(words, SessionTransport.requestSequence);
     if (published !== Atomics.load(words, SessionTransport.completedSequence)) {
@@ -47,6 +50,7 @@ export class SessionTransport {
     const wait = async (index, ready) => {
       for (;;) {
         signal?.throwIfAborted();
+        if (this.closed) throw new Error("Snapshot provider closed");
         // Compare and wait on the SAME observation: a publication between
         // these operations makes waitAsync return not-equal, never a lost wake.
         const observed = Atomics.load(words, index);
@@ -66,6 +70,7 @@ export class SessionTransport {
       Atomics.notify(words, SessionTransport.chunkSequence);
       Atomics.notify(words, SessionTransport.completedSequence);
     };
+    this.cancel = cancel;
     signal?.addEventListener("abort", cancel, { once: true });
     let complete = false;
     try {
@@ -74,7 +79,7 @@ export class SessionTransport {
       this.bytes.set(nameBytes, this.nameAddress);
       Atomics.store(words, SessionTransport.nameLength, nameBytes.length);
       Atomics.store(words, SessionTransport.requestSequence, requested);
-      this.displayTransport.wake();
+      this.wake();
       let snapshot;
       let offset = 0;
       let declaredTotal;
@@ -114,6 +119,8 @@ export class SessionTransport {
     } finally {
       if (!complete) cancel();
       signal?.removeEventListener("abort", cancel);
+      this.cancel = null;
     }
   }
+  close() { this.closed = true; this.cancel?.(); }
 }

@@ -93,7 +93,15 @@ add_custom_target(dolly-seed
     /src/include/dolly/download.h@/seed/usr/include/dolly/download.h
     /src/include/dolly/runtime.h@/seed/usr/include/dolly/runtime.h
     /src/include/dolly/process.h@/seed/usr/include/dolly/process.h
+    /src/include/dolly/threads.h@/seed/usr/include/dolly/threads.h
+    /src/include/dolly/threads-abi.h@/seed/usr/include/dolly/threads-abi.h
     /src/include/dolly/toolchain.h@/seed/usr/include/dolly/toolchain.h
+    /src/include/dolly/host.h@/seed/usr/include/dolly/host.h
+    /src/include/dolly/host-abi.h@/seed/usr/include/dolly/host-abi.h
+    /src/include/dolly/gpu.h@/seed/usr/include/dolly/gpu.h
+    /src/include/dolly/gpu-abi.h@/seed/usr/include/dolly/gpu-abi.h
+    /src/include/dolly/upload.h@/seed/usr/include/dolly/upload.h
+    /src/include/dolly/snapshot.h@/seed/usr/include/dolly/snapshot.h
     /src/src/slop.c@/seed/usr/src/dolly/slop.c
     /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c
     /src/src/sha256.h@/seed/usr/src/dolly/sha256.h
@@ -106,6 +114,7 @@ add_custom_target(dolly-seed
     /src/src/process/ar.c@/seed/usr/src/dolly/process-tools/ar.c
     /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm
     /src/build/dolly-process-0.wasm@/seed/usr/lib/dolly/dolly-process-0.wasm
+    /src/build/dolly-threads-0.wasm@/seed/usr/lib/dolly/dolly-threads-0.wasm
     ${DOLLY_PROCESS_SYSROOT_DIR}@/seed/usr/lib/dolly/process
     /src/build/process-bin/bootstrap@/seed/usr/libexec/dolly/process-bin/bootstrap
     /src/build/process-bin/compiler@/seed/usr/libexec/dolly/process-bin/compiler
@@ -160,6 +169,11 @@ foreach(tool compiler zig)
     "-Wl,--whole-archive"
     /src/build/libdolly-process.a
     "-Wl,--no-whole-archive"
+    /src/build/libdolly-runtime.a
+    /src/build/libdolly-http.a
+    /src/build/libdolly-display.a
+    /src/build/libdolly-download.a
+    /src/build/libdolly-upload.a
     ${DOLLY_LLVM_LIBRARIES}
   )
   target_link_options(dolly-process-${tool} PRIVATE

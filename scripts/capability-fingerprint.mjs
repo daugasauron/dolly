@@ -5,6 +5,7 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { hostContracts } from "../src/host/modules.mjs";
 import { discoverImageDefinitions } from "./image-definitions.mjs";
 import { formatWasmType, parseWasmInterface } from "./wasm-interface.mjs";
 
@@ -32,13 +33,11 @@ function digestRecord(value) {
   return sha256(`${canonical(value)}\n`);
 }
 
-const [runtimeBytes, browserPolicyBytes, abiEntries, snapshotBytes] = await Promise.all([
+const [runtimeBytes, abiEntries, snapshotBytes] = await Promise.all([
   readFile(resolve(projectDir, "dist/dolly.wasm")),
-  readFile(resolve(projectDir, "config/browser-imports.json")),
   readdir(resolve(projectDir, "abi"), { withFileTypes: true }),
   readFile(resolve(projectDir, `dist/dolly-${image}-system.snapshot`)),
 ]);
-const browserPolicy = JSON.parse(browserPolicyBytes);
 const snapshotSha256 = sha256(snapshotBytes);
 const metadataPath = resolve(projectDir, `dist/dolly-${image}-system-snapshot.mjs`);
 const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
@@ -57,9 +56,9 @@ if (metadata.image !== image || metadata.buildId !== imageBuildId ||
 }
 
 const configuredGroups = new Map();
-for (const [group, names] of Object.entries(browserPolicy)) {
-  if (!Array.isArray(names) || names.length === 0) {
-    throw new Error(`browser import group ${group} must be a nonempty array`);
+for (const [group, names] of hostContracts.map(contract => [contract.name, contract.imports])) {
+  if (!Array.isArray(names)) {
+    throw new Error(`browser import group ${group} must be an array`);
   }
   for (const name of names) {
     if (configuredGroups.has(name)) {
@@ -80,7 +79,7 @@ const actualNames = new Set(imports.map((entry) => entry.name));
 for (const name of configuredGroups.keys()) {
   if (!actualNames.has(name)) throw new Error(`configured browser import is absent: ${name}`);
 }
-const network = imports.filter((entry) => entry.group === "network");
+const network = imports.filter((entry) => entry.group === "http");
 if (network.length !== 1 || network[0].name !== "env.dolly_http_dispatch") {
   throw new Error("the agent-selected network edge is no longer exactly dolly_http_dispatch");
 }
@@ -97,9 +96,9 @@ for (const entry of abiEntries.filter((candidate) =>
   const wasmName = entry.name.replace(/\.wat$/, ".wasm");
   const [source, wasmBytes] = await Promise.all([
     readFile(resolve(projectDir, "abi", entry.name)),
-    readFile(resolve(projectDir, "build", wasmName)),
+    readFile(resolve(projectDir, "dist", wasmName)),
   ]);
-  const contract = parseWasmInterface(wasmBytes, `build/${wasmName}`);
+  const contract = parseWasmInterface(wasmBytes, `dist/${wasmName}`);
   const interfaceRecord = {
     imports: contract.imports.map((item) =>
       `${item.module}.${item.name} ${formatWasmType(item.type)}`).sort(),
@@ -117,6 +116,7 @@ for (const entry of abiEntries.filter((candidate) =>
 const authority = {
   abiStamp: Buffer.from(stamps[0].data).toString("hex"),
   abiContracts,
+  hostModules: hostContracts,
   browserImports: imports,
   networkEdge: network[0],
 };
@@ -126,6 +126,7 @@ const capsule = {
   imageBuildId,
   runtimeSha256: sha256(runtimeBytes),
   snapshot: {
+    hostRequirements: metadata.hostRequirements ?? [],
     byteLength: snapshotBytes.length,
     sha256: snapshotSha256,
     recipes: metadata.recipes,

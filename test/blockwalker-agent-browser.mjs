@@ -1,3 +1,4 @@
+import {parseLua,readCatalog} from './blockwalker-data.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
@@ -18,19 +19,19 @@ try {
   await page.mouse.click(1088,206);await page.waitForTimeout(15000);await shot('astra-start');
   await page.waitForTimeout(30000);await shot('astra-progress');
   await page.mouse.click(1200,206);await page.keyboard.press('Escape');await page.keyboard.press('Escape');await shell();
-  const events=(await readFile(await download('blockwalker-agent/events.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
+  const events=(await readFile(await download('blockwalker-agent/events.lual'),'utf8')).trim().split('\n').map(JSON.parse);
   assert.ok(events.some(e=>e.event==='assistant'&&e.message.model==='gpt-6-astra'&&e.message.usage.totalTokens>0));
   assert.ok(events.some(e=>e.event==='tool_end'&&e.tool==='keyboard_trial'&&e.images.length===3));
   assert.ok(events.some(e=>e.event==='tool_end'&&e.tool==='release_creature'));
   console.log(JSON.stringify({astra:true,realProxy:true,threeTimedFrames:true,learnedProgramReleased:true}));
  }else{
-  const examples=JSON.parse(await readFile(new URL('../src/blockwalker/designs.json',import.meta.url),'utf8')),samples=[];
+  const examples=await readCatalog(),samples=[];
   await page.mouse.click(404,40);await page.mouse.click(170,204);
   const samplingDeadline=Date.now()+120000;
   for(let i=0;!samples.length||samples.at(-1).seconds<35;i++){
    assert.ok(Date.now()<samplingDeadline,'the populated simulation reaches 35 seconds');
    await page.waitForTimeout(1000);const event=page.waitForEvent('download');await page.mouse.click(120,630);
-   const file=await event,path=new URL('fresh-world-'+i+'.json',output).pathname;await file.saveAs(path);samples.push(JSON.parse(await readFile(path,'utf8')));
+   const file=await event,path=new URL('fresh-world-'+i+'.lua',output).pathname;await file.saveAs(path);samples.push(parseLua(await readFile(path,'utf8')));
   }
   await shot('fresh-harbor');const fresh=samples.at(-1);
   assert.equal(fresh.creatures.length,examples.length);assert.equal(fresh.deaths,0);
@@ -49,7 +50,7 @@ try {
   assert.ok(samples.some(w=>{const bird=w.creatures.find(c=>c.id===courier.id),box=w.creatures.find(c=>c.id===crate.id);return bird.magnets.some(m=>m&&!m.attached&&m.power===0)&&box.delivered&&w.deliveries.some(d=>d.cargoId===box.id&&d.carrierId===bird.id);}),'the courier releases its cargo at a depot and earns delivery credit');
   const beacon=fresh.creatures.find(c=>c.name.startsWith('Westwatch')),head=beacon.blueprint.findIndex(p=>p.joint===1),bearings=[];
   for(const w of samples){
-   const c=w.creatures.find(c=>c.id===beacon.id),memory=JSON.parse(c.memory);if(c.seconds<6||c.seconds-memory.acquired<3)continue;
+   const c=w.creatures.find(c=>c.id===beacon.id),memory=parseLua(c.memory);if(c.seconds<6||c.seconds-memory.acquired<3)continue;
    const target=w.creatures.find(p=>p.id===memory.target);assert.ok(target,'the beacon observes a real moving character');
    const h=c.poses[head],q=h.slice(3,7),yaw=Math.atan2(2*(q[0]*q[2]+q[3]*q[1]),1-2*(q[0]*q[0]+q[1]*q[1])),bearing=Math.atan2(target.x-h[0],target.z-h[2]);
    assert.ok(Math.abs(Math.atan2(Math.sin(yaw-bearing),Math.cos(yaw-bearing)))<.1,'the physical beacon head follows its current target bearing');bearings.push(yaw);
@@ -63,23 +64,23 @@ try {
   assert.equal(await page.evaluate(()=>__dolly.httpRequestCount),0,'the programmed population runs without network or model requests');
   await page.keyboard.press('Escape');await page.keyboard.press('Escape');await shell();
   const freshRestart=page.evaluate(()=>__dolly.submit('blockwalker'));await page.waitForFunction(()=>__dolly.gpu?.active,null,{timeout:30000});await page.waitForTimeout(500);await page.keyboard.press('Escape');assert.equal(await freshRestart,0);
-  const reopened=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));
+  const reopened=parseLua(await readFile(await download('blockwalker-world.lua'),'utf8'));
   assert.deepEqual(reopened.creatures.map(c=>[c.id,c.name]),fresh.creatures.map(c=>[c.id,c.name]),'reopening retains all world identities without duplicating initial placements');
   assert.equal(reopened.designs.filter(d=>d.name==='Cargo').length,cargoDesigns);
-  assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.json')),0);
+  assert.equal(await page.evaluate(()=>__dolly.submit('echo \'{"version":1,"creatures":[]}\' > /workspace/blockwalker-world.lua')),0);
   assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --integration-check')),0);
-  const result=JSON.parse(await readFile(await download('blockwalker-integration.json'),'utf8'));
+  const result=parseLua(await readFile(await download('blockwalker-integration.lua'),'utf8'));
   assert.equal(result.embedded,true);assert.equal(result.steps,60);assert.equal(result.population.creatures.length,10);assert.equal(result.population.deaths,0);
-  await download('blockwalker-magnet.png');await download('blockwalker-magnet.json');
-  await download('blockwalker-feedback.png');await download('blockwalker-feedback.json');
-  await download('blockwalker-observation.png');await download('blockwalker-actuators.png');await download('blockwalker-water.png');await download('blockwalker-world.png');await download('blockwalker-world.json');
+  await download('blockwalker-magnet.png');await download('blockwalker-magnet.lua');
+  await download('blockwalker-feedback.png');await download('blockwalker-feedback.lua');
+  await download('blockwalker-observation.png');await download('blockwalker-actuators.png');await download('blockwalker-water.png');await download('blockwalker-world.png');await download('blockwalker-world.lua');
   const upload=page.evaluate(()=>__dolly.submit('upload /tmp/blockwalker-reopen.mjs'));await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(new URL('fixtures/blockwalker-reopen.mjs',import.meta.url).pathname);assert.equal(await upload,0);
   assert.equal(await page.evaluate(()=>__dolly.submit('cp /usr/src/dolly/blockwalker/check.mjs /tmp/blockwalker-check.mjs && cp /tmp/blockwalker-reopen.mjs /usr/src/dolly/blockwalker/check.mjs')),0);
   assert.equal(await page.evaluate(()=>__dolly.submit('blockwalker --integration-check')),0,'restart preserves every pose, velocity, program, memory and magnet load before physics resumes');
   assert.equal(await page.evaluate(()=>__dolly.submit('cp /tmp/blockwalker-check.mjs /usr/src/dolly/blockwalker/check.mjs')),0);
   const restarted=page.evaluate(()=>__dolly.submit('blockwalker'));await page.waitForFunction(()=>__dolly.gpu?.active,null,{timeout:30000});
   await page.mouse.click(404,40);await page.waitForTimeout(2000);await shot('restored-world');await page.keyboard.press('Escape');await page.keyboard.press('Escape');assert.equal(await restarted,0);
-  const restored=JSON.parse(await readFile(await download('blockwalker-world.json'),'utf8'));assert.equal(restored.creatures.length,10);assert.ok(restored.creatures.every(c=>c.seconds>10));
+  const restored=parseLua(await readFile(await download('blockwalker-world.lua'),'utf8'));assert.equal(restored.creatures.length,10);assert.ok(restored.creatures.every(c=>c.seconds>10));
   assert.equal(restored.creatures.find(c=>c.name==='Bad loop').controllerError,result.population.creatures.find(c=>c.name==='Bad loop').controllerError,'stopped controller error persists while its body remains in the world');
   assert.equal(restored.designs.filter(d=>d.name==='Spinner').length,1);assert.ok(restored.designs.some(d=>d.name==='Toppler'&&d.blueprint.length===4&&d.source==='function(){return "A"}'),'fallen design and controller survive game restart');
   assert.ok(restored.designs.some(d=>d.name==='Unreleased experiment'&&d.blueprint.length===5&&d.source==='function(t,s,m){m.ticks=(m.ticks||0)+1;return "Q"}')&&!restored.creatures.some(c=>c.name==='Unreleased experiment'),'unreleased blueprint and controller survive game restart');

@@ -43,7 +43,7 @@ int uname(struct utsname *information) {
 }
 
 static pid_t process_id(int parent) {
-  static dolly_process_info_response identity;
+  static _Thread_local dolly_process_info_response identity;
   if (identity.pid == 0) {
     dolly_process_info_response response;
     const int64_t result = dolly_process_call(DOLLY_PROCESS_INFO,
@@ -61,7 +61,14 @@ pid_t __syscall_getppid(void) { return process_id(1); }
 
 /* One thread per private process. libc-ww's fallback TID 42 would disagree
  * with pthread_self_stub's real PID and deadlock nested stdio locks. */
-pid_t gettid(void) { return getpid(); }
+pid_t gettid(void) {
+#ifdef __EMSCRIPTEN_PTHREADS__
+  int __dolly_thread_tid(void);
+  return __dolly_thread_tid();
+#else
+  return getpid();
+#endif
+}
 
 pid_t __syscall_wait4(pid_t pid, int *status, int options, struct rusage *usage) {
   if (usage != NULL) return -ENOTSUP;
@@ -664,9 +671,7 @@ int __syscall_getegid32(void) { return 0; }
  * browser capability. */
 int __syscall_umask(mode_t mask) {
   static mode_t current = 0022;
-  const mode_t previous = current;
-  current = mask & 0777;
-  return previous;
+  return __atomic_exchange_n(&current, mask & 0777, __ATOMIC_SEQ_CST);
 }
 
 int __syscall_chmod(const char *path, mode_t mode) {
@@ -814,6 +819,7 @@ const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
  * their own; normal static-link symbol ownership must let that definition
  * replace the generic one without a runtime-specific linker exception.
  */
+#ifndef __EMSCRIPTEN_PTHREADS__
 __attribute__((weak)) pthread_t pthread_self(void) { return (pthread_t)(uintptr_t)1; }
 
 __attribute__((weak)) int pthread_condattr_init(pthread_condattr_t *attribute) {
@@ -848,6 +854,7 @@ __attribute__((weak)) int sem_init(sem_t *semaphore, int shared, unsigned value)
 __attribute__((weak)) int sem_destroy(sem_t *semaphore) {
   (void)semaphore; errno = ENOSYS; return -1;
 }
+#endif
 
 int sysctlbyname(const char *name, void *old_value, size_t *old_size,
                  const void *new_value, size_t new_size) {

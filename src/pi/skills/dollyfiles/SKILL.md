@@ -41,7 +41,7 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
 
 ## Important language details
 
-- `DOLLY 3`, then `IMAGE name`; FROM is the first image operation.
+- `DOLLY 4`, then `IMAGE name`; FROM is the first image operation.
 - FILE body lines start with **four spaces**, including blank content lines.
   The example shows this indentation. FILE is not a shell heredoc: no `<<EOF`.
 - Compile with `cc`; write executables to `/usr/bin`. `EXPORTS TOOL name`

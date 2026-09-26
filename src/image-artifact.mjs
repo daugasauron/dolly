@@ -1,6 +1,8 @@
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
+import { imageHostRequirements } from "./image-requirements.mjs";
+import { hostRequirements } from "./host/requirements.mjs";
 import { decodeStaticAsset } from "./static-asset.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 const applicationBase = new URL("../", import.meta.url);
@@ -60,6 +62,7 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
       metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
       JSON.stringify(metadata.modules) !== JSON.stringify(modules) ||
+      JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(imageDefinitions.get(image).hostRequirements ?? []) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
       metadata.byteLength > snapshotSizeLimit ||
       (![undefined, "gzip", "packs"].includes(metadata.encoding)) ||
@@ -192,8 +195,20 @@ export async function describeImageArtifact(bytes, recipeSha256, inputs = []) {
   const source = records.get("/etc/dolly/Dollyfile");
   if (source?.kind !== 2 || await sha256(source.data) !== recipeSha256 ||
       records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const required = await imageHostRequirements(decoder.decode(source.data), async reference => {
+    const path = reference.location.startsWith("/modules/")
+      ? `/etc/dolly/recipes${reference.location}`
+      : `/etc/dolly/recipes/${reference.location === "/Dollyfile" ? "default" : reference.location.slice(11)}.Dollyfile`;
+    const record = records.get(path);
+    if (record?.kind !== 2 || await sha256(record.data) !== reference.sha256) {
+      throw new Error(`host requirement recipe integrity mismatch: ${reference.location}`);
+    }
+    return decoder.decode(record.data);
+  });
   return { buildId: DOLLY_IMAGE_BUILD_ID, recipeSha256, sha256: await sha256(bytes),
-    inputs: imageInputs(inputs), byteLength: bytes.byteLength, manifest: [...records.keys()], bytes };
+    inputs: imageInputs(inputs), hostRequirements: required,
+    byteLength: bytes.byteLength, manifest: [...records.keys()], bytes };
 }
 
 async function databaseOperation(mode, operation) {
@@ -254,10 +269,10 @@ export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) 
         artifact.bytes.byteLength !== artifact.byteLength || artifact.byteLength <= 0 ||
         artifact.byteLength > snapshotSizeLimit) return false;
     const id = `${DOLLY_IMAGE_BUILD_ID}:${artifact.recipeSha256}`;
-    const { buildId, recipeSha256, sha256, inputs } = artifact;
+    const { buildId, recipeSha256, sha256, inputs, hostRequirements } = artifact;
     await databaseOperation("readwrite", (store, payloads) => {
       payloads.put(new Blob([artifact.bytes]), id);
-      const published = store.put({ buildId, recipeSha256, sha256, inputs, byteLength: artifact.bytes.byteLength, slot, id });
+      const published = store.put({ buildId, recipeSha256, sha256, inputs, hostRequirements, byteLength: artifact.bytes.byteLength, slot, id });
       // Publish and prune atomically: failed writes preserve the previous pair,
       // and concurrent writers cannot prune each other's newly published data.
       const remove = key => { store.delete(key); payloads.delete(key); };

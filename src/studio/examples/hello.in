@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 IMAGE hello
 
 FROM HOST /Dollyfile-system @SYSTEM_SHA256@

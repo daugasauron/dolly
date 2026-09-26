@@ -41,6 +41,7 @@ for required in \
   src/http-broker.mjs \
   src/kernel-plugin.mjs \
   src/image-entry.mjs \
+  src/image-requirements.mjs \
   src/image-artifact.mjs \
   src/image-build.mjs \
   src/image-build-page.mjs \
@@ -56,6 +57,7 @@ for required in \
   src/wasm-interface.mjs \
   src/process-supervisor.mjs \
   src/process-worker.mjs \
+  src/threads-abi.mjs \
   src/session-store.mjs \
   src/session-file.mjs \
   src/session-transport.mjs \
@@ -69,9 +71,13 @@ for required in \
   dist/dolly.wasm \
   dist/dolly.data \
   dist/dolly-process-abi.mjs \
+  dist/dolly-threads-abi.mjs \
+  dist/dolly-threads-0.wasm \
+  dist/dolly-threads-supervisor-0.wasm \
   dist/dolly-process-0.wasm \
   dist/dolly-process-dso-0.wasm \
   dist/dolly-kernel-plugin-0.wasm \
+  dist/dolly-host-0.wasm \
   dist/dolly-snapshot-0.wasm \
   dist/dolly-errno.mjs \
   dist/dolly-kernel-plugin-abi.mjs \
@@ -103,6 +109,7 @@ done
 
 mkdir -p "${staging}/site/src" "${staging}/site/dist" "${staging}/site/docs" \
   "${staging}/site/modules" "${staging}/site/abi" "${staging}/site/include/dolly"
+cp -R "${project_dir}/src/host" "${staging}/site/src/host"
 node "${project_dir}/scripts/site-release.mjs" source "${staging}/site" "${project_dir}"
 cp "${project_dir}/build/routes/index.html" "${project_dir}/terminal.html" \
   "${dollyfiles[@]/#/${project_dir}/}" \
@@ -114,6 +121,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/http-broker.mjs" \
   "${project_dir}/src/kernel-plugin.mjs" \
   "${project_dir}/src/image-entry.mjs" \
+  "${project_dir}/src/image-requirements.mjs" \
   "${project_dir}/src/image-artifact.mjs" \
   "${project_dir}/src/image-build.mjs" \
   "${project_dir}/src/image-build-page.mjs" \
@@ -131,6 +139,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/wasm-interface.mjs" \
   "${project_dir}/src/process-supervisor.mjs" \
   "${project_dir}/src/process-worker.mjs" \
+  "${project_dir}/src/threads-abi.mjs" \
   "${project_dir}/src/session-store.mjs" \
   "${project_dir}/src/session-file.mjs" \
   "${project_dir}/src/session-transport.mjs" \
@@ -183,9 +192,13 @@ cp \
   "${project_dir}/dist/dolly-seed.mjs" \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-process-abi.mjs" \
+  "${project_dir}/dist/dolly-threads-abi.mjs" \
+  "${project_dir}/dist/dolly-threads-0.wasm" \
+  "${project_dir}/dist/dolly-threads-supervisor-0.wasm" \
   "${project_dir}/dist/dolly-process-0.wasm" \
   "${project_dir}/dist/dolly-process-dso-0.wasm" \
   "${project_dir}/dist/dolly-kernel-plugin-0.wasm" \
+  "${project_dir}/dist/dolly-host-0.wasm" \
   "${project_dir}/dist/dolly-snapshot-0.wasm" \
   "${project_dir}/dist/dolly-errno.mjs" \
   "${project_dir}/dist/dolly-kernel-plugin-abi.mjs" \

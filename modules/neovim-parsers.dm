@@ -1,4 +1,4 @@
-DOLLY 3
+DOLLY 4
 MODULE neovim-parsers
 
 REQUIRES TOOL cmake
