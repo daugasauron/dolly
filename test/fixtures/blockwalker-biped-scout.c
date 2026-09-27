@@ -6,9 +6,9 @@ static int model(Data*ctx,Value catalog,int index,float x,float y,float z,int te
  character_clear(&design);value_text_free(ctx,source);value_free(ctx,code);value_free(ctx,blocks);value_free(ctx,item);return id;
 }
 static double memory(int id,const char*key){Controller*c=world_find(id)->controller;return get_number(c->ctx,c->memory,key,0);}
-static void mission(Data*ctx,Value catalog,int index){
+static void mission(Data*ctx,Value catalog,int index,int current_terrain){
  int red=index==0;float x=red?18:-18,z=red?-70:-90,height=index==0?7.65:index==1?2.65:1.65;
- terrain_select(red?8:9);
+ terrain_select(red?8:current_terrain);
  int walker=model(ctx,catalog,index,x,height,z,red?1:2),courier=model(ctx,catalog,red?30:31,red?85:-85,32,z,red?1:2),enemy=model(ctx,catalog,2,red?-20:20,1.65,red?-60:-70,red?2:1),cargo=world_drop_cargo(-8,.485,z,MATERIAL_ALLOY);
  assert(terrain_height(-8,z)==0);
  assert(observation_distance(world_find(cargo),&world_find(courier)->physics)>48);int sight=0,threat=0,dispatch=0,grip=0,delivered=0;float low=z,high=z,lowx=x,highx=x,minup=1;
@@ -22,7 +22,7 @@ static void mission(Data*ctx,Value catalog,int index){
  }
  assert(sight&&threat&&dispatch&&grip&&delivered&&(red?high-low:hypot(high-low,highx-lowx))>4&&minup>.95);world_close();
 }
-int main(void){Data*ctx=data_new(256*1024*1024);Value catalog=read_catalog(ctx);
- for(int i=0;i<3;i++)mission(ctx,catalog,i);
+int main(void){int current_terrain=terrain_version;Data*ctx=data_new(256*1024*1024);Value catalog=read_catalog(ctx);
+ for(int i=0;i<3;i++)mission(ctx,catalog,i,current_terrain);
  value_free(ctx,catalog);data_close(ctx);return 0;
 }

@@ -97,3 +97,9 @@ the exact maintained `test/fixtures/blockwalker-biped-scout.c` against the lates
 staged terrain 9 and sensor-argument optimization. All three missions pass, with
 the original biped's prior delivery and upright walking retained. Marrowstep and
 Sundial's exact source hashes are recorded in `surveyors-v2/comparison.json`.
+
+`surveyors-canonical-v1` also passes the exact retained fixture on current
+canonical terrain 8. The new scenarios capture the map's initial version rather
+than hard-coding a future map; the older biped case stays on terrain 8. All
+three physical dispatch/delivery missions pass without controller changes, with
+the same 211.167/368.667 s surveyor delivery times as the staged terrain 9 proof.
