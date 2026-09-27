@@ -1,3 +1,30 @@
+local function rolling_ratios(s, wheels)
+  local q=s.rotation;local x,y,z,w=q[1],q[2],q[3],q[4]
+  local rows={};local aa,ab,bb,ar,br,speed=0,0,0,0,0,0
+  for _,wheel in ipairs(wheels) do
+    local p=s.positions[wheel.i+1];local dx,dy,dz=p[1]-s.x,p[2]-s.y,p[3]-s.z
+    local px=(1-2*(y*y+z*z))*dx+2*(x*y+z*w)*dy+2*(x*z-y*w)*dz
+    local pz=2*(x*z+y*w)*dx+2*(y*z-x*w)*dy+(1-2*(x*x+y*y))*dz
+    local angle,parent=0,wheel.parent+1
+    while parent>0 do
+      local part=s.blueprint[parent]
+      if part.axis==1 and (part.joint==1 or part.joint==7) then angle=angle+s.angles[parent] end
+      parent=part.parent+1
+    end
+    local c,r=math.cos(angle),math.sin(angle);local b=pz*c+px*r
+    aa=aa+c*c;ab=ab+c*b;bb=bb+b*b;ar=ar+c*r;br=br+b*r;speed=speed+wheel.speed
+    rows[#rows+1]={wheel=wheel,x=px,z=pz,c=c,s=r}
+  end
+  local determinant=aa*bb-ab*ab
+  if determinant<1e-6 then return {} end
+  local lateral=(ar*bb-ab*br)/determinant
+  local curvature=(aa*br-ab*ar)/determinant
+  local ratios={};speed=speed/#wheels
+  for _,r in ipairs(rows) do
+    ratios[r.wheel.i]=((lateral+curvature*r.z)*r.s+(1-curvature*r.x)*r.c)*speed/r.wheel.speed
+  end
+  return ratios,lateral,curvature
+end
 return function(t, s, m, r)
   local clamp = function(v, a)
     if a == nil then a = 1 end
@@ -55,6 +82,7 @@ return function(t, s, m, r)
     (m).best = nil;
     (m).still = 0;
     (m).alignError = nil;
+    m.alignGear=nil;m.alignReady=nil;
   end;
   if (not active((m).home)) then
     (m).home = {(s).x, (s).z};
@@ -490,7 +518,8 @@ return function(t, s, m, r)
       local angle = (((function() local old = (m).pickIndex; (m).pickIndex = (m).pickIndex + 1;
       return old end)() * math.pi) / 4);
       local d = {math.sin(angle), math.cos(angle)};
-      local point = {((box).x + (6 * at(d, 0))), ((box).z + (6 * at(d, 1)))};
+      local staging = math.max(6, clearance+4)
+      local point = {box.x+staging*d[1], box.z+staging*d[2]};
       local blocked = 0;
       do
         local k = 2;
@@ -504,18 +533,23 @@ return function(t, s, m, r)
           k = k + 1;
         end
       end
+      if clear(point[1],point[2]) then
       append((m).picks, {point = point, yaw = math.atan((-at(d, 0)), (-at(d, 1))), score = ((blocked * 50) + hypot((at(point, 0) - (s).x), (at(point, 1) - (s).z)))});
+      end
       if ((m).pickIndex == 8) then
         sort((m).picks, function(a, b)
           return ((a).score - (b).score)
         end);
-        (m).pick = shift((m).picks);
-        phase("route_pick");
+        m.pick = shift(m.picks)
+        if m.pick then phase("route_pick") else abandon() end
       end
     end
   end
   if (active((m).job) and active(includes({"plan_pick", "route_pick", "align_pick", "lower_pick", "approach", "lift", "retreat", "route_bay", "align_bay", "lower", "release", "back"}, (m).phase))) then
     (out).radio = {kind = "claim", cargo = (m).job};
+  end
+  if m.phase == "route_pick" and not clear(m.pick.point[1],m.pick.point[2]) then
+    m.picks={};m.pickIndex=0;phase("plan_pick")
   end
   if ((m).phase == "route_pick") then
     if (not active(navigate(((m).pick).point))) then
@@ -530,7 +564,7 @@ return function(t, s, m, r)
       end
     end
   end
-  if ((m).phase == "align_pick") then
+  if ((m).phase == "align_pick" and #steering==0) then
     turn = clamp(((0.9 * wrap((((m).pick).yaw - yaw))) - (0.45 * at((s).gyroscope, 1))), 0.6);
     local error = math.abs(wrap((((m).pick).yaw - yaw)));
     if (((m).alignError == nil) or (error < ((m).alignError - 0.02))) then
@@ -729,10 +763,43 @@ return function(t, s, m, r)
     end
     if m.phase=='align_pick' and box then
       local aim=wrap(math.atan(box.x-s.x,box.z-s.z)-yaw)
-      local want=math.abs(aim)>.07 and -.35 or 0
-      gear=-1;throttle=clamp(.3*want+.5*(want-velocity),.4)
+      m.alignGear=m.alignGear or (math.abs(aim)>math.pi/2 and 1 or -1)
+      local function can_roll(direction)
+        local before=overlap(s.x,s.z)
+        for _,distance in ipairs({.5,1,1.5}) do
+          local x=s.x+direction*distance*math.sin(yaw)
+          local z=s.z+direction*distance*math.cos(yaw)
+          if not land(x,z) or overlap(x,z)>before+.01 then return false end
+        end
+        return true
+      end
+      local blocked=not can_roll(m.alignGear)
+      if blocked or t-m.progress>8 then
+        if can_roll(-m.alignGear) then
+          m.alignGear=-m.alignGear;m.alignReady=nil;m.alignError=nil;m.progress=t
+        else
+          m.pick=shift(m.picks)
+          if m.pick then phase('route_pick') else abandon() end
+        end
+      end
+      if t-m.at>90 then
+        m.pick=shift(m.picks)
+        if m.pick then phase('route_pick') else abandon() end
+      end
+      local want=m.phase=='align_pick' and math.abs(aim)>.07 and m.alignGear*.35 or 0
+      gear=m.alignGear or gear;throttle=clamp(.3*want+.5*(want-velocity),.4)
       turn=clamp(1.7*aim-.5*at(s.gyroscope,1),.6)
-      if math.abs(aim)<.07 and math.abs(at(s.gyroscope,1))<.12 then phase('lower_pick') end
+      local error=math.abs(aim)
+      if not m.alignReady then
+        local settled=true
+        for _,j in ipairs(steering) do
+          if math.abs(at(s.angles,j.b.i)-turn*j.side*gear)>.06 then settled=false end
+        end
+        m.progress=t
+        if settled then m.alignReady=true;m.alignError=error end
+      elseif not m.alignError or error<m.alignError-.02 then m.alignError=error;m.progress=t end
+      if m.phase=='align_pick' and error<.07 and math.abs(at(s.gyroscope,1))<.12 then phase('lower_pick')
+      end
     elseif m.phase=='align_bay' and box then
       local dx,dz=m.bay[1]-box.x,m.bay[2]-box.z
       local forward=dx*math.sin(yaw)+dz*math.cos(yaw)
@@ -752,7 +819,7 @@ return function(t, s, m, r)
     end
     for _,j in ipairs(steering) do
       local target=turn*j.side*gear
-      set(j.b,3*(target-at(s.angles,j.b.i))-.45*at(s.rates,j.b.i))
+      set(j.b,3*(target-at(s.angles,j.b.i))/(1+.45*j.b.speed))
     end
   end
 
@@ -769,9 +836,10 @@ return function(t, s, m, r)
     throttle = (function() turn = 0;
     return turn end)();
   end
+  local ratios=#steering>0 and rolling_ratios(s,wheels) or {}
   for _, b in ipairs(wheels) do
     do
-      set(b, #steering>0 and throttle or (throttle - turn*sign(b.x-at(parts,0).x)));
+      set(b, #steering>0 and throttle*(ratios[b.i] or 1) or (throttle - turn*sign(b.x-at(parts,0).x)));
     end
     ::continue_13::
   end
