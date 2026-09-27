@@ -167,17 +167,20 @@ return function(t,s,m)
   local dx,dz=goal[1]-s.x,goal[2]-s.z
   local halfX,halfZ=0,0
   for i,b in ipairs(s.blueprint) do if b.joint==0 and b.y<=1 then halfX=math.max(halfX,math.abs(b.x)+.7);halfZ=math.max(halfZ,math.abs(b.z)+.7) end end
+  local distance=hypot(dx,dz);local angle=math.atan(dx,dz);local step=math.min(3,distance)
+  local shores={}
+  for _,b in ipairs(s.terrain) do
+    if b.high>s.waterHeight-.4 and b.low<s.waterHeight+.5
+      and math.abs(s.x-b.x)<b.halfX+halfX+step and math.abs(s.z-b.z)<b.halfZ+halfZ+step then shores[#shores+1]=b end
+  end
   local function overlap(x,z)
     local cost=0
-    for _,b in ipairs(s.terrain) do
-      if b.high>s.waterHeight-.4 and b.low<s.waterHeight+.5 then
-        local a,c=b.halfX+halfX-math.abs(x-b.x),b.halfZ+halfZ-math.abs(z-b.z)
-        if a>0 and c>0 then cost=cost+math.min(a,c)^2 end
-      end
+    for _,b in ipairs(shores) do
+      local a,c=b.halfX+halfX-math.abs(x-b.x),b.halfZ+halfZ-math.abs(z-b.z)
+      if a>0 and c>0 then cost=cost+math.min(a,c)^2 end
     end
     return cost
   end
-  local distance=hypot(dx,dz);local angle=math.atan(dx,dz);local step=math.min(3,distance)
   local before,best=overlap(s.x,s.z),nil;local steer
   for _,offset in ipairs({0,-.4,.4,-.8,.8,-1.2,1.2,-1.57,1.57}) do
     local x,z=s.x+math.sin(angle+offset)*step,s.z+math.cos(angle+offset)*step
