@@ -53,3 +53,10 @@ deliveries and no faults/deaths, but Nekote still has zero placements and Kaiten
 only its three starter handoffs. This confirms that the fresh continuing-supply
 criterion remains unsatisfied despite the successful restored/clear-yard cases.
 Reproduce with `checkpoint-fresh/after.lua`, imported through the game's UI.
+
+Follow-up reproduction `pickup-timeout` keeps the checkpoint image unchanged
+and substitutes only Nekote's embedded program in the saved world. Abandoning
+an ungripped job after 120 s with a 300 s retry delay changes its target from 73
+to 74 to 72 over 300 s, but produces no pickup. No faults/deaths. A deadline alone
+is insufficient; routing/approach geometry remains the next problem to solve.
+The experimental source is in `pickup-timeout-before.lua`; it is not canonical.
