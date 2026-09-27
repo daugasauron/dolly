@@ -61,3 +61,12 @@ and `build/overnight-20260928/arity/proof-v1.json`. Normal rendered-game integra
 is still pending; this measurement is simulation cost, not an FPS claim.
 The exact retained `blockwalker-controller-arguments.c` fixture additionally
 passes native-callback argument behavior inside Dolly (`arity-retained/`).
+
+The normal, unprofiled Firefox pair now passes with the same saved world and
+four camera views: 104.3/106.2/110.9/110.9 FPS before the argument optimization,
+119.5/123.3/129.7/129.4 afterward. All 163 original actors remain, with no
+controller/browser errors or GPU readbacks. Both games were compiled inside
+Dolly from matching source archives differing only in that optimization.
+Evidence: `build/overnight-20260928/arity-render-{baseline,optimized}/proof.json`.
+These are source-only comparisons; the combined catalog and packaged image
+still need their final verification.
