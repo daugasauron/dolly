@@ -1,6 +1,6 @@
 # Carry Harbor Atlas output from the dock to the island
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 265
 - TAGS: game,physics,controllers
 
@@ -23,6 +23,11 @@ measured external support exceeding half the cargo's weight within 0.2 s.
 All originals survive, with zero controller faults. The unchanged tug also
 hands a second real crate to Atlas during this same run.
 
-Source and exact fixture are verified. Remaining checkpoint integration: move
-catalog entry 22 to (112, 8, 8). No other catalog move is required. Close after
-that placement is included in the checkpoint.
+
+Checkpoint verification: `build/overnight-20260928/`.
+Catalog entry 22 now starts at (112, 8, 8), the only catalog change (3bb87ff).
+Packaged Chrome/Firefox exports match every catalog program, blueprint and
+starting coordinate. The populated continuation, protected-save restore and
+source/package preservation checks pass. The original physical dock-chain
+proof above remains unchanged.
+Local image: http://127.0.0.1:9097/blockwalker/.

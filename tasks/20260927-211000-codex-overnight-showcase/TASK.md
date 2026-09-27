@@ -1,6 +1,6 @@
-# Improve the living-world showcase through 07:00 JST September 28
+# Checkpoint the September 27–28 Slopyard improvements
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 340
 - TAGS: game,combat,logistics,performance
 
@@ -37,3 +37,18 @@ Performance reproduction: user reports 40–50 FPS after the world has run for a
 while. Firefox replay of the actual 20-minute world also measures 32–41 FPS,
 depending on view. Profile controllers, physics and rendering before extending
 the population; compare fresh and mature worlds at matched cameras.
+
+The user ended expansion early: “finish the in progress work but do not start
+new work.” This time-box task is closed for that revised checkpoint scope; the
+broader uncompleted feature requests remain OPEN in their existing child tasks.
+Verified walking/scouting/rescue/logistics, four-part tether improvements,
+Slopyard branding and performance fixes are packaged locally. Terrain 9, shared
+supply, raised launchers, five-part projectiles and salvage boats are excluded.
+
+Final gates: actual Chrome/Firefox catalog and clean-exit checks; populated
+240→600 s continuation with all 151 originals, 157 final actors, nine deliveries
+and no faults/removals; 99-actor terrain-7 UI restore; aged 163-actor Firefox
+rendering; 73 matching sources, six protected saves and 56 other assets retained.
+Evidence: `build/overnight-20260928/checkpoint/proof.json`; current handoff:
+`docs/crash-handoff.md`. Backup branch `codex/slopyard-checkpoint-20260928`,
+built artifacts `build/checkpoint-slopyard-20260928/`. No remote deployment.

@@ -78,6 +78,8 @@ checks. Inside-Dolly comparison passes 50,000 random/boundary cases exactly.
 The unchanged 240 s saved population is replayed with only the eight gun source
 strings updated; integration evidence is `checkpoint-resume/`.
 The exact continuation passes through 600 s with all 151 resumed actors retained,
-157 final actors, eight deliveries, scores 4/4 and zero controller faults/removals.
+157 final actors, nine deliveries, scores 4/5 and zero controller faults/removals.
+Blue Tengu makes two shots and peaks at 37,000 instructions after the fix;
+the original replay exceeded 200,000.
 No instruction budget or friendly-fire margin was increased. This bounded cost
 repair is included; the broader supply/geometry experiments remain excluded.

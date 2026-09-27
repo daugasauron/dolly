@@ -1,6 +1,6 @@
 # Reduce distant visual grain without slowing the game
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: game,rendering,performance
 
@@ -21,3 +21,10 @@ Matched near/far/joint captures are in render-equivalence/. The final ordinary
 Firefox replay measures 97–107 FPS across four matched views of the actual
 20-minute world, with all 163 characters and no errors/readbacks
 (render-optimized-v2/proof.json). Packaged image verification remains pending.
+
+Checkpoint verification: `build/overnight-20260928/`.
+Packaged Chrome/Firefox near/far screenshots inspected; normal aged Firefox
+checks pass with all 163 original actors and no readbacks/errors. Final
+Firefox samples: 99.8 / 105.7 / 115.6 / 111.2 FPS. The source-only matched comparison above remains
+the evidence for shader cost; final package/source/preservation checks pass.
+Local image: http://127.0.0.1:9097/blockwalker/.

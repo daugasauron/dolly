@@ -1,6 +1,6 @@
 # Restore performance in a world that has been running for a while
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: game,performance
 
@@ -70,3 +70,11 @@ Dolly from matching source archives differing only in that optimization.
 Evidence: `build/overnight-20260928/arity-render-{baseline,optimized}/proof.json`.
 These are source-only comparisons; the combined catalog and packaged image
 still need their final verification.
+
+Checkpoint verification: `build/overnight-20260928/`.
+Packaged checks now pass. Final fresh Firefox sample: 133.1 FPS.
+Aged 163-actor Firefox views: 99.8 / 105.7 / 115.6 / 111.2 FPS, all originals retained and
+no errors/readbacks. The final populated continuation reaches 600 s with
+157 actors, nine deliveries and no controller faults/removals. Retain the earlier paired source-only measurements when attributing individual
+optimization improvements. No population or physics-rate reduction.
+Local image: http://127.0.0.1:9097/blockwalker/.
