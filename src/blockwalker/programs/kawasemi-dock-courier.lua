@@ -4,9 +4,12 @@ return function(t, s, m, r)
   end;
   local peers = (function() local value = (s).nearby; if active(value) then return value else return {} end end)();
   local cargo = filter(peers, function(c)
-    return (function() local value = (function() local value = (c).cargo; if active(value) then return (not active((c).delivered)) else return value end end)(); if active(value) then return (function() local value = ((c).carriedBy == (s).id); if active(value) then return value else return (function() local value = (not active((c).magnetHeld)); if active(value) then return some(peers, function(p)
-      return (function() local value = ((p).id == (c).carriedBy); if active(value) then return (p).anchored else return value end end)()
-    end) else return value end end)() end end)() else return value end end)()
+    if not c.cargo or c.delivered or c.team~=0 and c.team~=s.team
+      or c.mass*hypot(table.unpack(s.gravity))>s.blueprint[11].force*.7 then return false end
+    if c.carriedBy==s.id then return true end
+    if c.magnetHeld then return false end
+    if c.carriedBy==0 then return c.low>s.waterHeight+.5 end
+    return some(peers,function(p) return p.id==c.carriedBy and p.anchored end)
   end);
   local mag = at((s).magnets, 10);
   local attached = (function() local value = mag; if active(value) then return (mag).attached else return value end end)();
@@ -77,7 +80,7 @@ return function(t, s, m, r)
       power = 1;
       if ((active(attached) and ((box).carriedBy == (s).id)) and active((box).magnetHeld)) then
         local depots = sort(filter((function() local value = (s).depots; if active(value) then return value else return {} end end)(), function(d)
-          return (hypot(((d).x - (box).x), ((d).z - (box).z)) > ((d).radius + 1))
+          return d.team==s.team and (hypot(((d).x - (box).x), ((d).z - (box).z)) > ((d).radius + 1))
         end), function(a, b)
           return (hypot(((a).x - (box).x), ((a).z - (box).z)) - hypot(((b).x - (box).x), ((b).z - (box).z)))
         end);
@@ -146,14 +149,29 @@ return function(t, s, m, r)
     tx = at((m).goal, 0);
     tz = at((m).goal, 1);
   end
-  local traffic = filter((function() local value = (s).nearby; if active(value) then return value else return {} end end)(), function(c)
-    return (function() local value = (function() local value = (function() local value = (not active((c).cargo)); if active(value) then return (not ((phase == "pickup") and ((c).id == (m).station))) else return value end end)(); if active(value) then return ((c).low < ((s).ground + 3)) else return value end end)(); if active(value) then return (hypot(((((c).x + (2 * (c).vx)) - (s).x) - (2 * (s).vx)), ((((c).z + (2 * (c).vz)) - (s).z) - (2 * (s).vz))) < ((c).radius + 6)) else return value end end)()
-  end);
-  if active(#(traffic)) then
-    height = math.max(height, table.unpack(map(traffic, function(c)
-      return ((c).high + 4)
-    end)));
-    (m).trafficTime = ((function() local value = (m).trafficTime; if active(value) then return value else return 0 end end)() + (s).dt);
+  local traffic = filter(peers, function(c)
+    return not c.cargo and c.low<s.ground+3
+      and hypot(c.x+2*c.vx-s.x-2*s.vx,c.z+2*c.vz-s.z-2*s.vz)<c.radius+6
+  end)
+  if #traffic>0 then
+    local halfX,halfZ,bottom=0,0,0
+    for _,part in ipairs(s.bounds(s.id)) do
+      halfX=math.max(halfX,math.abs(part.x-s.x)+part.halfX)
+      halfZ=math.max(halfZ,math.abs(part.z-s.z)+part.halfZ)
+      bottom=math.max(bottom,s.y-part.low)
+    end
+    local raised=false
+    for _,c in ipairs(traffic) do
+      local x,z=s.x+2*(s.vx-c.vx),s.z+2*(s.vz-c.vz)
+      for _,part in ipairs(s.bounds(c.id)) do
+        if math.abs(part.x-x)<part.halfX+halfX+.25
+          and math.abs(part.z-z)<part.halfZ+halfZ+.25 then
+          local clearance=part.high+bottom+.3
+          if clearance>height then height=clearance;raised=true end
+        end
+      end
+    end
+    if raised then m.trafficTime=(m.trafficTime or 0)+s.dt end
   end
   local ax = cl((1.4 * (cl((0.65 * (tx - (s).x)), 0.9) - (s).vx)), 0.55);
   local az = cl((1.4 * (cl((0.65 * (tz - (s).z)), 0.9) - (s).vz)), 0.55);
