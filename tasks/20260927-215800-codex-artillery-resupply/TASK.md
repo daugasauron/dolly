@@ -40,3 +40,12 @@ same round. Evidence: `logistics/air-matrix-v1/`; frozen controller candidates
 are `hayabusa-eight-air.lua` and `koban-eight-air.lua` in that evidence root.
 Ground pickup of rotated rounds, shared-fleet switching and boat recovery are
 still unproved. These private candidates are not yet in the served image.
+
+The northward loaded-shot replay identifies a physical self-hit: the tether's
+free handle strikes gun base part 10 at 20.28 m/s and height 0.857 m
+(`tethers/encounter-parts-north-v1`). Raising the axle/cup 2 m exceeds the existing
+loader's reach and fails all eight air cases; that candidate is rejected.
+A smaller 1 m rise, four ordinary support blocks and the unchanged loader stroke
+pass the Red air→loader→gun handoff at 87.217 s (`gun-clearance/air-low-v1`).
+The loader derives its dock from the observed cup. Firing clearance and the other
+seven routes remain unverified for this private geometry.
