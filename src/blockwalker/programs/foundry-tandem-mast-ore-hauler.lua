@@ -56,6 +56,9 @@ return function(t, s, m, r)
     (m).phase = p;
     (m).at = t;
     (m).stuck = 0;
+    if p=="withdraw" then m.withdrawYaw=yaw end
+    if p=="clear" then m.clearStart={s.x,s.z,yaw} end
+    if p=="lower" then m.lowerPower=1 end
   end;
   local magnet = at((s).magnets, (head).i);
   local box = find((s).nearby, function(p)
@@ -82,23 +85,46 @@ return function(t, s, m, r)
     if (active(#(jobs)) and (t > (m).wait)) then
       (m).job = (at(jobs, 0)).id;
       (m).approach = 0;
-      go("pickup");
+      go(math.abs(jobs[1].x-s.x)<.4 and math.abs(yaw)<.1 and "pickup" or "withdraw");
     end
     goal = (m).home;
     speedLimit = 0;
   end
+  if m.phase=="withdraw" then
+    out[OFF]=1;speedLimit=0;avoid=false
+    local radius=0
+    for _,b in ipairs(s.blueprint) do radius=math.max(radius,hypot(b.x-s.blueprint[1].x,b.z-s.blueprint[1].z)+.7) end
+    local clear=true
+    local function blocks(b) return b.high>s.ground+.3 and b.low<s.y+4 and hypot(math.max(0,math.abs(s.x-b.x)-b.halfX),math.max(0,math.abs(s.z-b.z)-b.halfZ))<radius end
+    for _,b in ipairs(s.terrain) do if blocks(b) then clear=false end end
+    for _,c in ipairs(s.nearby) do if c.anchored and hypot(c.x-s.x,c.z-s.z)<c.radius+radius then
+      for _,b in ipairs(s.bounds(c.id)) do if blocks(b) then clear=false end end
+    end end
+    if t-m.at>4 and clear and s.angles[extension.i+1]<.1 then go("stage") end
+  end
+  if m.phase=="stage" then
+    if not box then go("search") else
+      goal={box.x-math.sin(m.approach)*8,box.z-math.cos(m.approach)*8};speedLimit=.6;avoid=false
+      if hypot(s.x-goal[1],s.z-goal[2])<.3 then go("orient") end
+    end
+  end
+  if m.phase=="orient" then
+    goal={s.x+math.sin(m.approach),s.z+math.cos(m.approach)};speedLimit=.4;avoid=false
+    if math.abs(wrap(m.approach-yaw))<.05 and math.abs(s.gyroscope[2])<.08 then go("pickup") end
+  end
   if ((m).phase == "pickup") then
-    if (((((not active(box)) or ((box).supply ~= 2)) or active((box).delivered)) or ((active((box).carriedBy) and ((box).carriedBy ~= (s).id)) and (active((box).magnetHeld) or (not active(some((s).nearby, function(c)
-      return (function() local value = ((c).id == (box).carriedBy); if active(value) then return (c).anchored else return value end end)()
-    end)))))) or ((t - (m).at) > 50)) then
+    local supporting=box and box.carriedBy~=s.id and box.carriedBy~=0 and (box.magnetHeld or not some(s.nearby,function(c) return c.id==box.carriedBy and c.anchored end))
+    if not box or box.supply~=2 or box.delivered or supporting then
       (m).wait = (t + 2);
       go("search");
     else
+      if t-m.at>25 then go("withdraw") end
       local dx = math.sin((m).approach);
       local dz = math.cos((m).approach);
       goal = {((box).x - (dx * 4)), ((box).z - (dz * 4))};
       wantHeading = (m).approach;
       speedLimit = 0.7;
+      lift=math.max(0,math.min(height,box.high+.6-s.positions[head.i+1][2]+stroke));
       avoid = false;
       (out)[index(ON)] = (((math.abs(wrap(((m).approach - yaw))) < 0.4) and (hypot((at(at((s).positions, (head).i), 0) - (box).x), (at(at((s).positions, (head).i), 2) - (box).z)) < ((box).radius + 0.65))) and 1 or 0);
       if (active((magnet).attached) and ((magnet).creature ~= (m).job)) then
@@ -130,12 +156,13 @@ return function(t, s, m, r)
     (out)[index(ON)] = 1;
     speedLimit = 0;
     avoid = false;
-    if ((t - (m).at) > 5) then
-      go("carry");
-    end
+    m.clearStart=m.clearStart or {s.x,s.z,yaw}
+    local retreat=(m.clearStart[1]-s.x)*math.sin(m.clearStart[3])+(m.clearStart[2]-s.z)*math.cos(m.clearStart[3])
+    if retreat>3.5 and s.angles[extension.i+1]<.1 then go("carry") end
+    if t-m.at>10 and retreat<3.5 then lift=0 end
   end
   if ((m).phase == "carry") then
-    local route = {{(-33), 52}, {(-33), 71}, {(-43), 77}, {(-43), 106.1}};
+    local route = {{(-37), 52}, {(-37), 75}, {(-43), 75}, {(-43), 106.1}};
     local occupied = some((s).nearby, function(p)
       return (function() local value = (function() local value = (p).cargo; if active(value) then return ((p).id ~= (m).job) else return value end end)(); if active(value) then return (hypot(((p).x - ((m).depot).x), ((p).z - ((m).depot).z)) < 3.5) else return value end end)()
     end);
@@ -147,6 +174,8 @@ return function(t, s, m, r)
     goal = follow(route, (m).route);
     speedLimit = 0.6;
     avoid = false;
+    m.stuck=hypot(s.vx,s.vz)<.03 and math.abs(s.gyroscope[2])<.03 and hypot(s.x-goal[1],s.z-goal[2])>.3 and (m.stuck+s.dt) or 0
+    if m.stuck>5 then m.route=0;m.recoveries=(m.recoveries or 0)+1;go("clear") end
     if (((m).route == 3) and (hypot(((s).x - at(at(route, 3), 0)), ((s).z - at(at(route, 3), 1))) < 1)) then
       wantHeading = 0;
     end
@@ -165,7 +194,10 @@ return function(t, s, m, r)
   end
   if ((m).phase == "lower") then
     speedLimit = 0;
-    (out)[index(ON)] = 1;
+    if box and stroke<.05 and box.low<s.ground+.25 then
+      m.lowerPower=math.max(.05,(m.lowerPower or 1)-s.dt*.15)
+    end
+    (out)[index(ON)] = m.lowerPower or 1;
     if (((magnet).cargoSupportForce > (((function() local value = optional(box, "mass"); if active(value) then return value else return 0 end end)() * hypot(table.unpack((s).gravity))) * 0.6)) and ((t - (m).at) > 1)) then
       go("release");
     end
@@ -188,11 +220,13 @@ return function(t, s, m, r)
   end
   if ((m).phase == "return") then
     lift = height;
-    local route = {{(-43), 77}, {(-33), 71}, {(-33), 52}, (m).home};
+    local route = {{(-43), 75}, {(-37), 75}, {(-37), 52}, (m).home};
     goal = follow(route, (m).route);
     speedLimit = 0.9;
     avoid = false;
     (out)[index(OFF)] = 1;
+    m.stuck=hypot(s.vx,s.vz)<.03 and math.abs(s.gyroscope[2])<.03 and hypot(s.x-goal[1],s.z-goal[2])>.3 and (m.stuck+s.dt) or 0
+    if m.stuck>5 then m.recoveries=(m.recoveries or 0)+1;go("back") end
     if (hypot(((s).x - at(goal, 0)), ((s).z - at(goal, 1))) < 0.3) then
       if ((m).route < 3) then
         (m).route = (m).route + 1;
@@ -299,6 +333,9 @@ return function(t, s, m, r)
   if ((d < 0.15) or active(yielding)) then
     speed = 0;
   end
+  if m.phase=="orient" then speed=0 end
+  if m.phase=="stage" and math.abs(error)>.6 then speed=0 end
+  if m.phase=="withdraw" then speed=-.5 end
   if ((m).phase == "align") then
     speed = 0;
   end
@@ -322,6 +359,8 @@ return function(t, s, m, r)
   end
   local drive = clamp(((speed / 2.8) + (0.3 * (speed - at((s).localVelocity, 2)))), 0.65);
   local turn = (function() if (((m).phase == "pickup") and active(box)) then return clamp(((0.7 * wrap((math.atan(((box).x - (s).x), ((box).z - (s).z)) - yaw))) - (0.3 * at((s).gyroscope, 1))), 0.3) else return ((speedLimit == 0) and 0 or clamp(((0.8 * error) - (0.3 * at((s).gyroscope, 1))), 0.45)) end end)();
+  if m.phase=="withdraw" then turn=clamp(.8*wrap((m.withdrawYaw or yaw)-yaw)-.3*s.gyroscope[2],.45) end
+  if m.phase=="clear" then turn=clamp(.8*wrap((m.clearStart and m.clearStart[3] or yaw)-yaw)-.3*s.gyroscope[2],.45) end
   for _, b in ipairs(filter((s).blueprint, function(b)
     return (function() local value = ((b).joint == 4); if active(value) then return ((b).axis == 0) else return value end end)()
   end)) do
@@ -333,7 +372,7 @@ return function(t, s, m, r)
     end
     ::continue_5::
   end
-  local length = (function() if active(includes({"search", "pickup"}, (m).phase)) then return (extension).travel else return 0 end end)();
+  local length = (function() if active(includes({"pickup"}, (m).phase)) then return (extension).travel else return 0 end end)();
   local u = clamp((((2.5 * (length - at((s).angles, (extension).i))) - (0.2 * at((s).rates, (extension).i))) / (extension).speed), 1);
   (out)[index(string.char((function() if (u < 0) then return (extension).negative else return (extension).positive end end)()))] = math.abs(u);
   do return out end

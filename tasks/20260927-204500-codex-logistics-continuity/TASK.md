@@ -141,3 +141,20 @@ straight retreat: rear wheels remain airborne while the front wheel binds the
 plinth at164N. Earlier pallet176 completes another natural East-island delivery
 after receiver release3732.833s, establishing three fresh scored pallets. A
 supported set-down/retry is staged; the wedged fourth pickup remains unresolved.
+
+The frozen foundry correction now passes the exact fourth-cycle jam and repeated
+natural throughput. `foundry-low-retreat-v1` resumes the actual 4500 s state:
+lowering the existing mast during a stalled straight withdrawal clears the
+plinth, and the same pallet177 reaches the quay at4661.567 s. It then hangs a few
+centimetres above support with the lift fully retracted. `foundry-soft-v1`
+continues the actual5100 s save through6000 s, reducing analog magnet strength
+only near the floor at minimum lift travel. Release still requires measured
+support. Pallet177 releases5104.583 s with independent support2.104×weight and
+no floor gap, then passes quay26→Westbarge28→receiver30 and scores5497.283 s.
+Fresh178 is collected5272.567, released with support1.842×weight5435.333 and
+scores on East island5861.833. Fresh179 makes another supported quay release;
+180 is collected5963.600 and remains in transit. Zero faults/deaths. Original
+home(-52,52), actor states, mass and actuator force limits are preserved. Loaded
+controller cost averages4958 instructions, peak5000. Source SHA-256:
+`771cdf7e19fed49db2fb096f8a43748d39da0445f6ff509f81efedb99c2fd1f4`.
+The broader issue remains open for fleet coverage and sea-ammunition salvage.
