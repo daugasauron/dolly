@@ -29,8 +29,8 @@ Active overnight work targets 07:00 JST September 28. Source now includes:
 Evidence is under `build/overnight-20260928/` and `build/action-front-20260927/`.
 These changes are not yet in the served image. Final terrain-9 layout, artillery
 supply/boat experiments and tether reuse are still being validated; do not package
-unverified candidates. All eight proposed air→loader→gun chains pass, including
-the revised inner stockyard, but the last rotated ground handoff and recovered
+unverified candidates. All eight proposed air→loader→gun chains pass; both inner
+stockyard pickup regressions also pass. The last rotated ground handoff and recovered
 ammunition routes still need verification. `frontline/layout.mjs` contains the
 verified Vesper/scout moves, but its generated catalog is stale pending the final
 logistics fragments. Private boat and raised-gun experiments are not adopted.
