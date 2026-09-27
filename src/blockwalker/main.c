@@ -180,7 +180,6 @@ static int install_program_file(const char *path,const char *name){
     Value result=world_install(embedded_context,args);int good=!value_is_error(result);value_free(embedded_context,args);value_free(embedded_context,result);
     if(!good){Value error=value_exception(embedded_context);const char *text=value_text(embedded_context,error);say(text?text:"Invalid program; previous program kept.");value_text_free(embedded_context,text);value_free(embedded_context,error);}return good;
 }
-static void preset(int walker){remember();if(walker==3)character_car(&design);else character_preset(&design,walker);install_program_file("/usr/src/dolly/blockwalker/driver.lua","Keyboard driver");selected=0;tool=SELECT;binding=-1;home_camera();changed();say(walker==3?"Starter car: Program shows its keyboard controls. Drive in world to use them.":"Walking is up to you. Test the joints, or ask Pi to learn a gait.");}
 static int candidate(Block *block){
     Vector3 normal={0},point={0};int parent=render_pick(&design,&orbit,mouse_x,mouse_y,&normal,&point),x,y,z;
     if(parent>=0){Block b=design.blocks[parent];
@@ -368,9 +367,6 @@ static void click(void){
     for(int i=0;i<FINISH_COUNT;i++)if(inside(24+i*49,452,46,24)){
         brush_finish=i;if(tool==SELECT&&selected>=0){remember();design.blocks[selected].finish=i;changed();}dirty=1;return;
     }
-    if(inside(24,502,194,36)){preset(1);return;}
-    if(inside(24,548,194,32)){preset(3);return;}
-    if(inside(24,586,194,22)){preset(2);return;}
     if(inside(24,612,92,36)){undo_edit();return;}
     if(inside(126,612,92,36)){remember();character_clear(&design);selected=-1;brush_joint=0;tool=ADD;binding=-1;home_camera();changed();say("Start with a box on the grid.");return;}
 edit_view:
@@ -580,7 +576,6 @@ static void draw_ui(void){
         label(24,390,tool==SELECT?"SELECTED COLOR":"BLOCK COLOR",15,muted);
         for(int i=0;i<COLOR_COUNT;i++){DrawRectangleRounded((Rectangle){24+i*32,416,26,30},.12f,4,block_colors[i]);if(i==brush_color)DrawRectangleLinesEx((Rectangle){22+i*32,414,30,34},2,ink);}
         const char *finishes[]={"Plain","Panel","Trim","Stripe"};for(int i=0;i<FINISH_COUNT;i++)button(24+i*49,452,46,24,finishes[i],(tool==SELECT&&selected>=0?design.blocks[selected].finish:brush_finish)==i);
-        label(24,482,"STARTING POINTS",15,muted);button(24,502,194,36,"4-joint walker",0);button(24,548,194,32,"Starter car",0);button(24,586,194,22,"Quadruped",0);
         button(24,612,92,36,"Undo",0);button(126,612,92,36,"Clear",0);
         label(1036,106,"INSPECTOR",17,muted);
         if(selected<0){label(1036,162,"Pick a block",22,ink);label(1036,199,"to edit its attachment.",16,muted);label(1036,258,"A joint turns the blocks",15,muted);label(1036,282,"attached beyond it.",15,muted);}

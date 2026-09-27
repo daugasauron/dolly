@@ -10,6 +10,12 @@ and terrain. The user reports 300+ FPS in Firefox and is happy with performance.
 Do not turn separate Chrome stress results into an unsolicited performance task.
 No production push/deployment is requested.
 
+The local preview also includes the workshop cleanup after that checkpoint:
+fresh sessions open Starter Car; alternative preset buttons are removed and
+Design Library remains available. `build/workshop-start-20260927/proof.json`
+verifies the default car, removed click targets, library selection and reopening
+the saved design in Firefox. Only Blockwalker was rebuilt (62.8 s).
+
 ## Current world
 
 87 starting characters, 1,956 parts, 45 Lua programs at 20 Hz. Physics remains
@@ -74,9 +80,9 @@ Evidence: `build/base-zones-20260927/`.
   save files and other catalog entries are unchanged. `preservation.log` verifies
   56 other image/runtime assets. Selected image build completes in 61.3 s.
 
-Snapshot: 252,465,223 bytes,
-`c7bb15d0d22d33cfec4b606681819a393a925dcdd46b052ae8af016cb92e3a87`.
-Source tar: `20caec75c35595a1bb4016d40edc844f389a04a1fb03f3828f97b55f31382e1b`.
+Snapshot: 252,462,410 bytes,
+`3c6a2d7089ffc2306cb2df89618cae858f7ea2b8d4ac828e6fd83e9ca6df284e`.
+Source tar: `227843fd54301d2dcf8f48c444db8951ab1e41721d16f7ac0de59ec1d4bbe9b9`.
 Runtime identity remains
 `d9dee7375fb5ec91f293a97359d2e2f5a64bbb9a8e4fc7e15c848eb99a995299`.
 
