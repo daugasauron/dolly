@@ -1,44 +1,35 @@
-# Keep failed rescues attached until the patient is supported
+# Set down failed rescues safely and recover tipped bipeds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 310
 - TAGS: game,controllers,physics
 
-Actual `full-v6/after.lua` at 1200 s contains Hibari 39 suspended from Tsuru 85,
-with its lift phase starting at 1192.267 s. The unchanged assisted controller
-straightens the joints, but the patient hangs tilted from an off-center torso
-grip and never reaches the rescuer's upright threshold.
+The actual 163-actor `full-v6/after.lua` contains Hibari suspended from Tsuru.
+Its off-center grip leaves it tilted; after 90 s the old controller releases
+without support, dropping the feet 4.64 m. Replay and contact evidence are under
+`build/overnight-20260928/team-audit/`.
 
-`build/overnight-20260928/team-audit/survey-rescue-v1` replays all 163 actors,
-changing only Hibari and Tsuru to their current verified sources; every other
-saved field matches recursively. At 1282.333 s, Tsuru's unconditional 90 s
-phase timeout disables the magnet. External support is zero and the feet are
-4.64 m above ground. The biped falls from up 0.836 to -0.10 within 8 s.
-The assisted state never completes. This is a commanded release, not a force
-limit peel; inspect attachment geometry separately from the small motor chatter.
+The timeout now retains the grip and lowers onto measured external support.
+`supported-rescue-v1` and its unchanged continuation `supported-rescue-v2` prove
+an actual supported abort: release on 34.208 N support against 31.944 N weight,
+with zero credited rescues. The unchanged porter scenario still releases at
+139.517 s on 42.065 N support, up 0.997454 and ground gap -0.00416 m.
 
-Verified timeout-only change `team-audit/supported-rescue-v1` keeps the
-magnet engaged and enters the existing lowering phase. The 180 s exact-world
-replay prevents the airborne drop. Hibari reaches the ground but still has only
-20.19 N external support against its 31.94 N weight; it correctly remains held,
-with zero credited rescues. The existing 10 m lowering cap and 90 s phase reset
-delay further cable payout. Unchanged-source continuation `supported-rescue-v2`
-releases after another 66.783 s, on 34.208 N measured support, then leaves the
-patient unheld with zero credited rescues. Both runs preserve every original
-actor and report no controller faults. The biped remains tipped; this proves
-safe abort, not successful orientation recovery. Canonical Tsuru now contains
-only this verified change (SHA-256
-`8fca6e436cf3458bd1ecccfa6c6abdf6db3b132c1afa91433b3b35ac6f496c21`).
-The same candidate preserves the normal porter rescue: physical release at
-139.517 s, 42.065 N support, up 0.997454 and ground gap -0.00416 m.
+The grasp now uses observed root-assembly geometry and center of mass for
+bipeds, preserving the existing wheeled pickup behavior. Starting from that
+actual post-abort world, `centered-rescue-v1` changes only Tsuru's source;
+every other saved field matches recursively. It physically grips the top torso
+at 67.267 s, releases upright on support at 104.533 s (30.483 N, up 0.999985),
+and the biped finishes assisted settling at 106.533 s. The porter case still
+passes identically. No poses, forces, assistance motors or tick rates changed.
 
-The suspended biped's attachment is 1.46–1.55 m laterally offset from its
-whole-body center-of-mass axis. All ten joints settle near zero angle; late
-ankle rates are about 0.0002 rad/s, with no sole self-contact. Do not change the
-assisted motor controller without evidence of a separate failure.
+`rescue-walking-v1` continues that same world for another 180 s with no source
+changes. Independent rotated-foot/contact checks count 5/5 clean placements,
+seven alternations, maximum accepted stance slip 0.0341 m, minimum up 0.987124,
+and zero recovery cycles. All 169 original actors remain; no controller faults
+or deaths occur. This proves walking, not merely displacement or a counter.
 
-Acceptance: a timed-out physical rescue must keep its grip while lowering onto
-actual external support. It must never count a failed setdown as a rescue.
-Use observed shape/center-of-mass geometry for any regrip improvement and prove
-the patient can settle and resume ordinary walking. Preserve the successful
-porter rescue regression, actuator forces, body poses and normal physics.
+Exact source SHA-256:
+`fba73958594ebe48679e1bb8d2f68fe2adbdcc9216d1a674f94828b3b71b9586`.
+The source diff and real-grip/support proof are retained in
+`centered-rescue-v1/controller.diff` and `centered-rescue-v1/comparison.json`.

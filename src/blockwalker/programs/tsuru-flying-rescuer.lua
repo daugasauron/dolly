@@ -34,20 +34,20 @@ return function(t,s,m)
   end
   local tx,tz=m.home[1],m.home[2];local height=math.max(12,s.ground+10);local length=3;local power=false;local payload=0
   if target and m.phase~='seek' then
-    local eye,top;local support=0
-    for _,p in ipairs(s.parts(target.id)) do
+    local eye,top;local support=0;local observed=s.parts(target.id)
+    for _,p in ipairs(observed) do
       support=support+(p.supportForce or 0)
       if p.body==0 and (not top or p.y>top.y) then top=p end
       if p.joint==6 and p.body==0 then eye=p end
     end
     local point=eye or top or target
-    if m.wheeled then
-      local observed=s.parts(target.id);local q=observed[1].rotation
+    do
+      local q=observed[1].rotation
       local x,y,z,w=q[1],q[2],q[3],q[4]
       local up={2*(x*y-z*w),1-2*(x*x+z*z),2*(y*z+x*w)}
       local com=target.centerOfMass;local best
       for _,p in ipairs(observed) do
-        if p.joint~=4 then
+        if p.joint~=4 and (m.wheeled or p.body==0) then
           local dx,dy,dz=p.x-com[1],p.y-com[2],p.z-com[3]
           local vertical=dx*up[1]+dy*up[2]+dz*up[3]
           local horizontal=math.sqrt(math.max(0,dx*dx+dy*dy+dz*dz-vertical*vertical))
