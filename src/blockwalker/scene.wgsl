@@ -222,10 +222,10 @@ fn water_normal(p:vec2f)->vec3f {
                     color=mix(color,vec3f(.16,.27,.21),tide*.6);
                 }
                 if(b.style.z>0&&abs(position.x)>b.style.z&&abs(position.z)<b.style.w&&position.y>scene.world.w&&b.style.x!=6){
-                    let paint=select(vec3f(.24,.38,.55),vec3f(.63,.29,.23),position.x>0);
+                    let paint=select(vec3f(.30,.37,.44),vec3f(.48,.35,.31),position.x>0);
                     let worn=.72+.20*hash(floor(position.xz*2));
                     let light=.69+.31*max(0,dot(normal,sun));
-                    color=mix(color,paint*worn*light,select(.65,.86,normal.y>.5));
+                    color=mix(color,paint*worn*light,select(.22,.45,normal.y>.5));
                     if(normal.y>.5&&abs(position.x)-b.style.z<1.4){
                         let stripe=step(.5,fract((abs(position.x)+position.z)*.35));
                         color=mix(paint*.40,vec3f(.76,.73,.59),stripe)*worn;

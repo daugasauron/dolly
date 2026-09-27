@@ -56,3 +56,8 @@ Artillery frequency is not certified by this layout task: v2 fired once at an
 opposing collector from the new base position; final v3 loaded both slingshots
 but recorded no shots. Repeated interception/reuse remains tracked in
 `20260927-081800-codex-projectile-tethers`.
+
+Palette refinement: reduced saturation and ground/wall tint coverage while
+retaining team units, gates and boundary stripes. Verified actual Firefox
+base/overview renders in `build/base-colors-20260927/`; package checks preserve
+the other images and saves.

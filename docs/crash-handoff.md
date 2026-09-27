@@ -16,6 +16,10 @@ Design Library remains available. `build/workshop-start-20260927/proof.json`
 verifies the default car, removed click targets, library selection and reopening
 the saved design in Firefox. Only Blockwalker was rebuilt (62.8 s).
 
+The base palette is now less saturated, with lighter tint coverage so the
+original terrain/building textures show through. Actual Firefox base/overview
+captures and package verification are in `build/base-colors-20260927/`.
+
 ## Current world
 
 87 starting characters, 1,956 parts, 45 Lua programs at 20 Hz. Physics remains
@@ -23,7 +27,7 @@ the saved design in Firefox. Only Blockwalker was rebuilt (62.8 s).
 All C/C++ compilation still occurs inside Dolly wasm64.
 
 Terrain 7 stages blue units west of x=-48 and red units east of x=48, with the
-96 m wide neutral combat area between them. Team-painted ground, striped front
+96 m wide neutral combat area between them. Muted team-tinted ground, striped front
 boundaries, tall gate frames and rear beacons distinguish the bases. All team
 blueprints use matching paint with dark metal mechanisms. Guns, loaders and
 ammunition begin inside their respective bases. Scouts and guards move toward
@@ -81,8 +85,8 @@ Evidence: `build/base-zones-20260927/`.
   56 other image/runtime assets. Selected image build completes in 61.3 s.
 
 Snapshot: 252,462,410 bytes,
-`3c6a2d7089ffc2306cb2df89618cae858f7ea2b8d4ac828e6fd83e9ca6df284e`.
-Source tar: `227843fd54301d2dcf8f48c444db8951ab1e41721d16f7ac0de59ec1d4bbe9b9`.
+`a835bf6eb6279f707404f3afd8686659124f5f1cc36705021677c2203cdf0e45`.
+Source tar: `0ba676d3822a220355f80f4c417339c5514b510c02f4550738a393adc9bebd42`.
 Runtime identity remains
 `d9dee7375fb5ec91f293a97359d2e2f5a64bbb9a8e4fc7e15c848eb99a995299`.
 
