@@ -64,9 +64,10 @@ larger creation fits the camera to its current physical bounds.
 Eyes provide a first-person camera at the block's outward face. Its axis and sign
 set the view direction; the camera follows the block's actual rotation. Entering
 the world adds a manually controlled copy alongside the existing machines.
-Wheel driving uses physical differential motors. Other actuators retain their
-assigned keys. The starter's editable embedded program translates WASD into
-those motor commands; Program displays and exports its source. Driving hints show
+The starter car steers a hinged axle and drives its wheels at equal speeds.
+Its editable Lua driver discovers steering hinges from the wheel branches;
+older vehicles without a steering hinge retain differential steering. Other
+actuators retain their assigned keys. Program displays and exports the driver. Driving hints show
 the character's movement mode and magnet bindings. Without Eyes, entering a character uses the follow camera.
 
 The part palette also has telescoping pistons, one-way thrusters, wheels, magnets and turntables.
@@ -92,7 +93,7 @@ defaults to direction +1 and accepts -1.
 Winches connect their parent block to a freely swinging endpoint. Add a magnet
 or other blocks to that endpoint. One key reels in, the other pays out, and
 releasing both brakes. The inspector sets speed, maximum pull and cable capacity
-(up to 24 m, with a 1 m minimum reeled length). An underpowered motor cannot lift
+(up to 96 m). An underpowered motor cannot lift
 a heavy load; slack cable never pushes. Paid-out length survives saves separately
 from endpoint distance. The visible cable sags, but does not collide with or
 wrap around terrain.
@@ -264,25 +265,26 @@ Incomplete summaries are rejected. The browser/relay deadlines remain unchanged.
 Pi's main module is loaded before its SDK to avoid a QuickJS cyclic re-export
 resolution failure; no upstream Pi source is changed.
 
-After experimenting with the keys, Pi installs a JavaScript controller:
+After experimenting with the keys, Pi installs a Lua controller:
 
-```js
-function(t, sensors, memory, random) {
-  if (memory.phase === undefined) memory.phase = random();
-  return (t + memory.phase) % 1.2 < 0.6 ? "AW" : "QS";
-}
+```lua
+return function(t, sensors, memory, random)
+  memory.phase = memory.phase or random()
+  return (t + memory.phase) % 1.2 < 0.6 and "AW" or "QS"
+end
 ```
 
-Controllers default to 10 Hz; `program` can choose `hz: 1` for inert or slowly
-changing programs, or `20`, `30` and `60` for feedback control. Saved programs
-retain their configured rates. They run in separate bare QuickJS contexts with no I/O or game API. A string holds keys at full
-strength; an object such as `{A: 0.35, S: 0.6}` applies proportional output.
+Controllers default to 20 Hz, as do all catalog programs. The API also accepts
+1, 10, 30 and 60 Hz; saves retain their configured rates. Controllers run in
+separate Lua states with no I/O. A string holds keys at full
+strength; a table such as `{A = 0.35, S = 0.6}` applies proportional output.
 Opposite key strengths subtract. Values must be finite numbers from zero to one,
 and every key must be assigned. Output scales motor target speed or thruster
 force, within the part's configured limits. The C physics still runs at 60 Hz.
 `inspect_program` reads the currently installed source and rate without changing it.
 
 `release_creature` accepts `team: 1` for East, `2` for West or `0` for neutral.
+Its optional `cargo` boolean allows programmable payloads such as tether rounds.
 Shared-world controllers may include `radio: {kind, cargo}` in an output object.
 Kinds are `sight`, `claim`, `ready` and `release`, limited to one message per
 sender every three simulation seconds. Sight and readiness require cargo within
@@ -315,16 +317,18 @@ pauses after the trial. The same controller implementation runs released creatur
 | `submerged` | Per-part fraction in water, from 0 to 1 |
 | `id`, `cargoDelivered` | Shared-world identity and lifetime delivery count |
 | `nearby` | All objects within 48 m, nearest first, with pose, root velocity (`vx`, `vy`, `vz`), bounds, mass, team, `up`, `fallenSeconds`, `controllerStopped` and cargo state; `carriedBy` identifies the carrier, `magnetHeld` distinguishes grip from riding a deck, and `visible` reports terrain-clear sight; `supply` is 0 (manual), 1 (parcel), 2 (ore) or 3 (mine sample); empty in practice |
+| `bounds(id)` | Current collision-shape AABBs for an object within 48 m; each includes its owning `body`, x/z centre, half extents and low/high Y |
+| `parts(id)` | Ordered part observations within 48 m: `joint`, `parent`, `body`, x/y/z, quaternion `rotation`, `axisX/Y/Z`, `force`, `travel`, `angle`, `size`, `supportForce`, and a magnet's held object `target` (0 when free); indices in `parent`/`body` are zero-based |
 | `groundSamples` | World XYZ terrain samples, eight compass directions at 6 m then 16 m, beginning at +Z |
 | `terrain` | Terrain bounds within 24 m horizontally: `x/z`, `halfX/halfZ`, `low/high`, including below an aircraft; check the whole landing column |
 | `obstacles` | The terrain subset whose top is at least root Y minus 0.2 m |
 | `depots` | Delivery areas with name, x/z, radius and team |
 | `team`, `worldTime`, `radio` | Team identity, shared simulation clock and recent team messages; message times use `worldTime`, not a newly released controller's age |
 
-Vectors are three-element arrays. Initial body axes are +X right, +Y up, +Z
-forward. For a two-wheel vehicle facing +Z with axles along X,
-`Math.atan2(s.gravity[2], -s.gravity[1])` measures signed pitch and
-`s.gyroscope[0]` gives pitch rate. Controller memory can hold an integral term;
+Vectors are three-element arrays. Initial body axes are +Y up and +Z
+forward; an Eyes camera looking +Z sees −X on its right. For a two-wheel vehicle facing +Z with axles along X,
+`math.atan(s.gravity[3], -s.gravity[2])` measures signed pitch and
+`s.gyroscope[1]` gives pitch rate. Controller memory can hold an integral term;
 there is no built-in stabilizer. A browser experiment with three vertical boxes
 and two wheels recovered from a drive pulse using pitch, pitch rate and velocity
 feedback; the same body with feedback disabled fell. The integration check also
@@ -334,6 +338,8 @@ thrust, and verifies recovery and saved-world continuation.
 Check for missing observations before using a saved object ID: objects beyond
 the observation radius leave `nearby`. Use the actual magnet attachment when
 deciding whether a pickup succeeded.
+Set `memory.status` to a short activity description for the selected character's
+sidebar; a string `memory.phase` is displayed when no status is supplied.
 
 Each controller has a seeded random function, 4 MiB memory and an interpreter
 execution budget. A failed controller stops its commands and retains the body,
@@ -388,12 +394,11 @@ anchored piston loops, loaded winches, slack, builder controls and save/restore.
 round trips, restored magnetic loads and cargo credit, corrupt inputs and failed
 writes. Both checks accept a source tar path for compilation inside an existing
 image. The import check optionally accepts an older world file as a third argument.
-`test/blockwalker-driver-browser.mjs` verifies driving, the Eyes camera, a tilted
-turntable and physical cargo delivery with save/reload and one-time credit. Pass
-a source tar path to compile an edited source tree inside the existing image.
-Its optional third argument selects a C fixture; use
-`test/fixtures/blockwalker-competition.c` for repeated freight handoffs,
-crowded-sensor recovery and reloads while carrying pallets.
+`test/blockwalker-driver-browser.mjs` verifies keyboard steering, the Eyes camera,
+and Lua program import/restart. Pass a source tar path to compile edited code
+inside the existing image. `test/blockwalker-controller-browser.mjs` accepts a
+C fixture path; `test/fixtures/blockwalker-mechanics.c` checks observed parts,
+programmable cargo ownership/scoring, long cables and saved-world continuation.
 `test/fixtures/blockwalker-traffic.c` replays a loaded barge pinned against a
 patrol boat and requires physical escape and island delivery after a reload.
 `test/blockwalker-spectator-browser.mjs` checks ride-along Eyes against actual

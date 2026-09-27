@@ -81,7 +81,7 @@ static int character_valid(const Character *c,int legacy) {
         if(b.y<0||b.parent>=i||b.parent< -1||(i==0?b.parent!=-1:b.parent<0)||
            b.color<0||b.color>=COLOR_COUNT||b.joint<0||b.joint>=BLOCK_KINDS||b.axis<0||b.axis>2||b.material<0||b.material>=MATERIAL_COUNT||b.finish<0||b.finish>=FINISH_COUNT||
            b.size<0||b.size>4||(b.joint!=BLOCK_TURNTABLE&&b.size>1)||
-           !isfinite(b.speed)||b.speed<.5f||b.speed>6||!isfinite(b.limit)||b.limit<15||b.limit>150||!isfinite(b.travel)||b.travel<(b.joint==BLOCK_WINCH?1:.25f)||b.travel>(b.joint==BLOCK_WINCH?24:3)||!isfinite(b.force)||b.force<2||b.force>block_force_max(b)||(b.direction!=1&&b.direction!=-1))return 0;
+           !isfinite(b.speed)||b.speed<.5f||b.speed>6||!isfinite(b.limit)||b.limit<15||b.limit>150||!isfinite(b.travel)||b.travel<(b.joint==BLOCK_WINCH?1:.25f)||b.travel>(b.joint==BLOCK_WINCH?WINCH_MAX_TRAVEL:3)||!isfinite(b.force)||b.force<2||b.force>block_force_max(b)||(b.direction!=1&&b.direction!=-1))return 0;
         long long lo[3],hi[3];block_cells(b,lo,hi);if(lo[1]<0)return 0;
         if(b.parent>=0&&!blocks_connected(c->blocks[b.parent],b))return 0;
         for(int j=0;j<i;j++)if(blocks_overlap(c->blocks[j],b))return 0;
@@ -179,14 +179,18 @@ void character_preset(Character *c,int walker) {
 void character_car(Character *c){
     c->count=0;c->anchored=0;
     character_add(c,-1,0,1,0,BLOCK_BOX,0);
-    int front=character_add(c,0,0,1,1,BLOCK_BOX,0),rear=character_add(c,0,0,1,-1,BLOCK_BOX,0);
+    int nose=character_add(c,0,0,1,1,BLOCK_BOX,0);
+    int steering=character_add(c,nose,0,1,2,BLOCK_HINGE,1);
+    c->blocks[steering].axis=1;c->blocks[steering].limit=35;c->blocks[steering].force=60;
+    c->blocks[steering].negative='J';c->blocks[steering].positive='L';
+    int front=character_add(c,steering,0,1,3,BLOCK_BOX,0),rear=character_add(c,0,0,1,-1,BLOCK_BOX,0);
     for(int i=0;i<4;i++){
-        int wheel=character_add(c,i<2?front:rear,i%2?1:-1,1,i<2?1:-1,BLOCK_WHEEL,1);
+        int wheel=character_add(c,i<2?front:rear,i%2?1:-1,1,i<2?3:-1,BLOCK_WHEEL,1);
         c->blocks[wheel].axis=0;c->blocks[wheel].speed=4;c->blocks[wheel].force=12;
         c->blocks[wheel].negative='1'+i*2;c->blocks[wheel].positive='2'+i*2;
     }
-    int eye=character_add(c,front,0,2,1,BLOCK_EYES,5);c->blocks[eye].axis=2;c->blocks[eye].direction=1;
-    int magnet=character_add(c,front,0,1,2,BLOCK_MAGNET,1);c->blocks[magnet].negative='Q';c->blocks[magnet].positive='E';
+    int eye=character_add(c,0,0,2,0,BLOCK_EYES,5);c->blocks[eye].axis=2;c->blocks[eye].direction=1;
+    int magnet=character_add(c,front,0,1,4,BLOCK_MAGNET,1);c->blocks[magnet].negative='Q';c->blocks[magnet].positive='E';
     for(int i=0;i<c->count;i++)c->blocks[i].finish=i==magnet?FINISH_STRIPE:FINISH_PANEL;
 }
 int character_save(const Character *c,const char *path) {

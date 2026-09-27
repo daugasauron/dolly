@@ -16,6 +16,15 @@ struct Controller {Data *ctx;Value function,memory,random,blueprint;char *source
 enum {REMOVAL_CONTROLLER,REMOVAL_POSTURE,REMOVAL_SUNK,REMOVAL_NONFINITE,REMOVAL_TERRAIN,REMOVAL_CAUSES};
 static const char *removal_causes[]={"controller","posture","sunk","nonfinite","terrain"};
 World world;
+void world_creature_status(int id,char *text,size_t size){
+    if(!size)return;text[0]=0;Creature *c=world_find(id);if(!c||!c->controller)return;
+    Data *ctx=c->controller->ctx;Value message=value_get(ctx,c->controller->memory,"status");
+    if(!value_is_string(message)){value_free(ctx,message);message=value_get(ctx,c->controller->memory,"phase");}
+    if(value_is_string(message)){
+        value_push(ctx,message);size_t length;const char *value=lua_tolstring(ctx->lua,-1,&length);
+        if(length>=size)length=size-1;memcpy(text,value,length);text[length]=0;lua_pop(ctx->lua,1);
+    }value_free(ctx,message);
+}
 static char *installed;static char installed_name[64]="Creature";static int installed_hz=CONTROLLER_DEFAULT_HZ;
 static Controller *trial;static float trial_controls[128];
 static struct {float fallen,height;int cause,steps;char detail[160];} trial_status={.cause=-1};
@@ -309,13 +318,33 @@ static void environment_sensors(Data *ctx,Value s,const Physics *p,Vector3 origi
     lua_newtable(L);lua_pushcclosure(L,environment_read,2);lua_setfield(L,-2,"__index");lua_pushcfunction(L,environment_pairs);lua_setfield(L,-2,"__pairs");lua_setmetatable(L,-2);lua_pop(L,1);
 }
 
-static int collision_bounds(lua_State *L){
+static Creature *observed_target(lua_State *L){
     lua_Number number=luaL_checknumber(L,1);
-    if(!isfinite(number)||number<1||number>INT32_MAX||number!=floor(number))return luaL_error(L,"bounds requires an object ID");
+    if(!isfinite(number)||number<1||number>INT32_MAX||number!=floor(number)){luaL_error(L,"Observation requires an object ID");return NULL;}
     Creature *observer=world_find(lua_tointeger(L,lua_upvalueindex(1))),*target=world_find((int)number);
-    lua_newtable(L);if(!observer||!target)return 1;
+    if(!observer||!target)return NULL;
     b3Pos from=physics_position(&observer->physics.parts[0]),to=physics_position(&target->physics.parts[0]);
-    if(hypotf(from.x-to.x,from.z-to.z)>48)return 1;
+    return hypotf(from.x-to.x,from.z-to.z)<=48?target:NULL;
+}
+static int observed_parts(lua_State *L){
+    Creature *target=observed_target(L);lua_newtable(L);if(!target)return 1;
+    ContactForces *contacts=part_contacts(&target->physics);
+    for(int i=0;i<target->design.count;i++){
+        Block b=target->design.blocks[i];PhysicsPart *part=&target->physics.parts[i];b3WorldTransform pose=physics_transform(part);
+        lua_createtable(L,0,16);
+        const char *keys[]={"joint","parent","body","x","y","z","force","travel","angle","size"};
+        double values[]={b.joint,b.parent,part->owner,pose.p.x,pose.p.y,pose.p.z,b.force,b.travel,part->angle,block_size(b)};
+        for(int j=0;j<10;j++){lua_pushnumber(L,values[j]);lua_setfield(L,-2,keys[j]);}
+        lua_createtable(L,4,0);for(int j=0;j<4;j++){lua_pushnumber(L,((float *)&pose.q)[j]);lua_rawseti(L,-2,j+1);}lua_setfield(L,-2,"rotation");
+        lua_pushnumber(L,contacts[i].support);lua_setfield(L,-2,"supportForce");
+        b3Vec3 axis={0};((float *)&axis)[b.axis]=b.direction;axis=b3RotateVector(pose.q,axis);
+        const char *axes[]={"axisX","axisY","axisZ"};for(int j=0;j<3;j++){lua_pushnumber(L,((float *)&axis)[j]);lua_setfield(L,-2,axes[j]);}
+        if(b.joint==BLOCK_MAGNET){Creature *held=b3Body_IsValid(part->magnet_target)?body_owner(part->magnet_target):NULL;lua_pushinteger(L,held?held->id:0);lua_setfield(L,-2,"target");}
+        lua_rawseti(L,-2,i+1);
+    }free(contacts);return 1;
+}
+static int collision_bounds(lua_State *L){
+    Creature *target=observed_target(L);lua_newtable(L);if(!target)return 1;
     for(int i=0;i<target->physics.shape_count;i++){
         PhysicsShape *shape=&target->physics.shapes[i];b3AABB box=b3Shape_GetAABB(shape->id);
         lua_createtable(L,0,7);
@@ -422,7 +451,8 @@ static int controller_call(lua_State *L){
     if(!lua_checkstack(L,512+5*world.count+4*design->count))return luaL_error(L,"Controller stack limit exceeded");int base=lua_gettop(L);ctx->scratch=1;
     Value sensors=physics_sensors(ctx,p,design,dt);
     value_set(ctx,sensors,"blueprint",value_copy(ctx,controller->blueprint));
-    value_push(ctx,sensors);lua_pushinteger(L,get_number(ctx,sensors,"id",0));lua_pushcclosure(L,collision_bounds,1);lua_setfield(L,-2,"bounds");lua_pop(L,1);
+    value_push(ctx,sensors);lua_pushinteger(L,get_number(ctx,sensors,"id",0));lua_pushcclosure(L,collision_bounds,1);lua_setfield(L,-2,"bounds");
+    lua_pushinteger(L,get_number(ctx,sensors,"id",0));lua_pushcclosure(L,observed_parts,1);lua_setfield(L,-2,"parts");lua_pop(L,1);
     Value input=value_table(ctx),pressed=value_table(ctx);Creature *player=world.player?world_find(world.player):NULL;
     if((player&&&player->physics==p)||controller==trial){
         for(int k=1;k<128;k++){char key[2]={k,0};if(world.input[k])put_number(ctx,input,key,1);if(world.pressed[k])put_number(ctx,pressed,key,1);}memset(world.pressed,0,sizeof(world.pressed));
@@ -566,7 +596,7 @@ int world_drop_cargo(float x,float y,float z,int material){
 static void update_magnet_owners(void){
     for(int i=0;i<world.count;i++){world.creatures[i].held_by=0;world.creatures[i].magnet_count=0;}
     for(int i=0;i<world.count;i++){
-        Creature *holder=&world.creatures[i];if(holder->cargo)continue;
+        Creature *holder=&world.creatures[i];
         for(int j=0;j<holder->design.count;j++){
             b3BodyId body=holder->physics.parts[j].magnet_target;if(!b3Body_IsValid(body))continue;
             Creature *target=body_owner(body);if(target){target->magnet_count++;if(!target->held_by)target->held_by=holder->id;}
@@ -615,6 +645,8 @@ static void cargo_step(void){
             if(!cargo->carrier)cargo->pickup=(Vector3){p.x,p.y,p.z};
             cargo->carrier=owner->id==world.player?-1:owner->id;cargo->settled=0;continue;
         }
+        int attached=0;for(int j=0;j<cargo->design.count;j++)attached|=b3Body_IsValid(cargo->physics.parts[j].magnet_target);
+        if(attached){cargo->settled=0;continue;}
         int depot=-1;
         for(int j=0;j<depot_count;j++){Depot d=depots[j];
             if(hypotf(p.x-d.x,p.z-d.z)<d.radius-.5f&&hypotf(cargo->pickup.x-d.x,cargo->pickup.z-d.z)>d.radius+1&&
@@ -687,9 +719,12 @@ Value world_release(Data *ctx,const Character *design,Value args){
     float x=get_number(ctx,args,"x",cosf(angle)*radius),z=get_number(ctx,args,"z",sinf(angle)*radius);
     if(!isfinite(x)||!isfinite(z)||fabsf(x)>WORLD_RADIUS-8||fabsf(z)>WORLD_RADIUS-8)return value_error(ctx,"Spawn must be inside the 512 m world; the sea surrounds the central 200 m ground");
     double team=get_number(ctx,args,"team",0);if(!isfinite(team)||team<0||team>2||team!=floor(team))return value_error(ctx,"Team must be 0 (neutral), 1 (East) or 2 (West)");
+    Value cargo=value_get(ctx,args,"cargo");int payload=value_is_bool(cargo)?value_truth(ctx,cargo):-1,valid=value_is_nil(cargo)||value_is_bool(cargo);value_free(ctx,cargo);
+    if(!valid)return value_error(ctx,"Cargo must be a boolean");
     Creature *c=spawn(design,installed,installed_name,(uint32_t)get_number(ctx,args,"seed",index+1),installed_hz,x,z);
     if(!c)return value_error(ctx,"Controller failed to initialize");
     c->team=team;
+    if(payload>=0)c->cargo=payload;
     remember_design(design,installed,installed_name,installed_hz,x,z);
     printf("CREATURE %d born: %s, %d parts\n",c->id,c->name,c->design.count);return value_number(ctx,c->id);
 }
@@ -927,7 +962,7 @@ static void load_designs_version(Data *ctx,Value list,int populate,int legacy){
             Controller *probe=source&&valid_controller_hz(hz)?controller_new(source,1,hz):NULL;
             if((probe||(!populate&&!source))&&isfinite(x)&&isfinite(z)&&(!elevated||(isfinite(y)&&y>=-12&&y<=128))){
                 x=Clamp(x,-248,248);z=Clamp(z,-248,248);remember_design(&c,source,name,hz,x,z);
-                if(populate){Creature *born=spawn(&c,source,name,i+1,hz,x,z);if(born){int team=get_number(ctx,item,"team",0);born->team=team==1||team==2?team:0;if(elevated)set_spawn_height(born,y);}}
+                if(populate){Creature *born=spawn(&c,source,name,i+1,hz,x,z);if(born){int team=get_number(ctx,item,"team",0);born->team=team==1||team==2?team:0;Value cargo=value_get(ctx,item,"cargo");if(value_is_bool(cargo))born->cargo=value_truth(ctx,cargo);value_free(ctx,cargo);if(elevated)set_spawn_height(born,y);}}
             }controller_free(probe);value_text_free(ctx,source);value_text_free(ctx,name);
         }character_clear(&c);value_free(ctx,item);value_free(ctx,blueprint);value_free(ctx,code);value_free(ctx,label);
     }
@@ -1058,7 +1093,7 @@ static void restore_world(Data *ctx,Value save,int fresh){
     for(int i=0;i<world.count;i++){
         Creature *target=&world.creatures[i];int holder=0;target->magnet_count=0;
         for(int j=0;j<world.count;j++){
-            Creature *candidate=&world.creatures[j];if(candidate->cargo)continue;
+            Creature *candidate=&world.creatures[j];
             for(int k=0;k<candidate->design.count;k++){
                 b3BodyId body=candidate->physics.parts[k].magnet_target;
                 if(b3Body_IsValid(body)&&b3Body_GetUserData(body)==target->physics.parts){target->magnet_count++;if(!holder)holder=candidate->id;}

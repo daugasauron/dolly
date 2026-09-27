@@ -10,6 +10,7 @@ enum { FINISH_PLAIN,FINISH_PANEL,FINISH_GLOW,FINISH_STRIPE,FINISH_COUNT };
 #define HINGE_HALF .376f
 #define TURNTABLE_RADIUS .485f
 #define TURNTABLE_HALF .16f
+#define WINCH_MAX_TRAVEL 96
 typedef struct {
     int x,y,z,parent,joint,color,axis,negative,positive;
     float speed,limit,travel,force;

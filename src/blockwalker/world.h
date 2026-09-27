@@ -23,6 +23,7 @@ Value world_state(Data *ctx);
 Value world_install(Data *ctx,Value args);
 Value world_program(Data *ctx);
 Value world_creature_program(Data *ctx,int id);
+void world_creature_status(int id,char *text,size_t size);
 Value world_release(Data *ctx,const Character *design,Value args);
 Value world_designs(Data *ctx,int full);
 Value world_open_design(Data *ctx,int index,Character *design);

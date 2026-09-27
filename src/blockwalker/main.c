@@ -392,7 +392,7 @@ edit_view:
         }
         for(int key=b->joint==BLOCK_THRUSTER?1:0;key<2;key++)if(inside(b->joint==BLOCK_THRUSTER?1036:1036+key*116,336,b->joint==BLOCK_THRUSTER?220:104,44)){binding=key;dirty=1;say("Press a letter or number for this direction. Esc cancels.");return;}
         if(inside(1036,436,40,36)||inside(1216,436,40,36)){remember();if(b->joint==BLOCK_THRUSTER||b->joint==BLOCK_MAGNET)b->force=Clamp(b->force+(mouse_x<1100?-2:2),2,100);else b->speed=Clamp(b->speed+(mouse_x<1100?-.5f:.5f),.5f,6);changed();return;}
-        if(inside(1036,532,40,36)||inside(1216,532,40,36)){remember();if(b->joint==BLOCK_WINCH)b->travel=Clamp(b->travel+(mouse_x<1100?-.5f:.5f),1,24);else if(b->joint==BLOCK_PISTON)b->travel=Clamp(b->travel+(mouse_x<1100?-.25f:.25f),.25f,3);else if(b->joint==BLOCK_HINGE)b->limit=Clamp(b->limit+(mouse_x<1100?-15:15),15,150);else if(b->joint==BLOCK_WHEEL||b->joint==BLOCK_TURNTABLE)b->force=Clamp(b->force+(mouse_x<1100?-2:2)*block_size(*b)*block_size(*b),2,block_force_max(*b));changed();return;}
+        if(inside(1036,532,40,36)||inside(1216,532,40,36)){remember();if(b->joint==BLOCK_WINCH)b->travel=Clamp(b->travel+(mouse_x<1100?-.5f:.5f),1,WINCH_MAX_TRAVEL);else if(b->joint==BLOCK_PISTON)b->travel=Clamp(b->travel+(mouse_x<1100?-.25f:.25f),.25f,3);else if(b->joint==BLOCK_HINGE)b->limit=Clamp(b->limit+(mouse_x<1100?-15:15),15,150);else if(b->joint==BLOCK_WHEEL||b->joint==BLOCK_TURNTABLE)b->force=Clamp(b->force+(mouse_x<1100?-2:2)*block_size(*b)*block_size(*b),2,block_force_max(*b));changed();return;}
     }else if(selected>0&&inside(1036,248,220,42)){
         Character copy={0};character_copy(&copy,&design);Block old=copy.blocks[selected];
         // Obtain an unused pair without changing the character's attachment tree.
@@ -526,7 +526,7 @@ static void draw_ui(void){
         button(24,612,194,28,"Export world",0);button(24,642,194,28,"Import world",0);
         if(!agent_panel){
             label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?movement:"Drops at the camera target.",14,muted);if(piloting)label(1036,168,magnets,14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
-            if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
+            if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);world_creature_status(c->id,text,32);label(1036,264,text,12,muted);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
             cargo_status(text,sizeof(text));label(1036,328,text,14,accent);
             if(terrain_version){
                 label(1036,354,"ISLAND CARGO CUP",17,muted);snprintf(text,sizeof(text),"East %d",world_team_score(1));label(1036,385,text,18,block_colors[world_team_color(1)]);snprintf(text,sizeof(text),"West %d",world_team_score(2));label(1152,385,text,18,block_colors[world_team_color(2)]);
