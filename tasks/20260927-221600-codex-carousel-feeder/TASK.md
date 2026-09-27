@@ -41,4 +41,4 @@ Evidence: `build/action-front-20260927/nekote-full-v7/`, `nekote-resume-v7/`, an
 The retained `blockwalker-carousel-feeder.c` regression uses three real actors
 and the warehouse terrain: pickup 78.667 s, supported placement 238.617 s,
 carousel grip 249.333 s. The exact fixture compiles/runs inside Dolly with no
-faults or network escape (`build/action-front-20260927/nekote-regression/`).
+faults (`build/action-front-20260927/nekote-regression/`).

@@ -43,3 +43,21 @@ The exact maintained `blockwalker-observation.c` fixture now passes inside
 Dolly against the actual mature world: all 163 articulated-character pairs are
 bit-identical to uncached distances before and after 90 physics steps, with no
 controller errors. Evidence: `build/action-front-20260927/observation-exact/`.
+
+A second generic optimization avoids constructing sensors for fixed-arity Lua
+controllers that accept only time or no arguments. They still execute every
+scheduled update, retaining errors, controls, memory, random state, and input
+consumption. Variadic and native callbacks retain all four arguments. Lua's
+actual function metadata determines this; no character names or source patterns
+are involved.
+
+A paired reference/optimized/optimized/reference replay of the same mature
+163-actor world measures 6438.3 versus 5852.8 ms for 600 simulation steps (9.09%
+less simulation time). All 224,550 saved state fields match exactly across all
+four runs. Six callback contract cases also pass, covering stateful no-argument
+functions, time-only functions, retained blueprints/input, varargs, deterministic
+random/memory and error propagation. Evidence: `build/action-front-20260927/arity-v1/`
+and `build/overnight-20260928/arity/proof-v1.json`. Normal rendered-game integration
+is still pending; this measurement is simulation cost, not an FPS claim.
+The exact retained `blockwalker-controller-arguments.c` fixture additionally
+passes native-callback argument behavior inside Dolly (`arity-retained/`).

@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-struct Controller {Data *ctx;Value function,memory,random,blueprint;char *source;uint32_t seed;int hz,last_step,exhausted,remaining;char error[160];};
+struct Controller {Data *ctx;Value function,memory,random,blueprint;char *source;uint32_t seed;int hz,last_step,exhausted,remaining,parameters;char error[160];};
 enum {REMOVAL_CONTROLLER,REMOVAL_POSTURE,REMOVAL_SUNK,REMOVAL_NONFINITE,REMOVAL_TERRAIN,REMOVAL_CAUSES};
 static const char *removal_causes[]={"controller","posture","sunk","nonfinite","terrain"};
 World world;
@@ -73,7 +73,8 @@ static int controller_initialize(lua_State *L){
     if(luaL_loadfilex(L,"/usr/src/dolly/blockwalker/controller.lua","t")||lua_pcall(L,0,0,0))return lua_error(L);
     lua_pushcfunction(L,script_hypot);lua_setglobal(L,"hypot");lua_pushcfunction(L,script_at);lua_setglobal(L,"at");
     if(luaL_loadbufferx(L,c->source,strlen(c->source),"controller","t")||lua_pcall(L,0,1,0))return lua_error(L);
-    if(!lua_isfunction(L,-1))return luaL_error(L,"Controller must return a function");c->function=value_take(d);
+    if(!lua_isfunction(L,-1))return luaL_error(L,"Controller must return a function");
+    lua_Debug args;lua_pushvalue(L,-1);lua_getinfo(L,">u",&args);c->parameters=args.isvararg?4:args.nparams;c->function=value_take(d);
     c->memory=value_table(d);lua_pushcfunction(L,random_number);c->random=value_take(d);return 0;
 }
 static Controller *controller_new(const char *source,uint32_t seed,int hz){
@@ -499,16 +500,20 @@ typedef struct {Controller *controller;const Physics *physics;const Character *d
 static int controller_call(lua_State *L){
     ControlCall *call=lua_touserdata(L,1);Controller *controller=call->controller;const Physics *p=call->physics;const Character *design=call->design;Data *ctx=controller->ctx;
     double dt=controller->last_step<0?1.0/controller->hz:(p->steps-controller->last_step)/60.0;controller->last_step=p->steps;
-    if(value_is_nil(controller->blueprint))controller->blueprint=character_data(ctx,design);
+    if(controller->parameters>=2&&value_is_nil(controller->blueprint))controller->blueprint=character_data(ctx,design);
     if(!lua_checkstack(L,512+5*world.count+4*design->count))return luaL_error(L,"Controller stack limit exceeded");int base=lua_gettop(L);ctx->scratch=1;
-    Value sensors=physics_sensors(ctx,p,design,dt);
-    value_set(ctx,sensors,"blueprint",value_copy(ctx,controller->blueprint));
-    value_push(ctx,sensors);lua_pushinteger(L,get_number(ctx,sensors,"id",0));lua_pushcclosure(L,collision_bounds,1);lua_setfield(L,-2,"bounds");
-    lua_pushinteger(L,get_number(ctx,sensors,"id",0));lua_pushcclosure(L,observed_parts,1);lua_setfield(L,-2,"parts");lua_pop(L,1);
-    Value input=value_table(ctx),pressed=value_table(ctx);Creature *player=world.player?world_find(world.player):NULL;
-    if((player&&&player->physics==p)||controller==trial){
-        for(int k=1;k<128;k++){char key[2]={k,0};if(world.input[k])put_number(ctx,input,key,1);if(world.pressed[k])put_number(ctx,pressed,key,1);}memset(world.pressed,0,sizeof(world.pressed));
-    }value_set(ctx,sensors,"input",input);value_set(ctx,sensors,"pressed",pressed);
+    Creature *player=world.player?world_find(world.player):NULL;int input_owner=(player&&&player->physics==p)||controller==trial;
+    Value sensors=VALUE_NIL;
+    if(controller->parameters>=2){
+        sensors=physics_sensors(ctx,p,design,dt);
+        value_set(ctx,sensors,"blueprint",value_copy(ctx,controller->blueprint));
+        value_push(ctx,sensors);lua_pushinteger(L,get_number(ctx,sensors,"id",0));lua_pushcclosure(L,collision_bounds,1);lua_setfield(L,-2,"bounds");
+        lua_pushinteger(L,get_number(ctx,sensors,"id",0));lua_pushcclosure(L,observed_parts,1);lua_setfield(L,-2,"parts");lua_pop(L,1);
+        Value input=value_table(ctx),pressed=value_table(ctx);
+        if(input_owner)for(int k=1;k<128;k++){char key[2]={k,0};if(world.input[k])put_number(ctx,input,key,1);if(world.pressed[k])put_number(ctx,pressed,key,1);}
+        value_set(ctx,sensors,"input",input);value_set(ctx,sensors,"pressed",pressed);
+    }
+    if(input_owner)memset(world.pressed,0,sizeof(world.pressed));
     value_push(ctx,controller->function);lua_pushnumber(L,p->steps/60.0);value_push(ctx,sensors);value_free(ctx,sensors);value_push(ctx,controller->memory);value_push(ctx,controller->random);ctx->scratch=0;lua_rotate(L,base+1,5);lua_settop(L,base+5);lua_call(L,4,1);
     int valid=1,radio_kind=-1,radio_cargo=0;float *controls=call->controls;
     if(lua_type(L,-1)==LUA_TSTRING){
