@@ -22,9 +22,17 @@ int main(void){
  local=parts(ctx,id,id,1);first=value_at(ctx,local,0);assert(fabs(get_number(ctx,first,"x",NAN))<1);value_free(ctx,first);value_free(ctx,local);
  local=parts(ctx,id,near,1);assert(value_length(ctx,local)==1);value_free(ctx,local);local=parts(ctx,id,far,1);assert(value_length(ctx,local)==0);value_free(ctx,local);
  local=parts(ctx,id,999999,1);assert(value_length(ctx,local)==0);value_free(ctx,local);
+ Character cable={0};cable.anchored=1;character_add(&cable,-1,0,2,0,BLOCK_BOX,0);int end=character_add(&cable,0,1,2,0,BLOCK_WINCH,1);cable.blocks[end].travel=96;
+ Creature *remote=spawn(&cable,"return function() return {} end","Remote cable",1,20,80,0);assert(remote);int remote_id=remote->id;
+ b3Body_SetTransform(remote->physics.parts[end].body,(b3Pos){1,2,0},b3Quat_identity);
+ local=parts(ctx,id,remote_id,1);assert(value_length(ctx,local)==2);value_free(ctx,local);
+ local=parts(ctx,remote_id,id,1);assert(value_length(ctx,local)==design.count);value_free(ctx,local);
+ car=world_find(id);Value scene=value_table(ctx);surroundings(ctx,scene,&car->physics,(Vector3){0,1,0});Value neighbors=value_get(ctx,scene,"nearby");int found=0;
+ for(int i=0;i<value_length(ctx,neighbors);i++){Value c=value_at(ctx,neighbors,i);found|=get_number(ctx,c,"id",0)==remote_id;value_free(ctx,c);}assert(found);value_free(ctx,neighbors);value_free(ctx,scene);
+ b3Body_SetTransform(remote->physics.parts[end].body,(b3Pos){60,2,0},b3Quat_identity);local=parts(ctx,id,remote_id,1);assert(!value_length(ctx,local));value_free(ctx,local);character_clear(&cable);
  double bad[]={0,-1,.5,INFINITY,NAN,2147483648.};for(int i=0;i<6;i++){Value e=parts(ctx,id,bad[i],0);value_free(ctx,e);}
  assert(world_save(ctx));world_close();world_load(ctx);step(12);car=world_find(id);Value sensed=value_get(car->controller->ctx,car->controller->memory,"observed");assert(value_length(car->controller->ctx,sensed)==design.count);value_free(car->controller->ctx,sensed);
- printf("OBSERVED PARTS: real articulated poses/axes, grounded wheel support %.5f N, fresh copies, range, invalid IDs and controller reload pass\n",support);
+ printf("OBSERVED PARTS: real articulated poses/axes, grounded wheel support %.5f N, fresh copies, remote cable endpoints, range, invalid IDs and controller reload pass\n",support);
  world_close();character_clear(&design);
  design.anchored=0;character_add(&design,-1,0,0,0,BLOCK_BOX,0);character_add(&design,0,1,0,0,BLOCK_MAGNET,3);design.blocks[1].axis=0;design.blocks[1].direction=1;design.blocks[1].positive='E';design.blocks[1].negative='Q';
  Creature *holder=spawn(&design,"return function(t,s,m) return m.off and {Q=1} or {E=1} end","Programmable cargo",1,20,-2,34);assert(holder);id=holder->id;holder->cargo=1;

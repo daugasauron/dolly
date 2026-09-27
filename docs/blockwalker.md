@@ -174,7 +174,15 @@ Each team also has a magnetic cargo slinger and a separate loading crane.
 The crane feeds ordinary light crates from finite stock. Shots follow the
 physics, can miss, and leave their cargo where it lands. The slinger holds its
 load when a target leaves range. These machines use editable character programs;
-the Quarry, Rivals, Red sling and Blue sling cameras visit their work areas.
+the Quarry, Red sling and Blue sling cameras visit their work areas.
+
+Each slinger starts with one Kusari magnetic tether round. Kanagu ground tugs
+grasp its trailing handle and pull after the head catches an opposing aircraft.
+Tsuru flying rescuers patrol for fallen friendly walkers and light vehicles,
+lifting them with a magnet on a winch and releasing after set-down. Select a
+character to read its current activity beneath its name. These mechanisms use
+ordinary blocks and editable Lua; walking after rescue and repeated round reuse
+remain unfinished.
 
 The late-1990s PlayStation art direction uses muted industrial paint, coarse
 surface detail, a 640×360 scene raster, 5-bit color dithering and coastal haze.
@@ -189,7 +197,7 @@ The design library keeps blueprints with their optional controller, anchor,
 materials and bindings. Save current also works for unprogrammed hand-built
 characters; those entries are marked manual. Releasing identical copies keeps one library entry; a
 fallen creature remains available to reopen. Existing world saves populate the
-library on first load. Library data lives in `blockwalker-world.json` alongside
+library on first load. Library data lives in `blockwalker-world.lua` alongside
 the population, so exporting the world also preserves its designs.
 The initial layout can place several copies of one design. Each has its own
 world identity, physics and controller state while sharing one library entry.
@@ -230,11 +238,11 @@ or backtick returns the joints to your keys. Pi can use `design_library` and
 `open_design` to reuse and improve earlier work instead of reconstructing it.
 
 The working blueprint is `/workspace/blockwalker.character`, reloaded when
-the program restarts. Workshop Export downloads `blockwalker-design.json`,
+the program restarts. Workshop Export downloads `blockwalker-design.lua`,
 containing the blueprint, optional program, frequency and test surface. Import
 restores those together and also accepts older `.character` blueprints. Invalid
 files leave the current design and program intact. The design format is
-`blockwalker-design`, version 1, with `source: null` for a manual design.
+`blockwalker-design`, version 5, with no source for a manual design.
 
 Pi is embedded in the game process through the QuickJS userspace library.
 Its tools call C functions directly: build, observe, reset, hold/release joint
@@ -316,9 +324,9 @@ pauses after the trial. The same controller implementation runs released creatur
 | `magnets` | Per-magnet `power` (0–1), `attached`, target `creature`/`part`, `load` (N), `targetMass` (kg), `targetSupportForce` (N) and `cargoSupportForce` (N); the latter sums external upward support over all cargo parts, excluding its own parts and holder |
 | `submerged` | Per-part fraction in water, from 0 to 1 |
 | `id`, `cargoDelivered` | Shared-world identity and lifetime delivery count |
-| `nearby` | All objects within 48 m, nearest first, with pose, root velocity (`vx`, `vy`, `vz`), bounds, mass, team, `up`, `fallenSeconds`, `controllerStopped` and cargo state; `carriedBy` identifies the carrier, `magnetHeld` distinguishes grip from riding a deck, and `visible` reports terrain-clear sight; `supply` is 0 (manual), 1 (parcel), 2 (ore) or 3 (mine sample); empty in practice |
-| `bounds(id)` | Current collision-shape AABBs for an object within 48 m; each includes its owning `body`, x/z centre, half extents and low/high Y |
-| `parts(id)` | Ordered part observations within 48 m: `joint`, `parent`, `body`, x/y/z, quaternion `rotation`, `axisX/Y/Z`, `force`, `travel`, `angle`, `size`, `supportForce`, and a magnet's held object `target` (0 when free); indices in `parent`/`body` are zero-based |
+| `nearby` | Objects with a rigid body within 48 m horizontally of any observer body, nearest body first, with pose, root velocity (`vx`, `vy`, `vz`), bounds, mass, team, `up`, `fallenSeconds`, `controllerStopped` and cargo state; `carriedBy` identifies the carrier, `magnetHeld` distinguishes grip from riding a deck, and `visible` reports terrain-clear sight; `supply` is 0 (manual), 1 (parcel), 2 (ore) or 3 (mine sample); empty in practice |
+| `bounds(id)` | Current collision-shape AABBs for an object with a rigid body within 48 m horizontally of any observer body; each includes its owning `body`, x/z centre, half extents and low/high Y |
+| `parts(id)` | Ordered part observations when a rigid body is within 48 m horizontally of any observer body: `joint`, `parent`, `body`, x/y/z, quaternion `rotation`, `axisX/Y/Z`, `force`, `travel`, `angle`, `size`, `supportForce`, and a magnet's held object `target` (0 when free); indices in `parent`/`body` are zero-based |
 | `groundSamples` | World XYZ terrain samples, eight compass directions at 6 m then 16 m, beginning at +Z |
 | `terrain` | Terrain bounds within 24 m horizontally: `x/z`, `halfX/halfZ`, `low/high`, including below an aircraft; check the whole landing column |
 | `obstacles` | The terrain subset whose top is at least root Y minus 0.2 m |
@@ -351,7 +359,7 @@ the latest eight `recentRemovals`, with cause, controller error, lifetime and
 last position/orientation. The world file retains the complete removal history.
 Older removals without those records have an unknown cause.
 
-The world autosaves to `/workspace/blockwalker-world.json`, including blueprints,
+The world autosaves to `/workspace/blockwalker-world.lua`, including blueprints,
 programs, controller memory/seeds, held commands, ages, poses and velocities.
 Restarting restores joint readings immediately. The first real physics step
 holds saved commands to rebuild contacts; subsequent controller calls receive
@@ -360,11 +368,12 @@ start that step with neutral inputs. Export world downloads this file. Import
 world validates and replaces the population and library while keeping the
 workshop design and controller. It preserves cargo credit and magnetic loads;
 invalid files or failed writes keep the previous world. The last replaced world
-is backed up at `/workspace/blockwalker-world.previous.json`. World format 4
-stores block-local magnet anchors and block-origin velocities. Versions 1–3
-remain readable: conversion preserves block poses and combines dynamic-part momentum, and
-backs up an existing session world as `blockwalker-world.before-physics-001.json`
-(or the next unused number). Version 1 thrusters are upgraded too.
+is backed up at `/workspace/blockwalker-world.previous.lua`. World format 6
+uses Lua data and preserves block-local magnet anchors, block-origin velocities
+and paid-out winch lengths. Older formats remain readable when their controllers
+have verified Lua translations. Automatic conversion keeps the original JSON
+file and writes the converted world to the Lua path; unsupported programs leave
+the original untouched.
 
 These working files and the library live in the current Dolly session. Downloads
 survive a fresh start. **Save** at the bottom right keeps the latest file checkpoint,

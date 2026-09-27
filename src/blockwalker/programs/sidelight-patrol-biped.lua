@@ -1,4 +1,47 @@
 return function(t, s, m, r)
+  if s.carriedBy~=0 or m.assisted then
+    local a=m.assisted or {since=t,stable=0};m.assisted=a
+    local out={};local support=0
+    for i,b in ipairs(s.blueprint) do
+      support=support+(s.supportForce[i] or 0)
+      if b.joint==1 then
+        local u=math.max(-1,math.min(1,-2*s.angles[i]-.5*s.rates[i]))
+        if b.negative~=0 then out[string.char(b.negative)]=math.max(0,-u) end
+        if b.positive~=0 then out[string.char(b.positive)]=math.max(0,u) end
+      end
+    end
+    local supported=s.carriedBy==0 and s.up>.97 and support>s.mass*hypot(table.unpack(s.gravity))*.8 and hypot(s.vx,s.vy,s.vz)<.2
+    a.stable=supported and a.stable+s.dt or 0
+    m.status=s.carriedBy~=0 and 'Straightening during rescue' or 'Balancing after rescue'
+    if a.stable<2 then return out end
+    local q=s.rotation;local yaw=math.atan(2*(q[1]*q[3]+q[2]*q[4]),1-2*(q[2]^2+q[3]^2))
+    local recoveries=(m.assistedRecoveries or 0)+1
+    for key in pairs(m) do m[key]=nil end
+    m.assistedRecoveries=recoveries;m.gaitFrame={s.x,s.z,yaw}
+  end
+  if m.gaitFrame then
+    local f=m.gaitFrame;local c,h=math.cos(f[3]),math.sin(f[3])
+    local function vector(v) return {c*v[1]-h*v[3],v[2],h*v[1]+c*v[3]} end
+    local function point(v) return vector({v[1]-f[1],v[2],v[3]-f[2]}) end
+    local copy=merge({},s);local p=point({s.x,s.y,s.z});copy.x,copy.y,copy.z=table.unpack(p)
+    copy.vx,copy.vy,copy.vz=table.unpack(vector({s.vx,s.vy,s.vz}))
+    copy.centerOfMass=point(s.centerOfMass);copy.positions=map(s.positions,point)
+    copy.nearby=map(s.nearby,function(b) local n=merge({},b);n.x,n.y,n.z=table.unpack(point({b.x,b.y,b.z}));return n end)
+    local samples=map(s.groundSamples,point);copy.groundSamples={}
+    for i=1,#samples do
+      local angle=(i-1)%8*math.pi/4;local best,score
+      for j,v in ipairs(samples) do
+        if math.floor((j-1)/8)==math.floor((i-1)/8) then
+          local d=(v[1]-copy.x)*math.sin(angle)+(v[3]-copy.z)*math.cos(angle)
+          if not score or d>score then best,score=v,d end
+        end
+      end
+      copy.groundSamples[i]=best
+    end
+    local q=s.rotation;local c,h=math.cos(f[3]/2),math.sin(f[3]/2)
+    copy.rotation={c*q[1]-h*q[3],c*q[2]-h*q[4],c*q[3]+h*q[1],c*q[4]+h*q[2]}
+    s=copy
+  end
   local dt = (s).dt;
   local a = (s).angles;
   local v = (s).rates;

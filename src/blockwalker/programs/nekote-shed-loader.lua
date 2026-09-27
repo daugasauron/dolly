@@ -14,6 +14,21 @@ return function(t, s, m, r)
   local wheels = filter(parts, function(b)
     return (function() local value = ((b).joint == 4); if active(value) then return ((b).axis == 0) else return value end end)()
   end);
+  local steering={};local axleCenter=0
+  for _,b in ipairs(wheels) do axleCenter=axleCenter+b.z end
+  axleCenter=axleCenter/#wheels
+  for _,b in ipairs(parts) do
+    if b.joint==1 and b.axis==1 then
+      local count,z=0,0
+      for _,w in ipairs(wheels) do
+        local parent=w.parent
+        while parent>=0 and parent~=b.i do parent=at(parts,parent).parent end
+        if parent==b.i then count=count+1;z=z+w.z end
+      end
+      if count>0 and count<#wheels then steering[#steering+1]={b=b,side=z/count>=axleCenter and 1 or -1} end
+    end
+  end
+
   local rams = filter(parts, function(b)
     return (function() local value = ((b).joint == 2); if active(value) then return ((b).axis == 1) else return value end end)()
   end);
@@ -52,6 +67,44 @@ return function(t, s, m, r)
     (m).retreat = {(s).x, (s).z, yaw};
     phase((active((grip).attached) and "retreat" or "seek"));
   end
+  if not m.receiverAt or t>=m.receiverAt then
+    m.receiverAt=t+2
+    local receiver,pivot,radius
+    for _,c in ipairs(s.nearby) do
+      if c.anchored and (c.team==0 or c.team==s.team) then
+        local bearing,heads=nil,{}
+        for _,p in ipairs(s.parts(c.id)) do
+          if p.joint==7 and p.axisY>.9 then bearing=p end
+          if p.joint==5 and p.axisY<-.9 then heads[#heads+1]=p end
+        end
+        if bearing and #heads>=2 then
+          local reach=0;for _,h in ipairs(heads) do reach=math.max(reach,hypot(h.x-bearing.x,h.z-bearing.z)) end
+          if reach>3 then receiver,pivot,radius=c,bearing,reach;break end
+        end
+      end
+    end
+    if receiver and m.receiver~=receiver.id then
+      local bearing=math.atan(m.home[1]-pivot.x,m.home[2]-pivot.z)
+      local depot,dist
+      for _,d in ipairs(s.depots) do local n=hypot(d.x-pivot.x,d.z-pivot.z);if not dist or n<dist then depot,dist=d,n end end
+      if depot then
+        local outlet=math.atan(depot.x-pivot.x,depot.z-pivot.z)
+        if math.abs(wrap(bearing-outlet))<1 then bearing=outlet+math.pi end
+      end
+      m.bays={}
+      for _,delta in ipairs({0,-.3,.3}) do m.bays[#m.bays+1]={pivot.x+radius*math.sin(bearing+delta),pivot.z+radius*math.cos(bearing+delta)} end
+      m.receiver=receiver.id;m.receiverSearch=nil
+      if grip.attached then phase('wait_bay') end
+    elseif not receiver and not m.receiver and (not m.receiverSearch or hypot(s.x-m.receiverSearch[1],s.z-m.receiverSearch[2])<4) then
+      local depot,dist
+      for _,d in ipairs(s.depots) do local n=hypot(d.x-m.home[1],d.z-m.home[2]);if not dist or n<dist then depot,dist=d,n end end
+      if depot then
+        local length=math.max(1,hypot(depot.x-s.x,depot.z-s.z));m.receiverSearch={s.x+(depot.x-s.x)*math.min(1,15/length),s.z+(depot.z-s.z)*math.min(1,15/length)}
+        m.bays={m.receiverSearch};if grip.attached then phase('wait_bay') end
+      end
+    end
+  end
+
   local box = find((s).nearby, function(b)
     return ((b).id == (m).job)
   end);
@@ -98,13 +151,13 @@ return function(t, s, m, r)
       end
     end
     if working then busy[#busy+1]=merge({},b,{radius=math.max(b.radius,b.high-s.ground+1)}) end
-    if b.anchored and not working then
+    if (b.anchored and not working) or (b.radius>10 and b.id~=m.job) then
       fixed[#fixed+1]=b
       local cache=m.geometry[b.id]
       if not refresh and (not cache or t-cache.at>.5 or math.abs(cache.height-height)>.3) then refresh=b end
     elseif b.low<s.ground+height and b.high>s.ground+.2 then
       local radius=working and math.max(b.radius,b.high-s.ground+1) or b.radius
-      local enemy=b.team~=0 and b.team~=s.team and not b.anchored and not b.cargo
+      local enemy=s.team~=0 and b.team~=0 and b.team~=s.team and not b.anchored and not b.cargo and b.carriedBy==0
       blockers[#blockers+1]={b.id,b.anchored and b.x or b.centerOfMass[1],b.anchored and b.z or b.centerOfMass[3],clearance+radius+(enemy and 6.5 or .1)}
     end
   end
@@ -305,7 +358,7 @@ return function(t, s, m, r)
       end
     end
     if active((v).path) then
-      while (((v).at < (#((v).path) - 1)) and (hypot((at(at((v).path, (v).at), 0) - (s).x), (at(at((v).path, (v).at), 1) - (s).z)) < 0.8)) do
+      while (((v).at < (#((v).path) - 1)) and (hypot((at(at((v).path, (v).at), 0) - (s).x), (at(at((v).path, (v).at), 1) - (s).z)) < (#steering>0 and 4 or .8))) do
         do
           (v).at = (v).at + 1;
         end
@@ -332,8 +385,8 @@ return function(t, s, m, r)
   if (active(includes({"plan_pick", "route_pick", "align_pick", "lower_pick", "approach"}, (m).phase)) and ((((not active(box)) or active((box).delivered)) or (active((box).carriedBy) and ((box).carriedBy ~= (s).id))) or active(reserved((m).job)))) then
     abandon();
   end
-  local threats = filter((s).nearby, function(b)
-    return (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = (b).team; if active(value) then return ((b).team ~= (s).team) else return value end end)(); if active(value) then return (not active((b).anchored)) else return value end end)(); if active(value) then return (not active((b).cargo)) else return value end end)(); if active(value) then return ((b).low < ((s).ground + 3)) else return value end end)(); if active(value) then return ((b).high > (s).ground) else return value end end)(); if active(value) then return (hypot(((b).x - (s).x), ((b).z - (s).z)) < (((b).radius + clearance) + 6)) else return value end end)()
+  local threats = s.team==0 and {} or filter((s).nearby, function(b)
+    return s.team~=0 and b.team~=0 and b.team~=s.team and not b.anchored and not b.cargo and b.carriedBy==0 and b.low<s.ground+3 and b.high>s.ground and hypot(b.x-s.x,b.z-s.z)<b.radius+clearance+6
   end);
   if active(#(threats)) then
     (m).danger = t;
@@ -469,7 +522,7 @@ return function(t, s, m, r)
         abandon();
       end
     else
-      if ((hypot(((s).x - at(((m).pick).point, 0)), ((s).z - at(((m).pick).point, 1))) < 0.8) and (speed < 0.3)) then
+      if ((hypot(((s).x - at(((m).pick).point, 0)), ((s).z - at(((m).pick).point, 1))) < (#steering>0 and 2.2 or .8)) and (speed < (#steering>0 and 1.5 or .3))) then
         phase("align_pick");
       end
     end
@@ -503,7 +556,7 @@ return function(t, s, m, r)
     if (active((grip).attached) and ((grip).creature == (m).job)) then
       phase("lift");
     else
-      if ((not active(box)) or ((t - (m).at) > 25)) then
+      if ((not active(box)) or ((t - (m).at) > (#steering>0 and 45 or 25))) then
         abandon();
       else
         local dx = (at((box).centerOfMass, 0) - at(tip, 0));
@@ -566,7 +619,7 @@ return function(t, s, m, r)
         (m).resume = "route_bay";
         phase("unstick");
       else
-        if ((hypot(((s).x - at((m).bay, 0)), ((s).z - ((at((m).bay, 1) - (head).z) - 0.98))) < 0.7) and (speed < 0.3)) then
+        if ((hypot(((s).x - at((m).bay, 0)), ((s).z - ((at((m).bay, 1) - (head).z) - 0.98))) < (#steering>0 and 2.2 or .7)) and (speed < (#steering>0 and 1.5 or .3))) then
           driving = false;
           phase("align_bay");
         end
@@ -585,7 +638,7 @@ return function(t, s, m, r)
         phase("lower");
       end
     end
-    if ((t - (m).at) > 30) then
+    if ((t - (m).at) > (#steering>0 and 120 or 30)) then
       phase("route_bay");
     end
   end
@@ -619,6 +672,10 @@ return function(t, s, m, r)
       phase("seek");
     end
   end
+  if grip.attached and m.receiverSearch and not m.receiver then
+    if not navigate(m.receiverSearch) then m.nav=nil end
+  end
+  m.status=m.receiver and ('Feeding carousel / '..m.phase) or 'Finding a cargo receiver'
   if active(driving) then
     local distance = hypot((at(goal, 0) - (s).x), (at(goal, 1) - (s).z));
     local aim = wrap((math.atan((at(goal, 0) - (s).x), (at(goal, 1) - (s).z)) - yaw));
@@ -655,6 +712,47 @@ return function(t, s, m, r)
   if (active(includes({"lift", "retreat", "wait_bay", "route_bay", "align_bay", "lower"}, (m).phase)) and (not active((grip).attached))) then
     abandon();
   end
+  if #steering>0 then
+    local velocity=at(s.localVelocity,2)
+    local gear=velocity<-.1 and -1 or velocity>.1 and 1 or throttle<0 and -1 or 1
+    if driving and goal and m.phase~='unstick' then
+      local distance=hypot(goal[1]-s.x,goal[2]-s.z)
+      local aim=wrap(math.atan(goal[1]-s.x,goal[2]-s.z)-yaw)
+      gear=math.abs(aim)>math.pi/2 and -1 or 1
+      local error=wrap(aim+(gear<0 and math.pi or 0))
+      local want=gear*math.min(m.phase=='evade' and 1.6 or 1,distance*.5)*math.max(.25,math.cos(error))
+      throttle=clamp(.3*want+.5*(want-velocity),.65)
+      turn=clamp(2*error-.5*at(s.gyroscope,1),.6)
+    end
+    if m.phase=='align_pick' and box then
+      local aim=wrap(math.atan(box.x-s.x,box.z-s.z)-yaw)
+      local want=math.abs(aim)>.07 and -.35 or 0
+      gear=-1;throttle=clamp(.3*want+.5*(want-velocity),.4)
+      turn=clamp(1.7*aim-.5*at(s.gyroscope,1),.6)
+      if math.abs(aim)<.07 and math.abs(at(s.gyroscope,1))<.12 then phase('lower_pick') end
+    elseif m.phase=='align_bay' and box then
+      local dx,dz=m.bay[1]-box.x,m.bay[2]-box.z
+      local forward=dx*math.sin(yaw)+dz*math.cos(yaw)
+      local aim=wrap(math.atan(m.bay[1]-s.x,m.bay[2]-s.z)-math.atan(box.x-s.x,box.z-s.z))
+      local want=math.abs(aim)>.035 and -.4 or clamp(forward*.5,.3)
+      gear=want<0 and -1 or 1
+      throttle=clamp(.3*want+.5*(want-velocity),.3)
+      turn=clamp(2*aim-.5*at(s.gyroscope,1),.6)
+    elseif m.phase=='approach' and box then
+      local dx,dz=box.centerOfMass[1]-tip[1],box.centerOfMass[3]-tip[3]
+      local forward=dx*math.sin(yaw)+dz*math.cos(yaw)
+      local side=dx*math.cos(yaw)-dz*math.sin(yaw)
+      local error=math.atan(side,math.max(1,forward))
+      gear=1;local want=.35*math.max(.3,math.cos(error))
+      throttle=clamp(.3*want+.5*(want-velocity),.4)
+      turn=clamp(1.7*error-.5*at(s.gyroscope,1),.6)
+    end
+    for _,j in ipairs(steering) do
+      local target=turn*j.side*gear
+      set(j.b,3*(target-at(s.angles,j.b.i))-.45*at(s.rates,j.b.i))
+    end
+  end
+
   if active(throttle) then
     local dx = ((math.sin(yaw) * sign(throttle)) * 1.2);
     local dz = ((math.cos(yaw) * sign(throttle)) * 1.2);
@@ -670,7 +768,7 @@ return function(t, s, m, r)
   end
   for _, b in ipairs(wheels) do
     do
-      set(b, (throttle - (turn * sign(((b).x - (at(parts, 0)).x)))));
+      set(b, #steering>0 and throttle or (throttle - turn*sign(b.x-at(parts,0).x)));
     end
     ::continue_13::
   end

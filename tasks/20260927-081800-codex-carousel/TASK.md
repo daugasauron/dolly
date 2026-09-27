@@ -16,14 +16,34 @@ restore, real browser rendering and measured populated performance.
 Requested September 27; work deadline 12:00 JST (03:00 UTC). Evidence root:
 `build/mechanics-20260927/`. Preserve the 07:45 checkpoint while iterating.
 
-Initial evidence: in the 7,200 s saved run Kaiten has three pickups/handoffs,
-returns to `scan` at 246.1 s, then has no continuing input supply. The 600 s
-baseline also starts in pickup/lift/turn and ends scanning. Its stationary late
-state is starvation after the three starter parcels, not a stopped controller.
-Create an ongoing physical feeder/receiver chain; cosmetic idle spinning alone
-would not fix its role.
+Implemented: Nekote discovers a carousel from its observed turntable and
+magnet geometry, chooses an inlet away from the depot-facing outlet and seeks
+it only while loaded. Neutral transport no longer evades both teams. Mochi
+brakes while carried, releases wrong pickups and avoids obstacles en route.
+The four-wheel loader retains its counterweight and uses a real steering hinge.
 
-Prototype feeder program `nekote-carousel-feeder.lua` discovers a nearby
-carousel from its observed turntable and magnet parts and chooses inlet bays
-away from the depot-facing outlet. It is prepared under the evidence root but
-has not been simulated; do not treat the supply-chain fix as complete.
+Verified in Dolly wasm64:
+
+- The original carousel stops after its three starter crates because it has
+  no continuing supply; it is not a dead controller.
+- `mature-v5`: 1,200 s of the actual populated save, 158 objects at end, nine
+  additional deliveries, no controller errors/deaths. Nekote grips outside
+  crate69 at 8158.150 / releases 8361.883 s; Kaiten grips 8373.550 / releases 8418.783;
+  Mochi delivers 8482.200 s. Carousel handoffs 5, feeder jobs 5, porter trips 9.
+  This run preserves the old loader chassis and proves the restored chain.
+- `porter-supported`: a physical flying rescue rights the actual fallen Mochi;
+  it resumes and delivers carousel crate70 at 7694.233 s.
+- `loader-yard-4` versus `loader-yard-6`: same controller, five-object clear
+  yard, 600 s. Six wheels make no pickup. Four wheels grip 131.317 / release 213.217;
+  carousel grips 230.383 / releases 278.367. No increased forces.
+
+Still OPEN: the fresh articulated feeder stalls on crowded pickup routes and
+has not completed the full continuing chain. A clear-yard handoff and an older
+saved-world chain do not satisfy that criterion. Loaded-bay issue
+20260927-074100-codex-loaded-bays remains relevant.
+
+Packaged verification: `build-image-v3.log` passes the image's physical checks.
+Chrome and Firefox load the actual 9097 preview with 85 canonical embedded
+programs, no errors and clean exit (`local-preview-{chrome,firefox}/proof.json`).
+Fresh/restored real-time rendering also passes; other 56 runtime/image assets
+and six protected save files are unchanged. See `docs/crash-handoff.md`.

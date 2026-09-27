@@ -91,7 +91,7 @@ return function(t, s, m)
     if ((not active(box)) or (active((box).carriedBy) and ((box).carriedBy ~= (s).id))) then
       phase("idle");
     else
-      target = {(at((box).centerOfMass, 0) + 1.04), at(home, 1), at((box).centerOfMass, 2)};
+      target = {((box).x + 1.04), at(home, 1), (box).z};
       power = (function() local value = (grip).attached; if active(value) then return value else return (function() local value = (hypot((at(tip, 0) - at(target, 0)), (at(tip, 2) - at(target, 2))) < 0.3); if active(value) then return ((at(tip, 1) - (box).y) < 1.1) else return value end end)() end end)();
       if (active((grip).attached) and ((grip).creature == (m).job)) then
         phase("raise");
@@ -120,13 +120,13 @@ return function(t, s, m)
     power = true;
     target = {(at((m).dock, 0) + 1), (at(home, 1) + 2), at((m).dock, 2)};
     if active(box) then
-      (target)[index(0)] = (at(tip, 0) + clamp((at((m).dock, 0) - at((box).centerOfMass, 0)), 0.3));
-      (target)[index(2)] = (at(tip, 2) + clamp((at((m).dock, 2) - at((box).centerOfMass, 2)), 0.3));
+      (target)[index(0)] = (at(tip, 0) + clamp((at((m).dock, 0) - (box).x), 0.3));
+      (target)[index(2)] = (at(tip, 2) + clamp((at((m).dock, 2) - (box).z), 0.3));
       if (((m).phase == "deliver") and (hypot(((box).x - at((m).dock, 0)), ((box).z - at((m).dock, 2))) < 0.15)) then
         phase("handoff");
       end
       if ((m).phase == "handoff") then
-        (target)[index(1)] = (at(tip, 1) + clamp((at((m).dock, 1) - at((box).centerOfMass, 1)), 0.15));
+        (target)[index(1)] = (at(tip, 1) + clamp((at((m).dock, 1) - (box).y), 0.15));
         (m).still = ((hypot(((box).x - at((m).dock, 0)), ((box).y - at((m).dock, 1)), ((box).z - at((m).dock, 2))) < 0.18) and ((m).still + (s).dt) or 0);
         if ((m).still > 0.5) then
           (m).release = concat(tip);

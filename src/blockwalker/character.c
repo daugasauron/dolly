@@ -520,20 +520,29 @@ static void wheel_cart_check(void) {
 }
 static void playground_check(void){
     Character c={0},loaded={0};Physics p={0};float controls[128]={0};character_car(&c);
-    assert(c.count==9&&character_validate(&c));assert(character_save(&c,"/tmp/blockwalker-car.character"));
-    assert(character_load(&loaded,"/tmp/blockwalker-car.character")&&loaded.count==9&&loaded.blocks[7].joint==BLOCK_EYES);
+    assert(character_validate(&c));assert(character_save(&c,"/tmp/blockwalker-car.character"));
+    assert(character_load(&loaded,"/tmp/blockwalker-car.character")&&loaded.count==c.count&&memcmp(c.blocks,loaded.blocks,c.count*sizeof(Block))==0);
     character_clear(&loaded);remove("/tmp/blockwalker-car.character");physics_start(&p,&c);
-    for(int i=3;i<7;i++)controls[c.blocks[i].positive]=1;
+    int steering=-1,eyes=-1;
+    for(int i=0;i<c.count;i++){
+        Block b=c.blocks[i];if(b.joint==BLOCK_WHEEL)controls[b.positive]=1;
+        if(b.joint==BLOCK_HINGE&&b.axis==1)steering=i;
+        if(b.joint==BLOCK_EYES)eyes=i;
+    }
+    assert(steering>=0&&eyes>=0);
     for(int i=0;i<180;i++){physics_drive(&p,&c,controls);b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);}
     Vector3 straight,turned,eye,forward,up;Quaternion q;physics_pose(&p,&c,0,&straight,&q);
     assert(straight.z>5&&Vector3RotateByQuaternion((Vector3){0,1,0},q).y>.9f);
-    memset(controls,0,sizeof(controls));for(int i=3;i<7;i++){Block b=c.blocks[i];controls[b.x<0?b.positive:b.negative]=b.x<0?1:.15f;}
-    for(int i=0;i<180;i++){physics_drive(&p,&c,controls);b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);}
-    physics_pose(&p,&c,0,&turned,&q);assert(physics_eyes(&p,&c,&eye,&forward,&up)==7);
-    Vector3 mount;Quaternion eye_rotation;physics_pose(&p,&c,7,&mount,&eye_rotation);
+    for(int i=0;i<180;i++){
+        float drive=Clamp(3*(.45f-p.parts[steering].angle)-.45f*p.parts[steering].rate,-1,1);
+        controls[c.blocks[steering].positive]=fmaxf(0,drive);controls[c.blocks[steering].negative]=fmaxf(0,-drive);
+        physics_drive(&p,&c,controls);b3World_Step(p.world,1.f/60,8);physics_sample(&p,&c);
+    }
+    physics_pose(&p,&c,0,&turned,&q);assert(physics_eyes(&p,&c,&eye,&forward,&up)==eyes);
+    Vector3 mount;Quaternion eye_rotation;physics_pose(&p,&c,eyes,&mount,&eye_rotation);
     assert(fabsf(Vector3Distance(eye,mount)-.52f)<.001f&&fabsf(Vector3DotProduct(forward,up))<.001f);
     printf("STARTER CAR: forward %.3f m, turn x %.3f, eye %.3f %.3f %.3f, forward %.3f %.3f %.3f, up %.3f\n",straight.z,turned.x,eye.x,eye.y,eye.z,forward.x,forward.y,forward.z,up.y);
-    assert(turned.x>straight.x+1&&up.y>.8f&&forward.x>.5f);
+    assert(turned.x>straight.x+1&&up.y>.8f&&forward.x>.3f&&fabsf(p.parts[steering].angle-.45f)<.04f&&p.max_separation<.05f);
     physics_stop(&p);character_clear(&c);
     for(int y=0;y<5;y++)character_add(&c,y-1,0,y,0,BLOCK_BOX,0);
     int hinge=character_add(&c,4,0,5,0,BLOCK_HINGE,1);c.blocks[hinge].force=100;

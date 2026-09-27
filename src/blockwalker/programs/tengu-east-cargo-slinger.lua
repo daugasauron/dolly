@@ -98,7 +98,7 @@ return function(t, s, m)
       return ((b).id == (m).ammo)
     end);
     local tip = at((s).positions, (head).i);
-    power = (function() local value = active(optional(box, "cargo")); if active(value) then return value else return active((function() local value = (function() local value = ammo; if active(value) then return (math.abs(wrap((((-math.pi) / 2) - at((s).angles, (arm).i)))) < 0.08) else return value end end)(); if active(value) then return (hypot((at(tip, 0) - at((ammo).centerOfMass, 0)), ((at(tip, 1) - 1) - at((ammo).centerOfMass, 1)), (at(tip, 2) - at((ammo).centerOfMass, 2))) < 0.35) else return value end end)()) end end)();
+    power = (function() local value = active(optional(box, "cargo")); if active(value) then return value else return active((function() local value = (function() local value = ammo; if active(value) then return (math.abs(wrap((((-math.pi) / 2) - at((s).angles, (arm).i)))) < 0.08) else return value end end)(); if active(value) then return (hypot((at(tip, 0) - (ammo).x), ((at(tip, 1) - 1) - (ammo).y), (at(tip, 2) - (ammo).z)) < 0.35) else return value end end)()) end end)();
   end
   if ((((m).phase == "load") and (not active(box))) and ((t - (m).at) > 15)) then
     phase("return");

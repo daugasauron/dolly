@@ -318,13 +318,22 @@ static void environment_sensors(Data *ctx,Value s,const Physics *p,Vector3 origi
     lua_newtable(L);lua_pushcclosure(L,environment_read,2);lua_setfield(L,-2,"__index");lua_pushcfunction(L,environment_pairs);lua_setfield(L,-2,"__pairs");lua_setmetatable(L,-2);lua_pop(L,1);
 }
 
+static float observation_distance(const Creature *c,const Physics *observer){
+    float squared=INFINITY;
+    for(int i=0;i<c->design.count;i++)if(c->physics.parts[i].owner==i){
+        b3Pos target=physics_position(&c->physics.parts[i]);
+        for(int j=0;j<observer->count;j++)if(observer->parts[j].owner==j){
+            b3Pos from=physics_position(&observer->parts[j]);float x=target.x-from.x,z=target.z-from.z;
+            squared=fminf(squared,x*x+z*z);
+        }
+    }return sqrtf(squared);
+}
 static Creature *observed_target(lua_State *L){
     lua_Number number=luaL_checknumber(L,1);
     if(!isfinite(number)||number<1||number>INT32_MAX||number!=floor(number)){luaL_error(L,"Observation requires an object ID");return NULL;}
     Creature *observer=world_find(lua_tointeger(L,lua_upvalueindex(1))),*target=world_find((int)number);
     if(!observer||!target)return NULL;
-    b3Pos from=physics_position(&observer->physics.parts[0]),to=physics_position(&target->physics.parts[0]);
-    return hypotf(from.x-to.x,from.z-to.z)<=48?target:NULL;
+    return observation_distance(target,&observer->physics)<=48?target:NULL;
 }
 static int observed_parts(lua_State *L){
     Creature *target=observed_target(L);lua_newtable(L);if(!target)return 1;
@@ -359,7 +368,7 @@ static void surroundings(Data *ctx,Value s,const Physics *p,Vector3 origin){
         Nearby *neighbors=array_resize(NULL,world.count,sizeof(*neighbors));int count=0;
         for(int i=0;i<world.count;i++){
             Creature *c=&world.creatures[i];if(c->physics.parts==p->parts){self=c->id;continue;}
-            b3Pos v=b3Body_GetPosition(c->physics.parts[0].body);float d=hypotf(v.x-origin.x,v.z-origin.z);if(d>48)continue;
+            float d=observation_distance(c,p);if(d>48)continue;
             neighbors[count++]=(Nearby){i,d};
         }
         qsort(neighbors,count,sizeof(*neighbors),nearby_distance);

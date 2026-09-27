@@ -1,4 +1,5 @@
 return function(t, s, m, r)
+  if s.carriedBy~=0 then return {} end
   local clamp = function(v, a)
     return math.max((-a), math.min(a, v))
   end;
@@ -70,7 +71,7 @@ return function(t, s, m, r)
       goal = {((box).x - (dx * 3.9)), ((box).z - (dz * 3.9))};
       wantHeading = (m).approach;
       speedLimit = 0.7;
-      avoid = false;
+      avoid = hypot(s.x-box.x,s.z-box.z)>6;
       (out).E = (((math.abs(wrap(((m).approach - yaw))) < 0.2) and (hypot(((s).x - (box).x), ((s).z - (box).z)) < 6)) and 1 or 0);
       if (active((magnet).attached) and (optional(carried, "id") == (m).job)) then
         (m).trips = (m).trips + 1;
@@ -171,6 +172,10 @@ return function(t, s, m, r)
       go("search");
     end
   end
+  if magnet.attached and magnet.creature~=m.job then
+    out.E=nil;out.Q=1;m.back=t+2;m.wait=t+3;go('search')
+  end
+  m.status=m.phase=='search' and 'Collecting yard cargo' or ('Cargo delivery / '..m.phase)
   local liftControl = clamp(((2.5 * (lift - at((s).angles, 9))) - (0.2 * at((s).rates, 9))), 1);
   (out)[index(((liftControl < 0) and "I" or "K"))] = math.abs(liftControl);
   local dx = (at(goal, 0) - (s).x);
