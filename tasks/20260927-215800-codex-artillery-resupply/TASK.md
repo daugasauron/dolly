@@ -31,3 +31,12 @@ Hosen acquisition/firing: shot at 56.567 s versus 55.567 s, physical hit at
 57.733 s, and second ammunition grip at 89.817 s (`hosen-impact-align-v1`).
 Both gun programs now contain this verified gate. Supply and repeated reuse
 remain open.
+
+The staged terrain-9 layout now passes all eight air→loader→gun cases with the
+five-part tether round: Red/Blue Tengu 87.217/90.267 s, Hosen 93.367/99.417 s,
+north roof 150.917/159.967 s and south roof 153.917/165.917 s. Every case requires
+an actual supported aircraft delivery and successive loader/gun custody of the
+same round. Evidence: `logistics/air-matrix-v1/`; frozen controller candidates
+are `hayabusa-eight-air.lua` and `koban-eight-air.lua` in that evidence root.
+Ground pickup of rotated rounds, shared-fleet switching and boat recovery are
+still unproved. These private candidates are not yet in the served image.
