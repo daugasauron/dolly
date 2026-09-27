@@ -50,3 +50,16 @@ Chrome and Firefox load the actual 9097 preview with 85 canonical embedded
 programs, no errors and clean exit (`local-preview-{chrome,firefox}/proof.json`).
 Fresh/restored real-time rendering also passes; other 56 runtime/image assets
 and six protected save files are unchanged. See `docs/crash-handoff.md`.
+
+Final-run diagnostic at 1,200 s (`checkpoint-fresh/checkpoint-1200.lua`): both
+bipeds are upright and unheld with no assisted-recovery state. Sidelight's
+clean-step counters are 0/0 despite 18/21 leg lifts; Hibari has 0/1 steps and is
+in recovery phase 9. Their underlying gait remains the issue in this snapshot;
+it is not evidence of a stopped controller or a rescue-release deadlock.
+
+At the end of `checkpoint-fresh` (2,400 s), both bipeds have fallen again. Tsuru
+East records two supported releases of Suzu / terrace runner; later attempts
+time out. West attempts Hibari but has no completed rescue. All 103 objects
+survive with no controller faults. Keep `checkpoint-fresh/after.lua` as the
+current populated recovery reproduction; its actual Firefox UI import and
+continued simulation pass in `checkpoint-restore/proof.json`.

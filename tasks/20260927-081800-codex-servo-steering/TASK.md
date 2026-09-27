@@ -55,3 +55,10 @@ The required starter-car image self-check now discovers wheel/steering/eyes
 parts, round-trips the blueprint and verifies physical articulated turning,
 joint stability and camera pose. It no longer assumes nine parts or drives
 fixed wheel indices. `build-image-v3.log` verifies the updated check.
+
+Final packaged-source run `checkpoint-fresh` verifies one real populated West
+truck placement: cargo 88 grip 1787.000 / release 2121.767 s, jobs 1 at 2,400 s, truck
+upright and seeking more cargo. East's truck is overturned and Nekote still
+has zero placements. Both cable tugs are upright with their real handle grips.
+The full run has 15 world deliveries and no faults/deaths; these outcomes keep
+the broader traffic/docking task OPEN.

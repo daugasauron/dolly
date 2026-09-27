@@ -55,3 +55,11 @@ Chrome and Firefox load the actual 9097 preview with 85 canonical embedded
 programs, no errors and clean exit (`local-preview-{chrome,firefox}/proof.json`).
 Fresh/restored real-time rendering also passes; other 56 runtime/image assets
 and six protected save files are unchanged. See `docs/crash-handoff.md`.
+
+Final packaged-source run `checkpoint-fresh`: 2,400 s, 15 deliveries, 103 objects,
+all 85 originals retained, no faults/deaths. West capture 77.783 / tug 105.567 s;
+East capture 669.683 / tug 670.667 s. Both couriers finish grounded, both tugs upright
+and gripping handle part 4. Final cable lengths 1.244/2.980 m and tensions
+60.64/30.68 N. No friendly tether-head grips in the event log. Firefox's actual
+Import world UI restores all 103 programs and both complete attachment chains
+(`checkpoint-restore/proof.json`), then continues without errors.

@@ -47,3 +47,9 @@ Chrome and Firefox load the actual 9097 preview with 85 canonical embedded
 programs, no errors and clean exit (`local-preview-{chrome,firefox}/proof.json`).
 Fresh/restored real-time rendering also passes; other 56 runtime/image assets
 and six protected save files are unchanged. See `docs/crash-handoff.md`.
+
+Final packaged-source run `checkpoint-fresh` reaches 2,400 s with 15 world
+deliveries and no faults/deaths, but Nekote still has zero placements and Kaiten
+only its three starter handoffs. This confirms that the fresh continuing-supply
+criterion remains unsatisfied despite the successful restored/clear-yard cases.
+Reproduce with `checkpoint-fresh/after.lua`, imported through the game's UI.
