@@ -81,41 +81,48 @@ return function(t, s, m)
     return true
   end
   local function safe_shot(ammo, flight, gravity)
-    local obstacles = {}
-    for _, b in ipairs(s.nearby) do
-      if b.id ~= ammo.id and not b.cargo and (b.team == 0 or b.team == s.team) then
-        for _, shape in ipairs(s.bounds(b.id)) do
-          obstacles[#obstacles+1] = {shape=shape,id=b.id,vx=b.vx,vy=b.vy,vz=b.vz}
+    local margin = .8
+    for _,part in ipairs(s.parts(ammo.id)) do
+      margin=math.max(margin,hypot(part.x-ammo.x,part.y-ammo.y,part.z-ammo.z)+part.size*.7)
+    end
+    local function clear_observer(id,vx,vy,vz,body)
+      vx,vy,vz=ammo.vx-vx,ammo.vy-vy,ammo.vz-vz
+      local x,z=ammo.x+vx*flight,ammo.z+vz*flight
+      local peak=math.max(0,math.min(flight,vy/gravity))
+      local minX,maxX=math.min(ammo.x,x)-margin,math.max(ammo.x,x)+margin
+      local minZ,maxZ=math.min(ammo.z,z)-margin,math.max(ammo.z,z)+margin
+      local low=math.min(ammo.y,ammo.y+vy*flight-gravity*flight*flight/2)-margin
+      local high=ammo.y+vy*peak-gravity*peak*peak/2+margin
+      if body then
+        -- Include rotated cube corners in the coarse neighbor bounds.
+        local radius=body.radius+.2
+        if maxX<body.x-radius or minX>body.x+radius or maxZ<body.z-radius or minZ>body.z+radius
+          or high<body.low-.2 or low>body.high+.2 then return true end
+      end
+      local points
+      for _,shape in ipairs(id>0 and s.bounds(id) or s.terrain) do
+        if maxX>=shape.x-shape.halfX and minX<=shape.x+shape.halfX
+          and maxZ>=shape.z-shape.halfZ and minZ<=shape.z+shape.halfZ
+          and high>=shape.low and low<=shape.high then
+          if not points then
+            points={{ammo.x,ammo.y,ammo.z}}
+            for tau=.1,flight+.1,.1 do
+              local step=math.min(tau,flight)
+              points[#points+1]={ammo.x+vx*step,ammo.y+vy*step-gravity*step*step/2,ammo.z+vz*step}
+            end
+          end
+          for i=2,#points do
+            if intersects(points[i-1],points[i],shape,margin) then m.blockedBy=id;return false end
+          end
         end
       end
+      return true
     end
-    for _, shape in ipairs(s.terrain) do obstacles[#obstacles+1] = {shape=shape,id=-1,vx=0,vy=0,vz=0} end
-    local margin = .8
-    for _, part in ipairs(s.parts(ammo.id)) do margin = math.max(margin,hypot(part.x-ammo.x,part.y-ammo.y,part.z-ammo.z)+part.size*.7) end
-    for _, obstacle in ipairs(obstacles) do
-      local x = ammo.x+(ammo.vx-obstacle.vx)*flight
-      local z = ammo.z+(ammo.vz-obstacle.vz)*flight
-      local peak = math.max(0,math.min(flight,(ammo.vy-obstacle.vy)/gravity))
-      local high = ammo.y+(ammo.vy-obstacle.vy)*peak-gravity*peak*peak/2
-      local low = math.min(ammo.y,ammo.y+(ammo.vy-obstacle.vy)*flight-gravity*flight*flight/2)
-      local shape = obstacle.shape
-      if math.max(ammo.x,x)+margin >= shape.x-shape.halfX and math.min(ammo.x,x)-margin <= shape.x+shape.halfX
-        and math.max(ammo.z,z)+margin >= shape.z-shape.halfZ and math.min(ammo.z,z)-margin <= shape.z+shape.halfZ
-        and high+margin >= shape.low and low-margin <= shape.high then
-      local function point(tau)
-        return {ammo.x+(ammo.vx-obstacle.vx)*tau,
-          ammo.y+(ammo.vy-obstacle.vy)*tau-gravity*tau*tau/2,
-          ammo.z+(ammo.vz-obstacle.vz)*tau}
-      end
-      local previous = point(0)
-      for tau = .1, flight+.1, .1 do
-        local current = point(math.min(tau,flight))
-        if intersects(previous,current,obstacle.shape,margin) then m.blockedBy=obstacle.id; return false end
-        previous=current
-      end
-      end
+    for _,body in ipairs(s.nearby) do
+      if body.id~=ammo.id and not body.cargo and (body.team==0 or body.team==s.team)
+        and not clear_observer(body.id,body.vx,body.vy,body.vz,body) then return false end
     end
-    return true
+    return clear_observer(-1,0,0,0)
   end
   local box = (function() if active((grip).attached) then return find((s).nearby, function(b)
     return ((b).id == (grip).creature)
@@ -133,8 +140,9 @@ return function(t, s, m)
   local loader = find((s).nearby, function(b)
     return ((b).id == (m).loader)
   end);
-  local clear = every(filter((s).nearby, function(b)
-    return (function() local value = (function() local value = ((b).team == (s).team); if active(value) then return (not active((b).cargo)) else return value end end)(); if active(value) then return ((b).low < (at(at((s).positions, (arm).i), 1) + reach)) else return value end end)()
+  local pivotY=s.positions[arm.i+1][2]
+  local clear = every(filter(s.nearby, function(b)
+    return b.team==s.team and not b.cargo and b.low<pivotY+reach and b.high>pivotY-reach
   end), function(b)
     return ((hypot(((b).x - (s).x), ((b).z - (s).z)) - (b).radius) > (hypot((arm).x, reach) + 0.5))
   end);
@@ -185,8 +193,28 @@ return function(t, s, m)
     local ammo = find((s).nearby, function(b)
       return ((b).id == (m).ammo)
     end);
-    local tip = at((s).positions, (head).i);
-    power = (function() local value = active(optional(box, "cargo")); if active(value) then return value else return active((function() local value = (function() local value = ammo; if active(value) then return (math.abs(wrap((((-math.pi) / 2) - at((s).angles, (arm).i)))) < 0.08) else return value end end)(); if active(value) then return (hypot((at(tip, 0) - (ammo).x), ((at(tip, 1) - 1) - (ammo).y), (at(tip, 2) - (ammo).z)) < 0.35) else return value end end)()) end end)();
+    power=box and box.cargo or false
+    if ammo and not box and math.abs(wrap(-math.pi/2-s.angles[arm.i+1]))<.25 then
+      local pole=s.parts(s.id)[head.i+1]
+      local px,py,pz=pole.x+.485*pole.axisX,pole.y+.485*pole.axisY,pole.z+.485*pole.axisZ
+      local function distance(shape)
+        local dx=math.max(shape.x-shape.halfX,math.min(shape.x+shape.halfX,px))-px
+        local dy=math.max(shape.low,math.min(shape.high,py))-py
+        local dz=math.max(shape.z-shape.halfZ,math.min(shape.z+shape.halfZ,pz))-pz
+        return dx*pole.axisX+dy*pole.axisY+dz*pole.axisZ>-.06 and hypot(dx,dy,dz) or math.huge
+      end
+      local nearest=math.huge
+      for _,shape in ipairs(s.bounds(ammo.id)) do if shape.body==0 then nearest=math.min(nearest,distance(shape)) end end
+      power=nearest<.6
+      if power then for _,other in ipairs(s.nearby) do
+        if other.id~=ammo.id and other.low<py+1 and other.high>py-1 and hypot(other.x-px,other.z-pz)<other.radius+2 then
+          for _,shape in ipairs(s.bounds(other.id)) do
+            if (not other.anchored or shape.body~=0) and distance(shape)<nearest+.08 then power=false;break end
+          end
+          if not power then break end
+        end
+      end end
+    end
   end
   if m.phase == "load" and not box and t-m.at > 15 then
     if m.ammo then

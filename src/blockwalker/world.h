@@ -16,6 +16,12 @@ typedef struct {
 } Creature;
 typedef struct {Creature *creatures;int count,capacity,next_id,deaths,player,driving;unsigned char input[128],pressed[128];double age;b3WorldId physics;SavedDesign *designs;int design_count,design_capacity;Removal *removals;int removal_count,removal_capacity;Delivery *deliveries;int delivery_count,delivery_capacity;RadioMessage radio[RADIO_CAPACITY];int radio_count;unsigned supply_seed;double next_parcel,next_ore,next_mine;} World;
 extern World world;
+typedef enum {PLACEMENT_OK,PLACEMENT_SURFACE,PLACEMENT_ANCHOR,PLACEMENT_ZONE,PLACEMENT_SUPPORT,PLACEMENT_COLLISION} PlacementStatus;
+typedef struct {Vector3 offset;int team;PlacementStatus status;} WorldPlacement;
+WorldPlacement world_placement(const Character *design,int team,Ray ray);
+PlacementStatus world_placement_check(const Character *design,const WorldPlacement *placement);
+const char *world_placement_message(PlacementStatus status);
+int world_place(const Character *design,WorldPlacement *placement);
 Value character_data(Data *ctx,const Character *c);
 Value physics_sensors(Data *ctx,const Physics *p,const Character *c,double dt);
 int character_from_data(Data *ctx,Value list,Character *c);

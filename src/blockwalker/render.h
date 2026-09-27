@@ -12,6 +12,7 @@ void render_close(void);
 void render_ui_upload(void);
 void render_frame(const Character *c,const Physics *p,const Orbit *orbit,int selected,int hover,const Block *ghost);
 void render_world(const Orbit *orbit);
+void render_world_placement(const Orbit *orbit,const Character *design,const WorldPlacement *placement);
 unsigned char *render_capture_world(const Orbit *orbit,int *bytes);
 unsigned char *render_capture(const Character *c,const Physics *p,const Orbit *orbit,int *bytes);
 Camera3D orbit_camera(const Orbit *orbit);

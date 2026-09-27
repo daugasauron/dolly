@@ -24,6 +24,10 @@ static const char *proxy_import_path="/tmp/blockwalker-proxy-models.json";
 static int library_open,library_page,control_page,piloting,eye_view;
 static int program_open,program_line,program_lines;
 static int focus_view,world_follow;
+static int world_place_page;
+static int placing,placement_team=2;
+static WorldPlacement placement;
+static Vector2 placement_cursor;
 static Vector3 world_follow_position;
 static double world_accumulator,last_save;
 static char agent_log[8192],prompt_input[1024],pending_prompt[1024];
@@ -92,7 +96,7 @@ static void home_camera(void){
 }
 static void set_world_view(int enabled){
     enabled=enabled!=0;if(enabled==world_view)return;
-    if(!enabled){piloting=eye_view=0;world_follow=0;}
+    if(!enabled){piloting=eye_view=placing=0;world_follow=0;}
     if(world_view){world_orbit=orbit;orbit=workshop_orbit;}else{workshop_orbit=orbit;orbit=world_orbit;}
     world_view=enabled;orbit_update(&orbit);memset(keys,0,sizeof(keys));dirty=1;
     if(enabled)say("Click a character to follow. Backslash switches to its Eyes. WASD leaves the view.");
@@ -123,7 +127,7 @@ static void follow_creature(void){
 static void program_page(int delta){program_line=(int)Clamp(program_line+delta,0,fmaxf(0,program_lines-20));dirty=1;}
 static int world_rows(void){return terrain_version>=5?4:terrain_version>=3?5:terrain_version>=2?7:8;}
 static int world_list_top(void){return terrain_version>=5?472:terrain_version>=3?440:terrain_version>=2?376:344;}
-static int world_places(void){return terrain_version>=6?16:terrain_version>=5?15:terrain_version>=3?14:terrain_version>=2?10:terrain_version?8:7;}
+static int world_places(void){return terrain_version>=8?22:terrain_version>=6?16:terrain_version>=5?15:terrain_version>=3?14:terrain_version>=2?10:terrain_version?8:7;}
 static void world_page(int delta){world_list=(int)Clamp(world_list+delta,0,fmaxf(0,world.count-world_rows()));dirty=1;}
 static void pilot_help(char movement[48],char magnets[48]){
     Creature *c=world_find(world.player);int on=0,off=0,mixed=0,found=0;
@@ -136,7 +140,29 @@ static void pilot_help(char movement[48],char magnets[48]){
     if(found){if(!mixed&&isalnum(on)&&isalnum(off))snprintf(magnets,48,"%c on / %c off",on,off);else snprintf(magnets,48,"Magnet: assigned keys");}
 }
 static int program_trial;
+static void update_placement(void){
+    if(!placing)return;
+    if(in_view())placement_cursor=(Vector2){mouse_x-render_view.x,mouse_y-render_view.y};
+    WorldPlacement next=world_placement(&design,placement_team,GetScreenToWorldRayEx(placement_cursor,orbit_camera(&orbit),render_view.width,render_view.height));
+    if(next.status!=placement.status)dirty=1;placement=next;
+}
+static void begin_placement(void){
+    if(!design.count){say("Build and anchor a character first.");return;}
+    world_trial_stop();program_trial=practice_steps=agent_enabled=agent_control=0;physics_stop(&physics);
+    library_open=program_open=agent_panel=focus_view=0;layout();set_world_view(1);piloting=eye_view=world_follow=0;placing=1;
+    if(terrain_version<7)placement_team=0;
+    float width=terrain_combat_half_x(terrain_version);
+    orbit.target=(Vector3){placement_team?(placement_team==1?1:-1)*(width+22):0,1,0};orbit.distance=45;orbit.yaw=0;orbit.pitch=.8f;orbit_update(&orbit);
+    placement_cursor=(Vector2){render_view.width*.5f,render_view.height*.5f};
+    placement=(WorldPlacement){.team=placement_team,.status=PLACEMENT_SURFACE};say("Choose a team, point at ground or a roof, then click to place. Esc cancels.");
+}
+static void confirm_placement(void){
+    update_placement();if(placement.status!=PLACEMENT_OK){say(world_placement_message(placement.status));return;}
+    int id=world_place(&design,&placement);if(!id){say(placement.status==PLACEMENT_OK?"Could not start the structure's program.":world_placement_message(placement.status));return;}
+    placing=0;visit_creature(world_find(id));world_save(embedded_context);say("Structure placed. Its saved program is running; Esc returns to the workshop.");
+}
 static void enter_world(void){
+    if(design.anchored){begin_placement();return;}
     int id=world_enter(&design,practice_sea);if(!id){say("Use an unanchored character with room to spawn.");return;}
     world_trial_stop();program_trial=practice_steps=agent_enabled=agent_control=0;physics_stop(&physics);
     set_world_view(1);piloting=1;eye_view=1;visit_creature(world_find(id));memset(keys,0,sizeof(keys));
@@ -238,6 +264,16 @@ static void import_world(void){
 }
 static void toggle_control(void){if(proxy_pending)return;world_trial_stop();program_trial=0;agent_control=!agent_control;agent_enabled=agent_control;practice_steps=0;memset(keys,0,128);dirty=1;}
 static void click(void){
+    if(placing&&!library_open&&!program_open){
+        const int teams[]={2,0,1};
+        for(int i=0;i<3;i++)if(inside(24,184+i*42,194,34)){
+            placement_team=teams[i];orbit.target=(Vector3){placement_team?(placement_team==1?1:-1)*(terrain_combat_half_x(terrain_version)+22):0,1,0};orbit_update(&orbit);
+            placement_cursor=(Vector2){render_view.width*.5f,render_view.height*.5f};update_placement();dirty=1;return;
+        }
+        if(inside(24,346,194,36)){confirm_placement();return;}
+        if(inside(24,392,194,36)){set_world_view(0);say("Placement cancelled. Your blueprint is unchanged.");return;}
+        if(in_view()&&!inside(254,92,432,34)&&!orbit_drag){confirm_placement();return;}
+    }
     if(focus_view){
         if(inside(render_view.width-232,12,220,34)){toggle_focus();return;}
         if(inside(12,12,80,34)){agent_panel=!agent_panel;layout();return;}
@@ -310,12 +346,16 @@ static void click(void){
     }
     if(inside(1052,18,204,44)){if(world_view){set_world_view(0);return;}if(physics.running)back_to_builder();else start_test();return;}
     if(world_view){
+        if(placing)return;
         if(!agent_panel&&inside(1036,188,220,36)){drop_cargo();return;}
         if(!agent_panel&&world_follow&&inside(1036,280,220,36)){toggle_eyes();return;}
-        for(int i=0;i<world_places();i++)if(inside(24+(i%2)*102,188+(i/2)*32,92,28)){
+        if(terrain_version>=8&&(inside(148,100,30,26)||inside(188,100,30,26))){world_place_page=1-world_place_page;dirty=1;return;}
+        if(terrain_version<8)world_place_page=0;
+        for(int row=0;row<16&&world_place_page*16+row<world_places();row++)if(inside(24+(row%2)*102,188+(row/2)*32,92,28)){
+            int i=world_place_page*16+row;
             piloting=eye_view=0;
-            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{94,15,-34},{57,1,-13},{-32,5,-26},{84,5,-4},{69,4,29},{-83,2,20}};
-            const float distances[]={24,50,100,110,150,512,72,76,40,38,62,38,42,42,44,52};
+            const Vector3 targets[]={{0,1,0},{116,-1,20},{170,4,30},{-174,2,-35},{15,6,-175},{0,0,0},{46,2,72},{-43,5,70},{-74,3,-70},{-74,1,-20},{94,15,-34},{57,1,-13},{-32,5,-26},{84,5,-4},{69,4,29},{-83,2,20},{-52,5,24},{-52,18,-72},{52,18,-72},{-52,18,72},{52,18,72},{0,3,-120}};
+            const float distances[]={24,50,100,110,150,512,72,76,40,38,62,38,42,42,44,52,44,46,46,46,46,64};
             if(i==0)home_camera();else{world_follow=0;orbit.target=targets[i];orbit.distance=distances[i];orbit.pitch=i==5?1.15f:.55f;
                 if(terrain_version&&i==6){orbit.target=(Vector3){-47,1,64};orbit.distance=12;orbit.yaw=PI;orbit.pitch=.12f;}
                 if(terrain_version&&i==7){orbit.target=(Vector3){-44,2,110};orbit.distance=35;orbit.yaw=.7f;orbit.pitch=.45f;}
@@ -335,6 +375,11 @@ static void click(void){
                     if(i==4){orbit.target=(Vector3){-174,2,-35};orbit.distance=105;orbit.yaw=0;orbit.pitch=.55f;}
                     if(i==5)orbit.yaw=0;
                     if(i==12||i==13){orbit.target=(Vector3){i==12?-66:66,5,-4};orbit.distance=42;orbit.yaw=0;}
+                }
+                if(terrain_version>=8){
+                    if(i==12||i==13)orbit.target=(Vector3){i==12?-52:52,5,-24};
+                    if(i==14)orbit.target=(Vector3){52,5,24};
+                    if(i>=16){orbit.yaw=0;orbit.pitch=.65f;}
                 }
                 if(i>=8){float nearest=30;for(int j=0;j<world.count;j++){Creature *c=&world.creatures[j];float distance=Vector3Distance(c->physics.start,orbit.target);if(!c->cargo&&distance<nearest){nearest=distance;world_list=j;}}world_page(0);}
                 orbit_update(&orbit);dirty=1;}return;
@@ -459,12 +504,15 @@ static void events(void){
         if(e.action==DOLLY_KEY_ACTION_PRESS&&dolly_raylib_code_is(&e,"Backquote")){toggle_control();continue;}
         int k=event_letter(&e);if(k>0&&k<128){int down=e.action!=DOLLY_KEY_ACTION_RELEASE;if(physics.running&&keys[k]!=down)dirty=1;if(down&&!keys[k]&&(piloting||program_trial==2))world.pressed[k]=1;keys[k]=down;}
         if(e.action!=DOLLY_KEY_ACTION_PRESS)continue;
+        if(placing&&dolly_raylib_code_is(&e,"Escape")){set_world_view(0);say("Placement cancelled. Your blueprint is unchanged.");continue;}
+        if(placing&&dolly_raylib_code_is(&e,"Enter")){confirm_placement();continue;}
         if(dolly_raylib_code_is(&e,"Escape")){
             if(focus_view){toggle_focus();}
             else if(binding>=0){binding=-1;say("Key assignment cancelled.");}
             else if(world_view)set_world_view(0);else if(physics.running)back_to_builder();else stopping=1;continue;
         }
         if(world_view){
+            if(placing){if(k=='H')home_camera();continue;}
             if(dolly_raylib_code_is(&e,"Backslash"))toggle_eyes();
             if(!piloting&&k=='H')home_camera();if(k=='C')drop_cargo();continue;
         }
@@ -530,15 +578,26 @@ static void draw_ui(void){
     snprintf(text,sizeof(text),"%s%s%s / Backslash camera",movement,magnets[0]?" / ":"",magnets);
     label(262,647,piloting?text:world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
-        label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={terrain_version>=6?"Combat":"Home",terrain_version>=7?"Red port":"Harbor",terrain_version>=7?"Blue base":"East base",terrain_version>=7?"Red base":"West base",terrain_version>=7?"Blue port":"North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry",terrain_version>=7?"Red scrap":terrain_version>=6?"East scrap":"Yard",terrain_version>=7?"Blue gun":"East sling",terrain_version>=7?"Red gun":"West sling","Channel",terrain_version>=7?"Blue scrap":"West scrap"};
-        for(int i=0;i<world_places();i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
+      if(placing){
+        label(24,108,"PLACE STRUCTURE",17,ink);label(24,144,"Choose its team",16,muted);
+        const char *names[]={"Blue base","Neutral / middle","Red base"};const int teams[]={2,0,1};
+        for(int i=0;i<3;i++)button(24,184+i*42,194,34,names[i],placement_team==teams[i]);
+        button(24,346,194,36,"Place [Enter]",placement.status==PLACEMENT_OK);button(24,392,194,36,"Cancel [Esc]",0);
+        label(24,454,"Root needs solid support.",13,muted);label(24,478,"Roofs are valid surfaces.",13,muted);
+        label(24,502,"Keep the whole structure",13,muted);label(24,522,"on its team's ground.",13,muted);
+        DrawRectangle(254,602,730,35,paper);label(264,612,world_placement_message(placement.status),15,placement.status==PLACEMENT_OK?ink:accent);
+      }else{
+        label(24,108,terrain_version>=8?"MAP":"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
+        if(terrain_version>=8){snprintf(text,sizeof(text),"%d / 2",world_place_page+1);label(84,109,text,14,muted);button(148,100,30,26,"<",0);button(188,100,30,26,">",0);}else world_place_page=0;
+        const char *places[]={terrain_version>=6?"Combat":"Home",terrain_version>=7?"Red port":"Harbor",terrain_version>=7?"Blue base":"East base",terrain_version>=7?"Red base":"West base",terrain_version>=7?"Blue port":"North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry",terrain_version>=7?"Red scrap":terrain_version>=6?"East scrap":"Yard",terrain_version>=7?"Blue gun":"East sling",terrain_version>=7?"Red gun":"West sling","Channel",terrain_version>=7?"Blue scrap":"West scrap","Blue flak","Blue N roof","Red N roof","Blue S roof","Red S roof","Sea cargo"};
+        for(int i=0;i<16&&world_place_page*16+i<world_places();i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[world_place_page*16+i],0);
         label(24,world_list_top()-28,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-world_rows()));
         for(int i=0;i<world_rows()&&world_list+i<world.count;i++){Creature *c=&world.creatures[world_list+i];snprintf(text,sizeof(text),"%d  %.*s",c->id,(int)fminf(19,strcspn(c->name,"/")),c->name);label(24,world_list_top()+i*26,text,14,c->id==world_follow?accent:c->team?block_colors[world_team_color(c->team)]:ink);}
         button(24,564,40,30,"<",0);button(178,564,40,30,">",0);
         snprintf(text,sizeof(text),"%d-%d / %d",world.count?world_list+1:0,(int)fminf(world_list+world_rows(),world.count),world.count);label(74,572,text,14,muted);
         button(24,612,194,28,"Export world",0);button(24,642,194,28,"Import world",0);
+      }
         if(!agent_panel){
             label(1036,108,piloting?"DRIVER":"LOOSE CARGO",17,muted);label(1036,149,piloting?movement:"Drops at the camera target.",14,muted);if(piloting)label(1036,168,magnets,14,muted);button(1036,188,220,36,"Drop cargo [C]",0);
             if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);world_creature_status(c->id,text,32);label(1036,264,text,12,muted);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
@@ -571,7 +630,7 @@ static void draw_ui(void){
         button(808,22,104,36,"Export",0);button(924,22,104,36,"Import",0);
         label(24,106,"PARTS",17,muted);
         for(int i=0;i<BLOCK_KINDS;i++)button(24+(i%2)*100,142+(i/2)*26,94,24,block_names[i],tool==ADD&&brush_joint==i);
-        button(24,280,194,40,"Drive in world",1);
+        button(24,280,194,40,design.anchored?"Place in world":"Drive in world",1);
         button(24,336,62,36,"Add",tool==ADD);button(90,336,62,36,"Pick",tool==SELECT);button(156,336,62,36,"Erase",tool==ERASE);
         label(24,390,tool==SELECT?"SELECTED COLOR":"BLOCK COLOR",15,muted);
         for(int i=0;i<COLOR_COUNT;i++){DrawRectangleRounded((Rectangle){24+i*32,416,26,30},.12f,4,block_colors[i]);if(i==brush_color)DrawRectangleLinesEx((Rectangle){22+i*32,414,30,34},2,ink);}
@@ -687,6 +746,7 @@ static Value state(Data *ctx) {
     value_set(ctx,result,"agentControl",value_bool(ctx,agent_control));
     value_set(ctx,result,"programPlaying",value_bool(ctx,program_trial==2&&agent_control));
     value_set(ctx,result,"anchored",value_bool(ctx,design.anchored));value_set(ctx,result,"sea",value_bool(ctx,practice_sea));
+    if(placing){Value preview=value_table(ctx);value_set(ctx,preview,"team",value_number(ctx,placement.team));value_set(ctx,preview,"valid",value_bool(ctx,placement.status==PLACEMENT_OK));value_set(ctx,preview,"reason",value_string(ctx,world_placement_message(placement.status)));value_set(ctx,result,"placement",preview);}
     value_set(ctx,result,"maxSeparation",value_number(ctx,physics.max_separation));
     Value camera=value_table(ctx);const char *camera_keys[]={"x","y","z","yaw","pitch","distance","eyeX","eyeY","eyeZ","upX","upY","upZ","fov"};
     double camera_values[]={orbit.target.x,orbit.target.y,orbit.target.z,orbit.yaw,orbit.pitch,orbit.distance,orbit.eye.x,orbit.eye.y,orbit.eye.z,orbit.up.x,orbit.up.y,orbit.up.z,orbit.fov};
@@ -829,8 +889,8 @@ static Value game_frame(Data *ctx,Value self,int argc,Value *argv) {
         if(design.count&&!world_view){Vector3 p;Quaternion q;physics_pose(&physics,&design,0,&p,&q);orbit.target=Vector3Add(orbit.target,Vector3Subtract(p,follow_position));follow_position=p;orbit_update(&orbit);}
     }else accumulator=0;
     if(now-updated>1){fps=frame_count/(now-updated);updated=now;frame_count=0;dirty=1;}frame_count++;
-    if(dirty)draw_ui();Block ghost,*preview=NULL;if(!physics.running&&tool==ADD&&in_view()&&candidate(&ghost))preview=&ghost;
-    if(world_view)render_world(&orbit);else render_frame(&design,&physics,&orbit,selected,hover,preview);return VALUE_TRUE;
+    if(placing)update_placement();if(dirty)draw_ui();Block ghost,*preview=NULL;if(!world_view&&!physics.running&&tool==ADD&&in_view()&&candidate(&ghost))preview=&ghost;
+    if(world_view)render_world_placement(&orbit,placing?&design:NULL,placing?&placement:NULL);else render_frame(&design,&physics,&orbit,selected,hover,preview);return VALUE_TRUE;
 }
 static int game_initialize(Data *ctx) {
     embedded_context=ctx;world_load(ctx);if(terrain_version>=7)world_orbit=world_home();

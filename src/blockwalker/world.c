@@ -567,16 +567,17 @@ Value world_save_design(Data *ctx,const Character *design,int sea){
     if(!design->count)return value_error(ctx,"Build a character before saving a design");
     return value_number(ctx,remember_design(design,installed,installed?installed_name:"Workshop build",installed_hz,sea?125:0,sea?10:0));
 }
-static Creature *spawn(const Character *design,const char *source,const char *name,uint32_t seed,int hz,float x,float z){
+static Creature *spawn_poses(const Character *design,const char *source,const char *name,uint32_t seed,int hz,float x,float z,const PhysicsPose *poses){
     Controller *controller=controller_new(source,seed,hz);if(!controller)return NULL;
     if(!world.next_id){world.next_id=1;world.physics=physics_world(1);}
     if(world.count==world.capacity){world.capacity=world.capacity?world.capacity*2:16;world.creatures=array_resize(world.creatures,world.capacity,sizeof(Creature));}
     Creature *c=&world.creatures[world.count++];memset(c,0,sizeof(*c));c->id=world.next_id++;snprintf(c->name,sizeof(c->name),"%s",name);c->controller=controller;
     c->cargo=!design->anchored;
     for(int i=0;i<design->count;i++)if(design->blocks[i].joint!=BLOCK_BOX)c->cargo=0;
-    character_copy(&c->design,design);physics_attach(&c->physics,&c->design,world.physics,x,z,1);c->physics.time=world.age;
+    character_copy(&c->design,design);physics_attach_poses(&c->physics,&c->design,world.physics,x,z,1,poses,0);c->physics.time=world.age;
     Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);c->root_height=p.y-fmaxf(terrain_height(x,z),WATER_LEVEL);return c;
 }
+static Creature *spawn(const Character *design,const char *source,const char *name,uint32_t seed,int hz,float x,float z){return spawn_poses(design,source,name,seed,hz,x,z,NULL);}
 static void set_spawn_height(Creature *c,float y){
     float offset=y-c->physics.start.y;
     for(int i=0;i<c->design.count;i++)if(c->physics.parts[i].owner==i){
@@ -584,6 +585,77 @@ static void set_spawn_height(Creature *c,float y){
     }c->physics.start.y=y;
 }
 Creature *world_find(int id){for(int i=0;i<world.count;i++)if(world.creatures[i].id==id)return &world.creatures[i];return NULL;}
+const char *world_placement_message(PlacementStatus status){
+    const char *messages[]={"Ready: click or Enter to place","Point at solid ground or a roof","Anchor the root before placing","Keep the whole build inside the selected team's ground","The root needs a flat, supported footing","Blocked by terrain or another character"};
+    return messages[status];
+}
+static int placement_overlap(BoundingBox a,BoundingBox b){
+    return a.min.x<b.max.x-.005f&&a.max.x>b.min.x+.005f&&a.min.y<b.max.y-.005f&&a.max.y>b.min.y+.005f&&a.min.z<b.max.z-.005f&&a.max.z>b.min.z+.005f;
+}
+PlacementStatus world_placement_check(const Character *design,const WorldPlacement *placement){
+    if(!design->count||!design->anchored)return PLACEMENT_ANCHOR;
+    Vector3 offset=placement->offset;if(!isfinite(offset.x)||!isfinite(offset.y)||!isfinite(offset.z))return PLACEMENT_SURFACE;
+    int team=placement->team;if(team<0||team>2||terrain_version<7&&team)return PLACEMENT_ZONE;
+    BoundingBox root={0},extent={{INFINITY,INFINITY,INFINITY},{-INFINITY,-INFINITY,-INFINITY}};
+    BoundingBox *boxes=array_resize(NULL,(size_t)design->count*2,sizeof(*boxes));int count=0;PlacementStatus status=PLACEMENT_OK;
+    for(int i=0;i<design->count;i++){
+        Vector3 p=Vector3Add(block_position(design->blocks[i]),offset),h=block_half(design->blocks[i]);
+        boxes[count++]=(BoundingBox){Vector3Subtract(p,h),Vector3Add(p,h)};
+        if(block_size(design->blocks[i])>1){Block b=design->blocks[i];((float *)&p)[b.axis]-=b.direction*.33f;((float *)&h)[b.axis]=.14f;boxes[count++]=(BoundingBox){Vector3Subtract(p,h),Vector3Add(p,h)};}
+    }
+    for(int i=0;i<count;i++){extent.min=Vector3Min(extent.min,boxes[i].min);extent.max=Vector3Max(extent.max,boxes[i].max);}
+    root=boxes[0];float width=terrain_combat_half_x(terrain_version);
+    if(extent.min.x<-WORLD_RADIUS||extent.max.x>WORLD_RADIUS||extent.min.z<-WORLD_RADIUS||extent.max.z>WORLD_RADIUS||extent.max.y>128)status=PLACEMENT_SURFACE;
+    else if(terrain_version>=7&&(extent.min.z<=-COMBAT_HALF_Z||extent.max.z>=COMBAT_HALF_Z||
+        (team==1?extent.min.x<=width:team==2?extent.max.x>=-width:extent.min.x<-width||extent.max.x>width)))status=PLACEMENT_ZONE;
+    else if(root.min.y<WATER_LEVEL+.05f)status=PLACEMENT_SURFACE;
+    for(int point=0;status==PLACEMENT_OK&&point<5;point++){
+        float x=point==4?(root.min.x+root.max.x)*.5f:point&1?root.min.x:root.max.x;
+        float z=point==4?(root.min.z+root.max.z)*.5f:point&2?root.min.z:root.max.z;int supported=0;
+        for(int i=0;i<terrain_count&&!supported;i++){TerrainBox b=terrain_box(i);
+            supported=fabsf(root.min.y-b.center.y-b.half.y)<.04f&&fabsf(x-b.center.x)<=b.half.x+.001f&&fabsf(z-b.center.z)<=b.half.z+.001f;
+        }if(!supported)status=PLACEMENT_SUPPORT;
+    }
+    for(int i=0;status==PLACEMENT_OK&&i<terrain_count;i++){
+        TerrainBox b=terrain_box(i);BoundingBox obstacle={Vector3Subtract(b.center,b.half),Vector3Add(b.center,b.half)};
+        if(placement_overlap(extent,obstacle))for(int j=0;j<count;j++)if(placement_overlap(boxes[j],obstacle)){status=PLACEMENT_COLLISION;break;}
+    }
+    for(int i=0;status==PLACEMENT_OK&&i<world.count;i++)for(int j=0;j<world.creatures[i].physics.shape_count;j++){
+        b3AABB b=b3Shape_GetAABB(world.creatures[i].physics.shapes[j].id);
+        BoundingBox obstacle={{b.lowerBound.x,b.lowerBound.y,b.lowerBound.z},{b.upperBound.x,b.upperBound.y,b.upperBound.z}};
+        if(placement_overlap(extent,obstacle))for(int k=0;k<count;k++)if(placement_overlap(boxes[k],obstacle)){status=PLACEMENT_COLLISION;break;}
+        if(status!=PLACEMENT_OK)break;
+    }
+    free(boxes);return status;
+}
+WorldPlacement world_placement(const Character *design,int team,Ray ray){
+    WorldPlacement placement={.team=team,.status=PLACEMENT_SURFACE};float nearest=INFINITY,top=0;Vector3 point={0};
+    if(!design->count||!design->anchored){placement.status=PLACEMENT_ANCHOR;return placement;}
+    for(int i=0;i<terrain_count;i++){
+        TerrainBox b=terrain_box(i);Vector3 low=Vector3Subtract(b.center,b.half),high=Vector3Add(b.center,b.half);float enter=0,leave=INFINITY;
+        for(int axis=0;axis<3&&enter<=leave;axis++){
+            float origin=((float *)&ray.position)[axis],direction=((float *)&ray.direction)[axis],min=((float *)&low)[axis],max=((float *)&high)[axis];
+            if(direction==0){if(origin<min||origin>max)leave=-1;continue;}
+            float a=(min-origin)/direction,c=(max-origin)/direction;enter=fmaxf(enter,fminf(a,c));leave=fminf(leave,fmaxf(a,c));
+        }
+        if(enter<=leave&&enter<nearest){nearest=enter;point=Vector3Add(ray.position,Vector3Scale(ray.direction,enter));top=b.center.y+b.half.y;}
+    }
+    if(!isfinite(nearest)||ray.direction.y>=0||fabsf(point.y-top)>.002f)return placement;
+    Vector3 root=block_position(design->blocks[0]),half=block_half(design->blocks[0]);
+    placement.offset=(Vector3){roundf(point.x)-root.x,point.y+half.y-root.y,roundf(point.z)-root.z};
+    placement.status=world_placement_check(design,&placement);return placement;
+}
+int world_place(const Character *design,WorldPlacement *placement){
+    if(placement->status==PLACEMENT_SURFACE||placement->status==PLACEMENT_ANCHOR)return 0;
+    placement->status=world_placement_check(design,placement);if(placement->status!=PLACEMENT_OK||!character_validate(design))return 0;
+    Character painted={0};character_copy(&painted,design);
+    if(placement->team)for(int i=0;i<painted.count;i++)if(painted.blocks[i].color!=4)painted.blocks[i].color=world_team_color(placement->team);
+    PhysicsPose *poses=array_resize(NULL,painted.count,sizeof(*poses));
+    for(int i=0;i<painted.count;i++){Vector3 p=Vector3Add(block_position(painted.blocks[i]),placement->offset);poses[i]=(PhysicsPose){.transform={{p.x,p.y,p.z},{{0,0,0},1}}};}
+    Creature *c=spawn_poses(&painted,installed?installed:"return function() return {} end",installed?installed_name:"Your structure",world.next_id+1,installed_hz,placement->offset.x,placement->offset.z,poses);
+    free(poses);character_clear(&painted);if(!c)return 0;
+    c->team=placement->team;c->root_height=block_half(c->design.blocks[0]).y;return c->id;
+}
 int world_enter(const Character *design,int sea){
     if(!design->count||design->anchored)return 0;
     float radius=1,x=0,z=0;int clear=0;
@@ -697,10 +769,11 @@ static void supply_step(void){
             if(c->design.blocks[j].joint==BLOCK_TURNTABLE&&hypotf(p.x+85,p.z+81)<4&&b3LengthSquared(b3Body_GetAngularVelocity(body))>1)drilling=1;
         }
     }
-    if(world.age>=world.next_parcel&&parcels<6){
+    if(world.age>=world.next_parcel&&parcels<(terrain_version>=8?10:6)){
         const Vector2 legacy_sites[]={{-60,-25},{-15,-45},{45,-30},{65,20},{-43,47},{8,66},{-72,72},{38,32}};
         const Vector2 combat_sites[]={{-22,-16},{14,-9},{-8,14},{20,26},{-43,47},{8,66},{-20,-44},{38,-28}};
-        const Vector2 *sites=terrain_version>=6?combat_sites:legacy_sites;
+        const Vector2 contested_sites[]={{-22,-68},{14,-42},{-8,-16},{2,12},{-24,38},{8,66},{0,-44},{24,28}};
+        const Vector2 *sites=terrain_version>=8?contested_sites:terrain_version>=6?combat_sites:legacy_sites;
         int first=(int)(supply_random()*8);Vector2 site=sites[first];
         for(int offset=0;offset<8;offset++){
             site=sites[(first+offset)%8];int occupied=0;
@@ -713,7 +786,7 @@ static void supply_step(void){
         float x=site.x+(supply_random()-.5f)*6,z=site.y+(supply_random()-.5f)*6;
         int id=world_drop_cargo(x,42+10*supply_random(),z,MATERIAL_ALLOY);Creature *cargo=world_find(id);
         if(cargo){cargo->supply=1;cargo->parachute=1;snprintf(cargo->name,sizeof(cargo->name),"Air parcel");}
-        world.next_parcel=world.age+45+45*supply_random();
+        world.next_parcel=world.age+(terrain_version>=8?18+14*supply_random():45+45*supply_random());
     }
     if(world.age>=world.next_ore&&ore<3&&!blocked&&platform){
         Character crate={0};character_add(&crate,-1,0,0,0,BLOCK_BOX,1);character_add(&crate,0,1,0,0,BLOCK_BOX,1);character_add(&crate,0,0,0,1,BLOCK_BOX,1);character_add(&crate,1,1,0,1,BLOCK_BOX,1);
@@ -723,7 +796,12 @@ static void supply_step(void){
         world.next_ore=world.age+60+30*supply_random();
     }
     if(terrain_version>=2&&world.age>=world.next_mine&&mine<2&&!mine_blocked&&drilling){
-        int id=world_drop_cargo(-73,.55f,-78,MATERIAL_BALLAST);Creature *cargo=world_find(id);
+        Creature *cargo;
+        if(terrain_version>=8){
+            Character pallet={0};character_add(&pallet,-1,0,0,0,BLOCK_BOX,2);character_add(&pallet,0,1,0,0,BLOCK_BOX,2);character_add(&pallet,0,0,0,1,BLOCK_BOX,2);character_add(&pallet,1,1,0,1,BLOCK_BOX,2);
+            for(int i=0;i<pallet.count;i++){pallet.blocks[i].material=MATERIAL_BALLAST;pallet.blocks[i].finish=FINISH_GLOW;}
+            cargo=spawn(&pallet,"return function() return '' end","Core sample",1,CONTROLLER_DEFAULT_HZ,-73,-78);character_clear(&pallet);if(cargo)set_spawn_height(cargo,.55f);
+        }else cargo=world_find(world_drop_cargo(-73,.55f,-78,MATERIAL_BALLAST));
         if(cargo){cargo->supply=3;cargo->design.blocks[0].color=2;cargo->design.blocks[0].finish=FINISH_GLOW;snprintf(cargo->name,sizeof(cargo->name),"Core sample");}
         world.next_mine=world.age+50+30*supply_random();
     }
@@ -742,6 +820,11 @@ Value world_release(Data *ctx,const Character *design,Value args){
     double team=get_number(ctx,args,"team",0);if(!isfinite(team)||team<0||team>2||team!=floor(team))return value_error(ctx,"Team must be 0 (neutral), 1 (East) or 2 (West)");
     Value cargo=value_get(ctx,args,"cargo");int payload=value_is_bool(cargo)?value_truth(ctx,cargo):-1,valid=value_is_nil(cargo)||value_is_bool(cargo);value_free(ctx,cargo);
     if(!valid)return value_error(ctx,"Cargo must be a boolean");
+    if(design->anchored){
+        WorldPlacement placement=world_placement(design,team,(Ray){{x,128,z},{0,-1,0}});int id=world_place(design,&placement);
+        if(!id)return value_error(ctx,"%s",world_placement_message(placement.status));
+        remember_design(design,installed,installed_name,installed_hz,x,z);return value_number(ctx,id);
+    }
     Creature *c=spawn(design,installed,installed_name,(uint32_t)get_number(ctx,args,"seed",index+1),installed_hz,x,z);
     if(!c)return value_error(ctx,"Controller failed to initialize");
     c->team=team;
@@ -856,7 +939,7 @@ static int save_world(Data *ctx,const char *path){
         Creature *c=&world.creatures[i];Value item=value_at(ctx,list,i),poses=value_array(ctx);
         value_set(ctx,item,"blueprint",character_data(ctx,&c->design));value_set(ctx,item,"source",value_string(ctx,c->controller->source));
         Value controls=value_table(ctx);for(int j=1;j<128;j++)if(c->controls[j]&&assigned(&c->design,j)){char key[2]={j,0};put_number(ctx,controls,key,c->controls[j]);}value_set(ctx,item,"controls",controls);
-        put_number(ctx,item,"hz",c->controller->hz);put_number(ctx,item,"controlStep",c->controller->last_step);put_number(ctx,item,"seed",c->controller->seed);put_number(ctx,item,"rootHeight",c->root_height);put_number(ctx,item,"startX",c->physics.start.x);put_number(ctx,item,"startZ",c->physics.start.z);
+        put_number(ctx,item,"hz",c->controller->hz);put_number(ctx,item,"controlStep",c->controller->last_step);put_number(ctx,item,"seed",c->controller->seed);put_number(ctx,item,"rootHeight",c->root_height);put_number(ctx,item,"startX",c->physics.start.x);put_number(ctx,item,"startY",c->physics.start.y);put_number(ctx,item,"startZ",c->physics.start.z);
         size_t length=0;const char *m=controller_memory_lua(c->controller,&length);if(m)value_set(ctx,item,"memory",data_parse(ctx,m,length,"controller memory"));value_text_free(c->controller->ctx,m);
         for(int j=0;j<c->design.count;j++){
             Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,j,&p,&q);b3Vec3 v=physics_velocity(&c->physics.parts[j]),a=b3Body_GetAngularVelocity(c->physics.parts[j].body);
@@ -1008,7 +1091,7 @@ static void load_removals(Data *ctx,Value list){
 }
 static void restore_world(Data *ctx,Value save,int fresh){
     int legacy=value_is_table(save)&&get_number(ctx,save,"version",0)==1;
-    terrain_select(value_is_table(save)?get_number(ctx,save,"terrainVersion",0):fresh?7:0);
+    terrain_select(value_is_table(save)?get_number(ctx,save,"terrainVersion",0):fresh?8:0);
     if(value_is_table(save)){Value designs=value_get(ctx,save,"designs");load_designs_version(ctx,designs,0,legacy);value_free(ctx,designs);}
     Value examples=read_catalog(ctx);load_designs(ctx,examples,fresh);value_free(ctx,examples);
     if(fresh){world.supply_seed=0x243f6a88;world.next_parcel=45;world.next_ore=5;world.next_mine=10;}
@@ -1042,7 +1125,7 @@ static void restore_world(Data *ctx,Value save,int fresh){
                 if(message)snprintf(creature->error,sizeof(creature->error),"%s",message);value_text_free(ctx,message);value_free(ctx,error);
                 int supply=get_number(ctx,item,"supply",0);creature->supply=supply>=1&&supply<=3?supply:0;Value parachute=value_get(ctx,item,"parachute");creature->parachute=value_truth(ctx,parachute);value_free(ctx,parachute);
                 Value cargo=value_get(ctx,item,"cargo");if(value_is_bool(cargo))creature->cargo=value_truth(ctx,cargo);value_free(ctx,cargo);
-                creature->id=get_number(ctx,item,"id",creature->id);creature->physics.steps=llround(get_number(ctx,item,"seconds",0)*60);creature->root_height=get_number(ctx,item,"rootHeight",1);creature->fallen=get_number(ctx,item,"fallenSeconds",0);creature->physics.start.x=get_number(ctx,item,"startX",creature->physics.start.x);creature->physics.start.z=get_number(ctx,item,"startZ",creature->physics.start.z);
+                creature->id=get_number(ctx,item,"id",creature->id);creature->physics.steps=llround(get_number(ctx,item,"seconds",0)*60);creature->root_height=get_number(ctx,item,"rootHeight",1);creature->fallen=get_number(ctx,item,"fallenSeconds",0);creature->physics.start.x=get_number(ctx,item,"startX",creature->physics.start.x);creature->physics.start.y=get_number(ctx,item,"startY",creature->physics.start.y);creature->physics.start.z=get_number(ctx,item,"startZ",creature->physics.start.z);
                 int period=60/hz,last=creature->physics.steps?(creature->physics.steps-1)/period*period:-1;
                 creature->controller->last_step=get_number(ctx,item,"controlStep",last);
                 if(creature->controller->last_step< -1||creature->controller->last_step>=creature->physics.steps)creature->controller->last_step=last;
@@ -1159,7 +1242,7 @@ static int import_world_valid(Data *ctx,Value save){
     Value list=value_get(ctx,save,"creatures"),designs=value_get(ctx,save,"designs"),removals=value_get(ctx,save,"removals"),deliveries=value_get(ctx,save,"deliveries"),ids=value_table(ctx),delivered=value_table(ctx),format=value_get(ctx,save,"format");
     const char *kind=value_is_string(format)?value_text(ctx,format):NULL;
     int legacy=get_number(ctx,save,"version",0)==1;
-    int valid=value_is_table(save)&&import_number(ctx,save,"version",1,6,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,7,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
+    int valid=value_is_table(save)&&import_number(ctx,save,"version",1,6,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,8,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (value_is_nil(format)||(kind&&!strcmp(kind,"blockwalker-world")))&&value_is_array(list)&&value_is_array(designs)&&value_is_array(removals)&&(value_is_nil(deliveries)||value_is_array(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     value_text_free(ctx,kind);value_free(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);
@@ -1168,8 +1251,8 @@ static int import_world_valid(Data *ctx,Value save){
         valid=read_design(ctx,item,&c,1,legacy)&&import_number(ctx,item,"id",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"seconds",0,(INT32_MAX-1)/60.,0)&&import_number(ctx,item,"seed",0,UINT32_MAX,IMPORT_INTEGER);
         int id=valid?get_number(ctx,item,"id",0):0;Value previous=value_at(ctx,ids,id);valid=valid&&value_is_nil(previous);value_free(ctx,previous);
         if(valid){value_set_at(ctx,ids,id,value_number(ctx,c.count));if(id>greatest)greatest=id;}
-        const char *fields[]={"rootHeight","fallenSeconds","startX","startZ","settled"};
-        for(int k=0;k<5;k++)valid=valid&&import_number(ctx,item,fields[k],-FLT_MAX,FLT_MAX,IMPORT_OPTIONAL);
+        const char *fields[]={"rootHeight","fallenSeconds","startX","startY","startZ","settled"};
+        for(int k=0;k<6;k++)valid=valid&&import_number(ctx,item,fields[k],-FLT_MAX,FLT_MAX,IMPORT_OPTIONAL);
         valid=valid&&import_number(ctx,item,"carrierId",-1,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL)&&import_number(ctx,item,"carriedBy",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL)&&import_number(ctx,item,"controlStep",-1,fmax(-1,round(get_number(ctx,item,"seconds",0)*60)-1),IMPORT_INTEGER|IMPORT_OPTIONAL);
         Value error=value_get(ctx,item,"controllerError");valid=valid&&(value_is_nil(error)||import_string(ctx,item,"controllerError",160));value_free(ctx,error);
         Value poses=value_get(ctx,item,"poses"),memory=value_get(ctx,item,"memory"),controls=value_get(ctx,item,"controls"),pickup=value_get(ctx,item,"pickup"),cargo=value_get(ctx,item,"cargo");

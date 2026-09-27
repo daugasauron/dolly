@@ -320,13 +320,22 @@ static const TerrainBox quay_working_boxes[]={
     {{140.25f,4.6f,31},{.2f,.6f,.2f},6},
     {{140.25f,4.6f,45},{.2f,.6f,.2f},6},
 };
+static const TerrainBox frontline_boxes[]={
+    {{-99,-.25f,-20},{1,.25f,5},4},
+    {{-100.5f,-.6f,-24},{.2f,1.4f,.2f},4},
+    {{-100.5f,-.6f,-16},{.2f,1.4f,.2f},4},
+    {{-92,.025f,-20},{3,.025f,2},4},
+    {{-42,-.1f,-48.5f},{6,.1f,6.5f},4},
+    {{42,-.1f,-48.5f},{6,.1f,6.5f},4},
+    {{-52.5f,11,81},{5.5f,2,.5f},5,1},
+};
 enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes),RIDGE_BOX_COUNT=sizeof(ridge_boxes)/sizeof(*ridge_boxes),RENEWAL_BOX_COUNT=sizeof(renewal_boxes)/sizeof(*renewal_boxes),QUARRY_STEPS=48,QUARRY_BOX_COUNT=QUARRY_STEPS+14+sizeof(quay_working_boxes)/sizeof(*quay_working_boxes),TERRAIN_BOX_COUNT=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT+QUARRY_BOX_COUNT };
-enum { COMPETITION_BOX_COUNT=44,BASE_BOX_COUNT=18,MAX_TERRAIN_BOX_COUNT=TERRAIN_BOX_COUNT+COMPETITION_BOX_COUNT+BASE_BOX_COUNT };
-int terrain_version=7,terrain_count=MAX_TERRAIN_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
+enum { COMPETITION_BOX_COUNT=44,BASE_BOX_COUNT=18,FRONTLINE_STATIC_COUNT=sizeof(frontline_boxes)/sizeof(*frontline_boxes),FRONTLINE_BOX_COUNT=FRONTLINE_STATIC_COUNT+4*7,MAX_TERRAIN_BOX_COUNT=TERRAIN_BOX_COUNT+COMPETITION_BOX_COUNT+BASE_BOX_COUNT+FRONTLINE_BOX_COUNT };
+int terrain_version=8,terrain_count=MAX_TERRAIN_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
 int terrain_depot_count(int version){return version?sizeof(depots)/sizeof(*depots):3;}
-int terrain_combat_half_x(int version){return version>=7?COMBAT_HALF_X:78;}
+int terrain_combat_half_x(int version){return version>=8?COMBAT_HALF_X:version>=7?48:78;}
 void terrain_select(int version){
-    terrain_version=version>=0&&version<=7?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0)+(terrain_version>=5?QUARRY_BOX_COUNT:0)+(terrain_version>=6?COMPETITION_BOX_COUNT:0)+(terrain_version>=7?BASE_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
+    terrain_version=version>=0&&version<=8?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0)+(terrain_version>=5?QUARRY_BOX_COUNT:0)+(terrain_version>=6?COMPETITION_BOX_COUNT:0)+(terrain_version>=7?BASE_BOX_COUNT:0)+(terrain_version>=8?FRONTLINE_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
 }
 static TerrainBox competition_box(int index){
     int side=index/22,i=index%22;float sign=side?1:-1,x=sign*83;int color=side?1:2;
@@ -348,7 +357,7 @@ static TerrainBox competition_box(int index){
     return i==20?(TerrainBox){{bx,side?4.03f:2.03f,bz},{12,.03f,1.2f},color}:(TerrainBox){{bx+13,side?6:4,bz},{.5f,2,1},5};
 }
 static TerrainBox base_box(int index){
-    int side=index/9,i=index%9;float sign=side?1:-1,x=sign*COMBAT_HALF_X;int color=side?5:7;
+    int side=index/9,i=index%9;float sign=side?1:-1,x=sign*terrain_combat_half_x(terrain_version);int color=side?5:7;
     if(i<6){float z=i<3?-28:24;int part=i%3;
         if(part<2)return (TerrainBox){{x,6,z+(part?8:-8)},{.7f,6,.7f},color};
         return (TerrainBox){{x,12,z},{.8f,.5f,8.7f},color,1};
@@ -358,7 +367,16 @@ static TerrainBox base_box(int index){
     if(i==7)return (TerrainBox){{x,7,-32},{.7f,7,.7f},color};
     return (TerrainBox){{x,15,-32},{6,2,.4f},color,1};
 }
+static TerrainBox frontline_box(int index){
+    if(index<FRONTLINE_STATIC_COUNT)return frontline_boxes[index];
+    index-=FRONTLINE_STATIC_COUNT;
+    int station=index/7,part=index%7;float x=station<2?-52:52,z=station%2?72:-72;
+    if(part==0)return (TerrainBox){{x+6,15.7f,z},{14,.3f,10},4,1};
+    if(part<5){int corner=part-1;return (TerrainBox){{x+(corner&1?19:-7),7.7f,z+(corner&2?9:-9)},{.6f,7.7f,.6f},5};}
+    return (TerrainBox){{x+6,14.9f,z+(part==5?-9.7f:9.7f)},{14,.5f,.3f},5,1};
+}
 static TerrainBox source_box(int index){
+    if(terrain_version>=8&&index>=TERRAIN_BOX_COUNT+COMPETITION_BOX_COUNT+BASE_BOX_COUNT)return frontline_box(index-TERRAIN_BOX_COUNT-COMPETITION_BOX_COUNT-BASE_BOX_COUNT);
     if(terrain_version>=7&&index>=TERRAIN_BOX_COUNT+COMPETITION_BOX_COUNT)return base_box(index-TERRAIN_BOX_COUNT-COMPETITION_BOX_COUNT);
     if(terrain_version>=6){
         if(index>=TERRAIN_BOX_COUNT)return competition_box(index-TERRAIN_BOX_COUNT);
@@ -369,11 +387,33 @@ static TerrainBox source_box(int index){
     if(terrain_version>=2&&index==1)return (TerrainBox){{-82,-6,0},{18,6,100},0};
     if(terrain_version&&index==1)return (TerrainBox){{-77,-6,0},{23,6,100},0};
     if(terrain_version&&(index==8||index==9))return (TerrainBox){{index==8?143:138,index==8?-5:-6,12.5f},{index==8?3:2,index==8?7:6,8.5f},1};
-    if(index<ORIGINAL_BOX_COUNT)return original_boxes[index];
-    index-=ORIGINAL_BOX_COUNT;if(index<INDUSTRIAL_BOX_COUNT)return industrial_boxes[index];
-    index-=INDUSTRIAL_BOX_COUNT;if(index<MINE_BOX_COUNT)return mine_boxes[index];
+    if(index<ORIGINAL_BOX_COUNT){
+        TerrainBox b=original_boxes[index];
+        if(terrain_version>=8&&(b.color==8||b.color==9)&&b.center.x+b.half.x>=44&&b.center.x-b.half.x<=72&&b.center.z+b.half.z>=62&&b.center.z-b.half.z<=92){b.center.y=-.1f;b.half.y=.1f;b.color=4;}
+        return b;
+    }
+    index-=ORIGINAL_BOX_COUNT;if(index<INDUSTRIAL_BOX_COUNT){
+        TerrainBox b=industrial_boxes[index];
+        if(terrain_version>=8&&b.center.x==-43&&b.center.y==5.25f&&b.center.z==94){b.center.z=101;b.half.z=4;}
+        if(terrain_version>=8&&(b.center.x==-48||b.center.x==-38)&&b.center.z==94){b.center.z=101;b.half.z=4;}
+        if(terrain_version>=8&&b.center.x==-56.5f&&b.center.z==82){b.center.x=-62;b.half.x=4;}
+        if(terrain_version>=8&&b.center.x==-43&&b.center.y==11&&b.center.z==82){b.center.z=81;b.half.z=.5f;}
+        if(terrain_version>=8&&b.center.x==-47&&b.center.y==13.5f&&b.center.z==80){b.center.z=79.25f;b.half.z=2.25f;}
+        if(terrain_version>=8&&b.center.x==-47&&b.center.z==83.03f)b.center.x=-58;
+        return b;
+    }
+    index-=INDUSTRIAL_BOX_COUNT;if(index<MINE_BOX_COUNT){
+        TerrainBox b=mine_boxes[index];
+        if(terrain_version>=8&&b.center.x> -94&&b.center.x< -84&&b.center.z> -30&&b.center.z< -18)b.center.x+=2;
+        return b;
+    }
     index-=MINE_BOX_COUNT;if(index<RIDGE_BOX_COUNT)return ridge_boxes[index];
-    index-=RIDGE_BOX_COUNT;if(index<RENEWAL_BOX_COUNT)return renewal_boxes[index];
+    index-=RIDGE_BOX_COUNT;if(index<RENEWAL_BOX_COUNT){
+        TerrainBox b=renewal_boxes[index];
+        if(terrain_version>=8&&b.center.x>=26&&b.center.x<=46&&b.center.z> -39&&b.center.z< -17)b.center.x-=16;
+        if(terrain_version>=8&&b.center.x>=43&&b.center.x<=48&&b.center.z>=17&&b.center.z<=22){b.center.y=-.1f;b.half.y=.1f;b.color=4;}
+        return b;
+    }
     index-=RENEWAL_BOX_COUNT;
     if(index<QUARRY_STEPS){float half=(index+1)*.125f;return (TerrainBox){{99,half,-2.375f-index*.75f},{4,half,.375f},8};}
     index-=QUARRY_STEPS;

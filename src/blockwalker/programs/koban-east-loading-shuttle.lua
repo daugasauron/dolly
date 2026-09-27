@@ -30,6 +30,8 @@ return function(t, s, m)
     (m).phase = name;
     (m).at = t;
     (m).still = 0;
+    m.supported = 0
+    m.offered = nil
     if name == "release" then m.handed = true end
   end;
   local extension = reduce(rails, function(v, b)
@@ -152,17 +154,25 @@ return function(t, s, m)
     power = true;
     target = {(at((m).dock, 0) + 1), (at(home, 1) + (lift).travel), at((m).dock, 2)};
     if active(box) then
-      (target)[index(0)] = (at(tip, 0) + clamp((at((m).dock, 0) - (box).x), 0.3));
-      (target)[index(2)] = (at(tip, 2) + clamp((at((m).dock, 2) - (box).z), 0.3));
+      (target)[index(0)] = (at(tip, 0) + clamp((at((m).dock, 0) - (box).x), 0.8));
+      (target)[index(2)] = (at(tip, 2) + clamp((at((m).dock, 2) - (box).z), 0.8));
       if (((m).phase == "deliver") and (hypot(((box).x - at((m).dock, 0)), ((box).z - at((m).dock, 2))) < 0.15)) then
         phase("handoff");
       end
       if ((m).phase == "handoff") then
-        (target)[index(1)] = (at(tip, 1) + clamp((at((m).dock, 1) - (box).y), 0.15));
-        (m).still = ((hypot(((box).x - at((m).dock, 0)), ((box).y - at((m).dock, 1)), ((box).z - at((m).dock, 2))) < 0.18) and ((m).still + (s).dt) or 0);
-        if ((m).still > 0.5) then
-          (m).release = concat(tip);
-          phase("release");
+        (target)[index(1)] = (at(tip, 1) + clamp((at((m).dock, 1) - (box).y), 0.3));
+        local settled=hypot(box.vx,box.vy,box.vz)<.15
+        m.still=settled and hypot(box.x-m.dock[1],box.y-m.dock[2],box.z-m.dock[3])<.18 and m.still+s.dt or 0
+        if settled and hypot(box.x-m.dock[1],box.z-m.dock[3])<.18
+          and grip.cargoSupportForce>box.mass*hypot(table.unpack(s.gravity))*.6 then
+          m.supported=(m.supported or 0)+s.dt
+        else m.supported=0 end
+        if m.still>.5 or m.supported>.5 then
+          if not m.offered then m.release=concat(tip);m.offered=t end
+        end
+        if m.offered then
+          m.release=concat(tip)
+          if t-m.offered>12 then phase("release") end
         end
       end
     end
@@ -183,6 +193,13 @@ return function(t, s, m)
   if ((m).phase == "clear") then
     local raised = at(s.angles, lift.i) > lift.travel-.05
     target = {raised and at(s.angles,cross.i)<.05 and at(home,0) or at(tip,0), at(home,1)+lift.travel, raised and at(home,2) or at(tip,2)};
+    if box and box.carriedBy==m.station then
+      local edge=box.x
+      for _,shape in ipairs(s.bounds(box.id)) do
+        if shape.body==0 then edge=math.max(edge,shape.x+shape.halfX) end
+      end
+      if tip[1]<edge+1.4 then target={math.min(home[1],edge+1.5),tip[2],tip[3]} end
+    end
     if ((extension < 0.05) and (at((s).angles, (cross).i) < 0.05)) then
       (m).readyAt = (s).worldTime;
       if m.handed then (out).radio = {kind = "ready", cargo = (m).job} end
@@ -195,7 +212,7 @@ return function(t, s, m)
     phase("clear");
   end
   if includes({"align","pickup","raise","aisle","deliver","handoff"},m.phase) and m.job then
-    out.radio = {kind="claim",cargo=m.job}
+    out.radio = {kind=m.phase=="handoff" and m.offered and "ready" or "claim",cargo=m.job}
   end
   local reach = math.max(0, (at(home, 0) - at(target, 0)));
   for _, b in ipairs(rails) do

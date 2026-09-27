@@ -455,7 +455,10 @@ return function(t, s, m, r)
   if ((m).phase == "seek") then
     power = false;
     local jobs = (function() if active(#(freeBays())) then return sort(filter((s).nearby, function(b)
-      return (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = (b).cargo; if active(value) then return (not active((b).delivered)) else return value end end)(); if active(value) then return ((b).mass < 1.5) else return value end end)(); if active(value) then return (not active((b).carriedBy)) else return value end end)(); if active(value) then return (not active((b).magnetHeld)) else return value end end)(); if active(value) then return (not active(inBay(b))) else return value end end)(); if active(value) then return (not active(reserved((b).id))) else return value end end)(); if active(value) then return (t > (function() local value = at((m).failed, (b).id); if active(value) then return value else return 0 end end)()) else return value end end)(); if active(value) then return (math.abs((((b).y - (s).ground) - 0.5)) < 0.6) else return value end end)(); if active(value) then return (hypot((b).vx, (b).vz) < 0.4) else return value end end)()
+      return b.cargo and b.team==0 and not b.delivered and b.mass<1.5
+        and b.carriedBy==0 and not b.magnetHeld and not inBay(b) and not reserved(b.id)
+        and t>(at(m.failed,b.id) or 0) and math.abs(b.y-s.ground-.5)<.6
+        and hypot(b.vx,b.vz)<.4
     end), function(a, b)
       return (hypot(((a).x - (s).x), ((a).z - (s).z)) - hypot(((b).x - (s).x), ((b).z - (s).z)))
     end) else return {} end end)();

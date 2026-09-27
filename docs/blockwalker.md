@@ -1,13 +1,13 @@
 # Blockwalker
 
 Build walkers, boats, flying machines and anchored structures from boxes and
-mechanical servo joints. The workshop opens with a small four-wheel car with an
-Eyes block and front magnet. A four-joint starter, an eight-joint quadruped and an empty grid are also available. There is no
+mechanical servo joints. The workshop opens with Starter Car, a small four-wheel car with an
+Eyes block and front magnet. Open other characters through Design Library. There is no
 automatic gait or balance system.
 
 The C program uses the same raylib and Box3D libraries as the gamedev image.
-Box3D runs fully 3D physics in Wasm on the CPU. Its serial build uses
-Wasm SIMD and is compiled inside Dolly. A WGSL shader renders oriented boxes, faceted servo housings, lighting
+Box3D runs fully 3D physics at 60 Hz with eight substeps and four host workers.
+Its Wasm SIMD build is compiled inside Dolly. A WGSL shader renders oriented boxes, faceted servo housings, lighting
 and shadows on WebGPU. A bounding-volume tree accelerates ray intersections. Raylib draws the editor panels in Wasm; those pixels
 are uploaded when the controls change. Ordinary frames have no GPU readback; agent observations explicitly capture a cropped PNG.
 This is a renderer for this box game, not a general GPU backend for raylib.
@@ -25,6 +25,7 @@ This is a renderer for this box game, not a general GPU backend for raylib.
 | Undo | Undo button or Ctrl-Z |
 | World / workshop | World button |
 | Enter your character | Drive in world; Escape returns to the workshop |
+| Place an anchored build | Place in world, choose a team, then click or Enter; Escape cancels |
 | Drive the starter car | WASD; E powers its magnet, Q releases cargo |
 | Eyes / outside camera | Backslash while driving or following a character |
 | Keep / reopen a design | Design library → Save current / Open; a controller is optional |
@@ -60,6 +61,10 @@ Pi's camera tool can also target explicit x/y/z coordinates.
 The world sidebar jumps to the harbor, islands, foundry, shipping quay or whole map. Page
 buttons or scrolling the creature list reach the full population; visiting a
 larger creation fits the camera to its current physical bounds.
+Anchored builds show a placement preview on ground or roofs. The whole build must
+fit its team's area; neutral structures belong in the middle. Unsupported,
+submerged or overlapping placements are rejected. Placed structures retain their
+editable program and survive world saves independently of the player vehicle.
 
 Eyes provide a first-person camera at the block's outward face. Its axis and sign
 set the view direction; the camera follows the block's actual rotation. Entering
@@ -151,14 +156,17 @@ West's blue crew compete to deliver cargo to their islands. Light parcels
 descend under parachutes; dense ore appears on the lowered factory lift. The
 provided aircraft can carry a 0.91 kg parcel but cannot lift an 11 kg pallet
 with their 30 N magnets. Stronger player-built machines remain possible.
-The heavy chain uses the lift, a hauler with twin lifting masts, loading crane, deck-magnet
-barge and island receiving crane. The hauler takes ore, waits for a clear loading pad, and
-barges take turns at the berth. Cargo travels through physical handoffs.
+The foundry chain uses the lift, a hauler with twin lifting masts, loading crane,
+deck-magnet barge and island receiving crane. Neutral mine machinery feeds a
+separate coastal loading crane and neutral shuttle. Red and blue crane boats
+compete to take its heavy pallets to their island receiving cranes. Cargo travels
+through physical handoffs; crane boats lower loads onto their decks for transit
+and extend a hydraulic mast to clear the island quays when unloading.
 Warehouse forklifts carry scored pallets into storage. A covered quarry gallery
 and stepped service road add another route: Suzu brings two cores down to a
 clearing and calls an air courier to collect them.
-An island delivery earns one point, or eight above 8 kg. At most six undelivered
-parcels and three ore pallets remain active. New drops use distinct sites until
+An island delivery earns one point, or eight above 8 kg. At most ten undelivered
+parcels and three foundry ore pallets remain active. New drops use distinct sites until
 their earlier parcels are collected, keeping difficult salvage from crowding out
 all exposed deliveries. Scores and supply timing survive
 saves. Older worlds retain their original terrain instead of gaining walls
@@ -170,13 +178,20 @@ character's team. Camera shortcuts visit the foundry and both receiving yards.
 
 Collected cargo and tipped machines remain in the world. Wheeled raiders try
 to overturn opponents; guards intercept them and try to right fallen teammates.
-Each team also has a magnetic cargo slinger and a separate loading crane.
-The crane feeds ordinary light crates from finite stock. Shots follow the
-physics, can miss, and leave their cargo where it lands. The slinger holds its
-load when a target leaves range. These machines use editable character programs;
-the Quarry, Red sling and Blue sling cameras visit their work areas.
+Each team has four magnetic cargo slingers facing the 64 m wide combat area.
+Two operate on the ground; two stand on roof decks, with ammunition brought by
+a flying supplier or a car and hoist. Each has a separate loading crane.
+Shots follow the physics, can miss, and leave their cargo where it lands.
+Slingers hold their load when targets leave range or a teammate obstructs the
+shot. All supply and targeting routines are editable character programs.
+The map sidebar has two pages of camera shortcuts, including the four roof
+stations and sea exchange.
+Scouts and couriers cover northern, central and southern routes. Couriers prefer
+work near their home latitude but accept other unclaimed jobs; idle patrols return
+to that sector. Crossing couriers yield vertically using observed body and cargo
+clearance. Roof magazines leave room for the ground and air supply chains.
 
-Each slinger starts with one Kusari magnetic tether round. Kanagu ground tugs
+The two Tengu slingers start with a Kusari magnetic tether round. Kanagu ground tugs
 grasp its trailing handle and pull after the head catches an opposing aircraft.
 Tsuru flying rescuers patrol for fallen friendly walkers and light vehicles,
 lifting them with a magnet on a winch and releasing after set-down. Select a

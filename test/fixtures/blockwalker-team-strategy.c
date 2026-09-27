@@ -31,8 +31,23 @@ static void trajectory(Data *ctx,Value catalog,const char *program){
     float half=flight/2;int friend=body(a.x,a.y+velocity.y*half-gravity*half*half/2,a.z+velocity.z*half,1,0);
     g=world_find(gun);Controller *controller=g->controller;put_number(controller->ctx,controller->memory,"shots",0);put_number(controller->ctx,controller->memory,"at",-5);value_set(controller->ctx,controller->memory,"phase",value_string(controller->ctx,"spin"));float keys[128];tick(gun,keys);
     assert(memory(gun,"target")==enemy);assert(memory(gun,"shots")==0);assert(memory(gun,"blockedBy")==friend);assert(keys[block.positive]>0);
-    Creature *clear=world_find(friend);b3Body_SetTransform(clear->physics.parts[0].body,(b3Pos){a.x+15,a.y+velocity.y*half-gravity*half*half/2,a.z+velocity.z*half},b3Quat_identity);tick(gun,keys);
-    assert(memory(gun,"shots")==1);assert(keys[block.negative]>0);world_close();printf("BALLISTIC SAFETY %s: actual loaded magnet holds fire for friendly body; same shot releases after the body clears trajectory\n",program);
+    b3Pos crossing={a.x,a.y+velocity.y*half-gravity*half*half/2,a.z+velocity.z*half};Creature *clear=world_find(friend);
+    b3Body_SetTransform(clear->physics.parts[0].body,(b3Pos){crossing.x+1.62f,crossing.y,crossing.z},(b3Quat){{0,.32505758f,-.32505758f},.88807383f});tick(gun,keys);
+    assert(memory(gun,"shots")==0&&memory(gun,"blockedBy")==friend);
+    b3Body_SetTransform(clear->physics.parts[0].body,(b3Pos){crossing.x+30,crossing.y,crossing.z},b3Quat_identity);
+    Character beam={0};for(int i=0;i<=20;i++)assert(character_add(&beam,i-1,-i,0,0,BLOCK_BOX,0)>=0);
+    Creature *wide=spawn(&beam,"return function() return {} end","Wide friendly assembly",1,20,crossing.x+20,crossing.z);assert(wide);wide->team=1;wide->cargo=0;int wide_id=wide->id;set_spawn_height(wide,crossing.y);character_clear(&beam);tick(gun,keys);
+    assert(memory(gun,"shots")==0&&memory(gun,"blockedBy")==wide_id);
+    b3WorldTransform pose_clear=physics_transform(&wide->physics.parts[0]);pose_clear.p.x+=30;b3Body_SetTransform(wide->physics.parts[0].body,pose_clear.p,pose_clear.q);tick(gun,keys);
+    assert(memory(gun,"shots")==1);assert(keys[block.negative]>0);world_close();printf("BALLISTIC SAFETY %s: loaded magnet holds fire for friendly body, rotated cube corner and distant-root assembly; releases only after all clear\n",program);
+}
+static void vertical_clearance(Data *ctx,Value catalog,const char *program){
+    terrain_select(0);int gun=catalog_spawn(ctx,catalog,program,0,0);Creature *g=world_find(gun);set_spawn_height(g,16.485f);int head=-1;for(int i=0;i<g->design.count;i++)if(g->design.blocks[i].joint==BLOCK_MAGNET)head=i;assert(head>=0);
+    b3WorldTransform pose=physics_transform(&g->physics.parts[head]);Block block=g->design.blocks[head];b3Vec3 axis={0};((float *)&axis)[block.axis]=block.direction;b3Pos p=b3TransformWorldPoint(pose,b3MulSV(1.02f,axis));
+    int ammo=body(p.x,p.y,p.z,1,1),friend=body(3,20,0,1,0);g=world_find(gun);magnet_drive(&g->physics,head,block,1,0);update_magnet_owners();assert(world_find(ammo)->held_by==gun);
+    float keys[128];tick(gun,keys);Controller *c=world_find(gun)->controller;Value phase=value_get(c->ctx,c->memory,"phase");const char *name=value_text(c->ctx,phase);assert(name&&!strcmp(name,"load"));value_text_free(c->ctx,name);value_free(c->ctx,phase);
+    b3Body_SetTransform(world_find(friend)->physics.parts[0].body,(b3Pos){3,.485f,0},b3Quat_identity);tick(gun,keys);phase=value_get(c->ctx,c->memory,"phase");name=value_text(c->ctx,phase);assert(name&&!strcmp(name,"hold"));value_text_free(c->ctx,name);value_free(c->ctx,phase);
+    world_close();printf("VERTICAL CLEARANCE %s: friend inside actual sweep blocks arming; friend beneath sweep does not\n",program);
 }
 static void pairing(Data *ctx,Value catalog,const char *program,const char *loader_program,float offset){
     terrain_select(0);int gun=catalog_spawn(ctx,catalog,program,0,0),loader=catalog_spawn(ctx,catalog,loader_program,offset,2);
@@ -55,7 +70,14 @@ static void retry_handoff(Data *ctx,Value catalog,const char *program,const char
         int owner=world_find(ammo)->held_by;if(owner==loader){loader_grip=1;if(!loaded_at)loaded_at=world.age;}if(owner==gun)gun_grip=1;
     }
     if(!loader_grip||!gun_grip){g=world_find(gun);printf("RETRY GUN %s\n",controller_memory_lua(g->controller,NULL));g=world_find(loader);printf("RETRY LOADER %s\n",controller_memory_lua(g->controller,NULL));}
-    assert(loader_grip&&gun_grip);printf("HANDOFF RETRY %s (%s): 1.4 m off-center round regripped by loader at %.3f s and physically handed back to launcher at %.3f s\n",program,initial_ready?"initial ready report":"lost ready report",loaded_at,world.age);world_close();
+    assert(loader_grip&&gun_grip);double handed_at=world.age;float extension=100;
+    for(int i=0;i<40*60&&extension>.1f;i++){
+        world_step();Creature*l=world_find(loader);extension=0;
+        for(int j=0;j<l->design.count;j++)if(l->design.blocks[j].joint==BLOCK_PISTON&&l->design.blocks[j].axis!=1)extension+=fabsf(l->physics.parts[j].angle);
+        for(int j=0;j<world.count;j++)assert(!world.creatures[j].error[0]);
+    }
+    assert(extension<.1f&&magnet_holds(world_find(gun),world_find(ammo)));
+    printf("HANDOFF RETRY %s (%s): 1.4 m off-center round regripped at %.3f s, launcher grip %.3f s, fork withdrawn %.3f s\n",program,initial_ready?"initial ready report":"lost ready report",loaded_at,handed_at,world.age);world_close();
 }
 static void neutral_logistics(Data *ctx,Value catalog){
     terrain_select(0);int courier=catalog_spawn(ctx,catalog,"programs/east-air-courier.lua",0,10),scout=catalog_spawn(ctx,catalog,"programs/suzume-dispatch-lookout.lua",0,15);float keys[128];tick(courier,keys);
@@ -66,6 +88,27 @@ static void neutral_logistics(Data *ctx,Value catalog){
     tick(scout,keys);assert(memory(scout,"report")==parcel);
     Creature *air=world_find(courier);for(int i=0;i<air->design.count;i++)if(air->physics.parts[i].owner==i){b3BodyId body=air->physics.parts[i].body;b3WorldTransform pose=b3Body_GetTransform(body);pose.p.x+=3;b3Body_SetTransform(body,pose.p,pose.q);}
     world_find(parcel)->delivered=1;tick(courier,keys);c=world_find(courier)->controller;Value phase=value_get(c->ctx,c->memory,"phase"),goal=value_get(c->ctx,c->memory,"goal"),x=value_at(c->ctx,goal,0);const char *text=value_text(c->ctx,phase);assert(text&&!strcmp(text,"seek")&&fabs(x.number-3)<.01&&memory(courier,"job")==0);value_text_free(c->ctx,text);value_free(c->ctx,x);value_free(c->ctx,goal);value_free(c->ctx,phase);
-    world_close();puts("NEUTRAL LOGISTICS: starter cargo accepted; team ammunition and active payloads excluded; unavailable jobs re-seek in place");
+    world_close();terrain_select(0);int loader=catalog_spawn(ctx,catalog,"programs/nekote-shed-loader.lua",0,0);
+    body(3,.485f,0,1,1);int freight=body(9,.485f,0,0,1);tick(loader,keys);assert(memory(loader,"job")==freight);
+    world_find(freight)->delivered=1;tick(loader,keys);assert(memory(loader,"job")==0);
+    world_close();puts("NEUTRAL LOGISTICS: starter cargo accepted; team ammunition and active payloads excluded; unavailable jobs re-seek in place; Nekote chooses neutral freight over nearer own ammunition and leaves ammunition alone afterward");
 }
-int main(void){Data *ctx=data_new(256*1024*1024);assert(ctx);Value catalog=read_catalog(ctx);assert(value_is_array(catalog));const char *programs[]={"programs/tengu-east-cargo-slinger.lua","programs/hosen-channel-flak.lua"};const char *loaders[]={"programs/koban-east-loading-shuttle.lua","programs/koban-channel-loading-shuttle.lua"};for(int i=0;i<2;i++){targets(ctx,catalog,programs[i]);trajectory(ctx,catalog,programs[i]);pairing(ctx,catalog,programs[i],loaders[i],i?20:16);retry_handoff(ctx,catalog,programs[i],loaders[i],i?20:16,1);}retry_handoff(ctx,catalog,programs[0],loaders[0],16,0);neutral_logistics(ctx,catalog);value_free(ctx,catalog);data_close(ctx);return 0;}
+static void courier_sectors(Data *ctx,Value catalog){
+    for(int side=-1;side<=1;side+=2){
+        float z=side*70;terrain_select(8);
+        int claimant=body(-17,35,z,1,0),scout=body(-15,35,z,1,0);
+        int courier=catalog_spawn(ctx,catalog,"programs/east-air-courier.lua",80,z);set_spawn_height(world_find(courier),32);
+        int sector=body(-15,32,z,0,1),central=body(32,32,side*30,0,1),other=body(32,35,side*30,1,0);float keys[128];tick(courier,keys);
+        radio_send(&world_find(scout)->physics,RADIO_SIGHT,sector);radio_send(&world_find(other)->physics,RADIO_SIGHT,central);assert(world.radio_count==2);
+        tick(courier,keys);assert(memory(courier,"job")==sector);
+        radio_send(&world_find(claimant)->physics,RADIO_CLAIM,sector);tick(courier,keys);assert(memory(courier,"job")==0);
+        tick(courier,keys);assert(memory(courier,"job")==central);world_close();
+        terrain_select(8);courier=catalog_spawn(ctx,catalog,"programs/east-air-courier.lua",0,z);set_spawn_height(world_find(courier),32);tick(courier,keys);
+        sector=body(-30,32,z,0,1);body(0,32,side*45,0,1);world_find(courier)->physics.steps=1200;tick(courier,keys);assert(memory(courier,"job")==sector);world_close();
+        terrain_select(8);courier=catalog_spawn(ctx,catalog,"programs/east-air-courier.lua",80,side*98);set_spawn_height(world_find(courier),32);tick(courier,keys);world_find(courier)->physics.steps=1200;tick(courier,keys);
+        Controller*c=world_find(courier)->controller;Value goal=value_get(c->ctx,c->memory,"goal"),x=value_at(c->ctx,goal,0),latitude=value_at(c->ctx,goal,1);
+        assert(fabs(x.number)<=18.001&&side*latitude.number>=64&&side*latitude.number<=100);value_free(c->ctx,latitude);value_free(c->ctx,x);value_free(c->ctx,goal);world_close();
+    }
+    puts("COURIER SECTORS: north/south home preference through real radio and visible cargo; teammate claims respected; outside-sector jobs accepted; fallback patrol stays in assigned combat latitude");
+}
+int main(void){Data *ctx=data_new(256*1024*1024);assert(ctx);Value catalog=read_catalog(ctx);assert(value_is_array(catalog));const char *programs[]={"programs/tengu-east-cargo-slinger.lua","programs/hosen-channel-flak.lua"};const char *loaders[]={"programs/koban-east-loading-shuttle.lua","programs/koban-east-loading-shuttle.lua"};for(int i=0;i<2;i++){targets(ctx,catalog,programs[i]);trajectory(ctx,catalog,programs[i]);vertical_clearance(ctx,catalog,programs[i]);pairing(ctx,catalog,programs[i],loaders[i],16);retry_handoff(ctx,catalog,programs[i],loaders[i],16,1);}retry_handoff(ctx,catalog,programs[0],loaders[0],16,0);neutral_logistics(ctx,catalog);courier_sectors(ctx,catalog);value_free(ctx,catalog);data_close(ctx);return 0;}

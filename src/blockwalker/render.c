@@ -228,7 +228,7 @@ static size_t draw_terrain(size_t at){
         TerrainBox b=terrain_box(i);box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
         Color color=colors[b.color];boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at].color[2]=color.b/255.f;
         boxes[at].flags[0]=101;boxes[at].style[0]=b.color;
-        if(terrain_version>=7){boxes[at].style[2]=COMBAT_HALF_X;boxes[at].style[3]=COMBAT_HALF_Z;}
+        if(terrain_version>=7){boxes[at].style[2]=terrain_combat_half_x(terrain_version);boxes[at].style[3]=COMBAT_HALF_Z;}
         boxes[at].half[0]=b.half.x;boxes[at].half[1]=b.half.y;boxes[at++].half[2]=b.half.z;
     }return at;
 }
@@ -241,8 +241,8 @@ void render_frame(const Character *c,const Physics *p,const Orbit *o,int selecte
     if(ghost)box_draw(*ghost,block_position(*ghost),QuaternionIdentity(),0,0,1,count++);
     draw_scene(o,count,p->running,p->landscape,p->time);
 }
-void render_world(const Orbit *o){
-    size_t count=terrain_count+depot_count*8;for(int i=0;i<world.count;i++)count+=character_draw_capacity(&world.creatures[i].design)+(world.creatures[i].parachute?7:0);reserve_boxes(count);
+void render_world_placement(const Orbit *o,const Character *design,const WorldPlacement *placement){
+    size_t count=terrain_count+depot_count*8+(design?(size_t)design->count*2:0);for(int i=0;i<world.count;i++)count+=character_draw_capacity(&world.creatures[i].design)+(world.creatures[i].parachute?7:0);reserve_boxes(count);
     size_t at=draw_terrain(0);
     for(int i=0;i<depot_count;i++){Depot d=depots[i];float y=terrain_height(d.x,d.z);
         for(int side=0;side<4;side++){
@@ -267,8 +267,15 @@ void render_world(const Orbit *o){
             }
         }
     }
+    if(design&&placement->status!=PLACEMENT_SURFACE&&placement->status!=PLACEMENT_ANCHOR)for(int i=0;i<design->count;i++){
+        Block b=design->blocks[i];box_draw(b,Vector3Add(block_position(b),placement->offset),QuaternionIdentity(),0,0,1,at);
+        Color color=placement->status==PLACEMENT_OK?(placement->team?block_colors[world_team_color(placement->team)]:(Color){200,207,182,255}):(Color){230,72,60,255};
+        boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at++].color[2]=color.b/255.f;
+        if(block_size(b)>1){BoxDraw plate=boxes[at-1];plate.flags[0]=BLOCK_BOX;plate.center[b.axis]-=b.direction*.33f;plate.half[b.axis]=.14f;boxes[at++]=plate;}
+    }
     draw_scene(o,at,1,1,world.age);
 }
+void render_world(const Orbit *o){render_world_placement(o,NULL,NULL);}
 static unsigned char *capture(const Character *c,const Physics *p,const Orbit *o,int *bytes) {
     *bytes=0;check(dolly_gpu_capabilities(&gpu));uint32_t features;memcpy(&features,gpu.reply,4);dolly_gpu_begin(&gpu);
     if(!(features&DOLLY_GPU_FEATURE_CAPTURE_FRAME))return NULL;

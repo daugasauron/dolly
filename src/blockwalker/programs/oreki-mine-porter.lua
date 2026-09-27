@@ -27,6 +27,7 @@ return function(t, s, m, r)
     (m).phase = p;
     (m).at = t;
     (m).stuck = 0;
+    m.supported = 0;
   end;
   local magnet = at((s).magnets, 11);
   local box = find((s).nearby, function(p)
@@ -60,7 +61,7 @@ return function(t, s, m, r)
     else
       if ((not active(#(jobs))) and (hypot(((s).x - at((m).home, 0)), ((s).z - at((m).home, 1))) > 2)) then
         (m).job = 0;
-        (m).route = (((s).z > (-42)) and 0 or (((s).z > (-59)) and 1 or 2));
+        (m).route = s.team==0 and (s.z<-59 and 4 or s.z<-30 and 3 or s.x>-82 and 2 or 0) or (((s).z > (-42)) and 0 or (((s).z > (-59)) and 1 or 2));
         go("return");
       end
     end
@@ -79,6 +80,7 @@ return function(t, s, m, r)
       goal = {((box).x - (dx * 4)), ((box).z - (dz * 4))};
       wantHeading = (m).approach;
       speedLimit = 0.7;
+      lift = math.max(0,math.min(s.blueprint[9].travel,box.high+.55-(s.positions[12][2]-s.angles[9])));
       avoid = false;
       (out).E = (((math.abs(wrap(((m).approach - yaw))) < 0.4) and (hypot((at(at((s).positions, 11), 0) - (box).x), (at(at((s).positions, 11), 2) - (box).z)) < 0.22)) and 1 or 0);
       if (active((magnet).attached) and (optional(carried, "id") == (m).job)) then
@@ -95,7 +97,7 @@ return function(t, s, m, r)
       go("pickup");
     else
       if (at((s).angles, 8) > 0.95) then
-        (m).depot = {x = (-74), z = (-20), radius = 3.5};
+        (m).depot = {x = s.team==0 and -92 or -74, z = -20, radius = s.team==0 and 2.2 or 3.5};
         (m).route = 0;
         go("clear");
       end
@@ -111,7 +113,7 @@ return function(t, s, m, r)
     end
   end
   if ((m).phase == "carry") then
-    local bays = {-74, -76, -72};
+    local bays = s.team==0 and {-92} or {-74,-76,-72};
     local function free(x)
       for _, p in ipairs(s.nearby) do
         if p.cargo and p.id ~= m.job and p.low<s.ground+2 and hypot(p.x-x, p.z+20) < p.radius+(carried and carried.radius or .7)+.3 then return false end
@@ -122,23 +124,24 @@ return function(t, s, m, r)
       for _, x in ipairs(bays) do if free(x) then m.depot.x = x; break end end
     end
     local occupied = not free(m.depot.x);
-    local route = {{-74, -59}, {-74, -38}, {m.depot.x, -24}};
+    local route = s.team==0 and {{-74,-59},{-74,-26},{-74,-10},{m.depot.x,-10},{m.depot.x,-16}} or {{-74,-59},{-74,-38},{m.depot.x,-24}};
+    local last=#route-1;
     lift = 1.1;
     out.E = 1;
-    goal = m.route == 2 and occupied and {-74, -32} or route[m.route+1];
+    goal = m.route == last and occupied and {m.depot.x,s.team==0 and -10 or -30} or route[m.route+1];
     speedLimit = 0.6;
     avoid = false;
-    if ((m).route == 2) then
-      wantHeading = 0;
+    if ((m).route == last) then
+      wantHeading = s.team==0 and math.pi or 0;
     end
     if (not active((magnet).attached)) then
       (m).wait = (t + 1);
       go("search");
     else
-      if (((m).route < 2) and (hypot(((s).x - at(goal, 0)), ((s).z - at(goal, 1))) < 0.3)) then
+      if (((m).route < last) and (hypot(((s).x - at(goal, 0)), ((s).z - at(goal, 1))) < 0.3)) then
         (m).route = (m).route + 1;
       else
-        if ((((((m).route == 2) and (not active(occupied))) and active(carried)) and (hypot(((carried).x - ((m).depot).x), ((carried).z - ((m).depot).z)) < (((m).depot).radius - 1.2))) and (hypot((s).vx, (s).vz) < 0.2)) then
+        if ((((((m).route == last) and (not active(occupied))) and active(carried)) and (hypot(((carried).x - ((m).depot).x), ((carried).z - ((m).depot).z)) < (((m).depot).radius - 1.2))) and (hypot((s).vx, (s).vz) < 0.2)) then
           go("lower");
         end
       end
@@ -147,11 +150,16 @@ return function(t, s, m, r)
   if ((m).phase == "lower") then
     speedLimit = 0;
     (out).E = 1;
-    if ((at((s).angles, 8) < 0.07) and ((t - (m).at) > 1)) then
-      go("release");
-    end
+    local supported=carried and magnet.cargoSupportForce>carried.mass*hypot(table.unpack(s.gravity))*.5
+    local bottom=math.huge
+    if carried then for _,shape in ipairs(s.bounds(carried.id)) do bottom=math.min(bottom,shape.low) end end
+    local landed=carried and s.angles[9]<.03 and bottom>=s.ground-.1 and bottom<s.ground+.2
+    if supported then lift=s.angles[9] end
+    m.supported=(supported or landed) and hypot(carried.vx,carried.vy,carried.vz)<.25 and (m.supported or 0)+s.dt or 0
+    if m.supported>.6 then m.dropLift=lift;go("release") end
   end
   if ((m).phase == "release") then
+    lift=m.dropLift or 0;
     (out).Q = 1;
     speedLimit = 0;
     if ((t - (m).at) > 1) then
@@ -170,13 +178,13 @@ return function(t, s, m, r)
   end
   if ((m).phase == "return") then
     lift = 1.1;
-    local route = {{(-74), (-42)}, {(-74), (-59)}, (m).home};
+    local route = s.team==0 and {{-92,-10},{-74,-10},{-74,-26},{-74,-59},m.home} or {{-74,-42},{-74,-59},m.home};
     goal = at(route, (m).route);
     speedLimit = 0.9;
     avoid = false;
     (out).Q = 1;
-    if (hypot(((s).x - at(goal, 0)), ((s).z - at(goal, 1))) < 0.3) then
-      if ((m).route < 2) then
+    if (hypot(((s).x - at(goal, 0)), ((s).z - at(goal, 1))) < (m.route<#route-1 and 1.2 or .3)) then
+      if ((m).route < #route-1) then
         (m).route = (m).route + 1;
       else
         (m).wait = (t + 1);

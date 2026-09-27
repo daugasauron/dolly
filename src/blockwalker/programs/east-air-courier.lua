@@ -28,6 +28,11 @@ return function(t, s, m, r)
     (m).missed = {};
     (m).dispatches = 0;
   end
+  local zone=s.combat
+  local sector
+  if zone then sector={zone.x,math.max(zone.z-zone.halfZ+18,math.min(zone.z+zone.halfZ-18,m.home[2]))}
+  else for _,depot in ipairs(s.depots) do if depot.team==0 then sector={depot.x,depot.z};break end end end
+  local function job_distance(x,z) return hypot(x-s.x,z-s.z)+(zone and math.abs(z-sector[2]) or 0) end
   local next = function(p)
     (m).phase = p;
     (m).ts = t;
@@ -66,7 +71,7 @@ return function(t, s, m, r)
       for _, c in ipairs(peers) do
         if c.id == id and (not available(c)) then unavailable = true end
       end
-      local d = hypot(p.x-s.x, p.z-s.z)
+      local d = job_distance(p.x,p.z)
       if not unavailable and (not distance or d < distance or d == distance and id < report.cargo) then report, distance = p, d end
     end
     if report then
@@ -77,25 +82,26 @@ return function(t, s, m, r)
       m.dispatches = m.dispatches+1
       next("approach")
     elseif t-m.ts > 15 then
-      if not m.searchCenter then
-        if s.combat then m.searchCenter = {s.combat.x,s.combat.z}
-        else for _, d in ipairs(s.depots) do if d.team == 0 then m.searchCenter = {d.x,d.z}; break end end end
-      end
+      m.searchCenter=sector
       if m.searchCenter and (not m.patrolAt or t > m.patrolAt) then
         local angle = r()*math.pi*2
         m.goal = {m.searchCenter[1]+math.sin(angle)*18, m.searchCenter[2]+math.cos(angle)*18}
         m.patrolAt = t+35
       end
-      for _, c in ipairs(peers) do
-        if c.visible and not c.parachute and c.mass < 6 and not claimed[c.id] and (m.missed[c.id+1] or 0) < t and available(c) then
-          m.job = c.id
-          m.goal = {c.x,c.z}
-          m.searchCenter = {c.x,c.z}
-          m.dispatchedFrom = s.id
-          m.dispatches = m.dispatches+1
-          next("approach")
-          break
+      local candidate,best
+      for _,c in ipairs(peers) do
+        if c.visible and not c.parachute and c.mass<6 and not claimed[c.id] and (m.missed[c.id+1] or 0)<t and available(c) then
+          local score=job_distance(c.x,c.z)
+          if not best or score<best then candidate,best=c,score end
         end
+      end
+      if candidate then
+        m.job=candidate.id
+        m.goal={candidate.x,candidate.z}
+        m.searchCenter={candidate.x,candidate.z}
+        m.dispatchedFrom=s.id
+        m.dispatches=m.dispatches+1
+        next("approach")
       end
     end
   end
@@ -233,14 +239,24 @@ return function(t, s, m, r)
   if not m.trafficAt or t >= m.trafficAt then
     m.trafficAt = t + .5
     m.trafficHeight = 0
+    m.yieldingTo = nil
     local radius = 0
     for _, b in ipairs(s.blueprint) do radius = math.max(radius, hypot(b.x-s.blueprint[1].x, b.z-s.blueprint[1].z)+.75) end
+    local bottom = .5
+    if s.id>0 then for _, b in ipairs(s.bounds(s.id)) do bottom = math.max(bottom, s.y-b.low) end end
+    if attached and box then bottom = math.max(bottom, s.y-box.low+.3) end
     local x, z = s.x+2*s.vx, s.z+2*s.vz
     for _, c in ipairs(peers) do
-      if not c.cargo and c.low < s.ground+3 then
+      local ground = c.low < s.ground+3
+      local above = s.y > c.y+.5 or math.abs(s.y-c.y)<=.5 and s.id>c.id
+      if not c.cargo and (ground or not c.anchored and above) then
         for _, b in ipairs(s.bounds(c.id)) do
           if math.abs(x-b.x-2*c.vx) < b.halfX+radius and math.abs(z-b.z-2*c.vz) < b.halfZ+radius then
-            m.trafficHeight = math.max(m.trafficHeight, b.high+4)
+            local clearance = ground and b.high+4 or c.high+bottom+.8
+            if clearance > m.trafficHeight then
+              m.trafficHeight = clearance
+              m.yieldingTo = not ground and c.id or nil
+            end
           end
         end
       end
@@ -339,6 +355,7 @@ if s.carriedBy ~= 0 then out.radio = {kind = "help", target = s.id} end
 m.status = m.phase == "seek" and "Awaiting scout / searching combat cargo"
   or m.phase == "approach" and "Claimed cargo: approaching"
   or m.phase == "carry" and "Delivering cargo to island goal" or m.phase
+if m.yieldingTo and m.trafficHeight > m.cruise then m.status = "Clearing airborne traffic" end
 if s.up<.5 or m.recovering then
   m.recovering=true
   local gx,gz=-g[1]/G,-g[3]/G

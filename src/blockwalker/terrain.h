@@ -1,6 +1,6 @@
 #pragma once
 #include "character.h"
-enum { WORLD_RADIUS=256,COMBAT_HALF_X=48,COMBAT_HALF_Z=100 };
+enum { WORLD_RADIUS=256,COMBAT_HALF_X=32,COMBAT_HALF_Z=100 };
 #define WATER_LEVEL (-2.0f)
 typedef struct {Vector3 center,half;int color,overhang;} TerrainBox;
 typedef struct {const char *name;float x,z,radius;int team;} Depot;

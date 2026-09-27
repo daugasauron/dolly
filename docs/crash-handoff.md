@@ -1,124 +1,105 @@
-# Blockwalker base zones checkpoint
+# Blockwalker action front checkpoint
 
 Worktree `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-playground-20260923`; checkpoint branch
-`codex/blockwalker-checkpoint-20260927-bases`. Built backup:
-`build/checkpoint-20260927-bases/`. Local preview:
+`codex/blockwalker-checkpoint-20260927-action-front`. Built backup:
+`build/checkpoint-20260927-action-front/`. Local preview:
 `http://127.0.0.1:9097/blockwalker/`, service `dolly-threads-preview.service`.
 Refresh for the new catalog; importing a save preserves its embedded programs
-and terrain. The user reports 300+ FPS in Firefox and is happy with performance.
-Do not turn separate Chrome stress results into an unsolicited performance task.
-No production push/deployment is requested.
-
-The local preview also includes the workshop cleanup after that checkpoint:
-fresh sessions open Starter Car; alternative preset buttons are removed and
-Design Library remains available. `build/workshop-start-20260927/proof.json`
-verifies the default car, removed click targets, library selection and reopening
-the saved design in Firefox. Only Blockwalker was rebuilt (62.8 s).
-
-The base palette is now less saturated, with lighter tint coverage so the
-original terrain/building textures show through. Actual Firefox base/overview
-captures and package verification are in `build/base-colors-20260927/`.
+and terrain. No remote push or deployment was requested.
 
 ## Current world
 
-87 starting characters, 1,956 parts, 45 Lua programs at 20 Hz. Physics remains
-60 Hz/eight substeps/four Box3D workers, with direct WebGPU presentation.
-All C/C++ compilation still occurs inside Dolly wasm64.
+139 starting characters, 3,254 parts, 48 catalog Lua programs at 20 Hz. Physics
+remains 60 Hz/eight substeps/four Box3D workers, with direct WebGPU presentation.
+All C/C++ compilation occurs inside Dolly wasm64. Starter Car remains the only
+workshop starting choice; other designs are in Design Library. Base colors retain
+the muted palette from `6ca3f7e`.
 
-Terrain 7 stages blue units west of x=-48 and red units east of x=48, with the
-96 m wide neutral combat area between them. Muted team-tinted ground, striped front
-boundaries, tall gate frames and rear beacons distinguish the bases. All team
-blueprints use matching paint with dark metal mechanisms. Guns, loaders and
-ammunition begin inside their respective bases. Scouts and guards move toward
-the contested middle; captured opponents can still be taken to scrapyards.
+Terrain 8 narrows combat to 64 m, with four guns on each side at x=±52. Each side
+has ground Tengu/Hosen stations, a northern roof supplied by an aircraft, and a
+southern roof supplied by a car and cable hoist. Eight short loading cranes use
+actual magnetic handoffs and move their forks clear before withdrawing. Roof
+center bays are empty for supply; reserves sit on ground service lanes.
 
-Only island goals finish deliveries; mainland depots remain transfer points.
-Central parcels, mine/foundry supplies, cranes and boats retain their physical
-logistics. The red barge starts in its own channel and follows its inbound sea
-route to the shared quay. Truck drop-off bays sit within their loaders' reach;
-cable tugs revisit home between combat patrols to rediscover stranded rounds.
-Home shows blue on the left, red on the right. Camera buttons distinguish bases,
-ports, guns and scrapyards. Old terrain versions retain geometry and scoring.
+Six cargo couriers and their scouts cover north, center and south. Couriers use
+soft home-latitude preference, shared claims and observed airborne clearance.
+Neutral mine machinery, pier crane and shuttle feed competing red/blue crane
+boats. Heavy pallets rest on the team boats' decks during transit; telescoping
+masts clear the island quay during unloading. Only island deliveries score.
+The map sidebar has two pages of shortcuts for the roofs and sea exchange.
 
-Kusari is independent four-part ammunition. It stays compact during loading and
-flight, magnetically catches opponents, then lowers its winch handle. Ground
-characters can grab that handle; Kanagu tugs reel and pull. Supported victims
-are released, allowing ordinary recovery. A short cable folded against the hull
-stops reeling after measured stalling; long cable jams cannot declare readiness.
-Tugs recover missed/spent rounds. Reloading rotated returned rounds remains less
-reliable than the first shot and is tracked separately.
+Anchored workshop builds can be placed on supported ground or roofs. The full
+footprint must fit its team's area; neutral structures belong in the middle.
+Preview, collision/support checks, click/Enter confirmation and Escape cancellation
+use the actual world. Installed Lua and root height survive saves.
 
-Both guns select opposing airborne units inside combat, prioritize cargo carriers
-and teammate threat reports, and check predicted friendly/neutral/terrain
-intersections before release. Loaders have raised rails, vertical withdrawal,
-shape-aware pickup and off-center/lost-acknowledgement retry. Scouts and couriers
-coordinate neutral cargo through ordinary team radio; failed courier jobs re-seek
-locally instead of returning empty to base.
-
-Kurogane collectors physically lift incapacitated opponents to their scrapyards.
-They leave healthy/recovered enemies alone, respect capacity and competing claims,
-and release supported loads without deleting bodies. Teammates can contest these
-captures through their existing guards and flying rescuers. No actor-specific
-engine forces, forced attachments, weakened enemies or teleporting were added.
+All 87 original catalog slots remain. The two Tengu stations start with separate
+Kusari tether ammunition; existing ground tugs, rescuers and scrapyard collectors
+remain. No actor-specific engine forces, forced grips, teleports, weakened cargo,
+increased controller budgets or removed opponents were added.
 
 ## Verification
 
-Evidence: `build/base-zones-20260927/`.
+Evidence is in `build/action-front-20260927/`:
 
-- `full-v3/layout-proof.json`: 900 simulated seconds, all 87 originals retained,
-  99 total objects, five island deliveries, scores 2/3, zero controller faults or
-  removals. All 35 red and 30 blue units start on their own side with matching
-  paint; actual artillery poses remain behind their base boundary. Nine red and
-  seven blue mobile units reach the contested middle. The quarry runner completes
-  a trip, and both barges reach their normal shared-quay waiting/loading positions.
-- `team-strategy/inspection.txt`: all ten existing physical targeting, friendly
-  trajectory, loader pairing/retry and neutral-logistics checks pass inside Dolly.
-- `local-preview-{firefox,chrome}`: actual 9097 image, terrain 7, all 87 embedded
-  programs/blueprints match source, both base/gun camera views, no errors or GPU
-  readbacks, and clean exit. Screenshots show the separate base colors and gates.
-- `combat-restore`: actual Firefox UI imports the previous terrain-6 checkpoint,
-  retains its geometry/combat bounds, embedded programs and magnetic attachments,
-  and resumes simulation without controller faults or removals.
-- `package-proof.json`: all 69 canonical sources match served bytes; six protected
-  save files and other catalog entries are unchanged. `preservation.log` verifies
-  56 other image/runtime assets. Selected image build completes in 61.3 s.
+- `full-v5`: fresh 1,200 simulated seconds with final layout and optimized gun
+  safety checks; 139 originals retained, 162 total objects, 13 deliveries, 11
+  physical shots, zero controller faults/removals. It exposed an empty hoist
+  hook jam and stacked couriers, subsequently fixed through ordinary controls.
+- `full-v6`: the actual 600 s state resumes for another 600 s with only the two
+  hoist and six courier sources updated. Recursive comparison verifies every
+  other state field. All 156 starting objects remain; 163 final objects, ten
+  additional deliveries, scores 7/15, zero faults/removals. The Red hoist returns
+  to service after 9.467 s; both trapped couriers complete further island jobs.
+- `full-v6/sea-chain.txt`: the same generated pallet passes porter 34, pier crane
+  132, neutral boat 131, Blue boat 134 and receiver 30, scoring eight points at
+  1064.633 s. Both islands separately pass the complete physical chain and saved
+  continuation in `build/combat-20260927/sea-mine-{v9,red-v1}`.
+- Artillery focused proofs cover three ordinary shots at 48.9/54.7 s successive
+  intervals, air supply through loader/gun to firing, two real supported car/hoist
+  deliveries per side, physical friendly-trajectory refusal and fork withdrawal.
+  Gun trajectory optimization cuts measured peak instructions about two thirds
+  without increasing the budget or weakening collision checks.
+- `air-traffic/{recovery-v1,crossing-v3,regression-v1}` verifies saved contact
+  separation and scout-dispatched loaded crossings with retained cargo.
+- `placement/ui-v4` verifies actual placement clicks, all-team restrictions,
+  supported roofs, collision rejection, cancellation and running installed Lua.
+- `local-preview-{chrome,firefox}` verifies actual 9097, terrain 8, all 139
+  programs/blueprints, team colors/starting positions, both bookmark pages,
+  zero browser errors/readbacks and clean exit. The ten-second Firefox sample
+  is about 85 FPS; this is one camera view, not a whole-map performance guarantee.
+- `checkpoint-restore` imports the old terrain-7 world through actual Firefox UI,
+  preserving its terrain, embedded programs and tether attachments, then resumes
+  without faults/removals. `final-scene` captures the populated final world on GPU.
+- `package-proof.json` matches all 73 canonical source files and served assets,
+  preserves six protected saves and the other catalog entries. `preservation.log`
+  verifies 56 other image/runtime assets. Selected image build takes 53.8 s.
+  Its landmark check now expects the flattened crane service lane heights.
 
-Snapshot: 252,462,410 bytes,
-`a835bf6eb6279f707404f3afd8686659124f5f1cc36705021677c2203cdf0e45`.
-Source tar: `0ba676d3822a220355f80f4c417339c5514b510c02f4550738a393adc9bebd42`.
+Snapshot: 252,798,533 bytes,
+`9c9941a7f063eccac97109027dda40a49af9c29748e4d6b45d4c56a560b6fe87`.
+Source tar: `5908e94ee95f58f20a7896a13914a30d9f11380040cce62c1658c23fffa32016`.
 Runtime identity remains
 `d9dee7375fb5ec91f293a97359d2e2f5a64bbb9a8e4fc7e15c848eb99a995299`.
 
-Earlier tether capture/payout/ground pickup/release, cargo-chain and collector
-pit-deposit evidence remains in `build/combat-20260927/` and the corresponding
-mechanics tasks. Do not claim the entire historical suite passes; combined Lua
-harness reconciliation remains task `20260923-211500-codex-01`.
+## Preserved work and limitations
 
-## Preserved checkpoints and remaining work
+Earlier checkpoint branches/backups remain: `...-bases` (`5473f8f`), `...-combat`
+(`93d3d3c`), `...-noon` (`10a1422`/`d7dbeb4`), and
+`codex/blockwalker-checkpoint-20260927` (`018c5f2`). Full branch names start with
+`codex/blockwalker-checkpoint-20260927`; backups live under `build/checkpoint-*`.
+Leave other previews, relay 9010, user browsers and games untouched.
 
-The previous combat checkpoint is `93d3d3c`, branch
-`codex/blockwalker-checkpoint-20260927-combat`, with its complete image/source/world
-backup in `build/checkpoint-20260927-combat/`.
+Four of eight guns fire in the final 20-minute timeline; loaded stations can
+wait for safe opposing traffic. Do not claim every station fires continuously.
+Rotated tether-round reuse and artillery encounter frequency remain tracked in
+`20260927-081800-codex-projectile-tethers`. Crowded feeder/truck, post-rescue
+walking and heavy/wedged rescue tasks remain open. Do not claim the entire
+historical Lua suite passes; reconciliation remains `20260923-211500-codex-01`.
 
-The noon checkpoint is branch `codex/blockwalker-checkpoint-20260927-noon`
-(game commits `10a1422`, `d7dbeb4`). Its complete image/source/world backup is
-`build/checkpoint-20260927-noon/`. The 07:45 checkpoint is `018c5f2`, branch
-`codex/blockwalker-checkpoint-20260927`.
-Keep frozen threaded preview 9096, host-module/Lua preview 9098, old image 44
-preview 9099, relay 9010 and the user's browsers/games untouched.
-
-Tether reuse and artillery encounter frequency remain OPEN in
-`20260927-081800-codex-projectile-tethers`. Both slingshots load in the final 900 s
-run but neither fires; earlier v2 fires once at an opposing collector from the
-same gun position. Reliable rotated-return loading and repeated interception
-still need proof. Do not describe quiet loaded guns as proven middle dominance.
-Existing crowded feeder/truck, post-rescue walking and heavy/wedged rescue
-tasks also remain open. Captures and shots are physical and can fail; friendly
-trajectory prediction only knows observed bodies and current velocities.
-
-Use one disposable browser at a time in a 4 GiB scope. Chrome uses Xvfb;
-Firefox uses DISPLAY=:1. Build-folder Node scripts require
+Use one disposable browser at a time in a 4 GiB scope with swap disabled. Chrome
+uses Xvfb; Firefox uses DISPLAY=:1. Build-folder Node scripts require
 `--preserve-symlinks --preserve-symlinks-main`. Never read visibleTerminalText while
 GPU rendering is active. Build only `node scripts/build-image.mjs blockwalker`
-(no --package) for image changes, then check preservation and actual 9097.
+(no --package), then check preservation and the actual local image.

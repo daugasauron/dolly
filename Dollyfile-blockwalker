@@ -12,7 +12,7 @@ EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
 USE HOST /modules/pi.dm 2e3b52f7da889bbf3ac04a10f3f733d306a98a79957eb924bd25318b7644be7f
 USE HOST /modules/lua55.dm 5f214f13e7d54f27c9a91bb70e4079445413c58c61e0f47fea02b9c21b1c6ed1
-USE HOST /modules/blockwalker.dm 97a014152d4becb2a389edecb2fe07e5fbf8d10df586efacd8726f61e78276a0
+USE HOST /modules/blockwalker.dm 4178080e0cd2f2dcead71900611dde246a0bc0b625d6bc2dd75ac6084649b5fe
 
 FILE /etc/dolly/blockwalker.slop
     /bin/foreground /usr/bin/blockwalker

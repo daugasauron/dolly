@@ -93,7 +93,7 @@ return function(t, s, m)
         return (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = ((b).id == (c).carriedBy); if active(value) then return (not active((b).anchored)) else return value end end)(); if active(value) then return ((b).team == (s).team) else return value end end)(); if active(value) then return ((b).low < (s).waterHeight) else return value end end)(); if active(value) then return (hypot((b).vx, (b).vz) < 0.15) else return value end end)(); if active(value) then return some((s).radio, function(r)
           return (function() local value = (function() local value = (function() local value = ((r).kind == "ready"); if active(value) then return ((r).from == (b).id) else return value end end)(); if active(value) then return ((r).cargo == (c).id) else return value end end)(); if active(value) then return (((s).worldTime - (r).time) < 9) else return value end end)()
         end) else return value end end)()
-      end); if active(value) then return value else return (function() local value = (function() local value = (not active((c).carriedBy)); if active(value) then return ((c).low > ((s).ground - 1)) else return value end end)(); if active(value) then return (hypot((c).vx, (c).vz) < 0.2) else return value end end)() end end)()
+      end); if active(value) then return value else return (function() local value = (function() local value = (not active((c).carriedBy)); if active(value) then return ((c).low > ((s).waterHeight + .5)) else return value end end)(); if active(value) then return (hypot((c).vx, (c).vz) < 0.2) else return value end end)() end end)()
     end);
     if active(cargo) then
       (m).job = (cargo).id;
