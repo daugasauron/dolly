@@ -139,7 +139,7 @@ return function(t, s, m)
   set(ram, clamp(((2 * (lift - at((s).angles, (ram).i))) - (0.3 * at((s).rates, (ram).i)))));
   set(hook, (active(power) and 1 or (-1)));
   if (((active(includes({"clear", "wait"}, (m).phase)) and active(job)) and (not active((job).carriedBy))) and (not active((job).delivered))) then
-    (out).radio = {kind = "sight", cargo = (job).id};
+    (out).radio = {kind = "release", cargo = (job).id};
   end
   do return out end
 end

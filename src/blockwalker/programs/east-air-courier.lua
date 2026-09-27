@@ -3,12 +3,22 @@ return function(t, s, m, r)
     return math.max((-a), math.min(a, v))
   end;
   local peers = s.nearby
+  local zone = s.combat
   local function in_combat(c)
-    local zone = s.combat
     return not zone or math.abs(c.x-zone.x)<=zone.halfX and math.abs(c.z-zone.z)<=zone.halfZ
   end
+  local handoffs = {}
+  local home = m.home and m.home[1] or s.x
+  for _, p in ipairs(s.radio) do
+    if p.kind == "release" and p.from ~= s.id and p.team == s.team and p.mass < 6
+      and s.worldTime-p.time < 30 and (not zone or (home-zone.x)*(p.x-zone.x) >= 0
+        and math.abs(p.z-zone.z) <= zone.halfZ) then handoffs[p.cargo] = p end
+  end
+  local function neutral_cargo(c)
+    return c.cargo and c.team == 0 and not c.delivered and c.mass < 6 and c.carriedBy == 0
+  end
   local function available(c)
-    if not c.cargo or c.team ~= 0 or c.delivered or c.carriedBy ~= 0 or not in_combat(c) then return false end
+    if not neutral_cargo(c) or not in_combat(c) and not handoffs[c.id] then return false end
     for _, part in ipairs(s.parts(c.id)) do if part.target and part.target ~= 0 then return false end end
     return true
   end
@@ -28,7 +38,6 @@ return function(t, s, m, r)
     (m).missed = {};
     (m).dispatches = 0;
   end
-  local zone=s.combat
   local sector
   if zone then sector={zone.x,math.max(zone.z-zone.halfZ+18,math.min(zone.z+zone.halfZ-18,m.home[2]))}
   else for _,depot in ipairs(s.depots) do if depot.team==0 then sector={depot.x,depot.z};break end end end
@@ -61,7 +70,7 @@ return function(t, s, m, r)
     local reports, claimed = {}, {}
     for _, p in ipairs(s.radio) do
       if p.kind == "claim" and p.from ~= s.id and s.worldTime-p.time < 12 then claimed[p.cargo] = true end
-      if p.kind == "sight" and p.mass < 6 and s.worldTime-p.time < 120 and in_combat(p) then
+      if p.kind == "sight" and p.mass < 6 and s.worldTime-p.time < 120 and in_combat(p) or handoffs[p.cargo] == p then
         reports[p.cargo] = p
       end
     end
@@ -118,7 +127,9 @@ return function(t, s, m, r)
     end
   end
   if (phase == "approach") then
-    if ((active(optional(box, "delivered")) or (active(optional(box, "carriedBy")) and ((box).carriedBy ~= (s).id))) or ((t - (m).ts) > 300)) then
+    local unavailable = box and (box.delivered or box.carriedBy ~= 0 and box.carriedBy ~= s.id
+      or not attached and not neutral_cargo(box))
+    if unavailable or t-m.ts > 300 then
       ((m).missed)[index((m).job)] = (t + 120);
       (m).job = 0;
       (m).goal = {s.x,s.z};

@@ -174,5 +174,20 @@ local side = cl((fx / 24), 1);
 (out)[index(((rr >= 0) and "J" or "U"))] = math.abs(rr);
 (out)[index(((side >= 0) and "G" or "T"))] = math.abs(side);
 (out)[index(((side >= 0) and "K" or "I"))] = math.abs(side);
+if s.team~=0 and t>=(m.reportAt or 0) then
+  local cargo,threats={},{}
+  for _,c in ipairs(s.nearby) do
+    if c.carriedBy==0 then
+      if c.cargo and c.visible and c.team==0 and not c.delivered then cargo[#cargo+1]=c
+      elseif not c.cargo and not c.anchored and c.team~=0 and c.team~=s.team and c.up>.25 then threats[#threats+1]=c end
+    end
+  end
+  m.reportAt=t+3.2;m.reports=(m.reports or 0)+1
+  local seen=#threats>0 and (#cargo==0 or m.reports%2==0) and threats or cargo
+  local c=seen[(math.floor(m.reports/2)%math.max(1,#seen))+1]
+  m.report=c and c.id or nil;m.reportKind=c and (c.cargo and 'sight' or 'threat') or nil
+end
+if m.report then out.radio={kind=m.reportKind,target=m.report} end
+m.status='Surveying island approaches'
 do return out end
 end

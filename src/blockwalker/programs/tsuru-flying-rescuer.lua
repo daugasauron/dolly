@@ -12,15 +12,16 @@ return function(t,s,m)
   end
   if not rope or #hooks==0 then return {} end
   local hook=hooks[1];local grip=s.magnets[hook];local tip=s.positions[hook];local cable=s.winches[rope]
-  local target
-  for _,c in ipairs(s.nearby) do if c.id==m.target then target=c end end
+  local target,observed,claims=nil,{},{}
+  for _,c in ipairs(s.nearby) do observed[c.id]=c;if c.id==m.target then target=c end end
+  for _,v in ipairs(s.radio) do if v.kind=='claim' and v.from~=s.id and s.worldTime-v.time<10 then claims[v.target]=v.from end end
   if grip.attached and target and grip.creature~=target.id then
     m.cooldown[target.id]=t+30;m.target=nil;m.length=nil;target=nil;phase('seek')
   end
   if m.phase=='seek' then
     local nearest=math.huge;local tipped={}
     for _,c in ipairs(s.nearby) do
-      if not c.cargo and not c.anchored and (c.team==0 or c.team==s.team) and c.up<.94 and c.carriedBy==0 and (m.cooldown[c.id] or 0)<t and c.mass*gravity<s.blueprint[hook].force*.7 then
+      if not c.cargo and not c.anchored and (c.team==0 or c.team==s.team) and c.up<.94 and c.carriedBy==0 and not claims[c.id] and (m.cooldown[c.id] or 0)<t and c.mass*gravity<s.blueprint[hook].force*.7 then
         if hypot(c.vx,c.vy,c.vz)<.15 then tipped[c.id]=(m.tipped and m.tipped[c.id]) or t end
         local hinges,wheels,jets=0,0,0
         for _,p in ipairs(s.parts(c.id)) do hinges=hinges+(p.joint==1 and 1 or 0);wheels=wheels+(p.joint==4 and 1 or 0);jets=jets+(p.joint==3 and 1 or 0) end
@@ -105,12 +106,32 @@ return function(t,s,m)
     if (m.phase=='lift' or m.phase=='settle') and not grip.attached then m.length=nil;phase('approach') end
   elseif m.phase~='seek' then m.target=nil;m.length=nil;phase('seek') end
   if m.phase=='seek' and not target then
-    m.patrol=m.patrol or 0
-    local stops={{0,0},{35,0},{0,35},{-35,0},{0,-35}}
-    tx=m.home[1]+stops[m.patrol+1][1];tz=m.home[2]+stops[m.patrol+1][2]
+    local stops={{m.home[1],m.home[2]},{m.home[1]+35,m.home[2]},{m.home[1],m.home[2]+35},{m.home[1]-35,m.home[2]},{m.home[1],m.home[2]-35}}
+    local zone=s.combat
+    if zone then
+      local side=m.home[1]<zone.x and -1 or 1
+      local x=zone.x+side*zone.halfX*.55
+      local z=math.max(zone.z-zone.halfZ+8,math.min(zone.z+zone.halfZ-8,m.home[2]))
+      stops={{x,z},{x,math.min(zone.z+zone.halfZ-8,z+35)},{m.home[1],z},{x,math.max(zone.z-zone.halfZ+8,z-35)}}
+    end
+    m.patrol=(m.patrol or 0)%#stops
+    tx=stops[m.patrol+1][1];tz=stops[m.patrol+1][2]
+    local help,distance
+    for _,v in ipairs(s.radio) do
+      local c=observed[v.target]
+      local eligible=not c or not c.cargo and not c.anchored and c.mass*gravity<s.blueprint[hook].force*.7
+        and c.up<.94 and c.carriedBy==0
+      if v.kind=='help' and v.target~=s.id and s.worldTime-v.time<20 and (v.mass or 0)*gravity<s.blueprint[hook].force*.7 and not claims[v.target]
+        and (m.cooldown[v.target] or 0)<t and eligible then
+        local d=hypot(v.x-s.x,v.z-s.z)
+        if not distance or d<distance then help=v;distance=d end
+      end
+    end
+    m.responding=help and help.target or nil
+    if help then tx=help.x;tz=help.z end
     if hypot(tx-s.x,tz-s.z)<1 then
       m.arrived=m.arrived or t
-      if t-m.arrived>5 then m.patrol=(m.patrol+1)%#stops;m.arrived=nil end
+      if not help and t-m.arrived>5 then m.patrol=(m.patrol+1)%#stops;m.arrived=nil end
     else m.arrived=nil end
   end
   local clearance=math.max(12,s.ground+5)
@@ -120,7 +141,42 @@ return function(t,s,m)
     if b.x+b.halfX>left and b.x-b.halfX<right and b.z+b.halfZ>back and b.z-b.halfZ<front then clearance=math.max(clearance,b.high+4) end
   end
   if m.phase=='seek' or m.phase=='approach' or m.phase=='lower' then height=math.max(height,clearance)
-  elseif m.phase=='settle' and height<clearance then length=math.min(s.blueprint[rope].travel,length+clearance-height);height=clearance end
+  elseif m.phase=='settle' and height<clearance then
+    local required=length+clearance-height
+    if required>s.blueprint[rope].travel and target and m.support<target.mass*gravity*.8
+      and (not m.landingAt or t>=m.landingAt) then
+      m.landingAt=t+2
+      local function floor(x,z)
+        local y=-math.huge
+        for _,b in ipairs(s.terrain) do
+          if b.high<target.low+1 and math.abs(x-b.x)<=b.halfX and math.abs(z-b.z)<=b.halfZ then y=math.max(y,b.high) end
+        end
+        return y
+      end
+      local ground=floor(target.x,target.z)
+      local function landing(x,z)
+        if hypot(x-s.x,z-s.z)>12 then return end
+        for _,offset in ipairs({{-2,-2},{-2,2},{2,-2},{2,2}}) do
+          if math.abs(floor(x+offset[1],z+offset[2])-ground)>.5 then return end
+        end
+        local top=12
+        for _,b in ipairs(s.terrain) do
+          if math.abs(x-b.x)<b.halfX+3.5 and math.abs(z-b.z)<b.halfZ+3.5 then top=math.max(top,b.high+4) end
+        end
+        if top<clearance-.5 then return hypot(x-s.x,z-s.z) end
+      end
+      local best,goal
+      for _,b in ipairs(s.terrain) do
+        if b.high+4>=clearance-.1 then
+          for _,p in ipairs({{b.x-b.halfX-3.8,s.z},{b.x+b.halfX+3.8,s.z},{s.x,b.z-b.halfZ-3.8},{s.x,b.z+b.halfZ+3.8}}) do
+            local d=landing(p[1],p[2]);if d and (not best or d<best) then best,goal=d,p end
+          end
+        end
+      end
+      if goal then m.hold=goal;m.lowerY=s.y;phase('settle');m.repositions=(m.repositions or 0)+1 end
+    end
+    length=math.min(s.blueprint[rope].travel,required);height=clearance
+  end
   if s.y<clearance-1 and (m.phase=='seek' or m.phase=='approach') then tx=s.x;tz=s.z end
   local q=s.rotation;local x,y,z,w=q[1],q[2],q[3],q[4]
   local function localv(v)
@@ -142,6 +198,7 @@ return function(t,s,m)
   set(s.blueprint[rope],clamp((length-cable.paidOut)*2,1))
   for _,i in ipairs(hooks) do local g=s.magnets[i];set(s.blueprint[i],power and (not g.attached or target and g.creature==target.id) and 1 or -1) end
   m.flight={height=height,goal={tx,tz},length=length,payload=payload,hook={tip[1],tip[2],tip[3]},up=s.up}
-  m.status=status[m.phase] or m.phase
+  if target and m.phase~='seek' then out.radio={kind=m.phase=='release' and 'release' or 'claim',target=target.id} end
+  m.status=m.phase=='seek' and m.responding and 'Responding to team rescue call' or status[m.phase] or m.phase
   return out
 end

@@ -42,6 +42,8 @@ return function(t,s,m,r)
   local function ally(b) return b.team==s.team and s.team~=0 end
   local function rival(b) return b.team~=0 and b.team~=s.team end
   local function ground_actor(b) return not b.cargo and not b.anchored and (b.low<s.ground+1 and b.high>s.ground+.1 or ally(b) and b.carriedBy~=0 and b.low<s.ground+liftReach) end
+  local claims={}
+  for _,v in ipairs(s.radio) do if v.kind=='claim' and v.from~=s.id and s.worldTime-v.time<10 then claims[v.target]=v.from end end
   local target=nearby[m.target]
   if (m.phase=='patrol' or m.phase=='approach' and not m.rescue) and t>(m.wait or 0) and t>(m.assessAt or 0) then
     m.assessAt=t+.5
@@ -56,7 +58,7 @@ return function(t,s,m,r)
         if rival(b) then
           for _,c in ipairs(s.nearby) do if ally(c) and ground_actor(c) and hypot(c.x-b.x,c.z-b.z)<12 then protect=true;break end end
         end
-        if reachable(b.x) and (rescue or rival(b) and b.up>.3 and (busy or protect)) then
+        if reachable(b.x) and not claims[b.id] and (rescue or rival(b) and b.up>.3 and (busy or protect)) then
           local value=(rescue and 200 or busy and 60 or 30)-hypot(b.x-s.x,b.z-s.z)
           if not score or value>score then best,score=b,value end
         end
@@ -66,7 +68,7 @@ return function(t,s,m,r)
   end
   if held and (held.id~=m.target or held.cargo or not (rival(held) or m.rescue and ally(held))) then phase('back') end
   if m.phase=='approach' then
-    if not target or not ground_actor(target) or not reachable(target.x) or t-m.since>600 or (m.rescue and not m.freeRescue and target.up>.85) then
+    if not target or claims[target.id] and not held or not ground_actor(target) or not reachable(target.x) or t-m.since>600 or (m.rescue and not m.freeRescue and target.up>.85) then
       m.cooldown[m.target]=t+20;phase('back')
     elseif held and held.id==m.target then
       if not m.rescue then m.captures=m.captures+1 end
@@ -87,7 +89,7 @@ return function(t,s,m,r)
     for _,v in ipairs(s.radio) do
       local friend=nearby[v.target]
       if v.kind=='help' and v.target~=s.id and reachable(v.x) and s.worldTime-v.time<20 and t>(m.cooldown[v.target] or 0)
-        and v.y<s.ground+liftReach+1 and (not friend or ground_actor(friend) and (friend.up<.5 or friend.carriedBy~=0)) then
+        and not claims[v.target] and v.y<s.ground+liftReach+1 and (not friend or ground_actor(friend) and (friend.up<.5 or friend.carriedBy~=0)) then
         if not help or hypot(v.x-s.x,v.z-s.z)<hypot(help.x-s.x,help.z-s.z) then help=v end
       end
     end
