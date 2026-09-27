@@ -1,160 +1,131 @@
-# Restore inactive cargo links and reduce repeated boat planning work
+# Restore inactive cargo links and share artillery resupply
 
 - STATUS: OPEN
 - PRIORITY: 230
 - TAGS: game,physics,controllers,performance
 
-Audit the existing dock, foundry/barge, mine/ferry, and rooftop supply roles.
-Improve interactions by reconnecting physically useful existing units, preserving
-ordinary motor/magnet controls and the current population/performance budget.
+Audit dock, foundry/barge, mine/ferry and ammunition supply roles. Reconnect useful
+existing units through ordinary controls, observed geometry and team radio.
+Every battery needs both air and ground recharge. Recover stray rounds without
+increasing population or actuator force. Root owns catalog/terrain and sea-salvage
+boats; logistics owns shared suppliers, loaders, hoists and major cargo chains.
 
-Initial evidence: action-front/full-v6 after 1,200 simulated seconds has four
-crates set down by Harbor Atlas at x106/z10 but Kawasemi remains at x220 with
-zero jobs. Foundry hauler repeatedly attempts ore140 with zero trips; Quay crane
-and both island barges consequently receive nothing. Mine porter/ferry are in
-active later cycles. Rooftop suppliers correctly wait on full magazines/bays.
+Evidence below is under `build/overnight-20260927/logistics/`. Historical rejected
+experiments remain there; they are not completed fixes. Completion requires real
+physical chains, measured controller cost, no faults/removals, all-station route
+coverage and an integrated browser/performance check.
 
-Shio's route scoring reevaluates every local terrain box at all 19 candidate
-points each 20Hz call. Prefilter conservatively by the entire search radius;
-measure ordinary-control equivalence and instructions on actual browser state.
+Checkpoint September28: foundry/Shio fixes below are committed; shared-fleet
+terrain9 work is unfinished and excluded from the terrain8/four-part production
+catalog. Hayabusa, Koban, Komatsu and Yagura were restored byte-for-byte to their
+production-proven HEAD sources. Exact candidates, patch and SHA-256 manifest
+remain in `checkpoint-20260928/`; all actual saves and source archives remain.
+Do not regenerate a production package from the private terrain9 stage.
 
-Completion requires actual physical chain progress from the reproduced failures,
-source-equivalent optimization measurement, no controller faults or population
-increases, and integrated-browser verification. Keep failed attempts as evidence.
+## Verified and committed
 
-The overnight request now also requires both ground and air resupply for every
-battery, mirrored Blue infrastructure near x=-40, and recovery of stray rounds
-from water. Shared fleets should service observed/requesting stations through
-ordinary radio and geometry; avoid one new supplier per gun. Root owns catalog
-and terrain9; logistics owns suppliers/loader/hoist and the recovery-boat design.
+`fd13951`: Shio's conservative shore prefilter produces identical128 actuator
+outputs across33 actual saved states. Mean Lua instructions8394→7333 (-12.6%),
+peak11000→9000. These static controller costs are not whole-frame percentages.
+The original mine pallet141 passes porter34→pier132→neutral boat131→Blue boat134
+→receiver30→island score1064.633 s. Working mine/sea machinery was preserved.
 
-Measured first browser probe (`build/overnight-20260927/logistics/profile-v1`):
-33 actual saved boat states have identical actuator outputs after conservative
-shore prefiltering. Mean measured Lua instructions 8,394→7,333 (-12.6%); peak
-11,000→9,000. Static single-controller timings include uncached sensor creation
-and are not summable game frame costs. The foundry jam is physical: its extended
-piston contacts the lift at 81.2 N + 18.2 N. Working old catalog 93d3d3c started the
-hauler aligned at x=-46.5; current catalog moved it to x=-52.
-
-The initial terrain-9 supplier fixture (`logistics/supply-v1`) initializes all
-six Red/Blue air/car/hoist cases without controller errors and observes correctly
-mirrored dock/magazine geometry. It does not prove a delivery: its replacement
-compact payload omitted `cargo=true`. The corrected fixture retains that required
-catalog field; physical delivery verification remains pending. Shared dispatch,
-signed loader/hoist geometry and foundry recovery edits are not yet frozen.
-
-The corrected four-part matrix (`logistics/supply-v3`) physically transfers the
-same round air→loader→gun on Red at 84.367 s and Blue at 301.467 s, and
-car→loader→gun on Red at 208 s. Blue car navigation and both southern car/hoist
-chains still fail; all six cases have zero controller faults/removals. The
-proposed air yard at x=±60/z=-48 is obstructed by mine/ridge geometry. Open yards
-at x=±80/z=0, with reserves x=±85, pass both air cases. These focused local routes
-do not yet establish fleet-wide reachability. The final passive five-part Kusari
-requires a new compatibility matrix, including the reflected Blue handle.
-
-The actual saved foundry jam replay (`logistics/foundry-v2`) now backs clear of
-the lift, realigns and grasps pallet 140 after 45.483 s. Its next transport leg
-still stalls while holding the pallet; this is partial recovery, not a completed
-cargo chain. The new northern Blue hoist is staged with an ordinary lateral
-piston to clear the mine wall while reaching the existing magazine. Water
-salvage boat changes remain private and unverified. Detailed per-station gaps
-are recorded in `build/overnight-20260927/logistics/station-coverage.md`.
-
-The final five-part matrix (`logistics/supply-v4`) has zero faults/removals but no
-valid complete supplier job. Red air eventually reaches its gun after a timeout
-abort, which is not a passing delivery. Its magnetic head grips the rope-handle
-body; the aircraft adds payload mass to lift while torque compensation omits the
-payload center of mass. Red car makes a supported drop, but loader handoff later
-loses grip. Blue car contacts the low curb at (-69,-15); southern Blue car also
-clips the foundry corner (-62,82). All exact contacts and failed saves are retained.
-
-The foundry continuation contact probe (`logistics/foundry-contact-v1`) identifies
-the second stall: its forward piston pushes at 149 N against the Blue roof pillar
-at (-33,7.7,63). The old x=-33 route intersects the pillar. A revised route between
-the ore pit and pillar, plus ordinary reverse recovery, is staged for verification.
-
-`foundry-v3/v4` restores the exact failed pallet140 through the physical chain:
-truck release1539.933, Quay grip1567.433, West barge grip1601.633, island receiver
-grip1911.050, supported release1942.883, eight-point score1943.883. The empty
-hauler's return still catches the ore-pit curb, so sustained cycles remain open.
-`air-com-v1` verifies supported five-part Red air placement (jobs=1) followed by
-loader/gun transfer99.417 s. Blue still aborts with a swinging payload; its later
-gun transfer is not a valid delivery. The next fixture requires both supported
-supplier completion and the full physical custody chain, and exits nonzero on
-an incomplete selected case. `salvage-v1` proves initial buoyancy and an actual
-Red pickup42.817 s, but its lift later times out and Blue pickup misses; the
-salvage models/controller remain private build artifacts.
-
-The strict final-round matrix (`logistics/supply-v7`) passes only Red air at
-87.217 s. Blue's eventual gun pickup follows an aborted flight and correctly
-fails; all four cars pick up but fail supported delivery. Limiting ordinary
-steering to .4 rad removes the previously measured wheel self-collision. Shared
-navigation remains open. Direct four-hoist tests (`hoists-v1`, `hoists-lift-v1`)
-prove all hooks grasp, but three rounds catch the roof underside and the fourth
-cannot clear the deck at full reel. Ordinary taller masts and greater input
-clearance are staged, not adopted. `foundry-v5` exposes a second route clearance
-issue: the carried pallet and forward ram reach the south wall before the root's
-77 m waypoint; the prior verified pallet delivery remains valid, sustained
-return cycles remain unproved.
-
-`foundry-v6` verifies the original saved jam through a complete delivery and
-empty-truck return. The exact pallet140 passes hauler1245.483→Quay1452.833→West
-barge1485.483→island receiver1795.850; the receiver releases1827.483, the pallet
-is delivered and world deliveries increase15→16. The truck returns to search
-at(-51.83,54.01), near its original(-52,52) home, without recovery loops. No
-controller errors/deaths. The corner atz75 clears both the ore pit and the south
-wall; the short reduced proof has generators disabled, so repeated fresh pallet
-cycles remain for populated continuation.
-
-`hoists-v2` verifies all four taller, supported masts physically lift and make
-supported releases of the final round (jobs1 each). RedSouth reaches its gun
-53.667s and RedNorth56.717s. BlueSouth's outer bay is marginal for the loader;
-BlueNorth needs hook withdrawal/placement correction. `air-pole-v1` rejects the
-pole-only flight correction by strict0/2 failure, so it is not a finished fix.
-
-`foundry-natural-v1` restores the original saved generator seed/counters without
-manual cargo creation. Four new pallets are physically collected;165 scores on
-East island3029.183s and168 on West3358.383s,176 remains on East barge in transit.
-The fourth pickup177 exposes a remaining departure failure: thirteen timed
-reverse retries leave a wheel against the loading plinth and the forward ram
-against the lift. A distance-based straight withdrawal is staged for that actual
-save. The result establishes two repeated complete natural chains, not indefinite
-throughput. All22actors remain without faults/deaths.
-
-`air-grasp-v1` proves both final-round aircraft can avoid the free handle: the
-actual captured part is0, primary-body mass.6845kg. Both supported delivery
-counters reach1 (Red59.8s,Blue55.8s) with no timeout/abort. The full strict
-chain remains incomplete because the loader cannot reach the outer Blue deposit
-and Red's loader stalls during delivery. This supersedes flight gain tuning;
-filtered-offset and added swing-damping variants are not adopted.
-
-`supply-v14` uses the physically measured differential wheel-speed helper and
-passes strict Red air→loader→gun at87.217s. Blue air makes a supported job and
-loader pickup66.617s, but delivery stalls. All cars grasp; southern Blue makes
-two supported placements, while the other routes remain incomplete. Ground
-loader staging rejects every candidate; that clearance failure needs diagnosis.
-`hoists-v4` gives all four taller hoists a supported job and real loader pickup,
-with RedSouth/RedNorth gun custody53.717/56.717s. Blue final handoffs still fail.
-
-`foundry-natural-v2` preserves the exact fourth-cycle jam and rejects prolonged
-straight retreat: rear wheels remain airborne while the front wheel binds the
-plinth at164N. Earlier pallet176 completes another natural East-island delivery
-after receiver release3732.833s, establishing three fresh scored pallets. A
-supported set-down/retry is staged; the wedged fourth pickup remains unresolved.
-
-The frozen foundry correction now passes the exact fourth-cycle jam and repeated
-natural throughput. `foundry-low-retreat-v1` resumes the actual 4500 s state:
-lowering the existing mast during a stalled straight withdrawal clears the
-plinth, and the same pallet177 reaches the quay at4661.567 s. It then hangs a few
-centimetres above support with the lift fully retracted. `foundry-soft-v1`
-continues the actual5100 s save through6000 s, reducing analog magnet strength
-only near the floor at minimum lift travel. Release still requires measured
-support. Pallet177 releases5104.583 s with independent support2.104×weight and
-no floor gap, then passes quay26→Westbarge28→receiver30 and scores5497.283 s.
-Fresh178 is collected5272.567, released with support1.842×weight5435.333 and
-scores on East island5861.833. Fresh179 makes another supported quay release;
-180 is collected5963.600 and remains in transit. Zero faults/deaths. Original
-home(-52,52), actor states, mass and actuator force limits are preserved. Loaded
-controller cost averages4958 instructions, peak5000. Source SHA-256:
+`411b749`: the original foundry home(-52,52), mass, forces and actor state are
+preserved. `foundry-low-retreat-v1` resumes the actual4500 s fourth-cycle jam;
+lowering the existing mast during stalled withdrawal clears the loading plinth.
+The same pallet177 reaches the quay4661.567 s, but minimum lift travel leaves it
+centimetres above support. `foundry-soft-v1` resumes that actual5100 s save,
+reducing analog magnet strength near the floor while retaining support-based
+release. Pallet177 releases5104.583 s with independently measured support2.104×
+weight/no floor gap, passes quay26→West barge28→receiver30 and scores5497.283 s.
+Natural178 is collected5272.567, released5435.333 with support1.842×weight and
+scores on East island5861.833. Natural179 also receives a supported quay release;
+180 is collected5963.600 and remains in transit. Zero faults/deaths. Loaded
+controller mean4958 instructions, peak5000. Frozen source SHA-256:
 `771cdf7e19fed49db2fb096f8a43748d39da0445f6ff509f81efedb99c2fd1f4`.
-The broader issue remains open for fleet coverage and sea-ammunition salvage.
+Earlier saved continuations separately score original140 and natural165/168/176.
+
+## Verified staged ammunition mechanisms
+
+Staged ammunition is the passive five-part Kusari:1.140841 kg, two physical
+bodies, reflected Blue geometry. Strict completion requires supported supplier
+jobs plus the same round's real loader/gun custody; timeout drops never pass.
+
+`air-native-v1` passes all8 chains on the optimized engine/latest staged terrain9:
+Red/Blue Tengu87.217/90.267 s, Hosen93.567/99.417 s,
+north147.917/159.917 s, south150.917/165.917 s. `air-inner-v1` revalidates
+reserve placement at±75,-6 (aircraft±80,6,0): strict2/2 in84.167/90.267 s.
+The original±85 reserve proof remains in `air-matrix-v1`. Aircraft captures the
+exposed primary assembly rather than the free handle. Loader geometry derives
+signed travel and uses observed oriented boxes for magnetic pickup/handoff.
+Frozen loader `koban-native-eight-air.lua` SHA-256:
+`8b59a0e91316a8be5b422741a45163369dd4cd1746b91cb1fc2104e30af618f3`.
+
+`air-owned-v1` preserves all7 actors from the actual577.217 s capture chain,
+changing only the aircraft source. It abandons a stale job now held by a teammate;
+the tug retains uninterrupted custody through589.217 s, with no faults/deaths.
+
+`hoists-v6` proves all4 taller hoists make supported roof deliveries. Both north
+stations reach their guns56.717/56.767 s. `blue-hoist-column-v2` continues the
+actual rotated car delivery: observing the surface under the hook, rather than
+an adjacent high handle, gives pickup362.433→supported roof placement379.433 s.
+The actual Red counterpart releases supported367.033 s. Ordinary taller masts
+and explicit sideways reach are staged; forces and maximum piston travel remain
+unchanged. `hoist-clearance-fragments.lua` contains all4 physical designs.
+
+`red-roof-native-v1` fixes the exact Red rotated roof stall: actual pole-to-box
+distance was0.700 m, outside native0.65 m reach despite an apparently reachable
+AABB. Ordinary rail approach grasps120.383→gun143.950 s. `red-car-native-v1`
+fixes the same0.663 m miss after a real car job: pickup300.433→gun323.333 s.
+Loaded loader means5220/4672 instructions, peaks11000. `blue-roof-handoff-v1`
+changes only the actual loaded Blue south loader source and reaches gun59.767 s.
+
+`car-yard-v1` tests the same cars at±80,0/reserves±75,-6. Simpler `komatsu-v15.lua`
+makes supported jobs on both sides (by100/220 s); the larger COM-face pickup
+experiment makes neither and was reverted. The controller uses measured generic
+wheel differential speeds, a bounded terrain planner and observed station bays.
+`blue-car-receiver-v1` changes only the loader in the actual253.817 s Blue
+end-grip save. The observed receiver pole, rather than the nominal cargo centre,
+permits a supported release266.417 s and real gun capture268.833 s. Loaded mean
+5321 instructions, peak6000. This private candidate has not passed integration.
+
+The fresh420 s `ground-matrix-v1` is only2/8: Blue Tengu253.067 s and Red
+Hosen382.533 s pass. Red Tengu's captured end hangs vertically and jams before
+the cup; Blue Hosen rests passively on the gun without magnetic custody; Red
+north's rotated roof round has no selected reachable primary face; Blue north's
+fork presses into a terrain post; Red south releases onto support outside the
+magazine; Blue south reverses into its hoist base. These are actual failures,
+not missing test coverage. Frozen source: `ground-receiver-source-v1.tar`.
+
+The final bounded continuations change one controller source each, preserving
+every other saved field. `blue-south-clearance-v1` avoids reversing into the
+hoist base: supported car release408.933 s, hoist grasp424.317, supported roof
+release440.833, loader grasp456.633 and gun custody475.533. Car loaded mean7923
+instructions, peak9000. The same private clearance candidate moves Blue north
+off its post but does not reach the station. `blue-hosen-support-v1` still makes
+no pickup. `red-south-support-v1` correctly retains the off-bay round instead of
+counting a supported but misplaced delivery; it does not complete the route.
+All four runs retain every actor with zero faults/removals. None is promoted.
+
+## Remaining work
+
+- Complete all8 ground routes, including shared-yard→roof-hoist legs. Every air
+  route passing does not establish ground accessibility or concurrent dispatch.
+- Finish the six fresh ground failures above; retain physical custody/support
+  checks and verify loaded gun/spare-stock clearance before integration.
+- Verify simultaneous requests, ground/air claims and service fairness. Keep
+  the final yard clear for both car and aircraft, which currently share homeXZ.
+- Reuse the actual launched/captured/disposed/returned round. `returned-patrol-v1`
+  exposes a home-distance patrol bug; its minimal fix reaches the real round but
+  descent physically hits a factory beam. `returned-ground-v1` adds one ordinary
+  catalog car at(80,0), preserving all7 original actors/controllers. It reaches
+  the area but its fixed staging point is unreachable; no pickup yet. Generic
+  clear-staging and air descent-clearance candidates remain private.
+- Root owns private boat-salvage correction/proofs. The original candidate floats
+  and makes one pickup, but fails the delivery chain; no success claim.
+- Team strategy owns Kawasemi22's dock-output continuation and its separate
+  `20260928-023000-codex-dock-output` task. Its repair is separately committed
+  `6aa370f`: actual Atlas→courier→supported island delivery88.417 s; only courier
+  relocation is needed, not cargo23's earlier proposed move.
+- Run the combined populated map, confirm no controller faults/removals and
+  retain FPS headroom. `station-coverage.md` tracks exact per-route coverage.
