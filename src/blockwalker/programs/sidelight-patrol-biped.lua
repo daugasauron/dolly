@@ -44,7 +44,6 @@ return function(t, s, m, r)
   end
   local dt = (s).dt;
   local a = (s).angles;
-  local v = (s).rates;
   local p = (s).positions;
   local cl = function(x, b)
     return math.max((-b), math.min(b, x))
@@ -751,7 +750,7 @@ do
             do
               do
                 local soft = (function() local value = capture; if active(value) then return value else return approach end end)();
-                local cmd = ((4 * (at(q, l) - at(a, at(at(ids, j), l)))) - ((active(soft) and 0.55 or 0.25) * at(v, at(at(ids, j), l))));
+                local cmd = 4*(at(q,l)-at(a,at(at(ids,j),l)))/(1+(active(soft) and .55 or .25)*s.blueprint[at(at(ids,j),l)+1].speed);
                 local plane = (function() if active(capture) then return blend else return 1 end end)();
                 if (l == 4) then
                   cmd = (cmd - (plane * ((3 * (at(f, j)).roll) + (0.25 * at(at((m).fv, j), 3)))));
