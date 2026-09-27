@@ -47,5 +47,23 @@ free handle strikes gun base part 10 at 20.28 m/s and height 0.857 m
 loader's reach and fails all eight air cases; that candidate is rejected.
 A smaller 1 m rise, four ordinary support blocks and the unchanged loader stroke
 pass the Red air→loader→gun handoff at 87.217 s (`gun-clearance/air-low-v1`).
-The loader derives its dock from the observed cup. Firing clearance and the other
-seven routes remain unverified for this private geometry.
+The loader derives its dock from the observed cup. The exact loaded continuation
+fails to clear the fork: no shots, commanded releases or captures over 40 s;
+the arm stalls near -1.79 rad with about 35.6 N load. Fresh Red ground supply
+also fails to reach gun custody in 420 s despite car and loader grips.
+Evidence: `tethers/encounter-parts-raised-v1/` and
+`gun-clearance/ground-low-v1/`. Both raised candidates are rejected for the
+checkpoint. No canonical gun geometry or motor limits changed.
+
+The final bounded boat trial, `boats/trim2-180/`, physically grips both floating
+rounds at 17.017/17.367 s. Neither unloads by 180 s: the Red boat reaches the
+shore with an edge-held round, while Blue's loaded bow remains too low. Ordinary
+extra bow floats and tighter pickup alignment therefore do not establish reuse.
+No salvage-boat design or program is adopted. Exact source archive:
+`boats/trim2-source.tar`, SHA256
+`164bba72beca679ba842f8162f72e701b4c3c9c563eb79707633869d28cef1cf`.
+
+Checkpoint scope is the existing terrain-8/four-part catalog. Terrain 9,
+forward guns, shared suppliers, five-part projectiles and boat salvage remain
+private evidence. The logistics task records the final ground-route failures;
+this task remains OPEN. No further experiment is part of this checkpoint.
