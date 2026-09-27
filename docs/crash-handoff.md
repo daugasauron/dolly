@@ -1,4 +1,33 @@
-# Blockwalker action front checkpoint
+# Slopyard development checkpoint
+
+Active overnight work targets 07:00 JST September 28. Source now includes:
+
+- Slopyard branding, exact sensor-distance/render-bounds caches and clearer
+  distant shading (`64f4435`). Matched Firefox replay of the actual 163-character,
+  20-minute world measures 97–107 FPS; fixed cache captures are byte-identical.
+- Verified team rescue, quarry courier and walking-scout handoffs (`e6469eb`,
+  `3ad9049`), stable biped motor control (`cfac726`), and safe handling of missing
+  courier destinations (`06fa8a2`).
+- Safe supported rescue aborts (`5314905`) and centered torso grips (`7000f24`).
+  The actual recovered biped subsequently makes ten independently verified foot
+  placements with seven alternations and no new recoveries over 180 seconds.
+- Bearing alignment before artillery windup (`fb2147e`), preventing accidental
+  loaded-round loss while retaining actual ordinary shots and reloading.
+- Exact-output boat shore-query prefilter (`fd13951`) and the shed-loader's
+  steering/clearance repair (`f0bccd0`). In the populated world the loader delivers
+  its actual parcel onto support and the carousel grips the same parcel; all 163
+  original actors survive through 1800 seconds, with 172 final and no faults.
+
+Evidence is under `build/overnight-20260928/` and `build/action-front-20260927/`.
+These changes are not yet in the served image. Final terrain-9 layout, artillery
+supply/boat experiments and tether reuse are still being validated; do not package
+unverified candidates. `frontline/layout.mjs` contains the verified Vesper/scout
+moves, but its generated catalog is stale pending the final logistics fragments.
+A long browser test was interrupted during host-wide memory pressure; its exact
+saved continuation passes. `audit-memory-guard.mjs` monitors only the disposable
+test scope and closes that browser if host available memory falls below 4 GiB.
+
+The currently served stable image is still the action-front checkpoint below.
 
 Worktree `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/blockwalker-playground-20260923`; checkpoint branch

@@ -38,3 +38,8 @@ The bounds cache now passes three byte-identical fixed GPU captures (near, far
 and joint) in Firefox, with no simulation drift. Evidence:
 build/overnight-20260928/render-equivalence/proof.json. Preliminary ordinary
 rendering averages 1.28 ms for tree construction, versus about 1.6 ms before.
+
+The exact maintained `blockwalker-observation.c` fixture now passes inside
+Dolly against the actual mature world: all 163 articulated-character pairs are
+bit-identical to uncached distances before and after 90 physics steps, with no
+controller errors. Evidence: `build/action-front-20260927/observation-exact/`.

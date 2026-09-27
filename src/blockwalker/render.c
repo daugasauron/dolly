@@ -24,7 +24,7 @@ static Bounds *bounds;
 static uint64_t capture_buffer;
 static int capture_requested;
 typedef struct { float eye[4],forward[4],right[4],up[4],viewport[4],world[4]; } Scene;
-static void check(int status) { if(status<0){perror("blockwalker GPU");exit(1);} }
+static void check(int status) { if(status<0){perror("Slopyard GPU");exit(1);} }
 static void flush(void) {check(dolly_gpu_batch(&gpu));dolly_gpu_begin(&gpu);}
 void orbit_update(Orbit *o) {o->up=(Vector3){0,1,0};o->fov=42;o->eye=Vector3Add(o->target,(Vector3){sinf(o->yaw)*cosf(o->pitch)*o->distance,sinf(o->pitch)*o->distance,cosf(o->yaw)*cosf(o->pitch)*o->distance});}
 Camera3D orbit_camera(const Orbit *o) {return (Camera3D){o->eye,o->target,o->up,o->fov,CAMERA_PERSPECTIVE};}
