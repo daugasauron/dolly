@@ -37,3 +37,8 @@ Host memory remains healthy and the disposable browser stays near 1.4 GiB.
 Evidence: `build/action-front-20260927/nekote-full-v7/`, `nekote-resume-v7/`, and
 `build/overnight-20260928/nekote-complete-proof.json`. Source SHA-256:
 `1d566894d76b7d18f7bc9f97d0c09f45cf40d6c91309ac7956e5625a785c2704`.
+
+The retained `blockwalker-carousel-feeder.c` regression uses three real actors
+and the warehouse terrain: pickup 78.667 s, supported placement 238.617 s,
+carousel grip 249.333 s. The exact fixture compiles/runs inside Dolly with no
+faults or network escape (`build/action-front-20260927/nekote-regression/`).
