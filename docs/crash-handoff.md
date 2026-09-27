@@ -17,12 +17,23 @@ Active overnight work targets 07:00 JST September 28. Source now includes:
   steering/clearance repair (`f0bccd0`). In the populated world the loader delivers
   its actual parcel onto support and the carousel grips the same parcel; all 163
   original actors survive through 1800 seconds, with 172 final and no faults.
+- Unused Lua sensor arguments are no longer constructed (`126298e`). Matched
+  normal Firefox captures of that same aged world improve from 104–111 to
+  119–130 FPS with all 163 original actors intact. The simulated state remains
+  identical in the paired 600-step comparison; seven retained contract cases pass.
+- Foundry routing and supported unloading (`411b749`) complete two observed
+  foundry→quay→barge→island deliveries. Both roaming surveyors now report observed
+  cargo and enemies (`624b10d`, `bb88d43`); their actual reports initiate courier
+  deliveries without changing their walking programs.
 
 Evidence is under `build/overnight-20260928/` and `build/action-front-20260927/`.
 These changes are not yet in the served image. Final terrain-9 layout, artillery
 supply/boat experiments and tether reuse are still being validated; do not package
-unverified candidates. `frontline/layout.mjs` contains the verified Vesper/scout
-moves, but its generated catalog is stale pending the final logistics fragments.
+unverified candidates. All eight proposed air→loader→gun chains pass, including
+the revised inner stockyard, but the last rotated ground handoff and recovered
+ammunition routes still need verification. `frontline/layout.mjs` contains the
+verified Vesper/scout moves, but its generated catalog is stale pending the final
+logistics fragments. Private boat and raised-gun experiments are not adopted.
 A long browser test was interrupted during host-wide memory pressure; its exact
 saved continuation passes. `audit-memory-guard.mjs` monitors only the disposable
 test scope and closes that browser if host available memory falls below 4 GiB.
