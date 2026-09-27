@@ -66,3 +66,13 @@ is now canonical. `compatibility-v1` executes the exact maintained
 alternations in 180 s.
 This does not establish general collision robustness or resolve the historical
 late-fall scope in `20260915-110000-codex-01`.
+
+`survey-rescue-v1` also proves the sparse biped scouting addition: an ordinary
+courier initially outside observation range follows the walker's real report,
+collects the freight and scores on its island at 239.267 s. The biped also reports
+an active opposing surveyor, remains upright (minimum up 0.978813), and covers
+4 m by 258.2 s. Current starts already cover central parcel sites: Sidelight to
+(24, 28) is 42.426 m; Hibari to (-24, 38) is 42.953 m, within the 48 m sensor
+range. No catalog relocation or added observation calls are required.
+The separate actual post-rescue failure is tracked in
+`20260927-232600-codex-supported-rescue-abort`.
