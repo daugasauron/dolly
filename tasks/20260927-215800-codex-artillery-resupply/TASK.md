@@ -67,3 +67,17 @@ Checkpoint scope is the existing terrain-8/four-part catalog. Terrain 9,
 forward guns, shared suppliers, five-part projectiles and boat salvage remain
 private evidence. The logistics task records the final ground-route failures;
 this task remains OPEN. No further experiment is part of this checkpoint.
+
+The final combined terrain-8 check found an additional checkpoint blocker:
+Blue Tengu exceeded the existing 200,000-instruction controller budget during
+trajectory safety after 300 s (`checkpoint-full/`, final 600 s result rejected).
+The intersection test allocated three nested coordinate tables for every
+segment/shape pair. Direct per-axis slab arithmetic removes those allocations
+without changing the geometric predicate, candidate trajectory or friendly
+checks. Inside-Dolly comparison passes 50,000 random/boundary cases exactly.
+The unchanged 240 s saved population is replayed with only the eight gun source
+strings updated; integration evidence is `checkpoint-resume/`.
+The exact continuation passes through 600 s with all 151 resumed actors retained,
+157 final actors, eight deliveries, scores 4/4 and zero controller faults/removals.
+No instruction budget or friendly-fire margin was increased. This bounded cost
+repair is included; the broader supply/geometry experiments remain excluded.

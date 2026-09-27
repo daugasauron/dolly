@@ -67,16 +67,29 @@ return function(t, s, m)
   m.blockedBy = 0
   local function intersects(a, b, box, margin)
     local lo, hi = 0, 1
-    for _, v in ipairs({{a[1],b[1]-a[1],box.x-box.halfX-margin,box.x+box.halfX+margin},
-      {a[2],b[2]-a[2],box.low-margin,box.high+margin},
-      {a[3],b[3]-a[3],box.z-box.halfZ-margin,box.z+box.halfZ+margin}}) do
-      if math.abs(v[2]) < .00001 then
-        if v[1] < v[3] or v[1] > v[4] then return false end
-      else
-        local x, y = (v[3]-v[1])/v[2], (v[4]-v[1])/v[2]
-        lo, hi = math.max(lo,math.min(x,y)), math.min(hi,math.max(x,y))
-        if lo > hi then return false end
-      end
+    local delta, low, high = b[1]-a[1], box.x-box.halfX-margin, box.x+box.halfX+margin
+    if math.abs(delta) < .00001 then
+      if a[1] < low or a[1] > high then return false end
+    else
+      local x, y = (low-a[1])/delta, (high-a[1])/delta
+      lo, hi = math.max(lo,math.min(x,y)), math.min(hi,math.max(x,y))
+      if lo > hi then return false end
+    end
+    delta, low, high = b[2]-a[2], box.low-margin, box.high+margin
+    if math.abs(delta) < .00001 then
+      if a[2] < low or a[2] > high then return false end
+    else
+      local x, y = (low-a[2])/delta, (high-a[2])/delta
+      lo, hi = math.max(lo,math.min(x,y)), math.min(hi,math.max(x,y))
+      if lo > hi then return false end
+    end
+    delta, low, high = b[3]-a[3], box.z-box.halfZ-margin, box.z+box.halfZ+margin
+    if math.abs(delta) < .00001 then
+      if a[3] < low or a[3] > high then return false end
+    else
+      local x, y = (low-a[3])/delta, (high-a[3])/delta
+      lo, hi = math.max(lo,math.min(x,y)), math.min(hi,math.max(x,y))
+      if lo > hi then return false end
     end
     return true
   end
