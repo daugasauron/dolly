@@ -53,6 +53,23 @@ return function(t, s, m, r)
   local box = find(peers, function(c)
     return ((c).id == (m).job)
   end);
+  local depot = find(s.depots, function(d) return d.team == s.team end)
+  if not depot then
+    if attached and box and box.carriedBy == s.id then
+      if phase ~= "lower" and phase ~= "release" then
+        m.goal = {s.x, s.z}
+        next("lower")
+      end
+    elseif phase ~= "release" and phase ~= "depart" and phase ~= "return" and phase ~= "no-depot" then
+      m.job = 0
+      m.goal = m.home
+      next("no-depot")
+    end
+    phase = m.phase
+  elseif phase == "no-depot" then
+    next("seek")
+    phase = m.phase
+  end
   local height = math.max((m).cruise, ((s).ground + 6));
   local power = 0;
   if (not active(includes({"pickup", "lower", "release"}, phase))) then
@@ -177,9 +194,7 @@ return function(t, s, m, r)
       height = ((box).y + 3.02);
       power = 1;
       if (active(attached) and ((box).carriedBy == (s).id)) then
-        (m).depot = find((s).depots, function(d)
-          return ((d).team == (s).team)
-        end);
+        (m).depot = depot;
         (m).cruise = math.max(32, ((box).y + 6));
         next("lift");
       end
@@ -188,7 +203,7 @@ return function(t, s, m, r)
   if (phase == "lift") then
     power = 1;
     if (((s).y > (height - 0.3)) and (math.abs((s).vy) < 0.4)) then
-      (m).goal = {((m).depot).x, ((m).depot).z};
+      (m).goal = {depot.x, depot.z};
       next("carry");
     end
   end
@@ -364,6 +379,7 @@ if active((m).job) then
 end
 if s.carriedBy ~= 0 then out.radio = {kind = "help", target = s.id} end
 m.status = m.phase == "seek" and "Awaiting scout / searching combat cargo"
+  or m.phase == "no-depot" and "Waiting for a team cargo depot"
   or m.phase == "approach" and "Claimed cargo: approaching"
   or m.phase == "carry" and "Delivering cargo to island goal" or m.phase
 if m.yieldingTo and m.trafficHeight > m.cruise then m.status = "Clearing airborne traffic" end

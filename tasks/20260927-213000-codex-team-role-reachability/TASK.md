@@ -61,6 +61,8 @@ stable supported landing. Sidelight makes 31 clean placements, 25 alternations,
 11.780 m patrol range, minimum up 0.980994 and zero recoveries. Hibari makes 36,
 33 alternations, 14.748 m range, minimum up 0.970635 and one successful recovery.
 Five slipping Sidelight placements were excluded. The exact tested controller
-is now canonical; shorter maintained coverage is `blockwalker-biped.c`.
+is now canonical. `compatibility-v1` executes the exact maintained
+`test/fixtures/blockwalker-biped.c`: both make 6/4 clean placements and 8
+alternations in 180 s.
 This does not establish general collision robustness or resolve the historical
 late-fall scope in `20260915-110000-codex-01`.
