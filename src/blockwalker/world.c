@@ -166,6 +166,16 @@ static Value depot_list(Data *ctx,int count){
     }return list;
 }
 static Value depot_state(Data *ctx){return depot_list(ctx,depot_count);}
+static Value combat_state(Data *ctx,int version){
+    if(version<6)return VALUE_NIL;
+    Value area=value_record(ctx,4);put_number(ctx,area,"x",0);put_number(ctx,area,"z",0);put_number(ctx,area,"halfX",COMBAT_HALF_X);put_number(ctx,area,"halfZ",COMBAT_HALF_Z);return area;
+}
+static Value scrapyard_state(Data *ctx,int version){
+    Value list=value_sequence(ctx,version>=6?2:0);
+    for(int i=0;version>=6&&i<2;i++){Depot d=scrapyards[i];Value area=value_record(ctx,6);
+        value_set(ctx,area,"name",value_string(ctx,d.name));put_number(ctx,area,"x",d.x);put_number(ctx,area,"y",-1.5f);put_number(ctx,area,"z",d.z);put_number(ctx,area,"radius",d.radius);put_number(ctx,area,"team",d.team);value_set_at(ctx,list,i,area);
+    }return list;
+}
 static int magnet_holds(const Creature *carrier,const Creature *cargo){
     if(!carrier)return 0;
     for(int i=0;i<carrier->design.count;i++){
@@ -237,7 +247,7 @@ static void radio_send(const Physics *physics,int kind,int id){
     Creature *sender=NULL,*target=world_find(id);
     for(int i=0;i<world.count;i++)if(world.creatures[i].physics.parts==physics->parts)sender=&world.creatures[i];
     if(!sender||!sender->team||!target)return;
-    if(kind<RADIO_HELP&&!target->cargo)return;
+    if((kind==RADIO_SIGHT||kind==RADIO_READY)&&!target->cargo)return;
     if(kind==RADIO_HELP&&(target->cargo||target->team!=sender->team))return;
     if(kind==RADIO_THREAT&&(target->cargo||!target->team||target->team==sender->team))return;
     int known=0;RadioMessage report={0};
@@ -273,15 +283,15 @@ typedef struct {int index;float distance;} Nearby;
 static int nearby_distance(const void *a,const void *b){
     const Nearby *left=a,*right=b;return left->distance<right->distance?-1:left->distance>right->distance?1:left->index-right->index;
 }
-typedef struct {Vector3 origin;int landscape,count,depots,radio_count;size_t radio_offset;TerrainBox boxes[];} EnvironmentSensors;
-static const char *environment_names[]={"groundSamples","obstacles","terrain","depots","radio"};
+typedef struct {Vector3 origin;int landscape,count,depots,radio_count,version;size_t radio_offset;TerrainBox boxes[];} EnvironmentSensors;
+static const char *environment_names[]={"groundSamples","obstacles","terrain","depots","radio","combat","scrapyards"};
 static int environment_read(lua_State *L){
     Data *ctx=*(Data **)lua_getextraspace(L);const char *name=lua_tostring(L,2);int field=0;
-    while(field<5&&(!name||strcmp(name,environment_names[field])))field++;if(field==5)return 0;
+    while(field<7&&(!name||strcmp(name,environment_names[field])))field++;if(field==7)return 0;
     EnvironmentSensors *sample=lua_touserdata(L,lua_upvalueindex(1));lua_pushvalue(L,lua_upvalueindex(2));Value cache=value_take(ctx);
     Value list=value_get(ctx,cache,name);
     if(value_is_nil(list)){
-        if(field>=3){list=field==3?depot_list(ctx,sample->depots):radio_list(ctx,(RadioMessage *)((char *)sample+sample->radio_offset),sample->radio_count,-1);value_set(ctx,cache,name,value_copy(ctx,list));}
+        if(field>=3){list=field==3?depot_list(ctx,sample->depots):field==4?radio_list(ctx,(RadioMessage *)((char *)sample+sample->radio_offset),sample->radio_count,-1):field==5?combat_state(ctx,sample->version):scrapyard_state(ctx,sample->version);value_set(ctx,cache,name,value_copy(ctx,list));}
         else if(field==0){
             list=value_sequence(ctx,16);
             for(int i=0;i<16;i++){
@@ -301,7 +311,7 @@ static int environment_read(lua_State *L){
 }
 static int environment_next(lua_State *L){lua_settop(L,2);return lua_next(L,1)?2:0;}
 static int environment_pairs(lua_State *L){
-    for(int i=0;i<5;i++){lua_getfield(L,1,environment_names[i]);lua_pop(L,1);}lua_pushcfunction(L,environment_next);lua_pushvalue(L,1);lua_pushnil(L);return 3;
+    for(int i=0;i<7;i++){lua_getfield(L,1,environment_names[i]);lua_pop(L,1);}lua_pushcfunction(L,environment_next);lua_pushvalue(L,1);lua_pushnil(L);return 3;
 }
 static void environment_sensors(Data *ctx,Value s,const Physics *p,Vector3 origin,int team){
     TerrainBox boxes[p->landscape&&terrain_count?terrain_count:1];int count=0,messages=0;
@@ -313,7 +323,7 @@ static void environment_sensors(Data *ctx,Value s,const Physics *p,Vector3 origi
     size_t offset=(sizeof(EnvironmentSensors)+count*sizeof(TerrainBox)+_Alignof(RadioMessage)-1)&~(_Alignof(RadioMessage)-1);
     lua_State *L=ctx->lua;value_push(ctx,s);lua_newtable(L);
     EnvironmentSensors *sample=lua_newuserdatauv(L,offset+messages*sizeof(RadioMessage),0);
-    *sample=(EnvironmentSensors){.origin=origin,.landscape=p->landscape,.count=count,.depots=depot_count,.radio_offset=offset,.radio_count=messages};memcpy(sample->boxes,boxes,count*sizeof(TerrainBox));
+    *sample=(EnvironmentSensors){.origin=origin,.landscape=p->landscape,.count=count,.depots=depot_count,.radio_offset=offset,.radio_count=messages,.version=p->landscape?terrain_version:0};memcpy(sample->boxes,boxes,count*sizeof(TerrainBox));
     RadioMessage *radio=(RadioMessage *)((char *)sample+offset);for(int i=0,n=0;i<world.radio_count;i++)if(world.radio[i].team==team)radio[n++]=world.radio[i];
     lua_newtable(L);lua_pushcclosure(L,environment_read,2);lua_setfield(L,-2,"__index");lua_pushcfunction(L,environment_pairs);lua_setfield(L,-2,"__pairs");lua_setmetatable(L,-2);lua_pop(L,1);
 }
@@ -657,7 +667,7 @@ static void cargo_step(void){
         int attached=0;for(int j=0;j<cargo->design.count;j++)attached|=b3Body_IsValid(cargo->physics.parts[j].magnet_target);
         if(attached){cargo->settled=0;continue;}
         int depot=-1;
-        for(int j=0;j<depot_count;j++){Depot d=depots[j];
+        for(int j=0;j<depot_count;j++){Depot d=depots[j];if(terrain_version>=6&&!d.team)continue;
             if(hypotf(p.x-d.x,p.z-d.z)<d.radius-.5f&&hypotf(cargo->pickup.x-d.x,cargo->pickup.z-d.z)>d.radius+1&&
                supported&&hypotf(p.x-cargo->pickup.x,p.z-cargo->pickup.z)>3){depot=j;break;}
         }
@@ -688,7 +698,9 @@ static void supply_step(void){
         }
     }
     if(world.age>=world.next_parcel&&parcels<6){
-        const Vector2 sites[]={{-60,-25},{-15,-45},{45,-30},{65,20},{-43,47},{8,66},{-72,72},{38,32}};
+        const Vector2 legacy_sites[]={{-60,-25},{-15,-45},{45,-30},{65,20},{-43,47},{8,66},{-72,72},{38,32}};
+        const Vector2 combat_sites[]={{-22,-16},{14,-9},{-8,14},{20,26},{-43,47},{8,66},{-20,-44},{38,-28}};
+        const Vector2 *sites=terrain_version>=6?combat_sites:legacy_sites;
         int first=(int)(supply_random()*8);Vector2 site=sites[first];
         for(int offset=0;offset<8;offset++){
             site=sites[(first+offset)%8];int occupied=0;
@@ -764,6 +776,7 @@ Value world_state(Data *ctx){
     Value scores=value_array(ctx);for(int team=1;team<=2;team++)value_set_at(ctx,scores,team-1,value_number(ctx,world_team_score(team)));value_set(ctx,result,"teamScores",scores);
     value_set(ctx,result,"deliveries",delivery_state(ctx));
     value_set(ctx,result,"depots",depot_state(ctx));
+    value_set(ctx,result,"combat",combat_state(ctx,terrain_version));value_set(ctx,result,"scrapyards",scrapyard_state(ctx,terrain_version));
     value_set(ctx,result,"recentRemovals",removal_state(ctx,0));
     value_set(ctx,result,"radio",radio_state(ctx,-1));
     if(world.supply_seed){Value supply=value_table(ctx);put_number(ctx,supply,"seed",world.supply_seed);put_number(ctx,supply,"nextParcel",world.next_parcel);put_number(ctx,supply,"nextOre",world.next_ore);put_number(ctx,supply,"nextMine",world.next_mine);value_set(ctx,result,"supply",supply);}
@@ -995,7 +1008,7 @@ static void load_removals(Data *ctx,Value list){
 }
 static void restore_world(Data *ctx,Value save,int fresh){
     int legacy=value_is_table(save)&&get_number(ctx,save,"version",0)==1;
-    terrain_select(value_is_table(save)?get_number(ctx,save,"terrainVersion",0):fresh?5:0);
+    terrain_select(value_is_table(save)?get_number(ctx,save,"terrainVersion",0):fresh?6:0);
     if(value_is_table(save)){Value designs=value_get(ctx,save,"designs");load_designs_version(ctx,designs,0,legacy);value_free(ctx,designs);}
     Value examples=read_catalog(ctx);load_designs(ctx,examples,fresh);value_free(ctx,examples);
     if(fresh){world.supply_seed=0x243f6a88;world.next_parcel=45;world.next_ore=5;world.next_mine=10;}
@@ -1146,7 +1159,7 @@ static int import_world_valid(Data *ctx,Value save){
     Value list=value_get(ctx,save,"creatures"),designs=value_get(ctx,save,"designs"),removals=value_get(ctx,save,"removals"),deliveries=value_get(ctx,save,"deliveries"),ids=value_table(ctx),delivered=value_table(ctx),format=value_get(ctx,save,"format");
     const char *kind=value_is_string(format)?value_text(ctx,format):NULL;
     int legacy=get_number(ctx,save,"version",0)==1;
-    int valid=value_is_table(save)&&import_number(ctx,save,"version",1,6,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,5,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
+    int valid=value_is_table(save)&&import_number(ctx,save,"version",1,6,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,6,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (value_is_nil(format)||(kind&&!strcmp(kind,"blockwalker-world")))&&value_is_array(list)&&value_is_array(designs)&&value_is_array(removals)&&(value_is_nil(deliveries)||value_is_array(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     value_text_free(ctx,kind);value_free(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);

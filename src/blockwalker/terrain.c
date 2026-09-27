@@ -3,6 +3,7 @@
 #include <math.h>
 
 const Depot depots[]={{"Works yard",0,34,4},{"Harbor",106,10,2.8f},{"East island",163,18,3.5f,1},{"West island",-157,-49,4,2},{"East receiving yard",151,30,3,1},{"West receiving yard",-144,-43,3.5f,2}};
+const Depot scrapyards[2]={{"East scrapyard",83,20,6,1},{"West scrapyard",-83,20,6,2}};
 static const TerrainBox original_boxes[]={
     {{0,-13,0},{256,1,256},0},
     {{0,-6,0},{100,6,100},0},
@@ -320,12 +321,37 @@ static const TerrainBox quay_working_boxes[]={
     {{140.25f,4.6f,45},{.2f,.6f,.2f},6},
 };
 enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes),RIDGE_BOX_COUNT=sizeof(ridge_boxes)/sizeof(*ridge_boxes),RENEWAL_BOX_COUNT=sizeof(renewal_boxes)/sizeof(*renewal_boxes),QUARRY_STEPS=48,QUARRY_BOX_COUNT=QUARRY_STEPS+14+sizeof(quay_working_boxes)/sizeof(*quay_working_boxes),TERRAIN_BOX_COUNT=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT+QUARRY_BOX_COUNT };
-int terrain_version=5,terrain_count=TERRAIN_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
+enum { COMPETITION_BOX_COUNT=44,MAX_TERRAIN_BOX_COUNT=TERRAIN_BOX_COUNT+COMPETITION_BOX_COUNT };
+int terrain_version=6,terrain_count=MAX_TERRAIN_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
 int terrain_depot_count(int version){return version?sizeof(depots)/sizeof(*depots):3;}
 void terrain_select(int version){
-    terrain_version=version>=0&&version<=5?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0)+(terrain_version>=5?QUARRY_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
+    terrain_version=version>=0&&version<=6?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0)+(terrain_version>=5?QUARRY_BOX_COUNT:0)+(terrain_version>=6?COMPETITION_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
+}
+static TerrainBox competition_box(int index){
+    int side=index/22,i=index%22;float sign=side?1:-1,x=sign*83;int color=side?1:2;
+    if(i==0)return (TerrainBox){{sign*95,-6,0},{5,6,100},0};
+    if(i==1)return (TerrainBox){{x,-6,-43.5f},{7,6,56.5f},0};
+    if(i==2)return (TerrainBox){{x,-6,63.5f},{7,6,36.5f},0};
+    if(i==3)return (TerrainBox){{x,-6.75f,20},{7,5.25f,7},5};
+    if(i<8){int edge=i-4;return (TerrainBox){{x+(edge&1?1:-1)*7.3f,.65f,20+(edge&2?1:-1)*7.3f},{.2f,.65f,.2f},6};}
+    if(i==8)return (TerrainBox){{x,3,28},{7.7f,.4f,.4f},4,1};
+    if(i==9)return (TerrainBox){{x-7.3f,1.5f,28},{.4f,1.5f,.4f},4};
+    if(i==10)return (TerrainBox){{x+7.3f,1.5f,28},{.4f,1.5f,.4f},4};
+    if(i==11)return (TerrainBox){{x,3.6f,28},{3,.2f,.45f},color,1};
+    /* Low lane markings and portal pylons make the two rear areas readable. */
+    if(i<16)return (TerrainBox){{sign*COMBAT_HALF_X,.04f,-26+(i-12)*18},{.35f,.04f,3},color};
+    if(i<18)return (TerrainBox){{sign*COMBAT_HALF_X,2.5f,i==16?-22:36},{1,2.5f,1},5};
+    if(i==18)return (TerrainBox){{sign*COMBAT_HALF_X,5.2f,-22},{1.2f,.2f,1.2f},color,1};
+    if(i==19)return (TerrainBox){{sign*COMBAT_HALF_X,5.2f,36},{1.2f,.2f,1.2f},color,1};
+    float bx=side?174:-177,bz=side?24:-42;
+    return i==20?(TerrainBox){{bx,side?4.03f:2.03f,bz},{12,.03f,1.2f},color}:(TerrainBox){{bx+13,side?6:4,bz},{.5f,2,1},5};
 }
 static TerrainBox source_box(int index){
+    if(terrain_version>=6){
+        if(index>=TERRAIN_BOX_COUNT)return competition_box(index-TERRAIN_BOX_COUNT);
+        if(index==1)return (TerrainBox){{-70,-6,0},{6,6,100},0};
+        if(index==ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT)return (TerrainBox){{65.5f,-6,0},{10.5f,6,100},0};
+    }
     if(terrain_version>=4&&index==ORIGINAL_BOX_COUNT)return (TerrainBox){{-17.5f,-6,0},{22.5f,6,100},0};
     if(terrain_version>=2&&index==1)return (TerrainBox){{-82,-6,0},{18,6,100},0};
     if(terrain_version&&index==1)return (TerrainBox){{-77,-6,0},{23,6,100},0};
@@ -343,7 +369,7 @@ static TerrainBox source_box(int index){
     return index==12?(TerrainBox){{99,6,-42},{4,6,4},8}:(TerrainBox){{99,-.4f,2},{5,.4f,6},4};
 }
 static const TerrainBox *terrain_boxes(void){
-    static TerrainBox boxes[TERRAIN_BOX_COUNT];static int version=-1;
+    static TerrainBox boxes[MAX_TERRAIN_BOX_COUNT];static int version=-1;
     if(version!=terrain_version){for(int i=0;i<terrain_count;i++)boxes[i]=source_box(i);version=terrain_version;}
     return boxes;
 }
@@ -364,7 +390,7 @@ float water_height(float x,float z,double time){
     return WATER_LEVEL+.10f*sinf(x*.22f+z*.13f-time*1.3)+.06f*sinf(z*.31f-x*.09f+time*.9);
 }
 static int water_blocked(b3Pos point){
-    static TerrainBox barriers[TERRAIN_BOX_COUNT];static int version=-1,count;
+    static TerrainBox barriers[MAX_TERRAIN_BOX_COUNT];static int version=-1,count;
     if(version!=terrain_version){
         version=terrain_version;count=0;
         for(int i=0;i<terrain_count;i++){TerrainBox b=terrain_box(i);if(b.center.y-b.half.y<=WATER_LEVEL+.2f&&b.center.y+b.half.y>=WATER_LEVEL-.2f)barriers[count++]=b;}

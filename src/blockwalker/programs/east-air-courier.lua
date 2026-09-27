@@ -2,7 +2,16 @@ return function(t, s, m, r)
   local cl = function(v, a)
     return math.max((-a), math.min(a, v))
   end;
-  local peers = (s).nearby;
+  local peers = s.nearby
+  local function in_combat(c)
+    local zone = s.combat
+    return not zone or math.abs(c.x-zone.x)<=zone.halfX and math.abs(c.z-zone.z)<=zone.halfZ
+  end
+  local function available(c)
+    if not c.cargo or c.team ~= 0 or c.delivered or c.carriedBy ~= 0 or not in_combat(c) then return false end
+    for _, part in ipairs(s.parts(c.id)) do if part.target and part.target ~= 0 then return false end end
+    return true
+  end
   local mag = at((s).magnets, 10);
   local attached = (mag).attached;
   local speed = hypot((s).vx, (s).vz);
@@ -47,7 +56,7 @@ return function(t, s, m, r)
     local reports, claimed = {}, {}
     for _, p in ipairs(s.radio) do
       if p.kind == "claim" and p.from ~= s.id and s.worldTime-p.time < 12 then claimed[p.cargo] = true end
-      if p.kind == "sight" and p.mass < 6 and s.worldTime-p.time < 120 then
+      if p.kind == "sight" and p.mass < 6 and s.worldTime-p.time < 120 and in_combat(p) then
         reports[p.cargo] = p
       end
     end
@@ -55,7 +64,7 @@ return function(t, s, m, r)
     for id, p in pairs(reports) do
       local unavailable = claimed[id] or (m.missed[id+1] or 0) > t
       for _, c in ipairs(peers) do
-        if c.id == id and (c.delivered or c.carriedBy ~= 0) then unavailable = true end
+        if c.id == id and (not available(c)) then unavailable = true end
       end
       local d = hypot(p.x-s.x, p.z-s.z)
       if not unavailable and (not distance or d < distance or d == distance and id < report.cargo) then report, distance = p, d end
@@ -69,7 +78,8 @@ return function(t, s, m, r)
       next("approach")
     elseif t-m.ts > 15 then
       if not m.searchCenter then
-        for _, d in ipairs(s.depots) do if d.team == 0 then m.searchCenter = {d.x,d.z}; break end end
+        if s.combat then m.searchCenter = {s.combat.x,s.combat.z}
+        else for _, d in ipairs(s.depots) do if d.team == 0 then m.searchCenter = {d.x,d.z}; break end end end
       end
       if m.searchCenter and (not m.patrolAt or t > m.patrolAt) then
         local angle = r()*math.pi*2
@@ -77,8 +87,7 @@ return function(t, s, m, r)
         m.patrolAt = t+35
       end
       for _, c in ipairs(peers) do
-        if c.cargo and c.team == 0 and c.visible and not c.parachute and not c.delivered and c.carriedBy == 0
-          and c.mass < 6 and not claimed[c.id] and (m.missed[c.id+1] or 0) < t then
+        if c.visible and not c.parachute and c.mass < 6 and not claimed[c.id] and (m.missed[c.id+1] or 0) < t and available(c) then
           m.job = c.id
           m.goal = {c.x,c.z}
           m.searchCenter = {c.x,c.z}
@@ -90,12 +99,24 @@ return function(t, s, m, r)
       end
     end
   end
+  if phase == "approach" and not attached then
+    for _, report in ipairs(s.radio) do
+      if report.kind == "claim" and report.cargo == m.job and report.from < s.id and s.worldTime-report.time < 12 then
+        m.missed[m.job+1] = t+25
+        m.job = 0
+        m.goal = {s.x,s.z}
+        next("seek")
+        phase = m.phase
+        break
+      end
+    end
+  end
   if (phase == "approach") then
     if ((active(optional(box, "delivered")) or (active(optional(box, "carriedBy")) and ((box).carriedBy ~= (s).id))) or ((t - (m).ts) > 300)) then
       ((m).missed)[index((m).job)] = (t + 120);
       (m).job = 0;
-      (m).goal = (m).home;
-      next("return");
+      (m).goal = {s.x,s.z};
+      next("seek");
     else
       if active(box) then
         (m).goal = {(box).x, (box).z};
@@ -105,8 +126,8 @@ return function(t, s, m, r)
         if active(roof) then
           ((m).missed)[index((m).job)] = (t + 120);
           (m).job = 0;
-          (m).goal = (m).home;
-          next("return");
+          (m).goal = {s.x,s.z};
+          next("seek");
         else
           if (((active((box).visible) and (not active((box).parachute))) and (hypot(((s).x - (box).x), ((s).z - (box).z)) < 0.2)) and (speed < 0.2)) then
             next("pickup");
@@ -116,8 +137,8 @@ return function(t, s, m, r)
         if ((hypot(((s).x - at((m).goal, 0)), ((s).z - at((m).goal, 1))) < 3) and ((t - (m).ts) > 15)) then
           ((m).missed)[index((m).job)] = (t + 120);
           (m).job = 0;
-          (m).goal = (m).home;
-          next("return");
+          (m).goal = {s.x,s.z};
+          next("seek");
         end
       end
     end
@@ -132,8 +153,8 @@ return function(t, s, m, r)
   if (phase == "pickup") then
     if (((not active(box)) or active((box).delivered)) or (active((box).carriedBy) and ((box).carriedBy ~= (s).id))) then
       (m).job = 0;
-      (m).goal = (m).home;
-      next("return");
+      (m).goal = {s.x,s.z};
+      next("seek");
     else
       (m).goal = {(box).x, (box).z};
       height = ((box).y + 3.02);
@@ -193,18 +214,18 @@ return function(t, s, m, r)
   end
   if (((phase == "lift") or (phase == "carry")) and (not active(attached))) then
     (m).job = 0;
-    (m).goal = (m).home;
-    next("return");
+    (m).goal = {s.x,s.z};
+    next("seek");
     power = 0;
   end
   if (active(attached) and (optional(box, "carriedBy") ~= (s).id)) then
     ((m).missed)[index((m).job)] = (t + 120);
     (m).job = 0;
-    (m).goal = (m).home;
+    (m).goal = {s.x,s.z};
     (m).hi = (function() (m).pi = (function() (m).ri = 0;
     return (m).ri end)();
     return (m).pi end)();
-    next("return");
+    next("seek");
     phase = (m).phase;
     power = 0;
     height = math.max((m).cruise, ((s).ground + 6));
@@ -315,6 +336,9 @@ if active((m).job) then
   (out).radio = {kind = ((phase == "release") and "release" or "claim"), cargo = (m).job};
 end
 if s.carriedBy ~= 0 then out.radio = {kind = "help", target = s.id} end
+m.status = m.phase == "seek" and "Awaiting scout / searching combat cargo"
+  or m.phase == "approach" and "Claimed cargo: approaching"
+  or m.phase == "carry" and "Delivering cargo to island goal" or m.phase
 if s.up<.5 or m.recovering then
   m.recovering=true
   local gx,gz=-g[1]/G,-g[3]/G

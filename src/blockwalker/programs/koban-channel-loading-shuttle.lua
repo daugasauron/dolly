@@ -30,6 +30,7 @@ return function(t, s, m)
     (m).phase = name;
     (m).at = t;
     (m).still = 0;
+    if name == "release" then m.handed = true end
   end;
   local extension = reduce(rails, function(v, b)
     return (v + at((s).angles, (b).i))
@@ -38,12 +39,28 @@ return function(t, s, m)
   local travel = reduce(rails, function(v, b)
     return (v + (b).travel)
   end, 0);
-  local reachable = function(b)
-    return (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = b; if active(value) then return (((b).x + 1) <= (at(home, 0) + 0.65)) else return value end end)(); if active(value) then return (((b).x + 1) >= (at(home, 0) - travel)) else return value end end)(); if active(value) then return ((b).z <= (at(home, 2) + 0.2)) else return value end end)(); if active(value) then return ((b).z >= ((at(home, 2) - (cross).travel) - 0.2)) else return value end end)(); if active(value) then return (math.abs(((b).y - (at(home, 1) - 1))) < 0.6) else return value end end)()
-  end;
+  local function pickup(box)
+    local point,edge=nil,-math.huge
+    if box then for _,shape in ipairs(s.bounds(box.id)) do
+      local x=shape.x+shape.halfX+.555
+      if shape.body==0 and x<=home[1]+.2 and x>=home[1]-travel
+        and shape.z<=home[3]+.2 and shape.z>=home[3]-cross.travel-.2 and x>edge then
+        edge=x
+        point={math.max(home[1]-travel,math.min(home[1],x)),
+          math.max(home[2],math.min(home[2]+lift.travel,(shape.low+shape.high)/2+.7)),
+          math.max(home[3]-cross.travel,math.min(home[3],shape.z))}
+      end
+    end end
+    return point
+  end
+  local function reachable(box) return pickup(box)~=nil end
+
   if (not active((m).phase)) then
     local station = at(sort(filter((s).nearby, function(b)
-      return (function() local value = (b).anchored; if active(value) then return ((b).team == (s).team) else return value end end)()
+      if not b.anchored or b.team ~= s.team then return false end
+      local axes = {}
+      for _, part in ipairs(s.parts(b.id)) do if part.joint == 7 then axes[math.abs(part.axisY) > .8 and 1 or math.abs(part.axisX) > .8 and 0 or 2] = true end end
+      return axes[0] and axes[1]
     end), function(a, b)
       return (hypot(((a).x - (s).x), ((a).z - (s).z)) - hypot(((b).x - (s).x), ((b).z - (s).z)))
     end), 0);
@@ -65,11 +82,19 @@ return function(t, s, m)
     (m).job = 0;
     phase("idle");
   end
-  if ((m).phase == "idle") then
+  if (m.phase ~= "idle" and m.phase ~= "clear" and m.phase ~= "release" and t-m.at > 45)
+    or grip.attached and grip.creature ~= m.job then
+    m.failures = (m.failures or 0)+1
+    m.retryAfter = t+15
+    m.handed = false
+    phase("clear")
+  end
+  if m.phase == "idle" and t >= (m.retryAfter or 0) then
     local request = find((s).radio, function(r)
       return (function() local value = (function() local value = (function() local value = ((r).from == (m).station); if active(value) then return ((r).kind == "ready") else return value end end)(); if active(value) then return ((r).time > (m).readyAt) else return value end end)(); if active(value) then return (((s).worldTime - (r).time) < 5) else return value end end)()
     end);
     local available = function(b)
+      if b.supply > 0 or b.team ~= 0 and b.team ~= s.team then return false end
       return (function() local value = (function() local value = (function() local value = (function() local value = (function() local value = (b).cargo; if active(value) then return (not active((b).carriedBy)) else return value end end)(); if active(value) then return ((b).mass < 1.5) else return value end end)(); if active(value) then return (not active(some((s).radio, function(r)
         return (function() local value = (function() local value = (function() local value = ((r).kind == "claim"); if active(value) then return ((r).cargo == (b).id) else return value end end)(); if active(value) then return ((r).from ~= (s).id) else return value end end)(); if active(value) then return (((s).worldTime - (r).time) < 10) else return value end end)()
       end))) else return value end end)(); if active(value) then return reachable(b) else return value end end)(); if active(value) then return (hypot((b).vx, (b).vy, (b).vz) < 0.4) else return value end end)()
@@ -81,6 +106,7 @@ return function(t, s, m)
     end), 0) end end)() else return value end end)();
     if active(cargo) then
       (m).job = (cargo).id;
+      m.handed = false
       phase("align");
     end
   end
@@ -88,7 +114,8 @@ return function(t, s, m)
     if (not active(box)) then
       phase("idle");
     else
-      target = {math.max(home[1]-travel, math.min(home[1], box.x+1.04)), home[2]+2, home[3]};
+      local pick=pickup(box)
+      target = {pick and pick[1] or tip[1],home[2]+lift.travel,home[3]};
       if ((math.abs((at(tip, 0) - at(target, 0))) < 0.08) and (at((s).angles, (cross).i) < 0.05)) then
         phase("pickup");
       end
@@ -98,7 +125,7 @@ return function(t, s, m)
     if ((not active(box)) or (active((box).carriedBy) and ((box).carriedBy ~= (s).id))) then
       phase("idle");
     else
-      target = {math.max(home[1]-travel, math.min(home[1], box.centerOfMass[1]+1.04)), home[2], math.max(home[3]-cross.travel, math.min(home[3],box.centerOfMass[3]))};
+      target = pickup(box) or tip;
       power = (function() local value = (grip).attached; if active(value) then return value else return (function() local value = (hypot((at(tip, 0) - at(target, 0)), (at(tip, 2) - at(target, 2))) < 0.3); if active(value) then return ((at(tip, 1) - (box).y) < 1.1) else return value end end)() end end)();
       if (active((grip).attached) and ((grip).creature == (m).job)) then
         phase("raise");
@@ -111,21 +138,21 @@ return function(t, s, m)
   end
   if ((m).phase == "raise") then
     power = true;
-    target = {at(tip, 0), (at(home, 1) + 2), at(tip, 2)};
+    target = {at(tip, 0), (at(home, 1) + (lift).travel), at(tip, 2)};
     if ((active(box) and ((box).y > ((s).ground + 2))) and (math.abs(at((s).rates, (lift).i)) < 0.08)) then
       phase("aisle");
     end
   end
   if ((m).phase == "aisle") then
     power = true;
-    target = {at(tip, 0), (at(home, 1) + 2), at(home, 2)};
+    target = {at(tip, 0), (at(home, 1) + (lift).travel), at(home, 2)};
     if (at((s).angles, (cross).i) < 0.05) then
       phase("deliver");
     end
   end
   if active(includes({"deliver", "handoff"}, (m).phase)) then
     power = true;
-    target = {(at((m).dock, 0) + 1), (at(home, 1) + 2), at((m).dock, 2)};
+    target = {(at((m).dock, 0) + 1), (at(home, 1) + (lift).travel), at((m).dock, 2)};
     if active(box) then
       (target)[index(0)] = (at(tip, 0) + clamp((at((m).dock, 0) - at((box).centerOfMass, 0)), 0.3));
       (target)[index(2)] = (at(tip, 2) + clamp((at((m).dock, 2) - at((box).centerOfMass, 2)), 0.3));
@@ -156,15 +183,21 @@ return function(t, s, m)
     end
   end
   if ((m).phase == "clear") then
-    target = {(function() if (at((s).angles, (cross).i) > 0.05) then return at(tip, 0) else return at(home, 0) end end)(), (at(home, 1) + 2), at(home, 2)};
+    local raised = at(s.angles, lift.i) > lift.travel-.05
+    target = {raised and at(s.angles,cross.i)<.05 and at(home,0) or at(tip,0), at(home,1)+lift.travel, raised and at(home,2) or at(tip,2)};
     if ((extension < 0.05) and (at((s).angles, (cross).i) < 0.05)) then
       (m).readyAt = (s).worldTime;
-      (out).radio = {kind = "ready", cargo = (m).job};
+      if m.handed then (out).radio = {kind = "ready", cargo = (m).job} end
       phase("idle");
     end
   end
   if (active(includes({"raise", "aisle", "deliver", "handoff"}, (m).phase)) and (not active((grip).attached))) then
+    m.handed = false
+    power = false
     phase("clear");
+  end
+  if includes({"align","pickup","raise","aisle","deliver","handoff"},m.phase) and m.job then
+    out.radio = {kind="claim",cargo=m.job}
   end
   local reach = math.max(0, (at(home, 0) - at(target, 0)));
   for _, b in ipairs(rails) do
@@ -179,6 +212,7 @@ return function(t, s, m)
   end
   set(cross, clamp((((1.5 * (math.max(0, math.min((cross).travel, (at(home, 2) - at(target, 2)))) - at((s).angles, (cross).i))) - (0.3 * at((s).rates, (cross).i))) / (cross).speed)));
   set(lift, clamp((((1.5 * (math.max(0, math.min((lift).travel, (at(target, 1) - at(home, 1)))) - at((s).angles, (lift).i))) - (0.3 * at((s).rates, (lift).i))) / (lift).speed)));
+  m.status = m.phase == "idle" and "Waiting for launcher request" or "Reload: "..m.phase
   set(head, (active(power) and 1 or (-1)));
   do return out end
 end

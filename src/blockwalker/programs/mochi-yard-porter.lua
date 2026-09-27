@@ -41,6 +41,12 @@ return function(t, s, m, r)
   if ((m).phase == "search") then
     (out).Q = 1;
     local jobs = filter((s).nearby, function(p)
+      if s.combat then
+        if p.team~=0 then return false end
+        for _,depot in ipairs(s.depots) do
+          if depot.team==0 and hypot(p.x-depot.x,p.z-depot.z)<depot.radius then return false end
+        end
+      end
       return (function() local value = (function() local value = (function() local value = (p).cargo; if active(value) then return (not active((p).delivered)) else return value end end)(); if active(value) then return (not active((p).carriedBy)) else return value end end)(); if active(value) then return (math.abs((((p).y - (s).ground) - 0.5)) < 0.6) else return value end end)()
     end);
     sort(jobs, function(a, b)

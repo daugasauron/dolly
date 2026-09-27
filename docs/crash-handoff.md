@@ -1,107 +1,110 @@
-# Blockwalker local checkpoint
+# Blockwalker combat checkpoint
 
 Worktree `/home/daug/dev/dolly/work/gpu-shaders`, branch
-`codex/blockwalker-playground-20260923`. The September 27 noon checkpoint is
-`codex/blockwalker-checkpoint-20260927-noon`; game changes are `10a1422` and
-`d7dbeb4`. The user reports 300+ FPS in Firefox and is happy with it; focus
-on gameplay. Do not describe the separate Chrome stress result as their problem.
+`codex/blockwalker-playground-20260923`; checkpoint branch
+`codex/blockwalker-checkpoint-20260927-combat`. Built backup:
+`build/checkpoint-20260927-combat/`. Local preview:
+`http://127.0.0.1:9097/blockwalker/`, service `dolly-threads-preview.service`.
+Refresh for the new catalog; importing a save preserves its embedded programs
+and terrain. The user reports 300+ FPS in Firefox and is happy with performance.
+Do not turn separate Chrome stress results into an unsolicited performance task.
 No production push/deployment is requested.
 
-## Preview and rollback
+## Current world
 
-Latest: `http://127.0.0.1:9097/blockwalker/`, service
-`dolly-threads-preview.service`. The noon checkpoint is built and verified at
-this actual URL in Chrome and Firefox. Refresh and start a fresh world for the
-85-object catalog. Restoring a save retains its embedded programs and designs.
+87 starting characters, 1,956 parts, 45 Lua programs at 20 Hz. Physics remains
+60 Hz/eight substeps/four Box3D workers, with direct WebGPU presentation.
+All C/C++ compilation still occurs inside Dolly wasm64.
 
-The 07:45 source checkpoint is `018c5f2`, branch
-`codex/blockwalker-checkpoint-20260927`. Keep it unchanged. Frozen threaded
-preview: 9096 (`dolly-threaded-baseline-20260926.service`), under
-`build/living-world-20260926/checkpoint`. Host-module/Lua preview: 9098; older
-image 44: 9099. Preserve these services, relay 9010 and the user's browsers/games.
-New 96 m cables require the new image; retain matching saves with older previews.
+Terrain 6 organizes the existing industrial mainland as the contested cargo
+zone between two island bases. Only island goals finish deliveries; mainland
+depots are transfer points. Central parcels, mine/foundry supplies, cranes and
+boats remain physical logistics. Colored rear lanes and two dry salvage pits
+mark the teams' areas. Camera buttons include Combat, both bases, slings and
+scrapyards. Old terrain versions retain their geometry and scoring.
 
-## Included
+Kusari is independent four-part ammunition. It stays compact during loading and
+flight, magnetically catches opponents, then lowers its winch handle. Ground
+characters can grab that handle; Kanagu tugs reel and pull. Supported victims
+are released, allowing ordinary recovery. A short cable folded against the hull
+stops reeling after measured stalling; long cable jams cannot declare readiness.
+Tugs recover missed/spent rounds. Reloading rotated returned rounds remains less
+reliable than the first shot and is tracked separately.
 
-85 default objects, 44 Lua programs, all controllers 20 Hz. Physics remains
-60 Hz/eight substeps with four Box3D workers and direct WebGPU presentation.
-The previous host-module/thread/Lua/world work remains intact.
+Both guns select opposing airborne units inside combat, prioritize cargo carriers
+and teammate threat reports, and check predicted friendly/neutral/terrain
+intersections before release. Loaders have raised rails, vertical withdrawal,
+shape-aware pickup and off-center/lost-acknowledgement retry. Scouts and couriers
+coordinate neutral cargo through ordinary team radio; failed courier jobs re-seek
+locally instead of returning empty to base.
 
-- Kusari magnetic rounds replace one ordinary round at each slinger. Kanagu
-  articulated tugs grasp their trailing handles and pull captured aircraft down.
-  Shishi's hovering interceptor is removed from new worlds; old saved copies
-  remain valid custom content. Captured aircraft currently remain restrained.
-- Tsuru flying winches patrol for light fallen teammates or neutral machines,
-  physically lift/right them, unload the cable and release. Suspended walkers
-  straighten their joints. Light-vehicle recovery resumes useful cargo work.
-- The builder car, Tonbi trucks, Nekote loader and Kanagu tugs use actual steering
-  hinges, controlled by visible Lua. The driver's D key turns the Eyes camera
-  right. Legacy chassis retain their existing differential fallback.
-- Nekote discovers a carousel inlet and supplies it; Mochi collects downstream.
-  The continuing chain works in the restored world; fresh crowded routes remain
-  unreliable. Four-wheel articulation replaces Nekote's unhelpful tandem axle.
-- Generic `s.parts(id)` exposes actual part poses/rotations/actuators/support and
-  magnet targets. Nearby queries use horizontal rigid-body distances, preserving
-  visibility of remote cable ends. Programmable cargo and 96 m winches save and
-  restore correctly. No host authority or hidden movement force was added.
-- Selected machines show their Lua activity in the sidebar. Existing terrain,
-  cargo supply, guards, boats, cranes, channel flak and the other designs remain.
+Kurogane collectors physically lift incapacitated opponents to their scrapyards.
+They leave healthy/recovered enemies alone, respect capacity and competing claims,
+and release supported loads without deleting bodies. Teammates can contest these
+captures through their existing guards and flying rescuers. No actor-specific
+engine forces, forced attachments, weakened enemies or teleporting were added.
 
 ## Verification
 
-Evidence: `build/mechanics-20260927/`; the four
-`tasks/20260927-081800-codex-*/TASK.md` files give mechanism results and remaining
-criteria. All C/C++ compilation occurs inside Dolly wasm64.
+Evidence: `build/combat-20260927/`.
 
-`body-range-reciprocal.log` verifies actual poses, copied observations, invalid
-IDs, reciprocal cable-end range, support, ownership, scoring, reeling and reload.
-`driver-corrected.log` exercises real keyboard steering, forward/reverse,
-centering, camera, magnet and program import/export/restart/remapped keys.
+- `full-v11`: 900 simulated seconds, all 87 originals retained, 103 total objects,
+  eight island deliveries, scores 3/12, no controller faults/removals. A launched
+  round catches West's skycrane at 99.367 s; East's tug grabs its lowered handle
+  at 142.633 s and pulls it toward the ground. The victim escapes and recovers;
+  ammunition returns to its bay at 308.717 s. East's collector also captures
+  active West Hibari and completes a scrapyard deposit.
+- `full-v9`: seven deliveries, scores 10/11, both heavy cargo chains complete
+  through hauler, quay crane, boat and island receiving machinery. Opposing
+  guards and a flying rescuer physically contest a collector's captured teammate.
+- `tether-offset14`: real loader/gun handoff, shot at 105.817 s, enemy latch at
+  109 s, ground tug at 166.367 s and programmed supported release at 181.467 s.
+- `tether-lifecycle-final`: latest-source regression, physical capture, 34 m
+  payout, ground-handle pickup, supported release, sustained recovered flight
+  and resumed cargo work. `tether-controls` also checks friendly exclusion.
+- `salvage-v2`: two normal physical deposits, healthy/friendly exclusions, no
+  repeated pickups, full save/reload and resumed simulation. `salvage-active-v2`
+  verifies active overturned couriers recover and are correctly left alone.
+- `targeting-v6`: ten physical checks for both guns, trajectory safety, pairing,
+  fresh/missing handoff reports and neutral logistics. The 1.4 m off-center
+  handoff reproduces and fixes a deadlock discovered in the populated run.
+- `local-preview-{firefox,chrome}`: actual 9097 image, terrain 6, all 87 embedded
+  programs/blueprints match source, zero GPU readbacks/errors and clean exit.
+- `checkpoint-restore` and `noon-restore`: actual Firefox UI imports for new and
+  older worlds, retained programs/attachments/terrain and continued simulation.
+- `package-proof.json`: 69 canonical sources match served bytes, six protected
+  files unchanged, other catalog entries unchanged. `preservation.log`: 56 other
+  image/runtime assets unchanged. Selected image build completes in 62.1 s.
 
-`checkpoint-fresh`: 2,400 simulated seconds, 15 deliveries, 103 objects, all 85
-originals retained, no faults/deaths. Both couriers are grounded by real cables
-and upright tugs. West's truck places one crate; East overturns, Nekote has zero
-placements and both bipeds eventually fall. East's rescuer completes two light
-vehicle recoveries; later difficult attempts time out.
-`lost-handle` verifies actual remote-end reacquisition and continued reeling with
-simultaneous enemy/tug holders. `mature-v5` completes the restored carousel chain
-and rescues, nine additional deliveries in 1,200 s; it preserves legacy chassis.
-`backoff`/`backoff-v2` did not resolve crowded navigation and are not shipped.
+Snapshot: 252,605,612 bytes,
+`2824088b56994fef0e954aebecf0ca817c15395bd5f73823b9a549ba3a71ed53`.
+Source tar: `1b8bc4b3a278d9faac90aa16908a9f4c9bcd7cef1e54cf49b397da2a1f537a42`.
+Runtime identity remains
+`d9dee7375fb5ec91f293a97359d2e2f5a64bbb9a8e4fc7e15c848eb99a995299`.
 
-`checkpoint-chrome`/`checkpoint-firefox`: fresh and restored worlds, 20 real
-seconds each across panels/Focus, simulation keeps real time, zero GPU readbacks,
-no errors and clean exit. Firefox means 261/247 submitted FPS; Chrome 100/83.
-These are frame submissions, not monitor presentations. Integration screenshots
-under `checkpoint-scenes` use manually paced frames; their FPS badges are not
-normal-play measurements. Screenshots inspected.
+The two new C regressions use the existing runner:
+`xvfb-run -a node test/blockwalker-controller-browser.mjs test/fixtures/blockwalker-team-strategy.c`
+and the same command with `blockwalker-tether-lifecycle.c`.
+They compile inside the image. Do not claim the entire historical suite passes;
+combined Lua harness reconciliation remains task `20260923-211500-codex-01`.
 
-Selected image build `build-image-v3.log` passes the required physical self-checks
-and finishes in 49.6 s. Its starter-car check now discovers the actual wheel,
-steering and camera parts rather than relying on old part indices/differential
-steering. `local-preview-{chrome,firefox}/proof.json`: actual 9097, 85 objects,
-terrain 5, all embedded sources match, no errors, clean shell exit.
-`package-proof.json`: 68 canonical source files match the archive and served
-hashes, six protected user files unchanged, other catalog entries unchanged.
-`preservation.log`: 56 other runtime/image assets unchanged. Runtime identity is
-still `d9dee7375fb5ec91f293a97359d2e2f5a64bbb9a8e4fc7e15c848eb99a995299`.
+## Preserved checkpoints and remaining work
 
-## Remaining and current work
+The noon checkpoint is branch `codex/blockwalker-checkpoint-20260927-noon`
+(game commits `10a1422`, `d7dbeb4`). Its complete image/source/world backup is
+`build/checkpoint-20260927-noon/`. The 07:45 checkpoint is `018c5f2`, branch
+`codex/blockwalker-checkpoint-20260927`.
+Keep frozen threaded preview 9096, host-module/Lua preview 9098, old image 44
+preview 9099, relay 9010 and the user's browsers/games untouched.
 
-All four follow-up tasks remain OPEN: automatic tether recovery/reuse, fresh
-crowded feeder/truck deliveries, reliable post-rescue walking and heavy/wedged
-rescue. Supporting tasks: gait `20260915-110000-codex-01`, loaded bays
-`20260927-074100-codex-loaded-bays`, grounded aircraft
-`20260927-063100-codex-aircraft-recovery`. Historical combined Lua harness
-reconciliation is `20260923-211500-codex-01`; do not claim every test passes.
+Tether reuse remains OPEN in `20260927-081800-codex-projectile-tethers`:
+reliable loading after rotated returns and repeated interception need longer-run
+proof. Existing crowded feeder/truck, post-rescue walking and heavy/wedged rescue
+tasks also remain open. Captures and shots are physical and can fail; friendly
+trajectory prediction only knows observed bodies and current velocities.
 
-`checkpoint-restore/proof.json`: Firefox imports the complete 103-object final
-world through the actual 9097 UI; all embedded programs and both tether/handle
-attachment chains survive. It continues for 16.4 simulation seconds without
-faults/removals/readbacks and exits cleanly. Fresh/restored rescuer screenshots
-are inspected. Evidence and the built image are retained locally; no test
-browser remains running.
-
-One disposable browser at a time, 4 GiB scope. Chrome uses Xvfb; Firefox DISPLAY=:1.
-Node 22 needs `--preserve-symlinks --preserve-symlinks-main` for build-folder scripts.
-Never read visibleTerminalText while GPU rendering is active. Evidence runners
-are local artifacts; use focused existing tests for further source changes.
+Use one disposable browser at a time in a 4 GiB scope. Chrome uses Xvfb;
+Firefox uses DISPLAY=:1. Build-folder Node scripts require
+`--preserve-symlinks --preserve-symlinks-main`. Never read visibleTerminalText while
+GPU rendering is active. Build only `node scripts/build-image.mjs blockwalker`
+(no --package) for image changes, then check preservation and actual 9097.

@@ -24,7 +24,10 @@ return (function()
       (m).tracked = 0;
       (m).yielded = 0;
     end
-    local bounds = {(-64), (-42), (-15), 12};
+    local zone = s.combat
+    local bounds = {m.home[1]-22,m.home[1]+22,m.home[2]-28,m.home[2]+28}
+    if zone then bounds = {math.max(bounds[1],zone.x-zone.halfX+6),math.min(bounds[2],zone.x+zone.halfX-6),
+      math.max(bounds[3],zone.z-zone.halfZ+6),math.min(bounds[4],zone.z+zone.halfZ-6)} end
     local distance = (function() if active((m).goal) then return hypot((at((m).goal, 0) - (s).x), (at((m).goal, 1) - (s).z)) else return math.huge end end)();
     if (((not active((m).goal)) or (distance < 2)) or (t > (m).next)) then
       if (distance < 2) then
@@ -268,19 +271,30 @@ return (function()
     end
     do return out end
   end;
-  do return function(t, s, m, r)
+  return function(t, s, m, r)
     local out = drive(t, s, m, r);
-    local seen = filter((s).nearby, function(c)
-      return (function() local value = (function() local value = (function() local value = (function() local value = (c).cargo; if active(value) then return (c).supply else return value end end)(); if active(value) then return (not active((c).delivered)) else return value end end)(); if active(value) then return (not active((c).carriedBy)) else return value end end)(); if active(value) then return (c).visible else return value end end)()
-    end);
-    if (active(#(seen)) and (t >= (function() local value = (m).reportAt; if active(value) then return value else return 0 end end)())) then
-      (m).report = (at(seen, math.fmod((function() local value = (m).reports; if active(value) then return value else return 0 end end)(), #(seen)))).id;
-      (m).reports = ((function() local value = (m).reports; if active(value) then return value else return 0 end end)() + 1);
-      (m).reportAt = (t + 3.1);
+    if t >= (m.reportAt or 0) then
+      local supplies, threats = {}, {}
+      local zone = s.combat
+      for _, c in ipairs(s.nearby) do
+        local combat = not zone or math.abs(c.x-zone.x)<=zone.halfX and math.abs(c.z-zone.z)<=zone.halfZ
+        if combat and c.cargo and c.team == 0 and not c.delivered and c.carriedBy == 0 and c.visible then
+          local holding = false
+          for _, part in ipairs(s.parts(c.id)) do if part.target and part.target ~= 0 then holding = true; break end end
+          if not holding then supplies[#supplies+1] = c end
+        elseif combat and not c.cargo and c.team ~= 0 and c.team ~= s.team and not c.anchored
+          and c.carriedBy == 0 and c.up > .25 then threats[#threats+1] = c end
+      end
+      m.reports = (m.reports or 0)+1
+      m.reportAt = t+3.2
+      local candidates = #threats > 0 and (m.reports%2 == 0 or #supplies == 0) and threats or supplies
+      if #candidates > 0 then
+        local report = candidates[(math.floor(m.reports/2)%#candidates)+1]
+        m.report, m.reportKind = report.id, report.cargo and "sight" or "threat"
+      else m.report = nil end
     end
-    if active((m).report) then
-      (out).radio = {kind = "sight", cargo = (m).report};
-    end
-    do return out end
-  end end
+    if m.report then out.radio = {kind=m.reportKind,target=m.report} end
+    m.status = m.reportKind == "threat" and "Reporting enemy traffic" or "Scouting cargo for team"
+    return out
+  end
 end)()
