@@ -55,7 +55,7 @@ most 64 KiB per call; `fluid --check` reads the dye field back into Wasm.
 `CAPTURE_FRAME` records an optional surface-to-buffer copy after a render and
 before its submit. It copies only the owned surface rectangle, with four bytes
 per pixel and row stride rounded up to 256 bytes. CAPABILITIES bits 16 and 32
-report capture support and BGRA8 byte order (otherwise RGBA8). Blockwalker uses
+report capture support and BGRA8 byte order (otherwise RGBA8). Slopyard uses
 this for selected agent observations; normal frames do not read pixels back.
 
 `Dollyfile-gpu-fluid` compiles the unchanged upstream

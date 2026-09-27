@@ -4,7 +4,7 @@ export function gameCompaction(record,log){
  return api=>api.on('session_before_compact',async(event,ctx)=>{
   const p=event.preparation,started=Date.now();
   const conversation=serializeConversation(convertToLlm([...p.messagesToSummarize,...p.turnPrefixMessages]));
-  const prompt=`Write a concise continuation checkpoint for the Blockwalker game experiment, at most 1200 words. Preserve every user goal and constraint, the latest experiment and measured results, unresolved failures, decisions and useful next steps. Distinguish measured movement from guesses. Do not continue the experiment or call tools.
+  const prompt=`Write a concise continuation checkpoint for the Slopyard game experiment, at most 1200 words. Preserve every user goal and constraint, the latest experiment and measured results, unresolved failures, decisions and useful next steps. Distinguish measured movement from guesses. Do not continue the experiment or call tools.
 The original conversation is kept intact on disk. The game itself preserves the current workshop blueprint and controller and every released design. The next agent can call observe, inspect_program, design_library and open_design to recover exact current state and source. Refer to saved designs by ID/name instead of copying their coordinate arrays or controllers. Do not reproduce stale full-world snapshots or repeat superseded experiments. Preserve useful lessons and unreleased work, but do not copy the previous summary wholesale. Use short sections: goals/constraints, current work, discoveries, next steps.
 Current saved designs: ${JSON.stringify(Game.call('designs'))}
 Current controller name: ${JSON.stringify(Game.call('installed_program')?.name??null)}

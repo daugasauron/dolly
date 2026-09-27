@@ -1,4 +1,4 @@
-# Blockwalker
+# Slopyard
 
 Build walkers, boats, flying machines and anchored structures from boxes and
 mechanical servo joints. The workshop opens with Starter Car, a small four-wheel car with an

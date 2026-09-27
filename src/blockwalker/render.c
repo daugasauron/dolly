@@ -19,6 +19,8 @@ static size_t box_capacity;
 static uint64_t box_buffer,box_group,node_buffer,next_resource;
 typedef struct {float lo[3];uint32_t left;float hi[3];uint32_t right;} Node;
 static Node *nodes;static uint32_t node_count;
+typedef struct {float lo[3],hi[3];} Bounds;
+static Bounds *bounds;
 static uint64_t capture_buffer;
 static int capture_requested;
 typedef struct { float eye[4],forward[4],right[4],up[4],viewport[4],world[4]; } Scene;
@@ -45,15 +47,15 @@ int render_pick(const Character *c,const Orbit *o,float x,float y,Vector3 *norma
 int render_open(dolly_display_surface *surface) {
     int result=dolly_display_acquire(surface);if(result<0)return result;
     result=dolly_display_set_size(surface->generation,SCREEN_WIDTH,SCREEN_HEIGHT,surface);if(result<0)return result;
-    if(dolly_gpu_open(&gpu,SCREEN_WIDTH,SCREEN_HEIGHT)<0){perror("WebGPU is required for Blockwalker");dolly_display_release(surface->generation);return -1;}
-    printf("Blockwalker GPU: %s\n",gpu.reply+16);
-    SetTraceLogLevel(LOG_WARNING);InitWindow(SCREEN_WIDTH,SCREEN_HEIGHT,"Blockwalker");
+    if(dolly_gpu_open(&gpu,SCREEN_WIDTH,SCREEN_HEIGHT)<0){perror("WebGPU is required for Slopyard");dolly_display_release(surface->generation);return -1;}
+    printf("Slopyard GPU: %s\n",gpu.reply+16);
+    SetTraceLogLevel(LOG_WARNING);InitWindow(SCREEN_WIDTH,SCREEN_HEIGHT,"Slopyard");
     editor_font=LoadFontEx("/usr/share/fonts/IosevkaTerm-SemiBold.ttf",32,NULL,0);
     ui_pixels=calloc(SCREEN_WIDTH*SCREEN_HEIGHT,4);if(!ui_pixels)return -1;
     FILE *f=fopen("/usr/src/dolly/blockwalker/scene.wgsl","r");if(!f)return -1;
     char shader[65536];size_t n=fread(shader,1,sizeof(shader)-1,f);fclose(f);shader[n]=0;
     box_capacity=16;box_buffer=2;node_buffer=6;box_group=7;next_resource=8;
-    boxes=array_resize(NULL,box_capacity,sizeof(BoxDraw));
+    boxes=array_resize(NULL,box_capacity,sizeof(BoxDraw));bounds=array_resize(NULL,box_capacity,sizeof(Bounds));
     dolly_gpu_begin(&gpu);dolly_gpu_buffer(&gpu,1,sizeof(Scene),64|8);
     dolly_gpu_buffer(&gpu,2,box_capacity*sizeof(BoxDraw),128|8);
     dolly_gpu_buffer(&gpu,3,SCREEN_WIDTH*SCREEN_HEIGHT*4,128|8);
@@ -76,7 +78,7 @@ static void reserve_boxes(size_t count) {
     check(dolly_gpu_wait(&gpu));
     for(int i=0;i<3;i++){uint64_t id=i==0?box_group:i==1?box_buffer:node_buffer;void *record=dolly_gpu_record(&gpu,DOLLY_GPU_RELEASE,16);memcpy((char *)record+8,&id,8);}
     while(box_capacity<count)box_capacity*=2;
-    boxes=array_resize(boxes,box_capacity,sizeof(BoxDraw));box_buffer=next_resource++;node_buffer=next_resource++;box_group=next_resource++;
+    boxes=array_resize(boxes,box_capacity,sizeof(BoxDraw));bounds=array_resize(bounds,box_capacity,sizeof(Bounds));box_buffer=next_resource++;node_buffer=next_resource++;box_group=next_resource++;
     dolly_gpu_buffer(&gpu,box_buffer,box_capacity*sizeof(BoxDraw),128|8);
     nodes=array_resize(nodes,box_capacity*2,sizeof(Node));dolly_gpu_buffer(&gpu,node_buffer,box_capacity*2*sizeof(Node),128|8);
     uint64_t buffers[]={1,box_buffer,3,node_buffer},sizes[]={sizeof(Scene),box_capacity*sizeof(BoxDraw),SCREEN_WIDTH*SCREEN_HEIGHT*4,box_capacity*2*sizeof(Node)};
@@ -93,7 +95,7 @@ static void partition_boxes(uint32_t start,uint32_t count,int axis){
         while(i<=j){
             while(i<=j&&boxes[i].center[axis]<pivot)i++;
             while(i<=j&&boxes[j].center[axis]>pivot)j--;
-            if(i<=j){BoxDraw swap=boxes[i];boxes[i++]=boxes[j];boxes[j--]=swap;}
+            if(i<=j){BoxDraw swap=boxes[i];boxes[i]=boxes[j];boxes[j]=swap;Bounds b=bounds[i];bounds[i++]=bounds[j];bounds[j--]=b;}
         }
         if(mid<=j)high=j;else if(mid>=i)low=i;else break;
     }
@@ -102,11 +104,8 @@ static uint32_t make_tree(uint32_t start,uint32_t count){
     uint32_t id=node_count++;Node *n=&nodes[id];
     for(int axis=0;axis<3;axis++){n->lo[axis]=1e30f;n->hi[axis]=-1e30f;}
     for(uint32_t i=start;i<start+count;i++){
-        BoxDraw b=boxes[i];Quaternion q={b.rotation[0],b.rotation[1],b.rotation[2],b.rotation[3]};
-        Vector3 x=Vector3RotateByQuaternion((Vector3){b.half[0],0,0},q),y=Vector3RotateByQuaternion((Vector3){0,b.half[1],0},q),z=Vector3RotateByQuaternion((Vector3){0,0,b.half[2]},q);
         for(int axis=0;axis<3;axis++){
-            float h=fabsf(((float *)&x)[axis])+fabsf(((float *)&y)[axis])+fabsf(((float *)&z)[axis]);
-            n->lo[axis]=fminf(n->lo[axis],b.center[axis]-h);n->hi[axis]=fmaxf(n->hi[axis],b.center[axis]+h);
+            n->lo[axis]=fminf(n->lo[axis],bounds[i].lo[axis]);n->hi[axis]=fmaxf(n->hi[axis],bounds[i].hi[axis]);
         }
     }
     if(count==1){n->left=start;n->right=UINT32_MAX;return id;}
@@ -127,6 +126,14 @@ static void draw_scene(const Orbit *o,size_t count,int running,int landscape,dou
     Scene scene={{o->eye.x,o->eye.y,o->eye.z,count},
         {f.x,f.y,f.z,tanf(o->fov*.5f*DEG2RAD)},{r.x,r.y,r.z,(float)render_view.width/render_view.height},
         {u.x,u.y,u.z,running},{render_view.x,render_view.y,render_view.width,render_view.height},{time,landscape,GetTime(),WATER_LEVEL}};
+    for(size_t i=0;i<count;i++){
+        BoxDraw b=boxes[i];Quaternion q={b.rotation[0],b.rotation[1],b.rotation[2],b.rotation[3]};
+        Vector3 x=Vector3RotateByQuaternion((Vector3){b.half[0],0,0},q),y=Vector3RotateByQuaternion((Vector3){0,b.half[1],0},q),z=Vector3RotateByQuaternion((Vector3){0,0,b.half[2]},q);
+        for(int axis=0;axis<3;axis++){
+            float h=fabsf(((float *)&x)[axis])+fabsf(((float *)&y)[axis])+fabsf(((float *)&z)[axis]);
+            bounds[i].lo[axis]=b.center[axis]-h;bounds[i].hi[axis]=b.center[axis]+h;
+        }
+    }
     node_count=0;if(count)make_tree(0,count);
     dolly_gpu_write(&gpu,1,&scene,sizeof(scene));
     if(count){upload_buffer(box_buffer,boxes,count*sizeof(BoxDraw));upload_buffer(node_buffer,nodes,node_count*sizeof(Node));}
@@ -301,4 +308,4 @@ static unsigned char *capture(const Character *c,const Physics *p,const Orbit *o
 }
 unsigned char *render_capture(const Character *c,const Physics *p,const Orbit *o,int *bytes){return capture(c,p,o,bytes);}
 unsigned char *render_capture_world(const Orbit *o,int *bytes){return capture(NULL,NULL,o,bytes);}
-void render_close(void) {check(dolly_gpu_wait(&gpu));check(dolly_gpu_close(&gpu));UnloadFont(editor_font);CloseWindow();free(ui_pixels);ui_pixels=NULL;free(boxes);boxes=NULL;box_capacity=0;free(nodes);nodes=NULL;}
+void render_close(void) {check(dolly_gpu_wait(&gpu));check(dolly_gpu_close(&gpu));UnloadFont(editor_font);CloseWindow();free(ui_pixels);ui_pixels=NULL;free(boxes);boxes=NULL;box_capacity=0;free(nodes);nodes=NULL;free(bounds);bounds=NULL;}

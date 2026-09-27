@@ -328,7 +328,40 @@ static void environment_sensors(Data *ctx,Value s,const Physics *p,Vector3 origi
     lua_newtable(L);lua_pushcclosure(L,environment_read,2);lua_setfield(L,-2,"__index");lua_pushcfunction(L,environment_pairs);lua_setfield(L,-2,"__pairs");lua_setmetatable(L,-2);lua_pop(L,1);
 }
 
+static struct {b3Pos *positions;int *offsets;float *distances;} observation_frame;
+static void observation_frame_clear(void){
+    free(observation_frame.positions);free(observation_frame.offsets);free(observation_frame.distances);
+    memset(&observation_frame,0,sizeof(observation_frame));
+}
 static float observation_distance(const Creature *c,const Physics *observer){
+    if(neighbor_bounds){
+        if(!observation_frame.offsets){
+            int capacity=0;for(int i=0;i<world.count;i++)capacity+=world.creatures[i].physics.count;
+            observation_frame.positions=array_resize(NULL,capacity,sizeof(b3Pos));
+            observation_frame.offsets=array_resize(NULL,world.count+1,sizeof(int));
+            observation_frame.distances=array_resize(NULL,(size_t)world.count*world.count,sizeof(float));
+            for(size_t i=0;i<(size_t)world.count*world.count;i++)observation_frame.distances[i]=-1;
+            for(int i=0,n=0;i<world.count;i++){
+                const Physics *p=&world.creatures[i].physics;observation_frame.offsets[i]=n;
+                for(int j=0;j<p->count;j++)if(p->parts[j].owner==j)observation_frame.positions[n++]=physics_position(&p->parts[j]);
+                observation_frame.offsets[i+1]=n;
+            }
+        }
+        int from=0;while(from<world.count&&world.creatures[from].physics.parts!=observer->parts)from++;
+        if(from<world.count){
+            int to=c-world.creatures;float *cached=&observation_frame.distances[(size_t)from*world.count+to];
+            if(*cached<0){
+                float squared=INFINITY;
+                for(int i=observation_frame.offsets[to];i<observation_frame.offsets[to+1];i++){
+                    b3Pos target=observation_frame.positions[i];
+                    for(int j=observation_frame.offsets[from];j<observation_frame.offsets[from+1];j++){
+                        b3Pos origin=observation_frame.positions[j];float x=target.x-origin.x,z=target.z-origin.z;squared=fminf(squared,x*x+z*z);
+                    }
+                }
+                *cached=sqrtf(squared);observation_frame.distances[(size_t)to*world.count+from]=*cached;
+            }return *cached;
+        }
+    }
     float squared=INFINITY;
     for(int i=0;i<c->design.count;i++)if(c->physics.parts[i].owner==i){
         b3Pos target=physics_position(&c->physics.parts[i]);
@@ -904,7 +937,7 @@ void world_step(void){
         physics_drive(&c->physics,&c->design,c->controls);
         parachute_force(c);
     }
-    free(neighbor_bounds);neighbor_bounds=NULL;
+    observation_frame_clear();free(neighbor_bounds);neighbor_bounds=NULL;
     b3World_Step(world.physics,1.f/60,8);world.age+=1./60;cargo_step();
     for(int i=0;i<world.count;){Creature *c=&world.creatures[i];physics_sample(&c->physics,&c->design);
         Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);float up=Vector3RotateByQuaternion((Vector3){0,1,0},q).y;

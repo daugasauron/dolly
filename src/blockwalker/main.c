@@ -565,7 +565,7 @@ static void draw_ui(void){
     DrawRectangle(0,0,SCREEN_WIDTH,VIEW_Y,paper);DrawRectangle(0,VIEW_Y,VIEW_X,VIEW_H,paper);
     DrawRectangle(VIEW_X+VIEW_W,VIEW_Y,SCREEN_WIDTH-VIEW_X-VIEW_W,VIEW_H,paper);DrawRectangle(0,674,SCREEN_WIDTH,46,paper);
     DrawLine(0,79,1280,79,line);DrawLine(241,80,241,674,line);DrawLine(998,80,998,674,line);DrawLine(0,674,1280,674,line);
-    label(24,12,"BLOCKWALKER",26,ink);label(26,38,"MECHANICAL WORKS / 96",11,muted);button(24,54,194,20,"Design library",library_open);
+    label(24,12,"SLOPYARD",26,ink);label(26,38,"MECHANICAL WORKS / 96",11,muted);button(24,54,194,20,"Design library",library_open);
     if(world_view){int parts=0;for(int i=0;i<world.count;i++)parts+=world.creatures[i].design.count;snprintf(text,sizeof(text),"%d OBJECTS / %d PARTS",world.count,parts);}
     else snprintf(text,sizeof(text),"%d PARTS / %d JOINTS",design.count,joints);label(472,32,text,15,muted);
     if(!world_view)button(472,54,208,20,practice_sea?"Test surface: water":"Test surface: ground",practice_sea);
@@ -904,7 +904,7 @@ int main(int argc,char **argv){
     if(argc!=1&&!integration){fputs("usage: blockwalker [--check | --integration-check]\n",stderr);return 1;}
     if(!character_load(&design,"/workspace/blockwalker.character"))character_car(&design);
     selected=design.count?0:-1;home_camera();if(render_open(&surface)<0)return 1;
-    printf("Blockwalker: C game, raylib UI, Box3D physics, WebGPU rendering, embedded Pi.\n");
+    printf("Slopyard: C game, raylib UI, Box3D physics, WebGPU rendering, embedded Pi.\n");
     last_frame=updated=seconds();
     int result=pi_run(1,argv,integration,game_initialize,game_call,game_frame);
     if(physics.running)report();character_save(&design,"/workspace/blockwalker.character");physics_stop(&physics);world_close();render_close();dolly_display_release(surface.generation);character_clear(&design);for(int i=0;i<undo_count;i++)character_clear(&undo[i]);return result;

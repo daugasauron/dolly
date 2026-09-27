@@ -79,7 +79,7 @@ fn water_normal(p:vec2f)->vec3f {
 @fragment fn fragment_main(@builtin(position) pixel:vec4f)->@location(0) vec4f {
     let overlay=unpack(ui[u32(pixel.y)*1280u+u32(pixel.x)]);
     if(overlay.a>0.998){return vec4f(overlay.rgb,1);}
-    let raster=(floor(pixel.xy/2)+.5)*2;
+    let raster=pixel.xy;
     let uv=(raster-scene.viewport.xy)/scene.viewport.zw;
     let xy=(uv*2-1)*vec2f(scene.right.w,-1)*scene.forward.w;
     let ray=normalize(scene.forward.xyz+scene.right.xyz*xy.x+scene.up.xyz*xy.y);
@@ -90,6 +90,7 @@ fn water_normal(p:vec2f)->vec3f {
     if(scene.world.y==0&&scene.eye.y>0&&ray.y<-.0001){let t=-scene.eye.y/ray.y;if(t>0){distance=t;object=-2;}}
     let hit=trace(scene.eye.xyz,ray,distance,false);if(hit.y>=0){distance=hit.x;object=i32(hit.y);}
     let position=scene.eye.xyz+ray*distance;
+    let pixel_width=distance*2*scene.forward.w/scene.viewport.w;
     if(object==-2){
         let grid=abs(fract(position.xz+vec2f(.5))-.5);
         let fade=clamp(1-distance/28,0,1);
@@ -158,7 +159,9 @@ fn water_normal(p:vec2f)->vec3f {
             var face_uv=p.yz;if(abs(normal.y)>.5){face_uv=p.xz;}else if(abs(normal.z)>.5){face_uv=p.xy;}
             if(b.flags.x==101){
                 if(b.style.x<4){
-                    let grain=noise(floor(position.xz*3)/3);
+                    let footprint=pixel_width/max(abs(dot(rotate(b.rotation,normal),ray)),.1);
+                    let fine=1-smoothstep(.08,.4,footprint);
+                    let grain=mix(.5,noise(floor(position.xz*3)/3),fine);
                     if(normal.y>.5){
                         let growth=noise(floor(position.xz*.5)*.10);
                         let moss=smoothstep(.38,.73,growth);
@@ -170,9 +173,9 @@ fn water_normal(p:vec2f)->vec3f {
                         color=mix(color,vec3f(.28,.39,.21),moss*.80);
                         color*=.84+.16*grain;
                         let seam=1-smoothstep(.003,.010,.5-max(abs(uv.x),abs(uv.y)));
-                        color*=1-.30*seam*(1-moss*.85);
+                        color*=1-.30*seam*(1-moss*.85)*fine;
                         let crack=abs(uv.x-uv.y*.35-.045*floor(uv.y*7));
-                        if(weather<.24&&crack<.006&&abs(uv.y)<.40){color*=.62;}
+                        if(weather<.24&&crack<.006&&abs(uv.y)<.40){color*=1-.38*fine;}
                     }else{
                         let layer=floor(position.y*1.7+noise(position.xz*.12)*2);
                         color*=.72+.28*hash(vec2f(layer,floor(face_uv.x*.5)));
@@ -223,7 +226,7 @@ fn water_normal(p:vec2f)->vec3f {
                 }
                 if(b.style.z>0&&abs(position.x)>b.style.z&&abs(position.z)<b.style.w&&position.y>scene.world.w&&b.style.x!=6){
                     let paint=select(vec3f(.30,.37,.44),vec3f(.48,.35,.31),position.x>0);
-                    let worn=.72+.20*hash(floor(position.xz*2));
+                    let worn=.72+.20*mix(.5,hash(floor(position.xz*2)),1-smoothstep(.15,.5,pixel_width));
                     let light=.69+.31*max(0,dot(normal,sun));
                     color=mix(color,paint*worn*light,select(.22,.45,normal.y>.5));
                     if(normal.y>.5&&abs(position.x)-b.style.z<1.4){
@@ -303,7 +306,8 @@ fn water_normal(p:vec2f)->vec3f {
     }
     if(distance<10000){color=mix(color,vec3f(.66,.64,.53),clamp(1-exp(-distance*.0022),0,.8));}
     let dither=array<f32,16>(0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5);
-    let cell=vec2u(raster/2)%4u;let bias=(dither[cell.y*4u+cell.x]/16-.5)/31;
-    color=floor(clamp(color+bias,vec3f(0),vec3f(1))*31+.5)/31;
+    let levels=mix(31.0,255.0,smoothstep(40.0,180.0,distance));
+    let cell=vec2u(raster/2)%4u;let bias=(dither[cell.y*4u+cell.x]/16-.5)/levels;
+    color=floor(clamp(color+bias,vec3f(0),vec3f(1))*levels+.5)/levels;
     return vec4f(mix(color,overlay.rgb,overlay.a),1);
 }
