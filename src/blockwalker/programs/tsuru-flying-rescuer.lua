@@ -61,7 +61,7 @@ return function(t,s,m)
     if m.phase=='approach' and hypot(tip[1]-point.x,tip[3]-point.z)<.5 and hypot(s.vx,s.vz)<.4 then phase('lower') end
     if m.phase=='lower' then
       power=true;length=math.max(1,math.min(s.blueprint[rope].travel,cable.paidOut+(tip[2]-point.y-.8)))
-      if grip.attached and grip.creature==target.id then m.liftY=s.y;m.hold={s.x,s.z};m.payloadY=target.y;m.extracting=nil;m.extract={0,0}
+      if grip.attached and grip.creature==target.id then m.aborting=nil;m.liftY=s.y;m.hold={s.x,s.z};m.payloadY=target.y;m.extracting=nil;m.extract={0,0}
         for _,b in ipairs(s.terrain) do
           if b.high>target.y+.5 and b.low<target.y+5 then
             local dx=target.x-math.max(b.x-b.halfX,math.min(b.x+b.halfX,target.x))
@@ -91,6 +91,7 @@ return function(t,s,m)
       height=m.contactY or m.lowerY-math.min(10,(t-m.at)*.2)
       local unloaded=m.support>target.mass*gravity*.85 or cable.tension<target.mass*gravity*.1 and s.angles[rope]<cable.paidOut-.15
       local supported=unloaded and target.up>.9 and hypot(target.vx,target.vy,target.vz)<.2
+      if m.aborting then supported=m.support>target.mass*gravity*.85 and hypot(target.vx,target.vy,target.vz)<.2 end
       m.stable=supported and m.stable+s.dt or 0
       if m.stable>2 then m.releaseY=s.y;phase('release') end
     end
@@ -102,7 +103,11 @@ return function(t,s,m)
         m.cooldown[target.id]=t+30;m.target=nil;m.length=nil;phase('seek')
       end
     end
-    if t-m.at>90 then m.cooldown[target.id]=t+30;m.target=nil;m.length=nil;phase('seek');power=false end
+    if t-m.at>90 then
+      if grip.attached and grip.creature==target.id then
+        m.aborting=true;m.lowerY=s.y;m.hold={s.x,s.z};phase('settle')
+      else m.cooldown[target.id]=t+30;m.target=nil;m.length=nil;phase('seek');power=false end
+    end
     if (m.phase=='lift' or m.phase=='settle') and not grip.attached then m.length=nil;phase('approach') end
   elseif m.phase~='seek' then m.target=nil;m.length=nil;phase('seek') end
   if m.phase=='seek' and not target then
