@@ -2,18 +2,18 @@ local status={ready='Compact round / ready to load',deploy='Caught aircraft / lo
 return function(t,s,m)
   local out,rope,handle,magnets={},nil,nil,{}
   local function set(b,u) if b.negative~=0 then out[string.char(b.negative)]=math.max(0,-u) end;if b.positive~=0 then out[string.char(b.positive)]=math.max(0,u) end end
-  local function phase(name) m.phase=name;m.at=t;m.supported=0;m.fold=nil end
+  local function phase(name) m.phase=name;m.at=t;m.supported=0;m.fold=nil;m.drop=nil;m.clearHandle=nil;m.taut=nil end
   for i,b in ipairs(s.blueprint) do if b.joint==8 then rope=i elseif b.joint==5 then magnets[#magnets+1]=i end end
   if not rope or #magnets==0 then return out end
   for i,b in ipairs(s.blueprint) do
     local parent=b.parent+1
     while parent>0 and parent~=rope do parent=s.blueprint[parent].parent+1 end
-    if parent==rope and b.joint==0 then handle=i end
+    if parent==rope and b.joint==0 and s.positions[i][2]<s.positions[handle or rope][2] then handle=i end
   end
   handle=handle or rope
   local cable=s.winches[rope];local tip=s.positions[handle]
   local function ground(x,z,y)
-    local floor=s.ground
+    local floor=#s.terrain==0 and s.ground or -100
     for _,b in ipairs(s.terrain) do
       if math.abs(x-b.x)<=b.halfX and math.abs(z-b.z)<=b.halfZ and b.high<y+.8 then floor=math.max(floor,b.high) end
     end
@@ -55,8 +55,24 @@ return function(t,s,m)
         local grip=s.magnets[i]
         set(s.blueprint[i],grip.attached and grip.creature==captured.id and 1 or -1)
       end
-      set(s.blueprint[rope],tug and -1 or m.phase=='deploy' and 1 or 0)
-      out.radio={kind='claim',cargo=s.id}
+      local reel=tug and -1 or m.phase=='deploy' and 1 or 0
+      if m.phase=='deploy' then
+        local anchor=s.positions[s.blueprint[rope].parent+1]
+        local span=s.angles[rope]
+        m.drop=m.drop or {t,tip[2]-anchor[2]}
+        if m.clearHandle then
+          reel=-1
+          if cable.paidOut<span+.15 then
+            m.taut=m.taut or t
+            if t-m.taut>2 then m.clearHandle=nil;m.taut=nil;m.drop={t,tip[2]-anchor[2]};reel=1 end
+          end
+        elseif t-m.drop[1]>3 then
+          if m.drop[2]-(tip[2]-anchor[2])<.3 and cable.paidOut>span+2 then m.clearHandle=true;m.deploymentRetries=(m.deploymentRetries or 0)+1 end
+          m.drop={t,tip[2]-anchor[2]}
+        end
+      else m.drop=nil;m.clearHandle=nil;m.taut=nil end
+      set(s.blueprint[rope],reel)
+      out.radio=tug and {kind='threat',target=captured.id} or {kind='claim',cargo=s.id}
     end
   elseif m.phase=='deploy' or m.phase=='caught' or m.phase=='haul' then phase('recover') end
   if m.phase=='release' then
@@ -65,21 +81,21 @@ return function(t,s,m)
     if not captured and t-m.at>1 then phase('recover') end
   end
   if m.phase=='recover' then
+    if m.lastRelease and m.lastRelease.grounded and t-m.lastRelease.time<8 then out.radio={kind='threat',target=m.lastRelease.target} end
     set(s.blueprint[rope],-1)
-    local span,handleRadius=0,0
-    for i,p in ipairs(s.parts(s.id)) do
+    local span,handleRadius=0,0;local parts=s.parts(s.id)
+    for _,p in ipairs(parts) do
       local radius=p.size*math.sqrt(3)/2
       if p.body==0 then span=math.max(span,hypot(p.x-s.x,p.y-s.y,p.z-s.z)+radius) end
-      if i==handle then handleRadius=radius end
+      if p.body==parts[rope].body then handleRadius=math.max(handleRadius,hypot(p.x-tip[1],p.y-tip[2],p.z-tip[3])+radius) end
     end
     span=span+handleRadius
     m.fold=m.fold or {t,cable.paidOut,tip[1],tip[2],tip[3]}
     local folded=cable.paidOut<1.15
     if t-m.fold[1]>2 then
-      local anchor=s.positions[s.blueprint[rope].parent+1]
       local settled=hypot(s.vx,s.vy,s.vz)<.3 and hypot(tip[1]-m.fold[3],tip[2]-m.fold[4],tip[3]-m.fold[5])<.2
       folded=folded or settled and m.fold[2]-cable.paidOut<.1 and cable.paidOut<span
-        and hypot(tip[1]-anchor[1],tip[2]-anchor[2],tip[3]-anchor[3])<span
+        and s.angles[rope]<span
       m.fold={t,cable.paidOut,tip[1],tip[2],tip[3]}
     end
     if folded and t-m.at>3 and s.y<s.ground+3 and tip[2]<ground(tip[1],tip[3],tip[2])+2 then
@@ -107,6 +123,6 @@ return function(t,s,m)
       end
     end
   end
-  m.held=captured and captured.id or nil;m.handle={tip[1],tip[2],tip[3]};m.status=m.phase=='ready' and (m.compactLength or 1)>1.15 and 'Compact round / cable folded against hull' or status[m.phase] or m.phase
+  m.held=captured and captured.id or nil;m.handle={tip[1],tip[2],tip[3]};m.status=m.clearHandle and 'Freeing the snagged cable handle' or m.phase=='ready' and (m.compactLength or 1)>1.15 and 'Compact round / cable folded against hull' or status[m.phase] or m.phase
   return out
 end

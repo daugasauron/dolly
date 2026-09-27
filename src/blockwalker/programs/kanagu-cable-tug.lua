@@ -1,8 +1,8 @@
-local status={seek='Patrolling for deployed rope handles',approach='Approaching the ground handle',haul='Towing captured aircraft',recover='Aircraft released / gathering spent cable',returning='Returning the round to its loading bay',unload='Dropping the recovered round',clear='Clearing the loading bay'}
+local status={seek='Patrolling for deployed rope handles',approach='Approaching the ground handle',align='Turning the magnetic fork toward the handle',pickup='Grasping the ground handle',haul='Towing captured aircraft',recover='Aircraft released / gathering spent cable',returning='Returning the round to its loading bay',unload='Dropping the recovered round',clear='Clearing the loading bay'}
 return function(t,s,m)
   local function clamp(x,n) return math.max(-n,math.min(n,x)) end
   local function wrap(x) return math.atan(math.sin(x),math.cos(x)) end
-  local function phase(p) if m.phase~=p then m.phase=p;m.at=t end end
+  local function phase(p) if m.phase~=p then m.phase=p;m.at=t;m.alignGear=nil end end
   if not m.home then m.home={s.x,s.z};m.stock={};m.recycled=0;phase('seek') end
   m.stock=m.stock or {};m.grounded=m.grounded or {}
   local wheels,steering={},{};local head,rams=nil,{};local center=0
@@ -25,33 +25,43 @@ return function(t,s,m)
     end
   end
   local grip=s.magnets[head];local tip=s.positions[head];local job,handle,catch,cable
+  m.dropoff=m.dropoff or {m.home[1]-2*(tip[1]-s.x),m.home[2]-2*(tip[3]-s.z)}
+  local land={};for _,b in ipairs(s.terrain) do if b.high<=s.ground+.7 then land[#land+1]=b end end
+  local function floor(x,z)
+    local height=#s.terrain==0 and s.ground or -100
+    for _,b in ipairs(land) do
+      if math.abs(x-b.x)<b.halfX and math.abs(z-b.z)<b.halfZ then height=math.max(height,b.high) end
+    end
+    return height
+  end
   local distance=math.huge;local returningRound=false
   for _,c in ipairs(s.nearby) do
     if c.cargo and c.team==s.team then
-      local parts=s.parts(c.id);local rope,hook
-      for _,p in ipairs(parts) do if p.joint==8 then rope=p end;if p.joint==5 and p.target~=0 then hook=p.target end end
+      local parts=s.parts(c.id);local rope,hook;local supported=0
+      for _,p in ipairs(parts) do supported=supported+p.supportForce;if p.joint==8 then rope=p end;if p.joint==5 and p.target~=0 then hook=p.target end end
       if rope then
-        if not m.stock[c.id] and not hook and c.y<s.ground+3 and rope.angle<3 and t<10 then m.stock[c.id]={c.x,c.z} end
+        if not m.stock[c.id] and not hook and c.carriedBy==0 and c.magnetCount==0 and supported>c.mass*hypot(table.unpack(s.gravity))*.2 and rope.angle<3 and t<10 then m.stock[c.id]={c.x,c.z} end
         local bay=m.stock[c.id]
         if not hook and c.magnetCount==0 and c.y<s.ground+3 then m.grounded[c.id]=m.grounded[c.id] or t else m.grounded[c.id]=nil end
         local missed=bay and m.grounded[c.id] and t-m.grounded[c.id]>15 and hypot(c.x-bay[1],c.z-bay[2])>3
+        local held=grip.attached and grip.creature==c.id
         for _,p in ipairs(parts) do
-          if p.body==rope.body and (p.joint==0 or p.joint==8) and p.y<s.ground+2 then
+          if p.body==rope.body and (p.joint==0 or p.joint==8) and (held or p.y<s.ground+2 and floor(p.x,p.z)>=s.ground-.7) then
             local d=hypot(p.x-tip[1],p.z-tip[3])+(hook and 0 or 50)
-            local held=grip.attached and grip.creature==c.id
             if held or not grip.attached and (hook or missed) and d<distance then job,handle,catch,cable,distance=c,p,hook,rope,d;returningRound=missed end
           end
         end
       end
     end
   end
-  local q=s.rotation;local yaw=math.atan(2*(q[1]*q[3]+q[2]*q[4]),1-2*(q[2]^2+q[3]^2))
+  local q=s.rotation;local yaw=math.atan(2*(q[1]*q[3]+q[2]*q[4]),1-2*(q[1]^2+q[2]^2))
   local throttle,turn,power=0,0,false;local out={}
   local function set(b,u) u=clamp(u,1);if b.negative~=0 then out[string.char(b.negative)]=math.max(0,-u) end;if b.positive~=0 then out[string.char(b.positive)]=math.max(0,u) end end
   local walls={}
   for _,b in ipairs(s.terrain) do if b.high>s.ground+.3 and b.low<s.ground+4 then walls[#walls+1]=b end end
   for _,c in ipairs(s.nearby) do
-    if c.id~=(job and job.id) and c.low<s.ground+4 and c.high>s.ground+.3 and c.anchored then
+    if c.id~=(job and job.id) and c.low<s.ground+4 and c.high>s.ground+.3
+      and (c.anchored or c.cargo and c.carriedBy==0 and hypot(c.vx,c.vy,c.vz)<.2) then
       for _,b in ipairs(s.bounds(c.id)) do if b.high>s.ground+.3 and b.low<s.ground+4 then walls[#walls+1]=b end end
     end
   end
@@ -64,6 +74,7 @@ return function(t,s,m)
         local score=hypot(x-s.x-nx*look,z-s.z-nz*look)+.2*math.abs(offset)+.2*math.abs(wrap(angle-yaw))
         for _,distance in ipairs({2,4,look}) do
           local px,pz=s.x+nx*distance,s.z+nz*distance
+          if floor(px,pz)<s.ground-.7 or floor(px-nz*1.5,pz+nx*1.5)<s.ground-.7 or floor(px+nz*1.5,pz-nx*1.5)<s.ground-.7 then score=score+1000 end
           for _,b in ipairs(walls) do
             if math.abs(px-b.x)<b.halfX+2.5 and math.abs(pz-b.z)<b.halfZ+2.5 then score=score+100 end
           end
@@ -80,7 +91,7 @@ return function(t,s,m)
   end
   if m.phase=='unload' then
     out.radio={kind='ready',cargo=m.job}
-    if not grip.attached and t-m.at>1 then if m.returned then m.recycled=m.recycled+1 else m.failedReturns=(m.failedReturns or 0)+1 end;phase('clear') end
+    if not grip.attached and t-m.at>1 then if m.returned then m.recycled=m.recycled+1;m.stock[m.job]=m.destination else m.failedReturns=(m.failedReturns or 0)+1 end;phase('clear') end
   elseif m.phase=='clear' then
     throttle=-.3
     if t-m.at>5 then m.job=nil;phase('seek') end
@@ -95,20 +106,43 @@ return function(t,s,m)
         if hypot(s.x-m.begin[1],s.z-m.begin[2])>10 then throttle=0 end
       elseif cable.angle>2 then phase('recover')
       else
-        if m.phase~='returning' then m.returnHome=true;phase('returning') end
-        local bay=m.stock[job.id] or m.home
+        if m.phase~='returning' then m.returnHome=m.stock[job.id]~=nil;phase('returning') end
+        local bay=m.stock[job.id]
+        if bay then
+          for _,b in ipairs(walls) do
+            if math.abs(bay[1]-b.x)<b.halfX+2.5 and math.abs(bay[2]-b.z)<b.halfZ+2.5 then
+              m.stock[job.id]=nil;m.returnHome=false;bay=nil;break
+            end
+          end
+        end
+        bay=bay or m.dropoff;m.destination=bay;m.stock[job.id]=bay
         local dx,dz=bay[1]-job.x,bay[2]-job.z
         if m.returnHome then
           drive(m.home[1],m.home[2],2,.7)
           if hypot(s.x-m.home[1],s.z-m.home[2])<3 then m.returnHome=false end
         else drive(s.x+dx,s.z+dz,0,.6) end
+        if hypot(dx,dz)<1.1 then throttle=clamp(-s.localVelocity[3],.7);turn=0 end
         m.returned=hypot(dx,dz)<1.1 and hypot(s.vx,s.vz)<.5
         if m.returned or t-m.at>180 then phase('unload');power=false;throttle=0;turn=0 end
       end
     else
-      phase('approach')
       local reach=hypot(tip[1]-s.x,tip[3]-s.z)+1.05
-      drive(handle.x,handle.z,reach,.9)
+      if m.phase~='approach' and m.phase~='align' and m.phase~='pickup' then phase('approach') end
+      if m.phase=='approach' then
+        if drive(handle.x,handle.z,reach,.9)<reach+4 then phase(math.abs(wrap(math.atan(handle.x-s.x,handle.z-s.z)-yaw))>.25 and 'align' or 'pickup') end
+      elseif m.phase=='align' then
+        local error=wrap(math.atan(handle.x-s.x,handle.z-s.z)-yaw)
+        m.alignGear=m.alignGear or (math.abs(error)>math.pi/2 and 1 or -1)
+        local want=math.abs(error)>.08 and .35*m.alignGear or 0
+        throttle=clamp(.35*want+.7*(want-s.localVelocity[3]),.4);turn=clamp(1.5*error-.5*s.gyroscope[2],.6)
+        if math.abs(error)<.08 and math.abs(s.gyroscope[2])<.12 then phase('pickup') end
+      else
+        local dx,dz=handle.x-tip[1],handle.z-tip[3];local forward=dx*math.sin(yaw)+dz*math.cos(yaw)
+        local error=math.atan(dx*math.cos(yaw)-dz*math.sin(yaw),math.max(1,forward))
+        local want=math.min(.9,math.max(.2,.7*(forward-.8)))*math.max(.3,math.cos(error))
+        throttle=clamp(.35*want+.7*(want-s.localVelocity[3]),.4);turn=clamp(1.5*error-.5*s.gyroscope[2],.6)
+        if forward<-.5 or t-m.at>20 then phase('align') end
+      end
       power=(catch or returningRound) and hypot(handle.x-tip[1],handle.z-tip[3])<1.5
       out.radio={kind='claim',cargo=job.id}
     end
@@ -122,6 +156,15 @@ return function(t,s,m)
       end
       if hypot(s.x-x,s.z-z)<2 then m.arrived=m.arrived or t;if t-m.arrived>4 then m.patrol=(m.patrol+1)%3;m.arrived=nil end else m.arrived=nil end
     end
+    local report,closest=nil,math.huge
+    for _,v in ipairs(s.radio) do
+      if v.kind=='claim' and v.from==v.cargo and s.worldTime-v.time<15 and v.y>s.ground+3 then
+        local distance=hypot(v.x-s.x,v.z-s.z)
+        if distance<closest then report=v;closest=distance end
+      end
+    end
+    m.report=report and report.cargo or nil
+    if report then x=report.x;z=report.z end
     drive(x,z,1,.5)
   end
   if grip.attached and (not job or grip.creature~=job.id) then power=false end
@@ -136,6 +179,8 @@ return function(t,s,m)
     if t<(m.escapeUntil or 0) then throttle=m.escapePower;turn=m.escapeTurn end
   else m.motion=nil;m.escapeUntil=nil end
   if s.up<.7 then throttle=0;turn=0 end
+  local direction=throttle<0 and -1 or 1
+  if floor(s.x+math.sin(yaw)*direction*5,s.z+math.cos(yaw)*direction*5)<s.ground-.7 then throttle=clamp(-s.localVelocity[3],.7) end
   for _,v in ipairs(steering) do
     local b=s.blueprint[v.i];local target=turn*v.side*(throttle<0 and -1 or 1)
     set(b,3*(target-s.angles[v.i])-.45*s.rates[v.i])
@@ -143,6 +188,6 @@ return function(t,s,m)
   for _,w in ipairs(wheels) do set(w.b,throttle) end
   for _,i in ipairs(rams) do set(s.blueprint[i],-2*s.angles[i]-.3*s.rates[i]) end
   set(s.blueprint[head],power and 1 or -1)
-  m.status=m.phase=='approach' and returningRound and 'Recovering missed ammunition' or status[m.phase] or m.phase
+  m.status=m.phase=='seek' and m.report and 'Following a team tether report' or m.phase=='approach' and returningRound and 'Recovering missed ammunition' or status[m.phase] or m.phase
   return out
 end
