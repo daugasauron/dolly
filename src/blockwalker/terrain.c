@@ -321,11 +321,12 @@ static const TerrainBox quay_working_boxes[]={
     {{140.25f,4.6f,45},{.2f,.6f,.2f},6},
 };
 enum { ORIGINAL_BOX_COUNT=sizeof(original_boxes)/sizeof(*original_boxes),INDUSTRIAL_BOX_COUNT=sizeof(industrial_boxes)/sizeof(*industrial_boxes),MINE_BOX_COUNT=sizeof(mine_boxes)/sizeof(*mine_boxes),RIDGE_BOX_COUNT=sizeof(ridge_boxes)/sizeof(*ridge_boxes),RENEWAL_BOX_COUNT=sizeof(renewal_boxes)/sizeof(*renewal_boxes),QUARRY_STEPS=48,QUARRY_BOX_COUNT=QUARRY_STEPS+14+sizeof(quay_working_boxes)/sizeof(*quay_working_boxes),TERRAIN_BOX_COUNT=ORIGINAL_BOX_COUNT+INDUSTRIAL_BOX_COUNT+MINE_BOX_COUNT+RIDGE_BOX_COUNT+RENEWAL_BOX_COUNT+QUARRY_BOX_COUNT };
-enum { COMPETITION_BOX_COUNT=44,MAX_TERRAIN_BOX_COUNT=TERRAIN_BOX_COUNT+COMPETITION_BOX_COUNT };
-int terrain_version=6,terrain_count=MAX_TERRAIN_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
+enum { COMPETITION_BOX_COUNT=44,BASE_BOX_COUNT=18,MAX_TERRAIN_BOX_COUNT=TERRAIN_BOX_COUNT+COMPETITION_BOX_COUNT+BASE_BOX_COUNT };
+int terrain_version=7,terrain_count=MAX_TERRAIN_BOX_COUNT,depot_count=sizeof(depots)/sizeof(*depots);
 int terrain_depot_count(int version){return version?sizeof(depots)/sizeof(*depots):3;}
+int terrain_combat_half_x(int version){return version>=7?COMBAT_HALF_X:78;}
 void terrain_select(int version){
-    terrain_version=version>=0&&version<=6?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0)+(terrain_version>=5?QUARRY_BOX_COUNT:0)+(terrain_version>=6?COMPETITION_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
+    terrain_version=version>=0&&version<=7?version:0;terrain_count=ORIGINAL_BOX_COUNT+(terrain_version?INDUSTRIAL_BOX_COUNT:0)+(terrain_version>=2?MINE_BOX_COUNT:0)+(terrain_version>=3?RIDGE_BOX_COUNT:0)+(terrain_version>=4?RENEWAL_BOX_COUNT:0)+(terrain_version>=5?QUARRY_BOX_COUNT:0)+(terrain_version>=6?COMPETITION_BOX_COUNT:0)+(terrain_version>=7?BASE_BOX_COUNT:0);depot_count=terrain_depot_count(terrain_version);
 }
 static TerrainBox competition_box(int index){
     int side=index/22,i=index%22;float sign=side?1:-1,x=sign*83;int color=side?1:2;
@@ -339,14 +340,26 @@ static TerrainBox competition_box(int index){
     if(i==10)return (TerrainBox){{x+7.3f,1.5f,28},{.4f,1.5f,.4f},4};
     if(i==11)return (TerrainBox){{x,3.6f,28},{3,.2f,.45f},color,1};
     /* Low lane markings and portal pylons make the two rear areas readable. */
-    if(i<16)return (TerrainBox){{sign*COMBAT_HALF_X,.04f,-26+(i-12)*18},{.35f,.04f,3},color};
-    if(i<18)return (TerrainBox){{sign*COMBAT_HALF_X,2.5f,i==16?-22:36},{1,2.5f,1},5};
-    if(i==18)return (TerrainBox){{sign*COMBAT_HALF_X,5.2f,-22},{1.2f,.2f,1.2f},color,1};
-    if(i==19)return (TerrainBox){{sign*COMBAT_HALF_X,5.2f,36},{1.2f,.2f,1.2f},color,1};
+    if(i<16)return (TerrainBox){{sign*terrain_combat_half_x(terrain_version),.04f,-26+(i-12)*18},{.35f,.04f,3},color};
+    if(i<18)return (TerrainBox){{sign*terrain_combat_half_x(terrain_version),2.5f,i==16?-22:36},{1,2.5f,1},5};
+    if(i==18)return (TerrainBox){{sign*terrain_combat_half_x(terrain_version),5.2f,-22},{1.2f,.2f,1.2f},color,1};
+    if(i==19)return (TerrainBox){{sign*terrain_combat_half_x(terrain_version),5.2f,36},{1.2f,.2f,1.2f},color,1};
     float bx=side?174:-177,bz=side?24:-42;
     return i==20?(TerrainBox){{bx,side?4.03f:2.03f,bz},{12,.03f,1.2f},color}:(TerrainBox){{bx+13,side?6:4,bz},{.5f,2,1},5};
 }
+static TerrainBox base_box(int index){
+    int side=index/9,i=index%9;float sign=side?1:-1,x=sign*COMBAT_HALF_X;int color=side?5:7;
+    if(i<6){float z=i<3?-28:24;int part=i%3;
+        if(part<2)return (TerrainBox){{x,6,z+(part?8:-8)},{.7f,6,.7f},color};
+        return (TerrainBox){{x,12,z},{.8f,.5f,8.7f},color,1};
+    }
+    x=sign*94;
+    if(i==6)return (TerrainBox){{x,.4f,-32},{3,.4f,3},color};
+    if(i==7)return (TerrainBox){{x,7,-32},{.7f,7,.7f},color};
+    return (TerrainBox){{x,15,-32},{6,2,.4f},color,1};
+}
 static TerrainBox source_box(int index){
+    if(terrain_version>=7&&index>=TERRAIN_BOX_COUNT+COMPETITION_BOX_COUNT)return base_box(index-TERRAIN_BOX_COUNT-COMPETITION_BOX_COUNT);
     if(terrain_version>=6){
         if(index>=TERRAIN_BOX_COUNT)return competition_box(index-TERRAIN_BOX_COUNT);
         if(index==1)return (TerrainBox){{-70,-6,0},{6,6,100},0};

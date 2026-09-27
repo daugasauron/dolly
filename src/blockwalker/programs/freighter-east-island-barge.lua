@@ -16,7 +16,8 @@ return function(t, s, m, r)
   local outbound = (active(east) and {{(-48), 130}, {116, 130}, {130, 110}, {130, 24}, dock} or {{(-48), 130}, {(-116), 130}, {(-130), 110}, {(-130), (-49)}, dock});
   local inbound = (active(east) and {{130, 110}, {116, 140}, {(-32), 140}, waiting} or {{(-124), 110}, {(-116), 140}, {(-64), 140}, waiting});
   if (not active((m).phase)) then
-    (m).phase = (active(east) and "dock" or "wait");
+    (m).phase = hypot(s.x-berth[1],s.z-berth[2])<1 and "dock"
+      or hypot(s.x-waiting[1],s.z-waiting[2])<1 and "wait" or "return";
     (m).route = 0;
     (m).job = 0;
     (m).deliveries = 0;

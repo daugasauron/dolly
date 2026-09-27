@@ -27,6 +27,14 @@ save/restore, populated-world and browser preview validation. Keep OPEN until
 those results exist. A physical miss or a stronger aircraft escaping is valid,
 but neither proves the complete intended chain.
 
+Terrain-7 base staging follow-up (`build/base-zones-20260927/`): final populated
+900 s run loads both slingshots but fires neither. An earlier run at the same
+gun positions fired at an opposing collector at 805.817 s. Measure coverage
+and encounter frequency as well as repeated ammunition reuse; keep targeting
+physical and team-aware. Truck bays now stay within loader reach, and tugs
+revisit home between middle patrols so stranded rounds do not disappear from
+their observation range indefinitely.
+
 Verified in Dolly wasm64, `build/combat-20260927/`:
 
 - `tether-controls/terminal.log`: compact storage stays at 1.000 m; a falling

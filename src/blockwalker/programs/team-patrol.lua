@@ -22,6 +22,15 @@ return function(t,s,m,r)
     liftReach=math.max(liftReach,s.positions[i][2]-s.ground+extra+.65)
   end
   if not m.home then m.home={s.x,s.z} end
+  local zone=s.combat
+  local side=zone and (m.home[1]<zone.x and -1 or 1) or 0
+  local function combat(x,z) return not zone or math.abs(x-zone.x)<=zone.halfX and math.abs(z-zone.z)<=zone.halfZ end
+  local function reachable(x) return not zone or side*(x-zone.x)>=-zone.halfX+width+1 end
+  local function patrol_point(x,z)
+    if not zone then return {x,z} end
+    return {zone.x+side*math.max(6,math.min(zone.halfX-6,side*(x-zone.x))),
+      math.max(zone.z-zone.halfZ+6,math.min(zone.z+zone.halfZ-6,z))}
+  end
   if not m.cooldown then
     m.phase='patrol';m.target=0;m.since=t;m.cooldown={};m.rescues=0;m.captures=0;m.visits=0
   end
@@ -47,7 +56,7 @@ return function(t,s,m,r)
         if rival(b) then
           for _,c in ipairs(s.nearby) do if ally(c) and ground_actor(c) and hypot(c.x-b.x,c.z-b.z)<12 then protect=true;break end end
         end
-        if rescue or rival(b) and b.up>.3 and (busy or protect) then
+        if reachable(b.x) and (rescue or rival(b) and b.up>.3 and (busy or protect)) then
           local value=(rescue and 200 or busy and 60 or 30)-hypot(b.x-s.x,b.z-s.z)
           if not score or value>score then best,score=b,value end
         end
@@ -57,7 +66,7 @@ return function(t,s,m,r)
   end
   if held and (held.id~=m.target or held.cargo or not (rival(held) or m.rescue and ally(held))) then phase('back') end
   if m.phase=='approach' then
-    if not target or not ground_actor(target) or t-m.since>600 or (m.rescue and not m.freeRescue and target.up>.85) then
+    if not target or not ground_actor(target) or not reachable(target.x) or t-m.since>600 or (m.rescue and not m.freeRescue and target.up>.85) then
       m.cooldown[m.target]=t+20;phase('back')
     elseif held and held.id==m.target then
       if not m.rescue then m.captures=m.captures+1 end
@@ -72,12 +81,12 @@ return function(t,s,m,r)
     local escort
     for _,c in ipairs(s.nearby) do
       local carrier=nearby[c.carriedBy]
-      if c.cargo and not c.delivered and carrier and ally(carrier) and ground_actor(carrier) and carrier.up>.8 and hypot(carrier.vx,carrier.vz)>.15 then escort=carrier;break end
+      if c.cargo and not c.delivered and carrier and ally(carrier) and ground_actor(carrier) and reachable(carrier.x) and carrier.up>.8 and hypot(carrier.vx,carrier.vz)>.15 then escort=carrier;break end
     end
     local help
     for _,v in ipairs(s.radio) do
       local friend=nearby[v.target]
-      if v.kind=='help' and v.target~=s.id and s.worldTime-v.time<20 and t>(m.cooldown[v.target] or 0)
+      if v.kind=='help' and v.target~=s.id and reachable(v.x) and s.worldTime-v.time<20 and t>(m.cooldown[v.target] or 0)
         and v.y<s.ground+liftReach+1 and (not friend or ground_actor(friend) and (friend.up<.5 or friend.carriedBy~=0)) then
         if not help or hypot(v.x-s.x,v.z-s.z)<hypot(help.x-s.x,help.z-s.z) then help=v end
       end
@@ -87,18 +96,20 @@ return function(t,s,m,r)
     elseif escort then
       local distance=math.max(1,hypot(s.x-escort.x,s.z-escort.z))
       goal={escort.x+(s.x-escort.x)/distance*9,escort.z+(s.z-escort.z)/distance*9};m.escort=escort.id
+      if not reachable(goal[1]) then goal[1]=zone.x-side*(zone.halfX-width-1) end
     else
       m.returning=nil;m.escort=0
-      if not m.goal or hypot(s.x-m.goal[1],s.z-m.goal[2])<2 or t>(m.goalUntil or 0) then
+      if not m.goal or hypot(s.x-m.goal[1],s.z-m.goal[2])<2 or t>(m.goalUntil or 0)
+        or zone and (not combat(m.goal[1],m.goal[2]) or side*(m.goal[1]-zone.x)<6) then
         if m.goal and hypot(s.x-m.goal[1],s.z-m.goal[2])<2 then m.visits=m.visits+1 end
         local interest
-        for i=#s.radio,1,-1 do local v=s.radio[i];if s.worldTime-v.time<60 and hypot(v.x-s.x,v.z-s.z)<45 then interest=v;break end end
+        for i=#s.radio,1,-1 do local v=s.radio[i];if (v.kind=='sight' or v.kind=='threat' or v.kind=='claim') and combat(v.x,v.z) and s.worldTime-v.time<60 and hypot(v.x-s.x,v.z-s.z)<45 then interest=v;break end end
         local angle=r()*math.pi*2
-        local x,z=s.x,s.z
+        local x,z=zone and zone.x+side*zone.halfX*.5 or s.x,zone and m.home[2] or s.z
         if interest then
           local distance=math.max(1,hypot(interest.x-x,interest.z-z));x=x+(interest.x-x)/distance*math.min(14,distance);z=z+(interest.z-z)/distance*math.min(14,distance)
         end
-        m.goal={x+math.sin(angle)*12,z+math.cos(angle)*12};m.goalUntil=t+30
+        m.goal=patrol_point(x+math.sin(angle)*12,z+math.cos(angle)*12);m.goalUntil=t+30
       end
       goal=m.goal
     end
@@ -170,6 +181,7 @@ return function(t,s,m,r)
       return high
     end
     local function accessible(x,z,reference,dx,dz)
+      if not reachable(x) then return nil end
       local known=false
       for i=#m.survey,1,-1 do local p=m.survey[i];if (x-p[1])^2+(z-p[2])^2<400 then known=true;break end end
       if not known then return nil,'unseen' end

@@ -168,7 +168,7 @@ static Value depot_list(Data *ctx,int count){
 static Value depot_state(Data *ctx){return depot_list(ctx,depot_count);}
 static Value combat_state(Data *ctx,int version){
     if(version<6)return VALUE_NIL;
-    Value area=value_record(ctx,4);put_number(ctx,area,"x",0);put_number(ctx,area,"z",0);put_number(ctx,area,"halfX",COMBAT_HALF_X);put_number(ctx,area,"halfZ",COMBAT_HALF_Z);return area;
+    Value area=value_record(ctx,4);put_number(ctx,area,"x",0);put_number(ctx,area,"z",0);put_number(ctx,area,"halfX",terrain_combat_half_x(version));put_number(ctx,area,"halfZ",COMBAT_HALF_Z);return area;
 }
 static Value scrapyard_state(Data *ctx,int version){
     Value list=value_sequence(ctx,version>=6?2:0);
@@ -1008,7 +1008,7 @@ static void load_removals(Data *ctx,Value list){
 }
 static void restore_world(Data *ctx,Value save,int fresh){
     int legacy=value_is_table(save)&&get_number(ctx,save,"version",0)==1;
-    terrain_select(value_is_table(save)?get_number(ctx,save,"terrainVersion",0):fresh?6:0);
+    terrain_select(value_is_table(save)?get_number(ctx,save,"terrainVersion",0):fresh?7:0);
     if(value_is_table(save)){Value designs=value_get(ctx,save,"designs");load_designs_version(ctx,designs,0,legacy);value_free(ctx,designs);}
     Value examples=read_catalog(ctx);load_designs(ctx,examples,fresh);value_free(ctx,examples);
     if(fresh){world.supply_seed=0x243f6a88;world.next_parcel=45;world.next_ore=5;world.next_mine=10;}
@@ -1159,7 +1159,7 @@ static int import_world_valid(Data *ctx,Value save){
     Value list=value_get(ctx,save,"creatures"),designs=value_get(ctx,save,"designs"),removals=value_get(ctx,save,"removals"),deliveries=value_get(ctx,save,"deliveries"),ids=value_table(ctx),delivered=value_table(ctx),format=value_get(ctx,save,"format");
     const char *kind=value_is_string(format)?value_text(ctx,format):NULL;
     int legacy=get_number(ctx,save,"version",0)==1;
-    int valid=value_is_table(save)&&import_number(ctx,save,"version",1,6,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,6,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
+    int valid=value_is_table(save)&&import_number(ctx,save,"version",1,6,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,7,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (value_is_nil(format)||(kind&&!strcmp(kind,"blockwalker-world")))&&value_is_array(list)&&value_is_array(designs)&&value_is_array(removals)&&(value_is_nil(deliveries)||value_is_array(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     value_text_free(ctx,kind);value_free(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);

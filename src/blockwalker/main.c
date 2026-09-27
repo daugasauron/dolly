@@ -79,8 +79,12 @@ static void toggle_focus(void){focus_view=!focus_view;library_open=0;binding=-1;
 static void remember(void){if(undo_count==32){character_clear(&undo[0]);memmove(undo,undo+1,31*sizeof(*undo));undo[31]=(Character){0};undo_count--;}character_copy(&undo[undo_count++],&design);}
 static void changed(void){dirty=1;if(!character_save(&design,"/workspace/blockwalker.character"))say("Could not save the working blueprint. Use Export to keep a copy.");}
 static void undo_edit(void){if(undo_count){character_clear(&design);design=undo[--undo_count];undo[undo_count]=(Character){0};selected=design.count?design.count-1:-1;binding=-1;changed();say("Undid the last edit.");}}
+static Orbit world_home(void){
+    if(terrain_version>=7)return (Orbit){.target={0,3,0},.yaw=0,.pitch=.70f,.distance=185};
+    return (Orbit){.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=terrain_version>=6?85:30};
+}
 static void home_camera(void){
-    if(world_view){world_follow=eye_view=0;orbit=(Orbit){.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=terrain_version>=6?85:30};orbit_update(&orbit);return;}
+    if(world_view){world_follow=eye_view=0;orbit=world_home();orbit_update(&orbit);return;}
     Vector3 target={0,0,0};for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);target=Vector3Add(target,p);}
     orbit.target=design.count?Vector3Scale(target,1.f/design.count):(Vector3){0,1,0};
     float extent=1;for(int i=0;i<design.count;i++){Vector3 p;Quaternion q;physics_pose(&physics,&design,i,&p,&q);extent=fmaxf(extent,Vector3Distance(orbit.target,p)+(block_size(design.blocks[i])>1?block_size(design.blocks[i])*.75f:0));}
@@ -326,6 +330,13 @@ static void click(void){
                     if(i==13)orbit.target=(Vector3){-40,5,-4};
                     if(i==14)orbit.target=(Vector3){74,4,47};
                 }
+                if(terrain_version>=7){
+                    if(i==1){orbit.target=(Vector3){170,4,30};orbit.distance=95;orbit.yaw=0;}
+                    if(i==2||i==3){orbit.target=(Vector3){i==2?-75:75,3,0};orbit.distance=95;orbit.yaw=0;orbit.pitch=.70f;}
+                    if(i==4){orbit.target=(Vector3){-174,2,-35};orbit.distance=105;orbit.yaw=0;orbit.pitch=.55f;}
+                    if(i==5)orbit.yaw=0;
+                    if(i==12||i==13){orbit.target=(Vector3){i==12?-66:66,5,-4};orbit.distance=42;orbit.yaw=0;}
+                }
                 if(i>=8){float nearest=30;for(int j=0;j<world.count;j++){Creature *c=&world.creatures[j];float distance=Vector3Distance(c->physics.start,orbit.target);if(!c->cargo&&distance<nearest){nearest=distance;world_list=j;}}world_page(0);}
                 orbit_update(&orbit);dirty=1;}return;
         }
@@ -502,7 +513,8 @@ static void draw_ui(void){
         button(render_view.width-232,12,220,34,"Controls [Shift Tab]",0);button(12,12,80,34,"Pi [Tab]",agent_panel);
         if(world_view&&world_follow){if(piloting)snprintf(text,sizeof(text),"%s%s%s",movement,magnets[0]?" / ":"",magnets);else snprintf(text,sizeof(text),"Following %d / \\ camera / WASD to leave",world_follow);label(110,22,text,16,ink);}
         if(world_view){char cargo[48];cargo_status(cargo,sizeof(cargo));
-            if(terrain_version)snprintf(text,sizeof(text),"EAST %d / WEST %d   CARGO %d / YOU %d%s%s",world_team_score(1),world_team_score(2),world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);
+            if(terrain_version>=7)snprintf(text,sizeof(text),"BLUE %d / RED %d   CARGO %d / YOU %d%s%s",world_team_score(2),world_team_score(1),world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);
+            else if(terrain_version)snprintf(text,sizeof(text),"EAST %d / WEST %d   CARGO %d / YOU %d%s%s",world_team_score(1),world_team_score(2),world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);
             else snprintf(text,sizeof(text),"CARGO DELIVERED  %d / YOU %d%s%s",world.delivery_count,world_cargo_score(-1),cargo[0]?"  /  ":"",cargo);label(16,render_view.height-30,text,16,ink);}
         goto agent_overlay;
     }
@@ -523,7 +535,7 @@ static void draw_ui(void){
     label(262,647,piloting?text:world_view&&eye_view?"Riding Eyes / Backslash to follow / WASD to leave":world_view?"WASD move / QE rise / Shift fast / drag orbit / scroll zoom":"Camera: right-drag / Alt + drag   |   Scroll to zoom",15,muted);
     if(world_view){
         label(24,108,"COASTAL WORKS",17,muted);snprintf(text,sizeof(text),"%d active / %d removed",world.count,world.deaths);label(24,154,text,16,ink);
-        const char *places[]={terrain_version>=6?"Combat":"Home","Harbor","East base","West base","North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry",terrain_version>=6?"East scrap":"Yard","East sling","West sling","Channel","West scrap"};
+        const char *places[]={terrain_version>=6?"Combat":"Home",terrain_version>=7?"Red port":"Harbor",terrain_version>=7?"Blue base":"East base",terrain_version>=7?"Red base":"West base",terrain_version>=7?"Blue port":"North","Overview",terrain_version?"Foundry":"Basin","Quay","Mine","Dispatch","Quarry",terrain_version>=7?"Red scrap":terrain_version>=6?"East scrap":"Yard",terrain_version>=7?"Blue gun":"East sling",terrain_version>=7?"Red gun":"West sling","Channel",terrain_version>=7?"Blue scrap":"West scrap"};
         for(int i=0;i<world_places();i++)button(24+(i%2)*102,188+(i/2)*32,92,28,places[i],0);
         label(24,world_list_top()-28,"CREATURES / click to follow",14,muted);
         world_list=(int)Clamp(world_list,0,fmaxf(0,world.count-world_rows()));
@@ -536,14 +548,17 @@ static void draw_ui(void){
             if(world_follow){Creature *c=world_find(world_follow);if(c){snprintf(text,sizeof(text),"%.30s",c->name);label(1036,246,text,14,ink);world_creature_status(c->id,text,32);label(1036,264,text,12,muted);}button(1036,280,220,36,eye_view?"Follow camera [\\]":"Eyes camera [\\]",0);}
             cargo_status(text,sizeof(text));label(1036,328,text,14,accent);
             if(terrain_version){
-                label(1036,354,"ISLAND CARGO CUP",17,muted);snprintf(text,sizeof(text),"East %d",world_team_score(1));label(1036,385,text,18,block_colors[world_team_color(1)]);snprintf(text,sizeof(text),"West %d",world_team_score(2));label(1152,385,text,18,block_colors[world_team_color(2)]);
+                label(1036,354,terrain_version>=7?"CARGO CUP":"ISLAND CARGO CUP",17,muted);
+                int left_team=terrain_version>=7?2:1,right_team=3-left_team;
+                snprintf(text,sizeof(text),"%s %d",terrain_version>=7?"Blue":"East",world_team_score(left_team));label(1036,385,text,18,block_colors[world_team_color(left_team)]);
+                snprintf(text,sizeof(text),"%s %d",terrain_version>=7?"Red":"West",world_team_score(right_team));label(1152,385,text,18,block_colors[world_team_color(right_team)]);
                 Creature *follow=world_find(world_follow);int team=follow?follow->team:0;
-                label(1036,428,team==1?"EAST RADIO":team==2?"WEST RADIO":"TEAM RADIO",17,muted);
+                label(1036,428,team==1?(terrain_version>=7?"RED RADIO":"EAST RADIO"):team==2?(terrain_version>=7?"BLUE RADIO":"WEST RADIO"):"TEAM RADIO",17,muted);
                 const char *messages[]={"Spotted","Claimed","Ready","Released","Help","Threat"};int shown=0,senders[4];
                 for(int i=world.radio_count-1;i>=0&&shown<4;i--){RadioMessage *message=&world.radio[i];if(team&&message->team!=team)continue;
                     int duplicate=0;for(int j=0;j<shown;j++)duplicate|=senders[j]==message->from;if(duplicate)continue;
                     senders[shown]=message->from;int y=459+shown++*42;
-                    snprintf(text,sizeof(text),"%c / %.17s / %.0fs",message->team==1?'E':'W',message->name,world.age-message->time);label(1036,y,text,12,block_colors[world_team_color(message->team)]);
+                    snprintf(text,sizeof(text),"%c / %.17s / %.0fs",terrain_version>=7?(message->team==1?'R':'B'):(message->team==1?'E':'W'),message->name,world.age-message->time);label(1036,y,text,12,block_colors[world_team_color(message->team)]);
                     snprintf(text,sizeof(text),"%s #%d / %.1f kg",messages[message->kind],message->target,message->mass);label(1036,y+17,text,13,ink);
                 }
                 if(!shown)label(1036,459,"No reports yet.",14,muted);
@@ -823,7 +838,7 @@ static Value game_frame(Data *ctx,Value self,int argc,Value *argv) {
     if(world_view)render_world(&orbit);else render_frame(&design,&physics,&orbit,selected,hover,preview);return VALUE_TRUE;
 }
 static int game_initialize(Data *ctx) {
-    embedded_context=ctx;world_load(ctx);
+    embedded_context=ctx;world_load(ctx);if(terrain_version>=7)world_orbit=world_home();
     Value program=world_program(ctx);if(value_is_null(program))install_program_file("/usr/src/dolly/blockwalker/driver.lua","Keyboard driver");value_free(ctx,program);
     return 0;
 }

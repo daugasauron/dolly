@@ -117,8 +117,10 @@ return function(t,s,m)
     local x,z=m.home[1],m.home[2]
     if s.combat then
       local side=m.home[1]<s.combat.x and -1 or 1;m.patrol=m.patrol or 0
-      x=s.combat.x+side*math.min(18,s.combat.halfX*.25);z=s.combat.z+(m.patrol==0 and -10 or 10)
-      if hypot(s.x-x,s.z-z)<2 then m.arrived=m.arrived or t;if t-m.arrived>4 then m.patrol=1-m.patrol;m.arrived=nil end else m.arrived=nil end
+      if m.patrol~=0 then
+        x=s.combat.x+side*math.min(18,s.combat.halfX*.25);z=s.combat.z+(m.patrol==1 and -10 or 10)
+      end
+      if hypot(s.x-x,s.z-z)<2 then m.arrived=m.arrived or t;if t-m.arrived>4 then m.patrol=(m.patrol+1)%3;m.arrived=nil end else m.arrived=nil end
     end
     drive(x,z,1,.5)
   end

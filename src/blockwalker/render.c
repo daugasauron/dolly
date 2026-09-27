@@ -228,6 +228,7 @@ static size_t draw_terrain(size_t at){
         TerrainBox b=terrain_box(i);box_draw((Block){0},b.center,QuaternionIdentity(),0,0,0,at);
         Color color=colors[b.color];boxes[at].color[0]=color.r/255.f;boxes[at].color[1]=color.g/255.f;boxes[at].color[2]=color.b/255.f;
         boxes[at].flags[0]=101;boxes[at].style[0]=b.color;
+        if(terrain_version>=7){boxes[at].style[2]=COMBAT_HALF_X;boxes[at].style[3]=COMBAT_HALF_Z;}
         boxes[at].half[0]=b.half.x;boxes[at].half[1]=b.half.y;boxes[at++].half[2]=b.half.z;
     }return at;
 }

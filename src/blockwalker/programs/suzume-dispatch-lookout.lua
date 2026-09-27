@@ -25,9 +25,15 @@ return (function()
       (m).yielded = 0;
     end
     local zone = s.combat
+    local center = {s.x,s.z}
     local bounds = {m.home[1]-22,m.home[1]+22,m.home[2]-28,m.home[2]+28}
-    if zone then bounds = {math.max(bounds[1],zone.x-zone.halfX+6),math.min(bounds[2],zone.x+zone.halfX-6),
-      math.max(bounds[3],zone.z-zone.halfZ+6),math.min(bounds[4],zone.z+zone.halfZ-6)} end
+    if zone then
+      local side = m.home[1]<zone.x and -1 or 1
+      center = {zone.x+side*zone.halfX*.5,math.max(zone.z-zone.halfZ+6,math.min(zone.z+zone.halfZ-6,m.home[2]))}
+      bounds = {zone.x+(side<0 and -zone.halfX+6 or 6),zone.x+(side<0 and -6 or zone.halfX-6),
+        math.max(center[2]-28,zone.z-zone.halfZ+6),math.min(center[2]+28,zone.z+zone.halfZ-6)}
+    end
+    if m.goal and (m.goal[1]<bounds[1] or m.goal[1]>bounds[2] or m.goal[2]<bounds[3] or m.goal[2]>bounds[4]) then m.goal=nil end
     local distance = (function() if active((m).goal) then return hypot((at((m).goal, 0) - (s).x), (at((m).goal, 1) - (s).z)) else return math.huge end end)();
     if (((not active((m).goal)) or (distance < 2)) or (t > (m).next)) then
       if (distance < 2) then
@@ -46,12 +52,13 @@ return (function()
           do
             do
               local friends = filter(peers, function(p)
-                return (function() local value = (function() local value = (not active((p).cargo)); if active(value) then return (not active((p).anchored)) else return value end end)(); if active(value) then return (hypot(((p).x - (s).x), ((p).z - (s).z)) > ((p).radius + 7)) else return value end end)()
+                return p.team==s.team and s.team~=0 and not p.cargo and not p.anchored and hypot(p.x-s.x,p.z-s.z)>p.radius+7
               end);
               local friend = (function() if (active(#(friends)) and (r() < 0.45)) then return at(friends, math.floor((r() * #(friends)))) else return nil end end)();
               local a = ((r() * math.pi) * 2);
               local d = (active(friend) and ((friend).radius + 7) or (12 + (24 * r())));
-              goal = {math.max(at(bounds, 0), math.min(at(bounds, 1), ((function() if active(friend) then return (friend).x else return (s).x end end)() + (math.sin(a) * d)))), math.max(at(bounds, 2), math.min(at(bounds, 3), ((function() if active(friend) then return (friend).z else return (s).z end end)() + (math.cos(a) * d))))};
+              goal = {math.max(bounds[1],math.min(bounds[2],(friend and friend.x or center[1])+math.sin(a)*d)),
+                math.max(bounds[3],math.min(bounds[4],(friend and friend.z or center[2])+math.cos(a)*d))}
               if (((hypot((at(goal, 0) - (s).x), (at(goal, 1) - (s).z)) < 6) or active(some(peers, function(p)
                 return (hypot(((p).x - at(goal, 0)), ((p).z - at(goal, 1))) < ((p).radius + 5))
               end))) or active(some((s).obstacles, function(p)

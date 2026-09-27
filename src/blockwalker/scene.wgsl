@@ -221,6 +221,16 @@ fn water_normal(p:vec2f)->vec3f {
                     let tide=1-smoothstep(scene.world.w+.25,scene.world.w+1.4+hash(floor(face_uv*2))*.4,position.y);
                     color=mix(color,vec3f(.16,.27,.21),tide*.6);
                 }
+                if(b.style.z>0&&abs(position.x)>b.style.z&&abs(position.z)<b.style.w&&position.y>scene.world.w&&b.style.x!=6){
+                    let paint=select(vec3f(.24,.38,.55),vec3f(.63,.29,.23),position.x>0);
+                    let worn=.72+.20*hash(floor(position.xz*2));
+                    let light=.69+.31*max(0,dot(normal,sun));
+                    color=mix(color,paint*worn*light,select(.65,.86,normal.y>.5));
+                    if(normal.y>.5&&abs(position.x)-b.style.z<1.4){
+                        let stripe=step(.5,fract((abs(position.x)+position.z)*.35));
+                        color=mix(paint*.40,vec3f(.76,.73,.59),stripe)*worn;
+                    }
+                }
                 if(b.style.x!=6&&trace(position+normal*.02,sun,512,true).y>=0){color*=.65;}
             }else{
                 let texel=floor(face_uv*24)/24;let inset=abs(face_uv);
