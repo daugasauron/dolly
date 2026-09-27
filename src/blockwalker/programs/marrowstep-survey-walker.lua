@@ -25,6 +25,19 @@ local hp = {"A", "K", "R", "G"};
 local kn = {"W", "P", "D", "Y"};
 local kp = {"S", "L", "T", "H"};
 local out = {};
+if s.team~=0 and t>=(m.reportAt or 0) then
+  local seen={}
+  for _,c in ipairs(s.nearby) do
+    if c.carriedBy==0 then
+      if c.cargo and c.visible and c.team==0 and not c.delivered then seen[#seen+1]={kind='sight',target=c.id}
+      elseif not c.cargo and not c.anchored and c.team~=0 and c.team~=s.team and c.up>.25 then seen[#seen+1]={kind='threat',target=c.id} end
+    end
+  end
+  m.reportAt=t+3.2;m.reports=(m.reports or 0)+1
+  m.report=seen[((m.reports-1)%math.max(1,#seen))+1]
+end
+if m.report then out.radio=m.report end
+
 local p = (m).p;
 local u = (t - (m).t);
 local d = (m).d;

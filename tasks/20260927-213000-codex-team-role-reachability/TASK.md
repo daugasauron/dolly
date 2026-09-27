@@ -45,8 +45,14 @@ Verification, all compiled/run inside Dolly in one disposable browser:
   comparisons use the corrected current courier and belong to the tether task.
 
 Remaining: integrate and verify final terrain/catalog staging, including Vesper
-and the scouts/guard. Recheck Obsidian after the roof relocation; its old left
-thruster physically catches the roof edge. Preserve all current successful chains.
+and the scouts/guard. Preserve all current successful chains.
+
+`team-audit/obsidian-v1` compares the unchanged Obsidian program and original
+(76, 2.65, 68) start on terrains 8 and 9 for 180 s each. Terrain 8 reproduces
+the roof obstruction at (76.48, 14.00, 68.00), with no completed landing. The
+staged terrain 9 permits two complete cycles, with supported landings at
+68.467 and 138.517 s: 98.445/96.645 N support against 76.665 N weight. Path
+length is 170.943 m and minimum up is 1.0; no flight-source change is needed.
 Sidelight/Hibari's isolated failure was motor chatter: delayed joint-rate
 feedback drove the held motor-speed commands to alternate every 20 Hz tick.
 Solving the same steady-state velocity target directly removes that feedback
@@ -74,5 +80,20 @@ an active opposing surveyor, remains upright (minimum up 0.978813), and covers
 4 m by 258.2 s. Current starts already cover central parcel sites: Sidelight to
 (24, 28) is 42.426 m; Hibari to (-24, 38) is 42.953 m, within the 48 m sensor
 range. No catalog relocation or added observation calls are required.
-The separate actual post-rescue failure is tracked in
-`20260927-232600-codex-supported-rescue-abort`.
+The actual post-rescue failure is resolved separately in
+`20260927-232600-codex-supported-rescue-abort` (`7000f24`): a centered torso grip
+produces a supported upright release, followed by independently verified walking
+in the unchanged populated save.
+
+`team-audit/surveyors-v2` proves the same sparse reporting for Marrowstep and
+Sundial without locomotion changes. Both report neutral freight and active
+opponents; a courier starting beyond its 48 m observation follows the actual
+report, magnetically collects the freight and scores on the West island. Delivery
+times are 211.167/368.667 s, minimum up is 0.994459/0.985554, and horizontal
+axis spans are 28.404×19.391 / 21.409×68.189 m. The first private fixture
+accidentally placed cargo in a flooded inlet; the corrected case asserts dry
+ground rather than changing courier behavior. `surveyors-regression-v2` executes
+the exact maintained `test/fixtures/blockwalker-biped-scout.c` against the latest
+staged terrain 9 and sensor-argument optimization. All three missions pass, with
+the original biped's prior delivery and upright walking retained. Marrowstep and
+Sundial's exact source hashes are recorded in `surveyors-v2/comparison.json`.

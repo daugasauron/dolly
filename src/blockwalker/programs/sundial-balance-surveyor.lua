@@ -146,6 +146,19 @@ local turn = cl(((1.4 * math.atan(math.sin((heading - yaw)), math.cos((heading -
 local l = cl(((m).u + turn), 1);
 local rr = cl(((m).u - turn), 1);
 local out = {};
+if s.team~=0 and t>=(m.reportAt or 0) then
+  local seen={}
+  for _,c in ipairs(s.nearby) do
+    if c.carriedBy==0 then
+      if c.cargo and c.visible and c.team==0 and not c.delivered then seen[#seen+1]={kind='sight',target=c.id}
+      elseif not c.cargo and not c.anchored and c.team~=0 and c.team~=s.team and c.up>.25 then seen[#seen+1]={kind='threat',target=c.id} end
+    end
+  end
+  m.reportAt=t+3.2;m.reports=(m.reports or 0)+1
+  m.report=seen[((m.reports-1)%math.max(1,#seen))+1]
+end
+if m.report then out.radio=m.report end
+
 (out)[index(((l >= 0) and "A" or "Q"))] = math.abs(l);
 (out)[index(((rr >= 0) and "S" or "W"))] = math.abs(rr);
 local h = ((t < 3) and 0 or (0.8 * (1 - math.cos(((t - 3) * 0.26)))));
