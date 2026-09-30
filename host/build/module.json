@@ -1,0 +1,12 @@
+{
+  "name": "build",
+  "version": 0,
+  "dependencies": ["http@0"],
+  "imports": [],
+  "host": "build.mjs",
+  "contracts": [],
+  "process": [],
+  "headers": [],
+  "kernel": [],
+  "client": []
+}
