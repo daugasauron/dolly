@@ -213,11 +213,9 @@ async function acceptSite(site, project) {
   const manifest = await siteManifest(site);
   for (const image of images) {
     await new Promise((resolveRun, reject) => {
-      const env = { ...process.env, DOLLY_IMAGE: image, DOLLY_BROWSER_MODE: "image-inventory", DOLLY_BROWSER_SITE: site };
-      // Acceptance owns its profile and must visit these staged bytes, not an external app.
-      for (const name of ["DOLLY_BROWSER_PAGE", "DOLLY_BROWSER_PROFILE", "DOLLY_BROWSER_PORT", "DOLLY_BUILD_IMAGES"]) delete env[name];
-      env.DOLLY_BUILD_IMAGES = images.join(",");
-      const child = spawn(resolve(project, "scripts/test-browser.sh"), [], { cwd: project, env, stdio: "inherit" });
+      const env = { ...process.env, DOLLY_IMAGE: image, DOLLY_BROWSER_SITE: site };
+      const child = spawn(process.execPath, [resolve(project, "test/image-inventory-browser.mjs"), "chromium"],
+        { cwd: project, env, stdio: "inherit" });
       child.once("error", reject);
       child.once("exit", (code, signal) => code === 0 ? resolveRun() :
         reject(new Error(`${image}: release browser acceptance failed (${signal ?? code})`)));
