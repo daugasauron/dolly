@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { inspectDollyfile } from "./parser.mjs";
+import { inspectDollyfile } from "./src/dollyfile-view.mjs";
 
 try {
   const args = process.argv.slice(2);

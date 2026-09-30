@@ -1,4 +1,4 @@
-import { inspectDollyfile } from "./parser.mjs";
+import { inspectDollyfile } from "./src/dollyfile-view.mjs";
 
 const args = globalThis.scriptArgs;
 const stdin = args[0] === "--stdin";
