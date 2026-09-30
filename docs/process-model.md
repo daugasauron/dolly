@@ -60,9 +60,8 @@ sequenceDiagram
 - `poll` covers files, pipes and the terminal; signals wake it with `EINTR`.
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
   without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output.
-- `chmod` stores bits that `stat` reports and WasmFS enforces for reading and
-  writing; images and sessions do not preserve them. `chown` accepts only owner
-  and group 0.
+- There is one user and no permission bits: `chmod`, `chown` and `access` only
+  check that the file exists, and nothing changes a file's mode.
 - The cwd is an open directory handle: it follows renames, `getcwd` fails with
   `ENOENT` after unlink, `fchdir` works.
 - `mmap` makes private copies; `MAP_SHARED` writes back on `msync` and whole

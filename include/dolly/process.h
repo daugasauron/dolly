@@ -65,8 +65,6 @@ enum dolly_process_operation {
   DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY = 41,
   DOLLY_PROCESS_PATH_STAT_FILESYSTEM = 42,
   DOLLY_PROCESS_PATH_SET_TIMES = 43,
-  /* dolly_process_path_mode_request -> no response. */
-  DOLLY_PROCESS_PATH_SET_MODE = 44,
 
   DOLLY_PROCESS_CLOCK_TIME = 48,
   DOLLY_PROCESS_RANDOM = 49,
@@ -79,8 +77,6 @@ enum dolly_process_operation {
   DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56,
   /* path_request -> no response; user-selected file, no overwrite. */
   DOLLY_PROCESS_UPLOAD_FILE = 57,
-  /* dolly_process_fd_mode_request -> no response. Pipes return EINVAL. */
-  DOLLY_PROCESS_FD_SET_MODE = 58,
 
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,
@@ -316,12 +312,6 @@ typedef struct {
   uint32_t descriptor;
   uint32_t flags;
 } dolly_process_fd_flags;
-
-/* Permission bits (at most 07777, POSIX octal values). */
-typedef struct {
-  uint32_t descriptor;
-  uint32_t mode;
-} dolly_process_fd_mode_request;
 
 typedef struct {
   uint32_t flags;
@@ -672,15 +662,6 @@ typedef struct {
   /* path bytes follow; they are not NUL terminated */
 } dolly_process_path_request;
 
-/* flags: DOLLY_PROCESS_PATH_NOFOLLOW; mode as in dolly_process_fd_mode_request. */
-typedef struct {
-  uint32_t directory_descriptor;
-  uint32_t flags;
-  uint32_t mode;
-  uint32_t path_size;
-  /* path bytes follow; they are not NUL terminated */
-} dolly_process_path_mode_request;
-
 typedef struct {
   uint32_t directory_descriptor;
   uint32_t flags;
@@ -704,7 +685,8 @@ typedef struct {
   uint64_t modification_nanoseconds;
   uint64_t change_nanoseconds;
   uint64_t blocks;
-  /* Permission bits (07777); file_type carries the file type. */
+  /* Fixed compatibility bits (at most 07777) that nothing changes: one user,
+   * no permission model. file_type carries the file type. */
   uint32_t mode;
   uint32_t link_count;
   uint32_t user;
@@ -796,8 +778,6 @@ DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_response, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_prep_request, 40);
 DOLLY_PROCESS_LAYOUT(dolly_process_exit_request, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_fd_mode_request, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_path_mode_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_wait_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_wait_response, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_signal_request, 8);

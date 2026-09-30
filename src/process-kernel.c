@@ -2125,38 +2125,6 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       free(path);
       return result;
     }
-    case DOLLY_PROCESS_PATH_SET_MODE: {
-      if (request_size < sizeof(dolly_process_path_mode_request) ||
-          response_capacity != 0) return -EINVAL;
-      dolly_process_path_mode_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if ((request.mode & ~07777u) != 0 ||
-          (request.flags & ~DOLLY_PROCESS_PATH_NOFOLLOW) != 0 ||
-          request.path_size != request_size - sizeof(request)) return -EINVAL;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = path_from_packet(
-          process, request.directory_descriptor,
-          process_mailbox + sizeof(request), request.path_size,
-          &path, &directory);
-      if (result == 0 && fchmodat(
-          directory, path, request.mode,
-          (request.flags & DOLLY_PROCESS_PATH_NOFOLLOW) != 0
-              ? AT_SYMLINK_NOFOLLOW : 0) != 0) result = -errno;
-      free(path);
-      return result;
-    }
-    case DOLLY_PROCESS_FD_SET_MODE: {
-      if (request_size != sizeof(dolly_process_fd_mode_request) ||
-          response_capacity != 0) return -EINVAL;
-      dolly_process_fd_mode_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if ((request.mode & ~07777u) != 0) return -EINVAL;
-      const int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor == -ESPIPE) return -EINVAL;
-      if (descriptor < 0) return descriptor;
-      return fchmod(descriptor, request.mode) == 0 ? 0 : -errno;
-    }
     case DOLLY_PROCESS_SPAWN: {
       if (response_capacity < sizeof(dolly_process_spawn_response)) return -ENOBUFS;
       int child = spawn_packet(pid, (size_t)request_size);
