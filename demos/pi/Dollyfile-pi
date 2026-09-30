@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE pi
 
-FROM HOST /Dollyfile-pi-runtime 4c4ce015ea4f7d49a32bb07a02976a2d369a05e7057ab988dc21b0172e3e8f11
+FROM HOST /Dollyfile-pi-runtime 41961a0c7271e177a6ae97ad444fe14131776b59d34dce07fc4f06709d89530e
 USE HOST /modules/startup-pi.dm 9893ca5f0b1df261ea7b34cd7451b0500f026a63eb140702f4993b13304f34a6
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

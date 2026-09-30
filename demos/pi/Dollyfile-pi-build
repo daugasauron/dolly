@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE pi-build
 
-FROM HOST /Dollyfile-typescript-build 05fe1fc89cc6254f4ffdde453d91dc83eab2df6c607cf677a6372e0b652c04d5
+FROM HOST /Dollyfile-typescript-build ad75f13406b3ac1f3ff9bc7655bc7b35d4b77b26e0fcc5a6c5b3919188298a1a
 USE HOST /modules/pi-build.dm a41d00dd73065d591ec31e9d00178d0494252b11946821bef572b482e35f92c3
 
 ENTRY /bin/slop

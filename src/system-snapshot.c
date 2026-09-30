@@ -36,22 +36,9 @@ static void dispose_manifest(dolly_snapshot_manifest *manifest) {
   memset(manifest, 0, sizeof(*manifest));
 }
 
-static int forbidden_manifest_path(const char *path) {
-  static const char *const prefixes[] = {
-      "/tmp", "/workspace", "/home/dolly/.pi/agent/auth.json",
-      "/home/dolly/.pi/agent/sessions",
-  };
-  for (size_t index = 0; index < sizeof(prefixes) / sizeof(prefixes[0]); ++index) {
-    const size_t length = strlen(prefixes[index]);
-    if (strncmp(path, prefixes[index], length) == 0 &&
-        (path[length] == '\0' || path[length] == '/')) return 1;
-  }
-  return 0;
-}
-
 static int valid_manifest_path(const char *path) {
   return dolly_fs_valid_path(path) && strpbrk(path, "\\\r\n") == NULL &&
-         !forbidden_manifest_path(path);
+         !dolly_fs_unretained_path(path);
 }
 
 // The selected Dollyfile compiler writes an exact, sorted list. Snapshot code

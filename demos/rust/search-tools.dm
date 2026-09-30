@@ -2,12 +2,12 @@ DOLLY 4
 MODULE search-tools
 
 # ripgrep and fd built from source by the Rust demo images.
-COPY FROM HOST /Dollyfile-ripgrep 690f856d5992b7ddfc0759a0e1f36740483c4032753cd1ad84af9b094bf8a509 /usr/bin/rg /usr/bin/rg
-COPY FROM HOST /Dollyfile-ripgrep 690f856d5992b7ddfc0759a0e1f36740483c4032753cd1ad84af9b094bf8a509 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
-COPY FROM HOST /Dollyfile-ripgrep 690f856d5992b7ddfc0759a0e1f36740483c4032753cd1ad84af9b094bf8a509 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
+COPY FROM HOST /Dollyfile-ripgrep 6eb5b332359d4bd98b790083c1243211c5d8e5adf5d8f7a87536a62c00e83a7d /usr/bin/rg /usr/bin/rg
+COPY FROM HOST /Dollyfile-ripgrep 6eb5b332359d4bd98b790083c1243211c5d8e5adf5d8f7a87536a62c00e83a7d /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
+COPY FROM HOST /Dollyfile-ripgrep 6eb5b332359d4bd98b790083c1243211c5d8e5adf5d8f7a87536a62c00e83a7d /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
 EXPORTS TOOL rg
 
-COPY FROM HOST /Dollyfile-fd-build be15e272f613c8650220ca2b2a579f47eb7f6777da8d053e555a3e93771d495a /usr/bin/fd /usr/bin/fd
-COPY FROM HOST /Dollyfile-fd-build be15e272f613c8650220ca2b2a579f47eb7f6777da8d053e555a3e93771d495a /usr/share/licenses/fd /usr/share/licenses/fd
-COPY FROM HOST /Dollyfile-fd-build be15e272f613c8650220ca2b2a579f47eb7f6777da8d053e555a3e93771d495a /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
+COPY FROM HOST /Dollyfile-fd-build e117d23a8bd7140696f69bbea6dc0ad7899cd7b1713a9d5b45249b4d19b1669f /usr/bin/fd /usr/bin/fd
+COPY FROM HOST /Dollyfile-fd-build e117d23a8bd7140696f69bbea6dc0ad7899cd7b1713a9d5b45249b4d19b1669f /usr/share/licenses/fd /usr/share/licenses/fd
+COPY FROM HOST /Dollyfile-fd-build e117d23a8bd7140696f69bbea6dc0ad7899cd7b1713a9d5b45249b4d19b1669f /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
 EXPORTS TOOL fd

@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 
 REQUIRES TOOL slop
 
-# External wasm64 bootstrap; pinned sources and port instructions: docs/sources.md.
+# External wasm64 bootstrap; pinned sources and port instructions: demos/zero-ad/README.md.
 SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis 25f466a84d802ccb8c2c279248e75bccde8ddcb4d25371ba69ab8ff8d07aef36
 SOURCE HOST /static/zero-ad/data/config/default.cfg /opt/0ad/data/config/default.cfg 96fe2f626983f3a9b2392095c11f04b3a8a318531408ce9aea0f4bd5c2a60f5a
 SOURCE HOST /static/zero-ad/data/config/keys.txt /opt/0ad/data/config/keys.txt 469f8fa2807838de81d53dda3a78b1676013e4fd18bd696d53693f09a21b9410

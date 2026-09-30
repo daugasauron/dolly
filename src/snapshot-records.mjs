@@ -1,3 +1,4 @@
+import { unretainedPath } from "./dollyfile-view.mjs";
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 export const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -32,8 +33,7 @@ export function decodeSnapshotRecords(input) {
     const path = decoder.decode(pathBytes);
     if (!path.startsWith("/") || /[\0\\\r\n]/.test(path) ||
         path.slice(1).split("/").some(part => !part || part === "." || part === "..") ||
-        ["/tmp", "/workspace", "/home/dolly/.pi/agent/auth.json", "/home/dolly/.pi/agent/sessions"]
-          .some(prefix => path === prefix || path.startsWith(`${prefix}/`)) ||
+        unretainedPath(path) ||
         previous && compareBytes(previous, pathBytes) >= 0) throw new Error(`invalid snapshot path ${path}`);
     previous = pathBytes;
     offset += pathLength;

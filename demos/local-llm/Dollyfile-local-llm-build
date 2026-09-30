@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE local-llm-build
 
-FROM HOST /Dollyfile-llama-build 1858df253abc10d9aea7e96f9978acaba7368394aca8f58afa0b85123cdc7ca4
+FROM HOST /Dollyfile-llama-build aadd39a54087092dad791e457f7c85d6a8273e2d24b24873ad17d091cbeade11
 USE HOST /modules/local-llm-engine.dm 01a888e20a8520a7ce809cc621cc599554882c86a5cf32953b4e4018d25ed223
 
 ENTRY /bin/slop
