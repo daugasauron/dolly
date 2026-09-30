@@ -1,6 +1,6 @@
 # HTTP policy pathPrefix matches by plain string prefix
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: security,boundary,bug
 
@@ -22,3 +22,10 @@ Prefixes match whole path segments of the normalized path; encoded separators ar
 ## Done when
 
 - `test/http-policy.test.mjs` covers `/v1-admin` and encoded traversal as denied.
+
+## Resolution (2026-10-01)
+
+Fixed: prefixes match whole path segments and encoded separators are rejected
+([`host/http/policy.mjs`](../../host/http/policy.mjs)). Verified by
+`test/http-policy.test.mjs` "path prefixes match whole segments and reject encoded
+separators", passing on `core/host-modules` (256 source tests).

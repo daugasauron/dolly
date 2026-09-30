@@ -1,6 +1,6 @@
 # Local image build service is ambient for every HTTP image
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: security,boundary,core
 
@@ -35,3 +35,12 @@ require a build capability (Studio) can submit builds; other images get EACCES.
   denied and no build starts; Studio still builds and opens its result.
 - Docs (`security.md`, `browser-boundary.md`) describe the build capability and its storage
   writes.
+
+## Resolution (2026-10-01)
+
+Fixed: the build service is its own host module, `build@0`, declared only by
+Dollyfile Studio and admitted after ENTRY starts
+([`host/build/`](../../host/build/module.json)); the default image's HTTP never
+reaches it. Verified by `test/core-browser.mjs` (a POST to `build.dolly.invalid` from the
+default image fails) and the Studio demo test
+(`demos/studio/test/studio-browser.mjs`), passing in Chromium.

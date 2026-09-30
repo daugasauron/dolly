@@ -1,6 +1,6 @@
 # Downloads need no user activation and have no quota
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: security,boundary
 
@@ -25,3 +25,10 @@ requests are bounded.
 
 - Browser check: `download FILE` shows a confirmation; no file is saved without a click; excess
   requests fail explicitly.
+
+## Resolution (2026-10-01)
+
+Fixed: each download waits for a user click on Save, at most 4 wait, Blob URLs
+are bounded ([`host/download/download.mjs`](../../host/download/download.mjs)).
+Verified in Chromium and Firefox by `test/core-browser.mjs` ("download started
+without a click" and the bounded queue), passing on `core/host-modules`.
