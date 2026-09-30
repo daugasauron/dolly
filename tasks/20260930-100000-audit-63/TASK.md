@@ -34,5 +34,9 @@ Core files contain no demo names; demos own their scenarios, preparation and tes
   its Playwright tests in `demos/NAME/test/`.
 - `custom.html` no longer links the Studio route; the Rust seed build and the Pi
   census are run from their demos, not `package.json`.
-- Remaining: `test/dolly.artifacts.mjs` keeps a per-image program map with demo
-  names (derive it from the graph's exported tools).
+- `test/dolly.artifacts.mjs` checks primary programs of core images only (and
+  that the list covers every top-level Dollyfile), and that every ENTRY path is
+  in the image. Pi tool, CPython and game SDK checks moved to
+  `demos/{pi,python,slopyard}/test/*.artifacts.mjs`; 22 artifact tests pass.
+- Remaining: `scripts/package-github-pages.mjs` and `test/site-release.test.mjs`
+  name demo images for the published demo page.

@@ -233,48 +233,18 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const { DOLLY_IMAGES } = await import(artifact("dolly-images.mjs"));
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
-  const expectedPrograms = new Map([
-    ["audio-sdk", "/usr/lib/dolly/process/libdolly-audio.a"],
-    ["bhop", "/usr/bin/bhop"],
-    ["slopyard", "/usr/bin/slopyard"],
-    ["classicube", "/usr/bin/classicube-agent"],
-    ["classicube-build", "/usr/bin/classicube"],
-    ["codex", "/usr/bin/codex"],
-    ["codex-build", "/usr/bin/codex"],
+  // Demo images prove their programs in their own browser tests.
+  const corePrograms = new Map([
     ["default", "/bin/slop"],
-    ["dollyfile-studio", "/usr/bin/dollyfile-lint"],
-    ["fd-build", "/usr/bin/fd"],
-    ["pi", "/usr/bin/pi"],
-    ["pi-local", "/usr/bin/pi"],
-    ["python", "/bin/slop"],
+    ["audio-sdk", "/usr/lib/dolly/process/libdolly-audio.a"],
+    ["ghostty-build", "/usr/bin/zig"],
+    ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
-    ["ripgrep", "/usr/bin/rg"],
-    ["rust-sdk", "/opt/rust-sdk/bin/rustc"],
-    ["rust-build", "/usr/bin/patti"],
-    ["rust-tools", "/usr/bin/patti"],
-    ["protox-build", "/usr/bin/protox"],
-    ["javascript", "/usr/bin/tsc"],
-    ["llama-build", "/usr/lib/dolly-llm/libllama.a"],
-    ["local-llm-build", "/usr/bin/dolly-llama"],
-    ["typescript-build", "/usr/bin/tsc"],
-    ["pi-build", "/usr/bin/pi"],
-    ["pi-runtime", "/usr/bin/pi"],
-    ["python-runtime", "/usr/bin/python"],
-    ["gamedev-sdk", "/usr/lib/libbox3d.a"],
-    ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
-    ["gpu-fluid", "/usr/bin/fluid"],
-    ["ghostty-build", "/usr/bin/zig"],
-    ["cmake-build", "/usr/bin/cmake"],
-    ["neovim-build", "/usr/bin/nvim"],
-    ["neovim", "/usr/bin/nvim"],
-    ["sdl2-build", "/usr/lib/libSDL2.a"],
-    ["openal-build", "/usr/lib/libopenal.a"],
-    ["rts-build", "/usr/bin/seven-kingdoms"],
-    ["rts-arena", "/usr/bin/rts-arena"],
-    ["zero-ad", "/usr/bin/zero-ad"],
   ]);
+  assert.deepEqual([...corePrograms.keys()].sort(), definitions
+    .filter(definition => !definition.path.startsWith("demos/")).map(definition => definition.image).sort());
   for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
     const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
@@ -293,17 +263,8 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       ({ location, sha256 }) => ({ location, sha256 }),
     ));
     assert.deepEqual(metadata.manifest, [...metadata.manifest].sort());
-    assert.ok(metadata.manifest.includes(expectedPrograms.get(image)), `${image}: primary program`);
-    for (const path of ["/usr/bin/rg", "/usr/share/dolly/builds/ripgrep.json",
-      "/usr/share/licenses/ripgrep/LICENSE-MIT"]) {
-      assert.equal(metadata.manifest.includes(path), graph.exporters.has("TOOL:rg"), `${image}: ${path}`);
-    }
-    for (const path of ["/usr/bin/fd", "/usr/share/dolly/builds/fd.json",
-      "/usr/share/licenses/fd/LICENSE-MIT", "/usr/share/licenses/fd/LICENSE-APACHE"]) {
-      assert.equal(metadata.manifest.includes(path), graph.exporters.has("TOOL:fd"), `${image}: ${path}`);
-    }
-    for (const path of ["/usr/bin/pi", "/usr/share/licenses/pi-source/LICENSE"]) {
-      assert.equal(metadata.manifest.includes(path), graph.exporters.has("TOOL:pi"), `${image}: ${path}`);
+    if (corePrograms.has(image)) {
+      assert.ok(metadata.manifest.includes(corePrograms.get(image)), `${image}: primary program`);
     }
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
     for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
@@ -315,16 +276,13 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
     for (const recipe of recipes) assert.ok(metadata.manifest.includes(recipe.retainedPath));
     assert.equal(metadata.manifest.some((path) => path.startsWith("/workspace")), false);
-    assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/") &&
-      /\/__pycache__(?:\/|$)|\.pyc$/.test(path)), false, `${image} must not retain build-time Python bytecode`);
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const shellStartup = ["default", "codex", "rts-arena", "pi", "pi-local", "python", "bhop", "classicube", "neovim", "dollyfile-studio", "zero-ad"].includes(image);
-    assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup, `${image}: shell startup`);
+    for (const path of graph.root.entry.filter(argument => argument.startsWith("/"))) {
+      assert.ok(metadata.manifest.includes(path), `${image}: ENTRY names ${path}`);
+    }
     assert.deepEqual(metadata.entry, graph.root.entry);
-    assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);
-    assert.equal(metadata.manifest.some(path => /^\/usr\/src\/(raylib|box3d|dolly\/gamedev)\/build\//.test(path)), false);
     if (image === "default") {
       graph.exporters.set("ENV:PATH", { exported: { type: "ENV", name: "PATH", details: ["advisory-only"] } });
       const parsed = decodeSystemSnapshot(snapshot);

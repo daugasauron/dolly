@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
-import { DOLLY_STATIC_SOURCES } from "../../../dist/dolly-images.mjs";
+import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../../../dist/dolly-images.mjs";
 
 test("prepared CPython configuration keeps bootstrap paths independent of the builder's home", {
   skip: !DOLLY_STATIC_SOURCES.some(source => source.path === "/static/python/cpython.tar.gz"),
@@ -11,5 +11,14 @@ test("prepared CPython configuration keeps bootstrap paths independent of the bu
     const configuration = execFileSync("tar", ["-xOf", archive, `usr/src/python/${name}`], { encoding: "utf8" });
     assert.ok(configuration.includes("--with-build-python=/opt/dolly-build-python/bin/python3.14"), name);
     assert.equal(/\/(?:home|Users)\/|\/src\/build\/generated\/cpython-source\./.test(configuration), false, name);
+  }
+});
+
+test("images retain neither CPython's test suite nor build-time bytecode", async () => {
+  for (const { image } of DOLLY_IMAGES) {
+    const { DOLLY_SYSTEM_SNAPSHOT: { manifest } } = await import(
+      new URL(`../../../dist/dolly-${image}-system-snapshot.mjs`, import.meta.url));
+    assert.equal(manifest.some(path => path.startsWith("/usr/lib/python3.14/") &&
+      (path.startsWith("/usr/lib/python3.14/test/") || /\/__pycache__(?:\/|$)|\.pyc$/.test(path))), false, image);
   }
 });
