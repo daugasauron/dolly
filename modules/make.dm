@@ -1,13 +1,8 @@
 DOLLY 4
 MODULE make
 
-# The module owns Make's build-time command vocabulary. `cp` is required here,
-# rather than by consumers which merely invoke Make, because real Make recipes
-# rely on it. The Dollyfile checker documents this build contract; it is not a
-# runtime sandbox for Make or Slop.
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
-REQUIRES TOOL   cp
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar

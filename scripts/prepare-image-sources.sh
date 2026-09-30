@@ -255,10 +255,9 @@ if has_module gzip; then
   copy_static src/commands/gzip.c default/commands/gzip.c
 fi
 if has_module agent-tools; then
-  for command in install which command xargs find tail tee env printenv rev \
-      timeout time uname hostname realpath diff patch du dd tty; do
-    copy_static "${project_dir}/src/commands/${command}.c" \
-      "default/commands/${command}.c"
+  for source in run-program.h command.c xargs.c find.c env.c time.c timeout.c \
+      realpath.c diff.c patch.c hostname.c tty.c; do
+    copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
   done
 fi
 if has_module ghostty; then
@@ -441,56 +440,12 @@ if has_module curl; then
     "${curl_dir}/COPYING" /usr/share/licenses/curl/COPYING
 fi
 if has_module sbase; then
-node scripts/build-source-tar.mjs "${static_dir}/default/sbase.tar" \
-  "${sbase_dir}/grep.c" /usr/src/sbase/grep.c \
-  "${sbase_dir}/head.c" /usr/src/sbase/head.c \
-  "${sbase_dir}/od.c" /usr/src/sbase/od.c \
-  "${sbase_dir}/cut.c" /usr/src/sbase/cut.c \
-  "${sbase_dir}/basename.c" /usr/src/sbase/basename.c \
-  "${sbase_dir}/cksum.c" /usr/src/sbase/cksum.c \
-  "${sbase_dir}/cmp.c" /usr/src/sbase/cmp.c \
-  "${sbase_dir}/comm.c" /usr/src/sbase/comm.c \
-  "${sbase_dir}/date.c" /usr/src/sbase/date.c \
-  "${sbase_dir}/dirname.c" /usr/src/sbase/dirname.c \
-  "${sbase_dir}/expand.c" /usr/src/sbase/expand.c \
-  "${sbase_dir}/expr.c" /usr/src/sbase/expr.c \
-  "${sbase_dir}/false.c" /usr/src/sbase/false.c \
-  "${sbase_dir}/fold.c" /usr/src/sbase/fold.c \
-  "${sbase_dir}/join.c" /usr/src/sbase/join.c \
-  "${sbase_dir}/ln.c" /usr/src/sbase/ln.c \
-  "${sbase_dir}/nl.c" /usr/src/sbase/nl.c \
-  "${sbase_dir}/printf.c" /usr/src/sbase/printf.c \
-  "${sbase_dir}/paste.c" /usr/src/sbase/paste.c \
-  "${sbase_dir}/pathchk.c" /usr/src/sbase/pathchk.c \
-  "${sbase_dir}/readlink.c" /usr/src/sbase/readlink.c \
-  "${sbase_dir}/rmdir.c" /usr/src/sbase/rmdir.c \
-  "${sbase_dir}/mktemp.c" /usr/src/sbase/mktemp.c \
-  "${sbase_dir}/md5sum.c" /usr/src/sbase/md5sum.c \
-  "${sbase_dir}/sed.c" /usr/src/sbase/sed.c \
-  "${sbase_dir}/seq.c" /usr/src/sbase/seq.c \
-  "${sbase_dir}/sort.c" /usr/src/sbase/sort.c \
-  "${sbase_dir}/sha256sum.c" /usr/src/sbase/sha256sum.c \
-  "${sbase_dir}/sleep.c" /usr/src/sbase/sleep.c \
-  "${sbase_dir}/split.c" /usr/src/sbase/split.c \
-  "${sbase_dir}/strings.c" /usr/src/sbase/strings.c \
-  "${sbase_dir}/tr.c" /usr/src/sbase/tr.c \
-  "${sbase_dir}/true.c" /usr/src/sbase/true.c \
-  "${sbase_dir}/tsort.c" /usr/src/sbase/tsort.c \
-  "${sbase_dir}/unexpand.c" /usr/src/sbase/unexpand.c \
-  "${sbase_dir}/uniq.c" /usr/src/sbase/uniq.c \
-  "${sbase_dir}/wc.c" /usr/src/sbase/wc.c \
-  "${sbase_dir}/queue.h" /usr/src/sbase/queue.h \
-  "${sbase_dir}/text.h" /usr/src/sbase/text.h \
-  "${sbase_dir}/util.h" /usr/src/sbase/util.h \
-  "${sbase_dir}/utf.h" /usr/src/sbase/utf.h \
-  "${sbase_dir}/arg.h" /usr/src/sbase/arg.h \
-  "${sbase_dir}/compat.h" /usr/src/sbase/compat.h \
-  "${sbase_dir}/crypt.h" /usr/src/sbase/crypt.h \
-  "${sbase_dir}/md5.h" /usr/src/sbase/md5.h \
-  "${sbase_dir}/sha256.h" /usr/src/sbase/sha256.h \
-  "${sbase_dir}/libutil" /usr/src/sbase/libutil \
-  "${sbase_dir}/libutf" /usr/src/sbase/libutf \
-  "${sbase_dir}/LICENSE" /usr/share/licenses/sbase/LICENSE
+  sbase_inputs=()
+  for path in "${sbase_dir}"/*.[ch] "${sbase_dir}"/{Makefile,config.mk,libutf,libutil}; do
+    sbase_inputs+=("${path}" "/tmp/sbase/${path##*/}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/default/sbase.tar" "${sbase_inputs[@]}" \
+    "${sbase_dir}/LICENSE" /usr/share/licenses/sbase/LICENSE
 fi
 if has_module awk; then
 node scripts/build-source-tar.mjs "${static_dir}/default/awk.tar" \

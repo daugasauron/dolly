@@ -161,57 +161,37 @@ Only state that must affect the current interpreter is built in: `:`, `.`, `sour
 `getopts`, `local`, `type`,
 `break`, and `continue`. Utilities such as `echo`, `pwd`, `cat`,
 `grep`, `awk`, `cc`, and `make` are executable files found through `PATH`.
-`/bin/cd` still exists as a standalone compatibility command, but an unqualified
-`cd` is necessarily the stateful builtin.
+There is no `/bin/cd`; `cd` is only the stateful builtin.
 The builtin `cd [--] [DIRECTORY]` updates `PWD` and `OLDPWD`; `cd -` returns to
 and prints the previous directory. These variables are restored with the cwd
 across a parenthesized group or command substitution.
 
-The small compatibility set is still made of ordinary programs. Dolly-owned
-`which` and `command -v` search `PATH`, while `command`, `xargs`, and
-`find -exec` perform bounded serial execution through the same in-Wasm
-spawn/wait lifecycle as Slop. `du` measures logical in-memory content rather
-than nonexistent disk blocks, and `tty` reports Dolly's terminal without
-asking the browser.
-`install` supports the ordinary file/directory forms used by Make recipes;
-mode, owner, and group options are accepted as syntax but create no metadata.
-`dd` copies bounded blocks within the shared filesystem or serial pipelines;
-its finite operand set includes `bs`, `count`, `skip`, `seek`, `notrunc`, and
-`sync`, while unsupported conversions fail explicitly.
-`xargs` accepts `-P 1` but rejects parallel execution explicitly. Dolly-owned
-`find` walks sorted directory entries without following symlinks and supports
-the common name/path/type/empty, depth, prune, print, and serial-exec subset;
-user/group/permission predicates fail because Dolly has no such model.
-Dolly-owned `tail` implements finite line/byte selection and explicitly rejects
-follow mode, while `tee` duplicates bytes and appends but cannot suppress the
-runtime's unconditional foreground Ctrl+C. Dolly-owned `env` builds a complete
-child environment and uses typed `dolly_spawn_env`; assignments and unsets do
-not leak into Slop. `printenv` indexes the shared environment without advancing
-libc's global `environ` pointer. Dolly-owned `timeout` runs a nested command
-through the runtime's synchronous deadline operation; checkpointed code exits
-with status 124, and nested calls inherit the earliest deadline. `time` reports
-monotonic elapsed time, while `uname` and `hostname` return the deterministic
-Dolly/wasm64 target identity rather than inspecting the browser. Source-built sbase supplies
-`cut`, `od`, `printf`, `sort`, `uniq`, `basename`, `dirname`, `tr`, `cmp`,
-`comm`, `paste`, `join`, `seq`, `expr`, `nl`, `split`, `strings`, `cksum`,
-`fold`, `expand`, `unexpand`, `tsort`, `pathchk`, `date`, `mktemp`, `sha256sum`, `md5sum`,
-`sleep`, `true`, `false`, `ln`, `readlink`, and `rmdir` in addition to the text
-tools above. Symbolic links work, but
-WasmFS's current `linkat` implementation rejects hard links, so plain `ln`
-fails while `ln -s` is supported.
-Since there are no execute
-permission bits, `test -x FILE` means “FILE is a regular executable candidate”;
-actual Wasm format, contract stamp, and ABI validation happen when the loader
-runs it. For the same reason, `test -r PATH` and `test -w PATH` mean that the
-path exists in mutable WasmFS; they never inspect mode or identity metadata.
-`test` and `[` also implement the conventional `!`, `-a`, `-o`, and
-parenthesized finite boolean expressions used by portable build scripts.
+The file and text utilities are unchanged upstream sbase commands built by
+sbase's own Makefile in `system-build` (`modules/sbase.dm`); `install` is sbase's
+`xinstall` and `[` links to `test`. They follow POSIX rather than GNU, so for
+example `cat -n`, `ls --color`, and `test` with more than four arguments
+(`-a`, `-o`, parentheses) fail. Symbolic links work, but WasmFS's current
+`linkat` rejects hard links, so plain `ln` fails while `ln -s` works. Dolly has
+no user database: owners print numerically and `install -o/-g NAME` fail.
+
+sbase commands which fork cannot run here, so Dolly owns `command`, `env`,
+`find`, `time`, `timeout`, and `xargs`. They resolve programs on `PATH` and run
+them through the same in-Wasm spawn/wait lifecycle as Slop. `xargs` batches
+input by `-n` count and `-s` bytes (128 KiB by default) and accepts only
+`-P 1`. `find` walks sorted entries without following symlinks and supports the
+common name/path/type/empty, depth, prune, print, and exec subset;
+user/group/permission predicates fail. `timeout` uses the runtime deadline
+(status 124; a duration of 0 disables it), and `time` reports monotonic elapsed
+time. `hostname`, `tty`, `stat`, and `file` report Dolly's fixed identity,
+terminal, metadata, and formats without asking the browser.
 Standard `printf` rules still apply: `%s` does not interpret backslash
 escapes in an argument, so agents should use the Pi write tool for multiline
 source and Makefiles rather than assembling them with fragile shell quoting.
-The separately compiled `diff` and `patch` commands reuse source-built Git's
-non-repository comparison and apply engines with paging disabled; `patch`
-supports the finite noninteractive unified-patch subset shown by `patch --help`.
+`diff` and `patch` reuse source-built Git's `diff --no-index` and `apply`.
+`diff` accepts `-abNqrw`, `-u`, and `-U N`, exits 0, 1, or 2 like POSIX diff,
+and prints Git-style unified output; other options fail. `patch` reads the
+patch from stdin or `-i` and applies it to the files it names; a FILE operand
+fails.
 
 The current subset does not implement aliases, background jobs, job control,
 parameter substring slicing, or search-and-replacement.

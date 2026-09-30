@@ -253,10 +253,8 @@ test("small Dolly-owned command sources are inline", async () => {
   const download = graph.modules.find(({ name }) => name === "download");
   const tar = graph.modules.find(({ name }) => name === "tar");
   assert.equal(core.sources.length, 0);
-  assert.equal(core.files.length, 15);
   assert.match(core.files.find(({ path }) => path.endsWith("/foreground.c")).body,
     /dolly_spawn_foreground/);
-  assert.match(core.files.find(({ path }) => path.endsWith("/ls.c")).body, /int main/);
   assert.equal(core.files.some(({ path }) => path.endsWith("/download.c")), false);
   assert.match(download.files.find(({ path }) => path.endsWith("/download.c")).body,
     /dolly_download_file/);
@@ -433,7 +431,7 @@ test("build modules declare tools used by their own recipes", async () => {
     module("zlib").requirements.map(({ type, name }) => `${type} ${name}`),
     ["HEADER libc", "TOOL ar", "TOOL cc", "TOOL make", "TOOL rm", "TOOL tar"],
   );
-  for (const tool of ["cc", "cp", "mkdir", "rm", "tar"]) {
+  for (const tool of ["cc", "mkdir", "rm", "tar"]) {
     assert.ok(
       module("make").requirements.some(({ type, name }) => type === "TOOL" && name === tool),
       tool,

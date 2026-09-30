@@ -1,17 +1,23 @@
-#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 
 #include <ctype.h>
-#include <errno.h>
 #include <limits.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
 
-#include <dolly/runtime.h>
+#include "run-program.h"
 
-enum { INPUT_LIMIT = 16 * 1024 * 1024, ARGUMENT_LIMIT = 100000 };
+// A spawn packet carries the path, arguments and environment; leave half of
+// it for the environment.
+enum {
+  DEFAULT_COMMAND_BYTES = 128 * 1024,
+  MAXIMUM_COMMAND_BYTES = DOLLY_PROCESS_PACKET_LIMIT / 2,
+};
+
+typedef struct {
+  char *bytes;
+  size_t length;
+  size_t capacity;
+} buffer;
 
 typedef struct {
   char **items;
@@ -20,209 +26,91 @@ typedef struct {
 } string_list;
 
 static void usage(void) {
-  fputs("usage: xargs [-0rt] [-n number] [-I replace] [-P 1] "
+  fputs("usage: xargs [-0rt] [-n number] [-s size] [-I replace] [-P 1] "
         "[command [argument ...]]\n", stderr);
 }
 
-static void dispose_list(string_list *list) {
-  for (size_t index = 0; index < list->count; ++index) free(list->items[index]);
-  free(list->items);
-  *list = (string_list){0};
+static int push_byte(buffer *item, int byte) {
+  if (item->length == item->capacity) {
+    const size_t capacity = item->capacity == 0 ? 128 : item->capacity * 2;
+    char *bytes = realloc(item->bytes, capacity);
+    if (bytes == NULL) return -1;
+    item->bytes = bytes;
+    item->capacity = capacity;
+  }
+  item->bytes[item->length++] = (char)byte;
+  return 0;
 }
 
-static int append_item(string_list *list, const char *bytes, size_t length) {
-  if (list->count >= ARGUMENT_LIMIT) {
-    errno = E2BIG;
-    return -1;
-  }
-  if (list->count == list->capacity) {
-    size_t capacity = list->capacity == 0 ? 32 : list->capacity * 2;
-    if (capacity < list->capacity || capacity > SIZE_MAX / sizeof(*list->items)) {
-      return -1;
-    }
+static int push_item(string_list *list, char *item) {
+  if (list->count + 1 >= list->capacity) {
+    const size_t capacity = list->capacity == 0 ? 64 : list->capacity * 2;
     char **items = realloc(list->items, capacity * sizeof(*items));
     if (items == NULL) return -1;
     list->items = items;
     list->capacity = capacity;
   }
-  char *item = malloc(length + 1);
-  if (item == NULL) return -1;
-  memcpy(item, bytes, length);
-  item[length] = '\0';
   list->items[list->count++] = item;
+  list->items[list->count] = NULL;
   return 0;
 }
 
-static int append_byte(char **buffer, size_t *length, size_t *capacity, int byte) {
-  if (*length >= INPUT_LIMIT) {
-    errno = E2BIG;
-    return -1;
-  }
-  if (*length == *capacity) {
-    size_t next = *capacity == 0 ? 128 : *capacity * 2;
-    if (next > INPUT_LIMIT) next = INPUT_LIMIT;
-    char *resized = realloc(*buffer, next);
-    if (resized == NULL) return -1;
-    *buffer = resized;
-    *capacity = next;
-  }
-  (*buffer)[(*length)++] = (char)byte;
-  return 0;
-}
-
-static int read_items(string_list *items, int nul, int line_mode) {
-  char *item = NULL;
-  size_t length = 0;
-  size_t capacity = 0;
-  int quote = 0;
-  int escaped = 0;
-  int started = 0;
-  size_t total = 0;
-  int byte;
-
-  while ((byte = fgetc(stdin)) != EOF) {
-    if (++total > INPUT_LIMIT) {
-      errno = E2BIG;
-      goto fail;
-    }
-    if (nul) {
-      if (byte == 0) {
-        if (append_item(items, item == NULL ? "" : item, length) != 0) goto fail;
-        length = 0;
-        started = 0;
-      } else if (append_byte(&item, &length, &capacity, byte) != 0) {
-        goto fail;
-      } else {
-        started = 1;
-      }
+// Reads the next input item: 1 when one was read, 0 at end of input, -1 on error.
+static int read_item(buffer *item, int nul, int line_mode) {
+  int quote = 0, started = 0, byte;
+  item->length = 0;
+  while ((byte = getchar()) != EOF) {
+    const int separator = nul ? byte == '\0'
+        : quote == 0 && (byte == '\n' || (!line_mode && isspace(byte)));
+    if (separator) {
+      if (nul || started) return push_byte(item, '\0') == 0 ? 1 : -1;
       continue;
     }
-
-    if (escaped) {
-      if (byte != '\n' && append_byte(&item, &length, &capacity, byte) != 0) goto fail;
-      started = 1;
-      escaped = 0;
-      continue;
-    }
-    if (byte == '\\' && quote != '\'') {
-      escaped = 1;
-      started = 1;
-      continue;
-    }
-    if ((byte == '\'' || byte == '"')) {
-      if (quote == 0) {
-        quote = byte;
-        started = 1;
-        continue;
-      }
-      if (quote == byte) {
-        quote = 0;
-        continue;
-      }
-    }
-    if (quote == 0 && (byte == '\n' || (!line_mode && isspace((unsigned char)byte)))) {
-      if (started) {
-        if (append_item(items, item == NULL ? "" : item, length) != 0) goto fail;
-        length = 0;
-        started = 0;
-      }
-      continue;
-    }
-    if (append_byte(&item, &length, &capacity, byte) != 0) goto fail;
     started = 1;
+    if (!nul && quote == 0 && byte == '\\') {
+      if ((byte = getchar()) == EOF) {
+        fputs("xargs: backslash at end of input\n", stderr);
+        return -1;
+      }
+    } else if (!nul && (byte == '\'' || byte == '"') && (quote == 0 || quote == byte)) {
+      quote = quote == 0 ? byte : 0;
+      continue;
+    }
+    if (push_byte(item, byte) != 0) return -1;
   }
-
   if (ferror(stdin)) {
     fprintf(stderr, "xargs: could not read stdin: %s\n", strerror(errno));
-    free(item);
     return -1;
   }
-  if (escaped || quote != 0) {
-    fputs(escaped ? "xargs: backslash at end of input\n"
-                  : "xargs: unterminated quote\n", stderr);
-    free(item);
+  if (quote != 0) {
+    fputs("xargs: unterminated quote\n", stderr);
     return -1;
   }
-  if (started && append_item(items, item == NULL ? "" : item, length) != 0) goto fail;
-  free(item);
-  return 0;
-
-fail:
-  fprintf(stderr,
-          "xargs: input exceeds the %d-byte/%d-argument limit or memory is exhausted\n",
-          INPUT_LIMIT, ARGUMENT_LIMIT);
-  free(item);
-  return -1;
-}
-
-static int regular_file(const char *path) {
-  struct stat metadata;
-  return stat(path, &metadata) == 0 && S_ISREG(metadata.st_mode);
-}
-
-static char *resolve_command(const char *name) {
-  if (strchr(name, '/') != NULL) return regular_file(name) ? strdup(name) : NULL;
-  const char *path = getenv("PATH");
-  if (path == NULL) path = "";
-  const size_t name_length = strlen(name);
-  const char *entry = path;
-  do {
-    const char *separator = strchr(entry, ':');
-    const size_t length = separator == NULL ? strlen(entry)
-                                             : (size_t)(separator - entry);
-    const char *directory = length == 0 ? "." : entry;
-    const size_t directory_length = length == 0 ? 1 : length;
-    if (directory_length <= SIZE_MAX - name_length - 2) {
-      char *candidate = malloc(directory_length + name_length + 2);
-      if (candidate == NULL) return NULL;
-      memcpy(candidate, directory, directory_length);
-      size_t offset = directory_length;
-      if (candidate[offset - 1] != '/') candidate[offset++] = '/';
-      memcpy(candidate + offset, name, name_length + 1);
-      if (regular_file(candidate)) return candidate;
-      free(candidate);
-    }
-    if (separator == NULL) break;
-    entry = separator + 1;
-  } while (1);
-  return NULL;
+  if (!started) return 0;
+  return push_byte(item, '\0') == 0 ? 1 : -1;
 }
 
 static char *replace_all(const char *input, const char *needle,
                          const char *replacement) {
-  const size_t input_length = strlen(input);
   const size_t needle_length = strlen(needle);
   const size_t replacement_length = strlen(replacement);
-  if (needle_length == 0) return strdup(input);
   size_t matches = 0;
   for (const char *cursor = input; (cursor = strstr(cursor, needle)) != NULL;
        cursor += needle_length) {
     matches++;
   }
-  if (replacement_length > needle_length &&
-      matches > (SIZE_MAX - input_length - 1) / (replacement_length - needle_length)) {
-    return NULL;
-  }
-  size_t result_length = input_length;
-  if (replacement_length >= needle_length) {
-    result_length += matches * (replacement_length - needle_length);
-  } else {
-    result_length -= matches * (needle_length - replacement_length);
-  }
-  char *result = malloc(result_length + 1);
+  char *result = malloc(strlen(input) + matches * replacement_length + 1);
   if (result == NULL) return NULL;
-  const char *source = input;
   char *destination = result;
   const char *match;
-  while ((match = strstr(source, needle)) != NULL) {
-    const size_t prefix = (size_t)(match - source);
-    memcpy(destination, source, prefix);
-    destination += prefix;
+  while ((match = strstr(input, needle)) != NULL) {
+    memcpy(destination, input, (size_t)(match - input));
+    destination += match - input;
     memcpy(destination, replacement, replacement_length);
     destination += replacement_length;
-    source = match + needle_length;
+    input = match + needle_length;
   }
-  strcpy(destination, source);
+  strcpy(destination, input);
   return result;
 }
 
@@ -239,141 +127,104 @@ static void trace_arguments(char **arguments) {
   fputc('\n', stderr);
 }
 
-static int execute(char **arguments, int count, int trace) {
-  char *path = resolve_command(arguments[0]);
-  if (path == NULL) {
-    fprintf(stderr, "xargs: %s: command not found\n", arguments[0]);
-    return 127;
+// Runs one command line and folds its status into xargs' own. Returns
+// nonzero when POSIX requires xargs to stop.
+static int execute(string_list *command, size_t owned_from, int trace, int *status) {
+  if (trace) trace_arguments(command->items);
+  const int result = run_program("xargs", (int)command->count, command->items,
+                                 getenv("PATH"), -1);
+  for (size_t index = owned_from; index < command->count; ++index) {
+    free(command->items[index]);
   }
-  if (trace) trace_arguments(arguments);
-  const int pid = dolly_spawn(path, count, arguments, 0, 1, 2);
-  free(path);
-  if (pid < 0) {
-    fprintf(stderr, "xargs: could not run %s: %s\n", arguments[0], strerror(-pid));
-    return 126;
-  }
-  int status = 126;
-  const int result = dolly_wait(pid, &status);
-  if (result != 0) {
-    fprintf(stderr, "xargs: could not wait for %s: %s\n",
-            arguments[0], strerror(-result));
-    return 126;
-  }
-  return status;
+  command->count = owned_from;
+  command->items[owned_from] = NULL;
+  if (result == 255) *status = 124;
+  else if (result == 126 || result == 127 || result == 130) *status = result;
+  else if (result != 0) *status = 123;
+  return result == 255 || result == 126 || result == 127 || result == 130;
 }
 
 static int parse_count(const char *text, size_t *value) {
   char *end = NULL;
   errno = 0;
-  unsigned long long parsed = strtoull(text, &end, 10);
-  if (errno != 0 || text[0] == '\0' || *end != '\0' || parsed == 0 ||
-      parsed > INT_MAX) return -1;
+  const unsigned long long parsed = text == NULL ? 0 : strtoull(text, &end, 10);
+  if (text == NULL || errno != 0 || text[0] == '\0' || *end != '\0' ||
+      parsed == 0 || parsed > INT_MAX) return -1;
   *value = (size_t)parsed;
   return 0;
 }
 
 int main(int argc, char **argv) {
-  int nul = 0;
-  int no_run_if_empty = 0;
-  int trace = 0;
-  size_t maximum = SIZE_MAX;
+  int nul = 0, no_run_if_empty = 0, trace = 0;
+  size_t maximum_items = SIZE_MAX, maximum_bytes = DEFAULT_COMMAND_BYTES;
   const char *replace = NULL;
   int index = 1;
-  for (; index < argc; ++index) {
+  for (; index < argc && argv[index][0] == '-' && argv[index][1] != '\0'; ++index) {
     const char *option = argv[index];
+    const char *value = option[2] != '\0' ? option + 2 : argv[index + 1];
+    const int consumes = strchr("nsIP", option[1]) != NULL && option[2] == '\0';
+    size_t parsed = 0;
     if (strcmp(option, "--") == 0) {
       index++;
       break;
     }
-    if (option[0] != '-' || option[1] == '\0') break;
     if (strcmp(option, "-0") == 0) nul = 1;
     else if (strcmp(option, "-r") == 0) no_run_if_empty = 1;
     else if (strcmp(option, "-t") == 0) trace = 1;
-    else if (option[1] == 'n') {
-      const char *value = option[2] == '\0' && ++index < argc ? argv[index]
-                                                               : option + 2;
-      if (parse_count(value, &maximum) != 0) {
-        fprintf(stderr, "xargs: invalid -n value: %s\n", value);
-        return 2;
-      }
-    } else if (option[1] == 'I') {
-      replace = option[2] == '\0' && ++index < argc ? argv[index] : option + 2;
-      if (replace[0] == '\0') {
-        fputs("xargs: -I requires a nonempty replacement string\n", stderr);
-        return 2;
-      }
-      maximum = 1;
-    } else if (option[1] == 'P') {
-      size_t parallel = 0;
-      const char *value = option[2] == '\0' && ++index < argc ? argv[index]
-                                                               : option + 2;
-      if (parse_count(value, &parallel) != 0 || parallel != 1) {
-        fputs("xargs: Dolly executes serially; only -P 1 is supported\n", stderr);
-        return 2;
-      }
-    } else {
+    else if (option[1] == 'n' && parse_count(value, &maximum_items) == 0) {}
+    else if (option[1] == 's' && parse_count(value, &maximum_bytes) == 0) {}
+    else if (option[1] == 'I' && value != NULL && value[0] != '\0') replace = value;
+    else if (option[1] == 'P' && parse_count(value, &parsed) == 0 && parsed == 1) {}
+    else {
+      if (option[1] == 'P') fputs("xargs: Dolly executes serially; only -P 1 is supported\n", stderr);
       usage();
-      return 2;
+      return 1;
     }
+    index += consumes;
   }
-  if (replace != NULL) {
-    maximum = 1;
-    no_run_if_empty = 1;
-  }
+  if (maximum_bytes > MAXIMUM_COMMAND_BYTES) maximum_bytes = MAXIMUM_COMMAND_BYTES;
 
-  char *default_command[] = {"echo"};
-  char **base = index < argc ? argv + index : default_command;
-  const size_t base_count = index < argc ? (size_t)(argc - index) : 1;
-  string_list items = {0};
-  if (read_items(&items, nul, replace != NULL) != 0) {
-    dispose_list(&items);
-    return 1;
+  char *echo[] = {"echo", NULL};
+  char **base = index < argc ? argv + index : echo;
+  string_list command = {0};
+  size_t base_bytes = 0;
+  for (char **argument = base; *argument != NULL; ++argument) {
+    base_bytes += strlen(*argument) + 1;
+    if (push_item(&command, *argument) != 0) return 1;
   }
-  if (items.count == 0 && no_run_if_empty) {
-    dispose_list(&items);
-    return 0;
-  }
-
-  const size_t runs = items.count == 0 ? 1 : 1 + (items.count - 1) / maximum;
-  int final_status = 0;
-  for (size_t run = 0; run < runs; ++run) {
-    const size_t first = run * maximum;
-    size_t count = items.count == 0 ? 0 : items.count - first;
-    if (count > maximum) count = maximum;
-    const size_t argument_count = replace == NULL ? base_count + count : base_count;
-    char **arguments = calloc(argument_count + 1, sizeof(*arguments));
-    if (arguments == NULL) {
-      fputs("xargs: out of memory\n", stderr);
-      final_status = 1;
-      break;
-    }
-    int allocation_failed = 0;
-    for (size_t argument = 0; argument < base_count; ++argument) {
-      arguments[argument] = replace == NULL
-          ? base[argument]
-          : replace_all(base[argument], replace, items.items[first]);
-      if (arguments[argument] == NULL) allocation_failed = 1;
-    }
-    if (replace == NULL) {
-      for (size_t item = 0; item < count; ++item) {
-        arguments[base_count + item] = items.items[first + item];
-      }
-    }
-    int status = allocation_failed ? 126
-                                   : execute(arguments, (int)argument_count, trace);
+  const size_t base_count = command.count;
+  size_t bytes = base_bytes;
+  buffer item = {0};
+  int status = 0, ran = 0, result;
+  while ((result = read_item(&item, nul, replace != NULL)) > 0) {
     if (replace != NULL) {
       for (size_t argument = 0; argument < base_count; ++argument) {
-        free(arguments[argument]);
+        command.items[argument] = replace_all(base[argument], replace, item.bytes);
+        if (command.items[argument] == NULL) return 1;
       }
+      if (execute(&command, 0, trace, &status)) break;
+      command.count = base_count;
+      continue;
     }
-    free(arguments);
-    if (allocation_failed) fputs("xargs: out of memory\n", stderr);
-    if (status == 255) final_status = 124;
-    else if (status == 126 || status == 127 || status == 130) final_status = status;
-    else if (status != 0 && final_status == 0) final_status = 123;
-    if (final_status == 124 || final_status == 126 ||
-        final_status == 127 || final_status == 130) break;
+    if (base_bytes + item.length > maximum_bytes) {
+      fprintf(stderr, "xargs: argument does not fit the %zu-byte command line\n",
+              maximum_bytes);
+      status = 1;
+      break;
+    }
+    if (command.count - base_count == maximum_items || bytes + item.length > maximum_bytes) {
+      ran = 1;
+      if (execute(&command, base_count, trace, &status)) break;
+      bytes = base_bytes;
+    }
+    char *copy = strdup(item.bytes);
+    if (copy == NULL || push_item(&command, copy) != 0) return 1;
+    bytes += item.length;
   }
-  dispose_list(&items);
-  return final_status;
+  if (result < 0) status = 1;
+  if (result == 0 && replace == NULL &&
+      (command.count > base_count || (!ran && !no_run_if_empty))) {
+    execute(&command, base_count, trace, &status);
+  }
+  return status;
 }

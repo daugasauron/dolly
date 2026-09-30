@@ -101,7 +101,7 @@ directories, rejects absolute/traversal names, and writes solely to WasmFS.
 | Dolly C++ SDK | Pinned Emscripten libc++/libc++abi process archives are part of the external compiler SDK; their matching headers are archived separately | `cpp.dm` installs `/usr/include/c++/v1` and exports the genuine archives in `/usr/lib/dolly/process`; no handwritten standard-library substitutes |
 | GNU Make 4.4.1 | Pinned release is configured and a reviewed serial Dolly adapter is applied | `/usr/bin/make`; recipes run synchronously through `/bin/slop` |
 | Samurai 1.3 | A pinned source tree receives a small serial Dolly scheduler patch and is compiled as its ordinary 13 C translation units | `/usr/bin/ninja` executes Ninja manifests through Dolly's in-Wasm command lifecycle |
-| sbase | Exact source/helper subset is archived | separate `grep`, `sed`, `head`, `wc`, and `printf` executables |
+| sbase | Pinned upstream sources and Makefile are archived | sbase's own Makefile builds the POSIX file and text commands in `system-build` |
 | One True Awk | Pinned Bison generates parser C/header; sources are archived | target `maketab` runs, then `/bin/awk` is compiled |
 | curl | Official headers/license plus Dolly Fetch implementation are served | `/usr/lib/libcurl.a` and `/usr/bin/curl` over the broker |
 | zlib | Selected pinned upstream C tree is archived | `/usr/lib/libz.a` and public headers |

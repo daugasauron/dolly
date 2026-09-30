@@ -238,29 +238,32 @@ int main(int argc, char **argv) {
 
   CURL *curl = curl_easy_init();
   if (curl == NULL) goto memory_error_open;
-  curl_easy_setopt(curl, CURLOPT_URL, url);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, output);
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, follow ? 1L : 0L);
-  curl_easy_setopt(curl, CURLOPT_FAILONERROR, fail_status ? 1L : 0L);
-  curl_easy_setopt(curl, CURLOPT_NOBODY, nobody ? 1L : 0L);
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, verbose ? 1L : 0L);
-  if (method != NULL) curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
-  if (user_agent != NULL) curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
-  if (user != NULL) curl_easy_setopt(curl, CURLOPT_USERPWD, user);
-  if (range != NULL) curl_easy_setopt(curl, CURLOPT_RANGE, range);
-  if (compressed) curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
-  if (headers != NULL) curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+  // Fail explicitly when libcurl rejects an option.
+  CURLcode result = CURLE_OK;
+#define SET(option, value) \
+  if (result == CURLE_OK) result = curl_easy_setopt(curl, option, value)
+  SET(CURLOPT_URL, url);
+  SET(CURLOPT_WRITEDATA, output);
+  SET(CURLOPT_FOLLOWLOCATION, follow ? 1L : 0L);
+  SET(CURLOPT_FAILONERROR, fail_status ? 1L : 0L);
+  SET(CURLOPT_NOBODY, nobody ? 1L : 0L);
+  SET(CURLOPT_VERBOSE, verbose ? 1L : 0L);
+  if (method != NULL) SET(CURLOPT_CUSTOMREQUEST, method);
+  if (user_agent != NULL) SET(CURLOPT_USERAGENT, user_agent);
+  if (user != NULL) SET(CURLOPT_USERPWD, user);
+  if (range != NULL) SET(CURLOPT_RANGE, range);
+  if (compressed) SET(CURLOPT_ACCEPT_ENCODING, "");
+  if (headers != NULL) SET(CURLOPT_HTTPHEADER, headers);
   if (body != NULL) {
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)body_length);
+    SET(CURLOPT_POSTFIELDS, body);
+    SET(CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)body_length);
   }
   if (header_output != NULL || include_headers || nobody) {
-    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, write_file);
-    curl_easy_setopt(curl, CURLOPT_HEADERDATA,
-                     header_output != NULL ? header_output : output);
+    SET(CURLOPT_HEADERFUNCTION, write_file);
+    SET(CURLOPT_HEADERDATA, header_output != NULL ? header_output : output);
   }
-
-  CURLcode result = curl_easy_perform(curl);
+#undef SET
+  if (result == CURLE_OK) result = curl_easy_perform(curl);
   long response_code = 0;
   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
   if (write_format != NULL) write_out(write_format, curl);

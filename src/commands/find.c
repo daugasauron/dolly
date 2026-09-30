@@ -1,17 +1,10 @@
-#define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700
 
 #include <dirent.h>
-#include <errno.h>
-#include <limits.h>
+#include <fnmatch.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-#include <dolly/runtime.h>
+#include "run-program.h"
 
 enum {
   NODE_LIMIT = 4096,
@@ -140,11 +133,6 @@ static int append_copy(string_list *list, const char *item) {
   return 0;
 }
 
-static int regular_file(const char *path) {
-  struct stat metadata;
-  return stat(path, &metadata) == 0 && S_ISREG(metadata.st_mode);
-}
-
 static char *join_path(const char *directory, const char *name) {
   const size_t directory_length = strlen(directory);
   const size_t name_length = strlen(name);
@@ -175,105 +163,6 @@ static char *root_name(const char *path) {
   return name;
 }
 
-// Bytewise shell-pattern matching is command-local so find does not grow the
-// machine ABI with libc's fnmatch entry point. Dolly paths are byte strings;
-// locale-aware character classes are deliberately outside this finite subset.
-static int wildcard_match(const char *pattern, const char *text) {
-  while (*pattern != '\0') {
-    if (*pattern == '*') {
-      while (*pattern == '*') pattern++;
-      if (*pattern == '\0') return 1;
-      for (; *text != '\0'; text++) {
-        if (wildcard_match(pattern, text)) return 1;
-      }
-      return wildcard_match(pattern, text);
-    }
-    if (*pattern == '?') {
-      if (*text == '\0') return 0;
-      pattern++;
-      text++;
-      continue;
-    }
-    if (*pattern == '[') {
-      if (*text == '\0') return 0;
-      pattern++;
-      int matched = 0;
-      const int inverted = *pattern == '!' || *pattern == '^';
-      if (inverted) pattern++;
-      while (*pattern != '\0' && *pattern != ']') {
-        const unsigned char first = (unsigned char)*pattern++;
-        if (*pattern == '-' && pattern[1] != '\0' && pattern[1] != ']') {
-          pattern++;
-          const unsigned char last = (unsigned char)*pattern++;
-          if ((unsigned char)*text >= first && (unsigned char)*text <= last) {
-            matched = 1;
-          }
-        } else if ((unsigned char)*text == first) {
-          matched = 1;
-        }
-      }
-      if (*pattern != ']' || matched == inverted) return 0;
-      pattern++;
-      text++;
-      continue;
-    }
-    if (*pattern++ != *text++) return 0;
-  }
-  return *text == '\0';
-}
-
-static char *resolve_command(const char *name) {
-  if (strchr(name, '/') != NULL) return regular_file(name) ? strdup(name) : NULL;
-  const char *search = getenv("PATH");
-  if (search == NULL) search = "";
-  const char *entry = search;
-  do {
-    const char *separator = strchr(entry, ':');
-    const size_t length = separator == NULL ? strlen(entry)
-                                             : (size_t)(separator - entry);
-    const char *directory = length == 0 ? "." : entry;
-    const size_t directory_length = length == 0 ? 1 : length;
-    const size_t name_length = strlen(name);
-    if (directory_length <= SIZE_MAX - name_length - 2) {
-      char *candidate = malloc(directory_length + name_length + 2);
-      if (candidate == NULL) return NULL;
-      memcpy(candidate, directory, directory_length);
-      size_t offset = directory_length;
-      if (candidate[offset - 1] != '/') candidate[offset++] = '/';
-      memcpy(candidate + offset, name, name_length + 1);
-      if (regular_file(candidate)) return candidate;
-      free(candidate);
-    }
-    if (separator == NULL) break;
-    entry = separator + 1;
-  } while (1);
-  errno = ENOENT;
-  return NULL;
-}
-
-static int run_command(char **arguments, size_t count) {
-  char *path = resolve_command(arguments[0]);
-  if (path == NULL) {
-    fprintf(stderr, "find: %s: command not found\n", arguments[0]);
-    return 127;
-  }
-  const int pid = dolly_spawn(path, (int)count, arguments, 0, 1, 2);
-  free(path);
-  if (pid < 0) {
-    fprintf(stderr, "find: could not run %s: %s\n",
-            arguments[0], strerror(-pid));
-    return 126;
-  }
-  int status = 126;
-  const int waited = dolly_wait(pid, &status);
-  if (waited != 0) {
-    fprintf(stderr, "find: could not wait for %s: %s\n",
-            arguments[0], strerror(-waited));
-    return 126;
-  }
-  return status;
-}
-
 static int flush_execution(exec_spec *execution) {
   if (!execution->batched || execution->pending.count == 0) return 0;
   const size_t prefix_count = execution->count - 1;
@@ -294,7 +183,7 @@ static int flush_execution(exec_spec *execution) {
   for (size_t index = 0; index < execution->pending.count; ++index) {
     arguments[prefix_count + index] = execution->pending.items[index];
   }
-  const int status = run_command(arguments, count);
+  const int status = run_program("find", (int)count, arguments, getenv("PATH"), -1);
   free(arguments);
   dispose_strings(&execution->pending);
   if (status == 130) {
@@ -311,7 +200,8 @@ static int queue_execution(exec_spec *execution, const char *path) {
   if (execution->pending.count != 0 &&
       (execution->pending.count >= EXEC_BATCH_ITEMS ||
        length > EXEC_BATCH_BYTES - execution->pending.bytes)) {
-    if (flush_execution(execution) != 0) return 0;
+    (void)flush_execution(execution);
+    if (state.quit) return 0;
   }
   if (append_copy(&execution->pending, path) != 0) {
     fputs("find: out of memory while collecting -exec paths\n", stderr);
@@ -335,7 +225,8 @@ static int immediate_execution(exec_spec *execution, const char *path) {
                            ? (char *)path
                            : execution->arguments[index];
   }
-  const int status = run_command(arguments, execution->count);
+  const int status = run_program("find", (int)execution->count, arguments,
+                                 getenv("PATH"), -1);
   free(arguments);
   if (status == 130) {
     state.interrupted = 1;
@@ -635,9 +526,9 @@ static int evaluate_expression(expression *node, evaluation *item) {
     case NODE_NOT:
       return !evaluate_expression(node->left, item);
     case NODE_NAME:
-      return wildcard_match(node->text, item->name);
+      return fnmatch(node->text, item->name, 0) == 0;
     case NODE_PATH:
-      return wildcard_match(node->text, item->path);
+      return fnmatch(node->text, item->path, 0) == 0;
     case NODE_TYPE:
       return (node->type == 'f' && S_ISREG(item->metadata->st_mode)) ||
              (node->type == 'd' && S_ISDIR(item->metadata->st_mode)) ||
