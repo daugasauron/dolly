@@ -93,7 +93,8 @@ program, built from a [Dollyfile](dollyfile.md). Core images:
 flowchart TD
   seed["compiler seed<br/>dist/dolly.data"] -- "root build" --> sb["system-build<br/>cc, core tools, make, tar"]
   sb --> st["system-tools<br/>sbase, git, curl, awk, /bin/sh"]
-  sb --> gb["ghostty-build<br/>Zig, Ghostty"]
+  sb --> zb["zig-build<br/>Zig"]
+  zb --> gb["ghostty-build<br/>Ghostty"]
   st --> sys["system<br/>display, sessions"]
   gb -. "COPY plugin + font" .-> sys
   sys --> def["default"]
@@ -107,6 +108,7 @@ flowchart TD
 
 - Recipes: [`Dollyfile-system-build`](../Dollyfile-system-build),
   [`Dollyfile-system-tools`](../Dollyfile-system-tools),
+  [`Dollyfile-zig-build`](../Dollyfile-zig-build),
   [`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build),
   [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default),
   [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), [`Dollyfile-audio-sdk`](../Dollyfile-audio-sdk);

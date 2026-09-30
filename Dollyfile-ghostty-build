@@ -1,9 +1,8 @@
 DOLLY 4
 IMAGE ghostty-build
 
-FROM HOST /Dollyfile-system-build f320855c6e680ecf68c7b3a5824538c10fab5b5d66ee8f72edb0d1b632d5ecfe
+FROM HOST /Dollyfile-zig-build b24743c4da540cbfa1f91af9c5be087adb74b4f82c4dd74ab43a5d6d048bab6d
 
-USE HOST /modules/zig.dm 7bc6778c9b91a68140873aecef0ff93a37ba58d1fc1d064d64ea7791b2c5d351
-USE HOST /modules/ghostty.dm ee73255e7dfcec60e01127016e8a90ccf635d313d29e9df860e14c104beb6b24
+USE HOST /modules/ghostty.dm 1ed26793237f68e30dff364c47eda610ad4f1255b62851819861a0f3c09121e2
 
 ENTRY /bin/slop

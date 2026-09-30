@@ -1,6 +1,6 @@
 # Build Zig completely inside the userspace
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: toolchain,bootstrap,zig
 
@@ -27,8 +27,45 @@ Feasible now without LLVM. Measurements in `demos/zig-self-host/README.md` on th
 - Next: replace `zig.dm` with these stages, switch `ghostty.dm` to the C path,
   drop `build-native-zig.sh`, the CMake zig target and the docs/sources.md row.
 
-## Test to carry over (2026-10-01)
+## Result (2026-10-01, branch `work/zig-self-host`)
 
-From the closed `20261001-014500-zig-sdk-browser`: a browser check that the
-in-sandbox Zig compiles a small Zig program and a C interop case (the old
-`test/fixtures/zig-sdk.mjs` is in `git show core/host-modules~1:test/fixtures/zig-sdk.mjs`).
+The host exception is gone: `build-native-zig.sh`, `fetch-zig-host.sh`, the
+CMake `dolly-process-zig` target, `src/zig/native-*.zig`, `src/process/zig.c`,
+the host Zig pins and the docs/sources.md row. The seed never held `zig.wasm`,
+so the image build ID is unchanged and `system-build`/`system-tools` are reused.
+
+- New image `zig-build` (`FROM system-build`, `modules/zig.dm`): `cc` builds
+  WAMR plus `src/zig/zig1.c`; zig1 runs upstream `zig1.wasm` to emit zig2 and
+  compiler_rt as C with `src/zig/config.zig` (`dev = .cbe`); `cc -O2` makes
+  `/usr/bin/zig`. Inputs: `default/zig.tar` (patched Zig 0.16 source, SDK) and
+  `default/wamr.tar` (WAMR `DOLLY_WAMR_COMMIT`, binding), both SHA-256 pinned.
+- `ghostty-build` is `FROM zig-build`; `ghostty.dm` emits Ghostty VT and
+  compiler_rt as C and compiles them with `cc` (plus strlen/memcmp/bcmp, which
+  C-output compiler_rt leaves to libc). A separate image keeps display edits
+  from rebuilding Zig.
+- The Zig patch keeps only the std and self-path hunks; the LLVM hunks are gone.
+
+Measured in headless Chrome, two builds of `npm run image -- default`:
+
+| Step | Time | Renderer peak RSS |
+| --- | --- | --- |
+| cc WAMR + binding | 5 s | 1.3 GiB |
+| zig1 → zig2.c | 254–261 s | 3.1 GiB |
+| zig1 → compiler_rt.c | 26 s | 4.4 GiB |
+| cc -O2 zig2.c | 104 s | 5.2 GiB |
+| cc compiler_rt.c, link | 4 s | |
+| `zig-build` image, packaging included | 397–403 s | |
+| `ghostty-build` (zig → C 17 s, cc 19 s) | 43–44 s (host Zig: 36–41 s) | 1.8 GiB |
+
+`/usr/bin/zig` is 8.2 MB (host-built `zig.wasm`: 48 MB); `libdisplay.so` is
+1,644,382 bytes (LLVM Zig: 1,007,438); `ghostty-build` snapshot 209 MB (248 MB).
+Renderer peak includes the kernel and exited processes' memories not yet
+collected; the spike reported 3.3 GB for the same steps.
+
+Verification: `node --test test/*.test.mjs` (257 pass), `node test/terminal-browser.mjs`
+and `node test/core-browser.mjs` pass in Chromium and Firefox on the rebuilt
+`default`; `node test/site-browser.mjs chromium` passes; `test/zig-sdk.artifacts.mjs`
+passes. Merging needs a re-pin and a rebuild of `zig-build`, `ghostty-build`
+and every image that copies the display.
+
+Follow-ups: `20261001-091000-zig-follow-ups`.

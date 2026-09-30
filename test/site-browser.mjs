@@ -49,14 +49,14 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   await page.locator("#shortcuts").waitFor();
 
   // A large source link is a verified scripted download of the exact bytes.
-  await page.goto(`${origin}${prefix}/view/ghostty-build/modules/zig/`);
+  await page.goto(`${origin}${prefix}/view/zig-build/modules/zig/`);
   assert.ok(await page.locator("pre .line").count() > 2);
-  const link = page.locator('a.source[href$="/static/default/zig.wasm"]');
+  const link = page.locator('a.source[href$="/static/default/zig.tar"]');
   const saved = page.waitForEvent("download", { timeout: 120000 });
   await link.click();
   const download = await saved;
-  assert.equal(download.suggestedFilename(), "zig.wasm");
-  const expected = await readFile(`${root}dist/static/default/zig.wasm`);
+  assert.equal(download.suggestedFilename(), "zig.tar");
+  const expected = await readFile(`${root}dist/static/default/zig.tar`);
   assert.ok(expected.equals(await readFile(await download.path())), "downloaded source differs from the served file");
 
   // A prefixed deployment without isolation headers boots from packs only.

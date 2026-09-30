@@ -22,17 +22,35 @@ SLOP tar \
   -xf /tmp/uucode.tar \
   -C /
 
+# With -ofmt=c, compiler_rt leaves these to the C library, which the LLVM
+# path's compiler_rt supplies. A kernel plugin has no C library to import them from.
+FILE /tmp/ghostty/string.c
+    #include <stddef.h>
+    size_t strlen(const char *text) {
+      size_t length = 0;
+      while (text[length]) length++;
+      return length;
+    }
+    int memcmp(const void *left, const void *right, size_t size) {
+      const unsigned char *a = left, *b = right;
+      for (size_t index = 0; index < size; index++)
+        if (a[index] != b[index]) return a[index] - b[index];
+      return 0;
+    }
+    int bcmp(const void *left, const void *right, size_t size) {
+      return memcmp(left, right, size);
+    }
+
+# Zig emits Ghostty VT and compiler_rt as C; cc compiles them. zig.h passes
+# usize as uint64_t *, and @returnAddress would import an Emscripten helper.
 FILE /tmp/ghostty/Makefile
     .RECIPEPREFIX := >
+    ZIGFLAGS := -OReleaseSmall -target wasm64-emscripten -mcpu=generic+atomics -fsingle-threaded -ofmt=c
+    CFLAGS := -O2 -std=c99 -fno-strict-aliasing -Wno-incompatible-pointer-types -I /usr/lib/zig
     all: /usr/lib/libghostty-vt.a /usr/lib/libdisplay.so
-    /tmp/ghostty-vt.o:
+    /tmp/ghostty/ghostty-vt.c:
     >zig build-obj \
-    >  -OReleaseSmall \
-    >  -target wasm64-emscripten \
-    >  -mcpu=generic+atomics \
-    >  -fPIC \
-    >  -fsingle-threaded \
-    >  -fcompiler-rt \
+    >  $(ZIGFLAGS) \
     >  -lc \
     >  --name ghostty-vt \
     >  --dep build_options \
@@ -68,7 +86,15 @@ FILE /tmp/ghostty/Makefile
     >  --dep storage.zig \
     >  -Mbuild_config=/usr/src/ghostty/src/build/uucode_config.zig \
     >  -femit-bin=$@
-    /usr/lib/libghostty-vt.a: /tmp/ghostty-vt.o
+    /tmp/ghostty/compiler_rt.c:
+    >zig build-obj $(ZIGFLAGS) --name compiler_rt -Mroot=/usr/lib/zig/compiler_rt.zig -femit-bin=$@
+    /tmp/ghostty/ghostty-vt.o: /tmp/ghostty/ghostty-vt.c
+    >cc -c $(CFLAGS) '-D__builtin_return_address(level)=0' -o $@ $<
+    /tmp/ghostty/compiler_rt.o: /tmp/ghostty/compiler_rt.c
+    >cc -c $(CFLAGS) -o $@ $<
+    /tmp/ghostty/string.o: /tmp/ghostty/string.c
+    >cc -c -O2 -fno-builtin -o $@ $<
+    /usr/lib/libghostty-vt.a: /tmp/ghostty/ghostty-vt.o /tmp/ghostty/compiler_rt.o /tmp/ghostty/string.o
     >ar rcs $@ $^
     /usr/lib/libdisplay.so: /usr/src/dolly/ghostty/display.c /usr/lib/libghostty-vt.a
     >cc \
@@ -95,7 +121,6 @@ EXPORTS HEADER ghostty-vt /usr/include/ghostty
 SLOP rm \
   -rf \
   /tmp/ghostty \
-  /tmp/ghostty-vt.o \
   /tmp/ghostty.tar \
   /tmp/uucode.tar \
   /usr/src/dolly/ghostty \
