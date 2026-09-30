@@ -68,7 +68,7 @@ Node while producing the same final text. Binary writes remain bytes.
 
 ```sh
 node --test demos/javascript/test/utf8.test.mjs
-DOLLY_IMAGE=pi DOLLY_BROWSER_MODE=utf8 ./scripts/test-browser.sh
+npm run test:demos -- javascript
 ```
 
 Only revisit the engine when an engine-level incompatibility, rather than a

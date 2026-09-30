@@ -11,6 +11,8 @@ An experimental Rust toolchain: an external compiler seed, Patti, and tools buil
 - `fd-build`: Build fd with Patti and retain fd.
 - `protox-build`: Source-built protobuf compiler for Codex.
 
+Browser test: `npm run test:demos -- rust` (`demos/rust/test/rust-browser.mjs`); its Tokio check needs `python3 demos/codex/prepare-codex-sources.py` once.
+
 ## Compiler seed and source-built tools
 
 `npm run build:rust-seed` explicitly builds the external Rust 1.98.1 / LLVM

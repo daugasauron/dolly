@@ -10,6 +10,8 @@ runtime over the shared filesystem, process API and HTTP broker.
 - `pi-runtime`: Reusable Pi and JavaScript runtime.
 - `pi-build`: Pi packages compiled from pinned TypeScript sources.
 
+Browser test: `npm run test:demos -- pi` (`demos/pi/test/pi-browser.mjs`); it also checks the ripgrep and fd from the Rust demo.
+
 ## Build
 
 `/usr/bin/tsc` runs the pinned official TypeScript compiler inside Dolly and
