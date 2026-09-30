@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 import { parserRecipes, runDollyfileCases } from "./fixtures/dollyfile-cases.mjs";
+import { buildBufferReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-system-snapshot.mjs";
 
@@ -67,6 +68,9 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
     ...[...parserRecipes.keys()].filter(path => path.startsWith("/modules/"))
       .map(path => ({ origin: server.origin, path, methods: ["GET"] })),
   ] } });
+  // The rebuild screen's log and the in-page builder's reuse of its inputs.
+  assert.equal(await shell.evaluate(buildLogProof), true);
+  assert.match(await shell.evaluate(buildBufferReuse), /^[0-9a-f]{64}$/);
   assert.equal(await shell.evaluate(async () => {
     const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
     const { instance } = await WebAssembly.instantiateStreaming(fetch("/dist/dolly-snapshot-0.wasm"), { env: { memory } });

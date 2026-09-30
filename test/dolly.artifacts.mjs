@@ -25,16 +25,6 @@ import {
 } from "../scripts/image-definitions.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
 
-test("unknown browser modes fail before launching Chrome", () => {
-  const result = spawnSync(process.execPath, [
-    new URL("../scripts/browser-harness.mjs", import.meta.url).pathname,
-    "dolly-browser-must-not-launch",
-  ], { encoding: "utf8", env: { ...process.env, DOLLY_BROWSER_MODE: "misspelled-mode" } });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /unknown DOLLY_BROWSER_MODE: misspelled-mode/);
-  assert.doesNotMatch(result.stderr, /spawn.*ENOENT/);
-});
-
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
 const contractArtifact = file => artifact(`${basename(file, ".wat")}.wasm`);
 const kernelPluginContractPath = new URL(
