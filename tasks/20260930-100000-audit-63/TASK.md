@@ -27,3 +27,11 @@ Core files contain no demo names; demos own their scenarios, preparation and tes
 ## Done when
 
 - `grep` for demo names in core files returns nothing; demos still build and pass their checks.
+
+## Progress (2026-10-01)
+
+- The legacy harness with its demo modes and fixtures is deleted; every demo owns
+  its Playwright tests in `demos/NAME/test/`.
+- Remaining: `custom.html` links the Studio route; `test/dolly.artifacts.mjs`
+  keeps a per-image program map with demo names; `package.json` has
+  `pi:census` and `build:rust-seed`.

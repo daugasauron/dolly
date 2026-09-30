@@ -30,3 +30,14 @@ Authority code is short and reviewable; test hooks are separated from production
 
 - Line count of trusted JS reduced; duplicates removed; test hooks isolated; behavior tests
   pass.
+
+## Progress (2026-10-01)
+
+- The page shell knows no module: display input, session UI and build admission
+  moved into their modules (`src/browser.mjs` 792 -> 376 lines); session restore
+  moved from the runtime Worker into the snapshot module.
+- Duplicates removed: seven hex encoders, three dylink readers, a second
+  `MAX_DOLLYFILE_BYTES`, a second `sha256`, the supervisor's stop sequence,
+  unused spawn options, audio counters, dead display methods.
+- Remaining: the test helpers in `window.__dolly` (submit, visible text, waits)
+  still ship in the page; 54 test files and about 20 page launch points use them.
