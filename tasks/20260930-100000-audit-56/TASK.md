@@ -24,3 +24,12 @@ Only referenced scripts and images remain.
 ## Done when
 
 - Unreferenced scripts/images removed or given a consumer; plan still resolves all images.
+
+## Progress (2026-10-01)
+
+Deleted `scripts/test-site-release.mjs`: nothing referenced it and it failed
+against the current release (it expected "snapshot identity mismatch" where
+verification now reports "release image inputs mismatch" first). Tamper
+detection is covered by `test/site-release.test.mjs` ("release seal covers
+complete file contents, rejects changes and symlinks"). The `fetch-*.sh`
+scripts are all referenced; `Dollyfile-openal-build` remains.
