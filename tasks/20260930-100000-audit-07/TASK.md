@@ -27,3 +27,10 @@ launched; cheap validation precedes compilation.
 - A raw-ABI spawn with an out-of-range deadline fails with EINVAL and leaves the parent running.
 - An invalid executable fails only that spawn (existing 126 fixtures) without affecting the
   shell.
+
+## Progress (2026-10-01)
+
+Deadlines more than a day away return `EINVAL` from the kernel; each launch
+has its own error handling and ABI checks run before compilation (`26277ef`).
+The 126 fixtures in `test/core-browser.mjs` cover invalid executables.
+Missing: a raw-ABI spawn with an out-of-range deadline.

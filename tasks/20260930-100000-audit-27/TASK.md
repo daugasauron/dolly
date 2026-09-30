@@ -1,6 +1,6 @@
 # Slop ${X:?} and error expansions do not abort the script
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: bug,slop,core
 
@@ -23,3 +23,9 @@ A `${X:?}` failure in a non-interactive shell exits the shell with non-zero stat
 
 - Native Slop test: script stops at `${X:?}` and returns non-zero; interactive shell prints the
   error and continues.
+
+## Result (2026-10-01)
+
+`${X:?}`, arithmetic and other expansion errors exit a non-interactive shell
+with status 1 (`f70583c`). Cases "unset parameter error exits the shell" and
+"arithmetic error exits the shell" pass natively and in the browser.

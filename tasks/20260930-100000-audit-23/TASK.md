@@ -1,6 +1,6 @@
 # Browser boundary documentation drift
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: doc,boundary
 
@@ -25,3 +25,9 @@ The review map lists every authority and its bounds as implemented.
 ## Done when
 
 - Docs updated with the boundary fixes; stale handoff notes removed.
+
+## Result (2026-10-01)
+
+`docs/security.md`, `docs/download.md` and `docs/http-concurrency-work.md` are
+gone (`d8fa8c4`, `0ff7e26`); `docs/browser-boundary.md` lists the IndexedDB
+cache, the `build@0` build admission and loopback/LAN reachability.

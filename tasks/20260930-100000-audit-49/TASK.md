@@ -1,6 +1,6 @@
 # Dollyfile documentation and tooling drift
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: dollyfile,doc
 
@@ -23,3 +23,9 @@ The spec describes the implemented language; lint runs in the source test suite.
 ## Done when
 
 - Docs corrected; lint wired into `npm run test:source`; dead helpers removed.
+
+## Result (2026-10-01)
+
+`docs/dollyfile.md` matches the executor, the "V3" wording, `DOLLY 3` and
+`sourceLink` are gone (`6366feb`, `76a941a`), and the lint runs in
+`npm run test:source` ("every catalog recipe graph lints").

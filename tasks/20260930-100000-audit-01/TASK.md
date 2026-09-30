@@ -1,6 +1,6 @@
 # Reading /dev/stdin blocks the kernel thread and ignores Ctrl+C
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: bug,core,kernel,lifecycle
 
@@ -34,3 +34,13 @@ process's descriptors 0-2, or fail explicitly; the kernel thread never blocks on
   normal interrupt latency and `echo x | cat /dev/stdin` prints `x`.
 - `echo hi > /dev/stdout` writes to the caller's stdout (visible in a pipeline).
 - No kernel code path performs an unbounded atomic wait on the supervisor thread.
+
+## Result (2026-10-01)
+
+Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
+descriptor 0, 1 or 2 (`standard_stream` in `src/process-kernel.c`, `26277ef`),
+and the kernel never reads WasmFS stdin (`_wasmfs_stdin_get_char` returns -1;
+the terminal wait was deleted in `e76df58`). `test/core-browser.mjs` interrupts
+`cat /dev/stdin` with Ctrl+C (status 130, shell alive); `src/process/pipe-check.c`
+opens `/dev/stdin` and `/dev/stdout` inside a pipeline from
+`test/fixtures/process-smoke.mjs`. Both pass in Chrome and Firefox.

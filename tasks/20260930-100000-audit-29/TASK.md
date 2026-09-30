@@ -1,6 +1,6 @@
 # Slop assignment prefixes do not see earlier assignments
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: bug,slop,core
 
@@ -22,3 +22,8 @@ Assignments are performed left to right, each visible to later words.
 ## Done when
 
 - Native Slop test for `a=x b=$a` and `a=x b=$a cmd` semantics.
+
+## Result (2026-10-01)
+
+Assignment prefixes apply from left to right (`f70583c`). The case runs in `test/slop-browser.mjs` (Chrome and Firefox) from `test/fixtures/slop-cases.mjs`:
+"assignments apply from left to right".

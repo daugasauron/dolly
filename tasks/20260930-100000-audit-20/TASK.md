@@ -25,3 +25,10 @@ Handshake fields are fully validated; bad frames fail visibly; paste is all-or-n
 ## Done when
 
 - Unit tests with malformed handshakes/frames; oversized graphics paste is rejected whole.
+
+## Progress (2026-10-01)
+
+The display handshake rejects a zero event capacity and out-of-range regions,
+a bad frame is fatal, and paste is all or nothing (`095cae9`);
+`test/terminal-ring.test.mjs` covers the handshake and paste. Missing: a test
+with a malformed frame.

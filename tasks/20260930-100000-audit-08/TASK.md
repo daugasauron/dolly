@@ -28,3 +28,11 @@ bound; shared memory is read once.
 
 - Bounds are enforced and exercised by tests that submit oversized values and observe an
   explicit error instead of kernel memory growth.
+
+## Progress (2026-10-01)
+
+HTTP body staging is capped at 8 MiB (`E2BIG`, tested by
+`src/process/http-check.c` from `test/network-browser.mjs`) and freed when a
+thread or process ends. Trusted reads of `/etc/dolly/entry`, `/etc/dolly/image`
+and the compiler trace use `readBoundedFile`; the clock id is read once.
+Missing: tests for the boot-file bounds.

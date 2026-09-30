@@ -23,3 +23,9 @@ Correct distribution-name validation and marker evaluation, or delegation to pip
 ## Done when
 
 - Python image test installs a package with markers and rejects a mismatched distribution.
+
+## Progress (2026-10-01)
+
+Bonnie checks the PyPI name and evaluates markers (`313783d`);
+`demos/python/test/recipes.test.mjs` covers it under host Python. Missing: the
+Python image test from "Done when".

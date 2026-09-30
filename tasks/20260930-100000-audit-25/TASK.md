@@ -1,6 +1,6 @@
 # Slop treats a lone & as an ordinary word
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: bug,slop,core
 
@@ -24,3 +24,10 @@ as a word.
 ## Done when
 
 - Native `test/slop.test.mjs` and a browser check cover `cmd &`, `cmd &>/dev/null` and `a & b`.
+
+## Result (2026-10-01)
+
+A lone `&` is a syntax error before anything runs; `&>` and `&>>` redirect
+(`f70583c`). Cases "background jobs are rejected before anything runs" (native
+and browser) and "bash redirections name stdout and stderr" (browser) in
+`test/fixtures/slop-cases.mjs` pass.

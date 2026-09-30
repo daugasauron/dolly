@@ -1,6 +1,6 @@
 # Slop does not expand globs in directory components
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: bug,slop,core
 
@@ -23,3 +23,8 @@ Pathname expansion handles patterns in any component, per POSIX.
 
 - Native Slop tests cover `*/*.o`, `a*/b?/c` and no-match literal fallback; browser check
   deletes the file.
+
+## Result (2026-10-01)
+
+Globs expand per path component and a pattern without matches stays literal
+(`f70583c`). The case runs in `test/slop-browser.mjs` (Chrome and Firefox) from `test/fixtures/slop-cases.mjs`: "globs expand directory components".

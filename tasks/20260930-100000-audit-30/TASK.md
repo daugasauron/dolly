@@ -1,6 +1,6 @@
 # Slop descriptor, flag, case and argument-limit defects
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: bug,slop,core
 
@@ -25,3 +25,10 @@ POSIX behavior for these constructs, or explicit errors where unsupported.
 
 - Native Slop tests for `3>file cmd`, `case x in "x") ...`, `echo 'echo ok' | sh`, `sh -ec`,
   large argument lists, and `exec 1>&-`.
+
+## Result (2026-10-01)
+
+Fixed in `f70583c`. The case runs in `test/slop-browser.mjs` (Chrome and Firefox) from `test/fixtures/slop-cases.mjs`: "descriptors 3 through 9 reach child
+commands", "quoting affects only quoted case pattern parts", "non-terminal
+standard input is a script", "option letters combine with -c", "argument lists
+are not capped at 511" and "closed standard descriptors stay closed".

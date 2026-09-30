@@ -1,6 +1,6 @@
 # Kernel/ABI documentation drift (threads, workers, exports)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: doc,core
 
@@ -27,3 +27,11 @@ ABI docs match the contracts and the build checks every exported type.
 ## Done when
 
 - Docs corrected; every export used by trusted JS is declared in a contract and type-checked.
+
+## Result (2026-10-01)
+
+Threads and one Worker per thread are documented (`docs/architecture.md`,
+`docs/process-model.md`); `abi/README.md` lists every contract; every kernel
+export is declared in a WAT contract. `test/dolly.artifacts.mjs` checks that
+the kernel exports exactly what its contracts declare and implements every
+host module contract its manifest names (22 artifact tests pass).

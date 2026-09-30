@@ -25,3 +25,10 @@ Pi's own tools run with Dolly-backed operations, keeping upstream truncation and
 
 - `test/pi-tools.test.mjs` shows truncation of large output, incremental streaming, and a
   byte-exact edit round trip on a file containing invalid UTF-8.
+
+## Progress (2026-10-01)
+
+Pi runs upstream's bash and edit tools over Dolly operations, restoring
+truncation and streaming (`4e92b84`, tested in `demos/pi/test/pi-tools.test.mjs`).
+Edit refuses non-UTF-8 files instead of corrupting them; the byte-exact round
+trip in "Done when" is not implemented.

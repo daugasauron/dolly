@@ -24,3 +24,8 @@ Cargo-compatible target discovery and lint scoping.
 
 - Rust image tests build a crate with multiple `[[bin]]` targets and a prerelease path
   dependency.
+
+## Progress (2026-10-01)
+
+Fixed in `4c53ff0`; `demos/rust/test/patti.test.mjs` covers them with a mock
+rustc. Missing: the Rust image build from "Done when".

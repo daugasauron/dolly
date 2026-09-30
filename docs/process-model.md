@@ -120,7 +120,7 @@ sequenceDiagram
 ## Threads, DSOs and FFI
 
 - `threads@0` ([`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat),
-  [`host/threads.mjs`](../host/threads/threads.mjs)): statically linked `-pthread`
+  [`host/threads/threads.mjs`](../host/threads/threads.mjs)): statically linked `-pthread`
   programs, one Worker per thread sharing the process memory, at most 16 per
   process and 64 in total. No DSOs, FFI, cancellation or directed signals.
 - Process-local DSOs share their owner's memory, table and allocator. The loader

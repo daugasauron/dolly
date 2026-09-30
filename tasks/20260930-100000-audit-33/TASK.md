@@ -1,6 +1,6 @@
 # find -exec + batching and xargs size limits
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: bug,commands,core
 
@@ -23,3 +23,10 @@ Every path reaches exactly one batch; xargs splits by the system argument limit.
 
 - Browser or native tests: `find -exec false {} +` over N files invokes every file; `seq 1
   200000 | xargs echo | wc -l` succeeds with more than one batch.
+
+## Result (2026-10-01)
+
+`find -exec {} +` keeps going after a failed batch and xargs splits input into
+128 KiB batches (`3c43dca`). `test/commands.test.mjs`: "find -exec + runs every
+path even after a failed batch" and "xargs streams large input in size- and
+count-bounded batches".

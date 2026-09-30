@@ -1,6 +1,6 @@
 # Slop runs pipeline stages inside the shell process
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 270
 - TAGS: bug,slop,core
 
@@ -23,3 +23,9 @@ Each stage of a multi-command pipeline runs in a subshell environment; the shell
 
 - Native Slop tests: `exit 3 | cat; echo after` prints `after`; `x=1 | true; echo ${x-unset}`
   prints `unset`.
+
+## Result (2026-10-01)
+
+Every pipeline stage runs in a subshell (`f70583c`). The case runs in `test/slop-browser.mjs` (Chrome and Firefox) from `test/fixtures/slop-cases.mjs`: "pipeline
+stages are subshells" checks that `exit 3`, an assignment and `cd` in stages
+leave the shell unchanged.

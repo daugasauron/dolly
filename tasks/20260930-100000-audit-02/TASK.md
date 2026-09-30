@@ -25,3 +25,9 @@ process.
 
 - A unit or browser check drives the worker/supervisor sequence across the 2^31 boundary (e.g.
   by seeding the control word) and the process keeps running.
+
+## Progress (2026-10-01)
+
+Fixed in `26277ef`: `src/process-worker.mjs` wraps the sequence from
+2^31 - 1 back to 1, so it never goes negative. Still missing the check that
+drives a thread across the boundary.
