@@ -38,7 +38,6 @@ bootstrapOutput.clear();
 const appendBootstrap = text => bootstrapOutput.append(text);
 
 const encoder = new TextEncoder();
-const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
 const bootstrapDecoder = new TextDecoder();
 const runtimeFailureRejectors = new Set();
 
@@ -78,10 +77,7 @@ function displayFatal(message) {
   document.documentElement.dataset.dollyStatus = "failed";
 }
 
-async function toggleFullscreen(event) {
-  if (event.key !== "F11") return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
+async function toggleFullscreen() {
   try {
     if (document.fullscreenElement) {
       await document.exitFullscreen();
@@ -228,19 +224,11 @@ async function saveCurrentSession(requestedName) {
   return sessionSavePromise;
 }
 
-function requestForegroundInterrupt() {
-  if (!transport) return false;
-  const pid = transport.foregroundPid();
-  if (pid <= 0 || !transport.foregroundInterruptible()) return false;
-  if (!transport.interruptForeground()) return false;
-  return true;
-}
-
 function handleKeyboardEvent(event) {
   if (event.key === "F11") {
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (event.type === "keydown" && !event.repeat) void toggleFullscreen(event);
+    if (event.type === "keydown" && !event.repeat) void toggleFullscreen();
     return;
   }
   if (sessionDialog.open || event.target.closest?.("#session-open")) return;
@@ -248,7 +236,7 @@ function handleKeyboardEvent(event) {
     if (event.type === "keydown" && event.ctrlKey && !event.shiftKey &&
         !event.altKey && !event.metaKey && event.code === "KeyC") {
       event.preventDefault();
-      requestForegroundInterrupt();
+      transport?.interruptForeground();
     }
     return;
   }
@@ -302,7 +290,7 @@ function handleKeyboardEvent(event) {
   }
   const interruptChord = event.type === "keydown" && event.ctrlKey &&
     !event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyC";
-  if (interruptChord && requestForegroundInterrupt()) {
+  if (interruptChord && transport.interruptForeground()) {
     event.preventDefault();
     event.stopImmediatePropagation();
     return;
@@ -486,9 +474,6 @@ async function waitForInteractiveTerminal(pattern, description, previousPid = 0)
 
 async function boot() {
   document.documentElement.dataset.dollyStatus = "loading";
-  if (!crossOriginIsolated) {
-    throw new Error("Dolly requires cross-origin isolation for shared Wasm memory");
-  }
   const configured = globalThis.DOLLY_BOOT;
   const packagedImages = new Set(DOLLY_IMAGES.map(({ image }) => image));
   if (configured === null || typeof configured !== "object" ||
@@ -613,11 +598,7 @@ async function boot() {
       runtimeWorker.terminate();
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "error" && runtimeReady) {
-      host.dispose();
-      const detail = message.stack ? `${message.message}\n${message.stack}` : message.message;
-      for (const reject of runtimeFailureRejectors) reject(new Error(detail));
-      runtimeFailureRejectors.clear();
-      displayFatal(detail);
+      displayFatal(message.stack ? `${message.message}\n${message.stack}` : message.message);
     }
   });
   const workerConfiguration = {

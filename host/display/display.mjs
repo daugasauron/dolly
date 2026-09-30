@@ -322,13 +322,6 @@ export class DisplayTransport {
     Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
   }
 
-  currentAnimationFrameSequence() {
-    return Atomics.load(
-      this.words,
-      this.word + DisplayTransport.animationFrameSequence,
-    ) >>> 0;
-  }
-
   cursorStyle() {
     return Atomics.load(
       this.words,
@@ -348,11 +341,6 @@ export class DisplayTransport {
     Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
     Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
     return true;
-  }
-
-  wake() {
-    Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
-    Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
   }
 
   fontSize() {
