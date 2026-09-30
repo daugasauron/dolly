@@ -1,7 +1,7 @@
 # Give the walking robot articulated arms and magnetic hands
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 10
 - TAGS: game,agent,physics
 
 Extend the verified two-legged body into a more expressive, useful character

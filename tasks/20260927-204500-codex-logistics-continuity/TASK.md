@@ -1,7 +1,7 @@
 # Restore inactive cargo links and share artillery resupply
 
 - STATUS: OPEN
-- PRIORITY: 230
+- PRIORITY: 30
 - TAGS: game,physics,controllers,performance
 
 Audit dock, foundry/barge, mine/ferry and ammunition supply roles. Reconnect useful

@@ -1,7 +1,7 @@
 # Make the cargo carousel visibly useful and reliable
 
 - STATUS: OPEN
-- PRIORITY: 260
+- PRIORITY: 60
 - TAGS: game,controllers,cargo
 
 The user sees the carousel stationary and cannot tell what it is for. Inspect

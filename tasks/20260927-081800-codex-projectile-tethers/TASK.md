@@ -1,7 +1,7 @@
 # Launch, ground and recover independent magnetic tether rounds
 
 - STATUS: OPEN
-- PRIORITY: 290
+- PRIORITY: 90
 - TAGS: game,combat,physics
 
 A separate magnetic projectile catches an opposing aircraft, deploys a handle,

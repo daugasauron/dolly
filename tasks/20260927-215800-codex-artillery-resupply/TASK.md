@@ -1,7 +1,7 @@
 # Move artillery forward and supply every station by ground and air
 
 - STATUS: OPEN
-- PRIORITY: 310
+- PRIORITY: 110
 - TAGS: game,logistics,combat
 
 Each of the eight slingshots should sit closer to the central combat zone while

@@ -1,7 +1,7 @@
 # Recover aircraft after a tether capture leaves them grounded
 
 - STATUS: OPEN
-- PRIORITY: 250
+- PRIORITY: 50
 - TAGS: game,controllers,physics
 
 The fresh populated `build/living-world-20260926/long-fresh` run exposes a

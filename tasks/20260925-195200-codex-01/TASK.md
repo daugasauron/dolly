@@ -1,7 +1,7 @@
 # Abandon an airborne pickup that stays blocked by traffic
 
 - STATUS: OPEN
-- PRIORITY: 240
+- PRIORITY: 40
 - TAGS: game,content,bug
 
 West courier 60 completes three deliveries, then waits over cargo 104 from

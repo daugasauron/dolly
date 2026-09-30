@@ -1,7 +1,7 @@
 # Clear loaded cargo vehicles waiting indefinitely for a handoff bay
 
 - STATUS: OPEN
-- PRIORITY: 240
+- PRIORITY: 40
 - TAGS: game,controllers,cargo
 
 The September 27 `build/living-world-20260926/long-fresh` 7,200 s populated run

@@ -1,7 +1,7 @@
 # Keep the yard porter from climbing machinery during pickup
 
 - STATUS: OPEN
-- PRIORITY: 230
+- PRIORITY: 30
 - TAGS: game,content,bug
 
 In fresh competition-v5, porter 38 delivers six parcels, including all three

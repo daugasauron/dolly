@@ -1,7 +1,7 @@
 # Recover fallen walkers with a flying magnetic winch
 
 - STATUS: OPEN
-- PRIORITY: 280
+- PRIORITY: 80
 - TAGS: game,controllers,physics
 
 Both bipeds fall during ordinary play. Add a flying recovery machine with a

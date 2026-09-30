@@ -1,7 +1,7 @@
 # Investigate the Chrome crowded-world frame-rate drop
 
 - STATUS: OPEN
-- PRIORITY: 180
+- PRIORITY: 10
 - TAGS: game,performance,bug
 
 The September 27 packaged image passes the short fresh/mature rendering checks:

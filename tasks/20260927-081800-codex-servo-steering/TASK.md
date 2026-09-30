@@ -1,7 +1,7 @@
 # Steer wheeled vehicles through articulated servo axles
 
 - STATUS: OPEN
-- PRIORITY: 270
+- PRIORITY: 70
 - TAGS: game,controls,physics
 
 The user wants a servo hinge between wheel axles instead of clunky differential

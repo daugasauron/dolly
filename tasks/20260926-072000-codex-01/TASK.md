@@ -1,7 +1,7 @@
 # Give quarry terraces clearer vegetation and rock layers
 
 - STATUS: OPEN
-- PRIORITY: 220
+- PRIORITY: 20
 - TAGS: game,graphics
 
 The raised quarry fills a large part of the view with nearly uniform brown-gray

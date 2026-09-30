@@ -1,7 +1,7 @@
 # Diagnose the biped's late live falls
 
 - STATUS: OPEN
-- PRIORITY: 250
+- PRIORITY: 50
 - TAGS: game,physics,agent
 
 Original Sidelight world #62 was removed for posture at world time

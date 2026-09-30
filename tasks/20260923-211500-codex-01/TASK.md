@@ -1,7 +1,7 @@
 # Replace Slopyard JavaScript controllers and JSON game data with Lua
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 10
 - TAGS: game,architecture,scripting
 
 User requested Lua instead of embedded JavaScript and YAML instead of JSON for

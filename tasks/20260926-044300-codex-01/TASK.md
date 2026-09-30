@@ -1,7 +1,7 @@
 # Make catapult hits interrupt cargo flights
 
 - STATUS: OPEN
-- PRIORITY: 260
+- PRIORITY: 60
 - TAGS: game,combat,cargo,controllers
 
 Image41's channel battery hits aircraft, but those impacts have not demonstrated

@@ -1,7 +1,7 @@
 # Build a ridge rescuer that can release a captured aircraft reliably
 
 - STATUS: OPEN
-- PRIORITY: 240
+- PRIORITY: 40
 - TAGS: game,controllers,physics
 
 The overnight Kamoshika prototype is withheld from the default catalog. The

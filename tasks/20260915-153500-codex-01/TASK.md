@@ -1,7 +1,7 @@
 # Tighten the biped patrol and reduce leg collisions
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 10
 - TAGS: game,agent,physics
 
 Verified Sidelight IV (Pi library#62, live#67) completed600s with41 physical

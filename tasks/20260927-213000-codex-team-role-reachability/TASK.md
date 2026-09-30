@@ -1,7 +1,7 @@
 # Give scouts and recovery patrols reachable useful work
 
 - STATUS: OPEN
-- PRIORITY: 290
+- PRIORITY: 90
 - TAGS: game,controllers,physics
 
 Audit scouts, six cargo couriers, ground guards, rescuers and scrapyard collectors

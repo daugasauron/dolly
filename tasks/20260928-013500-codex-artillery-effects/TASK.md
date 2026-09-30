@@ -1,7 +1,7 @@
 # Make ordinary artillery affect cargo missions through physics
 
 - STATUS: OPEN
-- PRIORITY: 270
+- PRIORITY: 70
 - TAGS: game,physics,controllers
 
 Matched active-courier tests keep the opponent, cargo mission, gun hardware,

@@ -1,7 +1,7 @@
 # Keep friendly rescue traffic clear of a loaded slingshot
 
 - STATUS: OPEN
-- PRIORITY: 230
+- PRIORITY: 30
 - TAGS: game,content,bug
 
 In the unbundled checkpoint-combined trial, West slingshot 87 remains in load

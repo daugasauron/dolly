@@ -1,7 +1,7 @@
 # Make the cargo world more varied and competitive
 
 - STATUS: OPEN
-- PRIORITY: 280
+- PRIORITY: 80
 - TAGS: game,content,visuals
 
 The user requested another stable checkpoint and local deployment. Image41 is
