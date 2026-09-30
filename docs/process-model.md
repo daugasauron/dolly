@@ -1,163 +1,121 @@
 # Process model
 
-Ordinary commands run in fresh private wasm64 memories. The kernel owns shared
-files, open-file descriptions, processes, clock waits, terminal state and HTTP.
-Processes inherit selected handles and values, never another address space.
+Every ordinary command runs in a fresh private wasm64 memory and Worker. The
+kernel ([`process-kernel.c`](../src/process-kernel.c)) owns files, open-file
+descriptions, pipes, process records, signals and the terminal; processes
+inherit handles and values, never another address space. The call path is in
+[architecture](architecture.md#system-calls); packet layouts are in
+[`process.h`](../include/dolly/process.h).
 
-## Machine boundary
+```mermaid
+sequenceDiagram
+  participant Sh as Parent (Slop)
+  participant K as Kernel
+  participant S as Supervisor
+  participant C as Child Worker
+  Sh->>K: SPAWN path, argv, env, fd mappings
+  K-->>Sh: child pid
+  S->>K: next launch
+  K-->>S: executable bytes
+  S->>C: new Worker, fresh memory and gate
+  Sh->>K: WAIT pid (deferred)
+  Note over K,C: Ctrl+C or kill: SIGINT is pending
+  K-->>C: next call returns -EINTR
+  C->>K: INTERRUPT_POLL, run handler, SIGNAL_ACKNOWLEDGE
+  Note over S,C: not exited 500 ms later: Worker terminated
+  C->>K: EXIT status, or signal termination
+  S->>K: Worker retired
+  K-->>Sh: WAIT returns exit status or signal
+```
 
-Each executable imports private shared memory64 and `dolly_process_0.call`,
-exports `_start`, and carries matching ABI/memory metadata.
-A program supplies its own table, libc and allocator only if needed.
-The exact types, stamps, packet layouts and optional DSO profile are described
-in the [machine contracts](../abi/README.md).
+## Executables
 
-“Shared” memory enables a trusted multi-memory Wasm gate to copy packets across
-Workers; each process still gets a distinct memory object. Requests use bounded
-relative ranges and fixed-width fields, not pointers retained by the kernel.
-Errors use the pinned target's errno values, not Linux numbering.
-Frequent clock reads use the process Worker's browser clock, aligned with the
-kernel's time origin, with a kernel signal check at least once per millisecond.
+- Import one private shared memory64 and one function,
+  `dolly_process_0.call`; export `_start`; carry `dolly.process` stamps
+  ([`dolly-process-0.wat`](../abi/dolly-process-0.wat)). Memory is at most 8 GiB.
+- A start section may initialize memory/TLS but must not call the kernel.
+- Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
+  Permission bits never affect execution.
+- `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
+  no general `/proc`.
+- The compiler is itself a private process behind `cc`, `c++`, `ld` and `ar`
+  ([`compiler.cpp`](../src/compiler.cpp)). It keeps Clang's defaults and suffix
+  rules; objects are always position independent, `-m64` is the only target and
+  `-lc -lm -ldl -lrt -lpthread -lutil` add nothing.
+- The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
+  instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
+- An unexpected Worker failure exits the process with status 126 and a one-line
+  diagnostic; it does not affect unrelated processes.
 
-A Wasm start section may initialize private memory/TLS, but must not make kernel
-calls. Execution begins at `_start`; the C startup object completes TLS
-relocations before constructors. Initial memory comes from executable metadata,
-with the contract's 8 GiB ceiling.
+## Descriptors and files
 
-| Linux concept | Dolly counterpart |
-| --- | --- |
-| ELF loader / private virtual memory | Stamped Wasm executable / fresh Worker and memory |
-| Syscall / kernel VFS | Typed packet gate / kernel WasmFS |
-| Descriptor table | Per-process handles to shared kernel descriptions |
-| Spawn / waitpid | Instance creation / kernel-owned retirement and status |
-| Signals | Kernel pending state, in-Wasm handlers and bounded termination fallback |
+- 256 descriptors per process. Descriptor flags are per handle; offsets and status
+  flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
+- Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
+  nonblocking; closing all writers gives EOF; writing with no reader raises
+  `SIGPIPE` ([`libc-adapter.c`](../src/process/libc-adapter.c)), leaving `EPIPE`
+  when ignored or handled.
+- Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
+  descriptor 0, 1 or 2.
+- `poll` covers files, pipes and the terminal; signals wake it with `EINTR`.
+- Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
+  without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output.
+- `chmod` stores bits that `stat` reports and WasmFS enforces for reading and
+  writing; images and sessions do not preserve them. `chown` accepts only owner
+  and group 0.
+- The cwd is an open directory handle: it follows renames, `getcwd` fails with
+  `ENOENT` after unlink, `fchdir` works.
+- `mmap` makes private copies; `MAP_SHARED` writes back on `msync` and whole
+  `munmap` ([`mmap.c`](../src/process/mmap.c)). Mappings are not coherent with
+  other writers.
+- Advisory locks (`F_GETLK`, `F_SETLK`, `F_SETLKW`) return `ENOTSUP`.
 
-This is correspondence, not complete Linux emulation. Fork, process replacement,
-raw sockets and job-control groups are unsupported. Threads are the optional
-`threads@0` profile: statically linked executables, at most 16 thread Workers
-per process and 64 in total, without DSO or FFI operations.
+## Spawn and wait
 
-## Libc, linking and descriptors
+- Spawn inherits no descriptors, the standard streams, or all non-CLOEXEC
+  descriptors, then applies explicit parent-to-child mappings, all read from the
+  parent at once. A spawn may set the child's cwd.
+- `waitpid` accepts a child PID, `-1` or `0`. Wait records distinguish signal
+  termination from exit: `exit(130)` is not SIGINT.
+- Timed spawns carry an absolute monotonic deadline at most one day away; the
+  supervisor ends the child with status 124 even inside a pure CPU loop.
+- `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C sends
+  SIGINT to the foreground tree but spares an interactive owner (the shell),
+  which reads Ctrl+C as input while it has no running children. Image scripts
+  use `/bin/foreground`; the browser knows no command names.
+- Retirement drops the Worker, memory and gate before the child is waitable.
+  Parent exit retires descendants first.
 
-The process sysroot uses pinned Emscripten musl in standalone mode.
-`src/process/libc-adapter.c` translates its low-level WASI-shaped calls to
-Dolly; final executables do not import WASI or browser libc.
+## Signals
 
-The compiler and Zig are ordinary private processes. C++ uses the real pinned
-libc++/libc++abi archives and matching headers installed by `modules/cpp.dm`.
-`cc` keeps Clang's defaults (`-O0`, `gnu17`, `gnu++17`) and input suffix rules.
-Objects are always position independent, so `-fPIC` changes nothing, and `-m64`
-names the only target. `-lc`, `-lm`, `-ldl`, `-lrt`, `-lpthread` and `-lutil` name
-parts of the process libc and add nothing. A DSO's undefined symbols become imports
-from its owning executable; `-Wl,--no-undefined` restricts them to the process
-runtime's exported provider set.
-Process-local DSOs share their owner's runtime, allocator, memory and table.
-Their loader checks exact provider symbol types before instantiation.
-DSO/FFI operations are intercepted in that Worker, not forwarded to a browser
-device; missing optional infrastructure returns ENOSYS. Libffi supports CPython
-`_ctypes` without an ambient JavaScript import.
+- Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGPIPE`,
+  `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected.
+- Handlers run in Wasm at syscall boundaries ([`signal.c`](../src/process/signal.c))
+  with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
+  Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
+  unsupported.
+- A process that does not finish a delivered signal within 500 ms is terminated;
+  a second Ctrl+C within one second terminates at once. The filesystem and the
+  shell survive; forced termination runs no cleanup.
+- `SIGCHLD` is queued once a child is waitable. `SIGWINCH` follows terminal
+  resizes and never forces termination.
+- Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
+  kernel at least once per millisecond so signals arrive in clock-only loops.
 
-Ghostty alone is a resident kernel plugin so terminal state survives foreground
-replacement. Its separate closed ABI cannot serve as an ordinary executable
-target; see [Ghostty](zig-ghostty.md).
+## Threads, DSOs and FFI
 
-Descriptor flags are per handle; file offsets and status flags belong to shared
-open descriptions. Pipe duplicates share O_NONBLOCK: empty reads/full writes
-return EAGAIN, and closing all writers gives EOF. Writing without readers raises
-SIGPIPE, leaving EPIPE when it is ignored or handled. FD_CLOEXEC works for files,
-pipes and duplicates. Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr`
-duplicates the caller's descriptor 0, 1 or 2.
+- `threads@0` ([`dolly-threads-0.wat`](../abi/dolly-threads-0.wat),
+  [`host/threads.mjs`](../src/host/threads.mjs)): statically linked `-pthread`
+  programs, one Worker per thread sharing the process memory, at most 16 per
+  process and 64 in total. No DSOs, FFI, cancellation or directed signals.
+- Process-local DSOs share their owner's memory, table and allocator. The loader
+  checks exact import types before instantiation
+  ([`dolly-process-dso-0.wat`](../abi/dolly-process-dso-0.wat)); missing
+  infrastructure returns `ENOSYS`.
+- FFI calls and closures stay in the process Worker; libffi supports CPython
+  `_ctypes`.
 
-`chmod` stores permission bits that `stat` reports and WasmFS enforces for
-reading and writing; execution ignores them, open/mkdir modes are not part of
-the ABI, and images and sessions do not preserve them. `chown` succeeds only
-for the single owner and group, zero.
+## Unsupported
 
-Spawn selects none, standard streams, or all non-CLOEXEC descriptors, then
-applies explicit parent-to-child mappings. Sources always refer to the parent,
-so swaps are simultaneous. Mappings clear child CLOEXEC without changing the
-parent. Closed standard streams stay closed unless mapped.
-Python maps `close_fds` and `pass_fds` to this same operation.
-
-`poll` observes regular files, bounded pipes and the in-Wasm tty without
-consuming input. Absolute deadlines permit deferred retry; delivered signals
-wake it with EINTR. Terminal reads return the display's raw input bytes; the
-ICANON and ECHO bits round-trip through termios without a kernel line
-discipline. Output honors independent OPOST/ONLCR bits, mapping LF to CRLF.
-
-Advisory file locks are not implemented: valid F_GETLK/F_SETLK/F_SETLKW return
-ENOTSUP, and invalid descriptors return EBADF. They never pretend to lock.
-
-File mappings are private Wasm copies. MAP_SHARED writes back on msync and
-whole-mapping munmap, clipping the range to the file length when writeback starts.
-A mapping past EOF does not itself extend the file. The retained descriptor
-survives closing the caller's descriptor. Changes through other mappings or file
-writes and concurrent resizes are not coherent, and Wasm cannot trap access past EOF or
-revoke a subrange of linear memory. These are not coherent native shared mappings.
-
-## Retirement and failure
-
-The supervisor caches immutable compiled modules by SHA-256 under count/byte
-limits, not mutable instances. Retirement drops Worker, memory, gate, listener
-and table references before acknowledging a child as waitable. Parent shutdown
-retires descendants first.
-
-Unexpected Worker failure produces status 126 and a bounded printable diagnostic.
-Failure handled by a parent does not poison unrelated top-level processes.
-
-Worker termination has no completion event. Large interactive processes receive
-a bounded reclamation window before exit is acknowledged, reducing competition
-with the recovery shell. This is not a guarantee against browser memory pressure.
-
-## Cancellation
-
-PID/parent IDs and optional spawn cwd are kernel-owned; choosing a child's cwd
-does not change the parent's. Each process retains an open directory descriptor:
-relative paths and inherited cwd follow that directory across renames, including
-ancestor renames. `getcwd` resolves its current name and returns `ENOENT` after
-unlinking; `fchdir` restores a directory held by a descriptor.
-Positive-PID `kill(pid, 0)` checks existence.
-Dolly supports a finite signal set and rejects unsupported signals/action flags.
-
-Wait records distinguish signal termination from ordinary exit. `exit(130)`
-is not SIGINT. `waitpid` accepts a child PID, or -1 and 0 for any child. libc exposes POSIX wait status; `dolly_wait` returns normalized
-shell status. Slop uses the wait record to stop remaining list, serial pipeline
-and command-substitution work after SIGINT, while an ordinary exit 130 remains
-a command failure.
-
-Foreground and interactive roles are explicit spawn flags. Only the foreground
-tree can transfer ownership; retirement restores its nearest foreground ancestor.
-An idle interactive owner receives terminal Ctrl+C, while active descendants get
-process SIGINT. Image scripts use `/bin/foreground`; the browser does not
-recognize shell, Pi or recovery command names.
-
-The supervisor records signals in the kernel and wakes deferred calls.
-Process-local libc delivers handlers at syscall boundaries, supporting masks,
-coalescing, re-raising, SA_RESTART, SA_RESETHAND, SA_NODEFER and SA_SIGINFO.
-SA_ONSTACK uses the current stack; alternate stacks, asynchronous preemption,
-signal-wait operations and general handler-longjmp support are absent.
-Handlers remain in Wasm.
-
-Delivery is acknowledged only after a handler returns. An uncooperative process
-gets a 500 ms grace period before forced Worker termination. A second terminal
-Ctrl+C within one second forces cancellation even if the first was ignored.
-The filesystem is not discarded. Kernel/supervisor failure is outside this
-per-process guarantee.
-
-SIGCHLD is queued after a retired child is waitable and is nonterminating by
-default. Masks defer handlers; waitpid carries child status. SA_NOCLDWAIT is
-unsupported. SIGWINCH follows published terminal size changes and has no
-termination deadline.
-
-Normal exit runs atexit handlers; default signal termination does not.
-Git uses its own signal cleanup. Forced termination/SIGKILL cannot run cleanup:
-kernel handles are reclaimed, but named files may remain. Ignored/blocked
-signals do not shorten sleeps; delivered handlers interrupt sleep/poll, while
-SA_RESTART restarts read/write/wait.
-
-Timed spawns carry absolute monotonic deadlines at most one day away; the
-kernel rejects later ones with EINVAL and the supervisor enforces them
-with a browser timer and status 124 even for pure CPU loops without safepoints.
-Python `Popen.wait(timeout=...)` instead stops waiting without killing the child.
-HTTP polling is nonblocking so runtimes can service timers and cancellation
-while waiting for headers or body bytes.
+`fork`, `exec` replacement, job control and process groups, raw sockets, and
+user/group identities fail explicitly.

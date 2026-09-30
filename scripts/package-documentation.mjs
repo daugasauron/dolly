@@ -1,17 +1,10 @@
 #!/usr/bin/env node
 
-import { copyFile, lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const linkedSources = new Set([
-  "src/dolly.c", "src/dollyfile.c", "src/upload.c", "src/gpu-kernel.c", "src/audio-kernel.c", "config/source-pins.sh", "config/zig-sdk-files.txt",
-  "config/domain-pages-images.txt", "config/github-pages-images.txt",
-  "src/process/mmap.c", "src/libcurl-fetch.c",
-  "test/gpu-render-browser.mjs",
-  ...["architecture-probe.log", "spidermonkey-configure.log", "fixed-browser.json", "architecture.patch"]
-    .map(name => `tasks/20260923-113538-0ad-investigation/${name}`),
-]);
 const recipePath = /^Dollyfile(?:-[a-z][a-z0-9-]*)?$/;
 // Documentation examples are text, not additional images to build and publish.
 const documentPath = path => recipePath.test(path) ? `${path}.txt` : path;
@@ -27,7 +20,15 @@ export function documentationLinks(source) {
     .filter(path => path && !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(path));
 }
 
+// Docs may link to any git-tracked text file outside demos/ (demos are not
+// published), and never outside the project or the site.
+function publishableFiles(project) {
+  return new Set(execFileSync("git", ["ls-files", "-z"], { cwd: project, encoding: "utf8" })
+    .split("\0").filter(path => path && !path.startsWith("demos/")));
+}
+
 export async function packageDocumentation(project, site, roots) {
+  const publishable = publishableFiles(project);
   const pending = [...roots];
   const visited = new Set();
   while (pending.length) {
@@ -38,34 +39,29 @@ export async function packageDocumentation(project, site, roots) {
     if (!source.startsWith(project + sep) || !destination.startsWith(site + sep)) {
       throw new Error(`documentation link escapes the site: ${path}`);
     }
-    let alreadyPublished = false;
-    try { alreadyPublished = (await lstat(destination)).isFile(); } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-    }
-    if (!alreadyPublished && !linkedSources.has(path) && !recipePath.test(path) &&
-        !/^modules\/[a-z0-9-]+\.dm$/.test(path) &&
-        !/^tasks\/(?:README\.md|[0-9]{8}-[0-9]{6}-[a-z0-9-]+\/(?:TASK\.md|evidence\.json))$/.test(path) &&
-        !/^docs\/[a-z0-9-]+\.md$/.test(path) && path !== "abi/README.md") {
-      throw new Error(`documentation links to an unpublished source: ${path}`);
-    }
+    if (!publishable.has(path)) throw new Error(`documentation links to an unpublished source: ${path}`);
     if (!(await lstat(source)).isFile()) throw new Error(`documentation source is not a regular file: ${path}`);
+    const bytes = await readFile(source);
+    if (bytes.includes(0)) throw new Error(`documentation links to a binary file: ${path}`);
     visited.add(path);
     await mkdir(dirname(destination), { recursive: true });
-    if (path.endsWith(".md")) {
-      const contents = await readFile(source, "utf8");
-      const replacements = new Map();
-      for (const link of documentationLinks(contents)) {
-        const target = resolve(dirname(source), decodeURIComponent(link));
-        if (!target.startsWith(project + sep)) throw new Error(`documentation link escapes the site: ${link}`);
-        const relative = target.slice(project.length + 1);
-        pending.push(relative);
-        if (recipePath.test(relative)) replacements.set(link, `${link}.txt`);
-      }
-      await writeFile(destination, mapLinks(contents, link => {
-        const [path] = link.split(/[?#]/, 1);
-        return replacements.has(path) ? replacements.get(path) + link.slice(path.length) : link;
-      }));
-    } else await copyFile(source, destination);
+    if (!path.endsWith(".md")) {
+      await writeFile(destination, bytes);
+      continue;
+    }
+    const contents = bytes.toString("utf8");
+    const replacements = new Map();
+    for (const link of documentationLinks(contents)) {
+      const target = resolve(dirname(source), decodeURIComponent(link));
+      if (!target.startsWith(project + sep)) throw new Error(`documentation link escapes the site: ${link}`);
+      const relative = target.slice(project.length + 1);
+      pending.push(relative);
+      if (recipePath.test(relative)) replacements.set(link, `${link}.txt`);
+    }
+    await writeFile(destination, mapLinks(contents, link => {
+      const [path] = link.split(/[?#]/, 1);
+      return replacements.has(path) ? replacements.get(path) + link.slice(path.length) : link;
+    }));
   }
   return visited;
 }

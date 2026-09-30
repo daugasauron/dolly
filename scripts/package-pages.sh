@@ -184,9 +184,9 @@ while IFS=$'\t' read -r source_path source_file; do
   mkdir -p "$(dirname -- "${destination}")"
   cp -- "${project_dir}/${source_file}" "${destination}"
 done <<< "${source_rows}"
+documents=("${project_dir}"/docs/*.md)
 node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${staging}/site" \
-  docs/dollyfile.md docs/architecture.md docs/security.md docs/port-status.md \
-  docs/browser-boundary.md docs/http.md docs/sessions.md docs/sources.md
+  "${documents[@]#"${project_dir}/"}"
 cp \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
   "${project_dir}/dist/dolly-build-id.mjs" \

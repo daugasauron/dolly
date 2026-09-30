@@ -1,51 +1,66 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { documentationLinks, packageDocumentation, verifyDocumentationLinks } from "../scripts/package-documentation.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 
-test("documentation packaging closes local links without exposing private source", async t => {
+// A throwaway git checkout: packaging publishes only tracked files.
+async function checkout(root, files, untracked = {}) {
+  const project = resolve(root, "project");
+  for (const [path, contents] of Object.entries({ ...files, ...untracked })) {
+    await mkdir(dirname(resolve(project, path)), { recursive: true });
+    await writeFile(resolve(project, path), contents);
+  }
+  execFileSync("git", ["init", "-q"], { cwd: project });
+  execFileSync("git", ["add", "--", ...Object.keys(files)], { cwd: project });
+  return project;
+}
+
+test("documentation packaging publishes linked tracked text files outside demos", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-docs-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const project = resolve(root, "project"), site = resolve(root, "site");
-  for (const path of ["docs", "src", "abi", "tasks/20260913-120000-proof", "tasks/20260914-160027-gpu-checkpoint"]) await mkdir(resolve(project, path), { recursive: true });
-  await writeFile(resolve(project, "docs/a.md"), "[b](b.md#heading) [ABI](../abi/README.md) [unselected image](../Dollyfile-extra)");
-  await writeFile(resolve(project, "Dollyfile-extra"), "DOLLY 4\nIMAGE extra\n");
-  await writeFile(resolve(project, "docs/b.md"), "[a](a.md) [source](../src/dolly.c) [issues](../tasks/README.md)");
-  await writeFile(resolve(project, "abi/README.md"), "[a](../docs/a.md)");
-  await writeFile(resolve(project, "src/dolly.c"), "public source\n");
-  await writeFile(resolve(project, "tasks/README.md"), "[issue](20260913-120000-proof/TASK.md)");
-  await writeFile(resolve(project, "tasks/20260913-120000-proof/TASK.md"), "[source](../../src/dolly.c) [checkpoint](../20260914-160027-gpu-checkpoint/TASK.md)");
-  await writeFile(resolve(project, "tasks/20260914-160027-gpu-checkpoint/TASK.md"), "[results](evidence.json)");
-  await writeFile(resolve(project, "tasks/20260914-160027-gpu-checkpoint/evidence.json"), '{"passed":true}\n');
+  const site = resolve(root, "site");
+  const project = await checkout(root, {
+    "docs/a.md": "[b](b.md#heading) [ABI](../abi/README.md) [unselected image](../Dollyfile-extra)",
+    "Dollyfile-extra": "DOLLY 4\nIMAGE extra\n",
+    "docs/b.md": "[a](a.md) [source](../src/dolly.c) [issues](../tasks/README.md)",
+    "abi/README.md": "[a](../docs/a.md)",
+    "src/dolly.c": "public source\n",
+    "tasks/README.md": "[issue](20260913-120000-proof/TASK.md)",
+    "tasks/20260913-120000-proof/TASK.md": "[source](../../src/dolly.c) [results](evidence.json)",
+    "tasks/20260913-120000-proof/evidence.json": '{"passed":true}\n',
+    "demos/game/README.md": "demo documentation",
+    "font.bin": "binary\0bytes",
+  }, { ".pi/private.md": "untracked" });
   assert.deepEqual(documentationLinks("[web](https://example.test/) [a](a.md#part) ```[not a link](x)```"), ["a.md"]);
   const copied = await packageDocumentation(project, site, ["docs/a.md"]);
-  assert.deepEqual([...copied].sort(), ["Dollyfile-extra", "abi/README.md", "docs/a.md", "docs/b.md", "src/dolly.c", "tasks/20260913-120000-proof/TASK.md", "tasks/20260914-160027-gpu-checkpoint/TASK.md", "tasks/20260914-160027-gpu-checkpoint/evidence.json", "tasks/README.md"]);
+  assert.deepEqual([...copied].sort(), ["Dollyfile-extra", "abi/README.md", "docs/a.md", "docs/b.md", "src/dolly.c", "tasks/20260913-120000-proof/TASK.md", "tasks/20260913-120000-proof/evidence.json", "tasks/README.md"]);
   await verifyDocumentationLinks(site);
   assert.equal(await readFile(resolve(site, "src/dolly.c"), "utf8"), "public source\n");
-  assert.deepEqual(JSON.parse(await readFile(resolve(site, "tasks/20260914-160027-gpu-checkpoint/evidence.json"), "utf8")), { passed: true });
+  assert.deepEqual(JSON.parse(await readFile(resolve(site, "tasks/20260913-120000-proof/evidence.json"), "utf8")), { passed: true });
   await rm(resolve(site, "docs/b.md"));
   await assert.rejects(verifyDocumentationLinks(site), { code: "ENOENT" });
-  for (const link of ["../AGENTS.md", "../.pi/private.md", "../src/compiler.cpp", "../tasks/private.md", "../tasks/20260914-160027-gpu-checkpoint/private.json", "../../outside"]) {
+  for (const link of ["../.pi/private.md", "../demos/game/README.md", "../font.bin", "../missing.md", "../../outside"]) {
     await writeFile(resolve(project, "docs/a.md"), `[private](${link})`);
-    await assert.rejects(packageDocumentation(project, site, ["docs/a.md"]), /unpublished source|escapes the site/);
+    await assert.rejects(packageDocumentation(project, site, ["docs/a.md"]), /unpublished source|binary file|escapes the site/);
   }
 });
 
 test("partial releases include recipe examples without selecting their images or requiring default", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-docs-images-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const project = resolve(root, "project"), site = resolve(root, "site");
-  for (const path of ["docs", "abi"]) await mkdir(resolve(project, path), { recursive: true });
-  await mkdir(site);
+  const site = resolve(root, "site");
   const example = "DOLLY 4\nIMAGE example\nENTRY /bin/slop\n";
-  await writeFile(resolve(project, "Dollyfile-example"), example);
+  const project = await checkout(root, {
+    "Dollyfile-example": example,
+    "abi/README.md": "ABI",
+    "docs/a.md": "[example](../Dollyfile-example#part) [ABI](../abi/README.md)\n```\n[unchanged](../Dollyfile-example)\n```\n",
+  });
+  await mkdir(site);
   await writeFile(resolve(site, "Dollyfile-selected"), "DOLLY 4\nIMAGE selected\nENTRY /bin/slop\n");
-  await writeFile(resolve(project, "abi/README.md"), "ABI");
-  await writeFile(resolve(project, "docs/a.md"),
-    "[example](../Dollyfile-example#part) [ABI](../abi/README.md)\n```\n[unchanged](../Dollyfile-example)\n```\n");
   await packageDocumentation(project, site, ["docs/a.md"]);
   await verifyDocumentationLinks(site);
   assert.equal(await readFile(resolve(site, "Dollyfile-example.txt"), "utf8"), example);
