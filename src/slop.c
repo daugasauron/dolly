@@ -84,6 +84,9 @@ typedef struct {
   int exit_status;
   int terminating_signal;
   int errexit;
+  // Set while running a condition, a `!` pipeline or a command of an AND-OR
+  // list other than the last, including the functions such a command calls.
+  int errexit_ignored;
   int xtrace;
   int nounset;
   int noexec;
@@ -564,6 +567,14 @@ static int arguments_copy(const Arguments *source, Arguments *copy) {
   return 1;
 }
 
+// Internal descriptors stay above the 0-9 user range and out of children.
+static int high_descriptor(int descriptor) {
+  if (descriptor < 0) return -1;
+  const int moved = fcntl(descriptor, F_DUPFD_CLOEXEC, 10);
+  close(descriptor);
+  return moved;
+}
+
 static void shell_state_snapshot_dispose(ShellStateSnapshot *snapshot) {
   arguments_dispose(&snapshot->environment);
   arguments_dispose(&snapshot->exported);
@@ -573,7 +584,7 @@ static void shell_state_snapshot_dispose(ShellStateSnapshot *snapshot) {
 
 static int shell_state_capture(ShellStateSnapshot *snapshot) {
   memset(snapshot, 0, sizeof(*snapshot));
-  snapshot->cwd = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  snapshot->cwd = high_descriptor(open(".", O_RDONLY | O_DIRECTORY));
   if (snapshot->cwd < 0) return 0;
   for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
     if (!argument_push(&snapshot->environment, *entry)) {
@@ -622,14 +633,6 @@ static int shell_state_restore(ShellStateSnapshot *snapshot) {
   memset(&snapshot->exported, 0, sizeof(snapshot->exported));
   if (fchdir(snapshot->cwd) != 0) ok = 0;
   return ok;
-}
-
-// Internal descriptors stay above the 0-9 user range and out of children.
-static int high_descriptor(int descriptor) {
-  if (descriptor < 0) return -1;
-  const int moved = fcntl(descriptor, F_DUPFD_CLOEXEC, 10);
-  close(descriptor);
-  return moved;
 }
 
 // An unlinked temporary file for pipeline, substitution and here-document bytes.
@@ -1999,7 +2002,7 @@ static int next_path_directory(const char **cursor, const char **directory,
 
 static const char *path_variable(void) {
   const char *path = getenv("PATH");
-  return path == NULL ? "" : path;
+  return path == NULL ? "/bin:/usr/bin" : path;
 }
 
 static enum command_resolution resolve_command(const char *command,
@@ -3991,9 +3994,16 @@ static int execute_pipeline(Shell *shell, CommandParser *parser, int execute,
     parser->cursor = probe.cursor;
     return 0;
   }
-  return single
-      ? run_command(shell, parser, body_end, probe.cursor, suppress_errexit)
-      : run_pipeline(shell, parser, probe.cursor, suppress_errexit, stops);
+  const TokenKind separator = probe.cursor < probe.end
+      ? probe.tokens[probe.cursor].kind : TOKEN_END;
+  const int ignored = shell->errexit_ignored;
+  shell->errexit_ignored = suppress_errexit || separator == TOKEN_AND ||
+                           separator == TOKEN_OR;
+  const int status = single
+      ? run_command(shell, parser, body_end, probe.cursor, shell->errexit_ignored)
+      : run_pipeline(shell, parser, probe.cursor, shell->errexit_ignored, stops);
+  shell->errexit_ignored = ignored;
+  return status;
 }
 
 static int execute_list(Shell *shell, CommandParser *parser, int execute,
@@ -4033,7 +4043,8 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
       parser->error = 1;
       return 2;
     }
-    const int suppress_command_errexit = suppress_errexit || invert;
+    const int suppress_command_errexit =
+        suppress_errexit || invert || shell->errexit_ignored;
     char *function_name = NULL;
     size_t function_body_start = 0;
     const int definition = function_header(parser, &function_name,

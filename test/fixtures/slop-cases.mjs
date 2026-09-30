@@ -101,6 +101,9 @@ export const shellCases = [
   ["set -u exits on unset parameters but keeps defaults", 'set -u; : "${x-d}${x:-e}${x+f}${x:=g}"; unset x; : $x; exit 91', 1, 127],
   ["set -u covers positional and length expansions", 'set -u; set -- a; : "$@" "$*" "$1" ${#1}; : $2; exit 91', 1, 127],
   ["set +u restores unset expansion", "set -eu; set +u; : $x; set -o nounset; set +o nounset; : $x", 0],
+  ["set -e is ignored in functions on the left of && and ||", "set -e; f() { (exit 1); x=$1; }; f a || exit 91; f b && :; case $x in b) exit 7;; esac; exit 92", 7],
+  ["set -e applies in a function ending an and-or list", "set -e; f() { (exit 1); x=ran; }; : && f; exit 91", 1],
+  ["subshell state stays outside descriptors 0-9", "exec 3>&-; (: <&3) 2> /dev/null && exit 91; :", 0],
 ];
 
 // These run external commands, so they need Dolly (or Bash) to spawn them.
@@ -125,6 +128,7 @@ xb" && echo hi | { read -r x; test "$x" = hi; }`, 0],
   ["compound commands take redirections", String.raw`n=0; while read -r l; do n=$((n+1)); done < two; for i in 1; do echo $i; done > one; if :; then echo if; fi >> one; test "$n:$(cat one)" = "2:1
 if"`, 0],
   ["a writer beyond the pipeline spool limit is stopped", "set -o pipefail; dd if=/dev/urandom bs=1048576 count=65 2> /dev/null | dd bs=1 count=1 2> /dev/null | wc -c > one; test $? = 141 && test $(cat one) = 1", 0],
+  ["an unset PATH searches /bin and /usr/bin", "unset PATH; slop -c 'exit 7'", 7, 127],
 ];
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }
