@@ -1,14 +1,12 @@
-# Dollyfile version 4
+# Dollyfile 4
 
-Dollyfiles are ordered recipes executed by `/bin/dollyfile` inside Wasm.
-Modules group useful steps. They can mix commands, files, child modules, and
-exports, depend on earlier state, and overwrite existing files. The source
-viewer describes this composition; it does not prove that the programs work.
-
-V4 adds versioned host requirements. V3 recipes remain readable, but cannot use
-`REQUIRES HOST`. FROM and COPY FROM continue to reuse completed images.
-Modules within a stage execute normally. A cached image includes its retained
-filesystem, environment, exact exported objects, and recipe provenance.
+A Dollyfile is an ordered recipe that `/bin/dollyfile` executes inside Wasm to
+build an image. An image recipe (`/Dollyfile` for `default`, otherwise
+`/Dollyfile-NAME`) ends with its entry program; a module (`/modules/NAME.dm`)
+is a reusable group of steps. Steps run in order in one filesystem and
+environment and may overwrite or delete earlier results. The source viewer
+(`/view/IMAGE/`) links modules, assertions, inputs and images; it does not prove
+that the programs work.
 
 ```text
 DOLLY 4
@@ -25,91 +23,125 @@ EXPORTS TOOL example
 ENTRY /bin/slop
 ```
 
-This starts with the completed Pi userspace and builds one extra command. The
-base's compiler, shell, JavaScript runtime, and agent tools are reused, and the
-base's entry program never starts. Replace `<sha256>` with the referenced
-recipe's digest. `node scripts/update-module-pins.mjs` refreshes references
-through the catalog, including nested modules and image dependencies.
+This starts from the completed Pi image and builds one more command; the base's
+compiler, shell and tools are reused and its entry program never runs.
+[`Dollyfile-gpu-fluid`](../Dollyfile-gpu-fluid) fetches pinned upstream code with
+`SOURCE URL` and builds it inside Dolly.
 
-[`Dollyfile-gpu-fluid`](../Dollyfile-gpu-fluid) uses `SOURCE URL` to fetch
-pinned upstream code and builds it inside Dolly.
-External sources still require browser CORS and permission from the HTTP broker;
-the recipe cannot grant itself network access.
+## Text
 
-## Custom images
+- A recipe is UTF-8 text of at most 128 KiB without NUL bytes. Lines end at
+  LF, CRLF or CR.
+- Each physical line is read on its own. A `#` that starts a word outside quotes
+  and is not escaped begins a comment that ends with the line.
+- After its comment and trailing spaces/tabs are removed, a line ending in `\`
+  continues: the backslash is dropped and the next physical line is appended
+  after one space. An empty or comment-only line ends the continuation; a
+  continuation on the last line is an error. A joined line is at most 64 KiB.
+- Words are separated by ASCII whitespace. `'…'` is literal. Inside `"…"`, `\`
+  escapes only `$`, `` ` ``, `"` and `\` and is otherwise kept. Elsewhere `\`
+  escapes the next character. An unclosed quote is an error. Values
+  are literal: expansion happens only inside a `SLOP` command.
+- Blank and comment-only lines are ignored. The first declaration is `DOLLY 4`;
+  the second is `IMAGE name` or `MODULE name`.
+- `FILE /path` may be followed by a body: the next physical lines that begin
+  with four spaces. Those four spaces are removed and each body line ends with
+  LF. The first line without them ends the body, so a blank body line needs four
+  spaces; tabs do not count. Body text is literal: no comments, quotes or
+  continuations.
 
-Open `/custom/` (**Run a Dollyfile** on the menu), paste a recipe or select a
-UTF-8 file up to 128 KiB, then build and run it in a fresh sandbox. FROM/COPY/USE
-pins must match images and modules published by that site. The recipe remains
-in this tab; named-session saving is not yet supported for custom images.
+## Declarations
 
-`/dollyfile-studio/` starts Pi with Neovim, local WebGPU models, a Dollyfile
-skill and `/dolly-hello`, `/dolly-tool`, `/dolly-fix` prompt templates. Select a
-local or remote provider with `/model`; the first local prompt downloads weights
-and starts inference inside Dolly. Exit Pi to Slop and run `nvim /workspace/Dollyfile` to
-edit. Directives are yellow; inline lint errors refresh on open, save and after
-edits (leaving insert mode). `:DollyLint` checks immediately. The standalone
-`dollyfile-lint FILE` uses the browser's inspection parser inside QuickJS.
-Linting checks syntax without fetching or executing anything; only a fresh
-image build checks source pins, commands and outputs. Do not run the builder
-against your active Studio filesystem to test a draft.
-
-`dollyfile-build /workspace/Dollyfile` submits a disposable Wasm build through
-the existing HTTP broker. It starts immediately and streams logs and errors
-back to the command. Only choosing **Open image** after success opens a new
-tab and runs its ENTRY. See [the build service](image-build-service.md)
-for cancellation, limits and the cached-result identity.
-
-Use `download /workspace/Dollyfile` to export a recipe. In the system/default
-images and their descendants, `upload /workspace/NAME` opens a user-approved
-file chooser for any local file up to 64 MiB. It never replaces an existing
-destination; cancellation removes the partial upload. No PC path is exposed.
-
-## Operations
-
-Threaded C/C++ programs compile and link with `-pthread`. An image whose entry
-needs them declares `REQUIRES HOST threads@0`; headers alone request no provider.
-This static profile supports pthreads and `std::thread`, with separate stacks/TLS
-and shared process files. It currently rejects dynamic libraries/runtime FFI,
-asynchronous cancellation, directed thread signals, scheduling hints and protected
-stack guards. Mutexes, semaphores and waits use Wasm atomics inside process memory.
-
-| Declaration | Behavior |
+| Declaration | Meaning |
 | --- | --- |
-| `DOLLY 4` | First declaration; selects this language version. |
-| `IMAGE name` / `MODULE name` | Recipe identity. |
-| `USE HOST /modules/name.dm HASH` | Verify and execute the module here. Repeated uses execute again. |
-| `FROM HOST /Dollyfile-name HASH` | Begin an image from a completed artifact; must be the image's first operation. |
-| `COPY FROM HOST /Dollyfile-name HASH /source /destination` | Copy a retained file or tree from an independent artifact. |
-| `SOURCE HOST /path /destination HASH` | Fetch a pinned release input through the HTTP broker. |
-| `SOURCE URL https://… /destination HASH` | Fetch a pinned input through the same broker. |
-| `SLOP command…` | Run the command in Slop with failure stopping the recipe. |
-| `SLOP CWD /directory command…` | Run the command from the specified directory. |
-| `FILE /path` | Retain a file, optionally writing the following indented body first. |
+| `DOLLY 4` | Language version. |
+| `IMAGE name` | Image identity: `[a-z][a-z0-9-]*`, at most 32 bytes. |
+| `MODULE name` | Module identity, at most 64 bytes; the file must be `/modules/name.dm`. |
+| `FROM HOST /Dollyfile[-name] SHA256` | Image only, first operation: start from that completed image. |
+| `COPY FROM HOST /Dollyfile[-name] SHA256 SOURCE DESTINATION` | Copy a retained file or tree out of a completed image. |
+| `USE HOST /modules/name.dm SHA256` | Run the module here. |
+| `SOURCE HOST /path DESTINATION SHA256` | Download a file published by this site. |
+| `SOURCE URL http(s)://… DESTINATION SHA256` | Download an external file. |
+| `SLOP [CWD /directory] command…` | Run a Slop command; failure stops the build. |
+| `FILE /path` | Write the body, if any, then retain the regular file. |
 | `FOLDER /path` | Retain the directory and its current members. |
-| `EXPORTS TYPE name [details]` | Offer an object when this module finishes. |
-| `REQUIRES TYPE name` | Check userspace availability at this point during execution. |
-| `REQUIRES HOST module@abi` | Require a host provider when running the image. |
-| `ENTRY /program [arguments…]` | Final image declaration; chooses its own entry program. |
+| `EXPORTS TYPE name …` | Offer an object when the recipe finishes. |
+| `REQUIRES TYPE name` | Check that an object is available at this point. |
+| `REQUIRES HOST name@abi` | The image needs this host provider to run. |
+| `ENTRY /program [argument…]` | Image only, last declaration: the program the image runs. |
 
-`COPY FROM` maps the source itself to the destination. Directories merge;
-matching files are replaced and unrelated destination files survive. A missing
-source fails. Copying files does not import environment variables or named
-exports. Every imported artifact contributes its original source provenance.
-The Python+Pi recipe demonstrates copying Python into an independently built
-Pi userspace.
+Paths are absolute and normalized: no trailing `/`, `//`, `.` or `..` segment,
+backslash, CR or LF, and less than 4096 bytes. Only `COPY` paths and `SLOP CWD`
+may be `/`. `SOURCE HOST` paths have no `?` or `#`; `SOURCE URL` has no `#`.
+`SHA256` is 64 lowercase hex digits of the exact referenced bytes.
+`node scripts/update-module-pins.mjs` refreshes USE/FROM/COPY pins through the
+catalog; `--sources` also refreshes local `SOURCE HOST` inputs.
 
-Artifacts may be up to 2 GiB. Their payloads stay in the shared filesystem;
-the builder reads metadata and copies selected files in bounded chunks.
+These paths are never retained: `/tmp`, `/workspace`,
+`/home/dolly/.pi/agent/auth.json`, `/home/dolly/.pi/agent/sessions` and their
+contents. `FILE` may write scratch files under `/tmp/`; `FOLDER`, exports and
+`COPY` destinations may not name them. This is not a secret scanner: never
+retain credentials elsewhere.
 
-Modules share the current filesystem and environment. `REQUIRES TOOL cc`
-checks command availability on `PATH`; the command need not have a declared
-provider. `REQUIRES ENV NAME` checks the environment. Other named assertions
-check an earlier object's path and basic kind. Assertions are optional and can
-appear wherever they are useful. A module can use undeclared tools; a command
-failure reports the responsible recipe and line.
+## Execution
 
-## Host modules
+- `SLOP` runs `/bin/slop -e -c COMMAND` in `/` or the `CWD` directory, with
+  stdin from `/dev/null`. `COMMAND` keeps its original quoting. Each `SLOP` is a
+  new shell: `cd` and variable assignments end with it. Use `SLOP CWD` and
+  `EXPORTS ENV`.
+- `USE` checks the pin and runs the module in the same filesystem and
+  environment; repeated uses run again. A module may use undeclared tools; a
+  failure reports the responsible recipe and line. USE nesting is at most 16
+  recipes deep, counting the image; cycles are errors.
+- `FROM` restores the image's retained files, environment and exports, but not
+  its entry. `COPY FROM` maps `SOURCE` to `DESTINATION`: directories merge,
+  existing files are replaced and a missing source fails. It imports no
+  environment, exports or host requirements. Imported images are separate,
+  earlier builds (up to 2 GiB each) and contribute their recipe provenance. An
+  image cannot share its name with an image it imports.
+- `SOURCE` downloads through the HTTP broker, creating parent directories, and
+  replaces `DESTINATION` only after the digest matches. HOST paths are relative
+  to the site. The broker still decides which URLs are reachable; a recipe
+  cannot grant itself network access. Downloads are not retained by
+  themselves.
+- `EXPORTS ENV NAME VALUE` sets the variable now; `EXPORTS ENV NAME APPEND
+  VALUE` appends `:VALUE` (or sets it when empty); `EXPORTS ENV NAME` keeps the
+  current value, which must be set when the recipe finishes.
+  `EXPORTS ENV NAME APPEND` sets the value `APPEND`. The final
+  values of every exported variable are stored in the image; loading a base does
+  not replay assignments.
+
+## Exports, assertions and retention
+
+| Export | Object |
+| --- | --- |
+| `EXPORTS TOOL name [SHA256]` | The command `name` found on `PATH` when the recipe finishes; the optional digest checks its bytes. |
+| `EXPORTS FILE name /path`, `EXPORTS LIB name /path` | A regular file. |
+| `EXPORTS FOLDER name /path` | A directory and its members when the recipe finishes. |
+| `EXPORTS HEADER name /path` | A file or directory. |
+| `EXPORTS ENV NAME [[APPEND] VALUE]` | An environment variable. |
+
+ENV names match `[A-Za-z_][A-Za-z0-9_]*`; other names match
+`[A-Za-z][A-Za-z0-9._+-]*` or are `[`; both have at most 128 bytes. Objects are
+captured when their recipe finishes, so an export may precede the files it
+names. A repeated export replaces the earlier one. A module's exports are
+visible to its caller's later steps. An image retains its own exports and those
+of the modules it uses directly; a module passes on a child's object by
+exporting it again.
+
+`REQUIRES TOOL name` checks `PATH`; `REQUIRES ENV NAME` checks the
+environment; other types check that an earlier visible export still exists with
+its kind. Assertions are optional and need no declared provider.
+
+The finished image keeps only retained paths: `FILE` and `FOLDER` paths,
+exported objects, `FROM` and `COPY` results, and its recipes. Everything else is
+dropped, so scratch files need no cleanup, although removing large build trees
+lowers peak memory. Deleting a retained path removes it from the image. `ENTRY`
+and its resolved target must be retained regular files. `ENTRY` has at most 256
+words of at most 4096 bytes; its record (16 bytes, plus 4 per word and the
+words) is at most 64 KiB.
+
+## Host requirements
 
 ```text
 DOLLY 4
@@ -121,145 +153,89 @@ REQUIRES HOST display@0
 ENTRY /usr/bin/gpu-app
 ```
 
-Host requirements propagate through `FROM` and `USE`. `COPY FROM` copies files
-without importing the donor's runtime requirements. Required providers and ABI
-revisions are recorded in artifact metadata and checked before ENTRY, including
-cached/custom images and restored sessions. An unknown, disabled or incompatible
-provider fails with its name and reason before the image starts. Runtime is the
-mandatory base. Host requirements cannot be exported or grant authority: the
-embedding chooses providers and the HTTP broker still controls network access.
-The standard page selects runtime plus these declarations; an embedding can
-restrict that selection. The system shell declares display, HTTP, upload,
-download and snapshots. GPU and audio images add their own providers; Slopyard
-also adds threads. Installing a compiler or copying an SDK does not enable them.
+`name@abi` is a provider name of at most 31 bytes (`[a-z][a-z0-9-]*`) and an
+ABI revision from 0 to 65535. `REQUIRES HOST` may appear anywhere in an image or
+module. Requirements propagate through `FROM` and `USE`, not `COPY`. An image requires at most 64 providers, each at one revision:
+conflicting revisions are errors. Requirements are recorded in the artifact and
+checked before ENTRY, including for custom images and restored sessions; an
+unknown, disabled or incompatible provider fails with its name. Runtime is the
+mandatory base. Requirements grant no authority: the embedding chooses
+providers and the HTTP broker controls network access. The system shell
+declares display, HTTP, upload, download and snapshots; GPU and audio images
+add their providers and Slopyard adds threads. Installing a compiler or SDK
+enables none of them.
 
 Build hosts supply their own providers. Compiling a GPU program needs no GPU;
-running a GPU program during the build does. Avoid executing graphics startup as
-a build check; use a separate pure-compute/physics check when appropriate.
+running one during the build does, so check pure compute or physics instead of
+graphics startup. C programs include `<dolly/gpu.h>` and link `-ldolly-gpu`;
+linked client archive members record `gpu@0` in the executable's `dolly.host`
+section, and commands and libraries are checked again when loaded. Disabled
+providers keep typed denial bindings: calling one returns `ENOSYS`, so an image
+whose program needs, say, downloads declares `REQUIRES HOST download@0`. These
+records describe compatibility, not permissions.
 
-C programs include `<dolly/gpu.h>` and link `-ldolly-gpu`. Selected client archive
-members record `gpu@0` in the executable's `dolly.host` section. Headers alone or
-unused archives add no requirement. Commands and dynamic libraries are checked
-again for ABI compatibility at load time. Disabled providers keep typed denial
-bindings: linking an API does not mean every invocation uses it. For example,
-QuickJS can run a compiler with its download API disabled. Calling that API
-returns `ENOSYS`; an image that needs it declares `REQUIRES HOST download@0`.
-Unknown or incompatible linked ABIs fail at load time. These records describe
-compatibility, not permissions.
-See [the browser boundary](browser-boundary.md) for provider ownership.
+Threaded C/C++ programs compile and link with `-pthread`; an image whose entry
+needs them declares `REQUIRES HOST threads@0`. The profile supports pthreads
+and `std::thread` with separate stacks/TLS and shared process files, using Wasm
+atomics. It rejects dynamic libraries/runtime FFI, asynchronous cancellation,
+directed thread signals, scheduling hints and protected stack guards. See
+[the browser boundary](browser-boundary.md) for provider ownership.
 
-## Outputs and environment
+## Entry and startup
 
 The browser runs the retained `ENTRY` once. Startup, `.dollyrc`, foreground
-ownership and recovery belong to ordinary image scripts, not browser logic.
-Frontend images use `/bin/foreground -i /bin/slop /etc/dolly/init.slop`; their startup
-modules run `.dollyrc`, launch the selected program and provide a recovery shell.
-Reusable runtime images enter `/bin/foreground -i /bin/slop` directly, without
-installing an application's startup policy.
-See [process lifecycle](process-model.md#cancellation).
+ownership and recovery belong to image scripts. Frontend images enter
+`/bin/foreground -i /bin/slop /etc/dolly/init.slop`, whose startup launches the
+program and then a recovery shell; reusable runtime images enter
+`/bin/foreground -i /bin/slop`. See [process lifecycle](process-model.md#cancellation).
 
-`EXPORTS TOOL name` resolves a command on `PATH`; it takes no path. The builder
-retains the resolved file when the module finishes. An optional hash asserts its
-bytes. `FILE`, `LIB`, `FOLDER`, and `HEADER` exports require a name and an absolute
-path, including when exporting a child's outputs. `FILE` and `LIB` must be files,
-`FOLDER` a directory, and `HEADER` may be either. These are small runtime checks,
-not compatibility certificates.
+## Checking recipes
 
-```text
-EXPORTS LIB example /usr/lib/libexample.a
-EXPORTS HEADER example /usr/include/example
-EXPORTS FOLDER python-stdlib /usr/lib/python3.14
-EXPORTS ENV EXAMPLE_HOME /usr/share/example
-EXPORTS ENV PATH APPEND /opt/example/bin
-```
+`npm run lint:dollyfiles` (also part of the source tests) parses every catalog
+image graph and checks its pins, module names, USE depth and host
+requirements. It fetches and runs nothing: only an image build checks sources,
+commands and outputs. Catalog images must be named after their file.
+Nonempty `modules/*.dm` files are published as pinned sources even when no
+image uses them; a custom recipe can `USE` one at its current hash. That does
+not stage its `SOURCE HOST` inputs.
 
-Declarations may precede creation of their outputs: members are captured when
-the module finishes. A directory export includes the files present at that point,
-including additions made after a child finishes. Repeated exports replace the
-previous named object. An image retains its direct modules' exports; a module
-selects which outputs to offer in turn. Explicit `FILE` and `FOLDER` retention
-also survives composition.
+## Custom images and Studio
 
-Environment assignments take effect immediately and persist through subsequent
-steps. `EXPORTS ENV NAME` keeps the current value; `APPEND` joins with a colon.
-The final environment values are stored in the image; loading a base does not
-replay assignments or append them twice.
-Recipe values are literal; shell expansion happens inside `SLOP`.
+Open `/custom/` (**Run a Dollyfile**), paste a recipe or select a file, then
+build and run it in a fresh sandbox. FROM/COPY/USE pins must match images and
+modules published by that site. Custom images can be saved as named sessions
+([sessions](sessions.md)).
 
-Unretained intermediate files disappear when the finished image boots. Temporary
-files do not need explicit cleanup to make a module valid. Cleaning large build
-trees can still reduce peak memory. Deleting an earlier retained file removes it
-from the final image. Standard workspace, temporary and Pi auth/session paths
-are excluded; this is not a secret scanner. Never export credentials under
-another path.
-
-## Text and inspection
-
-Recipe words support quotes and escapes. Comments begin with `#` at the start
-of a word, outside quotes. Comments are removed before interpreting a trailing
-backslash as a continuation. `SLOP` preserves the command's original quoting
-when passing it to the shell.
-Build commands receive EOF from `/dev/null` on stdin; they cannot prompt
-interactively. Use ordinary pipes or file redirection to supply input explicitly.
-
-A `FILE` body consists of consecutive lines starting with four spaces. Exactly
-those four spaces are removed; a blank content line needs four spaces too.
-The first line without that indentation ends the body. Body text is literal,
-including comments and backslashes.
-
-The linked plaintext viewer keeps modules, runtime assertions, inputs, and
-artifact references clickable. A missing inferred provider is not a lint
-error. Syntax, source hashes, recursive inclusion cycles, ABI admission, and
-browser authority remain checked.
+`/dollyfile-studio/` starts Pi with Neovim, local WebGPU models and a Dollyfile
+skill. In Neovim, directives are highlighted and lint errors refresh on open,
+save and after edits; `:DollyLint` checks immediately. `dollyfile-lint FILE`
+checks one file's syntax with this parser inside QuickJS; it does not follow
+USE or FROM. `dollyfile-build /workspace/Dollyfile` builds in a disposable
+sandbox and streams its log; see [the build service](image-build-service.md).
+Use `download` to export a recipe; `upload /workspace/NAME` imports a local file
+the user chooses ([download and upload](download.md)).
 
 ## Build reuse
 
-The browser looks for a verified local artifact, then a matching published
-artifact. A missing dependency is built in a disposable Wasm instance before
-its consumer. Builds run sequentially, and each completed artifact is saved
-before later stages run. Each worker uses the same explicit HTTP policy.
-Ancestor validation reads descriptors, not full snapshots. Only the direct
-inputs needed by a worker load their bytes, which are verified against the
-selected digests. Cache descriptor/payload pairs publish and prune atomically.
-The descriptor-store upgrade discards older rebuildable image caches, never
-the separate named-session database.
+Images, not modules, are cached: expensive compilers and SDKs live in reusable
+builder images and frontends copy only their outputs. The recipes define the
+graph; there is no dependency solver. The browser uses a verified local artifact,
+then a matching published one, and otherwise builds a missing dependency in a
+disposable Wasm instance before its consumer. Builds run one at a time and
+share the HTTP policy. A cache identity is the runtime build ID, the root
+recipe hash and the snapshot digests of its direct FROM/COPY images, so a
+dependency rebuilt into different bytes invalidates its consumers. Unpinned
+downloads inside `SLOP` are not made reproducible; change a pin or rebuild.
+An explicit rebuild reruns the selected image and reuses its imported
+artifacts. Descriptor/payload pairs publish and prune atomically.
 
-Cache identity includes the runtime build ID, the root recipe hash, and the
-actual snapshot digests of its direct image inputs. A dependency rebuilt into
-different bytes invalidates its consumers even if its recipe did not change.
-V3 does not cache individual modules by their declared outputs: arbitrary
-reads, overwrites, and deletions make that
-insufficient. Explicit rebuild reruns the selected stage while reusing its
-referenced image artifacts. Unpinned network access inside arbitrary commands
-is not made reproducible by the cache; change a recipe pin or rebuild the
-relevant artifact when refreshing such inputs.
+`npm run image -- IMAGE` stages the image's local sources, refreshes their
+`SOURCE HOST` pins and recipe references, and builds with the existing runtime;
+`--package` creates a local preview release for `npm run serve`. `SOURCE URL`
+pins are never refreshed automatically. Rebuild the runtime separately after
+changing the kernel, the seed or this executor.
 
-Expensive compilers and SDKs live in reusable builder images. Frontends copy
-only their selected outputs. The source-visible recipes define the graph;
-there is no catalog-wide dependency solver or implicit module cache.
-
-For image iteration, run `npm run image -- IMAGE`. It prepares the selected
-image's local source inputs, refreshes their `SOURCE HOST` hashes and recipe
-references, then builds using the existing Wasm runtime. Upstream downloads
-still require their independent pins; `SOURCE URL` hashes are never refreshed
-automatically. Add `--package` to create a verified local preview release for
-`npm run serve`. Rebuild the runtime separately when changing the kernel,
-bootstrap seed, or Dollyfile executor.
-
-Nonempty regular `modules/*.dm` files are published as pinned sources even when
-no catalog image uses them. A custom Dollyfile can `USE` one after routes are
-regenerated and the release republished; it must use the file's current hash.
-This does not run the module or stage its `SOURCE HOST` inputs. Those inputs and
-referenced images must also be in the release; only the selected image graph
-chooses which dependencies to build. Draft modules are parsed when selected.
-
-Published images share compressed packs of identical filesystem records. Each
-image lists the packs it needs; the browser reconstructs and verifies the exact
-snapshot before restoring it. File identity includes path, kind, and contents,
-so overwrites and symlinks remain distinct. Pack URLs are content-addressed and
-can be reused across images and local releases. Shared groups are split into
-2–4 MiB record packs where possible; a larger file stands alone. This limits
-small-edit churn without duplicating shared files. A partially overlapping image
-can still change small common packs, but not unrelated large-file packs.
-This reduces distribution duplication without
-adding layer-mount behavior to the Wasm filesystem.
+Published images share content-addressed, compressed packs of identical
+filesystem records (path, kind and contents), split into 2–4 MiB groups where
+possible. The browser reconstructs and verifies each exact snapshot before
+restoring it; the Wasm filesystem has no layers.
