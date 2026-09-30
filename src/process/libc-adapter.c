@@ -328,10 +328,7 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
         DOLLY_PROCESS_FD_WRITE, packet, packet_size, &response, sizeof(response));
     free(packet);
     const __wasi_errno_t error = call_errno(result);
-    if (error != 0 && *completed != 0) return 0;
-    /* POSIX raises SIGPIPE; EPIPE remains when it is ignored or handled. */
-    if (error == EPIPE) raise(SIGPIPE);
-    if (error != 0) return error;
+    if (error != 0) return *completed != 0 ? 0 : error;
     if ((uint64_t)result != sizeof(response) || response.size > size) return EIO;
     *completed += response.size;
     if (response.size == 0) return 0;

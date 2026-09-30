@@ -52,9 +52,8 @@ sequenceDiagram
 - 256 descriptors per process. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
-  nonblocking; closing all writers gives EOF; writing with no reader raises
-  `SIGPIPE` ([`libc-adapter.c`](../src/process/libc-adapter.c)), leaving `EPIPE`
-  when ignored or handled.
+  nonblocking; closing all writers gives EOF; writing with no reader returns
+  `EPIPE` without raising `SIGPIPE`.
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
 - `poll` covers files, pipes and the terminal; signals wake it with `EINTR`.

@@ -1,7 +1,6 @@
 #include <dolly/runtime.h>
 
 #include <errno.h>
-#include <signal.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -31,15 +30,13 @@ int main(int argc, char **argv) {
   if (dolly_wait(consumer, &consumer_status) != 0 || consumer_status != 0) return 45;
 
   char *broken_arguments[] = {(char *)checker, "broken", NULL};
-  char *ignored_arguments[] = {(char *)checker, "ignored", NULL};
-  const int broken = dolly_spawn(checker, 2, broken_arguments, 0, 1, 2);
-  const int ignored = dolly_spawn(checker, 2, ignored_arguments, 0, 1, 2);
-  if (broken < 0 || ignored < 0) return 46;
+  const int first = dolly_spawn(checker, 2, broken_arguments, 0, 1, 2);
+  const int second = dolly_spawn(checker, 2, broken_arguments, 0, 1, 2);
+  if (first < 0 || second < 0) return 46;
   for (int reaped = 0; reaped < 2; ++reaped) {
     int status;
     const pid_t pid = waitpid(-1, &status, 0);
-    if (pid == broken ? !WIFSIGNALED(status) || WTERMSIG(status) != SIGPIPE
-        : pid != ignored || !WIFEXITED(status) || WEXITSTATUS(status) != 0) return 47;
+    if ((pid != first && pid != second) || !WIFEXITED(status) || WEXITSTATUS(status) != 0) return 47;
   }
   if (waitpid(-1, NULL, WNOHANG) != -1 || errno != ECHILD) return 48;
   return 0;
