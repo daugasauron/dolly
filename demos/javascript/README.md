@@ -1,82 +1,42 @@
-# JavaScript runtime
+# JavaScript
 
-QuickJS-ng is the ECMAScript engine. Janis supplies a finite Node-compatible
-surface over Dolly's files, lifecycle and HTTP. Neither is native Node.
+QuickJS-ng is the engine; Janis adds a finite Node-compatible surface over Dolly's
+files, processes and HTTP. Neither is native Node.
 
 ## Images
 
 - `javascript`: QuickJS, Janis and TypeScript.
 - `typescript-build`: QuickJS, Janis and the TypeScript compiler build.
 
-```text
-QuickJS-ng + Janis node:* adapters → dolly-process-0 → Wasm kernel
-```
+Open `/javascript/`. `janis`, `tsc` and `qjs` (a link to `janis`) are ordinary
+programs; `typescript-build` compiles them headless on `system-tools` and
+`javascript` copies them into `system`.
 
-`janis`, `tsc` and `pi` are ordinary WasmFS programs; `qjs` links to `janis`.
-The headless `typescript-build` image compiles QuickJS and the TypeScript
-launcher on `system-tools`. The interactive `javascript` image copies those
-programs, libraries and headers into `system`, so display changes reuse them.
-Pi's TypeScript is emitted inside Dolly and loaded unbundled; see
-[Pi](../pi/README.md) for build and package policy.
-Replacing the JavaScript engine would not remove the need for Node adapters.
+## Supported
 
-## Supported behavior
+- ESM, CommonJS and JSON modules, package `imports`/`exports` and conditions,
+  `import.meta.resolve`, resolved only inside WasmFS; missing modules fail.
+- Descriptor-based `fs` with positioned I/O and promise wrappers; open files
+  survive rename and unlink.
+- Buffers, encodings, paths, URLs, events, timers, crypto helpers, tty streams
+  and stateful UTF-8 decoders ([`dolly-node.js`](dolly-node.js)).
+- `child_process` with pipe-backed stdio, exit codes versus signals, kill and
+  timeouts; `fetch()` over the HTTP broker with streaming bodies and abort. One
+  cooperative event pump serves promises, timers, HTTP and child pipes.
 
-- ESM/CommonJS/JSON, package imports/exports and conditions, package scopes,
-  `import.meta.resolve` and deterministic `fs.globSync`.
-- Real descriptor-based files, positioned I/O, stat/lstat/fstat, and Promise
-  wrappers. Open files survive rename/unlink.
-- Buffers, encoding, paths/URLs, events, timers, crypto helpers and tty streams.
-- One cooperative event pump for Promise jobs, concurrent HTTP streams and child-process pipes.
+## Key files
 
-Module resolution is confined to WasmFS. Missing packages, files, exports and
-builtin adapters fail; resolution never fetches code or calls a host loader.
-There is no npm client, native addon, worker thread or nested WebAssembly engine.
-Dolly has no permission model or host resource view: `chmod`, `os.cpus`,
-`os.totalmem`/`freemem` and `process.memoryUsage` fail with `ENOSYS`.
-Pi's Photon resize dependency is consequently excluded.
+- [`quickjs-main.c`](quickjs-main.c), [`janis.c`](janis.c),
+  [`janis.js`](janis.js), [`dolly-node.js`](dolly-node.js): the runtime.
+- [`quickjs.dm`](quickjs.dm), [`typescript.dm`](typescript.dm),
+  [`tsc-dolly.mjs`](tsc-dolly.mjs): builds; QuickJS's ambient
+  `quickjs-libc.c` is excluded.
+- Tests: [`test/`](test/).
 
-## Child processes and HTTP
+## Limits
 
-`child_process.spawn` immediately creates a child with a PID, cwd/environment
-and pipe-backed stdin/stdout/stderr. The event pump feeds input, drains output
-and checks nonblocking wait. Exit codes and signal termination are distinct.
-Kill, abort and timeout stop the child; synchronous helpers collect the same
-pipes with bounded output.
-
-Only three stdio descriptors and Dolly's finite signal set are supported.
-Detached processes, identities and IPC fail. Unref stops keeping the parent's
-event loop alive; descendants are still disposed when their parent exits.
-
-Fetch uses nonblocking Dolly HTTP operations. The broker follows redirects or,
-with `redirect: "error"`, fails them; `"manual"` is rejected. Abort before
-headers, during response reading, or through reader cancellation releases the
-operation.
-These adapters receive no browser Worker, Fetch, socket or host-process handle.
-HTTP limits and eager buffering are documented in [HTTP](../../docs/http.md).
-
-## Text streams
-
-`demos/javascript/dolly-node.js` owns one stateful UTF-8 decoder implementation.
-Each TextDecoder, StringDecoder, stdin/readable and child-output stream has
-separate state. Split scalars, byte views, flushing, fatal errors and BOM rules
-are supported. Node-style strings retain BOMs; TextDecoder/Response.text strip
-an initial BOM by default.
-
-StringDecoder supports UTF-8 only. Its malformed-input timing may differ from
-Node while producing the same final text. Binary writes remain bytes.
-
-```sh
-node --test demos/javascript/test/utf8.test.mjs
-DOLLY_IMAGE=pi DOLLY_BROWSER_MODE=utf8 ./scripts/test-browser.sh
-```
-
-Only revisit the engine when an engine-level incompatibility, rather than a
-missing runtime adapter, warrants it. Any replacement must use Dolly's existing
-filesystem/network boundary and pass repeated-invocation and cancellation tests.
-
-## Sources
-
-| Component | Outside-browser preparation | Inside-Dolly result |
-| --- | --- | --- |
-| QuickJS-ng | Exact engine source is archived; ambient `quickjs-libc.c` is excluded | `/usr/lib/libdolly-js.a`, `qjs`, Janis, and Pi frontend |
+- No npm client, native addons, worker threads or nested WebAssembly.
+- Only three stdio descriptors; detached processes and IPC fail.
+- `chmod`, `os.cpus`, `os.totalmem`/`freemem` and `process.memoryUsage` fail
+  with `ENOSYS`.
+- `redirect: "manual"` is rejected; response chunks are buffered eagerly.

@@ -1,8 +1,8 @@
-# Pi on Dolly
+# Pi
 
-Pi runs under QuickJS-ng and Janis as an ordinary private Wasm process.
-Its source is not forked: Dolly provides an extension and a finite Node-shaped
-runtime over the shared filesystem, process API and HTTP broker.
+The Pi coding agent, unforked, running under QuickJS-ng and Janis
+([JavaScript](../javascript/README.md)) as an ordinary private process over
+Dolly's files, processes and HTTP broker.
 
 ## Images
 
@@ -10,84 +10,33 @@ runtime over the shared filesystem, process API and HTTP broker.
 - `pi-runtime`: Reusable Pi and JavaScript runtime.
 - `pi-build`: Pi packages compiled from pinned TypeScript sources.
 
-## Build
+Open `/pi/`; build with `npm run image -- pi`. Leave Pi with `/exit` or Ctrl+D.
 
-`/usr/bin/tsc` runs the pinned official TypeScript compiler inside Dolly and
-emits Pi's upstream workspace packages under `/usr/lib/node_modules`.
-The headless `pi-build` image performs this compilation on `typescript-build`.
-`pi-runtime` copies the resulting programs, packages and source into the
-interactive JavaScript image, then installs the prompt, settings, theme and
-extension. Those configuration edits reuse the compiled source artifacts.
-The source remains under `/usr/src/pi-source`.
-This is `noCheck` JavaScript emit, not full TypeScript type checking.
-An asserted post-emit transform lowers six Unicode-set regexes unsupported by
-the pinned QuickJS version.
+## How it works
 
-External JavaScript packages are selected by `demos/pi/pi-runtime-packages.txt`
-and verified against `package-lock.json` before archival. They resolve from
-WasmFS, not a host loader or runtime network download.
-`npm run pi:census` reports their pins and licenses. There is no host Pi bundle;
-host esbuild is used separately for browser WebGPU assets.
+- `pi-build` runs the official TypeScript compiler inside Dolly and emits Pi's
+  workspace packages to `/usr/lib/node_modules` (`noCheck` emit, no type
+  checking). `pi-runtime` adds the prompt, settings, theme and extension.
+- External packages are listed in [`pi-runtime-packages.txt`](pi-runtime-packages.txt)
+  and verified against `package-lock.json`; `npm run pi:census` reports pins and
+  licenses. They load from WasmFS, never from the network.
+- [`dolly-tools.js`](dolly-tools.js) plugs Slop into Pi's `bash` tool and `!`,
+  refuses to edit non-UTF-8 files and adds a `download` tool.
+- Conversations live in `~/.pi/agent/sessions` (`/resume`); credentials in
+  `~/.pi/agent/auth.json`. Images never retain them; saved sessions do.
+- `pi --offline` skips catalog and update traffic, not model requests.
 
-## Use
+## Key files
 
-Pi's upstream tools run unchanged over Janis. Dolly's extension plugs Slop into
-the `bash` tool and interactive `!` (not Bash) and refuses edits of non-UTF-8
-files, which Pi would otherwise rewrite with U+FFFD.
-`/bin/sh` is a compatibility alias to Slop. Child stdout/stderr stream through
-real process pipes; cancellation uses the same lifecycle boundary as other tools.
-Installed programs depend on the image: use `command -v TOOL`.
+- [`pi-build.dm`](pi-build.dm), [`pi.dm`](pi.dm), [`pi.c`](pi.c): build and launcher.
+- [`SYSTEM.md`](SYSTEM.md), [`settings.json`](settings.json),
+  [`skills/dolly/SKILL.md`](skills/dolly/SKILL.md): the agent's Dolly guidance.
+- Tests: [`test/`](test/).
 
-Leave Pi with `/exit` or Ctrl+D on an empty prompt. In Studio, run
-`nvim /workspace/Dollyfile` from Slop for interactive editing, then `pi`
-to return. Pi's captured shell tool is not an interactive editor terminal.
-Tmux/split panes are not implemented.
+## Limits
 
-Pi sessions live under `~/.pi/agent/sessions`; upstream writes a session after
-the first assistant response. `/resume` uses those in-Wasm files.
-Use a Dolly [session save](../../docs/sessions.md) to retain them across page reloads.
-
-Dependency-free JavaScript extensions can use `~/.pi/agent/extensions/` and
-`/reload`. Compile TypeScript extensions with `tsc` first.
-There is no npm client, native-addon support or arbitrary npm compatibility.
-Pi package installation that needs npm fails explicitly.
-
-## Network and credentials
-
-Credentials may live in Pi's in-Wasm `auth.json`. They are excluded from
-standard system images but included in user session saves/exports.
-The default broker permits HTTP(S), including caller credentials and requested
-redirects, with byte/time limits but no lifetime request quota.
-This is useful compatibility, not an exfiltration defense.
-
-Catalog refresh and model inference are separate requests. A failed optional
-catalog refresh does not prove that a key or chat endpoint is broken.
-`pi --offline` skips startup catalog/update traffic; it does **not** disable
-provider conversations. Version checking is disabled by the image profile.
-
-OpenRouter and fixture tool-use flows have browser coverage. Manual PKCE OAuth
-has fixture coverage, but real-provider login still depends on browser CORS and
-supported callback flows; there is no native listener.
-See [HTTP](../../docs/http.md), [CORS](../../docs/cors.md) and [local models](../local-llm/README.md).
-Pi's local provider downloads and loads its model inside Dolly on the first prompt.
-
-## Limits and verification
-
-Janis provides filesystem/package resolution, timers, streams, crypto helpers
-and child processes; [its contract](../javascript/README.md) records limitations.
-No raw sockets, worker threads, detached jobs, host environment or
-`process.binding` escape is available.
-
-Pi image resizing is disabled: Photon needs JavaScript's nested WebAssembly API,
-which Janis does not expose. Supported image input passes through unchanged.
-
-Browser fixtures cover the TUI, split UTF-8/SSE, live child output, cancellation,
-credential persistence and target-compiled extension use. Independent local-model
-task correctness is [tracked separately](../../tasks/20260913-181502-codex-27/TASK.md)
-from these integration checks.
-
-## Sources
-
-| Component | Outside-browser preparation | Inside-Dolly result |
-| --- | --- | --- |
-| Pi | Pinned Git TypeScript sources, published generated model data, and locked external npm dependencies are archived | TypeScript runs under Janis inside Dolly and emits the seven Pi workspace packages; `/usr/bin/pi` loads the unbundled module graph |
+- No npm client or native addons; installing Pi packages that need npm fails.
+  Dependency-free JavaScript extensions work via `~/.pi/agent/extensions/`.
+- Image resizing is off: Photon needs nested WebAssembly.
+- OAuth logins depend on the provider's CORS; there is no callback listener.
+- No PTY: run `nvim` from Slop, not from Pi's shell tool.
