@@ -28,22 +28,29 @@ complexity; no new Dollyfile version otherwise.
 
 ## amy (owner idea, 2026-10-01)
 
-`amy install python` inside a running session. Sketch, to be validated by the
-experiment below:
+`amy install python` inside a running session; the Dollyfile language and amy must
+match with good taste. Sketch, to be validated by the experiment below:
 
-- **Name to recipe:** one site-published index (e.g. `/amy/index`) maps a name to
-  its pinned package module (`HOST /modules/python.dm SHA`) and the digest of a
-  prebuilt payload. The index is the only unpinned step; the pin is recorded.
-- **Payload:** exactly the package module's files plus its receipt, built in the
-  browser like any image (a root image of copied files, as `demos/lean` shows),
-  not the 20-300x larger builder.
-- **amy itself:** a small core command. It fetches the index and payload over the
-  HTTP broker (same origin, default policy), verifies SHA-256, checks `REQUIRES`
-  against `/etc/dolly/artifact`, extracts without overwriting different bytes, and
-  appends `USE HOST /modules/python.dm SHA` to `/etc/dolly/installed`. That file
-  plus `FROM <booted image>` is a Dollyfile that reproduces the session.
-- **Open:** ENV exports are lost on session reload; the payload format (tarball vs
-  snapshot packs); the 512 MiB session cap for large SDKs.
+- **One vocabulary.** An amy install is a Dollyfile row executed live. The site
+  publishes one index mapping a name to that row, e.g.
+  `python COPY FROM HOST /Dollyfile-python-package SHA / /`. amy is a thin front
+  end over `/bin/dollyfile`, which already runs in userspace, fetches `HOST`/`URL`
+  inputs through the broker, verifies SHA-256 and decodes image artifacts
+  (`src/dollyfile.c` `load_artifact`).
+- **Recorded as rows.** amy appends each executed row to `/etc/dolly/installed`;
+  `FROM <booted image>` plus those rows is a Dollyfile that rebuilds the session
+  as an image (`amy freeze`). The index is the only unpinned step.
+- **Lean package images.** A package is a small root image holding only the
+  package's files and exports (as `demos/lean` shows), so both a Dollyfile author
+  and amy copy it instead of a 20-300x larger builder.
+- **Gaps.** (1) In a live session nothing places artifacts in
+  `/etc/dolly/artifacts`; builds get them from trusted code
+  (`src/runtime-worker.mjs`), so the executor would fetch the package artifact
+  itself. (2) `COPY FROM` imports no exports, so a package's `ENV`/`TOOL` objects
+  need an import rule shared by the language and amy. (3) `/etc/dolly/environment`
+  is read at image restore, before session files replay, so installed `ENV` is
+  lost on reload. (4) Payload trust equals the image cache's: published digests,
+  reproducible by rebuilding the pinned recipe.
 
 ## Next
 
