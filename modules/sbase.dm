@@ -1,40 +1,95 @@
 DOLLY 4
 MODULE sbase
 
+# Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
+REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE HOST /static/default/sbase.tar /tmp/sbase.tar a282c5fde4a339c91de04b7d70a860be49e631177acbf3244fe5e1bff7ce3338
+SOURCE HOST /static/default/sbase.tar /tmp/sbase.tar a01a6a52283b100e302da15ab69cad0d228f1dd054fbbd5ce0ead6920e372e9e
 SLOP tar \
   -xf /tmp/sbase.tar \
   -C /
 
-FILE /tmp/sbase/Makefile
+FILE /tmp/sbase/dolly.mk
+    TOOLS = basename cat cksum cmp comm cp cut date dd dirname du echo expand expr \
+            false fold grep head join ln ls md5sum mktemp mv nl od paste pathchk \
+            printenv printf pwd readlink rmdir sed seq sha256sum sleep sort \
+            split strings tail tee test touch tr true tsort uname unexpand uniq wc \
+            which xinstall
     .RECIPEPREFIX := >
-    SBASE_CPPFLAGS := -I /usr/src/sbase -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700
-    SBASE_TR_UTF := /usr/src/sbase/libutf/fgetrune.c /usr/src/sbase/libutf/fputrune.c /usr/src/sbase/libutf/isalnumrune.c /usr/src/sbase/libutf/isalpharune.c /usr/src/sbase/libutf/isblankrune.c /usr/src/sbase/libutf/iscntrlrune.c /usr/src/sbase/libutf/isdigitrune.c /usr/src/sbase/libutf/isgraphrune.c /usr/src/sbase/libutf/isprintrune.c /usr/src/sbase/libutf/ispunctrune.c /usr/src/sbase/libutf/isspacerune.c /usr/src/sbase/libutf/istitlerune.c /usr/src/sbase/libutf/isxdigitrune.c /usr/src/sbase/libutf/lowerrune.c /usr/src/sbase/libutf/rune.c /usr/src/sbase/libutf/runetype.c /usr/src/sbase/libutf/upperrune.c /usr/src/sbase/libutf/utf.c /usr/src/sbase/libutf/utftorunestr.c
-    
-    all: /bin/grep /bin/sed /bin/head
-    
-    /bin/grep: /usr/src/sbase/grep.c /usr/src/sbase/libutil/ealloc.c /usr/src/sbase/libutil/eprintf.c /usr/src/sbase/libutil/eregcomp.c /usr/src/sbase/libutil/fshut.c /usr/src/sbase/libutil/strcasestr.c
-    >$(CC) $(SBASE_CPPFLAGS) $^ -o $@
-    
-    /bin/sed: /usr/src/sbase/sed.c /usr/src/sbase/libutil/ealloc.c /usr/src/sbase/libutil/eprintf.c /usr/src/sbase/libutil/eregcomp.c /usr/src/sbase/libutil/fshut.c /usr/src/sbase/libutil/reallocarray.c /usr/src/sbase/libutil/strlcat.c /usr/src/sbase/libutf/rune.c /usr/src/sbase/libutf/utf.c /usr/src/sbase/libutf/runetype.c /usr/src/sbase/libutf/isdigitrune.c /usr/src/sbase/libutf/isspacerune.c
-    >$(CC) $(SBASE_CPPFLAGS) $^ -o $@
-    
-    /bin/head: /usr/src/sbase/head.c /usr/src/sbase/libutil/eprintf.c /usr/src/sbase/libutil/fshut.c /usr/src/sbase/libutil/strtonum.c
-    >$(CC) $(SBASE_CPPFLAGS) $^ -o $@
-
+    dolly-bin: $(TOOLS)
+    >./mv $(TOOLS) /bin
+    >mv /bin/xinstall /bin/install
+    >ln -s test /bin/[
+    .RECIPEPREFIX :=
+    include Makefile
+    # Slop does not accept the combined -ec that .POSIX makes pass.
+    .SHELLFLAGS = -c
 SLOP make \
-  -f /tmp/sbase/Makefile
+  -C /tmp/sbase \
+  -f dolly.mk \
+  CFLAGS=-O2 \
+  ARFLAGS=rc \
+  RANLIB=:
 
-EXPORTS TOOL   grep
-EXPORTS TOOL   sed
-EXPORTS TOOL   head
-EXPORTS FOLDER sbase-source /usr/src/sbase
+EXPORTS TOOL basename
+EXPORTS TOOL cat
+EXPORTS TOOL cksum
+EXPORTS TOOL cmp
+EXPORTS TOOL comm
+EXPORTS TOOL cp
+EXPORTS TOOL cut
+EXPORTS TOOL date
+EXPORTS TOOL dd
+EXPORTS TOOL dirname
+EXPORTS TOOL du
+EXPORTS TOOL echo
+EXPORTS TOOL expand
+EXPORTS TOOL expr
+EXPORTS TOOL false
+EXPORTS TOOL fold
+EXPORTS TOOL grep
+EXPORTS TOOL head
+EXPORTS TOOL join
+EXPORTS TOOL ln
+EXPORTS TOOL ls
+EXPORTS TOOL md5sum
+EXPORTS TOOL mktemp
+EXPORTS TOOL mv
+EXPORTS TOOL nl
+EXPORTS TOOL od
+EXPORTS TOOL paste
+EXPORTS TOOL pathchk
+EXPORTS TOOL printenv
+EXPORTS TOOL printf
+EXPORTS TOOL pwd
+EXPORTS TOOL readlink
+EXPORTS TOOL rmdir
+EXPORTS TOOL sed
+EXPORTS TOOL seq
+EXPORTS TOOL sha256sum
+EXPORTS TOOL sleep
+EXPORTS TOOL sort
+EXPORTS TOOL split
+EXPORTS TOOL strings
+EXPORTS TOOL tail
+EXPORTS TOOL tee
+EXPORTS TOOL test
+EXPORTS TOOL touch
+EXPORTS TOOL tr
+EXPORTS TOOL true
+EXPORTS TOOL tsort
+EXPORTS TOOL uname
+EXPORTS TOOL unexpand
+EXPORTS TOOL uniq
+EXPORTS TOOL wc
+EXPORTS TOOL which
+EXPORTS TOOL install
+EXPORTS TOOL [
 
 FILE /usr/share/licenses/sbase/LICENSE
 
@@ -42,4 +97,3 @@ SLOP rm \
   -rf \
   /tmp/sbase \
   /tmp/sbase.tar
-
