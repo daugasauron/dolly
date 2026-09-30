@@ -12,10 +12,6 @@ Dolly's files, processes and HTTP broker.
 
 Open `/pi/`; build with `npm run image -- pi`. Leave Pi with `/exit` or Ctrl+D.
 
-For Claude, start the [local relay](../game-agent/README.md#local-relays), run
-`upload ~/.pi/agent/models.json` in Dolly and choose the file it prints (upload
-never overwrites), then `pi --provider claude-local --model claude-sonnet-5-5`.
-
 ## How it works
 
 - `pi-build` runs the official TypeScript compiler inside Dolly and emits Pi's

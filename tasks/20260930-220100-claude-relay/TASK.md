@@ -1,6 +1,6 @@
 # Add a local Claude relay for the model-driven demos
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: demo,agent,relay
 
@@ -18,3 +18,11 @@ ClassiCube settings accept its `models.json`. Every inference request then fails
 upstream: "Your credit balance is too low to access the Anthropic API." Demo
 recordings on the relay need credits on that account. Mock-upstream tests pass
 (`demos/game-agent/test/claude-relay.test.mjs`, 5/5).
+
+## Removed (2026-10-01)
+
+The owner asked to remove the relay. An API key was the only permitted
+credential (Anthropic does not allow routing requests through Free, Pro or Max
+subscription credentials or intermediating Claude.ai sign-in:
+https://code.claude.com/docs/en/legal-and-compliance), and the key's account
+had no credits. `dbe223d` is reverted; the Codex relay and OpenRouter remain.

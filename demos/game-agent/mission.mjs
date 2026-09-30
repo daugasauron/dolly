@@ -27,8 +27,8 @@ export async function runAgent({ fs, spawn, world, run, scratch, directory: sett
     const owner = control().owner;
     atomic("status.txt", failure && !busy ? "Agent error · Retry task or open Settings" : owner === 1 ? "Your controls · Agent paused" : owner === 0 ? "Agent paused" : state);
     atomic("retry", failure && !busy && lastPrompt.trim() ? "1" : "");
-    const unpriced = settings.selection.provider !== "openrouter";
-    atomic("cost.txt", `$${Number(usage.reportedUSD).toFixed(4)} reported${unpriced ? " · local proxy, cost not reported" : ""}`);
+    const subscription = settings.selection.provider === "codex-local";
+    atomic("cost.txt", `$${Number(usage.reportedUSD).toFixed(4)} reported${subscription ? " · Codex subscription" : ""}`);
   };
   const record = (type, fields = {}) => {
     const event = JSON.parse(JSON.stringify({ time: Date.now(), type, ...fields }).replace(/sk-or-v1-[\w-]+/g, "[redacted]"));

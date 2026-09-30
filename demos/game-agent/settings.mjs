@@ -36,8 +36,7 @@ export function createSettings(fs, scratch, run, changed, profile) {
     writeAtomic(fs, `${profile}/agent.json`, JSON.stringify(selection) + "\n");
     selected(); await changed(selection);
   };
-  const providerNames = { openrouter: "OpenRouter", "codex-local": "Codex (local proxy)", "claude-local": "Claude (local proxy)" };
-  const providerName = () => providerNames[selection.provider];
+  const providerName = () => selection.provider === "codex-local" ? "Codex (local proxy)" : "OpenRouter";
   const home = message => menu("Agent settings", [
     ["provider", "Provider", providerName()], ["model", "Model", selection.model || "Select a model"],
     ["effort", "Reasoning effort", selection.effort], ["connection", "Connection", providerName()],
@@ -45,7 +44,6 @@ export function createSettings(fs, scratch, run, changed, profile) {
   const providers = () => menu("Provider", [
     ["provider:openrouter", "OpenRouter", "Use an OpenRouter account or API key"],
     ["provider:codex-local", "Codex (local proxy)", "Use your Codex subscription through a local proxy"],
-    ["provider:claude-local", "Claude (local proxy)", "Use your Anthropic API key through a local proxy"],
   ]);
   const ask = (title, { secret = false, message } = {}) => new Promise((resolve, reject) => {
     menu(title, [], message || "Enter submits · Escape cancels", secret ? "secret" : "input");
@@ -66,13 +64,13 @@ export function createSettings(fs, scratch, run, changed, profile) {
     const runtime = await models();
     if (key.startsWith("provider:")) {
       const provider = key.slice(9);
-      if (!Object.hasOwn(providerNames, provider)) throw Error("Choose an available provider");
+      if (!["openrouter", "codex-local"].includes(provider)) throw Error("Choose an available provider");
       if (provider !== selection.provider) await save({ provider, model: "", effort: "low" });
       return runtime.hasConfiguredAuth(provider) ? home() : select("connection");
     }
     if (key === "connection") {
       const connected = runtime.hasConfiguredAuth(selection.provider);
-      return menu(providerName(), selection.provider !== "openrouter" ? [
+      return menu(providerName(), selection.provider === "codex-local" ? [
         ["relay", connected ? "Replace proxy configuration" : "Connect local proxy", "Choose the proxy's models.json file"],
         ...(connected ? [["disconnect", "Disconnect", "Remove this proxy from Dolly"]] : []),
       ] : [
@@ -85,7 +83,7 @@ export function createSettings(fs, scratch, run, changed, profile) {
       if (!runtime.hasConfiguredAuth(selection.provider)) return select("connection");
       return menu("Model", runtime.getModels(selection.provider).filter(model => model.input.includes("image"))
         .sort((a, b) => a.id.localeCompare(b.id)).map(model => [`model:${model.id}`, model.id,
-          model.id === selection.model ? "Selected" : selection.provider !== "openrouter" ? providerName() :
+          model.id === selection.model ? "Selected" : selection.provider === "codex-local" ? "Subscription" :
             `$${model.cost.input} input / $${model.cost.output} output per million tokens`]),
         "Search models · click a row to select", "models");
     }
@@ -120,18 +118,17 @@ export function createSettings(fs, scratch, run, changed, profile) {
       return select("model");
     }
     if (key === "relay") {
-      if (selection.provider === "openrouter") throw Error("Select a local proxy first");
-      menu(providerName(), [], "Keep the proxy running on your computer. Choose the private models.json it prints; keep native credentials on the host.", "busy");
-      const provider = await importRelay(fs, run, directory);
-      if (!provider) return home();
-      await models(true); await save({ ...selection, provider, model: selection.provider === provider ? selection.model : "" });
+      if (selection.provider !== "codex-local") throw Error("Select Codex first");
+      menu("Local Codex proxy", [], "Keep the proxy running on your computer. Choose the private models.json it prints; keep native auth.json on the host.", "busy");
+      if (!await importRelay(fs, run, directory)) return home();
+      await models(true); await save({ ...selection, provider: "codex-local", model: selection.provider === "codex-local" ? selection.model : "" });
       return select("model");
     }
     if (key === "refresh") { if (selection.provider !== "openrouter") throw Error("Select OpenRouter first"); menu("Refreshing models", [], "Contacting OpenRouter…", "busy"); await refresh(); return select("model"); }
     if (key === "disconnect") {
-      if (selection.provider !== "openrouter") {
+      if (selection.provider === "codex-local") {
         const config = fs.existsSync(modelsPath) ? JSON.parse(fs.readFileSync(modelsPath, "utf8")) : {};
-        if (config.providers) delete config.providers[selection.provider];
+        if (config.providers) delete config.providers["codex-local"];
         writeAtomic(fs, modelsPath, JSON.stringify(config)); await models(true);
       } else await runtime.logout("openrouter");
       await save({ ...selection, model: "" }); return home();
