@@ -87,9 +87,7 @@ and table references before acknowledging a child as waitable. Parent shutdown
 retires descendants first.
 
 Unexpected Worker failure produces status 126 and a bounded printable diagnostic.
-Compiler launchers retry that infrastructure status up to twice; ordinary
-compiler errors return immediately. Failure handled by a parent does not poison
-unrelated top-level processes.
+Failure handled by a parent does not poison unrelated top-level processes.
 
 Worker termination has no completion event. Large interactive processes receive
 a bounded reclamation window before exit is acknowledged, reducing competition
