@@ -45,7 +45,7 @@ test("terminal UI compaction preserves input order across wrap and producer publ
   const end = runtime.indexOf("\n}\n", start) + 2;
   assert.ok(start > 0 && end > start);
   const dispatchStart = runtime.indexOf("static int handle_terminal_event(");
-  const dispatchEnd = runtime.indexOf("\nstatic int dolly_terminal_fill_raw_timeout", dispatchStart);
+  const dispatchEnd = runtime.indexOf("\n// Buffers decoded terminal input bytes", dispatchStart);
   assert.ok(dispatchStart > 0 && dispatchEnd > dispatchStart);
   const scratch = await mkdtemp(join(tmpdir(), "dolly-terminal-ring-"));
   try {

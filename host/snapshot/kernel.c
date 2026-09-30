@@ -1,4 +1,3 @@
-#include "kernel.h"
 #include "process-kernel.h"
 #include "sha256.h"
 #include "session-records.h"
