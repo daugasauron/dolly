@@ -37,6 +37,9 @@ Leads:
   `TuiEventStream::poll_crossterm_event` also returns `None` when its
   `resume_stream` ends, and `demos/codex/config/tui-events.patch` replaces the
   crossterm `EventStream` on Emscripten. Next: log the `EventResult` error or
-  the `resume_stream` end in that patch and rebuild `codex-build`.
+  the `resume_stream` end in that patch and rebuild `codex-build` (about 70 min).
+  `TuiEventStream` also ends when its draw broadcast closes. Codex writes no
+  `~/.codex/log/*.log`, even with `RUST_LOG=trace` and the directory present,
+  and leaves `state_5.sqlite` empty.
 
 Done when: the Codex demo test passes in Chrome.
