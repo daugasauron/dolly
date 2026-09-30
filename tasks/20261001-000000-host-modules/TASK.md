@@ -100,3 +100,6 @@ Remaining:
   `DOLLY_THREADS_ABI_DIGEST`) would weaken executable identity, so choose:
   per-module digests stamped by the client, or keep module packets in `process.h`.
 - `threads@0` kernel code stays in `process-kernel.c` (thread table).
+- Stale path comments that change pinned bytes, for the next seed change:
+  `host/upload/upload.h` (names `abi/dolly-upload-0.wat`) and the Pi skill
+  `demos/pi/skills/dolly/SKILL.md` (names `src/host/`, `src/http-*.mjs`).
