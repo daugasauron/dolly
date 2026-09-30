@@ -22,9 +22,10 @@
     "export:pages": "node scripts/export-cloudflare-pages.mjs",
     "serve": "node scripts/serve.mjs",
     "test:core": "node test/core-browser.mjs",
+    "test:browser": "node test/browser-tests.mjs",
     "test:custom-sessions": "node test/custom-session-browser.mjs",
     "test:artifacts": "node --test 'test/*.artifacts.mjs' 'demos/**/*.artifacts.mjs'",
-    "test:full": "npm run build && npm run test:artifacts && npm test && ./scripts/test-browser.sh"
+    "test:full": "npm run build && npm run test:artifacts && npm run test:source && npm run test:browser && ./scripts/test-browser.sh"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.4",
