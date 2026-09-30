@@ -25,6 +25,11 @@ else
   exit 1
 fi
 
+# Replaces a file only when its bytes change, so unchanged inputs rebuild nothing.
+replace_if_changed() {
+  if cmp -s -- "$1" "$2"; then rm -f -- "$1"; else mv -- "$1" "$2"; fi
+}
+
 mkdir -p \
   "${project_dir}/build" \
   "${project_dir}/build/generated" \
@@ -87,7 +92,8 @@ mapfile -t contracts < <(printf '%s\n' abi/dolly-kernel-plugin-0.wat abi/dolly-h
 done' contracts "${contracts[@]}"
 node scripts/generate-abi-constants.mjs
 mapfile -t headers < <(node scripts/host-modules.mjs headers)
-rm -rf build/include && mkdir -p build/include/dolly && cp -- "${headers[@]}" build/include/dolly/
+# -p keeps source mtimes so unchanged headers rebuild nothing.
+rm -rf build/include && mkdir -p build/include/dolly && cp -p -- "${headers[@]}" build/include/dolly/
 node scripts/dolly-abi.mjs bind-process-layout build/dolly-threads-0.wasm \
   host/threads/dolly-threads-0.wat host/threads/threads.h
 node scripts/dolly-abi.mjs emit-digest-header build/dolly-threads-0.wasm \
@@ -149,9 +155,7 @@ process_link_flags=(
   "${container[@]}" /emsdk/upstream/emscripten/emcc \
     "${process_compile_flags[@]}" -c src/process/crt1.c \
     -o "${startup_staging}/crt1.o"
-  if ! cmp -s "${startup_staging}/crt1.o" build/process-crt1.o; then
-    mv -- "${startup_staging}/crt1.o" build/process-crt1.o
-  fi
+  replace_if_changed "${startup_staging}/crt1.o" build/process-crt1.o
 )
 "${container[@]}" /emsdk/upstream/emscripten/emcc \
   "${process_compile_flags[@]}" -c src/process/libc-adapter.c \
@@ -204,17 +208,20 @@ done
   build/process-pthread_mutexattr_init.o \
   build/process-pthread_mutexattr_settype.o \
   build/process-pthread_mutexattr_destroy.o
-  if ! cmp -s "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a; then
-    mv -- "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a
-  fi
+  replace_if_changed "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a
 )
 
-# Each host module's process clients form libdolly-NAME.a.
+# Each host module's process client forms libdolly-NAME.a.
 while read -r module source; do
   object="build/process-${module}-client.o"
   "${container[@]}" /emsdk/upstream/emscripten/emcc \
     "${process_compile_flags[@]}" -c "${source}" -o "${object}"
-  "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "build/libdolly-${module}.a" "${object}"
+  # Updating a copy keeps members of earlier builds, as the released seed does
+  # (tasks/20261001-051500-client-archives).
+  cp -p -- "build/libdolly-${module}.a" "build/libdolly-${module}.a.new" 2>/dev/null ||
+    rm -f -- "build/libdolly-${module}.a.new"
+  "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "build/libdolly-${module}.a.new" "${object}"
+  replace_if_changed "build/libdolly-${module}.a.new" "build/libdolly-${module}.a"
 done < <(node scripts/host-modules.mjs client)
 mapfile -t client_links < <(node scripts/host-modules.mjs client | awk '{ print "-ldolly-" $1 }' | uniq)
 
@@ -276,7 +283,8 @@ node scripts/dolly-abi.mjs validate-process-dso \
 native_zig_object="$("${project_dir}/scripts/build-native-zig.sh")"
 
 
-node scripts/host-modules.mjs kernel-modules > build/generated/dolly-kernel-modules.h
+node scripts/host-modules.mjs kernel-modules > build/generated/dolly-kernel-modules.h.new
+replace_if_changed build/generated/dolly-kernel-modules.h.new build/generated/dolly-kernel-modules.h
 kernel_contracts=()
 while read -r contract; do kernel_contracts+=("build/$(basename "${contract}" .wat).wasm"); done \
   < <(node scripts/host-modules.mjs contracts)

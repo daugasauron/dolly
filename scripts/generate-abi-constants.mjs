@@ -5,7 +5,10 @@ import { hostFiles } from "./host-modules.mjs";
 
 const root = new URL("..", import.meta.url);
 const read = path => readFile(new URL(path, root), "utf8");
-const write = (path, text) => writeFile(new URL(path, root), text);
+// Unchanged files keep their mtimes, so dependents do not rebuild.
+const write = async (path, text) => {
+  if (await read(path).catch(() => null) !== text) await writeFile(new URL(path, root), text);
+};
 
 // WAT contracts own their constants as exported i32 globals. A module whose
 // contracts export any gets abi.mjs beside its manifest, and NAME-abi.h when the
