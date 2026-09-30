@@ -88,8 +88,13 @@ Gaps found:
   and GNU long names (`././@LongLink`), and has no `-z`. Packages must be ustar
   with symlinks dereferenced (python's `python3 -> python` then costs 3 MB),
   or `tar` must learn both.
-- Not yet measured: saving and reloading the session (size against 512 MiB,
-  and the lost `ENV`).
+- Session: with all three installed, saving took 2.5-3.1 s and stored 48 MB
+  (limit 512 MiB); reloading `/session/NAME` took 2.3-2.5 s and `nvim`,
+  `python` and `pi` all ran again (Chrome and Firefox). These packages need no
+  `ENV`, so the lost-`ENV` gap is still untested.
 
-Scripts: `pack.mjs`, `install.mjs` and `boot.mjs` in the session scratchpad
+Conclusion: the experiment's bar holds (installs take seconds, sessions stay far
+below 512 MiB). Next: teach `tar` symlinks and long names, then an installer.
+
+Scripts: `pack.mjs`, `install.mjs`, `boot.mjs` and `session.mjs` in the session scratchpad
 (not committed).
