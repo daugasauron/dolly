@@ -1,82 +1,56 @@
-# HTTP and libcurl
+# HTTP
 
-## One outer capability
+`env.dolly_http_dispatch` is Dolly's only agent-selected network edge. Programs
+never import Fetch, sockets, DNS or TLS; libcurl, Git, Python and Janis all sit
+above one kernel slot pool and one browser broker whose policy the embedding
+sets. Authority is summarized in the [browser boundary](browser-boundary.md).
 
-Reserved `*.dolly.invalid` addresses admit only the browser-local
-[build service](image-build-service.md) through this same broker. They never
-reach Fetch. Local inference uses process pipes; its weight downloads use
-ordinary remote HTTP. The policy below governs
-ordinary remote HTTP destinations.
-
-Programs do not import Fetch, sockets, DNS, or TLS. They call an in-Wasm C API,
-which eventually reaches this one kernel-module import:
-
-```wat
-(import "env" "dolly_http_dispatch"
-  (func (param i64 i64 i64 i64 i64 i64 i64 i64 i32 i32) (result i32)))
+```mermaid
+flowchart LR
+  prog["Process: libcurl, Janis, Python"] -- "HTTP_BODY_WRITE, HTTP_START, HTTP_POLL" --> kernel["Kernel slot pool<br/>16 x 64 KiB"]
+  kernel -- "env.dolly_http_dispatch spans" --> broker["http-broker.mjs"]
+  broker -- "authorize" --> policy["http-policy.mjs"]
+  broker -- "reserved *.dolly.invalid" --> local["local-services.mjs"]
+  broker -- "other allowed URLs" --> fetch(("Fetch"))
+  broker -- "URL, headers, body chunks" --> kernel
 ```
 
-The arguments are pointer/byte-length pairs for method, URL, serialized headers
-and body, followed by flags and request sequence. They are data supplied to one
-browser broker. Admission returns zero or a negative target errno. Responses use
-the version-5 pool defined by `abi/dolly-http-0.wat`: 16 independent 64 KiB slots
-with effective URL, header lines,
-body chunks, HTTP status, EOF, and an error code. Wasm blocks in its worker
-while synchronous C clients wait for browser JavaScript to publish bounded
-chunks. JavaScript runtimes instead poll their slots cooperatively, so
-their Promise jobs and timers continue to advance between chunks.
+## Transport
 
-The complete browser transport is in `src/http-broker.mjs`, and authorization
-is in `src/http-policy.mjs`. The import passes only span descriptors and a
-reference to the kernel's shared memory; it performs no unbounded string scan
-or body copy. Before decoding/copying, the browser validates every span against
-that memory and fixed byte caps: method 32, URL 8 KiB, headers 64 KiB, body 8 MiB.
-Metadata is literal UTF-8 without NUL: leading U+FEFF is not discarded as a BOM.
-Fetch's `Headers` validates names and normalizes value whitespace; the broker
-does not apply Unicode trimming. Destination policy can impose smaller body
-limits, but cannot relax these admission caps.
+- Contract: [`dolly-http-0.wat`](../abi/dolly-http-0.wat); kernel side in
+  [`dolly.c`](../src/dolly.c); browser side in
+  [`host/http.mjs`](../src/host/http.mjs) and [`http-broker.mjs`](../src/http-broker.mjs).
+- The import passes span descriptors only. The broker checks them against fixed
+  caps before copying: method 32 B, URL 8 KiB, headers 64 KiB, body 8 MiB.
+  Metadata is literal UTF-8 without NUL.
+- URLs must be absolute `http:` or `https:`; nothing resolves against the page.
+- A private host acknowledgement admits one request at a time; transfers then run
+  concurrently in 16 fixed slots. A handle encodes slot and generation, so stale
+  handles never touch a successor. `EBUSY` means the slot is occupied.
+- Terminal errors are target errnos: `EACCES` policy, `EDQUOT` quota, `E2BIG`
+  size, `ETIMEDOUT` deadline (which includes guest backpressure), `ECANCELED`,
+  `EIO` transport. Errors never echo URLs, headers or credentials, and cannot
+  distinguish CORS, DNS, TLS or redirect failures.
+- Process exit, signal termination and forced termination cancel only that
+  process's requests.
+- Processes stage request bodies in the kernel with `HTTP_BODY_WRITE` packets of
+  at most 1 MiB before `HTTP_START`.
 
-A private eight-byte browser acknowledgement, never mapped into Wasm, makes
-admission synchronous. The worker cannot enqueue another descriptor until the
-page has copied or rejected the current one. Transfers then run concurrently.
-The browser owns a fixed 16-entry provider table; forged guest state cannot
-increase that limit. `EBUSY` means a slot is occupied. Cancellation aborts only
-the exact handle and acknowledges immediately; the host slot remains occupied
-until its provider settles. Slow cancellation cannot block other admissions or
-accumulate unbounded providers. All slots share the same policy and quota.
-The host deadline includes each slot's backpressure,
-not only the Fetch operation. If the guest stops consuming data, the provider
-aborts the request and publishes terminal failure (atomic state 3), without
-waiting for another acknowledgement or overwriting the current chunk. The
-guest acknowledges chunks with compare-exchange so it cannot accidentally
-erase this failure. See the [boundary review guide](browser-boundary.md).
+## Policy
 
-The error word is a positive target errno published before terminal state 3:
-`EACCES` policy denial, `EDQUOT` request quota, `E2BIG` byte limit, `ETIMEDOUT`
-deadline, `ECANCELED` cancellation, or `EIO` transport failure. These constants
-come from the pinned target's `<errno.h>`, not the host platform. C preserves
-the negative errno; Janis errors retain `code`, `errno`, and the admitted request's
-`requestId`. Libcurl maps to its standard error codes and supplies a specific
-`CURLOPT_ERRORBUFFER` message. No error includes request credentials or claims
-to distinguish browser-hidden CORS, redirect, DNS, or TLS failures.
-
-The page-side provider optionally accepts a `globalThis.DOLLY_HTTP_POLICY`
-object before `browser.mjs` loads. A hardened policy contains exact-origin
-rules, an exact path or path prefix, allowed methods, byte/time limits, and the
-names of credential headers that may reach that destination. A prefix matches
-whole path segments (`/v1` admits `/v1/models`, not `/v1-admin`); paths with
-encoded `/` or `\` never match a prefix. The module
-consumes and deletes that global during boot. It always uses
-`credentials: "omit"` and a no-referrer policy. Explicit destination policies
-reject redirects so a request body cannot reach an unvalidated destination.
+Without a policy object (the public demo) the broker permits any HTTP(S) URL
+except the app's own origin, keeps caller credential headers, follows redirects
+on request, and applies a 10-minute deadline, no request quota and no response
+cap. **This does not prevent exfiltration.** Restricted embeddings set a policy
+before `browser.mjs` loads; the broker consumes and deletes the global:
 
 ```js
 globalThis.DOLLY_HTTP_POLICY = {
-  maxRequests: 64,
+  maxRequests: 64,                       // default 256
   rules: [{
-    origin: "https://openrouter.ai",
-    path: "/api/v1/chat/completions",
-    methods: ["POST"],
+    origin: "https://openrouter.ai",     // exact origin
+    path: "/api/v1/chat/completions",    // or pathPrefix, matched by whole segments
+    methods: ["POST"],                   // default GET and HEAD
     credentialHeaders: ["authorization"],
     maxRequestBytes: 2 * 1024 * 1024,
     maxResponseBytes: 16 * 1024 * 1024,
@@ -85,179 +59,35 @@ globalThis.DOLLY_HTTP_POLICY = {
 };
 ```
 
-Credential values are ordinary Dolly state. Pi may store them in its in-memory
-home directory or environment and sends its own authorization header, just as
-it does on a conventional machine. The broker never owns, injects, or rewrites
-the value. Explicit policies default to 256 authorization attempts, including
-denied attempts; exact trusted bootstrap downloads instead share a quota of four
-per listed source. With no policy object, including in the public Pages demo, it
-preserves those headers and permits generic HTTP(S) except the app's own origin,
-including caller-requested redirects, without a lifetime request-count limit.
-Only exact bootstrap sources reach the app origin; an explicit rule may grant
-more of it. The broker resolves no relative URL. Request byte caps, explicit response quotas
-and deadlines still apply. The default deadline is ten minutes so reasoning
-and conversation summaries can finish; explicit policy values take precedence. It is therefore
-useful but not safe against exfiltration. Embeddings that need containment
-should supply an explicit destination rule set and list only the
-credential-header names each destination needs. This policy remains effective
-after total compromise of the shared Dolly userspace because Wasm cannot
-replace its imports.
+- Credential headers not listed for the matched rule are removed. The broker
+  never stores, injects or rewrites credentials; they are ordinary sandbox state.
+- Explicit rules and bootstrap sources reject redirects: Fetch hides intermediate
+  destinations. `DOLLY_HTTP_FOLLOW_REDIRECTS` works only under the default policy.
+- Bootstrap sources (recipes and `SOURCE HOST` files) are exact credential-free
+  GETs with pinned byte bounds; under an explicit policy each gets 4 requests.
+- Fetch always uses `credentials: "omit"` and no referrer. The broker drops
+  browser-owned headers such as `User-Agent` and `Accept-Encoding`.
 
-## In-Wasm request API
+## CORS
 
-`include/dolly/http.h` exposes synchronous and asynchronous request operations:
+Dolly cannot turn CORS off; `no-cors` gives unreadable responses. Prefer
+endpoints that send CORS headers. Otherwise run a reviewed same-origin relay with
+an exact upstream allowlist and limits; it is one more allowed destination and
+widens authority accordingly. Never send credentials through a public CORS proxy.
 
-- `dolly_http_start` dispatches a copied request and returns its sequence;
-- `dolly_http_poll` nonblockingly acknowledges at most one URL, header, body,
-  EOF, or error record;
-- `dolly_http_cancel` aborts only the matching request;
-- `dolly_http_perform` is the process-local synchronous C/libcurl convenience
-  layer that waits and drains those same primitives.
+## In-Wasm clients
 
-Received status and effective URL survive a failed or callback-cancelled
-transfer. Callers always release the response with `dolly_http_response_dispose`.
-
-A request contains:
-
-- method and URL;
-- RFC-style request-header lines;
-- a fixed request body;
-- redirect-intent and fail-on-status flags;
-- body and response-header callbacks.
-
-The browser receives none of the caller's filesystem paths, descriptors,
-allocator state, or process state. Callback execution and all writes to files
-remain inside Wasm.
-
-Janis uses QuickJS's `httpStart`/`httpPoll` bridge.
-Request bodies stay binary: strings are UTF-8 encoded once, and ArrayBuffers,
-typed-array views (including Buffer), and DataViews are copied at `fetch()`
-invocation with their exact byte offset and length. Queued requests therefore
-cannot observe later caller mutations. The native bridge accepts only byte
-arrays or null; there is no duplicate synchronous `Dolly.http()` adapter.
-
-Process clients (Janis, Python, curl, Git) copy large bodies through sequential
-`HTTP_BODY_WRITE` packets into kernel Wasm memory before `HTTP_START`. Each
-packet remains bounded at 1 MiB. The browser's independent 8 MiB body cap and
-any smaller embedding-selected request quota still apply to the complete body.
-One pending body belongs to each process; replacement, failed start, explicit
-discard or process exit frees it. Staging grants no browser capability.
-
-Its `fetch()` returns a `Response` as soon as response headers arrive and
-enqueues each body record into an in-Wasm `ReadableStream`. Janis calls the HTTP
-pump alongside Promise jobs and timers, using at most a 10 ms terminal wait
-while a request is active. This is cooperative re-entry in the existing worker,
-not a socket API or ambient browser `fetch`. Requests overlap both within a
-process and across processes. Janis queues calls only when the pool is full,
-retrying `EBUSY` while continuing to poll active transfers. Aborting a queued
-request removes it without dispatching or cancelling someone else's transfer.
-The C start API still reports `-EBUSY`; callers must handle contention. Response
-chunks are eagerly queued inside the runtime, bounded per transfer by the
-browser's response-byte policy, not by consumer demand. This is not a claim of
-complete Fetch/Streams compatibility or a bound on all responses retained by
-an application.
-
-The kernel tracks every process's handles. Exit, signal termination and forced
-Worker cleanup cancel its requests, not its peers'. Whole-runtime teardown
-aborts all providers. A handle encodes slot and generation; reused slots advance
-the generation, never wrapping. Late responses and stale cancellation cannot
-touch a successor. Each slot occupies 64 header bytes plus 64 KiB of Wasm memory;
-the entire pool occupies 1,049,600 bytes.
-
-`DOLLY_HTTP_FOLLOW_REDIRECTS` permits Fetch's native redirect handling only under
-the unrestricted policy. Without caller intent, with an explicit destination
-policy, or for exact trusted bootstrap inputs, redirects fail. An opened custom
-image follows only when both parent and embedding policies permit it. This
-requires no new Wasm import or flag. Browser `redirect: "manual"` hides redirect
-headers, so it cannot implement per-hop allowlist checks. CORS still applies;
-cross-origin redirects strip Authorization according to Fetch, not native curl.
-Other explicit headers and 307/308 bodies can reach the next destination.
-
-## Fetch-backed libcurl
-
-The build pins curl 8.21.0 and installs its official public headers under
-`/usr/include/curl`. Dolly compiles `src/libcurl-fetch.c` inside the runtime and
-archives it as `/usr/lib/libcurl.a`. Consumers therefore include normal curl
-headers and link with `-lcurl`; they do not use a Git-specific HTTP API.
-
-The implemented compatibility surface currently includes:
-
-- global initialization and version queries;
-- easy handles, duplication, options, perform, information queries, escaping,
-  error strings, and cleanup;
-- header lists;
-- GET, HEAD, POST, PUT, and custom HTTP methods;
-- fixed request bodies and read callbacks with exact declared lengths;
-- write, header, read, error-buffer, and debug callback plumbing;
-- status, effective URL, content type, retry-after, range, protocol restrictions,
-  and basic authorization;
-- the multi calls used by Git, admitting and polling independent transfers
-  without waiting for one response to complete before starting another.
-
-This is deliberately not a claim that browser Fetch can reproduce every
-libcurl behavior. The official headers make the interface source-compatible,
-while the implementation provides the subset established by real ports. Fetch
-owns DNS, connection pooling, HTTP versions, TLS, decompression, forbidden
-headers, and redirect mechanics. The broker removes browser-owned transport
-headers such as `User-Agent` and `Accept-Encoding` before calling Fetch; this
-also avoids engine-specific CORS preflights while leaving application headers,
-including `Authorization`, intact. `USERAGENT` therefore returns
-`CURLE_NOT_BUILT_IN`. `ACCEPT_ENCODING` accepts only `""` (every encoding the
-browser supports, decoded before delivery) and NULL; an explicit list fails.
-
-`CURLOPT_PROTOCOLS_STR` accepts case-insensitive HTTP/HTTPS lists, `ALL`, or NULL
-to restore both. Unsupported or empty lists fail without replacing the current
-restriction. The adapter rejects a forbidden scheme before dispatch; the browser
-rejects relative URLs. Duplicated
-handles retain the restriction. `HTTPAUTH` supports NONE and BASIC; NONE disables
-automatic credentials. Negotiated authentication (including ANY), OAuth token
-options, cookies, proxies, certificate/key/pinning configuration, protocol/version
-selection, low-speed/connection/transfer timeouts, socket controls, upload seeking,
-and per-transfer redirect limits return `CURLE_NOT_BUILT_IN` at setopt. Unknown
-options return `CURLE_UNKNOWN_OPTION`. Callers must check these results.
-
-TLS verification is mandatory: enabling peer/hostname verification succeeds,
-disabling it fails. `FOLLOWLOCATION` accepts only boolean intent, as described
-above. Without it a redirect cannot return its 3xx response as libcurl would:
-Fetch hides that response, so the transfer fails with `CURLE_COULDNT_CONNECT`,
-indistinguishable from a network or CORS failure. Redirect protocol and method
-controls are unsupported, not silently remembered for a future implementation.
-Zero-sized uploads do not consume input; short uploads and read-callback aborts
-fail before dispatch. A custom write callback receives its exact context, even NULL.
-Rejecting body or header data cancels the HTTP operation immediately rather than
-draining the rest of the response before reporting failure.
-Transfer deadlines remain available through browser policy or the process
-`timeout` command. None of these options can relax browser-owned policy. There
-is no raw-socket API, FTP, SSH transport, custom TLS backend or asynchronous fd set.
-
-The important property is architectural: `libcurl.a` is an adapter above the
-same typed broker. It does not widen the browser import closure.
-
-
-## Git transport
-
-The Git module compiles pinned upstream sources into `/usr/lib/libgit.a`,
-links `/usr/bin/git` with zlib, and separately links upstream
-`git-remote-http`/`git-remote-https` with `-lgit -lcurl -lz`. The real-browser
-test proves local operations, HTTP v0/v2 discovery and clone/fetch, checkout,
-shallow/deepen, and HTTP push with remote ref/content verification. It checks
-packs larger than the pipe buffer, remote rejection, damaged-pack/HTTP failures,
-transfer cancellation and successful recovery.
-
-The launcher uses existing mapped spawn and pipes. Sideband receive writes to
-an immediately unlinked in-Wasm file before ordinary index-pack runs; it adds
-no browser operation. Git's PATH probe ignores execute bits, and ordinary libc
-exit runs its cleanup handlers. Push sends its pack before receiving sideband
-status into an unlinked in-Wasm spool, then uses upstream status parsing.
-Configured clean/smudge filters remain outside the validated port. Cancelling
-an HTTP exchange does not undo a ref update already accepted by the remote.
-
-The test's native Git is only a remote HTTP reference server. Every client
-command runs in browser Wasm. Real remotes must permit Fetch/CORS and satisfy
-the embedding's HTTP policy; there is no hidden proxy or socket fallback.
-
-Response bodies have no default total size ceiling. Set a finite positive
-`maxResponseBytes` on a destination rule to impose one; omission or null means
-no response quota. Inherited policies intersect quotas and exact bootstrap
-sources retain their pinned byte bounds. Streams use bounded chunks, checked
-counters, backpressure, cancellation and the existing deadline.
+- C: [`http.h`](../include/dolly/http.h) provides `dolly_http_start`, `_poll`,
+  `_cancel` and the synchronous `dolly_http_perform`.
+- libcurl: official curl 8.21 headers over
+  [`libcurl-fetch.c`](../src/libcurl-fetch.c), linked with `-lcurl`. It covers
+  easy and multi handles, header lists, common methods, read/write/header/debug
+  callbacks, `HTTPAUTH` basic and info queries. Fetch owns TLS, DNS, pooling,
+  compression and redirects, so options such as `USERAGENT`, proxies, cookies,
+  certificates, disabling TLS verification and transfer timeouts return
+  `CURLE_NOT_BUILT_IN`; unknown options return `CURLE_UNKNOWN_OPTION`. A
+  disallowed redirect fails with `CURLE_COULDNT_CONNECT`.
+- Git: upstream `git` and `git-remote-http(s)` link that libcurl
+  ([`git.dm`](../modules/git.dm)): clone, fetch and push over HTTP. Clean/smudge
+  filters are not ported.
+- Janis `fetch()` polls slots cooperatively so timers and promises keep running.

@@ -1,17 +1,15 @@
 # Dolly
 
-A minimal POSIX-like coding-agent userspace inside a browser's wasm64 sandbox.
-Ordinary executables, compilers, runtimes and Slop share a filesystem owned by
-the Wasm kernel. The browser supplies neither host files nor native subprocesses.
+Dolly is a minimal POSIX-like userspace for coding agents inside a browser's
+wasm64 sandbox. A Wasm kernel owns the filesystem, descriptors and processes;
+shells, compilers, Git and agents run as ordinary private Wasm processes. The
+browser supplies no host files or native subprocesses. The experiment is the
+compile target, not Linux emulation: see [AGENTS.md](AGENTS.md) and the
+[architecture](docs/architecture.md).
 
-The experiment is the compile target, not Linux emulation. See
-[AGENTS.md](AGENTS.md) for the design intent.
-
-The product is the modular runtime (Wasm kernel, host modules, process model,
-ABI and trusted browser code) plus a minimal POSIX userspace. Both live at the
-top level. Everything else, from Pi and Python to games, is a
-[demo](demos/README.md) in `demos/DEMO/`, with its own recipes, sources, tests
-and documentation. The core never depends on a demo.
+The product is the modular runtime (kernel, host modules, process model, ABI,
+trusted browser code) plus a minimal POSIX userspace. Everything else is a
+[demo](demos/README.md) in `demos/DEMO/`; the core never depends on a demo.
 
 ## Core images
 
@@ -26,83 +24,61 @@ and documentation. The core never depends on a demo.
 ## Try it
 
 Open [daugasauron.com](https://daugasauron.com/) or
-[GitHub Pages](https://daugasauron.github.io/dolly/). The home page lists each
-image, its Dollyfile and its prebuilt/rebuild routes: shell tools, Python, Pi,
-Neovim, Slopyard and Dollyfile Studio.
+[GitHub Pages](https://daugasauron.github.io/dolly/). The menu lists every image.
 
-`/custom/` builds a pasted or uploaded Dollyfile in a fresh sandbox.
-Studio provides Pi, Neovim syntax/linting and `dollyfile-build FILE`; builds
-stream immediately, and only **Open image** launches the result in a new tab.
-
-`Ctrl+Shift+C/V` copy/paste; `Ctrl+Shift+S` saves filesystem changes.
-`/session/` lists saves and `/session/NAME` restores one. Saves are not running
-processes and do not yet support custom images. `upload DESTINATION` and
-`download FILE` explicitly transfer one file. See [sessions](docs/sessions.md).
-
-Requires shared WebAssembly memory64/table64; there is no wasm32 fallback.
-[Local Qwen models](demos/local-llm/README.md) additionally need hardware
-WebGPU with `shader-f16`. Select a model with Pi's `/model` picker; inference
-runs inside the image.
-
-The [GPU checkpoint](tasks/20260914-160027-gpu-checkpoint/TASK.md) combines the
-interactive liquid/smoke image and in-sandbox Qwen inference, with local preview
-commands, verified image identities and current browser limitations.
+- `/IMAGE/` boots the prebuilt image; `/IMAGE/rebuild/` builds it from its
+  Dollyfile in your browser; `/view/IMAGE/` shows the recipe.
+- `/custom/` builds your own [Dollyfile](docs/dollyfile.md); `/session/` lists
+  [saved sessions](docs/sessions.md).
+- `Ctrl+Shift+C`/`V` copy and paste, `Ctrl+Shift+S` saves, `F11` toggles
+  fullscreen. `upload PATH` and `download FILE` move single files.
+- Needs cross-origin isolation and shared WebAssembly memory64/table64; there is
+  no wasm32 fallback.
 
 ## Boundary
 
-Assume all Wasm userspace is compromised. The trusted browser providers remain
-the containment boundary. Programs receive no ambient Fetch, sockets, DOM or
-JavaScript evaluation capability.
-
-`env.dolly_http_dispatch` is the sole intentional agent-selected network edge.
-The demo allows arbitrary HTTP(S), including credentials stored inside Dolly:
-it **does not prevent exfiltration of sandbox data**. Restricted embeddings must
-enforce policy in the browser broker. CORS still applies. Read the
-[boundary review map](docs/browser-boundary.md) and [security model](docs/security.md).
+Assume all Wasm userspace is compromised; the trusted browser providers are the
+containment boundary. `env.dolly_http_dispatch` is the only agent-selected network
+edge. The public demo allows arbitrary HTTP(S), including credentials stored in
+Dolly: it **does not prevent exfiltration of sandbox data**. Restricted embeddings
+must set a policy in the browser broker ([browser boundary](docs/browser-boundary.md)).
 
 ## Develop
 
-Bootstrap requirements: Node.js/npm, Git, Chrome, Docker or Podman, Python 3.14,
-a host C/C++ compiler and GNU Make. These are not sandbox capabilities.
+Host requirements: Node.js, Git, Chrome, Docker or Podman, Python 3.14, a host
+C/C++ compiler and GNU Make. None of them is a sandbox capability.
 
 ```sh
 npm ci
 npx playwright-core install firefox
-./scripts/build-toolchain.sh           # expensive compiler seed
-npm run build:runtime
-npm run build:rust-seed               # Rust demos only: expensive compiler seed, once
-npm run image -- default --package    # build and publish one image locally
+./scripts/build-toolchain.sh          # compiler seed, slow, once
+npm run build:runtime                 # kernel and seed; checks the exact ABI
+npm run image -- default --plan       # show what would rebuild
+npm run image -- default --package    # build an image and a local release
 DOLLY_PORT=9000 npm run serve
+
+npm run test:source                   # Node source tests
+npm run test:core                     # core scenarios in Chrome and Firefox
 ```
 
-The server reads only `build/releases/current`. Publishing a selected catalog
-replaces the menu; use `DOLLY_BUILD_IMAGES=all npm run publish` for all images.
-`npm test` runs Node source checks and the core scenarios in Chrome and Firefox,
-using existing runtime/default artifacts. It does not rebuild images. For one
-browser, use `npm run test:core -- firefox` (or `chromium`).
-`npm run test:source` needs only dependencies and the generated ABI fixtures and
-metadata from the runtime build; it does not need image snapshots or model assets.
-`npm run test:artifacts` checks the selected catalog and exact built contracts;
-`npm run test:full` rebuilds and runs the full distribution suite. See
-[sources](docs/sources.md) for bootstrap details and
-[deployment](docs/deployment.md) for sealed static exports.
+More browser suites live under `test/` and `demos/*/test/`. Image builds rewrite
+SHA-256 pins in `Dollyfile*` and `modules/*.dm`.
 
-`npm run image -- default --plan` checks the pinned recipes and existing outputs
-without preparing sources, changing pins or starting a browser. Normal image
-builds print the same dependency plan after source preparation, with rebuild
-reasons and phase timings. An unpinned recipe edit must be pinned before planning.
-`build:runtime` builds the kernel and compiler seed without preparing image sources
-or deleting snapshots. `DOLLY_BUILD_IMAGES=default,pi npm run snapshot` prepares
-and builds that selection; `npm run build` runs both phases. For a reproducibility
-check, use `npm run image -- system-build --reproducible` to compare two cold
-browser builds and a cached build.
+## Docs
 
-## Documentation
-
-- [Dollyfiles](docs/dollyfile.md) and [Studio builds](docs/image-build-service.md).
-- [Architecture](docs/architecture.md), [processes](docs/process-model.md), [ABI](abi/README.md).
-- [Slop and Make](docs/slop.md), [ports](docs/port-status.md), [demos](demos/README.md).
-- [Issue tracker](tasks/README.md) and [direction](docs/roadmap.md).
+- [Architecture](docs/architecture.md): components, system calls, core images.
+- [Process model](docs/process-model.md): spawn, descriptors, pipes, signals.
+- [Machine contracts](abi/README.md): exact Wasm imports, exports and layouts.
+- [Browser boundary](docs/browser-boundary.md): threat model and host modules.
+- [HTTP](docs/http.md): broker, policy, libcurl, Git, CORS.
+- [Dollyfile](docs/dollyfile.md): recipe language and image builds.
+- [Studio builds](docs/image-build-service.md): the `build@0` service.
+- [Slop and commands](docs/slop.md): the shell and core tools.
+- [Sessions and file transfer](docs/sessions.md).
+- [Display](docs/display.md), [GPU](docs/gpu.md), [audio](docs/audio.md).
+- [Sources and bootstrap](docs/sources.md): pins, seed, core ports.
+- [Deployment](docs/deployment.md): static releases.
+- [Issues](tasks/README.md).
 
 Dolly is a prototype, not full POSIX, Node or libcurl compatibility.
-[MIT licensed](LICENSE); bundled upstream programs retain their own licenses.
+[MIT licensed](LICENSE); bundled upstream programs keep their own licenses.

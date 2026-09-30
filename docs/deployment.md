@@ -1,145 +1,79 @@
-# Static deployment
+# Deployment
 
-The public sites are [GitHub Pages](https://daugasauron.github.io/dolly/) and
-[daugasauron.com](https://daugasauron.com/), backed by the Cloudflare Pages
-project `dolly`. Both use the same code, Dollyfiles and packaging pipeline.
-The domain publishes the release catalog, including Codex; GitHub Pages publishes
-a smaller selection to fit its 1 GB limit. The domain also includes the
-“Agents at play” recordings; application code is shared between both hosts.
+Dolly deploys as static files: no server code, Functions or proxy. The same
+packaging serves [daugasauron.com](https://daugasauron.com/) (Cloudflare Pages
+project `dolly`, full catalog) and
+[GitHub Pages](https://daugasauron.github.io/dolly/) (a smaller catalog within
+its 1 GB limit).
 
-## Export
-
-First publish and browser-verify a sealed release. Export to a new directory
-whose parent already exists:
-
-```sh
-npm run export:static -- build/releases/current build/static-site /dolly/
-npm run export:pages -- build/releases/current build/pages-site
+```mermaid
+flowchart LR
+  images["dist/ snapshots"] --> pkg["package-pages.sh: sealed release"]
+  pkg --> rel["RELEASES/ID"]
+  rel --> serve["npm run serve (local)"]
+  rel --> static["export-static.mjs: any static host"]
+  rel --> cf["export-cloudflare-pages.mjs, then wrangler"]
 ```
 
-Pass `daugasauron.com` as the third packaging argument to include `/agents/`
-and its index link. The page and media are committed under
-`sites/daugasauron.com/agents` and covered by the release seal:
+## Package and export
+
+Use one catalog for source preparation, snapshots and packaging:
 
 ```sh
-DOLLY_BUILD_IMAGES="$(paste -sd, config/domain-pages-images.txt)" bash scripts/package-pages.sh build/dolly-domain.tar.gz build/domain-releases daugasauron.com
-```
-
-Use `github-pages` as the third argument for GitHub Pages. It receives no
-showcase page, link or media. Pi Local, Dollyfile Studio and 0 A.D. remain in its
-menu, with links and bookmark redirects to daugasauron.com: the bundled model
-and game assets exceed GitHub Pages' site size limit. Fluid runs directly on both
-sites. Slopyard is unfinished and excluded from this release on both sites.
-
-The static exporter uses the supplied prefix; the Pages exporter uses `/`.
-Both verify sealed input, reject an existing destination and publish staging
-atomically. Neither uploads anything. Run `sha256sum --check deployment.sha256`
-inside an export to verify its uploaded bytes.
-
-Packaging defaults to all images. Deploy with
-[domain-pages-images.txt](../config/domain-pages-images.txt) or
-[github-pages-images.txt](../config/github-pages-images.txt). The GitHub selection
-excludes Codex and the three images hosted on the domain but retains RTS Arena
-and fluid. Both selections exclude Slopyard.
-Selection includes all build dependencies; omitted Dollyfiles remain in source.
-Use the same selection when preparing, snapshotting and packaging each artifact:
-
-```sh
-export DOLLY_BUILD_IMAGES="$(paste -sd, config/github-pages-images.txt)"
-# For daugasauron.com, read config/domain-pages-images.txt instead.
+export DOLLY_BUILD_IMAGES="$(paste -sd, config/domain-pages-images.txt)"
 node scripts/update-module-pins.mjs
 bash scripts/prepare-image-sources.sh
 npm run snapshot
+
+# daugasauron.com: export with predecessor releases, then upload.
+bash scripts/package-pages.sh build/dolly-domain.tar.gz build/domain-releases daugasauron.com
+npm run export:pages -- build/domain-releases/current build/pages-next build/domain-releases/PREVIOUS_ID
+npx wrangler@4.129.1 pages deploy build/pages-next --project-name dolly --branch main
+
+# GitHub Pages (github-pages-images.txt): attach the tarball to a GitHub release,
+# then run the "Deploy Dolly demo" workflow with its tag, SHA-256 and commit.
 bash scripts/package-pages.sh build/dolly-pages.tar.gz build/github-releases github-pages
 ```
 
-Large CMake, CPython, Neovim and Seven Kingdoms inputs are ordinary `.tar.gz`
-archives, verified by SOURCE and extracted by `gzip`/`tar` inside Wasm on both
-hosts. GitHub's workflow checks the exported site's 1 GB limit.
-
-GitHub's manual workflow consumes the smaller audited artifact and uses `/dolly/`.
-The domain consumes the full artifact with root navigation and Pages-specific
-delivery headers/encoding. Export an explicit sealed release directory for each
-host; `build/releases/current` points to whichever was packaged last.
-Compare decoded immutable bytes against
-`release/files.sha256`, not compressed wire representations.
+- Catalogs: [`domain-pages-images.txt`](../config/domain-pages-images.txt) and
+  [`github-pages-images.txt`](../config/github-pages-images.txt); dependencies are
+  included automatically.
+- The third packaging argument selects the site: `daugasauron.com` adds the
+  `/agents/` showcase ([`package-domain.mjs`](../scripts/package-domain.mjs));
+  `github-pages` links Studio, Pi Local and 0 A.D. to the domain
+  ([`package-github-pages.mjs`](../scripts/package-github-pages.mjs)).
+- [`package-pages.sh`](../scripts/package-pages.sh) `OUTPUT RELEASES SITE` seals a
+  release into `RELEASES/ID` and points `RELEASES/current` at it (defaults:
+  `build/dolly-pages.tar.gz`, `build/releases`);
+  [`site-release.mjs`](../scripts/site-release.mjs) verifies it.
+  `npm run serve [RELEASES]` serves only that directory's current release.
+- `.github/workflows/pages.yml` verifies the artifact and source,
+  then runs `export-static.mjs` with the Pages prefix. Exporters verify the sealed
+  input, refuse an existing destination, publish atomically and upload nothing;
+  `sha256sum --check deployment.sha256` checks an export.
+- Pass predecessor releases to `export:pages` so open tabs keep their immutable
+  assets; GitHub Pages replaces the whole site on each deploy.
 
 ## Delivery contract
 
-| Path, relative to public prefix | Cache behavior |
+| Path under the public prefix | Caching |
 | --- | --- |
-| `_dolly/RELEASE/` code, recipes and source/runtime assets | Immutable |
-| `dist/packs/HASH.snapshot.gz` shared snapshot packs | Immutable |
-| Public HTML and `coi-serviceworker.js` | No-store |
+| `_dolly/RELEASE/` code, recipes, sources | Immutable |
+| `dist/packs/HASH.snapshot.gz` | Immutable |
+| HTML and `coi-serviceworker.js` | No-store |
 
-User routes stay clean, such as `/gamedev/`, `/custom/` and `/session/NAME`;
-the hash in asset URLs prevents an open tab from mixing releases.
-
-Serve directory `index.html` files. Unknown navigations use the packaged
-`404.html`, preserving URL and 404 status for first visits to named sessions.
-Missing assets must not receive an HTML success response. Preserve MIME types.
-
-Browser storage is per origin. On GitHub Pages every site of one account shares
-`ACCOUNT.github.io`, so any of that account's Pages sites can read Dolly's saved
-sessions (which may hold credentials) and image cache, and a compromised sibling
-site can read or replace them. Serve Dolly from its own origin, such as
-daugasauron.com, when sessions matter.
-
-Prefer `Cross-Origin-Opener-Policy: same-origin`,
-`Cross-Origin-Embedder-Policy: require-corp` and
-`Cross-Origin-Resource-Policy: same-origin`. On hosts without these headers,
-the root service worker establishes isolation for same-origin responses;
-cross-origin broker requests pass through unchanged.
-
-Snapshot `.gz` files are application payloads: do **not** mark them
-`Content-Encoding: gzip`. Dolly decompresses and verifies those bytes itself.
-
-## Cloudflare Pages
-
-This deployment is static only: no Functions, Worker, R2 origin or proxy.
-The Pages exporter enforces its configured file/count/header limits and
-Brotli-compresses oversized source/compiler downloads. Incompressible source
-archives and large snapshot packs use 20 MiB file parts. Their original URL
-returns a bounded manifest with `X-Dolly-Parts: 1`; Dolly streams the fixed
-sibling parts, verifying each part's hash before delivering its bytes. Snapshot gzip encoding
-is unchanged. Browser-loaded runtime code is not precompressed or split.
-
-Compressed SOURCE downloads use `application/octet-stream`: the tested Pages
-runtime otherwise overwrites the encoding for Wasm MIME types. Do not substitute
-Workers Static Assets; its tested encoding behavior is different.
-
-```sh
-# Include sealed predecessor releases needed by existing tabs.
-npm run export:pages -- build/releases/current build/pages-next build/releases/PREVIOUS_RELEASE_ID
-npx wrangler@4.129.1 pages deploy build/pages-next --project-name dolly --branch main
-```
-
-Predecessor arguments are sealed release directories, not old exports.
-Their immutable assets are retained and packs deduplicated; only the current
-release supplies public HTML. Retention verifies every recorded byte and its
-original inventory-acceptance receipt, without imposing newer recipe or
-documentation rules on old releases. The current release passes all current
-checks. An older release without multipart support cannot
-be retained if it needs an oversized, incompressible asset. Limits fail before
-publication, never silently dropping predecessors.
-
-Disable CDN HTML rewriting, email obfuscation and injected analytics. They alter
-the reviewed browser code or source views. Verify delivered hashes and requests,
-not just dashboard settings. Do not place credentials in build artifacts.
-
-## Release checks and retention
-
-Verify decoded hashes, MIME/isolation/cache headers, boot/rebuild, named-session
-restoration and old-release URLs after deployment. Keep source commit, sealed
-release and export manifest as receipts. Do not edit source during sealing.
-
-Upload immutable assets before switching HTML; never replace existing immutable
-bytes. Keep predecessor releases for pinned tabs. GitHub Pages replaces a whole
-deployment, so exporting only one release does not preserve old tabs.
-
-Flat-cost expectations depend on remaining static-only and within provider
-terms. Consult [Pages limits](https://developers.cloudflare.com/pages/platform/limits/),
-[static request pricing](https://developers.cloudflare.com/pages/functions/pricing/#static-asset-requests)
-and [GitHub limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)
-before changing delivery. These do not guarantee unlimited availability or
-availability of external model-weight hosts.
+- Serve directory `index.html` files; unknown paths get the packaged `404.html`
+  with status 404 (it handles first visits to `/session/NAME`). Missing assets
+  must never get an HTML success response.
+- Send `Cross-Origin-Opener-Policy: same-origin`,
+  `Cross-Origin-Embedder-Policy: require-corp` and
+  `Cross-Origin-Resource-Policy: same-origin` where possible; otherwise
+  [`coi-serviceworker.js`](../coi-serviceworker.js) provides isolation.
+- Snapshot `.gz` files are application payloads: never mark them
+  `Content-Encoding: gzip`.
+- The Cloudflare exporter splits oversized sources and packs into verified 20 MiB
+  parts ([`static-asset.mjs`](../src/static-asset.mjs)) and Brotli-compresses
+  large downloads as `application/octet-stream`.
+- Disable CDN HTML rewriting, email obfuscation and injected analytics; they
+  change the reviewed page. Serve Dolly from its own origin when sessions matter:
+  storage is shared by every site on an origin.

@@ -1,110 +1,54 @@
-# Sessions
+# Sessions and file transfer
 
-The **Save** button opens a named checkpoint dialog and a link to saved sessions.
-It shows whether this tab is new, restored, last saved, or failed to save.
-`Ctrl+Shift+S` opens the dialog for a new session and updates an existing one.
-The checkpoint contains files already written by the running program; later
-changes need another save. A notification reports progress, success, or failure.
-Names use 1–64 ASCII letters, digits, dots, underscores, or hyphens;
-`.`, `..`, and the static listing document `index.html` are reserved.
+A session is a named, browser-local save of filesystem changes against the exact
+image the tab booted. It does not save processes. `upload` and `download` move
+single files between the user's computer and WasmFS, one user action at a time.
 
-- `/session/` lists this browser's saved sessions, newest first, without booting Wasm.
-- `/session/NAME` loads one. Save also changes the current URL to this address.
-- Old `/load/?session=NAME` bookmarks redirect to the named path.
+```mermaid
+flowchart LR
+  boot["Boot: kernel fingerprints the base image"] --> save["Save: kernel encodes changed, new and deleted paths"]
+  save -- "snapshot@0 mailbox chunks" --> gzip["Page: gzip"] --> idb[("IndexedDB, per origin")]
+  idb -- "/session/NAME" --> restore["Boot the same base, apply the delta, run ENTRY"]
+```
 
-The list has **Export**, **Import session file**, **Delete**, and **Recover files** for older saves. Export downloads
-an unencrypted `.dolly-session` file; import checks its size, checksum and
-compression, then asks for a name. Existing saves are never overwritten by an
-import. Delete asks for confirmation and only removes that local checkpoint,
-not an already-running session or an exported file. Importing does not start Wasm.
+## Save and load
 
-These routes also work below a deployment prefix, such as `/dolly/session/NAME`.
-The local server maps named paths to one launcher; static hosting uses `404.html`
-on first navigation and the isolation service worker thereafter.
+- **Save** or `Ctrl+Shift+S` stores a checkpoint named with 1–64 of
+  `A-Z a-z 0-9 . _ -` (not `.`, `..` or `index.html`). `/session/` lists saves
+  with Export, Import, Delete and Recover files; `/session/NAME` loads one.
+- A save holds files, directories, symlinks and deletions, including credentials
+  and Pi conversations (`~/.pi/agent/sessions`). It does not hold processes,
+  descriptors, scrollback, environment, cwd, hard links, timestamps or modes.
+- `/run`, `/dev` and `/seed` are excluded ([`session-records.h`](../src/session-records.h));
+  the uncompressed delta is at most 512 MiB.
+- Loading needs the same runtime build and image identity. Otherwise **Recover
+  files** boots `system` and copies changed regular files from `/workspace` and
+  `/home` into `/workspace/recovered-NAME`
+  ([`session-recover.c`](../src/commands/session-recover.c)).
+- On a rebuild route, the first save checks that the rebuilt base is
+  byte-identical to the prebuilt image.
+- Custom-image saves record the Dollyfile, image digest and HTTP restrictions;
+  the image itself must still be in this browser's image cache. Restoring
+  intersects the saved restrictions with the current policy.
+- Saves stay in this browser profile and origin. Exports are unencrypted
+  `.dolly-session` files, checksummed but not authenticated; imports never
+  overwrite an existing name.
 
-## What survives
+Code: kernel [`session-snapshot.c`](../src/session-snapshot.c); page
+[`session-transport.mjs`](../src/session-transport.mjs),
+[`session-store.mjs`](../src/session-store.mjs),
+[`session-file.mjs`](../src/session-file.mjs), list page
+[`sessions.mjs`](../src/sessions.mjs).
 
-Pi writes conversations to `~/.pi/agent/sessions/` inside Dolly once an assistant
-response exists. `/resume` lists them; `pi -c` continues the latest conversation
-for the current directory. Exiting Pi does not delete them. Reloading a fresh
-image resets the in-memory filesystem: save with Ctrl+Shift+S before leaving,
-then load `/session/NAME` and use Pi's `/resume`. An empty Pi session has no file.
+## Upload and download
 
-Saves preserve files, empty directories, symlinks, and deletions, including
-workspace changes, installed tools, shell history, Pi conversations, and
-credentials. Loading boots the same base image, applies the saved changes, then
-starts the image's ordinary entry program. It does **not** resume running
-processes, open descriptors, terminal scrollback, or transient environment/cwd.
-Hard links and file timestamps/mode metadata are not preserved.
-
-The in-Wasm kernel fingerprints the base filesystem at boot. Mailbox format 2
-transfers only changed/new records and deletion records, not another copy of the
-compiler and runtimes. SHA-256 comparisons and all filesystem encoding/restoring
-stay in Wasm. `/dev` and `/seed` remain runtime-owned. Volatile `/run` files, including
-optional downloaded model weights, are excluded from saves. The default model
-is part of the image base and is restored with it; unchanged weights add no
-records to a saved session. The uncompressed **delta**
-limit is 512 MiB; browser quota and available memory can impose lower limits.
-Fingerprinting streams larger base files without adding them to the delta;
-changing a file beyond the delta limit makes the save fail visibly.
-
-The browser copies one bounded opaque chunk at a time into gzip, acknowledging
-it after the compressor accepts it, then atomically replaces one IndexedDB
-record. IndexedDB stores the encoded bytes as a Blob, avoiding large record
-serialization copies; older ArrayBuffer records still load. This avoids a full
-raw browser copy; the kernel still stages the delta.
-Decompression grows one buffer and transfers it into the runtime without a final
-concatenation copy. Boot releases consumed inputs after copying them into Wasm.
-Browsers without streaming compression collect an uncompressed snapshot instead.
-A failed save leaves the previous record intact. Both mailbox participants
-compare and wait on the same observed sequence, with bounded waits and
-cancellation. The kernel services requests independently of foreground stdin,
-including while a child sleeps. Capture and transfer temporarily pause filesystem
-service; programs can run again while the browser finishes compression and stores
-the result. Transfer and restore staging buffers are freed.
-
-## Limits and privacy
-
-Saves are local to this browser profile and origin (scheme, hostname, and port).
-They are not uploaded, synced, or shared by the session URL. Clearing site data
-deletes them. Credentials are included intentionally; anyone with access to the
-browser profile or an exported file can recover them. Import only files you
-trust; exports are checksummed against corruption, not authenticated.
-See [Security](security.md).
-
-Normal loading requires matching runtime and inherited image identities. Older
-saves remain stored and exportable. **Recover files** opens a fresh `system`
-image and copies changed/new regular files and directories from `/workspace`
-and `/home` into `/workspace/recovered-NAME`, keeping both directory trees.
-System changes, deletions and symlinks are skipped. Saved startup files and
-credentials stay inside that folder for inspection, without becoming live config.
-
-Recovery leaves the original save unchanged and refuses an existing destination.
-Ctrl+Shift+S asks for a new save name. Only format-2 filesystem deltas are
-supported, and the distribution must include the `system` image.
-
-For packaged images on a rebuild route, the first save verifies that the entire rebuilt base is
-byte-identical to its prebuilt snapshot before capturing a delta. A different base fails
-visibly without writing a saved record.
-The `session-rebuild` browser regression compares the bases, rejects a changed
-base, then saves on `/IMAGE/rebuild` and restores through `/session/NAME`.
-
-Custom image saves include the exact Dollyfile, completed image digest and
-inherited HTTP restrictions. They reopen after closing the build/result tab and
-preserve these fields through export/import. Restoring intersects the saved
-restrictions with the current browser policy; a save cannot grant broader access.
-The completed image must still exist in this browser's image cache: it is not
-duplicated into every save or export. Rebuilding another version or clearing the
-cache can remove that base. A missing or changed base fails without modifying
-the checkpoint; rebuild the exact image or use **Recover files**. Importing the
-session file into another browser alone does not install its custom image.
-`npm run test:custom-sessions` exercises builds, save/reopen, export/import, policy
-intersection and missing-base recovery in Chrome and Firefox using existing
-runtime/system artifacts. Append `-- firefox` to select one browser.
-
-Session persistence adds no Wasm import or path-level browser filesystem API.
-The review surface is `src/session-snapshot.c`, the shared path restoration in
-`src/fs-record.h`, the shared delta decoder `src/session-records.h`, the ordinary
-`src/commands/session-recover.c` program, `src/session-transport.mjs`,
-`src/session-store.mjs`, `src/session-file.mjs`, and the boot/save call sites in the page and runtime worker.
-`env.dolly_http_dispatch` remains the sole intentional agent-selected network edge.
+- `upload DESTINATION` opens the browser's file picker. The chosen file's bytes
+  (at most 64 MiB) land at a new path; existing files are never overwritten and
+  no host name or path enters Wasm ([`upload.c`](../src/upload.c),
+  [`upload.dm`](../modules/upload.dm)).
+- `download FILE` copies one regular file of at most 64 MiB. The page shows
+  **Save NAME (SIZE)** and **Dismiss**; nothing reaches the download manager until
+  the user clicks Save. At most four offers wait; more fail with `EBUSY`
+  ([`download.mjs`](../src/host/download.mjs), [`download.dm`](../modules/download.dm)).
+- Neither is a network path, but uploaded bytes are ordinary sandbox data that
+  allowed HTTP can send elsewhere.

@@ -1,98 +1,116 @@
 # Architecture
 
-Dolly is a POSIX-like userspace, not Linux emulation. The compile target is the
-interface: exact Wasm types, packet layouts, files and lifecycle semantics.
-Design constraints live in AGENTS.md; exact contracts live in [abi/](../abi/README.md).
+Dolly is a POSIX-like userspace inside one browser tab. A Wasm kernel owns all
+mutable state, ordinary commands run as private wasm64 processes, and trusted
+browser code supplies a fixed set of host modules. Design rules are in
+[AGENTS.md](../AGENTS.md); exact Wasm contracts are in [abi/](../abi/README.md).
 
-```text
-trusted browser: fixed assets, Worker scheduling, bounded devices, HTTP policy
-                                │
-Wasm kernel: filesystem, descriptors, environments, processes, tty, HTTP mailbox
-                                │
-                  typed, pointer-free process gate
-                                │
-private Wasm processes: Slop, compilers, runtimes, tools, games
+```mermaid
+flowchart LR
+  subgraph page["Page: trusted JavaScript"]
+    broker["HTTP broker + policy"]
+    ui["browser.mjs + host modules<br/>canvas, input, Save, downloads"]
+  end
+  subgraph runtime["Runtime Worker"]
+    kernel["Kernel dolly.wasm<br/>WasmFS, descriptors, processes, tty"]
+    ghostty["Ghostty display plugin"]
+    supervisor["Process supervisor"]
+  end
+  subgraph procs["Process Workers"]
+    proc["At most 32 processes<br/>private memory64<br/>one import: dolly_process_0.call"]
+  end
+  proc -- "syscall packet" --> supervisor
+  supervisor -- "gate copy + dispatch" --> kernel
+  kernel --- ghostty
+  kernel -- "host-module mailboxes and imports" --> ui
+  kernel -- "env.dolly_http_dispatch" --> broker
+  broker -- "Fetch" --> net(("network"))
 ```
 
-## Processes and tools
+| Part | Code | Role |
+| --- | --- | --- |
+| Page | [`browser.mjs`](../src/browser.mjs), [`terminal.html`](../terminal.html) | Boots one route, owns canvas, keyboard, clipboard and Save |
+| Host modules | [`host/modules.mjs`](../src/host/modules.mjs) | Fixed registry of browser providers; see [browser boundary](browser-boundary.md) |
+| Runtime Worker | [`runtime-worker.mjs`](../src/runtime-worker.mjs) | Loads the kernel, restores or builds the image, runs its ENTRY |
+| Kernel | [`dolly.c`](../src/dolly.c), [`process-kernel.c`](../src/process-kernel.c), [`system-snapshot.c`](../src/system-snapshot.c), [`session-snapshot.c`](../src/session-snapshot.c) | WasmFS, open files, pipes, processes, signals, terminal, HTTP slots, snapshots ([build](../toolchain/CMakeLists.txt)) |
+| Supervisor | [`process-supervisor.mjs`](../src/process-supervisor.mjs) | Compiles executables, gives each process a fresh memory, gate and Worker (one per thread), forwards syscalls, enforces deadlines |
+| Process Worker | [`process-worker.mjs`](../src/process-worker.mjs), [`process-ffi.mjs`](../src/process-ffi.mjs) | Instantiates the executable; loads process-local DSOs and FFI |
+| Process libc | [`libc-adapter.c`](../src/process/libc-adapter.c), [`signal.c`](../src/process/signal.c) | Maps Emscripten musl's low-level calls to process operations |
+| Display | [`ghostty/display.c`](../src/ghostty/display.c), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs) | Resident terminal emulator and rasterizer; see [display](display.md) |
 
-Every ordinary command is a `dolly-process-0` executable with a private
-memory and one typed call import. Each spawn gets fresh Workers (one per
-thread) and runtime state; kernel files and inherited descriptors survive
-process replacement.
-A multi-memory Wasm gate copies bounded packets, not host objects or pointers.
+## System calls
 
-Executable files are found through `PATH`; supported `#!` scripts resolve
-absolute in-Wasm interpreters. Execution does not depend on permission bits.
-The libc adapter translates Emscripten musl's low-level calls to Dolly operations;
-final programs do not import WASI or Emscripten's browser API.
+Every kernel request is one bounded packet through the process's single import.
 
-The bootstrap `readlink("/proc/self/exe")` query returns the kernel-recorded
-canonical path of the loaded image, including a shebang's interpreter. Changes
-to argv, cwd or the file after loading do not change this identity. This narrow
-compatibility query does not expose a general `/proc` filesystem.
+```mermaid
+sequenceDiagram
+  participant P as C program
+  participant L as musl + libc adapter
+  participant W as Process Worker
+  participant S as Supervisor
+  participant G as Gate
+  participant K as Kernel
+  P->>L: read(fd, buf, n)
+  L->>W: dolly_process_0.call(op, request, response)
+  W->>S: postMessage, then Atomics.wait
+  S->>G: request(): copy packet into the kernel mailbox
+  S->>K: dolly_process_dispatch(pid, op, sizes)
+  K-->>S: response size, -errno or deferred
+  Note over S,K: deferred calls retry when the kernel wakes them
+  S->>G: response(): copy reply into process memory
+  S-->>W: Atomics.store + notify
+  W-->>L: result
+  L-->>P: bytes read or -1/errno
+```
 
-Clang/LLD/LLVM run in a private compiler executable behind `cc`, `c++`,
-`ld` and `ar`. Zig is separate and installed only in `ghostty-build`.
-C++ and process-local DSOs share their owning process's memory/table, not the
-kernel's. See [process semantics](process-model.md).
+- Packets are at most 1 MiB, use fixed-width little-endian fields and relative
+  ranges, never pointers ([`process.h`](../include/dolly/process.h)).
+- The gate ([`dolly-process-gate-0.wat`](../abi/dolly-process-gate-0.wat)) is a
+  policy-free multi-memory copier; bounds failures trap.
+- Errors are negated errno values of the pinned target libc, not Linux numbers.
+- A pending signal turns the next call into `-EINTR`; libc then runs the handler
+  ([process model](process-model.md)).
 
-The kernel owns spawn/wait, pipes and signals. The supervisor can terminate an
-uncooperative Worker without discarding the filesystem. Fork, raw sockets and
-complete POSIX job control are unsupported; threads are an optional host
-profile. Serial execution is intentional. Slop stops interrupted lists and pipelines, propagates signal
-termination through nested shells, and keeps the interactive prompt usable.
+## Images
 
-## Images and files
+An image is a sealed snapshot of retained files, environment and an ENTRY
+program, built from a [Dollyfile](dollyfile.md). Core images:
 
-The kernel's in-memory WasmFS is the only filesystem. Browser storage is never
-mounted. Descriptors are per-process handles to kernel-owned files or pipes.
+```mermaid
+flowchart TD
+  seed["compiler seed<br/>dist/dolly.data"] -- "root build" --> sb["system-build<br/>cc, sbase, make, tar"]
+  sb --> st["system-tools<br/>git, curl, awk, /bin/sh"]
+  sb --> gb["ghostty-build<br/>Zig, Ghostty"]
+  st --> sys["system<br/>display, sessions"]
+  gb -. "COPY plugin + font" .-> sys
+  sys --> def["default"]
+  sys --> gpu["gpu-sdk"]
+  sys --> audio["audio-sdk"]
+  demos["demos/*"]
+  sb -.-> demos
+  st -.-> demos
+  sys -.-> demos
+```
 
-[Dollyfiles](dollyfile.md) execute in Wasm, row by row. Modules build ordinary
-programs from pinned source; images retain explicit outputs and environment.
-Completed images, not modules, are cached. `FROM` and `COPY` reuse verified
-image artifacts.
+- Recipes: [`Dollyfile-system-build`](../Dollyfile-system-build),
+  [`Dollyfile-system-tools`](../Dollyfile-system-tools),
+  [`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build),
+  [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default),
+  [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), [`Dollyfile-audio-sdk`](../Dollyfile-audio-sdk);
+  their modules live in `modules/`.
+- Demos build `FROM` core images; the core never uses a demo.
+- The kernel's WasmFS is the only filesystem. Browser storage holds only opaque
+  image snapshots and [sessions](sessions.md); nothing is mounted.
 
-A root rebuild starts with externally bootstrapped kernel/compiler bytes and a
-runner that compiles Slop and the Dollyfile executor. Derived rebuilds use their
-declared base. Prebuilt boot restores a sealed snapshot without downloading the
-compiler seed or compiling sources. [Sources](sources.md) records the exceptions.
+## Filesystem layout
 
-`system-build` contains the C/C++ compiler and basic build commands; Ghostty
-builds from it. `system-tools` adds C/C++ libraries, Git, conventional utilities
-and `/bin/sh`. `system` combines those tools with the Ghostty display, and
-`default` adds startup. These core images use no demo recipe. Demos (`demos/`)
-build from them: for example the Rust producers use `system-build → rust-sdk →
-rust-build`, and CMake, Neovim and SDL build from `system-tools` without display
-or Rust dependencies. Images without DISPLAY expose build controls and
-produce cached artifacts without starting a terminal or ENTRY.
-
-Image compatibility binds the seed bytes and loader plus the process, DSO,
-kernel-plugin and snapshot contracts. Kernel implementation changes can reuse
-images when these inputs remain identical. Incompatible semantics require a
-contract version change. Recipes and artifact bytes remain separately verified;
-the full runtime build ID still binds named sessions to their original runtime.
-
-Named [sessions](sessions.md) save filesystem deltas against an exact base
-image, not process memory. Standard mutable workspace, temporary and Pi auth/
-session paths are excluded from system snapshots; this is not a general secret
-scanner. Unsaved state disappears when the tab is closed.
-
-## Display and browser authority
-
-Ghostty is the one resident kernel plugin. Its narrow loader accepts WasmFS
-bytes and links an explicit kernel export map; it cannot fetch dependencies or
-evaluate JavaScript. System images copy its finished plugin, font and licenses
-from `ghostty-build` without retaining the Zig SDK.
-
-Bootstrap progress uses a plain-text sink. Once Ghostty loads, VT parsing,
-scrollback, selection and font rasterization run in Wasm; the browser blits
-checked RGBA. Foreground graphics programs can lease the display and return it
-on exit. See [display](display.md).
-
-Private processes improve recovery, not the host-containment thesis. Assume
-the entire Wasm userspace is compromised. The trusted outer imports and their
-browser implementations are the security perimeter. HTTP uses one explicit
-broker; other crossings are bounded devices and user file/session operations.
-The [review map](browser-boundary.md) identifies their implementation, and the
-[security model](security.md) explains their authority.
+| Path | Contents |
+| --- | --- |
+| `/bin`, `/usr/bin` | Slop, core commands, tools and runtimes |
+| `/usr/include`, `/usr/lib` | Headers, libraries, retained runtimes |
+| `/usr/src` | Source retained by images |
+| `/etc/dolly` | Image identity, ENTRY record, startup scripts |
+| `/home/dolly` | `HOME` |
+| `/workspace`, `/tmp` | Scratch; never retained in images |
+| `/seed` | Compiler seed, root rebuilds only |
+| `/run` | Volatile files, excluded from sessions |

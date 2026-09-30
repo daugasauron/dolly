@@ -1,344 +1,117 @@
-# Reviewing the browser boundary
+# Browser boundary
 
-Assume all Wasm memory is compromised. What can it ask the browser to do?
-This is the code-reading map; [security](security.md) explains the threat model
-and [HTTP](http.md) specifies the transport.
+Assume every program, file and byte of Wasm userspace is compromised. Guest code
+can then exercise only the authority of the trusted browser providers below.
+This is the review map: keep it current when an import, host module or local
+service changes.
 
-## Start with the actual imports
+Trusted: the browser engine, page and Worker JavaScript, and host-module
+implementations. Outside the model: engine bugs, XSS, compromised application
+JavaScript, and hosts that rewrite delivered HTML ([deployment](deployment.md)).
+Private processes help recovery, not containment.
 
-[abi/dolly-browser-0.wat](../abi/dolly-browser-0.wat) is the typed outer import
-allowlist. The build compares it with the finished kernel; capability-report
-JSON does not define it.
-
-The fixed registry in [src/host/modules.mjs](../src/host/modules.mjs) assigns
-every outer import to exactly one provider. Each public `src/host/NAME.mjs`
-pairs with `include/dolly/NAME.h` and its typed WAT contract. Providers own their
-handshake, mailbox/message handlers and resource cleanup; the registry handles
-dependencies and lifecycle. Kernel imports for disabled providers receive
-denial functions. No image can select a JavaScript source or Worker URL.
-
-`DOLLY 4` host requirements are compatibility demands, not grants. The standard
-page enables runtime plus the image's declared providers from the fixed registry;
-an embedding can supply a restricted selection with `DOLLY_HOST_MODULES`.
-HTTP policy still authorizes every request. `build@0` has no imports; it only
-admits the local build service (below) and is declared by Dollyfile Studio alone. Image
-requirements propagate through FROM and USE, not COPY, and are checked before
-ENTRY. Artifact requirements are derived from digest-checked retained recipes.
-Commands and DSOs can also carry the `dolly.host` records specified in
-[abi/dolly-host-0.wat](../abi/dolly-host-0.wat); these check ABI compatibility at load time. A disabled provider still has its
-typed denial binding; image declarations demand actual availability. Removing or forging records never enables a denied host provider. A headless
-builder supplies runtime, HTTP and threads independently of the image it is
-compiling. An interactive rebuild adds that build profile while compiling and
-running its result; ordinary snapshot launches use only the runtime profile.
-Neither profile includes `build@0`.
-
-```text
-guest spans → env.dolly_http_dispatch → browser policy → Fetch
-                                                   → bounded Wasm response
+```mermaid
+flowchart TB
+  guest["Kernel + processes: assume compromised"]
+  subgraph imports["Kernel imports"]
+    rt["runtime@0"]
+    http["http@0"]
+    dl["download@0"]
+    gpu["gpu@0"]
+    au["audio@0"]
+  end
+  subgraph mailboxes["Mailboxes"]
+    disp["display@0"]
+    up["upload@0"]
+    snap["snapshot@0"]
+  end
+  th["threads@0: Worker budget"]
+  guest --> imports
+  guest --> mailboxes
+  guest --> th
+  http --> policy["HTTP policy"]
+  policy --> fetch(("Fetch"))
+  policy --> build["build@0: local build service"]
+  dl --> save["user clicks Save"]
+  up --> picker["user picks a file"]
 ```
 
-Follow these pieces:
+## Host modules
 
-1. [src/host/http.mjs](../src/host/http.mjs), `env.dolly_http_dispatch`: forwards span
-   descriptors and shared memory, without scanning or copying guest strings.
-2. [src/http-broker.mjs](../src/http-broker.mjs), `createHttpAdmission`:
-   one private acknowledgement prevents an unbounded dispatch-message queue.
-3. `NetworkTransport.dispatch`: checks spans before copying against the
-   limits generated from `abi/dolly-http-0.wat` into `src/host/http-abi.mjs`.
-   `HttpTransfer.run` parses the copy, requires an absolute http(s) URL,
-   calls the policy, then invokes the admitted provider.
-4. [src/http-policy.mjs](../src/http-policy.mjs), `DollyHttpPolicy.authorize`:
-   trusted destination, method, credential-header and quota decisions.
-   Path prefixes match whole segments and reject encoded `/` or `\`.
+[`abi/dolly-browser-0.wat`](../abi/dolly-browser-0.wat) is the exact outer import
+allowlist; the build rejects any other import and artifact checks reject
+undeclared `dolly_*` exports.
+[`host/modules.mjs`](../src/host/modules.mjs) assigns each import to one
+provider; a disabled provider's imports return `ENOSYS`. Images and packets
+select no JavaScript or Worker URL.
 
-Policy is supplied by the embedding, never Wasm. Fetch omits ambient credentials
-and referrers; the browser does not inject secrets. Explicit destination rules
-and bootstrap grants reject redirects. Unrestricted policy follows only on
-caller request; inherited policies intersect that permission.
+| Module | Channel | Authority | Code |
+| --- | --- | --- | --- |
+| `runtime@0` | memory, clocks, entropy, environment, seed preload, text output | Kernel memory and boot inputs; process Workers | [`runtime.mjs`](../src/host/runtime.mjs), [`process-supervisor.mjs`](../src/process-supervisor.mjs) |
+| `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`http.mjs`](../src/host/http.mjs), [`http-broker.mjs`](../src/http-broker.mjs), [`http-policy.mjs`](../src/http-policy.mjs) |
+| `download@0` | `env.dolly_download_dispatch` | Offer one copied file (64 MiB) under a checked basename; saved only by a user click; at most 4 waiting | [`download.mjs`](../src/host/download.mjs) |
+| `upload@0` | mailbox | Ask for a file; the user picks it; 64 MiB of bytes, no name or path; refused for 2 s after a cancel | [`upload.mjs`](../src/host/upload.mjs), [`upload-transport.mjs`](../src/upload-transport.mjs), [`upload.c`](../src/upload.c) |
+| `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`snapshot.mjs`](../src/host/snapshot.mjs), [`session-transport.mjs`](../src/session-transport.mjs) |
+| `display@0` | mailbox | Publish checked RGBA frames; receive bounded input records; load the display plugin from WasmFS | [`display.mjs`](../src/host/display.mjs), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs) |
+| `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`gpu.mjs`](../src/host/gpu.mjs), [`gpu-bridge.mjs`](../src/gpu-bridge.mjs), [`gpu-worker.mjs`](../src/gpu-worker.mjs) |
+| `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`audio.mjs`](../src/host/audio.mjs), [`audio-bridge.mjs`](../src/audio-bridge.mjs), [`audio-provider.mjs`](../src/audio-provider.mjs) |
+| `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`threads.mjs`](../src/host/threads.mjs) |
+| `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`build.mjs`](../src/host/build.mjs), [`local-services.mjs`](../src/local-services.mjs), [`image-build-service.mjs`](../src/image-build-service.mjs) |
 
-One import does not mean one active request. The broker owns a fixed 16-slot
-provider table, independent of the guest's claimed free slots. Each transfer has
-its own Wasm response buffer, generation, deadline and abort controller. All
-transfers share authorization and quota. Cancelling an exact handle acknowledges
-immediately but retains its host slot until the provider settles. Forged slot
-state and repeated cancellation therefore cannot grow an unbounded host queue.
+- `REQUIRES HOST` lines and executable `dolly.host` records
+  ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
+  grants; a missing provider fails before ENTRY. An embedding can restrict the
+  set with `globalThis.DOLLY_HOST_MODULES`.
+- The page enables `runtime@0` plus the image's requirements; rebuild routes add
+  `http@0` and `threads@0` for building. Only Dollyfile Studio declares
+  `build@0`, and the page admits it only after ENTRY starts
+  ([Studio builds](image-build-service.md)).
+- Builders ([`image-builder.mjs`](../src/image-builder.mjs)) inherit the page's
+  HTTP policy but get no display, file picker or local service, and never run
+  ENTRY.
 
-[src/static-asset.mjs](../src/static-asset.mjs) streams oversized static
-downloads only for embedding-selected bootstrap URLs or pinned snapshot packs.
-The manifest contains sizes and hashes, never destinations. Parts are fixed
-siblings of the original URL, fetched on demand without guest headers,
-credentials or redirects, under the original deadline and byte bound. Each
-20 MiB part matches its hash before delivery; one part is buffered per request.
-An ordinary remote response cannot activate this path. Inherited policies must
-all identify the request as a bootstrap grant; sibling URLs gain no independent
-guest grant. Under an explicit policy, bootstrap GETs have their own quota of
-four per listed source.
-Image snapshots are bounded at 2 GiB; individual static multipart assets remain
-bounded at 1 GiB. Packaged images stream through a 1 MiB Wasm staging range.
-The kernel validates every retained path and the canonical image digest before
-starting any command; a failed restore cannot run its partial filesystem.
-The decoder also enforces the caller's byte limit;
-ordinary HTTP responses have no default total byte ceiling. Explicit finite
-response quotas still apply, including inherited restrictions and exact source
-bounds. Delivery remains in bounded mailbox chunks with backpressure and checked
-byte counts. Session deltas remain bounded at 512 MiB.
-The Dollyfile viewer's `src/source-download.mjs` uses the same decoder after a
-user clicks a large, registry-listed source link, verifying its pinned hash
-before offering the original archive as a download.
+## Network
 
-Deadlines include mailbox backpressure. A guest that stops reading cannot keep
-a request alive indefinitely. Atomic terminal failure cannot be erased by a late
-acknowledgement. Errors expose target errno, not request contents or credentials.
+- Programs have no Fetch, sockets, DNS or TLS. libcurl, Git, Python and Janis are
+  adapters above `http@0` ([HTTP](http.md)).
+- Policy is set by the embedding outside Wasm and survives total compromise.
+  **The default permits arbitrary HTTP(S), including credentials stored in Dolly:
+  it does not prevent exfiltration.** An allowlist bounds destinations, not what
+  an allowed destination does with the data.
+- URLs must be absolute. The default denies the app's own origin (it serves code,
+  sessions and caches without CORS) except exact bootstrap sources.
+- Loopback and LAN hosts are ordinary destinations: responses need CORS, but the
+  request itself still reaches them.
+- Reserved `*.dolly.invalid` URLs never reach Fetch; redirects cannot enter them
+  and remote rules cannot grant them.
 
-The default permits arbitrary HTTP(S) and has no lifetime request quota.
-Request-byte bounds and deadlines remain, but this is **not an exfiltration-safe policy**.
-Allowlists also do not prevent allowed destinations from relaying data.
-The default denies the page's own origin, which serves code, sessions and image
-caches without CORS; only the exact bootstrap sources reach it. An explicit
-rule may name that origin. Loopback and LAN addresses are ordinary destinations:
-responses need CORS, but a request still reaches them.
+## Other crossings
 
-Every `/IMAGE/rebuild/` route runs `src/browser.mjs`. Images without
-`display@0` compile in the disposable [build worker](../src/image-builder.mjs)
-with the page's policy and no local services, keep the build log visible and
-never start ENTRY. Build output is bounded per message in the kernel Worker and
-to 1 MiB of visible log.
-
-## Thread provider
-
-Process and thread Workers load a fixed, self-contained build-time bundle.
-The supervisor fetches it once per runtime, retains a Blob URL for fresh Worker
-creation and revokes that URL on disposal. Images and guest packets select no
-script URLs. This removes HTTP loads on each process start while preserving
-fresh JavaScript state and private memories for ordinary processes. The
-supervisor admits at most 32 process Workers; further spawns fail with EAGAIN.
-
-[`threads.mjs`](../src/host/threads.mjs) owns the optional `threads@0` Worker
-budget: at most 16 Workers per threaded process and 64 across the provider.
-It instantiates only the already admitted executable with that process's memory;
-guest packets select neither code nor Worker URLs. The two process imports and
-the outer browser import allowlist are unchanged. The separately stamped
-[`dolly-threads-0.wat`](../abi/dolly-threads-0.wat) fixes the child entry and
-packet operations; its internal supervisor exports have their own typed contract.
-
-[`process-supervisor.mjs`](../src/process-supervisor.mjs) binds each Worker context
-to PID/TID and an independent syscall acknowledgement. Thread IDs, join results,
-files, environments and per-thread HTTP staging remain in kernel Wasm. HTTP
-requests retain process-wide ownership and the existing broker policy/quotas.
-`process-worker.mjs` rejects DSO/FFI operations in the static thread profile.
-Normal thread completion unwinds Wasm before the trusted wrapper reports it;
-that wrapper never re-enters guest code. Only then can WAIT make its stack
-reclaimable. A trap or process exit terminates all the process's Workers.
-Kernel-queued signals go to the oldest live thread; a blocked receiver is woken,
-and unhandled terminating signals retain the existing process termination timer.
-
-## Experimental audio provider
-
-[`dolly-audio-0.wat`](../abi/dolly-audio-0.wat) defines one typed outer
-`env.dolly_audio_dispatch` import for stereo PCM playback. Review
-[`audio-kernel.c`](../src/audio-kernel.c) for process leases/revocation,
-[`audio-bridge.mjs`](../src/audio-bridge.mjs) for bounded copies and admission,
-and [`audio-provider.mjs`](../src/audio-provider.mjs) for validation and device
-quotas. [`host/audio.mjs`](../src/host/audio.mjs) owns the `audio@0` binding,
-Worker messages, trusted interaction listeners and disposal. Its only dependency
-is `runtime@0`. Disabled audio returns `ENOSYS`; requiring unavailable audio fails
-before image entry. Mixing, decoded source
-buffers and game state remain in Wasm; the browser owns only queued device output.
-
-Four leases can each queue at most one second of 48 kHz stereo output and 64
-buffers. Each write is 128–4096 frames, has finite f32 samples, and is clamped to
-the output range. One outstanding request per slot bounds admission even if
-Wasm fabricates mailbox completions. Reaping revokes queued sound. This interface
-grants no audio capture, microphone, file, URL, DOM or network access.
-Repeated interaction events share one pending resume request. The
-[sound protocol and SDK](audio.md) specify packet layouts and client semantics.
-
-## Experimental GPU provider
-
-[`dolly-gpu-0.wat`](../abi/dolly-gpu-0.wat) adds exactly one typed outer
-`env.dolly_gpu_dispatch` import for bounded command packets. Follow
-[`gpu-kernel.c`](../src/gpu-kernel.c) for process lifecycle and reply matching,
-[`gpu-bridge.mjs`](../src/gpu-bridge.mjs) for the private admission handshake,
-and [`gpu-worker.mjs`](../src/gpu-worker.mjs) for copied packet validation,
-private handles/quotas, queue completion, and revocation. GPU buffers and
-textures are explicit external device resources; CPU userspace state remains
-in Wasm. Guest bytes cannot choose URLs, DOM nodes or JavaScript operations.
-Wire integers above JavaScript's exact 53-bit range are rejected before use;
-object IDs and request counters retain their 32-bit limits.
-Render passes reuse unchanged pipeline/group/buffer bindings after validating
-each packet's handles and ranges; this state resets at every new pass.
-Resource release revokes its handle immediately; deferred destruction retains
-both allocation and object-slot charges until queue completion. Scope retirement
-collects outstanding releases before allowing reuse.
-Provider startup waits for its Worker to acknowledge configuration before guest
-calls can synchronously submit packets. The Worker receives the shared Wasm
-memory and refreshes its buffer after growth. The main thread may transfer one
-embedding-created canvas; compute needs none. Normal frames reach the compositor
-directly. [GPU details](gpu.md) lists the prototype limits and
-its real-browser checks. Existing CPU framebuffer and network paths remain.
-
-The fluid workload adds bounded vertex layouts (one buffer, eight attributes)
-and at most sixteen buffer bindings. Structural validation precedes allocation;
-WebGPU still checks shader compatibility and device limits. Batch completion
-awaits both device error scopes before replying; out-of-memory errors retain
-priority over validation errors. Optional timestamp
-queries use three private 2,048-query sets and 96 KiB of fixed staging buffers per
-scope, retired with its other resources. Presented dimensions also drive
-browser pointer scaling, independently of the dormant CPU framebuffer. INFO returns limits and counters,
-not browser objects. These additions introduce no further outer imports.
-
-CAPTURE_FRAME copies a rectangle from the calling scope's current batch render
-texture to its own buffer. It requires the exclusive surface lease, an earlier
-render in that batch, in-bounds coordinates and sufficient writable buffer space.
-It cannot capture another scope, canvas, DOM content or browser chrome. Mapping
-and chunked readback use the existing buffer operations and quotas.
-
-CAPABILITIES returns a fixed typed feature/limit record. Compute pipelines may
-carry at most sixteen named finite numeric specialization constants. Limits are
-clamped to the device: at most 4,096 objects per lease (eight leases, so 32,768
-in total), 1 GiB per buffer and 4 GiB aggregate buffer/texture allocations
-across the provider. Every created shader, pipeline, bind group, sampler, buffer
-and texture counts as an object; the three timestamp query sets per lease are
-fixed. OPEN replies name the provider `WebGPU`, never the adapter vendor or
-description. The browser owns these bounds; guest declarations
-cannot raise them. Optional f16/subgroup features change shader validation only.
-LARGE_BATCH advertises up to 1,024 records per packet, retaining the 1 MiB byte
-limit and one outstanding operation per lease. Older providers accept 256;
-clients must check the capability. Timestamp capacity covers every pass in a
-maximum-size batch, and structural validation still precedes execution.
-
-Local llama.cpp inference runs inside an ordinary private process. Its C adapter
-uses this same generic provider; optional model downloads use the remote HTTP broker.
-There is no browser model loader, inference service, URL allowlist exception or
-model-specific outer import. See `demos/local-llm/README.md`.
-
-## Local services
-
-[src/local-services.mjs](../src/local-services.mjs) is the explicit admission
-table for reserved URLs. These never reach Fetch; redirects cannot enter them.
-
-- **Builds:** [image-build-service.md](image-build-service.md) identifies the
-  implementation of `POST https://build.dolly.invalid/v1/builds`. The page
-  admits it only for images with `build@0`, and only after their ENTRY starts:
-  page-initiated rebuilds and dependency builders never reach it.
-  One bounded build starts immediately in an independent Wasm worker, inheriting
-  remote policy but no local services. Cancellation/deadline terminates it.
-  No request opens a tab: only the user's **Open image** click launches ENTRY.
-
-A remote HTTP rule does not grant the local build capability. Result tabs retain
-inherited browser restrictions; recipe bytes cannot set browser policy.
-
-## Other authority to inspect
-
-| Provider / reference | What to verify |
+| Channel | Bound |
 | --- | --- |
-| [Display contract](../abi/dolly-display-0.wat), [display.md](display.md) | Handshake ranges checked against memory; checked complete RGBA frames, an invalid frame stops the display with a fatal error; bounded semantic input; no privileged VT/OSC/HTML parsing |
-| Fullscreen handler in `src/browser.mjs` | Keyboard initiated; F11 toggles fullscreen for every image, including while a dialog is open |
-| Clipboard handlers in `src/browser.mjs` | Gesture-only copy; native paste into Dolly's keyboard or game canvas/body only. Bounded literal text becomes graphics text input or terminal paste, all or nothing; a refused paste shows a status message; other browser fields retain native paste |
-| Pointer-lock handlers in `src/browser.mjs` | Capture only on a trusted canvas press; Escape/lease release undo it. Graphics button/hover forwarding grants no capture; terminal selection remains left-button only |
-| Pointer presence and window focus in `src/browser.mjs` | Fixed input records report canvas entry/exit and window focus, allowing guests to stop edge scrolling and clear held input; no capture authority |
-| [Upload transport](../src/upload-transport.mjs), [C command](../src/upload.c) | Visible user picker, one at a time; requests within two seconds of a user cancel fail without a picker; the page waits for kernel-Worker notices instead of polling; at most 64 MiB in 64 KiB chunks; bytes only, no host name/path/handle |
-| [Download contract](download.md) | Copied bounded file and checked basename, never a host path; one user click per file, at most four waiting |
-| [Sessions](sessions.md), `src/session-file.mjs`, `src/session-transport.mjs`, Save dialog in `src/browser.mjs` | User-selected checkpoint names; opaque bounded deltas streamed into compression through copied chunks before acknowledgement; exact base for restore; custom recipe/artifact digests checked and saved HTTP restrictions intersect current policy; recovery copies only workspace/home regular files in Wasm; bounded import decompression |
-| [Kernel plugin loader](../src/kernel-plugin.mjs) | WasmFS bytes only; explicit real-kernel export map, no URL/dependency fetch or JS evaluation |
-| [Process supervisor](../src/process-supervisor.mjs), [typed contract](../abi/dolly-supervisor-0.wat) | Short deferred waits use a kernel-provided timer hint; every wakeup retries the validated syscall in Wasm. Signals, completion and retirement cancel pending wakeups |
+| Keyboard, pointer, focus, resize, paste | Bounded records; interpretation stays in Wasm. Pointer lock only after a trusted canvas press |
+| Clipboard copy | Bounded selection text after a user Ctrl+Shift+C |
+| RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
+| Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
+| Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
+| Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |
 
-The Wasm kernel owns upload destination and temporary files and refuses
-overwrite. Rebuild-only workers have no picker. Uploaded bytes become ordinary
-sandbox data and may leave through allowed HTTP, like pasted text.
-Exported sessions may include credentials; they are unencrypted.
+## Persistence
 
-## Boot, storage and code loading
-
-`src/runtime-worker.mjs` accepts only fixed kernel/seed artifact names.
-Root rebuilds without a base load the seed; prebuilt and derived boots do not.
-`/etc/dolly/host.base` records a public asset URL, not new authority:
-reading it with curl still crosses the broker.
-
-[image-artifact.mjs](../src/image-artifact.mjs) binds cached bytes to seed/image ABI identity,
-root recipe, snapshot hash and direct input digests. The cache keeps at most 32
-images and 8 GiB, evicting the least recently saved. Descriptors and payloads
-publish atomically for rebuilds and custom images. Packaged boots stream from
-the published artifact, reusing immutable packs through the browser HTTP cache
-and verifying each pack and the complete image before starting userspace.
-[image-build.mjs](../src/image-build.mjs) resolves release
-image identities and a static-source allowlist, not arbitrary checkout paths.
-Unused published modules do not implicitly stage their dependencies.
-Restoration and filesystem mutations remain in Wasm. Boot detaches consumed
-image/session input buffers after copying them into Wasm; reusable build inputs
-are transferred back to their caller. Explicit save recovery
-stages one bounded opaque delta and runs `/usr/bin/session-recover` in a fresh
-`system` image. It copies into a new folder; the browser does not parse file records
-or apply old startup files, and the original IndexedDB record is unchanged.
-
-Ordinary processes import only private memory and a typed Wasm gate.
-`src/process-abi.mjs` validates the contract before execution.
-`src/process-worker.mjs` loads process-local DSOs with typed symbol checks;
-it receives no Fetch, filesystem or JavaScript-evaluation adapter.
-Validated clock-time operations can read the browser clock in the process
-Worker. The supervisor supplies the kernel's time origin so monotonic deadlines
-agree across Workers. Clock reads still enter the kernel at least once per
-millisecond to deliver pending signals, including in clock-only loops.
-Side-module data exports are offsets from their allocated memory base;
-`dlsym` and `GOT.mem` expose the corresponding absolute process addresses.
-Internal validation is defense in depth, not the host trust boundary.
-
-The local server serves manifest-listed, verified releases, not source or loose
-build files. HTML pins immutable assets; shared packs are resolved by verified
-digest. Documentation publishing has an explicit source allowlist.
-The [static exporter](deployment.md) preserves this layout.
-Neither a custom recipe nor a test query can turn the server into a shell.
-
-The optional development-only Codex relay (`demos/game-agent/codex-relay.mjs`) is a
-separate HTTP destination, not a browser import or shipped local service. It
-binds loopback, checks exact Host/Origin and a random bearer capability, bounds
-requests, and forwards only the fixed Codex inference endpoint without redirects.
-Only this relay reads the local subscription login; it exposes no filesystem or
-process operations. Granting its capability permits spending that account's quota.
-
-The experimental 0 A.D. relay (`demos/zero-ad/toolchain/relay.mjs`) is an explicit HTTP
-destination through the existing broker. It routes datagrams only between 2–8
-pre-created participant capabilities; it cannot contact external UDP/TCP hosts.
-Each participant has eight socket leases, each with at most 64 datagrams and
-65,536 queued bytes; datagrams are at most 4,096 bytes, requests at most 4,120
-bytes, and admission is capped at 1,000 requests/second/participant. The relay
-assigns sender addresses, scopes leases to the participant, never reuses lease
-IDs and prunes 60-second idle leases on the next request. Its CLI binds loopback
-and grants CORS to one configured browser origin. Capability URLs authorize room
-participation; restrict the browser's POST policy to each participant's exact
-URL. The Wasm ENet adapter adds no browser import, socket or ambient fetch.
-Game code, simulation and files remain in Wasm; this separate service stores
-only bounded transport queues and lease metadata.
-
-ClassiCube's shared room (`demos/classicube/agent/room.mjs`) and clients exchange
-Classic packets through private files in the Wasm filesystem. The socket wrapper
-in `demos/classicube/platform.c` recognizes only its local room marker and has no
-host socket fallback. Map compression, world state and all game processes stay
-inside Dolly. Multiple players add no browser authority or outer imports.
+- Unsaved state dies with the tab. Compromise can persist in a saved session, an
+  exported session file or a custom image; discard them when trust is lost.
+- Sessions and exports may contain credentials; they are neither encrypted nor
+  signed. Browser storage is per origin: every site on one `github.io` account
+  can read Dolly's sessions and image cache.
+- Images never retain `/tmp`, `/workspace` or Pi's `auth.json` and sessions. This
+  is not a secret scanner. A hash proves byte identity, not that an image is benign.
 
 ## Recheck
 
 ```sh
 node scripts/dolly-abi.mjs validate-browser build/dolly-browser-0.wasm dist/dolly.wasm
-node --test test/http-broker.test.mjs
+node --test test/http-broker.test.mjs test/http-policy.test.mjs test/host-modules.test.mjs
 ```
 
-For provider changes, run the corresponding modes in `scripts/test-browser.sh`
-against real browser imports, not only injected test providers. Review new
-imports and local services as authority changes; update this map with them.
-
-Texture rendering (CAPABILITIES bit 64) adds records 18–26 without changing
-existing layouts or outer imports. Texture dimensions, mip/layer counts and
-format-derived bytes are checked against private allocation quotas. Uploads
-contain copied pixel bytes only. Optional BC1/BC2/BC3 compression (bit 256)
-requires an admitted device feature; base dimensions and upload extents align
-to 4×4 blocks, all mip blocks count toward quotas, and BC render attachments
-are rejected. Bindings and framebuffer attachments resolve
-scope-owned typed handles; only the surface owner can select attachment zero.
-Render passes remain inside one submitted packet. Indexed draws, vertex streams,
-viewport/scissor bounds and group counts are bounded before WebGPU validation.
-Half-float vertex formats (bit 512) use the same stride, offset and byte-range
-checks; they add no resource type or shader authority.
-The guest-compiled [render test](../test/gpu-render-browser.mjs) checks pixels,
-depth occlusion, offscreen sampling, malformed spans, quotas and cleanup after
-both close and forced process termination using Chrome's software adapter.
+Treat any new import, mailbox, host module or local service as an authority
+change: review it here and prove denial in a real browser.
