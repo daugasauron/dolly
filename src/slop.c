@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <poll.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -655,116 +654,12 @@ static int write_all(int descriptor, const char *bytes, size_t length) {
 }
 
 // A pipeline stage or command substitution runs to completion before its
-// output is read, so the output collects in a spool file. A command writing
-// to a spool gets a kernel pipe instead, which Slop drains into the file. At
-// SPOOL_LIMIT Slop closes the pipe and sends the writer SIGPIPE, so kernel
-// memory stays bounded even for an endless writer that ignores EPIPE.
-#define SPOOL_LIMIT ((off_t)64 << 20)
-typedef struct Spool {
-  int descriptor;
-  dev_t device;
-  ino_t inode;
-  struct Spool *outer;
-} Spool;
-static Spool *active_spools;
-
-static int spool_begin(Spool *spool) {
-  struct stat metadata;
-  spool->descriptor = spool_file();
-  if (spool->descriptor < 0 || fstat(spool->descriptor, &metadata) != 0) {
-    if (spool->descriptor >= 0) close(spool->descriptor);
-    return 0;
-  }
-  spool->device = metadata.st_dev;
-  spool->inode = metadata.st_ino;
-  spool->outer = active_spools;
-  active_spools = spool;
-  return 1;
-}
-
-// Stops collecting; returns the spool rewound for reading, or -1.
-static int spool_end(Spool *spool) {
-  active_spools = spool->outer;
-  if (lseek(spool->descriptor, 0, SEEK_SET) == 0) return spool->descriptor;
-  close(spool->descriptor);
+// output is read, so its output collects in an unlinked spool file.
+// Returns the spool rewound for reading, or -1.
+static int spool_rewind(int descriptor) {
+  if (lseek(descriptor, 0, SEEK_SET) == 0) return descriptor;
+  close(descriptor);
   return -1;
-}
-
-typedef struct {
-  Spool *spool;
-  int reader, writer;
-  off_t size;
-} Drain;
-
-static Spool *spool_at(int descriptor) {
-  struct stat metadata;
-  if (fstat(descriptor, &metadata) != 0 || !S_ISREG(metadata.st_mode)) return NULL;
-  Spool *spool = active_spools;
-  while (spool != NULL && (spool->device != metadata.st_dev ||
-                           spool->inode != metadata.st_ino)) spool = spool->outer;
-  return spool;
-}
-
-// Maps each child descriptor 1-9 that writes to an active spool onto a pipe,
-// one per spool. Returns 0 with errno set when a pipe cannot be created.
-static int spool_drains(Drain drains[9], size_t *count,
-                        dolly_process_fd_mapping mappings[9],
-                        uint32_t *mapping_count) {
-  for (int descriptor = 1; descriptor <= 9 && active_spools != NULL; descriptor++) {
-    Spool *spool = spool_at(descriptor);
-    if (spool == NULL) continue;
-    size_t index = 0;
-    while (index < *count && drains[index].spool != spool) index++;
-    if (index == *count) {
-      int ends[2];
-      struct stat collected;
-      if (pipe(ends) != 0) return 0;
-      drains[(*count)++] = (Drain){spool, high_descriptor(ends[0]),
-                                   high_descriptor(ends[1]), 0};
-      if (drains[index].reader < 0 || drains[index].writer < 0 ||
-          fstat(spool->descriptor, &collected) != 0) return 0;
-      drains[index].size = collected.st_size;
-    }
-    mappings[(*mapping_count)++] = (dolly_process_fd_mapping){
-        (uint32_t)drains[index].writer, (uint32_t)descriptor};
-  }
-  return 1;
-}
-
-// Copies pipe bytes into their spools until every writer has closed.
-// Returns 0, EFBIG when a spool reached SPOOL_LIMIT, or another errno.
-static int drain_spools(Drain *drains, size_t count) {
-  static char bytes[65536];
-  struct pollfd readers[9];
-  for (size_t index = 0; index < count; index++)
-    readers[index] = (struct pollfd){.fd = drains[index].reader, .events = POLLIN};
-  int error = 0;
-  for (size_t open = count; open != 0;) {
-    if (poll(readers, count, -1) < 0) {
-      if (errno == EINTR) continue;
-      return errno;
-    }
-    for (size_t index = 0; index < count; index++) {
-      Drain *drain = &drains[index];
-      if (drain->reader < 0 || readers[index].revents == 0) continue;
-      ssize_t length = read(drain->reader, bytes, sizeof(bytes));
-      if (length < 0 && errno == EINTR) continue;
-      if (length < 0) error = errno;
-      const off_t room = SPOOL_LIMIT - drain->size;
-      if (length > room) {
-        length = room;
-        error = EFBIG;
-      }
-      if (length > 0 && !write_all(drain->spool->descriptor, bytes, (size_t)length))
-        error = errno;
-      drain->size += length > 0 ? length : 0;
-      if (length > 0 && error == 0) continue;
-      close(drain->reader);
-      drain->reader = readers[index].fd = -1;
-      open--;
-    }
-  }
-  return error;
 }
 
 static int descriptor_state_save(DescriptorState *state, int destination) {
@@ -879,23 +774,22 @@ static int subshell_leave(Shell *shell, Subshell *subshell, int status) {
 
 static int capture_command(Shell *shell, const char *command, Buffer *output) {
   const size_t starting_length = output->length;
-  Spool spool;
+  const int spool = spool_file();
   Subshell subshell;
-  if (!spool_begin(&spool)) return 0;
+  if (spool < 0) return 0;
   if (!subshell_enter(shell, &subshell)) {
-    close(spool_end(&spool));
+    close(spool);
     return 0;
   }
   int status = 1;
-  if (descriptor_state_duplicate(&subshell.descriptors, STDOUT_FILENO,
-                                 spool.descriptor)) {
+  if (descriptor_state_duplicate(&subshell.descriptors, STDOUT_FILENO, spool)) {
     // The outer `-e` must not turn `$(false; echo value)` into a failure.
     subshell.shell.errexit = 0;
     status = execute_text(&subshell.shell, command);
   }
   shell->substitution_status = subshell_leave(shell, &subshell, status);
   shell->last_status = shell->substitution_status;
-  const int descriptor = spool_end(&spool);
+  const int descriptor = spool_rewind(spool);
   if (descriptor < 0) return 0;
   char bytes[4096];
   ssize_t count;
@@ -2769,36 +2663,12 @@ static int spawn_command(Shell *shell, int argc, char **argv) {
   if (resolution != COMMAND_FOUND) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
   char **environment = exported_environment();
   if (environment == NULL) { fputs("slop: out of memory\n", stderr); return 126; }
-  Drain drains[9];
-  size_t drain_count = 0;
-  dolly_process_fd_mapping mappings[9];
-  uint32_t mapping_count = 0;
-  int pid;
-  if (!spool_drains(drains, &drain_count, mappings, &mapping_count)) {
-    pid = -errno;
-  } else {
-    fflush(NULL);
-    pid = dolly_spawn_mapped(path, argc, argv, environment, NULL,
-                             DOLLY_PROCESS_INHERIT_FDS_ALL, mappings,
-                             mapping_count, -1);
-  }
+  fflush(NULL);
+  const int pid = dolly_spawn_mapped(path, argc, argv, environment, NULL,
+                                     DOLLY_PROCESS_INHERIT_FDS_ALL, NULL, 0, -1);
   free(environment);
-  for (size_t index = 0; index < drain_count; index++) close(drains[index].writer);
-  const int drained = pid < 0 ? 0 : drain_spools(drains, drain_count);
-  for (size_t index = 0; index < drain_count; index++) {
-    if (drains[index].reader >= 0) close(drains[index].reader);
-  }
   if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
-  if (drained == EFBIG) kill(pid, SIGPIPE);
-  const int status = wait_command(shell, pid);
-  if (drained != 0 && !shell->terminating_signal) {
-    // The shell whose output was cut off ends as if by SIGPIPE.
-    fprintf(stderr, "slop: %s: %s\n", argv[0], drained == EFBIG
-            ? "stopped at the 64 MiB spool limit" : strerror(drained));
-    shell->active = 0;
-    shell->exit_status = 128 + SIGPIPE;
-  }
-  return status;
+  return wait_command(shell, pid);
 }
 
 static int run_command_words(Shell *shell, int argc, char **argv) {
@@ -3944,8 +3814,8 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
     CommandParser probe = *parser;
     const size_t body_end = skip_command(shell, &probe, stops);
     const int last = !pipe_follows(&probe);
-    Spool output;
-    if (!last && !spool_begin(&output)) {
+    const int output = last ? -1 : spool_file();
+    if (!last && output < 0) {
       fprintf(stderr, "slop: pipeline: %s\n", strerror(errno));
       status = 1;
       break;
@@ -3956,7 +3826,7 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
       if ((input < 0 || descriptor_state_duplicate(&subshell.descriptors,
                                                    STDIN_FILENO, input)) &&
           (last || descriptor_state_duplicate(&subshell.descriptors,
-                                              STDOUT_FILENO, output.descriptor))) {
+                                              STDOUT_FILENO, output))) {
         CommandParser command = *parser;
         status = run_command(&subshell.shell, &command, body_end, probe.cursor,
                              suppress_errexit);
@@ -3964,7 +3834,7 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
       status = subshell_leave(shell, &subshell, status);
     }
     if (input >= 0) close(input);
-    input = last ? -1 : spool_end(&output);
+    input = last ? -1 : spool_rewind(output);
     if (status != 0) failure = status;
     parser->cursor = probe.cursor + 1;
     if (last || !shell->active) break;
