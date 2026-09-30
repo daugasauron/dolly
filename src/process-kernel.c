@@ -2491,6 +2491,11 @@ int dolly_process_worker_exited(int pid, int status, int signal_number) {
   return 0;
 }
 
+int dolly_process_exited(int pid) {
+  const dolly_kernel_process *process = find_process(pid);
+  return process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED;
+}
+
 int dolly_process_worker_retired(int pid) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;

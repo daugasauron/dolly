@@ -18,6 +18,9 @@
   ;; A Worker returned, failed or was stopped: PID, status and termination
   ;; signal (zero for none). A process that already exited keeps its status.
   (func $worker_exited (param i32 i32 i32) (result i32) i32.const 0)
+  ;; 1 once the kernel recorded the process's exit, which an ancestor's EXIT
+  ;; can do before the process launches, or when it is unknown; otherwise 0.
+  (func $exited (param i32) (result i32) i32.const 0)
   ;; A child becomes waitable only after its Worker references are retired.
   (func $worker_retired (param i32) (result i32) i32.const 0)
   (func $spawn_flags (param i32) (result i32) i32.const 0)
@@ -42,6 +45,7 @@
   (export "dolly_process_image_consumed" (func $image_consumed))
   (export "dolly_process_worker_started" (func $worker_started))
   (export "dolly_process_worker_exited" (func $worker_exited))
+  (export "dolly_process_exited" (func $exited))
   (export "dolly_process_worker_retired" (func $worker_retired))
   (export "dolly_process_spawn_flags" (func $spawn_flags))
   (export "dolly_process_signal" (func $signal))
