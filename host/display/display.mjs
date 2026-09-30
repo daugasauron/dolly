@@ -1,4 +1,5 @@
 import { instantiateKernelPlugin } from "../../src/kernel-plugin.mjs";
+import { displayInput } from "./input.mjs";
 
 const encoder = new TextEncoder();
 const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -46,6 +47,9 @@ export class DisplayTransport {
   static pasteEvent = 5;
   static pointerEvent = 6;
   static scrollEvent = 7;
+  static pointerMotionEvent = 8;
+  static pointerCaptureEvent = 9;
+  static pointerPresenceEvent = 10;
 
   static copyAvailable = 1;
   static copyTruncated = 2;
@@ -233,7 +237,20 @@ export class DisplayTransport {
 
   pushPointerMotion(event) {
     const delta = value => Math.max(-32_768_000, Math.min(32_768_000, Math.round(value * 1000)));
-    return this.pushRecord({ type: 8, width: delta(event.movementX), height: delta(event.movementY) });
+    return this.pushRecord({ type: DisplayTransport.pointerMotionEvent,
+      width: delta(event.movementX), height: delta(event.movementY) });
+  }
+
+  pushFocus(focused) {
+    return this.pushRecord({ type: DisplayTransport.focusEvent, action: focused ? 1 : 0 });
+  }
+
+  pushPointerCapture(captured) {
+    return this.pushRecord({ type: DisplayTransport.pointerCaptureEvent, action: captured ? 1 : 0 });
+  }
+
+  pushPointerPresence(inside) {
+    return this.pushRecord({ type: DisplayTransport.pointerPresenceEvent, action: inside ? 1 : 0 });
   }
 
   copySelection() {
@@ -322,13 +339,6 @@ export class DisplayTransport {
     Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
   }
 
-  currentAnimationFrameSequence() {
-    return Atomics.load(
-      this.words,
-      this.word + DisplayTransport.animationFrameSequence,
-    ) >>> 0;
-  }
-
   cursorStyle() {
     return Atomics.load(
       this.words,
@@ -348,11 +358,6 @@ export class DisplayTransport {
     Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
     Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
     return true;
-  }
-
-  wake() {
-    Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
-    Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
   }
 
   fontSize() {
@@ -459,7 +464,9 @@ export class FramebufferPresenter {
   }
 }
 
-export function browser({ canvas, fatal }) {
+export function browser(page) {
+  const { canvas, fatal } = page;
+  const input = displayInput(page);
   let transport, presenter;
   return {
     get transport() { return transport; },
@@ -476,8 +483,13 @@ export function browser({ canvas, fatal }) {
       presenter = new FramebufferPresenter(canvas, message.memory, message.frameAddresses,
         capacity, transport, fatal);
       presenter.start();
+      input.connect(transport);
     },
-    dispose() { presenter?.stop(); },
+    entryStarted() {
+      input.followSize();
+      canvas.hidden = false;
+    },
+    dispose() { presenter?.stop(); input.dispose(); },
   };
 }
 

@@ -9,7 +9,7 @@ function reservedLocalURL(url) {
 
 // Review all local authority here. Remote rules never grant these services;
 // absent services (including in build workers) fail closed, not to Fetch.
-// The page adds services.build only for an enabled build@0 after ENTRY starts.
+// An enabled build@0 (build.mjs) adds services.build once the image ENTRY starts.
 export function localServicesTransport(remotePolicy, services = {}, remoteFetch = globalThis.fetch.bind(globalThis)) {
   function localRule(url, method, bytes) {
     const { build } = services;

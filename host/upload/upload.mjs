@@ -9,6 +9,8 @@ export function browser() {
       transport = new UploadTransport(message.memory, message.address, chooseUploadFile);
     },
     messages: { "upload-request"() { void transport?.poll(); } },
+    // The open picker takes every key; Ctrl+C still interrupts the program that asked.
+    claimsKey: () => document.querySelector("#file-upload[open]") ? "interrupt" : false,
     dispose() { transport?.close(); },
   };
 }

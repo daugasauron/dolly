@@ -29,6 +29,17 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     }
   }
   const get = name => instances.get(name);
+  // Page UI across modules: the first module that claims a key event takes it
+  // from the display and may act on it; a module drawing over the display
+  // canvas reports the pixel size pointer input maps to.
+  function claimsKey(event) {
+    for (const instance of instances.values()) {
+      const claim = instance.claimsKey?.(event);
+      if (claim) return claim;
+    }
+    return false;
+  }
+  const surfaceSize = () => [...instances.values()].find(instance => instance.surfaceSize)?.surfaceSize;
   async function attach(value, visiting = new Set()) {
     const { name, version } = hostRequirement(value), module = byName.get(name);
     if (instances.has(name) || reasons.has(name)) return;
@@ -42,7 +53,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     try { requireModules(module.contract.dependencies); }
     catch (error) { reasons.set(name, error.message); return; }
     if (side === "browser") {
-      const reason = await module.check?.(resources[name] ?? {});
+      const reason = await module.check?.();
       if (reason) { reasons.set(name, reason); return; }
     }
     const dependency = name => {
@@ -51,8 +62,9 @@ export async function createHost(side, enabled, { send, resources = {}, configur
       }
       return get(name);
     };
-    const instance = module[side]?.({ ...resources[name], send, get: dependency,
+    const instance = module[side]?.({ ...resources, send, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
+      claimsKey, surfaceSize,
       abi: hostContracts.map(({ name, version }) => `${name}@${version}`),
       configuration: configuration[name] ?? {} }) ?? {};
     instances.set(name, instance);
@@ -83,6 +95,11 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     get, options, transfers, configuration: config,
     enabled: [...instances.keys()].map(name => `${name}@${byName.get(name).contract.version}`),
     unavailable: Object.fromEntries(reasons), require: requireModules, dispose,
+    // The page calls this once the image ENTRY may run, right before it lets
+    // the Worker start it: modules may then show their UI and admit services.
+    entryStarted(context) {
+      return Promise.all([...instances.values()].map(instance => instance.entryStarted?.(context)));
+    },
     bindImports(module, imports) {
       for (const entry of WebAssembly.Module.imports(module)) {
         const name = `${entry.module}.${entry.name}`, owner = owners.get(name);
