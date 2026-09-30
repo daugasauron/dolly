@@ -12,7 +12,7 @@ test("artifact reads stay bounded, preserve ranges and reject malformed snapshot
     const project = resolve(import.meta.dirname, ".."), program = resolve(scratch, "parser");
     execFileSync("cc", ["-std=c11", "-O1", "-I", resolve(project, "include"),
       resolve(project, "test/fixtures/dollyfile-parser.c"), "-o", program]);
-    const recipe = Buffer.from("DOLLY 3\nIMAGE artifact-proof\nENTRY /bin/slop\n");
+    const recipe = Buffer.from("DOLLY 4\nIMAGE artifact-proof\nENTRY /bin/slop\n");
     const pin = createHash("sha256").update(recipe).digest("hex");
     const base = [[1, "/etc", ""], [1, "/etc/dolly", ""], [2, "/etc/dolly/Dollyfile", recipe],
       [1, "/usr", ""], [1, "/usr/share", ""]];

@@ -16,7 +16,8 @@ digests and snapshot hash in the existing browser image cache. `/custom/run/`
 receives that identity through tab-local storage, checks the complete bytes and
 restores them in Wasm; it does not rebuild them. The URL alone is not a portable
 image link. Retain/export the recipe: browser cache eviction or replacement can
-require rebuilding, and custom images do not yet support named-session saves.
+require rebuilding. A named session keeps the recipe and image digest, not the
+image ([sessions](sessions.md)).
 
 ## HTTP contract
 

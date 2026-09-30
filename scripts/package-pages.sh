@@ -41,7 +41,7 @@ for required in \
   src/http-broker.mjs \
   src/kernel-plugin.mjs \
   src/image-entry.mjs \
-  src/image-requirements.mjs \
+  src/dollyfile-graph.mjs \
   src/image-artifact.mjs \
   src/image-build.mjs \
   src/image-builder.mjs \
@@ -122,7 +122,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/http-broker.mjs" \
   "${project_dir}/src/kernel-plugin.mjs" \
   "${project_dir}/src/image-entry.mjs" \
-  "${project_dir}/src/image-requirements.mjs" \
+  "${project_dir}/src/dollyfile-graph.mjs" \
   "${project_dir}/src/image-artifact.mjs" \
   "${project_dir}/src/image-build.mjs" \
   "${project_dir}/src/image-builder.mjs" \

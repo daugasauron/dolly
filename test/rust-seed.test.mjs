@@ -17,7 +17,7 @@ test("seed staging verifies completed or pinned bytes and preserves previous fil
   const raw = join(project, "build/rustc-port/rust-sdk.tar.gz");
   const manifest = join(project, "build/rustc-port/seed.sha256");
   const output = join(project, "output/rust-sdk.tar.gz");
-  await writeFile(join(project, "modules/rust-sdk.dm"), `DOLLY 3\nMODULE rust-sdk\nSOURCE HOST /static/rust/rust-sdk.tar.gz /tmp/seed ${hash(pinned)}\n`);
+  await writeFile(join(project, "modules/rust-sdk.dm"), `DOLLY 4\nMODULE rust-sdk\nSOURCE HOST /static/rust/rust-sdk.tar.gz /tmp/seed ${hash(pinned)}\n`);
   await writeFile(cached, pinned);
   await symlink(cached, output);
   await stageRustSeed(project, output);

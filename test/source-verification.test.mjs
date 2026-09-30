@@ -76,9 +76,9 @@ test("prepared HOST bytes update module and image pins without changing URL pins
   try {
     await mkdir(join(scratch, "modules"));
     await mkdir(join(scratch, "dist/static"), { recursive: true });
-    await writeFile(join(scratch, "Dollyfile"), `DOLLY 3\nIMAGE default\nUSE HOST /modules/tool.dm ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 3\nIMAGE addon\nFROM HOST /Dollyfile ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "modules/tool.dm"), `DOLLY 3\nMODULE tool\nSOURCE HOST /static/tool.c /tmp/tool.c ${pin}\nSOURCE URL https://example.invalid/source /tmp/upstream ${pin}\n`);
+    await writeFile(join(scratch, "Dollyfile"), `DOLLY 4\nIMAGE default\nUSE HOST /modules/tool.dm ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 4\nIMAGE addon\nFROM HOST /Dollyfile ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "modules/tool.dm"), `DOLLY 4\nMODULE tool\nSOURCE HOST /static/tool.c /tmp/tool.c ${pin}\nSOURCE URL https://example.invalid/source /tmp/upstream ${pin}\n`);
     for (const bytes of ["first source", "edited source"]) {
       await writeFile(join(scratch, "dist/static/tool.c"), bytes);
       await updateRecipePins(scratch, true);

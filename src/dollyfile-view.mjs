@@ -14,12 +14,12 @@ function fail(label, line, message) {
   throw new Error(`${label}:${line}: ${message}`);
 }
 
-function normalize(source, label) {
+function physicalLines(source, label) {
   if (typeof source !== "string") throw new TypeError(`${label}: Dollyfile must be text`);
-  if (new TextEncoder().encode(source).byteLength > MAX_DOLLYFILE_BYTES || source.includes("\0")) {
+  if (byteLength(source) > MAX_DOLLYFILE_BYTES || source.includes("\0")) {
     throw new Error(`${label}: invalid Dollyfile text`);
   }
-  return source.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+  return source.split(/\r\n|\r|\n/);
 }
 
 function stripComment(value) {
@@ -77,8 +77,7 @@ function words(value, label, line) {
   return result;
 }
 
-function directives(source, label) {
-  const physical = source.split("\n");
+function directives(physical, label) {
   const result = [];
   for (let index = 0; index < physical.length; index += 1) {
     const raw = physical[index];
@@ -93,7 +92,7 @@ function directives(source, label) {
       logical += `${logical.length ? " " : ""}${stripComment(physical[index]).replace(/[ \t]+$/, "")}`;
     }
     if (byteLength(logical) > 64 * 1024) fail(label, line, "logical line is too long");
-    logical = trim(stripComment(logical));
+    logical = trim(logical);
     if (logical === "") continue;
     const match = /^([^ \t\r\n\v\f]+)(?:[ \t\r\n\v\f]+(.*))?$/s.exec(logical);
     const directive = match[1];
@@ -109,7 +108,7 @@ function directives(source, label) {
       }
       if (bodyLines.length) body = bodyLines.join("\n") + "\n";
     }
-    result.push({ line, endLine, directive, args, body, text: logical });
+    result.push({ line, endLine, directive, args, body });
   }
   return result;
 }
@@ -143,7 +142,7 @@ function assertObject(tokens, label, item, directive) {
   }
 }
 
-function inspectRecipe(source, label, rows, version) {
+function inspectRecipe(source, label, rows) {
   let image = null;
   let moduleName = null;
   let entry = null;
@@ -201,7 +200,7 @@ function inspectRecipe(source, label, rows, version) {
       }
       case "SOURCE":
         if (tokens.length !== 4 || !["HOST", "URL"].includes(tokens[0]) ||
-            (tokens[0] === "HOST" && !validAbsolutePath(tokens[1])) ||
+            (tokens[0] === "HOST" && (!validAbsolutePath(tokens[1]) || /[?#]/.test(tokens[1]))) ||
             (tokens[0] === "URL" &&
              (!/^https?:\/\//.test(tokens[1]) || tokens[1].includes("#"))) ||
             !validAbsolutePath(tokens[2]) ||
@@ -210,7 +209,7 @@ function inspectRecipe(source, label, rows, version) {
         break;
       case "REQUIRES":
         if (tokens[0] === "HOST") {
-          if (version < 4 || tokens.length !== 2) fail(label, item.line, "HOST requirements need DOLLY 4 and MODULE@ABI");
+          if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES HOST; expected REQUIRES HOST NAME@ABI");
           try { hostRequirement(tokens[1]); } catch (error) { fail(label, item.line, error.message); }
         } else assertObject(tokens, label, item, "REQUIRES");
         if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES");
@@ -272,32 +271,26 @@ function inspectRecipe(source, label, rows, version) {
         fail(label, item.line, "DOLLY may only appear on the first line");
         break;
       default:
-        fail(label, item.line, `unknown Dollyfile ${version} directive ${item.directive}`);
+        fail(label, item.line, `unknown directive ${item.directive}`);
     }
   }
   if (!image && !moduleName) throw new Error(`${label}: missing IMAGE or MODULE`);
   if (moduleName && entry) throw new Error(`${label}: MODULE may not declare ENTRY`);
   if (image && !entry) throw new Error(`${label}: IMAGE is missing ENTRY`);
+  let required;
+  try { required = hostRequirements(requirements.filter(item => item.type === "HOST").map(item => item.name)); }
+  catch (error) { throw new Error(`${label}: ${error.message}`); }
   return {
-    version, hostRequirements: hostRequirements(requirements.filter(item => item.type === "HOST").map(item => item.name)), kind: image ? "image" : "module", name: image ?? moduleName,
+    hostRequirements: required, kind: image ? "image" : "module", name: image ?? moduleName,
     image, module: moduleName, entry, uses, requirements, exports, artifacts, from,
     sources, slops, files, folders, rows, source,
   };
 }
 
-export function inspectDollyfile(input, label = "Dollyfile") {
-  const source = normalize(input, label);
-  const rows = directives(source, label);
-  if (rows.length === 0 || rows[0].directive !== "DOLLY" || !["3", "4"].includes(rows[0].args)) {
-    throw new Error(`${label}:1: first declaration must be DOLLY 3 or DOLLY 4`);
+export function inspectDollyfile(source, label = "Dollyfile") {
+  const rows = directives(physicalLines(source, label), label);
+  if (rows[0]?.directive !== "DOLLY" || rows[0].args !== "4") {
+    throw new Error(`${label}:${rows[0]?.line ?? 1}: first declaration must be DOLLY 4`);
   }
-  return inspectRecipe(source, label, rows, Number(rows[0].args));
-}
-
-export function sourceLink(source, applicationBase) {
-  if (source.transport === "host") {
-    if (!source.location.startsWith("/")) throw new Error("HOST source path must start with /");
-    return new URL(source.location.slice(1), applicationBase).href;
-  }
-  return source.location;
+  return inspectRecipe(source, label, rows);
 }

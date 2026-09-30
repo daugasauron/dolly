@@ -1650,7 +1650,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       await waitForValue(send, "document.querySelector('#source')?.value ?? ''", Boolean, "Dollyfile editor");
       const original = await evaluate(send, "document.querySelector('#source').value");
       await evaluate(send, `document.querySelector('#source').value = 'DOLLY 2'; document.querySelector('form').requestSubmit(); true`);
-      assert.match(await evaluate(send, "document.querySelector('#status').textContent"), /DOLLY 3/);
+      assert.match(await evaluate(send, "document.querySelector('#status').textContent"), /DOLLY 4/);
       assert.equal(await evaluate(send, "location.href"), editor);
       const scratch = await mkdtemp(resolve(tmpdir(), "dolly-custom-upload-"));
       try {
@@ -1730,12 +1730,12 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       assert.equal(await yellowOnLine(6), 0, "FILE body remains plain text");
       await typeText(send, "gg$a0");
       await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
-      await waitForTerminalText(send, /! .*DOLLY 3/, "visible automatic lint error without saving");
+      await waitForTerminalText(send, /! .*DOLLY 4/, "visible automatic lint error without saving");
       await clearTerminalSelection(send);
       const errorScreenshot = await send("Page.captureScreenshot", { format: "png" });
       await writeFile(resolve(projectDir, "build/studio-nvim-error.png"), errorScreenshot.data, "base64");
       await typeText(send, "$x");
-      await waitForValue(send, "__dolly.visibleTerminalText()", text => !/! .*DOLLY 3/.test(text), "correcting a recipe clears its error");
+      await waitForValue(send, "__dolly.visibleTerminalText()", text => !/! .*DOLLY 4/.test(text), "correcting a recipe clears its error");
       await clearTerminalSelection(send);
       const screenshot = await send("Page.captureScreenshot", { format: "png" });
       await writeFile(resolve(projectDir, "build/studio-nvim-colors.png"), screenshot.data, "base64");

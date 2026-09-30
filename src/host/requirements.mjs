@@ -10,13 +10,14 @@ export function hostRequirement(value) {
 }
 
 export function hostRequirements(values = []) {
-  if (!Array.isArray(values) || values.length > maxRecords) throw new TypeError("invalid host requirements");
+  if (!Array.isArray(values)) throw new TypeError("invalid host requirements");
   const versions = new Map();
   for (const value of values) {
     const { name, version } = hostRequirement(value);
     if (versions.has(name) && versions.get(name) !== version) throw new Error(`conflicting host ABI requirements for ${name}`);
     versions.set(name, version);
   }
+  if (versions.size > maxRecords) throw new TypeError("too many host requirements");
   return [...versions].sort(([a], [b]) => a.localeCompare(b)).map(([name, version]) => `${name}@${version}`);
 }
 

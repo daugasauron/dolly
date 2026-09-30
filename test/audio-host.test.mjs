@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
 import { worker } from "../src/host/audio.mjs";
 import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
-import { imageHostRequirements } from "../src/image-requirements.mjs";
 
 test("audio module binds the bridge, acknowledges replies, revokes and disposes", () => {
   const memory = new WebAssembly.Memory({ initial: 1, maximum: 2, shared: true });
@@ -45,10 +43,7 @@ test("0 A.D. and its audio SDK declare playback without requiring threads", asyn
   const root = new URL("../", import.meta.url).pathname;
   const graph = createDollyfileGraphLoader(root);
   for (const recipe of ["Dollyfile-zero-ad", "Dollyfile-audio-sdk"]) {
-    const { root: image } = await graph(recipe);
-    const requirements = await imageHostRequirements(await readFile(new URL(`../${recipe}`, import.meta.url), "utf8"),
-      ref => readFile(new URL(`..${ref.location}`, import.meta.url), "utf8"));
-    assert.deepEqual(image.hostRequirements, requirements);
+    const requirements = (await graph(recipe)).root.hostRequirements;
     assert.ok(requirements.includes("audio@0"));
     assert.ok(!requirements.includes("threads@0"));
   }

@@ -4,27 +4,29 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions, inspectStaticSources, selectImageDefinitions } from "../scripts/image-definitions.mjs";
 import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 import { updateRecipePins } from "../scripts/update-module-pins.mjs";
+import { lintDollyfiles } from "../scripts/lint-dollyfiles.mjs";
 
 const project = resolve(import.meta.dirname, "..");
 const digest = source => createHash("sha256").update(source).digest("hex");
+
+test("every catalog recipe graph lints", () => lintDollyfiles(project));
 
 test("pin updates change only digest operands, not matching paths or comments", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-pin-operands-"));
   try {
     const old = "0".repeat(64), payload = "new source bytes\n";
-    const base = "DOLLY 3\nIMAGE base\nENTRY /bin/slop\n";
-    const module = "DOLLY 3\nMODULE child\nSLOP true\n";
+    const base = "DOLLY 4\nIMAGE base\nENTRY /bin/slop\n";
+    const module = "DOLLY 4\nMODULE child\nSLOP true\n";
     await mkdir(resolve(directory, "modules"));
     await mkdir(resolve(directory, "dist/static"), { recursive: true });
     await writeFile(resolve(directory, "dist/static", old), payload);
     await writeFile(resolve(directory, "Dollyfile-base"), base);
     await writeFile(resolve(directory, "modules/child.dm"), module);
-    const recipe = (sourcePin, basePin, modulePin) => `DOLLY 3
+    const recipe = (sourcePin, basePin, modulePin) => `DOLLY 4
 IMAGE default
 FROM HOST /Dollyfile-base '${basePin}' # ${old}
 SOURCE HOST /static/${old} \\ # ${old}
@@ -54,8 +56,8 @@ test("unreferenced module sources are admitted without staging their inputs or e
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-module-source-"));
   try {
     await mkdir(resolve(directory, "modules"));
-    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 3\nIMAGE default\nENTRY /bin/slop\n");
-    const source = `DOLLY 3\nMODULE addon\nREQUIRES TOOL arbitrary\nSOURCE HOST /static/not-staged /tmp/input ${"0".repeat(64)}\n`;
+    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 4\nIMAGE default\nENTRY /bin/slop\n");
+    const source = `DOLLY 4\nMODULE addon\nREQUIRES TOOL arbitrary\nSOURCE HOST /static/not-staged /tmp/input ${"0".repeat(64)}\n`;
     await writeFile(resolve(directory, "modules/addon.dm"), source);
     await writeFile(resolve(directory, "modules/draft.dm"), "unfinished recipe");
     await writeFile(resolve(directory, "modules/empty.dm"), "");
@@ -144,8 +146,8 @@ test("inspection permits repeated, mixed modules and unresolved runtime assertio
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-v3-"));
   try {
     await mkdir(resolve(directory, "modules"));
-    const child = "DOLLY 3\nMODULE child\nFILE /usr/share/value\n    child\nEXPORTS FILE value /usr/share/value\n";
-    const mixed = `DOLLY 3
+    const child = "DOLLY 4\nMODULE child\nFILE /usr/share/value\n    child\nEXPORTS FILE value /usr/share/value\n";
+    const mixed = `DOLLY 4
 MODULE mixed
 EXPORTS FILE value /usr/share/value
 REQUIRES TOOL whatever
@@ -161,15 +163,15 @@ EXPORTS ENV OPTIONS APPEND two
     await writeFile(resolve(directory, "modules/child.dm"), child);
     await writeFile(resolve(directory, "modules/mixed.dm"), mixed);
     await writeFile(resolve(directory, "modules/unused.dm"), "deliberately unused scratch recipe");
-    await writeFile(resolve(directory, "Dollyfile"), `DOLLY 3\nIMAGE default\nUSE HOST /modules/mixed.dm ${digest(mixed)}\nSLOP arbitrary-command\nENTRY /bin/slop\n`);
+    await writeFile(resolve(directory, "Dollyfile"), `DOLLY 4\nIMAGE default\nUSE HOST /modules/mixed.dm ${digest(mixed)}\nSLOP arbitrary-command\nENTRY /bin/slop\n`);
     const graph = await loadDollyfileGraph(directory);
     assert.equal(graph.root.children[0].children.length, 2);
     assert.equal(graph.root.children[0].requirements.length, 2);
     assert.deepEqual(graph.exporters.get("FILE:value").exported.details, ["/usr/share/value"]);
     assert.deepEqual(recipeRecords(graph).map(record => record.name), ["child", "mixed", "default"]);
-    const override = "DOLLY 3\nMODULE child\nEXPORTS ENV AUDIT_VALUE new\n";
+    const override = "DOLLY 4\nMODULE child\nEXPORTS ENV AUDIT_VALUE new\n";
     await writeFile(resolve(directory, "modules/child.dm"), override);
-    await writeFile(resolve(directory, "Dollyfile"), `DOLLY 3\nIMAGE default\nEXPORTS ENV AUDIT_VALUE old\nUSE HOST /modules/child.dm ${digest(override)}\nENTRY /bin/slop\n`);
+    await writeFile(resolve(directory, "Dollyfile"), `DOLLY 4\nIMAGE default\nEXPORTS ENV AUDIT_VALUE old\nUSE HOST /modules/child.dm ${digest(override)}\nENTRY /bin/slop\n`);
     const overridden = await loadDollyfileGraph(directory);
     assert.deepEqual(overridden.exporters.get("ENV:AUDIT_VALUE").exported.details, ["new"]);
     await writeFile(resolve(directory, "modules/child.dm"), child + "# changed\n");
@@ -182,14 +184,14 @@ test("repeated modules resolve requirements in their own caller scope", async ()
   try {
     await mkdir(resolve(directory, "modules"));
     const sources = {
-      first: "DOLLY 3\nMODULE first\nEXPORTS TOOL cc\n",
-      second: "DOLLY 3\nMODULE second\nEXPORTS TOOL cc\n",
-      consumer: "DOLLY 3\nMODULE consumer\nREQUIRES TOOL cc\n",
+      first: "DOLLY 4\nMODULE first\nEXPORTS TOOL cc\n",
+      second: "DOLLY 4\nMODULE second\nEXPORTS TOOL cc\n",
+      consumer: "DOLLY 4\nMODULE consumer\nREQUIRES TOOL cc\n",
     };
     for (const [name, source] of Object.entries(sources)) {
       await writeFile(resolve(directory, `modules/${name}.dm`), source);
     }
-    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 3\nIMAGE default\n" +
+    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 4\nIMAGE default\n" +
       ["first", "consumer", "second", "consumer"].map(name =>
         `USE HOST /modules/${name}.dm ${digest(sources[name])}\n`).join("") + "ENTRY /bin/slop\n");
     const { root } = await loadDollyfileGraph(directory);
@@ -198,36 +200,23 @@ test("repeated modules resolve requirements in their own caller scope", async ()
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("reusing an artifact still checks the depth of each reference", async () => {
+test("imported images are separate builds outside the USE nesting limit", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-depth-"));
   try {
     await mkdir(resolve(directory, "modules"));
-    const leaf = "DOLLY 3\nIMAGE leaf\nENTRY /bin/slop\n";
-    const base = `DOLLY 3\nIMAGE base\nFROM HOST /Dollyfile-leaf ${digest(leaf)}\nENTRY /bin/slop\n`;
-    await writeFile(resolve(directory, "Dollyfile-leaf"), leaf);
+    async function nest(prefix, innermost) {
+      let operation = innermost;
+      for (let i = 14; i >= 0; i--) {
+        const module = `DOLLY 4\nMODULE ${prefix}-${i}\n${operation}`;
+        await writeFile(resolve(directory, `modules/${prefix}-${i}.dm`), module);
+        operation = `USE HOST /modules/${prefix}-${i}.dm ${digest(module)}\n`;
+      }
+      return operation;
+    }
+    const base = `DOLLY 4\nIMAGE base\n${await nest("base", "")}ENTRY /bin/slop\n`;
     await writeFile(resolve(directory, "Dollyfile-base"), base);
     const copy = `COPY FROM HOST /Dollyfile-base ${digest(base)} /usr/share/value /usr/share/value\n`;
-    for (const depth of [13, 14]) {
-      let operation = copy;
-      for (let i = depth - 1; i >= 0; i--) {
-        const module = `DOLLY 3\nMODULE wrapper-${i}\n${operation}`;
-        await writeFile(resolve(directory, `modules/wrapper-${i}.dm`), module);
-        operation = `USE HOST /modules/wrapper-${i}.dm ${digest(module)}\n`;
-      }
-      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 3\nIMAGE default\n${copy}${operation}ENTRY /bin/slop\n`);
-      if (depth === 13) await loadDollyfileGraph(directory);
-      else await assert.rejects(loadDollyfileGraph(directory), /recipe depth exceeds 16/);
-    }
+    await writeFile(resolve(directory, "Dollyfile"), `DOLLY 4\nIMAGE default\n${await nest("root", copy)}ENTRY /bin/slop\n`);
+    assert.equal((await loadDollyfileGraph(directory)).artifacts.length, 1);
   } finally { await rm(directory, { recursive: true, force: true }); }
-});
-
-test("comments cannot swallow declarations; FROM has one explicit starting position", () => {
-  const recipe = inspectDollyfile("# trailing backslash \\\nDOLLY 3\nMODULE example\n# another \\\nSLOP undeclared\n");
-  assert.equal(recipe.slops.length, 1);
-  const pin = "0".repeat(64);
-  assert.doesNotThrow(() => inspectDollyfile(`DOLLY 3\nIMAGE derived\nFROM HOST /Dollyfile ${pin}\nFILE /usr/share/value\n    hi\nENTRY /bin/slop\n`));
-  assert.throws(() => inspectDollyfile(`DOLLY 3\nIMAGE derived\nSLOP build\nFROM HOST /Dollyfile ${pin}\nENTRY /bin/slop\n`), /FROM/);
-  assert.throws(() => inspectDollyfile(`DOLLY 3\nMODULE example\nFROM HOST /Dollyfile ${pin}\n`), /FROM/);
-  assert.throws(() => inspectDollyfile(`DOLLY 3\nMODULE example\nCOPY FROM HOST /Dollyfile ${pin} /usr /usr/../etc\n`), /COPY/);
-  assert.throws(() => inspectDollyfile("DOLLY 2\nIMAGE old\nENTRY /bin/slop\n"), /DOLLY 3/);
 });

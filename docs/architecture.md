@@ -47,7 +47,7 @@ termination through nested shells, and keeps the interactive prompt usable.
 The kernel's in-memory WasmFS is the only filesystem. Browser storage is never
 mounted. Descriptors are per-process handles to kernel-owned files or pipes.
 
-[Dollyfile 3](dollyfile.md) executes in Wasm, row by row. Modules build ordinary
+[Dollyfiles](dollyfile.md) execute in Wasm, row by row. Modules build ordinary
 programs from pinned source; images retain explicit outputs and environment.
 Completed images, not modules, are cached. `FROM` and `COPY` reuse verified
 image artifacts.
