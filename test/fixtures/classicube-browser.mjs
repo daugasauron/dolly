@@ -119,7 +119,7 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, projectDir
     for (let i = 0; i < view.getUint32(12, true); i++) {
       const nameLength = view.getUint32(offset+4, true), size = Number(view.getBigUint64(offset+8, true));
       offset += 16;
-      const name = new TextDecoder().decode(bytes.subarray(offset, offset+nameLength));
+      const name = new TextDecoder().decode(bytes.slice(offset, offset+nameLength));
       offset += nameLength;
       if (name.endsWith('.cw')) result[name] = Array.from(bytes.subarray(offset, offset+size));
       offset += size;

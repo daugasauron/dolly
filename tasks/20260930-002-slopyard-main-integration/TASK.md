@@ -13,7 +13,9 @@ Prepared in source on 2026-09-30 in `work/gpu-shaders`:
 
 - Main's audio, 0 A.D., GPU and streaming snapshots are integrated with the
   branch's host modules and threads. Main revision is
-  `e3ba5fb5704785bae9fa2f6610ac2fa5e1f716f2`; Git has NOT recorded a merge.
+  `e3ba5fb5704785bae9fa2f6610ac2fa5e1f716f2`. Prepared source is committed at
+  `faf8f36`; merge `1f0995d` records both histories with the same verified tree.
+  Main has not yet advanced to this merge.
 - Slopyard source, recipes, tests, retained paths, save tags and URL are renamed.
   No old-name reader or redirect was added. Six recovered save files are
   hash-verified in the private `build/slopyard-migration-20260930/original/`.
@@ -77,6 +79,12 @@ Evidence:
   check found and fixed a parser-error fallback that prevented text character
   imports. Current-format world and character exports are preserved alongside
   the original backups. Logs: `slopyard-{chromium,firefox}.log`.
+- The rebased Bhop image passes source-built movement, mouse controls, jumps,
+  normal exit and cancellation/recovery (`bhop-browser.log`).
+- ClassiCube passes textures, walking, capture, block placement/removal checked
+  in saved map data, save/reload and exit/cancellation recovery. Its save inspector
+  now copies filename bytes before decoding the resizable snapshot buffer
+  (`classicube-browser.log`).
 
 Remaining gates (do not close until verified):
 
@@ -84,8 +92,8 @@ Remaining gates (do not close until verified):
    retained-image inventory checks. The running build cached the old Slopyard
    recipe before its import fix; if it rejects that recipe, replan normally.
    The corrected Slopyard image is already built and verified separately.
-2. Verify complete distribution packaging, then commit and record a real merge
-   onto main. No commit, push or deployment has occurred in this session.
+2. Verify complete distribution packaging, then advance main to the verified
+   merge and record final evidence. No push or deployment has occurred.
 
 The previous Podman, process-execution and metadata-write permission failures
 are resolved. Images must still be rebuilt against the combined runtime; do not

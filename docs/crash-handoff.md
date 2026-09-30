@@ -2,8 +2,8 @@
 
 Current worktree: `/home/daug/dev/dolly/work/gpu-shaders`, branch
 `codex/slopyard-main-integration-20260930`.
-The working tree contains an uncommitted source integration, not a tested release.
-HEAD is `2e7d93da305651e1a312c6bdaf3c5c1a625aea5d`; integrated main is
+Source checkpoint `faf8f36` and merge `1f0995d` record the integrated tree.
+Main remains at
 `e3ba5fb5704785bae9fa2f6610ac2fa5e1f716f2`.
 Leave the root worktree and running previews alone.
 
@@ -15,14 +15,18 @@ worker and minimal v4 host declarations are prepared. Main's 0 A.D., audio, GPU
 and streaming snapshots are integrated in source. The combined runtime builds
 and passes its exact browser-import and kernel ABI checks. The 40-image browser
 rebuild is in progress, logged in `build/slopyard-integration-20260930/images-build.log`.
-The system/compiler bases, CMake, SDL2, Bhop and Pi Runtime have rebuilt.
-No real Git merge, commit, push or deployment has occurred here.
+The system/compiler bases, CMake, SDL2, Bhop, Pi Runtime, ClassiCube and Protox
+have rebuilt. Codex is compiling its Rust dependencies.
+Main has not advanced to the merge; no push or deployment has occurred here.
 
 All 287 source tests pass. Real Chromium checks pass for streaming build-log
 text/bounds and standalone compiler rebuild output, cancellation and retry.
 Chromium and Firefox pass core/thread creation with HTTP blocked (zero requests),
 audio playback, 0 A.D. rendering/audio/gameplay/save-load, Slopyard save imports,
-hardware GPU rendering and fluid compute/control/recovery checks. Evidence is in
+hardware GPU rendering and fluid compute/control/recovery checks. Bhop passes
+movement, controls, exit and recovery on its rebased image. ClassiCube passes
+movement, block placement/removal in saved data, save/reload and recovery.
+Evidence is in
 `build/slopyard-integration-20260930/`. Studio rebuild output and final packaged
 image inventories remain pending.
 All 40 images lint, all 384
