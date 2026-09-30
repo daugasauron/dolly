@@ -42,7 +42,8 @@ async function queueBeforeActivation(origin) {
   reportAutoplay({ error: completed.error, activated: navigator.userActivation.hasBeenActive, resumeCalls });
 }
 
-const fixtures = { "audio.c": "test/fixtures/audio.c", "audio-client-contract.c": "test/fixtures/audio-client-contract.c" };
+const fixtures = { "audio.c": "test/fixtures/audio.c", "audio-client-contract.c": "test/fixtures/audio-client-contract.c",
+  "audio-client.c": "host/audio/client.c" };
 await browserTest("audio", { image: "audio-sdk", server: { fixtures } }, async ({ browser, server, open }) => {
   const blank = await browser.newPage();
   let reported;
@@ -59,7 +60,7 @@ await browserTest("audio", { image: "audio-sdk", server: { fixtures } }, async (
 
   const errors = [];
   const { page, submit, text } = await open({
-    policy: { maxRequests: 2, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
+    policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => {
       page.on("pageerror", error => errors.push(error.message));
       return page.addInitScript(meter);
@@ -80,9 +81,9 @@ await browserTest("audio", { image: "audio-sdk", server: { fixtures } }, async (
   assert.match(selection.denied, /audio@0/);
   assert.equal(selection.handled, false);
   const run = async command => assert.equal(await submit(command), 0, await text());
-  for (const file of ["audio.c", "audio-client-contract.c"]) await run(`curl -fsS ${server.origin}/fixture/${file} -o /tmp/${file}`);
+  for (const file of Object.keys(fixtures)) await run(`curl -fsS ${server.origin}/fixture/${file} -o /tmp/${file}`);
   await run("cc /tmp/audio.c -ldolly-audio -lm -o /tmp/audio");
-  await run("cc -Ddolly_process_call=audio_test_call /tmp/audio-client-contract.c /usr/src/dolly/audio/client.c -o /tmp/audio-client-contract && /tmp/audio-client-contract");
+  await run("cc -Ddolly_process_call=audio_test_call /tmp/audio-client-contract.c /tmp/audio-client.c -o /tmp/audio-client-contract && /tmp/audio-client-contract");
   for (let index = 0; index < 2; ++index) {
     await run("/tmp/audio");
     await page.waitForFunction(() => __dolly.audio.activeScopes === 0 && __dolly.audio.buffers === 0);

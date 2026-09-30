@@ -15,6 +15,8 @@ SOURCE HOST /include/dolly/host.h /usr/include/dolly/host.h 0b579ac94098b2997772
 SOURCE HOST /include/dolly/host-abi.h /usr/include/dolly/host-abi.h 544f73c7e5249c1a27f6ea968ee8cffa81b113addaf4d428fa1ca268c382c108
 SOURCE HOST /include/dolly/gpu.h /usr/include/dolly/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000
 SOURCE HOST /include/dolly/gpu-abi.h /usr/include/dolly/gpu-abi.h 8457fa2772a8b59df57638c53396c90085d64ffe99e3032ea157ac3a04e8dc5f
+SOURCE HOST /include/dolly/audio.h /usr/include/dolly/audio.h 9d291eeb25345a75bb21dbd4c422beb15f30700a5f96d5f665ca52a5d8948b65
+SOURCE HOST /include/dolly/audio-abi.h /usr/include/dolly/audio-abi.h 24e538fa126aabe1a854125cb3aa732d6fbd30da55d5b4649596e9fd94a9cb65
 SOURCE HOST /include/dolly/upload.h /usr/include/dolly/upload.h 606a8b7813716940e5e287b2881230334d875db4c328c8b1677471d6f5cb5a42
 SOURCE HOST /include/dolly/snapshot.h /usr/include/dolly/snapshot.h a8e74773a232b79b3655ecc6c744b3debd9db2eafc5757c088646fce650ba953
 
@@ -33,12 +35,16 @@ EXPORTS HEADER host /usr/include/dolly/host.h
 EXPORTS HEADER host-abi /usr/include/dolly/host-abi.h
 EXPORTS HEADER gpu /usr/include/dolly/gpu.h
 EXPORTS HEADER gpu-abi /usr/include/dolly/gpu-abi.h
+EXPORTS HEADER audio /usr/include/dolly/audio.h
+EXPORTS HEADER audio-abi /usr/include/dolly/audio-abi.h
 EXPORTS HEADER upload /usr/include/dolly/upload.h
 EXPORTS HEADER snapshot /usr/include/dolly/snapshot.h
 EXPORTS HEADER threads /usr/include/dolly/threads.h
 EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h
 
 EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
+EXPORTS LIB dolly-gpu /usr/lib/dolly/process/libdolly-gpu.a
+EXPORTS LIB dolly-audio /usr/lib/dolly/process/libdolly-audio.a
 
 # These are the complete externally seeded compiler dependencies, not ambient
 # additions to every boot. Images retain them by re-exporting these objects.

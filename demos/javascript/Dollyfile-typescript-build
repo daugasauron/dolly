@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE typescript-build
 
-FROM HOST /Dollyfile-system-tools 83f00724490c9822f27aa02dc097aee69ec3b8309317bf7309c74828dcc0251d
+FROM HOST /Dollyfile-system-tools 999f80ba3d48b75a3ab3e59d45a15f25d828060d259a112a7398d4bf71b1bf52
 
 USE HOST /modules/quickjs.dm 4dfcd32efb9562351f9acdbe23c203cae7532833f8d6211586cb078a611f1b0d
 USE HOST /modules/typescript.dm beb61c3becd7f5591964ed4bb3dd19e652a77ec92ae2748e40867e8dd320e7e8

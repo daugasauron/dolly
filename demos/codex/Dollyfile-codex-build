@@ -1,8 +1,8 @@
 DOLLY 4
 IMAGE codex-build
 
-FROM HOST /Dollyfile-rust-build 8c3255943e1c0736723be2add4e982534bfbc8ccdd6f1e24e4c14a6e221fd5b9
-COPY FROM HOST /Dollyfile-protox-build b0eee8e572004c8704575b31ffc4c7eadf0d060b4816cf2f37c81e368e6843a5 /usr/bin/protox /usr/bin/protox
+FROM HOST /Dollyfile-rust-build 2e1020f9e316d4df1288bc32b92d67412be0c8c94a390e36e9289391989ab684
+COPY FROM HOST /Dollyfile-protox-build 5c79d1cb13a3234cfc3cad16c5ece8abfab81be1f61e8821a95d0d25f4d5cd4f /usr/bin/protox /usr/bin/protox
 EXPORTS TOOL protox
 USE HOST /modules/codex-build.dm da572d86e119a6a498e3bc9c92ab40d554fa8f9cd35112b87d72591b6ec5ae2d
 

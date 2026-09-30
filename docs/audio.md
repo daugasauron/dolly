@@ -25,8 +25,7 @@ flowchart LR
   Nonfinite samples fail with `EINVAL`; others are clamped to [-1, 1].
 - Exit, abort and forced termination revoke the stream. Playback may need a user
   interaction to start; the guest cannot supply one.
-- C SDK: [`host/audio/audio.h`](../host/audio/audio.h) and `-ldolly-audio`, built by
-  [`audio.dm`](../modules/audio.dm) in
-  [`Dollyfile-audio-sdk`](../Dollyfile-audio-sdk). Linking it stamps `audio@0`
-  into the executable. Calls return 0 or a frame count, or -1 with `errno`; after
+- C SDK: [`host/audio/audio.h`](../host/audio/audio.h) and `libdolly-audio.a` in the
+  seed, which `cc` links by default. Calling it stamps `audio@0` into the
+  executable. Calls return 0 or a frame count, or -1 with `errno`; after
   `EOVERFLOW`, close and reopen.
