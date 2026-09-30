@@ -3,7 +3,9 @@
 A Dollyfile is an ordered recipe that `/bin/dollyfile` executes inside Wasm to
 build an image. An image recipe (`/Dollyfile` for `default`, otherwise
 `/Dollyfile-NAME`) ends with its entry program; a module (`/modules/NAME.dm`)
-is a reusable group of steps. Steps run in order in one filesystem and
+is a reusable group of steps. These site paths form one flat namespace; in the
+checkout, core recipes sit at the top level and in `modules/`, demo recipes in
+`demos/DEMO/` (`scripts/recipe-files.mjs`). Steps run in order in one filesystem and
 environment and may overwrite or delete earlier results. The source viewer
 (`/view/IMAGE/`) links modules, assertions, inputs and images; it does not prove
 that the programs work.
