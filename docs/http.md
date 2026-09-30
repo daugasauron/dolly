@@ -18,8 +18,8 @@ flowchart LR
 ## Transport
 
 - Contract: [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat); kernel side in
-  [`dolly.c`](../src/dolly.c); browser side in
-  [`host/http.mjs`](../host/http/http.mjs) and [`host/http/broker.mjs`](../host/http/broker.mjs).
+  [`host/http/kernel.c`](../host/http/kernel.c); browser side in
+  [`host/http/http.mjs`](../host/http/http.mjs) and [`host/http/broker.mjs`](../host/http/broker.mjs).
 - The import passes span descriptors only. The broker checks them against fixed
   caps before copying: method 32 B, URL 8 KiB, headers 64 KiB, body 8 MiB.
   Policy can lower these caps, never raise them. Metadata is literal UTF-8

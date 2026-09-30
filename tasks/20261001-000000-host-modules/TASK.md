@@ -89,10 +89,15 @@ stay hand-written: they are where a human reviews authority.
   modules; `src/browser.mjs` 770 -> 376 lines (`eb4f1c5`). Session restore moved
   from the runtime Worker into the snapshot module's `imageRestored` hook.
 
+- Display's kernel state (mailbox, frames, lease, terminal device) moved to
+  `host/display/kernel.c`; `src/dolly.c` keeps the terminal line discipline and
+  reaches the device through `dolly_kernel_terminal_attached/render/read`
+  (988 -> 361 lines). Image inputs unchanged.
+
 Remaining:
-- Display's kernel state (lease, frames, terminal renderer) is still in
-  `src/dolly.c`, and its mailbox also carries core terminal state (foreground,
-  interrupts, input ring): split a runtime-owned terminal mailbox.
+- The display mailbox also carries core terminal state (foreground, interrupts,
+  result, size): split a runtime-owned terminal mailbox. Its layout is compiled
+  into every image's resident display library, so the split rebuilds images.
 - Stage 3 (owner decision): move display, HTTP, download and upload operations
   and packets from `process.h` into their modules. Today their layouts are in
   the exact-bytes process ABI digest; gpu and audio packets are identified only

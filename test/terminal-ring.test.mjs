@@ -40,7 +40,7 @@ test("display text packets and copied selections preserve literal UTF-8", async 
 
 test("terminal UI compaction preserves input order across wrap and producer publication", async () => {
   const project = resolve(import.meta.dirname, "..");
-  const runtime = await readFile(join(project, "src/dolly.c"), "utf8");
+  const runtime = await readFile(join(project, "host/display/kernel.c"), "utf8");
   const start = runtime.indexOf("int dolly_terminal_present_pending(void)");
   const end = runtime.indexOf("\n}\n", start) + 2;
   assert.ok(start > 0 && end > start);
