@@ -55,28 +55,9 @@ export function sessionLoadUrl(name, applicationBase) {
 }
 
 export async function listStoredSessions() {
-  const database = await openDatabase();
-  try {
-    return await new Promise((resolve, reject) => {
-      const active = database.transaction(storeName, "readonly");
-      const request = active.objectStore(storeName).openCursor();
-      const sessions = [];
-      request.addEventListener("success", () => {
-        const cursor = request.result;
-        if (!cursor) return;
-        const { bytes, ...metadata } = cursor.value;
-        sessions.push({ ...metadata, byteLength: bytes?.byteLength ?? bytes?.size ?? 0 });
-        cursor.continue();
-      });
-      request.addEventListener("error", () => reject(request.error));
-      active.addEventListener("abort", () => reject(active.error));
-      active.addEventListener("complete", () => resolve(
-        sessions.sort((left, right) => right.updatedAt - left.updatedAt),
-      ));
-    });
-  } finally {
-    database.close();
-  }
+  const records = await transaction("readonly", store => store.getAll());
+  return records.map(({ bytes, ...metadata }) => ({ ...metadata, byteLength: bytes?.byteLength ?? bytes?.size ?? 0 }))
+    .sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
 async function collectStream(stream, maximum) {

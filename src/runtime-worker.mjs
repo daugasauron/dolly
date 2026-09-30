@@ -77,9 +77,7 @@ function readImageEntry(dolly) {
 
 async function runImageEntry(dolly, supervisor) {
   const arguments_ = readImageEntry(dolly);
-  return supervisor.spawn(arguments_[0], arguments_, {
-    foreground: true,
-  });
+  return supervisor.spawn(arguments_, { foreground: true });
 }
 
 function checkedMemoryRange(memory, addressValue, sizeValue) {
@@ -259,7 +257,7 @@ try {
       const arguments_ = baseArtifact
         ? ["/bin/dollyfile", recipeLocator, applicationBase.href]
         : ["/usr/libexec/dolly/process-bin/bootstrap"];
-      bootstrapStatus = await processSupervisor.spawn(arguments_[0], arguments_);
+      bootstrapStatus = await processSupervisor.spawn(arguments_);
     }
     for (const artifact of artifacts.values()) dolly.FS.unlink(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
     artifacts.clear();
@@ -360,7 +358,7 @@ try {
     bootConfig.sessionSnapshot = undefined;
     try {
       const program = "/usr/bin/session-recover";
-      if (await processSupervisor.spawn(program, [program, path, destination]) !== 0) {
+      if (await processSupervisor.spawn([program, path, destination]) !== 0) {
         throw new Error("File recovery failed; the original saved session is unchanged");
       }
     } finally { dolly.FS.unlink(path); }

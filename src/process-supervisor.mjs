@@ -63,52 +63,35 @@ function encodeStrings(strings, label) {
   return output;
 }
 
-function encodeSpawn(path, arguments_, environment, descriptors, flags) {
-  if (typeof path !== "string" || !path.startsWith("/") || path.includes("\0")) {
-    throw new TypeError("a process path must be absolute");
-  }
+// Root processes run argv[0], inherit the kernel environment and map
+// descriptors 0-2 onto themselves.
+function encodeSpawn(arguments_, flags) {
   if (!Array.isArray(arguments_) || arguments_.length === 0) {
     throw new TypeError("a process needs argv[0]");
   }
+  const [path] = arguments_;
+  if (typeof path !== "string" || !path.startsWith("/") || path.includes("\0")) {
+    throw new TypeError("a process path must be absolute");
+  }
   const pathBytes = encoder.encode(path);
   const argumentBytes = encodeStrings(arguments_, "process arguments");
-  const environmentBytes = environment === undefined
-    ? new Uint8Array() : encodeStrings(environment, "process environment");
-  const size = spawnHeaderSize + pathBytes.length +
-    argumentBytes.length + environmentBytes.length + 3 * 8;
-  if (pathBytes.length === 0 || pathBytes.length > 4096 || size > packetLimit) {
+  const size = spawnHeaderSize + pathBytes.length + argumentBytes.length + 3 * 8;
+  if (pathBytes.length > 4096 || size > packetLimit) {
     throw new RangeError("process spawn packet is too large");
   }
-  if (!Array.isArray(descriptors) || descriptors.length !== 3 ||
-      descriptors.some((value) => !Number.isInteger(value) || value < 0 || value > 0x7fffffff)) {
-    throw new TypeError("process descriptors must contain stdin, stdout, and stderr");
-  }
-
   const packet = new Uint8Array(size);
   const view = new DataView(packet.buffer);
-  view.setUint32(0, flags |
-    (environment === undefined ? DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT : 0), true);
+  view.setUint32(0, flags | DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT, true);
   view.setUint32(4, arguments_.length, true);
-  view.setUint32(8, environment?.length ?? 0, true);
-  view.setUint32(12, 0, true);
-  view.setUint32(16, descriptors.length, true);
-  view.setUint32(20, 0, true); // Root spawns use explicit descriptor mappings only.
-  view.setUint32(24, 0, true);
+  view.setUint32(16, 3, true);
   view.setUint32(28, pathBytes.length, true);
   view.setBigUint64(32, BigInt(argumentBytes.length), true);
-  view.setBigUint64(40, BigInt(environmentBytes.length), true);
   view.setBigUint64(48, 0xffffffffffffffffn, true);
-  let offset = spawnHeaderSize;
-  packet.set(pathBytes, offset);
-  offset += pathBytes.length;
-  packet.set(argumentBytes, offset);
-  offset += argumentBytes.length;
-  packet.set(environmentBytes, offset);
-  offset += environmentBytes.length;
-  for (let target = 0; target < descriptors.length; ++target) {
-    view.setUint32(offset, descriptors[target], true);
-    view.setUint32(offset + 4, target, true);
-    offset += 8;
+  packet.set(pathBytes, spawnHeaderSize);
+  packet.set(argumentBytes, spawnHeaderSize + pathBytes.length);
+  for (let descriptor = 0; descriptor < 3; ++descriptor) {
+    view.setUint32(size - 24 + descriptor * 8, descriptor, true);
+    view.setUint32(size - 20 + descriptor * 8, descriptor, true);
   }
   return packet;
 }
@@ -183,20 +166,9 @@ export class DollyProcessSupervisor {
     }
   }
 
-  spawn(path, arguments_, {
-    environment = undefined,
-    descriptors = [0, 1, 2],
-    foreground = false,
-    interactive = false,
-  } = {}) {
-    if (typeof foreground !== "boolean" || typeof interactive !== "boolean" ||
-        (interactive && !foreground)) {
-      throw new TypeError("invalid process foreground options");
-    }
+  spawn(arguments_, { foreground = false } = {}) {
     if (this.processes.size >= processWorkerLimit) throw new Error("Dolly process limit reached");
-    const flags = (foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0) |
-      (interactive ? DOLLY_PROCESS_SPAWN_INTERACTIVE : 0);
-    const packet = encodeSpawn(path, arguments_, environment, descriptors, flags);
+    const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0);
     new Uint8Array(
       this.kernelMemory.buffer,
       this.mailboxAddress,
