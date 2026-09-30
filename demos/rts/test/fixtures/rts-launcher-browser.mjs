@@ -91,7 +91,7 @@ export async function runRtsLauncherProof({ send, evaluate, key, input, projectD
   await escape(); await home();
   assert.doesNotMatch(await text(),/0123456789abcdef|fixture-relay-capability/);
   await choose("DOLLY / RTS ARENA","shell"); await screen("(?:^|\\n)dolly:[^\\n]*\\$\\s*$");
-  const check = `const fs=__janisBuiltin('fs');const auth=JSON.parse(fs.readFileSync(process.env.HOME+'/.pi/agent/auth.json','utf8'));if(auth.openrouter?.key!==${JSON.stringify(secret)})throw Error('credential mismatch');if(fs.readdirSync('/tmp').some(name=>name.startsWith('codex-relay-import-')||name.startsWith('dolly-rts-replay-')))throw Error('scratch leak');`;
+  const check = `const fs=__janisBuiltin('fs');const auth=JSON.parse(fs.readFileSync(process.env.HOME+'/.pi/agent/auth.json','utf8'));if(auth.openrouter?.key!==${JSON.stringify(secret)})throw Error('credential mismatch');if(fs.readdirSync('/tmp').some(name=>name.startsWith('relay-import-')||name.startsWith('dolly-rts-replay-')))throw Error('scratch leak');`;
   const quote = value => "'" + value.replace(/'/g,"'\\''") + "'";
   assert.equal(await evaluate(`__dolly.submit(${JSON.stringify("janis -e " + quote(check))})`),0);
   console.log("browser: RTS selectable setup, inline connection, native masked paste without auto-submit, fuzzy models, supported effort menus, back navigation, editable review, validation, cancellation and credential persistence passed");

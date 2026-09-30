@@ -11,7 +11,7 @@ import { bhopProvider } from "../demos/bhop/test/fixtures/bhop-provider.mjs";
 import { runBhopAgentProof } from "../demos/bhop/test/fixtures/bhop-agent-browser.mjs";
 import { classicubeProvider } from "../demos/classicube/test/fixtures/classicube-provider.mjs";
 import { runClassiCubeAgentProof } from "../demos/classicube/test/fixtures/classicube-agent-browser.mjs";
-import { relayProvider } from "../demos/rts/spectator/relay.mjs";
+import { relayProviders } from "../demos/rts/spectator/relay.mjs";
 import { runClassiCubeProof } from "../demos/classicube/test/fixtures/classicube-browser.mjs";
 import { runRtsLauncherProof } from "../demos/rts/test/fixtures/rts-launcher-browser.mjs";
 import { lstat, mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -128,7 +128,7 @@ const classicubeRelayFile = (classicubeAgentLiveMode && process.env.DOLLY_CLASSI
 if (bhopAgentLiveMode && !classicubeRelayFile) throw Error("bhop-agent-live requires DOLLY_BHOP_MODELS_FILE");
 if (classicubePlaywrightMode && !classicubeRelayFile) throw Error("classicube-playwright requires DOLLY_CLASSICUBE_MODELS_FILE");
 const classicubeRelayConfiguration = classicubeRelayFile
-  ? { providers: { "codex-local": relayProvider(JSON.parse(await readFile(resolve(classicubeRelayFile), "utf8"))) } } : null;
+  ? { providers: relayProviders(JSON.parse(await readFile(resolve(classicubeRelayFile), "utf8"))) } : null;
 const debuggerDisconnectMode = isMode("debugger-disconnect");
 const janisFilesMode = isMode("janis-files");
 const janisProcessMode = isMode("janis-process");
@@ -1421,11 +1421,11 @@ if ((rtsLiveMode && !rtsLiveConfiguration) || classicubeAgentMode || bhopAgentMo
 if (classicubeAgentMode || bhopAgentMode) fixturePolicy.rules.unshift({ origin: "https://openrouter.ai", path: "/api/v1/auth/keys", methods: ["POST"] },
   { origin: "https://openrouter.ai", path: "/api/v1/chat/completions", methods: ["POST"], credentialHeaders: ["authorization"], timeoutMilliseconds: 120000 });
 for (const provider of Object.values((rtsLiveConfiguration || classicubeRelayConfiguration)?.providers ?? {})) {
-  const url = new URL(provider.baseUrl);
-  if (url.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(url.hostname) || provider.api !== "openai-codex-responses")
-    throw Error("Subscription tests require an explicit loopback Codex relay");
-  fixturePolicy.rules.unshift({ origin: url.origin, path: "/codex/responses", methods: ["POST"],
-    credentialHeaders: ["authorization"], maxRequestBytes: 8 * 1024 * 1024, timeoutMilliseconds: 120000 });
+  const url = new URL(provider.baseUrl), claude = provider.api === "anthropic-messages";
+  if (url.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(url.hostname) || !(claude || provider.api === "openai-codex-responses"))
+    throw Error("Relay tests require an explicit loopback Codex or Claude relay");
+  fixturePolicy.rules.unshift({ origin: url.origin, path: claude ? "/v1/messages" : "/codex/responses", methods: ["POST"],
+    credentialHeaders: [claude ? "x-api-key" : "authorization"], maxRequestBytes: 8 * 1024 * 1024, timeoutMilliseconds: 120000 });
 }
 const requestedProfile = process.env.DOLLY_BROWSER_PROFILE;
 persistentProfile = requestedProfile;
