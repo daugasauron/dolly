@@ -8,7 +8,6 @@ import test from "node:test";
 
 import {
   emscriptenExports,
-  layoutDigest,
   validateBrowserImports,
   validateProcess,
   validateRuntime,
@@ -61,9 +60,9 @@ test("dolly-process-0 is a minimal private-memory executable contract", async ()
   const layout = contract.customSectionData.filter(
     (section) => section.name === "dolly.process.layout",
   );
-  const expectedLayout = Buffer.from(
-    await layoutDigest([new URL("../include/dolly/process.h", import.meta.url)]),
-  ).toString("hex");
+  const expectedLayout = createHash("sha256").update(
+    await readFile(new URL("../include/dolly/process.h", import.meta.url)),
+  ).digest("hex");
   assert.deepEqual(
     contract.imports.map((entry) => `${entry.module}.${entry.name}`),
     ["env.memory", "dolly_process_0.call"],

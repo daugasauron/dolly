@@ -278,7 +278,8 @@ export class DollyProcessSupervisor {
     const receiver = process.threaded
       ? [...process.threads.values()].sort((a, b) => a.tid - b.tid)[0] : process;
     const deferred = this.deferred.get(receiver);
-    if (deferred) {
+    // A deferred EXIT is past signal handling; the kernel completes it.
+    if (deferred && deferred.message.operation !== DOLLY_PROCESS_EXIT) {
       this.#clearDeferred(receiver);
       this.#signal(receiver, deferred.message.sequence, interruptedSystemCall);
     }
@@ -390,7 +391,7 @@ export class DollyProcessSupervisor {
           throw new Error(`kernel did not release executable ${pid}`);
         }
         const { module, memoryRequirements, processInterface, threaded } = await this.#compileProcess(bytes);
-        if (this.processes.get(pid) !== process || process.retiring) continue;
+        if (!this.#canLaunch(process)) continue;
         const memory = createProcessMemory(memoryRequirements);
         process.memory = memory;
         const gate = new WebAssembly.Instance(this.gateModule, {
@@ -432,6 +433,16 @@ export class DollyProcessSupervisor {
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, control,
       clockOrigin: performance.timeOrigin, processInterface, dsoContract: this.dsoContract, hostAbi: this.hostAbi });
+  }
+
+  #canLaunch(process) {
+    if (this.processes.get(process.pid) !== process || process.retiring) return false;
+    // An ancestor's EXIT can reach the kernel before its Worker posts finished.
+    if (this.dolly._dolly_process_exited(process.pid) !== 0) {
+      this.#retire(process);
+      return false;
+    }
+    return true;
   }
 
   #signal(process, sequence, result) {

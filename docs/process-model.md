@@ -39,30 +39,34 @@ sequenceDiagram
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
   no general `/proc`.
 - The compiler is itself a private process behind `cc`, `c++`, `ld` and `ar`
-  ([`compiler.cpp`](../src/compiler.cpp)). It keeps Clang's defaults and suffix
-  rules; objects are always position independent, `-m64` is the only target and
-  `-lc -lm -ldl -lrt -lpthread -lutil` add nothing.
+  ([`compiler.cpp`](../src/compiler.cpp)). It defaults to `-O2` with `-std=c17`
+  or `-std=c++23` and follows Clang's suffix rules; objects are always position
+  independent, `-m64` is the only target, `-lc -lm -ldl -lrt -lpthread -lutil`
+  add nothing, and `-Wl,--no-undefined` is accepted because the exact typed
+  import validation after linking is its target equivalent.
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
   instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
 - An unexpected Worker failure exits the process with status 126 and a one-line
-  diagnostic; it does not affect unrelated processes.
+  diagnostic; it does not affect unrelated processes. `cc`, `c++`, `ld` and `ar`
+  retry that status up to twice
+  ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long serial
+  source builds survive a transient browser Worker allocation failure without
+  hiding deterministic source errors.
 
 ## Descriptors and files
 
 - 256 descriptors per process. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
-  nonblocking; closing all writers gives EOF; writing with no reader raises
-  `SIGPIPE` ([`libc-adapter.c`](../src/process/libc-adapter.c)), leaving `EPIPE`
-  when ignored or handled.
+  nonblocking; closing all writers gives EOF; writing with no reader returns
+  `EPIPE` without raising `SIGPIPE`.
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
 - `poll` covers files, pipes and the terminal; signals wake it with `EINTR`.
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
   without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output.
-- `chmod` stores bits that `stat` reports and WasmFS enforces for reading and
-  writing; images and sessions do not preserve them. `chown` accepts only owner
-  and group 0.
+- There is one user and no permission bits: `chmod`, `chown` and `access` only
+  check that the file exists, and nothing changes a file's mode.
 - The cwd is an open directory handle: it follows renames, `getcwd` fails with
   `ENOENT` after unlink, `fchdir` works.
 - `mmap` makes private copies; `MAP_SHARED` writes back on `msync` and whole

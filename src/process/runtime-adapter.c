@@ -226,13 +226,19 @@ int dolly_toolchain_proxy(int argc, char **argv, int default_language) {
   forward[1] = (char *)modes[default_language];
   for (int index = 1; index < argc; ++index) forward[index + 1] = argv[index];
   int status = 126;
-  const int pid = dolly_spawn(
-      "/usr/libexec/dolly/process-bin/compiler", argc + 1, forward,
-      STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
-  const int waited = pid < 0 ? pid : dolly_wait(pid, &status);
-  if (waited != 0) {
-    fprintf(stderr, "dolly: compiler process failed: %s\n", strerror(-waited));
+  /* Retry only 126: survive transient Worker allocation, never hide source errors. */
+  for (unsigned attempt = 0; attempt < 3; ++attempt) {
+    const int pid = dolly_spawn(
+        "/usr/libexec/dolly/process-bin/compiler", argc + 1, forward,
+        STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+    const int waited = pid < 0 ? pid : dolly_wait(pid, &status);
+    if (waited == 0 && status != 126) break;
     status = 126;
+    if (attempt != 2) {
+      fprintf(stderr,
+              "dolly: compiler process failed; retrying %u/3\n",
+              attempt + 2);
+    }
   }
   free(forward);
   return status;

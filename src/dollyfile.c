@@ -1108,7 +1108,7 @@ static int read_artifact(Artifact *artifact, const char *path, const char *expec
   struct stat metadata;
   if (fstat(fileno(artifact->stream), &metadata) != 0) return -errno;
   if (!S_ISREG(metadata.st_mode) || metadata.st_size < 16) return -EINVAL;
-  if ((uint64_t)metadata.st_size > UINT64_C(2) * 1024 * 1024 * 1024) return -EFBIG;
+  if ((uint64_t)metadata.st_size > DOLLY_SNAPSHOT_MAX_SIZE) return -EFBIG;
   unsigned char header[16];
   int result = read_stream(artifact->stream, header, sizeof(header));
   if (result != 0) return result;
@@ -1131,7 +1131,7 @@ static int read_artifact(Artifact *artifact, const char *path, const char *expec
     if (take_layer_u32(&cursor, end, &record->kind) != 0 ||
         record->kind < DOLLY_FS_DIRECTORY || record->kind > DOLLY_FS_SYMLINK ||
         take_layer_u32(&cursor, end, &path_length) != 0 || path_length == 0 || path_length >= PATH_MAX ||
-        take_layer_u64(&cursor, end, &size) != 0 || size > MAX_SOURCE_BYTES ||
+        take_layer_u64(&cursor, end, &size) != 0 || size > DOLLY_SNAPSHOT_MAX_SIZE ||
         (record->kind == DOLLY_FS_DIRECTORY && size != 0) ||
         (record->kind == DOLLY_FS_SYMLINK && (size == 0 || size >= PATH_MAX))) return -EINVAL;
     record->path = malloc(path_length + 1);

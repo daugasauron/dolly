@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { parseWasmInterface, appendCustomSection } from "../src/wasm-interface.mjs";
 import { validateProcessInterface, validateDsoInterface, validateDsoHost, requireDsoType } from "../src/process-abi.mjs";
-import { layoutDigest, validateProcess, validateProcessDso } from "../scripts/dolly-abi.mjs";
+import { validateProcess, validateProcessDso } from "../scripts/dolly-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 
@@ -72,22 +72,6 @@ test("memory records, stamps, and side-module identity are checked from actual b
       await writeFile(path, bytes);
       await assert.rejects(validateProcess(contractPath, [path]), error);
     }
-  } finally { await rm(scratch, { recursive: true, force: true }); }
-});
-
-test("process ABI identity covers declarations, not comments or formatting", async () => {
-  const source = await readFile(new URL("../include/dolly/process.h", import.meta.url), "utf8");
-  const scratch = await mkdtemp(join(tmpdir(), "dolly-layout-"));
-  const digest = async (name, text) => {
-    await writeFile(join(scratch, name), text);
-    return Buffer.from(await layoutDigest([join(scratch, name)])).toString("hex");
-  };
-  try {
-    const original = await digest("original.h", source);
-    assert.equal(await digest("prose.h", source.replace(
-      "DOLLY_PROCESS_SPAWN = 64,", "/* reworded */\n  DOLLY_PROCESS_SPAWN   =  64,")), original);
-    assert.notEqual(await digest("constant.h", source.replace(
-      "DOLLY_PROCESS_SPAWN = 64,", "DOLLY_PROCESS_SPAWN = 63,")), original);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 

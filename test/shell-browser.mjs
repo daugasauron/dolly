@@ -114,6 +114,9 @@ await browserTest("shell", { server: { handle } }, async ({ server, open }) => {
     if (!name.startsWith("\uFEFF")) assert.equal(download.suggestedFilename(), name);
     assert.equal(await readFile(await download.path(), "utf8"), "DOWNLOAD\n");
   }
+  // A bidi override could disguise the saved name's extension.
+  assert.notEqual(await submit("echo DOWNLOAD > 'a\u202Etxt.exe' && download 'a\u202Etxt.exe'"), 0);
+  assert.equal(await page.locator("#downloads li").count(), 0);
 
   // Ctrl-C stops an uncooperative CPU loop; the shell and its files survive.
   const looping = submit("./loop");

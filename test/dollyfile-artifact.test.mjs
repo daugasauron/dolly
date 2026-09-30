@@ -38,9 +38,9 @@ test("artifact reads stay bounded, preserve ranges and reject malformed snapshot
     const run = (path, ...args) => spawnSync(program, ["read-artifact", path, pin, ...args], { encoding: "utf8" });
     const payload = Buffer.from(Array.from({ length: 65543 }, (_, i) => (i * 17 + 7) % 251));
     const large = await snapshot("large", [...base,
-      [2, "/usr/share/a-large", 768 * 1024 * 1024], [2, "/usr/share/b-large", 768 * 1024 * 1024],
+      [2, "/usr/share/a-large", 1280 * 1024 * 1024], [2, "/usr/share/b-large", 256 * 1024 * 1024],
       [2, "/usr/share/empty", ""], [2, "/usr/share/tail", payload], [3, "/usr/share/z-link", "tail"]]);
-    assert.equal(run(large).status, 0, "1.5 GiB artifact under the fixture's 64 MiB address-space limit");
+    assert.equal(run(large).status, 0, "1.5 GiB artifact and a 1.25 GiB file under a 64 MiB address-space limit");
     const destination = resolve(scratch, "copied");
     for (const [name, expected] of [["tail", payload], ["empty", Buffer.alloc(0)]]) {
       await writeFile(destination, "old contents");
@@ -53,7 +53,6 @@ test("artifact reads stay bounded, preserve ranges and reject malformed snapshot
       ["symlink-nul", [...base, [3, "/usr/share/z", "a\0b"]]], ["empty-link", [...base, [3, "/usr/share/z", ""]]],
       ["path-nul", [...base, [2, "/usr/share/z\0hidden", ""]]], ["dotdot", [...base, [2, "/usr/share/z/../bad", ""]]],
       ["missing-recipe", [...base.slice(0, 2), ...base.slice(3)]],
-      ["oversized-file", [...base, [2, "/usr/share/z", 1024 * 1024 * 1024 + 1]]],
     ]) assert.notEqual(run(await snapshot(name, records, trailing)).status, 0, name);
     assert.notEqual(spawnSync(program, ["read-artifact", large, "0".repeat(64)]).status, 0);
     const truncated = await snapshot("truncated", [...base, [2, "/usr/share/z", "123456789"]]);

@@ -328,10 +328,7 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
         DOLLY_PROCESS_FD_WRITE, packet, packet_size, &response, sizeof(response));
     free(packet);
     const __wasi_errno_t error = call_errno(result);
-    if (error != 0 && *completed != 0) return 0;
-    /* POSIX raises SIGPIPE; EPIPE remains when it is ignored or handled. */
-    if (error == EPIPE) raise(SIGPIPE);
-    if (error != 0) return error;
+    if (error != 0) return *completed != 0 ? 0 : error;
     if ((uint64_t)result != sizeof(response) || response.size > size) return EIO;
     *completed += response.size;
     if (response.size == 0) return 0;
@@ -704,38 +701,6 @@ int __syscall_umask(mode_t mask) {
   return __atomic_exchange_n(&current, mask & 0777, __ATOMIC_SEQ_CST);
 }
 
-static int set_path_mode(int directory, const char *path, mode_t mode,
-                         uint32_t flags) {
-  size_t path_size;
-  const int checked = checked_path_size(path, &path_size);
-  if (checked != 0) return checked;
-  const dolly_process_path_mode_request request = {
-      (uint32_t)directory_descriptor(directory), flags, mode & 07777,
-      (uint32_t)path_size,
-  };
-  const int64_t result = call_with_path(DOLLY_PROCESS_PATH_SET_MODE, &request,
-                                        sizeof(request), path, path_size, NULL, 0);
-  return result < 0 ? (int)result : 0;
-}
-
-int __syscall_chmod(const char *path, mode_t mode) {
-  return set_path_mode(AT_FDCWD, path, mode, 0);
-}
-
-int __syscall_fchmodat2(int directory, const char *path,
-                        mode_t mode, int flags) {
-  if ((flags & ~AT_SYMLINK_NOFOLLOW) != 0) return -EINVAL;
-  return set_path_mode(directory, path, mode,
-                       flags != 0 ? DOLLY_PROCESS_PATH_NOFOLLOW : 0);
-}
-
-int __syscall_fchmod(int descriptor, mode_t mode) {
-  const dolly_process_fd_mode_request request = {(uint32_t)descriptor, mode & 07777};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_FD_SET_MODE, &request, sizeof(request), NULL, 0);
-  return result < 0 ? (int)result : 0;
-}
-
 int __syscall_mknodat(int directory, const char *path,
                       mode_t mode, dev_t device) {
   (void)directory;
@@ -882,25 +847,47 @@ static int stat_path(int directory, const char *path, struct stat *metadata,
   return (uint64_t)result == sizeof(response) ? decode_stat(&response, metadata) : -EIO;
 }
 
-/* Every existing file belongs to the only user and group, zero. */
-static int keep_owner(int exists, unsigned user, unsigned group) {
-  if (exists != 0) return exists;
-  return (user == (unsigned)-1 || user == 0) && (group == (unsigned)-1 || group == 0)
-      ? 0 : -EPERM;
+/* One user and no permission bits: chmod and chown only check that their
+ * target exists and change nothing. */
+static int existing_path(int directory, const char *path, int flags) {
+  if ((flags & ~AT_SYMLINK_NOFOLLOW) != 0) return -EINVAL;
+  struct stat metadata;
+  return stat_path(directory, path, &metadata,
+                   flags != 0 ? DOLLY_PROCESS_PATH_NOFOLLOW : 0);
+}
+
+static int existing_descriptor(int descriptor) {
+  struct stat metadata;
+  return __syscall_fstat64(descriptor, &metadata);
+}
+
+int __syscall_chmod(const char *path, mode_t mode) {
+  (void)mode;
+  return existing_path(AT_FDCWD, path, 0);
+}
+
+int __syscall_fchmodat2(int directory, const char *path,
+                        mode_t mode, int flags) {
+  (void)mode;
+  return existing_path(directory, path, flags);
+}
+
+int __syscall_fchmod(int descriptor, mode_t mode) {
+  (void)mode;
+  return existing_descriptor(descriptor);
 }
 
 int __syscall_fchown32(int descriptor, unsigned user, unsigned group) {
-  struct stat metadata;
-  return keep_owner(__syscall_fstat64(descriptor, &metadata), user, group);
+  (void)user;
+  (void)group;
+  return existing_descriptor(descriptor);
 }
 
 int __syscall_fchownat(int directory, const char *path,
                        uid_t user, gid_t group, int flags) {
-  if ((flags & ~AT_SYMLINK_NOFOLLOW) != 0) return -EINVAL;
-  struct stat metadata;
-  return keep_owner(stat_path(directory, path, &metadata,
-                              flags != 0 ? DOLLY_PROCESS_PATH_NOFOLLOW : 0),
-                    user, group);
+  (void)user;
+  (void)group;
+  return existing_path(directory, path, flags);
 }
 
 int __syscall_stat64(const char *path, struct stat *metadata) {

@@ -97,9 +97,8 @@ int main(int argc, char **argv) {
   UNSUPPORTED(CURLOPT_IPRESOLVE, (long)CURL_IPRESOLVE_V4);
   UNSUPPORTED(CURLOPT_PORT, 1234L);
   UNSUPPORTED(CURLOPT_SEEKDATA, (void *)1);
-  UNSUPPORTED(CURLOPT_USERAGENT, "fixture/1");
-  UNSUPPORTED(CURLOPT_ACCEPT_ENCODING, "identity");
-  EXPECT(curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, ""), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_URL, path), CURLE_OK);
+  EXPECT(curl_easy_perform(curl), CURLE_URL_MALFORMAT);
   EXPECT(curl_global_trace("all"), CURLE_NOT_BUILT_IN);
   EXPECT(curl_easy_setopt(curl, (CURLoption)99999, 0L), CURLE_UNKNOWN_OPTION);
   curl_easy_cleanup(curl);
@@ -109,6 +108,8 @@ int main(int argc, char **argv) {
   EXPECT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L), CURLE_OK);
 
   EXPECT(curl_easy_setopt(curl, CURLOPT_URL, argv[1]), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_USERAGENT, "fixture/1"), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "identity"), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_body), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "payload"), CURLE_OK);

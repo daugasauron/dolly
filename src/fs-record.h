@@ -28,6 +28,9 @@ typedef struct {
   const unsigned char *data;
 } dolly_fs_record;
 
+// Bounds a system snapshot and therefore every file in an image or artifact.
+static const uintptr_t DOLLY_SNAPSHOT_MAX_SIZE = (uintptr_t)2 * 1024 * 1024 * 1024;
+
 static inline int dolly_fs_read_exact(int descriptor, unsigned char *bytes, uintptr_t size) {
   while (size != 0) {
     const ssize_t count = read(descriptor, bytes, size);

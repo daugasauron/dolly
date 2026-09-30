@@ -34,9 +34,9 @@ Architecture and authority: [architecture](../docs/architecture.md),
   filesystem import.
 - One `dolly.process` section holds the contract digest; one
   `dolly.process.memory` section holds initial and maximum pages.
-- The digest covers the typed WAT and [`process.h`](../include/dolly/process.h)
-  with comments and whitespace removed: changing an opcode, flag or layout changes
-  executable identity, prose does not.
+- The digest covers the typed WAT and the exact bytes of
+  [`process.h`](../include/dolly/process.h): any change to that header, even a
+  comment, changes executable identity.
 - [`generate-abi-constants.mjs`](../scripts/generate-abi-constants.mjs) derives
   JavaScript constants from `process.h` and from the WAT exported globals;
   `dist/dolly-errno.mjs` comes from the pinned target's `<errno.h>`.

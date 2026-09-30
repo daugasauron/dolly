@@ -36,7 +36,6 @@ export const DOLLY_PROCESS_PATH_GET_CURRENT_DIRECTORY = 40;
 export const DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY = 41;
 export const DOLLY_PROCESS_PATH_STAT_FILESYSTEM = 42;
 export const DOLLY_PROCESS_PATH_SET_TIMES = 43;
-export const DOLLY_PROCESS_PATH_SET_MODE = 44;
 export const DOLLY_PROCESS_CLOCK_TIME = 48;
 export const DOLLY_PROCESS_RANDOM = 49;
 export const DOLLY_PROCESS_TERMINAL = 50;
@@ -47,7 +46,6 @@ export const DOLLY_PROCESS_FD_POLL = 54;
 export const DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55;
 export const DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56;
 export const DOLLY_PROCESS_UPLOAD_FILE = 57;
-export const DOLLY_PROCESS_FD_SET_MODE = 58;
 export const DOLLY_PROCESS_SPAWN = 64;
 export const DOLLY_PROCESS_WAIT = 65;
 export const DOLLY_PROCESS_INTERRUPT_POLL = 66;
@@ -188,8 +186,6 @@ export const DOLLY_PROCESS_SIZEOF = Object.freeze({
   dolly_process_ffi_closure_response: 8,
   dolly_process_ffi_closure_prep_request: 40,
   dolly_process_exit_request: 8,
-  dolly_process_fd_mode_request: 8,
-  dolly_process_path_mode_request: 16,
   dolly_process_wait_request: 8,
   dolly_process_wait_response: 16,
   dolly_process_signal_request: 8,

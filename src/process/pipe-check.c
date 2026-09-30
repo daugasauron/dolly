@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -38,20 +37,17 @@ static int consume(void) {
   return write(output, "PROCESS-PIPE-OK\n", 16) == 16 ? 0 : 33;
 }
 
-/* A write without readers raises SIGPIPE; ignoring it leaves EPIPE. */
-static int broken(int ignore) {
+/* A write without readers fails with EPIPE and raises no SIGPIPE. */
+static int broken(void) {
   int descriptors[2];
   if (pipe(descriptors) != 0 || close(descriptors[0]) != 0) return 35;
-  if (ignore && signal(SIGPIPE, SIG_IGN) == SIG_ERR) return 36;
-  const ssize_t written = write(descriptors[1], "x", 1);
-  return ignore && written == -1 && errno == EPIPE ? 0 : 37;
+  return write(descriptors[1], "x", 1) == -1 && errno == EPIPE ? 0 : 37;
 }
 
 int main(int argc, char **argv) {
   if (argc != 2) return 2;
   if (strcmp(argv[1], "produce") == 0) return produce();
   if (strcmp(argv[1], "consume") == 0) return consume();
-  if (strcmp(argv[1], "broken") == 0) return broken(0);
-  if (strcmp(argv[1], "ignored") == 0) return broken(1);
+  if (strcmp(argv[1], "broken") == 0) return broken();
   return 2;
 }
